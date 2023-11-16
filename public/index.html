@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Vegetable Chat</title>
+    <script src="/socket.io/socket.io.js"></script>
+  </head>
+  <body>
+    <div class="setup">
+        <div id="panel-prompt-el">
+            <textarea id="panel-prompt" placeholder="panel prompt"></textarea>
+        </div>
+        <div id="characters">
+            <div class="character">
+                <input type="text" id="character-name" placeholder="character name">
+                <input type="text" id="character-role" placeholder="character role">
+            </div>
+        </div>
+    </div>
+
+    <button id="add-character">+</button>
+    <div id="conversation"></div>
+
+    <button id="startBtn">Start</button>
+
+    <script src="script.js"></script>
+  </body>
+</html>
