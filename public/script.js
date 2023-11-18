@@ -51,10 +51,8 @@ document.addEventListener('DOMContentLoaded', () => {
             alert('Conversation has ended!');
         });
 
-        // Handle errors
         socket.on('conversation_error', (errorMessage) => {
             console.error(errorMessage);
-            // Handle errors appropriately
         });
     });
 });
