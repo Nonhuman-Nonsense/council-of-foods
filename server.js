@@ -10,7 +10,7 @@ const httpServer = http.createServer(app);
 const io = new Server(httpServer);
 const openai = new OpenAI(process.env.OPENAI_API_KEY);
 
-const maxResponseLength = 100; // Maximum response length
+const maxResponseLength = 100;
 
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -23,18 +23,15 @@ io.on('connection', (socket) => {
         console.log(`Conversation started on topic: ${topic}`);
         console.log('Character Data:', characterData);
         
-        // Resetting conversation and characterRoles for new conversation
         conversation = [];
         characterRoles = {};
     
-        // Check if characterData is valid
         if (!Array.isArray(characterData) || characterData.length === 0) {
             console.error('Invalid character data received.');
             socket.emit('conversation_error', 'Invalid character data.');
             return;
         }
     
-        // Process each character
         characterData.forEach(char => {
             characterRoles[char.name.trim()] = char.role.trim();
         });
@@ -45,11 +42,9 @@ io.on('connection', (socket) => {
             return;
         }
     
-        // Determine the first speaker
         const firstSpeaker = Object.keys(characterRoles)[0];
         console.log('First Speaker:', firstSpeaker);
     
-        // Create the first prompt
         const firstPrompt = { speaker: firstSpeaker, text: `${firstSpeaker}, ${topic}` };
         handleConversationTurn(firstPrompt, socket, conversation, topic, characterRoles);
     });    
@@ -66,7 +61,7 @@ io.on('connection', (socket) => {
             }
 
             const nextSpeaker = determineNextSpeaker(conversation);
-            const role = characterRoles[nextSpeaker] || 'Participant'; // Default role if not found
+            const role = characterRoles[nextSpeaker] || 'Participant';
             const nextPromptText = `${conversation.map(turn => turn.text).join(' ')} ${role} ${nextSpeaker}, ${topic}`;
             const nextPrompt = { speaker: nextSpeaker, text: nextPromptText };
 
@@ -93,8 +88,7 @@ io.on('connection', (socket) => {
     
         let response = completion.choices[0].message.content.trim();
     
-        // Trim to the last complete sentence to avoid cutting off mid-sentence
-        response = response.replace(/\s+$/, ''); // Remove trailing whitespace
+        response = response.replace(/\s+$/, '');
         const lastPeriodIndex = response.lastIndexOf('.');
         if (lastPeriodIndex !== -1) {
             response = response.substring(0, lastPeriodIndex + 1);
