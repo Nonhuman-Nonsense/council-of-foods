@@ -10,7 +10,7 @@ const httpServer = http.createServer(app);
 const io = new Server(httpServer);
 const openai = new OpenAI(process.env.OPENAI_API_KEY);
 
-const maxResponseLength = 50;
+const maxResponseLength = 100;
 
 app.use(express.static(path.join(__dirname, 'public')));
 
