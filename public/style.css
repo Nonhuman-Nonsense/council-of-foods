@@ -1,0 +1,71 @@
+*, *:before, *:after { box-sizing: border-box; }
+body {
+    font-family: Arial, Helvetica, sans-serif;
+    color: #000;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale; 
+    -webkit-text-size-adjust: none;
+    margin: 0;
+    padding: 8px;
+}
+
+h1, h2, h3, h4, h5 {
+    font-size: initial;
+    font-weight: normal;
+    margin: 0;
+}
+h3 {
+    font-weight: bold;
+}
+#characters-container {
+    border: 1px solid #000;
+    padding: 4px;
+    background-color: rgb(232, 232, 200);
+}
+#panel-prompt-el {
+    border: 1px solid #000;
+    padding: 4px;
+    margin-bottom: 10px;
+    background-color: rgb(219 219 219);
+}
+#panel-prompt-el textarea {
+    width: 100%;
+    max-width: 500px;
+    height: 100px;
+    resize: vertical;
+}
+.character {
+    border: 1px solid #000;
+    padding: 4px;
+    margin-bottom: 10px;
+}
+
+#conversation p {
+    border: 1px solid #000;
+    border-radius: 10px;
+    padding: 10px;
+}
+
+
+
+/* Spinner */
+.loader {
+    margin: 20px auto;
+    width: 1em;
+    height: 1em;
+    background-color: gray; /* Spinner color */
+    border-radius: 50%;
+    animation: grow-shrink 1.5s infinite ease-in-out both;
+  }
+  
+  /* Grow and Shrink Animation */
+  @keyframes grow-shrink {
+    0%, 100% { 
+      transform: scale(1);
+    }
+    50% { 
+      transform: scale(1.5);
+    }
+  }
+  
+  

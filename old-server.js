@@ -18,27 +18,23 @@ io.on('connection', (socket) => {
     console.log('A user connected');
     let conversation = [];
     let characterRoles = {};
-    let chairperson = {};
-    let frequency = 5; // Default frequency
-    let conversationCount = 0;
 
-    socket.on('start_conversation', ({ characterData, topic, chairpersonData, frequencyInput }) => {
+    socket.on('start_conversation', ({ characterData, topic }) => {
         console.log(`Conversation started on topic: ${topic}`);
+        console.log('Character Data:', characterData);
         
         conversation = [];
         characterRoles = {};
-        chairperson = chairpersonData;
-        frequency = frequencyInput || 5; // Set frequency or default
-        conversationCount = 0;
+    
+        if (!Array.isArray(characterData) || characterData.length === 0) {
+            console.error('Invalid character data received.');
+            socket.emit('conversation_error', 'Invalid character data.');
+            return;
+        }
     
         characterData.forEach(char => {
             characterRoles[char.name.trim()] = char.role.trim();
         });
-
-        // Add chairperson to character roles
-        if (chairperson && chairperson.name) {
-            characterRoles[chairperson.name] = chairperson.role;
-        }
     
         if (Object.keys(characterRoles).length === 0) {
             console.error('No valid characters found.');
@@ -46,8 +42,10 @@ io.on('connection', (socket) => {
             return;
         }
     
-        // Start with the chairperson introducing the topic
-        const firstPrompt = { speaker: chairperson.name, text: topic };
+        const firstSpeaker = Object.keys(characterRoles)[0];
+        console.log('First Speaker:', firstSpeaker);
+    
+        const firstPrompt = { speaker: firstSpeaker, text: `${firstSpeaker}, ${topic}` };
         handleConversationTurn(firstPrompt, socket, conversation, topic, characterRoles);
     });    
 
@@ -57,27 +55,17 @@ io.on('connection', (socket) => {
             conversation.push({ speaker: prompt.speaker, text: response });
 
             socket.emit('conversation_update', conversation);
-
-            // Check for conversation end
-            if (conversation.length >= 20) {
-                socket.emit('conversation_end', conversation);
-                return;
+            if (conversation.length >= 10) {
+            socket.emit('conversation_end', conversation);
+            return;
             }
 
-            // Determine the next speaker
-            let nextSpeaker;
-            if (conversationCount % (frequency * 5) === 0 && conversationCount !== 0) {
-                nextSpeaker = chairperson.name;
-            } else {
-                nextSpeaker = determineNextSpeaker();
-            }
-
+            const nextSpeaker = determineNextSpeaker(conversation);
             const role = characterRoles[nextSpeaker] || 'Participant';
             const nextPromptText = `${conversation.map(turn => turn.text).join(' ')} ${role} ${nextSpeaker}, ${topic}`;
             const nextPrompt = { speaker: nextSpeaker, text: nextPromptText };
 
             handleConversationTurn(nextPrompt, socket, conversation, topic, characterRoles);
-            conversationCount++;
         } catch (error) {
             console.error('Error during conversation:', error);
             socket.emit('conversation_error', 'An error occurred during the conversation.');
@@ -86,41 +74,36 @@ io.on('connection', (socket) => {
 
     const generateTextFromGPT4 = async (prompt, speaker) => {
         try {
-            // Concatenate the last few turns of the conversation for context
-            const conversationContext = conversation.slice(-5).map(turn => `${turn.speaker}: ${turn.text}`).join(' ');
+        const roleIntroduction = characterRoles[speaker] ? `I am ${characterRoles[speaker]}. ` : '';
+        const promptWithRole = roleIntroduction + prompt;
     
-            const roleIntroduction = characterRoles[speaker] ? `${speaker} (as ${characterRoles[speaker]}): ` : '';
-            const promptWithRole = `${conversationContext} ${roleIntroduction}${prompt}`;
+        const completion = await openai.chat.completions.create({
+            messages: [
+            {"role": "system", "content": `You are currently role-playing as a ${speaker} on a panel discussion.`},
+            {"role": "user", "content": promptWithRole}
+            ],
+            model: "gpt-4",
+            max_tokens: maxResponseLength
+        });
     
-            console.log('START-----', promptWithRole, '-----END');
-        
-            const completion = await openai.chat.completions.create({
-                messages: [
-                    {"role": "system", "content": `You are currently role-playing as a ${speaker} on a panel discussion.`},
-                    {"role": "user", "content": promptWithRole}
-                ],
-                model: "gpt-4",
-                max_tokens: maxResponseLength
-            });
-        
-            let response = completion.choices[0].message.content.trim();
-        
-            response = response.replace(/\s+$/, '');
-            const lastPeriodIndex = response.lastIndexOf('.');
-            if (lastPeriodIndex !== -1) {
-                response = response.substring(0, lastPeriodIndex + 1);
-            }
-        
-            return response;
+        let response = completion.choices[0].message.content.trim();
+    
+        response = response.replace(/\s+$/, '');
+        const lastPeriodIndex = response.lastIndexOf('.');
+        if (lastPeriodIndex !== -1) {
+            response = response.substring(0, lastPeriodIndex + 1);
+        }
+    
+        return response;
         } catch (error) {
-            console.error('Error during API call:', error);
-            throw error;
+        console.error('Error during API call:', error);
+        throw error;
         }
     };
     
 
-    const determineNextSpeaker = () => {
-        const speakers = Object.keys(characterRoles).filter(name => name !== chairperson.name);
+    const determineNextSpeaker = (conversation) => {
+        const speakers = Object.keys(characterRoles);
         const lastSpeaker = conversation.length > 0 ? conversation[conversation.length - 1].speaker : null;
         const lastSpeakerIndex = speakers.indexOf(lastSpeaker);
 

@@ -22,6 +22,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Start the conversation
     document.getElementById('startBtn').addEventListener('click', () => {
+        // Show the spinner
+        document.getElementById('spinner').style.display = 'block';
+
+        // Gather character data
         const characters = document.querySelectorAll('#characters .character');
         const characterData = Array.from(characters).map(characterDiv => {
             const inputs = characterDiv.querySelectorAll('input');
@@ -31,12 +35,22 @@ document.addEventListener('DOMContentLoaded', () => {
             };
         });
 
-        // Retrieve the topic from the panel-prompt element
-        const topic = document.getElementById('panel-prompt').value;
-        console.log(topic);
-        console.log(characterData);
+        // Gather chairperson data
+        const chairpersonName = document.getElementById('character-name').value;
+        const chairpersonRole = document.getElementById('character-role').value;
+        const chairpersonData = {
+            name: chairpersonName,
+            role: chairpersonRole
+        };
 
-        socket.emit('start_conversation', { characterData, topic });
+        // Retrieve the panel prompt
+        const topic = document.getElementById('panel-prompt').value;
+
+        // Retrieve the frequency of chairperson interjections
+        const frequencyInput = document.querySelector('#panel-prompt-el input[type="number"]').value;
+
+        // Emit the start conversation event with all necessary data
+        socket.emit('start_conversation', { characterData, topic, chairpersonData, frequencyInput });
 
         // Listening to conversation updates
         socket.on('conversation_update', (conversation) => {
@@ -48,11 +62,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Handle conversation end
         socket.on('conversation_end', () => {
-            alert('Conversation has ended!');
+            // alert('Conversation has ended!');
+
+            // Hide the spinner
+            document.getElementById('spinner').style.display = 'none';
         });
 
         socket.on('conversation_error', (errorMessage) => {
             console.error(errorMessage);
+
+            // Hide the spinner
+            document.getElementById('spinner').style.display = 'none';
         });
     });
+
 });
