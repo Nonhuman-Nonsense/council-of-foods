@@ -72,8 +72,12 @@ io.on('connection', (socket) => {
                 nextSpeaker = determineNextSpeaker();
             }
 
+            // Apply dynamic elements to the conversation
+            let conversationContext = conversation.map(turn => `${turn.speaker}: ${turn.text}`).join(' ');
+            conversationContext = addDynamicElements(conversationContext, prompt.speaker);
+
             const role = characterRoles[nextSpeaker] || 'Participant';
-            const nextPromptText = `${conversation.map(turn => turn.text).join(' ')} ${role} ${nextSpeaker}, ${topic}`;
+            const nextPromptText = `${conversationContext} ${role} ${nextSpeaker}, ${topic}`;
             const nextPrompt = { speaker: nextSpeaker, text: nextPromptText };
 
             handleConversationTurn(nextPrompt, socket, conversation, topic, characterRoles);
@@ -96,7 +100,7 @@ io.on('connection', (socket) => {
         
             const completion = await openai.chat.completions.create({
                 messages: [
-                    {"role": "system", "content": `You are currently role-playing as a ${speaker} on a panel discussion.`},
+                    {"role": "system", "content": `You are currently role-playing as a ${speaker} on a panel discussion. No need to introduce yourself.`},
                     {"role": "user", "content": promptWithRole}
                 ],
                 model: "gpt-4",
@@ -118,6 +122,24 @@ io.on('connection', (socket) => {
         }
     };
     
+    function addDynamicElements(conversation, currentSpeaker) {
+        // Example dynamic elements
+        const dynamicQuestions = [
+            `What do you think is the most pressing issue regarding this topic?`,
+            `How does this issue affect different communities?`,
+            `Can you provide a unique perspective on this?`,
+            `What are some potential solutions to this problem?`
+        ];
+    
+        const randomQuestion = dynamicQuestions[Math.floor(Math.random() * dynamicQuestions.length)];
+    
+        // Add a dynamic question or statement every few turns
+        if (conversation.length % 5 === 0) {
+            return `${conversation} ${currentSpeaker}, ${randomQuestion}`;
+        }
+    
+        return conversation;
+    }
 
     const determineNextSpeaker = () => {
         const speakers = Object.keys(characterRoles).filter(name => name !== chairperson.name);
