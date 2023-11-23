@@ -10,7 +10,7 @@ const httpServer = http.createServer(app);
 const io = new Server(httpServer);
 const openai = new OpenAI(process.env.OPENAI_API_KEY);
 
-const maxResponseLength = 200;
+const maxResponseLength = 50;
 
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -103,7 +103,7 @@ io.on('connection', (socket) => {
                     {"role": "system", "content": `You are currently role-playing as a ${speaker} on a panel discussion. No need to introduce yourself.`},
                     {"role": "user", "content": promptWithRole}
                 ],
-                model: "gpt-4",
+                model: "gpt-3.5-turbo",
                 max_tokens: maxResponseLength
             });
         
