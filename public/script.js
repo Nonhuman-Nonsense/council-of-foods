@@ -76,4 +76,23 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
+
+    // document.getElementById('raiseHand').addEventListener('click', () => {
+    //     let inputContainer = document.getElementById('humanInputContainer');
+    //     inputContainer.style.display = inputContainer.style.display === 'none' ? 'block' : 'none';
+    //     socket.emit('pause_conversation'); // Emit an event to pause the conversation
+    // });
+    
+    
+    // Handle submission of human input
+    document.getElementById('submitHumanInput').addEventListener('click', () => {
+        socket.emit('pause_conversation');
+        let humanMessage = document.getElementById('humanInput').value;
+        socket.emit('submit_human_message', humanMessage); // Emit an event with the human message
+        document.getElementById('humanInput').value = '';
+        // document.getElementById('humanInput').style.display = 'none';
+        // document.getElementById('submitHumanInput').style.display = 'none';
+    });
+    
+
 });

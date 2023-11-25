@@ -21,6 +21,22 @@ io.on('connection', (socket) => {
     let chairperson = {};
     let frequency = 5; // Default frequency
     let conversationCount = 0;
+    let topic;
+
+    let isPaused = false; // Flag to check if the conversation is paused
+
+    socket.on('pause_conversation', () => {
+        isPaused = true;
+    });
+
+    socket.on('submit_human_message', (message) => {
+        if (isPaused) {
+            console.log('Message received:', message);
+            const humanPrompt = { speaker: 'Human', text: message };
+            isPaused = false; // Resume the conversation
+            handleConversationTurn(humanPrompt, socket, conversation, topic, characterRoles);
+        }
+    });
 
     socket.on('start_conversation', ({ characterData, topic, chairpersonData, frequencyInput }) => {
         console.log(`Conversation started on topic: ${topic}`);
@@ -51,19 +67,70 @@ io.on('connection', (socket) => {
         handleConversationTurn(firstPrompt, socket, conversation, topic, characterRoles);
     });    
 
+    // const handleConversationTurn = async (prompt, socket, conversation, topic, characterRoles) => {
+    //     try {
+    //         console.log(isPaused);
+    //         if (isPaused) return; // Don't proceed if the conversation is paused
+
+    //         const response = await generateTextFromGPT4(prompt.text, prompt.speaker);
+    //         conversation.push({ speaker: prompt.speaker, text: response });
+
+    //         socket.emit('conversation_update', conversation);
+
+    //         // Check for conversation end
+    //         if (conversation.length >= 20) {
+    //             socket.emit('conversation_end', conversation);
+    //             return;
+    //         }
+
+    //         // Determine the next speaker
+    //         let nextSpeaker;
+    //         if (conversationCount % (frequency * 5) === 0 && conversationCount !== 0) {
+    //             nextSpeaker = chairperson.name;
+    //         } else {
+    //             nextSpeaker = determineNextSpeaker();
+    //         }
+
+    //         // Apply dynamic elements to the conversation
+    //         let conversationContext = conversation.map(turn => `${turn.speaker}: ${turn.text}`).join(' ');
+    //         conversationContext = addDynamicElements(conversationContext, prompt.speaker);
+
+    //         const role = characterRoles[nextSpeaker] || 'Participant';
+    //         const nextPromptText = `${conversationContext} ${role} ${nextSpeaker}, ${topic}`;
+    //         const nextPrompt = { speaker: nextSpeaker, text: nextPromptText };
+
+    //         handleConversationTurn(nextPrompt, socket, conversation, topic, characterRoles);
+    //         conversationCount++;
+    //     } catch (error) {
+    //         console.error('Error during conversation:', error);
+    //         socket.emit('conversation_error', 'An error occurred during the conversation.');
+    //     }
+    // };
+
     const handleConversationTurn = async (prompt, socket, conversation, topic, characterRoles) => {
         try {
-            const response = await generateTextFromGPT4(prompt.text, prompt.speaker);
+            if (isPaused) return; // Don't proceed if the conversation is paused
+    
+            let response;
+    
+            if (prompt.speaker === 'Human') {
+                // Directly use the human's message
+                response = prompt.text;
+            } else {
+                // Generate response using GPT-4 for AI characters
+                response = await generateTextFromGPT4(prompt.text, prompt.speaker);
+            }
+    
+            // Add the response to the conversation
             conversation.push({ speaker: prompt.speaker, text: response });
-
             socket.emit('conversation_update', conversation);
-
+    
             // Check for conversation end
             if (conversation.length >= 20) {
                 socket.emit('conversation_end', conversation);
                 return;
             }
-
+    
             // Determine the next speaker
             let nextSpeaker;
             if (conversationCount % (frequency * 5) === 0 && conversationCount !== 0) {
@@ -71,22 +138,22 @@ io.on('connection', (socket) => {
             } else {
                 nextSpeaker = determineNextSpeaker();
             }
-
+    
             // Apply dynamic elements to the conversation
             let conversationContext = conversation.map(turn => `${turn.speaker}: ${turn.text}`).join(' ');
             conversationContext = addDynamicElements(conversationContext, prompt.speaker);
-
+    
             const role = characterRoles[nextSpeaker] || 'Participant';
             const nextPromptText = `${conversationContext} ${role} ${nextSpeaker}, ${topic}`;
             const nextPrompt = { speaker: nextSpeaker, text: nextPromptText };
-
+    
             handleConversationTurn(nextPrompt, socket, conversation, topic, characterRoles);
             conversationCount++;
         } catch (error) {
             console.error('Error during conversation:', error);
             socket.emit('conversation_error', 'An error occurred during the conversation.');
         }
-    };
+    };    
 
     const generateTextFromGPT4 = async (prompt, speaker) => {
         try {
