@@ -19,7 +19,7 @@ io.on('connection', (socket) => {
     let conversation = [];
     let characterRoles = {};
     let chairperson = {};
-    let frequency = 5; // Default frequency
+    let chairmanFreq = 5; // Default frequency
     let conversationCount = 0;
     let topic;
 
@@ -34,18 +34,18 @@ io.on('connection', (socket) => {
             console.log('Message received:', message);
             const humanPrompt = { speaker: 'Human', text: message };
             isPaused = false; // Resume the conversation
-            handleConversationTurn(humanPrompt, socket, conversation, topic, characterRoles);
+            handleConversationTurn(humanPrompt, socket, conversation, topic, characterRoles, chairmanFreq);
         }
     });
 
-    socket.on('start_conversation', ({ characterData, topic, chairpersonData, frequencyInput }) => {
+    socket.on('start_conversation', ({ characterData, topic, chairpersonData, chairmanFreq }) => {
         // console.log(`Conversation started on topic: ${topic}`);
         
         conversation = [];
         characterRoles = {};
         chairperson = chairpersonData;
-        frequency = frequencyInput || 5; // Set frequency or default
         conversationCount = 0;
+        chairmanFreq = chairmanFreq;
     
         characterData.forEach(char => {
             characterRoles[char.name.trim()] = char.role.trim();
@@ -67,11 +67,11 @@ io.on('connection', (socket) => {
         // Start with the chairperson introducing the topic
         const firstPrompt = { speaker: chairperson.name, text: topic };
         // console.log(firstPrompt);
-        handleConversationTurn(firstPrompt, socket, conversation, topic, characterRoles);
+        handleConversationTurn(firstPrompt, socket, conversation, topic, characterRoles, chairmanFreq);
     });    
 
 
-    const handleConversationTurn = async (prompt, socket, conversation, topic, characterRoles) => {
+    const handleConversationTurn = async (prompt, socket, conversation, topic, characterRoles, chairmanFreq) => {
         try {
             if (isPaused) return; // Don't proceed if the conversation is paused
     
@@ -82,7 +82,8 @@ io.on('connection', (socket) => {
                 response = prompt.text;
             } else {
                 // Generate response using GPT-4 for AI characters
-                response = await generateTextFromGPT4(topic, prompt.speaker);
+                response = await generateTextFromGPT4(topic, prompt.speaker, prompt.text);
+                console.log(prompt);
             }
     
             // Add the response to the conversation
@@ -97,7 +98,7 @@ io.on('connection', (socket) => {
     
             // Determine the next speaker
             let nextSpeaker;
-            if (conversationCount % (frequency * 5) === 0 && conversationCount !== 0) {
+            if ((conversation.length + 1) % chairmanFreq === 0) { // Chairman speaks every three messages
                 nextSpeaker = chairperson.name;
             } else {
                 nextSpeaker = determineNextSpeaker();
@@ -105,20 +106,22 @@ io.on('connection', (socket) => {
     
             // Prepare the next prompt
             const role = characterRoles[nextSpeaker] || 'Participant';
-            const nextPromptText = `${role} ${nextSpeaker}, ${topic}`;
+            const nextPromptText = `${role} ${nextSpeaker}`;
             const nextPrompt = { speaker: nextSpeaker, text: nextPromptText };
     
-            handleConversationTurn(nextPrompt, socket, conversation, topic, characterRoles);
-            conversationCount++;
-
-            // console.log('conversationasdfasdf', conversation)
+            handleConversationTurn(nextPrompt, socket, conversation, topic, characterRoles, chairmanFreq);
+            // Increment conversationCount only if it's not the chairman speaking
+            if (nextSpeaker !== chairperson.name) {
+                conversationCount++;
+            }
         } catch (error) {
             console.error('Error during conversation:', error);
             socket.emit('conversation_error', 'An error occurred during the conversation.');
         }
-    };      
+    };
+         
 
-    const generateTextFromGPT4 = async (topic, speaker) => {
+    const generateTextFromGPT4 = async (topic, speaker, speakerPrompt) => {
         try {
             // Check if it's the first message in the conversation
             const isFirstMessage = conversation.length === 0;
@@ -132,8 +135,8 @@ io.on('connection', (socket) => {
             } else {
                 // Content for subsequent messages
                 const lastThreeMessages = conversation.slice(-3).map(turn => `${turn.speaker}: ${turn.text}`).join(' ');
-                systemMessageContent = `You are currently role-playing as a ${speaker} on a panel discussion.`;
-                userMessageContent = `Please respond to the participants and build on the conversation. Do not add your name before your message!\n\nHere are the past 3 messages of the conversation: ${lastThreeMessages}.\n\nAlso here's the overall topic of the meeting: ${topic}`;
+                systemMessageContent = `You are currently role-playing as a ${speaker} (${speakerPrompt}) on a panel discussion.`;
+                userMessageContent = `Please respond to the participants and build on the conversation. You can also steer it in new directions. Never add your "name:" before your message!\n\nHere are the past 3 messages of the conversation for context: ${lastThreeMessages}.\n\nAlso, here's the overall topic of the conversation: ${topic}`;
             }
     
             // Prepare the completion request
@@ -148,6 +151,7 @@ io.on('connection', (socket) => {
                         "content": userMessageContent
                     }
                 ],
+                // model: "gpt-3.5-turbo",
                 model: "gpt-4",
                 max_tokens: maxResponseLength
             });

@@ -47,12 +47,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const topic = document.getElementById('panel-prompt').value;
 
         // Retrieve the frequency of chairperson interjections
-        const frequencyInput = document.querySelector('#panel-prompt-el input[type="number"]').value;
+        const chairmanFreq = document.querySelector('#chairman-freq').value;
 
         console.log(characterData, chairpersonData);
 
         // Emit the start conversation event with all necessary data
-        socket.emit('start_conversation', { characterData, topic, chairpersonData, frequencyInput });
+        socket.emit('start_conversation', { characterData, topic, chairpersonData, chairmanFreq });
 
         // Listening to conversation updates
         socket.on('conversation_update', (conversation) => {
