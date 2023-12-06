@@ -49,6 +49,8 @@ document.addEventListener('DOMContentLoaded', () => {
         // Retrieve the frequency of chairperson interjections
         const frequencyInput = document.querySelector('#panel-prompt-el input[type="number"]').value;
 
+        console.log(characterData, chairpersonData);
+
         // Emit the start conversation event with all necessary data
         socket.emit('start_conversation', { characterData, topic, chairpersonData, frequencyInput });
 
@@ -75,13 +77,6 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('spinner').style.display = 'none';
         });
     });
-
-
-    // document.getElementById('raiseHand').addEventListener('click', () => {
-    //     let inputContainer = document.getElementById('humanInputContainer');
-    //     inputContainer.style.display = inputContainer.style.display === 'none' ? 'block' : 'none';
-    //     socket.emit('pause_conversation'); // Emit an event to pause the conversation
-    // });
     
     
     // Handle submission of human input

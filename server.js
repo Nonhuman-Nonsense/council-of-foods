@@ -39,7 +39,7 @@ io.on('connection', (socket) => {
     });
 
     socket.on('start_conversation', ({ characterData, topic, chairpersonData, frequencyInput }) => {
-        console.log(`Conversation started on topic: ${topic}`);
+        // console.log(`Conversation started on topic: ${topic}`);
         
         conversation = [];
         characterRoles = {};
@@ -61,51 +61,15 @@ io.on('connection', (socket) => {
             socket.emit('conversation_error', 'No valid characters for conversation.');
             return;
         }
+
+        // console.log(characterData);
     
         // Start with the chairperson introducing the topic
         const firstPrompt = { speaker: chairperson.name, text: topic };
+        // console.log(firstPrompt);
         handleConversationTurn(firstPrompt, socket, conversation, topic, characterRoles);
     });    
 
-    // const handleConversationTurn = async (prompt, socket, conversation, topic, characterRoles) => {
-    //     try {
-    //         console.log(isPaused);
-    //         if (isPaused) return; // Don't proceed if the conversation is paused
-
-    //         const response = await generateTextFromGPT4(prompt.text, prompt.speaker);
-    //         conversation.push({ speaker: prompt.speaker, text: response });
-
-    //         socket.emit('conversation_update', conversation);
-
-    //         // Check for conversation end
-    //         if (conversation.length >= 20) {
-    //             socket.emit('conversation_end', conversation);
-    //             return;
-    //         }
-
-    //         // Determine the next speaker
-    //         let nextSpeaker;
-    //         if (conversationCount % (frequency * 5) === 0 && conversationCount !== 0) {
-    //             nextSpeaker = chairperson.name;
-    //         } else {
-    //             nextSpeaker = determineNextSpeaker();
-    //         }
-
-    //         // Apply dynamic elements to the conversation
-    //         let conversationContext = conversation.map(turn => `${turn.speaker}: ${turn.text}`).join(' ');
-    //         conversationContext = addDynamicElements(conversationContext, prompt.speaker);
-
-    //         const role = characterRoles[nextSpeaker] || 'Participant';
-    //         const nextPromptText = `${conversationContext} ${role} ${nextSpeaker}, ${topic}`;
-    //         const nextPrompt = { speaker: nextSpeaker, text: nextPromptText };
-
-    //         handleConversationTurn(nextPrompt, socket, conversation, topic, characterRoles);
-    //         conversationCount++;
-    //     } catch (error) {
-    //         console.error('Error during conversation:', error);
-    //         socket.emit('conversation_error', 'An error occurred during the conversation.');
-    //     }
-    // };
 
     const handleConversationTurn = async (prompt, socket, conversation, topic, characterRoles) => {
         try {
@@ -118,7 +82,7 @@ io.on('connection', (socket) => {
                 response = prompt.text;
             } else {
                 // Generate response using GPT-4 for AI characters
-                response = await generateTextFromGPT4(prompt.text, prompt.speaker);
+                response = await generateTextFromGPT4(topic, prompt.speaker);
             }
     
             // Add the response to the conversation
@@ -139,49 +103,66 @@ io.on('connection', (socket) => {
                 nextSpeaker = determineNextSpeaker();
             }
     
-            // Apply dynamic elements to the conversation
-            let conversationContext = conversation.map(turn => `${turn.speaker}: ${turn.text}`).join(' ');
-            conversationContext = addDynamicElements(conversationContext, prompt.speaker);
-    
+            // Prepare the next prompt
             const role = characterRoles[nextSpeaker] || 'Participant';
-            const nextPromptText = `${conversationContext} ${role} ${nextSpeaker}, ${topic}`;
+            const nextPromptText = `${role} ${nextSpeaker}, ${topic}`;
             const nextPrompt = { speaker: nextSpeaker, text: nextPromptText };
     
             handleConversationTurn(nextPrompt, socket, conversation, topic, characterRoles);
             conversationCount++;
+
+            // console.log('conversationasdfasdf', conversation)
         } catch (error) {
             console.error('Error during conversation:', error);
             socket.emit('conversation_error', 'An error occurred during the conversation.');
         }
-    };    
+    };      
 
-    const generateTextFromGPT4 = async (prompt, speaker) => {
+    const generateTextFromGPT4 = async (topic, speaker) => {
         try {
-            // Concatenate the last few turns of the conversation for context
-            const conversationContext = conversation.slice(-5).map(turn => `${turn.speaker}: ${turn.text}`).join(' ');
+            // Check if it's the first message in the conversation
+            const isFirstMessage = conversation.length === 0;
     
-            const roleIntroduction = characterRoles[speaker] ? `${speaker} (as ${characterRoles[speaker]}): ` : '';
-            const promptWithRole = `${conversationContext} ${roleIntroduction}${prompt}`;
+            let systemMessageContent, userMessageContent;
     
-            console.log('START-----', promptWithRole, '-----END');
-        
+            if (isFirstMessage) {
+                // Content for the first message
+                systemMessageContent = `You are currently role-playing as a ${speaker} in a panel discussion. You are the moderator. Start the conversation on the topic.`;
+                userMessageContent = `As ${speaker}, initiate the conversation about: ${topic}`;
+            } else {
+                // Content for subsequent messages
+                const lastThreeMessages = conversation.slice(-3).map(turn => `${turn.speaker}: ${turn.text}`).join(' ');
+                systemMessageContent = `You are currently role-playing as a ${speaker} on a panel discussion.`;
+                userMessageContent = `Please respond to the participants and build on the conversation. Do not add your name before your message!\n\nHere are the past 3 messages of the conversation: ${lastThreeMessages}.\n\nAlso here's the overall topic of the meeting: ${topic}`;
+            }
+    
+            // Prepare the completion request
             const completion = await openai.chat.completions.create({
                 messages: [
-                    {"role": "system", "content": `You are currently role-playing as a ${speaker} on a panel discussion. No need to introduce yourself.`},
-                    {"role": "user", "content": promptWithRole}
+                    {
+                        "role": "system",
+                        "content": systemMessageContent
+                    },
+                    {
+                        "role": "user",
+                        "content": userMessageContent
+                    }
                 ],
-                model: "gpt-3.5-turbo",
+                model: "gpt-4",
                 max_tokens: maxResponseLength
             });
-        
+    
+            // Extract and clean up the response
             let response = completion.choices[0].message.content.trim();
-        
+    
             response = response.replace(/\s+$/, '');
             const lastPeriodIndex = response.lastIndexOf('.');
             if (lastPeriodIndex !== -1) {
                 response = response.substring(0, lastPeriodIndex + 1);
             }
-        
+
+            // console.log('////', conversation, '////');
+    
             return response;
         } catch (error) {
             console.error('Error during API call:', error);
@@ -189,24 +170,7 @@ io.on('connection', (socket) => {
         }
     };
     
-    function addDynamicElements(conversation, currentSpeaker) {
-        // Example dynamic elements
-        const dynamicQuestions = [
-            `What do you think is the most pressing issue regarding this topic?`,
-            `How does this issue affect different communities?`,
-            `Can you provide a unique perspective on this?`,
-            `What are some potential solutions to this problem?`
-        ];
-    
-        const randomQuestion = dynamicQuestions[Math.floor(Math.random() * dynamicQuestions.length)];
-    
-        // Add a dynamic question or statement every few turns
-        if (conversation.length % 5 === 0) {
-            return `${conversation} ${currentSpeaker}, ${randomQuestion}`;
-        }
-    
-        return conversation;
-    }
+ 
 
     const determineNextSpeaker = () => {
         const speakers = Object.keys(characterRoles).filter(name => name !== chairperson.name);
