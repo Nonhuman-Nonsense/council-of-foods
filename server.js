@@ -135,6 +135,7 @@ io.on('connection', (socket) => {
             } else {
                 // Content for subsequent messages
                 const lastThreeMessages = conversation.slice(-3).map(turn => `${turn.speaker}: ${turn.text}`).join(' ');
+                console.log(lastThreeMessages);
                 systemMessageContent = `You are currently role-playing as a ${speaker} (${speakerPrompt}) on a panel discussion.`;
                 userMessageContent = `Please respond to the participants and build on the conversation. You can also steer it in new directions. Never add your "name:" before your message!\n\nHere are the past 3 messages of the conversation for context: ${lastThreeMessages}.\n\nAlso, here's the overall topic of the conversation: ${topic}`;
             }

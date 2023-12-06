@@ -12,7 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
             newCharacterDiv.classList.add('character');
             newCharacterDiv.innerHTML = `
                 <input type="text" placeholder="character name"> 
-                <input type="text" placeholder="character role">
+                <textarea id="character-role" placeholder="character role"></textarea>
             `;
             characters.appendChild(newCharacterDiv);
         } else {
@@ -28,10 +28,12 @@ document.addEventListener('DOMContentLoaded', () => {
         // Gather character data
         const characters = document.querySelectorAll('#characters .character');
         const characterData = Array.from(characters).map(characterDiv => {
-            const inputs = characterDiv.querySelectorAll('input');
+            const nameInput = characterDiv.querySelector('input').value; // Assuming the first input is still for the name
+            const roleTextarea = characterDiv.querySelector('textarea').value; // Select the textarea for the role
+        
             return {
-                name: inputs[0].value,
-                role: inputs[1].value
+                name: nameInput,
+                role: roleTextarea
             };
         });
 
