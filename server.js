@@ -118,7 +118,7 @@ io.on('connection', (socket) => {
             socket.emit('conversation_update', conversation);
     
             // Check for conversation end
-            if (conversation.length >= 20) {
+            if (conversation.length >= 100) {
                 socket.emit('conversation_end', conversation);
                 return;
             }
@@ -178,7 +178,7 @@ io.on('connection', (socket) => {
                         "content": systemMessageContent
                     },
                     {
-                        "role": "user",
+                        "role": "assistant",
                         "content": userMessageContent
                     }
                 ],
@@ -186,6 +186,8 @@ io.on('connection', (socket) => {
                 model: "gpt-4",
                 max_tokens: maxResponseLength
             });
+
+            
     
             // Extract and clean up the response
             let response = completion.choices[0].message.content.trim();

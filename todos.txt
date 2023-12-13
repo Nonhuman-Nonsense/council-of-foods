@@ -1,0 +1,10 @@
+- remove any hardcoded code (system)
+- param for char count
+- human is also a user
+
+system: [overall prompt]
+assistant: [current speaker/fruit]
+user: [conversation history (all messages)]
+
+
+
