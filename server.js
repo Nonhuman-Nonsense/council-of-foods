@@ -10,7 +10,7 @@ const httpServer = http.createServer(app);
 const io = new Server(httpServer);
 const openai = new OpenAI(process.env.OPENAI_API_KEY);
 
-const maxResponseLength = 100;
+const maxResponseLength = 200;
 
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -151,54 +151,103 @@ io.on('connection', (socket) => {
     };
          
 
-    const generateTextFromGPT4 = async (topic, speaker, speakerPrompt) => {
-        try {
-            // Check if it's the first message in the conversation
-            const isFirstMessage = conversation.length === 0;
+    // const generateTextFromGPT4 = async (topic, speaker, speakerPrompt) => {
+    //     try {
+    //         // Check if it's the first message in the conversation
+    //         const isFirstMessage = conversation.length === 0;
     
-            let systemMessageContent, userMessageContent;
+    //         let systemMessageContent, userMessageContent;
     
-            if (isFirstMessage) {
-                // Content for the first message
-                systemMessageContent = `You are currently role-playing as a ${speaker} in a panel discussion. You are the moderator. Start the conversation on the topic.`;
-                userMessageContent = `As ${speaker}, initiate the conversation about: ${topic}`;
-            } else {
-                // Content for subsequent messages
-                const lastThreeMessages = conversation.slice(-3).map(turn => `${turn.speaker}: ${turn.text}`).join(' ');
-                console.log(lastThreeMessages);
-                systemMessageContent = `You are currently role-playing as a ${speaker} (${speakerPrompt}) on a panel discussion.`;
-                userMessageContent = `Please respond to the participants and build on the conversation. You can also steer it in new directions. Never add your "name:" before your message!\n\nHere are the past 3 messages of the conversation for context: ${lastThreeMessages}.\n\nAlso, here's the overall topic of the conversation: ${topic}`;
-            }
+    //         if (isFirstMessage) {
+    //             // Content for the first message
+    //             systemMessageContent = `You are currently role-playing as a ${speaker} in a panel discussion. You are the moderator. Start the conversation on the topic.`;
+    //             userMessageContent = `As ${speaker}, initiate the conversation about: ${topic}`;
+    //         } else {
+    //             // Content for subsequent messages
+    //             const lastThreeMessages = conversation.slice(-3).map(turn => `${turn.speaker}: ${turn.text}`).join(' ');
+    //             console.log(lastThreeMessages);
+    //             systemMessageContent = `You are currently role-playing as a ${speaker} (${speakerPrompt}) on a panel discussion.`;
+    //             userMessageContent = `Please respond to the participants and build on the conversation. You can also steer it in new directions. Never add your "name:" before your message!\n\nHere are the past 3 messages of the conversation for context: ${lastThreeMessages}.\n\nAlso, here's the overall topic of the conversation: ${topic}`;
+    //         }
     
-            // Prepare the completion request
-            const completion = await openai.chat.completions.create({
-                messages: [
-                    {
-                        "role": "system",
-                        "content": systemMessageContent
-                    },
-                    {
-                        "role": "assistant",
-                        "content": userMessageContent
-                    }
-                ],
-                // model: "gpt-3.5-turbo",
-                model: "gpt-4",
-                max_tokens: maxResponseLength
-            });
+    //         // Prepare the completion request
+    //         const completion = await openai.chat.completions.create({
+    //             messages: [
+    //                 {
+    //                     "role": "system",
+    //                     "content": systemMessageContent
+    //                 },
+    //                 {
+    //                     "role": "assistant",
+    //                     "content": userMessageContent
+    //                 }
+    //             ],
+    //             // model: "gpt-3.5-turbo",
+    //             model: "gpt-4",
+    //             max_tokens: maxResponseLength
+    //         });
 
             
     
+    //         // Extract and clean up the response
+    //         let response = completion.choices[0].message.content.trim();
+    
+    //         response = response.replace(/\s+$/, '');
+    //         const lastPeriodIndex = response.lastIndexOf('.');
+    //         if (lastPeriodIndex !== -1) {
+    //             response = response.substring(0, lastPeriodIndex + 1);
+    //         }
+
+    //         // console.log('////', conversation, '////');
+    
+    //         return response;
+    //     } catch (error) {
+    //         console.error('Error during API call:', error);
+    //         throw error;
+    //     }
+    // };
+
+    const generateTextFromGPT4 = async (topic, speaker, speakerPrompt) => {
+        try {
+            // Build the array of messages for the completion request
+            const messages = [];
+    
+            // System message for overall context
+            messages.push({
+                role: "system",
+                content: `You are currently role-playing as a ${speaker} in a panel discussion. The topic is: ${topic}.`
+            });
+    
+            // Assistant message for the current speaker's prompt
+            messages.push({
+                role: "assistant",
+                content: speakerPrompt
+            });
+    
+            // Add previous messages as separate user objects
+            conversation.forEach((msg) => {
+                messages.push({
+                    role: "user",
+                    content: msg.text
+                });
+            });
+            
+            console.log(messages);
+
+            // Prepare the completion request
+            const completion = await openai.chat.completions.create({
+                model: "gpt-4",
+                max_tokens: maxResponseLength,
+                messages: messages
+            });
+    
             // Extract and clean up the response
             let response = completion.choices[0].message.content.trim();
-    
             response = response.replace(/\s+$/, '');
             const lastPeriodIndex = response.lastIndexOf('.');
             if (lastPeriodIndex !== -1) {
                 response = response.substring(0, lastPeriodIndex + 1);
             }
-
-            // console.log('////', conversation, '////');
     
             return response;
         } catch (error) {
@@ -206,6 +255,8 @@ io.on('connection', (socket) => {
             throw error;
         }
     };
+    
+    
     
  
 
