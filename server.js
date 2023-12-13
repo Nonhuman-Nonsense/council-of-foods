@@ -25,18 +25,40 @@ io.on('connection', (socket) => {
 
     let isPaused = false; // Flag to check if the conversation is paused
 
+    let lastPrompt;
+
     socket.on('pause_conversation', () => {
         isPaused = true;
+        console.log('Conversation has been paused');
+    });
+
+    // Add a new event to resume the conversation
+    socket.on('resume_conversation', () => {
+        isPaused = false;
+        console.log('Conversation has been resumed');
+        console.log('Conversation has been resumed');
+        if (lastPrompt) {
+            handleConversationTurn(lastPrompt, socket, conversation, topic, characterRoles, chairmanFreq);
+        }
     });
 
     socket.on('submit_human_message', (message) => {
         if (isPaused) {
+            // Resume the conversation
+            isPaused = false;
+            console.log('Conversation has been resumed');
+    
+            // Now process the human message
+            const humanPrompt = { speaker: 'Human', text: message };
+            handleConversationTurn(humanPrompt, socket, conversation, topic, characterRoles, chairmanFreq);
+        } else {
+            // If the conversation is not paused, just process the message
             console.log('Message received:', message);
             const humanPrompt = { speaker: 'Human', text: message };
-            isPaused = false; // Resume the conversation
             handleConversationTurn(humanPrompt, socket, conversation, topic, characterRoles, chairmanFreq);
         }
     });
+    
 
     socket.on('start_conversation', ({ characterData, topic, chairpersonData, chairmanFreq }) => {
         // console.log(`Conversation started on topic: ${topic}`);
@@ -68,8 +90,13 @@ io.on('connection', (socket) => {
         const firstPrompt = { speaker: chairperson.name, text: topic };
         // console.log(firstPrompt);
         handleConversationTurn(firstPrompt, socket, conversation, topic, characterRoles, chairmanFreq);
-    });    
-
+    }); 
+    
+    socket.on('resume_conversation', () => {
+        isPaused = false;
+        console.log('Conversation has been resumed');
+        // Optional: Trigger the conversation to continue from where it was paused
+    });
 
     const handleConversationTurn = async (prompt, socket, conversation, topic, characterRoles, chairmanFreq) => {
         try {
@@ -108,6 +135,9 @@ io.on('connection', (socket) => {
             const role = characterRoles[nextSpeaker] || 'Participant';
             const nextPromptText = `${role} ${nextSpeaker}`;
             const nextPrompt = { speaker: nextSpeaker, text: nextPromptText };
+
+            // Update lastPrompt with the current prompt before calling the function again
+            lastPrompt = nextPrompt;
     
             handleConversationTurn(nextPrompt, socket, conversation, topic, characterRoles, chairmanFreq);
             // Increment conversationCount only if it's not the chairman speaking
