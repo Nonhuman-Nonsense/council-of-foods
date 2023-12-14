@@ -8,6 +8,9 @@
   <body>
     <main>
         <div id="setup">
+            <div id="global-vars">
+                max response character count: <input type="number" id="max-response-char-count" placeholder="max response character count" value="200">
+            </div>
             <div id="panel-prompt-el">
                 <h3>chairperson</h3>
                 <p>
@@ -25,17 +28,17 @@
                     <div class="character">
                         <input type="text" id="character-name" placeholder="character name" value="apple"><br>
                         <!-- <input type="text" id="character-role" placeholder="character role" value="albert heijn"> -->
-                        <textarea id="character-role" placeholder="character role">from albert heijn</textarea>
+                        <textarea id="character-role" placeholder="character role">You are currently role playing as an apple on a panel discussion. You are a apple from albert heijn</textarea>
                     </div>
                     <div class="character">
                         <input type="text" id="character-name" placeholder="character name" value="pineapple"><br>
                         <!-- <input type="text" id="character-role" placeholder="character role" value="from dole, hawaii"> -->
-                        <textarea id="character-role" placeholder="character role">from dole, hawaii</textarea>
+                        <textarea id="character-role" placeholder="character role">You are currently role playing as an apple on a panel discussion. You are a pineapple from dole, hawaii</textarea>
                     </div>
                     <div class="character">
                         <input type="text" id="character-name" placeholder="character name" value="grape"><br>
                         <!-- <input type="text" id="character-role" placeholder="character role" value="from argentina"> -->
-                        <textarea id="character-role" placeholder="character role">speak in rhymes</textarea>
+                        <textarea id="character-role" placeholder="character role">You are currently role playing as an apple on a panel discussion. You are a grape that speaks in rhymes.</textarea>
                     </div>
                 </div>
                 <button id="add-character">+</button>

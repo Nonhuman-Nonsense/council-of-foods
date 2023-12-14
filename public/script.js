@@ -77,9 +77,11 @@ document.addEventListener('DOMContentLoaded', () => {
     
         // Retrieve the frequency of chairperson interjections
         const chairmanFreq = document.querySelector('#chairman-freq').value;
+
+        const maxResponseCharCount = document.querySelector('#max-response-char-count').value;
     
         // Emit the start conversation event with all necessary data
-        socket.emit('start_conversation', { characterData, topic, chairpersonData, chairmanFreq });
+        socket.emit('start_conversation', { characterData, topic, chairpersonData, chairmanFreq, maxResponseCharCount });
     
         // Handle conversation updates
         socket.on('conversation_update', (conversation) => {

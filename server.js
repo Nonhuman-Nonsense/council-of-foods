@@ -60,7 +60,7 @@ io.on('connection', (socket) => {
     });
     
 
-    socket.on('start_conversation', ({ characterData, topic, chairpersonData, chairmanFreq }) => {
+    socket.on('start_conversation', ({ characterData, topic, chairpersonData, chairmanFreq, maxResponseCharCount }) => {
         // console.log(`Conversation started on topic: ${topic}`);
         
         conversation = [];
@@ -68,6 +68,7 @@ io.on('connection', (socket) => {
         chairperson = chairpersonData;
         conversationCount = 0;
         chairmanFreq = chairmanFreq;
+        maxResponseCharCount = +maxResponseCharCount;
     
         characterData.forEach(char => {
             characterRoles[char.name.trim()] = char.role.trim();
@@ -89,7 +90,7 @@ io.on('connection', (socket) => {
         // Start with the chairperson introducing the topic
         const firstPrompt = { speaker: chairperson.name, text: topic };
         // console.log(firstPrompt);
-        handleConversationTurn(firstPrompt, socket, conversation, topic, characterRoles, chairmanFreq);
+        handleConversationTurn(firstPrompt, socket, conversation, topic, characterRoles, chairmanFreq, maxResponseCharCount);
     }); 
     
     socket.on('resume_conversation', () => {
@@ -98,7 +99,7 @@ io.on('connection', (socket) => {
         // Optional: Trigger the conversation to continue from where it was paused
     });
 
-    const handleConversationTurn = async (prompt, socket, conversation, topic, characterRoles, chairmanFreq) => {
+    const handleConversationTurn = async (prompt, socket, conversation, topic, characterRoles, chairmanFreq, maxResponseCharCount) => {
         try {
             if (isPaused) return; // Don't proceed if the conversation is paused
     
@@ -109,7 +110,7 @@ io.on('connection', (socket) => {
                 response = prompt.text;
             } else {
                 // Generate response using GPT-4 for AI characters
-                response = await generateTextFromGPT4(topic, prompt.speaker, prompt.text);
+                response = await generateTextFromGPT4(topic, prompt.speaker, prompt.text, maxResponseCharCount);
                 console.log(prompt);
             }
     
@@ -207,7 +208,7 @@ io.on('connection', (socket) => {
     //     }
     // };
 
-    const generateTextFromGPT4 = async (topic, speaker, speakerPrompt) => {
+    const generateTextFromGPT4 = async (topic, speaker, speakerPrompt, maxResponseCharCount) => {
         try {
             // Build the array of messages for the completion request
             const messages = [];
@@ -237,7 +238,7 @@ io.on('connection', (socket) => {
             // Prepare the completion request
             const completion = await openai.chat.completions.create({
                 model: "gpt-4",
-                max_tokens: maxResponseLength,
+                max_tokens: maxResponseCharCount,
                 messages: messages
             });
     
