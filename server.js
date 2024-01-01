@@ -22,6 +22,7 @@ io.on('connection', (socket) => {
     let chairmanFreq = 5; // Default frequency
     let conversationCount = 0;
     let topic;
+    let maxResponseCharCount = 100;
 
     let isPaused = false; // Flag to check if the conversation is paused
 
@@ -38,7 +39,7 @@ io.on('connection', (socket) => {
         console.log('Conversation has been resumed');
         console.log('Conversation has been resumed');
         if (lastPrompt) {
-            handleConversationTurn(lastPrompt, socket, conversation, topic, characterRoles, chairmanFreq);
+            handleConversationTurn(lastPrompt, socket, conversation, topic, characterRoles, chairmanFreq, maxResponseCharCount);
         }
     });
 
@@ -50,17 +51,17 @@ io.on('connection', (socket) => {
     
             // Now process the human message
             const humanPrompt = { speaker: 'Human', text: message };
-            handleConversationTurn(humanPrompt, socket, conversation, topic, characterRoles, chairmanFreq);
+            handleConversationTurn(humanPrompt, socket, conversation, topic, characterRoles, chairmanFreq, maxResponseCharCount);
         } else {
             // If the conversation is not paused, just process the message
             console.log('Message received:', message);
             const humanPrompt = { speaker: 'Human', text: message };
-            handleConversationTurn(humanPrompt, socket, conversation, topic, characterRoles, chairmanFreq);
+            handleConversationTurn(humanPrompt, socket, conversation, topic, characterRoles, chairmanFreq, maxResponseCharCount);
         }
     });
     
 
-    socket.on('start_conversation', ({ characterData, topic, chairpersonData, chairmanFreq, maxResponseCharCount }) => {
+    socket.on('start_conversation', ({ characterData, topic, chairpersonData, chairmanFreq, maxResponseCharCountInput }) => {
         // console.log(`Conversation started on topic: ${topic}`);
         
         conversation = [];
@@ -68,7 +69,9 @@ io.on('connection', (socket) => {
         chairperson = chairpersonData;
         conversationCount = 0;
         chairmanFreq = chairmanFreq;
-        maxResponseCharCount = +maxResponseCharCount;
+        maxResponseCharCount = +maxResponseCharCountInput;
+
+        console.log(maxResponseCharCount);
     
         characterData.forEach(char => {
             characterRoles[char.name.trim()] = char.role.trim();
@@ -92,12 +95,6 @@ io.on('connection', (socket) => {
         // console.log(firstPrompt);
         handleConversationTurn(firstPrompt, socket, conversation, topic, characterRoles, chairmanFreq, maxResponseCharCount);
     }); 
-    
-    socket.on('resume_conversation', () => {
-        isPaused = false;
-        console.log('Conversation has been resumed');
-        // Optional: Trigger the conversation to continue from where it was paused
-    });
 
     const handleConversationTurn = async (prompt, socket, conversation, topic, characterRoles, chairmanFreq, maxResponseCharCount) => {
         try {
@@ -140,7 +137,7 @@ io.on('connection', (socket) => {
             // Update lastPrompt with the current prompt before calling the function again
             lastPrompt = nextPrompt;
     
-            handleConversationTurn(nextPrompt, socket, conversation, topic, characterRoles, chairmanFreq);
+            handleConversationTurn(nextPrompt, socket, conversation, topic, characterRoles, chairmanFreq, maxResponseCharCount);
             // Increment conversationCount only if it's not the chairman speaking
             if (nextSpeaker !== chairperson.name) {
                 conversationCount++;
@@ -150,63 +147,6 @@ io.on('connection', (socket) => {
             socket.emit('conversation_error', 'An error occurred during the conversation.');
         }
     };
-         
-
-    // const generateTextFromGPT4 = async (topic, speaker, speakerPrompt) => {
-    //     try {
-    //         // Check if it's the first message in the conversation
-    //         const isFirstMessage = conversation.length === 0;
-    
-    //         let systemMessageContent, userMessageContent;
-    
-    //         if (isFirstMessage) {
-    //             // Content for the first message
-    //             systemMessageContent = `You are currently role-playing as a ${speaker} in a panel discussion. You are the moderator. Start the conversation on the topic.`;
-    //             userMessageContent = `As ${speaker}, initiate the conversation about: ${topic}`;
-    //         } else {
-    //             // Content for subsequent messages
-    //             const lastThreeMessages = conversation.slice(-3).map(turn => `${turn.speaker}: ${turn.text}`).join(' ');
-    //             console.log(lastThreeMessages);
-    //             systemMessageContent = `You are currently role-playing as a ${speaker} (${speakerPrompt}) on a panel discussion.`;
-    //             userMessageContent = `Please respond to the participants and build on the conversation. You can also steer it in new directions. Never add your "name:" before your message!\n\nHere are the past 3 messages of the conversation for context: ${lastThreeMessages}.\n\nAlso, here's the overall topic of the conversation: ${topic}`;
-    //         }
-    
-    //         // Prepare the completion request
-    //         const completion = await openai.chat.completions.create({
-    //             messages: [
-    //                 {
-    //                     "role": "system",
-    //                     "content": systemMessageContent
-    //                 },
-    //                 {
-    //                     "role": "assistant",
-    //                     "content": userMessageContent
-    //                 }
-    //             ],
-    //             // model: "gpt-3.5-turbo",
-    //             model: "gpt-4",
-    //             max_tokens: maxResponseLength
-    //         });
-
-            
-    
-    //         // Extract and clean up the response
-    //         let response = completion.choices[0].message.content.trim();
-    
-    //         response = response.replace(/\s+$/, '');
-    //         const lastPeriodIndex = response.lastIndexOf('.');
-    //         if (lastPeriodIndex !== -1) {
-    //             response = response.substring(0, lastPeriodIndex + 1);
-    //         }
-
-    //         // console.log('////', conversation, '////');
-    
-    //         return response;
-    //     } catch (error) {
-    //         console.error('Error during API call:', error);
-    //         throw error;
-    //     }
-    // };
 
     const generateTextFromGPT4 = async (topic, speaker, speakerPrompt, maxResponseCharCount) => {
         try {
@@ -233,7 +173,7 @@ io.on('connection', (socket) => {
                 });
             });
             
-            console.log(messages);
+            console.log(maxResponseCharCount);
 
             // Prepare the completion request
             const completion = await openai.chat.completions.create({
