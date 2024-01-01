@@ -169,7 +169,7 @@ io.on('connection', (socket) => {
             conversation.forEach((msg) => {
                 messages.push({
                     role: "user",
-                    content: msg.text
+                    content: 'This is a previous message in the conversation. Just use them as a reference: ' + msg.text
                 });
             });
             
