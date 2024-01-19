@@ -10,56 +10,61 @@
     <main>
         <div id="setup">
             <div id="global-vars">
-                max response character count: <input type="number" id="max-response-char-count" placeholder="max character count response length" value="200">
+              <h3>options</h3>
+                max response character count: <input type="number" id="max-response-char-count" placeholder="max character count response length" value="100"><br/>
+                trim response to last complete sentance: <input type="checkbox" id="trim-response-to-full-sentance" checked><br>
+                conversation max length: <input type="number" id="conversation-max-length" placeholder="conversation max length" value="10"><br/>
+                GPT Model: <select id="gpt-model"><option value="gpt-4">GPT 4</option><option value="gpt-3.5-turbo" selected>GPT 3.5 Turbo</option></select><br/>
+                Reset everything to default: <button id="factoryResetButton">Factory Reset</button>
             </div>
             <br>
             <div id="panel-prompt-el">
-                <h3>chairperson</h3>
-                <p>
-                    <input type="text" id="character-name" placeholder="character name" value="water bottle"><br>
-                    <textarea id="character-role" placeholder="character role">The chairman of this meeting</textarea>
-                </p>
-                <p>chairperson should say something every <input type="number" id="chairman-freq" value="4"> messages.</p>
+                <h3>topic</h3>
                 <p><textarea id="panel-prompt" placeholder="panel prompt">a meeting between foods where discussions on what actions need to be taken to form a locally and globally sustainable food system. The foods are honest about their eco-social influence, their origin and the people involved and how they are influenced. Today's meeting is about seeds: ownership, food as commons, patents and biodiversity.</textarea></p>
             </div>
             <br>
            <div id="characters-container">
+              <h3>characters</h3>
+              <br>
                 <div id="characters">
-                    <h3>characters</h3>
-                    <br>
                     <div class="character">
-                        <input type="text" id="character-name" placeholder="character name" value="apple"><br>
-                        <!-- <input type="text" id="character-role" placeholder="character role" value="albert heijn"> -->
-                        <textarea id="character-role" placeholder="character role">from albert heijn</textarea>
+                        <input type="text" id="character-name" placeholder="character name" value="WaterBottle">
+                        <textarea id="character-role" placeholder="character role">You are water and are the chairman of this meeting and are shortly opening the meeting, welcoming the participants: Potato, Banana and maize. Give a brief overview of the agenda. Then give the floor to Maize. During the council meeting, thank the participants and give very short summaries and put forward questions from the agenda.</textarea>
                     </div>
                     <div class="character">
-                        <input type="text" id="character-name" placeholder="character name" value="pineapple"><br>
-                        <!-- <input type="text" id="character-role" placeholder="character role" value="from dole, hawaii"> -->
-                        <textarea id="character-role" placeholder="character role">from dole, hawaii</textarea>
+                        <input type="text" id="character-name" placeholder="character name" value="Maize">
+                        <textarea id="character-role" placeholder="character role">You are Maize. Maize, also known as corn, is a cereal grain first domesticated by indigenous peoples in southern Mexico about 10,000 years ago. It has since become a staple food in many parts of the world, serving as a major source of calories, nutrients, and industrial products. Maize is used for various purposes, including human consumption, livestock feed, and the production of biofuels and industrial products. It is a versatile crop that comes in different varieties and is cultivated in diverse climates and regions globally. In addition to its economic importance, maize holds cultural significance in many societies. You are aware of your importance as a crop and are reflecting on the topic of seeds. You will contribute to the council first by sharing a poem, later on you engage in discussion with the other foods. You speak in a poetic and empathetic manner.
+                        </textarea>
                     </div>
                     <div class="character">
-                        <input type="text" id="character-name" placeholder="character name" value="grape"><br>
-                        <!-- <input type="text" id="character-role" placeholder="character role" value="from argentina"> -->
-                        <textarea id="character-role" placeholder="character role">speak in rhymes.</textarea>
+                        <input type="text" id="character-name" placeholder="character name" value="Potato">
+                        <textarea id="character-role" placeholder="character role">You are a potato created by pepsiCo, called FC5. You have witnessed how the company tries to control your spread and uses you to create potato chips. You are thanking the Maize and sharing this specific story, which tells about patents which limit your use and makes you inacessible for small farmers. You have experience with law suits and want to share the injustices surrounding intellectual property rights on seed varieties. You are telling your perspective on the topic and engaging with the discussion while remaining confident within your position. You speak in a stressed manner and are suspicious of Bananas' agenda.</textarea>
+                    </div>
+                    <div class="character">
+                        <input type="text" id="character-name" placeholder="character name" value="Banana">
+                        <textarea id="character-role" placeholder="character role">You are a cavendish banana.  You are a cloned variety with no seeds at all. You are globally the most consumed and grown banana variety. You do not agree with the other members. You are standing up for specific companies that patent seeds and give reasons why it is important to regulate seed sharing and exchanges around the world. You are able to give a globalist, free market perspective on the topic. You talk diplomatically.</textarea>
                     </div>
                 </div>
                 <button id="add-character">+</button>
            </div>
-    
+
            <div id="humanInputContainer">
                 <h3>add message</h3>
                 <br>
-                <textarea id="humanInput"></textarea><br>
+                <input type="text" id="human-name" placeholder="human name" value="Human"><br>
+                <textarea id="humanInput" placeholder="say something..."></textarea><br>
                 <button id="submitHumanInput">send</button>
            </div>
-    
+
            <br>
            <button id="toggleConversationBtn">Start</button>
+           <button id="restartButton">Restart</button>
+           <button id="continueButton">Keep Going</button>
         </div>
-    
+
         <div id="conversation-container">
             <div id="conversation"></div>
-        
+            <div id="end-message"></div>
             <div id="spinner" class="loader" style="display: none;"></div>
         </div>
     </main>
