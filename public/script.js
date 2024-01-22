@@ -36,6 +36,8 @@ document.addEventListener('DOMContentLoaded', () => {
       //Do the same as update, but reverse
       document.getElementById('max-response-char-count').value = promptsAndOptions.options.maxResponseCharCountInput;
       document.getElementById('trim-response-to-full-sentance').checked = promptsAndOptions.options.trimSentance;
+      document.getElementById('trim-response-to-full-paragraph').checked = promptsAndOptions.options.trimParagraph;
+      document.getElementById('show-trimmed').checked = promptsAndOptions.options.showTrimmed;
       document.getElementById('conversation-max-length').value = promptsAndOptions.options.conversationMaxLength;
       document.getElementById('gpt-model').value = promptsAndOptions.options.gptModel;
 
@@ -154,6 +156,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
       promptsAndOptions.options.maxResponseCharCountInput = +document.getElementById('max-response-char-count').value;
       promptsAndOptions.options.trimSentance = document.getElementById('trim-response-to-full-sentance').checked;
+      promptsAndOptions.options.trimParagraph = document.getElementById('trim-response-to-full-paragraph').checked;
+      promptsAndOptions.options.showTrimmed = document.getElementById('show-trimmed').checked;
       promptsAndOptions.options.conversationMaxLength = +document.getElementById('conversation-max-length').value;
       promptsAndOptions.options.gptModel = document.getElementById('gpt-model').value;
 
@@ -179,8 +183,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Handle conversation updates
     socket.on('conversation_update', (conversation) => {
+      console.log(conversation);
         conversationDiv.innerHTML = conversation
-            .map(turn => `<p><strong>${turn.speaker}:</strong> ${turn.text.split('\n').join('<br>')}</p>`)
+            .map(turn => {
+              let speech = `<p><strong>${turn.speaker}:</strong> `;
+              speech += turn.text.split('\n').join('<br>');
+              if(turn.trimmed){
+                speech += `<span class="trimmed">${turn.trimmed.split('\n').join('<br>')}</span>`;
+              }
+              speech += "</p>"
+              return speech;
+            })
             .join('');
     });
 

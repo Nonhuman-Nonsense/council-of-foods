@@ -85,13 +85,11 @@ io.on('connection', (socket) => {
             if(!run) return;
             if (isPaused) return; // Don't proceed if the conversation is paused
 
-            let response;
-
             // Generate response using GPT-4 for AI characters
-            response = await generateTextFromGPT(characters[currentSpeaker]);
+            const {response, trimmed} = await generateTextFromGPT(characters[currentSpeaker]);
 
             // Add the response to the conversation
-            conversation.push({ speaker: characters[currentSpeaker].name, text: response });
+            conversation.push({ speaker: characters[currentSpeaker].name, text: response, trimmed: trimmed  });
             socket.emit('conversation_update', conversation);
 
             // Check for conversation end
@@ -141,15 +139,34 @@ io.on('connection', (socket) => {
             // Extract and clean up the response
             let response = completion.choices[0].message.content.trim();
 
-            //Remove the last half sentence
-            if(options.trimSentance){
-              response = response.replace(/\s+$/, '');
-              const lastPeriodIndex = response.lastIndexOf('.');
-              if (lastPeriodIndex !== -1) {
+            //If model has already stopped, don't worry about trying to crop it to a proper sentence
+            let trimmedContent;
+            if(completion.choices[0].finish_reason != 'stop'){
+              //Remove the last half sentence
+
+              if(options.trimSentance){
+                response = response.replace(/\s+$/, '');
+                const lastPeriodIndex = response.lastIndexOf('.');
+                if (lastPeriodIndex !== -1) {
+                  trimmedContent = response.substring(lastPeriodIndex + 1);
                   response = response.substring(0, lastPeriodIndex + 1);
+                }
+              }
+
+              if(options.trimParagraph){
+                const lastNewLineIndex = response.lastIndexOf('\n\n');
+                if (lastNewLineIndex !== -1) {
+                  trimmedContent = response.substring(lastNewLineIndex);
+                  response = response.substring(0, lastNewLineIndex);
+                }
+              }
+
+              if(!options.showTrimmed){
+                trimmedContent = undefined;
               }
             }
-            return response;
+
+            return {response: response, trimmed: trimmedContent};
         } catch (error) {
             console.error('Error during API call:', error);
             throw error;

@@ -59,6 +59,11 @@ textarea {
     padding: 10px;
 }
 
+.trimmed {
+    color: red;
+}
+
+
 /* Layout */
 main {
     display: grid;
