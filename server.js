@@ -10,7 +10,8 @@ const httpServer = http.createServer(app);
 const io = new Server(httpServer);
 const openai = new OpenAI(process.env.OPENAI_API_KEY);
 
-// const maxResponseLength = 200;
+//Names of OpenAI voices
+const audioVoices = ['alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer'];
 
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -86,11 +87,20 @@ io.on('connection', (socket) => {
             if (isPaused) return; // Don't proceed if the conversation is paused
 
             // Generate response using GPT-4 for AI characters
-            const {response, trimmed} = await generateTextFromGPT(characters[currentSpeaker]);
+            const {id, response, trimmed} = await generateTextFromGPT(characters[currentSpeaker]);
 
             // Add the response to the conversation
-            conversation.push({ speaker: characters[currentSpeaker].name, text: response, trimmed: trimmed  });
+            conversation.push({ id: id, speaker: characters[currentSpeaker].name, text: response, trimmed: trimmed  });
+
+            //A rolling index of the message number, so that audio can be played in the right order etc.
+            const message_index = conversation.length - 1;
+
             socket.emit('conversation_update', conversation);
+
+            //This is an async function, and since we are not waiting for the response, it will run in a paralell thread.
+            //The result will be emitted to the socket when it's ready
+            //The rest of the conversation continues
+            generateAudio(id, message_index, response, audioVoices[currentSpeaker % audioVoices.length]);
 
             // Check for conversation end
             if (conversation.length >= options.conversationMaxLength + extraMessageCount) {
@@ -107,6 +117,20 @@ io.on('connection', (socket) => {
             socket.emit('conversation_error', 'An error occurred during the conversation.');
         }
     };
+
+    const generateAudio = async (id, index, text, voiceName) => {
+      //Request the audio
+      const mp3 = await openai.audio.speech.create({
+        model: "tts-1",
+        voice: voiceName,
+        input: text,
+      });
+
+      //Wait until the whole buffer is downloaded.
+      //This is better if we can pipe it to a stream in the future, so that we don't have to wait until it's done.
+      const buffer = Buffer.from(await mp3.arrayBuffer());
+      socket.emit('audio_update', {id: id, message_index: index, audio: buffer});
+    }
 
     const generateTextFromGPT = async (speaker) => {
         try {
@@ -136,27 +160,30 @@ io.on('connection', (socket) => {
                 messages: messages
             });
 
+            console.log(completion);
             // Extract and clean up the response
             let response = completion.choices[0].message.content.trim();
 
             //If model has already stopped, don't worry about trying to crop it to a proper sentence
             let trimmedContent;
             if(completion.choices[0].finish_reason != 'stop'){
-              //Remove the last half sentence
 
+              let originalResponse = response;
+              //Remove the last half sentence
               if(options.trimSentance){
-                response = response.replace(/\s+$/, '');
+                response = response.replace(/\s+$/, ''); //not sure what this is doing?
                 const lastPeriodIndex = response.lastIndexOf('.');
                 if (lastPeriodIndex !== -1) {
-                  trimmedContent = response.substring(lastPeriodIndex + 1);
+                  trimmedContent = originalResponse.substring(lastPeriodIndex + 1);
                   response = response.substring(0, lastPeriodIndex + 1);
                 }
               }
 
+              //Remove the last half paragraph
               if(options.trimParagraph){
                 const lastNewLineIndex = response.lastIndexOf('\n\n');
                 if (lastNewLineIndex !== -1) {
-                  trimmedContent = response.substring(lastNewLineIndex);
+                  trimmedContent = originalResponse.substring(lastNewLineIndex);
                   response = response.substring(0, lastNewLineIndex);
                 }
               }
@@ -166,7 +193,7 @@ io.on('connection', (socket) => {
               }
             }
 
-            return {response: response, trimmed: trimmedContent};
+            return {id: completion.id, response: response, trimmed: trimmedContent};
         } catch (error) {
             console.error('Error during API call:', error);
             throw error;
