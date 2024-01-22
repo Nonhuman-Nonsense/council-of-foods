@@ -31,6 +31,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let promptsAndOptions;
 
     const unpackPromptsAndOptions = () => {
+      console.log("Previous prompts and settings found in localStorage, attempting to restore:");
       console.log(promptsAndOptions);
       //Update the UI with the data stored in localStorage
       //Do the same as update, but reverse
