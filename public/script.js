@@ -14,11 +14,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const endMessage = document.getElementById('end-message');
     const spinner  = document.getElementById('spinner');
 
+    //Audio control
+    const audioBackButton = document.getElementById('audioBack');
+    const audioToggleButton = document.getElementById('audioToggle');
+    const audioNextButton  = document.getElementById('audioNext');
+
     //Objects for audio control
     let audioCtx;
     let audioPlaylist = [];
     let currentAudio = 0;
     let audioIsPlaying = false;
+    let pauseAudio = false;
+    let nextOrBackClicked = false;
 
     // This is the global object containing all the prompts and options
     // It is sent to the server on conversation start, and resume.
@@ -71,7 +78,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Handle conversation updates
     socket.on('conversation_update', (conversation) => {
-      console.log(conversation);
         conversationDiv.innerHTML = conversation
             .map(turn => {
               let speech = `<p id="${turn.id}">`;
@@ -87,38 +93,60 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     const addToPlaylist = async (audio, index) => {
+      //functions related to each audio is kept here in an object oriented way
+      //so that they are properly scoped and garbage collected
+      //and so that they can easily recreate the source buffer every time they are played
+
       const buffer = await audioCtx.decodeAudioData(audio);
-      const source = audioCtx.createBufferSource();
+      let source;
 
-      // set the buffer in the AudioBufferSourceNode
-      source.buffer = buffer;
+      const play = function(){
+        source = audioCtx.createBufferSource();
+        // set the buffer in the AudioBufferSourceNode
+        source.buffer = buffer;
+        // connect the AudioBufferSourceNode to the
+        // destination so we can hear the sound
+        source.connect(audioCtx.destination);
+        source.addEventListener('ended', async () => {
+          //If audio is paused, do nothing
+          if(pauseAudio) return;
+          if(nextOrBackClicked){
+            //If we just clicked next or back, skip this end event.
+            nextOrBackClicked = false;
+            return;
+          }
 
-      // connect the AudioBufferSourceNode to the
-      // destination so we can hear the sound
-      source.connect(audioCtx.destination);
+          //Otherwise, audio should be playing
+          //If next audio is ready to play
+          if(audioPlaylist[currentAudio+1] !== undefined){
+            //Wait a bit before the next audio plays
+            //This type of waiting is non-blocking
+            await new Promise(r => setTimeout(r, 1000));
 
-      source.addEventListener('ended', async () => {
-        //If next audio is ready to play
-        if(audioPlaylist[currentAudio+1] !== undefined){
-          //Wait a bit before the next audio plays
-          //This type of waiting is non-blocking
-          await new Promise(r => setTimeout(r, 1000));
+            //Play the next audio in the list
+            currentAudio++;
+            //Play next audio
+            audioPlaylist[currentAudio].play();
+          }else if(audioIsPlaying){
+            //If audio is still playing means we have reached the end of the queue
+            //Otherwise, it might be stopped for other reasons
+            audioIsPlaying = false;
+            currentAudio++;
+          }
+        });
+        source.start();
+        audioIsPlaying = true;
+      }
 
-          //Play the next audio in the list
-          currentAudio++;
-          //Play next audio
-          audioPlaylist[currentAudio].start();
-        }else if(audioIsPlaying){
-          //If audio is still playing means we should stop it.
-          //Otherwise, it might be stopped for other reasons
-          audioIsPlaying = false;
-          currentAudio++;
-        }
-      });
+      const stop = function(){
+        source.stop();
+        audioIsPlaying = false;
+      }
+
 
       //This array can be filled in a sparse way, because audio files might not be downloaded in the right order
       //This has to be handled in the playback
-      audioPlaylist[index] = source;
+      audioPlaylist[index] = {play: play, stop: stop};
     }
 
     // Handle audio updates
@@ -131,9 +159,8 @@ document.addEventListener('DOMContentLoaded', () => {
       //This is an async function
       await addToPlaylist(update.audio, update.message_index);
       //If audio is not playing, we then need to move to the next item in playlist
-      if(!audioIsPlaying && audioPlaylist[currentAudio] !== undefined){
-        audioPlaylist[currentAudio].start();
-        audioIsPlaying = true;
+      if(!audioIsPlaying && audioPlaylist[currentAudio] !== undefined && !pauseAudio){
+        audioPlaylist[currentAudio].play();
       }
     });
 
@@ -236,9 +263,9 @@ document.addEventListener('DOMContentLoaded', () => {
       if(audioIsPlaying){
           audioPlaylist[currentAudio].stop();
       }
+      audioCtx = new window.AudioContext();
       audioPlaylist = [];
       currentAudio = 0;
-      audioIsPlaying = false;
 
       // Emit the start conversation event with all necessary data
       socket.emit('start_conversation', promptsAndOptions);
@@ -299,6 +326,66 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('factoryResetButton').addEventListener('click', () => {
       localStorage.clear();
       location.reload();
+    });
+
+    //Audio control
+    audioBackButton.addEventListener('click', async () => {
+      //If audio is paused, do nothing
+      if(pauseAudio) return;
+
+      if(audioIsPlaying){
+        //If audio is playing
+        //Stop the current audio
+        audioPlaylist[currentAudio].stop();
+        //Skip the next end event
+        nextOrBackClicked = true;
+      }
+      if(currentAudio > 0)currentAudio--;
+      if(audioPlaylist[currentAudio] !== undefined){
+        audioPlaylist[currentAudio].play();
+      }
+    });
+
+    audioToggleButton.addEventListener('click', () => {
+      if(audioIsPlaying){
+        //If audio is playing, pause it.
+        audioCtx.suspend();
+        audioIsPlaying = false;
+      }else if(audioCtx && audioCtx.state == 'suspended'){
+        //If current playback is suspended, resume it.
+        //Also check that audio context has been initialized
+        audioCtx.resume();
+        audioIsPlaying = true;
+      }else if(audioPlaylist[currentAudio] !== undefined){
+        //If audio is not playing, and is not suspended, check if the current audio exists, and start it.
+        audioPlaylist[currentAudio].play();
+      }
+
+      if(!pauseAudio){
+        pauseAudio = true;
+        audioToggleButton.style.background = "red";
+      }else{
+        pauseAudio = false;
+        audioToggleButton.style.background = null;
+      }
+    });
+
+    audioNextButton.addEventListener('click', () => {
+      //If audio is paused, do nothing
+      if(pauseAudio) return;
+
+      if(audioPlaylist[currentAudio+1] !== undefined){
+
+        //If audio is playing
+        if(audioIsPlaying){
+          //Stop the current audio
+          audioPlaylist[currentAudio].stop();
+          //Skip the next end event
+          nextOrBackClicked = true;
+        }
+        currentAudio++;
+        audioPlaylist[currentAudio].play();
+      }
     });
 
 });

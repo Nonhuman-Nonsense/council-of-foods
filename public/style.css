@@ -63,6 +63,16 @@ textarea {
     color: red;
 }
 
+#audio-controls{
+  position: fixed;
+  bottom: 3px;
+  text-align: center;
+  width: 48%;
+}
+
+#audio-controls button{
+  margin: 3px;
+}
 
 /* Layout */
 main {

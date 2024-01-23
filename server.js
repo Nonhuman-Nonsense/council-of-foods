@@ -35,19 +35,19 @@ io.on('connection', (socket) => {
 
     socket.on('pause_conversation', () => {
         isPaused = true;
-        console.log('Conversation has been paused');
+        // console.log('Conversation has been paused');
     });
 
     // Add a new event to resume the conversation
     socket.on('resume_conversation', (promptsAndOptions) => {
-        console.log('Conversation has been resumed');
+        // console.log('Conversation has been resumed');
         isPaused = false;
         parsePromptsAndOptions(promptsAndOptions);
         handleConversationTurn();
     });
 
     socket.on('submit_human_message', (message) => {
-      console.log("A human message is received!");
+      // console.log("A human message is received!");
         if (isPaused) {
             // Resume the conversation
             isPaused = false;
@@ -59,7 +59,7 @@ io.on('connection', (socket) => {
     });
 
     socket.on('continue_conversation', (promptsAndOptions) => {
-      console.log('Conversation has been continued');
+      // console.log('Conversation has been continued');
       parsePromptsAndOptions(promptsAndOptions);
       extraMessageCount += options.conversationMaxLength;
       isPaused = false;
@@ -160,7 +160,6 @@ io.on('connection', (socket) => {
                 messages: messages
             });
 
-            console.log(completion);
             // Extract and clean up the response
             let response = completion.choices[0].message.content.trim();
 
