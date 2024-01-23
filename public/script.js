@@ -108,10 +108,11 @@ document.addEventListener('DOMContentLoaded', () => {
           currentAudio++;
           //Play next audio
           audioPlaylist[currentAudio].start();
-        }else{
+        }else if(audioIsPlaying){
+          //If audio is still playing means we should stop it.
+          //Otherwise, it might be stopped for other reasons
           audioIsPlaying = false;
           currentAudio++;
-          console.log('end of playlist');
         }
       });
 
@@ -122,6 +123,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Handle audio updates
     socket.on('audio_update', async (update) => {
+      if(document.getElementById(update.id) === null){
+        //If an audio is received for a message that is not currently on screen, skip it!
+        //This could happen after a restart etc.
+        return;
+      }
       //This is an async function
       await addToPlaylist(update.audio, update.message_index);
       //If audio is not playing, we then need to move to the next item in playlist
