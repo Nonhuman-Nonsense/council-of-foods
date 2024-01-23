@@ -53,12 +53,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const newDiv = document.createElement("div");
         newDiv.className = "character";
         const inputDiv = document.createElement("input");
-        inputDiv.id = "character-name";
         inputDiv.placeholder = "character name";
         inputDiv.type = "text";
         inputDiv.value = character.name;
         const textDiv = document.createElement("textarea");
-        textDiv.id = "character-role";
         textDiv.placeholder = "character role";
         textDiv.value = character.role;
         newDiv.appendChild(inputDiv);
@@ -315,12 +313,18 @@ document.addEventListener('DOMContentLoaded', () => {
             newCharacterDiv.classList.add('character');
             newCharacterDiv.innerHTML = `
                 <input type="text" placeholder="character name">
-                <textarea id="character-role" placeholder="character role"></textarea>
+                <textarea placeholder="character role"></textarea>
             `;
             characters.appendChild(newCharacterDiv);
         } else {
             alert('Maximum of 10 characters reached');
         }
+    });
+
+    // Remove the last character
+    document.getElementById('remove-character').addEventListener('click', () => {
+        const characters = document.getElementById('characters');
+        if(characters.lastChild) characters.removeChild(characters.lastChild);
     });
 
     document.getElementById('factoryResetButton').addEventListener('click', () => {
