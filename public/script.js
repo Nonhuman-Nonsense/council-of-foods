@@ -424,15 +424,6 @@ document.addEventListener('DOMContentLoaded', () => {
       unpackPromptsAndOptions();
     }
 
-    document.getElementById('room-name').addEventListener('change', (e) => {
-      //Update the name
-      promptsAndOptions.rooms[currentRoom].name = document.getElementById('room-name').value;
-      //Update UI
-      unpackPromptsAndOptions();
-      //Then save it to the storage
-      updatePromptsAndOptions();
-    });
-
     // Remove the last character
     document.getElementById('add-room').addEventListener('click', () => {
         const rooms = document.getElementById('room-buttons');
@@ -470,6 +461,15 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
     });
+
+    //When to reload the UI
+
+    const reloadUI = () => {
+      updatePromptsAndOptions();
+      unpackPromptsAndOptions();
+    };
+
+    document.getElementById('room-name').addEventListener('change', reloadUI);
 
     //Lastly, try to fill the initial UI
 
