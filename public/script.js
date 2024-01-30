@@ -30,6 +30,9 @@ document.addEventListener('DOMContentLoaded', () => {
     //Room control
     let currentRoom = 0;
 
+    //Names of OpenAI voices
+    const audioVoices = ['alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer'];
+
     // ===========================
     //   UI UPDATING AND STORING
     // ===========================
@@ -75,18 +78,45 @@ document.addEventListener('DOMContentLoaded', () => {
       let characterDiv = document.createElement("div");
       characterDiv.id = "characters";
       if(promptsAndOptions.rooms[currentRoom].characters.length > 0){
-        promptsAndOptions.rooms[currentRoom].characters.forEach((character) => {
+        promptsAndOptions.rooms[currentRoom].characters.forEach((character,j) => {
           const newDiv = document.createElement("div");
           newDiv.className = "character";
+
           const inputDiv = document.createElement("input");
           inputDiv.placeholder = "character name";
           inputDiv.type = "text";
-          inputDiv.value = character.name;
+          inputDiv.value = character.name ? character.name : '';
+
           const textDiv = document.createElement("textarea");
           textDiv.placeholder = "character role";
-          textDiv.value = character.role;
+          textDiv.value = character.role ? character.role : '';
+
+          const voiceDiv = document.createElement("div");
+          voiceDiv.className = "voices";
+          const voicesDescDiv = document.createElement("span");
+          voicesDescDiv.innerHTML = "voice: ";
+          voiceDiv.appendChild(voicesDescDiv);
+          for (let i = 0; i < audioVoices.length; i++) {
+            const voiceRadioDiv = document.createElement("input");
+            voiceRadioDiv.id = "voice-" + j + "-" +  audioVoices[i];
+            voiceRadioDiv.name = "voice-" + j;
+            voiceRadioDiv.type = "radio";
+            voiceRadioDiv.value = audioVoices[i];
+            if(character.voice === undefined){
+              if(j % audioVoices.length == i) voiceRadioDiv.checked = true;
+            }else{
+              if(character.voice == audioVoices[i]) voiceRadioDiv.checked = true;
+            }
+            voiceDiv.appendChild(voiceRadioDiv);
+            const voiceRadioLabelDiv = document.createElement("label");
+            voiceRadioLabelDiv.innerHTML = audioVoices[i];
+            voiceRadioLabelDiv.htmlFor = "voice-" + j + "-" +  audioVoices[i];
+            voiceDiv.appendChild(voiceRadioLabelDiv);
+          }
+
           newDiv.appendChild(inputDiv);
           newDiv.appendChild(textDiv);
+          newDiv.appendChild(voiceDiv);
           characterDiv.appendChild(newDiv);
         });
       }
@@ -118,10 +148,12 @@ document.addEventListener('DOMContentLoaded', () => {
       promptsAndOptions.rooms[currentRoom].characters = Array.from(characters).map(characterDiv => {
           const nameInput = characterDiv.querySelector('input').value; // Assuming the first input is still for the name
           const roleTextarea = characterDiv.querySelector('textarea').value; // Select the textarea for the role
+          const voice = characterDiv.querySelector('input[type=radio]:checked');
 
           return {
               name: nameInput,
-              role: roleTextarea
+              role: roleTextarea,
+              voice: voice ? voice.value : undefined
           };
       });
 
@@ -402,20 +434,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Adding a character to the panel
     document.getElementById('add-character').addEventListener('click', () => {
-        const characters = document.getElementById('characters');
-        const characterCount = characters.getElementsByClassName('character').length;
+      updatePromptsAndOptions();
 
-        if (characterCount < 10) {
-            const newCharacterDiv = document.createElement('div');
-            newCharacterDiv.classList.add('character');
-            newCharacterDiv.innerHTML = `
-                <input type="text" placeholder="character name">
-                <textarea placeholder="character role"></textarea>
-            `;
-            characters.appendChild(newCharacterDiv);
-        } else {
-            alert('Maximum of 10 characters reached');
-        }
+      promptsAndOptions.rooms[currentRoom].characters.push({});
+      unpackPromptsAndOptions();
+        // const characters = document.getElementById('characters');
+        // const characterCount = characters.getElementsByClassName('character').length;
+        //
+        // if (characterCount < 10) {
+        //     const newCharacterDiv = document.createElement('div');
+        //     newCharacterDiv.classList.add('character');
+        //     newCharacterDiv.innerHTML = `
+        //         <input type="text" placeholder="character name">
+        //         <textarea placeholder="character role"></textarea>
+        //     `;
+        //     characters.appendChild(newCharacterDiv);
+        // } else {
+        //     alert('Maximum of 10 characters reached');
+        // }
     });
 
     // Remove the last character
@@ -519,6 +555,7 @@ document.addEventListener('DOMContentLoaded', () => {
           characters: {}
         }]
       };
+      reloadUI();
     }
 
 });

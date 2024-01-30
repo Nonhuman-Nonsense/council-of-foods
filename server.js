@@ -100,7 +100,8 @@ io.on('connection', (socket) => {
             //This is an async function, and since we are not waiting for the response, it will run in a paralell thread.
             //The result will be emitted to the socket when it's ready
             //The rest of the conversation continues
-            generateAudio(id, message_index, response, audioVoices[currentSpeaker % audioVoices.length]);
+            const voice = characters[currentSpeaker].voice ? characters[currentSpeaker].voice : audioVoices[currentSpeaker % audioVoices.length];
+            generateAudio(id, message_index, response, voice);
 
             // Check for conversation end
             if (conversation.length >= options.conversationMaxLength + extraMessageCount) {

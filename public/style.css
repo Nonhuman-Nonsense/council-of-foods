@@ -55,6 +55,16 @@ h3 {
   box-shadow: 0 2px 20px rgba(5,5,5,.2);
   color: #2c2d34;
 }
+.voices{
+  display: flex;
+  flex-direction: row;
+  font-size: 13px;
+}
+.voices input{
+  width: 10px;
+  transform: scale(0.8);
+}
+
 
 #room-el {
     border: 1px solid #000;
