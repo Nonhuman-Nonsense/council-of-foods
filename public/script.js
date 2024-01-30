@@ -37,12 +37,21 @@ document.addEventListener('DOMContentLoaded', () => {
     function unpackPromptsAndOptions(){
       //Update the UI with the data stored in localStorage
       //Do the same as update, but reverse
-      document.getElementById('max-response-char-count').value = promptsAndOptions.options.maxResponseCharCountInput;
+      document.getElementById('gpt-model').value = promptsAndOptions.options.gptModel;
+      document.getElementById('temperature').value = promptsAndOptions.options.temperature;
+      document.getElementById('temperature').previousSibling.value = promptsAndOptions.options.temperature;
+      document.getElementById('max-tokens').value = promptsAndOptions.options.maxTokens;
+      document.getElementById('max-tokens').previousSibling.value = promptsAndOptions.options.maxTokens;
+      document.getElementById('frequency-penalty').value = promptsAndOptions.options.frequencyPenalty;
+      document.getElementById('frequency-penalty').previousSibling.value = promptsAndOptions.options.frequencyPenalty;
+      document.getElementById('presence-penalty').value = promptsAndOptions.options.presencePenalty;
+      document.getElementById('presence-penalty').previousSibling.value = promptsAndOptions.options.presencePenalty;
+
       document.getElementById('trim-response-to-full-sentance').checked = promptsAndOptions.options.trimSentance;
       document.getElementById('trim-response-to-full-paragraph').checked = promptsAndOptions.options.trimParagraph;
       document.getElementById('show-trimmed').checked = promptsAndOptions.options.showTrimmed;
       document.getElementById('conversation-max-length').value = promptsAndOptions.options.conversationMaxLength;
-      document.getElementById('gpt-model').value = promptsAndOptions.options.gptModel;
+
 
       // Room buttons
       let roomButtonsDiv = document.createElement("span");
@@ -86,13 +95,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const updatePromptsAndOptions = () => {
       // Retrieve the global options
+      promptsAndOptions.options.gptModel = document.getElementById('gpt-model').value;
+      promptsAndOptions.options.temperature = +document.getElementById('temperature').value;
+      promptsAndOptions.options.maxTokens = +document.getElementById('max-tokens').value;
+      promptsAndOptions.options.frequencyPenalty = +document.getElementById('frequency-penalty').value;
+      promptsAndOptions.options.presencePenalty = +document.getElementById('presence-penalty').value;
 
-      promptsAndOptions.options.maxResponseCharCountInput = +document.getElementById('max-response-char-count').value;
+      promptsAndOptions.options.maxTokens = +document.getElementById('max-tokens').value;
       promptsAndOptions.options.trimSentance = document.getElementById('trim-response-to-full-sentance').checked;
       promptsAndOptions.options.trimParagraph = document.getElementById('trim-response-to-full-paragraph').checked;
       promptsAndOptions.options.showTrimmed = document.getElementById('show-trimmed').checked;
       promptsAndOptions.options.conversationMaxLength = +document.getElementById('conversation-max-length').value;
-      promptsAndOptions.options.gptModel = document.getElementById('gpt-model').value;
+
 
       // Retrieve the panel topic
       promptsAndOptions.rooms[currentRoom].name = document.getElementById('room-name').value;
@@ -451,6 +465,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.getElementById('remove-room').addEventListener('click', () => {
       if(promptsAndOptions.rooms.length > 1){
+        updatePromptsAndOptions();
         const rooms = document.getElementById('room-buttons');
         if(rooms.lastChild) rooms.removeChild(rooms.lastChild);
 
@@ -458,9 +473,20 @@ document.addEventListener('DOMContentLoaded', () => {
         if(currentRoom > promptsAndOptions.rooms.length - 1) currentRoom = promptsAndOptions.rooms.length - 1;
         //Save
         unpackPromptsAndOptions();
+        updatePromptsAndOptions();
       }
 
     });
+
+    //range sliders for model options
+    Array.from(document.querySelectorAll('input[type=range]')).map(range => {
+      range.nextSibling.value = range.value;
+      range.oninput = () => range.nextSibling.value = range.value;
+      range.nextSibling.oninput = () => range.value = range.nextSibling.value;
+      range.onmouseover = () => range.previousSibling.style.display = "block";
+      range.onmouseout = () => range.previousSibling.style.display = "none";
+    });
+
 
     //When to reload the UI
 

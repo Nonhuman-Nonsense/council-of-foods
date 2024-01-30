@@ -156,7 +156,10 @@ io.on('connection', (socket) => {
             // console.log(messages);
             const completion = await openai.chat.completions.create({
                 model: options.gptModel,
-                max_tokens: options.maxResponseCharCountInput,
+                max_tokens: options.maxTokens,
+                temperature: options.temperature,
+                frequency_penalty: options.frequencyPenalty,
+                presence_penalty: options.presencePenalty,
                 messages: messages
             });
 

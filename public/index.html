@@ -10,13 +10,18 @@
     <main>
         <div id="setup">
             <div id="global-vars">
-              <h3>options</h3>
-                max response character count: <input type="number" id="max-response-char-count" placeholder="max character count response length" value="100"><br/>
+              <h3>model options</h3>
+                GPT Model: <select id="gpt-model"><option value="gpt-4">GPT 4</option><option value="gpt-4-1106-preview">GPT 4 Turbo</option><option value="gpt-3.5-turbo-1106" selected>GPT 3.5 Turbo</option></select><br/>
+                Temperature: <div class="explanaition">Controls randomness: Lowering results in less random completions. As the temperature approaches zero, the model will become deterministic and repetitive.</div><input type="range" min="0" max="2.0" step="0.01" value="1" class="slider"><input class="slider-value" step="0.01" type="number" id="temperature"><br/>
+                Maximum Length: <div class="explanaition">The maximum number of tokens to <b>generate</b> shared between the prompt and completion. The exact limit varies by model. (One token is roughly 4 characters for standard English text)</div><input type="range" min="1" max="600" value="200" class="slider"><input class="slider-value" type="number" step="10"  id="max-tokens"><br/>
+                Frequency Penalty: <div class="explanaition">How much to penalize new tokens based on their existing frequency in the text so far. Decreases the model's likelihood to repeat the same line verbatim.</div><input type="range" min="0" max="2.0" step="0.01" value="0" class="slider"><input class="slider-value" step="0.01" type="number" id="frequency-penalty"><br/>
+                Presence Penalty: <div class="explanaition">How much to penalize new tokens based on whether they appear in the text so far. Increases the model's likelihood to talk about new topics.</div><input type="range" min="0" max="2.0" step="0.01" value="0" class="slider"><input class="slider-value" type="number" step="0.01" id="presence-penalty"><br/>
+              <br><h3>server options</h3>
                 trim response to last complete sentance: <input type="checkbox" id="trim-response-to-full-sentance"><br>
                 trim response to last complete paragraph: <input type="checkbox" id="trim-response-to-full-paragraph" checked><br>
                 showed trimmed content: <input type="checkbox" id="show-trimmed" checked><br>
                 conversation max length: <input type="number" id="conversation-max-length" placeholder="conversation max length" value="10"><br/>
-                GPT Model: <select id="gpt-model"><option value="gpt-4">GPT 4</option><option value="gpt-4-1106-preview">GPT 4 Turbo</option><option value="gpt-3.5-turbo-1106" selected>GPT 3.5 Turbo</option></select><br/>
+
                 Reset everything to default: <button id="factoryResetButton">Factory Reset</button>
             </div>
             <br>
