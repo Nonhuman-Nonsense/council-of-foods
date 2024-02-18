@@ -23,10 +23,14 @@ io.on('connection', (socket) => {
 
     let run = true; //Flag to cancel recursive api calls if socket is closed, ie. disconnected etc.
     let isPaused = false; // Flag to check if the conversation is paused
+    let handRaised = false;
     let conversation = [];
     let conversationCount = 0;
     let currentSpeaker = 0;
     let extraMessageCount = 0;
+
+    //Every time we restart, this is incremented, so that all messages from previous conversations are dropped
+    let conversationCounter = 0;
 
     //These are updated on conversation start and resume
     let topic = "";
@@ -46,16 +50,101 @@ io.on('connection', (socket) => {
         handleConversationTurn();
     });
 
+    socket.on('raise_hand', async (promptsAndOptions) => {
+      parsePromptsAndOptions(promptsAndOptions);
+
+      //When hand is raised, ignore all incoming messages until we have a human message
+      handRaised = true;
+
+      chairInterjection(options.raiseHandPrompt.replace("[NAME]", options.humanName));
+    });
+
+    socket.on('lower_hand', async (promptsAndOptions) => {
+      parsePromptsAndOptions(promptsAndOptions);
+
+      await chairInterjection(options.neverMindPrompt.replace("[NAME]", options.humanName));
+
+      handRaised = false;
+      isPaused = false;
+      //Start the conversation again
+      handleConversationTurn();
+    });
+
+    const chairInterjection = async (interjectionPrompt) => {
+      try{
+        const thisConversationCounter = conversationCounter;
+        //Chairman is always first character
+        const chair = characters[0];
+        // Generate response using GPT-4 for AI characters
+        // Build the array of messages for the completion request
+        const messages = [];
+
+        // System message for overall context
+        messages.push({
+            role: "system",
+            content: `${topic}\n\n${chair.role}`
+        });
+
+        // Add previous messages as separate user objects
+        conversation.forEach((msg) => {
+            messages.push({
+                role: (chair.name == msg.speaker ? "assistant" : "user"),
+                content: msg.text
+            });
+        });
+
+        messages.push({
+          role: "system",
+          content: interjectionPrompt
+        });
+
+        // Prepare the completion request
+        // console.log(conversation.length);
+        // console.log(messages);
+        const completion = await openai.chat.completions.create({
+            model: options.gptModel,
+            max_tokens: 100,
+            temperature: options.temperature,
+            frequency_penalty: options.frequencyPenalty,
+            presence_penalty: options.presencePenalty,
+            messages: messages
+        });
+
+        // Extract and clean up the response
+        let response = completion.choices[0].message.content.trim();
+
+        if(thisConversationCounter != conversationCounter) return;
+        conversation.push({ id: completion.id, speaker: chair.name, text: response });
+
+        //A rolling index of the message number, so that audio can be played in the right order etc.
+        const message_index = conversation.length - 1;
+
+        socket.emit('conversation_update', conversation);
+
+        //This is an async function, and since we are not waiting for the response, it will run in a paralell thread.
+        //The result will be emitted to the socket when it's ready
+        //The rest of the conversation continues
+        const voice = characters[0].voice ? characters[0].voice : audioVoices[0];
+        generateAudio(completion.id, message_index, response, voice);
+      } catch (error) {
+        console.error('Error during conversation:', error);
+        socket.emit('conversation_error', 'An error occurred during the conversation.');
+      }
+    };
+
     socket.on('submit_human_message', (message) => {
-      // console.log("A human message is received!");
-        if (isPaused) {
-            // Resume the conversation
-            isPaused = false;
-            // Only needs to be started if it's not running
-            handleConversationTurn();
-        }
-        //Just inject the message into the conversation stack, and let everyone deal with it!
-        conversation.push(message);
+      //Add it to the stack, and then start the conversation again
+      // message.type = 'human';
+      message.id = 'human-' + conversationCounter + '-' + conversation.length;
+      conversation.push(message);
+      socket.emit('conversation_update', conversation);
+      //Don't read human messages for now
+      //Otherwise, generate audio here
+      socket.emit('audio_update', {id:message.id, message_index: conversation.length - 1, type: 'human'});
+
+      isPaused = false;
+      handRaised = false;
+      handleConversationTurn();
     });
 
     socket.on('continue_conversation', (promptsAndOptions) => {
@@ -76,6 +165,9 @@ io.on('connection', (socket) => {
       currentSpeaker = 0;
       extraMessageCount = 0;
       isPaused = false;
+      handRaised = false;
+      conversationCounter++;
+      console.log('Counter ' + conversationCounter);
 
       // Start with the chairperson introducing the topic
       handleConversationTurn();
@@ -83,11 +175,18 @@ io.on('connection', (socket) => {
 
     const handleConversationTurn = async () => {
         try {
+            const thisConversationCounter = conversationCounter;
             if(!run) return;
-            if (isPaused) return; // Don't proceed if the conversation is paused
+            if(isPaused) return; // Don't proceed if the conversation is paused
+            if(handRaised) return;
 
             // Generate response using GPT-4 for AI characters
             const {id, response, trimmed} = await generateTextFromGPT(characters[currentSpeaker]);
+
+            //If hand is raised or conversation is paused, just stop here, ignore this message
+            if(isPaused) return;
+            if(handRaised) return;
+            if(thisConversationCounter != conversationCounter) return;
 
             // Add the response to the conversation
             conversation.push({ id: id, speaker: characters[currentSpeaker].name, text: response, trimmed: trimmed  });
@@ -121,6 +220,7 @@ io.on('connection', (socket) => {
 
     const generateAudio = async (id, index, text, voiceName) => {
       //Request the audio
+      const thisConversationCounter = conversationCounter;
       const mp3 = await openai.audio.speech.create({
         model: "tts-1",
         voice: voiceName,
@@ -130,6 +230,7 @@ io.on('connection', (socket) => {
       //Wait until the whole buffer is downloaded.
       //This is better if we can pipe it to a stream in the future, so that we don't have to wait until it's done.
       const buffer = Buffer.from(await mp3.arrayBuffer());
+      if(thisConversationCounter != conversationCounter) return;
       socket.emit('audio_update', {id: id, message_index: index, audio: buffer});
     }
 

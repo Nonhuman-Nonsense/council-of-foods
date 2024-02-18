@@ -6,6 +6,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let conversationStarted = false;
     let promptsAndOptions;
 
+    const conversationContainer = document.getElementById('conversation-container');
+
     //Global graphic buttons and elements
     const toggleConversationBtn = document.getElementById('toggleConversationBtn');
     const restartBtn = document.getElementById('restartButton');
@@ -18,6 +20,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const audioBackButton = document.getElementById('audioBack');
     const audioToggleButton = document.getElementById('audioToggle');
     const audioNextButton  = document.getElementById('audioNext');
+
+    //Human input
+    const humanName = document.getElementById('human-name');
+    const raiseHandButton = document.getElementById('raiseHand');
+    const raiseHandIcon = document.getElementById('raiseHandIcon');
+    const humanInputArea = document.getElementById('humanInput');
+    const submitHumanInput = document.getElementById('submitHumanInput');
+    const viewHumanInputPrompts = document.getElementById('viewHumanInputPrompts');
+    const raiseHandPrompt = document.getElementById('raiseHandPrompt');
+    const neverMindPrompt = document.getElementById('neverMindPrompt');
+    const humanConfig = document.getElementById('humanConfig');
+    const preHumanInputContainer = document.getElementById('preHumanInputContainer');
+    const humanInputContainer = document.getElementById('humanInputContainer');
+
 
     //Objects for audio control
     let audioCtx;
@@ -32,6 +48,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     //Names of OpenAI voices
     const audioVoices = ['alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer'];
+
+    // Human input
+    let handRaised = false;
 
     // ===========================
     //   UI UPDATING AND STORING
@@ -55,6 +74,9 @@ document.addEventListener('DOMContentLoaded', () => {
       document.getElementById('show-trimmed').checked = promptsAndOptions.options.showTrimmed;
       document.getElementById('conversation-max-length').value = promptsAndOptions.options.conversationMaxLength;
 
+      raiseHandPrompt.value = promptsAndOptions.options.raiseHandPrompt;
+      neverMindPrompt.value = promptsAndOptions.options.neverMindPrompt;
+      humanName.value = promptsAndOptions.options.humanName;
 
       // Room buttons
       let roomButtonsDiv = document.createElement("span");
@@ -137,6 +159,9 @@ document.addEventListener('DOMContentLoaded', () => {
       promptsAndOptions.options.showTrimmed = document.getElementById('show-trimmed').checked;
       promptsAndOptions.options.conversationMaxLength = +document.getElementById('conversation-max-length').value;
 
+      promptsAndOptions.options.raiseHandPrompt = raiseHandPrompt.value;
+      promptsAndOptions.options.neverMindPrompt = neverMindPrompt.value;
+      promptsAndOptions.options.humanName = humanName.value;
 
       // Retrieve the panel topic
       promptsAndOptions.rooms[currentRoom].name = document.getElementById('room-name').value;
@@ -179,6 +204,9 @@ document.addEventListener('DOMContentLoaded', () => {
               return speech;
             })
             .join('');
+        preHumanInputContainer.style.display = "none";
+        postHumanInputContainer.style.display = "block";
+        conversationContainer.scrollTop = conversationContainer.scrollHeight;
     });
 
     // Handle audio updates
@@ -187,6 +215,11 @@ document.addEventListener('DOMContentLoaded', () => {
         //If an audio is received for a message that is not currently on screen, skip it!
         //This could happen after a restart etc.
         return;
+      }
+      console.log(update);
+      if(update.type == 'human'){
+        ignorePlaylist(update.message_index);
+        return
       }
       //This is an async function
       await addToPlaylist(update.audio, update.message_index);
@@ -273,6 +306,26 @@ document.addEventListener('DOMContentLoaded', () => {
       audioPlaylist[index] = {play: play, stop: stop};
     }
 
+    const ignorePlaylist = (index) => {
+      const ignore = function(){
+        if(audioPlaylist[currentAudio+1] !== undefined){
+          //Play the next audio in the list
+          currentAudio++;
+          //Play next audio
+          audioPlaylist[currentAudio].play();
+        }else if(audioIsPlaying){
+          //If audio is still playing means we have reached the end of the queue
+          //Otherwise, it might be stopped for other reasons
+          audioIsPlaying = false;
+          currentAudio++;
+        }
+      }
+      const stop = function(){
+        audioIsPlaying = false;
+      }
+      audioPlaylist[index] = {play: ignore, stop: stop, skip: true};
+    }
+
     audioBackButton.addEventListener('click', async () => {
       //If audio is paused, do nothing
       if(pauseAudio) return;
@@ -285,6 +338,10 @@ document.addEventListener('DOMContentLoaded', () => {
         nextOrBackClicked = true;
       }
       if(currentAudio > 0)currentAudio--;
+      //If there is anything to skip
+      while(audioPlaylist[currentAudio].skip && currentAudio > 0){
+        currentAudio--;
+      }
       if(audioPlaylist[currentAudio] !== undefined){
         audioPlaylist[currentAudio].play();
       }
@@ -380,6 +437,12 @@ document.addEventListener('DOMContentLoaded', () => {
       restartBtn.style.display = 'none';
       toggleConversationBtn.style.display = 'inline';
       toggleConversationBtn.textContent = 'Pause';
+      preHumanInputContainer.style.display = "block";
+      postHumanInputContainer.style.display = "none";
+      raiseHandButton.innerHTML = "I want to say something/Raise hand";
+      raiseHandIcon.style.display = "none";
+      humanInputArea.style.display = "none";
+      submitHumanInput.style.display = "none";
       conversationActive = true;
       endMessage.innerHTML = "";
       conversationDiv.innerHTML = "";
@@ -413,23 +476,36 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Handle submission of human input
-    document.getElementById('submitHumanInput').addEventListener('click', () => {
+    submitHumanInput.addEventListener('click', () => {
       const message = {
-        speaker: document.getElementById('human-name').value,
-        text: document.getElementById('humanInput').value
+        speaker: humanName.value,
+        text: humanInputArea.value
       }
 
         if (conversationActive == false) {
-          socket.emit('submit_human_message', message);
           toggleConversationBtn.textContent = 'Pause';
           conversationActive = true;
           spinner.style.display = 'block';
           toggleConversationBtn.style.display = 'inline';
           restartBtn.style.display = 'none';
           continueBtn.style.display = 'none';
-        } else {
-            socket.emit('submit_human_message', message);
         }
+        if(handRaised){
+          handRaised = false;
+          raiseHandIcon.style.display = 'none';
+          raiseHandButton.innerHTML = "I want to say something/Raise hand";
+          raiseHandIcon.style.display = "none";
+          humanInputArea.style.display = "none";
+          submitHumanInput.style.display = "none";
+          spinner.style.display = "block";
+          endMessage.innerHTML = "";
+
+          continueBtn.style.display = 'none';
+          restartBtn.style.display = 'none';
+          toggleConversationBtn.textContent = 'Pause';
+          conversationActive = true;
+        }
+        socket.emit('submit_human_message', message);
     });
 
     // Adding a character to the panel
@@ -522,6 +598,47 @@ document.addEventListener('DOMContentLoaded', () => {
       range.onmouseover = () => range.previousSibling.style.display = "block";
       range.onmouseout = () => range.previousSibling.style.display = "none";
     });
+
+    raiseHandButton.addEventListener('click', () => {
+      if(!handRaised){
+        handRaised = true;
+        raiseHandButton.innerHTML = "Never mind/Lower Hand";
+        raiseHandIcon.style.display = "block";
+        spinner.style.display = "none";
+        humanInputArea.style.display = "block";
+        submitHumanInput.style.display = "block";
+        endMessage.innerHTML = "Waiting for human input...";
+        const sentPromptsAndOptions = updatePromptsAndOptions();
+        socket.emit('raise_hand', sentPromptsAndOptions);
+      }else{
+        //Never mind is clicked
+        handRaised = false;
+        raiseHandButton.innerHTML = "I want to say something/Raise hand";
+        raiseHandIcon.style.display = "none";
+        humanInputArea.style.display = "none";
+        submitHumanInput.style.display = "none";
+        spinner.style.display = "block";
+        endMessage.innerHTML = "";
+
+        continueBtn.style.display = 'none';
+        restartBtn.style.display = 'none';
+        toggleConversationBtn.textContent = 'Pause';
+        conversationActive = true;
+        const sentPromptsAndOptions = updatePromptsAndOptions();
+        socket.emit('lower_hand', sentPromptsAndOptions);
+      }
+    });
+
+    viewHumanInputPrompts.addEventListener('click', () => {
+      if(viewHumanInputPrompts.innerHTML == "configure"){
+        humanConfig.style.display = "block";
+        viewHumanInputPrompts.innerHTML = "hide";
+      }else{
+        humanConfig.style.display = "none";
+        viewHumanInputPrompts.innerHTML = "configure";
+      }
+    });
+
 
 
     //When to reload the UI

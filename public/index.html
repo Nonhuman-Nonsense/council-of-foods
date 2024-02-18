@@ -59,11 +59,23 @@
            </div>
 
            <div id="humanInputContainer">
-                <h3>add message</h3>
-                <br>
-                <input type="text" id="human-name" placeholder="human name" value="Human"><br>
-                <textarea id="humanInput" placeholder="say something..."></textarea><br>
-                <button id="submitHumanInput">send</button>
+                <h3>human input</h3>
+                <span id="preHumanInputContainer"><br>We need at least one message before humans can talk...</span>
+                <div id="postHumanInputContainer">
+                  <br>name:
+                  <input type="text" id="human-name" placeholder="human name" value="Human">
+                  <button id="raiseHand">I want to say something/Raise hand</button><br>
+                  <textarea id="humanInput" placeholder="say something..."></textarea><br>
+                  <button id="submitHumanInput">send</button>
+                </div>
+                <span id="raiseHandIcon">&#9995;</span>
+                <button id="viewHumanInputPrompts">configure</button>
+                <div id="humanConfig">
+                  <br>Prompt for raised hand:
+                  <textarea id="raiseHandPrompt" placeholder="raise hand prompt...">We have a question from the audience, please invite a human speaker called [NAME] to the debate.</textarea><br>
+                  <br>Prompt for never mind:
+                  <textarea id="neverMindPrompt" placeholder="never mind prompt...">It seems like [NAME] didn't want to speak after all, make an excuse for them and then invite the next speaker.</textarea><br>
+                </div>
            </div>
 
            <br>
