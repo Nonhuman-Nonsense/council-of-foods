@@ -23,6 +23,16 @@ function Setup() {
     alignItems: "center",
   };
 
+  function enterCouncil() {
+    console.log("Entering council...");
+  }
+
+  function handleKeyDown(e) {
+    if (e.key === "Enter") {
+      enterCouncil();
+    }
+  }
+
   return (
     <div style={welcomeStyle}>
       <div>
@@ -41,6 +51,7 @@ function Setup() {
           className="text-input"
           rows="2"
           cols="30"
+          onKeyDown={handleKeyDown}
         ></textarea>
       </div>
       <div>
@@ -54,7 +65,12 @@ function Setup() {
           ))}
         </div>
       </div>
-      <button className="outline-button">Enter</button>
+      <button
+        className="outline-button"
+        onClick={enterCouncil}
+      >
+        Enter
+      </button>
     </div>
   );
 }
