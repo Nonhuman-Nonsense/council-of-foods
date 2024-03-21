@@ -1,10 +1,22 @@
 import "./App.css";
-import Main from "./components/Main";
+import Overlay from "./components/Overlay";
+import Welcome from "./components/Welcome";
+import backgroundImage from "./images/council-of-foods-background.jpg";
 
 function App() {
+  const backgroundStyle = {
+    backgroundImage: `url(${backgroundImage})`,
+    backgroundSize: "cover",
+    backgroundPosition: "center",
+    height: "100vh",
+    width: "100vw",
+  };
+
   return (
-    <div className="App">
-      <Main />
+    <div className="App" style={backgroundStyle}>
+      <Overlay>
+        <Welcome />
+      </Overlay>
     </div>
   );
 }

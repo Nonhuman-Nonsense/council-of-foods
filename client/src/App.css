@@ -1,5 +1,26 @@
+@import url("https://fonts.googleapis.com/css2?family=Tinos:ital,wght@0,400;0,700;1,400;1,700&display=swap");
+
+.App {
+  font-family: "Tinos", serif;
+  font-weight: 400;
+  font-style: normal;
+}
+
+body,
+html,
+#root,
+.App {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  width: 100%;
+}
+
 .App {
   text-align: center;
+  position: relative;
+  height: 100vh;
+  width: 100vw;
 }
 
 .App-logo {
