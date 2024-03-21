@@ -28,6 +28,47 @@ html,
   pointer-events: none;
 }
 
+.header {
+  font-size: 80px;
+  margin: 8px;
+  font-weight: normal;
+}
+
+.sub-header {
+  font-size: 40px;
+  margin: 8px;
+  font-weight: normal;
+}
+
+.sub-sub-header {
+  font-size: 32px;
+  margin-bottom: 12px;
+  font-weight: normal;
+}
+
+.input-icon-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.name-input {
+  background-color: white;
+  border-radius: 12px;
+  border: 2px solid #ccc; /* Adjust as needed */
+  width: 400px;
+  height: 30px;
+  font-size: 25px;
+  padding-left: 10px;
+  padding-right: 40px; /* Make room for the arrow */
+}
+
+.input-arrow {
+  position: absolute;
+  right: 10px;
+  color: black; /* Adjust arrow color as needed */
+}
+
 @media (prefers-reduced-motion: no-preference) {
   .App-logo {
     animation: App-logo-spin infinite 20s linear;

@@ -1,4 +1,5 @@
 import React from "react";
+import NameInput from "./NameInput";
 
 function Welcome() {
   const welcomeStyle = {
@@ -8,22 +9,18 @@ function Welcome() {
     minHeight: "100vh",
     display: "flex",
     flexDirection: "column",
-    justifyContent: "center", // Center the content vertically
+    justifyContent: "space-around",
     alignItems: "center",
-  };
-
-  const contentStyle = {
-    // Add padding to the bottom to push the content up slightly
-    paddingBottom: "50%", // Adjust this value to control the shift
   };
 
   return (
     <div style={welcomeStyle}>
       {/* Wrap the text content for individual styling */}
-      <div style={contentStyle}>
-        <p>welcome to</p>
-        <h1>COUNCIL OF FOODS</h1>
+      <div>
+        <h2 className="sub-header">welcome to</h2>
+        <h1 className="header">COUNCIL OF FOODS</h1>
       </div>
+      <NameInput />
     </div>
   );
 }
