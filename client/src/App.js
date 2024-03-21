@@ -5,7 +5,7 @@ import Welcome from "./components/Welcome";
 import Setup from "./components/Setup";
 
 function App() {
-  const [currentView, setCurrentView] = useState("welcome"); // "welcome" or "setup"
+  const [currentView, setCurrentView] = useState("welcome");
 
   const backgroundStyle = {
     // backgroundImage: `url(${backgroundImage})`,

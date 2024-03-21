@@ -86,12 +86,23 @@ h4 {
   display: flex;
 }
 
+.food-button {
+  margin-left: 5px;
+  margin-right: 5px;
+  background-color: black;
+  width: 75px;
+  height: 75px;
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
 .food-button img {
-  width: 100px; /* Or any size you prefer */
-  height: 100px; /* Ensure this is the same as the width for a perfect circle */
-  border-radius: 50%; /* This makes the image round */
-  object-fit: cover; /* This ensures the image covers the area nicely */
-  cursor: pointer; /* Optional: Changes the cursor to indicate it's clickable */
+  width: 80%;
+  height: 80%;
+  object-fit: cover;
+  cursor: pointer;
 }
 
 @media (prefers-reduced-motion: no-preference) {
