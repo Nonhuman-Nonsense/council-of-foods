@@ -26,11 +26,11 @@ function Setup() {
   return (
     <div style={welcomeStyle}>
       <div>
-        <h4 className="sub-sub-sub-header">
+        <h4>
           Welcome to the Council of Foods - an assembly of diverse
           <br /> foods, addressing the broken food system through debate.
         </h4>
-        <h4 className="sub-sub-sub-header">
+        <h4>
           To begin a meeting, decide on a topic & pick which foods will be{" "}
           <br /> participating!
         </h4>
@@ -54,7 +54,7 @@ function Setup() {
           ))}
         </div>
       </div>
-      <button>Enter</button>
+      <button className="outline-button">Enter</button>
     </div>
   );
 }

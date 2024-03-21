@@ -86,22 +86,16 @@ h4 {
   display: flex;
 }
 
-.food-button {
-  margin-left: 5px;
-  margin-right: 5px;
-  background-color: black;
-  width: 75px;
-  height: 75px;
-  border-radius: 50%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.food-button img {
-  width: 80%;
-  height: 80%;
-  object-fit: cover;
+.outline-button {
+  font-family: "Tinos", serif;
+  font-style: normal;
+  font-size: 34px;
+  font-weight: normal;
+  color: white;
+  background-color: transparent;
+  border: 2px solid white;
+  border-radius: 25px;
+  padding: 0px 22px 0px 22px;
   cursor: pointer;
 }
 
