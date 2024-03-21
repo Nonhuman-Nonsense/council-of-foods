@@ -31,8 +31,8 @@ function Setup() {
           <br /> foods, addressing the broken food system through debate.
         </h4>
         <h4>
-          To begin a meeting, decide on a topic & pick which foods will be{" "}
-          <br /> participating!
+          To begin a meeting, decide on a topic
+          <br /> & pick which foods will be participating!
         </h4>
       </div>
       <div>
