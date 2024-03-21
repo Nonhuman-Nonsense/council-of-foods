@@ -8,14 +8,13 @@ COPY client/ .
 RUN npm run build
 
 # Stage 2: Build the Node server
-FROM node:lts-alpine as server-builder
+FROM node:lts-alpine
 
 WORKDIR /usr/src/server
 COPY server/package*.json ./
 RUN npm ci --only=production
 COPY server/ .
-
-# Copy the built React app from the client-builder stage
+# Copy the built React app from the previous stage
 COPY --from=client-builder /usr/src/client/build ./public
 
 # Expose the port that the server is running on
