@@ -3,13 +3,13 @@ import React, { useState } from "react";
 import Overlay from "./components/Overlay";
 import Welcome from "./components/Welcome";
 import Setup from "./components/Setup";
-import backgroundImage from "./images/council-of-foods-background.jpg";
 
 function App() {
   const [currentView, setCurrentView] = useState("welcome"); // "welcome" or "setup"
 
   const backgroundStyle = {
-    backgroundImage: `url(${backgroundImage})`,
+    // backgroundImage: `url(${backgroundImage})`,
+    backgroundImage: `url("/images/background.jpg")`,
     backgroundSize: "cover",
     backgroundPosition: "center",
     height: "100vh",

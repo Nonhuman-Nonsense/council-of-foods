@@ -40,10 +40,9 @@ function NameInput(props) {
       <h3 className="sub-sub-header">please type your name to enter:</h3>
       <div className="input-icon-wrapper">
         <input
-          className="name-input"
+          className="text-input name-input"
           type="text"
           value={name}
-          placeholder="your name"
           onChange={handleChange}
           onKeyDown={handleKeyDown}
         />
