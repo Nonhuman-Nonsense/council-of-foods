@@ -1,19 +1,25 @@
-FROM node:lts-alpine
+# Stage 1: Build the React client app
+FROM node:lts-alpine as client-builder
 
-# Create app directory
-WORKDIR /usr/src/app
+WORKDIR /usr/src/client
+COPY client/package*.json ./
+RUN npm ci --only=production
+COPY client/ .
+RUN npm run build
 
-# Install app dependencies
-# A wildcard is used to ensure both package.json AND package-lock.json are copied
-# where available (npm@5+)
-COPY package*.json ./
+# Stage 2: Build the Node server
+FROM node:lts-alpine as server-builder
 
-# RUN npm install
-# If you are building your code for production
-RUN npm ci --omit=dev
+WORKDIR /usr/src/server
+COPY server/package*.json ./
+RUN npm ci --only=production
+COPY server/ .
 
-# Bundle app source
-COPY . .
+# Copy the built React app from the client-builder stage
+COPY --from=client-builder /usr/src/client/build ./public
 
+# Expose the port that the server is running on
 EXPOSE 3000
-CMD [ "node", "server.js" ]
+
+# Specify the command to run the server
+CMD ["node", "server.js"]
