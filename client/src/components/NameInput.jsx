@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faArrowRight } from "@fortawesome/free-solid-svg-icons";
 
-function NameInput() {
+function NameInput(props) {
   const [name, setName] = useState("");
   const [isNameMissing, setIsNameMissing] = useState(false);
 
@@ -22,8 +22,7 @@ function NameInput() {
 
   function enterCouncil() {
     if (name) {
-      console.log("Entering council...");
-      setIsNameMissing(false);
+      props.onEnterSetup();
     } else {
       console.log("No name...");
       setIsNameMissing(true);

@@ -1,7 +1,7 @@
 import React from "react";
 import NameInput from "./NameInput";
 
-function Welcome() {
+function Welcome({ onEnterSetup }) {
   const welcomeStyle = {
     zIndex: 10,
     color: "white",
@@ -20,7 +20,7 @@ function Welcome() {
         <h2 className="sub-header">welcome to</h2>
         <h1 className="header">COUNCIL OF FOODS</h1>
       </div>
-      <NameInput />
+      <NameInput onEnterSetup={onEnterSetup} />
     </div>
   );
 }
