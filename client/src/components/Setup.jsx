@@ -53,7 +53,7 @@ function Setup() {
     }
   }
 
-  function enterTopic(e) {
+  function handleInputTopic(e) {
     const newTopic = e.target.value;
     setTopic(newTopic);
 
@@ -120,7 +120,7 @@ function Setup() {
           rows="2"
           cols="30"
           value={topic}
-          onChange={enterTopic}
+          onChange={handleInputTopic}
           onKeyDown={handleKeyDown}
         ></textarea>
         <h3 className={`${!isTopicMissing ? "hidden" : ""}`}>
