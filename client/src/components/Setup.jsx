@@ -104,8 +104,9 @@ function Setup() {
     <div style={welcomeStyle}>
       <div>
         <h4>
-          Welcome to the Council of Foods - an assembly of diverse
-          <br /> foods, addressing the broken food system through debate.
+          Welcome to the Council of Foods - an assembly of diverse foods,
+          <br />
+          addressing the broken food system through debate.
         </h4>
         <h4>
           To begin a meeting, decide on a topic
