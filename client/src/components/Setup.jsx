@@ -4,6 +4,8 @@ import FoodButton from "./FoodButton";
 function Setup() {
   const [topic, setTopic] = useState(""); // Added state for the topic
   const [selectedFoods, setSelectedFoods] = useState([]);
+  const [isTopicMissing, setIsTopicMissing] = useState(false); // State to track if topic is missing
+  const [areFoodsMissing, setAreFoodsMissing] = useState(false); // State to track if foods are missing
 
   const foods = [
     "banana",
@@ -27,23 +29,39 @@ function Setup() {
   };
 
   function enterCouncil() {
-    console.log("Entering council...");
+    // Reset validation states
+    setIsTopicMissing(false);
+    setAreFoodsMissing(false);
 
-    console.log("Name: ", localStorage.getItem("name"));
-    console.log("Topic: ", topic);
-    console.log("Selected foods: ", selectedFoods);
+    // Validate if topic is entered
+    if (!topic) {
+      setIsTopicMissing(true);
+    }
 
-    // First test call socket
+    // Validate if at least two foods are selected
+    if (selectedFoods.length < 2) {
+      setAreFoodsMissing(true);
+    }
 
-    // let promptsAndOptions = {options: , topic: , characters: }
+    // If both validations pass, log the values (simulate entering the council)
+    if (topic && selectedFoods.length >= 2) {
+      console.log("Entering council...");
 
-    // socket.emit("start_conversation", promptsAndOptions);
+      console.log("Name: ", localStorage.getItem("name"));
+      console.log("Topic: ", topic);
+      console.log("Selected foods: ", selectedFoods);
+    }
+  }
 
-    // return {
-    //   options: promptsAndOptions.options,
-    //   topic: promptsAndOptions.rooms[currentRoom].topic,
-    //   characters: promptsAndOptions.rooms[currentRoom].characters,
-    // };
+  function enterTopic(e) {
+    const newTopic = e.target.value;
+    setTopic(newTopic);
+
+    if (newTopic.trim().length > 0) {
+      setIsTopicMissing(false);
+    } else {
+      setIsTopicMissing(true);
+    }
   }
 
   function handleKeyDown(e) {
@@ -55,15 +73,30 @@ function Setup() {
   function selectFood(foodName) {
     // Check if the foodName is already selected to prevent duplicates
     if (!selectedFoods.includes(foodName)) {
-      setSelectedFoods([...selectedFoods, foodName]);
+      const updatedSelectedFoods = [...selectedFoods, foodName];
+      setSelectedFoods(updatedSelectedFoods);
+
+      // Check if at least two foods are now selected
+      if (updatedSelectedFoods.length >= 2) {
+        setAreFoodsMissing(false);
+      }
+
       console.log(`SELECTED ${foodName}`);
     }
   }
 
   function deselectFood(foodName) {
     // Filter out the foodName from the selectedFoods array to remove it
-    const filteredFoods = selectedFoods.filter((food) => food !== foodName);
-    setSelectedFoods(filteredFoods);
+    const updatedSelectedFoods = selectedFoods.filter(
+      (food) => food !== foodName
+    );
+    setSelectedFoods(updatedSelectedFoods);
+
+    // If fewer than two foods remain selected, show the warning
+    if (updatedSelectedFoods.length < 2) {
+      setAreFoodsMissing(true);
+    }
+
     console.log(`DESELECTED ${foodName}`);
   }
 
@@ -82,12 +115,16 @@ function Setup() {
       <div>
         <h3>Topic:</h3>
         <textarea
-          className="text-input"
+          className={`text-input ${isTopicMissing ? "input-error" : ""}`} // Apply error styling if topic is missing
           rows="2"
           cols="30"
+          value={topic}
+          onChange={enterTopic}
           onKeyDown={handleKeyDown}
-          onChange={(e) => setTopic(e.target.value)} // Update the state of the topic when input changes
         ></textarea>
+        <h3 className={`${!isTopicMissing ? "hidden" : ""}`}>
+          please enter a topic to proceed
+        </h3>
       </div>
       <div>
         <h3>Foods:</h3>
@@ -101,6 +138,9 @@ function Setup() {
             />
           ))}
         </div>
+        <h3 className={`${!areFoodsMissing ? "hidden" : ""}`}>
+          please select at least two foods to proceed
+        </h3>
       </div>
       <button
         className="outline-button"

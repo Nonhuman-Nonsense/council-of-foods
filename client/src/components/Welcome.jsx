@@ -17,8 +17,8 @@ function Welcome({ onEnterSetup }) {
     <div style={welcomeStyle}>
       {/* Wrap the text content for individual styling */}
       <div>
-        <h2 className="sub-header">welcome to</h2>
-        <h1 className="header">COUNCIL OF FOODS</h1>
+        <h2>welcome to</h2>
+        <h1>COUNCIL OF FOODS</h1>
       </div>
       <NameInput onEnterSetup={onEnterSetup} />
     </div>
