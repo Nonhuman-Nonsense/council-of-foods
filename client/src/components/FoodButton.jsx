@@ -1,13 +1,20 @@
 import React, { useState } from "react";
 
-function FoodButton({ name }) {
+function FoodButton({ name, onSelectFood, onDeselectFood }) {
   const [isSelected, setIsSelected] = useState(false);
 
   const imageUrl = `/images/foods/${name}.png`;
 
-  function selectFood() {
-    console.log("Food selected!");
-    setIsSelected(!isSelected); // Toggle the isSelected state
+  function handleClickFood() {
+    if (!isSelected) {
+      // Select food
+      onSelectFood(name);
+    } else {
+      // Deselect food
+      onDeselectFood(name);
+    }
+
+    setIsSelected(!isSelected);
   }
 
   const buttonStyle = {
@@ -41,7 +48,7 @@ function FoodButton({ name }) {
         src={imageUrl}
         alt={name}
         style={imageStyle}
-        onClick={selectFood}
+        onClick={handleClickFood}
       />
     </div>
   );

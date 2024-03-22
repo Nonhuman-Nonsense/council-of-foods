@@ -20,9 +20,12 @@ function NameInput(props) {
     }
   }
 
-  function enterCouncil() {
+  function enterSetup() {
     if (name) {
       props.onEnterSetup();
+
+      // Save name to local storage
+      localStorage.setItem("name", name);
     } else {
       console.log("No name...");
       setIsNameMissing(true);
@@ -31,7 +34,7 @@ function NameInput(props) {
 
   function handleKeyDown(e) {
     if (e.key === "Enter") {
-      enterCouncil();
+      enterSetup();
     }
   }
 
@@ -49,7 +52,7 @@ function NameInput(props) {
         <FontAwesomeIcon
           icon={faArrowRight}
           className="input-arrow"
-          onClick={enterCouncil}
+          onClick={enterSetup}
         />
       </div>
       <h3 className={`sub-sub-header ${!isNameMissing ? "hidden" : ""}`}>

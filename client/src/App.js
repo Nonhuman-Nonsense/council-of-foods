@@ -16,9 +16,9 @@ function App() {
     width: "100vw",
   };
 
-  const enterSetup = () => {
+  function enterSetup() {
     setCurrentView("setup");
-  };
+  }
 
   return (
     <div
