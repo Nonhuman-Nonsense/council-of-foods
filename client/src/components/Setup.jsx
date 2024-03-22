@@ -2,10 +2,10 @@ import React, { useState } from "react";
 import FoodButton from "./FoodButton";
 
 function Setup() {
-  const [topic, setTopic] = useState(""); // Added state for the topic
+  const [topic, setTopic] = useState("");
   const [selectedFoods, setSelectedFoods] = useState([]);
-  const [isTopicMissing, setIsTopicMissing] = useState(false); // State to track if topic is missing
-  const [areFoodsMissing, setAreFoodsMissing] = useState(false); // State to track if foods are missing
+  const [isTopicMissing, setIsTopicMissing] = useState(false);
+  const [areFoodsMissing, setAreFoodsMissing] = useState(false);
 
   const foods = [
     "banana",
