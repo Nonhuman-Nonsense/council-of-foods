@@ -34,21 +34,30 @@ function Council({ options }) {
     height: "120px",
   };
 
-  const foodImageShadowStyle = {
-    zIndex: -1,
-    position: "absolute",
-    top: "5px",
-    left: "0px",
-    filter:
-      "blur(3px) brightness(0%) saturate(100%) invert(0%) sepia(100%) hue-rotate(180deg) contrast(100%)",
-    opacity: 0.8,
+  const foodImageShadowStyle = (index, total) => {
+    let leftPosition = calculateLeftPosition(index, total);
+
+    // Determine the angle of rotation
+    const rotationAngle = leftPosition * 2;
+
+    return {
+      zIndex: -1,
+      position: "absolute",
+      top: "5px",
+      left: `${leftPosition}px`,
+      filter:
+        "blur(3px) brightness(0%) saturate(100%) invert(0%) sepia(100%) hue-rotate(180deg) contrast(100%)",
+      opacity: 0.6,
+      transformOrigin: "bottom center", // Set the origin to the bottom center
+      transform: `rotate(${rotationAngle}deg)`, // Apply rotation transformation
+    };
   };
 
   const calculateLeftPosition = (index, total) => {
     const middleIndex = (total - 1) / 2;
     const distanceIncrement = 10; // Adjust as needed
     const distance = (index - middleIndex) * distanceIncrement; // Calculate distance from middle index
-    return `${distance}px`; // Return distance as the left position
+    return distance; // Return distance as the left position
   };
 
   const foodItemStyle = (index, total) => {
@@ -92,8 +101,7 @@ function Council({ options }) {
               src={`/images/foods/${food}.png`}
               style={{
                 ...foodImageStyle,
-                ...foodImageShadowStyle,
-                left: calculateLeftPosition(index, foods.length),
+                ...foodImageShadowStyle(index, foods.length),
                 backgroundImage: `url(/images/foods/${food}.png)`,
               }}
             />
