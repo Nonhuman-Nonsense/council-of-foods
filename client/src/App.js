@@ -52,7 +52,7 @@ function App() {
           <Setup onEnterCouncil={enterCouncil} />
         ) : (
           <div>
-            <Navbar />
+            <Navbar topic={topic} />
             <Council options={{ name: name, topic: topic, foods: foods }} />
           </div>
         )}

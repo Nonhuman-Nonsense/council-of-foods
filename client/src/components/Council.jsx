@@ -23,7 +23,7 @@ function Council({ options }) {
     top: "50%",
     left: "50%",
     transform: "translate(-50%, -50%)",
-    width: "80%",
+    width: "70%",
     display: "flex",
     justifyContent: "space-around",
     alignItems: "center",
@@ -76,6 +76,7 @@ function Council({ options }) {
         className="text-input"
         rows="5"
         style={textAreaStyle}
+        disabled
       ></textarea>
       <div style={foodsContainerStyle}>
         {foods.map((food, index) => (

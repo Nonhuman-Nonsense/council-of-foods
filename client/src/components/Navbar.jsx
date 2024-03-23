@@ -1,11 +1,11 @@
 import React from "react";
 
-function Navbar() {
+function Navbar({ topic }) {
   const navbarStyle = {
     paddingTop: "10px",
     display: "flex",
     justifyContent: "space-between",
-    alignItems: "center",
+    alignItems: "start",
     color: "white",
     position: "absolute",
     top: 0,
@@ -26,14 +26,20 @@ function Navbar() {
 
   return (
     <div style={navbarStyle}>
-      <h3 style={navbarItemStyle}>
-        <a
-          className="link"
-          href="/"
-        >
-          COUNCIL OF FOODS
-        </a>
-      </h3>
+      <div>
+        <h3 style={navbarItemStyle}>
+          <a
+            className="link"
+            href="/"
+          >
+            COUNCIL OF FOODS
+          </a>
+        </h3>
+        <h4>
+          Topic: <br />
+          {topic}
+        </h4>
+      </div>
       <div style={{ display: "flex" }}>
         <h3 style={navbarItemStyle}>
           <a

@@ -39,7 +39,7 @@ function Setup({ onEnterCouncil }) {
     setAreFoodsMissing(false);
 
     // Validate if topic is entered
-    if (!topic) {
+    if (!topic.trim()) {
       setIsTopicMissing(true);
     }
 
@@ -49,17 +49,21 @@ function Setup({ onEnterCouncil }) {
     }
 
     // If both validations pass, log the values (simulate entering the council)
-    if (topic && selectedFoods.length >= 2) {
-      onEnterCouncil(topic, selectedFoods);
+    if (topic.trim() && selectedFoods.length >= 2) {
+      onEnterCouncil(topic.trim(), selectedFoods);
     }
   }
 
   function handleInputTopic(e) {
     const newTopic = e.target.value;
+
+    // Trim leading and trailing spaces separately
     const capitalizedTopic =
       newTopic.charAt(0).toUpperCase() + newTopic.slice(1);
+
     setTopic(capitalizedTopic);
 
+    // Check if trimmed topic length is greater than 0
     if (capitalizedTopic.trim().length > 0) {
       setIsTopicMissing(false);
     } else {
