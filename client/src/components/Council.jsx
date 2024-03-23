@@ -38,7 +38,7 @@ function Council({ options }) {
     let leftPosition = calculateLeftPosition(index, total);
 
     // Determine the angle of rotation
-    const rotationAngle = leftPosition * 2;
+    const rotationAngle = leftPosition * 1.8;
 
     return {
       zIndex: -1,
@@ -61,8 +61,8 @@ function Council({ options }) {
   };
 
   const foodItemStyle = (index, total) => {
-    const archHeightVW = 2;
-    const verticalOffsetVW = 6.8;
+    const archHeightVW = 1.8;
+    const verticalOffsetVW = 7;
 
     const middleIndex = (total - 1) / 2;
 
