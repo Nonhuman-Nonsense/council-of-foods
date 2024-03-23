@@ -43,8 +43,8 @@ function Council({ options }) {
   };
 
   const foodItemStyle = (index, total) => {
-    const archHeightVW = 3; // Arch height in vw units
-    const verticalOffsetVW = 7; // Default value for wider screens
+    const archHeightVW = 3;
+    const verticalOffsetVW = 7;
 
     const middleIndex = (total - 1) / 2;
 
@@ -55,7 +55,7 @@ function Council({ options }) {
     return {
       position: "absolute",
       left: `${(index / (total - 1)) * 100}%`,
-      top: `calc(${topValueVW}vw - ${verticalOffsetVW}vw)`, // Use calc() to combine vw units and the fixed pixel offset
+      top: `calc(${topValueVW}vw - ${verticalOffsetVW}vw)`,
       transform: "translate(-50%, -50%)",
       boxShadow: calculateShadow(index, total),
     };
