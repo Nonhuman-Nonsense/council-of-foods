@@ -69,7 +69,11 @@ function Council({ options }) {
   return (
     <div style={councilStyle}>
       <h1>Welcome to the council {name}</h1>
-      <h1>Topic: {topic}</h1>
+      <textarea
+        className="text-input"
+        rows="5"
+        style={{ width: "90%" }}
+      ></textarea>
       <div style={foodsContainerStyle}>
         {foods.map((food, index) => (
           <div

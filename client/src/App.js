@@ -3,6 +3,7 @@ import React, { useState } from "react";
 import Overlay from "./components/Overlay";
 import Welcome from "./components/Welcome";
 import Setup from "./components/Setup";
+import Navbar from "./components/Navbar";
 import Council from "./components/Council";
 
 function App() {
@@ -50,7 +51,10 @@ function App() {
         ) : currentView === "setup" ? (
           <Setup onEnterCouncil={enterCouncil} />
         ) : (
-          <Council options={{ name: name, topic: topic, foods: foods }} />
+          <div>
+            <Navbar />
+            <Council options={{ name: name, topic: topic, foods: foods }} />
+          </div>
         )}
       </Overlay>
     </div>
