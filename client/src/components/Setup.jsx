@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import FoodButton from "./FoodButton";
 
 function Setup({ onEnterCouncil }) {
@@ -6,6 +6,7 @@ function Setup({ onEnterCouncil }) {
   const [selectedFoods, setSelectedFoods] = useState([]);
   const [isTopicMissing, setIsTopicMissing] = useState(false);
   const [areFoodsMissing, setAreFoodsMissing] = useState(false);
+  const topicTextareaRef = useRef(null);
 
   const foods = [
     "banana",
@@ -27,6 +28,10 @@ function Setup({ onEnterCouncil }) {
     justifyContent: "space-around",
     alignItems: "center",
   };
+
+  useEffect(() => {
+    topicTextareaRef.current.focus();
+  }, []);
 
   function enterCouncil() {
     // Reset validation states
@@ -51,18 +56,14 @@ function Setup({ onEnterCouncil }) {
 
   function handleInputTopic(e) {
     const newTopic = e.target.value;
-    setTopic(newTopic);
+    const capitalizedTopic =
+      newTopic.charAt(0).toUpperCase() + newTopic.slice(1);
+    setTopic(capitalizedTopic);
 
-    if (newTopic.trim().length > 0) {
+    if (capitalizedTopic.trim().length > 0) {
       setIsTopicMissing(false);
     } else {
       setIsTopicMissing(true);
-    }
-  }
-
-  function handleKeyDown(e) {
-    if (e.key === "Enter") {
-      enterCouncil();
     }
   }
 
@@ -112,12 +113,13 @@ function Setup({ onEnterCouncil }) {
       <div>
         <h3>Topic:</h3>
         <textarea
-          className={`text-input ${isTopicMissing ? "input-error" : ""}`} // Apply error styling if topic is missing
+          ref={topicTextareaRef}
+          className={`text-input ${isTopicMissing ? "input-error" : ""}`}
           rows="2"
           cols="30"
           value={topic}
+          placeholder="your topic"
           onChange={handleInputTopic}
-          onKeyDown={handleKeyDown}
         ></textarea>
         <h3 className={`${!isTopicMissing ? "hidden" : ""}`}>
           please enter a topic to proceed
