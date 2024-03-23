@@ -26,10 +26,20 @@ function Council({ options }) {
   };
 
   const calculateShadow = (index, total) => {
-    const angle = (360 / total) * index;
-    const x = Math.cos((angle * Math.PI) / 180).toFixed(2);
-    const y = Math.sin((angle * Math.PI) / 180).toFixed(2);
-    return `${x * 3}px ${y * 3}px 5px rgba(0,0,0,0.5)`;
+    const middleIndex = (total - 1) / 2;
+    const distance = 5; // Shadow distance
+
+    // Determine the shadow direction based on the index
+    let x = 0;
+    let y = 0;
+
+    if (index < middleIndex) {
+      x = -distance; // Left shadow
+    } else if (index > middleIndex) {
+      x = distance; // Right shadow
+    }
+
+    return `${x}px ${y}px 5px rgba(0,0,0,0.5)`;
   };
 
   const foodItemStyle = (index, total) => {
