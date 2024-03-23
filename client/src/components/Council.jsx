@@ -25,13 +25,19 @@ function Council({ options }) {
     alignItems: "center",
   };
 
+  const foodStyle = {
+    width: "120px",
+    height: "120px",
+  };
+
   const calculateShadow = (index, total) => {
     const middleIndex = (total - 1) / 2;
-    const distance = 5; // Shadow distance
+    const distanceIncrement = 2; // Increment for distance per index away from the middle
 
-    // Determine the shadow direction based on the index
+    // Calculate the distance based on the index's distance from the middle
+    const distance = Math.abs(index - middleIndex) * distanceIncrement;
+
     let x = 0;
-    let y = 0;
 
     if (index < middleIndex) {
       x = -distance; // Left shadow
@@ -39,12 +45,11 @@ function Council({ options }) {
       x = distance; // Right shadow
     }
 
-    return `${x}px ${y}px 5px rgba(0,0,0,0.5)`;
+    return `${x}px 3px 5px rgba(0,0,0,0.5)`;
   };
-
   const foodItemStyle = (index, total) => {
     const archHeightVW = 3;
-    const verticalOffsetVW = 7;
+    const verticalOffsetVW = 6.5;
 
     const middleIndex = (total - 1) / 2;
 
@@ -71,7 +76,10 @@ function Council({ options }) {
             key={index}
             style={foodItemStyle(index, foods.length)}
           >
-            {food}
+            <img
+              src={`/images/foods/${food}.png`}
+              style={foodStyle}
+            />
           </div>
         ))}
       </div>
