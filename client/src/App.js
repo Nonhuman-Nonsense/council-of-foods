@@ -20,6 +20,7 @@ function App() {
     backgroundPosition: "center",
     height: "100vh",
     width: "100vw",
+    minWidth: "0px",
   };
 
   const isActive = currentView !== "council";
@@ -33,7 +34,7 @@ function App() {
     setTopic(topic);
     setFoods(foods);
 
-    setBackgroundImageURL("/images/council-background.jpg");
+    setBackgroundImageURL("/images/council-background-test.png");
 
     setCurrentView("council");
   }
