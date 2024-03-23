@@ -1,14 +1,23 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 
-function Overlay({ children }) {
-  const overlayStyle = {
-    position: "absolute",
-    top: 0, // Start from the very top
-    left: 0, // Start from the very left
-    height: "100%", // Cover full parent height
-    width: "100%", // Cover full parent width
-    backgroundColor: "rgba(0, 0, 0, 0.5)", // Semi-transparent black
-  };
+function Overlay({ isActive, children }) {
+  const [overlayStyle, setOverlayStyle] = useState({});
+
+  // Update overlay styles when visible prop changes
+  useEffect(() => {
+    if (isActive) {
+      setOverlayStyle({
+        position: "absolute",
+        top: 0,
+        left: 0,
+        height: "100%",
+        width: "100%",
+        backgroundColor: "rgba(0, 0, 0, 0.5)",
+      });
+    } else {
+      setOverlayStyle({});
+    }
+  }, [isActive]);
 
   return <div style={overlayStyle}>{children}</div>;
 }

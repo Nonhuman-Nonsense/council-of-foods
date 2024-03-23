@@ -22,10 +22,7 @@ function NameInput(props) {
 
   function enterSetup() {
     if (name) {
-      props.onEnterSetup();
-
-      // Save name to local storage
-      localStorage.setItem("name", name);
+      props.onEnterSetup(name);
     } else {
       console.log("No name...");
       setIsNameMissing(true);
@@ -40,7 +37,7 @@ function NameInput(props) {
 
   return (
     <div>
-      <h3 className="sub-sub-header">please type your name to enter:</h3>
+      <h3>please type your name to enter:</h3>
       <div className="input-icon-wrapper">
         <input
           className="text-input name-input"
@@ -55,7 +52,7 @@ function NameInput(props) {
           onClick={enterSetup}
         />
       </div>
-      <h3 className={`sub-sub-header ${!isNameMissing ? "hidden" : ""}`}>
+      <h3 className={`${!isNameMissing ? "hidden" : ""}`}>
         please enter your name to proceed
       </h3>
     </div>

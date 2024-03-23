@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import FoodButton from "./FoodButton";
 
-function Setup() {
+function Setup({ onEnterCouncil }) {
   const [topic, setTopic] = useState("");
   const [selectedFoods, setSelectedFoods] = useState([]);
   const [isTopicMissing, setIsTopicMissing] = useState(false);
@@ -45,11 +45,7 @@ function Setup() {
 
     // If both validations pass, log the values (simulate entering the council)
     if (topic && selectedFoods.length >= 2) {
-      console.log("Entering council...");
-
-      console.log("Name: ", localStorage.getItem("name"));
-      console.log("Topic: ", topic);
-      console.log("Selected foods: ", selectedFoods);
+      onEnterCouncil(topic, selectedFoods);
     }
   }
 
