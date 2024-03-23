@@ -33,7 +33,7 @@ function App() {
     setTopic(topic);
     setFoods(foods);
 
-    setBackgroundImageURL("");
+    setBackgroundImageURL("/images/council-background.jpg");
 
     setCurrentView("council");
   }

@@ -3,7 +3,6 @@ import React, { useState, useEffect } from "react";
 function Overlay({ isActive, children }) {
   const [overlayStyle, setOverlayStyle] = useState({});
 
-  // Update overlay styles when visible prop changes
   useEffect(() => {
     if (isActive) {
       setOverlayStyle({
