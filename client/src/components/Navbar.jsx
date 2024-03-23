@@ -12,7 +12,7 @@ function Navbar() {
     left: 0,
     right: 0,
     margin: "0 auto",
-    width: "90%",
+    width: "calc(90% + 40px)", // Adjusted width
   };
 
   const navbarItemStyle = {
@@ -21,17 +21,56 @@ function Navbar() {
   };
 
   const linkItemStyle = {
-    marginLeft: "20px",
+    marginLeft: "25px",
   };
 
   return (
     <div style={navbarStyle}>
-      <h3 style={navbarItemStyle}>COUNCIL OF FOODS</h3>
+      <h3 style={navbarItemStyle}>
+        <a
+          className="link"
+          href="/"
+        >
+          COUNCIL OF FOODS
+        </a>
+      </h3>
       <div style={{ display: "flex" }}>
-        <h3 style={{ ...navbarItemStyle, ...linkItemStyle }}>ABOUT</h3>
-        <h3 style={{ ...navbarItemStyle, ...linkItemStyle }}>SETTINGS</h3>
-        <h3 style={{ ...navbarItemStyle, ...linkItemStyle }}>CONTACT</h3>
-        <h3 style={{ ...navbarItemStyle, ...linkItemStyle }}>SHARE</h3>
+        <h3 style={navbarItemStyle}>
+          <a
+            className="link"
+            href="#"
+            style={linkItemStyle}
+          >
+            ABOUT
+          </a>
+        </h3>
+        <h3 style={navbarItemStyle}>
+          <a
+            className="link"
+            href="#"
+            style={linkItemStyle}
+          >
+            SETTINGS
+          </a>
+        </h3>
+        <h3 style={navbarItemStyle}>
+          <a
+            className="link"
+            href="#"
+            style={linkItemStyle}
+          >
+            CONTACT
+          </a>
+        </h3>
+        <h3 style={navbarItemStyle}>
+          <a
+            className="link"
+            href="#"
+            style={linkItemStyle}
+          >
+            SHARE
+          </a>
+        </h3>
       </div>
     </div>
   );

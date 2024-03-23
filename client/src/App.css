@@ -55,6 +55,11 @@ h4 {
   font-weight: normal;
 }
 
+.link {
+  color: white;
+  text-decoration: none;
+}
+
 .input-icon-wrapper {
   position: relative;
   display: inline-flex;

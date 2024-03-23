@@ -8,7 +8,7 @@
     />
     <meta
       name="viewport"
-      content="width=device-width, initial-scale=1"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
     />
     <meta
       name="theme-color"
@@ -58,5 +58,19 @@
       src="https://kit.fontawesome.com/7686f58a35.js"
       crossorigin="anonymous"
     ></script>
+    <script>
+      // Listen for the wheel event
+      window.addEventListener(
+        "wheel",
+        function (event) {
+          // Check if the Ctrl key is pressed
+          if (event.ctrlKey) {
+            // Prevent the default behavior (zooming)
+            event.preventDefault();
+          }
+        },
+        { passive: false }
+      ); // Add { passive: false } option
+    </script>
   </body>
 </html>

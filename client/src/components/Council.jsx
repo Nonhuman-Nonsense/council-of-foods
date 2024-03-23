@@ -9,11 +9,15 @@ function Council({ options }) {
     minHeight: "100vh",
     display: "flex",
     flexDirection: "column",
-    justifyContent: "space-around",
+    justifyContent: "end",
     alignItems: "center",
   };
 
-  // Styles for the table container
+  const textAreaStyle = {
+    width: "90%",
+    transform: "translateY(-140px)", // Move the textarea up by 10px
+  };
+
   const foodsContainerStyle = {
     position: "absolute",
     top: "50%",
@@ -68,11 +72,10 @@ function Council({ options }) {
 
   return (
     <div style={councilStyle}>
-      <h1>Welcome to the council {name}</h1>
       <textarea
         className="text-input"
         rows="5"
-        style={{ width: "90%" }}
+        style={textAreaStyle}
       ></textarea>
       <div style={foodsContainerStyle}>
         {foods.map((food, index) => (
