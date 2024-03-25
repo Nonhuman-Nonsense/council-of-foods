@@ -196,6 +196,9 @@ document.addEventListener('DOMContentLoaded', () => {
             .map(turn => {
               let speech = `<p id="${turn.id}">`;
               speech += `<strong>${turn.speaker}:</strong> `;
+              if(turn.pretrimmed){
+                speech += `<span class="trimmed">${turn.pretrimmed.split('\n').join('<br>')}</span>`;
+              }
               speech += turn.text.split('\n').join('<br>');
               if(turn.trimmed){
                 speech += `<span class="trimmed">${turn.trimmed.split('\n').join('<br>')}</span>`;
@@ -207,6 +210,16 @@ document.addEventListener('DOMContentLoaded', () => {
         preHumanInputContainer.style.display = "none";
         postHumanInputContainer.style.display = "block";
         conversationContainer.scrollTop = conversationContainer.scrollHeight;
+    });
+
+    socket.on('debug_info', (debug) => {
+      console.log(debug);
+      if(debug.type == "skipped"){
+        console.log("append");
+        const debugDiv = document.createElement("div");
+        debugDiv.innerHTML = `<p><span class="trimmed">${debug.msg}</span></p>`;
+        conversationDiv.appendChild(debugDiv);
+      }
     });
 
     // Handle audio updates

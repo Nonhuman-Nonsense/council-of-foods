@@ -181,26 +181,33 @@ io.on('connection', (socket) => {
             if(handRaised) return;
 
             // Generate response using GPT-4 for AI characters
-            const {id, response, trimmed} = await generateTextFromGPT(characters[currentSpeaker]);
+            const {id, response, trimmed, pretrimmed} = await generateTextFromGPT(characters[currentSpeaker]);
 
             //If hand is raised or conversation is paused, just stop here, ignore this message
             if(isPaused) return;
             if(handRaised) return;
             if(thisConversationCounter != conversationCounter) return;
 
-            // Add the response to the conversation
-            conversation.push({ id: id, speaker: characters[currentSpeaker].name, text: response, trimmed: trimmed  });
+            //If a character has completely answered for someone else, skip it, and go to the next
+            if(response != ""){
 
-            //A rolling index of the message number, so that audio can be played in the right order etc.
-            const message_index = conversation.length - 1;
+              // Add the response to the conversation
+              conversation.push({ id: id, speaker: characters[currentSpeaker].name, text: response, trimmed: trimmed, pretrimmed: pretrimmed });
 
-            socket.emit('conversation_update', conversation);
+              //A rolling index of the message number, so that audio can be played in the right order etc.
+              const message_index = conversation.length - 1;
 
-            //This is an async function, and since we are not waiting for the response, it will run in a paralell thread.
-            //The result will be emitted to the socket when it's ready
-            //The rest of the conversation continues
-            const voice = characters[currentSpeaker].voice ? characters[currentSpeaker].voice : audioVoices[currentSpeaker % audioVoices.length];
-            generateAudio(id, message_index, response, voice);
+              socket.emit('conversation_update', conversation);
+
+              //This is an async function, and since we are not waiting for the response, it will run in a paralell thread.
+              //The result will be emitted to the socket when it's ready
+              //The rest of the conversation continues
+              const voice = characters[currentSpeaker].voice ? characters[currentSpeaker].voice : audioVoices[currentSpeaker % audioVoices.length];
+              generateAudio(id, message_index, response, voice);
+            }else{
+              console.log("Empty reponse! Skipped a message");
+              socket.emit('debug_info', {type: "skipped", msg: trimmed});
+            }
 
             // Check for conversation end
             if (conversation.length >= options.conversationMaxLength + extraMessageCount) {
@@ -276,16 +283,18 @@ io.on('connection', (socket) => {
             // Extract and clean up the response
             let response = completion.choices[0].message.content.trim();
 
+            let pretrimmedContent;
             //If the prompt starts with the character name, remove it
-            if(response.startsWith(speaker.name + ": ")){
-              response = response.substring(speaker.name.length + 2);
+            if(response.startsWith(speaker.name + ":")){
+              pretrimmedContent = response.substring(0, speaker.name.length + 1);
+              response = response.substring(speaker.name.length + 1);
             }
 
-            //If model has already stopped, don't worry about trying to crop it to a proper sentence
             let trimmedContent;
-            if(completion.choices[0].finish_reason != 'stop'){
+            let originalResponse = response;
 
-              let originalResponse = response;
+            //If model has already stopped, don't worry about trying to crop it to a proper sentence
+            if(completion.choices[0].finish_reason != 'stop'){
               //Remove the last half sentence
               if(options.trimSentance){
                 response = response.replace(/\s+$/, ''); //not sure what this is doing?
@@ -304,13 +313,23 @@ io.on('connection', (socket) => {
                   response = response.substring(0, lastNewLineIndex);
                 }
               }
+            }
 
-              if(!options.showTrimmed){
-                trimmedContent = undefined;
+            //if we find someone elses name in there, cut it
+            for (var i = 0; i < characters.length; i++) {
+              if(i == currentSpeaker) continue;//Don't cut things from our own name
+              if(response.indexOf(characters[i].name + ": ") != -1){
+                response = response.substring(0, response.indexOf(characters[i].name + ": "));
+                trimmedContent = originalResponse.substring(response.indexOf(characters[i].name + ": "));
               }
             }
 
-            return {id: completion.id, response: response, trimmed: trimmedContent};
+            if(!options.showTrimmed){
+              trimmedContent = undefined;
+              pretrimmedContent = undefined;
+            }
+
+            return {id: completion.id, response: response, trimmed: trimmedContent, pretrimmed: pretrimmedContent};
         } catch (error) {
             console.error('Error during API call:', error);
             throw error;
