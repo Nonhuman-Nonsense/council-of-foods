@@ -249,10 +249,14 @@ io.on('connection', (socket) => {
             conversation.forEach((msg) => {
                 messages.push({
                     role: (speaker.name == msg.speaker ? "assistant" : "user"),
-                    content: msg.text
+                    content: msg.speaker + ": " + msg.text
                 });
             });
 
+            messages.push({
+                role: "assistant",
+                content: speaker.name + ": "
+            });
             // Prepare the completion request
             // console.log(conversation.length);
             // console.log(messages);
