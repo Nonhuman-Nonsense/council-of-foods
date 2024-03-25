@@ -247,16 +247,20 @@ io.on('connection', (socket) => {
 
             // Add previous messages as separate user objects
             conversation.forEach((msg) => {
+              let content = msg.text;
                 messages.push({
                     role: (speaker.name == msg.speaker ? "assistant" : "user"),
-                    content: msg.speaker + ": " + msg.text
+                    content: msg.speaker + ": " + msg.text//We add the name of the character before each message, so that they will be less confused about who said what.
                 });
             });
 
+            //Push a message with the character name at the end of the conversation, in the hope that the character will understand who they are and not repeat their name
+            //Works most of the time.
             messages.push({
                 role: "assistant",
                 content: speaker.name + ": "
             });
+
             // Prepare the completion request
             // console.log(conversation.length);
             // console.log(messages);
@@ -271,6 +275,11 @@ io.on('connection', (socket) => {
 
             // Extract and clean up the response
             let response = completion.choices[0].message.content.trim();
+
+            //If the prompt starts with the character name, remove it
+            if(response.startsWith(speaker.name + ": ")){
+              response = response.substring(speaker.name.length + 2);
+            }
 
             //If model has already stopped, don't worry about trying to crop it to a proper sentence
             let trimmedContent;
