@@ -1,7 +1,19 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 
 function Council({ options }) {
   const { humanName, topic, foods } = options;
+  const [screenWidth, setScreenWidth] = useState(window.innerWidth);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setScreenWidth(window.innerWidth);
+    };
+
+    window.addEventListener("resize", handleResize);
+
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
   const councilStyle = {
     zIndex: 10,
     color: "white",
@@ -60,10 +72,19 @@ function Council({ options }) {
     return distance; // Return distance as the left position
   };
 
+  // Adjusted function to set width and height based on window width
+  const getResponsiveFoodImageStyle = () => {
+    const size = screenWidth * 0.05; // 5% of the window's width
+    return {
+      width: `${size}px`, // Dynamically set width
+      height: `${size}px`, // Dynamically set height
+    };
+  };
+
   const foodItemStyle = (index, total) => {
     const left = (index / (total - 1)) * 100;
 
-    const topMax = 2.5;
+    const topMax = 2.25;
     const topOffset = 9; // Vertical offset to adjust the curve's baseline
 
     let middleIndex;
@@ -108,11 +129,14 @@ function Council({ options }) {
       <div style={foodsContainerStyle}>
         {foods.map((food, index) => (
           <div key={index} style={foodItemStyle(index, foods.length)}>
-            <img src={`/images/foods/${food}.png`} style={foodImageStyle} />
+            <img
+              src={`/images/foods/${food}.png`}
+              style={getResponsiveFoodImageStyle()}
+            />
             <img
               src={`/images/foods/${food}.png`}
               style={{
-                ...foodImageStyle,
+                ...getResponsiveFoodImageStyle(),
                 ...foodImageShadowStyle(index, foods.length),
                 backgroundImage: `url(/images/foods/${food}.png)`,
               }}
