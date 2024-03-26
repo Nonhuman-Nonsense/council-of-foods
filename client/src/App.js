@@ -32,7 +32,7 @@ function App() {
     if (currentView === pages[0]) {
       setBackgroundImageURL("/images/backgrounds/zoomed-out.jpeg");
     } else {
-      setBackgroundImageURL("/images/backgrounds/zoomed-in.jpeg");
+      setBackgroundImageURL("/images/backgrounds/zoomed-in-test.png");
     }
   }, [currentView]);
 

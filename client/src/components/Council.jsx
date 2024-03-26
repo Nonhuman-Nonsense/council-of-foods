@@ -61,20 +61,38 @@ function Council({ options }) {
   };
 
   const foodItemStyle = (index, total) => {
-    const archHeightVW = 1.8;
-    const verticalOffsetVW = 7;
-
-    const middleIndex = (total - 1) / 2;
-
     const left = (index / (total - 1)) * 100;
 
-    const distanceFromCenter = Math.abs(index - middleIndex);
-    const top = archHeightVW * distanceFromCenter - verticalOffsetVW;
+    const topMax = 2.5;
+    const topOffset = 9; // Vertical offset to adjust the curve's baseline
+
+    let middleIndex;
+    let isEven = total % 2 === 0;
+    if (isEven) {
+      middleIndex = total / 2 - 1;
+    } else {
+      middleIndex = (total - 1) / 2;
+    }
+
+    let a;
+    if (isEven) {
+      a = topMax / Math.pow(middleIndex + 0.5, 2);
+    } else {
+      a = topMax / Math.pow(middleIndex, 2);
+    }
+
+    let top;
+    if (isEven) {
+      const distanceFromMiddle = Math.abs(index - middleIndex - 0.5);
+      top = a * Math.pow(distanceFromMiddle, 2) + topMax - topOffset;
+    } else {
+      top = a * Math.pow(index - middleIndex, 2) + topMax - topOffset;
+    }
 
     return {
       position: "absolute",
-      left: `${left}%`, // Set the left position
-      top: `${top}vw`, // Set the top position
+      left: `${left}%`,
+      top: `${top}vw`,
       transform: "translate(-50%, -50%)",
     };
   };
