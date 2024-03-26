@@ -1,5 +1,5 @@
 import "./App.css";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Overlay from "./components/Overlay";
 import Landing from "./components/Landing";
 import Welcome from "./components/Welcome";
@@ -15,7 +15,7 @@ function App() {
   const pages = ["landing", "welcome", "topics", "foods", "council"];
   const [currentView, setCurrentView] = useState(pages[0]);
   const [backgroundImageURL, setBackgroundImageURL] = useState(
-    "/images/welcome-background.jpg"
+    "/images/backgrounds/zoomed-out.jpg"
   );
 
   const backgroundStyle = {
@@ -26,9 +26,18 @@ function App() {
     width: "100vw",
   };
 
-  const isActive = currentView !== "council";
+  const isActiveOverlay = currentView !== "council";
+
+  useEffect(() => {
+    if (currentView === pages[0]) {
+      setBackgroundImageURL("/images/backgrounds/zoomed-out.jpeg");
+    } else {
+      setBackgroundImageURL("/images/backgrounds/zoomed-in.jpeg");
+    }
+  }, [currentView]);
 
   function continueForward(props) {
+    // Set properties
     if (props && props.hasOwnProperty("humanName")) {
       setHumanName(props.humanName);
     } else if (props && props.hasOwnProperty("topic")) {
@@ -37,8 +46,13 @@ function App() {
       setFoods(props.foods);
     }
 
+    // Update index
+
     const currentIndex = pages.indexOf(currentView);
     const nextIndex = (currentIndex + 1) % pages.length; // Use modulus to cycle back to the start
+
+    // Set new view
+
     setCurrentView(pages[nextIndex]);
   }
 
@@ -47,7 +61,7 @@ function App() {
 
   return (
     <div className="App" style={backgroundStyle}>
-      <Overlay isActive={isActive}>
+      <Overlay isActive={isActiveOverlay}>
         {currentView === pages[0] ? (
           <Landing onContinueForward={continueForward} />
         ) : currentView === pages[1] ? (

@@ -1,4 +1,5 @@
 import React from "react";
+import { capitalizeFirstLetter } from "../utils";
 
 function Navbar({ topic }) {
   const navbarStyle = {
@@ -32,7 +33,7 @@ function Navbar({ topic }) {
             COUNCIL OF FOODS
           </a>
         </h3>
-        <h4>{topic}</h4>
+        <h4>{capitalizeFirstLetter(topic)}</h4>
       </div>
       <div style={{ display: "flex" }}>
         <h3 style={navbarItemStyle}>
