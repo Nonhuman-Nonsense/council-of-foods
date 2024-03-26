@@ -1,4 +1,5 @@
 import React, { useState, useRef } from "react";
+import { capitalizeFirstLetter } from "../utils";
 
 function Topics(props) {
   const [selectedTopic, setSelectedTopic] = useState("");
@@ -11,6 +12,7 @@ function Topics(props) {
     "modern agriculture & biodiversity loss",
     "local & global food chains",
     "nature - culture: traditions and progress",
+    "choose your own",
   ];
 
   const shouldShowNextButton =
@@ -39,8 +41,7 @@ function Topics(props) {
   function handleInputTopic(e) {
     const newTopic = e.target.value;
 
-    const capitalizedTopic =
-      newTopic.charAt(0).toUpperCase() + newTopic.slice(1);
+    const capitalizedTopic = capitalizeFirstLetter(newTopic);
 
     setCustomTopic(capitalizedTopic);
   }
@@ -74,16 +75,6 @@ function Topics(props) {
               {topic}
             </button>
           ))}
-          <button
-            className="outline-button wide-button"
-            onClick={() => selectTopic("choose your own")}
-            style={{
-              ...topicButtonStyle("choose your own"),
-              opacity: selectedTopic === "choose your own" ? "1" : "0.5",
-            }}
-          >
-            choose your own
-          </button>
           <h4>please select an issue for the discussion</h4>
         </div>
         <textarea

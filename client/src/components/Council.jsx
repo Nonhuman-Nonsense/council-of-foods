@@ -1,7 +1,7 @@
 import React from "react";
 
 function Council({ options }) {
-  const { name, topic, foods } = options;
+  const { humanName, topic, foods } = options;
   const councilStyle = {
     zIndex: 10,
     color: "white",
@@ -46,8 +46,8 @@ function Council({ options }) {
       top: "5px",
       left: `${leftPosition}px`,
       filter:
-        "blur(3px) brightness(0%) saturate(100%) invert(0%) sepia(100%) hue-rotate(180deg) contrast(100%)",
-      opacity: 0.6,
+        "blur(6px) brightness(0%) saturate(100%) invert(0%) sepia(100%) hue-rotate(180deg) contrast(100%)",
+      opacity: 0.3,
       transformOrigin: "bottom center", // Set the origin to the bottom center
       transform: `rotate(${rotationAngle}deg)`, // Apply rotation transformation
     };
@@ -89,14 +89,8 @@ function Council({ options }) {
       ></textarea>
       <div style={foodsContainerStyle}>
         {foods.map((food, index) => (
-          <div
-            key={index}
-            style={foodItemStyle(index, foods.length)}
-          >
-            <img
-              src={`/images/foods/${food}.png`}
-              style={foodImageStyle}
-            />
+          <div key={index} style={foodItemStyle(index, foods.length)}>
+            <img src={`/images/foods/${food}.png`} style={foodImageStyle} />
             <img
               src={`/images/foods/${food}.png`}
               style={{

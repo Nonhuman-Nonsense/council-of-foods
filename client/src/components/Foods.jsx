@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import FoodButton from "./FoodButton";
 import FoodInfo from "./FoodInfo";
+import { capitalizeFirstLetter } from "../utils";
 
 function Foods({ topic, onContinueForward }) {
   const [selectedFoods, setSelectedFoods] = useState([]);
@@ -62,7 +63,7 @@ function Foods({ topic, onContinueForward }) {
                 Please select 2-5 foods
                 <br /> to participate in the discussion about:
               </h4>
-              <h4>{topic}</h4>
+              <h4>{capitalizeFirstLetter(topic)}</h4>
             </div>
             <div
               style={{

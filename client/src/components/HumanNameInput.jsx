@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import { capitalizeFirstLetter } from "../utils";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faArrowRight } from "@fortawesome/free-solid-svg-icons";
 
@@ -14,15 +15,16 @@ function HumanNameInput(props) {
 
   function handleChange(e) {
     const inputValue = e.target.value;
-    // Immediately transform the first character to uppercase if it's a letter
-    const updatedValue =
-      inputValue.length === 1
-        ? inputValue.toUpperCase()
-        : inputValue.charAt(0) + inputValue.slice(1);
+    const trimmedValue = inputValue.trim();
 
-    setHumanName(updatedValue);
-    if (updatedValue) {
+    setHumanName(inputValue);
+
+    if (!trimmedValue) {
+      setIsHumanNameMissing(true);
+    } else {
       setIsHumanNameMissing(false);
+      const capitalizedHumanName = capitalizeFirstLetter(trimmedValue);
+      setHumanName(capitalizedHumanName);
     }
   }
 
