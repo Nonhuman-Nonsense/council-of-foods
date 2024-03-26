@@ -4,6 +4,8 @@ function FoodButton({
   name,
   onSelectFood,
   onDeselectFood,
+  onMouseEnter,
+  onMouseLeave,
   isSelected,
   selectLimitReached,
 }) {
@@ -31,7 +33,7 @@ function FoodButton({
     display: "flex",
     justifyContent: "center",
     alignItems: "center",
-    border: isModerator // Use isModerator to determine border style
+    border: isModerator
       ? "4px solid white"
       : isSelected
       ? "2px solid white"
@@ -52,7 +54,13 @@ function FoodButton({
   };
 
   return (
-    <div className="food-button" style={buttonStyle} onClick={handleClickFood}>
+    <div
+      className="food-button"
+      onMouseEnter={() => onMouseEnter(name)}
+      onMouseLeave={onMouseLeave}
+      style={buttonStyle}
+      onClick={handleClickFood}
+    >
       <img src={imageUrl} alt={name} style={imageStyle} />
     </div>
   );

@@ -54,54 +54,56 @@ function Topics(props) {
   }
 
   return (
-    <div className="text-container">
-      <h1>THE ISSUE:</h1>
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: "start",
-        }}
-      >
-        {topics.map((topic, index) => (
-          <button
-            key={index}
-            className="outline-button wide-button"
-            onClick={() => selectTopic(topic)}
-            style={topicButtonStyle(topic)}
-          >
-            {topic}
-          </button>
-        ))}
-        <button
-          className="outline-button wide-button"
-          onClick={() => selectTopic("choose your own")}
+    <div className="wrapper">
+      <div className="text-container">
+        <h1>THE ISSUE:</h1>
+        <div
           style={{
-            ...topicButtonStyle("choose your own"),
-            opacity: selectedTopic === "choose your own" ? "1" : "0.5",
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "start",
           }}
         >
-          choose your own
+          {topics.map((topic, index) => (
+            <button
+              key={index}
+              className="outline-button wide-button"
+              onClick={() => selectTopic(topic)}
+              style={topicButtonStyle(topic)}
+            >
+              {topic}
+            </button>
+          ))}
+          <button
+            className="outline-button wide-button"
+            onClick={() => selectTopic("choose your own")}
+            style={{
+              ...topicButtonStyle("choose your own"),
+              opacity: selectedTopic === "choose your own" ? "1" : "0.5",
+            }}
+          >
+            choose your own
+          </button>
+          <h4>please select an issue for the discussion</h4>
+        </div>
+        <textarea
+          ref={topicTextareaRef}
+          className={`${
+            selectedTopic === "choose your own" ? "" : "hidden"
+          } text-input`}
+          rows="2"
+          cols="30"
+          value={customTopic}
+          placeholder="your topic"
+          onChange={handleInputTopic}
+        />
+        <button
+          className={`${shouldShowNextButton ? "" : "hidden"} outline-button`}
+          onClick={onContinueForward}
+        >
+          Next
         </button>
-        <h4>please select an issue for the discussion</h4>
       </div>
-      <textarea
-        ref={topicTextareaRef}
-        className={`${
-          selectedTopic === "choose your own" ? "" : "hidden"
-        } text-input`}
-        rows="2"
-        cols="30"
-        value={customTopic}
-        placeholder="your topic"
-        onChange={handleInputTopic}
-      />
-      <button
-        className={`${shouldShowNextButton ? "" : "hidden"} outline-button`}
-        onClick={onContinueForward}
-      >
-        Next
-      </button>
     </div>
   );
 }

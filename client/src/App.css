@@ -55,14 +55,22 @@ h4 {
   font-weight: normal;
 }
 
+.wrapper {
+  min-height: 100vh;
+  min-width: 100vw;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
 .text-container {
   z-index: 10;
   color: white;
   text-align: center;
-  min-height: 100vh;
+  min-height: 80vh;
   display: flex;
   flex-direction: column;
-  justify-content: space-around;
+  justify-content: space-between;
   align-items: center;
 }
 
