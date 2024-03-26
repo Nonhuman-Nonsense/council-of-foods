@@ -12,7 +12,7 @@ function App() {
   const [name, setName] = useState("");
   const [topic, setTopic] = useState("");
   const [foods, setFoods] = useState([]);
-  const pages = ["landing", "welcome", "issues", "foods", "council"];
+  const pages = ["landing", "welcome", "topics", "foods", "council"];
   const [currentView, setCurrentView] = useState(pages[0]);
   const [backgroundImageURL, setBackgroundImageURL] = useState(
     "/images/welcome-background.jpg"
@@ -31,13 +31,10 @@ function App() {
   function continueForward(props) {
     if (props && props.hasOwnProperty("name")) {
       setName(props.name);
-    } else if (
-      props &&
-      props.hasOwnProperty("topic") &&
-      props.hasOwnProperty("foods")
-    ) {
+    } else if (props && props.hasOwnProperty("topic")) {
       setTopic(props.topic);
-      setFoods(props.Foods);
+    } else if (props && props.hasOwnProperty("foods")) {
+      setFoods(props.foods);
     }
 
     const currentIndex = pages.indexOf(currentView);
@@ -46,6 +43,7 @@ function App() {
   }
 
   // Placeholder for goBack function implementation
+  function goBack() {}
 
   return (
     <div className="App" style={backgroundStyle}>
@@ -53,11 +51,11 @@ function App() {
         {currentView === pages[0] ? (
           <Landing onContinueForward={continueForward} />
         ) : currentView === pages[1] ? (
-          <Welcome onContinueForward={continueForward} />
+          <Welcome name={name} onContinueForward={continueForward} />
         ) : currentView === pages[2] ? (
           <Topics onContinueForward={continueForward} />
         ) : currentView === pages[3] ? (
-          <Foods onContinueForward={continueForward} />
+          <Foods topic={topic} onContinueForward={continueForward} />
         ) : (
           <div>
             <Navbar topic={topic} />

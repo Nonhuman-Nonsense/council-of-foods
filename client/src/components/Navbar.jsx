@@ -28,52 +28,30 @@ function Navbar({ topic }) {
     <div style={navbarStyle}>
       <div>
         <h3 style={navbarItemStyle}>
-          <a
-            className="link"
-            href="/"
-          >
+          <a className="link" href="/">
             COUNCIL OF FOODS
           </a>
         </h3>
-        <h4>
-          Topic: <br />
-          {topic}
-        </h4>
+        <h4>{topic}</h4>
       </div>
       <div style={{ display: "flex" }}>
         <h3 style={navbarItemStyle}>
-          <a
-            className="link"
-            href="#"
-            style={linkItemStyle}
-          >
+          <a className="link" href="#" style={linkItemStyle}>
             ABOUT
           </a>
         </h3>
         <h3 style={navbarItemStyle}>
-          <a
-            className="link"
-            href="#"
-            style={linkItemStyle}
-          >
+          <a className="link" href="#" style={linkItemStyle}>
             SETTINGS
           </a>
         </h3>
         <h3 style={navbarItemStyle}>
-          <a
-            className="link"
-            href="#"
-            style={linkItemStyle}
-          >
+          <a className="link" href="#" style={linkItemStyle}>
             CONTACT
           </a>
         </h3>
         <h3 style={navbarItemStyle}>
-          <a
-            className="link"
-            href="#"
-            style={linkItemStyle}
-          >
+          <a className="link" href="#" style={linkItemStyle}>
             SHARE
           </a>
         </h3>

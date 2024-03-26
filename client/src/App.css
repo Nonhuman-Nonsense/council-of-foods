@@ -55,6 +55,17 @@ h4 {
   font-weight: normal;
 }
 
+.text-container {
+  z-index: 10;
+  color: white;
+  text-align: center;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+  align-items: center;
+}
+
 .link {
   color: white;
   text-decoration: none;
@@ -106,6 +117,10 @@ h4 {
   border-radius: 25px;
   padding: 0px 22px 0px 22px;
   cursor: pointer;
+}
+
+.wide-button {
+  padding: 8px 100px 8px 100px !important;
 }
 
 @media (prefers-reduced-motion: no-preference) {

@@ -26,11 +26,10 @@ function NameInput(props) {
     }
   }
 
-  function enterSetup() {
+  function continueForward() {
     if (name) {
-      props.onEnterSetup(name);
+      props.onContinueForward({ name: name });
     } else {
-      console.log("No name...");
       setIsNameMissing(true);
     }
   }
@@ -39,7 +38,7 @@ function NameInput(props) {
     if (e.key === "Enter") {
       e.preventDefault(); // Prevent the default behavior of the Enter key
 
-      enterSetup();
+      continueForward();
     }
   }
 
@@ -59,7 +58,7 @@ function NameInput(props) {
         <FontAwesomeIcon
           icon={faArrowRight}
           className="input-arrow"
-          onClick={enterSetup}
+          onClick={continueForward}
           style={{ cursor: "pointer" }}
         />
       </div>
