@@ -1,6 +1,7 @@
 import React from "react";
-function Welcome() {
+
+function Topics() {
   return <div></div>;
 }
 
-export default Welcome;
+export default Topics;

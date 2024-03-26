@@ -1,8 +1,10 @@
 import "./App.css";
 import React, { useState } from "react";
 import Overlay from "./components/Overlay";
+import Landing from "./components/Landing";
 import Welcome from "./components/Welcome";
-import Setup from "./components/Setup";
+import Topics from "./components/Topics";
+import Foods from "./components/Foods";
 import Navbar from "./components/Navbar";
 import Council from "./components/Council";
 
@@ -10,7 +12,8 @@ function App() {
   const [name, setName] = useState("");
   const [topic, setTopic] = useState("");
   const [foods, setFoods] = useState([]);
-  const [currentView, setCurrentView] = useState("welcome");
+  const pages = ["landing", "welcome", "issues", "foods", "council"];
+  const [currentView, setCurrentView] = useState(pages[0]);
   const [backgroundImageURL, setBackgroundImageURL] = useState(
     "/images/welcome-background.jpg"
   );
@@ -21,39 +24,44 @@ function App() {
     backgroundPosition: "center",
     height: "100vh",
     width: "100vw",
-    minWidth: "0px",
   };
 
   const isActive = currentView !== "council";
 
-  function enterSetup(name) {
-    setName(name);
-    setCurrentView("setup");
+  function continueForward(props) {
+    if (props && props.hasOwnProperty("name")) {
+      setName(props.name);
+    } else if (
+      props &&
+      props.hasOwnProperty("topic") &&
+      props.hasOwnProperty("foods")
+    ) {
+      setTopic(props.topic);
+      setFoods(props.Foods);
+    }
+
+    const currentIndex = pages.indexOf(currentView);
+    const nextIndex = (currentIndex + 1) % pages.length; // Use modulus to cycle back to the start
+    setCurrentView(pages[nextIndex]);
   }
 
-  function enterCouncil(topic, foods) {
-    setTopic(topic);
-    setFoods(foods);
-
-    setBackgroundImageURL("/images/council-background-test.png");
-
-    setCurrentView("council");
-  }
+  // Placeholder for goBack function implementation
 
   return (
-    <div
-      className="App"
-      style={backgroundStyle}
-    >
+    <div className="App" style={backgroundStyle}>
       <Overlay isActive={isActive}>
-        {currentView === "welcome" ? (
-          <Welcome onEnterSetup={enterSetup} />
-        ) : currentView === "setup" ? (
-          <Setup onEnterCouncil={enterCouncil} />
+        {currentView === pages[0] ? (
+          <Landing onContinueForward={continueForward} />
+        ) : currentView === pages[1] ? (
+          <Welcome onContinueForward={continueForward} />
+        ) : currentView === pages[2] ? (
+          <Topics onContinueForward={continueForward} />
+        ) : currentView === pages[3] ? (
+          <Foods onContinueForward={continueForward} />
         ) : (
           <div>
             <Navbar topic={topic} />
-            <Council options={{ name: name, topic: topic, foods: foods }} />
+            <Council options={{ name, topic, foods }} />
           </div>
         )}
       </Overlay>
