@@ -1,5 +1,5 @@
 import React from "react";
-import NameInput from "./NameInput";
+import HumanNameInput from "./HumanNameInput";
 
 function Welcome({ onContinueForward }) {
   return (
@@ -9,7 +9,7 @@ function Welcome({ onContinueForward }) {
           <h2>welcome to</h2>
           <h1>COUNCIL OF FOODS</h1>
         </div>
-        <NameInput onContinueForward={onContinueForward} />
+        <HumanNameInput onContinueForward={onContinueForward} />
       </div>
     </div>
   );

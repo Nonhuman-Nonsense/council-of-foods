@@ -9,7 +9,7 @@ import Navbar from "./components/Navbar";
 import Council from "./components/Council";
 
 function App() {
-  const [name, setName] = useState("");
+  const [humanName, setHumanName] = useState("");
   const [topic, setTopic] = useState("");
   const [foods, setFoods] = useState([]);
   const pages = ["landing", "welcome", "topics", "foods", "council"];
@@ -29,8 +29,8 @@ function App() {
   const isActive = currentView !== "council";
 
   function continueForward(props) {
-    if (props && props.hasOwnProperty("name")) {
-      setName(props.name);
+    if (props && props.hasOwnProperty("humanName")) {
+      setHumanName(props.humanName);
     } else if (props && props.hasOwnProperty("topic")) {
       setTopic(props.topic);
     } else if (props && props.hasOwnProperty("foods")) {
@@ -51,7 +51,7 @@ function App() {
         {currentView === pages[0] ? (
           <Landing onContinueForward={continueForward} />
         ) : currentView === pages[1] ? (
-          <Welcome name={name} onContinueForward={continueForward} />
+          <Welcome humanName={humanName} onContinueForward={continueForward} />
         ) : currentView === pages[2] ? (
           <Topics onContinueForward={continueForward} />
         ) : currentView === pages[3] ? (
@@ -59,7 +59,7 @@ function App() {
         ) : (
           <div>
             <Navbar topic={topic} />
-            <Council options={{ name, topic, foods }} />
+            <Council options={{ humanName, topic, foods }} />
           </div>
         )}
       </Overlay>

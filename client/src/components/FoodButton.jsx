@@ -1,7 +1,7 @@
 import React from "react";
 
 function FoodButton({
-  name,
+  foodName,
   onSelectFood,
   onDeselectFood,
   onMouseEnter,
@@ -11,14 +11,14 @@ function FoodButton({
 }) {
   const isModerator = onSelectFood === undefined;
 
-  const imageUrl = `/images/foods/${name}.png`;
+  const imageUrl = `/images/foods/${foodName}.png`;
 
   function handleClickFood() {
     if (!isModerator && (!selectLimitReached || isSelected)) {
       if (!isSelected) {
-        onSelectFood?.(name);
+        onSelectFood?.(foodName);
       } else {
-        onDeselectFood?.(name);
+        onDeselectFood?.(foodName);
       }
     }
   }
@@ -56,12 +56,12 @@ function FoodButton({
   return (
     <div
       className="food-button"
-      onMouseEnter={() => onMouseEnter(name)}
+      onMouseEnter={() => onMouseEnter(foodName)}
       onMouseLeave={onMouseLeave}
       style={buttonStyle}
       onClick={handleClickFood}
     >
-      <img src={imageUrl} alt={name} style={imageStyle} />
+      <img src={imageUrl} alt={foodName} style={imageStyle} />
     </div>
   );
 }

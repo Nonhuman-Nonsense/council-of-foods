@@ -1,9 +1,9 @@
 import React from "react";
-function Welcome({ name, onContinueForward }) {
+function Welcome({ humanName, onContinueForward }) {
   return (
     <div className="wrapper">
       <div className="text-container">
-        <h4>Dear {name}</h4>
+        <h4>Dear {humanName}</h4>
         <br />
         <h4>
           Welcome to the Council of Foods! Here you can listen to foods

@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import ContentSection from "./ContentSection";
 import FoodButton from "./FoodButton";
 import FoodInfo from "./FoodInfo";
 
@@ -43,30 +42,54 @@ function Foods({ topic, onContinueForward }) {
       <div className="text-container">
         <div>
           <h1>THE FOODS:</h1>
-          <div style={{ position: "relative" }}>
-            <ContentSection isVisible={currentFood === ""}>
+          <div
+            style={{
+              position: "relative",
+            }}
+          >
+            <div
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                right: 0,
+                transition: "opacity 0.5s ease",
+                opacity: currentFood === "" ? 1 : 0,
+                pointerEvents: currentFood === "" ? "all" : "none",
+              }}
+            >
               <h4>
                 Please select 2-5 foods
                 <br /> to participate in the discussion about:
               </h4>
               <h4>{topic}</h4>
-            </ContentSection>
-            <ContentSection isVisible={currentFood !== ""}>
-              <FoodInfo food={currentFood} />
-            </ContentSection>
+            </div>
+            <div
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                right: 0,
+                transition: "opacity 0.5s ease",
+                opacity: currentFood !== "" ? 1 : 0,
+                pointerEvents: currentFood !== "" ? "all" : "none",
+              }}
+            >
+              <FoodInfo foodName={currentFood} />
+            </div>
           </div>
         </div>
         <div>
           <div className="food-buttons">
             <FoodButton
-              name={moderator}
+              foodName={moderator}
               onMouseEnter={handleOnMouseEnter}
               onMouseLeave={handleOnMouseLeave}
             />
             {foods.map((food) => (
               <FoodButton
                 key={food}
-                name={food}
+                foodName={food}
                 onSelectFood={selectFood}
                 onDeselectFood={deselectFood}
                 onMouseEnter={handleOnMouseEnter}

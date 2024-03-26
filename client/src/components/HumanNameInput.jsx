@@ -2,9 +2,9 @@ import React, { useState, useRef, useEffect } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faArrowRight } from "@fortawesome/free-solid-svg-icons";
 
-function NameInput(props) {
-  const [name, setName] = useState("");
-  const [isNameMissing, setIsNameMissing] = useState(false);
+function HumanNameInput(props) {
+  const [humanName, setHumanName] = useState("");
+  const [isHumanNameMissing, setIsHumanNameMissing] = useState(false);
   const inputRef = useRef(null);
 
   useEffect(() => {
@@ -20,17 +20,17 @@ function NameInput(props) {
         ? inputValue.toUpperCase()
         : inputValue.charAt(0) + inputValue.slice(1);
 
-    setName(updatedValue);
+    setHumanName(updatedValue);
     if (updatedValue) {
-      setIsNameMissing(false);
+      setIsHumanNameMissing(false);
     }
   }
 
   function continueForward() {
-    if (name) {
-      props.onContinueForward({ name: name });
+    if (humanName) {
+      props.onContinueForward({ humanName: humanName });
     } else {
-      setIsNameMissing(true);
+      setIsHumanNameMissing(true);
     }
   }
 
@@ -50,7 +50,7 @@ function NameInput(props) {
           ref={inputRef}
           className="text-input name-input"
           type="text"
-          value={name}
+          value={humanName}
           placeholder="your name"
           onChange={handleChange}
           onKeyDown={handleKeyDown}
@@ -62,11 +62,11 @@ function NameInput(props) {
           style={{ cursor: "pointer" }}
         />
       </div>
-      <h3 className={`${!isNameMissing ? "hidden" : ""}`}>
+      <h3 className={`${!isHumanNameMissing ? "hidden" : ""}`}>
         please enter your name to proceed
       </h3>
     </div>
   );
 }
 
-export default NameInput;
+export default HumanNameInput;
