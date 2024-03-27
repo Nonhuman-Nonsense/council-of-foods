@@ -14,6 +14,7 @@ function App() {
   const [foods, setFoods] = useState([]);
   const pages = ["landing", "welcome", "topics", "foods", "council"];
   const [currentView, setCurrentView] = useState(pages[0]);
+  const [isOverlayActive, setIsOverlayActive] = useState(true);
   const [backgroundImageURL, setBackgroundImageURL] = useState(
     "/images/backgrounds/zoomed-out.jpg"
   );
@@ -25,8 +26,6 @@ function App() {
     height: "100vh",
     width: "100vw",
   };
-
-  const isActiveOverlay = currentView !== "council";
 
   useEffect(() => {
     if (currentView === pages[0]) {
@@ -53,30 +52,34 @@ function App() {
 
     // Set new view
 
+    if (pages[nextIndex] == "council") {
+      toggleOverlay();
+    }
+
     setCurrentView(pages[nextIndex]);
   }
 
   // Placeholder for goBack function implementation
   function goBack() {}
 
-  function showOverlay(page) {
-    console.log(page);
+  function toggleOverlay() {
+    setIsOverlayActive(!isOverlayActive);
   }
 
   return (
     <div className="App" style={backgroundStyle}>
-      <Overlay isActive={isActiveOverlay}>
-        {currentView === pages[0] ? (
+      <Overlay isActive={isOverlayActive && currentView !== "council"}>
+        {currentView === "landing" ? (
           <Landing onContinueForward={continueForward} />
-        ) : currentView === pages[1] ? (
+        ) : currentView === "welcome" ? (
           <Welcome humanName={humanName} onContinueForward={continueForward} />
-        ) : currentView === pages[2] ? (
+        ) : currentView === "topics" ? (
           <Topics onContinueForward={continueForward} />
-        ) : currentView === pages[3] ? (
+        ) : currentView === "foods" ? (
           <Foods topic={topic} onContinueForward={continueForward} />
         ) : (
           <div>
-            <Navbar topic={topic} onShowOverlay={showOverlay} />
+            <Navbar topic={topic} onToggleOverlay={toggleOverlay} />
             <Council options={{ humanName, topic, foods }} />
           </div>
         )}
