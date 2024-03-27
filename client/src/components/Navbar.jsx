@@ -1,7 +1,7 @@
 import React from "react";
 import { capitalizeFirstLetter } from "../utils";
 
-function Navbar({ topic }) {
+function Navbar({ topic, onShowOverlay }) {
   const navbarStyle = {
     paddingTop: "10px",
     display: "flex",
@@ -37,22 +37,42 @@ function Navbar({ topic }) {
       </div>
       <div style={{ display: "flex" }}>
         <h3 style={navbarItemStyle}>
-          <a className="link" href="#" style={linkItemStyle}>
+          <a
+            className="link"
+            href="#"
+            onClick={() => onShowOverlay("about")}
+            style={linkItemStyle}
+          >
             ABOUT
           </a>
         </h3>
         <h3 style={navbarItemStyle}>
-          <a className="link" href="#" style={linkItemStyle}>
+          <a
+            className="link"
+            href="#"
+            onClick={() => onShowOverlay("settings")}
+            style={linkItemStyle}
+          >
             SETTINGS
           </a>
         </h3>
         <h3 style={navbarItemStyle}>
-          <a className="link" href="#" style={linkItemStyle}>
+          <a
+            className="link"
+            href="#"
+            onClick={() => onShowOverlay("contact")}
+            style={linkItemStyle}
+          >
             CONTACT
           </a>
         </h3>
         <h3 style={navbarItemStyle}>
-          <a className="link" href="#" style={linkItemStyle}>
+          <a
+            className="link"
+            href="#"
+            onClick={() => onShowOverlay("share")}
+            style={linkItemStyle}
+          >
             SHARE
           </a>
         </h3>

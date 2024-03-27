@@ -32,7 +32,7 @@ function App() {
     if (currentView === pages[0]) {
       setBackgroundImageURL("/images/backgrounds/zoomed-out.jpeg");
     } else {
-      setBackgroundImageURL("/images/backgrounds/zoomed-in-test.png");
+      setBackgroundImageURL("/images/backgrounds/zoomed-in.png");
     }
   }, [currentView]);
 
@@ -59,6 +59,10 @@ function App() {
   // Placeholder for goBack function implementation
   function goBack() {}
 
+  function showOverlay(page) {
+    console.log(page);
+  }
+
   return (
     <div className="App" style={backgroundStyle}>
       <Overlay isActive={isActiveOverlay}>
@@ -72,7 +76,7 @@ function App() {
           <Foods topic={topic} onContinueForward={continueForward} />
         ) : (
           <div>
-            <Navbar topic={topic} />
+            <Navbar topic={topic} onShowOverlay={showOverlay} />
             <Council options={{ humanName, topic, foods }} />
           </div>
         )}
