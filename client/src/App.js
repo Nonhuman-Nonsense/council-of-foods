@@ -5,7 +5,6 @@ import Landing from "./components/Landing";
 import Welcome from "./components/Welcome";
 import Topics from "./components/Topics";
 import Foods from "./components/Foods";
-import Navbar from "./components/Navbar";
 import Council from "./components/Council";
 
 function App() {
@@ -54,8 +53,9 @@ function App() {
     setCurrentView(pages[nextIndex]);
   }
 
-  function changeSettings() {
+  function changeSettings(topic) {
     // TODO: Restart discussion
+    setTopic(topic);
     setIsActiveOverlay(true);
     setCurrentView("foods");
   }
