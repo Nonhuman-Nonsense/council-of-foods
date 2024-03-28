@@ -129,6 +129,7 @@ function Topics(props) {
               value={customTopic}
               placeholder="your topic"
               onChange={handleInputTopic}
+              style={{ width: "80%" }}
             />
             <button
               className={`${
