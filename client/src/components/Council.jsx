@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import FoodItem from "./FoodItem";
 import Overlay from "./Overlay";
 import About from "./About";
-import Settings from "./Settings";
+import Topics from "./Topics";
 import Contact from "./Contact";
 import Share from "./Share";
 import Navbar from "./Navbar"; // Assuming you have this import
@@ -35,7 +35,7 @@ function Council({ options }) {
       case "about":
         return <About />;
       case "settings":
-        return <Settings />;
+        return <Topics currentTopic={options.topic} />;
       case "contact":
         return <Contact />;
       case "share":
@@ -48,16 +48,17 @@ function Council({ options }) {
   return (
     <div style={{ height: "100%", width: "100%" }}>
       <div className="wrapper">
-        <div
-          className="text-container"
-          style={{ justifyContent: "end", zIndex: -10 }}
-        >
-          <h2>
-            Lorem ipsum dolor sit.
-            <br />
-            Lorem ipsum dolor sit amet.
-          </h2>
-        </div>
+        (
+        {activeOverlay === "" && (
+          <div className="text-container" style={{ justifyContent: "end" }}>
+            <h2>
+              Lorem ipsum dolor sit.
+              <br />
+              Lorem ipsum dolor sit amet.
+            </h2>
+          </div>
+        )}
+        )
         <div style={foodsContainerStyle}>
           {foods.map((food, index) => (
             <FoodItem
@@ -69,10 +70,14 @@ function Council({ options }) {
             />
           ))}
         </div>
-        <Navbar topic={options.topic} onDisplayOverlay={displayOverlay} />
         <Overlay isActive={activeOverlay !== ""}>
           {renderOverlayContent()}
         </Overlay>
+        <Navbar
+          topic={options.topic}
+          activeOverlay={activeOverlay}
+          onDisplayOverlay={displayOverlay}
+        />
       </div>
     </div>
   );

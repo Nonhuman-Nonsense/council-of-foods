@@ -26,7 +26,6 @@ function FoodButton({
   const buttonStyle = {
     marginLeft: "5px",
     marginRight: "5px",
-    backgroundColor: "black",
     width: "75px",
     height: "75px",
     borderRadius: "50%",
@@ -38,8 +37,8 @@ function FoodButton({
       : isSelected
       ? "2px solid white"
       : selectLimitReached
-      ? "2px solid transparent"
-      : "2px solid transparent",
+      ? "2px solid rgb(255,255,255,0.5)"
+      : "2px solid rgb(255,255,255,0.5)",
   };
 
   const imageStyle = {

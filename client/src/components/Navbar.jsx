@@ -1,7 +1,8 @@
 import React from "react";
+import NavItem from "./NavItem";
 import { capitalizeFirstLetter } from "../utils";
 
-function Navbar({ topic, onDisplayOverlay }) {
+function Navbar({ topic, activeOverlay, onDisplayOverlay }) {
   const navbarStyle = {
     paddingTop: "10px",
     display: "flex",
@@ -13,23 +14,16 @@ function Navbar({ topic, onDisplayOverlay }) {
     left: 0,
     right: 0,
     margin: "0 auto",
-    width: "calc(90% + 40px)", // Adjusted width
+    width: "calc(90% + 40px)",
     pointerEvents: "auto",
   };
 
-  const navbarItemStyle = {
-    margin: "0",
-    padding: "0",
-  };
-
-  const linkItemStyle = {
-    marginLeft: "25px",
-  };
+  const navItems = ["about", "settings", "contact", "share"];
 
   return (
-    <div style={navbarStyle}>
+    <nav style={navbarStyle} role="navigation">
       <div>
-        <h3 style={navbarItemStyle}>
+        <h3 style={{ margin: "0", padding: "0" }}>
           <a className="link" href="/">
             COUNCIL OF FOODS
           </a>
@@ -37,48 +31,16 @@ function Navbar({ topic, onDisplayOverlay }) {
         <h4>{capitalizeFirstLetter(topic)}</h4>
       </div>
       <div style={{ display: "flex" }}>
-        <h3 style={navbarItemStyle}>
-          <a
-            className="link"
-            href="#"
-            onClick={() => onDisplayOverlay("about")}
-            style={linkItemStyle}
-          >
-            ABOUT
-          </a>
-        </h3>
-        <h3 style={navbarItemStyle}>
-          <a
-            className="link"
-            href="#"
-            onClick={() => onDisplayOverlay("settings")}
-            style={linkItemStyle}
-          >
-            SETTINGS
-          </a>
-        </h3>
-        <h3 style={navbarItemStyle}>
-          <a
-            className="link"
-            href="#"
-            onClick={() => onDisplayOverlay("contact")}
-            style={linkItemStyle}
-          >
-            CONTACT
-          </a>
-        </h3>
-        <h3 style={navbarItemStyle}>
-          <a
-            className="link"
-            href="#"
-            onClick={() => onDisplayOverlay("share")}
-            style={linkItemStyle}
-          >
-            SHARE
-          </a>
-        </h3>
+        {navItems.map((item) => (
+          <NavItem
+            key={item}
+            name={item}
+            onDisplayOverlay={onDisplayOverlay}
+            isActive={activeOverlay === item} // Determine active state
+          />
+        ))}
       </div>
-    </div>
+    </nav>
   );
 }
 

@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { capitalizeFirstLetter } from "../utils";
 
 function Topics(props) {
@@ -6,6 +6,7 @@ function Topics(props) {
   const [customTopic, setCustomTopic] = useState("");
   const topicTextareaRef = useRef(null);
 
+  // Topics array remains unchanged
   const topics = [
     "seed patents and ownership",
     "labour conditions & modern slavery",
@@ -15,21 +16,37 @@ function Topics(props) {
     "choose your own",
   ];
 
-  const shouldShowNextButton =
-    selectedTopic &&
-    !(selectedTopic.toLowerCase() === "choose your own" && !customTopic.trim());
+  // useEffect hook to listen for changes in props.currentTopic
+  useEffect(() => {
+    if (props.currentTopic) {
+      selectTopic(props.currentTopic);
+    }
+  }, [props.currentTopic]); // Dependency array includes only currentTopic
 
+  // Function to set selectedTopic and focus on textarea if needed
   function selectTopic(topic) {
-    setSelectedTopic(topic);
+    // Check if the topic is in the predefined list or not
+    const topicExists = topics.some(
+      (t) => t.toLowerCase() === topic.toLowerCase()
+    );
 
-    if (topic.toLowerCase() === "choose your own") {
-      // Set a slight delay before focusing to ensure the textarea is visible
+    if (topicExists) {
+      setSelectedTopic(topic);
+    } else {
+      // If the topic is not in the list, consider it a custom topic
+      setCustomTopic(topic); // Set the unrecognized topic as the custom topic
+      setSelectedTopic("choose your own"); // Automatically select "choose your own"
+    }
+
+    // Focus on the textarea if "choose your own" is selected
+    if (!topicExists || topic.toLowerCase() === "choose your own") {
       setTimeout(() => {
         topicTextareaRef.current && topicTextareaRef.current.focus();
       }, 0);
     }
   }
 
+  // Function to customize button style based on selected topic
   function topicButtonStyle(topic) {
     return {
       marginBottom: "15px",
@@ -38,21 +55,26 @@ function Topics(props) {
     };
   }
 
+  // Function to handle custom topic input changes
   function handleInputTopic(e) {
     const newTopic = e.target.value;
-
     const capitalizedTopic = capitalizeFirstLetter(newTopic);
-
     setCustomTopic(capitalizedTopic);
   }
 
+  // Function to proceed with the selected or custom topic
   function onContinueForward() {
-    if (selectedTopic.toLowerCase() === "choose your own") {
-      props.onContinueForward({ topic: customTopic });
-    } else {
-      props.onContinueForward({ topic: selectedTopic });
-    }
+    const topic =
+      selectedTopic.toLowerCase() === "choose your own"
+        ? customTopic
+        : selectedTopic;
+    props.onContinueForward({ topic });
   }
+
+  // Conditional rendering for showing the Next button
+  const shouldShowNextButton =
+    selectedTopic &&
+    !(selectedTopic.toLowerCase() === "choose your own" && !customTopic.trim());
 
   return (
     <div className="wrapper">
