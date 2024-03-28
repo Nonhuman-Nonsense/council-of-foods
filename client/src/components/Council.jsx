@@ -5,7 +5,9 @@ import About from "./About";
 import Topics from "./Topics";
 import Contact from "./Contact";
 import Share from "./Share";
+import ResetWarning from "./ResetWarning";
 import Navbar from "./Navbar";
+import TextOutput from "./TextOutput";
 import useWindowSize from "../hooks/useWindowSize";
 
 function Council({ options }) {
@@ -23,6 +25,10 @@ function Council({ options }) {
     justifyContent: "space-around",
     alignItems: "center",
   };
+
+  function displayResetWarning() {
+    setActiveOverlay("reset");
+  }
 
   // Function to handle overlay content based on navbar clicks
   const displayOverlay = (section) => {
@@ -42,7 +48,7 @@ function Council({ options }) {
         return (
           <Topics
             currentTopic={options.topic}
-            onChangeSettings={options.onChangeSettings}
+            onReset={options.onReset}
             onCancel={removeOverlay}
           />
         );
@@ -50,6 +56,13 @@ function Council({ options }) {
         return <Contact />;
       case "share":
         return <Share />;
+      case "reset":
+        return (
+          <ResetWarning
+            onReset={() => options.onReset()}
+            onCancel={removeOverlay}
+          />
+        );
       default:
         return null; // No overlay content if no section is active
     }
@@ -60,11 +73,7 @@ function Council({ options }) {
       <div className="wrapper">
         {activeOverlay === "" && (
           <div className="text-container" style={{ justifyContent: "end" }}>
-            <h2>
-              Lorem ipsum dolor sit.
-              <br />
-              Lorem ipsum dolor sit amet.
-            </h2>
+            <TextOutput />
           </div>
         )}
         <div style={foodsContainerStyle}>
@@ -86,6 +95,7 @@ function Council({ options }) {
           activeOverlay={activeOverlay}
           onDisplayOverlay={displayOverlay}
           onRemoveOverlay={removeOverlay}
+          onDisplayResetWarning={displayResetWarning}
         />
       </div>
     </div>

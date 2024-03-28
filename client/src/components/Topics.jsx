@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import SettingsWarning from "./SettingsWarning";
+import ResetWarning from "./ResetWarning";
 import { capitalizeFirstLetter } from "../utils";
 
 function Topics(props) {
@@ -67,7 +67,7 @@ function Topics(props) {
   // Function to proceed with the selected or custom topic
   function onContinueForward() {
     if (props.currentTopic) {
-      // TODO: Check if there is a current topic, in that case show the warning...
+      // Current topic exists which means we are changing settings
       setDisplayWarning(true);
     } else {
       const topic = getTopic();
@@ -90,18 +90,16 @@ function Topics(props) {
     !(selectedTopic.toLowerCase() === "choose your own" && !customTopic.trim());
 
   return (
-    <div className="wrapper">
-      <div className="text-container">
-        {displayWarning ? (
-          <SettingsWarning
-            onChangeSettings={() => {
-              const topic = getTopic();
-              props.onChangeSettings(topic);
-            }}
-            onCancel={props.onCancel}
-          />
-        ) : (
-          <>
+    <>
+      {displayWarning ? (
+        <ResetWarning
+          message="changing settings"
+          onReset={() => props.onReset(getTopic())}
+          onCancel={props.onCancel}
+        />
+      ) : (
+        <div className="wrapper">
+          <div className="text-container">
             <h1>THE ISSUE:</h1>
             <div
               style={{
@@ -128,7 +126,6 @@ function Topics(props) {
                 selectedTopic === "choose your own" ? "" : "hidden"
               } text-input`}
               rows="2"
-              cols="30"
               value={customTopic}
               placeholder="your topic"
               onChange={handleInputTopic}
@@ -141,10 +138,10 @@ function Topics(props) {
             >
               Next
             </button>
-          </>
-        )}
-      </div>
-    </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 

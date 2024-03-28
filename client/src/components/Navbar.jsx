@@ -4,7 +4,13 @@ import { capitalizeFirstLetter } from "../utils";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faXmark } from "@fortawesome/free-solid-svg-icons";
 
-function Navbar({ topic, activeOverlay, onDisplayOverlay, onRemoveOverlay }) {
+function Navbar({
+  topic,
+  activeOverlay,
+  onDisplayOverlay,
+  onRemoveOverlay,
+  onDisplayResetWarning,
+}) {
   const navbarStyle = {
     paddingTop: "10px",
     display: "flex",
@@ -26,7 +32,13 @@ function Navbar({ topic, activeOverlay, onDisplayOverlay, onRemoveOverlay }) {
     <nav style={navbarStyle} role="navigation">
       <div>
         <h3 style={{ margin: "0", padding: "0" }}>
-          <a className="link" href="/">
+          <a
+            className="link"
+            onClick={(e) => {
+              e.preventDefault();
+              onDisplayResetWarning();
+            }}
+          >
             COUNCIL OF FOODS
           </a>
         </h3>

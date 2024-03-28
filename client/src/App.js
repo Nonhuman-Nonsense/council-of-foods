@@ -53,11 +53,17 @@ function App() {
     setCurrentView(pages[nextIndex]);
   }
 
-  function changeSettings(topic) {
-    // TODO: Restart discussion
-    setTopic(topic);
+  function reset(topic) {
+    setTopic(topic ?? "");
+    setFoods([]);
     setIsActiveOverlay(true);
-    setCurrentView("foods");
+
+    if (!topic) {
+      setHumanName("");
+      setCurrentView("landing");
+    } else {
+      setCurrentView("foods");
+    }
   }
 
   return (
@@ -77,7 +83,7 @@ function App() {
               humanName,
               topic,
               foods,
-              onChangeSettings: changeSettings,
+              onReset: reset,
             }}
           />
         )}
