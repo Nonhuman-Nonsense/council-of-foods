@@ -28,7 +28,7 @@ function App() {
   };
 
   useEffect(() => {
-    if (currentView === pages[0]) {
+    if (currentView === "landing") {
       setBackgroundImageURL("/images/backgrounds/zoomed-out.jpeg");
     } else {
       setBackgroundImageURL("/images/backgrounds/zoomed-in.png");
@@ -54,8 +54,10 @@ function App() {
     setCurrentView(pages[nextIndex]);
   }
 
-  function goBack() {
-    // Placeholder for goBack function implementation
+  function changeSettings() {
+    // TODO: Restart discussion
+    setIsActiveOverlay(true);
+    setCurrentView("foods");
   }
 
   return (
@@ -70,7 +72,14 @@ function App() {
         ) : currentView === "foods" ? (
           <Foods topic={topic} onContinueForward={continueForward} />
         ) : (
-          <Council options={{ humanName, topic, foods }} />
+          <Council
+            options={{
+              humanName,
+              topic,
+              foods,
+              onChangeSettings: changeSettings,
+            }}
+          />
         )}
       </Overlay>
     </div>

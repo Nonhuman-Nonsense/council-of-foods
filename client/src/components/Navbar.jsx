@@ -1,8 +1,10 @@
 import React from "react";
 import NavItem from "./NavItem";
 import { capitalizeFirstLetter } from "../utils";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faXmark } from "@fortawesome/free-solid-svg-icons";
 
-function Navbar({ topic, activeOverlay, onDisplayOverlay }) {
+function Navbar({ topic, activeOverlay, onDisplayOverlay, onRemoveOverlay }) {
   const navbarStyle = {
     paddingTop: "10px",
     display: "flex",
@@ -30,15 +32,27 @@ function Navbar({ topic, activeOverlay, onDisplayOverlay }) {
         </h3>
         <h4>{capitalizeFirstLetter(topic)}</h4>
       </div>
-      <div style={{ display: "flex" }}>
-        {navItems.map((item) => (
-          <NavItem
-            key={item}
-            name={item}
-            onDisplayOverlay={onDisplayOverlay}
-            isActive={activeOverlay === item} // Determine active state
+      <div
+        style={{ display: "flex", flexDirection: "column", alignItems: "end" }}
+      >
+        <div style={{ display: "flex" }}>
+          {navItems.map((item) => (
+            <NavItem
+              key={item}
+              name={item}
+              onDisplayOverlay={onDisplayOverlay}
+              isActive={activeOverlay === item} // Determine active state
+            />
+          ))}
+        </div>
+        {activeOverlay !== "" && (
+          <FontAwesomeIcon
+            icon={faXmark}
+            size="2x"
+            onClick={onRemoveOverlay}
+            style={{ cursor: "pointer", marginTop: "18px" }}
           />
-        ))}
+        )}
       </div>
     </nav>
   );

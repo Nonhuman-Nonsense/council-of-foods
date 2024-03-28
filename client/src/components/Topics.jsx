@@ -1,9 +1,11 @@
 import React, { useState, useRef, useEffect } from "react";
+import SettingsWarning from "./SettingsWarning";
 import { capitalizeFirstLetter } from "../utils";
 
 function Topics(props) {
   const [selectedTopic, setSelectedTopic] = useState("");
   const [customTopic, setCustomTopic] = useState("");
+  const [displayWarning, setDisplayWarning] = useState(false);
   const topicTextareaRef = useRef(null);
 
   // Topics array remains unchanged
@@ -64,11 +66,22 @@ function Topics(props) {
 
   // Function to proceed with the selected or custom topic
   function onContinueForward() {
+    if (props.currentTopic) {
+      // TODO: Check if there is a current topic, in that case show the warning...
+      setDisplayWarning(true);
+    } else {
+      const topic = getTopic();
+      props.onContinueForward({ topic });
+    }
+  }
+
+  function getTopic() {
     const topic =
       selectedTopic.toLowerCase() === "choose your own"
         ? customTopic
         : selectedTopic;
-    props.onContinueForward({ topic });
+
+    return topic;
   }
 
   // Conditional rendering for showing the Next button
@@ -79,43 +92,57 @@ function Topics(props) {
   return (
     <div className="wrapper">
       <div className="text-container">
-        <h1>THE ISSUE:</h1>
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            justifyContent: "start",
-          }}
-        >
-          {topics.map((topic, index) => (
-            <button
-              key={index}
-              className="outline-button wide-button"
-              onClick={() => selectTopic(topic)}
-              style={topicButtonStyle(topic)}
+        {displayWarning ? (
+          <SettingsWarning
+            onChangeSettings={() => {
+              const topic = getTopic();
+              props.onChangeSettings(topic);
+            }}
+            onCancel={props.onCancel}
+          />
+        ) : (
+          <>
+            <h1>THE ISSUE:</h1>
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "start",
+              }}
             >
-              {topic}
+              {topics.map((topic, index) => (
+                <button
+                  key={index}
+                  className="outline-button wide-button"
+                  onClick={() => selectTopic(topic)}
+                  style={topicButtonStyle(topic)}
+                >
+                  {topic}
+                </button>
+              ))}
+              <h4>please select an issue for the discussion</h4>
+            </div>
+            <textarea
+              ref={topicTextareaRef}
+              className={`${
+                selectedTopic === "choose your own" ? "" : "hidden"
+              } text-input`}
+              rows="2"
+              cols="30"
+              value={customTopic}
+              placeholder="your topic"
+              onChange={handleInputTopic}
+            />
+            <button
+              className={`${
+                shouldShowNextButton ? "" : "hidden"
+              } outline-button`}
+              onClick={onContinueForward}
+            >
+              Next
             </button>
-          ))}
-          <h4>please select an issue for the discussion</h4>
-        </div>
-        <textarea
-          ref={topicTextareaRef}
-          className={`${
-            selectedTopic === "choose your own" ? "" : "hidden"
-          } text-input`}
-          rows="2"
-          cols="30"
-          value={customTopic}
-          placeholder="your topic"
-          onChange={handleInputTopic}
-        />
-        <button
-          className={`${shouldShowNextButton ? "" : "hidden"} outline-button`}
-          onClick={onContinueForward}
-        >
-          Next
-        </button>
+          </>
+        )}
       </div>
     </div>
   );

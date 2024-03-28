@@ -5,7 +5,7 @@ import About from "./About";
 import Topics from "./Topics";
 import Contact from "./Contact";
 import Share from "./Share";
-import Navbar from "./Navbar"; // Assuming you have this import
+import Navbar from "./Navbar";
 import useWindowSize from "../hooks/useWindowSize";
 
 function Council({ options }) {
@@ -29,13 +29,23 @@ function Council({ options }) {
     setActiveOverlay(section); // Update state to control overlay content
   };
 
+  function removeOverlay() {
+    setActiveOverlay("");
+  }
+
   // Conditional rendering of overlay content based on activeOverlay state
   const renderOverlayContent = () => {
     switch (activeOverlay) {
       case "about":
         return <About />;
       case "settings":
-        return <Topics currentTopic={options.topic} />;
+        return (
+          <Topics
+            currentTopic={options.topic}
+            onChangeSettings={options.onChangeSettings}
+            onCancel={removeOverlay}
+          />
+        );
       case "contact":
         return <Contact />;
       case "share":
@@ -48,7 +58,6 @@ function Council({ options }) {
   return (
     <div style={{ height: "100%", width: "100%" }}>
       <div className="wrapper">
-        (
         {activeOverlay === "" && (
           <div className="text-container" style={{ justifyContent: "end" }}>
             <h2>
@@ -58,7 +67,6 @@ function Council({ options }) {
             </h2>
           </div>
         )}
-        )
         <div style={foodsContainerStyle}>
           {foods.map((food, index) => (
             <FoodItem
@@ -77,6 +85,7 @@ function Council({ options }) {
           topic={options.topic}
           activeOverlay={activeOverlay}
           onDisplayOverlay={displayOverlay}
+          onRemoveOverlay={removeOverlay}
         />
       </div>
     </div>
