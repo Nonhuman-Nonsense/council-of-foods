@@ -14,7 +14,7 @@ function App() {
   const [foods, setFoods] = useState([]);
   const pages = ["landing", "welcome", "topics", "foods", "council"];
   const [currentView, setCurrentView] = useState(pages[0]);
-  const [isOverlayActive, setIsOverlayActive] = useState(true);
+  const [isActiveOverlay, setIsActiveOverlay] = useState(true);
   const [backgroundImageURL, setBackgroundImageURL] = useState(
     "/images/backgrounds/zoomed-out.jpg"
   );
@@ -36,7 +36,6 @@ function App() {
   }, [currentView]);
 
   function continueForward(props) {
-    // Set properties
     if (props && props.hasOwnProperty("humanName")) {
       setHumanName(props.humanName);
     } else if (props && props.hasOwnProperty("topic")) {
@@ -45,30 +44,23 @@ function App() {
       setFoods(props.foods);
     }
 
-    // Update index
-
     const currentIndex = pages.indexOf(currentView);
-    const nextIndex = (currentIndex + 1) % pages.length; // Use modulus to cycle back to the start
+    const nextIndex = (currentIndex + 1) % pages.length;
 
-    // Set new view
-
-    if (pages[nextIndex] == "council") {
-      toggleOverlay();
+    if (pages[nextIndex] === "council") {
+      setIsActiveOverlay(false);
     }
 
     setCurrentView(pages[nextIndex]);
   }
 
-  // Placeholder for goBack function implementation
-  function goBack() {}
-
-  function toggleOverlay() {
-    setIsOverlayActive(!isOverlayActive);
+  function goBack() {
+    // Placeholder for goBack function implementation
   }
 
   return (
     <div className="App" style={backgroundStyle}>
-      <Overlay isActive={isOverlayActive && currentView !== "council"}>
+      <Overlay isActive={isActiveOverlay && currentView !== "council"}>
         {currentView === "landing" ? (
           <Landing onContinueForward={continueForward} />
         ) : currentView === "welcome" ? (
@@ -78,10 +70,7 @@ function App() {
         ) : currentView === "foods" ? (
           <Foods topic={topic} onContinueForward={continueForward} />
         ) : (
-          <div>
-            <Navbar topic={topic} onToggleOverlay={toggleOverlay} />
-            <Council options={{ humanName, topic, foods }} />
-          </div>
+          <Council options={{ humanName, topic, foods }} />
         )}
       </Overlay>
     </div>

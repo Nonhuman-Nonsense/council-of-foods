@@ -6,20 +6,22 @@ function Overlay({ isActive, children }) {
   useEffect(() => {
     if (isActive) {
       setOverlayStyle({
-        position: "absolute",
+        position: "fixed",
         top: 0,
         left: 0,
         height: "100%",
         width: "100%",
         backgroundColor: "rgba(0, 0, 0, 0.5)",
+        pointerEvents: "auto",
       });
     } else {
       setOverlayStyle({
-        position: "relative",
+        position: "fixed",
         top: 0,
         left: 0,
         height: "100%",
         width: "100%",
+        pointerEvents: "none",
       });
     }
   }, [isActive]);
