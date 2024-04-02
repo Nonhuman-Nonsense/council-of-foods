@@ -5,6 +5,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let conversationActive = false;
     let conversationStarted = false;
     let promptsAndOptions;
+    let conversation;
 
     const conversationContainer = document.getElementById('conversation-container');
 
@@ -191,35 +192,12 @@ document.addEventListener('DOMContentLoaded', () => {
     // ==================
 
     // Handle conversation updates
-    socket.on('conversation_update', (conversation) => {
-        conversationDiv.innerHTML = conversation
-            .map(turn => {
-              let speech = `<p id="${turn.id}">`;
-              speech += `<strong>${turn.speaker}:</strong> `;
-              if(turn.pretrimmed){
-                speech += `<span class="trimmed">${turn.pretrimmed.split('\n').join('<br>')}</span>`;
-              }
-              speech += turn.text.split('\n').join('<br>');
-              if(turn.trimmed){
-                speech += `<span class="trimmed">${turn.trimmed.split('\n').join('<br>')}</span>`;
-              }
-              speech += "</p>"
-              return speech;
-            })
-            .join('');
-        preHumanInputContainer.style.display = "none";
-        postHumanInputContainer.style.display = "block";
-        conversationContainer.scrollTop = conversationContainer.scrollHeight;
-    });
-
-    socket.on('debug_info', (debug) => {
-      console.log(debug);
-      if(debug.type == "skipped"){
-        console.log("append");
-        const debugDiv = document.createElement("div");
-        debugDiv.innerHTML = `<p><span class="trimmed">${debug.msg}</span></p>`;
-        conversationDiv.appendChild(debugDiv);
-      }
+    socket.on('conversation_update', (conversationUpdate) => {
+      conversation = conversationUpdate;
+      reloadConversations();
+      preHumanInputContainer.style.display = "none";
+      postHumanInputContainer.style.display = "block";
+      conversationContainer.scrollTop = conversationContainer.scrollHeight;
     });
 
     // Handle audio updates
@@ -230,9 +208,9 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
       console.log(update);
-      if(update.type == 'human'){
+      if(update.type == 'human' || update.type == 'skipped'){
         ignorePlaylist(update.message_index);
-        return
+        return;
       }
       //This is an async function
       await addToPlaylist(update.audio, update.message_index);
@@ -563,6 +541,35 @@ document.addEventListener('DOMContentLoaded', () => {
       unpackPromptsAndOptions();
     }
 
+    function reloadConversations(){
+      if(!conversation) return;
+      conversationDiv.innerHTML = conversation
+          .map(turn => {
+            //If if we should skip this message, we still need to put the id in to the DOM, to keep track if which messages have received audio information
+            //So we put a hidden object
+            //This might not be the best idea
+            if(!promptsAndOptions.options.showTrimmed && turn.type == 'skipped'){
+              return `<p id="${turn.id}" style="display:none;"></p>`;
+            }
+            let speech = `<p id="${turn.id}">`;
+            speech += `<strong>${turn.speaker}:</strong> `;
+            if(promptsAndOptions.options.showTrimmed && turn.pretrimmed){
+              speech += `<span class="trimmed">${turn.pretrimmed.split('\n').join('<br>')}</span>`;
+            }
+            speech += turn.text.split('\n').join('<br>');
+            if(promptsAndOptions.options.showTrimmed && turn.trimmed){
+              speech += `<span class="trimmed">${turn.trimmed.split('\n').join('<br>')}</span>`;
+            }
+            speech += "</p>"
+            return speech;
+          })
+          .join('');
+    }
+
+    document.getElementById('show-trimmed').addEventListener('click', () => {
+      reloadUI();
+    });
+
     // Remove the last character
     document.getElementById('add-room').addEventListener('click', () => {
         const rooms = document.getElementById('room-buttons');
@@ -659,6 +666,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const reloadUI = () => {
       updatePromptsAndOptions();
       unpackPromptsAndOptions();
+      reloadConversations();
     };
 
     document.getElementById('room-name').addEventListener('change', reloadUI);

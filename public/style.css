@@ -100,6 +100,14 @@ textarea {
     color: red;
 }
 
+#display-settings{
+  position: fixed;
+  bottom: 3px;
+  right: 10px;
+  z-index: 10;
+  background-color: #b8e7b7;
+}
+
 #audio-controls{
   position: fixed;
   bottom: 3px;

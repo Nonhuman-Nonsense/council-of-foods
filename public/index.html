@@ -19,7 +19,6 @@
               <br><h3>server options</h3>
                 trim response to last complete sentance: <input type="checkbox" id="trim-response-to-full-sentance"><br>
                 trim response to last complete paragraph: <input type="checkbox" id="trim-response-to-full-paragraph" checked><br>
-                showed trimmed content: <input type="checkbox" id="show-trimmed" checked><br>
                 conversation max length: <input type="number" id="conversation-max-length" placeholder="conversation max length" value="10"><br/>
 
                 Reset everything to default: <button id="factoryResetButton">Factory Reset</button>
@@ -89,6 +88,7 @@
             <div id="end-message"></div>
             <div id="spinner" class="loader" style="display: none;"></div>
             <div id="audio-controls"><button id="audioBack">&#x23EE;</button><button id="audioToggle">&#x23EF;</button><button id="audioNext">&#x23ED;</button></div>
+            <div id="display-settings"><input type="checkbox" id="show-trimmed" checked> showed trimmed content</div>
         </div>
     </main>
 

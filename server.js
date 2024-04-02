@@ -188,25 +188,31 @@ io.on('connection', (socket) => {
             if(handRaised) return;
             if(thisConversationCounter != conversationCounter) return;
 
+            let message = { id: id, speaker: characters[currentSpeaker].name, text: response, trimmed: trimmed, pretrimmed: pretrimmed };
             //If a character has completely answered for someone else, skip it, and go to the next
-            if(response != ""){
+            if(response == ""){
+              message.type = 'skipped';
+              console.log('Skipped a message');
+            }
 
-              // Add the response to the conversation
-              conversation.push({ id: id, speaker: characters[currentSpeaker].name, text: response, trimmed: trimmed, pretrimmed: pretrimmed });
+            // Add the response to the conversation
+            conversation.push(message);
 
-              //A rolling index of the message number, so that audio can be played in the right order etc.
-              const message_index = conversation.length - 1;
+            //A rolling index of the message number, so that audio can be played in the right order etc.
+            const message_index = conversation.length - 1;
 
-              socket.emit('conversation_update', conversation);
+            socket.emit('conversation_update', conversation);
 
-              //This is an async function, and since we are not waiting for the response, it will run in a paralell thread.
-              //The result will be emitted to the socket when it's ready
-              //The rest of the conversation continues
-              const voice = characters[currentSpeaker].voice ? characters[currentSpeaker].voice : audioVoices[currentSpeaker % audioVoices.length];
-              generateAudio(id, message_index, response, voice);
+            //This is an async function, and since we are not waiting for the response, it will run in a paralell thread.
+            //The result will be emitted to the socket when it's ready
+            //The rest of the conversation continues
+            const voice = characters[currentSpeaker].voice ? characters[currentSpeaker].voice : audioVoices[currentSpeaker % audioVoices.length];
+            if(message.type != 'skipped'){
+                generateAudio(id, message_index, response, voice);
             }else{
-              console.log("Empty reponse! Skipped a message");
-              socket.emit('debug_info', {type: "skipped", msg: trimmed});
+              //If we have an empty message, removed because this character pretended to be someone else
+              //Send down a message saying this the audio of this message should be skipped
+              socket.emit('audio_update', {id:message.id, message_index: message_index, type: 'skipped'});
             }
 
             // Check for conversation end
@@ -249,16 +255,16 @@ io.on('connection', (socket) => {
             // System message for overall context
             messages.push({
                 role: "system",
-                content: `${topic}\n\n${speaker.role}`
+                content: `${topic}\n\n${speaker.role}`.trim()
             });
 
             // Add previous messages as separate user objects
             conversation.forEach((msg) => {
-              let content = msg.text;
-                messages.push({
-                    role: (speaker.name == msg.speaker ? "assistant" : "user"),
-                    content: msg.speaker + ": " + msg.text//We add the name of the character before each message, so that they will be less confused about who said what.
-                });
+              if(msg.type == 'skipped') return;//skip certain messages
+              messages.push({
+                role: (speaker.name == msg.speaker ? "assistant" : "user"),
+                content: msg.speaker + ": " + msg.text//We add the name of the character before each message, so that they will be less confused about who said what.
+              });
             });
 
             //Push a message with the character name at the end of the conversation, in the hope that the character will understand who they are and not repeat their name
@@ -286,8 +292,10 @@ io.on('connection', (socket) => {
             let pretrimmedContent;
             //If the prompt starts with the character name, remove it
             if(response.startsWith(speaker.name + ":")){
+              //save the trimmed content, for debugging the prompts
               pretrimmedContent = response.substring(0, speaker.name.length + 1);
-              response = response.substring(speaker.name.length + 1);
+              //remove the name, and any additional whitespace created by this
+              response = response.substring(speaker.name.length + 1).trim();
             }
 
             let trimmedContent;
@@ -315,18 +323,13 @@ io.on('connection', (socket) => {
               }
             }
 
-            //if we find someone elses name in there, cut it
+            //if we find someone elses name in there, trim it
             for (var i = 0; i < characters.length; i++) {
               if(i == currentSpeaker) continue;//Don't cut things from our own name
-              if(response.indexOf(characters[i].name + ": ") != -1){
-                response = response.substring(0, response.indexOf(characters[i].name + ": "));
-                trimmedContent = originalResponse.substring(response.indexOf(characters[i].name + ": "));
+              if(response.indexOf(characters[i].name + ":") != -1){
+                response = response.substring(0, response.indexOf(characters[i].name + ":")).trim();
+                trimmedContent = originalResponse.substring(response.indexOf(characters[i].name + ":"));
               }
-            }
-
-            if(!options.showTrimmed){
-              trimmedContent = undefined;
-              pretrimmedContent = undefined;
             }
 
             return {id: completion.id, response: response, trimmed: trimmedContent, pretrimmed: pretrimmedContent};
