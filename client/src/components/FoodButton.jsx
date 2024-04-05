@@ -1,7 +1,7 @@
 import React from "react";
 
 function FoodButton({
-  foodName,
+  food,
   onSelectFood,
   onDeselectFood,
   onMouseEnter,
@@ -11,14 +11,14 @@ function FoodButton({
 }) {
   const isModerator = onSelectFood === undefined;
 
-  const imageUrl = `/images/foods/${foodName}.png`;
+  const imageUrl = `/images/foods/${food.name}.png`;
 
   function handleClickFood() {
     if (!isModerator && (!selectLimitReached || isSelected)) {
       if (!isSelected) {
-        onSelectFood?.(foodName);
+        onSelectFood?.(food);
       } else {
-        onDeselectFood?.(foodName);
+        onDeselectFood?.(food);
       }
     }
   }
@@ -32,6 +32,10 @@ function FoodButton({
     display: "flex",
     justifyContent: "center",
     alignItems: "center",
+    cursor:
+      isModerator || (selectLimitReached && !isSelected)
+        ? "default"
+        : "pointer",
     border: isModerator
       ? "4px solid white"
       : isSelected
@@ -45,22 +49,22 @@ function FoodButton({
     width: "80%",
     height: "80%",
     objectFit: "cover",
-    cursor:
-      isModerator || (selectLimitReached && !isSelected)
-        ? "default"
-        : "pointer",
     borderRadius: "50%",
   };
 
   return (
     <div
       className="food-button"
-      onMouseEnter={() => onMouseEnter(foodName)}
+      onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
       style={buttonStyle}
       onClick={handleClickFood}
     >
-      <img src={imageUrl} alt={foodName} style={imageStyle} />
+      <img
+        src={imageUrl}
+        alt={food.name}
+        style={imageStyle}
+      />
     </div>
   );
 }

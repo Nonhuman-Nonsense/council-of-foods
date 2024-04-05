@@ -1,4 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import io from "socket.io-client";
+import foodsData from "../foods.json";
 import FoodItem from "./FoodItem";
 import Overlay from "./Overlay";
 import About from "./About";
@@ -12,6 +14,7 @@ import useWindowSize from "../hooks/useWindowSize";
 
 function Council({ options }) {
   const { foods } = options;
+  const { foodsData } = foodsData;
   const [activeOverlay, setActiveOverlay] = useState(""); // Tracks which overlay to show
   const { width: screenWidth } = useWindowSize();
 
@@ -25,6 +28,13 @@ function Council({ options }) {
     justifyContent: "space-around",
     alignItems: "center",
   };
+
+  // Test socket
+  useEffect(() => {
+    const socket = io();
+
+    console.log(socket);
+  }, []);
 
   function displayResetWarning() {
     setActiveOverlay("reset");
@@ -72,7 +82,10 @@ function Council({ options }) {
     <div style={{ height: "100%", width: "100%" }}>
       <div className="wrapper">
         {activeOverlay === "" && (
-          <div className="text-container" style={{ justifyContent: "end" }}>
+          <div
+            className="text-container"
+            style={{ justifyContent: "end" }}
+          >
             <TextOutput />
           </div>
         )}

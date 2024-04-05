@@ -28,7 +28,10 @@ function Welcome({ humanName, onContinueForward }) {
             <br /> perspectives in the Council of Foods.
           </h4>
         </div>
-        <button className="outline-button" onClick={() => onContinueForward()}>
+        <button
+          className="outline-button"
+          onClick={() => onContinueForward()}
+        >
           Next
         </button>
       </div>

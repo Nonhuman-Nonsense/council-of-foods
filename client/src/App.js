@@ -67,16 +67,25 @@ function App() {
   }
 
   return (
-    <div className="App" style={backgroundStyle}>
+    <div
+      className="App"
+      style={backgroundStyle}
+    >
       <Overlay isActive={isActiveOverlay && currentView !== "council"}>
         {currentView === "landing" ? (
           <Landing onContinueForward={continueForward} />
         ) : currentView === "welcome" ? (
-          <Welcome humanName={humanName} onContinueForward={continueForward} />
+          <Welcome
+            humanName={humanName}
+            onContinueForward={continueForward}
+          />
         ) : currentView === "topics" ? (
           <Topics onContinueForward={continueForward} />
         ) : currentView === "foods" ? (
-          <Foods topic={topic} onContinueForward={continueForward} />
+          <Foods
+            topic={topic}
+            onContinueForward={continueForward}
+          />
         ) : (
           <Council
             options={{
