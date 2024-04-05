@@ -1,0 +1,167 @@
+@import url("https://fonts.googleapis.com/css2?family=Tinos:ital,wght@0,400;0,700;1,400;1,700&display=swap");
+
+body,
+html,
+#root,
+.App {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  width: 100%;
+}
+
+.App {
+  font-family: "Tinos", serif;
+  font-weight: 400;
+  font-style: normal;
+  text-align: center;
+  position: relative;
+  height: 100vh;
+  width: 100vw;
+}
+
+.App-logo {
+  height: 40vmin;
+  pointer-events: none;
+}
+
+.hidden {
+  visibility: hidden;
+}
+
+h1 {
+  font-size: 80px;
+  margin: 8px;
+  font-weight: normal;
+}
+
+h2 {
+  font-size: 52px;
+  margin: 8px;
+  font-weight: normal;
+}
+
+h3 {
+  font-size: 34px;
+  margin-top: 18px;
+  margin-bottom: 18px;
+  font-weight: normal;
+}
+
+h4 {
+  font-size: 24px;
+  margin-top: 18px;
+  margin-bottom: 18px;
+  font-weight: normal;
+}
+
+.wrapper {
+  height: 100%;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.text-container {
+  z-index: 10;
+  color: white;
+  text-align: center;
+  height: 80%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.link {
+  color: white;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.italic {
+  font-style: italic;
+}
+
+.input-icon-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.text-input {
+  background-color: white;
+  border-radius: 12px;
+  border: none;
+  padding-left: 20px;
+  padding-right: 20px;
+  padding-top: 10px;
+  padding-bottom: 10px;
+  font-size: 25px;
+  font-family: Arial, Helvetica, sans-serif;
+  line-height: 1.5;
+}
+
+.name-input {
+  width: 400px;
+  height: 30px;
+  padding-right: 40px; /* Make room for the arrow */
+}
+
+.input-arrow {
+  position: absolute;
+  right: 10px;
+  color: black; /* Adjust arrow color as needed */
+}
+
+.food-buttons {
+  display: flex;
+}
+
+.outline-button {
+  font-family: "Tinos", serif;
+  font-style: normal;
+  font-size: 34px;
+  font-weight: normal;
+  color: white;
+  background-color: transparent;
+  border: 2px solid white;
+  border-radius: 25px;
+  padding: 0px 22px 0px 22px;
+  cursor: pointer;
+}
+
+.wide-button {
+  padding: 8px 100px 8px 100px !important;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .App-logo {
+    animation: App-logo-spin infinite 20s linear;
+  }
+}
+
+.App-header {
+  background-color: #282c34;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: calc(10px + 2vmin);
+  color: white;
+}
+
+.App-link {
+  color: #61dafb;
+}
+
+@keyframes App-logo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
