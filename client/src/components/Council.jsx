@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import io from "socket.io-client";
-import foodsData from "../foods.json";
 import FoodItem from "./FoodItem";
 import Overlay from "./Overlay";
 import About from "./About";
@@ -14,8 +13,7 @@ import useWindowSize from "../hooks/useWindowSize";
 
 function Council({ options }) {
   const { foods } = options;
-  const { foodsData } = foodsData;
-  const [activeOverlay, setActiveOverlay] = useState(""); // Tracks which overlay to show
+  const [activeOverlay, setActiveOverlay] = useState("");
   const { width: screenWidth } = useWindowSize();
 
   const foodsContainerStyle = {
@@ -92,7 +90,7 @@ function Council({ options }) {
         <div style={foodsContainerStyle}>
           {foods.map((food, index) => (
             <FoodItem
-              key={index}
+              key={food.name}
               food={food}
               index={index}
               total={foods.length}

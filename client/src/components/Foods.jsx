@@ -21,8 +21,6 @@ function Foods({ topic, onContinueForward }) {
   }
 
   function handleOnMouseEnter(food) {
-    console.log("Setting current food:", food); // This should log the entire food object
-
     setCurrentFood(food);
   }
 

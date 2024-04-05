@@ -59,9 +59,11 @@ function App() {
     setIsActiveOverlay(true);
 
     if (!topic) {
+      // Reset from the start
       setHumanName("");
       setCurrentView("landing");
     } else {
+      // Reset from foods selection
       setCurrentView("foods");
     }
   }

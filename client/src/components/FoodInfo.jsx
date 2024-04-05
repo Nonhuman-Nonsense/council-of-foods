@@ -6,8 +6,6 @@ function FoodInfo({ food }) {
     return null;
   }
 
-  console.log(food.name);
-
   const capitalizedFoodName = capitalizeFirstLetter(food.name);
 
   return (
