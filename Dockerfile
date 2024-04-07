@@ -15,7 +15,7 @@ COPY server/package*.json ./
 RUN npm ci --only=production
 COPY server/ .
 # Copy the built React app from the previous stage
-COPY --from=client-builder /usr/src/client/build ./public
+COPY --from=client-builder /usr/src/client/build /usr/src/client/build
 
 # Expose the port that the server is running on
 EXPOSE 3000
