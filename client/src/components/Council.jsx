@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import io from "socket.io-client";
+import globalOptions from "../global-options.json";
 import FoodItem from "./FoodItem";
 import Overlay from "./Overlay";
 import About from "./About";
@@ -12,7 +13,7 @@ import TextOutput from "./TextOutput";
 import useWindowSize from "../hooks/useWindowSize";
 
 function Council({ options }) {
-  const { foods } = options;
+  const { foods, humanName, topic } = options;
   const [activeOverlay, setActiveOverlay] = useState("");
   const { width: screenWidth } = useWindowSize();
 
@@ -30,6 +31,20 @@ function Council({ options }) {
   // Test socket
   useEffect(() => {
     const socket = io();
+
+    // Construct promps and options object
+
+    let promptsAndOptions = {
+      options: {
+        ...globalOptions.options,
+        humanName: humanName,
+        raiseHandPrompt: false,
+        neverMindPrompt: false,
+      },
+      rooms: [{ name: "New Room", topic: topic, characters: foods }],
+    };
+
+    console.log(promptsAndOptions);
 
     console.log(socket);
   }, []);
