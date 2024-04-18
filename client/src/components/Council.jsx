@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import io from "socket.io-client";
 import globalOptions from "../global-options.json";
 import FoodItem from "./FoodItem";
@@ -16,6 +16,8 @@ function Council({ options }) {
   const { foods, humanName, topic } = options;
   const [activeOverlay, setActiveOverlay] = useState("");
   const { width: screenWidth } = useWindowSize();
+  const [conversation, setConversation] = useState([]); // State to store conversation updates
+  const socketRef = useRef(null); // Using useRef to persist socket instance
 
   const foodsContainerStyle = {
     position: "absolute",
@@ -28,25 +30,32 @@ function Council({ options }) {
     alignItems: "center",
   };
 
-  // Test socket
   useEffect(() => {
-    const socket = io();
-
-    // Construct promps and options object
+    socketRef.current = io();
 
     let promptsAndOptions = {
       options: {
-        ...globalOptions.options,
+        ...globalOptions,
         humanName: humanName,
         raiseHandPrompt: false,
         neverMindPrompt: false,
       },
-      rooms: [{ name: "New Room", topic: topic, characters: foods }],
+      name: "New room",
+      topic: topic,
+      characters: foods,
     };
 
-    console.log(promptsAndOptions);
+    socketRef.current.emit("start_conversation", promptsAndOptions);
 
-    console.log(socket);
+    // Listen for conversation updates
+    socketRef.current.on("conversation_update", (message) => {
+      setConversation((prev) => [...prev, message]); // Update conversation state
+    });
+
+    // Cleanup on component unmount
+    return () => {
+      socketRef.current.disconnect();
+    };
   }, []);
 
   function displayResetWarning() {
@@ -99,7 +108,7 @@ function Council({ options }) {
             className="text-container"
             style={{ justifyContent: "end" }}
           >
-            <TextOutput />
+            <TextOutput conversation={conversation} />
           </div>
         )}
         <div style={foodsContainerStyle}>
