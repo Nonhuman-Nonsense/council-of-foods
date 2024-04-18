@@ -47,8 +47,12 @@ function TextOutput({ conversation }) {
   return (
     <div>
       <h2 style={textOutputStyle}>
-        {currentMessageTextSnippet || "Waiting for messages..."}
+        Speaking:{" "}
+        {conversation.length > 0
+          ? conversation[currentMessageIndex].speaker
+          : ""}
       </h2>
+      <h2 style={textOutputStyle}>{currentMessageTextSnippet || ""}</h2>
     </div>
   );
 }

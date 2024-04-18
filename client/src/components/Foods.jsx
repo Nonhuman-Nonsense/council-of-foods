@@ -5,11 +5,14 @@ import FoodInfo from "./FoodInfo";
 import { capitalizeFirstLetter } from "../utils";
 
 function Foods({ topic, onContinueForward }) {
-  const [selectedFoods, setSelectedFoods] = useState([]);
-  const [currentFood, setCurrentFood] = useState(null);
+  const foods = foodData.foods; // Make sure this is defined before using it to find 'water'
+  const waterFood = foods.find((food) => food.name === "water"); // Find the 'water' food item
 
-  const moderator = "water";
-  const foods = foodData.foods;
+  // Initialize selectedFoods with the 'water' item if it exists
+  const [selectedFoods, setSelectedFoods] = useState(
+    waterFood ? [waterFood] : []
+  );
+  const [currentFood, setCurrentFood] = useState(null);
 
   const minFoods = 2;
   const maxFoods = 5;
@@ -43,11 +46,7 @@ function Foods({ topic, onContinueForward }) {
       <div className="text-container">
         <div>
           <h1>THE FOODS:</h1>
-          <div
-            style={{
-              position: "relative",
-            }}
-          >
+          <div style={{ position: "relative" }}>
             <div
               style={{
                 position: "absolute",
@@ -82,27 +81,18 @@ function Foods({ topic, onContinueForward }) {
         </div>
         <div>
           <div className="food-buttons">
-            {foods.map((food) =>
-              food.name === moderator ? (
-                <FoodButton
-                  key={food.name}
-                  food={food}
-                  onMouseEnter={handleOnMouseEnter}
-                  onMouseLeave={handleOnMouseLeave}
-                />
-              ) : (
-                <FoodButton
-                  key={food.name}
-                  food={food}
-                  onMouseEnter={() => handleOnMouseEnter(food)}
-                  onMouseLeave={handleOnMouseLeave}
-                  onSelectFood={selectFood}
-                  onDeselectFood={deselectFood}
-                  isSelected={selectedFoods.includes(food)}
-                  selectLimitReached={selectedFoods.length >= maxFoods}
-                />
-              )
-            )}
+            {foods.map((food) => (
+              <FoodButton
+                key={food.name}
+                food={food}
+                onMouseEnter={() => handleOnMouseEnter(food)}
+                onMouseLeave={handleOnMouseLeave}
+                onSelectFood={selectFood}
+                onDeselectFood={deselectFood}
+                isSelected={selectedFoods.includes(food)}
+                selectLimitReached={selectedFoods.length >= maxFoods}
+              />
+            ))}
           </div>
           <h4 className={`${currentFood === null ? "hidden" : ""}`}>
             please select 2-5 foods for the discussion
