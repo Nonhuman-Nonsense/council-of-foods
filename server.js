@@ -126,7 +126,16 @@ io.on("connection", (socket) => {
       //A rolling index of the message number, so that audio can be played in the right order etc.
       const message_index = conversation.length - 1;
 
-      socket.emit("conversation_update", conversation);
+      // TEST: Emit only one message instead of whole conversation
+      // socket.emit("conversation_update", conversation);
+
+      console.log("emitting message:", completion.id);
+
+      socket.emit("conversation_update", {
+        id: completion.id,
+        speaker: chair.name,
+        text: response,
+      });
 
       //This is an async function, and since we are not waiting for the response, it will run in a paralell thread.
       //The result will be emitted to the socket when it's ready
@@ -147,7 +156,11 @@ io.on("connection", (socket) => {
     // message.type = 'human';
     message.id = "human-" + conversationCounter + "-" + conversation.length;
     conversation.push(message);
-    socket.emit("conversation_update", conversation);
+
+    // TEST: Emit only one message instead of whole conversation
+    // socket.emit("conversation_update", conversation);
+    socket.emit("conversation_update", message);
+
     //Don't read human messages for now
     //Otherwise, generate audio here
     socket.emit("audio_update", {
@@ -212,6 +225,7 @@ io.on("connection", (socket) => {
         trimmed: trimmed,
         pretrimmed: pretrimmed,
       };
+
       //If a character has completely answered for someone else, skip it, and go to the next
       if (response == "") {
         message.type = "skipped";
@@ -224,7 +238,9 @@ io.on("connection", (socket) => {
       //A rolling index of the message number, so that audio can be played in the right order etc.
       const message_index = conversation.length - 1;
 
-      socket.emit("conversation_update", conversation);
+      // TEST: Emit only one message instead of whole conversation
+      // socket.emit("conversation_update", conversation);
+      socket.emit("conversation_update", message);
 
       //This is an async function, and since we are not waiting for the response, it will run in a paralell thread.
       //The result will be emitted to the socket when it's ready
