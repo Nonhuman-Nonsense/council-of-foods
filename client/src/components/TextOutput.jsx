@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 
 function TextOutput({ conversation }) {
   const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
@@ -8,6 +8,7 @@ function TextOutput({ conversation }) {
   const [initialize, setInitialize] = useState(true); // Flag to control initialization
   const textOutputStyle = {
     fontFamily: "Arial, sans-serif",
+    backgroundColor: "rgba(0,0,0,0.7)",
   };
 
   // Function to calculate the display time based on text length
@@ -45,7 +46,7 @@ function TextOutput({ conversation }) {
   }, [currentMessageIndex, currentSnippetIndex, conversation]);
 
   return (
-    <div>
+    <div style={{ textAlign: "center", width: "75%" }}>
       <h2 style={textOutputStyle}>
         Speaking:{" "}
         {conversation.length > 0
