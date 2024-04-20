@@ -1,67 +1,63 @@
 import React, { useState, useEffect } from "react";
 import TextOutput from "./TextOutput";
+import AudioOutput from "./AudioOutput";
 import ConversationControls from "./ConversationControls";
 
-function Output({ conversation }) {
+function Output({ conversation, audioMessages }) {
   const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
   const [currentSnippetIndex, setCurrentSnippetIndex] = useState(0);
   const [currentMessageTextSnippet, setCurrentMessageTextSnippet] =
     useState("");
-  const [initialize, setInitialize] = useState(true); // Flag to control initialization
   const [isPaused, setIsPaused] = useState(false);
 
-  // Function to calculate the display time based on text length
-  const calculateDisplayTime = (text) => Math.max(3, text.length * 0.05);
+  useEffect(() => {
+    console.log("Audio buffers length:", audioMessages.length);
+    console.log("Current audio buffer index:", currentMessageIndex);
+  }, [audioMessages, currentMessageIndex]);
+
+  useEffect(() => {
+    if (conversation.length > 0 && !isPaused) {
+      const snippets =
+        conversation[currentMessageIndex].text.split(/(?<=\.\s)/);
+      if (snippets.length > currentSnippetIndex) {
+        setCurrentMessageTextSnippet(snippets[currentSnippetIndex]);
+        const timeout = setTimeout(() => {
+          if (currentSnippetIndex < snippets.length - 1) {
+            setCurrentSnippetIndex(currentSnippetIndex + 1);
+          } else if (currentMessageIndex < conversation.length - 1) {
+            setCurrentMessageIndex(currentMessageIndex + 1);
+            setCurrentSnippetIndex(0);
+          }
+        }, calculateDisplayTime(snippets[currentSnippetIndex]) * 1000);
+
+        return () => clearTimeout(timeout); // Cleanup timeout on unmount or dependency change
+      }
+    }
+  }, [currentMessageIndex, currentSnippetIndex, conversation, isPaused]); // Include isPaused in dependencies
+
+  const calculateDisplayTime = (text) => Math.max(3, text.length * 0.065);
 
   function handlePauseResume() {
-    if (!isPaused) {
-      console.log("Pausing");
-    } else {
-      console.log("Resuming");
-    }
-
-    setIsPaused(!isPaused);
+    setIsPaused(!isPaused); // Toggle pause state
   }
 
   function handleSkipForward() {
-    // TODO: See if last message before skipping forward
-
-    console.log("Skipping forward");
+    if (conversation.length > currentMessageIndex) {
+      const snippets =
+        conversation[currentMessageIndex].text.split(/(?<=\.\s)/);
+      if (currentSnippetIndex < snippets.length - 1) {
+        // Move to the next snippet within the same message
+        setCurrentSnippetIndex(currentSnippetIndex + 1);
+      } else if (currentMessageIndex < conversation.length - 1) {
+        // Move to the first snippet of the next message
+        setCurrentMessageIndex(currentMessageIndex + 1);
+        setCurrentSnippetIndex(0);
+      }
+    }
   }
 
-  useEffect(() => {
-    if (initialize && conversation.length > 0) {
-      setCurrentMessageIndex(0);
-      setCurrentSnippetIndex(0);
-      setInitialize(false); // Reset initialization flag after first setup
-    }
-  }, [conversation, initialize]);
-
-  useEffect(() => {
-    const processSnippets = () => {
-      if (conversation.length > currentMessageIndex) {
-        const snippets =
-          conversation[currentMessageIndex].text.split(/(?<=\.\s)/);
-        if (snippets.length > currentSnippetIndex) {
-          setCurrentMessageTextSnippet(snippets[currentSnippetIndex]);
-          const timeout = setTimeout(() => {
-            if (currentSnippetIndex < snippets.length - 1) {
-              setCurrentSnippetIndex(currentSnippetIndex + 1);
-            } else if (currentMessageIndex < conversation.length - 1) {
-              setCurrentMessageIndex(currentMessageIndex + 1);
-              setCurrentSnippetIndex(0);
-            }
-          }, calculateDisplayTime(snippets[currentSnippetIndex]) * 1000);
-          return () => clearTimeout(timeout);
-        }
-      }
-    };
-
-    processSnippets();
-  }, [currentMessageIndex, currentSnippetIndex, conversation]);
-
   return (
-    <div>
+    <div style={{ textAlign: "center", width: "75%" }}>
       <h2>
         Speaker:{" "}
         {conversation.length > 0
@@ -69,7 +65,11 @@ function Output({ conversation }) {
           : ""}
       </h2>
       <TextOutput currentMessageTextSnippet={currentMessageTextSnippet} />
-      <AudioOutput />
+      <AudioOutput
+        currentAudioMessage={audioMessages.find(
+          (a) => a.message_index == currentMessageIndex
+        )}
+      />
       <ConversationControls
         isPaused={isPaused}
         onPauseResume={handlePauseResume}

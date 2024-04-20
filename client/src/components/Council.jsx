@@ -17,6 +17,7 @@ function Council({ options }) {
   const [activeOverlay, setActiveOverlay] = useState("");
   const { width: screenWidth } = useWindowSize();
   const [conversation, setConversation] = useState([]); // State to store conversation updates
+  const [audioMessages, setAudioMessages] = useState([]); // To store multiple ArrayBuffers
   const socketRef = useRef(null); // Using useRef to persist socket instance
 
   const foodsContainerStyle = {
@@ -33,26 +34,33 @@ function Council({ options }) {
   useEffect(() => {
     socketRef.current = io();
 
+    // Send initial data to start the conversation
     let promptsAndOptions = {
       options: {
         ...globalOptions,
-        humanName: humanName,
+        humanName,
         raiseHandPrompt: false,
         neverMindPrompt: false,
       },
       name: "New room",
-      topic: topic,
+      topic,
       characters: foods,
     };
-
     socketRef.current.emit("start_conversation", promptsAndOptions);
 
-    // Listen for conversation updates
+    // Listen for conversation text updates
     socketRef.current.on("conversation_update", (message) => {
-      setConversation((prev) => [...prev, message]); // Update conversation state
+      setConversation((prev) => [...prev, message]);
     });
 
-    // Cleanup on component unmount
+    // Listen for audio updates
+    socketRef.current.on("audio_update", (audioMessage) => {
+      setAudioMessages((prevAudioMessages) => [
+        ...prevAudioMessages,
+        audioMessage,
+      ]);
+    });
+
     return () => {
       socketRef.current.disconnect();
     };
@@ -108,7 +116,10 @@ function Council({ options }) {
             className="text-container"
             style={{ justifyContent: "end" }}
           >
-            <Output conversation={conversation} />
+            <Output
+              conversation={conversation}
+              audioMessages={audioMessages}
+            />
           </div>
         )}
         <div style={foodsContainerStyle}>
