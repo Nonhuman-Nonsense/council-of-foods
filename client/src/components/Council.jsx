@@ -9,7 +9,7 @@ import Contact from "./Contact";
 import Share from "./Share";
 import ResetWarning from "./ResetWarning";
 import Navbar from "./Navbar";
-import TextOutput from "./TextOutput";
+import Output from "./Output";
 import useWindowSize from "../hooks/useWindowSize";
 
 function Council({ options }) {
@@ -108,7 +108,7 @@ function Council({ options }) {
             className="text-container"
             style={{ justifyContent: "end" }}
           >
-            <TextOutput conversation={conversation} />
+            <Output conversation={conversation} />
           </div>
         )}
         <div style={foodsContainerStyle}>
