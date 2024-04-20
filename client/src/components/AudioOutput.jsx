@@ -12,14 +12,12 @@ function AudioOutput({ currentAudioMessage }) {
       );
       const blob = new Blob([currentAudioMessage.audio], { type: "audio/mp3" });
       const url = URL.createObjectURL(blob);
-      console.log("Blob URL:", url); // Check the generated URL
       audioRef.current.src = url;
       audioRef.current
         .play()
         .catch((err) => console.error("Error playing audio:", err));
 
       return () => {
-        console.log("Revoking URL:", url);
         URL.revokeObjectURL(url);
       };
     }
@@ -30,7 +28,6 @@ function AudioOutput({ currentAudioMessage }) {
       ref={audioRef}
       controls
       autoPlay
-      onLoadedData={() => console.log("Audio loaded")}
     />
   );
 }
