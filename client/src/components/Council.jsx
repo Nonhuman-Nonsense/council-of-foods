@@ -17,7 +17,7 @@ function Council({ options }) {
   const [activeOverlay, setActiveOverlay] = useState("");
   const { width: screenWidth } = useWindowSize();
   const [conversation, setConversation] = useState([]); // State to store conversation updates
-  const [audioBuffers, setAudioBuffers] = useState([]); // To store multiple ArrayBuffers
+  const [audioMessages, setAudioMessages] = useState([]); // To store multiple ArrayBuffers
   const socketRef = useRef(null); // Using useRef to persist socket instance
 
   const foodsContainerStyle = {
@@ -54,8 +54,11 @@ function Council({ options }) {
     });
 
     // Listen for audio updates
-    socketRef.current.on("audio_update", (audioData) => {
-      setAudioBuffers((prevBuffers) => [...prevBuffers, audioData.audio]);
+    socketRef.current.on("audio_update", (audioMessage) => {
+      setAudioMessages((prevAudioMessages) => [
+        ...prevAudioMessages,
+        audioMessage,
+      ]);
     });
 
     return () => {
@@ -115,7 +118,7 @@ function Council({ options }) {
           >
             <Output
               conversation={conversation}
-              audioBuffers={audioBuffers}
+              audioMessages={audioMessages}
             />
           </div>
         )}

@@ -1,16 +1,16 @@
 // In the AudioOutput component
 import React, { useEffect, useRef } from "react";
 
-function AudioOutput({ currentAudioBuffer }) {
+function AudioOutput({ currentAudioMessage }) {
   const audioRef = useRef(null);
 
   useEffect(() => {
-    if (currentAudioBuffer) {
+    if (currentAudioMessage) {
       console.log(
         "Creating blob with ArrayBuffer of size:",
-        currentAudioBuffer.byteLength
+        currentAudioMessage.audio.byteLength
       );
-      const blob = new Blob([currentAudioBuffer], { type: "audio/mp3" });
+      const blob = new Blob([currentAudioMessage.audio], { type: "audio/mp3" });
       const url = URL.createObjectURL(blob);
       console.log("Blob URL:", url); // Check the generated URL
       audioRef.current.src = url;
@@ -23,7 +23,7 @@ function AudioOutput({ currentAudioBuffer }) {
         URL.revokeObjectURL(url);
       };
     }
-  }, [currentAudioBuffer]);
+  }, [currentAudioMessage]);
 
   return (
     <audio
