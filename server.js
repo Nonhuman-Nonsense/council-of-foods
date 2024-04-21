@@ -169,6 +169,13 @@ io.on('connection', (socket) => {
       chairInterjection(message.text,message.length);
     });
 
+    socket.on('remove_last_message', () => {
+      conversation.pop();
+      socket.emit('conversation_update', conversation);
+    });
+
+
+
     socket.on('continue_conversation', (promptsAndOptions) => {
       // console.log('Conversation has been continued');
       parsePromptsAndOptions(promptsAndOptions);

@@ -81,6 +81,7 @@
              <h3>inject custom instruction</h3><br/>
              <textarea id="injectInputArea" placeholder="Inject something into water..."></textarea><br>
              Maximum Length: <div class="explanaition">The maximum number of tokens to <b>generate</b> shared between the prompt and completion. The exact limit varies by model. (One token is roughly 4 characters for standard English text)</div><input type="range" min="1" max="2000" value="200" class="slider"><input class="slider-value" type="number" step="10"  id="max-tokens-inject"><br/>
+             <button id="removeLastMessage">remove last message</button>
              <button id="submitInjection">send</button>
              <span id="injectedMessage"></span>
            </div>

@@ -41,6 +41,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const injectInputArea = document.getElementById('injectInputArea');
     const submitInjection = document.getElementById('submitInjection');
     const injectedMessage = document.getElementById('injectedMessage');
+    const removeLastMessage = document.getElementById('removeLastMessage');
 
     //Objects for audio control
     let audioCtx;
@@ -478,6 +479,10 @@ document.addEventListener('DOMContentLoaded', () => {
       socket.emit('continue_conversation', sentPromptsAndOptions);
     });
 
+    removeLastMessage.addEventListener('click', () => {
+      socket.emit('remove_last_message');
+    });
+
     submitInjection.addEventListener('click', () => {
       reloadUI();
 
@@ -488,7 +493,7 @@ document.addEventListener('DOMContentLoaded', () => {
       injectedMessage.innerHTML = "Instruction injected, just wait...";
       submitInjection.style.display = "none";
       setTimeout(function(){
-        submitInjection.style.display = "block";
+        submitInjection.style.display = "inline";
         injectedMessage.innerHTML = "";
       },5000);
       socket.emit('submit_injection', message);
