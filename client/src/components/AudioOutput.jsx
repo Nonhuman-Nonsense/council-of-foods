@@ -6,10 +6,6 @@ function AudioOutput({ currentAudioMessage }) {
 
   useEffect(() => {
     if (currentAudioMessage) {
-      console.log(
-        "Creating blob with ArrayBuffer of size:",
-        currentAudioMessage.audio.byteLength
-      );
       const blob = new Blob([currentAudioMessage.audio], { type: "audio/mp3" });
       const url = URL.createObjectURL(blob);
       audioRef.current.src = url;
