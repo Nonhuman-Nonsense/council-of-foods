@@ -56,13 +56,13 @@ io.on('connection', (socket) => {
       //When hand is raised, ignore all incoming messages until we have a human message
       handRaised = true;
 
-      chairInterjection(options.raiseHandPrompt.replace("[NAME]", options.humanName));
+      chairInterjection(options.raiseHandPrompt.replace("[NAME]", options.humanName),100);
     });
 
     socket.on('lower_hand', async (promptsAndOptions) => {
       parsePromptsAndOptions(promptsAndOptions);
 
-      await chairInterjection(options.neverMindPrompt.replace("[NAME]", options.humanName));
+      await chairInterjection(options.neverMindPrompt.replace("[NAME]", options.humanName),100);
 
       handRaised = false;
       isPaused = false;
@@ -70,40 +70,32 @@ io.on('connection', (socket) => {
       handleConversationTurn();
     });
 
-    const chairInterjection = async (interjectionPrompt) => {
+    const chairInterjection = async (interjectionPrompt, length) => {
       try{
         const thisConversationCounter = conversationCounter;
         //Chairman is always first character
         const chair = characters[0];
         // Generate response using GPT-4 for AI characters
         // Build the array of messages for the completion request
-        const messages = [];
+        let messages = buildMessageStack(chair);
 
-        // System message for overall context
-        messages.push({
-            role: "system",
-            content: `${topic}\n\n${chair.role}`
-        });
+        //remove the last message, which is just a title
+        messages.pop();
 
-        // Add previous messages as separate user objects
-        conversation.forEach((msg) => {
-            messages.push({
-                role: (chair.name == msg.speaker ? "assistant" : "user"),
-                content: msg.text
-            });
-        });
-
+        //inject the system prompt
         messages.push({
           role: "system",
           content: interjectionPrompt
         });
+
+        console.log(messages);
 
         // Prepare the completion request
         // console.log(conversation.length);
         // console.log(messages);
         const completion = await openai.chat.completions.create({
             model: options.gptModel,
-            max_tokens: 100,
+            max_tokens: length,
             temperature: options.temperature,
             frequency_penalty: options.frequencyPenalty,
             presence_penalty: options.presencePenalty,
@@ -132,6 +124,34 @@ io.on('connection', (socket) => {
       }
     };
 
+    const buildMessageStack = function(speaker){
+      const messages = [];
+
+      // System message for overall context
+      messages.push({
+          role: "system",
+          content: `${topic}\n\n${speaker.role}`.trim()
+      });
+
+      // Add previous messages as separate user objects
+      conversation.forEach((msg) => {
+        if(msg.type == 'skipped') return;//skip certain messages
+        messages.push({
+          role: (speaker.name == msg.speaker ? "assistant" : "user"),
+          content: msg.speaker + ": " + msg.text//We add the name of the character before each message, so that they will be less confused about who said what.
+        });
+      });
+
+      //Push a message with the character name at the end of the conversation, in the hope that the character will understand who they are and not repeat their name
+      //Works most of the time.
+      messages.push({
+          role: "assistant",
+          content: speaker.name + ": "
+      });
+
+      return messages;
+    }
+
     socket.on('submit_human_message', (message) => {
       //Add it to the stack, and then start the conversation again
       // message.type = 'human';
@@ -145,6 +165,10 @@ io.on('connection', (socket) => {
       isPaused = false;
       handRaised = false;
       handleConversationTurn();
+    });
+
+    socket.on('submit_injection', (message) => {
+      chairInterjection(message.text,message.length);
     });
 
     socket.on('continue_conversation', (promptsAndOptions) => {
@@ -250,29 +274,7 @@ io.on('connection', (socket) => {
     const generateTextFromGPT = async (speaker) => {
         try {
             // Build the array of messages for the completion request
-            const messages = [];
-
-            // System message for overall context
-            messages.push({
-                role: "system",
-                content: `${topic}\n\n${speaker.role}`.trim()
-            });
-
-            // Add previous messages as separate user objects
-            conversation.forEach((msg) => {
-              if(msg.type == 'skipped') return;//skip certain messages
-              messages.push({
-                role: (speaker.name == msg.speaker ? "assistant" : "user"),
-                content: msg.speaker + ": " + msg.text//We add the name of the character before each message, so that they will be less confused about who said what.
-              });
-            });
-
-            //Push a message with the character name at the end of the conversation, in the hope that the character will understand who they are and not repeat their name
-            //Works most of the time.
-            messages.push({
-                role: "assistant",
-                content: speaker.name + ": "
-            });
+            const messages = buildMessageStack(speaker);
 
             // Prepare the completion request
             // console.log(conversation.length);

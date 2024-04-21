@@ -17,6 +17,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const endMessage = document.getElementById('end-message');
     const spinner  = document.getElementById('spinner');
 
+
+
     //Audio control
     const audioBackButton = document.getElementById('audioBack');
     const audioToggleButton = document.getElementById('audioToggle');
@@ -35,6 +37,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const preHumanInputContainer = document.getElementById('preHumanInputContainer');
     const humanInputContainer = document.getElementById('humanInputContainer');
 
+    //Inject
+    const injectInputArea = document.getElementById('injectInputArea');
+    const submitInjection = document.getElementById('submitInjection');
+    const injectedMessage = document.getElementById('injectedMessage');
 
     //Objects for audio control
     let audioCtx;
@@ -65,6 +71,8 @@ document.addEventListener('DOMContentLoaded', () => {
       document.getElementById('temperature').previousSibling.value = promptsAndOptions.options.temperature;
       document.getElementById('max-tokens').value = promptsAndOptions.options.maxTokens;
       document.getElementById('max-tokens').previousSibling.value = promptsAndOptions.options.maxTokens;
+      document.getElementById('max-tokens-inject').value = promptsAndOptions.options.maxTokensInject;
+      document.getElementById('max-tokens-inject').previousSibling.value = promptsAndOptions.options.maxTokensInject;
       document.getElementById('frequency-penalty').value = promptsAndOptions.options.frequencyPenalty;
       document.getElementById('frequency-penalty').previousSibling.value = promptsAndOptions.options.frequencyPenalty;
       document.getElementById('presence-penalty').value = promptsAndOptions.options.presencePenalty;
@@ -74,6 +82,8 @@ document.addEventListener('DOMContentLoaded', () => {
       document.getElementById('trim-response-to-full-paragraph').checked = promptsAndOptions.options.trimParagraph;
       document.getElementById('show-trimmed').checked = promptsAndOptions.options.showTrimmed;
       document.getElementById('conversation-max-length').value = promptsAndOptions.options.conversationMaxLength;
+
+      injectInputArea.value = promptsAndOptions.options.injectPrompt;
 
       raiseHandPrompt.value = promptsAndOptions.options.raiseHandPrompt;
       neverMindPrompt.value = promptsAndOptions.options.neverMindPrompt;
@@ -154,11 +164,13 @@ document.addEventListener('DOMContentLoaded', () => {
       promptsAndOptions.options.frequencyPenalty = +document.getElementById('frequency-penalty').value;
       promptsAndOptions.options.presencePenalty = +document.getElementById('presence-penalty').value;
 
-      promptsAndOptions.options.maxTokens = +document.getElementById('max-tokens').value;
       promptsAndOptions.options.trimSentance = document.getElementById('trim-response-to-full-sentance').checked;
       promptsAndOptions.options.trimParagraph = document.getElementById('trim-response-to-full-paragraph').checked;
       promptsAndOptions.options.showTrimmed = document.getElementById('show-trimmed').checked;
       promptsAndOptions.options.conversationMaxLength = +document.getElementById('conversation-max-length').value;
+
+      promptsAndOptions.options.injectPrompt = injectInputArea.value;
+      promptsAndOptions.options.maxTokensInject = +document.getElementById('max-tokens-inject').value;
 
       promptsAndOptions.options.raiseHandPrompt = raiseHandPrompt.value;
       promptsAndOptions.options.neverMindPrompt = neverMindPrompt.value;
@@ -464,6 +476,22 @@ document.addEventListener('DOMContentLoaded', () => {
       // Emit the start conversation event with all necessary data
       const sentPromptsAndOptions = updatePromptsAndOptions();
       socket.emit('continue_conversation', sentPromptsAndOptions);
+    });
+
+    submitInjection.addEventListener('click', () => {
+      reloadUI();
+
+      const message = {
+        text: injectInputArea.value,
+        length: promptsAndOptions.options.maxTokensInject
+      }
+      injectedMessage.innerHTML = "Instruction injected, just wait...";
+      submitInjection.style.display = "none";
+      setTimeout(function(){
+        submitInjection.style.display = "block";
+        injectedMessage.innerHTML = "";
+      },5000);
+      socket.emit('submit_injection', message);
     });
 
     // Handle submission of human input

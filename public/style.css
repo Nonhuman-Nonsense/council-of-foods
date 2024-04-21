@@ -139,6 +139,17 @@ main #conversation-container {
   display: none;
 }
 
+#injections {
+    border: 1px solid #000;
+    padding: 10px;
+    bottom: 5px;
+    right: 5px;
+    z-index: 9999;
+    background-color: #c589cb;
+    margin-top: 30px;
+    position: relative;
+}
+
 /* Raise Hand */
 
 #humanInputContainer {
