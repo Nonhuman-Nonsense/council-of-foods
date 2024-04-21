@@ -18,5 +18,10 @@
   },
   "devDependencies": {
     "nodemon": "^3.0.3"
+  },
+  "nodemonConfig": {
+    "env": {
+      "NODE_ENV": "development"
+    }
   }
 }

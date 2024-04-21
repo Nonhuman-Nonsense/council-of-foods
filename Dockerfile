@@ -18,7 +18,7 @@ COPY server/ .
 COPY --from=client-builder /usr/src/client/build /usr/src/client/build
 
 # Expose the port that the server is running on
-EXPOSE 3000
+EXPOSE 3001
 
 # Specify the command to run the server
 CMD ["node", "server.js"]
