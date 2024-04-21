@@ -13,7 +13,10 @@ const openai = new OpenAI(process.env.OPENAI_API_KEY);
 //Names of OpenAI voices
 const audioVoices = ["alloy", "echo", "fable", "onyx", "nova", "shimmer"];
 
-app.use(express.static(path.join(__dirname, "../client/build")));
+if(process.env.NODE_ENV != 'development'){
+  //Don't server the static build in development
+  app.use(express.static(path.join(__dirname, "../client/build")));
+}
 
 io.on("connection", (socket) => {
   //Set up the variables accessible to this socket
@@ -377,6 +380,6 @@ io.on("connection", (socket) => {
   });
 });
 
-httpServer.listen(3000, () => {
-  console.log("Listening on *:3000");
+httpServer.listen(3001, () => {
+  console.log("Listening on *:3001");
 });
