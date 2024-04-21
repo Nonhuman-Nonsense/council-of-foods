@@ -79,7 +79,7 @@ io.on('connection', (socket) => {
         // Build the array of messages for the completion request
         let messages = buildMessageStack(chair);
 
-        //remove the last message, which is just a title
+        //remove the last message, which is just the name of the character again
         messages.pop();
 
         //inject the system prompt
@@ -87,8 +87,6 @@ io.on('connection', (socket) => {
           role: "system",
           content: interjectionPrompt
         });
-
-        console.log(messages);
 
         // Prepare the completion request
         // console.log(conversation.length);
