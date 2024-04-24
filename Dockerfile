@@ -3,7 +3,7 @@ FROM node:lts-alpine as client-builder
 
 WORKDIR /usr/src/client
 COPY client/package*.json ./
-RUN npm ci --only=production
+RUN npm ci --only=production --no-audit
 COPY client/ .
 RUN npm run build
 
