@@ -41,27 +41,27 @@ function Foods({ topic, onContinueForward }) {
     setSelectedFoods((prevFoods) => prevFoods.filter((f) => f !== food));
   }
 
+  const discriptionStyle = {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    transition: "opacity 0.5s ease",
+    opacity: currentFood === null ? 1 : 0,
+    pointerEvents: currentFood === null ? "all" : "none",
+  };
+
   return (
     <div className="wrapper">
       <div className="text-container">
         <div>
           <h1>THE FOODS:</h1>
           <div style={{ position: "relative" }}>
-            <div
-              style={{
-                position: "absolute",
-                top: 0,
-                left: 0,
-                right: 0,
-                transition: "opacity 0.5s ease",
-                opacity: currentFood === null ? 1 : 0,
-                pointerEvents: currentFood === null ? "all" : "none",
-              }}
-            >
-              <h4>
+            <div style={discriptionStyle}>
+              <p>
                 Please select 2-5 foods
                 <br /> to participate in the discussion about:
-              </h4>
+              </p>
               <h4>{capitalizeFirstLetter(topic)}</h4>
             </div>
             <div
@@ -80,7 +80,7 @@ function Foods({ topic, onContinueForward }) {
           </div>
         </div>
         <div>
-          <div className="food-buttons">
+          <div style={{display: "flex"}}>
             {foods.map((food) => (
               <FoodButton
                 key={food.name}

@@ -3,11 +3,7 @@ import io from "socket.io-client";
 import globalOptions from "../global-options.json";
 import FoodItem from "./FoodItem";
 import Overlay from "./Overlay";
-import About from "./About";
-import Topics from "./Topics";
-import Contact from "./Contact";
-import Share from "./Share";
-import ResetWarning from "./ResetWarning";
+import CouncilOverlays from "./CouncilOverlays";
 import Navbar from "./Navbar";
 import Output from "./Output";
 import useWindowSize from "../hooks/useWindowSize";
@@ -79,38 +75,9 @@ function Council({ options }) {
     setActiveOverlay("");
   }
 
-  // Conditional rendering of overlay content based on activeOverlay state
-  const renderOverlayContent = () => {
-    switch (activeOverlay) {
-      case "about":
-        return <About />;
-      case "settings":
-        return (
-          <Topics
-            currentTopic={options.topic}
-            onReset={options.onReset}
-            onCancel={removeOverlay}
-          />
-        );
-      case "contact":
-        return <Contact />;
-      case "share":
-        return <Share />;
-      case "reset":
-        return (
-          <ResetWarning
-            onReset={() => options.onReset()}
-            onCancel={removeOverlay}
-          />
-        );
-      default:
-        return null; // No overlay content if no section is active
-    }
-  };
-
   return (
     <div style={{ height: "100%", width: "100%" }}>
-      <div className="wrapper">
+      <div className="council wrapper">
         {activeOverlay === "" && (
           <div
             className="text-container"
@@ -134,7 +101,7 @@ function Council({ options }) {
           ))}
         </div>
         <Overlay isActive={activeOverlay !== ""}>
-          {renderOverlayContent()}
+          <CouncilOverlays activeOverlay={activeOverlay} options={options} removeOverlay={removeOverlay} />
         </Overlay>
         <Navbar
           topic={options.topic}

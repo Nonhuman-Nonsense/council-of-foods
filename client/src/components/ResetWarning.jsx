@@ -3,8 +3,7 @@ import { capitalizeFirstLetter } from "../utils";
 
 function ResetWarning({ message, onReset, onCancel }) {
   return (
-    <div className="wrapper">
-      <div className="text-container" style={{ justifyContent: "center" }}>
+      <div>
         <h4>
           {message
             ? capitalizeFirstLetter(message)
@@ -26,7 +25,6 @@ function ResetWarning({ message, onReset, onCancel }) {
           >
             Cancel
           </button>
-        </div>
       </div>
     </div>
   );

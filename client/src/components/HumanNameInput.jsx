@@ -44,13 +44,19 @@ function HumanNameInput(props) {
     }
   }
 
+  const inputStyle = {
+    width: "300px",
+    height: "22px",
+    paddingRight: "30px"/* Make room for the arrow */
+  };
+
   return (
     <div>
       <h3>please type your name to enter:</h3>
       <div className="input-icon-wrapper">
         <input
           ref={inputRef}
-          className="text-input name-input"
+          style={inputStyle}
           type="text"
           value={humanName}
           placeholder="your name"

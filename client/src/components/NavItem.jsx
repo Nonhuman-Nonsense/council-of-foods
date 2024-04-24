@@ -2,7 +2,7 @@ import React from "react";
 
 function NavItem({ name, onDisplayOverlay, isActive }) {
   const navItemStyle = {
-    marginLeft: "25px",
+    marginLeft: "19px",
     cursor: "pointer",
   };
 

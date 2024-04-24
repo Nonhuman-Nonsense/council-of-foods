@@ -98,7 +98,6 @@ function Topics(props) {
           onCancel={props.onCancel}
         />
       ) : (
-        <div className="wrapper">
           <div className="text-container">
             <h1>THE ISSUE:</h1>
             <div
@@ -118,13 +117,13 @@ function Topics(props) {
                   {topic}
                 </button>
               ))}
-              <h4>please select an issue for the discussion</h4>
+              <p>please select an issue for the discussion</p>
             </div>
             <textarea
               ref={topicTextareaRef}
               className={`${
                 selectedTopic === "choose your own" ? "" : "hidden"
-              } text-input`}
+              }`}
               rows="2"
               value={customTopic}
               placeholder="your topic"
@@ -140,7 +139,6 @@ function Topics(props) {
               Next
             </button>
           </div>
-        </div>
       )}
     </>
   );

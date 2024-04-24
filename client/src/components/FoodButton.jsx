@@ -24,10 +24,10 @@ function FoodButton({
   }
 
   const buttonStyle = {
-    marginLeft: "5px",
-    marginRight: "5px",
-    width: "75px",
-    height: "75px",
+    marginLeft: "4px",
+    marginRight: "4px",
+    width: "56px",
+    height: "56px",
     borderRadius: "50%",
     display: "flex",
     justifyContent: "center",
@@ -50,11 +50,11 @@ function FoodButton({
     height: "80%",
     objectFit: "cover",
     borderRadius: "50%",
+
   };
 
   return (
     <div
-      className="food-button"
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
       style={buttonStyle}
