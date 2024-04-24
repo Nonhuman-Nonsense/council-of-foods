@@ -7,7 +7,7 @@ function TextOutput({ currentMessageTextSnippet }) {
   };
 
   return (
-    <div style={{ textAlign: "center", width: "75%" }}>
+    <div style={{ textAlign: "center" }}>
       <h2 style={textOutputStyle}>{currentMessageTextSnippet || ""}</h2>
     </div>
   );
