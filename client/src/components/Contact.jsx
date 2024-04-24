@@ -2,18 +2,14 @@ import React from "react";
 
 function Contact() {
   return (
-    <div className="wrapper">
-      <div
-        className="text-container"
-        style={{ justifyContent: "center" }}
-      >
-        <h4>
+      <div>
+        <p>
           The project is an initiative by art & design
           <br /> collective Nonhuman Nonsense developed in
           <br /> collaboration with Studio Other Spaces,
           <br /> In4Art, Elliot, Albin and others.
-        </h4>
-        <h4>
+        </p>
+        <p>
           <a
             className="link"
             href="https://www.instagram.com/nonhuman-nonsense/"
@@ -34,9 +30,8 @@ function Contact() {
           >
             hello@nonhuman-nonsense.com
           </a>
-        </h4>
+        </p>
       </div>
-    </div>
   );
 }
 

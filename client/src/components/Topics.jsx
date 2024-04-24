@@ -98,7 +98,6 @@ function Topics(props) {
           onCancel={props.onCancel}
         />
       ) : (
-        <div className="wrapper">
           <div className="text-container">
             <h1>THE ISSUE:</h1>
             <div
@@ -140,7 +139,6 @@ function Topics(props) {
               Next
             </button>
           </div>
-        </div>
       )}
     </>
   );
