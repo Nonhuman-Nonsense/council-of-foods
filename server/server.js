@@ -10,10 +10,12 @@ const httpServer = http.createServer(app);
 const io = new Server(httpServer);
 const openai = new OpenAI(process.env.OPENAI_API_KEY);
 
+console.log(process.env.OPENAI_API_KEY);
+
 //Names of OpenAI voices
 const audioVoices = ["alloy", "echo", "fable", "onyx", "nova", "shimmer"];
 
-if(process.env.NODE_ENV != 'development'){
+if (process.env.NODE_ENV != "development") {
   //Don't server the static build in development
   app.use(express.static(path.join(__dirname, "../client/build")));
 }

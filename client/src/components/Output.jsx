@@ -8,24 +8,25 @@ function Output({ conversation, audioMessages }) {
   const [currentSnippetIndex, setCurrentSnippetIndex] = useState(0);
   const [currentMessageTextSnippet, setCurrentMessageTextSnippet] =
     useState("");
-  const [isPaused, setIsPaused] = useState(false);
-  const [isReadyMeeting, setIsReadyMeeting] = useState(false);
+  const [currentAudioMessage, setCurrentAudioMessage] = useState(null);
+  const [isReady, setIsReady] = useState(false);
+  const [isPaused, setIsPaused] = useState(true); // Assume initially paused until ready
 
   useEffect(() => {
-    if (!isReadyMeeting) {
-      const currentAudioMessage = audioMessages.find(
-        (a) => a.message_index === currentMessageIndex
-      );
+    console.log("Updated audioMessages");
+  }, [audioMessages]);
 
-      console.log(currentAudioMessage);
-
-      if (currentAudioMessage) {
-        console.log("Ready!");
-
-        setIsReadyMeeting(true);
-      }
+  useEffect(() => {
+    // Find the audio message only when currentMessageIndex changes
+    const foundAudioMessage = audioMessages.find(
+      (a) => a.message_index === currentMessageIndex
+    );
+    if (foundAudioMessage) {
+      setCurrentAudioMessage(foundAudioMessage);
+      setIsReady(true);
+      setIsPaused(false); // Start playing the new message immediately
     }
-  }, [audioMessages, currentMessageIndex, isReadyMeeting]);
+  }, [currentMessageIndex, audioMessages]); // Include audioMessages to update the message if it changes
 
   useEffect(() => {
     if (conversation.length > 0 && !isPaused) {
@@ -41,33 +42,39 @@ function Output({ conversation, audioMessages }) {
             setCurrentSnippetIndex(0);
           }
         }, calculateDisplayTime(snippets[currentSnippetIndex]) * 1000);
-        return () => clearTimeout(timeout); // Cleanup timeout on unmount or dependency change
+        return () => clearTimeout(timeout);
       }
     }
   }, [currentMessageIndex, currentSnippetIndex, conversation, isPaused]);
 
-  const calculateDisplayTime = (text) => Math.max(3, text.length * 0.055);
+  const calculateDisplayTime = (text) => {
+    const baseTimePerCharacter = 0.052; // Time per character in seconds
+    const baseTime = Math.max(3, text.length * baseTimePerCharacter);
+    const additionalTimeForCommas = (text.match(/,/g) || []).length * 0.5; // 0.4 seconds for each comma
+    return baseTime + additionalTimeForCommas;
+  };
 
   function handlePauseResume() {
-    setIsPaused(!isPaused); // Toggle pause state
+    setIsPaused(!isPaused);
   }
 
   function handleSkipForward() {
-    if (conversation.length > currentMessageIndex) {
-      const snippets =
-        conversation[currentMessageIndex].text.split(/(?<=\.\s)/);
-      if (currentSnippetIndex < snippets.length - 1) {
-        setCurrentSnippetIndex(currentSnippetIndex + 1);
-      } else if (currentMessageIndex < conversation.length - 1) {
-        setCurrentMessageIndex(currentMessageIndex + 1);
-        setCurrentSnippetIndex(0);
-      }
+    if (currentMessageIndex < conversation.length - 1) {
+      const newIndex = currentMessageIndex + 1;
+      setCurrentMessageIndex(newIndex);
+      setCurrentSnippetIndex(0);
+      // Update the current audio message immediately when skipping
+      const newAudioMessage = audioMessages.find(
+        (a) => a.message_index === newIndex
+      );
+      setCurrentAudioMessage(newAudioMessage);
+      setIsPaused(false); // Optionally start playing the new message immediately
     }
   }
 
   return (
     <div style={{ textAlign: "center", width: "75%" }}>
-      {isReadyMeeting ? (
+      {isReady ? (
         <>
           <h2>
             Speaker:{" "}
@@ -77,9 +84,8 @@ function Output({ conversation, audioMessages }) {
           </h2>
           <TextOutput currentMessageTextSnippet={currentMessageTextSnippet} />
           <AudioOutput
-            currentAudioMessage={audioMessages.find(
-              (a) => a.message_index === currentMessageIndex
-            )}
+            currentAudioMessage={currentAudioMessage}
+            isPaused={isPaused}
           />
           <ConversationControls
             isPaused={isPaused}
@@ -88,7 +94,7 @@ function Output({ conversation, audioMessages }) {
           />
         </>
       ) : (
-        <h2>The council is getting ready...</h2>
+        <h3>The council is getting ready...</h3>
       )}
     </div>
   );
