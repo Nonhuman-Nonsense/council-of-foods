@@ -84,13 +84,13 @@ function FoodItem({ food, index, total, screenWidth }) {
   return (
     <div style={foodItemStyle(index, total)}>
       <img
-        src={`/images/foods/${food.name}.png`}
+        src={`/images/foods/${food.name}-shadow.png`}
         style={responsiveStyle}
       />
-      <img
+      {/* <img
         src={`/images/foods/${food.name}.png`}
         style={{ ...responsiveStyle, ...foodImageShadowStyle(index, total) }}
-      />
+      /> */}
     </div>
   );
 }

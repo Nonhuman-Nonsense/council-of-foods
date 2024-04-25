@@ -1,8 +1,9 @@
 import React, { useEffect, useRef } from "react";
 
-function AudioOutput({ currentAudioMessage, isPaused }) {
+function AudioOutput({ currentAudioMessage, onFinishedPlaying }) {
   const audioRef = useRef(null);
   const urlRef = useRef(null);
+  const checkPlaybackIntervalRef = useRef(null);
 
   useEffect(() => {
     // Initialize the audio element if it does not exist
@@ -10,6 +11,8 @@ function AudioOutput({ currentAudioMessage, isPaused }) {
       audioRef.current = new Audio();
     }
     return () => {
+      // Clean up audio element and interval
+      clearInterval(checkPlaybackIntervalRef.current);
       audioRef.current && audioRef.current.pause();
     };
   }, []);
@@ -30,25 +33,26 @@ function AudioOutput({ currentAudioMessage, isPaused }) {
       audioRef.current.src = urlRef.current.url;
       audioRef.current.load();
 
-      // Auto-play the new audio if not paused
-      if (!isPaused) {
-        audioRef.current
-          .play()
-          .catch((err) => console.error("Error playing audio:", err));
-      }
-    }
-  }, [currentAudioMessage]);
-
-  useEffect(() => {
-    // Manage playback based on isPaused state
-    if (!isPaused && currentAudioMessage) {
+      // Auto-play the new audio
       audioRef.current
         .play()
         .catch((err) => console.error("Error playing audio:", err));
-    } else {
-      audioRef.current.pause();
+
+      // Start checking audio playback status
+      checkPlaybackIntervalRef.current = setInterval(checkPlaybackStatus, 500);
     }
-  }, [isPaused]);
+  }, [currentAudioMessage]);
+
+  const checkPlaybackStatus = () => {
+    if (
+      audioRef.current &&
+      audioRef.current.currentTime >= audioRef.current.duration
+    ) {
+      // Audio playback has ended
+      clearInterval(checkPlaybackIntervalRef.current);
+      onFinishedPlaying();
+    }
+  };
 
   return null; // This component does not render anything itself
 }
