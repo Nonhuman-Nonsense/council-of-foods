@@ -1,9 +1,13 @@
 import React, { useEffect, useRef } from "react";
 
-function AudioOutput({ currentAudioMessage, onFinishedPlaying }) {
+function AudioOutput({ currentAudioMessage, onFinishedPlaying, stopAudio }) {
   const audioRef = useRef(null);
   const urlRef = useRef(null);
   const checkPlaybackIntervalRef = useRef(null);
+
+  useEffect(() => {
+    audioRef.current && audioRef.current.pause();
+  }, [stopAudio]);
 
   useEffect(() => {
     // Initialize the audio element if it does not exist

@@ -8,17 +8,29 @@ function Output({
   isActiveOverlay,
   isRaisedHand,
   onIsReady,
+  onHumanInterjection,
+  humanInterjection,
+  skipForward,
 }) {
   const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
   const [currentTextMessage, setCurrentTextMessage] = useState(null);
   const [currentAudioMessage, setCurrentAudioMessage] = useState(null);
+  const [stopAudio, setStopAudio] = useState(false);
 
-  // useEffect for raising hand or nevermind when a food is talking
+  useEffect(() => {
+    if (currentTextMessage && currentAudioMessage) {
+      console.log("Skipping forward");
+      proceedToNextMessage();
+    }
+  }, [skipForward]);
+
+  // useEffect for checking for raised hand when changing message index (inbetween food talking)
   useEffect(() => {
     if (!isRaisedHand) {
       tryFindTextAndAudio();
     } else {
-      console.log("Human interjection time!");
+      setStopAudio(!stopAudio);
+      onHumanInterjection(true);
     }
   }, [currentMessageIndex]);
 
@@ -29,6 +41,7 @@ function Output({
       currentTextMessage === null &&
       currentAudioMessage === null
     ) {
+      onHumanInterjection(false);
       tryFindTextAndAudio();
     }
   }, [isRaisedHand]);
@@ -36,10 +49,6 @@ function Output({
   useEffect(() => {
     tryFindTextAndAudio();
   }, [textMessages, audioMessages]);
-
-  useEffect(() => {
-    console.log("Hand raised: ", isRaisedHand);
-  }, [isRaisedHand]);
 
   function tryFindTextAndAudio() {
     const textMessage = textMessages[currentMessageIndex];
@@ -62,21 +71,28 @@ function Output({
     }
   }
 
-  function handleOnFinishedPlaying() {
+  function proceedToNextMessage() {
     setCurrentTextMessage((prev) => null);
     setCurrentAudioMessage((prev) => null);
     setCurrentMessageIndex((prev) => prev + 1);
   }
 
+  function handleOnFinishedPlaying() {
+    proceedToNextMessage();
+  }
+
   return (
     <>
-      <TextOutput
-        currentTextMessage={currentTextMessage}
-        currentAudioMessage={currentAudioMessage}
-      />
+      {!humanInterjection && (
+        <TextOutput
+          currentTextMessage={currentTextMessage}
+          currentAudioMessage={currentAudioMessage}
+        />
+      )}
       <AudioOutput
         currentAudioMessage={currentAudioMessage}
         onFinishedPlaying={handleOnFinishedPlaying}
+        stopAudio={stopAudio}
       />
     </>
   );

@@ -2,11 +2,10 @@ import React from "react";
 
 function HumanInput() {
   return (
-    <div>
+    <div style={{ pointerEvents: "auto" }}>
       <textarea
         rows="2"
         placeholder="your input"
-        style={{ width: "80%" }}
       />
     </div>
   );

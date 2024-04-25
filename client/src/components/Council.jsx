@@ -18,6 +18,8 @@ function Council({ options }) {
   const [audioMessages, setAudioMessages] = useState([]); // To store multiple ArrayBuffers
   const [isReady, setIsReady] = useState(false);
   const [isRaisedHand, setIsRaisedHand] = useState(false);
+  const [humanInterjection, setHumanInterjection] = useState(false);
+  const [skipForward, setSkipForward] = useState(false);
 
   const socketRef = useRef(null); // Using useRef to persist socket instance
 
@@ -71,9 +73,16 @@ function Council({ options }) {
     setIsReady(true);
   }
 
+  function handleOnSkipForward() {
+    setSkipForward(!skipForward);
+  }
+
   function handleOnRaiseHandOrNevermind() {
-    console.log("Setting isRaisedHand...");
     setIsRaisedHand((prev) => !prev);
+  }
+
+  function handleOnHumanInterjection(value) {
+    setHumanInterjection(value);
   }
 
   function displayResetWarning() {
@@ -96,17 +105,23 @@ function Council({ options }) {
           className="text-container"
           style={{ justifyContent: "end" }}
         >
+          {humanInterjection && <HumanInput />}
           <Output
             textMessages={textMessages}
             audioMessages={audioMessages}
             isActiveOverlay={activeOverlay !== ""}
             isRaisedHand={isRaisedHand}
             onIsReady={handleOnIsReady}
+            onHumanInterjection={handleOnHumanInterjection}
+            humanInterjection={humanInterjection}
+            skipForward={skipForward}
           />
           {isReady && (
             <ConversationControls
+              onSkipForward={handleOnSkipForward}
               onRaiseHandOrNevermind={handleOnRaiseHandOrNevermind}
               isRaisedHand={isRaisedHand}
+              humanInterjection={humanInterjection}
             />
           )}
         </div>
