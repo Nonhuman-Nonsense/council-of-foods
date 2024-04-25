@@ -77,6 +77,10 @@ function Council({ options }) {
     setSkipForward(!skipForward);
   }
 
+  function handleOnSubmit() {
+    console.log("Submitting new issue");
+  }
+
   function handleOnRaiseHandOrNevermind() {
     setIsRaisedHand((prev) => !prev);
   }
@@ -120,6 +124,7 @@ function Council({ options }) {
             <ConversationControls
               onSkipForward={handleOnSkipForward}
               onRaiseHandOrNevermind={handleOnRaiseHandOrNevermind}
+              onSubmit={handleOnSubmit}
               isRaisedHand={isRaisedHand}
               humanInterjection={humanInterjection}
             />

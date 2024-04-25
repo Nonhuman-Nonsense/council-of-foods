@@ -19,18 +19,18 @@ function Output({
 
   useEffect(() => {
     if (currentTextMessage && currentAudioMessage) {
-      console.log("Skipping forward");
       proceedToNextMessage();
     }
   }, [skipForward]);
 
   // useEffect for checking for raised hand when changing message index (inbetween food talking)
   useEffect(() => {
-    if (!isRaisedHand) {
-      tryFindTextAndAudio();
-    } else {
+    // Check to see if the hand is raised
+    if (isRaisedHand) {
       setStopAudio(!stopAudio);
       onHumanInterjection(true);
+    } else {
+      findTextAndAudio();
     }
   }, [currentMessageIndex]);
 
@@ -42,15 +42,15 @@ function Output({
       currentAudioMessage === null
     ) {
       onHumanInterjection(false);
-      tryFindTextAndAudio();
+      findTextAndAudio();
     }
   }, [isRaisedHand]);
 
   useEffect(() => {
-    tryFindTextAndAudio();
+    findTextAndAudio();
   }, [textMessages, audioMessages]);
 
-  function tryFindTextAndAudio() {
+  function findTextAndAudio() {
     const textMessage = textMessages[currentMessageIndex];
     const audioMessage = audioMessages.find(
       (a) => a.message_index === currentMessageIndex
@@ -60,10 +60,12 @@ function Output({
       textMessage &&
       audioMessage &&
       !currentTextMessage &&
-      !currentAudioMessage
+      !currentAudioMessage &&
+      !isRaisedHand
     ) {
       console.log("Both found!");
 
+      // Set isReady to true in the parent component to render the controls (for skipping forward et.c.)
       onIsReady();
 
       setCurrentTextMessage((prev) => textMessage);
@@ -72,8 +74,8 @@ function Output({
   }
 
   function proceedToNextMessage() {
-    setCurrentTextMessage((prev) => null);
-    setCurrentAudioMessage((prev) => null);
+    setCurrentTextMessage(() => null);
+    setCurrentAudioMessage(() => null);
     setCurrentMessageIndex((prev) => prev + 1);
   }
 

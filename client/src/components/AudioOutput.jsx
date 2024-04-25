@@ -7,6 +7,8 @@ function AudioOutput({ currentAudioMessage, onFinishedPlaying, stopAudio }) {
 
   useEffect(() => {
     audioRef.current && audioRef.current.pause();
+
+    console.log("Stopping audio...");
   }, [stopAudio]);
 
   useEffect(() => {
