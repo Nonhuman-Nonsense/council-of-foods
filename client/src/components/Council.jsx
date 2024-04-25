@@ -20,6 +20,10 @@ function Council({ options }) {
   const [isRaisedHand, setIsRaisedHand] = useState(false);
   const [humanInterjection, setHumanInterjection] = useState(false);
   const [skipForward, setSkipForward] = useState(false);
+  const [newTopic, setNewTopic] = useState("");
+  const [interjectionCounter, setInterjectionCounter] = useState(-1000);
+  const [interjectionReplyRecieved, setInterjectionReplyRecieved] =
+    useState(false);
 
   const socketRef = useRef(null); // Using useRef to persist socket instance
 
@@ -35,10 +39,16 @@ function Council({ options }) {
   };
 
   useEffect(() => {
+    initializeConversation(); // Call the function to start the conversation when component mounts
+  }, []);
+
+  // Function to initialize or restart the conversation
+  const initializeConversation = (customTopic) => {
+    const topicToSend = customTopic || topic; // Use custom topic if provided, else use default topic
+
     socketRef.current = io();
 
-    // Send initial data to start the conversation
-    let promptsAndOptions = {
+    const promptsAndOptions = {
       options: {
         ...globalOptions,
         humanName,
@@ -46,28 +56,37 @@ function Council({ options }) {
         neverMindPrompt: false,
       },
       name: "New room",
-      topic,
+      topic: topicToSend,
       characters: foods,
     };
+
     socketRef.current.emit("start_conversation", promptsAndOptions);
 
-    // Listen for conversation text updates
     socketRef.current.on("conversation_update", (textMessage) => {
+      setInterjectionCounter((prev) => prev + 1);
       setTextMessages((prev) => [...prev, textMessage]);
     });
 
-    // Listen for audio updates
     socketRef.current.on("audio_update", (audioMessage) => {
+      setInterjectionCounter((prev) => prev + 1);
       setAudioMessages((prevAudioMessages) => [
         ...prevAudioMessages,
         audioMessage,
       ]);
     });
+  };
 
-    return () => {
-      socketRef.current.disconnect();
-    };
-  }, []);
+  useEffect(() => {
+    if (interjectionCounter === 2) {
+      setInterjectionReplyRecieved(true);
+      setHumanInterjection(false);
+      setIsRaisedHand(false);
+    }
+  }, [interjectionCounter]);
+
+  function handleOnResetInterjectionReply() {
+    setInterjectionReplyRecieved(false);
+  }
 
   function handleOnIsReady() {
     setIsReady(true);
@@ -78,7 +97,21 @@ function Council({ options }) {
   }
 
   function handleOnSubmit() {
-    console.log("Submitting new issue");
+    const promptsAndOptions = {
+      options: {
+        ...globalOptions,
+        humanName,
+        raiseHandPrompt: newTopic,
+        neverMindPrompt: false,
+      },
+      name: "New room",
+      topic: newTopic,
+      characters: foods,
+    };
+
+    setInterjectionCounter(() => 0);
+
+    socketRef.current.emit("raise_hand", promptsAndOptions);
   }
 
   function handleOnRaiseHandOrNevermind() {
@@ -87,6 +120,10 @@ function Council({ options }) {
 
   function handleOnHumanInterjection(value) {
     setHumanInterjection(value);
+  }
+
+  function handleOnAddNewTopic(newTopic) {
+    setNewTopic(newTopic);
   }
 
   function displayResetWarning() {
@@ -109,7 +146,9 @@ function Council({ options }) {
           className="text-container"
           style={{ justifyContent: "end" }}
         >
-          {humanInterjection && <HumanInput />}
+          {humanInterjection && (
+            <HumanInput onAddNewTopic={handleOnAddNewTopic} />
+          )}
           <Output
             textMessages={textMessages}
             audioMessages={audioMessages}
@@ -119,6 +158,8 @@ function Council({ options }) {
             onHumanInterjection={handleOnHumanInterjection}
             humanInterjection={humanInterjection}
             skipForward={skipForward}
+            interjectionReplyRecieved={interjectionReplyRecieved}
+            onResetInterjectionReply={handleOnResetInterjectionReply}
           />
           {isReady && (
             <ConversationControls

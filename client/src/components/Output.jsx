@@ -11,11 +11,27 @@ function Output({
   onHumanInterjection,
   humanInterjection,
   skipForward,
+  interjectionReplyRecieved,
+  onResetInterjectionReply,
 }) {
   const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
   const [currentTextMessage, setCurrentTextMessage] = useState(null);
   const [currentAudioMessage, setCurrentAudioMessage] = useState(null);
   const [stopAudio, setStopAudio] = useState(false);
+
+  useEffect(() => {
+    if (interjectionReplyRecieved) {
+      console.log(
+        "Should be about dancing: ",
+        textMessages[textMessages.length - 1].text
+      );
+
+      setCurrentTextMessage(textMessages[textMessages.length - 1]);
+      setCurrentAudioMessage(audioMessages[audioMessages.length - 1]);
+
+      onResetInterjectionReply();
+    }
+  }, [interjectionReplyRecieved]);
 
   useEffect(() => {
     if (currentTextMessage && currentAudioMessage) {
@@ -39,7 +55,8 @@ function Output({
     if (
       !isRaisedHand &&
       currentTextMessage === null &&
-      currentAudioMessage === null
+      currentAudioMessage === null &&
+      !interjectionReplyRecieved
     ) {
       onHumanInterjection(false);
       findTextAndAudio();
@@ -47,21 +64,26 @@ function Output({
   }, [isRaisedHand]);
 
   useEffect(() => {
+    console.log("Amount of text messages :", textMessages.length);
+    console.log("Amount of voice messages :", audioMessages.length);
+
+    console.log("Text messages:", textMessages);
+    console.log("Audio messages:", audioMessages);
+
     findTextAndAudio();
   }, [textMessages, audioMessages]);
 
   function findTextAndAudio() {
     const textMessage = textMessages[currentMessageIndex];
-    const audioMessage = audioMessages.find(
-      (a) => a.message_index === currentMessageIndex
-    );
+    const audioMessage = audioMessages.find((a) => a.id === textMessage.id);
 
     if (
       textMessage &&
       audioMessage &&
       !currentTextMessage &&
       !currentAudioMessage &&
-      !isRaisedHand
+      !isRaisedHand &&
+      !interjectionReplyRecieved
     ) {
       console.log("Both found!");
 
@@ -76,6 +98,8 @@ function Output({
   function proceedToNextMessage() {
     setCurrentTextMessage(() => null);
     setCurrentAudioMessage(() => null);
+
+    console.log("Current index: ", currentMessageIndex);
     setCurrentMessageIndex((prev) => prev + 1);
   }
 
