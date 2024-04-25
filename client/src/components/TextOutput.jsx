@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 
-function TextOutput({ currentTextMessage }) {
+function TextOutput({ currentTextMessage, currentAudioMessage }) {
   const [currentSnippetIndex, setCurrentSnippetIndex] = useState(0);
   const [currentSnippet, setCurrentSnippet] = useState("");
 
@@ -10,7 +10,7 @@ function TextOutput({ currentTextMessage }) {
   }, [currentTextMessage]);
 
   useEffect(() => {
-    if (currentTextMessage && currentTextMessage.text) {
+    if (currentTextMessage && currentTextMessage.text && currentAudioMessage) {
       const text = currentTextMessage.text;
       // Split the text into sentences, ignoring periods followed by a number
       const sentences = text.split(/(?<=[.!?])(?=\s+(?![0-9]))/);
@@ -23,7 +23,12 @@ function TextOutput({ currentTextMessage }) {
       }, calculateDisplayTime(currentSnippet) * 1000);
       return () => clearInterval(interval);
     }
-  }, [currentTextMessage, currentSnippetIndex]);
+  }, [
+    currentTextMessage,
+    currentSnippetIndex,
+    currentAudioMessage,
+    currentSnippet,
+  ]);
 
   // Calculate the display time based on the number of characters in the snippet
   const calculateDisplayTime = (text) => {

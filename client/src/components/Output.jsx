@@ -2,14 +2,44 @@ import React, { useState, useEffect } from "react";
 import TextOutput from "./TextOutput";
 import AudioOutput from "./AudioOutput";
 
-function Output({ textMessages, audioMessages, isActiveOverlay }) {
+function Output({
+  textMessages,
+  audioMessages,
+  isActiveOverlay,
+  isRaisedHand,
+  onIsReady,
+}) {
   const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
   const [currentTextMessage, setCurrentTextMessage] = useState(null);
   const [currentAudioMessage, setCurrentAudioMessage] = useState(null);
 
+  // useEffect for raising hand or nevermind when a food is talking
+  useEffect(() => {
+    if (!isRaisedHand) {
+      tryFindTextAndAudio();
+    } else {
+      console.log("Human interjection time!");
+    }
+  }, [currentMessageIndex]);
+
+  // useEffect for nevermind when adding new input
+  useEffect(() => {
+    if (
+      !isRaisedHand &&
+      currentTextMessage === null &&
+      currentAudioMessage === null
+    ) {
+      tryFindTextAndAudio();
+    }
+  }, [isRaisedHand]);
+
   useEffect(() => {
     tryFindTextAndAudio();
-  }, [currentMessageIndex, textMessages, audioMessages]);
+  }, [textMessages, audioMessages]);
+
+  useEffect(() => {
+    console.log("Hand raised: ", isRaisedHand);
+  }, [isRaisedHand]);
 
   function tryFindTextAndAudio() {
     const textMessage = textMessages[currentMessageIndex];
@@ -24,6 +54,8 @@ function Output({ textMessages, audioMessages, isActiveOverlay }) {
       !currentAudioMessage
     ) {
       console.log("Both found!");
+
+      onIsReady();
 
       setCurrentTextMessage((prev) => textMessage);
       setCurrentAudioMessage((prev) => audioMessage);

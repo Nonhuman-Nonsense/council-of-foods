@@ -6,7 +6,9 @@ import Overlay from "./Overlay";
 import CouncilOverlays from "./CouncilOverlays";
 import Navbar from "./Navbar";
 import Output from "./Output";
+import ConversationControls from "./ConversationControls";
 import useWindowSize from "../hooks/useWindowSize";
+import HumanInput from "./HumanInput";
 
 function Council({ options }) {
   const { foods, humanName, topic } = options;
@@ -14,6 +16,9 @@ function Council({ options }) {
   const { width: screenWidth } = useWindowSize();
   const [textMessages, setTextMessages] = useState([]); // State to store conversation updates
   const [audioMessages, setAudioMessages] = useState([]); // To store multiple ArrayBuffers
+  const [isReady, setIsReady] = useState(false);
+  const [isRaisedHand, setIsRaisedHand] = useState(false);
+
   const socketRef = useRef(null); // Using useRef to persist socket instance
 
   const foodsContainerStyle = {
@@ -62,6 +67,15 @@ function Council({ options }) {
     };
   }, []);
 
+  function handleOnIsReady() {
+    setIsReady(true);
+  }
+
+  function handleOnRaiseHandOrNevermind() {
+    console.log("Setting isRaisedHand...");
+    setIsRaisedHand((prev) => !prev);
+  }
+
   function displayResetWarning() {
     setActiveOverlay("reset");
   }
@@ -82,12 +96,19 @@ function Council({ options }) {
           className="text-container"
           style={{ justifyContent: "end" }}
         >
-          {/* Render the Output component regardless of the overlay */}
           <Output
             textMessages={textMessages}
             audioMessages={audioMessages}
             isActiveOverlay={activeOverlay !== ""}
+            isRaisedHand={isRaisedHand}
+            onIsReady={handleOnIsReady}
           />
+          {isReady && (
+            <ConversationControls
+              onRaiseHandOrNevermind={handleOnRaiseHandOrNevermind}
+              isRaisedHand={isRaisedHand}
+            />
+          )}
         </div>
         <div style={foodsContainerStyle}>
           {foods.map((food, index) => (
