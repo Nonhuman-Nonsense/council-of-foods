@@ -6,7 +6,9 @@ import Overlay from "./Overlay";
 import CouncilOverlays from "./CouncilOverlays";
 import Navbar from "./Navbar";
 import Output from "./Output";
+import ConversationControls from "./ConversationControls";
 import useWindowSize from "../hooks/useWindowSize";
+import HumanInput from "./HumanInput";
 
 function Council({ options }) {
   const { foods, humanName, topic } = options;
@@ -14,6 +16,15 @@ function Council({ options }) {
   const { width: screenWidth } = useWindowSize();
   const [textMessages, setTextMessages] = useState([]); // State to store conversation updates
   const [audioMessages, setAudioMessages] = useState([]); // To store multiple ArrayBuffers
+  const [isReady, setIsReady] = useState(false);
+  const [isRaisedHand, setIsRaisedHand] = useState(false);
+  const [humanInterjection, setHumanInterjection] = useState(false);
+  const [skipForward, setSkipForward] = useState(false);
+  const [newTopic, setNewTopic] = useState("");
+  const [interjectionCounter, setInterjectionCounter] = useState(-1000);
+  const [interjectionReplyRecieved, setInterjectionReplyRecieved] =
+    useState(false);
+
   const socketRef = useRef(null); // Using useRef to persist socket instance
 
   const foodsContainerStyle = {
@@ -28,10 +39,16 @@ function Council({ options }) {
   };
 
   useEffect(() => {
+    initializeConversation(); // Call the function to start the conversation when component mounts
+  }, []);
+
+  // Function to initialize or restart the conversation
+  const initializeConversation = (customTopic) => {
+    const topicToSend = customTopic || topic; // Use custom topic if provided, else use default topic
+
     socketRef.current = io();
 
-    // Send initial data to start the conversation
-    let promptsAndOptions = {
+    const promptsAndOptions = {
       options: {
         ...globalOptions,
         humanName,
@@ -39,28 +56,75 @@ function Council({ options }) {
         neverMindPrompt: false,
       },
       name: "New room",
-      topic,
+      topic: topicToSend,
       characters: foods,
     };
+
     socketRef.current.emit("start_conversation", promptsAndOptions);
 
-    // Listen for conversation text updates
     socketRef.current.on("conversation_update", (textMessage) => {
+      setInterjectionCounter((prev) => prev + 1);
       setTextMessages((prev) => [...prev, textMessage]);
     });
 
-    // Listen for audio updates
     socketRef.current.on("audio_update", (audioMessage) => {
+      setInterjectionCounter((prev) => prev + 1);
       setAudioMessages((prevAudioMessages) => [
         ...prevAudioMessages,
         audioMessage,
       ]);
     });
+  };
 
-    return () => {
-      socketRef.current.disconnect();
+  useEffect(() => {
+    if (interjectionCounter === 2) {
+      setInterjectionReplyRecieved(true);
+      setHumanInterjection(false);
+      setIsRaisedHand(false);
+    }
+  }, [interjectionCounter]);
+
+  function handleOnResetInterjectionReply() {
+    setInterjectionReplyRecieved(false);
+  }
+
+  function handleOnIsReady() {
+    setIsReady(true);
+  }
+
+  function handleOnSkipForward() {
+    setSkipForward(!skipForward);
+  }
+
+  function handleOnSubmit() {
+    const promptsAndOptions = {
+      options: {
+        ...globalOptions,
+        humanName,
+        raiseHandPrompt: newTopic,
+        neverMindPrompt: false,
+      },
+      name: "New room",
+      topic: newTopic,
+      characters: foods,
     };
-  }, []);
+
+    setInterjectionCounter(() => 0);
+
+    socketRef.current.emit("raise_hand", promptsAndOptions);
+  }
+
+  function handleOnRaiseHandOrNevermind() {
+    setIsRaisedHand((prev) => !prev);
+  }
+
+  function handleOnHumanInterjection(value) {
+    setHumanInterjection(value);
+  }
+
+  function handleOnAddNewTopic(newTopic) {
+    setNewTopic(newTopic);
+  }
 
   function displayResetWarning() {
     setActiveOverlay("reset");
@@ -82,12 +146,30 @@ function Council({ options }) {
           className="text-container"
           style={{ justifyContent: "end" }}
         >
-          {/* Render the Output component regardless of the overlay */}
+          {humanInterjection && (
+            <HumanInput onAddNewTopic={handleOnAddNewTopic} />
+          )}
           <Output
             textMessages={textMessages}
             audioMessages={audioMessages}
             isActiveOverlay={activeOverlay !== ""}
+            isRaisedHand={isRaisedHand}
+            onIsReady={handleOnIsReady}
+            onHumanInterjection={handleOnHumanInterjection}
+            humanInterjection={humanInterjection}
+            skipForward={skipForward}
+            interjectionReplyRecieved={interjectionReplyRecieved}
+            onResetInterjectionReply={handleOnResetInterjectionReply}
           />
+          {isReady && (
+            <ConversationControls
+              onSkipForward={handleOnSkipForward}
+              onRaiseHandOrNevermind={handleOnRaiseHandOrNevermind}
+              onSubmit={handleOnSubmit}
+              isRaisedHand={isRaisedHand}
+              humanInterjection={humanInterjection}
+            />
+          )}
         </div>
         <div style={foodsContainerStyle}>
           {foods.map((food, index) => (
