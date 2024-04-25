@@ -12,7 +12,7 @@ function Council({ options }) {
   const { foods, humanName, topic } = options;
   const [activeOverlay, setActiveOverlay] = useState("");
   const { width: screenWidth } = useWindowSize();
-  const [conversation, setConversation] = useState([]); // State to store conversation updates
+  const [textMessages, setTextMessages] = useState([]); // State to store conversation updates
   const [audioMessages, setAudioMessages] = useState([]); // To store multiple ArrayBuffers
   const socketRef = useRef(null); // Using useRef to persist socket instance
 
@@ -45,8 +45,8 @@ function Council({ options }) {
     socketRef.current.emit("start_conversation", promptsAndOptions);
 
     // Listen for conversation text updates
-    socketRef.current.on("conversation_update", (message) => {
-      setConversation((prev) => [...prev, message]);
+    socketRef.current.on("conversation_update", (textMessage) => {
+      setTextMessages((prev) => [...prev, textMessage]);
     });
 
     // Listen for audio updates
@@ -78,17 +78,17 @@ function Council({ options }) {
   return (
     <div style={{ height: "100%", width: "100%" }}>
       <div className="council wrapper">
-        {activeOverlay === "" && (
-          <div
-            className="text-container"
-            style={{ justifyContent: "end" }}
-          >
-            <Output
-              conversation={conversation}
-              audioMessages={audioMessages}
-            />
-          </div>
-        )}
+        <div
+          className="text-container"
+          style={{ justifyContent: "end" }}
+        >
+          {/* Render the Output component regardless of the overlay */}
+          <Output
+            textMessages={textMessages}
+            audioMessages={audioMessages}
+            isActiveOverlay={activeOverlay !== ""}
+          />
+        </div>
         <div style={foodsContainerStyle}>
           {foods.map((food, index) => (
             <FoodItem
@@ -101,7 +101,11 @@ function Council({ options }) {
           ))}
         </div>
         <Overlay isActive={activeOverlay !== ""}>
-          <CouncilOverlays activeOverlay={activeOverlay} options={options} removeOverlay={removeOverlay} />
+          <CouncilOverlays
+            activeOverlay={activeOverlay}
+            options={options}
+            removeOverlay={removeOverlay}
+          />
         </Overlay>
         <Navbar
           topic={options.topic}
