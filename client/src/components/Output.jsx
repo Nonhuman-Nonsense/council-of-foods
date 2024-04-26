@@ -18,6 +18,7 @@ function Output({
   const [currentTextMessage, setCurrentTextMessage] = useState(null);
   const [currentAudioMessage, setCurrentAudioMessage] = useState(null);
   const [stopAudio, setStopAudio] = useState(false);
+  const [totalInterjections, setTotalInterjections] = useState(0);
 
   useEffect(() => {
     if (interjectionReplyRecieved) {
@@ -28,6 +29,8 @@ function Output({
 
       setCurrentTextMessage(textMessages[textMessages.length - 1]);
       setCurrentAudioMessage(audioMessages[audioMessages.length - 1]);
+
+      setTotalInterjections((prev) => prev + 1);
 
       onResetInterjectionReply();
     }
@@ -90,17 +93,24 @@ function Output({
       // Set isReady to true in the parent component to render the controls (for skipping forward et.c.)
       onIsReady();
 
-      setCurrentTextMessage((prev) => textMessage);
-      setCurrentAudioMessage((prev) => audioMessage);
+      setCurrentTextMessage(() => textMessage);
+      setCurrentAudioMessage(() => audioMessage);
     }
   }
 
   function proceedToNextMessage() {
+    // Reset the current message contents
     setCurrentTextMessage(() => null);
     setCurrentAudioMessage(() => null);
 
-    console.log("Current index: ", currentMessageIndex);
-    setCurrentMessageIndex((prev) => prev + 1);
+    // Update the index to the next message, ensuring it doesn't exceed the available range
+    // considering interjections that may reduce the number of messages to show
+    setCurrentMessageIndex((prev) => {
+      // Calculate the maximum index allowed based on the length of the messages and total interjections
+      const maxIndex = textMessages.length - totalInterjections - 1;
+      // Increment the index if it's within the bounds, otherwise keep it at the maximum allowed index
+      return prev < maxIndex ? prev + 1 : maxIndex;
+    });
   }
 
   function handleOnFinishedPlaying() {
