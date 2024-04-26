@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 
-function HumanInput({ onAddNewTopic }) {
+function HumanInput({ onAddNewTopic, onStopRecording }) {
   const [recording, setRecording] = useState(false);
   const [mediaRecorder, setMediaRecorder] = useState(null);
 
@@ -27,7 +27,7 @@ function HumanInput({ onAddNewTopic }) {
           console.log("Stopping recording...");
 
           // Optionally handle the audio blob by sending it to a parent component
-          onAddNewTopic(audioUrl); // Sending the URL for the audio blob to the parent
+          onStopRecording(audioUrl); // Sending the URL for the audio blob to the parent
           audioChunks = []; // Clear chunks
         };
       })
