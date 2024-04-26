@@ -88,8 +88,8 @@ function Council({ options }) {
     setInterjectionReplyRecieved(false);
   }
 
-  function handleOnIsReady() {
-    setIsReady(true);
+  function handleOnIsReady(value) {
+    setIsReady(value);
   }
 
   function handleOnSkipForward() {

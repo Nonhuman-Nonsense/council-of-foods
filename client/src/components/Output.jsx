@@ -22,11 +22,6 @@ function Output({
 
   useEffect(() => {
     if (interjectionReplyRecieved) {
-      console.log(
-        "Should be about dancing: ",
-        textMessages[textMessages.length - 1].text
-      );
-
       setCurrentTextMessage(textMessages[textMessages.length - 1]);
       setCurrentAudioMessage(audioMessages[audioMessages.length - 1]);
 
@@ -44,13 +39,26 @@ function Output({
 
   // useEffect for checking for raised hand when changing message index (inbetween food talking)
   useEffect(() => {
-    // Check to see if the hand is raised
-    if (isRaisedHand) {
-      setStopAudio(!stopAudio);
-      onHumanInterjection(true);
-    } else {
-      findTextAndAudio();
+    const maxIndex = textMessages.length - totalInterjections - 1;
+
+    if (
+      textMessages.length > 0 &&
+      audioMessages.length > 0 &&
+      currentMessageIndex >= maxIndex
+    ) {
+      // Max index reached
+
+      onIsReady(false);
     }
+
+    if (currentMessageIndex)
+      if (isRaisedHand) {
+        // Check to see if the hand is raised
+        setStopAudio(!stopAudio);
+        onHumanInterjection(true);
+      } else {
+        findTextAndAudio();
+      }
   }, [currentMessageIndex]);
 
   // useEffect for nevermind when adding new input
@@ -67,12 +75,6 @@ function Output({
   }, [isRaisedHand]);
 
   useEffect(() => {
-    console.log("Amount of text messages :", textMessages.length);
-    console.log("Amount of voice messages :", audioMessages.length);
-
-    console.log("Text messages:", textMessages);
-    console.log("Audio messages:", audioMessages);
-
     findTextAndAudio();
   }, [textMessages, audioMessages]);
 
@@ -88,10 +90,8 @@ function Output({
       !isRaisedHand &&
       !interjectionReplyRecieved
     ) {
-      console.log("Both found!");
-
       // Set isReady to true in the parent component to render the controls (for skipping forward et.c.)
-      onIsReady();
+      onIsReady(true);
 
       setCurrentTextMessage(() => textMessage);
       setCurrentAudioMessage(() => audioMessage);
@@ -108,6 +108,7 @@ function Output({
     setCurrentMessageIndex((prev) => {
       // Calculate the maximum index allowed based on the length of the messages and total interjections
       const maxIndex = textMessages.length - totalInterjections - 1;
+
       // Increment the index if it's within the bounds, otherwise keep it at the maximum allowed index
       return prev < maxIndex ? prev + 1 : maxIndex;
     });
