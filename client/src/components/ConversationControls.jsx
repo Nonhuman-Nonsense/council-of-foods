@@ -3,9 +3,10 @@ import ConversationControlIcon from './ConversationControlIcon';
 
 function ConversationControls({
   isPaused,
-  onPauseResume,
+  onPausePlay,
   isMuted,
   onSkipForward,
+  onSkipBackward,
   onRaiseHandOrNevermind,
   onMuteUnmute,
   onSubmit,
@@ -24,13 +25,12 @@ function ConversationControls({
 
   return (
     <div style={controlsWrapper}>
-      {/* <button onClick={onPauseResume}>{isPaused ? "Resume" : "Pause"}</button> */}
       <ConversationControlIcon name={isMuted ? "volume_off" : "volume_on"} tooltip={"Mute"} onClick={onMuteUnmute} />
       {!humanInterjection && (
         <>
-          <ConversationControlIcon name={"backward"} tooltip={"Previous"} />
-          <ConversationControlIcon name={"play"} tooltip={"Play"} onClick={onPauseResume} />
-          <ConversationControlIcon name={"forward"} tooltip={"forward"} onClick={onSkipForward} />
+          <ConversationControlIcon name={"backward"} tooltip={"Backward"} onClick={onSkipBackward} />
+          <ConversationControlIcon name={isPaused ? "play" : "pause"} tooltip={isPaused? "Play" : "Pause"} onClick={onPausePlay} />
+          <ConversationControlIcon name={"forward"} tooltip={"Forward"} onClick={onSkipForward} />
         </>
       )}
       {humanInterjection && <button onClick={onSubmit}>Submit</button>}

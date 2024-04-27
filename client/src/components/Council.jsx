@@ -19,8 +19,10 @@ function Council({ options }) {
   const [isReady, setIsReady] = useState(false);
   const [isRaisedHand, setIsRaisedHand] = useState(false);
   const [isMuted, setMuteUnmute] = useState(false);
+  const [isPaused, setPausePlay] = useState(false);
   const [humanInterjection, setHumanInterjection] = useState(false);
   const [skipForward, setSkipForward] = useState(false);
+  const [skipBackward, setSkipBackward] = useState(false);
   const [newTopic, setNewTopic] = useState("");
   const [interjectionCounter, setInterjectionCounter] = useState(-1000);
   const [interjectionReplyRecieved, setInterjectionReplyRecieved] =
@@ -40,12 +42,8 @@ function Council({ options }) {
   };
 
   useEffect(() => {
-    initializeConversation(); // Call the function to start the conversation when component mounts
-  }, []);
-
-  // Function to initialize or restart the conversation
-  const initializeConversation = (customTopic) => {
-    const topicToSend = customTopic || topic; // Use custom topic if provided, else use default topic
+    // start the conversation when component mounts
+    const topicToSend = topic;
 
     socketRef.current = io();
 
@@ -75,7 +73,10 @@ function Council({ options }) {
         audioMessage,
       ]);
     });
-  };
+    return () => {
+      socketRef.current.disconnect();
+    };
+  }, []);
 
   useEffect(() => {
     if (interjectionCounter === 2) {
@@ -93,6 +94,10 @@ function Council({ options }) {
     setIsReady(value);
   }
 
+  function handleOnSkipBackward(){
+    setSkipBackward(!skipBackward);
+  }
+
   function handleOnSkipForward() {
     setSkipForward(!skipForward);
   }
@@ -100,6 +105,11 @@ function Council({ options }) {
   function handleMuteUnmute() {
     setMuteUnmute(!isMuted);
   }
+
+  function handlePausePlay() {
+    setPausePlay(!isPaused);
+  }
+
 
   function handleOnSubmit() {
     const promptsAndOptions = {
@@ -182,20 +192,25 @@ function Council({ options }) {
             isRaisedHand={isRaisedHand}
             onIsReady={handleOnIsReady}
             isMuted={isMuted}
+            isPaused={isPaused}
             onHumanInterjection={handleOnHumanInterjection}
             humanInterjection={humanInterjection}
             skipForward={skipForward}
+            skipBackward={skipBackward}
             interjectionReplyRecieved={interjectionReplyRecieved}
             onResetInterjectionReply={handleOnResetInterjectionReply}
           />
         </>
         {
           <ConversationControls
+            onSkipBackward={handleOnSkipBackward}
             onSkipForward={handleOnSkipForward}
             onRaiseHandOrNevermind={handleOnRaiseHandOrNevermind}
             onSubmit={handleOnSubmit}
             isMuted={isMuted}
             onMuteUnmute={handleMuteUnmute}
+            isPaused={isPaused}
+            onPausePlay={handlePausePlay}
             isRaisedHand={isRaisedHand}
             humanInterjection={humanInterjection}
           />

@@ -9,9 +9,11 @@ function Output({
   isRaisedHand,
   onIsReady,
   isMuted,
+  isPaused,
   onHumanInterjection,
   humanInterjection,
   skipForward,
+  skipBackward,
   interjectionReplyRecieved,
   onResetInterjectionReply,
 }) {
@@ -36,6 +38,12 @@ function Output({
       proceedToNextMessage();
     }
   }, [skipForward]);
+
+  useEffect(() => {
+    if (currentTextMessage && currentAudioMessage) {
+      goBackToPreviousMessage();
+    }
+  }, [skipBackward]);
 
   // useEffect for checking for raised hand when changing message index (inbetween food talking)
   useEffect(() => {
@@ -96,6 +104,16 @@ function Output({
       setCurrentTextMessage(() => textMessage);
       setCurrentAudioMessage(() => audioMessage);
     }
+  }
+
+  function goBackToPreviousMessage() {
+    // Reset the current message contents
+    setCurrentTextMessage(() => null);
+    setCurrentAudioMessage(() => null);
+
+    setCurrentMessageIndex((prev) => {
+      return prev - 1 > 0 ? prev - 1 : 0;
+    });
   }
 
   function proceedToNextMessage() {
