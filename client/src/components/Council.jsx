@@ -18,6 +18,7 @@ function Council({ options }) {
   const [audioMessages, setAudioMessages] = useState([]); // To store multiple ArrayBuffers
   const [isReady, setIsReady] = useState(false);
   const [isRaisedHand, setIsRaisedHand] = useState(false);
+  const [isMuted, setMuteUnmute] = useState(false);
   const [humanInterjection, setHumanInterjection] = useState(false);
   const [skipForward, setSkipForward] = useState(false);
   const [newTopic, setNewTopic] = useState("");
@@ -96,6 +97,10 @@ function Council({ options }) {
     setSkipForward(!skipForward);
   }
 
+  function handleMuteUnmute() {
+    setMuteUnmute(!isMuted);
+  }
+
   function handleOnSubmit() {
     const promptsAndOptions = {
       options: {
@@ -140,12 +145,33 @@ function Council({ options }) {
   }
 
   return (
-    <div style={{ height: "100%", width: "100%" }}>
-      <div className="council wrapper">
-        <div
-          className="text-container"
-          style={{ justifyContent: "end" }}
-        >
+    <>
+      <Navbar
+        topic={options.topic}
+        activeOverlay={activeOverlay}
+        onDisplayOverlay={displayOverlay}
+        onRemoveOverlay={removeOverlay}
+        onDisplayResetWarning={displayResetWarning}
+      />
+      <Overlay isActive={activeOverlay !== ""}>
+        <CouncilOverlays
+          activeOverlay={activeOverlay}
+          options={options}
+          removeOverlay={removeOverlay}
+        />
+      </Overlay>
+      <div style={foodsContainerStyle}>
+        {foods.map((food, index) => (
+          <FoodItem
+            key={food.name}
+            food={food}
+            index={index}
+            total={foods.length}
+            screenWidth={screenWidth}
+          />
+        ))}
+      </div>
+        <>
           {humanInterjection && (
             <HumanInput onAddNewTopic={handleOnAddNewTopic} />
           )}
@@ -155,49 +181,26 @@ function Council({ options }) {
             isActiveOverlay={activeOverlay !== ""}
             isRaisedHand={isRaisedHand}
             onIsReady={handleOnIsReady}
+            isMuted={isMuted}
             onHumanInterjection={handleOnHumanInterjection}
             humanInterjection={humanInterjection}
             skipForward={skipForward}
             interjectionReplyRecieved={interjectionReplyRecieved}
             onResetInterjectionReply={handleOnResetInterjectionReply}
           />
-          {isReady && (
-            <ConversationControls
-              onSkipForward={handleOnSkipForward}
-              onRaiseHandOrNevermind={handleOnRaiseHandOrNevermind}
-              onSubmit={handleOnSubmit}
-              isRaisedHand={isRaisedHand}
-              humanInterjection={humanInterjection}
-            />
-          )}
-        </div>
-        <div style={foodsContainerStyle}>
-          {foods.map((food, index) => (
-            <FoodItem
-              key={food.name}
-              food={food}
-              index={index}
-              total={foods.length}
-              screenWidth={screenWidth}
-            />
-          ))}
-        </div>
-        <Overlay isActive={activeOverlay !== ""}>
-          <CouncilOverlays
-            activeOverlay={activeOverlay}
-            options={options}
-            removeOverlay={removeOverlay}
+        </>
+        {
+          <ConversationControls
+            onSkipForward={handleOnSkipForward}
+            onRaiseHandOrNevermind={handleOnRaiseHandOrNevermind}
+            onSubmit={handleOnSubmit}
+            isMuted={isMuted}
+            onMuteUnmute={handleMuteUnmute}
+            isRaisedHand={isRaisedHand}
+            humanInterjection={humanInterjection}
           />
-        </Overlay>
-        <Navbar
-          topic={options.topic}
-          activeOverlay={activeOverlay}
-          onDisplayOverlay={displayOverlay}
-          onRemoveOverlay={removeOverlay}
-          onDisplayResetWarning={displayResetWarning}
-        />
-      </div>
-    </div>
+        }
+      </>
   );
 }
 

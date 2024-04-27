@@ -8,6 +8,7 @@ function Output({
   isActiveOverlay,
   isRaisedHand,
   onIsReady,
+  isMuted,
   onHumanInterjection,
   humanInterjection,
   skipForward,
@@ -17,7 +18,6 @@ function Output({
   const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
   const [currentTextMessage, setCurrentTextMessage] = useState(null);
   const [currentAudioMessage, setCurrentAudioMessage] = useState(null);
-  const [stopAudio, setStopAudio] = useState(false);
   const [totalInterjections, setTotalInterjections] = useState(0);
 
   useEffect(() => {
@@ -54,7 +54,7 @@ function Output({
     if (currentMessageIndex)
       if (isRaisedHand) {
         // Check to see if the hand is raised
-        setStopAudio(!stopAudio);
+        // setStopAudio(!stopAudio);
         onHumanInterjection(true);
       } else {
         findTextAndAudio();
@@ -129,7 +129,7 @@ function Output({
       <AudioOutput
         currentAudioMessage={currentAudioMessage}
         onFinishedPlaying={handleOnFinishedPlaying}
-        stopAudio={stopAudio}
+        isMuted={isMuted}
       />
     </>
   );

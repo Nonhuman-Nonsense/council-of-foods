@@ -36,16 +36,22 @@ function TextOutput({ currentTextMessage, currentAudioMessage }) {
     return Math.max(3, text.length * baseTimePerCharacter);
   };
 
+  const paragraphStyle = {
+    fontFamily: "Arial, sans-serif",
+    fontSize: "25px",
+  }
+
+  const textStyle = {
+    width: "70%",
+    position: "absolute",
+    bottom: "50px",
+  }
+
   return (
-    <div style={{ textAlign: "center" }}>
-      <h2
-        style={{
-          fontFamily: "Arial, sans-serif",
-          backgroundColor: "rgba(0,0,0,0.7)",
-        }}
-      >
+    <div style={textStyle}>
+      <p style={paragraphStyle}>
         {currentSnippet}
-      </h2>
+      </p>
     </div>
   );
 }
