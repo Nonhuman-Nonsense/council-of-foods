@@ -1,24 +1,40 @@
 import React from "react";
+import ConversationControlIcon from './ConversationControlIcon';
 
 function ConversationControls({
   isPaused,
-  onPauseResume,
+  onPausePlay,
+  isMuted,
   onSkipForward,
+  onSkipBackward,
   onRaiseHandOrNevermind,
+  onMuteUnmute,
   onSubmit,
   isRaisedHand,
   humanInterjection,
 }) {
+
+
+  const controlsWrapper = {
+    position: "absolute",
+    bottom: "0",
+    display: "flex",
+    flexDirection: "row",
+    pointerEvents: "auto",
+  }
+
   return (
-    <div style={{ pointerEvents: "auto" }}>
-      {/* <button onClick={onPauseResume}>{isPaused ? "Resume" : "Pause"}</button> */}
+    <div style={controlsWrapper}>
+      <ConversationControlIcon name={isMuted ? "volume_off" : "volume_on"} tooltip={"Mute"} onClick={onMuteUnmute} />
       {!humanInterjection && (
-        <button onClick={onSkipForward}>Skip forward</button>
+        <>
+          <ConversationControlIcon name={"backward"} tooltip={"Backward"} onClick={onSkipBackward} />
+          <ConversationControlIcon name={isPaused ? "play" : "pause"} tooltip={isPaused? "Play" : "Pause"} onClick={onPausePlay} />
+          <ConversationControlIcon name={"forward"} tooltip={"Forward"} onClick={onSkipForward} />
+        </>
       )}
       {humanInterjection && <button onClick={onSubmit}>Submit</button>}
-      <button onClick={onRaiseHandOrNevermind}>
-        {isRaisedHand ? "Nevermind" : "Raise hand"}
-      </button>
+      <ConversationControlIcon name={isRaisedHand ? "Nevermind" : "raise_hand_not_raised"} tooltip={"Raise hand"} onClick={onRaiseHandOrNevermind} />
     </div>
   );
 }

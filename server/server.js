@@ -10,7 +10,6 @@ const httpServer = http.createServer(app);
 const io = new Server(httpServer);
 const openai = new OpenAI(process.env.OPENAI_API_KEY);
 
-console.log(process.env.OPENAI_API_KEY);
 
 //Names of OpenAI voices
 const audioVoices = ["alloy", "echo", "fable", "onyx", "nova", "shimmer"];

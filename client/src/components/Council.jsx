@@ -18,8 +18,11 @@ function Council({ options }) {
   const [audioMessages, setAudioMessages] = useState([]); // To store multiple ArrayBuffers
   const [isReady, setIsReady] = useState(false);
   const [isRaisedHand, setIsRaisedHand] = useState(false);
+  const [isMuted, setMuteUnmute] = useState(false);
+  const [isPaused, setPausePlay] = useState(false);
   const [humanInterjection, setHumanInterjection] = useState(false);
   const [skipForward, setSkipForward] = useState(false);
+  const [skipBackward, setSkipBackward] = useState(false);
   const [newTopic, setNewTopic] = useState("");
   const [interjectionCounter, setInterjectionCounter] = useState(-1000);
   const [interjectionReplyRecieved, setInterjectionReplyRecieved] =
@@ -39,12 +42,8 @@ function Council({ options }) {
   };
 
   useEffect(() => {
-    initializeConversation(); // Call the function to start the conversation when component mounts
-  }, []);
-
-  // Function to initialize or restart the conversation
-  const initializeConversation = (customTopic) => {
-    const topicToSend = customTopic || topic; // Use custom topic if provided, else use default topic
+    // start the conversation when component mounts
+    const topicToSend = topic;
 
     socketRef.current = io();
 
@@ -74,7 +73,10 @@ function Council({ options }) {
         audioMessage,
       ]);
     });
-  };
+    return () => {
+      socketRef.current.disconnect();
+    };
+  }, []);
 
   useEffect(() => {
     if (interjectionCounter === 2) {
@@ -92,9 +94,22 @@ function Council({ options }) {
     setIsReady(value);
   }
 
+  function handleOnSkipBackward(){
+    setSkipBackward(!skipBackward);
+  }
+
   function handleOnSkipForward() {
     setSkipForward(!skipForward);
   }
+
+  function handleMuteUnmute() {
+    setMuteUnmute(!isMuted);
+  }
+
+  function handlePausePlay() {
+    setPausePlay(!isPaused);
+  }
+
 
   function handleOnSubmit() {
     const promptsAndOptions = {
@@ -140,12 +155,33 @@ function Council({ options }) {
   }
 
   return (
-    <div style={{ height: "100%", width: "100%" }}>
-      <div className="council wrapper">
-        <div
-          className="text-container"
-          style={{ justifyContent: "end" }}
-        >
+    <>
+      <Navbar
+        topic={options.topic}
+        activeOverlay={activeOverlay}
+        onDisplayOverlay={displayOverlay}
+        onRemoveOverlay={removeOverlay}
+        onDisplayResetWarning={displayResetWarning}
+      />
+      <Overlay isActive={activeOverlay !== ""}>
+        <CouncilOverlays
+          activeOverlay={activeOverlay}
+          options={options}
+          removeOverlay={removeOverlay}
+        />
+      </Overlay>
+      <div style={foodsContainerStyle}>
+        {foods.map((food, index) => (
+          <FoodItem
+            key={food.name}
+            food={food}
+            index={index}
+            total={foods.length}
+            screenWidth={screenWidth}
+          />
+        ))}
+      </div>
+        <>
           {humanInterjection && (
             <HumanInput onAddNewTopic={handleOnAddNewTopic} />
           )}
@@ -155,49 +191,31 @@ function Council({ options }) {
             isActiveOverlay={activeOverlay !== ""}
             isRaisedHand={isRaisedHand}
             onIsReady={handleOnIsReady}
+            isMuted={isMuted}
+            isPaused={isPaused}
             onHumanInterjection={handleOnHumanInterjection}
             humanInterjection={humanInterjection}
             skipForward={skipForward}
+            skipBackward={skipBackward}
             interjectionReplyRecieved={interjectionReplyRecieved}
             onResetInterjectionReply={handleOnResetInterjectionReply}
           />
-          {isReady && (
-            <ConversationControls
-              onSkipForward={handleOnSkipForward}
-              onRaiseHandOrNevermind={handleOnRaiseHandOrNevermind}
-              onSubmit={handleOnSubmit}
-              isRaisedHand={isRaisedHand}
-              humanInterjection={humanInterjection}
-            />
-          )}
-        </div>
-        <div style={foodsContainerStyle}>
-          {foods.map((food, index) => (
-            <FoodItem
-              key={food.name}
-              food={food}
-              index={index}
-              total={foods.length}
-              screenWidth={screenWidth}
-            />
-          ))}
-        </div>
-        <Overlay isActive={activeOverlay !== ""}>
-          <CouncilOverlays
-            activeOverlay={activeOverlay}
-            options={options}
-            removeOverlay={removeOverlay}
+        </>
+        {
+          <ConversationControls
+            onSkipBackward={handleOnSkipBackward}
+            onSkipForward={handleOnSkipForward}
+            onRaiseHandOrNevermind={handleOnRaiseHandOrNevermind}
+            onSubmit={handleOnSubmit}
+            isMuted={isMuted}
+            onMuteUnmute={handleMuteUnmute}
+            isPaused={isPaused}
+            onPausePlay={handlePausePlay}
+            isRaisedHand={isRaisedHand}
+            humanInterjection={humanInterjection}
           />
-        </Overlay>
-        <Navbar
-          topic={options.topic}
-          activeOverlay={activeOverlay}
-          onDisplayOverlay={displayOverlay}
-          onRemoveOverlay={removeOverlay}
-          onDisplayResetWarning={displayResetWarning}
-        />
-      </div>
-    </div>
+        }
+      </>
   );
 }
 

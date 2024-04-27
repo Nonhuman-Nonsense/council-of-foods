@@ -8,16 +8,18 @@ function Output({
   isActiveOverlay,
   isRaisedHand,
   onIsReady,
+  isMuted,
+  isPaused,
   onHumanInterjection,
   humanInterjection,
   skipForward,
+  skipBackward,
   interjectionReplyRecieved,
   onResetInterjectionReply,
 }) {
   const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
   const [currentTextMessage, setCurrentTextMessage] = useState(null);
   const [currentAudioMessage, setCurrentAudioMessage] = useState(null);
-  const [stopAudio, setStopAudio] = useState(false);
   const [totalInterjections, setTotalInterjections] = useState(0);
 
   useEffect(() => {
@@ -37,6 +39,12 @@ function Output({
     }
   }, [skipForward]);
 
+  useEffect(() => {
+    if (currentTextMessage && currentAudioMessage) {
+      goBackToPreviousMessage();
+    }
+  }, [skipBackward]);
+
   // useEffect for checking for raised hand when changing message index (inbetween food talking)
   useEffect(() => {
     const maxIndex = textMessages.length - totalInterjections - 1;
@@ -54,7 +62,7 @@ function Output({
     if (currentMessageIndex)
       if (isRaisedHand) {
         // Check to see if the hand is raised
-        setStopAudio(!stopAudio);
+        // setStopAudio(!stopAudio);
         onHumanInterjection(true);
       } else {
         findTextAndAudio();
@@ -98,6 +106,16 @@ function Output({
     }
   }
 
+  function goBackToPreviousMessage() {
+    // Reset the current message contents
+    setCurrentTextMessage(() => null);
+    setCurrentAudioMessage(() => null);
+
+    setCurrentMessageIndex((prev) => {
+      return prev - 1 > 0 ? prev - 1 : 0;
+    });
+  }
+
   function proceedToNextMessage() {
     // Reset the current message contents
     setCurrentTextMessage(() => null);
@@ -129,7 +147,7 @@ function Output({
       <AudioOutput
         currentAudioMessage={currentAudioMessage}
         onFinishedPlaying={handleOnFinishedPlaying}
-        stopAudio={stopAudio}
+        isMuted={isMuted}
       />
     </>
   );
