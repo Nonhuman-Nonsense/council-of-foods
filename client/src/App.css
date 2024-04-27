@@ -1,0 +1,169 @@
+@import url("https://fonts.googleapis.com/css2?family=Tinos:ital,wght@0,400;0,700;1,400;1,700&display=swap");
+
+body,
+html,
+#root,
+.App {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  width: 100%;
+}
+
+.App {
+  font-family: "Tinos", serif;
+  font-weight: 400;
+  font-style: normal;
+  text-align: center;
+  color: white;
+  position: relative;
+  height: 100vh;
+  width: 100vw;
+}
+
+.App-logo {
+  height: 40vmin;
+  pointer-events: none;
+}
+
+.hidden {
+  visibility: hidden;
+}
+
+h1 {
+  font-size: 60px;
+  margin: 6px;
+  font-weight: normal;
+}
+
+h2 {
+  font-size: 39px;
+  margin: 6px;
+  font-weight: normal;
+}
+
+h3 {
+  font-size: 25px;
+  margin-top: 13px;
+  margin-bottom: 13px;
+  font-weight: normal;
+}
+
+h4 {
+  font-size: 18px;
+  margin-top: 13px;
+  margin-bottom: 13px;
+  font-weight: normal;
+}
+
+p {
+  font-size: 18px;
+  margin-top: 13px;
+  margin-bottom: 13px;
+  font-weight: normal;
+}
+
+.wrapper {
+  height: 100%;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.text-container {
+  z-index: 10;
+  text-align: center;
+  height: 80%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.link {
+  color: white;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.italic {
+  font-style: italic;
+}
+
+.input-icon-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+input[type=text], textarea {
+  background-color: white;
+  border-radius: 9px;
+  border: none;
+  padding-left: 15px;
+  padding-right: 15px;
+  padding-top: 7px;
+  padding-bottom: 7px;
+  font-size: 19px;
+  font-family: Arial, Helvetica, sans-serif;
+  line-height: 1.5;
+}
+
+.input-arrow {
+  position: absolute;
+  right: 10px;
+  color: black; /* Adjust arrow color as needed */
+}
+
+button {
+  font-family: "Tinos", serif;
+  font-style: normal;
+  font-size: 25px;
+  font-weight: normal;
+  color: white;
+  background-color: transparent;
+  border: 1.5px solid white;
+  border-radius: 19px;
+  padding: 0px 16px 0px 16px;
+  cursor: pointer;
+}
+
+button:hover {
+  background-color: white;
+  color: rgba(0, 0, 0, 1);
+}
+
+.wide-button {
+  padding: 6px 75px 6px 75px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .App-logo {
+    animation: App-logo-spin infinite 20s linear;
+  }
+}
+
+.App-header {
+  background-color: #282c34;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: calc(10px + 2vmin);
+  color: white;
+}
+
+.App-link {
+  color: #61dafb;
+}
+
+@keyframes App-logo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
