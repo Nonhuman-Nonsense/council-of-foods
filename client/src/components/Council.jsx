@@ -154,8 +154,26 @@ function Council({ options }) {
     setActiveOverlay("");
   }
 
+  const bottomShade = {
+    width: "100%",
+    height: "40%",
+    position: "absolute",
+    bottom: "0",
+    background: "linear-gradient(0, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0) 100%)"
+  };
+
+  const topShade = {
+    width: "100%",
+    height: "10%",
+    position: "absolute",
+    top: "0",
+    background: "linear-gradient(180deg, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0) 100%)"
+  };
+
   return (
     <>
+      <div style={bottomShade}/>
+      <div style={topShade}/>
       <Navbar
         topic={options.topic}
         activeOverlay={activeOverlay}
