@@ -16,15 +16,14 @@ function ConversationControls({
 
 
   const controlsWrapper = {
-    position: "absolute",
-    bottom: "0",
     display: "flex",
     flexDirection: "row",
-    pointerEvents: "auto",
   }
 
   return (
-    <div style={controlsWrapper}>
+    <>
+    <div style={{position: "absolute",bottom: "0",pointerEvents: "auto"}}>
+      <div style={{display: "flex",flexDirection: "row"}}>
       <ConversationControlIcon name={isMuted ? "volume_off" : "volume_on"} tooltip={"Mute"} onClick={onMuteUnmute} />
       {!humanInterjection && (
         <>
@@ -34,8 +33,12 @@ function ConversationControls({
         </>
       )}
       {humanInterjection && <button onClick={onSubmit}>Submit</button>}
-      <ConversationControlIcon name={isRaisedHand ? "Nevermind" : "raise_hand_not_raised"} tooltip={"Raise hand"} onClick={onRaiseHandOrNevermind} />
+      <ConversationControlIcon name={isRaisedHand ? "raise_hand_raised" : "raise_hand_not_raised"} tooltip={"Raise hand"} onClick={onRaiseHandOrNevermind} />
+      </div>
+      {isRaisedHand && !humanInterjection && <span style={{position: "absolute", bottom: "16px", fontSize: "18px", left: "320px",width: "150px", animation: "1s slideInFade", display:"flex"}}>Just a second<div class="loader"></div></span>}
     </div>
+
+    </>
   );
 }
 
