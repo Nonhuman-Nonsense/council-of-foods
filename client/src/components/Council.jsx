@@ -192,7 +192,7 @@ function Council({ options }) {
         ))}
       </div>
       <>
-        <HumanInput onInputNewTopic={handleOnInputNewTopic} />
+        {/* <HumanInput onInputNewTopic={handleOnInputNewTopic} /> */}
 
         <Output
           textMessages={textMessages}
