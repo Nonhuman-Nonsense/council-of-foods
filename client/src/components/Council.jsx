@@ -16,17 +16,12 @@ function Council({ options }) {
   const { width: screenWidth } = useWindowSize();
   const [textMessages, setTextMessages] = useState([]); // State to store conversation updates
   const [audioMessages, setAudioMessages] = useState([]); // To store multiple ArrayBuffers
-  const [isReady, setIsReady] = useState(false);
   const [isRaisedHand, setIsRaisedHand] = useState(false);
   const [isMuted, setMuteUnmute] = useState(false);
   const [isPaused, setPausePlay] = useState(false);
-  const [humanInterjection, setHumanInterjection] = useState(false);
   const [skipForward, setSkipForward] = useState(false);
   const [skipBackward, setSkipBackward] = useState(false);
   const [newTopic, setNewTopic] = useState("");
-  const [interjectionCounter, setInterjectionCounter] = useState(-1000);
-  const [interjectionReplyRecieved, setInterjectionReplyRecieved] =
-    useState(false);
   const [currentSpeakerName, setCurrentSpeakerName] = useState("");
 
   const socketRef = useRef(null); // Using useRef to persist socket instance
@@ -43,9 +38,6 @@ function Council({ options }) {
   };
 
   useEffect(() => {
-    // start the conversation when component mounts
-    const topicToSend = topic;
-
     socketRef.current = io();
 
     const promptsAndOptions = {
@@ -56,19 +48,17 @@ function Council({ options }) {
         neverMindPrompt: false,
       },
       name: "New room",
-      topic: topicToSend,
+      topic: topic,
       characters: foods,
     };
 
     socketRef.current.emit("start_conversation", promptsAndOptions);
 
-    socketRef.current.on("conversation_update", (textMessage) => {
-      setInterjectionCounter((prev) => prev + 1);
-      setTextMessages((prev) => [...prev, textMessage]);
+    socketRef.current.on("conversation_update", (textMessages) => {
+      setTextMessages(() => textMessages);
     });
 
     socketRef.current.on("audio_update", (audioMessage) => {
-      setInterjectionCounter((prev) => prev + 1);
       setAudioMessages((prevAudioMessages) => [
         ...prevAudioMessages,
         audioMessage,
@@ -79,20 +69,8 @@ function Council({ options }) {
     };
   }, []);
 
-  useEffect(() => {
-    if (interjectionCounter === 2) {
-      setInterjectionReplyRecieved(true);
-      setHumanInterjection(false);
-      setIsRaisedHand(false);
-    }
-  }, [interjectionCounter]);
-
-  function handleOnResetInterjectionReply() {
-    setInterjectionReplyRecieved(false);
-  }
-
-  function handleOnIsReady(value) {
-    setIsReady(value);
+  function handleOnSkipBackward() {
+    setSkipBackward(!skipBackward);
   }
 
   function handleOnSkipBackward(){
@@ -111,10 +89,10 @@ function Council({ options }) {
     setPausePlay(!isPaused);
   }
 
+
   function handleSetCurrentSpeakerName(value){
     setCurrentSpeakerName(value);
   }
-
 
   function handleOnSubmit() {
     const promptsAndOptions = {
@@ -129,8 +107,6 @@ function Council({ options }) {
       characters: foods,
     };
 
-    setInterjectionCounter(() => 0);
-
     socketRef.current.emit("raise_hand", promptsAndOptions);
   }
 
@@ -138,11 +114,7 @@ function Council({ options }) {
     setIsRaisedHand((prev) => !prev);
   }
 
-  function handleOnHumanInterjection(value) {
-    setHumanInterjection(value);
-  }
-
-  function handleOnAddNewTopic(newTopic) {
+  function handleOnInputNewTopic(newTopic) {
     setNewTopic(newTopic);
   }
 
@@ -164,7 +136,9 @@ function Council({ options }) {
     height: "40%",
     position: "absolute",
     bottom: "0",
+
     background: "linear-gradient(0, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0) 100%)"
+
   };
 
   const topShade = {
@@ -177,8 +151,8 @@ function Council({ options }) {
 
   return (
     <>
-      <div style={bottomShade}/>
-      <div style={topShade}/>
+      <div style={bottomShade} />
+      <div style={topShade} />
       <Navbar
         topic={options.topic}
         activeOverlay={activeOverlay}
@@ -205,40 +179,35 @@ function Council({ options }) {
           />
         ))}
       </div>
-        <>
-          {humanInterjection && (
-            <HumanInput onAddNewTopic={handleOnAddNewTopic} />
-          )}
-          <Output
-            textMessages={textMessages}
-            audioMessages={audioMessages}
-            isActiveOverlay={activeOverlay !== ""}
-            isRaisedHand={isRaisedHand}
-            onIsReady={handleOnIsReady}
-            isMuted={isMuted}
-            isPaused={isPaused}
-            onHumanInterjection={handleOnHumanInterjection}
-            humanInterjection={humanInterjection}
-            skipForward={skipForward}
-            skipBackward={skipBackward}
-            interjectionReplyRecieved={interjectionReplyRecieved}
-            onResetInterjectionReply={handleOnResetInterjectionReply}
-            handleSetCurrentSpeakerName={handleSetCurrentSpeakerName}
-          />
-        </>
-        <ConversationControls
-          onSkipBackward={handleOnSkipBackward}
-          onSkipForward={handleOnSkipForward}
-          onRaiseHandOrNevermind={handleOnRaiseHandOrNevermind}
-          onSubmit={handleOnSubmit}
-          isMuted={isMuted}
-          onMuteUnmute={handleMuteUnmute}
-          isPaused={isPaused}
-          onPausePlay={handlePausePlay}
+      <>
+        <HumanInput onInputNewTopic={handleOnInputNewTopic} />
+
+        <Output
+          textMessages={textMessages}
+          audioMessages={audioMessages}
+          isActiveOverlay={activeOverlay !== ""}
           isRaisedHand={isRaisedHand}
-          humanInterjection={humanInterjection}
+          onIsReady={handleOnIsReady}
+          isMuted={isMuted}
+          isPaused={isPaused}
+          onHumanInterjection={handleOnHumanInterjection}
+          skipForward={skipForward}
+          skipBackward={skipBackward}
+          handleSetCurrentSpeakerName={handleSetCurrentSpeakerName}
         />
       </>
+      <ConversationControls
+        onSkipBackward={handleOnSkipBackward}
+        onSkipForward={handleOnSkipForward}
+        onRaiseHandOrNevermind={handleOnRaiseHandOrNevermind}
+        onSubmit={handleOnSubmit}
+        isMuted={isMuted}
+        onMuteUnmute={handleMuteUnmute}
+        isPaused={isPaused}
+        onPausePlay={handlePausePlay}
+        isRaisedHand={isRaisedHand}
+      />
+    </>
   );
 }
 
