@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 
-function HumanInput({ onAddNewTopic, onStopRecording }) {
+function HumanInput({ onInputNewTopic, onStopRecording }) {
   const [recording, setRecording] = useState(false);
   const [mediaRecorder, setMediaRecorder] = useState(null);
 
@@ -45,7 +45,7 @@ function HumanInput({ onAddNewTopic, onStopRecording }) {
   };
 
   function handleOnInput(e) {
-    onAddNewTopic(e.target.value);
+    onInputNewTopic(e.target.value);
   }
 
   return (

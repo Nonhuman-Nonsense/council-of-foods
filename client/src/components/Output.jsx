@@ -7,29 +7,22 @@ function Output({
   audioMessages,
   isActiveOverlay,
   isRaisedHand,
-  onIsReady,
-  onHumanInterjection,
-  humanInterjection,
+  isMuted,
+  isPaused,
   skipForward,
-  interjectionReplyRecieved,
-  onResetInterjectionReply,
+  skipBackward,
+  handleSetCurrentSpeakerName,
 }) {
+  const [actualMessageIndex, setActualMessageIndex] = useState(0);
   const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
   const [currentTextMessage, setCurrentTextMessage] = useState(null);
   const [currentAudioMessage, setCurrentAudioMessage] = useState(null);
-  const [stopAudio, setStopAudio] = useState(false);
-  const [totalInterjections, setTotalInterjections] = useState(0);
 
   useEffect(() => {
-    if (interjectionReplyRecieved) {
-      setCurrentTextMessage(textMessages[textMessages.length - 1]);
-      setCurrentAudioMessage(audioMessages[audioMessages.length - 1]);
-
-      setTotalInterjections((prev) => prev + 1);
-
-      onResetInterjectionReply();
-    }
-  }, [interjectionReplyRecieved]);
+    handleSetCurrentSpeakerName(
+      currentTextMessage ? currentTextMessage.speaker : ""
+    );
+  }, [currentTextMessage]);
 
   useEffect(() => {
     if (currentTextMessage && currentAudioMessage) {
@@ -37,42 +30,11 @@ function Output({
     }
   }, [skipForward]);
 
-  // useEffect for checking for raised hand when changing message index (inbetween food talking)
-  useEffect(() => {
-    const maxIndex = textMessages.length - totalInterjections - 1;
+  // TODO: Increase currentMessageIndex to play next message
+  useEffect(() => {}, [currentMessageIndex]);
 
-    if (
-      textMessages.length > 0 &&
-      audioMessages.length > 0 &&
-      currentMessageIndex >= maxIndex
-    ) {
-      // Max index reached
-
-      onIsReady(false);
-    }
-
-    if (currentMessageIndex)
-      if (isRaisedHand) {
-        // Check to see if the hand is raised
-        setStopAudio(!stopAudio);
-        onHumanInterjection(true);
-      } else {
-        findTextAndAudio();
-      }
-  }, [currentMessageIndex]);
-
-  // useEffect for nevermind when adding new input
-  useEffect(() => {
-    if (
-      !isRaisedHand &&
-      currentTextMessage === null &&
-      currentAudioMessage === null &&
-      !interjectionReplyRecieved
-    ) {
-      onHumanInterjection(false);
-      findTextAndAudio();
-    }
-  }, [isRaisedHand]);
+  // TODO: Emit raised_hand in parent component if hand is raised, otherwise emit nevermind
+  useEffect(() => {}, [isRaisedHand]);
 
   useEffect(() => {
     findTextAndAudio();
@@ -82,17 +44,8 @@ function Output({
     const textMessage = textMessages[currentMessageIndex];
     const audioMessage = audioMessages.find((a) => a.id === textMessage.id);
 
-    if (
-      textMessage &&
-      audioMessage &&
-      !currentTextMessage &&
-      !currentAudioMessage &&
-      !isRaisedHand &&
-      !interjectionReplyRecieved
-    ) {
-      // Set isReady to true in the parent component to render the controls (for skipping forward et.c.)
-      onIsReady(true);
-
+    // TODO: Add isRunning flag?
+    if (textMessage && audioMessage) {
       setCurrentTextMessage(() => textMessage);
       setCurrentAudioMessage(() => audioMessage);
     }
@@ -103,11 +56,10 @@ function Output({
     setCurrentTextMessage(() => null);
     setCurrentAudioMessage(() => null);
 
+    // TODO: Increase actualMessageIndex
     // Update the index to the next message, ensuring it doesn't exceed the available range
-    // considering interjections that may reduce the number of messages to show
     setCurrentMessageIndex((prev) => {
-      // Calculate the maximum index allowed based on the length of the messages and total interjections
-      const maxIndex = textMessages.length - totalInterjections - 1;
+      const maxIndex = textMessages.length - 1;
 
       // Increment the index if it's within the bounds, otherwise keep it at the maximum allowed index
       return prev < maxIndex ? prev + 1 : maxIndex;
@@ -120,12 +72,11 @@ function Output({
 
   return (
     <>
-      {!humanInterjection && (
-        <TextOutput
-          currentTextMessage={currentTextMessage}
-          currentAudioMessage={currentAudioMessage}
-        />
-      )}
+      <TextOutput
+        currentTextMessage={currentTextMessage}
+        currentAudioMessage={currentAudioMessage}
+      />
+
       <AudioOutput
         currentAudioMessage={currentAudioMessage}
         onFinishedPlaying={handleOnFinishedPlaying}
