@@ -6,7 +6,6 @@ function Output({
   textMessages,
   audioMessages,
   isActiveOverlay,
-  isRaisedHand,
   isMuted,
   isPaused,
   skipForward,
@@ -38,6 +37,10 @@ function Output({
 
   // TODO: Increase currentMessageIndex to play next message
   useEffect(() => {
+    if (currentMessageIndex > actualMessageIndex) {
+      setActualMessageIndex(incrementIndex);
+    }
+
     findTextAndAudio();
   }, [currentMessageIndex]);
 
@@ -64,7 +67,15 @@ function Output({
     }
   }
 
+  // Helper function to increment the message index safely for current-, and actual message index
+  function incrementIndex(prevIndex) {
+    const maxIndex = textMessages.length - 1;
+    return prevIndex < maxIndex ? prevIndex + 1 : maxIndex;
+  }
+
   function goBackToPreviousMessage() {
+    console.log("Going back to previous message...");
+
     setCurrentMessageIndex((prev) => {
       return prev - 1 > 0 ? prev - 1 : 0;
     });
@@ -73,14 +84,7 @@ function Output({
   function proceedToNextMessage() {
     console.log("Proceeding to next message...");
 
-    // TODO: Increase actualMessageIndex
-    // Update the index to the next message, ensuring it doesn't exceed the available range
-    setCurrentMessageIndex((prev) => {
-      const maxIndex = textMessages.length - 1;
-
-      // Increment the index if it's within the bounds, otherwise keep it at the maximum allowed index
-      return prev < maxIndex ? prev + 1 : maxIndex;
-    });
+    setCurrentMessageIndex(incrementIndex);
   }
 
   function handleOnFinishedPlaying() {
@@ -95,7 +99,6 @@ function Output({
         currentTextMessage={currentTextMessage}
         currentAudioMessage={currentAudioMessage}
       />
-
       <AudioOutput
         currentAudioMessage={currentAudioMessage}
         onFinishedPlaying={handleOnFinishedPlaying}

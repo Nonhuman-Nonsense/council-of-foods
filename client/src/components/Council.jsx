@@ -198,7 +198,6 @@ function Council({ options }) {
           textMessages={textMessages}
           audioMessages={audioMessages}
           isActiveOverlay={activeOverlay !== ""}
-          isRaisedHand={isRaisedHand}
           isMuted={isMuted}
           isPaused={isPaused}
           skipForward={skipForward}
