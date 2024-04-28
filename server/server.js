@@ -130,7 +130,7 @@ io.on("connection", (socket) => {
         id: completion.id,
         speaker: chair.name,
         text: response,
-        purpose: "interjection",
+        purpose: "invitation",
       };
 
       //Cut everything after the submitted index

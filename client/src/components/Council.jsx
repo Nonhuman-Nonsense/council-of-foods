@@ -24,6 +24,7 @@ function Council({ options }) {
   const [currentSpeakerName, setCurrentSpeakerName] = useState("");
   const [invitationIndex, setInvitationIndex] = useState(0);
   const [isWaitingToInterject, setIsWaitingToInterject] = useState(false);
+  const [isInterjecting, setIsInterjecting] = useState(false);
 
   const socketRef = useRef(null); // Using useRef to persist socket instance
 
@@ -60,6 +61,7 @@ function Council({ options }) {
         audioMessage,
       ]);
     });
+
     return () => {
       socketRef.current.disconnect();
     };
@@ -97,20 +99,29 @@ function Council({ options }) {
     if (isRaisedHand) {
       console.log("Hand raised");
 
-      setIsWaitingToInterject(true);
+      handleOnIsWaitingToInterject({
+        isWaiting: true,
+        isReadyToInterject: false,
+      });
 
       raiseHand();
     } else {
       console.log("Hand lowered");
 
-      setIsWaitingToInterject(false);
+      handleOnIsWaitingToInterject({
+        isWaiting: false,
+        isReadyToInterject: false,
+      });
 
       lowerHand();
     }
   }, [isRaisedHand]);
 
   function lowerHand() {
-    // TODO: Emit lower_hand
+    // const handLoweredOptions = {
+    //   index: invitationIndex,
+    // };
+    // socketRef.current.emit("lower_hand", handLoweredOptions);
   }
 
   function handleOnRaiseHandOrNevermind() {
@@ -138,8 +149,13 @@ function Council({ options }) {
     setActiveOverlay("");
   }
 
-  function handleOnIsWaitingToInterject(value) {
-    setIsWaitingToInterject(value);
+  function handleOnIsWaitingToInterject({ isWaiting, isReadyToInterject }) {
+    setIsWaitingToInterject(isWaiting);
+
+    if (isReadyToInterject) {
+      setIsInterjecting(true);
+      setIsRaisedHand(false);
+    }
   }
 
   const bottomShade = {
@@ -191,8 +207,9 @@ function Council({ options }) {
         ))}
       </div>
       <>
-        {/* <HumanInput onInputNewTopic={handleOnInputNewTopic} /> */}
-
+        {isInterjecting && (
+          <HumanInput onInputNewTopic={handleOnInputNewTopic} />
+        )}
         <Output
           textMessages={textMessages}
           audioMessages={audioMessages}
