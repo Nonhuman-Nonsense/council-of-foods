@@ -104,9 +104,6 @@ io.on("connection", (socket) => {
         content: interjectionPrompt,
       });
 
-      // Prepare the completion request
-      // console.log(conversation.length);
-      // console.log(messages);
       const completion = await openai.chat.completions.create({
         model: options.gptModel,
         max_tokens: 100,
@@ -128,6 +125,8 @@ io.on("connection", (socket) => {
 
       //A rolling index of the message number, so that audio can be played in the right order etc.
       const message_index = conversation.length - 1;
+
+      // TODO: Edit the conversation so that all proceeding indices are cut, and the new response is put last.
 
       socket.emit("conversation_update", conversation);
 
