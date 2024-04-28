@@ -131,7 +131,7 @@ button {
 
 button:hover {
   background-color: white;
-  color: rgba(0, 0, 0, 1);
+  color: rgba(0, 0, 0, 0.9);
 }
 
 .wide-button {
@@ -167,3 +167,26 @@ button:hover {
     transform: rotate(360deg);
   }
 }
+
+@keyframes slideInFade {
+  0% {
+    transform: translateX(20%);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(0%);
+    opacity: 1;
+  }
+}
+
+
+.loader {
+  width: 15px;
+  height: 3px;
+  margin-top: 13px;
+  aspect-ratio: 4;
+  background: radial-gradient(circle closest-side,#fff 90%,#0000) 0/calc(100%/3) 100% space;
+  clip-path: inset(0 100% 0 0);
+  animation: l1 2s steps(4) infinite;
+}
+@keyframes l1 {to{clip-path: inset(0 -34% 0 0)}}

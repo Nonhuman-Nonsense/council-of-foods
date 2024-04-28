@@ -16,6 +16,7 @@ function Output({
   skipBackward,
   interjectionReplyRecieved,
   onResetInterjectionReply,
+  handleSetCurrentSpeakerName
 }) {
   const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
   const [currentTextMessage, setCurrentTextMessage] = useState(null);
@@ -32,6 +33,10 @@ function Output({
       onResetInterjectionReply();
     }
   }, [interjectionReplyRecieved]);
+
+  useEffect(() => {
+    handleSetCurrentSpeakerName(currentTextMessage ? currentTextMessage.speaker : "");
+  },[currentTextMessage]);
 
   useEffect(() => {
     if (currentTextMessage && currentAudioMessage) {

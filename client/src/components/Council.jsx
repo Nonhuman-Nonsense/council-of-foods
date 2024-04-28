@@ -27,6 +27,7 @@ function Council({ options }) {
   const [interjectionCounter, setInterjectionCounter] = useState(-1000);
   const [interjectionReplyRecieved, setInterjectionReplyRecieved] =
     useState(false);
+  const [currentSpeakerName, setCurrentSpeakerName] = useState("");
 
   const socketRef = useRef(null); // Using useRef to persist socket instance
 
@@ -110,6 +111,10 @@ function Council({ options }) {
     setPausePlay(!isPaused);
   }
 
+  function handleSetCurrentSpeakerName(value){
+    setCurrentSpeakerName(value);
+  }
+
 
   function handleOnSubmit() {
     const promptsAndOptions = {
@@ -154,8 +159,26 @@ function Council({ options }) {
     setActiveOverlay("");
   }
 
+  const bottomShade = {
+    width: "100%",
+    height: "40%",
+    position: "absolute",
+    bottom: "0",
+    background: "linear-gradient(0, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0) 100%)"
+  };
+
+  const topShade = {
+    width: "100%",
+    height: "10%",
+    position: "absolute",
+    top: "0",
+    background: "linear-gradient(180deg, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0) 100%)"
+  };
+
   return (
     <>
+      <div style={bottomShade}/>
+      <div style={topShade}/>
       <Navbar
         topic={options.topic}
         activeOverlay={activeOverlay}
@@ -178,6 +201,7 @@ function Council({ options }) {
             index={index}
             total={foods.length}
             screenWidth={screenWidth}
+            currentSpeakerName={currentSpeakerName}
           />
         ))}
       </div>
@@ -199,22 +223,21 @@ function Council({ options }) {
             skipBackward={skipBackward}
             interjectionReplyRecieved={interjectionReplyRecieved}
             onResetInterjectionReply={handleOnResetInterjectionReply}
+            handleSetCurrentSpeakerName={handleSetCurrentSpeakerName}
           />
         </>
-        {
-          <ConversationControls
-            onSkipBackward={handleOnSkipBackward}
-            onSkipForward={handleOnSkipForward}
-            onRaiseHandOrNevermind={handleOnRaiseHandOrNevermind}
-            onSubmit={handleOnSubmit}
-            isMuted={isMuted}
-            onMuteUnmute={handleMuteUnmute}
-            isPaused={isPaused}
-            onPausePlay={handlePausePlay}
-            isRaisedHand={isRaisedHand}
-            humanInterjection={humanInterjection}
-          />
-        }
+        <ConversationControls
+          onSkipBackward={handleOnSkipBackward}
+          onSkipForward={handleOnSkipForward}
+          onRaiseHandOrNevermind={handleOnRaiseHandOrNevermind}
+          onSubmit={handleOnSubmit}
+          isMuted={isMuted}
+          onMuteUnmute={handleMuteUnmute}
+          isPaused={isPaused}
+          onPausePlay={handlePausePlay}
+          isRaisedHand={isRaisedHand}
+          humanInterjection={humanInterjection}
+        />
       </>
   );
 }
