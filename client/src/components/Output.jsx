@@ -37,7 +37,9 @@ function Output({
   }, [skipForward]);
 
   // TODO: Increase currentMessageIndex to play next message
-  useEffect(() => {}, [currentMessageIndex]);
+  useEffect(() => {
+    findTextAndAudio();
+  }, [currentMessageIndex]);
 
   useEffect(() => {
     if (currentTextMessage && currentAudioMessage) {
@@ -56,7 +58,6 @@ function Output({
     const textMessage = textMessages[currentMessageIndex];
     const audioMessage = audioMessages.find((a) => a.id === textMessage.id);
 
-    // TODO: Add isRunning flag?
     if (textMessage && audioMessage) {
       setCurrentTextMessage(() => textMessage);
       setCurrentAudioMessage(() => audioMessage);
@@ -64,19 +65,13 @@ function Output({
   }
 
   function goBackToPreviousMessage() {
-    // Reset the current message contents
-    setCurrentTextMessage(() => null);
-    setCurrentAudioMessage(() => null);
-
     setCurrentMessageIndex((prev) => {
       return prev - 1 > 0 ? prev - 1 : 0;
     });
   }
 
   function proceedToNextMessage() {
-    // Reset the current message contents
-    setCurrentTextMessage(() => null);
-    setCurrentAudioMessage(() => null);
+    console.log("Proceeding to next message...");
 
     // TODO: Increase actualMessageIndex
     // Update the index to the next message, ensuring it doesn't exceed the available range
