@@ -105,10 +105,6 @@ function Council({ options }) {
     setIsRaisedHand((prev) => !prev);
   }
 
-  function handleOnHumanInterjection(value) {
-    setHumanInterjection(value);
-  }
-
   function handleOnInputNewTopic(newTopic) {
     setNewTopic(newTopic);
   }
