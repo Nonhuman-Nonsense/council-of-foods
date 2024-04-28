@@ -13,7 +13,7 @@ function FoodAnimation({food, styles, currentSpeakerName}) {
   },[currentSpeakerName])
 
   return (
-    <video ref={video} width={styles.width} height={styles.height} style={{objectFit: "cover"}} loop muted playsInline>
+    <video ref={video} style={{...styles, objectFit: "cover"}} loop muted playsInline>
       <source
         src={`/videos/foods/${food.name}-hevc-safari.mp4`}
         type={'video/mp4; codecs="hvc1"'} />
