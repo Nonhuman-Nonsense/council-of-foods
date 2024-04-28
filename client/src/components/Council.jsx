@@ -27,6 +27,7 @@ function Council({ options }) {
   const [interjectionCounter, setInterjectionCounter] = useState(-1000);
   const [interjectionReplyRecieved, setInterjectionReplyRecieved] =
     useState(false);
+  const [currentSpeakerName, setCurrentSpeakerName] = useState("");
 
   const socketRef = useRef(null); // Using useRef to persist socket instance
 
@@ -108,6 +109,10 @@ function Council({ options }) {
 
   function handlePausePlay() {
     setPausePlay(!isPaused);
+  }
+
+  function handleSetCurrentSpeakerName(value){
+    setCurrentSpeakerName(value);
   }
 
 
@@ -196,6 +201,7 @@ function Council({ options }) {
             index={index}
             total={foods.length}
             screenWidth={screenWidth}
+            currentSpeakerName={currentSpeakerName}
           />
         ))}
       </div>
@@ -217,6 +223,7 @@ function Council({ options }) {
             skipBackward={skipBackward}
             interjectionReplyRecieved={interjectionReplyRecieved}
             onResetInterjectionReply={handleOnResetInterjectionReply}
+            handleSetCurrentSpeakerName={handleSetCurrentSpeakerName}
           />
         </>
         <ConversationControls
