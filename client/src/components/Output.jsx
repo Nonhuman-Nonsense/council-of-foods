@@ -25,13 +25,24 @@ function Output({
   }, [currentTextMessage]);
 
   useEffect(() => {
+    handleSetCurrentSpeakerName(currentTextMessage ? currentTextMessage.speaker : "");
+  },[currentTextMessage]);
+
+  useEffect(() => {
     if (currentTextMessage && currentAudioMessage) {
       proceedToNextMessage();
     }
   }, [skipForward]);
 
+
   // TODO: Increase currentMessageIndex to play next message
   useEffect(() => {}, [currentMessageIndex]);
+
+  useEffect(() => {
+    if (currentTextMessage && currentAudioMessage) {
+      goBackToPreviousMessage();
+    }
+  }, [skipBackward]);
 
   // TODO: Emit raised_hand in parent component if hand is raised, otherwise emit nevermind
   useEffect(() => {}, [isRaisedHand]);
@@ -49,6 +60,16 @@ function Output({
       setCurrentTextMessage(() => textMessage);
       setCurrentAudioMessage(() => audioMessage);
     }
+  }
+
+  function goBackToPreviousMessage() {
+    // Reset the current message contents
+    setCurrentTextMessage(() => null);
+    setCurrentAudioMessage(() => null);
+
+    setCurrentMessageIndex((prev) => {
+      return prev - 1 > 0 ? prev - 1 : 0;
+    });
   }
 
   function proceedToNextMessage() {
@@ -80,7 +101,7 @@ function Output({
       <AudioOutput
         currentAudioMessage={currentAudioMessage}
         onFinishedPlaying={handleOnFinishedPlaying}
-        stopAudio={stopAudio}
+        isMuted={isMuted}
       />
     </>
   );

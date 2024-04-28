@@ -20,6 +20,7 @@ function Council({ options }) {
   const [isMuted, setMuteUnmute] = useState(false);
   const [isPaused, setPausePlay] = useState(false);
   const [skipForward, setSkipForward] = useState(false);
+  const [skipBackward, setSkipBackward] = useState(false);
   const [newTopic, setNewTopic] = useState("");
   const [currentSpeakerName, setCurrentSpeakerName] = useState("");
 
@@ -63,9 +64,16 @@ function Council({ options }) {
         audioMessage,
       ]);
     });
-  });
+    return () => {
+      socketRef.current.disconnect();
+    };
+  }, []);
 
   function handleOnSkipBackward() {
+    setSkipBackward(!skipBackward);
+  }
+
+  function handleOnSkipBackward(){
     setSkipBackward(!skipBackward);
   }
 
@@ -81,7 +89,8 @@ function Council({ options }) {
     setPausePlay(!isPaused);
   }
 
-  function handleSetCurrentSpeakerName(value) {
+
+  function handleSetCurrentSpeakerName(value){
     setCurrentSpeakerName(value);
   }
 
@@ -127,7 +136,9 @@ function Council({ options }) {
     height: "40%",
     position: "absolute",
     bottom: "0",
-    background: "linear-gradient(0, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0) 100%)",
+
+    background: "linear-gradient(0, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0) 100%)"
+
   };
 
   const topShade = {
@@ -135,8 +146,7 @@ function Council({ options }) {
     height: "10%",
     position: "absolute",
     top: "0",
-    background:
-      "linear-gradient(180deg, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0) 100%)",
+    background: "linear-gradient(180deg, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0) 100%)"
   };
 
   return (

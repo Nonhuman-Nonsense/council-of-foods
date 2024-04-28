@@ -1,6 +1,7 @@
 import React from "react";
+import FoodAnimation from "./FoodAnimation";
 
-function FoodItem({ food, index, total, screenWidth }) {
+function FoodItem({ food, index, total, screenWidth, currentSpeakerName }) {
   const foodImageStyle = {
     width: "120px",
     height: "120px",
@@ -34,18 +35,19 @@ function FoodItem({ food, index, total, screenWidth }) {
 
   // Adjusted function to set width and height based on window width
   const getResponsiveFoodImageStyle = () => {
-    const size = screenWidth * 0.05; // 5% of the window's width
+    const size = screenWidth * 0.12; // 5% of the window's width
     return {
       width: `${size}px`, // Dynamically set width
       height: `${size}px`, // Dynamically set height
+      animation: "2s foodAppearing"
     };
   };
 
   const foodItemStyle = (index, total) => {
     const left = (index / (total - 1)) * 100;
 
-    const topMax = 2.25;
-    const topOffset = 9; // Vertical offset to adjust the curve's baseline
+    const topMax = 3.25; // The curvature
+    const topOffset = 13; // Vertical offset to adjust the curve's baseline
 
     let middleIndex;
     let isEven = total % 2 === 0;
@@ -83,10 +85,13 @@ function FoodItem({ food, index, total, screenWidth }) {
 
   return (
     <div style={foodItemStyle(index, total)}>
-      <img
+      {
+        ["potato", "beer", "water", "banana"].includes(food.name) ?
+        <FoodAnimation food={food} styles={responsiveStyle} currentSpeakerName={currentSpeakerName} /> :
+        <img
         src={`/images/foods/${food.name}-shadow.png`}
-        style={responsiveStyle}
-      />
+        style={responsiveStyle} />
+      }
       {/* <img
         src={`/images/foods/${food.name}.png`}
         style={{ ...responsiveStyle, ...foodImageShadowStyle(index, total) }}

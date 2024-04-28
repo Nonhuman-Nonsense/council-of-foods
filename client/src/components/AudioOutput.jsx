@@ -1,64 +1,68 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useCallback } from "react";
 
-function AudioOutput({ currentAudioMessage, onFinishedPlaying, stopAudio }) {
-  const audioRef = useRef(null);
-  const urlRef = useRef(null);
-  const checkPlaybackIntervalRef = useRef(null);
+function AudioOutput({ currentAudioMessage, onFinishedPlaying, isMuted }) {
+  const audioRef = useRef(null);//The Audiocontext object
+  const gainNode = useRef(null);//The general volume control node
+  //Since we will ever only have one person speaking at a time, we can keep a ref to it
+  const sourceNode = useRef(null);
 
   useEffect(() => {
-    audioRef.current && audioRef.current.pause();
-
-    console.log("Stopping audio...");
-  }, [stopAudio]);
+    if(audioRef.current){
+      if(isMuted){
+        gainNode.current.gain.setValueAtTime(0, audioRef.current.currentTime);
+      }else{
+        gainNode.current.gain.setValueAtTime(1, audioRef.current.currentTime);
+      }
+    }
+  }, [isMuted]);
 
   useEffect(() => {
     // Initialize the audio element if it does not exist
-    if (!audioRef.current) {
-      audioRef.current = new Audio();
+    // Or if it is closed
+    if (!audioRef.current || audioRef.current.state == "closed") {
+      audioRef.current = new AudioContext();
+      //Add a gain node on the first step, so that we can control mute/unmute
+      gainNode.current = audioRef.current.createGain();
+      gainNode.current.connect(audioRef.current.destination);
     }
     return () => {
-      // Clean up audio element and interval
-      clearInterval(checkPlaybackIntervalRef.current);
-      audioRef.current && audioRef.current.pause();
+      // Clean up audio element
+      if(audioRef.current && audioRef.current.state == "running"){
+        audioRef.current.close();
+      }
     };
   }, []);
 
   useEffect(() => {
     // Handle updating the audio source when the message changes
-    if (currentAudioMessage) {
-      // Revoke the old URL to avoid memory leaks
-      if (urlRef.current?.url) {
-        URL.revokeObjectURL(urlRef.current.url);
+    if (currentAudioMessage && currentAudioMessage.audio && currentAudioMessage.audio.byteLength != 0) {
+      console.log(currentAudioMessage);
+      //If something is already playing, stop it
+      if(sourceNode.current){
+        //Stop any event listeners from executing further
+        sourceNode.current.removeEventListener('ended',sourceFinished, true);
+        //Then manually stop
+        sourceNode.current.stop();
       }
-      // Create a new URL for the updated audio blob
-      const blob = new Blob([currentAudioMessage.audio], { type: "audio/mp3" });
-      urlRef.current = {
-        url: URL.createObjectURL(blob),
-        id: currentAudioMessage.id,
-      };
-      audioRef.current.src = urlRef.current.url;
-      audioRef.current.load();
+      (async () => {
+        //Create a new buffer source and connect it to the context
+        const buffer = await audioRef.current.decodeAudioData(currentAudioMessage.audio);
+        sourceNode.current = audioRef.current.createBufferSource();
+        sourceNode.current.buffer = buffer;
 
-      // Auto-play the new audio
-      audioRef.current
-        .play()
-        .catch((err) => console.error("Error playing audio:", err));
-
-      // Start checking audio playback status
-      checkPlaybackIntervalRef.current = setInterval(checkPlaybackStatus, 500);
+        sourceNode.current.connect(gainNode.current);
+        sourceNode.current.start();
+        sourceNode.current.addEventListener('ended',sourceFinished, true);
+      })();
     }
   }, [currentAudioMessage]);
 
-  const checkPlaybackStatus = () => {
-    if (
-      audioRef.current &&
-      audioRef.current.currentTime >= audioRef.current.duration
-    ) {
-      // Audio playback has ended
-      clearInterval(checkPlaybackIntervalRef.current);
-      onFinishedPlaying();
-    }
-  };
+  //This event is fired every time a source finishes
+  //We use the useCallback to mark it as s function that persists between renders
+  //Otherwise the event handler can not be removed
+  const sourceFinished = useCallback(() => {
+    onFinishedPlaying();
+  },[]);
 
   return null; // This component does not render anything itself
 }
