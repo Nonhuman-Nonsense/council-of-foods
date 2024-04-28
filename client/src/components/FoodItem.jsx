@@ -34,7 +34,7 @@ function FoodItem({ food, index, total, screenWidth }) {
 
   // Adjusted function to set width and height based on window width
   const getResponsiveFoodImageStyle = () => {
-    const size = screenWidth * 0.05; // 5% of the window's width
+    const size = screenWidth * 0.12; // 5% of the window's width
     return {
       width: `${size}px`, // Dynamically set width
       height: `${size}px`, // Dynamically set height
@@ -44,8 +44,8 @@ function FoodItem({ food, index, total, screenWidth }) {
   const foodItemStyle = (index, total) => {
     const left = (index / (total - 1)) * 100;
 
-    const topMax = 2.25;
-    const topOffset = 9; // Vertical offset to adjust the curve's baseline
+    const topMax = 3.25; // The curvature
+    const topOffset = 13; // Vertical offset to adjust the curve's baseline
 
     let middleIndex;
     let isEven = total % 2 === 0;

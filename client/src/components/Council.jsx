@@ -219,20 +219,18 @@ function Council({ options }) {
             onResetInterjectionReply={handleOnResetInterjectionReply}
           />
         </>
-        {
-          <ConversationControls
-            onSkipBackward={handleOnSkipBackward}
-            onSkipForward={handleOnSkipForward}
-            onRaiseHandOrNevermind={handleOnRaiseHandOrNevermind}
-            onSubmit={handleOnSubmit}
-            isMuted={isMuted}
-            onMuteUnmute={handleMuteUnmute}
-            isPaused={isPaused}
-            onPausePlay={handlePausePlay}
-            isRaisedHand={isRaisedHand}
-            humanInterjection={humanInterjection}
-          />
-        }
+        <ConversationControls
+          onSkipBackward={handleOnSkipBackward}
+          onSkipForward={handleOnSkipForward}
+          onRaiseHandOrNevermind={handleOnRaiseHandOrNevermind}
+          onSubmit={handleOnSubmit}
+          isMuted={isMuted}
+          onMuteUnmute={handleMuteUnmute}
+          isPaused={isPaused}
+          onPausePlay={handlePausePlay}
+          isRaisedHand={isRaisedHand}
+          humanInterjection={humanInterjection}
+        />
       </>
   );
 }
