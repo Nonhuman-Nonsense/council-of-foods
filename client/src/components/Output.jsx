@@ -14,12 +14,20 @@ function Output({
   skipBackward,
   handleSetCurrentSpeakerName,
   onIsWaitingToInterject,
+  bumpIndex,
 }) {
   const [actualMessageIndex, setActualMessageIndex] = useState(0);
   const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
   const [currentTextMessage, setCurrentTextMessage] = useState(null);
   const [currentAudioMessage, setCurrentAudioMessage] = useState(null);
   const [isFoundMessage, setIsFoundMessage] = useState(false);
+
+  useEffect(() => {
+    if (currentTextMessage && currentAudioMessage) {
+      console.log("Bumping up current message index by 2");
+      setCurrentMessageIndex((prev) => prev + 2);
+    }
+  }, [bumpIndex]);
 
   // Emit currentMessageIndex + 1 to parent for invitation message index
   useEffect(() => {
@@ -63,22 +71,27 @@ function Output({
     console.log("Text messages: ", textMessages);
     console.log("Audio messages: ", audioMessages);
 
+    console.log("Looking for text with index: ", currentMessageIndex);
+
     findTextAndAudio();
   }, [textMessages, audioMessages]);
 
   function findTextAndAudio() {
     const textMessage = textMessages[currentMessageIndex];
-    const audioMessage = audioMessages.find((a) => a.id === textMessage.id);
 
-    if (textMessage && audioMessage && !isFoundMessage) {
-      console.log("Found text and audio");
-      console.log("Text: ", textMessage);
-      console.log("Audio: ", audioMessage);
+    if (textMessage) {
+      const audioMessage = audioMessages.find((a) => a.id === textMessage.id);
 
-      setIsFoundMessage(() => true);
+      if (audioMessage && !isFoundMessage) {
+        console.log("Found text and audio");
+        console.log("Text: ", textMessage);
+        console.log("Audio: ", audioMessage);
 
-      setCurrentTextMessage(() => textMessage);
-      setCurrentAudioMessage(() => audioMessage);
+        setIsFoundMessage(() => true);
+
+        setCurrentTextMessage(() => textMessage);
+        setCurrentAudioMessage(() => audioMessage);
+      }
     }
   }
 

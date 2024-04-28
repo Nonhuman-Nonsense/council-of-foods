@@ -55,8 +55,6 @@ io.on("connection", (socket) => {
   });
 
   socket.on("raise_hand", async (handRaisedOptions) => {
-    console.log(handRaisedOptions);
-
     //When hand is raised, ignore all incoming messages until we have a human message
     handRaised = true;
 
