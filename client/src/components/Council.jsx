@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
 import io from "socket.io-client";
-import globalOptions from "../global-options.json";
 import FoodItem from "./FoodItem";
 import Overlay from "./Overlay";
 import CouncilOverlays from "./CouncilOverlays";
@@ -23,6 +22,7 @@ function Council({ options }) {
   const [skipBackward, setSkipBackward] = useState(false);
   const [newTopic, setNewTopic] = useState("");
   const [currentSpeakerName, setCurrentSpeakerName] = useState("");
+  const [invitationIndex, setInvitationIndex] = useState(0);
 
   const socketRef = useRef(null); // Using useRef to persist socket instance
 
@@ -40,19 +40,14 @@ function Council({ options }) {
   useEffect(() => {
     socketRef.current = io();
 
-    const promptsAndOptions = {
-      options: {
-        ...globalOptions,
-        humanName,
-        raiseHandPrompt: false,
-        neverMindPrompt: false,
-      },
+    const conversationOptions = {
+      humanName: humanName,
       name: "New room",
       topic: topic,
       characters: foods,
     };
 
-    socketRef.current.emit("start_conversation", promptsAndOptions);
+    socketRef.current.emit("start_conversation", conversationOptions);
 
     socketRef.current.on("conversation_update", (textMessages) => {
       setTextMessages(() => textMessages);
@@ -90,20 +85,13 @@ function Council({ options }) {
   }
 
   function raiseHand() {
-    const promptsAndOptions = {
-      options: {
-        ...globalOptions,
-        humanName,
-        raiseHandPrompt:
-          "We have a new question from the audience, please invite human speaker called [NAME] to the debate.",
-        neverMindPrompt: false,
-      },
-      name: "New room",
-      topic: topic,
-      characters: foods,
+    console.log("Invitation index: ", invitationIndex);
+
+    const handRaisedOptions = {
+      index: invitationIndex,
     };
 
-    socketRef.current.emit("raise_hand", promptsAndOptions);
+    socketRef.current.emit("raise_hand", handRaisedOptions);
   }
 
   useEffect(() => {
@@ -124,6 +112,10 @@ function Council({ options }) {
 
   function handleOnRaiseHandOrNevermind() {
     setIsRaisedHand((prev) => !prev);
+  }
+
+  function handleOnIsRaisedHand(invitatationIndex) {
+    setInvitationIndex(invitatationIndex);
   }
 
   function handleOnInputNewTopic(newTopic) {
@@ -198,6 +190,8 @@ function Council({ options }) {
           textMessages={textMessages}
           audioMessages={audioMessages}
           isActiveOverlay={activeOverlay !== ""}
+          isRaisedHand={isRaisedHand}
+          onIsRaisedHand={handleOnIsRaisedHand}
           isMuted={isMuted}
           isPaused={isPaused}
           skipForward={skipForward}
