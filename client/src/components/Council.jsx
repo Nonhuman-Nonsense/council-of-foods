@@ -55,6 +55,7 @@ function Council({ options }) {
     socketRef.current.emit("start_conversation", promptsAndOptions);
 
     socketRef.current.on("conversation_update", (textMessages) => {
+      console.log("Text recieved");
       setTextMessages(() => textMessages);
     });
 
@@ -93,20 +94,37 @@ function Council({ options }) {
     setCurrentSpeakerName(value);
   }
 
-  function handleOnSubmit() {
+  function raiseHand() {
     const promptsAndOptions = {
       options: {
         ...globalOptions,
         humanName,
-        raiseHandPrompt: newTopic,
+        raiseHandPrompt:
+          "We have a new question from the audience, please invite human speaker called [NAME] to the debate.",
         neverMindPrompt: false,
       },
       name: "New room",
-      topic: newTopic,
+      topic: topic,
       characters: foods,
     };
 
     socketRef.current.emit("raise_hand", promptsAndOptions);
+  }
+
+  useEffect(() => {
+    if (isRaisedHand) {
+      console.log("Hand raised");
+
+      raiseHand();
+    } else {
+      console.log("Hand lowered");
+
+      lowerHand();
+    }
+  }, [isRaisedHand]);
+
+  function lowerHand() {
+    // TODO: Emit lower_hand
   }
 
   function handleOnRaiseHandOrNevermind() {
@@ -197,12 +215,10 @@ function Council({ options }) {
         onSkipBackward={handleOnSkipBackward}
         onSkipForward={handleOnSkipForward}
         onRaiseHandOrNevermind={handleOnRaiseHandOrNevermind}
-        onSubmit={handleOnSubmit}
         isMuted={isMuted}
         onMuteUnmute={handleMuteUnmute}
         isPaused={isPaused}
         onPausePlay={handlePausePlay}
-        isRaisedHand={isRaisedHand}
       />
     </>
   );
