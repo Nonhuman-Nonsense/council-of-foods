@@ -55,7 +55,6 @@ function Council({ options }) {
     socketRef.current.emit("start_conversation", promptsAndOptions);
 
     socketRef.current.on("conversation_update", (textMessages) => {
-      console.log("Text recieved");
       setTextMessages(() => textMessages);
     });
 
@@ -69,10 +68,6 @@ function Council({ options }) {
       socketRef.current.disconnect();
     };
   }, []);
-
-  function handleOnSkipBackward() {
-    setSkipBackward(!skipBackward);
-  }
 
   function handleOnSkipBackward() {
     setSkipBackward(!skipBackward);
@@ -215,6 +210,7 @@ function Council({ options }) {
         onSkipBackward={handleOnSkipBackward}
         onSkipForward={handleOnSkipForward}
         onRaiseHandOrNevermind={handleOnRaiseHandOrNevermind}
+        isRaisedHand={isRaisedHand}
         isMuted={isMuted}
         onMuteUnmute={handleMuteUnmute}
         isPaused={isPaused}

@@ -25,15 +25,16 @@ function Output({
   }, [currentTextMessage]);
 
   useEffect(() => {
-    handleSetCurrentSpeakerName(currentTextMessage ? currentTextMessage.speaker : "");
-  },[currentTextMessage]);
+    handleSetCurrentSpeakerName(
+      currentTextMessage ? currentTextMessage.speaker : ""
+    );
+  }, [currentTextMessage]);
 
   useEffect(() => {
     if (currentTextMessage && currentAudioMessage) {
       proceedToNextMessage();
     }
   }, [skipForward]);
-
 
   // TODO: Increase currentMessageIndex to play next message
   useEffect(() => {}, [currentMessageIndex]);
@@ -44,10 +45,10 @@ function Output({
     }
   }, [skipBackward]);
 
-  // TODO: Emit raised_hand in parent component if hand is raised, otherwise emit nevermind
-  useEffect(() => {}, [isRaisedHand]);
-
   useEffect(() => {
+    console.log("Text messages: ", textMessages);
+    console.log("Audio messages: ", audioMessages);
+
     findTextAndAudio();
   }, [textMessages, audioMessages]);
 
@@ -88,6 +89,8 @@ function Output({
   }
 
   function handleOnFinishedPlaying() {
+    console.log("Finished playing...");
+
     proceedToNextMessage();
   }
 
