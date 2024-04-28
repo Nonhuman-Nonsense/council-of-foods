@@ -9,6 +9,7 @@ const app = express();
 const httpServer = http.createServer(app);
 const io = new Server(httpServer);
 const openai = new OpenAI(process.env.OPENAI_API_KEY);
+const globalOptions  = require("./global-options");
 
 //Names of OpenAI voices
 const audioVoices = ["alloy", "echo", "fable", "onyx", "nova", "shimmer"];
@@ -35,9 +36,10 @@ io.on("connection", (socket) => {
   let conversationCounter = 0;
 
   //These are updated on conversation start and resume
-  let topic = "";
-  let characters = {};
-  let options = {};
+  let conversationOptions = {
+    topic: "",
+    characters: {}
+  };
 
   socket.on("pause_conversation", () => {
     isPaused = true;
@@ -45,29 +47,28 @@ io.on("connection", (socket) => {
   });
 
   // Add a new event to resume the conversation
-  socket.on("resume_conversation", (promptsAndOptions) => {
+  socket.on("resume_conversation", (options) => {
+    conversationOptions = options;
     // console.log('Conversation has been resumed');
     isPaused = false;
-    parsePromptsAndOptions(promptsAndOptions);
     handleConversationTurn();
   });
 
-  socket.on("raise_hand", async (promptsAndOptions) => {
-    parsePromptsAndOptions(promptsAndOptions);
+  socket.on("raise_hand", async (handRaised) => {
+    console.log(handRaised);
 
     //When hand is raised, ignore all incoming messages until we have a human message
     handRaised = true;
 
     chairInterjection(
-      options.raiseHandPrompt.replace("[NAME]", options.humanName)
+      globalOptions.raiseHandPrompt.replace("[NAME]", conversationOptions.humanName),
+      handRaised.index
     );
   });
 
-  socket.on("lower_hand", async (promptsAndOptions) => {
-    parsePromptsAndOptions(promptsAndOptions);
-
+  socket.on("lower_hand", async () => {
     await chairInterjection(
-      options.neverMindPrompt.replace("[NAME]", options.humanName)
+      globalOptions.neverMindPrompt.replace("[NAME]", conversationOptions.humanName)
     );
 
     handRaised = false;
@@ -76,11 +77,11 @@ io.on("connection", (socket) => {
     handleConversationTurn();
   });
 
-  const chairInterjection = async (interjectionPrompt) => {
+  const chairInterjection = async (interjectionPrompt, index) => {
     try {
       const thisConversationCounter = conversationCounter;
       //Chairman is always first character
-      const chair = characters[0];
+      const chair = conversationOptions.characters[0];
       // Generate response using GPT-4 for AI characters
       // Build the array of messages for the completion request
       const messages = [];
@@ -88,7 +89,7 @@ io.on("connection", (socket) => {
       // System message for overall context
       messages.push({
         role: "system",
-        content: `${topic}\n\n${chair.role}`,
+        content: `${conversationOptions.topic}\n\n${chair.role}`,
       });
 
       // Add previous messages as separate user objects
@@ -105,11 +106,11 @@ io.on("connection", (socket) => {
       });
 
       const completion = await openai.chat.completions.create({
-        model: options.gptModel,
+        model: globalOptions.gptModel,
         max_tokens: 100,
-        temperature: options.temperature,
-        frequency_penalty: options.frequencyPenalty,
-        presence_penalty: options.presencePenalty,
+        temperature: globalOptions.temperature,
+        frequency_penalty: globalOptions.frequencyPenalty,
+        presence_penalty: globalOptions.presencePenalty,
         messages: messages,
       });
 
@@ -117,11 +118,16 @@ io.on("connection", (socket) => {
       let response = completion.choices[0].message.content.trim();
 
       if (thisConversationCounter != conversationCounter) return;
-      conversation.push({
+
+      //Update the message at the desired index
+      conversation[index] = {
         id: completion.id,
         speaker: chair.name,
         text: response,
-      });
+      };
+
+      //Cut everything after the submitted index
+      conversation.length = index + 1;
 
       //A rolling index of the message number, so that audio can be played in the right order etc.
       const message_index = conversation.length - 1;
@@ -133,7 +139,7 @@ io.on("connection", (socket) => {
       //This is an async function, and since we are not waiting for the response, it will run in a paralell thread.
       //The result will be emitted to the socket when it's ready
       //The rest of the conversation continues
-      const voice = characters[0].voice ? characters[0].voice : audioVoices[0];
+      const voice = conversationOptions.characters[0].voice ? conversationOptions.characters[0].voice : audioVoices[0];
       generateAudio(completion.id, message_index, response, voice);
     } catch (error) {
       console.error("Error during conversation:", error);
@@ -165,20 +171,19 @@ io.on("connection", (socket) => {
     handleConversationTurn();
   });
 
-  socket.on("continue_conversation", (promptsAndOptions) => {
+  socket.on("continue_conversation", () => {
     // console.log('Conversation has been continued');
-    parsePromptsAndOptions(promptsAndOptions);
-    extraMessageCount += options.conversationMaxLength;
+    extraMessageCount += globalOptions.conversationMaxLength;
     isPaused = false;
     // Determine the next speaker
     currentSpeaker =
-      currentSpeaker >= characters.length - 1 ? 0 : currentSpeaker + 1;
+      currentSpeaker >= conversationOptions.characters.length - 1 ? 0 : currentSpeaker + 1;
     // Start with the chairperson introducing the topic
     handleConversationTurn();
   });
 
-  socket.on("start_conversation", (promptsAndOptions) => {
-    parsePromptsAndOptions(promptsAndOptions);
+  socket.on("start_conversation", (options) => {
+    conversationOptions = options;
     conversation = [];
     conversationCount = 0;
     currentSpeaker = 0;
@@ -201,7 +206,7 @@ io.on("connection", (socket) => {
 
       // Generate response using GPT-4 for AI characters
       const { id, response, trimmed } = await generateTextFromGPT(
-        characters[currentSpeaker]
+        conversationOptions.characters[currentSpeaker]
       );
 
       //If hand is raised or conversation is paused, just stop here, ignore this message
@@ -212,7 +217,7 @@ io.on("connection", (socket) => {
       // Add the response to the conversation
       conversation.push({
         id: id,
-        speaker: characters[currentSpeaker].name,
+        speaker: conversationOptions.characters[currentSpeaker].name,
         text: response,
         trimmed: trimmed,
       });
@@ -225,15 +230,15 @@ io.on("connection", (socket) => {
       //This is an async function, and since we are not waiting for the response, it will run in a paralell thread.
       //The result will be emitted to the socket when it's ready
       //The rest of the conversation continues
-      const voice = characters[currentSpeaker].voice
-        ? characters[currentSpeaker].voice
+      const voice = conversationOptions.characters[currentSpeaker].voice
+        ? conversationOptions.characters[currentSpeaker].voice
         : audioVoices[currentSpeaker % audioVoices.length];
       generateAudio(id, message_index, response, voice);
 
       // Check for conversation end
       if (
         conversation.length >=
-        options.conversationMaxLength + extraMessageCount
+        globalOptions.conversationMaxLength + extraMessageCount
       ) {
         socket.emit("conversation_end", conversation);
         return;
@@ -241,7 +246,7 @@ io.on("connection", (socket) => {
 
       // Determine the next speaker
       currentSpeaker =
-        currentSpeaker >= characters.length - 1 ? 0 : currentSpeaker + 1;
+        currentSpeaker >= conversationOptions.characters.length - 1 ? 0 : currentSpeaker + 1;
 
       handleConversationTurn();
     } catch (error) {
@@ -281,7 +286,7 @@ io.on("connection", (socket) => {
       // System message for overall context
       messages.push({
         role: "system",
-        content: `${topic}\n\n${speaker.role}`,
+        content: `${conversationOptions.topic}\n\n${speaker.role}`,
       });
 
       // Add previous messages as separate user objects
@@ -296,11 +301,11 @@ io.on("connection", (socket) => {
       // console.log(conversation.length);
       // console.log(messages);
       const completion = await openai.chat.completions.create({
-        model: options.gptModel,
-        max_tokens: options.maxTokens,
-        temperature: options.temperature,
-        frequency_penalty: options.frequencyPenalty,
-        presence_penalty: options.presencePenalty,
+        model: globalOptions.gptModel,
+        max_tokens: globalOptions.maxTokens,
+        temperature: globalOptions.temperature,
+        frequency_penalty: globalOptions.frequencyPenalty,
+        presence_penalty: globalOptions.presencePenalty,
         messages: messages,
       });
 
@@ -312,7 +317,7 @@ io.on("connection", (socket) => {
       if (completion.choices[0].finish_reason != "stop") {
         let originalResponse = response;
         //Remove the last half sentence
-        if (options.trimSentance) {
+        if (globalOptions.trimSentance) {
           response = response.replace(/\s+$/, ""); //not sure what this is doing?
           const lastPeriodIndex = response.lastIndexOf(".");
           if (lastPeriodIndex !== -1) {
@@ -322,7 +327,7 @@ io.on("connection", (socket) => {
         }
 
         //Remove the last half paragraph
-        if (options.trimParagraph) {
+        if (globalOptions.trimParagraph) {
           const lastNewLineIndex = response.lastIndexOf("\n\n");
           if (lastNewLineIndex !== -1) {
             trimmedContent = originalResponse.substring(lastNewLineIndex);
@@ -330,7 +335,7 @@ io.on("connection", (socket) => {
           }
         }
 
-        if (!options.showTrimmed) {
+        if (!globalOptions.showTrimmed) {
           trimmedContent = undefined;
         }
       }
@@ -339,21 +344,6 @@ io.on("connection", (socket) => {
     } catch (error) {
       console.error("Error during API call:", error);
       throw error;
-    }
-  };
-
-  const parsePromptsAndOptions = (p) => {
-    topic = p.topic;
-    characters = p.characters;
-    options = p.options;
-
-    if (Object.keys(characters).length === 0) {
-      console.error("No valid characters found.");
-      socket.emit(
-        "conversation_error",
-        "No valid characters for conversation."
-      );
-      return;
     }
   };
 
