@@ -25,6 +25,7 @@ function Council({ options }) {
   const [invitationIndex, setInvitationIndex] = useState(0);
   const [isWaitingToInterject, setIsWaitingToInterject] = useState(false);
   const [isInterjecting, setIsInterjecting] = useState(false);
+  const [bumpIndex, setBumpIndex] = useState(false);
 
   const socketRef = useRef(null); // Using useRef to persist socket instance
 
@@ -128,6 +129,16 @@ function Council({ options }) {
     // socketRef.current.emit("lower_hand", handLoweredOptions);
   }
 
+  function handleOnSubmitNewTopic() {
+    setIsInterjecting(false);
+    setIsRaisedHand(false);
+
+    socketRef.current.emit("submit_human_message", { text: newTopic });
+
+    // TODO: Improve this...
+    setBumpIndex(!bumpIndex);
+  }
+
   function handleOnRaiseHandOrNevermind() {
     setIsRaisedHand((prev) => !prev);
   }
@@ -211,7 +222,10 @@ function Council({ options }) {
       </div>
       <>
         {isInterjecting && (
-          <HumanInput onInputNewTopic={handleOnInputNewTopic} />
+          <HumanInput
+            onInputNewTopic={handleOnInputNewTopic}
+            onSubmitNewTopic={handleOnSubmitNewTopic}
+          />
         )}
         <Output
           textMessages={textMessages}
@@ -225,6 +239,7 @@ function Council({ options }) {
           skipBackward={skipBackward}
           handleSetCurrentSpeakerName={handleSetCurrentSpeakerName}
           onIsWaitingToInterject={handleOnIsWaitingToInterject}
+          bumpIndex={bumpIndex}
         />
       </>
       <ConversationControls

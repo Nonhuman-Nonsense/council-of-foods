@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 
-function HumanInput({ onInputNewTopic, onStopRecording }) {
+function HumanInput({ onInputNewTopic, onStopRecording, onSubmitNewTopic }) {
   const [recording, setRecording] = useState(false);
   const [mediaRecorder, setMediaRecorder] = useState(null);
 
@@ -68,6 +68,7 @@ function HumanInput({ onInputNewTopic, onStopRecording }) {
         >
           Stop Recording
         </button>
+        <button onClick={onSubmitNewTopic}>Submit</button>
       </div>
     </div>
   );
