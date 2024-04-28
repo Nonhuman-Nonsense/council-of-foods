@@ -9,15 +9,9 @@ function ConversationControls({
   onSkipBackward,
   onRaiseHandOrNevermind,
   onMuteUnmute,
-  onSubmit,
   isRaisedHand,
-  humanInterjection,
+  isWaitingToInterject,
 }) {
-  const controlsWrapper = {
-    display: "flex",
-    flexDirection: "row",
-  };
-
   return (
     <>
       <div style={{ position: "absolute", bottom: "0", pointerEvents: "auto" }}>
@@ -27,33 +21,30 @@ function ConversationControls({
             tooltip={"Mute"}
             onClick={onMuteUnmute}
           />
-          {!humanInterjection && (
-            <>
-              <ConversationControlIcon
-                name={"backward"}
-                tooltip={"Backward"}
-                onClick={onSkipBackward}
-              />
-              <ConversationControlIcon
-                name={isPaused ? "play" : "pause"}
-                tooltip={isPaused ? "Play" : "Pause"}
-                onClick={onPausePlay}
-              />
-              <ConversationControlIcon
-                name={"forward"}
-                tooltip={"Forward"}
-                onClick={onSkipForward}
-              />
-            </>
-          )}
-          {humanInterjection && <button onClick={onSubmit}>Submit</button>}
+          <>
+            <ConversationControlIcon
+              name={"backward"}
+              tooltip={"Backward"}
+              onClick={onSkipBackward}
+            />
+            <ConversationControlIcon
+              name={isPaused ? "play" : "pause"}
+              tooltip={isPaused ? "Play" : "Pause"}
+              onClick={onPausePlay}
+            />
+            <ConversationControlIcon
+              name={"forward"}
+              tooltip={"Forward"}
+              onClick={onSkipForward}
+            />
+          </>
           <ConversationControlIcon
             name={isRaisedHand ? "raise_hand_raised" : "raise_hand_not_raised"}
             tooltip={"Raise hand"}
             onClick={onRaiseHandOrNevermind}
           />
         </div>
-        {isRaisedHand && (
+        {isWaitingToInterject && (
           <span
             style={{
               position: "absolute",

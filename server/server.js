@@ -9,8 +9,7 @@ const app = express();
 const httpServer = http.createServer(app);
 const io = new Server(httpServer);
 const openai = new OpenAI(process.env.OPENAI_API_KEY);
-const globalOptions  = require("./global-options");
-
+const globalOptions = require("./global-options");
 
 //Names of OpenAI voices
 const audioVoices = ["alloy", "echo", "fable", "onyx", "nova", "shimmer"];
@@ -39,7 +38,7 @@ io.on("connection", (socket) => {
   //These are updated on conversation start and resume
   let conversationOptions = {
     topic: "",
-    characters: {}
+    characters: {},
   };
 
   socket.on("pause_conversation", () => {
@@ -72,7 +71,10 @@ io.on("connection", (socket) => {
 
   socket.on("lower_hand", async () => {
     await chairInterjection(
-      globalOptions.neverMindPrompt.replace("[NAME]", conversationOptions.humanName)
+      globalOptions.neverMindPrompt.replace(
+        "[NAME]",
+        conversationOptions.humanName
+      )
     );
 
     handRaised = false;
@@ -128,6 +130,7 @@ io.on("connection", (socket) => {
         id: completion.id,
         speaker: chair.name,
         text: response,
+        purpose: "interjection",
       };
 
       //Cut everything after the submitted index
@@ -144,7 +147,9 @@ io.on("connection", (socket) => {
       //The result will be emitted to the socket when it's ready
       //The rest of the conversation continues
 
-      const voice = conversationOptions.characters[0].voice ? conversationOptions.characters[0].voice : audioVoices[0];
+      const voice = conversationOptions.characters[0].voice
+        ? conversationOptions.characters[0].voice
+        : audioVoices[0];
 
       generateAudio(completion.id, message_index, response, voice);
     } catch (error) {
@@ -182,7 +187,10 @@ io.on("connection", (socket) => {
     extraMessageCount += globalOptions.conversationMaxLength;
     isPaused = false;
     // Determine the next speaker
-    currentSpeaker = currentSpeaker >= conversationOptions.characters.length - 1 ? 0 : currentSpeaker + 1;
+    currentSpeaker =
+      currentSpeaker >= conversationOptions.characters.length - 1
+        ? 0
+        : currentSpeaker + 1;
 
     // Start with the chairperson introducing the topic
     handleConversationTurn();
@@ -251,8 +259,10 @@ io.on("connection", (socket) => {
       }
 
       // Determine the next speaker
-      currentSpeaker = currentSpeaker >= conversationOptions.characters.length - 1 ? 0 : currentSpeaker + 1;
-
+      currentSpeaker =
+        currentSpeaker >= conversationOptions.characters.length - 1
+          ? 0
+          : currentSpeaker + 1;
 
       handleConversationTurn();
     } catch (error) {

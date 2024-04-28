@@ -23,6 +23,7 @@ function Council({ options }) {
   const [newTopic, setNewTopic] = useState("");
   const [currentSpeakerName, setCurrentSpeakerName] = useState("");
   const [invitationIndex, setInvitationIndex] = useState(0);
+  const [isWaitingToInterject, setIsWaitingToInterject] = useState(false);
 
   const socketRef = useRef(null); // Using useRef to persist socket instance
 
@@ -96,9 +97,13 @@ function Council({ options }) {
     if (isRaisedHand) {
       console.log("Hand raised");
 
+      setIsWaitingToInterject(true);
+
       raiseHand();
     } else {
       console.log("Hand lowered");
+
+      setIsWaitingToInterject(false);
 
       lowerHand();
     }
@@ -131,6 +136,10 @@ function Council({ options }) {
 
   function removeOverlay() {
     setActiveOverlay("");
+  }
+
+  function handleOnIsWaitingToInterject(value) {
+    setIsWaitingToInterject(value);
   }
 
   const bottomShade = {
@@ -195,6 +204,7 @@ function Council({ options }) {
           skipForward={skipForward}
           skipBackward={skipBackward}
           handleSetCurrentSpeakerName={handleSetCurrentSpeakerName}
+          onIsWaitingToInterject={handleOnIsWaitingToInterject}
         />
       </>
       <ConversationControls
@@ -202,6 +212,7 @@ function Council({ options }) {
         onSkipForward={handleOnSkipForward}
         onRaiseHandOrNevermind={handleOnRaiseHandOrNevermind}
         isRaisedHand={isRaisedHand}
+        isWaitingToInterject={isWaitingToInterject}
         isMuted={isMuted}
         onMuteUnmute={handleMuteUnmute}
         isPaused={isPaused}
