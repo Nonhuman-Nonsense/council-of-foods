@@ -85,8 +85,6 @@ function Council({ options }) {
   }
 
   function raiseHand() {
-    console.log("Invitation index: ", invitationIndex);
-
     const handRaisedOptions = {
       index: invitationIndex,
     };
