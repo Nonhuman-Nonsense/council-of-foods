@@ -113,6 +113,10 @@ function Council({ options }) {
         isReadyToInterject: false,
       });
 
+      if (isInterjecting) {
+        // User was currently interjecting but decided to lower their hand...
+      }
+
       lowerHand();
     }
   }, [isRaisedHand]);
@@ -154,7 +158,6 @@ function Council({ options }) {
 
     if (isReadyToInterject) {
       setIsInterjecting(true);
-      setIsRaisedHand(false);
     }
   }
 
