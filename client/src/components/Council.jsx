@@ -22,6 +22,7 @@ function Council({ options }) {
   const [skipBackward, setSkipBackward] = useState(false);
   const [newTopic, setNewTopic] = useState("");
   const [currentSpeakerName, setCurrentSpeakerName] = useState("");
+  const [invitationIndex, setInvitationIndex] = useState(0);
 
   const socketRef = useRef(null); // Using useRef to persist socket instance
 
@@ -84,12 +85,11 @@ function Council({ options }) {
   }
 
   function raiseHand() {
-    //TODO: send index of the invitation message
-    const raiseHand = {
-      index: 2//HERE
+    const handRaisedOptions = {
+      index: invitationIndex,
     };
 
-    socketRef.current.emit("raise_hand", raiseHand);
+    socketRef.current.emit("raise_hand", handRaisedOptions);
   }
 
   useEffect(() => {
@@ -110,6 +110,10 @@ function Council({ options }) {
 
   function handleOnRaiseHandOrNevermind() {
     setIsRaisedHand((prev) => !prev);
+  }
+
+  function handleOnIsRaisedHand(invitatationIndex) {
+    setInvitationIndex(invitatationIndex);
   }
 
   function handleOnInputNewTopic(newTopic) {
@@ -184,6 +188,8 @@ function Council({ options }) {
           textMessages={textMessages}
           audioMessages={audioMessages}
           isActiveOverlay={activeOverlay !== ""}
+          isRaisedHand={isRaisedHand}
+          onIsRaisedHand={handleOnIsRaisedHand}
           isMuted={isMuted}
           isPaused={isPaused}
           skipForward={skipForward}

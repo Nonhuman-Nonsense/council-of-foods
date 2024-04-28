@@ -6,6 +6,8 @@ function Output({
   textMessages,
   audioMessages,
   isActiveOverlay,
+  isRaisedHand,
+  onIsRaisedHand,
   isMuted,
   isPaused,
   skipForward,
@@ -16,6 +18,11 @@ function Output({
   const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
   const [currentTextMessage, setCurrentTextMessage] = useState(null);
   const [currentAudioMessage, setCurrentAudioMessage] = useState(null);
+
+  // Emit currentMessageIndex + 1 to parent for invitation message index
+  useEffect(() => {
+    onIsRaisedHand(currentMessageIndex + 1);
+  }, [isRaisedHand]);
 
   useEffect(() => {
     handleSetCurrentSpeakerName(
@@ -62,6 +69,10 @@ function Output({
     const audioMessage = audioMessages.find((a) => a.id === textMessage.id);
 
     if (textMessage && audioMessage) {
+      console.log("Found both: ");
+      console.log("Text: ", textMessage);
+      console.log("Audio: ", audioMessage);
+
       setCurrentTextMessage(() => textMessage);
       setCurrentAudioMessage(() => audioMessage);
     }

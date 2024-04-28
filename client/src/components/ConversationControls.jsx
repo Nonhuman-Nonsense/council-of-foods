@@ -65,7 +65,7 @@ function ConversationControls({
               display: "flex",
             }}
           >
-            Just a second<div class="loader"></div>
+            Just a second<div className="loader"></div>
           </span>
         )}
       </div>
