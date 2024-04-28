@@ -8,7 +8,6 @@ function Topics(props) {
   const [displayWarning, setDisplayWarning] = useState(false);
   const topicTextareaRef = useRef(null);
 
-  // Topics array remains unchanged
   const topics = [
     "seed patents and ownership",
     "labour conditions & modern slavery",
@@ -98,47 +97,43 @@ function Topics(props) {
           onCancel={props.onCancel}
         />
       ) : (
-          <div className="text-container">
-            <h1>THE ISSUE:</h1>
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                justifyContent: "start",
-              }}
-            >
-              {topics.map((topic, index) => (
-                <button
-                  key={index}
-                  className="outline-button wide-button"
-                  onClick={() => selectTopic(topic)}
-                  style={topicButtonStyle(topic)}
-                >
-                  {topic}
-                </button>
-              ))}
-              <p>please select an issue for the discussion</p>
-            </div>
-            <textarea
-              ref={topicTextareaRef}
-              className={`${
-                selectedTopic === "choose your own" ? "" : "hidden"
-              }`}
-              rows="2"
-              value={customTopic}
-              placeholder="your topic"
-              onChange={handleInputTopic}
-              style={{ width: "80%" }}
-            />
-            <button
-              className={`${
-                shouldShowNextButton ? "" : "hidden"
-              } outline-button`}
-              onClick={onContinueForward}
-            >
-              Next
-            </button>
+        <div className="text-container">
+          <h1>THE ISSUE:</h1>
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "start",
+            }}
+          >
+            {topics.map((topic, index) => (
+              <button
+                key={index}
+                className="outline-button wide-button"
+                onClick={() => selectTopic(topic)}
+                style={topicButtonStyle(topic)}
+              >
+                {topic}
+              </button>
+            ))}
+            <p>please select an issue for the discussion</p>
           </div>
+          <textarea
+            ref={topicTextareaRef}
+            className={`${selectedTopic === "choose your own" ? "" : "hidden"}`}
+            rows="2"
+            value={customTopic}
+            placeholder="your topic"
+            onChange={handleInputTopic}
+            style={{ width: "80%" }}
+          />
+          <button
+            className={`${shouldShowNextButton ? "" : "hidden"} outline-button`}
+            onClick={onContinueForward}
+          >
+            Next
+          </button>
+        </div>
       )}
     </>
   );
