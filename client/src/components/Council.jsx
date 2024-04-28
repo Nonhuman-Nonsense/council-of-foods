@@ -23,6 +23,8 @@ function Council({ options }) {
   const [newTopic, setNewTopic] = useState("");
   const [currentSpeakerName, setCurrentSpeakerName] = useState("");
   const [invitationIndex, setInvitationIndex] = useState(0);
+  const [isWaitingToInterject, setIsWaitingToInterject] = useState(false);
+  const [isInterjecting, setIsInterjecting] = useState(false);
 
   const socketRef = useRef(null); // Using useRef to persist socket instance
 
@@ -59,6 +61,7 @@ function Council({ options }) {
         audioMessage,
       ]);
     });
+
     return () => {
       socketRef.current.disconnect();
     };
@@ -96,16 +99,33 @@ function Council({ options }) {
     if (isRaisedHand) {
       console.log("Hand raised");
 
+      handleOnIsWaitingToInterject({
+        isWaiting: true,
+        isReadyToInterject: false,
+      });
+
       raiseHand();
     } else {
       console.log("Hand lowered");
+
+      handleOnIsWaitingToInterject({
+        isWaiting: false,
+        isReadyToInterject: false,
+      });
+
+      if (isInterjecting) {
+        // User was currently interjecting but decided to lower their hand...
+      }
 
       lowerHand();
     }
   }, [isRaisedHand]);
 
   function lowerHand() {
-    // TODO: Emit lower_hand
+    // const handLoweredOptions = {
+    //   index: invitationIndex,
+    // };
+    // socketRef.current.emit("lower_hand", handLoweredOptions);
   }
 
   function handleOnRaiseHandOrNevermind() {
@@ -131,6 +151,14 @@ function Council({ options }) {
 
   function removeOverlay() {
     setActiveOverlay("");
+  }
+
+  function handleOnIsWaitingToInterject({ isWaiting, isReadyToInterject }) {
+    setIsWaitingToInterject(isWaiting);
+
+    if (isReadyToInterject) {
+      setIsInterjecting(true);
+    }
   }
 
   const bottomShade = {
@@ -182,8 +210,9 @@ function Council({ options }) {
         ))}
       </div>
       <>
-        {/* <HumanInput onInputNewTopic={handleOnInputNewTopic} /> */}
-
+        {isInterjecting && (
+          <HumanInput onInputNewTopic={handleOnInputNewTopic} />
+        )}
         <Output
           textMessages={textMessages}
           audioMessages={audioMessages}
@@ -195,6 +224,7 @@ function Council({ options }) {
           skipForward={skipForward}
           skipBackward={skipBackward}
           handleSetCurrentSpeakerName={handleSetCurrentSpeakerName}
+          onIsWaitingToInterject={handleOnIsWaitingToInterject}
         />
       </>
       <ConversationControls
@@ -202,6 +232,7 @@ function Council({ options }) {
         onSkipForward={handleOnSkipForward}
         onRaiseHandOrNevermind={handleOnRaiseHandOrNevermind}
         isRaisedHand={isRaisedHand}
+        isWaitingToInterject={isWaitingToInterject}
         isMuted={isMuted}
         onMuteUnmute={handleMuteUnmute}
         isPaused={isPaused}

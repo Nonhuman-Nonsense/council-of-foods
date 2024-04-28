@@ -13,11 +13,13 @@ function Output({
   skipForward,
   skipBackward,
   handleSetCurrentSpeakerName,
+  onIsWaitingToInterject,
 }) {
   const [actualMessageIndex, setActualMessageIndex] = useState(0);
   const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
   const [currentTextMessage, setCurrentTextMessage] = useState(null);
   const [currentAudioMessage, setCurrentAudioMessage] = useState(null);
+  const [isFoundMessage, setIsFoundMessage] = useState(false);
 
   // Emit currentMessageIndex + 1 to parent for invitation message index
   useEffect(() => {
@@ -45,7 +47,7 @@ function Output({
   // TODO: Increase currentMessageIndex to play next message
   useEffect(() => {
     if (currentMessageIndex > actualMessageIndex) {
-      setActualMessageIndex(incrementIndex);
+      setActualMessageIndex(currentMessageIndex);
     }
 
     findTextAndAudio();
@@ -68,10 +70,12 @@ function Output({
     const textMessage = textMessages[currentMessageIndex];
     const audioMessage = audioMessages.find((a) => a.id === textMessage.id);
 
-    if (textMessage && audioMessage) {
-      console.log("Found both: ");
+    if (textMessage && audioMessage && !isFoundMessage) {
+      console.log("Found text and audio");
       console.log("Text: ", textMessage);
       console.log("Audio: ", audioMessage);
+
+      setIsFoundMessage(() => true);
 
       setCurrentTextMessage(() => textMessage);
       setCurrentAudioMessage(() => audioMessage);
@@ -94,12 +98,35 @@ function Output({
 
   function proceedToNextMessage() {
     console.log("Proceeding to next message...");
+    setIsFoundMessage(() => false);
 
+    const currentIndex = currentMessageIndex;
+    const maxIndex = textMessages.length - 1;
+    const currentMessage = textMessages[currentIndex];
+
+    // Check if we're at the end of the list and if its an interjection
+    if (currentIndex >= maxIndex) {
+      console.log("Reached the end of the message list.");
+
+      if (currentMessage.purpose === "invitation") {
+        handleInterjection();
+      }
+      return;
+    }
+
+    // Increment message index safely
     setCurrentMessageIndex(incrementIndex);
   }
 
+  function handleInterjection() {
+    // Define what to do when an interjection is encountered
+    console.log("Start audio recording et.c.");
+
+    onIsWaitingToInterject({ isWaiting: false, isReadyToInterject: true });
+  }
+
   function handleOnFinishedPlaying() {
-    console.log("Finished playing...");
+    console.log("Finished playing message...");
 
     proceedToNextMessage();
   }
