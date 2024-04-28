@@ -10,7 +10,6 @@ const httpServer = http.createServer(app);
 const io = new Server(httpServer);
 const openai = new OpenAI(process.env.OPENAI_API_KEY);
 
-
 //Names of OpenAI voices
 const audioVoices = ["alloy", "echo", "fable", "onyx", "nova", "shimmer"];
 
@@ -130,13 +129,7 @@ io.on("connection", (socket) => {
       //A rolling index of the message number, so that audio can be played in the right order etc.
       const message_index = conversation.length - 1;
 
-      //  TEST: Emit only one message instead of the whole conversation
-      // socket.emit("conversation_update", conversation);
-      socket.emit("conversation_update", {
-        id: completion.id,
-        speaker: chair.name,
-        text: response,
-      });
+      socket.emit("conversation_update", conversation);
 
       //This is an async function, and since we are not waiting for the response, it will run in a paralell thread.
       //The result will be emitted to the socket when it's ready
@@ -158,9 +151,7 @@ io.on("connection", (socket) => {
     message.id = "human-" + conversationCounter + "-" + conversation.length;
     conversation.push(message);
 
-    //  TEST: Emit only one message instead of the whole conversation
-    // socket.emit("conversation_update", conversation);
-    socket.emit("conversation_update", message);
+    socket.emit("conversation_update", conversation);
 
     //Don't read human messages for now
     //Otherwise, generate audio here
@@ -230,14 +221,7 @@ io.on("connection", (socket) => {
       //A rolling index of the message number, so that audio can be played in the right order etc.
       const message_index = conversation.length - 1;
 
-      //  TEST: Emit only one message instead of the whole conversation
-      // socket.emit("conversation_update", conversation);
-      socket.emit("conversation_update", {
-        id: id,
-        speaker: characters[currentSpeaker].name,
-        text: response,
-        trimmed: trimmed,
-      });
+      socket.emit("conversation_update", conversation);
 
       //This is an async function, and since we are not waiting for the response, it will run in a paralell thread.
       //The result will be emitted to the socket when it's ready

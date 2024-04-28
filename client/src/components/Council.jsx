@@ -73,7 +73,7 @@ function Council({ options }) {
     setSkipBackward(!skipBackward);
   }
 
-  function handleOnSkipBackward(){
+  function handleOnSkipBackward() {
     setSkipBackward(!skipBackward);
   }
 
@@ -89,8 +89,7 @@ function Council({ options }) {
     setPausePlay(!isPaused);
   }
 
-
-  function handleSetCurrentSpeakerName(value){
+  function handleSetCurrentSpeakerName(value) {
     setCurrentSpeakerName(value);
   }
 
@@ -137,8 +136,7 @@ function Council({ options }) {
     position: "absolute",
     bottom: "0",
 
-    background: "linear-gradient(0, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0) 100%)"
-
+    background: "linear-gradient(0, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0) 100%)",
   };
 
   const topShade = {
@@ -146,7 +144,8 @@ function Council({ options }) {
     height: "10%",
     position: "absolute",
     top: "0",
-    background: "linear-gradient(180deg, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0) 100%)"
+    background:
+      "linear-gradient(180deg, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0) 100%)",
   };
 
   return (
@@ -187,10 +186,8 @@ function Council({ options }) {
           audioMessages={audioMessages}
           isActiveOverlay={activeOverlay !== ""}
           isRaisedHand={isRaisedHand}
-          onIsReady={handleOnIsReady}
           isMuted={isMuted}
           isPaused={isPaused}
-          onHumanInterjection={handleOnHumanInterjection}
           skipForward={skipForward}
           skipBackward={skipBackward}
           handleSetCurrentSpeakerName={handleSetCurrentSpeakerName}
