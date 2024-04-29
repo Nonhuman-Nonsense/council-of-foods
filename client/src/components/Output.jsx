@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import TextOutput from "./TextOutput";
 import AudioOutput from "./AudioOutput";
 
@@ -22,6 +22,7 @@ function Output({
   const [currentTextMessage, setCurrentTextMessage] = useState(null);
   const [currentAudioMessage, setCurrentAudioMessage] = useState(null);
   const [isFoundMessage, setIsFoundMessage] = useState(false);
+  const [pausedInBreak, setPausedInBreak] = useState(false);
 
   useEffect(() => {
     if (currentTextMessage && currentAudioMessage) {
@@ -139,17 +140,45 @@ function Output({
     onIsWaitingToInterject({ isWaiting: false, isReadyToInterject: true });
   }
 
+  // Use a ref to access the current count value in an async callback.
+  //https://github.com/facebook/react/issues/14010
+  const isPausedRef = useRef(isPaused);
+  const betweenTimer = useRef(null);
+  isPausedRef.current = isPaused;
   function handleOnFinishedPlaying() {
     console.log("Finished playing message...");
 
-    proceedToNextMessage();
+    //If the audio has ended, wait a bit before proceeding
+    betweenTimer.current = setTimeout(() => {
+      if(!isPausedRef.current){
+        proceedToNextMessage();
+      }else{
+        setPausedInBreak(true);
+      }
+    }, 1000);
   }
+  //Make sure to empty this timer on component unmount
+  //Incase someone restarts the counsil in a break etc.
+  useEffect(() => {
+  // The empty the betweenTimer on unmount
+  return () => {clearTimeout(betweenTimer.current)};
+  }, []);
+
+  //If at any time we were paused in a break between messages
+  //We need to proceed manually
+  useEffect(() => {
+    if(!isPaused && pausedInBreak){
+      proceedToNextMessage();
+      setPausedInBreak(false);
+    }
+  },[isPaused, pausedInBreak]);
 
   return (
     <>
       <TextOutput
         currentTextMessage={currentTextMessage}
         currentAudioMessage={currentAudioMessage}
+        isPaused={isPaused}
       />
       <AudioOutput
         currentAudioMessage={currentAudioMessage}

@@ -1,8 +1,38 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 
-function TextOutput({ currentTextMessage, currentAudioMessage }) {
+function TextOutput({ currentTextMessage, currentAudioMessage, isPaused }) {
   const [currentSnippetIndex, setCurrentSnippetIndex] = useState(0);
   const [currentSnippet, setCurrentSnippet] = useState("");
+
+  const [currentSnippetDelay, setCurrentSnippetDelay] = useState(0);
+  const [pauseTime, setPauseTime] = useState(0);
+  const [snippetStartTime, setSnippetStartTime] = useState(0);
+  const [remainingTime, setRemainingTime] = useState(0);
+  const [wasPaused, setWasPaused] = useState(false);
+  const timerId = useRef(null);
+
+  useEffect(() => {
+    if(isPaused){
+      clearTimeout(timerId.current);
+      setRemainingTime(currentSnippetDelay - (Date.now() - snippetStartTime));
+      setWasPaused(true);
+    }else if(wasPaused){
+      setWasPaused(false);
+      setCurrentSnippetDelay(remainingTime);
+      setSnippetStartTime(Date.now());
+      const sentences = currentTextMessage?.text.split(
+        /(?<=[.!?])(?=\s+(?![0-9]))/
+      )
+      //Don't set a timer if we are on the last snippet
+      if (currentSnippetIndex < sentences.length - 1) {
+        timerId.current = setTimeout(() => {
+          setCurrentSnippetIndex((prevIndex) =>
+            prevIndex < sentences.length - 1 ? prevIndex + 1 : prevIndex
+          );
+        }, remainingTime);
+      }
+    }
+  },[isPaused])
 
   // Reset the snippet index and snippet when a new message is received
   useEffect(() => {
@@ -21,28 +51,42 @@ function TextOutput({ currentTextMessage, currentAudioMessage }) {
 
   useEffect(() => {
     if (currentSnippetIndex >= 0 && currentTextMessage?.text) {
-      const text = currentTextMessage.text;
-      const sentences = text.split(/(?<=[.!?])(?=\s+(?![0-9]))/);
+      const sentences = currentTextMessage?.text.split(
+        /(?<=[.!?])(?=\s+(?![0-9]))/
+      );
+      console.log(sentences);
+      console.log(currentSnippetIndex);
+
       if (sentences.length > currentSnippetIndex) {
         setCurrentSnippet(sentences[currentSnippetIndex]);
       }
-      const interval = setInterval(() => {
-        setCurrentSnippetIndex((prevIndex) =>
-          prevIndex < sentences.length - 1 ? prevIndex + 1 : prevIndex
-        );
-      }, calculateDisplayTime(sentences[currentSnippetIndex] || "") * 1000);
 
-      return () => clearInterval(interval);
+      //Store the current delay, and the time when it started
+      const delay = calculateDisplayTime(sentences[currentSnippetIndex] || "");
+      setCurrentSnippetDelay(delay);
+      setSnippetStartTime(Date.now());
+
+      //Don't set a timer if we are on the last snippet
+      if (currentSnippetIndex < sentences.length - 1) {
+        timerId.current = setTimeout(() => {
+          console.log("show next");
+          setCurrentSnippetIndex((prevIndex) =>
+            prevIndex < sentences.length - 1 ? prevIndex + 1 : prevIndex
+          );
+        }, delay);
+      }
+
+      return () => clearTimeout(timerId.current);
     }
   }, [currentSnippetIndex, currentTextMessage]);
 
   // Modify calculateDisplayTime to handle potential undefined or empty strings safely
   const calculateDisplayTime = (text) => {
     if (!text) {
-      return 3; // Minimum display time if text is undefined or empty
+      return 1500; // Minimum display time if text is undefined or empty
     }
     const baseTimePerCharacter = 0.06; // Adjust this value as needed
-    return Math.max(3, text.length * baseTimePerCharacter);
+    return Math.round(Math.max(1.5, text.length * baseTimePerCharacter) * 1000);
   };
 
   const paragraphStyle = {
