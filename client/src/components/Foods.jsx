@@ -55,7 +55,7 @@ function Foods({ topic, onContinueForward }) {
     <div className="wrapper">
       <div className="text-container">
         <div>
-          <h1>THE FOODS:</h1>
+          <h1>THE FOODS</h1>
           <div style={{ position: "relative" }}>
             <div style={discriptionStyle}>
               <p>

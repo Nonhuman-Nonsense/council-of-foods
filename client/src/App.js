@@ -68,15 +68,10 @@ function App() {
     }
   }
 
-  return (
-    <div
-      className="App"
-      style={backgroundStyle}
-    >
+  function renderMainCouncil(){
+    return (
       <Overlay isActive={isActiveOverlay && currentView !== "council"}>
-        {currentView === "landing" ? (
-          <Landing onContinueForward={continueForward} />
-        ) : currentView === "welcome" ? (
+         {currentView === "welcome" ? (
           <Welcome
             humanName={humanName}
             onContinueForward={continueForward}
@@ -99,6 +94,18 @@ function App() {
           />
         )}
       </Overlay>
+    );
+  }
+
+  return (
+    <div
+      className="App"
+      style={backgroundStyle}
+    >
+    {currentView === "landing" ?
+      <Landing onContinueForward={continueForward} />
+      : renderMainCouncil()
+    }
     </div>
   );
 }

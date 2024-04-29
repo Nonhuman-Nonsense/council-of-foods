@@ -98,7 +98,7 @@ function Topics(props) {
         />
       ) : (
         <div className="text-container">
-          <h1>THE ISSUE:</h1>
+          <h1>THE ISSUE</h1>
           <div
             style={{
               display: "flex",

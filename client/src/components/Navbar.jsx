@@ -24,6 +24,7 @@ function Navbar({
     margin: "0 auto",
     width: "calc(90% + 40px)",
     pointerEvents: "auto",
+    zIndex: "10",
   };
 
   const navItems = ["about", "settings", "contact", "share"];
