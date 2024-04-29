@@ -3,6 +3,15 @@ import HumanNameInput from "./HumanNameInput";
 
 function Welcome({ onContinueForward }) {
 
+  const wrapper = {
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    width: "100%",
+    height: "100%",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center"
+  };
+
   const welcomeStyle = {
     display: "flex",
     flexDirection: "column",
@@ -11,6 +20,7 @@ function Welcome({ onContinueForward }) {
   };
 
   return (
+    <div style={wrapper}>
       <div style={welcomeStyle}>
         <div>
           <h2>welcome to</h2>
@@ -18,6 +28,7 @@ function Welcome({ onContinueForward }) {
         </div>
         <HumanNameInput onContinueForward={onContinueForward} />
       </div>
+    </div>
   );
 }
 

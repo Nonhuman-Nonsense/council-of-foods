@@ -94,6 +94,12 @@ function Council({ options }) {
     }
   },[isPaused]);
 
+  useEffect(() => {
+    if(activeOverlay !== "" && !isPaused){
+      setPausePlay(true);
+    }
+  },[activeOverlay])
+
   function handleOnSkipBackward() {
     setSkipBackward(!skipBackward);
   }
@@ -287,11 +293,13 @@ function Council({ options }) {
         />
       }
       <Overlay isActive={activeOverlay !== ""}>
-        <CouncilOverlays
-          activeOverlay={activeOverlay}
-          options={options}
-          removeOverlay={removeOverlay}
-        />
+        {activeOverlay !== "" &&
+          <CouncilOverlays
+            activeOverlay={activeOverlay}
+            options={options}
+            removeOverlay={removeOverlay}
+            />
+          }
       </Overlay>
     </>
   );
