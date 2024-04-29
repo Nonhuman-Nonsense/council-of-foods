@@ -229,6 +229,7 @@ function Council({ options }) {
             food={food}
             index={index}
             total={foods.length}
+            isPaused={isPaused}
             screenWidth={screenWidth}
             currentSpeakerName={currentSpeakerName}
           />

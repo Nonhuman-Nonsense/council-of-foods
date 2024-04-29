@@ -1,7 +1,7 @@
 import React from "react";
 import FoodAnimation from "./FoodAnimation";
 
-function FoodItem({ food, index, total, screenWidth, currentSpeakerName }) {
+function FoodItem({ food, index, total, screenWidth, currentSpeakerName, isPaused }) {
   const foodImageStyle = {
     width: "120px",
     height: "120px",
@@ -89,7 +89,7 @@ function FoodItem({ food, index, total, screenWidth, currentSpeakerName }) {
     <div style={foodItemStyle(index, total)}>
       {
         ["potato", "beer", "water", "banana"].includes(food.name) ?
-        <FoodAnimation food={food} styles={responsiveStyle} currentSpeakerName={currentSpeakerName} /> :
+        <FoodAnimation food={food} styles={responsiveStyle} currentSpeakerName={currentSpeakerName} isPaused={isPaused} /> :
         <img
         src={`/images/foods/${food.name}-shadow.png`}
         style={responsiveStyle} />

@@ -1,16 +1,16 @@
 import React, { useEffect, useRef } from "react";
 
-function FoodAnimation({food, styles, currentSpeakerName}) {
+function FoodAnimation({food, styles, currentSpeakerName, isPaused}) {
 
   const video = useRef(null);
 
   useEffect(() => {
-    if(currentSpeakerName === food.name){
+    if(!isPaused && currentSpeakerName === food.name){
       video.current.play();
     }else{
       video.current.pause();
     }
-  },[currentSpeakerName])
+  },[currentSpeakerName, isPaused])
 
   return (
     <video ref={video} style={{...styles, objectFit: "cover"}} loop muted playsInline>
