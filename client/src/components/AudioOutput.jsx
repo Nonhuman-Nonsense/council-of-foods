@@ -1,12 +1,18 @@
 import React, { useEffect, useRef, useCallback } from "react";
 import AudioOutputMessage from "./AudioOutputMessage";
 
-function AudioOutput({ currentAudioMessage, onFinishedPlaying, isMuted }) {
-  const audioContext = useRef(null);//The Audiocontext object
+//Most of the audio processing should happen here, but the audioContext is owned higher up
+//Because incoming audio needs to be processed directly on arrival
+function AudioOutput({ audioContext, currentAudioMessage, onFinishedPlaying, isMuted }) {
   const gainNode = useRef(null);//The general volume control node
 
+  if (audioContext.current && gainNode.current === null) {
+    gainNode.current = audioContext.current.createGain();
+    gainNode.current.connect(audioContext.current.destination);
+  }
+
   useEffect(() => {
-    if(audioContext.current){
+    if(audioContext.current && gainNode.current){
       if(isMuted){
         gainNode.current.gain.setValueAtTime(0, audioContext.current.currentTime);
       }else{
@@ -14,23 +20,6 @@ function AudioOutput({ currentAudioMessage, onFinishedPlaying, isMuted }) {
       }
     }
   }, [isMuted]);
-
-  useEffect(() => {
-    // Initialize the audio element if it does not exist
-    // Or if it is closed
-    if (!audioContext.current || audioContext.current.state == "closed") {
-      audioContext.current = new AudioContext();
-      //Add a gain node on the first step, so that we can control mute/unmute
-      gainNode.current = audioContext.current.createGain();
-      gainNode.current.connect(audioContext.current.destination);
-    }
-    return () => {
-      // Clean up audio element
-      if(audioContext.current && audioContext.current.state == "running"){
-        audioContext.current.close();
-      }
-    };
-  }, []);
 
   return (
     <AudioOutputMessage currentAudioMessage={currentAudioMessage} audioContext={audioContext} gainNode={gainNode} onFinishedPlaying={onFinishedPlaying} />

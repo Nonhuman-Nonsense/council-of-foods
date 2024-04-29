@@ -26,6 +26,12 @@ function Council({ options }) {
   const [isWaitingToInterject, setIsWaitingToInterject] = useState(false);
   const [isInterjecting, setIsInterjecting] = useState(false);
   const [bumpIndex, setBumpIndex] = useState(false);
+  const audioContext = useRef(null);//The Audiocontext object
+
+  if (audioContext.current === null) {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;//cross browser
+    audioContext.current = new AudioContext();
+  }
 
   const socketRef = useRef(null); // Using useRef to persist socket instance
 
@@ -57,10 +63,15 @@ function Council({ options }) {
     });
 
     socketRef.current.on("audio_update", (audioMessage) => {
-      setAudioMessages((prevAudioMessages) => [
-        ...prevAudioMessages,
-        audioMessage,
-      ]);
+      (async () => {
+        //decode audio data immediately, because we can only do this one, then buffer is detached
+        const buffer = await audioContext.current.decodeAudioData(audioMessage.audio);
+        audioMessage.audio = buffer;
+        setAudioMessages((prevAudioMessages) => [
+          ...prevAudioMessages,
+          audioMessage,
+        ]);
+      })();
     });
 
     return () => {
@@ -240,6 +251,7 @@ function Council({ options }) {
           handleSetCurrentSpeakerName={handleSetCurrentSpeakerName}
           onIsWaitingToInterject={handleOnIsWaitingToInterject}
           bumpIndex={bumpIndex}
+          audioContext={audioContext}
         />
       </>
       <ConversationControls
