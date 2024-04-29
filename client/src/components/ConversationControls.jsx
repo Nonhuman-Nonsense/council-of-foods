@@ -12,37 +12,57 @@ function ConversationControls({
   isRaisedHand,
   isWaitingToInterject,
 }) {
+
+
+  const divStyle = {
+    width: "56px",
+    height: "56px",
+  };
+
   return (
     <>
       <div style={{ position: "absolute", bottom: "0", pointerEvents: "auto" }}>
         <div style={{ display: "flex", flexDirection: "row" }}>
-          <ConversationControlIcon
-            name={isMuted ? "volume_off" : "volume_on"}
-            tooltip={"Mute"}
-            onClick={onMuteUnmute}
-          />
-          <>
+          <div style={divStyle}>
+            {!isPaused &&
             <ConversationControlIcon
-              name={"backward"}
+              icon={isMuted ? "volume_off" : "volume_on"}
+              tooltip={"Mute"}
+              onClick={onMuteUnmute}
+            />}
+          </div>
+          <div style={divStyle}>
+            {!isPaused &&
+              <ConversationControlIcon
+              icon={"backward"}
               tooltip={"Backward"}
               onClick={onSkipBackward}
-            />
+            />}
+          </div>
+          <div style={divStyle}>
             <ConversationControlIcon
-              name={isPaused ? "play" : "pause"}
+              icon={isPaused ? "play" : "pause"}
               tooltip={isPaused ? "Play" : "Pause"}
               onClick={onPausePlay}
             />
+          </div>
+          <div style={divStyle}>
+          {!isPaused &&
             <ConversationControlIcon
-              name={"forward"}
+              icon={"forward"}
               tooltip={"Forward"}
               onClick={onSkipForward}
-            />
-          </>
-          <ConversationControlIcon
-            name={isRaisedHand ? "raise_hand_raised" : "raise_hand_not_raised"}
-            tooltip={"Raise hand"}
-            onClick={onRaiseHandOrNevermind}
-          />
+            />}
+          </div>
+          <div style={divStyle}>
+            {!isPaused &&
+            <ConversationControlIcon
+              icon={isRaisedHand ? "raise_hand_filled" : "raise_hand"}
+              hoverIcon={isRaisedHand && "raise_hand_filled"}
+              tooltip={"Raise hand"}
+              onClick={onRaiseHandOrNevermind}
+            />}
+          </div>
         </div>
         {isWaitingToInterject && (
           <span
