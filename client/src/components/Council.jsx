@@ -81,6 +81,14 @@ function Council({ options }) {
     };
   }, []);
 
+  useEffect(() => {
+    if(isPaused){
+      audioContext.current.suspend();
+    }else if(audioContext.current.state === "suspended"){
+      audioContext.current.resume();
+    }
+  },[isPaused]);
+
   function handleOnSkipBackward() {
     setSkipBackward(!skipBackward);
   }
@@ -214,13 +222,6 @@ function Council({ options }) {
         onRemoveOverlay={removeOverlay}
         onDisplayResetWarning={displayResetWarning}
       />
-      <Overlay isActive={activeOverlay !== ""}>
-        <CouncilOverlays
-          activeOverlay={activeOverlay}
-          options={options}
-          removeOverlay={removeOverlay}
-        />
-      </Overlay>
       <div style={foodsContainerStyle}>
         {foods.map((food, index) => (
           <FoodItem
@@ -267,6 +268,13 @@ function Council({ options }) {
         isPaused={isPaused}
         onPausePlay={handlePausePlay}
       />
+      <Overlay isActive={activeOverlay !== ""}>
+        <CouncilOverlays
+          activeOverlay={activeOverlay}
+          options={options}
+          removeOverlay={removeOverlay}
+        />
+      </Overlay>
     </>
   );
 }

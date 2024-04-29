@@ -11,9 +11,7 @@ function AudioOutputMessage({ currentAudioMessage, audioContext, gainNode, onFin
     if (currentAudioMessage && currentAudioMessage.audio && currentAudioMessage.audio.length != 0) {
       function sourceFinished(){
         if(!ignoreEndEvent){
-          setTimeout(() => {
-            onFinishedPlaying();
-          }, 1000);
+          onFinishedPlaying();
         }
       }
 
