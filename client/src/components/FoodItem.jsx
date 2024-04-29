@@ -39,7 +39,9 @@ function FoodItem({ food, index, total, screenWidth, currentSpeakerName }) {
     return {
       width: `${size}px`, // Dynamically set width
       height: `${size}px`, // Dynamically set height
-      animation: "2s foodAppearing"
+      animation: "2s foodAppearing",
+      animationDelay: 0.4 * index + "s",
+      animationFillMode: "both",
     };
   };
 
