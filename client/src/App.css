@@ -129,10 +129,12 @@ button {
   cursor: pointer;
 }
 
-button:hover {
+button:hover:not(.control) {
   background-color: white;
   color: rgba(0, 0, 0, 0.9);
 }
+
+
 
 .wide-button {
   padding: 6px 75px 6px 75px;
