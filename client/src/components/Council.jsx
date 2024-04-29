@@ -65,8 +65,10 @@ function Council({ options }) {
     socketRef.current.on("audio_update", (audioMessage) => {
       (async () => {
         //decode audio data immediately, because we can only do this one, then buffer is detached
-        const buffer = await audioContext.current.decodeAudioData(audioMessage.audio);
-        audioMessage.audio = buffer;
+        if(audioMessage.audio){
+          const buffer = await audioContext.current.decodeAudioData(audioMessage.audio);
+          audioMessage.audio = buffer;
+        }
         setAudioMessages((prevAudioMessages) => [
           ...prevAudioMessages,
           audioMessage,
