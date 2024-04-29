@@ -54,8 +54,6 @@ function TextOutput({ currentTextMessage, currentAudioMessage, isPaused }) {
       const sentences = currentTextMessage?.text.split(
         /(?<=[.!?])(?=\s+(?![0-9]))/
       );
-      console.log(sentences);
-      console.log(currentSnippetIndex);
 
       if (sentences.length > currentSnippetIndex) {
         setCurrentSnippet(sentences[currentSnippetIndex]);
@@ -69,7 +67,6 @@ function TextOutput({ currentTextMessage, currentAudioMessage, isPaused }) {
       //Don't set a timer if we are on the last snippet
       if (currentSnippetIndex < sentences.length - 1) {
         timerId.current = setTimeout(() => {
-          console.log("show next");
           setCurrentSnippetIndex((prevIndex) =>
             prevIndex < sentences.length - 1 ? prevIndex + 1 : prevIndex
           );
