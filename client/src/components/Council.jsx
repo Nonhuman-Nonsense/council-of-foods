@@ -4,6 +4,7 @@ import FoodItem from "./FoodItem";
 import Overlay from "./Overlay";
 import CouncilOverlays from "./CouncilOverlays";
 import Navbar from "./Navbar";
+import Loading from "./Loading";
 import Output from "./Output";
 import ConversationControls from "./ConversationControls";
 import useWindowSize from "../hooks/useWindowSize";
@@ -27,6 +28,10 @@ function Council({ options }) {
   const [isInterjecting, setIsInterjecting] = useState(false);
   const [bumpIndex, setBumpIndex] = useState(false);
   const audioContext = useRef(null);//The Audiocontext object
+  const [canGoBack, setCanGoBack] = useState(false);
+  const [canGoForward, setCanGoForward] = useState(false);
+  const [canRaiseHand, setCanRaiseHand] = useState(false);
+  const [isReadyToStart, setIsReadyToStart] = useState(false);
 
   if (audioContext.current === null) {
     const AudioContext = window.AudioContext || window.webkitAudioContext;//cross browser
@@ -235,6 +240,9 @@ function Council({ options }) {
           />
         ))}
       </div>
+      {!isReadyToStart &&
+        <Loading />
+      }
       <>
         {isInterjecting && (
           <HumanInput
@@ -256,19 +264,28 @@ function Council({ options }) {
           onIsWaitingToInterject={handleOnIsWaitingToInterject}
           bumpIndex={bumpIndex}
           audioContext={audioContext}
+          setCanGoForward={setCanGoForward}
+          setCanGoBack={setCanGoBack}
+          setIsReadyToStart={setIsReadyToStart}
+          setCanRaiseHand={setCanRaiseHand}
         />
       </>
-      <ConversationControls
-        onSkipBackward={handleOnSkipBackward}
-        onSkipForward={handleOnSkipForward}
-        onRaiseHandOrNevermind={handleOnRaiseHandOrNevermind}
-        isRaisedHand={isRaisedHand}
-        isWaitingToInterject={isWaitingToInterject}
-        isMuted={isMuted}
-        onMuteUnmute={handleMuteUnmute}
-        isPaused={isPaused}
-        onPausePlay={handlePausePlay}
-      />
+      {isReadyToStart &&
+        <ConversationControls
+          onSkipBackward={handleOnSkipBackward}
+          onSkipForward={handleOnSkipForward}
+          onRaiseHandOrNevermind={handleOnRaiseHandOrNevermind}
+          isRaisedHand={isRaisedHand}
+          isWaitingToInterject={isWaitingToInterject}
+          isMuted={isMuted}
+          onMuteUnmute={handleMuteUnmute}
+          isPaused={isPaused}
+          onPausePlay={handlePausePlay}
+          canGoBack={canGoBack}
+          canGoForward={canGoForward}
+          canRaiseHand={canRaiseHand}
+        />
+      }
       <Overlay isActive={activeOverlay !== ""}>
         <CouncilOverlays
           activeOverlay={activeOverlay}

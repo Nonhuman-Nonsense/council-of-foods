@@ -16,6 +16,10 @@ function Output({
   onIsWaitingToInterject,
   bumpIndex,
   audioContext,
+  setCanGoForward,
+  setCanGoBack,
+  setIsReadyToStart,
+  setCanRaiseHand
 }) {
   const [actualMessageIndex, setActualMessageIndex] = useState(0);
   const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
@@ -23,6 +27,29 @@ function Output({
   const [currentAudioMessage, setCurrentAudioMessage] = useState(null);
   const [isFoundMessage, setIsFoundMessage] = useState(false);
   const [pausedInBreak, setPausedInBreak] = useState(false);
+
+  useEffect(() => {
+    if(currentMessageIndex === 0){
+      setCanGoBack(false);
+    }else{
+      setCanGoBack(true);
+    }
+    if(currentMessageIndex < textMessages.length - 1 &&
+      audioMessages.find((a) => a.id === textMessages[currentMessageIndex + 1].id)
+    ){
+      setCanGoForward(true);
+    }else{
+      setCanGoForward(false);
+    }
+  }, [currentMessageIndex, textMessages, audioMessages]);
+
+  useEffect(() => {
+    if(currentMessageIndex === actualMessageIndex){
+      setCanRaiseHand(true);
+    }else{
+      setCanRaiseHand(false);
+    }
+  },[actualMessageIndex,currentMessageIndex]);
 
   useEffect(() => {
     if (currentTextMessage && currentAudioMessage) {

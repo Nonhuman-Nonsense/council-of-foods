@@ -11,6 +11,9 @@ function ConversationControls({
   onMuteUnmute,
   isRaisedHand,
   isWaitingToInterject,
+  canGoBack,
+  canGoForward,
+  canRaiseHand
 }) {
 
 
@@ -33,6 +36,7 @@ function ConversationControls({
           </div>
           <div style={divStyle}>
             {!isPaused &&
+              canGoBack &&
               <ConversationControlIcon
               icon={"backward"}
               tooltip={"Backward"}
@@ -48,6 +52,7 @@ function ConversationControls({
           </div>
           <div style={divStyle}>
           {!isPaused &&
+            canGoForward &&
             <ConversationControlIcon
               icon={"forward"}
               tooltip={"Forward"}
@@ -56,6 +61,7 @@ function ConversationControls({
           </div>
           <div style={divStyle}>
             {!isPaused &&
+              canRaiseHand &&
             <ConversationControlIcon
               icon={isRaisedHand ? "raise_hand_filled" : "raise_hand"}
               hoverIcon={isRaisedHand && "raise_hand_filled"}
@@ -70,7 +76,7 @@ function ConversationControls({
               position: "absolute",
               bottom: "16px",
               fontSize: "18px",
-              left: "320px",
+              left: "280px",
               width: "150px",
               animation: "1s slideInFade",
               display: "flex",
