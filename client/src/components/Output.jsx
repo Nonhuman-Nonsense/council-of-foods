@@ -15,6 +15,7 @@ function Output({
   handleSetCurrentSpeakerName,
   onIsWaitingToInterject,
   bumpIndex,
+  audioContext,
 }) {
   const [actualMessageIndex, setActualMessageIndex] = useState(0);
   const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
@@ -103,7 +104,7 @@ function Output({
 
   function goBackToPreviousMessage() {
     console.log("Going back to previous message...");
-
+    setIsFoundMessage(() => false);
     setCurrentMessageIndex((prev) => {
       return prev - 1 > 0 ? prev - 1 : 0;
     });
@@ -154,6 +155,7 @@ function Output({
         currentAudioMessage={currentAudioMessage}
         onFinishedPlaying={handleOnFinishedPlaying}
         isMuted={isMuted}
+        audioContext={audioContext}
       />
     </>
   );

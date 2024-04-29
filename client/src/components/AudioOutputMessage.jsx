@@ -7,30 +7,28 @@ function AudioOutputMessage({ currentAudioMessage, audioContext, gainNode, onFin
     let ignoreEndEvent = false;
 
     // Handle updating the audio source when the message changes
-    if (currentAudioMessage && currentAudioMessage.audio && currentAudioMessage.audio.byteLength != 0) {
-      //If something is already playing, stop it
 
+    if (currentAudioMessage && currentAudioMessage.audio && currentAudioMessage.audio.length != 0) {
       function sourceFinished(){
         if(!ignoreEndEvent){
           onFinishedPlaying();
         }
       }
 
-      (async () => {
-        //Create a new buffer source and connect it to the context
-        const buffer = await audioContext.current.decodeAudioData(currentAudioMessage.audio);
-        sourceNode.current = audioContext.current.createBufferSource();
-        sourceNode.current.buffer = buffer;
+      sourceNode.current = audioContext.current.createBufferSource();
+      sourceNode.current.buffer = currentAudioMessage.audio;
 
-        sourceNode.current.connect(gainNode.current);
-        sourceNode.current.start();
-        sourceNode.current.addEventListener('ended',sourceFinished, true);
-      })();
+      sourceNode.current.connect(gainNode.current);
+      sourceNode.current.start();
+      sourceNode.current.addEventListener('ended',sourceFinished, true);
     }
 
     return () => {
       ignoreEndEvent = true;
       sourceNode.current?.stop();
+      sourceNode.current?.disconnect();
+      // sourceNode.current?.close();
+      // sourceNode.current = null;
     }
   }, [currentAudioMessage]);
 
