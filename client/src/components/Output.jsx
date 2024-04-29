@@ -115,6 +115,7 @@ function Output({
         console.log("Found text and audio");
         console.log("Text: ", textMessage);
         console.log("Audio: ", audioMessage);
+        setIsReadyToStart(true);
 
         setIsFoundMessage(() => true);
 
