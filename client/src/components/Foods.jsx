@@ -57,7 +57,7 @@ function Foods({ topic, onContinueForward }) {
                 Please select 2-5 foods
                 <br /> to participate in the discussion about:
               </p>
-              <h4>{capitalizeFirstLetter(topic)}</h4>
+              <h4>{capitalizeFirstLetter(topic.name)}</h4>
             </div>
             <div
               style={{

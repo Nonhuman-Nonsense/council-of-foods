@@ -93,7 +93,7 @@ io.on("connection", (socket) => {
       // System message for overall context
       messages.push({
         role: "system",
-        content: `${conversationOptions.topic}\n\n${chair.role}`,
+        content: `${conversationOptions.topic}\n\n${chair.prompt}`,
       });
 
       // Add previous messages as separate user objects
@@ -300,7 +300,7 @@ io.on("connection", (socket) => {
       // System message for overall context
       messages.push({
         role: "system",
-        content: `${conversationOptions.topic}\n\n${speaker.role}`,
+        content: `${conversationOptions.topic}\n\n${speaker.prompt}`,
       });
 
       // Add previous messages as separate user objects

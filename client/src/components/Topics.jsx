@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import ResetWarning from "./ResetWarning";
+import topicData from "../settings/topics.json";
 import { capitalizeFirstLetter } from "../utils";
 
 function Topics(props) {
@@ -8,14 +9,7 @@ function Topics(props) {
   const [displayWarning, setDisplayWarning] = useState(false);
   const topicTextareaRef = useRef(null);
 
-  const topics = [
-    "seed patents and ownership",
-    "labour conditions & modern slavery",
-    "modern agriculture & biodiversity loss",
-    "local & global food chains",
-    "nature - culture: traditions and progress",
-    "choose your own",
-  ];
+  const topicNames = [...topicData.topics, "choose your own"];
 
   // useEffect hook to listen for changes in props.currentTopic
   useEffect(() => {
@@ -27,7 +21,7 @@ function Topics(props) {
   // Function to set selectedTopic and focus on textarea if needed
   function selectTopic(topic) {
     // Check if the topic is in the predefined list or not
-    const topicExists = topics.some(
+    const topicExists = topicNames.some(
       (t) => t.toLowerCase() === topic.toLowerCase()
     );
 
@@ -60,9 +54,17 @@ function Topics(props) {
       // Current topic exists which means we are changing settings
       setDisplayWarning(true);
     } else {
-      const topic = getTopic();
-      props.onContinueForward({ topic });
+      const topicName = getTopic();
+      props.onContinueForward({ topic: {
+        name: topicName,
+        prompt: buildTopicPrompt(topicName)
+      } });
     }
+  }
+
+  function buildTopicPrompt(topic){
+    const prompt = topicData.system.replace("[TOPIC]", topic);
+    return prompt;
   }
 
   function getTopic() {
@@ -84,7 +86,7 @@ function Topics(props) {
       {displayWarning ? (
         <ResetWarning
           message="changing settings"
-          onReset={() => props.onReset(getTopic())}
+          onReset={() => props.onReset({name: getTopic(), prompt: buildTopicPrompt(getTopic())})}
           onCancel={props.onCancel}
         />
       ) : (
@@ -97,7 +99,7 @@ function Topics(props) {
               justifyContent: "start",
             }}
           >
-            {topics.map((topic, index) => (
+            {topicNames.map((topic, index) => (
               <button
                 key={index}
                 className={(selectedTopic === topic ? "selected ": "") + "outline-button wide-button"}
