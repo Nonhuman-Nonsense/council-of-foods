@@ -19,7 +19,8 @@ function Output({
   setCanGoForward,
   setCanGoBack,
   setIsReadyToStart,
-  setCanRaiseHand
+  setCanRaiseHand,
+  isReadyToStart,
 }) {
   const [actualMessageIndex, setActualMessageIndex] = useState(0);
   const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
@@ -28,28 +29,33 @@ function Output({
   const [isFoundMessage, setIsFoundMessage] = useState(false);
   const [pausedInBreak, setPausedInBreak] = useState(false);
 
+  const hiddenStyle = { visibility: "hidden" };
+
   useEffect(() => {
-    if(currentMessageIndex === 0){
+    if (currentMessageIndex === 0) {
       setCanGoBack(false);
-    }else{
+    } else {
       setCanGoBack(true);
     }
-    if(currentMessageIndex < textMessages.length - 1 &&
-      audioMessages.find((a) => a.id === textMessages[currentMessageIndex + 1].id)
-    ){
+    if (
+      currentMessageIndex < textMessages.length - 1 &&
+      audioMessages.find(
+        (a) => a.id === textMessages[currentMessageIndex + 1].id
+      )
+    ) {
       setCanGoForward(true);
-    }else{
+    } else {
       setCanGoForward(false);
     }
   }, [currentMessageIndex, textMessages, audioMessages]);
 
   useEffect(() => {
-    if(currentMessageIndex === actualMessageIndex){
+    if (currentMessageIndex === actualMessageIndex) {
       setCanRaiseHand(true);
-    }else{
+    } else {
       setCanRaiseHand(false);
     }
-  },[actualMessageIndex,currentMessageIndex]);
+  }, [actualMessageIndex, currentMessageIndex]);
 
   useEffect(() => {
     if (currentTextMessage && currentAudioMessage) {
@@ -97,11 +103,6 @@ function Output({
   }, [skipBackward]);
 
   useEffect(() => {
-    console.log("Text messages: ", textMessages);
-    console.log("Audio messages: ", audioMessages);
-
-    console.log("Looking for text with index: ", currentMessageIndex);
-
     findTextAndAudio();
   }, [textMessages, audioMessages]);
 
@@ -163,8 +164,6 @@ function Output({
 
   function handleInterjection() {
     // Define what to do when an interjection is encountered
-    console.log("Start audio recording et.c.");
-
     onIsWaitingToInterject({ isWaiting: false, isReadyToInterject: true });
   }
 
@@ -178,9 +177,9 @@ function Output({
 
     //If the audio has ended, wait a bit before proceeding
     betweenTimer.current = setTimeout(() => {
-      if(!isPausedRef.current){
+      if (!isPausedRef.current) {
         proceedToNextMessage();
-      }else{
+      } else {
         setPausedInBreak(true);
       }
     }, 1000);
@@ -188,26 +187,31 @@ function Output({
   //Make sure to empty this timer on component unmount
   //Incase someone restarts the counsil in a break etc.
   useEffect(() => {
-  // The empty the betweenTimer on unmount
-  return () => {clearTimeout(betweenTimer.current)};
+    // The empty the betweenTimer on unmount
+    return () => {
+      clearTimeout(betweenTimer.current);
+    };
   }, []);
 
   //If at any time we were paused in a break between messages
   //We need to proceed manually
   useEffect(() => {
-    if(!isPaused && pausedInBreak){
+    if (!isPaused && pausedInBreak) {
       proceedToNextMessage();
       setPausedInBreak(false);
     }
-  },[isPaused, pausedInBreak]);
+  }, [isPaused, pausedInBreak]);
 
   return (
     <>
-      <TextOutput
-        currentTextMessage={currentTextMessage}
-        currentAudioMessage={currentAudioMessage}
-        isPaused={isPaused}
-      />
+      <div style={!isReadyToStart ? hiddenStyle : {}}>
+        <TextOutput
+          currentTextMessage={currentTextMessage}
+          currentAudioMessage={currentAudioMessage}
+          isPaused={isPaused}
+          style={!isReadyToStart ? hiddenStyle : {}}
+        />
+      </div>
       <AudioOutput
         currentAudioMessage={currentAudioMessage}
         onFinishedPlaying={handleOnFinishedPlaying}
