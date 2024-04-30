@@ -3,18 +3,20 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
+    "@babel/plugin-transform-private-property-in-object": "^7.24.1",
     "@fortawesome/fontawesome-svg-core": "^6.5.1",
     "@fortawesome/free-solid-svg-icons": "^6.5.1",
     "@fortawesome/react-fontawesome": "^0.2.0",
     "@testing-library/jest-dom": "^5.17.0",
     "@testing-library/react": "^13.4.0",
     "@testing-library/user-event": "^13.5.0",
+    "@types/dom-speech-recognition": "^0.0.4",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-scripts": "5.0.1",
+    "react-speech-recognition": "^3.10.0",
     "socket.io-client": "^4.7.5",
-    "web-vitals": "^2.1.4",
-    "@babel/plugin-transform-private-property-in-object": "^7.24.1"
+    "web-vitals": "^2.1.4"
   },
   "proxy": "http://localhost:3001",
   "scripts": {

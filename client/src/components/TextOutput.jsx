@@ -11,18 +11,20 @@ function TextOutput({ currentTextMessage, currentAudioMessage, isPaused }) {
   const [wasPaused, setWasPaused] = useState(false);
   const timerId = useRef(null);
 
+  useEffect(() => {});
+
   useEffect(() => {
-    if(isPaused){
+    if (isPaused) {
       clearTimeout(timerId.current);
       setRemainingTime(currentSnippetDelay - (Date.now() - snippetStartTime));
       setWasPaused(true);
-    }else if(wasPaused){
+    } else if (wasPaused) {
       setWasPaused(false);
       setCurrentSnippetDelay(remainingTime);
       setSnippetStartTime(Date.now());
       const sentences = currentTextMessage?.text.split(
         /(?<=[.!?])(?=\s+(?![0-9]))/
-      )
+      );
       //Don't set a timer if we are on the last snippet
       if (currentSnippetIndex < sentences.length - 1) {
         timerId.current = setTimeout(() => {
@@ -32,7 +34,7 @@ function TextOutput({ currentTextMessage, currentAudioMessage, isPaused }) {
         }, remainingTime);
       }
     }
-  },[isPaused])
+  }, [isPaused]);
 
   // Reset the snippet index and snippet when a new message is received
   useEffect(() => {
@@ -95,6 +97,8 @@ function TextOutput({ currentTextMessage, currentAudioMessage, isPaused }) {
     width: "70%",
     position: "absolute",
     bottom: "50px",
+    left: "50%",
+    transform: "translateX(-50%)",
   };
 
   return (
