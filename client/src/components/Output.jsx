@@ -66,6 +66,8 @@ function Output({
 
   // Emit currentMessageIndex + 1 to parent for invitation message index
   useEffect(() => {
+    console.log("Sending index: ", currentMessageIndex + 1);
+
     onIsRaisedHand(currentMessageIndex + 1);
   }, [isRaisedHand]);
 
@@ -103,6 +105,8 @@ function Output({
   }, [skipBackward]);
 
   useEffect(() => {
+    console.log("Updating textMessages: ", textMessages);
+
     findTextAndAudio();
   }, [textMessages, audioMessages]);
 
@@ -152,9 +156,12 @@ function Output({
     if (currentIndex >= maxIndex) {
       console.log("Reached the end of the message list.");
 
-      if (currentMessage.purpose === "invitation") {
+      console.log("Current message: ", currentMessage);
+
+      if (currentMessage && currentMessage.purpose === "invitation") {
         handleInterjection();
       }
+
       return;
     }
 
