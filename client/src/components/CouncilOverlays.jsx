@@ -39,7 +39,7 @@ function CouncilOverlays({ activeOverlay, options, removeOverlay }) {
       case "settings":
         return (
           <Topics
-            currentTopic={options.topic}
+            currentTopic={options.topic.name}
             onReset={options.onReset}
             onCancel={removeOverlay}
           />

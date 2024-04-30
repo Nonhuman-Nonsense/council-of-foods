@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import foodData from "../foods.json";
+import foodData from "../settings/foods.json";
 import FoodButton from "./FoodButton";
 import FoodInfo from "./FoodInfo";
 import { capitalizeFirstLetter } from "../utils";
@@ -42,34 +42,29 @@ function Foods({ topic, onContinueForward }) {
   }
 
   const discriptionStyle = {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
     transition: "opacity 0.5s ease",
     opacity: currentFood === null ? 1 : 0,
     pointerEvents: currentFood === null ? "all" : "none",
   };
 
   return (
-    <div className="wrapper">
-      <div className="text-container">
-        <div>
+    <div style={{display: "flex", flexDirection: "column", height: "85%", justifyContent: "space-between"}}>
+        <div style={{height: "100%", display: "flex", flexDirection: "column"}}>
           <h1>THE FOODS</h1>
-          <div style={{ position: "relative" }}>
+          <div style={{ position: "relative", height: "100%" }}>
             <div style={discriptionStyle}>
               <p>
                 Please select 2-5 foods
                 <br /> to participate in the discussion about:
               </p>
-              <h4>{capitalizeFirstLetter(topic)}</h4>
+              <h4>{capitalizeFirstLetter(topic.name)}</h4>
             </div>
             <div
               style={{
                 position: "absolute",
                 top: 0,
-                left: 0,
-                right: 0,
+                height:"100%",
+                overflow: "scroll",
                 transition: "opacity 0.5s ease",
                 opacity: currentFood !== null ? 1 : 0,
                 pointerEvents: currentFood !== null ? "all" : "none",
@@ -87,7 +82,7 @@ function Foods({ topic, onContinueForward }) {
                 food={food}
                 onMouseEnter={() => handleOnMouseEnter(food)}
                 onMouseLeave={handleOnMouseLeave}
-                onSelectFood={selectFood}
+                onSelectFood={(food === waterFood ? undefined : selectFood)}
                 onDeselectFood={deselectFood}
                 isSelected={selectedFoods.includes(food)}
                 selectLimitReached={selectedFoods.length >= maxFoods}
@@ -109,8 +104,7 @@ function Foods({ topic, onContinueForward }) {
             Start
           </button>
         </div>
-      </div>
-    </div>
+        </div>
   );
 }
 
