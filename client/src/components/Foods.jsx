@@ -14,8 +14,8 @@ function Foods({ topic, onContinueForward }) {
   );
   const [currentFood, setCurrentFood] = useState(null);
 
-  const minFoods = 2;
-  const maxFoods = 5;
+  const minFoods = 2 + 1; // 2 plus water
+  const maxFoods = 5 + 1; // 5 plus water
 
   function continueForward() {
     if (selectedFoods.length >= minFoods && selectedFoods.length <= maxFoods) {
@@ -80,7 +80,7 @@ function Foods({ topic, onContinueForward }) {
           </div>
         </div>
         <div>
-          <div style={{display: "flex"}}>
+          <div style={{ display: "flex" }}>
             {foods.map((food) => (
               <FoodButton
                 key={food.name}
