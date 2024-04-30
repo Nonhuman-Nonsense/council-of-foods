@@ -47,15 +47,6 @@ function Topics(props) {
     }
   }
 
-  // Function to customize button style based on selected topic
-  function topicButtonStyle(topic) {
-    return {
-      marginBottom: "15px",
-      borderColor:
-        selectedTopic === topic ? "white" : "rgba(255, 255, 255, 0.5)",
-    };
-  }
-
   // Function to handle custom topic input changes
   function handleInputTopic(e) {
     const newTopic = e.target.value;
@@ -109,9 +100,9 @@ function Topics(props) {
             {topics.map((topic, index) => (
               <button
                 key={index}
-                className="outline-button wide-button"
+                className={(selectedTopic === topic ? "selected ": "") + "outline-button wide-button"}
                 onClick={() => selectTopic(topic)}
-                style={topicButtonStyle(topic)}
+                style={{marginBottom: "15px"}}
               >
                 {topic}
               </button>
