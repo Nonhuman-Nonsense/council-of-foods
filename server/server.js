@@ -41,18 +41,18 @@ io.on("connection", (socket) => {
     characters: {},
   };
 
-  socket.on("pause_conversation", () => {
-    isPaused = true;
+  // socket.on("pause_conversation", () => {
+    // isPaused = true;
     // console.log('Conversation has been paused');
-  });
+  // });
 
   // Add a new event to resume the conversation
-  socket.on("resume_conversation", (options) => {
-    conversationOptions = options;
+  // socket.on("resume_conversation", (options) => {
+    // conversationOptions = options;
     // console.log('Conversation has been resumed');
-    isPaused = false;
-    handleConversationTurn();
-  });
+    // isPaused = false;
+    // handleConversationTurn();
+  // });
 
   socket.on("raise_hand", async (handRaisedOptions) => {
     //When hand is raised, ignore all incoming messages until we have a human message
@@ -63,16 +63,19 @@ io.on("connection", (socket) => {
         "[NAME]",
         conversationOptions.humanName
       ),
-      handRaisedOptions.index
+      handRaisedOptions.index,
+      100//length
     );
   });
 
   socket.on("lower_hand", async () => {
+
     await chairInterjection(
       globalOptions.neverMindPrompt.replace(
         "[NAME]",
         conversationOptions.humanName
-      )
+      ),
+      100//length
     );
 
     handRaised = false;
@@ -81,37 +84,28 @@ io.on("connection", (socket) => {
     handleConversationTurn();
   });
 
-  const chairInterjection = async (interjectionPrompt, index) => {
+  const chairInterjection = async (interjectionPrompt, index, length) => {
     try {
       const thisConversationCounter = conversationCounter;
       //Chairman is always first character
       const chair = conversationOptions.characters[0];
       // Generate response using GPT-4 for AI characters
       // Build the array of messages for the completion request
-      const messages = [];
+      let messages = buildMessageStack(chair, index - 1);
 
-      // System message for overall context
+      //remove the last message, which is just the name of the character again
+      messages.pop();
+
+      //inject the system prompt
       messages.push({
         role: "system",
-        content: `${conversationOptions.topic}\n\n${chair.prompt}`,
+        content: interjectionPrompt
       });
 
-      // Add previous messages as separate user objects
-      conversation.forEach((msg) => {
-        messages.push({
-          role: chair.name == msg.speaker ? "assistant" : "user",
-          content: msg.text,
-        });
-      });
-
-      messages.push({
-        role: "system",
-        content: interjectionPrompt,
-      });
-
+      // Prepare the completion request
       const completion = await openai.chat.completions.create({
         model: globalOptions.gptModel,
-        max_tokens: 100,
+        max_tokens: length,
         temperature: globalOptions.temperature,
         frequency_penalty: globalOptions.frequencyPenalty,
         presence_penalty: globalOptions.presencePenalty,
@@ -121,7 +115,7 @@ io.on("connection", (socket) => {
       // Extract and clean up the response
       let response = completion.choices[0].message.content.trim();
 
-      if (thisConversationCounter != conversationCounter) return;
+      if(thisConversationCounter != conversationCounter) return;
 
       //Update the message at the desired index
       conversation[index] = {
@@ -159,6 +153,39 @@ io.on("connection", (socket) => {
     }
   };
 
+  const buildMessageStack = function(speaker, upToIndex){
+    const messages = [];
+
+    // System message for overall context
+    messages.push({
+        role: "system",
+        content: `${conversationOptions.topic}\n\n${speaker.prompt}`.trim()
+    });
+
+    // Add previous messages as separate user objects
+    conversation.forEach((msg) => {
+      if(msg.type == 'skipped') return;//skip certain messages
+      messages.push({
+        role: (speaker.name == msg.speaker ? "assistant" : "user"),
+        content: msg.speaker + ": " + msg.text//We add the name of the character before each message, so that they will be less confused about who said what.
+      });
+    });
+
+    //Cut everything after the submitted index
+    if(upToIndex){
+      messages = messages.slice(0, upToIndex);
+    }
+
+    //Push a message with the character name at the end of the conversation, in the hope that the character will understand who they are and not repeat their name
+    //Works most of the time.
+    messages.push({
+        role: "assistant",
+        content: speaker.name + ": "
+    });
+
+    return messages;
+  }
+
   socket.on("submit_human_message", (message) => {
     //Add it to the stack, and then start the conversation again
     // message.type = 'human';
@@ -178,6 +205,10 @@ io.on("connection", (socket) => {
     isPaused = false;
     handRaised = false;
     handleConversationTurn();
+  });
+
+  socket.on('submit_injection', (message) => {
+    chairInterjection(message.text,message.index,message.length);
   });
 
   socket.on("continue_conversation", () => {
@@ -217,7 +248,7 @@ io.on("connection", (socket) => {
       if (handRaised) return;
 
       // Generate response using GPT-4 for AI characters
-      const { id, response, trimmed } = await generateTextFromGPT(
+      const { id, response, trimmed, pretrimmed } = await generateTextFromGPT(
         conversationOptions.characters[currentSpeaker]
       );
 
@@ -226,13 +257,16 @@ io.on("connection", (socket) => {
       if (handRaised) return;
       if (thisConversationCounter != conversationCounter) return;
 
+
+      let message = { id: id, speaker: conversationOptions.characters[currentSpeaker].name, text: response, trimmed: trimmed, pretrimmed: pretrimmed };
+      //If a character has completely answered for someone else, skip it, and go to the next
+      if(response == ""){
+        message.type = 'skipped';
+        console.log('Skipped a message');
+      }
+
       // Add the response to the conversation
-      conversation.push({
-        id: id,
-        speaker: conversationOptions.characters[currentSpeaker].name,
-        text: response,
-        trimmed: trimmed,
-      });
+      conversation.push(message);
 
       //A rolling index of the message number, so that audio can be played in the right order etc.
       const message_index = conversation.length - 1;
@@ -245,7 +279,13 @@ io.on("connection", (socket) => {
       const voice = conversationOptions.characters[currentSpeaker].voice
         ? conversationOptions.characters[currentSpeaker].voice
         : audioVoices[currentSpeaker % audioVoices.length];
-      generateAudio(id, message_index, response, voice);
+        if(message.type != 'skipped'){
+            generateAudio(id, message_index, response, voice);
+        }else{
+          //If we have an empty message, removed because this character pretended to be someone else
+          //Send down a message saying this the audio of this message should be skipped
+          socket.emit('audio_update', {id:message.id, message_index: message_index, type: 'skipped'});
+        }
 
       // Check for conversation end
       if (
@@ -295,21 +335,9 @@ io.on("connection", (socket) => {
   const generateTextFromGPT = async (speaker) => {
     try {
       // Build the array of messages for the completion request
-      const messages = [];
+      const messages = buildMessageStack(speaker);
 
-      // System message for overall context
-      messages.push({
-        role: "system",
-        content: `${conversationOptions.topic}\n\n${speaker.prompt}`,
-      });
-
-      // Add previous messages as separate user objects
-      conversation.forEach((msg) => {
-        messages.push({
-          role: speaker.name == msg.speaker ? "assistant" : "user",
-          content: msg.text,
-        });
-      });
+      console.log(messages);
 
       // Prepare the completion request
       // console.log(conversation.length);
@@ -326,10 +354,22 @@ io.on("connection", (socket) => {
       // Extract and clean up the response
       let response = completion.choices[0].message.content.trim();
 
-      //If model has already stopped, don't worry about trying to crop it to a proper sentence
+      console.log(response);
+
+      let pretrimmedContent;
+      //If the prompt starts with the character name, remove it
+      if(response.startsWith(speaker.name + ":")){
+        //save the trimmed content, for debugging the prompts
+        pretrimmedContent = response.substring(0, speaker.name.length + 1);
+        //remove the name, and any additional whitespace created by this
+        response = response.substring(speaker.name.length + 1).trim();
+      }
+
       let trimmedContent;
+      let originalResponse = response;
+
+      //If model has already stopped, don't worry about trying to crop it to a proper sentence
       if (completion.choices[0].finish_reason != "stop") {
-        let originalResponse = response;
         //Remove the last half sentence
         if (globalOptions.trimSentance) {
           response = response.replace(/\s+$/, ""); //not sure what this is doing?
@@ -348,13 +388,18 @@ io.on("connection", (socket) => {
             response = response.substring(0, lastNewLineIndex);
           }
         }
+      }
 
-        if (!globalOptions.showTrimmed) {
-          trimmedContent = undefined;
+      //if we find someone elses name in there, trim it
+      for (var i = 0; i < conversationOptions.characters.length; i++) {
+        if(i == currentSpeaker) continue;//Don't cut things from our own name
+        if(response.indexOf(conversationOptions.characters[i].name + ":") != -1){
+          response = response.substring(0, response.indexOf(conversationOptions.characters[i].name + ":")).trim();
+          trimmedContent = originalResponse.substring(response.indexOf(conversationOptions.characters[i].name + ":"));
         }
       }
 
-      return { id: completion.id, response: response, trimmed: trimmedContent };
+      return { id: completion.id, response: response, trimmed: trimmedContent, pretrimmed: pretrimmedContent };
     } catch (error) {
       console.error("Error during API call:", error);
       throw error;
