@@ -122,11 +122,12 @@ function Council({ options }) {
   }
 
   function raiseHand() {
-    const handRaisedOptions = {
-      index: invitationIndex,
-    };
-
-    socketRef.current.emit("raise_hand", handRaisedOptions);
+    // Use a functional update to ensure you have the latest state
+    setInvitationIndex((currentInvitationIndex) => {
+      console.log("Index is: ", currentInvitationIndex);
+      socketRef.current.emit("raise_hand", { index: currentInvitationIndex });
+      return currentInvitationIndex; // return the current state without changing it
+    });
   }
 
   useEffect(() => {
@@ -178,8 +179,9 @@ function Council({ options }) {
     setIsRaisedHand((prev) => !prev);
   }
 
-  function handleOnIsRaisedHand(invitatationIndex) {
-    setInvitationIndex(invitatationIndex);
+  function handleOnIsRaisedHand(invitationIndex) {
+    console.log("Setting index: ", invitationIndex);
+    setInvitationIndex(() => invitationIndex);
   }
 
   function displayResetWarning() {
