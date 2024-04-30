@@ -82,7 +82,7 @@ function Foods({ topic, onContinueForward }) {
                 food={food}
                 onMouseEnter={() => handleOnMouseEnter(food)}
                 onMouseLeave={handleOnMouseLeave}
-                onSelectFood={(food == waterFood ? undefined : selectFood)}
+                onSelectFood={(food === waterFood ? undefined : selectFood)}
                 onDeselectFood={deselectFood}
                 isSelected={selectedFoods.includes(food)}
                 selectLimitReached={selectedFoods.length >= maxFoods}
