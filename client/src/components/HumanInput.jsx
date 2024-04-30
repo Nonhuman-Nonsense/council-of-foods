@@ -1,75 +1,70 @@
-import React, { useState } from "react";
+import { faUserTimes } from "@fortawesome/free-solid-svg-icons";
+import React, { useState, useEffect } from "react";
+import SpeechRecognition, {
+  useSpeechRecognition,
+} from "react-speech-recognition";
 
-function HumanInput({ onInputNewTopic, onStopRecording, onSubmitNewTopic }) {
-  const [recording, setRecording] = useState(false);
-  const [mediaRecorder, setMediaRecorder] = useState(null);
+function HumanInput({ onSubmitNewTopic }) {
+  const [isRecording, setIsRecording] = useState(false);
 
-  // Function to start recording
-  const startRecording = () => {
-    navigator.mediaDevices
-      .getUserMedia({ audio: true })
-      .then((stream) => {
-        const newMediaRecorder = new MediaRecorder(stream);
-        setMediaRecorder(newMediaRecorder);
+  // Accessing the speech recognition features from the custom hook
+  const {
+    transcript,
+    listening,
+    resetTranscript,
+    browserSupportsSpeechRecognition,
+  } = useSpeechRecognition();
 
-        newMediaRecorder.start();
-        setRecording(true);
-
-        let audioChunks = [];
-        newMediaRecorder.ondataavailable = (event) => {
-          audioChunks.push(event.data);
-        };
-
-        newMediaRecorder.onstop = () => {
-          const audioBlob = new Blob(audioChunks, { type: "audio/mp4" });
-          const audioUrl = URL.createObjectURL(audioBlob);
-
-          console.log("Stopping recording...");
-
-          // Optionally handle the audio blob by sending it to a parent component
-          onStopRecording(audioUrl); // Sending the URL for the audio blob to the parent
-          audioChunks = []; // Clear chunks
-        };
-      })
-      .catch((error) => {
-        console.error("Error accessing the microphone:", error);
-      });
+  const micStyle = {
+    position: "fixed",
+    bottom: "-5%",
+    left: "50%",
+    transform: "translateX(-50%)",
+    width: "12%",
   };
 
-  // Function to stop recording
-  const stopRecording = () => {
-    if (mediaRecorder) {
-      mediaRecorder.stop();
-      setRecording(false);
+  useEffect(() => {
+    if (!listening && transcript) {
+      // User has recorded and there is a new topic
+      setTimeout(() => {
+        onSubmitNewTopic(transcript);
+      }, 1000);
     }
-  };
+  }, [listening]);
 
-  function handleOnInput(e) {
-    onInputNewTopic(e.target.value);
+  // Effect to manage speech recognition state
+  useEffect(() => {
+    if (browserSupportsSpeechRecognition) {
+      if (isRecording) {
+        SpeechRecognition.startListening();
+      } else {
+        SpeechRecognition.stopListening();
+      }
+    }
+  }, [isRecording]);
+
+  function handleStartStopRecording() {
+    setIsRecording(!isRecording); // Toggle the recording state
   }
 
   return (
-    <div style={{ pointerEvents: "auto" }}>
+    <div>
       <textarea
-        onInput={handleOnInput}
+        value={transcript}
         rows="2"
-        placeholder="your input"
+        placeholder="Speak your mind"
+        readOnly
       />
-      <div>
-        <button
-          onClick={startRecording}
-          disabled={recording}
-        >
-          Start Recording
+      <div style={{ pointerEvents: "auto" }}>
+        <button onClick={handleStartStopRecording}>
+          {!isRecording ? "Start recording" : "Stop recording"}
         </button>
-        <button
-          onClick={stopRecording}
-          disabled={!recording}
-        >
-          Stop Recording
-        </button>
-        <button onClick={onSubmitNewTopic}>Submit</button>
+        <button onClick={() => onSubmitNewTopic(transcript)}>Submit</button>
       </div>
+      <img
+        src="/images/mic.png"
+        style={micStyle}
+      />
     </div>
   );
 }

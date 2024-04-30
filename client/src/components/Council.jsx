@@ -21,20 +21,19 @@ function Council({ options }) {
   const [isPaused, setPausePlay] = useState(false);
   const [skipForward, setSkipForward] = useState(false);
   const [skipBackward, setSkipBackward] = useState(false);
-  const [newTopic, setNewTopic] = useState("");
   const [currentSpeakerName, setCurrentSpeakerName] = useState("");
   const [invitationIndex, setInvitationIndex] = useState(0);
   const [isWaitingToInterject, setIsWaitingToInterject] = useState(false);
   const [isInterjecting, setIsInterjecting] = useState(false);
   const [bumpIndex, setBumpIndex] = useState(false);
-  const audioContext = useRef(null);//The Audiocontext object
+  const audioContext = useRef(null); // The AudioContext object
   const [canGoBack, setCanGoBack] = useState(false);
   const [canGoForward, setCanGoForward] = useState(false);
   const [canRaiseHand, setCanRaiseHand] = useState(false);
   const [isReadyToStart, setIsReadyToStart] = useState(false);
 
   if (audioContext.current === null) {
-    const AudioContext = window.AudioContext || window.webkitAudioContext;//cross browser
+    const AudioContext = window.AudioContext || window.webkitAudioContext; //cross browser
     audioContext.current = new AudioContext();
   }
 
@@ -68,9 +67,11 @@ function Council({ options }) {
 
     socketRef.current.on("audio_update", (audioMessage) => {
       (async () => {
-        //decode audio data immediately, because we can only do this one, then buffer is detached
-        if(audioMessage.audio){
-          const buffer = await audioContext.current.decodeAudioData(audioMessage.audio);
+        // Decode audio data immediately, because we can only do this once, then buffer is detached
+        if (audioMessage.audio) {
+          const buffer = await audioContext.current.decodeAudioData(
+            audioMessage.audio
+          );
           audioMessage.audio = buffer;
         }
         setAudioMessages((prevAudioMessages) => [
@@ -86,18 +87,18 @@ function Council({ options }) {
   }, []);
 
   useEffect(() => {
-    if(isPaused){
+    if (isPaused) {
       audioContext.current.suspend();
-    }else if(audioContext.current.state === "suspended"){
+    } else if (audioContext.current.state === "suspended") {
       audioContext.current.resume();
     }
-  },[isPaused]);
+  }, [isPaused]);
 
   useEffect(() => {
-    if(activeOverlay !== "" && !isPaused){
+    if (activeOverlay !== "" && !isPaused) {
       setPausePlay(true);
     }
-  },[activeOverlay])
+  }, [activeOverlay]);
 
   function handleOnSkipBackward() {
     setSkipBackward(!skipBackward);
@@ -120,11 +121,12 @@ function Council({ options }) {
   }
 
   function raiseHand() {
-    const handRaisedOptions = {
-      index: invitationIndex,
-    };
-
-    socketRef.current.emit("raise_hand", handRaisedOptions);
+    // Use a functional update to ensure you have the latest state
+    setInvitationIndex((currentInvitationIndex) => {
+      console.log("Index is: ", currentInvitationIndex);
+      socketRef.current.emit("raise_hand", { index: currentInvitationIndex });
+      return currentInvitationIndex; // return the current state without changing it
+    });
   }
 
   useEffect(() => {
@@ -160,26 +162,25 @@ function Council({ options }) {
     // socketRef.current.emit("lower_hand", handLoweredOptions);
   }
 
-  function handleOnSubmitNewTopic() {
-    setIsInterjecting(false);
-    setIsRaisedHand(false);
-
+  function handleOnSubmitNewTopic(newTopic) {
     socketRef.current.emit("submit_human_message", { text: newTopic });
+    setBumpIndex(!bumpIndex);
+
+    setIsReadyToStart(false);
 
     // TODO: Improve this...
-    setBumpIndex(!bumpIndex);
+
+    setIsInterjecting(false);
+    setIsRaisedHand(false);
   }
 
   function handleOnRaiseHandOrNevermind() {
     setIsRaisedHand((prev) => !prev);
   }
 
-  function handleOnIsRaisedHand(invitatationIndex) {
-    setInvitationIndex(invitatationIndex);
-  }
-
-  function handleOnInputNewTopic(newTopic) {
-    setNewTopic(newTopic);
+  function handleOnIsRaisedHand(invitationIndex) {
+    console.log("Setting index: ", invitationIndex);
+    setInvitationIndex(() => invitationIndex);
   }
 
   function displayResetWarning() {
@@ -250,15 +251,10 @@ function Council({ options }) {
           />
         ))}
       </div>
-      {!isReadyToStart &&
-        <Loading />
-      }
+      {!isReadyToStart && <Loading />}
       <>
         {isInterjecting && (
-          <HumanInput
-            onInputNewTopic={handleOnInputNewTopic}
-            onSubmitNewTopic={handleOnSubmitNewTopic}
-          />
+          <HumanInput onSubmitNewTopic={handleOnSubmitNewTopic} />
         )}
         <Output
           textMessages={textMessages}
@@ -278,9 +274,10 @@ function Council({ options }) {
           setCanGoBack={setCanGoBack}
           setIsReadyToStart={setIsReadyToStart}
           setCanRaiseHand={setCanRaiseHand}
+          isReadyToStart={isReadyToStart}
         />
       </>
-      {isReadyToStart &&
+      {isReadyToStart && (
         <ConversationControls
           onSkipBackward={handleOnSkipBackward}
           onSkipForward={handleOnSkipForward}
@@ -295,15 +292,15 @@ function Council({ options }) {
           canGoForward={canGoForward}
           canRaiseHand={canRaiseHand}
         />
-      }
+      )}
       <Overlay isActive={activeOverlay !== ""}>
-        {activeOverlay !== "" &&
+        {activeOverlay !== "" && (
           <CouncilOverlays
             activeOverlay={activeOverlay}
             options={options}
             removeOverlay={removeOverlay}
-            />
-          }
+          />
+        )}
       </Overlay>
     </>
   );
