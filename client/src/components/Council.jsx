@@ -204,6 +204,10 @@ function Council({ options }) {
     }
   }
 
+  function mapFoodIndex(total, index){
+    return (Math.ceil(total / 2) + index - 1) % total;
+  }
+
   const bottomShade = {
     width: "100%",
     height: "40%",
@@ -238,7 +242,7 @@ function Council({ options }) {
           <FoodItem
             key={food.name}
             food={food}
-            index={index}
+            index={mapFoodIndex(foods.length,index)}
             total={foods.length}
             isPaused={isPaused}
             screenWidth={screenWidth}
