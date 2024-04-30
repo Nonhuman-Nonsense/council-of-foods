@@ -32,6 +32,7 @@ function FoodButton({
     display: "flex",
     justifyContent: "center",
     alignItems: "center",
+    backgroundColor: (isSelected ? "rgba(0,0,0,0.7)" : "transparent"),
     cursor:
       isModerator || (selectLimitReached && !isSelected)
         ? "default"
