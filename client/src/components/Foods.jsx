@@ -4,9 +4,12 @@ import FoodButton from "./FoodButton";
 import FoodInfo from "./FoodInfo";
 import { capitalizeFirstLetter } from "../utils";
 
+//We need to save the original water prompt, otherwise it is replace by some weird React black magic
+const originalWaterPrompt = foodData.foods[0].prompt;
+
 function Foods({ topic, onContinueForward }) {
   const foods = foodData.foods; // Make sure this is defined before using it to find 'water'
-  const waterFood = foods.find((food) => food.name === "water"); // Find the 'water' food item
+  const waterFood = foods.find((food) => food.name === "Water"); // Find the 'water' food item
 
   // Initialize selectedFoods with the 'water' item if it exists
   const [selectedFoods, setSelectedFoods] = useState(
@@ -19,7 +22,17 @@ function Foods({ topic, onContinueForward }) {
 
   function continueForward() {
     if (selectedFoods.length >= minFoods && selectedFoods.length <= maxFoods) {
-      onContinueForward({ foods: selectedFoods });
+
+      //Modify waters invitation prompt, with the name of the selected participants
+      let participants = "";
+      selectedFoods.forEach(function (food, index) {
+        if(index != 0) participants += food.name  + ", ";
+      });
+      participants = participants.substring(0, participants.length - 2);
+      let replacedFoods = selectedFoods;
+      replacedFoods[0].prompt = originalWaterPrompt.replace("[FOODS]", participants);
+
+      onContinueForward({ foods: replacedFoods });
     }
   }
 
