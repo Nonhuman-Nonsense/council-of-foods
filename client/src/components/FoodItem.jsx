@@ -88,7 +88,7 @@ function FoodItem({ food, index, total, screenWidth, currentSpeakerName, isPause
   return (
     <div style={foodItemStyle(index, total)}>
       {
-        ["Potato", "Beer", "Water", "Banana", "Tomato"].includes(food.name) ?
+        ["Potato", "Beer", "Water", "Banana", "Tomato", "Meat", "Bean"].includes(food.name) ?
         <FoodAnimation food={food} styles={responsiveStyle} currentSpeakerName={currentSpeakerName} isPaused={isPaused} /> :
         <img
         src={`/images/foods/${food.name}-shadow.png`}
