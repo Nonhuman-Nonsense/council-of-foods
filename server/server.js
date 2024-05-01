@@ -240,6 +240,9 @@ io.on("connection", (socket) => {
 
   socket.on("start_conversation", (options) => {
     conversationOptions = options;
+    for (let i = 0; i < conversationOptions.characters.length; i++) {
+      conversationOptions.characters[i].name = toTitleCase(conversationOptions.characters[i].name);
+    }
     conversation = [];
     conversationCount = 0;
     currentSpeaker = 0;
@@ -274,7 +277,7 @@ io.on("connection", (socket) => {
       }
       let bias = {};
       for (let l = 0; l < forbidden_tokens.length; l++) {
-        bias[forbidden_tokens[l]] = -40;
+        bias[forbidden_tokens[l]] = globalOptions.logitBias;
       }
       biases[i] = bias;
     }
@@ -393,7 +396,7 @@ io.on("connection", (socket) => {
         frequency_penalty: globalOptions.frequencyPenalty,
         presence_penalty: globalOptions.presencePenalty,
         stop: "\n---",
-        logit_bias: logit_biases[currentSpeaker],
+        logit_bias: (conversation.length == 0 ? null : logit_biases[currentSpeaker]),//no logit bias on first message by water
         messages: messages,
       });
 
@@ -461,3 +464,7 @@ io.on("connection", (socket) => {
 httpServer.listen(3001, () => {
   console.log("Listening on *:3001");
 });
+
+function toTitleCase(string){
+  return string.toLowerCase().split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+}

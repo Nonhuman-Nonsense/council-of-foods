@@ -1,5 +1,6 @@
 import React from "react";
 import FoodAnimation from "./FoodAnimation";
+import { filename } from "../utils";
 
 function FoodItem({ food, index, total, screenWidth, currentSpeakerName, isPaused }) {
   const foodImageStyle = {
@@ -48,8 +49,8 @@ function FoodItem({ food, index, total, screenWidth, currentSpeakerName, isPause
   const foodItemStyle = (index, total) => {
     const left = (index / (total - 1)) * 100;
 
-    const topMax = 3.25; // The curvature
-    const topOffset = 13; // Vertical offset to adjust the curve's baseline
+    const topMax = 3.0; // The curvature
+    const topOffset = 14; // Vertical offset to adjust the curve's baseline
 
     let middleIndex;
     let isEven = total % 2 === 0;
@@ -88,10 +89,10 @@ function FoodItem({ food, index, total, screenWidth, currentSpeakerName, isPause
   return (
     <div style={foodItemStyle(index, total)}>
       {
-        ["Potato", "Beer", "Water", "Banana", "Tomato", "Meat", "Bean"].includes(food.name) ?
+        ["Potato", "Beer", "Water", "Banana", "Tomato", "Meat", "Broad Bean", "Maize","Mushroom"].includes(food.name) ?
         <FoodAnimation food={food} styles={responsiveStyle} currentSpeakerName={currentSpeakerName} isPaused={isPaused} /> :
         <img
-        src={`/images/foods/${food.name}-shadow.png`}
+        src={`/images/foods/${filename(food.name)}-shadow.png`}
         style={responsiveStyle} />
       }
       {/* <img

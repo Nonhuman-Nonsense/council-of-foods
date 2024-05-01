@@ -5,3 +5,15 @@ export function capitalizeFirstLetter(string) {
 
   return string || "";
 }
+
+export function toTitleCase(string){
+  return string
+    .toLowerCase()
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+}
+
+export function filename(string) {
+  return string.toLowerCase().replace(/ /g,"_");
+}
