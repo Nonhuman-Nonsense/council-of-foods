@@ -393,7 +393,7 @@ io.on("connection", (socket) => {
         frequency_penalty: globalOptions.frequencyPenalty,
         presence_penalty: globalOptions.presencePenalty,
         stop: "\n---",
-        logit_bias: logit_biases[currentSpeaker],
+        logit_bias: (conversation.length == 0 ? null : logit_biases[currentSpeaker]),//no logit bias on first message by water
         messages: messages,
       });
 
