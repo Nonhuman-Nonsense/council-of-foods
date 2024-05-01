@@ -97,6 +97,7 @@ io.on('connection', (socket) => {
             temperature: options.temperature,
             frequency_penalty: options.frequencyPenalty,
             presence_penalty: options.presencePenalty,
+            stop: "\n---",
             messages: messages
         });
 
@@ -136,7 +137,7 @@ io.on('connection', (socket) => {
         if(msg.type == 'skipped') return;//skip certain messages
         messages.push({
           role: (speaker.name == msg.speaker ? "assistant" : "user"),
-          content: msg.speaker + ": " + msg.text//We add the name of the character before each message, so that they will be less confused about who said what.
+          content: msg.speaker + ": " + msg.text + "\n---"//We add the name of the character before each message, so that they will be less confused about who said what.
         });
       });
 
@@ -210,16 +211,24 @@ io.on('connection', (socket) => {
             if(handRaised) return;
 
             // Generate response using GPT-4 for AI characters
-            const {id, response, trimmed, pretrimmed} = await generateTextFromGPT(characters[currentSpeaker]);
+            let response = "";
+            let attempt = 1;
+            let output = {response: ""};
+            // Try three times
+            while(attempt < 5 && output.response == ""){
+              output = await generateTextFromGPT(characters[currentSpeaker]);
 
-            //If hand is raised or conversation is paused, just stop here, ignore this message
-            if(isPaused) return;
-            if(handRaised) return;
-            if(thisConversationCounter != conversationCounter) return;
+              //If hand is raised or conversation is paused, just stop here, ignore this message
+              if(isPaused) return;
+              if(handRaised) return;
+              if(thisConversationCounter != conversationCounter) return;
+              attempt++;
+            }
 
-            let message = { id: id, speaker: characters[currentSpeaker].name, text: response, trimmed: trimmed, pretrimmed: pretrimmed };
+            let message = { id: output.id, speaker: characters[currentSpeaker].name, text: output.response, trimmed: output.trimmed, pretrimmed: output.pretrimmed };
+
             //If a character has completely answered for someone else, skip it, and go to the next
-            if(response == ""){
+            if(message.text == ""){
               message.type = 'skipped';
               console.log('Skipped a message');
             }
@@ -237,7 +246,7 @@ io.on('connection', (socket) => {
             //The rest of the conversation continues
             const voice = characters[currentSpeaker].voice ? characters[currentSpeaker].voice : audioVoices[currentSpeaker % audioVoices.length];
             if(message.type != 'skipped'){
-                generateAudio(id, message_index, response, voice);
+                generateAudio(message.id, message_index, message.text, voice);
             }else{
               //If we have an empty message, removed because this character pretended to be someone else
               //Send down a message saying this the audio of this message should be skipped
@@ -282,14 +291,13 @@ io.on('connection', (socket) => {
             const messages = buildMessageStack(speaker);
 
             // Prepare the completion request
-            // console.log(conversation.length);
-            // console.log(messages);
             const completion = await openai.chat.completions.create({
                 model: options.gptModel,
                 max_tokens: options.maxTokens,
                 temperature: options.temperature,
                 frequency_penalty: options.frequencyPenalty,
                 presence_penalty: options.presencePenalty,
+                stop: "\n---",
                 messages: messages
             });
 
@@ -312,7 +320,7 @@ io.on('connection', (socket) => {
             if(completion.choices[0].finish_reason != 'stop'){
               //Remove the last half sentence
               if(options.trimSentance){
-                response = response.replace(/\s+$/, ''); //not sure what this is doing?
+                // response = response.replace(/\s+$/, ''); //not sure what this is doing?
                 const lastPeriodIndex = response.lastIndexOf('.');
                 if (lastPeriodIndex !== -1) {
                   trimmedContent = originalResponse.substring(lastPeriodIndex + 1);
@@ -333,9 +341,10 @@ io.on('connection', (socket) => {
             //if we find someone elses name in there, trim it
             for (var i = 0; i < characters.length; i++) {
               if(i == currentSpeaker) continue;//Don't cut things from our own name
-              if(response.indexOf(characters[i].name + ":") != -1){
-                response = response.substring(0, response.indexOf(characters[i].name + ":")).trim();
-                trimmedContent = originalResponse.substring(response.indexOf(characters[i].name + ":"));
+              const nameIndex = response.indexOf(characters[i].name + ":");
+              if(nameIndex != -1 && nameIndex < 20){
+                response = response.substring(0, nameIndex).trim();
+                trimmedContent = originalResponse.substring(nameIndex);
               }
             }
 
