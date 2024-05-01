@@ -1,12 +1,12 @@
 import React from "react";
-import { capitalizeFirstLetter } from "../utils.js";
+import { toTitleCase } from "../utils.js";
 
 function FoodInfo({ food }) {
   if (!food) {
     return null;
   }
 
-  const capitalizedFoodName = capitalizeFirstLetter(food.name);
+  const capitalizedFoodName = toTitleCase(food.name);
 
   return (
     <div>

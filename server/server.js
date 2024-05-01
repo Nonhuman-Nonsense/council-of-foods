@@ -267,7 +267,7 @@ io.on("connection", (socket) => {
       let forbidden_tokens = [];
       for (var j = 0; j < conversationOptions.characters.length; j++) {
         if (i == j) continue;
-        const chars = encoding.encode(conversationOptions.characters[j].name);
+        const chars = encoding.encode(toTitleCase(conversationOptions.characters[j].name));
         for (var k = 0; k < chars.length; k++) {
           forbidden_tokens.push(chars[k]);
         }
@@ -461,3 +461,7 @@ io.on("connection", (socket) => {
 httpServer.listen(3001, () => {
   console.log("Listening on *:3001");
 });
+
+function toTitleCase(string){
+  return string.toLowerCase().split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+}

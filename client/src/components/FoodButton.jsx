@@ -1,4 +1,5 @@
 import React from "react";
+import { filename } from "../utils";
 
 function FoodButton({
   food,
@@ -11,7 +12,7 @@ function FoodButton({
 }) {
   const isModerator = onSelectFood === undefined;
 
-  const imageUrl = `/images/foods/${food.name}.png`;
+  const imageUrl = `/images/foods/${filename(food.name)}.png`;
 
   function handleClickFood() {
     if (!isModerator && (!selectLimitReached || isSelected)) {
