@@ -9,7 +9,7 @@ const originalWaterPrompt = foodData.foods[0].prompt;
 
 function Foods({ topic, onContinueForward }) {
   const foods = foodData.foods; // Make sure this is defined before using it to find 'water'
-  const waterFood = foods.find((food) => food.name === "water"); // Find the 'water' food item
+  const waterFood = foods.find((food) => food.name === "Water"); // Find the 'water' food item
 
   // Initialize selectedFoods with the 'water' item if it exists
   const [selectedFoods, setSelectedFoods] = useState(
