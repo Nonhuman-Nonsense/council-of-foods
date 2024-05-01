@@ -334,7 +334,7 @@ io.on('connection', (socket) => {
                 frequency_penalty: options.frequencyPenalty,
                 presence_penalty: options.presencePenalty,
                 stop: "\n---",
-                logit_bias: logit_biases[currentSpeaker],
+                logit_bias: (conversation.length == 0 ? null : logit_biases[currentSpeaker]),
                 messages: messages
             });
 
