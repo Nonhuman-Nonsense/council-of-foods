@@ -274,7 +274,7 @@ io.on("connection", (socket) => {
       }
       let bias = {};
       for (let l = 0; l < forbidden_tokens.length; l++) {
-        bias[forbidden_tokens[l]] = -40;
+        bias[forbidden_tokens[l]] = globalOptions.logitBias;
       }
       biases[i] = bias;
     }
