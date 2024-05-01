@@ -4,6 +4,8 @@ const http = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
 const OpenAI = require('openai');
+const { Tiktoken } = require("tiktoken/lite");
+const cl100k_base = require("tiktoken/encoders/cl100k_base.json");
 
 const app = express();
 const httpServer = http.createServer(app);
@@ -36,6 +38,8 @@ io.on('connection', (socket) => {
     let topic = "";
     let characters = {};
     let options = {};
+
+    let logit_biases = [];
 
     socket.on('pause_conversation', () => {
         isPaused = true;
@@ -198,10 +202,42 @@ io.on('connection', (socket) => {
       handRaised = false;
       conversationCounter++;
       console.log('Counter ' + conversationCounter);
+      logit_biases = calculateLogitBiases();
 
       // Start with the chairperson introducing the topic
       handleConversationTurn();
     });
+
+    const calculateLogitBiases = () => {
+
+      const encoding = new Tiktoken(
+        cl100k_base.bpe_ranks,
+        cl100k_base.special_tokens,
+        cl100k_base.pat_str
+      );
+
+      let biases = [];
+      for (var i = 0; i < characters.length; i++) {
+        let forbidden_tokens = [];
+        for (var j = 0; j < characters.length; j++) {
+          if (i == j) continue;
+          const chars = encoding.encode(characters[j].name);
+          for (var k = 0; k < chars.length; k++) {
+            forbidden_tokens.push(chars[k]);
+          }
+        }
+        let bias = {};
+        for (let l = 0; l < forbidden_tokens.length; l++) {
+          bias[forbidden_tokens[l]] = -40;
+        }
+        biases[i] = bias;
+      }
+
+      // don't forget to free the encoder after it is not used
+      encoding.free();
+
+      return biases;
+    }
 
     const handleConversationTurn = async () => {
         try {
@@ -298,6 +334,7 @@ io.on('connection', (socket) => {
                 frequency_penalty: options.frequencyPenalty,
                 presence_penalty: options.presencePenalty,
                 stop: "\n---",
+                logit_bias: logit_biases[currentSpeaker],
                 messages: messages
             });
 
