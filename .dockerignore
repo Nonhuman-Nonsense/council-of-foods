@@ -1,5 +1,6 @@
 .env
 node_modules
+prototype/node_modules
 npm-debug.log
 client
 server
