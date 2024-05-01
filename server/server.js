@@ -243,7 +243,6 @@ io.on("connection", (socket) => {
     for (let i = 0; i < conversationOptions.characters.length; i++) {
       conversationOptions.characters[i].name = toTitleCase(conversationOptions.characters[i].name);
     }
-    console.log(conversationOptions.characters);
     conversation = [];
     conversationCount = 0;
     currentSpeaker = 0;
