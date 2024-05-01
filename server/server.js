@@ -240,6 +240,10 @@ io.on("connection", (socket) => {
 
   socket.on("start_conversation", (options) => {
     conversationOptions = options;
+    for (let i = 0; i < conversationOptions.characters.length; i++) {
+      conversationOptions.characters[i].name = toTitleCase(conversationOptions.characters[i].name);
+    }
+    console.log(conversationOptions.characters);
     conversation = [];
     conversationCount = 0;
     currentSpeaker = 0;
@@ -267,7 +271,7 @@ io.on("connection", (socket) => {
       let forbidden_tokens = [];
       for (var j = 0; j < conversationOptions.characters.length; j++) {
         if (i == j) continue;
-        const chars = encoding.encode(toTitleCase(conversationOptions.characters[j].name));
+        const chars = encoding.encode(conversationOptions.characters[j].name);
         for (var k = 0; k < chars.length; k++) {
           forbidden_tokens.push(chars[k]);
         }
