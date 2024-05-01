@@ -122,6 +122,14 @@ io.on("connection", (socket) => {
 
       if(thisConversationCounter != conversationCounter) return;
 
+      //If the prompt starts with the character name, remove it
+      if(response.startsWith(chair.name + ":")){
+        //save the trimmed content, for debugging the prompts
+        // pretrimmedContent = response.substring(0, speaker.name.length + 1);
+        //remove the name, and any additional whitespace created by this
+        response = response.substring(chair.name.length + 1).trim();
+      }
+
       //Update the message at the desired index
       conversation[index] = {
         id: completion.id,
