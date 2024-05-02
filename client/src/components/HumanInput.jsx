@@ -1,11 +1,15 @@
 import { faUserTimes } from "@fortawesome/free-solid-svg-icons";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import SpeechRecognition, {
   useSpeechRecognition,
 } from "react-speech-recognition";
+import ConversationControlIcon from "./ConversationControlIcon";
+import TextareaAutosize from 'react-textarea-autosize';
 
 function HumanInput({ onSubmitNewTopic }) {
   const [isRecording, setIsRecording] = useState(false);
+  const [previousTranscript, setPreviousTranscript] = useState("");
+  const inputArea = useRef(null);
 
   // Accessing the speech recognition features from the custom hook
   const {
@@ -13,30 +17,20 @@ function HumanInput({ onSubmitNewTopic }) {
     listening,
     resetTranscript,
     browserSupportsSpeechRecognition,
+    browserSupportsContinuousListening,
   } = useSpeechRecognition();
-
-  const micStyle = {
-    position: "fixed",
-    bottom: "-5%",
-    left: "50%",
-    transform: "translateX(-50%)",
-    width: "12%",
-  };
-
-  useEffect(() => {
-    if (!listening && transcript) {
-      // User has recorded and there is a new topic
-      setTimeout(() => {
-        onSubmitNewTopic(transcript);
-      }, 1000);
-    }
-  }, [listening]);
 
   // Effect to manage speech recognition state
   useEffect(() => {
     if (browserSupportsSpeechRecognition) {
       if (isRecording) {
-        SpeechRecognition.startListening();
+        setPreviousTranscript(inputArea.current.value);
+        resetTranscript();
+        if(browserSupportsContinuousListening){
+          SpeechRecognition.startListening({ continuous: true });
+        }else{
+          SpeechRecognition.startListening();
+        }
       } else {
         SpeechRecognition.stopListening();
       }
@@ -47,24 +41,75 @@ function HumanInput({ onSubmitNewTopic }) {
     setIsRecording(!isRecording); // Toggle the recording state
   }
 
+  useEffect(() => {
+    inputArea.current.value = previousTranscript + " " + transcript;
+  }, [transcript]);
+
+  const wrapperStyle = {
+    position: "absolute",
+    bottom: "0",
+  };
+
+  const micStyle = {
+    position: "absolute",
+    bottom: "-2vh",
+    left: "50%",
+    transform: "translateX(-50%)",
+    height: "45vh",
+    zIndex: "0",
+  };
+
+  const divStyle = {
+    width: "56px",
+    height: "56px",
+    zIndex: "3"
+  };
+
+  const textStyle = {
+    backgroundColor: "transparent",
+    width: "60vw",
+    color: "white",
+    textAlign: "center",
+    border: "0",
+    fontFamily: "Arial, sans-serif",
+    fontSize: "25px",
+    resize: "none",
+    padding: "0",
+  };
+
   return (
-    <div>
-      <textarea
-        value={transcript}
-        rows="2"
-        placeholder="Speak your mind"
-        readOnly
-      />
-      <div style={{ pointerEvents: "auto" }}>
-        <button onClick={handleStartStopRecording}>
-          {!isRecording ? "Start recording" : "Stop recording"}
-        </button>
-        <button onClick={() => onSubmitNewTopic(transcript)}>Submit</button>
+    <div style={wrapperStyle}>
+      <img src="/images/mic.png" style={micStyle} />
+      <div style={{zIndex: "4", position: "relative", pointerEvents: "auto"}}>
+        <TextareaAutosize
+          ref={inputArea}
+          style={textStyle}
+          className="human"
+          minRows="2"
+          maxRows="6"
+          placeholder="Type your question or start recording..."
+        />
       </div>
-      <img
-        src="/images/mic.png"
-        style={micStyle}
-      />
+      <div style={{ display: "flex", flexDirection: "row", pointerEvents: "auto", justifyContent: "center" }}>
+        <div style={divStyle}/>
+        <div style={divStyle}>
+          <ConversationControlIcon
+            icon={(isRecording ? "record_voice_on" : "record_voice_off" )}
+            onClick={handleStartStopRecording}
+            tooltip={"Mute"}
+          />
+        </div>
+        <div style={divStyle}>
+          <ConversationControlIcon
+            icon={"send_message"}
+            tooltip={"Mute"}
+            onClick={() => {
+              setIsRecording(false);
+              onSubmitNewTopic(inputArea.current.value);
+            }}
+          />
+        </div>
+      </div>
     </div>
   );
 }

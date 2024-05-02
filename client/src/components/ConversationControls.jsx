@@ -24,7 +24,7 @@ function ConversationControls({
 
   return (
     <>
-      <div style={{ position: "absolute", bottom: "0", pointerEvents: "auto" }}>
+      <div style={{ position: "absolute", bottom: "0", pointerEvents: "auto", zIndex: "3" }}>
         <div style={{ display: "flex", flexDirection: "row" }}>
           <div style={divStyle}>
             {!isPaused &&
@@ -82,7 +82,7 @@ function ConversationControls({
               display: "flex",
             }}
           >
-            Just a second<div className="loader"></div>
+            Wait for your turn<div className="loader"></div>
           </span>
         )}
       </div>

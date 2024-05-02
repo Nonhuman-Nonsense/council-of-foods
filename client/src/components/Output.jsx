@@ -21,7 +21,8 @@ function Output({
   setIsReadyToStart,
   setCanRaiseHand,
   isReadyToStart,
-  setZoomIn
+  setZoomIn,
+  isInterjecting
 }) {
   const [actualMessageIndex, setActualMessageIndex] = useState(0);
   const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
@@ -219,7 +220,7 @@ function Output({
 
   return (
     <>
-      <div style={!isReadyToStart ? hiddenStyle : {}}>
+      <div style={!isReadyToStart || isInterjecting ? hiddenStyle : {}}>
         <TextOutput
           currentTextMessage={currentTextMessage}
           currentAudioMessage={currentAudioMessage}

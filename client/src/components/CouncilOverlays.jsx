@@ -13,6 +13,7 @@ function CouncilOverlays({ activeOverlay, options, removeOverlay }) {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
+    zIndex: "5",
   };
 
   const closeInnerStyle = {
