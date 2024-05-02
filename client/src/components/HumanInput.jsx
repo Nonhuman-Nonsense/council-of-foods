@@ -42,7 +42,7 @@ function HumanInput({ onSubmitNewTopic }) {
   }
 
   useEffect(() => {
-    inputArea.current.value = previousTranscript + " " + transcript;
+    inputArea.current.value = (previousTranscript ? previousTranscript + " " + transcript : transcript);
   }, [transcript]);
 
   const wrapperStyle = {
@@ -54,9 +54,10 @@ function HumanInput({ onSubmitNewTopic }) {
     position: "absolute",
     bottom: "-2vh",
     left: "50%",
-    transform: "translateX(-50%)",
     height: "45vh",
     zIndex: "0",
+    animation: "4s micAppearing",
+    animationFillMode: "both",
   };
 
   const divStyle = {
@@ -67,7 +68,7 @@ function HumanInput({ onSubmitNewTopic }) {
 
   const textStyle = {
     backgroundColor: "transparent",
-    width: "60vw",
+    width: "70vw",
     color: "white",
     textAlign: "center",
     border: "0",
@@ -85,7 +86,7 @@ function HumanInput({ onSubmitNewTopic }) {
           ref={inputArea}
           style={textStyle}
           className="human"
-          minRows="2"
+          minRows="1"
           maxRows="6"
           placeholder="Type your question or start recording..."
         />

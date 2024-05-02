@@ -192,7 +192,7 @@ function Output({
       } else {
         setPausedInBreak(true);
       }
-    }, 2000);
+    }, 1000);
   }
   //Make sure to empty this timer on component unmount
   //Incase someone restarts the counsil in a break etc.
