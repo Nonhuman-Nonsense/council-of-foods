@@ -2,7 +2,7 @@ import React from "react";
 import FoodAnimation from "./FoodAnimation";
 import { filename } from "../utils";
 
-function FoodItem({ food, index, total, screenWidth, currentSpeakerName, isPaused }) {
+function FoodItem({ food, index, total, screenWidth, currentSpeakerName, isPaused, zoomIn }) {
   const foodImageStyle = {
     width: "120px",
     height: "120px",
@@ -36,17 +36,30 @@ function FoodItem({ food, index, total, screenWidth, currentSpeakerName, isPause
 
   // Adjusted function to set width and height based on window width
   const getResponsiveFoodImageStyle = () => {
-    const size = screenWidth * 0.12; // 5% of the window's width
+    const size = (zoomIn && currentSpeakerName == food.name ? "55vh" : "12vw"); // 12% of the window's width
     return {
-      width: `${size}px`, // Dynamically set width
-      height: `${size}px`, // Dynamically set height
+      width: `${size}`, // Dynamically set width
+      height: `${size}`, // Dynamically set height
       animation: "2s foodAppearing",
       animationDelay: 0.4 * index + "s",
       animationFillMode: "both",
     };
   };
 
+  const singleFoodStyle = {
+    position: "relative",
+    top: "-7vh",
+  };
+
   const foodItemStyle = (index, total) => {
+    if(zoomIn && currentSpeakerName == food.name) {
+      return singleFoodStyle;
+    }else{
+      return overViewFoodItemStyle(index,total);
+    }
+  };
+
+  const overViewFoodItemStyle = (index, total) => {
     const left = (index / (total - 1)) * 100;
 
     const topMax = 3.0; // The curvature
@@ -80,6 +93,7 @@ function FoodItem({ food, index, total, screenWidth, currentSpeakerName, isPause
       left: `${left}%`,
       top: `${top}vw`,
       transform: "translate(-50%, -50%)",
+      opacity: (zoomIn ? "0": "1"),
     };
   };
 

@@ -21,6 +21,7 @@ function Output({
   setIsReadyToStart,
   setCanRaiseHand,
   isReadyToStart,
+  setZoomIn
 }) {
   const [actualMessageIndex, setActualMessageIndex] = useState(0);
   const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
@@ -209,6 +210,12 @@ function Output({
     }
   }, [isPaused, pausedInBreak]);
 
+  useEffect(() => {
+    if(currentMessageIndex == 0){
+      setZoomIn(false);
+    }
+  },[currentMessageIndex]);
+
   return (
     <>
       <div style={!isReadyToStart ? hiddenStyle : {}}>
@@ -217,6 +224,7 @@ function Output({
           currentAudioMessage={currentAudioMessage}
           isPaused={isPaused}
           style={!isReadyToStart ? hiddenStyle : {}}
+          setZoomIn={(currentMessageIndex == 0 ? () => {return;} : setZoomIn)}
         />
       </div>
       <AudioOutput

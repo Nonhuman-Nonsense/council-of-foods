@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 
-function TextOutput({ currentTextMessage, currentAudioMessage, isPaused }) {
+function TextOutput({ currentTextMessage, currentAudioMessage, isPaused, setZoomIn }) {
   const [currentSnippetIndex, setCurrentSnippetIndex] = useState(0);
   const [currentSnippet, setCurrentSnippet] = useState("");
 
@@ -78,6 +78,13 @@ function TextOutput({ currentTextMessage, currentAudioMessage, isPaused }) {
       return () => clearTimeout(timerId.current);
     }
   }, [currentSnippetIndex, currentTextMessage]);
+
+
+
+  useEffect(() => {
+    //zoom in on 2 snippets, out on 2, etc.
+    setZoomIn(currentSnippetIndex % 4 < 2 );
+  },[currentSnippetIndex, currentTextMessage])
 
   // Modify calculateDisplayTime to handle potential undefined or empty strings safely
   const calculateDisplayTime = (text) => {

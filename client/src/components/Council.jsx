@@ -31,6 +31,7 @@ function Council({ options }) {
   const [canGoForward, setCanGoForward] = useState(false);
   const [canRaiseHand, setCanRaiseHand] = useState(false);
   const [isReadyToStart, setIsReadyToStart] = useState(false);
+  const [zoomIn, setZoomIn] = useState(false);
 
   if (audioContext.current === null) {
     const AudioContext = window.AudioContext || window.webkitAudioContext; //cross browser
@@ -209,6 +210,16 @@ function Council({ options }) {
     return (Math.ceil(total / 2) + index - 1) % total;
   }
 
+  const closeUpBackground = {
+    backgroundImage: `url(/images/backgrounds/close-up.jpg)`,
+    backgroundSize: "cover",
+    backgroundPosition: "center",
+    height: "100vh",
+    width: "100vw",
+    position: "absolute",
+    opacity: (zoomIn ? "1" : "0"),
+  };
+
   const bottomShade = {
     width: "100%",
     height: "40%",
@@ -229,6 +240,7 @@ function Council({ options }) {
 
   return (
     <>
+      <div style={closeUpBackground} />
       <div style={bottomShade} />
       <div style={topShade} />
       <Navbar
@@ -247,6 +259,7 @@ function Council({ options }) {
             total={foods.length}
             isPaused={isPaused}
             screenWidth={screenWidth}
+            zoomIn={zoomIn}
             currentSpeakerName={currentSpeakerName}
           />
         ))}
@@ -275,6 +288,7 @@ function Council({ options }) {
           setIsReadyToStart={setIsReadyToStart}
           setCanRaiseHand={setCanRaiseHand}
           isReadyToStart={isReadyToStart}
+          setZoomIn={setZoomIn}
         />
       </>
       {isReadyToStart && (
