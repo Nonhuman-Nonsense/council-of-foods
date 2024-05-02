@@ -68,7 +68,7 @@ function HumanInput({ onSubmitNewTopic }) {
 
   const textStyle = {
     backgroundColor: "transparent",
-    width: "60vw",
+    width: "70vw",
     color: "white",
     textAlign: "center",
     border: "0",
