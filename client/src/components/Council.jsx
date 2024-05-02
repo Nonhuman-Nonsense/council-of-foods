@@ -42,7 +42,7 @@ function Council({ options }) {
 
   const foodsContainerStyle = {
     position: "absolute",
-    top: "50%",
+    top: "calc(50% + 12vh)",
     left: "50%",
     transform: "translate(-50%, -50%)",
     width: "70%",

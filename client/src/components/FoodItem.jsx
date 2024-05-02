@@ -48,7 +48,7 @@ function FoodItem({ food, index, total, screenWidth, currentSpeakerName, isPause
 
   const singleFoodStyle = {
     position: "relative",
-    top: "-7vh",
+    top: "-19vh",
   };
 
   const foodItemStyle = (index, total) => {

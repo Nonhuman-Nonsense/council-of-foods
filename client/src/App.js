@@ -21,9 +21,12 @@ function App() {
   const backgroundStyle = {
     backgroundImage: `url(${backgroundImageURL})`,
     backgroundSize: "cover",
-    backgroundPosition: "center",
+    backgroundPositionX: "50%",
+    backgroundPositionY: (currentView === "landing" ? "50%" : "calc(50% + 12vh)"),
     height: "100vh",
     width: "100vw",
+    position: "absolute",
+    zIndex: "-1",
   };
 
   useEffect(() => {
@@ -98,10 +101,8 @@ function App() {
   }
 
   return (
-    <div
-      className="App"
-      style={backgroundStyle}
-    >
+    <div className="App">
+      <div style={backgroundStyle} />
     {currentView === "landing" ?
       <Landing onContinueForward={continueForward} />
       : renderMainCouncil()
