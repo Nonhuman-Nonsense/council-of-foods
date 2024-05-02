@@ -86,7 +86,7 @@ function HumanInput({ onSubmitNewTopic }) {
           ref={inputArea}
           style={textStyle}
           className="human"
-          minRows="2"
+          minRows="1"
           maxRows="6"
           placeholder="Type your question or start recording..."
         />
