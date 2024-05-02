@@ -183,6 +183,7 @@ function Output({
   function handleOnFinishedPlaying() {
     console.log("Finished playing message...");
 
+    setZoomIn(false);
     //If the audio has ended, wait a bit before proceeding
     betweenTimer.current = setTimeout(() => {
       if (!isPausedRef.current) {
@@ -190,7 +191,7 @@ function Output({
       } else {
         setPausedInBreak(true);
       }
-    }, 1000);
+    }, 2000);
   }
   //Make sure to empty this timer on component unmount
   //Incase someone restarts the counsil in a break etc.
