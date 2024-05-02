@@ -22,15 +22,17 @@ function Foods({ topic, onContinueForward }) {
 
   function continueForward() {
     if (selectedFoods.length >= minFoods && selectedFoods.length <= maxFoods) {
-
       //Modify waters invitation prompt, with the name of the selected participants
       let participants = "";
       selectedFoods.forEach(function (food, index) {
-        if(index != 0) participants += toTitleCase(food.name)  + ", ";
+        if (index != 0) participants += toTitleCase(food.name) + ", ";
       });
       participants = participants.substring(0, participants.length - 2);
       let replacedFoods = selectedFoods;
-      replacedFoods[0].prompt = originalWaterPrompt.replace("[FOODS]", participants);
+      replacedFoods[0].prompt = originalWaterPrompt.replace(
+        "[FOODS]",
+        participants
+      );
 
       onContinueForward({ foods: replacedFoods });
     }
@@ -61,63 +63,73 @@ function Foods({ topic, onContinueForward }) {
   };
 
   return (
-    <div style={{display: "flex", flexDirection: "column", height: "85%", justifyContent: "space-between"}}>
-        <div style={{height: "100%", display: "flex", flexDirection: "column"}}>
-          <h1>THE FOODS</h1>
-          <div style={{ position: "relative", height: "100%" }}>
-            <div style={discriptionStyle}>
-              <p>
-                Please select 2-5 foods
-                <br /> to participate in the discussion about:
-              </p>
-              <h4>{toTitleCase(topic.name)}</h4>
-            </div>
-            <div
-              style={{
-                position: "absolute",
-                top: 0,
-                height:"100%",
-                overflow: "scroll",
-                transition: "opacity 0.5s ease",
-                opacity: currentFood !== null ? 1 : 0,
-                pointerEvents: currentFood !== null ? "all" : "none",
-              }}
-            >
-              <FoodInfo food={currentFood} />
-            </div>
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        height: "85%",
+        justifyContent: "space-between",
+      }}
+    >
+      <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
+        <h1>THE FOODS</h1>
+        <div
+          style={{
+            position: "relative",
+            height: "100%",
+          }}
+        >
+          <div style={discriptionStyle}>
+            <p>
+              Please select 2-5 foods
+              <br /> to participate in the discussion about:
+            </p>
+            <h4>{toTitleCase(topic.name)}</h4>
           </div>
-        </div>
-        <div>
-          <div style={{ display: "flex" }}>
-            {foods.map((food) => (
-              <FoodButton
-                key={food.name}
-                food={food}
-                onMouseEnter={() => handleOnMouseEnter(food)}
-                onMouseLeave={handleOnMouseLeave}
-                onSelectFood={(food === waterFood ? undefined : selectFood)}
-                onDeselectFood={deselectFood}
-                isSelected={selectedFoods.includes(food)}
-                selectLimitReached={selectedFoods.length >= maxFoods}
-              />
-            ))}
-          </div>
-          <h4 className={`${currentFood === null ? "hidden" : ""}`}>
-            please select 2-5 foods for the discussion
-          </h4>
-          <button
-            className={`${
-              selectedFoods.length >= minFoods &&
-              selectedFoods.length <= maxFoods
-                ? ""
-                : "hidden"
-            } outline-button`}
-            onClick={continueForward}
+          <div
+            style={{
+              position: "absolute",
+              top: 0,
+              height: "100%",
+              transition: "opacity 0.5s ease",
+              opacity: currentFood !== null ? 1 : 0,
+              pointerEvents: currentFood !== null ? "all" : "none",
+            }}
           >
-            Start
-          </button>
+            <FoodInfo food={currentFood} />
+          </div>
         </div>
+      </div>
+      <div>
+        <div style={{ display: "flex" }}>
+          {foods.map((food) => (
+            <FoodButton
+              key={food.name}
+              food={food}
+              onMouseEnter={() => handleOnMouseEnter(food)}
+              onMouseLeave={handleOnMouseLeave}
+              onSelectFood={food === waterFood ? undefined : selectFood}
+              onDeselectFood={deselectFood}
+              isSelected={selectedFoods.includes(food)}
+              selectLimitReached={selectedFoods.length >= maxFoods}
+            />
+          ))}
         </div>
+        <h4 className={`${currentFood === null ? "hidden" : ""}`}>
+          please select 2-5 foods for the discussion
+        </h4>
+        <button
+          className={`${
+            selectedFoods.length >= minFoods && selectedFoods.length <= maxFoods
+              ? ""
+              : "hidden"
+          } outline-button`}
+          onClick={continueForward}
+        >
+          Start
+        </button>
+      </div>
+    </div>
   );
 }
 

@@ -9,7 +9,7 @@ import Council from "./components/Council";
 
 function App() {
   const [humanName, setHumanName] = useState("");
-  const [topic, setTopic] = useState({name: "", prompt: ""});
+  const [topic, setTopic] = useState({ name: "", prompt: "" });
   const [foods, setFoods] = useState([]);
   const pages = ["landing", "welcome", "topics", "foods", "council"];
   const [currentView, setCurrentView] = useState(pages[0]);
@@ -22,7 +22,7 @@ function App() {
     backgroundImage: `url(${backgroundImageURL})`,
     backgroundSize: "cover",
     backgroundPositionX: "50%",
-    backgroundPositionY: (currentView === "landing" ? "50%" : "calc(50% + 12vh)"),
+    backgroundPositionY: currentView === "landing" ? "50%" : "calc(50% + 12vh)",
     height: "100vh",
     width: "100vw",
     position: "absolute",
@@ -57,7 +57,7 @@ function App() {
   }
 
   function reset(topic) {
-    setTopic(topic ?? {name: "", prompt: ""});
+    setTopic(topic ?? { name: "", prompt: "" });
     setFoods([]);
     setIsActiveOverlay(true);
 
@@ -71,10 +71,10 @@ function App() {
     }
   }
 
-  function renderMainCouncil(){
+  function renderMainCouncil() {
     return (
       <Overlay isActive={isActiveOverlay && currentView !== "council"}>
-         {currentView === "welcome" ? (
+        {currentView === "welcome" ? (
           <Welcome
             humanName={humanName}
             onContinueForward={continueForward}
@@ -103,10 +103,11 @@ function App() {
   return (
     <div className="App">
       <div style={backgroundStyle} />
-    {currentView === "landing" ?
-      <Landing onContinueForward={continueForward} />
-      : renderMainCouncil()
-    }
+      {currentView === "landing" ? (
+        <Landing onContinueForward={continueForward} />
+      ) : (
+        renderMainCouncil()
+      )}
     </div>
   );
 }

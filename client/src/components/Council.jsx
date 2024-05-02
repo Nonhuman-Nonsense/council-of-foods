@@ -25,7 +25,8 @@ function Council({ options }) {
   const [invitationIndex, setInvitationIndex] = useState(0);
   const [isWaitingToInterject, setIsWaitingToInterject] = useState(false);
   const [isInterjecting, setIsInterjecting] = useState(false);
-  const [bumpIndex, setBumpIndex] = useState(false);
+  const [bumpIndex1, setBumpIndex1] = useState(false);
+  const [bumpIndex2, setBumpIndex2] = useState(false);
   const audioContext = useRef(null); // The AudioContext object
   const [canGoBack, setCanGoBack] = useState(false);
   const [canGoForward, setCanGoForward] = useState(false);
@@ -124,7 +125,9 @@ function Council({ options }) {
   function raiseHand() {
     // Use a functional update to ensure you have the latest state
     setInvitationIndex((currentInvitationIndex) => {
+      console.log("RAISING HAND");
       console.log("Index is: ", currentInvitationIndex);
+
       socketRef.current.emit("raise_hand", { index: currentInvitationIndex });
       return currentInvitationIndex; // return the current state without changing it
     });
@@ -165,11 +168,9 @@ function Council({ options }) {
 
   function handleOnSubmitNewTopic(newTopic) {
     socketRef.current.emit("submit_human_message", { text: newTopic });
-    setBumpIndex(!bumpIndex);
+    setBumpIndex2(!bumpIndex2);
 
     setIsReadyToStart(false);
-
-    // TODO: Improve this...
 
     setIsInterjecting(false);
     setIsRaisedHand(false);
@@ -206,8 +207,44 @@ function Council({ options }) {
   }
 
   //Put water in the middle always
-  function mapFoodIndex(total, index){
+  function mapFoodIndex(total, index) {
     return (Math.ceil(total / 2) + index - 1) % total;
+  }
+
+  function handleOnCompletedConversation() {
+    displayOverlay("completed");
+  }
+
+  function handleOnContinue() {
+    setBumpIndex1(!bumpIndex1);
+
+    setIsReadyToStart(false);
+    // Play messages
+    setPausePlay(false);
+
+    removeOverlay();
+
+    socketRef.current.emit("continue_conversation");
+  }
+
+  function handleOnWrapItUp() {
+    setBumpIndex1(!bumpIndex1);
+
+    setIsReadyToStart(false);
+    // Play messages
+    setPausePlay(false);
+
+    removeOverlay();
+
+    socketRef.current.emit("submit_injection", {
+      text: "Water, generate a complete summary of the meeting.",
+      index: textMessages.length,
+    });
+  }
+
+  function handleOnCompletedSummary() {
+    console.log("Resetting");
+    options.onReset();
   }
 
   const closeUpBackground = {
@@ -217,7 +254,7 @@ function Council({ options }) {
     height: "100vh",
     width: "100vw",
     position: "absolute",
-    opacity: (zoomIn ? "1" : "0"),
+    opacity: zoomIn ? "1" : "0",
   };
 
   const bottomShade = {
@@ -234,7 +271,8 @@ function Council({ options }) {
     height: "10%",
     position: "absolute",
     top: "0",
-    background: "linear-gradient(180deg, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0) 100%)",
+    background:
+      "linear-gradient(180deg, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0) 100%)",
     zIndex: "1",
   };
 
@@ -255,7 +293,7 @@ function Council({ options }) {
           <FoodItem
             key={food.name}
             food={food}
-            index={mapFoodIndex(foods.length,index)}
+            index={mapFoodIndex(foods.length, index)}
             total={foods.length}
             isPaused={isPaused}
             screenWidth={screenWidth}
@@ -272,7 +310,6 @@ function Council({ options }) {
         <Output
           textMessages={textMessages}
           audioMessages={audioMessages}
-          isActiveOverlay={activeOverlay !== ""}
           isRaisedHand={isRaisedHand}
           onIsRaisedHand={handleOnIsRaisedHand}
           isMuted={isMuted}
@@ -281,7 +318,8 @@ function Council({ options }) {
           skipBackward={skipBackward}
           handleSetCurrentSpeakerName={handleSetCurrentSpeakerName}
           onIsWaitingToInterject={handleOnIsWaitingToInterject}
-          bumpIndex={bumpIndex}
+          bumpIndex1={bumpIndex1}
+          bumpIndex2={bumpIndex2}
           audioContext={audioContext}
           setCanGoForward={setCanGoForward}
           setCanGoBack={setCanGoBack}
@@ -290,6 +328,8 @@ function Council({ options }) {
           isReadyToStart={isReadyToStart}
           setZoomIn={setZoomIn}
           isInterjecting={isInterjecting}
+          onCompletedConversation={handleOnCompletedConversation}
+          onCompletedSummary={handleOnCompletedSummary}
         />
       </>
       {isReadyToStart && !isInterjecting && (
@@ -312,7 +352,11 @@ function Council({ options }) {
         {activeOverlay !== "" && (
           <CouncilOverlays
             activeOverlay={activeOverlay}
-            options={options}
+            options={{
+              ...options,
+              onContinue: handleOnContinue,
+              onWrapItUp: handleOnWrapItUp,
+            }}
             removeOverlay={removeOverlay}
           />
         )}
