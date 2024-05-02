@@ -9,6 +9,7 @@ function Overlay({ isActive, children }) {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
+    zIndex: "5",
   };
 
   useEffect(() => {

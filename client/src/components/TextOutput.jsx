@@ -106,6 +106,7 @@ function TextOutput({ currentTextMessage, currentAudioMessage, isPaused, setZoom
     bottom: "50px",
     left: "50%",
     transform: "translateX(-50%)",
+    zIndex: "3",
   };
 
   return (

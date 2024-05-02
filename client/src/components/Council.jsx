@@ -225,8 +225,8 @@ function Council({ options }) {
     height: "40%",
     position: "absolute",
     bottom: "0",
-
     background: "linear-gradient(0, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0) 100%)",
+    zIndex: "1",
   };
 
   const topShade = {
@@ -234,8 +234,8 @@ function Council({ options }) {
     height: "10%",
     position: "absolute",
     top: "0",
-    background:
-      "linear-gradient(180deg, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0) 100%)",
+    background: "linear-gradient(180deg, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0) 100%)",
+    zIndex: "1",
   };
 
   return (
@@ -289,9 +289,10 @@ function Council({ options }) {
           setCanRaiseHand={setCanRaiseHand}
           isReadyToStart={isReadyToStart}
           setZoomIn={setZoomIn}
+          isInterjecting={isInterjecting}
         />
       </>
-      {isReadyToStart && (
+      {isReadyToStart && !isInterjecting && (
         <ConversationControls
           onSkipBackward={handleOnSkipBackward}
           onSkipForward={handleOnSkipForward}

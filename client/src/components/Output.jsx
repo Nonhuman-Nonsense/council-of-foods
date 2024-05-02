@@ -21,7 +21,8 @@ function Output({
   setIsReadyToStart,
   setCanRaiseHand,
   isReadyToStart,
-  setZoomIn
+  setZoomIn,
+  isInterjecting
 }) {
   const [actualMessageIndex, setActualMessageIndex] = useState(0);
   const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
@@ -183,6 +184,7 @@ function Output({
   function handleOnFinishedPlaying() {
     console.log("Finished playing message...");
 
+    setZoomIn(false);
     //If the audio has ended, wait a bit before proceeding
     betweenTimer.current = setTimeout(() => {
       if (!isPausedRef.current) {
@@ -190,7 +192,7 @@ function Output({
       } else {
         setPausedInBreak(true);
       }
-    }, 1000);
+    }, 2000);
   }
   //Make sure to empty this timer on component unmount
   //Incase someone restarts the counsil in a break etc.
@@ -218,7 +220,7 @@ function Output({
 
   return (
     <>
-      <div style={!isReadyToStart ? hiddenStyle : {}}>
+      <div style={!isReadyToStart || isInterjecting ? hiddenStyle : {}}>
         <TextOutput
           currentTextMessage={currentTextMessage}
           currentAudioMessage={currentAudioMessage}
