@@ -5,7 +5,6 @@ import AudioOutput from "./AudioOutput";
 function Output({
   textMessages,
   audioMessages,
-  isActiveOverlay,
   isRaisedHand,
   onIsRaisedHand,
   isMuted,
@@ -14,7 +13,8 @@ function Output({
   skipBackward,
   handleSetCurrentSpeakerName,
   onIsWaitingToInterject,
-  bumpIndex,
+  bumpIndex1,
+  bumpIndex2,
   audioContext,
   setCanGoForward,
   setCanGoBack,
@@ -22,7 +22,9 @@ function Output({
   setCanRaiseHand,
   isReadyToStart,
   setZoomIn,
-  isInterjecting
+  isInterjecting,
+  onCompletedConversation,
+  onCompletedSummary,
 }) {
   const [actualMessageIndex, setActualMessageIndex] = useState(0);
   const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
@@ -61,10 +63,17 @@ function Output({
 
   useEffect(() => {
     if (currentTextMessage && currentAudioMessage) {
+      console.log("Bumping up current message index by 1");
+      setCurrentMessageIndex((prev) => prev + 1);
+    }
+  }, [bumpIndex1]);
+
+  useEffect(() => {
+    if (currentTextMessage && currentAudioMessage) {
       console.log("Bumping up current message index by 2");
       setCurrentMessageIndex((prev) => prev + 2);
     }
-  }, [bumpIndex]);
+  }, [bumpIndex2]);
 
   // Emit currentMessageIndex + 1 to parent for invitation message index
   useEffect(() => {
@@ -108,6 +117,7 @@ function Output({
 
   useEffect(() => {
     console.log("Updating textMessages: ", textMessages);
+    console.log("Updating audioMessages: ", audioMessages);
 
     findTextAndAudio();
   }, [textMessages, audioMessages]);
@@ -162,6 +172,12 @@ function Output({
 
       if (currentMessage && currentMessage.purpose === "invitation") {
         handleInterjection();
+      } else if (currentMessage && currentMessage.purpose === "summary") {
+        // TODO: Reset?
+        onCompletedSummary();
+      } else {
+        // Conversation is completed
+        onCompletedConversation();
       }
 
       return;
@@ -181,6 +197,7 @@ function Output({
   const isPausedRef = useRef(isPaused);
   const betweenTimer = useRef(null);
   isPausedRef.current = isPaused;
+
   function handleOnFinishedPlaying() {
     console.log("Finished playing message...");
 
@@ -213,10 +230,10 @@ function Output({
   }, [isPaused, pausedInBreak]);
 
   useEffect(() => {
-    if(currentMessageIndex == 0){
+    if (currentMessageIndex == 0) {
       setZoomIn(false);
     }
-  },[currentMessageIndex]);
+  }, [currentMessageIndex]);
 
   return (
     <>
@@ -226,7 +243,13 @@ function Output({
           currentAudioMessage={currentAudioMessage}
           isPaused={isPaused}
           style={!isReadyToStart ? hiddenStyle : {}}
-          setZoomIn={(currentMessageIndex == 0 ? () => {return;} : setZoomIn)}
+          setZoomIn={
+            currentMessageIndex == 0
+              ? () => {
+                  return;
+                }
+              : setZoomIn
+          }
         />
       </div>
       <AudioOutput

@@ -46,16 +46,16 @@ io.on("connection", (socket) => {
   let logit_biases = [];
 
   // socket.on("pause_conversation", () => {
-    // isPaused = true;
-    // console.log('Conversation has been paused');
+  // isPaused = true;
+  // console.log('Conversation has been paused');
   // });
 
   // Add a new event to resume the conversation
   // socket.on("resume_conversation", (options) => {
-    // conversationOptions = options;
-    // console.log('Conversation has been resumed');
-    // isPaused = false;
-    // handleConversationTurn();
+  // conversationOptions = options;
+  // console.log('Conversation has been resumed');
+  // isPaused = false;
+  // handleConversationTurn();
   // });
 
   socket.on("raise_hand", async (handRaisedOptions) => {
@@ -68,18 +68,18 @@ io.on("connection", (socket) => {
         conversationOptions.humanName
       ),
       handRaisedOptions.index,
-      100//length
+      100,
+      "invitation" //length
     );
   });
 
   socket.on("lower_hand", async () => {
-
     await chairInterjection(
       globalOptions.neverMindPrompt.replace(
         "[NAME]",
         conversationOptions.humanName
       ),
-      100//length
+      100 //length
     );
 
     handRaised = false;
@@ -88,10 +88,15 @@ io.on("connection", (socket) => {
     handleConversationTurn();
   });
 
-  const chairInterjection = async (interjectionPrompt, index, length) => {
+  const chairInterjection = async (
+    interjectionPrompt,
+    index,
+    length,
+    purpose
+  ) => {
     try {
       const thisConversationCounter = conversationCounter;
-      //Chairman is always first character
+      // Chairman is always first character
       const chair = conversationOptions.characters[0];
       // Generate response using GPT-4 for AI characters
       // Build the array of messages for the completion request
@@ -103,7 +108,7 @@ io.on("connection", (socket) => {
       //inject the system prompt
       messages.push({
         role: "system",
-        content: interjectionPrompt
+        content: interjectionPrompt,
       });
 
       // Prepare the completion request
@@ -120,10 +125,10 @@ io.on("connection", (socket) => {
       // Extract and clean up the response
       let response = completion.choices[0].message.content.trim();
 
-      if(thisConversationCounter != conversationCounter) return;
+      if (thisConversationCounter != conversationCounter) return;
 
       //If the prompt starts with the character name, remove it
-      if(response.startsWith(chair.name + ":")){
+      if (response.startsWith(chair.name + ":")) {
         //save the trimmed content, for debugging the prompts
         // pretrimmedContent = response.substring(0, speaker.name.length + 1);
         //remove the name, and any additional whitespace created by this
@@ -135,7 +140,7 @@ io.on("connection", (socket) => {
         id: completion.id,
         speaker: chair.name,
         text: response,
-        purpose: "invitation",
+        purpose: purpose,
       };
 
       //Cut everything after the submitted index
@@ -166,38 +171,38 @@ io.on("connection", (socket) => {
     }
   };
 
-  const buildMessageStack = function(speaker, upToIndex){
-    const messages = [];
+  const buildMessageStack = function (speaker, upToIndex) {
+    let messages = [];
 
     // System message for overall context
     messages.push({
-        role: "system",
-        content: `${conversationOptions.topic}\n\n${speaker.prompt}`.trim()
+      role: "system",
+      content: `${conversationOptions.topic}\n\n${speaker.prompt}`.trim(),
     });
 
     // Add previous messages as separate user objects
     conversation.forEach((msg) => {
-      if(msg.type == 'skipped') return;//skip certain messages
+      if (msg.type == "skipped") return; //skip certain messages
       messages.push({
-        role: (speaker.name == msg.speaker ? "assistant" : "user"),
-        content: msg.speaker + ": " + msg.text + "\n---"//We add the name of the character before each message, so that they will be less confused about who said what.
+        role: speaker.name == msg.speaker ? "assistant" : "user",
+        content: msg.speaker + ": " + msg.text + "\n---", //We add the name of the character before each message, so that they will be less confused about who said what.
       });
     });
 
     //Cut everything after the submitted index
-    if(upToIndex){
+    if (upToIndex) {
       messages = messages.slice(0, upToIndex);
     }
 
     //Push a message with the character name at the end of the conversation, in the hope that the character will understand who they are and not repeat their name
     //Works most of the time.
     messages.push({
-        role: "assistant",
-        content: speaker.name + ": "
+      role: "assistant",
+      content: speaker.name + ": ",
     });
 
     return messages;
-  }
+  };
 
   socket.on("submit_human_message", (message) => {
     //Add it to the stack, and then start the conversation again
@@ -220,8 +225,8 @@ io.on("connection", (socket) => {
     handleConversationTurn();
   });
 
-  socket.on('submit_injection', (message) => {
-    chairInterjection(message.text,message.index,message.length);
+  socket.on("submit_injection", (message) => {
+    chairInterjection(message.text, message.index, 100, "summary");
   });
 
   socket.on("continue_conversation", () => {
@@ -241,7 +246,9 @@ io.on("connection", (socket) => {
   socket.on("start_conversation", (options) => {
     conversationOptions = options;
     for (let i = 0; i < conversationOptions.characters.length; i++) {
-      conversationOptions.characters[i].name = toTitleCase(conversationOptions.characters[i].name);
+      conversationOptions.characters[i].name = toTitleCase(
+        conversationOptions.characters[i].name
+      );
     }
     conversation = [];
     conversationCount = 0;
@@ -258,7 +265,6 @@ io.on("connection", (socket) => {
   });
 
   const calculateLogitBiases = () => {
-
     const encoding = new Tiktoken(
       cl100k_base.bpe_ranks,
       cl100k_base.special_tokens,
@@ -286,7 +292,7 @@ io.on("connection", (socket) => {
     encoding.free();
 
     return biases;
-  }
+  };
 
   const handleConversationTurn = async () => {
     try {
@@ -297,23 +303,31 @@ io.on("connection", (socket) => {
 
       let response = "";
       let attempt = 1;
-      let output = {response: ""};
+      let output = { response: "" };
       // Try three times
-      while(attempt < 5 && output.response == ""){
-        output = await generateTextFromGPT(conversationOptions.characters[currentSpeaker]);
+      while (attempt < 5 && output.response == "") {
+        output = await generateTextFromGPT(
+          conversationOptions.characters[currentSpeaker]
+        );
 
         //If hand is raised or conversation is paused, just stop here, ignore this message
-        if(isPaused) return;
-        if(handRaised) return;
-        if(thisConversationCounter != conversationCounter) return;
+        if (isPaused) return;
+        if (handRaised) return;
+        if (thisConversationCounter != conversationCounter) return;
         attempt++;
       }
 
-      let message = { id: output.id, speaker: conversationOptions.characters[currentSpeaker].name, text: output.response, trimmed: output.trimmed, pretrimmed: output.pretrimmed };
+      let message = {
+        id: output.id,
+        speaker: conversationOptions.characters[currentSpeaker].name,
+        text: output.response,
+        trimmed: output.trimmed,
+        pretrimmed: output.pretrimmed,
+      };
       //If a character has completely answered for someone else, skip it, and go to the next
-      if(message.text == ""){
-        message.type = 'skipped';
-        console.log('Skipped a message');
+      if (message.text == "") {
+        message.type = "skipped";
+        console.log("Skipped a message");
       }
 
       // Add the response to the conversation
@@ -330,13 +344,17 @@ io.on("connection", (socket) => {
       const voice = conversationOptions.characters[currentSpeaker].voice
         ? conversationOptions.characters[currentSpeaker].voice
         : audioVoices[currentSpeaker % audioVoices.length];
-        if(message.type != 'skipped'){
-            generateAudio(message.id, message_index, message.text, voice);
-        }else{
-          //If we have an empty message, removed because this character pretended to be someone else
-          //Send down a message saying this the audio of this message should be skipped
-          socket.emit('audio_update', {id:message.id, message_index: message_index, type: 'skipped'});
-        }
+      if (message.type != "skipped") {
+        generateAudio(message.id, message_index, message.text, voice);
+      } else {
+        //If we have an empty message, removed because this character pretended to be someone else
+        //Send down a message saying this the audio of this message should be skipped
+        socket.emit("audio_update", {
+          id: message.id,
+          message_index: message_index,
+          type: "skipped",
+        });
+      }
 
       // Check for conversation end
       if (
@@ -396,7 +414,8 @@ io.on("connection", (socket) => {
         frequency_penalty: globalOptions.frequencyPenalty,
         presence_penalty: globalOptions.presencePenalty,
         stop: "\n---",
-        logit_bias: (conversation.length == 0 ? null : logit_biases[currentSpeaker]),//no logit bias on first message by water
+        logit_bias:
+          conversation.length == 0 ? null : logit_biases[currentSpeaker], //no logit bias on first message by water
         messages: messages,
       });
 
@@ -405,7 +424,7 @@ io.on("connection", (socket) => {
 
       let pretrimmedContent;
       //If the prompt starts with the character name, remove it
-      if(response.startsWith(speaker.name + ":")){
+      if (response.startsWith(speaker.name + ":")) {
         //save the trimmed content, for debugging the prompts
         pretrimmedContent = response.substring(0, speaker.name.length + 1);
         //remove the name, and any additional whitespace created by this
@@ -439,15 +458,22 @@ io.on("connection", (socket) => {
 
       //if we find someone elses name in there, trim it
       for (var i = 0; i < conversationOptions.characters.length; i++) {
-        if(i == currentSpeaker) continue;//Don't cut things from our own name
-        const nameIndex = response.indexOf(conversationOptions.characters[i].name + ":");
-        if(nameIndex != -1 && nameIndex < 20){
+        if (i == currentSpeaker) continue; //Don't cut things from our own name
+        const nameIndex = response.indexOf(
+          conversationOptions.characters[i].name + ":"
+        );
+        if (nameIndex != -1 && nameIndex < 20) {
           response = response.substring(0, nameIndex).trim();
           trimmedContent = originalResponse.substring(nameIndex);
         }
       }
 
-      return { id: completion.id, response: response, trimmed: trimmedContent, pretrimmed: pretrimmedContent };
+      return {
+        id: completion.id,
+        response: response,
+        trimmed: trimmedContent,
+        pretrimmed: pretrimmedContent,
+      };
     } catch (error) {
       console.error("Error during API call:", error);
       throw error;
@@ -465,6 +491,10 @@ httpServer.listen(3001, () => {
   console.log("Listening on *:3001");
 });
 
-function toTitleCase(string){
-  return string.toLowerCase().split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+function toTitleCase(string) {
+  return string
+    .toLowerCase()
+    .split(" ")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
 }

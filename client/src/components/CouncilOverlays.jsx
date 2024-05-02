@@ -4,9 +4,9 @@ import Topics from "./Topics";
 import Contact from "./Contact";
 import Share from "./Share";
 import ResetWarning from "./ResetWarning";
+import Completed from "./Completed";
 
 function CouncilOverlays({ activeOverlay, options, removeOverlay }) {
-
   const closeWrapperStyle = {
     height: "100%",
     width: "100%",
@@ -56,21 +56,40 @@ function CouncilOverlays({ activeOverlay, options, removeOverlay }) {
             onCancel={removeOverlay}
           />
         );
+      case "completed":
+        return (
+          <Completed
+            onContinue={options.onContinue}
+            onWrapItUp={options.onWrapItUp}
+          />
+        );
       default:
         return null; // No overlay content if no section is active
-      };
-    };
+    }
+  };
 
   return (
     <div style={closeWrapperStyle}>
       <div style={closeInnerStyle}>
-        <div style={clickerStyle} onClick={removeOverlay} />
+        <div
+          style={clickerStyle}
+          onClick={removeOverlay}
+        />
         <div style={middleColumn}>
-          <div style={clickerStyle} onClick={removeOverlay}/>
+          <div
+            style={clickerStyle}
+            onClick={removeOverlay}
+          />
           {renderOverlayContent()}
-          <div style={clickerStyle} onClick={removeOverlay}/>
+          <div
+            style={clickerStyle}
+            onClick={removeOverlay}
+          />
         </div>
-        <div style={clickerStyle} onClick={removeOverlay}/>
+        <div
+          style={clickerStyle}
+          onClick={removeOverlay}
+        />
       </div>
     </div>
   );
