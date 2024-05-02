@@ -42,7 +42,7 @@ function HumanInput({ onSubmitNewTopic }) {
   }
 
   useEffect(() => {
-    inputArea.current.value = previousTranscript + " " + transcript;
+    inputArea.current.value = (previousTranscript ? previousTranscript + " " + transcript : transcript);
   }, [transcript]);
 
   const wrapperStyle = {
@@ -54,9 +54,10 @@ function HumanInput({ onSubmitNewTopic }) {
     position: "absolute",
     bottom: "-2vh",
     left: "50%",
-    transform: "translateX(-50%)",
     height: "45vh",
     zIndex: "0",
+    animation: "4s micAppearing",
+    animationFillMode: "both",
   };
 
   const divStyle = {
