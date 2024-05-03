@@ -1,8 +1,6 @@
 import React from "react";
 import NavItem from "./NavItem";
 import { capitalizeFirstLetter } from "../utils";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faXmark } from "@fortawesome/free-solid-svg-icons";
 
 function Navbar({
   topic,
@@ -11,6 +9,9 @@ function Navbar({
   onRemoveOverlay,
   onDisplayResetWarning,
 }) {
+
+  const closeUrl = `/images/icons/close.svg`;
+
   const navbarStyle = {
     paddingTop: "10px",
     display: "flex",
@@ -25,6 +26,13 @@ function Navbar({
     width: "calc(90% + 40px)",
     pointerEvents: "auto",
     zIndex: "10",
+  };
+
+  const closeStyle = {
+    cursor: "pointer",
+    marginTop: "18px",
+    width: "35px",
+    height: "35px",
   };
 
   const navItems = ["about", "settings", "contact", "share"];
@@ -59,11 +67,10 @@ function Navbar({
           ))}
         </div>
         {activeOverlay !== "" && (
-          <FontAwesomeIcon
-            icon={faXmark}
-            size="2x"
+          <img
+            src={closeUrl}
+            style={closeStyle}
             onClick={onRemoveOverlay}
-            style={{ cursor: "pointer", marginTop: "18px" }}
           />
         )}
       </div>
