@@ -1,5 +1,4 @@
 import React from "react";
-import NavItem from "./NavItem";
 import { capitalizeFirstLetter } from "../utils";
 
 function Navbar({
@@ -13,7 +12,7 @@ function Navbar({
   const closeUrl = `/images/icons/close.svg`;
 
   const navbarStyle = {
-    paddingTop: "10px",
+    padding: "20px",
     display: "flex",
     justifyContent: "space-between",
     alignItems: "start",
@@ -23,7 +22,8 @@ function Navbar({
     left: 0,
     right: 0,
     margin: "0 auto",
-    width: "calc(90% + 40px)",
+    width: "100%",
+    boxSizing: "border-box",
     pointerEvents: "auto",
     zIndex: "10",
   };
@@ -51,7 +51,7 @@ function Navbar({
             COUNCIL OF FOODS
           </a>
         </h3>
-        <h4>{capitalizeFirstLetter(topic)}</h4>
+        <h4 style={{textAlign: "left", marginTop: "5px"}}>{capitalizeFirstLetter(topic)}</h4>
       </div>
       <div
         style={{ display: "flex", flexDirection: "column", alignItems: "end" }}
@@ -75,6 +75,33 @@ function Navbar({
         )}
       </div>
     </nav>
+  );
+}
+
+function NavItem({ name, onDisplayOverlay, isActive }) {
+  const navItemStyle = {
+    marginLeft: "19px",
+    cursor: "pointer",
+  };
+
+  return (
+    <h3 style={{ margin: "0", padding: "0" }}>
+      <a
+        className="link"
+        href="#"
+        onClick={(e) => {
+          e.preventDefault(); // Prevent default anchor action
+          onDisplayOverlay(name); // Trigger overlay display
+        }}
+        style={{
+          ...navItemStyle,
+          textDecoration: isActive ? "underline" : "none", // Underline if active
+          textUnderlineOffset: "4px",
+        }}
+      >
+        {name.toUpperCase()}
+      </a>
+    </h3>
   );
 }
 
