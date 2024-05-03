@@ -9,7 +9,7 @@ import Council from "./components/Council";
 
 function App() {
   const [humanName, setHumanName] = useState("");
-  const [topic, setTopic] = useState({ name: "", prompt: "" });
+  const [topic, setTopic] = useState({ title: "", prompt: "" });
   const [foods, setFoods] = useState([]);
   const pages = ["landing", "welcome", "topics", "foods", "council"];
   const [currentView, setCurrentView] = useState(pages[0]);
@@ -18,7 +18,7 @@ function App() {
   function continueForward(props) {
     if (props && props.hasOwnProperty("humanName")) {
       setHumanName(props.humanName);
-    } else if (props && props.hasOwnProperty("topic")) {
+    } else if (props && props.hasOwnProperty("topic")) {      
       setTopic(props.topic);
     } else if (props && props.hasOwnProperty("foods")) {
       setFoods(props.foods);
@@ -35,11 +35,11 @@ function App() {
   }
 
   function reset(topic) {
-    setTopic(topic ?? { name: "", prompt: "" });
+    setTopic(topic ?? { title: "", prompt: "" });
     setFoods([]);
     setIsActiveOverlay(true);
 
-    if (!topic?.name) {
+    if (!topic?.title) {
       // Reset from the start
       setHumanName("");
       setCurrentView("landing");

@@ -84,7 +84,7 @@ function HumanInput({ onSubmitNewTopic }) {
         <TextareaAutosize
           ref={inputArea}
           style={textStyle}
-          className="human"
+          className="unfocused"
           minRows="1"
           maxRows="6"
           placeholder="Type your question or start recording..."

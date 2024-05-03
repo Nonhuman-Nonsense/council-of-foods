@@ -84,7 +84,7 @@ function SelectFoods({ topic, onContinueForward }) {
               Please select 2-5 foods
               <br /> to participate in the discussion about:
             </p>
-            <h4>{toTitleCase(topic.name)}</h4>
+            <h4>{toTitleCase(topic.title)}</h4>
           </div>
           <FoodInfo food={currentFood} />
         </div>
