@@ -88,7 +88,7 @@ function SelectTopic(props) {
 
   const container = {
     height: "70vh",
-    width: "50vw",
+    width: "550px",
     display: "flex",
     flexDirection: "column",
     justifyContent: "flexStart",
