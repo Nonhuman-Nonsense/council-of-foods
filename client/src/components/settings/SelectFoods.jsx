@@ -7,7 +7,7 @@ import { toTitleCase } from "../../utils";
 //We need to save the original water prompt, otherwise it is replace by some weird React black magic
 const originalWaterPrompt = foodData.foods[0].prompt;
 
-function Foods({ topic, onContinueForward }) {
+function SelectFoods({ topic, onContinueForward }) {
   const foods = foodData.foods; // Make sure this is defined before using it to find 'water'
   const waterFood = foods.find((food) => food.name === "Water"); // Find the 'water' food item
 
@@ -133,4 +133,4 @@ function Foods({ topic, onContinueForward }) {
   );
 }
 
-export default Foods;
+export default SelectFoods;

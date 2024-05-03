@@ -3,7 +3,7 @@ import ResetWarning from "../overlays/ResetWarning";
 import topicData from "../../prompts/topics.json";
 import { capitalizeFirstLetter } from "../../utils";
 
-function Topics(props) {
+function SelectTopic(props) {
   const [selectedTopic, setSelectedTopic] = useState("");
   const [customTopic, setCustomTopic] = useState("");
   const [displayWarning, setDisplayWarning] = useState(false);
@@ -132,4 +132,4 @@ function Topics(props) {
   );
 }
 
-export default Topics;
+export default SelectTopic;

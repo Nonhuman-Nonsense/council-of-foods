@@ -3,8 +3,8 @@ import React, { useState, useEffect } from "react";
 import Overlay from "./components/Overlay";
 import Landing from "./components/settings/Landing";
 import Welcome from "./components/settings/Welcome";
-import Topics from "./components/settings/Topics";
-import Foods from "./components/settings/Foods";
+import SelectTopic from "./components/settings/SelectTopic";
+import SelectFoods from "./components/settings/SelectFoods";
 import Council from "./components/Council";
 
 function App() {
@@ -56,8 +56,8 @@ function App() {
       <Overlay isActive={isActiveOverlay && currentView !== "council"} isBlurred={currentView != "landing"}>
         {currentView === "landing" && <Landing onContinueForward={continueForward} />}
         {currentView === "welcome" && <Welcome humanName={humanName} onContinueForward={continueForward} />}
-        {currentView === "topics" && <Topics onContinueForward={continueForward} />}
-        {currentView === "foods" && <Foods topic={topic} onContinueForward={continueForward} />}
+        {currentView === "topics" && <SelectTopic onContinueForward={continueForward} />}
+        {currentView === "foods" && <SelectFoods topic={topic} onContinueForward={continueForward} />}
         {currentView === "council" && <Council options={{ humanName, topic, foods, onReset: reset}} />}
       </Overlay>
       </>

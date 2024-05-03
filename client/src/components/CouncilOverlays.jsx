@@ -1,6 +1,6 @@
 import React from "react";
 import About from "./overlays/About";
-import Topics from "./settings/Topics";
+import SelectTopic from "./settings/SelectTopic";
 import Contact from "./overlays/Contact";
 import Share from "./overlays/Share";
 import ResetWarning from "./overlays/ResetWarning";
@@ -39,7 +39,7 @@ function CouncilOverlays({ activeOverlay, options, removeOverlay }) {
         return <About />;
       case "settings":
         return (
-          <Topics
+          <SelectTopic
             currentTopic={options.topic.name}
             onReset={options.onReset}
             onCancel={removeOverlay}
