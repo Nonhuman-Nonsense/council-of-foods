@@ -1,12 +1,43 @@
 import React, { useState, useRef, useEffect } from "react";
-import { capitalizeFirstLetter } from "../utils";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faArrowRight } from "@fortawesome/free-solid-svg-icons";
+import { capitalizeFirstLetter } from "../../utils";
+
+function Welcome({ onContinueForward }) {
+
+  const wrapper = {
+    width: "100%",
+    height: "100%",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center"
+  };
+
+  const welcomeStyle = {
+    display: "flex",
+    flexDirection: "column",
+    height: "80%",
+    justifyContent: "space-between",
+  };
+
+  return (
+    <div style={wrapper}>
+      <div style={welcomeStyle}>
+        <div>
+          <h2>welcome to</h2>
+          <h1>COUNCIL OF FOODS</h1>
+        </div>
+        <HumanNameInput onContinueForward={onContinueForward} />
+      </div>
+    </div>
+  );
+}
 
 function HumanNameInput(props) {
   const [humanName, setHumanName] = useState("");
   const [isHumanNameMissing, setIsHumanNameMissing] = useState(false);
   const inputRef = useRef(null);
+
+
+  const imageUrl = `/images/icons/send_message_filled.svg`;
 
   useEffect(() => {
     // Focus on the input field when the component mounts
@@ -50,6 +81,16 @@ function HumanNameInput(props) {
     paddingRight: "30px"/* Make room for the arrow */
   };
 
+  const imageStyle = {
+    position: "absolute",
+    right: "0",
+    width: "23px",
+    height: "23px",
+    cursor: "pointer",
+    marginRight: "6px",
+    filter: "brightness(30%)",
+  };
+
   return (
     <div>
       <h3>please type your name to enter:</h3>
@@ -63,11 +104,10 @@ function HumanNameInput(props) {
           onChange={handleChange}
           onKeyDown={handleKeyDown}
         />
-        <FontAwesomeIcon
-          icon={faArrowRight}
-          className="input-arrow"
+        <img
+          src={imageUrl}
+          style={imageStyle}
           onClick={continueForward}
-          style={{ cursor: "pointer" }}
         />
       </div>
       <h3 className={`${!isHumanNameMissing ? "hidden" : ""}`}>
@@ -77,4 +117,4 @@ function HumanNameInput(props) {
   );
 }
 
-export default HumanNameInput;
+export default Welcome;

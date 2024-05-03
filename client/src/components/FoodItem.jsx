@@ -3,10 +3,10 @@ import FoodAnimation from "./FoodAnimation";
 import { filename } from "../utils";
 
 function FoodItem({ food, index, total, screenWidth, currentSpeakerName, isPaused, zoomIn }) {
-  const foodImageStyle = {
-    width: "120px",
-    height: "120px",
-  };
+
+  //Adjust these to adjust overall sizes
+  const overviewSize = 12;
+  const zoomInSize = 55;
 
   const calculateLeftPosition = (index, total) => {
     const middleIndex = (total - 1) / 2;
@@ -36,10 +36,10 @@ function FoodItem({ food, index, total, screenWidth, currentSpeakerName, isPause
 
   // Adjusted function to set width and height based on window width
   const getResponsiveFoodImageStyle = () => {
-    const size = (zoomIn && currentSpeakerName == food.name ? "55vh" : "12vw"); // 12% of the window's width
+    const size = (zoomIn && currentSpeakerName == food.name ? zoomInSize * ((food.size - 1) / 2 + 1) + "vh" : overviewSize * food.size +  "vw"); // 12% of the window's width
     return {
-      width: `${size}`, // Dynamically set width
-      height: `${size}`, // Dynamically set height
+      width: `${size}`,
+      height: `${size}`,
       animation: "2s foodAppearing",
       animationDelay: 0.4 * index + "s",
       animationFillMode: "both",
@@ -49,6 +49,11 @@ function FoodItem({ food, index, total, screenWidth, currentSpeakerName, isPause
   const singleFoodStyle = {
     position: "relative",
     top: "-19vh",
+    width: zoomInSize + "vh",
+    height: zoomInSize + "vh",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "flex-end",
   };
 
   const foodItemStyle = (index, total) => {
@@ -88,12 +93,18 @@ function FoodItem({ food, index, total, screenWidth, currentSpeakerName, isPause
       top = a * Math.pow(index - middleIndex, 2) + topMax - topOffset;
     }
 
+    const size = overviewSize + "vw";
     return {
       position: "absolute",
       left: `${left}%`,
       top: `${top}vw`,
+      width: `${size}`,
+      height: `${size}`,
       transform: "translate(-50%, -50%)",
       opacity: (zoomIn ? "0": "1"),
+      display: "flex",
+      justifyContent: "center",
+      alignItems: "flex-end",
     };
   };
 
@@ -103,7 +114,7 @@ function FoodItem({ food, index, total, screenWidth, currentSpeakerName, isPause
   return (
     <div style={foodItemStyle(index, total)}>
       {
-        ["Potato", "Beer", "Water", "Banana", "Tomato", "Meat", "Broad Bean", "Maize","Mushroom", "Lollipop"].includes(food.name) ?
+        ["Potato", "Beer", "Water", "Banana", "Tomato", "Meat", "Broad Bean", "Maize","Mushroom", "Lollipop", "Avocado"].includes(food.name) ?
         <FoodAnimation food={food} styles={responsiveStyle} currentSpeakerName={currentSpeakerName} isPaused={isPaused} /> :
         <img
         src={`/images/foods/${filename(food.name)}-shadow.png`}

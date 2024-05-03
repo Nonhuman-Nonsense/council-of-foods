@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 
-function Overlay({ isActive, children }) {
+function Overlay({ isActive, isBlurred, children }) {
   const [overlayStyle, setOverlayStyle] = useState({});
 
   const sharedOverlayStyle ={
@@ -16,7 +16,7 @@ function Overlay({ isActive, children }) {
     if (isActive) {
       setOverlayStyle({...sharedOverlayStyle,
         backgroundColor: "rgba(0, 0, 0, 0.5)",
-        backdropFilter: "blur(10px)",
+        backdropFilter: (isBlurred === false ? "" : "blur(10px)"),
         pointerEvents: "auto",
       });
     } else {
@@ -24,7 +24,7 @@ function Overlay({ isActive, children }) {
         pointerEvents: "none",
       });
     }
-  }, [isActive]);
+  }, [isActive, isBlurred]);
 
   return <div style={overlayStyle}>{children}</div>;
 }

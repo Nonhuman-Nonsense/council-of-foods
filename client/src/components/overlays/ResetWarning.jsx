@@ -1,5 +1,5 @@
 import React from "react";
-import { capitalizeFirstLetter } from "../utils";
+import { capitalizeFirstLetter } from "../../utils";
 
 function ResetWarning({ message, onReset, onCancel }) {
   return (
