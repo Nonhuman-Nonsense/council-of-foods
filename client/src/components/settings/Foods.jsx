@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import foodData from "../../settings/foods.json";
+import foodData from "../../prompts/foods.json";
 import FoodButton from "./FoodButton";
 import FoodInfo from "./FoodInfo";
 import { toTitleCase } from "../../utils";
