@@ -4,7 +4,6 @@ import { capitalizeFirstLetter } from "../utils";
 function Welcome({ onContinueForward }) {
 
   const wrapper = {
-    backgroundColor: "rgba(0, 0, 0, 0.6)",
     width: "100%",
     height: "100%",
     display: "flex",

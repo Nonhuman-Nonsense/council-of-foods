@@ -14,28 +14,6 @@ function App() {
   const pages = ["landing", "welcome", "topics", "foods", "council"];
   const [currentView, setCurrentView] = useState(pages[0]);
   const [isActiveOverlay, setIsActiveOverlay] = useState(true);
-  const [backgroundImageURL, setBackgroundImageURL] = useState(
-    "/images/backgrounds/zoomed-out.jpg"
-  );
-
-  const backgroundStyle = {
-    backgroundImage: `url(${backgroundImageURL})`,
-    backgroundSize: "cover",
-    backgroundPositionX: "50%",
-    backgroundPositionY: currentView === "landing" ? "50%" : "calc(50% + 12vh)",
-    height: "100vh",
-    width: "100vw",
-    position: "absolute",
-    zIndex: "-1",
-  };
-
-  useEffect(() => {
-    if (currentView === "landing") {
-      setBackgroundImageURL("/images/backgrounds/zoomed-out.jpeg");
-    } else {
-      setBackgroundImageURL("/images/backgrounds/zoomed-in.png");
-    }
-  }, [currentView]);
 
   function continueForward(props) {
     if (props && props.hasOwnProperty("humanName")) {
@@ -71,44 +49,53 @@ function App() {
     }
   }
 
-  function renderMainCouncil() {
-    return (
-      <Overlay isActive={isActiveOverlay && currentView !== "council"}>
-        {currentView === "welcome" ? (
-          <Welcome
-            humanName={humanName}
-            onContinueForward={continueForward}
-          />
-        ) : currentView === "topics" ? (
-          <Topics onContinueForward={continueForward} />
-        ) : currentView === "foods" ? (
-          <Foods
-            topic={topic}
-            onContinueForward={continueForward}
-          />
-        ) : (
-          <Council
-            options={{
-              humanName,
-              topic,
-              foods,
-              onReset: reset,
-            }}
-          />
-        )}
-      </Overlay>
-    );
-  }
-
   return (
     <div className="App">
-      <div style={backgroundStyle} />
-      {currentView === "landing" ? (
-        <Landing onContinueForward={continueForward} />
-      ) : (
-        renderMainCouncil()
-      )}
+      <>
+      <Background currentView={currentView}/>
+      <Overlay isActive={isActiveOverlay && currentView !== "council"} isBlurred={currentView != "landing"}>
+        {currentView === "landing" && <Landing onContinueForward={continueForward} />}
+        {currentView === "welcome" && <Welcome humanName={humanName} onContinueForward={continueForward} />}
+        {currentView === "topics" && <Topics onContinueForward={continueForward} />}
+        {currentView === "foods" && <Foods topic={topic} onContinueForward={continueForward} />}
+        {currentView === "council" && <Council options={{ humanName, topic, foods, onReset: reset}} />}
+      </Overlay>
+      </>
     </div>
+  );
+}
+
+function Background({currentView}) {
+
+    const sharedStyle = {
+      backgroundSize: "cover",
+      backgroundPositionX: "50%",
+      height: "100vh",
+      width: "100vw",
+      position: "absolute",
+    };
+
+    const zoomedOutStyle = {
+      ...sharedStyle,
+      backgroundPositionY: "50%",
+      backgroundImage: `url(/images/backgrounds/zoomed-out.jpeg)`,
+      zIndex: "-2",
+      opacity: (currentView == "landing" ? "1" : "0")
+    };
+
+    const zoomedInStyle = {
+      ...sharedStyle,
+      backgroundPositionY: "calc(50% + 12vh)",
+      backgroundImage: `url(/images/backgrounds/zoomed-in.png)`,
+      zIndex: "-1",
+      opacity: (currentView == "landing" ? "0.01" : "1")
+    };
+
+  return (
+    <>
+      <div style={zoomedOutStyle} />
+      <div style={zoomedInStyle} />
+    </>
   );
 }
 
