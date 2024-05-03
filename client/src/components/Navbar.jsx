@@ -39,7 +39,7 @@ function Navbar({
 
   return (
     <nav style={navbarStyle} role="navigation">
-      <div>
+      <div style={{textAlign: "left"}}>
         <h3 style={{ margin: "0", padding: "0" }}>
           <a
             className="link"
@@ -51,7 +51,7 @@ function Navbar({
             COUNCIL OF FOODS
           </a>
         </h3>
-        <h4 style={{textAlign: "left", marginTop: "5px"}}>{capitalizeFirstLetter(topic)}</h4>
+        <h4 style={{marginTop: "5px"}}>{capitalizeFirstLetter(topic)}</h4>
       </div>
       <div
         style={{ display: "flex", flexDirection: "column", alignItems: "end" }}
