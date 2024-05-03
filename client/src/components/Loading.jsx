@@ -4,7 +4,7 @@ function Loading() {
 
   const styles = {
       position: "absolute",
-      top: "70vh",
+      top: "73vh",
       objectFit: "cover"
   };
 

@@ -11,8 +11,6 @@ function TextOutput({ currentTextMessage, currentAudioMessage, isPaused, setZoom
   const [wasPaused, setWasPaused] = useState(false);
   const timerId = useRef(null);
 
-  useEffect(() => {});
-
   useEffect(() => {
     if (isPaused) {
       clearTimeout(timerId.current);
@@ -68,11 +66,18 @@ function TextOutput({ currentTextMessage, currentAudioMessage, isPaused, setZoom
 
       //Don't set a timer if we are on the last snippet
       if (currentSnippetIndex < sentences.length - 1) {
-        timerId.current = setTimeout(() => {
-          setCurrentSnippetIndex((prevIndex) =>
-            prevIndex < sentences.length - 1 ? prevIndex + 1 : prevIndex
-          );
-        }, delay);
+        if(!isPaused){
+          timerId.current = setTimeout(() => {
+            setCurrentSnippetIndex((prevIndex) =>
+              prevIndex < sentences.length - 1 ? prevIndex + 1 : prevIndex
+            );
+          }, delay);
+        }else{
+          //Handle special case where council is paused before first message
+          clearTimeout(timerId.current);
+          setRemainingTime(delay);
+          setWasPaused(true);
+        }
       }
 
       return () => clearTimeout(timerId.current);

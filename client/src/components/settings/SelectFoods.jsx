@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import foodData from "../../prompts/foods.json";
 import FoodButton from "./FoodButton";
-import FoodInfo from "./FoodInfo";
 import { toTitleCase } from "../../utils";
 
 //We need to save the original water prompt, otherwise it is replace by some weird React black magic
@@ -69,9 +68,10 @@ function SelectFoods({ topic, onContinueForward }) {
         flexDirection: "column",
         height: "85%",
         justifyContent: "space-between",
+        alignItems: "center"
       }}
     >
-      <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
+      <div style={{ height: "100%", width: "65%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
         <h1>THE FOODS</h1>
         <div
           style={{
@@ -84,20 +84,9 @@ function SelectFoods({ topic, onContinueForward }) {
               Please select 2-5 foods
               <br /> to participate in the discussion about:
             </p>
-            <h4>{toTitleCase(topic.name)}</h4>
+            <h4>{toTitleCase(topic.title)}</h4>
           </div>
-          <div
-            style={{
-              position: "absolute",
-              top: 0,
-              height: "100%",
-              transition: "opacity 0.5s ease",
-              opacity: currentFood !== null ? 1 : 0,
-              pointerEvents: currentFood !== null ? "all" : "none",
-            }}
-          >
-            <FoodInfo food={currentFood} />
-          </div>
+          <FoodInfo food={currentFood} />
         </div>
       </div>
       <div>
@@ -129,6 +118,29 @@ function SelectFoods({ topic, onContinueForward }) {
           Start
         </button>
       </div>
+    </div>
+  );
+}
+
+function FoodInfo({ food }) {
+  if (!food) return null;
+
+  return (
+    <div
+      style={{
+        position: "absolute",
+        top: 0,
+        height: "100%",
+        transition: "opacity 0.5s ease",
+        opacity: food !== null ? 1 : 0,
+        pointerEvents: food !== null ? "all" : "none",
+      }}
+    >
+      <h2>{toTitleCase(food.name)}</h2>
+      <p>{food.description?.split('\n').map((item, key) => {
+          return <span key={key}>{item}<br/></span>
+        })}
+      </p>
     </div>
   );
 }

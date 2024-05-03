@@ -1,10 +1,30 @@
 {
-  "system": "Welcome to the Council of Foods—an assembly of diverse foods, addressing the broken food system through passionate debate. It is a never ending meeting. Today's meeting is about [TOPIC].\n\nEach food provides distinct perspectives, stories, and examples, shared from their own experience. They have an unlimited amount of knowledge and they want to share all of it during the debate. The foods perspectives differ and they are not afraid of conflict. Moderated by Water, discussions are dynamic and intense, ensuring a comprehensive exploration of the challenges.\n\nParticipants respond to questions from Water, avoiding repetition, and defending their values and agendas. This is a humour talk show, everyone is doing standup.",
+  "system": "Welcome to the Council of Foods—an assembly of diverse foods, addressing the broken food system through passionate debate. It is a never ending meeting. Today's meeting is about: [TOPIC].\n\nEach food provides distinct perspectives, stories, and examples, shared from their own experience. They have an unlimited amount of knowledge and they want to share all of it during the debate. The foods perspectives differ and they are not afraid of conflict. Moderated by Water, discussions are dynamic and intense, ensuring a comprehensive exploration of the challenges.\n\nParticipants respond to questions from Water, avoiding repetition, and defending their values and agendas. This is a humour talk show, everyone is doing standup.",
   "topics": [
-    "seed patents and ownership",
-    "labour conditions & modern slavery",
-    "modern agriculture & biodiversity loss",
-    "local & global food chains",
-    "nature - culture: traditions and progress"
+    {
+      "title": "seed patents & ownership",
+      "description" : "Here is a longer description of seed patents. They are a big problem, for example...",
+      "prompt": "seed patents and ownership"
+    },
+    {
+      "title": "labour conditions & modern slavery",
+      "description" : "Here is a longer description of labour conditions & modern slavery. They are a big problem, for example...",
+      "prompt": "labour conditions & modern slavery"
+    },
+    {
+      "title": "modern agriculture & biodiversity loss",
+      "description" : "Here is a longer description of modern agriculture & biodiversity loss. It is a big problem, for example...",
+      "prompt": "modern agriculture & biodiversity loss"
+    },
+    {
+      "title": "local & global food chains",
+      "description" : "Here is a longer description of local & global food chains. It is a big problem, for example...",
+      "prompt": "local & global food chains"
+    },
+    {
+      "title": "nature - culture: traditions & progress",
+      "description" : "Here is a longer description of nature - culture: traditions & progress. It is a big problem, for example...",
+      "prompt": "nature - culture: traditions and progress"
+    }
   ]
 }

@@ -282,7 +282,7 @@ function Council({ options }) {
       <div style={bottomShade} />
       <div style={topShade} />
       <Navbar
-        topic={options.topic.name}
+        topic={options.topic.title}
         activeOverlay={activeOverlay}
         onDisplayOverlay={displayOverlay}
         onRemoveOverlay={removeOverlay}

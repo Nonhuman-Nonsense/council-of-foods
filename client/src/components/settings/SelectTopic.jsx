@@ -1,15 +1,16 @@
 import React, { useState, useRef, useEffect } from "react";
 import ResetWarning from "../overlays/ResetWarning";
 import topicData from "../../prompts/topics.json";
-import { capitalizeFirstLetter } from "../../utils";
+import { capitalizeFirstLetter, toTitleCase } from "../../utils";
 
 function SelectTopic(props) {
-  const [selectedTopic, setSelectedTopic] = useState("");
+  const [selectedTopic, setSelectedTopic] = useState({title: "", description: "", prompt: ""});
+  const [hoverTopic, setHoverTopic] = useState({});
   const [customTopic, setCustomTopic] = useState("");
   const [displayWarning, setDisplayWarning] = useState(false);
   const topicTextareaRef = useRef(null);
 
-  const topicNames = [...topicData.topics, "choose your own"];
+  const topics = [...topicData.topics, {title: "choose your own", prompt: "" , description: ""}];
 
   // useEffect hook to listen for changes in props.currentTopic
   useEffect(() => {
@@ -21,20 +22,20 @@ function SelectTopic(props) {
   // Function to set selectedTopic and focus on textarea if needed
   function selectTopic(topic) {
     // Check if the topic is in the predefined list or not
-    const topicExists = topicNames.some(
-      (t) => t.toLowerCase() === topic.toLowerCase()
+    const topicExists = topics.some(
+      (t) => t.title.toLowerCase() === topic.title.toLowerCase()
     );
 
     if (topicExists) {
       setSelectedTopic(topic);
     } else {
       // If the topic is not in the list, consider it a custom topic
-      setCustomTopic(topic); // Set the unrecognized topic as the custom topic
-      setSelectedTopic("choose your own"); // Automatically select "choose your own"
+      setCustomTopic(topic.title.substring(0, 150)); // Set the unrecognized topic as the custom topic
+      setSelectedTopic({title: "choose your own", prompt: "" , description: ""}); // Automatically select "choose your own"
     }
 
     // Focus on the textarea if "choose your own" is selected
-    if (!topicExists || topic.toLowerCase() === "choose your own") {
+    if (!topicExists || topic.title.toLowerCase() === "choose your own") {
       setTimeout(() => {
         topicTextareaRef.current && topicTextareaRef.current.focus();
       }, 0);
@@ -44,7 +45,7 @@ function SelectTopic(props) {
   // Function to handle custom topic input changes
   function handleInputTopic(e) {
     const newTopic = e.target.value;
-    const capitalizedTopic = capitalizeFirstLetter(newTopic);
+    const capitalizedTopic = capitalizeFirstLetter(newTopic).substring(0, 150);
     setCustomTopic(capitalizedTopic);
   }
 
@@ -54,11 +55,15 @@ function SelectTopic(props) {
       // Current topic exists which means we are changing settings
       setDisplayWarning(true);
     } else {
-      const topicName = getTopic();
-      props.onContinueForward({ topic: {
-        name: topicName,
-        prompt: buildTopicPrompt(topicName)
-      } });
+      let continueWithTopic = selectedTopic;
+      if (continueWithTopic.title.toLowerCase() === "choose your own"){
+        continueWithTopic.title = customTopic;
+        continueWithTopic.prompt = customTopic;
+      }
+
+      continueWithTopic.prompt = topicData.system.replace("[TOPIC]", continueWithTopic.prompt);
+
+      props.onContinueForward({topic: continueWithTopic });
     }
   }
 
@@ -67,59 +72,90 @@ function SelectTopic(props) {
     return prompt;
   }
 
-  function getTopic() {
+  function getTopicTitle() {
     const topic =
-      selectedTopic.toLowerCase() === "choose your own"
+      selectedTopic.title.toLowerCase() === "choose your own"
         ? customTopic
-        : selectedTopic;
+        : selectedTopic.title
 
     return topic;
   }
 
   // Conditional rendering for showing the Next button
   const shouldShowNextButton =
-    selectedTopic &&
-    !(selectedTopic.toLowerCase() === "choose your own" && !customTopic.trim());
+    selectedTopic && selectedTopic.title &&
+    !(selectedTopic.title.toLowerCase() === "choose your own" && !customTopic.trim());
+
+  const container = {
+    height: "70vh",
+    width: "550px",
+    display: "flex",
+    flexDirection: "column",
+    justifyContent: "flexStart",
+    alignItems: "center",
+  };
+
+  const textBoxStyle = {
+    backgroundColor: "transparent",
+    width: "100%",
+    color: "white",
+    textAlign: "center",
+    border: "0",
+    fontFamily: "Tinos, serif",
+    lineHeight: "1.2em",
+    // fontSize: "25px",
+    resize: "none",
+    padding: "0",
+    visibility: selectedTopic.title === "choose your own" ?
+                (hoverTopic && hoverTopic?.title !== "choose your own") ? "hidden" : "" :
+                hoverTopic?.title === "choose your own" ? "" : "hidden",
+  };
 
   return (
     <>
       {displayWarning ? (
         <ResetWarning
           message="changing settings"
-          onReset={() => props.onReset({name: getTopic(), prompt: buildTopicPrompt(getTopic())})}
+          onReset={() => props.onReset({title: getTopicTitle(), prompt: buildTopicPrompt(getTopicTitle())})}
           onCancel={props.onCancel}
         />
       ) : (
-        <div className="text-container">
-          <h1>THE ISSUE</h1>
+        <div style={container}>
+          <h1 style={{marginBottom: "20px"}}>THE ISSUE</h1>
           <div
             style={{
               display: "flex",
               flexDirection: "column",
-              justifyContent: "start",
+              justifyContent: "flex-start",
+              width: "100%",
             }}
           >
-            {topicNames.map((topic, index) => (
+            {topics.map((topic, index) => (
               <button
                 key={index}
-                className={(selectedTopic === topic ? "selected ": "") + "outline-button wide-button"}
+                className={(selectedTopic.title === topic.title ? "selected ": "") + "outline-button"}
                 onClick={() => selectTopic(topic)}
-                style={{marginBottom: "15px"}}
+                style={{marginBottom: "15px", padding: "6px 0"}}
+                onMouseEnter={() => setHoverTopic(topic)}
+                onMouseLeave={() => setHoverTopic(null)}
               >
-                {topic}
+                {toTitleCase(topic.title)}
               </button>
             ))}
-            <p>please select an issue for the discussion</p>
+            <p style={{margin: "0"}}>
+              {hoverTopic ? hoverTopic.description : selectedTopic ? selectedTopic.description : "please select an issue for the discussion"}
+            </p>
           </div>
           <textarea
             ref={topicTextareaRef}
-            className={`${selectedTopic === "choose your own" ? "" : "hidden"}`}
-            rows="2"
+            className="unfocused"
+            rows="3"
             value={customTopic}
-            placeholder="your topic"
+            placeholder="Write a topic here..."
             onChange={handleInputTopic}
-            style={{ width: "80%" }}
+            style={textBoxStyle}
           />
+          <div style={{flex: "1"}} />
           <button
             className={`${shouldShowNextButton ? "" : "hidden"} outline-button`}
             onClick={onContinueForward}

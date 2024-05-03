@@ -9,7 +9,7 @@ import Council from "./components/Council";
 
 function App() {
   const [humanName, setHumanName] = useState("");
-  const [topic, setTopic] = useState({ name: "", prompt: "" });
+  const [topic, setTopic] = useState({ title: "", prompt: "" });
   const [foods, setFoods] = useState([]);
   const pages = ["landing", "welcome", "topics", "foods", "council"];
   const [currentView, setCurrentView] = useState(pages[0]);
@@ -35,11 +35,11 @@ function App() {
   }
 
   function reset(topic) {
-    setTopic(topic ?? { name: "", prompt: "" });
+    setTopic(topic ?? { title: "", prompt: "" });
     setFoods([]);
     setIsActiveOverlay(true);
 
-    if (!topic?.name) {
+    if (!topic?.title) {
       // Reset from the start
       setHumanName("");
       setCurrentView("landing");
@@ -78,9 +78,9 @@ function Background({currentView}) {
     const zoomedOutStyle = {
       ...sharedStyle,
       backgroundPositionY: "50%",
-      backgroundImage: `url(/images/backgrounds/zoomed-out.jpeg)`,
+      backgroundImage: `url(/images/backgrounds/zoomed-out.jpg)`,
       zIndex: "-2",
-      opacity: (currentView == "landing" ? "1" : "0")
+      opacity: (currentView != "council" ? "1" : "0")
     };
 
     const zoomedInStyle = {
@@ -88,7 +88,7 @@ function Background({currentView}) {
       backgroundPositionY: "calc(50% + 12vh)",
       backgroundImage: `url(/images/backgrounds/zoomed-in.png)`,
       zIndex: "-1",
-      opacity: (currentView == "landing" ? "0.01" : "1")
+      opacity: (currentView != "council" ? "0.01" : "1")
     };
 
   return (
