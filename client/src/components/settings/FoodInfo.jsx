@@ -1,5 +1,5 @@
 import React from "react";
-import { toTitleCase } from "../utils.js";
+import { toTitleCase } from "../../utils.js";
 
 function FoodInfo({ food }) {
   if (!food) {

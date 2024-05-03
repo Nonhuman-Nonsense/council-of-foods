@@ -1,5 +1,5 @@
 import React from "react";
-import { filename } from "../utils";
+import { filename } from "../../utils";
 
 function FoodButton({
   food,

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { capitalizeFirstLetter } from "../utils";
+import { capitalizeFirstLetter } from "../../utils";
 
 function Welcome({ onContinueForward }) {
 

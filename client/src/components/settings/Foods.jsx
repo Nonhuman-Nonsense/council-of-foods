@@ -1,8 +1,8 @@
 import React, { useState } from "react";
-import foodData from "../settings/foods.json";
+import foodData from "../../settings/foods.json";
 import FoodButton from "./FoodButton";
 import FoodInfo from "./FoodInfo";
-import { toTitleCase } from "../utils";
+import { toTitleCase } from "../../utils";
 
 //We need to save the original water prompt, otherwise it is replace by some weird React black magic
 const originalWaterPrompt = foodData.foods[0].prompt;

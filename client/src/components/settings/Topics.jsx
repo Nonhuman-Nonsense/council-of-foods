@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
-import ResetWarning from "./ResetWarning";
-import topicData from "../settings/topics.json";
-import { capitalizeFirstLetter } from "../utils";
+import ResetWarning from "../overlays/ResetWarning";
+import topicData from "../../settings/topics.json";
+import { capitalizeFirstLetter } from "../../utils";
 
 function Topics(props) {
   const [selectedTopic, setSelectedTopic] = useState("");

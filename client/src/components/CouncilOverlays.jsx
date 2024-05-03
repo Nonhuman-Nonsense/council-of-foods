@@ -1,10 +1,10 @@
 import React from "react";
-import About from "./About";
-import Topics from "./Topics";
-import Contact from "./Contact";
-import Share from "./Share";
-import ResetWarning from "./ResetWarning";
-import Completed from "./Completed";
+import About from "./overlays/About";
+import Topics from "./settings/Topics";
+import Contact from "./overlays/Contact";
+import Share from "./overlays/Share";
+import ResetWarning from "./overlays/ResetWarning";
+import Completed from "./overlays/Completed";
 
 function CouncilOverlays({ activeOverlay, options, removeOverlay }) {
   const closeWrapperStyle = {

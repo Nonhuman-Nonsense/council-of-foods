@@ -1,10 +1,10 @@
 import "./App.css";
 import React, { useState, useEffect } from "react";
 import Overlay from "./components/Overlay";
-import Landing from "./components/Landing";
-import Welcome from "./components/Welcome";
-import Topics from "./components/Topics";
-import Foods from "./components/Foods";
+import Landing from "./components/settings/Landing";
+import Welcome from "./components/settings/Welcome";
+import Topics from "./components/settings/Topics";
+import Foods from "./components/settings/Foods";
 import Council from "./components/Council";
 
 function App() {
