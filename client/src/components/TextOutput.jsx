@@ -42,7 +42,8 @@ function TextOutput({ currentTextMessage, currentAudioMessage, isPaused, setZoom
         /(?<=[.!?])(?=\s+(?![0-9]))/
       );
       if (sentences.length > 0) {
-        setCurrentSnippet(sentences[0]);
+        const namePrefix = currentTextMessage.type === "human" ? currentTextMessage.speaker + ": " : "";
+        setCurrentSnippet(namePrefix + sentences[0]);
       } else {
         setCurrentSnippet("");
       }
@@ -56,7 +57,8 @@ function TextOutput({ currentTextMessage, currentAudioMessage, isPaused, setZoom
       );
 
       if (sentences.length > currentSnippetIndex) {
-        setCurrentSnippet(sentences[currentSnippetIndex]);
+        const namePrefix = currentTextMessage.type === "human" ? currentTextMessage.speaker + ": " : "";
+        setCurrentSnippet(namePrefix + sentences[currentSnippetIndex]);
       }
 
       //Store the current delay, and the time when it started
@@ -87,8 +89,10 @@ function TextOutput({ currentTextMessage, currentAudioMessage, isPaused, setZoom
 
 
   useEffect(() => {
-    //zoom in on 2 snippets, out on 2, etc.
-    setZoomIn(currentSnippetIndex % 4 < 2 );
+    if(currentTextMessage?.type !== "human"){
+      //zoom in on 2 snippets, out on 2, etc.
+      setZoomIn(currentSnippetIndex % 4 < 2 );
+    }
   },[currentSnippetIndex, currentTextMessage])
 
   // Modify calculateDisplayTime to handle potential undefined or empty strings safely

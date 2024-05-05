@@ -45,6 +45,8 @@ io.on("connection", (socket) => {
 
   let logit_biases = [];
 
+  let invitation;
+
   // socket.on("pause_conversation", () => {
   // isPaused = true;
   // console.log('Conversation has been paused');
@@ -62,7 +64,7 @@ io.on("connection", (socket) => {
     //When hand is raised, ignore all incoming messages until we have a human message
     handRaised = true;
 
-    chairInterjection(
+    let {response, id} = await chairInterjection(
       globalOptions.raiseHandPrompt.replace(
         "[NAME]",
         conversationOptions.humanName
@@ -71,19 +73,48 @@ io.on("connection", (socket) => {
       100,
       "invitation" //length
     );
+
+    //Trim it down to one paragraph
+    const firstNewLineIndex = response.indexOf("\n\n");
+    if (firstNewLineIndex !== -1) {
+      response = response.substring(0, firstNewLineIndex);
+    }
+
+    //Store the invitation, but keep the rest of the stack for now.
+    //If hand is lowered before invitation is played.
+    invitation = {
+      id: id,
+      speaker: conversationOptions.characters[0].name,
+      text: response,
+      purpose: "invitation",
+      message_index: handRaisedOptions.index
+    };
+
+    //Cut everything after the submitted index + 1
+    //Because we want to include the new invitation
+    // conversation = conversation.slice(0, index + 1);
+
+    //Adjust the current message_index
+
+
+    socket.emit("invitation_to_speak", invitation);
+
+    //This is an async function, and since we are not waiting for the response, it will run in a paralell thread.
+    //The result will be emitted to the socket when it's ready
+    //The rest of the conversation continues
+
+    const voice = conversationOptions.characters[0].voice
+      ? conversationOptions.characters[0].voice
+      : audioVoices[0];
+
+    generateAudio(id, conversation.length - 1, response, voice);
+
   });
 
   socket.on("lower_hand", async () => {
-    await chairInterjection(
-      globalOptions.neverMindPrompt.replace(
-        "[NAME]",
-        conversationOptions.humanName
-      ),
-      100 //length
-    );
-
     handRaised = false;
     isPaused = false;
+    invitation = null;
     //Start the conversation again
     handleConversationTurn();
   });
@@ -100,10 +131,7 @@ io.on("connection", (socket) => {
       const chair = conversationOptions.characters[0];
       // Generate response using GPT-4 for AI characters
       // Build the array of messages for the completion request
-      let messages = buildMessageStack(chair, index - 1);
-
-      //remove the last message, which is just the name of the character again
-      messages.pop();
+      let messages = buildMessageStack(chair, index);
 
       //inject the system prompt
       messages.push({
@@ -135,33 +163,7 @@ io.on("connection", (socket) => {
         response = response.substring(chair.name.length + 1).trim();
       }
 
-      //Update the message at the desired index
-      conversation[index] = {
-        id: completion.id,
-        speaker: chair.name,
-        text: response,
-        purpose: purpose,
-      };
-
-      //Cut everything after the submitted index
-      conversation = conversation.slice(0, index + 1);
-
-      //A rolling index of the message number, so that audio can be played in the right order etc.
-      const message_index = conversation.length - 1;
-
-      // TODO: Edit the conversation so that all proceeding indices are cut, and the new response is put last.
-
-      socket.emit("conversation_update", conversation);
-
-      //This is an async function, and since we are not waiting for the response, it will run in a paralell thread.
-      //The result will be emitted to the socket when it's ready
-      //The rest of the conversation continues
-
-      const voice = conversationOptions.characters[0].voice
-        ? conversationOptions.characters[0].voice
-        : audioVoices[0];
-
-      generateAudio(completion.id, message_index, response, voice);
+      return {response, id: completion.id};
     } catch (error) {
       console.error("Error during conversation:", error);
       socket.emit(
@@ -191,13 +193,16 @@ io.on("connection", (socket) => {
 
     //Cut everything after the submitted index
     if (upToIndex) {
-      messages = messages.slice(0, upToIndex);
+      //System prompt + up desired index
+      //upToIndex is not included in returned array by slice function
+      messages = messages.slice(0, 1 + upToIndex);
+      return messages;
     }
 
     //Push a message with the character name at the end of the conversation, in the hope that the character will understand who they are and not repeat their name
     //Works most of the time.
     messages.push({
-      role: "assistant",
+      role: "system",
       content: speaker.name + ": ",
     });
 
@@ -205,23 +210,39 @@ io.on("connection", (socket) => {
   };
 
   socket.on("submit_human_message", (message) => {
-    //Add it to the stack, and then start the conversation again
-    // message.type = 'human';
+
+    //If we have a human message, means that we previously had an invitation
+    conversation[invitation.message_index] = invitation;
+
+    //Cut all messages after this
+    conversation = conversation.slice(0,invitation.message_index + 1);
+
+    //Add the human message to the stack, and then start the conversation again
     message.id = "human-" + conversationCounter + "-" + conversation.length;
+    message.type = "human";
+    message.speaker = conversationOptions.humanName;
     conversation.push(message);
 
+    //Emit the new complete conversation
     socket.emit("conversation_update", conversation);
 
     //Don't read human messages for now
     //Otherwise, generate audio here
-    socket.emit("audio_update", {
-      id: message.id,
-      message_index: conversation.length - 1,
-      type: "human",
-    });
+
+    //Use Water voice for now, otherwise change to separate human voice
+    generateAudio(message.id, conversation.length - 1, message.text, audioVoices[0]);
+
+    // socket.emit("audio_update", {
+      // id: message.id,
+      // message_index: conversation.length - 1,
+      // type: "human",
+    // });
 
     isPaused = false;
     handRaised = false;
+    // Determine the next speaker
+    // currentSpeaker = currentSpeaker >= conversationOptions.characters.length - 1 ? 0 : currentSpeaker + 1;
+    // TODO: Might be a problem here?
     handleConversationTurn();
   });
 

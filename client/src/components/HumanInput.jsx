@@ -5,8 +5,9 @@ import SpeechRecognition, {
 import ConversationControlIcon from "./ConversationControlIcon";
 import TextareaAutosize from 'react-textarea-autosize';
 
-function HumanInput({ onSubmitNewTopic }) {
+function HumanInput({ onSubmitHumanMessage }) {
   const [isRecording, setIsRecording] = useState(false);
+  const [canContinue, setCanContinue] = useState(false);
   const [previousTranscript, setPreviousTranscript] = useState("");
   const inputArea = useRef(null);
 
@@ -42,7 +43,20 @@ function HumanInput({ onSubmitNewTopic }) {
 
   useEffect(() => {
     inputArea.current.value = (previousTranscript ? previousTranscript + " " + transcript : transcript);
+    inputChanged();
   }, [transcript]);
+
+  function inputFocused(e){
+    setIsRecording(false);
+  }
+
+  function inputChanged(e){
+    if(inputArea.current.value.length > 0){
+      setCanContinue(true);
+    }else{
+      setCanContinue(false);
+    }
+  }
 
   const wrapperStyle = {
     position: "absolute",
@@ -84,6 +98,8 @@ function HumanInput({ onSubmitNewTopic }) {
         <TextareaAutosize
           ref={inputArea}
           style={textStyle}
+          onChange={inputChanged}
+          onFocus={inputFocused}
           className="unfocused"
           minRows="1"
           maxRows="6"
@@ -100,14 +116,16 @@ function HumanInput({ onSubmitNewTopic }) {
           />
         </div>
         <div style={divStyle}>
-          <ConversationControlIcon
-            icon={"send_message"}
-            tooltip={"Mute"}
-            onClick={() => {
-              setIsRecording(false);
-              onSubmitNewTopic(inputArea.current.value);
-            }}
-          />
+          {canContinue &&
+            <ConversationControlIcon
+              icon={"send_message"}
+              tooltip={"Mute"}
+              onClick={() => {
+                setIsRecording(false);
+                onSubmitHumanMessage(inputArea.current.value);
+              }}
+            />
+          }
         </div>
       </div>
     </div>

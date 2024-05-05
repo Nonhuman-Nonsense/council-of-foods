@@ -6,15 +6,14 @@ function Output({
   textMessages,
   audioMessages,
   isRaisedHand,
-  onIsRaisedHand,
   isMuted,
   isPaused,
   skipForward,
   skipBackward,
   handleSetCurrentSpeakerName,
   onIsWaitingToInterject,
+  isWaitingToInterject,
   bumpIndex1,
-  bumpIndex2,
   audioContext,
   setCanGoForward,
   setCanGoBack,
@@ -25,41 +24,50 @@ function Output({
   isInterjecting,
   onCompletedConversation,
   onCompletedSummary,
+  currentMessageIndex,
+  setCurrentMessageIndex,
+  conversationMaxLength,
+  invitation,
+  playInvitation,
+  setPlayinvitation
 }) {
   const [actualMessageIndex, setActualMessageIndex] = useState(0);
-  const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
   const [currentTextMessage, setCurrentTextMessage] = useState(null);
   const [currentAudioMessage, setCurrentAudioMessage] = useState(null);
   const [isFoundMessage, setIsFoundMessage] = useState(false);
   const [pausedInBreak, setPausedInBreak] = useState(false);
+  const [proceedToNextMessage, setProceedToNextMessage] = useState(false);
 
   const hiddenStyle = { visibility: "hidden" };
 
   useEffect(() => {
-    if (currentMessageIndex === 0) {
+    if (currentMessageIndex === 0 || playInvitation) {
       setCanGoBack(false);
     } else {
       setCanGoBack(true);
     }
     if (
       currentMessageIndex < textMessages.length - 1 &&
+      !playInvitation &&
       audioMessages.find(
         (a) => a.id === textMessages[currentMessageIndex + 1].id
       )
     ) {
       setCanGoForward(true);
-    } else {
+    }else if(currentMessageIndex === conversationMaxLength - 1){
+      setCanGoForward(true);
+    }else{
       setCanGoForward(false);
     }
-  }, [currentMessageIndex, textMessages, audioMessages]);
+  }, [currentMessageIndex, textMessages, audioMessages, playInvitation]);
 
   useEffect(() => {
-    if (currentMessageIndex === actualMessageIndex) {
+    if (currentMessageIndex === actualMessageIndex && !playInvitation && currentMessageIndex !== conversationMaxLength - 1) {
       setCanRaiseHand(true);
     } else {
       setCanRaiseHand(false);
     }
-  }, [actualMessageIndex, currentMessageIndex]);
+  }, [actualMessageIndex, currentMessageIndex, playInvitation]);
 
   useEffect(() => {
     if (currentTextMessage && currentAudioMessage) {
@@ -69,26 +77,6 @@ function Output({
   }, [bumpIndex1]);
 
   useEffect(() => {
-    if (currentTextMessage && currentAudioMessage) {
-      console.log("Bumping up current message index by 2");
-      setCurrentMessageIndex((prev) => prev + 2);
-    }
-  }, [bumpIndex2]);
-
-  // Emit currentMessageIndex + 1 to parent for invitation message index
-  useEffect(() => {
-    console.log("Sending index: ", currentMessageIndex + 1);
-
-    onIsRaisedHand(currentMessageIndex + 1);
-  }, [isRaisedHand]);
-
-  useEffect(() => {
-    handleSetCurrentSpeakerName(
-      currentTextMessage ? currentTextMessage.speaker : ""
-    );
-  }, [currentTextMessage]);
-
-  useEffect(() => {
     handleSetCurrentSpeakerName(
       currentTextMessage ? currentTextMessage.speaker : ""
     );
@@ -96,7 +84,7 @@ function Output({
 
   useEffect(() => {
     if (currentTextMessage && currentAudioMessage) {
-      proceedToNextMessage();
+      setProceedToNextMessage(true);
     }
   }, [skipForward]);
 
@@ -122,8 +110,8 @@ function Output({
     findTextAndAudio();
   }, [textMessages, audioMessages]);
 
-  function findTextAndAudio() {
-    const textMessage = textMessages[currentMessageIndex];
+  function findTextAndAudio(custom) {
+    const textMessage = custom ? custom : textMessages[currentMessageIndex];
 
     if (textMessage) {
       const audioMessage = audioMessages.find((a) => a.id === textMessage.id);
@@ -144,8 +132,9 @@ function Output({
 
   // Helper function to increment the message index safely for current-, and actual message index
   function incrementIndex(prevIndex) {
-    const maxIndex = textMessages.length - 1;
-    return prevIndex < maxIndex ? prevIndex + 1 : maxIndex;
+    // const maxIndex = textMessages.length - 1;
+    // return prevIndex < maxIndex ? prevIndex + 1 : maxIndex;
+    return prevIndex + 1;
   }
 
   function goBackToPreviousMessage() {
@@ -156,36 +145,60 @@ function Output({
     });
   }
 
-  function proceedToNextMessage() {
-    console.log("Proceeding to next message...");
-    setIsFoundMessage(() => false);
+  useEffect(() => {
+    if(proceedToNextMessage){
+      console.log("Proceeding to next message...");
+      setProceedToNextMessage(() => false);
+      setIsFoundMessage(() => false);
 
-    const currentIndex = currentMessageIndex;
-    const maxIndex = textMessages.length - 1;
-    const currentMessage = textMessages[currentIndex];
+      const currentIndex = currentMessageIndex;
+      const maxIndex = textMessages.length - 1;
+      const currentMessage = textMessages[currentIndex];
 
-    // Check if we're at the end of the list and if its an interjection
-    if (currentIndex >= maxIndex) {
-      console.log("Reached the end of the message list.");
-
-      console.log("Current message: ", currentMessage);
-
-      if (currentMessage && currentMessage.purpose === "invitation") {
-        handleInterjection();
-      } else if (currentMessage && currentMessage.purpose === "summary") {
-        // TODO: Reset?
-        onCompletedSummary();
-      } else {
-        // Conversation is completed
-        onCompletedConversation();
+      //If hand is raised when previous message finishes
+      if(isWaitingToInterject){
+        //If the invitation is ready
+        if(invitation && !playInvitation){
+          setPlayinvitation(true);
+        }else if(playInvitation){
+          setPlayinvitation(false);
+          handleInterjection();
+        }else{
+          //wait, we might have raised hand last moment of a message
+          setIsReadyToStart(false);
+        }
+        return;
       }
 
-      return;
-    }
+      // Check if we're at the end of the list and if its an interjection
+      if (currentIndex >= maxIndex) {
+        console.log("Reached the end of the message list.");
 
-    // Increment message index safely
-    setCurrentMessageIndex(incrementIndex);
-  }
+        console.log("Current message: ", currentMessage);
+
+        if (currentMessage && currentMessage.purpose === "summary") {
+          // TODO: Reset?
+          onCompletedSummary();
+        } else if(currentIndex === conversationMaxLength - 1){
+          // Conversation is completed
+          onCompletedConversation();
+        }else {
+          // We should have more messages, but they are not ready for some reason
+          // So we wait
+          setIsReadyToStart(false);
+          const test = incrementIndex(currentMessageIndex);
+          console.log(test);
+          setCurrentMessageIndex(test);
+
+        }
+
+        return;
+      }
+
+      // Increment message index safely
+      setCurrentMessageIndex(incrementIndex);
+    }
+  },[proceedToNextMessage]);
 
   function handleInterjection() {
     // Define what to do when an interjection is encountered
@@ -203,13 +216,15 @@ function Output({
 
     setZoomIn(false);
     //If the audio has ended, wait a bit before proceeding
+    //Unless last message was invitation
+    const waitTime = currentTextMessage?.purpose === "invitation" ? 0 : 1000;
     betweenTimer.current = setTimeout(() => {
       if (!isPausedRef.current) {
-        proceedToNextMessage();
+        setProceedToNextMessage(true);
       } else {
         setPausedInBreak(true);
       }
-    }, 1000);
+    }, waitTime);
   }
   //Make sure to empty this timer on component unmount
   //Incase someone restarts the counsil in a break etc.
@@ -224,16 +239,16 @@ function Output({
   //We need to proceed manually
   useEffect(() => {
     if (!isPaused && pausedInBreak) {
-      proceedToNextMessage();
+      setProceedToNextMessage(true);
       setPausedInBreak(false);
     }
   }, [isPaused, pausedInBreak]);
 
   useEffect(() => {
-    if (currentMessageIndex == 0) {
+    if (currentMessageIndex === 0 || currentTextMessage.type == "human") {
       setZoomIn(false);
     }
-  }, [currentMessageIndex]);
+  }, [currentMessageIndex, currentTextMessage]);
 
   return (
     <>
@@ -244,7 +259,7 @@ function Output({
           isPaused={isPaused}
           style={!isReadyToStart ? hiddenStyle : {}}
           setZoomIn={
-            currentMessageIndex == 0
+            (currentMessageIndex === 0 || currentTextMessage?.type === "human")
               ? () => {
                   return;
                 }
