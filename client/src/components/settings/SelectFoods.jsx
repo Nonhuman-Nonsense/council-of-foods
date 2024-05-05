@@ -66,7 +66,7 @@ function SelectFoods({ topic, onContinueForward }) {
       style={{
         display: "flex",
         flexDirection: "column",
-        height: "85%",
+        height: "75%",
         justifyContent: "space-between",
         alignItems: "center"
       }}
