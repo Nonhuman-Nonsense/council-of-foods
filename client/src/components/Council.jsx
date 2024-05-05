@@ -26,13 +26,16 @@ function Council({ options }) {
   const [isWaitingToInterject, setIsWaitingToInterject] = useState(false);
   const [isInterjecting, setIsInterjecting] = useState(false);
   const [bumpIndex1, setBumpIndex1] = useState(false);
-  const [bumpIndex2, setBumpIndex2] = useState(false);
   const audioContext = useRef(null); // The AudioContext object
   const [canGoBack, setCanGoBack] = useState(false);
   const [canGoForward, setCanGoForward] = useState(false);
   const [canRaiseHand, setCanRaiseHand] = useState(false);
   const [isReadyToStart, setIsReadyToStart] = useState(false);
   const [zoomIn, setZoomIn] = useState(false);
+  const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
+  const [conversationMaxLength,setConversationMaxLength] = useState(10);
+  const [invitation, setInvitation] = useState(null);
+  const [playInvitation, setPlayinvitation] = useState(false);
 
   if (audioContext.current === null) {
     const AudioContext = window.AudioContext || window.webkitAudioContext; //cross browser
@@ -40,6 +43,8 @@ function Council({ options }) {
   }
 
   const socketRef = useRef(null); // Using useRef to persist socket instance
+
+  const handWasRaised = useRef(false);
 
   const foodsContainerStyle = {
     position: "absolute",
@@ -65,6 +70,10 @@ function Council({ options }) {
 
     socketRef.current.on("conversation_update", (textMessages) => {
       setTextMessages(() => textMessages);
+    });
+
+    socketRef.current.on("invitation_to_speak", (invitation) => {
+      setInvitation(invitation);
     });
 
     socketRef.current.on("audio_update", (audioMessage) => {
@@ -122,67 +131,61 @@ function Council({ options }) {
     setCurrentSpeakerName(value);
   }
 
-  function raiseHand() {
-    // Use a functional update to ensure you have the latest state
-    setInvitationIndex((currentInvitationIndex) => {
-      console.log("RAISING HAND");
-      console.log("Index is: ", currentInvitationIndex);
-
-      socketRef.current.emit("raise_hand", { index: currentInvitationIndex });
-      return currentInvitationIndex; // return the current state without changing it
-    });
-  }
-
   useEffect(() => {
-    if (isRaisedHand) {
-      console.log("Hand raised");
+    if (isRaisedHand && !handWasRaised.current) {
 
       handleOnIsWaitingToInterject({
         isWaiting: true,
         isReadyToInterject: false,
       });
 
-      raiseHand();
-    } else {
-      console.log("Hand lowered");
-
+      if(!handWasRaised.current){
+        handWasRaised.current = true;
+        setInvitation(null);
+        socketRef.current.emit("raise_hand", { index: currentMessageIndex + 1 });
+        setInvitationIndex(currentMessageIndex + 1);
+      }
+    } else if(handWasRaised.current){
+      //Hand lowered
       handleOnIsWaitingToInterject({
         isWaiting: false,
         isReadyToInterject: false,
       });
 
-      if (isInterjecting) {
-        // User was currently interjecting but decided to lower their hand...
-      }
-
-      lowerHand();
+      socketRef.current.emit("lower_hand");
     }
   }, [isRaisedHand]);
 
-  function lowerHand() {
-    // const handLoweredOptions = {
-    //   index: invitationIndex,
-    // };
-    // socketRef.current.emit("lower_hand", handLoweredOptions);
-  }
+  useEffect(() => {
+    if(playInvitation){
+      //Cut all messages on the client after this, to avoid rendering the wrong thing, and wait for a conversation update
+      setTextMessages((prevMessages) => {
+        const beforeInvitation = prevMessages.slice(0, invitationIndex)
+        beforeInvitation.push(invitation);
+        console.log(beforeInvitation);
+        return beforeInvitation;
+      });
 
-  function handleOnSubmitNewTopic(newTopic) {
+      //Play invitation
+      setCurrentMessageIndex(invitationIndex);
+    }
+  },[playInvitation]);
+
+  function handleOnSubmitHumanMessage(newTopic) {
     socketRef.current.emit("submit_human_message", { text: newTopic });
-    setBumpIndex2(!bumpIndex2);
 
+    //Wait for message after invitation
+    setCurrentMessageIndex(invitationIndex + 1);
+    //Show loading
     setIsReadyToStart(false);
-
+    //Reset hand raised vars
     setIsInterjecting(false);
     setIsRaisedHand(false);
+    setInvitation(null);
   }
 
   function handleOnRaiseHandOrNevermind() {
     setIsRaisedHand((prev) => !prev);
-  }
-
-  function handleOnIsRaisedHand(invitationIndex) {
-    console.log("Setting index: ", invitationIndex);
-    setInvitationIndex(() => invitationIndex);
   }
 
   function displayResetWarning() {
@@ -199,10 +202,16 @@ function Council({ options }) {
   }
 
   function handleOnIsWaitingToInterject({ isWaiting, isReadyToInterject }) {
+
     setIsWaitingToInterject(isWaiting);
 
     if (isReadyToInterject) {
+      handleSetCurrentSpeakerName(humanName);
       setIsInterjecting(true);
+    }
+
+    if(!isWaiting){
+      handWasRaised.current = false;
     }
   }
 
@@ -305,21 +314,21 @@ function Council({ options }) {
       {!isReadyToStart && <Loading />}
       <>
         {isInterjecting && (
-          <HumanInput onSubmitNewTopic={handleOnSubmitNewTopic} />
+          <HumanInput onSubmitHumanMessage={handleOnSubmitHumanMessage} />
         )}
         <Output
           textMessages={textMessages}
           audioMessages={audioMessages}
           isRaisedHand={isRaisedHand}
-          onIsRaisedHand={handleOnIsRaisedHand}
+          // onIsRaisedHand={handleOnIsRaisedHand}
           isMuted={isMuted}
           isPaused={isPaused}
           skipForward={skipForward}
           skipBackward={skipBackward}
           handleSetCurrentSpeakerName={handleSetCurrentSpeakerName}
           onIsWaitingToInterject={handleOnIsWaitingToInterject}
+          isWaitingToInterject={isWaitingToInterject}
           bumpIndex1={bumpIndex1}
-          bumpIndex2={bumpIndex2}
           audioContext={audioContext}
           setCanGoForward={setCanGoForward}
           setCanGoBack={setCanGoBack}
@@ -330,6 +339,12 @@ function Council({ options }) {
           isInterjecting={isInterjecting}
           onCompletedConversation={handleOnCompletedConversation}
           onCompletedSummary={handleOnCompletedSummary}
+          currentMessageIndex={currentMessageIndex}
+          setCurrentMessageIndex={setCurrentMessageIndex}
+          conversationMaxLength={conversationMaxLength}
+          invitation={invitation}
+          playInvitation={playInvitation}
+          setPlayinvitation={setPlayinvitation}
         />
       </>
       {isReadyToStart && !isInterjecting && (
