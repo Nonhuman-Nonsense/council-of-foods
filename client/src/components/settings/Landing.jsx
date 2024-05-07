@@ -1,7 +1,11 @@
 import React, { useState, useRef, useEffect } from "react";
+import RotateDevice from '../RotateDevice';
 import { capitalizeFirstLetter } from "../../utils";
+import { useMediaQuery } from 'react-responsive'
 
 function Welcome({ onContinueForward }) {
+
+  const isPortrait = useMediaQuery({ query: '(orientation: portrait)' })
 
   const wrapper = {
     width: "100%",
@@ -25,7 +29,11 @@ function Welcome({ onContinueForward }) {
           <h2>welcome to</h2>
           <h1>COUNCIL OF FOODS</h1>
         </div>
+        {isPortrait ?
+          <RotateDevice />
+        :
         <HumanNameInput onContinueForward={onContinueForward} />
+        }
       </div>
     </div>
   );
@@ -111,7 +119,7 @@ function HumanNameInput(props) {
         />
       </div>
       <h3 className={`${!isHumanNameMissing ? "hidden" : ""}`}>
-        please enter your name to proceed
+        enter your name to proceed
       </h3>
     </div>
   );

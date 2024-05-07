@@ -6,6 +6,8 @@ import Welcome from "./components/settings/Welcome";
 import SelectTopic from "./components/settings/SelectTopic";
 import SelectFoods from "./components/settings/SelectFoods";
 import Council from "./components/Council";
+import RotateDevice from './components/RotateDevice';
+import { useMediaQuery } from 'react-responsive'
 
 function App() {
   const [humanName, setHumanName] = useState("");
@@ -14,6 +16,8 @@ function App() {
   const pages = ["landing", "welcome", "topics", "foods", "council"];
   const [currentView, setCurrentView] = useState(pages[0]);
   const [isActiveOverlay, setIsActiveOverlay] = useState(true);
+
+  const isPortrait = useMediaQuery({ query: '(orientation: portrait)' })
 
   function continueForward(props) {
     if (props && props.hasOwnProperty("humanName")) {
@@ -60,9 +64,19 @@ function App() {
         {currentView === "foods" && <SelectFoods topic={topic} onContinueForward={continueForward} />}
         {currentView === "council" && <Council options={{ humanName, topic, foods, onReset: reset}} />}
       </Overlay>
+      {isPortrait && currentView !== "landing" && <RotateOverlay />}
       </>
     </div>
   );
+}
+
+function RotateOverlay({}){
+  return (
+    <div style={{position: "absolute", top: "0", left: "0", width: "100vw", height: "100vh", zIndex: "100"}}>
+    <Overlay  isActive={true} isBlurred={true}>
+      <RotateDevice />
+    </Overlay>
+  </div>);
 }
 
 function Background({currentView}) {
