@@ -1,7 +1,10 @@
 import React, { useState, useRef, useEffect } from "react";
 import { capitalizeFirstLetter } from "../../utils";
+import { useMediaQuery } from 'react-responsive'
 
 function Welcome({ onContinueForward }) {
+
+  const isPortrait = useMediaQuery({ query: '(orientation: portrait)' })
 
   const wrapper = {
     width: "100%",
@@ -25,10 +28,37 @@ function Welcome({ onContinueForward }) {
           <h2>welcome to</h2>
           <h1>COUNCIL OF FOODS</h1>
         </div>
+        {isPortrait ?
+          <RotateDevice />
+        :
         <HumanNameInput onContinueForward={onContinueForward} />
+        }
       </div>
     </div>
   );
+}
+
+function RotateDevice(){
+
+  const wrapper = {
+    display: "flex",
+    alignItems: "center",
+    flexDirection: "column"
+  };
+
+  const styles = {
+      width: "150px",
+  };
+
+  return (
+    <div style={wrapper}>
+      <video style={styles} autoPlay loop muted playsInline>
+      <source
+          src={`/videos/rotate.webm`}
+          type={"video/webm"} />
+      </video>
+      <h3>rotate your device</h3>
+    </div>);
 }
 
 function HumanNameInput(props) {
@@ -111,7 +141,7 @@ function HumanNameInput(props) {
         />
       </div>
       <h3 className={`${!isHumanNameMissing ? "hidden" : ""}`}>
-        please enter your name to proceed
+        enter your name to proceed
       </h3>
     </div>
   );
