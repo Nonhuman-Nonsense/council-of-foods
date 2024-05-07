@@ -256,40 +256,20 @@ function Council({ options }) {
     options.onReset();
   }
 
-  const closeUpBackground = {
-    backgroundImage: `url(/images/backgrounds/close-up.jpg)`,
-    backgroundSize: "cover",
-    backgroundPosition: "center",
-    height: "100vh",
-    width: "100vw",
-    position: "absolute",
-    opacity: zoomIn ? "1" : "0",
-  };
+  function currentSpeakerIndex(){
+    let currentIndex;
+    foods.map((food, index) => {
+      if(currentSpeakerName === food.name){
+          currentIndex = mapFoodIndex(foods.length, index)
+      }
+    });
+    return currentIndex;
+  }
 
-  const bottomShade = {
-    width: "100%",
-    height: "40%",
-    position: "absolute",
-    bottom: "0",
-    background: "linear-gradient(0, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0) 100%)",
-    zIndex: "1",
-  };
-
-  const topShade = {
-    width: "100%",
-    height: "10%",
-    position: "absolute",
-    top: "0",
-    background:
-      "linear-gradient(180deg, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0) 100%)",
-    zIndex: "1",
-  };
 
   return (
     <>
-      <div style={closeUpBackground} />
-      <div style={bottomShade} />
-      <div style={topShade} />
+      <Background zoomIn={zoomIn} currentSpeakerIndex={currentSpeakerIndex()} totalSpeakers={foods.length - 1} />
       <Navbar
         topic={options.topic.title}
         activeOverlay={activeOverlay}
@@ -376,6 +356,63 @@ function Council({ options }) {
           />
         )}
       </Overlay>
+    </>
+  );
+}
+
+
+function Background({zoomIn, currentSpeakerIndex, totalSpeakers}){
+
+  function calculateBackdropPosition(){
+    return (10 + (80 * currentSpeakerIndex / totalSpeakers)) + "%";
+  }
+
+  const closeUpBackdrop = {
+    backgroundImage: `url(/images/backgrounds/close-up-backdrop.webp)`,
+    backgroundSize: "cover",
+    backgroundPosition: calculateBackdropPosition(),
+    height: "100vh",
+    width: "100vw",
+    position: "absolute",
+    opacity: zoomIn ? "1" : "0",
+  };
+
+  const closeUpTable = {
+    backgroundImage: `url(/images/backgrounds/close-up-table.webp)`,
+    backgroundSize: "cover",
+    backgroundPosition: "center",
+    height: "100vh",
+    width: "100vw",
+    position: "absolute",
+    opacity: zoomIn ? "1" : "0",
+  };
+
+  const bottomShade = {
+    width: "100%",
+    height: "40%",
+    position: "absolute",
+    bottom: "0",
+    background: "linear-gradient(0, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0) 100%)",
+    zIndex: "1",
+  };
+
+  const topShade = {
+    width: "100%",
+    height: "10%",
+    position: "absolute",
+    top: "0",
+    background:
+      "linear-gradient(180deg, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0) 100%)",
+    zIndex: "1",
+  };
+
+
+  return (
+    <>
+      <div style={closeUpBackdrop} / >
+      <div style={closeUpTable} / >
+      <div style={bottomShade} />
+      <div style={topShade} />
     </>
   );
 }
