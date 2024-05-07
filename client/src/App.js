@@ -78,7 +78,7 @@ function Background({currentView}) {
     const zoomedOutStyle = {
       ...sharedStyle,
       backgroundPositionY: "50%",
-      backgroundImage: `url(/images/backgrounds/zoomed-out.jpg)`,
+      backgroundImage: `url(/images/backgrounds/zoomed-out.webp)`,
       zIndex: "-2",
       opacity: (currentView != "council" ? "1" : "0")
     };
@@ -86,7 +86,7 @@ function Background({currentView}) {
     const zoomedInStyle = {
       ...sharedStyle,
       backgroundPositionY: "calc(50% + 12vh)",
-      backgroundImage: `url(/images/backgrounds/zoomed-in.png)`,
+      backgroundImage: `url(/images/backgrounds/zoomed-in.webp)`,
       zIndex: "-1",
       opacity: (currentView != "council" ? "0.01" : "1")
     };
