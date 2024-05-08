@@ -1,12 +1,13 @@
 import React, { useState } from "react";
 import foodData from "../../prompts/foods.json";
 import FoodButton from "./FoodButton";
-import { toTitleCase } from "../../utils";
+import { toTitleCase, useMobile } from "../../utils";
 
 //We need to save the original water prompt, otherwise it is replace by some weird React black magic
 const originalWaterPrompt = foodData.foods[0].prompt;
 
 function SelectFoods({ topic, onContinueForward }) {
+  const isMobile = useMobile();
   const foods = foodData.foods; // Make sure this is defined before using it to find 'water'
   const waterFood = foods.find((food) => food.name === "Water"); // Find the 'water' food item
 
@@ -71,12 +72,13 @@ function SelectFoods({ topic, onContinueForward }) {
         alignItems: "center"
       }}
     >
-      <div style={{ height: "100%", width: "65%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
-        <h1>THE FOODS</h1>
+      <div style={{ height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+        <h1 style={{margin: isMobile ? "0" : ""}}>THE FOODS</h1>
         <div
           style={{
             position: "relative",
-            height: "100%",
+            height: isMobile ? "240px" :"380px",
+            width: isMobile ? "587px" : "500px"
           }}
         >
           <div style={discriptionStyle}>
@@ -89,7 +91,7 @@ function SelectFoods({ topic, onContinueForward }) {
           <FoodInfo food={currentFood} />
         </div>
       </div>
-      <div>
+      <div style={{height: isMobile ? "93px" : "110px"}}>
         <div style={{ display: "flex" }}>
           {foods.map((food) => (
             <FoodButton
@@ -104,25 +106,19 @@ function SelectFoods({ topic, onContinueForward }) {
             />
           ))}
         </div>
-        <h4 className={`${currentFood === null ? "hidden" : ""}`}>
-          please select 2-5 foods for the discussion
-        </h4>
-        <button
-          className={`${
-            selectedFoods.length >= minFoods && selectedFoods.length <= maxFoods
-              ? ""
-              : "hidden"
-          } outline-button`}
-          onClick={continueForward}
-        >
-          Start
-        </button>
+        {selectedFoods.length >= minFoods && selectedFoods.length <= maxFoods ?
+          <button onClick={continueForward} style={{margin: "8px 0"}}>Start</button> :
+          <h4 style={{visibility: currentFood === null ? "hidden" : "", margin: isMobile && "7px"}}>
+            please select 2-5 foods for the discussion
+          </h4>
+        }
       </div>
     </div>
   );
 }
 
 function FoodInfo({ food }) {
+  const isMobile = useMobile();
   if (!food) return null;
 
   return (
@@ -136,8 +132,8 @@ function FoodInfo({ food }) {
         pointerEvents: food !== null ? "all" : "none",
       }}
     >
-      <h2>{toTitleCase(food.name)}</h2>
-      <p>{food.description?.split('\n').map((item, key) => {
+      <h2 style={{margin: isMobile ? "0" : ""}}>{toTitleCase(food.name)}</h2>
+      <p style={{margin: isMobile ? "0" : ""}}>{food.description?.split('\n').map((item, key) => {
           return <span key={key}>{item}<br/></span>
         })}
       </p>

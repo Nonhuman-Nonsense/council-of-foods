@@ -10,14 +10,12 @@ function ResetWarning({ message, onReset, onCancel }) {
       </h4>
       <div>
         <button
-          className="outline-button"
           onClick={onReset}
           style={{ marginRight: "9px" }}
         >
           I understand
         </button>
         <button
-          className="outline-button"
           onClick={onCancel}
           style={{ marginLeft: "9px" }}
         >

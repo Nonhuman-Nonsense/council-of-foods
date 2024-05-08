@@ -17,7 +17,6 @@ function Welcome({ humanName, onContinueForward }) {
         </div>
         <br/>
         <button
-          className="outline-button"
           onClick={() => onContinueForward()}
         >
           Next

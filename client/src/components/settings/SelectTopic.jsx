@@ -168,9 +168,8 @@ function SelectTopic(props) {
             style={textBoxStyle}
           />
           <button
-            className={`${shouldShowNextButton ? "" : "hidden"} outline-button`}
             onClick={onContinueForward}
-            style={{marginBottom: "10px"}}
+            style={{marginBottom: "10px", visibility: shouldShowNextButton ? "" : "hidden"}}
           >
             Next
           </button>

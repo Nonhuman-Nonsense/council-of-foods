@@ -124,7 +124,7 @@ function HumanNameInput(props) {
           onClick={continueForward}
         />
       </div>
-      <h3 className={`${!isHumanNameMissing ? "hidden" : ""}`}>
+      <h3 style={{visibility: !isHumanNameMissing ? "hidden" : ""}}>
         enter your name to proceed
       </h3>
     </div>
