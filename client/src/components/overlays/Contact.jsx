@@ -11,21 +11,18 @@ function Contact() {
       </p>
       <p>
         <a
-          className="link"
           href="https://www.instagram.com/nonhuman-nonsense/"
         >
           @nonhuman-nonsense
         </a>
         <br />
         <a
-          className="link"
           href="https://nonhuman-nonsense.com"
         >
           nonhuman-nonsense.com
         </a>
         <br />
         <a
-          className="link"
           href="mailto:hello@nonhuman-nonsense.com"
         >
           hello@nonhuman-nonsense.com

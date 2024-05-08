@@ -93,7 +93,7 @@ function HumanInput({ onSubmitHumanMessage }) {
 
   return (
     <div style={wrapperStyle}>
-      <img src="/images/mic.png" style={micStyle} />
+      <img src="/mic.png" style={micStyle} />
       <div style={{zIndex: "4", position: "relative", pointerEvents: "auto"}}>
         <TextareaAutosize
           ref={inputArea}

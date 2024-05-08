@@ -7,13 +7,11 @@ import Navbar from "./Navbar";
 import Loading from "./Loading";
 import Output from "./Output";
 import ConversationControls from "./ConversationControls";
-import useWindowSize from "../hooks/useWindowSize";
 import HumanInput from "./HumanInput";
 
 function Council({ options }) {
   const { foods, humanName, topic } = options;
   const [activeOverlay, setActiveOverlay] = useState("");
-  const { width: screenWidth } = useWindowSize();
   const [textMessages, setTextMessages] = useState([]); // State to store conversation updates
   const [audioMessages, setAudioMessages] = useState([]); // To store multiple ArrayBuffers
   const [isRaisedHand, setIsRaisedHand] = useState(false);
@@ -285,7 +283,6 @@ function Council({ options }) {
             index={mapFoodIndex(foods.length, index)}
             total={foods.length}
             isPaused={isPaused}
-            screenWidth={screenWidth}
             zoomIn={zoomIn}
             currentSpeakerName={currentSpeakerName}
           />
@@ -368,7 +365,7 @@ function Background({zoomIn, currentSpeakerIndex, totalSpeakers}){
   }
 
   const closeUpBackdrop = {
-    backgroundImage: `url(/images/backgrounds/close-up-backdrop.webp)`,
+    backgroundImage: `url(/backgrounds/close-up-backdrop.webp)`,
     backgroundSize: "cover",
     backgroundPosition: calculateBackdropPosition(),
     height: "100vh",
@@ -378,7 +375,7 @@ function Background({zoomIn, currentSpeakerIndex, totalSpeakers}){
   };
 
   const closeUpTable = {
-    backgroundImage: `url(/images/backgrounds/close-up-table.webp)`,
+    backgroundImage: `url(/backgrounds/close-up-table.webp)`,
     backgroundSize: "cover",
     backgroundPosition: "center",
     height: "100vh",

@@ -1,4 +1,5 @@
-import Animation from "./Animation"
+import Lottie from 'react-lottie-player';
+import rotate from '../animations/rotate.json';
 
 function RotateDevice(){
 
@@ -14,7 +15,7 @@ function RotateDevice(){
 
   return (
     <div style={wrapper}>
-      <Animation src={'/animations/rotate.json'} style={styles} />
+      <Lottie play loop animationData={rotate} style={styles} />
       <h3>rotate your device</h3>
     </div>);
 }

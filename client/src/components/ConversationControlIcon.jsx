@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useMobile } from "../utils";
 
 function ConversationControlIcon({
   icon,
@@ -7,6 +8,7 @@ function ConversationControlIcon({
   onClick
 }) {
   let [isHover,setHover]= useState(false);
+  const isMobile = useMobile();
 
   const imageUrl = `/icons/${icon}.svg`;
   let hoverUrl = `/icons/${icon}_filled.svg`;
@@ -15,8 +17,8 @@ function ConversationControlIcon({
   const buttonStyle = {
     marginLeft: "4px",
     marginRight: "4px",
-    width: "56px",
-    height: "56px",
+    width: isMobile ? "45px" : "56px",
+    height: isMobile ? "45px" : "56px",
     border: "0",
     borderRadius: "50%",
     display: "flex",
@@ -27,9 +29,9 @@ function ConversationControlIcon({
 
   const sharedStyle = {
     position: "absolute",
-    left: "0",
-    width: "40px",
-    height: "40px",
+    // left: "0",
+    width: isMobile ? "30px" : "40px",
+    height: isMobile ? "30px" : "40px",
     objectFit: "cover",
     borderRadius: "50%",
   };

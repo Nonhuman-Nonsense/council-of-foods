@@ -1,5 +1,6 @@
 import React from "react";
 import ConversationControlIcon from "./ConversationControlIcon";
+import { useMobile } from "../utils";
 
 function ConversationControls({
   isPaused,
@@ -15,11 +16,11 @@ function ConversationControls({
   canGoForward,
   canRaiseHand
 }) {
-
+  const isMobile = useMobile();
 
   const divStyle = {
-    width: "56px",
-    height: "56px",
+    width: isMobile ? "45px" : "56px",
+    height: isMobile ? "45px" : "56px",
   };
 
   return (

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { useMobile } from "../utils";
 
 function TextOutput({ currentTextMessage, currentAudioMessage, isPaused, setZoomIn }) {
   const [currentSnippetIndex, setCurrentSnippetIndex] = useState(0);
@@ -10,6 +11,7 @@ function TextOutput({ currentTextMessage, currentAudioMessage, isPaused, setZoom
   const [remainingTime, setRemainingTime] = useState(0);
   const [wasPaused, setWasPaused] = useState(false);
   const timerId = useRef(null);
+  const isMobile = useMobile();
 
   useEffect(() => {
     if (isPaused) {
@@ -106,13 +108,14 @@ function TextOutput({ currentTextMessage, currentAudioMessage, isPaused, setZoom
 
   const paragraphStyle = {
     fontFamily: "Arial, sans-serif",
-    fontSize: "25px",
+    fontSize: isMobile ? "18px" : "25px",
+    margin: isMobile && "0",
   };
 
   const textStyle = {
-    width: "70%",
+    width: isMobile ? "85%" : "70%",
     position: "absolute",
-    bottom: "50px",
+    bottom: isMobile ? "40px" : "50px",
     left: "50%",
     transform: "translateX(-50%)",
     zIndex: "3",

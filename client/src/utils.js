@@ -1,3 +1,5 @@
+import { useMediaQuery } from 'react-responsive'
+
 export function capitalizeFirstLetter(string) {
   if (string && typeof string === "string") {
     return string.charAt(0).toUpperCase() + string.slice(1);
@@ -16,4 +18,9 @@ export function toTitleCase(string){
 
 export function filename(string) {
   return string.toLowerCase().replace(/ /g,"_");
+}
+
+//Same breakpoint everywhere
+export function useMobile(){
+  return useMediaQuery({ query: '(max-height: 600px)' });
 }

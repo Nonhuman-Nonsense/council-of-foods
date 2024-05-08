@@ -4,7 +4,7 @@ function Overlay({ isActive, isBlurred, children }) {
   const [overlayStyle, setOverlayStyle] = useState({});
 
   const sharedOverlayStyle ={
-    height: "100%",
+    minHeight: "100%",
     width: "100%",
     display: "flex",
     alignItems: "center",
@@ -17,6 +17,7 @@ function Overlay({ isActive, isBlurred, children }) {
       setOverlayStyle({...sharedOverlayStyle,
         backgroundColor: "rgba(0, 0, 0, 0.5)",
         backdropFilter: (isBlurred === false ? "" : "blur(10px)"),
+        WebkitBackdropFilter: (isBlurred === false ? "" : "blur(10px)"),
         pointerEvents: "auto",
       });
     } else {

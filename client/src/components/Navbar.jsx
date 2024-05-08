@@ -1,5 +1,7 @@
-import React from "react";
-import { capitalizeFirstLetter } from "../utils";
+import React, { useState, useRef } from "react";
+import { capitalizeFirstLetter, useMobile } from "../utils";
+import Lottie from 'react-lottie-player';
+import hamburger from '../animations/hamburger.json';
 
 function Navbar({
   topic,
@@ -8,8 +10,22 @@ function Navbar({
   onRemoveOverlay,
   onDisplayResetWarning,
 }) {
+  const isMobile = useMobile();
 
   const closeUrl = `/icons/close.svg`;
+  const [hamburgerOpen, setHamburgerOpen] = useState(false);
+  const hamburgerAnimation = useRef(null);
+
+  const openHamburger = () => {
+    if(hamburgerOpen){
+      hamburgerAnimation.current.setDirection(-1);
+      hamburgerAnimation.current.play();
+    }else{
+      hamburgerAnimation.current.setDirection(1);
+      hamburgerAnimation.current.play();
+    }
+    setHamburgerOpen(!hamburgerOpen);
+  };
 
   const navbarStyle = {
     padding: "20px",
@@ -35,12 +51,24 @@ function Navbar({
     height: "35px",
   };
 
+  const hamburgerStyle = {
+    cursor: "pointer",
+    width: "50px",
+    height: "50px",
+    margin: "-12px",
+    marginLeft: "5px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+  };
+
   const navItems = ["about", "settings", "contact", "share"];
 
   return (
     <nav style={navbarStyle} role="navigation">
-      <div style={{textAlign: "left"}}>
-        <h3 style={{ margin: "0", padding: "0" }}>
+      <div style={{textAlign: "left", visibility: isMobile && "hidden" }}>
+        <h3 style={{ margin: "0", padding: "0"}}>
           <a
             className="link"
             onClick={(e) => {
@@ -57,14 +85,23 @@ function Navbar({
         style={{ display: "flex", flexDirection: "column", alignItems: "end" }}
       >
         <div style={{ display: "flex" }}>
-          {navItems.map((item) => (
+          { navItems.map((item) => (
             <NavItem
               key={item}
               name={item}
               onDisplayOverlay={onDisplayOverlay}
+              show={(!isMobile || hamburgerOpen )}
               isActive={activeOverlay === item} // Determine active state
             />
           ))}
+          {isMobile && <div style={hamburgerStyle} onClick={openHamburger}>
+          <Lottie
+            ref={hamburgerAnimation}
+            play={false}
+            loop={false}
+            animationData={hamburger}
+            style={{height: "35px", width: "35px"}}
+          /></div>}
         </div>
         {activeOverlay !== "" && (
           <img
@@ -78,10 +115,15 @@ function Navbar({
   );
 }
 
-function NavItem({ name, onDisplayOverlay, isActive }) {
+function NavItem({ name, onDisplayOverlay, isActive, show }) {
   const navItemStyle = {
     marginLeft: "19px",
     cursor: "pointer",
+    opacity: show ? "1" : "0",
+    transitionProperty: "opacity",
+    transitionDuration: "1s",
+    transitionDelay: "0.2s",
+    pointerEvents: show ? "auto" : "none",
   };
 
   return (

@@ -9,7 +9,7 @@ function Welcome({ onContinueForward }) {
 
   const wrapper = {
     width: "100%",
-    height: "100%",
+    height: "100vh",
     display: "flex",
     alignItems: "center",
     justifyContent: "center"
@@ -99,10 +99,16 @@ function HumanNameInput(props) {
     filter: "brightness(30%)",
   };
 
+  const inputIconWrapper = {
+    position: "relative",
+    display: "inline-flex",
+    alignItems: "center"
+  };
+
   return (
     <div>
       <h3>please type your name to enter:</h3>
-      <div className="input-icon-wrapper">
+      <div style={inputIconWrapper}>
         <input
           ref={inputRef}
           style={inputStyle}
@@ -118,7 +124,7 @@ function HumanNameInput(props) {
           onClick={continueForward}
         />
       </div>
-      <h3 className={`${!isHumanNameMissing ? "hidden" : ""}`}>
+      <h3 style={{visibility: !isHumanNameMissing ? "hidden" : ""}}>
         enter your name to proceed
       </h3>
     </div>

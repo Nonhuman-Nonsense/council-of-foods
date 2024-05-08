@@ -18,17 +18,9 @@ html,
   color: white;
   position: relative;
   height: 100vh;
+  min-height: 370px;
   width: 100vw;
   overflow: hidden;
-}
-
-.App-logo {
-  height: 40vmin;
-  pointer-events: none;
-}
-
-.hidden {
-  visibility: hidden;
 }
 
 h1 {
@@ -64,28 +56,10 @@ p {
   font-weight: normal;
 }
 
-.wrapper {
-  height: 100%;
-  width: 100%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.link {
+a {
   color: white;
   text-decoration: none;
   cursor: pointer;
-}
-
-.italic {
-  font-style: italic;
-}
-
-.input-icon-wrapper {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
 }
 
 input[type=text], textarea {
@@ -105,12 +79,6 @@ input[type=text], textarea {
 textarea.unfocused:focus {
   border: none;
   outline: none;
-}
-
-.input-arrow {
-  position: absolute;
-  right: 10px;
-  color: black; /* Adjust arrow color as needed */
 }
 
 button {
@@ -134,42 +102,6 @@ button:hover:not(.control) {
 button.selected {
   background-color: white;
   color: rgba(0, 0, 0, 0.9);
-}
-
-
-
-.wide-button {
-  padding: 6px 75px 6px 75px;
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .App-logo {
-    animation: App-logo-spin infinite 20s linear;
-  }
-}
-
-.App-header {
-  background-color: #282c34;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  font-size: calc(10px + 2vmin);
-  color: white;
-}
-
-.App-link {
-  color: #61dafb;
-}
-
-@keyframes App-logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
 }
 
 @keyframes slideInFade {
@@ -205,7 +137,6 @@ button.selected {
   }
 }
 
-
 .loader {
   width: 15px;
   height: 3px;
@@ -216,3 +147,24 @@ button.selected {
   animation: l1 2s steps(4) infinite;
 }
 @keyframes l1 {to{clip-path: inset(0 -34% 0 0)}}
+
+@media only screen and (max-height: 600px) {
+  h1{
+    font-size: 40px;
+  }
+  h2 {
+    font-size: 28px;
+  }
+  h3 {
+    font-size: 23px;
+  }
+  h4 {
+    font-size: 16px;
+  }
+  p {
+    font-size: 16px;
+  }
+  button {
+    font-size: 21px;
+  }
+}

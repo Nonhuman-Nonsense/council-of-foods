@@ -1,5 +1,5 @@
 import React from "react";
-import { filename } from "../../utils";
+import { filename, useMobile } from "../../utils";
 
 function FoodButton({
   food,
@@ -10,9 +10,10 @@ function FoodButton({
   isSelected,
   selectLimitReached,
 }) {
+  const isMobile = useMobile();
   const isModerator = onSelectFood === undefined;
 
-  const imageUrl = `/images/foods/${filename(food.name)}.webp`;
+  const imageUrl = `/foods/small/${filename(food.name)}.webp`;
 
   function handleClickFood() {
     if (!isModerator && (!selectLimitReached || isSelected)) {
@@ -27,8 +28,8 @@ function FoodButton({
   const buttonStyle = {
     marginLeft: "4px",
     marginRight: "4px",
-    width: "56px",
-    height: "56px",
+    width: isMobile ? "42px" :"56px",
+    height: isMobile ? "42px" : "56px",
     borderRadius: "50%",
     display: "flex",
     justifyContent: "center",
