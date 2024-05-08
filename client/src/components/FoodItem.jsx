@@ -2,44 +2,18 @@ import React from "react";
 import FoodAnimation from "./FoodAnimation";
 import { filename } from "../utils";
 
-function FoodItem({ food, index, total, screenWidth, currentSpeakerName, isPaused, zoomIn }) {
+function FoodItem({ food, index, total, currentSpeakerName, isPaused, zoomIn }) {
 
   //Adjust these to adjust overall sizes
   const overviewSize = 12;
   const zoomInSize = 55;
 
-  const calculateLeftPosition = (index, total) => {
-    const middleIndex = (total - 1) / 2;
-    const distanceIncrement = 10; // Adjust as needed
-    const distance = (index - middleIndex) * distanceIncrement; // Calculate distance from middle index
-    return distance; // Return distance as the left position
-  };
-
-  const foodImageShadowStyle = (index, total) => {
-    let leftPosition = calculateLeftPosition(index, total);
-
-    // Determine the angle of rotation
-    const rotationAngle = leftPosition * 1.8;
-
-    return {
-      zIndex: -1,
-      position: "absolute",
-      top: "5px",
-      left: `${leftPosition}px`,
-      filter:
-        "blur(6px) brightness(0%) saturate(100%) invert(0%) sepia(100%) hue-rotate(180deg) contrast(100%)",
-      opacity: 0.3,
-      transformOrigin: "bottom center", // Set the origin to the bottom center
-      transform: `rotate(${rotationAngle}deg)`, // Apply rotation transformation
-    };
-  };
-
   // Adjusted function to set width and height based on window width
-  const getResponsiveFoodImageStyle = () => {
+  const getResponsiveFoodImageStyle = (shadow) => {
     const size = (zoomIn && currentSpeakerName == food.name ? zoomInSize * ((food.size - 1) / 2 + 1) + "vh" : overviewSize * food.size +  "vw"); // 12% of the window's width
     return {
       width: `${size}`,
-      height: `${size}`,
+      height: !shadow && `${size}`,
       animation: "2s foodAppearing",
       animationDelay: 0.4 * index + "s",
       animationFillMode: "both",
@@ -48,7 +22,7 @@ function FoodItem({ food, index, total, screenWidth, currentSpeakerName, isPause
 
   const singleFoodStyle = {
     position: "relative",
-    top: "-19vh",
+    top: food.name == "Lollipop" ? "-21vh" : "-19vh",
     width: zoomInSize + "vh",
     height: zoomInSize + "vh",
     display: "flex",
@@ -93,6 +67,8 @@ function FoodItem({ food, index, total, screenWidth, currentSpeakerName, isPause
       top = a * Math.pow(index - middleIndex, 2) + topMax - topOffset;
     }
 
+    if(food.name == "Lollipop") top -= 1;
+
     const size = overviewSize + "vw";
     return {
       position: "absolute",
@@ -108,16 +84,21 @@ function FoodItem({ food, index, total, screenWidth, currentSpeakerName, isPause
     };
   };
 
-  // You can now move the logic for `foodItemStyle`, `getResponsiveFoodImageStyle`, and `foodImageShadowStyle` here if they don't depend on the other props
-  const responsiveStyle = getResponsiveFoodImageStyle(screenWidth); // Assuming this function is adapted to use `screenWidth` directly
+  const foodImageShadowStyle = {
+      zIndex: -1,
+      position: "absolute",
+      bottom: zoomIn && food.name == "Lollipop" ? "0.6vh" : "0",
+  };
+
+  const responsiveStyle = getResponsiveFoodImageStyle();
 
   return (
     <div style={foodItemStyle(index, total)}>
       <FoodAnimation food={food} styles={responsiveStyle} currentSpeakerName={currentSpeakerName} isPaused={isPaused} />
-      {/* <img
-        src={`/images/foods/${food.name}.png`}
-        style={{ ...responsiveStyle, ...foodImageShadowStyle(index, total) }}
-      /> */}
+      <img
+        src={`/foods/shadows/${filename(food.name)}.webp`}
+        style={{ ...getResponsiveFoodImageStyle(true), ...foodImageShadowStyle }}
+      />
     </div>
   );
 }
