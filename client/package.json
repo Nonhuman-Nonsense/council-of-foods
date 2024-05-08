@@ -4,6 +4,7 @@
   "private": true,
   "dependencies": {
     "@babel/plugin-transform-private-property-in-object": "^7.24.1",
+    "@lottiefiles/react-lottie-player": "^3.5.3",
     "@testing-library/jest-dom": "^5.17.0",
     "@testing-library/react": "^13.4.0",
     "@testing-library/user-event": "^13.5.0",
