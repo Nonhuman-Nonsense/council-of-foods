@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import ResetWarning from "../overlays/ResetWarning";
 import topicData from "../../prompts/topics.json";
-import { capitalizeFirstLetter, toTitleCase } from "../../utils";
+import { capitalizeFirstLetter, toTitleCase, useMobile } from "../../utils";
 
 function SelectTopic(props) {
   const [selectedTopic, setSelectedTopic] = useState({title: "", description: "", prompt: ""});
@@ -9,6 +9,7 @@ function SelectTopic(props) {
   const [customTopic, setCustomTopic] = useState("");
   const [displayWarning, setDisplayWarning] = useState(false);
   const topicTextareaRef = useRef(null);
+  const isMobile = useMobile();
 
   const topics = [...topicData.topics, {title: "choose your own", prompt: "" , description: ""}];
 
@@ -87,7 +88,8 @@ function SelectTopic(props) {
     !(selectedTopic.title.toLowerCase() === "choose your own" && !customTopic.trim());
 
   const container = {
-    height: "70vh",
+    // height: "550px",
+    // maxHeight: "100vh",
     width: "550px",
     display: "flex",
     flexDirection: "column",
@@ -106,9 +108,19 @@ function SelectTopic(props) {
     // fontSize: "25px",
     resize: "none",
     padding: "0",
-    visibility: selectedTopic.title === "choose your own" ?
-                (hoverTopic && hoverTopic?.title !== "choose your own") ? "hidden" : "" :
-                hoverTopic?.title === "choose your own" ? "" : "hidden",
+    height: isMobile ? "60px" : "80px",
+    display: showTextBox() ? "" : "none",
+  };
+
+  function showTextBox(){
+    return selectedTopic.title === "choose your own" ?
+            (hoverTopic && hoverTopic?.title !== "choose your own") ? false : true :
+            hoverTopic?.title === "choose your own" ? true : false;
+  }
+
+  const selectButtonStyle =  {
+    marginBottom: isMobile ? "3px" : "15px",
+    padding: isMobile ? "3px 0" : "6px 0",
   };
 
   return (
@@ -121,7 +133,7 @@ function SelectTopic(props) {
         />
       ) : (
         <div style={container}>
-          <h1 style={{marginBottom: "20px"}}>THE ISSUE</h1>
+          <h1 style={{marginBottom: (isMobile ? "0" : "20px")}}>THE ISSUE</h1>
           <div
             style={{
               display: "flex",
@@ -133,16 +145,16 @@ function SelectTopic(props) {
             {topics.map((topic, index) => (
               <button
                 key={index}
-                className={(selectedTopic.title === topic.title ? "selected ": "") + "outline-button"}
+                className={(selectedTopic.title === topic.title ? "selected ": "")}
                 onClick={() => selectTopic(topic)}
-                style={{marginBottom: "15px", padding: "6px 0"}}
                 onMouseEnter={() => setHoverTopic(topic)}
                 onMouseLeave={() => setHoverTopic(null)}
+                style={selectButtonStyle}
               >
                 {toTitleCase(topic.title)}
               </button>
             ))}
-            <p style={{margin: "0"}}>
+            <p style={{margin: "0", height: showTextBox() ? "0" : isMobile ? "60px" : "80px"}}>
               {hoverTopic ? hoverTopic.description : selectedTopic ? selectedTopic.description : "please select an issue for the discussion"}
             </p>
           </div>
@@ -155,10 +167,10 @@ function SelectTopic(props) {
             onChange={handleInputTopic}
             style={textBoxStyle}
           />
-          <div style={{flex: "1"}} />
           <button
             className={`${shouldShowNextButton ? "" : "hidden"} outline-button`}
             onClick={onContinueForward}
+            style={{marginBottom: "10px"}}
           >
             Next
           </button>

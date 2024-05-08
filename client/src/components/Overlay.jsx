@@ -4,7 +4,7 @@ function Overlay({ isActive, isBlurred, children }) {
   const [overlayStyle, setOverlayStyle] = useState({});
 
   const sharedOverlayStyle ={
-    height: "100%",
+    minHeight: "100%",
     width: "100%",
     display: "flex",
     alignItems: "center",

@@ -18,6 +18,7 @@ html,
   color: white;
   position: relative;
   height: 100vh;
+  min-height: 360px;
   width: 100vw;
   overflow: hidden;
 }
@@ -140,7 +141,6 @@ button.selected {
   }
 }
 
-
 .loader {
   width: 15px;
   height: 3px;
@@ -151,3 +151,18 @@ button.selected {
   animation: l1 2s steps(4) infinite;
 }
 @keyframes l1 {to{clip-path: inset(0 -34% 0 0)}}
+
+@media only screen and (max-height: 600px) {
+  h1{
+    font-size: 40px;
+  }
+  p {
+    font-size: 16px;
+  }
+  h3 {
+    font-size: 23px;
+  }
+  button {
+    font-size: 21px;
+  }
+}
