@@ -17,6 +17,7 @@ function Overlay({ isActive, isBlurred, children }) {
       setOverlayStyle({...sharedOverlayStyle,
         backgroundColor: "rgba(0, 0, 0, 0.5)",
         backdropFilter: (isBlurred === false ? "" : "blur(10px)"),
+        WebkitBackdropFilter: (isBlurred === false ? "" : "blur(10px)"),
         pointerEvents: "auto",
       });
     } else {
