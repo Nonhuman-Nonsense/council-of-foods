@@ -368,7 +368,7 @@ function Background({zoomIn, currentSpeakerIndex, totalSpeakers}){
   }
 
   const closeUpBackdrop = {
-    backgroundImage: `url(/images/backgrounds/close-up-backdrop.webp)`,
+    backgroundImage: `url(/backgrounds/close-up-backdrop.webp)`,
     backgroundSize: "cover",
     backgroundPosition: calculateBackdropPosition(),
     height: "100vh",
@@ -378,7 +378,7 @@ function Background({zoomIn, currentSpeakerIndex, totalSpeakers}){
   };
 
   const closeUpTable = {
-    backgroundImage: `url(/images/backgrounds/close-up-table.webp)`,
+    backgroundImage: `url(/backgrounds/close-up-table.webp)`,
     backgroundSize: "cover",
     backgroundPosition: "center",
     height: "100vh",
