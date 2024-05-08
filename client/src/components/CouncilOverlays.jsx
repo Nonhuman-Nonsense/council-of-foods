@@ -8,8 +8,8 @@ import Completed from "./overlays/Completed";
 
 function CouncilOverlays({ activeOverlay, options, removeOverlay }) {
   const closeWrapperStyle = {
-    height: "100%",
-    width: "100%",
+    height: "100vh",
+    width: "100vw",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
