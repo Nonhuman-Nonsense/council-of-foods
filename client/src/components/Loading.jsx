@@ -1,11 +1,12 @@
 import React from "react";
-import Animation from "./Animation"
+import Lottie from 'react-lottie-player';
+import loading from '../animations/loading.json';
 
 function Loading() {
 
   return (
     <div style={{position: "absolute", top: "73vh"}}>
-      <Animation src={'/animations/loading.json'} style={{height: "150px"}} />
+      <Lottie play loop animationData={loading} style={{height: "150px"}} />
     </div>
   );
 }
