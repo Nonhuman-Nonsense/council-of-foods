@@ -45,7 +45,7 @@ function HumanNameInput(props) {
   const inputRef = useRef(null);
 
 
-  const imageUrl = `/images/icons/send_message_filled.svg`;
+  const imageUrl = `/icons/send_message_filled.svg`;
 
   useEffect(() => {
     // Focus on the input field when the component mounts

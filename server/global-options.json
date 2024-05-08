@@ -10,5 +10,6 @@
   "conversationMaxLength": 10,
   "logitBias": -10,
   "raiseHandPrompt": "We have a new question from the audience, please invite human speaker called [NAME] to the debate.",
-  "neverMindPrompt": "It seems like [NAME] didn't want to speak after all, make an excuse for them and then invite the next speaker."
+  "neverMindPrompt": "It seems like [NAME] didn't want to speak after all, make an excuse for them and then invite the next speaker.",
+  "finalizeMeetingPrompt": "Please summarise the meeting making a document that could work as a meeting protocol and a policy recommendation, that could be sent to a official political department like the European Comission."
 }

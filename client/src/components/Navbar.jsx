@@ -9,7 +9,7 @@ function Navbar({
   onDisplayResetWarning,
 }) {
 
-  const closeUrl = `/images/icons/close.svg`;
+  const closeUrl = `/icons/close.svg`;
 
   const navbarStyle = {
     padding: "20px",

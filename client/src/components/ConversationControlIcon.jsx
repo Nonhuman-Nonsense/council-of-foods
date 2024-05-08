@@ -8,9 +8,9 @@ function ConversationControlIcon({
 }) {
   let [isHover,setHover]= useState(false);
 
-  const imageUrl = `/images/icons/${icon}.svg`;
-  let hoverUrl = `/images/icons/${icon}_filled.svg`;
-  if(hoverIcon) hoverUrl = `/images/icons/${hoverIcon}.svg`;
+  const imageUrl = `/icons/${icon}.svg`;
+  let hoverUrl = `/icons/${icon}_filled.svg`;
+  if(hoverIcon) hoverUrl = `/icons/${hoverIcon}.svg`;
 
   const buttonStyle = {
     marginLeft: "4px",

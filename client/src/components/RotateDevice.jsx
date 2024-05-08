@@ -1,3 +1,5 @@
+import Animation from "./Animation"
+
 function RotateDevice(){
 
   const wrapper = {
@@ -12,11 +14,7 @@ function RotateDevice(){
 
   return (
     <div style={wrapper}>
-      <video style={styles} autoPlay loop muted playsInline>
-      <source
-          src={`/videos/rotate.webm`}
-          type={"video/webm"} />
-      </video>
+      <Animation src={'/animations/rotate.json'} style={styles} />
       <h3>rotate your device</h3>
     </div>);
 }
