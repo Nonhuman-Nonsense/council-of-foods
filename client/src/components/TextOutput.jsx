@@ -1,7 +1,12 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useMobile } from "../utils";
 
-function TextOutput({ currentTextMessage, currentAudioMessage, isPaused, setZoomIn }) {
+function TextOutput({
+  currentTextMessage,
+  currentAudioMessage,
+  isPaused,
+  setZoomIn,
+}) {
   const [currentSnippetIndex, setCurrentSnippetIndex] = useState(0);
   const [currentSnippet, setCurrentSnippet] = useState("");
 
@@ -13,6 +18,13 @@ function TextOutput({ currentTextMessage, currentAudioMessage, isPaused, setZoom
   const timerId = useRef(null);
   const isMobile = useMobile();
 
+  // Function to split text into sentences, keeping number prefixes intact
+  const splitText = (text) => {
+    return (
+      text.match(/(\d+\.\s.*?(?=\d+\.\s|$)|.*?(?=[.!?])(?:[.!?]|$))/gs) || []
+    );
+  };
+
   useEffect(() => {
     if (isPaused) {
       clearTimeout(timerId.current);
@@ -22,10 +34,9 @@ function TextOutput({ currentTextMessage, currentAudioMessage, isPaused, setZoom
       setWasPaused(false);
       setCurrentSnippetDelay(remainingTime);
       setSnippetStartTime(Date.now());
-      const sentences = currentTextMessage?.text.split(
-        /(?<=[.!?])(?=\s+(?![0-9]))/
-      );
-      //Don't set a timer if we are on the last snippet
+      const sentences = splitText(currentTextMessage?.text || "");
+
+      // Don't set a timer if we are on the last snippet
       if (currentSnippetIndex < sentences.length - 1) {
         timerId.current = setTimeout(() => {
           setCurrentSnippetIndex((prevIndex) =>
@@ -40,11 +51,12 @@ function TextOutput({ currentTextMessage, currentAudioMessage, isPaused, setZoom
   useEffect(() => {
     setCurrentSnippetIndex(0);
     if (currentTextMessage?.text) {
-      const sentences = currentTextMessage?.text.split(
-        /(?<=[.!?])(?=\s+(?![0-9]))/
-      );
+      const sentences = splitText(currentTextMessage?.text);
       if (sentences.length > 0) {
-        const namePrefix = currentTextMessage.type === "human" ? currentTextMessage.speaker + ": " : "";
+        const namePrefix =
+          currentTextMessage.type === "human"
+            ? currentTextMessage.speaker + ": "
+            : "";
         setCurrentSnippet(namePrefix + sentences[0]);
       } else {
         setCurrentSnippet("");
@@ -54,30 +66,31 @@ function TextOutput({ currentTextMessage, currentAudioMessage, isPaused, setZoom
 
   useEffect(() => {
     if (currentSnippetIndex >= 0 && currentTextMessage?.text) {
-      const sentences = currentTextMessage?.text.split(
-        /(?<=[.!?])(?=\s+(?![0-9]))/
-      );
+      const sentences = splitText(currentTextMessage?.text);
 
       if (sentences.length > currentSnippetIndex) {
-        const namePrefix = currentTextMessage.type === "human" ? currentTextMessage.speaker + ": " : "";
+        const namePrefix =
+          currentTextMessage.type === "human"
+            ? currentTextMessage.speaker + ": "
+            : "";
         setCurrentSnippet(namePrefix + sentences[currentSnippetIndex]);
       }
 
-      //Store the current delay, and the time when it started
+      // Store the current delay, and the time when it started
       const delay = calculateDisplayTime(sentences[currentSnippetIndex] || "");
       setCurrentSnippetDelay(delay);
       setSnippetStartTime(Date.now());
 
-      //Don't set a timer if we are on the last snippet
+      // Don't set a timer if we are on the last snippet
       if (currentSnippetIndex < sentences.length - 1) {
-        if(!isPaused){
+        if (!isPaused) {
           timerId.current = setTimeout(() => {
             setCurrentSnippetIndex((prevIndex) =>
               prevIndex < sentences.length - 1 ? prevIndex + 1 : prevIndex
             );
           }, delay);
-        }else{
-          //Handle special case where council is paused before first message
+        } else {
+          // Handle special case where council is paused before the first message
           clearTimeout(timerId.current);
           setRemainingTime(delay);
           setWasPaused(true);
@@ -88,14 +101,12 @@ function TextOutput({ currentTextMessage, currentAudioMessage, isPaused, setZoom
     }
   }, [currentSnippetIndex, currentTextMessage]);
 
-
-
   useEffect(() => {
-    if(currentTextMessage?.type !== "human"){
-      //zoom in on 2 snippets, out on 2, etc.
-      setZoomIn(currentSnippetIndex % 4 < 2 );
+    if (currentTextMessage?.type !== "human") {
+      // Zoom in on 2 snippets, out on 2, etc.
+      setZoomIn(currentSnippetIndex % 4 < 2);
     }
-  },[currentSnippetIndex, currentTextMessage])
+  }, [currentSnippetIndex, currentTextMessage]);
 
   // Modify calculateDisplayTime to handle potential undefined or empty strings safely
   const calculateDisplayTime = (text) => {
