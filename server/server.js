@@ -64,14 +64,13 @@ io.on("connection", (socket) => {
     //When hand is raised, ignore all incoming messages until we have a human message
     handRaised = true;
 
-    let {response, id} = await chairInterjection(
+    let { response, id } = await chairInterjection(
       globalOptions.raiseHandPrompt.replace(
         "[NAME]",
         conversationOptions.humanName
       ),
       handRaisedOptions.index,
-      100,
-      "invitation" //length
+      100
     );
 
     //Trim it down to one paragraph
@@ -87,7 +86,7 @@ io.on("connection", (socket) => {
       speaker: conversationOptions.characters[0].name,
       text: response,
       purpose: "invitation",
-      message_index: handRaisedOptions.index
+      message_index: handRaisedOptions.index,
     };
 
     //Cut everything after the submitted index + 1
@@ -95,7 +94,6 @@ io.on("connection", (socket) => {
     // conversation = conversation.slice(0, index + 1);
 
     //Adjust the current message_index
-
 
     socket.emit("invitation_to_speak", invitation);
 
@@ -108,7 +106,6 @@ io.on("connection", (socket) => {
       : audioVoices[0];
 
     generateAudio(id, conversation.length - 1, response, voice);
-
   });
 
   socket.on("lower_hand", async () => {
@@ -119,12 +116,7 @@ io.on("connection", (socket) => {
     handleConversationTurn();
   });
 
-  const chairInterjection = async (
-    interjectionPrompt,
-    index,
-    length,
-    purpose
-  ) => {
+  const chairInterjection = async (interjectionPrompt, index, length) => {
     try {
       const thisConversationCounter = conversationCounter;
       // Chairman is always first character
@@ -163,7 +155,7 @@ io.on("connection", (socket) => {
         response = response.substring(chair.name.length + 1).trim();
       }
 
-      return {response, id: completion.id};
+      return { response, id: completion.id };
     } catch (error) {
       console.error("Error during conversation:", error);
       socket.emit(
@@ -210,12 +202,11 @@ io.on("connection", (socket) => {
   };
 
   socket.on("submit_human_message", (message) => {
-
     //If we have a human message, means that we previously had an invitation
     conversation[invitation.message_index] = invitation;
 
     //Cut all messages after this
-    conversation = conversation.slice(0,invitation.message_index + 1);
+    conversation = conversation.slice(0, invitation.message_index + 1);
 
     //Add the human message to the stack, and then start the conversation again
     message.id = "human-" + conversationCounter + "-" + conversation.length;
@@ -230,12 +221,17 @@ io.on("connection", (socket) => {
     //Otherwise, generate audio here
 
     //Use Water voice for now, otherwise change to separate human voice
-    generateAudio(message.id, conversation.length - 1, message.text, audioVoices[0]);
+    generateAudio(
+      message.id,
+      conversation.length - 1,
+      message.text,
+      audioVoices[0]
+    );
 
     // socket.emit("audio_update", {
-      // id: message.id,
-      // message_index: conversation.length - 1,
-      // type: "human",
+    // id: message.id,
+    // message_index: conversation.length - 1,
+    // type: "human",
     // });
 
     isPaused = false;
@@ -246,8 +242,28 @@ io.on("connection", (socket) => {
     handleConversationTurn();
   });
 
-  socket.on("submit_injection", (message) => {
-    chairInterjection(message.text, message.index, 100, "summary");
+  socket.on("submit_injection", async (message) => {
+    let { response, id } = await chairInterjection(
+      message.text,
+      message.index,
+      100
+    );
+
+    let summary = {
+      id: id,
+      speaker: conversationOptions.characters[0].name,
+      text: response,
+      purpose: "summary",
+      shouldResume: true,
+    };
+
+    const voice = conversationOptions.characters[0].voice
+      ? conversationOptions.characters[0].voice
+      : audioVoices[0];
+
+    socket.emit("meeting_summary", summary);
+
+    generateAudio(id, conversation.length - 1, response, voice);
   });
 
   socket.on("continue_conversation", () => {
@@ -261,7 +277,7 @@ io.on("connection", (socket) => {
         : currentSpeaker + 1;
 
     // Start with the chairperson introducing the topic
-    handleConversationTurn();
+    handleConversationTurn((shouldResume = true));
   });
 
   socket.on("start_conversation", (options) => {
@@ -315,7 +331,7 @@ io.on("connection", (socket) => {
     return biases;
   };
 
-  const handleConversationTurn = async () => {
+  const handleConversationTurn = async (shouldResume = false) => {
     try {
       const thisConversationCounter = conversationCounter;
       if (!run) return;
@@ -344,6 +360,7 @@ io.on("connection", (socket) => {
         text: output.response,
         trimmed: output.trimmed,
         pretrimmed: output.pretrimmed,
+        shouldResume,
       };
       //If a character has completely answered for someone else, skip it, and go to the next
       if (message.text == "") {

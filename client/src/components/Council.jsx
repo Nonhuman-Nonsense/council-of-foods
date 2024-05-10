@@ -31,9 +31,10 @@ function Council({ options }) {
   const [isReadyToStart, setIsReadyToStart] = useState(false);
   const [zoomIn, setZoomIn] = useState(false);
   const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
-  const [conversationMaxLength,setConversationMaxLength] = useState(10);
+  const [conversationMaxLength, setConversationMaxLength] = useState(10);
   const [invitation, setInvitation] = useState(null);
   const [playInvitation, setPlayinvitation] = useState(false);
+  const [summary, setSummary] = useState(null);
 
   if (audioContext.current === null) {
     const AudioContext = window.AudioContext || window.webkitAudioContext; //cross browser
@@ -72,6 +73,11 @@ function Council({ options }) {
 
     socketRef.current.on("invitation_to_speak", (invitation) => {
       setInvitation(invitation);
+    });
+
+    socketRef.current.on("meeting_summary", (summary) => {
+      console.log("Summary recieved...");
+      setSummary(summary);
     });
 
     socketRef.current.on("audio_update", (audioMessage) => {
@@ -131,19 +137,20 @@ function Council({ options }) {
 
   useEffect(() => {
     if (isRaisedHand && !handWasRaised.current) {
-
       handleOnIsWaitingToInterject({
         isWaiting: true,
         isReadyToInterject: false,
       });
 
-      if(!handWasRaised.current){
+      if (!handWasRaised.current) {
         handWasRaised.current = true;
         setInvitation(null);
-        socketRef.current.emit("raise_hand", { index: currentMessageIndex + 1 });
+        socketRef.current.emit("raise_hand", {
+          index: currentMessageIndex + 1,
+        });
         setInvitationIndex(currentMessageIndex + 1);
       }
-    } else if(handWasRaised.current){
+    } else if (handWasRaised.current) {
       //Hand lowered
       handleOnIsWaitingToInterject({
         isWaiting: false,
@@ -155,10 +162,10 @@ function Council({ options }) {
   }, [isRaisedHand]);
 
   useEffect(() => {
-    if(playInvitation){
+    if (playInvitation) {
       //Cut all messages on the client after this, to avoid rendering the wrong thing, and wait for a conversation update
       setTextMessages((prevMessages) => {
-        const beforeInvitation = prevMessages.slice(0, invitationIndex)
+        const beforeInvitation = prevMessages.slice(0, invitationIndex);
         beforeInvitation.push(invitation);
         console.log(beforeInvitation);
         return beforeInvitation;
@@ -167,7 +174,7 @@ function Council({ options }) {
       //Play invitation
       setCurrentMessageIndex(invitationIndex);
     }
-  },[playInvitation]);
+  }, [playInvitation]);
 
   function handleOnSubmitHumanMessage(newTopic) {
     socketRef.current.emit("submit_human_message", { text: newTopic });
@@ -200,7 +207,6 @@ function Council({ options }) {
   }
 
   function handleOnIsWaitingToInterject({ isWaiting, isReadyToInterject }) {
-
     setIsWaitingToInterject(isWaiting);
 
     if (isReadyToInterject) {
@@ -208,7 +214,7 @@ function Council({ options }) {
       setIsInterjecting(true);
     }
 
-    if(!isWaiting){
+    if (!isWaiting) {
       handWasRaised.current = false;
     }
   }
@@ -226,20 +232,23 @@ function Council({ options }) {
     setBumpIndex1(!bumpIndex1);
 
     setIsReadyToStart(false);
-    // Play messages
-    setPausePlay(false);
+    // Increase max converation length to hold 10 more messages
+    setConversationMaxLength((prev) => prev + 10);
 
     removeOverlay();
 
     socketRef.current.emit("continue_conversation");
   }
 
+  function handleOnResumeConversation() {
+    // Play messages
+    setPausePlay(false);
+  }
+
   function handleOnWrapItUp() {
     setBumpIndex1(!bumpIndex1);
 
     setIsReadyToStart(false);
-    // Play messages
-    setPausePlay(false);
 
     removeOverlay();
 
@@ -254,20 +263,23 @@ function Council({ options }) {
     options.onReset();
   }
 
-  function currentSpeakerIndex(){
+  function currentSpeakerIndex() {
     let currentIndex;
     foods.map((food, index) => {
-      if(currentSpeakerName === food.name){
-          currentIndex = mapFoodIndex(foods.length, index)
+      if (currentSpeakerName === food.name) {
+        currentIndex = mapFoodIndex(foods.length, index);
       }
     });
     return currentIndex;
   }
 
-
   return (
     <>
-      <Background zoomIn={zoomIn} currentSpeakerIndex={currentSpeakerIndex()} totalSpeakers={foods.length - 1} />
+      <Background
+        zoomIn={zoomIn}
+        currentSpeakerIndex={currentSpeakerIndex()}
+        totalSpeakers={foods.length - 1}
+      />
       <Navbar
         topic={options.topic.title}
         activeOverlay={activeOverlay}
@@ -296,8 +308,6 @@ function Council({ options }) {
         <Output
           textMessages={textMessages}
           audioMessages={audioMessages}
-          isRaisedHand={isRaisedHand}
-          // onIsRaisedHand={handleOnIsRaisedHand}
           isMuted={isMuted}
           isPaused={isPaused}
           skipForward={skipForward}
@@ -322,6 +332,8 @@ function Council({ options }) {
           invitation={invitation}
           playInvitation={playInvitation}
           setPlayinvitation={setPlayinvitation}
+          onResumeConversation={handleOnResumeConversation}
+          summary={summary}
         />
       </>
       {isReadyToStart && !isInterjecting && (
@@ -357,11 +369,9 @@ function Council({ options }) {
   );
 }
 
-
-function Background({zoomIn, currentSpeakerIndex, totalSpeakers}){
-
-  function calculateBackdropPosition(){
-    return (10 + (80 * currentSpeakerIndex / totalSpeakers)) + "%";
+function Background({ zoomIn, currentSpeakerIndex, totalSpeakers }) {
+  function calculateBackdropPosition() {
+    return 10 + (80 * currentSpeakerIndex) / totalSpeakers + "%";
   }
 
   const closeUpBackdrop = {
@@ -403,11 +413,10 @@ function Background({zoomIn, currentSpeakerIndex, totalSpeakers}){
     zIndex: "1",
   };
 
-
   return (
     <>
-      <div style={closeUpBackdrop} / >
-      <div style={closeUpTable} / >
+      <div style={closeUpBackdrop} />
+      <div style={closeUpTable} />
       <div style={bottomShade} />
       <div style={topShade} />
     </>
