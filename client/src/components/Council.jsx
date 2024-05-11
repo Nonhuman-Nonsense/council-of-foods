@@ -78,11 +78,9 @@ function Council({ options }) {
         characters: foods,
       });
     } else {
-      console.log("TEXT IN COUNCIL STATE: ", councilState.textMessages);
-      console.log("AUDIO IN COUNCIL STATE: ", councilState.audioMessages);
-
       setTextMessages(councilState.textMessages);
       setAudioMessages(councilState.audioMessages);
+      setCurrentMessageIndex(councilState.currentMessageIndex);
     }
 
     // Setup socket event listeners
