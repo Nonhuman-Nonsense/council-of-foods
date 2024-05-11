@@ -18,15 +18,25 @@ function TextOutput({
   const timerId = useRef(null);
   const isMobile = useMobile();
 
+  // const splitText = (text) => {
+  //   return (
+  //     text.match(/(\d+\.\s.*?(?=\d+\.\s|$)|.*?(?=[.!?])(?:[.!?]|$))/gs) || [
+  //       text,
+  //     ]
+  //   );
+  // };
+
+  // Function to split text into sentences, handling newlines and ending without period
   const splitText = (text) => {
-    // Normalize newlines to periods and remove extra spaces
-    const normalizedText = text.replace(/\n+/g, ". ").replace(/\s+/g, " ");
+    // Normalize newlines to periods to uniformly handle them as sentence breaks
+    const normalizedText = text.replace(/\n/g, ". ");
 
-    // Regex to match sentences; supports numbers, takes care of abbreviations and decimal numbers.
-    const sentenceRegex =
-      /(\d+\.\s.*?(?=\d+\.\s|$)|(?:[A-Za-z]\.)+|[\w',\-]+\s*(?:[\w'",\-]+\s*)*[.!?])/gs;
+    // Regex to capture sentences or numbered list items
+    const sentenceRegex = /(\d+\.\s+[^.]+)|[^.]+(\.|$)/g;
 
-    return normalizedText.match(sentenceRegex) || [normalizedText];
+    return normalizedText
+      .match(sentenceRegex)
+      .map((sentence) => sentence.trim());
   };
 
   useEffect(() => {
