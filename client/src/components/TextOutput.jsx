@@ -18,11 +18,15 @@ function TextOutput({
   const timerId = useRef(null);
   const isMobile = useMobile();
 
-  // Function to split text into sentences, keeping number prefixes intact
   const splitText = (text) => {
-    return (
-      text.match(/(\d+\.\s.*?(?=\d+\.\s|$)|.*?(?=[.!?])(?:[.!?]|$))/gs) || [text]
-    );
+    // Normalize newlines to periods and remove extra spaces
+    const normalizedText = text.replace(/\n+/g, ". ").replace(/\s+/g, " ");
+
+    // Regex to match sentences; supports numbers, takes care of abbreviations and decimal numbers.
+    const sentenceRegex =
+      /(\d+\.\s.*?(?=\d+\.\s|$)|(?:[A-Za-z]\.)+|[\w',\-]+\s*(?:[\w'",\-]+\s*)*[.!?])/gs;
+
+    return normalizedText.match(sentenceRegex) || [normalizedText];
   };
 
   useEffect(() => {
