@@ -42,7 +42,7 @@ function FoodItem({ food, index, total, currentSpeakerName, isPaused, zoomIn }) 
     const left = (index / (total - 1)) * 100;
 
     const topMax = 3.0; // The curvature
-    const topOffset = 14; // Vertical offset to adjust the curve's baseline
+    const topOffset = 14.5; // Vertical offset to adjust the curve's baseline
 
     let middleIndex;
     let isEven = total % 2 === 0;
