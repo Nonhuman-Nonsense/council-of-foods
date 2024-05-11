@@ -1,7 +1,9 @@
 import React, { useState, useRef } from "react";
+import { Link } from "react-router-dom";
+
 import { capitalizeFirstLetter, useMobile } from "../utils";
-import Lottie from 'react-lottie-player';
-import hamburger from '../animations/hamburger.json';
+import Lottie from "react-lottie-player";
+import hamburger from "../animations/hamburger.json";
 
 function Navbar({
   topic,
@@ -17,10 +19,10 @@ function Navbar({
   const hamburgerAnimation = useRef(null);
 
   const openHamburger = () => {
-    if(hamburgerOpen){
+    if (hamburgerOpen) {
       hamburgerAnimation.current.setDirection(-1);
       hamburgerAnimation.current.play();
-    }else{
+    } else {
       hamburgerAnimation.current.setDirection(1);
       hamburgerAnimation.current.play();
     }
@@ -63,12 +65,15 @@ function Navbar({
     overflow: "hidden",
   };
 
-  const navItems = ["about", "settings", "contact", "share"];
+  const navItems = ["settings", "share"];
 
   return (
-    <nav style={navbarStyle} role="navigation">
-      <div style={{textAlign: "left", visibility: isMobile && "hidden" }}>
-        <h3 style={{ margin: "0", padding: "0"}}>
+    <nav
+      style={navbarStyle}
+      role="navigation"
+    >
+      <div style={{ textAlign: "left", visibility: isMobile && "hidden" }}>
+        <h3 style={{ margin: "0", padding: "0" }}>
           <a
             className="link"
             onClick={(e) => {
@@ -79,29 +84,37 @@ function Navbar({
             COUNCIL OF FOODS
           </a>
         </h3>
-        <h4 style={{marginTop: "5px"}}>{capitalizeFirstLetter(topic)}</h4>
+        <h4 style={{ marginTop: "5px" }}>{capitalizeFirstLetter(topic)}</h4>
       </div>
       <div
         style={{ display: "flex", flexDirection: "column", alignItems: "end" }}
       >
         <div style={{ display: "flex" }}>
-          { navItems.map((item) => (
+          <Link to="about">About</Link>
+          <Link to="contact">Contact</Link>
+          {navItems.map((item) => (
             <NavItem
               key={item}
               name={item}
               onDisplayOverlay={onDisplayOverlay}
-              show={(!isMobile || hamburgerOpen )}
+              show={!isMobile || hamburgerOpen}
               isActive={activeOverlay === item} // Determine active state
             />
           ))}
-          {isMobile && <div style={hamburgerStyle} onClick={openHamburger}>
-          <Lottie
-            ref={hamburgerAnimation}
-            play={false}
-            loop={false}
-            animationData={hamburger}
-            style={{height: "35px", width: "35px"}}
-          /></div>}
+          {isMobile && (
+            <div
+              style={hamburgerStyle}
+              onClick={openHamburger}
+            >
+              <Lottie
+                ref={hamburgerAnimation}
+                play={false}
+                loop={false}
+                animationData={hamburger}
+                style={{ height: "35px", width: "35px" }}
+              />
+            </div>
+          )}
         </div>
         {activeOverlay !== "" && (
           <img

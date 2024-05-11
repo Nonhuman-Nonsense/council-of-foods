@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import TextOutput from "./TextOutput";
 import AudioOutput from "./AudioOutput";
+import { useCouncil } from "./CouncilContext";
 
 function Output({
   textMessages,
@@ -38,6 +39,7 @@ function Output({
   const [isFoundMessage, setIsFoundMessage] = useState(false);
   const [pausedInBreak, setPausedInBreak] = useState(false);
   const [proceedToNextMessage, setProceedToNextMessage] = useState(false);
+  const { councilState, setCouncilState } = useCouncil();
 
   const hiddenStyle = { visibility: "hidden" };
 
@@ -49,6 +51,12 @@ function Output({
   }, [summary]);
 
   useEffect(() => {
+    // Save the current message index in the council state
+    setCouncilState((prevState) => ({
+      ...prevState,
+      currentMessageIndex: currentMessageIndex,
+    }));
+
     if (currentMessageIndex === 0 || playInvitation) {
       setCanGoBack(false);
     } else {
@@ -265,7 +273,10 @@ function Output({
   }, [isPaused, pausedInBreak]);
 
   useEffect(() => {
-    if (currentMessageIndex === 0 || currentTextMessage.type == "human") {
+    if (
+      currentMessageIndex === 0 ||
+      (currentTextMessage && currentTextMessage.type == "human")
+    ) {
       setZoomIn(false);
     }
   }, [currentMessageIndex, currentTextMessage]);

@@ -11,7 +11,6 @@ function TextOutput({
   const [currentSnippet, setCurrentSnippet] = useState("");
 
   const [currentSnippetDelay, setCurrentSnippetDelay] = useState(0);
-  const [pauseTime, setPauseTime] = useState(0);
   const [snippetStartTime, setSnippetStartTime] = useState(0);
   const [remainingTime, setRemainingTime] = useState(0);
   const [wasPaused, setWasPaused] = useState(false);
