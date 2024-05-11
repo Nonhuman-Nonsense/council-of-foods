@@ -21,7 +21,7 @@ function TextOutput({
   // Function to split text into sentences, keeping number prefixes intact
   const splitText = (text) => {
     return (
-      text.match(/(\d+\.\s.*?(?=\d+\.\s|$)|.*?(?=[.!?])(?:[.!?]|$))/gs) || []
+      text.match(/(\d+\.\s.*?(?=\d+\.\s|$)|.*?(?=[.!?])(?:[.!?]|$))/gs) || [text]
     );
   };
 
