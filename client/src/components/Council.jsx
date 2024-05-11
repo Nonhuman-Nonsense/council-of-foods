@@ -9,6 +9,7 @@ import Output from "./Output";
 import ConversationControls from "./ConversationControls";
 import HumanInput from "./HumanInput";
 import { useCouncil } from "./CouncilContext";
+import { useSocket } from "./SocketContext";
 
 function Council({ options }) {
   const { foods, humanName, topic } = options;
@@ -43,7 +44,8 @@ function Council({ options }) {
     audioContext.current = new AudioContext();
   }
 
-  const socketRef = useRef(null);
+  const socket = useSocket();
+  const { addTextMessage, addAudioMessage } = useCouncil();
 
   const handWasRaised = useRef(false);
 
@@ -59,48 +61,32 @@ function Council({ options }) {
   };
 
   useEffect(() => {
-    socketRef.current = io();
+    console.log("SOCKET IN COUNCIL: ", socket);
 
-    if (humanName && topic && foods) {
-      setCouncilState((prevState) => ({
-        ...prevState,
-        humanName: humanName,
-        topic: topic,
-        foods: foods,
-      }));
-    }
-
-    if (!councilState.initialized) {
+    if (!councilState.initialized && socket) {
       setCouncilState((prevState) => ({
         ...prevState,
         initialized: true,
+        humanName,
+        topic,
+        foods,
       }));
 
-      // Start conversation et.c.
-
-      const conversationOptions = {
+      socket.emit("start_conversation", {
         humanName: humanName,
         topic: topic.prompt,
         characters: foods,
-      };
-
-      socketRef.current.emit("start_conversation", conversationOptions);
+      });
     } else {
-      // Read councilState
-      // Set text and audio messages
-      // Get more text and audio
+      console.log("TEXT IN COUNCIL STATE: ", councilState.textMessages);
+      console.log("AUDIO IN COUNCIL STATE: ", councilState.audioMessages);
 
       setTextMessages(councilState.textMessages);
       setAudioMessages(councilState.audioMessages);
-      setCurrentMessageIndex(councilState.currentMessageIndex);
-
-      // Resume conversation instead
-      console.log("Resuming conversation");
-      // TODO: Get more messages!?
-      // TODO: Or only able to go to /about if all messages have been recieved?
     }
 
-    socketRef.current.on("conversation_update", (messages) => {
+    // Setup socket event listeners
+    socket.on("conversation_update", (messages) => {
       setTextMessages(messages);
       setCouncilState((prevState) => ({
         ...prevState,
@@ -108,40 +94,130 @@ function Council({ options }) {
       }));
     });
 
-    socketRef.current.on("invitation_to_speak", (invite) => {
+    socket.on("invitation_to_speak", (invite) => {
       setInvitation(invite);
     });
 
-    socketRef.current.on("meeting_summary", (sum) => {
-      console.log("Summary received...");
-      setSummary(sum);
+    socket.on("meeting_summary", (summary) => {
+      setSummary(summary);
     });
 
-    socketRef.current.on("audio_update", async (audioMessage) => {
+    socket.on("audio_update", async (audioMessage) => {
       if (audioMessage.audio) {
-        const buffer = await audioContext.current.decodeAudioData(
-          audioMessage.audio
-        );
-        audioMessage.audio = buffer;
-
-        setAudioMessages((prevAudioMessages) => [
-          ...prevAudioMessages,
-          audioMessage,
-        ]);
-
-        setCouncilState((prevState) => {
-          return {
-            ...prevState,
-            audioMessages: [...prevState.audioMessages, audioMessage],
-          };
-        });
+        try {
+          const buffer = await audioContext.current.decodeAudioData(
+            audioMessage.audio
+          );
+          if (buffer) {
+            audioMessage.audio = buffer;
+            setAudioMessages((prevAudioMessages) => [
+              ...prevAudioMessages,
+              audioMessage,
+            ]);
+            setCouncilState((prevState) => ({
+              ...prevState,
+              audioMessages: [...prevState.audioMessages, audioMessage],
+            }));
+          } else {
+            console.error("Decoded audio buffer is null");
+          }
+        } catch (error) {
+          console.error("Error decoding audio data:", error);
+        }
       }
     });
 
+    // Return cleanup function to remove event listeners
     return () => {
-      socketRef.current.disconnect();
+      socket.off("conversation_update");
+      socket.off("invitation_to_speak");
+      socket.off("meeting_summary");
+      socket.off("audio_update");
     };
   }, []);
+
+  // useEffect(() => {
+  //   if (humanName && topic && foods) {
+  //     setCouncilState((prevState) => ({
+  //       ...prevState,
+  //       humanName: humanName,
+  //       topic: topic,
+  //       foods: foods,
+  //     }));
+  //   }
+
+  //   if (!councilState.initialized) {
+  //     setCouncilState((prevState) => ({
+  //       ...prevState,
+  //       initialized: true,
+  //     }));
+
+  //     // Start conversation et.c.
+
+  //     const conversationOptions = {
+  //       humanName: humanName,
+  //       topic: topic.prompt,
+  //       characters: foods,
+  //     };
+
+  //     socket.emit("start_conversation", conversationOptions);
+  //   } else {
+  //     // Read councilState
+  //     // Set text and audio messages
+  //     // Get more text and audio
+
+  //     setTextMessages(councilState.textMessages);
+  //     setAudioMessages(councilState.audioMessages);
+  //     setCurrentMessageIndex(councilState.currentMessageIndex);
+
+  //     // Resume conversation instead
+  //     console.log("Resuming conversation");
+  //     // TODO: Get more messages!?
+  //     // TODO: Or only able to go to /about if all messages have been recieved?
+  //   }
+
+  //   socket.on("conversation_update", (messages) => {
+  //     setTextMessages(messages);
+  //     setCouncilState((prevState) => ({
+  //       ...prevState,
+  //       textMessages: messages,
+  //     }));
+  //   });
+
+  //   socket.on("invitation_to_speak", (invite) => {
+  //     setInvitation(invite);
+  //   });
+
+  //   socket.on("meeting_summary", (sum) => {
+  //     console.log("Summary received...");
+  //     setSummary(sum);
+  //   });
+
+  //   socket.on("audio_update", async (audioMessage) => {
+  //     if (audioMessage.audio) {
+  //       const buffer = await audioContext.current.decodeAudioData(
+  //         audioMessage.audio
+  //       );
+  //       audioMessage.audio = buffer;
+
+  //       setAudioMessages((prevAudioMessages) => [
+  //         ...prevAudioMessages,
+  //         audioMessage,
+  //       ]);
+
+  //       setCouncilState((prevState) => {
+  //         return {
+  //           ...prevState,
+  //           audioMessages: [...prevState.audioMessages, audioMessage],
+  //         };
+  //       });
+  //     }
+  //   });
+
+  //   return () => {
+  //     socket.disconnect();
+  //   };
+  // }, []);
 
   useEffect(() => {
     if (isPaused) {
@@ -184,7 +260,7 @@ function Council({ options }) {
 
       handWasRaised.current = true;
       setInvitation(null);
-      socketRef.current.emit("raise_hand", {
+      socket.emit("raise_hand", {
         index: currentMessageIndex + 1,
       });
       setInvitationIndex(currentMessageIndex + 1);
@@ -192,7 +268,7 @@ function Council({ options }) {
       setIsWaitingToInterject(false);
       setIsInterjecting(false);
 
-      socketRef.current.emit("lower_hand");
+      socket.emit("lower_hand");
       handWasRaised.current = false;
     }
   }, [isRaisedHand]);
@@ -210,7 +286,7 @@ function Council({ options }) {
   }, [playInvitation]);
 
   function handleOnSubmitHumanMessage(newTopic) {
-    socketRef.current.emit("submit_human_message", { text: newTopic });
+    socket.emit("submit_human_message", { text: newTopic });
     setCurrentMessageIndex(invitationIndex + 1);
     setIsReadyToStart(false);
     setIsInterjecting(false);
@@ -261,7 +337,7 @@ function Council({ options }) {
     setIsReadyToStart(false);
     setConversationMaxLength((prev) => prev + 10);
     removeOverlay();
-    socketRef.current.emit("continue_conversation");
+    socket.emit("continue_conversation");
   }
 
   function handleOnResumeConversation() {
@@ -272,7 +348,7 @@ function Council({ options }) {
     setBumpIndex1((prev) => !prev);
     setIsReadyToStart(false);
     removeOverlay();
-    socketRef.current.emit("submit_injection", {
+    socket.emit("submit_injection", {
       text: "Water, generate a complete summary of the meeting.",
       index: textMessages.length,
     });

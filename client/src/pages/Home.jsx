@@ -20,7 +20,7 @@ function Home() {
   const { councilState, setCouncilState } = useCouncil();
 
   useEffect(() => {
-    if (councilState.initialized && currentView !== "council") {
+    if (councilState && councilState.initialized && currentView !== "council") {
       // Council state is already initialized... Proceeding to set necessary variables and move to council view
       setHumanName(councilState.humanName);
       setTopic(councilState.topic);

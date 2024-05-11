@@ -1,11 +1,9 @@
 import React, { createContext, useContext, useState } from "react";
 
-// Create a Context
 const CouncilContext = createContext();
 
 export function CouncilProvider({ children }) {
   const [councilState, setCouncilState] = useState({
-    // Initialize with any default values you need
     initialized: false,
     humanName: "",
     topic: "",
@@ -15,14 +13,36 @@ export function CouncilProvider({ children }) {
     currentMessageIndex: 0,
   });
 
+  // Ensure these handlers are correctly updating the state.
+  const addTextMessage = (message) => {
+    setCouncilState((prev) => ({
+      ...prev,
+      textMessages: [...prev.textMessages, message],
+    }));
+  };
+
+  const addAudioMessage = (message) => {
+    setCouncilState((prev) => ({
+      ...prev,
+      audioMessages: [...prev.audioMessages, message],
+    }));
+  };
+
+  // Make sure that `setCouncilState` is included in the value object here
   return (
-    <CouncilContext.Provider value={{ councilState, setCouncilState }}>
+    <CouncilContext.Provider
+      value={{
+        councilState,
+        addTextMessage,
+        addAudioMessage,
+        setCouncilState,
+      }}
+    >
       {children}
     </CouncilContext.Provider>
   );
 }
 
-// Custom hook to use the council state
 export function useCouncil() {
   return useContext(CouncilContext);
 }
