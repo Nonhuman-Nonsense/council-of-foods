@@ -1,4 +1,5 @@
 import React from "react";
+import { Outlet } from "react-router-dom";
 import About from "./overlays/About";
 import SelectTopic from "./settings/SelectTopic";
 import Contact from "./overlays/Contact";
@@ -8,6 +9,18 @@ import Completed from "./overlays/Completed";
 import Summary from "./overlays/Summary";
 
 function CouncilOverlays({ activeOverlay, options, removeOverlay, summary, meetingId }) {
+  const closeUrl = `/icons/close.svg`;
+
+  const closeStyle = {
+    position: "absolute",
+    cursor: "pointer",
+    width: "35px",
+    height: "35px",
+    top: "50px",
+    right: "50px",
+    zIndex: "20",
+  };
+
   const closeWrapperStyle = {
     height: "100vh",
     width: "100vw",
@@ -37,7 +50,9 @@ function CouncilOverlays({ activeOverlay, options, removeOverlay, summary, meeti
   const renderOverlayContent = () => {
     switch (activeOverlay) {
       case "about":
-        return <About />;
+      case "contact":
+      case "share":
+        return <Outlet />;
       case "settings":
         return (
           <SelectTopic
@@ -46,10 +61,6 @@ function CouncilOverlays({ activeOverlay, options, removeOverlay, summary, meeti
             onCancel={removeOverlay}
           />
         );
-      case "contact":
-        return <Contact />;
-      case "share":
-        return <Share />;
       case "reset":
         return (
           <ResetWarning
@@ -74,6 +85,7 @@ function CouncilOverlays({ activeOverlay, options, removeOverlay, summary, meeti
   };
 
   return (
+    <>
     <div style={closeWrapperStyle}>
       <div style={closeInnerStyle}>
         <div
@@ -97,6 +109,14 @@ function CouncilOverlays({ activeOverlay, options, removeOverlay, summary, meeti
         />
       </div>
     </div>
+    {activeOverlay !== 'summary' && (
+      <img
+        src={closeUrl}
+        style={closeStyle}
+        onClick={removeOverlay}
+      />
+    )}
+    </>
   );
 }
 

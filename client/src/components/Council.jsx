@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import io from "socket.io-client";
 import FoodItem from "./FoodItem";
 import Overlay from "./Overlay";
@@ -35,6 +36,8 @@ function Council({ options }) {
   const [invitation, setInvitation] = useState(null);
   const [playInvitation, setPlayinvitation] = useState(false);
   const [summary, setSummary] = useState(null);
+  const navigate = useNavigate();
+  const location = useLocation();
   const [meetingId, setMeetingId] = useState(null);
 
   if (audioContext.current === null) {
@@ -105,6 +108,12 @@ function Council({ options }) {
       socketRef.current.disconnect();
     };
   }, []);
+
+  useEffect(() => {
+    if(["/about","/contact","/share"].includes(location?.pathname)){
+      setActiveOverlay(location?.pathname.substring(1));
+    }
+  },[location]);
 
   useEffect(() => {
     if (isPaused) {
@@ -217,6 +226,7 @@ function Council({ options }) {
 
   function removeOverlay() {
     setActiveOverlay("");
+    navigate('/meeting/new');
   }
 
   function handleOnIsWaitingToInterject({ isWaiting, isReadyToInterject }) {

@@ -12,6 +12,7 @@
     "react-dom": "^18.2.0",
     "react-lottie-player": "^2.0.0",
     "react-responsive": "^10.0.0",
+    "react-router-dom": "^6.23.1",
     "react-scripts": "5.0.1",
     "react-speech-recognition": "^3.10.0",
     "react-textarea-autosize": "^8.5.3",
