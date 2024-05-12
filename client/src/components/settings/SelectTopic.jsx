@@ -4,14 +4,21 @@ import topicData from "../../prompts/topics.json";
 import { capitalizeFirstLetter, toTitleCase, useMobile } from "../../utils";
 
 function SelectTopic(props) {
-  const [selectedTopic, setSelectedTopic] = useState({title: "", description: "", prompt: ""});
+  const [selectedTopic, setSelectedTopic] = useState({
+    title: "",
+    description: "",
+    prompt: "",
+  });
   const [hoverTopic, setHoverTopic] = useState({});
   const [customTopic, setCustomTopic] = useState("");
   const [displayWarning, setDisplayWarning] = useState(false);
   const topicTextareaRef = useRef(null);
   const isMobile = useMobile();
 
-  const topics = [...topicData.topics, {title: "choose your own", prompt: "" , description: ""}];
+  const topics = [
+    ...topicData.topics,
+    { title: "choose your own", prompt: "", description: "" },
+  ];
 
   // useEffect hook to listen for changes in props.currentTopic
   useEffect(() => {
@@ -32,7 +39,11 @@ function SelectTopic(props) {
     } else {
       // If the topic is not in the list, consider it a custom topic
       setCustomTopic(topic.title.substring(0, 150)); // Set the unrecognized topic as the custom topic
-      setSelectedTopic({title: "choose your own", prompt: "" , description: ""}); // Automatically select "choose your own"
+      setSelectedTopic({
+        title: "choose your own",
+        prompt: "",
+        description: "",
+      }); // Automatically select "choose your own"
     }
 
     // Focus on the textarea if "choose your own" is selected
@@ -57,18 +68,21 @@ function SelectTopic(props) {
       setDisplayWarning(true);
     } else {
       let continueWithTopic = selectedTopic;
-      if (continueWithTopic.title.toLowerCase() === "choose your own"){
+      if (continueWithTopic.title.toLowerCase() === "choose your own") {
         continueWithTopic.title = customTopic;
         continueWithTopic.prompt = customTopic;
       }
 
-      continueWithTopic.prompt = topicData.system.replace("[TOPIC]", continueWithTopic.prompt);
+      continueWithTopic.prompt = topicData.system.replace(
+        "[TOPIC]",
+        continueWithTopic.prompt
+      );
 
-      props.onContinueForward({topic: continueWithTopic });
+      props.onContinueForward({ topic: continueWithTopic });
     }
   }
 
-  function buildTopicPrompt(topic){
+  function buildTopicPrompt(topic) {
     const prompt = topicData.system.replace("[TOPIC]", topic);
     return prompt;
   }
@@ -77,15 +91,19 @@ function SelectTopic(props) {
     const topic =
       selectedTopic.title.toLowerCase() === "choose your own"
         ? customTopic
-        : selectedTopic.title
+        : selectedTopic.title;
 
     return topic;
   }
 
   // Conditional rendering for showing the Next button
   const shouldShowNextButton =
-    selectedTopic && selectedTopic.title &&
-    !(selectedTopic.title.toLowerCase() === "choose your own" && !customTopic.trim());
+    selectedTopic &&
+    selectedTopic.title &&
+    !(
+      selectedTopic.title.toLowerCase() === "choose your own" &&
+      !customTopic.trim()
+    );
 
   const container = {
     // height: "550px",
@@ -112,13 +130,17 @@ function SelectTopic(props) {
     display: showTextBox() ? "" : "none",
   };
 
-  function showTextBox(){
-    return selectedTopic.title === "choose your own" ?
-            (hoverTopic && hoverTopic?.title !== "choose your own") ? false : true :
-            hoverTopic?.title === "choose your own" ? true : false;
+  function showTextBox() {
+    return selectedTopic.title === "choose your own"
+      ? hoverTopic && hoverTopic?.title !== "choose your own"
+        ? false
+        : true
+      : hoverTopic?.title === "choose your own"
+      ? true
+      : false;
   }
 
-  const selectButtonStyle =  {
+  const selectButtonStyle = {
     marginBottom: isMobile ? "3px" : "15px",
     padding: isMobile ? "3px 0" : "6px 0",
   };
@@ -127,13 +149,18 @@ function SelectTopic(props) {
     <>
       {displayWarning ? (
         <ResetWarning
-          message="changing settings"
-          onReset={() => props.onReset({title: getTopicTitle(), prompt: buildTopicPrompt(getTopicTitle())})}
+          message="changing topic"
+          onReset={() =>
+            props.onReset({
+              title: getTopicTitle(),
+              prompt: buildTopicPrompt(getTopicTitle()),
+            })
+          }
           onCancel={props.onCancel}
         />
       ) : (
         <div style={container}>
-          <h1 style={{marginBottom: (isMobile ? "0" : "20px")}}>THE ISSUE</h1>
+          <h1 style={{ marginBottom: isMobile ? "0" : "20px" }}>THE ISSUE</h1>
           <div
             style={{
               display: "flex",
@@ -145,7 +172,9 @@ function SelectTopic(props) {
             {topics.map((topic, index) => (
               <button
                 key={index}
-                className={(selectedTopic.title === topic.title ? "selected ": "")}
+                className={
+                  selectedTopic.title === topic.title ? "selected " : ""
+                }
                 onClick={() => selectTopic(topic)}
                 onMouseEnter={() => setHoverTopic(topic)}
                 onMouseLeave={() => setHoverTopic(null)}
@@ -154,8 +183,17 @@ function SelectTopic(props) {
                 {toTitleCase(topic.title)}
               </button>
             ))}
-            <p style={{margin: "0", height: showTextBox() ? "0" : isMobile ? "60px" : "80px"}}>
-              {hoverTopic ? hoverTopic.description : selectedTopic ? selectedTopic.description : "please select an issue for the discussion"}
+            <p
+              style={{
+                margin: "0",
+                height: showTextBox() ? "0" : isMobile ? "60px" : "80px",
+              }}
+            >
+              {hoverTopic
+                ? hoverTopic.description
+                : selectedTopic
+                ? selectedTopic.description
+                : "please select an issue for the discussion"}
             </p>
           </div>
           <textarea
@@ -169,7 +207,10 @@ function SelectTopic(props) {
           />
           <button
             onClick={onContinueForward}
-            style={{marginBottom: "10px", visibility: shouldShowNextButton ? "" : "hidden"}}
+            style={{
+              marginBottom: "10px",
+              visibility: shouldShowNextButton ? "" : "hidden",
+            }}
           >
             Next
           </button>
