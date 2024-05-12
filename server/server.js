@@ -6,6 +6,7 @@ const path = require("path");
 const OpenAI = require("openai");
 const { Tiktoken } = require("tiktoken/lite");
 const cl100k_base = require("tiktoken/encoders/cl100k_base.json");
+const { MongoClient } = require('mongodb');
 
 const app = express();
 const httpServer = http.createServer(app);
@@ -16,6 +17,38 @@ const globalOptions = require("./global-options");
 //Names of OpenAI voices
 const audioVoices = ["alloy", "echo", "fable", "onyx", "nova", "shimmer"];
 
+//Database
+const mongoClient = new MongoClient(process.env.MONGO_URL);
+const db = mongoClient.db("CouncilOfFoods");
+const meetingsCollection = db.collection('meetings');
+const counters = db.collection('counters');
+const initializeDB = async () => {
+  try{
+    await counters.insertOne({_id : 'meeting_id',seq: 0});
+    console.log("[init] No meeting ID found, created initial meeting #0");
+  }catch(e){
+    if(e.errorResponse?.code === 11000){
+      console.log("[init] Meeting ID counter already found in database. Not creating meeting #0");
+      return;
+    }
+    throw e; //If any other error, re-throw
+  }
+};
+//https://www.mongodb.com/docs/v3.0/tutorial/create-an-auto-incrementing-field/
+const insertMeeting = async (meeting) => {
+  //Update the counter
+  const ret = await counters.findOneAndUpdate(
+    { _id: "meeting_id" },
+    { $inc: { seq: 1 } }
+  );
+  //old value is returned
+  meeting._id = ret.seq;
+  return await meetingsCollection.insertOne(meeting);
+};
+
+initializeDB();
+
+
 if (process.env.NODE_ENV != "development") {
   //Don't server the static build in development
   app.use(express.static(path.join(__dirname, "../client/build")));
@@ -24,7 +57,7 @@ if (process.env.NODE_ENV != "development") {
 io.on("connection", (socket) => {
   //Set up the variables accessible to this socket
   //These can be accessed within any function
-  console.log("A user connected");
+  console.log("[session] a user connected");
 
   let run = true; //Flag to cancel recursive api calls if socket is closed, ie. disconnected etc.
   let isPaused = false; // Flag to check if the conversation is paused
@@ -33,6 +66,7 @@ io.on("connection", (socket) => {
   let conversationCount = 0;
   let currentSpeaker = 0;
   let extraMessageCount = 0;
+  let meetingId;
 
   //Every time we restart, this is incremented, so that all messages from previous conversations are dropped
   let conversationCounter = 0;
@@ -70,7 +104,7 @@ io.on("connection", (socket) => {
         conversationOptions.humanName
       ),
       handRaisedOptions.index,
-      100
+      globalOptions.raiseHandInvitationLength
     );
 
     //Trim it down to one paragraph
@@ -217,6 +251,9 @@ io.on("connection", (socket) => {
     //Emit the new complete conversation
     socket.emit("conversation_update", conversation);
 
+    //Update the database
+    meetingsCollection.updateOne({_id: meetingId},{$set: {conversation: conversation}});
+
     //Don't read human messages for now
     //Otherwise, generate audio here
 
@@ -242,11 +279,11 @@ io.on("connection", (socket) => {
     handleConversationTurn();
   });
 
-  socket.on("submit_injection", async (message) => {
+  socket.on("wrap_up_meeting", async () => {
     let { response, id } = await chairInterjection(
-      message.text,
-      message.index,
-      100
+      globalOptions.finalizeMeetingPrompt,
+      conversation.length,
+      globalOptions.finalizeMeetingLength
     );
 
     let summary = {
@@ -262,6 +299,9 @@ io.on("connection", (socket) => {
       : audioVoices[0];
 
     socket.emit("meeting_summary", summary);
+
+    //Save the summary
+    meetingsCollection.updateOne({_id: meetingId},{$set: {summary: summary}});
 
     generateAudio(id, conversation.length - 1, response, voice);
   });
@@ -280,7 +320,7 @@ io.on("connection", (socket) => {
     handleConversationTurn((shouldResume = true));
   });
 
-  socket.on("start_conversation", (options) => {
+  socket.on("start_conversation", async (options) => {
     conversationOptions = options;
     for (let i = 0; i < conversationOptions.characters.length; i++) {
       conversationOptions.characters[i].name = toTitleCase(
@@ -294,9 +334,21 @@ io.on("connection", (socket) => {
     isPaused = false;
     handRaised = false;
     conversationCounter++;
-    console.log("Counter " + conversationCounter);
+    console.log("[session] session counter: " + conversationCounter);
     logit_biases = calculateLogitBiases();
 
+    //Start a new meeting
+    const storeResult = await insertMeeting({
+      options: conversationOptions,
+      audio: [],
+      conversation: [],
+      date: new Date().toISOString()
+    });
+
+    meetingId = storeResult.insertedId;
+
+    socket.emit("meeting_started", {meeting_id: meetingId});
+    console.log('[meeting] council meeting #' + meetingId + ' started.');
     // Start with the chairperson introducing the topic
     handleConversationTurn();
   });
@@ -376,6 +428,9 @@ io.on("connection", (socket) => {
 
       socket.emit("conversation_update", conversation);
 
+      //Update the database
+      meetingsCollection.updateOne({_id: meetingId},{$set: {conversation: conversation}});
+
       //This is an async function, and since we are not waiting for the response, it will run in a paralell thread.
       //The result will be emitted to the socket when it's ready
       //The rest of the conversation continues
@@ -387,11 +442,13 @@ io.on("connection", (socket) => {
       } else {
         //If we have an empty message, removed because this character pretended to be someone else
         //Send down a message saying this the audio of this message should be skipped
-        socket.emit("audio_update", {
+        const audioUpdate = {
           id: message.id,
           message_index: message_index,
           type: "skipped",
-        });
+        };
+        socket.emit("audio_update", audioUpdate);
+        meetingsCollection.updateOne({_id: meetingId}, {$push: {audio: audioUpdate}});
       }
 
       // Check for conversation end
@@ -432,11 +489,19 @@ io.on("connection", (socket) => {
     //This is better if we can pipe it to a stream in the future, so that we don't have to wait until it's done.
     const buffer = Buffer.from(await mp3.arrayBuffer());
     if (thisConversationCounter != conversationCounter) return;
-    socket.emit("audio_update", {
+
+    //Save the audio also here on server, so that we can put it in the database later
+    const audioObject = {
       id: id,
       message_index: index,
       audio: buffer,
-    });
+    };
+
+    socket.emit("audio_update", audioObject);
+
+    //Update the database
+    meetingsCollection.updateOne({_id: meetingId}, {$push: {audio: audioObject}});
+    // console.log('[meeting] updated audio of meeting #' + meetingId);
   };
 
   const generateTextFromGPT = async (speaker) => {
@@ -520,13 +585,13 @@ io.on("connection", (socket) => {
 
   socket.on("disconnect", () => {
     run = false;
-    console.log("User disconnected");
+    console.log("[session] a user disconnected");
     //After this, the socket and all variables will be garbage collected automatically, since all loops stop
   });
 });
 
 httpServer.listen(3001, () => {
-  console.log("Listening on *:3001");
+  console.log("[init] Listening on *:3001");
 });
 
 function toTitleCase(string) {

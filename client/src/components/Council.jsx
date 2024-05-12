@@ -35,6 +35,7 @@ function Council({ options }) {
   const [invitation, setInvitation] = useState(null);
   const [playInvitation, setPlayinvitation] = useState(false);
   const [summary, setSummary] = useState(null);
+  const [meetingId, setMeetingId] = useState(null);
 
   if (audioContext.current === null) {
     const AudioContext = window.AudioContext || window.webkitAudioContext; //cross browser
@@ -75,8 +76,14 @@ function Council({ options }) {
       setInvitation(invitation);
     });
 
+    socketRef.current.on("meeting_started", (meeting) => {
+      console.log("Meeting started" + meeting.meeting_id);
+      setMeetingId(meeting.meeting_id);
+    });
+
     socketRef.current.on("meeting_summary", (summary) => {
       console.log("Summary recieved...");
+      console.log(summary);
       setSummary(summary);
     });
 
@@ -252,10 +259,7 @@ function Council({ options }) {
 
     removeOverlay();
 
-    socketRef.current.emit("submit_injection", {
-      text: "Water, generate a complete summary of the meeting.",
-      index: textMessages.length,
-    });
+    socketRef.current.emit("wrap_up_meeting");
   }
 
   function handleOnCompletedSummary() {
