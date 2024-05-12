@@ -38,14 +38,14 @@ function Council({ options }) {
   const [summary, setSummary] = useState(null);
   const navigate = useNavigate();
   const location = useLocation();
+  const [meetingId, setMeetingId] = useState(null);
 
   if (audioContext.current === null) {
-    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    const AudioContext = window.AudioContext || window.webkitAudioContext; //cross browser
     audioContext.current = new AudioContext();
   }
 
-  const socket = useSocket();
-  const { addTextMessage, addAudioMessage } = useCouncil();
+  const socketRef = useRef(null); // Using useRef to persist socket instance
 
   const handWasRaised = useRef(false);
 
@@ -61,167 +61,51 @@ function Council({ options }) {
   };
 
   useEffect(() => {
-    if(["/about","/contact","/share"].includes(location?.pathname)){
-      setActiveOverlay(location?.pathname.substring(1));
-    }
-  },[location]);
+    socketRef.current = io();
 
-  // useEffect(() => {
-  //   console.log("SOCKET IN COUNCIL: ", socket);
-  //
-  //   if (!councilState.initialized && socket) {
-  //     setCouncilState((prevState) => ({
-  //       ...prevState,
-  //       initialized: true,
-  //       humanName,
-  //       topic,
-  //       foods,
-  //     }));
-  //
-  //     socket.emit("start_conversation", {
-  //       humanName: humanName,
-  //       topic: topic.prompt,
-  //       characters: foods,
-  //     });
-  //
-  //     // navigate('meeting/new');
-  //   } else {
-  //     setTextMessages(councilState.textMessages);
-  //     setAudioMessages(councilState.audioMessages);
-  //     setCurrentMessageIndex(councilState.currentMessageIndex);
-  //   }
-  //
-  //   // Setup socket event listeners
-  //   socket.on("conversation_update", (messages) => {
-  //     setTextMessages(messages);
-  //     setCouncilState((prevState) => ({
-  //       ...prevState,
-  //       textMessages: messages,
-  //     }));
-  //   });
-  //
-  //   socket.on("invitation_to_speak", (invite) => {
-  //     setInvitation(invite);
-  //   });
-  //
-  //   socket.on("meeting_summary", (summary) => {
-  //     setSummary(summary);
-  //   });
-  //
-  //   socket.on("audio_update", async (audioMessage) => {
-  //     if (audioMessage.audio) {
-  //       try {
-  //         const buffer = await audioContext.current.decodeAudioData(
-  //           audioMessage.audio
-  //         );
-  //         if (buffer) {
-  //           audioMessage.audio = buffer;
-  //           setAudioMessages((prevAudioMessages) => [
-  //             ...prevAudioMessages,
-  //             audioMessage,
-  //           ]);
-  //           setCouncilState((prevState) => ({
-  //             ...prevState,
-  //             audioMessages: [...prevState.audioMessages, audioMessage],
-  //           }));
-  //         } else {
-  //           console.error("Decoded audio buffer is null");
-  //         }
-  //       } catch (error) {
-  //         console.error("Error decoding audio data:", error);
-  //       }
-  //     }
-  //   });
-  //
-  //   // Return cleanup function to remove event listeners
-  //   return () => {
-  //     socket.off("conversation_update");
-  //     socket.off("invitation_to_speak");
-  //     socket.off("meeting_summary");
-  //     socket.off("audio_update");
-  //   };
-  // }, []);
+    const conversationOptions = {
+      humanName: humanName,
+      topic: topic.prompt,
+      characters: foods,
+    };
 
-  useEffect(() => {
-    if (humanName && topic && foods) {
-      setCouncilState((prevState) => ({
-        ...prevState,
-        humanName: humanName,
-        topic: topic,
-        foods: foods,
-      }));
-    }
+    socketRef.current.emit("start_conversation", conversationOptions);
 
-    if (!councilState.initialized) {
-      setCouncilState((prevState) => ({
-        ...prevState,
-        initialized: true,
-      }));
-
-      // Start conversation et.c.
-
-      const conversationOptions = {
-        humanName: humanName,
-        topic: topic.prompt,
-        characters: foods,
-      };
-
-      socket.emit("start_conversation", conversationOptions);
-    } else {
-      // Read councilState
-      // Set text and audio messages
-      // Get more text and audio
-
-      setTextMessages(councilState.textMessages);
-      setAudioMessages(councilState.audioMessages);
-      setCurrentMessageIndex(councilState.currentMessageIndex);
-
-      // Resume conversation instead
-      console.log("Resuming conversation");
-      // TODO: Get more messages!?
-      // TODO: Or only able to go to /about if all messages have been recieved?
-    }
-
-    socket.on("conversation_update", (messages) => {
-      setTextMessages(messages);
-      setCouncilState((prevState) => ({
-        ...prevState,
-        textMessages: messages,
-      }));
+    socketRef.current.on("conversation_update", (textMessages) => {
+      setTextMessages(() => textMessages);
     });
 
-    socket.on("invitation_to_speak", (invite) => {
-      setInvitation(invite);
+    socketRef.current.on("invitation_to_speak", (invitation) => {
+      setInvitation(invitation);
     });
 
-    socket.on("meeting_summary", (sum) => {
-      console.log("Summary received...");
-      setSummary(sum);
+    socketRef.current.on("meeting_started", (meeting) => {
+      console.log("Meeting #" + meeting.meeting_id + ' started');
+      setMeetingId(meeting.meeting_id);
     });
 
-    socket.on("audio_update", async (audioMessage) => {
-      if (audioMessage.audio) {
-        const buffer = await audioContext.current.decodeAudioData(
-          audioMessage.audio
-        );
-        audioMessage.audio = buffer;
+    socketRef.current.on("meeting_summary", (summary) => {
+      setSummary(summary);
+    });
 
+    socketRef.current.on("audio_update", (audioMessage) => {
+      (async () => {
+        // Decode audio data immediately, because we can only do this once, then buffer is detached
+        if (audioMessage.audio) {
+          const buffer = await audioContext.current.decodeAudioData(
+            audioMessage.audio
+          );
+          audioMessage.audio = buffer;
+        }
         setAudioMessages((prevAudioMessages) => [
           ...prevAudioMessages,
           audioMessage,
         ]);
-
-        setCouncilState((prevState) => {
-          return {
-            ...prevState,
-            audioMessages: [...prevState.audioMessages, audioMessage],
-          };
-        });
-      }
+      })();
     });
 
     return () => {
-      socket.disconnect();
+      socketRef.current.disconnect();
     };
   }, []);
 
@@ -234,10 +118,18 @@ function Council({ options }) {
   }, [isPaused]);
 
   useEffect(() => {
-    if (activeOverlay !== "" && !isPaused) {
+    if (activeOverlay !== "" && activeOverlay !== "summary" && !isPaused) {
       setPausePlay(true);
     }
   }, [activeOverlay]);
+
+  useEffect(() => {
+    if(summary && textMessages[currentMessageIndex]?.purpose === "summary"){
+      displayOverlay('summary');
+    }else if(activeOverlay == 'summary' && textMessages[currentMessageIndex]?.purpose !== "summary"){
+      removeOverlay();
+    }
+  },[summary, textMessages, currentMessageIndex, activeOverlay]);
 
   function handleOnSkipBackward() {
     setSkipBackward(!skipBackward);
@@ -261,40 +153,53 @@ function Council({ options }) {
 
   useEffect(() => {
     if (isRaisedHand && !handWasRaised.current) {
-      setIsWaitingToInterject(true);
-      setIsInterjecting(false);
-
-      handWasRaised.current = true;
-      setInvitation(null);
-      socket.emit("raise_hand", {
-        index: currentMessageIndex + 1,
+      handleOnIsWaitingToInterject({
+        isWaiting: true,
+        isReadyToInterject: false,
       });
-      setInvitationIndex(currentMessageIndex + 1);
-    } else if (!isRaisedHand && handWasRaised.current) {
-      setIsWaitingToInterject(false);
-      setIsInterjecting(false);
 
-      socket.emit("lower_hand");
-      handWasRaised.current = false;
+      if (!handWasRaised.current) {
+        handWasRaised.current = true;
+        setInvitation(null);
+        socketRef.current.emit("raise_hand", {
+          index: currentMessageIndex + 1,
+        });
+        setInvitationIndex(currentMessageIndex + 1);
+      }
+    } else if (handWasRaised.current) {
+      //Hand lowered
+      handleOnIsWaitingToInterject({
+        isWaiting: false,
+        isReadyToInterject: false,
+      });
+
+      socketRef.current.emit("lower_hand");
     }
   }, [isRaisedHand]);
 
   useEffect(() => {
     if (playInvitation) {
+      //Cut all messages on the client after this, to avoid rendering the wrong thing, and wait for a conversation update
       setTextMessages((prevMessages) => {
         const beforeInvitation = prevMessages.slice(0, invitationIndex);
         beforeInvitation.push(invitation);
+        console.log(beforeInvitation);
         return beforeInvitation;
       });
 
+      //Play invitation
       setCurrentMessageIndex(invitationIndex);
     }
   }, [playInvitation]);
 
   function handleOnSubmitHumanMessage(newTopic) {
-    socket.emit("submit_human_message", { text: newTopic });
+    socketRef.current.emit("submit_human_message", { text: newTopic });
+
+    //Wait for message after invitation
     setCurrentMessageIndex(invitationIndex + 1);
+    //Show loading
     setIsReadyToStart(false);
+    //Reset hand raised vars
     setIsInterjecting(false);
     setIsRaisedHand(false);
     setInvitation(null);
@@ -308,14 +213,14 @@ function Council({ options }) {
     setActiveOverlay("reset");
   }
 
+  // Function to handle overlay content based on navbar clicks
   const displayOverlay = (section) => {
-    setActiveOverlay(section);
+    setActiveOverlay(section); // Update state to control overlay content
   };
 
-  const removeOverlay = () => {
+  function removeOverlay() {
     setActiveOverlay("");
-    navigate('/meeting/new');
-  };
+  }
 
   function handleOnIsWaitingToInterject({ isWaiting, isReadyToInterject }) {
     setIsWaitingToInterject(isWaiting);
@@ -330,40 +235,47 @@ function Council({ options }) {
     }
   }
 
+  //Put water in the middle always
   function mapFoodIndex(total, index) {
     return (Math.ceil(total / 2) + index - 1) % total;
   }
 
   function handleOnCompletedConversation() {
+    // Zoom out
     setZoomIn(false);
     displayOverlay("completed");
   }
 
   function handleOnContinue() {
-    setBumpIndex1((prev) => !prev);
+    setBumpIndex1(!bumpIndex1);
+
     setIsReadyToStart(false);
+    // Increase max converation length to hold 10 more messages
     setConversationMaxLength((prev) => prev + 10);
+
     removeOverlay();
-    socket.emit("continue_conversation");
+
+    socketRef.current.emit("continue_conversation");
   }
 
   function handleOnResumeConversation() {
+    // Play messages
     setPausePlay(false);
   }
 
   function handleOnWrapItUp() {
-    setBumpIndex1((prev) => !prev);
+    setBumpIndex1(!bumpIndex1);
+
     setIsReadyToStart(false);
+
     removeOverlay();
-    socket.emit("submit_injection", {
-      text: "Water, generate a complete summary of the meeting.",
-      index: textMessages.length,
-    });
+
+    socketRef.current.emit("wrap_up_meeting");
   }
 
   function handleOnCompletedSummary() {
     console.log("Resetting");
-    options.onReset();
+    // options.onReset();
   }
 
   function currentSpeakerIndex() {
@@ -404,39 +316,41 @@ function Council({ options }) {
         ))}
       </div>
       {!isReadyToStart && <Loading />}
-      {isInterjecting && (
-        <HumanInput onSubmitHumanMessage={handleOnSubmitHumanMessage} />
-      )}
-      <Output
-        textMessages={textMessages}
-        audioMessages={audioMessages}
-        isMuted={isMuted}
-        isPaused={isPaused}
-        skipForward={skipForward}
-        skipBackward={skipBackward}
-        handleSetCurrentSpeakerName={handleSetCurrentSpeakerName}
-        onIsWaitingToInterject={handleOnIsWaitingToInterject}
-        isWaitingToInterject={isWaitingToInterject}
-        bumpIndex1={bumpIndex1}
-        audioContext={audioContext}
-        setCanGoForward={setCanGoForward}
-        setCanGoBack={setCanGoBack}
-        setIsReadyToStart={setIsReadyToStart}
-        setCanRaiseHand={setCanRaiseHand}
-        isReadyToStart={isReadyToStart}
-        setZoomIn={setZoomIn}
-        isInterjecting={isInterjecting}
-        onCompletedConversation={handleOnCompletedConversation}
-        onCompletedSummary={handleOnCompletedSummary}
-        currentMessageIndex={currentMessageIndex}
-        setCurrentMessageIndex={setCurrentMessageIndex}
-        conversationMaxLength={conversationMaxLength}
-        invitation={invitation}
-        playInvitation={playInvitation}
-        setPlayinvitation={setPlayinvitation}
-        onResumeConversation={handleOnResumeConversation}
-        summary={summary}
-      />
+      <>
+        {isInterjecting && (
+          <HumanInput onSubmitHumanMessage={handleOnSubmitHumanMessage} />
+        )}
+        <Output
+          textMessages={textMessages}
+          audioMessages={audioMessages}
+          isMuted={isMuted}
+          isPaused={isPaused}
+          skipForward={skipForward}
+          skipBackward={skipBackward}
+          handleSetCurrentSpeakerName={handleSetCurrentSpeakerName}
+          onIsWaitingToInterject={handleOnIsWaitingToInterject}
+          isWaitingToInterject={isWaitingToInterject}
+          bumpIndex1={bumpIndex1}
+          audioContext={audioContext}
+          setCanGoForward={setCanGoForward}
+          setCanGoBack={setCanGoBack}
+          setIsReadyToStart={setIsReadyToStart}
+          setCanRaiseHand={setCanRaiseHand}
+          isReadyToStart={isReadyToStart}
+          setZoomIn={setZoomIn}
+          isInterjecting={isInterjecting}
+          onCompletedConversation={handleOnCompletedConversation}
+          onCompletedSummary={handleOnCompletedSummary}
+          currentMessageIndex={currentMessageIndex}
+          setCurrentMessageIndex={setCurrentMessageIndex}
+          conversationMaxLength={conversationMaxLength}
+          invitation={invitation}
+          playInvitation={playInvitation}
+          setPlayinvitation={setPlayinvitation}
+          onResumeConversation={handleOnResumeConversation}
+          summary={summary}
+        />
+      </>
       {isReadyToStart && !isInterjecting && (
         <ConversationControls
           onSkipBackward={handleOnSkipBackward}
@@ -450,7 +364,8 @@ function Council({ options }) {
           onPausePlay={handlePausePlay}
           canGoBack={canGoBack}
           canGoForward={canGoForward}
-          canRaiseHand={canRaiseHand}
+          canRaiseHand={activeOverlay !== "summary" && canRaiseHand}
+          onTopOfOverlay={activeOverlay === "summary"}
         />
       )}
       <Overlay isActive={activeOverlay !== ""}>
@@ -463,6 +378,8 @@ function Council({ options }) {
               onWrapItUp: handleOnWrapItUp,
             }}
             removeOverlay={removeOverlay}
+            summary={summary}
+            meetingId={meetingId}
           />
         )}
       </Overlay>
