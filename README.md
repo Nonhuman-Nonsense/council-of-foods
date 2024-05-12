@@ -11,9 +11,10 @@ docker push nonhumannonsense/council-of-foods:latest
 
 Then update the server, see server repo.
 
-## How to run the server
+## Example docker prompt for running mongodb locally for development
 
 ```
+docker run -d --name council-mongo -e MONGO_INITDB_ROOT_USERNAME=mongoadmin -e MONGO_INITDB_ROOT_PASSWORD=secret -p 27017:27017 mongo
 
 ```
 

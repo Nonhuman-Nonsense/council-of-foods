@@ -13,6 +13,7 @@
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
     "http": "^0.0.1-security",
+    "mongodb": "^6.6.1",
     "openai": "^4.17.3",
     "socket.io": "^4.7.5",
     "tiktoken": "^1.0.14"

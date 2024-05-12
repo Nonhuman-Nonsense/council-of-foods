@@ -17,11 +17,25 @@ function TextOutput({
   const timerId = useRef(null);
   const isMobile = useMobile();
 
-  // Function to split text into sentences, keeping number prefixes intact
+  // const splitText = (text) => {
+  //   return (
+  //     text.match(/(\d+\.\s.*?(?=\d+\.\s|$)|.*?(?=[.!?])(?:[.!?]|$))/gs) || [
+  //       text,
+  //     ]
+  //   );
+  // };
+
+  // Function to split text into sentences, handling newlines and ending without period
   const splitText = (text) => {
-    return (
-      text.match(/(\d+\.\s.*?(?=\d+\.\s|$)|.*?(?=[.!?])(?:[.!?]|$))/gs) || []
-    );
+    // Normalize newlines to periods to uniformly handle them as sentence breaks
+    const normalizedText = text.replace(/\n/g, ". ");
+
+    // Regex to capture sentences or numbered list items
+    const sentenceRegex = /(\d+\.\s+[^.]+)|[^.]+(\.|$)/g;
+
+    return normalizedText
+      .match(sentenceRegex)
+      .map((sentence) => sentence.trim());
   };
 
   useEffect(() => {
@@ -101,7 +115,7 @@ function TextOutput({
   }, [currentSnippetIndex, currentTextMessage]);
 
   useEffect(() => {
-    if (currentTextMessage?.type !== "human") {
+    if (currentTextMessage?.type !== "human" && currentTextMessage?.purpose !== "summary") {
       // Zoom in on 2 snippets, out on 2, etc.
       setZoomIn(currentSnippetIndex % 4 < 2);
     }
