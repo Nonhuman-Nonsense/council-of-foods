@@ -103,7 +103,7 @@ function Navbar({
             style={{height: "35px", width: "35px"}}
           /></div>}
         </div>
-        {activeOverlay !== "" && (
+        {activeOverlay !== "" && activeOverlay !== "summary" && (
           <img
             src={closeUrl}
             style={closeStyle}

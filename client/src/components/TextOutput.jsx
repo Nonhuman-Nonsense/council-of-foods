@@ -116,7 +116,7 @@ function TextOutput({
   }, [currentSnippetIndex, currentTextMessage]);
 
   useEffect(() => {
-    if (currentTextMessage?.type !== "human") {
+    if (currentTextMessage?.type !== "human" && currentTextMessage?.purpose !== "summary") {
       // Zoom in on 2 snippets, out on 2, etc.
       setZoomIn(currentSnippetIndex % 4 < 2);
     }

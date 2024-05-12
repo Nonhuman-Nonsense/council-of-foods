@@ -73,6 +73,7 @@ function Output({
     if (
       currentMessageIndex === actualMessageIndex &&
       !playInvitation &&
+      currentTextMessage?.purpose !== "summary" &&
       currentMessageIndex !== conversationMaxLength - 1
     ) {
       setCanRaiseHand(true);
@@ -265,14 +266,14 @@ function Output({
   }, [isPaused, pausedInBreak]);
 
   useEffect(() => {
-    if (currentMessageIndex === 0 || currentTextMessage.type == "human") {
+    if (currentMessageIndex === 0 || currentTextMessage.type == "human" || currentTextMessage.purpose == "summary") {
       setZoomIn(false);
     }
   }, [currentMessageIndex, currentTextMessage]);
 
   return (
     <>
-      <div style={!isReadyToStart || isInterjecting ? hiddenStyle : {}}>
+      <div style={!isReadyToStart || isInterjecting || currentTextMessage.purpose === "summary" ? hiddenStyle : {}}>
         <TextOutput
           currentTextMessage={currentTextMessage}
           currentAudioMessage={currentAudioMessage}

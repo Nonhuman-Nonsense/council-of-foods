@@ -35,6 +35,7 @@ function Council({ options }) {
   const [invitation, setInvitation] = useState(null);
   const [playInvitation, setPlayinvitation] = useState(false);
   const [summary, setSummary] = useState(null);
+  const [meetingId, setMeetingId] = useState(null);
 
   if (audioContext.current === null) {
     const AudioContext = window.AudioContext || window.webkitAudioContext; //cross browser
@@ -75,8 +76,12 @@ function Council({ options }) {
       setInvitation(invitation);
     });
 
+    socketRef.current.on("meeting_started", (meeting) => {
+      console.log("Meeting #" + meeting.meeting_id + ' started');
+      setMeetingId(meeting.meeting_id);
+    });
+
     socketRef.current.on("meeting_summary", (summary) => {
-      console.log("Summary recieved...");
       setSummary(summary);
     });
 
@@ -110,10 +115,18 @@ function Council({ options }) {
   }, [isPaused]);
 
   useEffect(() => {
-    if (activeOverlay !== "" && !isPaused) {
+    if (activeOverlay !== "" && activeOverlay !== "summary" && !isPaused) {
       setPausePlay(true);
     }
   }, [activeOverlay]);
+
+  useEffect(() => {
+    if(summary && textMessages[currentMessageIndex]?.purpose === "summary"){
+      displayOverlay('summary');
+    }else if(activeOverlay == 'summary' && textMessages[currentMessageIndex]?.purpose !== "summary"){
+      removeOverlay();
+    }
+  },[summary, textMessages, currentMessageIndex, activeOverlay]);
 
   function handleOnSkipBackward() {
     setSkipBackward(!skipBackward);
@@ -254,15 +267,12 @@ function Council({ options }) {
 
     removeOverlay();
 
-    socketRef.current.emit("submit_injection", {
-      text: "Water, generate a complete summary of the meeting.",
-      index: textMessages.length,
-    });
+    socketRef.current.emit("wrap_up_meeting");
   }
 
   function handleOnCompletedSummary() {
     console.log("Resetting");
-    options.onReset();
+    // options.onReset();
   }
 
   function currentSpeakerIndex() {
@@ -351,7 +361,8 @@ function Council({ options }) {
           onPausePlay={handlePausePlay}
           canGoBack={canGoBack}
           canGoForward={canGoForward}
-          canRaiseHand={canRaiseHand}
+          canRaiseHand={activeOverlay !== "summary" && canRaiseHand}
+          onTopOfOverlay={activeOverlay === "summary"}
         />
       )}
       <Overlay isActive={activeOverlay !== ""}>
@@ -364,6 +375,8 @@ function Council({ options }) {
               onWrapItUp: handleOnWrapItUp,
             }}
             removeOverlay={removeOverlay}
+            summary={summary}
+            meetingId={meetingId}
           />
         )}
       </Overlay>
