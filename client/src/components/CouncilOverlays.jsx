@@ -1,14 +1,17 @@
 import React from "react";
 import { Outlet } from "react-router-dom";
-import About from "./overlays/About";
 import SelectTopic from "./settings/SelectTopic";
-import Contact from "./overlays/Contact";
-import Share from "./overlays/Share";
 import ResetWarning from "./overlays/ResetWarning";
 import Completed from "./overlays/Completed";
 import Summary from "./overlays/Summary";
 
-function CouncilOverlays({ activeOverlay, options, removeOverlay, summary, meetingId }) {
+function CouncilOverlays({
+  activeOverlay,
+  options,
+  removeOverlay,
+  summary,
+  meetingId,
+}) {
   const closeUrl = `/icons/close.svg`;
 
   const closeStyle = {
@@ -49,8 +52,6 @@ function CouncilOverlays({ activeOverlay, options, removeOverlay, summary, meeti
   // Conditional rendering of overlay content based on activeOverlay state
   const renderOverlayContent = () => {
     switch (activeOverlay) {
-      case "about":
-      case "contact":
       case "share":
         return <Outlet />;
       case "settings":
@@ -77,7 +78,10 @@ function CouncilOverlays({ activeOverlay, options, removeOverlay, summary, meeti
         );
       case "summary":
         return (
-          <Summary summary={summary} meetingId={meetingId} />
+          <Summary
+            summary={summary}
+            meetingId={meetingId}
+          />
         );
       default:
         return null; // No overlay content if no section is active
@@ -86,36 +90,36 @@ function CouncilOverlays({ activeOverlay, options, removeOverlay, summary, meeti
 
   return (
     <>
-    <div style={closeWrapperStyle}>
-      <div style={closeInnerStyle}>
-        <div
-          style={clickerStyle}
-          onClick={removeOverlay}
-        />
-        <div style={middleColumn}>
+      <div style={closeWrapperStyle}>
+        <div style={closeInnerStyle}>
           <div
             style={clickerStyle}
             onClick={removeOverlay}
           />
-          {renderOverlayContent()}
+          <div style={middleColumn}>
+            <div
+              style={clickerStyle}
+              onClick={removeOverlay}
+            />
+            {renderOverlayContent()}
+            <div
+              style={clickerStyle}
+              onClick={removeOverlay}
+            />
+          </div>
           <div
             style={clickerStyle}
             onClick={removeOverlay}
           />
         </div>
-        <div
-          style={clickerStyle}
+      </div>
+      {activeOverlay !== "summary" && (
+        <img
+          src={closeUrl}
+          style={closeStyle}
           onClick={removeOverlay}
         />
-      </div>
-    </div>
-    {activeOverlay !== 'summary' && (
-      <img
-        src={closeUrl}
-        style={closeStyle}
-        onClick={removeOverlay}
-      />
-    )}
+      )}
     </>
   );
 }

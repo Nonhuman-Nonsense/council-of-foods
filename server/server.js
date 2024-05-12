@@ -6,7 +6,7 @@ const path = require("path");
 const OpenAI = require("openai");
 const { Tiktoken } = require("tiktoken/lite");
 const cl100k_base = require("tiktoken/encoders/cl100k_base.json");
-const { MongoClient } = require('mongodb');
+const { MongoClient } = require("mongodb");
 
 const app = express();
 const httpServer = http.createServer(app);
@@ -20,15 +20,17 @@ const audioVoices = ["alloy", "echo", "fable", "onyx", "nova", "shimmer"];
 //Database
 const mongoClient = new MongoClient(process.env.MONGO_URL);
 const db = mongoClient.db("CouncilOfFoods");
-const meetingsCollection = db.collection('meetings');
-const counters = db.collection('counters');
+const meetingsCollection = db.collection("meetings");
+const counters = db.collection("counters");
 const initializeDB = async () => {
-  try{
-    await counters.insertOne({_id : 'meeting_id',seq: 0});
+  try {
+    await counters.insertOne({ _id: "meeting_id", seq: 0 });
     console.log("[init] No meeting ID found, created initial meeting #0");
-  }catch(e){
-    if(e.errorResponse?.code === 11000){
-      console.log("[init] Meeting ID counter already found in database. Not creating meeting #0");
+  } catch (e) {
+    if (e.errorResponse?.code === 11000) {
+      console.log(
+        "[init] Meeting ID counter already found in database. Not creating meeting #0"
+      );
       return;
     }
     throw e; //If any other error, re-throw
@@ -47,7 +49,6 @@ const insertMeeting = async (meeting) => {
 };
 
 initializeDB();
-
 
 if (process.env.NODE_ENV != "development") {
   //Don't server the static build in development
@@ -253,7 +254,10 @@ io.on("connection", (socket) => {
     socket.emit("conversation_update", conversation);
 
     //Update the database
-    meetingsCollection.updateOne({_id: meetingId},{$set: {conversation: conversation}});
+    meetingsCollection.updateOne(
+      { _id: meetingId },
+      { $set: { conversation: conversation } }
+    );
 
     //Don't read human messages for now
     //Otherwise, generate audio here
@@ -281,8 +285,10 @@ io.on("connection", (socket) => {
   });
 
   socket.on("wrap_up_meeting", async () => {
-
-    const summaryPrompt = globalOptions.finalizeMeetingPrompt.replace("[DATE]",meetingDate.toISOString().split('T')[0]);
+    const summaryPrompt = globalOptions.finalizeMeetingPrompt.replace(
+      "[DATE]",
+      meetingDate.toISOString().split("T")[0]
+    );
 
     let { response, id } = await chairInterjection(
       summaryPrompt,
@@ -305,7 +311,10 @@ io.on("connection", (socket) => {
     socket.emit("meeting_summary", summary);
 
     //Save the summary
-    meetingsCollection.updateOne({_id: meetingId},{$set: {summary: summary}});
+    meetingsCollection.updateOne(
+      { _id: meetingId },
+      { $set: { summary: summary } }
+    );
 
     generateAudio(id, conversation.length - 1, response, voice);
   });
@@ -347,12 +356,12 @@ io.on("connection", (socket) => {
       options: conversationOptions,
       audio: [],
       conversation: [],
-      date: meetingDate.toISOString()
+      date: meetingDate.toISOString(),
     });
 
     meetingId = storeResult.insertedId;
 
-    socket.emit("meeting_started", {meeting_id: meetingId});
+    socket.emit("meeting_started", { meeting_id: meetingId });
     console.log(`[meeting ${meetingId}] started`);
     // Start with the chairperson introducing the topic
     handleConversationTurn();
@@ -432,10 +441,15 @@ io.on("connection", (socket) => {
       const message_index = conversation.length - 1;
 
       socket.emit("conversation_update", conversation);
-      console.log(`[meeting ${meetingId}] conversation length ${conversation.length}`);
+      console.log(
+        `[meeting ${meetingId}] conversation length ${conversation.length}`
+      );
 
       //Update the database
-      meetingsCollection.updateOne({_id: meetingId},{$set: {conversation: conversation}});
+      meetingsCollection.updateOne(
+        { _id: meetingId },
+        { $set: { conversation: conversation } }
+      );
 
       //This is an async function, and since we are not waiting for the response, it will run in a paralell thread.
       //The result will be emitted to the socket when it's ready
@@ -454,7 +468,10 @@ io.on("connection", (socket) => {
           type: "skipped",
         };
         socket.emit("audio_update", audioUpdate);
-        meetingsCollection.updateOne({_id: meetingId}, {$push: {audio: audioUpdate}});
+        meetingsCollection.updateOne(
+          { _id: meetingId },
+          { $push: { audio: audioUpdate } }
+        );
       }
 
       // Check for conversation end
@@ -506,7 +523,10 @@ io.on("connection", (socket) => {
     socket.emit("audio_update", audioObject);
 
     //Update the database
-    meetingsCollection.updateOne({_id: meetingId}, {$push: {audio: audioObject}});
+    meetingsCollection.updateOne(
+      { _id: meetingId },
+      { $push: { audio: audioObject } }
+    );
     // console.log('[meeting] updated audio of meeting #' + meetingId);
   };
 
