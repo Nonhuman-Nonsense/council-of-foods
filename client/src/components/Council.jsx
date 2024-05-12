@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import io from "socket.io-client";
 import FoodItem from "./FoodItem";
 import Overlay from "./Overlay";
@@ -8,8 +9,6 @@ import Loading from "./Loading";
 import Output from "./Output";
 import ConversationControls from "./ConversationControls";
 import HumanInput from "./HumanInput";
-import { useCouncil } from "./CouncilContext";
-import { useSocket } from "./SocketContext";
 
 function Council({ options }) {
   const { foods, humanName, topic } = options;
@@ -37,7 +36,8 @@ function Council({ options }) {
   const [invitation, setInvitation] = useState(null);
   const [playInvitation, setPlayinvitation] = useState(false);
   const [summary, setSummary] = useState(null);
-  const { councilState, setCouncilState } = useCouncil();
+  const navigate = useNavigate();
+  const location = useLocation();
 
   if (audioContext.current === null) {
     const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -61,29 +61,127 @@ function Council({ options }) {
   };
 
   useEffect(() => {
-    console.log("SOCKET IN COUNCIL: ", socket);
+    if(["/about","/contact","/share"].includes(location?.pathname)){
+      setActiveOverlay(location?.pathname.substring(1));
+    }
+  },[location]);
 
-    if (!councilState.initialized && socket) {
+  // useEffect(() => {
+  //   console.log("SOCKET IN COUNCIL: ", socket);
+  //
+  //   if (!councilState.initialized && socket) {
+  //     setCouncilState((prevState) => ({
+  //       ...prevState,
+  //       initialized: true,
+  //       humanName,
+  //       topic,
+  //       foods,
+  //     }));
+  //
+  //     socket.emit("start_conversation", {
+  //       humanName: humanName,
+  //       topic: topic.prompt,
+  //       characters: foods,
+  //     });
+  //
+  //     // navigate('meeting/new');
+  //   } else {
+  //     setTextMessages(councilState.textMessages);
+  //     setAudioMessages(councilState.audioMessages);
+  //     setCurrentMessageIndex(councilState.currentMessageIndex);
+  //   }
+  //
+  //   // Setup socket event listeners
+  //   socket.on("conversation_update", (messages) => {
+  //     setTextMessages(messages);
+  //     setCouncilState((prevState) => ({
+  //       ...prevState,
+  //       textMessages: messages,
+  //     }));
+  //   });
+  //
+  //   socket.on("invitation_to_speak", (invite) => {
+  //     setInvitation(invite);
+  //   });
+  //
+  //   socket.on("meeting_summary", (summary) => {
+  //     setSummary(summary);
+  //   });
+  //
+  //   socket.on("audio_update", async (audioMessage) => {
+  //     if (audioMessage.audio) {
+  //       try {
+  //         const buffer = await audioContext.current.decodeAudioData(
+  //           audioMessage.audio
+  //         );
+  //         if (buffer) {
+  //           audioMessage.audio = buffer;
+  //           setAudioMessages((prevAudioMessages) => [
+  //             ...prevAudioMessages,
+  //             audioMessage,
+  //           ]);
+  //           setCouncilState((prevState) => ({
+  //             ...prevState,
+  //             audioMessages: [...prevState.audioMessages, audioMessage],
+  //           }));
+  //         } else {
+  //           console.error("Decoded audio buffer is null");
+  //         }
+  //       } catch (error) {
+  //         console.error("Error decoding audio data:", error);
+  //       }
+  //     }
+  //   });
+  //
+  //   // Return cleanup function to remove event listeners
+  //   return () => {
+  //     socket.off("conversation_update");
+  //     socket.off("invitation_to_speak");
+  //     socket.off("meeting_summary");
+  //     socket.off("audio_update");
+  //   };
+  // }, []);
+
+  useEffect(() => {
+    if (humanName && topic && foods) {
+      setCouncilState((prevState) => ({
+        ...prevState,
+        humanName: humanName,
+        topic: topic,
+        foods: foods,
+      }));
+    }
+
+    if (!councilState.initialized) {
       setCouncilState((prevState) => ({
         ...prevState,
         initialized: true,
-        humanName,
-        topic,
-        foods,
       }));
 
-      socket.emit("start_conversation", {
+      // Start conversation et.c.
+
+      const conversationOptions = {
         humanName: humanName,
         topic: topic.prompt,
         characters: foods,
-      });
+      };
+
+      socket.emit("start_conversation", conversationOptions);
     } else {
+      // Read councilState
+      // Set text and audio messages
+      // Get more text and audio
+
       setTextMessages(councilState.textMessages);
       setAudioMessages(councilState.audioMessages);
       setCurrentMessageIndex(councilState.currentMessageIndex);
+
+      // Resume conversation instead
+      console.log("Resuming conversation");
+      // TODO: Get more messages!?
+      // TODO: Or only able to go to /about if all messages have been recieved?
     }
 
-    // Setup socket event listeners
     socket.on("conversation_update", (messages) => {
       setTextMessages(messages);
       setCouncilState((prevState) => ({
@@ -96,126 +194,36 @@ function Council({ options }) {
       setInvitation(invite);
     });
 
-    socket.on("meeting_summary", (summary) => {
-      setSummary(summary);
+    socket.on("meeting_summary", (sum) => {
+      console.log("Summary received...");
+      setSummary(sum);
     });
 
     socket.on("audio_update", async (audioMessage) => {
       if (audioMessage.audio) {
-        try {
-          const buffer = await audioContext.current.decodeAudioData(
-            audioMessage.audio
-          );
-          if (buffer) {
-            audioMessage.audio = buffer;
-            setAudioMessages((prevAudioMessages) => [
-              ...prevAudioMessages,
-              audioMessage,
-            ]);
-            setCouncilState((prevState) => ({
-              ...prevState,
-              audioMessages: [...prevState.audioMessages, audioMessage],
-            }));
-          } else {
-            console.error("Decoded audio buffer is null");
-          }
-        } catch (error) {
-          console.error("Error decoding audio data:", error);
-        }
+        const buffer = await audioContext.current.decodeAudioData(
+          audioMessage.audio
+        );
+        audioMessage.audio = buffer;
+
+        setAudioMessages((prevAudioMessages) => [
+          ...prevAudioMessages,
+          audioMessage,
+        ]);
+
+        setCouncilState((prevState) => {
+          return {
+            ...prevState,
+            audioMessages: [...prevState.audioMessages, audioMessage],
+          };
+        });
       }
     });
 
-    // Return cleanup function to remove event listeners
     return () => {
-      socket.off("conversation_update");
-      socket.off("invitation_to_speak");
-      socket.off("meeting_summary");
-      socket.off("audio_update");
+      socket.disconnect();
     };
   }, []);
-
-  // useEffect(() => {
-  //   if (humanName && topic && foods) {
-  //     setCouncilState((prevState) => ({
-  //       ...prevState,
-  //       humanName: humanName,
-  //       topic: topic,
-  //       foods: foods,
-  //     }));
-  //   }
-
-  //   if (!councilState.initialized) {
-  //     setCouncilState((prevState) => ({
-  //       ...prevState,
-  //       initialized: true,
-  //     }));
-
-  //     // Start conversation et.c.
-
-  //     const conversationOptions = {
-  //       humanName: humanName,
-  //       topic: topic.prompt,
-  //       characters: foods,
-  //     };
-
-  //     socket.emit("start_conversation", conversationOptions);
-  //   } else {
-  //     // Read councilState
-  //     // Set text and audio messages
-  //     // Get more text and audio
-
-  //     setTextMessages(councilState.textMessages);
-  //     setAudioMessages(councilState.audioMessages);
-  //     setCurrentMessageIndex(councilState.currentMessageIndex);
-
-  //     // Resume conversation instead
-  //     console.log("Resuming conversation");
-  //     // TODO: Get more messages!?
-  //     // TODO: Or only able to go to /about if all messages have been recieved?
-  //   }
-
-  //   socket.on("conversation_update", (messages) => {
-  //     setTextMessages(messages);
-  //     setCouncilState((prevState) => ({
-  //       ...prevState,
-  //       textMessages: messages,
-  //     }));
-  //   });
-
-  //   socket.on("invitation_to_speak", (invite) => {
-  //     setInvitation(invite);
-  //   });
-
-  //   socket.on("meeting_summary", (sum) => {
-  //     console.log("Summary received...");
-  //     setSummary(sum);
-  //   });
-
-  //   socket.on("audio_update", async (audioMessage) => {
-  //     if (audioMessage.audio) {
-  //       const buffer = await audioContext.current.decodeAudioData(
-  //         audioMessage.audio
-  //       );
-  //       audioMessage.audio = buffer;
-
-  //       setAudioMessages((prevAudioMessages) => [
-  //         ...prevAudioMessages,
-  //         audioMessage,
-  //       ]);
-
-  //       setCouncilState((prevState) => {
-  //         return {
-  //           ...prevState,
-  //           audioMessages: [...prevState.audioMessages, audioMessage],
-  //         };
-  //       });
-  //     }
-  //   });
-
-  //   return () => {
-  //     socket.disconnect();
-  //   };
-  // }, []);
 
   useEffect(() => {
     if (isPaused) {
@@ -306,6 +314,7 @@ function Council({ options }) {
 
   const removeOverlay = () => {
     setActiveOverlay("");
+    navigate('/meeting/new');
   };
 
   function handleOnIsWaitingToInterject({ isWaiting, isReadyToInterject }) {

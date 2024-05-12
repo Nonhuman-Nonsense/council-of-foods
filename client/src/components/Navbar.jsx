@@ -13,8 +13,6 @@ function Navbar({
   onDisplayResetWarning,
 }) {
   const isMobile = useMobile();
-
-  const closeUrl = `/icons/close.svg`;
   const [hamburgerOpen, setHamburgerOpen] = useState(false);
   const hamburgerAnimation = useRef(null);
 
@@ -42,15 +40,7 @@ function Navbar({
     margin: "0 auto",
     width: "100%",
     boxSizing: "border-box",
-    pointerEvents: "auto",
     zIndex: "10",
-  };
-
-  const closeStyle = {
-    cursor: "pointer",
-    marginTop: "18px",
-    width: "35px",
-    height: "35px",
   };
 
   const hamburgerStyle = {
@@ -65,7 +55,7 @@ function Navbar({
     overflow: "hidden",
   };
 
-  const navItems = ["settings", "share"];
+  const navItems = ["new meeting","about","contact","share"];
 
   return (
     <nav
@@ -73,16 +63,10 @@ function Navbar({
       role="navigation"
     >
       <div style={{ textAlign: "left", visibility: isMobile && "hidden" }}>
-        <h3 style={{ margin: "0", padding: "0" }}>
-          <a
-            className="link"
-            onClick={(e) => {
-              e.preventDefault();
-              onDisplayResetWarning();
-            }}
-          >
+        <h3 style={{ margin: "0", padding: "0", pointerEvents: "auto" }}>
+          <Link to="/">
             COUNCIL OF FOODS
-          </a>
+          </Link>
         </h3>
         <h4 style={{ marginTop: "5px" }}>{capitalizeFirstLetter(topic)}</h4>
       </div>
@@ -90,8 +74,6 @@ function Navbar({
         style={{ display: "flex", flexDirection: "column", alignItems: "end" }}
       >
         <div style={{ display: "flex" }}>
-          <Link to="about">About</Link>
-          <Link to="contact">Contact</Link>
           {navItems.map((item) => (
             <NavItem
               key={item}
@@ -116,13 +98,6 @@ function Navbar({
             </div>
           )}
         </div>
-        {activeOverlay !== "" && (
-          <img
-            src={closeUrl}
-            style={closeStyle}
-            onClick={onRemoveOverlay}
-          />
-        )}
       </div>
     </nav>
   );
@@ -141,13 +116,8 @@ function NavItem({ name, onDisplayOverlay, isActive, show }) {
 
   return (
     <h3 style={{ margin: "0", padding: "0" }}>
-      <a
-        className="link"
-        href="#"
-        onClick={(e) => {
-          e.preventDefault(); // Prevent default anchor action
-          onDisplayOverlay(name); // Trigger overlay display
-        }}
+      <Link
+        to={name}
         style={{
           ...navItemStyle,
           textDecoration: isActive ? "underline" : "none", // Underline if active
@@ -155,7 +125,7 @@ function NavItem({ name, onDisplayOverlay, isActive, show }) {
         }}
       >
         {name.toUpperCase()}
-      </a>
+      </Link>
     </h3>
   );
 }

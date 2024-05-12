@@ -1,8 +1,9 @@
 import React from "react";
-function Welcome({ humanName, onContinueForward }) {
+function Welcome({ humanName, onContinueForward, isUnderneath }) {
 
   const wrapper = {
-    maxWidth: "530px"
+    maxWidth: "530px",
+    visibility: isUnderneath && 'hidden'
   };
   return (
       <div style={wrapper}>

@@ -1,23 +1,16 @@
 import React, { useRef, useEffect } from "react";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import Home from "./pages/Home";
-import About from "./pages/About";
-import Contact from "./pages/Contact";
-import NotFound from "./pages/NotFound";
-import { CouncilProvider } from "./components/CouncilContext";
-import { SocketProvider } from "./components/SocketContext";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import Home from "./components/Home";
+import About from "./components/overlays/About";
+import Share from "./components/overlays/Share";
+import Contact from "./components/overlays/Contact";
 
 function App() {
   return (
     <div className="App">
-      <SocketProvider>
-        <CouncilProvider>
-          <BrowserRouter>
-            <Routes>
-              <Route
-                path="/"
-                element={<Home />}
-              />
+      <BrowserRouter>
+          <Routes>
+            <Route element={<Home />} path="*">
               <Route
                 path="about"
                 element={<About />}
@@ -27,13 +20,16 @@ function App() {
                 element={<Contact />}
               />
               <Route
-                path="*"
-                element={<NotFound />}
+                path="share"
+                element={<Share />}
               />
-            </Routes>
-          </BrowserRouter>
-        </CouncilProvider>
-      </SocketProvider>
+              <Route
+                path="*"
+                element={<Navigate to="/" />}
+              />
+            </Route>
+        </Routes>
+      </BrowserRouter>
     </div>
   );
 }
