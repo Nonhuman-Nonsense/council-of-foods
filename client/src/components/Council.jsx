@@ -238,6 +238,8 @@ function Council({ options }) {
   }
 
   function handleOnCompletedConversation() {
+    // Zoom out
+    setZoomIn(false);
     displayOverlay("completed");
   }
 
