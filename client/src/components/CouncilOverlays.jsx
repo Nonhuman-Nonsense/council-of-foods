@@ -109,11 +109,13 @@ function CouncilOverlays({ activeOverlay, options, removeOverlay, summary, meeti
         />
       </div>
     </div>
-    <img
-      src={closeUrl}
-      style={closeStyle}
-      onClick={removeOverlay}
-    />
+    {activeOverlay !== 'summary' && (
+      <img
+        src={closeUrl}
+        style={closeStyle}
+        onClick={removeOverlay}
+      />
+    )}
     </>
   );
 }

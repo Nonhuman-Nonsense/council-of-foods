@@ -20,7 +20,6 @@ function Home() {
   const [foods, setFoods] = useState([]);
   const pages = ["landing", "welcome", "topics", "foods", "council"];
   const [currentView, setCurrentView] = useState(pages[0]);
-  const [isActiveOverlay, setIsActiveOverlay] = useState(true);
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -34,21 +33,19 @@ function Home() {
   });
 
   useEffect(() => {
-    console.log("location: " + location.pathname);
+    // console.log("location: " + location.pathname);
     if(location && ["/welcome",'/topics',"/foods","/"].includes(location.pathname)){
       setCurrentView(location?.pathname.substring(1) || "landing");
     }
   },[location]);
 
-  useEffect(() => {
-    console.log("view: " + currentView);
-  },[currentView]);
+  // useEffect(() => {
+  //   console.log("view: " + currentView);
+  // },[currentView]);
 
   const isPortrait = useMediaQuery({ query: "(orientation: portrait)" });
 
   function continueForward(fromPage, props) {
-
-    console.log(props);
     let next = '';
     if (fromPage === 'landing') {
       setHumanName(props.humanName);
@@ -60,7 +57,6 @@ function Home() {
       next = 'foods';
     } else if (fromPage === 'foods') {
       setFoods(props.foods);
-      setIsActiveOverlay(false);
       setCurrentView('council');
       next = 'meeting/new';
     }
@@ -69,26 +65,24 @@ function Home() {
   }
 
   function reset(topic) {
-    // setTopic(topic ?? { title: "", prompt: "" });
-    // setFoods([]);
-    // setIsActiveOverlay(true);
-    // // Reset council state
-    // setCouncilState((prev) => {});
-    //
-    // if (!topic?.title) {
-    //   // Reset from the start
-    //   setHumanName("");
-    //   setCurrentView("landing");
-    // } else {
-    //   // Reset from foods selection
-    //   setCurrentView("foods");
-    // }
+    setTopic(topic ?? { title: "", prompt: "" });
+    setFoods([]);
+
+    if (!topic?.title) {
+      // Reset from the start
+      setHumanName("");
+      setCurrentView("landing");
+    } else {
+      // Reset from foods selection
+      setCurrentView("foods");
+    }
   }
+
   return (
     <>
       <Background currentView={currentView} />
       <Overlay
-        isActive={isActiveOverlay && currentView !== "council"}
+        isActive={currentView !== "council"}
         isBlurred={currentView !== "landing"}
       >
         {currentView !== "council" && (

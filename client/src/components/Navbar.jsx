@@ -55,7 +55,7 @@ function Navbar({
     overflow: "hidden",
   };
 
-  const navItems = ["new meeting","about","contact","share"];
+  const navItems = ["settings","about","contact","share"];
 
   return (
     <nav
