@@ -80,7 +80,7 @@ function Council({ options }) {
     });
 
     socketRef.current.on("meeting_started", (meeting) => {
-      console.log("Meeting #" + meeting.meeting_id + ' started');
+      console.log("Meeting #" + meeting.meeting_id + " started");
       setMeetingId(meeting.meeting_id);
     });
 
@@ -110,10 +110,10 @@ function Council({ options }) {
   }, []);
 
   useEffect(() => {
-    if(["/about","/contact","/share"].includes(location?.pathname)){
+    if (["/about", "/contact", "/share"].includes(location?.pathname)) {
       setActiveOverlay(location?.pathname.substring(1));
     }
-  },[location]);
+  }, [location]);
 
   useEffect(() => {
     if (isPaused) {
@@ -130,12 +130,15 @@ function Council({ options }) {
   }, [activeOverlay]);
 
   useEffect(() => {
-    if(summary && textMessages[currentMessageIndex]?.purpose === "summary"){
-      displayOverlay('summary');
-    }else if(activeOverlay == 'summary' && textMessages[currentMessageIndex]?.purpose !== "summary"){
+    if (summary && textMessages[currentMessageIndex]?.purpose === "summary") {
+      displayOverlay("summary");
+    } else if (
+      activeOverlay == "summary" &&
+      textMessages[currentMessageIndex]?.purpose !== "summary"
+    ) {
       removeOverlay();
     }
-  },[summary, textMessages, currentMessageIndex, activeOverlay]);
+  }, [summary, textMessages, currentMessageIndex, activeOverlay]);
 
   function handleOnSkipBackward() {
     setSkipBackward(!skipBackward);
@@ -215,10 +218,6 @@ function Council({ options }) {
     setIsRaisedHand((prev) => !prev);
   }
 
-  function displayResetWarning() {
-    setActiveOverlay("reset");
-  }
-
   // Function to handle overlay content based on navbar clicks
   const displayOverlay = (section) => {
     setActiveOverlay(section); // Update state to control overlay content
@@ -226,7 +225,7 @@ function Council({ options }) {
 
   function removeOverlay() {
     setActiveOverlay("");
-    navigate('/meeting/new');
+    navigate("/meeting/new");
   }
 
   function handleOnIsWaitingToInterject({ isWaiting, isReadyToInterject }) {
@@ -295,6 +294,17 @@ function Council({ options }) {
     return currentIndex;
   }
 
+  function handleOnNavigate(adress) {
+    if (adress === "") {
+      displayOverlay("reset");
+    } else if (adress === "settings") {
+      displayOverlay("settings");
+      navigate("/meeting/new");
+    } else {
+      navigate(adress);
+    }
+  }
+
   return (
     <>
       <Background
@@ -307,7 +317,8 @@ function Council({ options }) {
         activeOverlay={activeOverlay}
         onDisplayOverlay={displayOverlay}
         onRemoveOverlay={removeOverlay}
-        onDisplayResetWarning={displayResetWarning}
+        onDisplayResetWarning={() => displayOverlay("reset")}
+        onNavigate={handleOnNavigate}
       />
       <div style={foodsContainerStyle}>
         {foods.map((food, index) => (

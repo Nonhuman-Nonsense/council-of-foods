@@ -5,13 +5,7 @@ import { capitalizeFirstLetter, useMobile } from "../utils";
 import Lottie from "react-lottie-player";
 import hamburger from "../animations/hamburger.json";
 
-function Navbar({
-  topic,
-  activeOverlay,
-  onDisplayOverlay,
-  onRemoveOverlay,
-  onDisplayResetWarning,
-}) {
+function Navbar({ topic, activeOverlay, onDisplayOverlay, onNavigate }) {
   const isMobile = useMobile();
   const [hamburgerOpen, setHamburgerOpen] = useState(false);
   const hamburgerAnimation = useRef(null);
@@ -41,6 +35,7 @@ function Navbar({
     width: "100%",
     boxSizing: "border-box",
     zIndex: "10",
+    pointerEvents: "auto",
   };
 
   const hamburgerStyle = {
@@ -55,18 +50,29 @@ function Navbar({
     overflow: "hidden",
   };
 
-  const navItems = ["settings","about","contact","share"];
+  const navItems = ["settings", "about", "contact", "share"];
 
   return (
     <nav
       style={navbarStyle}
       role="navigation"
     >
-      <div style={{ textAlign: "left", visibility: isMobile && "hidden" }}>
-        <h3 style={{ margin: "0", padding: "0", pointerEvents: "auto" }}>
-          <Link to="/">
-            COUNCIL OF FOODS
-          </Link>
+      <div
+        style={{
+          textAlign: "left",
+          visibility: !isMobile ? "hidden" : "visible",
+        }}
+      >
+        <h3
+          style={{
+            margin: "0",
+            padding: "0",
+            pointerEvents: "auto",
+            cursor: "pointer",
+          }}
+          onClick={() => onNavigate("")}
+        >
+          COUNCIL OF FOODS
         </h3>
         <h4 style={{ marginTop: "5px" }}>{capitalizeFirstLetter(topic)}</h4>
       </div>
@@ -81,6 +87,7 @@ function Navbar({
               onDisplayOverlay={onDisplayOverlay}
               show={!isMobile || hamburgerOpen}
               isActive={activeOverlay === item} // Determine active state
+              onNavigate={onNavigate}
             />
           ))}
           {isMobile && (
@@ -103,7 +110,7 @@ function Navbar({
   );
 }
 
-function NavItem({ name, onDisplayOverlay, isActive, show }) {
+function NavItem({ name, isActive, show, onDisplayOverlay, onNavigate }) {
   const navItemStyle = {
     marginLeft: "19px",
     cursor: "pointer",
@@ -112,20 +119,18 @@ function NavItem({ name, onDisplayOverlay, isActive, show }) {
     transitionDuration: "1s",
     transitionDelay: "0.2s",
     pointerEvents: show ? "auto" : "none",
+    textDecoration: isActive ? "underline" : "none",
+    textUnderlineOffset: "4px",
   };
 
   return (
-    <h3 style={{ margin: "0", padding: "0" }}>
-      <Link
-        to={name}
-        style={{
-          ...navItemStyle,
-          textDecoration: isActive ? "underline" : "none", // Underline if active
-          textUnderlineOffset: "4px",
-        }}
-      >
-        {name.toUpperCase()}
-      </Link>
+    <h3
+      style={{ margin: "0", padding: "0" }}
+      onClick={() => {
+        onNavigate(name);
+      }}
+    >
+      <span style={navItemStyle}>{name.toUpperCase()}</span>
     </h3>
   );
 }
