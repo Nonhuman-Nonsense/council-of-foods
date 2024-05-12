@@ -5,8 +5,9 @@ import Contact from "./overlays/Contact";
 import Share from "./overlays/Share";
 import ResetWarning from "./overlays/ResetWarning";
 import Completed from "./overlays/Completed";
+import Summary from "./overlays/Summary";
 
-function CouncilOverlays({ activeOverlay, options, removeOverlay }) {
+function CouncilOverlays({ activeOverlay, options, removeOverlay, summary, meetingId }) {
   const closeWrapperStyle = {
     height: "100vh",
     width: "100vw",
@@ -62,6 +63,10 @@ function CouncilOverlays({ activeOverlay, options, removeOverlay }) {
             onContinue={options.onContinue}
             onWrapItUp={options.onWrapItUp}
           />
+        );
+      case "summary":
+        return (
+          <Summary summary={summary} meetingId={meetingId} />
         );
       default:
         return null; // No overlay content if no section is active

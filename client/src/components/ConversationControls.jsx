@@ -14,7 +14,8 @@ function ConversationControls({
   isWaitingToInterject,
   canGoBack,
   canGoForward,
-  canRaiseHand
+  canRaiseHand,
+  onTopOfOverlay
 }) {
   const isMobile = useMobile();
 
@@ -25,7 +26,7 @@ function ConversationControls({
 
   return (
     <>
-      <div style={{ position: "absolute", bottom: "0", pointerEvents: "auto", zIndex: "3" }}>
+      <div style={{ position: "absolute", bottom: "0", pointerEvents: "auto", zIndex: onTopOfOverlay ? "10" : "3" }}>
         <div style={{ display: "flex", flexDirection: "row" }}>
           <div style={divStyle}>
             {!isPaused &&

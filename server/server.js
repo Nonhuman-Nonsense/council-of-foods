@@ -67,6 +67,7 @@ io.on("connection", (socket) => {
   let currentSpeaker = 0;
   let extraMessageCount = 0;
   let meetingId;
+  let meetingDate;
 
   //Every time we restart, this is incremented, so that all messages from previous conversations are dropped
   let conversationCounter = 0;
@@ -280,8 +281,11 @@ io.on("connection", (socket) => {
   });
 
   socket.on("wrap_up_meeting", async () => {
+
+    const summaryPrompt = globalOptions.finalizeMeetingPrompt.replace("[DATE]",meetingDate.toISOString().split('T')[0]);
+
     let { response, id } = await chairInterjection(
-      globalOptions.finalizeMeetingPrompt,
+      summaryPrompt,
       conversation.length,
       globalOptions.finalizeMeetingLength
     );
@@ -336,19 +340,20 @@ io.on("connection", (socket) => {
     conversationCounter++;
     console.log("[session] session counter: " + conversationCounter);
     logit_biases = calculateLogitBiases();
+    meetingDate = new Date();
 
     //Start a new meeting
     const storeResult = await insertMeeting({
       options: conversationOptions,
       audio: [],
       conversation: [],
-      date: new Date().toISOString()
+      date: meetingDate.toISOString()
     });
 
     meetingId = storeResult.insertedId;
 
     socket.emit("meeting_started", {meeting_id: meetingId});
-    console.log('[meeting] council meeting #' + meetingId + ' started.');
+    console.log(`[meeting ${meetingId}] started`);
     // Start with the chairperson introducing the topic
     handleConversationTurn();
   });
@@ -427,6 +432,7 @@ io.on("connection", (socket) => {
       const message_index = conversation.length - 1;
 
       socket.emit("conversation_update", conversation);
+      console.log(`[meeting ${meetingId}] conversation length ${conversation.length}`);
 
       //Update the database
       meetingsCollection.updateOne({_id: meetingId},{$set: {conversation: conversation}});
