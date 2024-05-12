@@ -23,10 +23,6 @@ function App() {
                 path="share"
                 element={<Share />}
               />
-              <Route
-                path="*"
-                element={<Navigate to="/" />}
-              />
             </Route>
         </Routes>
       </BrowserRouter>

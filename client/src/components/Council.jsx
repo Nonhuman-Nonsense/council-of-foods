@@ -110,6 +110,12 @@ function Council({ options }) {
   }, []);
 
   useEffect(() => {
+    if(["/about","/contact","/share"].includes(location?.pathname)){
+      setActiveOverlay(location?.pathname.substring(1));
+    }
+  },[location]);
+
+  useEffect(() => {
     if (isPaused) {
       audioContext.current.suspend();
     } else if (audioContext.current.state === "suspended") {
@@ -220,6 +226,7 @@ function Council({ options }) {
 
   function removeOverlay() {
     setActiveOverlay("");
+    navigate('/meeting/new');
   }
 
   function handleOnIsWaitingToInterject({ isWaiting, isReadyToInterject }) {
