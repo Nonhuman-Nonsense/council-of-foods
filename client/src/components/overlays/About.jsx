@@ -3,7 +3,7 @@ import React from "react";
 function About() {
 
   const wrapper = {
-    maxWidth: "530px",
+    maxWidth: "450px",
   };
 
   return (
