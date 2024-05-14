@@ -18,14 +18,14 @@ function SelectFoods({ topic, onContinueForward }) {
   const [currentFood, setCurrentFood] = useState(null);
 
   const minFoods = 2 + 1; // 2 plus water
-  const maxFoods = 5 + 1; // 5 plus water
+  const maxFoods = 6 + 1; // 5 plus water
 
   function continueForward() {
     if (selectedFoods.length >= minFoods && selectedFoods.length <= maxFoods) {
       //Modify waters invitation prompt, with the name of the selected participants
       let participants = "";
       selectedFoods.forEach(function (food, index) {
-        if (index != 0) participants += toTitleCase(food.name) + ", ";
+        if (index !== 0) participants += toTitleCase(food.name) + ", ";
       });
       participants = participants.substring(0, participants.length - 2);
       let replacedFoods = selectedFoods;

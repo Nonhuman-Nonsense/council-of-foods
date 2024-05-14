@@ -8,9 +8,26 @@ function FoodItem({ food, index, total, currentSpeakerName, isPaused, zoomIn }) 
   const overviewSize = 12;
   const zoomInSize = 55;
 
+  //These are the width of the cropped shadow files
+  const videoSize = 800;
+  const shadowSizes = {
+    "Avocado": 865,
+    "Banana": 1000,
+    "Beer": 890,
+    "Broad Bean": 894,
+    "Lollipop": 1021,
+    "Maize": 915,
+    "Meat": 824,
+    "Mushroom": 969,
+    "Potato": 850,
+    "Tomato": 900,
+    "Water": 1162
+  };
+
   // Adjusted function to set width and height based on window width
   const getResponsiveFoodImageStyle = (shadow) => {
-    const size = (zoomIn && currentSpeakerName == food.name ? zoomInSize * ((food.size - 1) / 2 + 1) + "vh" : overviewSize * food.size +  "vw"); // 12% of the window's width
+    const shadowMultiplier = shadow ? (shadowSizes[food.name] / videoSize) : 1;
+    const size = (zoomIn && currentSpeakerName === food.name ? shadowMultiplier * zoomInSize * ((food.size - 1) / 2 + 1) + "vh" : shadowMultiplier * overviewSize * food.size +  "vw"); // 12% of the window's width
     return {
       width: `${size}`,
       height: !shadow && `${size}`,
@@ -22,7 +39,7 @@ function FoodItem({ food, index, total, currentSpeakerName, isPaused, zoomIn }) 
 
   const singleFoodStyle = {
     position: "relative",
-    top: food.name == "Lollipop" ? "-21vh" : "-19vh",
+    top: food.name === "Lollipop" ? "-19vh" : "-19vh",
     width: zoomInSize + "vh",
     height: zoomInSize + "vh",
     display: "flex",
@@ -31,7 +48,7 @@ function FoodItem({ food, index, total, currentSpeakerName, isPaused, zoomIn }) 
   };
 
   const foodItemStyle = (index, total) => {
-    if(zoomIn && currentSpeakerName == food.name) {
+    if(zoomIn && currentSpeakerName === food.name) {
       return singleFoodStyle;
     }else{
       return overViewFoodItemStyle(index,total);
@@ -67,7 +84,7 @@ function FoodItem({ food, index, total, currentSpeakerName, isPaused, zoomIn }) 
       top = a * Math.pow(index - middleIndex, 2) + topMax - topOffset;
     }
 
-    if(food.name == "Lollipop") top -= 1;
+    if(food.name === "Lollipop") top -= 1;
 
     const size = overviewSize + "vw";
     return {
@@ -87,7 +104,7 @@ function FoodItem({ food, index, total, currentSpeakerName, isPaused, zoomIn }) 
   const foodImageShadowStyle = {
       zIndex: -1,
       position: "absolute",
-      bottom: zoomIn && food.name == "Lollipop" ? "0.6vh" : "0",
+      // bottom: zoomIn && food.name == "Lollipop" ? "0.6vh" : "0",
   };
 
   const responsiveStyle = getResponsiveFoodImageStyle();
@@ -97,6 +114,7 @@ function FoodItem({ food, index, total, currentSpeakerName, isPaused, zoomIn }) 
       <FoodAnimation food={food} styles={responsiveStyle} currentSpeakerName={currentSpeakerName} isPaused={isPaused} />
       <img
         src={`/foods/shadows/${filename(food.name)}.webp`}
+        alt=""
         style={{ ...getResponsiveFoodImageStyle(true), ...foodImageShadowStyle }}
       />
     </div>

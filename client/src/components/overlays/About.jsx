@@ -1,41 +1,19 @@
 import React from "react";
 
 function About() {
+
+  const wrapper = {
+    maxWidth: "450px",
+  };
+
   return (
-      <div>
+      <div style={wrapper}>
         <p>
-          Welcome to the Council of Foods! Here you can listen to Foods
-          <br /> discussing the broken food system and even take part in the
-          <br /> conversation. You will hear, from the foods themselves, what
-          <br /> their eco-social influence and guiding ethical principles are
-          and
-          <br /> discuss together what actions need to be taken to form a
-          locally
-          <br /> and globally sustainable food system.
+        Welcome to the Council of Foods!<br/>
+        A political arena for foods to discuss the broken food system. Here, you, as a human participant, can listen, engage, and contribute to the discussions. The foods are prompted on different knowledges and ethical guidelines using the AI Language model GPT from Open AI.
         </p>
         <p>
-          Each food has different backgrounds, the mass produced, the
-          <br /> locally grown, the genetically modified, the processed, the
-          fair
-          <br /> trade, the affordable and the biological. All the foods are
-          <br /> assigned an AI language model, each prompted on different
-          <br /> knowledges and ethical guidelines. Therefore, the members have
-          <br /> divergent ethical positions and agendas, voicing a variety of
-          <br /> perspectives in the Council of Foods.
-        </p>
-        <p>
-          Some more information about the AI LLM, the idea behind the
-          <br /> project, the process of talking with food system experts and
-          how
-          <br /> their opinions and perspectives got turned into prompts for
-          food
-          <br /> AIs. Some more information about the AI LLM, the idea behind
-          the
-          <br /> project, the process of talking with food system experts and
-          how
-          <br /> their opinions and perspectives got turned into prompts for
-          food
-          <br /> AIs.
+        Our council members represent a diverse spectrum of food origins and ethical viewpoints, including mass-produced, locally grown, genetically modified, processed, fair trade, affordable, and organic foods. Each member brings their own unique eco-social impacts and ethical guidelines to the table, informed by their distinct backgrounds. Join the discussion on what actions need to be taken to form a locally and globally sustainable food system!
         </p>
       </div>
   );
