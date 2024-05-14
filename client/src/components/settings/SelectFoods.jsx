@@ -18,7 +18,7 @@ function SelectFoods({ topic, onContinueForward }) {
   const [currentFood, setCurrentFood] = useState(null);
 
   const minFoods = 2 + 1; // 2 plus water
-  const maxFoods = 5 + 1; // 5 plus water
+  const maxFoods = 6 + 1; // 5 plus water
 
   function continueForward() {
     if (selectedFoods.length >= minFoods && selectedFoods.length <= maxFoods) {
