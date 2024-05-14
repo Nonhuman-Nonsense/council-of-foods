@@ -13,7 +13,6 @@ import CouncilOverlays from "../components/CouncilOverlays";
 import Landing from "../components/settings/Landing";
 import Welcome from "../components/settings/Welcome";
 import About from "../components/overlays/About";
-import Share from "../components/overlays/Share";
 import Contact from "../components/overlays/Contact";
 import SelectTopic from "../components/settings/SelectTopic";
 import SelectFoods from "../components/settings/SelectFoods";
@@ -139,14 +138,6 @@ function Home() {
               element={
                 <LandedWrapper>
                   <Contact />
-                </LandedWrapper>
-              }
-            />
-            <Route
-              path="share"
-              element={
-                <LandedWrapper>
-                  <Share />
                 </LandedWrapper>
               }
             />

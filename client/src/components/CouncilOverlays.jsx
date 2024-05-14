@@ -19,8 +19,8 @@ function CouncilOverlays({
     cursor: "pointer",
     width: "35px",
     height: "35px",
-    top: "50px",
-    right: "50px",
+    top: "100px",
+    right: "100px",
     zIndex: "20",
   };
 
@@ -52,7 +52,8 @@ function CouncilOverlays({
   // Conditional rendering of overlay content based on activeOverlay state
   const renderOverlayContent = () => {
     switch (activeOverlay) {
-      case "share":
+      case "about":
+      case "contact":
         return <Outlet />;
       case "settings":
         return (

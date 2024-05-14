@@ -35,7 +35,6 @@ function Navbar({ topic, activeOverlay, onDisplayOverlay, onNavigate }) {
     width: "100%",
     boxSizing: "border-box",
     zIndex: "10",
-    pointerEvents: "auto",
   };
 
   const hamburgerStyle = {
@@ -50,7 +49,7 @@ function Navbar({ topic, activeOverlay, onDisplayOverlay, onNavigate }) {
     overflow: "hidden",
   };
 
-  const navItems = ["settings", "about", "contact", "share"];
+  const navItems = ["settings", "about", "contact"];
 
   return (
     <nav
@@ -60,7 +59,7 @@ function Navbar({ topic, activeOverlay, onDisplayOverlay, onNavigate }) {
       <div
         style={{
           textAlign: "left",
-          visibility: !isMobile ? "hidden" : "visible",
+          visibility: isMobile ? "hidden" : "visible",
         }}
       >
         <h3
