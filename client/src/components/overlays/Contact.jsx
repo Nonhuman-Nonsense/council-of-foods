@@ -1,13 +1,15 @@
 import React from "react";
 
 function Contact() {
+
+  const wrapper = {
+    maxWidth: "400px",
+  };
+
   return (
-    <div>
-      <p>
-        The project is an initiative by art & design
-        <br /> collective Nonhuman Nonsense developed in
-        <br /> collaboration with Studio Other Spaces,
-        <br /> In4Art, Elliot, Albin and others.
+    <div style={{display: "flex", flexDirection:"column", alignItems: "center"}}>
+      <p style={wrapper}>
+        The project is an initiative by art & design collective <a href="https://nonhuman-nonsense.com">Nonhuman&nbsp;Nonsense</a> developed in collaboration with <a href="https://studiootherspaces.net/">Studio&nbsp;Other&nbsp;Spaces</a>, <a href="https://www.in4art.eu/">In4Art</a>, <a href="https://elliott.computer/">Elliot&nbsp;Cost</a>, Albin&nbsp;Karlsson and others.
       </p>
       <p>
         <a
@@ -28,6 +30,14 @@ function Contact() {
           hello@nonhuman-nonsense.com
         </a>
       </p>
+      <p style={wrapper}>
+      Council of Foods is part of <a href="https://starts.eu/hungryecocities/">The&nbsp;Hungry&nbsp;EcoCities&nbsp;project</a>, part of the <a href="https://starts.eu/">S+T+ARTS</a> programme, and has received funding from the European&nbsp;Union’s <a href="https://cordis.europa.eu/project/id/101069990">Horizon&nbsp;Europe research and innovation programme under grant agreement 101069990</a>.
+      </p>
+      <div style={{display:"flex", alignItems: "center"}}>
+        <a href="https://nonhuman-nonsense.com" style={{marginRight: "30px"}}><img src="/logos/nonhuman_nonsense_logo.png" style={{width: "120px"}} /></a>
+        <a href="https://studiootherspaces.net/"><img src="/logos/SOS_logo_white.svg" style={{width: "80px"}} /></a>
+      </div>
+      <img src="/logos/logos_eu-white-starts-white.webp" style={{width: "500px"}} />
     </div>
   );
 }

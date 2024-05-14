@@ -165,11 +165,11 @@ export default Home;
 
 function LandedWrapper({ children }) {
   return (
-    <div>
+    <div style={{display: "flex", alignItems: "center", flexDirection: "column"}}>
       <h1>COUNCIL OF FOODS</h1>
       {children}
       <Link to="/">
-        <button>Start!</button>
+        <button>Start</button>
       </Link>
     </div>
   );
