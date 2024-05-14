@@ -1,5 +1,4 @@
 import React, { useState, useRef } from "react";
-import { Link } from "react-router-dom";
 
 import { capitalizeFirstLetter, useMobile } from "../utils";
 import Lottie from "react-lottie-player";

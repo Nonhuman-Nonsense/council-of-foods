@@ -25,7 +25,7 @@ function SelectFoods({ topic, onContinueForward }) {
       //Modify waters invitation prompt, with the name of the selected participants
       let participants = "";
       selectedFoods.forEach(function (food, index) {
-        if (index != 0) participants += toTitleCase(food.name) + ", ";
+        if (index !== 0) participants += toTitleCase(food.name) + ", ";
       });
       participants = participants.substring(0, participants.length - 2);
       let replacedFoods = selectedFoods;

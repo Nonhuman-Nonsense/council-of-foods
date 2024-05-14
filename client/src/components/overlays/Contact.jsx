@@ -34,10 +34,10 @@ function Contact() {
       Council of Foods is part of <a href="https://starts.eu/hungryecocities/">The&nbsp;Hungry&nbsp;EcoCities&nbsp;project</a>, part of the <a href="https://starts.eu/">S+T+ARTS</a> programme, and has received funding from the European&nbsp;Union’s <a href="https://cordis.europa.eu/project/id/101069990">Horizon&nbsp;Europe research and innovation programme under grant agreement 101069990</a>.
       </p>
       <div style={{display:"flex", alignItems: "center"}}>
-        <a href="https://nonhuman-nonsense.com" style={{marginRight: "30px"}}><img src="/logos/nonhuman_nonsense_logo.png" style={{width: "120px"}} /></a>
-        <a href="https://studiootherspaces.net/"><img src="/logos/SOS_logo_white.svg" style={{width: "80px"}} /></a>
+        <a href="https://nonhuman-nonsense.com" style={{marginRight: "30px"}}><img alt="Nonhuman Nonsense" src="/logos/nonhuman_nonsense_logo.png" style={{width: "120px"}} /></a>
+        <a href="https://studiootherspaces.net/"><img alt="Studio Other Spaces" src="/logos/SOS_logo_white.svg" style={{width: "80px"}} /></a>
       </div>
-      <img src="/logos/logos_eu-white-starts-white.webp" style={{width: "500px"}} />
+      <img alt="Funded by the EU, as part of S+T+ARTS" src="/logos/logos_eu-white-starts-white.webp" style={{width: "500px"}} />
     </div>
   );
 }

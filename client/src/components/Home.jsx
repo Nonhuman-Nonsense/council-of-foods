@@ -1,7 +1,6 @@
 import "../App.css";
 import React, { useState, useEffect } from "react";
 import {
-  Outlet,
   Routes,
   Route,
   Link,
@@ -9,7 +8,6 @@ import {
   useNavigate,
 } from "react-router-dom";
 import Overlay from "../components/Overlay";
-import CouncilOverlays from "../components/CouncilOverlays";
 import Landing from "../components/settings/Landing";
 import Welcome from "../components/settings/Welcome";
 import About from "../components/overlays/About";
@@ -30,13 +28,13 @@ function Home() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (humanName == "" && location.pathname != "/") {
+    if (humanName === "" && location.pathname !== "/") {
       setCurrentView("landing");
       if (!["/about", "/contact", "/share"].includes(location.pathname)) {
         return navigate("/");
       }
     }
-  });
+  },[humanName, location.pathname, navigate]);
 
   useEffect(() => {
     // console.log("location: " + location.pathname);

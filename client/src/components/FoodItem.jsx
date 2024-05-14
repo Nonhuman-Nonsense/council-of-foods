@@ -114,6 +114,7 @@ function FoodItem({ food, index, total, currentSpeakerName, isPaused, zoomIn }) 
       <FoodAnimation food={food} styles={responsiveStyle} currentSpeakerName={currentSpeakerName} isPaused={isPaused} />
       <img
         src={`/foods/shadows/${filename(food.name)}.webp`}
+        alt=""
         style={{ ...getResponsiveFoodImageStyle(true), ...foodImageShadowStyle }}
       />
     </div>

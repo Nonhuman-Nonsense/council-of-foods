@@ -116,6 +116,7 @@ function CouncilOverlays({
       </div>
       {activeOverlay !== "summary" && (
         <img
+          alt="close"
           src={closeUrl}
           style={closeStyle}
           onClick={removeOverlay}
