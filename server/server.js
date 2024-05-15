@@ -54,8 +54,8 @@ if (process.env.NODE_ENV != "development") {
   //Don't server the static build in development
   app.use(express.static(path.join(__dirname, "../client/build")));
 
-  app.get('/*', function (req, res) {
-    res.sendFile(path.join(__dirname, '../client/build', 'index.html'));
+  app.get("/*", function (req, res) {
+    res.sendFile(path.join(__dirname, "../client/build", "index.html"));
   });
 }
 
@@ -156,7 +156,12 @@ io.on("connection", (socket) => {
     handleConversationTurn();
   });
 
-  const chairInterjection = async (interjectionPrompt, index, length, dontStop) => {
+  const chairInterjection = async (
+    interjectionPrompt,
+    index,
+    length,
+    dontStop
+  ) => {
     try {
       const thisConversationCounter = conversationCounter;
       // Chairman is always first character
@@ -329,7 +334,11 @@ io.on("connection", (socket) => {
 
   socket.on("continue_conversation", () => {
     // console.log('Conversation has been continued');
-    extraMessageCount += globalOptions.conversationMaxLength;
+    // extraMessageCount += globalOptions.conversationMaxLength;
+
+    // Get 5 extra messages
+    extraMessageCount += 5;
+
     isPaused = false;
     // Determine the next speaker
     currentSpeaker =
@@ -511,11 +520,10 @@ io.on("connection", (socket) => {
     //Request the audio
     const thisConversationCounter = conversationCounter;
 
-
     const mp3 = await openai.audio.speech.create({
       model: "tts-1",
       voice: voiceName,
-      input: text.substring(0, 4096),//Max input length
+      input: text.substring(0, 4096), //Max input length
     });
 
     //Wait until the whole buffer is downloaded.
@@ -533,10 +541,13 @@ io.on("connection", (socket) => {
     socket.emit("audio_update", audioObject);
 
     //Update the database
-    meetingsCollection.updateOne(
-      { _id: meetingId },
-      { $push: { audio: audioObject } }
-    );
+
+    // TODO: Save the audio somewhere else
+
+    // meetingsCollection.updateOne(
+    //   { _id: meetingId },
+    //   { $push: { audio: audioObject } }
+    // );
     // console.log('[meeting] updated audio of meeting #' + meetingId);
   };
 
