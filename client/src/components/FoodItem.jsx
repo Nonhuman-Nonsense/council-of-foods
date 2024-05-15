@@ -39,7 +39,7 @@ function FoodItem({ food, index, total, currentSpeakerName, isPaused, zoomIn }) 
 
   const singleFoodStyle = {
     position: "relative",
-    top: food.name === "-19vh",
+    top: "-19vh",
     width: zoomInSize + "vh",
     height: zoomInSize + "vh",
     display: "flex",
