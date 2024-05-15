@@ -46,6 +46,7 @@ function Navbar({ topic, activeOverlay, onDisplayOverlay, onNavigate }) {
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
+    pointerEvents: "auto",
   };
 
   const navItems = ["settings", "about", "contact"];
