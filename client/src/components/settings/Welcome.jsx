@@ -8,7 +8,7 @@ function Welcome({ humanName, onContinueForward }) {
       <div>
         <div>
           <h3>Dear {humanName},</h3>
-          <About />
+          <About isSingle />
         </div>
         <button
           onClick={() => onContinueForward()}
