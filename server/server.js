@@ -156,7 +156,7 @@ io.on("connection", (socket) => {
     handleConversationTurn();
   });
 
-  const chairInterjection = async (interjectionPrompt, index, length) => {
+  const chairInterjection = async (interjectionPrompt, index, length, dontStop) => {
     try {
       const thisConversationCounter = conversationCounter;
       // Chairman is always first character
@@ -178,7 +178,7 @@ io.on("connection", (socket) => {
         temperature: globalOptions.temperature,
         frequency_penalty: globalOptions.frequencyPenalty,
         presence_penalty: globalOptions.presencePenalty,
-        stop: "\n---",
+        stop: dontStop ? "" : "\n---",
         messages: messages,
       });
 
@@ -300,7 +300,8 @@ io.on("connection", (socket) => {
     let { response, id } = await chairInterjection(
       summaryPrompt,
       conversation.length,
-      globalOptions.finalizeMeetingLength
+      globalOptions.finalizeMeetingLength,
+      true
     );
 
     let summary = {
@@ -509,10 +510,12 @@ io.on("connection", (socket) => {
   const generateAudio = async (id, index, text, voiceName) => {
     //Request the audio
     const thisConversationCounter = conversationCounter;
+
+
     const mp3 = await openai.audio.speech.create({
       model: "tts-1",
       voice: voiceName,
-      input: text,
+      input: text.substring(0, 4096),//Max input length
     });
 
     //Wait until the whole buffer is downloaded.
