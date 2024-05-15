@@ -82,6 +82,7 @@ function Council({ options }) {
     socketRef.current.on("meeting_started", (meeting) => {
       console.log("Meeting #" + meeting.meeting_id + " started");
       setMeetingId(meeting.meeting_id);
+      navigate("/meeting/"+ meeting.meeting_id);
     });
 
     socketRef.current.on("meeting_summary", (summary) => {
@@ -225,8 +226,9 @@ function Council({ options }) {
 
   function removeOverlay() {
     setActiveOverlay("");
-    navigate("/meeting/new");
+    navigate("/meeting/" + (meetingId || "new"));
   }
+
 
   function handleOnIsWaitingToInterject({ isWaiting, isReadyToInterject }) {
     setIsWaitingToInterject(isWaiting);
@@ -299,7 +301,7 @@ function Council({ options }) {
       displayOverlay("reset");
     } else if (adress === "settings") {
       displayOverlay("settings");
-      navigate("/meeting/new");
+      navigate("/meeting/"+ (meetingId || "new"));
     } else {
       navigate(adress);
     }
