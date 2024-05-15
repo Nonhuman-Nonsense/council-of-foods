@@ -120,6 +120,7 @@ function HumanNameInput(props) {
         />
         <img
           src={imageUrl}
+          alt="continue"
           style={imageStyle}
           onClick={continueForward}
         />

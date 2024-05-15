@@ -73,7 +73,7 @@ function SelectFoods({ topic, onContinueForward }) {
       }}
     >
       <div style={{ height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
-        <h1 style={{margin: isMobile ? "0" : ""}}>THE FOODS</h1>
+        <h1 style={{margin: isMobile && "0", fontSize: isMobile && "33px"}}>THE FOODS</h1>
         <div
           style={{
             position: "relative",
@@ -83,7 +83,7 @@ function SelectFoods({ topic, onContinueForward }) {
         >
           <div style={discriptionStyle}>
             <p>
-              Please select 2-5 foods
+              Please select 2-6 foods
               <br /> to participate in the discussion about:
             </p>
             <h4>{toTitleCase(topic.title)}</h4>
@@ -109,7 +109,7 @@ function SelectFoods({ topic, onContinueForward }) {
         {selectedFoods.length >= minFoods && selectedFoods.length <= maxFoods ?
           <button onClick={continueForward} style={{margin: "8px 0"}}>Start</button> :
           <h4 style={{visibility: currentFood === null ? "hidden" : "", margin: isMobile && "7px"}}>
-            please select 2-5 foods for the discussion
+            please select 2-6 foods for the discussion
           </h4>
         }
       </div>
