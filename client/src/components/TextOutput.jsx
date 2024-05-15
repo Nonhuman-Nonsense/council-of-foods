@@ -66,11 +66,7 @@ function TextOutput({
     if (currentTextMessage?.text) {
       const sentences = splitText(currentTextMessage?.text);
       if (sentences.length > 0) {
-        const namePrefix =
-          currentTextMessage.type === "human"
-            ? currentTextMessage.speaker + ": "
-            : "";
-        setCurrentSnippet(namePrefix + sentences[0]);
+        setCurrentSnippet(sentences[0]);
       } else {
         setCurrentSnippet("");
       }
@@ -82,11 +78,7 @@ function TextOutput({
       const sentences = splitText(currentTextMessage?.text);
 
       if (sentences.length > currentSnippetIndex) {
-        const namePrefix =
-          currentTextMessage.type === "human"
-            ? currentTextMessage.speaker + ": "
-            : "";
-        setCurrentSnippet(namePrefix + sentences[currentSnippetIndex]);
+        setCurrentSnippet(sentences[currentSnippetIndex]);
       }
 
       // Store the current delay, and the time when it started

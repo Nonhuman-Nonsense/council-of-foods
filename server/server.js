@@ -244,6 +244,9 @@ io.on("connection", (socket) => {
     //Cut all messages after this
     conversation = conversation.slice(0, invitation.message_index + 1);
 
+    //Add the human name to the beginning of the message
+    message.text = conversationOptions.humanName + " said: " + message.text;
+
     //Add the human message to the stack, and then start the conversation again
     message.id = "human-" + conversationCounter + "-" + conversation.length;
     message.type = "human";
