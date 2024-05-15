@@ -26,18 +26,13 @@ function TextOutput({
   // };
 
   const splitText = (text) => {
-    // Normalize double newlines to periods to handle them as sentence breaks
-    const normalizedText = text.replace(/\n\n/g, ". ");
+    // Regex to capture sentences, numbered list items, and newlines as sentence boundaries
+    const sentenceRegex = /(\d+\.\s+.*?(\n|\.|$))|.*?(\n|\.|$)/gs;
 
-    // Regex to capture:
-    // - Numbered list items (e.g., "1. Some text.")
-    // - Sentences ending with punctuation or at the end of the message
-    // - Segments split by colons or semicolons
-    const sentenceRegex = /(\d+\.\s+[^.;?!]*(?:[.;?!]|$))|([^.;?!]*[.;?!])/g;
-
-    return normalizedText
+    return text
       .match(sentenceRegex)
-      .map((sentence) => sentence.trim());
+      .map((sentence) => sentence.trim())
+      .filter((sentence) => sentence.length > 0); // Filter out empty sentences
   };
 
   useEffect(() => {
@@ -62,9 +57,11 @@ function TextOutput({
     }
   }, [isPaused]);
 
+  // Reset the snippet index and snippet when a new message is received
   useEffect(() => {
+    setCurrentSnippetIndex(0);
     if (currentTextMessage?.text) {
-      const sentences = splitText(currentTextMessage.text);
+      const sentences = splitText(currentTextMessage?.text);
       if (sentences.length > 0) {
         const namePrefix =
           currentTextMessage.type === "human"
@@ -82,7 +79,11 @@ function TextOutput({
       const sentences = splitText(currentTextMessage?.text);
 
       if (sentences.length > currentSnippetIndex) {
-        setCurrentSnippet(sentences[currentSnippetIndex]);
+        const namePrefix =
+          currentTextMessage.type === "human"
+            ? currentTextMessage.speaker + ": "
+            : "";
+        setCurrentSnippet(namePrefix + sentences[currentSnippetIndex]);
       }
 
       // Store the current delay, and the time when it started
