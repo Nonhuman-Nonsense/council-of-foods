@@ -166,6 +166,8 @@ function Output({
   }
 
   useEffect(() => {
+    console.log("PROCEEDING...");
+
     if (proceedToNextMessage) {
       console.log("Proceeding to next message...");
       setProceedToNextMessage(() => false);
@@ -266,14 +268,26 @@ function Output({
   }, [isPaused, pausedInBreak]);
 
   useEffect(() => {
-    if (currentMessageIndex === 0 || currentTextMessage.type == "human" || currentTextMessage.purpose == "summary") {
+    if (
+      currentMessageIndex === 0 ||
+      currentTextMessage.type == "human" ||
+      currentTextMessage.purpose == "summary"
+    ) {
       setZoomIn(false);
     }
   }, [currentMessageIndex, currentTextMessage]);
 
   return (
     <>
-      <div style={!isReadyToStart || isInterjecting || currentTextMessage.purpose === "summary" ? hiddenStyle : {}}>
+      <div
+        style={
+          !isReadyToStart ||
+          isInterjecting ||
+          currentTextMessage.purpose === "summary"
+            ? hiddenStyle
+            : {}
+        }
+      >
         <TextOutput
           currentTextMessage={currentTextMessage}
           currentAudioMessage={currentAudioMessage}

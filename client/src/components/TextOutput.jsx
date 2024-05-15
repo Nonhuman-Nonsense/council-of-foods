@@ -25,17 +25,14 @@ function TextOutput({
   //   );
   // };
 
-  // Function to split text into sentences, handling newlines and ending without period
   const splitText = (text) => {
-    // Normalize newlines to periods to uniformly handle them as sentence breaks
-    const normalizedText = text.replace(/\n/g, ". ");
+    // Regex to capture sentences, numbered list items, and newlines as sentence boundaries
+    const sentenceRegex = /(\d+\.\s+.*?(\n|\.|$))|.*?(\n|\.|$)/gs;
 
-    // Regex to capture sentences or numbered list items
-    const sentenceRegex = /(\d+\.\s+[^.]+)|[^.]+(\.|$)/g;
-
-    return normalizedText
+    return text
       .match(sentenceRegex)
-      .map((sentence) => sentence.trim());
+      .map((sentence) => sentence.trim())
+      .filter((sentence) => sentence.length > 0); // Filter out empty sentences
   };
 
   useEffect(() => {
@@ -66,7 +63,11 @@ function TextOutput({
     if (currentTextMessage?.text) {
       const sentences = splitText(currentTextMessage?.text);
       if (sentences.length > 0) {
-        setCurrentSnippet(sentences[0]);
+        const namePrefix =
+          currentTextMessage.type === "human"
+            ? currentTextMessage.speaker + ": "
+            : "";
+        setCurrentSnippet(namePrefix + sentences[0]);
       } else {
         setCurrentSnippet("");
       }
@@ -78,7 +79,11 @@ function TextOutput({
       const sentences = splitText(currentTextMessage?.text);
 
       if (sentences.length > currentSnippetIndex) {
-        setCurrentSnippet(sentences[currentSnippetIndex]);
+        const namePrefix =
+          currentTextMessage.type === "human"
+            ? currentTextMessage.speaker + ": "
+            : "";
+        setCurrentSnippet(namePrefix + sentences[currentSnippetIndex]);
       }
 
       // Store the current delay, and the time when it started
@@ -107,7 +112,10 @@ function TextOutput({
   }, [currentSnippetIndex, currentTextMessage]);
 
   useEffect(() => {
-    if (currentTextMessage?.type !== "human" && currentTextMessage?.purpose !== "summary") {
+    if (
+      currentTextMessage?.type !== "human" &&
+      currentTextMessage?.purpose !== "summary"
+    ) {
       // Zoom in on 2 snippets, out on 2, etc.
       setZoomIn(currentSnippetIndex % 4 < 2);
     }
