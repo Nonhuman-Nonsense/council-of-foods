@@ -10,7 +10,7 @@ function Summary({ summary, meetingId }) {
     marginBottom: isMobile ? "45px" : "56px",
     marginTop: !isMobile && "20px",
     width: "600px",
-    overflowY:"scroll"
+    overflowY:"auto"
   };
 
   const protocol = {
@@ -19,7 +19,7 @@ function Summary({ summary, meetingId }) {
   };
 
   return (
-    <div style={wrapper}>
+    <div style={wrapper} className="scroll">
       <h2>COUNCIL OF FOODS</h2>
       <h3>Meeting #{meetingId}</h3>
       <div style={protocol}>

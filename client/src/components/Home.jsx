@@ -165,7 +165,7 @@ export default Home;
 function LandedWrapper({ children }) {
   const isMobile = useMobile();
   return (
-    <div style={{height: "100vh", overflowY: "scroll", display: !isMobile && "flex"}}>
+    <div style={{height: "100vh", overflowY: "auto", display: !isMobile && "flex"}} className="scroll">
       <div style={{display: "flex", alignItems: "center", flexDirection: "column", justifyContent: "center"}}>
         <div style={{height: isMobile && "20px"}}/>
         <h1>COUNCIL OF FOODS</h1>
