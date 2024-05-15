@@ -130,10 +130,10 @@ function Council({ options }) {
   }, [activeOverlay]);
 
   useEffect(() => {
-    if (summary && textMessages[currentMessageIndex]?.purpose === "summary") {
+    if (summary && textMessages[currentMessageIndex]?.purpose === "summary" && activeOverlay === "") {
       displayOverlay("summary");
     } else if (
-      activeOverlay == "summary" &&
+      activeOverlay === "summary" &&
       textMessages[currentMessageIndex]?.purpose !== "summary"
     ) {
       removeOverlay();
