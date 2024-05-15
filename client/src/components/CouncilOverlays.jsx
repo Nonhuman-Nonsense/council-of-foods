@@ -36,10 +36,10 @@ function CouncilOverlays({
   };
 
   const closeInnerStyle = {
-    height: isMobile ? "calc(100% - 55px)" : "calc(100% - 110px)",
+    height: isMobile ? "calc(100% - 55px)" : "calc(100% - 60px)",
     width: "100%",
     display: "flex",
-    marginTop: isMobile ? "55px" : "110px",
+    marginTop: isMobile ? "55px" : "60px",
   };
 
   const clickerStyle = {

@@ -1,21 +1,21 @@
 import React from "react";
+import { useMobile } from "../../utils";
 
 function Summary({ summary, meetingId }) {
 
+  const isMobile = useMobile();
+
   const wrapper = {
-    height: "calc(100vh - 110px - 56px)",
-    marginBottom: "56px",
+    height: isMobile ? "calc(100vh - 55px)" : "calc(100vh - 60px - 56px - 20px)",
+    marginBottom: isMobile ? "45px" : "56px",
+    marginTop: !isMobile && "20px",
     width: "600px",
-    overflow:"scroll"
+    overflowY:"scroll"
   };
 
   const protocol = {
     textAlign: "left",
     whiteSpace: "pre-wrap",
-  };
-
-  const paragraph = {
-    margin: "0",
   };
 
   return (

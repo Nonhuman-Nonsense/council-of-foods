@@ -170,4 +170,9 @@ button.selected {
   button {
     font-size: 19px;
   }
+  .loader {
+    width: 15px;
+    height: 2.5px;
+    margin-top: 11px;
+  }
 }

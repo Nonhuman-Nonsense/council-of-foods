@@ -3,7 +3,7 @@ import RotateDevice from '../RotateDevice';
 import { capitalizeFirstLetter } from "../../utils";
 import { useMediaQuery } from 'react-responsive'
 
-function Landing({ onContinueForward, isUnderneath }) {
+function Landing({ onContinueForward }) {
 
   const isPortrait = useMediaQuery({ query: '(orientation: portrait)' })
 
@@ -32,7 +32,7 @@ function Landing({ onContinueForward, isUnderneath }) {
         {isPortrait ?
           <RotateDevice />
         :
-        (!isUnderneath && <HumanNameInput onContinueForward={onContinueForward} />)
+        (<HumanNameInput onContinueForward={onContinueForward} />)
         }
       </div>
     </div>

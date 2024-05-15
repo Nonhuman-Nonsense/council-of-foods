@@ -16,7 +16,7 @@ function HumanInput({ onSubmitHumanMessage }) {
   // Accessing the speech recognition features from the custom hook
   const {
     transcript,
-    listening,
+    // listening,
     resetTranscript,
     browserSupportsSpeechRecognition,
     browserSupportsContinuousListening,
@@ -98,7 +98,7 @@ function HumanInput({ onSubmitHumanMessage }) {
 
   return (
     <div style={wrapperStyle}>
-      <img src="/mic.png" style={micStyle} />
+      <img alt="Say something!" src="/mic.png" style={micStyle} />
       <div style={{zIndex: "4", position: "relative", pointerEvents: "auto"}}>
         <TextareaAutosize
           ref={inputArea}

@@ -15,6 +15,7 @@ function About() {
         <p>
         Our council members represent a diverse spectrum of food origins and ethical viewpoints, including mass-produced, locally grown, genetically modified, processed, fair trade, affordable, and organic foods. Each member brings their own unique eco-social impacts and ethical guidelines to the table, informed by their distinct backgrounds. Join the discussion on what actions need to be taken to form a locally and globally sustainable food system!
         </p>
+        <div style={{height: "30px"}} />
       </div>
   );
 }

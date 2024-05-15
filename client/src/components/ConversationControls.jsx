@@ -75,11 +75,12 @@ function ConversationControls({
         {isWaitingToInterject && (
           <span
             style={{
+              fontFamily: "Arial, sans-serif",
               position: "absolute",
-              bottom: "16px",
-              fontSize: "18px",
-              left: "280px",
-              width: "150px",
+              bottom: isMobile ? "12px" : "16px",
+              fontSize: isMobile ? "15px" : "18px",
+              left: isMobile ? "230px" : "280px",
+              width: "160px",
               animation: "1s slideInFade",
               display: "flex",
             }}
