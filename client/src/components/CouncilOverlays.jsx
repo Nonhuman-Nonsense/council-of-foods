@@ -4,6 +4,7 @@ import SelectTopic from "./settings/SelectTopic";
 import ResetWarning from "./overlays/ResetWarning";
 import Completed from "./overlays/Completed";
 import Summary from "./overlays/Summary";
+import { useMobile } from "../utils";
 
 function CouncilOverlays({
   activeOverlay,
@@ -12,6 +13,7 @@ function CouncilOverlays({
   summary,
   meetingId,
 }) {
+  const isMobile = useMobile();
   const closeUrl = `/icons/close.svg`;
 
   const closeStyle = {
@@ -19,8 +21,8 @@ function CouncilOverlays({
     cursor: "pointer",
     width: "35px",
     height: "35px",
-    top: "100px",
-    right: "100px",
+    top: isMobile ? "60px" : "100px",
+    right: isMobile ? "15px" : "100px",
     zIndex: "20",
   };
 
@@ -34,10 +36,10 @@ function CouncilOverlays({
   };
 
   const closeInnerStyle = {
-    height: "calc(100% - 110px)",
+    height: isMobile ? "calc(100% - 55px)" : "calc(100% - 60px)",
     width: "100%",
     display: "flex",
-    marginTop: "110px",
+    marginTop: isMobile ? "55px" : "60px",
   };
 
   const clickerStyle = {
@@ -47,6 +49,7 @@ function CouncilOverlays({
   const middleColumn = {
     display: "flex",
     flexDirection: "column",
+    overflow: isMobile && "scroll",
   };
 
   // Conditional rendering of overlay content based on activeOverlay state

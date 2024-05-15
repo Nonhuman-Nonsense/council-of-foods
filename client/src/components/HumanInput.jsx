@@ -4,17 +4,19 @@ import SpeechRecognition, {
 } from "react-speech-recognition";
 import ConversationControlIcon from "./ConversationControlIcon";
 import TextareaAutosize from 'react-textarea-autosize';
+import { useMobile } from "../utils";
 
 function HumanInput({ onSubmitHumanMessage }) {
   const [isRecording, setIsRecording] = useState(false);
   const [canContinue, setCanContinue] = useState(false);
   const [previousTranscript, setPreviousTranscript] = useState("");
   const inputArea = useRef(null);
+  const isMobile = useMobile();
 
   // Accessing the speech recognition features from the custom hook
   const {
     transcript,
-    listening,
+    // listening,
     resetTranscript,
     browserSupportsSpeechRecognition,
     browserSupportsContinuousListening,
@@ -74,8 +76,8 @@ function HumanInput({ onSubmitHumanMessage }) {
   };
 
   const divStyle = {
-    width: "56px",
-    height: "56px",
+    width: isMobile ? "45px" : "56px",
+    height: isMobile ? "45px" : "56px",
     zIndex: "3"
   };
 
@@ -86,14 +88,17 @@ function HumanInput({ onSubmitHumanMessage }) {
     textAlign: "center",
     border: "0",
     fontFamily: "Arial, sans-serif",
-    fontSize: "25px",
+    fontSize: isMobile ? "18px" : "25px",
+    margin: isMobile && "0",
+    marginBottom: isMobile && "-8px",
+    lineHeight: "1.1em",
     resize: "none",
     padding: "0",
   };
 
   return (
     <div style={wrapperStyle}>
-      <img src="/mic.png" style={micStyle} />
+      <img alt="Say something!" src="/mic.png" style={micStyle} />
       <div style={{zIndex: "4", position: "relative", pointerEvents: "auto"}}>
         <TextareaAutosize
           ref={inputArea}

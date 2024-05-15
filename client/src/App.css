@@ -148,22 +148,31 @@ button.selected {
 @keyframes l1 {to{clip-path: inset(0 -34% 0 0)}}
 
 @media only screen and (max-height: 600px) {
+  body{
+    -webkit-text-size-adjust: 100%;
+  }
   h1{
-    font-size: 40px;
+    font-size: 38px;
   }
   h2 {
-    font-size: 28px;
+    font-size: 26px;
   }
   h3 {
-    font-size: 23px;
+    font-size: 21px;
   }
   h4 {
-    font-size: 16px;
+    font-size: 15px;
   }
   p {
     font-size: 16px;
+    line-height: 1.1em;
   }
   button {
-    font-size: 21px;
+    font-size: 19px;
+  }
+  .loader {
+    width: 15px;
+    height: 2.5px;
+    margin-top: 11px;
   }
 }
