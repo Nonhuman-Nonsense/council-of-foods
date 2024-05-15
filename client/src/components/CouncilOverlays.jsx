@@ -78,6 +78,7 @@ function CouncilOverlays({
           <Completed
             onContinue={options.onContinue}
             onWrapItUp={options.onWrapItUp}
+            continuations={options.continuations}
           />
         );
       case "summary":

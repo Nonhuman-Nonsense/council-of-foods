@@ -39,6 +39,7 @@ function Council({ options }) {
   const navigate = useNavigate();
   const location = useLocation();
   const [meetingId, setMeetingId] = useState(null);
+  const [continuations, setContinuations] = useState(0);
 
   if (audioContext.current === null) {
     const AudioContext = window.AudioContext || window.webkitAudioContext; //cross browser
@@ -82,7 +83,7 @@ function Council({ options }) {
     socketRef.current.on("meeting_started", (meeting) => {
       console.log("Meeting #" + meeting.meeting_id + " started");
       setMeetingId(meeting.meeting_id);
-      navigate("/meeting/"+ meeting.meeting_id);
+      navigate("/meeting/" + meeting.meeting_id);
     });
 
     socketRef.current.on("meeting_summary", (summary) => {
@@ -131,7 +132,11 @@ function Council({ options }) {
   }, [activeOverlay]);
 
   useEffect(() => {
-    if (summary && textMessages[currentMessageIndex]?.purpose === "summary" && activeOverlay === "") {
+    if (
+      summary &&
+      textMessages[currentMessageIndex]?.purpose === "summary" &&
+      activeOverlay === ""
+    ) {
       displayOverlay("summary");
     } else if (
       activeOverlay === "summary" &&
@@ -229,7 +234,6 @@ function Council({ options }) {
     navigate("/meeting/" + (meetingId || "new"));
   }
 
-
   function handleOnIsWaitingToInterject({ isWaiting, isReadyToInterject }) {
     setIsWaitingToInterject(isWaiting);
 
@@ -256,10 +260,13 @@ function Council({ options }) {
 
   function handleOnContinue() {
     setBumpIndex1(!bumpIndex1);
+    console.log("Increasing continuations");
+    console.log("Continuations were: ", continuations);
+    setContinuations(continuations + 1);
 
     setIsReadyToStart(false);
-    // Increase max converation length to hold 10 more messages
-    setConversationMaxLength((prev) => prev + 10);
+    // Increase max converation length to hold 5 more messages
+    setConversationMaxLength((prev) => prev + 5);
 
     removeOverlay();
 
@@ -301,7 +308,7 @@ function Council({ options }) {
       displayOverlay("reset");
     } else if (adress === "settings") {
       displayOverlay("settings");
-      navigate("/meeting/"+ (meetingId || "new"));
+      navigate("/meeting/" + (meetingId || "new"));
     } else {
       navigate(adress);
     }
@@ -396,6 +403,7 @@ function Council({ options }) {
               ...options,
               onContinue: handleOnContinue,
               onWrapItUp: handleOnWrapItUp,
+              continuations: continuations,
             }}
             removeOverlay={removeOverlay}
             summary={summary}
