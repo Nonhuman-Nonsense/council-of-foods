@@ -17,6 +17,7 @@ import SelectFoods from "../components/settings/SelectFoods";
 import Council from "../components/Council";
 import RotateDevice from "../components/RotateDevice";
 import { useMediaQuery } from "react-responsive";
+import { useMobile } from "../utils";
 
 function Home() {
   const [humanName, setHumanName] = useState("");
@@ -127,7 +128,7 @@ function Home() {
               path="about"
               element={
                 <LandedWrapper>
-                  <About />
+                  <About isSingle />
                 </LandedWrapper>
               }
             />
@@ -162,13 +163,18 @@ function Home() {
 export default Home;
 
 function LandedWrapper({ children }) {
+  const isMobile = useMobile();
   return (
-    <div style={{display: "flex", alignItems: "center", flexDirection: "column"}}>
-      <h1>COUNCIL OF FOODS</h1>
-      {children}
-      <Link to="/">
-        <button>Start</button>
-      </Link>
+    <div style={{height: "100vh", overflowY: "auto", display: !isMobile && "flex"}} className="scroll">
+      <div style={{display: "flex", alignItems: "center", flexDirection: "column", justifyContent: "center"}}>
+        <div style={{height: isMobile && "20px"}}/>
+        <h1>COUNCIL OF FOODS</h1>
+        {children}
+        <Link to="/">
+          <button>Start</button>
+        </Link>
+        <div style={{height: isMobile && "20px"}}/>
+      </div>
     </div>
   );
 }

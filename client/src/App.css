@@ -147,6 +147,23 @@ button.selected {
 }
 @keyframes l1 {to{clip-path: inset(0 -34% 0 0)}}
 
+/* Scrollbar fixes */
+.scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #222 transparent;
+}
+::-webkit-scrollbar {
+  width: 11px;
+}
+::-webkit-scrollbar-track {
+  display: none;
+}
+::-webkit-scrollbar-thumb {
+  background-color: #222 ;
+  border-radius: 6px;
+  border: none;
+}
+
 @media only screen and (max-height: 600px) {
   body{
     -webkit-text-size-adjust: 100%;

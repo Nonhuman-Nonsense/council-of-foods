@@ -39,7 +39,7 @@ function FoodItem({ food, index, total, currentSpeakerName, isPaused, zoomIn }) 
 
   const singleFoodStyle = {
     position: "relative",
-    top: food.name === "Lollipop" ? "-19vh" : "-19vh",
+    top: "-19vh",
     width: zoomInSize + "vh",
     height: zoomInSize + "vh",
     display: "flex",
@@ -84,8 +84,6 @@ function FoodItem({ food, index, total, currentSpeakerName, isPaused, zoomIn }) 
       top = a * Math.pow(index - middleIndex, 2) + topMax - topOffset;
     }
 
-    if(food.name === "Lollipop") top -= 1;
-
     const size = overviewSize + "vw";
     return {
       position: "absolute",
@@ -104,7 +102,6 @@ function FoodItem({ food, index, total, currentSpeakerName, isPaused, zoomIn }) 
   const foodImageShadowStyle = {
       zIndex: -1,
       position: "absolute",
-      // bottom: zoomIn && food.name == "Lollipop" ? "0.6vh" : "0",
   };
 
   const responsiveStyle = getResponsiveFoodImageStyle();

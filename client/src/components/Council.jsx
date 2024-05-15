@@ -54,7 +54,7 @@ function Council({ options }) {
     top: "calc(50% + 12vh)",
     left: "50%",
     transform: "translate(-50%, -50%)",
-    width: "70%",
+    width: foods.length > 6 ? "79%" : "70%",
     display: "flex",
     justifyContent: "space-around",
     alignItems: "center",

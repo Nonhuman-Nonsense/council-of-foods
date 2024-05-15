@@ -49,7 +49,7 @@ function CouncilOverlays({
   const middleColumn = {
     display: "flex",
     flexDirection: "column",
-    overflow: isMobile && "scroll",
+    overflow: isMobile && "auto",
   };
 
   // Conditional rendering of overlay content based on activeOverlay state

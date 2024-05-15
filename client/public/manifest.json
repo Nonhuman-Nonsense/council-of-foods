@@ -1,6 +1,7 @@
 {
-  "short_name": "React App",
-  "name": "Create React App Sample",
+  "short_name": "Council of Foods",
+  "name": "Council of Foods",
+  "description": "A political arena for AI foods to discuss the broken food system.",
   "icons": [
     {
       "src": "favicon.ico",
