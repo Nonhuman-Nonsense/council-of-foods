@@ -25,13 +25,15 @@ function TextOutput({
   //   );
   // };
 
-  // Function to split text into sentences, handling newlines and ending without period
   const splitText = (text) => {
-    // Normalize newlines to periods to uniformly handle them as sentence breaks
-    const normalizedText = text.replace(/\n/g, ". ");
+    // Normalize double newlines to periods to handle them as sentence breaks
+    const normalizedText = text.replace(/\n\n/g, ". ");
 
-    // Regex to capture sentences or numbered list items
-    const sentenceRegex = /(\d+\.\s+[^.]+)|[^.]+(\.|$)/g;
+    // Regex to capture:
+    // - Numbered list items (e.g., "1. Some text.")
+    // - Sentences ending with punctuation or at the end of the message
+    // - Segments split by colons or semicolons
+    const sentenceRegex = /(\d+\.\s+[^.;?!]*(?:[.;?!]|$))|([^.;?!]*[.;?!])/g;
 
     return normalizedText
       .match(sentenceRegex)
@@ -60,13 +62,15 @@ function TextOutput({
     }
   }, [isPaused]);
 
-  // Reset the snippet index and snippet when a new message is received
   useEffect(() => {
-    setCurrentSnippetIndex(0);
     if (currentTextMessage?.text) {
-      const sentences = splitText(currentTextMessage?.text);
+      const sentences = splitText(currentTextMessage.text);
       if (sentences.length > 0) {
-        setCurrentSnippet(sentences[0]);
+        const namePrefix =
+          currentTextMessage.type === "human"
+            ? currentTextMessage.speaker + ": "
+            : "";
+        setCurrentSnippet(namePrefix + sentences[0]);
       } else {
         setCurrentSnippet("");
       }
@@ -107,7 +111,10 @@ function TextOutput({
   }, [currentSnippetIndex, currentTextMessage]);
 
   useEffect(() => {
-    if (currentTextMessage?.type !== "human" && currentTextMessage?.purpose !== "summary") {
+    if (
+      currentTextMessage?.type !== "human" &&
+      currentTextMessage?.purpose !== "summary"
+    ) {
       // Zoom in on 2 snippets, out on 2, etc.
       setZoomIn(currentSnippetIndex % 4 < 2);
     }
