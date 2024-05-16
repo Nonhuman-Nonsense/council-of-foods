@@ -559,7 +559,7 @@ io.on("connection", (socket) => {
       // Prepare the completion request
       const completion = await openai.chat.completions.create({
         model: globalOptions.gptModel,
-        max_tokens: globalOptions.maxTokens,
+        max_tokens: speaker.name == "Water" ? globalOptions.chairMaxTokens : globalOptions.maxTokens,
         temperature: globalOptions.temperature,
         frequency_penalty: globalOptions.frequencyPenalty,
         presence_penalty: globalOptions.presencePenalty,
