@@ -27,12 +27,12 @@ function TextOutput({
 
   const splitText = (text) => {
     // Regex to capture sentences, numbered list items, and newlines as sentence boundaries
-    const sentenceRegex = /(\d+\.\s+.*?(\n|\.|$))|.*?(\n|\.|$)/gs;
+    const sentenceRegex = /(\d+\.\s+.{3,}?(?:\n|!|\?|\.{3}|…|\.|$))|.{3,}?(?:\n|!|\?|\.{3}|…|\.|$)/gs;
 
     return text
       .match(sentenceRegex)
       .map((sentence) => sentence.trim())
-      .filter((sentence) => sentence.length > 0); // Filter out empty sentences
+      .filter((sentence) => sentence.length > 0 && sentence != "."); // Filter out empty sentences
   };
 
   useEffect(() => {
