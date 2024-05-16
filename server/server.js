@@ -21,6 +21,7 @@ const audioVoices = ["alloy", "echo", "fable", "onyx", "nova", "shimmer"];
 const mongoClient = new MongoClient(process.env.MONGO_URL);
 const db = mongoClient.db("CouncilOfFoods");
 const meetingsCollection = db.collection("meetings");
+const audioCollection = db.collection("audio");
 const counters = db.collection("counters");
 const initializeDB = async () => {
   try {
@@ -485,10 +486,6 @@ io.on("connection", (socket) => {
           type: "skipped",
         };
         socket.emit("audio_update", audioUpdate);
-        meetingsCollection.updateOne(
-          { _id: meetingId },
-          { $push: { audio: audioUpdate } }
-        );
       }
 
       // Check for conversation end
@@ -541,14 +538,20 @@ io.on("connection", (socket) => {
     socket.emit("audio_update", audioObject);
 
     //Update the database
+    const storedAudio = {
+      _id: audioObject.id,
+      date: new Date().toISOString(),
+      meeting_id: meetingId,
+      message_index: index,
+      audio: buffer,
+    }
 
-    // TODO: Save the audio somewhere else
+    await audioCollection.insertOne(storedAudio);
 
-    // meetingsCollection.updateOne(
-    //   { _id: meetingId },
-    //   { $push: { audio: audioObject } }
-    // );
-    // console.log('[meeting] updated audio of meeting #' + meetingId);
+    meetingsCollection.updateOne(
+      { _id: meetingId },
+      { $push: { audio: audioObject.id } }
+    );
   };
 
   const generateTextFromGPT = async (speaker) => {
