@@ -231,6 +231,9 @@ function Council({ options }) {
 
   function removeOverlay() {
     setActiveOverlay("");
+    // Play messages
+    setPausePlay(false);
+
     navigate("/meeting/" + (meetingId || "new"));
   }
 
