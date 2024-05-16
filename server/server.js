@@ -199,6 +199,11 @@ io.on("connection", (socket) => {
         // pretrimmedContent = response.substring(0, speaker.name.length + 1);
         //remove the name, and any additional whitespace created by this
         response = response.substring(chair.name.length + 1).trim();
+      }else if(response.startsWith("**" + chair.name + "**:")){
+        //save the trimmed content, for debugging the prompts
+        pretrimmedContent = response.substring(0, speaker.name.length + 5);
+        //remove the name, and any additional whitespace created by this
+        response = response.substring(speaker.name.length + 5).trim();
       }
 
       return { response, id: completion.id };
@@ -577,11 +582,16 @@ io.on("connection", (socket) => {
 
       let pretrimmedContent;
       //If the prompt starts with the character name, remove it
-      if (response.startsWith(speaker.name + ":")) {
+      if (response.startsWith(speaker.name + ":")){
         //save the trimmed content, for debugging the prompts
         pretrimmedContent = response.substring(0, speaker.name.length + 1);
         //remove the name, and any additional whitespace created by this
         response = response.substring(speaker.name.length + 1).trim();
+      }else if(response.startsWith("**" + speaker.name + "**:")){
+        //save the trimmed content, for debugging the prompts
+        pretrimmedContent = response.substring(0, speaker.name.length + 5);
+        //remove the name, and any additional whitespace created by this
+        response = response.substring(speaker.name.length + 5).trim();
       }
 
       let trimmedContent;
