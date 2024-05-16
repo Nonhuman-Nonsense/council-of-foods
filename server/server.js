@@ -21,6 +21,7 @@ const audioVoices = ["alloy", "echo", "fable", "onyx", "nova", "shimmer"];
 const mongoClient = new MongoClient(process.env.MONGO_URL);
 const db = mongoClient.db("CouncilOfFoods");
 const meetingsCollection = db.collection("meetings");
+const audioCollection = db.collection("audio");
 const counters = db.collection("counters");
 const initializeDB = async () => {
   try {
@@ -198,6 +199,11 @@ io.on("connection", (socket) => {
         // pretrimmedContent = response.substring(0, speaker.name.length + 1);
         //remove the name, and any additional whitespace created by this
         response = response.substring(chair.name.length + 1).trim();
+      }else if(response.startsWith("**" + chair.name + "**:")){
+        //save the trimmed content, for debugging the prompts
+        pretrimmedContent = response.substring(0, speaker.name.length + 5);
+        //remove the name, and any additional whitespace created by this
+        response = response.substring(speaker.name.length + 5).trim();
       }
 
       return { response, id: completion.id };
@@ -485,10 +491,6 @@ io.on("connection", (socket) => {
           type: "skipped",
         };
         socket.emit("audio_update", audioUpdate);
-        meetingsCollection.updateOne(
-          { _id: meetingId },
-          { $push: { audio: audioUpdate } }
-        );
       }
 
       // Check for conversation end
@@ -541,14 +543,20 @@ io.on("connection", (socket) => {
     socket.emit("audio_update", audioObject);
 
     //Update the database
+    const storedAudio = {
+      _id: audioObject.id,
+      date: new Date().toISOString(),
+      meeting_id: meetingId,
+      message_index: index,
+      audio: buffer,
+    }
 
-    // TODO: Save the audio somewhere else
+    await audioCollection.insertOne(storedAudio);
 
-    // meetingsCollection.updateOne(
-    //   { _id: meetingId },
-    //   { $push: { audio: audioObject } }
-    // );
-    // console.log('[meeting] updated audio of meeting #' + meetingId);
+    meetingsCollection.updateOne(
+      { _id: meetingId },
+      { $push: { audio: audioObject.id } }
+    );
   };
 
   const generateTextFromGPT = async (speaker) => {
@@ -559,7 +567,7 @@ io.on("connection", (socket) => {
       // Prepare the completion request
       const completion = await openai.chat.completions.create({
         model: globalOptions.gptModel,
-        max_tokens: globalOptions.maxTokens,
+        max_tokens: speaker.name == "Water" ? globalOptions.chairMaxTokens : globalOptions.maxTokens,
         temperature: globalOptions.temperature,
         frequency_penalty: globalOptions.frequencyPenalty,
         presence_penalty: globalOptions.presencePenalty,
@@ -574,11 +582,16 @@ io.on("connection", (socket) => {
 
       let pretrimmedContent;
       //If the prompt starts with the character name, remove it
-      if (response.startsWith(speaker.name + ":")) {
+      if (response.startsWith(speaker.name + ":")){
         //save the trimmed content, for debugging the prompts
         pretrimmedContent = response.substring(0, speaker.name.length + 1);
         //remove the name, and any additional whitespace created by this
         response = response.substring(speaker.name.length + 1).trim();
+      }else if(response.startsWith("**" + speaker.name + "**:")){
+        //save the trimmed content, for debugging the prompts
+        pretrimmedContent = response.substring(0, speaker.name.length + 5);
+        //remove the name, and any additional whitespace created by this
+        response = response.substring(speaker.name.length + 5).trim();
       }
 
       let trimmedContent;
