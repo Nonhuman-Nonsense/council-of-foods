@@ -3,9 +3,9 @@ import html2canvas from "html2canvas";
 import { marked } from "marked";
 
 function useCreatePdf() {
-  async function createPdf(markdownContent, meetingId) {
+  async function createPdf(content, meetingId) {
     // Parse Markdown to HTML
-    const htmlContent = marked(markdownContent);
+    const htmlContent = createHtmlFromMarkup(content);
 
     // Create a hidden element to hold the HTML content
     const hiddenDiv = document.createElement("div");
@@ -31,7 +31,15 @@ function useCreatePdf() {
     pdf.save(`Council of Foods Meeting Summary #${meetingId}.pdf`);
   }
 
-  return { createPdf };
+  function createHtmlFromMarkup(markup) {
+    // Parse Markdown to HTML
+    const htmlContent = marked(markup);
+
+    // Return the HTML content
+    return htmlContent;
+  }
+
+  return { createPdf, createHtmlFromMarkup };
 }
 
 export default useCreatePdf;
