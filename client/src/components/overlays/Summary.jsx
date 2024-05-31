@@ -1,10 +1,16 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { useMobile } from "../../utils";
 import useCreatePdf from "../../hooks/useCreatePdf";
 
 function Summary({ summary, meetingId }) {
   const isMobile = useMobile();
-  const { createPdf } = useCreatePdf();
+  const { createPdf, createHtmlFromMarkup } = useCreatePdf();
+
+  useEffect(() => {
+    const protocolContainer = document.getElementById("protocol-container");
+
+    protocolContainer.innerHTML = createHtmlFromMarkup(summary.text);
+  }, []);
 
   const wrapper = {
     height: isMobile
@@ -31,7 +37,10 @@ function Summary({ summary, meetingId }) {
         Download PDF
       </button>
       <h3>Meeting #{meetingId}</h3>
-      <div style={protocol}>{summary.text}</div>
+      <div
+        id="protocol-container"
+        style={protocol}
+      ></div>
     </div>
   );
 }
