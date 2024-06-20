@@ -35,7 +35,7 @@ function Home() {
         return navigate("/");
       }
     }
-  },[humanName, location.pathname, navigate]);
+  }, [humanName, location.pathname, navigate]);
 
   useEffect(() => {
     // console.log("location: " + location.pathname);
@@ -165,15 +165,29 @@ export default Home;
 function LandedWrapper({ children }) {
   const isMobile = useMobile();
   return (
-    <div style={{height: "100vh", overflowY: "auto", display: !isMobile && "flex"}} className="scroll">
-      <div style={{display: "flex", alignItems: "center", flexDirection: "column", justifyContent: "center"}}>
-        <div style={{height: isMobile && "20px"}}/>
+    <div
+      style={{
+        height: "100vh",
+        overflowY: "auto",
+        display: !isMobile && "flex",
+      }}
+      className="scroll"
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          flexDirection: "column",
+          justifyContent: "center",
+        }}
+      >
+        <div style={{ height: isMobile && "20px" }} />
         <h1>COUNCIL OF FOODS</h1>
         {children}
         <Link to="/">
           <button>Start</button>
         </Link>
-        <div style={{height: isMobile && "20px"}}/>
+        <div style={{ height: isMobile && "20px" }} />
       </div>
     </div>
   );
