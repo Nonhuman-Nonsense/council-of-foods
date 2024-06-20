@@ -38,8 +38,9 @@ function Council({ options }) {
   const [summary, setSummary] = useState(null);
   const navigate = useNavigate();
   const location = useLocation();
-  const [meetingId, setMeetingId] = useState(null);
   const [continuations, setContinuations] = useState(0);
+  const [currentMeetingId, setCurrentMeetingId] = useState(null); // Use state to manage meetingId
+  const currentMeetingIdRef = useRef(null);
 
   if (audioContext.current === null) {
     const AudioContext = window.AudioContext || window.webkitAudioContext; //cross browser
@@ -64,52 +65,92 @@ function Council({ options }) {
   useEffect(() => {
     socketRef.current = io();
 
-    const conversationOptions = {
-      humanName: humanName,
-      topic: topic.prompt,
-      characters: foods,
+    const setupSocketListeners = () => {
+      let conversationOptions = {
+        humanName: humanName,
+        topic: topic.prompt,
+        characters: foods,
+      };
+
+      socketRef.current.emit("start_conversation", conversationOptions);
+
+      socketRef.current.on("invitation_to_speak", (invitation) => {
+        setInvitation(invitation);
+      });
+
+      socketRef.current.on("meeting_started", (meeting) => {
+        console.log("Meeting #" + meeting.meeting_id + " started");
+        setCurrentMeetingId(meeting.meeting_id);
+        navigate("/meeting/" + meeting.meeting_id);
+      });
+
+      socketRef.current.on("meeting_summary", (summary) => {
+        setSummary(summary);
+      });
+
+      socketRef.current.on("audio_update", (audioMessage) => {
+        (async () => {
+          // Decode audio data immediately, because we can only do this once, then buffer is detached
+          if (audioMessage.audio) {
+            const buffer = await audioContext.current.decodeAudioData(
+              audioMessage.audio
+            );
+            audioMessage.audio = buffer;
+          }
+          setAudioMessages((prevAudioMessages) => [
+            ...prevAudioMessages,
+            audioMessage,
+          ]);
+        })();
+      });
+
+      socketRef.current.on("conversation_update", (textMessages) => {
+        setTextMessages(() => textMessages);
+      });
+
+      // Handle disconnection and reconnection
+      socketRef.current.on("disconnect", () => {
+        console.log("Socket disconnected. Attempting to reconnect...");
+        attemptReconnect();
+      });
+
+      socketRef.current.on("connect_error", (error) => {
+        console.log("Connection error:", error);
+        attemptReconnect();
+      });
     };
 
-    socketRef.current.emit("start_conversation", conversationOptions);
-
-    socketRef.current.on("conversation_update", (textMessages) => {
-      setTextMessages(() => textMessages);
-    });
-
-    socketRef.current.on("invitation_to_speak", (invitation) => {
-      setInvitation(invitation);
-    });
-
-    socketRef.current.on("meeting_started", (meeting) => {
-      console.log("Meeting #" + meeting.meeting_id + " started");
-      setMeetingId(meeting.meeting_id);
-      navigate("/meeting/" + meeting.meeting_id);
-    });
-
-    socketRef.current.on("meeting_summary", (summary) => {
-      setSummary(summary);
-    });
-
-    socketRef.current.on("audio_update", (audioMessage) => {
-      (async () => {
-        // Decode audio data immediately, because we can only do this once, then buffer is detached
-        if (audioMessage.audio) {
-          const buffer = await audioContext.current.decodeAudioData(
-            audioMessage.audio
-          );
-          audioMessage.audio = buffer;
-        }
-        setAudioMessages((prevAudioMessages) => [
-          ...prevAudioMessages,
-          audioMessage,
-        ]);
-      })();
-    });
+    setupSocketListeners();
 
     return () => {
       socketRef.current.disconnect();
     };
   }, []);
+
+  const attemptReconnect = () => {
+    setTimeout(() => {
+      if (!socketRef.current.connected) {
+        console.log("Reconnecting...");
+        socketRef.current.connect();
+
+        // Attempt to start the conversation again
+        socketRef.current.emit("start_conversation", {
+          humanName: humanName,
+          topic: topic.prompt,
+          characters: foods,
+          meetingId: currentMeetingIdRef.current,
+        });
+      }
+    }, 2000); // Adjust the timeout as necessary
+  };
+
+  // Set the current meeting id ref
+  useEffect(() => {
+    if (currentMeetingId !== null) {
+      currentMeetingIdRef.current = currentMeetingId;
+      console.log("Current Meeting ID:", currentMeetingId);
+    }
+  }, [currentMeetingId]);
 
   useEffect(() => {
     if (["/about", "/contact", "/share"].includes(location?.pathname)) {
@@ -231,7 +272,7 @@ function Council({ options }) {
 
   function removeOverlay() {
     setActiveOverlay("");
-    navigate("/meeting/" + (meetingId || "new"));
+    navigate("/meeting/" + (currentMeetingId || "new"));
   }
 
   function handleOnIsWaitingToInterject({ isWaiting, isReadyToInterject }) {
@@ -308,7 +349,7 @@ function Council({ options }) {
       displayOverlay("reset");
     } else if (adress === "settings") {
       displayOverlay("settings");
-      navigate("/meeting/" + (meetingId || "new"));
+      navigate("/meeting/" + (currentMeetingId || "new"));
     } else {
       navigate(adress);
     }
@@ -407,7 +448,7 @@ function Council({ options }) {
             }}
             removeOverlay={removeOverlay}
             summary={summary}
-            meetingId={meetingId}
+            meetingId={currentMeetingId}
           />
         )}
       </Overlay>

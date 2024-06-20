@@ -16,7 +16,8 @@
     "mongodb": "^6.6.1",
     "openai": "^4.17.3",
     "socket.io": "^4.7.5",
-    "tiktoken": "^1.0.14"
+    "tiktoken": "^1.0.14",
+    "uuid": "^10.0.0"
   },
   "devDependencies": {
     "nodemon": "^3.0.3"
