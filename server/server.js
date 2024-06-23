@@ -56,7 +56,9 @@ const insertMeeting = async (meeting) => {
 
 initializeDB();
 
-if (process.env.NODE_ENV !== "development") {
+if (process.env.NODE_ENV === "prototype") {
+  app.use(express.static(path.join(__dirname, "../prototype/", 'public')));
+}else if (process.env.NODE_ENV !== "development") {
   app.use(express.static(path.join(__dirname, "../client/build")));
   app.get("/*", function (req, res) {
     res.sendFile(path.join(__dirname, "../client/build", "index.html"));
