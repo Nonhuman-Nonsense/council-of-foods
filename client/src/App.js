@@ -8,17 +8,20 @@ function App() {
   return (
     <div className="App">
       <BrowserRouter>
-          <Routes>
-            <Route element={<Home />} path="*">
-              <Route
-                path="about"
-                element={<About />}
-              />
-              <Route
-                path="contact"
-                element={<Contact />}
-              />
-            </Route>
+        <Routes>
+          <Route
+            element={<Home />}
+            path="*"
+          >
+            <Route
+              path="about"
+              element={<About />}
+            />
+            <Route
+              path="contact"
+              element={<Contact />}
+            />
+          </Route>
         </Routes>
       </BrowserRouter>
     </div>

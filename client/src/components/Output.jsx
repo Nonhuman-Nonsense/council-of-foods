@@ -58,7 +58,7 @@ function Output({
       currentMessageIndex < textMessages.length - 1 &&
       !playInvitation &&
       audioMessages.find(
-        (a) => a.id === textMessages[currentMessageIndex + 1].id
+        (a) => a.message_id === textMessages[currentMessageIndex + 1].id
       )
     ) {
       setCanGoForward(true);
@@ -129,7 +129,9 @@ function Output({
     const textMessage = custom ? custom : textMessages[currentMessageIndex];
 
     if (textMessage) {
-      const audioMessage = audioMessages.find((a) => a.id === textMessage.id);
+      const audioMessage = audioMessages.find(
+        (a) => a.message_id === textMessage.id
+      );
 
       if (audioMessage && !isFoundMessage) {
         console.log("Found text and audio");
