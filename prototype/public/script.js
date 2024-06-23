@@ -78,6 +78,8 @@ document.addEventListener('DOMContentLoaded', () => {
       document.getElementById('frequency-penalty').previousSibling.value = promptsAndOptions.options.frequencyPenalty;
       document.getElementById('presence-penalty').value = promptsAndOptions.options.presencePenalty;
       document.getElementById('presence-penalty').previousSibling.value = promptsAndOptions.options.presencePenalty;
+      document.getElementById('logit-bias').value = promptsAndOptions.options.logitBias;
+      document.getElementById('logit-bias').previousSibling.value = promptsAndOptions.options.logitBias;
 
       document.getElementById('trim-response-to-full-sentance').checked = promptsAndOptions.options.trimSentance;
       document.getElementById('trim-response-to-full-paragraph').checked = promptsAndOptions.options.trimParagraph;
@@ -164,6 +166,7 @@ document.addEventListener('DOMContentLoaded', () => {
       promptsAndOptions.options.maxTokens = +document.getElementById('max-tokens').value;
       promptsAndOptions.options.frequencyPenalty = +document.getElementById('frequency-penalty').value;
       promptsAndOptions.options.presencePenalty = +document.getElementById('presence-penalty').value;
+      promptsAndOptions.options.logitBias = +document.getElementById('logit-bias').value;
 
       promptsAndOptions.options.trimSentance = document.getElementById('trim-response-to-full-sentance').checked;
       promptsAndOptions.options.trimParagraph = document.getElementById('trim-response-to-full-paragraph').checked;
