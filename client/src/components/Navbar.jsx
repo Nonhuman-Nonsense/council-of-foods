@@ -22,7 +22,7 @@ function Navbar({ topic, activeOverlay, onDisplayOverlay, onNavigate }) {
 
   const navbarStyle = {
     padding: "20px",
-    display: "flex",
+    display: "none",
     justifyContent: "space-between",
     alignItems: "start",
     color: "white",
