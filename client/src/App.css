@@ -103,6 +103,21 @@ button.selected {
   color: rgba(0, 0, 0, 0.9);
 }
 
+#protocol-container p{
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+#protocol-container ol,
+#protocol-container ul{
+  margin: 0;
+  white-space: normal;
+}
+
+#protocol-container li{
+  margin-bottom: 5px;
+}
+
 @keyframes slideInFade {
   0% {
     transform: translateX(20%);

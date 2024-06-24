@@ -32,11 +32,7 @@ function useCreatePdf() {
   }
 
   function createHtmlFromMarkup(markup) {
-    // Parse Markdown to HTML
-    const htmlContent = marked(markup);
-
-    // Return the HTML content
-    return htmlContent;
+    return marked(markup);
   }
 
   return { createPdf, createHtmlFromMarkup };
