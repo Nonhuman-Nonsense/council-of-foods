@@ -76,7 +76,7 @@ const styles = {
     zIndex: 10,
     pointerEvents: "auto",
   },
-  icon: { width: "44px", cursor: "pointer" },
+  icon: { width: "35px", cursor: "pointer" },
 };
 
 export default FullscreenButton;
