@@ -18,6 +18,7 @@ import Council from "../components/Council";
 import RotateDevice from "../components/RotateDevice";
 import { useMediaQuery } from "react-responsive";
 import { useMobile } from "../utils";
+import FullscreenButton from "./FullscreenButton";
 
 function Home() {
   const [humanName, setHumanName] = useState("");
@@ -154,6 +155,7 @@ function Home() {
         {currentView === "council" && (
           <Council options={{ humanName, topic, foods, onReset: reset }} />
         )}
+        <FullscreenButton />
       </Overlay>
       {isPortrait && currentView !== "landing" && <RotateOverlay />}
     </>
