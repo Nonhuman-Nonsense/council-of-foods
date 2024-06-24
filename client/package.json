@@ -9,7 +9,6 @@
     "@testing-library/user-event": "^13.5.0",
     "@types/dom-speech-recognition": "^0.0.4",
     "html-react-parser": "^5.1.10",
-    "html2canvas": "^1.4.1",
     "jspdf": "^2.5.1",
     "marked": "^13.0.0",
     "react": "^18.2.0",
