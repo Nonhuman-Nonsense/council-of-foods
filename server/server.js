@@ -976,7 +976,7 @@ io.on("connection", (socket) => {
   });
 
   const resumeConversation = async (meetingId) => {
-    console.log(`!!!Resuming meeting #${meetingId}...`);
+    console.log(`Resuming meeting #${meetingId}...`);
 
     try {
       const existingMeeting = await meetingsCollection.findOne({
@@ -989,7 +989,7 @@ io.on("connection", (socket) => {
         conversationOptions = existingMeeting.options;
         conversationDate = new Date(existingMeeting.date);
         console.log(`[meeting ${meetingId}] resumed`);
-        handleConversationTurn((shouldResume = true));
+        handleConversationTurn((shouldResume = true)); // TODO: Do we need to find the correct message index to play from?
       } else {
         socket.emit("meeting_not_found", { meeting_id: meetingId });
         console.log(`[meeting ${meetingId}] not found`);
