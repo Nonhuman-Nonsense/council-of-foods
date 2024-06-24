@@ -63,6 +63,7 @@ function Council({ options }) {
   };
 
   useEffect(() => {
+    // Connect to the server
     socketRef.current = io();
 
     const setupSocketListeners = () => {
@@ -90,7 +91,6 @@ function Council({ options }) {
 
       socketRef.current.on("audio_update", (audioMessage) => {
         (async () => {
-          // Decode audio data immediately, because we can only do this once, then buffer is detached
           if (audioMessage.audio) {
             const buffer = await audioContext.current.decodeAudioData(
               audioMessage.audio
@@ -108,12 +108,6 @@ function Council({ options }) {
         setTextMessages(() => textMessages);
       });
 
-      // Handle disconnection and reconnection
-      socketRef.current.on("disconnect", () => {
-        console.log("Socket disconnected. Attempting to reconnect...");
-        attemptReconnect();
-      });
-
       socketRef.current.on("connect_error", (error) => {
         console.log("Connection error:", error);
         attemptReconnect();
@@ -122,8 +116,23 @@ function Council({ options }) {
 
     setupSocketListeners();
 
+    // Add event listener for tab close
+    const handleTabClose = (event) => {
+      if (socketRef.current) {
+        console.log("Disconnecting socket due to tab close");
+        socketRef.current.disconnect();
+      }
+    };
+
+    window.addEventListener("beforeunload", handleTabClose);
+
+    // Clean up the socket connection when the component unmounts
     return () => {
-      socketRef.current.disconnect();
+      if (socketRef.current) {
+        console.log("Disconnecting socket");
+        socketRef.current.disconnect();
+      }
+      window.removeEventListener("beforeunload", handleTabClose);
     };
   }, []);
 
