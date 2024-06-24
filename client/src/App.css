@@ -105,6 +105,42 @@ button.selected {
   color: rgba(0, 0, 0, 0.9);
 }
 
+#protocol-container p{
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+#protocol-container ol,
+#protocol-container ul{
+  margin: 0;
+  white-space: normal;
+}
+
+#protocol-container li{
+  margin-bottom: 5px;
+}
+
+#printed-style{
+  white-space: pre-wrap;
+}
+
+#printed-style p{
+  font-size: 10px;
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+#printed-style ol,
+#printed-style ul{
+  margin: 0;
+  white-space: normal;
+}
+
+#printed-style li{
+  font-size: 10px;
+  margin-bottom: 5px;
+}
+
 @keyframes slideInFade {
   0% {
     transform: translateX(20%);

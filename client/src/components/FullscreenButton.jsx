@@ -71,8 +71,9 @@ const FullscreenButton = () => {
 const styles = {
   container: {
     position: "fixed",
-    bottom: "20px",
-    right: "20px",
+    bottom: "6px",
+    right: "10px",
+    opacity: '0.7',
     zIndex: 10,
     pointerEvents: "auto",
   },
