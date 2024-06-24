@@ -18,7 +18,7 @@ function Summary({ summary, meetingId }) {
       : "calc(100vh - 60px - 56px - 20px)",
     marginBottom: isMobile ? "45px" : "56px",
     marginTop: !isMobile && "20px",
-    width: "600px",
+    width: isMobile ? "600px" : "900px",
     overflowY: "auto",
   };
 
