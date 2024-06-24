@@ -20,7 +20,7 @@ function Summary({ summary, meetingId }) {
       : "calc(100vh - 60px - 56px - 20px)",
     marginBottom: isMobile ? "45px" : "56px",
     marginTop: !isMobile && "20px",
-    width: "800px",
+    width: isMobile ? "600px" : "800px"
   };
 
   const protocolStyle = {
