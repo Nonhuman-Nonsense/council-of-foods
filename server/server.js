@@ -12,9 +12,9 @@ const { v4: uuidv4 } = require("uuid"); // Import UUID library
 const app = express();
 const httpServer = http.createServer(app);
 const io = new Server(httpServer, {
-  pingTimeout: 60000, // Increase ping timeout
-  maxHttpBufferSize: 1e8, // Increase maximum buffer size
-  transports: ["websocket", "polling"], // Ensure WebSocket is used primarily
+  // pingTimeout: 60000, // Increase ping timeout
+  // maxHttpBufferSize: 1e8, // Increase maximum buffer size
+  // transports: ["websocket", "polling"], // Ensure WebSocket is used primarily
 });
 
 const openai = new OpenAI(process.env.OPENAI_API_KEY);
@@ -66,22 +66,34 @@ if (process.env.NODE_ENV !== "development") {
 io.on("connection", (socket) => {
   console.log("[session] a user connected");
 
+  //Session variables
   let run = true;
-  let isPaused = false;
+  // let isPaused = false; //this is for prototype, deactivate for now
   let handRaised = false;
   let conversation = [];
-  let conversationCount = 0;
   let currentSpeaker = 0;
   let extraMessageCount = 0;
   let meetingId;
   let meetingDate;
-  let conversationCounter = 0;
+  // let conversationCounter = 0; //this is for prototype, deactivate for now
   let conversationOptions = {
     topic: "",
     characters: {},
   };
   let logit_biases = [];
   let invitation;
+
+  const calculateCurrentSpeaker = () => {
+    if(conversation.length == 0) return 0;
+    if(conversation.length == 1) return 1;
+    for (let i = conversation.length - 1; i > 0; i--) {
+      if(conversation[i].type == 'human') continue;
+      if(conversation[i].purpose == 'invitation') continue;
+      const lastSpeakerIndex = conversationOptions.characters.findIndex(char => char.name === conversation[i].speaker);
+
+      return lastSpeakerIndex >= conversationOptions.characters.length - 1 ? 0 : lastSpeakerIndex + 1;
+    }
+  }
 
   socket.on("raise_hand", async (handRaisedOptions) => {
     handRaised = true;
@@ -108,19 +120,29 @@ io.on("connection", (socket) => {
       message_index: handRaisedOptions.index,
     };
 
+    //We must store the invitation in database also, in case of a reconnect
+    meetingsCollection.updateOne(
+      { _id: meetingId },
+      { $set: { invitation: invitation } }
+    );
+
     socket.emit("invitation_to_speak", invitation);
 
-    const voice = conversationOptions.characters[0].voice
-      ? conversationOptions.characters[0].voice
-      : audioVoices[0];
+    // const voice = conversationOptions.characters[0].voice
+    //   ? conversationOptions.characters[0].voice
+    //   : audioVoices[0];
 
-    generateAudio(id, conversation.length - 1, response, voice);
+    generateAudio(id, response, conversationOptions.characters[0].name);
   });
 
   socket.on("lower_hand", async () => {
     handRaised = false;
-    isPaused = false;
+    // isPaused = false;
     invitation = null;
+    meetingsCollection.updateOne(
+      { _id: meetingId },
+      { $unset: { invitation: "" } }
+    );
     handleConversationTurn();
   });
 
@@ -131,7 +153,7 @@ io.on("connection", (socket) => {
     dontStop
   ) => {
     try {
-      const thisConversationCounter = conversationCounter;
+      // const thisConversationCounter = conversationCounter;
       const chair = conversationOptions.characters[0];
       let messages = buildMessageStack(chair, index);
 
@@ -152,7 +174,7 @@ io.on("connection", (socket) => {
 
       let response = completion.choices[0].message.content.trim();
 
-      if (thisConversationCounter != conversationCounter) return;
+      // if (thisConversationCounter != conversationCounter) return;
 
       if (response.startsWith(chair.name + ":")) {
         response = response.substring(chair.name.length + 1).trim();
@@ -207,22 +229,22 @@ io.on("connection", (socket) => {
     message.type = "human";
     message.speaker = conversationOptions.humanName;
     conversation.push(message);
-
-    socket.emit("conversation_update", conversation);
+    invitation = null;
 
     meetingsCollection.updateOne(
       { _id: meetingId },
-      { $set: { conversation: conversation } }
+      { $set: { conversation: conversation }, $unset: { invitation: ""} }
     );
+
+    socket.emit("conversation_update", conversation);
 
     generateAudio(
       message.id,
-      conversation.length - 1,
       message.text,
-      audioVoices[0]
+      conversationOptions.characters[0].name
     );
 
-    isPaused = false;
+    // isPaused = false;
     handRaised = false;
     handleConversationTurn();
   });
@@ -248,9 +270,9 @@ io.on("connection", (socket) => {
       shouldResume: true,
     };
 
-    const voice = conversationOptions.characters[0].voice
-      ? conversationOptions.characters[0].voice
-      : audioVoices[0];
+    // const voice = conversationOptions.characters[0].voice
+    //   ? conversationOptions.characters[0].voice
+    //   : audioVoices[0];
 
     socket.emit("meeting_summary", summary);
 
@@ -259,33 +281,50 @@ io.on("connection", (socket) => {
       { $set: { summary: summary } }
     );
 
-    generateAudio(id, conversation.length - 1, response, voice);
+    generateAudio(id, response, conversationOptions.characters[0].name);
   });
 
   socket.on("continue_conversation", () => {
     extraMessageCount += 5;
-    isPaused = false;
-    currentSpeaker =
-      currentSpeaker >= conversationOptions.characters.length - 1
-        ? 0
-        : currentSpeaker + 1;
+    // isPaused = false;
+    // currentSpeaker =
+    //   currentSpeaker >= conversationOptions.characters.length - 1
+    //     ? 0
+    //     : currentSpeaker + 1;
 
     handleConversationTurn((shouldResume = true));
   });
 
-  const resumeConversation = async (meetingId) => {
-    console.log(`Resuming meeting #${meetingId}...`);
+  socket.on("attempt_reconnection", async (options) => {
+    console.log(`[meeting ${options.meetingId}] attempting to resume`);
 
     try {
       const existingMeeting = await meetingsCollection.findOne({
-        _id: meetingId,
+        _id: options.meetingId,
       });
 
       if (existingMeeting) {
+        //restore all session variables
         meetingId = existingMeeting._id;
         conversation = existingMeeting.conversation;
         conversationOptions = existingMeeting.options;
-        conversationDate = new Date(existingMeeting.date);
+        meetingDate = new Date(existingMeeting.date);
+        logit_biases = calculateLogitBiases();
+        handRaised = options.handRaised;
+        extraMessageCount = options.conversationMaxLength - globalOptions.conversationMaxLength;
+        invitation = existingMeeting.invitation;//if there is one, otherwise will be correctly set to null/undefined
+
+        //If some audio are missing, try to regenerate them
+        let missingAudio = [];
+        for (let i = 0; i < conversation.length; i++) {
+          if(existingMeeting.audio.indexOf(conversation[i].id) == -1){
+            missingAudio.push(conversation[i]);
+          }
+        }
+        for (let i = 0; i < missingAudio.length; i++) {
+          generateAudio(missingAudio[i].id, missingAudio[i].text, missingAudio[i].speaker);
+        }
+
         console.log(`[meeting ${meetingId}] resumed`);
         handleConversationTurn((shouldResume = true)); // TODO: Do we need to find the correct message index to play from?
       } else {
@@ -299,43 +338,38 @@ io.on("connection", (socket) => {
         "An error occurred while resuming the conversation."
       );
     }
-  };
+  });
 
   socket.on("start_conversation", async (options) => {
     conversationOptions = options;
 
-    if (conversationOptions.meetingId) {
-      resumeConversation(conversationOptions.meetingId);
-    } else {
-      for (let i = 0; i < conversationOptions.characters.length; i++) {
-        conversationOptions.characters[i].name = toTitleCase(
-          conversationOptions.characters[i].name
-        );
-      }
-      conversation = [];
-      conversationCount = 0;
-      currentSpeaker = 0;
-      extraMessageCount = 0;
-      isPaused = false;
-      handRaised = false;
-      conversationCounter++;
-      console.log("[session] session counter: " + conversationCounter);
-      logit_biases = calculateLogitBiases();
-      meetingDate = new Date();
-
-      const storeResult = await insertMeeting({
-        options: conversationOptions,
-        audio: [],
-        conversation: [],
-        date: meetingDate.toISOString(),
-      });
-
-      meetingId = storeResult.insertedId;
-
-      socket.emit("meeting_started", { meeting_id: meetingId });
-      console.log(`[meeting ${meetingId}] started`);
-      handleConversationTurn();
+    for (let i = 0; i < conversationOptions.characters.length; i++) {
+      conversationOptions.characters[i].name = toTitleCase(
+        conversationOptions.characters[i].name
+      );
     }
+    conversation = [];
+    currentSpeaker = 0;
+    extraMessageCount = 0;
+    // isPaused = false;
+    handRaised = false;
+    // conversationCounter++;
+    // console.log("[session] session counter: " + conversationCounter);
+    logit_biases = calculateLogitBiases();
+    meetingDate = new Date();
+
+    const storeResult = await insertMeeting({
+      options: conversationOptions,
+      audio: [],
+      conversation: [],
+      date: meetingDate.toISOString(),
+    });
+
+    meetingId = storeResult.insertedId;
+
+    socket.emit("meeting_started", { meeting_id: meetingId });
+    console.log(`[meeting ${meetingId}] started`);
+    handleConversationTurn();
   });
 
   const calculateLogitBiases = () => {
@@ -369,10 +403,12 @@ io.on("connection", (socket) => {
 
   const handleConversationTurn = async (shouldResume = false) => {
     try {
-      const thisConversationCounter = conversationCounter;
+      // const thisConversationCounter = conversationCounter;
       if (!run) return;
-      if (isPaused) return;
+      // if (isPaused) return;
       if (handRaised) return;
+      if (conversation.length >= globalOptions.conversationMaxLength + extraMessageCount) return;
+      currentSpeaker = calculateCurrentSpeaker();
 
       let response = "";
       let attempt = 1;
@@ -382,9 +418,9 @@ io.on("connection", (socket) => {
           conversationOptions.characters[currentSpeaker]
         );
 
-        if (isPaused) return;
+        // if (isPaused) return;
         if (handRaised) return;
-        if (thisConversationCounter != conversationCounter) return;
+        // if (thisConversationCounter != conversationCounter) return;
         attempt++;
       }
 
@@ -415,15 +451,14 @@ io.on("connection", (socket) => {
         { $set: { conversation: conversation } }
       );
 
-      const voice = conversationOptions.characters[currentSpeaker].voice
-        ? conversationOptions.characters[currentSpeaker].voice
-        : audioVoices[currentSpeaker % audioVoices.length];
+      // const voice = conversationOptions.characters[currentSpeaker].voice
+      //   ? conversationOptions.characters[currentSpeaker].voice
+      //   : audioVoices[currentSpeaker % audioVoices.length];
       if (message.type != "skipped") {
-        generateAudio(message.id, message_index, message.text, voice);
+        generateAudio(message.id, message.text, conversationOptions.characters[currentSpeaker].name);
       } else {
         const audioUpdate = {
           id: message.id,
-          message_index: message_index,
           type: "skipped",
         };
         socket.emit("audio_update", audioUpdate);
@@ -437,10 +472,10 @@ io.on("connection", (socket) => {
         return;
       }
 
-      currentSpeaker =
-        currentSpeaker >= conversationOptions.characters.length - 1
-          ? 0
-          : currentSpeaker + 1;
+      // currentSpeaker =
+      //   currentSpeaker >= conversationOptions.characters.length - 1
+      //     ? 0
+      //     : currentSpeaker + 1;
 
       handleConversationTurn();
     } catch (error) {
@@ -452,22 +487,41 @@ io.on("connection", (socket) => {
     }
   };
 
-  const generateAudio = async (id, index, text, voiceName) => {
-    const thisConversationCounter = conversationCounter;
+  const generateAudio = async (id, text, speakerName) => {
+    // const thisConversationCounter = conversationCounter;
+    const voiceName = conversationOptions.characters.find((char) => char.name == speakerName).voice;
 
-    const mp3 = await openai.audio.speech.create({
-      model: "tts-1",
-      voice: voiceName,
-      input: text.substring(0, 4096),
-    });
+    let buffer;
+    //check if we already have it in the database
+    let generateNew = true;
+    try {
+      //will return null if not found
+      const existingAudio = await audioCollection.findOne({
+        _id: id,
+      });
+      if(existingAudio){
+        buffer = existingAudio.buffer;
+        generateNew = false;
+      }
+    }catch(e){
+      console.log(e);
+    }
 
-    const buffer = Buffer.from(await mp3.arrayBuffer());
-    if (thisConversationCounter != conversationCounter) return;
+    if(generateNew){
+      const mp3 = await openai.audio.speech.create({
+        model: "tts-1",
+        voice: voiceName,
+        input: text.substring(0, 4096),
+      });
+
+      buffer = Buffer.from(await mp3.arrayBuffer());
+      // if (thisConversationCounter != conversationCounter) return;
+    }
 
     const audioObject = {
       id: id,
       message_id: id,
-      message_index: index,
+      // message_index: index,
       audio: buffer,
     };
 
@@ -477,11 +531,11 @@ io.on("connection", (socket) => {
       _id: audioObject.id,
       date: new Date().toISOString(),
       meeting_id: meetingId,
-      message_index: index,
+      // message_index: index,
       audio: buffer,
     };
 
-    await audioCollection.insertOne(storedAudio);
+    await audioCollection.replaceOne({_id: audioObject.id}, storedAudio, {upsert: true});
     await meetingsCollection.updateOne(
       { _id: meetingId },
       { $push: { audio: audioObject.id } }

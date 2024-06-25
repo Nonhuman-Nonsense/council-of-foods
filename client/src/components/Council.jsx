@@ -40,7 +40,8 @@ function Council({ options }) {
   const location = useLocation();
   const [continuations, setContinuations] = useState(0);
   const [currentMeetingId, setCurrentMeetingId] = useState(null); // Use state to manage meetingId
-  const currentMeetingIdRef = useRef(null);
+  const [attemptingReconnect, setAttemptingReconnect] = useState(false); // Use state to manage meetingId
+  // const currentMeetingIdRef = useRef(null);
 
   if (audioContext.current === null) {
     const AudioContext = window.AudioContext || window.webkitAudioContext; //cross browser
@@ -66,55 +67,61 @@ function Council({ options }) {
     // Connect to the server
     socketRef.current = io();
 
-    const setupSocketListeners = () => {
-      let conversationOptions = {
-        humanName: humanName,
-        topic: topic.prompt,
-        characters: foods,
-      };
-
-      socketRef.current.emit("start_conversation", conversationOptions);
-
-      socketRef.current.on("invitation_to_speak", (invitation) => {
-        setInvitation(invitation);
-      });
-
-      socketRef.current.on("meeting_started", (meeting) => {
-        console.log("Meeting #" + meeting.meeting_id + " started");
-        setCurrentMeetingId(meeting.meeting_id);
-        navigate("/meeting/" + meeting.meeting_id);
-      });
-
-      socketRef.current.on("meeting_summary", (summary) => {
-        setSummary(summary);
-      });
-
-      socketRef.current.on("audio_update", (audioMessage) => {
-        (async () => {
-          if (audioMessage.audio) {
-            const buffer = await audioContext.current.decodeAudioData(
-              audioMessage.audio
-            );
-            audioMessage.audio = buffer;
-          }
-          setAudioMessages((prevAudioMessages) => [
-            ...prevAudioMessages,
-            audioMessage,
-          ]);
-        })();
-      });
-
-      socketRef.current.on("conversation_update", (textMessages) => {
-        setTextMessages(() => textMessages);
-      });
-
-      socketRef.current.on("connect_error", (error) => {
-        console.log("Connection error:", error);
-        attemptReconnect();
-      });
+    let conversationOptions = {
+      humanName: humanName,
+      topic: topic.prompt,
+      characters: foods,
     };
 
-    setupSocketListeners();
+    // socketRef.current.on("connect", () => {
+    //   console.log('socket connected');
+    // });
+
+    socketRef.current.io.on("reconnect", () => {
+      setAttemptingReconnect(true);
+      console.log('socket reconnected');
+    });
+
+    socketRef.current.emit("start_conversation", conversationOptions);
+
+    socketRef.current.on("invitation_to_speak", (invitation) => {
+      setInvitation(invitation);
+    });
+
+    socketRef.current.on("meeting_started", (meeting) => {
+      console.log("Meeting #" + meeting.meeting_id + " started");
+      setCurrentMeetingId(meeting.meeting_id);
+      navigate("/meeting/" + meeting.meeting_id);
+    });
+
+    socketRef.current.on("meeting_summary", (summary) => {
+      setSummary(summary);
+    });
+
+    socketRef.current.on("audio_update", (audioMessage) => {
+      (async () => {
+        if (audioMessage.audio) {
+          const buffer = await audioContext.current.decodeAudioData(
+            audioMessage.audio
+          );
+          audioMessage.audio = buffer;
+        }
+        setAudioMessages((prevAudioMessages) => [
+          ...prevAudioMessages,
+          audioMessage,
+        ]);
+      })();
+    });
+
+    socketRef.current.on("conversation_update", (textMessages) => {
+      setTextMessages(() => textMessages);
+    });
+
+    // socketRef.current.on("connect_error", (error) => {
+    //   console.log("Connection error:", error);
+    //   setAttemptingReconnect(true);
+    // });
+
 
     // Add event listener for tab close
     const handleTabClose = (event) => {
@@ -136,30 +143,39 @@ function Council({ options }) {
     };
   }, []);
 
-  const attemptReconnect = () => {
-    setTimeout(() => {
-      if (!socketRef.current.connected) {
-        console.log("Reconnecting...");
-        socketRef.current.connect();
-
-        // Attempt to start the conversation again
-        socketRef.current.emit("start_conversation", {
-          humanName: humanName,
-          topic: topic.prompt,
-          characters: foods,
-          meetingId: currentMeetingIdRef.current,
-        });
-      }
-    }, 2000); // Adjust the timeout as necessary
-  };
-
-  // Set the current meeting id ref
   useEffect(() => {
-    if (currentMeetingId !== null) {
-      currentMeetingIdRef.current = currentMeetingId;
-      console.log("Current Meeting ID:", currentMeetingId);
+    if(attemptingReconnect){
+      socketRef.current.emit("attempt_reconnection", {
+        meetingId: currentMeetingId,
+        handRaised: isRaisedHand,
+        conversationMaxLength: conversationMaxLength
+      });
+      setAttemptingReconnect(false);
+
+  //     if (socketRef.current.connected) {
+  //       setAttemptingReconnect(false);
+  //       return;
+  //     }
+  //     // setTimeout(() => {
+  //     //   if (!socketRef.current.connected) {
+  //     //     console.log("Reconnecting...");
+  //     //     socketRef.current.connect();
+  //     //
+  //     //     // Attempt to start the conversation again
+  //     //     console.log('reconnected');
+
+  //     //   }
+  //     // }, 2000); // Adjust the timeout as necessary
     }
-  }, [currentMeetingId]);
+  },[attemptingReconnect])
+
+  // // Set the current meeting id ref
+  // useEffect(() => {
+  //   if (currentMeetingId !== null) {
+  //     currentMeetingIdRef.current = currentMeetingId;
+  //     console.log("Current Meeting ID:", currentMeetingId);
+  //   }
+  // }, [currentMeetingId]);
 
   useEffect(() => {
     if (["/about", "/contact", "/share"].includes(location?.pathname)) {
