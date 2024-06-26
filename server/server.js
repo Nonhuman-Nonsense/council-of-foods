@@ -68,7 +68,6 @@ io.on("connection", (socket) => {
 
   //Session variables
   let run = true;
-  // let isPaused = false; //this is for prototype, deactivate for now
   let handRaised = false;
   let conversation = [];
   let currentSpeaker = 0;
@@ -86,7 +85,7 @@ io.on("connection", (socket) => {
   const calculateCurrentSpeaker = () => {
     if(conversation.length == 0) return 0;
     if(conversation.length == 1) return 1;
-    for (let i = conversation.length - 1; i > 0; i--) {
+    for (let i = conversation.length - 1; i >= 0; i--) {
       if(conversation[i].type == 'human') continue;
       if(conversation[i].purpose == 'invitation') continue;
       const lastSpeakerIndex = conversationOptions.characters.findIndex(char => char.name === conversation[i].speaker);
@@ -527,18 +526,20 @@ io.on("connection", (socket) => {
 
     socket.emit("audio_update", audioObject);
 
-    const storedAudio = {
-      _id: audioObject.id,
-      date: new Date().toISOString(),
-      meeting_id: meetingId,
-      // message_index: index,
-      audio: buffer,
-    };
+    if(generateNew){
+      const storedAudio = {
+        _id: audioObject.id,
+        date: new Date().toISOString(),
+        meeting_id: meetingId,
+        // message_index: index,
+        audio: buffer,
+      };
 
-    await audioCollection.replaceOne({_id: audioObject.id}, storedAudio, {upsert: true});
+      await audioCollection.insertOne(storedAudio);
+    }
     await meetingsCollection.updateOne(
       { _id: meetingId },
-      { $push: { audio: audioObject.id } }
+      { $addToSet: { audio: audioObject.id } }
     );
   };
 
