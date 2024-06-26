@@ -39,7 +39,6 @@ function FoodItem({ food, index, total, currentSpeakerName, isPaused, zoomIn }) 
 
   const singleFoodStyle = {
     position: "relative",
-    top: "-19vh",
     width: zoomInSize + "vh",
     height: zoomInSize + "vh",
     display: "flex",
@@ -49,7 +48,11 @@ function FoodItem({ food, index, total, currentSpeakerName, isPaused, zoomIn }) 
 
   const foodItemStyle = (index, total) => {
     if(zoomIn && currentSpeakerName === food.name) {
-      return singleFoodStyle;
+      let baseHeight = -19;
+      if (food.name == 'Lollipop') baseHeight = -22;
+      if (food.name == 'Banana') baseHeight = -20;
+      if (food.name == 'Beer') baseHeight = -18;
+      return {...singleFoodStyle, top: baseHeight + 'vh' };
     }else{
       return overViewFoodItemStyle(index,total);
     }
@@ -83,6 +86,9 @@ function FoodItem({ food, index, total, currentSpeakerName, isPaused, zoomIn }) 
     } else {
       top = a * Math.pow(index - middleIndex, 2) + topMax - topOffset;
     }
+
+    if (food.name == 'Lollipop') top *= 1.05;
+    if (food.name == 'Beer') top *= 0.97;
 
     const size = overviewSize + "vw";
     return {
