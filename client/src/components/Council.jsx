@@ -144,7 +144,8 @@ function Council({ options }) {
   }, []);
 
   useEffect(() => {
-    if(attemptingReconnect){
+    if(attemptingReconnect && currentMeetingId){
+      console.log("reconnect to " + currentMeetingId);
       socketRef.current.emit("attempt_reconnection", {
         meetingId: currentMeetingId,
         handRaised: isRaisedHand,
@@ -167,7 +168,7 @@ function Council({ options }) {
   //     //   }
   //     // }, 2000); // Adjust the timeout as necessary
     }
-  },[attemptingReconnect])
+  },[attemptingReconnect,currentMeetingId]);
 
   // // Set the current meeting id ref
   // useEffect(() => {
