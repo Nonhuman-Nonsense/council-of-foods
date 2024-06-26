@@ -58,7 +58,7 @@ function Output({
       currentMessageIndex < textMessages.length - 1 &&
       !playInvitation &&
       audioMessages.find(
-        (a) => a.message_id === textMessages[currentMessageIndex + 1].id
+        (a) => a.id === textMessages[currentMessageIndex + 1].id
       )
     ) {
       setCanGoForward(true);
@@ -130,7 +130,7 @@ function Output({
 
     if (textMessage) {
       const audioMessage = audioMessages.find(
-        (a) => a.message_id === textMessage.id
+        (a) => a.id === textMessage.id
       );
 
       if (audioMessage && !isFoundMessage) {

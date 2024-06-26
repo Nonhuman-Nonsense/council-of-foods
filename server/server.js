@@ -519,8 +519,6 @@ io.on("connection", (socket) => {
 
     const audioObject = {
       id: id,
-      message_id: id,
-      // message_index: index,
       audio: buffer,
     };
 
