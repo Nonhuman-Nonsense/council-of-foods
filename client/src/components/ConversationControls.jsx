@@ -79,9 +79,10 @@ function ConversationControls({
               position: "absolute",
               bottom: isMobile ? "12px" : "16px",
               fontSize: isMobile ? "15px" : "18px",
-              left: isMobile ? "230px" : "280px",
+              left: isMobile ? "230px" : "285px",
               width: "160px",
               animation: "1s slideInFade",
+              opacity: "0.7",
               display: "flex",
             }}
           >
