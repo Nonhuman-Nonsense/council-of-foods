@@ -250,8 +250,8 @@ function Output({
   useEffect(() => {
     if (
       currentMessageIndex === 0 ||
-      currentTextMessage.type == "human" ||
-      currentTextMessage.purpose == "summary"
+      currentTextMessage.type === "human" ||
+      currentTextMessage.purpose === "summary"
     ) {
       setZoomIn(false);
     }
