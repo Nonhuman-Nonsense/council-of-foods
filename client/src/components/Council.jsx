@@ -41,7 +41,6 @@ function Council({ options }) {
   const [continuations, setContinuations] = useState(0);
   const [currentMeetingId, setCurrentMeetingId] = useState(null); // Use state to manage meetingId
   const [attemptingReconnect, setAttemptingReconnect] = useState(false); // Use state to manage meetingId
-  // const currentMeetingIdRef = useRef(null);
 
   if (audioContext.current === null) {
     const AudioContext = window.AudioContext || window.webkitAudioContext; //cross browser
@@ -73,13 +72,8 @@ function Council({ options }) {
       characters: foods,
     };
 
-    // socketRef.current.on("connect", () => {
-    //   console.log('socket connected');
-    // });
-
     socketRef.current.io.on("reconnect", () => {
       setAttemptingReconnect(true);
-      console.log('socket reconnected');
     });
 
     socketRef.current.emit("start_conversation", conversationOptions);
@@ -89,7 +83,6 @@ function Council({ options }) {
     });
 
     socketRef.current.on("meeting_started", (meeting) => {
-      console.log("Meeting #" + meeting.meeting_id + " started");
       setCurrentMeetingId(meeting.meeting_id);
       navigate("/meeting/" + meeting.meeting_id);
     });
@@ -117,16 +110,9 @@ function Council({ options }) {
       setTextMessages(() => textMessages);
     });
 
-    // socketRef.current.on("connect_error", (error) => {
-    //   console.log("Connection error:", error);
-    //   setAttemptingReconnect(true);
-    // });
-
-
     // Add event listener for tab close
     const handleTabClose = (event) => {
       if (socketRef.current) {
-        console.log("Disconnecting socket due to tab close");
         socketRef.current.disconnect();
       }
     };
@@ -136,7 +122,6 @@ function Council({ options }) {
     // Clean up the socket connection when the component unmounts
     return () => {
       if (socketRef.current) {
-        console.log("Disconnecting socket");
         socketRef.current.disconnect();
       }
       window.removeEventListener("beforeunload", handleTabClose);
@@ -145,38 +130,14 @@ function Council({ options }) {
 
   useEffect(() => {
     if(attemptingReconnect && currentMeetingId){
-      console.log("reconnect to " + currentMeetingId);
       socketRef.current.emit("attempt_reconnection", {
         meetingId: currentMeetingId,
         handRaised: isRaisedHand,
         conversationMaxLength: conversationMaxLength
       });
       setAttemptingReconnect(false);
-
-  //     if (socketRef.current.connected) {
-  //       setAttemptingReconnect(false);
-  //       return;
-  //     }
-  //     // setTimeout(() => {
-  //     //   if (!socketRef.current.connected) {
-  //     //     console.log("Reconnecting...");
-  //     //     socketRef.current.connect();
-  //     //
-  //     //     // Attempt to start the conversation again
-  //     //     console.log('reconnected');
-
-  //     //   }
-  //     // }, 2000); // Adjust the timeout as necessary
     }
   },[attemptingReconnect,currentMeetingId]);
-
-  // // Set the current meeting id ref
-  // useEffect(() => {
-  //   if (currentMeetingId !== null) {
-  //     currentMeetingIdRef.current = currentMeetingId;
-  //     console.log("Current Meeting ID:", currentMeetingId);
-  //   }
-  // }, [currentMeetingId]);
 
   useEffect(() => {
     if (["/about", "/contact", "/share"].includes(location?.pathname)) {
@@ -265,7 +226,6 @@ function Council({ options }) {
       setTextMessages((prevMessages) => {
         const beforeInvitation = prevMessages.slice(0, invitationIndex);
         beforeInvitation.push(invitation);
-        console.log(beforeInvitation);
         return beforeInvitation;
       });
 
@@ -327,8 +287,6 @@ function Council({ options }) {
 
   function handleOnContinue() {
     setBumpIndex1(!bumpIndex1);
-    console.log("Increasing continuations");
-    console.log("Continuations were: ", continuations);
     setContinuations(continuations + 1);
 
     setIsReadyToStart(false);
@@ -353,11 +311,6 @@ function Council({ options }) {
     removeOverlay();
 
     socketRef.current.emit("wrap_up_meeting");
-  }
-
-  function handleOnCompletedSummary() {
-    console.log("Resetting");
-    // options.onReset();
   }
 
   function currentSpeakerIndex() {
@@ -434,7 +387,6 @@ function Council({ options }) {
           setZoomIn={setZoomIn}
           isInterjecting={isInterjecting}
           onCompletedConversation={handleOnCompletedConversation}
-          onCompletedSummary={handleOnCompletedSummary}
           currentMessageIndex={currentMessageIndex}
           setCurrentMessageIndex={setCurrentMessageIndex}
           conversationMaxLength={conversationMaxLength}

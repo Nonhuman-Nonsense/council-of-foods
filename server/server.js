@@ -74,7 +74,6 @@ io.on("connection", (socket) => {
   let extraMessageCount = 0;
   let meetingId;
   let meetingDate;
-  // let conversationCounter = 0; //this is for prototype, deactivate for now
   let conversationOptions = {
     topic: "",
     characters: {},
@@ -127,10 +126,6 @@ io.on("connection", (socket) => {
 
     socket.emit("invitation_to_speak", invitation);
 
-    // const voice = conversationOptions.characters[0].voice
-    //   ? conversationOptions.characters[0].voice
-    //   : audioVoices[0];
-
     generateAudio(id, response, conversationOptions.characters[0].name);
   });
 
@@ -152,7 +147,6 @@ io.on("connection", (socket) => {
     dontStop
   ) => {
     try {
-      // const thisConversationCounter = conversationCounter;
       const chair = conversationOptions.characters[0];
       let messages = buildMessageStack(chair, index);
 
@@ -172,8 +166,6 @@ io.on("connection", (socket) => {
       });
 
       let response = completion.choices[0].message.content.trim();
-
-      // if (thisConversationCounter != conversationCounter) return;
 
       if (response.startsWith(chair.name + ":")) {
         response = response.substring(chair.name.length + 1).trim();
@@ -243,7 +235,6 @@ io.on("connection", (socket) => {
       conversationOptions.characters[0].name
     );
 
-    // isPaused = false;
     handRaised = false;
     handleConversationTurn();
   });
@@ -269,10 +260,6 @@ io.on("connection", (socket) => {
       shouldResume: true,
     };
 
-    // const voice = conversationOptions.characters[0].voice
-    //   ? conversationOptions.characters[0].voice
-    //   : audioVoices[0];
-
     socket.emit("meeting_summary", summary);
 
     meetingsCollection.updateOne(
@@ -285,11 +272,6 @@ io.on("connection", (socket) => {
 
   socket.on("continue_conversation", () => {
     extraMessageCount += 5;
-    // isPaused = false;
-    // currentSpeaker =
-    //   currentSpeaker >= conversationOptions.characters.length - 1
-    //     ? 0
-    //     : currentSpeaker + 1;
 
     handleConversationTurn((shouldResume = true));
   });
@@ -402,9 +384,7 @@ io.on("connection", (socket) => {
 
   const handleConversationTurn = async (shouldResume = false) => {
     try {
-      // const thisConversationCounter = conversationCounter;
       if (!run) return;
-      // if (isPaused) return;
       if (handRaised) return;
       if (conversation.length >= globalOptions.conversationMaxLength + extraMessageCount) return;
       currentSpeaker = calculateCurrentSpeaker();
@@ -417,9 +397,7 @@ io.on("connection", (socket) => {
           conversationOptions.characters[currentSpeaker]
         );
 
-        // if (isPaused) return;
         if (handRaised) return;
-        // if (thisConversationCounter != conversationCounter) return;
         attempt++;
       }
 
@@ -450,9 +428,6 @@ io.on("connection", (socket) => {
         { $set: { conversation: conversation } }
       );
 
-      // const voice = conversationOptions.characters[currentSpeaker].voice
-      //   ? conversationOptions.characters[currentSpeaker].voice
-      //   : audioVoices[currentSpeaker % audioVoices.length];
       if (message.type != "skipped") {
         generateAudio(message.id, message.text, conversationOptions.characters[currentSpeaker].name);
       } else {
@@ -470,11 +445,6 @@ io.on("connection", (socket) => {
         socket.emit("conversation_end", conversation);
         return;
       }
-
-      // currentSpeaker =
-      //   currentSpeaker >= conversationOptions.characters.length - 1
-      //     ? 0
-      //     : currentSpeaker + 1;
 
       handleConversationTurn();
     } catch (error) {
@@ -514,7 +484,6 @@ io.on("connection", (socket) => {
       });
 
       buffer = Buffer.from(await mp3.arrayBuffer());
-      // if (thisConversationCounter != conversationCounter) return;
     }
 
     const audioObject = {

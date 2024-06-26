@@ -22,7 +22,6 @@ function Output({
   setZoomIn,
   isInterjecting,
   onCompletedConversation,
-  onCompletedSummary,
   currentMessageIndex,
   setCurrentMessageIndex,
   conversationMaxLength,
@@ -84,9 +83,6 @@ function Output({
 
   useEffect(() => {
     if (currentTextMessage && currentAudioMessage) {
-      console.log(
-        `Bumping up current message index by 1, to ${currentMessageIndex + 1}`
-      );
       setCurrentMessageIndex((prev) => prev + 1);
     }
   }, [bumpIndex1]);
@@ -119,8 +115,8 @@ function Output({
   }, [skipBackward]);
 
   useEffect(() => {
-    console.log("Updating textMessages: ", textMessages);
-    console.log("Updating audioMessages: ", audioMessages);
+    // console.log("Updating textMessages: ", textMessages);
+    // console.log("Updating audioMessages: ", audioMessages);
 
     findTextAndAudio();
   }, [textMessages, audioMessages]);
@@ -134,13 +130,9 @@ function Output({
       );
 
       if (audioMessage && !isFoundMessage) {
-        console.log("Found text and audio");
-        console.log("Text: ", textMessage);
-        console.log("Audio: ", audioMessage);
         setIsReadyToStart(true);
 
         if (textMessage.shouldResume) {
-          console.log("It's a continuation message!");
           onResumeConversation();
         }
 
@@ -160,7 +152,6 @@ function Output({
   }
 
   function goBackToPreviousMessage() {
-    console.log("Going back to previous message...");
     setIsFoundMessage(() => false);
     setCurrentMessageIndex((prev) => {
       return prev - 1 > 0 ? prev - 1 : 0;
@@ -168,10 +159,7 @@ function Output({
   }
 
   useEffect(() => {
-    console.log("PROCEEDING...");
-
     if (proceedToNextMessage) {
-      console.log("Proceeding to next message...");
       setProceedToNextMessage(() => false);
       setIsFoundMessage(() => false);
 
@@ -196,24 +184,16 @@ function Output({
 
       // Check if we're at the end of the list and if its an interjection
       if (currentIndex >= maxIndex) {
-        console.log("Reached the end of the message list.");
-
-        console.log("Current message: ", currentMessage);
-
         if (currentMessage && currentMessage.purpose === "summary") {
-          // TODO: Reset?
-          onCompletedSummary();
+          // TODO: Do something here?
         } else if (currentIndex === conversationMaxLength - 1) {
           // Conversation is completed
-          console.log("Conversation completed!");
           onCompletedConversation();
         } else {
           // We should have more messages, but they are not ready for some reason
           // So we wait
-          console.log("Waiting for more messages!");
           setIsReadyToStart(false);
           const test = incrementIndex(currentMessageIndex);
-          console.log(test);
           setCurrentMessageIndex(test);
         }
 
@@ -237,8 +217,6 @@ function Output({
   isPausedRef.current = isPaused;
 
   function handleOnFinishedPlaying() {
-    console.log("Finished playing message...");
-
     setZoomIn(false);
     //If the audio has ended, wait a bit before proceeding
     //Unless last message was invitation
