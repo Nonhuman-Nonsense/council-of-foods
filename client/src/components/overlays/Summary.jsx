@@ -10,17 +10,27 @@ function Summary({ summary, meetingId }) {
   const pdfElementRef = useRef(null);
 
   const summaryWrapper = {
-    height: 'calc(100% - 40px)',
+    height: isMobile ?
+    'calc(100% - 30px)'
+    : 'calc(100% - 40px)',
     overflowY: "auto",
   };
 
   const wrapper = {
     height: isMobile
-      ? "calc(100vh - 55px)"
+      ? "calc(100vh - 100px)"
       : "calc(100vh - 60px - 56px - 20px)",
     marginBottom: isMobile ? "45px" : "56px",
     marginTop: !isMobile && "20px",
     width: isMobile ? "600px" : "800px"
+  };
+
+  const buttonsWrapper = {
+    height: isMobile ? "30px" : "40px",
+    display: 'flex',
+    flexDirection: 'row',
+    alignItems: "center",
+    justifyContent: "center"
   };
 
   const protocolStyle = {
@@ -44,7 +54,7 @@ function Summary({ summary, meetingId }) {
       {parse(marked(summary.text))}
       </div>
     </div>
-      <div style={{height: "40px", display: 'flex', flexDirection: 'row', alignItems: "center", justifyContent: "center"}}>
+      <div style={buttonsWrapper}>
       <button onClick={() => pdfElementRef.current.createPdf()}>
         Download PDF
         </button>

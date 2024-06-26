@@ -40,7 +40,7 @@ function Council({ options }) {
   const location = useLocation();
   const [continuations, setContinuations] = useState(0);
   const [currentMeetingId, setCurrentMeetingId] = useState(null); // Use state to manage meetingId
-  const currentMeetingIdRef = useRef(null);
+  const [attemptingReconnect, setAttemptingReconnect] = useState(false); // Use state to manage meetingId
 
   if (audioContext.current === null) {
     const AudioContext = window.AudioContext || window.webkitAudioContext; //cross browser
@@ -66,60 +66,53 @@ function Council({ options }) {
     // Connect to the server
     socketRef.current = io();
 
-    const setupSocketListeners = () => {
-      let conversationOptions = {
-        humanName: humanName,
-        topic: topic.prompt,
-        characters: foods,
-      };
-
-      socketRef.current.emit("start_conversation", conversationOptions);
-
-      socketRef.current.on("invitation_to_speak", (invitation) => {
-        setInvitation(invitation);
-      });
-
-      socketRef.current.on("meeting_started", (meeting) => {
-        console.log("Meeting #" + meeting.meeting_id + " started");
-        setCurrentMeetingId(meeting.meeting_id);
-        navigate("/meeting/" + meeting.meeting_id);
-      });
-
-      socketRef.current.on("meeting_summary", (summary) => {
-        setSummary(summary);
-      });
-
-      socketRef.current.on("audio_update", (audioMessage) => {
-        (async () => {
-          if (audioMessage.audio) {
-            const buffer = await audioContext.current.decodeAudioData(
-              audioMessage.audio
-            );
-            audioMessage.audio = buffer;
-          }
-          setAudioMessages((prevAudioMessages) => [
-            ...prevAudioMessages,
-            audioMessage,
-          ]);
-        })();
-      });
-
-      socketRef.current.on("conversation_update", (textMessages) => {
-        setTextMessages(() => textMessages);
-      });
-
-      socketRef.current.on("connect_error", (error) => {
-        console.log("Connection error:", error);
-        attemptReconnect();
-      });
+    let conversationOptions = {
+      humanName: humanName,
+      topic: topic.prompt,
+      characters: foods,
     };
 
-    setupSocketListeners();
+    socketRef.current.io.on("reconnect", () => {
+      setAttemptingReconnect(true);
+    });
+
+    socketRef.current.emit("start_conversation", conversationOptions);
+
+    socketRef.current.on("invitation_to_speak", (invitation) => {
+      setInvitation(invitation);
+    });
+
+    socketRef.current.on("meeting_started", (meeting) => {
+      setCurrentMeetingId(meeting.meeting_id);
+      navigate("/meeting/" + meeting.meeting_id);
+    });
+
+    socketRef.current.on("meeting_summary", (summary) => {
+      setSummary(summary);
+    });
+
+    socketRef.current.on("audio_update", (audioMessage) => {
+      (async () => {
+        if (audioMessage.audio) {
+          const buffer = await audioContext.current.decodeAudioData(
+            audioMessage.audio
+          );
+          audioMessage.audio = buffer;
+        }
+        setAudioMessages((prevAudioMessages) => [
+          ...prevAudioMessages,
+          audioMessage,
+        ]);
+      })();
+    });
+
+    socketRef.current.on("conversation_update", (textMessages) => {
+      setTextMessages(() => textMessages);
+    });
 
     // Add event listener for tab close
     const handleTabClose = (event) => {
       if (socketRef.current) {
-        console.log("Disconnecting socket due to tab close");
         socketRef.current.disconnect();
       }
     };
@@ -129,37 +122,22 @@ function Council({ options }) {
     // Clean up the socket connection when the component unmounts
     return () => {
       if (socketRef.current) {
-        console.log("Disconnecting socket");
         socketRef.current.disconnect();
       }
       window.removeEventListener("beforeunload", handleTabClose);
     };
   }, []);
 
-  const attemptReconnect = () => {
-    setTimeout(() => {
-      if (!socketRef.current.connected) {
-        console.log("Reconnecting...");
-        socketRef.current.connect();
-
-        // Attempt to start the conversation again
-        socketRef.current.emit("start_conversation", {
-          humanName: humanName,
-          topic: topic.prompt,
-          characters: foods,
-          meetingId: currentMeetingIdRef.current,
-        });
-      }
-    }, 2000); // Adjust the timeout as necessary
-  };
-
-  // Set the current meeting id ref
   useEffect(() => {
-    if (currentMeetingId !== null) {
-      currentMeetingIdRef.current = currentMeetingId;
-      console.log("Current Meeting ID:", currentMeetingId);
+    if(attemptingReconnect && currentMeetingId){
+      socketRef.current.emit("attempt_reconnection", {
+        meetingId: currentMeetingId,
+        handRaised: isRaisedHand,
+        conversationMaxLength: conversationMaxLength
+      });
+      setAttemptingReconnect(false);
     }
-  }, [currentMeetingId]);
+  },[attemptingReconnect,currentMeetingId]);
 
   useEffect(() => {
     if (["/about", "/contact", "/share"].includes(location?.pathname)) {
@@ -248,7 +226,6 @@ function Council({ options }) {
       setTextMessages((prevMessages) => {
         const beforeInvitation = prevMessages.slice(0, invitationIndex);
         beforeInvitation.push(invitation);
-        console.log(beforeInvitation);
         return beforeInvitation;
       });
 
@@ -310,8 +287,6 @@ function Council({ options }) {
 
   function handleOnContinue() {
     setBumpIndex1(!bumpIndex1);
-    console.log("Increasing continuations");
-    console.log("Continuations were: ", continuations);
     setContinuations(continuations + 1);
 
     setIsReadyToStart(false);
@@ -336,11 +311,6 @@ function Council({ options }) {
     removeOverlay();
 
     socketRef.current.emit("wrap_up_meeting");
-  }
-
-  function handleOnCompletedSummary() {
-    console.log("Resetting");
-    // options.onReset();
   }
 
   function currentSpeakerIndex() {
@@ -417,7 +387,6 @@ function Council({ options }) {
           setZoomIn={setZoomIn}
           isInterjecting={isInterjecting}
           onCompletedConversation={handleOnCompletedConversation}
-          onCompletedSummary={handleOnCompletedSummary}
           currentMessageIndex={currentMessageIndex}
           setCurrentMessageIndex={setCurrentMessageIndex}
           conversationMaxLength={conversationMaxLength}
