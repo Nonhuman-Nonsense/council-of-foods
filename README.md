@@ -22,7 +22,7 @@ The project is an initiative by art & design collective [Nonhuman Nonsense](http
 
 Council of Foods is part of [The Hungry EcoCities project](https://starts.eu/hungryecocities/), part of the [S+T+ARTS](https://starts.eu/) programme, and has received funding from the European Union’s [Horizon Europe research and innovation programme under grant agreement 101069990](https://cordis.europa.eu/project/id/101069990).
 
-<img src="https://github.com/Nonhuman-Nonsense/council-of-foods/blob/main/client/public/logos/logos_eu-white-starts-white.webp?raw=true" width="500" />
+<a href="https://cordis.europa.eu/project/id/101069990"><img src="https://github.com/Nonhuman-Nonsense/council-of-foods/blob/main/client/public/logos/logos_eu-white-starts-white.webp?raw=true" width="500" /></a>
 
 
 ---
