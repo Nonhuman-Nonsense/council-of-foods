@@ -1,4 +1,7 @@
-@import url("https://fonts.googleapis.com/css2?family=Tinos:ital,wght@0,400;0,700;1,400;1,700&display=swap");
+@font-face {
+  font-family: 'Tinos';
+  src: local('Tinos'), url(./Tinos-Regular.ttf) format('truetype');
+}
 
 body,
 html,
@@ -13,8 +16,7 @@ html,
 }
 
 .App {
-  font-family: "Tinos", serif;
-  font-weight: 400;
+  font-family: "Tinos", sans-serif;
   font-style: normal;
   text-align: center;
   color: white;
