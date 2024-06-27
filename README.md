@@ -1,6 +1,6 @@
 # Council of foods
 
-![alt text](https://github.com/Nonhuman-Nonsense/council-of-foods/blob/main/client/public/council-of-foods-preview.jpeg?raw=true)
+![Council of Foods](https://github.com/Nonhuman-Nonsense/council-of-foods/blob/main/client/public/council-of-foods-preview.jpeg?raw=true)
 
 Welcome to the Council of Foods!
 
@@ -14,11 +14,16 @@ The project (the code in this repo) is live on [council-of-foods.com](https://co
 
 ## Who made this?
 
+<a href="https://nonhuman-nonsense.com/"><img src="https://github.com/Nonhuman-Nonsense/council-of-foods/blob/main/client/public/logos/nonhuman_nonsense_logo.png?raw=true" width="120" /></a>
+
 The project is an initiative by art & design collective [Nonhuman Nonsense](https://nonhuman-nonsense.com/) developed in collaboration with [Studio Other Spaces](https://studiootherspaces.net/), [In4Art](https://www.in4art.eu/), [Elliot Cost](https://elliott.computer/), [Albin Karlsson](https://www.polymorf.se/) and others.
 
 [@nonhuman-nonsense](http://instagram.com/nonhuman_nonsense)
 
 Council of Foods is part of [The Hungry EcoCities project](https://starts.eu/hungryecocities/), part of the [S+T+ARTS](https://starts.eu/) programme, and has received funding from the European Union’s [Horizon Europe research and innovation programme under grant agreement 101069990](https://cordis.europa.eu/project/id/101069990).
+
+<img src="https://github.com/Nonhuman-Nonsense/council-of-foods/blob/main/client/public/logos/logos_eu-white-starts-white.webp?raw=true" width="500" />
+
 
 ---
 
