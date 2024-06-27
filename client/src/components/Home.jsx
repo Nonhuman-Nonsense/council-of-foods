@@ -20,6 +20,19 @@ import { useMediaQuery } from "react-responsive";
 import { useMobile } from "../utils";
 import FullscreenButton from "./FullscreenButton";
 
+function useIsIphone() {
+  const [isIphone, setIsIphone] = useState(false);
+
+  useEffect(() => {
+    const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+    if (/iPhone/.test(userAgent) && !window.MSStream) {
+      setIsIphone(true);
+    }
+  }, []);
+
+  return isIphone;
+}
+
 function Home() {
   const [humanName, setHumanName] = useState("");
   const [topic, setTopic] = useState({ title: "", prompt: "" });
@@ -28,6 +41,7 @@ function Home() {
   const [currentView, setCurrentView] = useState(pages[0]);
   const location = useLocation();
   const navigate = useNavigate();
+  const isIphone = useIsIphone();
 
   useEffect(() => {
     if (humanName === "" && location.pathname !== "/") {
@@ -155,7 +169,7 @@ function Home() {
         {currentView === "council" && (
           <Council options={{ humanName, topic, foods, onReset: reset }} />
         )}
-        <FullscreenButton />
+        {!isIphone && <FullscreenButton />}
       </Overlay>
       {isPortrait && currentView !== "landing" && <RotateOverlay />}
     </>
