@@ -480,6 +480,7 @@ io.on("connection", (socket) => {
       const mp3 = await openai.audio.speech.create({
         model: "tts-1",
         voice: voiceName,
+        speed: globalOptions.audio_speed,
         input: text.substring(0, 4096),
       });
 
