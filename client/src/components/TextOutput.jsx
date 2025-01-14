@@ -119,7 +119,8 @@ function TextOutput({
       return 1500; // Minimum display time if text is undefined or empty
     }
     const baseTimePerCharacter = 0.06; // Adjust this value as needed
-    return Math.round(Math.max(1.5, text.length * baseTimePerCharacter) * 1000);
+    const speedMultiplier = 1.15;
+    return Math.round(Math.max(1.5, text.length * baseTimePerCharacter / speedMultiplier) * 1000);
   };
 
   const paragraphStyle = {

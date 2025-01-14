@@ -6,6 +6,7 @@
   "frequency_penalty": 0.7,
   "presence_penalty": 0.7,
   "trimSentance": false,
+  "audio_speed": 1.15,
   "trimParagraph": true,
   "show_trimmed": true,
   "conversationMaxLength": 10,
