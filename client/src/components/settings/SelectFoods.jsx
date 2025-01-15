@@ -63,8 +63,9 @@ function SelectFoods({ topic, onContinueForward }) {
   }
 
   const discriptionStyle = {
-    transition: "opacity 0.5s ease",
+    transition: "opacity ease",
     opacity: currentFood === null ? 1 : 0,
+    transitionDuration: currentFood === null ? "1s" : "0ms",
     pointerEvents: currentFood === null ? "all" : "none",
   };
 
@@ -89,9 +90,9 @@ function SelectFoods({ topic, onContinueForward }) {
         >
           <div style={discriptionStyle}>
             <p style={{margin: 0}}>
-              In the discussion on
+              Council of Foods meeting on
               <h4>{toTitleCase(topic.title)}</h4>
-              {selectedFoods.length < 2 ? <p>please select 2-6 foods</p> : <><p>you have selected:</p>
+              {selectedFoods.length < 2 ? <p>please select 2-6 foods for the discussion</p> : <><p>will be attended by:</p>
                 <p>{selectedFoods.map((food) => <div>{food.name}<br/></div>)}</p>
                 </>}
             </p>
@@ -114,11 +115,13 @@ function SelectFoods({ topic, onContinueForward }) {
             />
           ))}
         </div>
+        <div style={{display: "flex", justifyContent: "center"}}>
+        {selectedFoods.length < 2 && <button onClick={randomizeSelection} style={{...discriptionStyle, margin: "8px 0", position: "absolute"}}>Randomize</button>}
         {selectedFoods.length >= minFoods && selectedFoods.length <= maxFoods ?
           <button onClick={continueForward} style={{margin: "8px 0"}}>Start</button> :
-          currentFood === null ? <button onClick={randomizeSelection} style={{margin: "8px 0"}}>Randomize</button> :
-          <h4 style={{margin: isMobile && "7px"}}>please select 2-6 foods for the discussion</h4>
+          (currentFood !== null || selectedFoods.length === 2) && <h4 style={{margin: isMobile && "7px"}}>please select 2-6 foods for the discussion</h4>
         }
+        </div>
       </div>
     </div>
   );
