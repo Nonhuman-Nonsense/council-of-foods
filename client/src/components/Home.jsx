@@ -9,7 +9,6 @@ import {
 } from "react-router-dom";
 import Overlay from "../components/Overlay";
 import Landing from "../components/settings/Landing";
-import Welcome from "../components/settings/Welcome";
 import About from "../components/overlays/About";
 import Contact from "../components/overlays/Contact";
 import SelectTopic from "../components/settings/SelectTopic";
@@ -43,14 +42,15 @@ function Home() {
   const navigate = useNavigate();
   const isIphone = useIsIphone();
 
-  useEffect(() => {
-    if (humanName === "" && location.pathname !== "/") {
-      setCurrentView("landing");
-      if (!["/about", "/contact", "/share"].includes(location.pathname)) {
-        return navigate("/");
-      }
-    }
-  }, [humanName, location.pathname, navigate]);
+  //Temporarily disabled! Fix again to resovle paths
+  // useEffect(() => {
+  //   if (topic.title === "" && (location.pathname !== "/") {
+  //     setCurrentView("landing");
+  //     if (!["/about", "/contact", "/share"].includes(location.pathname)) {
+  //       return navigate("/");
+  //     }
+  //   }
+  // }, [humanName, location.pathname, navigate]);
 
   useEffect(() => {
     // console.log("location: " + location.pathname);
@@ -71,9 +71,6 @@ function Home() {
   function continueForward(fromPage, props) {
     let next = "";
     if (fromPage === "landing") {
-      setHumanName(props.humanName);
-      next = "welcome";
-    } else if (fromPage === "welcome") {
       next = "topics";
     } else if (fromPage === "topic") {
       setTopic(props.topic);
@@ -88,6 +85,7 @@ function Home() {
   }
 
   function reset(topic) {
+    setHumanName("");
     setTopic(topic ?? { title: "", prompt: "" });
     setFoods([]);
 
@@ -116,18 +114,7 @@ function Home() {
               path="/"
               element={
                 <Landing
-                  onContinueForward={(props) =>
-                    continueForward("landing", props)
-                  }
-                />
-              }
-            />
-            <Route
-              path="welcome"
-              element={
-                <Welcome
-                  humanName={humanName}
-                  onContinueForward={() => continueForward("welcome")}
+                  onContinueForward={() => continueForward("landing")}
                 />
               }
             />
