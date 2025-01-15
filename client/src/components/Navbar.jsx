@@ -59,21 +59,27 @@ function Navbar({ topic, activeOverlay, onDisplayOverlay, onNavigate }) {
       <div
         style={{
           textAlign: "left",
+          display: "flex",
+          flexDirection: "row",
+          alignItems: "flex-start",
           visibility: isMobile ? "hidden" : "visible",
         }}
       >
-        <h3
-          style={{
-            margin: "0",
-            padding: "0",
-            pointerEvents: "auto",
-            cursor: "pointer",
-          }}
-          onClick={() => onNavigate("")}
-        >
-          COUNCIL OF FOODS
-        </h3>
-        <h4 style={{ marginTop: "5px" }}>{capitalizeFirstLetter(topic)}</h4>
+        <img style={{width: '75px', marginRight: "10px", marginTop: "7px", pointerEvents: "auto", cursor: "pointer"}} onClick={() => onNavigate("")} src='/logos/council_logo_white.svg' alt="Council of Foods logo" />
+        <div>
+          <h3
+            style={{
+              margin: "0",
+              padding: "0",
+              pointerEvents: "auto",
+              cursor: "pointer",
+            }}
+            onClick={() => onNavigate("")}
+          >
+            COUNCIL OF FOODS
+          </h3>
+          <h4 style={{ marginTop: "5px" }}>{capitalizeFirstLetter(topic)}</h4>
+        </div>
       </div>
       <div
         style={{ display: "flex", flexDirection: "column", alignItems: "end" }}
