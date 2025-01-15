@@ -168,7 +168,7 @@ function SelectTopic(props) {
         />
       ) : (
         <div style={container}>
-          <h1 style={{ marginBottom: isMobile ? "0" : "20px" }}>THE ISSUE</h1>
+          <h1 style={{ marginBottom: isMobile && "0" }}>THE ISSUE</h1>
           <div
             style={{
               display: "flex",
