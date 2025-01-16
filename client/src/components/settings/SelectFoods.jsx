@@ -101,7 +101,7 @@ function SelectFoods({ topic, onContinueForward }) {
         </div>
       </div>
       <div style={{height: isMobile ? "93px" : "110px"}}>
-        <div style={{ display: "flex" }}>
+        <div style={{ display: "flex", alignItems: "center" }}>
           {foods.map((food) => (
             <FoodButton
               key={food.name}
@@ -115,7 +115,7 @@ function SelectFoods({ topic, onContinueForward }) {
             />
           ))}
         </div>
-        <div style={{display: "flex", justifyContent: "center"}}>
+        <div style={{display: "flex", justifyContent: "center", marginTop: "5px"}}>
         {selectedFoods.length < 2 && <button onClick={randomizeSelection} style={{...discriptionStyle, margin: "8px 0", position: "absolute"}}>Randomize</button>}
         {selectedFoods.length >= minFoods && selectedFoods.length <= maxFoods ?
           <button onClick={continueForward} style={{margin: "8px 0"}}>Start</button> :
