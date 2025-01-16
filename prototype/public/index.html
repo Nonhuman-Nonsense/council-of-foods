@@ -11,7 +11,7 @@
         <div id="setup">
             <div id="global-vars">
               <h3>model options</h3>
-                GPT Model: <select id="gpt-model"><option value="gpt-4">GPT 4</option><option value="gpt-4-turbo-preview">GPT 4 Turbo</option><option value="gpt-3.5-turbo" selected>GPT 3.5 Turbo</option></select><br/>
+                GPT Model: <select id="gpt-model"><option value="gpt-4o">GPT-4o</option><option value="gpt-4o-mini">GPT-4o mini</option><option value="o1">o1</option><option value="o1-mini">o1 mini</option></select><br/>
                 Temperature: <div class="explanaition">Controls randomness: Lowering results in less random completions. As the temperature approaches zero, the model will become deterministic and repetitive.</div><input type="range" min="0" max="2.0" step="0.01" value="1" class="slider"><input class="slider-value" step="0.01" type="number" id="temperature"><br/>
                 Maximum Length: <div class="explanaition">The maximum number of tokens to <b>generate</b> shared between the prompt and completion. The exact limit varies by model. (One token is roughly 4 characters for standard English text)</div><input type="range" min="1" max="600" value="200" class="slider"><input class="slider-value" type="number" step="10"  id="max-tokens"><br/>
                 Frequency Penalty: <div class="explanaition">How much to penalize new tokens based on their existing frequency in the text so far. Decreases the model's likelihood to repeat the same line verbatim.</div><input type="range" min="0" max="2.0" step="0.01" value="0" class="slider"><input class="slider-value" step="0.01" type="number" id="frequency-penalty"><br/>
