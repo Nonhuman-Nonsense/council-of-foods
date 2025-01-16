@@ -15,7 +15,8 @@ function ConversationControls({
   canGoBack,
   canGoForward,
   canRaiseHand,
-  onTopOfOverlay
+  onTopOfOverlay,
+  humanName
 }) {
   const isMobile = useMobile();
 
@@ -80,13 +81,13 @@ function ConversationControls({
               bottom: isMobile ? "12px" : "16px",
               fontSize: isMobile ? "15px" : "18px",
               left: isMobile ? "230px" : "285px",
-              width: "160px",
+              width: "400px",
               animation: "1s slideInFade",
               opacity: "0.7",
               display: "flex",
             }}
           >
-            Wait for your turn<div className="loader"></div>
+            {humanName}, wait for your turn to speak<div className="loader"></div>
           </span>
         )}
       </div>

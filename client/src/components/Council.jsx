@@ -11,7 +11,7 @@ import ConversationControls from "./ConversationControls";
 import HumanInput from "./HumanInput";
 
 function Council({ options }) {
-  const { foods, humanName, topic } = options;
+  const { foods, humanName, setHumanName, topic } = options;
   const [activeOverlay, setActiveOverlay] = useState("");
   const [textMessages, setTextMessages] = useState([]); // State to store conversation updates
   const [audioMessages, setAudioMessages] = useState([]); // To store multiple ArrayBuffers
@@ -67,7 +67,6 @@ function Council({ options }) {
     socketRef.current = io();
 
     let conversationOptions = {
-      humanName: humanName,
       topic: topic.prompt,
       characters: foods,
     };
@@ -205,6 +204,7 @@ function Council({ options }) {
         handWasRaised.current = true;
         setInvitation(null);
         socketRef.current.emit("raise_hand", {
+          humanName: humanName,
           index: currentMessageIndex + 1,
         });
         setInvitationIndex(currentMessageIndex + 1);
@@ -218,7 +218,7 @@ function Council({ options }) {
 
       socketRef.current.emit("lower_hand");
     }
-  }, [isRaisedHand]);
+  }, [isRaisedHand, humanName]);
 
   useEffect(() => {
     if (playInvitation) {
@@ -248,7 +248,20 @@ function Council({ options }) {
   }
 
   function handleOnRaiseHandOrNevermind() {
-    setIsRaisedHand((prev) => !prev);
+    if(humanName === ""){
+      displayOverlay("name");
+    }else{
+      setIsRaisedHand((prev) => !prev);
+    }
+  }
+
+  function handleHumanNameEntered(input) {
+    if(input.humanName){
+      setHumanName(input.humanName);
+      setIsRaisedHand((prev) => !prev);
+      removeOverlay();
+      handlePausePlay();
+    }
   }
 
   // Function to handle overlay content based on navbar clicks
@@ -412,6 +425,7 @@ function Council({ options }) {
           canGoForward={canGoForward}
           canRaiseHand={activeOverlay !== "summary" && canRaiseHand}
           onTopOfOverlay={activeOverlay === "summary"}
+          humanName={humanName}
         />
       )}
       <Overlay isActive={activeOverlay !== ""}>
@@ -422,6 +436,7 @@ function Council({ options }) {
               ...options,
               onContinue: handleOnContinue,
               onWrapItUp: handleOnWrapItUp,
+              proceedWithHumanName: handleHumanNameEntered,
               continuations: continuations,
             }}
             removeOverlay={removeOverlay}

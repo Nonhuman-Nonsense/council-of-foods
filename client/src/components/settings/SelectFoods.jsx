@@ -18,7 +18,7 @@ function SelectFoods({ topic, onContinueForward }) {
   const [currentFood, setCurrentFood] = useState(null);
 
   const minFoods = 2 + 1; // 2 plus water
-  const maxFoods = 6 + 1; // 5 plus water
+  const maxFoods = 6 + 1; // 6 plus water
 
   function continueForward() {
     if (selectedFoods.length >= minFoods && selectedFoods.length <= maxFoods) {
@@ -52,13 +52,20 @@ function SelectFoods({ topic, onContinueForward }) {
     }
   }
 
+  function randomizeSelection() {
+    const amount = Math.floor(Math.random() * (maxFoods - minFoods + 1)) + minFoods - 1;
+    const randomfoods = foods.slice(1).sort(() => 0.5 - Math.random()).slice(0, amount);
+    setSelectedFoods([waterFood, ...randomfoods]);
+  }
+
   function deselectFood(food) {
     setSelectedFoods((prevFoods) => prevFoods.filter((f) => f !== food));
   }
 
   const discriptionStyle = {
-    transition: "opacity 0.5s ease",
+    transition: "opacity ease",
     opacity: currentFood === null ? 1 : 0,
+    transitionDuration: currentFood === null ? "1s" : "0ms",
     pointerEvents: currentFood === null ? "all" : "none",
   };
 
@@ -82,17 +89,19 @@ function SelectFoods({ topic, onContinueForward }) {
           }}
         >
           <div style={discriptionStyle}>
-            <p>
-              Please select 2-6 foods
-              <br /> to participate in the discussion about:
+            <p style={{margin: 0}}>
+              Council of Foods meeting on
+              <h4>{toTitleCase(topic.title)}</h4>
+              {selectedFoods.length < 2 ? <p>please select 2-6 foods for the discussion</p> : <><p>will be attended by:</p>
+                <p>{selectedFoods.map((food) => <div>{food.name}<br/></div>)}</p>
+                </>}
             </p>
-            <h4>{toTitleCase(topic.title)}</h4>
           </div>
           <FoodInfo food={currentFood} />
         </div>
       </div>
       <div style={{height: isMobile ? "93px" : "110px"}}>
-        <div style={{ display: "flex" }}>
+        <div style={{ display: "flex", alignItems: "center" }}>
           {foods.map((food) => (
             <FoodButton
               key={food.name}
@@ -106,12 +115,13 @@ function SelectFoods({ topic, onContinueForward }) {
             />
           ))}
         </div>
+        <div style={{display: "flex", justifyContent: "center", marginTop: "5px"}}>
+        {selectedFoods.length < 2 && <button onClick={randomizeSelection} style={{...discriptionStyle, margin: "8px 0", position: "absolute"}}>Randomize</button>}
         {selectedFoods.length >= minFoods && selectedFoods.length <= maxFoods ?
           <button onClick={continueForward} style={{margin: "8px 0"}}>Start</button> :
-          <h4 style={{visibility: currentFood === null ? "hidden" : "", margin: isMobile && "7px"}}>
-            please select 2-6 foods for the discussion
-          </h4>
+          (currentFood !== null || selectedFoods.length === 2) && <h4 style={{margin: isMobile && "7px"}}>please select 2-6 foods for the discussion</h4>
         }
+        </div>
       </div>
     </div>
   );
@@ -132,7 +142,7 @@ function FoodInfo({ food }) {
         pointerEvents: food !== null ? "all" : "none",
       }}
     >
-      <h2 style={{margin: isMobile ? "0" : ""}}>{toTitleCase(food.name)}</h2>
+      <h2 style={{margin: isMobile ? "0" : "", marginTop: "-15px"}}>{toTitleCase(food.name)}</h2>
       <p style={{margin: isMobile ? "0" : ""}}>{food.description?.split('\n').map((item, key) => {
           return <span key={key}>{item}<br/></span>
         })}

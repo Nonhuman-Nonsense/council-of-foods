@@ -2,7 +2,32 @@
   "system": "Welcome to the Council of Foods—an assembly of diverse foods, addressing the broken food system through passionate debate. It is a never ending meeting. Today's meeting is about: [TOPIC].\n\nEach food provides distinct perspectives, stories, and examples, shared from their own experience. They have an unlimited amount of knowledge and they want to share all of it during the debate. The foods perspectives differ and they are not afraid of conflict. Moderated by Water, discussions are dynamic and intense, ensuring a comprehensive exploration of the challenges.\n\nParticipants respond to questions from Water, avoiding repetition, and defending their values and agendas. This is a humour talk show, everyone is doing standup.",
   "topics": [
     {
-      "title": "seed patents & ownership",
+      "title": "Biodiversity Loss",
+      "description" : "Exploring seed ownership, shared food resources, patent impacts on innovation, cultural diversity, food sovereignty, and biodiversity's crucial role.",
+      "prompt": "seeds: exploring the complexities of ownership rights, the concept of food as a shared communal resource, the implications of patenting seed varieties and the potential benefits such as fostering innovation and investment in agricultural research, the significance of biocultural diversity in maintaining ecological and cultural landscapes, the principle of food sovereignty as a means to empower local communities, and the overarching theme of biodiversity which underscores the importance of variety in our ecosystems."
+    },
+    {
+      "title": "Modern Agriculture",
+      "description" : "Addressing labor conditions, modern slavery in agriculture, unfair practices, economic pressures, and enforcing ethical standards. Exploring global demand, lax regulations, and economic vulnerabilities driving exploitation.",
+      "prompt": "the pressing issues of labor conditions and modern slavery, focusing on the treatment of agricultural workers, the prevalence of unfair labor practices in food production, the economic pressures that contribute to exploitative working environments, and the steps needed to enforce ethical labor standards and eradicate slavery from the supply chains. Additionally, the discussion will explore the underlying reasons for such conditions, including global demand for low-cost food, lack of regulatory enforcement in certain regions, and the economic vulnerabilities that force workers into oppressive situations."
+    },
+    {
+      "title": "The Right to Food",
+      "description" : "Focusing on food as a human right, addressing global disparities, hunger, and climate change, while exploring the role of grassroots movements, policies, and the tensions between food sovereignty and market-driven systems.",
+      "prompt": "the concept of food as a fundamental human right, examining global disparities in access, the barriers posed by poverty, conflict, and climate change, and the legal frameworks that aim to secure food justice. The conversation will explore the role of grassroots movements, international organizations, and policy reforms in addressing hunger and malnutrition. Additionally, the debate will touch on the tensions between food sovereignty, market-driven food systems, and the universal right to adequate, culturally appropriate nutrition."
+    },
+    {
+      "title": "Food Waste",
+      "description" : "Discussing the systemic causes of pre-purchase food waste, including overproduction, supply chain issues, and cosmetic standards, while considering solutions like redistribution and policy changes.",
+      "prompt": "the systemic factors contributing to pre-purchase food waste, including overproduction, supply chain inefficiencies, cosmetic standards, corporate power and market dynamics. The discussion will consider the environmental, political, economic, and ethical implications of food waste at this stage, alongside potential solutions such as precision agriculture, redistribution networks, and policy interventions to reduce surplus. The council will also explore how cultural attitudes toward food abundance and quality shape waste practices."
+    },
+    {
+      "title": "Antimicrobial Resistance & Diseases",
+      "description" : "Exploring how antimicrobial resistance, industrial farming, and global trade drive emerging diseases and pandemics. Focusing on overuse of antibiotics, zoonotic risks, and food systems’ role in preventing health crises.",
+      "prompt": "the intersections between antimicrobial resistance, food production systems, and emergent infectious diseases. The discussion will examine how the use of antibiotics in agriculture contributes to resistance, the potential for zoonotic disease transmission through industrial farming, and the role of global trade in spreading pathogens. The council will also consider the socio-economic factors driving overreliance on antibiotics, the challenges of developing alternative solutions, and the responsibility of food systems in preventing future pandemics."
+    },
+    {
+      "title": "Seeds & Patents",
       "description" : "Exploring seed ownership, shared food resources, patent impacts on innovation, cultural diversity, food sovereignty, and biodiversity's crucial role.",
       "prompt": "seeds: exploring the complexities of ownership rights, the concept of food as a shared communal resource, the implications of patenting seed varieties and the potential benefits such as fostering innovation and investment in agricultural research, the significance of biocultural diversity in maintaining ecological and cultural landscapes, the principle of food sovereignty as a means to empower local communities, and the overarching theme of biodiversity which underscores the importance of variety in our ecosystems."
     },
@@ -12,19 +37,19 @@
       "prompt": "the pressing issues of labor conditions and modern slavery, focusing on the treatment of agricultural workers, the prevalence of unfair labor practices in food production, the economic pressures that contribute to exploitative working environments, and the steps needed to enforce ethical labor standards and eradicate slavery from the supply chains. Additionally, the discussion will explore the underlying reasons for such conditions, including global demand for low-cost food, lack of regulatory enforcement in certain regions, and the economic vulnerabilities that force workers into oppressive situations."
     },
     {
-      "title": "modern agriculture & biodiversity loss",
-      "description" : "Discussing modern agriculture's impact on biodiversity, focusing on monocultures, pesticides, genetic modification, and habitat loss. Seeking sustainable farming strategies to enhance biodiversity.",
-      "prompt": "the complex topics of modern agriculture and biodiversity loss, exploring how contemporary farming practices, such as monocultures and extensive use of pesticides and herbicides, contribute to the decline of plant and animal species. The meeting will also address the impact of genetic modification and industrial agriculture on natural habitats, and discuss strategies for promoting sustainable farming practices that enhance biodiversity."
+      "title": "Big Food",
+      "description" : "Examining how multinational corporations shape food systems, affecting small producers, biodiversity, and public health, while exploring alternatives for more sustainable and equitable food networks.",
+      "prompt": "the influence of multinational corporations on food systems, focusing on the consolidation of power, control over supply chains, and the implications for small-scale producers, biodiversity, and public health. The discussion will examine how corporate interests shape food policies, marketing practices, and consumer choices, while addressing the challenges of regulating these entities. The council will consider the potential for alternative food systems, local empowerment, and collective action to counterbalance corporate dominance and create more equitable and sustainable food networks."
     },
     {
-      "title": "local & global food chains",
+      "title": "Local & Global Supply Chains",
       "description" : "Exploring local vs. global food chains' nuances: local for community resilience, global for security. Delve into carbon footprint, economic ties, and trade policy impacts on food access and quality.",
       "prompt": "the intricacies of both local and global food chains, examining how local food systems support community sustainability and resilience, while global food chains influence food security and access across the world. The debate will explore the benefits and challenges of each, including issues such as carbon footprint, economic dependency, and the impact of trade policies on food availability and quality."
     },
     {
-      "title": "nature - culture: traditions & progress",
-      "description" : "Exploring \"Nature-Culture\" dynamics: tradition and innovation for sustainability. Food's role in linking environment and culture. Debate on preserving traditions amid tech progress and economic growth.",
-      "prompt": "the theme of \"nature-culture: traditions and progress,\" exploring the dynamic relationship between ecological systems and cultural practices, how traditional knowledge and modern innovations can coexist to foster sustainability, and the role of food in bridging the gap between environmental stewardship and cultural evolution. The discussion will delve into how preserving cultural food traditions can contribute to biodiversity and how technological progress in agriculture might both challenge and enhance these traditions. Additionally, the debate will address the concerns that rapid technological and economic progress poses a threat to cultural diversity, potentially leading to the erosion of unique cultural identities and traditional ways of life."
+      "title": "Ultra-processed food",
+      "description" : "Examining the rise of ultra-processed foods, their health impacts, and the role of advertising, while exploring strategies to promote whole foods and regulate processed food consumption.",
+      "prompt": "the rise of ultra-processed foods in global diets, their health implications, and their socio-cultural appeal. The conversation will examine how food processing impacts nutrition, the role of advertising and convenience in shaping consumer preferences, and the broader implications for public health systems. The council will also discuss strategies for promoting minimally processed and whole foods, the challenges of accessibility and affordability, and the role of regulation in curbing the proliferation of ultra-processed products."
     }
   ]
 }

@@ -108,16 +108,23 @@ function SelectTopic(props) {
   const container = {
     // height: "550px",
     // maxHeight: "100vh",
-    width: "550px",
+    width: "850px",
     display: "flex",
     flexDirection: "column",
     justifyContent: "flexStart",
     alignItems: "center",
   };
 
+  const doubleColumn = {
+    width: "50%",
+    display: "flex",
+    flexDirection: "column",
+    margin: "0 7px"
+  };
+
   const textBoxStyle = {
     backgroundColor: "transparent",
-    width: "100%",
+    width: "70%",
     color: "white",
     textAlign: "center",
     border: "0",
@@ -126,6 +133,7 @@ function SelectTopic(props) {
     // fontSize: "25px",
     resize: "none",
     padding: "0",
+    margin: "0",
     height: isMobile ? "60px" : "80px",
     display: showTextBox() ? "" : "none",
   };
@@ -160,16 +168,23 @@ function SelectTopic(props) {
         />
       ) : (
         <div style={container}>
-          <h1 style={{ marginBottom: isMobile ? "0" : "20px" }}>THE ISSUE</h1>
+          <h1 style={{ marginBottom: isMobile && "0" }}>THE ISSUE</h1>
           <div
             style={{
               display: "flex",
               flexDirection: "column",
               justifyContent: "flex-start",
+              alignItems: "center",
               width: "100%",
             }}
           >
-            {topics.map((topic, index) => (
+            <div style={{display: "flex", flexDirection: "row", width: "100%", justifyContent: "center"}}>
+              <div style={doubleColumn}>
+            {topics.filter((item, index) => {
+              if(index === topics.length - 1) return false;
+              if(topics.length <= 5 + 1) return true;
+              return index < (topics.length - 1 ) / 2;
+              }).map((topic, index) => (
               <button
                 key={index}
                 className={
@@ -183,9 +198,46 @@ function SelectTopic(props) {
                 {toTitleCase(topic.title)}
               </button>
             ))}
+              </div>
+              <div style={{...doubleColumn, display: topics.length > 5 + 1 ? "flex": "none"}}>
+            {topics.filter((item, index) => {
+              if(index === topics.length - 1) return false;
+              if(topics.length <= 5 + 1) return false;
+              return (index >= (topics.length - 1) / 2 );
+            }).map((topic, index) => (
+              <button
+                key={index}
+                className={
+                  selectedTopic.title === topic.title ? "selected " : ""
+                }
+                onClick={() => selectTopic(topic)}
+                onMouseEnter={() => setHoverTopic(topic)}
+                onMouseLeave={() => setHoverTopic(null)}
+                style={selectButtonStyle}
+              >
+                {toTitleCase(topic.title)}
+              </button>
+            ))}
+              </div>
+              </div>
+              {topics.slice(-1).map((topic, index) => (
+              <button
+                key={index}
+                className={
+                  selectedTopic.title === topic.title ? "selected " : ""
+                }
+                onClick={() => selectTopic(topic)}
+                onMouseEnter={() => setHoverTopic(topic)}
+                onMouseLeave={() => setHoverTopic(null)}
+                style={{...selectButtonStyle, width: "50%"}}
+              >
+                {toTitleCase(topic.title)}
+              </button>
+            ))}
             <p
               style={{
                 margin: "0",
+                width: "70%",
                 height: showTextBox() ? "0" : isMobile ? "60px" : "80px",
               }}
             >

@@ -30,6 +30,7 @@ html,
 h1 {
   font-size: 60px;
   margin: 6px;
+  margin-bottom: 20px;
   font-weight: normal;
 }
 
