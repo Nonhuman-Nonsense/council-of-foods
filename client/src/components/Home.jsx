@@ -154,7 +154,7 @@ function Home() {
           </Routes>
         )}
         {currentView === "council" && (
-          <Council options={{ humanName, topic, foods, onReset: reset }} />
+          <Council options={{ humanName, setHumanName: setHumanName, topic, foods, onReset: reset }} />
         )}
         {!isIphone && <FullscreenButton />}
       </Overlay>

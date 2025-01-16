@@ -4,6 +4,7 @@ import SelectTopic from "./settings/SelectTopic";
 import ResetWarning from "./overlays/ResetWarning";
 import Completed from "./overlays/Completed";
 import Summary from "./overlays/Summary";
+import Name from "./overlays/Name";
 import { useMobile } from "../utils";
 
 function CouncilOverlays({
@@ -71,6 +72,12 @@ function CouncilOverlays({
           <ResetWarning
             onReset={() => options.onReset()}
             onCancel={removeOverlay}
+          />
+        );
+      case "name":
+        return (
+          <Name
+          onContinueForward={options.proceedWithHumanName}
           />
         );
       case "completed":

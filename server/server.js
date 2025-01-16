@@ -95,6 +95,7 @@ io.on("connection", (socket) => {
 
   socket.on("raise_hand", async (handRaisedOptions) => {
     handRaised = true;
+    conversationOptions.humanName = handRaisedOptions.humanName;
 
     let { response, id } = await chairInterjection(
       globalOptions.raiseHandPrompt.replace(
