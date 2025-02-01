@@ -134,6 +134,7 @@ button.selected {
 #protocol-container ul{
   margin: 0;
   white-space: normal;
+  font-size: 18px;
 }
 
 #protocol-container li{
@@ -146,19 +147,40 @@ button.selected {
 
 #printed-style p{
   font-size: 10px;
-  margin-top: 0;
-  margin-bottom: 0;
+  margin-top: 1px;  /* this fixes the line numbering positioning problem, not sure why */
+  margin-bottom: 1px;
 }
 
 #printed-style ol,
 #printed-style ul{
+  font-size: 10px;
   margin: 0;
   white-space: normal;
+  padding-left:1.2em;
 }
 
+
 #printed-style li{
+  padding-top: 2px; /* this fixes the line numbering positioning problem, not sure why */
   font-size: 10px;
   margin-bottom: 5px;
+}
+
+#printed-style strong{
+  font-weight: bold;
+}
+
+#printed-style hr{
+  margin: 0;
+}
+
+#printed-style h3{
+  margin: 0;
+}
+
+#printed-style a{
+  color: #000;
+  text-decoration: underline;
 }
 
 @keyframes slideInFade {
