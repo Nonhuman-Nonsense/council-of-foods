@@ -5,9 +5,6 @@ import { marked } from "marked";
 import { jsPDF } from "jspdf";
 import { forwardRef, useImperativeHandle } from 'react';
 
-import '../../Tinos.js';
-import '../../Tinos-bold.js';
-
 function Summary({ summary, meetingId }) {
   const isMobile = useMobile();
   const pdfElementRef = useRef(null);
@@ -77,14 +74,16 @@ const PDFToPrint = forwardRef((props, ref) => {
 
   useImperativeHandle(ref, () => ({
     createPdf() {
-      const pdf = new jsPDF("p", "pt", "a4");
-      pdf.setFont("Tinos");
-      pdf.html(protocolRef.current, {
-        callback: function (doc) {
-          pdf.save(`Council of Foods Meeting Summary #${props.meetingId}.pdf`);
-        },
-        autoPaging: 'text',
-        margin: [50, 50, 50, 50]
+      import("../../Tinos.js").then(() => {
+        const pdf = new jsPDF("p", "pt", "a4");
+        pdf.setFont("Tinos");
+        pdf.html(protocolRef.current, {
+          callback: function (doc) {
+            pdf.save(`Council of Foods Meeting Summary #${props.meetingId}.pdf`);
+          },
+          autoPaging: 'text',
+          margin: [50, 50, 50, 50]
+        });
       });
     }
   }));
