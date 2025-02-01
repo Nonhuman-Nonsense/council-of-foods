@@ -5,12 +5,13 @@ function Completed({ onContinue, onWrapItUp, continuations }) {
 
   return (
     <div>
-      <h3>Is that it?</h3>
+      <h2>Is that it?</h2>
       <div>
         <p>
           This meeting is starting to get long-winded,
           <br />
           is it time to come to a conclusion?
+          <br /><br />
         </p>
         <button
           onClick={onWrapItUp}

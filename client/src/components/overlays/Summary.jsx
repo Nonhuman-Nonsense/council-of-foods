@@ -14,6 +14,7 @@ function Summary({ summary, meetingId }) {
     'calc(100% - 30px)'
     : 'calc(100% - 40px)',
     overflowY: "auto",
+    mask: "linear-gradient(to bottom, rgb(0, 0, 0) 0, rgb(0,0,0) 93%, rgba(0,0,0, 0) 100% ) repeat-x",
   };
 
   const wrapper = {
@@ -52,6 +53,8 @@ function Summary({ summary, meetingId }) {
         style={protocolStyle}
       >
       {parse(marked(summary.text))}
+      <hr/><br/>
+      <Disclaimer />
       </div>
     </div>
       <div style={buttonsWrapper}>
@@ -71,13 +74,16 @@ const PDFToPrint = forwardRef((props, ref) => {
 
   useImperativeHandle(ref, () => ({
     createPdf() {
-      const pdf = new jsPDF("p", "pt", "a4");
-      pdf.html(protocolRef.current, {
-        callback: function (doc) {
-          pdf.save(`Council of Foods Meeting Summary #${props.meetingId}.pdf`);
-        },
-        autoPaging: 'text',
-        margin: [50, 50, 50, 50]
+      import("../../Tinos.js").then(() => {
+        const pdf = new jsPDF("p", "pt", "a4");
+        pdf.setFont("Tinos");
+        pdf.html(protocolRef.current, {
+          callback: function (doc) {
+            pdf.save(`Council of Foods Meeting Summary #${props.meetingId}.pdf`);
+          },
+          autoPaging: 'text',
+          margin: [50, 50, 50, 50]
+        });
       });
     }
   }));
@@ -86,6 +92,7 @@ const PDFToPrint = forwardRef((props, ref) => {
     <div style={{position: 'absolute',
      top: '0',
      display: 'none'//disable this for debug
+
    }}>
     <div ref={protocolRef} style={{
         position: 'absolute',
@@ -94,6 +101,9 @@ const PDFToPrint = forwardRef((props, ref) => {
         backgroundColor: 'white',
         color: 'black',
         textAlign: 'left',
+        fontFamily: '"Tinos", sans-serif',
+        fontStyle: 'normal',
+        overflow: 'hidden', //not sure why this is needed but fixes things
         width:"480px"}}>
       <div style={{width: "100%"}}>
       <hr/>
@@ -105,11 +115,29 @@ const PDFToPrint = forwardRef((props, ref) => {
       <hr />
       <div id="printed-style">
         {parse(marked(props.summary.text))}
-        </div>
+        <hr/><br/>
+        <Disclaimer />
+      </div>
       </div>
     </div>
     </div>
   );
 });
+
+function Disclaimer() {
+
+  return (
+      <div>
+        <p>This document was created by the Council of Foods, a political arena where the foods themselves discuss the broken food system, through the use of artificial intelligence. While every effort has been made to generate meaningful content, please note the following:</p><br/>
+        <ol>
+          <li>This document may contain misinformation, outdated details, propaganda, or bad ideas.</li>
+          <li>The discussions may provide useful insights and reflect diverse ethical positions but should not replace evidence-based research or deep contemplation.</li>
+          <li>Don't just chat about it—get up and take action!</li>
+        </ol><br/>
+        <p>Council of Foods is an initiative by art & design collective <a href="https://nonhuman-nonsense.com/">Nonhuman Nonsense</a>, as part of the Hungry EcoCities project of the S+T+ARTS programme, and has received funding from the European Union's Horizon Europe research and innovation programme under <a href="https://cordis.europa.eu/project/id/101069990">grant agreement 101069990</a>.</p>
+        <br/>
+      </div>
+  );
+}
 
 export default Summary;
