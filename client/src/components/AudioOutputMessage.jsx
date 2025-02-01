@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef } from "react";
 
 function AudioOutputMessage({ currentAudioMessage, audioContext, gainNode, onFinishedPlaying }) {
   const sourceNode = useRef(null);
@@ -8,7 +8,7 @@ function AudioOutputMessage({ currentAudioMessage, audioContext, gainNode, onFin
 
     // Handle updating the audio source when the message changes
 
-    if (currentAudioMessage && currentAudioMessage.audio && currentAudioMessage.audio.length != 0) {
+    if (currentAudioMessage && currentAudioMessage.audio && currentAudioMessage.audio.length !== 0) {
       function sourceFinished(){
         if(!ignoreEndEvent){
           onFinishedPlaying();

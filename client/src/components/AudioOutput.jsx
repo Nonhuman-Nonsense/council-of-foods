@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useCallback } from "react";
+import React, { useEffect, useRef } from "react";
 import AudioOutputMessage from "./AudioOutputMessage";
 
 //Most of the audio processing should happen here, but the audioContext is owned higher up
