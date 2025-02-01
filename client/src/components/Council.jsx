@@ -332,6 +332,7 @@ function Council({ options }) {
       if (currentSpeakerName === food.name) {
         currentIndex = mapFoodIndex(foods.length, index);
       }
+      return false;//map expects return value, but this is irrelevant in our case
     });
     return currentIndex;
   }
