@@ -189,6 +189,10 @@ function Output({
         } else if (currentIndex === conversationMaxLength - 1) {
           // Conversation is completed
           onCompletedConversation();
+          // Go back two messages, so that if the close x is pressed on the "is that it?" screen, the play button is more intuitive
+          // It would perhaps be better to just replay the last message,
+          // but it's hard to do because it will not reload the sounds etc. if we set it to last message
+          setCurrentMessageIndex(conversationMaxLength - 2);
         } else {
           // We should have more messages, but they are not ready for some reason
           // So we wait
