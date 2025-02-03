@@ -12,6 +12,7 @@ function HumanInput({ onSubmitHumanMessage }) {
   const [previousTranscript, setPreviousTranscript] = useState("");
   const inputArea = useRef(null);
   const isMobile = useMobile();
+  const maxInputLength = 350;
 
   // Accessing the speech recognition features from the custom hook
   const {
@@ -53,11 +54,23 @@ function HumanInput({ onSubmitHumanMessage }) {
   }
 
   function inputChanged(e){
-    if(inputArea.current.value.length > 0){
+    if(inputArea.current.value.length > 0 && inputArea.current.value.trim().length !== 0){
       setCanContinue(true);
     }else{
       setCanContinue(false);
     }
+  }
+
+  function checkEnter(e){
+    if(canContinue && !e.shiftKey && e.key === "Enter"){
+      e.preventDefault();
+      submitAndContinue();
+    }
+  }
+
+  function submitAndContinue(){
+    setIsRecording(false);
+    onSubmitHumanMessage(inputArea.current.value.substring(0, maxInputLength));
   }
 
   const wrapperStyle = {
@@ -104,10 +117,12 @@ function HumanInput({ onSubmitHumanMessage }) {
           ref={inputArea}
           style={textStyle}
           onChange={inputChanged}
+          onKeyDown={checkEnter}
           onFocus={inputFocused}
           className="unfocused"
           minRows="1"
           maxRows="6"
+          maxLength={maxInputLength}
           placeholder="Type your question or start recording..."
         />
       </div>
@@ -125,10 +140,7 @@ function HumanInput({ onSubmitHumanMessage }) {
             <ConversationControlIcon
               icon={"send_message"}
               tooltip={"Mute"}
-              onClick={() => {
-                setIsRecording(false);
-                onSubmitHumanMessage(inputArea.current.value);
-              }}
+              onClick={submitAndContinue}
             />
           }
         </div>

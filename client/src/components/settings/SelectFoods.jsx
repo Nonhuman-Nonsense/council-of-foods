@@ -89,13 +89,13 @@ function SelectFoods({ topic, onContinueForward }) {
           }}
         >
           <div style={discriptionStyle}>
-            <p style={{margin: 0}}>
-              Council of Foods meeting on
-              <h4>{toTitleCase(topic.title)}</h4>
+            <p style={{margin: 0}}>Council of Foods meeting on</p>
+            <h3>{toTitleCase(topic.title)}</h3>
+            <div>
               {selectedFoods.length < 2 ? <p>please select 2-6 foods for the discussion</p> : <><p>will be attended by:</p>
-                <p>{selectedFoods.map((food) => <div>{food.name}<br/></div>)}</p>
+                <div>{selectedFoods.map((food) => <p style={{margin: 0}} key={food.name}>{food.name}</p>)}</div>
                 </>}
-            </p>
+            </div>
           </div>
           <FoodInfo food={currentFood} />
         </div>
