@@ -1,7 +1,6 @@
 import React from "react";
 
-function Completed({ onContinue, onWrapItUp, continuations }) {
-  const maxContinuations = 2;
+function Completed({ onContinue, onWrapItUp, canExtendMeeting }) {
 
   return (
     <div>
@@ -19,7 +18,7 @@ function Completed({ onContinue, onWrapItUp, continuations }) {
         >
           Yes, let's wrap it up!
         </button>
-        {continuations < maxContinuations && (
+        {canExtendMeeting && (
           <button
             onClick={onContinue}
             style={{ marginLeft: "9px" }}

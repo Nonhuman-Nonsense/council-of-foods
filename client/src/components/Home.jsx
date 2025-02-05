@@ -33,7 +33,6 @@ function useIsIphone() {
 }
 
 function Home() {
-  const [humanName, setHumanName] = useState("");
   const [topic, setTopic] = useState({ title: "", prompt: "" });
   const [foods, setFoods] = useState([]);
   const pages = ["landing", "welcome", "topics", "foods", "council"];
@@ -84,15 +83,13 @@ function Home() {
     navigate(next);
   }
 
-  function reset(topic) {
-    setHumanName("");
+  function reset(topic) {    
     setTopic(topic ?? { title: "", prompt: "" });
     setFoods([]);
 
     if (!topic?.title) {
       // Reset from the start
       navigate("/");
-      setHumanName("");
       setCurrentView("landing");
     } else {
       // Reset from foods selection
@@ -154,7 +151,7 @@ function Home() {
           </Routes>
         )}
         {currentView === "council" && (
-          <Council options={{ humanName, setHumanName: setHumanName, topic, foods, onReset: reset }} />
+          <Council options={{ topic, foods, onReset: reset }} />
         )}
         {!isIphone && <FullscreenButton />}
       </Overlay>

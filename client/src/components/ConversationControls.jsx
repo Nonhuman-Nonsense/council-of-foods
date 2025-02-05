@@ -8,7 +8,7 @@ function ConversationControls({
   isMuted,
   onSkipForward,
   onSkipBackward,
-  onRaiseHandOrNevermind,
+  onRaiseHand,
   onMuteUnmute,
   isRaisedHand,
   isWaitingToInterject,
@@ -62,14 +62,14 @@ function ConversationControls({
               onClick={onSkipForward}
             />}
           </div>
-          <div style={divStyle}>
+          <div style={{...divStyle, pointerEvents: isRaisedHand ? "none" : "auto"}}>
             {!isPaused &&
               canRaiseHand &&
             <ConversationControlIcon
               icon={isRaisedHand ? "raise_hand_filled" : "raise_hand"}
               hoverIcon={isRaisedHand && "raise_hand_filled"}
               tooltip={"Raise hand"}
-              onClick={onRaiseHandOrNevermind}
+              onClick={() => {if(!isRaisedHand){onRaiseHand()}}}
             />}
           </div>
         </div>

@@ -79,14 +79,13 @@ io.on("connection", (socket) => {
     characters: {},
   };
   let logit_biases = [];
-  let invitation;
 
   const calculateCurrentSpeaker = () => {
-    if(conversation.length == 0) return 0;
-    if(conversation.length == 1) return 1;
+    if (conversation.length == 0) return 0;
+    if (conversation.length == 1) return 1;
     for (let i = conversation.length - 1; i >= 0; i--) {
-      if(conversation[i].type == 'human') continue;
-      if(conversation[i].purpose == 'invitation') continue;
+      if (conversation[i].type == 'human') continue;
+      if (conversation[i].type == 'invitation') continue;
       const lastSpeakerIndex = conversationOptions.characters.findIndex(char => char.name === conversation[i].speaker);
 
       return lastSpeakerIndex >= conversationOptions.characters.length - 1 ? 0 : lastSpeakerIndex + 1;
@@ -94,6 +93,8 @@ io.on("connection", (socket) => {
   }
 
   socket.on("raise_hand", async (handRaisedOptions) => {
+
+    console.log(`[meeting ${meetingId}] hand raised on index ${handRaisedOptions.index - 1}`);
     handRaised = true;
     conversationOptions.humanName = handRaisedOptions.humanName;
 
@@ -111,34 +112,28 @@ io.on("connection", (socket) => {
       response = response.substring(0, firstNewLineIndex);
     }
 
-    invitation = {
+    let invitation = {
       id: id,
       speaker: conversationOptions.characters[0].name,
       text: response,
-      purpose: "invitation",
+      type: "invitation",
       message_index: handRaisedOptions.index,
     };
 
-    //We must store the invitation in database also, in case of a reconnect
+    // Cut everything after the invitation
+    conversation[invitation.message_index] = invitation;
+    conversation = conversation.slice(0, invitation.message_index + 1);
+
     meetingsCollection.updateOne(
       { _id: meetingId },
-      { $set: { invitation: invitation } }
+      { $set: { conversation: conversation } }
     );
 
-    socket.emit("invitation_to_speak", invitation);
+    console.log(`[meeting ${meetingId}] invitation generated, on index ${handRaisedOptions.index}`);
+
+    socket.emit("conversation_update", conversation);
 
     generateAudio(id, response, conversationOptions.characters[0].name);
-  });
-
-  socket.on("lower_hand", async () => {
-    handRaised = false;
-    // isPaused = false;
-    invitation = null;
-    meetingsCollection.updateOne(
-      { _id: meetingId },
-      { $unset: { invitation: "" } }
-    );
-    handleConversationTurn();
   });
 
   const chairInterjection = async (
@@ -214,18 +209,18 @@ io.on("connection", (socket) => {
   };
 
   socket.on("submit_human_message", (message) => {
-    conversation[invitation.message_index] = invitation;
-    conversation = conversation.slice(0, invitation.message_index + 1);
+    console.log(`[meeting ${meetingId}] human input on index ${conversation.length - 1}`);
     message.text = conversationOptions.humanName + " said: " + message.text;
     message.id = "human-" + uuidv4(); // Use UUID for unique message IDs for human messages
     message.type = "human";
     message.speaker = conversationOptions.humanName;
-    conversation.push(message);
-    invitation = null;
+
+    //Overwrite the last message in the conversation, deleting the invitation
+    conversation[conversation.length - 1] = message;
 
     meetingsCollection.updateOne(
       { _id: meetingId },
-      { $set: { conversation: conversation }, $unset: { invitation: ""} }
+      { $set: { conversation: conversation } }
     );
 
     socket.emit("conversation_update", conversation);
@@ -257,14 +252,20 @@ io.on("connection", (socket) => {
       id: id,
       speaker: conversationOptions.characters[0].name,
       text: response,
-      purpose: "summary",
+      type: "summary",
       shouldResume: true,
     };
 
-    socket.emit("meeting_summary", summary);
+    conversation.push(summary);
+
+    socket.emit("conversation_update", conversation);
+    console.log(
+      `[meeting ${meetingId}] summary generated on length ${conversation.length}`
+    );
 
     meetingsCollection.updateOne(
       { _id: meetingId },
+      { $set: { conversation: conversation } },
       { $set: { summary: summary } }
     );
 
@@ -272,7 +273,7 @@ io.on("connection", (socket) => {
   });
 
   socket.on("continue_conversation", () => {
-    extraMessageCount += 5;
+    extraMessageCount += globalOptions.extraMessageCount;
 
     handleConversationTurn((shouldResume = true));
   });
@@ -294,12 +295,11 @@ io.on("connection", (socket) => {
         logit_biases = calculateLogitBiases();
         handRaised = options.handRaised;
         extraMessageCount = options.conversationMaxLength - globalOptions.conversationMaxLength;
-        invitation = existingMeeting.invitation;//if there is one, otherwise will be correctly set to null/undefined
 
         //If some audio are missing, try to regenerate them
         let missingAudio = [];
         for (let i = 0; i < conversation.length; i++) {
-          if(existingMeeting.audio.indexOf(conversation[i].id) == -1){
+          if (existingMeeting.audio.indexOf(conversation[i].id) == -1) {
             missingAudio.push(conversation[i]);
           }
         }
@@ -421,7 +421,7 @@ io.on("connection", (socket) => {
 
       socket.emit("conversation_update", conversation);
       console.log(
-        `[meeting ${meetingId}] conversation length ${conversation.length}`
+        `[meeting ${meetingId}] message generated, index ${message_index}`
       );
 
       meetingsCollection.updateOne(
@@ -469,15 +469,15 @@ io.on("connection", (socket) => {
       const existingAudio = await audioCollection.findOne({
         _id: id,
       });
-      if(existingAudio){
+      if (existingAudio) {
         buffer = existingAudio.buffer;
         generateNew = false;
       }
-    }catch(e){
+    } catch (e) {
       console.log(e);
     }
 
-    if(generateNew){
+    if (generateNew) {
       const mp3 = await openai.audio.speech.create({
         model: "tts-1",
         voice: voiceName,
@@ -495,7 +495,7 @@ io.on("connection", (socket) => {
 
     socket.emit("audio_update", audioObject);
 
-    if(generateNew){
+    if (generateNew) {
       const storedAudio = {
         _id: audioObject.id,
         date: new Date().toISOString(),
