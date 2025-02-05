@@ -10,58 +10,75 @@ import Output from "./Output";
 import ConversationControls from "./ConversationControls";
 import HumanInput from "./HumanInput";
 
+const globalOptions = require("../global-options-client");
+
 function Council({ options }) {
-  const { foods, humanName, setHumanName, topic } = options;
+  //Overall Council settings for this meeting
+  const { foods, topic } = options;
+  const [humanName, setHumanName] = useState("");
+
+  //Connection variables
+  const [currentMeetingId, setCurrentMeetingId] = useState(null); // Use state to manage meetingId
+  const [attemptingReconnect, setAttemptingReconnect] = useState(false); // Use state to manage meetingId
+
+  //Routing
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  //Main State variables
   const [activeOverlay, setActiveOverlay] = useState("");
   const [textMessages, setTextMessages] = useState([]); // State to store conversation updates
   const [audioMessages, setAudioMessages] = useState([]); // To store multiple ArrayBuffers
+  const [councilState, setCouncilState] = useState("loading"); // Main state
+  const [playingNowIndex, setPlayingNowIndex] = useState(-1); //Current message being played
+  const [playNextIndex, setPlayNextIndex] = useState(0); //Message to play next, this is what we want to do next
+  const [maximumPlayedIndex, setMaximumPlayedIndex] = useState(0); // The maximum message every played
+  const [meetingMaxLength, setMeetingMaxLength] = useState(globalOptions.conversationMaxLength);
+
+  //Secondary control variables
   const [isRaisedHand, setIsRaisedHand] = useState(false);
   const [isMuted, setMuteUnmute] = useState(false);
-  const [isPaused, setPausePlay] = useState(false);
-  const [skipForward, setSkipForward] = useState(false);
-  const [skipBackward, setSkipBackward] = useState(false);
+  const [isPaused, setPaused] = useState(false);
+
+  //Automatic calculated state variables
   const [currentSpeakerName, setCurrentSpeakerName] = useState("");
-  const [invitationIndex, setInvitationIndex] = useState(0);
-  const [isWaitingToInterject, setIsWaitingToInterject] = useState(false);
-  const [isInterjecting, setIsInterjecting] = useState(false);
-  const [bumpIndex1, setBumpIndex1] = useState(false);
-  const audioContext = useRef(null); // The AudioContext object
   const [canGoBack, setCanGoBack] = useState(false);
   const [canGoForward, setCanGoForward] = useState(false);
   const [canRaiseHand, setCanRaiseHand] = useState(false);
-  const [isReadyToStart, setIsReadyToStart] = useState(false);
   const [zoomIn, setZoomIn] = useState(false);
-  const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
-  const [conversationMaxLength, setConversationMaxLength] = useState(10);
-  const [invitation, setInvitation] = useState(null);
-  const [playInvitation, setPlayinvitation] = useState(false);
-  const [summary, setSummary] = useState(null);
-  const navigate = useNavigate();
-  const location = useLocation();
-  const [continuations, setContinuations] = useState(0);
-  const [currentMeetingId, setCurrentMeetingId] = useState(null); // Use state to manage meetingId
-  const [attemptingReconnect, setAttemptingReconnect] = useState(false); // Use state to manage meetingId
+
+  const showControls = (
+    councilState === 'playing' ||
+    councilState === 'waiting' ||
+    (councilState === 'summary' && tryToFindTextAndAudio())
+  ) ? true : false;
+  const canExtendMeeting = meetingMaxLength < globalOptions.meetingVeryMaxLength;
+
+  //States from lower down
+  const [currentSnippetIndex, setCurrentSnippetIndex] = useState(0);
+  const [summary, setSummary] = useState(null);//We store the summary here for easy access
+
+  // Universal references
+  const audioContext = useRef(null); // The AudioContext object
+  const waitTimer = useRef(null); // The waiting timer
+  const socketRef = useRef(null); // Using useRef to persist socket instance
 
   if (audioContext.current === null) {
     const AudioContext = window.AudioContext || window.webkitAudioContext; //cross browser
     audioContext.current = new AudioContext();
   }
 
-  const socketRef = useRef(null); // Using useRef to persist socket instance
+  //Make sure to empty this timer on component unmount
+  //Incase someone restarts the counsil in a break etc.
+  useEffect(() => {
+    // The empty the betweenTimer on unmount
+    return () => {
+      clearTimeout(waitTimer.current);
+      waitTimer.current = null;
+    };
+  }, []);
 
-  const handWasRaised = useRef(false);
-
-  const foodsContainerStyle = {
-    position: "absolute",
-    top: "calc(50% + 12vh)",
-    left: "50%",
-    transform: "translate(-50%, -50%)",
-    width: foods.length > 6 ? "79%" : "70%",
-    display: "flex",
-    justifyContent: "space-around",
-    alignItems: "center",
-  };
-
+  // Startup and set listeners
   useEffect(() => {
     // Connect to the server
     socketRef.current = io();
@@ -77,17 +94,9 @@ function Council({ options }) {
 
     socketRef.current.emit("start_conversation", conversationOptions);
 
-    socketRef.current.on("invitation_to_speak", (invitation) => {
-      setInvitation(invitation);
-    });
-
     socketRef.current.on("meeting_started", (meeting) => {
       setCurrentMeetingId(meeting.meeting_id);
       navigate("/meeting/" + meeting.meeting_id);
-    });
-
-    socketRef.current.on("meeting_summary", (summary) => {
-      setSummary(summary);
     });
 
     socketRef.current.on("audio_update", (audioMessage) => {
@@ -127,203 +136,382 @@ function Council({ options }) {
     };
   }, []);
 
+  // Reconnect logic
   useEffect(() => {
-    if(attemptingReconnect && currentMeetingId){
+    if (attemptingReconnect && currentMeetingId) {
       socketRef.current.emit("attempt_reconnection", {
         meetingId: currentMeetingId,
         handRaised: isRaisedHand,
-        conversationMaxLength: conversationMaxLength
+        conversationMaxLength: meetingMaxLength
       });
       setAttemptingReconnect(false);
     }
-  },[attemptingReconnect,currentMeetingId]);
+  }, [attemptingReconnect, currentMeetingId]);
 
+  // Routing for overlays
   useEffect(() => {
     if (["/about", "/contact", "/share"].includes(location?.pathname)) {
       setActiveOverlay(location?.pathname.substring(1));
     }
   }, [location]);
 
+  // Main state
+  // This drives the council meeting forward
+  useEffect(() => {
+
+    //In all cases accept if we are still waiting, clear the wait timer on state change
+    if (councilState !== 'waiting') {
+      clearTimeout(waitTimer.current);
+      waitTimer.current = null;
+    }
+
+    // This will be triggered directly when text is set
+    if (councilState !== 'summary' && textMessages[playNextIndex]?.type === 'summary') {
+      setCouncilState("summary");
+      return;
+    }
+
+    switch (councilState) {
+      case 'loading':
+        // console.log("Updating textMessages: ", textMessages);
+        // console.log("Updating audioMessages: ", audioMessages);
+
+        if (tryToFindTextAndAudio()) {
+          setPlayingNowIndex(playNextIndex);
+          setCouncilState("playing");
+        }
+        break;
+      case 'playing':
+        if (playingNowIndex !== playNextIndex) {
+          //Attempt to play it
+          if (tryToFindTextAndAudio()) {
+            setPlayingNowIndex(playNextIndex);
+          } else {//If it's not ready, show the loading
+            setCouncilState('loading');
+          }
+        }
+        break;
+      case 'human_input':
+        break;
+      case 'summary':
+        if (summary === null && textMessages[playNextIndex]?.type === 'summary') {
+          // We store the summary here just for ease
+          // TODO is there a better way to do it?
+          setSummary(textMessages[playNextIndex]);
+        }
+        if (activeOverlay === "") {
+          setActiveOverlay("summary");
+        }
+        if (textMessages[playNextIndex]?.type !== 'summary') {
+          removeOverlay();
+          setCouncilState('playing');
+          return;
+        }
+        if (tryToFindTextAndAudio()) {
+          if (playingNowIndex !== playNextIndex) {
+            setPlayingNowIndex(playNextIndex);
+            setPaused(false);
+          }
+        }
+
+        break;
+      case 'waiting':
+        //Wait one second, and then proceed
+        if (waitTimer.current == null) {//Unless we are already waiting
+          waitTimer.current = setTimeout(() => {
+            setCouncilState('playing');
+          }, 1000);
+        }
+        break;
+      case 'max_reached':
+        setActiveOverlay("completed");
+        break;
+      default:
+        break;
+    }
+  }, [councilState, textMessages, audioMessages, playingNowIndex, playNextIndex, activeOverlay]);
+
+  function tryToFindTextAndAudio() {
+    let textMessage = textMessages[playNextIndex];
+    if (textMessage) {
+      const matchingAudioMessage = audioMessages.find((a) => a.id === textMessage.id);
+      if (matchingAudioMessage) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // Store maximum ever played message
+  useEffect(() => {
+    if (playingNowIndex > maximumPlayedIndex) {
+      setMaximumPlayedIndex(playingNowIndex);
+    }
+  }, [playingNowIndex]);
+
+  // Set current speaker name on every change of playing message
+  useEffect(() => {
+    if (councilState === 'loading') {
+      setCurrentSpeakerName("");
+    } else if (councilState === 'human_speaking') {
+      setCurrentSpeakerName(humanName);
+    } else if (textMessages[playingNowIndex]) {
+      setCurrentSpeakerName(textMessages[playingNowIndex].speaker);
+    } else {
+      setCurrentSpeakerName("");
+    }
+  }, [councilState, playingNowIndex]);
+
+  // Set when hand can be raised
+  useEffect(() => {
+    if (
+      (councilState === 'playing' || councilState === 'waiting') &&
+      playingNowIndex === maximumPlayedIndex &&
+      playingNowIndex !== meetingMaxLength - 1
+    ) {
+      setCanRaiseHand(true);
+    } else {
+      setCanRaiseHand(false);
+    }
+  }, [councilState, maximumPlayedIndex, playingNowIndex, meetingMaxLength]);
+
+  // Set when can go forward
+  useEffect(() => {
+    if ((councilState === 'playing' || councilState === 'waiting') &&
+      playingNowIndex < meetingMaxLength
+    ) {
+      setCanGoForward(true);
+    } else {
+      setCanGoForward(false);
+    }
+  }, [councilState, playingNowIndex, meetingMaxLength]);
+
+  // Set when can go backwards
+  useEffect(() => {
+    if ((councilState === 'playing' ||
+      councilState === 'waiting' ||
+      councilState === 'summary') &&
+      playingNowIndex !== 0
+    ) {
+      setCanGoBack(true);
+    } else {
+      setCanGoBack(false);
+    }
+  }, [councilState, playingNowIndex]);
+
+  // If we reach the end of one message, figure out what to do next
+  function calculateNextAction(wait = false) {
+
+    if (councilState === 'human_input') {// if human input was submitted
+      setCouncilState('loading');
+    } else if (textMessages[playingNowIndex]?.type === 'invitation') {// if invitation finished
+      setCouncilState('human_input');
+    } else if (councilState === 'playing' || councilState === 'waiting') {
+      //If we have not reached the end of the maximum, try to go to next
+      if (playingNowIndex + 1 < meetingMaxLength) {
+        setPlayNextIndex(playingNowIndex + 1);
+        if (wait) {
+          setCouncilState('waiting');
+        } else {
+          setCouncilState('playing');
+        }
+      } else {
+        setCouncilState('max_reached');
+      }
+    }
+  }
+
+  // Set when zoomed in
+  useEffect(() => {
+    if (
+      councilState === 'loading' ||
+      councilState === 'waiting' ||
+      councilState === 'max_reached' ||
+      councilState === 'summary' ||
+      councilState === 'human_input' ||
+      playingNowIndex <= 0 ||
+      textMessages[playingNowIndex]?.type === "human"
+    ) {
+      setZoomIn(false);
+    } else if (currentSnippetIndex % 4 < 2) {
+      setZoomIn(true);
+    } else {
+      setZoomIn(false);
+    }
+  }, [councilState, playingNowIndex, textMessages, currentSnippetIndex]);
+
+  //Some cases when pause should be activated
+  useEffect(() => {
+    if (activeOverlay !== "" && activeOverlay !== "summary" && !isPaused) {
+      setPaused(true);
+    }
+  }, [isPaused, activeOverlay]);
+
+  //Pause
   useEffect(() => {
     if (isPaused) {
-      audioContext.current.suspend();
+      if (audioContext.current.state !== "suspended") {
+        audioContext.current.suspend();
+      }
     } else if (audioContext.current.state === "suspended") {
       audioContext.current.resume();
     }
+  }, [isPaused, councilState]);
+
+  //Handle special case if pause is pressed while waiting
+  useEffect(() => {
+    if (councilState === 'waiting') {
+      if (isPaused) {
+        //Stop the waiting timer
+        clearTimeout(waitTimer.current);
+        waitTimer.current = null;
+      } else {
+        setCouncilState('playing');
+      }
+    }
   }, [isPaused]);
 
-  useEffect(() => {
-    if (activeOverlay !== "" && activeOverlay !== "summary" && !isPaused) {
-      setPausePlay(true);
-    }
-  }, [activeOverlay]);
+  /////////////////////
+  // Handlers
+  /////////////////////
 
-  useEffect(() => {
-    if (
-      summary &&
-      textMessages[currentMessageIndex]?.purpose === "summary" &&
-      activeOverlay === ""
-    ) {
-      displayOverlay("summary");
-    } else if (
-      activeOverlay === "summary" &&
-      textMessages[currentMessageIndex]?.purpose !== "summary"
-    ) {
-      removeOverlay();
-    }
-  }, [summary, textMessages, currentMessageIndex, activeOverlay]);
+  // Handler getting triggered when an audio message reaches the end
+  function handleOnFinishedPlaying() {
+    calculateNextAction(true);
+  }
 
+  // When skip back is pressed on controls
   function handleOnSkipBackward() {
-    setSkipBackward(!skipBackward);
+    if (playingNowIndex - 1 >= 0) {
+      setPlayNextIndex(playingNowIndex - 1);
+      if (councilState === 'waiting') {
+        setCouncilState('playing');
+      }
+    }
   }
 
+  // When skip forward is pressed on controls
   function handleOnSkipForward() {
-    setSkipForward(!skipForward);
+    calculateNextAction();
   }
 
+  // When mute is pressed on controls
   function handleMuteUnmute() {
     setMuteUnmute(!isMuted);
   }
 
-  function handlePausePlay() {
-    setPausePlay(!isPaused);
-  }
-
-  function handleSetCurrentSpeakerName(value) {
-    setCurrentSpeakerName(value);
-  }
-
-  useEffect(() => {
-    if (isRaisedHand && !handWasRaised.current) {
-      handleOnIsWaitingToInterject({
-        isWaiting: true,
-        isReadyToInterject: false,
-      });
-
-      if (!handWasRaised.current) {
-        handWasRaised.current = true;
-        setInvitation(null);
-        socketRef.current.emit("raise_hand", {
-          humanName: humanName,
-          index: currentMessageIndex + 1,
-        });
-        setInvitationIndex(currentMessageIndex + 1);
-      }
-    } else if (handWasRaised.current) {
-      //Hand lowered
-      handleOnIsWaitingToInterject({
-        isWaiting: false,
-        isReadyToInterject: false,
-      });
-
-      socketRef.current.emit("lower_hand");
-    }
-  }, [isRaisedHand, humanName]);
-
-  useEffect(() => {
-    if (playInvitation) {
-      //Cut all messages on the client after this, to avoid rendering the wrong thing, and wait for a conversation update
-      setTextMessages((prevMessages) => {
-        const beforeInvitation = prevMessages.slice(0, invitationIndex);
-        beforeInvitation.push(invitation);
-        return beforeInvitation;
-      });
-
-      //Play invitation
-      setCurrentMessageIndex(invitationIndex);
-    }
-  }, [playInvitation]);
-
+  // When a new human message is submitted
   function handleOnSubmitHumanMessage(newTopic) {
     socketRef.current.emit("submit_human_message", { text: newTopic });
 
-    //Wait for message after invitation
-    setCurrentMessageIndex(invitationIndex + 1);
-    //Show loading
-    setIsReadyToStart(false);
-    //Reset hand raised vars
-    setIsInterjecting(false);
+    //Slice off the invitation
+    setTextMessages((prevMessages) => {
+      return prevMessages.slice(0, playingNowIndex);
+    });
     setIsRaisedHand(false);
-    setInvitation(null);
+    calculateNextAction();
   }
 
-  function handleOnRaiseHandOrNevermind() {
-    if(humanName === ""){
-      displayOverlay("name");
-    }else{
-      setIsRaisedHand((prev) => !prev);
+  // When hand is raised
+  // We do this as a use effect to get the correct values of human name etc.
+  useEffect(() => {
+    //Is this triggered exactly only once?
+    if (isRaisedHand) {
+      socketRef.current.emit("raise_hand", {
+        humanName: humanName,
+        index: playingNowIndex + 1,
+      });
+
+      //Slice off all messages after current one, to avoid playing at certain race conditions
+      setTextMessages((prevMessages) => {
+        return prevMessages.slice(0, playingNowIndex + 1);
+      });
+
+      //TODO What if a another conversation update is received right after this one, but then is deleted on the server?
+      //Could lead to that message being played once but then disappearing on the client side?
+    }
+  }, [isRaisedHand]);
+
+  function handleOnRaiseHand() {
+    if (humanName === "") {
+      setActiveOverlay("name");
+    } else {
+      setIsRaisedHand(true);
     }
   }
 
   function handleHumanNameEntered(input) {
-    if(input.humanName){
+    if (input.humanName) {
       setHumanName(input.humanName);
-      setIsRaisedHand((prev) => !prev);
+      setIsRaisedHand(true);
+      setPaused(false);
       removeOverlay();
-      handlePausePlay();
     }
   }
 
-  // Function to handle overlay content based on navbar clicks
-  const displayOverlay = (section) => {
-    setActiveOverlay(section); // Update state to control overlay content
-  };
 
+  // When overlay is closed
   function removeOverlay() {
     setActiveOverlay("");
     navigate("/meeting/" + (currentMeetingId || "new"));
-  }
 
-  function handleOnIsWaitingToInterject({ isWaiting, isReadyToInterject }) {
-    setIsWaitingToInterject(isWaiting);
-
-    if (isReadyToInterject) {
-      handleSetCurrentSpeakerName(humanName);
-      setIsInterjecting(true);
-    }
-
-    if (!isWaiting) {
-      handWasRaised.current = false;
+    //TODO put this in a better place?
+    if (councilState === 'max_reached') {
+      setPlayNextIndex(meetingMaxLength - 1);
+      setCouncilState('playing');
+    } else if (councilState === 'summary') {
+      setPlayNextIndex(meetingMaxLength - 2);
+      setCouncilState('playing');
     }
   }
 
-  //Put water in the middle always
-  function mapFoodIndex(total, index) {
-    return (Math.ceil(total / 2) + index - 1) % total;
-  }
-
-  function handleOnCompletedConversation() {
-    // Zoom out
-    setZoomIn(false);
-    displayOverlay("completed");
-  }
-
-  function handleOnContinue() {
-    setBumpIndex1(!bumpIndex1);
-    setContinuations(continuations + 1);
-
-    setIsReadyToStart(false);
-    // Increase max converation length to hold 5 more messages
-    setConversationMaxLength((prev) => prev + 5);
-
+  function handleOnContinueMeetingLonger() {
+    //This has to be called first because it is also setting the playNext
+    // TODO figure out a better solution.
     removeOverlay();
+
+    //Set intended message to current max
+    setPlayNextIndex(meetingMaxLength);
+
+    // Increase max converation length to hold more messages
+    setMeetingMaxLength((prev) => prev + globalOptions.extraMessageCount);
+
+    //If was paused, unpause
+    setPaused(false);
 
     socketRef.current.emit("continue_conversation");
   }
 
-  function handleOnResumeConversation() {
-    // Play messages
-    setPausePlay(false);
+  // When generate summary button is pressed
+  function handleOnGenerateSummary() {
+    removeOverlay();
+    // Last message will be summary
+    setMeetingMaxLength((prev) => prev + 1);
+    //Set intended message to current max
+    setPlayNextIndex(meetingMaxLength);
+
+    //Wait for the summary
+    socketRef.current.emit("wrap_up_meeting");
   }
 
-  function handleOnWrapItUp() {
-    setBumpIndex1(!bumpIndex1);
+  function handleOnNavigate(adress) {
+    if (adress === "") {
+      setActiveOverlay("reset");
+    } else if (adress === "settings") {
+      setActiveOverlay("settings");
+      navigate("/meeting/" + (currentMeetingId || "new"));
+    } else {
+      navigate(adress);
+    }
+  }
 
-    setIsReadyToStart(false);
+  /////////////////////
+  // Some calculations
+  /////////////////////
 
-    removeOverlay();
-
-    socketRef.current.emit("wrap_up_meeting");
+  //Put water in the middle always
+  function mapFoodIndex(total, index) {
+    return (Math.ceil(total / 2) + index - 1) % total;
   }
 
   function currentSpeakerIndex() {
@@ -337,17 +525,6 @@ function Council({ options }) {
     return currentIndex;
   }
 
-  function handleOnNavigate(adress) {
-    if (adress === "") {
-      displayOverlay("reset");
-    } else if (adress === "settings") {
-      displayOverlay("settings");
-      navigate("/meeting/" + (currentMeetingId || "new"));
-    } else {
-      navigate(adress);
-    }
-  }
-
   return (
     <>
       <Background
@@ -358,12 +535,21 @@ function Council({ options }) {
       <Navbar
         topic={options.topic.title}
         activeOverlay={activeOverlay}
-        onDisplayOverlay={displayOverlay}
+        onDisplayOverlay={setActiveOverlay}
         onRemoveOverlay={removeOverlay}
-        onDisplayResetWarning={() => displayOverlay("reset")}
+        onDisplayResetWarning={() => setActiveOverlay("reset")}
         onNavigate={handleOnNavigate}
       />
-      <div style={foodsContainerStyle}>
+      <div style={{
+        position: "absolute",
+        top: "calc(50% + 12vh)",
+        left: "50%",
+        transform: "translate(-50%, -50%)",
+        width: foods.length > 6 ? "79%" : "70%",
+        display: "flex",
+        justifyContent: "space-around",
+        alignItems: "center",
+      }}>
         {foods.map((food, index) => (
           <FoodItem
             key={food.name}
@@ -376,55 +562,38 @@ function Council({ options }) {
           />
         ))}
       </div>
-      {!isReadyToStart && <Loading />}
+      {councilState === 'loading' && <Loading />}
       <>
-        {isInterjecting && (
+        {councilState === 'human_input' && (
           <HumanInput onSubmitHumanMessage={handleOnSubmitHumanMessage} />
         )}
         <Output
           textMessages={textMessages}
           audioMessages={audioMessages}
+          playingNowIndex={playingNowIndex}
+          councilState={councilState}
           isMuted={isMuted}
           isPaused={isPaused}
-          skipForward={skipForward}
-          skipBackward={skipBackward}
-          handleSetCurrentSpeakerName={handleSetCurrentSpeakerName}
-          onIsWaitingToInterject={handleOnIsWaitingToInterject}
-          isWaitingToInterject={isWaitingToInterject}
-          bumpIndex1={bumpIndex1}
+          currentSnippetIndex={currentSnippetIndex}
+          setCurrentSnippetIndex={setCurrentSnippetIndex}
           audioContext={audioContext}
-          setCanGoForward={setCanGoForward}
-          setCanGoBack={setCanGoBack}
-          setIsReadyToStart={setIsReadyToStart}
-          setCanRaiseHand={setCanRaiseHand}
-          isReadyToStart={isReadyToStart}
-          setZoomIn={setZoomIn}
-          isInterjecting={isInterjecting}
-          onCompletedConversation={handleOnCompletedConversation}
-          currentMessageIndex={currentMessageIndex}
-          setCurrentMessageIndex={setCurrentMessageIndex}
-          conversationMaxLength={conversationMaxLength}
-          invitation={invitation}
-          playInvitation={playInvitation}
-          setPlayinvitation={setPlayinvitation}
-          onResumeConversation={handleOnResumeConversation}
-          summary={summary}
+          handleOnFinishedPlaying={handleOnFinishedPlaying}
         />
       </>
-      {isReadyToStart && !isInterjecting && (
+      {showControls && (
         <ConversationControls
           onSkipBackward={handleOnSkipBackward}
           onSkipForward={handleOnSkipForward}
-          onRaiseHandOrNevermind={handleOnRaiseHandOrNevermind}
+          onRaiseHand={handleOnRaiseHand}
           isRaisedHand={isRaisedHand}
-          isWaitingToInterject={isWaitingToInterject}
+          isWaitingToInterject={isRaisedHand && councilState !== 'human_input'}
           isMuted={isMuted}
           onMuteUnmute={handleMuteUnmute}
           isPaused={isPaused}
-          onPausePlay={handlePausePlay}
+          onPausePlay={() => setPaused(!isPaused)}
           canGoBack={canGoBack}
           canGoForward={canGoForward}
-          canRaiseHand={activeOverlay !== "summary" && canRaiseHand}
+          canRaiseHand={canRaiseHand}
           onTopOfOverlay={activeOverlay === "summary"}
           humanName={humanName}
         />
@@ -433,13 +602,11 @@ function Council({ options }) {
         {activeOverlay !== "" && (
           <CouncilOverlays
             activeOverlay={activeOverlay}
-            options={{
-              ...options,
-              onContinue: handleOnContinue,
-              onWrapItUp: handleOnWrapItUp,
-              proceedWithHumanName: handleHumanNameEntered,
-              continuations: continuations,
-            }}
+            options={options}
+            onContinue={handleOnContinueMeetingLonger}
+            onWrapItUp={handleOnGenerateSummary}
+            proceedWithHumanName={handleHumanNameEntered}
+            canExtendMeeting={canExtendMeeting}
             removeOverlay={removeOverlay}
             summary={summary}
             meetingId={currentMeetingId}

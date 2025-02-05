@@ -1,15 +1,15 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useMobile } from "../utils";
 
+const globalOptions = require("../global-options-client");
+
 function TextOutput({
   currentTextMessage,
-  currentAudioMessage,
   isPaused,
-  setZoomIn,
+  currentSnippetIndex,
+  setCurrentSnippetIndex
 }) {
-  const [currentSnippetIndex, setCurrentSnippetIndex] = useState(0);
   const [currentSnippet, setCurrentSnippet] = useState("");
-
   const [currentSnippetDelay, setCurrentSnippetDelay] = useState(0);
   const [snippetStartTime, setSnippetStartTime] = useState(0);
   const [remainingTime, setRemainingTime] = useState(0);
@@ -26,6 +26,9 @@ function TextOutput({
   // };
 
   const splitText = (text) => {
+    //Not sure if this safety is needed?
+    if(!text) return [];
+
     // Regex to capture sentences, numbered list items, and newlines as sentence boundaries
     const sentenceRegex = /(\d+\.\s+.{3,}?(?:\n|!|\?|\.{3}|…|\.|$))|.{3,}?(?:\n|!|\?|\.{3}|…|\.|$)/gs;
 
@@ -59,6 +62,7 @@ function TextOutput({
 
   // Reset the snippet index and snippet when a new message is received
   useEffect(() => {
+    console.log('new message');
     setCurrentSnippetIndex(0);
     if (currentTextMessage?.text) {
       const sentences = splitText(currentTextMessage?.text);
@@ -103,23 +107,13 @@ function TextOutput({
     }
   }, [currentSnippetIndex, currentTextMessage]);
 
-  useEffect(() => {
-    if (
-      currentTextMessage?.type !== "human" &&
-      currentTextMessage?.purpose !== "summary"
-    ) {
-      // Zoom in on 2 snippets, out on 2, etc.
-      setZoomIn(currentSnippetIndex % 4 < 2);
-    }
-  }, [currentSnippetIndex, currentTextMessage]);
-
   // Modify calculateDisplayTime to handle potential undefined or empty strings safely
   const calculateDisplayTime = (text) => {
     if (!text) {
       return 1500; // Minimum display time if text is undefined or empty
     }
     const baseTimePerCharacter = 0.06; // Adjust this value as needed
-    const speedMultiplier = 1.15;
+    const speedMultiplier = globalOptions.audio_speed;
     return Math.round(Math.max(1.5, text.length * baseTimePerCharacter / speedMultiplier) * 1000);
   };
 

@@ -10,6 +10,10 @@ import { useMobile } from "../utils";
 function CouncilOverlays({
   activeOverlay,
   options,
+  onContinue,
+  onWrapItUp,
+  proceedWithHumanName,
+  canExtendMeeting,
   removeOverlay,
   summary,
   meetingId,
@@ -76,16 +80,14 @@ function CouncilOverlays({
         );
       case "name":
         return (
-          <Name
-          onContinueForward={options.proceedWithHumanName}
-          />
+          <Name onContinueForward={proceedWithHumanName} />
         );
       case "completed":
         return (
           <Completed
-            onContinue={options.onContinue}
-            onWrapItUp={options.onWrapItUp}
-            continuations={options.continuations}
+            onContinue={onContinue}
+            onWrapItUp={onWrapItUp}
+            canExtendMeeting={canExtendMeeting}
           />
         );
       case "summary":
