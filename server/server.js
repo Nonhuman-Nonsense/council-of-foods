@@ -129,7 +129,7 @@ io.on("connection", (socket) => {
       { $set: { conversation: conversation } }
     );
 
-    console.log(`[meeting ${meetingId}] invitation generated, ${handRaisedOptions.index}`);
+    console.log(`[meeting ${meetingId}] invitation generated, on index ${handRaisedOptions.index}`);
 
     socket.emit("conversation_update", conversation);
 
