@@ -62,7 +62,6 @@ function TextOutput({
 
   // Reset the snippet index and snippet when a new message is received
   useEffect(() => {
-    console.log('new message');
     setCurrentSnippetIndex(0);
     if (currentTextMessage?.text) {
       const sentences = splitText(currentTextMessage?.text);
