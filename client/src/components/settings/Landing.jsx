@@ -30,6 +30,8 @@ function Landing({ onContinueForward }) {
           <img style={{width: '95px'}} src='/logos/council_logo_white.svg' alt="Council of Foods logo" />
           <h2 style={{marginBottom: "-10px"}}>welcome to</h2>
           <h1>COUNCIL OF FOODS</h1>
+          <p>at</p>
+          <h3>The Spirit of Asilomar</h3>
         </div>
         
         {isPortrait ?

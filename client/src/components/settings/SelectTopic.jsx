@@ -108,7 +108,7 @@ function SelectTopic(props) {
   const container = {
     // height: "550px",
     // maxHeight: "100vh",
-    width: "850px",
+    width: "1100px",
     display: "flex",
     flexDirection: "column",
     justifyContent: "flexStart",
@@ -134,7 +134,7 @@ function SelectTopic(props) {
     resize: "none",
     padding: "0",
     margin: "0",
-    height: isMobile ? "60px" : "80px",
+    height: isMobile ? "60px" : "120px",
     display: showTextBox() ? "" : "none",
   };
 
@@ -182,7 +182,7 @@ function SelectTopic(props) {
               <div style={doubleColumn}>
             {topics.filter((item, index) => {
               if(index === topics.length - 1) return false;
-              if(topics.length <= 5 + 1) return true;
+              if(topics.length <= 6 + 1) return true;
               return index < (topics.length - 1 ) / 2;
               }).map((topic, index) => (
               <button
@@ -199,10 +199,10 @@ function SelectTopic(props) {
               </button>
             ))}
               </div>
-              <div style={{...doubleColumn, display: topics.length > 5 + 1 ? "flex": "none"}}>
+              <div style={{...doubleColumn, display: topics.length > 6 + 1 ? "flex": "none"}}>
             {topics.filter((item, index) => {
               if(index === topics.length - 1) return false;
-              if(topics.length <= 5 + 1) return false;
+              if(topics.length <= 6 + 1) return false;
               return (index >= (topics.length - 1) / 2 );
             }).map((topic, index) => (
               <button
@@ -238,7 +238,7 @@ function SelectTopic(props) {
               style={{
                 margin: "0",
                 width: "70%",
-                height: showTextBox() ? "0" : isMobile ? "60px" : "80px",
+                height: showTextBox() ? "0" : isMobile ? "60px" : "120px",
               }}
             >
               {hoverTopic
