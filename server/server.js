@@ -390,13 +390,10 @@ io.on("connection", (socket) => {
       if (conversation.length >= globalOptions.conversationMaxLength + extraMessageCount) return;
       currentSpeaker = calculateCurrentSpeaker();
 
-      let response = "";
       let attempt = 1;
       let output = { response: "" };
       while (attempt < 5 && output.response == "") {
-        output = await generateTextFromGPT(
-          conversationOptions.characters[currentSpeaker]
-        );
+        output = await generateTextFromGPT(conversationOptions.characters[currentSpeaker]);
 
         if (handRaised) return;
         attempt++;
@@ -561,6 +558,20 @@ io.on("connection", (socket) => {
             response = response.substring(0, lastNewLineIndex);
           }
         }
+
+        if (globalOptions.trimWaterSemicolon) {
+          if(speaker.name == "Water"){
+            // Use the same sentence splitter as on the client side
+            const sentenceRegex = /(\d+\.\s+.{3,}?(?:\n|!|\?|\.{3}|…|\.|$))|.{3,}?(?:\n|!|\?|\.{3}|…|\.|$)/gs;
+            const sentences = response.match(sentenceRegex).map((sentence) => sentence.trim()).filter((sentence) => sentence.length > 0 && sentence !== ".");
+            // If last sentence ends with a semicolon, drop the whole sentence
+            if(sentences[sentences.length - 1].slice(-1) == ':'){
+              trimmedContent = trimmedContent ? sentences[sentences.length - 1] + '\n' + trimmedContent : sentences[sentences.length - 1];
+              response = sentences.slice(0, sentences.length - 1).join('\n');
+            }
+          }
+        }
+        
       }
 
       for (var i = 0; i < conversationOptions.characters.length; i++) {

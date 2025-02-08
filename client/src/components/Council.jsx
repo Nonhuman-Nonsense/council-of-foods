@@ -56,6 +56,7 @@ function Council({ options }) {
 
   //States from lower down
   const [currentSnippetIndex, setCurrentSnippetIndex] = useState(0);
+  const [sentencesLength, setSentencesLength] = useState(10);
   const [summary, setSummary] = useState(null);//We store the summary here for easy access
 
   // Universal references
@@ -333,7 +334,7 @@ function Council({ options }) {
       textMessages[playingNowIndex]?.type === "human"
     ) {
       setZoomIn(false);
-    } else if (currentSnippetIndex % 4 < 2) {
+    } else if (currentSnippetIndex % 4 < 2 && currentSnippetIndex !== sentencesLength - 1) {
       setZoomIn(true);
     } else {
       setZoomIn(false);
@@ -578,6 +579,7 @@ function Council({ options }) {
           setCurrentSnippetIndex={setCurrentSnippetIndex}
           audioContext={audioContext}
           handleOnFinishedPlaying={handleOnFinishedPlaying}
+          setSentencesLength={setSentencesLength}
         />
       </>
       {showControls && (

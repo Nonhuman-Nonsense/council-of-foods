@@ -7,7 +7,8 @@ function TextOutput({
   currentTextMessage,
   isPaused,
   currentSnippetIndex,
-  setCurrentSnippetIndex
+  setCurrentSnippetIndex,
+  setSentencesLength
 }) {
   const [currentSnippet, setCurrentSnippet] = useState("");
   const [currentSnippetDelay, setCurrentSnippetDelay] = useState(0);
@@ -16,6 +17,20 @@ function TextOutput({
   const [wasPaused, setWasPaused] = useState(false);
   const timerId = useRef(null);
   const isMobile = useMobile();
+
+  const speedModifiers = {
+    "Avocado": 1,
+    "Banana": 1,
+    "Beer": 1,
+    "Bean": 1,
+    "Lollipop": 0.96,
+    "Maize": 1,
+    "Meat": 1,
+    "Mushroom": 1,
+    "Potato": 1,
+    "Tomato": 1,
+    "Water": 1
+  };
 
   // const splitText = (text) => {
   //   return (
@@ -66,8 +81,10 @@ function TextOutput({
     if (currentTextMessage?.text) {
       const sentences = splitText(currentTextMessage?.text);
       if (sentences.length > 0) {
+        setSentencesLength(sentences.length);
         setCurrentSnippet(sentences[0]);
       } else {
+        setSentencesLength(0);
         setCurrentSnippet("");
       }
     }
@@ -108,12 +125,11 @@ function TextOutput({
 
   // Modify calculateDisplayTime to handle potential undefined or empty strings safely
   const calculateDisplayTime = (text) => {
-    if (!text) {
-      return 1500; // Minimum display time if text is undefined or empty
-    }
-    const baseTimePerCharacter = 0.06; // Adjust this value as needed
+    const baseTimePerCharacter = 60; //ms Adjust this value as needed
     const speedMultiplier = globalOptions.audio_speed;
-    return Math.round(Math.max(1.5, text.length * baseTimePerCharacter / speedMultiplier) * 1000);
+    const characterModifier = speedModifiers[currentTextMessage?.speaker] || 1;
+    const calculatedTime = text.length * baseTimePerCharacter * characterModifier / speedMultiplier;
+    return Math.round(Math.max(800, calculatedTime));
   };
 
   const paragraphStyle = {
