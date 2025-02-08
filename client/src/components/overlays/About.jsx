@@ -1,4 +1,5 @@
 import React from "react";
+import { Link } from "react-router-dom";
 
 function About({isSingle}) {
 
@@ -9,12 +10,15 @@ function About({isSingle}) {
   return (
       <div style={wrapper}>
         <p>
-        Welcome to the Council of Foods!<br/>
-        A political arena for foods to discuss the broken food system. Here, you, as a human participant, can listen, engage, and contribute to the discussions. The foods are prompted on different knowledges and ethical guidelines using the AI Language model GPT from Open AI.
+        What would a biologically grown potato think about pesticides? How would a mass-produced banana respond? And what would you add to the discussion? Can AI identify as a rare mushroom? Could it help give a voice to the "voiceless" in decision-making?
         </p>
         <p>
-        Our council members represent a diverse spectrum of food origins and ethical viewpoints, including mass-produced, locally grown, genetically modified, processed, fair trade, affordable, and organic foods. Each member brings their own unique eco-social impacts and ethical guidelines to the table, informed by their distinct backgrounds. Join the discussion on what actions need to be taken to form a locally and globally sustainable food system!
+        Welcome to the Council of Foods! A political arena where the foods themselves discuss the broken food system - through artificial intelligence.
         </p>
+        <p>
+        In the Council of Foods, AI language models are prompted to speak as a diversity of foods, embodying distinct values and ethical positions shaped in collaboration with food system experts. Each discussion is unique and not limited to the food system alone—broader societal issues emerge through the voices of industrially farmed, genetically modified, and wild-foraged foods. You, dear human, are invited to engage, challenge assumptions, and influence the conversation, which culminates in a policy recommendation document.
+        </p>
+        <p>a project by<br/><Link to={{pathname: "/contact"}}>Nonhuman Nonsense</Link></p>
         {!isSingle && <div style={{height: "30px"}} />}
       </div>
   );
