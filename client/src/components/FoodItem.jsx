@@ -14,7 +14,7 @@ function FoodItem({ food, index, total, currentSpeakerName, isPaused, zoomIn }) 
     "Avocado": 865,
     "Banana": 1000,
     "Beer": 890,
-    "Broad Bean": 894,
+    "Bean": 894,
     "Lollipop": 1021,
     "Maize": 915,
     "Meat": 824,
