@@ -373,6 +373,27 @@ io.on('connection', (socket) => {
                   response = response.substring(0, lastNewLineIndex);
                 }
               }
+
+              if (options.trimLastSentence) {
+                // Assume that last sentence is half since we didn't stop naturally, and drop it
+                const sentenceRegex = /(\d+\.\s+.{3,}?(?:\n|!|\?|\.{3}|…|\.|$))|.{3,}?(?:\n|!|\?|\.{3}|…|\.|$)/gs;
+                const sentences = response.match(sentenceRegex).map((sentence) => sentence.trim()).filter((sentence) => sentence.length > 0 && sentence !== ".");
+                trimmedContent = trimmedContent ? sentences[sentences.length - 1] + '\n' + trimmedContent : sentences[sentences.length - 1];
+                response = sentences.slice(0, sentences.length - 1).join('\n');
+              }
+      
+              if (options.trimWaterSemicolon) {
+                if(speaker.name == "Water"){
+                  // Use the same sentence splitter as on the client side
+                  const sentenceRegex = /(\d+\.\s+.{3,}?(?:\n|!|\?|\.{3}|…|\.|$))|.{3,}?(?:\n|!|\?|\.{3}|…|\.|$)/gs;
+                  const sentences = response.match(sentenceRegex).map((sentence) => sentence.trim()).filter((sentence) => sentence.length > 0 && sentence !== ".");
+                  // If last sentence ends with a semicolon, drop the whole sentence
+                  if(sentences[sentences.length - 1].slice(-1) == ':'){
+                    trimmedContent = sentences[sentences.length - 1] + '\n' + trimmedContent;
+                    response = sentences.slice(0, sentences.length - 1).join('\n');
+                  }
+                }
+              }
             }
 
             //if we find someone elses name in there, trim it

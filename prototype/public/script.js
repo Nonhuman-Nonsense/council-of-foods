@@ -83,6 +83,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
       document.getElementById('trim-response-to-full-sentance').checked = promptsAndOptions.options.trimSentance;
       document.getElementById('trim-response-to-full-paragraph').checked = promptsAndOptions.options.trimParagraph;
+      document.getElementById('trim-response-to-remove-half-sentence').checked = promptsAndOptions.options.trimLastSentence;
+      document.getElementById('trim-response-to-remove-waters-semicolon').checked = promptsAndOptions.options.trimWaterSemicolon;
       document.getElementById('show-trimmed').checked = promptsAndOptions.options.showTrimmed;
       document.getElementById('conversation-max-length').value = promptsAndOptions.options.conversationMaxLength;
 
@@ -170,6 +172,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
       promptsAndOptions.options.trimSentance = document.getElementById('trim-response-to-full-sentance').checked;
       promptsAndOptions.options.trimParagraph = document.getElementById('trim-response-to-full-paragraph').checked;
+      promptsAndOptions.options.trimLastSentence = document.getElementById('trim-response-to-remove-half-sentence').checked;
+      promptsAndOptions.options.trimWaterSemicolon = document.getElementById('trim-response-to-remove-waters-semicolon').checked;
       promptsAndOptions.options.showTrimmed = document.getElementById('show-trimmed').checked;
       promptsAndOptions.options.conversationMaxLength = +document.getElementById('conversation-max-length').value;
 
