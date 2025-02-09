@@ -45,7 +45,7 @@ function TextOutput({
     if(!text) return [];
 
     // Regex to capture sentences, numbered list items, and newlines as sentence boundaries
-    const sentenceRegex = /(\d+\.\s+.{3,}?(?:\n|!|\?|\.{3}|…|\.|$))|.{3,}?(?:\n|!|\?|\.{3}|…|\.|$)/gs;
+    const sentenceRegex = /(\d+\.\s+.{3,}?(?:\n|\?!|!|\?|\.{3}|…|\.|$))|.{3,}?(?:\n|\?!|!|\?|\.{3}|…|\.|$)/gs;
 
     return text
       .match(sentenceRegex)
