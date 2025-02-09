@@ -528,7 +528,7 @@ io.on("connection", (socket) => {
         messages: messages,
       });
 
-      let response = completion.choices[0].message.content.trim();
+      let response = completion.choices[0].message.content.trim().replace("**","");
 
       let pretrimmedContent;
       if (response.startsWith(speaker.name + ":")) {
@@ -562,12 +562,22 @@ io.on("connection", (socket) => {
         if (globalOptions.trimWaterSemicolon) {
           if(speaker.name == "Water"){
             // Use the same sentence splitter as on the client side
-            const sentenceRegex = /(\d+\.\s+.{3,}?(?:\n|!|\?|\.{3}|…|\.|$))|.{3,}?(?:\n|!|\?|\.{3}|…|\.|$)/gs;
+            const sentenceRegex = /(\d+\.\s+.{3,}?(?:\n|\?!|!|\?|\.{3}|…|\.|$))|.{3,}?(?:\n|\?!|!|\?|\.{3}|…|\.|$)/gs;
             const sentences = response.match(sentenceRegex).map((sentence) => sentence.trim()).filter((sentence) => sentence.length > 0 && sentence !== ".");
-            // If last sentence ends with a semicolon, drop the whole sentence
-            if(sentences[sentences.length - 1].slice(-1) == ':'){
-              trimmedContent = trimmedContent ? sentences[sentences.length - 1] + '\n' + trimmedContent : sentences[sentences.length - 1];
-              response = sentences.slice(0, sentences.length - 1).join('\n');
+            const trimmedSentences = trimmedContent.trim().match(sentenceRegex).map((sentence) => sentence.trim()).filter((sentence) => sentence.length > 0 && sentence !== ".");
+            // Check if we can re-add some messages from the end, to put back some of the list of questions that water often produces
+            if(sentences[sentences.length - 1].slice(-1) == ':' || trimmedSentences[0].slice(-1) == ':'){
+              if(trimmedSentences[0].slice(0,1) == '1' && trimmedSentences[1].slice(0,1) == '2' && trimmedSentences.length > 2){
+                trimmedContent = trimmedSentences[trimmedSentences.length - 1];
+                response = sentences.concat(trimmedSentences.slice(0, trimmedSentences.length - 1)).join('\n');
+              }else if(trimmedSentences[0].slice(-1) == ':' && trimmedSentences[1].slice(0,1) == '1' && trimmedSentences[2].slice(0,1) == '2' && trimmedSentences.length > 3){
+                trimmedContent = trimmedSentences[trimmedSentences.length - 1];
+                response = sentences.concat(trimmedSentences.slice(0, trimmedSentences.length - 1)).join('\n');
+              }else{
+                //otherwise remove also the last presentation of the list of topics
+                trimmedContent = trimmedContent ? sentences[sentences.length - 1] + '\n' + trimmedContent : sentences[sentences.length - 1];
+                response = sentences.slice(0, sentences.length - 1).join('\n');
+              }
             }
           }
         }
