@@ -19,7 +19,7 @@ function TextOutput({
   const isMobile = useMobile();
 
   const speedModifiers = {
-    "Avocado": 1,
+    "Avocado": 0.96,
     "Banana": 1,
     "Beer": 1,
     "Bean": 1,
@@ -45,7 +45,7 @@ function TextOutput({
     if(!text) return [];
 
     // Regex to capture sentences, numbered list items, and newlines as sentence boundaries
-    const sentenceRegex = /(\d+\.\s+.{3,}?(?:\n|\?!|\?"|!"|\?|!|\?|\.{3}|…|\.|$))|.{3,}?(?:\n|\?!|\?"|!"|!|\?|\.{3}|…|\.|$)/gs;
+    const sentenceRegex = /(\d+\.\s+.{3,}?(?:\n|\?!\*|\?!|\?"|!"|!\*|\?\*|\?|!|\?|\.{3}|…|\.|$))|.{3,}?(?:\n|\?!\*|\?!|\?"|!"|!\*|\?\*|!|\?|\.{3}|…|\.|$)/gs;
 
     return text
       .match(sentenceRegex)
