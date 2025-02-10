@@ -14,12 +14,24 @@ function MainOverlays({ topic, onReset }) {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // TODO fix so that settings is removed if location is not meeting
-  // And reset is removed if it is landing
+  // Reset the search params in certain conditions
   useEffect(() => {
-    if (!["about", "contact", "reset", "settings"].includes(searchParams.get('o'))) {
-      removeOverlay();
-    }adsadas
+    const param = searchParams.get('o');
+    if(param){
+      if (!["about", "contact", "reset", "settings"].includes(searchParams.get('o'))) {
+        removeOverlay();
+      }else if(!location.pathname.startsWith('/meeting')){
+        if (["settings"].includes(searchParams.get('o'))) {
+          removeOverlay();
+        }
+      }
+      if(location.pathname === '/'){
+        if (["reset"].includes(searchParams.get('o'))) {
+          removeOverlay();
+        }
+      }
+    }
+    
   }, [location, searchParams]);
 
   function removeOverlay() {
