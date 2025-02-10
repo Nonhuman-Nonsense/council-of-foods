@@ -25,6 +25,7 @@ function Council({
   //Routing
   const navigate = useNavigate();
   const location = useLocation();
+  // eslint-disable-next-line
   const [searchParams, setSearchParams] = useSearchParams();
 
   //Main State variables

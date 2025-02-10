@@ -10,6 +10,7 @@ import SelectTopic from "./settings/SelectTopic";
 
 function MainOverlays({ topic, onReset }) {
 
+  // eslint-disable-next-line
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const location = useLocation();

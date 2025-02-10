@@ -10,7 +10,7 @@ function Navbar({ topic, activeOverlay, onDisplayOverlay }) {
   const [hamburgerOpen, setHamburgerOpen] = useState(false);
   const hamburgerAnimation = useRef(null);
   const [activeMenuItem, setActiveMenuItem] = useState('');
-
+  // eslint-disable-next-line
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
   const navigate = useNavigate();
