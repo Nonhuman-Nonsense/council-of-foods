@@ -3,7 +3,13 @@ import ResetWarning from "../overlays/ResetWarning";
 import topicData from "../../prompts/topics.json";
 import { capitalizeFirstLetter, toTitleCase, useMobile } from "../../utils";
 
-function SelectTopic(props) {
+function SelectTopic({
+  onContinueForward,
+  currentTopic,
+  onReset,
+  onCancel
+}) {
+
   const [selectedTopic, setSelectedTopic] = useState({
     title: "",
     description: "",
@@ -20,12 +26,12 @@ function SelectTopic(props) {
     { title: "choose your own", prompt: "", description: "" },
   ];
 
-  // useEffect hook to listen for changes in props.currentTopic
+  // useEffect hook to listen for changes in currentTopic
   useEffect(() => {
-    if (props.currentTopic) {
-      selectTopic(props.currentTopic);
+    if (currentTopic) {
+      selectTopic(currentTopic);
     }
-  }, [props.currentTopic]); // Dependency array includes only currentTopic
+  }, [currentTopic]); // Dependency array includes only currentTopic
 
   // Function to set selectedTopic and focus on textarea if needed
   function selectTopic(topic) {
@@ -62,8 +68,8 @@ function SelectTopic(props) {
   }
 
   // Function to proceed with the selected or custom topic
-  function onContinueForward() {
-    if (props.currentTopic) {
+  function proceedForward() {
+    if (currentTopic) {
       // Current topic exists which means we are changing settings
       setDisplayWarning(true);
     } else {
@@ -78,7 +84,7 @@ function SelectTopic(props) {
         continueWithTopic.prompt
       );
 
-      props.onContinueForward({ topic: continueWithTopic });
+      onContinueForward({ topic: continueWithTopic });
     }
   }
 
@@ -144,8 +150,8 @@ function SelectTopic(props) {
         ? false
         : true
       : hoverTopic?.title === "choose your own"
-      ? true
-      : false;
+        ? true
+        : false;
   }
 
   const selectButtonStyle = {
@@ -159,12 +165,12 @@ function SelectTopic(props) {
         <ResetWarning
           message="changing topic"
           onReset={() =>
-            props.onReset({
+            onReset({
               title: getTopicTitle(),
               prompt: buildTopicPrompt(getTopicTitle()),
             })
           }
-          onCancel={props.onCancel}
+          onCancel={onCancel}
         />
       ) : (
         <div style={container}>
@@ -178,13 +184,49 @@ function SelectTopic(props) {
               width: "100%",
             }}
           >
-            <div style={{display: "flex", flexDirection: "row", width: "100%", justifyContent: "center"}}>
+            <div style={{ display: "flex", flexDirection: "row", width: "100%", justifyContent: "center" }}>
               <div style={doubleColumn}>
-            {topics.filter((item, index) => {
-              if(index === topics.length - 1) return false;
-              if(topics.length <= 5 + 1) return true;
-              return index < (topics.length - 1 ) / 2;
-              }).map((topic, index) => (
+                {topics.filter((item, index) => {
+                  if (index === topics.length - 1) return false;
+                  if (topics.length <= 5 + 1) return true;
+                  return index < (topics.length - 1) / 2;
+                }).map((topic, index) => (
+                  <button
+                    key={index}
+                    className={
+                      selectedTopic.title === topic.title ? "selected " : ""
+                    }
+                    onClick={() => selectTopic(topic)}
+                    onMouseEnter={() => setHoverTopic(topic)}
+                    onMouseLeave={() => setHoverTopic(null)}
+                    style={selectButtonStyle}
+                  >
+                    {toTitleCase(topic.title)}
+                  </button>
+                ))}
+              </div>
+              <div style={{ ...doubleColumn, display: topics.length > 5 + 1 ? "flex" : "none" }}>
+                {topics.filter((item, index) => {
+                  if (index === topics.length - 1) return false;
+                  if (topics.length <= 5 + 1) return false;
+                  return (index >= (topics.length - 1) / 2);
+                }).map((topic, index) => (
+                  <button
+                    key={index}
+                    className={
+                      selectedTopic.title === topic.title ? "selected " : ""
+                    }
+                    onClick={() => selectTopic(topic)}
+                    onMouseEnter={() => setHoverTopic(topic)}
+                    onMouseLeave={() => setHoverTopic(null)}
+                    style={selectButtonStyle}
+                  >
+                    {toTitleCase(topic.title)}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {topics.slice(-1).map((topic, index) => (
               <button
                 key={index}
                 className={
@@ -193,43 +235,7 @@ function SelectTopic(props) {
                 onClick={() => selectTopic(topic)}
                 onMouseEnter={() => setHoverTopic(topic)}
                 onMouseLeave={() => setHoverTopic(null)}
-                style={selectButtonStyle}
-              >
-                {toTitleCase(topic.title)}
-              </button>
-            ))}
-              </div>
-              <div style={{...doubleColumn, display: topics.length > 5 + 1 ? "flex": "none"}}>
-            {topics.filter((item, index) => {
-              if(index === topics.length - 1) return false;
-              if(topics.length <= 5 + 1) return false;
-              return (index >= (topics.length - 1) / 2 );
-            }).map((topic, index) => (
-              <button
-                key={index}
-                className={
-                  selectedTopic.title === topic.title ? "selected " : ""
-                }
-                onClick={() => selectTopic(topic)}
-                onMouseEnter={() => setHoverTopic(topic)}
-                onMouseLeave={() => setHoverTopic(null)}
-                style={selectButtonStyle}
-              >
-                {toTitleCase(topic.title)}
-              </button>
-            ))}
-              </div>
-              </div>
-              {topics.slice(-1).map((topic, index) => (
-              <button
-                key={index}
-                className={
-                  selectedTopic.title === topic.title ? "selected " : ""
-                }
-                onClick={() => selectTopic(topic)}
-                onMouseEnter={() => setHoverTopic(topic)}
-                onMouseLeave={() => setHoverTopic(null)}
-                style={{...selectButtonStyle, width: "50%"}}
+                style={{ ...selectButtonStyle, width: "50%" }}
               >
                 {toTitleCase(topic.title)}
               </button>
@@ -241,11 +247,11 @@ function SelectTopic(props) {
                 height: showTextBox() ? "0" : isMobile ? "60px" : "80px",
               }}
             >
-              {hoverTopic
+              {hoverTopic?.title
                 ? hoverTopic.description
                 : selectedTopic
-                ? selectedTopic.description
-                : "please select an issue for the discussion"}
+                  ? selectedTopic.description
+                  : "please select an issue for the discussion"}
             </p>
           </div>
           <textarea
@@ -258,7 +264,7 @@ function SelectTopic(props) {
             style={textBoxStyle}
           />
           <button
-            onClick={onContinueForward}
+            onClick={proceedForward}
             style={{
               marginBottom: "10px",
               visibility: shouldShowNextButton ? "" : "hidden",
