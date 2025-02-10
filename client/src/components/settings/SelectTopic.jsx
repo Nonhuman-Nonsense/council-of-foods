@@ -247,7 +247,7 @@ function SelectTopic({
                 height: showTextBox() ? "0" : isMobile ? "60px" : "80px",
               }}
             >
-              {hoverTopic
+              {hoverTopic?.title
                 ? hoverTopic.description
                 : selectedTopic
                   ? selectedTopic.description
