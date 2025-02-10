@@ -1,7 +1,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
 
-function About({isSingle}) {
+function About() {
 
   const wrapper = {
     maxWidth: "450px",
@@ -18,8 +18,7 @@ function About({isSingle}) {
         <p>
         In the Council of Foods, AI language models are prompted to speak as a diversity of foods, embodying distinct values and ethical positions shaped in collaboration with food system experts. Each discussion is unique and not limited to the food system alone—broader societal issues emerge through the voices of industrially farmed, genetically modified, and wild-foraged foods. You, dear human, are invited to engage, challenge assumptions, and influence the conversation, which culminates in a policy recommendation document.
         </p>
-        <p>a project by<br/><Link to={{pathname: "/contact"}}>Nonhuman Nonsense</Link></p>
-        {!isSingle && <div style={{height: "30px"}} />}
+        <p>a project by<br/><Link to={{search: "o=contact"}}>Nonhuman Nonsense</Link></p>
       </div>
   );
 }

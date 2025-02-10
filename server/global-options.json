@@ -14,7 +14,7 @@
   "logitBias": 0,
   "raiseHandPrompt": "We have a question or comment from the audience, please invite a human speaker called [NAME] to the debate. After listening to the human, answer and engage deeper with their thoughts.",
   "raiseHandInvitationLength": 150,
-  "finalizeMeetingPrompt": "Please summarise the meeting, held on [DATE], making a document that could work as a meeting protocol and a policy recommendation, that could be sent to a official political department like the European Comission.",
+  "finalizeMeetingPrompt": "Please summarise the meeting, held on [DATE], making a document that could work as a meeting protocol and a policy recommendation, that could be sent to a official political department like the European Commission.",
   "finalizeMeetingLength": 800,
   "extraMessageCount": 5
 }

@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useRef } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import io from "socket.io-client";
 import FoodItem from "./FoodItem";
 import Overlay from "./Overlay";
 import CouncilOverlays from "./CouncilOverlays";
-import Navbar from "./Navbar";
 import Loading from "./Loading";
 import Output from "./Output";
 import ConversationControls from "./ConversationControls";
@@ -12,9 +11,11 @@ import HumanInput from "./HumanInput";
 
 const globalOptions = require("../global-options-client");
 
-function Council({ options }) {
+function Council({
+  topic,
+  foods
+ }) {
   //Overall Council settings for this meeting
-  const { foods, topic } = options;
   const [humanName, setHumanName] = useState("");
 
   //Connection variables
@@ -24,6 +25,8 @@ function Council({ options }) {
   //Routing
   const navigate = useNavigate();
   const location = useLocation();
+  // eslint-disable-next-line
+  const [searchParams, setSearchParams] = useSearchParams();
 
   //Main State variables
   const [activeOverlay, setActiveOverlay] = useState("");
@@ -345,8 +348,10 @@ function Council({ options }) {
   useEffect(() => {
     if (activeOverlay !== "" && activeOverlay !== "summary" && !isPaused) {
       setPaused(true);
+    }else if(searchParams.get('o') !== null && !isPaused){
+      setPaused(true);
     }
-  }, [isPaused, activeOverlay]);
+  }, [isPaused, activeOverlay, location]);
 
   //Pause
   useEffect(() => {
@@ -495,17 +500,6 @@ function Council({ options }) {
     socketRef.current.emit("wrap_up_meeting");
   }
 
-  function handleOnNavigate(adress) {
-    if (adress === "") {
-      setActiveOverlay("reset");
-    } else if (adress === "settings") {
-      setActiveOverlay("settings");
-      navigate("/meeting/" + (currentMeetingId || "new"));
-    } else {
-      navigate(adress);
-    }
-  }
-
   /////////////////////
   // Some calculations
   /////////////////////
@@ -532,14 +526,6 @@ function Council({ options }) {
         zoomIn={zoomIn}
         currentSpeakerIndex={currentSpeakerIndex()}
         totalSpeakers={foods.length - 1}
-      />
-      <Navbar
-        topic={options.topic.title}
-        activeOverlay={activeOverlay}
-        onDisplayOverlay={setActiveOverlay}
-        onRemoveOverlay={removeOverlay}
-        onDisplayResetWarning={() => setActiveOverlay("reset")}
-        onNavigate={handleOnNavigate}
       />
       <div style={{
         position: "absolute",
@@ -604,7 +590,6 @@ function Council({ options }) {
         {activeOverlay !== "" && (
           <CouncilOverlays
             activeOverlay={activeOverlay}
-            options={options}
             onContinue={handleOnContinueMeetingLonger}
             onWrapItUp={handleOnGenerateSummary}
             proceedWithHumanName={handleHumanNameEntered}
