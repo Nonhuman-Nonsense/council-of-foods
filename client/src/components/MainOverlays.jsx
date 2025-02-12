@@ -8,7 +8,7 @@ import Contact from "./overlays/Contact.jsx";
 import ResetWarning from "./overlays/ResetWarning";
 import SelectTopic from "./settings/SelectTopic";
 
-function MainOverlays({ topic, onReset }) {
+function MainOverlays({ topic, onReset, onCloseOverlay }) {
 
   // eslint-disable-next-line
   const [searchParams, setSearchParams] = useSearchParams();
@@ -37,6 +37,7 @@ function MainOverlays({ topic, onReset }) {
 
   function removeOverlay() {
     navigate({ search: "" });
+    onCloseOverlay();
   }
 
   const showOverlay = (searchParams.get('o') !== null);

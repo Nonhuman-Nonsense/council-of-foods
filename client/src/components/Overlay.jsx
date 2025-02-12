@@ -3,7 +3,7 @@ import React, { useState, useEffect } from "react";
 function Overlay({ isActive, isBlurred, children }) {
   const [overlayStyle, setOverlayStyle] = useState({});
 
-  const sharedOverlayStyle ={
+  const sharedOverlayStyle = {
     position: "absolute",
     minHeight: "100%",
     width: "100%",
@@ -15,20 +15,20 @@ function Overlay({ isActive, isBlurred, children }) {
 
   useEffect(() => {
     if (isActive) {
-      setOverlayStyle({...sharedOverlayStyle,
+      setOverlayStyle({
+        ...sharedOverlayStyle,
         backgroundColor: "rgba(0, 0, 0, 0.5)",
-        backdropFilter: (isBlurred === false ? "" : "blur(10px)"),
-        WebkitBackdropFilter: (isBlurred === false ? "" : "blur(10px)"),
         pointerEvents: "auto",
       });
     } else {
-      setOverlayStyle({...sharedOverlayStyle,
+      setOverlayStyle({
+        ...sharedOverlayStyle,
         pointerEvents: "none",
       });
     }
   }, [isActive, isBlurred]);
 
-  return <div style={overlayStyle}>{children}</div>;
+  return <div style={overlayStyle} className={isBlurred !== false && isActive === true ? "blur" : ""}>{children}</div>;
 }
 
 export default Overlay;

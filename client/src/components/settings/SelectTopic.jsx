@@ -114,7 +114,7 @@ function SelectTopic({
   const container = {
     // height: "550px",
     // maxHeight: "100vh",
-    width: "850px",
+    maxWidth: "850px",
     display: "flex",
     flexDirection: "column",
     justifyContent: "flexStart",
@@ -174,7 +174,7 @@ function SelectTopic({
         />
       ) : (
         <div style={container}>
-          <h1 style={{ marginBottom: isMobile && "0" }}>THE ISSUE</h1>
+          <h1 style={{ marginBottom: isMobile && "5px" }}>THE ISSUE</h1>
           <div
             style={{
               display: "flex",

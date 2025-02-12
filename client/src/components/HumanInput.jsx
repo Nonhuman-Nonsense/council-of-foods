@@ -29,9 +29,9 @@ function HumanInput({ onSubmitHumanMessage }) {
       if (isRecording) {
         setPreviousTranscript(inputArea.current.value);
         resetTranscript();
-        if(browserSupportsContinuousListening){
+        if (browserSupportsContinuousListening) {
           SpeechRecognition.startListening({ continuous: true });
-        }else{
+        } else {
           SpeechRecognition.startListening();
         }
       } else {
@@ -49,26 +49,26 @@ function HumanInput({ onSubmitHumanMessage }) {
     inputChanged();
   }, [transcript]);
 
-  function inputFocused(e){
+  function inputFocused(e) {
     setIsRecording(false);
   }
 
-  function inputChanged(e){
-    if(inputArea.current.value.length > 0 && inputArea.current.value.trim().length !== 0){
+  function inputChanged(e) {
+    if (inputArea.current.value.length > 0 && inputArea.current.value.trim().length !== 0) {
       setCanContinue(true);
-    }else{
+    } else {
       setCanContinue(false);
     }
   }
 
-  function checkEnter(e){
-    if(canContinue && !e.shiftKey && e.key === "Enter"){
+  function checkEnter(e) {
+    if (canContinue && !e.shiftKey && e.key === "Enter") {
       e.preventDefault();
       submitAndContinue();
     }
   }
 
-  function submitAndContinue(){
+  function submitAndContinue() {
     setIsRecording(false);
     onSubmitHumanMessage(inputArea.current.value.substring(0, maxInputLength));
   }
@@ -112,7 +112,7 @@ function HumanInput({ onSubmitHumanMessage }) {
   return (
     <div style={wrapperStyle}>
       <img alt="Say something!" src="/mic.png" style={micStyle} />
-      <div style={{zIndex: "4", position: "relative", pointerEvents: "auto"}}>
+      <div style={{ zIndex: "4", position: "relative", pointerEvents: "auto" }}>
         <TextareaAutosize
           ref={inputArea}
           style={textStyle}
@@ -123,18 +123,20 @@ function HumanInput({ onSubmitHumanMessage }) {
           minRows="1"
           maxRows="6"
           maxLength={maxInputLength}
-          placeholder="Type your question or start recording..."
+          placeholder={browserSupportsSpeechRecognition ? "Type your question or start recording..." : "Type your question..."}
         />
       </div>
       <div style={{ display: "flex", flexDirection: "row", pointerEvents: "auto", justifyContent: "center" }}>
-        <div style={divStyle}/>
-        <div style={divStyle}>
-          <ConversationControlIcon
-            icon={(isRecording ? "record_voice_on" : "record_voice_off" )}
-            onClick={handleStartStopRecording}
-            tooltip={"Mute"}
-          />
-        </div>
+        <div style={divStyle} />
+        {browserSupportsSpeechRecognition &&
+          <div style={divStyle}>
+            <ConversationControlIcon
+              icon={(isRecording ? "record_voice_on" : "record_voice_off")}
+              onClick={handleStartStopRecording}
+              tooltip={"Mute"}
+            />
+          </div>
+        }
         <div style={divStyle}>
           {canContinue &&
             <ConversationControlIcon
@@ -144,6 +146,7 @@ function HumanInput({ onSubmitHumanMessage }) {
             />
           }
         </div>
+        {!browserSupportsSpeechRecognition && <div style={divStyle} />}
       </div>
     </div>
   );

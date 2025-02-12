@@ -142,7 +142,7 @@ function FoodInfo({ food }) {
         pointerEvents: food !== null ? "all" : "none",
       }}
     >
-      <h2 style={{margin: isMobile ? "0" : "", marginTop: "-15px"}}>{toTitleCase(food.name)}</h2>
+      <h2 style={{margin: isMobile ? "0" : "-15px 0 0 0"}}>{toTitleCase(food.name)}</h2>
       <p style={{margin: isMobile ? "0" : ""}}>{food.description?.split('\n').map((item, key) => {
           return <span key={key}>{item}<br/></span>
         })}
