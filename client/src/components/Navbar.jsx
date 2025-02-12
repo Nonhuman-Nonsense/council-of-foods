@@ -5,10 +5,9 @@ import { capitalizeFirstLetter, useMobile, usePortrait } from "../utils";
 import Lottie from "react-lottie-player";
 import hamburger from "../animations/hamburger.json";
 
-function Navbar({ topic, onDisplayOverlay }) {
+function Navbar({ topic, onDisplayOverlay, hamburgerOpen, setHamburgerOpen }) {
   const isMobile = useMobile();
   const isPortrait = usePortrait();
-  const [hamburgerOpen, setHamburgerOpen] = useState(false);
   const hamburgerAnimation = useRef(null);
   const [activeMenuItem, setActiveMenuItem] = useState('');
   // eslint-disable-next-line
@@ -28,16 +27,15 @@ function Navbar({ topic, onDisplayOverlay }) {
     }
   },[searchParams]);
 
-  const openHamburger = () => {
-    if (hamburgerOpen) {
+  useEffect(() => {
+    if (!hamburgerOpen) {
       hamburgerAnimation.current.setDirection(-1);
       hamburgerAnimation.current.play();
     } else {
       hamburgerAnimation.current.setDirection(1);
       hamburgerAnimation.current.play();
     }
-    setHamburgerOpen(!hamburgerOpen);
-  };
+  },[hamburgerOpen]);
 
   function handleOnNavigate(adress) {
     navigate({
@@ -48,7 +46,7 @@ function Navbar({ topic, onDisplayOverlay }) {
   }
 
   const navbarStyle = {
-    padding: "20px",
+    padding: isMobile ? "20px 20px 0 20px" : "20px",
     display: isPortrait ? "none" : "flex",
     justifyContent: "space-between",
     alignItems: "start",
@@ -60,7 +58,8 @@ function Navbar({ topic, onDisplayOverlay }) {
     margin: "0 auto",
     width: "100%",
     boxSizing: "border-box",
-    zIndex: "10"
+    zIndex: "10",
+    height: isMobile && "50px",
   };
 
   const hamburgerStyle = {
@@ -130,7 +129,7 @@ function Navbar({ topic, onDisplayOverlay }) {
           {isMobile && (
             <div
               style={hamburgerStyle}
-              onClick={openHamburger}
+              onClick={() => setHamburgerOpen(!hamburgerOpen)}
             >
               <Lottie
                 ref={hamburgerAnimation}
@@ -164,7 +163,9 @@ function NavItem({ name, isActive, show, onDisplayOverlay, onNavigate }) {
     <h3
       style={{ margin: "0", padding: "0" }}
       onClick={() => {
-        onNavigate(name);
+        if(show){
+          onNavigate(name);
+        }
       }}
     >
       <span style={navItemStyle}>{name.toUpperCase()}</span>

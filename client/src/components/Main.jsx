@@ -34,6 +34,9 @@ function Main() {
   const [topic, setTopic] = useState({ title: "", prompt: "" });
   const [foods, setFoods] = useState([]);
 
+  //Had to lift up navbar state to this level to be able to close it from main overlay
+  const [hamburgerOpen, setHamburgerOpen] = useState(false);
+
   const location = useLocation();
   const navigate = useNavigate();
   const isIphone = useIsIphone();
@@ -76,11 +79,18 @@ function Main() {
     }
   }
 
+  //Close hamburger when main overlay is closing on mobile
+  function onCloseOverlay(){
+    setHamburgerOpen(false);
+  }
+
   return (
     <>
       <Background path={location.pathname} />
       <Navbar
         topic={topic.title}
+        hamburgerOpen={hamburgerOpen}
+        setHamburgerOpen={setHamburgerOpen}
       />
       <Overlay
         isActive={!location.pathname.startsWith("/meeting")}
@@ -124,7 +134,7 @@ function Main() {
           />
         </Routes>
         {!isIphone && <FullscreenButton />}
-        <MainOverlays topic={topic} onReset={onReset} />
+        <MainOverlays topic={topic} onReset={onReset} onCloseOverlay={onCloseOverlay} />
         {isPortrait && location.pathname !== "/" && <RotateOverlay />}
       </Overlay>
     </>
