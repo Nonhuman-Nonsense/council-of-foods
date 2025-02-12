@@ -114,7 +114,8 @@ function SelectTopic({
   const container = {
     // height: "550px",
     // maxHeight: "100vh",
-    maxWidth: "850px",
+    width: !isMobile && "850px",//Make this nicer, not sure why this is happening
+    maxWidth: isMobile && "850px",
     display: "flex",
     flexDirection: "column",
     justifyContent: "flexStart",
