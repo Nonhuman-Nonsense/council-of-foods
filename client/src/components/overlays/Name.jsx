@@ -5,10 +5,8 @@ function Name({onContinueForward}) {
 
   const wrapper = {
     maxWidth: "500px",
-    height:"60%",
     display:"flex",
-    flexDirection: "column",
-    justifyContent: "space-around"
+    flexDirection: "column"
   };
 
   return (

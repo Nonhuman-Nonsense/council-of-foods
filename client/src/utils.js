@@ -24,3 +24,7 @@ export function filename(string) {
 export function useMobile(){
   return useMediaQuery({ query: '(max-height: 600px)' });
 }
+
+export function usePortrait(){
+  return useMediaQuery({ query: "(orientation: portrait)" });
+}

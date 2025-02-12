@@ -14,8 +14,8 @@ import SelectTopic from "./settings/SelectTopic";
 import SelectFoods from "./settings/SelectFoods";
 import Council from "./Council";
 import RotateDevice from "./RotateDevice";
-import { useMediaQuery } from "react-responsive";
 import FullscreenButton from "./FullscreenButton";
+import { usePortrait } from "../utils";
 
 function useIsIphone() {
   const [isIphone, setIsIphone] = useState(false);
@@ -34,9 +34,13 @@ function Main() {
   const [topic, setTopic] = useState({ title: "", prompt: "" });
   const [foods, setFoods] = useState([]);
 
+  //Had to lift up navbar state to this level to be able to close it from main overlay
+  const [hamburgerOpen, setHamburgerOpen] = useState(false);
+
   const location = useLocation();
   const navigate = useNavigate();
   const isIphone = useIsIphone();
+  const isPortrait = usePortrait();
 
   useEffect(() => {
     if (topic.title === "" && (location.pathname !== "/" && location.pathname !== "/topics")) {
@@ -45,7 +49,7 @@ function Main() {
     }
   }, [location.pathname]);
 
-  const isPortrait = useMediaQuery({ query: "(orientation: portrait)" });
+  
 
   function continueForward(fromPage, props) {
     let next = "";
@@ -69,12 +73,15 @@ function Main() {
     if (!topic?.title) {
       // Reset from the start
       navigate("/");
-      // setCurrentView("landing");
     } else {
       // Reset from foods selection
       navigate("foods");
-      // setCurrentView("foods");
     }
+  }
+
+  //Close hamburger when main overlay is closing on mobile
+  function onCloseOverlay(){
+    setHamburgerOpen(false);
   }
 
   return (
@@ -82,6 +89,8 @@ function Main() {
       <Background path={location.pathname} />
       <Navbar
         topic={topic.title}
+        hamburgerOpen={hamburgerOpen}
+        setHamburgerOpen={setHamburgerOpen}
       />
       <Overlay
         isActive={!location.pathname.startsWith("/meeting")}
@@ -125,7 +134,7 @@ function Main() {
           />
         </Routes>
         {!isIphone && <FullscreenButton />}
-        <MainOverlays topic={topic} onReset={onReset} />
+        <MainOverlays topic={topic} onReset={onReset} onCloseOverlay={onCloseOverlay} />
         {isPortrait && location.pathname !== "/" && <RotateOverlay />}
       </Overlay>
     </>
