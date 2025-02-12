@@ -313,3 +313,9 @@ button.selected {
     margin-top: 11px;
   }
 }
+
+@media only screen and (max-width: 600px) {
+  h1 {
+    font-size: 38px;
+  }
+}
