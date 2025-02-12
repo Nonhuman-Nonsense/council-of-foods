@@ -1,12 +1,13 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useLocation, useNavigate, createSearchParams, useSearchParams } from "react-router-dom";
 
-import { capitalizeFirstLetter, useMobile } from "../utils";
+import { capitalizeFirstLetter, useMobile, usePortrait } from "../utils";
 import Lottie from "react-lottie-player";
 import hamburger from "../animations/hamburger.json";
 
-function Navbar({ topic, activeOverlay, onDisplayOverlay }) {
+function Navbar({ topic, onDisplayOverlay }) {
   const isMobile = useMobile();
+  const isPortrait = usePortrait();
   const [hamburgerOpen, setHamburgerOpen] = useState(false);
   const hamburgerAnimation = useRef(null);
   const [activeMenuItem, setActiveMenuItem] = useState('');
@@ -48,7 +49,7 @@ function Navbar({ topic, activeOverlay, onDisplayOverlay }) {
 
   const navbarStyle = {
     padding: "20px",
-    display: "flex",
+    display: isPortrait ? "none" : "flex",
     justifyContent: "space-between",
     alignItems: "start",
     color: "white",
@@ -59,7 +60,7 @@ function Navbar({ topic, activeOverlay, onDisplayOverlay }) {
     margin: "0 auto",
     width: "100%",
     boxSizing: "border-box",
-    zIndex: "10",
+    zIndex: "10"
   };
 
   const hamburgerStyle = {

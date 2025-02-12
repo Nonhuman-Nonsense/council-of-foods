@@ -14,8 +14,8 @@ import SelectTopic from "./settings/SelectTopic";
 import SelectFoods from "./settings/SelectFoods";
 import Council from "./Council";
 import RotateDevice from "./RotateDevice";
-import { useMediaQuery } from "react-responsive";
 import FullscreenButton from "./FullscreenButton";
+import { usePortrait } from "../utils";
 
 function useIsIphone() {
   const [isIphone, setIsIphone] = useState(false);
@@ -37,6 +37,7 @@ function Main() {
   const location = useLocation();
   const navigate = useNavigate();
   const isIphone = useIsIphone();
+  const isPortrait = usePortrait();
 
   useEffect(() => {
     if (topic.title === "" && (location.pathname !== "/" && location.pathname !== "/topics")) {
@@ -45,7 +46,7 @@ function Main() {
     }
   }, [location.pathname]);
 
-  const isPortrait = useMediaQuery({ query: "(orientation: portrait)" });
+  
 
   function continueForward(fromPage, props) {
     let next = "";
@@ -69,11 +70,9 @@ function Main() {
     if (!topic?.title) {
       // Reset from the start
       navigate("/");
-      // setCurrentView("landing");
     } else {
       // Reset from foods selection
       navigate("foods");
-      // setCurrentView("foods");
     }
   }
 
