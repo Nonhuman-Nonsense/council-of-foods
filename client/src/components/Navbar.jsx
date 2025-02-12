@@ -29,11 +29,11 @@ function Navbar({ topic, onDisplayOverlay, hamburgerOpen, setHamburgerOpen }) {
 
   useEffect(() => {
     if (!hamburgerOpen) {
-      hamburgerAnimation.current.setDirection(-1);
-      hamburgerAnimation.current.play();
+      hamburgerAnimation.current?.setDirection(-1);
+      hamburgerAnimation.current?.play();
     } else {
-      hamburgerAnimation.current.setDirection(1);
-      hamburgerAnimation.current.play();
+      hamburgerAnimation.current?.setDirection(1);
+      hamburgerAnimation.current?.play();
     }
   },[hamburgerOpen]);
 
