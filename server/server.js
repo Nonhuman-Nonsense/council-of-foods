@@ -25,7 +25,7 @@ const audioVoices = ["alloy", "echo", "fable", "onyx", "nova", "shimmer"];
 
 // Database setup
 const mongoClient = new MongoClient(process.env.MONGO_URL);
-const db = mongoClient.db("CouncilOfFoods");
+const db = mongoClient.db("CouncilOfFoods-asilomar");
 const meetingsCollection = db.collection("meetings");
 const audioCollection = db.collection("audio");
 const counters = db.collection("counters");
