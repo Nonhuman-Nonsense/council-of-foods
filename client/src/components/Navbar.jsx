@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useLocation, useNavigate, createSearchParams, useSearchParams } from "react-router-dom";
+import { useMediaQuery } from 'react-responsive'
 
 import { capitalizeFirstLetter, useMobile, usePortrait } from "../utils";
 import Lottie from "react-lottie-player";
@@ -8,6 +9,7 @@ import hamburger from "../animations/hamburger.json";
 function Navbar({ topic, onDisplayOverlay, hamburgerOpen, setHamburgerOpen }) {
   const isMobile = useMobile();
   const isPortrait = usePortrait();
+  const showIconinMeny = useMediaQuery({ query: '(min-width: 700px)' });
   const hamburgerAnimation = useRef(null);
   const [activeMenuItem, setActiveMenuItem] = useState('');
   // eslint-disable-next-line
@@ -63,8 +65,7 @@ function Navbar({ topic, onDisplayOverlay, hamburgerOpen, setHamburgerOpen }) {
     width: "100%",
     boxSizing: "border-box",
     zIndex: "10",
-    height: isMobile && "70px",
-    // backgroundColor: isMobile && "rgba(0,0,0,0.5)",
+    height: isMobile && "80px",
   };
 
   const hamburgerStyle = {
@@ -86,7 +87,7 @@ function Navbar({ topic, onDisplayOverlay, hamburgerOpen, setHamburgerOpen }) {
     <nav
       style={navbarStyle}
       role="navigation"
-      className={isMobile && (hamburgerOpen ? "blur" : "blur hide")}
+      className={isMobile ? (hamburgerOpen ? "blur" : "blur hide") : ""}
     >
       <div
         style={{
@@ -102,20 +103,20 @@ function Navbar({ topic, onDisplayOverlay, hamburgerOpen, setHamburgerOpen }) {
         }}
       >
         {location.pathname !== "/" && <>
-          <img style={{ width: '75px', marginRight: "10px", marginTop: "7px", cursor: "pointer", visibility: isMobile ? "hidden" : "visible" }} onClick={() => handleOnNavigate("reset")} src='/logos/council_logo_white.svg' alt="Council of Foods logo" />
+          <img style={{ width: '75px', marginRight: "10px", marginTop: "7px", cursor: "pointer", visibility: showIconinMeny ? "visible" : "hidden" }} onClick={() => handleOnNavigate("reset")} src='/logos/council_logo_white.svg' alt="Council of Foods logo" />
           <div>
             <h3
               style={{
                 margin: "0",
                 padding: "0",
                 cursor: "pointer",
-                visibility: isMobile ? "hidden" : "visible",
+                visibility: showIconinMeny ? "visible" : "hidden",
               }}
               onClick={() => handleOnNavigate("reset")}
             >
               COUNCIL OF FOODS
             </h3>
-            <h4 style={{ marginTop: "5px", visibility: isMobile ? "hidden" : "visible" }}>{capitalizeFirstLetter(topic)}</h4>
+            <h4 style={{ marginTop: "5px", visibility: showIconinMeny ? "visible" : "hidden" }}>{capitalizeFirstLetter(topic)}</h4>
           </div>
         </>}
       </div>
