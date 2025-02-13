@@ -114,7 +114,7 @@ function SelectTopic({
   const container = {
     // height: "550px",
     // maxHeight: "100vh",
-    maxWidth: "850px",
+    width: "min(850px, 96vw)",//On mobile we go for screen width
     display: "flex",
     flexDirection: "column",
     justifyContent: "flexStart",
@@ -130,7 +130,7 @@ function SelectTopic({
 
   const textBoxStyle = {
     backgroundColor: "transparent",
-    width: "70%",
+    width: isMobile ? "80%" : "70%",
     color: "white",
     textAlign: "center",
     border: "0",
@@ -243,7 +243,7 @@ function SelectTopic({
             <p
               style={{
                 margin: "0",
-                width: "70%",
+                width: isMobile ? "80%" : "70%",
                 height: showTextBox() ? "0" : isMobile ? "60px" : "80px",
               }}
             >

@@ -38,10 +38,10 @@ function OverlayWrapper({
   };
 
   const closeInnerStyle = {
-    height: isMobile ? "calc(100% - 55px)" : "calc(100% - 60px)",
+    height: isMobile ? "100%" : "calc(100% - 60px)",
     width: "100%",
     display: "flex",
-    marginTop: isMobile ? "55px" : "60px",
+    marginTop: isMobile ? "10px" : "60px",
   };
 
   return (

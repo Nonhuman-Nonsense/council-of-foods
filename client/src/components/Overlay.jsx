@@ -1,9 +1,8 @@
-import React, { useState, useEffect } from "react";
+import React from "react";
 
 function Overlay({ isActive, isBlurred, children }) {
-  const [overlayStyle, setOverlayStyle] = useState({});
 
-  const sharedOverlayStyle = {
+  const overlayStyle = {
     position: "absolute",
     minHeight: "100%",
     width: "100%",
@@ -11,24 +10,11 @@ function Overlay({ isActive, isBlurred, children }) {
     alignItems: "center",
     justifyContent: "center",
     zIndex: "5",
+    backgroundColor: isActive && "rgba(0, 0, 0, 0.5)",
+    pointerEvents: isActive ? "auto" : "none",
   };
 
-  useEffect(() => {
-    if (isActive) {
-      setOverlayStyle({
-        ...sharedOverlayStyle,
-        backgroundColor: "rgba(0, 0, 0, 0.5)",
-        pointerEvents: "auto",
-      });
-    } else {
-      setOverlayStyle({
-        ...sharedOverlayStyle,
-        pointerEvents: "none",
-      });
-    }
-  }, [isActive, isBlurred]);
-
-  return <div style={overlayStyle} className={isBlurred !== false && isActive === true ? "blur" : ""}>{children}</div>;
+  return <div style={overlayStyle} className={isBlurred !== false && isActive === true ? "blur" : "blur hide"}>{children}</div>;
 }
 
 export default Overlay;

@@ -45,11 +45,11 @@ function Main() {
   useEffect(() => {
     if (topic.title === "" && (location.pathname !== "/" && location.pathname !== "/topics")) {
       //Preserve the search, but navigate to start
-      navigate({pathname: "/", search: location.search});      
+      navigate({ pathname: "/", search: location.search });
     }
   }, [location.pathname]);
 
-  
+
 
   function continueForward(fromPage, props) {
     let next = "";
@@ -80,9 +80,21 @@ function Main() {
   }
 
   //Close hamburger when main overlay is closing on mobile
-  function onCloseOverlay(){
+  function onCloseOverlay() {
     setHamburgerOpen(false);
   }
+
+  //Create a special div that covers all click events that are not on the menu
+  //If this is clicked, then menu is closed
+  const hamburgerCloserStyle = {
+    position: "absolute",
+    width: "100%",
+    height: "100%",
+    left: "0",
+    top: "0",
+    pointerEvents: 'auto',
+    zIndex: "9"
+  };
 
   return (
     <>
@@ -92,6 +104,7 @@ function Main() {
         hamburgerOpen={hamburgerOpen}
         setHamburgerOpen={setHamburgerOpen}
       />
+      {hamburgerOpen && <div style={hamburgerCloserStyle} onClick={() => setHamburgerOpen(false)}></div>}
       <Overlay
         isActive={!location.pathname.startsWith("/meeting")}
         isBlurred={location.pathname !== "/"}
