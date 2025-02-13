@@ -43,6 +43,10 @@ function Navbar({ topic, onDisplayOverlay, hamburgerOpen, setHamburgerOpen }) {
         o: adress
       }).toString()
     });
+    if(isMobile){
+      //If something is clicked in the menu on mobile, close the hamburger to give more space for content
+      setHamburgerOpen(false);
+    }
   }
 
   const navbarStyle = {
@@ -59,7 +63,8 @@ function Navbar({ topic, onDisplayOverlay, hamburgerOpen, setHamburgerOpen }) {
     width: "100%",
     boxSizing: "border-box",
     zIndex: "10",
-    height: isMobile && "50px",
+    height: isMobile && "70px",
+    // backgroundColor: isMobile && "rgba(0,0,0,0.5)",
   };
 
   const hamburgerStyle = {
@@ -81,6 +86,7 @@ function Navbar({ topic, onDisplayOverlay, hamburgerOpen, setHamburgerOpen }) {
     <nav
       style={navbarStyle}
       role="navigation"
+      className={isMobile && (hamburgerOpen ? "blur" : "blur hide")}
     >
       <div
         style={{
@@ -96,19 +102,20 @@ function Navbar({ topic, onDisplayOverlay, hamburgerOpen, setHamburgerOpen }) {
         }}
       >
         {location.pathname !== "/" && <>
-          <img style={{ width: '75px', marginRight: "10px", marginTop: "7px", cursor: "pointer" }} onClick={() => handleOnNavigate("reset")} src='/logos/council_logo_white.svg' alt="Council of Foods logo" />
+          <img style={{ width: '75px', marginRight: "10px", marginTop: "7px", cursor: "pointer", visibility: isMobile ? "hidden" : "visible" }} onClick={() => handleOnNavigate("reset")} src='/logos/council_logo_white.svg' alt="Council of Foods logo" />
           <div>
             <h3
               style={{
                 margin: "0",
                 padding: "0",
-                cursor: "pointer"
+                cursor: "pointer",
+                visibility: isMobile ? "hidden" : "visible",
               }}
               onClick={() => handleOnNavigate("reset")}
             >
               COUNCIL OF FOODS
             </h3>
-            <h4 style={{ marginTop: "5px" }}>{capitalizeFirstLetter(topic)}</h4>
+            <h4 style={{ marginTop: "5px", visibility: isMobile ? "hidden" : "visible" }}>{capitalizeFirstLetter(topic)}</h4>
           </div>
         </>}
       </div>
