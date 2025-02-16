@@ -4,7 +4,7 @@ import SpeechRecognition, {
 } from "react-speech-recognition";
 import ConversationControlIcon from "./ConversationControlIcon";
 import TextareaAutosize from 'react-textarea-autosize';
-import { useMobile } from "../utils";
+import { useMobile, useSupportedViewheight } from "../utils";
 
 function HumanInput({ onSubmitHumanMessage }) {
   const [isRecording, setIsRecording] = useState(false);
@@ -12,6 +12,9 @@ function HumanInput({ onSubmitHumanMessage }) {
   const [previousTranscript, setPreviousTranscript] = useState("");
   const inputArea = useRef(null);
   const isMobile = useMobile();
+
+  const heightVariable = useSupportedViewheight();
+
   const maxInputLength = 350;
 
   // Accessing the speech recognition features from the custom hook
@@ -80,9 +83,10 @@ function HumanInput({ onSubmitHumanMessage }) {
 
   const micStyle = {
     position: "absolute",
-    bottom: "-2vh",
+    bottom: "-2" + heightVariable,
     left: "50%",
-    height: "45vh",
+    height: "45" + heightVariable,
+    minHeight: "135px",
     zIndex: "0",
     animation: "4s micAppearing",
     animationFillMode: "both",
