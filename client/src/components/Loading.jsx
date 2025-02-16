@@ -8,7 +8,7 @@ function Loading() {
   const isMobile = useMobile();
 
   return (
-    <div style={{position: "absolute", top: "73vh"}}>
+    <div style={{position: "absolute", top: "84%", transform: "translate(0, -50%)"}}>
       <Lottie play loop animationData={loading} style={{height: isMobile ? "100px" : "150px"}} />
     </div>
   );

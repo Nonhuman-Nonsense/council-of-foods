@@ -44,8 +44,10 @@ html,
   text-align: center;
   color: white;
   position: relative;
+  /* This element uses viewheight, all others must use percentage to calculate properly */
   height: 100vh;
-  min-height: 370px;
+  height: 100dvh;
+  min-height: 300px;
   width: 100vw;
   overflow: hidden;
 }
@@ -155,6 +157,7 @@ nav.blur::before {
 
 .blur.hide::before {
   backdrop-filter: blur(10px) opacity(0);
+  -webkit-backdrop-filter: blur(10px) opacity(0);
 }
 
 
@@ -319,6 +322,49 @@ nav.blur::before {
 
   button {
     font-size: 19px;
+  }
+
+  .loader {
+    width: 15px;
+    height: 2.5px;
+    margin-top: 11px;
+  }
+}
+
+/* Ultra small */
+@media only screen and (max-height: 370px) {
+  body {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  h1 {
+    font-size: 31px;
+  }
+
+  h2 {
+    font-size: 22px;
+  }
+
+  h3 {
+    font-size: 18px;
+  }
+
+  h4 {
+    font-size: 15px;
+  }
+
+  h3,p{
+    margin-top: 5px;
+    margin-bottom: 5px;
+  }
+
+  p {
+    font-size: 15px;
+    line-height: 1.0em; 
+  }
+
+  button {
+    font-size: 17px;
   }
 
   .loader {

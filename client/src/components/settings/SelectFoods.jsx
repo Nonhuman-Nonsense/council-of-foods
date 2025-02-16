@@ -1,13 +1,14 @@
 import React, { useState } from "react";
 import foodData from "../../prompts/foods.json";
 import FoodButton from "./FoodButton";
-import { toTitleCase, useMobile } from "../../utils";
+import { toTitleCase, useMobile, useMobileXs } from "../../utils";
 
 //We need to save the original water prompt, otherwise it is replace by some weird React black magic
 const originalWaterPrompt = foodData.foods[0].prompt;
 
 function SelectFoods({ topic, onContinueForward }) {
   const isMobile = useMobile();
+  const isMobileXs = useMobileXs();
   const foods = foodData.foods; // Make sure this is defined before using it to find 'water'
   const waterFood = foods.find((food) => food.name === "Water"); // Find the 'water' food item
 
@@ -80,11 +81,11 @@ function SelectFoods({ topic, onContinueForward }) {
       }}
     >
       <div style={{ height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
-        <h1 style={{margin: isMobile && "0", fontSize: isMobile && "33px"}}>THE FOODS</h1>
+        <h1 style={{margin: isMobile && "0"}}>THE FOODS</h1>
         <div
           style={{
             position: "relative",
-            height: isMobile ? "240px" :"380px",
+            height: isMobile ? (isMobileXs ? "190px" :"240px") :"380px",
             width: isMobile ? "587px" : "500px"
           }}
         >
@@ -115,11 +116,11 @@ function SelectFoods({ topic, onContinueForward }) {
             />
           ))}
         </div>
-        <div style={{display: "flex", justifyContent: "center", marginTop: "5px"}}>
-        {selectedFoods.length < 2 && <button onClick={randomizeSelection} style={{...discriptionStyle, margin: "8px 0", position: "absolute"}}>Randomize</button>}
+        <div style={{display: "flex", justifyContent: "center", marginTop: isMobileXs ? "2px" : "5px"}}>
+        {selectedFoods.length < 2 && <button onClick={randomizeSelection} style={{...discriptionStyle, margin: isMobileXs ? "0" : "8px 0", position: "absolute"}}>Randomize</button>}
         {selectedFoods.length >= minFoods && selectedFoods.length <= maxFoods ?
-          <button onClick={continueForward} style={{margin: "8px 0"}}>Start</button> :
-          (currentFood !== null || selectedFoods.length === 2) && <h4 style={{margin: isMobile && "7px"}}>please select 2-6 foods for the discussion</h4>
+          <button onClick={continueForward} style={{margin: isMobileXs ? "0" : "8px 0"}}>Start</button> :
+          (currentFood !== null || selectedFoods.length === 2) && <h4 style={{margin: isMobile && (isMobileXs ? "0" : "7px")}}>please select 2-6 foods for the discussion</h4>
         }
         </div>
       </div>

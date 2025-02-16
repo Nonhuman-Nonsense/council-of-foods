@@ -529,7 +529,7 @@ function Council({
       />
       <div style={{
         position: "absolute",
-        top: "calc(50% + 12vh)",
+        top: "62%",
         left: "50%",
         transform: "translate(-50%, -50%)",
         width: foods.length > 6 ? "79%" : "70%",
@@ -613,8 +613,8 @@ function Background({ zoomIn, currentSpeakerIndex, totalSpeakers }) {
     backgroundImage: `url(/backgrounds/close-up-backdrop.webp)`,
     backgroundSize: "cover",
     backgroundPosition: calculateBackdropPosition(),
-    height: "100vh",
-    width: "100vw",
+    height: "100%",
+    width: "100%",
     position: "absolute",
     opacity: zoomIn ? "1" : "0",
   };
@@ -623,8 +623,8 @@ function Background({ zoomIn, currentSpeakerIndex, totalSpeakers }) {
     backgroundImage: `url(/backgrounds/close-up-table.webp)`,
     backgroundSize: "cover",
     backgroundPosition: "center",
-    height: "100vh",
-    width: "100vw",
+    height: "100%",
+    width: "100%",
     position: "absolute",
     opacity: zoomIn ? "1" : "0",
   };

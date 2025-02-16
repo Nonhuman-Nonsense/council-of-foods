@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import ResetWarning from "../overlays/ResetWarning";
 import topicData from "../../prompts/topics.json";
-import { capitalizeFirstLetter, toTitleCase, useMobile } from "../../utils";
+import { capitalizeFirstLetter, toTitleCase, useMobile, useMobileXs } from "../../utils";
 
 function SelectTopic({
   onContinueForward,
@@ -20,6 +20,7 @@ function SelectTopic({
   const [displayWarning, setDisplayWarning] = useState(false);
   const topicTextareaRef = useRef(null);
   const isMobile = useMobile();
+  const isMobileXs = useMobileXs();
 
   const topics = [
     ...topicData.topics,
@@ -112,9 +113,8 @@ function SelectTopic({
     );
 
   const container = {
-    // height: "550px",
-    // maxHeight: "100vh",
-    width: "min(850px, 96vw)",//On mobile we go for screen width
+    width: "96vw",
+    maxWidth: "850px",
     display: "flex",
     flexDirection: "column",
     justifyContent: "flexStart",
@@ -140,7 +140,7 @@ function SelectTopic({
     resize: "none",
     padding: "0",
     margin: "0",
-    height: isMobile ? "60px" : "80px",
+    height: isMobile ? (isMobileXs ? "45px" : "60px") : "80px",
     display: showTextBox() ? "" : "none",
   };
 
@@ -174,7 +174,7 @@ function SelectTopic({
         />
       ) : (
         <div style={container}>
-          <h1 style={{ marginBottom: isMobile && "5px" }}>THE ISSUE</h1>
+          <h1 style={{ marginBottom: isMobile && (isMobileXs ? "0px" : "5px") }}>THE ISSUE</h1>
           <div
             style={{
               display: "flex",
@@ -244,7 +244,7 @@ function SelectTopic({
               style={{
                 margin: "0",
                 width: isMobile ? "80%" : "70%",
-                height: showTextBox() ? "0" : isMobile ? "60px" : "80px",
+                height: showTextBox() ? "0" : isMobile ? (isMobileXs ? "45px" : "60px") : "80px",
               }}
             >
               {hoverTopic?.title
