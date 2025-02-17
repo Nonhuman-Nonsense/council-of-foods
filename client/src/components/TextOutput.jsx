@@ -46,7 +46,7 @@ function TextOutput({
 
     // Regex to capture sentences, numbered list items, and newlines as sentence boundaries
     // TODO, replace all the ?!"* with any combination from the set for simplicity
-    const sentenceRegex = /(\d+\.\s+.{3,}?(?:\n|\?!\*|\?!|!\?|\?"|!"|!\*|\?\*|\?|!|\?|\;|\.{3}|…|\.|$))|.{3,}?(?:\n|\?!\*|\?!|!\?|\?"|!"|!\*|\?\*|!|\?|\;|\.{3}|…|\.|$)/gs;
+    const sentenceRegex = /(\d+\.\s+.{3,}?(?:\n|\?!\*|\?!|!\?|\?"|!"|!\*|\?\*|\?|!|\?|;|\.{3}|…|\.|$))|.{3,}?(?:\n|\?!\*|\?!|!\?|\?"|!"|!\*|\?\*|!|\?|;|\.{3}|…|\.|$)/gs;
 
     return text
       .match(sentenceRegex)
