@@ -564,7 +564,7 @@ io.on("connection", (socket) => {
             // Use the same sentence splitter as on the client side
             const sentenceRegex = /(\d+\.\s+.{3,}?(?:\n|\?!\*|\?!|!\?|\?"|!"|!\*|\?\*|\?|!|\?|\;|\.{3}|…|\.|$))|.{3,}?(?:\n|\?!\*|\?!|!\?|\?"|!"|!\*|\?\*|!|\?|\;|\.{3}|…|\.|$)/gs;
             const sentences = response.match(sentenceRegex).map((sentence) => sentence.trim()).filter((sentence) => sentence.length > 0 && sentence !== ".");
-            const trimmedSentences = trimmedContent.trim().match(sentenceRegex).map((sentence) => sentence.trim()).filter((sentence) => sentence.length > 0 && sentence !== ".");
+            const trimmedSentences = trimmedContent.trim().match(sentenceRegex)?.map((sentence) => sentence.trim()).filter((sentence) => sentence.length > 0 && sentence !== ".");
             // Check if we can re-add some messages from the end, to put back some of the list of questions that water often produces
             if(sentences[sentences.length - 1]?.slice(-1) == ':' || trimmedSentences[0]?.slice(-1) == ':'){
               if(trimmedSentences.length > 2 && trimmedSentences[0]?.slice(0,1) == '1' && trimmedSentences[1]?.slice(0,1) == '2'){
