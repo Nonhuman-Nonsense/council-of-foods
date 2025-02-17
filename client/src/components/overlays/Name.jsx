@@ -1,23 +1,23 @@
 import React, { useState, useRef, useEffect } from "react";
-import { capitalizeFirstLetter } from "../../utils";
+import { capitalizeFirstLetter, useMobile } from "../../utils";
 
-function Name({onContinueForward}) {
+function Name({ onContinueForward }) {
 
   const wrapper = {
     maxWidth: "500px",
-    display:"flex",
+    display: "flex",
     flexDirection: "column"
   };
 
   return (
-      <div style={wrapper}>
-        <h1>SAY SOMETHING</h1>
-        <div>
-          <p>Do you want to adress the Council of Foods?</p>
-          <p>Please enter your name to raise a request to speak,<br/> and then wait until you are given the floor by Water, the moderator.</p>
-        </div>
-        <HumanNameInput onContinueForward={onContinueForward} />
+    <div style={wrapper}>
+      <h1>SAY SOMETHING</h1>
+      <div>
+        <p>Do you want to adress the Council of Foods?</p>
+        <p>Please enter your name to raise a request to speak,<br /> and then wait until you are given the floor by Water, the moderator.</p>
       </div>
+      <HumanNameInput onContinueForward={onContinueForward} />
+    </div>
   );
 }
 
@@ -25,13 +25,17 @@ function HumanNameInput(props) {
   const [humanName, setHumanName] = useState("");
   const [isHumanNameMissing, setIsHumanNameMissing] = useState(false);
   const inputRef = useRef(null);
+  const isMobile = useMobile();
 
 
   const imageUrl = `/icons/send_message_filled.svg`;
 
   useEffect(() => {
     // Focus on the input field when the component mounts
-    inputRef.current.focus();
+    // Unle
+    if (!isMobile) {
+      inputRef.current.focus();
+    }
   }, []);
 
   function handleChange(e) {
@@ -91,15 +95,19 @@ function HumanNameInput(props) {
     <div>
       <h3>please type your name:</h3>
       <div style={inputIconWrapper}>
-        <input
-          ref={inputRef}
-          style={inputStyle}
-          type="text"
-          value={humanName}
-          placeholder="your name"
-          onChange={handleChange}
-          onKeyDown={handleKeyDown}
-        />
+        {/* Adding an empty form, so that mobile keyboards will show the "go" button */}
+        <form action="">
+          <input
+            ref={inputRef}
+            style={inputStyle}
+            type="text"
+            value={humanName}
+            placeholder="your name"
+            onChange={handleChange}
+            onKeyDown={handleKeyDown}
+          />
+          <input type="submit" style={{ position: "absolute", left: '-9999px' }} />
+        </form>
         <img
           src={imageUrl}
           alt="continue"
@@ -107,7 +115,7 @@ function HumanNameInput(props) {
           onClick={continueForward}
         />
       </div>
-      <h3 style={{visibility: !isHumanNameMissing ? "hidden" : ""}}>
+      <h3 style={{ visibility: !isHumanNameMissing ? "hidden" : "" }}>
         enter your name to proceed
       </h3>
     </div>
