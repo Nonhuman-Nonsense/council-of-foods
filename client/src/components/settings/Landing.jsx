@@ -1,14 +1,18 @@
 import React from "react";
 import RotateDevice from '../RotateDevice';
 import { useMediaQuery } from 'react-responsive'
+import { useMobile, useSupportedViewheight } from "../../utils";
 
 function Landing({ onContinueForward }) {
 
   const isPortrait = useMediaQuery({ query: '(orientation: portrait)' })
+  const isMobile = useMobile();
+  const heightVariable = useSupportedViewheight();
 
   const wrapper = {
+    position: "absolute",
     width: "100%",
-    height: "100vh",
+    height: "100%",
     display: "flex",
     alignItems: "center",
     justifyContent: "center"
@@ -27,9 +31,9 @@ function Landing({ onContinueForward }) {
       <div style={welcomeStyle}>
 
         <div>
-          <img style={{width: '95px'}} src='/logos/council_logo_white.svg' alt="Council of Foods logo" />
-          <h2 style={{marginBottom: "-10px"}}>welcome to</h2>
-          <h1>COUNCIL OF FOODS</h1>
+          <img style={{width: `min(95px, 18${heightVariable})`}} src='/logos/council_logo_white.svg' alt="Council of Foods logo" />
+          <h2 style={{marginBottom: "-10px", marginTop: isMobile ? "0" : ""}}>welcome to</h2>
+          <h1 style={{margin: isMobile ? "5px 0 0 0" : ""}}>COUNCIL OF FOODS</h1>
           <p>at</p>
           <h3>The Spirit of Asilomar</h3>
         </div>

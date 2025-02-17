@@ -1,10 +1,13 @@
 import React from "react";
 import { Link } from "react-router-dom";
+import { useMobile } from "../../utils";
 
 function About() {
 
+  const isMobile = useMobile();
+
   const wrapper = {
-    maxWidth: "450px",
+    maxWidth: isMobile ? "550px" : "450px",
   };
 
   return (

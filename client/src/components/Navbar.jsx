@@ -1,13 +1,16 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useLocation, useNavigate, createSearchParams, useSearchParams } from "react-router-dom";
+import { useMediaQuery } from 'react-responsive'
 
-import { capitalizeFirstLetter, useMobile, usePortrait } from "../utils";
+import { capitalizeFirstLetter, useMobile, useMobileXs, usePortrait } from "../utils";
 import Lottie from "react-lottie-player";
 import hamburger from "../animations/hamburger.json";
 
 function Navbar({ topic, onDisplayOverlay, hamburgerOpen, setHamburgerOpen }) {
   const isMobile = useMobile();
+  const isMobileXs = useMobileXs();
   const isPortrait = usePortrait();
+  const showIconinMeny = useMediaQuery({ query: '(min-width: 700px)' });
   const hamburgerAnimation = useRef(null);
   const [activeMenuItem, setActiveMenuItem] = useState('');
   // eslint-disable-next-line
@@ -43,10 +46,14 @@ function Navbar({ topic, onDisplayOverlay, hamburgerOpen, setHamburgerOpen }) {
         o: adress
       }).toString()
     });
+    if(isMobile){
+      //If something is clicked in the menu on mobile, close the hamburger to give more space for content
+      setHamburgerOpen(false);
+    }
   }
 
   const navbarStyle = {
-    padding: isMobile ? "20px 20px 0 20px" : "20px",
+    padding: isMobile ? (isMobileXs ? "15px 15px 0 15px" : "20px 20px 0 20px") : "20px",
     display: isPortrait ? "none" : "flex",
     justifyContent: "space-between",
     alignItems: "start",
@@ -59,13 +66,13 @@ function Navbar({ topic, onDisplayOverlay, hamburgerOpen, setHamburgerOpen }) {
     width: "100%",
     boxSizing: "border-box",
     zIndex: "10",
-    height: isMobile && "50px",
+    height: isMobile && isMobileXs ? "45px" : "60px",
   };
 
   const hamburgerStyle = {
     cursor: "pointer",
-    width: "50px",
-    height: "50px",
+    width: isMobileXs ? "40px" : "50px",
+    height: isMobileXs ? "40px" : "50px",
     margin: "-12px",
     marginLeft: "5px",
     display: "flex",
@@ -81,6 +88,7 @@ function Navbar({ topic, onDisplayOverlay, hamburgerOpen, setHamburgerOpen }) {
     <nav
       style={navbarStyle}
       role="navigation"
+      className={isMobile ? (hamburgerOpen ? "blur" : "blur hide") : ""}
     >
       <div
         style={{
@@ -96,19 +104,20 @@ function Navbar({ topic, onDisplayOverlay, hamburgerOpen, setHamburgerOpen }) {
         }}
       >
         {location.pathname !== "/" && <>
-          <img style={{ width: '75px', marginRight: "10px", marginTop: "7px", cursor: "pointer" }} onClick={() => handleOnNavigate("reset")} src='/logos/council_logo_white.svg' alt="Council of Foods logo" />
+          <img style={{ width: isMobile ? (isMobileXs ? '65px' : '70px') : '75px', marginRight: "10px", marginTop: isMobile ? (isMobileXs ? '0' : "3px") : "5px", cursor: "pointer", visibility: showIconinMeny ? "visible" : "hidden" }} onClick={() => handleOnNavigate("reset")} src='/logos/council_logo_white.svg' alt="Council of Foods logo" />
           <div>
             <h3
               style={{
                 margin: "0",
                 padding: "0",
-                cursor: "pointer"
+                cursor: "pointer",
+                visibility: showIconinMeny ? "visible" : "hidden",
               }}
               onClick={() => handleOnNavigate("reset")}
             >
               COUNCIL OF FOODS
             </h3>
-            <h4 style={{ marginTop: "5px" }}>{capitalizeFirstLetter(topic)}</h4>
+            <h4 style={{ marginTop: "5px", visibility: showIconinMeny ? "visible" : "hidden" }}>{capitalizeFirstLetter(topic)}</h4>
           </div>
         </>}
       </div>
@@ -136,7 +145,10 @@ function Navbar({ topic, onDisplayOverlay, hamburgerOpen, setHamburgerOpen }) {
                 play={false}
                 loop={false}
                 animationData={hamburger}
-                style={{ height: "35px", width: "35px" }}
+                style={{
+                  height: isMobileXs ? "30px" : "35px",
+                  width: isMobileXs ? "30px" : "35px",
+                }}
               />
             </div>
           )}
