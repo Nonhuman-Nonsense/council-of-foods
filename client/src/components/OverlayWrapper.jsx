@@ -1,4 +1,4 @@
-import { useMobile, useMobileXs } from "../utils";
+import { useMobile, useMobileXs, usePortrait } from "../utils";
 
 function OverlayWrapper({
   showX,
@@ -7,15 +7,16 @@ function OverlayWrapper({
 }) {
   const isMobile = useMobile();
   const isMobileXs = useMobileXs();
-  const closeUrl = `/icons/close.svg`;
+  const isPortait = usePortrait();
+  const closeUrl = `/icons/close.svg`;  
 
   const closeStyle = {
     position: "absolute",
     cursor: "pointer",
     width: "35px",
     height: "35px",
-    top: isMobile ? isMobileXs ? "40px" : "60px" : "100px",
-    right: isMobile ? isMobileXs ? "6px" : "15px" : "100px",
+    top: isPortait ? "20px" : isMobile ? isMobileXs ? "40px" : "60px" : "100px",
+    right: isPortait ? "20px" : isMobile ? isMobileXs ? "6px" : "15px" : "100px",
     zIndex: "20",
   };
 
@@ -39,10 +40,11 @@ function OverlayWrapper({
   };
 
   const closeInnerStyle = {
-    height: isMobile ? "100%" : "calc(100% - 60px)",
+    position: "absolute",
+    height: (isMobile || isPortait) ? "100%" : "calc(100% - 60px)",
     width: "100%",
     display: "flex",
-    marginTop: isMobile ? "10px" : "60px",
+    marginTop: (isMobile || isPortait) ? "0" : "60px",
   };
 
   return (

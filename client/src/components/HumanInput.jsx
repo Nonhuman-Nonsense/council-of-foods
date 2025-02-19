@@ -4,7 +4,7 @@ import SpeechRecognition, {
 } from "react-speech-recognition";
 import ConversationControlIcon from "./ConversationControlIcon";
 import TextareaAutosize from 'react-textarea-autosize';
-import { useMobile, useSupportedViewheight } from "../utils";
+import { useMobile, dvh } from "../utils";
 
 function HumanInput({ onSubmitHumanMessage }) {
   const [isRecording, setIsRecording] = useState(false);
@@ -12,8 +12,6 @@ function HumanInput({ onSubmitHumanMessage }) {
   const [previousTranscript, setPreviousTranscript] = useState("");
   const inputArea = useRef(null);
   const isMobile = useMobile();
-
-  const heightVariable = useSupportedViewheight();
 
   const maxInputLength = 350;
 
@@ -86,8 +84,8 @@ function HumanInput({ onSubmitHumanMessage }) {
 
   const micStyle = {
     position: "absolute",
-    bottom: "-2" + heightVariable,
-    height: "45" + heightVariable,
+    bottom: "-2" + dvh,
+    height: "45" + dvh,
     minHeight: "135px",
     zIndex: "0",
     animation: "4s micAppearing",

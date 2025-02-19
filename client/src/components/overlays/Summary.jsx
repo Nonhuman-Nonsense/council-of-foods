@@ -1,5 +1,5 @@
 import React, { useRef } from "react";
-import { useMobile, useSupportedViewheight } from "../../utils";
+import { useMobile, dvh } from "../../utils";
 import parse from 'html-react-parser';
 import { marked } from "marked";
 import { jsPDF } from "jspdf";
@@ -8,7 +8,6 @@ import { forwardRef, useImperativeHandle } from 'react';
 function Summary({ summary, meetingId }) {
   const isMobile = useMobile();
   const pdfElementRef = useRef(null);
-  const heightVariable = useSupportedViewheight();
 
   const summaryWrapper = {
     height: isMobile ?
@@ -20,8 +19,8 @@ function Summary({ summary, meetingId }) {
 
   const wrapper = {
     height: isMobile
-      ? `calc(100${heightVariable} - 100px)`
-      : `calc(100${heightVariable} - 60px - 56px - 20px)`,
+      ? `calc(100${dvh} - 100px)`
+      : `calc(100${dvh} - 60px - 56px - 20px)`,
     marginBottom: isMobile ? "45px" : "56px",
     marginTop: !isMobile && "20px",
     width: isMobile ? "600px" : "800px"

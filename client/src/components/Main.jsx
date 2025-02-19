@@ -15,7 +15,7 @@ import SelectFoods from "./settings/SelectFoods";
 import Council from "./Council";
 import RotateDevice from "./RotateDevice";
 import FullscreenButton from "./FullscreenButton";
-import { usePortrait, useSupportedViewheight } from "../utils";
+import { usePortrait, dvh } from "../utils";
 import CouncilError from "./overlays/CouncilError.jsx";
 
 function useIsIphone() {
@@ -192,8 +192,6 @@ function RotateOverlay() {
 
 function Background({ path }) {
 
-  const heightVariable = useSupportedViewheight();
-
   const sharedStyle = {
     backgroundSize: "cover",
     backgroundPositionX: "50%",
@@ -212,7 +210,7 @@ function Background({ path }) {
 
   const zoomedInStyle = {
     ...sharedStyle,
-    backgroundPositionY: `calc(50% + max(12${heightVariable},36px))`,// 50% is picture height, 12vh is from view, 36 is 12% of 300px which is minimum view
+    backgroundPositionY: `calc(50% + max(12${dvh},36px))`,// 50% is picture height, 12vh is from view, 36 is 12% of 300px which is minimum view
     backgroundImage: `url(/backgrounds/zoomed-in.webp)`,
     zIndex: "-1",
     opacity: path.startsWith('/meeting') ? "1" : "0.01",

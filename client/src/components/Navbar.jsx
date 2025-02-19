@@ -67,6 +67,7 @@ function Navbar({ topic, onDisplayOverlay, hamburgerOpen, setHamburgerOpen }) {
     boxSizing: "border-box",
     zIndex: "10",
     height: isMobile && isMobileXs ? "45px" : "60px",
+    pointerEvents: "none"
   };
 
   const hamburgerStyle = {
