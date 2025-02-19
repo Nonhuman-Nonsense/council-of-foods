@@ -79,12 +79,14 @@ function HumanInput({ onSubmitHumanMessage }) {
   const wrapperStyle = {
     position: "absolute",
     bottom: "0",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
   };
 
   const micStyle = {
     position: "absolute",
     bottom: "-2" + heightVariable,
-    left: "50%",
     height: "45" + heightVariable,
     minHeight: "135px",
     zIndex: "0",

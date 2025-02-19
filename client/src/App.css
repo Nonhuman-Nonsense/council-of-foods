@@ -236,12 +236,12 @@ nav.blur::before {
 
 @keyframes micAppearing {
   0% {
-    transform: translateY(100%) translateX(-50%);
+    transform: translateY(100%);
     opacity: 0;
   }
 
   100% {
-    transform: translateY(0%) translateX(-50%);
+    transform: translateY(0%);
     opacity: 1;
   }
 }
