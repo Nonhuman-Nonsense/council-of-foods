@@ -143,6 +143,7 @@ function Main() {
             <Route
               path="meeting/:meetingId"
               element={
+                foods.length !== 0 &&// If page is reloaded, don't even start the council for now
                 <Council
                   topic={topic}
                   foods={foods}

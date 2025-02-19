@@ -1,5 +1,7 @@
 import { useMediaQuery } from 'react-responsive'
 
+export const canPlayWebMTransparency = document.createElement("video").canPlayType('video/webm; codecs="vp9"') !== "";
+
 export function capitalizeFirstLetter(string) {
   if (string && typeof string === "string") {
     return string.charAt(0).toUpperCase() + string.slice(1);
@@ -32,8 +34,6 @@ export function useMobileXs(){
 export function useSupportedViewheight(){
   return CSS.supports('height','100dvh') ? 'dvh' : 'vh';
 }
-
-
 
 export function usePortrait(){
   return useMediaQuery({ query: "(orientation: portrait)" });
