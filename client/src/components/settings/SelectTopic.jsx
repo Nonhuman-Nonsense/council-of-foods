@@ -64,7 +64,7 @@ function SelectTopic({
   // Function to handle custom topic input changes
   function handleInputTopic(e) {
     const newTopic = e.target.value;
-    const capitalizedTopic = capitalizeFirstLetter(newTopic).substring(0, 150);
+    const capitalizedTopic = capitalizeFirstLetter(newTopic).substring(0, 300);
     setCustomTopic(capitalizedTopic);
   }
 
@@ -140,8 +140,15 @@ function SelectTopic({
     resize: "none",
     padding: "0",
     margin: "0",
-    height: isMobile ? (isMobileXs ? "45px" : "60px") : "120px",
+    height: isMobile ? (isMobileXs ? "65px" : "80px") : "100px",
     display: showTextBox() ? "" : "none",
+  };
+
+  const infoTextBoxStyle = {
+    margin: "0",
+    width: "95%",
+    maxWidth: "700px",
+    height: showTextBox() ? "0" : isMobile ? (isMobileXs ? "65px" : "80px") : "100px",
   };
 
   function showTextBox() {
@@ -188,7 +195,7 @@ function SelectTopic({
               <div style={doubleColumn}>
                 {topics.filter((item, index) => {
                   if (index === topics.length - 1) return false;
-                  if (topics.length <= 6 + 1) return true;
+                  if (topics.length <= (isMobile ? 3 : 6) + 1) return true;
                   return index < (topics.length - 1) / 2;
                 }).map((topic, index) => (
                   <button
@@ -205,10 +212,10 @@ function SelectTopic({
                   </button>
                 ))}
               </div>
-              <div style={{ ...doubleColumn, display: topics.length > 6 + 1 ? "flex" : "none" }}>
+              <div style={{ ...doubleColumn, display: topics.length > (isMobile ? 3 : 6) + 1 ? "flex" : "none" }}>
                 {topics.filter((item, index) => {
                   if (index === topics.length - 1) return false;
-                  if (topics.length <= 6 + 1) return false;
+                  if (topics.length <= (isMobile ? 3 : 6) + 1) return false;
                   return (index >= (topics.length - 1) / 2);
                 }).map((topic, index) => (
                   <button
@@ -241,11 +248,7 @@ function SelectTopic({
               </button>
             ))}
             <p
-              style={{
-                margin: "0",
-                width: isMobile ? "80%" : "70%",
-                height: showTextBox() ? "0" : isMobile ? (isMobileXs ? "45px" : "60px") : "120px",
-              }}
+              style={infoTextBoxStyle}
             >
               {hoverTopic?.title
                 ? hoverTopic.description
