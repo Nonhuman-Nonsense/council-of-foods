@@ -1,12 +1,14 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { useMobile } from "../../utils";
+import { useMobile, usePortrait } from "../../utils";
 
 function About() {
 
   const isMobile = useMobile();
+  const isPortait = usePortrait();
 
   const wrapper = {
+    width: isPortait ? "80vw" : "",
     maxWidth: isMobile ? "550px" : "450px",
   };
 

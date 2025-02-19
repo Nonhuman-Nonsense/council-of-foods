@@ -15,7 +15,8 @@ import SelectFoods from "./settings/SelectFoods";
 import Council from "./Council";
 import RotateDevice from "./RotateDevice";
 import FullscreenButton from "./FullscreenButton";
-import { usePortrait, useSupportedViewheight } from "../utils";
+import { usePortrait, dvh } from "../utils";
+import CouncilError from "./overlays/CouncilError.jsx";
 
 function useIsIphone() {
   const [isIphone, setIsIphone] = useState(false);
@@ -33,6 +34,7 @@ function useIsIphone() {
 function Main() {
   const [topic, setTopic] = useState({ title: "", prompt: "" });
   const [foods, setFoods] = useState([]);
+  const [unrecoverabeError, setUnrecoverableError] = useState(false);
 
   //Had to lift up navbar state to this level to be able to close it from main overlay
   const [hamburgerOpen, setHamburgerOpen] = useState(false);
@@ -99,57 +101,67 @@ function Main() {
   return (
     <>
       <Background path={location.pathname} />
-      <Navbar
-        topic={topic.title}
-        hamburgerOpen={hamburgerOpen}
-        setHamburgerOpen={setHamburgerOpen}
-      />
+      {!unrecoverabeError &&
+        <Navbar
+          topic={topic.title}
+          hamburgerOpen={hamburgerOpen}
+          setHamburgerOpen={setHamburgerOpen}
+        />
+      }
       {hamburgerOpen && <div style={hamburgerCloserStyle} onClick={() => setHamburgerOpen(false)}></div>}
-      <Overlay
-        isActive={!location.pathname.startsWith("/meeting")}
-        isBlurred={location.pathname !== "/"}
-      >
-        <Routes>
-          <Route
-            path="/"
-            element={
-              <Landing
-                onContinueForward={() => continueForward("landing")}
-              />
-            }
-          />
-          <Route
-            path="topics"
-            element={
-              <SelectTopic
-                onContinueForward={(props) => continueForward("topic", props)}
-              />
-            }
-          />
-          <Route
-            path="foods"
-            element={
-              <SelectFoods
-                topic={topic}
-                onContinueForward={(props) => continueForward("foods", props)}
-              />
-            }
-          />
-          <Route
-            path="meeting/:meetingId"
-            element={
-              <Council
-                topic={topic}
-                foods={foods}
-                onReset={onReset}
-              />
-            }
-          />
-        </Routes>
-        {!isIphone && <FullscreenButton />}
-        <MainOverlays topic={topic} onReset={onReset} onCloseOverlay={onCloseOverlay} />
-        {isPortrait && location.pathname !== "/" && <RotateOverlay />}
-      </Overlay>
+      {!unrecoverabeError &&
+        <Overlay
+          isActive={!location.pathname.startsWith("/meeting")}
+          isBlurred={location.pathname !== "/"}
+        >
+          <Routes>
+            <Route
+              path="/"
+              element={
+                <Landing
+                  onContinueForward={() => continueForward("landing")}
+                />
+              }
+            />
+            <Route
+              path="topics"
+              element={
+                <SelectTopic
+                  onContinueForward={(props) => continueForward("topic", props)}
+                />
+              }
+            />
+            <Route
+              path="foods"
+              element={
+                <SelectFoods
+                  topic={topic}
+                  onContinueForward={(props) => continueForward("foods", props)}
+                />
+              }
+            />
+            <Route
+              path="meeting/:meetingId"
+              element={
+                foods.length !== 0 &&// If page is reloaded, don't even start the council for now
+                <Council
+                  topic={topic}
+                  foods={foods}
+                  setUnrecoverableError={setUnrecoverableError}
+                />
+              }
+            />
+          </Routes>
+          {!isIphone && <FullscreenButton />}
+          <MainOverlays topic={topic} onReset={onReset} onCloseOverlay={onCloseOverlay} />
+          {isPortrait && location.pathname !== "/" && <RotateOverlay />}
+        </Overlay>
+      }
+      {unrecoverabeError &&
+        <Overlay isActive={true} isBlurred={true}>
+          <CouncilError />
+        </Overlay>
+      }
     </>
   );
 }
@@ -180,8 +192,6 @@ function RotateOverlay() {
 
 function Background({ path }) {
 
-  const heightVariable = useSupportedViewheight();
-
   const sharedStyle = {
     backgroundSize: "cover",
     backgroundPositionX: "50%",
@@ -200,7 +210,7 @@ function Background({ path }) {
 
   const zoomedInStyle = {
     ...sharedStyle,
-    backgroundPositionY: `calc(50% + max(12${heightVariable},36px))`,// 50% is picture height, 12vh is from view, 36 is 12% of 300px which is minimum view
+    backgroundPositionY: `calc(50% + max(12${dvh},36px))`,// 50% is picture height, 12vh is from view, 36 is 12% of 300px which is minimum view
     backgroundImage: `url(/backgrounds/zoomed-in.webp)`,
     zIndex: "-1",
     opacity: path.startsWith('/meeting') ? "1" : "0.01",

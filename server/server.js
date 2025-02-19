@@ -81,11 +81,11 @@ io.on("connection", (socket) => {
   let logit_biases = [];
 
   const calculateCurrentSpeaker = () => {
-    if (conversation.length == 0) return 0;
-    if (conversation.length == 1) return 1;
+    if (conversation.length === 0) return 0;
+    if (conversation.length === 1) return 1;
     for (let i = conversation.length - 1; i >= 0; i--) {
-      if (conversation[i].type == 'human') continue;
-      if (conversation[i].type == 'invitation') continue;
+      if (conversation[i].type === 'human') continue;
+      if (conversation[i].type === 'invitation') continue;
       const lastSpeakerIndex = conversationOptions.characters.findIndex(char => char.name === conversation[i].speaker);
 
       return lastSpeakerIndex >= conversationOptions.characters.length - 1 ? 0 : lastSpeakerIndex + 1;
@@ -174,7 +174,10 @@ io.on("connection", (socket) => {
       console.error("Error during conversation:", error);
       socket.emit(
         "conversation_error",
-        "An error occurred during the conversation."
+        {
+          message: "An error occurred during the conversation.",
+          code: 500
+        }
       );
     }
   };
@@ -188,9 +191,9 @@ io.on("connection", (socket) => {
     });
 
     conversation.forEach((msg) => {
-      if (msg.type == "skipped") return;
+      if (msg.type === "skipped") return;
       messages.push({
-        role: speaker.name == msg.speaker ? "assistant" : "user",
+        role: speaker.name === msg.speaker ? "assistant" : "user",
         content: msg.speaker + ": " + msg.text + "\n---",
       });
     });
@@ -252,8 +255,7 @@ io.on("connection", (socket) => {
       id: id,
       speaker: conversationOptions.characters[0].name,
       text: response,
-      type: "summary",
-      shouldResume: true,
+      type: "summary"
     };
 
     conversation.push(summary);
@@ -275,7 +277,7 @@ io.on("connection", (socket) => {
   socket.on("continue_conversation", () => {
     extraMessageCount += globalOptions.extraMessageCount;
 
-    handleConversationTurn((shouldResume = true));
+    handleConversationTurn();
   });
 
   socket.on("attempt_reconnection", async (options) => {
@@ -299,7 +301,7 @@ io.on("connection", (socket) => {
         //If some audio are missing, try to regenerate them
         let missingAudio = [];
         for (let i = 0; i < conversation.length; i++) {
-          if (existingMeeting.audio.indexOf(conversation[i].id) == -1) {
+          if (existingMeeting.audio.indexOf(conversation[i].id) === -1) {
             missingAudio.push(conversation[i]);
           }
         }
@@ -308,7 +310,7 @@ io.on("connection", (socket) => {
         }
 
         console.log(`[meeting ${meetingId}] resumed`);
-        handleConversationTurn((shouldResume = true)); // TODO: Do we need to find the correct message index to play from?
+        handleConversationTurn(); // TODO: Do we need to find the correct message index to play from?
       } else {
         socket.emit("meeting_not_found", { meeting_id: meetingId });
         console.log(`[meeting ${meetingId}] not found`);
@@ -317,7 +319,10 @@ io.on("connection", (socket) => {
       console.error("Error resuming conversation:", error);
       socket.emit(
         "conversation_error",
-        "An error occurred while resuming the conversation."
+        {
+          message: "An error occurred while resuming the conversation.",
+          code: 500
+        }
       );
     }
   });
@@ -365,7 +370,7 @@ io.on("connection", (socket) => {
     for (var i = 0; i < conversationOptions.characters.length; i++) {
       let forbidden_tokens = [];
       for (var j = 0; j < conversationOptions.characters.length; j++) {
-        if (i == j) continue;
+        if (i === j) continue;
         const chars = encoding.encode(conversationOptions.characters[j].name);
         for (var k = 0; k < chars.length; k++) {
           forbidden_tokens.push(chars[k]);
@@ -383,7 +388,7 @@ io.on("connection", (socket) => {
     return biases;
   };
 
-  const handleConversationTurn = async (shouldResume = false) => {
+  const handleConversationTurn = async () => {
     try {
       if (!run) return;
       if (handRaised) return;
@@ -392,7 +397,7 @@ io.on("connection", (socket) => {
 
       let attempt = 1;
       let output = { response: "" };
-      while (attempt < 5 && output.response == "") {
+      while (attempt < 5 && output.response === "") {
         output = await generateTextFromGPT(conversationOptions.characters[currentSpeaker]);
 
         if (handRaised) return;
@@ -404,10 +409,9 @@ io.on("connection", (socket) => {
         speaker: conversationOptions.characters[currentSpeaker].name,
         text: output.response,
         trimmed: output.trimmed,
-        pretrimmed: output.pretrimmed,
-        shouldResume,
+        pretrimmed: output.pretrimmed
       };
-      if (message.text == "") {
+      if (message.text === "") {
         message.type = "skipped";
         console.log("Skipped a message");
       }
@@ -449,14 +453,17 @@ io.on("connection", (socket) => {
       console.error("Error during conversation:", error);
       socket.emit(
         "conversation_error",
-        "An error occurred during the conversation."
+        {
+          message: "An error occurred during the conversation.",
+          code: 500
+        }
       );
     }
   };
 
   const generateAudio = async (id, text, speakerName) => {
     // const thisConversationCounter = conversationCounter;
-    const voiceName = conversationOptions.characters.find((char) => char.name == speakerName).voice;
+    const voiceName = conversationOptions.characters.find((char) => char.name === speakerName).voice;
 
     let buffer;
     //check if we already have it in the database
@@ -516,7 +523,7 @@ io.on("connection", (socket) => {
       const completion = await openai.chat.completions.create({
         model: globalOptions.gptModel,
         max_tokens:
-          speaker.name == "Water"
+          speaker.name === "Water"
             ? globalOptions.chairMaxTokens
             : globalOptions.maxTokens,
         temperature: globalOptions.temperature,
@@ -524,7 +531,7 @@ io.on("connection", (socket) => {
         presence_penalty: globalOptions.presencePenalty,
         stop: "\n---",
         logit_bias:
-          conversation.length == 0 ? null : logit_biases[currentSpeaker],
+          conversation.length === 0 ? null : logit_biases[currentSpeaker],
         messages: messages,
       });
 
@@ -534,9 +541,6 @@ io.on("connection", (socket) => {
       if (response.startsWith(speaker.name + ":")) {
         pretrimmedContent = response.substring(0, speaker.name.length + 1);
         response = response.substring(speaker.name.length + 1).trim();
-      } else if (response.startsWith("**" + speaker.name + "**:")) {
-        pretrimmedContent = response.substring(0, speaker.name.length + 5);
-        response = response.substring(speaker.name.length + 5).trim();
       }
 
       let trimmedContent;
@@ -560,17 +564,19 @@ io.on("connection", (socket) => {
         }
 
         if (globalOptions.trimWaterSemicolon) {
-          if(speaker.name == "Water"){
-            // Use the same sentence splitter as on the client side
+          if(speaker.name === "Water"){
+            // Make sure to use the same sentence splitter as on the client side
             const sentenceRegex = /(\d+\.\s+.{3,}?(?:\n|\?!\*|\?!|!\?|\?"|!"|!\*|\?\*|\?|!|\?|;|\.{3}|…|\.|$))|.{3,}?(?:\n|\?!\*|\?!|!\?|\?"|!"|!\*|\?\*|!|\?|;|\.{3}|…|\.|$)/gs;
             const sentences = response.match(sentenceRegex).map((sentence) => sentence.trim()).filter((sentence) => sentence.length > 0 && sentence !== ".");
             const trimmedSentences = trimmedContent.trim().match(sentenceRegex)?.map((sentence) => sentence.trim()).filter((sentence) => sentence.length > 0 && sentence !== ".");
+
+
             // Check if we can re-add some messages from the end, to put back some of the list of questions that water often produces
-            if(sentences[sentences.length - 1]?.slice(-1) == ':' || trimmedSentences[0]?.slice(-1) == ':'){
-              if(trimmedSentences.length > 2 && trimmedSentences[0]?.slice(0,1) == '1' && trimmedSentences[1]?.slice(0,1) == '2'){
+            if(sentences[sentences.length - 1]?.slice(-1) === ':' || trimmedSentences[0]?.slice(-1) === ':'){
+              if(trimmedSentences.length > 2 && trimmedSentences[0]?.slice(0,1) === '1' && trimmedSentences[1]?.slice(0,1) === '2'){
                 trimmedContent = trimmedSentences[trimmedSentences.length - 1];
                 response = sentences.concat(trimmedSentences.slice(0, trimmedSentences.length - 1)).join('\n');
-              }else if(trimmedSentences.length > 3 && trimmedSentences[0]?.slice(-1) == ':' && trimmedSentences[1]?.slice(0,1) == '1' && trimmedSentences[2]?.slice(0,1) == '2'){
+              }else if(trimmedSentences.length > 3 && trimmedSentences[0]?.slice(-1) === ':' && trimmedSentences[1]?.slice(0,1) === '1' && trimmedSentences[2]?.slice(0,1) === '2'){
                 trimmedContent = trimmedSentences[trimmedSentences.length - 1];
                 response = sentences.concat(trimmedSentences.slice(0, trimmedSentences.length - 1)).join('\n');
               }else{
@@ -585,7 +591,7 @@ io.on("connection", (socket) => {
       }
 
       for (var i = 0; i < conversationOptions.characters.length; i++) {
-        if (i == currentSpeaker) continue;
+        if (i === currentSpeaker) continue;
         const nameIndex = response.indexOf(
           conversationOptions.characters[i].name + ":"
         );

@@ -13,7 +13,8 @@ const globalOptions = require("../global-options-client");
 
 function Council({
   topic,
-  foods
+  foods,
+  setUnrecoverableError
  }) {
   //Overall Council settings for this meeting
   const [humanName, setHumanName] = useState("");
@@ -120,6 +121,11 @@ function Council({
 
     socketRef.current.on("conversation_update", (textMessages) => {
       setTextMessages(() => textMessages);
+    });
+
+    socketRef.current.on("conversation_error", (error) => {
+      console.error(error);
+      setUnrecoverableError(true);
     });
 
     // Add event listener for tab close

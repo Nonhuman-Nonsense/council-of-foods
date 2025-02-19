@@ -1,10 +1,8 @@
 import React from "react";
 import FoodAnimation from "./FoodAnimation";
-import { filename, useSupportedViewheight } from "../utils";
+import { filename, dvh } from "../utils";
 
 function FoodItem({ food, index, total, currentSpeakerName, isPaused, zoomIn }) {
-
-  const heightVariable = useSupportedViewheight();
 
   //Adjust these to adjust overall sizes
   const overviewSize = 12;
@@ -29,7 +27,7 @@ function FoodItem({ food, index, total, currentSpeakerName, isPaused, zoomIn }) 
   // Adjusted function to set width and height based on window width
   const getResponsiveFoodImageStyle = (shadow) => {
     const shadowMultiplier = shadow ? (shadowSizes[food.name] / videoSize) : 1;
-    const size = (zoomIn && currentSpeakerName === food.name ? shadowMultiplier * zoomInSize * ((food.size - 1) / 2 + 1) + heightVariable : shadowMultiplier * overviewSize * food.size +  "vw"); // 12% of the window's width
+    const size = (zoomIn && currentSpeakerName === food.name ? shadowMultiplier * zoomInSize * ((food.size - 1) / 2 + 1) + dvh : shadowMultiplier * overviewSize * food.size +  "vw"); // 12% of the window's width
     return {
       width: `${size}`,
       height: !shadow && `${size}`,
@@ -41,8 +39,8 @@ function FoodItem({ food, index, total, currentSpeakerName, isPaused, zoomIn }) 
 
   const singleFoodStyle = {
     position: "relative",
-    width: zoomInSize + heightVariable,
-    height: zoomInSize + heightVariable,
+    width: zoomInSize + dvh,
+    height: zoomInSize + dvh,
     display: "flex",
     justifyContent: "center",
     alignItems: "flex-end",
@@ -54,7 +52,7 @@ function FoodItem({ food, index, total, currentSpeakerName, isPaused, zoomIn }) 
       if (food.name === 'Lollipop') baseHeight = -22;
       if (food.name === 'Banana') baseHeight = -20;
       if (food.name === 'Beer') baseHeight = -18;
-      return {...singleFoodStyle, top: baseHeight + heightVariable };
+      return {...singleFoodStyle, top: baseHeight + dvh };
     }else{
       return overViewFoodItemStyle(index,total);
     }
