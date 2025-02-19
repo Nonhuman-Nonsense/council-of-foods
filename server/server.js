@@ -174,7 +174,10 @@ io.on("connection", (socket) => {
       console.error("Error during conversation:", error);
       socket.emit(
         "conversation_error",
-        "An error occurred during the conversation."
+        {
+          message: "An error occurred during the conversation.",
+          code: 500
+        }
       );
     }
   };
@@ -316,7 +319,10 @@ io.on("connection", (socket) => {
       console.error("Error resuming conversation:", error);
       socket.emit(
         "conversation_error",
-        "An error occurred while resuming the conversation."
+        {
+          message: "An error occurred while resuming the conversation.",
+          code: 500
+        }
       );
     }
   });
@@ -447,7 +453,10 @@ io.on("connection", (socket) => {
       console.error("Error during conversation:", error);
       socket.emit(
         "conversation_error",
-        "An error occurred during the conversation."
+        {
+          message: "An error occurred during the conversation.",
+          code: 500
+        }
       );
     }
   };
