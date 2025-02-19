@@ -13,9 +13,9 @@ code {
     monospace;
 }
 
-/* Hiding alt texts of images from showing */
 img {
-  color: transparent;
+  object-fit: contain;
+  color: transparent;/* Hiding alt texts of images from showing */
 }
 
 
@@ -374,8 +374,18 @@ nav.blur::before {
   }
 }
 
-@media only screen and (max-width: 600px) {
+@media only screen and (orientation: portrait) and (max-width: 600px) {
   h1 {
     font-size: 38px;
   }
+
+  h2 {
+    font-size: 26px;
+  }
+
+  p {
+    font-size: 16px;
+    line-height: 1.1em;
+  }
+
 }
