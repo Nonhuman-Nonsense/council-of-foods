@@ -19,10 +19,11 @@ function Summary({ summary, meetingId }) {
 
   const wrapper = {
     height: isMobile
-      ? `calc(100${dvh} - 100px)`
+      ? `calc(100${dvh} - 45px - 10px)`
       : `calc(100${dvh} - 60px - 56px - 20px)`,
+    minHeight: "255px",
     marginBottom: isMobile ? "45px" : "56px",
-    marginTop: !isMobile && "20px",
+    marginTop: isMobile ? "10px" : "20px",
     width: isMobile ? "600px" : "800px"
   };
 
