@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { filename, canPlayWebMTransparency } from "../utils";
+import { filename } from "../utils";
 
 function FoodAnimation({ food, styles, currentSpeakerName, isPaused }) {
 
@@ -29,14 +29,12 @@ function FoodAnimation({ food, styles, currentSpeakerName, isPaused }) {
 
   return (
     <video ref={video} style={{ ...styles, objectFit: "cover" }} loop muted playsInline>
-      {canPlayWebMTransparency ?
-        <source
-          src={`/foods/videos/${filename(food.name)}-vp9-chrome.webm`}
-          type={"video/webm"} /> :
-        <source
-          src={`/foods/videos/${filename(food.name)}-hevc-safari.mp4`}
-          type={'video/mp4; codecs="hvc1"'} />
-      }
+      <source
+        src={`/foods/videos/${filename(food.name)}-hevc-safari.mp4`}
+        type={'video/mp4; codecs="hvc1"'} />
+      <source
+        src={`/foods/videos/${filename(food.name)}-vp9-chrome.webm`}
+        type={"video/webm"} />
     </video>
   );
 }
