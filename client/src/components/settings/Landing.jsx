@@ -1,13 +1,12 @@
 import React from "react";
 import RotateDevice from '../RotateDevice';
 import { useMediaQuery } from 'react-responsive'
-import { useMobile, dvh, useMobileXs } from "../../utils";
+import { useMobile, dvh } from "../../utils";
 
 function Landing({ onContinueForward }) {
 
   const isPortrait = useMediaQuery({ query: '(orientation: portrait)' })
   const isMobile = useMobile();
-  const isMobileXs = useMobileXs();
 
   const wrapper = {
     position: "absolute",
@@ -42,7 +41,7 @@ function Landing({ onContinueForward }) {
           <RotateDevice />
         :
         (<div style={{maxWidth: "470px"}}>
-          <p style={{marginBottom: isMobileXs ? "10px" : "20px"}}>A political arena where the foods themselves discuss the future of biotechnology, through the use of artificial intelligence. Join the discussion on what actions need to be taken!</p>
+          <p style={{marginBottom: isMobile ? "10px" : "20px"}}>Welcome to the Council of Foods, a political arena where food speaks—not just of the broken food system, but of the expanding frontiers of biotechnology. Join the discussion on the which actions need to be taken regarding the future of synthetic life!</p>
           <div><button onClick={() => onContinueForward()}>Let's go!</button></div>
         </div>)
         }
