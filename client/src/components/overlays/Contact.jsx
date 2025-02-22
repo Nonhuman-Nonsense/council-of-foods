@@ -19,6 +19,7 @@ function Contact() {
       <p>
         The project is an initiative by art & design collective <a href="https://nonhuman-nonsense.com">Nonhuman&nbsp;Nonsense</a> developed in collaboration with <a href="https://studiootherspaces.net/">Studio&nbsp;Other&nbsp;Spaces</a>, <a href="https://www.in4art.eu/">In4Art</a>, <a href="https://elliott.computer/">Elliot&nbsp;Cost</a>, <a href="https://www.polymorf.se/">Albin&nbsp;Karlsson</a>, Lachlan Kenneally and others.
       </p>
+      <p>this special version is created for <a href="https://www.spiritofasilomar.org">The Spirit of Asilomar and the Future of Biotechnology</a> summit, 23-26 February 2025.</p>
       <p>
         <a href="https://www.instagram.com/nonhuman_nonsense/">@nonhuman_nonsense</a>
         <br />
