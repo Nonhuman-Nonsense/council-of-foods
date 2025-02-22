@@ -178,9 +178,14 @@ nav.blur::before {
 #protocol-container li {
   margin-bottom: 5px;
 }
-
-#printed-style {
+#printed-style{
   white-space: pre-wrap;
+  letter-spacing: normal;
+}
+
+#printed-style strong{  
+  letter-spacing: 0.2px;
+  word-spacing: 0.5px;
 }
 
 #printed-style p {
