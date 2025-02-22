@@ -165,6 +165,7 @@ nav.blur::before {
 #protocol-container p {
   margin-top: 0;
   margin-bottom: 0;
+  font-size: 18px;
 }
 
 #protocol-container ol,
@@ -315,6 +316,9 @@ nav.blur::before {
     font-size: 15px;
   }
 
+  #protocol-container p,
+  #protocol-container ol,
+  #protocol-container ul,
   p {
     font-size: 16px;
     line-height: 1.1em;
@@ -358,6 +362,9 @@ nav.blur::before {
     margin-bottom: 5px;
   }
 
+  #protocol-container p,
+  #protocol-container ol,
+  #protocol-container ul,
   p {
     font-size: 15px;
     line-height: 1.0em; 
