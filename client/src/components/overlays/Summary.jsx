@@ -129,7 +129,7 @@ function Disclaimer() {
 
   return (
       <div>
-        <p>This document was created by the Council of Foods, a political arena where the foods themselves discuss the broken food system, through the use of artificial intelligence. While every effort has been made to generate meaningful content, please note the following:</p><br/>
+        <p>This document was created by the Council of Foods, a political arena where food speaks—not just of the broken food system, but of the expanding frontiers of biotechnology, through the use of artificial intelligence. While every effort has been made to generate meaningful content, please note the following:</p><br/>
         <ol>
           <li>This document may contain misinformation, outdated details, propaganda, or bad ideas.</li>
           <li>The discussions may provide useful insights and reflect diverse ethical positions but should not replace evidence-based research or deep contemplation.</li>
