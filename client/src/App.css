@@ -220,6 +220,7 @@ nav.blur::before {
 }
 
 #printed-style h3 {
+  font-size: 20px;
   margin: 0;
 }
 
