@@ -24,7 +24,7 @@ function TextOutput({
     "Beer": 1,
     "Bean": 1,
     "Lollipop": 0.96,
-    "Maize": 0.96,
+    "Maize": 1,
     "Meat": 1,
     "Mushroom": 1,
     "Potato": 1,
