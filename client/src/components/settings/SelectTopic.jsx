@@ -24,13 +24,16 @@ function SelectTopic({
 
   const topics = [
     ...topicData.topics,
-    { title: "choose your own", prompt: "", description: "" },
+    { title: "custom topic", prompt: "", description: "" },
   ];
 
   // useEffect hook to listen for changes in currentTopic
   useEffect(() => {
-    if (currentTopic) {
+    if (currentTopic?.prompt) {
       selectTopic(currentTopic);
+      if(currentTopic?.title === 'custom topic'){
+        setCustomTopic(currentTopic.description);
+      }
     }
   }, [currentTopic]); // Dependency array includes only currentTopic
 
@@ -47,14 +50,14 @@ function SelectTopic({
       // If the topic is not in the list, consider it a custom topic
       setCustomTopic(topic.title.substring(0, 150)); // Set the unrecognized topic as the custom topic
       setSelectedTopic({
-        title: "choose your own",
+        title: "custom topic",
         prompt: "",
         description: "",
-      }); // Automatically select "choose your own"
+      }); // Automatically select "custom topic"
     }
 
-    // Focus on the textarea if "choose your own" is selected
-    if (!topicExists || topic.title.toLowerCase() === "choose your own") {
+    // Focus on the textarea if "custom topic" is selected
+    if (!topicExists || topic.title.toLowerCase() === "custom topic") {
       setTimeout(() => {
         topicTextareaRef.current && topicTextareaRef.current.focus();
       }, 0);
@@ -74,33 +77,24 @@ function SelectTopic({
       // Current topic exists which means we are changing settings
       setDisplayWarning(true);
     } else {
-      let continueWithTopic = selectedTopic;
-      if (continueWithTopic.title.toLowerCase() === "choose your own") {
-        continueWithTopic.title = customTopic;
-        continueWithTopic.prompt = customTopic;
-      }
-
-      continueWithTopic.prompt = topicData.system.replace(
-        "[TOPIC]",
-        continueWithTopic.prompt
-      );
-
+      let continueWithTopic = buildTopicPrompt();
       onContinueForward({ topic: continueWithTopic });
     }
   }
 
-  function buildTopicPrompt(topic) {
-    const prompt = topicData.system.replace("[TOPIC]", topic);
-    return prompt;
-  }
+  function buildTopicPrompt() {
+    let continueWithTopic = selectedTopic;
+    if (continueWithTopic.title.toLowerCase() === "custom topic") {
+      continueWithTopic.prompt = customTopic;
+      continueWithTopic.description = customTopic;
+    }
 
-  function getTopicTitle() {
-    const topic =
-      selectedTopic.title.toLowerCase() === "choose your own"
-        ? customTopic
-        : selectedTopic.title;
+    continueWithTopic.prompt = topicData.system.replace(
+      "[TOPIC]",
+      continueWithTopic.prompt
+    );
 
-    return topic;
+    return continueWithTopic;
   }
 
   // Conditional rendering for showing the Next button
@@ -108,7 +102,7 @@ function SelectTopic({
     selectedTopic &&
     selectedTopic.title &&
     !(
-      selectedTopic.title.toLowerCase() === "choose your own" &&
+      selectedTopic.title.toLowerCase() === "custom topic" &&
       !customTopic.trim()
     );
 
@@ -149,14 +143,15 @@ function SelectTopic({
     width: "95%",
     maxWidth: "700px",
     height: showTextBox() ? "0" : isMobile ? (isMobileXs ? "65px" : "80px") : "100px",
+    overflow: "hidden"
   };
 
   function showTextBox() {
-    return selectedTopic.title === "choose your own"
-      ? hoverTopic && hoverTopic?.title !== "choose your own"
+    return selectedTopic.title === "custom topic"
+      ? hoverTopic && hoverTopic?.title !== "custom topic"
         ? false
         : true
-      : hoverTopic?.title === "choose your own"
+      : hoverTopic?.title === "custom topic"
         ? true
         : false;
   }
@@ -172,10 +167,7 @@ function SelectTopic({
         <ResetWarning
           message="changing topic"
           onReset={() =>
-            onReset({
-              title: getTopicTitle(),
-              prompt: buildTopicPrompt(getTopicTitle()),
-            })
+            onReset({ topic: buildTopicPrompt() })
           }
           onCancel={onCancel}
         />
