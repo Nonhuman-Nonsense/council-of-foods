@@ -32,7 +32,7 @@ function useIsIphone() {
 }
 
 function Main() {
-  const [topic, setTopic] = useState({ title: "", prompt: "" });
+  const [topic, setTopic] = useState({ title: "", prompt: "", description: "" });
   const [foods, setFoods] = useState([]);
   const [unrecoverabeError, setUnrecoverableError] = useState(false);
 
@@ -68,15 +68,16 @@ function Main() {
     navigate(next);
   }
 
-  function onReset(topic) {
-    setTopic(topic ?? { title: "", prompt: "" });
+  function onReset(resetData) {
     setFoods([]);
 
-    if (!topic?.title) {
+    if (!resetData?.topic) {
       // Reset from the start
+      setTopic({ title: "", prompt: "", description: "" });
       navigate("/");
     } else {
       // Reset from foods selection
+      setTopic(resetData.topic);
       navigate("foods");
     }
   }
