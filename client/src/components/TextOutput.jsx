@@ -135,7 +135,7 @@ function TextOutput({
 
   const paragraphStyle = {
     fontFamily: "Arial, sans-serif",
-    fontSize: isMobile ? "18px" : "25px",
+    fontSize: isMobile ? "18px" : "35px",
     margin: isMobile && "0",
   };
 
