@@ -1,6 +1,6 @@
 {
   "audio_speed": 1.10,
-  "conversationMaxLength": 14,
-  "meetingVeryMaxLength": 22,
-  "extraMessageCount": 4
+  "conversationMaxLength": 10,
+  "meetingVeryMaxLength": 20,
+  "extraMessageCount": 5
 }
