@@ -8,7 +8,7 @@
     "@babel/plugin-transform-private-property-in-object": "^7.25.9",
     "@types/dom-speech-recognition": "^0.0.4",
     "html-react-parser": "^5.2.2",
-    "jspdf": "^2.5.2",
+    "jspdf": "^3.0.1",
     "marked": "^15.0.7",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
