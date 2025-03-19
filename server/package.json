@@ -9,10 +9,8 @@
     "dev": "nodemon server.js"
   },
   "dependencies": {
-    "axios": "^1.7.9",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
-    "http": "^0.0.1-security",
     "mongodb": "^6.13.0",
     "openai": "^4.85.1",
     "socket.io": "^4.8.1",
