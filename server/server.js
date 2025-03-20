@@ -422,6 +422,7 @@ io.on("connection", (socket) => {
       while (attempt < 5 && output.response === "") {
         output = await generateTextFromGPT(conversationOptions.characters[currentSpeaker]);
 
+        if (!run) return;
         if (handRaised) return;
         if(isPaused) return;
         attempt++;
@@ -638,7 +639,7 @@ io.on("connection", (socket) => {
 
   socket.on("disconnect", () => {
     run = false;
-    console.log("[session] a user disconnected");
+    console.log(`[meeting ${meetingId ?? 'unstarted'}] user disconnected`);
   });
 });
 
