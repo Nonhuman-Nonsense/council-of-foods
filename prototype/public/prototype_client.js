@@ -54,10 +54,6 @@ document.addEventListener('DOMContentLoaded', () => {
   // Human input
   let handRaised = false;
 
-  // Default variables from client
-  let default_foods;
-  let default_topics;
-
   // ===========================
   //   UI UPDATING AND STORING
   // ===========================
@@ -119,11 +115,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const inputDiv = document.createElement("input");
         inputDiv.placeholder = "character name";
         inputDiv.type = "text";
-        inputDiv.value = character.name ? character.name : '';
+        inputDiv.value = character.name ?? '';
 
         const textDiv = document.createElement("textarea");
-        textDiv.placeholder = "character role";
-        textDiv.value = character.role ? character.role : '';
+        textDiv.placeholder = "character prompt";
+        textDiv.value = character.prompt ?? '';
 
         const voiceDiv = document.createElement("div");
         voiceDiv.className = "voices";
@@ -193,8 +189,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
       return {
         name: nameInput,
-        role: roleTextarea,
-        voice: voice ? voice.value : undefined
+        prompt: roleTextarea,
+        voice: voice?.value
       };
     });
 
@@ -539,20 +535,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     promptsAndOptions.rooms[currentRoom].characters.push({});
     unpackPromptsAndOptions();
-    // const characters = document.getElementById('characters');
-    // const characterCount = characters.getElementsByClassName('character').length;
-    //
-    // if (characterCount < 10) {
-    //     const newCharacterDiv = document.createElement('div');
-    //     newCharacterDiv.classList.add('character');
-    //     newCharacterDiv.innerHTML = `
-    //         <input type="text" placeholder="character name">
-    //         <textarea placeholder="character role"></textarea>
-    //     `;
-    //     characters.appendChild(newCharacterDiv);
-    // } else {
-    //     alert('Maximum of 10 characters reached');
-    // }
   });
 
   // Remove the last character
@@ -709,50 +691,50 @@ document.addEventListener('DOMContentLoaded', () => {
   } catch (e) {
     console.log(e);
     console.log('Resetting to default settings');
-    promptsAndOptions = {
-      options: {},
-      rooms: [{
-        name: "",
-        topic: "",
-        characters: {}
-      }]
-    };
-    reloadUI();
-  }
 
-  let getJSON = function (url, callback) {
-    var xhr = new XMLHttpRequest();
-    xhr.open('GET', url, true);
-    xhr.responseType = 'json';
-    xhr.onload = function () {
-      var status = xhr.status;
-      if (status === 200) {
-        callback(null, xhr.response);
-      } else {
-        callback(status, xhr.response);
-      }
-    };
-    xhr.send();
-  };
-
-  getJSON('/foods.json',
-    function (err, data) {
-      if (err !== null) {
-        console.error(err);
-      } else {
-        default_foods = data;
-        console.log(default_foods);
-      }
-    });
-
-  getJSON('/topics.json',
-    function (err, data) {
-      if (err !== null) {
-        console.error(err);
-      } else {
+    let default_foods;
+    let default_topics;
+    fetch('./foods.json')
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`HTTP error! Status: ${response.status}`);
+        }
+        return response.json();
+      })
+      .then(data => {
+        default_foods = data.foods;
+        return fetch('./topics.json');
+      })
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`HTTP error! Status: ${response.status}`);
+        }
+        return response.json();
+      })
+      .then(data => {
         default_topics = data;
-        console.log(default_topics);
-      }
-    });
+        return Promise.resolve();
+      })
+      .then(() => {
+        promptsAndOptions = {
+          options: {},
+          system: default_topics.system
+        };
+
+        let rooms = [];
+        for (let i = 0; i < default_topics.topics.length; i++) {
+          const topic = default_topics.topics[i];
+          rooms[i] = {
+            name: topic.title,
+            topic: topic.prompt,
+            characters: default_foods
+          };
+        }
+        promptsAndOptions.rooms = rooms;
+        reloadUI();
+        
+      })
+      .catch(error => console.error('Failed to reset:', error));
+  }
 
 });
