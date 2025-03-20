@@ -31,6 +31,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const preHumanInputContainer = document.getElementById('preHumanInputContainer');
   // const humanInputContainer = document.getElementById('humanInputContainer');
 
+  //System prompt
+  const systemPrompt = document.getElementById('systemPrompt');
+
   //Inject
   const injectInputArea = document.getElementById('injectInputArea');
   const submitInjection = document.getElementById('submitInjection');
@@ -83,6 +86,8 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('conversation-max-length').value = promptsAndOptions.options.conversationMaxLength;
 
     injectInputArea.value = promptsAndOptions.options.injectPrompt;
+
+    systemPrompt.value = promptsAndOptions.system;
 
     humanName.value = promptsAndOptions.options.humanName;
 
@@ -153,7 +158,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('characters').replaceWith(characterDiv);
   }
 
-  const updatePromptsAndOptions = () => {
+  const updatePromptsAndOptions = (reset = false) => {
     // Retrieve the global options
     promptsAndOptions.options = {};//Reset to remove possible orphan options
     promptsAndOptions.options.gptModel = document.getElementById('gpt-model').value;
@@ -162,7 +167,6 @@ document.addEventListener('DOMContentLoaded', () => {
     promptsAndOptions.options.frequencyPenalty = +document.getElementById('frequency-penalty').value;
     promptsAndOptions.options.presencePenalty = +document.getElementById('presence-penalty').value;
     promptsAndOptions.options.logitBias = +document.getElementById('logit-bias').value;
-
     promptsAndOptions.options.trimSentance = document.getElementById('trim-response-to-full-sentance').checked;
     promptsAndOptions.options.trimParagraph = document.getElementById('trim-response-to-full-paragraph').checked;
     promptsAndOptions.options.trimLastSentence = document.getElementById('trim-response-to-remove-half-sentence').checked;
@@ -175,24 +179,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
     promptsAndOptions.options.humanName = humanName.value;
 
-    // Retrieve the panel topic
-    promptsAndOptions.rooms[currentRoom].name = document.getElementById('room-name').value;
-    promptsAndOptions.rooms[currentRoom].topic = document.getElementById('panel-prompt').value;
+    if (!reset) {
+      promptsAndOptions.system = systemPrompt.value;
+      // Retrieve the panel topic
+      promptsAndOptions.rooms[currentRoom].name = document.getElementById('room-name').value;
+      promptsAndOptions.rooms[currentRoom].topic = document.getElementById('panel-prompt').value;
 
-    // Gather character data
-    const characters = document.querySelectorAll('#characters .character');
+      // Gather character data
+      const characters = document.querySelectorAll('#characters .character');
 
-    promptsAndOptions.rooms[currentRoom].characters = Array.from(characters).map(characterDiv => {
-      const nameInput = characterDiv.querySelector('input').value; // Assuming the first input is still for the name
-      const roleTextarea = characterDiv.querySelector('textarea').value; // Select the textarea for the role
-      const voice = characterDiv.querySelector('input[type=radio]:checked');
+      promptsAndOptions.rooms[currentRoom].characters = Array.from(characters).map(characterDiv => {
+        const nameInput = characterDiv.querySelector('input').value; // Assuming the first input is still for the name
+        const roleTextarea = characterDiv.querySelector('textarea').value; // Select the textarea for the role
+        const voice = characterDiv.querySelector('input[type=radio]:checked');
 
-      return {
-        name: nameInput,
-        prompt: roleTextarea,
-        voice: voice?.value
-      };
-    });
+        return {
+          name: nameInput,
+          prompt: roleTextarea,
+          voice: voice?.value
+        };
+      });
+    }
 
     localStorage.setItem("PromptsAndOptions", JSON.stringify(promptsAndOptions));
     return { options: promptsAndOptions.options, topic: promptsAndOptions.rooms[currentRoom].topic, characters: promptsAndOptions.rooms[currentRoom].characters };
@@ -731,8 +738,10 @@ document.addEventListener('DOMContentLoaded', () => {
           };
         }
         promptsAndOptions.rooms = rooms;
-        reloadUI();
-        
+
+        updatePromptsAndOptions(true);
+        unpackPromptsAndOptions();
+        reloadConversations();
       })
       .catch(error => console.error('Failed to reset:', error));
   }
