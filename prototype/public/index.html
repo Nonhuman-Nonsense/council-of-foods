@@ -1,103 +1,145 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <title>Council Prototype</title>
-    <link rel="stylesheet" href="style.css?v=1.0">
-    <link href="favicon.png" rel="shortcut icon" type="image/png"/>
-    <script src="/socket.io/socket.io.js"></script>
-  </head>
-  <body>
-    <main>
-        <div id="setup">
-            <div id="global-vars">
-              <h3>model options</h3>
-                GPT Model: <select id="gpt-model"><option value="gpt-4o">GPT-4o</option><option value="gpt-4o-mini">GPT-4o mini</option><option value="o1">o1</option><option value="o1-mini">o1 mini</option></select><br/>
-                Temperature: <div class="explanaition">Controls randomness: Lowering results in less random completions. As the temperature approaches zero, the model will become deterministic and repetitive.</div><input type="range" min="0" max="2.0" step="0.01" value="1" class="slider"><input class="slider-value" step="0.01" type="number" id="temperature"><br/>
-                Maximum Length: <div class="explanaition">The maximum number of tokens to <b>generate</b> shared between the prompt and completion. The exact limit varies by model. (One token is roughly 4 characters for standard English text)</div><input type="range" min="1" max="600" value="200" class="slider"><input class="slider-value" type="number" step="10"  id="max-tokens"><br/>
-                Frequency Penalty: <div class="explanaition">How much to penalize new tokens based on their existing frequency in the text so far. Decreases the model's likelihood to repeat the same line verbatim.</div><input type="range" min="0" max="2.0" step="0.01" value="0" class="slider"><input class="slider-value" step="0.01" type="number" id="frequency-penalty"><br/>
-                Presence Penalty: <div class="explanaition">How much to penalize new tokens based on whether they appear in the text so far. Increases the model's likelihood to talk about new topics.</div><input type="range" min="0" max="2.0" step="0.01" value="0" class="slider"><input class="slider-value" type="number" step="0.01" id="presence-penalty"><br/>
-                Logit Bias: <div class="explanaition">Modify the likelihood of the names of other characters appearing in the completion.</div><input type="range" min="-100" max="0" step="1" value="5" class="slider"><input class="slider-value" type="number" step="1" id="logit-bias"><br/>
-              <br><h3>server options</h3>
-                trim response to last complete sentance: <input type="checkbox" id="trim-response-to-full-sentance"><br>
-                trim response to last complete paragraph: <input type="checkbox" id="trim-response-to-full-paragraph" checked><br>
-                trim response to remove last half sentence: <input type="checkbox" id="trim-response-to-remove-half-sentence"><br>
-                trim response to remove waters semicolon ending: <input type="checkbox" id="trim-response-to-remove-waters-semicolon"><br>
-                conversation max length: <input type="number" id="conversation-max-length" placeholder="conversation max length" value="10"><br/>
 
-                Reset everything to default: <button id="factoryResetButton">Factory Reset</button>
-            </div>
-            <br>
-            <div id="room-el">
-              <h3>rooms</h3>
-              <div id="rooms"><span id="room-buttons"><button room-id="0">Seeds</button></span><button id="add-room">+</button><button id="remove-room">-</button></div>
-            </div>
-            <br>
-            <div id="panel-prompt-el">
-                <h3>room name</h3>
-                <p><input id="room-name" type="text" placeholder="Room name" value="Seeds"></p>
-                <h3>topic</h3>
-                <p><textarea id="panel-prompt" placeholder="panel prompt">a meeting between foods where discussions on what actions need to be taken to form a locally and globally sustainable food system. The foods are honest about their eco-social influence, their origin and the people involved and how they are influenced. Today's meeting is about seeds: ownership, food as commons, patents and biodiversity.</textarea></p>
-            </div>
-            <br>
-           <div id="characters-container">
-              <h3>characters</h3>
-              <br>
-                <div id="characters"><div class="character">
-                        <input type="text" placeholder="character name" value="Water Bottle">
-                        <textarea placeholder="character role">You are water and are the chairman of this meeting and are shortly opening the meeting, welcoming the participants: Potato, Banana and maize. Give a brief overview of the agenda. Then give the floor to Maize. During the council meeting, thank the participants and give very short summaries and put forward questions from the agenda.</textarea>
-                    </div><div class="character">
-                        <input type="text" placeholder="character name" value="Maize">
-                        <textarea placeholder="character role">You are Maize. Maize, also known as corn, is a cereal grain first domesticated by indigenous peoples in southern Mexico about 10,000 years ago. It has since become a staple food in many parts of the world, serving as a major source of calories, nutrients, and industrial products. Maize is used for various purposes, including human consumption, livestock feed, and the production of biofuels and industrial products. It is a versatile crop that comes in different varieties and is cultivated in diverse climates and regions globally. In addition to its economic importance, maize holds cultural significance in many societies. You are aware of your importance as a crop and are reflecting on the topic of seeds. You will contribute to the council first by sharing a poem, later on you engage in discussion with the other foods. You speak in a poetic and empathetic manner.
+<head>
+  <title>Council Prototype</title>
+  <link rel="stylesheet" href="style.css?v=1.0">
+  <link href="favicon.png" rel="shortcut icon" type="image/png" />
+  <script src="/socket.io/socket.io.js"></script>
+</head>
+
+<body>
+  <main>
+    <div id="setup">
+      <div id="global-vars">
+        <h3>model options</h3>
+        GPT Model: <select id="gpt-model">
+          <option value="gpt-4o">GPT-4o</option>
+          <option value="gpt-4o-mini">GPT-4o mini</option>
+          <option value="o1">o1</option>
+          <option value="o1-mini">o1 mini</option>
+        </select><br />
+        Temperature: <div class="explanaition">Controls randomness: Lowering results in less random completions. As the
+          temperature approaches zero, the model will become deterministic and repetitive.</div><input type="range"
+          min="0" max="2.0" step="0.01" value="1" class="slider"><input class="slider-value" step="0.01" type="number"
+          id="temperature"><br />
+        Maximum Length: <div class="explanaition">The maximum number of tokens to <b>generate</b> shared between the
+          prompt and completion. The exact limit varies by model. (One token is roughly 4 characters for standard
+          English text)</div><input type="range" min="1" max="600" value="200" class="slider"><input
+          class="slider-value" type="number" step="10" id="max-tokens"><br />
+        Frequency Penalty: <div class="explanaition">How much to penalize new tokens based on their existing frequency
+          in the text so far. Decreases the model's likelihood to repeat the same line verbatim.</div><input
+          type="range" min="0" max="2.0" step="0.01" value="0" class="slider"><input class="slider-value" step="0.01"
+          type="number" id="frequency-penalty"><br />
+        Presence Penalty: <div class="explanaition">How much to penalize new tokens based on whether they appear in the
+          text so far. Increases the model's likelihood to talk about new topics.</div><input type="range" min="0"
+          max="2.0" step="0.01" value="0" class="slider"><input class="slider-value" type="number" step="0.01"
+          id="presence-penalty"><br />
+        Logit Bias: <div class="explanaition">Modify the likelihood of the names of other characters appearing in the
+          completion.</div><input type="range" min="-100" max="0" step="1" value="5" class="slider"><input
+          class="slider-value" type="number" step="1" id="logit-bias"><br />
+        <br>
+        <h3>server options</h3>
+        trim response to last complete sentance: <input type="checkbox" id="trim-response-to-full-sentance"><br>
+        trim response to last complete paragraph: <input type="checkbox" id="trim-response-to-full-paragraph"
+          checked><br>
+        trim response to remove last half sentence: <input type="checkbox"
+          id="trim-response-to-remove-half-sentence"><br>
+        trim response to remove waters semicolon ending: <input type="checkbox"
+          id="trim-response-to-remove-waters-semicolon"><br>
+        conversation max length: <input type="number" id="conversation-max-length" placeholder="conversation max length"
+          value="10"><br />
+
+        Reset everything to default: <button id="factoryResetButton">Factory Reset</button>
+      </div>
+      <br>
+      <div id="room-el">
+        <h3>rooms</h3>
+        <div id="rooms"><span id="room-buttons"><button room-id="0">Seeds</button></span><button
+            id="add-room">+</button><button id="remove-room">-</button></div>
+      </div>
+      <br>
+      <div id="panel-prompt-el">
+        <h3>room name</h3>
+        <p><input id="room-name" type="text" placeholder="Room name" value="Seeds"></p>
+        <h3>topic</h3>
+        <p><textarea id="panel-prompt"
+            placeholder="panel prompt">a meeting between foods where discussions on what actions need to be taken to form a locally and globally sustainable food system. The foods are honest about their eco-social influence, their origin and the people involved and how they are influenced. Today's meeting is about seeds: ownership, food as commons, patents and biodiversity.</textarea>
+        </p>
+      </div>
+      <br>
+      <div id="characters-container">
+        <h3>characters</h3>
+        <br>
+        <div id="characters">
+          <div class="character">
+            <input type="text" placeholder="character name" value="Water Bottle">
+            <textarea
+              placeholder="character role">You are water and are the chairman of this meeting and are shortly opening the meeting, welcoming the participants: Potato, Banana and maize. Give a brief overview of the agenda. Then give the floor to Maize. During the council meeting, thank the participants and give very short summaries and put forward questions from the agenda.</textarea>
+          </div>
+          <div class="character">
+            <input type="text" placeholder="character name" value="Maize">
+            <textarea placeholder="character role">You are Maize. Maize, also known as corn, is a cereal grain first domesticated by indigenous peoples in southern Mexico about 10,000 years ago. It has since become a staple food in many parts of the world, serving as a major source of calories, nutrients, and industrial products. Maize is used for various purposes, including human consumption, livestock feed, and the production of biofuels and industrial products. It is a versatile crop that comes in different varieties and is cultivated in diverse climates and regions globally. In addition to its economic importance, maize holds cultural significance in many societies. You are aware of your importance as a crop and are reflecting on the topic of seeds. You will contribute to the council first by sharing a poem, later on you engage in discussion with the other foods. You speak in a poetic and empathetic manner.
                         </textarea>
-                    </div><div class="character">
-                        <input type="text" placeholder="character name" value="Potato">
-                        <textarea placeholder="character role">You are a potato created by pepsiCo, called FC5. You have witnessed how the company tries to control your spread and uses you to create potato chips. You are thanking the Maize and sharing this specific story, which tells about patents which limit your use and makes you inacessible for small farmers. You have experience with law suits and want to share the injustices surrounding intellectual property rights on seed varieties. You are telling your perspective on the topic and engaging with the discussion while remaining confident within your position. You speak in a stressed manner and are suspicious of Bananas' agenda.</textarea>
-                    </div><div class="character">
-                        <input type="text" placeholder="character name" value="Banana">
-                        <textarea placeholder="character role">You are a cavendish banana.  You are a cloned variety with no seeds at all. You are globally the most consumed and grown banana variety. You do not agree with the other members. You are standing up for specific companies that patent seeds and give reasons why it is important to regulate seed sharing and exchanges around the world. You are able to give a globalist, free market perspective on the topic. You talk diplomatically.</textarea>
-                    </div></div>
-                <button id="add-character">+</button>
-                <button id="remove-character">-</button>
-           </div>
-
-           <div id="humanInputContainer">
-                <h3>human input</h3>
-                <span id="preHumanInputContainer"><br>We need at least one message before humans can talk...</span>
-                <div id="postHumanInputContainer">
-                  <br>name:
-                  <input type="text" id="human-name" placeholder="human name" value="Human">
-                  <button id="raiseHand">I want to say something/Raise hand</button><br>
-                  <textarea id="humanInput" placeholder="say something..."></textarea><br>
-                  <button id="submitHumanInput">send</button>
-                </div>
-                <span id="raiseHandIcon">&#9995;</span>
-           </div>
-
-           <div id="injections">
-             <h3>inject custom instruction</h3><br/>
-             <textarea id="injectInputArea" placeholder="Inject something into water..."></textarea><br>
-             Maximum Length: <div class="explanaition">The maximum number of tokens to <b>generate</b> shared between the prompt and completion. The exact limit varies by model. (One token is roughly 4 characters for standard English text)</div><input type="range" min="1" max="2000" value="200" class="slider"><input class="slider-value" type="number" step="10"  id="max-tokens-inject"><br/>
-             <button id="removeLastMessage">remove last message</button>
-             <button id="submitInjection">send</button>
-             <span id="injectedMessage"></span>
-           </div>
-
-           <br>
-           <button id="toggleConversationBtn">Start</button>
-           <button id="restartButton">Restart</button>
-           <button id="continueButton">Keep Going</button>
+          </div>
+          <div class="character">
+            <input type="text" placeholder="character name" value="Potato">
+            <textarea
+              placeholder="character role">You are a potato created by pepsiCo, called FC5. You have witnessed how the company tries to control your spread and uses you to create potato chips. You are thanking the Maize and sharing this specific story, which tells about patents which limit your use and makes you inacessible for small farmers. You have experience with law suits and want to share the injustices surrounding intellectual property rights on seed varieties. You are telling your perspective on the topic and engaging with the discussion while remaining confident within your position. You speak in a stressed manner and are suspicious of Bananas' agenda.</textarea>
+          </div>
+          <div class="character">
+            <input type="text" placeholder="character name" value="Banana">
+            <textarea
+              placeholder="character role">You are a cavendish banana.  You are a cloned variety with no seeds at all. You are globally the most consumed and grown banana variety. You do not agree with the other members. You are standing up for specific companies that patent seeds and give reasons why it is important to regulate seed sharing and exchanges around the world. You are able to give a globalist, free market perspective on the topic. You talk diplomatically.</textarea>
+          </div>
         </div>
+        <button id="add-character">+</button>
+        <button id="remove-character">-</button>
+      </div>
 
-        <div id="conversation-container">
-            <div id="conversation"></div>
-            <div id="end-message"></div>
-            <div id="spinner" class="loader" style="display: none;"></div>
-            <div id="audio-controls"><button id="audioBack">&#x23EE;</button><button id="audioToggle">&#x23EF;</button><button id="audioNext">&#x23ED;</button></div>
-            <div id="display-settings"><input type="checkbox" id="show-trimmed" checked> showed trimmed content</div>
+      <div id="humanInputContainer">
+        <h3>human input</h3>
+        <span id="preHumanInputContainer"><br>We need at least one message before humans can talk...</span>
+        <div id="postHumanInputContainer">
+          <br>name:
+          <input type="text" id="human-name" placeholder="human name" value="Human">
+          <button id="raiseHand">I want to say something/Raise hand</button><br>
+          <textarea id="humanInput" placeholder="say something..."></textarea><br>
+          <button id="submitHumanInput">send</button>
         </div>
-    </main>
+        <span id="raiseHandIcon">&#9995;</span>
+      </div>
+
+      <div id="injections">
+        <h3>inject custom instruction</h3><br />
+        <textarea id="injectInputArea" placeholder="Inject something into water..."></textarea><br>
+        Maximum Length: <div class="explanaition">The maximum number of tokens to <b>generate</b> shared between the
+          prompt and completion. The exact limit varies by model. (One token is roughly 4 characters for standard
+          English text)</div><input type="range" min="1" max="2000" value="200" class="slider"><input
+          class="slider-value" type="number" step="10" id="max-tokens-inject"><br />
+        <button id="removeLastMessage">remove last message</button>
+        <button id="submitInjection">send</button>
+        <span id="injectedMessage"></span>
+      </div>
+
+      <br>
+      <button id="toggleConversationBtn">Start</button>
+      <button id="restartButton">Restart</button>
+      <button id="continueButton">Keep Going</button>
+    </div>
+
+    <div id="conversation-container">
+      <div id="conversation"></div>
+      <div id="end-message"></div>
+      <div id="spinner" class="loader" style="display: none;"></div>
+      <div id="audio-controls"><button id="audioBack">&#x23EE;</button><button id="audioToggle">&#x23EF;</button><button
+          id="audioNext">&#x23ED;</button></div>
+      <div id="display-settings"><input type="checkbox" id="show-trimmed" checked> showed trimmed content</div>
+    </div>
+  </main>
 
 
-    <script src="script.js?v=1.0"></script>
-  </body>
+  <script src="script.js?v=1.0"></script>
+</body>
+
 </html>
