@@ -1,4 +1,5 @@
 require("dotenv").config();
+const environment = process.env.NODE_ENV ?? 'production';
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
@@ -26,7 +27,7 @@ const audioVoices = ["alloy", "echo", "fable", "onyx", "nova", "shimmer"];
 // Database setup
 const mongoClient = new MongoClient(process.env.MONGO_URL);
 let db;
-if (process.env.NODE_ENV === "prototype") {
+if (environment === "prototype") {
   db = mongoClient.db("CouncilOfFoods-prototype");
 } else {
   db = mongoClient.db("CouncilOfFoods");
@@ -61,9 +62,10 @@ const insertMeeting = async (meeting) => {
 
 initializeDB();
 
-if (process.env.NODE_ENV === "prototype") {
+console.log(`[init] node_env is ${environment}`);
+if (environment === "prototype") {
   app.use(express.static(path.join(__dirname, "../prototype/", 'public')));
-} else if (process.env.NODE_ENV !== "development") {
+} else if (environment !== "development") {
   app.use(express.static(path.join(__dirname, "../client/build")));
   app.get("/*", function (req, res) {
     res.sendFile(path.join(__dirname, "../client/build", "index.html"));

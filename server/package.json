@@ -6,8 +6,9 @@
   "description": "",
   "main": "server.js",
   "scripts": {
-    "dev": "nodemon server.js",
-    "proto": "cross-env NODE_ENV=prototype node server.js"
+    "dev": "cross-env NODE_ENV=development nodemon server.js",
+    "proto": "cross-env NODE_ENV=prototype node server.js",
+    "protodev": "cross-env NODE_ENV=prototype nodemon server.js"
   },
   "dependencies": {
     "cross-env": "^7.0.3",
@@ -21,10 +22,5 @@
   },
   "devDependencies": {
     "nodemon": "^3.1.9"
-  },
-  "nodemonConfig": {
-    "env": {
-      "NODE_ENV": "development"
-    }
   }
 }
