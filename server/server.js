@@ -25,7 +25,12 @@ const audioVoices = ["alloy", "echo", "fable", "onyx", "nova", "shimmer"];
 
 // Database setup
 const mongoClient = new MongoClient(process.env.MONGO_URL);
-const db = mongoClient.db("CouncilOfFoods");
+let db;
+if (process.env.NODE_ENV === "prototype") {
+  db = mongoClient.db("CouncilOfFoods-prototype");
+} else {
+  db = mongoClient.db("CouncilOfFoods");
+}
 const meetingsCollection = db.collection("meetings");
 const audioCollection = db.collection("audio");
 const counters = db.collection("counters");
@@ -58,7 +63,7 @@ initializeDB();
 
 if (process.env.NODE_ENV === "prototype") {
   app.use(express.static(path.join(__dirname, "../prototype/", 'public')));
-}else if (process.env.NODE_ENV !== "development") {
+} else if (process.env.NODE_ENV !== "development") {
   app.use(express.static(path.join(__dirname, "../client/build")));
   app.get("/*", function (req, res) {
     res.sendFile(path.join(__dirname, "../client/build", "index.html"));
@@ -71,6 +76,7 @@ io.on("connection", (socket) => {
   //Session variables
   let run = true;
   let handRaised = false;
+  let isPaused = false;//for prototype
   let conversation = [];
   let currentSpeaker = 0;
   let extraMessageCount = 0;
@@ -93,6 +99,17 @@ io.on("connection", (socket) => {
       return lastSpeakerIndex >= conversationOptions.characters.length - 1 ? 0 : lastSpeakerIndex + 1;
     }
   }
+
+  socket.on('pause_conversation', () => {
+    isPaused = true;
+    console.log(`[meeting ${meetingId}] paused`);
+  });
+
+  socket.on('resume_conversation', () => {
+    console.log(`[meeting ${meetingId}] resumed`);
+    isPaused = false;
+    handleConversationTurn();
+  });
 
   socket.on("raise_hand", async (handRaisedOptions) => {
 
@@ -236,6 +253,7 @@ io.on("connection", (socket) => {
       conversationOptions.characters[0].name
     );
 
+    isPaused = false;
     handRaised = false;
     handleConversationTurn();
   });
@@ -279,6 +297,7 @@ io.on("connection", (socket) => {
   socket.on("continue_conversation", () => {
     extraMessageCount += globalOptions.extraMessageCount;
 
+    isPaused = false;
     handleConversationTurn();
   });
 
@@ -340,7 +359,7 @@ io.on("connection", (socket) => {
     conversation = [];
     currentSpeaker = 0;
     extraMessageCount = 0;
-    // isPaused = false;
+    isPaused = false;//for prototype
     handRaised = false;
     // conversationCounter++;
     // console.log("[session] session counter: " + conversationCounter);
@@ -394,6 +413,7 @@ io.on("connection", (socket) => {
     try {
       if (!run) return;
       if (handRaised) return;
+      if(isPaused) return;
       if (conversation.length >= globalOptions.conversationMaxLength + extraMessageCount) return;
       currentSpeaker = calculateCurrentSpeaker();
 
@@ -403,6 +423,7 @@ io.on("connection", (socket) => {
         output = await generateTextFromGPT(conversationOptions.characters[currentSpeaker]);
 
         if (handRaised) return;
+        if(isPaused) return;
         attempt++;
       }
 
@@ -537,7 +558,7 @@ io.on("connection", (socket) => {
         messages: messages,
       });
 
-      let response = completion.choices[0].message.content.trim().replaceAll("**","");
+      let response = completion.choices[0].message.content.trim().replaceAll("**", "");
 
       let pretrimmedContent;
       if (response.startsWith(speaker.name + ":")) {
@@ -566,7 +587,7 @@ io.on("connection", (socket) => {
         }
 
         if (globalOptions.trimWaterSemicolon) {
-          if(speaker.name === "Water"){
+          if (speaker.name === "Water") {
             // Make sure to use the same sentence splitter as on the client side
             const sentenceRegex = /(\d+\.\s+.{3,}?(?:\n|\?!\*|\?!|!\?|\?"|!"|\."|!\*|\?\*|\?|!|\?|;|\.{3}|…|\.|$))|.{3,}?(?:\n|\?!\*|\?!|!\?|\?"|!"|\."|!\*|\?\*|!|\?|;|\.{3}|…|\.|$)/gs;
             const sentences = response.match(sentenceRegex).map((sentence) => sentence.trim()).filter((sentence) => sentence.length > 0 && sentence !== ".");
@@ -574,14 +595,14 @@ io.on("connection", (socket) => {
 
 
             // Check if we can re-add some messages from the end, to put back some of the list of questions that water often produces
-            if(sentences[sentences.length - 1]?.slice(-1) === ':' || trimmedSentences[0]?.slice(-1) === ':'){
-              if(trimmedSentences.length > 2 && trimmedSentences[0]?.slice(0,1) === '1' && trimmedSentences[1]?.slice(0,1) === '2'){
+            if (sentences[sentences.length - 1]?.slice(-1) === ':' || trimmedSentences[0]?.slice(-1) === ':') {
+              if (trimmedSentences.length > 2 && trimmedSentences[0]?.slice(0, 1) === '1' && trimmedSentences[1]?.slice(0, 1) === '2') {
                 trimmedContent = trimmedSentences[trimmedSentences.length - 1];
                 response = sentences.concat(trimmedSentences.slice(0, trimmedSentences.length - 1)).join('\n');
-              }else if(trimmedSentences.length > 3 && trimmedSentences[0]?.slice(-1) === ':' && trimmedSentences[1]?.slice(0,1) === '1' && trimmedSentences[2]?.slice(0,1) === '2'){
+              } else if (trimmedSentences.length > 3 && trimmedSentences[0]?.slice(-1) === ':' && trimmedSentences[1]?.slice(0, 1) === '1' && trimmedSentences[2]?.slice(0, 1) === '2') {
                 trimmedContent = trimmedSentences[trimmedSentences.length - 1];
                 response = sentences.concat(trimmedSentences.slice(0, trimmedSentences.length - 1)).join('\n');
-              }else{
+              } else {
                 //otherwise remove also the last presentation of the list of topics
                 trimmedContent = trimmedContent ? sentences[sentences.length - 1] + '\n' + trimmedContent : sentences[sentences.length - 1];
                 response = sentences.slice(0, sentences.length - 1).join('\n');
@@ -589,7 +610,7 @@ io.on("connection", (socket) => {
             }
           }
         }
-        
+
       }
 
       for (var i = 0; i < conversationOptions.characters.length; i++) {

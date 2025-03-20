@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>Council of Foods</title>
+    <title>Council Prototype</title>
     <link rel="stylesheet" href="style.css?v=1.0">
     <link href="favicon.png" rel="shortcut icon" type="image/png"/>
     <script src="/socket.io/socket.io.js"></script>
@@ -71,13 +71,6 @@
                   <button id="submitHumanInput">send</button>
                 </div>
                 <span id="raiseHandIcon">&#9995;</span>
-                <button id="viewHumanInputPrompts">configure</button>
-                <div id="humanConfig">
-                  <br>Prompt for raised hand:
-                  <textarea id="raiseHandPrompt" placeholder="raise hand prompt...">We have a question from the audience, please invite a human speaker called [NAME] to the debate.</textarea><br>
-                  <br>Prompt for never mind:
-                  <textarea id="neverMindPrompt" placeholder="never mind prompt...">It seems like [NAME] didn't want to speak after all, make an excuse for them and then invite the next speaker.</textarea><br>
-                </div>
            </div>
 
            <div id="injections">
