@@ -102,16 +102,18 @@ io.on("connection", (socket) => {
     }
   }
 
-  socket.on('pause_conversation', () => {
-    isPaused = true;
-    console.log(`[meeting ${meetingId}] paused`);
-  });
-
-  socket.on('resume_conversation', () => {
-    console.log(`[meeting ${meetingId}] resumed`);
-    isPaused = false;
-    handleConversationTurn();
-  });
+  if(environment === 'prototype'){
+    socket.on('pause_conversation', () => {
+      isPaused = true;
+      console.log(`[meeting ${meetingId}] paused`);
+    });
+  
+    socket.on('resume_conversation', () => {
+      console.log(`[meeting ${meetingId}] resumed`);
+      isPaused = false;
+      handleConversationTurn();
+    });
+  }
 
   socket.on("raise_hand", async (handRaisedOptions) => {
 
