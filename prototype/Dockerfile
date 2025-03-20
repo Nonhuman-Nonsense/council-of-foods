@@ -1,20 +1,21 @@
+# Build from root folder
+# docker build -t nonhumannonsense/council-of-foods:proto -f prototype/Dockerfile .
+
+# Install server dependencies
 FROM node:lts-alpine
 
-# Create app directory
-WORKDIR /usr/src/app
+WORKDIR /usr/src/server
+COPY server/package*.json ./
+RUN npm ci --only=production
+COPY server/ .
 
-# Install app dependencies
-# A wildcard is used to ensure both package.json AND package-lock.json are copied
-# where available (npm@5+)
-COPY ../server/package*.json ./
+# Prototype frontend
+WORKDIR /usr/src/prototype
+COPY prototype/public/ ./public
 
-# RUN npm install
-# If you are building your code for production
-RUN npm ci --omit=dev
+# Expose the port that the server is running on
+EXPOSE 3001
 
-# Bundle app source
-COPY . prototype/.
-COPY ../server/. server/.
-
-EXPOSE 3000
-CMD [ "node", "server.js" ]
+WORKDIR /usr/src/server
+# Specify the command to run the server
+CMD ["npm", "run", "proto"]
