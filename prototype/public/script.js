@@ -17,7 +17,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const endMessage = document.getElementById('end-message');
     const spinner  = document.getElementById('spinner');
 
-
     //Audio control
     const audioBackButton = document.getElementById('audioBack');
     const audioToggleButton = document.getElementById('audioToggle');
@@ -54,6 +53,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Human input
     let handRaised = false;
+
+    // Default variables from client
+    let default_foods;
+    let default_topics;
 
     // ===========================
     //   UI UPDATING AND STORING
@@ -716,5 +719,40 @@ document.addEventListener('DOMContentLoaded', () => {
       };
       reloadUI();
     }
+
+    let getJSON = function(url, callback) {
+      var xhr = new XMLHttpRequest();
+      xhr.open('GET', url, true);
+      xhr.responseType = 'json';
+      xhr.onload = function() {
+        var status = xhr.status;
+        if (status === 200) {
+          callback(null, xhr.response);
+        } else {
+          callback(status, xhr.response);
+        }
+      };
+      xhr.send();
+  };
+
+  getJSON('/foods.json',
+    function(err, data) {
+      if (err !== null) {
+        console.error(err);
+      } else {
+        default_foods = data;
+        console.log(default_foods);
+      }
+    });
+
+    getJSON('/topics.json',
+      function(err, data) {
+        if (err !== null) {
+          console.error(err);
+        } else {
+          default_topics = data;
+          console.log(default_topics);
+        }
+      });
 
 });
