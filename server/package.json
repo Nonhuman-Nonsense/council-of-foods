@@ -6,9 +6,11 @@
   "description": "",
   "main": "server.js",
   "scripts": {
-    "dev": "nodemon server.js"
+    "dev": "nodemon server.js",
+    "proto": "cross-env NODE_ENV=prototype node server.js"
   },
   "dependencies": {
+    "cross-env": "^7.0.3",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "mongodb": "^6.13.0",
