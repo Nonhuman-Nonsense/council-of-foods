@@ -1,11 +1,10 @@
 require("dotenv").config();
+const environment = process.env.NODE_ENV ?? 'production';
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
 const path = require("path");
 const OpenAI = require("openai");
-const { Tiktoken } = require("tiktoken/lite");
-const cl100k_base = require("tiktoken/encoders/cl100k_base.json");
 const { MongoClient } = require("mongodb");
 const { v4: uuidv4 } = require("uuid"); // Import UUID library
 
@@ -26,7 +25,7 @@ const audioVoices = ["alloy", "echo", "fable", "onyx", "nova", "shimmer"];
 // Database setup
 const mongoClient = new MongoClient(process.env.MONGO_URL);
 let db;
-if (process.env.NODE_ENV === "prototype") {
+if (environment === "prototype") {
   db = mongoClient.db("CouncilOfFoods-prototype");
 } else {
   db = mongoClient.db("CouncilOfFoods");
@@ -61,9 +60,16 @@ const insertMeeting = async (meeting) => {
 
 initializeDB();
 
-if (process.env.NODE_ENV === "prototype") {
+console.log(`[init] node_env is ${environment}`);
+if (environment === "prototype") {
   app.use(express.static(path.join(__dirname, "../prototype/", 'public')));
-} else if (process.env.NODE_ENV !== "development") {
+  app.get("/foods.json", function (req, res) {
+    res.sendFile(path.join(__dirname, "../client/src/prompts", "foods.json"));
+  });
+  app.get("/topics.json", function (req, res) {
+    res.sendFile(path.join(__dirname, "../client/src/prompts", "topics.json"));
+  });
+} else if (environment !== "development") {
   app.use(express.static(path.join(__dirname, "../client/build")));
   app.get("/*", function (req, res) {
     res.sendFile(path.join(__dirname, "../client/build", "index.html"));
@@ -86,7 +92,6 @@ io.on("connection", (socket) => {
     topic: "",
     characters: {},
   };
-  let logit_biases = [];
 
   const calculateCurrentSpeaker = () => {
     if (conversation.length === 0) return 0;
@@ -100,16 +105,18 @@ io.on("connection", (socket) => {
     }
   }
 
-  socket.on('pause_conversation', () => {
-    isPaused = true;
-    console.log(`[meeting ${meetingId}] paused`);
-  });
-
-  socket.on('resume_conversation', () => {
-    console.log(`[meeting ${meetingId}] resumed`);
-    isPaused = false;
-    handleConversationTurn();
-  });
+  if(environment === 'prototype'){
+    socket.on('pause_conversation', () => {
+      isPaused = true;
+      console.log(`[meeting ${meetingId}] paused`);
+    });
+  
+    socket.on('resume_conversation', () => {
+      console.log(`[meeting ${meetingId}] resumed`);
+      isPaused = false;
+      handleConversationTurn();
+    });
+  }
 
   socket.on("raise_hand", async (handRaisedOptions) => {
 
@@ -315,7 +322,6 @@ io.on("connection", (socket) => {
         conversation = existingMeeting.conversation;
         conversationOptions = existingMeeting.options;
         meetingDate = new Date(existingMeeting.date);
-        logit_biases = calculateLogitBiases();
         handRaised = options.handRaised;
         extraMessageCount = options.conversationMaxLength - globalOptions.conversationMaxLength;
 
@@ -350,6 +356,12 @@ io.on("connection", (socket) => {
 
   socket.on("start_conversation", async (options) => {
     conversationOptions = options;
+    if(environment === 'prototype'){
+      conversationOptions.options = options.options ?? globalOptions;
+    }else{
+      conversationOptions.options = globalOptions;
+    }
+    console.log(conversationOptions.options);
 
     for (let i = 0; i < conversationOptions.characters.length; i++) {
       conversationOptions.characters[i].name = toTitleCase(
@@ -361,9 +373,6 @@ io.on("connection", (socket) => {
     extraMessageCount = 0;
     isPaused = false;//for prototype
     handRaised = false;
-    // conversationCounter++;
-    // console.log("[session] session counter: " + conversationCounter);
-    logit_biases = calculateLogitBiases();
     meetingDate = new Date();
 
     const storeResult = await insertMeeting({
@@ -380,35 +389,6 @@ io.on("connection", (socket) => {
     handleConversationTurn();
   });
 
-  const calculateLogitBiases = () => {
-    const encoding = new Tiktoken(
-      cl100k_base.bpe_ranks,
-      cl100k_base.special_tokens,
-      cl100k_base.pat_str
-    );
-
-    let biases = [];
-    for (var i = 0; i < conversationOptions.characters.length; i++) {
-      let forbidden_tokens = [];
-      for (var j = 0; j < conversationOptions.characters.length; j++) {
-        if (i === j) continue;
-        const chars = encoding.encode(conversationOptions.characters[j].name);
-        for (var k = 0; k < chars.length; k++) {
-          forbidden_tokens.push(chars[k]);
-        }
-      }
-      let bias = {};
-      for (let l = 0; l < forbidden_tokens.length; l++) {
-        bias[forbidden_tokens[l]] = globalOptions.logitBias;
-      }
-      biases[i] = bias;
-    }
-
-    encoding.free();
-
-    return biases;
-  };
-
   const handleConversationTurn = async () => {
     try {
       if (!run) return;
@@ -422,6 +402,7 @@ io.on("connection", (socket) => {
       while (attempt < 5 && output.response === "") {
         output = await generateTextFromGPT(conversationOptions.characters[currentSpeaker]);
 
+        if (!run) return;
         if (handRaised) return;
         if(isPaused) return;
         attempt++;
@@ -553,8 +534,6 @@ io.on("connection", (socket) => {
         frequency_penalty: globalOptions.frequencyPenalty,
         presence_penalty: globalOptions.presencePenalty,
         stop: "\n---",
-        logit_bias:
-          conversation.length === 0 ? null : logit_biases[currentSpeaker],
         messages: messages,
       });
 
@@ -638,7 +617,7 @@ io.on("connection", (socket) => {
 
   socket.on("disconnect", () => {
     run = false;
-    console.log("[session] a user disconnected");
+    console.log(`[meeting ${meetingId ?? 'unstarted'}] user disconnected`);
   });
 });
 

@@ -9,9 +9,13 @@ COPY server/package*.json ./
 RUN npm ci --only=production
 COPY server/ .
 
+WORKDIR /usr/src
+
+# Prompts from client
+COPY client/src/prompts/ ./client/src/prompts
+
 # Prototype frontend
-WORKDIR /usr/src/prototype
-COPY prototype/public/ ./public
+COPY prototype/public/ ./prototype/public
 
 # Expose the port that the server is running on
 EXPOSE 3001
