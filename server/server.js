@@ -390,6 +390,7 @@ io.on("connection", (socket) => {
 
   const handleConversationTurn = async () => {
     try {
+      const thisMeetingId = meetingId;
       if (!run) return;
       if (handRaised) return;
       if(isPaused) return;
@@ -404,7 +405,11 @@ io.on("connection", (socket) => {
         if (!run) return;
         if (handRaised) return;
         if(isPaused) return;
+        if (thisMeetingId != meetingId) return;//On prototype, its possible to receive a message from last conversation, since socket is not restarted
         attempt++;
+        if(output.reponse === ""){
+          console.log(`[meeting ${meetingId}] entire message trimmed, trying again. attempt ${attempt}`);
+        }
       }
 
       let message = {
