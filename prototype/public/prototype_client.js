@@ -205,7 +205,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     localStorage.setItem("PromptsAndOptions", JSON.stringify(promptsAndOptions));
-    return { options: promptsAndOptions.options, topic: promptsAndOptions.rooms[currentRoom].topic, characters: promptsAndOptions.rooms[currentRoom].characters };
+    return {
+      options: promptsAndOptions.options,
+      topic: promptsAndOptions.system.replace("[TOPIC]", promptsAndOptions.rooms[currentRoom].topic),
+      characters: promptsAndOptions.rooms[currentRoom].characters
+    };
   }
 
   // ==================
