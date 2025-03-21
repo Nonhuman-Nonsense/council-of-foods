@@ -453,7 +453,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (!conversationStarted) {
         //Start the conversation from scratch!
-        spinner.style.display = 'block';
+        spinner.style.display = 'block';        
 
         //Initialize the audio context
         audioCtx = new window.AudioContext();
@@ -487,6 +487,8 @@ document.addEventListener('DOMContentLoaded', () => {
     conversationActive = true;
     endMessage.innerHTML = "";
     conversationDiv.innerHTML = "";
+    raiseHandButton.style.display = 'inline';
+    handRaised = false;
 
     //Stop audio if it's playing, and reset the data
     if (audioIsPlaying) {
