@@ -28,6 +28,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const raiseHandIcon = document.getElementById('raiseHandIcon');
   const humanInputArea = document.getElementById('humanInput');
   const submitHumanInput = document.getElementById('submitHumanInput');
+  const viewHumanInputPrompts = document.getElementById('viewHumanInputPrompts');
+  const raiseHandPrompt = document.getElementById('raiseHandPrompt');
+  const humanConfig = document.getElementById('humanConfig');
   const preHumanInputContainer = document.getElementById('preHumanInputContainer');
   // const humanInputContainer = document.getElementById('humanInputContainer');
 
@@ -87,6 +90,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     injectInputArea.value = promptsAndOptions.options.injectPrompt;
 
+    raiseHandPrompt.value = promptsAndOptions.options.raiseHandPrompt;
     systemPrompt.value = promptsAndOptions.system;
 
     humanName.value = promptsAndOptions.options.humanName;
@@ -177,6 +181,7 @@ document.addEventListener('DOMContentLoaded', () => {
     promptsAndOptions.options.injectPrompt = injectInputArea.value;
     promptsAndOptions.options.maxTokensInject = +document.getElementById('max-tokens-inject').value;
 
+    promptsAndOptions.options.raiseHandPrompt = raiseHandPrompt.value;
     promptsAndOptions.options.humanName = humanName.value;
 
     if (!reset) {
@@ -631,6 +636,16 @@ document.addEventListener('DOMContentLoaded', () => {
       updatePromptsAndOptions();
     }
 
+  });
+
+  viewHumanInputPrompts.addEventListener('click', () => {
+    if (viewHumanInputPrompts.innerHTML == "configure") {
+      humanConfig.style.display = "block";
+      viewHumanInputPrompts.innerHTML = "hide";
+    } else {
+      humanConfig.style.display = "none";
+      viewHumanInputPrompts.innerHTML = "configure";
+    }
   });
 
   //range sliders for model options
