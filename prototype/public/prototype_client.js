@@ -247,12 +247,19 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     console.log(update);
+
+    let message_index;
+    const conversationId = document.getElementById('conversation');
+    for (let i = 0; i < conversationId.children.length; i++) {
+      if(conversationId.children[i].id === update.id) message_index = i;
+    }
+
     if (update.type == 'human' || update.type == 'skipped') {
-      ignorePlaylist(update.message_index);
+      ignorePlaylist(message_index);
       return;
     }
     //This is an async function
-    await addToPlaylist(update.audio, update.message_index);
+    await addToPlaylist(update.audio, message_index);
     //If audio is not playing, we then need to move to the next item in playlist
     if (!audioIsPlaying && audioPlaylist[currentAudio] !== undefined && !pauseAudio) {
       audioPlaylist[currentAudio].play();
