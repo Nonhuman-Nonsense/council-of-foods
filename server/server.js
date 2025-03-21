@@ -125,12 +125,12 @@ io.on("connection", (socket) => {
     conversationOptions.humanName = handRaisedOptions.humanName;
 
     let { response, id } = await chairInterjection(
-      globalOptions.raiseHandPrompt.replace(
+      conversationOptions.options.raiseHandPrompt.replace(
         "[NAME]",
         conversationOptions.humanName
       ),
       handRaisedOptions.index,
-      globalOptions.raiseHandInvitationLength
+      conversationOptions.options.raiseHandInvitationLength
     );
 
     const firstNewLineIndex = response.indexOf("\n\n");
@@ -178,11 +178,11 @@ io.on("connection", (socket) => {
       });
 
       const completion = await openai.chat.completions.create({
-        model: globalOptions.gptModel,
+        model: conversationOptions.options.gptModel,
         max_tokens: length,
-        temperature: globalOptions.temperature,
-        frequency_penalty: globalOptions.frequencyPenalty,
-        presence_penalty: globalOptions.presencePenalty,
+        temperature: conversationOptions.options.temperature,
+        frequency_penalty: conversationOptions.options.frequencyPenalty,
+        presence_penalty: conversationOptions.options.presencePenalty,
         stop: dontStop ? "" : "\n---",
         messages: messages,
       });
@@ -266,7 +266,7 @@ io.on("connection", (socket) => {
   });
 
   socket.on("wrap_up_meeting", async () => {
-    const summaryPrompt = globalOptions.finalizeMeetingPrompt.replace(
+    const summaryPrompt = conversationOptions.options.finalizeMeetingPrompt.replace(
       "[DATE]",
       meetingDate.toISOString().split("T")[0]
     );
@@ -274,7 +274,7 @@ io.on("connection", (socket) => {
     let { response, id } = await chairInterjection(
       summaryPrompt,
       conversation.length,
-      globalOptions.finalizeMeetingLength,
+      conversationOptions.options.finalizeMeetingLength,
       true
     );
 
@@ -302,7 +302,7 @@ io.on("connection", (socket) => {
   });
 
   socket.on("continue_conversation", () => {
-    extraMessageCount += globalOptions.extraMessageCount;
+    extraMessageCount += conversationOptions.options.extraMessageCount;
 
     isPaused = false;
     handleConversationTurn();
@@ -323,7 +323,7 @@ io.on("connection", (socket) => {
         conversationOptions = existingMeeting.options;
         meetingDate = new Date(existingMeeting.date);
         handRaised = options.handRaised;
-        extraMessageCount = options.conversationMaxLength - globalOptions.conversationMaxLength;
+        extraMessageCount = options.conversationMaxLength - conversationOptions.options.conversationMaxLength;
 
         //If some audio are missing, try to regenerate them
         let missingAudio = [];
@@ -394,7 +394,7 @@ io.on("connection", (socket) => {
       if (!run) return;
       if (handRaised) return;
       if(isPaused) return;
-      if (conversation.length >= globalOptions.conversationMaxLength + extraMessageCount) return;
+      if (conversation.length >= conversationOptions.options.conversationMaxLength + extraMessageCount) return;
       currentSpeaker = calculateCurrentSpeaker();
 
       let attempt = 1;
@@ -446,7 +446,7 @@ io.on("connection", (socket) => {
 
       if (
         conversation.length >=
-        globalOptions.conversationMaxLength + extraMessageCount
+        conversationOptions.options.conversationMaxLength + extraMessageCount
       ) {
         socket.emit("conversation_end", conversation);
         return;
@@ -489,7 +489,7 @@ io.on("connection", (socket) => {
       const mp3 = await openai.audio.speech.create({
         model: "tts-1",
         voice: voiceName,
-        speed: globalOptions.audio_speed,
+        speed: conversationOptions.options.audio_speed,
         input: text.substring(0, 4096),
       });
 
@@ -525,14 +525,14 @@ io.on("connection", (socket) => {
       const messages = buildMessageStack(speaker);
 
       const completion = await openai.chat.completions.create({
-        model: globalOptions.gptModel,
+        model: conversationOptions.options.gptModel,
         max_tokens:
           speaker.name === "Water"
-            ? globalOptions.chairMaxTokens
-            : globalOptions.maxTokens,
-        temperature: globalOptions.temperature,
-        frequency_penalty: globalOptions.frequencyPenalty,
-        presence_penalty: globalOptions.presencePenalty,
+            ? conversationOptions.options.chairMaxTokens
+            : conversationOptions.options.maxTokens,
+        temperature: conversationOptions.options.temperature,
+        frequency_penalty: conversationOptions.options.frequencyPenalty,
+        presence_penalty: conversationOptions.options.presencePenalty,
         stop: "\n---",
         messages: messages,
       });
@@ -549,7 +549,7 @@ io.on("connection", (socket) => {
       let originalResponse = response;
 
       if (completion.choices[0].finish_reason != "stop") {
-        if (globalOptions.trimSentance) {
+        if (conversationOptions.options.trimSentance) {
           const lastPeriodIndex = response.lastIndexOf(".");
           if (lastPeriodIndex !== -1) {
             trimmedContent = originalResponse.substring(lastPeriodIndex + 1);
@@ -557,7 +557,7 @@ io.on("connection", (socket) => {
           }
         }
 
-        if (globalOptions.trimParagraph) {
+        if (conversationOptions.options.trimParagraph) {
           const lastNewLineIndex = response.lastIndexOf("\n\n");
           if (lastNewLineIndex !== -1) {
             trimmedContent = originalResponse.substring(lastNewLineIndex);
@@ -565,7 +565,7 @@ io.on("connection", (socket) => {
           }
         }
 
-        if (globalOptions.trimWaterSemicolon) {
+        if (conversationOptions.options.trimWaterSemicolon) {
           if (speaker.name === "Water") {
             // Make sure to use the same sentence splitter as on the client side
             const sentenceRegex = /(\d+\.\s+.{3,}?(?:\n|\?!\*|\?!|!\?|\?"|!"|\."|!\*|\?\*|\?|!|\?|;|\.{3}|…|\.|$))|.{3,}?(?:\n|\?!\*|\?!|!\?|\?"|!"|\."|!\*|\?\*|!|\?|;|\.{3}|…|\.|$)/gs;
