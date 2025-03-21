@@ -10,6 +10,7 @@
   "trimParagraph": true,
   "trimWaterSemicolon": true,
   "show_trimmed": true,
+  "skipAudio": false,
   "conversationMaxLength": 10,
   "raiseHandPrompt": "We have a question or comment from the audience, please invite a human speaker called [NAME] to the debate. After listening to the human, answer and engage deeper with their thoughts.",
   "raiseHandInvitationLength": 150,

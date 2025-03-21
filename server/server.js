@@ -470,6 +470,8 @@ io.on("connection", (socket) => {
   };
 
   const generateAudio = async (id, text, speakerName) => {
+    //If audio creation is skipped
+    if(conversationOptions.options.skipAudio) return;
     // const thisConversationCounter = conversationCounter;
     const voiceName = conversationOptions.characters.find((char) => char.name === speakerName).voice;
 
