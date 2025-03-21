@@ -14,8 +14,8 @@
       <div id="global-vars">
         <h3>model options</h3>
         GPT Model: <select id="gpt-model">
-          <option value="gpt-4o">GPT-4o</option>
           <option value="gpt-4o-mini">GPT-4o mini</option>
+          <option value="gpt-4o">GPT-4o</option>
           <option value="o1">o1</option>
           <option value="o1-mini">o1 mini</option>
         </select><br />
@@ -27,13 +27,15 @@
           prompt and completion. The exact limit varies by model. (One token is roughly 4 characters for standard
           English text)</div><input type="range" min="1" max="600" value="200" class="slider"><input
           class="slider-value" type="number" step="10" id="max-tokens"><br />
+        Chair Maximum Length: <div class="explanaition">Same as above, but for chair Water.</div><input type="range" min="1" max="600" value="250" class="slider"><input class="slider-value" type="number"
+          step="10" id="chair-max-tokens"><br />
         Frequency Penalty: <div class="explanaition">How much to penalize new tokens based on their existing frequency
           in the text so far. Decreases the model's likelihood to repeat the same line verbatim.</div><input
-          type="range" min="0" max="2.0" step="0.01" value="0" class="slider"><input class="slider-value" step="0.01"
+          type="range" min="0" max="2.0" step="0.01" value="0.7" class="slider"><input class="slider-value" step="0.01"
           type="number" id="frequency-penalty"><br />
         Presence Penalty: <div class="explanaition">How much to penalize new tokens based on whether they appear in the
           text so far. Increases the model's likelihood to talk about new topics.</div><input type="range" min="0"
-          max="2.0" step="0.01" value="0" class="slider"><input class="slider-value" type="number" step="0.01"
+          max="2.0" step="0.01" value="0.7" class="slider"><input class="slider-value" type="number" step="0.01"
           id="presence-penalty"><br />
         Logit Bias: <div class="explanaition">Modify the likelihood of the names of other characters appearing in the
           completion.</div><input type="range" min="-100" max="0" step="1" value="5" class="slider"><input
@@ -43,10 +45,8 @@
         trim response to last complete sentance: <input type="checkbox" id="trim-response-to-full-sentance"><br>
         trim response to last complete paragraph: <input type="checkbox" id="trim-response-to-full-paragraph"
           checked><br>
-        trim response to remove last half sentence: <input type="checkbox"
-          id="trim-response-to-remove-half-sentence"><br>
         trim response to remove waters semicolon ending: <input type="checkbox"
-          id="trim-response-to-remove-waters-semicolon"><br>
+          id="trim-response-to-remove-waters-semicolon" checked><br>
         conversation max length: <input type="number" id="conversation-max-length" placeholder="conversation max length"
           value="10"><br />
 
@@ -100,7 +100,7 @@
         <div id="humanConfig">
           <br>Prompt for raised hand:
           <textarea id="raiseHandPrompt"
-            placeholder="raise hand prompt...">We have a question from the audience, please invite a human speaker called [NAME] to the debate.</textarea><br>
+            placeholder="raise hand prompt...">We have a question or comment from the audience, please invite a human speaker called [NAME] to the debate. After listening to the human, answer and engage deeper with their thoughts.</textarea><br>
         </div>
       </div>
 

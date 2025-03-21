@@ -360,6 +360,12 @@ io.on("connection", (socket) => {
 
   socket.on("start_conversation", async (options) => {
     conversationOptions = options;
+    if(environment === 'prototype'){
+      conversationOptions.options = options.options ?? globalOptions;
+    }else{
+      conversationOptions.options = globalOptions;
+    }
+    console.log(conversationOptions.options);
 
     for (let i = 0; i < conversationOptions.characters.length; i++) {
       conversationOptions.characters[i].name = toTitleCase(
