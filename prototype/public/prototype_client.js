@@ -80,8 +80,6 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('frequency-penalty').previousSibling.value = promptsAndOptions.options.frequency_penalty;
     document.getElementById('presence-penalty').value = promptsAndOptions.options.presence_penalty;
     document.getElementById('presence-penalty').previousSibling.value = promptsAndOptions.options.presence_penalty;
-    document.getElementById('logit-bias').value = promptsAndOptions.options.logitBias;
-    document.getElementById('logit-bias').previousSibling.value = promptsAndOptions.options.logitBias;
 
     document.getElementById('trim-response-to-full-sentance').checked = promptsAndOptions.options.trimSentance;
     document.getElementById('trim-response-to-full-paragraph').checked = promptsAndOptions.options.trimParagraph;
@@ -172,7 +170,6 @@ document.addEventListener('DOMContentLoaded', () => {
     promptsAndOptions.options.chairMaxTokens = +document.getElementById('chair-max-tokens').value;
     promptsAndOptions.options.frequency_penalty = +document.getElementById('frequency-penalty').value;
     promptsAndOptions.options.presence_penalty = +document.getElementById('presence-penalty').value;
-    promptsAndOptions.options.logitBias = +document.getElementById('logit-bias').value;
     promptsAndOptions.options.trimSentance = document.getElementById('trim-response-to-full-sentance').checked;
     promptsAndOptions.options.trimParagraph = document.getElementById('trim-response-to-full-paragraph').checked;
     promptsAndOptions.options.trimWaterSemicolon = document.getElementById('trim-response-to-remove-waters-semicolon').checked;

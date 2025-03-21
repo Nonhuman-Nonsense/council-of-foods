@@ -5,8 +5,6 @@ const http = require("http");
 const { Server } = require("socket.io");
 const path = require("path");
 const OpenAI = require("openai");
-const { Tiktoken } = require("tiktoken/lite");
-const cl100k_base = require("tiktoken/encoders/cl100k_base.json");
 const { MongoClient } = require("mongodb");
 const { v4: uuidv4 } = require("uuid"); // Import UUID library
 
@@ -94,7 +92,6 @@ io.on("connection", (socket) => {
     topic: "",
     characters: {},
   };
-  let logit_biases = [];
 
   const calculateCurrentSpeaker = () => {
     if (conversation.length === 0) return 0;
@@ -325,7 +322,6 @@ io.on("connection", (socket) => {
         conversation = existingMeeting.conversation;
         conversationOptions = existingMeeting.options;
         meetingDate = new Date(existingMeeting.date);
-        logit_biases = calculateLogitBiases();
         handRaised = options.handRaised;
         extraMessageCount = options.conversationMaxLength - globalOptions.conversationMaxLength;
 
@@ -377,9 +373,6 @@ io.on("connection", (socket) => {
     extraMessageCount = 0;
     isPaused = false;//for prototype
     handRaised = false;
-    // conversationCounter++;
-    // console.log("[session] session counter: " + conversationCounter);
-    logit_biases = calculateLogitBiases();
     meetingDate = new Date();
 
     const storeResult = await insertMeeting({
@@ -395,35 +388,6 @@ io.on("connection", (socket) => {
     console.log(`[meeting ${meetingId}] started`);
     handleConversationTurn();
   });
-
-  const calculateLogitBiases = () => {
-    const encoding = new Tiktoken(
-      cl100k_base.bpe_ranks,
-      cl100k_base.special_tokens,
-      cl100k_base.pat_str
-    );
-
-    let biases = [];
-    for (var i = 0; i < conversationOptions.characters.length; i++) {
-      let forbidden_tokens = [];
-      for (var j = 0; j < conversationOptions.characters.length; j++) {
-        if (i === j) continue;
-        const chars = encoding.encode(conversationOptions.characters[j].name);
-        for (var k = 0; k < chars.length; k++) {
-          forbidden_tokens.push(chars[k]);
-        }
-      }
-      let bias = {};
-      for (let l = 0; l < forbidden_tokens.length; l++) {
-        bias[forbidden_tokens[l]] = globalOptions.logitBias;
-      }
-      biases[i] = bias;
-    }
-
-    encoding.free();
-
-    return biases;
-  };
 
   const handleConversationTurn = async () => {
     try {
@@ -570,8 +534,6 @@ io.on("connection", (socket) => {
         frequency_penalty: globalOptions.frequencyPenalty,
         presence_penalty: globalOptions.presencePenalty,
         stop: "\n---",
-        logit_bias:
-          conversation.length === 0 ? null : logit_biases[currentSpeaker],
         messages: messages,
       });
 
