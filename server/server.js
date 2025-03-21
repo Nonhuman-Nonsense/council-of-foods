@@ -361,7 +361,6 @@ io.on("connection", (socket) => {
     }else{
       conversationOptions.options = globalOptions;
     }
-    console.log(conversationOptions.options);
 
     for (let i = 0; i < conversationOptions.characters.length; i++) {
       conversationOptions.characters[i].name = toTitleCase(

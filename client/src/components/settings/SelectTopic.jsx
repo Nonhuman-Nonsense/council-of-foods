@@ -3,6 +3,12 @@ import ResetWarning from "../overlays/ResetWarning";
 import topicData from "../../prompts/topics.json";
 import { capitalizeFirstLetter, toTitleCase, useMobile, useMobileXs } from "../../utils";
 
+//Freeze original topicData to make it immutable
+Object.freeze(topicData);
+for (let i = 0; i < topicData.topics.length; i++) {
+  Object.freeze(topicData.topics[i]);
+}
+
 function SelectTopic({
   onContinueForward,
   currentTopic,
@@ -30,10 +36,14 @@ function SelectTopic({
   // useEffect hook to listen for changes in currentTopic
   useEffect(() => {
     if (currentTopic?.prompt) {
-      selectTopic(currentTopic);
+      let reSelectTopic = topics.find((topic) => topic.title === currentTopic.title);
       if(currentTopic?.title === 'custom topic'){
         setCustomTopic(currentTopic.description);
+        reSelectTopic.prompt = currentTopic.description;
+        reSelectTopic.description = currentTopic.description;
       }
+      selectTopic(reSelectTopic);
+      
     }
   }, [currentTopic]); // Dependency array includes only currentTopic
 
@@ -83,7 +93,8 @@ function SelectTopic({
   }
 
   function buildTopicPrompt() {
-    let continueWithTopic = selectedTopic;
+    //We need to make a structuredClone here, otherwise we just end up with a string of pointers that ends up mutating the original topicData.
+    let continueWithTopic = structuredClone(selectedTopic);
     if (continueWithTopic.title.toLowerCase() === "custom topic") {
       continueWithTopic.prompt = customTopic;
       continueWithTopic.description = customTopic;
@@ -140,7 +151,7 @@ function SelectTopic({
 
   function showTextBox() {
     return selectedTopic.title === "custom topic"
-      ? hoverTopic && hoverTopic?.title !== "custom topic"
+      ? hoverTopic?.title && hoverTopic?.title !== "custom topic"
         ? false
         : true
       : hoverTopic?.title === "custom topic"
