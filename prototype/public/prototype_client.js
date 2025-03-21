@@ -74,18 +74,22 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('max-tokens').previousSibling.value = promptsAndOptions.options.maxTokens;
     document.getElementById('chair-max-tokens').value = promptsAndOptions.options.chairMaxTokens;
     document.getElementById('chair-max-tokens').previousSibling.value = promptsAndOptions.options.chairMaxTokens;
+    document.getElementById('raise-hand-invitation-length').value = promptsAndOptions.options.raiseHandInvitationLength;
+    document.getElementById('raise-hand-invitation-length').previousSibling.value = promptsAndOptions.options.raiseHandInvitationLength;
     document.getElementById('max-tokens-inject').value = promptsAndOptions.options.maxTokensInject;
     document.getElementById('max-tokens-inject').previousSibling.value = promptsAndOptions.options.maxTokensInject;
-    document.getElementById('frequency-penalty').value = promptsAndOptions.options.frequency_penalty;
-    document.getElementById('frequency-penalty').previousSibling.value = promptsAndOptions.options.frequency_penalty;
-    document.getElementById('presence-penalty').value = promptsAndOptions.options.presence_penalty;
-    document.getElementById('presence-penalty').previousSibling.value = promptsAndOptions.options.presence_penalty;
+    document.getElementById('frequency-penalty').value = promptsAndOptions.options.frequencyPenalty;
+    document.getElementById('frequency-penalty').previousSibling.value = promptsAndOptions.options.frequencyPenalty;
+    document.getElementById('presence-penalty').value = promptsAndOptions.options.presencePenalty;
+    document.getElementById('presence-penalty').previousSibling.value = promptsAndOptions.options.presencePenalty;
 
     document.getElementById('trim-response-to-full-sentance').checked = promptsAndOptions.options.trimSentance;
     document.getElementById('trim-response-to-full-paragraph').checked = promptsAndOptions.options.trimParagraph;
     document.getElementById('trim-response-to-remove-waters-semicolon').checked = promptsAndOptions.options.trimWaterSemicolon;
     document.getElementById('show-trimmed').checked = promptsAndOptions.options.showTrimmed;
     document.getElementById('conversation-max-length').value = promptsAndOptions.options.conversationMaxLength;
+    document.getElementById('extra-message-count').value = promptsAndOptions.options.extraMessageCount;
+    document.getElementById('skip-audio').checked = promptsAndOptions.options.skipAudio;
 
     injectInputArea.value = promptsAndOptions.options.injectPrompt;
 
@@ -168,13 +172,16 @@ document.addEventListener('DOMContentLoaded', () => {
     promptsAndOptions.options.temperature = +document.getElementById('temperature').value;
     promptsAndOptions.options.maxTokens = +document.getElementById('max-tokens').value;
     promptsAndOptions.options.chairMaxTokens = +document.getElementById('chair-max-tokens').value;
-    promptsAndOptions.options.frequency_penalty = +document.getElementById('frequency-penalty').value;
-    promptsAndOptions.options.presence_penalty = +document.getElementById('presence-penalty').value;
+    promptsAndOptions.options.raiseHandInvitationLength = +document.getElementById('raise-hand-invitation-length').value;
+    promptsAndOptions.options.frequencyPenalty = +document.getElementById('frequency-penalty').value;
+    promptsAndOptions.options.presencePenalty = +document.getElementById('presence-penalty').value;
     promptsAndOptions.options.trimSentance = document.getElementById('trim-response-to-full-sentance').checked;
     promptsAndOptions.options.trimParagraph = document.getElementById('trim-response-to-full-paragraph').checked;
     promptsAndOptions.options.trimWaterSemicolon = document.getElementById('trim-response-to-remove-waters-semicolon').checked;
     promptsAndOptions.options.showTrimmed = document.getElementById('show-trimmed').checked;
     promptsAndOptions.options.conversationMaxLength = +document.getElementById('conversation-max-length').value;
+    promptsAndOptions.options.extraMessageCount = +document.getElementById('extra-message-count').value;
+    promptsAndOptions.options.skipAudio = document.getElementById('skip-audio').checked;
 
     promptsAndOptions.options.injectPrompt = injectInputArea.value;
     promptsAndOptions.options.maxTokensInject = +document.getElementById('max-tokens-inject').value;
@@ -205,7 +212,23 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     localStorage.setItem("PromptsAndOptions", JSON.stringify(promptsAndOptions));
-    return { options: promptsAndOptions.options, topic: promptsAndOptions.rooms[currentRoom].topic, characters: promptsAndOptions.rooms[currentRoom].characters };
+
+    let replacedCharacters = structuredClone(promptsAndOptions.rooms[currentRoom].characters);
+    let participants = "";
+    promptsAndOptions.rooms[currentRoom].characters.forEach(function (food, index) {
+      if (index !== 0) participants += toTitleCase(food.name) + ", ";
+    });
+    participants = participants.substring(0, participants.length - 2);
+    replacedCharacters[0].prompt = promptsAndOptions.rooms[currentRoom].characters[0].prompt.replace(
+      "[FOODS]",
+      participants
+    );
+
+    return {
+      options: promptsAndOptions.options,
+      topic: promptsAndOptions.system.replace("[TOPIC]", promptsAndOptions.rooms[currentRoom].topic),
+      characters: replacedCharacters
+    };
   }
 
   // ==================
@@ -229,12 +252,19 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     console.log(update);
-    if (update.type == 'human' || update.type == 'skipped') {
-      ignorePlaylist(update.message_index);
+
+    let message_index;
+    const conversationId = document.getElementById('conversation');
+    for (let i = 0; i < conversationId.children.length; i++) {
+      if(conversationId.children[i].id === update.id) message_index = i;
+    }
+
+    if (update.type == 'skipped') {
+      ignorePlaylist(message_index);
       return;
     }
     //This is an async function
-    await addToPlaylist(update.audio, update.message_index);
+    await addToPlaylist(update.audio, message_index);
     //If audio is not playing, we then need to move to the next item in playlist
     if (!audioIsPlaying && audioPlaylist[currentAudio] !== undefined && !pauseAudio) {
       audioPlaylist[currentAudio].play();
@@ -423,7 +453,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (!conversationStarted) {
         //Start the conversation from scratch!
-        spinner.style.display = 'block';
+        spinner.style.display = 'block';        
 
         //Initialize the audio context
         audioCtx = new window.AudioContext();
@@ -457,6 +487,8 @@ document.addEventListener('DOMContentLoaded', () => {
     conversationActive = true;
     endMessage.innerHTML = "";
     conversationDiv.innerHTML = "";
+    raiseHandButton.style.display = 'inline';
+    handRaised = false;
 
     //Stop audio if it's playing, and reset the data
     if (audioIsPlaying) {
@@ -493,9 +525,11 @@ document.addEventListener('DOMContentLoaded', () => {
   submitInjection.addEventListener('click', () => {
     reloadUI();
 
+    const conversationLength = document.getElementById('conversation').children.length;
     const message = {
       text: injectInputArea.value,
-      length: promptsAndOptions.options.maxTokensInject
+      length: promptsAndOptions.options.maxTokensInject,
+      index: conversationLength
     }
     injectedMessage.innerHTML = "Instruction injected, just wait...";
     submitInjection.style.display = "none";
@@ -524,7 +558,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (handRaised) {
       handRaised = false;
       raiseHandIcon.style.display = 'none';
-      raiseHandButton.innerHTML = "I want to say something/Raise hand";
+      raiseHandButton.style.display = "inline";
       raiseHandIcon.style.display = "none";
       humanInputArea.style.display = "none";
       submitHumanInput.style.display = "none";
@@ -658,30 +692,18 @@ document.addEventListener('DOMContentLoaded', () => {
   raiseHandButton.addEventListener('click', () => {
     if (!handRaised) {
       handRaised = true;
-      raiseHandButton.innerHTML = "Never mind/Lower Hand";
+      raiseHandButton.style.display = "none";
       raiseHandIcon.style.display = "block";
       spinner.style.display = "none";
       humanInputArea.style.display = "block";
       submitHumanInput.style.display = "block";
       endMessage.innerHTML = "Waiting for human input...";
-      const sentPromptsAndOptions = updatePromptsAndOptions();
-      socket.emit('raise_hand', sentPromptsAndOptions);
-    } else {
-      //Never mind is clicked
-      handRaised = false;
-      raiseHandButton.innerHTML = "I want to say something/Raise hand";
-      raiseHandIcon.style.display = "none";
-      humanInputArea.style.display = "none";
-      submitHumanInput.style.display = "none";
-      spinner.style.display = "block";
-      endMessage.innerHTML = "";
-
-      continueBtn.style.display = 'none';
-      restartBtn.style.display = 'none';
-      toggleConversationBtn.textContent = 'Pause';
-      conversationActive = true;
-      const sentPromptsAndOptions = updatePromptsAndOptions();
-      socket.emit('lower_hand', sentPromptsAndOptions);
+      updatePromptsAndOptions();
+      const conversationLength = document.getElementById('conversation').children.length;
+      socket.emit('raise_hand', {
+        humanName: promptsAndOptions.options.humanName,
+        index: conversationLength,
+      });
     }
   });
 
@@ -760,3 +782,15 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
 });
+
+// //////////////
+// UTILS
+// //////////////
+
+function toTitleCase(string) {
+  return string
+    .toLowerCase()
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+}
