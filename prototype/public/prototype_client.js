@@ -205,10 +205,22 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     localStorage.setItem("PromptsAndOptions", JSON.stringify(promptsAndOptions));
+
+    let replacedCharacters = structuredClone(promptsAndOptions.rooms[currentRoom].characters);
+    let participants = "";
+    promptsAndOptions.rooms[currentRoom].characters.forEach(function (food, index) {
+      if (index !== 0) participants += toTitleCase(food.name) + ", ";
+    });
+    participants = participants.substring(0, participants.length - 2);
+    replacedCharacters[0].prompt = promptsAndOptions.rooms[currentRoom].characters[0].prompt.replace(
+      "[FOODS]",
+      participants
+    );
+
     return {
       options: promptsAndOptions.options,
       topic: promptsAndOptions.system.replace("[TOPIC]", promptsAndOptions.rooms[currentRoom].topic),
-      characters: promptsAndOptions.rooms[currentRoom].characters
+      characters: replacedCharacters
     };
   }
 
@@ -764,3 +776,15 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
 });
+
+// //////////////
+// UTILS
+// //////////////
+
+function toTitleCase(string){
+  return string
+    .toLowerCase()
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+}
