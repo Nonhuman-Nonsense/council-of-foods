@@ -783,7 +783,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // UTILS
 // //////////////
 
-function toTitleCase(string){
+function toTitleCase(string) {
   return string
     .toLowerCase()
     .split(' ')

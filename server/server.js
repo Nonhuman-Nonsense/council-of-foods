@@ -105,12 +105,12 @@ io.on("connection", (socket) => {
     }
   }
 
-  if(environment === 'prototype'){
+  if (environment === 'prototype') {
     socket.on('pause_conversation', () => {
       isPaused = true;
       console.log(`[meeting ${meetingId}] paused`);
     });
-  
+
     socket.on('resume_conversation', () => {
       console.log(`[meeting ${meetingId}] resumed`);
       isPaused = false;
@@ -356,9 +356,9 @@ io.on("connection", (socket) => {
 
   socket.on("start_conversation", async (options) => {
     conversationOptions = options;
-    if(environment === 'prototype'){
+    if (environment === 'prototype') {
       conversationOptions.options = options.options ?? globalOptions;
-    }else{
+    } else {
       conversationOptions.options = globalOptions;
     }
 
@@ -393,7 +393,7 @@ io.on("connection", (socket) => {
       const thisMeetingId = meetingId;
       if (!run) return;
       if (handRaised) return;
-      if(isPaused) return;
+      if (isPaused) return;
       if (conversation.length >= conversationOptions.options.conversationMaxLength + extraMessageCount) return;
       currentSpeaker = calculateCurrentSpeaker();
 
@@ -404,10 +404,10 @@ io.on("connection", (socket) => {
 
         if (!run) return;
         if (handRaised) return;
-        if(isPaused) return;
+        if (isPaused) return;
         if (thisMeetingId != meetingId) return;//On prototype, its possible to receive a message from last conversation, since socket is not restarted
         attempt++;
-        if(output.reponse === ""){
+        if (output.reponse === "") {
           console.log(`[meeting ${meetingId}] entire message trimmed, trying again. attempt ${attempt}`);
         }
       }
@@ -471,7 +471,7 @@ io.on("connection", (socket) => {
 
   const generateAudio = async (id, text, speakerName) => {
     //If audio creation is skipped
-    if(conversationOptions.options.skipAudio) return;
+    if (conversationOptions.options.skipAudio) return;
     // const thisConversationCounter = conversationCounter;
     const voiceName = conversationOptions.characters.find((char) => char.name === speakerName).voice;
 
