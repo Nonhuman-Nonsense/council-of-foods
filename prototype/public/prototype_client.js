@@ -254,7 +254,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if(conversationId.children[i].id === update.id) message_index = i;
     }
 
-    if (update.type == 'human' || update.type == 'skipped') {
+    if (update.type == 'skipped') {
       ignorePlaylist(message_index);
       return;
     }
@@ -549,7 +549,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (handRaised) {
       handRaised = false;
       raiseHandIcon.style.display = 'none';
-      raiseHandButton.innerHTML = "I want to say something/Raise hand";
+      raiseHandButton.style.display = "inline";
       raiseHandIcon.style.display = "none";
       humanInputArea.style.display = "none";
       submitHumanInput.style.display = "none";
@@ -683,30 +683,18 @@ document.addEventListener('DOMContentLoaded', () => {
   raiseHandButton.addEventListener('click', () => {
     if (!handRaised) {
       handRaised = true;
-      raiseHandButton.innerHTML = "Never mind/Lower Hand";
+      raiseHandButton.style.display = "none";
       raiseHandIcon.style.display = "block";
       spinner.style.display = "none";
       humanInputArea.style.display = "block";
       submitHumanInput.style.display = "block";
       endMessage.innerHTML = "Waiting for human input...";
-      const sentPromptsAndOptions = updatePromptsAndOptions();
-      socket.emit('raise_hand', sentPromptsAndOptions);
-    } else {
-      //Never mind is clicked
-      handRaised = false;
-      raiseHandButton.innerHTML = "I want to say something/Raise hand";
-      raiseHandIcon.style.display = "none";
-      humanInputArea.style.display = "none";
-      submitHumanInput.style.display = "none";
-      spinner.style.display = "block";
-      endMessage.innerHTML = "";
-
-      continueBtn.style.display = 'none';
-      restartBtn.style.display = 'none';
-      toggleConversationBtn.textContent = 'Pause';
-      conversationActive = true;
-      const sentPromptsAndOptions = updatePromptsAndOptions();
-      socket.emit('lower_hand', sentPromptsAndOptions);
+      updatePromptsAndOptions();
+      const conversationLength = document.getElementById('conversation').children.length;
+      socket.emit('raise_hand', {
+        humanName: promptsAndOptions.options.humanName,
+        index: conversationLength,
+      });
     }
   });
 
