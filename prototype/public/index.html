@@ -108,7 +108,8 @@
 
       <div id="injections">
         <h3>inject custom instruction</h3><br />
-        <textarea id="injectInputArea" placeholder="Inject something into water..."></textarea><br>
+        <p style="margin: 0;"><small>the word [DATE] will be replaced with todays date</small></p>
+        <textarea id="injectInputArea" placeholder="Inject something into water...">Please summarise the meeting, held on [DATE], making a document that could work as a meeting protocol and a policy recommendation, that could be sent to a official political department like the European Commission.</textarea><br>
         Maximum Length: <div class="explanaition">The maximum number of tokens to <b>generate</b> shared between the
           prompt and completion. The exact limit varies by model. (One token is roughly 4 characters for standard
           English text)</div><input type="range" min="1" max="2000" value="200" class="slider"><input

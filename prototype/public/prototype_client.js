@@ -518,9 +518,11 @@ document.addEventListener('DOMContentLoaded', () => {
   submitInjection.addEventListener('click', () => {
     reloadUI();
 
+    const conversationLength = document.getElementById('conversation').children.length;
     const message = {
       text: injectInputArea.value,
-      length: promptsAndOptions.options.maxTokensInject
+      length: promptsAndOptions.options.maxTokensInject,
+      index: conversationLength
     }
     injectedMessage.innerHTML = "Instruction injected, just wait...";
     submitInjection.style.display = "none";

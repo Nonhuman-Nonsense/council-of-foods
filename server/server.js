@@ -116,6 +116,39 @@ io.on("connection", (socket) => {
       isPaused = false;
       handleConversationTurn();
     });
+
+    socket.on('submit_injection', async (message) => {
+      let { response, id } = await chairInterjection(
+        message.text.replace(
+          "[DATE]",
+          meetingDate.toISOString().split("T")[0]
+        ),
+        message.index,
+        message.length,
+        true
+      );
+
+      let summary = {
+        id: id,
+        speaker: conversationOptions.characters[0].name,
+        text: response,
+        type: "interjection"
+      };
+
+      conversation.push(summary);
+
+      socket.emit("conversation_update", conversation);
+      console.log(
+        `[meeting ${meetingId}] interjection generated on index ${conversation.length - 1}`
+      );
+
+      generateAudio(id, response, conversationOptions.characters[0].name);
+    });
+
+    socket.on('remove_last_message', () => {
+      conversation.pop();
+      socket.emit('conversation_update', conversation);
+    });
   }
 
   socket.on("raise_hand", async (handRaisedOptions) => {
@@ -518,12 +551,17 @@ io.on("connection", (socket) => {
         audio: buffer,
       };
 
-      await audioCollection.insertOne(storedAudio);
+      //Don't store audio on prototype
+      if (environment !== 'prototype') {
+        await audioCollection.insertOne(storedAudio);
+      }
     }
-    await meetingsCollection.updateOne(
-      { _id: meetingId },
-      { $addToSet: { audio: audioObject.id } }
-    );
+    if (environment !== 'prototype') {
+      await meetingsCollection.updateOne(
+        { _id: meetingId },
+        { $addToSet: { audio: audioObject.id } }
+      );
+    }
   };
 
   const generateTextFromGPT = async (speaker) => {
