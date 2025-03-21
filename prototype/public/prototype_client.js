@@ -86,6 +86,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('trim-response-to-remove-waters-semicolon').checked = promptsAndOptions.options.trimWaterSemicolon;
     document.getElementById('show-trimmed').checked = promptsAndOptions.options.showTrimmed;
     document.getElementById('conversation-max-length').value = promptsAndOptions.options.conversationMaxLength;
+    document.getElementById('extra-message-count').value = promptsAndOptions.options.extraMessageCount;
     document.getElementById('skip-audio').checked = promptsAndOptions.options.skipAudio;
 
     injectInputArea.value = promptsAndOptions.options.injectPrompt;
@@ -176,6 +177,7 @@ document.addEventListener('DOMContentLoaded', () => {
     promptsAndOptions.options.trimWaterSemicolon = document.getElementById('trim-response-to-remove-waters-semicolon').checked;
     promptsAndOptions.options.showTrimmed = document.getElementById('show-trimmed').checked;
     promptsAndOptions.options.conversationMaxLength = +document.getElementById('conversation-max-length').value;
+    promptsAndOptions.options.extraMessageCount = +document.getElementById('extra-message-count').value;
     promptsAndOptions.options.skipAudio = document.getElementById('skip-audio').checked;
 
     promptsAndOptions.options.injectPrompt = injectInputArea.value;
