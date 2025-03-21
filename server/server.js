@@ -77,7 +77,7 @@ if (environment === "prototype") {
 }
 
 io.on("connection", (socket) => {
-  console.log("[session] a user connected");
+  console.log(`[session ${socket.id}] connected`);
 
   //Session variables
   let run = true;
@@ -384,7 +384,7 @@ io.on("connection", (socket) => {
     meetingId = storeResult.insertedId;
 
     socket.emit("meeting_started", { meeting_id: meetingId });
-    console.log(`[meeting ${meetingId}] started`);
+    console.log(`[session ${socket.id} meeting ${meetingId}] started`);
     handleConversationTurn();
   });
 
@@ -616,7 +616,7 @@ io.on("connection", (socket) => {
 
   socket.on("disconnect", () => {
     run = false;
-    console.log(`[meeting ${meetingId ?? 'unstarted'}] user disconnected`);
+    console.log(`[session ${socket.id} meeting ${meetingId ?? 'unstarted'}] disconnected`);
   });
 });
 
