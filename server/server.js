@@ -1,11 +1,10 @@
 require("dotenv").config();
+const environment = process.env.NODE_ENV ?? 'production';
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
 const path = require("path");
 const OpenAI = require("openai");
-const { Tiktoken } = require("tiktoken/lite");
-const cl100k_base = require("tiktoken/encoders/cl100k_base.json");
 const { MongoClient } = require("mongodb");
 const { v4: uuidv4 } = require("uuid"); // Import UUID library
 
@@ -25,7 +24,12 @@ const audioVoices = ["alloy", "echo", "fable", "onyx", "nova", "shimmer"];
 
 // Database setup
 const mongoClient = new MongoClient(process.env.MONGO_URL);
-const db = mongoClient.db("CouncilOfFoods-asilomar");
+let db;
+if (environment === "prototype") {
+  db = mongoClient.db("CouncilOfFoods-prototype");
+} else {
+  db = mongoClient.db("CouncilOfFoods-asilomar");
+}
 const meetingsCollection = db.collection("meetings");
 const audioCollection = db.collection("audio");
 const counters = db.collection("counters");
@@ -56,7 +60,16 @@ const insertMeeting = async (meeting) => {
 
 initializeDB();
 
-if (process.env.NODE_ENV !== "development") {
+console.log(`[init] node_env is ${environment}`);
+if (environment === "prototype") {
+  app.use(express.static(path.join(__dirname, "../prototype/", 'public')));
+  app.get("/foods.json", function (req, res) {
+    res.sendFile(path.join(__dirname, "../client/src/prompts", "foods.json"));
+  });
+  app.get("/topics.json", function (req, res) {
+    res.sendFile(path.join(__dirname, "../client/src/prompts", "topics.json"));
+  });
+} else if (environment !== "development") {
   app.use(express.static(path.join(__dirname, "../client/build")));
   app.get("/*", function (req, res) {
     res.sendFile(path.join(__dirname, "../client/build", "index.html"));
@@ -64,11 +77,12 @@ if (process.env.NODE_ENV !== "development") {
 }
 
 io.on("connection", (socket) => {
-  console.log("[session] a user connected");
+  console.log(`[session ${socket.id}] connected`);
 
   //Session variables
   let run = true;
   let handRaised = false;
+  let isPaused = false;//for prototype
   let conversation = [];
   let currentSpeaker = 0;
   let extraMessageCount = 0;
@@ -78,7 +92,6 @@ io.on("connection", (socket) => {
     topic: "",
     characters: {},
   };
-  let logit_biases = [];
 
   const calculateCurrentSpeaker = () => {
     if (conversation.length === 0) return 0;
@@ -92,6 +105,52 @@ io.on("connection", (socket) => {
     }
   }
 
+  if (environment === 'prototype') {
+    socket.on('pause_conversation', () => {
+      isPaused = true;
+      console.log(`[meeting ${meetingId}] paused`);
+    });
+
+    socket.on('resume_conversation', () => {
+      console.log(`[meeting ${meetingId}] resumed`);
+      isPaused = false;
+      handleConversationTurn();
+    });
+
+    socket.on('submit_injection', async (message) => {
+      let { response, id } = await chairInterjection(
+        message.text.replace(
+          "[DATE]",
+          meetingDate.toISOString().split("T")[0]
+        ),
+        message.index,
+        message.length,
+        true
+      );
+
+      let summary = {
+        id: id,
+        speaker: conversationOptions.characters[0].name,
+        text: response,
+        type: "interjection"
+      };
+
+      conversation.push(summary);
+
+      socket.emit("conversation_update", conversation);
+      console.log(
+        `[meeting ${meetingId}] interjection generated on index ${conversation.length - 1}`
+      );
+
+      generateAudio(id, response, conversationOptions.characters[0].name);
+    });
+
+    socket.on('remove_last_message', () => {
+      conversation.pop();
+      socket.emit('conversation_update', conversation);
+    });
+  }
+
   socket.on("raise_hand", async (handRaisedOptions) => {
 
     console.log(`[meeting ${meetingId}] hand raised on index ${handRaisedOptions.index - 1}`);
@@ -99,12 +158,12 @@ io.on("connection", (socket) => {
     conversationOptions.humanName = handRaisedOptions.humanName;
 
     let { response, id } = await chairInterjection(
-      globalOptions.raiseHandPrompt.replace(
+      conversationOptions.options.raiseHandPrompt.replace(
         "[NAME]",
         conversationOptions.humanName
       ),
       handRaisedOptions.index,
-      globalOptions.raiseHandInvitationLength
+      conversationOptions.options.raiseHandInvitationLength
     );
 
     const firstNewLineIndex = response.indexOf("\n\n");
@@ -152,11 +211,11 @@ io.on("connection", (socket) => {
       });
 
       const completion = await openai.chat.completions.create({
-        model: globalOptions.gptModel,
+        model: conversationOptions.options.gptModel,
         max_tokens: length,
-        temperature: globalOptions.temperature,
-        frequency_penalty: globalOptions.frequencyPenalty,
-        presence_penalty: globalOptions.presencePenalty,
+        temperature: conversationOptions.options.temperature,
+        frequency_penalty: conversationOptions.options.frequencyPenalty,
+        presence_penalty: conversationOptions.options.presencePenalty,
         stop: dontStop ? "" : "\n---",
         messages: messages,
       });
@@ -234,12 +293,13 @@ io.on("connection", (socket) => {
       conversationOptions.characters[0].name
     );
 
+    isPaused = false;
     handRaised = false;
     handleConversationTurn();
   });
 
   socket.on("wrap_up_meeting", async () => {
-    const summaryPrompt = globalOptions.finalizeMeetingPrompt.replace(
+    const summaryPrompt = conversationOptions.options.finalizeMeetingPrompt.replace(
       "[DATE]",
       meetingDate.toISOString().split("T")[0]
     );
@@ -247,7 +307,7 @@ io.on("connection", (socket) => {
     let { response, id } = await chairInterjection(
       summaryPrompt,
       conversation.length,
-      globalOptions.finalizeMeetingLength,
+      conversationOptions.options.finalizeMeetingLength,
       true
     );
 
@@ -275,8 +335,9 @@ io.on("connection", (socket) => {
   });
 
   socket.on("continue_conversation", () => {
-    extraMessageCount += globalOptions.extraMessageCount;
+    extraMessageCount += conversationOptions.options.extraMessageCount;
 
+    isPaused = false;
     handleConversationTurn();
   });
 
@@ -294,9 +355,8 @@ io.on("connection", (socket) => {
         conversation = existingMeeting.conversation;
         conversationOptions = existingMeeting.options;
         meetingDate = new Date(existingMeeting.date);
-        logit_biases = calculateLogitBiases();
         handRaised = options.handRaised;
-        extraMessageCount = options.conversationMaxLength - globalOptions.conversationMaxLength;
+        extraMessageCount = options.conversationMaxLength - conversationOptions.options.conversationMaxLength;
 
         //If some audio are missing, try to regenerate them
         let missingAudio = [];
@@ -329,6 +389,11 @@ io.on("connection", (socket) => {
 
   socket.on("start_conversation", async (options) => {
     conversationOptions = options;
+    if (environment === 'prototype') {
+      conversationOptions.options = options.options ?? globalOptions;
+    } else {
+      conversationOptions.options = globalOptions;
+    }
 
     for (let i = 0; i < conversationOptions.characters.length; i++) {
       conversationOptions.characters[i].name = toTitleCase(
@@ -338,11 +403,8 @@ io.on("connection", (socket) => {
     conversation = [];
     currentSpeaker = 0;
     extraMessageCount = 0;
-    // isPaused = false;
+    isPaused = false;//for prototype
     handRaised = false;
-    // conversationCounter++;
-    // console.log("[session] session counter: " + conversationCounter);
-    logit_biases = calculateLogitBiases();
     meetingDate = new Date();
 
     const storeResult = await insertMeeting({
@@ -355,44 +417,17 @@ io.on("connection", (socket) => {
     meetingId = storeResult.insertedId;
 
     socket.emit("meeting_started", { meeting_id: meetingId });
-    console.log(`[meeting ${meetingId}] started`);
+    console.log(`[session ${socket.id} meeting ${meetingId}] started`);
     handleConversationTurn();
   });
 
-  const calculateLogitBiases = () => {
-    const encoding = new Tiktoken(
-      cl100k_base.bpe_ranks,
-      cl100k_base.special_tokens,
-      cl100k_base.pat_str
-    );
-
-    let biases = [];
-    for (var i = 0; i < conversationOptions.characters.length; i++) {
-      let forbidden_tokens = [];
-      for (var j = 0; j < conversationOptions.characters.length; j++) {
-        if (i === j) continue;
-        const chars = encoding.encode(conversationOptions.characters[j].name);
-        for (var k = 0; k < chars.length; k++) {
-          forbidden_tokens.push(chars[k]);
-        }
-      }
-      let bias = {};
-      for (let l = 0; l < forbidden_tokens.length; l++) {
-        bias[forbidden_tokens[l]] = globalOptions.logitBias;
-      }
-      biases[i] = bias;
-    }
-
-    encoding.free();
-
-    return biases;
-  };
-
   const handleConversationTurn = async () => {
     try {
+      const thisMeetingId = meetingId;
       if (!run) return;
       if (handRaised) return;
-      if (conversation.length >= globalOptions.conversationMaxLength + extraMessageCount) return;
+      if (isPaused) return;
+      if (conversation.length >= conversationOptions.options.conversationMaxLength + extraMessageCount) return;
       currentSpeaker = calculateCurrentSpeaker();
 
       let attempt = 1;
@@ -400,8 +435,14 @@ io.on("connection", (socket) => {
       while (attempt < 5 && output.response === "") {
         output = await generateTextFromGPT(conversationOptions.characters[currentSpeaker]);
 
+        if (!run) return;
         if (handRaised) return;
+        if (isPaused) return;
+        if (thisMeetingId != meetingId) return;//On prototype, its possible to receive a message from last conversation, since socket is not restarted
         attempt++;
+        if (output.reponse === "") {
+          console.log(`[meeting ${meetingId}] entire message trimmed, trying again. attempt ${attempt}`);
+        }
       }
 
       let message = {
@@ -442,7 +483,7 @@ io.on("connection", (socket) => {
 
       if (
         conversation.length >=
-        globalOptions.conversationMaxLength + extraMessageCount
+        conversationOptions.options.conversationMaxLength + extraMessageCount
       ) {
         socket.emit("conversation_end", conversation);
         return;
@@ -462,6 +503,8 @@ io.on("connection", (socket) => {
   };
 
   const generateAudio = async (id, text, speakerName) => {
+    //If audio creation is skipped
+    if (conversationOptions.options.skipAudio) return;
     // const thisConversationCounter = conversationCounter;
     const voiceName = conversationOptions.characters.find((char) => char.name === speakerName).voice;
 
@@ -485,7 +528,7 @@ io.on("connection", (socket) => {
       const mp3 = await openai.audio.speech.create({
         model: "tts-1",
         voice: voiceName,
-        speed: globalOptions.audio_speed,
+        speed: conversationOptions.options.audio_speed,
         input: text.substring(0, 4096),
       });
 
@@ -508,12 +551,17 @@ io.on("connection", (socket) => {
         audio: buffer,
       };
 
-      await audioCollection.insertOne(storedAudio);
+      //Don't store audio on prototype
+      if (environment !== 'prototype') {
+        await audioCollection.insertOne(storedAudio);
+      }
     }
-    await meetingsCollection.updateOne(
-      { _id: meetingId },
-      { $addToSet: { audio: audioObject.id } }
-    );
+    if (environment !== 'prototype') {
+      await meetingsCollection.updateOne(
+        { _id: meetingId },
+        { $addToSet: { audio: audioObject.id } }
+      );
+    }
   };
 
   const generateTextFromGPT = async (speaker) => {
@@ -521,21 +569,19 @@ io.on("connection", (socket) => {
       const messages = buildMessageStack(speaker);
 
       const completion = await openai.chat.completions.create({
-        model: globalOptions.gptModel,
+        model: conversationOptions.options.gptModel,
         max_tokens:
           speaker.name === "Water"
-            ? globalOptions.chairMaxTokens
-            : globalOptions.maxTokens,
-        temperature: globalOptions.temperature,
-        frequency_penalty: globalOptions.frequencyPenalty,
-        presence_penalty: globalOptions.presencePenalty,
+            ? conversationOptions.options.chairMaxTokens
+            : conversationOptions.options.maxTokens,
+        temperature: conversationOptions.options.temperature,
+        frequency_penalty: conversationOptions.options.frequencyPenalty,
+        presence_penalty: conversationOptions.options.presencePenalty,
         stop: "\n---",
-        logit_bias:
-          conversation.length === 0 ? null : logit_biases[currentSpeaker],
         messages: messages,
       });
 
-      let response = completion.choices[0].message.content.trim().replaceAll("**","");
+      let response = completion.choices[0].message.content.trim().replaceAll("**", "");
 
       let pretrimmedContent;
       if (response.startsWith(speaker.name + ":")) {
@@ -547,7 +593,7 @@ io.on("connection", (socket) => {
       let originalResponse = response;
 
       if (completion.choices[0].finish_reason != "stop") {
-        if (globalOptions.trimSentance) {
+        if (conversationOptions.options.trimSentance) {
           const lastPeriodIndex = response.lastIndexOf(".");
           if (lastPeriodIndex !== -1) {
             trimmedContent = originalResponse.substring(lastPeriodIndex + 1);
@@ -555,7 +601,7 @@ io.on("connection", (socket) => {
           }
         }
 
-        if (globalOptions.trimParagraph) {
+        if (conversationOptions.options.trimParagraph) {
           const lastNewLineIndex = response.lastIndexOf("\n\n");
           if (lastNewLineIndex !== -1) {
             trimmedContent = originalResponse.substring(lastNewLineIndex);
@@ -563,23 +609,23 @@ io.on("connection", (socket) => {
           }
         }
 
-        if (globalOptions.trimWaterSemicolon) {
-          if(speaker.name === "Water"){
+        if (conversationOptions.options.trimWaterSemicolon) {
+          if (speaker.name === "Water") {
             // Make sure to use the same sentence splitter as on the client side
             const sentenceRegex = /(\d+\.\s+.{3,}?(?:\n|\?!\*|\?!|!\?|\?"|!"|\."|!\*|\?\*|\?|!|\?|;|\.{3}|…|\.|$))|.{3,}?(?:\n|\?!\*|\?!|!\?|\?"|!"|\."|!\*|\?\*|!|\?|;|\.{3}|…|\.|$)/gs;
             const sentences = response.match(sentenceRegex).map((sentence) => sentence.trim()).filter((sentence) => sentence.length > 0 && sentence !== ".");
-            const trimmedSentences = trimmedContent.trim().match(sentenceRegex)?.map((sentence) => sentence.trim()).filter((sentence) => sentence.length > 0 && sentence !== ".");
+            const trimmedSentences = trimmedContent?.trim().match(sentenceRegex)?.map((sentence) => sentence.trim()).filter((sentence) => sentence.length > 0 && sentence !== ".");
 
 
             // Check if we can re-add some messages from the end, to put back some of the list of questions that water often produces
-            if(sentences[sentences.length - 1]?.slice(-1) === ':' || trimmedSentences[0]?.slice(-1) === ':'){
-              if(trimmedSentences.length > 2 && trimmedSentences[0]?.slice(0,1) === '1' && trimmedSentences[1]?.slice(0,1) === '2'){
+            if (trimmedSentences && sentences && (sentences[sentences.length - 1]?.slice(-1) === ':' || trimmedSentences[0]?.slice(-1) === ':')) {
+              if (trimmedSentences.length > 2 && trimmedSentences[0]?.slice(0, 1) === '1' && trimmedSentences[1]?.slice(0, 1) === '2') {
                 trimmedContent = trimmedSentences[trimmedSentences.length - 1];
                 response = sentences.concat(trimmedSentences.slice(0, trimmedSentences.length - 1)).join('\n');
-              }else if(trimmedSentences.length > 3 && trimmedSentences[0]?.slice(-1) === ':' && trimmedSentences[1]?.slice(0,1) === '1' && trimmedSentences[2]?.slice(0,1) === '2'){
+              } else if (trimmedSentences.length > 3 && trimmedSentences[0]?.slice(-1) === ':' && trimmedSentences[1]?.slice(0, 1) === '1' && trimmedSentences[2]?.slice(0, 1) === '2') {
                 trimmedContent = trimmedSentences[trimmedSentences.length - 1];
                 response = sentences.concat(trimmedSentences.slice(0, trimmedSentences.length - 1)).join('\n');
-              }else{
+              } else {
                 //otherwise remove also the last presentation of the list of topics
                 trimmedContent = trimmedContent ? sentences[sentences.length - 1] + '\n' + trimmedContent : sentences[sentences.length - 1];
                 response = sentences.slice(0, sentences.length - 1).join('\n');
@@ -587,7 +633,7 @@ io.on("connection", (socket) => {
             }
           }
         }
-        
+
       }
 
       for (var i = 0; i < conversationOptions.characters.length; i++) {
@@ -615,7 +661,7 @@ io.on("connection", (socket) => {
 
   socket.on("disconnect", () => {
     run = false;
-    console.log("[session] a user disconnected");
+    console.log(`[session ${socket.id} meeting ${meetingId ?? 'unstarted'}] disconnected`);
   });
 });
 

@@ -3,8 +3,11 @@ import foodData from "../../prompts/foods.json";
 import FoodButton from "./FoodButton";
 import { toTitleCase, useMobile, useMobileXs } from "../../utils";
 
-//We need to save the original water prompt, otherwise it is replace by some weird React black magic
-const originalWaterPrompt = foodData.foods[0].prompt;
+//Freeze original foodData to make it immutable
+Object.freeze(foodData);
+for (let i = 0; i < foodData.foods.length; i++) {
+  Object.freeze(foodData.foods[i]);
+}
 
 function SelectFoods({ topic, onContinueForward }) {
   const isMobile = useMobile();
@@ -29,8 +32,10 @@ function SelectFoods({ topic, onContinueForward }) {
         if (index !== 0) participants += toTitleCase(food.name) + ", ";
       });
       participants = participants.substring(0, participants.length - 2);
-      let replacedFoods = selectedFoods;
-      replacedFoods[0].prompt = originalWaterPrompt.replace(
+
+      //We need to make a structuredClone here, otherwise we just end up with a string of pointers that ends up mutating the original foodData.
+      let replacedFoods = structuredClone(selectedFoods);
+      replacedFoods[0].prompt = foodData.foods[0].prompt.replace(
         "[FOODS]",
         participants
       );
