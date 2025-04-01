@@ -16,20 +16,22 @@ const io = new Server(httpServer, {
   // transports: ["websocket", "polling"], // Ensure WebSocket is used primarily
 });
 
-const openai = new OpenAI(process.env.OPENAI_API_KEY);
+if(!process.env.COUNCIL_OPENAI_API_KEY){
+  throw new Error("COUNCIL_OPENAI_API_KEY environment variable not set.");
+}
+const openai = new OpenAI({ apiKey: process.env.COUNCIL_OPENAI_API_KEY });
 const globalOptions = require("./global-options");
 
-// Names of OpenAI voices
-const audioVoices = ["alloy", "echo", "fable", "onyx", "nova", "shimmer"];
-
 // Database setup
-const mongoClient = new MongoClient(process.env.MONGO_URL);
-let db;
-if (environment === "prototype") {
-  db = mongoClient.db("CouncilOfFoods-prototype");
-} else {
-  db = mongoClient.db("CouncilOfFoods-asilomar");
+if(!process.env.COUNCIL_DB_URL){
+  throw new Error("COUNCIL_DB_URL environment variable not set.");
 }
+const mongoClient = new MongoClient(process.env.COUNCIL_DB_URL);
+if(!process.env.COUNCIL_DB_PREFIX){
+  throw new Error("COUNCIL_DB_PREFIX environment variable not set.");
+}
+console.log(`[init] COUNCIL_DB_PREFIX is ${process.env.COUNCIL_DB_PREFIX}`);
+const db = mongoClient.db(process.env.COUNCIL_DB_PREFIX);
 const meetingsCollection = db.collection("meetings");
 const audioCollection = db.collection("audio");
 const counters = db.collection("counters");
