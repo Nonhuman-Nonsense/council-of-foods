@@ -214,15 +214,19 @@ document.addEventListener('DOMContentLoaded', () => {
     localStorage.setItem("PromptsAndOptions", JSON.stringify(promptsAndOptions));
 
     let replacedCharacters = structuredClone(promptsAndOptions.rooms[currentRoom].characters);
-    let participants = "";
-    promptsAndOptions.rooms[currentRoom].characters.forEach(function (food, index) {
-      if (index !== 0) participants += toTitleCase(food.name) + ", ";
-    });
-    participants = participants.substring(0, participants.length - 2);
-    replacedCharacters[0].prompt = promptsAndOptions.rooms[currentRoom].characters[0].prompt.replace(
-      "[FOODS]",
-      participants
-    );
+
+    if (replacedCharacters[0]) {
+      let participants = "";
+      promptsAndOptions.rooms[currentRoom].characters.forEach(function (food, index) {
+        if (index !== 0) participants += toTitleCase(food.name) + ", ";
+      });
+      participants = participants.substring(0, participants.length - 2);
+      replacedCharacters[0].prompt = promptsAndOptions.rooms[currentRoom].characters[0]?.prompt.replace(
+        "[FOODS]",
+        participants
+      );
+    }
+
 
     return {
       options: promptsAndOptions.options,
@@ -256,7 +260,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let message_index;
     const conversationId = document.getElementById('conversation');
     for (let i = 0; i < conversationId.children.length; i++) {
-      if(conversationId.children[i].id === update.id) message_index = i;
+      if (conversationId.children[i].id === update.id) message_index = i;
     }
 
     if (update.type == 'skipped') {
@@ -285,6 +289,7 @@ document.addEventListener('DOMContentLoaded', () => {
   socket.on('conversation_error', (errorMessage) => {
     console.error(errorMessage);
     spinner.style.display = 'none';
+    alert(errorMessage.message);
   });
 
   // ==================
@@ -453,7 +458,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (!conversationStarted) {
         //Start the conversation from scratch!
-        spinner.style.display = 'block';        
+        spinner.style.display = 'block';
 
         //Initialize the audio context
         audioCtx = new window.AudioContext();
