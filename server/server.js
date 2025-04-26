@@ -509,6 +509,7 @@ io.on("connection", (socket) => {
     if (conversationOptions.options.skipAudio) return;
     // const thisConversationCounter = conversationCounter;
     const voiceName = conversationOptions.characters.find((char) => char.name === speakerName).voice;
+    const voicePrompt = conversationOptions.characters.find((char) => char.name === speakerName).voicePrompt;
 
     let buffer;
     //check if we already have it in the database
@@ -528,8 +529,10 @@ io.on("connection", (socket) => {
 
     if (generateNew) {
       const mp3 = await openai.audio.speech.create({
-        model: "tts-1",
+        model: "gpt-4o-mini-tts",
         voice: voiceName,
+        response_format: "opus",
+        instructions: voicePrompt,
         speed: conversationOptions.options.audio_speed,
         input: text.substring(0, 4096),
       });
