@@ -1,11 +1,7 @@
 import "../App.css";
 import React, { useState, useEffect } from "react";
-import {
-  Routes,
-  Route,
-  useLocation,
-  useNavigate
-} from "react-router-dom";
+import { Routes, Route, useLocation, useNavigate } from "react-router-dom";
+import Test from "./Test.jsx";
 import Overlay from "./Overlay";
 import MainOverlays from "./MainOverlays";
 import Landing from "./settings/Landing";
@@ -32,7 +28,11 @@ function useIsIphone() {
 }
 
 function Main() {
-  const [topic, setTopic] = useState({ title: "", prompt: "", description: "" });
+  const [topic, setTopic] = useState({
+    title: "",
+    prompt: "",
+    description: "",
+  });
   const [foods, setFoods] = useState([]);
   const [unrecoverabeError, setUnrecoverableError] = useState(false);
 
@@ -44,14 +44,17 @@ function Main() {
   const isIphone = useIsIphone();
   const isPortrait = usePortrait();
 
-  useEffect(() => {
-    if (topic.title === "" && (location.pathname !== "/" && location.pathname !== "/topics")) {
-      //Preserve the search, but navigate to start
-      navigate({ pathname: "/", search: location.search });
-    }
-  }, [location.pathname]);
-
-
+  // TODO: Remove this to reintroduce correct navigation
+  // useEffect(() => {
+  //   if (
+  //     topic.title === "" &&
+  //     location.pathname !== "/" &&
+  //     location.pathname !== "/topics"
+  //   ) {
+  //     //Preserve the search, but navigate to start
+  //     navigate({ pathname: "/", search: location.search });
+  //   }
+  // }, [location.pathname]);
 
   function continueForward(fromPage, props) {
     let next = "";
@@ -95,22 +98,27 @@ function Main() {
     height: "100%",
     left: "0",
     top: "0",
-    pointerEvents: 'auto',
-    zIndex: "9"
+    pointerEvents: "auto",
+    zIndex: "9",
   };
 
   return (
     <>
       <Background path={location.pathname} />
-      {!unrecoverabeError &&
+      {!unrecoverabeError && (
         <Navbar
           topic={topic.title}
           hamburgerOpen={hamburgerOpen}
           setHamburgerOpen={setHamburgerOpen}
         />
-      }
-      {hamburgerOpen && <div style={hamburgerCloserStyle} onClick={() => setHamburgerOpen(false)}></div>}
-      {!unrecoverabeError &&
+      )}
+      {hamburgerOpen && (
+        <div
+          style={hamburgerCloserStyle}
+          onClick={() => setHamburgerOpen(false)}
+        ></div>
+      )}
+      {!unrecoverabeError && (
         <Overlay
           isActive={!location.pathname.startsWith("/meeting")}
           isBlurred={location.pathname !== "/"}
@@ -119,10 +127,12 @@ function Main() {
             <Route
               path="/"
               element={
-                <Landing
-                  onContinueForward={() => continueForward("landing")}
-                />
+                <Landing onContinueForward={() => continueForward("landing")} />
               }
+            />
+            <Route
+              path="/test"
+              element={<Test />}
             />
             <Route
               path="topics"
@@ -144,25 +154,33 @@ function Main() {
             <Route
               path="meeting/:meetingId"
               element={
-                foods.length !== 0 &&// If page is reloaded, don't even start the council for now
-                <Council
-                  topic={topic}
-                  foods={foods}
-                  setUnrecoverableError={setUnrecoverableError}
-                />
+                foods.length !== 0 && ( // If page is reloaded, don't even start the council for now
+                  <Council
+                    topic={topic}
+                    foods={foods}
+                    setUnrecoverableError={setUnrecoverableError}
+                  />
+                )
               }
             />
           </Routes>
           {!isIphone && <FullscreenButton />}
-          <MainOverlays topic={topic} onReset={onReset} onCloseOverlay={onCloseOverlay} />
+          <MainOverlays
+            topic={topic}
+            onReset={onReset}
+            onCloseOverlay={onCloseOverlay}
+          />
           {isPortrait && location.pathname !== "/" && <RotateOverlay />}
         </Overlay>
-      }
-      {unrecoverabeError &&
-        <Overlay isActive={true} isBlurred={true}>
+      )}
+      {unrecoverabeError && (
+        <Overlay
+          isActive={true}
+          isBlurred={true}
+        >
           <CouncilError />
         </Overlay>
-      }
+      )}
     </>
   );
 }
@@ -192,7 +210,6 @@ function RotateOverlay() {
 }
 
 function Background({ path }) {
-
   const sharedStyle = {
     backgroundSize: "cover",
     backgroundPositionX: "50%",
@@ -206,15 +223,15 @@ function Background({ path }) {
     backgroundPositionY: "50%",
     backgroundImage: `url(/backgrounds/zoomed-out.webp)`,
     zIndex: "-2",
-    opacity: path.startsWith('/meeting') ? "0" : "1",
+    opacity: path.startsWith("/meeting") ? "0" : "1",
   };
 
   const zoomedInStyle = {
     ...sharedStyle,
-    backgroundPositionY: `calc(50% + max(12${dvh},36px))`,// 50% is picture height, 12vh is from view, 36 is 12% of 300px which is minimum view
+    backgroundPositionY: `calc(50% + max(12${dvh},36px))`, // 50% is picture height, 12vh is from view, 36 is 12% of 300px which is minimum view
     backgroundImage: `url(/backgrounds/zoomed-in.webp)`,
     zIndex: "-1",
-    opacity: path.startsWith('/meeting') ? "1" : "0.01",
+    opacity: path.startsWith("/meeting") ? "1" : "0.01",
   };
 
   return (
