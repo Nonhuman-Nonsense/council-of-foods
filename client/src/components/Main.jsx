@@ -63,8 +63,8 @@ function Main() {
       next = "topics";
     } else if (fromPage === "topic") {
       setTopic(props.topic);
-      next = "foods";
-    } else if (fromPage === "foods") {
+      next = "beings";
+    } else if (fromPage === "beings") {
       setFoods(props.foods);
       next = "meeting/new";
     }
@@ -82,7 +82,7 @@ function Main() {
     } else {
       // Reset from foods selection
       setTopic(resetData.topic);
-      navigate("foods");
+      navigate("beings");
     }
   }
 
@@ -144,11 +144,11 @@ function Main() {
               }
             />
             <Route
-              path="foods"
+              path="beings"
               element={
                 <SelectFoods
                   topic={topic}
-                  onContinueForward={(props) => continueForward("foods", props)}
+                  onContinueForward={(props) => continueForward("beings", props)}
                 />
               }
             />
