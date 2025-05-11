@@ -1,5 +1,5 @@
 import "../App.css";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Routes, Route, useLocation, useNavigate } from "react-router-dom";
 import Test from "./Test.jsx";
 import Overlay from "./Overlay";
@@ -44,18 +44,6 @@ function Main() {
   const navigate = useNavigate();
   const isIphone = useIsIphone();
   const isPortrait = usePortrait();
-
-  // TODO: Remove this to reintroduce correct navigation
-  // useEffect(() => {
-  //   if (
-  //     topic.title === "" &&
-  //     location.pathname !== "/" &&
-  //     location.pathname !== "/topics"
-  //   ) {
-  //     //Preserve the search, but navigate to start
-  //     navigate({ pathname: "/", search: location.search });
-  //   }
-  // }, [location.pathname]);
 
   function continueForward(fromPage, props) {
     let next = "";
@@ -103,9 +91,141 @@ function Main() {
     zIndex: "9",
   };
 
+  const unit = {
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center"
+  };
+
+  const tall = {
+    ...unit,
+    gridColumn: "span 1",
+    gridRow: "span 2",
+  };
+
+  const wide = {
+    ...unit,
+    gridRow: "span 1",
+    gridColumn: "span 2",
+  };
+
+  const square = {
+    ...unit,
+    gridRow: "span 1",
+    gridColumn: "span 1",
+  }
+
+  const double = {
+    ...unit,
+    gridRow: "span 2",
+    gridColumn: "span 2",
+  }
+
+  const characters = [
+    { ref: useRef(null), name: "Beetle", style: square, },
+    { ref: useRef(null), name: "Birch", style: tall },
+    { ref: useRef(null), name: "Boletus", style: square },
+    { ref: useRef(null), name: "Butterfly", style: square },
+    { ref: useRef(null), name: "Flaming Pine", style: square },
+    { ref: useRef(null), name: "Flaming Pine2", style: square },
+    { ref: useRef(null), name: "Flying Bird", style: double },
+    { ref: useRef(null), name: "Insect", style: square },
+    { ref: useRef(null), name: "Lichen", style: square },
+    { ref: useRef(null), name: "Log", style: double },
+    { ref: useRef(null), name: "Mosquito", style: square },
+    { ref: useRef(null), name: "Moth", style: wide },
+    { ref: useRef(null), name: "Pine", style: tall },
+    { ref: useRef(null), name: "Reindeer House", style: double },
+    { ref: useRef(null), name: "Reindeer", style: wide },
+    { ref: useRef(null), name: "Salmon", style: wide },
+    { ref: useRef(null), name: "Saw", style: square },
+    { ref: useRef(null), name: "Saw2", style: square },
+    { ref: useRef(null), name: "Beetle", style: square },
+    { ref: useRef(null), name: "Birch", style: tall },
+    { ref: useRef(null), name: "Boletus", style: square },
+    { ref: useRef(null), name: "Butterfly", style: square },
+    { ref: useRef(null), name: "Beetle", style: square },
+    { ref: useRef(null), name: "Birch", style: tall },
+    { ref: useRef(null), name: "Boletus", style: square },
+    { ref: useRef(null), name: "Butterfly", style: square },
+    { ref: useRef(null), name: "Flaming Pine", style: square },
+    { ref: useRef(null), name: "Flaming Pine2", style: square },
+    { ref: useRef(null), name: "Flying Bird", style: double },
+    { ref: useRef(null), name: "Insect", style: square },
+    { ref: useRef(null), name: "Lichen", style: square },
+    { ref: useRef(null), name: "Log", style: double },
+    { ref: useRef(null), name: "Mosquito", style: square },
+    { ref: useRef(null), name: "Moth", style: wide },
+    { ref: useRef(null), name: "Pine", style: tall },
+    { ref: useRef(null), name: "Reindeer House", style: double },
+    { ref: useRef(null), name: "Reindeer", style: wide },
+    { ref: useRef(null), name: "Salmon", style: wide },
+    { ref: useRef(null), name: "Saw", style: square },
+    { ref: useRef(null), name: "Saw2", style: square },
+    { ref: useRef(null), name: "Beetle", style: square },
+    { ref: useRef(null), name: "Birch", style: tall },
+    { ref: useRef(null), name: "Boletus", style: square },
+    { ref: useRef(null), name: "Butterfly", style: square },
+    { ref: useRef(null), name: "Beetle", style: square },
+    { ref: useRef(null), name: "Birch", style: tall },
+    { ref: useRef(null), name: "Boletus", style: square },
+    { ref: useRef(null), name: "Butterfly", style: square },
+    { ref: useRef(null), name: "Flaming Pine", style: square },
+    { ref: useRef(null), name: "Flaming Pine2", style: square },
+    { ref: useRef(null), name: "Flying Bird", style: double },
+    { ref: useRef(null), name: "Insect", style: square },
+    { ref: useRef(null), name: "Lichen", style: square },
+    { ref: useRef(null), name: "Log", style: double },
+    { ref: useRef(null), name: "Mosquito", style: square },
+    { ref: useRef(null), name: "Moth", style: wide },
+    { ref: useRef(null), name: "Pine", style: tall },
+    { ref: useRef(null), name: "Reindeer House", style: double },
+    { ref: useRef(null), name: "Reindeer", style: wide },
+    { ref: useRef(null), name: "Salmon", style: wide },
+    { ref: useRef(null), name: "Saw", style: square },
+    { ref: useRef(null), name: "Saw2", style: square },
+    { ref: useRef(null), name: "Beetle", style: square },
+    { ref: useRef(null), name: "Birch", style: tall },
+    { ref: useRef(null), name: "Boletus", style: square },
+    { ref: useRef(null), name: "Butterfly", style: square },
+    { ref: useRef(null), name: "Butterfly", style: square },
+    { ref: useRef(null), name: "Beetle", style: square },
+    { ref: useRef(null), name: "Birch", style: tall },
+    { ref: useRef(null), name: "Boletus", style: square },
+    { ref: useRef(null), name: "Butterfly", style: square },
+    { ref: useRef(null), name: "Flaming Pine", style: square },
+    { ref: useRef(null), name: "Flaming Pine2", style: square },
+    { ref: useRef(null), name: "Flying Bird", style: double },
+    { ref: useRef(null), name: "Insect", style: square },
+    { ref: useRef(null), name: "Lichen", style: square },
+    { ref: useRef(null), name: "Log", style: double },
+    { ref: useRef(null), name: "Mosquito", style: square },
+    { ref: useRef(null), name: "Moth", style: wide },
+    { ref: useRef(null), name: "Pine", style: tall },
+    { ref: useRef(null), name: "Reindeer House", style: double },
+    { ref: useRef(null), name: "Reindeer", style: wide },
+    { ref: useRef(null), name: "Salmon", style: wide },
+    { ref: useRef(null), name: "Saw", style: square },
+    { ref: useRef(null), name: "Saw2", style: square },
+    { ref: useRef(null), name: "Beetle", style: square },
+    { ref: useRef(null), name: "Birch", style: tall },
+  ];
+
+  const containerRef = useRef(null);
+  const [randomCharacters, setRandomCharacters] = useState([]);
+  const [zoomInValue, setZoomInValue] = useState(1);
+  const [offsetValue, setOffsetValue] = useState([0, 0]);
+  const [translateValue, setTranslateValue] = useState([0, 0]);
+
+  useEffect(() => {
+    let randomizedCharacters = characters.sort(() => 0.5 - Math.random());
+    setRandomCharacters(randomizedCharacters);
+  }, []);
+
+
   return (
     <>
-      <Background path={location.pathname} />
+      <Background characters={randomCharacters} zoomInValue={zoomInValue} offsetValue={offsetValue} translateValue={translateValue} containerRef={containerRef} />
       {!unrecoverabeError && (
         <Navbar
           topic={topic.title}
@@ -159,6 +279,11 @@ function Main() {
                   <Council
                     topic={topic}
                     foods={foods}
+                    characters={randomCharacters}
+                    setZoomInValue={setZoomInValue}
+                    setOffsetValue={setOffsetValue}
+                    setTranslateValue={setTranslateValue}
+                    containerRef={containerRef}
                     setUnrecoverableError={setUnrecoverableError}
                   />
                 )
@@ -210,49 +335,7 @@ function RotateOverlay() {
   );
 }
 
-function Background({ path }) {
-  // const sharedStyle = {
-  //   backgroundSize: "cover",
-  //   backgroundPositionX: "50%",
-  //   height: "100%",
-  //   width: "100%",
-  //   position: "absolute",
-  // };
-
-  // const zoomedOutStyle = {
-  //   ...sharedStyle,
-  //   backgroundPositionY: "50%",
-  //   backgroundImage: `url(/backgrounds/zoomed-out.webp)`,
-  //   zIndex: "-2",
-  //   opacity: path.startsWith("/meeting") ? "0" : "1",
-  // };
-
-  // const zoomedInStyle = {
-  //   ...sharedStyle,
-  //   backgroundPositionY: `calc(50% + max(12${dvh},36px))`, // 50% is picture height, 12vh is from view, 36 is 12% of 300px which is minimum view
-  //   backgroundImage: `url(/backgrounds/zoomed-in.webp)`,
-  //   zIndex: "-1",
-  //   opacity: path.startsWith("/meeting") ? "1" : "0.01",
-  // };
-
-  return (
-    <>
-      {/* <div style={zoomedOutStyle} /> */}
-      {/* <div style={zoomedInStyle} /> */}
-      <ForestBackground />
-    </>
-  );
-}
-
-function ForestBackground() {
-
-  const [randomCharacters, setRandomCharacters] = useState([]);
-  const [randomCharacters2, setRandomCharacters2] = useState([]);
-
-  useEffect(() => {
-    setRandomCharacters(structuredClone(characters).sort(() => 0.5 - Math.random()));
-    setRandomCharacters2(structuredClone(characters).sort(() => 0.5 - Math.random()));
-  }, []);
+function Background({ characters, zoomInValue, offsetValue, translateValue, containerRef }) {
 
   const container = {
     position: "absolute",
@@ -263,16 +346,13 @@ function ForestBackground() {
     height: "100%",
     display: "flex",
     zIndex: "-3",
+    transform: `scale(${zoomInValue}) translate(${translateValue[0]}px, ${translateValue[1]}px)`,
+    transformOrigin: `${offsetValue[0]}px ${offsetValue[1]}px`,
+    transition: "transform 2s ease-out"
   };
 
   const river = {
-    // transform: "rotate(-20deg) scale(140%)",
     zIndex: "-5",
-    // maxHeight: "100%"
-  };
-
-  const characterStyle = {
-    height: "250px"
   };
 
   const grid = {
@@ -284,99 +364,26 @@ function ForestBackground() {
     gridAutoRows: "75px",
     gridAutoFlow: "row dense",
     gridGap: "0",
-    overflow: "hidden"
+    // overflow: "hidden"
   };
 
-  const unit = {
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center"
-  };
-
-  const tall = {
-    ...unit,
-    gridColumn: "span 1",
-    gridRow: "span 2",
-  };
-
-  const wide = {
-    ...unit,
-    gridRow: "span 1",
-    gridColumn: "span 2",
-  };
-
-  const square = {
-    ...unit,
-    gridRow: "span 1",
-    gridColumn: "span 1",
-  }
-
-  const double = {
-    ...unit,
-    gridRow: "span 2",
-    gridColumn: "span 2",
-  }
 
   const right = {
     flex: 1
   };
 
-  const characters = [
-    { name: "beetle", style: square },
-    { name: "birch", style: tall },
-    { name: "boletus", style: square },
-    { name: "butterfly", style: square },
-    { name: "flaming_pine", style: square },
-    { name: "flaming_pine2", style: square },
-    { name: "flying_bird", style: double },
-    { name: "insect", style: square },
-    { name: "lichen", style: square },
-    { name: "log", style: double },
-    { name: "mosquito", style: square },
-    { name: "moth", style: wide },
-    { name: "pine", style: tall },
-    { name: "reindeer_house", style: double },
-    { name: "reindeer", style: wide },
-    { name: "salmon", style: wide },
-    { name: "saw", style: square },
-    { name: "saw2", style: square },
-    { name: "beetle", style: square },
-    { name: "birch", style: tall },
-    { name: "boletus", style: square },
-    { name: "butterfly", style: square },
-    { name: "flaming_pine", style: square },
-    { name: "flaming_pine2", style: square },
-    { name: "flying_bird", style: square },
-    { name: "insect", style: square },
-    { name: "lichen", style: square },
-    { name: "log", style: double },
-    { name: "mosquito", style: square },
-    { name: "moth", style: wide },
-    { name: "pine", style: tall },
-    { name: "reindeer_house", style: square },
-    { name: "reindeer", style: double },
-    { name: "salmon", style: wide },
-    { name: "saw", style: square },
-    { name: "saw2", style: tall },
-    { name: "log", style: double },
-    { name: "mosquito", style: square },
-    { name: "moth", style: wide },
-    { name: "pine", style: tall },
-    { name: "reindeer_house", style: double },
-    { name: "reindeer", style: wide },
-    { name: "salmon", style: wide }
-  ];
+
 
   return (
-    <div style={container}>
+    <div style={container} ref={containerRef}>
       <div style={{ flex: 1 }}>
         <div style={grid}>
-          {randomCharacters.map((character, index) => (
-            <div style={character.style} key={index}>
+          {characters.slice(0, characters.length / 2).map((character, index) => (
+            <div style={character.style} key={index} ref={character.ref}>
               <FoodAnimation
                 character={{ name: character.name }}
                 styles={{ maxWidth: "100%", maxHeight: "100%" }}
-                isPaused={true}
+                isPaused={false}
               />
             </div>
           ))}
@@ -385,12 +392,12 @@ function ForestBackground() {
       <FoodAnimation character={{ name: "river" }} styles={river} isPaused={false} />
       <div style={{ flex: 1 }}>
         <div style={grid}>
-          {randomCharacters2.map((character, index) => (
-            <div style={character.style} key={index}>
+          {characters.slice(characters.length / 2).map((character, index) => (
+            <div style={character.style} key={index} ref={character.ref}>
               <FoodAnimation
                 character={{ name: character.name }}
                 styles={{ maxWidth: "100%", maxHeight: "100%" }}
-                isPaused={true}
+                isPaused={false}
               />
             </div>
           ))}
