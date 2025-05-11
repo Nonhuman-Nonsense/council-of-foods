@@ -13,6 +13,7 @@ import RotateDevice from "./RotateDevice";
 import FullscreenButton from "./FullscreenButton";
 import { usePortrait, dvh } from "../utils";
 import CouncilError from "./overlays/CouncilError.jsx";
+import FoodAnimation from "./FoodAnimation.jsx";
 
 function useIsIphone() {
   const [isIphone, setIsIphone] = useState(false);
@@ -210,34 +211,191 @@ function RotateOverlay() {
 }
 
 function Background({ path }) {
-  const sharedStyle = {
-    backgroundSize: "cover",
-    backgroundPositionX: "50%",
-    height: "100%",
-    width: "100%",
-    position: "absolute",
-  };
+  // const sharedStyle = {
+  //   backgroundSize: "cover",
+  //   backgroundPositionX: "50%",
+  //   height: "100%",
+  //   width: "100%",
+  //   position: "absolute",
+  // };
 
-  const zoomedOutStyle = {
-    ...sharedStyle,
-    backgroundPositionY: "50%",
-    backgroundImage: `url(/backgrounds/zoomed-out.webp)`,
-    zIndex: "-2",
-    opacity: path.startsWith("/meeting") ? "0" : "1",
-  };
+  // const zoomedOutStyle = {
+  //   ...sharedStyle,
+  //   backgroundPositionY: "50%",
+  //   backgroundImage: `url(/backgrounds/zoomed-out.webp)`,
+  //   zIndex: "-2",
+  //   opacity: path.startsWith("/meeting") ? "0" : "1",
+  // };
 
-  const zoomedInStyle = {
-    ...sharedStyle,
-    backgroundPositionY: `calc(50% + max(12${dvh},36px))`, // 50% is picture height, 12vh is from view, 36 is 12% of 300px which is minimum view
-    backgroundImage: `url(/backgrounds/zoomed-in.webp)`,
-    zIndex: "-1",
-    opacity: path.startsWith("/meeting") ? "1" : "0.01",
-  };
+  // const zoomedInStyle = {
+  //   ...sharedStyle,
+  //   backgroundPositionY: `calc(50% + max(12${dvh},36px))`, // 50% is picture height, 12vh is from view, 36 is 12% of 300px which is minimum view
+  //   backgroundImage: `url(/backgrounds/zoomed-in.webp)`,
+  //   zIndex: "-1",
+  //   opacity: path.startsWith("/meeting") ? "1" : "0.01",
+  // };
 
   return (
     <>
-      <div style={zoomedOutStyle} />
-      <div style={zoomedInStyle} />
+      {/* <div style={zoomedOutStyle} /> */}
+      {/* <div style={zoomedInStyle} /> */}
+      <ForestBackground />
     </>
+  );
+}
+
+function ForestBackground() {
+
+  const [randomCharacters, setRandomCharacters] = useState([]);
+  const [randomCharacters2, setRandomCharacters2] = useState([]);
+
+  useEffect(() => {
+    setRandomCharacters(structuredClone(characters).sort(() => 0.5 - Math.random()));
+    setRandomCharacters2(structuredClone(characters).sort(() => 0.5 - Math.random()));
+  }, []);
+
+  const container = {
+    position: "absolute",
+    backgroundColor: "black",
+    top: "0",
+    left: "0",
+    width: "100%",
+    height: "100%",
+    display: "flex",
+    zIndex: "-3",
+  };
+
+  const river = {
+    // transform: "rotate(-20deg) scale(140%)",
+    zIndex: "-5",
+    // maxHeight: "100%"
+  };
+
+  const characterStyle = {
+    height: "250px"
+  };
+
+  const grid = {
+    maxWidth: "100%",
+    maxHeight: "100%",
+    display: "grid",
+    margin: "0 auto",
+    gridTemplateColumns: "repeat(auto-fill, 75px)",
+    gridAutoRows: "75px",
+    gridAutoFlow: "row dense",
+    gridGap: "0",
+    overflow: "hidden"
+  };
+
+  const unit = {
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center"
+  };
+
+  const tall = {
+    ...unit,
+    gridColumn: "span 1",
+    gridRow: "span 2",
+  };
+
+  const wide = {
+    ...unit,
+    gridRow: "span 1",
+    gridColumn: "span 2",
+  };
+
+  const square = {
+    ...unit,
+    gridRow: "span 1",
+    gridColumn: "span 1",
+  }
+
+  const double = {
+    ...unit,
+    gridRow: "span 2",
+    gridColumn: "span 2",
+  }
+
+  const right = {
+    flex: 1
+  };
+
+  const characters = [
+    { name: "beetle", style: square },
+    { name: "birch", style: tall },
+    { name: "boletus", style: square },
+    { name: "butterfly", style: square },
+    { name: "flaming_pine", style: square },
+    { name: "flaming_pine2", style: square },
+    { name: "flying_bird", style: double },
+    { name: "insect", style: square },
+    { name: "lichen", style: square },
+    { name: "log", style: double },
+    { name: "mosquito", style: square },
+    { name: "moth", style: wide },
+    { name: "pine", style: tall },
+    { name: "reindeer_house", style: double },
+    { name: "reindeer", style: wide },
+    { name: "salmon", style: wide },
+    { name: "saw", style: square },
+    { name: "saw2", style: square },
+    { name: "beetle", style: square },
+    { name: "birch", style: tall },
+    { name: "boletus", style: square },
+    { name: "butterfly", style: square },
+    { name: "flaming_pine", style: square },
+    { name: "flaming_pine2", style: square },
+    { name: "flying_bird", style: square },
+    { name: "insect", style: square },
+    { name: "lichen", style: square },
+    { name: "log", style: double },
+    { name: "mosquito", style: square },
+    { name: "moth", style: wide },
+    { name: "pine", style: tall },
+    { name: "reindeer_house", style: square },
+    { name: "reindeer", style: double },
+    { name: "salmon", style: wide },
+    { name: "saw", style: square },
+    { name: "saw2", style: tall },
+    { name: "log", style: double },
+    { name: "mosquito", style: square },
+    { name: "moth", style: wide },
+    { name: "pine", style: tall },
+    { name: "reindeer_house", style: double },
+    { name: "reindeer", style: wide },
+    { name: "salmon", style: wide }
+  ];
+
+  return (
+    <div style={container}>
+      <div style={{ flex: 1 }}>
+        <div style={grid}>
+          {randomCharacters.map((character, index) => (
+            <div style={character.style} key={index}>
+              <FoodAnimation
+                character={{ name: character.name }}
+                styles={{ maxWidth: "100%", maxHeight: "100%" }}
+                isPaused={true}
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+      <FoodAnimation character={{ name: "river" }} styles={river} isPaused={false} />
+      <div style={{ flex: 1 }}>
+        <div style={grid}>
+          {randomCharacters2.map((character, index) => (
+            <div style={character.style} key={index}>
+              <FoodAnimation
+                character={{ name: character.name }}
+                styles={{ maxWidth: "100%", maxHeight: "100%" }}
+                isPaused={true}
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div >
   );
 }
