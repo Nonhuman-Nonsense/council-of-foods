@@ -61,6 +61,8 @@ docker build . -t nonhumannonsense/council-of-foods:latest
 docker push nonhumannonsense/council-of-foods:latest
 ```
 
+on Apple silicon, you might need to add `--platform linux/amd64` or similar to the build command
+
 ## Database example
 
 The server uses MongoDB to store council meetings, this needs to be running locally for development.
