@@ -88,6 +88,19 @@ function Council({
     // Connect to the server
     socketRef.current = io();
 
+    socketRef.current.on('connect_error', err => {
+      console.error(err);
+      setUnrecoverableError(true);
+    });
+
+    socketRef.current.on('connect_failed', err => {
+      console.log(err);
+    });
+
+    socketRef.current.on('disconnect', err => {
+      console.log(err);
+    });
+
     let conversationOptions = {
       topic: topic.prompt,
       characters: foods,
