@@ -40,7 +40,9 @@ function Main() {
   //Had to lift up navbar state to this level to be able to close it from main overlay
   const [hamburgerOpen, setHamburgerOpen] = useState(false);
 
+  //Council variables moved up to this level, so that the background can access them
   const [currentSpeakerName, setCurrentSpeakerName] = useState("");
+  const [isPaused, setPaused] = useState(false);
 
   const location = useLocation();
   const navigate = useNavigate();
@@ -96,7 +98,7 @@ function Main() {
 
   return (
     <>
-      <Forest currentSpeakerName={currentSpeakerName} />
+      <Forest currentSpeakerName={currentSpeakerName} isPaused={isPaused} />
       {!unrecoverabeError && (
         <Navbar
           topic={topic.title}
@@ -152,6 +154,8 @@ function Main() {
                     foods={foods}
                     currentSpeakerName={currentSpeakerName}
                     setCurrentSpeakerName={setCurrentSpeakerName}
+                    isPaused={isPaused}
+                    setPaused={setPaused}
                     setUnrecoverableError={setUnrecoverableError}
                   />
                 )

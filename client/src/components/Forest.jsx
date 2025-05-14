@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import FoodAnimation from "./FoodAnimation.jsx";
 
-function Forest({ currentSpeakerName }) {
+function Forest({ currentSpeakerName, isPaused }) {
 
     //Zooming variables
     const [zoomInOnBeing, setZoomInOnBeing] = useState(null);
@@ -209,13 +209,13 @@ function Forest({ currentSpeakerName }) {
                                 character={{ name: character.name }}
                                 styles={{ maxWidth: "100%", maxHeight: "100%" }}
                                 currentSpeakerName={currentSpeakerName}
-                                isPaused={true}
+                                isPaused={isPaused}
                             />
                         </div>
                     ))}
                 </div>
             </div>
-            <FoodAnimation character={{ name: "river" }} styles={river} isPaused={false} />
+            <FoodAnimation character={{ name: "River" }} styles={river} isPaused={isPaused} />
             <div style={{ flex: 1 }}>
                 <div style={grid}>
                     {randomCharacters.slice(randomCharacters.length / 2).map((character, index) => (
@@ -224,7 +224,7 @@ function Forest({ currentSpeakerName }) {
                                 character={{ name: character.name }}
                                 styles={{ maxWidth: "100%", maxHeight: "100%" }}
                                 currentSpeakerName={currentSpeakerName}
-                                isPaused={true}
+                                isPaused={isPaused}
                             />
                         </div>
                     ))}

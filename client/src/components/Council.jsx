@@ -16,6 +16,8 @@ function Council({
   foods,
   currentSpeakerName,
   setCurrentSpeakerName,
+  isPaused,
+  setPaused,
   setUnrecoverableError
  }) {
   //Overall Council settings for this meeting
@@ -44,7 +46,7 @@ function Council({
   //Secondary control variables
   const [isRaisedHand, setIsRaisedHand] = useState(false);
   const [isMuted, setMuteUnmute] = useState(false);
-  const [isPaused, setPaused] = useState(false);
+  
 
   //Automatic calculated state variables
   const [canGoBack, setCanGoBack] = useState(false);
