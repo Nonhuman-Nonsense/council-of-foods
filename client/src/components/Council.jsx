@@ -14,11 +14,8 @@ const globalOptions = require("../global-options-client");
 function Council({
   topic,
   foods,
-  characters,
-  setZoomInValue,
-  setOffsetValue,
-  setTranslateValue,
-  containerRef,
+  currentSpeakerName,
+  setCurrentSpeakerName,
   setUnrecoverableError
  }) {
   //Overall Council settings for this meeting
@@ -50,45 +47,10 @@ function Council({
   const [isPaused, setPaused] = useState(false);
 
   //Automatic calculated state variables
-  const [currentSpeakerName, setCurrentSpeakerName] = useState("");
   const [canGoBack, setCanGoBack] = useState(false);
   const [canGoForward, setCanGoForward] = useState(false);
   const [canRaiseHand, setCanRaiseHand] = useState(false);
   const [zoomIn, setZoomIn] = useState(false);
-
-  //Zooming variables
-  const [zoomInOnBeing, setZoomInOnBeing] = useState(null);
-
-  useEffect(() => {
-    //find the current speaker in the list of characters
-    console.log(currentSpeakerName);
-    const found = characters.find((char) => char.name === currentSpeakerName);
-    if(found){
-      setZoomInOnBeing(found.ref);
-    }else{
-      setZoomInOnBeing(null);
-    }
-  },[currentSpeakerName]);
-
-  useEffect(() => {
-    if(zoomInOnBeing){
-      const container = containerRef.current.getBoundingClientRect();
-      const screenHeight = container.height;
-      const screenWidth = container.width;
-      console.log(zoomInOnBeing.current);
-      const zoom = 6;
-      setZoomInValue(zoom);
-      const box = zoomInOnBeing.current.getBoundingClientRect();
-      const left = box.left + (box.right - box.left) / 2;
-      const top = box.top + (box.bottom - box.top) / 2;
-      setOffsetValue([left, top]);
-      setTranslateValue([(screenWidth / 2 - left) / zoom ,(screenHeight / 2 - top) / zoom]);
-    }else{
-      setZoomInValue(1);
-      // setOffsetValue([0, 0]);
-      setTranslateValue([0, 0]);
-    }
-  },[zoomInOnBeing]);
 
   const showControls = (
     councilState === 'playing' ||
