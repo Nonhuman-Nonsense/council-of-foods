@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { filename } from "../utils";
 
-function FoodAnimation({ food, styles, currentSpeakerName, isPaused }) {
+function FoodAnimation({ character, styles, isPaused, currentSpeakerName }) {
 
   const video = useRef(null);
   const [vidLoaded, setVidLoaded] = useState(false);
@@ -19,21 +19,22 @@ function FoodAnimation({ food, styles, currentSpeakerName, isPaused }) {
 
   useEffect(() => {
     if (vidLoaded) {
-      if (!isPaused && currentSpeakerName === food.name) {
+      if (!isPaused && (currentSpeakerName === character.name || character.name === "River")) {
+        console.log('Play ' + character.name);
         video.current.play();
       } else {
         video.current.pause();
       }
     }
-  }, [currentSpeakerName, isPaused, vidLoaded, food.name]);
+  }, [isPaused, vidLoaded, currentSpeakerName]);
 
   return (
-    <video ref={video} style={{ ...styles, objectFit: "cover" }} loop muted playsInline>
+    <video ref={video} style={{ ...styles, objectFit: "contain" }} loop muted playsInline>
+      {/* <source
+        src={`/characters/videos/${filename(character.name)}-hevc-safari.mp4`}
+        type={'video/mp4; codecs="hvc1"'} /> */}
       <source
-        src={`/foods/videos/${filename(food.name)}-hevc-safari.mp4`}
-        type={'video/mp4; codecs="hvc1"'} />
-      <source
-        src={`/foods/videos/${filename(food.name)}-vp9-chrome.webm`}
+        src={`/characters/videos/${filename(character.name)}.webm`}
         type={"video/webm"} />
     </video>
   );

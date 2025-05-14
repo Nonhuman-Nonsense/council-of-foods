@@ -25,31 +25,6 @@
       "title": "Antimicrobial Resistance & Diseases",
       "description" : "Exploring how antimicrobial resistance, industrial farming, and global trade drive emerging diseases and pandemics. Focusing on the overuse of antibiotics, zoonotic risks, and food systems’ role in preventing health crises.",
       "prompt": "the intersections between antimicrobial resistance, food production systems, and emergent infectious diseases. The discussion will examine how the use of antibiotics in agriculture contributes to antimicrobial resistance, the potential for zoonotic disease transmission through industrial farming, and the role of global trade in spreading pathogens. The council will also consider the socio-economic factors driving overreliance on antibiotics, the challenges of developing alternative solutions, and the responsibility of food systems in preventing future pandemics."
-    },
-    {
-      "title": "Seeds & Patents",
-      "description" : "Examining the control of seeds through patents, its impact on farmers, biodiversity, food sovereignty, and the push for open-access seed systems.",
-      "prompt": "the growing influence of seed patents and intellectual property laws on global food systems, examining how corporate control of seeds affects farmer autonomy, crop diversity, and traditional agricultural practices. It considers the ethical and economic implications of patented seeds, including how they perpetuate dependency and inequality, while also addressing their potential to foster innovation and agricultural research. The conversation will highlight the importance of biocultural diversity in sustaining ecological and cultural landscapes, the principle of food sovereignty in empowering local communities, and the need for open-access, community-driven seed systems to preserve biodiversity and promote equitable food systems."
-    },
-    {
-      "title": "Exploitative Labor Practices",
-      "description" : "Addressing labor conditions, modern slavery in agriculture, examining systemic structures rooted in colonialism, corporate greed and global inequality driving exploitation.",
-      "prompt": "labor exploitation in food systems, highlighting modern slavery, unsafe conditions, and systemic inequality rooted in colonial legacies. It examines how land theft, forced labor, and extractivism evolved into today’s exploitative supply chains, driven by corporate greed, complicit trade policies, and weak labor protections. Additionally, the discussion will explore the underlying reasons for such conditions, including demand for low-cost food, lack of regulatory enforcement in certain regions, and the economic vulnerabilities forcing workers into oppressive situations. The council will discuss dismantling neocolonial trade systems, strengthening labor rights, unionising, and reimagining food systems centred on justice, equity, and reparations."
-    },
-    {
-      "title": "Big Food",
-      "description" : "Examining how multinational corporations shape food systems, influence producers, biodiversity, and public health, while exploring alternatives for more sustainable and equitable food networks.",
-      "prompt": "the influence of multinational corporations on food systems, focusing on the consolidation of power, control over supply chains, and the implications for small-scale producers, biodiversity, and public health. The discussion will examine how corporate lobbying and market practices shape food policies, marketing practices, and consumer choices, while addressing the challenges of regulating these entities. The council will consider the potential for alternative food systems, local empowerment, grassroots advocacy, and collective action to counterbalance corporate dominance and create more equitable and sustainable food networks."
-    },
-    {
-      "title": "Local & Global Supply Chains",
-      "description" : "Exploring the dynamics of local and global food chains, and their impact on the environment, economic ties and food access and quality.",
-      "prompt": "the intricacies of both local and global food chains, including the environmental costs of long-distance trade, the vulnerabilities of globalized supply chains, and the benefits of supporting local food networks. The debate will explore the benefits and challenges of each. Examining how global trade policies shape food availability, quality and affordability, often at the expense of small producers and ecological health. The council will also consider the potential of localized food systems to reduce emissions, empower communities, and promote food security, as well as the challenges of balancing local production with global food needs."
-    },
-    {
-      "title": "Ultra-processed food",
-      "description" : "Examining the rise of ultra-processed foods, their health impacts, and the role of advertising, while exploring strategies to promote whole foods and regulate processed food consumption.",
-      "prompt": "the rise of ultra-processed foods in global diets, their health implications, and their socio-cultural appeal. The conversation will examine how food processing impacts nutrition, the role of advertising and convenience in shaping consumer preferences, and the broader implications for public health systems. The council will also discuss strategies for promoting minimally processed and whole foods, the challenges of accessibility and affordability, and the role of regulation in curbing the proliferation of ultra-processed products."
     }
   ]
 }

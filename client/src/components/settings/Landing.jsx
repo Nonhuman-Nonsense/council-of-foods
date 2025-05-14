@@ -30,9 +30,8 @@ function Landing({ onContinueForward }) {
       <div style={welcomeStyle}>
 
         <div>
-          <img style={{width: `min(95px, 18${dvh})`}} src='/logos/council_logo_white.svg' alt="Council of Foods logo" />
           <h2 style={{marginBottom: "-10px", marginTop: isMobile ? "0" : ""}}>welcome to</h2>
-          <h1 style={{margin: isMobile ? "5px 0 0 0" : ""}}>COUNCIL OF FOODS</h1>
+          <h1 style={{margin: isMobile ? "5px 0 0 0" : ""}}>COUNCIL OF THE WOODS</h1>
         </div>
         
         {isPortrait ?
