@@ -29,7 +29,7 @@ function FoodAnimation({ character, styles, isPaused, currentSpeakerName }) {
   }, [isPaused, vidLoaded, currentSpeakerName]);
 
   return (
-    <video ref={video} style={{ ...styles, objectFit: "contain" }} loop muted playsInline>
+    <video ref={video} style={{ ...styles, objectFit: "contain", height: "100%" }} loop muted playsInline>
       {/* <source
         src={`/characters/videos/${filename(character.name)}-hevc-safari.mp4`}
         type={'video/mp4; codecs="hvc1"'} /> */}

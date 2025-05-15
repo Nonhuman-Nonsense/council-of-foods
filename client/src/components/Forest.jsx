@@ -1,140 +1,35 @@
 import React, { useState, useEffect, useRef } from "react";
 import FoodAnimation from "./FoodAnimation.jsx";
+import { dvh } from "../utils.js";
 
 function Forest({ currentSpeakerName, isPaused }) {
 
     //Zooming variables
     const [zoomInOnBeing, setZoomInOnBeing] = useState(null);
     const containerRef = useRef(null);
-    const [randomCharacters, setRandomCharacters] = useState([]);
     const [zoomInValue, setZoomInValue] = useState(1);
     const [offsetValue, setOffsetValue] = useState([0, 0]);
     const [translateValue, setTranslateValue] = useState([0, 0]);
 
-    useEffect(() => {
-        let randomizedCharacters = characters.sort(() => 0.5 - Math.random());
-        setRandomCharacters(randomizedCharacters);
-    }, []);
-
-    const unit = {
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center"
+    const characterRefs = {
+        Beetle: useRef(null),
+        Boletus: useRef(null),
+        Butterfly: useRef(null),
+        "Flaming Pine": useRef(null),
+        "Flaming Pine2": useRef(null),
+        "Flying Bird": useRef(null),
+        Insect: useRef(null),
+        Lichen: useRef(null),
+        Log: useRef(null),
+        Mosquito: useRef(null),
+        Moth: useRef(null),
+        Pine: useRef(null),
+        "Reindeer House": useRef(null),
+        Reindeer: useRef(null),
+        Salmon: useRef(null),
+        Saw: useRef(null),
+        Saw2: useRef(null)
     };
-
-    const tall = {
-        ...unit,
-        gridColumn: "span 1",
-        gridRow: "span 2",
-    };
-
-    const wide = {
-        ...unit,
-        gridRow: "span 1",
-        gridColumn: "span 2",
-    };
-
-    const square = {
-        ...unit,
-        gridRow: "span 1",
-        gridColumn: "span 1",
-    }
-
-    const double = {
-        ...unit,
-        gridRow: "span 2",
-        gridColumn: "span 2",
-    }
-
-    const characters = [
-        { ref: useRef(null), name: "Beetle", style: square, },
-        { ref: useRef(null), name: "Birch", style: tall },
-        { ref: useRef(null), name: "Boletus", style: square },
-        { ref: useRef(null), name: "Butterfly", style: square },
-        { ref: useRef(null), name: "Flaming Pine", style: square },
-        { ref: useRef(null), name: "Flaming Pine2", style: square },
-        { ref: useRef(null), name: "Flying Bird", style: double },
-        { ref: useRef(null), name: "Insect", style: square },
-        { ref: useRef(null), name: "Lichen", style: square },
-        { ref: useRef(null), name: "Log", style: double },
-        { ref: useRef(null), name: "Mosquito", style: square },
-        { ref: useRef(null), name: "Moth", style: wide },
-        { ref: useRef(null), name: "Pine", style: tall },
-        { ref: useRef(null), name: "Reindeer House", style: double },
-        { ref: useRef(null), name: "Reindeer", style: wide },
-        { ref: useRef(null), name: "Salmon", style: wide },
-        { ref: useRef(null), name: "Saw", style: square },
-        { ref: useRef(null), name: "Saw2", style: square },
-        { ref: useRef(null), name: "Beetle", style: square },
-        { ref: useRef(null), name: "Birch", style: tall },
-        { ref: useRef(null), name: "Boletus", style: square },
-        { ref: useRef(null), name: "Butterfly", style: square },
-        { ref: useRef(null), name: "Beetle", style: square },
-        { ref: useRef(null), name: "Birch", style: tall },
-        { ref: useRef(null), name: "Boletus", style: square },
-        { ref: useRef(null), name: "Butterfly", style: square },
-        { ref: useRef(null), name: "Flaming Pine", style: square },
-        { ref: useRef(null), name: "Flaming Pine2", style: square },
-        { ref: useRef(null), name: "Flying Bird", style: double },
-        { ref: useRef(null), name: "Insect", style: square },
-        { ref: useRef(null), name: "Lichen", style: square },
-        { ref: useRef(null), name: "Log", style: double },
-        { ref: useRef(null), name: "Mosquito", style: square },
-        { ref: useRef(null), name: "Moth", style: wide },
-        { ref: useRef(null), name: "Pine", style: tall },
-        { ref: useRef(null), name: "Reindeer House", style: double },
-        { ref: useRef(null), name: "Reindeer", style: wide },
-        { ref: useRef(null), name: "Salmon", style: wide },
-        { ref: useRef(null), name: "Saw", style: square },
-        { ref: useRef(null), name: "Saw2", style: square },
-        { ref: useRef(null), name: "Beetle", style: square },
-        { ref: useRef(null), name: "Birch", style: tall },
-        { ref: useRef(null), name: "Boletus", style: square },
-        { ref: useRef(null), name: "Butterfly", style: square },
-        { ref: useRef(null), name: "Beetle", style: square },
-        { ref: useRef(null), name: "Birch", style: tall },
-        { ref: useRef(null), name: "Boletus", style: square },
-        { ref: useRef(null), name: "Butterfly", style: square },
-        { ref: useRef(null), name: "Flaming Pine", style: square },
-        { ref: useRef(null), name: "Flaming Pine2", style: square },
-        { ref: useRef(null), name: "Flying Bird", style: double },
-        { ref: useRef(null), name: "Insect", style: square },
-        { ref: useRef(null), name: "Lichen", style: square },
-        { ref: useRef(null), name: "Log", style: double },
-        { ref: useRef(null), name: "Mosquito", style: square },
-        { ref: useRef(null), name: "Moth", style: wide },
-        { ref: useRef(null), name: "Pine", style: tall },
-        { ref: useRef(null), name: "Reindeer House", style: double },
-        { ref: useRef(null), name: "Reindeer", style: wide },
-        { ref: useRef(null), name: "Salmon", style: wide },
-        { ref: useRef(null), name: "Saw", style: square },
-        { ref: useRef(null), name: "Saw2", style: square },
-        { ref: useRef(null), name: "Beetle", style: square },
-        { ref: useRef(null), name: "Birch", style: tall },
-        { ref: useRef(null), name: "Boletus", style: square },
-        { ref: useRef(null), name: "Butterfly", style: square },
-        { ref: useRef(null), name: "Butterfly", style: square },
-        { ref: useRef(null), name: "Beetle", style: square },
-        { ref: useRef(null), name: "Birch", style: tall },
-        { ref: useRef(null), name: "Boletus", style: square },
-        { ref: useRef(null), name: "Butterfly", style: square },
-        { ref: useRef(null), name: "Flaming Pine", style: square },
-        { ref: useRef(null), name: "Flaming Pine2", style: square },
-        { ref: useRef(null), name: "Flying Bird", style: double },
-        { ref: useRef(null), name: "Insect", style: square },
-        { ref: useRef(null), name: "Lichen", style: square },
-        { ref: useRef(null), name: "Log", style: double },
-        { ref: useRef(null), name: "Mosquito", style: square },
-        { ref: useRef(null), name: "Moth", style: wide },
-        { ref: useRef(null), name: "Pine", style: tall },
-        { ref: useRef(null), name: "Reindeer House", style: double },
-        { ref: useRef(null), name: "Reindeer", style: wide },
-        { ref: useRef(null), name: "Salmon", style: wide },
-        { ref: useRef(null), name: "Saw", style: square },
-        { ref: useRef(null), name: "Saw2", style: square },
-        { ref: useRef(null), name: "Beetle", style: square },
-        { ref: useRef(null), name: "Birch", style: tall },
-    ];
 
     const container = {
         position: "absolute",
@@ -144,35 +39,21 @@ function Forest({ currentSpeakerName, isPaused }) {
         width: "100%",
         height: "100%",
         display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
         zIndex: "-3",
         transform: `scale(${zoomInValue}) translate(${translateValue[0]}px, ${translateValue[1]}px)`,
         transformOrigin: `${offsetValue[0]}px ${offsetValue[1]}px`,
         transition: "transform 2s ease-out"
     };
 
-    const river = {
-        zIndex: "-5",
-    };
-
-    const grid = {
-        maxWidth: "100%",
-        maxHeight: "100%",
-        display: "grid",
-        margin: "0 auto",
-        gridTemplateColumns: "repeat(auto-fill, 75px)",
-        gridAutoRows: "75px",
-        gridAutoFlow: "row dense",
-        gridGap: "0",
-        // overflow: "hidden"
-    };
-
 
     useEffect(() => {
         //find the current speaker in the list of characters
         console.log(currentSpeakerName);
-        const found = characters.find((char) => char.name === currentSpeakerName);
+        const found = characterRefs[currentSpeakerName];
         if (found) {
-            setZoomInOnBeing(found.ref);
+            setZoomInOnBeing(found);
         } else {
             setZoomInOnBeing(null);
         }
@@ -198,39 +79,34 @@ function Forest({ currentSpeakerName, isPaused }) {
         }
     }, [zoomInOnBeing]);
 
+    function l(sign, amount){
+        //Position is from center, minus percentage of view height
+        //capped at 300px view height, which is our minimum
+        return `calc(50% ${sign} max(${amount + dvh}, ${300 * amount / 100}px)`;
+    }
 
     return (
         <div style={container} ref={containerRef}>
-            <div style={{ flex: 1 }}>
-                <div style={grid}>
-                    {randomCharacters.slice(0, randomCharacters.length / 2).map((character, index) => (
-                        <div style={character.style} key={index} ref={character.ref}>
-                            <FoodAnimation
-                                character={{ name: character.name }}
-                                styles={{ maxWidth: "100%", maxHeight: "100%" }}
-                                currentSpeakerName={currentSpeakerName}
-                                isPaused={isPaused}
-                            />
-                        </div>
-                    ))}
-                </div>
-            </div>
-            <FoodAnimation character={{ name: "River" }} styles={river} isPaused={isPaused} />
-            <div style={{ flex: 1 }}>
-                <div style={grid}>
-                    {randomCharacters.slice(randomCharacters.length / 2).map((character, index) => (
-                        <div style={character.style} key={index} ref={character.ref}>
-                            <FoodAnimation
-                                character={{ name: character.name }}
-                                styles={{ maxWidth: "100%", maxHeight: "100%" }}
-                                currentSpeakerName={currentSpeakerName}
-                                isPaused={isPaused}
-                            />
-                        </div>
-                    ))}
-                </div>
-            </div>
+            <div style={{zIndex: "-5", height: "80%", alignSelf: "flex-end", position: "relative", top: "12%"}}><FoodAnimation character={{ name: "River" }} isPaused={isPaused} /></div>
+            <Being name="Pine" ref={characterRefs['Pine']} height="30%" left={l("+", 8)} bottom="16%" isPaused={isPaused} currentSpeakerName={currentSpeakerName} />
+            <Being name="Salmon" ref={characterRefs['Salmon']} height="7%" left={l("+", 16)} bottom="10%" isPaused={isPaused} currentSpeakerName={currentSpeakerName} />
+            <Being name="Boletus" ref={characterRefs['Boletus']} height="9%" left={l("+", 27)} bottom="6%" isPaused={isPaused} currentSpeakerName={currentSpeakerName} />
+            <Being name="Log" ref={characterRefs['Log']} height="6%" left={l("-", 3)} bottom="33%" isPaused={isPaused} currentSpeakerName={currentSpeakerName} />
+            <Being name="Birch" ref={characterRefs['Birch']} height="24%" left={l("-", 28)} bottom="26%" isPaused={isPaused} currentSpeakerName={currentSpeakerName} />
+            <Being name="Beetle" ref={characterRefs['Beetle']} height="7%" left={l("-", 13)} bottom="31%" isPaused={isPaused} currentSpeakerName={currentSpeakerName} />
+            <Being name="Reindeer" ref={characterRefs['Reindeer']} height="15%" left={l("-", 25)} bottom="51%" isPaused={isPaused} currentSpeakerName={currentSpeakerName} />
+            <Being name="Flaming Pine" ref={characterRefs['Flaming Pine']} height="15%" left={l("-", 70)} bottom="20%" isPaused={isPaused} currentSpeakerName={currentSpeakerName} />
+            <Being name="Reindeer House" ref={characterRefs['Reindeer House']} height="25%" left={l("-", 70)} bottom="60%" isPaused={isPaused} currentSpeakerName={currentSpeakerName} />
+            <Being name="Insect" ref={characterRefs['Insect']} height="5%" left={l("-", 35)} bottom="50%" isPaused={isPaused} currentSpeakerName={currentSpeakerName}/>
         </div >
+    );
+}
+
+function Being({name, ref, height, left, bottom, isPaused, currentSpeakerName}){
+    return (
+        <div ref={ref} style={{position: "absolute", height: height, left: left, bottom: bottom}}>
+            <FoodAnimation character={{ name: name }} isPaused={isPaused} currentSpeakerName={currentSpeakerName} />
+        </div>
     );
 }
 
