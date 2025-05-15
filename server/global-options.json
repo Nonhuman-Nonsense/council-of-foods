@@ -1,5 +1,5 @@
 {
-  "gptModel": "gpt-4o",
+  "gptModel": "gpt-4o-mini",
   "temperature": 1,
   "maxTokens": 200,
   "chairMaxTokens": 250,
