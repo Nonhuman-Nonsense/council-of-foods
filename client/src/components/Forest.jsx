@@ -8,9 +8,9 @@ function Forest({ currentSpeakerName, isPaused }) {
     const [zoomInOnBeing, setZoomInOnBeing] = useState(null);
     const containerRef = useRef(null);
     const [zoomInValue, setZoomInValue] = useState(1);
-    const [offsetValue, setOffsetValue] = useState([0, 0]);
-    const [translateValue, setTranslateValue] = useState([0, 0]);
-    // const [animateTransformOrigin, setAnimateTransformOrigin] = useState(false);
+    const [transformOrigin, setTransformOrigin] = useState([0, 0]);
+    const [translate, setTranslate] = useState([0, 0]);
+    const [animateTransformOrigin, setAnimateTransformOrigin] = useState(false);
 
     const characters = [//Ratio is video width / height
         { ref: useRef(null), name: "Pine", height: 30, left: 8, bottom: 16, ratio: 109.49/175.2 },
@@ -36,9 +36,9 @@ function Forest({ currentSpeakerName, isPaused }) {
         alignItems: "center",
         justifyContent: "center",
         zIndex: "-3",
-        transform: `scale(${zoomInValue}) translate(${translateValue[0]}, ${translateValue[1]})`,
-        transformOrigin: `${offsetValue[0]} ${offsetValue[1]}`,
-        transition: `transform 2s ease-out, transform-origin 2s ease-out`
+        transform: `scale(${zoomInValue}) translate(${translate[0]}, ${translate[1]})`,
+        transformOrigin: `${transformOrigin[0]} ${transformOrigin[1]}`,
+        transition: `transform 2s ease-out, transform-origin ${animateTransformOrigin ? "2s" : "0.0001s"} ease-out`
     };
 
 
@@ -75,12 +75,17 @@ function Forest({ currentSpeakerName, isPaused }) {
             const translateTop = (-50 + zoomInOnBeing.bottom + zoomInOnBeing.height / 2) / zoom + dvh;
 
             setZoomInValue(zoom);
-            setOffsetValue([left, top]);
-            setTranslateValue([translateLeft, translateTop]);
-        } else {
+            setTransformOrigin([left, top]);
+            setTranslate([translateLeft, translateTop]);
+        } else {//Zoom out
             setZoomInValue(1);
-            // setOffsetValue([0, 0]);
-            setTranslateValue([0, 0]);
+            setTranslate([0, 0]);
+        }
+        //If we are zooming in from an actual zoom out state, don't animate the change of transform origin.
+        if(window.getComputedStyle(containerRef.current).transform === "matrix(1, 0, 0, 1, 0, 0)"){
+            setAnimateTransformOrigin(false);
+        }else{
+            setAnimateTransformOrigin(true);
         }
     }, [zoomInOnBeing]);
 
