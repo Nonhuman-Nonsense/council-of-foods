@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import FoodAnimation from "./FoodAnimation.jsx";
-import { dvh } from "../utils.js";
+import { dvh, minWindowHeight } from "../utils.js";
 
 function Forest({ currentSpeakerName, isPaused }) {
 
@@ -13,16 +13,16 @@ function Forest({ currentSpeakerName, isPaused }) {
     const [animateTransformOrigin, setAnimateTransformOrigin] = useState(false);
 
     const characters = [//Ratio is video width / height
-        { ref: useRef(null), name: "Pine", height: 30, left: 8, bottom: 16, ratio: 109.49/175.2 },
-        { ref: useRef(null), name: "Salmon", height: 7, left: 16, bottom: 10, ratio: 614.92/430.47 },
+        { ref: useRef(null), name: "Pine", height: 30, left: 8, bottom: 16, ratio: 2500/4000 },
+        { ref: useRef(null), name: "Salmon", height: 7, left: 16, bottom: 10, ratio: 3000/2100 },
         { ref: useRef(null), name: "Boletus", height: 9, left: 27, bottom: 6, ratio: 1 },
-        { ref: useRef(null), name: "Log", height: 6, left: -3, bottom: 33, ratio: 32.43/35.04 },
-        { ref: useRef(null), name: "Birch", height: 24, left: -28, bottom: 26, ratio: 86.93/140.16 },
-        { ref: useRef(null), name: "Beetle", height: 7, left: -13, bottom: 47.26/40.88 },
-        { ref: useRef(null), name: "Reindeer", height: 15, left: -25, bottom: 51, ratio: 72.99/87.59 },
+        { ref: useRef(null), name: "Log", height: 6, left: -3, bottom: 33, ratio: 2000/2160 },
+        { ref: useRef(null), name: "Birch", height: 24, left: -28, bottom: 26, ratio: 1500/2500 },
+        { ref: useRef(null), name: "Beetle", height: 7, left: -13, bottom: 1850/1600 },
+        { ref: useRef(null), name: "Reindeer", height: 15, left: -25, bottom: 51, ratio: 2500/3000 },
         { ref: useRef(null), name: "Flaming Pine", height: 15, left: -70, bottom: 20, ratio: 1 },
-        { ref: useRef(null), name: "Reindeer House", height: 25, left: -70, bottom: 60, ratio: 116.8/146 },
-        { ref: useRef(null), name: "Insect", height: 5, left: -35, bottom: 50, ratio: 48.66/29.2 }
+        { ref: useRef(null), name: "Reindeer House", height: 25, left: -70, bottom: 60, ratio: 3000/3750 },
+        { ref: useRef(null), name: "Insect", height: 5, left: -35, bottom: 50, ratio: 2500/1500 }
     ];
 
     const container = {
@@ -93,7 +93,7 @@ function Forest({ currentSpeakerName, isPaused }) {
         //Position is from center, minus percentage of view height
         //capped at 300px view height, which is our minimum
         const sign = Math.sign(amount) === 1 ? "+" : "-";
-        return `calc(50% ${sign} max(${Math.abs(amount) + dvh}, ${300 * Math.abs(amount) / 100}px)`;
+        return `calc(50% ${sign} max(${Math.abs(amount) + dvh}, ${minWindowHeight * Math.abs(amount) / 100}px)`;
     }
 
     return (

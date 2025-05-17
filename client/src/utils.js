@@ -2,6 +2,8 @@ import { useMediaQuery } from 'react-responsive'
 
 export const dvh = CSS.supports('height','100dvh') ? 'dvh' : 'vh';
 
+export const minWindowHeight = 300;
+
 export function capitalizeFirstLetter(string) {
   if (string && typeof string === "string") {
     return string.charAt(0).toUpperCase() + string.slice(1);
