@@ -20,7 +20,6 @@ function FoodAnimation({ character, styles, isPaused, currentSpeakerName }) {
   useEffect(() => {
     if (vidLoaded) {
       if (!isPaused && (currentSpeakerName === character.name || character.name === "River")) {
-        console.log('Play ' + character.name);
         video.current.play();
       } else {
         video.current.pause();
