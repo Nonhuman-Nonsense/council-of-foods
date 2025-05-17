@@ -68,14 +68,23 @@ function Forest({ currentSpeakerName, isPaused }) {
             // const translateTop = (screenHeight / 2 - top) / zoom;
             
             //Which when calculated into dvh and vw values gives
-            const left = `calc(50vw + ${(zoomInOnBeing.left + ((zoomInOnBeing.height * zoomInOnBeing.ratio) / 2)) + dvh})`;
-            const top = (100 - zoomInOnBeing.bottom - zoomInOnBeing.height / 2) + dvh;
-            const translateLeft = -(zoomInOnBeing.left  + zoomInOnBeing.height * zoomInOnBeing.ratio / 2) / zoom + dvh;
-            const translateTop = (-50 + zoomInOnBeing.bottom + zoomInOnBeing.height / 2) / zoom + dvh;
+            const left = zoomInOnBeing.left + ((zoomInOnBeing.height * zoomInOnBeing.ratio) / 2); //dvh offset from 50vw
+            const top = 100 - zoomInOnBeing.bottom - zoomInOnBeing.height / 2; //dvh
+            const translateLeft = -(zoomInOnBeing.left  + zoomInOnBeing.height * zoomInOnBeing.ratio / 2) / zoom; //dvh
+            const translateTop = (-50 + zoomInOnBeing.bottom + zoomInOnBeing.height / 2) / zoom; //dvh
+
+            //Cap everything at the minimum zoom
+            const sign = Math.sign(zoomInOnBeing.left) === 1 ? "+" : "-"; //left or right side of middle
+            const cappedLeft = `calc(50vw ${sign} max(${Math.abs(left) + dvh}, ${minWindowHeight * Math.abs(left) / 100}px))`;//Left value needs calc
+            const cappedTop = `max(${top + dvh}, ${top * minWindowHeight / 100 + "px"})`;
+            const minOrMax = Math.sign(zoomInOnBeing.left) === 1 ? "min" : "max"; //left or right side of middle
+            const cappedTranslateLeft = `${minOrMax}(${translateLeft + dvh}, ${translateLeft * minWindowHeight / 100 + "px"})`;
+            const minOrMax2 = top > 50 ? "min" : "max"; //top or bottom half of screen
+            const cappedTranslateTop = `${minOrMax2}(${translateTop + dvh}, ${translateTop * minWindowHeight / 100 + "px"})`;
 
             setZoomInValue(zoom);
-            setTransformOrigin([left, top]);
-            setTranslate([translateLeft, translateTop]);
+            setTransformOrigin([cappedLeft, cappedTop]);
+            setTranslate([cappedTranslateLeft, cappedTranslateTop]);
         } else {//Zoom out
             setZoomInValue(1);
             setTranslate([0, 0]);
