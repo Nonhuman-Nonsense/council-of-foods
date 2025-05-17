@@ -18,7 +18,7 @@ function Forest({ currentSpeakerName, isPaused }) {
         { ref: useRef(null), name: "Boletus", height: 9, left: 27, bottom: 6, ratio: 1 },
         { ref: useRef(null), name: "Log", height: 6, left: -3, bottom: 33, ratio: 2000/2160 },
         { ref: useRef(null), name: "Birch", height: 24, left: -28, bottom: 26, ratio: 1500/2500 },
-        { ref: useRef(null), name: "Beetle", height: 7, left: -13, bottom: 1850/1600 },
+        { ref: useRef(null), name: "Beetle", height: 7, left: -13, bottom: 31, ratio: 1850/1600 },
         { ref: useRef(null), name: "Reindeer", height: 15, left: -25, bottom: 51, ratio: 2500/3000 },
         { ref: useRef(null), name: "Flaming Pine", height: 15, left: -70, bottom: 20, ratio: 1 },
         { ref: useRef(null), name: "Reindeer House", height: 25, left: -70, bottom: 60, ratio: 3000/3750 },
