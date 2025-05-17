@@ -61,17 +61,16 @@ function Forest({ currentSpeakerName, isPaused }) {
             // const container = containerRef.current.getBoundingClientRect();
             // const screenHeight = container.height;
             // const screenWidth = container.width;
-            // const box = zoomInOnBeing.current.getBoundingClientRect();
+            // const box = zoomInOnBeing.ref.current.getBoundingClientRect();
             // const left = box.left + (box.right - box.left) / 2;
             // const top = box.top + (box.bottom - box.top) / 2;
             // const translateLeft = (screenWidth / 2 - left) / zoom;
             // const translateTop = (screenHeight / 2 - top) / zoom;
             
-
             //Which when calculated into dvh and vw values gives
             const left = `calc(50vw + ${(zoomInOnBeing.left + ((zoomInOnBeing.height * zoomInOnBeing.ratio) / 2)) + dvh})`;
             const top = (100 - zoomInOnBeing.bottom - zoomInOnBeing.height / 2) + dvh;
-            const translateLeft = -(zoomInOnBeing.left  + (zoomInOnBeing.height * zoomInOnBeing.ratio)) / zoom + dvh;
+            const translateLeft = -(zoomInOnBeing.left  + zoomInOnBeing.height * zoomInOnBeing.ratio / 2) / zoom + dvh;
             const translateTop = (-50 + zoomInOnBeing.bottom + zoomInOnBeing.height / 2) / zoom + dvh;
 
             setZoomInValue(zoom);
