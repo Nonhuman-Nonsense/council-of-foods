@@ -11,18 +11,28 @@ function Forest({ currentSpeakerName, isPaused }) {
     const [transformOrigin, setTransformOrigin] = useState([0, 0]);
     const [translate, setTranslate] = useState([0, 0]);
     const [animateTransformOrigin, setAnimateTransformOrigin] = useState(false);
+    const [disableAnimations, setDisableAnimations] = useState(false);
+
+    useEffect(() => {
+        const handleResize = () => {
+            setDisableAnimations(true);
+        };
+        window.addEventListener('resize', handleResize);
+        // Cleanup function to remove the event listener
+        return () => window.removeEventListener('resize', handleResize);
+    }, []); // Empty dependency array ensures this effect runs only once on mount and unmount
 
     const characters = [//Ratio is video width / height
-        { ref: useRef(null), name: "Pine", height: 30, left: 8, bottom: 16, ratio: 2500/4000 },
-        { ref: useRef(null), name: "Salmon", height: 7, left: 16, bottom: 10, ratio: 3000/2100 },
+        { ref: useRef(null), name: "Pine", height: 30, left: 8, bottom: 16, ratio: 2500 / 4000 },
+        { ref: useRef(null), name: "Salmon", height: 7, left: 16, bottom: 10, ratio: 3000 / 2100 },
         { ref: useRef(null), name: "Boletus", height: 9, left: 27, bottom: 6, ratio: 1 },
-        { ref: useRef(null), name: "Log", height: 6, left: -3, bottom: 33, ratio: 2000/2160 },
-        { ref: useRef(null), name: "Birch", height: 24, left: -28, bottom: 26, ratio: 1500/2500 },
-        { ref: useRef(null), name: "Beetle", height: 7, left: -13, bottom: 1850/1600 },
-        { ref: useRef(null), name: "Reindeer", height: 15, left: -25, bottom: 51, ratio: 2500/3000 },
+        { ref: useRef(null), name: "Log", height: 6, left: -3, bottom: 33, ratio: 2000 / 2160 },
+        { ref: useRef(null), name: "Birch", height: 24, left: -28, bottom: 26, ratio: 1500 / 2500 },
+        { ref: useRef(null), name: "Beetle", height: 7, left: -13, bottom: 31, ratio: 1850 / 1600 },
+        { ref: useRef(null), name: "Reindeer", height: 15, left: -25, bottom: 51, ratio: 2500 / 3000 },
         { ref: useRef(null), name: "Flaming Pine", height: 15, left: -70, bottom: 20, ratio: 1 },
-        { ref: useRef(null), name: "Reindeer House", height: 25, left: -70, bottom: 60, ratio: 3000/3750 },
-        { ref: useRef(null), name: "Insect", height: 5, left: -35, bottom: 50, ratio: 2500/1500 }
+        { ref: useRef(null), name: "Reindeer House", height: 25, left: -70, bottom: 60, ratio: 3000 / 3750 },
+        { ref: useRef(null), name: "Insect", height: 5, left: -35, bottom: 50, ratio: 2500 / 1500 }
     ];
 
     const container = {
@@ -38,7 +48,7 @@ function Forest({ currentSpeakerName, isPaused }) {
         zIndex: "-3",
         transform: `scale(${zoomInValue}) translate(${translate[0]}, ${translate[1]})`,
         transformOrigin: `${transformOrigin[0]} ${transformOrigin[1]}`,
-        transition: `transform 2s ease-out, transform-origin ${animateTransformOrigin ? "2s" : "0.0001s"} ease-out`
+        transition: !disableAnimations && `transform 2s ease-out, transform-origin ${animateTransformOrigin ? "2s" : "0.0001s"} ease-out`
     };
 
 
@@ -53,7 +63,7 @@ function Forest({ currentSpeakerName, isPaused }) {
     }, [currentSpeakerName]);
 
     useEffect(() => {
-        if (zoomInOnBeing) {            
+        if (zoomInOnBeing) {
             //Zoom in so that character is 70% of height
             const zoom = 70 / zoomInOnBeing.height;
 
@@ -66,11 +76,11 @@ function Forest({ currentSpeakerName, isPaused }) {
             // const top = box.top + (box.bottom - box.top) / 2;
             // const translateLeft = (screenWidth / 2 - left) / zoom;
             // const translateTop = (screenHeight / 2 - top) / zoom;
-            
+
             //Which when calculated into dvh and vw values gives
             const left = zoomInOnBeing.left + ((zoomInOnBeing.height * zoomInOnBeing.ratio) / 2); //dvh offset from 50vw
             const top = 100 - zoomInOnBeing.bottom - zoomInOnBeing.height / 2; //dvh
-            const translateLeft = -(zoomInOnBeing.left  + zoomInOnBeing.height * zoomInOnBeing.ratio / 2) / zoom; //dvh
+            const translateLeft = -(zoomInOnBeing.left + zoomInOnBeing.height * zoomInOnBeing.ratio / 2) / zoom; //dvh
             const translateTop = (-50 + zoomInOnBeing.bottom + zoomInOnBeing.height / 2) / zoom; //dvh
 
             //Cap everything at the minimum zoom
@@ -90,11 +100,12 @@ function Forest({ currentSpeakerName, isPaused }) {
             setTranslate([0, 0]);
         }
         //If we are zooming in from an actual zoom out state, don't animate the change of transform origin.
-        if(window.getComputedStyle(containerRef.current).transform === "matrix(1, 0, 0, 1, 0, 0)"){
+        if (window.getComputedStyle(containerRef.current).transform === "matrix(1, 0, 0, 1, 0, 0)") {
             setAnimateTransformOrigin(false);
-        }else{
+        } else {
             setAnimateTransformOrigin(true);
         }
+        setDisableAnimations(false);
     }, [zoomInOnBeing]);
 
     function l(amount) {
