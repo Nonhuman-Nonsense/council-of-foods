@@ -11,6 +11,16 @@ function Forest({ currentSpeakerName, isPaused }) {
     const [transformOrigin, setTransformOrigin] = useState([0, 0]);
     const [translate, setTranslate] = useState([0, 0]);
     const [animateTransformOrigin, setAnimateTransformOrigin] = useState(false);
+    const [disableAnimations, setDisableAnimations] = useState(false);
+
+    useEffect(() => {
+        const handleResize = () => {
+            setDisableAnimations(true);
+        };
+        window.addEventListener('resize', handleResize);
+        // Cleanup function to remove the event listener
+        return () => window.removeEventListener('resize', handleResize);
+    }, []); // Empty dependency array ensures this effect runs only once on mount and unmount
 
     const characters = [//Ratio is video width / height
         { ref: useRef(null), name: "Pine", height: 30, left: 8, bottom: 16, ratio: 2500 / 4000 },
@@ -38,7 +48,7 @@ function Forest({ currentSpeakerName, isPaused }) {
         zIndex: "-3",
         transform: `scale(${zoomInValue}) translate(${translate[0]}, ${translate[1]})`,
         transformOrigin: `${transformOrigin[0]} ${transformOrigin[1]}`,
-        transition: `transform 2s ease-out, transform-origin ${animateTransformOrigin ? "2s" : "0.0001s"} ease-out`
+        transition: !disableAnimations && `transform 2s ease-out, transform-origin ${animateTransformOrigin ? "2s" : "0.0001s"} ease-out`
     };
 
 
@@ -95,6 +105,7 @@ function Forest({ currentSpeakerName, isPaused }) {
         } else {
             setAnimateTransformOrigin(true);
         }
+        setDisableAnimations(false);
     }, [zoomInOnBeing]);
 
     function l(amount) {
