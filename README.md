@@ -57,8 +57,8 @@ you should then have a localhost copy running on port 3000.
 ## Build docker image
 
 ```
-docker build . -t nonhumannonsense/council-of-the-woods:latest
-docker push nonhumannonsense/council-of-the-woods:latest
+docker build . -t nonhumannonsense/council-of-the-forest:latest
+docker push nonhumannonsense/council-of-the-forest:latest
 ```
 
 on Apple silicon, you might need to add `--platform linux/amd64` or similar to the build command
