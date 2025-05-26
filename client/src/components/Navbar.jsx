@@ -115,7 +115,7 @@ function Navbar({ topic, onDisplayOverlay, hamburgerOpen, setHamburgerOpen }) {
               }}
               onClick={() => handleOnNavigate("reset")}
             >
-              COUNCIL OF THE WOODS
+              COUNCIL OF THE FOREST
             </h3>
             <h4 style={{ marginTop: "5px", visibility: showIconinMeny ? "visible" : "hidden" }}>{capitalizeFirstLetter(topic)}</h4>
           </div>
