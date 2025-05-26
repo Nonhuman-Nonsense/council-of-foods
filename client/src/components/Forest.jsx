@@ -28,7 +28,7 @@ function Forest({ currentSpeakerName, isPaused }) {
         { ref: useRef(null), name: "Bumblebee", type: "transparent", height: 10, left: -48, bottom: 44, ratio: 786 / 646 },
         { ref: useRef(null), name: "Pine", type: "transparent", height: 27, left: -73, bottom: 12.5, ratio: 724 / 918 },
         { ref: useRef(null), name: "Reindeer", type: "transparent", height: 16, left: -26.5, bottom: 27, ratio: 1040 / 956 },
-        { ref: useRef(null), name: "Windmills", type: "transparent", height: 22, left: 1, bottom: 69.5, ratio: 1066 / 946 },
+        { ref: useRef(null), name: "Wind Turbine", type: "transparent", height: 22, left: 1, bottom: 69.5, ratio: 1066 / 946 },
         { ref: useRef(null), name: "Kota", type: "image", height: 11, left: -19.5, bottom: 64, ratio: 564 / 400 },
         { ref: useRef(null), name: "Snowy Spruce", type: "image", height: 36, left: -37, bottom: 44.5, ratio: 1044 / 1800 },
     ];
