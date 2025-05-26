@@ -27,7 +27,7 @@ function Contact() {
         <a href="mailto:hello@nonhuman-nonsense.com">hello@nonhuman-nonsense.com</a>
       </p>
       <p>
-      Council of Foods is part of <a href="https://starts.eu/hungryecocities/">The&nbsp;Hungry&nbsp;EcoCities&nbsp;project</a>, part of the <a href="https://starts.eu/">S+T+ARTS</a> programme, and has received funding from the European&nbsp;Union’s <a href="https://cordis.europa.eu/project/id/101069990">Horizon&nbsp;Europe research and innovation programme under grant agreement 101069990</a>.
+      Council of the Forest is part of <a href="https://starts.eu/hungryecocities/">The&nbsp;Hungry&nbsp;EcoCities&nbsp;project</a>, part of the <a href="https://starts.eu/">S+T+ARTS</a> programme, and has received funding from the European&nbsp;Union’s <a href="https://cordis.europa.eu/project/id/101069990">Horizon&nbsp;Europe research and innovation programme under grant agreement 101069990</a>.
       </p>
       <img alt="Funded by the EU, as part of S+T+ARTS" src="/logos/logos_eu-white-starts-white.webp" style={{width: "95vw", maxWidth: isMobile ? "300px" : "450px", height: isMobile ? "15vh" :"84px", minHeight: "45px"}} />
     </div>

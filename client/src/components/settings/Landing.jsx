@@ -1,7 +1,7 @@
 import React from "react";
 import RotateDevice from '../RotateDevice';
 import { useMediaQuery } from 'react-responsive'
-import { useMobile, dvh } from "../../utils";
+import { useMobile } from "../../utils";
 
 function Landing({ onContinueForward }) {
 
@@ -31,7 +31,7 @@ function Landing({ onContinueForward }) {
 
         <div>
           <h2 style={{marginBottom: "-10px", marginTop: isMobile ? "0" : ""}}>welcome to</h2>
-          <h1 style={{margin: isMobile ? "5px 0 0 0" : ""}}>COUNCIL OF THE WOODS</h1>
+          <h1 style={{margin: isMobile ? "5px 0 0 0" : ""}}>COUNCIL OF THE FOREST</h1>
         </div>
         
         {isPortrait ?

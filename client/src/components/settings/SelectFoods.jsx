@@ -95,7 +95,7 @@ function SelectFoods({ topic, onContinueForward }) {
           }}
         >
           <div style={discriptionStyle}>
-            <p style={{margin: 0}}>Council of the Woods meeting on</p>
+            <p style={{margin: 0}}>Council of the Forest meeting on</p>
             <h3>{toTitleCase(topic.title)}</h3>
             <div>
               {selectedFoods.length < 2 ? <p>please select 2-6 beings to listen to</p> : <><p>we will listen to:</p>
