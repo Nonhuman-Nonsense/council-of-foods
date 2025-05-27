@@ -29,12 +29,12 @@ function Forest({ currentSpeakerName, isPaused }) {
         { ref: useRef(null), name: "Pine", type: "transparent", height: 27, left: -73, bottom: 12.5, ratio: 724 / 918 },
         { ref: useRef(null), name: "Reindeer", type: "transparent", height: 16, left: -26.5, bottom: 27, ratio: 1040 / 956 },
         { ref: useRef(null), name: "Wind Turbine", type: "transparent", height: 22, left: 1, bottom: 69.5, ratio: 1066 / 946 },
-        { ref: useRef(null), name: "Harvester", type: "transparent", height: 19, left: 57.5, bottom: 1, ratio: 674 / 900 },
+        { ref: useRef(null), name: "Tree Harvester", type: "transparent", height: 19, left: 57.5, bottom: 1, ratio: 674 / 900 },
         { ref: useRef(null), name: "Kota", type: "transparent", always_on: true, height: 35, left: 54, bottom: 20, ratio: 574 / 1000 },
         { ref: useRef(null), name: "Lichen", type: "transparent", height: 25, left: 40, bottom: 53.5, ratio: 1332 / 1000 },
         { ref: useRef(null), name: "Burning Pine", type: "transparent", always_on: true, height: 14, left: -88, bottom: 85.5, ratio: 474 / 474 },
         { ref: useRef(null), name: "Aurora", type: "transparent", always_on: true, height: 21, left: -35, bottom: 80, ratio: 1600 / 800 },
-        { ref: useRef(null), name: "Mountain", type: "transparent", height: 17, left: -52, bottom: 71.5, ratio: 1600 / 480 },
+        { ref: useRef(null), name: "Mountain", type: "transparent", height: 16, left: -52, bottom: 71.5, ratio: 1600 / 480 },
         { ref: useRef(null), name: "Kota2", type: "image", height: 11, left: -19.5, bottom: 64, ratio: 564 / 400 },
         { ref: useRef(null), name: "Snowy Spruce", type: "image", height: 36, left: -37, bottom: 44.5, ratio: 1044 / 1800 },
         
@@ -124,7 +124,7 @@ function Forest({ currentSpeakerName, isPaused }) {
         <div style={container} ref={containerRef}>
             <img style={{ zIndex: "-5", height: "100%", position: "absolute", bottom: 0 }} src="/backgrounds/forest.webp" alt="" />
             <div style={{ zIndex: "-4", height: "75.5%", position: "absolute", bottom: 0, left: "calc(50% - max(49dvh,147px))" }}>
-                <FoodAnimation character={{ name: "River" }} isPaused={isPaused} always_on={true} />
+                <FoodAnimation type="transparent" character={{ name: "River" }} isPaused={isPaused} always_on={true} />
             </div>
             {characters.map((character, index) => (
                 <Being
