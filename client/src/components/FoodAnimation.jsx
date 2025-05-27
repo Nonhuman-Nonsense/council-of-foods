@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { filename } from "../utils";
 
-function FoodAnimation({ character, type, styles, isPaused, currentSpeakerName }) {
+function FoodAnimation({ character, type, styles, isPaused, always_on, currentSpeakerName }) {
 
   const video = useRef(null);
   const [vidLoaded, setVidLoaded] = useState(false);
@@ -21,7 +21,7 @@ function FoodAnimation({ character, type, styles, isPaused, currentSpeakerName }
 
   useEffect(() => {
     if (vidLoaded) {
-      if (!isPaused && (currentSpeakerName === character.name || character.name === "River")) {
+      if (!isPaused && (currentSpeakerName === character.name || always_on === true)) {
         video.current.play();
       } else {
         video.current.pause();

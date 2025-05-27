@@ -84,9 +84,9 @@ function HumanInput({ onSubmitHumanMessage }) {
 
   const micStyle = {
     position: "absolute",
-    bottom: "-2" + dvh,
-    height: "45" + dvh,
-    minHeight: "135px",
+    bottom: "0" + dvh,
+    height: "65" + dvh,
+    minHeight: "195px",
     zIndex: "0",
     animation: "4s micAppearing",
     animationFillMode: "both",
@@ -115,7 +115,7 @@ function HumanInput({ onSubmitHumanMessage }) {
 
   return (
     <div style={wrapperStyle}>
-      <img alt="Say something!" src="/mic.png" style={micStyle} />
+      <img alt="Say something!" src="/mic.webp" style={micStyle} />
       <div style={{ zIndex: "4", position: "relative", pointerEvents: "auto" }}>
         <TextareaAutosize
           ref={inputArea}

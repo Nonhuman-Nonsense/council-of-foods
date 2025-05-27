@@ -1,6 +1,6 @@
 # Council of the Forest
 
-![Council of the Forest](https://github.com/Nonhuman-Nonsense/council-of-foods/blob/main/client/public/council-of-foods-preview.jpeg?raw=true)
+![Council of the Forest](https://github.com/Nonhuman-Nonsense/council-of-foods/blob/main/client/public/council-of-forest-preview.webp?raw=true)
 
 Welcome to the Council of the Forest!
 
