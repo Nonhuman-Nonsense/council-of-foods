@@ -13,7 +13,7 @@ function Name({ onContinueForward }) {
     <div style={wrapper}>
       <h1>SAY SOMETHING</h1>
       <div>
-        <p>Do you want to adress the Council of Foods?</p>
+        <p>Do you want to adress the Council of the Forest?</p>
         <p>Please enter your name to raise a request to speak,<br /> and then wait until you are given the floor by Water, the moderator.</p>
       </div>
       <HumanNameInput onContinueForward={onContinueForward} />

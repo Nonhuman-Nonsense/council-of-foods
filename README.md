@@ -1,14 +1,14 @@
-# Council of foods
+# Council of the Forest
 
-![Council of Foods](https://github.com/Nonhuman-Nonsense/council-of-foods/blob/main/client/public/council-of-foods-preview.jpeg?raw=true)
+![Council of the Forest](https://github.com/Nonhuman-Nonsense/council-of-foods/blob/main/client/public/council-of-forest-preview.webp?raw=true)
 
-Welcome to the Council of Foods!
+Welcome to the Council of the Forest!
 
 A political arena for foods to discuss the broken food system. Here, you, as a human participant, can listen, engage, and contribute to the discussions. The foods are prompted on different knowledges and ethical guidelines using the AI Language model GPT from Open AI.
 
 Our council members represent a diverse spectrum of food origins and ethical viewpoints, including mass-produced, locally grown, genetically modified, processed, fair trade, affordable, and organic foods. Each member brings their own unique eco-social impacts and ethical guidelines to the table, informed by their distinct backgrounds. Join the discussion on what actions need to be taken to form a locally and globally sustainable food system!
 
-## Visit Council of Foods
+## Visit Council of the Forest
 
 The project (the code in this repo) is live on [council-of-foods.com](https://council-of-foods.com)
 
@@ -20,7 +20,7 @@ The project is an initiative by art & design collective [Nonhuman Nonsense](http
 
 [@nonhuman-nonsense](http://instagram.com/nonhuman_nonsense)
 
-Council of Foods is part of [The Hungry EcoCities project](https://starts.eu/hungryecocities/), part of the [S+T+ARTS](https://starts.eu/) programme, and has received funding from the European Union’s [Horizon Europe research and innovation programme under grant agreement 101069990](https://cordis.europa.eu/project/id/101069990).
+Council of the Forest is part of [The Hungry EcoCities project](https://starts.eu/hungryecocities/), part of the [S+T+ARTS](https://starts.eu/) programme, and has received funding from the European Union’s [Horizon Europe research and innovation programme under grant agreement 101069990](https://cordis.europa.eu/project/id/101069990).
 
 <a href="https://cordis.europa.eu/project/id/101069990"><img src="https://github.com/Nonhuman-Nonsense/council-of-foods/blob/main/client/public/logos/logos_eu-white-starts-white.webp?raw=true" width="500" /></a>
 
@@ -57,9 +57,11 @@ you should then have a localhost copy running on port 3000.
 ## Build docker image
 
 ```
-docker build . -t nonhumannonsense/council-of-foods:latest
-docker push nonhumannonsense/council-of-foods:latest
+docker build . -t nonhumannonsense/council-of-the-forest:latest
+docker push nonhumannonsense/council-of-the-forest:latest
 ```
+
+on Apple silicon, you might need to add `--platform linux/amd64` or similar to the build command
 
 ## Database example
 

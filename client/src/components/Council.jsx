@@ -14,6 +14,10 @@ const globalOptions = require("../global-options-client");
 function Council({
   topic,
   foods,
+  currentSpeakerName,
+  setCurrentSpeakerName,
+  isPaused,
+  setPaused,
   setUnrecoverableError
  }) {
   //Overall Council settings for this meeting
@@ -42,10 +46,9 @@ function Council({
   //Secondary control variables
   const [isRaisedHand, setIsRaisedHand] = useState(false);
   const [isMuted, setMuteUnmute] = useState(false);
-  const [isPaused, setPaused] = useState(false);
+  
 
   //Automatic calculated state variables
-  const [currentSpeakerName, setCurrentSpeakerName] = useState("");
   const [canGoBack, setCanGoBack] = useState(false);
   const [canGoForward, setCanGoForward] = useState(false);
   const [canRaiseHand, setCanRaiseHand] = useState(false);
@@ -87,6 +90,19 @@ function Council({
   useEffect(() => {
     // Connect to the server
     socketRef.current = io();
+
+    socketRef.current.on('connect_error', err => {
+      console.error(err);
+      setUnrecoverableError(true);
+    });
+
+    socketRef.current.on('connect_failed', err => {
+      console.log(err);
+    });
+
+    socketRef.current.on('disconnect', err => {
+      console.log(err);
+    });
 
     let conversationOptions = {
       topic: topic.prompt,
@@ -528,33 +544,6 @@ function Council({
 
   return (
     <>
-      <Background
-        zoomIn={zoomIn}
-        currentSpeakerIndex={currentSpeakerIndex()}
-        totalSpeakers={foods.length - 1}
-      />
-      <div style={{
-        position: "absolute",
-        top: "62%",
-        left: "50%",
-        transform: "translate(-50%, -50%)",
-        width: foods.length > 6 ? "79%" : "70%",
-        display: "flex",
-        justifyContent: "space-around",
-        alignItems: "center",
-      }}>
-        {foods.map((food, index) => (
-          <FoodItem
-            key={food.name}
-            food={food}
-            index={mapFoodIndex(foods.length, index)}
-            total={foods.length}
-            isPaused={isPaused}
-            zoomIn={zoomIn}
-            currentSpeakerName={currentSpeakerName}
-          />
-        ))}
-      </div>
       {councilState === 'loading' && <Loading />}
       <>
         {councilState === 'human_input' && (
@@ -606,60 +595,6 @@ function Council({
           />
         )}
       </Overlay>
-    </>
-  );
-}
-
-function Background({ zoomIn, currentSpeakerIndex, totalSpeakers }) {
-  function calculateBackdropPosition() {
-    return 10 + (80 * currentSpeakerIndex) / totalSpeakers + "%";
-  }
-
-  const closeUpBackdrop = {
-    backgroundImage: `url(/backgrounds/close-up-backdrop.webp)`,
-    backgroundSize: "cover",
-    backgroundPosition: calculateBackdropPosition(),
-    height: "100%",
-    width: "100%",
-    position: "absolute",
-    opacity: zoomIn ? "1" : "0",
-  };
-
-  const closeUpTable = {
-    backgroundImage: `url(/backgrounds/close-up-table.webp)`,
-    backgroundSize: "cover",
-    backgroundPosition: "center",
-    height: "100%",
-    width: "100%",
-    position: "absolute",
-    opacity: zoomIn ? "1" : "0",
-  };
-
-  const bottomShade = {
-    width: "100%",
-    height: "40%",
-    position: "absolute",
-    bottom: "0",
-    background: "linear-gradient(0, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0) 100%)",
-    zIndex: "1",
-  };
-
-  const topShade = {
-    width: "100%",
-    height: "10%",
-    position: "absolute",
-    top: "0",
-    background:
-      "linear-gradient(180deg, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0) 100%)",
-    zIndex: "1",
-  };
-
-  return (
-    <>
-      <div style={closeUpBackdrop} />
-      <div style={closeUpTable} />
-      <div style={bottomShade} />
-      <div style={topShade} />
     </>
   );
 }

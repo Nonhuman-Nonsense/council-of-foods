@@ -1,5 +1,5 @@
 # Stage 1: Build the React client app
-FROM node:lts-alpine as client-builder
+FROM node:lts-alpine AS client-builder
 
 WORKDIR /usr/src/client
 COPY client/package*.json ./

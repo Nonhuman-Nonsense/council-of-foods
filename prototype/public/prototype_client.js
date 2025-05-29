@@ -292,7 +292,6 @@ document.addEventListener("DOMContentLoaded", () => {
       );
     }
 
-
     return {
       options: promptsAndOptions.options,
       topic: promptsAndOptions.system.replace(
@@ -329,7 +328,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const conversationId = document.getElementById("conversation");
     for (let i = 0; i < conversationId.children.length; i++) {
       if (conversationId.children[i].id === update.id) message_index = i;
-      if (conversationId.children[i].id === update.id) message_index = i;
     }
 
     if (update.type == "skipped") {
@@ -361,7 +359,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // Handle conversation error
   socket.on("conversation_error", (errorMessage) => {
     console.error(errorMessage);
-    spinner.style.display = 'none';
+    spinner.style.display = "none";
     alert(errorMessage.message);
   });
 

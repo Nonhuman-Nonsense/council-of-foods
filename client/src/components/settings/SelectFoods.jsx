@@ -13,7 +13,7 @@ function SelectFoods({ topic, onContinueForward }) {
   const isMobile = useMobile();
   const isMobileXs = useMobileXs();
   const foods = foodData.foods; // Make sure this is defined before using it to find 'water'
-  const waterFood = foods.find((food) => food.name === "Water"); // Find the 'water' food item
+  const waterFood = foods.find((food) => food.name === "River"); // Find the 'water' food item
 
   // Initialize selectedFoods with the 'water' item if it exists
   const [selectedFoods, setSelectedFoods] = useState(
@@ -86,7 +86,7 @@ function SelectFoods({ topic, onContinueForward }) {
       }}
     >
       <div style={{ height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
-        <h1 style={{margin: isMobile && "0"}}>THE FOODS</h1>
+        <h1 style={{margin: isMobile && "0"}}>THE BEINGS</h1>
         <div
           style={{
             position: "relative",
@@ -95,10 +95,10 @@ function SelectFoods({ topic, onContinueForward }) {
           }}
         >
           <div style={discriptionStyle}>
-            <p style={{margin: 0}}>Council of Foods meeting on</p>
+            <p style={{margin: 0}}>Council of the Forest meeting on</p>
             <h3>{toTitleCase(topic.title)}</h3>
             <div>
-              {selectedFoods.length < 2 ? <p>please select 2-6 foods for the discussion</p> : <><p>will be attended by:</p>
+              {selectedFoods.length < 2 ? <p>please select 2-6 beings to listen to</p> : <><p>we will listen to:</p>
                 <div>{selectedFoods.map((food) => <p style={{margin: 0}} key={food.name}>{food.name}</p>)}</div>
                 </>}
             </div>
