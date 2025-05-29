@@ -278,20 +278,19 @@ document.addEventListener("DOMContentLoaded", () => {
       JSON.stringify(promptsAndOptions)
     );
 
-    let replacedCharacters = structuredClone(
-      promptsAndOptions.rooms[currentRoom].characters
-    );
-    let participants = "";
-    promptsAndOptions.rooms[currentRoom].characters.forEach(function (
-      food,
-      index
-    ) {
-      if (index !== 0) participants += toTitleCase(food.name) + ", ";
-    });
-    participants = participants.substring(0, participants.length - 2);
-    replacedCharacters[0].prompt = promptsAndOptions.rooms[
-      currentRoom
-    ].characters[0].prompt.replace("[FOODS]", participants);
+    let replacedCharacters = structuredClone(promptsAndOptions.rooms[currentRoom].characters);
+
+    if (replacedCharacters[0]) {
+      let participants = "";
+      promptsAndOptions.rooms[currentRoom].characters.forEach(function (food, index) {
+        if (index !== 0) participants += toTitleCase(food.name) + ", ";
+      });
+      participants = participants.substring(0, participants.length - 2);
+      replacedCharacters[0].prompt = promptsAndOptions.rooms[currentRoom].characters[0]?.prompt.replace(
+        "[FOODS]",
+        participants
+      );
+    }
 
     return {
       options: promptsAndOptions.options,
@@ -361,6 +360,7 @@ document.addEventListener("DOMContentLoaded", () => {
   socket.on("conversation_error", (errorMessage) => {
     console.error(errorMessage);
     spinner.style.display = "none";
+    alert(errorMessage.message);
   });
 
   // ==================
