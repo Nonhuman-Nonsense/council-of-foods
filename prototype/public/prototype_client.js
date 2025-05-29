@@ -278,18 +278,22 @@ document.addEventListener("DOMContentLoaded", () => {
       JSON.stringify(promptsAndOptions)
     );
 
-    let replacedCharacters = structuredClone(promptsAndOptions.rooms[currentRoom].characters);
+    let replacedCharacters = structuredClone(
+      promptsAndOptions.rooms[currentRoom].characters
+    );
 
     if (replacedCharacters[0]) {
       let participants = "";
-      promptsAndOptions.rooms[currentRoom].characters.forEach(function (food, index) {
+      promptsAndOptions.rooms[currentRoom].characters.forEach(function (
+        food,
+        index
+      ) {
         if (index !== 0) participants += toTitleCase(food.name) + ", ";
       });
       participants = participants.substring(0, participants.length - 2);
-      replacedCharacters[0].prompt = promptsAndOptions.rooms[currentRoom].characters[0]?.prompt.replace(
-        "[FOODS]",
-        participants
-      );
+      replacedCharacters[0].prompt = promptsAndOptions.rooms[
+        currentRoom
+      ].characters[0]?.prompt.replace("[FOODS]", participants);
     }
 
     return {
@@ -860,23 +864,11 @@ document.addEventListener("DOMContentLoaded", () => {
       })
       .catch((error) => console.error("Failed to reset:", error));
   }
-});
 
-// //////////////
-// UTILS
-// //////////////
+  // //////////////
+  // DRAG AND DROP CHARACTERS
+  // //////////////
 
-function toTitleCase(string) {
-  return string
-    .toLowerCase()
-    .split(" ")
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
-}
-
-// Drag-and-drop characters util
-
-document.addEventListener("DOMContentLoaded", () => {
   let draggedElem = null;
   let draggedIndex = null;
 
@@ -943,7 +935,6 @@ document.addEventListener("DOMContentLoaded", () => {
         const draggedChar = characters.splice(draggedIndex, 1)[0];
         characters.splice(targetIndex, 0, draggedChar);
 
-        updatePromptsAndOptions();
         unpackPromptsAndOptions();
 
         setTimeout(() => enableDragAndDrop(), 100);
@@ -974,3 +965,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
   setTimeout(() => enableDragAndDrop(), 100);
 });
+
+// //////////////
+// UTILS
+// //////////////
+
+function toTitleCase(string) {
+  return string
+    .toLowerCase()
+    .split(" ")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
