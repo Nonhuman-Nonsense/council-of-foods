@@ -1,4 +1,4 @@
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener("DOMContentLoaded", () => {
   const socket = io();
 
   //State for conversation control
@@ -7,41 +7,49 @@ document.addEventListener('DOMContentLoaded', () => {
   let promptsAndOptions;
   let conversation;
 
-  const conversationContainer = document.getElementById('conversation-container');
+  const conversationContainer = document.getElementById(
+    "conversation-container"
+  );
 
   //Global graphic buttons and elements
-  const toggleConversationBtn = document.getElementById('toggleConversationBtn');
-  const restartBtn = document.getElementById('restartButton');
-  const continueBtn = document.getElementById('continueButton');
-  const conversationDiv = document.getElementById('conversation');
-  const endMessage = document.getElementById('end-message');
-  const spinner = document.getElementById('spinner');
+  const toggleConversationBtn = document.getElementById(
+    "toggleConversationBtn"
+  );
+  const restartBtn = document.getElementById("restartButton");
+  const continueBtn = document.getElementById("continueButton");
+  const conversationDiv = document.getElementById("conversation");
+  const endMessage = document.getElementById("end-message");
+  const spinner = document.getElementById("spinner");
 
   //Audio control
-  const audioBackButton = document.getElementById('audioBack');
-  const audioToggleButton = document.getElementById('audioToggle');
-  const audioNextButton = document.getElementById('audioNext');
+  const audioBackButton = document.getElementById("audioBack");
+  const audioToggleButton = document.getElementById("audioToggle");
+  const audioNextButton = document.getElementById("audioNext");
 
   //Human input
-  const humanName = document.getElementById('human-name');
-  const raiseHandButton = document.getElementById('raiseHand');
-  const raiseHandIcon = document.getElementById('raiseHandIcon');
-  const humanInputArea = document.getElementById('humanInput');
-  const submitHumanInput = document.getElementById('submitHumanInput');
-  const viewHumanInputPrompts = document.getElementById('viewHumanInputPrompts');
-  const raiseHandPrompt = document.getElementById('raiseHandPrompt');
-  const humanConfig = document.getElementById('humanConfig');
-  const preHumanInputContainer = document.getElementById('preHumanInputContainer');
+  const humanName = document.getElementById("human-name");
+  const raiseHandButton = document.getElementById("raiseHand");
+  const raiseHandIcon = document.getElementById("raiseHandIcon");
+  const humanInputArea = document.getElementById("humanInput");
+  const submitHumanInput = document.getElementById("submitHumanInput");
+  const viewHumanInputPrompts = document.getElementById(
+    "viewHumanInputPrompts"
+  );
+  const raiseHandPrompt = document.getElementById("raiseHandPrompt");
+  const humanConfig = document.getElementById("humanConfig");
+  const preHumanInputContainer = document.getElementById(
+    "preHumanInputContainer"
+  );
   // const humanInputContainer = document.getElementById('humanInputContainer');
 
   //System prompt
-  const systemPrompt = document.getElementById('systemPrompt');
+  const systemPrompt = document.getElementById("systemPrompt");
 
   //Inject
-  const injectInputArea = document.getElementById('injectInputArea');
-  const submitInjection = document.getElementById('submitInjection');
-  const injectedMessage = document.getElementById('injectedMessage');
-  const removeLastMessage = document.getElementById('removeLastMessage');
+  const injectInputArea = document.getElementById("injectInputArea");
+  const submitInjection = document.getElementById("submitInjection");
+  const injectedMessage = document.getElementById("injectedMessage");
+  const removeLastMessage = document.getElementById("removeLastMessage");
 
   //Objects for audio control
   let audioCtx;
@@ -55,7 +63,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let currentRoom = 0;
 
   //Names of OpenAI voices
-  const audioVoices = ['alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer'];
+  const audioVoices = ["alloy", "echo", "fable", "onyx", "nova", "shimmer"];
 
   // Human input
   let handRaised = false;
@@ -67,29 +75,54 @@ document.addEventListener('DOMContentLoaded', () => {
   function unpackPromptsAndOptions() {
     //Update the UI with the data stored in localStorage
     //Do the same as update, but reverse
-    document.getElementById('gpt-model').value = promptsAndOptions.options.gptModel;
-    document.getElementById('temperature').value = promptsAndOptions.options.temperature;
-    document.getElementById('temperature').previousSibling.value = promptsAndOptions.options.temperature;
-    document.getElementById('max-tokens').value = promptsAndOptions.options.maxTokens;
-    document.getElementById('max-tokens').previousSibling.value = promptsAndOptions.options.maxTokens;
-    document.getElementById('chair-max-tokens').value = promptsAndOptions.options.chairMaxTokens;
-    document.getElementById('chair-max-tokens').previousSibling.value = promptsAndOptions.options.chairMaxTokens;
-    document.getElementById('raise-hand-invitation-length').value = promptsAndOptions.options.raiseHandInvitationLength;
-    document.getElementById('raise-hand-invitation-length').previousSibling.value = promptsAndOptions.options.raiseHandInvitationLength;
-    document.getElementById('max-tokens-inject').value = promptsAndOptions.options.maxTokensInject;
-    document.getElementById('max-tokens-inject').previousSibling.value = promptsAndOptions.options.maxTokensInject;
-    document.getElementById('frequency-penalty').value = promptsAndOptions.options.frequencyPenalty;
-    document.getElementById('frequency-penalty').previousSibling.value = promptsAndOptions.options.frequencyPenalty;
-    document.getElementById('presence-penalty').value = promptsAndOptions.options.presencePenalty;
-    document.getElementById('presence-penalty').previousSibling.value = promptsAndOptions.options.presencePenalty;
+    document.getElementById("gpt-model").value =
+      promptsAndOptions.options.gptModel;
+    document.getElementById("temperature").value =
+      promptsAndOptions.options.temperature;
+    document.getElementById("temperature").previousSibling.value =
+      promptsAndOptions.options.temperature;
+    document.getElementById("max-tokens").value =
+      promptsAndOptions.options.maxTokens;
+    document.getElementById("max-tokens").previousSibling.value =
+      promptsAndOptions.options.maxTokens;
+    document.getElementById("chair-max-tokens").value =
+      promptsAndOptions.options.chairMaxTokens;
+    document.getElementById("chair-max-tokens").previousSibling.value =
+      promptsAndOptions.options.chairMaxTokens;
+    document.getElementById("raise-hand-invitation-length").value =
+      promptsAndOptions.options.raiseHandInvitationLength;
+    document.getElementById(
+      "raise-hand-invitation-length"
+    ).previousSibling.value =
+      promptsAndOptions.options.raiseHandInvitationLength;
+    document.getElementById("max-tokens-inject").value =
+      promptsAndOptions.options.maxTokensInject;
+    document.getElementById("max-tokens-inject").previousSibling.value =
+      promptsAndOptions.options.maxTokensInject;
+    document.getElementById("frequency-penalty").value =
+      promptsAndOptions.options.frequencyPenalty;
+    document.getElementById("frequency-penalty").previousSibling.value =
+      promptsAndOptions.options.frequencyPenalty;
+    document.getElementById("presence-penalty").value =
+      promptsAndOptions.options.presencePenalty;
+    document.getElementById("presence-penalty").previousSibling.value =
+      promptsAndOptions.options.presencePenalty;
 
-    document.getElementById('trim-response-to-full-sentance').checked = promptsAndOptions.options.trimSentance;
-    document.getElementById('trim-response-to-full-paragraph').checked = promptsAndOptions.options.trimParagraph;
-    document.getElementById('trim-response-to-remove-waters-semicolon').checked = promptsAndOptions.options.trimWaterSemicolon;
-    document.getElementById('show-trimmed').checked = promptsAndOptions.options.showTrimmed;
-    document.getElementById('conversation-max-length').value = promptsAndOptions.options.conversationMaxLength;
-    document.getElementById('extra-message-count').value = promptsAndOptions.options.extraMessageCount;
-    document.getElementById('skip-audio').checked = promptsAndOptions.options.skipAudio;
+    document.getElementById("trim-response-to-full-sentance").checked =
+      promptsAndOptions.options.trimSentance;
+    document.getElementById("trim-response-to-full-paragraph").checked =
+      promptsAndOptions.options.trimParagraph;
+    document.getElementById(
+      "trim-response-to-remove-waters-semicolon"
+    ).checked = promptsAndOptions.options.trimWaterSemicolon;
+    document.getElementById("show-trimmed").checked =
+      promptsAndOptions.options.showTrimmed;
+    document.getElementById("conversation-max-length").value =
+      promptsAndOptions.options.conversationMaxLength;
+    document.getElementById("extra-message-count").value =
+      promptsAndOptions.options.extraMessageCount;
+    document.getElementById("skip-audio").checked =
+      promptsAndOptions.options.skipAudio;
 
     injectInputArea.value = promptsAndOptions.options.injectPrompt;
 
@@ -105,86 +138,111 @@ document.addEventListener('DOMContentLoaded', () => {
       promptsAndOptions.rooms.forEach((room, i) => {
         const newDiv = document.createElement("button");
         newDiv.innerHTML = room.name;
-        newDiv.setAttribute('room-id', i);
-        newDiv.addEventListener('click', roomButtonClicked);
+        newDiv.setAttribute("room-id", i);
+        newDiv.addEventListener("click", roomButtonClicked);
         roomButtonsDiv.appendChild(newDiv);
       });
     }
-    document.getElementById('room-buttons').replaceWith(roomButtonsDiv);
+    document.getElementById("room-buttons").replaceWith(roomButtonsDiv);
 
     // Retrieve the panel topic and name
-    document.getElementById('room-name').value = promptsAndOptions.rooms[currentRoom].name;
-    document.getElementById('panel-prompt').value = promptsAndOptions.rooms[currentRoom].topic;
+    document.getElementById("room-name").value =
+      promptsAndOptions.rooms[currentRoom].name;
+    document.getElementById("panel-prompt").value =
+      promptsAndOptions.rooms[currentRoom].topic;
 
     // Build array of characters
     let characterDiv = document.createElement("div");
     characterDiv.id = "characters";
     if (promptsAndOptions.rooms[currentRoom].characters.length > 0) {
-      promptsAndOptions.rooms[currentRoom].characters.forEach((character, j) => {
-        const newDiv = document.createElement("div");
-        newDiv.className = "character";
+      promptsAndOptions.rooms[currentRoom].characters.forEach(
+        (character, j) => {
+          const newDiv = document.createElement("div");
+          newDiv.className = "character";
 
-        const inputDiv = document.createElement("input");
-        inputDiv.placeholder = "character name";
-        inputDiv.type = "text";
-        inputDiv.value = character.name ?? '';
+          const inputDiv = document.createElement("input");
+          inputDiv.placeholder = "character name";
+          inputDiv.type = "text";
+          inputDiv.value = character.name ?? "";
 
-        const textDiv = document.createElement("textarea");
-        textDiv.placeholder = "character prompt";
-        textDiv.value = character.prompt ?? '';
+          const textDiv = document.createElement("textarea");
+          textDiv.placeholder = "character prompt";
+          textDiv.value = character.prompt ?? "";
 
-        const voiceDiv = document.createElement("div");
-        voiceDiv.className = "voices";
-        const voicesDescDiv = document.createElement("span");
-        voicesDescDiv.innerHTML = "voice: ";
-        voiceDiv.appendChild(voicesDescDiv);
-        for (let i = 0; i < audioVoices.length; i++) {
-          const voiceRadioDiv = document.createElement("input");
-          voiceRadioDiv.id = "voice-" + j + "-" + audioVoices[i];
-          voiceRadioDiv.name = "voice-" + j;
-          voiceRadioDiv.type = "radio";
-          voiceRadioDiv.value = audioVoices[i];
-          if (character.voice === undefined) {
-            if (j % audioVoices.length == i) voiceRadioDiv.checked = true;
-          } else {
-            if (character.voice == audioVoices[i]) voiceRadioDiv.checked = true;
+          const voiceDiv = document.createElement("div");
+          voiceDiv.className = "voices";
+          const voicesDescDiv = document.createElement("span");
+          voicesDescDiv.innerHTML = "voice: ";
+          voiceDiv.appendChild(voicesDescDiv);
+          for (let i = 0; i < audioVoices.length; i++) {
+            const voiceRadioDiv = document.createElement("input");
+            voiceRadioDiv.id = "voice-" + j + "-" + audioVoices[i];
+            voiceRadioDiv.name = "voice-" + j;
+            voiceRadioDiv.type = "radio";
+            voiceRadioDiv.value = audioVoices[i];
+            if (character.voice === undefined) {
+              if (j % audioVoices.length == i) voiceRadioDiv.checked = true;
+            } else {
+              if (character.voice == audioVoices[i])
+                voiceRadioDiv.checked = true;
+            }
+            voiceDiv.appendChild(voiceRadioDiv);
+            const voiceRadioLabelDiv = document.createElement("label");
+            voiceRadioLabelDiv.innerHTML = audioVoices[i];
+            voiceRadioLabelDiv.htmlFor = "voice-" + j + "-" + audioVoices[i];
+            voiceDiv.appendChild(voiceRadioLabelDiv);
           }
-          voiceDiv.appendChild(voiceRadioDiv);
-          const voiceRadioLabelDiv = document.createElement("label");
-          voiceRadioLabelDiv.innerHTML = audioVoices[i];
-          voiceRadioLabelDiv.htmlFor = "voice-" + j + "-" + audioVoices[i];
-          voiceDiv.appendChild(voiceRadioLabelDiv);
-        }
 
-        newDiv.appendChild(inputDiv);
-        newDiv.appendChild(textDiv);
-        newDiv.appendChild(voiceDiv);
-        characterDiv.appendChild(newDiv);
-      });
+          newDiv.appendChild(inputDiv);
+          newDiv.appendChild(textDiv);
+          newDiv.appendChild(voiceDiv);
+          characterDiv.appendChild(newDiv);
+        }
+      );
     }
-    document.getElementById('characters').replaceWith(characterDiv);
+    document.getElementById("characters").replaceWith(characterDiv);
   }
 
   const updatePromptsAndOptions = (reset = false) => {
     // Retrieve the global options
-    promptsAndOptions.options = {};//Reset to remove possible orphan options
-    promptsAndOptions.options.gptModel = document.getElementById('gpt-model').value;
-    promptsAndOptions.options.temperature = +document.getElementById('temperature').value;
-    promptsAndOptions.options.maxTokens = +document.getElementById('max-tokens').value;
-    promptsAndOptions.options.chairMaxTokens = +document.getElementById('chair-max-tokens').value;
-    promptsAndOptions.options.raiseHandInvitationLength = +document.getElementById('raise-hand-invitation-length').value;
-    promptsAndOptions.options.frequencyPenalty = +document.getElementById('frequency-penalty').value;
-    promptsAndOptions.options.presencePenalty = +document.getElementById('presence-penalty').value;
-    promptsAndOptions.options.trimSentance = document.getElementById('trim-response-to-full-sentance').checked;
-    promptsAndOptions.options.trimParagraph = document.getElementById('trim-response-to-full-paragraph').checked;
-    promptsAndOptions.options.trimWaterSemicolon = document.getElementById('trim-response-to-remove-waters-semicolon').checked;
-    promptsAndOptions.options.showTrimmed = document.getElementById('show-trimmed').checked;
-    promptsAndOptions.options.conversationMaxLength = +document.getElementById('conversation-max-length').value;
-    promptsAndOptions.options.extraMessageCount = +document.getElementById('extra-message-count').value;
-    promptsAndOptions.options.skipAudio = document.getElementById('skip-audio').checked;
+    promptsAndOptions.options = {}; //Reset to remove possible orphan options
+    promptsAndOptions.options.gptModel =
+      document.getElementById("gpt-model").value;
+    promptsAndOptions.options.temperature =
+      +document.getElementById("temperature").value;
+    promptsAndOptions.options.maxTokens =
+      +document.getElementById("max-tokens").value;
+    promptsAndOptions.options.chairMaxTokens =
+      +document.getElementById("chair-max-tokens").value;
+    promptsAndOptions.options.raiseHandInvitationLength =
+      +document.getElementById("raise-hand-invitation-length").value;
+    promptsAndOptions.options.frequencyPenalty =
+      +document.getElementById("frequency-penalty").value;
+    promptsAndOptions.options.presencePenalty =
+      +document.getElementById("presence-penalty").value;
+    promptsAndOptions.options.trimSentance = document.getElementById(
+      "trim-response-to-full-sentance"
+    ).checked;
+    promptsAndOptions.options.trimParagraph = document.getElementById(
+      "trim-response-to-full-paragraph"
+    ).checked;
+    promptsAndOptions.options.trimWaterSemicolon = document.getElementById(
+      "trim-response-to-remove-waters-semicolon"
+    ).checked;
+    promptsAndOptions.options.showTrimmed =
+      document.getElementById("show-trimmed").checked;
+    promptsAndOptions.options.conversationMaxLength = +document.getElementById(
+      "conversation-max-length"
+    ).value;
+    promptsAndOptions.options.extraMessageCount = +document.getElementById(
+      "extra-message-count"
+    ).value;
+    promptsAndOptions.options.skipAudio =
+      document.getElementById("skip-audio").checked;
 
     promptsAndOptions.options.injectPrompt = injectInputArea.value;
-    promptsAndOptions.options.maxTokensInject = +document.getElementById('max-tokens-inject').value;
+    promptsAndOptions.options.maxTokensInject =
+      +document.getElementById("max-tokens-inject").value;
 
     promptsAndOptions.options.raiseHandPrompt = raiseHandPrompt.value;
     promptsAndOptions.options.humanName = humanName.value;
@@ -192,51 +250,65 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!reset) {
       promptsAndOptions.system = systemPrompt.value;
       // Retrieve the panel topic
-      promptsAndOptions.rooms[currentRoom].name = document.getElementById('room-name').value;
-      promptsAndOptions.rooms[currentRoom].topic = document.getElementById('panel-prompt').value;
+      promptsAndOptions.rooms[currentRoom].name =
+        document.getElementById("room-name").value;
+      promptsAndOptions.rooms[currentRoom].topic =
+        document.getElementById("panel-prompt").value;
 
       // Gather character data
-      const characters = document.querySelectorAll('#characters .character');
+      const characters = document.querySelectorAll("#characters .character");
 
-      promptsAndOptions.rooms[currentRoom].characters = Array.from(characters).map(characterDiv => {
-        const nameInput = characterDiv.querySelector('input').value; // Assuming the first input is still for the name
-        const roleTextarea = characterDiv.querySelector('textarea').value; // Select the textarea for the role
-        const voice = characterDiv.querySelector('input[type=radio]:checked');
+      promptsAndOptions.rooms[currentRoom].characters = Array.from(
+        characters
+      ).map((characterDiv) => {
+        const nameInput = characterDiv.querySelector("input").value; // Assuming the first input is still for the name
+        const roleTextarea = characterDiv.querySelector("textarea").value; // Select the textarea for the role
+        const voice = characterDiv.querySelector("input[type=radio]:checked");
 
         return {
           name: nameInput,
           prompt: roleTextarea,
-          voice: voice?.value
+          voice: voice?.value,
         };
       });
     }
 
-    localStorage.setItem("PromptsAndOptions", JSON.stringify(promptsAndOptions));
+    localStorage.setItem(
+      "PromptsAndOptions",
+      JSON.stringify(promptsAndOptions)
+    );
 
-    let replacedCharacters = structuredClone(promptsAndOptions.rooms[currentRoom].characters);
+    let replacedCharacters = structuredClone(
+      promptsAndOptions.rooms[currentRoom].characters
+    );
     let participants = "";
-    promptsAndOptions.rooms[currentRoom].characters.forEach(function (food, index) {
+    promptsAndOptions.rooms[currentRoom].characters.forEach(function (
+      food,
+      index
+    ) {
       if (index !== 0) participants += toTitleCase(food.name) + ", ";
     });
     participants = participants.substring(0, participants.length - 2);
-    replacedCharacters[0].prompt = promptsAndOptions.rooms[currentRoom].characters[0].prompt.replace(
-      "[FOODS]",
-      participants
-    );
+    replacedCharacters[0].prompt = promptsAndOptions.rooms[
+      currentRoom
+    ].characters[0].prompt.replace("[FOODS]", participants);
 
     return {
       options: promptsAndOptions.options,
-      topic: promptsAndOptions.system.replace("[TOPIC]", promptsAndOptions.rooms[currentRoom].topic),
-      characters: replacedCharacters
+      topic: promptsAndOptions.system.replace(
+        "[TOPIC]",
+        promptsAndOptions.rooms[currentRoom].topic
+      ),
+      characters: replacedCharacters,
     };
-  }
+  };
 
   // ==================
   //   SOCKET EVENTS
   // ==================
 
   // Handle conversation updates
-  socket.on('conversation_update', (conversationUpdate) => {
+  socket.on("conversation_update", (conversationUpdate) => {
     conversation = conversationUpdate;
     reloadConversations();
     preHumanInputContainer.style.display = "none";
@@ -245,7 +317,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // Handle audio updates
-  socket.on('audio_update', async (update) => {
+  socket.on("audio_update", async (update) => {
     if (document.getElementById(update.id) === null) {
       //If an audio is received for a message that is not currently on screen, skip it!
       //This could happen after a restart etc.
@@ -254,37 +326,41 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log(update);
 
     let message_index;
-    const conversationId = document.getElementById('conversation');
+    const conversationId = document.getElementById("conversation");
     for (let i = 0; i < conversationId.children.length; i++) {
-      if(conversationId.children[i].id === update.id) message_index = i;
+      if (conversationId.children[i].id === update.id) message_index = i;
     }
 
-    if (update.type == 'skipped') {
+    if (update.type == "skipped") {
       ignorePlaylist(message_index);
       return;
     }
     //This is an async function
     await addToPlaylist(update.audio, message_index);
     //If audio is not playing, we then need to move to the next item in playlist
-    if (!audioIsPlaying && audioPlaylist[currentAudio] !== undefined && !pauseAudio) {
+    if (
+      !audioIsPlaying &&
+      audioPlaylist[currentAudio] !== undefined &&
+      !pauseAudio
+    ) {
       audioPlaylist[currentAudio].play();
     }
   });
 
   // Handle conversation end
-  socket.on('conversation_end', () => {
-    spinner.style.display = 'none';
-    toggleConversationBtn.style.display = 'none';
-    restartBtn.style.display = 'inline';
-    continueBtn.style.display = 'inline';
+  socket.on("conversation_end", () => {
+    spinner.style.display = "none";
+    toggleConversationBtn.style.display = "none";
+    restartBtn.style.display = "inline";
+    continueBtn.style.display = "inline";
     endMessage.innerHTML = "End of Conversation";
     conversationActive = false;
   });
 
   // Handle conversation error
-  socket.on('conversation_error', (errorMessage) => {
+  socket.on("conversation_error", (errorMessage) => {
     console.error(errorMessage);
-    spinner.style.display = 'none';
+    spinner.style.display = "none";
   });
 
   // ==================
@@ -306,7 +382,7 @@ document.addEventListener('DOMContentLoaded', () => {
       // connect the AudioBufferSourceNode to the
       // destination so we can hear the sound
       source.connect(audioCtx.destination);
-      source.addEventListener('ended', async () => {
+      source.addEventListener("ended", async () => {
         //If audio is paused, do nothing
         if (pauseAudio) return;
         if (nextOrBackClicked) {
@@ -320,7 +396,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (audioPlaylist[currentAudio + 1] !== undefined) {
           //Wait a bit before the next audio plays
           //This type of waiting is non-blocking
-          await new Promise(r => setTimeout(r, 1000));
+          await new Promise((r) => setTimeout(r, 1000));
 
           //Play the next audio in the list
           currentAudio++;
@@ -335,18 +411,17 @@ document.addEventListener('DOMContentLoaded', () => {
       });
       source.start();
       audioIsPlaying = true;
-    }
+    };
 
     const stop = function () {
       source.stop();
       audioIsPlaying = false;
-    }
-
+    };
 
     //This array can be filled in a sparse way, because audio files might not be downloaded in the right order
     //This has to be handled in the playback
     audioPlaylist[index] = { play: play, stop: stop };
-  }
+  };
 
   const ignorePlaylist = (index) => {
     const ignore = function () {
@@ -361,14 +436,14 @@ document.addEventListener('DOMContentLoaded', () => {
         audioIsPlaying = false;
         currentAudio++;
       }
-    }
+    };
     const stop = function () {
       audioIsPlaying = false;
-    }
+    };
     audioPlaylist[index] = { play: ignore, stop: stop, skip: true };
-  }
+  };
 
-  audioBackButton.addEventListener('click', async () => {
+  audioBackButton.addEventListener("click", async () => {
     //If audio is paused, do nothing
     if (pauseAudio) return;
 
@@ -389,12 +464,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  audioToggleButton.addEventListener('click', () => {
+  audioToggleButton.addEventListener("click", () => {
     if (audioIsPlaying) {
       //If audio is playing, pause it.
       audioCtx.suspend();
       audioIsPlaying = false;
-    } else if (audioCtx && audioCtx.state == 'suspended') {
+    } else if (audioCtx && audioCtx.state == "suspended") {
       //If current playback is suspended, resume it.
       //Also check that audio context has been initialized
       audioCtx.resume();
@@ -413,12 +488,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  audioNextButton.addEventListener('click', () => {
+  audioNextButton.addEventListener("click", () => {
     //If audio is paused, do nothing
     if (pauseAudio) return;
 
     if (audioPlaylist[currentAudio + 1] !== undefined) {
-
       //If audio is playing
       if (audioIsPlaying) {
         //Stop the current audio
@@ -435,25 +509,25 @@ document.addEventListener('DOMContentLoaded', () => {
   //   BUTTON CONTROL
   // ==================
 
-  toggleConversationBtn.addEventListener('click', () => {
+  toggleConversationBtn.addEventListener("click", () => {
     if (conversationActive) {
       //Pause the conversation
-      toggleConversationBtn.textContent = 'Resume';
-      restartBtn.style.display = 'inline';
+      toggleConversationBtn.textContent = "Resume";
+      restartBtn.style.display = "inline";
       conversationActive = false;
-      spinner.style.display = 'none';
-      socket.emit('pause_conversation');
+      spinner.style.display = "none";
+      socket.emit("pause_conversation");
     } else {
       //Start from scratch or resume
-      spinner.style.display = 'block';
-      continueBtn.style.display = 'none';
-      restartBtn.style.display = 'none';
-      toggleConversationBtn.textContent = 'Pause';
+      spinner.style.display = "block";
+      continueBtn.style.display = "none";
+      restartBtn.style.display = "none";
+      toggleConversationBtn.textContent = "Pause";
       conversationActive = true;
 
       if (!conversationStarted) {
         //Start the conversation from scratch!
-        spinner.style.display = 'block';        
+        spinner.style.display = "block";
 
         //Initialize the audio context
         audioCtx = new window.AudioContext();
@@ -461,23 +535,23 @@ document.addEventListener('DOMContentLoaded', () => {
         conversationStarted = true;
         // Emit the start conversation event with all necessary data
         const sentPromptsAndOptions = updatePromptsAndOptions();
-        socket.emit('start_conversation', sentPromptsAndOptions);
+        socket.emit("start_conversation", sentPromptsAndOptions);
       } else {
         // Resume the conversation if it's paused
         isPaused = false;
-        console.log('Conversation has been resumed');
-        socket.emit('resume_conversation');
+        console.log("Conversation has been resumed");
+        socket.emit("resume_conversation");
       }
     }
   });
 
-  restartBtn.addEventListener('click', () => {
+  restartBtn.addEventListener("click", () => {
     //Continue to generate more even after it has previously stopped
-    spinner.style.display = 'block';
-    continueBtn.style.display = 'none';
-    restartBtn.style.display = 'none';
-    toggleConversationBtn.style.display = 'inline';
-    toggleConversationBtn.textContent = 'Pause';
+    spinner.style.display = "block";
+    continueBtn.style.display = "none";
+    restartBtn.style.display = "none";
+    toggleConversationBtn.style.display = "inline";
+    toggleConversationBtn.textContent = "Pause";
     preHumanInputContainer.style.display = "block";
     postHumanInputContainer.style.display = "none";
     raiseHandButton.innerHTML = "I want to say something/Raise hand";
@@ -487,7 +561,7 @@ document.addEventListener('DOMContentLoaded', () => {
     conversationActive = true;
     endMessage.innerHTML = "";
     conversationDiv.innerHTML = "";
-    raiseHandButton.style.display = 'inline';
+    raiseHandButton.style.display = "inline";
     handRaised = false;
 
     //Stop audio if it's playing, and reset the data
@@ -500,64 +574,65 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const sentPromptsAndOptions = updatePromptsAndOptions();
     // Emit the start conversation event with all necessary data
-    socket.emit('start_conversation', sentPromptsAndOptions);
+    socket.emit("start_conversation", sentPromptsAndOptions);
   });
 
-  continueBtn.addEventListener('click', () => {
+  continueBtn.addEventListener("click", () => {
     //Continue to generate more even after it has previously stopped
-    spinner.style.display = 'block';
-    restartBtn.style.display = 'none';
-    continueBtn.style.display = 'none';
-    toggleConversationBtn.style.display = 'inline';
-    toggleConversationBtn.textContent = 'Pause';
+    spinner.style.display = "block";
+    restartBtn.style.display = "none";
+    continueBtn.style.display = "none";
+    toggleConversationBtn.style.display = "inline";
+    toggleConversationBtn.textContent = "Pause";
     conversationActive = true;
     endMessage.innerHTML = "";
 
     // Emit the start conversation event with all necessary data
     const sentPromptsAndOptions = updatePromptsAndOptions();
-    socket.emit('continue_conversation', sentPromptsAndOptions);
+    socket.emit("continue_conversation", sentPromptsAndOptions);
   });
 
-  removeLastMessage.addEventListener('click', () => {
-    socket.emit('remove_last_message');
+  removeLastMessage.addEventListener("click", () => {
+    socket.emit("remove_last_message");
   });
 
-  submitInjection.addEventListener('click', () => {
+  submitInjection.addEventListener("click", () => {
     reloadUI();
 
-    const conversationLength = document.getElementById('conversation').children.length;
+    const conversationLength =
+      document.getElementById("conversation").children.length;
     const message = {
       text: injectInputArea.value,
       length: promptsAndOptions.options.maxTokensInject,
-      index: conversationLength
-    }
+      index: conversationLength,
+    };
     injectedMessage.innerHTML = "Instruction injected, just wait...";
     submitInjection.style.display = "none";
     setTimeout(function () {
       submitInjection.style.display = "inline";
       injectedMessage.innerHTML = "";
     }, 5000);
-    socket.emit('submit_injection', message);
+    socket.emit("submit_injection", message);
   });
 
   // Handle submission of human input
-  submitHumanInput.addEventListener('click', () => {
+  submitHumanInput.addEventListener("click", () => {
     const message = {
       speaker: humanName.value,
-      text: humanInputArea.value
-    }
+      text: humanInputArea.value,
+    };
 
     if (conversationActive == false) {
-      toggleConversationBtn.textContent = 'Pause';
+      toggleConversationBtn.textContent = "Pause";
       conversationActive = true;
-      spinner.style.display = 'block';
-      toggleConversationBtn.style.display = 'inline';
-      restartBtn.style.display = 'none';
-      continueBtn.style.display = 'none';
+      spinner.style.display = "block";
+      toggleConversationBtn.style.display = "inline";
+      restartBtn.style.display = "none";
+      continueBtn.style.display = "none";
     }
     if (handRaised) {
       handRaised = false;
-      raiseHandIcon.style.display = 'none';
+      raiseHandIcon.style.display = "none";
       raiseHandButton.style.display = "inline";
       raiseHandIcon.style.display = "none";
       humanInputArea.style.display = "none";
@@ -565,16 +640,16 @@ document.addEventListener('DOMContentLoaded', () => {
       spinner.style.display = "block";
       endMessage.innerHTML = "";
 
-      continueBtn.style.display = 'none';
-      restartBtn.style.display = 'none';
-      toggleConversationBtn.textContent = 'Pause';
+      continueBtn.style.display = "none";
+      restartBtn.style.display = "none";
+      toggleConversationBtn.textContent = "Pause";
       conversationActive = true;
     }
-    socket.emit('submit_human_message', message);
+    socket.emit("submit_human_message", message);
   });
 
   // Adding a character to the panel
-  document.getElementById('add-character').addEventListener('click', () => {
+  document.getElementById("add-character").addEventListener("click", () => {
     updatePromptsAndOptions();
 
     promptsAndOptions.rooms[currentRoom].characters.push({});
@@ -582,15 +657,17 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // Remove the last character
-  document.getElementById('remove-character').addEventListener('click', () => {
-    const characters = document.getElementById('characters');
+  document.getElementById("remove-character").addEventListener("click", () => {
+    const characters = document.getElementById("characters");
     if (characters.lastChild) characters.removeChild(characters.lastChild);
   });
 
-  document.getElementById('factoryResetButton').addEventListener('click', () => {
-    localStorage.clear();
-    location.reload();
-  });
+  document
+    .getElementById("factoryResetButton")
+    .addEventListener("click", () => {
+      localStorage.clear();
+      location.reload();
+    });
 
   const roomButtonClicked = function (e) {
     //First save what we have at the moment
@@ -599,44 +676,48 @@ document.addEventListener('DOMContentLoaded', () => {
     currentRoom = e.target.getAttribute("room-id");
     //Update UI
     unpackPromptsAndOptions();
-  }
+  };
 
   function reloadConversations() {
     if (!conversation) return;
     conversationDiv.innerHTML = conversation
-      .map(turn => {
+      .map((turn) => {
         //If if we should skip this message, we still need to put the id in to the DOM, to keep track if which messages have received audio information
         //So we put a hidden object
         //This might not be the best idea
-        if (!promptsAndOptions.options.showTrimmed && turn.type == 'skipped') {
+        if (!promptsAndOptions.options.showTrimmed && turn.type == "skipped") {
           return `<p id="${turn.id}" style="display:none;"></p>`;
         }
         let speech = `<p id="${turn.id}">`;
         speech += `<strong>${turn.speaker}:</strong> `;
         if (promptsAndOptions.options.showTrimmed && turn.pretrimmed) {
-          speech += `<span class="trimmed">${turn.pretrimmed.split('\n').join('<br>')}</span>`;
+          speech += `<span class="trimmed">${turn.pretrimmed
+            .split("\n")
+            .join("<br>")}</span>`;
         }
-        speech += turn.text.split('\n').join('<br>');
+        speech += turn.text.split("\n").join("<br>");
         if (promptsAndOptions.options.showTrimmed && turn.trimmed) {
-          speech += `<span class="trimmed">${turn.trimmed.split('\n').join('<br>')}</span>`;
+          speech += `<span class="trimmed">${turn.trimmed
+            .split("\n")
+            .join("<br>")}</span>`;
         }
-        speech += "</p>"
+        speech += "</p>";
         return speech;
       })
-      .join('');
+      .join("");
   }
 
-  document.getElementById('show-trimmed').addEventListener('click', () => {
+  document.getElementById("show-trimmed").addEventListener("click", () => {
     reloadUI();
   });
 
   // Remove the last character
-  document.getElementById('add-room').addEventListener('click', () => {
-    const rooms = document.getElementById('room-buttons');
+  document.getElementById("add-room").addEventListener("click", () => {
+    const rooms = document.getElementById("room-buttons");
     // const roomsCount = rooms.getElementsByTagName('button').length;
 
-    const newRoomButton = document.createElement('button');
-    newRoomButton.innerHTML = 'New Room';
+    const newRoomButton = document.createElement("button");
+    newRoomButton.innerHTML = "New Room";
     rooms.appendChild(newRoomButton);
 
     //First save what we have at the moment
@@ -646,7 +727,7 @@ document.addEventListener('DOMContentLoaded', () => {
     promptsAndOptions.rooms.push({
       name: "New Room",
       topic: "",
-      characters: {}
+      characters: {},
     });
     currentRoom = promptsAndOptions.rooms.length - 1;
     unpackPromptsAndOptions();
@@ -655,22 +736,22 @@ document.addEventListener('DOMContentLoaded', () => {
     updatePromptsAndOptions();
   });
 
-  document.getElementById('remove-room').addEventListener('click', () => {
+  document.getElementById("remove-room").addEventListener("click", () => {
     if (promptsAndOptions.rooms.length > 1) {
       updatePromptsAndOptions();
-      const rooms = document.getElementById('room-buttons');
+      const rooms = document.getElementById("room-buttons");
       if (rooms.lastChild) rooms.removeChild(rooms.lastChild);
 
       promptsAndOptions.rooms.pop();
-      if (currentRoom > promptsAndOptions.rooms.length - 1) currentRoom = promptsAndOptions.rooms.length - 1;
+      if (currentRoom > promptsAndOptions.rooms.length - 1)
+        currentRoom = promptsAndOptions.rooms.length - 1;
       //Save
       unpackPromptsAndOptions();
       updatePromptsAndOptions();
     }
-
   });
 
-  viewHumanInputPrompts.addEventListener('click', () => {
+  viewHumanInputPrompts.addEventListener("click", () => {
     if (viewHumanInputPrompts.innerHTML == "configure") {
       humanConfig.style.display = "block";
       viewHumanInputPrompts.innerHTML = "hide";
@@ -681,15 +762,15 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   //range sliders for model options
-  Array.from(document.querySelectorAll('input[type=range]')).map(range => {
+  Array.from(document.querySelectorAll("input[type=range]")).map((range) => {
     range.nextSibling.value = range.value;
-    range.oninput = () => range.nextSibling.value = range.value;
-    range.nextSibling.oninput = () => range.value = range.nextSibling.value;
-    range.onmouseover = () => range.previousSibling.style.display = "block";
-    range.onmouseout = () => range.previousSibling.style.display = "none";
+    range.oninput = () => (range.nextSibling.value = range.value);
+    range.nextSibling.oninput = () => (range.value = range.nextSibling.value);
+    range.onmouseover = () => (range.previousSibling.style.display = "block");
+    range.onmouseout = () => (range.previousSibling.style.display = "none");
   });
 
-  raiseHandButton.addEventListener('click', () => {
+  raiseHandButton.addEventListener("click", () => {
     if (!handRaised) {
       handRaised = true;
       raiseHandButton.style.display = "none";
@@ -699,15 +780,14 @@ document.addEventListener('DOMContentLoaded', () => {
       submitHumanInput.style.display = "block";
       endMessage.innerHTML = "Waiting for human input...";
       updatePromptsAndOptions();
-      const conversationLength = document.getElementById('conversation').children.length;
-      socket.emit('raise_hand', {
+      const conversationLength =
+        document.getElementById("conversation").children.length;
+      socket.emit("raise_hand", {
         humanName: promptsAndOptions.options.humanName,
         index: conversationLength,
       });
     }
   });
-
-
 
   //When to reload the UI
 
@@ -717,7 +797,7 @@ document.addEventListener('DOMContentLoaded', () => {
     reloadConversations();
   };
 
-  document.getElementById('room-name').addEventListener('change', reloadUI);
+  document.getElementById("room-name").addEventListener("change", reloadUI);
 
   //Lastly, try to fill the initial UI
 
@@ -732,35 +812,35 @@ document.addEventListener('DOMContentLoaded', () => {
     unpackPromptsAndOptions();
   } catch (e) {
     console.log(e);
-    console.log('Resetting to default settings');
+    console.log("Resetting to default settings");
 
     let default_foods;
     let default_topics;
-    fetch('./foods.json')
-      .then(response => {
+    fetch("./foods.json")
+      .then((response) => {
         if (!response.ok) {
           throw new Error(`HTTP error! Status: ${response.status}`);
         }
         return response.json();
       })
-      .then(data => {
+      .then((data) => {
         default_foods = data.foods;
-        return fetch('./topics.json');
+        return fetch("./topics.json");
       })
-      .then(response => {
+      .then((response) => {
         if (!response.ok) {
           throw new Error(`HTTP error! Status: ${response.status}`);
         }
         return response.json();
       })
-      .then(data => {
+      .then((data) => {
         default_topics = data;
         return Promise.resolve();
       })
       .then(() => {
         promptsAndOptions = {
           options: {},
-          system: default_topics.system
+          system: default_topics.system,
         };
 
         let rooms = [];
@@ -769,7 +849,7 @@ document.addEventListener('DOMContentLoaded', () => {
           rooms[i] = {
             name: topic.title,
             topic: topic.prompt,
-            characters: default_foods
+            characters: default_foods,
           };
         }
         promptsAndOptions.rooms = rooms;
@@ -778,9 +858,8 @@ document.addEventListener('DOMContentLoaded', () => {
         unpackPromptsAndOptions();
         reloadConversations();
       })
-      .catch(error => console.error('Failed to reset:', error));
+      .catch((error) => console.error("Failed to reset:", error));
   }
-
 });
 
 // //////////////
@@ -790,7 +869,108 @@ document.addEventListener('DOMContentLoaded', () => {
 function toTitleCase(string) {
   return string
     .toLowerCase()
-    .split(' ')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
+    .split(" ")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
 }
+
+// Drag-and-drop characters util
+
+document.addEventListener("DOMContentLoaded", () => {
+  let draggedElem = null;
+  let draggedIndex = null;
+
+  function enableDragAndDrop() {
+    const charactersDiv = document.getElementById("characters");
+    const charElems = charactersDiv.querySelectorAll(".character");
+
+    charElems.forEach((charElem, index) => {
+      charElem.setAttribute("draggable", true);
+      charElem.dataset.index = index;
+      charElem.style.cursor = "move";
+
+      if (!charElem.querySelector(".drag-handle")) {
+        const dragHandle = document.createElement("span");
+        dragHandle.innerHTML = "⋮⋮ ";
+        dragHandle.className = "drag-handle";
+        dragHandle.style.cssText =
+          "color: #ccc; font-weight: bold; margin-right: 5px;";
+        charElem.insertBefore(dragHandle, charElem.firstChild);
+      }
+
+      charElem.addEventListener("dragstart", (e) => {
+        draggedElem = charElem;
+        draggedIndex = index;
+        e.dataTransfer.effectAllowed = "move";
+        e.dataTransfer.setData("text/plain", index);
+        charElem.style.opacity = "0.5";
+        console.log(`Dragging character at index ${index}`);
+      });
+
+      charElem.addEventListener("dragend", (e) => {
+        draggedElem = null;
+        draggedIndex = null;
+        charElem.style.opacity = "1";
+      });
+
+      charElem.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        if (charElem !== draggedElem) {
+          charElem.style.borderTop = "2px solid #007cba";
+        }
+      });
+
+      charElem.addEventListener("dragleave", (e) => {
+        charElem.style.borderTop = "";
+      });
+
+      charElem.addEventListener("drop", (e) => {
+        e.preventDefault();
+        charElem.style.borderTop = "";
+
+        if (!draggedElem || draggedElem === charElem) return;
+
+        const targetIndex = parseInt(charElem.dataset.index);
+
+        console.log(
+          `Moving character from index ${draggedIndex} to ${targetIndex}`
+        );
+
+        updatePromptsAndOptions();
+
+        const characters = promptsAndOptions.rooms[currentRoom].characters;
+        const draggedChar = characters.splice(draggedIndex, 1)[0];
+        characters.splice(targetIndex, 0, draggedChar);
+
+        updatePromptsAndOptions();
+        unpackPromptsAndOptions();
+
+        setTimeout(() => enableDragAndDrop(), 100);
+
+        console.log(
+          "Character order updated:",
+          characters.map((c) => c.name)
+        );
+      });
+    });
+  }
+
+  const observer = new MutationObserver((mutations) => {
+    mutations.forEach((mutation) => {
+      if (
+        mutation.type === "childList" &&
+        mutation.target.id === "characters"
+      ) {
+        setTimeout(() => enableDragAndDrop(), 50);
+      }
+    });
+  });
+
+  observer.observe(document.getElementById("characters"), {
+    childList: true,
+    subtree: true,
+  });
+
+  setTimeout(() => enableDragAndDrop(), 100);
+});
