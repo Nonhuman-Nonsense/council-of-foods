@@ -333,7 +333,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const conversationId = document.getElementById("conversation");
     for (let i = 0; i < conversationId.children.length; i++) {
       if (conversationId.children[i].id === update.id) message_index = i;
-      if (conversationId.children[i].id === update.id) message_index = i;
     }
 
     if (update.type == "skipped") {
