@@ -871,103 +871,101 @@ document.addEventListener("DOMContentLoaded", () => {
   // DRAG AND DROP CHARACTERS
   // //////////////
 
-  document.addEventListener("DOMContentLoaded", () => {
-    let draggedElem = null;
-    let draggedIndex = null;
+  let draggedElem = null;
+  let draggedIndex = null;
 
-    function enableDragAndDrop() {
-      const charactersDiv = document.getElementById("characters");
-      const charElems = charactersDiv.querySelectorAll(".character");
+  function enableDragAndDrop() {
+    const charactersDiv = document.getElementById("characters");
+    const charElems = charactersDiv.querySelectorAll(".character");
 
-      charElems.forEach((charElem, index) => {
-        charElem.setAttribute("draggable", true);
-        charElem.dataset.index = index;
-        charElem.style.cursor = "move";
+    charElems.forEach((charElem, index) => {
+      charElem.setAttribute("draggable", true);
+      charElem.dataset.index = index;
+      charElem.style.cursor = "move";
 
-        if (!charElem.querySelector(".drag-handle")) {
-          const dragHandle = document.createElement("span");
-          dragHandle.innerHTML = "⋮⋮ ";
-          dragHandle.className = "drag-handle";
-          dragHandle.style.cssText =
-            "color: #ccc; font-weight: bold; margin-right: 5px;";
-          charElem.insertBefore(dragHandle, charElem.firstChild);
-        }
+      if (!charElem.querySelector(".drag-handle")) {
+        const dragHandle = document.createElement("span");
+        dragHandle.innerHTML = "⋮⋮ ";
+        dragHandle.className = "drag-handle";
+        dragHandle.style.cssText =
+          "color: #ccc; font-weight: bold; margin-right: 5px;";
+        charElem.insertBefore(dragHandle, charElem.firstChild);
+      }
 
-        charElem.addEventListener("dragstart", (e) => {
-          draggedElem = charElem;
-          draggedIndex = index;
-          e.dataTransfer.effectAllowed = "move";
-          e.dataTransfer.setData("text/plain", index);
-          charElem.style.opacity = "0.5";
-          console.log(`Dragging character at index ${index}`);
-        });
-
-        charElem.addEventListener("dragend", (e) => {
-          draggedElem = null;
-          draggedIndex = null;
-          charElem.style.opacity = "1";
-        });
-
-        charElem.addEventListener("dragover", (e) => {
-          e.preventDefault();
-          e.dataTransfer.dropEffect = "move";
-          if (charElem !== draggedElem) {
-            charElem.style.borderTop = "2px solid #007cba";
-          }
-        });
-
-        charElem.addEventListener("dragleave", (e) => {
-          charElem.style.borderTop = "";
-        });
-
-        charElem.addEventListener("drop", (e) => {
-          e.preventDefault();
-          charElem.style.borderTop = "";
-
-          if (!draggedElem || draggedElem === charElem) return;
-
-          const targetIndex = parseInt(charElem.dataset.index);
-
-          console.log(
-            `Moving character from index ${draggedIndex} to ${targetIndex}`
-          );
-
-          updatePromptsAndOptions();
-
-          const characters = promptsAndOptions.rooms[currentRoom].characters;
-          const draggedChar = characters.splice(draggedIndex, 1)[0];
-          characters.splice(targetIndex, 0, draggedChar);
-
-          unpackPromptsAndOptions();
-
-          setTimeout(() => enableDragAndDrop(), 100);
-
-          console.log(
-            "Character order updated:",
-            characters.map((c) => c.name)
-          );
-        });
+      charElem.addEventListener("dragstart", (e) => {
+        draggedElem = charElem;
+        draggedIndex = index;
+        e.dataTransfer.effectAllowed = "move";
+        e.dataTransfer.setData("text/plain", index);
+        charElem.style.opacity = "0.5";
+        console.log(`Dragging character at index ${index}`);
       });
-    }
 
-    const observer = new MutationObserver((mutations) => {
-      mutations.forEach((mutation) => {
-        if (
-          mutation.type === "childList" &&
-          mutation.target.id === "characters"
-        ) {
-          setTimeout(() => enableDragAndDrop(), 50);
+      charElem.addEventListener("dragend", (e) => {
+        draggedElem = null;
+        draggedIndex = null;
+        charElem.style.opacity = "1";
+      });
+
+      charElem.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        if (charElem !== draggedElem) {
+          charElem.style.borderTop = "2px solid #007cba";
         }
       });
-    });
 
-    observer.observe(document.getElementById("characters"), {
-      childList: true,
-      subtree: true,
-    });
+      charElem.addEventListener("dragleave", (e) => {
+        charElem.style.borderTop = "";
+      });
 
-    setTimeout(() => enableDragAndDrop(), 100);
+      charElem.addEventListener("drop", (e) => {
+        e.preventDefault();
+        charElem.style.borderTop = "";
+
+        if (!draggedElem || draggedElem === charElem) return;
+
+        const targetIndex = parseInt(charElem.dataset.index);
+
+        console.log(
+          `Moving character from index ${draggedIndex} to ${targetIndex}`
+        );
+
+        updatePromptsAndOptions();
+
+        const characters = promptsAndOptions.rooms[currentRoom].characters;
+        const draggedChar = characters.splice(draggedIndex, 1)[0];
+        characters.splice(targetIndex, 0, draggedChar);
+
+        unpackPromptsAndOptions();
+
+        setTimeout(() => enableDragAndDrop(), 100);
+
+        console.log(
+          "Character order updated:",
+          characters.map((c) => c.name)
+        );
+      });
+    });
+  }
+
+  const observer = new MutationObserver((mutations) => {
+    mutations.forEach((mutation) => {
+      if (
+        mutation.type === "childList" &&
+        mutation.target.id === "characters"
+      ) {
+        setTimeout(() => enableDragAndDrop(), 50);
+      }
+    });
   });
+
+  observer.observe(document.getElementById("characters"), {
+    childList: true,
+    subtree: true,
+  });
+
+  setTimeout(() => enableDragAndDrop(), 100);
 });
 
 // //////////////
