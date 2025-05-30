@@ -26,7 +26,8 @@ function Forest({ currentSpeakerName, isPaused }) {
         { ref: useRef(null), name: "Salmon", type: "transparent", height: 9, left: 2.5, bottom: 42.5, ratio: 934 / 450 },
         { ref: useRef(null), name: "Bird", type: "transparent", height: 14, left: 12.5, bottom: 52, ratio: 708 / 612 },
         { ref: useRef(null), name: "Bumblebee", type: "transparent", height: 10, left: -48, bottom: 44, ratio: 786 / 646 },
-        { ref: useRef(null), name: "Pine", type: "transparent", height: 27, left: -73, bottom: 12.5, ratio: 724 / 918 },
+        { ref: useRef(null), name: "Concorta Pine", type: "image", height: 27, left: -73, bottom: 12.5, ratio: 724 / 918 },
+        { ref: useRef(null), name: "Pine", type: "transparent", height: 61, left: 26, bottom: 0, ratio: 1104 / 1920 },
         { ref: useRef(null), name: "Reindeer", type: "transparent", height: 16, left: -26.5, bottom: 27, ratio: 1040 / 956 },
         { ref: useRef(null), name: "Wind Turbine", type: "transparent", height: 22, left: 1, bottom: 69.5, ratio: 1066 / 946 },
         { ref: useRef(null), name: "Tree Harvester", type: "transparent", height: 19, left: 57.5, bottom: 1, ratio: 674 / 900 },
@@ -122,7 +123,7 @@ function Forest({ currentSpeakerName, isPaused }) {
 
     return (
         <div style={container} ref={containerRef}>
-            <img style={{ zIndex: "-5", height: "100%", position: "absolute", bottom: 0 }} src="/backgrounds/forest.webp" alt="" />
+            <img style={{ zIndex: "-5", height: "100%", position: "absolute", bottom: 0 }} src="/backgrounds/forest.avif" alt="" />
             <div style={{ zIndex: "-4", height: "75.5%", position: "absolute", bottom: 0, left: "calc(50% - max(49dvh,147px))" }}>
                 <FoodAnimation type="transparent" character={{ name: "River" }} isPaused={isPaused} always_on={true} />
             </div>
@@ -150,7 +151,7 @@ function Being({ name, ref, type, height, left, bottom, always_on, isPaused, cur
                 <FoodAnimation type={type} character={{ name: name }} isPaused={isPaused} always_on={always_on} currentSpeakerName={currentSpeakerName} />
             </div>
         }
-        {type === "image" && <img style={{ position: "absolute", height: height, left: left, bottom: bottom}} src={`/characters/${filename(name)}.webp`} alt="" />}
+        {type === "image" && <img style={{ position: "absolute", height: height, left: left, bottom: bottom}} src={`/characters/${filename(name)}.avif`} alt="" />}
     </>
     );
 }

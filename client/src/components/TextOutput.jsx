@@ -136,11 +136,12 @@ function TextOutput({
   const paragraphStyle = {
     fontFamily: "Arial, sans-serif",
     fontSize: isMobile ? "18px" : "25px",
-    margin: isMobile && "0",
+    margin: "0",
   };
 
   const textStyle = {
-    width: isMobile ? "85%" : "70%",
+    maxWidth: isMobile ? "85%" : "70%",
+    backgroundColor: "rgba(0,0,0,0.6)",
     position: "absolute",
     bottom: isMobile ? "40px" : "50px",
     left: "50%",

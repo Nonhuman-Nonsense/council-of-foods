@@ -99,7 +99,7 @@ function HumanInput({ onSubmitHumanMessage }) {
   };
 
   const textStyle = {
-    backgroundColor: "transparent",
+    backgroundColor: "rgba(0,0,0,0.5)",
     width: "70vw",
     color: "white",
     textAlign: "center",
@@ -115,7 +115,7 @@ function HumanInput({ onSubmitHumanMessage }) {
 
   return (
     <div style={wrapperStyle}>
-      <img alt="Say something!" src="/mic.webp" style={micStyle} />
+      <img alt="Say something!" src="/mic.avif" style={micStyle} />
       <div style={{ zIndex: "4", position: "relative", pointerEvents: "auto" }}>
         <TextareaAutosize
           ref={inputArea}

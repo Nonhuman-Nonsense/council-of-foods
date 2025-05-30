@@ -1,7 +1,6 @@
 import "../App.css";
 import React, { useState, useEffect } from "react";
 import { Routes, Route, useLocation, useNavigate } from "react-router-dom";
-import Test from "./Test.jsx";
 import Overlay from "./Overlay";
 import MainOverlays from "./MainOverlays";
 import Landing from "./settings/Landing";
@@ -123,10 +122,6 @@ function Main() {
               element={
                 <Landing onContinueForward={() => continueForward("landing")} />
               }
-            />
-            <Route
-              path="/test"
-              element={<Test />}
             />
             <Route
               path="topics"
