@@ -122,7 +122,7 @@ function Forest({ currentSpeakerName, isPaused }) {
 
     return (
         <div style={container} ref={containerRef}>
-            <img style={{ zIndex: "-5", height: "100%", position: "absolute", bottom: 0 }} src="/backgrounds/forest.webp" alt="" />
+            <img style={{ zIndex: "-5", height: "100%", position: "absolute", bottom: 0 }} src="/backgrounds/forest.avif" alt="" />
             <div style={{ zIndex: "-4", height: "75.5%", position: "absolute", bottom: 0, left: "calc(50% - max(49dvh,147px))" }}>
                 <FoodAnimation type="transparent" character={{ name: "River" }} isPaused={isPaused} always_on={true} />
             </div>
