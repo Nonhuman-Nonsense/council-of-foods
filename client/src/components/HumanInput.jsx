@@ -99,7 +99,7 @@ function HumanInput({ onSubmitHumanMessage }) {
   };
 
   const textStyle = {
-    backgroundColor: "transparent",
+    backgroundColor: "rgba(0,0,0,0.5)",
     width: "70vw",
     color: "white",
     textAlign: "center",
