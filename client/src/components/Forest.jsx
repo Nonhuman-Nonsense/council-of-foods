@@ -150,7 +150,7 @@ function Being({ name, ref, type, height, left, bottom, always_on, isPaused, cur
                 <FoodAnimation type={type} character={{ name: name }} isPaused={isPaused} always_on={always_on} currentSpeakerName={currentSpeakerName} />
             </div>
         }
-        {type === "image" && <img style={{ position: "absolute", height: height, left: left, bottom: bottom}} src={`/characters/${filename(name)}.webp`} alt="" />}
+        {type === "image" && <img style={{ position: "absolute", height: height, left: left, bottom: bottom}} src={`/characters/${filename(name)}.avif`} alt="" />}
     </>
     );
 }
