@@ -47,7 +47,7 @@ function Summary({ summary, meetingId }) {
       style={summaryWrapper}
       className="scroll"
     >
-      <h2>COUNCIL OF THE FOREST</h2>
+      <h2>COUNCIL OF FOREST</h2>
       <h3>Meeting #{meetingId}</h3>
       <div
         id="protocol-container"
@@ -80,7 +80,7 @@ const PDFToPrint = forwardRef((props, ref) => {
         pdf.setFont("Tinos");
         pdf.html(protocolRef.current, {
           callback: function (doc) {
-            pdf.save(`Council of the Forest Meeting Summary #${props.meetingId}.pdf`);
+            pdf.save(`Council of Forest Meeting Summary #${props.meetingId}.pdf`);
           },
           autoPaging: 'text',
           margin: [50, 50, 50, 50]
@@ -109,8 +109,8 @@ const PDFToPrint = forwardRef((props, ref) => {
       <div style={{width: "100%"}}>
       <hr/>
       <div style={{height: "52px", position: 'relative'}}>
-      <img style={{width: '70px'}} src='/logos/council_logo.png' alt="council of the forest logo" />
-      <h2 style={{fontSize: '24px', margin: '0', position: 'absolute', left: "80px", top: '2px'}}>COUNCIL OF THE FOREST</h2>
+      <img style={{width: '70px'}} src='/logos/council_logo.png' alt="council of forest logo" />
+      <h2 style={{fontSize: '24px', margin: '0', position: 'absolute', left: "80px", top: '2px'}}>COUNCIL OF FOREST</h2>
       <h3 style={{fontSize: '15px', margin: '0', position: 'absolute', left: "80px", top: "28px"}}>Meeting #{props.meetingId}</h3>
       </div>
       <hr />
@@ -129,13 +129,13 @@ function Disclaimer() {
 
   return (
       <div>
-        <p>This document was created by the Council of the Forest, a political arena where the foods themselves discuss the broken food system, through the use of artificial intelligence. While every effort has been made to generate meaningful content, please note the following:</p><br/>
+        <p>This document was created by the Council of Forest, a political arena where the forest itself speaks, through the use of artificial intelligence. While every effort has been made to generate meaningful content, please note the following:</p><br/>
         <ol>
           <li>This document may contain misinformation, outdated details, propaganda, or bad ideas.</li>
           <li>The discussions may provide useful insights and reflect diverse ethical positions but should not replace evidence-based research or deep contemplation.</li>
           <li>Don't just chat about it—get up and take action!</li>
         </ol><br/>
-        <p>Council of the Forest is an initiative by art & design collective <a href="https://nonhuman-nonsense.com/">Nonhuman Nonsense</a>, as part of the Hungry EcoCities project of the S+T+ARTS programme, and has received funding from the European Union's Horizon Europe research and innovation programme under <a href="https://cordis.europa.eu/project/id/101069990">grant agreement 101069990</a>.</p>
+        <p>Council of Forest is an initiative by art & design collective <a href="https://nonhuman-nonsense.com/">Nonhuman&nbsp;Nonsense</a>, which has received funding from Vinnova (<a href="https://www.vinnova.se/en/p/council-of-the-forest">ref. nr. 2025-00344</a>).</p>
         <br/>
       </div>
   );

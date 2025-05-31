@@ -1,10 +1,13 @@
 import React, { useEffect, useRef, useState } from "react";
-import { filename } from "../utils";
+import { filename, useMobile } from "../utils";
 
 function FoodAnimation({ character, type, styles, isPaused, always_on, currentSpeakerName }) {
 
+  const isMobile = useMobile();
   const video = useRef(null);
   const [vidLoaded, setVidLoaded] = useState(false);
+
+  const folder = character.name === "River" ? "" : isMobile ? "small/" : "large/";
 
   const transparency = type === "transparent";
 
@@ -33,15 +36,15 @@ function FoodAnimation({ character, type, styles, isPaused, always_on, currentSp
     <video ref={video} style={{ ...styles, objectFit: "contain", height: "100%" }} loop muted playsInline>
       {transparency && <>
         <source
-          src={`/characters/${filename(character.name)}-hevc-safari.mp4`}
+          src={`/characters/${folder}${filename(character.name)}-hevc-safari.mp4`}
           type={'video/mp4; codecs="hvc1"'} />
         <source
-          src={`/characters/${filename(character.name)}-vp9-chrome.webm`}
+          src={`/characters/${folder}${filename(character.name)}-vp9-chrome.webm`}
           type={"video/webm"} />
       </>}
       {!transparency && 
       <source
-        src={`/characters/${filename(character.name)}.webm`}
+        src={`/characters/${folder}${filename(character.name)}.webm`}
         type={"video/webm"} />
       }
     </video>

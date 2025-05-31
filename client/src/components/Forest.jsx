@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef } from "react";
 import FoodAnimation from "./FoodAnimation.jsx";
-import { dvh, minWindowHeight, filename } from "../utils.js";
+import { dvh, minWindowHeight, filename, useMobile } from "../utils.js";
 
 function Forest({ currentSpeakerName, isPaused }) {
+
+    const isMobile = useMobile();
 
     //Zooming variables
     const [zoomInOnBeing, setZoomInOnBeing] = useState(null);
@@ -123,7 +125,7 @@ function Forest({ currentSpeakerName, isPaused }) {
 
     return (
         <div style={container} ref={containerRef}>
-            <img style={{ zIndex: "-5", height: "100%", position: "absolute", bottom: 0 }} src="/backgrounds/forest.avif" alt="" />
+            <img style={{ zIndex: "-5", height: "100%", position: "absolute", bottom: 0 }} src={`/backgrounds/forest${isMobile ? "-small" : ""}.avif`} alt="" />
             <div style={{ zIndex: "-4", height: "75.5%", position: "absolute", bottom: 0, left: "calc(50% - max(49dvh,147px))" }}>
                 <FoodAnimation type="transparent" character={{ name: "River" }} isPaused={isPaused} always_on={true} />
             </div>
@@ -151,7 +153,7 @@ function Being({ name, ref, type, height, left, bottom, always_on, isPaused, cur
                 <FoodAnimation type={type} character={{ name: name }} isPaused={isPaused} always_on={always_on} currentSpeakerName={currentSpeakerName} />
             </div>
         }
-        {type === "image" && <img style={{ position: "absolute", height: height, left: left, bottom: bottom}} src={`/characters/${filename(name)}.avif`} alt="" />}
+        {type === "image" && <img style={{ position: "absolute", height: height, left: left, bottom: bottom}} src={`/characters/images/${filename(name)}.avif`} alt="" />}
     </>
     );
 }

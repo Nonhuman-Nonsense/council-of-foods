@@ -31,14 +31,14 @@ function Landing({ onContinueForward }) {
 
         <div>
           <h2 style={{marginBottom: "-10px", marginTop: isMobile ? "0" : ""}}>welcome to</h2>
-          <h1 style={{margin: isMobile ? "5px 0 0 0" : ""}}>COUNCIL OF THE FOREST</h1>
+          <h1 style={{margin: isMobile ? "5px 0 0 0" : ""}}>COUNCIL OF FOREST</h1>
         </div>
         
         {isPortrait ?
           <RotateDevice />
         :
         (<div style={{maxWidth: "380px"}}>
-          <p style={{marginBottom: "30px"}}>A political arena where the foods themselves discuss the broken food system, through the use of artificial intelligence. Join the discussion on what actions need to be taken to form a locally and globally sustainable food system!</p>
+          <p style={{marginBottom: "30px"}}>A political arena where the forest itself speaks, through the use of artificial intelligence. Join the forest’s inhabitants as they debate deforestation, rewilding, and the fate of their shared home.</p>
           <div><button onClick={() => onContinueForward()}>Let's go!</button></div>
         </div>)
         }

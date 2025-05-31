@@ -1,12 +1,12 @@
 {
-  "short_name": "Council of the Forest",
-  "name": "Council of the Forest",
+  "short_name": "Council of Forest",
+  "name": "Council of Forest",
   "description": "A political arena for AI foods to discuss the broken food system.",
   "icons": [
     {
-      "src": "favicon.ico",
-      "sizes": "64x64 32x32 24x24 16x16",
-      "type": "image/x-icon"
+      "src": "favicon.webp",
+      "sizes": "100x100",
+      "type": "image/webp"
     }
   ],
   "start_url": ".",
