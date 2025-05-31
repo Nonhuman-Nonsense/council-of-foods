@@ -113,8 +113,8 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("trim-response-to-full-paragraph").checked =
       promptsAndOptions.options.trimParagraph;
     document.getElementById(
-      "trim-response-to-remove-waters-semicolon"
-    ).checked = promptsAndOptions.options.trimWaterSemicolon;
+      "trim-response-to-remove-chair-semicolon"
+    ).checked = promptsAndOptions.options.trimChairSemicolon;
     document.getElementById("show-trimmed").checked =
       promptsAndOptions.options.showTrimmed;
     document.getElementById("conversation-max-length").value =
@@ -226,8 +226,8 @@ document.addEventListener("DOMContentLoaded", () => {
     promptsAndOptions.options.trimParagraph = document.getElementById(
       "trim-response-to-full-paragraph"
     ).checked;
-    promptsAndOptions.options.trimWaterSemicolon = document.getElementById(
-      "trim-response-to-remove-waters-semicolon"
+    promptsAndOptions.options.trimChairSemicolon = document.getElementById(
+      "trim-response-to-remove-chair-semicolon"
     ).checked;
     promptsAndOptions.options.showTrimmed =
       document.getElementById("show-trimmed").checked;
@@ -272,6 +272,8 @@ document.addEventListener("DOMContentLoaded", () => {
         };
       });
     }
+
+    promptsAndOptions.options.chairName = promptsAndOptions.rooms[currentRoom].characters[0].name;
 
     localStorage.setItem(
       "PromptsAndOptions",

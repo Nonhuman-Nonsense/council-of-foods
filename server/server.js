@@ -595,7 +595,7 @@ io.on("connection", (socket) => {
       const completion = await openai.chat.completions.create({
         model: conversationOptions.options.gptModel,
         max_tokens:
-          speaker.name === "Water"
+          speaker.name === conversationOptions.options.chairName
             ? conversationOptions.options.chairMaxTokens
             : conversationOptions.options.maxTokens,
         temperature: conversationOptions.options.temperature,
@@ -635,8 +635,8 @@ io.on("connection", (socket) => {
           }
         }
 
-        if (conversationOptions.options.trimWaterSemicolon) {
-          if (speaker.name === "Water") {
+        if (conversationOptions.options.trimChairSemicolon) {
+          if (speaker.name === conversationOptions.options.chairName) {
             // Make sure to use the same sentence splitter as on the client side
             const sentenceRegex =
               /(\d+\.\s+.{3,}?(?:\n|\?!\*|\?!|!\?|\?"|!"|\."|!\*|\?\*|\?|!|\?|;|\.{3}|…|\.|$))|.{3,}?(?:\n|\?!\*|\?!|!\?|\?"|!"|\."|!\*|\?\*|!|\?|;|\.{3}|…|\.|$)/gs;
@@ -650,7 +650,7 @@ io.on("connection", (socket) => {
               ?.map((sentence) => sentence.trim())
               .filter((sentence) => sentence.length > 0 && sentence !== ".");
 
-            // Check if we can re-add some messages from the end, to put back some of the list of questions that water often produces
+            // Check if we can re-add some messages from the end, to put back some of the list of questions that chair often produces
             if (
               trimmedSentences &&
               sentences &&
