@@ -18,7 +18,7 @@ The project (the code in this repo) is live on [council-of-forest.com](https://c
 
 ## Who made this?
 
-<a href="https://nonhuman-nonsense.com/"><img src="https://github.com/Nonhuman-Nonsense/council-of-forest/blob/main/client/public/logos/nonhuman_nonsense_logo.png?raw=true" style="filter: invert(70%);" width="120" /></a>
+<a href="https://nonhuman-nonsense.com/"><img src="https://github.com/Nonhuman-Nonsense/council-of-forest/blob/main/client/public/logos/nonhuman_nonsense_logo.png?raw=true" style="filter: invert(0.7);" width="120" /></a>
 
 
 The project is an initiative by art & design collective [Nonhuman Nonsense](https://nonhuman-nonsense.com/) developed in collaboration with [Biosphere area Vindelälven-Juhttátahkka](https://vindelalvenbiosfar.se/), [Gundega Strauberga](https://www.gundegastrauberga.com/), [Albin Karlsson](https://www.polymorf.se/) and others.
@@ -27,7 +27,7 @@ The project is an initiative by art & design collective [Nonhuman Nonsense](http
 
 Council of Forest is funded by Vinnova ([ref. nr. 2025-00344](https://www.vinnova.se/en/p/council-of-the-forest)) and is a continuation of the project [Council of Foods](https://github.com/Nonhuman-Nonsense/council-of-foods) which has received funding from the European Union’s [Horizon Europe research and innovation programme under grant agreement 101069990](https://cordis.europa.eu/project/id/101069990).
 
-<a href="https://cordis.europa.eu/project/id/101069990"><img src="https://github.com/Nonhuman-Nonsense/council-of-forest/blob/main/client/public/logos/logo_vinnova.webp?raw=true" style="filter: invert(70%);" width="200" /></a>
+<a href="https://cordis.europa.eu/project/id/101069990"><img src="https://github.com/Nonhuman-Nonsense/council-of-forest/blob/main/client/public/logos/logo_vinnova.webp?raw=true" style="filter: invert(0.7);" width="200" /></a>
 
 
 ---
