@@ -48,6 +48,13 @@ function Main() {
   const isIphone = useIsIphone();
   const isPortrait = usePortrait();
 
+  useEffect(() => {
+    if (topic.title === "" && (location.pathname !== "/" && location.pathname !== "/topics")) {
+      //Preserve the search, but navigate to start
+      navigate({ pathname: "/", search: location.search });
+    }
+  }, [location.pathname]);
+
   function continueForward(fromPage, props) {
     let next = "";
     if (fromPage === "landing") {
