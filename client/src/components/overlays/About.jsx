@@ -9,7 +9,7 @@ function About() {
 
   const wrapper = {
     width: isPortait ? "80vw" : "",
-    maxWidth: isMobile ? "550px" : "450px",
+    maxWidth: isMobile ? "600px" : "550px",
   };
 
   return (
