@@ -129,13 +129,13 @@ function Disclaimer() {
 
   return (
       <div>
-        <p>This document was created by the Council of Forest, a political arena where the foods themselves discuss the broken food system, through the use of artificial intelligence. While every effort has been made to generate meaningful content, please note the following:</p><br/>
+        <p>This document was created by the Council of Forest, a political arena where the forest itself speaks, through the use of artificial intelligence. While every effort has been made to generate meaningful content, please note the following:</p><br/>
         <ol>
           <li>This document may contain misinformation, outdated details, propaganda, or bad ideas.</li>
           <li>The discussions may provide useful insights and reflect diverse ethical positions but should not replace evidence-based research or deep contemplation.</li>
           <li>Don't just chat about it—get up and take action!</li>
         </ol><br/>
-        <p>Council of Forest is an initiative by art & design collective <a href="https://nonhuman-nonsense.com/">Nonhuman Nonsense</a>, as part of the Hungry EcoCities project of the S+T+ARTS programme, and has received funding from the European Union's Horizon Europe research and innovation programme under <a href="https://cordis.europa.eu/project/id/101069990">grant agreement 101069990</a>.</p>
+        <p>Council of Forest is an initiative by art & design collective <a href="https://nonhuman-nonsense.com/">Nonhuman&nbsp;Nonsense</a>, which has received funding from Vinnova (<a href="https://www.vinnova.se/en/p/council-of-the-forest">ref. nr. 2025-00344</a>).</p>
         <br/>
       </div>
   );
