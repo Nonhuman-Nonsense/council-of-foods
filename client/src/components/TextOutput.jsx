@@ -7,8 +7,7 @@ function TextOutput({
   currentTextMessage,
   isPaused,
   currentSnippetIndex,
-  setCurrentSnippetIndex,
-  setSentencesLength
+  setCurrentSnippetIndex
 }) {
   const [currentSnippet, setCurrentSnippet] = useState("");
   const [currentSnippetDelay, setCurrentSnippetDelay] = useState(0);
@@ -82,10 +81,8 @@ function TextOutput({
     if (currentTextMessage?.text) {
       const sentences = splitText(currentTextMessage?.text);
       if (sentences.length > 0) {
-        setSentencesLength(sentences.length);
         setCurrentSnippet(sentences[0]);
       } else {
-        setSentencesLength(0);
         setCurrentSnippet("");
       }
     }

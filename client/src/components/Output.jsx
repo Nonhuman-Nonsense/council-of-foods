@@ -12,8 +12,7 @@ function Output({
   currentSnippetIndex,
   setCurrentSnippetIndex,
   audioContext,
-  handleOnFinishedPlaying,
-  setSentencesLength
+  handleOnFinishedPlaying
 }) {
   const [currentTextMessage, setCurrentTextMessage] = useState(null);
   const [currentAudioMessage, setCurrentAudioMessage] = useState(null);
@@ -56,7 +55,6 @@ function Output({
           style={councilState !== 'playing' ? hiddenStyle : {}}
           currentSnippetIndex={currentSnippetIndex}
           setCurrentSnippetIndex={setCurrentSnippetIndex}
-          setSentencesLength={setSentencesLength}
         />
       </div>
       <AudioOutput
