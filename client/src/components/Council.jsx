@@ -7,6 +7,7 @@ import Loading from "./Loading";
 import Output from "./Output";
 import ConversationControls from "./ConversationControls";
 import HumanInput from "./HumanInput";
+import { useDocumentVisibility } from "../utils";
 
 const globalOptions = require("../global-options-client");
 
@@ -27,6 +28,7 @@ function Council({
   //Connection variables
   const [currentMeetingId, setCurrentMeetingId] = useState(null); // Use state to manage meetingId
   const [attemptingReconnect, setAttemptingReconnect] = useState(false); // Use state to manage meetingId
+  const isDocumentVisible = useDocumentVisibility();// If tab is not active etc
 
   //Routing
   const navigate = useNavigate();
@@ -353,10 +355,10 @@ function Council({
       setPaused(true);
     }else if(searchParams.get('o') !== null && !isPaused){
       setPaused(true);
-    }else if(connectionError){
+    }else if(connectionError || !isDocumentVisible){
       setPaused(true);
     }
-  }, [isPaused, activeOverlay, location, connectionError]);
+  }, [isPaused, activeOverlay, location, connectionError, isDocumentVisible]);
 
   //Pause
   useEffect(() => {
