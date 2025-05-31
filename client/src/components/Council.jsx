@@ -14,7 +14,6 @@ const globalOptions = require("../global-options-client");
 function Council({
   topic,
   foods,
-  currentSpeakerName,
   setCurrentSpeakerName,
   isPaused,
   setPaused,
