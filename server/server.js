@@ -145,8 +145,7 @@ io.on("connection", (socket) => {
 
       socket.emit("conversation_update", conversation);
       console.log(
-        `[meeting ${meetingId}] interjection generated on index ${
-          conversation.length - 1
+        `[meeting ${meetingId}] interjection generated on index ${conversation.length - 1
         }`
       );
 
@@ -161,8 +160,7 @@ io.on("connection", (socket) => {
 
   socket.on("raise_hand", async (handRaisedOptions) => {
     console.log(
-      `[meeting ${meetingId}] hand raised on index ${
-        handRaisedOptions.index - 1
+      `[meeting ${meetingId}] hand raised on index ${handRaisedOptions.index - 1
       }`
     );
     handRaised = true;
