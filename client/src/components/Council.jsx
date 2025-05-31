@@ -1,7 +1,6 @@
-import React, { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import io from "socket.io-client";
-import FoodItem from "./FoodItem";
 import Overlay from "./Overlay";
 import CouncilOverlays from "./CouncilOverlays";
 import Loading from "./Loading";
@@ -52,7 +51,6 @@ function Council({
   const [canGoBack, setCanGoBack] = useState(false);
   const [canGoForward, setCanGoForward] = useState(false);
   const [canRaiseHand, setCanRaiseHand] = useState(false);
-  const [zoomIn, setZoomIn] = useState(false);
 
   const showControls = (
     councilState === 'playing' ||
@@ -63,7 +61,6 @@ function Council({
 
   //States from lower down
   const [currentSnippetIndex, setCurrentSnippetIndex] = useState(0);
-  const [sentencesLength, setSentencesLength] = useState(10);
   const [summary, setSummary] = useState(null);//We store the summary here for easy access
 
   // Universal references
@@ -93,7 +90,6 @@ function Council({
 
     socketRef.current.on('connect_error', err => {
       console.error(err);
-      setUnrecoverableError(true);
     });
 
     socketRef.current.on('connect_failed', err => {
@@ -347,25 +343,6 @@ function Council({
     }
   }
 
-  // Set when zoomed in
-  useEffect(() => {
-    if (
-      councilState === 'loading' ||
-      councilState === 'waiting' ||
-      councilState === 'max_reached' ||
-      councilState === 'summary' ||
-      councilState === 'human_input' ||
-      playingNowIndex <= 0 ||
-      textMessages[playingNowIndex]?.type === "human"
-    ) {
-      setZoomIn(false);
-    } else if (currentSnippetIndex % 4 < 2 && currentSnippetIndex !== sentencesLength - 1) {
-      setZoomIn(true);
-    } else {
-      setZoomIn(false);
-    }
-  }, [councilState, playingNowIndex, textMessages, currentSnippetIndex]);
-
   //Some cases when pause should be activated
   useEffect(() => {
     if (activeOverlay !== "" && activeOverlay !== "summary" && !isPaused) {
@@ -522,26 +499,6 @@ function Council({
     socketRef.current.emit("wrap_up_meeting");
   }
 
-  /////////////////////
-  // Some calculations
-  /////////////////////
-
-  //Put water in the middle always
-  function mapFoodIndex(total, index) {
-    return (Math.ceil(total / 2) + index - 1) % total;
-  }
-
-  function currentSpeakerIndex() {
-    let currentIndex;
-    foods.map((food, index) => {
-      if (currentSpeakerName === food.name) {
-        currentIndex = mapFoodIndex(foods.length, index);
-      }
-      return false;//map expects return value, but this is irrelevant in our case
-    });
-    return currentIndex;
-  }
-
   return (
     <>
       {councilState === 'loading' && <Loading />}
@@ -560,7 +517,6 @@ function Council({
           setCurrentSnippetIndex={setCurrentSnippetIndex}
           audioContext={audioContext}
           handleOnFinishedPlaying={handleOnFinishedPlaying}
-          setSentencesLength={setSentencesLength}
         />
       </>
       {showControls && (
