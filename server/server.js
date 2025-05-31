@@ -573,7 +573,7 @@ io.on("connection", (socket) => {
       const completion = await openai.chat.completions.create({
         model: conversationOptions.options.gptModel,
         max_tokens:
-          speaker.name === "Water"
+          speaker.name === conversationOptions.options.chairName
             ? conversationOptions.options.chairMaxTokens
             : conversationOptions.options.maxTokens,
         temperature: conversationOptions.options.temperature,
@@ -611,8 +611,8 @@ io.on("connection", (socket) => {
           }
         }
 
-        if (conversationOptions.options.trimWaterSemicolon) {
-          if (speaker.name === "Water") {
+        if (conversationOptions.options.trimChairSemicolon) {
+          if (speaker.name === conversationOptions.options.chairName) {
             // Make sure to use the same sentence splitter as on the client side
             const sentenceRegex = /(\d+\.\s+.{3,}?(?:\n|\?!\*|\?!|!\?|\?"|!"|\."|!\*|\?\*|\?|!|\?|;|\.{3}|…|\.|$))|.{3,}?(?:\n|\?!\*|\?!|!\?|\?"|!"|\."|!\*|\?\*|!|\?|;|\.{3}|…|\.|$)/gs;
             const sentences = response.match(sentenceRegex).map((sentence) => sentence.trim()).filter((sentence) => sentence.length > 0 && sentence !== ".");
