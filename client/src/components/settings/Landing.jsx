@@ -38,7 +38,7 @@ function Landing({ onContinueForward }) {
           <RotateDevice />
         :
         (<div style={{maxWidth: "380px"}}>
-          <p style={{marginBottom: "30px"}}>A political arena where the foods themselves discuss the broken food system, through the use of artificial intelligence. Join the discussion on what actions need to be taken to form a locally and globally sustainable food system!</p>
+          <p style={{marginBottom: "30px"}}>A political arena where the forest itself speaks, through the use of artificial intelligence. Join the forest’s inhabitants as they debate deforestation, rewilding, and the fate of their shared home.</p>
           <div><button onClick={() => onContinueForward()}>Let's go!</button></div>
         </div>)
         }

@@ -13,18 +13,21 @@ function About() {
   };
 
   return (
-      <div style={wrapper}>
-        <p>
-        What would a biologically grown potato think about pesticides? How would a mass-produced banana respond? And what would you add to the discussion? Can AI identify as a rare mushroom? Could it help give a voice to the "voiceless" in decision-making?
-        </p>
-        <p>
-        Welcome to the Council of Forest! A political arena where the foods themselves discuss the broken food system - through artificial intelligence.
-        </p>
-        <p>
-        In the Council of Forest, AI language models are prompted to speak as a diversity of foods, embodying distinct values and ethical positions shaped in collaboration with food system experts. Each discussion is unique and not limited to the food system alone—broader societal issues emerge through the voices of industrially farmed, genetically modified, and wild-foraged foods. You, dear human, are invited to engage, challenge assumptions, and influence the conversation, which culminates in a policy recommendation document.
-        </p>
-        <p>a project by<br/><Link to={{search: "o=contact"}}>Nonhuman Nonsense</Link></p>
-      </div>
+    <div style={wrapper}>
+      <p>
+        What would an ancient pine say about deforestation? How would fishes react to a hydropower plant? Can AI embody the wisdom of a river, a tree, or a reindeer herd?
+      </p>
+      <p>
+        Through AI, nonhuman entities—trees, fungi, rivers, and animals—gather to deliberate the fate of their shared home. Their voices are shaped by a mix of knowledge systems, including traditional and Indigenous worldviews, ecological science, and data. They are drawn from interviews and conversations with people living in and caring for the Vindelälven-Juhttátahkka biosphere reserve—reindeer herders, forest owners, rewilding organizations, pollinator experts, and cultural workers—each with a deep connection to the land.
+      </p>
+      <p>
+        Council of Forest functions as an forum where the forest’s inhabitants voice their needs and consider the impact of human activities like logging, rewilding, and climate shifts. Humans are invited to listen, ask questions, and reflect. Each session concludes with a collective statement and a policy recommendation made by the forest. An experiment in ecological thinking and speculative design—exploring how technology can mediate between humans and the more-than-human world.
+      </p>
+      <p>
+        What does it mean to act in the forest’s best interest? Whose knowledge counts? And what happens when we take nonhuman voices seriously?
+      </p>
+      <p>a project by<br /><Link to={{ search: "o=contact" }}>Nonhuman Nonsense</Link></p>
+    </div>
   );
 }
 
