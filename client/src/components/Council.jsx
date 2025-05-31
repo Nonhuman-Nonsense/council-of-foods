@@ -17,7 +17,9 @@ function Council({
   setCurrentSpeakerName,
   isPaused,
   setPaused,
-  setUnrecoverableError
+  setUnrecoverableError,
+  setConnectionError,
+  connectionError
  }) {
   //Overall Council settings for this meeting
   const [humanName, setHumanName] = useState("");
@@ -90,6 +92,7 @@ function Council({
 
     socketRef.current.on('connect_error', err => {
       console.error(err);
+      setConnectionError(true);
     });
 
     socketRef.current.on('connect_failed', err => {
@@ -166,6 +169,7 @@ function Council({
         handRaised: isRaisedHand,
         conversationMaxLength: meetingMaxLength
       });
+      setConnectionError(false);
       setAttemptingReconnect(false);
     }
   }, [attemptingReconnect, currentMeetingId]);
@@ -349,8 +353,10 @@ function Council({
       setPaused(true);
     }else if(searchParams.get('o') !== null && !isPaused){
       setPaused(true);
+    }else if(connectionError){
+      setPaused(true);
     }
-  }, [isPaused, activeOverlay, location]);
+  }, [isPaused, activeOverlay, location, connectionError]);
 
   //Pause
   useEffect(() => {
