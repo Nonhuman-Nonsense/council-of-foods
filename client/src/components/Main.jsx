@@ -13,6 +13,7 @@ import FullscreenButton from "./FullscreenButton";
 import { usePortrait } from "../utils";
 import CouncilError from "./overlays/CouncilError.jsx";
 import Forest from './Forest';
+import Reconnecting from "./overlays/Reconnecting.jsx";
 
 function useIsIphone() {
   const [isIphone, setIsIphone] = useState(false);
@@ -35,6 +36,7 @@ function Main() {
   });
   const [foods, setFoods] = useState([]);
   const [unrecoverabeError, setUnrecoverableError] = useState(false);
+  const [connectionError, setConnectionError] = useState(false);
 
   //Had to lift up navbar state to this level to be able to close it from main overlay
   const [hamburgerOpen, setHamburgerOpen] = useState(false);
@@ -105,7 +107,7 @@ function Main() {
   return (
     <>
       <Forest currentSpeakerName={currentSpeakerName} isPaused={isPaused} />
-      {!unrecoverabeError && (
+      {!(unrecoverabeError || connectionError) && (
         <Navbar
           topic={topic.title}
           hamburgerOpen={hamburgerOpen}
@@ -159,6 +161,8 @@ function Main() {
                     isPaused={isPaused}
                     setPaused={setPaused}
                     setUnrecoverableError={setUnrecoverableError}
+                    connectionError={connectionError}
+                    setConnectionError={setConnectionError}
                   />
                 )
               }
@@ -179,6 +183,14 @@ function Main() {
           isBlurred={true}
         >
           <CouncilError />
+        </Overlay>
+      )}
+      {connectionError && !unrecoverabeError && (
+        <Overlay
+          isActive={true}
+          isBlurred={true}
+        >
+          <Reconnecting />
         </Overlay>
       )}
     </>
