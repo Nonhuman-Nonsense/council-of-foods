@@ -1,5 +1,5 @@
 # Build from root folder
-# docker build -t nonhumannonsense/council-of-foods:proto -f prototype/Dockerfile .
+# docker build -t nonhumannonsense/council-of-forest:proto -f prototype/Dockerfile .
 
 # Install server dependencies
 FROM node:lts-alpine

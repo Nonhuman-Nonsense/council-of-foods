@@ -1,28 +1,33 @@
 # Council of Forest
 
-![Council of Forest](https://github.com/Nonhuman-Nonsense/council-of-the-woods/blob/main/client/public/council-of-forest-preview.webp?raw=true)
+![Council of Forest](https://github.com/Nonhuman-Nonsense/council-of-forest/blob/main/client/public/council-of-forest-preview.webp?raw=true)
 
 Welcome to the Council of Forest!
 
-A political arena for foods to discuss the broken food system. Here, you, as a human participant, can listen, engage, and contribute to the discussions. The foods are prompted on different knowledges and ethical guidelines using the AI Language model GPT from Open AI.
+What would an ancient pine say about deforestation? How would fishes react to a hydropower plant? Can AI embody the wisdom of a river, a tree, or a reindeer herd?
 
-Our council members represent a diverse spectrum of food origins and ethical viewpoints, including mass-produced, locally grown, genetically modified, processed, fair trade, affordable, and organic foods. Each member brings their own unique eco-social impacts and ethical guidelines to the table, informed by their distinct backgrounds. Join the discussion on what actions need to be taken to form a locally and globally sustainable food system!
+Through AI, nonhuman entities—trees, fungi, rivers, and animals—gather to deliberate the fate of their shared home. Their voices are shaped by a mix of knowledge systems, including traditional and Indigenous worldviews, ecological science, and data. They are drawn from interviews and conversations with people living in and caring for the Vindelälven-Juhttátahkka biosphere reserve—reindeer herders, forest owners, rewilding organizations, pollinator experts, and cultural workers—each with a deep connection to the land.
+
+Council of Forest functions as an forum where the forest’s inhabitants voice their needs and consider the impact of human activities like logging, rewilding, and climate shifts. Humans are invited to listen, ask questions, and reflect. Each session concludes with a collective statement and a policy recommendation made by the forest. An experiment in ecological thinking and speculative design—exploring how technology can mediate between humans and the more-than-human world.
+
+What does it mean to act in the forest’s best interest? Whose knowledge counts? And what happens when we take nonhuman voices seriously?
 
 ## Visit Council of Forest
 
-The project (the code in this repo) is live on [council-of-foods.com](https://council-of-foods.com)
+The project (the code in this repo) is live on [council-of-forest.com](https://council-of-forest.com)
 
 ## Who made this?
 
-<a href="https://nonhuman-nonsense.com/"><img src="https://github.com/Nonhuman-Nonsense/council-of-foods/blob/main/client/public/logos/nonhuman_nonsense_logo.png?raw=true" width="120" /></a>
+<a href="https://nonhuman-nonsense.com/"><img src="https://github.com/Nonhuman-Nonsense/council-of-forest/blob/main/client/public/logos/nonhuman_nonsense_logo.png?raw=true" width="120" /></a>
 
-The project is an initiative by art & design collective [Nonhuman Nonsense](https://nonhuman-nonsense.com/) developed in collaboration with [Studio Other Spaces](https://studiootherspaces.net/), [In4Art](https://www.in4art.eu/), [Elliot Cost](https://elliott.computer/), [Albin Karlsson](https://www.polymorf.se/) and others.
+
+The project is an initiative by art & design collective [Nonhuman Nonsense](https://nonhuman-nonsense.com/) developed in collaboration with [Biosphere area Vindelälven-Juhttátahkka](https://vindelalvenbiosfar.se/), [Gundega Strauberga](https://www.gundegastrauberga.com/), [Albin Karlsson](https://www.polymorf.se/) and others.
 
 [@nonhuman-nonsense](http://instagram.com/nonhuman_nonsense)
 
-Council of Forest is part of [The Hungry EcoCities project](https://starts.eu/hungryecocities/), part of the [S+T+ARTS](https://starts.eu/) programme, and has received funding from the European Union’s [Horizon Europe research and innovation programme under grant agreement 101069990](https://cordis.europa.eu/project/id/101069990).
+Council of Forest is funded by Vinnova ([ref. nr. 2025-00344](https://www.vinnova.se/en/p/council-of-the-forest)) and is a continuation of the project [Council of Foods](https://github.com/Nonhuman-Nonsense/council-of-foods) which has received funding from the European Union’s [Horizon Europe research and innovation programme under grant agreement 101069990](https://cordis.europa.eu/project/id/101069990).
 
-<a href="https://cordis.europa.eu/project/id/101069990"><img src="https://github.com/Nonhuman-Nonsense/council-of-foods/blob/main/client/public/logos/logos_eu-white-starts-white.webp?raw=true" width="500" /></a>
+<a href="https://cordis.europa.eu/project/id/101069990"><img src="https://github.com/Nonhuman-Nonsense/council-of-foods/blob/main/client/public/logos/logo_vinnova.webp?raw=true" width="300" /></a>
 
 
 ---
