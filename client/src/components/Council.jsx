@@ -8,13 +8,16 @@ import Loading from "./Loading";
 import Output from "./Output";
 import ConversationControls from "./ConversationControls";
 import HumanInput from "./HumanInput";
+import { useDocumentVisibility } from "../utils";
 
 const globalOptions = require("../global-options-client");
 
 function Council({
   topic,
   foods,
-  setUnrecoverableError
+  setUnrecoverableError,
+  setConnectionError,
+  connectionError
  }) {
   //Overall Council settings for this meeting
   const [humanName, setHumanName] = useState("");
@@ -22,6 +25,7 @@ function Council({
   //Connection variables
   const [currentMeetingId, setCurrentMeetingId] = useState(null); // Use state to manage meetingId
   const [attemptingReconnect, setAttemptingReconnect] = useState(false); // Use state to manage meetingId
+  const isDocumentVisible = useDocumentVisibility();// If tab is not active etc
 
   //Routing
   const navigate = useNavigate();
@@ -90,7 +94,7 @@ function Council({
 
     socketRef.current.on('connect_error', err => {
       console.error(err);
-      setUnrecoverableError(true);
+      setConnectionError(true);
     });
 
     socketRef.current.on('connect_failed', err => {
@@ -167,6 +171,7 @@ function Council({
         handRaised: isRaisedHand,
         conversationMaxLength: meetingMaxLength
       });
+      setConnectionError(false);
       setAttemptingReconnect(false);
     }
   }, [attemptingReconnect, currentMeetingId]);
@@ -369,8 +374,10 @@ function Council({
       setPaused(true);
     }else if(searchParams.get('o') !== null && !isPaused){
       setPaused(true);
+    }else if(connectionError || !isDocumentVisible){
+      setPaused(true);
     }
-  }, [isPaused, activeOverlay, location]);
+  }, [isPaused, activeOverlay, location, connectionError, isDocumentVisible]);
 
   //Pause
   useEffect(() => {
