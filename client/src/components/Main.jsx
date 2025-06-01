@@ -107,6 +107,7 @@ function Main() {
   return (
     <>
       <Forest currentSpeakerName={currentSpeakerName} isPaused={isPaused} />
+      <div style={{width: "100%",height: "7%", minHeight: 300 * 0.07 + "px", position: "absolute",bottom: 0,background: "linear-gradient(0deg, rgba(0, 0, 0, 0.95) 0%, rgba(0, 0, 0, 0) 100%)",zIndex: 1}} />
       {!(unrecoverabeError || connectionError) && (
         <Navbar
           topic={topic.title}
