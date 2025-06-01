@@ -684,3 +684,12 @@ function toTitleCase(string) {
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(" ");
 }
+
+process.on('SIGTERM', () => {
+  console.log('[Shutdown] SIGTERM shutdown');
+  process.exit(1);
+});
+process.on('SIGINT', () => {
+  console.log('[Shutdown] SIGINT shutdown');
+  process.exit(1);
+});
