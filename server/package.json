@@ -9,8 +9,8 @@
     "dev": "cross-env NODE_ENV=development nodemon server.js",
     "proto": "cross-env NODE_ENV=prototype node server.js",
     "protodev": "cross-env NODE_ENV=prototype nodemon server.js",
-    "docker": "docker build ../. -t nonhumannonsense/council-of-foods:latest --platform linux/amd64",
-    "push": "docker push nonhumannonsense/council-of-foods:latest"
+    "docker": "docker build ../. -t nonhumannonsense/council-of-foods:logiqs --platform linux/amd64",
+    "push": "docker push nonhumannonsense/council-of-foods:logiqs"
   },
   "dependencies": {
     "cross-env": "^7.0.3",
