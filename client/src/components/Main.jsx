@@ -156,7 +156,6 @@ function Main() {
                   <Council
                     topic={topic}
                     foods={foods}
-                    currentSpeakerName={currentSpeakerName}
                     setCurrentSpeakerName={setCurrentSpeakerName}
                     isPaused={isPaused}
                     setPaused={setPaused}

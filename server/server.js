@@ -30,6 +30,9 @@ const mongoClient = new MongoClient(process.env.COUNCIL_DB_URL);
 if (!process.env.COUNCIL_DB_PREFIX) {
   throw new Error("COUNCIL_DB_PREFIX environment variable not set.");
 }
+
+const { reportError } = require('./errorbot');
+
 console.log(`[init] COUNCIL_DB_PREFIX is ${process.env.COUNCIL_DB_PREFIX}`);
 const db = mongoClient.db(process.env.COUNCIL_DB_PREFIX);
 const meetingsCollection = db.collection("meetings");
@@ -142,8 +145,7 @@ io.on("connection", (socket) => {
 
       socket.emit("conversation_update", conversation);
       console.log(
-        `[meeting ${meetingId}] interjection generated on index ${
-          conversation.length - 1
+        `[meeting ${meetingId}] interjection generated on index ${conversation.length - 1
         }`
       );
 
@@ -158,8 +160,7 @@ io.on("connection", (socket) => {
 
   socket.on("raise_hand", async (handRaisedOptions) => {
     console.log(
-      `[meeting ${meetingId}] hand raised on index ${
-        handRaisedOptions.index - 1
+      `[meeting ${meetingId}] hand raised on index ${handRaisedOptions.index - 1
       }`
     );
     handRaised = true;
@@ -245,6 +246,7 @@ io.on("connection", (socket) => {
         message: "An error occurred during the conversation.",
         code: 500,
       });
+      reportError(error);
     }
   };
 
@@ -397,6 +399,7 @@ io.on("connection", (socket) => {
         message: "An error occurred while resuming the conversation.",
         code: 500,
       });
+      reportError(error);
     }
   });
 
@@ -521,6 +524,7 @@ io.on("connection", (socket) => {
         message: "An error occurred during the conversation.",
         code: 500,
       });
+      reportError(error);
     }
   };
 
@@ -734,3 +738,12 @@ function toTitleCase(string) {
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(" ");
 }
+
+process.on('SIGTERM', () => {
+  console.log('[Shutdown] SIGTERM shutdown');
+  process.exit(1);
+});
+process.on('SIGINT', () => {
+  console.log('[Shutdown] SIGINT shutdown');
+  process.exit(1);
+});
