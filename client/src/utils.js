@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { useMediaQuery } from 'react-responsive'
 
 export const dvh = CSS.supports('height','100dvh') ? 'dvh' : 'vh';
@@ -33,4 +34,22 @@ export function useMobileXs(){
 
 export function usePortrait(){
   return useMediaQuery({ query: "(orientation: portrait) and (max-width: 600px)" });
+}
+
+export function useDocumentVisibility() {
+  const [isDocumentVisible, setIsDocumentVisible] = useState(!document.hidden);
+
+  const handleVisibilityChange = () => {
+    setIsDocumentVisible(!document.hidden);
+  };
+
+  useEffect(() => {
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
+
+  return isDocumentVisible;
 }
