@@ -30,6 +30,9 @@ const mongoClient = new MongoClient(process.env.COUNCIL_DB_URL);
 if(!process.env.COUNCIL_DB_PREFIX){
   throw new Error("COUNCIL_DB_PREFIX environment variable not set.");
 }
+
+const { reportError } = require('./errorbot');
+
 console.log(`[init] COUNCIL_DB_PREFIX is ${process.env.COUNCIL_DB_PREFIX}`);
 const db = mongoClient.db(process.env.COUNCIL_DB_PREFIX);
 const meetingsCollection = db.collection("meetings");
@@ -240,6 +243,7 @@ io.on("connection", (socket) => {
           code: 500
         }
       );
+      reportError(error);
     }
   };
 
@@ -386,6 +390,7 @@ io.on("connection", (socket) => {
           code: 500
         }
       );
+      reportError(error);
     }
   });
 
@@ -501,6 +506,7 @@ io.on("connection", (socket) => {
           code: 500
         }
       );
+      reportError(error);
     }
   };
 
