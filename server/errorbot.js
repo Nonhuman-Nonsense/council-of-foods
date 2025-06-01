@@ -18,6 +18,7 @@ export async function reportError(err) {
     }).catch(error => {
         //We better catch errors posting to the bot, otherwise we get endless loop
         console.error(error);
+        console.log('[Shutdown] Uncaught Exception, posting error failed.');
         process.exit(1);
     });
 }
@@ -26,5 +27,6 @@ export async function reportError(err) {
 process.on('uncaughtException', async (err) => {
     console.error(err);
     await reportError(err);
+    console.log('[Shutdown] Uncaught Exception, posting error OK.');
     process.exit(1);
 });
