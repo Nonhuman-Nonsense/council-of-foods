@@ -17,6 +17,7 @@ import RotateDevice from "./RotateDevice";
 import FullscreenButton from "./FullscreenButton";
 import { usePortrait, dvh } from "../utils";
 import CouncilError from "./overlays/CouncilError.jsx";
+import Reconnecting from "./overlays/Reconnecting.jsx";
 
 function useIsIphone() {
   const [isIphone, setIsIphone] = useState(false);
@@ -35,6 +36,7 @@ function Main() {
   const [topic, setTopic] = useState({ title: "", prompt: "", description: "" });
   const [foods, setFoods] = useState([]);
   const [unrecoverabeError, setUnrecoverableError] = useState(false);
+  const [connectionError, setConnectionError] = useState(false);
 
   //Had to lift up navbar state to this level to be able to close it from main overlay
   const [hamburgerOpen, setHamburgerOpen] = useState(false);
@@ -102,7 +104,7 @@ function Main() {
   return (
     <>
       <Background path={location.pathname} />
-      {!unrecoverabeError &&
+      {!(unrecoverabeError || connectionError) &&
         <Navbar
           topic={topic.title}
           hamburgerOpen={hamburgerOpen}
@@ -149,6 +151,8 @@ function Main() {
                   topic={topic}
                   foods={foods}
                   setUnrecoverableError={setUnrecoverableError}
+                  connectionError={connectionError}
+                  setConnectionError={setConnectionError}
                 />
               }
             />
@@ -163,6 +167,14 @@ function Main() {
           <CouncilError />
         </Overlay>
       }
+      {connectionError && !unrecoverabeError && (
+        <Overlay
+          isActive={true}
+          isBlurred={true}
+        >
+          <Reconnecting />
+        </Overlay>
+      )}
     </>
   );
 }
