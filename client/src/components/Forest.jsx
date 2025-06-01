@@ -25,22 +25,21 @@ function Forest({ currentSpeakerName, isPaused }) {
     }, []); // Empty dependency array ensures this effect runs only once on mount and unmount
 
     const characters = [//Ratio is video width / height
-        { ref: useRef(null), name: "Salmon", type: "transparent", height: 9, left: 2.5, bottom: 42.5, ratio: 934 / 450 },
+        { ref: useRef(null), name: "Salmon", type: "transparent", zoom: 60, height: 9, left: 2.5, bottom: 42.5, ratio: 934 / 450 },
         { ref: useRef(null), name: "Bird", type: "transparent", height: 14, left: 12.5, bottom: 52, ratio: 708 / 612 },
-        { ref: useRef(null), name: "Bumblebee", type: "transparent", height: 10, left: -48, bottom: 44, ratio: 786 / 646 },
-        { ref: useRef(null), name: "Concorta Pine", type: "image", height: 27, left: -73, bottom: 12.5, ratio: 724 / 918 },
-        { ref: useRef(null), name: "Pine", type: "transparent", height: 61, left: 26, bottom: 0, ratio: 1104 / 1920 },
+        { ref: useRef(null), name: "Bumblebee", type: "transparent", zoom: 60, height: 10, left: -48, bottom: 44, ratio: 786 / 646 },
+        { ref: useRef(null), name: "Concorta Pine", type: "image", height: 27, left: -73, bottom: 13, ratio: 724 / 918 },
+        { ref: useRef(null), name: "Pine", type: "transparent", zoom: 100, height: 61, left: 26, bottom: 0, ratio: 1104 / 1920 },
         { ref: useRef(null), name: "Reindeer", type: "transparent", height: 16, left: -26.5, bottom: 27, ratio: 1040 / 956 },
         { ref: useRef(null), name: "Wind Turbine", type: "transparent", height: 22, left: 1, bottom: 69.5, ratio: 1066 / 946 },
-        { ref: useRef(null), name: "Tree Harvester", type: "transparent", height: 19, left: 57.5, bottom: 1, ratio: 674 / 900 },
+        { ref: useRef(null), name: "Tree Harvester", type: "transparent", zoom: 80, height: 19, left: 57.5, bottom: 1, ratio: 674 / 900 },
         { ref: useRef(null), name: "Kota", type: "transparent", always_on: true, height: 35, left: 54, bottom: 20, ratio: 574 / 1000 },
         { ref: useRef(null), name: "Lichen", type: "transparent", height: 25, left: 40, bottom: 53.5, ratio: 1332 / 1000 },
         { ref: useRef(null), name: "Burning Pine", type: "transparent", always_on: true, height: 14, left: -88, bottom: 85.5, ratio: 474 / 474 },
         { ref: useRef(null), name: "Aurora", type: "transparent", always_on: true, height: 21, left: -35, bottom: 80, ratio: 1600 / 800 },
-        { ref: useRef(null), name: "Mountain", type: "transparent", height: 16, left: -52, bottom: 71.5, ratio: 1600 / 480 },
+        { ref: useRef(null), name: "Mountain", type: "transparent", zoom: 40, height: 16, left: -52, bottom: 71.5, ratio: 1600 / 480 },
         { ref: useRef(null), name: "Kota2", type: "image", height: 11, left: -19.5, bottom: 64, ratio: 564 / 400 },
         { ref: useRef(null), name: "Snowy Spruce", type: "image", height: 36, left: -37, bottom: 44.5, ratio: 1044 / 1800 },
-        
     ];
 
     const container = {
@@ -72,8 +71,8 @@ function Forest({ currentSpeakerName, isPaused }) {
 
     useEffect(() => {
         if (zoomInOnBeing) {
-            //Zoom in so that character is 70% of height
-            const zoom = 70 / zoomInOnBeing.height;
+            //Zoom in so that character is 70% of height, or custom
+            const zoom = (zoomInOnBeing.zoom ?? 70) / zoomInOnBeing.height;
 
             //Pixel calculations would be
             // const container = containerRef.current.getBoundingClientRect();
