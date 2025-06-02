@@ -356,6 +356,8 @@ function Council({
       setPaused(true);
     }else if(connectionError || !isDocumentVisible){
       setPaused(true);
+    }else if(connectionError || !isDocumentVisible){
+      setPaused(true);
     }
   }, [isPaused, activeOverlay, location, connectionError, isDocumentVisible]);
 
