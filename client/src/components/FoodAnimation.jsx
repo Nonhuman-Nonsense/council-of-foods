@@ -10,7 +10,13 @@ function FoodAnimation({ food, styles, currentSpeakerName, isPaused }) {
   //So we play the video for a moment on component mount, and then go back to the normal behaviour
   useEffect(() => {
     async function startVid() {
-      await video.current.play();
+      try{
+        await video.current.play();
+      }catch(e){
+        //Sometimes video playing might fail due to being paused because it is a background tab etc.
+        //But this is not a problem, just catch and proceed.
+        console.log(e);//log for now but prob safe to fail silently
+      }
       video.current.pause();
       setVidLoaded(true);
     };
@@ -20,7 +26,7 @@ function FoodAnimation({ food, styles, currentSpeakerName, isPaused }) {
   useEffect(() => {
     if (vidLoaded) {
       if (!isPaused && currentSpeakerName === food.name) {
-        video.current.play();
+        video.current.play().catch(e => console.log(e));//log for now but prob safe to fail silently
       } else {
         video.current.pause();
       }
