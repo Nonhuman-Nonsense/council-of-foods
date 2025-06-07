@@ -274,6 +274,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     promptsAndOptions.options.chairName = promptsAndOptions.rooms[currentRoom].characters[0].name;
+    promptsAndOptions.options.audio_speed = 1.15;
 
     localStorage.setItem(
       "PromptsAndOptions",
@@ -611,6 +612,7 @@ document.addEventListener("DOMContentLoaded", () => {
       text: injectInputArea.value,
       length: promptsAndOptions.options.maxTokensInject,
       index: conversationLength,
+      date: new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10)//Use local browser date, in ISO format to avoid ambiguity
     };
     injectedMessage.innerHTML = "Instruction injected, just wait...";
     submitInjection.style.display = "none";
