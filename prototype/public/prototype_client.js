@@ -274,6 +274,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     promptsAndOptions.options.chairName = promptsAndOptions.rooms[currentRoom].characters[0].name;
+    promptsAndOptions.options.audio_speed = 1.15;
 
     localStorage.setItem(
       "PromptsAndOptions",
