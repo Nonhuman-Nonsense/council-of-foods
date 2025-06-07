@@ -124,10 +124,7 @@ io.on("connection", (socket) => {
 
     socket.on('submit_injection', async (message) => {
       let { response, id } = await chairInterjection(
-        message.text.replace(
-          "[DATE]",
-          meetingDate.toISOString().split("T")[0]
-        ),
+        message.text.replace("[DATE]",message.date),
         message.index,
         message.length,
         true
