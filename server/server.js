@@ -304,11 +304,8 @@ io.on("connection", (socket) => {
     handleConversationTurn();
   });
 
-  socket.on("wrap_up_meeting", async () => {
-    const summaryPrompt = conversationOptions.options.finalizeMeetingPrompt.replace(
-      "[DATE]",
-      meetingDate.toISOString().split("T")[0]
-    );
+  socket.on("wrap_up_meeting", async (message) => {
+    const summaryPrompt = conversationOptions.options.finalizeMeetingPrompt.replace("[DATE]", message.date);
 
     let { response, id } = await chairInterjection(
       summaryPrompt,
