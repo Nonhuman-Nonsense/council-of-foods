@@ -124,10 +124,7 @@ io.on("connection", (socket) => {
 
     socket.on('submit_injection', async (message) => {
       let { response, id } = await chairInterjection(
-        message.text.replace(
-          "[DATE]",
-          meetingDate.toISOString().split("T")[0]
-        ),
+        message.text.replace("[DATE]",message.date),
         message.index,
         message.length,
         true
@@ -304,11 +301,8 @@ io.on("connection", (socket) => {
     handleConversationTurn();
   });
 
-  socket.on("wrap_up_meeting", async () => {
-    const summaryPrompt = conversationOptions.options.finalizeMeetingPrompt.replace(
-      "[DATE]",
-      meetingDate.toISOString().split("T")[0]
-    );
+  socket.on("wrap_up_meeting", async (message) => {
+    const summaryPrompt = conversationOptions.options.finalizeMeetingPrompt.replace("[DATE]", message.date);
 
     let { response, id } = await chairInterjection(
       summaryPrompt,

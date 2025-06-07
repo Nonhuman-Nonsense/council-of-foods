@@ -522,8 +522,11 @@ function Council({
     //Set intended message to current max
     setPlayNextIndex(meetingMaxLength);
 
+    //Use local browser date, in ISO format to avoid ambiguity
+    const browserDate = new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+
     //Wait for the summary
-    socketRef.current.emit("wrap_up_meeting");
+    socketRef.current.emit("wrap_up_meeting", { date: browserDate });
   }
 
   /////////////////////
