@@ -70,8 +70,10 @@ function FoodItem({ food, index, total, currentSpeakerName, isPaused, zoomIn }) 
   const foodItemStyle = (index, total) => {
     if (zoomIn && currentSpeakerName === food.name) {
       let baseHeight = -19;
+      // Manual vertical adjustments for zoomed in view
       if (food.name === 'Lollipop') baseHeight = -22;
       if (food.name === 'Banana') baseHeight = -20;
+      if (food.name === 'Honey') baseHeight = -18;
       if (food.name === 'Beer') baseHeight = -18;
       return { ...singleFoodStyle, top: baseHeight + dvh };
     } else {
@@ -108,8 +110,10 @@ function FoodItem({ food, index, total, currentSpeakerName, isPaused, zoomIn }) 
       top = a * Math.pow(index - middleIndex, 2) + topMax - topOffset;
     }
 
+    // Manual vertical adjustments for overview
     if (food.name === 'Lollipop') top *= 1.05;
     if (food.name === 'Beer') top *= 0.97;
+    if (food.name === 'Honey') top *= 0.95;
 
     return {
       position: "absolute",
