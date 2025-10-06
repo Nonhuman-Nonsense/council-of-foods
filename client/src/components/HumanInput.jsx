@@ -1,15 +1,17 @@
-import React, { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import SpeechRecognition, {
   useSpeechRecognition,
 } from "react-speech-recognition";
 import ConversationControlIcon from "./ConversationControlIcon";
 import TextareaAutosize from 'react-textarea-autosize';
-import { useMobile, dvh } from "../utils";
+import { useMobile, dvh, mapFoodIndex } from "../utils";
 
-function HumanInput({ onSubmitHumanMessage }) {
+function HumanInput({ foods, onSubmitHumanMessage }) {
   const [isRecording, setIsRecording] = useState(false);
   const [canContinue, setCanContinue] = useState(false);
   const [previousTranscript, setPreviousTranscript] = useState("");
+  const [askParticular, setAskParticular] = useState("");
+  const [someoneHovered, setSomeoneHovered] = useState(false);
   const inputArea = useRef(null);
   const isMobile = useMobile();
 
@@ -71,7 +73,7 @@ function HumanInput({ onSubmitHumanMessage }) {
 
   function submitAndContinue() {
     setIsRecording(false);
-    onSubmitHumanMessage(inputArea.current.value.substring(0, maxInputLength));
+    onSubmitHumanMessage(inputArea.current.value.substring(0, maxInputLength), askParticular);
   }
 
   const wrapperStyle = {
@@ -113,7 +115,104 @@ function HumanInput({ onSubmitHumanMessage }) {
     padding: "0",
   };
 
-  return (
+  // This is same calculation as in the FoodItem
+  const overViewFoodItemStyle = (index, total) => {
+    const left = (index / (total - 1)) * 100;
+
+    const topMax = 3.0; // The curvature
+    const topOffset = 14.5; // Vertical offset to adjust the curve's baseline
+
+    let middleIndex;
+    let isEven = total % 2 === 0;
+    if (isEven) {
+      middleIndex = total / 2 - 1;
+    } else {
+      middleIndex = (total - 1) / 2;
+    }
+
+    let a;
+    if (isEven) {
+      a = topMax / Math.pow(middleIndex + 0.5, 2);
+    } else {
+      a = topMax / Math.pow(middleIndex, 2);
+    }
+
+    let top;
+    if (isEven) {
+      const distanceFromMiddle = Math.abs(index - middleIndex - 0.5);
+      top = a * Math.pow(distanceFromMiddle, 2) + topMax - topOffset;
+    } else {
+      top = a * Math.pow(index - middleIndex, 2) + topMax - topOffset;
+    }
+
+    return {
+      position: "absolute",
+      left: `${left}%`,
+      top: `${top}vw`,
+      width: `14vw`,
+      height: `14vw`,
+      borderRadius: "14vw",
+      transform: "translate(-50%, -50%)",
+      opacity: "1",
+      display: "flex",
+      justifyContent: "center",
+      alignItems: "flex-end",
+      transition: "border 0.2s, background-color 0.2s"
+    };
+  };
+
+  const ringStyle = {
+    position: "absolute",
+    top: "62%",
+    left: "50%",
+    transform: "translate(-50%, -50%)",
+    width: foods.length > 6 ? "79%" : "70%",
+    display: "flex",
+    justifyContent: "space-around",
+    alignItems: "center",
+  };
+
+  const deselectorStyle = {
+    position: "absolute",
+    top: "15" + dvh,
+    height: "60" + dvh,
+    width: "100vw",
+    pointerEvents: "auto",
+    zIndex: "-1"
+  };
+
+  const selectTooltip = {
+    fontSize: "20px",
+    opacity: someoneHovered ? "0.9" : "0",
+    transition: "opacity 0.2s",
+    padding: "12px",
+    backdropFilter: "blur(3px)",
+    backgroundColor: "rgba(0, 0, 0, 0.1)",
+    borderRadius: "28px",
+  };
+
+  return (<>
+    <div style={{ ...ringStyle, zIndex: "-1" }}>
+      <div style={{ position: "absolute", bottom: "21vw" }}>
+        <div style={selectTooltip}>Select a food to ask them directly</div>
+      </div>
+      {foods.map((food, index) => (
+        <div style={{ ...overViewFoodItemStyle(mapFoodIndex(foods.length, index), foods.length), backgroundColor: askParticular === food.name ? "rgba(0,0,0,0.4)" : "rgba(0,0,0,0)" }} key={index}></div>
+      ))}
+    </div>
+    <div style={{ ...ringStyle, zIndex: "0" }}>
+      {foods.map((food, index) => (
+        <div
+          style={{ ...overViewFoodItemStyle(mapFoodIndex(foods.length, index), foods.length), border: askParticular === food.name && "3px solid rgba(255,255,255,0.8)", pointerEvents: "auto" }}
+          className="ringHover"
+          key={index}
+          onClick={() => setAskParticular(food.name)}
+          onMouseEnter={() => setSomeoneHovered(true)}
+          onMouseLeave={() => setSomeoneHovered(false)}
+        ></div>
+      ))}
+    </div>
+    <div style={deselectorStyle} onClick={() => setAskParticular("")}></div>
     <div style={wrapperStyle}>
       <img alt="Say something!" src="/mic.png" style={micStyle} />
       <div style={{ zIndex: "4", position: "relative", pointerEvents: "auto" }}>
@@ -153,6 +252,7 @@ function HumanInput({ onSubmitHumanMessage }) {
         {!browserSupportsSpeechRecognition && <div style={divStyle} />}
       </div>
     </div>
+  </>
   );
 }
 

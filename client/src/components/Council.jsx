@@ -8,7 +8,7 @@ import Loading from "./Loading";
 import Output from "./Output";
 import ConversationControls from "./ConversationControls";
 import HumanInput from "./HumanInput";
-import { useDocumentVisibility } from "../utils";
+import { useDocumentVisibility, mapFoodIndex } from "../utils";
 
 const globalOptions = require("../global-options-client");
 
@@ -18,7 +18,7 @@ function Council({
   setUnrecoverableError,
   setConnectionError,
   connectionError
- }) {
+}) {
   //Overall Council settings for this meeting
   const [humanName, setHumanName] = useState("");
 
@@ -372,9 +372,9 @@ function Council({
   useEffect(() => {
     if (activeOverlay !== "" && activeOverlay !== "summary" && !isPaused) {
       setPaused(true);
-    }else if(searchParams.get('o') !== null && !isPaused){
+    } else if (searchParams.get('o') !== null && !isPaused) {
       setPaused(true);
-    }else if(connectionError || !isDocumentVisible){
+    } else if (connectionError || !isDocumentVisible) {
       setPaused(true);
     }
   }, [isPaused, activeOverlay, location, connectionError, isDocumentVisible]);
@@ -433,8 +433,8 @@ function Council({
   }
 
   // When a new human message is submitted
-  function handleOnSubmitHumanMessage(newTopic) {
-    socketRef.current.emit("submit_human_message", { text: newTopic });
+  function handleOnSubmitHumanMessage(newTopic, askParticular) {
+    socketRef.current.emit("submit_human_message", { text: newTopic, askParticular: askParticular });
 
     //Slice off the invitation
     setTextMessages((prevMessages) => {
@@ -533,11 +533,6 @@ function Council({
   // Some calculations
   /////////////////////
 
-  //Put water in the middle always
-  function mapFoodIndex(total, index) {
-    return (Math.ceil(total / 2) + index - 1) % total;
-  }
-
   function currentSpeakerIndex() {
     let currentIndex;
     foods.map((food, index) => {
@@ -581,7 +576,7 @@ function Council({
       {councilState === 'loading' && <Loading />}
       <>
         {councilState === 'human_input' && (
-          <HumanInput onSubmitHumanMessage={handleOnSubmitHumanMessage} />
+          <HumanInput foods={foods} onSubmitHumanMessage={handleOnSubmitHumanMessage} />
         )}
         <Output
           textMessages={textMessages}
