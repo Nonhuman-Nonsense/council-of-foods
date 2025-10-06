@@ -13,15 +13,15 @@
     "push": "docker push nonhumannonsense/council-of-foods:logiqs"
   },
   "dependencies": {
-    "cross-env": "^7.0.3",
-    "dotenv": "^16.4.7",
-    "express": "^4.21.2",
-    "mongodb": "^6.15.0",
-    "openai": "^4.89.0",
+    "cross-env": "^10.1.0",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "mongodb": "^6.20.0",
+    "openai": "^6.1.0",
     "socket.io": "^4.8.1",
-    "uuid": "^11.1.0"
+    "uuid": "^13.0.0"
   },
   "devDependencies": {
-    "nodemon": "^3.1.9"
+    "nodemon": "^3.1.10"
   }
 }

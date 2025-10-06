@@ -19,7 +19,7 @@ const io = new Server(httpServer, {
 if(!process.env.COUNCIL_OPENAI_API_KEY){
   throw new Error("COUNCIL_OPENAI_API_KEY environment variable not set.");
 }
-const openai = new OpenAI({ apiKey: process.env.COUNCIL_OPENAI_API_KEY });
+const openai = new OpenAI.OpenAI({ apiKey: process.env.COUNCIL_OPENAI_API_KEY });
 const globalOptions = require("./global-options");
 
 // Database setup
@@ -76,7 +76,7 @@ if (environment === "prototype") {
   });
 } else if (environment !== "development") {
   app.use(express.static(path.join(__dirname, "../client/build")));
-  app.get("/*", function (req, res) {
+  app.get("/{*splat}", function (req, res) {
     res.sendFile(path.join(__dirname, "../client/build", "index.html"));
   });
 }
