@@ -125,7 +125,7 @@ function SelectFoods({ topic, onContinueForward }) {
         {selectedFoods.length < 2 && <button onClick={randomizeSelection} style={{...discriptionStyle, margin: isMobileXs ? "0" : "8px 0", position: "absolute"}}>Randomize</button>}
         {selectedFoods.length >= minFoods && selectedFoods.length <= maxFoods ?
           <button onClick={continueForward} style={{margin: isMobileXs ? "0" : "8px 0"}}>Start</button> :
-          (currentFood !== null || selectedFoods.length === 2) && <h4 style={{margin: isMobile && (isMobileXs ? "0" : "7px")}}>please select 2-6 foods for the discussion</h4>
+          (currentFood !== null || selectedFoods.length === 2) && <h4 style={{margin: isMobile && (isMobileXs ? "0" : "7px")}}>please select 2-6 beings for the discussion</h4>
         }
         </div>
       </div>
