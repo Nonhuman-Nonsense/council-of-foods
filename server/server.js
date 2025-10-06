@@ -16,18 +16,18 @@ const io = new Server(httpServer, {
   // transports: ["websocket", "polling"], // Ensure WebSocket is used primarily
 });
 
-if(!process.env.COUNCIL_OPENAI_API_KEY){
+if (!process.env.COUNCIL_OPENAI_API_KEY) {
   throw new Error("COUNCIL_OPENAI_API_KEY environment variable not set.");
 }
 const openai = new OpenAI.OpenAI({ apiKey: process.env.COUNCIL_OPENAI_API_KEY });
 const globalOptions = require("./global-options");
 
 // Database setup
-if(!process.env.COUNCIL_DB_URL){
+if (!process.env.COUNCIL_DB_URL) {
   throw new Error("COUNCIL_DB_URL environment variable not set.");
 }
 const mongoClient = new MongoClient(process.env.COUNCIL_DB_URL);
-if(!process.env.COUNCIL_DB_PREFIX){
+if (!process.env.COUNCIL_DB_PREFIX) {
   throw new Error("COUNCIL_DB_PREFIX environment variable not set.");
 }
 
@@ -102,8 +102,33 @@ io.on("connection", (socket) => {
     if (conversation.length === 0) return 0;
     if (conversation.length === 1) return 1;
     for (let i = conversation.length - 1; i >= 0; i--) {
-      if (conversation[i].type === 'human') continue;
+      //If last message was human input
+      if (conversation[i].type === 'human') {
+        //And it contained a question to a particular food
+        if (conversation[i].askParticular && (conversationOptions.characters.findIndex(char => char.name === conversation[i].askParticular) !== -1)) {
+          //Ask them directly
+          return conversationOptions.characters.findIndex(char => char.name === conversation[i].askParticular);
+        } else {
+          //If just a human question to anyone in the council, skip it
+          continue;
+        }
+      }
+      //Skip invitations
       if (conversation[i].type === 'invitation') continue;
+      
+      // Skip direct responses to questions when calculating next speaker
+      if (conversation[i].type === 'response') {
+        //Check if it was supposed to be this character speaking anyway
+        const indexOfSecondLast = conversationOptions.characters.findIndex(char => char.name === conversation[i-2].speaker);
+        const nextAfter = indexOfSecondLast >= conversationOptions.characters.length - 1 ? 0 : indexOfSecondLast + 1;
+        //Unless we should have spoken anyway
+        if(conversationOptions.characters[nextAfter].name !== conversation[i].speaker){
+          // Skip the human question in calculation too
+          i--;
+          continue;
+        }
+      }
+
       const lastSpeakerIndex = conversationOptions.characters.findIndex(char => char.name === conversation[i].speaker);
 
       return lastSpeakerIndex >= conversationOptions.characters.length - 1 ? 0 : lastSpeakerIndex + 1;
@@ -124,7 +149,7 @@ io.on("connection", (socket) => {
 
     socket.on('submit_injection', async (message) => {
       let { response, id } = await chairInterjection(
-        message.text.replace("[DATE]",message.date),
+        message.text.replace("[DATE]", message.date),
         message.index,
         message.length,
         true
@@ -275,7 +300,13 @@ io.on("connection", (socket) => {
 
   socket.on("submit_human_message", (message) => {
     console.log(`[meeting ${meetingId}] human input on index ${conversation.length - 1}`);
-    message.text = conversationOptions.humanName + " said: " + message.text;
+    if (message.askParticular) {
+      console.log(`[meeting ${meetingId}] specifically asked to ${message.askParticular}`);
+      message.text = conversationOptions.humanName + " asked " + message.askParticular + ": " + message.text;
+    } else {
+      message.text = conversationOptions.humanName + " said: " + message.text;
+    }
+
     message.id = "human-" + uuidv4(); // Use UUID for unique message IDs for human messages
     message.type = "human";
     message.speaker = conversationOptions.humanName;
@@ -453,6 +484,12 @@ io.on("connection", (socket) => {
         trimmed: output.trimmed,
         pretrimmed: output.pretrimmed
       };
+
+      //If previous message in conversation is a question directly to this food, mark it as response
+      if (conversation.length > 1 && conversation[conversation.length - 1].type === "human" && conversation[conversation.length - 1].askParticular === message.speaker) {
+        message.type = "response";
+      }
+
       if (message.text === "") {
         message.type = "skipped";
         console.log("Skipped a message");

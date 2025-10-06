@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useMediaQuery } from 'react-responsive'
 
-export const dvh = CSS.supports('height','100dvh') ? 'dvh' : 'vh';
+export const dvh = CSS.supports('height', '100dvh') ? 'dvh' : 'vh';
 
 export function capitalizeFirstLetter(string) {
   if (string && typeof string === "string") {
@@ -11,7 +11,7 @@ export function capitalizeFirstLetter(string) {
   return string || "";
 }
 
-export function toTitleCase(string){
+export function toTitleCase(string) {
   return string
     .toLowerCase()
     .split(' ')
@@ -20,19 +20,19 @@ export function toTitleCase(string){
 }
 
 export function filename(string) {
-  return string.toLowerCase().replace(/ /g,"_");
+  return string.toLowerCase().replace(/ /g, "_");
 }
 
 //Same breakpoint everywhere
-export function useMobile(){
+export function useMobile() {
   return useMediaQuery({ query: '(max-height: 600px)' });
 }
 
-export function useMobileXs(){
+export function useMobileXs() {
   return useMediaQuery({ query: '(max-height: 370px)' });
 }
 
-export function usePortrait(){
+export function usePortrait() {
   return useMediaQuery({ query: "(orientation: portrait) and (max-width: 600px)" });
 }
 
@@ -52,4 +52,9 @@ export function useDocumentVisibility() {
   }, []);
 
   return isDocumentVisible;
+}
+
+//Put water in the middle always
+export function mapFoodIndex(total, index) {
+  return (Math.ceil(total / 2) + index - 1) % total;
 }
