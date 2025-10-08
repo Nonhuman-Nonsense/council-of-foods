@@ -43,6 +43,12 @@ function HumanInput({ foods, isPanelist, currentSpeakerName, onSubmitHumanMessag
     }
   }, [isRecording]);
 
+  useEffect(() => {
+    //Make sure to reset the transcript on start
+    //Sometimes it leaks into later stages somehow
+    resetTranscript();
+  },[]);
+
   function handleStartStopRecording() {
     setIsRecording(!isRecording); // Toggle the recording state
   }
