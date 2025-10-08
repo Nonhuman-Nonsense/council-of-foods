@@ -559,11 +559,12 @@ function Council({
   // Some calculations
   /////////////////////
 
+  //Only used for calculations on screen, so is current speaker of the foods.
   function currentSpeakerIndex() {
     let currentIndex;
-    participants.map((food, index) => {
+    foods.map((food, index) => {
       if (currentSpeakerName === food.name) {
-        currentIndex = mapFoodIndex(participants.length, index);
+        currentIndex = mapFoodIndex(foods.length, index);
       }
       return false;//map expects return value, but this is irrelevant in our case
     });
