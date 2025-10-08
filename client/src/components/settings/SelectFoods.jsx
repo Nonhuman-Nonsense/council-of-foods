@@ -55,8 +55,12 @@ function SelectFoods({ topic, onContinueForward }) {
     return newHuman;
   }
 
+  function atLeastTwoFoods() {
+    return (selectedFoods.filter((f) => f.type !== 'panelist').length >= minFoods);
+  }
+
   function continueForward() {
-    if (selectedFoods.length >= minFoods && selectedFoods.length <= maxFoods) {
+    if (atLeastTwoFoods() && selectedFoods.length <= maxFoods) {
       //Modify waters invitation prompt, with the name of the selected participants
 
       const participatingFoods = selectedFoods.filter((participant) => participant.type !== 'panelist');
@@ -78,9 +82,9 @@ function SelectFoods({ topic, onContinueForward }) {
       //Replace humans as well if there are any.
       let humanPresentation = "";
       if (participatingHumans.length > 0) {
-        if(participatingHumans.length === 1){
+        if (participatingHumans.length === 1) {
           humanPresentation += "1 human: ";
-        }else{
+        } else {
           humanPresentation += participatingHumans.length + " humans: ";
         }
 
@@ -174,6 +178,16 @@ function SelectFoods({ topic, onContinueForward }) {
     }
   }
 
+  function buttonOrInfo() {
+    if (atLeastTwoFoods() && selectedFoods.length <= maxFoods && humansReady) {
+      return <button onClick={continueForward} style={{ margin: isMobileXs ? "0" : "8px 0" }}>Start</button>;
+    } else if (atLeastTwoFoods() && selectedFoods.length <= maxFoods && !humansReady) {
+      return <h4 style={{ margin: isMobile && (isMobileXs ? "0" : "7px") }}>all participating humans must have name and description</h4>;
+    } else if (currentFood !== null || (selectedFoods.length > 1 && !atLeastTwoFoods())) {
+      return <h4 style={{ margin: isMobile && (isMobileXs ? "0" : "7px") }}>please select 2-6 foods for the discussion</h4>;
+    }
+  }
+
   return (
     <div
       style={{
@@ -200,7 +214,7 @@ function SelectFoods({ topic, onContinueForward }) {
             <p style={{ margin: 0 }}>Council of Foods meeting on</p>
             <h3>{toTitleCase(topic.title)}</h3>
             <div>
-              {selectedFoods.length < 2 ? <p>please select 2-6 foods for the discussion</p> : <><p>will be attended by:</p>
+              {!atLeastTwoFoods() ? <p>please select 2-6 foods for the discussion</p> : <><p>will be attended by:</p>
                 <div>{selectedFoods.map((food) => <p style={{ margin: 0 }} key={food.type === 'panelist' ? food.id : food.name}>{food.name}</p>)}</div>
               </>}
             </div>
@@ -232,11 +246,7 @@ function SelectFoods({ topic, onContinueForward }) {
         </div>
         <div style={{ display: "flex", justifyContent: "center", marginTop: isMobileXs ? "2px" : "5px" }}>
           {selectedFoods.length < 2 && <button onClick={randomizeSelection} style={{ ...discriptionStyle, margin: isMobileXs ? "0" : "8px 0", position: "absolute" }}>Randomize</button>}
-          {selectedFoods.length >= minFoods && selectedFoods.length <= maxFoods ?
-            (humansReady ? <button onClick={continueForward} style={{ margin: isMobileXs ? "0" : "8px 0" }}>Start</button> :
-              <h4 style={{ margin: isMobile && (isMobileXs ? "0" : "7px") }}>all participating humans must have name and description</h4>) :
-            (currentFood !== null || selectedFoods.length === 2) && <h4 style={{ margin: isMobile && (isMobileXs ? "0" : "7px") }}>please select 2-6 foods for the discussion</h4>
-          }
+          {buttonOrInfo()}
         </div>
       </div>
     </div>
