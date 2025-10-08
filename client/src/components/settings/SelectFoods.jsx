@@ -16,7 +16,7 @@ const addHuman = {
 };
 
 const blankHuman = {
-  type: "human",
+  type: "panelist",
   name: "",
   description: ""
 };
@@ -58,8 +58,12 @@ function SelectFoods({ topic, onContinueForward }) {
   function continueForward() {
     if (selectedFoods.length >= minFoods && selectedFoods.length <= maxFoods) {
       //Modify waters invitation prompt, with the name of the selected participants
+
+      const participatingFoods = selectedFoods.filter((participant) => participant.type !== 'panelist');
+      const participatingHumans = selectedFoods.filter((participant) => participant.type === 'panelist');
+
       let participants = "";
-      selectedFoods.forEach(function (food, index) {
+      participatingFoods.forEach(function (food, index) {
         if (index !== 0) participants += toTitleCase(food.name) + ", ";
       });
       participants = participants.substring(0, participants.length - 2);
@@ -69,6 +73,32 @@ function SelectFoods({ topic, onContinueForward }) {
       replacedFoods[0].prompt = foodData.foods[0].prompt.replace(
         "[FOODS]",
         participants
+      );
+
+      //Replace humans as well if there are any.
+      let humanPresentation = "";
+      if (participatingHumans.length > 0) {
+        if(participatingHumans.length === 1){
+          humanPresentation += "1 human: ";
+        }else{
+          humanPresentation += participatingHumans.length + " humans: ";
+        }
+
+        participatingHumans.forEach((human) => {
+          humanPresentation += toTitleCase(human.name) + ", " + human.description + ". ";
+        });
+
+        const humanPrompt = structuredClone(foodData.panelWithHumans);
+        humanPresentation = humanPrompt.replace(
+          "[HUMANS]",
+          humanPresentation
+        );
+      }
+
+      //Replace the humans tag in waters prompt regardless if its empty or not
+      replacedFoods[0].prompt = replacedFoods[0].prompt.replace(
+        "[HUMANS]",
+        humanPresentation
       );
 
       onContinueForward({ foods: replacedFoods });
@@ -99,7 +129,7 @@ function SelectFoods({ topic, onContinueForward }) {
 
   function deselectFood(food) {
     //Human button is clicked that is already selected, but is not lastSelection, focus on it instead
-    if (food.type === "human" && lastSelected !== food) {
+    if (food.type === 'panelist' && lastSelected !== food) {
       setLastSelected(food);
     } else {
       //Normal deselection
@@ -115,7 +145,7 @@ function SelectFoods({ topic, onContinueForward }) {
   }
 
   useEffect(() => {
-    const selectedHumans = selectedFoods.filter((food) => food.type === 'human');
+    const selectedHumans = selectedFoods.filter((food) => food.type === 'panelist');
     let ready = true;
     selectedHumans.forEach(human => {
       if (human.name.length === 0 || human.description.length === 0) {
@@ -125,7 +155,7 @@ function SelectFoods({ topic, onContinueForward }) {
     setHumansReady(ready);
   }, [recheckHumansReady, selectedFoods]);
 
-  const showDefaultDescription = (currentFood === null && lastSelected?.type !== 'human');
+  const showDefaultDescription = (currentFood === null && lastSelected?.type !== 'panelist');
 
   const discriptionStyle = {
     transition: "opacity ease",
@@ -135,11 +165,11 @@ function SelectFoods({ topic, onContinueForward }) {
   };
 
   function infoToShow() {
-    if (currentFood !== null && currentFood.type !== 'human') {//If something is hovered & if it's not a human
+    if (currentFood !== null && currentFood.type !== 'panelist') {//If something is hovered & if it's not a human
       return <FoodInfo food={currentFood} />;
-    } else if (currentFood?.type === 'human' && lastSelected !== currentFood) {//a human is hovered but not selected
+    } else if (currentFood?.type === 'panelist' && lastSelected !== currentFood) {//a human is hovered but not selected
       return <HumanInfo human={currentFood} unfocus={true} setHumans={setHumans} setRecheckHumansReady={setRecheckHumansReady} />;
-    } else if (lastSelected?.type === 'human') {//a human is selected
+    } else if (lastSelected?.type === 'panelist') {//a human is selected
       return <HumanInfo human={lastSelected} lastSelected={lastSelected} setHumans={setHumans} setRecheckHumansReady={setRecheckHumansReady} />;
     }
   }
@@ -171,7 +201,7 @@ function SelectFoods({ topic, onContinueForward }) {
             <h3>{toTitleCase(topic.title)}</h3>
             <div>
               {selectedFoods.length < 2 ? <p>please select 2-6 foods for the discussion</p> : <><p>will be attended by:</p>
-                <div>{selectedFoods.map((food) => <p style={{ margin: 0 }} key={food.type === "human" ? food.id : food.name}>{food.name}</p>)}</div>
+                <div>{selectedFoods.map((food) => <p style={{ margin: 0 }} key={food.type === 'panelist' ? food.id : food.name}>{food.name}</p>)}</div>
               </>}
             </div>
           </div>
@@ -182,7 +212,7 @@ function SelectFoods({ topic, onContinueForward }) {
         <div style={{ display: "flex", alignItems: "center" }}>
           {foods.map((food) => (
             <FoodButton
-              key={food.type === "human" ? food.id : food.name}
+              key={food.type === 'panelist' ? food.id : food.name}
               food={food}
               onMouseEnter={() => handleOnMouseEnter(food)}
               onMouseLeave={handleOnMouseLeave}
@@ -237,7 +267,7 @@ function FoodInfo({ food }) {
   );
 }
 
-function HumanInfo({ human, setHumans, lastSelected,  unfocus, setRecheckHumansReady }) {
+function HumanInfo({ human, setHumans, lastSelected, unfocus, setRecheckHumansReady }) {
   const isMobile = useMobile();
   const nameArea = useRef(null);
   const descriptionArea = useRef(null);
@@ -269,7 +299,7 @@ function HumanInfo({ human, setHumans, lastSelected,  unfocus, setRecheckHumansR
       //Set cursor to end
       const length = nameArea.current.value.length;
       nameArea.current.setSelectionRange(length, length);
-    }else if(unfocus === true){
+    } else if (unfocus === true) {
       nameArea.current.blur();
       descriptionArea.current.blur();
     }
@@ -350,7 +380,7 @@ function FoodButton({
   const isMobile = useMobile();
   const isModerator = onSelectFood === undefined;
 
-  const imageUrl = `/foods/small/${food.type === 'human' ? 'human' : filename(food.name)}.webp`;
+  const imageUrl = `/foods/small/${food.type === 'panelist' ? 'panelist' : filename(food.name)}.webp`;
 
   function handleClickFood() {
     if (!isModerator && (!selectLimitReached || isSelected)) {
@@ -464,7 +494,7 @@ function AddHumanButton({
     >
       <img
         src={imageUrl}
-        alt={'human'}
+        alt={'add human'}
         style={imageStyle}
       />
     </div>

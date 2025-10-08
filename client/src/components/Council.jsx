@@ -14,7 +14,7 @@ const globalOptions = require("../global-options-client");
 
 function Council({
   topic,
-  foods,
+  participants,
   setUnrecoverableError,
   setConnectionError,
   connectionError
@@ -77,6 +77,10 @@ function Council({
     audioContext.current = new AudioContext();
   }
 
+  //Humans and foods
+  const foods = participants.filter((part) => part.type !== 'panelist');
+  // const humans = participants.filter((part) => part.type === 'panelist');
+
   //Make sure to empty this timer on component unmount
   //Incase someone restarts the counsil in a break etc.
   useEffect(() => {
@@ -107,7 +111,7 @@ function Council({
 
     let conversationOptions = {
       topic: topic.prompt,
-      characters: foods,
+      characters: participants,
     };
 
     socketRef.current.io.on("reconnect", () => {
@@ -207,17 +211,22 @@ function Council({
         if (tryToFindTextAndAudio()) {
           setPlayingNowIndex(playNextIndex);
           setCouncilState("playing");
+        } else if(textMessages[playNextIndex]?.type === 'awaiting_human_panelist') {
+          setCouncilState('human_panelist');
         }
         break;
       case 'playing':
         if (playingNowIndex !== playNextIndex) {
-          //Attempt to play it
-          if (tryToFindTextAndAudio()) {
+          if (tryToFindTextAndAudio()) {//Attempt to play it
             setPlayingNowIndex(playNextIndex);
+          } else if(textMessages[playNextIndex]?.type === 'awaiting_human_panelist') {
+            setCouncilState('human_panelist');
           } else {//If it's not ready, show the loading
             setCouncilState('loading');
           }
         }
+        break;
+      case 'human_panelist':
         break;
       case 'human_input':
         break;
@@ -283,6 +292,8 @@ function Council({
       setCurrentSpeakerName("");
     } else if (councilState === 'human_speaking') {
       setCurrentSpeakerName(humanName);
+    } else if (councilState === 'human_panelist') {
+      setCurrentSpeakerName(textMessages[playNextIndex].speaker);
     } else if (textMessages[playingNowIndex]) {
       setCurrentSpeakerName(textMessages[playingNowIndex].speaker);
     } else {
@@ -330,7 +341,7 @@ function Council({
   // If we reach the end of one message, figure out what to do next
   function calculateNextAction(wait = false) {
 
-    if (councilState === 'human_input') {// if human input was submitted
+    if (councilState === 'human_input' || councilState === 'human_panelist') {// if human input was submitted
       setCouncilState('loading');
     } else if (textMessages[playingNowIndex]?.type === 'invitation') {// if invitation finished
       setCouncilState('human_input');
@@ -357,8 +368,10 @@ function Council({
       councilState === 'max_reached' ||
       councilState === 'summary' ||
       councilState === 'human_input' ||
+      councilState === 'human_panelist' ||
       playingNowIndex <= 0 ||
-      textMessages[playingNowIndex]?.type === "human"
+      textMessages[playingNowIndex]?.type === "human" ||
+      textMessages[playingNowIndex]?.type === "panelist"
     ) {
       setZoomIn(false);
     } else if (currentSnippetIndex % 4 < 2 && currentSnippetIndex !== sentencesLength - 1) {
@@ -434,14 +447,25 @@ function Council({
 
   // When a new human message is submitted
   function handleOnSubmitHumanMessage(newTopic, askParticular) {
-    socketRef.current.emit("submit_human_message", { text: newTopic, askParticular: askParticular });
+    if (councilState === 'human_panelist') {
+      socketRef.current.emit("submit_human_panelist", { text: newTopic });
 
-    //Slice off the invitation
-    setTextMessages((prevMessages) => {
-      return prevMessages.slice(0, playingNowIndex);
-    });
-    setIsRaisedHand(false);
-    calculateNextAction();
+      //Slice off the waiting for panelist
+      setTextMessages((prevMessages) => {
+        return prevMessages.slice(0, playNextIndex);
+      });
+
+      calculateNextAction();
+    } else {
+      socketRef.current.emit("submit_human_message", { text: newTopic, askParticular: askParticular });
+
+      //Slice off the invitation
+      setTextMessages((prevMessages) => {
+        return prevMessages.slice(0, playingNowIndex);
+      });
+      setIsRaisedHand(false);
+      calculateNextAction();
+    }
   }
 
   // When hand is raised
@@ -527,6 +551,8 @@ function Council({
 
     //Wait for the summary
     socketRef.current.emit("wrap_up_meeting", { date: browserDate });
+
+    setCouncilState('loading');
   }
 
   /////////////////////
@@ -535,9 +561,9 @@ function Council({
 
   function currentSpeakerIndex() {
     let currentIndex;
-    foods.map((food, index) => {
+    participants.map((food, index) => {
       if (currentSpeakerName === food.name) {
-        currentIndex = mapFoodIndex(foods.length, index);
+        currentIndex = mapFoodIndex(participants.length, index);
       }
       return false;//map expects return value, but this is irrelevant in our case
     });
@@ -556,7 +582,7 @@ function Council({
         top: "62%",
         left: "50%",
         transform: "translate(-50%, -50%)",
-        width: foods.length > 6 ? "79%" : "70%",
+        width: participants.length > 6 ? "79%" : "70%",
         display: "flex",
         justifyContent: "space-around",
         alignItems: "center",
@@ -575,8 +601,8 @@ function Council({
       </div>
       {councilState === 'loading' && <Loading />}
       <>
-        {councilState === 'human_input' && (
-          <HumanInput foods={foods} onSubmitHumanMessage={handleOnSubmitHumanMessage} />
+        {(councilState === 'human_input' || councilState === 'human_panelist') && (
+          <HumanInput foods={foods} isPanelist={(councilState === 'human_panelist')} currentSpeakerName={currentSpeakerName} onSubmitHumanMessage={handleOnSubmitHumanMessage} />
         )}
         <Output
           textMessages={textMessages}

@@ -115,14 +115,14 @@ io.on("connection", (socket) => {
       }
       //Skip invitations
       if (conversation[i].type === 'invitation') continue;
-      
+
       // Skip direct responses to questions when calculating next speaker
       if (conversation[i].type === 'response') {
         //Check if it was supposed to be this character speaking anyway
-        const indexOfSecondLast = conversationOptions.characters.findIndex(char => char.name === conversation[i-2].speaker);
+        const indexOfSecondLast = conversationOptions.characters.findIndex(char => char.name === conversation[i - 2].speaker);
         const nextAfter = indexOfSecondLast >= conversationOptions.characters.length - 1 ? 0 : indexOfSecondLast + 1;
         //Unless we should have spoken anyway
-        if(conversationOptions.characters[nextAfter].name !== conversation[i].speaker){
+        if (conversationOptions.characters[nextAfter].name !== conversation[i].speaker) {
           // Skip the human question in calculation too
           i--;
           continue;
@@ -332,6 +332,35 @@ io.on("connection", (socket) => {
     handleConversationTurn();
   });
 
+  socket.on("submit_human_panelist", (message) => {
+    console.log(`[meeting ${meetingId}] human panelist on index ${conversation.length - 1}`);
+    message.text = conversationOptions.characters[currentSpeaker].name + " said: " + message.text;
+
+    message.id = "panelist-" + uuidv4(); // Use UUID for unique message IDs for human messages
+    message.type = "panelist";
+    message.speaker = conversationOptions.characters[currentSpeaker].name;
+
+    //Overwrite the last message in the conversation, deleting the awaiting_human_panelist
+    conversation[conversation.length - 1] = message;
+
+    meetingsCollection.updateOne(
+      { _id: meetingId },
+      { $set: { conversation: conversation } }
+    );
+
+    socket.emit("conversation_update", conversation);
+
+    generateAudio(
+      message.id,
+      message.text,
+      conversationOptions.characters[0].name
+    );
+
+    isPaused = false;
+    handRaised = false;
+    handleConversationTurn();
+  });
+
   socket.on("wrap_up_meeting", async (message) => {
     const summaryPrompt = conversationOptions.options.finalizeMeetingPrompt.replace("[DATE]", message.date);
 
@@ -353,7 +382,7 @@ io.on("connection", (socket) => {
 
     socket.emit("conversation_update", conversation);
     console.log(
-      `[meeting ${meetingId}] summary generated on length ${conversation.length}`
+      `[meeting ${meetingId}] summary generated on index ${conversation.length - 1}`
     );
 
     meetingsCollection.updateOne(
@@ -392,6 +421,7 @@ io.on("connection", (socket) => {
         //If some audio are missing, try to regenerate them
         let missingAudio = [];
         for (let i = 0; i < conversation.length; i++) {
+          if (conversation[i].type === 'awaiting_human_panelist') continue;
           if (existingMeeting.audio.indexOf(conversation[i].id) === -1) {
             missingAudio.push(conversation[i]);
           }
@@ -460,7 +490,32 @@ io.on("connection", (socket) => {
       if (handRaised) return;
       if (isPaused) return;
       if (conversation.length >= conversationOptions.options.conversationMaxLength + extraMessageCount) return;
+      if (conversation.length > 0 && conversation[conversation.length - 1].type === 'awaiting_human_panelist') return;
       currentSpeaker = calculateCurrentSpeaker();
+
+      //If we have reached a human panelist
+      if (conversationOptions.characters[currentSpeaker].type === 'panelist') {
+
+        //Set a waiting message at the end of the stack and wait
+        conversation.push({
+          type: 'awaiting_human_panelist',
+          speaker: conversationOptions.characters[currentSpeaker].name
+        });
+
+        console.log(`[meeting ${meetingId}] awaiting human panelist on index ${conversation.length - 1}`);
+
+        //Client will collect message once it reaches this message
+        socket.emit("conversation_update", conversation);
+
+        //TODO what if we restart while waiting for human input? Make sure it recovers correctly
+        meetingsCollection.updateOne(
+          { _id: meetingId },
+          { $set: { conversation: conversation } }
+        );
+
+        //Don't continue further
+        return;
+      }
 
       let attempt = 1;
       let output = { response: "" };

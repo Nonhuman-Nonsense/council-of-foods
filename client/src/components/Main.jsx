@@ -34,7 +34,7 @@ function useIsIphone() {
 
 function Main() {
   const [topic, setTopic] = useState({ title: "", prompt: "", description: "" });
-  const [foods, setFoods] = useState([]);
+  const [participants, setParticipants] = useState([]);
   const [unrecoverabeError, setUnrecoverableError] = useState(false);
   const [connectionError, setConnectionError] = useState(false);
 
@@ -63,7 +63,7 @@ function Main() {
       setTopic(props.topic);
       next = "foods";
     } else if (fromPage === "foods") {
-      setFoods(props.foods);
+      setParticipants(props.foods);
       next = "meeting/new";
     }
 
@@ -71,7 +71,7 @@ function Main() {
   }
 
   function onReset(resetData) {
-    setFoods([]);
+    setParticipants([]);
 
     if (!resetData?.topic) {
       // Reset from the start
@@ -146,10 +146,10 @@ function Main() {
             <Route
               path="meeting/:meetingId"
               element={
-                foods.length !== 0 &&// If page is reloaded, don't even start the council for now
+                participants.length !== 0 &&// If page is reloaded, don't even start the council for now
                 <Council
                   topic={topic}
-                  foods={foods}
+                  participants={participants}
                   setUnrecoverableError={setUnrecoverableError}
                   connectionError={connectionError}
                   setConnectionError={setConnectionError}

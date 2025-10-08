@@ -6,7 +6,7 @@ import ConversationControlIcon from "./ConversationControlIcon";
 import TextareaAutosize from 'react-textarea-autosize';
 import { useMobile, dvh, mapFoodIndex } from "../utils";
 
-function HumanInput({ foods, onSubmitHumanMessage }) {
+function HumanInput({ foods, isPanelist, currentSpeakerName, onSubmitHumanMessage }) {
   const [isRecording, setIsRecording] = useState(false);
   const [canContinue, setCanContinue] = useState(false);
   const [previousTranscript, setPreviousTranscript] = useState("");
@@ -192,27 +192,29 @@ function HumanInput({ foods, onSubmitHumanMessage }) {
   };
 
   return (<>
-    <div style={{ ...ringStyle, zIndex: "-1" }}>
-      <div style={{ position: "absolute", bottom: "21vw" }}>
-        <div style={selectTooltip}>Select a food to ask them directly</div>
+    {!isPanelist && (<>
+      <div style={{ ...ringStyle, zIndex: "-1" }}>
+        <div style={{ position: "absolute", bottom: "21vw" }}>
+          <div style={selectTooltip}>Select a food to ask them directly</div>
+        </div>
+        {foods.map((food, index) => (
+          <div style={{ ...overViewFoodItemStyle(mapFoodIndex(foods.length, index), foods.length), backgroundColor: askParticular === food.name ? "rgba(0,0,0,0.4)" : "rgba(0,0,0,0)" }} key={index}></div>
+        ))}
       </div>
-      {foods.map((food, index) => (
-        <div style={{ ...overViewFoodItemStyle(mapFoodIndex(foods.length, index), foods.length), backgroundColor: askParticular === food.name ? "rgba(0,0,0,0.4)" : "rgba(0,0,0,0)" }} key={index}></div>
-      ))}
-    </div>
-    <div style={{ ...ringStyle, zIndex: "0" }}>
-      {foods.map((food, index) => (
-        <div
-          style={{ ...overViewFoodItemStyle(mapFoodIndex(foods.length, index), foods.length), border: askParticular === food.name && "3px solid rgba(255,255,255,0.8)", pointerEvents: "auto" }}
-          className="ringHover"
-          key={index}
-          onClick={() => setAskParticular(food.name)}
-          onMouseEnter={() => setSomeoneHovered(true)}
-          onMouseLeave={() => setSomeoneHovered(false)}
-        ></div>
-      ))}
-    </div>
-    <div style={deselectorStyle} onClick={() => setAskParticular("")}></div>
+      <div style={{ ...ringStyle, zIndex: "0" }}>
+        {foods.map((food, index) => (
+          <div
+            style={{ ...overViewFoodItemStyle(mapFoodIndex(foods.length, index), foods.length), border: askParticular === food.name && "3px solid rgba(255,255,255,0.8)", pointerEvents: "auto" }}
+            className="ringHover"
+            key={index}
+            onClick={() => setAskParticular(food.name)}
+            onMouseEnter={() => setSomeoneHovered(true)}
+            onMouseLeave={() => setSomeoneHovered(false)}
+          ></div>
+        ))}
+      </div>
+      <div style={deselectorStyle} onClick={() => setAskParticular("")}></div>
+    </>)}
     <div style={wrapperStyle}>
       <img alt="Say something!" src="/mic.png" style={micStyle} />
       <div style={{ zIndex: "4", position: "relative", pointerEvents: "auto" }}>
@@ -226,7 +228,7 @@ function HumanInput({ foods, onSubmitHumanMessage }) {
           minRows="1"
           maxRows="6"
           maxLength={maxInputLength}
-          placeholder={browserSupportsSpeechRecognition ? "Type your question or start recording..." : "Type your question..."}
+          placeholder={isPanelist? `What does ${currentSpeakerName} have to say about this?` : browserSupportsSpeechRecognition ? "Type your question or start recording..." : "Type your question..."}
         />
       </div>
       <div style={{ display: "flex", flexDirection: "row", pointerEvents: "auto", justifyContent: "center" }}>
