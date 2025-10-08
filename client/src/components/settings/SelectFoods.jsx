@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import foodData from "../../prompts/foods.json";
 import { toTitleCase, useMobile, useMobileXs, filename } from "../../utils";
-import TextareaAutosize from 'react-textarea-autosize';
 
 const MAXHUMANS = 3;
 
@@ -135,6 +134,16 @@ function SelectFoods({ topic, onContinueForward }) {
     pointerEvents: showDefaultDescription ? "all" : "none",
   };
 
+  function infoToShow() {
+    if (currentFood !== null && currentFood.type !== 'human') {//If something is hovered & if it's not a human
+      return <FoodInfo food={currentFood} />;
+    } else if (currentFood?.type === 'human' && lastSelected !== currentFood) {//a human is hovered but not selected
+      return <HumanInfo human={currentFood} unfocus={true} setHumans={setHumans} setRecheckHumansReady={setRecheckHumansReady} />;
+    } else if (lastSelected?.type === 'human') {//a human is selected
+      return <HumanInfo human={lastSelected} lastSelected={lastSelected} setHumans={setHumans} setRecheckHumansReady={setRecheckHumansReady} />;
+    }
+  }
+
   return (
     <div
       style={{
@@ -166,9 +175,7 @@ function SelectFoods({ topic, onContinueForward }) {
               </>}
             </div>
           </div>
-          {lastSelected?.type === 'human' ? <HumanInfo human={lastSelected} lastSelected={lastSelected} setHumans={setHumans} setRecheckHumansReady={setRecheckHumansReady} /> :
-            currentFood?.type === 'human' ? <HumanInfo human={currentFood} setHumans={setHumans} /> :
-              <FoodInfo food={currentFood} />}
+          {infoToShow()}
         </div>
       </div>
       <div style={{ height: isMobile ? "93px" : "110px" }}>
@@ -230,12 +237,10 @@ function FoodInfo({ food }) {
   );
 }
 
-function HumanInfo({ human, setHumans, lastSelected, setRecheckHumansReady }) {
+function HumanInfo({ human, setHumans, lastSelected,  unfocus, setRecheckHumansReady }) {
   const isMobile = useMobile();
   const nameArea = useRef(null);
   const descriptionArea = useRef(null);
-  // if (!human) return null;
-
 
   function descriptionChanged(e) {
     setHumans[human.id]((prev) => {
@@ -255,17 +260,20 @@ function HumanInfo({ human, setHumans, lastSelected, setRecheckHumansReady }) {
   }
 
   useEffect(() => {
-    if (lastSelected === human) {
-      //If we change from one human to another, also update the values
-      nameArea.current.value = human.name;
-      descriptionArea.current.value = human.description;
+    //If we change from one human to another, also update the values
+    nameArea.current.value = human.name;
+    descriptionArea.current.value = human.description;
+    if (lastSelected === human && unfocus !== true) {
       //Set focus
       nameArea.current.focus();
       //Set cursor to end
       const length = nameArea.current.value.length;
       nameArea.current.setSelectionRange(length, length);
-    }    
-  }, [lastSelected]);
+    }else if(unfocus === true){
+      nameArea.current.blur();
+      descriptionArea.current.blur();
+    }
+  }, [unfocus, lastSelected]);
 
   const textStyle = {
     backgroundColor: "transparent",
@@ -284,14 +292,16 @@ function HumanInfo({ human, setHumans, lastSelected, setRecheckHumansReady }) {
 
   const nameStyle = {
     ...textStyle,
-    margin: isMobile ? "0" : "-12px 0 10px 0",
-    fontSize: "39px"
+    margin: isMobile ? "0" : "-12px 0 0 0",
+    fontSize: "39px",
+    height: "45px"
   };
 
   const descStyle = {
     ...textStyle,
     lineHeight: "21px",
-    margin: 0
+    margin: "6px 0 0 0",
+    height: "330px"
   };
 
   return (
@@ -306,25 +316,21 @@ function HumanInfo({ human, setHumans, lastSelected, setRecheckHumansReady }) {
         pointerEvents: human !== null ? "all" : "none",
       }}
     >
-      <TextareaAutosize
+      <textarea
         ref={nameArea}
         style={nameStyle}
         onChange={nameChanged}
         className="unfocused"
-        minRows="1"
-        maxRows="6"
-        maxLength={100}
+        maxLength={25}
         placeholder={"Human Name"}
         defaultValue={human.name}
       />
-      <TextareaAutosize
+      <textarea
         ref={descriptionArea}
         style={descStyle}
         onChange={descriptionChanged}
         className="unfocused"
-        minRows="1"
-        maxRows="16"
-        maxLength={9000}
+        maxLength={900}
         defaultValue={human.description}
         placeholder={"Enter a description for the human..."}
       />
