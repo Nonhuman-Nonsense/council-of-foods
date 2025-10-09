@@ -661,6 +661,7 @@ function Council({
             removeOverlay={removeOverlay}
             summary={summary}
             meetingId={currentMeetingId}
+            participants={participants}
           />
         )}
       </Overlay>
