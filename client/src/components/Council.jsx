@@ -203,6 +203,18 @@ function Council({
       return;
     }
 
+    //If we have reached a human panelist
+    if (councilState !== 'human_panelist' && textMessages[playNextIndex]?.type === 'awaiting_human_panelist') {
+      setCouncilState('human_panelist');
+      return;
+    }
+
+    //If we have reached a human question
+    if (councilState !== 'human_input' && textMessages[playNextIndex]?.type === 'awaiting_human_question') {
+      setCouncilState('human_input');
+      return;
+    }
+
     switch (councilState) {
       case 'loading':
         // console.log("Updating textMessages: ", textMessages);
@@ -211,16 +223,12 @@ function Council({
         if (tryToFindTextAndAudio()) {
           setPlayingNowIndex(playNextIndex);
           setCouncilState("playing");
-        } else if(textMessages[playNextIndex]?.type === 'awaiting_human_panelist') {
-          setCouncilState('human_panelist');
         }
         break;
       case 'playing':
         if (playingNowIndex !== playNextIndex) {
           if (tryToFindTextAndAudio()) {//Attempt to play it
             setPlayingNowIndex(playNextIndex);
-          } else if(textMessages[playNextIndex]?.type === 'awaiting_human_panelist') {
-            setCouncilState('human_panelist');
           } else {//If it's not ready, show the loading
             setCouncilState('loading');
           }
@@ -290,7 +298,7 @@ function Council({
   useEffect(() => {
     if (councilState === 'loading') {
       setCurrentSpeakerName("");
-    } else if (councilState === 'human_speaking') {
+    } else if (councilState === 'human_input') {
       setCurrentSpeakerName(humanName);
     } else if (councilState === 'human_panelist') {
       setCurrentSpeakerName(textMessages[playNextIndex].speaker);
@@ -343,8 +351,6 @@ function Council({
 
     if (councilState === 'human_input' || councilState === 'human_panelist') {// if human input was submitted
       setCouncilState('loading');
-    } else if (textMessages[playingNowIndex]?.type === 'invitation') {// if invitation finished
-      setCouncilState('human_input');
     } else if (councilState === 'playing' || councilState === 'waiting') {
       //If we have not reached the end of the maximum, try to go to next
       if (playingNowIndex + 1 < meetingMaxLength) {
@@ -392,7 +398,7 @@ function Council({
     }
   }, [isPaused, activeOverlay, location, connectionError, isDocumentVisible]);
 
-  //Pause
+  //When pause changes, suspend audio context
   useEffect(() => {
     if (isPaused) {
       if (audioContext.current.state !== "suspended") {
@@ -448,7 +454,7 @@ function Council({
   // When a new human message is submitted
   function handleOnSubmitHumanMessage(newTopic, askParticular) {
     if (councilState === 'human_panelist') {
-      socketRef.current.emit("submit_human_panelist", { text: newTopic });
+      socketRef.current.emit("submit_human_panelist", { text: newTopic, speaker: currentSpeakerName });
 
       //Slice off the waiting for panelist
       setTextMessages((prevMessages) => {
@@ -457,12 +463,19 @@ function Council({
 
       calculateNextAction();
     } else {
-      socketRef.current.emit("submit_human_message", { text: newTopic, askParticular: askParticular });
+      socketRef.current.emit("submit_human_message", { text: newTopic, speaker: humanName, askParticular: askParticular });
 
-      //Slice off the invitation
+      //Slice off the awaiting_human_question, and invitation if there is one
+      const now = textMessages[playingNowIndex].type === 'invitation' ? playingNowIndex - 1 : playingNowIndex;
+      const next = textMessages[playingNowIndex].type === 'invitation' ? playNextIndex - 1 : playNextIndex;
       setTextMessages((prevMessages) => {
-        return prevMessages.slice(0, playingNowIndex);
+        return prevMessages.slice(0, now);
       });
+      
+      //In case we removed an invitation, go back one step
+      setPlayingNowIndex(now);
+      setPlayNextIndex(next);
+
       setIsRaisedHand(false);
       calculateNextAction();
     }
