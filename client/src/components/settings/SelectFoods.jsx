@@ -59,6 +59,12 @@ function SelectFoods({ topic, onContinueForward }) {
     return (selectedFoods.filter((f) => f.type !== 'panelist').length >= minFoods);
   }
 
+  function ensureUniqueNames() {
+    const names = selectedFoods.map(food => food.name);
+    //Because each value in the Set has to be unique, the value equality will be checked.
+    return (new Set(names).size === names.length);
+  }
+
   function continueForward() {
     if (atLeastTwoFoods() && selectedFoods.length <= maxFoods) {
       //Modify waters invitation prompt, with the name of the selected participants
@@ -178,13 +184,19 @@ function SelectFoods({ topic, onContinueForward }) {
     }
   }
 
+  const subInfoStyle = {
+    margin: isMobile && (isMobileXs ? "0" : "7px")
+  };
+
   function buttonOrInfo() {
-    if (atLeastTwoFoods() && selectedFoods.length <= maxFoods && humansReady) {
+    if (atLeastTwoFoods() && selectedFoods.length <= maxFoods && humansReady && ensureUniqueNames()) {
       return <button onClick={continueForward} style={{ margin: isMobileXs ? "0" : "8px 0" }}>Start</button>;
     } else if (atLeastTwoFoods() && selectedFoods.length <= maxFoods && !humansReady) {
-      return <h4 style={{ margin: isMobile && (isMobileXs ? "0" : "7px") }}>all participating humans must have name and description</h4>;
+      return <h4 style={subInfoStyle}>all participating humans must have name and description</h4>;
+    } else if (atLeastTwoFoods() && selectedFoods.length <= maxFoods && humansReady && !ensureUniqueNames()) {
+      return <h4 style={subInfoStyle}>make sure no two participants have the same name</h4>;
     } else if (currentFood !== null || (selectedFoods.length > 1 && !atLeastTwoFoods())) {
-      return <h4 style={{ margin: isMobile && (isMobileXs ? "0" : "7px") }}>please select 2-6 foods for the discussion</h4>;
+      return <h4 style={subInfoStyle}>please select 2-6 foods for the discussion</h4>;
     }
   }
 
