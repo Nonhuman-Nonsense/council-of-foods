@@ -15,7 +15,7 @@ function HumanInput({ foods, isPanelist, currentSpeakerName, onSubmitHumanMessag
   const inputArea = useRef(null);
   const isMobile = useMobile();
 
-  const maxInputLength = 350;
+  const maxInputLength = isPanelist ? 1300 : 350;
 
   // Accessing the speech recognition features from the custom hook
   const {
