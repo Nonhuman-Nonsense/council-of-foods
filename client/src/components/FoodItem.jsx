@@ -1,4 +1,3 @@
-import React from "react";
 import FoodAnimation from "./FoodAnimation";
 import { filename, dvh } from "../utils";
 

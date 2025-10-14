@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useLocation, useNavigate, createSearchParams, useSearchParams } from "react-router-dom";
 import { useMediaQuery } from 'react-responsive'
 

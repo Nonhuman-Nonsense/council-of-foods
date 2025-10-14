@@ -9,7 +9,7 @@ import ConversationControls from "./ConversationControls";
 import HumanInput from "./HumanInput";
 import { useDocumentVisibility } from "../utils";
 
-const globalOptions = require("../global-options-client");
+import globalOptions from "../global-options-client";
 
 function Council({
   topic,

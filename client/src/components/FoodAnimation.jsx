@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { filename, useMobile } from "../utils";
 
 function FoodAnimation({ character, type, styles, isPaused, always_on, currentSpeakerName }) {
