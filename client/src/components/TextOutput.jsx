@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useMobile } from "../utils";
 
 import globalOptions from "../global-options-client";

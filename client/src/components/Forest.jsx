@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import FoodAnimation from "./FoodAnimation.jsx";
 import { dvh, minWindowHeight, filename, useMobile } from "../utils.js";
 

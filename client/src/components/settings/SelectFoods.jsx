@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import foodData from "../../prompts/foods.json";
 import FoodButton from "./FoodButton";
 import { toTitleCase, useMobile, useMobileXs } from "../../utils";

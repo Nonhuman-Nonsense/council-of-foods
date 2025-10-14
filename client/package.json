@@ -19,7 +19,6 @@
     "@vitejs/plugin-react": "^5.0.4",
     "vite": "^7.1.9"
   },
-  "proxy": "http://localhost:3001",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -30,18 +29,6 @@
     "extends": [
       "react-app",
       "react-app/jest"
-    ]
-  },
-  "browserslist": {
-    "production": [
-      ">0.2%",
-      "not dead",
-      "not op_mini all"
-    ],
-    "development": [
-      "last 1 chrome version",
-      "last 1 firefox version",
-      "last 1 safari version"
     ]
   },
   "devDependencies": {

@@ -1,5 +1,5 @@
 // FullscreenButton.jsx
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 
 const FullscreenButton = () => {
   const [isFullscreen, setIsFullscreen] = useState(false);
