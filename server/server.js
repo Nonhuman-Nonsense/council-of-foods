@@ -1,12 +1,16 @@
-require("dotenv").config();
+import dotenv from 'dotenv';
+dotenv.config()
 const environment = process.env.NODE_ENV ?? "production";
-const express = require("express");
-const http = require("http");
-const { Server } = require("socket.io");
-const path = require("path");
-const OpenAI = require("openai");
-const { MongoClient } = require("mongodb");
-const { v4: uuidv4 } = require("uuid"); // Import UUID library
+import express from "express";
+import http from "http";
+import { Server } from "socket.io";
+import OpenAI from "openai";
+import { MongoClient } from "mongodb";
+import { v4 as uuidv4 } from "uuid"; // Import UUID library
+import path from 'path';
+import { fileURLToPath } from 'url';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 const httpServer = http.createServer(app);
@@ -20,7 +24,7 @@ if (!process.env.COUNCIL_OPENAI_API_KEY) {
   throw new Error("COUNCIL_OPENAI_API_KEY environment variable not set.");
 }
 const openai = new OpenAI({ apiKey: process.env.COUNCIL_OPENAI_API_KEY });
-const globalOptions = require("./global-options");
+import globalOptions from './global-options.json' with { type: 'json' };
 
 // Database setup
 if (!process.env.COUNCIL_DB_URL) {
@@ -31,7 +35,7 @@ if (!process.env.COUNCIL_DB_PREFIX) {
   throw new Error("COUNCIL_DB_PREFIX environment variable not set.");
 }
 
-const { reportError } = require('./errorbot');
+import { reportError } from './errorbot.js';
 
 console.log(`[init] COUNCIL_DB_PREFIX is ${process.env.COUNCIL_DB_PREFIX}`);
 const db = mongoClient.db(process.env.COUNCIL_DB_PREFIX);
@@ -75,9 +79,9 @@ if (environment === "prototype") {
     res.sendFile(path.join(__dirname, "../client/src/prompts", "topics.json"));
   });
 } else if (environment !== "development") {
-  app.use(express.static(path.join(__dirname, "../client/build")));
-  app.get("/*", function (req, res) {
-    res.sendFile(path.join(__dirname, "../client/build", "index.html"));
+  app.use(express.static(path.join(__dirname, "../client/dist")));
+  app.get("/{*splat}", function (req, res) {
+    res.sendFile(path.join(__dirname, "../client/dist", "index.html"));
   });
 }
 
@@ -128,7 +132,7 @@ io.on("connection", (socket) => {
 
     socket.on("submit_injection", async (message) => {
       let { response, id } = await chairInterjection(
-        message.text.replace("[DATE]",message.date),
+        message.text.replace("[DATE]", message.date),
         message.index,
         message.length,
         true

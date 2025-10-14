@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useMobile } from "../utils";
 
-const globalOptions = require("../global-options-client");
+import globalOptions from "../global-options-client";
 
 function TextOutput({
   currentTextMessage,

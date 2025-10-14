@@ -53,13 +53,13 @@ const FullscreenButton = () => {
     >
       {isFullscreen ? (
         <img
-          src={`${process.env.PUBLIC_URL}/icons/close_fullscreen.svg`}
+          src={'/icons/close_fullscreen.svg'}
           alt="Close fullscreen"
           style={styles.icon}
         />
       ) : (
         <img
-          src={`${process.env.PUBLIC_URL}/icons/fullscreen.svg`}
+          src={'/icons/fullscreen.svg'}
           alt="Open fullscreen"
           style={styles.icon}
         />
