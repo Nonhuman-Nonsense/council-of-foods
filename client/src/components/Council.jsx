@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import io from "socket.io-client";
 import FoodItem from "./FoodItem";
@@ -10,7 +10,7 @@ import ConversationControls from "./ConversationControls";
 import HumanInput from "./HumanInput";
 import { useDocumentVisibility, mapFoodIndex } from "../utils";
 
-const globalOptions = require("../global-options-client");
+import globalOptions from "../global-options-client";
 
 function Council({
   topic,

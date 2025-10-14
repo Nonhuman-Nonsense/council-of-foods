@@ -1,4 +1,4 @@
-import React, { useRef } from "react";
+import { useRef } from "react";
 import { useMobile, dvh } from "../../utils";
 import parse from 'html-react-parser';
 import { marked } from "marked";
