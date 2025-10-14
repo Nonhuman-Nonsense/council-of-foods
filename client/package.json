@@ -6,19 +6,19 @@
   "private": true,
   "dependencies": {
     "@babel/plugin-transform-private-property-in-object": "^7.27.1",
-    "html-react-parser": "^5.2.5",
-    "jspdf": "^3.0.1",
-    "marked": "^15.0.12",
-    "react": "^19.1.0",
-    "react-dom": "^19.1.0",
+    "html-react-parser": "^5.2.7",
+    "jspdf": "^3.0.3",
+    "marked": "^16.4.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
     "react-lottie-player": "^2.1.0",
     "react-responsive": "^10.0.1",
-    "react-router-dom": "^7.6.1",
+    "react-router-dom": "^7.9.4",
     "react-scripts": "^5.0.1",
     "react-speech-recognition": "^4.0.1",
     "react-textarea-autosize": "^8.5.9",
     "socket.io-client": "^4.8.1",
-    "web-vitals": "^5.0.2"
+    "web-vitals": "^5.1.0"
   },
   "proxy": "http://localhost:3001",
   "scripts": {
