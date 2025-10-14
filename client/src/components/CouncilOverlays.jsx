@@ -14,6 +14,7 @@ function CouncilOverlays({
   removeOverlay,
   summary,
   meetingId,
+  participants,
 }) {
 
   // Conditional rendering of overlay content based on activeOverlay state
@@ -21,7 +22,7 @@ function CouncilOverlays({
     switch (activeOverlay) {
       case "name":
         return (
-          <Name onContinueForward={proceedWithHumanName} />
+          <Name participants={participants} onContinueForward={proceedWithHumanName} />
         );
       case "completed":
         return (

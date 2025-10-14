@@ -14,7 +14,7 @@ const globalOptions = require("../global-options-client");
 
 function Council({
   topic,
-  foods,
+  participants,
   setUnrecoverableError,
   setConnectionError,
   connectionError
@@ -77,6 +77,10 @@ function Council({
     audioContext.current = new AudioContext();
   }
 
+  //Humans and foods
+  const foods = participants.filter((part) => part.type !== 'panelist');
+  // const humans = participants.filter((part) => part.type === 'panelist');
+
   //Make sure to empty this timer on component unmount
   //Incase someone restarts the counsil in a break etc.
   useEffect(() => {
@@ -107,7 +111,7 @@ function Council({
 
     let conversationOptions = {
       topic: topic.prompt,
-      characters: foods,
+      characters: participants,
     };
 
     socketRef.current.io.on("reconnect", () => {
@@ -199,6 +203,18 @@ function Council({
       return;
     }
 
+    //If we have reached a human panelist
+    if (councilState !== 'human_panelist' && textMessages[playNextIndex]?.type === 'awaiting_human_panelist') {
+      setCouncilState('human_panelist');
+      return;
+    }
+
+    //If we have reached a human question
+    if (councilState !== 'human_input' && textMessages[playNextIndex]?.type === 'awaiting_human_question') {
+      setCouncilState('human_input');
+      return;
+    }
+
     switch (councilState) {
       case 'loading':
         // console.log("Updating textMessages: ", textMessages);
@@ -211,13 +227,14 @@ function Council({
         break;
       case 'playing':
         if (playingNowIndex !== playNextIndex) {
-          //Attempt to play it
-          if (tryToFindTextAndAudio()) {
+          if (tryToFindTextAndAudio()) {//Attempt to play it
             setPlayingNowIndex(playNextIndex);
           } else {//If it's not ready, show the loading
             setCouncilState('loading');
           }
         }
+        break;
+      case 'human_panelist':
         break;
       case 'human_input':
         break;
@@ -281,8 +298,10 @@ function Council({
   useEffect(() => {
     if (councilState === 'loading') {
       setCurrentSpeakerName("");
-    } else if (councilState === 'human_speaking') {
+    } else if (councilState === 'human_input') {
       setCurrentSpeakerName(humanName);
+    } else if (councilState === 'human_panelist') {
+      setCurrentSpeakerName(textMessages[playNextIndex].speaker);
     } else if (textMessages[playingNowIndex]) {
       setCurrentSpeakerName(textMessages[playingNowIndex].speaker);
     } else {
@@ -330,10 +349,8 @@ function Council({
   // If we reach the end of one message, figure out what to do next
   function calculateNextAction(wait = false) {
 
-    if (councilState === 'human_input') {// if human input was submitted
+    if (councilState === 'human_input' || councilState === 'human_panelist') {// if human input was submitted
       setCouncilState('loading');
-    } else if (textMessages[playingNowIndex]?.type === 'invitation') {// if invitation finished
-      setCouncilState('human_input');
     } else if (councilState === 'playing' || councilState === 'waiting') {
       //If we have not reached the end of the maximum, try to go to next
       if (playingNowIndex + 1 < meetingMaxLength) {
@@ -357,8 +374,10 @@ function Council({
       councilState === 'max_reached' ||
       councilState === 'summary' ||
       councilState === 'human_input' ||
+      councilState === 'human_panelist' ||
       playingNowIndex <= 0 ||
-      textMessages[playingNowIndex]?.type === "human"
+      textMessages[playingNowIndex]?.type === "human" ||
+      textMessages[playingNowIndex]?.type === "panelist"
     ) {
       setZoomIn(false);
     } else if (currentSnippetIndex % 4 < 2 && currentSnippetIndex !== sentencesLength - 1) {
@@ -379,7 +398,7 @@ function Council({
     }
   }, [isPaused, activeOverlay, location, connectionError, isDocumentVisible]);
 
-  //Pause
+  //When pause changes, suspend audio context
   useEffect(() => {
     if (isPaused) {
       if (audioContext.current.state !== "suspended") {
@@ -434,14 +453,32 @@ function Council({
 
   // When a new human message is submitted
   function handleOnSubmitHumanMessage(newTopic, askParticular) {
-    socketRef.current.emit("submit_human_message", { text: newTopic, askParticular: askParticular });
+    if (councilState === 'human_panelist') {
+      socketRef.current.emit("submit_human_panelist", { text: newTopic, speaker: currentSpeakerName });
 
-    //Slice off the invitation
-    setTextMessages((prevMessages) => {
-      return prevMessages.slice(0, playingNowIndex);
-    });
-    setIsRaisedHand(false);
-    calculateNextAction();
+      //Slice off the waiting for panelist
+      setTextMessages((prevMessages) => {
+        return prevMessages.slice(0, playNextIndex);
+      });
+
+      calculateNextAction();
+    } else {
+      socketRef.current.emit("submit_human_message", { text: newTopic, speaker: humanName, askParticular: askParticular });
+
+      //Slice off the awaiting_human_question, and invitation if there is one
+      const now = textMessages[playingNowIndex].type === 'invitation' ? playingNowIndex - 1 : playingNowIndex;
+      const next = textMessages[playingNowIndex].type === 'invitation' ? playNextIndex - 1 : playNextIndex;
+      setTextMessages((prevMessages) => {
+        return prevMessages.slice(0, now);
+      });
+      
+      //In case we removed an invitation, go back one step
+      setPlayingNowIndex(now);
+      setPlayNextIndex(next);
+
+      setIsRaisedHand(false);
+      calculateNextAction();
+    }
   }
 
   // When hand is raised
@@ -527,12 +564,15 @@ function Council({
 
     //Wait for the summary
     socketRef.current.emit("wrap_up_meeting", { date: browserDate });
+
+    setCouncilState('loading');
   }
 
   /////////////////////
   // Some calculations
   /////////////////////
 
+  //Only used for calculations on screen, so is current speaker of the foods.
   function currentSpeakerIndex() {
     let currentIndex;
     foods.map((food, index) => {
@@ -556,7 +596,7 @@ function Council({
         top: "62%",
         left: "50%",
         transform: "translate(-50%, -50%)",
-        width: foods.length > 6 ? "79%" : "70%",
+        width: participants.length > 6 ? "79%" : "70%",
         display: "flex",
         justifyContent: "space-around",
         alignItems: "center",
@@ -575,8 +615,8 @@ function Council({
       </div>
       {councilState === 'loading' && <Loading />}
       <>
-        {councilState === 'human_input' && (
-          <HumanInput foods={foods} onSubmitHumanMessage={handleOnSubmitHumanMessage} />
+        {(councilState === 'human_input' || councilState === 'human_panelist') && (
+          <HumanInput foods={foods} isPanelist={(councilState === 'human_panelist')} currentSpeakerName={currentSpeakerName} onSubmitHumanMessage={handleOnSubmitHumanMessage} />
         )}
         <Output
           textMessages={textMessages}
@@ -621,6 +661,7 @@ function Council({
             removeOverlay={removeOverlay}
             summary={summary}
             meetingId={currentMeetingId}
+            participants={participants}
           />
         )}
       </Overlay>

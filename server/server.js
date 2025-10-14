@@ -88,11 +88,13 @@ io.on("connection", (socket) => {
   let run = true;
   let handRaised = false;
   let isPaused = false;//for prototype
-  let conversation = [];
   let currentSpeaker = 0;
   let extraMessageCount = 0;
   let meetingId;
   let meetingDate;
+
+  //These are stored in database and will be recovered on reconnection
+  let conversation = [];
   let conversationOptions = {
     topic: "",
     characters: {},
@@ -115,14 +117,14 @@ io.on("connection", (socket) => {
       }
       //Skip invitations
       if (conversation[i].type === 'invitation') continue;
-      
+
       // Skip direct responses to questions when calculating next speaker
       if (conversation[i].type === 'response') {
         //Check if it was supposed to be this character speaking anyway
-        const indexOfSecondLast = conversationOptions.characters.findIndex(char => char.name === conversation[i-2].speaker);
+        const indexOfSecondLast = conversationOptions.characters.findIndex(char => char.name === conversation[i - 2].speaker);
         const nextAfter = indexOfSecondLast >= conversationOptions.characters.length - 1 ? 0 : indexOfSecondLast + 1;
         //Unless we should have spoken anyway
-        if(conversationOptions.characters[nextAfter].name !== conversation[i].speaker){
+        if (conversationOptions.characters[nextAfter].name !== conversation[i].speaker) {
           // Skip the human question in calculation too
           i--;
           continue;
@@ -182,44 +184,57 @@ io.on("connection", (socket) => {
 
     console.log(`[meeting ${meetingId}] hand raised on index ${handRaisedOptions.index - 1}`);
     handRaised = true;
-    conversationOptions.humanName = handRaisedOptions.humanName;
+    conversationOptions.state.humanName = handRaisedOptions.humanName;
 
-    let { response, id } = await chairInterjection(
-      conversationOptions.options.raiseHandPrompt.replace(
-        "[NAME]",
-        conversationOptions.humanName
-      ),
-      handRaisedOptions.index,
-      conversationOptions.options.raiseHandInvitationLength
-    );
+    // Cut everything after the raised index
+    conversation = conversation.slice(0, handRaisedOptions.index);
 
-    const firstNewLineIndex = response.indexOf("\n\n");
-    if (firstNewLineIndex !== -1) {
-      response = response.substring(0, firstNewLineIndex);
+    if (!conversationOptions.state.alreadyInvited) {
+      let { response, id } = await chairInterjection(
+        conversationOptions.options.raiseHandPrompt.replace(
+          "[NAME]",
+          conversationOptions.state.humanName
+        ),
+        handRaisedOptions.index,
+        conversationOptions.options.raiseHandInvitationLength
+      );
+
+      const firstNewLineIndex = response.indexOf("\n\n");
+      if (firstNewLineIndex !== -1) {
+        response = response.substring(0, firstNewLineIndex);
+      }
+
+      //Add the invitation
+      conversation.push({
+        id: id,
+        speaker: conversationOptions.characters[0].name,
+        text: response,
+        type: "invitation",
+        message_index: handRaisedOptions.index,
+      });
+
+      conversationOptions.state.alreadyInvited = true;
+      console.log(`[meeting ${meetingId}] invitation generated, on index ${handRaisedOptions.index}`);
+
+      //will run async
+      generateAudio(id, response, conversationOptions.characters[0].name);
     }
 
-    let invitation = {
-      id: id,
-      speaker: conversationOptions.characters[0].name,
-      text: response,
-      type: "invitation",
-      message_index: handRaisedOptions.index,
-    };
+    //Set a waiting message at the end of the stack and wait
+    conversation.push({
+      type: 'awaiting_human_question',
+      speaker: conversationOptions.state.humanName
+    });
 
-    // Cut everything after the invitation
-    conversation[invitation.message_index] = invitation;
-    conversation = conversation.slice(0, invitation.message_index + 1);
+    console.log(`[meeting ${meetingId}] awaiting human question on index ${conversation.length - 1}`);
 
+    //Store alreadyInvited and humanName
     meetingsCollection.updateOne(
       { _id: meetingId },
-      { $set: { conversation: conversation } }
+      { $set: { conversation: conversation, 'options.state': conversationOptions.state } }
     );
 
-    console.log(`[meeting ${meetingId}] invitation generated, on index ${handRaisedOptions.index}`);
-
     socket.emit("conversation_update", conversation);
-
-    generateAudio(id, response, conversationOptions.characters[0].name);
   });
 
   const chairInterjection = async (
@@ -300,19 +315,65 @@ io.on("connection", (socket) => {
 
   socket.on("submit_human_message", (message) => {
     console.log(`[meeting ${meetingId}] human input on index ${conversation.length - 1}`);
+
+    //deleting the awaiting_human_question
+    if (conversation[conversation.length - 1].type !== 'awaiting_human_question') {
+      throw new Error("Received a human question but was not expecting one!");
+    }
+    conversation.pop();
+
+    //If there was an invitation, delete it too
+    if (conversation[conversation.length - 1].type === 'invitation') {
+      console.log(`[meeting ${meetingId}] popping invitation down to index ${conversation.length - 1}`);
+      conversation.pop();
+    }
+
     if (message.askParticular) {
       console.log(`[meeting ${meetingId}] specifically asked to ${message.askParticular}`);
-      message.text = conversationOptions.humanName + " asked " + message.askParticular + ": " + message.text;
+      message.text = message.speaker + " asked " + message.askParticular + ": " + message.text;
     } else {
-      message.text = conversationOptions.humanName + " said: " + message.text;
+      message.text = message.speaker + " said: " + message.text;
     }
 
     message.id = "human-" + uuidv4(); // Use UUID for unique message IDs for human messages
     message.type = "human";
-    message.speaker = conversationOptions.humanName;
 
-    //Overwrite the last message in the conversation, deleting the invitation
-    conversation[conversation.length - 1] = message;
+    //Add the question to the conversation
+    conversation.push(message);
+
+    meetingsCollection.updateOne(
+      { _id: meetingId },
+      { $set: { conversation: conversation } }
+    );
+
+    socket.emit("conversation_update", conversation);
+
+    generateAudio(
+      message.id,
+      message.text,
+      conversationOptions.characters[0].name
+    );
+
+    isPaused = false;
+    handRaised = false;
+    handleConversationTurn();
+  });
+
+  socket.on("submit_human_panelist", (message) => {
+    console.log(`[meeting ${meetingId}] human panelist on index ${conversation.length - 1}`);
+
+    //deleting the awaiting_human_panelist
+    if (conversation[conversation.length - 1].type !== 'awaiting_human_panelist') {
+      throw new Error("Received a human panelist but was not expecting one!");
+    }
+    conversation.pop();
+
+    message.text = message.speaker + " said: " + message.text;
+    message.id = "panelist-" + uuidv4(); // Use UUID for unique message IDs for human messages
+    message.type = "panelist";
+
+    //add it to the stack
+    conversation.push(message);
 
     meetingsCollection.updateOne(
       { _id: meetingId },
@@ -353,13 +414,12 @@ io.on("connection", (socket) => {
 
     socket.emit("conversation_update", conversation);
     console.log(
-      `[meeting ${meetingId}] summary generated on length ${conversation.length}`
+      `[meeting ${meetingId}] summary generated on index ${conversation.length - 1}`
     );
 
     meetingsCollection.updateOne(
       { _id: meetingId },
-      { $set: { conversation: conversation } },
-      { $set: { summary: summary } }
+      { $set: { conversation: conversation, summary: summary } }
     );
 
     generateAudio(id, response, conversationOptions.characters[0].name);
@@ -392,6 +452,8 @@ io.on("connection", (socket) => {
         //If some audio are missing, try to regenerate them
         let missingAudio = [];
         for (let i = 0; i < conversation.length; i++) {
+          if (conversation[i].type === 'awaiting_human_panelist') continue;
+          if (conversation[i].type === 'awaiting_human_question') continue;
           if (existingMeeting.audio.indexOf(conversation[i].id) === -1) {
             missingAudio.push(conversation[i]);
           }
@@ -419,25 +481,33 @@ io.on("connection", (socket) => {
     }
   });
 
-  socket.on("start_conversation", async (options) => {
-    conversationOptions = options;
+  socket.on("start_conversation", async (setup) => {
+    //TODO: this whole thing is a bit weird, with everything being called options
+    conversationOptions = setup;
     if (environment === 'prototype') {
-      conversationOptions.options = options.options ?? globalOptions;
+      conversationOptions.options = setup.options ?? globalOptions;
     } else {
       conversationOptions.options = globalOptions;
     }
 
+    //Clean up names, although shouldn't be needed
     for (let i = 0; i < conversationOptions.characters.length; i++) {
       conversationOptions.characters[i].name = toTitleCase(
         conversationOptions.characters[i].name
       );
     }
+
     conversation = [];
     currentSpeaker = 0;
     extraMessageCount = 0;
     isPaused = false;//for prototype
     handRaised = false;
     meetingDate = new Date();
+
+    //State variables that are stored in database
+    conversationOptions.state = {
+      alreadyInvited: false
+    };
 
     const storeResult = await insertMeeting({
       options: conversationOptions,
@@ -460,7 +530,33 @@ io.on("connection", (socket) => {
       if (handRaised) return;
       if (isPaused) return;
       if (conversation.length >= conversationOptions.options.conversationMaxLength + extraMessageCount) return;
+      if (conversation.length > 0 && conversation[conversation.length - 1].type === 'awaiting_human_panelist') return;
+      if (conversation.length > 0 && conversation[conversation.length - 1].type === 'awaiting_human_question') return;
       currentSpeaker = calculateCurrentSpeaker();
+
+      //If we have reached a human panelist
+      if (conversationOptions.characters[currentSpeaker].type === 'panelist') {
+
+        //Set a waiting message at the end of the stack and wait
+        conversation.push({
+          type: 'awaiting_human_panelist',
+          speaker: conversationOptions.characters[currentSpeaker].name
+        });
+
+        console.log(`[meeting ${meetingId}] awaiting human panelist on index ${conversation.length - 1}`);
+
+        //Client will collect message once it reaches this message
+        socket.emit("conversation_update", conversation);
+
+        //TODO what if we restart while waiting for human input? Make sure it recovers correctly
+        meetingsCollection.updateOne(
+          { _id: meetingId },
+          { $set: { conversation: conversation } }
+        );
+
+        //Don't continue further
+        return;
+      }
 
       let attempt = 1;
       let output = { response: "" };
