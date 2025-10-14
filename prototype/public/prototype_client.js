@@ -63,7 +63,8 @@ document.addEventListener("DOMContentLoaded", () => {
   let currentRoom = 0;
 
   //Names of OpenAI voices
-  const audioVoices = ["alloy", "echo", "fable", "onyx", "nova", "shimmer"];
+  const audioVoices = ["alloy", "ash", "ballad", "coral", "echo", "fable", "onyx", "nova", "sage", "shimmer", "verse"];
+  
 
   // Human input
   let handRaised = false;
