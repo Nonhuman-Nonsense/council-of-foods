@@ -1,4 +1,3 @@
-import React from "react";
 import Completed from "./overlays/Completed";
 import Summary from "./overlays/Summary";
 import Name from "./overlays/Name";
