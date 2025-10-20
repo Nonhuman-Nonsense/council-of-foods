@@ -1,6 +1,6 @@
 import "../App.css";
 import { useState, useEffect } from "react";
-import { Routes, Route, useLocation, useNavigate } from "react-router-dom";
+import { Routes, Route, useLocation, useNavigate } from "react-router";
 import Overlay from "./Overlay";
 import MainOverlays from "./MainOverlays";
 import Landing from "./settings/Landing";

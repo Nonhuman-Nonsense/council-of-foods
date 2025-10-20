@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
+import { useNavigate, useSearchParams, useLocation } from "react-router";
 
 import OverlayWrapper from './OverlayWrapper.jsx';
 import Overlay from "./Overlay";

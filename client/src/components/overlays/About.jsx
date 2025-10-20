@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { useMobile, usePortrait } from "../../utils";
 import { useTranslation } from 'react-i18next';
 
