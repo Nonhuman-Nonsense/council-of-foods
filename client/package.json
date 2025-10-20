@@ -5,18 +5,21 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
+    "@vitejs/plugin-react": "^5.0.4",
     "html-react-parser": "^5.2.7",
+    "i18next": "^25.6.0",
+    "i18next-http-backend": "^3.0.2",
     "jspdf": "^3.0.3",
     "marked": "^16.4.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
+    "react-i18next": "^16.0.1",
     "react-lottie-player": "^2.1.0",
     "react-responsive": "^10.0.1",
     "react-router-dom": "^7.9.4",
     "react-speech-recognition": "^4.0.1",
     "react-textarea-autosize": "^8.5.9",
     "socket.io-client": "^4.8.1",
-    "@vitejs/plugin-react": "^5.0.4",
     "vite": "^7.1.9"
   },
   "scripts": {

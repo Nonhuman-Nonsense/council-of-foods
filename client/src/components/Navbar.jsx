@@ -1,12 +1,12 @@
 import { useState, useRef, useEffect } from "react";
-import { useLocation, useNavigate, createSearchParams, useSearchParams } from "react-router-dom";
+import { useLocation, useSearchParams } from "react-router-dom";
 import { useMediaQuery } from 'react-responsive'
-
+import { useTranslation } from 'react-i18next';
 import { capitalizeFirstLetter, useMobile, useMobileXs, usePortrait } from "../utils";
 import Lottie from "react-lottie-player";
 import hamburger from "../animations/hamburger.json";
 
-function Navbar({ topic, onDisplayOverlay, hamburgerOpen, setHamburgerOpen }) {
+function Navbar({ topic, hamburgerOpen, setHamburgerOpen }) {
   const isMobile = useMobile();
   const isMobileXs = useMobileXs();
   const isPortrait = usePortrait();
@@ -16,19 +16,29 @@ function Navbar({ topic, onDisplayOverlay, hamburgerOpen, setHamburgerOpen }) {
   // eslint-disable-next-line
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
-  const navigate = useNavigate();
+  const { t, i18n } = useTranslation();
 
-  useEffect(() => {    
-    if(searchParams.get('o') === 'about'){
+
+  useEffect(() => {
+    if (searchParams.get('o') === 'about') {
       setActiveMenuItem('about');
-    }else if(searchParams.get('o') === 'contact'){
+    } else if (searchParams.get('o') === 'contact') {
       setActiveMenuItem('contact');
-    }else if(searchParams.get('o') === 'settings'){
+    } else if (searchParams.get('o') === 'settings') {
       setActiveMenuItem('settings');
-    }else{
+    } else {
       setActiveMenuItem('');
     }
-  },[searchParams]);
+  }, [searchParams]);
+
+  useEffect(() => {
+    const lng = searchParams.get('lng');
+    if (lng === 'sv') {
+      i18n.changeLanguage('sv');
+    } else {
+      i18n.changeLanguage('en');
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     if (!hamburgerOpen) {
@@ -38,15 +48,21 @@ function Navbar({ topic, onDisplayOverlay, hamburgerOpen, setHamburgerOpen }) {
       hamburgerAnimation.current?.setDirection(1);
       hamburgerAnimation.current?.play();
     }
-  },[hamburgerOpen]);
+  }, [hamburgerOpen]);
 
-  function handleOnNavigate(adress) {
-    navigate({
-      search: createSearchParams({
-        o: adress
-      }).toString()
+  function handleOnNavigate(to) {
+    setSearchParams((searchParams) => {
+      Object.keys(to).forEach(key => {
+        if (to[key]) {
+          searchParams.set(key, to[key]);
+        } else {
+          searchParams.delete(key);
+        }
+      });
+      return searchParams;
     });
-    if(isMobile){
+
+    if (isMobile) {
       //If something is clicked in the menu on mobile, close the hamburger to give more space for content
       setHamburgerOpen(false);
     }
@@ -83,7 +99,19 @@ function Navbar({ topic, onDisplayOverlay, hamburgerOpen, setHamburgerOpen }) {
     pointerEvents: "auto",
   };
 
+  const languageStyle = {
+    cursor: "pointer",
+    opacity: "1",
+    transitionProperty: "opacity",
+    transitionDuration: "1s",
+    transitionDelay: "0.2s",
+    pointerEvents: "auto",
+    textUnderlineOffset: "4px",
+  };
+
   const navItems = ["settings", "about", "contact"];
+
+  const isSwedish = (searchParams.get('lng') === 'sv');
 
   return (
     <nav
@@ -113,10 +141,8 @@ function Navbar({ topic, onDisplayOverlay, hamburgerOpen, setHamburgerOpen }) {
                 cursor: "pointer",
                 visibility: showIconinMeny ? "visible" : "hidden",
               }}
-              onClick={() => handleOnNavigate("reset")}
-            >
-              COUNCIL OF FOREST
-            </h3>
+              onClick={() => handleOnNavigate({ o: "reset" })}
+            >{t('council').toUpperCase()}</h3>
             <h4 style={{ marginTop: "5px", visibility: showIconinMeny ? "visible" : "hidden" }}>{capitalizeFirstLetter(topic)}</h4>
           </div>
         </>}
@@ -129,12 +155,15 @@ function Navbar({ topic, onDisplayOverlay, hamburgerOpen, setHamburgerOpen }) {
             <NavItem
               key={item}
               name={item}
-              onDisplayOverlay={onDisplayOverlay}
               show={(!isMobile || hamburgerOpen) && (item !== 'settings' || location.pathname.startsWith('/meeting'))}
               isActive={activeMenuItem === item} // Determine active state
               onNavigate={handleOnNavigate}
             />
           ))}
+          <h3 style={{ margin: "0", padding: "0" }}>
+            <span style={{ ...languageStyle, marginLeft: "19px", textDecoration: !isSwedish ? "underline" : "none" }} onClick={() => handleOnNavigate({ lng: "" })}>{t('en').toUpperCase()}</span>/
+            <span style={{ ...languageStyle, textDecoration: isSwedish ? "underline" : "none" }} onClick={() => handleOnNavigate({ lng: "sv" })}>{t('sv').toUpperCase()}</span>
+          </h3>
           {isMobile && (
             <div
               style={hamburgerStyle}
@@ -158,7 +187,9 @@ function Navbar({ topic, onDisplayOverlay, hamburgerOpen, setHamburgerOpen }) {
   );
 }
 
-function NavItem({ name, isActive, show, onDisplayOverlay, onNavigate }) {
+function NavItem({ name, isActive, show, onNavigate }) {
+  const { t } = useTranslation();
+
   const navItemStyle = {
     marginLeft: "19px",
     cursor: "pointer",
@@ -175,12 +206,12 @@ function NavItem({ name, isActive, show, onDisplayOverlay, onNavigate }) {
     <h3
       style={{ margin: "0", padding: "0" }}
       onClick={() => {
-        if(show){
-          onNavigate(name);
+        if (show) {
+          onNavigate({ o: name });
         }
       }}
     >
-      <span style={navItemStyle}>{name.toUpperCase()}</span>
+      <span style={navItemStyle}>{t(name).toUpperCase()}</span>
     </h3>
   );
 }

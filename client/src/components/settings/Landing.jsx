@@ -1,11 +1,13 @@
 import RotateDevice from '../RotateDevice';
 import { useMediaQuery } from 'react-responsive'
 import { useMobile } from "../../utils";
+import { useTranslation } from 'react-i18next';
 
 function Landing({ onContinueForward }) {
 
   const isPortrait = useMediaQuery({ query: '(orientation: portrait)' })
   const isMobile = useMobile();
+  const { t } = useTranslation();
 
   const wrapper = {
     position: "absolute",
@@ -29,16 +31,16 @@ function Landing({ onContinueForward }) {
       <div style={welcomeStyle}>
 
         <div>
-          <h2 style={{marginBottom: "-10px", marginTop: isMobile ? "0" : ""}}>welcome to</h2>
-          <h1 style={{margin: isMobile ? "5px 0 0 0" : ""}}>COUNCIL OF FOREST</h1>
+          <h2 style={{marginBottom: "-10px", marginTop: isMobile ? "0" : ""}}>{t('welcome')}</h2>
+          <h1 style={{margin: isMobile ? "5px 0 0 0" : ""}}>{t('council').toUpperCase()}</h1>
         </div>
         
         {isPortrait ?
           <RotateDevice />
         :
         (<div style={{maxWidth: "380px"}}>
-          <p style={{marginBottom: "30px"}}>A political arena where the forest itself speaks, through the use of artificial intelligence. Join the forest’s inhabitants as they debate deforestation, rewilding, and the fate of their shared home.</p>
-          <div><button onClick={() => onContinueForward()}>Let's go!</button></div>
+          <p style={{marginBottom: "30px"}}>{t('description')}</p>
+          <div><button onClick={() => onContinueForward()}>{t('go')}</button></div>
         </div>)
         }
       </div>
