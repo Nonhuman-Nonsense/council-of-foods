@@ -8,15 +8,10 @@ i18n
   .use(initReactI18next) // pass i18n to react-i18next
   .init({
     fallbackLng: 'en', // fallback language
-    debug: true, // show logs
-
+    debug: import.meta.env.DEV, // show logs
     interpolation: {
       escapeValue: false, // React already escapes
-    },
-
-    react: {
-      useSuspense: false, // optionally turn off suspense
-    },
+    }
   });
 
 export default i18n;

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useNavigate, useLocation, useSearchParams } from "react-router";
+import { useNavigate, useLocation, useParams } from "react-router";
 import io from "socket.io-client";
 import Overlay from "./Overlay";
 import CouncilOverlays from "./CouncilOverlays";
@@ -32,8 +32,8 @@ function Council({
   //Routing
   const navigate = useNavigate();
   const location = useLocation();
+  const { lang } = useParams();
   // eslint-disable-next-line
-  const [searchParams, setSearchParams] = useSearchParams();
 
   //Main State variables
   const [activeOverlay, setActiveOverlay] = useState("");
@@ -117,7 +117,7 @@ function Council({
 
     socketRef.current.on("meeting_started", (meeting) => {
       setCurrentMeetingId(meeting.meeting_id);
-      navigate("/meeting/" + meeting.meeting_id);
+      navigate(`/${lang}/meeting/${meeting.meeting_id}`);
     });
 
     socketRef.current.on("audio_update", (audioMessage) => {
@@ -174,13 +174,6 @@ function Council({
       setAttemptingReconnect(false);
     }
   }, [attemptingReconnect, currentMeetingId]);
-
-  // Routing for overlays
-  useEffect(() => {
-    if (["/about", "/contact", "/share"].includes(location?.pathname)) {
-      setActiveOverlay(location?.pathname.substring(1));
-    }
-  }, [location]);
 
   // Main state
   // This drives the council meeting forward
@@ -352,7 +345,7 @@ function Council({
   useEffect(() => {
     if (activeOverlay !== "" && activeOverlay !== "summary" && !isPaused) {
       setPaused(true);
-    }else if(searchParams.get('o') !== null && !isPaused){
+    }else if(location.hash && !isPaused){
       setPaused(true);
     }else if(connectionError || !isDocumentVisible){
       setPaused(true);
@@ -465,7 +458,7 @@ function Council({
   // When overlay is closed
   function removeOverlay() {
     setActiveOverlay("");
-    navigate("/meeting/" + (currentMeetingId || "new"));
+    navigate(`/${lang}/meeting/${(currentMeetingId || "new")}`);
 
     //TODO put this in a better place?
     if (councilState === 'max_reached') {

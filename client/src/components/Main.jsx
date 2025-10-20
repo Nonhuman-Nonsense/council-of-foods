@@ -1,6 +1,6 @@
 import "../App.css";
 import { useState, useEffect } from "react";
-import { Routes, Route, useLocation, useNavigate } from "react-router";
+import { Routes, Route, useLocation, useNavigate, useParams } from "react-router";
 import Overlay from "./Overlay";
 import MainOverlays from "./MainOverlays";
 import Landing from "./settings/Landing";
@@ -14,6 +14,7 @@ import { usePortrait } from "../utils";
 import CouncilError from "./overlays/CouncilError.jsx";
 import Forest from './Forest';
 import Reconnecting from "./overlays/Reconnecting.jsx";
+import { useTranslation } from 'react-i18next';
 
 function useIsIphone() {
   const [isIphone, setIsIphone] = useState(false);
@@ -50,10 +51,25 @@ function Main() {
   const isIphone = useIsIphone();
   const isPortrait = usePortrait();
 
+  const { i18n } = useTranslation();
+
+  let { lang, page } = useParams();
+
+  // Redirect if unsupported language
   useEffect(() => {
-    if (topic.title === "" && (location.pathname !== "/" && location.pathname !== "/topics")) {
-      //Preserve the search, but navigate to start
-      navigate({ pathname: "/", search: location.search });
+    const supportedLangs = ['sv', 'en'];
+    if(supportedLangs.includes(lang)){
+      i18n.changeLanguage(lang);
+    }else{
+      navigate('/');
+    }
+  }, [lang]);
+  
+
+  useEffect(() => {
+    if (topic.title === "" && (location.pathname.length > 4 && location.pathname.substring(4) !== "" && location.pathname.substring(4) !== "topics")) {
+      //Preserve the hash, but navigate to start
+      navigate({ pathname: `/${lang}/`, hash: location.hash });
     }
   }, [location.pathname]);
 
@@ -69,7 +85,7 @@ function Main() {
       next = "meeting/new";
     }
 
-    navigate(next);
+    navigate(`/${lang}/${next}`);
   }
 
   function onReset(resetData) {
@@ -107,7 +123,7 @@ function Main() {
   return (
     <>
       <Forest currentSpeakerName={currentSpeakerName} isPaused={isPaused} />
-      <div style={{width: "100%",height: "7%", minHeight: 300 * 0.07 + "px", position: "absolute",bottom: 0,background: "linear-gradient(0deg, rgba(0, 0, 0, 0.95) 0%, rgba(0, 0, 0, 0) 100%)",zIndex: 1}} />
+      <div style={{ width: "100%", height: "7%", minHeight: 300 * 0.07 + "px", position: "absolute", bottom: 0, background: "linear-gradient(0deg, rgba(0, 0, 0, 0.95) 0%, rgba(0, 0, 0, 0) 100%)", zIndex: 1 }} />
       {!(unrecoverabeError || connectionError) && (
         <Navbar
           topic={topic.title}
@@ -123,8 +139,8 @@ function Main() {
       )}
       {!unrecoverabeError && (
         <Overlay
-          isActive={!location.pathname.startsWith("/meeting")}
-          isBlurred={location.pathname !== "/"}
+          isActive={!location.pathname.startsWith(`/${lang}/meeting`)}
+          isBlurred={location.pathname !== `/${lang}/`}
         >
           <Routes>
             <Route

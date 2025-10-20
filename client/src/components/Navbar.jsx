@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { useLocation, useSearchParams } from "react-router";
+import { useLocation, Link, useParams, useNavigate } from "react-router";
 import { useMediaQuery } from 'react-responsive'
 import { useTranslation } from 'react-i18next';
 import { capitalizeFirstLetter, useMobile, useMobileXs, usePortrait } from "../utils";
@@ -14,31 +14,20 @@ function Navbar({ topic, hamburgerOpen, setHamburgerOpen }) {
   const hamburgerAnimation = useRef(null);
   const [activeMenuItem, setActiveMenuItem] = useState('');
   // eslint-disable-next-line
-  const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
+  const navigate = useNavigate();
   const { t, i18n } = useTranslation();
+
+  let { lang } = useParams();
 
 
   useEffect(() => {
-    if (searchParams.get('o') === 'about') {
-      setActiveMenuItem('about');
-    } else if (searchParams.get('o') === 'contact') {
-      setActiveMenuItem('contact');
-    } else if (searchParams.get('o') === 'settings') {
-      setActiveMenuItem('settings');
+    if (['about', 'contact', 'settings'].includes(location.hash)) {
+      setActiveMenuItem(location.hash);
     } else {
       setActiveMenuItem('');
     }
-  }, [searchParams]);
-
-  useEffect(() => {
-    const lng = searchParams.get('lng');
-    if (lng === 'sv') {
-      i18n.changeLanguage('sv');
-    } else {
-      i18n.changeLanguage('en');
-    }
-  }, [searchParams]);
+  }, [location]);
 
   useEffect(() => {
     if (!hamburgerOpen) {
@@ -51,15 +40,8 @@ function Navbar({ topic, hamburgerOpen, setHamburgerOpen }) {
   }, [hamburgerOpen]);
 
   function handleOnNavigate(to) {
-    setSearchParams((searchParams) => {
-      Object.keys(to).forEach(key => {
-        if (to[key]) {
-          searchParams.set(key, to[key]);
-        } else {
-          searchParams.delete(key);
-        }
-      });
-      return searchParams;
+    navigate({
+      hash: to
     });
 
     if (isMobile) {
@@ -111,8 +93,6 @@ function Navbar({ topic, hamburgerOpen, setHamburgerOpen }) {
 
   const navItems = ["settings", "about", "contact"];
 
-  const isSwedish = (searchParams.get('lng') === 'sv');
-
   return (
     <nav
       style={navbarStyle}
@@ -132,7 +112,7 @@ function Navbar({ topic, hamburgerOpen, setHamburgerOpen }) {
           pointerEvents: (!isMobile || hamburgerOpen) ? "auto" : "none"
         }}
       >
-        {location.pathname !== "/" && <>
+        {location.pathname.length > 4 && <>
           <div>
             <h3
               style={{
@@ -141,7 +121,7 @@ function Navbar({ topic, hamburgerOpen, setHamburgerOpen }) {
                 cursor: "pointer",
                 visibility: showIconinMeny ? "visible" : "hidden",
               }}
-              onClick={() => handleOnNavigate({ o: "reset" })}
+              onClick={() => handleOnNavigate( "reset" )}
             >{t('council').toUpperCase()}</h3>
             <h4 style={{ marginTop: "5px", visibility: showIconinMeny ? "visible" : "hidden" }}>{capitalizeFirstLetter(topic)}</h4>
           </div>
@@ -155,14 +135,14 @@ function Navbar({ topic, hamburgerOpen, setHamburgerOpen }) {
             <NavItem
               key={item}
               name={item}
-              show={(!isMobile || hamburgerOpen) && (item !== 'settings' || location.pathname.startsWith('/meeting'))}
+              show={(!isMobile || hamburgerOpen) && (item !== 'settings' || location.pathname.substring(4).startsWith('meeting'))}
               isActive={activeMenuItem === item} // Determine active state
               onNavigate={handleOnNavigate}
             />
           ))}
           <h3 style={{ margin: "0", padding: "0" }}>
-            <span style={{ ...languageStyle, marginLeft: "19px", textDecoration: !isSwedish ? "underline" : "none" }} onClick={() => handleOnNavigate({ lng: "" })}>{t('en').toUpperCase()}</span>/
-            <span style={{ ...languageStyle, textDecoration: isSwedish ? "underline" : "none" }} onClick={() => handleOnNavigate({ lng: "sv" })}>{t('sv').toUpperCase()}</span>
+            <Link style={{ ...languageStyle, marginLeft: "19px", textDecoration: lang === 'en' ? "underline" : "none" }} to={`/en/${location.pathname.substring(4)}${location.hash}`} >{t('en').toUpperCase()}</Link>/
+            <Link style={{ ...languageStyle, textDecoration: lang === 'sv' ? "underline" : "none" }} to={`/sv/${location.pathname.substring(4)}${location.hash}`}>{t('sv').toUpperCase()}</Link>
           </h3>
           {isMobile && (
             <div
@@ -207,7 +187,7 @@ function NavItem({ name, isActive, show, onNavigate }) {
       style={{ margin: "0", padding: "0" }}
       onClick={() => {
         if (show) {
-          onNavigate({ o: name });
+          onNavigate(name);
         }
       }}
     >
