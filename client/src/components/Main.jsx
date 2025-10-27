@@ -16,6 +16,23 @@ import Forest from './Forest';
 import Reconnecting from "./overlays/Reconnecting.jsx";
 import { useTranslation } from 'react-i18next';
 
+//Topics
+import topicDataEN from "../prompts/topics.json";
+import topicDataSV from "../prompts/topics_sv.json";
+
+const topicsData = {
+  "en": topicDataEN,
+  "sv": topicDataSV
+};
+
+//Freeze original topicData to make it immutable
+Object.freeze(topicsData);
+for (const language in topicsData) {
+  for (let i = 0; i < topicsData[language].topics.length; i++) {
+    Object.freeze(topicsData[language].topics[i]);
+  }
+}
+
 function useIsIphone() {
   const [isIphone, setIsIphone] = useState(false);
 
@@ -30,11 +47,9 @@ function useIsIphone() {
 }
 
 function Main() {
-  const [topic, setTopic] = useState({
-    title: "",
-    prompt: "",
-    description: "",
-  });
+  const [topics, setTopics] = useState(topicsData['en'].topics);
+  const [chosenTopic, setChosenTopic] = useState({});
+  const [customTopic, setCustomTopic] = useState("");
   const [foods, setFoods] = useState([]);
   const [unrecoverabeError, setUnrecoverableError] = useState(false);
   const [connectionError, setConnectionError] = useState(false);
@@ -53,39 +68,73 @@ function Main() {
 
   const { i18n } = useTranslation();
 
-  let { lang, page } = useParams();
+  let { lang } = useParams();
 
-  // Redirect if unsupported language
+  //Update topics on language change
+  useEffect(() => {
+    setTopics(topicsData[lang].topics);
+
+    // Update the chosen topic if language changes later
+    if (chosenTopic.id) {
+      setChosenTopic(prev => {
+        prev.title = topicsData[lang].topics.find(t => t.id === chosenTopic.id).title
+        return prev;
+      });
+    }
+  }, [lang]);
+
+  //Set language if changed
+  //Redirect if unsupported language
   useEffect(() => {
     const supportedLangs = ['sv', 'en'];
-    if(supportedLangs.includes(lang)){
+    if (supportedLangs.includes(lang)) {
       i18n.changeLanguage(lang);
-    }else{
+    } else {
       navigate('/');
     }
   }, [lang]);
-  
+
 
   useEffect(() => {
-    if (topic.title === "" && (location.pathname.length > 4 && location.pathname.substring(4) !== "" && location.pathname.substring(4) !== "topics")) {
+    if (chosenTopic.title === "" && (location.pathname.length > 4 && location.pathname.substring(4) !== "" && location.pathname.substring(4) !== "topics")) {
       //Preserve the hash, but navigate to start
       navigate({ pathname: `/${lang}/`, hash: location.hash });
     }
   }, [location.pathname]);
 
-  function continueForward(fromPage, props) {
-    let next = "";
-    if (fromPage === "landing") {
-      next = "topics";
-    } else if (fromPage === "topic") {
-      setTopic(props.topic);
-      next = "beings";
-    } else if (fromPage === "beings") {
-      setFoods(props.foods);
-      next = "meeting/new";
+  function topicSelected({ topic, custom }) {
+    setChosenTopic({ id: topic, title: topics.find(t => t.id === topic).title });
+    if (custom) {
+      setCustomTopic(custom);
+    }
+    navigate(`/${lang}/beings`);
+  }
+
+  function beingsSelected({ foods }) {
+    setFoods(foods);
+    proceedToMeeting();
+  }
+
+  function proceedToMeeting() {
+    //After this, the language cannot be changed anymore
+
+    //We need to make a structuredClone here, otherwise we just end up with a string of pointers that ends up mutating the original topicData.
+    let copiedTopic = structuredClone(topics.find(t => t.id === chosenTopic.id));
+    if (copiedTopic.id === "customtopic") {
+      copiedTopic.prompt = customTopic;
+      copiedTopic.description = customTopic;
     }
 
-    navigate(`/${lang}/${next}`);
+    copiedTopic.prompt = topicsData[lang].system.replace(
+      "[TOPIC]",
+      copiedTopic.prompt
+    );
+
+    console.log(copiedTopic);
+    setChosenTopic(copiedTopic);
+
+    //Start the meeting
+    navigate(`/${lang}/meeting/new`);
   }
 
   function onReset(resetData) {
@@ -126,7 +175,7 @@ function Main() {
       <div style={{ width: "100%", height: "7%", minHeight: 300 * 0.07 + "px", position: "absolute", bottom: 0, background: "linear-gradient(0deg, rgba(0, 0, 0, 0.95) 0%, rgba(0, 0, 0, 0) 100%)", zIndex: 1 }} />
       {!(unrecoverabeError || connectionError) && (
         <Navbar
-          topic={topic.title}
+          topic={chosenTopic.title}
           hamburgerOpen={hamburgerOpen}
           setHamburgerOpen={setHamburgerOpen}
         />
@@ -146,14 +195,15 @@ function Main() {
             <Route
               path="/"
               element={
-                <Landing onContinueForward={() => continueForward("landing")} />
+                <Landing onContinueForward={() => navigate(`/${lang}/topics`)} />
               }
             />
             <Route
               path="topics"
               element={
                 <SelectTopic
-                  onContinueForward={(props) => continueForward("topic", props)}
+                  topics={topics}
+                  onContinueForward={(props) => topicSelected(props)}
                 />
               }
             />
@@ -161,8 +211,8 @@ function Main() {
               path="beings"
               element={
                 <SelectFoods
-                  topic={topic}
-                  onContinueForward={(props) => continueForward("beings", props)}
+                  topicTitle={chosenTopic.title}
+                  onContinueForward={(props) => beingsSelected(props)}
                 />
               }
             />
@@ -171,7 +221,7 @@ function Main() {
               element={
                 foods.length !== 0 && ( // If page is reloaded, don't even start the council for now
                   <Council
-                    topic={topic}
+                    topic={chosenTopic}
                     foods={foods}
                     setCurrentSpeakerName={setCurrentSpeakerName}
                     isPaused={isPaused}
@@ -186,7 +236,7 @@ function Main() {
           </Routes>
           {!isIphone && <FullscreenButton />}
           <MainOverlays
-            topic={topic}
+            topic={chosenTopic}
             onReset={onReset}
             onCloseOverlay={onCloseOverlay}
           />

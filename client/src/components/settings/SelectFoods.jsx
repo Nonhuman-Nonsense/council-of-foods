@@ -9,7 +9,7 @@ for (let i = 0; i < foodData.foods.length; i++) {
   Object.freeze(foodData.foods[i]);
 }
 
-function SelectFoods({ topic, onContinueForward }) {
+function SelectFoods({ topicTitle, onContinueForward }) {
   const isMobile = useMobile();
   const isMobileXs = useMobileXs();
   const foods = foodData.foods; // Make sure this is defined before using it to find 'water'
@@ -96,7 +96,7 @@ function SelectFoods({ topic, onContinueForward }) {
         >
           <div style={discriptionStyle}>
             <p style={{margin: 0}}>Council of Forest meeting on</p>
-            <h3>{toTitleCase(topic.title)}</h3>
+            <h3>{topicTitle && toTitleCase(topicTitle)}</h3>
             <div>
               {selectedFoods.length < 2 ? <p>please select 2-6 beings to listen to</p> : <><p>we will listen to:</p>
                 <div>{selectedFoods.map((food) => <p style={{margin: 0}} key={food.name}>{food.name}</p>)}</div>
