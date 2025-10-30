@@ -17,6 +17,7 @@ function TextOutput({
   const timerId = useRef(null);
   const isMobile = useMobile();
 
+  //TODO update to forest speakers
   const speedModifiers = {
     "Avocado": 0.96,
     "Banana": 1,

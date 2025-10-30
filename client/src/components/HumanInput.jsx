@@ -5,6 +5,7 @@ import SpeechRecognition, {
 import ConversationControlIcon from "./ConversationControlIcon";
 import TextareaAutosize from 'react-textarea-autosize';
 import { useMobile, dvh } from "../utils";
+import { useTranslation } from "react-i18next";
 
 function HumanInput({ onSubmitHumanMessage }) {
   const [isRecording, setIsRecording] = useState(false);
@@ -12,6 +13,8 @@ function HumanInput({ onSubmitHumanMessage }) {
   const [previousTranscript, setPreviousTranscript] = useState("");
   const inputArea = useRef(null);
   const isMobile = useMobile();
+
+  const { t } = useTranslation();
 
   const maxInputLength = 350;
 
@@ -127,7 +130,7 @@ function HumanInput({ onSubmitHumanMessage }) {
           minRows="1"
           maxRows="6"
           maxLength={maxInputLength}
-          placeholder={browserSupportsSpeechRecognition ? "Type your question or start recording..." : "Type your question..."}
+          placeholder={browserSupportsSpeechRecognition ? t("human.1") : t("human.2")}
         />
       </div>
       <div style={{ display: "flex", flexDirection: "row", pointerEvents: "auto", justifyContent: "center" }}>

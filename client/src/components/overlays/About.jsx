@@ -19,7 +19,7 @@ function About() {
       <p>{t('aboutText.2')}</p>
       <p>{t('aboutText.3')}</p>
       <p>{t('aboutText.4')}</p>
-      <p>a project by<br /><Link to={{ search: "o=contact" }}>Nonhuman Nonsense</Link></p>
+      <p>{t('aboutText.5')}<br /><Link to={{ hash: "contact" }}>Nonhuman Nonsense</Link></p>
     </div>
   );
 }

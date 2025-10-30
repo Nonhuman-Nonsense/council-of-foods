@@ -22,7 +22,7 @@ function Navbar({ topic, hamburgerOpen, setHamburgerOpen }) {
 
 
   useEffect(() => {
-    if (['about', 'contact', 'settings'].includes(location.hash)) {
+    if (['#about', '#contact', '#settings'].includes(location.hash)) {
       setActiveMenuItem(location.hash);
     } else {
       setActiveMenuItem('');
@@ -136,7 +136,7 @@ function Navbar({ topic, hamburgerOpen, setHamburgerOpen }) {
               key={item}
               name={item}
               show={(!isMobile || hamburgerOpen) && (item !== 'settings' || location.pathname.substring(4).startsWith('meeting'))}
-              isActive={activeMenuItem === item} // Determine active state
+              isActive={activeMenuItem === `#${item}`} // Determine active state
               onNavigate={handleOnNavigate}
             />
           ))}

@@ -1,28 +1,23 @@
+import { useTranslation } from "react-i18next";
+
 function Completed({ onContinue, onWrapItUp, canExtendMeeting }) {
+
+  const { t } = useTranslation();
 
   return (
     <div>
-      <h2>Is that it?</h2>
+      <h2>{t('completed.title')}</h2>
       <div>
-        <p>
-          This meeting is starting to get long-winded,
-          <br />
-          is it time to come to a conclusion?
-          <br /><br />
-        </p>
+        <p>{t('completed.1')}<br />{t('completed.2')}<br /><br /></p>
         <button
           onClick={onWrapItUp}
           style={{ marginRight: "9px" }}
-        >
-          Yes, let's wrap it up!
-        </button>
+        >{t('completed.3')}</button>
         {canExtendMeeting && (
           <button
             onClick={onContinue}
             style={{ marginLeft: "9px" }}
-          >
-            No, continue a bit more.
-          </button>
+          >{t('completed.4')}</button>
         )}
         <div style={{ height: "60px" }} />
       </div>

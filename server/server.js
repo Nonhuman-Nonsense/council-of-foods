@@ -264,9 +264,10 @@ io.on("connection", (socket) => {
 
     conversation.forEach((msg) => {
       if (msg.type === "skipped") return;
+      const speakerName = msg.type === 'human' ? conversationOptions.humanName : conversationOptions.characters.find(c => c.id === msg.speaker).name;
       messages.push({
         role: speaker.id === msg.speaker ? "assistant" : "user",
-        content: conversationOptions.characters.find(c => c.id === msg.speaker).name + ": " + msg.text + "\n---",
+        content: speakerName + ": " + msg.text + "\n---",
       });
     });
 
@@ -287,7 +288,7 @@ io.on("connection", (socket) => {
     console.log(
       `[meeting ${meetingId}] human input on index ${conversation.length - 1}`
     );
-    message.text = conversationOptions.humanName + " said: " + message.text;
+    message.text = conversationOptions.humanName + (conversationOptions.language === 'en' ? " said: " : " sa: ") + message.text;
     message.id = "human-" + uuidv4(); // Use UUID for unique message IDs for human messages
     message.type = "human";
     message.speaker = conversationOptions.humanName;
@@ -416,6 +417,7 @@ io.on("connection", (socket) => {
     //     conversationOptions.characters[i].name
     //   );
     // }
+
     conversation = [];
     currentSpeaker = 0;
     extraMessageCount = 0;

@@ -107,6 +107,7 @@ function Council({
     let conversationOptions = {
       topic: topic.prompt,
       characters: foods,
+      language: lang
     };
 
     socketRef.current.io.on("reconnect", () => {
