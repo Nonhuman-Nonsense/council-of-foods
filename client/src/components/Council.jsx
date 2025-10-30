@@ -14,7 +14,7 @@ import globalOptions from "../global-options-client";
 function Council({
   topic,
   foods,
-  setCurrentSpeakerName,
+  setCurrentSpeakerId,
   isPaused,
   setPaused,
   setUnrecoverableError,
@@ -272,13 +272,13 @@ function Council({
   // Set current speaker name on every change of playing message
   useEffect(() => {
     if (councilState === 'loading') {
-      setCurrentSpeakerName("");
+      setCurrentSpeakerId("");
     } else if (councilState === 'human_speaking') {
-      setCurrentSpeakerName(humanName);
+      setCurrentSpeakerId(humanName);
     } else if (textMessages[playingNowIndex]) {
-      setCurrentSpeakerName(textMessages[playingNowIndex].speaker);
+      setCurrentSpeakerId(textMessages[playingNowIndex].speaker);
     } else {
-      setCurrentSpeakerName("");
+      setCurrentSpeakerId("");
     }
   }, [councilState, playingNowIndex]);
 

@@ -58,7 +58,7 @@ function Main() {
   const [hamburgerOpen, setHamburgerOpen] = useState(false);
 
   //Council variables moved up to this level, so that the background can access them
-  const [currentSpeakerName, setCurrentSpeakerName] = useState("");
+  const [currentSpeakerId, setCurrentSpeakerId] = useState("");
   const [isPaused, setPaused] = useState(false);
 
   const location = useLocation();
@@ -142,12 +142,11 @@ function Main() {
 
     if (!resetData?.topic) {
       // Reset from the start
-      setTopic({ title: "", prompt: "", description: "" });
-      navigate("/");
+      setChosenTopic({});
+      navigate(`/${lang}`);
     } else {
       // Reset from foods selection
-      setTopic(resetData.topic);
-      navigate("beings");
+      topicSelected(resetData);
     }
   }
 
@@ -171,7 +170,7 @@ function Main() {
 
   return (
     <>
-      <Forest currentSpeakerName={currentSpeakerName} isPaused={isPaused} />
+      <Forest currentSpeakerId={currentSpeakerId} isPaused={isPaused} />
       <div style={{ width: "100%", height: "7%", minHeight: 300 * 0.07 + "px", position: "absolute", bottom: 0, background: "linear-gradient(0deg, rgba(0, 0, 0, 0.95) 0%, rgba(0, 0, 0, 0) 100%)", zIndex: 1 }} />
       {!(unrecoverabeError || connectionError) && (
         <Navbar
@@ -223,7 +222,7 @@ function Main() {
                   <Council
                     topic={chosenTopic}
                     foods={foods}
-                    setCurrentSpeakerName={setCurrentSpeakerName}
+                    setCurrentSpeakerId={setCurrentSpeakerId}
                     isPaused={isPaused}
                     setPaused={setPaused}
                     setUnrecoverableError={setUnrecoverableError}
@@ -236,6 +235,7 @@ function Main() {
           </Routes>
           {!isIphone && <FullscreenButton />}
           <MainOverlays
+            topics={topics}
             topic={chosenTopic}
             onReset={onReset}
             onCloseOverlay={onCloseOverlay}

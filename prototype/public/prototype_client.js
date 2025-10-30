@@ -274,7 +274,7 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     }
 
-    promptsAndOptions.options.chairName = promptsAndOptions.rooms[currentRoom].characters[0].name;
+    promptsAndOptions.options.chairId = promptsAndOptions.rooms[currentRoom].characters[0].id;
     promptsAndOptions.options.audio_speed = 1.15;
 
     localStorage.setItem(

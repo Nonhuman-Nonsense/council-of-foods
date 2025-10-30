@@ -8,7 +8,7 @@
   "audio_speed": 1.15,
   "trimSentance": false,
   "trimParagraph": true,
-  "chairName": "River",
+  "chairId": "river",
   "trimChairSemicolon": true,
   "show_trimmed": true,
   "skipAudio": false,

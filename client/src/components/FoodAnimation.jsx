@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { filename, useMobile } from "../utils";
 
-function FoodAnimation({ character, type, styles, isPaused, always_on, currentSpeakerName }) {
+function FoodAnimation({ character, type, styles, isPaused, always_on, currentSpeakerId }) {
 
   const isMobile = useMobile();
   const video = useRef(null);
   const [vidLoaded, setVidLoaded] = useState(false);
 
-  const folder = character.name === "River" ? "" : isMobile ? "small/" : "large/";
+  const folder = character.id === "river" ? "" : isMobile ? "small/" : "large/";
 
   const transparency = type === "transparent";
 
@@ -30,27 +30,27 @@ function FoodAnimation({ character, type, styles, isPaused, always_on, currentSp
 
   useEffect(() => {
     if (vidLoaded) {
-      if (!isPaused && (currentSpeakerName === character.name || always_on === true)) {
+      if (!isPaused && (currentSpeakerId === character.id || always_on === true)) {
         video.current.play().catch(e => console.log(e));//log for now but prob safe to fail silently
       } else {
         video.current.pause();
       }
     }
-  }, [isPaused, vidLoaded, currentSpeakerName]);
+  }, [isPaused, vidLoaded, currentSpeakerId]);
 
   return (
     <video ref={video} style={{ ...styles, objectFit: "contain", height: "100%" }} loop muted playsInline>
       {transparency && <>
         <source
-          src={`/characters/${folder}${filename(character.name)}-hevc-safari.mp4`}
+          src={`/characters/${folder}${filename(character.id)}-hevc-safari.mp4`}
           type={'video/mp4; codecs="hvc1"'} />
         <source
-          src={`/characters/${folder}${filename(character.name)}-vp9-chrome.webm`}
+          src={`/characters/${folder}${filename(character.id)}-vp9-chrome.webm`}
           type={"video/webm"} />
       </>}
       {!transparency && 
       <source
-        src={`/characters/${folder}${filename(character.name)}.webm`}
+        src={`/characters/${folder}${filename(character.id)}.webm`}
         type={"video/webm"} />
       }
     </video>

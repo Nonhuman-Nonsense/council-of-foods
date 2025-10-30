@@ -109,7 +109,7 @@ io.on("connection", (socket) => {
       if (conversation[i].type === "human") continue;
       if (conversation[i].type === "invitation") continue;
       const lastSpeakerIndex = conversationOptions.characters.findIndex(
-        (char) => char.name === conversation[i].speaker
+        (char) => char.id === conversation[i].speaker
       );
 
       return lastSpeakerIndex >= conversationOptions.characters.length - 1
@@ -140,7 +140,7 @@ io.on("connection", (socket) => {
 
       let summary = {
         id: id,
-        speaker: conversationOptions.characters[0].name,
+        speaker: conversationOptions.characters[0].id,
         text: response,
         type: "interjection",
       };
@@ -153,7 +153,7 @@ io.on("connection", (socket) => {
         }`
       );
 
-      generateAudio(id, response, conversationOptions.characters[0].name);
+      generateAudio(id, response, conversationOptions.characters[0]);
     });
 
     socket.on("remove_last_message", () => {
@@ -186,7 +186,7 @@ io.on("connection", (socket) => {
 
     let invitation = {
       id: id,
-      speaker: conversationOptions.characters[0].name,
+      speaker: conversationOptions.characters[0].id,
       text: response,
       type: "invitation",
       message_index: handRaisedOptions.index,
@@ -207,7 +207,7 @@ io.on("connection", (socket) => {
 
     socket.emit("conversation_update", conversation);
 
-    generateAudio(id, response, conversationOptions.characters[0].name);
+    generateAudio(id, response, conversationOptions.characters[0]);
   });
 
   const chairInterjection = async (
@@ -265,8 +265,8 @@ io.on("connection", (socket) => {
     conversation.forEach((msg) => {
       if (msg.type === "skipped") return;
       messages.push({
-        role: speaker.name === msg.speaker ? "assistant" : "user",
-        content: msg.speaker + ": " + msg.text + "\n---",
+        role: speaker.id === msg.speaker ? "assistant" : "user",
+        content: conversationOptions.characters.find(c => c.id === msg.speaker).name + ": " + msg.text + "\n---",
       });
     });
 
@@ -305,7 +305,7 @@ io.on("connection", (socket) => {
     generateAudio(
       message.id,
       message.text,
-      conversationOptions.characters[0].name
+      conversationOptions.characters[0]
     );
 
     isPaused = false;
@@ -325,7 +325,7 @@ io.on("connection", (socket) => {
 
     let summary = {
       id: id,
-      speaker: conversationOptions.characters[0].name,
+      speaker: conversationOptions.characters[0].id,
       text: response,
       type: "summary",
     };
@@ -343,7 +343,7 @@ io.on("connection", (socket) => {
       { $set: { summary: summary } }
     );
 
-    generateAudio(id, response, conversationOptions.characters[0].name);
+    generateAudio(id, response, conversationOptions.characters[0]);
   });
 
   socket.on("continue_conversation", () => {
@@ -411,11 +411,11 @@ io.on("connection", (socket) => {
       conversationOptions.options = globalOptions;
     }
 
-    for (let i = 0; i < conversationOptions.characters.length; i++) {
-      conversationOptions.characters[i].name = toTitleCase(
-        conversationOptions.characters[i].name
-      );
-    }
+    // for (let i = 0; i < conversationOptions.characters.length; i++) {
+    //   conversationOptions.characters[i].name = toTitleCase(
+    //     conversationOptions.characters[i].name
+    //   );
+    // }
     conversation = [];
     currentSpeaker = 0;
     extraMessageCount = 0;
@@ -471,7 +471,7 @@ io.on("connection", (socket) => {
 
       let message = {
         id: output.id,
-        speaker: conversationOptions.characters[currentSpeaker].name,
+        speaker: conversationOptions.characters[currentSpeaker].id,
         text: output.response,
         trimmed: output.trimmed,
         pretrimmed: output.pretrimmed,
@@ -499,7 +499,7 @@ io.on("connection", (socket) => {
         generateAudio(
           message.id,
           message.text,
-          conversationOptions.characters[currentSpeaker].name
+          conversationOptions.characters[currentSpeaker]
         );
       } else {
         const audioUpdate = {
@@ -528,12 +528,12 @@ io.on("connection", (socket) => {
     }
   };
 
-  const generateAudio = async (id, text, speakerName) => {
+  const generateAudio = async (id, text, speaker) => {
     //If audio creation is skipped
     if (conversationOptions.options.skipAudio) return;
     // const thisConversationCounter = conversationCounter;
     const voiceName = conversationOptions.characters.find(
-      (char) => char.name === speakerName
+      (char) => char.id === speaker.id
     ).voice;
 
     let buffer;
@@ -599,7 +599,7 @@ io.on("connection", (socket) => {
       const completion = await openai.chat.completions.create({
         model: conversationOptions.options.gptModel,
         max_tokens:
-          speaker.name === conversationOptions.options.chairName
+          speaker.id === conversationOptions.options.chairId
             ? conversationOptions.options.chairMaxTokens
             : conversationOptions.options.maxTokens,
         temperature: conversationOptions.options.temperature,
@@ -640,7 +640,7 @@ io.on("connection", (socket) => {
         }
 
         if (conversationOptions.options.trimChairSemicolon) {
-          if (speaker.name === conversationOptions.options.chairName) {
+          if (speaker.id === conversationOptions.options.chairId) {
             // Make sure to use the same sentence splitter as on the client side
             const sentenceRegex =
               /(\d+\.\s+.{3,}?(?:\n|\?!\*|\?!|!\?|\?"|!"|\."|!\*|\?\*|\?|!|\?|;|\.{3}|…|\.|$))|.{3,}?(?:\n|\?!\*|\?!|!\?|\?"|!"|\."|!\*|\?\*|!|\?|;|\.{3}|…|\.|$)/gs;

@@ -12,7 +12,7 @@ function FoodButton({
   const isMobile = useMobile();
   const isModerator = onSelectFood === undefined;
 
-  const imageUrl = `/small/${filename(food.name)}.webp`;
+  const imageUrl = `/small/${filename(food.id)}.webp`;
 
   function handleClickFood() {
     if (!isModerator && (!selectLimitReached || isSelected)) {

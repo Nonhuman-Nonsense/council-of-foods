@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import FoodAnimation from "./FoodAnimation.jsx";
 import { dvh, minWindowHeight, filename, useMobile } from "../utils.js";
 
-function Forest({ currentSpeakerName, isPaused }) {
+function Forest({ currentSpeakerId, isPaused }) {
 
     const isMobile = useMobile();
 
@@ -25,21 +25,21 @@ function Forest({ currentSpeakerName, isPaused }) {
     }, []); // Empty dependency array ensures this effect runs only once on mount and unmount
 
     const characters = [//Ratio is video width / height
-        { ref: useRef(null), name: "Salmon", type: "transparent", zoom: 60, height: 9, left: 2.5, bottom: 42.5, ratio: 934 / 450 },
-        { ref: useRef(null), name: "Bird", type: "transparent", height: 14, left: 12.5, bottom: 52, ratio: 708 / 612 },
-        { ref: useRef(null), name: "Bumblebee", type: "transparent", zoom: 60, height: 10, left: -48, bottom: 44, ratio: 786 / 646 },
-        { ref: useRef(null), name: "Concorta Pine", type: "image", height: 27, left: -73, bottom: 13, ratio: 724 / 918 },
-        { ref: useRef(null), name: "Pine", type: "transparent", zoom: 100, height: 61, left: 26, bottom: 0, ratio: 1104 / 1920 },
-        { ref: useRef(null), name: "Reindeer", type: "transparent", height: 16, left: -26.5, bottom: 27, ratio: 1040 / 956 },
-        { ref: useRef(null), name: "Wind Turbine", type: "transparent", height: 22, left: 1, bottom: 69.5, ratio: 1066 / 946 },
-        { ref: useRef(null), name: "Tree Harvester", type: "transparent", zoom: 80, height: 19, left: 57.5, bottom: 1, ratio: 674 / 900 },
-        { ref: useRef(null), name: "Kota", type: "transparent", always_on: true, height: 35, left: 54, bottom: 20, ratio: 574 / 1000 },
-        { ref: useRef(null), name: "Lichen", type: "transparent", height: 25, left: 40, bottom: 53.5, ratio: 1332 / 1000 },
-        { ref: useRef(null), name: "Burning Pine", type: "transparent", always_on: true, height: 14, left: -88, bottom: 85.5, ratio: 474 / 474 },
-        { ref: useRef(null), name: "Aurora", type: "transparent", always_on: true, height: 21, left: -35, bottom: 80, ratio: 1600 / 800 },
-        { ref: useRef(null), name: "Mountain", type: "transparent", zoom: 40, height: 16, left: -52, bottom: 71.5, ratio: 1600 / 480 },
-        { ref: useRef(null), name: "Kota2", type: "image", height: 11, left: -19.5, bottom: 64, ratio: 564 / 400 },
-        { ref: useRef(null), name: "Snowy Spruce", type: "image", height: 36, left: -37, bottom: 44.5, ratio: 1044 / 1800 },
+        { ref: useRef(null), id: "salmon", type: "transparent", zoom: 60, height: 9, left: 2.5, bottom: 42.5, ratio: 934 / 450 },
+        { ref: useRef(null), id: "bird", type: "transparent", height: 14, left: 12.5, bottom: 52, ratio: 708 / 612 },
+        { ref: useRef(null), id: "bumblebee", type: "transparent", zoom: 60, height: 10, left: -48, bottom: 44, ratio: 786 / 646 },
+        { ref: useRef(null), id: "concortapine", type: "image", height: 27, left: -73, bottom: 13, ratio: 724 / 918 },
+        { ref: useRef(null), id: "pine", type: "transparent", zoom: 100, height: 61, left: 26, bottom: 0, ratio: 1104 / 1920 },
+        { ref: useRef(null), id: "reindeer", type: "transparent", height: 16, left: -26.5, bottom: 27, ratio: 1040 / 956 },
+        { ref: useRef(null), id: "windturbine", type: "transparent", height: 22, left: 1, bottom: 69.5, ratio: 1066 / 946 },
+        { ref: useRef(null), id: "treeharvester", type: "transparent", zoom: 80, height: 19, left: 57.5, bottom: 1, ratio: 674 / 900 },
+        { ref: useRef(null), id: "kota", type: "transparent", always_on: true, height: 35, left: 54, bottom: 20, ratio: 574 / 1000 },
+        { ref: useRef(null), id: "lichen", type: "transparent", height: 25, left: 40, bottom: 53.5, ratio: 1332 / 1000 },
+        { ref: useRef(null), id: "burningpine", type: "transparent", always_on: true, height: 14, left: -88, bottom: 85.5, ratio: 474 / 474 },
+        { ref: useRef(null), id: "aurora", type: "transparent", always_on: true, height: 21, left: -35, bottom: 80, ratio: 1600 / 800 },
+        { ref: useRef(null), id: "mountain", type: "transparent", zoom: 40, height: 16, left: -52, bottom: 71.5, ratio: 1600 / 480 },
+        { ref: useRef(null), id: "kota2", type: "image", height: 11, left: -19.5, bottom: 64, ratio: 564 / 400 },
+        { ref: useRef(null), id: "snowyspruce", type: "image", height: 36, left: -37, bottom: 44.5, ratio: 1044 / 1800 },
     ];
 
     const container = {
@@ -61,13 +61,13 @@ function Forest({ currentSpeakerName, isPaused }) {
 
     useEffect(() => {
         //find the current speaker in the list of characters
-        const found = characters.find((char) => char.name === currentSpeakerName);
+        const found = characters.find((char) => char.id === currentSpeakerId);
         if (found) {
             setZoomInOnBeing(found);
         } else {
             setZoomInOnBeing(null);
         }
-    }, [currentSpeakerName]);
+    }, [currentSpeakerId]);
 
     useEffect(() => {
         if (zoomInOnBeing) {
@@ -126,12 +126,12 @@ function Forest({ currentSpeakerName, isPaused }) {
         <div style={container} ref={containerRef}>
             <img style={{ zIndex: "-5", height: "100%", position: "absolute", bottom: 0 }} src={`/backgrounds/forest${isMobile ? "-small" : ""}.avif`} alt="" />
             <div style={{ zIndex: "-4", height: "75.5%", position: "absolute", bottom: 0, left: "calc(50% - max(49dvh,147px))" }}>
-                <FoodAnimation type="transparent" character={{ name: "River" }} isPaused={isPaused} always_on={true} />
+                <FoodAnimation type="transparent" character={{ id: "river" }} isPaused={isPaused} always_on={true} />
             </div>
             {characters.map((character, index) => (
                 <Being
                     key={index}
-                    name={character.name}
+                    id={character.id}
                     type={character.type}
                     ref={character.ref}
                     height={character.height + "%"}
@@ -139,20 +139,20 @@ function Forest({ currentSpeakerName, isPaused }) {
                     bottom={character.bottom + "%"}
                     always_on={character.always_on}
                     isPaused={isPaused}
-                    currentSpeakerName={currentSpeakerName}
+                    currentSpeakerId={currentSpeakerId}
                 />))}
         </div >
     );
 }
 
-function Being({ name, ref, type, height, left, bottom, always_on, isPaused, currentSpeakerName }) {
+function Being({ id, ref, type, height, left, bottom, always_on, isPaused, currentSpeakerId }) {
     return (<>
         {type !== "image" &&
             <div ref={ref} style={{ position: "absolute", height: height, left: left, bottom: bottom }}>
-                <FoodAnimation type={type} character={{ name: name }} isPaused={isPaused} always_on={always_on} currentSpeakerName={currentSpeakerName} />
+                <FoodAnimation type={type} character={{ id: id }} isPaused={isPaused} always_on={always_on} currentSpeakerId={currentSpeakerId} />
             </div>
         }
-        {type === "image" && <img style={{ position: "absolute", height: height, left: left, bottom: bottom}} src={`/characters/images/${filename(name)}.avif`} alt="" />}
+        {type === "image" && <img style={{ position: "absolute", height: height, left: left, bottom: bottom}} src={`/characters/images/${filename(id)}.avif`} alt="" />}
     </>
     );
 }

@@ -3,6 +3,7 @@
   "council": "Skogsparlamentet",
   "description": "En politisk arena där skogen själv får tala, med hjälp av artificiell intelligens. Följ skogens invånare när de diskuterar avskogning, återvildning och ödet för deras gemensamma hem.",
   "go": "Nu kör vi!",
+  "start": "Starta",
   "about": "Om Parlamentet",
   "contact": "Kontakt",
   "settings": "Inställningar",
@@ -15,7 +16,13 @@
     "4": "Vad innebär det att agera i skogens bästa intresse? Vems kunskap räknas? Och vad händer när vi tar icke-mänskliga röster på allvar?"
   },
   "theissue": "DAGENS AGENDA",
+  "thebeings": "VARELSERNA",
   "next": "Nästa",
   "selectissue": "välj ett ämne för dagens discussion",
-  "writetopic": "Skriv ett eget ämne..."
+  "writetopic": "Skriv ett eget ämne...",
+  "meetingon": "Skogsparlamentet möte om",
+  "selectbeings": "vänligen välj 2-6 varelser att lyssna till",
+  "selectbeingsdiscussion": "vänligen välj 2-6 varelser för diskussionen",
+  "wewilllisten": "kommer vi lyssna till",
+  "randomize": "Slumpa"
 }

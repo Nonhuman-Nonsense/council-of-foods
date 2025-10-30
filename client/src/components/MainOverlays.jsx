@@ -8,7 +8,7 @@ import Contact from "./overlays/Contact.jsx";
 import ResetWarning from "./overlays/ResetWarning";
 import SelectTopic from "./settings/SelectTopic";
 
-function MainOverlays({ topic, onReset, onCloseOverlay }) {
+function MainOverlays({ topics, topic, onReset, onCloseOverlay }) {
 
   // eslint-disable-next-line
   const navigate = useNavigate();
@@ -17,16 +17,16 @@ function MainOverlays({ topic, onReset, onCloseOverlay }) {
   // Reset the hash in certain conditions
   useEffect(() => {
     const hash = location.hash;
-    if(hash){
+    if (hash) {
       if (!["#about", "#contact", "#reset", "#settings"].includes(hash)) {
         removeOverlay();
-      }else if(!location.pathname.substring(4).startsWith('meeting') && ["#settings"].includes(hash)){
+      } else if (!location.pathname.substring(4).startsWith('meeting') && ["#settings"].includes(hash)) {
         removeOverlay();
-      }else if(location.pathname.substring(4) === '' && ["#reset"].includes(hash)){
+      } else if (location.pathname.substring(4) === '' && ["#reset"].includes(hash)) {
         removeOverlay();
       }
     }
-    
+
   }, [location]);
 
   function removeOverlay() {
@@ -45,6 +45,7 @@ function MainOverlays({ topic, onReset, onCloseOverlay }) {
       case "#settings":
         return (
           <SelectTopic
+            topics={topics}
             currentTopic={topic}
             onReset={onReset}
             onCancel={removeOverlay}

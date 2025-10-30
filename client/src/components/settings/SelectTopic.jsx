@@ -22,19 +22,26 @@ function SelectTopic({
   const { t } = useTranslation();
 
   // useEffect hook to listen for changes in currentTopic
-  //What is this for??
+  // If changing the topic in an ongoing meeting
   useEffect(() => {
     if (currentTopic?.prompt) {
       let reSelectTopic = topics.find((t) => t.id === currentTopic.id);
       if (currentTopic?.id === 'customtopic') {
         setCustomTopic(currentTopic.description);
-        reSelectTopic.prompt = currentTopic.description;
-        reSelectTopic.description = currentTopic.description;
       }
-
-      selectTopic(reSelectTopic);
+      setSelectedTopic(reSelectTopic.id);
     }
   }, [currentTopic]); // Dependency array includes only currentTopic
+
+  // Function to proceed with the selected or custom topic
+  function proceedForward() {
+    if (currentTopic) {
+      // Current topic exists which means we are changing settings
+      setDisplayWarning(true);
+    } else {
+      onContinueForward({ topic: selectedTopic, custom: customTopic });
+    }
+  }
 
   // Function to handle custom topic input changes
   function handleInputTopic(e) {
@@ -116,7 +123,7 @@ function SelectTopic({
         <ResetWarning
           message="changing topic"
           onReset={() =>
-            onReset({ topic: buildTopicPrompt() })
+            onReset({ topic: selectedTopic, custom: customTopic })
           }
           onCancel={onCancel}
         />
@@ -208,7 +215,7 @@ function SelectTopic({
             style={textBoxStyle}
           />
           <button
-            onClick={() => onContinueForward({ topic: selectedTopic, custom: customTopic })}
+            onClick={proceedForward}
             style={{
               marginBottom: "10px",
               visibility: shouldShowNextButton ? "" : "hidden",
