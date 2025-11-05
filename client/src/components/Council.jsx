@@ -616,7 +616,7 @@ function Council({
       {councilState === 'loading' && <Loading />}
       <>
         {(councilState === 'human_input' || councilState === 'human_panelist') && (
-          <HumanInput foods={foods} isPanelist={(councilState === 'human_panelist')} currentSpeakerName={currentSpeakerName} onSubmitHumanMessage={handleOnSubmitHumanMessage} />
+          <HumanInput socketRef={socketRef} foods={foods} isPanelist={(councilState === 'human_panelist')} currentSpeakerName={currentSpeakerName} onSubmitHumanMessage={handleOnSubmitHumanMessage} />
         )}
         <Output
           textMessages={textMessages}

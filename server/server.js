@@ -798,6 +798,65 @@ io.on("connection", (socket) => {
     }
   };
 
+  socket.on('request_clientkey', async () => {
+    console.log(`[meeting ${meetingId}] clientkey requested`);
+    try {
+      const sessionConfig = JSON.stringify({
+        session: {
+          "type": "transcription",
+          "audio": {
+            "input": {
+              "format": {
+                "type": "audio/pcm",
+                "rate": 24000
+              },
+              "noise_reduction": {
+                "type": "near_field"
+              },
+              "transcription": {
+                "model": conversationOptions.options.transcribeModel,
+                "prompt": conversationOptions.options.transcribePrompt,
+                "language": conversationOptions.options.transcribeLanguage
+              },
+              "turn_detection": {
+                "type": "server_vad",
+                "threshold": 0.5,
+                "prefix_padding_ms": 300,
+                "silence_duration_ms": 500
+              }
+            }
+          }
+        }
+      });
+
+      const response = await fetch(
+        "https://api.openai.com/v1/realtime/client_secrets",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${openai.apiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: sessionConfig,
+        }
+      );
+
+      const data = await response.json();
+      socket.emit("clientkey_response", data);
+      console.log(`[meeting ${meetingId}] clientkey sent`);
+    } catch (error) {
+      console.error("Error during conversation:", error);
+      socket.emit(
+        "conversation_error",
+        {
+          message: "An error occurred during the conversation.",
+          code: 500
+        }
+      );
+      reportError(error);
+    }
+  });
+
   socket.on("disconnect", () => {
     run = false;
     console.log(`[session ${socket.id} meeting ${meetingId ?? 'unstarted'}] disconnected`);
