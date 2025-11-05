@@ -1,4 +1,3 @@
-import React from "react";
 import RotateDevice from '../RotateDevice';
 import { useMediaQuery } from 'react-responsive'
 import { useMobile, dvh } from "../../utils";

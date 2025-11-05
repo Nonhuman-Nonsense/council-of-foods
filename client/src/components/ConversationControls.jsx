@@ -1,4 +1,3 @@
-import React from "react";
 import ConversationControlIcon from "./ConversationControlIcon";
 import { useMobile } from "../utils";
 
