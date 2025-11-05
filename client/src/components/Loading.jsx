@@ -1,4 +1,3 @@
-import React from "react";
 import Lottie from 'react-lottie-player';
 import loading from '../animations/loading.json';
 import { useMobile } from "../utils";

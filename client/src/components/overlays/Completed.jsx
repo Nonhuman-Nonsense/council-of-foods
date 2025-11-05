@@ -1,5 +1,3 @@
-import React from "react";
-
 function Completed({ onContinue, onWrapItUp, canExtendMeeting }) {
 
   return (

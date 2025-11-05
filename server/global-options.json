@@ -17,5 +17,8 @@
   "raiseHandInvitationLength": 150,
   "finalizeMeetingPrompt": "Please summarise this Spirit of Assilomar meeting, held on [DATE], producing a public statement of what was the conclusion, including information about who signed it, and who didn't. Including points of dissent.",
   "finalizeMeetingLength": 800,
-  "extraMessageCount": 5
+  "extraMessageCount": 5,
+  "transcribeModel": "gpt-4o-transcribe",
+  "transcribePrompt": "Expect english input.",
+  "transcribeLanguage": "en"
 }

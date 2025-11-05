@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect } from "react";
 import ResetWarning from "../overlays/ResetWarning";
 import topicData from "../../prompts/topics.json";
 import { capitalizeFirstLetter, toTitleCase, useMobile, useMobileXs } from "../../utils";

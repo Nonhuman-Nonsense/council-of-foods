@@ -1,4 +1,3 @@
-import React from "react";
 import { useMobile, dvh } from "../../utils";
 
 function Contact() {
