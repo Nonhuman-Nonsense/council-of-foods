@@ -738,8 +738,8 @@ io.on("connection", (socket) => {
               },
               "transcription": {
                 "model": conversationOptions.options.transcribeModel,
-                "prompt": conversationOptions.options.transcribePrompt,
-                "language": conversationOptions.options.transcribeLanguage
+                "prompt": conversationOptions.options.transcribePrompt[conversationOptions.language],
+                "language": conversationOptions.language
               },
               "turn_detection": {
                 "type": "server_vad",

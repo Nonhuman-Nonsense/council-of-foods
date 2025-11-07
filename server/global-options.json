@@ -19,6 +19,8 @@
   "finalizeMeetingLength": 800,
   "extraMessageCount": 5,
   "transcribeModel": "gpt-4o-transcribe",
-  "transcribePrompt": "Expect english input.",
-  "transcribeLanguage": "en"
+  "transcribePrompt": {
+    "en": "Expect english input.",
+    "sv": "Förvänta dig svenska."
+  }
 }
