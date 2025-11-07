@@ -46,8 +46,7 @@
     "wait": "wait for your turn to speak"
   },
   "human": {
-    "1": "Type your question or start recording...",
-    "2": "Type your question..."
+    "1": "Type your question or start recording..."
   },
   "completed": {
     "title": "Is that it?",

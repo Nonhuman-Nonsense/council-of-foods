@@ -508,7 +508,7 @@ function Council({
       {councilState === 'loading' && <Loading />}
       <>
         {councilState === 'human_input' && (
-          <HumanInput onSubmitHumanMessage={handleOnSubmitHumanMessage} />
+          <HumanInput socketRef={socketRef} onSubmitHumanMessage={handleOnSubmitHumanMessage} />
         )}
         <Output
           textMessages={textMessages}

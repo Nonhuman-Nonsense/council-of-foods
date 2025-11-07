@@ -46,8 +46,7 @@
     "wait": "vänta tills det är din tur att tala"
   },
   "human": {
-    "1": "Skriv din fråga eller börja inspelning...",
-    "2": "Skriv din fråga..."
+    "1": "Skriv din fråga eller börja inspelning..."
   },
   "completed": {
     "title": "Var det allt?",
