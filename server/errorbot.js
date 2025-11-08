@@ -1,11 +1,11 @@
 if (process.env.COUNCIL_ERRORBOT) {
     console.log(`[init] will attempt to post errors to errorbot on ${process.env.COUNCIL_ERRORBOT}`);
-}else{
+} else {
     console.log(`[init] COUNCIL_ERRORBOT not set, will not report errors.`);
 }
 
 export async function reportError(err) {
-    if (!process.env.COUNCIL_ERRORBOT){ 
+    if (!process.env.COUNCIL_ERRORBOT) {
         console.log(`[Error] COUNCIL_ERRORBOT not set, will not report errors.`);
         return;
     }
@@ -27,7 +27,7 @@ export async function reportError(err) {
         console.log('[Shutdown] Uncaught Exception');
         process.exit(1);
     });
-    
+
     console.log('[Error] posting error OK');
 }
 
