@@ -26,22 +26,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const audioToggleButton = document.getElementById("audioToggle");
   const audioNextButton = document.getElementById("audioNext");
 
-  //Human input
-  const humanName = document.getElementById("human-name");
-  const raiseHandButton = document.getElementById("raiseHand");
-  const raiseHandIcon = document.getElementById("raiseHandIcon");
-  const humanInputArea = document.getElementById("humanInput");
-  const submitHumanInput = document.getElementById("submitHumanInput");
-  const viewHumanInputPrompts = document.getElementById(
-    "viewHumanInputPrompts"
-  );
-  const raiseHandPrompt = document.getElementById("raiseHandPrompt");
-  const humanConfig = document.getElementById("humanConfig");
-  const preHumanInputContainer = document.getElementById(
-    "preHumanInputContainer"
-  );
-  // const humanInputContainer = document.getElementById('humanInputContainer');
-
   //System prompt
   const systemPrompt = document.getElementById("systemPrompt");
 
@@ -66,9 +50,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const audioVoices = ["alloy", "ash", "ballad", "coral", "echo", "fable", "onyx", "nova", "sage", "shimmer", "verse"];
   
 
-  // Human input
-  let handRaised = false;
-
   // ===========================
   //   UI UPDATING AND STORING
   // ===========================
@@ -90,12 +71,6 @@ document.addEventListener("DOMContentLoaded", () => {
       promptsAndOptions.options.chairMaxTokens;
     document.getElementById("chair-max-tokens").previousSibling.value =
       promptsAndOptions.options.chairMaxTokens;
-    document.getElementById("raise-hand-invitation-length").value =
-      promptsAndOptions.options.raiseHandInvitationLength;
-    document.getElementById(
-      "raise-hand-invitation-length"
-    ).previousSibling.value =
-      promptsAndOptions.options.raiseHandInvitationLength;
     document.getElementById("max-tokens-inject").value =
       promptsAndOptions.options.maxTokensInject;
     document.getElementById("max-tokens-inject").previousSibling.value =
@@ -126,11 +101,7 @@ document.addEventListener("DOMContentLoaded", () => {
       promptsAndOptions.options.skipAudio;
 
     injectInputArea.value = promptsAndOptions.options.injectPrompt;
-
-    raiseHandPrompt.value = promptsAndOptions.options.raiseHandPrompt;
     systemPrompt.value = promptsAndOptions.system;
-
-    humanName.value = promptsAndOptions.options.humanName;
 
     // Room buttons
     let roomButtonsDiv = document.createElement("span");
@@ -215,8 +186,6 @@ document.addEventListener("DOMContentLoaded", () => {
       +document.getElementById("max-tokens").value;
     promptsAndOptions.options.chairMaxTokens =
       +document.getElementById("chair-max-tokens").value;
-    promptsAndOptions.options.raiseHandInvitationLength =
-      +document.getElementById("raise-hand-invitation-length").value;
     promptsAndOptions.options.frequencyPenalty =
       +document.getElementById("frequency-penalty").value;
     promptsAndOptions.options.presencePenalty =
@@ -244,9 +213,6 @@ document.addEventListener("DOMContentLoaded", () => {
     promptsAndOptions.options.injectPrompt = injectInputArea.value;
     promptsAndOptions.options.maxTokensInject =
       +document.getElementById("max-tokens-inject").value;
-
-    promptsAndOptions.options.raiseHandPrompt = raiseHandPrompt.value;
-    promptsAndOptions.options.humanName = humanName.value;
 
     if (!reset) {
       promptsAndOptions.system = systemPrompt.value;
@@ -297,7 +263,8 @@ document.addEventListener("DOMContentLoaded", () => {
       participants = participants.substring(0, participants.length - 2);
       replacedCharacters[0].prompt = promptsAndOptions.rooms[
         currentRoom
-      ].characters[0]?.prompt.replace("[FOODS]", participants);
+      ].characters[0]?.prompt.replace("[FOODS]", participants).replace('[HUMANS]','');
+      console.log(replacedCharacters);
     }
 
     return {
@@ -318,8 +285,6 @@ document.addEventListener("DOMContentLoaded", () => {
   socket.on("conversation_update", (conversationUpdate) => {
     conversation = conversationUpdate;
     reloadConversations();
-    preHumanInputContainer.style.display = "none";
-    postHumanInputContainer.style.display = "block";
     conversationContainer.scrollTop = conversationContainer.scrollHeight;
   });
 
@@ -560,17 +525,9 @@ document.addEventListener("DOMContentLoaded", () => {
     restartBtn.style.display = "none";
     toggleConversationBtn.style.display = "inline";
     toggleConversationBtn.textContent = "Pause";
-    preHumanInputContainer.style.display = "block";
-    postHumanInputContainer.style.display = "none";
-    raiseHandButton.innerHTML = "I want to say something/Raise hand";
-    raiseHandIcon.style.display = "none";
-    humanInputArea.style.display = "none";
-    submitHumanInput.style.display = "none";
     conversationActive = true;
     endMessage.innerHTML = "";
     conversationDiv.innerHTML = "";
-    raiseHandButton.style.display = "inline";
-    handRaised = false;
 
     //Stop audio if it's playing, and reset the data
     if (audioIsPlaying) {
@@ -624,38 +581,6 @@ document.addEventListener("DOMContentLoaded", () => {
     socket.emit("submit_injection", message);
   });
 
-  // Handle submission of human input
-  submitHumanInput.addEventListener("click", () => {
-    const message = {
-      speaker: humanName.value,
-      text: humanInputArea.value,
-    };
-
-    if (conversationActive == false) {
-      toggleConversationBtn.textContent = "Pause";
-      conversationActive = true;
-      spinner.style.display = "block";
-      toggleConversationBtn.style.display = "inline";
-      restartBtn.style.display = "none";
-      continueBtn.style.display = "none";
-    }
-    if (handRaised) {
-      handRaised = false;
-      raiseHandIcon.style.display = "none";
-      raiseHandButton.style.display = "inline";
-      raiseHandIcon.style.display = "none";
-      humanInputArea.style.display = "none";
-      submitHumanInput.style.display = "none";
-      spinner.style.display = "block";
-      endMessage.innerHTML = "";
-
-      continueBtn.style.display = "none";
-      restartBtn.style.display = "none";
-      toggleConversationBtn.textContent = "Pause";
-      conversationActive = true;
-    }
-    socket.emit("submit_human_message", message);
-  });
 
   // Adding a character to the panel
   document.getElementById("add-character").addEventListener("click", () => {
@@ -760,16 +685,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  viewHumanInputPrompts.addEventListener("click", () => {
-    if (viewHumanInputPrompts.innerHTML == "configure") {
-      humanConfig.style.display = "block";
-      viewHumanInputPrompts.innerHTML = "hide";
-    } else {
-      humanConfig.style.display = "none";
-      viewHumanInputPrompts.innerHTML = "configure";
-    }
-  });
-
   //range sliders for model options
   Array.from(document.querySelectorAll("input[type=range]")).map((range) => {
     range.nextSibling.value = range.value;
@@ -777,25 +692,6 @@ document.addEventListener("DOMContentLoaded", () => {
     range.nextSibling.oninput = () => (range.value = range.nextSibling.value);
     range.onmouseover = () => (range.previousSibling.style.display = "block");
     range.onmouseout = () => (range.previousSibling.style.display = "none");
-  });
-
-  raiseHandButton.addEventListener("click", () => {
-    if (!handRaised) {
-      handRaised = true;
-      raiseHandButton.style.display = "none";
-      raiseHandIcon.style.display = "block";
-      spinner.style.display = "none";
-      humanInputArea.style.display = "block";
-      submitHumanInput.style.display = "block";
-      endMessage.innerHTML = "Waiting for human input...";
-      updatePromptsAndOptions();
-      const conversationLength =
-        document.getElementById("conversation").children.length;
-      socket.emit("raise_hand", {
-        humanName: promptsAndOptions.options.humanName,
-        index: conversationLength,
-      });
-    }
   });
 
   //When to reload the UI
