@@ -29,8 +29,6 @@
           class="slider-value" type="number" step="10" id="max-tokens"><br />
         Chair Maximum Length: <div class="explanaition">Same as above, but for chair Water.</div><input type="range" min="1" max="600" value="250" class="slider"><input class="slider-value" type="number"
           step="10" id="chair-max-tokens"><br />
-        Raised hand invitation length: <div class="explanaition">Length for invitation message.</div><input type="range" min="1" max="600" value="150" class="slider"><input class="slider-value" type="number"
-          step="10" id="raise-hand-invitation-length"><br />
         Frequency Penalty: <div class="explanaition">How much to penalize new tokens based on their existing frequency
           in the text so far. Decreases the model's likelihood to repeat the same line verbatim.</div><input
           type="range" min="0" max="2.0" step="0.01" value="0" class="slider"><input class="slider-value" step="0.01"
@@ -57,6 +55,10 @@
         skip creating audio: <input type="checkbox" id="skip-audio"><br>
       </div>
       <br>
+      <div id="language-el">
+        <h3>language</h3>
+        <input type="radio" id="language-en" name="language" value="en" checked /><label for="language-en">en</label>
+      </div>
       <div id="system-el">
         <h3>system prompt</h3>
         <textarea id="systemPrompt" placeholder="system prompt..."></textarea><br>
@@ -85,29 +87,11 @@
         <h3>characters</h3>
         <br>
         <p style="margin: 0;"><small>if the word [FOODS] is present in the first character, it will be replaced with names of the other characters.</small></p>
+        <p style="margin: 0;"><small>the word [HUMANS] is ignored for now, human panelist are not supported in prototype</small></p>
         <div id="characters">
         </div>
         <button id="add-character">+</button>
         <button id="remove-character">-</button>
-      </div>
-
-      <div id="humanInputContainer">
-        <h3>human input</h3>
-        <span id="preHumanInputContainer"><br>We need at least one message before humans can talk...</span>
-        <div id="postHumanInputContainer">
-          <br>name:
-          <input type="text" id="human-name" placeholder="human name" value="Human">
-          <button id="raiseHand">I want to say something/Raise hand</button><br>
-          <textarea id="humanInput" placeholder="say something..."></textarea><br>
-          <button id="submitHumanInput">send</button>
-        </div>
-        <span id="raiseHandIcon">&#9995;</span>
-        <button id="viewHumanInputPrompts">configure</button>
-        <div id="humanConfig">
-          <br>Prompt for raised hand:
-          <textarea id="raiseHandPrompt"
-            placeholder="raise hand prompt...">We have a question or comment from the audience, please invite a human speaker called [NAME] to the debate. After listening to the human, answer and engage deeper with their thoughts.</textarea><br>
-        </div>
       </div>
 
       <div id="injections">

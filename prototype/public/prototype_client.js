@@ -26,22 +26,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const audioToggleButton = document.getElementById("audioToggle");
   const audioNextButton = document.getElementById("audioNext");
 
-  //Human input
-  const humanName = document.getElementById("human-name");
-  const raiseHandButton = document.getElementById("raiseHand");
-  const raiseHandIcon = document.getElementById("raiseHandIcon");
-  const humanInputArea = document.getElementById("humanInput");
-  const submitHumanInput = document.getElementById("submitHumanInput");
-  const viewHumanInputPrompts = document.getElementById(
-    "viewHumanInputPrompts"
-  );
-  const raiseHandPrompt = document.getElementById("raiseHandPrompt");
-  const humanConfig = document.getElementById("humanConfig");
-  const preHumanInputContainer = document.getElementById(
-    "preHumanInputContainer"
-  );
-  // const humanInputContainer = document.getElementById('humanInputContainer');
-
   //System prompt
   const systemPrompt = document.getElementById("systemPrompt");
 
@@ -59,15 +43,15 @@ document.addEventListener("DOMContentLoaded", () => {
   let pauseAudio = false;
   let nextOrBackClicked = false;
 
+  const available_languages = ['en'];
+  let current_language = 'en';
+  const languageButtons = document.getElementById("language-el").querySelectorAll("input[type=radio]");
+
   //Room control
   let currentRoom = 0;
 
   //Names of OpenAI voices
   const audioVoices = ["alloy", "ash", "ballad", "coral", "echo", "fable", "onyx", "nova", "sage", "shimmer", "verse"];
-  
-
-  // Human input
-  let handRaised = false;
 
   // ===========================
   //   UI UPDATING AND STORING
@@ -90,12 +74,6 @@ document.addEventListener("DOMContentLoaded", () => {
       promptsAndOptions.options.chairMaxTokens;
     document.getElementById("chair-max-tokens").previousSibling.value =
       promptsAndOptions.options.chairMaxTokens;
-    document.getElementById("raise-hand-invitation-length").value =
-      promptsAndOptions.options.raiseHandInvitationLength;
-    document.getElementById(
-      "raise-hand-invitation-length"
-    ).previousSibling.value =
-      promptsAndOptions.options.raiseHandInvitationLength;
     document.getElementById("max-tokens-inject").value =
       promptsAndOptions.options.maxTokensInject;
     document.getElementById("max-tokens-inject").previousSibling.value =
@@ -125,18 +103,16 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("skip-audio").checked =
       promptsAndOptions.options.skipAudio;
 
+    document.getElementById("language-el").querySelector(`input[value=${promptsAndOptions.options.language}]`).checked = true;
+
     injectInputArea.value = promptsAndOptions.options.injectPrompt;
-
-    raiseHandPrompt.value = promptsAndOptions.options.raiseHandPrompt;
-    systemPrompt.value = promptsAndOptions.system;
-
-    humanName.value = promptsAndOptions.options.humanName;
+    systemPrompt.value = promptsAndOptions.language[current_language].system;
 
     // Room buttons
     let roomButtonsDiv = document.createElement("span");
     roomButtonsDiv.id = "room-buttons";
-    if (promptsAndOptions.rooms.length > 0) {
-      promptsAndOptions.rooms.forEach((room, i) => {
+    if (promptsAndOptions.language[current_language].rooms.length > 0) {
+      promptsAndOptions.language[current_language].rooms.forEach((room, i) => {
         const newDiv = document.createElement("button");
         newDiv.innerHTML = room.name;
         newDiv.setAttribute("room-id", i);
@@ -148,15 +124,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Retrieve the panel topic and name
     document.getElementById("room-name").value =
-      promptsAndOptions.rooms[currentRoom].name;
+      promptsAndOptions.language[current_language].rooms[currentRoom].name;
     document.getElementById("panel-prompt").value =
-      promptsAndOptions.rooms[currentRoom].topic;
+      promptsAndOptions.language[current_language].rooms[currentRoom].topic;
 
     // Build array of characters
     let characterDiv = document.createElement("div");
     characterDiv.id = "characters";
-    if (promptsAndOptions.rooms[currentRoom].characters.length > 0) {
-      promptsAndOptions.rooms[currentRoom].characters.forEach(
+    if (promptsAndOptions.language[current_language].rooms[currentRoom].characters.length > 0) {
+      promptsAndOptions.language[current_language].rooms[currentRoom].characters.forEach(
         (character, j) => {
           const newDiv = document.createElement("div");
           newDiv.className = "character";
@@ -202,6 +178,7 @@ document.addEventListener("DOMContentLoaded", () => {
       );
     }
     document.getElementById("characters").replaceWith(characterDiv);
+    enableDragAndDrop();
   }
 
   const updatePromptsAndOptions = (reset = false) => {
@@ -215,8 +192,6 @@ document.addEventListener("DOMContentLoaded", () => {
       +document.getElementById("max-tokens").value;
     promptsAndOptions.options.chairMaxTokens =
       +document.getElementById("chair-max-tokens").value;
-    promptsAndOptions.options.raiseHandInvitationLength =
-      +document.getElementById("raise-hand-invitation-length").value;
     promptsAndOptions.options.frequencyPenalty =
       +document.getElementById("frequency-penalty").value;
     promptsAndOptions.options.presencePenalty =
@@ -245,21 +220,20 @@ document.addEventListener("DOMContentLoaded", () => {
     promptsAndOptions.options.maxTokensInject =
       +document.getElementById("max-tokens-inject").value;
 
-    promptsAndOptions.options.raiseHandPrompt = raiseHandPrompt.value;
-    promptsAndOptions.options.humanName = humanName.value;
+    promptsAndOptions.options.language = document.getElementById("language-el").querySelector(':checked').value;
 
     if (!reset) {
-      promptsAndOptions.system = systemPrompt.value;
+      promptsAndOptions.language[current_language].system = systemPrompt.value;
       // Retrieve the panel topic
-      promptsAndOptions.rooms[currentRoom].name =
+      promptsAndOptions.language[current_language].rooms[currentRoom].name =
         document.getElementById("room-name").value;
-      promptsAndOptions.rooms[currentRoom].topic =
+      promptsAndOptions.language[current_language].rooms[currentRoom].topic =
         document.getElementById("panel-prompt").value;
 
       // Gather character data
       const characters = document.querySelectorAll("#characters .character");
 
-      promptsAndOptions.rooms[currentRoom].characters = Array.from(
+      promptsAndOptions.language[current_language].rooms[currentRoom].characters = Array.from(
         characters
       ).map((characterDiv) => {
         const nameInput = characterDiv.querySelector("input").value; // Assuming the first input is still for the name
@@ -267,6 +241,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const voice = characterDiv.querySelector("input[type=radio]:checked");
 
         return {
+          id: nameInput,//this will be swedish ids on the prototype, but english on main site. Does it matter?
           name: nameInput,
           prompt: roleTextarea,
           voice: voice?.value,
@@ -274,7 +249,7 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     }
 
-    promptsAndOptions.options.chairId = promptsAndOptions.rooms[currentRoom].characters[0].id;
+    promptsAndOptions.options.chairId = promptsAndOptions.language[current_language].rooms[currentRoom].characters[0].id;
     promptsAndOptions.options.audio_speed = 1.15;
 
     localStorage.setItem(
@@ -283,28 +258,28 @@ document.addEventListener("DOMContentLoaded", () => {
     );
 
     let replacedCharacters = structuredClone(
-      promptsAndOptions.rooms[currentRoom].characters
+      promptsAndOptions.language[current_language].rooms[currentRoom].characters
     );
 
     if (replacedCharacters[0]) {
       let participants = "";
-      promptsAndOptions.rooms[currentRoom].characters.forEach(function (
+      promptsAndOptions.language[current_language].rooms[currentRoom].characters.forEach(function (
         food,
         index
       ) {
         if (index !== 0) participants += toTitleCase(food.name) + ", ";
       });
       participants = participants.substring(0, participants.length - 2);
-      replacedCharacters[0].prompt = promptsAndOptions.rooms[
+      replacedCharacters[0].prompt = promptsAndOptions.language[current_language].rooms[
         currentRoom
-      ].characters[0]?.prompt.replace("[FOODS]", participants);
+      ].characters[0]?.prompt.replace("[FOODS]", participants).replace('[HUMANS]', '');
     }
 
     return {
       options: promptsAndOptions.options,
-      topic: promptsAndOptions.system.replace(
+      topic: promptsAndOptions.language[current_language].system.replace(
         "[TOPIC]",
-        promptsAndOptions.rooms[currentRoom].topic
+        promptsAndOptions.language[current_language].rooms[currentRoom].topic
       ),
       characters: replacedCharacters,
     };
@@ -318,8 +293,6 @@ document.addEventListener("DOMContentLoaded", () => {
   socket.on("conversation_update", (conversationUpdate) => {
     conversation = conversationUpdate;
     reloadConversations();
-    preHumanInputContainer.style.display = "none";
-    postHumanInputContainer.style.display = "block";
     conversationContainer.scrollTop = conversationContainer.scrollHeight;
   });
 
@@ -560,17 +533,9 @@ document.addEventListener("DOMContentLoaded", () => {
     restartBtn.style.display = "none";
     toggleConversationBtn.style.display = "inline";
     toggleConversationBtn.textContent = "Pause";
-    preHumanInputContainer.style.display = "block";
-    postHumanInputContainer.style.display = "none";
-    raiseHandButton.innerHTML = "I want to say something/Raise hand";
-    raiseHandIcon.style.display = "none";
-    humanInputArea.style.display = "none";
-    submitHumanInput.style.display = "none";
     conversationActive = true;
     endMessage.innerHTML = "";
     conversationDiv.innerHTML = "";
-    raiseHandButton.style.display = "inline";
-    handRaised = false;
 
     //Stop audio if it's playing, and reset the data
     if (audioIsPlaying) {
@@ -624,44 +589,12 @@ document.addEventListener("DOMContentLoaded", () => {
     socket.emit("submit_injection", message);
   });
 
-  // Handle submission of human input
-  submitHumanInput.addEventListener("click", () => {
-    const message = {
-      speaker: humanName.value,
-      text: humanInputArea.value,
-    };
-
-    if (conversationActive == false) {
-      toggleConversationBtn.textContent = "Pause";
-      conversationActive = true;
-      spinner.style.display = "block";
-      toggleConversationBtn.style.display = "inline";
-      restartBtn.style.display = "none";
-      continueBtn.style.display = "none";
-    }
-    if (handRaised) {
-      handRaised = false;
-      raiseHandIcon.style.display = "none";
-      raiseHandButton.style.display = "inline";
-      raiseHandIcon.style.display = "none";
-      humanInputArea.style.display = "none";
-      submitHumanInput.style.display = "none";
-      spinner.style.display = "block";
-      endMessage.innerHTML = "";
-
-      continueBtn.style.display = "none";
-      restartBtn.style.display = "none";
-      toggleConversationBtn.textContent = "Pause";
-      conversationActive = true;
-    }
-    socket.emit("submit_human_message", message);
-  });
 
   // Adding a character to the panel
   document.getElementById("add-character").addEventListener("click", () => {
     updatePromptsAndOptions();
 
-    promptsAndOptions.rooms[currentRoom].characters.push({});
+    promptsAndOptions.language[current_language].rooms[currentRoom].characters.push({});
     unpackPromptsAndOptions();
   });
 
@@ -733,12 +666,12 @@ document.addEventListener("DOMContentLoaded", () => {
     updatePromptsAndOptions();
 
     //Add another room
-    promptsAndOptions.rooms.push({
+    promptsAndOptions.language[current_language].rooms.push({
       name: "New Room",
       topic: "",
       characters: {},
     });
-    currentRoom = promptsAndOptions.rooms.length - 1;
+    currentRoom = promptsAndOptions.language[current_language].rooms.length - 1;
     unpackPromptsAndOptions();
 
     //Save again
@@ -746,27 +679,17 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   document.getElementById("remove-room").addEventListener("click", () => {
-    if (promptsAndOptions.rooms.length > 1) {
+    if (promptsAndOptions.language[current_language].rooms.length > 1) {
       updatePromptsAndOptions();
       const rooms = document.getElementById("room-buttons");
       if (rooms.lastChild) rooms.removeChild(rooms.lastChild);
 
-      promptsAndOptions.rooms.pop();
-      if (currentRoom > promptsAndOptions.rooms.length - 1)
-        currentRoom = promptsAndOptions.rooms.length - 1;
+      promptsAndOptions.language[current_language].rooms.pop();
+      if (currentRoom > promptsAndOptions.language[current_language].rooms.length - 1)
+        currentRoom = promptsAndOptions.language[current_language].rooms.length - 1;
       //Save
       unpackPromptsAndOptions();
       updatePromptsAndOptions();
-    }
-  });
-
-  viewHumanInputPrompts.addEventListener("click", () => {
-    if (viewHumanInputPrompts.innerHTML == "configure") {
-      humanConfig.style.display = "block";
-      viewHumanInputPrompts.innerHTML = "hide";
-    } else {
-      humanConfig.style.display = "none";
-      viewHumanInputPrompts.innerHTML = "configure";
     }
   });
 
@@ -779,24 +702,19 @@ document.addEventListener("DOMContentLoaded", () => {
     range.onmouseout = () => (range.previousSibling.style.display = "none");
   });
 
-  raiseHandButton.addEventListener("click", () => {
-    if (!handRaised) {
-      handRaised = true;
-      raiseHandButton.style.display = "none";
-      raiseHandIcon.style.display = "block";
-      spinner.style.display = "none";
-      humanInputArea.style.display = "block";
-      submitHumanInput.style.display = "block";
-      endMessage.innerHTML = "Waiting for human input...";
+  for (const radio of languageButtons) {
+    radio.addEventListener('change', e => {
+      
+      //First save what we have at the moment
       updatePromptsAndOptions();
-      const conversationLength =
-        document.getElementById("conversation").children.length;
-      socket.emit("raise_hand", {
-        humanName: promptsAndOptions.options.humanName,
-        index: conversationLength,
-      });
-    }
-  });
+      //Set the language
+      current_language = e.target.value;
+      //Update UI
+      unpackPromptsAndOptions();
+
+      reloadUI();
+    })
+  }
 
   //When to reload the UI
 
@@ -814,61 +732,57 @@ document.addEventListener("DOMContentLoaded", () => {
   //   STARTUP COMMANDS
   // ====================
 
-  try {
-    promptsAndOptions = JSON.parse(localStorage.getItem("PromptsAndOptions"));
-    console.log("Stored prompts and settings to restore:");
-    console.log(promptsAndOptions);
-    unpackPromptsAndOptions();
-  } catch (e) {
-    console.log(e);
-    console.log("Resetting to default settings");
+  async function startup() {
+    try {
+      promptsAndOptions = JSON.parse(localStorage.getItem("PromptsAndOptions"));
+      console.log("Stored prompts and settings to restore:");
+      console.log(promptsAndOptions);
 
-    let default_foods;
-    let default_topics;
-    fetch("./foods.json")
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error(`HTTP error! Status: ${response.status}`);
-        }
-        return response.json();
-      })
-      .then((data) => {
-        default_foods = data.foods;
-        return fetch("./topics.json");
-      })
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error(`HTTP error! Status: ${response.status}`);
-        }
-        return response.json();
-      })
-      .then((data) => {
-        default_topics = data;
-        return Promise.resolve();
-      })
-      .then(() => {
-        promptsAndOptions = {
-          options: {},
-          system: default_topics.system,
-        };
+      //Set the current language on startup
+      current_language = promptsAndOptions.options.language;
+      unpackPromptsAndOptions();
+    } catch (e) {
+      console.log(e);
+      console.log("Resetting to default settings");
 
+      let default_prompts = {};
+      for (const lang of available_languages) {
+        default_prompts[lang] = {};
+        const resp = await fetch(`./foods_${lang}.json`);
+        default_prompts[lang] = await resp.json();//foods json has one item foods
+        const resp2 = await fetch(`./topics_${lang}.json`);
+        default_prompts[lang].topics = await resp2.json();
+      }
+
+      promptsAndOptions = {
+        options: {},
+        language: {},
+      };
+
+
+      for (const lang of available_languages) {
+        promptsAndOptions.language[lang] = {};
+        promptsAndOptions.language[lang].system = default_prompts[lang].topics.system;
         let rooms = [];
-        for (let i = 0; i < default_topics.topics.length; i++) {
-          const topic = default_topics.topics[i];
-          rooms[i] = {
+        for (const topic of default_prompts[lang].topics.topics) {
+          rooms.push({
             name: topic.title,
             topic: topic.prompt,
-            characters: default_foods,
-          };
+            characters: default_prompts[lang].foods,
+          })
         }
-        promptsAndOptions.rooms = rooms;
+        promptsAndOptions.language[lang].rooms = rooms;
+      }
 
-        updatePromptsAndOptions(true);
-        unpackPromptsAndOptions();
-        reloadConversations();
-      })
-      .catch((error) => console.error("Failed to reset:", error));
+      updatePromptsAndOptions(true);
+      unpackPromptsAndOptions();
+      reloadConversations();
+    }
   }
+
+  startup();
+
+
 
   // //////////////
   // DRAG AND DROP CHARACTERS
@@ -936,13 +850,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
         updatePromptsAndOptions();
 
-        const characters = promptsAndOptions.rooms[currentRoom].characters;
+        const characters = promptsAndOptions.language[current_language].rooms[currentRoom].characters;
         const draggedChar = characters.splice(draggedIndex, 1)[0];
         characters.splice(targetIndex, 0, draggedChar);
 
         unpackPromptsAndOptions();
-
-        setTimeout(() => enableDragAndDrop(), 100);
 
         console.log(
           "Character order updated:",
@@ -967,8 +879,6 @@ document.addEventListener("DOMContentLoaded", () => {
     childList: true,
     subtree: true,
   });
-
-  setTimeout(() => enableDragAndDrop(), 100);
 });
 
 // //////////////

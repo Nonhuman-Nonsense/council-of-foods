@@ -45,7 +45,7 @@ During development, to enable automatic reload on changes
 ```
 cd client
 npm i
-npm start
+npm run dev
 ```
 
 simultaniously in another terminal instance

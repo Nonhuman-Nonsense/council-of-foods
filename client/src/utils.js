@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useMediaQuery } from 'react-responsive'
 
-export const dvh = CSS.supports('height', '100dvh') ? 'dvh' : 'vh';
+export const dvh = CSS.supports('height',  '100dvh') ? 'dvh' : 'vh';
 
 export const minWindowHeight = 300;
 
@@ -54,4 +54,9 @@ export function useDocumentVisibility() {
   }, []);
 
   return isDocumentVisible;
+}
+
+//Put water in the middle always
+export function mapFoodIndex(total, index) {
+  return (Math.ceil(total / 2) + index - 1) % total;
 }
