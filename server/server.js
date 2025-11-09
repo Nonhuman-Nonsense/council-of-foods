@@ -72,12 +72,14 @@ initializeDB();
 console.log(`[init] node_env is ${environment}`);
 if (environment === "prototype") {
   app.use(express.static(path.join(__dirname, "../prototype/", "public")));
-  app.get("/foods.json", function (req, res) {
-    res.sendFile(path.join(__dirname, "../client/src/prompts", "foods.json"));
-  });
-  app.get("/topics.json", function (req, res) {
-    res.sendFile(path.join(__dirname, "../client/src/prompts", "topics.json"));
-  });
+  //Enable prototype to reset to default settings for each language
+  for (const lang of ['en', 'sv']) {
+    for (const promptfile of ['foods', 'topics']) {
+      app.get(`/${promptfile}_${lang}.json`, function (req, res) {
+        res.sendFile(path.join(__dirname, "../client/src/prompts", `${promptfile}_${lang}.json`));
+      });
+    }
+  }
 } else if (environment !== "development") {
   app.use(express.static(path.join(__dirname, "../client/dist")));
   app.get("/{*splat}", function (req, res) {

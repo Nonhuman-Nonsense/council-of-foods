@@ -17,7 +17,7 @@ import Reconnecting from "./overlays/Reconnecting.jsx";
 import { useTranslation } from 'react-i18next';
 
 //Topics
-import topicDataEN from "../prompts/topics.json";
+import topicDataEN from "../prompts/topics_en.json";
 import topicDataSV from "../prompts/topics_sv.json";
 
 const topicsData = {

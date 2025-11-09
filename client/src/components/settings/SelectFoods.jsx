@@ -4,7 +4,7 @@ import { toTitleCase, useMobile, useMobileXs } from "../../utils";
 import { useTranslation } from "react-i18next";
 
 //Foods
-import foodDataEN from "../../prompts/foods.json";
+import foodDataEN from "../../prompts/foods_en.json";
 import foodDataSV from "../../prompts/foods_sv.json";
 import { useParams } from "react-router";
 

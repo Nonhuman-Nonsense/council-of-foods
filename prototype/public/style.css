@@ -80,6 +80,13 @@ h3 {
   transform: scale(0.8);
 }
 
+#language-el {
+  border: 1px solid #000;
+  padding: 4px;
+  margin-bottom: 10px;
+  background-color: #e7e5b7;
+}
+
 #system-el {
   border: 1px solid #000;
   padding: 4px;
