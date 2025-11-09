@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import foodData from "../../prompts/foods.json";
+import foodData from "../../prompts/foods_en.json";
 import { toTitleCase, useMobile, useMobileXs, filename } from "../../utils";
 
 const MAXHUMANS = 3;
