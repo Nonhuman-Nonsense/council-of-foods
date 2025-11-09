@@ -1,71 +1,80 @@
-import { useState } from "react";
-import foodData from "../../prompts/foods.json";
+import { useState, useEffect } from "react";
 import FoodButton from "./FoodButton";
 import { toTitleCase, useMobile, useMobileXs } from "../../utils";
+import { useTranslation } from "react-i18next";
 
-//Freeze original foodData to make it immutable
+//Foods
+import foodDataEN from "../../prompts/foods.json";
+import foodDataSV from "../../prompts/foods_sv.json";
+import { useParams } from "react-router";
+
+const foodData = {
+  "en": foodDataEN.foods,
+  "sv": foodDataSV.foods
+};
+
+//Freeze original topicData to make it immutable
 Object.freeze(foodData);
-for (let i = 0; i < foodData.foods.length; i++) {
-  Object.freeze(foodData.foods[i]);
+for (const language in foodData) {
+  for (let i = 0; i < foodData[language].length; i++) {
+    Object.freeze(foodData[language][i]);
+  }
 }
 
-function SelectFoods({ topic, onContinueForward }) {
-  const isMobile = useMobile();
-  const isMobileXs = useMobileXs();
-  const foods = foodData.foods; // Make sure this is defined before using it to find 'water'
-  const waterFood = foods.find((food) => food.name === "River"); // Find the 'water' food item
-
-  // Initialize selectedFoods with the 'water' item if it exists
-  const [selectedFoods, setSelectedFoods] = useState(
-    waterFood ? [waterFood] : []
-  );
+function SelectFoods({ topicTitle, onContinueForward }) {
+  const [foods, setFoods] = useState(foodData['en']); // Make sure this is defined before using it to find 'water'
+  const [selectedFoods, setSelectedFoods] = useState([foodData['en'][0].id]);
   const [currentFood, setCurrentFood] = useState(null);
 
   const minFoods = 2 + 1; // 2 plus water
   const maxFoods = 6 + 1; // 6 plus water
 
+  const isMobile = useMobile();
+  const isMobileXs = useMobileXs();
+  const { t } = useTranslation();
+
+  let { lang } = useParams();
+
+  //Update foods on language change
+  useEffect(() => {
+    setFoods(foodData[lang]);
+  }, [lang]);
+
   function continueForward() {
     if (selectedFoods.length >= minFoods && selectedFoods.length <= maxFoods) {
       //Modify waters invitation prompt, with the name of the selected participants
       let participants = "";
-      selectedFoods.forEach(function (food, index) {
-        if (index !== 0) participants += toTitleCase(food.name) + ", ";
+      selectedFoods.forEach(function (id, index) {
+        if (index !== 0) participants += toTitleCase(foods.find(f => f.id === id).name) + ", ";
       });
       participants = participants.substring(0, participants.length - 2);
 
       //We need to make a structuredClone here, otherwise we just end up with a string of pointers that ends up mutating the original foodData.
-      let replacedFoods = structuredClone(selectedFoods);
-      replacedFoods[0].prompt = foodData.foods[0].prompt.replace(
+      let replacedFoods = structuredClone(foods.filter(f => selectedFoods.includes(f.id)));
+      replacedFoods[0].prompt = foodData[lang][0].prompt.replace(
         "[FOODS]",
         participants
       );
 
+      console.log(replacedFoods);
       onContinueForward({ foods: replacedFoods });
     }
   }
 
-  function handleOnMouseEnter(food) {
-    setCurrentFood(food);
-  }
-
-  function handleOnMouseLeave() {
-    setCurrentFood(null);
-  }
-
   function selectFood(food) {
-    if (selectedFoods.length < maxFoods && !selectedFoods.includes(food)) {
-      setSelectedFoods((prevFoods) => [...prevFoods, food]);
+    if (selectedFoods.length < maxFoods && !selectedFoods.includes(food.id)) {
+      setSelectedFoods((prevFoods) => [...prevFoods, food.id]);
     }
   }
 
   function randomizeSelection() {
     const amount = Math.floor(Math.random() * (maxFoods - minFoods + 1)) + minFoods - 1;
-    const randomfoods = foods.slice(1).sort(() => 0.5 - Math.random()).slice(0, amount);
-    setSelectedFoods([waterFood, ...randomfoods]);
+    const randomfoods = foods.slice(1).sort(() => 0.5 - Math.random()).slice(0, amount).map(f => f.id);
+    setSelectedFoods([foods[0].id, ...randomfoods]);
   }
 
   function deselectFood(food) {
-    setSelectedFoods((prevFoods) => prevFoods.filter((f) => f !== food));
+    setSelectedFoods((prevFoods) => prevFoods.filter((id) => id !== food.id));
   }
 
   const discriptionStyle = {
@@ -86,7 +95,7 @@ function SelectFoods({ topic, onContinueForward }) {
       }}
     >
       <div style={{ height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
-        <h1 style={{margin: isMobile && "0"}}>THE BEINGS</h1>
+        <h1 style={{margin: isMobile && "0"}}>{t('thebeings')}</h1>
         <div
           style={{
             position: "relative",
@@ -95,15 +104,15 @@ function SelectFoods({ topic, onContinueForward }) {
           }}
         >
           <div style={discriptionStyle}>
-            <p style={{margin: 0}}>Council of Forest meeting on</p>
-            <h3>{toTitleCase(topic.title)}</h3>
+            <p style={{margin: 0}}>{t('meetingon')}</p>
+            <h3>{topicTitle && toTitleCase(topicTitle)}</h3>
             <div>
-              {selectedFoods.length < 2 ? <p>please select 2-6 beings to listen to</p> : <><p>we will listen to:</p>
-                <div>{selectedFoods.map((food) => <p style={{margin: 0}} key={food.name}>{food.name}</p>)}</div>
+              {selectedFoods.length < 2 ? <p>{t('selectbeings')}</p> : <><p>{t('wewilllisten')}:</p>
+                <div>{selectedFoods.map((id) => <p style={{margin: 0}} key={foods.find(f => f.id === id).name}>{foods.find(f => f.id === id).name}</p>)}</div>
                 </>}
             </div>
           </div>
-          <FoodInfo food={currentFood} />
+          <FoodInfo food={foods.find(f => f.id === currentFood)} />
         </div>
       </div>
       <div style={{height: isMobile ? "93px" : "110px"}}>
@@ -112,20 +121,20 @@ function SelectFoods({ topic, onContinueForward }) {
             <FoodButton
               key={food.name}
               food={food}
-              onMouseEnter={() => handleOnMouseEnter(food)}
-              onMouseLeave={handleOnMouseLeave}
-              onSelectFood={food === waterFood ? undefined : selectFood}
+              onMouseEnter={() => setCurrentFood(food.id)}
+              onMouseLeave={() => setCurrentFood(null)}
+              onSelectFood={food.id === 'river' ? undefined : selectFood}
               onDeselectFood={deselectFood}
-              isSelected={selectedFoods.includes(food)}
+              isSelected={selectedFoods.includes(food.id)}
               selectLimitReached={selectedFoods.length >= maxFoods}
             />
           ))}
         </div>
         <div style={{display: "flex", justifyContent: "center", marginTop: isMobileXs ? "2px" : "5px"}}>
-        {selectedFoods.length < 2 && <button onClick={randomizeSelection} style={{...discriptionStyle, margin: isMobileXs ? "0" : "8px 0", position: "absolute"}}>Randomize</button>}
+        {selectedFoods.length < 2 && <button onClick={randomizeSelection} style={{...discriptionStyle, margin: isMobileXs ? "0" : "8px 0", position: "absolute"}}>{t('randomize')}</button>}
         {selectedFoods.length >= minFoods && selectedFoods.length <= maxFoods ?
-          <button onClick={continueForward} style={{margin: isMobileXs ? "0" : "8px 0"}}>Start</button> :
-          (currentFood !== null || selectedFoods.length === 2) && <h4 style={{margin: isMobile && (isMobileXs ? "0" : "7px")}}>please select 2-6 beings for the discussion</h4>
+          <button onClick={continueForward} style={{margin: isMobileXs ? "0" : "8px 0"}}>{t('start')}</button> :
+          (currentFood !== null || selectedFoods.length === 2) && <h4 style={{margin: isMobile && (isMobileXs ? "0" : "7px")}}>{t('selectbeingsdiscussion')}</h4>
         }
         </div>
       </div>

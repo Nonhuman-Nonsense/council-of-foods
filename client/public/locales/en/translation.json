@@ -1,0 +1,88 @@
+{
+  "welcome": "welcome to",
+  "council": "Council of Forest",
+  "meeting": "Meeting",
+  "description": "A political arena where the forest itself speaks, through the use of artificial intelligence. Join the forest’s inhabitants as they debate deforestation, rewilding, and the fate of their shared home.",
+  "go": "Let's go!",
+  "start": "Start",
+  "about": "About",
+  "contact": "Contact",
+  "settings": "Settings",
+  "en": "EN",
+  "sv": "SV",
+  "aboutText": {
+    "1": "What would an ancient pine say about deforestation? How would fishes react to a hydropower plant? Can AI embody the wisdom of a river, a tree, or a reindeer herd?",
+    "2": "Through AI, nonhuman entities—trees, fungi, rivers, and animals—gather to deliberate the fate of their shared home. Their voices are shaped by a mix of knowledge systems, including traditional and Indigenous worldviews, ecological science, and data. They are drawn from interviews and conversations with people living in and caring for the Vindelälven-Juhttátahkka biosphere reserve—reindeer herders, forest owners, rewilding organizations, pollinator experts, and cultural workers—each with a deep connection to the land.",
+    "3": "Council of Forest functions as an forum where the forest’s inhabitants voice their needs and consider the impact of human activities like logging, rewilding, and climate shifts. Humans are invited to listen, ask questions, and reflect. Each session concludes with a collective statement and a policy recommendation made by the forest. An experiment in ecological thinking and speculative design—exploring how technology can mediate between humans and the more-than-human world.",
+    "4": "What does it mean to act in the forest’s best interest? Whose knowledge counts? And what happens when we take nonhuman voices seriously?",
+    "5": "a project by"
+  },
+  "contactText": {
+    "1": "The project is an initiative by art & design collective ",
+    "2": " developed in collaboration with ",
+    "3": ", and others.",
+    "4": "Council of Forest is funded by ",
+    "5": " and is a continuation of the project ",
+    "6": " which has received funding from the European\u00a0Union’s ",
+    "7": " research and innovation programme under grant agreement",
+    "8": "Funded by the EU, as part of S+T+ARTS"
+  },
+  "reset": {
+    "title": "Start over?",
+    "0": "This",
+    "1": "will start everything from the beginning"
+  },
+  "restart": "Restart",
+  "name": {
+    "title": "SAY SOMETHING",
+    "1": "Do you want to adress the Council of Forest?",
+    "2": "Please enter your name to raise a request to speak,",
+    "21": "and then wait until you are given the floor by River, the moderator.",
+    "3": "please type your name",
+    "4": "enter your name to proceed",
+    "5": "your name"
+  },
+  "controls": {
+    "wait": "wait for your turn to speak"
+  },
+  "human": {
+    "1": "Type your question or start recording..."
+  },
+  "completed": {
+    "title": "Is that it?",
+    "1": "This meeting is starting to get long-winded,",
+    "2": "is it time to come to a conclusion?",
+    "3": "Yes, let's wrap it up!",
+    "4": "No, continue a bit more."
+  },
+  "summary": {
+    "download": "Download PDF"
+  },
+  "disclaimer": {
+    "1": "This document was created by the Council of Forest, a political arena where the forest itself speaks, through the use of artificial intelligence. While every effort has been made to generate meaningful content, please note the following:",
+    "2": "This document may contain misinformation, outdated details, propaganda, or bad ideas.",
+    "3": "The discussions may provide useful insights and reflect diverse ethical positions but should not replace evidence-based research or deep contemplation.",
+    "4": "Don't just chat about it—get up and take action!",
+    "5": "Council of Forest is an initiative by art & design collective",
+    "6": "which has received funding from Vinnova"
+  },
+  "error": {
+    "title": "ERROR",
+    "1": "Something went wrong...",
+    "connection": "Connection Lost",
+    "reconnecting": "Attempting to reconnect..."
+  },
+  "cancel": "Cancel",
+  "theissue": "THE ISSUE",
+  "thebeings": "THE BEINGS",
+  "next": "Next",
+  "selectissue": "please select an issue for the discussion",
+  "writetopic": "Write a topic here...",
+  "meetingon": "Council of Forest meeting on",
+  "selectbeings": "please select 2-6 beings to listen to",
+  "selectbeingsdiscussion": "please select 2-6 beings for the discussion",
+  "wewilllisten": "we will listen to",
+  "randomize": "Randomize",
+  "biosphere": "Biosphere\u00a0Area\u00a0Vindelälven-Juhttátahkka",
+  "rotate": "rotate your device"
+}

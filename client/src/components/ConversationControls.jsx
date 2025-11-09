@@ -1,5 +1,6 @@
 import ConversationControlIcon from "./ConversationControlIcon";
 import { useMobile } from "../utils";
+import { useTranslation } from "react-i18next";
 
 function ConversationControls({
   isPaused,
@@ -19,6 +20,8 @@ function ConversationControls({
 }) {
   const isMobile = useMobile();
 
+  const { t } = useTranslation();
+
   const divStyle = {
     width: isMobile ? "45px" : "56px",
     height: isMobile ? "45px" : "56px",
@@ -30,20 +33,20 @@ function ConversationControls({
         <div style={{ display: "flex", flexDirection: "row" }}>
           <div style={divStyle}>
             {!isPaused &&
-            <ConversationControlIcon
-              icon={isMuted ? "volume_off" : "volume_on"}
-              tooltip={"Mute"}
-              onClick={onMuteUnmute}
-            />}
+              <ConversationControlIcon
+                icon={isMuted ? "volume_off" : "volume_on"}
+                tooltip={"Mute"}
+                onClick={onMuteUnmute}
+              />}
           </div>
           <div style={divStyle}>
             {!isPaused &&
               canGoBack &&
               <ConversationControlIcon
-              icon={"backward"}
-              tooltip={"Backward"}
-              onClick={onSkipBackward}
-            />}
+                icon={"backward"}
+                tooltip={"Backward"}
+                onClick={onSkipBackward}
+              />}
           </div>
           <div style={divStyle}>
             <ConversationControlIcon
@@ -53,23 +56,23 @@ function ConversationControls({
             />
           </div>
           <div style={divStyle}>
-          {!isPaused &&
-            canGoForward &&
-            <ConversationControlIcon
-              icon={"forward"}
-              tooltip={"Forward"}
-              onClick={onSkipForward}
-            />}
+            {!isPaused &&
+              canGoForward &&
+              <ConversationControlIcon
+                icon={"forward"}
+                tooltip={"Forward"}
+                onClick={onSkipForward}
+              />}
           </div>
-          <div style={{...divStyle, pointerEvents: isRaisedHand ? "none" : "auto"}}>
+          <div style={{ ...divStyle, pointerEvents: isRaisedHand ? "none" : "auto" }}>
             {!isPaused &&
               canRaiseHand &&
-            <ConversationControlIcon
-              icon={isRaisedHand ? "raise_hand_filled" : "raise_hand"}
-              hoverIcon={isRaisedHand && "raise_hand_filled"}
-              tooltip={"Raise hand"}
-              onClick={() => {if(!isRaisedHand){onRaiseHand()}}}
-            />}
+              <ConversationControlIcon
+                icon={isRaisedHand ? "raise_hand_filled" : "raise_hand"}
+                hoverIcon={isRaisedHand && "raise_hand_filled"}
+                tooltip={"Raise hand"}
+                onClick={() => { if (!isRaisedHand) { onRaiseHand() } }}
+              />}
           </div>
         </div>
         {isWaitingToInterject && (
@@ -86,7 +89,7 @@ function ConversationControls({
               display: "flex",
             }}
           >
-            {humanName}, wait for your turn to speak<div className="loader"></div>
+            {humanName}, {t('controls.wait')}<div className="loader"></div>
           </span>
         )}
       </div>

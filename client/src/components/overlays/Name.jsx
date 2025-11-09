@@ -1,7 +1,10 @@
 import { useState, useRef, useEffect } from "react";
 import { capitalizeFirstLetter, useMobile } from "../../utils";
+import { useTranslation } from "react-i18next";
 
 function Name({ onContinueForward }) {
+
+  const { t } = useTranslation();
 
   const wrapper = {
     maxWidth: "500px",
@@ -11,10 +14,10 @@ function Name({ onContinueForward }) {
 
   return (
     <div style={wrapper}>
-      <h1>SAY SOMETHING</h1>
+      <h1>{t('name.title')}</h1>
       <div>
-        <p>Do you want to adress the Council of Forest?</p>
-        <p>Please enter your name to raise a request to speak,<br /> and then wait until you are given the floor by Water, the moderator.</p>
+        <p>{t('name.1')}</p>
+        <p>{t('name.2')}<br />{t('name.21')}</p>
       </div>
       <HumanNameInput onContinueForward={onContinueForward} />
     </div>
@@ -27,6 +30,7 @@ function HumanNameInput(props) {
   const inputRef = useRef(null);
   const isMobile = useMobile();
 
+  const { t } = useTranslation();
 
   const imageUrl = `/icons/send_message_filled.svg`;
 
@@ -93,7 +97,7 @@ function HumanNameInput(props) {
 
   return (
     <div>
-      <h3>please type your name:</h3>
+      <h3>{t('name.3')}:</h3>
       <div style={inputIconWrapper}>
         {/* Adding an empty form, so that mobile keyboards will show the "go" button */}
         <form action="">
@@ -102,7 +106,7 @@ function HumanNameInput(props) {
             style={inputStyle}
             type="text"
             value={humanName}
-            placeholder="your name"
+            placeholder={t('name.5')}
             onChange={handleChange}
             onKeyDown={handleKeyDown}
           />
@@ -115,9 +119,7 @@ function HumanNameInput(props) {
           onClick={continueForward}
         />
       </div>
-      <h3 style={{ visibility: !isHumanNameMissing ? "hidden" : "" }}>
-        enter your name to proceed
-      </h3>
+      <h3 style={{ visibility: !isHumanNameMissing ? "hidden" : "" }}>{t('name.4')}</h3>
     </div>
   );
 }

@@ -1,0 +1,88 @@
+{
+  "welcome": "Välkommen till",
+  "council": "Skogsparlamentet",
+  "meeting": "Möte",
+  "description": "En politisk arena där skogen själv får tala, med hjälp av artificiell intelligens. Följ skogens invånare när de diskuterar avskogning, återvildning och ödet för deras gemensamma hem.",
+  "go": "Nu kör vi!",
+  "start": "Starta",
+  "about": "Om Parlamentet",
+  "contact": "Kontakt",
+  "settings": "Inställningar",
+  "en": "EN",
+  "sv": "SV",
+  "aboutText": {
+    "1": "Vad skulle en urgammal tall säga om avskogning? Hur skulle fiskar reagera på ett vattenkraftverk? Kan AI förmedla visdomen hos en flod, ett träd eller en renhjord?",
+    "2": "Genom AI samlas icke-mänskliga varelser—träd, svampar, floder och djur—för att överlägga om ödet för deras gemensamma hem. Deras röster formas av en blandning av kunskapssystem, inklusive traditionella och ursprungliga perspektiv, ekologisk vetenskap och data. De är hämtade från intervjuer och samtal med människor som lever i och vårdar Vindelälven-Juhttátahkka biosfärområde—renskötare, skogsägare, återvildningsorganisationer, pollinator-experter och kulturarbetare—var och en med djup anknytning till naturen.",
+    "3": "Skogsparlamentet fungerar som ett forum där skogens invånare uttrycker sina behov och reflekterar över mänskliga aktiviteter som skogsavverkning, återvildning och klimatförändringar. Människor är inbjudna att lyssna, ställa frågor och reflektera. Varje session avslutas med ett gemensamt uttalande och en policyrekommendation från skogen. Det är ett experiment i ekologiskt tänkande och spekulativ design—som utforskar hur teknologi kan fungera som brygga mellan människor och den mer-än-mänskliga världen.",
+    "4": "Vad innebär det att agera i skogens bästa intresse? Vems kunskap räknas? Och vad händer när vi tar icke-mänskliga röster på allvar?",
+    "5": "ett project av"
+  },
+  "contactText": {
+    "1": "Projektet är ett initiativ av konst & designkollektivet ",
+    "2": " utvecklat i samarbete med ",
+    "3": ", med flera.",
+    "4": "Skogsparlamentet är finansierat av ",
+    "5": " och är en fortsättning av projektet ",
+    "6": " some har fått stöd av Europeiska\u00a0Unionens ",
+    "7": " forsknings och innovationsprogram under avtal",
+    "8": "Finansierat av EU, som en del av S+T+ARTS"
+  },
+  "reset": {
+    "title": "Börja om?",
+    "0": "Detta",
+    "1": "kommer starta om allting från början"
+  },
+  "restart": "Starta om",
+  "name": {
+    "title": "SÄG NÅT",
+    "1": "Vill du tala i Skogsparlamentet?",
+    "2": "Vänligen skriv in ditt namn för att begära ordet,",
+    "21": "och vänta sedan tills du blir inbjuden att tala av Älven, moderatorn.",
+    "3": "vänligen skriv ditt namn",
+    "4": "skriv ditt namn för att gå vidare",
+    "5": "ditt namn"
+  },
+  "controls": {
+    "wait": "vänta tills det är din tur att tala"
+  },
+  "human": {
+    "1": "Skriv din fråga eller börja inspelning..."
+  },
+  "completed": {
+    "title": "Var det allt?",
+    "1": "Mötet börjar bli långdraget,",
+    "2": "är det dags att komma till ett avslut?",
+    "3": "Ja, vi sammanfattar!",
+    "4": "Nej, fortsätt lite till."
+  },
+  "summary": {
+    "download": "Ladda ned PDF"
+  },
+  "disclaimer": {
+    "1": "Detta dokument är skapat av Skogsparlamentet, en politisk arena där skogen själv talar, genom användning av artificiell intelligens. Trots att varje ansträngning har gjort för att skapa meningsfullt innehåll, vänligen notera:",
+    "2": "Detta dokument kan innehålla felaktig information, föråldrade uppgifter, propaganda eller dåliga idéer.",
+    "3": "Diskussionerna kan ge värdefulla insikter och spegla olika etiska ståndpunkter, men bör inte ersätta evidensbaserad forskning eller djup reflektion.",
+    "4": "Prata inte bara om det – res dig upp och agera!",
+    "5": "Skogsrådet är ett initiativ av konst- och designkollektivet",
+    "6": "som har fått finansiering från Vinnova"
+  },
+  "error": {
+    "title": "ERROR",
+    "1": "Något gick snett...",
+    "connection": "Anslutning förlorad",
+    "reconnecting": "Försöker återansluta..."
+  },
+  "cancel": "Avbryt",
+  "theissue": "DAGENS AGENDA",
+  "thebeings": "VARELSERNA",
+  "next": "Nästa",
+  "selectissue": "välj ett ämne för dagens discussion",
+  "writetopic": "Skriv ett eget ämne...",
+  "meetingon": "Skogsparlamentet möte om",
+  "selectbeings": "vänligen välj 2-6 varelser att lyssna till",
+  "selectbeingsdiscussion": "vänligen välj 2-6 varelser för diskussionen",
+  "wewilllisten": "kommer vi lyssna till",
+  "randomize": "Slumpa",
+  "biosphere": "Biosfärområdet\u00a0Vindelälven-Juhttátahkka",
+  "rotate": "rotera din enhet"
+}

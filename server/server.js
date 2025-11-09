@@ -109,7 +109,7 @@ io.on("connection", (socket) => {
       if (conversation[i].type === "human") continue;
       if (conversation[i].type === "invitation") continue;
       const lastSpeakerIndex = conversationOptions.characters.findIndex(
-        (char) => char.name === conversation[i].speaker
+        (char) => char.id === conversation[i].speaker
       );
 
       return lastSpeakerIndex >= conversationOptions.characters.length - 1
@@ -140,7 +140,7 @@ io.on("connection", (socket) => {
 
       let summary = {
         id: id,
-        speaker: conversationOptions.characters[0].name,
+        speaker: conversationOptions.characters[0].id,
         text: response,
         type: "interjection",
       };
@@ -153,7 +153,7 @@ io.on("connection", (socket) => {
         }`
       );
 
-      generateAudio(id, response, conversationOptions.characters[0].name);
+      generateAudio(id, response, conversationOptions.characters[0]);
     });
 
     socket.on("remove_last_message", () => {
@@ -186,7 +186,7 @@ io.on("connection", (socket) => {
 
     let invitation = {
       id: id,
-      speaker: conversationOptions.characters[0].name,
+      speaker: conversationOptions.characters[0].id,
       text: response,
       type: "invitation",
       message_index: handRaisedOptions.index,
@@ -207,7 +207,7 @@ io.on("connection", (socket) => {
 
     socket.emit("conversation_update", conversation);
 
-    generateAudio(id, response, conversationOptions.characters[0].name);
+    generateAudio(id, response, conversationOptions.characters[0]);
   });
 
   const chairInterjection = async (
@@ -264,9 +264,10 @@ io.on("connection", (socket) => {
 
     conversation.forEach((msg) => {
       if (msg.type === "skipped") return;
+      const speakerName = msg.type === 'human' ? conversationOptions.humanName : conversationOptions.characters.find(c => c.id === msg.speaker).name;
       messages.push({
-        role: speaker.name === msg.speaker ? "assistant" : "user",
-        content: msg.speaker + ": " + msg.text + "\n---",
+        role: speaker.id === msg.speaker ? "assistant" : "user",
+        content: speakerName + ": " + msg.text + "\n---",
       });
     });
 
@@ -287,7 +288,7 @@ io.on("connection", (socket) => {
     console.log(
       `[meeting ${meetingId}] human input on index ${conversation.length - 1}`
     );
-    message.text = conversationOptions.humanName + " said: " + message.text;
+    message.text = conversationOptions.humanName + (conversationOptions.language === 'en' ? " said: " : " sa: ") + message.text;
     message.id = "human-" + uuidv4(); // Use UUID for unique message IDs for human messages
     message.type = "human";
     message.speaker = conversationOptions.humanName;
@@ -305,7 +306,7 @@ io.on("connection", (socket) => {
     generateAudio(
       message.id,
       message.text,
-      conversationOptions.characters[0].name
+      conversationOptions.characters[0]
     );
 
     isPaused = false;
@@ -325,7 +326,7 @@ io.on("connection", (socket) => {
 
     let summary = {
       id: id,
-      speaker: conversationOptions.characters[0].name,
+      speaker: conversationOptions.characters[0].id,
       text: response,
       type: "summary",
     };
@@ -343,7 +344,7 @@ io.on("connection", (socket) => {
       { $set: { summary: summary } }
     );
 
-    generateAudio(id, response, conversationOptions.characters[0].name);
+    generateAudio(id, response, conversationOptions.characters[0]);
   });
 
   socket.on("continue_conversation", () => {
@@ -411,11 +412,12 @@ io.on("connection", (socket) => {
       conversationOptions.options = globalOptions;
     }
 
-    for (let i = 0; i < conversationOptions.characters.length; i++) {
-      conversationOptions.characters[i].name = toTitleCase(
-        conversationOptions.characters[i].name
-      );
-    }
+    // for (let i = 0; i < conversationOptions.characters.length; i++) {
+    //   conversationOptions.characters[i].name = toTitleCase(
+    //     conversationOptions.characters[i].name
+    //   );
+    // }
+
     conversation = [];
     currentSpeaker = 0;
     extraMessageCount = 0;
@@ -471,7 +473,7 @@ io.on("connection", (socket) => {
 
       let message = {
         id: output.id,
-        speaker: conversationOptions.characters[currentSpeaker].name,
+        speaker: conversationOptions.characters[currentSpeaker].id,
         text: output.response,
         trimmed: output.trimmed,
         pretrimmed: output.pretrimmed,
@@ -499,7 +501,7 @@ io.on("connection", (socket) => {
         generateAudio(
           message.id,
           message.text,
-          conversationOptions.characters[currentSpeaker].name
+          conversationOptions.characters[currentSpeaker]
         );
       } else {
         const audioUpdate = {
@@ -528,12 +530,12 @@ io.on("connection", (socket) => {
     }
   };
 
-  const generateAudio = async (id, text, speakerName) => {
+  const generateAudio = async (id, text, speaker) => {
     //If audio creation is skipped
     if (conversationOptions.options.skipAudio) return;
     // const thisConversationCounter = conversationCounter;
     const voiceName = conversationOptions.characters.find(
-      (char) => char.name === speakerName
+      (char) => char.id === speaker.id
     ).voice;
 
     let buffer;
@@ -599,7 +601,7 @@ io.on("connection", (socket) => {
       const completion = await openai.chat.completions.create({
         model: conversationOptions.options.gptModel,
         max_tokens:
-          speaker.name === conversationOptions.options.chairName
+          speaker.id === conversationOptions.options.chairId
             ? conversationOptions.options.chairMaxTokens
             : conversationOptions.options.maxTokens,
         temperature: conversationOptions.options.temperature,
@@ -640,7 +642,7 @@ io.on("connection", (socket) => {
         }
 
         if (conversationOptions.options.trimChairSemicolon) {
-          if (speaker.name === conversationOptions.options.chairName) {
+          if (speaker.id === conversationOptions.options.chairId) {
             // Make sure to use the same sentence splitter as on the client side
             const sentenceRegex =
               /(\d+\.\s+.{3,}?(?:\n|\?!\*|\?!|!\?|\?"|!"|\."|!\*|\?\*|\?|!|\?|;|\.{3}|…|\.|$))|.{3,}?(?:\n|\?!\*|\?!|!\?|\?"|!"|\."|!\*|\?\*|!|\?|;|\.{3}|…|\.|$)/gs;
@@ -718,6 +720,65 @@ io.on("connection", (socket) => {
       throw error;
     }
   };
+
+  socket.on('request_clientkey', async () => {
+    console.log(`[meeting ${meetingId}] clientkey requested`);
+    try {
+      const sessionConfig = JSON.stringify({
+        session: {
+          "type": "transcription",
+          "audio": {
+            "input": {
+              "format": {
+                "type": "audio/pcm",
+                "rate": 24000
+              },
+              "noise_reduction": {
+                "type": "near_field"
+              },
+              "transcription": {
+                "model": conversationOptions.options.transcribeModel,
+                "prompt": conversationOptions.options.transcribePrompt[conversationOptions.language],
+                "language": conversationOptions.language
+              },
+              "turn_detection": {
+                "type": "server_vad",
+                "threshold": 0.5,
+                "prefix_padding_ms": 300,
+                "silence_duration_ms": 500
+              }
+            }
+          }
+        }
+      });
+
+      const response = await fetch(
+        "https://api.openai.com/v1/realtime/client_secrets",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${openai.apiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: sessionConfig,
+        }
+      );
+
+      const data = await response.json();
+      socket.emit("clientkey_response", data);
+      console.log(`[meeting ${meetingId}] clientkey sent`);
+    } catch (error) {
+      console.error("Error during conversation:", error);
+      socket.emit(
+        "conversation_error",
+        {
+          message: "An error occurred during the conversation.",
+          code: 500
+        }
+      );
+      reportError(error);
+    }
+  });
 
   socket.on("disconnect", () => {
     run = false;

@@ -63,7 +63,8 @@ document.addEventListener("DOMContentLoaded", () => {
   let currentRoom = 0;
 
   //Names of OpenAI voices
-  const audioVoices = ["alloy", "echo", "fable", "onyx", "nova", "shimmer"];
+  const audioVoices = ["alloy", "ash", "ballad", "coral", "echo", "fable", "onyx", "nova", "sage", "shimmer", "verse"];
+  
 
   // Human input
   let handRaised = false;
@@ -273,7 +274,7 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     }
 
-    promptsAndOptions.options.chairName = promptsAndOptions.rooms[currentRoom].characters[0].name;
+    promptsAndOptions.options.chairId = promptsAndOptions.rooms[currentRoom].characters[0].id;
     promptsAndOptions.options.audio_speed = 1.15;
 
     localStorage.setItem(

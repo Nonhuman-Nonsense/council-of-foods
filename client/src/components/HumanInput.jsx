@@ -1,57 +1,144 @@
 import { useState, useEffect, useRef } from "react";
-import SpeechRecognition, {
-  useSpeechRecognition,
-} from "react-speech-recognition";
 import ConversationControlIcon from "./ConversationControlIcon";
 import TextareaAutosize from 'react-textarea-autosize';
 import { useMobile, dvh } from "../utils";
+import { useTranslation } from "react-i18next";
+import { LiveAudioVisualizer } from 'react-audio-visualize';
+import Lottie from 'react-lottie-player';
+import loading from '../animations/loading.json';
 
-function HumanInput({ onSubmitHumanMessage }) {
-  const [isRecording, setIsRecording] = useState(false);
+function HumanInput({ foods, isPanelist, currentSpeakerName, onSubmitHumanMessage, socketRef }) {
+  const [clientKey, setClientKey] = useState(null);
+  const [recordingState, setRecordingState] = useState("idle");
   const [canContinue, setCanContinue] = useState(false);
+  const [transcript, setTranscript] = useState({});
   const [previousTranscript, setPreviousTranscript] = useState("");
+  const [askParticular, setAskParticular] = useState("");
+  const [someoneHovered, setSomeoneHovered] = useState(false);
   const inputArea = useRef(null);
   const isMobile = useMobile();
 
-  const maxInputLength = 350;
+  const [mediaRecorder, setMediaRecorder] = useState(null);
 
-  // Accessing the speech recognition features from the custom hook
-  const {
-    transcript,
-    // listening,
-    resetTranscript,
-    browserSupportsSpeechRecognition,
-    browserSupportsContinuousListening,
-  } = useSpeechRecognition();
+  const initialized = useRef(false);
+  const pc = useRef(null);
+  const mic = useRef(null);
+
+  const { t } = useTranslation();
+
+  const maxInputLength = 700;
 
   // Effect to manage speech recognition state
   useEffect(() => {
-    if (browserSupportsSpeechRecognition) {
-      if (isRecording) {
-        setPreviousTranscript(inputArea.current.value);
-        resetTranscript();
-        if (browserSupportsContinuousListening) {
-          SpeechRecognition.startListening({ continuous: true });
-        } else {
-          SpeechRecognition.startListening();
-        }
-      } else {
-        SpeechRecognition.stopListening();
-      }
+    if (recordingState === 'loading' && clientKey) {
+      setTranscript({});
+      startRealtimeSession();
+    } else if (recordingState === 'recording') {
+      //do something here?
+    } else if (recordingState === 'idle') {
+      mediaRecorder?.stop();
+      pc.current?.close();
+      mic.current?.getTracks().forEach(track => track.stop());
     }
-  }, [isRecording]);
+  }, [recordingState, clientKey]);
 
-  function handleStartStopRecording() {
-    setIsRecording(!isRecording); // Toggle the recording state
+  async function startRealtimeSession() {
+
+    // Create a peer connection
+    pc.current = new RTCPeerConnection();
+
+    mic.current = await navigator.mediaDevices.getUserMedia({
+      audio: true,
+    });
+    const recorder = new MediaRecorder(mic.current);
+    recorder.start();
+    setMediaRecorder(recorder);
+    pc.current.addTrack(mic.current.getTracks()[0]);
+
+    // Set up data channel for sending and receiving events
+    const dc = pc.current.createDataChannel("oai-events");
+
+    // Start the session using the Session Description Protocol (SDP)
+    const offer = await pc.current.createOffer();
+    await pc.current.setLocalDescription(offer);
+
+    const sdpResponse = await fetch("https://api.openai.com/v1/realtime/calls", {
+      method: "POST",
+      body: offer.sdp,
+      headers: {
+        Authorization: `Bearer ${clientKey}`,
+        "Content-Type": "application/sdp",
+      },
+    });
+
+    const answer = {
+      type: "answer",
+      sdp: await sdpResponse.text(),
+    };
+    await pc.current.setRemoteDescription(answer);
+
+    dc.addEventListener("message", (e) => {
+      const event = JSON.parse(e.data);
+      // Delta events are not working at the moment
+      // https://community.openai.com/t/gpt-4o-transcribe-realtime-the-delta-updates-not-received-during-the-transcription/1357039
+      // if (event.type === "conversation.item.input_audio_transcription.delta") {
+      //   setTranscript(prev => {
+      //     prev[event.item_id] = !prev[event.item_id] ? event.delta : prev[event.item_id] += event.delta;
+      //     return {...prev};
+      //   }
+      //   );
+      // }
+      if (event.type === "conversation.item.input_audio_transcription.completed") {
+        setTranscript(prev => {
+          prev[event.item_id] = event.transcript;
+          return { ...prev };
+        });
+      }
+    });
+
+    setRecordingState('recording');
   }
 
   useEffect(() => {
-    inputArea.current.value = (previousTranscript ? previousTranscript + " " + transcript : transcript);
+    if (!initialized.current) {
+      socketRef.current.emit('request_clientkey');
+      initialized.current = true;
+    }
+    socketRef.current.on('clientkey_response', (data) => {
+      setClientKey(data.value);
+    });
+    return () => {
+      socketRef.current.off('clientkey_response');
+      pc.current?.close();
+      mic.current?.getTracks().forEach(track => track.stop());
+    }
+  }, []);
+
+  function handleStartStopRecording() {
+    if (recordingState === 'idle') {
+      setRecordingState('loading'); // Toggle the recording state  
+    } else {
+      setRecordingState('idle');
+    }
+  }
+
+  useEffect(() => {
+    if (recordingState === 'loading') {
+      setPreviousTranscript(inputArea.current.value);
+    } else if (recordingState === 'recording') {
+      //Completed order is not guaranteed, so we sort the result
+      const sortedTranscript = Object.keys(transcript).sort().map(key => transcript[key]).join(" ") + "...";
+      inputArea.current.value = (previousTranscript ? previousTranscript + " " + sortedTranscript : sortedTranscript);
+      if(inputArea.current.value.length > maxInputLength) setRecordingState('idle');
+    } else {
+      const sortedTranscript = Object.keys(transcript).sort().map(key => transcript[key]).join(" ");
+      inputArea.current.value = (previousTranscript ? previousTranscript + " " + sortedTranscript : sortedTranscript);
+    }
     inputChanged();
-  }, [transcript]);
+  }, [transcript, recordingState]);
 
   function inputFocused(e) {
-    setIsRecording(false);
+    setRecordingState('idle');
   }
 
   function inputChanged(e) {
@@ -70,7 +157,6 @@ function HumanInput({ onSubmitHumanMessage }) {
   }
 
   function submitAndContinue() {
-    setIsRecording(false);
     onSubmitHumanMessage(inputArea.current.value.substring(0, maxInputLength));
   }
 
@@ -95,7 +181,9 @@ function HumanInput({ onSubmitHumanMessage }) {
   const divStyle = {
     width: isMobile ? "45px" : "56px",
     height: isMobile ? "45px" : "56px",
-    zIndex: "3"
+    zIndex: "3",
+    display: "flex",
+    alignItems: "center"
   };
 
   const textStyle = {
@@ -113,7 +201,7 @@ function HumanInput({ onSubmitHumanMessage }) {
     padding: "0",
   };
 
-  return (
+  return (<>
     <div style={wrapperStyle}>
       <img alt="Say something!" src="/mic.avif" style={micStyle} />
       <div style={{ zIndex: "4", position: "relative", pointerEvents: "auto" }}>
@@ -127,22 +215,47 @@ function HumanInput({ onSubmitHumanMessage }) {
           minRows="1"
           maxRows="6"
           maxLength={maxInputLength}
-          placeholder={browserSupportsSpeechRecognition ? "Type your question or start recording..." : "Type your question..."}
+          placeholder={t("human.1")}
         />
       </div>
       <div style={{ display: "flex", flexDirection: "row", pointerEvents: "auto", justifyContent: "center" }}>
-        <div style={divStyle} />
-        {browserSupportsSpeechRecognition &&
-          <div style={divStyle}>
-            <ConversationControlIcon
-              icon={(isRecording ? "record_voice_on" : "record_voice_off")}
-              onClick={handleStartStopRecording}
-              tooltip={"Mute"}
+        <div style={{ ...divStyle, transform: "scale(-1, -1)" }}>
+          {recordingState === 'recording' && mediaRecorder && (
+            <LiveAudioVisualizer
+              mediaRecorder={mediaRecorder}
+              width={100}
+              height={40}
+              barWidth={3}
+              gap={2}
+              barColor={'#ffffff'}
+              smoothingTimeConstant={0.85}
             />
-          </div>
-        }
+          )}
+        </div>
         <div style={divStyle}>
-          {canContinue &&
+          {recordingState === 'loading' &&
+            <Lottie play loop animationData={loading} style={{ height: isMobile ? "45px" : "56px" }} />
+          }
+          {recordingState !== 'loading' &&
+            <ConversationControlIcon
+              icon={(recordingState === 'recording' ? "record_voice_on" : "record_voice_off")}
+              onClick={handleStartStopRecording}
+            />
+          }
+        </div>
+        <div style={divStyle}>
+          {recordingState === 'recording' && mediaRecorder && (
+            <LiveAudioVisualizer
+              mediaRecorder={mediaRecorder}
+              width={100}
+              height={40}
+              barColor={'#ffffff'}
+              barWidth={3}
+              gap={2}
+              smoothingTimeConstant={0.85}
+            />
+          )}
+          {recordingState === 'idle' && canContinue &&
             <ConversationControlIcon
               icon={"send_message"}
               tooltip={"Mute"}
@@ -150,9 +263,9 @@ function HumanInput({ onSubmitHumanMessage }) {
             />
           }
         </div>
-        {!browserSupportsSpeechRecognition && <div style={divStyle} />}
       </div>
     </div>
+  </>
   );
 }
 

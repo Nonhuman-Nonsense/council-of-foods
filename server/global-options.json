@@ -1,21 +1,26 @@
 {
-  "gptModel": "gpt-4o",
+  "gptModel": "gpt-4o-mini",
   "temperature": 1,
-  "maxTokens": 200,
-  "chairMaxTokens": 250,
+  "maxTokens": 20,
+  "chairMaxTokens": 25,
   "frequencyPenalty": 0,
   "presencePenalty": 0,
   "audio_speed": 1.15,
   "trimSentance": false,
   "trimParagraph": true,
-  "chairName": "River",
+  "chairId": "river",
   "trimChairSemicolon": true,
   "show_trimmed": true,
   "skipAudio": false,
   "conversationMaxLength": 10,
   "raiseHandPrompt": "We have a question or comment from the audience, please invite a human speaker called [NAME] to the debate. After listening to the human, answer and engage deeper with their thoughts.",
-  "raiseHandInvitationLength": 150,
+  "raiseHandInvitationLength": 15,
   "finalizeMeetingPrompt": "Please summarise the meeting, held on [DATE], making a document that could work as a meeting protocol and a policy recommendation, that could be sent to a official political department like the European Commission.",
   "finalizeMeetingLength": 800,
-  "extraMessageCount": 5
+  "extraMessageCount": 5,
+  "transcribeModel": "gpt-4o-transcribe",
+  "transcribePrompt": {
+    "en": "Expect english input.",
+    "sv": "Förvänta dig svenska."
+  }
 }
