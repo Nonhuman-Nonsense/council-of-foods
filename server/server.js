@@ -204,7 +204,7 @@ io.on("connection", (socket) => {
 
     if (!conversationOptions.state.alreadyInvited) {
       let { response, id } = await chairInterjection(
-        conversationOptions.options.raiseHandPrompt.replace(
+        conversationOptions.options.raiseHandPrompt[conversationOptions.language].replace(
           "[NAME]",
           conversationOptions.state.humanName
         ),
@@ -230,7 +230,7 @@ io.on("connection", (socket) => {
       console.log(`[meeting ${meetingId}] invitation generated, on index ${handRaisedOptions.index}`);
 
       //will run async
-      generateAudio(id, response, conversationOptions.characters[0].name);
+      generateAudio(id, response, conversationOptions.characters[0]);
     }
 
     //Set a waiting message at the end of the stack and wait
@@ -374,7 +374,7 @@ io.on("connection", (socket) => {
   });
 
   socket.on("submit_human_panelist", (message) => {
-    console.log(`[meeting ${meetingId}] human panelist on index ${conversation.length - 1}`);
+    console.log(`[meeting ${meetingId}] human panelist ${message.speaker} on index ${conversation.length - 1}`);
 
     //deleting the awaiting_human_panelist
     if (conversation[conversation.length - 1].type !== 'awaiting_human_panelist') {
@@ -382,8 +382,8 @@ io.on("connection", (socket) => {
     }
     conversation.pop();
 
-    message.text = message.speaker + " said: " + message.text;
-    message.id = "panelist-" + uuidv4(); // Use UUID for unique message IDs for human messages
+    message.text = conversationOptions.characters.find(c => c.id === message.speaker).name + (conversationOptions.language === 'en' ? " said: " : " sa: ") + message.text;
+    message.id = message.speaker + uuidv4(); // Use UUID for unique message IDs for human messages
     message.type = "panelist";
 
     //add it to the stack
@@ -408,7 +408,7 @@ io.on("connection", (socket) => {
   });
 
   socket.on("wrap_up_meeting", async (message) => {
-    const summaryPrompt = conversationOptions.options.finalizeMeetingPrompt.replace("[DATE]", message.date);
+    const summaryPrompt = conversationOptions.options.finalizeMeetingPrompt[conversationOptions.language].replace("[DATE]", message.date);
 
     let { response, id } = await chairInterjection(
       summaryPrompt,
@@ -557,7 +557,7 @@ io.on("connection", (socket) => {
         //Set a waiting message at the end of the stack and wait
         conversation.push({
           type: 'awaiting_human_panelist',
-          speaker: conversationOptions.characters[currentSpeaker].name
+          speaker: conversationOptions.characters[currentSpeaker].id
         });
 
         console.log(`[meeting ${meetingId}] awaiting human panelist on index ${conversation.length - 1}`);
@@ -663,9 +663,6 @@ io.on("connection", (socket) => {
     //If audio creation is skipped
     if (conversationOptions.options.skipAudio) return;
     // const thisConversationCounter = conversationCounter;
-    const voiceName = conversationOptions.characters.find(
-      (char) => char.id === speaker.id
-    ).voice;
 
     let buffer;
     //check if we already have it in the database
@@ -684,11 +681,14 @@ io.on("connection", (socket) => {
     }
 
     if (generateNew) {
+      // console.log(`[meeting ${meetingId}] generating audio for speaker ${speaker.id}`);
+
       const mp3 = await openai.audio.speech.create({
-        model: "tts-1",
-        voice: voiceName,
+        model: "gpt-4o-mini-tts",
+        voice: speaker.voice,
         speed: conversationOptions.options.audio_speed,
         input: text.substring(0, 4096),
+        instructions: speaker.voiceInstruction
       });
 
       buffer = Buffer.from(await mp3.arrayBuffer());
@@ -698,6 +698,8 @@ io.on("connection", (socket) => {
       id: id,
       audio: buffer,
     };
+
+    // console.log(`[meeting ${meetingId}] audio generated for speaker ${speaker.id}`);
 
     socket.emit("audio_update", audioObject);
 

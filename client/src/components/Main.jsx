@@ -17,7 +17,7 @@ import Reconnecting from "./overlays/Reconnecting.jsx";
 import { useTranslation } from 'react-i18next';
 
 //Topics
-import topicDataEN from "../prompts/topics.json";
+import topicDataEN from "../prompts/topics_en.json";
 import topicDataSV from "../prompts/topics_sv.json";
 
 const topicsData = {
@@ -111,7 +111,7 @@ function Main() {
   }
 
   function beingsSelected({ foods }) {
-    setFoods(foods);
+    setParticipants(foods);
     proceedToMeeting();
   }
 
@@ -130,7 +130,6 @@ function Main() {
       copiedTopic.prompt
     );
 
-    console.log(copiedTopic);
     setChosenTopic(copiedTopic);
 
     //Start the meeting
@@ -188,7 +187,7 @@ function Main() {
       {!unrecoverabeError && (
         <Overlay
           isActive={!location.pathname.startsWith(`/${lang}/meeting`)}
-          isBlurred={location.pathname !== `/${lang}/`}
+          isBlurred={location.pathname.length > 4}
         >
           <Routes>
             <Route
@@ -222,6 +221,7 @@ function Main() {
                   <Council
                     topic={chosenTopic}
                     participants={participants}
+                    currentSpeakerId={currentSpeakerId}
                     setCurrentSpeakerId={setCurrentSpeakerId}
                     isPaused={isPaused}
                     setPaused={setPaused}

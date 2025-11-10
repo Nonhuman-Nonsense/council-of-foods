@@ -40,13 +40,15 @@
     "21": "och vänta sedan tills du blir inbjuden att tala av Älven, moderatorn.",
     "3": "vänligen skriv ditt namn",
     "4": "skriv ditt namn för att gå vidare",
-    "5": "ditt namn"
+    "5": "ditt namn",
+    "unique": "namnet måste vara unikt i mötet"
   },
   "controls": {
     "wait": "vänta tills det är din tur att tala"
   },
   "human": {
-    "1": "Skriv din fråga eller börja inspelning..."
+    "1": "Skriv din fråga eller börja inspelning...",
+    "panelist": "Vad har {{name}} att säga om det här?"
   },
   "completed": {
     "title": "Var det allt?",
@@ -74,15 +76,22 @@
   },
   "cancel": "Avbryt",
   "theissue": "DAGENS AGENDA",
-  "thebeings": "VARELSERNA",
   "next": "Nästa",
+  "selectfoods": {
+    "title": "VARELSERNA",
+    "meetingon": "Skogsparlamentet möte om",
+    "wewilllisten": "kommer vi lyssna till",
+    "pleaseselect": "välj 2-6 varelser för diskussionen",
+    "unique": "inga deltagare får ha samma namn, det blir så förvirrat...",
+    "requirename": "alla människor måste ha namn och beskrivning",
+    "random": "Slumpa",
+    "humanname": "Mänskligt Namn",
+    "humandesc": "Beskriv människan...",
+    "human": "1 människa: ",
+    "twohumans": " människor: "
+  },
   "selectissue": "välj ett ämne för dagens discussion",
   "writetopic": "Skriv ett eget ämne...",
-  "meetingon": "Skogsparlamentet möte om",
-  "selectbeings": "vänligen välj 2-6 varelser att lyssna till",
-  "selectbeingsdiscussion": "vänligen välj 2-6 varelser för diskussionen",
-  "wewilllisten": "kommer vi lyssna till",
-  "randomize": "Slumpa",
   "biosphere": "Biosfärområdet\u00a0Vindelälven-Juhttátahkka",
   "rotate": "rotera din enhet"
 }

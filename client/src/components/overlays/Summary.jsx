@@ -74,6 +74,8 @@ const PDFToPrint = forwardRef((props, ref) => {
 
   const protocolRef = useRef(null);
 
+  const { t } = useTranslation();
+
   useImperativeHandle(ref, () => ({
     createPdf() {
       import("../../Tinos.js").then(() => {

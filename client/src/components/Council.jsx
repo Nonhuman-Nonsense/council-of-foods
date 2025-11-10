@@ -14,6 +14,7 @@ import globalOptions from "../global-options-client";
 function Council({
   topic,
   participants,
+  currentSpeakerId,
   setCurrentSpeakerId,
   isPaused,
   setPaused,
@@ -290,11 +291,11 @@ function Council({
   // Set current speaker name on every change of playing message
   useEffect(() => {
     if (councilState === 'loading') {
-      setCurrentSpeakerName("");
+      setCurrentSpeakerId("");
     } else if (councilState === 'human_input') {
-      setCurrentSpeakerName(humanName);
+      setCurrentSpeakerId(humanName);
     } else if (councilState === 'human_panelist') {
-      setCurrentSpeakerName(textMessages[playNextIndex].speaker);
+      setCurrentSpeakerId(textMessages[playNextIndex].speaker);
     } else if (textMessages[playingNowIndex]) {
       setCurrentSpeakerId(textMessages[playingNowIndex].speaker);
     } else {
@@ -426,7 +427,7 @@ function Council({
   // When a new human message is submitted
   function handleOnSubmitHumanMessage(newTopic, askParticular) {
     if (councilState === 'human_panelist') {
-      socketRef.current.emit("submit_human_panelist", { text: newTopic, speaker: currentSpeakerName });
+      socketRef.current.emit("submit_human_panelist", { text: newTopic, speaker: currentSpeakerId });
 
       //Slice off the waiting for panelist
       setTextMessages((prevMessages) => {
@@ -545,7 +546,7 @@ function Council({
       {councilState === 'loading' && <Loading />}
       <>
         {(councilState === 'human_input' || councilState === 'human_panelist') && (
-          <HumanInput socketRef={socketRef} foods={foods} isPanelist={(councilState === 'human_panelist')} currentSpeakerName={currentSpeakerName} onSubmitHumanMessage={handleOnSubmitHumanMessage} />
+          <HumanInput socketRef={socketRef} isPanelist={(councilState === 'human_panelist')} currentSpeakerName={participants.find(p => p.id === currentSpeakerId)?.name} onSubmitHumanMessage={handleOnSubmitHumanMessage} />
         )}
         <Output
           textMessages={textMessages}

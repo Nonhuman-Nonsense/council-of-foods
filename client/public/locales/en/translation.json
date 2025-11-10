@@ -40,13 +40,15 @@
     "21": "and then wait until you are given the floor by River, the moderator.",
     "3": "please type your name",
     "4": "enter your name to proceed",
-    "5": "your name"
+    "5": "your name",
+    "unique": "name must be unique in the council"
   },
   "controls": {
     "wait": "wait for your turn to speak"
   },
   "human": {
-    "1": "Type your question or start recording..."
+    "1": "Type your question or start recording...",
+    "panelist": "What does {{name}} have to say about this?"
   },
   "completed": {
     "title": "Is that it?",
@@ -74,15 +76,22 @@
   },
   "cancel": "Cancel",
   "theissue": "THE ISSUE",
-  "thebeings": "THE BEINGS",
   "next": "Next",
+  "selectfoods": {
+    "title": "THE BEINGS",
+    "meetingon": "Council of Forest meeting on",
+    "wewilllisten": "we will listen to",
+    "pleaseselect": "please select 2-6 beings for the discussion",
+    "unique": "no two participants can have the same name, it becomes so confusing...",
+    "requirename": "all participating humans must have name and description",
+    "random": "Randomize",
+    "humanname": "Human Name",
+    "humandesc": "Enter a description for the human...",
+    "human": "1 human: ",
+    "twohumans": " humans: "
+  },
   "selectissue": "please select an issue for the discussion",
   "writetopic": "Write a topic here...",
-  "meetingon": "Council of Forest meeting on",
-  "selectbeings": "please select 2-6 beings to listen to",
-  "selectbeingsdiscussion": "please select 2-6 beings for the discussion",
-  "wewilllisten": "we will listen to",
-  "randomize": "Randomize",
   "biosphere": "Biosphere\u00a0Area\u00a0Vindelälven-Juhttátahkka",
   "rotate": "rotate your device"
 }

@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect } from "react";
-import { useState, useRef, useEffect } from "react";
 import { capitalizeFirstLetter, useMobile } from "../../utils";
 import { useTranslation } from "react-i18next";
 
@@ -138,7 +137,7 @@ function HumanNameInput({ participants, onContinueForward }) {
         />
       </div>
       <h3 style={{ visibility: (isHumanNameMissing || duplicateName) ? "" : "hidden" }}>
-        {duplicateName ? "name must be unique in the council" : t('name.4')}
+        {duplicateName ? t('name.unique') : t('name.4')}
       </h3>
     </div>
   );
