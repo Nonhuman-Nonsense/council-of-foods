@@ -7,7 +7,7 @@ import { LiveAudioVisualizer } from 'react-audio-visualize';
 import Lottie from 'react-lottie-player';
 import loading from '../animations/loading.json';
 
-function HumanInput({ foods, isPanelist, currentSpeakerName, onSubmitHumanMessage, socketRef }) {
+function HumanInput({ isPanelist, currentSpeakerName, onSubmitHumanMessage, socketRef }) {
   const [clientKey, setClientKey] = useState(null);
   const [recordingState, setRecordingState] = useState("idle");
   const [canContinue, setCanContinue] = useState(false);
@@ -157,7 +157,7 @@ function HumanInput({ foods, isPanelist, currentSpeakerName, onSubmitHumanMessag
   }
 
   function submitAndContinue() {
-    onSubmitHumanMessage(inputArea.current.value.substring(0, maxInputLength));
+    onSubmitHumanMessage(inputArea.current.value.substring(0, maxInputLength), askParticular);
   }
 
   const wrapperStyle = {
@@ -201,6 +201,8 @@ function HumanInput({ foods, isPanelist, currentSpeakerName, onSubmitHumanMessag
     padding: "0",
   };
 
+  //TODO implement ask partikular graphics
+
   return (<>
     <div style={wrapperStyle}>
       <img alt="Say something!" src="/mic.avif" style={micStyle} />
@@ -215,7 +217,7 @@ function HumanInput({ foods, isPanelist, currentSpeakerName, onSubmitHumanMessag
           minRows="1"
           maxRows="6"
           maxLength={maxInputLength}
-          placeholder={t("human.1")}
+          placeholder={isPanelist ? t('human.panelist', {name: currentSpeakerName}) : t("human.1")}
         />
       </div>
       <div style={{ display: "flex", flexDirection: "row", pointerEvents: "auto", justifyContent: "center" }}>

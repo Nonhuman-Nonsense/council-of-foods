@@ -27,7 +27,7 @@ function Output({
       setCurrentTextMessage(() => textMessage);
       const matchingAudioMessage = audioMessages.find((a) => a.id === textMessage.id);
       setCurrentAudioMessage(() => matchingAudioMessage);
-    } else if (councilState === 'loading' || councilState === 'max_reached' || councilState === 'human_input') {
+    } else if (councilState === 'loading' || councilState === 'max_reached' || councilState === 'human_input' || councilState === 'human_panelist') {
       setCurrentTextMessage(null);
       setCurrentAudioMessage(null);
     } else if (councilState === 'summary'){

@@ -50,7 +50,7 @@ function Main() {
   const [topics, setTopics] = useState(topicsData['en'].topics);
   const [chosenTopic, setChosenTopic] = useState({});
   const [customTopic, setCustomTopic] = useState("");
-  const [foods, setFoods] = useState([]);
+  const [participants, setParticipants] = useState([]);
   const [unrecoverabeError, setUnrecoverableError] = useState(false);
   const [connectionError, setConnectionError] = useState(false);
 
@@ -111,7 +111,7 @@ function Main() {
   }
 
   function beingsSelected({ foods }) {
-    setFoods(foods);
+    setParticipants(foods);
     proceedToMeeting();
   }
 
@@ -130,7 +130,6 @@ function Main() {
       copiedTopic.prompt
     );
 
-    console.log(copiedTopic);
     setChosenTopic(copiedTopic);
 
     //Start the meeting
@@ -138,7 +137,7 @@ function Main() {
   }
 
   function onReset(resetData) {
-    setFoods([]);
+    setParticipants([]);
 
     if (!resetData?.topic) {
       // Reset from the start
@@ -188,7 +187,7 @@ function Main() {
       {!unrecoverabeError && (
         <Overlay
           isActive={!location.pathname.startsWith(`/${lang}/meeting`)}
-          isBlurred={location.pathname !== `/${lang}/`}
+          isBlurred={location.pathname.length > 4}
         >
           <Routes>
             <Route
@@ -218,10 +217,11 @@ function Main() {
             <Route
               path="meeting/:meetingId"
               element={
-                foods.length !== 0 && ( // If page is reloaded, don't even start the council for now
+                participants.length !== 0 && ( // If page is reloaded, don't even start the council for now
                   <Council
                     topic={chosenTopic}
-                    foods={foods}
+                    participants={participants}
+                    currentSpeakerId={currentSpeakerId}
                     setCurrentSpeakerId={setCurrentSpeakerId}
                     isPaused={isPaused}
                     setPaused={setPaused}

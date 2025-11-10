@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { capitalizeFirstLetter, useMobile } from "../../utils";
 import { useTranslation } from "react-i18next";
 
-function Name({ onContinueForward }) {
+function Name({ participants, onContinueForward }) {
 
   const { t } = useTranslation();
 
@@ -19,14 +19,15 @@ function Name({ onContinueForward }) {
         <p>{t('name.1')}</p>
         <p>{t('name.2')}<br />{t('name.21')}</p>
       </div>
-      <HumanNameInput onContinueForward={onContinueForward} />
+      <HumanNameInput participants={participants} onContinueForward={onContinueForward} />
     </div>
   );
 }
 
-function HumanNameInput(props) {
+function HumanNameInput({ participants, onContinueForward }) {
   const [humanName, setHumanName] = useState("");
   const [isHumanNameMissing, setIsHumanNameMissing] = useState(false);
+  const [duplicateName, setDuplicateName] = useState(false);
   const inputRef = useRef(null);
   const isMobile = useMobile();
 
@@ -48,6 +49,12 @@ function HumanNameInput(props) {
 
     setHumanName(inputValue);
 
+    if (isDuplicateName(inputValue)) {
+      setDuplicateName(true);
+    } else {
+      setDuplicateName(false);
+    }
+
     if (!trimmedValue) {
       setIsHumanNameMissing(true);
     } else {
@@ -58,8 +65,11 @@ function HumanNameInput(props) {
   }
 
   function continueForward() {
-    if (humanName) {
-      props.onContinueForward({ humanName: humanName });
+
+    if (humanName && !isDuplicateName(humanName)) {
+      onContinueForward({ humanName: humanName });
+    } else if (isDuplicateName(humanName)) {
+      setDuplicateName(true);
     } else {
       setIsHumanNameMissing(true);
     }
@@ -71,6 +81,13 @@ function HumanNameInput(props) {
 
       continueForward();
     }
+  }
+
+  function isDuplicateName(check) {
+    let names = participants.map(p => p.name);
+    //Because each value in the Set has to be unique, the value equality will be checked.
+    names.push(check);
+    return (new Set(names).size !== names.length);
   }
 
   const inputStyle = {
@@ -119,7 +136,9 @@ function HumanNameInput(props) {
           onClick={continueForward}
         />
       </div>
-      <h3 style={{ visibility: !isHumanNameMissing ? "hidden" : "" }}>{t('name.4')}</h3>
+      <h3 style={{ visibility: (isHumanNameMissing || duplicateName) ? "" : "hidden" }}>
+        {duplicateName ? t('name.unique') : t('name.4')}
+      </h3>
     </div>
   );
 }

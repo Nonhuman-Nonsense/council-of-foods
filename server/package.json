@@ -5,6 +5,7 @@
   "type": "module",
   "version": "1.0.0",
   "description": "",
+  "type": "module",
   "main": "server.js",
   "scripts": {
     "dev": "cross-env NODE_ENV=development nodemon server.js",
@@ -17,12 +18,12 @@
     "cross-env": "^10.1.0",
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
-    "mongodb": "^6.15.0",
-    "openai": "^6.3.0",
+    "mongodb": "^6.20.0",
+    "openai": "^6.8.1",
     "socket.io": "^4.8.1",
     "uuid": "^13.0.0"
   },
   "devDependencies": {
-    "nodemon": "^3.1.9"
+    "nodemon": "^3.1.10"
   }
 }

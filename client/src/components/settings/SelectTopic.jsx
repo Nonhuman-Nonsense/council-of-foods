@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import ResetWarning from "../overlays/ResetWarning";
+import topicData from "../../prompts/topics_en.json";
 import { capitalizeFirstLetter, toTitleCase, useMobile, useMobileXs } from "../../utils";
 import { useTranslation } from "react-i18next";
 
