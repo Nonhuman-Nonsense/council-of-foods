@@ -18,8 +18,8 @@
     "cross-env": "^10.1.0",
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
-    "mongodb": "^6.15.0",
-    "openai": "^6.3.0",
+    "mongodb": "^6.20.0",
+    "openai": "^6.8.1",
     "socket.io": "^4.8.1",
     "uuid": "^13.0.0"
   },

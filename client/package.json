@@ -5,22 +5,22 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
-    "@vitejs/plugin-react": "^5.0.4",
-    "html-react-parser": "^5.2.7",
-    "i18next": "^25.6.0",
+    "@vitejs/plugin-react": "^5.1.0",
+    "html-react-parser": "^5.2.8",
+    "i18next": "^25.6.1",
     "i18next-http-backend": "^3.0.2",
     "jspdf": "^3.0.3",
-    "marked": "^16.4.0",
+    "marked": "^17.0.0",
     "react": "^19.2.0",
+    "react-audio-visualize": "file:react-audio-visualize-master",
     "react-dom": "^19.2.0",
-    "react-i18next": "^16.0.1",
+    "react-i18next": "^16.2.4",
     "react-lottie-player": "^2.1.0",
     "react-responsive": "^10.0.1",
-    "react-router": "^7.9.4",
+    "react-router": "^7.9.5",
     "react-textarea-autosize": "^8.5.9",
-    "react-audio-visualize": "file:react-audio-visualize-master",
     "socket.io-client": "^4.8.1",
-    "vite": "^7.1.9"
+    "vite": "^7.2.2"
   },
   "scripts": {
     "dev": "vite",
@@ -33,8 +33,5 @@
       "react-app",
       "react-app/jest"
     ]
-  },
-  "devDependencies": {
-    "source-map-explorer": "^2.5.3"
   }
 }
