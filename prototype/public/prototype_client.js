@@ -87,6 +87,10 @@ document.addEventListener("DOMContentLoaded", () => {
       promptsAndOptions.options.presencePenalty;
     document.getElementById("presence-penalty").previousSibling.value =
       promptsAndOptions.options.presencePenalty;
+    document.getElementById("audio-speed").value =
+      promptsAndOptions.options.audio_speed;
+    document.getElementById("audio-speed").previousSibling.value =
+      promptsAndOptions.options.audio_speed;
 
     document.getElementById("trim-response-to-full-sentance").checked =
       promptsAndOptions.options.trimSentance;
@@ -144,6 +148,7 @@ document.addEventListener("DOMContentLoaded", () => {
           inputDiv.value = character.name ?? "";
 
           const textDiv = document.createElement("textarea");
+          textDiv.className = 'prompt';
           textDiv.placeholder = "character prompt";
           textDiv.value = character.prompt ?? "";
 
@@ -171,9 +176,15 @@ document.addEventListener("DOMContentLoaded", () => {
             voiceDiv.appendChild(voiceRadioLabelDiv);
           }
 
+          const voicePromptDiv = document.createElement("textarea");
+          voicePromptDiv.className = 'voiceInstruction';
+          voicePromptDiv.placeholder = "voice instruction";
+          voicePromptDiv.value = character.voiceInstruction ?? "";
+
           newDiv.appendChild(inputDiv);
           newDiv.appendChild(textDiv);
           newDiv.appendChild(voiceDiv);
+          newDiv.appendChild(voicePromptDiv);
           characterDiv.appendChild(newDiv);
         }
       );
@@ -197,6 +208,8 @@ document.addEventListener("DOMContentLoaded", () => {
       +document.getElementById("frequency-penalty").value;
     promptsAndOptions.options.presencePenalty =
       +document.getElementById("presence-penalty").value;
+    promptsAndOptions.options.audio_speed =
+      +document.getElementById("audio-speed").value;
     promptsAndOptions.options.trimSentance = document.getElementById(
       "trim-response-to-full-sentance"
     ).checked;
@@ -238,20 +251,21 @@ document.addEventListener("DOMContentLoaded", () => {
         characters
       ).map((characterDiv) => {
         const nameInput = characterDiv.querySelector("input").value; // Assuming the first input is still for the name
-        const roleTextarea = characterDiv.querySelector("textarea").value; // Select the textarea for the role
+        const roleTextarea = characterDiv.querySelector(".prompt").value; // Select the textarea for the role
         const voice = characterDiv.querySelector("input[type=radio]:checked");
+        const voiceInstruction = characterDiv.querySelector(".voiceInstruction").value;
 
         return {
           id: nameInput,//this will be swedish ids on the prototype, but english on main site. Does it matter?
           name: nameInput,
           prompt: roleTextarea,
           voice: voice?.value,
+          voiceInstruction: voiceInstruction
         };
       });
     }
 
     promptsAndOptions.options.chairId = promptsAndOptions.language[current_language].rooms[currentRoom].characters[0].id;
-    promptsAndOptions.options.audio_speed = 1.15;
 
     localStorage.setItem(
       "PromptsAndOptions",
@@ -705,7 +719,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   for (const radio of languageButtons) {
     radio.addEventListener('change', e => {
-      
+
       //First save what we have at the moment
       updatePromptsAndOptions();
       //Set the language

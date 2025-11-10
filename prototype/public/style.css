@@ -123,6 +123,10 @@ textarea {
   resize: vertical;
 }
 
+textarea.voiceInstruction {
+  height: 100px;
+}
+
 #conversation p {
   border: 1px solid #000;
   border-radius: 10px;

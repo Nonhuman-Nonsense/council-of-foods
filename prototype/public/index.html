@@ -27,8 +27,9 @@
           prompt and completion. The exact limit varies by model. (One token is roughly 4 characters for standard
           English text)</div><input type="range" min="1" max="600" value="200" class="slider"><input
           class="slider-value" type="number" step="10" id="max-tokens"><br />
-        Chair Maximum Length: <div class="explanaition">Same as above, but for chair Water.</div><input type="range" min="1" max="600" value="250" class="slider"><input class="slider-value" type="number"
-          step="10" id="chair-max-tokens"><br />
+        Chair Maximum Length: <div class="explanaition">Same as above, but for chair Water.</div><input type="range"
+          min="1" max="600" value="250" class="slider"><input class="slider-value" type="number" step="10"
+          id="chair-max-tokens"><br />
         Frequency Penalty: <div class="explanaition">How much to penalize new tokens based on their existing frequency
           in the text so far. Decreases the model's likelihood to repeat the same line verbatim.</div><input
           type="range" min="0" max="2.0" step="0.01" value="0" class="slider"><input class="slider-value" step="0.01"
@@ -37,7 +38,10 @@
           text so far. Increases the model's likelihood to talk about new topics.</div><input type="range" min="0"
           max="2.0" step="0.01" value="0" class="slider"><input class="slider-value" type="number" step="0.01"
           id="presence-penalty"><br />
-        <br/>
+        Audio Speed: <div class="explanaition">The speed of the audio.</div><input type="range" min="0"
+          max="2.0" step="0.01" value="1.15" class="slider"><input class="slider-value" type="number" step="0.01"
+          id="audio-speed"><br />
+        <br />
         <h3>server options</h3>
         trim response to last complete sentance: <input type="checkbox" id="trim-response-to-full-sentance"><br>
         trim response to last complete paragraph: <input type="checkbox" id="trim-response-to-full-paragraph"
@@ -49,8 +53,8 @@
         extra message count: <input type="number" id="extra-message-count" placeholder="extra message count"
           value="5"><br />
 
-        Reset everything to default: <button id="factoryResetButton">Factory Reset</button><br/>
-        <br/>
+        Reset everything to default: <button id="factoryResetButton">Factory Reset</button><br />
+        <br />
         <h3>prototype options</h3>
         skip creating audio: <input type="checkbox" id="skip-audio"><br>
       </div>
@@ -87,8 +91,10 @@
       <div id="characters-container">
         <h3>characters</h3>
         <br>
-        <p style="margin: 0;"><small>if the word [FOODS] is present in the first character, it will be replaced with names of the other characters.</small></p>
-        <p style="margin: 0;"><small>the word [HUMANS] is ignored for now, human panelist are not supported in prototype</small></p>
+        <p style="margin: 0;"><small>if the word [FOODS] is present in the first character, it will be replaced with
+            names of the other characters.</small></p>
+        <p style="margin: 0;"><small>the word [HUMANS] is ignored for now, human panelist are not supported in
+            prototype</small></p>
         <div id="characters">
         </div>
         <button id="add-character">+</button>
@@ -98,7 +104,8 @@
       <div id="injections">
         <h3>inject custom instruction</h3><br />
         <p style="margin: 0;"><small>the word [DATE] will be replaced with todays date</small></p>
-        <textarea id="injectInputArea" placeholder="Inject something into water...">Please summarise the meeting, held on [DATE], making a document that could work as a meeting protocol and a policy recommendation, that could be sent to a official political department like the European Commission.</textarea><br>
+        <textarea id="injectInputArea"
+          placeholder="Inject something into water...">Please summarise the meeting, held on [DATE], making a document that could work as a meeting protocol and a policy recommendation, that could be sent to a official political department like the European Commission.</textarea><br>
         Maximum Length: <div class="explanaition">The maximum number of tokens to <b>generate</b> shared between the
           prompt and completion. The exact limit varies by model. (One token is roughly 4 characters for standard
           English text)</div><input type="range" min="1" max="2000" value="800" class="slider"><input
