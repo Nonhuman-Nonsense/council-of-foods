@@ -1,5 +1,5 @@
 import "../App.css";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Routes, Route, useLocation, useNavigate, useParams } from "react-router";
 import Overlay from "./Overlay";
 import MainOverlays from "./MainOverlays";
@@ -10,7 +10,7 @@ import SelectFoods from "./settings/SelectFoods";
 import Council from "./Council";
 import RotateDevice from "./RotateDevice";
 import FullscreenButton from "./FullscreenButton";
-import { usePortrait } from "../utils";
+import { useDocumentVisibility, usePortrait } from "../utils";
 import CouncilError from "./overlays/CouncilError.jsx";
 import Forest from './Forest';
 import Reconnecting from "./overlays/Reconnecting.jsx";
@@ -61,6 +61,9 @@ function Main() {
   const [currentSpeakerId, setCurrentSpeakerId] = useState("");
   const [isPaused, setPaused] = useState(false);
 
+  const audioContext = useRef(null); // The AudioContext object
+  const [audioPaused, setAudioPaused] = useState(false);
+
   const location = useLocation();
   const navigate = useNavigate();
   const isIphone = useIsIphone();
@@ -69,6 +72,11 @@ function Main() {
   const { i18n } = useTranslation();
 
   let { lang } = useParams();
+
+  if (audioContext.current === null) {
+    const AudioContext = window.AudioContext || window.webkitAudioContext; //cross browser
+    audioContext.current = new AudioContext();
+  }
 
   //Update topics on language change
   useEffect(() => {
@@ -94,6 +102,17 @@ function Main() {
     }
   }, [lang]);
 
+  //When pause changes, suspend audio context
+  useEffect(() => {
+    if (audioPaused) {
+      if (audioContext.current.state !== "suspended") {
+        audioContext.current.suspend();
+      }
+    } else if (audioContext.current.state === "suspended") {
+      audioContext.current.resume();
+    }
+  }, [audioPaused]);
+
 
   useEffect(() => {
     if (chosenTopic.title === "" && (location.pathname.length > 4 && location.pathname.substring(4) !== "" && location.pathname.substring(4) !== "topics")) {
@@ -113,6 +132,11 @@ function Main() {
   function beingsSelected({ foods }) {
     setParticipants(foods);
     proceedToMeeting();
+  }
+
+  function letsGo() {
+    audioContext.current.resume();
+    navigate(`/${lang}/topics`);
   }
 
   function proceedToMeeting() {
@@ -169,7 +193,7 @@ function Main() {
 
   return (
     <>
-      <Forest currentSpeakerId={currentSpeakerId} isPaused={isPaused} />
+      <Forest currentSpeakerId={currentSpeakerId} isPaused={isPaused} audioContext={audioContext} />
       <div style={{ width: "100%", height: "7%", minHeight: 300 * 0.07 + "px", position: "absolute", bottom: 0, background: "linear-gradient(0deg, rgba(0, 0, 0, 0.95) 0%, rgba(0, 0, 0, 0) 100%)", zIndex: 1 }} />
       {!(unrecoverabeError || connectionError) && (
         <Navbar
@@ -193,7 +217,7 @@ function Main() {
             <Route
               path="/"
               element={
-                <Landing onContinueForward={() => navigate(`/${lang}/topics`)} />
+                <Landing onContinueForward={letsGo} />
               }
             />
             <Route
@@ -228,6 +252,8 @@ function Main() {
                     setUnrecoverableError={setUnrecoverableError}
                     connectionError={connectionError}
                     setConnectionError={setConnectionError}
+                    audioContext={audioContext}
+                    setAudioPaused={setAudioPaused}
                   />
                 )
               }

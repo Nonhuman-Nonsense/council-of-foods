@@ -20,7 +20,9 @@ function Council({
   setPaused,
   setUnrecoverableError,
   setConnectionError,
-  connectionError
+  connectionError,
+  audioContext,
+  setAudioPaused
 }) {
   //Overall Council settings for this meeting
   const [humanName, setHumanName] = useState("");
@@ -68,14 +70,8 @@ function Council({
   const [summary, setSummary] = useState(null);//We store the summary here for easy access
 
   // Universal references
-  const audioContext = useRef(null); // The AudioContext object
   const waitTimer = useRef(null); // The waiting timer
   const socketRef = useRef(null); // Using useRef to persist socket instance
-
-  if (audioContext.current === null) {
-    const AudioContext = window.AudioContext || window.webkitAudioContext; //cross browser
-    audioContext.current = new AudioContext();
-  }
 
   //Humans and foods
   const foods = participants.filter((part) => part.type !== 'panelist');
@@ -374,11 +370,9 @@ function Council({
   //When pause changes, suspend audio context
   useEffect(() => {
     if (isPaused) {
-      if (audioContext.current.state !== "suspended") {
-        audioContext.current.suspend();
-      }
+      setAudioPaused(true);
     } else if (audioContext.current.state === "suspended") {
-      audioContext.current.resume();
+      setAudioPaused(false);
     }
   }, [isPaused, councilState]);
 

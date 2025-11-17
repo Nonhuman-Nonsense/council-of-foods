@@ -83,8 +83,6 @@ function SelectFoods({ topicTitle, onContinueForward }) {
       const participatingFoods = selectedFoods.filter(id => !id.startsWith('panelist'));
       const participatingHumans = selectedFoods.filter(id => id.startsWith('panelist'));
 
-      console.log(selectedFoods);
-
       let participants = "";
       for (const [i, id] of participatingFoods.entries()) {
         if (i !== 0) participants += toTitleCase(foods.find(f => f.id === id).name) + ", ";
