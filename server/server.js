@@ -260,7 +260,7 @@ io.on("connection", (socket) => {
 
       const completion = await openai.chat.completions.create({
         model: conversationOptions.options.gptModel,
-        max_tokens: length,
+        max_completion_tokens: length,
         temperature: conversationOptions.options.temperature,
         frequency_penalty: conversationOptions.options.frequencyPenalty,
         presence_penalty: conversationOptions.options.presencePenalty,
@@ -711,7 +711,7 @@ io.on("connection", (socket) => {
 
       const completion = await openai.chat.completions.create({
         model: conversationOptions.options.gptModel,
-        max_tokens:
+        max_completion_tokens:
           speaker.name === conversationOptions.options.chairName
             ? conversationOptions.options.chairMaxTokens
             : conversationOptions.options.maxTokens,
