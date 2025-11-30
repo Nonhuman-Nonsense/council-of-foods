@@ -6,7 +6,6 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  user-select: none;
 }
 
 code {
@@ -17,6 +16,7 @@ code {
 img {
   object-fit: contain;
   color: transparent;/* Hiding alt texts of images from showing */
+  user-select: none;
 }
 
 
@@ -122,6 +122,7 @@ button {
   border-radius: 19px;
   padding: 0px 16px 0px 16px;
   cursor: pointer;
+  user-select: none;
 }
 
 button:hover:not(.control) {
