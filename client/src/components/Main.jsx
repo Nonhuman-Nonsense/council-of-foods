@@ -5,7 +5,7 @@ import {
   Route,
   useLocation,
   useNavigate
-} from "react-router-dom";
+} from "react-router";
 import Overlay from "./Overlay";
 import MainOverlays from "./MainOverlays";
 import Landing from "./settings/Landing";
@@ -48,8 +48,8 @@ function Main() {
 
   useEffect(() => {
     if (topic.title === "" && (location.pathname !== "/" && location.pathname !== "/topics")) {
-      //Preserve the search, but navigate to start
-      navigate({ pathname: "/", search: location.search });
+      //Preserve the hash, but navigate to start
+      navigate({ pathname: "/", hash: location.hash });
     }
   }, [location.pathname]);
 

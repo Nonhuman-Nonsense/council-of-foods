@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router";
 
 import OverlayWrapper from './OverlayWrapper.jsx';
 import Overlay from "./Overlay";
@@ -10,45 +10,37 @@ import SelectTopic from "./settings/SelectTopic";
 
 function MainOverlays({ topic, onReset, onCloseOverlay }) {
 
-  // eslint-disable-next-line
-  const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Reset the search params in certain conditions
+  // Reset the hash in certain conditions
   useEffect(() => {
-    const param = searchParams.get('o');
-    if(param){
-      if (!["about", "contact", "reset", "settings"].includes(searchParams.get('o'))) {
+    const hash = location.hash;
+    if (hash) {
+      if (!["#about", "#contact", "#reset", "#settings"].includes(hash)) {
         removeOverlay();
-      }else if(!location.pathname.startsWith('/meeting')){
-        if (["settings"].includes(searchParams.get('o'))) {
-          removeOverlay();
-        }
-      }
-      if(location.pathname === '/'){
-        if (["reset"].includes(searchParams.get('o'))) {
-          removeOverlay();
-        }
+      } else if (!location.pathname.substring(1).startsWith('meeting') && ["#settings"].includes(hash)) {
+        removeOverlay();
+      } else if (location.pathname.substring(1) === '' && ["#reset"].includes(hash)) {
+        removeOverlay();
       }
     }
-    
-  }, [location, searchParams]);
+  }, [location]);
 
   function removeOverlay() {
-    navigate({ search: "" });
+    navigate({ hash: "" });
     onCloseOverlay();
   }
 
-  const showOverlay = (searchParams.get('o') !== null);
+  const showOverlay = (location.hash !== "");
 
   const renderOverlayContent = () => {
-    switch (searchParams.get('o')) {
-      case "about":
+    switch (location.hash) {
+      case "#about":
         return <About />;
-      case "contact":
+      case "#contact":
         return <Contact />;
-      case "settings":
+      case "#settings":
         return (
           <SelectTopic
             currentTopic={topic}
@@ -56,7 +48,7 @@ function MainOverlays({ topic, onReset, onCloseOverlay }) {
             onCancel={removeOverlay}
           />
         );
-      case "reset":
+      case "#reset":
         return <ResetWarning
           onReset={() => onReset()}
           onCancel={removeOverlay}

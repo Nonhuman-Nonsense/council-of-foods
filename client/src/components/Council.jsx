@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router";
 import io from "socket.io-client";
 import FoodItem from "./FoodItem";
 import Overlay from "./Overlay";
@@ -30,8 +30,6 @@ function Council({
   //Routing
   const navigate = useNavigate();
   const location = useLocation();
-  // eslint-disable-next-line
-  const [searchParams, setSearchParams] = useSearchParams();
 
   //Main State variables
   const [activeOverlay, setActiveOverlay] = useState("");
@@ -391,7 +389,7 @@ function Council({
   useEffect(() => {
     if (activeOverlay !== "" && activeOverlay !== "summary" && !isPaused) {
       setPaused(true);
-    } else if (searchParams.get('o') !== null && !isPaused) {
+    }else if(location.hash && !isPaused){
       setPaused(true);
     } else if (connectionError || !isDocumentVisible) {
       setPaused(true);

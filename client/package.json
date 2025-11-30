@@ -14,7 +14,7 @@
     "react-dom": "^19.2.0",
     "react-lottie-player": "^2.1.0",
     "react-responsive": "^10.0.1",
-    "react-router-dom": "^7.9.3",
+    "react-router": "^7.9.4",
     "react-textarea-autosize": "^8.5.9",
     "socket.io-client": "^4.8.1",
     "vite": "^7.1.10"
