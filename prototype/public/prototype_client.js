@@ -694,7 +694,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   //range sliders for model options
-  Array.from(document.querySelectorAll("input[type=range]")).map((range) => {
+  Array.from(document.querySelectorAll(".explain")).map((range) => {
     range.nextSibling.value = range.value;
     range.oninput = () => (range.nextSibling.value = range.value);
     range.nextSibling.oninput = () => (range.value = range.nextSibling.value);

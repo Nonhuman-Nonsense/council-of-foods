@@ -10,7 +10,6 @@ import SelectTopic from "./settings/SelectTopic";
 
 function MainOverlays({ topics, topic, onReset, onCloseOverlay }) {
 
-  // eslint-disable-next-line
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -26,7 +25,6 @@ function MainOverlays({ topics, topic, onReset, onCloseOverlay }) {
         removeOverlay();
       }
     }
-
   }, [location]);
 
   function removeOverlay() {

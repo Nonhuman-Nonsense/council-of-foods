@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useNavigate, useLocation, useParams } from "react-router";
+import { useNavigate, useLocation } from "react-router";
 import io from "socket.io-client";
 import Overlay from "./Overlay";
 import CouncilOverlays from "./CouncilOverlays";
@@ -36,7 +36,6 @@ function Council({
   const navigate = useNavigate();
   const location = useLocation();
   const { lang } = useParams();
-  // eslint-disable-next-line
 
   //Main State variables
   const [activeOverlay, setActiveOverlay] = useState("");
