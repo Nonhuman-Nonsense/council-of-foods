@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { useLocation, useNavigate, createSearchParams, useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router";
 import { useMediaQuery } from 'react-responsive'
 
 import { capitalizeFirstLetter, useMobile, useMobileXs, usePortrait } from "../utils";
@@ -13,22 +13,16 @@ function Navbar({ topic, onDisplayOverlay, hamburgerOpen, setHamburgerOpen }) {
   const showIconinMeny = useMediaQuery({ query: '(min-width: 700px)' });
   const hamburgerAnimation = useRef(null);
   const [activeMenuItem, setActiveMenuItem] = useState('');
-  // eslint-disable-next-line
-  const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
   const navigate = useNavigate();
 
-  useEffect(() => {    
-    if(searchParams.get('o') === 'about'){
-      setActiveMenuItem('about');
-    }else if(searchParams.get('o') === 'contact'){
-      setActiveMenuItem('contact');
-    }else if(searchParams.get('o') === 'settings'){
-      setActiveMenuItem('settings');
-    }else{
+  useEffect(() => {
+    if (['#about', '#contact', '#settings'].includes(location.hash)) {
+      setActiveMenuItem(location.hash);
+    } else {
       setActiveMenuItem('');
     }
-  },[searchParams]);
+  }, [location]);
 
   useEffect(() => {
     if (!hamburgerOpen) {
@@ -38,15 +32,14 @@ function Navbar({ topic, onDisplayOverlay, hamburgerOpen, setHamburgerOpen }) {
       hamburgerAnimation.current?.setDirection(1);
       hamburgerAnimation.current?.play();
     }
-  },[hamburgerOpen]);
+  }, [hamburgerOpen]);
 
-  function handleOnNavigate(adress) {
+  function handleOnNavigate(to) {
     navigate({
-      search: createSearchParams({
-        o: adress
-      }).toString()
+      hash: to
     });
-    if(isMobile){
+
+    if (isMobile) {
       //If something is clicked in the menu on mobile, close the hamburger to give more space for content
       setHamburgerOpen(false);
     }
@@ -176,7 +169,7 @@ function NavItem({ name, isActive, show, onDisplayOverlay, onNavigate }) {
     <h3
       style={{ margin: "0", padding: "0" }}
       onClick={() => {
-        if(show){
+        if (show) {
           onNavigate(name);
         }
       }}

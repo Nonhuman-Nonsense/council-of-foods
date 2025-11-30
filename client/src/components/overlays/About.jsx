@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { useMobile, usePortrait } from "../../utils";
 
 function About() {
@@ -22,7 +22,7 @@ function About() {
         <p>
         In the Council of Foods, AI language models are prompted to speak as a diversity of foods, embodying distinct values and ethical positions shaped in collaboration with food system experts. Each discussion is unique and not limited to the food system alone—broader societal issues emerge through the voices of industrially farmed, genetically modified, and wild-foraged foods. You, dear human, are invited to engage, challenge assumptions, and influence the conversation, which culminates in a policy recommendation document.
         </p>
-        <p>a project by<br/><Link to={{search: "o=contact"}}>Nonhuman Nonsense</Link></p>
+        <p>a project by<br/><Link to={{hash: "contact"}}>Nonhuman Nonsense</Link></p>
       </div>
   );
 }
