@@ -115,7 +115,7 @@ function Main() {
 
 
   useEffect(() => {
-    if (chosenTopic.title === "" && (location.pathname.length > 4 && location.pathname.substring(4) !== "" && location.pathname.substring(4) !== "topics")) {
+    if (chosenTopic.id === undefined && (location.pathname.length > 4 && location.pathname.substring(4) !== "" && location.pathname.substring(4) !== "topics")) {
       //Preserve the hash, but navigate to start
       navigate({ pathname: `/${lang}/`, hash: location.hash });
     }
