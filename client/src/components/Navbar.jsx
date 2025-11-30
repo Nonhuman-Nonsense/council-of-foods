@@ -13,7 +13,6 @@ function Navbar({ topic, hamburgerOpen, setHamburgerOpen }) {
   const showIconinMeny = useMediaQuery({ query: '(min-width: 700px)' });
   const hamburgerAnimation = useRef(null);
   const [activeMenuItem, setActiveMenuItem] = useState('');
-  // eslint-disable-next-line
   const location = useLocation();
   const navigate = useNavigate();
   const { t, i18n } = useTranslation();
