@@ -146,6 +146,7 @@ function TextOutput({
     left: "50%",
     transform: "translateX(-50%)",
     zIndex: "3",
+    pointerEvents: 'auto'
   };
 
   return (
