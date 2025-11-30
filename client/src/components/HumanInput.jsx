@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import ConversationControlIcon from "./ConversationControlIcon";
 import TextareaAutosize from 'react-textarea-autosize';
 import { useMobile, dvh, mapFoodIndex } from "../utils";
+import { useTranslation } from "react-i18next";
 import { LiveAudioVisualizer } from 'react-audio-visualize';
 import Lottie from 'react-lottie-player';
 import loading from '../animations/loading.json';
@@ -25,6 +26,7 @@ function HumanInput({ foods, isPanelist, currentSpeakerName, onSubmitHumanMessag
   const mic = useRef(null);
 
   const [rerender, forceRerender] = useState(false);
+  const { t } = useTranslation();
 
   const maxInputLength = isPanelist ? 1300 : 700;
 
@@ -320,7 +322,7 @@ function HumanInput({ foods, isPanelist, currentSpeakerName, onSubmitHumanMessag
           maxRows="6"
           cacheMeasurements={rerender}
           maxLength={maxInputLength}
-          placeholder={isPanelist ? `What does ${currentSpeakerName} have to say about this?` : "Type your question or start recording..."}
+          placeholder={isPanelist ? t('human.panelist', {name: currentSpeakerName}) : t("human.1")}
         />
       </div>
       <div style={{ display: "flex", flexDirection: "row", pointerEvents: "auto", justifyContent: "center" }}>
@@ -369,7 +371,7 @@ function HumanInput({ foods, isPanelist, currentSpeakerName, onSubmitHumanMessag
           }
         </div>
       </div>
-    </div >
+    </div>
   </>
   );
 }

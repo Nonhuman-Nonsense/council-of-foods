@@ -8,7 +8,7 @@ import Contact from "./overlays/Contact.jsx";
 import ResetWarning from "./overlays/ResetWarning";
 import SelectTopic from "./settings/SelectTopic";
 
-function MainOverlays({ topic, onReset, onCloseOverlay }) {
+function MainOverlays({ topics, topic, onReset, onCloseOverlay }) {
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -43,6 +43,7 @@ function MainOverlays({ topic, onReset, onCloseOverlay }) {
       case "#settings":
         return (
           <SelectTopic
+            topics={topics}
             currentTopic={topic}
             onReset={onReset}
             onCancel={removeOverlay}

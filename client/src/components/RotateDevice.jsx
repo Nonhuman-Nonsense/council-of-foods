@@ -1,7 +1,10 @@
 import Lottie from 'react-lottie-player';
 import rotate from '../animations/rotate.json';
+import { useTranslation } from 'react-i18next';
 
-function RotateDevice(){
+function RotateDevice() {
+
+  const { t } = useTranslation();
 
   const wrapper = {
     display: "flex",
@@ -10,13 +13,13 @@ function RotateDevice(){
   };
 
   const styles = {
-      width: "150px",
+    width: "150px",
   };
 
   return (
     <div style={wrapper}>
       <Lottie play loop animationData={rotate} style={styles} />
-      <h3>rotate your device</h3>
+      <h3>{t('rotate')}</h3>
     </div>);
 }
 

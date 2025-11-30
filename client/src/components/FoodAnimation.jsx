@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { filename } from "../utils";
 
-function FoodAnimation({ food, styles, currentSpeakerName, isPaused }) {
+function FoodAnimation({ food, styles, currentSpeakerId, isPaused }) {
 
   const video = useRef(null);
   const [vidLoaded, setVidLoaded] = useState(false);
@@ -25,21 +24,21 @@ function FoodAnimation({ food, styles, currentSpeakerName, isPaused }) {
 
   useEffect(() => {
     if (vidLoaded) {
-      if (!isPaused && currentSpeakerName === food.name) {
+      if (!isPaused && currentSpeakerId === food.id) {
         video.current.play().catch(e => console.log(e));//log for now but prob safe to fail silently
       } else {
         video.current.pause();
       }
     }
-  }, [currentSpeakerName, isPaused, vidLoaded, food.name]);
+  }, [currentSpeakerId, isPaused, vidLoaded, food.id]);
 
   return (
     <video ref={video} style={{ ...styles, objectFit: "cover" }} loop muted playsInline>
       <source
-        src={`/foods/videos/${filename(food.name)}-hevc-safari.mp4`}
+        src={`/foods/videos/${food.id}-hevc-safari.mp4`}
         type={'video/mp4; codecs="hvc1"'} />
       <source
-        src={`/foods/videos/${filename(food.name)}-vp9-chrome.webm`}
+        src={`/foods/videos/${food.id}-vp9-chrome.webm`}
         type={"video/webm"} />
     </video>
   );

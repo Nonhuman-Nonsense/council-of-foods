@@ -1,76 +1,45 @@
 import { useState, useRef, useEffect } from "react";
 import ResetWarning from "../overlays/ResetWarning";
-import topicData from "../../prompts/topics_en.json";
 import { capitalizeFirstLetter, toTitleCase, useMobile, useMobileXs } from "../../utils";
-
-//Freeze original topicData to make it immutable
-Object.freeze(topicData);
-for (let i = 0; i < topicData.topics.length; i++) {
-  Object.freeze(topicData.topics[i]);
-}
+import { useTranslation } from "react-i18next";
 
 function SelectTopic({
+  topics,
   onContinueForward,
   currentTopic,
   onReset,
   onCancel
 }) {
-
-  const [selectedTopic, setSelectedTopic] = useState({
-    title: "",
-    description: "",
-    prompt: "",
-  });
-  const [hoverTopic, setHoverTopic] = useState({});
+  const [selectedTopic, setSelectedTopic] = useState("");
+  const [hoverTopic, setHoverTopic] = useState("");
   const [customTopic, setCustomTopic] = useState("");
   const [displayWarning, setDisplayWarning] = useState(false);
+
   const topicTextareaRef = useRef(null);
   const isMobile = useMobile();
   const isMobileXs = useMobileXs();
 
-  const topics = [
-    ...topicData.topics,
-    { title: "custom topic", prompt: "", description: "" },
-  ];
+  const { t } = useTranslation();
 
   // useEffect hook to listen for changes in currentTopic
+  // If changing the topic in an ongoing meeting
   useEffect(() => {
     if (currentTopic?.prompt) {
-      let reSelectTopic = topics.find((topic) => topic.title === currentTopic.title);
-      if(currentTopic?.title === 'custom topic'){
+      let reSelectTopic = topics.find((t) => t.id === currentTopic.id);
+      if (currentTopic?.id === 'customtopic') {
         setCustomTopic(currentTopic.description);
-        reSelectTopic.prompt = currentTopic.description;
-        reSelectTopic.description = currentTopic.description;
       }
-      selectTopic(reSelectTopic);
-      
+      setSelectedTopic(reSelectTopic.id);
     }
   }, [currentTopic]); // Dependency array includes only currentTopic
 
-  // Function to set selectedTopic and focus on textarea if needed
-  function selectTopic(topic) {
-    // Check if the topic is in the predefined list or not
-    const topicExists = topics.some(
-      (t) => t.title.toLowerCase() === topic.title.toLowerCase()
-    );
-
-    if (topicExists) {
-      setSelectedTopic(topic);
+  // Function to proceed with the selected or custom topic
+  function proceedForward() {
+    if (currentTopic) {
+      // Current topic exists which means we are changing settings
+      setDisplayWarning(true);
     } else {
-      // If the topic is not in the list, consider it a custom topic
-      setCustomTopic(topic.title.substring(0, 150)); // Set the unrecognized topic as the custom topic
-      setSelectedTopic({
-        title: "custom topic",
-        prompt: "",
-        description: "",
-      }); // Automatically select "custom topic"
-    }
-
-    // Focus on the textarea if "custom topic" is selected
-    if (!topicExists || topic.title.toLowerCase() === "custom topic") {
-      setTimeout(() => {
-        topicTextareaRef.current && topicTextareaRef.current.focus();
-      }, 0);
+      onContinueForward({ topic: selectedTopic, custom: customTopic });
     }
   }
 
@@ -81,39 +50,11 @@ function SelectTopic({
     setCustomTopic(capitalizedTopic);
   }
 
-  // Function to proceed with the selected or custom topic
-  function proceedForward() {
-    if (currentTopic) {
-      // Current topic exists which means we are changing settings
-      setDisplayWarning(true);
-    } else {
-      let continueWithTopic = buildTopicPrompt();
-      onContinueForward({ topic: continueWithTopic });
-    }
-  }
-
-  function buildTopicPrompt() {
-    //We need to make a structuredClone here, otherwise we just end up with a string of pointers that ends up mutating the original topicData.
-    let continueWithTopic = structuredClone(selectedTopic);
-    if (continueWithTopic.title.toLowerCase() === "custom topic") {
-      continueWithTopic.prompt = customTopic;
-      continueWithTopic.description = customTopic;
-    }
-
-    continueWithTopic.prompt = topicData.system.replace(
-      "[TOPIC]",
-      continueWithTopic.prompt
-    );
-
-    return continueWithTopic;
-  }
-
   // Conditional rendering for showing the Next button
   const shouldShowNextButton =
     selectedTopic &&
-    selectedTopic.title &&
     !(
-      selectedTopic.title.toLowerCase() === "custom topic" &&
+      selectedTopic === "customtopic" &&
       !customTopic.trim()
     );
 
@@ -150,13 +91,15 @@ function SelectTopic({
   };
 
   function showTextBox() {
-    return selectedTopic.title === "custom topic"
-      ? hoverTopic?.title && hoverTopic?.title !== "custom topic"
-        ? false
-        : true
-      : hoverTopic?.title === "custom topic"
-        ? true
-        : false;
+    if (selectedTopic === 'customtopic' && hoverTopic !== null && hoverTopic !== 'customtopic') {
+      return false;
+    } else if (selectedTopic === 'customtopic') {
+      return true;
+    } else if (hoverTopic === "customtopic") {
+      return true;
+    } else {
+      return false;
+    }
   }
 
   const selectButtonStyle = {
@@ -164,19 +107,29 @@ function SelectTopic({
     padding: isMobile ? "3px 0" : "6px 0",
   };
 
+  function toolTip() {
+    if (hoverTopic) {
+      return topics.find(t => t.id === hoverTopic)?.description;
+    } else if (selectedTopic) {
+      return topics.find(t => t.id === selectedTopic)?.description;
+    } else {
+      return t("selectissue")
+    }
+  }
+
   return (
     <>
       {displayWarning ? (
         <ResetWarning
           message="changing topic"
           onReset={() =>
-            onReset({ topic: buildTopicPrompt() })
+            onReset({ topic: selectedTopic, custom: customTopic })
           }
           onCancel={onCancel}
         />
       ) : (
         <div style={container}>
-          <h1 style={{ marginBottom: isMobile && (isMobileXs ? "0px" : "5px") }}>THE ISSUE</h1>
+          <h1 style={{ marginBottom: isMobile && (isMobileXs ? "0px" : "5px") }}>{t('theissue')}</h1>
           <div
             style={{
               display: "flex",
@@ -195,11 +148,9 @@ function SelectTopic({
                 }).map((topic, index) => (
                   <button
                     key={index}
-                    className={
-                      selectedTopic.title === topic.title ? "selected " : ""
-                    }
-                    onClick={() => selectTopic(topic)}
-                    onMouseEnter={() => setHoverTopic(topic)}
+                    className={selectedTopic === topic.id ? "selected " : ""}
+                    onClick={() => setSelectedTopic(topic.id)}
+                    onMouseEnter={() => setHoverTopic(topic.id)}
                     onMouseLeave={() => setHoverTopic(null)}
                     style={selectButtonStyle}
                   >
@@ -215,11 +166,9 @@ function SelectTopic({
                 }).map((topic, index) => (
                   <button
                     key={index}
-                    className={
-                      selectedTopic.title === topic.title ? "selected " : ""
-                    }
-                    onClick={() => selectTopic(topic)}
-                    onMouseEnter={() => setHoverTopic(topic)}
+                    className={selectedTopic === topic.id ? "selected " : ""}
+                    onClick={() => setSelectedTopic(topic.id)}
+                    onMouseEnter={() => setHoverTopic(topic.id)}
                     onMouseLeave={() => setHoverTopic(null)}
                     style={selectButtonStyle}
                   >
@@ -231,11 +180,15 @@ function SelectTopic({
             {topics.slice(-1).map((topic, index) => (
               <button
                 key={index}
-                className={
-                  selectedTopic.title === topic.title ? "selected " : ""
-                }
-                onClick={() => selectTopic(topic)}
-                onMouseEnter={() => setHoverTopic(topic)}
+                className={selectedTopic === topic.id ? "selected " : ""}
+                onClick={() => {
+                  setSelectedTopic("customtopic");
+                  //Todo, not sure why this is on timeout?
+                  setTimeout(() => {
+                    topicTextareaRef.current && topicTextareaRef.current.focus();
+                  }, 0);
+                }}
+                onMouseEnter={() => setHoverTopic("customtopic")}
                 onMouseLeave={() => setHoverTopic(null)}
                 style={{ ...selectButtonStyle, width: "50%" }}
               >
@@ -249,12 +202,7 @@ function SelectTopic({
                 height: showTextBox() ? "0" : isMobile ? (isMobileXs ? "45px" : "60px") : "80px",
                 overflow: "hidden"
               }}
-            >
-              {hoverTopic?.title
-                ? hoverTopic.description
-                : selectedTopic
-                  ? selectedTopic.description
-                  : "please select an issue for the discussion"}
+            >{toolTip()}
             </p>
           </div>
           <textarea
@@ -262,7 +210,7 @@ function SelectTopic({
             className="unfocused"
             rows="3"
             value={customTopic}
-            placeholder="Write a topic here..."
+            placeholder={t('writetopic')}
             onChange={handleInputTopic}
             style={textBoxStyle}
           />
@@ -272,9 +220,7 @@ function SelectTopic({
               marginBottom: "10px",
               visibility: shouldShowNextButton ? "" : "hidden",
             }}
-          >
-            Next
-          </button>
+          >{t('next')}</button>
         </div>
       )}
     </>

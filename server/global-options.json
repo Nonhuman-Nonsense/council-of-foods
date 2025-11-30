@@ -8,17 +8,22 @@
   "audio_speed": 1.15,
   "trimSentance": false,
   "trimParagraph": true,
-  "chairName": "Water",
+  "chairId": "water",
   "trimChairSemicolon": true,
   "show_trimmed": true,
   "skipAudio": false,
   "conversationMaxLength": 10,
-  "raiseHandPrompt": "We have a question or comment from the audience, please invite a human speaker called [NAME] to the debate. After listening to the human, answer and engage deeper with their thoughts.",
+  "raiseHandPrompt": {
+    "en": "We have a question or comment from the audience, please invite a human speaker called [NAME] to the debate. After listening to the human, answer and engage deeper with their thoughts."
+  },
   "raiseHandInvitationLength": 150,
-  "finalizeMeetingPrompt": "Please summarise the meeting, held on [DATE], making a document that could work as a meeting protocol and a policy recommendation, that could be sent to a official political department like the European Commission.",
+  "finalizeMeetingPrompt": {
+    "en": "Please summarise the meeting, held on [DATE], making a document that could work as a meeting protocol and a policy recommendation, that could be sent to a official political department like the European Commission."
+  },
   "finalizeMeetingLength": 800,
   "extraMessageCount": 5,
   "transcribeModel": "gpt-4o-transcribe",
-  "transcribePrompt": "Expect english input.",
-  "transcribeLanguage": "en"
+  "transcribePrompt": {
+    "en": "Expect english input."
+  }
 }
