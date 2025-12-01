@@ -1,12 +1,12 @@
 import { useState, useRef, useEffect } from "react";
-import { useLocation, useNavigate } from "react-router";
+import { useLocation, Link, useParams, useNavigate } from "react-router";
 import { useMediaQuery } from 'react-responsive'
-
+import { useTranslation } from 'react-i18next';
 import { capitalizeFirstLetter, useMobile, useMobileXs, usePortrait } from "../utils";
 import Lottie from "react-lottie-player";
 import hamburger from "../animations/hamburger.json";
 
-function Navbar({ topic, onDisplayOverlay, hamburgerOpen, setHamburgerOpen }) {
+function Navbar({ topic, hamburgerOpen, setHamburgerOpen }) {
   const isMobile = useMobile();
   const isMobileXs = useMobileXs();
   const isPortrait = usePortrait();
@@ -15,6 +15,12 @@ function Navbar({ topic, onDisplayOverlay, hamburgerOpen, setHamburgerOpen }) {
   const [activeMenuItem, setActiveMenuItem] = useState('');
   const location = useLocation();
   const navigate = useNavigate();
+  // const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
+
+  // let { lang } = useParams();
+  const lang = 'en';
+
 
   useEffect(() => {
     if (['#about', '#contact', '#settings'].includes(location.hash)) {
@@ -107,10 +113,8 @@ function Navbar({ topic, onDisplayOverlay, hamburgerOpen, setHamburgerOpen }) {
                 cursor: "pointer",
                 visibility: showIconinMeny ? "visible" : "hidden",
               }}
-              onClick={() => handleOnNavigate("reset")}
-            >
-              COUNCIL OF FOODS
-            </h3>
+              onClick={() => handleOnNavigate( "reset" )}
+            >{t('council').toUpperCase()}</h3>
             <h4 style={{ marginTop: "5px", visibility: showIconinMeny ? "visible" : "hidden" }}>{capitalizeFirstLetter(topic)}</h4>
           </div>
         </>}
@@ -123,9 +127,8 @@ function Navbar({ topic, onDisplayOverlay, hamburgerOpen, setHamburgerOpen }) {
             <NavItem
               key={item}
               name={item}
-              onDisplayOverlay={onDisplayOverlay}
-              show={(!isMobile || hamburgerOpen) && (item !== 'settings' || location.pathname.startsWith('/meeting'))}
-              isActive={activeMenuItem === item} // Determine active state
+              show={(!isMobile || hamburgerOpen) && (item !== 'settings' || location.pathname.substring(1).startsWith('meeting'))}
+              isActive={activeMenuItem === `#${item}`} // Determine active state
               onNavigate={handleOnNavigate}
             />
           ))}
@@ -152,7 +155,9 @@ function Navbar({ topic, onDisplayOverlay, hamburgerOpen, setHamburgerOpen }) {
   );
 }
 
-function NavItem({ name, isActive, show, onDisplayOverlay, onNavigate }) {
+function NavItem({ name, isActive, show, onNavigate }) {
+  const { t } = useTranslation();
+
   const navItemStyle = {
     marginLeft: "19px",
     cursor: "pointer",
@@ -174,7 +179,7 @@ function NavItem({ name, isActive, show, onDisplayOverlay, onNavigate }) {
         }
       }}
     >
-      <span style={navItemStyle}>{name.toUpperCase()}</span>
+      <span style={navItemStyle}>{t(name).toUpperCase()}</span>
     </h3>
   );
 }

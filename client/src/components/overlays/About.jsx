@@ -1,10 +1,12 @@
 import { Link } from "react-router";
 import { useMobile, usePortrait } from "../../utils";
+import { useTranslation } from 'react-i18next';
 
 function About() {
 
   const isMobile = useMobile();
   const isPortait = usePortrait();
+  const { t } = useTranslation();
 
   const wrapper = {
     width: isPortait ? "80vw" : "",
@@ -12,18 +14,12 @@ function About() {
   };
 
   return (
-      <div style={wrapper}>
-        <p>
-        What would a biologically grown potato think about pesticides? How would a mass-produced banana respond? And what would you add to the discussion? Can AI identify as a rare mushroom? Could it help give a voice to the "voiceless" in decision-making?
-        </p>
-        <p>
-        Welcome to the Council of Foods! A political arena where the foods themselves discuss the broken food system - through artificial intelligence.
-        </p>
-        <p>
-        In the Council of Foods, AI language models are prompted to speak as a diversity of foods, embodying distinct values and ethical positions shaped in collaboration with food system experts. Each discussion is unique and not limited to the food system alone—broader societal issues emerge through the voices of industrially farmed, genetically modified, and wild-foraged foods. You, dear human, are invited to engage, challenge assumptions, and influence the conversation, which culminates in a policy recommendation document.
-        </p>
-        <p>a project by<br/><Link to={{hash: "contact"}}>Nonhuman Nonsense</Link></p>
-      </div>
+    <div style={wrapper}>
+      <p>{t('aboutText.1')}</p>
+      <p>{t('aboutText.2')}</p>
+      <p>{t('aboutText.3')}</p>
+      <p>{t('aboutText.5')}<br /><Link to={{ hash: "contact" }}>Nonhuman Nonsense</Link></p>
+    </div>
   );
 }
 

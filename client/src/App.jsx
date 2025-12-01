@@ -1,4 +1,4 @@
-import React from "react";
+import './i18n';
 import { BrowserRouter } from "react-router";
 import Main from "./components/Main";
 

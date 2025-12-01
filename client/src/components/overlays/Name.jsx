@@ -1,7 +1,10 @@
 import { useState, useRef, useEffect } from "react";
 import { capitalizeFirstLetter, useMobile } from "../../utils";
+import { useTranslation } from "react-i18next";
 
 function Name({ participants, onContinueForward }) {
+
+  const { t } = useTranslation();
 
   const wrapper = {
     maxWidth: "500px",
@@ -11,10 +14,10 @@ function Name({ participants, onContinueForward }) {
 
   return (
     <div style={wrapper}>
-      <h1>SAY SOMETHING</h1>
+      <h1>{t('name.title')}</h1>
       <div>
-        <p>Do you want to adress the Council of Foods?</p>
-        <p>Please enter your name to raise a request to speak,<br /> and then wait until you are given the floor by Water, the moderator.</p>
+        <p>{t('name.1')}</p>
+        <p>{t('name.2')}<br />{t('name.21')}</p>
       </div>
       <HumanNameInput participants={participants} onContinueForward={onContinueForward} />
     </div>
@@ -28,6 +31,7 @@ function HumanNameInput({ participants, onContinueForward }) {
   const inputRef = useRef(null);
   const isMobile = useMobile();
 
+  const { t } = useTranslation();
 
   const imageUrl = `/icons/send_message_filled.svg`;
 
@@ -110,7 +114,7 @@ function HumanNameInput({ participants, onContinueForward }) {
 
   return (
     <div>
-      <h3>please type your name:</h3>
+      <h3>{t('name.3')}:</h3>
       <div style={inputIconWrapper}>
         {/* Adding an empty form, so that mobile keyboards will show the "go" button */}
         <form action="">
@@ -119,7 +123,7 @@ function HumanNameInput({ participants, onContinueForward }) {
             style={inputStyle}
             type="text"
             value={humanName}
-            placeholder="your name"
+            placeholder={t('name.5')}
             onChange={handleChange}
             onKeyDown={handleKeyDown}
           />
@@ -133,7 +137,7 @@ function HumanNameInput({ participants, onContinueForward }) {
         />
       </div>
       <h3 style={{ visibility: (isHumanNameMissing || duplicateName) ? "" : "hidden" }}>
-        {duplicateName ? "name must be unique in the council" : "enter your name to proceed"}
+        {duplicateName ? t('name.unique') : t('name.4')}
       </h3>
     </div>
   );

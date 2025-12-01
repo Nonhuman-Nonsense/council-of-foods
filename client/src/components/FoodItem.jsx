@@ -3,33 +3,33 @@ import { dvh } from "../utils";
 
 const videoBaseSize = 800;
 const videoWithShadowSize = {
-  "Avocado": 1080,
-  "Banana": 1080,
-  "Beer": 1080,
-  "Bean": 1080,
-  "Lollipop": 1080,
-  "Maize": 1080,
-  "Meat": 1080,
-  "Mushroom": 1080,
-  "Potato": 1080,
-  "Tomato": 1080,
-  "Water": 1080,
-  "Kale": 1000,
-  "Honey": 800
+  "avocado": 1080,
+  "banana": 1080,
+  "beer": 1080,
+  "bean": 1080,
+  "lollipop": 1080,
+  "maize": 1080,
+  "meat": 1080,
+  "mushroom": 1080,
+  "potato": 1080,
+  "tomato": 1080,
+  "water": 1080,
+  "kale": 1000,
+  "honey": 800
 };
 
-function FoodItem({ food, index, total, currentSpeakerName, isPaused, zoomIn }) {
+function FoodItem({ food, index, total, currentSpeakerId, isPaused, zoomIn }) {
 
   //Adjust these to adjust overall sizes
   const overviewSize = 12;
   const zoomInSize = 55;
 
-  let videoSize = videoWithShadowSize[food.name];
+  let videoSize = videoWithShadowSize[food.id];
 
   // Adjusted function to set width and height based on window width
   const getResponsiveFoodImageStyle = () => {
-    const size = (zoomIn && currentSpeakerName === food.name ? zoomInSize * ((food.size - 1) / 2 + 1) : overviewSize * food.size); // 12% of the window's width
-    const sizeUnit = zoomIn && currentSpeakerName === food.name ? dvh : "vw";
+    const size = (zoomIn && currentSpeakerId === food.id ? zoomInSize * ((food.size - 1) / 2 + 1) : overviewSize * food.size); // 12% of the window's width
+    const sizeUnit = zoomIn && currentSpeakerId === food.id ? dvh : "vw";
     return {
       width: `${size * videoSize / videoBaseSize + sizeUnit}`,
       height: `${size + sizeUnit}`,
@@ -49,13 +49,13 @@ function FoodItem({ food, index, total, currentSpeakerName, isPaused, zoomIn }) 
   };
 
   const foodItemStyle = (index, total) => {
-    if (zoomIn && currentSpeakerName === food.name) {
+    if (zoomIn && currentSpeakerId === food.id) {
       let baseHeight = -19;
       // Manual vertical adjustments for zoomed in view
-      if (food.name === 'Lollipop') baseHeight = -22;
-      if (food.name === 'Banana') baseHeight = -20;
-      if (food.name === 'Honey') baseHeight = -18;
-      if (food.name === 'Beer') baseHeight = -18;
+      if (food.id === 'lollipop') baseHeight = -22;
+      if (food.id === 'banana') baseHeight = -20;
+      if (food.id === 'honey') baseHeight = -18;
+      if (food.id === 'beer') baseHeight = -18;
       return { ...singleFoodStyle, top: baseHeight + dvh };
     } else {
       return overViewFoodItemStyle(index, total);
@@ -92,9 +92,9 @@ function FoodItem({ food, index, total, currentSpeakerName, isPaused, zoomIn }) 
     }
 
     // Manual vertical adjustments for overview
-    if (food.name === 'Lollipop') top *= 1.05;
-    if (food.name === 'Beer') top *= 0.97;
-    if (food.name === 'Honey') top *= 0.95;
+    if (food.id === 'lollipop') top *= 1.05;
+    if (food.id === 'beer') top *= 0.97;
+    if (food.id === 'honey') top *= 0.95;
 
     return {
       position: "absolute",
@@ -114,7 +114,7 @@ function FoodItem({ food, index, total, currentSpeakerName, isPaused, zoomIn }) 
 
   return (
     <div style={foodItemStyle(index, total)}>
-      <FoodAnimation food={food} styles={responsiveStyle} currentSpeakerName={currentSpeakerName} isPaused={isPaused} />
+      <FoodAnimation food={food} styles={responsiveStyle} currentSpeakerId={currentSpeakerId} isPaused={isPaused} />
     </div>
   );
 }
