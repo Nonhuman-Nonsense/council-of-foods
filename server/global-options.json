@@ -1,6 +1,6 @@
 {
   "gptModel": "gpt-4o",
-  "voiceModel": "tts-1",
+  "voiceModel": "gpt-4o-mini-tts",
   "temperature": 1,
   "maxTokens": 200,
   "chairMaxTokens": 250,

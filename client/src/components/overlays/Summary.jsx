@@ -53,9 +53,6 @@ function Summary({ summary, meetingId }) {
         >
           <hr />
           <div style={{ display: "flex", flexDirection: "row", margin: "20px 0", justifyContent: "space-between" }}>
-            <div>
-              <img style={{ width: isMobile ? '80px' : '110px', paddingRight: "10px" }} src='/logos/council_logo_white.svg' alt="council of foods logo" />
-            </div>
             <div style={{ display: "flex", flexDirection: "column", textAlign: "left", flex: "1", paddingLeft: "15px" }}>
               <h2 style={{ margin: 0 }}>{t('council').toUpperCase()}</h2>
               <h3 style={{ margin: 0 }}>{t('meeting')} #{meetingId}</h3>
@@ -128,8 +125,8 @@ const PDFToPrint = forwardRef((props, ref) => {
           <hr />
           <div style={{ height: "52px", position: 'relative' }}>
             <img style={{ width: '70px' }} src='/logos/council_logo.png' alt="council of forest logo" />
-            <h2 style={{ fontSize: '24px', margin: '0', position: 'absolute', left: "80px", top: '2px' }}>{t('council').toUpperCase()}</h2>
-            <h3 style={{ fontSize: '15px', margin: '0', position: 'absolute', left: "80px", top: "28px" }}>{t('meeting')} #{props.meetingId}</h3>
+            <h2 style={{ fontSize: '24px', margin: '0', position: 'absolute', left: "10px", top: '2px' }}>{t('council').toUpperCase()}</h2>
+            <h3 style={{ fontSize: '15px', margin: '0', position: 'absolute', left: "10px", top: "28px" }}>{t('meeting')} #{props.meetingId}</h3>
             <QRCodeCanvas value={window.location.href} style={{position: 'absolute', right: "10px", top: "2.5px", width: "45px", height: "45px"}} />
           </div>
           <hr />
