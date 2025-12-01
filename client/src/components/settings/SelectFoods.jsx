@@ -14,7 +14,7 @@ const foodData = {
 
 const MAXHUMANS = 3;
 
-//Freeze original topicData to make it immutable
+//Freeze original foodData to make it immutable
 Object.freeze(foodData);
 for (const language in foodData) {
   for (let i = 0; i < foodData[language].foods.length; i++) {

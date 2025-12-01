@@ -19,7 +19,7 @@
   },
   "raiseHandInvitationLength": 150,
   "finalizeMeetingPrompt": {
-    "en": "Please summarise the meeting, held on [DATE], making a document that could work as a meeting protocol and a policy recommendation, that could be sent to a official political department like the European Commission.",
+    "en": "Please summarise the meeting, held on [DATE], making a document that could work as a meeting protocol and a policy recommendation, that could be sent to the Swedish government for consideration.",
     "sv": "Sammanfatta mötet, som hölls på datumet [DATE], och skapa ett dokument som kan användas som mötesprotokoll och rekommendation av lagändringar, som skulle kunna skickas till Sveriges Regering."
   },
   "finalizeMeetingLength": 800,
