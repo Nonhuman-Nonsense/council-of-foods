@@ -684,7 +684,7 @@ io.on("connection", (socket) => {
       // console.log(`[meeting ${meetingId}] generating audio for speaker ${speaker.id}`);
 
       const mp3 = await openai.audio.speech.create({
-        model: "tts-1",
+        model: conversationOptions.options.voiceModel,
         voice: speaker.voice,
         speed: conversationOptions.options.audio_speed,
         input: text.substring(0, 4096),
