@@ -122,6 +122,10 @@ function Main() {
       // Reset from the start
       setChosenTopic({});
       navigate(`/`);
+
+      //Reload the entire window, in case the frontend has been updated etc.
+      //Usefull in exhibition settings where maybe there is no browser access
+      window.location.reload();
     } else {
       // Reset from foods selection
       topicSelected(resetData);
