@@ -24,9 +24,10 @@ function HumanInput({ isPanelist, currentSpeakerName, onSubmitHumanMessage, sock
   const pc = useRef(null);
   const mic = useRef(null);
 
+  const [rerender, forceRerender] = useState(false);
   const { t } = useTranslation();
 
-  const maxInputLength = 700;
+  const maxInputLength = isPanelist ? 1300 : 700;
 
   // Effect to manage speech recognition state
   useEffect(() => {
@@ -128,8 +129,13 @@ function HumanInput({ isPanelist, currentSpeakerName, onSubmitHumanMessage, sock
     } else if (recordingState === 'recording') {
       //Completed order is not guaranteed, so we sort the result
       const sortedTranscript = Object.keys(transcript).sort().map(key => transcript[key]).join(" ") + "...";
-      inputArea.current.value = (previousTranscript ? previousTranscript + " " + sortedTranscript : sortedTranscript);
-      if(inputArea.current.value.length > maxInputLength) setRecordingState('idle');
+      inputArea.current.value = (previousTranscript ? previousTranscript + " " + sortedTranscript : sortedTranscript).trim();
+      
+      // For some reason the textarea doesn't recalculate when the value is changed here
+      // So we just flip a rerender variable and pass it to the component to trigger a react re-render
+      forceRerender(r => !r);
+      
+      if (inputArea.current.value.length > maxInputLength) setRecordingState('idle');
     } else {
       const sortedTranscript = Object.keys(transcript).sort().map(key => transcript[key]).join(" ");
       inputArea.current.value = (previousTranscript ? previousTranscript + " " + sortedTranscript : sortedTranscript);
@@ -216,6 +222,7 @@ function HumanInput({ isPanelist, currentSpeakerName, onSubmitHumanMessage, sock
           className="unfocused"
           minRows="1"
           maxRows="6"
+          cacheMeasurements={rerender}
           maxLength={maxInputLength}
           placeholder={isPanelist ? t('human.panelist', {name: currentSpeakerName}) : t("human.1")}
         />

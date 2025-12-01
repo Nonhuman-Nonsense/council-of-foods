@@ -11,7 +11,7 @@ function SelectTopic({
   onCancel
 }) {
   const [selectedTopic, setSelectedTopic] = useState("");
-  const [hoverTopic, setHoverTopic] = useState("");
+  const [hoverTopic, setHoverTopic] = useState(null);
   const [customTopic, setCustomTopic] = useState("");
   const [displayWarning, setDisplayWarning] = useState(false);
 
