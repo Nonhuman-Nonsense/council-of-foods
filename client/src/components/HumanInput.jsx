@@ -309,7 +309,7 @@ function HumanInput({ foods, isPanelist, currentSpeakerName, onSubmitHumanMessag
       <div style={deselectorStyle} onClick={() => setAskParticular("")}></div>
     </>)}
     <div style={wrapperStyle}>
-      <img alt="Say something!" src="/mic.png" style={micStyle} />
+      <img alt="Say something!" src="/mic.avif" style={micStyle} />
       <div style={{ zIndex: "4", position: "relative", pointerEvents: "auto" }}>
         <TextareaAutosize
           ref={inputArea}

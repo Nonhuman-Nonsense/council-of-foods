@@ -475,10 +475,11 @@ io.on("connection", (socket) => {
           }
         }
         for (let i = 0; i < missingAudio.length; i++) {
+          console.log(`[meeting ${meetingId}] (async) generating missing audio for ${missingAudio[i].speaker}`);
           generateAudio(
             missingAudio[i].id,
             missingAudio[i].text,
-            missingAudio[i].speaker
+            conversationOptions.characters.find(c => c.id == missingAudio[i].speaker)
           );
         }
 
@@ -680,48 +681,58 @@ io.on("connection", (socket) => {
       console.log(e);
     }
 
-    if (generateNew) {
-      // console.log(`[meeting ${meetingId}] generating audio for speaker ${speaker.id}`);
+    try {
+      if (generateNew) {
+        // console.log(`[meeting ${meetingId}] generating audio for speaker ${speaker.id}`);
 
-      const mp3 = await openai.audio.speech.create({
-        model: conversationOptions.options.voiceModel,
-        voice: speaker.voice,
-        speed: conversationOptions.options.audio_speed,
-        input: text.substring(0, 4096),
-        // instructions: speaker.voiceInstruction
-      });
+        const mp3 = await openai.audio.speech.create({
+          model: conversationOptions.options.voiceModel,
+          voice: speaker.voice,
+          speed: conversationOptions.options.audio_speed,
+          input: text.substring(0, 4096),
+          // instructions: speaker.voiceInstruction
+        });
 
-      buffer = Buffer.from(await mp3.arrayBuffer());
-    }
+        buffer = Buffer.from(await mp3.arrayBuffer());
+      }
 
-    const audioObject = {
-      id: id,
-      audio: buffer,
-    };
-
-    // console.log(`[meeting ${meetingId}] audio generated for speaker ${speaker.id}`);
-
-    socket.emit("audio_update", audioObject);
-
-    if (generateNew) {
-      const storedAudio = {
-        _id: audioObject.id,
-        date: new Date().toISOString(),
-        meeting_id: meetingId,
-        // message_index: index,
+      const audioObject = {
+        id: id,
         audio: buffer,
       };
 
-      //Don't store audio on prototype
-      if (environment !== "prototype") {
-        await audioCollection.insertOne(storedAudio);
+      // console.log(`[meeting ${meetingId}] audio generated for speaker ${speaker.id}`);
+
+      socket.emit("audio_update", audioObject);
+
+      if (generateNew) {
+        const storedAudio = {
+          _id: audioObject.id,
+          date: new Date().toISOString(),
+          meeting_id: meetingId,
+          // message_index: index,
+          audio: buffer,
+        };
+
+        //Don't store audio on prototype
+        if (environment !== "prototype") {
+          await audioCollection.insertOne(storedAudio);
+        }
       }
-    }
-    if (environment !== "prototype") {
-      await meetingsCollection.updateOne(
-        { _id: meetingId },
-        { $addToSet: { audio: audioObject.id } }
-      );
+      if (environment !== "prototype") {
+        await meetingsCollection.updateOne(
+          { _id: meetingId },
+          { $addToSet: { audio: audioObject.id } }
+        );
+      }
+    } catch (error) {
+      //Since generateAudio runs async, we need a separate try/catch block here to correctly throw errors
+      console.error("Error generating audio:", error);
+      socket.emit("conversation_error", {
+        message: "An error occurred while resuming the conversation.",
+        code: 500,
+      });
+      reportError(error);
     }
   };
 
@@ -922,14 +933,6 @@ io.on("connection", (socket) => {
 httpServer.listen(3001, () => {
   console.log("[init] Listening on *:3001");
 });
-
-function toTitleCase(string) {
-  return string
-    .toLowerCase()
-    .split(" ")
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
-}
 
 process.on('SIGTERM', () => {
   console.log('[Shutdown] SIGTERM shutdown');
