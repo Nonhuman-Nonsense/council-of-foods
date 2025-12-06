@@ -250,7 +250,7 @@ function SelectFoods({ topicTitle, onContinueForward }) {
               food={food}
               onMouseEnter={() => setCurrentFood(food.id)}
               onMouseLeave={() => setCurrentFood(null)}
-              onSelectFood={food.id === 'river' ? undefined : selectFood}
+              onSelectFood={food.id === 'water' ? undefined : selectFood}
               onDeselectFood={deselectFood}
               isSelected={selectedFoods.includes(food.id)}
               selectLimitReached={selectedFoods.length >= maxFoods}

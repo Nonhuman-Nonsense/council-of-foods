@@ -205,12 +205,7 @@ function SelectTopic({
               </button>
             ))}
             <p
-              style={{
-                margin: "0",
-                width: isMobile ? "80%" : "70%",
-                height: showTextBox() ? "0" : isMobile ? (isMobileXs ? "45px" : "60px") : "80px",
-                overflow: "hidden"
-              }}
+              style={infoTextBoxStyle}
             >{toolTip()}
             </p>
           </div>
