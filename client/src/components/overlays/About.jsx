@@ -15,11 +15,8 @@ function About() {
 
   return (
     <div style={wrapper}>
-      <p>{t('aboutText.1')}</p>
-      <p>{t('aboutText.2')}</p>
-      <p>{t('aboutText.3')}</p>
-      <p>{t('aboutText.4')}</p>
-      <p>{t('aboutText.5')}<br /><Link to={{ hash: "contact" }}>Nonhuman Nonsense</Link></p>
+      <p style={{whiteSpace: 'pre-wrap'}}>{t('aboutText.about')}</p>
+      <p>{t('aboutText.link')}<br /><Link to={{ hash: "contact" }}>Nonhuman Nonsense</Link></p>
     </div>
   );
 }
