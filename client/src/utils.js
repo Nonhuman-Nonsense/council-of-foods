@@ -54,7 +54,7 @@ export function useDocumentVisibility() {
   return isDocumentVisible;
 }
 
-//Put water in the middle always
+//Put chair in the middle always
 export function mapFoodIndex(total, index) {
   return (Math.ceil(total / 2) + index - 1) % total;
 }
