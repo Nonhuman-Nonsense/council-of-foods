@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router";
 import io from "socket.io-client";
 import FoodItem from "./FoodItem";
 import Overlay from "./Overlay";
@@ -30,8 +30,8 @@ function Council({
   //Routing
   const navigate = useNavigate();
   const location = useLocation();
-  // eslint-disable-next-line
-  const [searchParams, setSearchParams] = useSearchParams();
+  // const { lang } = useParams();
+  const lang = 'en';
 
   //Main State variables
   const [activeOverlay, setActiveOverlay] = useState("");
@@ -49,7 +49,7 @@ function Council({
   const [isPaused, setPaused] = useState(false);
 
   //Automatic calculated state variables
-  const [currentSpeakerName, setCurrentSpeakerName] = useState("");
+  const [currentSpeakerId, setCurrentSpeakerId] = useState("");
   const [canGoBack, setCanGoBack] = useState(false);
   const [canGoForward, setCanGoForward] = useState(false);
   const [canRaiseHand, setCanRaiseHand] = useState(false);
@@ -112,6 +112,7 @@ function Council({
     let conversationOptions = {
       topic: topic.prompt,
       characters: participants,
+      language: lang
     };
 
     socketRef.current.io.on("reconnect", () => {
@@ -179,13 +180,6 @@ function Council({
       setAttemptingReconnect(false);
     }
   }, [attemptingReconnect, currentMeetingId]);
-
-  // Routing for overlays
-  useEffect(() => {
-    if (["/about", "/contact", "/share"].includes(location?.pathname)) {
-      setActiveOverlay(location?.pathname.substring(1));
-    }
-  }, [location]);
 
   // Main state
   // This drives the council meeting forward
@@ -297,15 +291,15 @@ function Council({
   // Set current speaker name on every change of playing message
   useEffect(() => {
     if (councilState === 'loading') {
-      setCurrentSpeakerName("");
+      setCurrentSpeakerId("");
     } else if (councilState === 'human_input') {
-      setCurrentSpeakerName(humanName);
+      setCurrentSpeakerId(humanName);
     } else if (councilState === 'human_panelist') {
-      setCurrentSpeakerName(textMessages[playNextIndex].speaker);
+      setCurrentSpeakerId(textMessages[playNextIndex].speaker);
     } else if (textMessages[playingNowIndex]) {
-      setCurrentSpeakerName(textMessages[playingNowIndex].speaker);
+      setCurrentSpeakerId(textMessages[playingNowIndex].speaker);
     } else {
-      setCurrentSpeakerName("");
+      setCurrentSpeakerId("");
     }
   }, [councilState, playingNowIndex]);
 
@@ -391,7 +385,7 @@ function Council({
   useEffect(() => {
     if (activeOverlay !== "" && activeOverlay !== "summary" && !isPaused) {
       setPaused(true);
-    } else if (searchParams.get('o') !== null && !isPaused) {
+    }else if(location.hash && !isPaused){
       setPaused(true);
     } else if (connectionError || !isDocumentVisible) {
       setPaused(true);
@@ -454,7 +448,7 @@ function Council({
   // When a new human message is submitted
   function handleOnSubmitHumanMessage(newTopic, askParticular) {
     if (councilState === 'human_panelist') {
-      socketRef.current.emit("submit_human_panelist", { text: newTopic, speaker: currentSpeakerName });
+      socketRef.current.emit("submit_human_panelist", { text: newTopic, speaker: currentSpeakerId });
 
       //Slice off the waiting for panelist
       setTextMessages((prevMessages) => {
@@ -576,7 +570,7 @@ function Council({
   function currentSpeakerIndex() {
     let currentIndex;
     foods.map((food, index) => {
-      if (currentSpeakerName === food.name) {
+      if (currentSpeakerId === food.id) {
         currentIndex = mapFoodIndex(foods.length, index);
       }
       return false;//map expects return value, but this is irrelevant in our case
@@ -603,20 +597,20 @@ function Council({
       }}>
         {foods.map((food, index) => (
           <FoodItem
-            key={food.name}
+            key={food.id}
             food={food}
             index={mapFoodIndex(foods.length, index)}
             total={foods.length}
             isPaused={isPaused}
             zoomIn={zoomIn}
-            currentSpeakerName={currentSpeakerName}
+            currentSpeakerId={currentSpeakerId}
           />
         ))}
       </div>
       {councilState === 'loading' && <Loading />}
       <>
         {(councilState === 'human_input' || councilState === 'human_panelist') && (
-          <HumanInput socketRef={socketRef} foods={foods} isPanelist={(councilState === 'human_panelist')} currentSpeakerName={currentSpeakerName} onSubmitHumanMessage={handleOnSubmitHumanMessage} />
+          <HumanInput socketRef={socketRef} foods={foods} isPanelist={(councilState === 'human_panelist')} currentSpeakerName={participants.find(p => p.id === currentSpeakerId)?.name} onSubmitHumanMessage={handleOnSubmitHumanMessage} />
         )}
         <Output
           textMessages={textMessages}

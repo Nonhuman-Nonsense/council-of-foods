@@ -1,19 +1,24 @@
 import { useState, useRef, useEffect } from "react";
-import foodData from "../../prompts/foods.json";
 import { toTitleCase, useMobile, useMobileXs, filename } from "../../utils";
+import { useTranslation } from "react-i18next";
+
+//Foods
+import foodDataEN from "../../prompts/foods_en.json";
+// import { replace, useParams } from "react-router";
+
+const foodData = {
+  "en": foodDataEN
+};
 
 const MAXHUMANS = 3;
 
 //Freeze original foodData to make it immutable
 Object.freeze(foodData);
-for (let i = 0; i < foodData.foods.length; i++) {
-  Object.freeze(foodData.foods[i]);
+for (const language in foodData) {
+  for (let i = 0; i < foodData[language].foods.length; i++) {
+    Object.freeze(foodData[language].foods[i]);
+  }
 }
-
-const addHuman = {
-  name: "Add Human",
-  description: "Would you like to add a human speaker to the meeting?\n\nCreate a panel consisting of both humans and foods."
-};
 
 const blankHuman = {
   type: "panelist",
@@ -21,13 +26,9 @@ const blankHuman = {
   description: ""
 };
 
-function SelectFoods({ topic, onContinueForward }) {
-  const isMobile = useMobile();
-  const isMobileXs = useMobileXs();
-
-  //Foods
-  const [foods, setFoods] = useState(foodData.foods);
-  const waterFood = foods[0];
+function SelectFoods({ topicTitle, onContinueForward }) {
+  const [foods, setFoods] = useState(foodData['en'].foods); // Make sure this is defined before using it to find 'water'
+  const [selectedFoods, setSelectedFoods] = useState([foodData['en'].foods[0].id]);
 
   //Humans
   const [human0, setHuman0] = useState(cloneHuman(0));
@@ -39,28 +40,37 @@ function SelectFoods({ topic, onContinueForward }) {
   const setHumans = [setHuman0, setHuman1, setHuman2];
   const [humansReady, setHumansReady] = useState(false);
   const [recheckHumansReady, setRecheckHumansReady] = useState(false);
-
-  // Initialize selectedFoods with the 'water' item if it exists
-  const [selectedFoods, setSelectedFoods] = useState(
-    waterFood ? [waterFood] : []
-  );
   const [currentFood, setCurrentFood] = useState(null);
 
   const minFoods = 2 + 1; // 2 plus water
   const maxFoods = 6 + 1; // 6 plus water
 
+  const isMobile = useMobile();
+  const isMobileXs = useMobileXs();
+  const { t } = useTranslation();
+
+  // let { lang } = useParams();
+  const lang = 'en';
+
+  // //Update foods on language change
+  // useEffect(() => {
+  //   const newFoods = foodData[lang].foods.concat(humans.slice(0,numberOfHumans));
+  //   setFoods(newFoods);
+  // }, [lang]);
+
   function cloneHuman(id) {
     const newHuman = structuredClone(blankHuman);
-    newHuman.id = id;
+    newHuman.id = "panelist" + id;
+    newHuman.index = id;
     return newHuman;
   }
 
   function atLeastTwoFoods() {
-    return (selectedFoods.filter((f) => f.type !== 'panelist').length >= minFoods);
+    return (selectedFoods.filter((id) => !id.startsWith('panelist')).length >= minFoods);
   }
 
   function ensureUniqueNames() {
-    const names = selectedFoods.map(food => food.name);
+    const names = selectedFoods.map(id => foods.find(f => f.id === id).name);
     //Because each value in the Set has to be unique, the value equality will be checked.
     return (new Set(names).size === names.length);
   }
@@ -69,18 +79,22 @@ function SelectFoods({ topic, onContinueForward }) {
     if (atLeastTwoFoods() && selectedFoods.length <= maxFoods) {
       //Modify waters invitation prompt, with the name of the selected participants
 
-      const participatingFoods = selectedFoods.filter((participant) => participant.type !== 'panelist');
-      const participatingHumans = selectedFoods.filter((participant) => participant.type === 'panelist');
+      const participatingFoods = selectedFoods.filter(id => !id.startsWith('panelist'));
+      const participatingHumans = selectedFoods.filter(id => id.startsWith('panelist'));
 
       let participants = "";
-      participatingFoods.forEach(function (food, index) {
-        if (index !== 0) participants += toTitleCase(food.name) + ", ";
-      });
+      for (const [i, id] of participatingFoods.entries()) {
+        if (i !== 0) participants += toTitleCase(foods.find(f => f.id === id).name) + ", ";
+      }
       participants = participants.substring(0, participants.length - 2);
 
       //We need to make a structuredClone here, otherwise we just end up with a string of pointers that ends up mutating the original foodData.
-      let replacedFoods = structuredClone(selectedFoods);
-      replacedFoods[0].prompt = foodData.foods[0].prompt.replace(
+      let replacedFoods = [];
+      for (const id of selectedFoods) {
+        replacedFoods.push(structuredClone(foods.find(f => f.id === id)));
+      }
+
+      replacedFoods[0].prompt = foodData[lang].foods[0].prompt.replace(
         "[FOODS]",
         participants
       );
@@ -89,16 +103,17 @@ function SelectFoods({ topic, onContinueForward }) {
       let humanPresentation = "";
       if (participatingHumans.length > 0) {
         if (participatingHumans.length === 1) {
-          humanPresentation += "1 human: ";
+          humanPresentation += t('selectfoods.human');
         } else {
-          humanPresentation += participatingHumans.length + " humans: ";
+          humanPresentation += participatingHumans.length + t('selectfoods.twohumans');
         }
 
-        participatingHumans.forEach((human) => {
-          humanPresentation += toTitleCase(human.name) + ", " + human.description + ". ";
-        });
+        for (const id of participatingHumans) {
+          humanPresentation += toTitleCase(foods.find(f => f.id === id).name) + ", " + foods.find(f => f.id === id).description + ". ";
+        }
+        humanPresentation = humanPresentation.substring(0, humanPresentation.length - 2);
 
-        const humanPrompt = structuredClone(foodData.panelWithHumans);
+        const humanPrompt = foodData[lang].panelWithHumans;
         humanPresentation = humanPrompt.replace(
           "[HUMANS]",
           humanPresentation
@@ -115,14 +130,6 @@ function SelectFoods({ topic, onContinueForward }) {
     }
   }
 
-  function handleOnMouseEnter(food) {
-    setCurrentFood(food);
-  }
-
-  function handleOnMouseLeave() {
-    setCurrentFood(null);
-  }
-
   function onAddHuman() {
     const id = numberOfHumans;
     setFoods((prevFoods) => [...prevFoods, humans[id]]);
@@ -131,41 +138,42 @@ function SelectFoods({ topic, onContinueForward }) {
   }
 
   function selectFood(food) {
-    if (selectedFoods.length < maxFoods && !selectedFoods.includes(food)) {
-      setSelectedFoods((prevFoods) => [...prevFoods, food]);
-      setLastSelected(food);
+    if (selectedFoods.length < maxFoods && !selectedFoods.includes(food.id)) {
+      setSelectedFoods((prevFoods) => [...prevFoods, food.id]);
+      setLastSelected(food.id);
     }
   }
 
   function deselectFood(food) {
     //Human button is clicked that is already selected, but is not lastSelection, focus on it instead
-    if (food.type === 'panelist' && lastSelected !== food) {
-      setLastSelected(food);
+    if (food.type === 'panelist' && lastSelected !== food.id) {
+      setLastSelected(food.id);
     } else {
       //Normal deselection
-      setSelectedFoods((prevFoods) => prevFoods.filter((f) => f !== food));
+      setSelectedFoods((prevFoods) => prevFoods.filter((f) => f !== food.id));
       setLastSelected(null);
     }
   }
 
   function randomizeSelection() {
     const amount = Math.floor(Math.random() * (maxFoods - minFoods + 1)) + minFoods - 1;
-    const randomfoods = foods.slice(1).sort(() => 0.5 - Math.random()).slice(0, amount);
-    setSelectedFoods([waterFood, ...randomfoods]);
+    const randomfoods = foods.slice(1).filter(food => food.id !== 'addhuman').sort(() => 0.5 - Math.random()).slice(0, amount).map(f => f.id);
+    setSelectedFoods([foods[0].id, ...randomfoods]);
   }
 
   useEffect(() => {
-    const selectedHumans = selectedFoods.filter((food) => food.type === 'panelist');
+    const selectedHumans = selectedFoods.filter(id => id.startsWith('panelist'));
     let ready = true;
-    selectedHumans.forEach(human => {
-      if (human.name.length === 0 || human.description.length === 0) {
+    for (const humanId of selectedHumans) {
+      const i = Number(humanId.slice(-1));
+      if (humans[i].name.length === 0 || humans[i].description.length === 0) {
         ready = false;
       }
-    });
+    }
     setHumansReady(ready);
   }, [recheckHumansReady, selectedFoods]);
 
-  const showDefaultDescription = (currentFood === null && lastSelected?.type !== 'panelist');
+  const showDefaultDescription = (currentFood === null && !lastSelected?.startsWith('panelist'));
 
   const discriptionStyle = {
     transition: "opacity ease",
@@ -175,12 +183,12 @@ function SelectFoods({ topic, onContinueForward }) {
   };
 
   function infoToShow() {
-    if (currentFood !== null && currentFood.type !== 'panelist') {//If something is hovered & if it's not a human
-      return <FoodInfo food={currentFood} />;
-    } else if (currentFood?.type === 'panelist' && lastSelected !== currentFood) {//a human is hovered but not selected
-      return <HumanInfo human={currentFood} unfocus={true} setHumans={setHumans} setRecheckHumansReady={setRecheckHumansReady} />;
-    } else if (lastSelected?.type === 'panelist') {//a human is selected
-      return <HumanInfo human={lastSelected} lastSelected={lastSelected} setHumans={setHumans} setRecheckHumansReady={setRecheckHumansReady} />;
+    if (currentFood !== null && !currentFood.startsWith('panelist')) {//If something is hovered & if it's not a human
+      return <FoodInfo food={foods.find(f => f.id === currentFood)} />;
+    } else if (currentFood?.startsWith('panelist') && lastSelected !== currentFood) {//a human is hovered but not selected
+      return <HumanInfo human={humans.find(h => h.id === currentFood)} unfocus={true} setHumans={setHumans} setRecheckHumansReady={setRecheckHumansReady} />;
+    } else if (lastSelected?.startsWith('panelist')) {//a human is selected
+      return <HumanInfo human={humans.find(h => h.id === lastSelected)} lastSelected={lastSelected} setHumans={setHumans} setRecheckHumansReady={setRecheckHumansReady} />;
     }
   }
 
@@ -190,13 +198,13 @@ function SelectFoods({ topic, onContinueForward }) {
 
   function buttonOrInfo() {
     if (atLeastTwoFoods() && selectedFoods.length <= maxFoods && humansReady && ensureUniqueNames()) {
-      return <button onClick={continueForward} style={{ margin: isMobileXs ? "0" : "8px 0" }}>Start</button>;
+      return <button onClick={continueForward} style={{ margin: isMobileXs ? "0" : "8px 0" }}>{t('start')}</button>;
     } else if (atLeastTwoFoods() && selectedFoods.length <= maxFoods && !humansReady) {
-      return <h4 style={subInfoStyle}>all participating humans must have name and description</h4>;
+      return <h4 style={subInfoStyle}>{t('selectfoods.requirename')}</h4>;
     } else if (atLeastTwoFoods() && selectedFoods.length <= maxFoods && humansReady && !ensureUniqueNames()) {
-      return <h4 style={subInfoStyle}>make sure no two participants have the same name</h4>;
+      return <h4 style={subInfoStyle}>{t('selectfoods.unique')}</h4>;
     } else if (currentFood !== null || (selectedFoods.length > 1 && !atLeastTwoFoods())) {
-      return <h4 style={subInfoStyle}>please select 2-6 foods for the discussion</h4>;
+      return <h4 style={subInfoStyle}>{t('selectfoods.pleaseselect')}</h4>;
     }
   }
 
@@ -211,7 +219,7 @@ function SelectFoods({ topic, onContinueForward }) {
       }}
     >
       <div style={{ height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
-        <h1 style={{ margin: isMobile && "0" }}>THE FOODS</h1>
+        <h1 style={{ margin: isMobile && "0" }}>{t('selectfoods.title')}</h1>
         <div
           style={{
             position: "relative",
@@ -223,11 +231,11 @@ function SelectFoods({ topic, onContinueForward }) {
           }}
         >
           <div style={discriptionStyle}>
-            <p style={{ margin: 0 }}>Council of Foods meeting on</p>
-            <h3>{toTitleCase(topic.title)}</h3>
+            <p style={{ margin: 0 }}>{t('selectfoods.meetingon')}</p>
+            <h3>{topicTitle && toTitleCase(topicTitle)}</h3>
             <div>
-              {!atLeastTwoFoods() ? <p>please select 2-6 foods for the discussion</p> : <><p>will be attended by:</p>
-                <div>{selectedFoods.map((food) => <p style={{ margin: 0 }} key={food.type === 'panelist' ? food.id : food.name}>{food.name}</p>)}</div>
+              {!atLeastTwoFoods() ? <p>{t('selectfoods.pleaseselect')}</p> : <><p>{t('selectfoods.wewilllisten')}:</p>
+                <div>{selectedFoods.map((id) => <p style={{ margin: 0 }} key={id.startsWith('panelist') ? id : foods.find(f => f.id === id).name}>{foods.find(f => f.id === id).name}</p>)}</div>
               </>}
             </div>
           </div>
@@ -237,27 +245,27 @@ function SelectFoods({ topic, onContinueForward }) {
       <div style={{ height: isMobile ? "93px" : "110px" }}>
         <div style={{ display: "flex", alignItems: "center" }}>
           {foods.map((food) => (
-            <FoodButton
+            food.id !== 'addhuman' && <FoodButton
               key={food.type === 'panelist' ? food.id : food.name}
               food={food}
-              onMouseEnter={() => handleOnMouseEnter(food)}
-              onMouseLeave={handleOnMouseLeave}
-              onSelectFood={food === waterFood ? undefined : selectFood}
+              onMouseEnter={() => setCurrentFood(food.id)}
+              onMouseLeave={() => setCurrentFood(null)}
+              onSelectFood={food.id === 'river' ? undefined : selectFood}
               onDeselectFood={deselectFood}
-              isSelected={selectedFoods.includes(food)}
+              isSelected={selectedFoods.includes(food.id)}
               selectLimitReached={selectedFoods.length >= maxFoods}
             />
           ))}
           {(numberOfHumans < MAXHUMANS) && <AddHumanButton
-            onMouseEnter={() => handleOnMouseEnter(addHuman)}
-            onMouseLeave={handleOnMouseLeave}
+            onMouseEnter={() => setCurrentFood('addhuman')}
+            onMouseLeave={() => setCurrentFood(null)}
             onAddHuman={onAddHuman}
             isSelected={selectedFoods.includes()}
             selectLimitReached={selectedFoods.length >= maxFoods}
           />}
         </div>
         <div style={{ display: "flex", justifyContent: "center", marginTop: isMobileXs ? "2px" : "5px" }}>
-          {selectedFoods.length < 2 && <button onClick={randomizeSelection} style={{ ...discriptionStyle, margin: isMobileXs ? "0" : "8px 0", position: "absolute" }}>Randomize</button>}
+          {selectedFoods.length < 2 && <button onClick={randomizeSelection} style={{ ...discriptionStyle, margin: isMobileXs ? "0" : "8px 0", position: "absolute" }}>{t('selectfoods.random')}</button>}
           {buttonOrInfo()}
         </div>
       </div>
@@ -294,8 +302,10 @@ function HumanInfo({ human, setHumans, lastSelected, unfocus, setRecheckHumansRe
   const nameArea = useRef(null);
   const descriptionArea = useRef(null);
 
+  const { t } = useTranslation();
+
   function descriptionChanged(e) {
-    setHumans[human.id]((prev) => {
+    setHumans[human.index]((prev) => {
       prev.description = descriptionArea.current.value;
       return prev;
     });
@@ -304,7 +314,7 @@ function HumanInfo({ human, setHumans, lastSelected, unfocus, setRecheckHumansRe
 
   function nameChanged(e) {
     nameArea.current.value = toTitleCase(nameArea.current.value);
-    setHumans[human.id]((prev) => {
+    setHumans[human.index]((prev) => {
       prev.name = nameArea.current.value;
       return prev;
     });
@@ -315,7 +325,7 @@ function HumanInfo({ human, setHumans, lastSelected, unfocus, setRecheckHumansRe
     //If we change from one human to another, also update the values
     nameArea.current.value = human.name;
     descriptionArea.current.value = human.description;
-    if (lastSelected === human && unfocus !== true) {
+    if (lastSelected === human.id && unfocus !== true) {
       //Set focus
       nameArea.current.focus();
       //Set cursor to end
@@ -374,7 +384,7 @@ function HumanInfo({ human, setHumans, lastSelected, unfocus, setRecheckHumansRe
         onChange={nameChanged}
         className="unfocused"
         maxLength={25}
-        placeholder={"Human Name"}
+        placeholder={t('selectfoods.humanname')}
         defaultValue={human.name}
       />
       <textarea
@@ -384,7 +394,7 @@ function HumanInfo({ human, setHumans, lastSelected, unfocus, setRecheckHumansRe
         className="unfocused"
         maxLength={900}
         defaultValue={human.description}
-        placeholder={"Enter a description for the human..."}
+        placeholder={t('selectfoods.humandesc')}
       />
     </div>
   );
@@ -402,7 +412,7 @@ function FoodButton({
   const isMobile = useMobile();
   const isModerator = onSelectFood === undefined;
 
-  const imageUrl = `/foods/small/${food.type === 'panelist' ? 'panelist' : filename(food.name)}.webp`;
+  const imageUrl = `/foods/small/${food.type === 'panelist' ? 'panelist' : food.id}.webp`;
 
   function handleClickFood() {
     if (!isModerator && (!selectLimitReached || isSelected)) {
