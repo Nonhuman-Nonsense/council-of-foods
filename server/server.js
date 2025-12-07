@@ -705,19 +705,22 @@ io.on("connection", (socket) => {
 
       socket.emit("audio_update", audioObject);
 
-      if (generateNew) {
+      //Don't store audio on prototype
+      if (generateNew && environment !== "prototype") {
         const storedAudio = {
-          _id: audioObject.id,
           date: new Date().toISOString(),
           meeting_id: meetingId,
-          // message_index: index,
           audio: buffer,
         };
 
-        //Don't store audio on prototype
-        if (environment !== "prototype") {
-          await audioCollection.insertOne(storedAudio);
-        }
+        //If there is a connection problem, it could be that the audio was already generated before the disconnect and then inserted into the db
+        //Therefore we upsert instead of insert, so that there will not be duplication errors
+        //In these cases, there will be two audio generations for the message, but only the latest one will be stored.
+        await audioCollection.updateOne(
+          { _id: audioObject.id },
+          { $set: storedAudio },
+          { upsert: true }
+        );
       }
       if (environment !== "prototype") {
         await meetingsCollection.updateOne(
