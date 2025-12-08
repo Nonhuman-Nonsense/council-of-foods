@@ -204,6 +204,13 @@ function Council({
       return;
     }
 
+    //If message is skipped
+    if (textMessages[playNextIndex]?.type === 'skipped') {
+      console.log(`[warning] skipped speaker ${textMessages[playNextIndex].speaker}`);
+      setPlayNextIndex(current => current + 1);
+      return;
+    }
+
     switch (councilState) {
       case 'loading':
         // console.log("Updating textMessages: ", textMessages);
@@ -399,8 +406,13 @@ function Council({
 
   // When skip back is pressed on controls
   function handleOnSkipBackward() {
-    if (playingNowIndex - 1 >= 0) {
-      setPlayNextIndex(playingNowIndex - 1);
+    let skipLength = 1;
+    //If trying to go back when a message was skipped
+    while(textMessages[playingNowIndex - skipLength]?.type === 'skipped'){
+      skipLength++;
+    }
+    if (playingNowIndex - skipLength >= 0) {
+      setPlayNextIndex(playingNowIndex - skipLength);
       if (councilState === 'waiting') {
         setCouncilState('playing');
       }
