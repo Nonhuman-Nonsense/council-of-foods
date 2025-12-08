@@ -90,6 +90,8 @@ function Navbar({ lang, topic, hamburgerOpen, setHamburgerOpen }) {
 
   const navItems = ["settings", "about", "contact"];
 
+  const showMenu = (!isMobile || hamburgerOpen);
+
   return (
     <nav
       style={navbarStyle}
@@ -118,7 +120,7 @@ function Navbar({ lang, topic, hamburgerOpen, setHamburgerOpen }) {
                 cursor: "pointer",
                 visibility: showIconinMeny ? "visible" : "hidden",
               }}
-              onClick={() => handleOnNavigate( "reset" )}
+              onClick={() => handleOnNavigate("reset")}
             >{t('council').toUpperCase()}</h3>
             <h4 style={{ marginTop: "5px", visibility: showIconinMeny ? "visible" : "hidden" }}>{capitalizeFirstLetter(topic)}</h4>
           </div>
@@ -132,15 +134,21 @@ function Navbar({ lang, topic, hamburgerOpen, setHamburgerOpen }) {
             <NavItem
               key={item}
               name={item}
-              show={(!isMobile || hamburgerOpen) && (item !== 'settings' || location.pathname.substring(4).startsWith('meeting'))}
+              show={showMenu && (item !== 'settings' || location.pathname.substring(4).startsWith('meeting'))}
               isActive={activeMenuItem === `#${item}`} // Determine active state
               onNavigate={handleOnNavigate}
             />
           ))}
-          <h3 style={{ margin: "0", padding: "0" }}>
-            <Link style={{ ...languageStyle, marginLeft: "19px", textDecoration: lang === 'en' ? "underline" : "none" }} to={`/en/${location.pathname.substring(4)}${location.hash}`} >{t('en').toUpperCase()}</Link>
+          <h3 style={{
+            margin: "0",
+            marginLeft: "19px",
+            padding: "0",
+            opacity: showMenu ? "1" : "0",
+            transition: "opacity 1s 0.2s"
+          }}>
+            <Link style={{ ...languageStyle, textDecoration: lang === 'en' ? "underline" : "none", pointerEvents: showMenu ? "auto" : "none" }} to={`/en/${location.pathname.substring(4)}${location.hash}`} onClick={() => {if(isMobile){setHamburgerOpen(false);}}} >{t('en').toUpperCase()}</Link>
             /
-            <Link style={{ ...languageStyle, textDecoration: lang === 'sv' ? "underline" : "none" }} to={`/sv/${location.pathname.substring(4)}${location.hash}`}>{t('sv').toUpperCase()}</Link>
+            <Link style={{ ...languageStyle, textDecoration: lang === 'sv' ? "underline" : "none", pointerEvents: showMenu ? "auto" : "none" }} to={`/sv/${location.pathname.substring(4)}${location.hash}`} onClick={() => {if(isMobile){setHamburgerOpen(false);}}} >{t('sv').toUpperCase()}</Link>
           </h3>
           {isMobile && (
             <div
@@ -172,9 +180,7 @@ function NavItem({ name, isActive, show, onNavigate }) {
     marginLeft: "19px",
     cursor: "pointer",
     opacity: show ? "1" : "0",
-    transitionProperty: "opacity",
-    transitionDuration: "1s",
-    transitionDelay: "0.2s",
+    transition: "opacity 1s 0.2s",
     pointerEvents: show ? "auto" : "none",
     textDecoration: isActive ? "underline" : "none",
     textUnderlineOffset: "4px",
