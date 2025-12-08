@@ -10,6 +10,8 @@ function Output({
   isMuted,
   isPaused,
   currentSnippetIndex,
+  participants,
+  globalSpeed,
   setCurrentSnippetIndex,
   audioContext,
   handleOnFinishedPlaying
@@ -52,6 +54,8 @@ function Output({
         <TextOutput
           currentTextMessage={currentTextMessage}
           isPaused={isPaused}
+          participants={participants}
+          globalSpeed={globalSpeed}
           style={councilState !== 'playing' ? hiddenStyle : {}}
           currentSnippetIndex={currentSnippetIndex}
           setCurrentSnippetIndex={setCurrentSnippetIndex}

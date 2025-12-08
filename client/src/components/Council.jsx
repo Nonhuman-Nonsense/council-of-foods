@@ -15,6 +15,7 @@ function Council({
   lang,
   topic,
   participants,
+  globalSpeed,
   currentSpeakerId,
   setCurrentSpeakerId,
   isPaused,
@@ -561,6 +562,8 @@ function Council({
           isMuted={isMuted}
           isPaused={isPaused}
           currentSnippetIndex={currentSnippetIndex}
+          participants={participants}
+          globalSpeed={globalSpeed}
           setCurrentSnippetIndex={setCurrentSnippetIndex}
           audioContext={audioContext}
           handleOnFinishedPlaying={handleOnFinishedPlaying}

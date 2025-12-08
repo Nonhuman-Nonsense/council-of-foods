@@ -1,11 +1,34 @@
 import { useState, useEffect, useRef } from "react";
 import { useMobile } from "../utils";
 
-import globalOptions from "../global-options-client";
+//Speeds for development, above 1 is faster, below 1 is slower
+//This overrides values in foods
+//Move value to foods when finished testing
+//Separate speed per language
+// const globalSpeedOverride = 1;
+// const speeds = {
+//   'river': 1.02,
+//   'salmon': 1.05,
+//   'lichen': 0.95,
+//   'pine': 1,
+//   'reindeer': 0.9,
+//   'treeharvester': 1.05,
+//   'bumblebee': 1.05,
+// };
+// const speeds = {
+//   'river': 0.95,
+//   'salmon': 0.95,
+//   'pine': 1.1,
+//   'reindeer': 1,
+//   'treeharvester': 1,
+//   'mountain': 0.95
+// };
 
 function TextOutput({
   currentTextMessage,
   isPaused,
+  participants,
+  globalSpeed,
   currentSnippetIndex,
   setCurrentSnippetIndex
 }) {
@@ -17,36 +40,14 @@ function TextOutput({
   const timerId = useRef(null);
   const isMobile = useMobile();
 
-  //TODO update to forest speakers
-  const speedModifiers = {
-    "Avocado": 0.96,
-    "Banana": 1,
-    "Beer": 1,
-    "Bean": 1,
-    "Lollipop": 0.96,
-    "Maize": 1,
-    "Meat": 1,
-    "Mushroom": 1,
-    "Potato": 1,
-    "Tomato": 1,
-    "Water": 1
-  };
-
-  // const splitText = (text) => {
-  //   return (
-  //     text.match(/(\d+\.\s.*?(?=\d+\.\s|$)|.*?(?=[.!?])(?:[.!?]|$))/gs) || [
-  //       text,
-  //     ]
-  //   );
-  // };
-
   const splitText = (text) => {
     //Not sure if this safety is needed?
-    if(!text) return [];
+    if (!text) return [];
+    console.log(text);
 
     // Regex to capture sentences, numbered list items, and newlines as sentence boundaries
     // TODO, replace all the ?!"* with any combination from the set for simplicity
-    const sentenceRegex = /(\d+\.\s+.{3,}?(?:\n|\?!\*|\?!|!\?|\?"|!"|\."|!\*|\?\*|\?|!|\?|;|\.{3}|…|\.|$))|.{3,}?(?:\n|\?!\*|\?!|!\?|\?"|!"|\."|!\*|\?\*|!|\?|;|\.{3}|…|\.|$)/gs;
+    const sentenceRegex = /(\d+\.\s+.{3,}?(?:\n|\?!\*|\?!|!\?|\?"|!"|\."|!\*|\?\*|\?|!|\?|;|\.{3}|…|\.(?!\.)))|.{3,}?(?:\n|\?!\*|\?!|!\?|\?"|!"|\."|!\*|\?\*|!|\?|;|\.{3}|…|\.(?!\.)|$)/gs;
 
     return text
       .match(sentenceRegex)
@@ -125,9 +126,18 @@ function TextOutput({
   // Modify calculateDisplayTime to handle potential undefined or empty strings safely
   const calculateDisplayTime = (text) => {
     const baseTimePerCharacter = 60; //ms Adjust this value as needed
-    const speedMultiplier = globalOptions.audio_speed;
-    const characterModifier = speedModifiers[currentTextMessage?.speaker] || 1;
-    const calculatedTime = text.length * baseTimePerCharacter * characterModifier / speedMultiplier;
+
+    //Development values
+    // const speedMultiplier = globalSpeedOverride;
+    // const characterModifier = speeds[currentTextMessage?.speaker] || participants.find(p => p.id === currentTextMessage?.speaker).voiceSpeed || 1;
+    // console.log('global: ' + speedMultiplier);
+    // console.log('character: '+ characterModifier);
+
+    //Production values
+    const speedMultiplier = globalSpeed;
+    const characterModifier = participants.find(p => p.id === currentTextMessage?.speaker).voiceSpeed || 1;
+
+    const calculatedTime = text.length * baseTimePerCharacter / (characterModifier * speedMultiplier);
     return Math.round(Math.max(800, calculatedTime));
   };
 

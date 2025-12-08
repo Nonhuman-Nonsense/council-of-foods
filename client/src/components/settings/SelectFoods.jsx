@@ -126,7 +126,7 @@ function SelectFoods({ lang, topicTitle, onContinueForward }) {
         humanPresentation
       );
 
-      onContinueForward({ foods: replacedFoods });
+      onContinueForward({ foods: replacedFoods, globalSpeed: foodData[lang].globalSpeed });
     }
   }
 
