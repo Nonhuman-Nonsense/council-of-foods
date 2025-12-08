@@ -48,7 +48,7 @@ function useIsIphone() {
   return isIphone;
 }
 
-function Main() {
+function Main({ lang }) {
   const [topics, setTopics] = useState(topicsData['en'].topics);
   const [chosenTopic, setChosenTopic] = useState({});
   const [customTopic, setCustomTopic] = useState("");
@@ -154,6 +154,7 @@ function Main() {
       <Background path={location.pathname} />
       {!(unrecoverabeError || connectionError) &&
         <Navbar
+          lang={lang}
           topic={chosenTopic.title}
           hamburgerOpen={hamburgerOpen}
           setHamburgerOpen={setHamburgerOpen}
@@ -185,6 +186,7 @@ function Main() {
               path="foods"
               element={
                 <SelectFoods
+                  lang={lang}
                   topicTitle={chosenTopic.title}
                   onContinueForward={(props) => foodsSelected(props)}
                 />

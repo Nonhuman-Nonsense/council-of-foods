@@ -28,7 +28,7 @@ const blankHuman = {
   description: ""
 };
 
-function SelectFoods({ topicTitle, onContinueForward }) {
+function SelectFoods({ lang, topicTitle, onContinueForward }) {
   const [foods, setFoods] = useState(foodData['en'].foods); // Make sure this is defined before using it to find chair
   const [selectedFoods, setSelectedFoods] = useState([foodData['en'].foods[0].id]);
 

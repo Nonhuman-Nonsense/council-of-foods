@@ -13,6 +13,7 @@ import { useDocumentVisibility, mapFoodIndex } from "../utils";
 import globalOptions from "../global-options-client";
 
 function Council({
+  lang,
   topic,
   participants,
   setUnrecoverableError,

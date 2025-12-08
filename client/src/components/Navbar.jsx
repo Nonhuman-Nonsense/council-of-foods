@@ -1,12 +1,12 @@
 import { useState, useRef, useEffect } from "react";
-import { useLocation, Link, useParams, useNavigate } from "react-router";
+import { useLocation, Link, useNavigate } from "react-router";
 import { useMediaQuery } from 'react-responsive'
 import { useTranslation } from 'react-i18next';
 import { capitalizeFirstLetter, useMobile, useMobileXs, usePortrait } from "../utils";
 import Lottie from "react-lottie-player";
 import hamburger from "../animations/hamburger.json";
 
-function Navbar({ topic, hamburgerOpen, setHamburgerOpen }) {
+function Navbar({ lang, topic, hamburgerOpen, setHamburgerOpen }) {
   const isMobile = useMobile();
   const isMobileXs = useMobileXs();
   const isPortrait = usePortrait();
