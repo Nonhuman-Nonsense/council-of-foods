@@ -26,8 +26,9 @@
   },
   "reset": {
     "title": "Start over?",
-    "0": "This",
-    "1": "will start everything from the beginning"
+    "default": "This will start everything from the beginning.",
+    "changeTopic": "Changing topic will start everything from the beginning.",
+    "lang": "It is not possible to change language in the middle of an ongoing meeting.\nDo you want to start over from the beginning?"
   },
   "restart": "Restart",
   "name": {

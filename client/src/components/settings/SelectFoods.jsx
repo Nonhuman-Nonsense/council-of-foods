@@ -7,7 +7,6 @@ import globalOptions from "../../global-options-client";
 //Foods
 import foodDataEN from "../../prompts/foods_en.json";
 import foodDataSV from "../../prompts/foods_sv.json";
-import { replace, useParams } from "react-router";
 
 const foodData = {
   "en": foodDataEN,
@@ -30,7 +29,7 @@ const blankHuman = {
   description: ""
 };
 
-function SelectFoods({ topicTitle, onContinueForward }) {
+function SelectFoods({ lang, topicTitle, onContinueForward }) {
   const [foods, setFoods] = useState(foodData['en'].foods); // Make sure this is defined before using it to find chair
   const [selectedFoods, setSelectedFoods] = useState([foodData['en'].foods[0].id]);
   
@@ -52,8 +51,6 @@ function SelectFoods({ topicTitle, onContinueForward }) {
   const isMobile = useMobile();
   const isMobileXs = useMobileXs();
   const { t } = useTranslation();
-
-  let { lang } = useParams();
 
   //Update foods on language change
   useEffect(() => {

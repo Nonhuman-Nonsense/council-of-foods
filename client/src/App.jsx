@@ -7,8 +7,11 @@ function App() {
     <div className="App">
       <BrowserRouter>
         <Routes>
-          <Route exact path="/" element={<Navigate to="/en/" />} />
-          <Route path="/:lang/*" element={<Main />} />
+          {/* Add supported languages here */}
+          <Route path="/en/*" element={<Main lang="en" />} />
+          <Route path="/sv/*" element={<Main lang="sv" />} />
+          {/* Default */}
+          <Route path="/*" element={<Navigate to="/en/" />} />
         </Routes>
       </BrowserRouter>
     </div>

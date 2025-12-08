@@ -1,6 +1,6 @@
 import "../App.css";
 import { useState, useEffect, useRef } from "react";
-import { Routes, Route, useLocation, useNavigate, useParams } from "react-router";
+import { Routes, Route, useLocation, useNavigate } from "react-router";
 import Overlay from "./Overlay";
 import MainOverlays from "./MainOverlays";
 import Landing from "./settings/Landing";
@@ -46,7 +46,7 @@ function useIsIphone() {
   return isIphone;
 }
 
-function Main() {
+function Main({ lang }) {
   const [topics, setTopics] = useState(topicsData['en'].topics);
   const [chosenTopic, setChosenTopic] = useState({});
   const [customTopic, setCustomTopic] = useState("");
@@ -71,12 +71,18 @@ function Main() {
 
   const { i18n } = useTranslation();
 
-  let { lang } = useParams();
-
   if (audioContext.current === null) {
     const AudioContext = window.AudioContext || window.webkitAudioContext; //cross browser
     audioContext.current = new AudioContext();
   }
+
+  //Set language if changed
+  useEffect(() => {
+    i18n.changeLanguage(lang);
+    if(location.pathname.substring(4,11) === 'meeting'){
+      navigate({ hash: "warning" });
+    }
+  }, [lang]);
 
   //Update topics on language change
   useEffect(() => {
@@ -88,17 +94,6 @@ function Main() {
         prev.title = topicsData[lang].topics.find(t => t.id === chosenTopic.id).title
         return prev;
       });
-    }
-  }, [lang]);
-
-  //Set language if changed
-  //Redirect if unsupported language
-  useEffect(() => {
-    const supportedLangs = ['sv', 'en'];
-    if (supportedLangs.includes(lang)) {
-      i18n.changeLanguage(lang);
-    } else {
-      navigate('/');
     }
   }, [lang]);
 
@@ -201,6 +196,7 @@ function Main() {
       <div style={{ width: "100%", height: "7%", minHeight: 300 * 0.07 + "px", position: "absolute", bottom: 0, background: "linear-gradient(0deg, rgba(0, 0, 0, 0.95) 0%, rgba(0, 0, 0, 0) 100%)", zIndex: 1 }} />
       {!(unrecoverabeError || connectionError) && (
         <Navbar
+          lang={lang}
           topic={chosenTopic.title}
           hamburgerOpen={hamburgerOpen}
           setHamburgerOpen={setHamburgerOpen}
@@ -237,6 +233,7 @@ function Main() {
               path="beings"
               element={
                 <SelectFoods
+                  lang={lang}
                   topicTitle={chosenTopic.title}
                   onContinueForward={(props) => beingsSelected(props)}
                 />
@@ -247,6 +244,7 @@ function Main() {
               element={
                 participants.length !== 0 && ( // If page is reloaded, don't even start the council for now
                   <Council
+                    lang={lang}
                     topic={chosenTopic}
                     participants={participants}
                     currentSpeakerId={currentSpeakerId}

@@ -1,12 +1,12 @@
 import { useState, useRef, useEffect } from "react";
-import { useLocation, Link, useParams, useNavigate } from "react-router";
+import { useLocation, Link, useNavigate } from "react-router";
 import { useMediaQuery } from 'react-responsive'
 import { useTranslation } from 'react-i18next';
 import { capitalizeFirstLetter, useMobile, useMobileXs, usePortrait } from "../utils";
 import Lottie from "react-lottie-player";
 import hamburger from "../animations/hamburger.json";
 
-function Navbar({ topic, hamburgerOpen, setHamburgerOpen }) {
+function Navbar({ lang, topic, hamburgerOpen, setHamburgerOpen }) {
   const isMobile = useMobile();
   const isMobileXs = useMobileXs();
   const isPortrait = usePortrait();
@@ -16,8 +16,6 @@ function Navbar({ topic, hamburgerOpen, setHamburgerOpen }) {
   const location = useLocation();
   const navigate = useNavigate();
   const { t, i18n } = useTranslation();
-
-  let { lang } = useParams();
 
 
   useEffect(() => {
@@ -140,7 +138,8 @@ function Navbar({ topic, hamburgerOpen, setHamburgerOpen }) {
             />
           ))}
           <h3 style={{ margin: "0", padding: "0" }}>
-            <Link style={{ ...languageStyle, marginLeft: "19px", textDecoration: lang === 'en' ? "underline" : "none" }} to={`/en/${location.pathname.substring(4)}${location.hash}`} >{t('en').toUpperCase()}</Link>/
+            <Link style={{ ...languageStyle, marginLeft: "19px", textDecoration: lang === 'en' ? "underline" : "none" }} to={`/en/${location.pathname.substring(4)}${location.hash}`} >{t('en').toUpperCase()}</Link>
+            /
             <Link style={{ ...languageStyle, textDecoration: lang === 'sv' ? "underline" : "none" }} to={`/sv/${location.pathname.substring(4)}${location.hash}`}>{t('sv').toUpperCase()}</Link>
           </h3>
           {isMobile && (

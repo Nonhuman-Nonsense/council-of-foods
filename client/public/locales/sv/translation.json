@@ -26,8 +26,9 @@
   },
   "reset": {
     "title": "Börja om?",
-    "0": "Detta",
-    "1": "kommer starta om allting från början"
+    "default": "Detta kommer starta om allting från början.",
+    "changeTopic": "Om du byter ämne startar startas ett helt nytt möte.",
+    "lang": "Det går inte att byta språk mitt i ett möte.\nVill du börja om från början?"
   },
   "restart": "Starta om",
   "name": {
