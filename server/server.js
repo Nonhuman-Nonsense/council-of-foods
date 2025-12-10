@@ -185,6 +185,9 @@ io.on("connection", (socket) => {
         }`
       );
 
+      ////Split message into sentences
+      summary.sentences = splitSentences(response);
+
       generateAudio(summary, conversationOptions.characters[0]);
     });
 
@@ -230,6 +233,9 @@ io.on("connection", (socket) => {
 
       //Add the invitation
       conversation.push(message);
+
+      ////Split message into sentences
+      message.sentences = splitSentences(response);
 
       conversationOptions.state.alreadyInvited = true;
       console.log(`[meeting ${meetingId}] invitation generated, on index ${handRaisedOptions.index}`);
@@ -348,9 +354,10 @@ io.on("connection", (socket) => {
 
     if (message.askParticular) {
       console.log(`[meeting ${meetingId}] specifically asked to ${message.askParticular}`);
-      message.text = message.speaker + " asked " + message.askParticular + ": " + message.text;
+      message.text = message.speaker + " asked " + message.askParticular + ":\xa0" + message.text;
     } else {
-      message.text = message.speaker + (conversationOptions.language === 'en' ? " said: " : " sa: ") + message.text;
+      //Use non-breaking space \xa0
+      message.text = message.speaker + (conversationOptions.language === 'en' ? " said:\xa0" : " sa:\xa0") + message.text;
     }
 
     message.id = "human-" + uuidv4(); // Use UUID for unique message IDs for human messages
@@ -367,10 +374,10 @@ io.on("connection", (socket) => {
 
     socket.emit("conversation_update", conversation);
 
-    generateAudio(
-      message,
-      conversationOptions.characters[0]
-    );
+    ////Split message into sentences
+    message.sentences = splitSentences(message.text);
+
+    generateAudio(message, conversationOptions.characters[0]);
 
     isPaused = false;
     handRaised = false;
@@ -399,6 +406,9 @@ io.on("connection", (socket) => {
     );
 
     socket.emit("conversation_update", conversation);
+
+    ////Split message into sentences
+    message.sentences = splitSentences(message.text);
 
     generateAudio(message, conversationOptions.characters[0]);
 
@@ -436,7 +446,10 @@ io.on("connection", (socket) => {
       { $set: { conversation: conversation, summary: summary } }
     );
 
-    generateAudio(summary, conversationOptions.characters[0]);
+    ////Split message into sentences
+    summary.sentences = splitSentences(response);
+
+    generateAudio(summary, conversationOptions.characters[0], true);
   });
 
   socket.on("continue_conversation", () => {
@@ -476,6 +489,7 @@ io.on("connection", (socket) => {
         }
         for (let i = 0; i < missingAudio.length; i++) {
           console.log(`[meeting ${meetingId}] (async) generating missing audio for ${missingAudio[i].speaker}`);
+          missingAudio[i].sentences = splitSentences(missingAudio[i].text);
           generateAudio(
             missingAudio[i],
             conversationOptions.characters.find(c => c.id == missingAudio[i].speaker)
@@ -578,9 +592,7 @@ io.on("connection", (socket) => {
       let attempt = 1;
       let output = { response: "" };
       while (attempt < 5 && output.response === "") {
-        output = await generateTextFromGPT(
-          conversationOptions.characters[currentSpeaker]
-        );
+        output = await generateTextFromGPT(conversationOptions.characters[currentSpeaker]);
 
         if (!run) return;
         if (handRaised) return;
@@ -596,6 +608,7 @@ io.on("connection", (socket) => {
         id: output.id,
         speaker: conversationOptions.characters[currentSpeaker].id,
         text: output.response,
+        sentences: output.sentences,
         trimmed: output.trimmed,
         pretrimmed: output.pretrimmed,
       };
@@ -644,7 +657,7 @@ io.on("connection", (socket) => {
     }
   };
 
-  const generateAudio = async (message, speaker) => {
+  const generateAudio = async (message, speaker, skipMatching) => {
     //If audio creation is skipped on prototype
     if (conversationOptions.options.skipAudio) return;
     // const thisConversationCounter = conversationCounter;
@@ -679,20 +692,24 @@ io.on("connection", (socket) => {
       if (generateNew) {
         // console.log(`[meeting ${meetingId}] generating audio for speaker ${speaker.id}`);
 
-          const mp3 = await openai.audio.speech.create({
-            model: conversationOptions.options.voiceModel,
-            voice: speaker.voice,
-            speed: conversationOptions.options.audio_speed,
-            input: message.text.substring(0, 4096),
-            // instructions: speaker.voiceInstruction
-          });
+        const mp3 = await openai.audio.speech.create({
+          model: conversationOptions.options.voiceModel,
+          voice: speaker.voice,
+          speed: conversationOptions.options.audio_speed,
+          input: message.text.substring(0, 4096),
+          // instructions: speaker.voiceInstruction
+        });
 
         buffer = Buffer.from(await mp3.arrayBuffer());
       }
 
+
+      const sentencesWithTimings = skipMatching ? [] : await getSentenceTimings(buffer, message);
+
       const audioObject = {
         id: message.id,
         audio: buffer,
+        sentences: sentencesWithTimings
       };
 
       // console.log(`[meeting ${meetingId}] audio generated for speaker ${speaker.id}`);
@@ -705,6 +722,7 @@ io.on("connection", (socket) => {
           date: new Date().toISOString(),
           meeting_id: meetingId,
           audio: buffer,
+          sentences: sentencesWithTimings
         };
 
         //If there is a connection problem, it could be that the audio was already generated before the disconnect and then inserted into the db
@@ -732,6 +750,123 @@ io.on("connection", (socket) => {
       reportError(error);
     }
   };
+
+  async function getSentenceTimings(buffer, message) {
+
+    const audioFile = new File([buffer], "speech.mp3", { type: "audio/mpeg" });
+
+    const transcription = await openai.audio.transcriptions.create({
+      file: audioFile,
+      model: "whisper-1",
+      response_format: "verbose_json",
+      timestamp_granularities: ["word"] // We need words to calculate exact sentence starts
+    });
+
+    const words = transcription.words;
+
+    return mapSentencesToWords(message.sentences, words);
+  }
+
+  /**
+    * Optimized sentence mapper with Multi-Token Anchoring.
+    * Handles numbers ("1." vs "One") and skipped words automatically.
+    */
+  function mapSentencesToWords(sentences, words) {
+    if (!words || words.length === 0) return [];
+
+    // 1. Pre-process Whisper tokens for O(1) lookups
+    const whisperTokens = words.map(w =>
+      w.word.toLowerCase().replace(/[^\w]|_/g, "")
+    );
+
+    let cursor = 0;
+    let lastEndTime = 0;
+
+    return sentences.map((sentence) => {
+      // 1. Tokenize (strips emojis/punctuation)
+      const sentenceTokens = sentence.trim().split(/\s+/)
+        .map(t => t.toLowerCase().replace(/[^\w]|_/g, ""))
+        .filter(t => t.length > 0);
+
+      // --- CASE: SILENT SENTENCE (Emojis/Punctuation only) ---
+      // If there are no words to match, we can't find it in audio.
+      // Instead of 0, assign it the timestamp where the LAST sentence ended.
+      if (sentenceTokens.length === 0) {
+        return {
+          text: sentence,
+          start: lastEndTime,
+          end: lastEndTime // It effectively has 0 audio duration
+        };
+      }
+
+      // --- NORMAL MATCHING LOGIC ---
+      let startIndex = -1;
+
+      // We scan a window of 15 words from the cursor
+      const startSearchLimit = Math.min(cursor + 15, whisperTokens.length);
+
+      // Multi-token start search
+      for (let tokenOffset = 0; tokenOffset < Math.min(3, sentenceTokens.length); tokenOffset++) {
+        const targetToken = sentenceTokens[tokenOffset];
+        for (let i = cursor; i < startSearchLimit; i++) {
+          if (whisperTokens[i] === targetToken) {
+            // Found a match! Adjust start index back to the theoretical beginning
+            startIndex = Math.max(cursor, i - tokenOffset);
+            break;
+          }
+        }
+        if (startIndex !== -1) break; // Stop if we found a match
+      }
+
+      // Fallback: If absolutely no words matched, stay at cursor
+      if (startIndex === -1) startIndex = cursor;
+
+      // Find End
+      let endIndex = -1;
+      const estimatedLength = sentenceTokens.length;
+      // Look ahead from the FOUND start index
+      const endSearchLimit = Math.min(startIndex + estimatedLength + 10, whisperTokens.length);
+
+      // Try to match the last word, or the second to last (in case of punctuation issues)
+      for (let tokenOffset = 0; tokenOffset < Math.min(3, sentenceTokens.length); tokenOffset++) {
+        const targetToken = sentenceTokens[sentenceTokens.length - 1 - tokenOffset];
+
+        // Scan backwards from limit to start (preferred for end words) or forwards
+        // Here we scan forwards for simplicity and speed
+        for (let i = startIndex; i < endSearchLimit; i++) {
+          if (whisperTokens[i] === targetToken) {
+            endIndex = i;
+            // Heuristic: If we found the word very early, it might be a duplicate "the". 
+            // Keep searching if it's too close, otherwise take it.
+            if (i > startIndex + (estimatedLength * 0.5)) break;
+          }
+        }
+        if (endIndex !== -1) break;
+      }
+
+      // Fallback: Calculate based on length if end not found
+      if (endIndex === -1) {
+        endIndex = Math.min(startIndex + estimatedLength - 1, whisperTokens.length - 1);
+      }
+
+      // Update cursor for next loop
+      cursor = endIndex + 1;
+
+      // --- BOUNDS SAFETY ---
+      // Ensure we don't crash or return "questions" for everything if we run off the end
+      const safeStart = words[startIndex] || words[words.length - 1];
+      const safeEnd = words[endIndex] || words[words.length - 1];
+
+      // Update our tracker so the NEXT emoji sentence knows where to start
+      lastEndTime = safeEnd ? safeEnd.end : lastEndTime;
+
+      return {
+        text: sentence,
+        start: safeStart ? safeStart.start : 0,
+        end: safeEnd ? safeEnd.end : 0
+      };
+    });
+  }
 
   const generateTextFromGPT = async (speaker) => {
     try {
@@ -763,6 +898,7 @@ io.on("connection", (socket) => {
       let trimmedContent;
       let originalResponse = response;
 
+      //Remove last half paragraphs
       if (completion.choices[0].finish_reason != "stop") {
         if (conversationOptions.options.trimSentance) {
           const lastPeriodIndex = response.lastIndexOf(".");
@@ -779,23 +915,28 @@ io.on("connection", (socket) => {
             response = response.substring(0, lastNewLineIndex);
           }
         }
+      }
 
+      //Check that we are not answering for someone else
+      for (var i = 0; i < conversationOptions.characters.length; i++) {
+        if (i === currentSpeaker) continue;
+        const nameIndex = response.indexOf(conversationOptions.characters[i].name + ":");
+        if (nameIndex != -1 && nameIndex < 20) {
+          response = response.substring(0, nameIndex).trim();
+          trimmedContent = originalResponse.substring(nameIndex);
+        }
+      }
+
+      //Split message into sentences
+      let sentences = splitSentences(response);
+
+      if (completion.choices[0].finish_reason != "stop") {
+        // Check if we can re-add some messages from the end, to put back some of the list of questions that chair often produces
         if (conversationOptions.options.trimChairSemicolon) {
           if (speaker.id === conversationOptions.options.chairId) {
-            // Make sure to use the same sentence splitter as on the client side
-            const sentenceRegex =
-              /(\d+\.\s+.{3,}?(?:\n|\?!\*|\?!|!\?|\?"|!"|\."|!\*|\?\*|\?|!|\?|;|\.{3}|…|\.|$))|.{3,}?(?:\n|\?!\*|\?!|!\?|\?"|!"|\."|!\*|\?\*|!|\?|;|\.{3}|…|\.|$)/gs;
-            const sentences = response
-              .match(sentenceRegex)
-              .map((sentence) => sentence.trim())
-              .filter((sentence) => sentence.length > 0 && sentence !== ".");
-            const trimmedSentences = trimmedContent
-              ?.trim()
-              .match(sentenceRegex)
-              ?.map((sentence) => sentence.trim())
-              .filter((sentence) => sentence.length > 0 && sentence !== ".");
 
-            // Check if we can re-add some messages from the end, to put back some of the list of questions that chair often produces
+            const trimmedSentences = splitSentences(trimmedContent?.trim()).filter((sentence) => sentence.length > 0 && sentence !== ".");
+
             if (
               trimmedSentences &&
               sentences &&
@@ -808,11 +949,8 @@ io.on("connection", (socket) => {
                 trimmedSentences[1]?.slice(0, 1) === "2"
               ) {
                 trimmedContent = trimmedSentences[trimmedSentences.length - 1];
-                response = sentences
-                  .concat(
-                    trimmedSentences.slice(0, trimmedSentences.length - 1)
-                  )
-                  .join("\n");
+                sentences = sentences.concat(trimmedSentences.slice(0, trimmedSentences.length - 1));
+                response = sentences.join("\n");
               } else if (
                 trimmedSentences.length > 3 &&
                 trimmedSentences[0]?.slice(-1) === ":" &&
@@ -820,37 +958,25 @@ io.on("connection", (socket) => {
                 trimmedSentences[2]?.slice(0, 1) === "2"
               ) {
                 trimmedContent = trimmedSentences[trimmedSentences.length - 1];
-                response = sentences
-                  .concat(
-                    trimmedSentences.slice(0, trimmedSentences.length - 1)
-                  )
-                  .join("\n");
+                sentences = sentences.concat(trimmedSentences.slice(0, trimmedSentences.length - 1));
+                response = sentences.join("\n");
               } else {
                 //otherwise remove also the last presentation of the list of topics
                 trimmedContent = trimmedContent
                   ? sentences[sentences.length - 1] + "\n" + trimmedContent
                   : sentences[sentences.length - 1];
-                response = sentences.slice(0, sentences.length - 1).join("\n");
+                sentences = sentences.slice(0, sentences.length - 1);
+                response = sentences.join("\n");
               }
             }
           }
         }
       }
 
-      for (var i = 0; i < conversationOptions.characters.length; i++) {
-        if (i === currentSpeaker) continue;
-        const nameIndex = response.indexOf(
-          conversationOptions.characters[i].name + ":"
-        );
-        if (nameIndex != -1 && nameIndex < 20) {
-          response = response.substring(0, nameIndex).trim();
-          trimmedContent = originalResponse.substring(nameIndex);
-        }
-      }
-
       return {
         id: completion.id,
         response: response,
+        sentences: sentences,
         trimmed: trimmedContent,
         pretrimmed: pretrimmedContent,
       };
@@ -859,6 +985,24 @@ io.on("connection", (socket) => {
       throw error;
     }
   };
+
+  function splitSentences(response) {
+    // BREAKDOWN:
+    // 1. (?:\d+\.\s+)? -> Optional Numbered List
+    // 2. .*?           -> Content
+    // 3. Delimiter Block:
+    //    a. (?:[.!?…;]|:(?!\xa0))+  -> Match .!?…; OR a Colon (ONLY if NOT followed by \xa0)
+    //    b. ["']?                   -> Optional Quote
+    //    c. (?:[ \t]*[\p{Extended_Pictographic}]+)* -> Optional Emojis
+    //    d. (?=\s|$)                -> Must be followed by ANY whitespace (including \xa0) or End
+    
+    const sentenceRegex = /(?:\d+\.\s+)?.*?(?:(?:[.!?…;]|:(?!\xa0))+["']?(?:[ \t]*[\p{Extended_Pictographic}]+)*(?=\s|$)|$|\n)/gu;
+
+    return response
+      .match(sentenceRegex)
+      .map((sentence) => sentence.trim())
+      .filter((sentence) => sentence.length > 0);
+  }
 
   socket.on('request_clientkey', async () => {
     console.log(`[meeting ${meetingId}] clientkey requested`);
