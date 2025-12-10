@@ -703,8 +703,7 @@ io.on("connection", (socket) => {
         buffer = Buffer.from(await mp3.arrayBuffer());
       }
 
-
-      const sentencesWithTimings = skipMatching ? [] : await getSentenceTimings(buffer, message);
+      const sentencesWithTimings = (conversationOptions.options.skipMatchingSubtitles || skipMatching) ? [] : await getSentenceTimings(buffer, message);
 
       const audioObject = {
         id: message.id,

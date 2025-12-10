@@ -196,6 +196,11 @@ document.addEventListener("DOMContentLoaded", () => {
   const updatePromptsAndOptions = (reset = false) => {
     // Retrieve the global options
     promptsAndOptions.options = {}; //Reset to remove possible orphan options
+
+    // Hard coded options
+    promptsAndOptions.options.voiceModel = "gpt-4o-mini-tts";
+    promptsAndOptions.options.skipMatchingSubtitles = true;
+
     promptsAndOptions.options.gptModel =
       document.getElementById("gpt-model").value;
     promptsAndOptions.options.temperature =
