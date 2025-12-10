@@ -15,11 +15,8 @@ function Navbar({ lang, topic, hamburgerOpen, setHamburgerOpen }) {
   const [activeMenuItem, setActiveMenuItem] = useState('');
   const location = useLocation();
   const navigate = useNavigate();
-  // const { t, i18n } = useTranslation();
+  
   const { t } = useTranslation();
-
-  // let { lang } = useParams();
-  const lang = 'en';
 
 
   useEffect(() => {

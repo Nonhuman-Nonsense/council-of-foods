@@ -51,9 +51,6 @@ function SelectFoods({ lang, topicTitle, onContinueForward }) {
   const isMobileXs = useMobileXs();
   const { t } = useTranslation();
 
-  // let { lang } = useParams();
-  const lang = 'en';
-
   // //Update foods on language change
   // useEffect(() => {
   //   const newFoods = foodData[lang].foods.concat(humans.slice(0,numberOfHumans));

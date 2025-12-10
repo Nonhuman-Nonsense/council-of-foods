@@ -66,9 +66,6 @@ function Main({ lang }) {
 
   // const { i18n } = useTranslation();
 
-  // let { lang } = useParams();
-  const lang = 'en';
-
   useEffect(() => {
     if (chosenTopic.id === undefined && (location.pathname !== "/" && location.pathname !== "/topics")) {
       //Preserve the hash, but navigate to start

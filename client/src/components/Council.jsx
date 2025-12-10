@@ -31,8 +31,6 @@ function Council({
   //Routing
   const navigate = useNavigate();
   const location = useLocation();
-  // const { lang } = useParams();
-  const lang = 'en';
 
   //Main State variables
   const [activeOverlay, setActiveOverlay] = useState("");
