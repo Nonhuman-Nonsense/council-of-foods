@@ -616,7 +616,7 @@ io.on("connection", (socket) => {
       const message_index = conversation.length - 1;
 
       socket.emit("conversation_update", conversation);
-      console.log(`[meeting ${meetingId}] message generated, index ${message_index}`);
+      console.log(`[meeting ${meetingId}] message generated, index ${message_index}, speaker ${message.speaker}`);
 
       meetingsCollection.updateOne(
         { _id: meetingId },

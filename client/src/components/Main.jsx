@@ -194,6 +194,7 @@ function Main({ lang }) {
               element={
                 participants.length !== 0 &&// If page is reloaded, don't even start the council for now
                 <Council
+                  lang={lang}
                   topic={chosenTopic}
                   participants={participants}
                   setUnrecoverableError={setUnrecoverableError}
