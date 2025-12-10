@@ -53,6 +53,7 @@ function Output({
       <div style={showTextOutput ? hiddenStyle : {}}>
         <TextOutput
           currentTextMessage={currentTextMessage}
+          currentAudioMessage={currentAudioMessage}
           isPaused={isPaused}
           participants={participants}
           globalSpeed={globalSpeed}
