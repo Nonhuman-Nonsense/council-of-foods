@@ -32,7 +32,7 @@ const blankHuman = {
 function SelectFoods({ lang, topicTitle, onContinueForward }) {
   const [foods, setFoods] = useState(foodData['en'].foods); // Make sure this is defined before using it to find chair
   const [selectedFoods, setSelectedFoods] = useState([foodData['en'].foods[0].id]);
-  
+
   //Humans
   const [human0, setHuman0] = useState(cloneHuman(0));
   const [human1, setHuman1] = useState(cloneHuman(1));
@@ -54,7 +54,7 @@ function SelectFoods({ lang, topicTitle, onContinueForward }) {
 
   //Update foods on language change
   useEffect(() => {
-    const newFoods = foodData[lang].foods.concat(humans.slice(0,numberOfHumans));
+    const newFoods = foodData[lang].foods.concat(humans.slice(0, numberOfHumans));
     setFoods(newFoods);
   }, [lang]);
 
@@ -126,7 +126,7 @@ function SelectFoods({ lang, topicTitle, onContinueForward }) {
         humanPresentation
       );
 
-      onContinueForward({ foods: replacedFoods, globalSpeed: foodData[lang].globalSpeed });
+      onContinueForward({ foods: replacedFoods });
     }
   }
 

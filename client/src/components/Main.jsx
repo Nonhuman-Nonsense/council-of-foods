@@ -51,7 +51,6 @@ function Main({ lang }) {
   const [chosenTopic, setChosenTopic] = useState({});
   const [customTopic, setCustomTopic] = useState("");
   const [participants, setParticipants] = useState([]);
-  const [globalSpeed, setGlobalSpeed] = useState(1);
   const [unrecoverabeError, setUnrecoverableError] = useState(false);
   const [connectionError, setConnectionError] = useState(false);
 
@@ -125,9 +124,8 @@ function Main({ lang }) {
     navigate(`/${lang}/beings`);
   }
 
-  function beingsSelected({ foods, globalSpeed }) {
+  function beingsSelected({ foods }) {
     setParticipants(foods);
-    setGlobalSpeed(globalSpeed);
     proceedToMeeting();
   }
 
@@ -249,7 +247,6 @@ function Main({ lang }) {
                     lang={lang}
                     topic={chosenTopic}
                     participants={participants}
-                    globalSpeed={globalSpeed}
                     currentSpeakerId={currentSpeakerId}
                     setCurrentSpeakerId={setCurrentSpeakerId}
                     isPaused={isPaused}

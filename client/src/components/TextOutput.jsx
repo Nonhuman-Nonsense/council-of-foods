@@ -10,11 +10,9 @@ import { useMobile } from "../utils";
  * 3. Render Safety: Uses Refs to track state inside the loop to prevent extra re-renders.
  */
 function TextOutput({
-  currentTextMessage,
   currentAudioMessage, // Data structure: { sentences: [{text, start, end}, ...] }
   isPaused,
   setCurrentSnippetIndex, // Parent state setter
-  setSentencesLength
 }) {
   // --- LOCAL STATE ---
   // The text currently visible on screen. 
@@ -67,7 +65,6 @@ function TextOutput({
     lastDisplayedTextRef.current = ""; 
 
     const sentences = currentAudioMessage?.sentences || [];
-    setSentencesLength(sentences.length);
 
     // 4. Initialize with the first sentence if available
     if (sentences.length > 0) {
@@ -80,7 +77,7 @@ function TextOutput({
         startTimeRef.current = Date.now();
       }
     }
-  }, [currentAudioMessage, setSentencesLength, setCurrentSnippetIndex]);
+  }, [currentAudioMessage, setCurrentSnippetIndex]);
 
 
   // ---------------------------------------------------------------------------
