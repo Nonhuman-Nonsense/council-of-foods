@@ -740,8 +740,6 @@ io.on("connection", (socket) => {
 
     const audioFile = new File([buffer], "speech.mp3", { type: "audio/mpeg" });
 
-    console.log("Sending to Whisper for alignment...");
-
     const transcription = await openai.audio.transcriptions.create({
       file: audioFile,
       model: "whisper-1",
@@ -751,56 +749,13 @@ io.on("connection", (socket) => {
 
     const words = transcription.words;
 
-    // Initialize a global cursor (tracker) to keep our place in the list of all words
-    let wordIndex = 0;
-
-    console.log(message.sentences);
-
-    // USE THE NEW HELPER
     return mapSentencesToWords(message.sentences, words);
-
-    // return message.sentences.map((sentence) => {
-    //   console.log(sentence);
-    //   // 1. Count words in the current sentence
-    //   // We split by whitespace to verify how many 'steps' we need to move forward in the word list.
-    //   const sentenceWordCount = sentence.trim().split(/\s+/).length;
-
-    //   // Safety Check: If Whisper failed or returned empty data, return 0s to prevent a crash.
-    //   if (!words || words.length === 0) return { text: sentence, start: 0, end: 0 };
-
-    //   // 2. Get Start Time
-    //   // The start of this sentence is the timestamp of the word at our current cursor position.
-    //   // Fallback (||): If we run out of words (e.g., regex count mismatch), clamp to the very last word.
-    //   const startWord = words[wordIndex] || words[words.length - 1];
-    //   const startTime = startWord.start;
-
-    //   console.log(startWord);
-
-    //   // 3. Advance the Cursor
-    //   // Move the tracker forward by the length of this sentence so the next loop starts correctly.
-    //   wordIndex += sentenceWordCount;
-
-    //   // 4. Get End Time
-    //   // The end of this sentence is the word immediately BEFORE the new cursor position.
-    //   // We use Math.min to ensure we don't try to access an index that doesn't exist.
-    //   const endWordIndex = Math.min(wordIndex - 1, words.length - 1);
-    //   const endWord = words[endWordIndex] || words[words.length - 1];
-    //   const endTime = endWord.end;
-
-    //   console.log(endWord);
-
-    //   return {
-    //     text: sentence,
-    //     start: startTime,
-    //     end: endTime
-    //   };
-    // });
   }
 
   /**
- * Optimized sentence mapper with Multi-Token Anchoring.
- * Handles numbers ("1." vs "One") and skipped words automatically.
- */
+    * Optimized sentence mapper with Multi-Token Anchoring.
+    * Handles numbers ("1." vs "One") and skipped words automatically.
+    */
   function mapSentencesToWords(sentences, words) {
     if (!words || words.length === 0) return [];
 
@@ -964,6 +919,7 @@ io.on("connection", (socket) => {
         .match(sentenceRegex)
         .map((sentence) => sentence.trim())
         .filter((sentence) => sentence.length > 0);
+
 
       if (completion.choices[0].finish_reason != "stop") {
         // Check if we can re-add some messages from the end, to put back some of the list of questions that chair often produces
