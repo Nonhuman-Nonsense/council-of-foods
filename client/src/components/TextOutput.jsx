@@ -5,6 +5,7 @@ import globalOptions from "../global-options-client";
 
 function TextOutput({
   currentTextMessage,
+  currentAudioMessage,
   isPaused,
   currentSnippetIndex,
   setCurrentSnippetIndex,
@@ -18,19 +19,19 @@ function TextOutput({
   const timerId = useRef(null);
   const isMobile = useMobile();
 
-  const speedModifiers = {
-    "Avocado": 0.96,
-    "Banana": 1,
-    "Beer": 1,
-    "Bean": 1,
-    "Lollipop": 0.96,
-    "Maize": 1,
-    "Meat": 1,
-    "Mushroom": 1,
-    "Potato": 1,
-    "Tomato": 1,
-    "Water": 1
-  };
+  // const speedModifiers = {
+  //   "Avocado": 0.96,
+  //   "Banana": 1,
+  //   "Beer": 1,
+  //   "Bean": 1,
+  //   "Lollipop": 0.96,
+  //   "Maize": 1,
+  //   "Meat": 1,
+  //   "Mushroom": 1,
+  //   "Potato": 1,
+  //   "Tomato": 1,
+  //   "Water": 1
+  // };
 
   // const splitText = (text) => {
   //   return (
@@ -40,19 +41,19 @@ function TextOutput({
   //   );
   // };
 
-  const splitText = (text) => {
-    //Not sure if this safety is needed?
-    if(!text) return [];
+  // const splitText = (text) => {
+  //   //Not sure if this safety is needed?
+  //   if(!text) return [];
 
-    // Regex to capture sentences, numbered list items, and newlines as sentence boundaries
-    // TODO, replace all the ?!"* with any combination from the set for simplicity
-    const sentenceRegex = /(\d+\.\s+.{3,}?(?:\n|\?!\*|\?!|!\?|\?"|!"|\."|!\*|\?\*|\?|!|\?|;|\.{3}|…|\.|$))|.{3,}?(?:\n|\?!\*|\?!|!\?|\?"|!"|\."|!\*|\?\*|!|\?|;|\.{3}|…|\.|$)/gs;
+  //   // Regex to capture sentences, numbered list items, and newlines as sentence boundaries
+  //   // TODO, replace all the ?!"* with any combination from the set for simplicity
+  //   const sentenceRegex = /(\d+\.\s+.{3,}?(?:\n|\?!\*|\?!|!\?|\?"|!"|\."|!\*|\?\*|\?|!|\?|;|\.{3}|…|\.|$))|.{3,}?(?:\n|\?!\*|\?!|!\?|\?"|!"|\."|!\*|\?\*|!|\?|;|\.{3}|…|\.|$)/gs;
 
-    return text
-      .match(sentenceRegex)
-      .map((sentence) => sentence.trim())
-      .filter((sentence) => sentence.length > 0 && sentence !== "."); // Filter out empty sentences
-  };
+  //   return text
+  //     .match(sentenceRegex)
+  //     .map((sentence) => sentence.trim())
+  //     .filter((sentence) => sentence.length > 0 && sentence !== "."); // Filter out empty sentences
+  // };
 
   useEffect(() => {
     if (isPaused) {
@@ -63,7 +64,8 @@ function TextOutput({
       setWasPaused(false);
       setCurrentSnippetDelay(remainingTime);
       setSnippetStartTime(Date.now());
-      const sentences = splitText(currentTextMessage?.text || "");
+      // const sentences = splitText(currentTextMessage?.text || "");
+      const sentences = currentAudioMessage?.sentences || [];
 
       // Don't set a timer if we are on the last snippet
       if (currentSnippetIndex < sentences.length - 1) {
@@ -79,11 +81,11 @@ function TextOutput({
   // Reset the snippet index and snippet when a new message is received
   useEffect(() => {
     setCurrentSnippetIndex(0);
-    if (currentTextMessage?.text) {
-      const sentences = splitText(currentTextMessage?.text);
+    const sentences = currentAudioMessage?.sentences;
+    if (sentences) {
       if (sentences.length > 0) {
         setSentencesLength(sentences.length);
-        setCurrentSnippet(sentences[0]);
+        setCurrentSnippet(sentences[0].text);
       } else {
         setSentencesLength(0);
         setCurrentSnippet("");
@@ -93,14 +95,15 @@ function TextOutput({
 
   useEffect(() => {
     if (currentSnippetIndex >= 0 && currentTextMessage?.text) {
-      const sentences = splitText(currentTextMessage?.text);
+      const sentences = currentAudioMessage.sentences;
 
       if (sentences.length > currentSnippetIndex) {
-        setCurrentSnippet(sentences[currentSnippetIndex]);
+        setCurrentSnippet(sentences[currentSnippetIndex].text);
       }
 
       // Store the current delay, and the time when it started
-      const delay = calculateDisplayTime(sentences[currentSnippetIndex] || "");
+      const delay = calculateDisplayTime(sentences[currentSnippetIndex], sentences[currentSnippetIndex + 1]);
+      console.log(delay);
       setCurrentSnippetDelay(delay);
       setSnippetStartTime(Date.now());
 
@@ -125,13 +128,19 @@ function TextOutput({
   }, [currentSnippetIndex, currentTextMessage]);
 
   // Modify calculateDisplayTime to handle potential undefined or empty strings safely
-  const calculateDisplayTime = (text) => {
-    const baseTimePerCharacter = 60; //ms Adjust this value as needed
-    const speedMultiplier = globalOptions.audio_speed;
-    const characterModifier = speedModifiers[currentTextMessage?.speaker] || 1;
-    const calculatedTime = text.length * baseTimePerCharacter * characterModifier / speedMultiplier;
-    return Math.round(Math.max(800, calculatedTime));
+  const calculateDisplayTime = (current, next) => {
+    const end = next ? next.start : current.end;
+    const diff = (end - current.start) * 1000;
+    return diff;
   };
+
+  // const calculateDisplayTime = (text) => {
+  //   const baseTimePerCharacter = 60; //ms Adjust this value as needed
+  //   const speedMultiplier = globalOptions.audio_speed;
+  //   const characterModifier = speedModifiers[currentTextMessage?.speaker] || 1;
+  //   const calculatedTime = text.length * baseTimePerCharacter * characterModifier / speedMultiplier;
+  //   return Math.round(Math.max(800, calculatedTime));
+  // };
 
   const paragraphStyle = {
     fontFamily: "Arial, sans-serif",

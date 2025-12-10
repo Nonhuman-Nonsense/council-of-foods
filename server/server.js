@@ -578,9 +578,7 @@ io.on("connection", (socket) => {
       let attempt = 1;
       let output = { response: "" };
       while (attempt < 5 && output.response === "") {
-        output = await generateTextFromGPT(
-          conversationOptions.characters[currentSpeaker]
-        );
+        output = await generateTextFromGPT(conversationOptions.characters[currentSpeaker]);
 
         if (!run) return;
         if (handRaised) return;
@@ -596,6 +594,7 @@ io.on("connection", (socket) => {
         id: output.id,
         speaker: conversationOptions.characters[currentSpeaker].id,
         text: output.response,
+        sentences: output.sentences,
         trimmed: output.trimmed,
         pretrimmed: output.pretrimmed,
       };
@@ -679,20 +678,23 @@ io.on("connection", (socket) => {
       if (generateNew) {
         // console.log(`[meeting ${meetingId}] generating audio for speaker ${speaker.id}`);
 
-          const mp3 = await openai.audio.speech.create({
-            model: conversationOptions.options.voiceModel,
-            voice: speaker.voice,
-            speed: conversationOptions.options.audio_speed,
-            input: message.text.substring(0, 4096),
-            // instructions: speaker.voiceInstruction
-          });
+        const mp3 = await openai.audio.speech.create({
+          model: conversationOptions.options.voiceModel,
+          voice: speaker.voice,
+          speed: conversationOptions.options.audio_speed,
+          input: message.text.substring(0, 4096),
+          // instructions: speaker.voiceInstruction
+        });
 
         buffer = Buffer.from(await mp3.arrayBuffer());
       }
 
+      const sentencesWithTimings = await getSentenceTimings(buffer, message);
+
       const audioObject = {
         id: message.id,
         audio: buffer,
+        sentences: sentencesWithTimings
       };
 
       // console.log(`[meeting ${meetingId}] audio generated for speaker ${speaker.id}`);
@@ -705,6 +707,7 @@ io.on("connection", (socket) => {
           date: new Date().toISOString(),
           meeting_id: meetingId,
           audio: buffer,
+          sentences: sentencesWithTimings
         };
 
         //If there is a connection problem, it could be that the audio was already generated before the disconnect and then inserted into the db
@@ -732,6 +735,164 @@ io.on("connection", (socket) => {
       reportError(error);
     }
   };
+
+  async function getSentenceTimings(buffer, message) {
+
+    const audioFile = new File([buffer], "speech.mp3", { type: "audio/mpeg" });
+
+    console.log("Sending to Whisper for alignment...");
+
+    const transcription = await openai.audio.transcriptions.create({
+      file: audioFile,
+      model: "whisper-1",
+      response_format: "verbose_json",
+      timestamp_granularities: ["word"] // We need words to calculate exact sentence starts
+    });
+
+    const words = transcription.words;
+
+    // Initialize a global cursor (tracker) to keep our place in the list of all words
+    let wordIndex = 0;
+
+    console.log(message.sentences);
+
+    // USE THE NEW HELPER
+    return mapSentencesToWords(message.sentences, words);
+
+    // return message.sentences.map((sentence) => {
+    //   console.log(sentence);
+    //   // 1. Count words in the current sentence
+    //   // We split by whitespace to verify how many 'steps' we need to move forward in the word list.
+    //   const sentenceWordCount = sentence.trim().split(/\s+/).length;
+
+    //   // Safety Check: If Whisper failed or returned empty data, return 0s to prevent a crash.
+    //   if (!words || words.length === 0) return { text: sentence, start: 0, end: 0 };
+
+    //   // 2. Get Start Time
+    //   // The start of this sentence is the timestamp of the word at our current cursor position.
+    //   // Fallback (||): If we run out of words (e.g., regex count mismatch), clamp to the very last word.
+    //   const startWord = words[wordIndex] || words[words.length - 1];
+    //   const startTime = startWord.start;
+
+    //   console.log(startWord);
+
+    //   // 3. Advance the Cursor
+    //   // Move the tracker forward by the length of this sentence so the next loop starts correctly.
+    //   wordIndex += sentenceWordCount;
+
+    //   // 4. Get End Time
+    //   // The end of this sentence is the word immediately BEFORE the new cursor position.
+    //   // We use Math.min to ensure we don't try to access an index that doesn't exist.
+    //   const endWordIndex = Math.min(wordIndex - 1, words.length - 1);
+    //   const endWord = words[endWordIndex] || words[words.length - 1];
+    //   const endTime = endWord.end;
+
+    //   console.log(endWord);
+
+    //   return {
+    //     text: sentence,
+    //     start: startTime,
+    //     end: endTime
+    //   };
+    // });
+  }
+
+  /**
+ * Optimized sentence mapper with Multi-Token Anchoring.
+ * Handles numbers ("1." vs "One") and skipped words automatically.
+ */
+  function mapSentencesToWords(sentences, words) {
+    if (!words || words.length === 0) return [];
+
+    // 1. Pre-process Whisper tokens for O(1) lookups
+    const whisperTokens = words.map(w =>
+      w.word.toLowerCase().replace(/[^\w]|_/g, "")
+    );
+
+    let cursor = 0;
+
+    return sentences.map((sentence) => {
+      // Tokenize sentence and filter empty strings
+      const sentenceTokens = sentence.trim().split(/\s+/)
+        .map(t => t.toLowerCase().replace(/[^\w]|_/g, ""))
+        .filter(t => t.length > 0);
+
+      if (sentenceTokens.length === 0) {
+        return { text: sentence, start: 0, end: 0 };
+      }
+
+      // --- FIND START (Robust Multi-Try) ---
+      let startIndex = -1;
+
+      // We scan a window of 15 words from the cursor
+      const startSearchLimit = Math.min(cursor + 15, whisperTokens.length);
+
+      // Try to match the first word ("1"), then the second ("How"), then the third ("do")
+      // This solves the "1." vs "One" mismatch issue completely.
+      for (let tokenOffset = 0; tokenOffset < Math.min(3, sentenceTokens.length); tokenOffset++) {
+        const targetToken = sentenceTokens[tokenOffset];
+
+        for (let i = cursor; i < startSearchLimit; i++) {
+          if (whisperTokens[i] === targetToken) {
+            // Found a match! Adjust start index back to the theoretical beginning
+            startIndex = Math.max(cursor, i - tokenOffset);
+            break;
+          }
+        }
+        if (startIndex !== -1) break; // Stop if we found a match
+      }
+
+      // Fallback: If absolutely no words matched, stay at cursor
+      if (startIndex === -1) startIndex = cursor;
+
+
+      // --- FIND END ---
+      let endIndex = -1;
+      const estimatedLength = sentenceTokens.length;
+      // Look ahead from the FOUND start index
+      const endSearchLimit = Math.min(startIndex + estimatedLength + 10, whisperTokens.length);
+
+      // Try to match the last word, or the second to last (in case of punctuation issues)
+      for (let tokenOffset = 0; tokenOffset < Math.min(3, sentenceTokens.length); tokenOffset++) {
+        const targetToken = sentenceTokens[sentenceTokens.length - 1 - tokenOffset];
+
+        // Scan backwards from limit to start (preferred for end words) or forwards
+        // Here we scan forwards for simplicity and speed
+        for (let i = startIndex; i < endSearchLimit; i++) {
+          if (whisperTokens[i] === targetToken) {
+            endIndex = i;
+            // Heuristic: If we found the word very early, it might be a duplicate "the". 
+            // Keep searching if it's too close, otherwise take it.
+            if (i > startIndex + (estimatedLength * 0.5)) break;
+          }
+        }
+        if (endIndex !== -1) break;
+      }
+
+      // Fallback: Calculate based on length if end not found
+      if (endIndex === -1) {
+        endIndex = Math.min(startIndex + estimatedLength - 1, whisperTokens.length - 1);
+      }
+
+      // Update cursor for next loop
+      cursor = endIndex + 1;
+
+      // --- BOUNDS SAFETY ---
+      // Ensure we don't crash or return "questions" for everything if we run off the end
+      const safeStart = words[startIndex] || words[words.length - 1];
+      const safeEnd = words[endIndex] || words[words.length - 1];
+
+      console.log(sentence);
+      console.log(safeStart);
+      console.log(safeEnd);
+
+      return {
+        text: sentence,
+        start: safeStart ? safeStart.start : 0,
+        end: safeEnd ? safeEnd.end : 0
+      };
+    });
+  }
 
   const generateTextFromGPT = async (speaker) => {
     try {
@@ -763,6 +924,7 @@ io.on("connection", (socket) => {
       let trimmedContent;
       let originalResponse = response;
 
+      //Remove last half paragraphs
       if (completion.choices[0].finish_reason != "stop") {
         if (conversationOptions.options.trimSentance) {
           const lastPeriodIndex = response.lastIndexOf(".");
@@ -779,23 +941,37 @@ io.on("connection", (socket) => {
             response = response.substring(0, lastNewLineIndex);
           }
         }
+      }
 
+      //Check that we are not answering for someone else
+      for (var i = 0; i < conversationOptions.characters.length; i++) {
+        if (i === currentSpeaker) continue;
+        const nameIndex = response.indexOf(conversationOptions.characters[i].name + ":");
+        if (nameIndex != -1 && nameIndex < 20) {
+          response = response.substring(0, nameIndex).trim();
+          trimmedContent = originalResponse.substring(nameIndex);
+        }
+      }
+
+      //Split into sentences
+      // Make sure to use the same sentence splitter as on the client side
+      const sentenceRegex = /(\d+\.\s+.{3,}?(?:\n|\?!\*|\?!|!\?|\?"|!"|\."|!\*|\?\*|\?|!|\?|;|\.{3}|…|\.(?!\.)))|.{3,}?(?:\n|\?!\*|\?!|!\?|\?"|!"|\."|!\*|\?\*|!|\?|;|\.{3}|…|\.(?!\.)|$)/gs;
+      let sentences = response
+        .match(sentenceRegex)
+        .map((sentence) => sentence.trim())
+        .filter((sentence) => sentence.length > 0);
+
+      if (completion.choices[0].finish_reason != "stop") {
+        // Check if we can re-add some messages from the end, to put back some of the list of questions that chair often produces
         if (conversationOptions.options.trimChairSemicolon) {
           if (speaker.id === conversationOptions.options.chairId) {
-            // Make sure to use the same sentence splitter as on the client side
-            const sentenceRegex =
-              /(\d+\.\s+.{3,}?(?:\n|\?!\*|\?!|!\?|\?"|!"|\."|!\*|\?\*|\?|!|\?|;|\.{3}|…|\.|$))|.{3,}?(?:\n|\?!\*|\?!|!\?|\?"|!"|\."|!\*|\?\*|!|\?|;|\.{3}|…|\.|$)/gs;
-            const sentences = response
-              .match(sentenceRegex)
-              .map((sentence) => sentence.trim())
-              .filter((sentence) => sentence.length > 0 && sentence !== ".");
+
             const trimmedSentences = trimmedContent
               ?.trim()
               .match(sentenceRegex)
               ?.map((sentence) => sentence.trim())
               .filter((sentence) => sentence.length > 0 && sentence !== ".");
 
-            // Check if we can re-add some messages from the end, to put back some of the list of questions that chair often produces
             if (
               trimmedSentences &&
               sentences &&
@@ -808,11 +984,7 @@ io.on("connection", (socket) => {
                 trimmedSentences[1]?.slice(0, 1) === "2"
               ) {
                 trimmedContent = trimmedSentences[trimmedSentences.length - 1];
-                response = sentences
-                  .concat(
-                    trimmedSentences.slice(0, trimmedSentences.length - 1)
-                  )
-                  .join("\n");
+                sentences = sentences.concat(trimmedSentences.slice(0, trimmedSentences.length - 1));
               } else if (
                 trimmedSentences.length > 3 &&
                 trimmedSentences[0]?.slice(-1) === ":" &&
@@ -820,37 +992,23 @@ io.on("connection", (socket) => {
                 trimmedSentences[2]?.slice(0, 1) === "2"
               ) {
                 trimmedContent = trimmedSentences[trimmedSentences.length - 1];
-                response = sentences
-                  .concat(
-                    trimmedSentences.slice(0, trimmedSentences.length - 1)
-                  )
-                  .join("\n");
+                sentences = sentences.concat(trimmedSentences.slice(0, trimmedSentences.length - 1));
               } else {
                 //otherwise remove also the last presentation of the list of topics
                 trimmedContent = trimmedContent
                   ? sentences[sentences.length - 1] + "\n" + trimmedContent
                   : sentences[sentences.length - 1];
-                response = sentences.slice(0, sentences.length - 1).join("\n");
+                sentences = sentences.slice(0, sentences.length - 1);
               }
             }
           }
         }
       }
 
-      for (var i = 0; i < conversationOptions.characters.length; i++) {
-        if (i === currentSpeaker) continue;
-        const nameIndex = response.indexOf(
-          conversationOptions.characters[i].name + ":"
-        );
-        if (nameIndex != -1 && nameIndex < 20) {
-          response = response.substring(0, nameIndex).trim();
-          trimmedContent = originalResponse.substring(nameIndex);
-        }
-      }
-
       return {
         id: completion.id,
         response: response,
+        sentences: sentences,
         trimmed: trimmedContent,
         pretrimmed: pretrimmedContent,
       };

@@ -52,6 +52,7 @@ function Output({
       <div style={showTextOutput ? hiddenStyle : {}}>
         <TextOutput
           currentTextMessage={currentTextMessage}
+          currentAudioMessage={currentAudioMessage}
           isPaused={isPaused}
           style={councilState !== 'playing' ? hiddenStyle : {}}
           currentSnippetIndex={currentSnippetIndex}
