@@ -354,9 +354,10 @@ io.on("connection", (socket) => {
 
     if (message.askParticular) {
       console.log(`[meeting ${meetingId}] specifically asked to ${message.askParticular}`);
-      message.text = message.speaker + " asked " + message.askParticular + ": " + message.text;
+      message.text = message.speaker + " asked " + message.askParticular + ":\xa0" + message.text;
     } else {
-      message.text = message.speaker + (conversationOptions.language === 'en' ? " said: " : " sa: ") + message.text;
+      //Use non-breaking space \xa0
+      message.text = message.speaker + (conversationOptions.language === 'en' ? " said:\xa0" : " sa:\xa0") + message.text;
     }
 
     message.id = "human-" + uuidv4(); // Use UUID for unique message IDs for human messages
@@ -934,11 +935,7 @@ io.on("connection", (socket) => {
         if (conversationOptions.options.trimChairSemicolon) {
           if (speaker.id === conversationOptions.options.chairId) {
 
-            const trimmedSentences = trimmedContent
-              ?.trim()
-              .match(sentenceRegex)
-              ?.map((sentence) => sentence.trim())
-              .filter((sentence) => sentence.length > 0 && sentence !== ".");
+            const trimmedSentences = splitSentences(trimmedContent?.trim()).filter((sentence) => sentence.length > 0 && sentence !== ".");
 
             if (
               trimmedSentences &&
@@ -990,18 +987,16 @@ io.on("connection", (socket) => {
   };
 
   function splitSentences(response) {
-    // REGEX BREAKDOWN:
-    // 1. (?:\d+\.\s+)?       -> Optional Numbered List ("1. ")
-    // 2. .*?                 -> Content (Non-greedy)
-    // 3. (End Block):
-    //    a. [.!?…;:]+        -> Punctuation
-    //    b. ["']?            -> Optional closing quote
-    //    c. (?:[ \t]*[\p{Extended_Pictographic}]+)* -> OPTIONAL: Horizontal space + Emojis (Greedy!)
-    //    d. (?=\s|$)         -> Lookahead: Must be followed by space or end of string
-    // 4. |$|\n               -> OR: End of string / Newline (for sentences without punctuation)
-
-    // Note: The 'u' flag is required for \p{Extended_Pictographic}
-    const sentenceRegex = /(?:\d+\.\s+)?.*?(?:[.!?…;:]+["']?(?:[ \t]*[\p{Extended_Pictographic}]+)*(?=\s|$)|$|\n)/gu;
+    // BREAKDOWN:
+    // 1. (?:\d+\.\s+)? -> Optional Numbered List
+    // 2. .*?           -> Content
+    // 3. Delimiter Block:
+    //    a. (?:[.!?…;]|:(?!\xa0))+  -> Match .!?…; OR a Colon (ONLY if NOT followed by \xa0)
+    //    b. ["']?                   -> Optional Quote
+    //    c. (?:[ \t]*[\p{Extended_Pictographic}]+)* -> Optional Emojis
+    //    d. (?=\s|$)                -> Must be followed by ANY whitespace (including \xa0) or End
+    
+    const sentenceRegex = /(?:\d+\.\s+)?.*?(?:(?:[.!?…;]|:(?!\xa0))+["']?(?:[ \t]*[\p{Extended_Pictographic}]+)*(?=\s|$)|$|\n)/gu;
 
     return response
       .match(sentenceRegex)
