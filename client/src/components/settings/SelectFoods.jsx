@@ -2,10 +2,11 @@ import { useState, useEffect, useRef } from "react";
 import { toTitleCase, useMobile, useMobileXs } from "../../utils";
 import { useTranslation } from "react-i18next";
 
+import globalOptions from "../../global-options-client";
+
 //Foods
 import foodDataEN from "../../prompts/foods_en.json";
 import foodDataSV from "../../prompts/foods_sv.json";
-import { replace, useParams } from "react-router";
 
 const foodData = {
   "en": foodDataEN,
@@ -14,7 +15,7 @@ const foodData = {
 
 const MAXHUMANS = 3;
 
-//Freeze original topicData to make it immutable
+//Freeze original foodData to make it immutable
 Object.freeze(foodData);
 for (const language in foodData) {
   for (let i = 0; i < foodData[language].foods.length; i++) {
@@ -28,10 +29,10 @@ const blankHuman = {
   description: ""
 };
 
-function SelectFoods({ topicTitle, onContinueForward }) {
-  const [foods, setFoods] = useState(foodData['en'].foods); // Make sure this is defined before using it to find 'water'
+function SelectFoods({ lang, topicTitle, onContinueForward }) {
+  const [foods, setFoods] = useState(foodData['en'].foods); // Make sure this is defined before using it to find chair
   const [selectedFoods, setSelectedFoods] = useState([foodData['en'].foods[0].id]);
-  
+
   //Humans
   const [human0, setHuman0] = useState(cloneHuman(0));
   const [human1, setHuman1] = useState(cloneHuman(1));
@@ -44,18 +45,16 @@ function SelectFoods({ topicTitle, onContinueForward }) {
   const [recheckHumansReady, setRecheckHumansReady] = useState(false);
   const [currentFood, setCurrentFood] = useState(null);
 
-  const minFoods = 2 + 1; // 2 plus water
-  const maxFoods = 6 + 1; // 6 plus water
+  const minFoods = 2 + 1; // 2 plus chair
+  const maxFoods = 6 + 1; // 6 plus chair
 
   const isMobile = useMobile();
   const isMobileXs = useMobileXs();
   const { t } = useTranslation();
 
-  let { lang } = useParams();
-
   //Update foods on language change
   useEffect(() => {
-    const newFoods = foodData[lang].foods.concat(humans.slice(0,numberOfHumans));
+    const newFoods = foodData[lang].foods.concat(humans.slice(0, numberOfHumans));
     setFoods(newFoods);
   }, [lang]);
 
@@ -78,12 +77,10 @@ function SelectFoods({ topicTitle, onContinueForward }) {
 
   function continueForward() {
     if (atLeastTwoFoods() && selectedFoods.length <= maxFoods) {
-      //Modify waters invitation prompt, with the name of the selected participants
+      //Modify chairs invitation prompt, with the name of the selected participants
 
       const participatingFoods = selectedFoods.filter(id => !id.startsWith('panelist'));
       const participatingHumans = selectedFoods.filter(id => id.startsWith('panelist'));
-
-      console.log(selectedFoods);
 
       let participants = "";
       for (const [i, id] of participatingFoods.entries()) {
@@ -123,7 +120,7 @@ function SelectFoods({ topicTitle, onContinueForward }) {
         );
       }
 
-      //Replace the humans tag in waters prompt regardless if its empty or not
+      //Replace the humans tag in chairs prompt regardless if its empty or not
       replacedFoods[0].prompt = replacedFoods[0].prompt.replace(
         "[HUMANS]",
         humanPresentation
@@ -253,7 +250,7 @@ function SelectFoods({ topicTitle, onContinueForward }) {
               food={food}
               onMouseEnter={() => setCurrentFood(food.id)}
               onMouseLeave={() => setCurrentFood(null)}
-              onSelectFood={food.id === 'river' ? undefined : selectFood}
+              onSelectFood={food.id === globalOptions.chairId ? undefined : selectFood}
               onDeselectFood={deselectFood}
               isSelected={selectedFoods.includes(food.id)}
               selectLimitReached={selectedFoods.length >= maxFoods}

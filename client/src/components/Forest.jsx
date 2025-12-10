@@ -1,8 +1,8 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useDebugValue } from "react";
 import FoodAnimation from "./FoodAnimation.jsx";
-import { dvh, minWindowHeight, filename, useMobile } from "../utils.js";
+import { dvh, minWindowHeight, filename, useMobile, useDocumentVisibility } from "../utils.js";
 
-function Forest({ currentSpeakerId, isPaused }) {
+function Forest({ currentSpeakerId, isPaused, audioContext }) {
 
     const isMobile = useMobile();
 
@@ -25,19 +25,19 @@ function Forest({ currentSpeakerId, isPaused }) {
     }, []); // Empty dependency array ensures this effect runs only once on mount and unmount
 
     const characters = [//Ratio is video width / height
-        { ref: useRef(null), id: "salmon", type: "transparent", zoom: 60, height: 9, left: 2.5, bottom: 42.5, ratio: 934 / 450 },
+        { ref: useRef(null), id: "salmon", type: "transparent", audio: 0.2, zoom: 60, height: 9, left: 2.5, bottom: 42.5, ratio: 934 / 450 },
         { ref: useRef(null), id: "bird", type: "transparent", height: 14, left: 12.5, bottom: 52, ratio: 708 / 612 },
-        { ref: useRef(null), id: "bumblebee", type: "transparent", zoom: 60, height: 10, left: -48, bottom: 44, ratio: 786 / 646 },
+        { ref: useRef(null), id: "bumblebee", type: "transparent", audio: 0.2, zoom: 60, height: 10, left: -48, bottom: 44, ratio: 786 / 646 },
         { ref: useRef(null), id: "concortapine", type: "image", height: 27, left: -73, bottom: 13, ratio: 724 / 918 },
-        { ref: useRef(null), id: "pine", type: "transparent", zoom: 100, height: 61, left: 26, bottom: 0, ratio: 1104 / 1920 },
-        { ref: useRef(null), id: "reindeer", type: "transparent", height: 16, left: -26.5, bottom: 27, ratio: 1040 / 956 },
-        { ref: useRef(null), id: "windturbine", type: "transparent", height: 22, left: 1, bottom: 69.5, ratio: 1066 / 946 },
-        { ref: useRef(null), id: "treeharvester", type: "transparent", zoom: 80, height: 19, left: 57.5, bottom: 1, ratio: 674 / 900 },
+        { ref: useRef(null), id: "pine", type: "transparent", audio: 0.2, zoom: 100, height: 61, left: 26, bottom: 0, ratio: 1104 / 1920 },
+        { ref: useRef(null), id: "reindeer", type: "transparent", audio: 0.2, height: 16, left: -26.5, bottom: 27, ratio: 1040 / 956 },
+        { ref: useRef(null), id: "windturbine", type: "transparent", audio: 0.2, height: 22, left: 1, bottom: 69.5, ratio: 1066 / 946 },
+        { ref: useRef(null), id: "treeharvester", type: "transparent", audio: 0.05, zoom: 80, height: 19, left: 57.5, bottom: 1, ratio: 674 / 900 },
         { ref: useRef(null), id: "kota", type: "transparent", always_on: true, height: 35, left: 54, bottom: 20, ratio: 574 / 1000 },
-        { ref: useRef(null), id: "lichen", type: "transparent", height: 25, left: 40, bottom: 53.5, ratio: 1332 / 1000 },
+        { ref: useRef(null), id: "lichen", type: "transparent", audio: 0.2, height: 25, left: 40, bottom: 53.5, ratio: 1332 / 1000 },
         { ref: useRef(null), id: "burningpine", type: "transparent", always_on: true, height: 14, left: -88, bottom: 85.5, ratio: 474 / 474 },
         { ref: useRef(null), id: "aurora", type: "transparent", always_on: true, height: 21, left: -35, bottom: 80, ratio: 1600 / 800 },
-        { ref: useRef(null), id: "mountain", type: "transparent", zoom: 40, height: 16, left: -52, bottom: 71.5, ratio: 1600 / 480 },
+        { ref: useRef(null), id: "mountain", type: "transparent", audio: 0.2, zoom: 40, height: 16, left: -52, bottom: 71.5, ratio: 1600 / 480 },
         { ref: useRef(null), id: "kota2", type: "image", height: 11, left: -19.5, bottom: 64, ratio: 564 / 400 },
         { ref: useRef(null), id: "snowyspruce", type: "image", height: 36, left: -37, bottom: 44.5, ratio: 1044 / 1800 },
     ];
@@ -124,23 +124,28 @@ function Forest({ currentSpeakerId, isPaused }) {
 
     return (
         <div style={container} ref={containerRef}>
+            <AmbientAudio audioContext={audioContext} />
             <img style={{ zIndex: "-5", height: "100%", position: "absolute", bottom: 0 }} src={`/backgrounds/forest${isMobile ? "-small" : ""}.avif`} alt="" />
             <div style={{ zIndex: "-4", height: "75.5%", position: "absolute", bottom: 0, left: "calc(50% - max(49dvh,147px))" }}>
                 <FoodAnimation type="transparent" character={{ id: "river" }} isPaused={isPaused} always_on={true} />
+                <BeingAudio id={'river'} volume={0.15} currentSpeakerId={currentSpeakerId} audioContext={audioContext} />
             </div>
             {characters.map((character, index) => (
-                <Being
-                    key={index}
-                    id={character.id}
-                    type={character.type}
-                    ref={character.ref}
-                    height={character.height + "%"}
-                    left={l(character.left)}
-                    bottom={character.bottom + "%"}
-                    always_on={character.always_on}
-                    isPaused={isPaused}
-                    currentSpeakerId={currentSpeakerId}
-                />))}
+                <div key={index}>
+                    <Being
+                        id={character.id}
+                        type={character.type}
+                        ref={character.ref}
+                        height={character.height + "%"}
+                        left={l(character.left)}
+                        bottom={character.bottom + "%"}
+                        always_on={character.always_on}
+                        isPaused={isPaused}
+                        currentSpeakerId={currentSpeakerId}
+                    />
+                    {character.audio && <BeingAudio id={character.id} volume={character.audio} currentSpeakerId={currentSpeakerId} audioContext={audioContext} />}
+                </div>
+            ))}
         </div >
     );
 }
@@ -152,9 +157,102 @@ function Being({ id, ref, type, height, left, bottom, always_on, isPaused, curre
                 <FoodAnimation type={type} character={{ id: id }} isPaused={isPaused} always_on={always_on} currentSpeakerId={currentSpeakerId} />
             </div>
         }
-        {type === "image" && <img style={{ position: "absolute", height: height, left: left, bottom: bottom}} src={`/characters/images/${filename(id)}.avif`} alt="" />}
+        {type === "image" && <img style={{ position: "absolute", height: height, left: left, bottom: bottom }} src={`/characters/images/${filename(id)}.avif`} alt="" />}
     </>
     );
+}
+
+function BeingAudio({ id, currentSpeakerId, volume, audioContext }) {
+    const gainNode = useRef(null); //The general volume control node
+    const sourceNode = useRef(null);
+
+    const [play, setPlay] = useState(false);
+
+    useEffect(() => {
+        if (id === currentSpeakerId) {
+            setPlay(true);
+        } else {
+            setPlay(false);
+        }
+    }, [currentSpeakerId]);
+
+    useEffect(() => {
+        if (play) {
+            gainNode.current.gain.setValueAtTime(0, audioContext.current.currentTime);
+            gainNode.current.gain.linearRampToValueAtTime(volume, audioContext.current.currentTime + 2);
+        } else {
+            gainNode.current.gain.linearRampToValueAtTime(0, audioContext.current.currentTime + 2);
+        }
+    }, [play]);
+
+    if (audioContext.current && gainNode.current === null) {
+        gainNode.current = audioContext.current.createGain();
+        gainNode.current.connect(audioContext.current.destination);
+        sourceNode.current = audioContext.current.createBufferSource();
+
+        loadBeingAudio();
+    }
+
+    async function loadBeingAudio() {
+
+        const audioBuffer = await fetch(`/characters/audio/${id}.mp3`)
+            .then(res => res.arrayBuffer())
+            .then(ArrayBuffer => audioContext.current.decodeAudioData(ArrayBuffer));
+
+        sourceNode.current.buffer = audioBuffer;
+        sourceNode.current.loop = true;
+        sourceNode.current.connect(gainNode.current);
+        gainNode.current.gain.setValueAtTime(0, audioContext.current.currentTime);
+        sourceNode.current.start();
+    }
+
+    return null;
+}
+
+function AmbientAudio({ audioContext }) {
+    const gainNode = useRef(null); //The general volume control node
+    const sourceNode = useRef(null);
+
+    //Global ambience volume
+    const onVolume = 0.05;
+
+    const isDocumentVisible = useDocumentVisibility();
+
+    //Fade out ambience on tab onfocus
+    useEffect(() => {
+        if (!isDocumentVisible) {
+            gainNode.current.gain.linearRampToValueAtTime(0, audioContext.current.currentTime + 0.5);
+        } else {
+            gainNode.current.gain.linearRampToValueAtTime(onVolume, audioContext.current.currentTime + 5);
+        }
+    }, [isDocumentVisible]);
+
+    if (audioContext.current && gainNode.current === null) {
+        gainNode.current = audioContext.current.createGain();
+        gainNode.current.connect(audioContext.current.destination);
+
+        //Set ambience volume
+        gainNode.current.gain.setValueAtTime(onVolume, audioContext.current.currentTime);
+
+
+        sourceNode.current = audioContext.current.createBufferSource();
+        loadAmbience();
+    }
+
+    async function loadAmbience() {
+        const audioBuffer = await fetch(`/characters/ambience.mp3`)
+            .then(res => res.arrayBuffer())
+            .then(ArrayBuffer => audioContext.current.decodeAudioData(ArrayBuffer));
+
+        sourceNode.current.buffer = audioBuffer;
+        sourceNode.current.loop = true;
+        sourceNode.current.connect(gainNode.current);
+        gainNode.current.gain.setValueAtTime(0, audioContext.current.currentTime);
+        gainNode.current.gain.linearRampToValueAtTime(onVolume, audioContext.current.currentTime + 5);
+        sourceNode.current.start();
+    }
+
+    return null;
 }
 
 export default Forest;

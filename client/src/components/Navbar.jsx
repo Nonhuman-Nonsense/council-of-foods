@@ -1,24 +1,21 @@
 import { useState, useRef, useEffect } from "react";
-import { useLocation, Link, useParams, useNavigate } from "react-router";
+import { useLocation, Link, useNavigate } from "react-router";
 import { useMediaQuery } from 'react-responsive'
 import { useTranslation } from 'react-i18next';
 import { capitalizeFirstLetter, useMobile, useMobileXs, usePortrait } from "../utils";
 import Lottie from "react-lottie-player";
 import hamburger from "../animations/hamburger.json";
 
-function Navbar({ topic, hamburgerOpen, setHamburgerOpen }) {
+function Navbar({ lang, topic, hamburgerOpen, setHamburgerOpen }) {
   const isMobile = useMobile();
   const isMobileXs = useMobileXs();
   const isPortrait = usePortrait();
   const showIconinMeny = useMediaQuery({ query: '(min-width: 700px)' });
   const hamburgerAnimation = useRef(null);
   const [activeMenuItem, setActiveMenuItem] = useState('');
-  // eslint-disable-next-line
   const location = useLocation();
   const navigate = useNavigate();
   const { t, i18n } = useTranslation();
-
-  let { lang } = useParams();
 
 
   useEffect(() => {
@@ -93,6 +90,8 @@ function Navbar({ topic, hamburgerOpen, setHamburgerOpen }) {
 
   const navItems = ["settings", "about", "contact"];
 
+  const showMenu = (!isMobile || hamburgerOpen);
+
   return (
     <nav
       style={navbarStyle}
@@ -121,7 +120,7 @@ function Navbar({ topic, hamburgerOpen, setHamburgerOpen }) {
                 cursor: "pointer",
                 visibility: showIconinMeny ? "visible" : "hidden",
               }}
-              onClick={() => handleOnNavigate( "reset" )}
+              onClick={() => handleOnNavigate("reset")}
             >{t('council').toUpperCase()}</h3>
             <h4 style={{ marginTop: "5px", visibility: showIconinMeny ? "visible" : "hidden" }}>{capitalizeFirstLetter(topic)}</h4>
           </div>
@@ -135,14 +134,21 @@ function Navbar({ topic, hamburgerOpen, setHamburgerOpen }) {
             <NavItem
               key={item}
               name={item}
-              show={(!isMobile || hamburgerOpen) && (item !== 'settings' || location.pathname.substring(4).startsWith('meeting'))}
+              show={showMenu && (item !== 'settings' || location.pathname.substring(4).startsWith('meeting'))}
               isActive={activeMenuItem === `#${item}`} // Determine active state
               onNavigate={handleOnNavigate}
             />
           ))}
-          <h3 style={{ margin: "0", padding: "0" }}>
-            <Link style={{ ...languageStyle, marginLeft: "19px", textDecoration: lang === 'en' ? "underline" : "none" }} to={`/en/${location.pathname.substring(4)}${location.hash}`} >{t('en').toUpperCase()}</Link>/
-            <Link style={{ ...languageStyle, textDecoration: lang === 'sv' ? "underline" : "none" }} to={`/sv/${location.pathname.substring(4)}${location.hash}`}>{t('sv').toUpperCase()}</Link>
+          <h3 style={{
+            margin: "0",
+            marginLeft: "19px",
+            padding: "0",
+            opacity: showMenu ? "1" : "0",
+            transition: "opacity 1s 0.2s"
+          }}>
+            <Link style={{ ...languageStyle, textDecoration: lang === 'en' ? "underline" : "none", pointerEvents: showMenu ? "auto" : "none" }} to={`/en/${location.pathname.substring(4)}${location.hash}`} onClick={() => {if(isMobile){setHamburgerOpen(false);}}} >{t('en').toUpperCase()}</Link>
+            /
+            <Link style={{ ...languageStyle, textDecoration: lang === 'sv' ? "underline" : "none", pointerEvents: showMenu ? "auto" : "none" }} to={`/sv/${location.pathname.substring(4)}${location.hash}`} onClick={() => {if(isMobile){setHamburgerOpen(false);}}} >{t('sv').toUpperCase()}</Link>
           </h3>
           {isMobile && (
             <div
@@ -174,9 +180,7 @@ function NavItem({ name, isActive, show, onNavigate }) {
     marginLeft: "19px",
     cursor: "pointer",
     opacity: show ? "1" : "0",
-    transitionProperty: "opacity",
-    transitionDuration: "1s",
-    transitionDelay: "0.2s",
+    transition: "opacity 1s 0.2s",
     pointerEvents: show ? "auto" : "none",
     textDecoration: isActive ? "underline" : "none",
     textUnderlineOffset: "4px",

@@ -1,6 +1,6 @@
 {
-  "audio_speed": 1.10,
   "conversationMaxLength": 10,
-  "meetingVeryMaxLength": 20,
-  "extraMessageCount": 5
+  "meetingVeryMaxLength": 30,
+  "extraMessageCount": 5,
+  "chairId": "river"
 }

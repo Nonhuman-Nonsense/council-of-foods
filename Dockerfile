@@ -3,6 +3,7 @@ FROM node:lts-alpine AS client-builder
 
 WORKDIR /usr/src/client
 COPY client/package*.json ./
+COPY client/react-audio-visualize-master ./react-audio-visualize-master
 RUN npm ci --only=production --no-audit
 COPY client/ .
 RUN npm run build

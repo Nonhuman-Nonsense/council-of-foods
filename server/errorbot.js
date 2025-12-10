@@ -1,7 +1,10 @@
-if (process.env.COUNCIL_ERRORBOT) {
-    console.log(`[init] will attempt to post errors to errorbot on ${process.env.COUNCIL_ERRORBOT}`);
-} else {
-    console.log(`[init] COUNCIL_ERRORBOT not set, will not report errors.`);
+//We wrap this in a function to make sure that it runs after .env is loaded
+export function initReporting() {
+    if (process.env.COUNCIL_ERRORBOT) {
+        console.log(`[init] will attempt to post errors to errorbot on ${process.env.COUNCIL_ERRORBOT}`);
+    } else {
+        console.log(`[init] COUNCIL_ERRORBOT not set, will not report errors.`);
+    }
 }
 
 export async function reportError(err) {
@@ -23,7 +26,7 @@ export async function reportError(err) {
     }).catch(error => {
         //We better catch errors posting to the bot, otherwise we get endless loop
         console.error(error);
-        console.log('[Error] posting error FAIL');
+        console.log('[Error] posting error FAILED');
         console.log('[Shutdown] Uncaught Exception');
         process.exit(1);
     });

@@ -1,6 +1,6 @@
 import "../App.css";
-import { useState, useEffect } from "react";
-import { Routes, Route, useLocation, useNavigate, useParams } from "react-router";
+import { useState, useEffect, useRef } from "react";
+import { Routes, Route, useLocation, useNavigate } from "react-router";
 import Overlay from "./Overlay";
 import MainOverlays from "./MainOverlays";
 import Landing from "./settings/Landing";
@@ -10,7 +10,7 @@ import SelectFoods from "./settings/SelectFoods";
 import Council from "./Council";
 import RotateDevice from "./RotateDevice";
 import FullscreenButton from "./FullscreenButton";
-import { usePortrait } from "../utils";
+import { useDocumentVisibility, usePortrait } from "../utils";
 import CouncilError from "./overlays/CouncilError.jsx";
 import Forest from './Forest';
 import Reconnecting from "./overlays/Reconnecting.jsx";
@@ -46,7 +46,7 @@ function useIsIphone() {
   return isIphone;
 }
 
-function Main() {
+function Main({ lang }) {
   const [topics, setTopics] = useState(topicsData['en'].topics);
   const [chosenTopic, setChosenTopic] = useState({});
   const [customTopic, setCustomTopic] = useState("");
@@ -61,6 +61,9 @@ function Main() {
   const [currentSpeakerId, setCurrentSpeakerId] = useState("");
   const [isPaused, setPaused] = useState(false);
 
+  const audioContext = useRef(null); // The AudioContext object
+  const [audioPaused, setAudioPaused] = useState(false);
+
   const location = useLocation();
   const navigate = useNavigate();
   const isIphone = useIsIphone();
@@ -68,7 +71,18 @@ function Main() {
 
   const { i18n } = useTranslation();
 
-  let { lang } = useParams();
+  if (audioContext.current === null) {
+    const AudioContext = window.AudioContext || window.webkitAudioContext; //cross browser
+    audioContext.current = new AudioContext();
+  }
+
+  //Set language if changed
+  useEffect(() => {
+    i18n.changeLanguage(lang);
+    if(location.pathname.substring(4,11) === 'meeting'){
+      navigate({ hash: "warning" });
+    }
+  }, [lang]);
 
   //Update topics on language change
   useEffect(() => {
@@ -83,20 +97,20 @@ function Main() {
     }
   }, [lang]);
 
-  //Set language if changed
-  //Redirect if unsupported language
+  //When pause changes, suspend audio context
   useEffect(() => {
-    const supportedLangs = ['sv', 'en'];
-    if (supportedLangs.includes(lang)) {
-      i18n.changeLanguage(lang);
-    } else {
-      navigate('/');
+    if (audioPaused) {
+      if (audioContext.current.state !== "suspended") {
+        audioContext.current.suspend();
+      }
+    } else if (audioContext.current.state === "suspended") {
+      audioContext.current.resume();
     }
-  }, [lang]);
+  }, [audioPaused]);
 
 
   useEffect(() => {
-    if (chosenTopic.title === "" && (location.pathname.length > 4 && location.pathname.substring(4) !== "" && location.pathname.substring(4) !== "topics")) {
+    if (chosenTopic.id === undefined && (location.pathname.length > 4 && location.pathname.substring(4) !== "" && location.pathname.substring(4) !== "topics")) {
       //Preserve the hash, but navigate to start
       navigate({ pathname: `/${lang}/`, hash: location.hash });
     }
@@ -113,6 +127,11 @@ function Main() {
   function beingsSelected({ foods }) {
     setParticipants(foods);
     proceedToMeeting();
+  }
+
+  function letsGo() {
+    audioContext.current.resume();
+    navigate(`/${lang}/topics`);
   }
 
   function proceedToMeeting() {
@@ -143,6 +162,10 @@ function Main() {
       // Reset from the start
       setChosenTopic({});
       navigate(`/${lang}`);
+
+      //Reload the entire window, in case the frontend has been updated etc.
+      //Usefull in exhibition settings where maybe there is no browser access
+      window.location.reload();
     } else {
       // Reset from foods selection
       topicSelected(resetData);
@@ -169,10 +192,11 @@ function Main() {
 
   return (
     <>
-      <Forest currentSpeakerId={currentSpeakerId} isPaused={isPaused} />
+      <Forest currentSpeakerId={currentSpeakerId} isPaused={isPaused} audioContext={audioContext} />
       <div style={{ width: "100%", height: "7%", minHeight: 300 * 0.07 + "px", position: "absolute", bottom: 0, background: "linear-gradient(0deg, rgba(0, 0, 0, 0.95) 0%, rgba(0, 0, 0, 0) 100%)", zIndex: 1 }} />
       {!(unrecoverabeError || connectionError) && (
         <Navbar
+          lang={lang}
           topic={chosenTopic.title}
           hamburgerOpen={hamburgerOpen}
           setHamburgerOpen={setHamburgerOpen}
@@ -193,7 +217,7 @@ function Main() {
             <Route
               path="/"
               element={
-                <Landing onContinueForward={() => navigate(`/${lang}/topics`)} />
+                <Landing onContinueForward={letsGo} />
               }
             />
             <Route
@@ -209,6 +233,7 @@ function Main() {
               path="beings"
               element={
                 <SelectFoods
+                  lang={lang}
                   topicTitle={chosenTopic.title}
                   onContinueForward={(props) => beingsSelected(props)}
                 />
@@ -219,6 +244,7 @@ function Main() {
               element={
                 participants.length !== 0 && ( // If page is reloaded, don't even start the council for now
                   <Council
+                    lang={lang}
                     topic={chosenTopic}
                     participants={participants}
                     currentSpeakerId={currentSpeakerId}
@@ -228,6 +254,8 @@ function Main() {
                     setUnrecoverableError={setUnrecoverableError}
                     connectionError={connectionError}
                     setConnectionError={setConnectionError}
+                    audioContext={audioContext}
+                    setAudioPaused={setAudioPaused}
                   />
                 )
               }

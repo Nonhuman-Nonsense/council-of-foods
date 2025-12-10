@@ -20,8 +20,7 @@ function Contact() {
         <a href="https://nonhuman-nonsense.com"><img alt="Nonhuman Nonsense" src="/logos/logo_nonhuman_nonsense.webp" style={{ maxWidth: isMobile ? "80px" : "120px", height: isMobile ? "10" + dvh : "61px", minHeight: "30px", marginRight: "20px" }} /></a>
         <a href="https://vindelalvenbiosfar.se/"><img alt={t('biosphere')} src="/logos/logo_biosphere.webp" style={{ maxWidth: isMobile ? "80px" : "150px", height: isMobile ? "10" + dvh : "100px", minHeight: "30px" }} /></a>
       </div>
-      <p>{t('contactText.1')}<a href="https://nonhuman-nonsense.com">Nonhuman&nbsp;Nonsense</a>{t('contactText.2')}<a href="https://vindelalvenbiosfar.se/">{t('biosphere')}</a>, <a href="https://www.gundegastrauberga.com/">Gundega&nbsp;Strauberga</a>, <a href="https://www.polymorf.se/">Albin&nbsp;Karlsson</a>{t('contactText.3')}
-      </p>
+      <p>{t('contactText.1')}<a href="https://nonhuman-nonsense.com">Nonhuman&nbsp;Nonsense</a>{t('contactText.2')}<a href="https://vindelalvenbiosfar.se/">{t('biosphere')}</a>, <a href="https://www.gundegastrauberga.com/">Gundega&nbsp;Strauberga</a>, <a href="https://www.polymorf.se/">Albin&nbsp;Karlsson</a>{t('contactText.3')}</p>
       <p>
         <a href="https://www.instagram.com/nonhuman_nonsense/">@nonhuman_nonsense</a>
         <br />

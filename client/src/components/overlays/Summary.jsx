@@ -5,6 +5,7 @@ import { marked } from "marked";
 import { jsPDF } from "jspdf";
 import { forwardRef, useImperativeHandle } from 'react';
 import { useTranslation } from "react-i18next";
+import { QRCodeCanvas } from 'qrcode.react';
 
 function Summary({ summary, meetingId }) {
   const isMobile = useMobile();
@@ -50,8 +51,17 @@ function Summary({ summary, meetingId }) {
           style={summaryWrapper}
           className="scroll"
         >
-          <h2>{t('council').toUpperCase()}</h2>
-          <h3>{t('meeting')} #{meetingId}</h3>
+          <hr />
+          <div style={{ display: "flex", flexDirection: "row", margin: "20px 0", justifyContent: "space-between" }}>
+            <div style={{ display: "flex", flexDirection: "column", textAlign: "left", flex: "1", paddingLeft: "15px" }}>
+              <h2 style={{ margin: 0 }}>{t('council').toUpperCase()}</h2>
+              <h3 style={{ margin: 0 }}>{t('meeting')} #{meetingId}</h3>
+            </div>
+            <div>
+              <a href={window.location.href}><QRCodeCanvas value={window.location.href} bgColor="rgba(0,0,0,0)" fgColor="#ffffff" style={{height: isMobile ? '50px' : "70px", width: isMobile ? '50px' : "70px", marginRight: "20px"}} /></a>
+            </div>
+          </div>
+          <hr />
           <div
             id="protocol-container"
             style={protocolStyle}
@@ -115,8 +125,9 @@ const PDFToPrint = forwardRef((props, ref) => {
           <hr />
           <div style={{ height: "52px", position: 'relative' }}>
             <img style={{ width: '70px' }} src='/logos/council_logo.png' alt="council of forest logo" />
-            <h2 style={{ fontSize: '24px', margin: '0', position: 'absolute', left: "80px", top: '2px' }}>{t('council').toUpperCase()}</h2>
-            <h3 style={{ fontSize: '15px', margin: '0', position: 'absolute', left: "80px", top: "28px" }}>{t('meeting')} #{props.meetingId}</h3>
+            <h2 style={{ fontSize: '24px', margin: '0', position: 'absolute', left: "10px", top: '2px' }}>{t('council').toUpperCase()}</h2>
+            <h3 style={{ fontSize: '15px', margin: '0', position: 'absolute', left: "10px", top: "28px" }}>{t('meeting')} #{props.meetingId}</h3>
+            <QRCodeCanvas value={window.location.href} style={{position: 'absolute', right: "10px", top: "2.5px", width: "45px", height: "45px"}} />
           </div>
           <hr />
           <div id="printed-style">
@@ -143,6 +154,8 @@ function Disclaimer() {
         <li>{t('disclaimer.4')}</li>
       </ol><br />
       <p>{t('disclaimer.5')} <a href="https://nonhuman-nonsense.com/">Nonhuman&nbsp;Nonsense</a>, {t('disclaimer.6')} (<a href="https://www.vinnova.se/en/p/council-of-the-forest">ref. nr. 2025-00344</a>).</p>
+      <br />
+      <p>{t('disclaimer.7')}</p>
       <br />
     </div>
   );

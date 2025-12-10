@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useNavigate, useLocation, useParams } from "react-router";
+import { useNavigate, useLocation } from "react-router";
 import io from "socket.io-client";
 import Overlay from "./Overlay";
 import CouncilOverlays from "./CouncilOverlays";
@@ -12,6 +12,7 @@ import { useDocumentVisibility, mapFoodIndex } from "../utils";
 import globalOptions from "../global-options-client";
 
 function Council({
+  lang,
   topic,
   participants,
   currentSpeakerId,
@@ -20,7 +21,9 @@ function Council({
   setPaused,
   setUnrecoverableError,
   setConnectionError,
-  connectionError
+  connectionError,
+  audioContext,
+  setAudioPaused
 }) {
   //Overall Council settings for this meeting
   const [humanName, setHumanName] = useState("");
@@ -33,8 +36,6 @@ function Council({
   //Routing
   const navigate = useNavigate();
   const location = useLocation();
-  const { lang } = useParams();
-  // eslint-disable-next-line
 
   //Main State variables
   const [activeOverlay, setActiveOverlay] = useState("");
@@ -68,14 +69,8 @@ function Council({
   const [summary, setSummary] = useState(null);//We store the summary here for easy access
 
   // Universal references
-  const audioContext = useRef(null); // The AudioContext object
   const waitTimer = useRef(null); // The waiting timer
   const socketRef = useRef(null); // Using useRef to persist socket instance
-
-  if (audioContext.current === null) {
-    const AudioContext = window.AudioContext || window.webkitAudioContext; //cross browser
-    audioContext.current = new AudioContext();
-  }
 
   //Humans and foods
   const foods = participants.filter((part) => part.type !== 'panelist');
@@ -206,6 +201,13 @@ function Council({
     //If we have reached a human question
     if (councilState !== 'human_input' && textMessages[playNextIndex]?.type === 'awaiting_human_question') {
       setCouncilState('human_input');
+      return;
+    }
+
+    //If message is skipped
+    if (textMessages[playNextIndex]?.type === 'skipped') {
+      console.log(`[warning] skipped speaker ${textMessages[playNextIndex].speaker}`);
+      setPlayNextIndex(current => current + 1);
       return;
     }
 
@@ -374,11 +376,9 @@ function Council({
   //When pause changes, suspend audio context
   useEffect(() => {
     if (isPaused) {
-      if (audioContext.current.state !== "suspended") {
-        audioContext.current.suspend();
-      }
+      setAudioPaused(true);
     } else if (audioContext.current.state === "suspended") {
-      audioContext.current.resume();
+      setAudioPaused(false);
     }
   }, [isPaused, councilState]);
 
@@ -406,8 +406,13 @@ function Council({
 
   // When skip back is pressed on controls
   function handleOnSkipBackward() {
-    if (playingNowIndex - 1 >= 0) {
-      setPlayNextIndex(playingNowIndex - 1);
+    let skipLength = 1;
+    //If trying to go back when a message was skipped
+    while(textMessages[playingNowIndex - skipLength]?.type === 'skipped'){
+      skipLength++;
+    }
+    if (playingNowIndex - skipLength >= 0) {
+      setPlayNextIndex(playingNowIndex - skipLength);
       if (councilState === 'waiting') {
         setCouncilState('playing');
       }
@@ -556,6 +561,7 @@ function Council({
           isMuted={isMuted}
           isPaused={isPaused}
           currentSnippetIndex={currentSnippetIndex}
+          participants={participants}
           setCurrentSnippetIndex={setCurrentSnippetIndex}
           audioContext={audioContext}
           handleOnFinishedPlaying={handleOnFinishedPlaying}

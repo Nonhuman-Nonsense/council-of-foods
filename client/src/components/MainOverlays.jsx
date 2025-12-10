@@ -7,26 +7,27 @@ import About from "./overlays/About.jsx";
 import Contact from "./overlays/Contact.jsx";
 import ResetWarning from "./overlays/ResetWarning";
 import SelectTopic from "./settings/SelectTopic";
+import { useTranslation } from "react-i18next";
 
 function MainOverlays({ topics, topic, onReset, onCloseOverlay }) {
 
-  // eslint-disable-next-line
   const navigate = useNavigate();
   const location = useLocation();
+
+  const { t } = useTranslation();
 
   // Reset the hash in certain conditions
   useEffect(() => {
     const hash = location.hash;
     if (hash) {
-      if (!["#about", "#contact", "#reset", "#settings"].includes(hash)) {
+      if (!["#about", "#contact", "#reset", "#settings", '#warning'].includes(hash)) {
         removeOverlay();
       } else if (!location.pathname.substring(4).startsWith('meeting') && ["#settings"].includes(hash)) {
         removeOverlay();
-      } else if (location.pathname.substring(4) === '' && ["#reset"].includes(hash)) {
+      } else if (location.pathname.substring(4) === '' && ["#reset",'#warning'].includes(hash)) {
         removeOverlay();
       }
     }
-
   }, [location]);
 
   function removeOverlay() {
@@ -53,6 +54,12 @@ function MainOverlays({ topics, topic, onReset, onCloseOverlay }) {
         );
       case "#reset":
         return <ResetWarning
+          onReset={() => onReset()}
+          onCancel={removeOverlay}
+        />;
+      case "#warning":
+        return <ResetWarning
+          message={t('reset.lang')}
           onReset={() => onReset()}
           onCancel={removeOverlay}
         />;

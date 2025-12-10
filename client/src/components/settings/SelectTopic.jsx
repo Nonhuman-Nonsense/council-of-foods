@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect } from "react";
 import ResetWarning from "../overlays/ResetWarning";
-import topicData from "../../prompts/topics_en.json";
 import { capitalizeFirstLetter, toTitleCase, useMobile, useMobileXs } from "../../utils";
 import { useTranslation } from "react-i18next";
 
@@ -12,7 +11,7 @@ function SelectTopic({
   onCancel
 }) {
   const [selectedTopic, setSelectedTopic] = useState("");
-  const [hoverTopic, setHoverTopic] = useState("");
+  const [hoverTopic, setHoverTopic] = useState(null);
   const [customTopic, setCustomTopic] = useState("");
   const [displayWarning, setDisplayWarning] = useState(false);
 
@@ -122,7 +121,7 @@ function SelectTopic({
     <>
       {displayWarning ? (
         <ResetWarning
-          message="changing topic"
+          message={t('reset.changeTopic')}
           onReset={() =>
             onReset({ topic: selectedTopic, custom: customTopic })
           }
