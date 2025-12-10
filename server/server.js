@@ -23,8 +23,12 @@ const io = new Server(httpServer, {
 if (!process.env.COUNCIL_OPENAI_API_KEY) {
   throw new Error("COUNCIL_OPENAI_API_KEY environment variable not set.");
 }
-const openai = new OpenAI.OpenAI({ apiKey: process.env.COUNCIL_OPENAI_API_KEY });
-import globalOptions from "./global-options.json" with {type: 'json'};
+const openai = new OpenAI({ apiKey: process.env.COUNCIL_OPENAI_API_KEY });
+import globalOptions from './global-options.json' with { type: 'json' };
+
+//Error reporting
+import { initReporting, reportError } from './errorbot.js';
+initReporting();
 
 // Database setup
 if (!process.env.COUNCIL_DB_URL) {
@@ -34,9 +38,6 @@ const mongoClient = new MongoClient(process.env.COUNCIL_DB_URL);
 if (!process.env.COUNCIL_DB_PREFIX) {
   throw new Error("COUNCIL_DB_PREFIX environment variable not set.");
 }
-
-import { reportError } from './errorbot.js';
-
 console.log(`[init] COUNCIL_DB_PREFIX is ${process.env.COUNCIL_DB_PREFIX}`);
 const db = mongoClient.db(process.env.COUNCIL_DB_PREFIX);
 const meetingsCollection = db.collection("meetings");
@@ -57,6 +58,8 @@ const initializeDB = async () => {
     throw e; //If any other error, re-throw
   }
 };
+
+
 
 const insertMeeting = async (meeting) => {
   const ret = await counters.findOneAndUpdate(
@@ -182,7 +185,7 @@ io.on("connection", (socket) => {
         }`
       );
 
-      generateAudio(id, response, conversationOptions.characters[0]);
+      generateAudio(summary, conversationOptions.characters[0]);
     });
 
     socket.on("remove_last_message", () => {
@@ -217,20 +220,22 @@ io.on("connection", (socket) => {
         response = response.substring(0, firstNewLineIndex);
       }
 
-      //Add the invitation
-      conversation.push({
+      const message = {
         id: id,
         speaker: conversationOptions.characters[0].id,
         text: response,
         type: "invitation",
         message_index: handRaisedOptions.index,
-      });
+      }
+
+      //Add the invitation
+      conversation.push(message);
 
       conversationOptions.state.alreadyInvited = true;
       console.log(`[meeting ${meetingId}] invitation generated, on index ${handRaisedOptions.index}`);
 
       //will run async
-      generateAudio(id, response, conversationOptions.characters[0]);
+      generateAudio(message, conversationOptions.characters[0]);
     }
 
     //Set a waiting message at the end of the stack and wait
@@ -302,14 +307,14 @@ io.on("connection", (socket) => {
       content: `${conversationOptions.topic}\n\n${speaker.prompt}`.trim(),
     });
 
-    conversation.forEach((msg) => {
-      if (msg.type === "skipped") return;
+    for (const msg of conversation) {
+      if (msg.type === "skipped") continue;
       const speakerName = msg.type === 'human' ? conversationOptions.humanName : conversationOptions.characters.find(c => c.id === msg.speaker).name;
       messages.push({
         role: speaker.id === msg.speaker ? "assistant" : "user",
         content: speakerName + ": " + msg.text + "\n---",
       });
-    });
+    }
 
     if (upToIndex) {
       messages = messages.slice(0, 1 + upToIndex);
@@ -363,8 +368,7 @@ io.on("connection", (socket) => {
     socket.emit("conversation_update", conversation);
 
     generateAudio(
-      message.id,
-      message.text,
+      message,
       conversationOptions.characters[0]
     );
 
@@ -396,11 +400,7 @@ io.on("connection", (socket) => {
 
     socket.emit("conversation_update", conversation);
 
-    generateAudio(
-      message.id,
-      message.text,
-      conversationOptions.characters[0]
-    );
+    generateAudio(message, conversationOptions.characters[0]);
 
     isPaused = false;
     handRaised = false;
@@ -436,7 +436,7 @@ io.on("connection", (socket) => {
       { $set: { conversation: conversation, summary: summary } }
     );
 
-    generateAudio(id, response, conversationOptions.characters[0]);
+    generateAudio(summary, conversationOptions.characters[0]);
   });
 
   socket.on("continue_conversation", () => {
@@ -477,8 +477,7 @@ io.on("connection", (socket) => {
         for (let i = 0; i < missingAudio.length; i++) {
           console.log(`[meeting ${meetingId}] (async) generating missing audio for ${missingAudio[i].speaker}`);
           generateAudio(
-            missingAudio[i].id,
-            missingAudio[i].text,
+            missingAudio[i],
             conversationOptions.characters.find(c => c.id == missingAudio[i].speaker)
           );
         }
@@ -589,9 +588,7 @@ io.on("connection", (socket) => {
         if (thisMeetingId != meetingId) return; //On prototype, its possible to receive a message from last conversation, since socket is not restarted
         attempt++;
         if (output.reponse === "") {
-          console.log(
-            `[meeting ${meetingId}] entire message trimmed, trying again. attempt ${attempt}`
-          );
+          console.log(`[meeting ${meetingId}] entire message trimmed, trying again. attempt ${attempt}`);
         }
       }
 
@@ -610,7 +607,8 @@ io.on("connection", (socket) => {
 
       if (message.text === "") {
         message.type = "skipped";
-        console.log("Skipped a message");
+        console.warn(`[meeting ${meetingId}] failed to make a message. Skipping speaker ${conversationOptions.characters[currentSpeaker].id}`);
+        reportError({ type: "warning", warning: `skipped speaker ${conversationOptions.characters[currentSpeaker].id} because message generation failed.`, message: message });
       }
 
       conversation.push(message);
@@ -618,28 +616,14 @@ io.on("connection", (socket) => {
       const message_index = conversation.length - 1;
 
       socket.emit("conversation_update", conversation);
-      console.log(
-        `[meeting ${meetingId}] message generated, index ${message_index}`
-      );
+      console.log(`[meeting ${meetingId}] message generated, index ${message_index}, speaker ${message.speaker}`);
 
       meetingsCollection.updateOne(
         { _id: meetingId },
         { $set: { conversation: conversation } }
       );
 
-      if (message.type != "skipped") {
-        generateAudio(
-          message.id,
-          message.text,
-          conversationOptions.characters[currentSpeaker]
-        );
-      } else {
-        const audioUpdate = {
-          id: message.id,
-          type: "skipped",
-        };
-        socket.emit("audio_update", audioUpdate);
-      }
+      generateAudio(message, conversationOptions.characters[currentSpeaker]);
 
       if (
         conversation.length >=
@@ -660,10 +644,20 @@ io.on("connection", (socket) => {
     }
   };
 
-  const generateAudio = async (id, text, speaker) => {
-    //If audio creation is skipped
+  const generateAudio = async (message, speaker) => {
+    //If audio creation is skipped on prototype
     if (conversationOptions.options.skipAudio) return;
     // const thisConversationCounter = conversationCounter;
+
+    if (message.type === "skipped") {
+      const audioUpdate = {
+        id: message.id,
+        type: "skipped",
+      };
+      console.warn(`[meeting ${meetingId}] skipped making audio for speaker ${message.speaker}`);
+      socket.emit("audio_update", audioUpdate);
+      return;
+    }
 
     let buffer;
     //check if we already have it in the database
@@ -671,7 +665,7 @@ io.on("connection", (socket) => {
     try {
       //will return null if not found
       const existingAudio = await audioCollection.findOne({
-        _id: id,
+        _id: message.id,
       });
       if (existingAudio) {
         buffer = existingAudio.buffer;
@@ -685,19 +679,19 @@ io.on("connection", (socket) => {
       if (generateNew) {
         // console.log(`[meeting ${meetingId}] generating audio for speaker ${speaker.id}`);
 
-        const mp3 = await openai.audio.speech.create({
-          model: conversationOptions.options.voiceModel,
-          voice: speaker.voice,
-          speed: conversationOptions.options.audio_speed,
-          input: text.substring(0, 4096),
-          // instructions: speaker.voiceInstruction
-        });
+          const mp3 = await openai.audio.speech.create({
+            model: conversationOptions.options.voiceModel,
+            voice: speaker.voice,
+            speed: conversationOptions.options.audio_speed,
+            input: message.text.substring(0, 4096),
+            // instructions: speaker.voiceInstruction
+          });
 
         buffer = Buffer.from(await mp3.arrayBuffer());
       }
 
       const audioObject = {
-        id: id,
+        id: message.id,
         audio: buffer,
       };
 

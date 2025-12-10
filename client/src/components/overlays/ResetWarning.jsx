@@ -7,8 +7,8 @@ function ResetWarning({ message, onReset, onCancel }) {
   return (
     <div>
       <h2>{t('reset.title')}</h2>
-      <h4>
-        {message ? capitalizeFirstLetter(message) : t('reset.0')} {t('reset.1')}
+      <h4 style={{ maxWidth: "min(600px,80vw)", whiteSpace: 'pre-wrap' }}>
+        {message ?? t('reset.default')}
       </h4>
       <div>
         <button

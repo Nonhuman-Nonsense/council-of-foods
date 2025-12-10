@@ -48,7 +48,7 @@ function useIsIphone() {
   return isIphone;
 }
 
-function Main() {
+function Main({ lang }) {
   const [topics, setTopics] = useState(topicsData['en'].topics);
   const [chosenTopic, setChosenTopic] = useState({});
   const [customTopic, setCustomTopic] = useState("");
@@ -65,9 +65,6 @@ function Main() {
   const isPortrait = usePortrait();
 
   // const { i18n } = useTranslation();
-
-  // let { lang } = useParams();
-  const lang = 'en';
 
   useEffect(() => {
     if (chosenTopic.id === undefined && (location.pathname !== "/" && location.pathname !== "/topics")) {
@@ -154,6 +151,7 @@ function Main() {
       <Background path={location.pathname} />
       {!(unrecoverabeError || connectionError) &&
         <Navbar
+          lang={lang}
           topic={chosenTopic.title}
           hamburgerOpen={hamburgerOpen}
           setHamburgerOpen={setHamburgerOpen}
@@ -185,6 +183,7 @@ function Main() {
               path="foods"
               element={
                 <SelectFoods
+                  lang={lang}
                   topicTitle={chosenTopic.title}
                   onContinueForward={(props) => foodsSelected(props)}
                 />
@@ -195,6 +194,7 @@ function Main() {
               element={
                 participants.length !== 0 &&// If page is reloaded, don't even start the council for now
                 <Council
+                  lang={lang}
                   topic={chosenTopic}
                   participants={participants}
                   setUnrecoverableError={setUnrecoverableError}

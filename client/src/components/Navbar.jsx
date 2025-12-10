@@ -1,12 +1,12 @@
 import { useState, useRef, useEffect } from "react";
-import { useLocation, Link, useParams, useNavigate } from "react-router";
+import { useLocation, Link, useNavigate } from "react-router";
 import { useMediaQuery } from 'react-responsive'
 import { useTranslation } from 'react-i18next';
 import { capitalizeFirstLetter, useMobile, useMobileXs, usePortrait } from "../utils";
 import Lottie from "react-lottie-player";
 import hamburger from "../animations/hamburger.json";
 
-function Navbar({ topic, hamburgerOpen, setHamburgerOpen }) {
+function Navbar({ lang, topic, hamburgerOpen, setHamburgerOpen }) {
   const isMobile = useMobile();
   const isMobileXs = useMobileXs();
   const isPortrait = usePortrait();
@@ -15,11 +15,8 @@ function Navbar({ topic, hamburgerOpen, setHamburgerOpen }) {
   const [activeMenuItem, setActiveMenuItem] = useState('');
   const location = useLocation();
   const navigate = useNavigate();
-  // const { t, i18n } = useTranslation();
+  
   const { t } = useTranslation();
-
-  // let { lang } = useParams();
-  const lang = 'en';
 
 
   useEffect(() => {
@@ -84,6 +81,8 @@ function Navbar({ topic, hamburgerOpen, setHamburgerOpen }) {
 
   const navItems = ["settings", "about", "contact"];
 
+  const showMenu = (!isMobile || hamburgerOpen);
+
   return (
     <nav
       style={navbarStyle}
@@ -113,7 +112,7 @@ function Navbar({ topic, hamburgerOpen, setHamburgerOpen }) {
                 cursor: "pointer",
                 visibility: showIconinMeny ? "visible" : "hidden",
               }}
-              onClick={() => handleOnNavigate( "reset" )}
+              onClick={() => handleOnNavigate("reset")}
             >{t('council').toUpperCase()}</h3>
             <h4 style={{ marginTop: "5px", visibility: showIconinMeny ? "visible" : "hidden" }}>{capitalizeFirstLetter(topic)}</h4>
           </div>
@@ -127,7 +126,7 @@ function Navbar({ topic, hamburgerOpen, setHamburgerOpen }) {
             <NavItem
               key={item}
               name={item}
-              show={(!isMobile || hamburgerOpen) && (item !== 'settings' || location.pathname.substring(1).startsWith('meeting'))}
+              show={showMenu && (item !== 'settings' || location.pathname.substring(1).startsWith('meeting'))}
               isActive={activeMenuItem === `#${item}`} // Determine active state
               onNavigate={handleOnNavigate}
             />
@@ -162,9 +161,7 @@ function NavItem({ name, isActive, show, onNavigate }) {
     marginLeft: "19px",
     cursor: "pointer",
     opacity: show ? "1" : "0",
-    transitionProperty: "opacity",
-    transitionDuration: "1s",
-    transitionDelay: "0.2s",
+    transition: "opacity 1s 0.2s",
     pointerEvents: show ? "auto" : "none",
     textDecoration: isActive ? "underline" : "none",
     textUnderlineOffset: "4px",

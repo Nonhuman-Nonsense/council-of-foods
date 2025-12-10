@@ -6,7 +6,7 @@ function App() {
   return (
     <div className="App">
       <BrowserRouter>
-        <Main />
+        <Main lang="en" />
       </BrowserRouter>
     </div>
   );

@@ -13,6 +13,7 @@ import { useDocumentVisibility, mapFoodIndex } from "../utils";
 import globalOptions from "../global-options-client";
 
 function Council({
+  lang,
   topic,
   participants,
   setUnrecoverableError,
@@ -30,8 +31,6 @@ function Council({
   //Routing
   const navigate = useNavigate();
   const location = useLocation();
-  // const { lang } = useParams();
-  const lang = 'en';
 
   //Main State variables
   const [activeOverlay, setActiveOverlay] = useState("");
@@ -206,6 +205,13 @@ function Council({
     //If we have reached a human question
     if (councilState !== 'human_input' && textMessages[playNextIndex]?.type === 'awaiting_human_question') {
       setCouncilState('human_input');
+      return;
+    }
+
+    //If message is skipped
+    if (textMessages[playNextIndex]?.type === 'skipped') {
+      console.log(`[warning] skipped speaker ${textMessages[playNextIndex].speaker}`);
+      setPlayNextIndex(current => current + 1);
       return;
     }
 
@@ -427,8 +433,13 @@ function Council({
 
   // When skip back is pressed on controls
   function handleOnSkipBackward() {
-    if (playingNowIndex - 1 >= 0) {
-      setPlayNextIndex(playingNowIndex - 1);
+    let skipLength = 1;
+    //If trying to go back when a message was skipped
+    while(textMessages[playingNowIndex - skipLength]?.type === 'skipped'){
+      skipLength++;
+    }
+    if (playingNowIndex - skipLength >= 0) {
+      setPlayNextIndex(playingNowIndex - skipLength);
       if (councilState === 'waiting') {
         setCouncilState('playing');
       }

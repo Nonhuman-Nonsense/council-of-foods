@@ -121,7 +121,7 @@ function SelectTopic({
     <>
       {displayWarning ? (
         <ResetWarning
-          message="changing topic"
+          message={t('reset.changeTopic')}
           onReset={() =>
             onReset({ topic: selectedTopic, custom: customTopic })
           }
