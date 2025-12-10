@@ -810,28 +810,34 @@ io.on("connection", (socket) => {
     );
 
     let cursor = 0;
+    let lastEndTime = 0;
 
     return sentences.map((sentence) => {
-      // Tokenize sentence and filter empty strings
+      // 1. Tokenize (strips emojis/punctuation)
       const sentenceTokens = sentence.trim().split(/\s+/)
         .map(t => t.toLowerCase().replace(/[^\w]|_/g, ""))
         .filter(t => t.length > 0);
 
+      // --- CASE: SILENT SENTENCE (Emojis/Punctuation only) ---
+      // If there are no words to match, we can't find it in audio.
+      // Instead of 0, assign it the timestamp where the LAST sentence ended.
       if (sentenceTokens.length === 0) {
-        return { text: sentence, start: 0, end: 0 };
+        return {
+          text: sentence,
+          start: lastEndTime,
+          end: lastEndTime // It effectively has 0 audio duration
+        };
       }
 
-      // --- FIND START (Robust Multi-Try) ---
+      // --- NORMAL MATCHING LOGIC ---
       let startIndex = -1;
 
       // We scan a window of 15 words from the cursor
       const startSearchLimit = Math.min(cursor + 15, whisperTokens.length);
 
-      // Try to match the first word ("1"), then the second ("How"), then the third ("do")
-      // This solves the "1." vs "One" mismatch issue completely.
+      // Multi-token start search
       for (let tokenOffset = 0; tokenOffset < Math.min(3, sentenceTokens.length); tokenOffset++) {
         const targetToken = sentenceTokens[tokenOffset];
-
         for (let i = cursor; i < startSearchLimit; i++) {
           if (whisperTokens[i] === targetToken) {
             // Found a match! Adjust start index back to the theoretical beginning
@@ -845,8 +851,7 @@ io.on("connection", (socket) => {
       // Fallback: If absolutely no words matched, stay at cursor
       if (startIndex === -1) startIndex = cursor;
 
-
-      // --- FIND END ---
+      // Find End
       let endIndex = -1;
       const estimatedLength = sentenceTokens.length;
       // Look ahead from the FOUND start index
@@ -882,9 +887,8 @@ io.on("connection", (socket) => {
       const safeStart = words[startIndex] || words[words.length - 1];
       const safeEnd = words[endIndex] || words[words.length - 1];
 
-      console.log(sentence);
-      console.log(safeStart);
-      console.log(safeEnd);
+      // Update our tracker so the NEXT emoji sentence knows where to start
+      lastEndTime = safeEnd ? safeEnd.end : lastEndTime;
 
       return {
         text: sentence,
@@ -985,6 +989,7 @@ io.on("connection", (socket) => {
               ) {
                 trimmedContent = trimmedSentences[trimmedSentences.length - 1];
                 sentences = sentences.concat(trimmedSentences.slice(0, trimmedSentences.length - 1));
+                response = sentences.join("\n");
               } else if (
                 trimmedSentences.length > 3 &&
                 trimmedSentences[0]?.slice(-1) === ":" &&
@@ -993,12 +998,14 @@ io.on("connection", (socket) => {
               ) {
                 trimmedContent = trimmedSentences[trimmedSentences.length - 1];
                 sentences = sentences.concat(trimmedSentences.slice(0, trimmedSentences.length - 1));
+                response = sentences.join("\n");
               } else {
                 //otherwise remove also the last presentation of the list of topics
                 trimmedContent = trimmedContent
                   ? sentences[sentences.length - 1] + "\n" + trimmedContent
                   : sentences[sentences.length - 1];
                 sentences = sentences.slice(0, sentences.length - 1);
+                response = sentences.join("\n");
               }
             }
           }

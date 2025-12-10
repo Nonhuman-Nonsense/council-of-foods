@@ -1,42 +1,81 @@
 import { useState, useEffect, useRef } from "react";
 import { useMobile } from "../utils";
 
+/**
+ * TextOutput Component
+ * * Handles the synchronized display of subtitles based on absolute audio timing.
+ * * CORE FEATURES:
+ * 1. Absolute Timing: Calculates time based on Date.now() vs StartTime, eliminating drift.
+ * 2. High Performance: Uses requestAnimationFrame (~60fps) and an O(1) cursor lookup.
+ * 3. Render Safety: Uses Refs to track state inside the loop to prevent extra re-renders.
+ */
 function TextOutput({
   currentTextMessage,
-  currentAudioMessage, // Expects: { sentences: [{text, start, end}, ...] }
+  currentAudioMessage, // Data structure: { sentences: [{text, start, end}, ...] }
   isPaused,
-  setCurrentSnippetIndex,
+  setCurrentSnippetIndex, // Parent state setter
   setSentencesLength
 }) {
+  // --- LOCAL STATE ---
+  // The text currently visible on screen. 
+  // Only updated when the sentence actually changes.
   const [currentSnippet, setCurrentSnippet] = useState("");
   
-  // REFS: We use refs for timing to avoid re-renders causing jitter
-  const startTimeRef = useRef(null);      // When the current "play segment" started
-  const accumulatedTimeRef = useRef(0);   // Total time played before the current pause
-  const requestRef = useRef(null);        // ID for the animation frame loop
+  // --- TIMING REFS (Mutable values that don't trigger re-renders) ---
+  
+  // 1. startTimeRef: The precise Date.now() timestamp when we LAST hit "Play".
+  //    If null, it means we are currently stopped/reset.
+  const startTimeRef = useRef(null);      
+  
+  // 2. accumulatedTimeRef: Stores the total milliseconds played *before* the current play session.
+  //    When we pause, we calculate how long we played and add it here.
+  //    When we resume, we start counting from this offset.
+  const accumulatedTimeRef = useRef(0);   
+  
+  // 3. requestRef: Stores the ID of the animation frame so we can cancel it cleanup.
+  const requestRef = useRef(null);
+  
+  // 4. searchCursorRef: PERFORMANCE OPTIMIZATION
+  //    Tracks the index of the last found sentence.
+  //    Since audio only moves forward, we don't need to search the array from 0 every frame.
+  const searchCursorRef = useRef(0);
+
+  // 5. lastDisplayedTextRef: RENDER SAFETY
+  //    Tracks the text we last sent to the state.
+  //    This allows us to check if the text needs updating *inside* the loop
+  //    without reading the 'currentSnippet' state (which would be stale).
+  const lastDisplayedTextRef = useRef(""); 
   
   const isMobile = useMobile();
 
-  // 1. RESET: When a NEW audio message arrives, reset all timers
+  // ---------------------------------------------------------------------------
+  // EFFECT 1: INITIALIZATION & RESET
+  // Runs whenever a completely new audio message is loaded.
+  // ---------------------------------------------------------------------------
   useEffect(() => {
-    // Stop any running loop
+    // 1. Strict cleanup: stop any running loops from previous messages
     cancelAnimationFrame(requestRef.current);
     
-    // Reset internal timing state
+    // 2. Reset timing trackers to zero
     startTimeRef.current = null;
     accumulatedTimeRef.current = 0;
+    searchCursorRef.current = 0;
     
-    // Reset parent/UI state
+    // 3. Reset UI state
     setCurrentSnippetIndex(0);
     setCurrentSnippet("");
+    lastDisplayedTextRef.current = ""; 
 
     const sentences = currentAudioMessage?.sentences || [];
     setSentencesLength(sentences.length);
 
-    // Initialize with the first sentence if available
+    // 4. Initialize with the first sentence if available
     if (sentences.length > 0) {
-      setCurrentSnippet(sentences[0].text);
-      // If we are already playing (autoplay), set the start time immediately
+      const firstText = sentences[0].text;
+      setCurrentSnippet(firstText);
+      lastDisplayedTextRef.current = firstText; 
+      
+      // If the app is NOT paused (autoplay), we start the clock immediately
       if (!isPaused) {
         startTimeRef.current = Date.now();
       }
@@ -44,73 +83,110 @@ function TextOutput({
   }, [currentAudioMessage, setSentencesLength, setCurrentSnippetIndex]);
 
 
-  // 2. THE SYNC LOOP: Runs whenever pause state changes or message updates
+  // ---------------------------------------------------------------------------
+  // EFFECT 2: THE SYNC LOOP
+  // Handles Play/Pause toggling and the per-frame timing calculations.
+  // ---------------------------------------------------------------------------
   useEffect(() => {
     const sentences = currentAudioMessage?.sentences || [];
     if (sentences.length === 0) return;
 
+    // CASE A: PAUSED
     if (isPaused) {
-      // --- PAUSED STATE ---
-      // If we were playing, calculate how much time passed and save it
+      // If we were previously playing (startTime is set), we need to "bank" that time.
       if (startTimeRef.current !== null) {
-        const sessionDuration = Date.now() - startTimeRef.current;
+        const now = Date.now();
+        const sessionDuration = now - startTimeRef.current;
+        
+        // Add the time from this specific session to our total bucket
         accumulatedTimeRef.current += sessionDuration;
-        startTimeRef.current = null; // Mark as stopped
+        
+        // Nullify start time to indicate we are stopped
+        startTimeRef.current = null; 
       }
+      // Stop the CPU-intensive loop
       cancelAnimationFrame(requestRef.current);
     
     } else {
-      // --- PLAYING STATE ---
-      // If just starting (or resuming), mark the new start time
+      // CASE B: PLAYING
+      
+      // If resuming from a fresh state (or just starting), mark the current timestamp
       if (startTimeRef.current === null) {
         startTimeRef.current = Date.now();
       }
 
+      // -- THE ANIMATION FRAME FUNCTION --
+      // This runs ~60 times per second while playing
       const animate = () => {
-        // A. Calculate exact position in the audio clip (in seconds)
         const now = Date.now();
+        
+        // 1. Calculate Absolute Audio Time (in Seconds)
+        // Formula: (Time stored from previous segments) + (Time elapsed in current segment)
         const totalElapsedMS = accumulatedTimeRef.current + (now - startTimeRef.current);
-        const currentAudioTime = totalElapsedMS / 1000;
+        const currentAudioTime = totalElapsedMS / 1000; 
 
-        // B. Find the active sentence based on Absolute Time
-        // We look for a sentence that has started (start <= time)
-        // AND where the NEXT sentence hasn't started yet.
-        const activeIndex = sentences.findIndex((s, i) => {
+        // 2. Find the correct sentence (Using O(1) Cursor Optimization)
+        let foundIndex = -1;
+
+        // Start searching from our last known position (searchCursorRef), not 0.
+        // We assume time only moves forward.
+        for (let i = searchCursorRef.current; i < sentences.length; i++) {
+          const s = sentences[i];
           const nextSentence = sentences[i + 1];
-          
-          const isAfterStart = currentAudioTime >= s.start;
-          // If there is a next sentence, check if we are before it. 
-          // If not, we are definitely in the last sentence.
-          const isBeforeNext = nextSentence ? currentAudioTime < nextSentence.start : true;
-          
-          return isAfterStart && isBeforeNext;
-        });
 
-        // C. Update State (Only if changed to avoid unnecessary re-renders)
-        if (activeIndex !== -1) {
-          setCurrentSnippet((prev) => {
-            if (prev !== sentences[activeIndex].text) {
-              setCurrentSnippetIndex(activeIndex);
-              return sentences[activeIndex].text;
-            }
-            return prev;
-          });
+          // A sentence is active if:
+          // A. Time >= Start
+          // B. Time < NextSentence.Start (Fill the gap until the next one starts)
+          const isAfterStart = currentAudioTime >= s.start;
+          const isBeforeNext = nextSentence ? currentAudioTime < nextSentence.start : true;
+
+          if (isAfterStart && isBeforeNext) {
+            foundIndex = i;
+            // Update cursor so next frame starts search here
+            searchCursorRef.current = i; 
+            break; 
+          }
+          
+          // Optimization: If we haven't even reached this sentence's start yet,
+          // there is no point checking sentences further in the future.
+          if (currentAudioTime < s.start) {
+             break;
+          }
         }
 
-        // D. Keep looping
+        // 3. Update the UI (Only if the sentence actually changed)
+        if (foundIndex !== -1) {
+          const newText = sentences[foundIndex].text;
+
+          // CRITICAL: Check 'lastDisplayedTextRef' instead of state.
+          // This prevents "Cannot update component while rendering" errors.
+          if (lastDisplayedTextRef.current !== newText) {
+            
+            // A. Update the Ref immediately (so the next frame knows we did it)
+            lastDisplayedTextRef.current = newText;
+            
+            // B. Update Local State (Triggers the visual update)
+            setCurrentSnippet(newText);
+            
+            // C. Update Parent State (Safe here because we are outside the render phase)
+            setCurrentSnippetIndex(foundIndex);
+          }
+        }
+
+        // 4. Request the next frame
         requestRef.current = requestAnimationFrame(animate);
       };
 
-      // Kick off the loop
+      // Start the loop
       requestRef.current = requestAnimationFrame(animate);
     }
 
-    // Cleanup: Stop loop on unmount or dependency change
+    // Cleanup: If the component unmounts or inputs change, kill the loop
     return () => cancelAnimationFrame(requestRef.current);
   }, [isPaused, currentAudioMessage, setCurrentSnippetIndex]);
 
 
-  // --- STYLES ---
+  // --- STYLING ---
   const paragraphStyle = {
     fontFamily: "Arial, sans-serif",
     fontSize: isMobile ? "18px" : "25px",
