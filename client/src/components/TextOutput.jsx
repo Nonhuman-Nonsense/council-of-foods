@@ -1,147 +1,116 @@
 import { useState, useEffect, useRef } from "react";
 import { useMobile } from "../utils";
 
-import globalOptions from "../global-options-client";
-
 function TextOutput({
   currentTextMessage,
-  currentAudioMessage,
+  currentAudioMessage, // Expects: { sentences: [{text, start, end}, ...] }
   isPaused,
-  currentSnippetIndex,
   setCurrentSnippetIndex,
   setSentencesLength
 }) {
   const [currentSnippet, setCurrentSnippet] = useState("");
-  const [currentSnippetDelay, setCurrentSnippetDelay] = useState(0);
-  const [snippetStartTime, setSnippetStartTime] = useState(0);
-  const [remainingTime, setRemainingTime] = useState(0);
-  const [wasPaused, setWasPaused] = useState(false);
-  const timerId = useRef(null);
+  
+  // REFS: We use refs for timing to avoid re-renders causing jitter
+  const startTimeRef = useRef(null);      // When the current "play segment" started
+  const accumulatedTimeRef = useRef(0);   // Total time played before the current pause
+  const requestRef = useRef(null);        // ID for the animation frame loop
+  
   const isMobile = useMobile();
 
-  // const speedModifiers = {
-  //   "Avocado": 0.96,
-  //   "Banana": 1,
-  //   "Beer": 1,
-  //   "Bean": 1,
-  //   "Lollipop": 0.96,
-  //   "Maize": 1,
-  //   "Meat": 1,
-  //   "Mushroom": 1,
-  //   "Potato": 1,
-  //   "Tomato": 1,
-  //   "Water": 1
-  // };
-
-  // const splitText = (text) => {
-  //   return (
-  //     text.match(/(\d+\.\s.*?(?=\d+\.\s|$)|.*?(?=[.!?])(?:[.!?]|$))/gs) || [
-  //       text,
-  //     ]
-  //   );
-  // };
-
-  // const splitText = (text) => {
-  //   //Not sure if this safety is needed?
-  //   if(!text) return [];
-
-  //   // Regex to capture sentences, numbered list items, and newlines as sentence boundaries
-  //   // TODO, replace all the ?!"* with any combination from the set for simplicity
-  //   const sentenceRegex = /(\d+\.\s+.{3,}?(?:\n|\?!\*|\?!|!\?|\?"|!"|\."|!\*|\?\*|\?|!|\?|;|\.{3}|…|\.|$))|.{3,}?(?:\n|\?!\*|\?!|!\?|\?"|!"|\."|!\*|\?\*|!|\?|;|\.{3}|…|\.|$)/gs;
-
-  //   return text
-  //     .match(sentenceRegex)
-  //     .map((sentence) => sentence.trim())
-  //     .filter((sentence) => sentence.length > 0 && sentence !== "."); // Filter out empty sentences
-  // };
-
+  // 1. RESET: When a NEW audio message arrives, reset all timers
   useEffect(() => {
-    if (isPaused) {
-      clearTimeout(timerId.current);
-      setRemainingTime(currentSnippetDelay - (Date.now() - snippetStartTime));
-      setWasPaused(true);
-    } else if (wasPaused) {
-      setWasPaused(false);
-      setCurrentSnippetDelay(remainingTime);
-      setSnippetStartTime(Date.now());
-      // const sentences = splitText(currentTextMessage?.text || "");
-      const sentences = currentAudioMessage?.sentences || [];
-
-      // Don't set a timer if we are on the last snippet
-      if (currentSnippetIndex < sentences.length - 1) {
-        timerId.current = setTimeout(() => {
-          setCurrentSnippetIndex((prevIndex) =>
-            prevIndex < sentences.length - 1 ? prevIndex + 1 : prevIndex
-          );
-        }, remainingTime);
-      }
-    }
-  }, [isPaused]);
-
-  // Reset the snippet index and snippet when a new message is received
-  useEffect(() => {
+    // Stop any running loop
+    cancelAnimationFrame(requestRef.current);
+    
+    // Reset internal timing state
+    startTimeRef.current = null;
+    accumulatedTimeRef.current = 0;
+    
+    // Reset parent/UI state
     setCurrentSnippetIndex(0);
-    const sentences = currentAudioMessage?.sentences;
-    if (sentences) {
-      if (sentences.length > 0) {
-        setSentencesLength(sentences.length);
-        setCurrentSnippet(sentences[0].text);
-      } else {
-        setSentencesLength(0);
-        setCurrentSnippet("");
+    setCurrentSnippet("");
+
+    const sentences = currentAudioMessage?.sentences || [];
+    setSentencesLength(sentences.length);
+
+    // Initialize with the first sentence if available
+    if (sentences.length > 0) {
+      setCurrentSnippet(sentences[0].text);
+      // If we are already playing (autoplay), set the start time immediately
+      if (!isPaused) {
+        startTimeRef.current = Date.now();
       }
     }
-  }, [currentTextMessage]);
+  }, [currentAudioMessage, setSentencesLength, setCurrentSnippetIndex]);
 
+
+  // 2. THE SYNC LOOP: Runs whenever pause state changes or message updates
   useEffect(() => {
-    if (currentSnippetIndex >= 0 && currentTextMessage?.text) {
-      const sentences = currentAudioMessage.sentences;
+    const sentences = currentAudioMessage?.sentences || [];
+    if (sentences.length === 0) return;
 
-      if (sentences.length > currentSnippetIndex) {
-        setCurrentSnippet(sentences[currentSnippetIndex].text);
+    if (isPaused) {
+      // --- PAUSED STATE ---
+      // If we were playing, calculate how much time passed and save it
+      if (startTimeRef.current !== null) {
+        const sessionDuration = Date.now() - startTimeRef.current;
+        accumulatedTimeRef.current += sessionDuration;
+        startTimeRef.current = null; // Mark as stopped
+      }
+      cancelAnimationFrame(requestRef.current);
+    
+    } else {
+      // --- PLAYING STATE ---
+      // If just starting (or resuming), mark the new start time
+      if (startTimeRef.current === null) {
+        startTimeRef.current = Date.now();
       }
 
-      // Store the current delay, and the time when it started
-      const delay = calculateDisplayTime(sentences[currentSnippetIndex], sentences[currentSnippetIndex + 1]);
-      console.log(delay);
-      setCurrentSnippetDelay(delay);
-      setSnippetStartTime(Date.now());
+      const animate = () => {
+        // A. Calculate exact position in the audio clip (in seconds)
+        const now = Date.now();
+        const totalElapsedMS = accumulatedTimeRef.current + (now - startTimeRef.current);
+        const currentAudioTime = totalElapsedMS / 1000;
 
-      // Don't set a timer if we are on the last snippet
-      if (currentSnippetIndex < sentences.length - 1) {
-        if (!isPaused) {
-          timerId.current = setTimeout(() => {
-            setCurrentSnippetIndex((prevIndex) =>
-              prevIndex < sentences.length - 1 ? prevIndex + 1 : prevIndex
-            );
-          }, delay);
-        } else {
-          // Handle special case where council is paused before the first message
-          clearTimeout(timerId.current);
-          setRemainingTime(delay);
-          setWasPaused(true);
+        // B. Find the active sentence based on Absolute Time
+        // We look for a sentence that has started (start <= time)
+        // AND where the NEXT sentence hasn't started yet.
+        const activeIndex = sentences.findIndex((s, i) => {
+          const nextSentence = sentences[i + 1];
+          
+          const isAfterStart = currentAudioTime >= s.start;
+          // If there is a next sentence, check if we are before it. 
+          // If not, we are definitely in the last sentence.
+          const isBeforeNext = nextSentence ? currentAudioTime < nextSentence.start : true;
+          
+          return isAfterStart && isBeforeNext;
+        });
+
+        // C. Update State (Only if changed to avoid unnecessary re-renders)
+        if (activeIndex !== -1) {
+          setCurrentSnippet((prev) => {
+            if (prev !== sentences[activeIndex].text) {
+              setCurrentSnippetIndex(activeIndex);
+              return sentences[activeIndex].text;
+            }
+            return prev;
+          });
         }
-      }
 
-      return () => clearTimeout(timerId.current);
+        // D. Keep looping
+        requestRef.current = requestAnimationFrame(animate);
+      };
+
+      // Kick off the loop
+      requestRef.current = requestAnimationFrame(animate);
     }
-  }, [currentSnippetIndex, currentTextMessage]);
 
-  // Modify calculateDisplayTime to handle potential undefined or empty strings safely
-  const calculateDisplayTime = (current, next) => {
-    const end = next ? next.start : current.end;
-    const diff = (end - current.start) * 1000;
-    return diff;
-  };
+    // Cleanup: Stop loop on unmount or dependency change
+    return () => cancelAnimationFrame(requestRef.current);
+  }, [isPaused, currentAudioMessage, setCurrentSnippetIndex]);
 
-  // const calculateDisplayTime = (text) => {
-  //   const baseTimePerCharacter = 60; //ms Adjust this value as needed
-  //   const speedMultiplier = globalOptions.audio_speed;
-  //   const characterModifier = speedModifiers[currentTextMessage?.speaker] || 1;
-  //   const calculatedTime = text.length * baseTimePerCharacter * characterModifier / speedMultiplier;
-  //   return Math.round(Math.max(800, calculatedTime));
-  // };
 
+  // --- STYLES ---
   const paragraphStyle = {
     fontFamily: "Arial, sans-serif",
     fontSize: isMobile ? "18px" : "25px",
