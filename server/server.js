@@ -185,6 +185,9 @@ io.on("connection", (socket) => {
         }`
       );
 
+      ////Split message into sentences
+      summary.sentences = splitSentences(response);
+
       generateAudio(summary, conversationOptions.characters[0]);
     });
 
@@ -230,6 +233,9 @@ io.on("connection", (socket) => {
 
       //Add the invitation
       conversation.push(message);
+
+      ////Split message into sentences
+      message.sentences = splitSentences(response);
 
       conversationOptions.state.alreadyInvited = true;
       console.log(`[meeting ${meetingId}] invitation generated, on index ${handRaisedOptions.index}`);
@@ -367,10 +373,10 @@ io.on("connection", (socket) => {
 
     socket.emit("conversation_update", conversation);
 
-    generateAudio(
-      message,
-      conversationOptions.characters[0]
-    );
+    ////Split message into sentences
+    message.sentences = splitSentences(message.text);
+
+    generateAudio(message, conversationOptions.characters[0]);
 
     isPaused = false;
     handRaised = false;
@@ -399,6 +405,9 @@ io.on("connection", (socket) => {
     );
 
     socket.emit("conversation_update", conversation);
+
+    ////Split message into sentences
+    message.sentences = splitSentences(message.text);
 
     generateAudio(message, conversationOptions.characters[0]);
 
@@ -436,7 +445,10 @@ io.on("connection", (socket) => {
       { $set: { conversation: conversation, summary: summary } }
     );
 
-    generateAudio(summary, conversationOptions.characters[0]);
+    ////Split message into sentences
+    summary.sentences = splitSentences(response);
+
+    generateAudio(summary, conversationOptions.characters[0], true);
   });
 
   socket.on("continue_conversation", () => {
@@ -476,6 +488,7 @@ io.on("connection", (socket) => {
         }
         for (let i = 0; i < missingAudio.length; i++) {
           console.log(`[meeting ${meetingId}] (async) generating missing audio for ${missingAudio[i].speaker}`);
+          missingAudio[i].sentences = splitSentences(missingAudio[i].text);
           generateAudio(
             missingAudio[i],
             conversationOptions.characters.find(c => c.id == missingAudio[i].speaker)
@@ -643,7 +656,7 @@ io.on("connection", (socket) => {
     }
   };
 
-  const generateAudio = async (message, speaker) => {
+  const generateAudio = async (message, speaker, skipMatching) => {
     //If audio creation is skipped on prototype
     if (conversationOptions.options.skipAudio) return;
     // const thisConversationCounter = conversationCounter;
@@ -689,7 +702,8 @@ io.on("connection", (socket) => {
         buffer = Buffer.from(await mp3.arrayBuffer());
       }
 
-      const sentencesWithTimings = await getSentenceTimings(buffer, message);
+
+      const sentencesWithTimings = skipMatching ? [] : await getSentenceTimings(buffer, message);
 
       const audioObject = {
         id: message.id,
@@ -912,14 +926,8 @@ io.on("connection", (socket) => {
         }
       }
 
-      //Split into sentences
-      // Make sure to use the same sentence splitter as on the client side
-      const sentenceRegex = /(\d+\.\s+.{3,}?(?:\n|\?!\*|\?!|!\?|\?"|!"|\."|!\*|\?\*|\?|!|\?|;|\.{3}|…|\.(?!\.)))|.{3,}?(?:\n|\?!\*|\?!|!\?|\?"|!"|\."|!\*|\?\*|!|\?|;|\.{3}|…|\.(?!\.)|$)/gs;
-      let sentences = response
-        .match(sentenceRegex)
-        .map((sentence) => sentence.trim())
-        .filter((sentence) => sentence.length > 0);
-
+      //Split message into sentences
+      let sentences = splitSentences(response);
 
       if (completion.choices[0].finish_reason != "stop") {
         // Check if we can re-add some messages from the end, to put back some of the list of questions that chair often produces
@@ -980,6 +988,26 @@ io.on("connection", (socket) => {
       throw error;
     }
   };
+
+  function splitSentences(response) {
+    // REGEX BREAKDOWN:
+    // 1. (?:\d+\.\s+)?       -> Optional Numbered List ("1. ")
+    // 2. .*?                 -> Content (Non-greedy)
+    // 3. (End Block):
+    //    a. [.!?…;:]+        -> Punctuation
+    //    b. ["']?            -> Optional closing quote
+    //    c. (?:[ \t]*[\p{Extended_Pictographic}]+)* -> OPTIONAL: Horizontal space + Emojis (Greedy!)
+    //    d. (?=\s|$)         -> Lookahead: Must be followed by space or end of string
+    // 4. |$|\n               -> OR: End of string / Newline (for sentences without punctuation)
+
+    // Note: The 'u' flag is required for \p{Extended_Pictographic}
+    const sentenceRegex = /(?:\d+\.\s+)?.*?(?:[.!?…;:]+["']?(?:[ \t]*[\p{Extended_Pictographic}]+)*(?=\s|$)|$|\n)/gu;
+
+    return response
+      .match(sentenceRegex)
+      .map((sentence) => sentence.trim())
+      .filter((sentence) => sentence.length > 0);
+  }
 
   socket.on('request_clientkey', async () => {
     console.log(`[meeting ${meetingId}] clientkey requested`);
