@@ -697,14 +697,14 @@ io.on("connection", (socket) => {
           voice: speaker.voice,
           speed: conversationOptions.options.audio_speed,
           input: message.text.substring(0, 4096),
-          // instructions: speaker.voiceInstruction
+          instructions: speaker.voiceInstruction
         });
 
         buffer = Buffer.from(await mp3.arrayBuffer());
       }
 
 
-      const sentencesWithTimings = skipMatching ? [] : await getSentenceTimings(buffer, message);
+      const sentencesWithTimings = (conversationOptions.options.skipMatchingSubtitles || skipMatching) ? [] : await getSentenceTimings(buffer, message);
 
       const audioObject = {
         id: message.id,
