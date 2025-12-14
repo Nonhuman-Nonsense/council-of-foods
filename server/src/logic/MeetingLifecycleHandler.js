@@ -48,11 +48,15 @@ export class MeetingLifecycleHandler {
         const summaryPrompt = manager.conversationOptions.options.finalizeMeetingPrompt[manager.conversationOptions.language].replace("[DATE]", message.date);
 
         // Note: chairInterjection is on manager (delegated to DialogGenerator)
-        let { response, id } = await manager.chairInterjection(
+        // Note: chairInterjection is on manager (delegated to DialogGenerator)
+        let { response, id } = await manager.dialogGenerator.chairInterjection(
             summaryPrompt,
             manager.conversation.length,
             manager.conversationOptions.options.finalizeMeetingLength,
-            true
+            true,
+            manager.conversation,
+            manager.conversationOptions,
+            manager.socket
         );
 
         let summary = {

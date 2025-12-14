@@ -15,13 +15,17 @@ export class HandRaisingHandler {
         manager.conversation = manager.conversation.slice(0, handRaisedOptions.index);
 
         if (!manager.conversationOptions.state.alreadyInvited) {
-            let { response, id } = await manager.chairInterjection(
+            let { response, id } = await manager.dialogGenerator.chairInterjection(
                 manager.conversationOptions.options.raiseHandPrompt[manager.conversationOptions.language].replace(
                     "[NAME]",
                     manager.conversationOptions.state.humanName
                 ),
                 handRaisedOptions.index,
-                manager.conversationOptions.options.raiseHandInvitationLength
+                manager.conversationOptions.options.raiseHandInvitationLength,
+                true,
+                manager.conversation,
+                manager.conversationOptions,
+                manager.socket
             );
 
             const firstNewLineIndex = response.indexOf("\n\n");
@@ -57,7 +61,7 @@ export class HandRaisingHandler {
             speaker: manager.conversationOptions.state.humanName
         });
 
-        console.log(`[meeting ${manager.meetingId}] awaiting human question on index ${manager.conversation.length - 1}`);
+        console.log(`[meeting ${manager.meetingId}] awaiting human question on index ${manager.conversation.length - 1} `);
 
         manager.services.meetingsCollection.updateOne(
             { _id: manager.meetingId },

@@ -1,7 +1,5 @@
-import { v4 as uuidv4 } from "uuid";
 import { getOpenAI } from "../services/OpenAIService.js";
 import { meetingsCollection, audioCollection, insertMeeting } from "../services/DbService.js";
-import { splitSentences } from "../utils/textUtils.js";
 import { reportError } from "../../errorbot.js";
 import defaultGlobalOptions from "../../global-options.json" with { type: 'json' };
 import testOptions from "../../test-options.json" with { type: 'json' };
@@ -106,31 +104,6 @@ export class MeetingManager {
         });
     }
 
-    calculateCurrentSpeaker() {
-        return SpeakerSelector.calculateNextSpeaker(this.conversation, this.conversationOptions.characters);
-    }
-
-
-
-    async chairInterjection(interjectionPrompt, index, length, dontStop) {
-        return this.dialogGenerator.chairInterjection(
-            interjectionPrompt,
-            index,
-            length,
-            dontStop,
-            this.conversation,
-            this.conversationOptions,
-            this.socket
-        );
-    }
-
-    // buildMessageStack is now handled by DialogGenerator, removing from here unless needed for debugging, 
-    // but generateTextFromGPT uses it internally in DialogGenerator. 
-    // Wait, is it used elsewhere? Checked usages: generateTextFromGPT and chairInterjection.
-    // So we can remove it entirely.
-
-
-
     async runLoop() {
         while (this.run) {
             if (this.isPaused || this.handRaised) {
@@ -184,7 +157,7 @@ export class MeetingManager {
         }
 
         // 3. Determine Speaker
-        const nextSpeakerIndex = this.calculateCurrentSpeaker();
+        const nextSpeakerIndex = SpeakerSelector.calculateNextSpeaker(this.conversation, this.conversationOptions.characters);
         const nextSpeaker = this.conversationOptions.characters[nextSpeakerIndex];
 
         // 4. Panelist Turn
@@ -235,59 +208,7 @@ export class MeetingManager {
                     return;
 
                 case 'GENERATE_AI_RESPONSE':
-                    this.currentSpeaker = this.conversationOptions.characters.findIndex(c => c.id === action.speaker.id);
-                    // Generate Logic
-                    let attempt = 1;
-                    let output = { response: "" };
-                    while (attempt < 5 && output.response === "") {
-                        output = await this.generateTextFromGPT(action.speaker);
-
-                        if (!this.run || this.handRaised || this.isPaused) return;
-                        if (thisMeetingId != this.meetingId) return;
-                        attempt++;
-                        if (output.response === "") {
-                            console.log(`[meeting ${this.meetingId}] entire message trimmed, trying again. attempt ${attempt}`);
-                        }
-                    }
-
-                    let message = {
-                        id: output.id,
-                        speaker: action.speaker.id,
-                        text: output.response,
-                        sentences: output.sentences,
-                        trimmed: output.trimmed,
-                        pretrimmed: output.pretrimmed,
-                    };
-
-                    if (this.conversation.length > 1 && this.conversation[this.conversation.length - 1].type === "human" && this.conversation[this.conversation.length - 1].askParticular === message.speaker) {
-                        message.type = "response";
-                    }
-
-                    if (message.text === "") {
-                        message.type = "skipped";
-                        console.warn(`[meeting ${this.meetingId}] failed to make a message. Skipping speaker ${action.speaker.id}`);
-                    }
-
-                    this.conversation.push(message);
-                    const message_index = this.conversation.length - 1;
-
-                    // Save to DB *before* emitting to ensure consistency
-                    await this.services.meetingsCollection.updateOne(
-                        { _id: this.meetingId },
-                        { $set: { conversation: this.conversation } }
-                    );
-
-                    this.socket.emit("conversation_update", this.conversation);
-                    console.log(`[meeting ${this.meetingId}] message generated, index ${message_index}, speaker ${message.speaker}`);
-
-                    // Queue audio generation
-                    this.audioSystem.queueAudioGeneration(
-                        message,
-                        action.speaker,
-                        this.conversationOptions.options,
-                        this.meetingId,
-                        this.environment
-                    );
+                    await this.handleAITurn(action);
                     break;
             }
         } catch (error) {
@@ -304,14 +225,70 @@ export class MeetingManager {
         }
     }
 
-    async generateTextFromGPT(speaker) {
-        return this.dialogGenerator.generateTextFromGPT(
-            speaker,
-            this.conversation,
-            this.conversationOptions,
-            this.currentSpeaker
+    async handleAITurn(action) {
+        this.currentSpeaker = this.conversationOptions.characters.findIndex(c => c.id === action.speaker.id);
+        const thisMeetingId = this.meetingId;
+
+        // Generate Logic
+        let attempt = 1;
+        let output = { response: "" };
+        while (attempt < 5 && output.response === "") {
+            output = await this.dialogGenerator.generateTextFromGPT(
+                action.speaker,
+                this.conversation,
+                this.conversationOptions,
+                this.currentSpeaker
+            );
+
+            if (!this.run || this.handRaised || this.isPaused) return;
+            if (thisMeetingId != this.meetingId) return;
+            attempt++;
+            if (output.response === "") {
+                console.log(`[meeting ${this.meetingId}] entire message trimmed, trying again. attempt ${attempt}`);
+            }
+        }
+
+        let message = {
+            id: output.id,
+            speaker: action.speaker.id,
+            text: output.response,
+            sentences: output.sentences,
+            trimmed: output.trimmed,
+            pretrimmed: output.pretrimmed,
+        };
+
+        if (this.conversation.length > 1 && this.conversation[this.conversation.length - 1].type === "human" && this.conversation[this.conversation.length - 1].askParticular === message.speaker) {
+            message.type = "response";
+        }
+
+        if (message.text === "") {
+            message.type = "skipped";
+            console.warn(`[meeting ${this.meetingId}] failed to make a message. Skipping speaker ${action.speaker.id}`);
+        }
+
+        this.conversation.push(message);
+        const message_index = this.conversation.length - 1;
+
+        // Save to DB *before* emitting to ensure consistency
+        await this.services.meetingsCollection.updateOne(
+            { _id: this.meetingId },
+            { $set: { conversation: this.conversation } }
+        );
+
+        this.socket.emit("conversation_update", this.conversation);
+        console.log(`[meeting ${this.meetingId}] message generated, index ${message_index}, speaker ${message.speaker}`);
+
+        // Queue audio generation
+        this.audioSystem.queueAudioGeneration(
+            message,
+            action.speaker,
+            this.conversationOptions.options,
+            this.meetingId,
+            this.environment
         );
     }
+
+
 
 
 

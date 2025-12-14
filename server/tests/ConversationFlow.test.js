@@ -2,11 +2,17 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { meetingsCollection } from '../src/services/DbService.js';
 import { meetingsCollection } from '../src/services/DbService.js';
 import { createTestManager, mockOpenAI } from './commonSetup.js';
+import { SpeakerSelector } from '../src/logic/SpeakerSelector.js';
 
 // Mock dependencies
 // vi.mock('../src/services/OpenAIService.js', () => ({
 //     getOpenAI: vi.fn(() => mockOpenAI),
 // }));
+vi.mock('../src/logic/SpeakerSelector.js', () => ({
+    SpeakerSelector: {
+        calculateNextSpeaker: vi.fn().mockReturnValue(0)
+    }
+}));
 
 describe('MeetingManager - Conversation Flow', () => {
     let manager;
@@ -19,6 +25,7 @@ describe('MeetingManager - Conversation Flow', () => {
 
         // Spy on DB methods
         vi.spyOn(meetingsCollection, 'updateOne');
+        vi.clearAllMocks();
     });
 
     it('should pause and resume conversation only in prototype mode', () => {
@@ -31,7 +38,7 @@ describe('MeetingManager - Conversation Flow', () => {
         const { manager: protoManager, mockSocket: protoSocket } = createTestManager('prototype');
 
         // Spy on DB/Methods for the new manager
-        vi.spyOn(protoManager, 'calculateCurrentSpeaker');
+        vi.spyOn(SpeakerSelector, 'calculateNextSpeaker');
         vi.spyOn(meetingsCollection, 'updateOne'); // Global spy still works if same module instance
 
         // Trigger pause on the PROTO socket
@@ -48,19 +55,22 @@ describe('MeetingManager - Conversation Flow', () => {
         // So safe to call processTurn directly for unit test if we want to check that specific guard.
         // But better to call runLoop or startLoop to test the flow.
         protoManager.startLoop();
-        expect(protoManager.calculateCurrentSpeaker).not.toHaveBeenCalled();
+        expect(SpeakerSelector.calculateNextSpeaker).not.toHaveBeenCalled();
 
         // Resume
         // Mock generation to stop recursion
-        vi.spyOn(protoManager, 'generateTextFromGPT').mockResolvedValue({
+        vi.spyOn(protoManager.dialogGenerator, 'generateTextFromGPT').mockResolvedValue({
             response: "Test", id: "1", sentences: []
         });
         vi.spyOn(protoManager.audioSystem, 'queueAudioGeneration').mockImplementation(() => { });
 
         protoSocket.trigger('resume_conversation');
         expect(protoManager.isPaused).toBe(false);
-        // It should have called startLoop -> runLoop -> processTurn -> calculateCurrentSpeaker
-        expect(protoManager.calculateCurrentSpeaker).toHaveBeenCalled();
+        // It should have called startLoop -> runLoop -> processTurn -> calculateNextSpeaker
+        expect(SpeakerSelector.calculateNextSpeaker).toHaveBeenCalled();
+
+        // Cleanup: Stop the loop to prevent leakage into other tests
+        protoManager.run = false;
     });
 
     it('should stop conversation when max length is reached', async () => {
@@ -69,7 +79,7 @@ describe('MeetingManager - Conversation Flow', () => {
         // Mock conversation to be full
         manager.conversation = new Array(5).fill({ type: 'message' });
 
-        const spy = vi.spyOn(manager, 'calculateCurrentSpeaker');
+        const spy = vi.spyOn(SpeakerSelector, 'calculateNextSpeaker');
 
         // Use runLoop to verify the loop condition
         await manager.runLoop();
@@ -108,7 +118,7 @@ describe('MeetingManager - Conversation Flow', () => {
         diManager.conversationOptions.options.conversationMaxLength = 10;
         // Mock current speaker to Tomato (index 1 in default, 2 in extended? Default has Water, Tomato, Potato)
         // Water=0, Tomato=1.
-        vi.spyOn(diManager, 'calculateCurrentSpeaker').mockReturnValue(1);
+        vi.spyOn(SpeakerSelector, 'calculateNextSpeaker').mockReturnValue(1);
 
         // We DO NOT mock generateTextFromGPT. We test it!
 
@@ -137,7 +147,7 @@ describe('MeetingManager - Conversation Flow', () => {
         ];
         const panelistId = 1; // Alice is now index 1
 
-        vi.spyOn(manager, 'calculateCurrentSpeaker').mockReturnValue(panelistId); // Alice
+        vi.spyOn(SpeakerSelector, 'calculateNextSpeaker').mockReturnValue(panelistId); // Alice
 
         await manager.processTurn();
 
@@ -148,7 +158,7 @@ describe('MeetingManager - Conversation Flow', () => {
 
         // Verify it returns early (does not call generateGPT/Audio/recurse)
         // calculateCurrentSpeaker WAS called, but generateTextFromGPT should NOT be.
-        const gptSpy = vi.spyOn(manager, 'generateTextFromGPT');
+        const gptSpy = vi.spyOn(manager.dialogGenerator, 'generateTextFromGPT');
         expect(gptSpy).not.toHaveBeenCalled();
     });
     it('should successfully wrap up meeting without ReferenceError (Regression Test)', async () => {

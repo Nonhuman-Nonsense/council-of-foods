@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { createTestManager } from './commonSetup.js';
+import { SpeakerSelector } from '../src/logic/SpeakerSelector.js';
 
 describe('MeetingManager - Speaker Selection', () => {
     let manager;
@@ -12,21 +13,21 @@ describe('MeetingManager - Speaker Selection', () => {
     describe('calculateCurrentSpeaker', () => {
         it('should start with the first speaker if conversation is empty', () => {
             manager.conversation = [];
-            expect(manager.calculateCurrentSpeaker()).toBe(0); // Water
+            expect(SpeakerSelector.calculateNextSpeaker(manager.conversation, manager.conversationOptions.characters)).toBe(0); // Water
         });
 
         it('should rotate to the next speaker', () => {
             manager.conversation = [
                 { speaker: 'water', type: 'message' }
             ];
-            expect(manager.calculateCurrentSpeaker()).toBe(1); // Tomato
+            expect(SpeakerSelector.calculateNextSpeaker(manager.conversation, manager.conversationOptions.characters)).toBe(1); // Tomato
         });
 
         it('should loop back to the first speaker from the last', () => {
             manager.conversation = [
                 { speaker: 'potato', type: 'message' }
             ];
-            expect(manager.calculateCurrentSpeaker()).toBe(0); // Water
+            expect(SpeakerSelector.calculateNextSpeaker(manager.conversation, manager.conversationOptions.characters)).toBe(0); // Water
         });
 
         it('should skip invitations when calculating next speaker', () => {
@@ -34,7 +35,7 @@ describe('MeetingManager - Speaker Selection', () => {
                 { speaker: 'water', type: 'message' },
                 { speaker: 'water', type: 'invitation' } // Chair/System message
             ];
-            expect(manager.calculateCurrentSpeaker()).toBe(1);
+            expect(SpeakerSelector.calculateNextSpeaker(manager.conversation, manager.conversationOptions.characters)).toBe(1);
         });
 
         it('should answer direct questions from human', () => {
@@ -43,7 +44,7 @@ describe('MeetingManager - Speaker Selection', () => {
                 // Frank (the human) asks Potato directly
                 { speaker: 'Frank', type: 'human', askParticular: 'Potato' }
             ];
-            expect(manager.calculateCurrentSpeaker()).toBe(2); // Potato
+            expect(SpeakerSelector.calculateNextSpeaker(manager.conversation, manager.conversationOptions.characters)).toBe(2); // Potato
         });
 
         it('should return to natural order after a direct response', () => {
@@ -53,7 +54,7 @@ describe('MeetingManager - Speaker Selection', () => {
                 { speaker: 'potato', type: 'response' }        // Index 2 (Response to human)
             ];
 
-            expect(manager.calculateCurrentSpeaker()).toBe(1); // Tomato
+            expect(SpeakerSelector.calculateNextSpeaker(manager.conversation, manager.conversationOptions.characters)).toBe(1); // Tomato
         });
 
         it('should continue normally if the "response" was actually the correct turn anyway', () => {
@@ -63,7 +64,7 @@ describe('MeetingManager - Speaker Selection', () => {
                 { speaker: 'tomato', type: 'response' }
             ];
 
-            expect(manager.calculateCurrentSpeaker()).toBe(2); // Potato
+            expect(SpeakerSelector.calculateNextSpeaker(manager.conversation, manager.conversationOptions.characters)).toBe(2); // Potato
         });
 
         it('should ignore human input if it is not a direct question', () => {
@@ -71,7 +72,7 @@ describe('MeetingManager - Speaker Selection', () => {
                 { speaker: 'water', type: 'message' },
                 { speaker: 'Frank', type: 'human' } // Generic comment
             ];
-            expect(manager.calculateCurrentSpeaker()).toBe(1); // Tomato
+            expect(SpeakerSelector.calculateNextSpeaker(manager.conversation, manager.conversationOptions.characters)).toBe(1); // Tomato
         });
 
         it('should handle skipped messages by moving to the next speaker', () => {
@@ -79,7 +80,7 @@ describe('MeetingManager - Speaker Selection', () => {
                 { speaker: 'water', type: 'message' },
                 { speaker: 'tomato', type: 'skipped' }
             ];
-            expect(manager.calculateCurrentSpeaker()).toBe(2); // Potato
+            expect(SpeakerSelector.calculateNextSpeaker(manager.conversation, manager.conversationOptions.characters)).toBe(2); // Potato
         });
 
         // --- Panelist Tests ---
@@ -98,14 +99,14 @@ describe('MeetingManager - Speaker Selection', () => {
                 manager.conversation = [
                     { speaker: 'tomato', type: 'message' }
                 ];
-                expect(manager.calculateCurrentSpeaker()).toBe(2);
+                expect(SpeakerSelector.calculateNextSpeaker(manager.conversation, manager.conversationOptions.characters)).toBe(2);
             });
 
             it('should move from panelist to next food', () => {
                 manager.conversation = [
                     { speaker: 'alice', type: 'message' }
                 ];
-                expect(manager.calculateCurrentSpeaker()).toBe(3);
+                expect(SpeakerSelector.calculateNextSpeaker(manager.conversation, manager.conversationOptions.characters)).toBe(3);
             });
         });
 
@@ -126,7 +127,7 @@ describe('MeetingManager - Speaker Selection', () => {
                     { speaker: 'tomato', type: 'message' },
                     { speaker: 'Frank', type: 'human' }
                 ];
-                expect(manager.calculateCurrentSpeaker()).toBe(2); // Alice
+                expect(SpeakerSelector.calculateNextSpeaker(manager.conversation, manager.conversationOptions.characters)).toBe(2); // Alice
             });
 
 
@@ -137,7 +138,7 @@ describe('MeetingManager - Speaker Selection', () => {
                     { speaker: 'potato', type: 'response' }
                 ];
 
-                expect(manager.calculateCurrentSpeaker()).toBe(2); // Alice
+                expect(SpeakerSelector.calculateNextSpeaker(manager.conversation, manager.conversationOptions.characters)).toBe(2); // Alice
             });
 
             it('should handle multiple panelists and hand raises mingled', () => {
@@ -152,7 +153,7 @@ describe('MeetingManager - Speaker Selection', () => {
                 manager.conversation = [
                     { speaker: 'alice', type: 'message' }
                 ];
-                expect(manager.calculateCurrentSpeaker()).toBe(3); // Bob
+                expect(SpeakerSelector.calculateNextSpeaker(manager.conversation, manager.conversationOptions.characters)).toBe(3); // Bob
             });
         });
     });

@@ -39,7 +39,7 @@ describe('MeetingManager - Hand Raising', () => {
             // Mock AudioSystem to avoid errors
             vi.spyOn(manager.audioSystem, 'queueAudioGeneration').mockImplementation(() => { });
             // Mock generateTextFromGPT as a fallback (though current impl calls OpenAI directly)
-            vi.spyOn(manager, 'generateTextFromGPT').mockResolvedValue({
+            vi.spyOn(manager.dialogGenerator, 'generateTextFromGPT').mockResolvedValue({
                 id: 'invitation_id',
                 response: 'Speak now.',
                 sentences: [],

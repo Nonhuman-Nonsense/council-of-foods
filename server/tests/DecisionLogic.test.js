@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { createTestManager, TestFactory } from './commonSetup.js';
+import { SpeakerSelector } from '../src/logic/SpeakerSelector.js';
 
 describe('MeetingManager - State Machine (decideNextAction)', () => {
     let manager;
@@ -65,7 +66,7 @@ describe('MeetingManager - State Machine (decideNextAction)', () => {
     scenarios.forEach(({ name, setup, nextSpeakerIndex, expected }) => {
         it(name, () => {
             setup(manager);
-            vi.spyOn(manager, 'calculateCurrentSpeaker').mockReturnValue(nextSpeakerIndex);
+            vi.spyOn(SpeakerSelector, 'calculateNextSpeaker').mockReturnValue(nextSpeakerIndex);
 
             const decision = manager.decideNextAction();
             expect(decision).toEqual(expected);

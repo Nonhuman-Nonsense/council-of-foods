@@ -97,11 +97,14 @@ export class HumanInputHandler {
         const { manager } = this;
         if (manager.environment !== "prototype") return;
 
-        let { response, id } = await manager.chairInterjection(
+        let { response, id } = await manager.dialogGenerator.chairInterjection(
             message.text.replace("[DATE]", message.date),
             message.index,
             message.length,
-            true
+            true,
+            manager.conversation,
+            manager.conversationOptions,
+            manager.socket
         );
 
         let summary = {
