@@ -1,40 +1,51 @@
 import { test, expect } from '@playwright/test';
+import translations from '../../public/locales/en/translation.json' with { type: 'json' };
+import foodsData from '../../src/prompts/foods_en.json' with { type: 'json' };
 
 test('Full Meeting Flow', async ({ page }) => {
     // 1. Go to Landing Page
     await page.goto('/');
-    await expect(page).toHaveTitle(/Council/i);
+    await expect(page).toHaveTitle(new RegExp(translations.council, 'i'));
 
     // 2. Click Continue (Let's Go!)
-    // Using partial match for "Let's go"
-    await page.getByRole('button', { name: /Let's go/i }).click({ force: true });
+    // Using loose matching for the button text based on translation
+    await page.getByRole('button', { name: new RegExp(translations.go, 'i') }).click({ force: true });
 
     // 3. Select Topic
     await expect(page).toHaveURL(/\/topics/);
-    // Wait for page to be ready
-    await expect(page.getByText(/THE ISSUE/i)).toBeVisible();
+    // Wait for page to be ready - "THE ISSUE" equivalent
+    await expect(page.getByText(new RegExp(translations.theissue, 'i'))).toBeVisible();
 
-    // Select "Biodiversity Loss" or any other known topic
-    // Using force: true to bypass potential overlay issues
-    await page.getByRole('button', { name: /Biodiversity Loss/i }).click({ force: true });
+    // Select a topic - we use the data-testid added to the buttons
+    await page.getByTestId('topic-button').first().click({ force: true });
+
 
     // Click Next
-    await page.getByRole('button', { name: /Next/i }).click({ force: true });
+    await page.getByRole('button', { name: new RegExp(translations.next, 'i') }).click({ force: true });
 
     // 4. Select Foods
     await expect(page).toHaveURL(/\/foods/);
-    // Wait for "The Foods" title
-    await expect(page.getByText(/THE FOODS/i)).toBeVisible();
+    // Wait for "THE FOODS" title equivalent
+    await expect(page.getByText(new RegExp(translations.selectfoods.title, 'i'))).toBeVisible();
 
-    // Select Potato and Tomato (Standard foods)
-    const potatoImg = page.getByAltText(/Potato/i);
-    const tomatoImg = page.getByAltText(/Tomato/i);
+    // Dynamically select foods from foods_en.json
+    // We need 2 foods.
+    // User requested to filter out the first 3 items to be safe against ID changes/special characters at start.
+    // We assume the list has enough items.
+    const validFoods = foodsData.foods.slice(3);
+    const food1 = validFoods[0];
+    const food2 = validFoods[1];
 
-    await potatoImg.click({ force: true });
-    await tomatoImg.click({ force: true });
+    // Select Food 1
+    const food1Img = page.getByAltText(new RegExp(food1.name, 'i'));
+    await food1Img.click({ force: true });
+
+    // Select Food 2
+    const food2Img = page.getByAltText(new RegExp(food2.name, 'i'));
+    await food2Img.click({ force: true });
 
     // Click Start
-    const startButton = page.getByRole('button', { name: /Start/i });
+    const startButton = page.getByRole('button', { name: new RegExp(translations.start, 'i') });
     await expect(startButton).toBeVisible();
     await startButton.click({ force: true });
 
@@ -42,14 +53,14 @@ test('Full Meeting Flow', async ({ page }) => {
     await expect(page).toHaveURL(/\/meeting\//);
 
     // Verify Text Output
-    // Verify Audio is playing (checked via our data-playing attribute)
+    // Verify Audio is playing
     await expect(page.getByTestId('audio-indicator')).toHaveAttribute('data-playing', 'true', { timeout: 60000 });
 
-    // Verify Subtitle is displayed (checked via data-testid) and has some length
+    // Verify Subtitle is displayed
     const subtitle = page.getByTestId('subtitle-text');
     await expect(subtitle).toBeVisible();
     await expect(subtitle).not.toBeEmpty();
 
-    // Ensure no connection error
-    await expect(page.getByText('Connection Error')).not.toBeVisible();
+    // Ensure no connection error (using translation for error title)
+    await expect(page.getByText(translations.error.connection)).not.toBeVisible();
 });

@@ -148,6 +148,7 @@ function SelectTopic({
                 }).map((topic, index) => (
                   <button
                     key={index}
+                    data-testid="topic-button"
                     className={selectedTopic === topic.id ? "selected " : ""}
                     onClick={() => setSelectedTopic(topic.id)}
                     onMouseEnter={() => setHoverTopic(topic.id)}
@@ -166,6 +167,7 @@ function SelectTopic({
                 }).map((topic, index) => (
                   <button
                     key={index}
+                    data-testid="topic-button"
                     className={selectedTopic === topic.id ? "selected " : ""}
                     onClick={() => setSelectedTopic(topic.id)}
                     onMouseEnter={() => setHoverTopic(topic.id)}
