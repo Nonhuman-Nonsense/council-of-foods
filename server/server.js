@@ -38,6 +38,8 @@ try {
 console.log(`[init] node_env is ${environment}`);
 
 // Express Logic
+app.get('/health', (req, res) => res.sendStatus(200));
+
 if (environment === "prototype") {
   app.use(express.static(path.join(__dirname, "../prototype/", "public")));
   //Enable prototype to reset to default settings for each language

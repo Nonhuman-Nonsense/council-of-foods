@@ -91,6 +91,9 @@ describe('MeetingManager - Conversation Flow', () => {
             audio: {
                 speech: {
                     create: vi.fn().mockResolvedValue({ arrayBuffer: () => new ArrayBuffer(0) })
+                },
+                transcriptions: {
+                    create: vi.fn().mockResolvedValue({ words: [] })
                 }
             }
         };

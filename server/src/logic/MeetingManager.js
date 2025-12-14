@@ -6,6 +6,8 @@ import { reportError } from "../../errorbot.js";
 import defaultGlobalOptions from "../../global-options.json" with { type: 'json' };
 import e2eOptions from "../../e2e-options.json" with { type: 'json' };
 import { AudioSystem } from "./AudioSystem.js";
+import { SpeakerSelector } from "./SpeakerSelector.js";
+import { DialogGenerator } from "./DialogGenerator.js";
 
 export class MeetingManager {
     constructor(socket, environment, optionsOverride = null, services = {}) {
@@ -32,6 +34,7 @@ export class MeetingManager {
 
         this.startLoop = this.startLoop.bind(this);
         this.audioSystem = new AudioSystem(this.socket, this.services);
+        this.dialogGenerator = new DialogGenerator(this.services, this.globalOptions);
 
         this.conversation = [];
         this.conversationOptions = {
@@ -90,92 +93,7 @@ export class MeetingManager {
     }
 
     calculateCurrentSpeaker() {
-        if (this.conversation.length === 0) return 0;
-        // if (this.conversation.length === 1) return 1; // Why this? Just use loop logic.
-
-        for (let i = this.conversation.length - 1; i >= 0; i--) {
-            const msg = this.conversation[i];
-
-            //If last message was human input
-            if (msg.type === "human") {
-                //And it contained a question to a particular food
-                if (msg.askParticular) {
-                    // Check if this question was already answered by the next message
-                    if (i + 1 < this.conversation.length) {
-                        const nextMsg = this.conversation[i + 1];
-                        if (nextMsg.type === 'response') {
-                            // Check if responder matches the asked person
-                            const askerTarget = this.conversationOptions.characters.find(
-                                c => c.name === msg.askParticular || c.id === msg.askParticular
-                            );
-                            if (askerTarget && (nextMsg.speaker === askerTarget.id || nextMsg.speaker === askerTarget.name)) {
-                                // Already answered, so this question shouldn't trigger a new turn
-                                continue;
-                            }
-                        }
-                    }
-
-                    // Try matching by Name or ID for robustness
-                    const index = this.conversationOptions.characters.findIndex(
-                        char => char.name === msg.askParticular || char.id === msg.askParticular
-                    );
-                    if (index !== -1) return index;
-                }
-                //If just a human question to anyone in the council, skip it and look at previous speaker
-                continue;
-            }
-            //Skip invitations
-            if (msg.type === "invitation") continue;
-
-            // Skip direct responses to questions when calculating next speaker
-            if (msg.type === 'response') {
-                // Determine who *would* have spoken if they hadn't been interrupted.
-                // We need to look back before the Human Question to find the "previous" natural speaker.
-                // Flow: [FoodA] -> [Human Q] -> [FoodB (Response)] -> [Calculated Next]
-                // i = FoodB Response
-                // i-1 = Human Q
-                // i-2 = FoodA
-
-                // Safe check bounds
-                if (i >= 2) {
-                    const prevSpeakerId = this.conversation[i - 2].speaker;
-                    const indexOfPrev = this.conversationOptions.characters.findIndex(char => char.id === prevSpeakerId);
-
-                    // If found, calculate who should be next
-                    if (indexOfPrev !== -1) {
-                        // The "Natural Next" after FoodA
-                        const nextNaturalIndex = indexOfPrev >= this.conversationOptions.characters.length - 1 ? 0 : indexOfPrev + 1;
-
-                        // If the current responder (FoodB) is NOT the Natural Next,
-                        // then this was an out-of-turn response. We should ignore it 
-                        // and resume the natural order (so return Natural Next).
-                        // BUT, the loop below simply "calculates next from current found speaker".
-                        // So if we just 'continue' here, we skip FoodB, skip Human, find FoodA, and standard logic returns Natural Next.
-
-                        // Check if FoodB == Natural Next.
-                        const currentResponderId = msg.speaker;
-                        const currentResponderIndex = this.conversationOptions.characters.findIndex(char => char.id === currentResponderId);
-
-                        if (currentResponderIndex !== nextNaturalIndex) {
-                            // It was out of turn. Skip this message so we find FoodA.
-                            continue;
-                        }
-                    }
-                }
-            }
-
-            const lastSpeakerIndex = this.conversationOptions.characters.findIndex(
-                (char) => char.id === msg.speaker
-            );
-
-            // If speaker not found (e.g. 'chair'), skip
-            if (lastSpeakerIndex === -1) continue;
-
-            return lastSpeakerIndex >= this.conversationOptions.characters.length - 1
-                ? 0
-                : lastSpeakerIndex + 1;
-        }
-        return 0; // Default fallback
+        return SpeakerSelector.calculateNextSpeaker(this.conversation, this.conversationOptions.characters);
     }
 
     async handleSubmitInjection(message) {
@@ -266,80 +184,21 @@ export class MeetingManager {
     }
 
     async chairInterjection(interjectionPrompt, index, length, dontStop) {
-        try {
-            const chair = this.conversationOptions.characters[0];
-            let messages = this.buildMessageStack(chair, index);
-
-            messages.push({
-                role: "system",
-                content: interjectionPrompt,
-            });
-
-            const openai = this.services.getOpenAI();
-            const completion = await openai.chat.completions.create({
-                model: this.conversationOptions.options.gptModel,
-                max_completion_tokens: length,
-                temperature: this.conversationOptions.options.temperature,
-                frequency_penalty: this.conversationOptions.options.frequencyPenalty,
-                presence_penalty: this.conversationOptions.options.presencePenalty,
-                stop: dontStop ? "" : "\n---",
-                messages: messages,
-            });
-
-            let response = completion.choices[0].message.content.trim();
-
-            if (response.startsWith(chair.name + ":")) {
-                response = response.substring(chair.name.length + 1).trim();
-            } else if (response.startsWith("**" + chair.name + "**:")) {
-                response = response.substring(chair.name.length + 5).trim();
-            }
-
-            return { response, id: completion.id };
-        } catch (error) {
-            console.error("Error during conversation:", error);
-            this.socket.emit("conversation_error", {
-                message: "An error occurred during the conversation.",
-                code: 500,
-            });
-            reportError(error);
-            return { response: "", id: null };
-        }
+        return this.dialogGenerator.chairInterjection(
+            interjectionPrompt,
+            index,
+            length,
+            dontStop,
+            this.conversation,
+            this.conversationOptions,
+            this.socket
+        );
     }
 
-    buildMessageStack(speaker, upToIndex) {
-        let messages = [];
-
-        messages.push({
-            role: "system",
-            content: `${this.conversationOptions.topic}\n\n${speaker.prompt}`.trim(),
-        });
-
-        for (const msg of this.conversation) {
-            if (msg.type === "skipped") continue;
-            // Fix for humanName being potentially undefined if state not set?
-            // original: const speakerName = msg.type === 'human' ? conversationOptions.humanName : ...
-            // In original conversationOptions.humanName was likely set on root, but here it seems to be in `state`.
-            // Let's assume it works as previous.
-            const speakerName = msg.type === 'human' ? (this.conversationOptions.state?.humanName || "Human") : (this.conversationOptions.characters.find(c => c.id === msg.speaker)?.name || "Unknown");
-            messages.push({
-                role: speaker.id === msg.speaker ? "assistant" : "user",
-                content: speakerName + ": " + msg.text + "\n---",
-            });
-        }
-
-        if (upToIndex !== undefined) {
-            // Original logic: messages.slice(0, 1 + upToIndex)
-            // 1 (system prompt) + upToIndex.
-            return messages.slice(0, 1 + upToIndex);
-        }
-
-        messages.push({
-            role: "system",
-            content: speaker.name + ": ",
-        });
-
-        return messages;
-    }
+    // buildMessageStack is now handled by DialogGenerator, removing from here unless needed for debugging, 
+    // but generateTextFromGPT uses it internally in DialogGenerator. 
+    // Wait, is it used elsewhere? Checked usages: generateTextFromGPT and chairInterjection.
+    // So we can remove it entirely.
 
     handleSubmitHumanMessage(message) {
         console.log(`[meeting ${this.meetingId}] human input on index ${this.conversation.length - 1}`);
@@ -708,122 +567,12 @@ export class MeetingManager {
     }
 
     async generateTextFromGPT(speaker) {
-        // Needs to access openai
-        // Needs this.conversationOptions
-        try {
-            const messages = this.buildMessageStack(speaker);
-            const openai = this.services.getOpenAI();
-
-            const completion = await openai.chat.completions.create({
-                model: this.conversationOptions.options.gptModel,
-                max_completion_tokens:
-                    speaker.id === this.conversationOptions.options.chairId
-                        ? this.conversationOptions.options.chairMaxTokens
-                        : this.conversationOptions.options.maxTokens,
-                temperature: this.conversationOptions.options.temperature,
-                frequency_penalty: this.conversationOptions.options.frequencyPenalty,
-                presence_penalty: this.conversationOptions.options.presencePenalty,
-                stop: "\n---",
-                messages: messages,
-            });
-
-            let response = completion.choices[0].message.content
-                .trim()
-                .replaceAll("**", "");
-
-            let pretrimmedContent;
-            if (response.startsWith(speaker.name + ":")) {
-                pretrimmedContent = response.substring(0, speaker.name.length + 1);
-                response = response.substring(speaker.name.length + 1).trim();
-            }
-
-            let trimmedContent;
-            let originalResponse = response;
-
-            if (completion.choices[0].finish_reason != "stop") {
-                if (this.conversationOptions.options.trimSentance) {
-                    const lastPeriodIndex = response.lastIndexOf(".");
-                    if (lastPeriodIndex !== -1) {
-                        trimmedContent = originalResponse.substring(lastPeriodIndex + 1);
-                        response = response.substring(0, lastPeriodIndex + 1);
-                    }
-                }
-
-                if (this.conversationOptions.options.trimParagraph) {
-                    const lastNewLineIndex = response.lastIndexOf("\n\n");
-                    if (lastNewLineIndex !== -1) {
-                        trimmedContent = originalResponse.substring(lastNewLineIndex);
-                        response = response.substring(0, lastNewLineIndex);
-                    }
-                }
-            }
-
-            // Check others speaking
-            for (var i = 0; i < this.conversationOptions.characters.length; i++) {
-                if (i === this.currentSpeaker) continue;
-                const nameIndex = response.indexOf(this.conversationOptions.characters[i].name + ":");
-                if (nameIndex != -1 && nameIndex < 20) {
-                    response = response.substring(0, nameIndex).trim();
-                    trimmedContent = originalResponse.substring(nameIndex);
-                }
-            }
-
-            let sentences = splitSentences(response);
-
-            if (completion.choices[0].finish_reason != "stop") {
-                // Check if we can re-add some messages from the end, to put back some of the list of questions that chair often produces
-                if (this.conversationOptions.options.trimChairSemicolon) {
-                    if (speaker.id === this.conversationOptions.options.chairId) {
-
-                        const trimmedSentences = splitSentences(trimmedContent?.trim()).filter((sentence) => sentence.length > 0 && sentence !== ".");
-
-                        if (
-                            trimmedSentences &&
-                            sentences &&
-                            (sentences[sentences.length - 1]?.slice(-1) === ":" ||
-                                trimmedSentences[0]?.slice(-1) === ":")
-                        ) {
-                            if (
-                                trimmedSentences.length > 2 &&
-                                trimmedSentences[0]?.slice(0, 1) === "1" &&
-                                trimmedSentences[1]?.slice(0, 1) === "2"
-                            ) {
-                                trimmedContent = trimmedSentences[trimmedSentences.length - 1];
-                                sentences = sentences.concat(trimmedSentences.slice(0, trimmedSentences.length - 1));
-                                response = sentences.join("\n");
-                            } else if (
-                                trimmedSentences.length > 3 &&
-                                trimmedSentences[0]?.slice(-1) === ":" &&
-                                trimmedSentences[1]?.slice(0, 1) === "1" &&
-                                trimmedSentences[2]?.slice(0, 1) === "2"
-                            ) {
-                                trimmedContent = trimmedSentences[trimmedSentences.length - 1];
-                                sentences = sentences.concat(trimmedSentences.slice(0, trimmedSentences.length - 1));
-                                response = sentences.join("\n");
-                            } else {
-                                //otherwise remove also the last presentation of the list of topics
-                                trimmedContent = trimmedContent
-                                    ? sentences[sentences.length - 1] + "\n" + trimmedContent
-                                    : sentences[sentences.length - 1];
-                                sentences = sentences.slice(0, sentences.length - 1);
-                                response = sentences.join("\n");
-                            }
-                        }
-                    }
-                }
-            }
-
-            return {
-                id: completion.id,
-                response: response,
-                sentences: sentences,
-                trimmed: trimmedContent,
-                pretrimmed: pretrimmedContent,
-            };
-        } catch (error) {
-            console.error("Error during API call:", error);
-            throw error;
-        }
+        return this.dialogGenerator.generateTextFromGPT(
+            speaker,
+            this.conversation,
+            this.conversationOptions,
+            this.currentSpeaker
+        );
     }
 
     async handleWrapUpMeeting(message) {
