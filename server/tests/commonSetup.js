@@ -29,7 +29,10 @@ export const createTestManager = () => {
         { id: 'tomato', name: 'Tomato', type: 'food' },
         { id: 'potato', name: 'Potato', type: 'food' }
     ];
-    manager.conversationOptions.options = { ...options, chairId: 'water' };
+    manager.conversationOptions.options = {
+        ...options,
+        chairId: 'water'
+    };
     manager.conversationOptions.language = 'en';
     manager.conversationOptions.state = { humanName: 'Frank' };
 

@@ -30,6 +30,12 @@ describe('MeetingManager - Hand Raising', () => {
             ];
             manager.meetingId = "test_meeting";
 
+            // Seed DB with initial state
+            await meetingsCollection.insertOne({
+                _id: "test_meeting",
+                conversation: [...manager.conversation]
+            });
+
             // Mock generateAudio to avoid errors
             vi.spyOn(manager, 'generateAudio').mockResolvedValue(true);
             // Mock generateTextFromGPT as a fallback (though current impl calls OpenAI directly)
@@ -55,7 +61,7 @@ describe('MeetingManager - Hand Raising', () => {
             // Check State Flag
             expect(manager.conversation[2].type).toBe('awaiting_human_question');
 
-            // Check DB Persistence
+            // Check DB Persistence (Function Call)
             expect(meetingsCollection.updateOne).toHaveBeenCalledWith(
                 { _id: "test_meeting" },
                 expect.objectContaining({
@@ -64,6 +70,13 @@ describe('MeetingManager - Hand Raising', () => {
                     })
                 })
             );
+
+            // Check DB Persistence (Actual Document)
+            const dbMeeting = await meetingsCollection.findOne({ _id: "test_meeting" });
+            expect(dbMeeting).toBeDefined();
+            expect(dbMeeting.conversation).toHaveLength(3);
+            expect(dbMeeting.conversation[1].type).toBe('invitation');
+            expect(dbMeeting.options.state.alreadyInvited).toBe(true);
         });
 
         it('should generate an invitation using GPT', async () => {
