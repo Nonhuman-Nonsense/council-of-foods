@@ -33,7 +33,7 @@ describe('MeetingManager - Human Input', () => {
             // handleSubmitHumanMessage calls startLoop.
 
             const humanMsg = { text: "What is the meaning of soup?", speaker: "Frank" };
-            await manager.handleSubmitHumanMessage(humanMsg);
+            manager.humanInputHandler.handleSubmitHumanMessage(humanMsg);
 
             // 1. Verify Message Added
             expect(manager.conversation).toHaveLength(2); // awaiting + human
@@ -67,7 +67,7 @@ describe('MeetingManager - Human Input', () => {
             // "if (lastMsg.type !== 'awaiting_human_question') return;"?
             // Let's assume it checks.
             manager.conversation = TestFactory.createConversation(2);
-            await manager.handleSubmitHumanMessage("Hello");
+            manager.humanInputHandler.handleSubmitHumanMessage("Hello");
 
             // Should verify if it added or not.
             // If logic implies validation, we test it.
@@ -89,7 +89,7 @@ describe('MeetingManager - Human Input', () => {
             manager.meetingId = "test_meeting";
 
             const answer = { text: "I think soup is great.", speaker: "alice" };
-            await manager.handleSubmitHumanPanelist(answer);
+            manager.humanInputHandler.handleSubmitHumanPanelist(answer);
 
             // 1. Verify Message Added
             expect(manager.conversation).toHaveLength(2);

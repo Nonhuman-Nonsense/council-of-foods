@@ -46,7 +46,7 @@ describe('MeetingManager - Hand Raising', () => {
                 trimmed: 'Speak now.'
             });
 
-            await manager.handleRaiseHand({ index: 1 });
+            await manager.handRaisingHandler.handleRaiseHand({ index: 1, humanName: "Human" });
 
             expect(manager.handRaised).toBe(true);
 
@@ -86,7 +86,7 @@ describe('MeetingManager - Hand Raising', () => {
             // Mock OpenAI response for invitation
             vi.spyOn(manager.audioSystem, 'queueAudioGeneration').mockImplementation(() => { });
 
-            await manager.handleRaiseHand({ index: 0 });
+            await manager.handRaisingHandler.handleRaiseHand({ index: 0 });
 
             // chairInterjection calls OpenAI directly, so we check the hoisted mock
             expect(mockOpenAI.chat.completions.create).toHaveBeenCalled();

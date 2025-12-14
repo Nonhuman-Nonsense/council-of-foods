@@ -1,13 +1,16 @@
 import { v4 as uuidv4 } from "uuid";
 import { getOpenAI } from "../services/OpenAIService.js";
 import { meetingsCollection, audioCollection, insertMeeting } from "../services/DbService.js";
-import { splitSentences, mapSentencesToWords } from "../utils/textUtils.js";
+import { splitSentences } from "../utils/textUtils.js";
 import { reportError } from "../../errorbot.js";
 import defaultGlobalOptions from "../../global-options.json" with { type: 'json' };
 import e2eOptions from "../../e2e-options.json" with { type: 'json' };
 import { AudioSystem } from "./AudioSystem.js";
 import { SpeakerSelector } from "./SpeakerSelector.js";
 import { DialogGenerator } from "./DialogGenerator.js";
+import { HumanInputHandler } from "./HumanInputHandler.js";
+import { HandRaisingHandler } from "./HandRaisingHandler.js";
+import { MeetingLifecycleHandler } from "./MeetingLifecycleHandler.js";
 
 export class MeetingManager {
     constructor(socket, environment, optionsOverride = null, services = {}) {
@@ -35,6 +38,9 @@ export class MeetingManager {
         this.startLoop = this.startLoop.bind(this);
         this.audioSystem = new AudioSystem(this.socket, this.services);
         this.dialogGenerator = new DialogGenerator(this.services, this.globalOptions);
+        this.humanInputHandler = new HumanInputHandler(this);
+        this.handRaisingHandler = new HandRaisingHandler(this);
+        this.meetingLifecycleHandler = new MeetingLifecycleHandler(this);
 
         this.conversation = [];
         this.conversationOptions = {
@@ -50,42 +56,33 @@ export class MeetingManager {
             this.setupPrototypeListeners();
         }
 
-        this.socket.on("submit_injection", (message) => this.handleSubmitInjection(message));
+        this.socket.on("start_conversation", async (setup) => this.meetingLifecycleHandler.handleStartConversation(setup));
 
-        this.socket.on("raise_hand", (opts) => this.handleRaiseHand(opts));
-        this.socket.on("submit_human_message", (msg) => this.handleSubmitHumanMessage(msg));
-        this.socket.on("submit_human_panelist", (msg) => this.handleSubmitHumanPanelist(msg));
-        this.socket.on("wrap_up_meeting", (msg) => this.handleWrapUpMeeting(msg));
 
-        this.socket.on("continue_conversation", () => {
-            this.extraMessageCount += this.conversationOptions.options.extraMessageCount;
-            this.isPaused = false;
-            this.startLoop();
-        });
 
-        this.socket.on("attempt_reconnection", (opts) => this.handleReconnection(opts));
-        this.socket.on("start_conversation", (setup) => this.handleStartConversation(setup));
-        this.socket.on("disconnect", () => {
-            this.run = false;
-            console.log(`[session ${this.socket.id} meeting ${this.meetingId ?? "unstarted"}] disconnected`);
-        });
-
-        // OpenAI Realtime API Client Key
-        this.socket.on('request_clientkey', async () => this.handleRequestClientKey());
+        // Use handlers
+        this.socket.on("submit_human_message", (msg) => this.humanInputHandler.handleSubmitHumanMessage(msg));
+        this.socket.on("submit_human_panelist", (msg) => this.humanInputHandler.handleSubmitHumanPanelist(msg));
+        this.socket.on("submit_injection", (msg) => this.humanInputHandler.handleSubmitInjection(msg));
+        this.socket.on("raise_hand", (msg) => this.handRaisingHandler.handleRaiseHand(msg));
+        this.socket.on("wrap_up_meeting", (msg) => this.meetingLifecycleHandler.handleWrapUpMeeting(msg));
+        this.socket.on('reconnect_user', (options) => this.meetingLifecycleHandler.handleReconnection(options));
+        this.socket.on('request_clientkey', async () => this.meetingLifecycleHandler.handleRequestClientKey());
     }
 
     setupPrototypeListeners() {
-        this.socket.on("pause_conversation", () => {
-            this.isPaused = true;
+        if (this.environment !== 'prototype') return;
+
+        this.socket.on("pause_conversation", (msg) => {
             console.log(`[meeting ${this.meetingId}] paused`);
+            this.isPaused = true;
         });
 
-        this.socket.on("resume_conversation", () => {
+        this.socket.on("resume_conversation", (msg) => {
             console.log(`[meeting ${this.meetingId}] resumed`);
             this.isPaused = false;
             this.startLoop();
         });
-
         this.socket.on("remove_last_message", () => {
             this.conversation.pop();
             this.socket.emit("conversation_update", this.conversation);
@@ -96,92 +93,7 @@ export class MeetingManager {
         return SpeakerSelector.calculateNextSpeaker(this.conversation, this.conversationOptions.characters);
     }
 
-    async handleSubmitInjection(message) {
-        if (this.environment !== "prototype") return;
 
-        let { response, id } = await this.chairInterjection(
-            message.text.replace("[DATE]", message.date),
-            message.index,
-            message.length,
-            true
-        );
-
-        let summary = {
-            id: id,
-            speaker: this.conversationOptions.characters[0].id,
-            text: response,
-            type: "interjection",
-        };
-
-        this.conversation.push(summary);
-
-        this.socket.emit("conversation_update", this.conversation);
-        console.log(`[meeting ${this.meetingId}] interjection generated on index ${this.conversation.length - 1}`);
-
-        summary.sentences = splitSentences(response);
-        this.generateAudio(summary, this.conversationOptions.characters[0]);
-    }
-
-    async handleRaiseHand(handRaisedOptions) {
-        console.log(`[meeting ${this.meetingId}] hand raised on index ${handRaisedOptions.index - 1}`);
-        this.handRaised = true;
-        this.conversationOptions.state.humanName = handRaisedOptions.humanName;
-
-        // Cut everything after the raised index
-        this.conversation = this.conversation.slice(0, handRaisedOptions.index);
-
-        if (!this.conversationOptions.state.alreadyInvited) {
-            let { response, id } = await this.chairInterjection(
-                this.conversationOptions.options.raiseHandPrompt[this.conversationOptions.language].replace(
-                    "[NAME]",
-                    this.conversationOptions.state.humanName
-                ),
-                handRaisedOptions.index,
-                this.conversationOptions.options.raiseHandInvitationLength
-            );
-
-            const firstNewLineIndex = response.indexOf("\n\n");
-            if (firstNewLineIndex !== -1) {
-                response = response.substring(0, firstNewLineIndex);
-            }
-
-            const message = {
-                id: id,
-                speaker: this.conversationOptions.characters[0].id,
-                text: response,
-                type: "invitation",
-                message_index: handRaisedOptions.index,
-            }
-
-            this.conversation.push(message);
-            message.sentences = splitSentences(response);
-
-            this.conversationOptions.state.alreadyInvited = true;
-            console.log(`[meeting ${this.meetingId}] invitation generated, on index ${handRaisedOptions.index}`);
-
-            this.audioSystem.queueAudioGeneration(
-                message,
-                this.conversationOptions.characters[0],
-                this.conversationOptions.options,
-                this.meetingId,
-                this.environment
-            );
-        }
-
-        this.conversation.push({
-            type: 'awaiting_human_question',
-            speaker: this.conversationOptions.state.humanName
-        });
-
-        console.log(`[meeting ${this.meetingId}] awaiting human question on index ${this.conversation.length - 1}`);
-
-        this.services.meetingsCollection.updateOne(
-            { _id: this.meetingId },
-            { $set: { conversation: this.conversation, 'options.state': this.conversationOptions.state } }
-        );
-
-        this.socket.emit("conversation_update", this.conversation);
-    }
 
     async chairInterjection(interjectionPrompt, index, length, dontStop) {
         return this.dialogGenerator.chairInterjection(
@@ -200,223 +112,7 @@ export class MeetingManager {
     // Wait, is it used elsewhere? Checked usages: generateTextFromGPT and chairInterjection.
     // So we can remove it entirely.
 
-    handleSubmitHumanMessage(message) {
-        console.log(`[meeting ${this.meetingId}] human input on index ${this.conversation.length - 1}`);
 
-        if (this.conversation[this.conversation.length - 1].type !== 'awaiting_human_question') {
-            // throw new Error("Received a human question but was not expecting one!");
-            // Better to log error and ignore to prevent crash?
-            console.error("Received a human question but was not expecting one!");
-            return;
-        }
-        this.conversation.pop();
-
-        if (this.conversation[this.conversation.length - 1].type === 'invitation') {
-            console.log(`[meeting ${this.meetingId}] popping invitation down to index ${this.conversation.length - 1}`);
-            this.conversation.pop();
-        }
-
-        if (message.askParticular) {
-            console.log(`[meeting ${this.meetingId}] specifically asked to ${message.askParticular}`);
-            message.text = message.speaker + " asked " + message.askParticular + ":\xa0" + message.text;
-        } else {
-            message.text = message.speaker + (this.conversationOptions.language === 'en' ? " said:\xa0" : " sa:\xa0") + message.text;
-        }
-
-        message.id = "human-" + uuidv4();
-        message.type = "human";
-        message.speaker = this.conversationOptions.state.humanName;
-
-        this.conversation.push(message);
-
-        this.services.meetingsCollection.updateOne(
-            { _id: this.meetingId },
-            { $set: { conversation: this.conversation } }
-        );
-
-        this.socket.emit("conversation_update", this.conversation);
-
-        message.sentences = splitSentences(message.text);
-        this.audioSystem.queueAudioGeneration(
-            message,
-            this.conversationOptions.characters[0],
-            this.conversationOptions.options,
-            this.meetingId,
-            this.environment
-        );
-
-        this.isPaused = false;
-        this.handRaised = false;
-        this.startLoop();
-    }
-
-    handleSubmitHumanPanelist(message) {
-        console.log(`[meeting ${this.meetingId}] human panelist ${message.speaker} on index ${this.conversation.length - 1}`);
-
-        if (this.conversation[this.conversation.length - 1].type !== 'awaiting_human_panelist') {
-            console.error("Received a human panelist but was not expecting one!");
-            return;
-        }
-        this.conversation.pop();
-
-        const charName = this.conversationOptions.characters.find(c => c.id === message.speaker)?.name || "Unknown";
-        message.text = charName + (this.conversationOptions.language === 'en' ? " said:\xa0" : " sa:\xa0") + message.text;
-        message.id = message.speaker + uuidv4();
-        message.type = "panelist";
-
-        this.conversation.push(message);
-
-        this.services.meetingsCollection.updateOne(
-            { _id: this.meetingId },
-            { $set: { conversation: this.conversation } }
-        );
-
-        this.socket.emit("conversation_update", this.conversation);
-
-        message.sentences = splitSentences(message.text);
-        this.audioSystem.queueAudioGeneration(
-            message,
-            this.conversationOptions.characters[0],
-            this.conversationOptions.options,
-            this.meetingId,
-            this.environment
-        );
-
-        this.isPaused = false;
-        this.handRaised = false;
-        this.startLoop();
-    }
-
-    async handleWrapUpMeeting(message) {
-        console.log(`[meeting ${this.meetingId}] attempting to wrap up`);
-        const summaryPrompt = this.conversationOptions.options.finalizeMeetingPrompt[this.conversationOptions.language].replace("[DATE]", message.date);
-
-        let { response, id } = await this.chairInterjection(
-            summaryPrompt,
-            this.conversation.length,
-            this.conversationOptions.options.finalizeMeetingLength,
-            true
-        );
-
-        let summary = {
-            id: id,
-            speaker: this.conversationOptions.characters[0].id,
-            text: response,
-            type: "summary",
-        };
-
-        this.conversation.push(summary);
-
-        this.socket.emit("conversation_update", this.conversation);
-        console.log(`[meeting ${this.meetingId}] summary generated on index ${this.conversation.length - 1}`);
-
-        this.services.meetingsCollection.updateOne(
-            { _id: this.meetingId },
-            { $set: { conversation: this.conversation, summary: summary } }
-        );
-
-        summary.sentences = splitSentences(response);
-        await this.audioSystem.generateAudio(
-            summary,
-            this.conversationOptions.characters[0],
-            this.conversationOptions.options,
-            this.meetingId,
-            this.environment,
-            true
-        );
-    }
-
-    async handleReconnection(options) {
-        console.log(`[meeting ${options.meetingId}] attempting to resume`);
-        try {
-            const existingMeeting = await this.services.meetingsCollection.findOne({
-                _id: options.meetingId, // Note: ensure ID types match (string vs int). In original it used whatever was passed.
-            });
-
-            // Original used Int for meeting_id seq.
-            // options.meetingId comes from client. 
-            // If client sends string but DB needs integer, we might need conversion?
-            // Original: const existingMeeting = await this.services.meetingsCollection.findOne({ _id: options.meetingId });
-            // It seems consistent in original.
-
-            if (existingMeeting) {
-                this.meetingId = existingMeeting._id;
-                this.conversation = existingMeeting.conversation;
-                this.conversationOptions = existingMeeting.options;
-                this.meetingDate = new Date(existingMeeting.date);
-                this.handRaised = options.handRaised;
-                this.extraMessageCount =
-                    options.conversationMaxLength -
-                    this.conversationOptions.options.conversationMaxLength;
-
-                // Missing audio regen logic
-                let missingAudio = [];
-                for (let i = 0; i < this.conversation.length; i++) {
-                    if (this.conversation[i].type === 'awaiting_human_panelist') continue;
-                    if (this.conversation[i].type === 'awaiting_human_question') continue;
-                    if (existingMeeting.audio.indexOf(this.conversation[i].id) === -1) {
-                        missingAudio.push(this.conversation[i]);
-                    }
-                }
-                // ... (Loop for regen) ... 
-                for (let i = 0; i < missingAudio.length; i++) {
-                    console.log(`[meeting ${this.meetingId}] (async) generating missing audio for ${missingAudio[i].speaker}`);
-                    missingAudio[i].sentences = splitSentences(missingAudio[i].text);
-                    this.audioSystem.queueAudioGeneration(
-                        missingAudio[i],
-                        this.conversationOptions.characters.find(c => c.id == missingAudio[i].speaker),
-                        this.conversationOptions.options,
-                        this.meetingId,
-                        this.environment
-                    );
-                }
-
-                console.log(`[meeting ${this.meetingId}] resumed`);
-                this.socket.emit("conversation_update", this.conversation); // Immediate sync
-                this.startLoop();
-            } else {
-                this.socket.emit("meeting_not_found", { meeting_id: options.meetingId });
-                console.log(`[meeting ${options.meetingId}] not found`);
-            }
-        } catch (error) {
-            console.error("Error resuming conversation:", error);
-            this.socket.emit("conversation_error", { message: "Error resuming", code: 500 });
-            reportError(error);
-        }
-    }
-
-    async handleStartConversation(setup) {
-        this.conversationOptions = setup;
-        if (this.environment === "prototype") {
-            this.conversationOptions.options = { ...this.globalOptions, ...(setup.options || {}) };
-        } else {
-            this.conversationOptions.options = this.globalOptions;
-        }
-
-        this.conversation = [];
-        this.currentSpeaker = 0;
-        this.extraMessageCount = 0;
-        this.isPaused = false;
-        this.handRaised = false;
-        this.meetingDate = new Date();
-
-        this.conversationOptions.state = {
-            alreadyInvited: false
-        };
-
-        const storeResult = await this.services.insertMeeting({
-            options: this.conversationOptions,
-            audio: [],
-            conversation: [],
-            date: this.meetingDate.toISOString(),
-        });
-
-        this.meetingId = storeResult.insertedId;
-
-        this.socket.emit("meeting_started", { meeting_id: this.meetingId });
-        console.log(`[session ${this.socket.id} meeting ${this.meetingId}] started`);
-        this.startLoop();
-    }
 
     async runLoop() {
         while (this.run) {
@@ -583,64 +279,6 @@ export class MeetingManager {
         );
     }
 
-    async handleRequestClientKey() {
-        console.log(`[meeting ${this.meetingId}] clientkey requested`);
-        try {
-            const sessionConfig = JSON.stringify({
-                session: {
-                    "type": "transcription",
-                    "audio": {
-                        "input": {
-                            "format": {
-                                "type": "audio/pcm",
-                                "rate": 24000
-                            },
-                            "noise_reduction": {
-                                "type": "near_field"
-                            },
-                            "transcription": {
-                                "model": this.conversationOptions.options.transcribeModel,
-                                "prompt": this.conversationOptions.options.transcribePrompt[this.conversationOptions.language],
-                                "language": this.conversationOptions.language
-                            },
-                            "turn_detection": {
-                                "type": "server_vad",
-                                "threshold": 0.5,
-                                "prefix_padding_ms": 300,
-                                "silence_duration_ms": 500
-                            }
-                        }
-                    }
-                }
-            });
 
-            const openai = this.services.getOpenAI();
-            const response = await fetch(
-                "https://api.openai.com/v1/realtime/client_secrets",
-                {
-                    method: "POST",
-                    headers: {
-                        Authorization: `Bearer ${openai.apiKey}`,
-                        "Content-Type": "application/json",
-                    },
-                    body: sessionConfig,
-                }
-            );
-
-            const data = await response.json();
-            this.socket.emit("clientkey_response", data);
-            console.log(`[meeting ${this.meetingId}] clientkey sent`);
-        } catch (error) {
-            console.error("Error during conversation:", error);
-            this.socket.emit(
-                "conversation_error",
-                {
-                    message: "An error occurred during the conversation.",
-                    code: 500
-                }
-            );
-            reportError(error);
-        }
-    }
 
 }

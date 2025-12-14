@@ -183,7 +183,7 @@ describe('MeetingManager - Conversation Flow', () => {
         const message = { date: '2025-01-01', text: "Summary text", id: "summary_msg_id" };
 
         // This call previously failed with ReferenceError: speaker is not defined
-        await diManager.handleWrapUpMeeting(message);
+        await diManager.meetingLifecycleHandler.handleWrapUpMeeting({ date: "2024-01-01" });
 
         // Verify audio generation was attempted (which uses the 'speaker' variable)
         expect(mockOpenAI.audio.speech.create).toHaveBeenCalled();
