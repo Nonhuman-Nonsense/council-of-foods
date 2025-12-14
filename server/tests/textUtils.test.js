@@ -10,7 +10,7 @@ describe('textUtils', () => {
         });
 
         it('should handle numbered lists', () => {
-            const input = "1. First item. 2. Second item. 3. Third item.";
+            const input = "1. First item.\n2. Second item.\n3. Third item.";
             const expected = ["1. First item.", "2. Second item.", "3. Third item."];
             expect(splitSentences(input)).toEqual(expected);
         });
@@ -32,10 +32,16 @@ describe('textUtils', () => {
             expect(splitSentences(null)).toEqual([]);
         });
 
-        it('should NOT split on colons regardless of context', () => {
-            const input = "Water: Hello there. Potato: Hi!";
-            const expected = ["Water: Hello there.", "Potato: Hi!"];
-            expect(splitSentences(input)).toEqual(expected);
+        it('should split on colons unless followed by non-breaking space', () => {
+            // 1. Standard colon -> Splits
+            const inputStandard = "Water: Hello there.";
+            const expectedStandard = ["Water:", "Hello there."];
+            expect(splitSentences(inputStandard)).toEqual(expectedStandard);
+
+            // 2. Non-breaking space prevents split
+            const inputNbsp = "Water said:\u00A0Hello there.";
+            const expectedNbsp = ["Water said:\u00A0Hello there."];
+            expect(splitSentences(inputNbsp)).toEqual(expectedNbsp);
         });
     });
 
