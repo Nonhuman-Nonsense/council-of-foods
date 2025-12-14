@@ -58,6 +58,16 @@ export class AudioQueue {
     }
 }
 
+/**
+ * Handles concurrent audio generation and queuing.
+ * Manages the generation of TTS (Text-to-Speech) using OpenAI's API.
+ * 
+ * Features:
+ * - Concurrency control using helper AudioQueue.
+ * - Integration with Database to cache generated audio.
+ * - Error suppression for test environments (shutdown/ECONNRESET).
+ * - Skipping audio generation based on configuration (skipAudio).
+ */
 export class AudioSystem {
     constructor(socket, services, concurrency = 3) {
         this.socket = socket;
@@ -69,6 +79,17 @@ export class AudioSystem {
         this.queue.add(() => this.generateAudio(message, speaker, options, meetingId, environment));
     }
 
+    /**
+     * Generates or retrieves audio for a given message.
+     * Emits 'audio_update' to the socket client.
+     * 
+     * @param {object} message - The message object containing text and id.
+     * @param {object} speaker - The speaker object containing voice details.
+     * @param {object} options - Configuration options (voiceModel, skipAudio, etc.).
+     * @param {string} meetingId - The ID of the current meeting.
+     * @param {string} environment - The runtime environment.
+     * @param {boolean} skipMatching - Whether to skip sentence-level alignment.
+     */
     async generateAudio(message, speaker, options, meetingId, environment, skipMatching = false) {
         if (options.skipAudio) return;
 

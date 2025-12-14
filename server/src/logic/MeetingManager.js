@@ -12,6 +12,20 @@ import { HumanInputHandler } from "./HumanInputHandler.js";
 import { HandRaisingHandler } from "./HandRaisingHandler.js";
 import { MeetingLifecycleHandler } from "./MeetingLifecycleHandler.js";
 
+/**
+ * Manages the lifecycle of a single council meeting (session).
+ * Orchestrates interaction between Client (Socket.IO), Database, and AI services.
+ * 
+ * Key Responsibilities:
+ * - Conversation State Management
+ * - Integration with sub-modules: AudioSystem, DialogGenerator, SpeakerSelector
+ * - Handling Client Events
+ * - Decision making (processTurn) to drive conversation forward
+ * 
+ * Testing Modes:
+ * - Supports mocking services via Dependency Injection (constructor 'services' param).
+ * - Adapts behavior based on Global Options (from test-options.json or global-options.json).
+ */
 export class MeetingManager {
     constructor(socket, environment, optionsOverride = null, services = {}) {
         this.socket = socket;
@@ -185,6 +199,16 @@ export class MeetingManager {
         return { type: 'GENERATE_AI_RESPONSE', speaker: nextSpeaker };
     }
 
+    /**
+     * Core loop function. Decides the next action based on conversation state.
+     * Actions include:
+     * - END_CONVERSATION: Terminate if max length reached.
+     * - WAIT: If waiting for human input.
+     * - REQUEST_PANELIST: If next speaker is a Human Panelist.
+     * - GENERATE_AI_RESPONSE: If next speaker is an AI character.
+     * 
+     * Handles error suppression for benign test cleanup errors (shutdown/ECONNRESET).
+     */
     async processTurn() {
         try {
             const thisMeetingId = this.meetingId;
