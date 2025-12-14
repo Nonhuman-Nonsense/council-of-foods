@@ -195,4 +195,11 @@ export class MeetingLifecycleHandler {
             reportError(error);
         }
     }
+
+    handleContinueConversation() {
+        const { manager } = this;
+        console.log(`[meeting ${manager.meetingId}] continuing conversation`);
+        manager.extraMessageCount += manager.globalOptions.extraMessageCount;
+        manager.startLoop();
+    }
 }

@@ -72,6 +72,7 @@ export class MeetingManager {
         this.socket.on("raise_hand", (msg) => this.handRaisingHandler.handleRaiseHand(msg));
         this.socket.on("wrap_up_meeting", (msg) => this.meetingLifecycleHandler.handleWrapUpMeeting(msg));
         this.socket.on('attempt_reconnection', (options) => this.meetingLifecycleHandler.handleReconnection(options));
+        this.socket.on('continue_conversation', () => this.meetingLifecycleHandler.handleContinueConversation());
         this.socket.on('request_clientkey', async () => this.meetingLifecycleHandler.handleRequestClientKey());
     }
 

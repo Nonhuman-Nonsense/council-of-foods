@@ -193,4 +193,65 @@ describe('MeetingManager - Conversation Flow', () => {
             id: 'gpt_id'
         }));
     });
+
+    it('should extend meeting on continue_conversation', async () => {
+        // Setup initial max length state
+        manager.conversationOptions.options = {
+            conversationMaxLength: 5,
+            extraMessageCount: 5
+        };
+        manager.extraMessageCount = 0;
+
+        // Populate conversation to limit
+        manager.conversation = new Array(5).fill({});
+
+        // Spy on startLoop/runLoop to verify resumption
+        const loopSpy = vi.spyOn(manager, 'startLoop');
+
+        // Trigger continue
+        mockSocket.trigger('continue_conversation');
+
+        // Verify count increased
+        expect(manager.extraMessageCount).toBe(5);
+
+        // Verify loop resumed
+        expect(loopSpy).toHaveBeenCalled();
+
+        // Verify that with new limit, another turn would be processed
+        // (If we were to run processTurn, it would pass the length check now)
+        // length (5) < 5 + 5
+    });
+
+    it('should handle request_clientkey event', async () => {
+        // Setup mock OpenAI with audio capability
+        const mockOpenAI = {
+            chat: {},
+            audio: {},
+            apiKey: 'test-api-key'
+        };
+        const mockGetOpenAI = () => mockOpenAI;
+        const { manager: keyManager, mockSocket: keySocket } = createTestManager('test', null, { getOpenAI: mockGetOpenAI });
+
+        // Mock fetch for OpenAI API
+        global.fetch = vi.fn().mockResolvedValue({
+            json: vi.fn().mockResolvedValue({ value: 'mock_client_secret' })
+        });
+
+        // Trigger request
+        await keyManager.meetingLifecycleHandler.handleRequestClientKey();
+
+        // Verify fetch called with correct URL and headers
+        expect(global.fetch).toHaveBeenCalledWith(
+            "https://api.openai.com/v1/realtime/client_secrets",
+            expect.objectContaining({
+                method: "POST",
+                headers: expect.objectContaining({
+                    Authorization: "Bearer test-api-key"
+                })
+            })
+        );
+
+        // Verify socket response
+        expect(keySocket.emit).toHaveBeenCalledWith("clientkey_response", { value: 'mock_client_secret' });
+    });
 });
