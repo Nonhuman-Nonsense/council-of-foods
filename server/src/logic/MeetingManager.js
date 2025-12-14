@@ -504,6 +504,7 @@ export class MeetingManager {
                 }
 
                 console.log(`[meeting ${this.meetingId}] resumed`);
+                this.socket.emit("conversation_update", this.conversation); // Immediate sync
                 this.startLoop();
             } else {
                 this.socket.emit("meeting_not_found", { meeting_id: options.meetingId });
@@ -679,13 +680,14 @@ export class MeetingManager {
                     this.conversation.push(message);
                     const message_index = this.conversation.length - 1;
 
-                    this.socket.emit("conversation_update", this.conversation);
-                    console.log(`[meeting ${this.meetingId}] message generated, index ${message_index}, speaker ${message.speaker}`);
-
-                    this.services.meetingsCollection.updateOne(
+                    // Save to DB *before* emitting to ensure consistency
+                    await this.services.meetingsCollection.updateOne(
                         { _id: this.meetingId },
                         { $set: { conversation: this.conversation } }
                     );
+
+                    this.socket.emit("conversation_update", this.conversation);
+                    console.log(`[meeting ${this.meetingId}] message generated, index ${message_index}, speaker ${message.speaker}`);
 
                     // Queue audio generation
                     this.audioSystem.queueAudioGeneration(
