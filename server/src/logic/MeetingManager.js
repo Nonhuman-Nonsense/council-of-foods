@@ -6,10 +6,18 @@ import { reportError } from "../../errorbot.js";
 import defaultGlobalOptions from "../../global-options.json" with { type: 'json' };
 
 export class MeetingManager {
-    constructor(socket, environment, optionsOverride = null) {
+    constructor(socket, environment, optionsOverride = null, services = {}) {
         this.socket = socket;
         this.environment = environment;
         this.globalOptions = optionsOverride || defaultGlobalOptions;
+
+        // Default Services
+        this.services = {
+            meetingsCollection: services.meetingsCollection || meetingsCollection,
+            audioCollection: services.audioCollection || audioCollection,
+            insertMeeting: services.insertMeeting || insertMeeting,
+            getOpenAI: services.getOpenAI || getOpenAI
+        };
 
         // Session variables
         this.run = true;
@@ -238,7 +246,7 @@ export class MeetingManager {
 
         console.log(`[meeting ${this.meetingId}] awaiting human question on index ${this.conversation.length - 1}`);
 
-        meetingsCollection.updateOne(
+        this.services.meetingsCollection.updateOne(
             { _id: this.meetingId },
             { $set: { conversation: this.conversation, 'options.state': this.conversationOptions.state } }
         );
@@ -256,7 +264,7 @@ export class MeetingManager {
                 content: interjectionPrompt,
             });
 
-            const openai = getOpenAI();
+            const openai = this.services.getOpenAI();
             const completion = await openai.chat.completions.create({
                 model: this.conversationOptions.options.gptModel,
                 max_completion_tokens: length,
@@ -388,7 +396,7 @@ export class MeetingManager {
 
         this.conversation.push(message);
 
-        meetingsCollection.updateOne(
+        this.services.meetingsCollection.updateOne(
             { _id: this.meetingId },
             { $set: { conversation: this.conversation } }
         );
@@ -419,7 +427,7 @@ export class MeetingManager {
 
         this.conversation.push(message);
 
-        meetingsCollection.updateOne(
+        this.services.meetingsCollection.updateOne(
             { _id: this.meetingId },
             { $set: { conversation: this.conversation } }
         );
@@ -456,7 +464,7 @@ export class MeetingManager {
         this.socket.emit("conversation_update", this.conversation);
         console.log(`[meeting ${this.meetingId}] summary generated on index ${this.conversation.length - 1}`);
 
-        meetingsCollection.updateOne(
+        this.services.meetingsCollection.updateOne(
             { _id: this.meetingId },
             { $set: { conversation: this.conversation, summary: summary } }
         );
@@ -468,14 +476,14 @@ export class MeetingManager {
     async handleReconnection(options) {
         console.log(`[meeting ${options.meetingId}] attempting to resume`);
         try {
-            const existingMeeting = await meetingsCollection.findOne({
+            const existingMeeting = await this.services.meetingsCollection.findOne({
                 _id: options.meetingId, // Note: ensure ID types match (string vs int). In original it used whatever was passed.
             });
 
             // Original used Int for meeting_id seq.
             // options.meetingId comes from client. 
             // If client sends string but DB needs integer, we might need conversion?
-            // Original: const existingMeeting = await meetingsCollection.findOne({ _id: options.meetingId });
+            // Original: const existingMeeting = await this.services.meetingsCollection.findOne({ _id: options.meetingId });
             // It seems consistent in original.
 
             if (existingMeeting) {
@@ -539,7 +547,7 @@ export class MeetingManager {
             alreadyInvited: false
         };
 
-        const storeResult = await insertMeeting({
+        const storeResult = await this.services.insertMeeting({
             options: this.conversationOptions,
             audio: [],
             conversation: [],
@@ -640,7 +648,7 @@ export class MeetingManager {
                     });
                     console.log(`[meeting ${this.meetingId}] awaiting human panelist on index ${this.conversation.length - 1}`);
                     this.socket.emit("conversation_update", this.conversation);
-                    meetingsCollection.updateOne(
+                    this.services.meetingsCollection.updateOne(
                         { _id: this.meetingId },
                         { $set: { conversation: this.conversation } }
                     );
@@ -686,7 +694,7 @@ export class MeetingManager {
                     this.socket.emit("conversation_update", this.conversation);
                     console.log(`[meeting ${this.meetingId}] message generated, index ${message_index}, speaker ${message.speaker}`);
 
-                    meetingsCollection.updateOne(
+                    this.services.meetingsCollection.updateOne(
                         { _id: this.meetingId },
                         { $set: { conversation: this.conversation } }
                     );
@@ -706,7 +714,7 @@ export class MeetingManager {
         // Needs this.conversationOptions
         try {
             const messages = this.buildMessageStack(speaker);
-            const openai = getOpenAI();
+            const openai = this.services.getOpenAI();
 
             const completion = await openai.chat.completions.create({
                 model: this.conversationOptions.options.gptModel,
@@ -831,7 +839,7 @@ export class MeetingManager {
         let buffer;
         let generateNew = true;
         try {
-            const existingAudio = await audioCollection.findOne({ _id: message.id });
+            const existingAudio = await this.services.audioCollection.findOne({ _id: message.id });
             if (existingAudio) {
                 buffer = existingAudio.buffer;
                 generateNew = false;
@@ -839,7 +847,7 @@ export class MeetingManager {
         } catch (e) { console.log(e); }
 
         try {
-            const openai = getOpenAI();
+            const openai = this.services.getOpenAI();
             if (generateNew) {
                 const mp3 = await openai.audio.speech.create({
                     model: this.conversationOptions.options.voiceModel,
@@ -862,7 +870,7 @@ export class MeetingManager {
 
             if (generateNew && this.environment !== "prototype") {
                 // Upsert logic
-                await audioCollection.updateOne(
+                await this.services.audioCollection.updateOne(
                     { _id: audioObject.id },
                     {
                         $set: {
@@ -876,7 +884,7 @@ export class MeetingManager {
                 );
             }
             if (this.environment !== "prototype") {
-                await meetingsCollection.updateOne(
+                await this.services.meetingsCollection.updateOne(
                     { _id: this.meetingId },
                     { $addToSet: { audio: audioObject.id } }
                 );
@@ -931,7 +939,7 @@ export class MeetingManager {
                 }
             });
 
-            const openai = getOpenAI();
+            const openai = this.services.getOpenAI();
             const response = await fetch(
                 "https://api.openai.com/v1/realtime/client_secrets",
                 {

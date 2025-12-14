@@ -1,61 +1,74 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { createTestManager } from './commonSetup.js';
+import { createTestManager, TestFactory } from './commonSetup.js';
 
-// No mocks needed for DB or OpenAI!
-
-describe('MeetingManager - Decision Logic', () => {
+describe('MeetingManager - State Machine (decideNextAction)', () => {
     let manager;
 
     beforeEach(() => {
         const setup = createTestManager();
         manager = setup.manager;
-        // The default common setup has 3 chars: Water(0), Tomato(1), Potato(2).
-        // Let's add Alice(3) for the panelist test.
+        // Add Alice (id: 'alice', type: 'panelist') to index 3
         manager.conversationOptions.characters.push({ id: 'alice', name: 'Alice', type: 'panelist' });
-        // Now indices: Water(0), Tomato(1), Potato(2), Alice(3)
     });
 
-    it('should return END_CONVERSATION when max length is reached', () => {
-        manager.conversationOptions.options.conversationMaxLength = 5;
-        manager.extraMessageCount = 0;
-        // Mock a full conversation
-        manager.conversation = new Array(5).fill({ type: 'message' });
+    const scenarios = [
+        {
+            name: 'should end conversation if max length reached',
+            setup: (mgr) => {
+                mgr.conversationOptions.options.conversationMaxLength = 5;
+                mgr.extraMessageCount = 0;
+                mgr.conversation = TestFactory.createConversation(5);
+            },
+            nextSpeakerIndex: 0,
+            expected: { type: 'END_CONVERSATION' }
+        },
+        {
+            name: 'should wait if awaiting human panelist',
+            setup: (mgr) => {
+                mgr.conversation = TestFactory.createAwaitingPanelist('alice');
+            },
+            nextSpeakerIndex: 0,
+            expected: { type: 'WAIT' }
+        },
+        {
+            name: 'should wait if awaiting human question',
+            setup: (mgr) => {
+                mgr.conversation = TestFactory.createAwaitingQuestion();
+            },
+            nextSpeakerIndex: 0,
+            expected: { type: 'WAIT' }
+        },
+        {
+            name: 'should request panelist if next speaker is panelist',
+            setup: (mgr) => {
+                mgr.conversation = [];
+            },
+            nextSpeakerIndex: 3, // Alice
+            expected: {
+                type: 'REQUEST_PANELIST',
+                speaker: expect.objectContaining({ id: 'alice', type: 'panelist' })
+            }
+        },
+        {
+            name: 'should generate AI response if next speaker is AI',
+            setup: (mgr) => {
+                mgr.conversation = [];
+            },
+            nextSpeakerIndex: 1, // Tomato
+            expected: {
+                type: 'GENERATE_AI_RESPONSE',
+                speaker: expect.objectContaining({ id: 'tomato', type: 'food' })
+            }
+        }
+    ];
 
-        const decision = manager.decideNextAction();
-        expect(decision).toEqual({ type: 'END_CONVERSATION' });
-    });
+    scenarios.forEach(({ name, setup, nextSpeakerIndex, expected }) => {
+        it(name, () => {
+            setup(manager);
+            vi.spyOn(manager, 'calculateCurrentSpeaker').mockReturnValue(nextSpeakerIndex);
 
-    it('should return WAIT when awaiting human panelist', () => {
-        manager.conversation = [{ type: 'awaiting_human_panelist' }];
-        const decision = manager.decideNextAction();
-        expect(decision).toEqual({ type: 'WAIT' });
-    });
-
-    it('should return WAIT when awaiting human question', () => {
-        manager.conversation = [{ type: 'awaiting_human_question' }];
-        const decision = manager.decideNextAction();
-        expect(decision).toEqual({ type: 'WAIT' });
-    });
-
-    it('should return REQUEST_PANELIST when next speaker is a panelist', () => {
-        // Force next speaker to be Alice (id: 'alice', index: 3)
-        vi.spyOn(manager, 'calculateCurrentSpeaker').mockReturnValue(3);
-
-        const decision = manager.decideNextAction();
-        expect(decision).toEqual({
-            type: 'REQUEST_PANELIST',
-            speaker: expect.objectContaining({ id: 'alice', type: 'panelist' })
-        });
-    });
-
-    it('should return GENERATE_AI_RESPONSE when next speaker is AI character', () => {
-        // Force next speaker to be Tomato (id: 'tomato', index: 1)
-        vi.spyOn(manager, 'calculateCurrentSpeaker').mockReturnValue(1);
-
-        const decision = manager.decideNextAction();
-        expect(decision).toEqual({
-            type: 'GENERATE_AI_RESPONSE',
-            speaker: expect.objectContaining({ id: 'tomato', type: 'food' })
+            const decision = manager.decideNextAction();
+            expect(decision).toEqual(expected);
         });
     });
 });

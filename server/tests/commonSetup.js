@@ -15,7 +15,7 @@ export const mockOpenAI = {
     audio: { speech: { create: vi.fn() } }
 };
 
-export const createTestManager = (env = 'test') => {
+export const createTestManager = (env = 'test', optionsOverride = null, services = {}) => {
     const mockSocket = {
         on: vi.fn(),
         emit: vi.fn(),
@@ -29,8 +29,8 @@ export const createTestManager = (env = 'test') => {
     mockSocket.on.mockImplementation((event, callback) => {
         mockSocket.handlers[event] = callback;
     });
-    const options = setupTestOptions();
-    const manager = new MeetingManager(mockSocket, env, options);
+    const options = optionsOverride || setupTestOptions();
+    const manager = new MeetingManager(mockSocket, env, options, services);
 
     // Common setup
     manager.conversationOptions.characters = [
@@ -46,4 +46,25 @@ export const createTestManager = (env = 'test') => {
     manager.conversationOptions.state = { humanName: 'Frank' };
 
     return { manager, mockSocket };
+};
+
+export const TestFactory = {
+    createConversation: (length, lastSpeakerId = null, type = 'message') => {
+        const conv = [];
+        for (let i = 0; i < length; i++) {
+            conv.push({
+                id: `msg_${i}`,
+                type: type,
+                text: `Message ${i}`,
+                speaker: lastSpeakerId ? lastSpeakerId : (i % 2 === 0 ? 'water' : 'tomato')
+            });
+        }
+        return conv;
+    },
+    createAwaitingPanelist: (speakerId) => {
+        return [{ type: 'awaiting_human_panelist', speaker: speakerId }];
+    },
+    createAwaitingQuestion: (humanName = 'Frank') => {
+        return [{ type: 'awaiting_human_question', speaker: humanName }];
+    }
 };

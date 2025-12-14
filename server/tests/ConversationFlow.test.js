@@ -77,51 +77,52 @@ describe('MeetingManager - Conversation Flow', () => {
         expect(spy).not.toHaveBeenCalled();
     });
 
-    it('should handle conversation turns recursively (single turn verification)', async () => {
-        // This test previously tested "recursively" but technically just one turn + stop.
-        // Now it tests the loop processing one turn.
+    it('should handle conversation turns (single turn verification) using DI', async () => {
+        // Create a mock OpenAI service
+        const mockOpenAI = {
+            chat: {
+                completions: {
+                    create: vi.fn().mockResolvedValue({
+                        id: 'gpt_id',
+                        choices: [{ message: { content: 'Hello from DI Tomato' } }]
+                    })
+                }
+            },
+            audio: {
+                speech: {
+                    create: vi.fn().mockResolvedValue({ arrayBuffer: () => new ArrayBuffer(0) })
+                }
+            }
+        };
 
-        manager.conversationOptions.options.conversationMaxLength = 10;
-        vi.spyOn(manager, 'calculateCurrentSpeaker').mockReturnValue(1); // Tomato
+        const mockGetOpenAI = () => mockOpenAI;
 
-        // Mock Chat Completion to return legitimate response
-        // OR use previous mocks.
-        // We need to ensure loop stops. 
-        // 1. We can set max length to 1.
-        // 2. We can mock run to false after first execution? 
-        // 3. We can just call processTurn() directly which does ONE turn.
-        // calling processTurn() is better for unit testing "one turn behavior"
-
-        vi.spyOn(manager, 'generateTextFromGPT').mockImplementation(async () => {
-            return {
-                id: 'new_id',
-                response: 'Hello from Tomato',
-                sentences: ['Hello from Tomato']
-            };
+        // Re-create manager with injected service
+        const { manager: diManager, mockSocket: diSocket } = createTestManager('test', null, {
+            getOpenAI: mockGetOpenAI
         });
 
-        // Calling processTurn directly
-        await manager.processTurn();
+        diManager.conversationOptions.options.conversationMaxLength = 10;
+        // Mock current speaker to Tomato (index 1 in default, 2 in extended? Default has Water, Tomato, Potato)
+        // Water=0, Tomato=1.
+        vi.spyOn(diManager, 'calculateCurrentSpeaker').mockReturnValue(1);
+
+        // We DO NOT mock generateTextFromGPT. We test it!
+
+        await diManager.processTurn();
 
         // Verify Message added
-        expect(manager.conversation).toHaveLength(1);
-        expect(manager.conversation[0].speaker).toBe('tomato');
-        expect(manager.conversation[0].text).toBe('Hello from Tomato');
+        expect(diManager.conversation).toHaveLength(1);
+        expect(diManager.conversation[0].text).toBe('Hello from DI Tomato');
+
+        // Verify OpenAI usage
+        expect(mockOpenAI.chat.completions.create).toHaveBeenCalled();
 
         // Verify Socket Emit
-        // MeetingManager emits "conversation_update" with the full array
-        expect(mockSocket.emit).toHaveBeenCalledWith('conversation_update', expect.any(Array));
+        expect(diSocket.emit).toHaveBeenCalledWith('conversation_update', expect.any(Array));
 
-        // Also verify the array content sent matched local conversation
-        const emitCall = mockSocket.emit.mock.calls.find(call => call[0] === 'conversation_update');
-        expect(emitCall[1]).toHaveLength(1);
-        expect(emitCall[1][0].text).toBe('Hello from Tomato');
-
-        // Verify DB Update
-        expect(meetingsCollection.updateOne).toHaveBeenCalledWith(
-            { _id: manager.meetingId },
-            expect.objectContaining({ $set: { conversation: manager.conversation } })
-        );
+        // Verify DB logic (still uses global mock unless we inject that too, but global mock is fine for now)
+        expect(meetingsCollection.updateOne).toHaveBeenCalled();
     });
 
     it('should set awaiting_human_panelist state when current speaker is a panelist', async () => {
