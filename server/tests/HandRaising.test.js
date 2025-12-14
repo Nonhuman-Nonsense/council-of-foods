@@ -36,8 +36,8 @@ describe('MeetingManager - Hand Raising', () => {
                 conversation: [...manager.conversation]
             });
 
-            // Mock generateAudio to avoid errors
-            vi.spyOn(manager, 'generateAudio').mockResolvedValue(true);
+            // Mock AudioSystem to avoid errors
+            vi.spyOn(manager.audioSystem, 'queueAudioGeneration').mockImplementation(() => { });
             // Mock generateTextFromGPT as a fallback (though current impl calls OpenAI directly)
             vi.spyOn(manager, 'generateTextFromGPT').mockResolvedValue({
                 id: 'invitation_id',
@@ -84,7 +84,7 @@ describe('MeetingManager - Hand Raising', () => {
             manager.conversationOptions.options.raiseHandInvitationLength = 50;
 
             // Mock OpenAI response for invitation
-            vi.spyOn(manager, 'generateAudio').mockResolvedValue(true);
+            vi.spyOn(manager.audioSystem, 'queueAudioGeneration').mockImplementation(() => { });
 
             await manager.handleRaiseHand({ index: 0 });
 

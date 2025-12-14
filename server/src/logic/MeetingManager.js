@@ -4,6 +4,7 @@ import { meetingsCollection, audioCollection, insertMeeting } from "../services/
 import { splitSentences, mapSentencesToWords } from "../utils/textUtils.js";
 import { reportError } from "../../errorbot.js";
 import defaultGlobalOptions from "../../global-options.json" with { type: 'json' };
+import { AudioSystem } from "./AudioSystem.js";
 
 export class MeetingManager {
     constructor(socket, environment, optionsOverride = null, services = {}) {
@@ -27,6 +28,9 @@ export class MeetingManager {
         this.extraMessageCount = 0;
         this.meetingId = null;
         this.meetingDate = null;
+
+        this.startLoop = this.startLoop.bind(this);
+        this.audioSystem = new AudioSystem(this.socket, this.services);
 
         this.conversation = [];
         this.conversationOptions = {
@@ -236,7 +240,13 @@ export class MeetingManager {
             this.conversationOptions.state.alreadyInvited = true;
             console.log(`[meeting ${this.meetingId}] invitation generated, on index ${handRaisedOptions.index}`);
 
-            this.generateAudio(message, this.conversationOptions.characters[0]);
+            this.audioSystem.queueAudioGeneration(
+                message,
+                this.conversationOptions.characters[0],
+                this.conversationOptions.options,
+                this.meetingId,
+                this.environment
+            );
         }
 
         this.conversation.push({
@@ -699,7 +709,14 @@ export class MeetingManager {
                         { $set: { conversation: this.conversation } }
                     );
 
-                    this.generateAudio(message, action.speaker);
+                    // Queue audio generation
+                    this.audioSystem.queueAudioGeneration(
+                        message,
+                        action.speaker,
+                        this.conversationOptions.options,
+                        this.meetingId,
+                        this.environment
+                    );
                     break;
             }
         } catch (error) {
@@ -828,7 +845,7 @@ export class MeetingManager {
         }
     }
 
-    async generateAudio(message, speaker, skipMatching) {
+    async handleWrapUpMeeting(message) {
         if (this.conversationOptions.options.skipAudio) return;
 
         if (message.type === "skipped") {

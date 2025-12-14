@@ -55,7 +55,7 @@ describe('MeetingManager - Conversation Flow', () => {
         vi.spyOn(protoManager, 'generateTextFromGPT').mockResolvedValue({
             response: "Test", id: "1", sentences: []
         });
-        vi.spyOn(protoManager, 'generateAudio').mockResolvedValue(true);
+        vi.spyOn(protoManager.audioSystem, 'queueAudioGeneration').mockImplementation(() => { });
 
         protoSocket.trigger('resume_conversation');
         expect(protoManager.isPaused).toBe(false);
