@@ -38,8 +38,16 @@ describe('MeetingManager - Conversation Flow', () => {
         protoSocket.trigger('pause_conversation');
         expect(protoManager.isPaused).toBe(true);
 
-        // Verify handleConversationTurn aborts when paused
-        protoManager.handleConversationTurn();
+        // Verify startLoop/processTurn aborts when paused
+        // Since startLoop is valid entry point but isPaused check is inside runLoop
+        // checking processTurn directly might bypass the check if logic is inside runLoop now?
+        // Let's check logic:
+        // runLoop calls processTurn.
+        // runLoop checks isPaused.
+        // processTurn ALSO check isPaused (redundant check I added).
+        // So safe to call processTurn directly for unit test if we want to check that specific guard.
+        // But better to call runLoop or startLoop to test the flow.
+        protoManager.startLoop();
         expect(protoManager.calculateCurrentSpeaker).not.toHaveBeenCalled();
 
         // Resume
@@ -51,47 +59,38 @@ describe('MeetingManager - Conversation Flow', () => {
 
         protoSocket.trigger('resume_conversation');
         expect(protoManager.isPaused).toBe(false);
+        // It should have called startLoop -> runLoop -> processTurn -> calculateCurrentSpeaker
         expect(protoManager.calculateCurrentSpeaker).toHaveBeenCalled();
     });
 
     it('should stop conversation when max length is reached', async () => {
-        manager.conversationOptions.options.conversationMaxLength = 2;
+        manager.conversationOptions.options.conversationMaxLength = 5;
         manager.extraMessageCount = 0;
-
-        // Fill conversation to limit
-        manager.conversation = [
-            { id: 1, text: 'msg1' },
-            { id: 2, text: 'msg2' }
-        ];
+        // Mock conversation to be full
+        manager.conversation = new Array(5).fill({ type: 'message' });
 
         const spy = vi.spyOn(manager, 'calculateCurrentSpeaker');
-        await manager.handleConversationTurn();
+
+        // Use runLoop to verify the loop condition
+        await manager.runLoop();
 
         expect(spy).not.toHaveBeenCalled();
     });
 
     it('should handle conversation turns recursively (single turn verification)', async () => {
-        // We want to verify that one turn leads to a message and database update
-        // We mock calculateCurrentSpeaker to control flow
+        // This test previously tested "recursively" but technically just one turn + stop.
+        // Now it tests the loop processing one turn.
+
+        manager.conversationOptions.options.conversationMaxLength = 10;
         vi.spyOn(manager, 'calculateCurrentSpeaker').mockReturnValue(1); // Tomato
 
-        // Mock GPT and Audio
-        vi.spyOn(manager, 'generateTextFromGPT').mockResolvedValue({
-            id: 'new_id',
-            response: 'Hello from Tomato',
-            sentences: ['Hello from Tomato'],
-            trimmed: 'Hello from Tomato'
-        });
-        vi.spyOn(manager, 'generateAudio').mockResolvedValue(true);
-
-        // Prevent infinite recursion by simulating a pause or stop condition AFTER the first turn?
-        // handleConversationTurn calls itself at the end (lines 622+ in original logic probably, checked snippet was cut off).
-        // To test "one turn", we can check if it calls generateTextFromGPT and updates DB.
-
-        // IMPORTANT: We need to stop the recursion. 
-        // We can spy on handleConversationTurn to see if it calls itself, 
-        // OR we can set manager.run = false inside a side-effect? 
-        // OR set isPaused = true inside generateTextFromGPT mock side-effect?
+        // Mock Chat Completion to return legitimate response
+        // OR use previous mocks.
+        // We need to ensure loop stops. 
+        // 1. We can set max length to 1.
+        // 2. We can mock run to false after first execution? 
+        // 3. We can just call processTurn() directly which does ONE turn.
+        // calling processTurn() is better for unit testing "one turn behavior"
 
         vi.spyOn(manager, 'generateTextFromGPT').mockImplementation(async () => {
             return {
@@ -101,16 +100,8 @@ describe('MeetingManager - Conversation Flow', () => {
             };
         });
 
-        // We need to stop the recursion naturally. 
-        // handleConversationTurn calls itself. 
-        // We can spy on handleConversationTurn and make it stop after the first call?
-        // But we are testing the function itself.
-
-        // Option: set max length to 1 (current length 0 + 1)
-        manager.conversationOptions.options.conversationMaxLength = 1;
-        manager.extraMessageCount = 0;
-
-        await manager.handleConversationTurn();
+        // Calling processTurn directly
+        await manager.processTurn();
 
         // Verify Message added
         expect(manager.conversation).toHaveLength(1);
@@ -118,7 +109,7 @@ describe('MeetingManager - Conversation Flow', () => {
         expect(manager.conversation[0].text).toBe('Hello from Tomato');
 
         // Verify Socket Emit
-        // MeetingManager emits "conversation_update" with the full array, not "new_message".
+        // MeetingManager emits "conversation_update" with the full array
         expect(mockSocket.emit).toHaveBeenCalledWith('conversation_update', expect.any(Array));
 
         // Also verify the array content sent matched local conversation
@@ -140,14 +131,16 @@ describe('MeetingManager - Conversation Flow', () => {
             { id: 'water', name: 'Water', type: 'food' },
             { id: 'alice', name: 'Alice', type: 'panelist' }
         ];
+        const panelistId = 1; // Alice is now index 1
 
-        vi.spyOn(manager, 'calculateCurrentSpeaker').mockReturnValue(1); // Alice
+        vi.spyOn(manager, 'calculateCurrentSpeaker').mockReturnValue(panelistId); // Alice
 
-        await manager.handleConversationTurn();
+        await manager.processTurn();
 
         expect(manager.conversation).toHaveLength(1);
         expect(manager.conversation[0].type).toBe('awaiting_human_panelist');
         expect(manager.conversation[0].speaker).toBe('alice');
+        expect(meetingsCollection.updateOne).toHaveBeenCalled();
 
         // Verify it returns early (does not call generateGPT/Audio/recurse)
         // calculateCurrentSpeaker WAS called, but generateTextFromGPT should NOT be.

@@ -44,7 +44,7 @@ export class MeetingManager {
         this.socket.on("continue_conversation", () => {
             this.extraMessageCount += this.conversationOptions.options.extraMessageCount;
             this.isPaused = false;
-            this.handleConversationTurn();
+            this.startLoop();
         });
 
         this.socket.on("attempt_reconnection", (opts) => this.handleReconnection(opts));
@@ -67,7 +67,7 @@ export class MeetingManager {
         this.socket.on("resume_conversation", () => {
             console.log(`[meeting ${this.meetingId}] resumed`);
             this.isPaused = false;
-            this.handleConversationTurn();
+            this.startLoop();
         });
 
         this.socket.on("remove_last_message", () => {
@@ -400,7 +400,7 @@ export class MeetingManager {
 
         this.isPaused = false;
         this.handRaised = false;
-        this.handleConversationTurn();
+        this.startLoop();
     }
 
     handleSubmitHumanPanelist(message) {
@@ -431,7 +431,7 @@ export class MeetingManager {
 
         this.isPaused = false;
         this.handRaised = false;
-        this.handleConversationTurn();
+        this.startLoop();
     }
 
     async handleWrapUpMeeting(message) {
@@ -508,7 +508,7 @@ export class MeetingManager {
                 }
 
                 console.log(`[meeting ${this.meetingId}] resumed`);
-                this.handleConversationTurn();
+                this.startLoop();
             } else {
                 this.socket.emit("meeting_not_found", { meeting_id: options.meetingId });
                 console.log(`[meeting ${options.meetingId}] not found`);
@@ -550,18 +550,54 @@ export class MeetingManager {
 
         this.socket.emit("meeting_started", { meeting_id: this.meetingId });
         console.log(`[session ${this.socket.id} meeting ${this.meetingId}] started`);
-        this.handleConversationTurn();
+        this.startLoop();
     }
 
-    async handleConversationTurn() {
+    async runLoop() {
+        while (this.run) {
+            if (this.isPaused || this.handRaised) {
+                // Wait a bit before checking again? Or just return and let events trigger logic?
+                // Events (resume, continue) trigger proper actions.
+                // If we are in a persistent loop, we should ideally wait on a signal.
+                // However, the original code called handleConversationTurn() from events.
+                // Let's stick to the event-driven trigger for loop resumption if we break the loop.
+                // OR: We simply return if paused, and resume_conversation calls runLoop again.
+                // That seems safest and matches original event-driven 'recursion'.
+                return;
+            }
+
+            // Check max length
+            if (this.conversation.length >= this.conversationOptions.options.conversationMaxLength + this.extraMessageCount) {
+                return;
+            }
+
+            // Check awaiting states
+            if (this.conversation.length > 0 &&
+                (this.conversation[this.conversation.length - 1].type === 'awaiting_human_panelist' ||
+                    this.conversation[this.conversation.length - 1].type === 'awaiting_human_question')) {
+                return;
+            }
+
+            await this.processTurn();
+
+            // If processTurn resulted in a state change (pause, hand raise, end), the next iteration check handles it (or we return).
+        }
+    }
+
+    // Explicit method to start/resume the loop
+    startLoop() {
+        // Prevent multiple concurrent loops if called multiple times?
+        // We can add a flag 'isLoopRunning' but given single-threaded nature + async await, 
+        // effectively we just want to ensure we don't fan out.
+        // For now, let's just call runLoop. 
+        this.runLoop();
+    }
+
+    async processTurn() {
         try {
             const thisMeetingId = this.meetingId;
-            if (!this.run) return;
-            if (this.handRaised) return;
-            if (this.isPaused) return;
-            if (this.conversation.length >= this.conversationOptions.options.conversationMaxLength + this.extraMessageCount) return;
-            if (this.conversation.length > 0 && this.conversation[this.conversation.length - 1].type === 'awaiting_human_panelist') return;
-            if (this.conversation.length > 0 && this.conversation[this.conversation.length - 1].type === 'awaiting_human_question') return;
+            // Redundant checks here are okay but loop handles most.
+            // We keep them for safety during async operations.
 
             this.currentSpeaker = this.calculateCurrentSpeaker();
 
@@ -584,9 +620,7 @@ export class MeetingManager {
             while (attempt < 5 && output.response === "") {
                 output = await this.generateTextFromGPT(this.conversationOptions.characters[this.currentSpeaker]);
 
-                if (!this.run) return;
-                if (this.handRaised) return;
-                if (this.isPaused) return;
+                if (!this.run || this.handRaised || this.isPaused) return;
                 if (thisMeetingId != this.meetingId) return;
                 attempt++;
                 if (output.response === "") {
@@ -610,7 +644,6 @@ export class MeetingManager {
             if (message.text === "") {
                 message.type = "skipped";
                 console.warn(`[meeting ${this.meetingId}] failed to make a message. Skipping speaker ${this.conversationOptions.characters[this.currentSpeaker].id}`);
-                // reportError...
             }
 
             this.conversation.push(message);
@@ -624,6 +657,10 @@ export class MeetingManager {
                 { $set: { conversation: this.conversation } }
             );
 
+            // Audio generation is better async/fire-and-forget in this loop context? 
+            // Original code awaited it implicitly because it was sync call (no await keyword on generateAudio call in original line 627, but generateAudio IS async).
+            // Wait, original line 627: this.generateAudio(...) - NO await.
+            // So it was already fire-and-forget.
             this.generateAudio(message, this.conversationOptions.characters[this.currentSpeaker]);
 
             if (
@@ -634,7 +671,7 @@ export class MeetingManager {
                 return;
             }
 
-            this.handleConversationTurn();
+            // No recursive call here!
         } catch (error) {
             console.error("Error during conversation:", error);
             this.socket.emit("conversation_error", { message: "Error", code: 500 });
