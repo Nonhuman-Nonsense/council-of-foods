@@ -313,43 +313,6 @@ export class MeetingManager {
             content: `${this.conversationOptions.topic}\n\n${speaker.prompt}`.trim(),
         });
 
-        let msgsToProcess = this.conversation;
-        if (upToIndex !== undefined) {
-            msgsToProcess = this.conversation.slice(0, 1 + upToIndex);
-        }
-
-        for (const msg of msgsToProcess) {
-            if (msg.type === "skipped") continue;
-            // upToIndex slicing logic was slightly different in original, but slicing array first is safer/cleaner.
-            // Wait, original: if (upToIndex) messages = messages.slice... 
-            // Actually original pushed ALL messages then sliced. 
-            // But here I'm iterating `this.conversation` or a slice of it.
-
-            const speakerName = msg.type === 'human' ? this.conversationOptions.state.humanName : this.conversationOptions.characters.find(c => c.id === msg.speaker)?.name || "Unknown";
-
-            messages.push({
-                role: speaker.id === msg.speaker ? "assistant" : "user",
-                content: speakerName + ": " + msg.text + "\n---",
-            });
-        }
-
-        // If upToIndex was used, we might need to double check logic. 
-        // usage in chairInterjection: index passed is conversation.length usually.
-
-        // Logic from original:
-        // for loop...
-        // if (upToIndex) return messages.slice(...)
-        // else push "speaker: "
-
-        // My logic above is slightly different. Let's align with original more closely to avoid bugs.
-
-        // Resetting for safety:
-        messages = [];
-        messages.push({
-            role: "system",
-            content: `${this.conversationOptions.topic}\n\n${speaker.prompt}`.trim(),
-        });
-
         for (const msg of this.conversation) {
             if (msg.type === "skipped") continue;
             // Fix for humanName being potentially undefined if state not set?
@@ -414,7 +377,13 @@ export class MeetingManager {
         this.socket.emit("conversation_update", this.conversation);
 
         message.sentences = splitSentences(message.text);
-        this.generateAudio(message, this.conversationOptions.characters[0]);
+        this.audioSystem.queueAudioGeneration(
+            message,
+            this.conversationOptions.characters[0],
+            this.conversationOptions.options,
+            this.meetingId,
+            this.environment
+        );
 
         this.isPaused = false;
         this.handRaised = false;
@@ -445,7 +414,13 @@ export class MeetingManager {
         this.socket.emit("conversation_update", this.conversation);
 
         message.sentences = splitSentences(message.text);
-        this.generateAudio(message, this.conversationOptions.characters[0]);
+        this.audioSystem.queueAudioGeneration(
+            message,
+            this.conversationOptions.characters[0],
+            this.conversationOptions.options,
+            this.meetingId,
+            this.environment
+        );
 
         this.isPaused = false;
         this.handRaised = false;
@@ -519,9 +494,12 @@ export class MeetingManager {
                 for (let i = 0; i < missingAudio.length; i++) {
                     console.log(`[meeting ${this.meetingId}] (async) generating missing audio for ${missingAudio[i].speaker}`);
                     missingAudio[i].sentences = splitSentences(missingAudio[i].text);
-                    this.generateAudio(
+                    this.audioSystem.queueAudioGeneration(
                         missingAudio[i],
-                        this.conversationOptions.characters.find(c => c.id == missingAudio[i].speaker)
+                        this.conversationOptions.characters.find(c => c.id == missingAudio[i].speaker),
+                        this.conversationOptions.options,
+                        this.meetingId,
+                        this.environment
                     );
                 }
 
