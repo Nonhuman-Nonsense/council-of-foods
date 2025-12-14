@@ -18,6 +18,7 @@ import { useTranslation } from 'react-i18next';
 
 //Topics
 import topicDataEN from "../prompts/topics_en.json";
+import routes from "../routes.json"; // Import routes directly
 import topicDataSV from "../prompts/topics_sv.json";
 
 const topicsData = {
@@ -79,7 +80,7 @@ function Main({ lang }) {
   //Set language if changed
   useEffect(() => {
     i18n.changeLanguage(lang);
-    if(location.pathname.substring(4,11) === 'meeting'){
+    if (location.pathname.substring(4, 11) === 'meeting') {
       navigate({ hash: "warning" });
     }
   }, [lang]);
@@ -121,7 +122,7 @@ function Main({ lang }) {
     if (custom) {
       setCustomTopic(custom);
     }
-    navigate(`/${lang}/beings`);
+    navigate(`/${lang}/${routes.foods}`);
   }
 
   function beingsSelected({ foods }) {
@@ -131,7 +132,7 @@ function Main({ lang }) {
 
   function letsGo() {
     audioContext.current.resume();
-    navigate(`/${lang}/topics`);
+    navigate(`/${lang}/${routes.topics}`);
   }
 
   function proceedToMeeting() {
@@ -152,7 +153,8 @@ function Main({ lang }) {
     setChosenTopic(copiedTopic);
 
     //Start the meeting
-    navigate(`/${lang}/meeting/new`);
+    //Start the meeting
+    navigate(`/${lang}/${routes.meeting}/new`);
   }
 
   function onReset(resetData) {
@@ -210,7 +212,7 @@ function Main({ lang }) {
       )}
       {!unrecoverabeError && (
         <Overlay
-          isActive={!location.pathname.startsWith(`/${lang}/meeting`)}
+          isActive={!location.pathname.startsWith(`/${lang}/${routes.meeting}`)}
           isBlurred={location.pathname.length > 4}
         >
           <Routes>
@@ -221,7 +223,7 @@ function Main({ lang }) {
               }
             />
             <Route
-              path="topics"
+              path={routes.topics}
               element={
                 <SelectTopic
                   topics={topics}
@@ -230,7 +232,7 @@ function Main({ lang }) {
               }
             />
             <Route
-              path="beings"
+              path={routes.foods}
               element={
                 <SelectFoods
                   lang={lang}
@@ -240,7 +242,7 @@ function Main({ lang }) {
               }
             />
             <Route
-              path="meeting/:meetingId"
+              path={`${routes.meeting}/:meetingId`}
               element={
                 participants.length !== 0 && ( // If page is reloaded, don't even start the council for now
                   <Council

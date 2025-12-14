@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import translations from '../../public/locales/en/translation.json' with { type: 'json' };
 import foodsData from '../../src/prompts/foods_en.json' with { type: 'json' };
+import routes from '../../src/routes.json' with { type: 'json' };
 
 test('Full Meeting Flow', async ({ page }) => {
     // 1. Go to Landing Page
@@ -12,7 +13,7 @@ test('Full Meeting Flow', async ({ page }) => {
     await page.getByRole('button', { name: new RegExp(translations.go, 'i') }).click({ force: true });
 
     // 3. Select Topic
-    await expect(page).toHaveURL(/\/topics/);
+    await expect(page).toHaveURL(new RegExp(routes.topics));
     // Wait for page to be ready - "THE ISSUE" equivalent
     await expect(page.getByText(new RegExp(translations.theissue, 'i'))).toBeVisible();
 
@@ -24,7 +25,7 @@ test('Full Meeting Flow', async ({ page }) => {
     await page.getByRole('button', { name: new RegExp(translations.next, 'i') }).click({ force: true });
 
     // 4. Select Foods
-    await expect(page).toHaveURL(/\/foods/);
+    await expect(page).toHaveURL(new RegExp(routes.foods));
     // Wait for "THE FOODS" title equivalent
     await expect(page.getByText(new RegExp(translations.selectfoods.title, 'i'))).toBeVisible();
 
@@ -37,12 +38,14 @@ test('Full Meeting Flow', async ({ page }) => {
     const food2 = validFoods[1];
 
     // Select Food 1
-    const food1Img = page.getByAltText(new RegExp(food1.name, 'i'));
-    await food1Img.click({ force: true });
+    const food1Img = page.getByAltText(new RegExp(food1.name, 'i'), { exact: false });
+    // Use first() in case multiple images match (e.g. in descriptions) although AltText usually unique per img.
+    // To be safe:
+    await food1Img.first().click({ force: true });
 
     // Select Food 2
-    const food2Img = page.getByAltText(new RegExp(food2.name, 'i'));
-    await food2Img.click({ force: true });
+    const food2Img = page.getByAltText(new RegExp(food2.name, 'i'), { exact: false });
+    await food2Img.first().click({ force: true });
 
     // Click Start
     const startButton = page.getByRole('button', { name: new RegExp(translations.start, 'i') });
@@ -50,7 +53,7 @@ test('Full Meeting Flow', async ({ page }) => {
     await startButton.click({ force: true });
 
     // 5. Meeting
-    await expect(page).toHaveURL(/\/meeting\//);
+    await expect(page).toHaveURL(new RegExp(routes.meeting));
 
     // Verify Text Output
     // Verify Audio is playing
