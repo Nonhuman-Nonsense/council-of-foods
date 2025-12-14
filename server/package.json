@@ -14,6 +14,7 @@
     "protodev": "cross-env NODE_ENV=prototype nodemon server.js",
     "test": "vitest run",
     "test:watch": "vitest",
+    "coverage": "vitest run --coverage",
     "docker": "docker build ../. -t nonhumannonsense/council-of-foods:latest --platform linux/amd64",
     "push": "docker push nonhumannonsense/council-of-foods:latest"
   },
@@ -27,6 +28,7 @@
     "uuid": "^13.0.0"
   },
   "devDependencies": {
+    "@vitest/coverage-v8": "^4.0.15",
     "mongodb-memory-server": "^10.4.1",
     "nodemon": "^3.1.10",
     "socket.io-client": "^4.8.1",
