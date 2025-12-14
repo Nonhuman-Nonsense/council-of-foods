@@ -107,13 +107,6 @@ export class MeetingManager {
     async runLoop() {
         while (this.run) {
             if (this.isPaused || this.handRaised) {
-                // Wait a bit before checking again? Or just return and let events trigger logic?
-                // Events (resume, continue) trigger proper actions.
-                // If we are in a persistent loop, we should ideally wait on a signal.
-                // However, the original code called handleConversationTurn() from events.
-                // Let's stick to the event-driven trigger for loop resumption if we break the loop.
-                // OR: We simply return if paused, and resume_conversation calls runLoop again.
-                // That seems safest and matches original event-driven 'recursion'.
                 return;
             }
 
@@ -135,10 +128,7 @@ export class MeetingManager {
         }
     }
 
-    // Explicit method to start/resume the loop
     startLoop() {
-        // Prevent multiple concurrent loops if called multiple times?
-        // We can add a flag 'isLoopRunning' but given single-threaded nature + async await, 
         this.runLoop();
     }
 
