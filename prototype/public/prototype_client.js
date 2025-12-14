@@ -203,7 +203,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     promptsAndOptions.options.gptModel =
       document.getElementById("gpt-model").value;
-    promptsAndOptions.options.voiceModel = "tts-1"; // Explicitly set voice model
     promptsAndOptions.options.temperature =
       +document.getElementById("temperature").value;
     promptsAndOptions.options.maxTokens =

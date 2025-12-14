@@ -77,7 +77,8 @@ export class AudioSystem {
                 buffer = Buffer.from(await mp3.arrayBuffer());
             }
 
-            const sentencesWithTimings = skipMatching ? [] : await this.getSentenceTimings(buffer, message);
+            const shouldSkipMatching = skipMatching || options.skipMatchingSubtitles;
+            const sentencesWithTimings = shouldSkipMatching ? [] : await this.getSentenceTimings(buffer, message);
 
             const audioObject = {
                 id: message.id,
