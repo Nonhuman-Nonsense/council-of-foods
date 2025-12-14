@@ -121,4 +121,47 @@ describe('MeetingManager - Reconnection & Resilience', () => {
 
         expect(context.mockSocket.emit).toHaveBeenCalledWith("conversation_update", savedConversation);
     });
+    it('should handle full disconnect and reconnect cycle with distinct managers', async () => {
+        // 1. Setup First Manager and Message
+        // Simulate startConversation updating DB
+        const initialConversation = [{ id: '1', text: 'Initial' }];
+        context.services.meetingsCollection.findOne.mockResolvedValue({
+            _id: "cycle_test",
+            conversation: initialConversation,
+            options: manager.conversationOptions,
+            date: new Date().toISOString(),
+            audio: []
+        });
+
+        // 2. Simulate Disconnect on M1
+        manager.run = true;
+
+        // Ensure listener is setup (it is in constructor, but let's be sure for the test context)
+        // context.mockSocket is a stub. We need to trigger the event.
+        // The mock socket implementation in commonSetup needs to support .trigger('disconnect')
+        // which it does as seen in Disconnection.test.js
+
+        context.mockSocket.trigger('disconnect');
+        expect(manager.run).toBe(false);
+
+        // 3. Create Second Manager (M2) to simulate new connection
+        const result2 = createTestManager('test', null, services);
+        const manager2 = result2.manager;
+        const startLoopSpy2 = vi.spyOn(manager2, 'startLoop').mockImplementation(() => { });
+
+        // 4. M2 Reconnects via Socket Event to verify listener wiring
+        // await manager2.meetingLifecycleHandler.handleReconnection({ meetingId: "cycle_test" });
+        result2.mockSocket.trigger('attempt_reconnection', { meetingId: "cycle_test" });
+
+        // Wait for async handler to complete? 
+        // handleReconnection is async. trigger is synchronous/fire-and-forget in typical EventEmitter.
+        // But our mock might differ. commonSetup.js needs checking if it awaits handlers or we need to wait.
+        // Assuming we need to wait a tick or spy/await promise.
+        // Let's assume for now we might need a small wait or check spy.
+        await new Promise(resolve => setTimeout(resolve, 10));
+
+        // 5. Verify M2 has state
+        expect(manager2.conversation).toEqual(initialConversation);
+        expect(startLoopSpy2).toHaveBeenCalled();
+    });
 });

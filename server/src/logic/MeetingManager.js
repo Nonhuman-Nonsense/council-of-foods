@@ -58,6 +58,11 @@ export class MeetingManager {
 
         this.socket.on("start_conversation", async (setup) => this.meetingLifecycleHandler.handleStartConversation(setup));
 
+        this.socket.on("disconnect", () => {
+            console.log(`[session ${this.socket.id} meeting ${this.meetingId}] disconnected`);
+            this.run = false;
+        });
+
 
 
         // Use handlers
@@ -66,7 +71,7 @@ export class MeetingManager {
         this.socket.on("submit_injection", (msg) => this.humanInputHandler.handleSubmitInjection(msg));
         this.socket.on("raise_hand", (msg) => this.handRaisingHandler.handleRaiseHand(msg));
         this.socket.on("wrap_up_meeting", (msg) => this.meetingLifecycleHandler.handleWrapUpMeeting(msg));
-        this.socket.on('reconnect_user', (options) => this.meetingLifecycleHandler.handleReconnection(options));
+        this.socket.on('attempt_reconnection', (options) => this.meetingLifecycleHandler.handleReconnection(options));
         this.socket.on('request_clientkey', async () => this.meetingLifecycleHandler.handleRequestClientKey());
     }
 
