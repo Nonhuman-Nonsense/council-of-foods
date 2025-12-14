@@ -29,5 +29,6 @@
   "transcribePrompt": {
     "en": "Expect english input.",
     "sv": "Förvänta dig svenska."
-  }
+  },
+  "audioConcurrency": 10
 }
