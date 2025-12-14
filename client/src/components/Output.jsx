@@ -31,17 +31,17 @@ function Output({
     } else if (councilState === 'loading' || councilState === 'max_reached' || councilState === 'human_input' || councilState === 'human_panelist') {
       setCurrentTextMessage(null);
       setCurrentAudioMessage(null);
-    } else if (councilState === 'summary'){
+    } else if (councilState === 'summary') {
       setCurrentTextMessage(null);
       let textMessage = textMessages[playingNowIndex];
-      if(textMessage.type === 'summary'){
+      if (textMessage.type === 'summary') {
         const matchingAudioMessage = audioMessages.find((a) => a.id === textMessage.id);
-        if(matchingAudioMessage){
+        if (matchingAudioMessage) {
           setCurrentAudioMessage(() => matchingAudioMessage);
-        } else{
-          setCurrentAudioMessage(null);  
+        } else {
+          setCurrentAudioMessage(null);
         }
-      }else{
+      } else {
         setCurrentAudioMessage(null);
       }
     }
@@ -60,12 +60,14 @@ function Output({
           setSentencesLength={setSentencesLength}
         />
       </div>
-      <AudioOutput
-        currentAudioMessage={currentAudioMessage}
-        onFinishedPlaying={handleOnFinishedPlaying}
-        isMuted={isMuted}
-        audioContext={audioContext}
-      />
+      <div data-testid="audio-indicator" data-playing={!!currentAudioMessage}>
+        <AudioOutput
+          currentAudioMessage={currentAudioMessage}
+          onFinishedPlaying={handleOnFinishedPlaying}
+          isMuted={isMuted}
+          audioContext={audioContext}
+        />
+      </div>
     </>
   );
 }

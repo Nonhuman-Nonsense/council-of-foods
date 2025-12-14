@@ -4,13 +4,14 @@ import { meetingsCollection, audioCollection, insertMeeting } from "../services/
 import { splitSentences, mapSentencesToWords } from "../utils/textUtils.js";
 import { reportError } from "../../errorbot.js";
 import defaultGlobalOptions from "../../global-options.json" with { type: 'json' };
+import e2eOptions from "../../e2e-options.json" with { type: 'json' };
 import { AudioSystem } from "./AudioSystem.js";
 
 export class MeetingManager {
     constructor(socket, environment, optionsOverride = null, services = {}) {
         this.socket = socket;
         this.environment = environment;
-        this.globalOptions = optionsOverride || defaultGlobalOptions;
+        this.globalOptions = optionsOverride || (environment === 'test' ? e2eOptions : defaultGlobalOptions);
 
         // Default Services
         this.services = {
@@ -520,7 +521,7 @@ export class MeetingManager {
     async handleStartConversation(setup) {
         this.conversationOptions = setup;
         if (this.environment === "prototype") {
-            this.conversationOptions.options = setup.options ?? this.globalOptions;
+            this.conversationOptions.options = { ...this.globalOptions, ...(setup.options || {}) };
         } else {
             this.conversationOptions.options = this.globalOptions;
         }

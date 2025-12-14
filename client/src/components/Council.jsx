@@ -391,7 +391,7 @@ function Council({
   useEffect(() => {
     if (activeOverlay !== "" && activeOverlay !== "summary" && !isPaused) {
       setPaused(true);
-    }else if(location.hash && !isPaused){
+    } else if (location.hash && !isPaused) {
       setPaused(true);
     } else if (connectionError || !isDocumentVisible) {
       setPaused(true);
@@ -435,7 +435,7 @@ function Council({
   function handleOnSkipBackward() {
     let skipLength = 1;
     //If trying to go back when a message was skipped
-    while(textMessages[playingNowIndex - skipLength]?.type === 'skipped'){
+    while (textMessages[playingNowIndex - skipLength]?.type === 'skipped') {
       skipLength++;
     }
     if (playingNowIndex - skipLength >= 0) {
@@ -476,7 +476,7 @@ function Council({
       setTextMessages((prevMessages) => {
         return prevMessages.slice(0, now);
       });
-      
+
       //In case we removed an invitation, go back one step
       setPlayingNowIndex(now);
       setPlayNextIndex(next);

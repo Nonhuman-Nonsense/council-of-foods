@@ -7,6 +7,8 @@
   "type": "module",
   "main": "server.js",
   "scripts": {
+    "start": "node server.js",
+    "e2e-server": "cross-env NODE_ENV=test node server.js",
     "dev": "cross-env NODE_ENV=development nodemon server.js",
     "proto": "cross-env NODE_ENV=prototype node server.js",
     "protodev": "cross-env NODE_ENV=prototype nodemon server.js",
