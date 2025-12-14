@@ -27,7 +27,6 @@ function Output({
     } else if (councilState === 'loading' || councilState === 'max_reached' || councilState === 'human_input' || councilState === 'human_panelist') {
       setCurrentAudioMessage(null);
     } else if (councilState === 'summary') {
-      setCurrentTextMessage(null);
       let textMessage = textMessages[playingNowIndex];
       if (textMessage.type === 'summary') {
         const matchingAudioMessage = audioMessages.find((a) => a.id === textMessage.id);
