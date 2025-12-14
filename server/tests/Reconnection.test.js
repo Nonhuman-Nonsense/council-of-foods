@@ -58,7 +58,7 @@ describe('MeetingManager - Reconnection & Resilience', () => {
         // Spy on startLoop to verify resumption
         const startLoopSpy = vi.spyOn(manager, 'startLoop').mockImplementation(() => { });
 
-        await manager.meetingLifecycleHandler.handleReconnection(reconnectOptions);
+        await manager.connectionHandler.handleReconnection(reconnectOptions);
 
         // 3. Verify State Restoration
         expect(manager.meetingId).toBe(savedMeetingId);
@@ -92,7 +92,7 @@ describe('MeetingManager - Reconnection & Resilience', () => {
         const queueSpy = vi.spyOn(manager.audioSystem, 'queueAudioGeneration');
 
         // 2. Reconnect
-        await manager.meetingLifecycleHandler.handleReconnection({ meetingId: "audio_recovery_test" });
+        await manager.connectionHandler.handleReconnection({ meetingId: "audio_recovery_test" });
 
         // 3. Verify msg2 was queued
         expect(queueSpy).toHaveBeenCalledTimes(1);
@@ -117,7 +117,7 @@ describe('MeetingManager - Reconnection & Resilience', () => {
             audio: []
         });
 
-        await manager.meetingLifecycleHandler.handleReconnection({ meetingId: "sync_test" });
+        await manager.connectionHandler.handleReconnection({ meetingId: "sync_test" });
 
         expect(context.mockSocket.emit).toHaveBeenCalledWith("conversation_update", savedConversation);
     });

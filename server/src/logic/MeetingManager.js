@@ -11,6 +11,7 @@ import { DialogGenerator } from "./DialogGenerator.js";
 import { HumanInputHandler } from "./HumanInputHandler.js";
 import { HandRaisingHandler } from "./HandRaisingHandler.js";
 import { MeetingLifecycleHandler } from "./MeetingLifecycleHandler.js";
+import { ConnectionHandler } from "./ConnectionHandler.js";
 
 /**
  * Manages the lifecycle of a single council meeting (session).
@@ -55,6 +56,7 @@ export class MeetingManager {
         this.humanInputHandler = new HumanInputHandler(this);
         this.handRaisingHandler = new HandRaisingHandler(this);
         this.meetingLifecycleHandler = new MeetingLifecycleHandler(this);
+        this.connectionHandler = new ConnectionHandler(this);
 
         this.conversation = [];
         this.conversationOptions = {
@@ -72,12 +74,7 @@ export class MeetingManager {
 
         this.socket.on("start_conversation", async (setup) => this.meetingLifecycleHandler.handleStartConversation(setup));
 
-        this.socket.on("disconnect", () => {
-            console.log(`[session ${this.socket.id} meeting ${this.meetingId}] disconnected`);
-            this.run = false;
-        });
-
-
+        this.socket.on("disconnect", () => this.connectionHandler.handleDisconnect());
 
         // Use handlers
         this.socket.on("submit_human_message", (msg) => this.humanInputHandler.handleSubmitHumanMessage(msg));
@@ -85,7 +82,7 @@ export class MeetingManager {
         this.socket.on("submit_injection", (msg) => this.humanInputHandler.handleSubmitInjection(msg));
         this.socket.on("raise_hand", (msg) => this.handRaisingHandler.handleRaiseHand(msg));
         this.socket.on("wrap_up_meeting", (msg) => this.meetingLifecycleHandler.handleWrapUpMeeting(msg));
-        this.socket.on('attempt_reconnection', (options) => this.meetingLifecycleHandler.handleReconnection(options));
+        this.socket.on('attempt_reconnection', (options) => this.connectionHandler.handleReconnection(options));
         this.socket.on('continue_conversation', () => this.meetingLifecycleHandler.handleContinueConversation());
         this.socket.on('request_clientkey', async () => this.meetingLifecycleHandler.handleRequestClientKey());
     }
