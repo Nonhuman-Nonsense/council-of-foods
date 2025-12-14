@@ -15,13 +15,22 @@ export const mockOpenAI = {
     audio: { speech: { create: vi.fn() } }
 };
 
-export const createTestManager = () => {
+export const createTestManager = (env = 'test') => {
     const mockSocket = {
         on: vi.fn(),
         emit: vi.fn(),
+        handlers: {},
+        trigger: function (event, ...args) {
+            if (this.handlers[event]) {
+                this.handlers[event](...args);
+            }
+        }
     };
+    mockSocket.on.mockImplementation((event, callback) => {
+        mockSocket.handlers[event] = callback;
+    });
     const options = setupTestOptions();
-    const manager = new MeetingManager(mockSocket, 'test', options);
+    const manager = new MeetingManager(mockSocket, env, options);
 
     // Common setup
     manager.conversationOptions.characters = [

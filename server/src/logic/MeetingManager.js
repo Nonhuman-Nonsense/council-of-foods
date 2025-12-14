@@ -30,28 +30,11 @@ export class MeetingManager {
     }
 
     setupListeners() {
-        this.socket.on("pause_conversation", () => {
-            if (this.environment === "prototype") {
-                this.isPaused = true;
-                console.log(`[meeting ${this.meetingId}] paused`);
-            }
-        });
-
-        this.socket.on("resume_conversation", () => {
-            if (this.environment === "prototype") {
-                console.log(`[meeting ${this.meetingId}] resumed`);
-                this.isPaused = false;
-                this.handleConversationTurn();
-            }
-        });
+        if (this.environment === "prototype") {
+            this.setupPrototypeListeners();
+        }
 
         this.socket.on("submit_injection", (message) => this.handleSubmitInjection(message));
-        this.socket.on("remove_last_message", () => {
-            if (this.environment === "prototype") {
-                this.conversation.pop();
-                this.socket.emit("conversation_update", this.conversation);
-            }
-        });
 
         this.socket.on("raise_hand", (opts) => this.handleRaiseHand(opts));
         this.socket.on("submit_human_message", (msg) => this.handleSubmitHumanMessage(msg));
@@ -73,6 +56,24 @@ export class MeetingManager {
 
         // OpenAI Realtime API Client Key
         this.socket.on('request_clientkey', async () => this.handleRequestClientKey());
+    }
+
+    setupPrototypeListeners() {
+        this.socket.on("pause_conversation", () => {
+            this.isPaused = true;
+            console.log(`[meeting ${this.meetingId}] paused`);
+        });
+
+        this.socket.on("resume_conversation", () => {
+            console.log(`[meeting ${this.meetingId}] resumed`);
+            this.isPaused = false;
+            this.handleConversationTurn();
+        });
+
+        this.socket.on("remove_last_message", () => {
+            this.conversation.pop();
+            this.socket.emit("conversation_update", this.conversation);
+        });
     }
 
     calculateCurrentSpeaker() {
