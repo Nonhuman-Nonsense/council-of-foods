@@ -588,90 +588,112 @@ export class MeetingManager {
     startLoop() {
         // Prevent multiple concurrent loops if called multiple times?
         // We can add a flag 'isLoopRunning' but given single-threaded nature + async await, 
-        // effectively we just want to ensure we don't fan out.
-        // For now, let's just call runLoop. 
         this.runLoop();
+    }
+
+    decideNextAction() {
+        // 1. Check Limits
+        if (this.conversation.length >= this.conversationOptions.options.conversationMaxLength + this.extraMessageCount) {
+            return { type: 'END_CONVERSATION' };
+        }
+
+        // 2. Check Awaiting States
+        if (this.conversation.length > 0) {
+            const lastMsg = this.conversation[this.conversation.length - 1];
+            if (lastMsg.type === 'awaiting_human_panelist' || lastMsg.type === 'awaiting_human_question') {
+                return { type: 'WAIT' };
+            }
+        }
+
+        // 3. Determine Speaker
+        const nextSpeakerIndex = this.calculateCurrentSpeaker();
+        const nextSpeaker = this.conversationOptions.characters[nextSpeakerIndex];
+
+        // 4. Panelist Turn
+        if (nextSpeaker.type === 'panelist') {
+            return { type: 'REQUEST_PANELIST', speaker: nextSpeaker };
+        }
+
+        // 5. AI Turn
+        return { type: 'GENERATE_AI_RESPONSE', speaker: nextSpeaker };
     }
 
     async processTurn() {
         try {
             const thisMeetingId = this.meetingId;
-            // Redundant checks here are okay but loop handles most.
-            // We keep them for safety during async operations.
 
-            this.currentSpeaker = this.calculateCurrentSpeaker();
+            // Decoupled Decision Step
+            const action = this.decideNextAction();
 
-            if (this.conversationOptions.characters[this.currentSpeaker].type === 'panelist') {
-                this.conversation.push({
-                    type: 'awaiting_human_panelist',
-                    speaker: this.conversationOptions.characters[this.currentSpeaker].id
-                });
-                console.log(`[meeting ${this.meetingId}] awaiting human panelist on index ${this.conversation.length - 1}`);
-                this.socket.emit("conversation_update", this.conversation);
-                meetingsCollection.updateOne(
-                    { _id: this.meetingId },
-                    { $set: { conversation: this.conversation } }
-                );
-                return;
+            switch (action.type) {
+                case 'WAIT':
+                    return; // Do nothing, just wait.
+
+                case 'END_CONVERSATION':
+                    this.socket.emit("conversation_end", this.conversation);
+                    return;
+
+                case 'REQUEST_PANELIST':
+                    this.conversation.push({
+                        type: 'awaiting_human_panelist',
+                        speaker: action.speaker.id
+                    });
+                    console.log(`[meeting ${this.meetingId}] awaiting human panelist on index ${this.conversation.length - 1}`);
+                    this.socket.emit("conversation_update", this.conversation);
+                    meetingsCollection.updateOne(
+                        { _id: this.meetingId },
+                        { $set: { conversation: this.conversation } }
+                    );
+                    return;
+
+                case 'GENERATE_AI_RESPONSE':
+                    this.currentSpeaker = this.conversationOptions.characters.findIndex(c => c.id === action.speaker.id);
+                    // Generate Logic
+                    let attempt = 1;
+                    let output = { response: "" };
+                    while (attempt < 5 && output.response === "") {
+                        output = await this.generateTextFromGPT(action.speaker);
+
+                        if (!this.run || this.handRaised || this.isPaused) return;
+                        if (thisMeetingId != this.meetingId) return;
+                        attempt++;
+                        if (output.response === "") {
+                            console.log(`[meeting ${this.meetingId}] entire message trimmed, trying again. attempt ${attempt}`);
+                        }
+                    }
+
+                    let message = {
+                        id: output.id,
+                        speaker: action.speaker.id,
+                        text: output.response,
+                        sentences: output.sentences,
+                        trimmed: output.trimmed,
+                        pretrimmed: output.pretrimmed,
+                    };
+
+                    if (this.conversation.length > 1 && this.conversation[this.conversation.length - 1].type === "human" && this.conversation[this.conversation.length - 1].askParticular === message.speaker) {
+                        message.type = "response";
+                    }
+
+                    if (message.text === "") {
+                        message.type = "skipped";
+                        console.warn(`[meeting ${this.meetingId}] failed to make a message. Skipping speaker ${action.speaker.id}`);
+                    }
+
+                    this.conversation.push(message);
+                    const message_index = this.conversation.length - 1;
+
+                    this.socket.emit("conversation_update", this.conversation);
+                    console.log(`[meeting ${this.meetingId}] message generated, index ${message_index}, speaker ${message.speaker}`);
+
+                    meetingsCollection.updateOne(
+                        { _id: this.meetingId },
+                        { $set: { conversation: this.conversation } }
+                    );
+
+                    this.generateAudio(message, action.speaker);
+                    break;
             }
-
-            let attempt = 1;
-            let output = { response: "" };
-            while (attempt < 5 && output.response === "") {
-                output = await this.generateTextFromGPT(this.conversationOptions.characters[this.currentSpeaker]);
-
-                if (!this.run || this.handRaised || this.isPaused) return;
-                if (thisMeetingId != this.meetingId) return;
-                attempt++;
-                if (output.response === "") {
-                    console.log(`[meeting ${this.meetingId}] entire message trimmed, trying again. attempt ${attempt}`);
-                }
-            }
-
-            let message = {
-                id: output.id,
-                speaker: this.conversationOptions.characters[this.currentSpeaker].id,
-                text: output.response,
-                sentences: output.sentences,
-                trimmed: output.trimmed,
-                pretrimmed: output.pretrimmed,
-            };
-
-            if (this.conversation.length > 1 && this.conversation[this.conversation.length - 1].type === "human" && this.conversation[this.conversation.length - 1].askParticular === message.speaker) {
-                message.type = "response";
-            }
-
-            if (message.text === "") {
-                message.type = "skipped";
-                console.warn(`[meeting ${this.meetingId}] failed to make a message. Skipping speaker ${this.conversationOptions.characters[this.currentSpeaker].id}`);
-            }
-
-            this.conversation.push(message);
-            const message_index = this.conversation.length - 1;
-
-            this.socket.emit("conversation_update", this.conversation);
-            console.log(`[meeting ${this.meetingId}] message generated, index ${message_index}, speaker ${message.speaker}`);
-
-            meetingsCollection.updateOne(
-                { _id: this.meetingId },
-                { $set: { conversation: this.conversation } }
-            );
-
-            // Audio generation is better async/fire-and-forget in this loop context? 
-            // Original code awaited it implicitly because it was sync call (no await keyword on generateAudio call in original line 627, but generateAudio IS async).
-            // Wait, original line 627: this.generateAudio(...) - NO await.
-            // So it was already fire-and-forget.
-            this.generateAudio(message, this.conversationOptions.characters[this.currentSpeaker]);
-
-            if (
-                this.conversation.length >=
-                this.conversationOptions.options.conversationMaxLength + this.extraMessageCount
-            ) {
-                this.socket.emit("conversation_end", this.conversation);
-                return;
-            }
-
-            // No recursive call here!
         } catch (error) {
             console.error("Error during conversation:", error);
             this.socket.emit("conversation_error", { message: "Error", code: 500 });
