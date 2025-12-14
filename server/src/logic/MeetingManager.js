@@ -3,13 +3,13 @@ import { getOpenAI } from "../services/OpenAIService.js";
 import { meetingsCollection, audioCollection, insertMeeting } from "../services/DbService.js";
 import { splitSentences, mapSentencesToWords } from "../utils/textUtils.js";
 import { reportError } from "../../errorbot.js";
-// Note: We might need to pass globalOptions or import it. For now assuming it is passed in start_conversation or similar.
-import globalOptions from "../../global-options.json" with { type: 'json' };
+import defaultGlobalOptions from "../../global-options.json" with { type: 'json' };
 
 export class MeetingManager {
-    constructor(socket, environment) {
+    constructor(socket, environment, optionsOverride = null) {
         this.socket = socket;
         this.environment = environment;
+        this.globalOptions = optionsOverride || defaultGlobalOptions;
 
         // Session variables
         this.run = true;
@@ -77,35 +77,85 @@ export class MeetingManager {
 
     calculateCurrentSpeaker() {
         if (this.conversation.length === 0) return 0;
-        if (this.conversation.length === 1) return 1;
+        // if (this.conversation.length === 1) return 1; // Why this? Just use loop logic.
+
         for (let i = this.conversation.length - 1; i >= 0; i--) {
+            const msg = this.conversation[i];
+
             //If last message was human input
-            if (this.conversation[i].type === "human") {
+            if (msg.type === "human") {
                 //And it contained a question to a particular food
-                if (this.conversation[i].askParticular && (this.conversationOptions.characters.findIndex(char => char.name === this.conversation[i].askParticular) !== -1)) {
-                    //Ask them directly
-                    return this.conversationOptions.characters.findIndex(char => char.name === this.conversation[i].askParticular);
-                } else {
-                    //If just a human question to anyone in the council, skip it
-                    continue;
+                if (msg.askParticular) {
+                    // Check if this question was already answered by the next message
+                    if (i + 1 < this.conversation.length) {
+                        const nextMsg = this.conversation[i + 1];
+                        if (nextMsg.type === 'response') {
+                            // Check if responder matches the asked person
+                            const askerTarget = this.conversationOptions.characters.find(
+                                c => c.name === msg.askParticular || c.id === msg.askParticular
+                            );
+                            if (askerTarget && (nextMsg.speaker === askerTarget.id || nextMsg.speaker === askerTarget.name)) {
+                                // Already answered, so this question shouldn't trigger a new turn
+                                continue;
+                            }
+                        }
+                    }
+
+                    // Try matching by Name or ID for robustness
+                    const index = this.conversationOptions.characters.findIndex(
+                        char => char.name === msg.askParticular || char.id === msg.askParticular
+                    );
+                    if (index !== -1) return index;
                 }
+                //If just a human question to anyone in the council, skip it and look at previous speaker
+                continue;
             }
             //Skip invitations
-            if (this.conversation[i].type === "invitation") continue;
+            if (msg.type === "invitation") continue;
 
             // Skip direct responses to questions when calculating next speaker
-            if (this.conversation[i].type === 'response') {
-                const indexOfSecondLast = this.conversationOptions.characters.findIndex(char => char.name === this.conversation[i - 2].speaker);
-                const nextAfter = indexOfSecondLast >= this.conversationOptions.characters.length - 1 ? 0 : indexOfSecondLast + 1;
-                if (this.conversationOptions.characters[nextAfter].name !== this.conversation[i].speaker) {
-                    i--;
-                    continue;
+            if (msg.type === 'response') {
+                // Determine who *would* have spoken if they hadn't been interrupted.
+                // We need to look back before the Human Question to find the "previous" natural speaker.
+                // Flow: [FoodA] -> [Human Q] -> [FoodB (Response)] -> [Calculated Next]
+                // i = FoodB Response
+                // i-1 = Human Q
+                // i-2 = FoodA
+
+                // Safe check bounds
+                if (i >= 2) {
+                    const prevSpeakerId = this.conversation[i - 2].speaker;
+                    const indexOfPrev = this.conversationOptions.characters.findIndex(char => char.id === prevSpeakerId);
+
+                    // If found, calculate who should be next
+                    if (indexOfPrev !== -1) {
+                        // The "Natural Next" after FoodA
+                        const nextNaturalIndex = indexOfPrev >= this.conversationOptions.characters.length - 1 ? 0 : indexOfPrev + 1;
+
+                        // If the current responder (FoodB) is NOT the Natural Next,
+                        // then this was an out-of-turn response. We should ignore it 
+                        // and resume the natural order (so return Natural Next).
+                        // BUT, the loop below simply "calculates next from current found speaker".
+                        // So if we just 'continue' here, we skip FoodB, skip Human, find FoodA, and standard logic returns Natural Next.
+
+                        // Check if FoodB == Natural Next.
+                        const currentResponderId = msg.speaker;
+                        const currentResponderIndex = this.conversationOptions.characters.findIndex(char => char.id === currentResponderId);
+
+                        if (currentResponderIndex !== nextNaturalIndex) {
+                            // It was out of turn. Skip this message so we find FoodA.
+                            continue;
+                        }
+                    }
                 }
             }
 
             const lastSpeakerIndex = this.conversationOptions.characters.findIndex(
-                (char) => char.id === this.conversation[i].speaker
+                (char) => char.id === msg.speaker
             );
+
+            // If speaker not found (e.g. 'chair'), skip
+            if (lastSpeakerIndex === -1) continue;
 
             return lastSpeakerIndex >= this.conversationOptions.characters.length - 1
                 ? 0
@@ -472,9 +522,9 @@ export class MeetingManager {
     async handleStartConversation(setup) {
         this.conversationOptions = setup;
         if (this.environment === "prototype") {
-            this.conversationOptions.options = setup.options ?? globalOptions;
+            this.conversationOptions.options = setup.options ?? this.globalOptions;
         } else {
-            this.conversationOptions.options = globalOptions;
+            this.conversationOptions.options = this.globalOptions;
         }
 
         this.conversation = [];
