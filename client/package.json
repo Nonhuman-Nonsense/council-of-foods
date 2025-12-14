@@ -27,7 +27,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "analyze": "source-map-explorer 'dist/assets/*.js'"
+    "analyze": "source-map-explorer 'dist/assets/*.js'",
+    "e2e": "playwright test"
   },
   "eslintConfig": {
     "extends": [

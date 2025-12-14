@@ -22,6 +22,7 @@ import Reconnecting from "./overlays/Reconnecting.jsx";
 
 //Topics
 import topicDataEN from "../prompts/topics_en.json";
+import routes from "../routes.json"; // Import routes directly
 
 const topicsData = {
   "en": topicDataEN
@@ -79,7 +80,7 @@ function Main({ lang }) {
     if (custom) {
       setCustomTopic(custom);
     }
-    navigate(`/foods`);
+    navigate(`/${routes.foods}`);
   }
 
   function foodsSelected({ foods }) {
@@ -88,7 +89,7 @@ function Main({ lang }) {
   }
 
   function letsGo() {
-    navigate(`/topics`);
+    navigate(`/${routes.topics}`);
   }
 
   function proceedToMeeting() {
@@ -109,7 +110,8 @@ function Main({ lang }) {
     setChosenTopic(copiedTopic);
 
     //Start the meeting
-    navigate(`/meeting/new`);
+    //Start the meeting
+    navigate(`/${routes.meeting}/new`);
   }
 
   function onReset(resetData) {
@@ -160,7 +162,7 @@ function Main({ lang }) {
       {hamburgerOpen && <div style={hamburgerCloserStyle} onClick={() => setHamburgerOpen(false)}></div>}
       {!unrecoverabeError &&
         <Overlay
-          isActive={!location.pathname.startsWith("/meeting")}
+          isActive={!location.pathname.startsWith(`/${routes.meeting}`)}
           isBlurred={location.pathname !== "/"}
         >
           <Routes>
@@ -171,7 +173,7 @@ function Main({ lang }) {
               }
             />
             <Route
-              path="topics"
+              path={routes.topics}
               element={
                 <SelectTopic
                   topics={topics}
@@ -180,7 +182,7 @@ function Main({ lang }) {
               }
             />
             <Route
-              path="foods"
+              path={routes.foods}
               element={
                 <SelectFoods
                   lang={lang}
@@ -190,7 +192,7 @@ function Main({ lang }) {
               }
             />
             <Route
-              path="meeting/:meetingId"
+              path={`${routes.meeting}/:meetingId`}
               element={
                 participants.length !== 0 &&// If page is reloaded, don't even start the council for now
                 <Council
@@ -270,7 +272,7 @@ function Background({ path }) {
     backgroundPositionY: "50%",
     backgroundImage: `url(/backgrounds/zoomed-out.webp)`,
     zIndex: "-2",
-    opacity: path.startsWith('/meeting') ? "0" : "1",
+    opacity: path.startsWith(`/${routes.meeting}`) ? "0" : "1",
   };
 
   const zoomedInStyle = {
@@ -278,7 +280,7 @@ function Background({ path }) {
     backgroundPositionY: `calc(50% + max(12${dvh},36px))`,// 50% is picture height, 12vh is from view, 36 is 12% of 300px which is minimum view
     backgroundImage: `url(/backgrounds/zoomed-in.webp)`,
     zIndex: "-1",
-    opacity: path.startsWith('/meeting') ? "1" : "0.01",
+    opacity: path.startsWith(`/${routes.meeting}`) ? "1" : "0.01",
   };
 
   return (
