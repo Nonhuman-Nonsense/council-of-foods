@@ -3,6 +3,9 @@ import { MeetingManager } from '../src/logic/MeetingManager.js';
 import { setupTestOptions } from './testUtils.js';
 import { meetingsCollection } from '../src/services/DbService.js';
 
+import { getTestMode, TEST_MODES } from './testUtils.js';
+import { getOpenAI } from '../src/services/OpenAIService.js';
+
 // Reusable mock setup
 export const mockOpenAI = {
     chat: {
@@ -12,7 +15,32 @@ export const mockOpenAI = {
             })
         }
     },
-    audio: { speech: { create: vi.fn() } }
+    audio: {
+        speech: {
+            create: vi.fn().mockResolvedValue({
+                arrayBuffer: async () => new ArrayBuffer(8)
+            })
+        },
+        transcriptions: {
+            create: vi.fn().mockResolvedValue({
+                words: []
+            })
+        }
+    }
+};
+
+export const setupTestDependencies = () => {
+    const mode = getTestMode();
+    if (mode === TEST_MODES.MOCK) {
+        return {
+            getOpenAI: () => mockOpenAI
+        };
+    } else {
+        // FAST or FULL mode: Use real service
+        return {
+            getOpenAI: getOpenAI
+        };
+    }
 };
 
 export const createTestManager = (env = 'test', optionsOverride = null, services = {}) => {
@@ -30,7 +58,12 @@ export const createTestManager = (env = 'test', optionsOverride = null, services
         mockSocket.handlers[event] = callback;
     });
     const options = optionsOverride || setupTestOptions();
-    const manager = new MeetingManager(mockSocket, env, options, services);
+
+    // Merge defaults with provided services
+    const defaultServices = setupTestDependencies();
+    const finalServices = { ...defaultServices, ...services };
+
+    const manager = new MeetingManager(mockSocket, env, options, finalServices);
 
     // Common setup
     manager.conversationOptions.characters = [

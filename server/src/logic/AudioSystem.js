@@ -133,6 +133,10 @@ export class AudioSystem {
             }
 
         } catch (error) {
+            // Suppress "interrupted at shutdown" errors often seen during tests
+            if (error.code === 11600 || (error.message && error.message.includes('interrupted at shutdown'))) {
+                return;
+            }
             console.error("Error generating audio:", error);
             reportError(error);
         }

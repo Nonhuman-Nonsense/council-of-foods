@@ -14,7 +14,9 @@
     "protodev": "cross-env NODE_ENV=prototype nodemon server.js",
     "test": "vitest run",
     "test:watch": "vitest",
-    "coverage": "vitest run --coverage",
+    "test:fast": "cross-env TEST_MODE=fast vitest run",
+    "test:full": "cross-env TEST_MODE=full vitest run",
+    "test:coverage": "vitest run --coverage",
     "docker": "docker build ../. -t nonhumannonsense/council-of-foods:latest --platform linux/amd64",
     "push": "docker push nonhumannonsense/council-of-foods:latest"
   },

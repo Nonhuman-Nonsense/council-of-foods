@@ -22,7 +22,7 @@
         "en": "Summarize the debate in 100 words or less."
     },
     "finalizeMeetingLength": 100,
-    "extraMessageCount": 1,
+    "extraMessageCount": 5,
     "transcribeModel": "gpt-4o-transcribe",
     "transcribePrompt": {
         "en": "Transcribe the debate in 100 words or less."

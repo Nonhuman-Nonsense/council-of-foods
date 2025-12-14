@@ -3,9 +3,9 @@ import { meetingsCollection } from '../src/services/DbService.js';
 import { createTestManager, mockOpenAI } from './commonSetup.js';
 
 // Mock dependencies
-vi.mock('../src/services/OpenAIService.js', () => ({
-    getOpenAI: vi.fn(() => mockOpenAI),
-}));
+// vi.mock('../src/services/OpenAIService.js', () => ({
+//     getOpenAI: vi.fn(() => mockOpenAI),
+// }));
 
 describe('MeetingManager - Hand Raising', () => {
     let manager;
@@ -88,12 +88,19 @@ describe('MeetingManager - Hand Raising', () => {
 
             await manager.handRaisingHandler.handleRaiseHand({ index: 0 });
 
-            // chairInterjection calls OpenAI directly, so we check the hoisted mock
-            expect(mockOpenAI.chat.completions.create).toHaveBeenCalled();
-
-            // Verify args
-            const callArgs = mockOpenAI.chat.completions.create.mock.calls[0][0];
-            expect(callArgs.messages).toBeDefined();
+            // chairInterjection calls OpenAI directly.
+            // In MOCK mode, we verify the mock. In FAST mode, we verify the side effect (invitation added).
+            const { getTestMode, TEST_MODES } = await import('./testUtils.js');
+            if (getTestMode() === TEST_MODES.MOCK) {
+                expect(mockOpenAI.chat.completions.create).toHaveBeenCalled();
+                const callArgs = mockOpenAI.chat.completions.create.mock.calls[0][0];
+                expect(callArgs.messages).toBeDefined();
+            } else {
+                // FAST mode: Verify invitation was generated and added to conversation
+                const invitation = manager.conversation.find(m => m.type === 'invitation');
+                expect(invitation).toBeDefined();
+                expect(invitation.text).toBeTruthy();
+            }
         });
     });
 });

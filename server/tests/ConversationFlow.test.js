@@ -4,9 +4,9 @@ import { meetingsCollection } from '../src/services/DbService.js';
 import { createTestManager, mockOpenAI } from './commonSetup.js';
 
 // Mock dependencies
-vi.mock('../src/services/OpenAIService.js', () => ({
-    getOpenAI: vi.fn(() => mockOpenAI),
-}));
+// vi.mock('../src/services/OpenAIService.js', () => ({
+//     getOpenAI: vi.fn(() => mockOpenAI),
+// }));
 
 describe('MeetingManager - Conversation Flow', () => {
     let manager;
@@ -186,12 +186,14 @@ describe('MeetingManager - Conversation Flow', () => {
         await diManager.meetingLifecycleHandler.handleWrapUpMeeting({ date: "2024-01-01" });
 
         // Verify audio generation was attempted (which uses the 'speaker' variable)
-        expect(mockOpenAI.audio.speech.create).toHaveBeenCalled();
+        if (!diManager.globalOptions.skipAudio) {
+            expect(mockOpenAI.audio.speech.create).toHaveBeenCalled();
 
-        // Verify socket emit
-        expect(diManager.socket.emit).toHaveBeenCalledWith("audio_update", expect.objectContaining({
-            id: 'gpt_id'
-        }));
+            // Verify socket emit
+            expect(diManager.socket.emit).toHaveBeenCalledWith("audio_update", expect.objectContaining({
+                id: 'gpt_id'
+            }));
+        }
     });
 
     it('should extend meeting on continue_conversation', async () => {

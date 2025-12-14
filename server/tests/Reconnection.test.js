@@ -108,7 +108,7 @@ describe('MeetingManager - Reconnection & Resilience', () => {
     // Failing test case we expect to fix
     it('should emit conversation_update immediately upon reconnection', async () => {
         vi.spyOn(manager, 'startLoop').mockImplementation(() => { }); // Prevent loop
-        const savedConversation = [{ id: '1', text: 'recover me' }];
+        const savedConversation = [{ id: '1', text: 'recover me', speaker: 'water' }];
         context.services.meetingsCollection.findOne.mockResolvedValue({
             _id: "sync_test",
             conversation: savedConversation,
@@ -124,7 +124,7 @@ describe('MeetingManager - Reconnection & Resilience', () => {
     it('should handle full disconnect and reconnect cycle with distinct managers', async () => {
         // 1. Setup First Manager and Message
         // Simulate startConversation updating DB
-        const initialConversation = [{ id: '1', text: 'Initial' }];
+        const initialConversation = [{ id: '1', text: 'Initial', speaker: 'water' }];
         context.services.meetingsCollection.findOne.mockResolvedValue({
             _id: "cycle_test",
             conversation: initialConversation,

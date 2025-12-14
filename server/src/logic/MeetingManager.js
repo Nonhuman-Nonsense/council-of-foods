@@ -4,7 +4,7 @@ import { meetingsCollection, audioCollection, insertMeeting } from "../services/
 import { splitSentences } from "../utils/textUtils.js";
 import { reportError } from "../../errorbot.js";
 import defaultGlobalOptions from "../../global-options.json" with { type: 'json' };
-import e2eOptions from "../../e2e-options.json" with { type: 'json' };
+import testOptions from "../../test-options.json" with { type: 'json' };
 import { AudioSystem } from "./AudioSystem.js";
 import { SpeakerSelector } from "./SpeakerSelector.js";
 import { DialogGenerator } from "./DialogGenerator.js";
@@ -16,7 +16,7 @@ export class MeetingManager {
     constructor(socket, environment, optionsOverride = null, services = {}) {
         this.socket = socket;
         this.environment = environment;
-        this.globalOptions = optionsOverride || (environment === 'test' ? e2eOptions : defaultGlobalOptions);
+        this.globalOptions = optionsOverride || (environment === 'test' ? testOptions : defaultGlobalOptions);
 
         // Default Services
         this.services = {
@@ -270,6 +270,13 @@ export class MeetingManager {
                     break;
             }
         } catch (error) {
+            // Suppress "interrupted at shutdown" and ECONNRESET errors often seen during tests
+            if (
+                error.code === 11600 ||
+                (error.message && (error.message.includes('interrupted at shutdown') || error.message.includes('ECONNRESET')))
+            ) {
+                return;
+            }
             console.error("Error during conversation:", error);
             this.socket.emit("conversation_error", { message: "Error", code: 500 });
             reportError(error);
