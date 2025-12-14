@@ -1,11 +1,27 @@
 import { v4 as uuidv4 } from "uuid";
 import { splitSentences } from "../utils/textUtils.js";
 
+/**
+ * Manages input from humans, including the primary user (questioner),
+ * special panelists (via admin panel usually), and prototype scenarios.
+ */
 export class HumanInputHandler {
+    /**
+     * @param {import('./MeetingManager').MeetingManager} meetingManager 
+     */
     constructor(meetingManager) {
         this.manager = meetingManager;
     }
 
+    /**
+     * Handles the text submission from the user after they have raised their hand and been invited.
+     * Validates that the state is 'awaiting_human_question' before processing.
+     * Updates conversation w/ user text, triggers audio generation, and resumes the run loop.
+     * 
+     * @param {object} message 
+     * @param {string} message.text - The question/statement content
+     * @param {string} [message.askParticular] - Optional target character ID if directed at specific person
+     */
     handleSubmitHumanMessage(message) {
         const { manager } = this;
         console.log(`[meeting ${manager.meetingId}] human input on index ${manager.conversation.length - 1}`);
@@ -55,6 +71,14 @@ export class HumanInputHandler {
         manager.startLoop();
     }
 
+    /**
+     * Handles input from a 'human panelist' (a human participant acting as a character/expert).
+     * Validates that the state is 'awaiting_human_panelist'.
+     * 
+     * @param {object} message 
+     * @param {string} message.speaker - ID of the speaker (character ID)
+     * @param {string} message.text - The content of the message
+     */
     handleSubmitHumanPanelist(message) {
         const { manager } = this;
         console.log(`[meeting ${manager.meetingId}] human panelist ${message.speaker} on index ${manager.conversation.length - 1}`);
@@ -93,6 +117,14 @@ export class HumanInputHandler {
         manager.startLoop();
     }
 
+    /**
+     * Handles injection of "Interjection" events, primarily for prototype demonstrations (e.g. "Time passes").
+     * @param {object} message 
+     * @param {string} message.text - The prompt text for the interjection
+     * @param {string} message.date - Date context to replace [DATE] placeholder
+     * @param {number} message.index - Insertion index
+     * @param {number} message.length - Desired length
+     */
     async handleSubmitInjection(message) {
         const { manager } = this;
         if (manager.environment !== "prototype") return;
@@ -120,28 +152,6 @@ export class HumanInputHandler {
         console.log(`[meeting ${manager.meetingId}] interjection generated on index ${manager.conversation.length - 1}`);
 
         summary.sentences = splitSentences(response);
-        // Note: original called this.generateAudio, which handles audio generation
-        // But MeetingManager refs audioSystem now.
-        // Wait, MeetingManager.js:122 calls this.generateAudio(summary, ...)
-        // But I just refactored MeetingManager to use audioSystem directly?
-        // Let's check MeetingManager line 122 in previous view.
-        // Ah, line 122 in MeetingManager used `this.generateAudio`.
-        // I deleted the duplicate `generateAudio` but `MeetingManager` still HAD `generateAudio` (the one I renamed back to `generateAudio`).
-        // Wait, step 365 deleted the duplicate.
-        // Step 327 renamed one to `generateAudio`.
-        // So `MeetingManager` DOES have `generateAudio`.
-        // But `HumanInputHandler` assumes `manager` structure.
-        // If I move `handleWrapUpMeeting` to LifecycleHandler, `MeetingManager` might LOSE `generateAudio` if I move it too?
-        // No, `generateAudio` is core utility, probably strictly belongs to `AudioSystem` now?
-        // In Step 369, I updated `handleWrapUpMeeting` to use `this.audioSystem.generateAudio`.
-        // The `MeetingManager` still has `generateAudio`?
-        // Let's check if I deleted `generateAudio` entirely from `MeetingManager` in step 365?
-        // Yes, step 365 diff shows `-    async generateAudio` being removed.
-        // Wait, I had TWO.
-        // One was `handleWrapUpMeeting` (the duplicate). I renamed it to `generateAudio`.
-        // Then step 365 removed `generateAudio`?
-        // If I removed it, then `MeetingManager` NO LONGER has `generateAudio`.
-        // So I should use `manager.audioSystem.generateAudio`.
 
         manager.audioSystem.queueAudioGeneration(
             summary,

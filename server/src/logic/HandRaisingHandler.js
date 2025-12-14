@@ -1,10 +1,30 @@
 import { splitSentences } from "../utils/textUtils.js";
 
+/**
+ * Manages the "Raise Hand" interaction flow.
+ * Handles the user interrupt, truncating conversation, generating the Chair's invitation,
+ * and transitioning state to await a human question.
+ */
 export class HandRaisingHandler {
+    /**
+     * @param {import('./MeetingManager').MeetingManager} meetingManager 
+     */
     constructor(meetingManager) {
         this.manager = meetingManager;
     }
 
+    /**
+     * Processes a "Raise Hand" event from the client.
+     * 1. Sets/Updates global state (humanName, handRaised flag).
+     * 2. Truncates conversation to the insertion point.
+     * 3. Generates an invitation from the Chair (if one hasn't been generated yet).
+     * 4. Pushes 'awaiting_human_question' state marker to conversation.
+     * 5. Persists state and updates client.
+     * 
+     * @param {object} handRaisedOptions 
+     * @param {number} handRaisedOptions.index - The index in the conversation where the hand raised occurred.
+     * @param {string} handRaisedOptions.humanName - The name of the human raising their hand.
+     */
     async handleRaiseHand(handRaisedOptions) {
         const { manager } = this;
         console.log(`[meeting ${manager.meetingId}] hand raised on index ${handRaisedOptions.index - 1}`);

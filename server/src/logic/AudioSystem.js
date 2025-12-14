@@ -1,12 +1,7 @@
 import { reportError } from "../../errorbot.js";
 import { mapSentencesToWords } from "../utils/textUtils.js";
-import { File } from "buffer"; // Need File for OpenAI? Node's File is global in recent versions or requires polyfill/buffer.
-// Actually OpenAI SDK accepts Buffer/Stream for 'file'. In original code: `new File([buffer], ...)` implies web-standard File.
-// Node environment might need 'node-fetch' or similar if File is not present, but let's assume it works as it was in MeetingManager.
-// Wait, `new File` is available in Node 20+. Current User environment is Mac, likely recent Node.
-// If not, we might need: import { File } from "node:buffer"; (Node 20) or just pass ReadStream.
-// Original code used `new File([buffer], "speech.mp3", { type: "audio/mpeg" });`
-// I'll stick to what was there.
+// OpenAI SDK accepts Buffer/Stream for 'file'.
+// Using File object for compatibility.
 
 export class AudioQueue {
     constructor(concurrency = 3) {
@@ -27,18 +22,11 @@ export class AudioQueue {
         const task = this.queue.shift();
 
         try {
-            // We do not await the task here to block the loop.
-            // We act "fire and forget" from the perspective of this synchronous look,
-            // but we track completion to update activeCount.
-            // However, we want to try to start MORE tasks if concurrency allows.
-            // So we call processNext() recursively immediately after starting this one?
-            // No, the "check" at the top handles limits.
-
-            // We want to run the task, and WHEN it finishes, decrement and try to pick up next.
-            // But we ALSO want to try to pick up next IMMEDIATELY in case we haven't hit limit yet.
-
+            // Start the task asynchronously
             this.runTask(task);
-            this.processNext(); // Try to start another one immediately
+
+            // Try to start another task if concurrency allows
+            this.processNext();
         } catch (error) {
             console.error("Error starting audio task:", error);
             // Should not happen if runTask handles it, but safety net.

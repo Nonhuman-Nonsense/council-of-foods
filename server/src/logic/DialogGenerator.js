@@ -1,12 +1,29 @@
 import { splitSentences } from "../utils/textUtils.js";
 import { reportError } from "../../errorbot.js";
 
+/**
+ * Handles all interactions with the OpenAI API for text generation.
+ * Responsible for building prompt messages, calling the API, and parsing/post-processing the response.
+ */
 export class DialogGenerator {
+    /**
+     * @param {object} services - Abstracted service container (must provide getOpenAI)
+     * @param {object} options - Global configuration options
+     */
     constructor(services, options) {
         this.services = services;
         this.options = options; // This assumes options are passed, or we might need access to current meeting options
     }
 
+    /**
+     * Generates a conversational response for a specific character (food or chair).
+     * 
+     * @param {object} speaker - The character object who is speaking.
+     * @param {Array<object>} conversation - The conversation history.
+     * @param {object} conversationOptions - Configuration specific to this meeting.
+     * @param {number} currentSpeakerIndex - Index of the current speaker in the characters array (used for negative lookahead checks).
+     * @returns {Promise<object>} - { response, id, sentences, trimmed, pretrimmed }
+     */
     async generateTextFromGPT(speaker, conversation, conversationOptions, currentSpeakerIndex) {
         try {
             const messages = this.buildMessageStack(speaker, conversation, conversationOptions);
@@ -124,6 +141,19 @@ export class DialogGenerator {
         }
     }
 
+    /**
+     * Generates a specific interjection or system message (e.g., Chair inviting human).
+     * Uses a temporary system prompt injected at the end of the history.
+     * 
+     * @param {string} interjectionPrompt - The specific instruction for this turn (e.g. "Invite the human").
+     * @param {number} index - The conversation index context (usually end).
+     * @param {number} length - Max tokens.
+     * @param {boolean} dontStop - If true, ignores standard stop tokens.
+     * @param {Array<object>} conversation 
+     * @param {object} conversationOptions 
+     * @param {object} socket - Socket for error emission.
+     * @returns {Promise<object>} - { response, id }
+     */
     async chairInterjection(interjectionPrompt, index, length, dontStop, conversation, conversationOptions, socket) {
         try {
             const chair = conversationOptions.characters[0];
@@ -167,6 +197,15 @@ export class DialogGenerator {
         }
     }
 
+    /**
+     * Constructs the array of message objects (system, user, assistant) for the GPT API.
+     * 
+     * @param {object} speaker - The character who needs to speak next.
+     * @param {Array<object>} conversation - History.
+     * @param {object} conversationOptions - Meeting context.
+     * @param {number} [upToIndex] - Optional limit to truncate history.
+     * @returns {Array<object>} - Messages array for OpenAI.
+     */
     buildMessageStack(speaker, conversation, conversationOptions, upToIndex) {
         let messages = [];
 

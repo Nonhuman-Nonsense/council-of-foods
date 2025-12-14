@@ -1,11 +1,26 @@
 import { splitSentences } from "../utils/textUtils.js";
 import { reportError } from "../../errorbot.js";
 
+/**
+ * Manages the high-level lifecycle of a meeting: Start, Wrap-Up, and Continuation.
+ * Handles initialization of session state, emitting lifecycle events, and managing the End-of-Meeting summary flow.
+ */
 export class MeetingLifecycleHandler {
+    /**
+     * @param {import('./MeetingManager').MeetingManager} meetingManager 
+     */
     constructor(meetingManager) {
         this.manager = meetingManager;
     }
 
+    /**
+     * Initializes a new conversation/meeting.
+     * Sets up global state, stores initial record in DB, and kicks off the run loop.
+     * 
+     * @param {object} setup 
+     * @param {object} setup.options - Conversation topic, options overrides etc.
+     * @param {Array<object>} setup.characters - Selected characters for the council.
+     */
     async handleStartConversation(setup) {
         const { manager } = this;
         manager.conversationOptions = setup;
@@ -42,6 +57,13 @@ export class MeetingLifecycleHandler {
 
 
 
+    /**
+     * Ends the meeting by generating a final summary from the Chair.
+     * Persists the summary to DB and emits update.
+     * 
+     * @param {object} message 
+     * @param {string} message.date - Date string for context.
+     */
     async handleWrapUpMeeting(message) {
         const { manager } = this;
         console.log(`[meeting ${manager.meetingId}] attempting to wrap up`);
@@ -87,6 +109,10 @@ export class MeetingLifecycleHandler {
         );
     }
 
+    /**
+     * Handles request for OpenAI Realtime API Client Key (for client-side usage).
+     * Fetches ephemeral secret from OpenAI and returns to client.
+     */
     async handleRequestClientKey() {
         const { manager } = this;
         console.log(`[meeting ${manager.meetingId}] clientkey requested`);
@@ -148,6 +174,9 @@ export class MeetingLifecycleHandler {
         }
     }
 
+    /**
+     * Extends the meeting length and resumes the conversation loop if it had stopped due to length limits.
+     */
     handleContinueConversation() {
         const { manager } = this;
         console.log(`[meeting ${manager.meetingId}] continuing conversation`);
