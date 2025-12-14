@@ -9,9 +9,10 @@ import { File } from "buffer"; // Need File for OpenAI? Node's File is global in
 // I'll stick to what was there.
 
 export class AudioQueue {
-    constructor() {
+    constructor(concurrency = 3) {
         this.queue = [];
-        this.processing = false;
+        this.activeCount = 0;
+        this.concurrency = concurrency;
     }
 
     add(task) {
@@ -20,27 +21,48 @@ export class AudioQueue {
     }
 
     async processNext() {
-        if (this.processing || this.queue.length === 0) return;
+        if (this.activeCount >= this.concurrency || this.queue.length === 0) return;
 
-        this.processing = true;
+        this.activeCount++;
         const task = this.queue.shift();
 
+        try {
+            // We do not await the task here to block the loop.
+            // We act "fire and forget" from the perspective of this synchronous look,
+            // but we track completion to update activeCount.
+            // However, we want to try to start MORE tasks if concurrency allows.
+            // So we call processNext() recursively immediately after starting this one?
+            // No, the "check" at the top handles limits.
+
+            // We want to run the task, and WHEN it finishes, decrement and try to pick up next.
+            // But we ALSO want to try to pick up next IMMEDIATELY in case we haven't hit limit yet.
+
+            this.runTask(task);
+            this.processNext(); // Try to start another one immediately
+        } catch (error) {
+            console.error("Error starting audio task:", error);
+            // Should not happen if runTask handles it, but safety net.
+            this.activeCount--;
+        }
+    }
+
+    async runTask(task) {
         try {
             await task();
         } catch (error) {
             console.error("Error processing audio task:", error);
         } finally {
-            this.processing = false;
+            this.activeCount--;
             this.processNext();
         }
     }
 }
 
 export class AudioSystem {
-    constructor(socket, services) {
+    constructor(socket, services, concurrency = 3) {
         this.socket = socket;
         this.services = services;
-        this.queue = new AudioQueue();
+        this.queue = new AudioQueue(concurrency);
     }
 
     queueAudioGeneration(message, speaker, options, meetingId, environment) {

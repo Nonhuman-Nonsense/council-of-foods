@@ -36,7 +36,7 @@ export class MeetingManager {
         this.meetingDate = null;
 
         this.startLoop = this.startLoop.bind(this);
-        this.audioSystem = new AudioSystem(this.socket, this.services);
+        this.audioSystem = new AudioSystem(this.socket, this.services, this.globalOptions.audioConcurrency);
         this.dialogGenerator = new DialogGenerator(this.services, this.globalOptions);
         this.humanInputHandler = new HumanInputHandler(this);
         this.handRaisingHandler = new HandRaisingHandler(this);

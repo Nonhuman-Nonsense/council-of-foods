@@ -26,5 +26,6 @@
   "transcribeModel": "gpt-4o-transcribe",
   "transcribePrompt": {
     "en": "Expect english input."
-  }
+  },
+  "audioConcurrency": 10
 }

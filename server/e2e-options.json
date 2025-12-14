@@ -26,5 +26,6 @@
     "transcribeModel": "gpt-4o-transcribe",
     "transcribePrompt": {
         "en": "Transcribe the debate in 100 words or less."
-    }
+    },
+    "audioConcurrency": 10
 }

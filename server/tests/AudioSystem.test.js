@@ -2,8 +2,8 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { AudioSystem, AudioQueue } from '../src/logic/AudioSystem.js';
 
 describe('AudioQueue', () => {
-    it('should process tasks sequentially', async () => {
-        const queue = new AudioQueue();
+    it('should process tasks concurrently', async () => {
+        const queue = new AudioQueue(3);
         const executionOrder = [];
 
         const createTask = (id, duration) => async () => {
@@ -11,15 +11,18 @@ describe('AudioQueue', () => {
             executionOrder.push(id);
         };
 
+        // Task 1: 100ms
+        // Task 2: 50ms
+        // Task 3: 10ms
+        // If parallel, finish order should be 3, 2, 1
         queue.add(createTask(1, 100));
         queue.add(createTask(2, 50));
         queue.add(createTask(3, 10));
 
-        // Wait for all tasks
-        // Since processNext is async but 'add' returns immediately, we need to wait enough time
+        // Wait significantly longer than the longest task to ensure all complete
         await new Promise(resolve => setTimeout(resolve, 200));
 
-        expect(executionOrder).toEqual([1, 2, 3]);
+        expect(executionOrder).toEqual([3, 2, 1]);
     });
 });
 
@@ -96,10 +99,14 @@ describe('AudioSystem', () => {
             input: 'Valid Audio'
         }));
 
-        // ensure emit was called with buffer
         expect(mockSocket.emit).toHaveBeenCalledWith('audio_update', expect.objectContaining({
             id: 'msg_valid',
             audio: expect.any(Buffer)
         }));
+    });
+
+    it('should respect concurrency passed in constructor', () => {
+        const customSystem = new AudioSystem(mockSocket, mockServices, 5);
+        expect(customSystem.queue.concurrency).toBe(5);
     });
 });
