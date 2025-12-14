@@ -393,7 +393,7 @@ io.on("connection", (socket) => {
     }
     conversation.pop();
 
-    message.text = conversationOptions.characters.find(c => c.id === message.speaker).name + (conversationOptions.language === 'en' ? " said: " : " sa: ") + message.text;
+    message.text = conversationOptions.characters.find(c => c.id === message.speaker).name + (conversationOptions.language === 'en' ? " said:\xa0" : " sa:\xa0") + message.text;
     message.id = message.speaker + uuidv4(); // Use UUID for unique message IDs for human messages
     message.type = "panelist";
 
