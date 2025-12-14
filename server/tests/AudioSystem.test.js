@@ -81,4 +81,25 @@ describe('AudioSystem', () => {
         await audioSystem.generateAudio({}, {}, options, 'meeting_1', 'test');
         expect(mockServices.getOpenAI).not.toHaveBeenCalled();
     });
+
+    it('should correctly generate audio when valid options are provided', async () => {
+        const message = { id: 'msg_valid', text: 'Valid Audio', type: 'message' };
+        const speaker = { voice: 'alloy' };
+        const options = { voiceModel: 'tts-1', audio_speed: 1.0 }; // Valid options provided
+
+        await audioSystem.generateAudio(message, speaker, options, 'meeting_1', 'test');
+
+        const openai = mockServices.getOpenAI();
+        expect(openai.audio.speech.create).toHaveBeenCalledWith(expect.objectContaining({
+            model: 'tts-1',
+            voice: 'alloy',
+            input: 'Valid Audio'
+        }));
+
+        // ensure emit was called with buffer
+        expect(mockSocket.emit).toHaveBeenCalledWith('audio_update', expect.objectContaining({
+            id: 'msg_valid',
+            audio: expect.any(Buffer)
+        }));
+    });
 });

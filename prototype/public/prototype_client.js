@@ -186,6 +186,7 @@ document.addEventListener("DOMContentLoaded", () => {
     promptsAndOptions.options = {}; //Reset to remove possible orphan options
     promptsAndOptions.options.gptModel =
       document.getElementById("gpt-model").value;
+    promptsAndOptions.options.voiceModel = "tts-1"; // Explicitly set voice model
     promptsAndOptions.options.temperature =
       +document.getElementById("temperature").value;
     promptsAndOptions.options.maxTokens =
@@ -705,7 +706,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   for (const radio of languageButtons) {
     radio.addEventListener('change', e => {
-      
+
       //First save what we have at the moment
       updatePromptsAndOptions();
       //Set the language
