@@ -288,6 +288,7 @@ export class MeetingManager {
     }
 
     async handleWrapUpMeeting(message) {
+        console.log(`[meeting ${this.meetingId}] attempting to wrap up`);
         const summaryPrompt = this.conversationOptions.options.finalizeMeetingPrompt[this.conversationOptions.language].replace("[DATE]", message.date);
 
         let { response, id } = await this.chairInterjection(
@@ -315,7 +316,14 @@ export class MeetingManager {
         );
 
         summary.sentences = splitSentences(response);
-        this.generateAudio(summary, this.conversationOptions.characters[0], true);
+        await this.audioSystem.generateAudio(
+            summary,
+            this.conversationOptions.characters[0],
+            this.conversationOptions.options,
+            this.meetingId,
+            this.environment,
+            true
+        );
     }
 
     async handleReconnection(options) {
@@ -573,86 +581,6 @@ export class MeetingManager {
             this.conversationOptions,
             this.currentSpeaker
         );
-    }
-
-    async handleWrapUpMeeting(message) {
-        if (this.conversationOptions.options.skipAudio) return;
-
-        if (message.type === "skipped") {
-            this.socket.emit("audio_update", { id: message.id, type: "skipped" });
-            return;
-        }
-
-        let buffer;
-        let generateNew = true;
-        try {
-            const existingAudio = await this.services.audioCollection.findOne({ _id: message.id });
-            if (existingAudio) {
-                buffer = existingAudio.buffer;
-                generateNew = false;
-            }
-        } catch (e) { console.log(e); }
-
-        try {
-            const openai = this.services.getOpenAI();
-            if (generateNew) {
-                const mp3 = await openai.audio.speech.create({
-                    model: this.conversationOptions.options.voiceModel,
-                    voice: speaker.voice,
-                    speed: this.conversationOptions.options.audio_speed,
-                    input: message.text.substring(0, 4096),
-                });
-                buffer = Buffer.from(await mp3.arrayBuffer());
-            }
-
-            const sentencesWithTimings = skipMatching ? [] : await this.getSentenceTimings(buffer, message);
-
-            const audioObject = {
-                id: message.id,
-                audio: buffer,
-                sentences: sentencesWithTimings
-            };
-
-            this.socket.emit("audio_update", audioObject);
-
-            if (generateNew && this.environment !== "prototype") {
-                // Upsert logic
-                await this.services.audioCollection.updateOne(
-                    { _id: audioObject.id },
-                    {
-                        $set: {
-                            date: new Date().toISOString(),
-                            meeting_id: this.meetingId,
-                            audio: buffer,
-                            sentences: sentencesWithTimings
-                        }
-                    },
-                    { upsert: true }
-                );
-            }
-            if (this.environment !== "prototype") {
-                await this.services.meetingsCollection.updateOne(
-                    { _id: this.meetingId },
-                    { $addToSet: { audio: audioObject.id } }
-                );
-            }
-
-        } catch (error) {
-            console.error("Error generating audio:", error);
-            reportError(error);
-        }
-    }
-
-    async getSentenceTimings(buffer, message) {
-        const openai = getOpenAI();
-        const audioFile = new File([buffer], "speech.mp3", { type: "audio/mpeg" });
-        const transcription = await openai.audio.transcriptions.create({
-            file: audioFile,
-            model: "whisper-1",
-            response_format: "verbose_json",
-            timestamp_granularities: ["word"]
-        });
-        return mapSentencesToWords(message.sentences, transcription.words);
     }
 
     async handleRequestClientKey() {

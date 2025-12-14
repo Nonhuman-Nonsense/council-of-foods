@@ -151,4 +151,46 @@ describe('MeetingManager - Conversation Flow', () => {
         const gptSpy = vi.spyOn(manager, 'generateTextFromGPT');
         expect(gptSpy).not.toHaveBeenCalled();
     });
+    it('should successfully wrap up meeting without ReferenceError (Regression Test)', async () => {
+        // Setup mock OpenAI with audio capability
+        const mockOpenAI = {
+            chat: {
+                completions: {
+                    create: vi.fn().mockResolvedValue({
+                        id: 'gpt_id',
+                        choices: [{ message: { content: 'This is a summary.' } }]
+                    })
+                }
+            },
+            audio: {
+                speech: {
+                    create: vi.fn().mockResolvedValue({ arrayBuffer: () => new ArrayBuffer(0) })
+                },
+                transcriptions: {
+                    create: vi.fn().mockResolvedValue({ words: [] })
+                }
+            }
+        };
+
+        const mockGetOpenAI = () => mockOpenAI;
+        const { manager: diManager } = createTestManager('test', null, { getOpenAI: mockGetOpenAI });
+
+        // Ensure characters[0] (Chair) has a voice property if needed, though default setup usually provides it
+        if (!diManager.conversationOptions.characters[0].voice) {
+            diManager.conversationOptions.characters[0].voice = 'alloy';
+        }
+
+        const message = { date: '2025-01-01', text: "Summary text", id: "summary_msg_id" };
+
+        // This call previously failed with ReferenceError: speaker is not defined
+        await diManager.handleWrapUpMeeting(message);
+
+        // Verify audio generation was attempted (which uses the 'speaker' variable)
+        expect(mockOpenAI.audio.speech.create).toHaveBeenCalled();
+
+        // Verify socket emit
+        expect(diManager.socket.emit).toHaveBeenCalledWith("audio_update", expect.objectContaining({
+            id: 'gpt_id'
+        }));
+    });
 });
