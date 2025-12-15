@@ -4,7 +4,7 @@ import { reportError } from "../../errorbot.js";
 import { default as defaultGlobalOptions } from "../../global-options.json" with { type: 'json' };
 import { default as testOptions } from "../../test-options.json" with { type: 'json' };
 import { AudioSystem } from "./AudioSystem.js";
-import { SpeakerSelector, Character, ConversationMessage } from "./SpeakerSelector.js";
+import { SpeakerSelector } from "./SpeakerSelector.js";
 import { DialogGenerator, GPTResponse } from "./DialogGenerator.js";
 import { HumanInputHandler } from "./HumanInputHandler.js";
 import { HandRaisingHandler } from "./HandRaisingHandler.js";
@@ -15,7 +15,8 @@ import { Meeting, Audio } from "../models/DBModels.js";
 import { Collection, InsertOneResult } from "mongodb";
 import { OpenAI } from "openai";
 import { Socket } from "socket.io";
-import { ClientToServerEvents, ServerToClientEvents } from "../models/SocketTypes.js";
+import { ClientToServerEvents, ServerToClientEvents } from "../../../shared/SocketTypes.js";
+import type { Character, ConversationMessage } from "../../../shared/ModelTypes.js";
 import {
     SetupOptionsSchema,
     HumanMessageSchema,
