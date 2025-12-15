@@ -1,5 +1,6 @@
-
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { DialogGenerator } from '@logic/DialogGenerator.js';
+import { MockFactory } from './factories/MockFactory.ts';
 import { createTestManager } from './commonSetup.js';
 
 describe('DialogGenerator - Prompt Construction', () => {
@@ -30,8 +31,8 @@ describe('DialogGenerator - Prompt Construction', () => {
     it('should correctly format conversation history', () => {
         const speaker = manager.conversationOptions.characters[1]; // Tomato
         const conversation = [
-            { speaker: 'water', text: 'Hello', type: 'message' }, // Water (Chair)
-            { speaker: 'tomato', text: 'Hi there', type: 'message' } // Tomato (Self)
+            MockFactory.createMessage({ speaker: 'water', text: 'Hello' }), // Water (Chair)
+            MockFactory.createMessage({ speaker: 'tomato', text: 'Hi there' }) // Tomato (Self)
         ];
         const options = manager.conversationOptions;
 
@@ -56,15 +57,17 @@ describe('DialogGenerator - Prompt Construction', () => {
     it('should correctly format a Human Panelist in history', () => {
         const speaker = manager.conversationOptions.characters[1]; // Tomato
         const conversation = [
-            { speaker: 'alice', text: 'I agree', type: 'message' }
+            MockFactory.createMessage({ speaker: 'alice', text: 'I agree' })
         ];
 
         // Add human panelist "Alice"
-        manager.conversationOptions.characters.push({
-            id: 'alice',
-            name: 'Alice',
-            type: 'panelist'
-        });
+        manager.conversationOptions.characters.push(
+            MockFactory.createCharacter({
+                id: 'alice',
+                name: 'Alice',
+                type: 'panelist'
+            })
+        );
 
         const messages = dialogGenerator.buildMessageStack(speaker, conversation, manager.conversationOptions);
 
@@ -76,7 +79,7 @@ describe('DialogGenerator - Prompt Construction', () => {
         manager.conversationOptions.state.humanName = "Frank";
 
         const conversation = [
-            { speaker: 'Frank', text: 'What about sauce?', type: 'human' }
+            MockFactory.createMessage({ speaker: 'Frank', text: 'What about sauce?', type: 'human' })
         ];
 
         const messages = dialogGenerator.buildMessageStack(speaker, conversation, manager.conversationOptions);
