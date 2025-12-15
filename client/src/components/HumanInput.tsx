@@ -7,9 +7,18 @@ import { LiveAudioVisualizer } from 'react-audio-visualize';
 import Lottie from 'react-lottie-player';
 import loading from '../animations/loading.json';
 import { Socket } from "socket.io-client";
-import { ClientToServerEvents, ServerToClientEvents } from "@shared/SocketTypes";
+import { ClientToServerEvents, ServerToClientEvents, ClientKeyResponse } from "@shared/SocketTypes";
 import { Food } from "./settings/SelectFoods";
 import React from 'react';
+
+// OpenAI Realtime API Interfaces
+interface InputAudioTranscriptionCompletedEvent {
+  type: "conversation.item.input_audio_transcription.completed";
+  item_id: string;
+  transcript: string;
+}
+
+type OpenAIRealtimeEvent = InputAudioTranscriptionCompletedEvent; // Union with other events if needed
 
 interface HumanInputProps {
   foods: Food[];
@@ -18,6 +27,9 @@ interface HumanInputProps {
   onSubmitHumanMessage: (text: string, askParticular: string) => void;
   socketRef: React.MutableRefObject<Socket<ServerToClientEvents, ClientToServerEvents>>;
 }
+
+// Workaround for TextareaAutosize strict height type
+type TextareaStyle = Omit<React.CSSProperties, 'height'> & { height?: number };
 
 /**
  * HumanInput Component
@@ -109,7 +121,7 @@ function HumanInput({ foods, isPanelist, currentSpeakerName, onSubmitHumanMessag
     await pc.current.setRemoteDescription(answer);
 
     dc.addEventListener("message", (e) => {
-      const event = JSON.parse(e.data);
+      const event: OpenAIRealtimeEvent = JSON.parse(e.data);
       // Delta events are not working at the moment
       // https://community.openai.com/t/gpt-4o-transcribe-realtime-the-delta-updates-not-received-during-the-transcription/1357039
       // if (event.type === "conversation.item.input_audio_transcription.delta") {
@@ -136,7 +148,7 @@ function HumanInput({ foods, isPanelist, currentSpeakerName, onSubmitHumanMessag
       socketRef.current.emit('request_clientkey');
       initialized.current = true;
     }
-    const handleClientKey = (data: any) => {
+    const handleClientKey = (data: ClientKeyResponse) => {
       setClientKey(data.value);
     };
     socketRef.current.on('clientkey_response', handleClientKey);
@@ -228,7 +240,7 @@ function HumanInput({ foods, isPanelist, currentSpeakerName, onSubmitHumanMessag
     alignItems: "center"
   };
 
-  const textStyle: React.CSSProperties = {
+  const textStyle: TextareaStyle = {
     backgroundColor: "transparent",
     width: "70vw",
     color: "white",
@@ -348,7 +360,7 @@ function HumanInput({ foods, isPanelist, currentSpeakerName, onSubmitHumanMessag
       <div style={{ zIndex: "4", position: "relative", pointerEvents: "auto" }}>
         <TextareaAutosize
           ref={inputArea}
-          style={textStyle as any}
+          style={textStyle}
           onChange={inputChanged}
           onKeyDown={checkEnter}
           onFocus={inputFocused}
