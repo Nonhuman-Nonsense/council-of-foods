@@ -1,11 +1,13 @@
-import { splitSentences } from "../utils/textUtils.js";
+import { splitSentences } from "@utils/textUtils.js";
 import { Character } from "./SpeakerSelector.js";
+import { getOpenAI } from "@services/OpenAIService.js";
 import { Socket } from "socket.io";
-import { ClientToServerEvents, ServerToClientEvents } from "../../../shared/SocketTypes.js";
-import { ConversationMessage } from "../../../shared/ModelTypes.js";
+import { ClientToServerEvents, ServerToClientEvents } from "@shared/SocketTypes.js";
+import { ConversationMessage } from "@shared/ModelTypes.js";
+import { Logger } from "@utils/Logger.js";
 
-import { IMeetingManager, ConversationOptions, ConversationState } from "../interfaces/MeetingInterfaces.js";
-import { HandRaisedOptionsSchema } from "../models/ValidationSchemas.js";
+import { IMeetingManager, ConversationOptions, ConversationState } from "@interfaces/MeetingInterfaces.js";
+import { HandRaisedOptionsSchema } from "@models/ValidationSchemas.js";
 
 export interface HandRaisedOptions {
     index: number;

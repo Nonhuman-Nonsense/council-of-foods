@@ -1,10 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { MeetingManager } from '../src/logic/MeetingManager.js';
+import { MeetingManager } from '@logic/MeetingManager.js';
 import { setupTestOptions } from './testUtils.js';
-import { meetingsCollection } from '../src/services/DbService.js';
+import { meetingsCollection } from '@services/DbService.js';
+import { MockFactory } from './factories/MockFactory.ts';
 
 import { getTestMode, TEST_MODES } from './testUtils.js';
-import { getOpenAI } from '../src/services/OpenAIService.js';
+import { getOpenAI } from '@services/OpenAIService.js';
 
 // Reusable mock setup
 export const mockOpenAI = {
@@ -57,47 +58,57 @@ export const createTestManager = (env = 'test', optionsOverride = null, services
     mockSocket.on.mockImplementation((event, callback) => {
         mockSocket.handlers[event] = callback;
     });
-    const options = optionsOverride || setupTestOptions();
+
+    // Use MockFactory for options
+    const baseOptions = optionsOverride || setupTestOptions();
 
     // Merge defaults with provided services
     const defaultServices = setupTestDependencies();
     const finalServices = { ...defaultServices, ...services };
 
-    const manager = new MeetingManager(mockSocket, env, options, finalServices);
+    // Create Manager
+    const manager = new MeetingManager(mockSocket, env, baseOptions, finalServices);
 
-    // Common setup
-    manager.conversationOptions.characters = [
-        { id: 'water', name: 'Water', type: 'food' }, // Chair
-        { id: 'tomato', name: 'Tomato', type: 'food' },
-        { id: 'potato', name: 'Potato', type: 'food' }
-    ];
-    manager.conversationOptions.options = {
-        ...options,
-        chairId: 'water'
-    };
-    manager.conversationOptions.language = 'en';
-    manager.conversationOptions.state = { humanName: 'Frank' };
+    // Initialize with Mock Data
+    manager.conversationOptions = MockFactory.createConversationOptions({
+        ...baseOptions,
+        characters: [
+            MockFactory.createCharacter({ id: 'water', name: 'Water' }),
+            MockFactory.createCharacter({ id: 'tomato', name: 'Tomato' }),
+            MockFactory.createCharacter({ id: 'potato', name: 'Potato' })
+        ],
+        state: { humanName: 'Frank' },
+        options: {
+            ...MockFactory.createConversationOptions().options,
+            chairId: 'water',
+            ...baseOptions
+        }
+    });
+
+    // Ensure language is set if it was missing in baseOptions
+    if (!manager.conversationOptions.language) {
+        manager.conversationOptions.language = 'en';
+    }
 
     return { manager, mockSocket };
 };
 
 export const TestFactory = {
     createConversation: (length, lastSpeakerId = null, type = 'message') => {
-        const conv = [];
-        for (let i = 0; i < length; i++) {
-            conv.push({
-                id: `msg_${i}`,
-                type: type,
-                text: `Message ${i}`,
-                speaker: lastSpeakerId ? lastSpeakerId : (i % 2 === 0 ? 'water' : 'tomato')
-            });
-        }
+        // Use MockFactory but adapt to match old TestFactory behavior (Modulo speakers)
+        const speakers = ['water', 'tomato'];
+        const conv = Array.from({ length }, (_, i) => MockFactory.createMessage({
+            id: `msg_${i}`,
+            type: type,
+            text: `Message ${i}`,
+            speaker: lastSpeakerId ? lastSpeakerId : speakers[i % 2]
+        }));
         return conv;
     },
     createAwaitingPanelist: (speakerId) => {
-        return [{ type: 'awaiting_human_panelist', speaker: speakerId }];
+        return [MockFactory.createMessage({ type: 'awaiting_human_panelist', speaker: speakerId })];
     },
     createAwaitingQuestion: (humanName = 'Frank') => {
-        return [{ type: 'awaiting_human_question', speaker: humanName }];
+        return [MockFactory.createMessage({ type: 'awaiting_human_question', speaker: humanName })];
     }
 };

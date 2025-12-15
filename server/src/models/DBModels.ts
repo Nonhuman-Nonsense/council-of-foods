@@ -1,6 +1,6 @@
 import { Document } from "mongodb";
-import { ConversationMessage, Character } from "../logic/SpeakerSelector.js";
-import { GlobalOptions } from "../logic/GlobalOptions.js";
+import { ConversationMessage, Character } from "@logic/SpeakerSelector.js";
+import { GlobalOptions } from "@logic/GlobalOptions.js";
 
 // Re-using local interfaces or defining them here if they need to be shared broadly
 // For now, we import what we can.

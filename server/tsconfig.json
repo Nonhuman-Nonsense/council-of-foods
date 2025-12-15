@@ -5,6 +5,27 @@
         "moduleResolution": "NodeNext",
         "rootDir": "..",
         "outDir": "./dist",
+        "baseUrl": ".",
+        "paths": {
+            "@shared/*": [
+                "../shared/*"
+            ],
+            "@logic/*": [
+                "src/logic/*"
+            ],
+            "@services/*": [
+                "src/services/*"
+            ],
+            "@utils/*": [
+                "src/utils/*"
+            ],
+            "@models/*": [
+                "src/models/*"
+            ],
+            "@interfaces/*": [
+                "src/interfaces/*"
+            ]
+        },
         "esModuleInterop": true,
         "forceConsistentCasingInFileNames": true,
         "strict": true,

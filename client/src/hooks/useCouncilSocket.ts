@@ -1,5 +1,24 @@
-import { useEffect, useRef } from 'react';
-import io from 'socket.io-client';
+import { useEffect, useRef, MutableRefObject } from 'react';
+import { io, Socket } from 'socket.io-client';
+import {
+    ServerToClientEvents,
+    ClientToServerEvents,
+    AudioUpdatePayload,
+    ErrorPayload
+} from '@shared/SocketTypes';
+import { Character, ConversationMessage } from '@shared/ModelTypes';
+
+export interface UseCouncilSocketProps {
+    topic: { prompt: string;[key: string]: any };
+    participants: Character[];
+    lang: string;
+    onMeetingStarted?: (data: { meeting_id: number | string | null }) => void;
+    onAudioUpdate?: (data: AudioUpdatePayload) => void;
+    onConversationUpdate?: (data: ConversationMessage[]) => void;
+    onError?: (error: ErrorPayload) => void;
+    onConnectionError?: (error: Error) => void;
+    onReconnect?: () => void;
+}
 
 /**
  * useCouncilSocket Hook
@@ -7,18 +26,6 @@ import io from 'socket.io-client';
  * Manages the WebSocket connection for the Council meeting.
  * Handles connecting, emitting setup events, and dispatching incoming updates
  * to the provided callback functions.
- *
- * @param {Object} props
- * @param {Object} props.topic - The selected topic object.
- * @param {Array} props.participants - List of participants (foods/humans).
- * @param {string} props.lang - Language code (e.g. 'en').
- * @param {Function} props.onMeetingStarted - Callback when valid meeting init is received.
- * @param {Function} props.onAudioUpdate - Callback when an audio chunk arrives.
- * @param {Function} props.onConversationUpdate - Callback when text transcripts arrive.
- * @param {Function} props.onError - Callback for conversation logic errors.
- * @param {Function} props.onConnectionError - Callback for socket connection errors.
- * @param {Function} props.onReconnect - Callback for successful reconnection.
- * @returns {Object} socketRef - Ref containing the socket instance.
  */
 export const useCouncilSocket = ({
     topic,
@@ -30,27 +37,27 @@ export const useCouncilSocket = ({
     onError,
     onConnectionError,
     onReconnect
-}) => {
-    const socketRef = useRef(null);
+}: UseCouncilSocketProps): MutableRefObject<Socket<ServerToClientEvents, ClientToServerEvents> | null> => {
+    const socketRef = useRef<Socket<ServerToClientEvents, ClientToServerEvents> | null>(null);
 
     useEffect(() => {
         // Connect to the server
         socketRef.current = io();
 
-        socketRef.current.on('connect_error', err => {
+        socketRef.current.on('connect_error', (err: Error) => {
             console.error(err);
             if (onConnectionError) onConnectionError(err);
         });
 
-        socketRef.current.on('connect_failed', err => {
+        socketRef.current.on('connect_failed', (err: any) => {
             console.log(err);
         });
 
-        socketRef.current.on('disconnect', err => {
+        socketRef.current.on('disconnect', (err: any) => {
             console.log(err);
         });
 
-        let conversationOptions = {
+        const conversationOptions = {
             topic: topic.prompt,
             characters: participants,
             language: lang
@@ -79,7 +86,7 @@ export const useCouncilSocket = ({
         });
 
         // Add event listener for tab close
-        const handleTabClose = (event) => {
+        const handleTabClose = () => {
             if (socketRef.current) {
                 socketRef.current.disconnect();
             }

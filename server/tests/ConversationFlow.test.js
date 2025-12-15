@@ -1,8 +1,9 @@
+
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { meetingsCollection } from '../src/services/DbService.js';
-import { meetingsCollection } from '../src/services/DbService.js';
+import { meetingsCollection } from '@services/DbService.js';
 import { createTestManager, mockOpenAI } from './commonSetup.js';
-import { SpeakerSelector } from '../src/logic/SpeakerSelector.js';
+import { MockFactory } from './factories/MockFactory.ts';
+import { SpeakerSelector } from '@logic/SpeakerSelector.js';
 
 // Mock dependencies
 // vi.mock('../src/services/OpenAIService.js', () => ({
