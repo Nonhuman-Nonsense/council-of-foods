@@ -6,7 +6,18 @@ import { useTranslation } from "react-i18next";
 import { LiveAudioVisualizer } from 'react-audio-visualize';
 import Lottie from 'react-lottie-player';
 import loading from '../animations/loading.json';
+import { Socket } from "socket.io-client";
+import { ClientToServerEvents, ServerToClientEvents } from "@shared/SocketTypes";
+import { Food } from "./settings/SelectFoods";
+import React from 'react';
 
+interface HumanInputProps {
+  foods: Food[];
+  isPanelist: boolean;
+  currentSpeakerName: string;
+  onSubmitHumanMessage: (text: string, askParticular: string) => void;
+  socketRef: React.MutableRefObject<Socket<ServerToClientEvents, ClientToServerEvents>>;
+}
 
 /**
  * HumanInput Component
@@ -17,32 +28,26 @@ import loading from '../animations/loading.json';
  * - **Voice Input**: Establishes a WebRTC connection to OpenAI ('startRealtimeSession') to stream audio and receive live transcripts.
  * - **Text Input**: Provides a fallback manual text entry.
  * - **Targeting**: Should allow selection of specific characters to address (logic partially implemented via `askParticular`).
- * 
- * @param {Object} props
- * @param {Array} props.foods - List of active food participants.
- * @param {boolean} props.isPanelist - Mode flag: True if acting as a specific human panelist (interruption), False if general audience entry.
- * @param {string} props.currentSpeakerName - Context for placeholder text.
- * @param {Function} props.onSubmitHumanMessage - Callback to send final text to server.
- * @param {Object} props.socketRef - Socket reference for requesting client keys.
  */
-function HumanInput({ foods, isPanelist, currentSpeakerName, onSubmitHumanMessage, socketRef }) {
-  const [clientKey, setClientKey] = useState(null);
-  const [recordingState, setRecordingState] = useState("idle");
-  const [canContinue, setCanContinue] = useState(false);
-  const [transcript, setTranscript] = useState({});
-  const [previousTranscript, setPreviousTranscript] = useState("");
-  const [askParticular, setAskParticular] = useState("");
-  const [someoneHovered, setSomeoneHovered] = useState(false);
-  const inputArea = useRef(null);
+function HumanInput({ foods, isPanelist, currentSpeakerName, onSubmitHumanMessage, socketRef }: HumanInputProps): React.ReactElement {
+  const [clientKey, setClientKey] = useState<string | null>(null);
+  const [recordingState, setRecordingState] = useState<"idle" | "loading" | "recording">("idle");
+  const [canContinue, setCanContinue] = useState<boolean>(false);
+  const [transcript, setTranscript] = useState<Record<string, string>>({});
+  const [previousTranscript, setPreviousTranscript] = useState<string>("");
+  const [askParticular, setAskParticular] = useState<string>("");
+  const [someoneHovered, setSomeoneHovered] = useState<boolean>(false);
+
+  const inputArea = useRef<HTMLTextAreaElement>(null);
   const isMobile = useMobile();
 
-  const [mediaRecorder, setMediaRecorder] = useState(null);
+  const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
 
-  const initialized = useRef(false);
-  const pc = useRef(null);
-  const mic = useRef(null);
+  const initialized = useRef<boolean>(false);
+  const pc = useRef<RTCPeerConnection | null>(null);
+  const mic = useRef<MediaStream | null>(null);
 
-  const [rerender, forceRerender] = useState(false);
+  const [rerender, forceRerender] = useState<boolean>(false);
   const { t } = useTranslation();
 
   const maxInputLength = isPanelist ? 1300 : 700;
@@ -99,7 +104,8 @@ function HumanInput({ foods, isPanelist, currentSpeakerName, onSubmitHumanMessag
     const answer = {
       type: "answer",
       sdp: await sdpResponse.text(),
-    };
+    } as RTCSessionDescriptionInit;
+
     await pc.current.setRemoteDescription(answer);
 
     dc.addEventListener("message", (e) => {
@@ -115,8 +121,9 @@ function HumanInput({ foods, isPanelist, currentSpeakerName, onSubmitHumanMessag
       // }
       if (event.type === "conversation.item.input_audio_transcription.completed") {
         setTranscript(prev => {
-          prev[event.item_id] = event.transcript;
-          return { ...prev };
+          const newTranscript = { ...prev };
+          newTranscript[event.item_id] = event.transcript;
+          return newTranscript;
         });
       }
     });
@@ -129,11 +136,12 @@ function HumanInput({ foods, isPanelist, currentSpeakerName, onSubmitHumanMessag
       socketRef.current.emit('request_clientkey');
       initialized.current = true;
     }
-    socketRef.current.on('clientkey_response', (data) => {
+    const handleClientKey = (data: any) => {
       setClientKey(data.value);
-    });
+    };
+    socketRef.current.on('clientkey_response', handleClientKey);
     return () => {
-      socketRef.current.off('clientkey_response');
+      socketRef.current.off('clientkey_response', handleClientKey);
       pc.current?.close();
       mic.current?.getTracks().forEach(track => track.stop());
     }
@@ -148,6 +156,8 @@ function HumanInput({ foods, isPanelist, currentSpeakerName, onSubmitHumanMessag
   }
 
   useEffect(() => {
+    if (!inputArea.current) return;
+
     if (recordingState === 'loading') {
       setPreviousTranscript(inputArea.current.value);
     } else if (recordingState === 'recording') {
@@ -167,19 +177,19 @@ function HumanInput({ foods, isPanelist, currentSpeakerName, onSubmitHumanMessag
     inputChanged();
   }, [transcript, recordingState]);
 
-  function inputFocused(e) {
+  function inputFocused(e: React.FocusEvent) {
     setRecordingState('idle');
   }
 
-  function inputChanged(e) {
-    if (inputArea.current.value.length > 0 && inputArea.current.value.trim().length !== 0) {
+  function inputChanged(e?: React.ChangeEvent) {
+    if (inputArea.current && inputArea.current.value.length > 0 && inputArea.current.value.trim().length !== 0) {
       setCanContinue(true);
     } else {
       setCanContinue(false);
     }
   }
 
-  function checkEnter(e) {
+  function checkEnter(e: React.KeyboardEvent) {
     if (canContinue && !e.shiftKey && e.key === "Enter") {
       e.preventDefault();
       submitAndContinue();
@@ -187,10 +197,12 @@ function HumanInput({ foods, isPanelist, currentSpeakerName, onSubmitHumanMessag
   }
 
   function submitAndContinue() {
-    onSubmitHumanMessage(inputArea.current.value.substring(0, maxInputLength), askParticular);
+    if (inputArea.current) {
+      onSubmitHumanMessage(inputArea.current.value.substring(0, maxInputLength), askParticular);
+    }
   }
 
-  const wrapperStyle = {
+  const wrapperStyle: React.CSSProperties = {
     position: "absolute",
     bottom: "0",
     display: "flex",
@@ -198,17 +210,17 @@ function HumanInput({ foods, isPanelist, currentSpeakerName, onSubmitHumanMessag
     alignItems: "center",
   };
 
-  const micStyle = {
+  const micStyle: React.CSSProperties = {
     position: "absolute",
-    bottom: "-2" + dvh,
-    height: "45" + dvh,
+    bottom: `-${2}${dvh}`,
+    height: `${45}${dvh}`,
     minHeight: "135px",
     zIndex: "0",
     animation: "4s micAppearing",
     animationFillMode: "both",
   };
 
-  const divStyle = {
+  const divStyle: React.CSSProperties = {
     width: isMobile ? "45px" : "56px",
     height: isMobile ? "45px" : "56px",
     zIndex: "3",
@@ -216,7 +228,7 @@ function HumanInput({ foods, isPanelist, currentSpeakerName, onSubmitHumanMessag
     alignItems: "center"
   };
 
-  const textStyle = {
+  const textStyle: React.CSSProperties = {
     backgroundColor: "transparent",
     width: "70vw",
     color: "white",
@@ -224,21 +236,21 @@ function HumanInput({ foods, isPanelist, currentSpeakerName, onSubmitHumanMessag
     border: "0",
     fontFamily: "Arial, sans-serif",
     fontSize: isMobile ? "18px" : "25px",
-    margin: isMobile && "0",
-    marginBottom: isMobile && "-8px",
+    margin: isMobile ? "0" : undefined,
+    marginBottom: isMobile ? "-8px" : undefined,
     lineHeight: "1.1em",
     resize: "none",
     padding: "0",
   };
 
   // This is same calculation as in the FoodItem
-  const overViewFoodItemStyle = (index, total) => {
+  const overViewFoodItemStyle = (index: number, total: number): React.CSSProperties => {
     const left = (index / (total - 1)) * 100;
 
     const topMax = 3.0; // The curvature
     const topOffset = 14.5; // Vertical offset to adjust the curve's baseline
 
-    let middleIndex;
+    let middleIndex: number;
     let isEven = total % 2 === 0;
     if (isEven) {
       middleIndex = total / 2 - 1;
@@ -246,14 +258,14 @@ function HumanInput({ foods, isPanelist, currentSpeakerName, onSubmitHumanMessag
       middleIndex = (total - 1) / 2;
     }
 
-    let a;
+    let a: number;
     if (isEven) {
       a = topMax / Math.pow(middleIndex + 0.5, 2);
     } else {
       a = topMax / Math.pow(middleIndex, 2);
     }
 
-    let top;
+    let top: number;
     if (isEven) {
       const distanceFromMiddle = Math.abs(index - middleIndex - 0.5);
       top = a * Math.pow(distanceFromMiddle, 2) + topMax - topOffset;
@@ -277,7 +289,7 @@ function HumanInput({ foods, isPanelist, currentSpeakerName, onSubmitHumanMessag
     };
   };
 
-  const ringStyle = {
+  const ringStyle: React.CSSProperties = {
     position: "absolute",
     top: "62%",
     left: "50%",
@@ -288,16 +300,16 @@ function HumanInput({ foods, isPanelist, currentSpeakerName, onSubmitHumanMessag
     alignItems: "center",
   };
 
-  const deselectorStyle = {
+  const deselectorStyle: React.CSSProperties = {
     position: "absolute",
-    top: "15" + dvh,
-    height: "60" + dvh,
+    top: `${15}${dvh}`,
+    height: `${60}${dvh}`,
     width: "100vw",
     pointerEvents: "auto",
     zIndex: "-1"
   };
 
-  const selectTooltip = {
+  const selectTooltip: React.CSSProperties = {
     fontSize: "20px",
     opacity: someoneHovered ? "0.9" : "0",
     transition: "opacity 0.2s",
@@ -320,7 +332,7 @@ function HumanInput({ foods, isPanelist, currentSpeakerName, onSubmitHumanMessag
       <div style={{ ...ringStyle, zIndex: "0" }}>
         {foods.map((food, index) => (
           <div
-            style={{ ...overViewFoodItemStyle(mapFoodIndex(foods.length, index), foods.length), border: askParticular === food.name && "3px solid rgba(255,255,255,0.8)", pointerEvents: "auto" }}
+            style={{ ...overViewFoodItemStyle(mapFoodIndex(foods.length, index), foods.length), border: askParticular === food.name ? "3px solid rgba(255,255,255,0.8)" : undefined, pointerEvents: "auto" }}
             className="ringHover"
             key={index}
             onClick={() => setAskParticular(food.name)}
@@ -336,13 +348,13 @@ function HumanInput({ foods, isPanelist, currentSpeakerName, onSubmitHumanMessag
       <div style={{ zIndex: "4", position: "relative", pointerEvents: "auto" }}>
         <TextareaAutosize
           ref={inputArea}
-          style={textStyle}
+          style={textStyle as any}
           onChange={inputChanged}
           onKeyDown={checkEnter}
           onFocus={inputFocused}
           className="unfocused"
-          minRows="1"
-          maxRows="6"
+          minRows={1}
+          maxRows={6}
           cacheMeasurements={rerender}
           maxLength={maxInputLength}
           placeholder={isPanelist ? t('human.panelist', { name: currentSpeakerName }) : t("human.1")}
@@ -364,7 +376,7 @@ function HumanInput({ foods, isPanelist, currentSpeakerName, onSubmitHumanMessag
         </div>
         <div style={divStyle}>
           {recordingState === 'loading' &&
-            <Lottie play loop animationData={loading} style={{ height: isMobile ? "45px" : "56px" }} />
+            <Lottie play loop animationData={loading} style={{ height: isMobile ? 45 : 56 }} />
           }
           {recordingState !== 'loading' &&
             <ConversationControlIcon

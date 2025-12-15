@@ -19,7 +19,7 @@ interface GlobalOptions {
 
 const globalOptions: GlobalOptions = globalOptionsData;
 
-interface Food extends Partial<Character> {
+export interface Food extends Partial<Character> {
   id: string; // Required
   name: string; // Required
   description: string;

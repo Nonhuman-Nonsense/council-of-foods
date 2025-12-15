@@ -16,7 +16,7 @@ import { useMobile } from "../utils";
 interface ConversationControlIconProps {
   icon: string;
   hoverIcon?: string;
-  tooltip: string;
+  tooltip?: string;
   onClick: () => void;
 }
 
