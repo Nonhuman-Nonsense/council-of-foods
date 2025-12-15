@@ -7,10 +7,11 @@
   "type": "module",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "e2e-server": "cross-env NODE_ENV=test node server.js",
-    "dev": "cross-env NODE_ENV=development USE_TEST_OPTIONS=true nodemon server.js",
-    "proto": "cross-env NODE_ENV=prototype node server.js",
+    "start": "node dist/server.js",
+    "build": "tsc",
+    "e2e-server": "cross-env NODE_ENV=test node dist/server.js",
+    "dev": "cross-env NODE_ENV=development USE_TEST_OPTIONS=true nodemon --exec ts-node server.js",
+    "proto": "cross-env NODE_ENV=prototype node dist/server.js",
     "protodev": "cross-env NODE_ENV=prototype nodemon server.js",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -30,10 +31,15 @@
     "uuid": "^13.0.0"
   },
   "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^25.0.2",
+    "@types/uuid": "^10.0.0",
     "@vitest/coverage-v8": "^4.0.15",
     "mongodb-memory-server": "^10.4.1",
     "nodemon": "^3.1.10",
     "socket.io-client": "^4.8.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3",
     "vitest": "^4.0.15"
   }
 }
