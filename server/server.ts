@@ -7,7 +7,7 @@ import { Server, Socket } from "socket.io";
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-import { initReporting } from './errorbot.js';
+import { initReporting, reportError } from './errorbot.js';
 import { initDb } from './src/services/DbService.js';
 import { initOpenAI } from './src/services/OpenAIService.js';
 import { MeetingManager } from './src/logic/MeetingManager.js';
@@ -17,11 +17,12 @@ import { EnvSchema } from './src/models/ValidationSchemas.js';
 // Validate Env
 const envParse = EnvSchema.safeParse(process.env);
 if (!envParse.success) {
-  console.error("❌ Invalid environment variables:", JSON.stringify(envParse.error.format(), null, 2));
-  process.exit(1);
+  const errorMsg = "❌ Invalid environment variables: " + JSON.stringify(envParse.error.format(), null, 2);
+  console.error(errorMsg);
+  reportError(new Error(errorMsg)).then(() => process.exit(1));
 }
 
-const environment: string = envParse.data.NODE_ENV;
+const environment: string = envParse.data ? envParse.data.NODE_ENV : "production";
 const __filename: string = fileURLToPath(import.meta.url);
 const __dirname: string = path.dirname(__filename);
 
@@ -33,15 +34,16 @@ const io = new Server(httpServer, {
 
 // Initialize Services
 initReporting();
-initDb().catch((e: any) => {
+initDb().catch(async (e: any) => {
   console.error("Failed to initialize Database:", e);
+  await reportError(e);
   process.exit(1);
 });
 try {
   initOpenAI();
 } catch (e: any) {
   console.error("Failed to initialize OpenAI:", e);
-  process.exit(1);
+  reportError(e).then(() => process.exit(1));
 }
 
 console.log(`[init] node_env is ${environment}`);

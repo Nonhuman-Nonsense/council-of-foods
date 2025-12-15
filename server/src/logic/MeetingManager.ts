@@ -127,25 +127,41 @@ export class MeetingManager {
         // Use handlers with Zod Validation
         this.socket.on("submit_human_message", (msg) => {
             const parse = HumanMessageSchema.safeParse(msg);
-            if (!parse.success) return console.error("Invalid submit_human_message payload", parse.error);
+            if (!parse.success) {
+                console.error("Invalid submit_human_message payload", parse.error);
+                reportError(new Error(`Invalid submit_human_message payload: ${JSON.stringify(parse.error.format())}`));
+                return;
+            }
             this.humanInputHandler.handleSubmitHumanMessage(parse.data);
         });
 
         this.socket.on("submit_human_panelist", (msg) => {
             const parse = HumanMessageSchema.safeParse(msg);
-            if (!parse.success) return console.error("Invalid submit_human_panelist payload", parse.error);
+            if (!parse.success) {
+                console.error("Invalid submit_human_panelist payload", parse.error);
+                reportError(new Error(`Invalid submit_human_panelist payload: ${JSON.stringify(parse.error.format())}`));
+                return;
+            }
             this.humanInputHandler.handleSubmitHumanPanelist(parse.data);
         });
 
         this.socket.on("submit_injection", (msg) => {
             const parse = InjectionMessageSchema.safeParse(msg);
-            if (!parse.success) return console.error("Invalid submit_injection payload", parse.error);
+            if (!parse.success) {
+                console.error("Invalid submit_injection payload", parse.error);
+                reportError(new Error(`Invalid submit_injection payload: ${JSON.stringify(parse.error.format())}`));
+                return;
+            }
             this.humanInputHandler.handleSubmitInjection(parse.data);
         });
 
         this.socket.on("raise_hand", (msg) => {
             const parse = HandRaisedOptionsSchema.safeParse(msg);
-            if (!parse.success) return console.error("Invalid raise_hand payload", parse.error);
+            if (!parse.success) {
+                console.error("Invalid raise_hand payload", parse.error);
+                reportError(new Error(`Invalid raise_hand payload: ${JSON.stringify(parse.error.format())}`));
+                return;
+            }
             this.handRaisingHandler.handleRaiseHand(parse.data);
         });
 
@@ -157,13 +173,21 @@ export class MeetingManager {
 
         this.socket.on('attempt_reconnection', (options) => {
             const parse = ReconnectionOptionsSchema.safeParse(options);
-            if (!parse.success) return console.error("Invalid attempt_reconnection payload", parse.error);
+            if (!parse.success) {
+                console.error("Invalid attempt_reconnection payload", parse.error);
+                reportError(new Error(`Invalid attempt_reconnection payload: ${JSON.stringify(parse.error.format())}`));
+                return;
+            }
             this.connectionHandler.handleReconnection(parse.data);
         });
 
         this.socket.on("start_conversation", async (setup) => {
             const parse = SetupOptionsSchema.safeParse(setup);
-            if (!parse.success) return console.error("Invalid start_conversation payload", parse.error);
+            if (!parse.success) {
+                console.error("Invalid start_conversation payload", parse.error);
+                reportError(new Error(`Invalid start_conversation payload: ${JSON.stringify(parse.error.format())}`));
+                return;
+            }
             this.meetingLifecycleHandler.handleStartConversation(parse.data);
         });
 

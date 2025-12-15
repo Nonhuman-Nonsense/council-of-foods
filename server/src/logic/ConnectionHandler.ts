@@ -3,7 +3,7 @@ import { reportError } from "../../errorbot.js";
 import { Character, ConversationMessage } from "./SpeakerSelector.js";
 import { GlobalOptions } from "./GlobalOptions.js";
 import { Socket } from "socket.io";
-import { ClientToServerEvents, ServerToClientEvents } from "../models/SocketTypes.js";
+import { ClientToServerEvents, ServerToClientEvents, ReconnectionOptions } from "../models/SocketTypes.js";
 
 // Local interface until MeetingManager is migrated
 interface ConversationState {
@@ -36,11 +36,6 @@ interface IMeetingManager {
     extraMessageCount: number;
 }
 
-export interface ReconnectionOptions {
-    meetingId: string | number; // Client might send string or number
-    handRaised: boolean;
-    conversationMaxLength: number;
-}
 
 /**
  * Manages socket connection events (disconnect, reconnect).
@@ -60,7 +55,10 @@ export class ConnectionHandler {
      */
     handleDisconnect(): void {
         const { manager } = this;
-        console.log(`[session ${manager.socket.id} meeting ${manager.meetingId}] disconnected`);
+        // Check if socket is defined/connected before accessing property if needed, though 'id' should be there if it was connected
+        if (manager.socket) {
+            console.log(`[session ${manager.socket.id} meeting ${manager.meetingId}] disconnected`);
+        }
         manager.run = false;
     }
 
@@ -83,10 +81,10 @@ export class ConnectionHandler {
                 manager.conversation = existingMeeting.conversation;
                 manager.conversationOptions = existingMeeting.options;
                 manager.meetingDate = new Date(existingMeeting.date);
-                manager.handRaised = options.handRaised;
-                manager.extraMessageCount =
-                    options.conversationMaxLength -
-                    manager.conversationOptions.options.conversationMaxLength;
+                manager.handRaised = options.handRaised ?? false;
+
+                const clientMax = options.conversationMaxLength ?? manager.conversationOptions.options.conversationMaxLength;
+                manager.extraMessageCount = clientMax - manager.conversationOptions.options.conversationMaxLength;
 
                 // Missing audio regen logic
                 let missingAudio: ConversationMessage[] = [];

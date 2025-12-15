@@ -1,5 +1,5 @@
 import { ConversationMessage, Character } from "../logic/SpeakerSelector.js";
-import { AudioSystemOptions } from "../logic/AudioSystem.js";
+
 
 // Re-defining or importing types that are passed over the socket
 
@@ -27,8 +27,8 @@ export interface HandRaisedOptions {
 
 export interface ReconnectionOptions {
     meetingId: string | number;
-    handRaised: boolean;
-    conversationMaxLength: number;
+    handRaised?: boolean;
+    conversationMaxLength?: number;
 }
 
 export interface SetupOptions {
