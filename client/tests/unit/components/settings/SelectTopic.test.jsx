@@ -200,4 +200,101 @@ describe('SelectTopic Component', () => {
         fireEvent.click(screen.getByText('Confirm Reset'));
         expect(mockOnReset).toHaveBeenCalledWith({ topic: 'topic2', custom: '' });
     });
+
+    it('updates tooltip text based on hover and selection priority', () => {
+        render(
+            <SelectTopic
+                topics={mockTopics}
+                onContinueForward={mockOnContinue}
+                onReset={mockOnReset}
+                onCancel={mockOnCancel}
+                currentTopic={null}
+            />
+        );
+
+        // Default: "The Issue" instruction (mocked as key 'selectissue')
+        expect(screen.getByText('selectissue')).toBeInTheDocument();
+
+        // Hover Topic One -> Shows "Desc One"
+        fireEvent.mouseEnter(screen.getByText('Topic One'));
+        expect(screen.getByText('Desc One')).toBeInTheDocument();
+
+        // Leave -> Returns to Default
+        fireEvent.mouseLeave(screen.getByText('Topic One'));
+        expect(screen.getByText('selectissue')).toBeInTheDocument();
+
+        // Select Topic Two -> Shows "Desc Two"
+        fireEvent.click(screen.getByText('Topic Two'));
+        expect(screen.getByText('Desc Two')).toBeInTheDocument();
+
+        // Hover Topic One WHILE Topic Two is selected -> Shows "Desc One" (Hover > Selected)
+        fireEvent.mouseEnter(screen.getByText('Topic One'));
+        expect(screen.getByText('Desc One')).toBeInTheDocument();
+
+        // Leave -> Returns to "Desc Two" (Selected)
+        fireEvent.mouseLeave(screen.getByText('Topic One'));
+        expect(screen.getByText('Desc Two')).toBeInTheDocument();
+    });
+
+    it('hides/shows Next button based on validation', () => {
+        render(
+            <SelectTopic
+                topics={mockTopics}
+                onContinueForward={mockOnContinue}
+                onReset={mockOnReset}
+                onCancel={mockOnCancel}
+                currentTopic={null}
+            />
+        );
+
+        const nextBtn = screen.getByText('next');
+
+        // Initially hidden (no selection)
+        expect(nextBtn).not.toBeVisible();
+
+        // Select normal topic -> Visible
+        fireEvent.click(screen.getByText('Topic One'));
+        expect(nextBtn).toBeVisible();
+
+        // Select custom topic -> Hidden (textarea empty)
+        fireEvent.click(screen.getByText('Write your own'));
+        expect(nextBtn).not.toBeVisible();
+
+        // Type in custom topic -> Visible
+        const textarea = screen.getByPlaceholderText('writetopic');
+        fireEvent.change(textarea, { target: { value: 'Something' } });
+        expect(nextBtn).toBeVisible();
+
+        // Clear custom topic -> Hidden
+        fireEvent.change(textarea, { target: { value: '   ' } });
+        expect(nextBtn).not.toBeVisible();
+    });
+
+    it('shows custom text box when hovering custom topic button', () => {
+        render(
+            <SelectTopic
+                topics={mockTopics}
+                onContinueForward={mockOnContinue}
+                onReset={mockOnReset}
+                onCancel={mockOnCancel}
+                currentTopic={null}
+            />
+        );
+
+        const textarea = screen.getByPlaceholderText('writetopic');
+        const customBtn = screen.getByText('Write your own');
+
+        // Initially hidden
+        expect(textarea).not.toBeVisible();
+
+        // Hover Custom -> Visible
+        fireEvent.mouseEnter(customBtn);
+        // Note: component uses `display: none` for hidden style. 
+        // `toBeVisible` checks visibility.
+        expect(textarea).toBeVisible();
+
+        // Leave Custom -> Hidden
+        fireEvent.mouseLeave(customBtn);
+        expect(textarea).not.toBeVisible();
+    });
 });
