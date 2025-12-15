@@ -16,6 +16,13 @@ import { Collection, InsertOneResult } from "mongodb";
 import { OpenAI } from "openai";
 import { Socket } from "socket.io";
 import { ClientToServerEvents, ServerToClientEvents } from "../models/SocketTypes.js";
+import {
+    SetupOptionsSchema,
+    HumanMessageSchema,
+    InjectionMessageSchema,
+    HandRaisedOptionsSchema,
+    ReconnectionOptionsSchema
+} from "../models/ValidationSchemas.js";
 
 interface Services {
     meetingsCollection: Collection<Meeting>;
@@ -117,16 +124,51 @@ export class MeetingManager {
             this.setupPrototypeListeners();
         }
 
-        this.socket.on("start_conversation", async (setup: any) => this.meetingLifecycleHandler.handleStartConversation(setup));
+        // Use handlers with Zod Validation
+        this.socket.on("submit_human_message", (msg) => {
+            const parse = HumanMessageSchema.safeParse(msg);
+            if (!parse.success) return console.error("Invalid submit_human_message payload", parse.error);
+            this.humanInputHandler.handleSubmitHumanMessage(parse.data);
+        });
+
+        this.socket.on("submit_human_panelist", (msg) => {
+            const parse = HumanMessageSchema.safeParse(msg);
+            if (!parse.success) return console.error("Invalid submit_human_panelist payload", parse.error);
+            this.humanInputHandler.handleSubmitHumanPanelist(parse.data);
+        });
+
+        this.socket.on("submit_injection", (msg) => {
+            const parse = InjectionMessageSchema.safeParse(msg);
+            if (!parse.success) return console.error("Invalid submit_injection payload", parse.error);
+            this.humanInputHandler.handleSubmitInjection(parse.data);
+        });
+
+        this.socket.on("raise_hand", (msg) => {
+            const parse = HandRaisedOptionsSchema.safeParse(msg);
+            if (!parse.success) return console.error("Invalid raise_hand payload", parse.error);
+            this.handRaisingHandler.handleRaiseHand(parse.data);
+        });
+
+        this.socket.on("wrap_up_meeting", (msg) => {
+            // Basic object check till we define strict schema for this one
+            if (!msg || typeof msg !== 'object') return console.error("Invalid wrap_up_meeting payload");
+            this.meetingLifecycleHandler.handleWrapUpMeeting(msg);
+        });
+
+        this.socket.on('attempt_reconnection', (options) => {
+            const parse = ReconnectionOptionsSchema.safeParse(options);
+            if (!parse.success) return console.error("Invalid attempt_reconnection payload", parse.error);
+            this.connectionHandler.handleReconnection(parse.data);
+        });
+
+        this.socket.on("start_conversation", async (setup) => {
+            const parse = SetupOptionsSchema.safeParse(setup);
+            if (!parse.success) return console.error("Invalid start_conversation payload", parse.error);
+            this.meetingLifecycleHandler.handleStartConversation(parse.data);
+        });
+
         this.socket.on("disconnect", () => this.connectionHandler.handleDisconnect());
 
-        // Use handlers
-        this.socket.on("submit_human_message", (msg: any) => this.humanInputHandler.handleSubmitHumanMessage(msg));
-        this.socket.on("submit_human_panelist", (msg: any) => this.humanInputHandler.handleSubmitHumanPanelist(msg));
-        this.socket.on("submit_injection", (msg: any) => this.humanInputHandler.handleSubmitInjection(msg));
-        this.socket.on("raise_hand", (msg: any) => this.handRaisingHandler.handleRaiseHand(msg));
-        this.socket.on("wrap_up_meeting", (msg: any) => this.meetingLifecycleHandler.handleWrapUpMeeting(msg));
-        this.socket.on('attempt_reconnection', (options: any) => this.connectionHandler.handleReconnection(options));
         this.socket.on('continue_conversation', () => this.meetingLifecycleHandler.handleContinueConversation());
         this.socket.on('request_clientkey', async () => this.meetingLifecycleHandler.handleRequestClientKey());
     }

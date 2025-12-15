@@ -12,7 +12,16 @@ import { initDb } from './src/services/DbService.js';
 import { initOpenAI } from './src/services/OpenAIService.js';
 import { MeetingManager } from './src/logic/MeetingManager.js';
 
-const environment: string = process.env.NODE_ENV ?? "production";
+import { EnvSchema } from './src/models/ValidationSchemas.js';
+
+// Validate Env
+const envParse = EnvSchema.safeParse(process.env);
+if (!envParse.success) {
+  console.error("❌ Invalid environment variables:", JSON.stringify(envParse.error.format(), null, 2));
+  process.exit(1);
+}
+
+const environment: string = envParse.data.NODE_ENV;
 const __filename: string = fileURLToPath(import.meta.url);
 const __dirname: string = path.dirname(__filename);
 
