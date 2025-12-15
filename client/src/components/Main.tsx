@@ -77,7 +77,7 @@ interface MainProps {
  */
 function Main({ lang }: MainProps): JSX.Element {
     const [topics] = useState<Topic[]>([
-        ...Object.values(topicDataEN).map((t: any) => ({ ...t, type: 'predefined' })) // Cast to any to avoid complex JSON typing
+        ...topicDataEN.topics.map((t: any) => ({ ...t, type: 'predefined' })) // Cast to any to avoid complex JSON typing
     ]);
     const [chosenTopic, setChosenTopic] = useState<Partial<Topic>>({});
     const [customTopic, setCustomTopic] = useState<string>("");
