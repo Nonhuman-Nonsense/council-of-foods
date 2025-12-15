@@ -1,4 +1,4 @@
-import type { ConversationMessage, Character } from "./ModelTypes.js";
+import type { ConversationMessage, Character, Sentence } from "./ModelTypes.js";
 
 
 // Re-defining or importing types that are passed over the socket
@@ -41,7 +41,7 @@ export interface SetupOptions {
 export interface AudioUpdatePayload {
     id: string;
     audio?: Buffer;
-    sentences?: any[];
+    sentences?: Sentence[];
     type?: string;
     [key: string]: any;
 }

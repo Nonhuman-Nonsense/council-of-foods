@@ -21,3 +21,9 @@ export interface ConversationState {
     humanName?: string;
     [key: string]: any;
 }
+
+export interface Sentence {
+    text: string;
+    start: number;
+    end: number;
+}

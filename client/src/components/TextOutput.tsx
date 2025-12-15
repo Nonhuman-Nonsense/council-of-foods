@@ -1,12 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useMobile } from "../utils";
+import { Sentence } from "@shared/ModelTypes";
 import React from 'react';
-
-interface Sentence {
-  text: string;
-  start: number;
-  end: number;
-}
 
 interface AudioMessage {
   sentences?: Sentence[];
