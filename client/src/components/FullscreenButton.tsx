@@ -26,7 +26,7 @@ const FullscreenButton = () => {
   }, []);
 
   const toggleFullscreen = () => {
-    const element = document.documentElement;
+    const element = document.documentElement as any;
     if (!document.fullscreenElement) {
       if (element.requestFullscreen) {
         element.requestFullscreen();
@@ -41,17 +41,18 @@ const FullscreenButton = () => {
         element.msRequestFullscreen();
       }
     } else {
+      const doc = document as any;
       if (document.exitFullscreen) {
         document.exitFullscreen();
-      } else if (document.mozCancelFullScreen) {
+      } else if (doc.mozCancelFullScreen) {
         // Firefox
-        document.mozCancelFullScreen();
-      } else if (document.webkitExitFullscreen) {
+        doc.mozCancelFullScreen();
+      } else if (doc.webkitExitFullscreen) {
         // Chrome, Safari and Opera
-        document.webkitExitFullscreen();
-      } else if (document.msExitFullscreen) {
+        doc.webkitExitFullscreen();
+      } else if (doc.msExitFullscreen) {
         // IE/Edge
-        document.msExitFullscreen();
+        doc.msExitFullscreen();
       }
     }
   };
@@ -78,12 +79,12 @@ const FullscreenButton = () => {
   );
 };
 
-const styles = {
+const styles: { [key: string]: React.CSSProperties } = {
   container: {
     position: "fixed",
     bottom: "6px",
     right: "10px",
-    opacity: '0.7',
+    opacity: 0.7,
     zIndex: 10,
     pointerEvents: "auto",
   },

@@ -13,12 +13,19 @@ import { useMobile } from "../utils";
  * @param {string} props.tooltip - Alt text for the icon.
  * @param {Function} props.onClick - Click handler.
  */
+interface ConversationControlIconProps {
+  icon: string;
+  hoverIcon?: string;
+  tooltip: string;
+  onClick: () => void;
+}
+
 function ConversationControlIcon({
   icon,
   hoverIcon,
   tooltip,
   onClick
-}) {
+}: ConversationControlIconProps) {
   let [isHover, setHover] = useState(false);
   const isMobile = useMobile();
 
@@ -30,7 +37,7 @@ function ConversationControlIcon({
   /*                                    Styles                                  */
   /* -------------------------------------------------------------------------- */
 
-  const buttonStyle = {
+  const buttonStyle: React.CSSProperties = {
     marginLeft: "4px",
     marginRight: "4px",
     width: isMobile ? "45px" : "56px",
@@ -43,7 +50,7 @@ function ConversationControlIcon({
     position: "relative",
   };
 
-  const sharedStyle = {
+  const sharedStyle: React.CSSProperties = {
     position: "absolute",
     // left: "0",
     width: isMobile ? "30px" : "40px",

@@ -8,11 +8,11 @@ import { useTranslation } from 'react-i18next';
  * Displays an animation instructing the user to rotate their device.
  * Used when the device is in portrait mode but the application requires landscape.
  */
-function RotateDevice() {
+function RotateDevice(): React.ReactElement {
 
   const { t } = useTranslation();
 
-  const wrapper = {
+  const wrapper: React.CSSProperties = {
     display: "flex",
     alignItems: "center",
     flexDirection: "column"

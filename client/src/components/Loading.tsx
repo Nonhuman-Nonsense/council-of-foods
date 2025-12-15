@@ -8,7 +8,7 @@ import { useMobile } from "../utils";
  * Displays an animated Lottie spinner.
  * Centered vertically with a slight offset for visual balance.
  */
-function Loading() {
+function Loading(): React.ReactElement {
 
   const isMobile = useMobile();
 
