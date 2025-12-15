@@ -1,5 +1,24 @@
 import { useState, useEffect, useRef } from "react";
 import { useMobile } from "../utils";
+import React from 'react';
+
+interface Sentence {
+  text: string;
+  start: number;
+  end: number;
+}
+
+interface AudioMessage {
+  sentences?: Sentence[];
+}
+
+interface TextOutputProps {
+  currentTextMessage: any; // We keep this as any or ConversationMessage if available, but component doesn't use it directly
+  currentAudioMessage: AudioMessage | null;
+  isPaused: boolean;
+  setCurrentSnippetIndex: (index: number) => void;
+  setSentencesLength: (length: number) => void;
+}
 
 /**
  * TextOutput Component
@@ -11,13 +30,6 @@ import { useMobile } from "../utils";
  * - **High Performance**: Uses `requestAnimationFrame` (~60fps) loop instead of `setInterval`.
  * - **O(1) Lookup**: Maintains a `searchCursorRef` to find the current sentence without re-scanning the array.
  * - **Render Safety**: Updates Refs inside the loop to track state without triggering unnecessary re-renders.
- * 
- * @param {Object} props
- * @param {Object} props.currentTextMessage - The text object structure.
- * @param {Object} props.currentAudioMessage - Audio metadata containing sentence timing `{ sentences: [{text, start, end}, ...] }`.
- * @param {boolean} props.isPaused - Global pause state.
- * @param {Function} props.setCurrentSnippetIndex - Updates the active sentence index in parent.
- * @param {Function} props.setSentencesLength - Reports total sentences to parent.
  */
 function TextOutput({
   currentTextMessage,
@@ -25,36 +37,36 @@ function TextOutput({
   isPaused,
   setCurrentSnippetIndex, // Parent state setter
   setSentencesLength
-}) {
+}: TextOutputProps): React.ReactElement {
   // --- LOCAL STATE ---
   // The text currently visible on screen. 
   // Only updated when the sentence actually changes.
-  const [currentSnippet, setCurrentSnippet] = useState("");
+  const [currentSnippet, setCurrentSnippet] = useState<string>("");
 
   // --- TIMING REFS (Mutable values that don't trigger re-renders) ---
 
   // 1. startTimeRef: The precise Date.now() timestamp when we LAST hit "Play".
   //    If null, it means we are currently stopped/reset.
-  const startTimeRef = useRef(null);
+  const startTimeRef = useRef<number | null>(null);
 
   // 2. accumulatedTimeRef: Stores the total milliseconds played *before* the current play session.
   //    When we pause, we calculate how long we played and add it here.
   //    When we resume, we start counting from this offset.
-  const accumulatedTimeRef = useRef(0);
+  const accumulatedTimeRef = useRef<number>(0);
 
   // 3. requestRef: Stores the ID of the animation frame so we can cancel it cleanup.
-  const requestRef = useRef(null);
+  const requestRef = useRef<number | null>(null);
 
   // 4. searchCursorRef: PERFORMANCE OPTIMIZATION
   //    Tracks the index of the last found sentence.
   //    Since audio only moves forward, we don't need to search the array from 0 every frame.
-  const searchCursorRef = useRef(0);
+  const searchCursorRef = useRef<number>(0);
 
   // 5. lastDisplayedTextRef: RENDER SAFETY
   //    Tracks the text we last sent to the state.
   //    This allows us to check if the text needs updating *inside* the loop
   //    without reading the 'currentSnippet' state (which would be stale).
-  const lastDisplayedTextRef = useRef("");
+  const lastDisplayedTextRef = useRef<string>("");
 
   const isMobile = useMobile();
 
@@ -64,7 +76,7 @@ function TextOutput({
   // ---------------------------------------------------------------------------
   useEffect(() => {
     // 1. Strict cleanup: stop any running loops from previous messages
-    cancelAnimationFrame(requestRef.current);
+    if (requestRef.current !== null) cancelAnimationFrame(requestRef.current);
 
     // 2. Reset timing trackers to zero
     startTimeRef.current = null;
@@ -115,7 +127,7 @@ function TextOutput({
         startTimeRef.current = null;
       }
       // Stop the CPU-intensive loop
-      cancelAnimationFrame(requestRef.current);
+      if (requestRef.current !== null) cancelAnimationFrame(requestRef.current);
 
     } else {
       // CASE B: PLAYING
@@ -132,7 +144,9 @@ function TextOutput({
 
         // 1. Calculate Absolute Audio Time (in Seconds)
         // Formula: (Time stored from previous segments) + (Time elapsed in current segment)
-        const totalElapsedMS = accumulatedTimeRef.current + (now - startTimeRef.current);
+        // startTimeRef.current is guaranteed to be number here because we set it above if null
+        const start = startTimeRef.current || now;
+        const totalElapsedMS = accumulatedTimeRef.current + (now - start);
         const currentAudioTime = totalElapsedMS / 1000;
 
         // 2. Find the correct sentence (Using O(1) Cursor Optimization)
@@ -192,18 +206,20 @@ function TextOutput({
     }
 
     // Cleanup: If the component unmounts or inputs change, kill the loop
-    return () => cancelAnimationFrame(requestRef.current);
+    return () => {
+      if (requestRef.current !== null) cancelAnimationFrame(requestRef.current);
+    }
   }, [isPaused, currentAudioMessage, setCurrentSnippetIndex]);
 
 
   // --- STYLING ---
-  const paragraphStyle = {
+  const paragraphStyle: React.CSSProperties = {
     fontFamily: "Arial, sans-serif",
     fontSize: isMobile ? "18px" : "25px",
-    margin: isMobile && "0",
+    margin: isMobile ? "0" : undefined,
   };
 
-  const textStyle = {
+  const textStyle: React.CSSProperties = {
     width: isMobile ? "85%" : "70%",
     position: "absolute",
     bottom: isMobile ? "40px" : "50px",
