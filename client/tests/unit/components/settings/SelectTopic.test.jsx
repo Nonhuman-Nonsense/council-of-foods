@@ -87,12 +87,14 @@ describe('SelectTopic Component', () => {
         // Click "Write your own" (last item)
         fireEvent.click(screen.getByText('Write your own'));
 
-        // Textarea should appear
+        // Check that textarea exists and has correct class for strict font styling
         const textarea = screen.getByPlaceholderText('writetopic');
-        expect(textarea).toBeVisible();
+        expect(textarea).toBeInTheDocument();
+        expect(textarea).toHaveClass('topic-textarea');
 
-        // Type in generic bad words... I mean, valid topic
+        // Simulate typing
         fireEvent.change(textarea, { target: { value: 'My Custom Topic' } });
+        expect(textarea).toHaveValue('My Custom Topic');
 
         // Click Next
         fireEvent.click(screen.getByText('next'));
