@@ -1,31 +1,32 @@
-import { getOpenAI } from "../services/OpenAIService.js";
-import { meetingsCollection, audioCollection, insertMeeting } from "../services/DbService.js";
+import { getOpenAI } from "@services/OpenAIService.js";
+import { meetingsCollection, audioCollection, insertMeeting } from "@services/DbService.js";
 import { reportError } from "../../errorbot.js";
 import { default as defaultGlobalOptions } from "../../global-options.json" with { type: 'json' };
 import { default as testOptions } from "../../test-options.json" with { type: 'json' };
-import { AudioSystem } from "./AudioSystem.js";
-import { SpeakerSelector, Character, ConversationMessage } from "./SpeakerSelector.js";
-import { DialogGenerator, GPTResponse } from "./DialogGenerator.js";
-import { HumanInputHandler } from "./HumanInputHandler.js";
-import { HandRaisingHandler } from "./HandRaisingHandler.js";
-import { MeetingLifecycleHandler } from "./MeetingLifecycleHandler.js";
-import { ConnectionHandler } from "./ConnectionHandler.js";
-import { GlobalOptions } from "./GlobalOptions.js";
-import { Meeting, Audio } from "../models/DBModels.js";
+import { AudioSystem } from "@logic/AudioSystem.js";
+import { SpeakerSelector } from "@logic/SpeakerSelector.js";
+import { DialogGenerator, GPTResponse } from "@logic/DialogGenerator.js";
+import { HumanInputHandler } from "@logic/HumanInputHandler.js";
+import { HandRaisingHandler } from "@logic/HandRaisingHandler.js";
+import { MeetingLifecycleHandler } from "@logic/MeetingLifecycleHandler.js";
+import { ConnectionHandler } from "@logic/ConnectionHandler.js";
+import { GlobalOptions } from "@logic/GlobalOptions.js";
+import { Meeting, Audio } from "@models/DBModels.js";
 import { Collection, InsertOneResult } from "mongodb";
 import { OpenAI } from "openai";
 import { Socket } from "socket.io";
-import { ClientToServerEvents, ServerToClientEvents } from "../models/SocketTypes.js";
+import { ClientToServerEvents, ServerToClientEvents } from "@shared/SocketTypes.js";
+import type { Character, ConversationMessage } from "@shared/ModelTypes.js";
 import {
     SetupOptionsSchema,
     HumanMessageSchema,
     InjectionMessageSchema,
     HandRaisedOptionsSchema,
     ReconnectionOptionsSchema
-} from "../models/ValidationSchemas.js";
+} from "@models/ValidationSchemas.js";
 
-import { Logger } from "../utils/Logger.js";
-import { IMeetingManager, Services, ConversationState, ConversationOptions } from "../interfaces/MeetingInterfaces.js";
+import { Logger } from "@utils/Logger.js";
+import { IMeetingManager, Services, ConversationState, ConversationOptions } from "@interfaces/MeetingInterfaces.js";
 
 interface Decision {
     type: 'END_CONVERSATION' | 'WAIT' | 'REQUEST_PANELIST' | 'GENERATE_AI_RESPONSE';

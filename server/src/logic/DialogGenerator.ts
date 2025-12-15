@@ -1,4 +1,4 @@
-import { splitSentences } from "../utils/textUtils.js";
+import { splitSentences } from "@utils/textUtils.js";
 import { reportError } from "../../errorbot.js";
 import { Character, ConversationMessage } from "./SpeakerSelector.js";
 import { GlobalOptions } from "./GlobalOptions.js";

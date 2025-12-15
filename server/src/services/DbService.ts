@@ -1,5 +1,5 @@
 import { MongoClient, Db, Collection, InsertOneResult } from "mongodb";
-import { Meeting, Audio, Counter } from "../models/DBModels.js";
+import { Meeting, Audio, Counter } from "@models/DBModels.js";
 
 let db: Db;
 export let meetingsCollection: Collection<Meeting>;
