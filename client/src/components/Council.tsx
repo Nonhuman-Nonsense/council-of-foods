@@ -481,12 +481,22 @@ const Council: React.FC<CouncilProps> = ({
 
         if (newTopic.trim() !== "") {
             setCouncilState("waiting");
-            const humanName = participants.find(p => p.id === 'human')?.name || "Human";
-            socketRef.current.emit("submit_human_message", { text: newTopic, speaker: humanName, askParticular: askParticular });
+            setIsRaisedHand(false); // Reset raised hand state
+            // Use local humanName state first, then participants list, then fallback
+            const speakerName = humanName || participants.find(p => p.id === 'human')?.name || "Human";
+            socketRef.current.emit("submit_human_message", { text: newTopic, speaker: speakerName, askParticular: askParticular });
 
             //Slice off the waiting for panelist
+            //If the current message is an invitation, we need to go back one step 
+            //because the server will remove the invitation from the stack.
+            let nextIndex = playNextIndex;
+            if (textMessages[playingNowIndex]?.type === 'invitation') {
+                nextIndex = Math.max(0, playNextIndex - 1);
+                setPlayNextIndex(nextIndex);
+            }
+
             setTextMessages((prevMessages) => {
-                return prevMessages.slice(0, playNextIndex);
+                return prevMessages.slice(0, nextIndex);
             });
 
             calculateNextAction();
