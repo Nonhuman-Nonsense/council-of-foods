@@ -1,4 +1,37 @@
 import { splitSentences } from "../utils/textUtils.js";
+import { Character, ConversationMessage } from "./SpeakerSelector.js";
+
+// Define a local interface for MeetingManager functionality needed here.
+// Once MeetingManager is migrated, we can export this or import the real class type.
+interface ConversationState {
+    humanName?: string;
+    alreadyInvited?: boolean;
+    [key: string]: any;
+}
+
+interface ConversationOptions {
+    state: ConversationState;
+    language: string;
+    options: any;
+    characters: Character[];
+}
+
+interface IMeetingManager {
+    meetingId: string;
+    socket: any;
+    conversation: ConversationMessage[];
+    conversationOptions: ConversationOptions;
+    handRaised: boolean;
+    dialogGenerator: any; // To be typed later
+    audioSystem: any; // To be typed later or import AudioSystem type
+    services: any; // To be typed later
+    environment: string;
+}
+
+export interface HandRaisedOptions {
+    index: number;
+    humanName: string;
+}
 
 /**
  * Manages the "Raise Hand" interaction flow.
@@ -6,10 +39,9 @@ import { splitSentences } from "../utils/textUtils.js";
  * and transitioning state to await a human question.
  */
 export class HandRaisingHandler {
-    /**
-     * @param {import('./MeetingManager').MeetingManager} meetingManager 
-     */
-    constructor(meetingManager) {
+    manager: IMeetingManager;
+
+    constructor(meetingManager: IMeetingManager) {
         this.manager = meetingManager;
     }
 
@@ -20,12 +52,8 @@ export class HandRaisingHandler {
      * 3. Generates an invitation from the Chair (if one hasn't been generated yet).
      * 4. Pushes 'awaiting_human_question' state marker to conversation.
      * 5. Persists state and updates client.
-     * 
-     * @param {object} handRaisedOptions 
-     * @param {number} handRaisedOptions.index - The index in the conversation where the hand raised occurred.
-     * @param {string} handRaisedOptions.humanName - The name of the human raising their hand.
      */
-    async handleRaiseHand(handRaisedOptions) {
+    async handleRaiseHand(handRaisedOptions: HandRaisedOptions): Promise<void> {
         const { manager } = this;
         console.log(`[meeting ${manager.meetingId}] hand raised on index ${handRaisedOptions.index - 1}`);
         manager.handRaised = true;
@@ -53,12 +81,13 @@ export class HandRaisingHandler {
                 response = response.substring(0, firstNewLineIndex);
             }
 
-            const message = {
+            const message: ConversationMessage = {
                 id: id,
                 speaker: manager.conversationOptions.characters[0].id,
                 text: response,
                 type: "invitation",
                 message_index: handRaisedOptions.index,
+                sentences: [] // Will be populated
             }
 
             manager.conversation.push(message);
@@ -78,8 +107,9 @@ export class HandRaisingHandler {
 
         manager.conversation.push({
             type: 'awaiting_human_question',
-            speaker: manager.conversationOptions.state.humanName
-        });
+            speaker: manager.conversationOptions.state.humanName,
+            text: ""
+        } as ConversationMessage);
 
         console.log(`[meeting ${manager.meetingId}] awaiting human question on index ${manager.conversation.length - 1} `);
 

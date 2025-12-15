@@ -1,35 +1,76 @@
 import { getOpenAI } from "../services/OpenAIService.js";
 import { meetingsCollection, audioCollection, insertMeeting } from "../services/DbService.js";
 import { reportError } from "../../errorbot.js";
-import defaultGlobalOptions from "../../global-options.json" with { type: 'json' };
-import testOptions from "../../test-options.json" with { type: 'json' };
+import { default as defaultGlobalOptions } from "../../global-options.json" with { type: 'json' };
+import { default as testOptions } from "../../test-options.json" with { type: 'json' };
 import { AudioSystem } from "./AudioSystem.js";
-import { SpeakerSelector } from "./SpeakerSelector.js";
-import { DialogGenerator } from "./DialogGenerator.js";
+import { SpeakerSelector, Character, ConversationMessage } from "./SpeakerSelector.js";
+import { DialogGenerator, GPTResponse } from "./DialogGenerator.js";
 import { HumanInputHandler } from "./HumanInputHandler.js";
 import { HandRaisingHandler } from "./HandRaisingHandler.js";
 import { MeetingLifecycleHandler } from "./MeetingLifecycleHandler.js";
 import { ConnectionHandler } from "./ConnectionHandler.js";
+import { GlobalOptions } from "./GlobalOptions.js";
+import { OpenAI } from "openai";
+
+interface Services {
+    meetingsCollection: any;
+    audioCollection: any;
+    insertMeeting: any;
+    getOpenAI: () => OpenAI;
+}
+
+interface ConversationState {
+    alreadyInvited?: boolean;
+    humanName?: string;
+    [key: string]: any;
+}
+
+interface ConversationOptions {
+    topic: string;
+    characters: Character[];
+    options: GlobalOptions;
+    state?: ConversationState;
+    language: string;
+}
+
+interface Decision {
+    type: 'END_CONVERSATION' | 'WAIT' | 'REQUEST_PANELIST' | 'GENERATE_AI_RESPONSE';
+    speaker?: Character;
+}
 
 /**
  * Manages the lifecycle of a single council meeting (session).
  * Orchestrates interaction between Client (Socket.IO), Database, and AI services.
- * 
- * Key Responsibilities:
- * - Conversation State Management
- * - Integration with sub-modules: AudioSystem, DialogGenerator, SpeakerSelector
- * - Handling Client Events
- * - Decision making (processTurn) to drive conversation forward
- * 
- * Testing Modes:
- * - Supports mocking services via Dependency Injection (constructor 'services' param).
- * - Adapts behavior based on Global Options (from test-options.json or global-options.json).
  */
 export class MeetingManager {
-    constructor(socket, environment, optionsOverride = null, services = {}) {
+    socket: any;
+    environment: string;
+    globalOptions: GlobalOptions;
+    services: Services;
+
+    run: boolean;
+    handRaised: boolean;
+    isPaused: boolean;
+    currentSpeaker: number;
+    extraMessageCount: number;
+    meetingId: string | null;
+    meetingDate: Date | null;
+
+    audioSystem: AudioSystem;
+    dialogGenerator: DialogGenerator;
+    humanInputHandler: HumanInputHandler;
+    handRaisingHandler: HandRaisingHandler;
+    meetingLifecycleHandler: MeetingLifecycleHandler;
+    connectionHandler: ConnectionHandler;
+
+    conversation: ConversationMessage[];
+    conversationOptions: ConversationOptions;
+
+    constructor(socket: any, environment: string, optionsOverride: GlobalOptions | null = null, services: Partial<Services> = {}) {
         this.socket = socket;
         this.environment = environment;
-        this.globalOptions = optionsOverride || ((environment === 'test' || process.env.USE_TEST_OPTIONS === 'true') ? testOptions : defaultGlobalOptions);
+        this.globalOptions = optionsOverride || ((environment === 'test' || process.env.USE_TEST_OPTIONS === 'true') ? (testOptions as unknown as GlobalOptions) : (defaultGlobalOptions as unknown as GlobalOptions));
 
         // Default Services
         this.services = {
@@ -51,15 +92,17 @@ export class MeetingManager {
         this.startLoop = this.startLoop.bind(this);
         this.audioSystem = new AudioSystem(this.socket, this.services, this.globalOptions.audioConcurrency);
         this.dialogGenerator = new DialogGenerator(this.services, this.globalOptions);
-        this.humanInputHandler = new HumanInputHandler(this);
-        this.handRaisingHandler = new HandRaisingHandler(this);
-        this.meetingLifecycleHandler = new MeetingLifecycleHandler(this);
-        this.connectionHandler = new ConnectionHandler(this);
+        this.humanInputHandler = new HumanInputHandler(this as any); // Cast to any because handlers expect IMeetingManager which this fulfills
+        this.handRaisingHandler = new HandRaisingHandler(this as any);
+        this.meetingLifecycleHandler = new MeetingLifecycleHandler(this as any);
+        this.connectionHandler = new ConnectionHandler(this as any);
 
         this.conversation = [];
         this.conversationOptions = {
             topic: "",
-            characters: {},
+            characters: [] as Character[],
+            options: this.globalOptions,
+            language: "en"
         };
 
         this.setupListeners();
@@ -70,17 +113,16 @@ export class MeetingManager {
             this.setupPrototypeListeners();
         }
 
-        this.socket.on("start_conversation", async (setup) => this.meetingLifecycleHandler.handleStartConversation(setup));
-
+        this.socket.on("start_conversation", async (setup: any) => this.meetingLifecycleHandler.handleStartConversation(setup));
         this.socket.on("disconnect", () => this.connectionHandler.handleDisconnect());
 
         // Use handlers
-        this.socket.on("submit_human_message", (msg) => this.humanInputHandler.handleSubmitHumanMessage(msg));
-        this.socket.on("submit_human_panelist", (msg) => this.humanInputHandler.handleSubmitHumanPanelist(msg));
-        this.socket.on("submit_injection", (msg) => this.humanInputHandler.handleSubmitInjection(msg));
-        this.socket.on("raise_hand", (msg) => this.handRaisingHandler.handleRaiseHand(msg));
-        this.socket.on("wrap_up_meeting", (msg) => this.meetingLifecycleHandler.handleWrapUpMeeting(msg));
-        this.socket.on('attempt_reconnection', (options) => this.connectionHandler.handleReconnection(options));
+        this.socket.on("submit_human_message", (msg: any) => this.humanInputHandler.handleSubmitHumanMessage(msg));
+        this.socket.on("submit_human_panelist", (msg: any) => this.humanInputHandler.handleSubmitHumanPanelist(msg));
+        this.socket.on("submit_injection", (msg: any) => this.humanInputHandler.handleSubmitInjection(msg));
+        this.socket.on("raise_hand", (msg: any) => this.handRaisingHandler.handleRaiseHand(msg));
+        this.socket.on("wrap_up_meeting", (msg: any) => this.meetingLifecycleHandler.handleWrapUpMeeting(msg));
+        this.socket.on('attempt_reconnection', (options: any) => this.connectionHandler.handleReconnection(options));
         this.socket.on('continue_conversation', () => this.meetingLifecycleHandler.handleContinueConversation());
         this.socket.on('request_clientkey', async () => this.meetingLifecycleHandler.handleRequestClientKey());
     }
@@ -88,12 +130,12 @@ export class MeetingManager {
     setupPrototypeListeners() {
         if (this.environment !== 'prototype') return;
 
-        this.socket.on("pause_conversation", (msg) => {
+        this.socket.on("pause_conversation", (msg: any) => {
             console.log(`[meeting ${this.meetingId}] paused`);
             this.isPaused = true;
         });
 
-        this.socket.on("resume_conversation", (msg) => {
+        this.socket.on("resume_conversation", (msg: any) => {
             console.log(`[meeting ${this.meetingId}] resumed`);
             this.isPaused = false;
             this.startLoop();
@@ -132,7 +174,7 @@ export class MeetingManager {
         this.runLoop();
     }
 
-    decideNextAction() {
+    decideNextAction(): Decision {
         // 1. Check Limits
         if (this.conversation.length >= this.conversationOptions.options.conversationMaxLength + this.extraMessageCount) {
             return { type: 'END_CONVERSATION' };
@@ -161,15 +203,8 @@ export class MeetingManager {
 
     /**
      * Core loop function. Decides the next action based on conversation state.
-     * Actions include:
-     * - END_CONVERSATION: Terminate if max length reached.
-     * - WAIT: If waiting for human input.
-     * - REQUEST_PANELIST: If next speaker is a Human Panelist.
-     * - GENERATE_AI_RESPONSE: If next speaker is an AI character.
-     * 
-     * Handles error suppression for benign test cleanup errors (shutdown/ECONNRESET).
      */
-    async processTurn() {
+    async processTurn(): Promise<void> {
         try {
             const thisMeetingId = this.meetingId;
 
@@ -185,23 +220,29 @@ export class MeetingManager {
                     return;
 
                 case 'REQUEST_PANELIST':
-                    this.conversation.push({
-                        type: 'awaiting_human_panelist',
-                        speaker: action.speaker.id
-                    });
-                    console.log(`[meeting ${this.meetingId}] awaiting human panelist on index ${this.conversation.length - 1}`);
-                    this.socket.emit("conversation_update", this.conversation);
-                    this.services.meetingsCollection.updateOne(
-                        { _id: this.meetingId },
-                        { $set: { conversation: this.conversation } }
-                    );
+                    if (action.speaker) {
+                        this.conversation.push({
+                            type: 'awaiting_human_panelist',
+                            speaker: action.speaker.id,
+                            text: "", // Added to satisfy ConversationMessage
+                            sentences: [] // Added to satisfy ConversationMessage
+                        });
+                        console.log(`[meeting ${this.meetingId}] awaiting human panelist on index ${this.conversation.length - 1}`);
+                        this.socket.emit("conversation_update", this.conversation);
+                        this.services.meetingsCollection.updateOne(
+                            { _id: this.meetingId },
+                            { $set: { conversation: this.conversation } }
+                        );
+                    }
                     return;
 
                 case 'GENERATE_AI_RESPONSE':
-                    await this.handleAITurn(action);
+                    if (action.speaker) {
+                        await this.handleAITurn(action as { type: string, speaker: Character });
+                    }
                     break;
             }
-        } catch (error) {
+        } catch (error: any) {
             // Suppress "interrupted at shutdown" and ECONNRESET errors often seen during tests
             if (
                 error.code === 11600 ||
@@ -215,13 +256,19 @@ export class MeetingManager {
         }
     }
 
-    async handleAITurn(action) {
+    async handleAITurn(action: { type: string, speaker: Character }): Promise<void> {
         this.currentSpeaker = this.conversationOptions.characters.findIndex(c => c.id === action.speaker.id);
         const thisMeetingId = this.meetingId;
 
         // Generate Logic
         let attempt = 1;
-        let output = { response: "" };
+        let output: GPTResponse = {
+            response: "",
+            id: null,
+            sentences: [],
+            trimmed: undefined,
+            pretrimmed: undefined
+        };
         while (attempt < 5 && output.response === "") {
             output = await this.dialogGenerator.generateTextFromGPT(
                 action.speaker,
@@ -238,13 +285,14 @@ export class MeetingManager {
             }
         }
 
-        let message = {
-            id: output.id,
+        let message: ConversationMessage = {
+            id: output.id || "",
             speaker: action.speaker.id,
             text: output.response,
-            sentences: output.sentences,
+            sentences: output.sentences || [],
             trimmed: output.trimmed,
             pretrimmed: output.pretrimmed,
+            type: "assistant" // Default
         };
 
         if (this.conversation.length > 1 && this.conversation[this.conversation.length - 1].type === "human" && this.conversation[this.conversation.length - 1].askParticular === message.speaker) {
@@ -270,16 +318,16 @@ export class MeetingManager {
 
         // Queue audio generation
         this.audioSystem.queueAudioGeneration(
-            message,
-            action.speaker,
+            message as any,
+            action.speaker as any,
             this.conversationOptions.options,
-            this.meetingId,
+            this.meetingId!,
             this.environment
         );
     }
-
-
-
-
-
 }
+
+
+
+
+

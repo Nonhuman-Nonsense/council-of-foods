@@ -5,14 +5,14 @@
   "version": "1.0.0",
   "description": "",
   "type": "module",
-  "main": "server.js",
+  "main": "dist/server.js",
   "scripts": {
     "start": "node dist/server.js",
     "build": "tsc",
     "e2e-server": "cross-env NODE_ENV=test node dist/server.js",
-    "dev": "cross-env NODE_ENV=development USE_TEST_OPTIONS=true nodemon --exec ts-node server.js",
+    "dev": "cross-env NODE_ENV=development USE_TEST_OPTIONS=true nodemon --exec tsx server.ts",
     "proto": "cross-env NODE_ENV=prototype node dist/server.js",
-    "protodev": "cross-env NODE_ENV=prototype nodemon server.js",
+    "protodev": "cross-env NODE_ENV=prototype nodemon --exec tsx server.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:fast": "cross-env TEST_MODE=fast vitest run",
@@ -39,7 +39,19 @@
     "nodemon": "^3.1.10",
     "socket.io-client": "^4.8.1",
     "ts-node": "^10.9.2",
+    "tsx": "^4.21.0",
     "typescript": "^5.9.3",
     "vitest": "^4.0.15"
+  },
+  "nodemonConfig": {
+    "watch": [
+      "server.ts",
+      "src",
+      "global-options.json",
+      "test-options.json",
+      "errorbot.ts",
+      ".env"
+    ],
+    "ext": "ts,js,json"
   }
 }

@@ -1,29 +1,69 @@
 import { splitSentences } from "../utils/textUtils.js";
 import { reportError } from "../../errorbot.js";
+import { Character, ConversationMessage } from "./SpeakerSelector.js";
+import { GlobalOptions } from "./GlobalOptions.js";
+
+interface ConversationState {
+    alreadyInvited?: boolean;
+    [key: string]: any;
+}
+
+interface ConversationOptions {
+    state: ConversationState;
+    language: string;
+    options: GlobalOptions;
+    characters: Character[];
+    topic?: string;
+}
+
+interface SetupOptions {
+    options?: Partial<GlobalOptions>;
+    characters: Character[];
+    language: string;
+    topic: string;
+}
+
+interface IMeetingManager {
+    meetingId: string;
+    socket: any;
+    conversation: ConversationMessage[];
+    conversationOptions: ConversationOptions;
+    handRaised: boolean;
+    isPaused: boolean;
+    startLoop: () => void;
+    dialogGenerator: any;
+    audioSystem: any;
+    services: any;
+    environment: string;
+    run: boolean;
+    meetingDate: Date;
+    extraMessageCount: number;
+    currentSpeaker: number;
+    globalOptions: GlobalOptions;
+}
+
+interface WrapUpMessage {
+    date: string;
+}
 
 /**
  * Manages the high-level lifecycle of a meeting: Start, Wrap-Up, and Continuation.
  * Handles initialization of session state, emitting lifecycle events, and managing the End-of-Meeting summary flow.
  */
 export class MeetingLifecycleHandler {
-    /**
-     * @param {import('./MeetingManager').MeetingManager} meetingManager 
-     */
-    constructor(meetingManager) {
+    manager: IMeetingManager;
+
+    constructor(meetingManager: IMeetingManager) {
         this.manager = meetingManager;
     }
 
     /**
      * Initializes a new conversation/meeting.
      * Sets up global state, stores initial record in DB, and kicks off the run loop.
-     * 
-     * @param {object} setup 
-     * @param {object} setup.options - Conversation topic, options overrides etc.
-     * @param {Array<object>} setup.characters - Selected characters for the council.
      */
-    async handleStartConversation(setup) {
+    async handleStartConversation(setup: SetupOptions): Promise<void> {
         const { manager } = this;
-        manager.conversationOptions = setup;
+        manager.conversationOptions = setup as ConversationOptions; // Initial cast, will be populated
         if (manager.environment === "prototype") {
             manager.conversationOptions.options = { ...manager.globalOptions, ...(setup.options || {}) };
         } else {
@@ -55,21 +95,15 @@ export class MeetingLifecycleHandler {
         manager.startLoop();
     }
 
-
-
     /**
      * Ends the meeting by generating a final summary from the Chair.
      * Persists the summary to DB and emits update.
-     * 
-     * @param {object} message 
-     * @param {string} message.date - Date string for context.
      */
-    async handleWrapUpMeeting(message) {
+    async handleWrapUpMeeting(message: WrapUpMessage): Promise<void> {
         const { manager } = this;
         console.log(`[meeting ${manager.meetingId}] attempting to wrap up`);
         const summaryPrompt = manager.conversationOptions.options.finalizeMeetingPrompt[manager.conversationOptions.language].replace("[DATE]", message.date);
 
-        // Note: chairInterjection is on manager (delegated to DialogGenerator)
         // Note: chairInterjection is on manager (delegated to DialogGenerator)
         let { response, id } = await manager.dialogGenerator.chairInterjection(
             summaryPrompt,
@@ -81,7 +115,7 @@ export class MeetingLifecycleHandler {
             manager.socket
         );
 
-        let summary = {
+        let summary: any = { // Using any for summary structure until fully defined
             id: id,
             speaker: manager.conversationOptions.characters[0].id,
             text: response,
@@ -113,7 +147,7 @@ export class MeetingLifecycleHandler {
      * Handles request for OpenAI Realtime API Client Key (for client-side usage).
      * Fetches ephemeral secret from OpenAI and returns to client.
      */
-    async handleRequestClientKey() {
+    async handleRequestClientKey(): Promise<void> {
         const { manager } = this;
         console.log(`[meeting ${manager.meetingId}] clientkey requested`);
         try {
@@ -177,7 +211,7 @@ export class MeetingLifecycleHandler {
     /**
      * Extends the meeting length and resumes the conversation loop if it had stopped due to length limits.
      */
-    handleContinueConversation() {
+    handleContinueConversation(): void {
         const { manager } = this;
         console.log(`[meeting ${manager.meetingId}] continuing conversation`);
         manager.extraMessageCount += manager.globalOptions.extraMessageCount;

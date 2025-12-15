@@ -1,5 +1,44 @@
 import { splitSentences } from "../utils/textUtils.js";
 import { reportError } from "../../errorbot.js";
+import { Character, ConversationMessage } from "./SpeakerSelector.js";
+import { GlobalOptions } from "./GlobalOptions.js";
+
+// Local interface until MeetingManager is migrated
+interface ConversationState {
+    humanName?: string;
+    alreadyInvited?: boolean;
+    [key: string]: any;
+}
+
+interface ConversationOptions {
+    state: ConversationState;
+    language: string;
+    options: GlobalOptions;
+    characters: Character[];
+}
+
+interface IMeetingManager {
+    meetingId: string;
+    socket: any;
+    conversation: ConversationMessage[];
+    conversationOptions: ConversationOptions;
+    handRaised: boolean;
+    isPaused: boolean;
+    startLoop: () => void;
+    dialogGenerator: any;
+    audioSystem: any;
+    services: any;
+    environment: string;
+    run: boolean;
+    meetingDate: Date;
+    extraMessageCount: number;
+}
+
+export interface ReconnectionOptions {
+    meetingId: string;
+    handRaised: boolean;
+    conversationMaxLength: number;
+}
 
 /**
  * Manages socket connection events (disconnect, reconnect).
@@ -7,10 +46,9 @@ import { reportError } from "../../errorbot.js";
  * full meeting state (including verifying missed audio) on reconnection.
  */
 export class ConnectionHandler {
-    /**
-     * @param {import('./MeetingManager').MeetingManager} meetingManager 
-     */
-    constructor(meetingManager) {
+    manager: IMeetingManager;
+
+    constructor(meetingManager: IMeetingManager) {
         this.manager = meetingManager;
     }
 
@@ -18,7 +56,7 @@ export class ConnectionHandler {
      * Handles 'disconnect' event.
      * Sets manager.run to false to terminate the run loop.
      */
-    handleDisconnect() {
+    handleDisconnect(): void {
         const { manager } = this;
         console.log(`[session ${manager.socket.id} meeting ${manager.meetingId}] disconnected`);
         manager.run = false;
@@ -28,13 +66,8 @@ export class ConnectionHandler {
      * Handles 'attempt_reconnection' event.
      * Retrieves meeting state from DB, restores manager context, 
      * identifies missing audio for existing text, and resumes the loop.
-     * 
-     * @param {object} options 
-     * @param {string} options.meetingId - The ID of the meeting to restore.
-     * @param {boolean} options.handRaised - Client-side flag if hand was raised.
-     * @param {number} options.conversationMaxLength
      */
-    async handleReconnection(options) {
+    async handleReconnection(options: ReconnectionOptions): Promise<void> {
         const { manager } = this;
         console.log(`[meeting ${options.meetingId}] attempting to resume`);
         try {
@@ -53,7 +86,7 @@ export class ConnectionHandler {
                     manager.conversationOptions.options.conversationMaxLength;
 
                 // Missing audio regen logic
-                let missingAudio = [];
+                let missingAudio: ConversationMessage[] = [];
                 for (let i = 0; i < manager.conversation.length; i++) {
                     if (manager.conversation[i].type === 'awaiting_human_panelist') continue;
                     if (manager.conversation[i].type === 'awaiting_human_question') continue;
@@ -64,7 +97,7 @@ export class ConnectionHandler {
 
                 for (let i = 0; i < missingAudio.length; i++) {
                     console.log(`[meeting ${manager.meetingId}] (async) generating missing audio for ${missingAudio[i].speaker}`);
-                    missingAudio[i].sentences = splitSentences(missingAudio[i].text);
+                    missingAudio[i].sentences = splitSentences(missingAudio[i].text as string);
                     // Ensure speaker is found
                     const speaker = manager.conversationOptions.characters.find(c => c.id == missingAudio[i].speaker);
                     if (speaker) {

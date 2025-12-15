@@ -1,4 +1,17 @@
 
+export interface Character {
+    id: string;
+    name: string;
+    [key: string]: any;
+}
+
+export interface ConversationMessage {
+    type: string;
+    speaker?: string;
+    askParticular?: string;
+    [key: string]: any;
+}
+
 /**
  * Logic for determining the next speaker in the conversation.
  * Handles specialized logic for human interruption, direct questions, and panelist interactions.
@@ -7,11 +20,11 @@ export class SpeakerSelector {
     /**
      * Calculates the index of the next character to speak.
      * 
-     * @param {Array<object>} conversation - The full conversation history.
-     * @param {Array<object>} characters - List of available characters (council members + chair).
-     * @returns {number} - The index of the character in the `characters` array who should speak next.
+     * @param conversation - The full conversation history.
+     * @param characters - List of available characters (council members + chair).
+     * @returns The index of the character in the `characters` array who should speak next.
      */
-    static calculateNextSpeaker(conversation, characters) {
+    static calculateNextSpeaker(conversation: ConversationMessage[], characters: Character[]): number {
         if (conversation.length === 0) return 0;
 
         for (let i = conversation.length - 1; i >= 0; i--) {

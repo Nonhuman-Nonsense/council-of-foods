@@ -1,5 +1,5 @@
 //We wrap this in a function to make sure that it runs after .env is loaded
-export function initReporting() {
+export function initReporting(): void {
     if (process.env.COUNCIL_ERRORBOT) {
         console.log(`[init] will attempt to post errors to errorbot on ${process.env.COUNCIL_ERRORBOT}`);
     } else {
@@ -7,7 +7,7 @@ export function initReporting() {
     }
 }
 
-export async function reportError(err) {
+export async function reportError(err: any): Promise<void> {
     if (!process.env.COUNCIL_ERRORBOT) {
         console.log(`[Error] COUNCIL_ERRORBOT not set, will not report errors.`);
         return;

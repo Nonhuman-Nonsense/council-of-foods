@@ -1,9 +1,9 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
-import express from "express";
+import express, { Request, Response } from "express";
 import http from "http";
-import { Server } from "socket.io";
+import { Server, Socket } from "socket.io";
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -12,9 +12,9 @@ import { initDb } from './src/services/DbService.js';
 import { initOpenAI } from './src/services/OpenAIService.js';
 import { MeetingManager } from './src/logic/MeetingManager.js';
 
-const environment = process.env.NODE_ENV ?? "production";
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const environment: string = process.env.NODE_ENV ?? "production";
+const __filename: string = fileURLToPath(import.meta.url);
+const __dirname: string = path.dirname(__filename);
 
 const app = express();
 const httpServer = http.createServer(app);
@@ -24,13 +24,13 @@ const io = new Server(httpServer, {
 
 // Initialize Services
 initReporting();
-initDb().catch(e => {
+initDb().catch((e: any) => {
   console.error("Failed to initialize Database:", e);
   process.exit(1);
 });
 try {
   initOpenAI();
-} catch (e) {
+} catch (e: any) {
   console.error("Failed to initialize OpenAI:", e);
   process.exit(1);
 }
@@ -38,33 +38,29 @@ try {
 console.log(`[init] node_env is ${environment}`);
 
 // Express Logic
-app.get('/health', (req, res) => res.sendStatus(200));
+app.get('/health', (req: Request, res: Response) => { res.sendStatus(200); });
 
 if (environment === "prototype") {
   app.use(express.static(path.join(__dirname, "../prototype/", "public")));
   //Enable prototype to reset to default settings for each language
   for (const lang of ['en']) {
     for (const promptfile of ['foods', 'topics']) {
-      app.get(`/${promptfile}_${lang}.json`, function (req, res) {
+      app.get(`/${promptfile}_${lang}.json`, function (req: Request, res: Response) {
         res.sendFile(path.join(__dirname, "../client/src/prompts", `${promptfile}_${lang}.json`));
       });
     }
   }
 
-  // Also pass globalOptions logic? 
-  // In original server.js line 27: import globalOptions from './global-options.json' with { type: 'json' };
-  // It was used in start_conversation (line 520).
-  // MeetingManager imports it directly, so we don't need to pass it here.
-
 } else if (environment !== "development") {
-  app.use(express.static(path.join(__dirname, "../client/dist")));
-  app.get("/{*splat}", function (req, res) {
-    res.sendFile(path.join(__dirname, "../client/dist", "index.html"));
+  const clientDistPath = path.join(process.cwd(), "../client/dist");
+  app.use(express.static(clientDistPath));
+  app.get("/{*splat}", function (req: Request, res: Response) {
+    res.sendFile(path.join(clientDistPath, "index.html"));
   });
 }
 
 // Socket Logic
-io.on("connection", (socket) => {
+io.on("connection", (socket: Socket) => {
   console.log(`[session ${socket.id}] connected`);
   new MeetingManager(socket, environment);
 });
