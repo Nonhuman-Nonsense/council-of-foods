@@ -27,7 +27,7 @@ vi.mock('../../../../src/components/overlays/ResetWarning', () => ({
 const mockTopics = [
     { id: 'topic1', title: 'Topic One', description: 'Desc One' },
     { id: 'topic2', title: 'Topic Two', description: 'Desc Two' },
-    { id: 'custom', title: 'Write your own', description: 'Custom' }
+    { id: 'customtopic', title: 'Write your own', description: 'Custom' }
 ];
 
 describe('SelectTopic Component', () => {
@@ -98,6 +98,72 @@ describe('SelectTopic Component', () => {
         fireEvent.click(screen.getByText('next'));
 
         expect(mockOnContinue).toHaveBeenCalledWith({ topic: 'customtopic', custom: 'My Custom Topic' });
+    });
+
+    it('should use single-column layout for few topics (<=6)', () => {
+        // Create 4 topics (plus custom)
+        const fewTopics = [
+            { id: '1', title: 'T1', description: 'A' },
+            { id: '2', title: 'T2', description: 'B' },
+            { id: '3', title: 'T3', description: 'C' },
+            { id: '4', title: 'T4', description: 'D' },
+            { id: 'customtopic', title: 'Custom', description: 'C' }
+        ];
+
+        render(
+            <SelectTopic
+                topics={fewTopics}
+                onContinueForward={mockOnContinue}
+                onReset={mockOnReset}
+                onCancel={mockOnCancel}
+                currentTopic={null}
+            />
+        );
+
+        // Find the grid container. Since we don't have a test id on the container,
+        // we can look for the parent of one of the buttons.
+        const btn = screen.getByText('T1');
+        const gridContainer = btn.parentElement;
+
+        // Assert grid column logic
+        expect(gridContainer).toHaveStyle('grid-template-columns: 1fr');
+        // Assert button width constraint (checking style directly on element is tricky if inline, but let's try)
+        // With react testing library, toHaveStyle checks computed style or inline style.
+        // We set inline style width: 50%
+        expect(btn).toHaveStyle('width: 50%');
+    });
+
+    it('should use two-column layout for many topics (>6)', () => {
+        // Create 7 topics (plus custom)
+        const manyTopics = Array.from({ length: 7 }, (_, i) => ({
+            id: `topic${i}`, title: `Topic ${i}`, description: `Desc ${i}`
+        }));
+        manyTopics.push({ id: 'customtopic', title: 'Custom', description: 'C' });
+
+        render(
+            <SelectTopic
+                topics={manyTopics}
+                onContinueForward={mockOnContinue}
+                onReset={mockOnReset}
+                onCancel={mockOnCancel}
+                currentTopic={null}
+            />
+        );
+
+        const btn = screen.getByText('Topic 0');
+        const gridContainer = btn.parentElement;
+        const customBtn = screen.getByText('Custom');
+
+        expect(gridContainer).toHaveStyle('grid-template-columns: 1fr 1fr');
+
+        // Custom button should stride/span 2 columns and be 50% width
+        expect(customBtn).toHaveStyle('grid-column: 1 / -1');
+        expect(customBtn).toHaveStyle('width: 50%');
+
+        // Standard buttons should be ~full width of their cell (or not restricted to 50%)
+        // We removed width: 100% from selectButtonStyle for double column (it defaults to auto/full).
+        // Let's verify it does NOT have 50% width.
+        expect(btn).not.toHaveStyle('width: 50%');
     });
 
     it('should show reset warning if currentTopic is set (changing mid-meeting)', () => {
