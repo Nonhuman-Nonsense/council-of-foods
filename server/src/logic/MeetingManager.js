@@ -29,7 +29,7 @@ export class MeetingManager {
     constructor(socket, environment, optionsOverride = null, services = {}) {
         this.socket = socket;
         this.environment = environment;
-        this.globalOptions = optionsOverride || (environment === 'test' ? testOptions : defaultGlobalOptions);
+        this.globalOptions = optionsOverride || ((environment === 'test' || process.env.USE_TEST_OPTIONS === 'true') ? testOptions : defaultGlobalOptions);
 
         // Default Services
         this.services = {
