@@ -28,6 +28,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "analyze": "source-map-explorer 'dist/assets/*.js'",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "e2e": "playwright test"
   },
   "eslintConfig": {
@@ -38,6 +40,10 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.57.0",
-    "source-map-explorer": "^2.5.3"
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.0",
+    "jsdom": "^27.3.0",
+    "source-map-explorer": "^2.5.3",
+    "vitest": "^4.0.15"
   }
 }
