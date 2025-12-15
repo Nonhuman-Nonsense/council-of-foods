@@ -3,6 +3,7 @@ import { toTitleCase, useMobile, useMobileXs, filename } from "../../utils";
 import { useTranslation } from "react-i18next";
 
 import globalOptionsData from "../../global-options-client.json";
+import { Character } from "@shared/ModelTypes";
 
 //Foods
 import foodDataEN from "../../prompts/foods_en.json";
@@ -18,14 +19,15 @@ interface GlobalOptions {
 
 const globalOptions: GlobalOptions = globalOptionsData;
 
-interface Food {
-  id: string;
-  name: string;
+interface Food extends Partial<Character> {
+  id: string; // Required
+  name: string; // Required
   description: string;
   prompt?: string;
-  type?: 'panelist' | 'food' | 'chair' | string; // 'panelist' or undefined usually, but string implies flexibility
-  index?: number; // Only for humans
-  voice?: string;
+  type?: 'panelist' | 'food' | 'chair' | string;
+  index?: number;
+  // voice is in Character but optional here since we extend Partial<Character>
+  // size, voiceInstruction coming from JSON
   size?: number;
   voiceInstruction?: string;
 }
