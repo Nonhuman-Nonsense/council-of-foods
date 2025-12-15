@@ -6,36 +6,7 @@ import { GlobalOptions } from "./GlobalOptions.js";
 import { Socket } from "socket.io";
 import { ClientToServerEvents, ServerToClientEvents, ReconnectionOptions } from "../models/SocketTypes.js";
 
-// Local interface until MeetingManager is migrated
-interface ConversationState {
-    humanName?: string;
-    alreadyInvited?: boolean;
-    [key: string]: any;
-}
-
-interface ConversationOptions {
-    state: ConversationState;
-    language: string;
-    options: GlobalOptions;
-    characters: Character[];
-}
-
-interface IMeetingManager {
-    meetingId: number | null;
-    socket: Socket<ClientToServerEvents, ServerToClientEvents>;
-    conversation: ConversationMessage[];
-    conversationOptions: ConversationOptions;
-    handRaised: boolean;
-    isPaused: boolean;
-    startLoop: () => void;
-    dialogGenerator: any;
-    audioSystem: any;
-    services: any;
-    environment: string;
-    run: boolean;
-    meetingDate: Date | null;
-    extraMessageCount: number;
-}
+import { IMeetingManager } from "../interfaces/MeetingInterfaces.js";
 
 
 /**
@@ -92,22 +63,26 @@ export class ConnectionHandler {
                 for (let i = 0; i < manager.conversation.length; i++) {
                     if (manager.conversation[i].type === 'awaiting_human_panelist') continue;
                     if (manager.conversation[i].type === 'awaiting_human_question') continue;
-                    if (existingMeeting.audio.indexOf(manager.conversation[i].id) === -1) {
+                    const msgId = manager.conversation[i].id;
+                    if (msgId && existingMeeting.audio.indexOf(msgId) === -1) {
                         missingAudio.push(manager.conversation[i]);
                     }
                 }
 
                 for (let i = 0; i < missingAudio.length; i++) {
-                    Logger.info(`meeting ${manager.meetingId}`, `(async) generating missing audio for ${missingAudio[i].speaker}`);
-                    missingAudio[i].sentences = splitSentences(missingAudio[i].text as string);
+                    const audioMsg = missingAudio[i];
+                    if (!audioMsg.id || !audioMsg.text) continue; // Skip malformed methods
+
+                    Logger.info(`meeting ${manager.meetingId}`, `(async) generating missing audio for ${audioMsg.speaker}`);
+                    audioMsg.sentences = splitSentences(audioMsg.text as string);
                     // Ensure speaker is found
-                    const speaker = manager.conversationOptions.characters.find(c => c.id == missingAudio[i].speaker);
+                    const speaker = manager.conversationOptions.characters.find(c => c.id == audioMsg.speaker);
                     if (speaker) {
                         manager.audioSystem.queueAudioGeneration(
-                            missingAudio[i],
+                            { ...audioMsg, id: audioMsg.id!, text: audioMsg.text!, sentences: audioMsg.sentences! },
                             speaker,
                             manager.conversationOptions.options,
-                            manager.meetingId,
+                            manager.meetingId as number,
                             manager.environment
                         );
                     }

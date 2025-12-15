@@ -3,31 +3,12 @@ import { Character, ConversationMessage } from "./SpeakerSelector.js";
 import { Socket } from "socket.io";
 import { ClientToServerEvents, ServerToClientEvents } from "../models/SocketTypes.js";
 
-// Define a local interface for MeetingManager functionality needed here.
-// Once MeetingManager is migrated, we can export this or import the real class type.
-interface ConversationState {
-    humanName?: string;
-    alreadyInvited?: boolean;
-    [key: string]: any;
-}
+import { IMeetingManager, ConversationOptions, ConversationState } from "../interfaces/MeetingInterfaces.js";
+import { HandRaisedOptionsSchema } from "../models/ValidationSchemas.js";
 
-interface ConversationOptions {
-    state: ConversationState;
-    language: string;
-    options: any;
-    characters: Character[];
-}
-
-interface IMeetingManager {
-    meetingId: string | number | null; // Allowing union until full migration to number everywhere
-    socket: Socket<ClientToServerEvents, ServerToClientEvents>;
-    conversation: ConversationMessage[];
-    conversationOptions: ConversationOptions;
-    handRaised: boolean;
-    dialogGenerator: any; // To be typed later
-    audioSystem: any; // To be typed later or import AudioSystem type
-    services: any; // To be typed later
-    environment: string;
+export interface HandRaisedOptions {
+    index: number;
+    humanName: string;
 }
 
 export interface HandRaisedOptions {
@@ -58,6 +39,10 @@ export class HandRaisingHandler {
     async handleRaiseHand(handRaisedOptions: HandRaisedOptions): Promise<void> {
         const { manager } = this;
         console.log(`[meeting ${manager.meetingId}] hand raised on index ${handRaisedOptions.index - 1}`);
+        if (!manager.conversationOptions.state) {
+            manager.conversationOptions.state = {};
+        }
+
         manager.handRaised = true;
         manager.conversationOptions.state.humanName = handRaisedOptions.humanName;
 
@@ -68,7 +53,7 @@ export class HandRaisingHandler {
             let { response, id } = await manager.dialogGenerator.chairInterjection(
                 manager.conversationOptions.options.raiseHandPrompt[manager.conversationOptions.language].replace(
                     "[NAME]",
-                    manager.conversationOptions.state.humanName
+                    manager.conversationOptions.state.humanName || "Human"
                 ),
                 handRaisedOptions.index,
                 manager.conversationOptions.options.raiseHandInvitationLength,
@@ -84,7 +69,7 @@ export class HandRaisingHandler {
             }
 
             const message: ConversationMessage = {
-                id: id,
+                id: id as string,
                 speaker: manager.conversationOptions.characters[0].id,
                 text: response,
                 type: "invitation",
@@ -93,18 +78,22 @@ export class HandRaisingHandler {
             }
 
             manager.conversation.push(message);
-            message.sentences = splitSentences(message.text);
+            // Cast message to any or ensure it matches what Queue expects (AudioSystem expects Message with text/id)
+            // Ideally define a comprehensive Message type or use intersection
+            message.sentences = splitSentences(message.text as string);
 
             manager.conversationOptions.state.alreadyInvited = true;
             console.log(`[meeting ${manager.meetingId}] invitation generated, on index ${handRaisedOptions.index}`);
 
-            manager.audioSystem.queueAudioGeneration(
-                message,
-                manager.conversationOptions.characters[0],
-                manager.conversationOptions.options,
-                manager.meetingId,
-                manager.environment
-            );
+            if (manager.meetingId !== null) {
+                manager.audioSystem.queueAudioGeneration(
+                    { ...message, id: message.id as string, text: message.text as string, sentences: message.sentences! },
+                    manager.conversationOptions.characters[0],
+                    manager.conversationOptions.options,
+                    manager.meetingId as number,
+                    manager.environment
+                );
+            }
         }
 
         manager.conversation.push({
@@ -115,10 +104,12 @@ export class HandRaisingHandler {
 
         console.log(`[meeting ${manager.meetingId}] awaiting human question on index ${manager.conversation.length - 1} `);
 
-        manager.services.meetingsCollection.updateOne(
-            { _id: manager.meetingId },
-            { $set: { conversation: manager.conversation, 'options.state': manager.conversationOptions.state } }
-        );
+        if (manager.meetingId !== null) {
+            manager.services.meetingsCollection.updateOne(
+                { _id: manager.meetingId },
+                { $set: { conversation: manager.conversation, 'options.state': manager.conversationOptions.state } }
+            );
+        }
 
         manager.socket.emit("conversation_update", manager.conversation);
     }

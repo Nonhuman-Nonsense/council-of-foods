@@ -25,27 +25,7 @@ import {
 } from "../models/ValidationSchemas.js";
 
 import { Logger } from "../utils/Logger.js";
-
-interface Services {
-    meetingsCollection: Collection<Meeting>;
-    audioCollection: Collection<Audio>;
-    insertMeeting: (meeting: Omit<Meeting, "_id">) => Promise<InsertOneResult<Meeting>>;
-    getOpenAI: () => OpenAI;
-}
-
-interface ConversationState {
-    alreadyInvited?: boolean;
-    humanName?: string;
-    [key: string]: any;
-}
-
-interface ConversationOptions {
-    topic: string;
-    characters: Character[];
-    options: GlobalOptions;
-    state?: ConversationState;
-    language: string;
-}
+import { IMeetingManager, Services, ConversationState, ConversationOptions } from "../interfaces/MeetingInterfaces.js";
 
 interface Decision {
     type: 'END_CONVERSATION' | 'WAIT' | 'REQUEST_PANELIST' | 'GENERATE_AI_RESPONSE';
@@ -56,7 +36,7 @@ interface Decision {
  * Manages the lifecycle of a single council meeting (session).
  * Orchestrates interaction between Client (Socket.IO), Database, and AI services.
  */
-export class MeetingManager {
+export class MeetingManager implements IMeetingManager {
     socket: Socket<ClientToServerEvents, ServerToClientEvents>;
     environment: string;
     globalOptions: GlobalOptions;

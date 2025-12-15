@@ -6,43 +6,13 @@ import { GlobalOptions } from "./GlobalOptions.js";
 import { Socket } from "socket.io";
 import { ClientToServerEvents, ServerToClientEvents } from "../models/SocketTypes.js";
 
-interface ConversationState {
-    alreadyInvited?: boolean;
-    [key: string]: any;
-}
-
-interface ConversationOptions {
-    state: ConversationState;
-    language: string;
-    options: GlobalOptions;
-    characters: Character[];
-    topic?: string;
-}
+import { IMeetingManager, ConversationOptions, ConversationState } from "../interfaces/MeetingInterfaces.js";
 
 interface SetupOptions {
     options?: Partial<GlobalOptions>;
     characters: Character[];
     language: string;
     topic: string;
-}
-
-interface IMeetingManager {
-    meetingId: number | null; // Corrected to number
-    socket: Socket<ClientToServerEvents, ServerToClientEvents>;
-    conversation: ConversationMessage[];
-    conversationOptions: ConversationOptions;
-    handRaised: boolean;
-    isPaused: boolean;
-    startLoop: () => void;
-    dialogGenerator: any;
-    audioSystem: any;
-    services: any;
-    environment: string;
-    run: boolean;
-    meetingDate: Date | null;
-    extraMessageCount: number;
-    currentSpeaker: number;
-    globalOptions: GlobalOptions;
 }
 
 interface WrapUpMessage {

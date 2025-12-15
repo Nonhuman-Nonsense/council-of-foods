@@ -2,11 +2,15 @@
 export interface Character {
     id: string;
     name: string;
+    voice: string;
     [key: string]: any;
 }
 
 export interface ConversationMessage {
     type: string;
+    id?: string;
+    text?: string;
+    sentences?: string[];
     speaker?: string;
     askParticular?: string;
     [key: string]: any;

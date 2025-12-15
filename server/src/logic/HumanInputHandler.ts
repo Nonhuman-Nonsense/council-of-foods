@@ -4,33 +4,7 @@ import { Character, ConversationMessage } from "./SpeakerSelector.js";
 import { Socket } from "socket.io";
 import { ClientToServerEvents, ServerToClientEvents } from "../models/SocketTypes.js";
 
-// Local interface for MeetingManager (unmigrated)
-interface ConversationState {
-    humanName?: string;
-    alreadyInvited?: boolean;
-    [key: string]: any;
-}
-
-interface ConversationOptions {
-    state: ConversationState;
-    language: string;
-    options: any;
-    characters: Character[];
-}
-
-interface IMeetingManager {
-    meetingId: string | number | null;
-    socket: Socket<ClientToServerEvents, ServerToClientEvents>;
-    conversation: ConversationMessage[];
-    conversationOptions: ConversationOptions;
-    handRaised: boolean;
-    isPaused: boolean;
-    startLoop: () => void;
-    dialogGenerator: any;
-    audioSystem: any;
-    services: any;
-    environment: string;
-}
+import { IMeetingManager, ConversationOptions } from "../interfaces/MeetingInterfaces.js";
 
 export interface HumanMessage {
     text: string;
@@ -80,6 +54,10 @@ export class HumanInputHandler {
             manager.conversation.pop();
         }
 
+        if (!manager.conversationOptions.state) {
+            manager.conversationOptions.state = {};
+        }
+
         if (message.askParticular) {
             console.log(`[meeting ${manager.meetingId}] specifically asked to ${message.askParticular}`);
             message.text = message.speaker + " asked " + message.askParticular + ":\xa0" + message.text;
@@ -87,27 +65,40 @@ export class HumanInputHandler {
             message.text = message.speaker + (manager.conversationOptions.language === 'en' ? " said:\xa0" : " sa:\xa0") + message.text;
         }
 
-        message.id = "human-" + uuidv4();
+        const msgId = "human-" + uuidv4();
+        message.id = msgId;
         message.type = "human";
         message.speaker = manager.conversationOptions.state.humanName;
 
         manager.conversation.push(message as ConversationMessage);
 
-        manager.services.meetingsCollection.updateOne(
-            { _id: manager.meetingId },
-            { $set: { conversation: manager.conversation } }
-        );
+        if (manager.meetingId !== null) {
+            manager.services.meetingsCollection.updateOne(
+                { _id: manager.meetingId },
+                { $set: { conversation: manager.conversation } }
+            );
+        }
 
         manager.socket.emit("conversation_update", manager.conversation);
 
         message.sentences = splitSentences(message.text);
-        manager.audioSystem.queueAudioGeneration(
-            message,
-            manager.conversationOptions.characters[0],
-            manager.conversationOptions.options,
-            manager.meetingId,
-            manager.environment
-        );
+
+        // Assert types for Queue compatibility
+        const queueMsg = {
+            id: msgId,
+            sentences: message.sentences,
+            ...message
+        };
+
+        if (manager.meetingId !== null) {
+            manager.audioSystem.queueAudioGeneration(
+                queueMsg,
+                manager.conversationOptions.characters[0],
+                manager.conversationOptions.options,
+                manager.meetingId as number,
+                manager.environment
+            );
+        }
 
         manager.isPaused = false;
         manager.handRaised = false;
@@ -135,21 +126,32 @@ export class HumanInputHandler {
 
         manager.conversation.push(message as ConversationMessage);
 
-        manager.services.meetingsCollection.updateOne(
-            { _id: manager.meetingId },
-            { $set: { conversation: manager.conversation } }
-        );
+        if (manager.meetingId !== null) {
+            manager.services.meetingsCollection.updateOne(
+                { _id: manager.meetingId },
+                { $set: { conversation: manager.conversation } }
+            );
+        }
 
         manager.socket.emit("conversation_update", manager.conversation);
 
         message.sentences = splitSentences(message.text);
-        manager.audioSystem.queueAudioGeneration(
-            message,
-            manager.conversationOptions.characters[0],
-            manager.conversationOptions.options,
-            manager.meetingId,
-            manager.environment
-        );
+
+        const queueMsg = {
+            id: message.id,
+            sentences: message.sentences,
+            ...message
+        };
+
+        if (manager.meetingId !== null) {
+            manager.audioSystem.queueAudioGeneration(
+                queueMsg,
+                manager.conversationOptions.characters[0],
+                manager.conversationOptions.options,
+                manager.meetingId as number,
+                manager.environment
+            );
+        }
 
         manager.isPaused = false;
         manager.handRaised = false;
@@ -187,12 +189,14 @@ export class HumanInputHandler {
 
         summary.sentences = splitSentences(response);
 
-        manager.audioSystem.queueAudioGeneration(
-            summary,
-            manager.conversationOptions.characters[0],
-            manager.conversationOptions.options,
-            manager.meetingId,
-            manager.environment
-        );
+        if (manager.meetingId !== null) {
+            manager.audioSystem.queueAudioGeneration(
+                summary,
+                manager.conversationOptions.characters[0],
+                manager.conversationOptions.options,
+                manager.meetingId as number,
+                manager.environment
+            );
+        }
     }
 }

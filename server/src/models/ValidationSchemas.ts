@@ -20,7 +20,7 @@ const CharacterSchema = z.object({
     id: z.string(),
     name: z.string(),
     type: z.string().optional(),
-    voice: z.string().optional(),
+    voice: z.string().default("en_us_001"),
     prompt: z.string().optional(),
 }).passthrough(); // Allow other properties for flexibility
 
