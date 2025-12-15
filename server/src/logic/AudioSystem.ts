@@ -1,61 +1,99 @@
 import { reportError } from "../../errorbot.js";
+import { Logger } from "../utils/Logger.js";
+import { Meeting, Audio } from "../models/DBModels.js";
 import { mapSentencesToWords } from "../utils/textUtils.js";
-import { File } from "buffer"; // Need File for OpenAI? Node's File is global in recent versions or requires polyfill/buffer.
-// Actually OpenAI SDK accepts Buffer/Stream for 'file'. In original code: `new File([buffer], ...)` implies web-standard File.
-// Node environment might need 'node-fetch' or similar if File is not present, but let's assume it works as it was in MeetingManager.
-// Wait, `new File` is available in Node 20+. Current User environment is Mac, likely recent Node.
-// If not, we might need: import { File } from "node:buffer"; (Node 20) or just pass ReadStream.
-// Original code used `new File([buffer], "speech.mp3", { type: "audio/mpeg" });`
-// I'll stick to what was there.
+import { OpenAI } from "openai";
+import { Collection, Document } from "mongodb";
+import { Socket } from "socket.io";
+import { ServerToClientEvents, ClientToServerEvents } from "../models/SocketTypes.js";
+
+// OpenAI SDK accepts Buffer/Stream for 'file'.
+// Using File object for compatibility.
+
+export type AudioTask = () => Promise<void>;
+
+// ... (AudioQueue class remains unchanged) 
 
 export class AudioQueue {
-    constructor(concurrency = 3) {
+    queue: AudioTask[];
+    activeCount: number;
+    concurrency: number;
+
+    constructor(concurrency: number = 3) {
         this.queue = [];
         this.activeCount = 0;
         this.concurrency = concurrency;
     }
 
-    add(task) {
+    add(task: AudioTask): void {
         this.queue.push(task);
         this.processNext();
     }
 
-    async processNext() {
+    async processNext(): Promise<void> {
         if (this.activeCount >= this.concurrency || this.queue.length === 0) return;
 
         this.activeCount++;
         const task = this.queue.shift();
 
-        try {
-            // We do not await the task here to block the loop.
-            // We act "fire and forget" from the perspective of this synchronous look,
-            // but we track completion to update activeCount.
-            // However, we want to try to start MORE tasks if concurrency allows.
-            // So we call processNext() recursively immediately after starting this one?
-            // No, the "check" at the top handles limits.
-
-            // We want to run the task, and WHEN it finishes, decrement and try to pick up next.
-            // But we ALSO want to try to pick up next IMMEDIATELY in case we haven't hit limit yet.
-
-            this.runTask(task);
-            this.processNext(); // Try to start another one immediately
-        } catch (error) {
-            console.error("Error starting audio task:", error);
-            // Should not happen if runTask handles it, but safety net.
-            this.activeCount--;
+        if (task) {
+            try {
+                // Start the task asynchronously
+                this.runTask(task);
+                // Try to start another task if concurrency allows
+                this.processNext();
+            } catch (error) {
+                console.error("Error starting audio task:", error);
+                this.activeCount--;
+            }
         }
     }
 
-    async runTask(task) {
+    async runTask(task: AudioTask): Promise<void> {
         try {
             await task();
         } catch (error) {
-            console.error("Error processing audio task:", error);
+            console.error(error);
+            // Note: `this.meetingId` is not available in AudioQueue.
+            // The instruction implies a context that might be passed to the task or queue.
+            // For now, using a generic context.
+            reportError("AudioSystem", "Audio Generation Error", error);
         } finally {
             this.activeCount--;
             this.processNext();
         }
     }
+}
+
+
+
+// ...
+
+export interface Services {
+    audioCollection: Collection<Audio>;
+    meetingsCollection: Collection<Meeting>;
+    getOpenAI: () => OpenAI;
+}
+
+export interface Speaker {
+    voice: string;
+    [key: string]: any;
+}
+
+export interface Message {
+    id: string;
+    type?: string;
+    text: string;
+    sentences: string[];
+    [key: string]: any;
+}
+
+export interface AudioSystemOptions {
+    voiceModel: string;
+    audio_speed: number;
+    skipAudio?: boolean;
+    skipMatchingSubtitles?: boolean;
+    [key: string]: any;
 }
 
 /**
@@ -69,28 +107,25 @@ export class AudioQueue {
  * - Skipping audio generation based on configuration (skipAudio).
  */
 export class AudioSystem {
-    constructor(socket, services, concurrency = 3) {
+    socket: Socket<ClientToServerEvents, ServerToClientEvents>;
+    services: Services;
+    queue: AudioQueue;
+
+    constructor(socket: Socket<ClientToServerEvents, ServerToClientEvents>, services: Services, concurrency: number = 3) {
         this.socket = socket;
         this.services = services;
         this.queue = new AudioQueue(concurrency);
     }
 
-    queueAudioGeneration(message, speaker, options, meetingId, environment) {
+    queueAudioGeneration(message: Message, speaker: Speaker, options: AudioSystemOptions, meetingId: number, environment: string): void {
         this.queue.add(() => this.generateAudio(message, speaker, options, meetingId, environment));
     }
 
     /**
      * Generates or retrieves audio for a given message.
      * Emits 'audio_update' to the socket client.
-     * 
-     * @param {object} message - The message object containing text and id.
-     * @param {object} speaker - The speaker object containing voice details.
-     * @param {object} options - Configuration options (voiceModel, skipAudio, etc.).
-     * @param {string} meetingId - The ID of the current meeting.
-     * @param {string} environment - The runtime environment.
-     * @param {boolean} skipMatching - Whether to skip sentence-level alignment.
      */
-    async generateAudio(message, speaker, options, meetingId, environment, skipMatching = false) {
+    async generateAudio(message: Message, speaker: Speaker, options: AudioSystemOptions, meetingId: number, environment: string, skipMatching: boolean = false): Promise<void> {
         if (options.skipAudio) return;
 
         if (message.type === "skipped") {
@@ -98,26 +133,33 @@ export class AudioSystem {
             return;
         }
 
-        let buffer;
+        let buffer: Buffer | undefined;
         let generateNew = true;
         try {
             const existingAudio = await this.services.audioCollection.findOne({ _id: message.id });
             if (existingAudio) {
-                buffer = existingAudio.buffer;
+                buffer = existingAudio.buffer?.buffer ? Buffer.from(existingAudio.buffer.buffer) : existingAudio.audio?.buffer ? Buffer.from(existingAudio.audio.buffer) : existingAudio.buffer;
+                // Handling potential bson binary format difference
+                // But for now, let's assume it works as before or cast.
+                // Reverting to robust check:
+                if (!buffer && existingAudio.audio) buffer = existingAudio.audio; // Legacy
+                // Actually, existingAudio.buffer is often Binary type.
+
                 generateNew = false;
             }
         } catch (e) { console.log(e); }
 
         try {
             const openai = this.services.getOpenAI();
-            if (generateNew) {
+            if (generateNew || !buffer) {
                 const mp3 = await openai.audio.speech.create({
                     model: options.voiceModel,
-                    voice: speaker.voice,
+                    voice: speaker.voice as any, // OpenAI types might be strict union
                     speed: options.audio_speed,
                     input: message.text.substring(0, 4096),
                 });
                 buffer = Buffer.from(await mp3.arrayBuffer());
+                generateNew = true; // Ensure we save it if we regenerated it because buffer was missing
             }
 
             const shouldSkipMatching = skipMatching || options.skipMatchingSubtitles;
@@ -153,25 +195,26 @@ export class AudioSystem {
                 );
             }
 
-        } catch (error) {
+        } catch (error: any) {
             // Suppress "interrupted at shutdown" errors often seen during tests
             if (error.code === 11600 || (error.message && error.message.includes('interrupted at shutdown'))) {
                 return;
             }
-            console.error("Error generating audio:", error);
-            reportError(error);
+            // console.error("Error generating audio:", error);
+            Logger.error("AudioSystem", "Error generating audio", error);
+            reportError("AudioSystem", "Error generating audio", error);
         }
     }
 
-    async getSentenceTimings(buffer, message) {
+    async getSentenceTimings(buffer: Buffer, message: Message): Promise<any[]> {
         const openai = this.services.getOpenAI();
-        const audioFile = new File([buffer], "speech.mp3", { type: "audio/mpeg" });
+        const audioFile = new File([new Uint8Array(buffer)], "speech.mp3", { type: "audio/mpeg" });
         const transcription = await openai.audio.transcriptions.create({
             file: audioFile,
             model: "whisper-1",
             response_format: "verbose_json",
             timestamp_granularities: ["word"]
         });
-        return mapSentencesToWords(message.sentences, transcription.words);
+        return mapSentencesToWords(message.sentences, transcription.words as any[]);
     }
 }

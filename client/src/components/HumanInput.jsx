@@ -8,6 +8,23 @@ import Lottie from 'react-lottie-player';
 import loading from '../animations/loading.json';
 
 
+/**
+ * HumanInput Component
+ * 
+ * Manages the user interface for human participation, supporting both voice (OpenAI Realtime API) and text input.
+ * 
+ * Core Logic:
+ * - **Voice Input**: Establishes a WebRTC connection to OpenAI ('startRealtimeSession') to stream audio and receive live transcripts.
+ * - **Text Input**: Provides a fallback manual text entry.
+ * - **Targeting**: Should allow selection of specific characters to address (logic partially implemented via `askParticular`).
+ * 
+ * @param {Object} props
+ * @param {Array} props.foods - List of active food participants.
+ * @param {boolean} props.isPanelist - Mode flag: True if acting as a specific human panelist (interruption), False if general audience entry.
+ * @param {string} props.currentSpeakerName - Context for placeholder text.
+ * @param {Function} props.onSubmitHumanMessage - Callback to send final text to server.
+ * @param {Object} props.socketRef - Socket reference for requesting client keys.
+ */
 function HumanInput({ foods, isPanelist, currentSpeakerName, onSubmitHumanMessage, socketRef }) {
   const [clientKey, setClientKey] = useState(null);
   const [recordingState, setRecordingState] = useState("idle");
@@ -44,6 +61,12 @@ function HumanInput({ foods, isPanelist, currentSpeakerName, onSubmitHumanMessag
     }
   }, [recordingState, clientKey]);
 
+  /**
+   * Initiates a WebRTC session with OpenAI's Realtime API.
+   * - Captures local microphone stream.
+   * - Negotiates SDP offer/answer.
+   * - Listens for transcription completion events via Data Channel.
+   */
   async function startRealtimeSession() {
 
     // Create a peer connection
@@ -131,11 +154,11 @@ function HumanInput({ foods, isPanelist, currentSpeakerName, onSubmitHumanMessag
       //Completed order is not guaranteed, so we sort the result
       const sortedTranscript = Object.keys(transcript).sort().map(key => transcript[key]).join(" ") + "...";
       inputArea.current.value = (previousTranscript ? previousTranscript + " " + sortedTranscript : sortedTranscript).trim();
-      
+
       // For some reason the textarea doesn't recalculate when the value is changed here
       // So we just flip a rerender variable and pass it to the component to trigger a react re-render
       forceRerender(r => !r);
-      
+
       if (inputArea.current.value.length > maxInputLength) setRecordingState('idle');
     } else {
       const sortedTranscript = Object.keys(transcript).sort().map(key => transcript[key]).join(" ");
@@ -322,7 +345,7 @@ function HumanInput({ foods, isPanelist, currentSpeakerName, onSubmitHumanMessag
           maxRows="6"
           cacheMeasurements={rerender}
           maxLength={maxInputLength}
-          placeholder={isPanelist ? t('human.panelist', {name: currentSpeakerName}) : t("human.1")}
+          placeholder={isPanelist ? t('human.panelist', { name: currentSpeakerName }) : t("human.1")}
         />
       </div>
       <div style={{ display: "flex", flexDirection: "row", pointerEvents: "auto", justifyContent: "center" }}>

@@ -6,6 +6,23 @@ import { capitalizeFirstLetter, useMobile, useMobileXs, usePortrait } from "../u
 import Lottie from "react-lottie-player";
 import hamburger from "../animations/hamburger.json";
 
+/**
+ * Navbar Component
+ * 
+ * The main application navigation bar.
+ * Handles desktop/mobile rendering, hamburger menu toggling, and routing.
+ * 
+ * Core Logic:
+ * - Detects active section based on URL hash (e.g. `#contact`).
+ * - Manages hamburger menu animation state for mobile devices.
+ * - Displays the "Council" logo and current topic when allowed (`showIconinMeny`).
+ * 
+ * @param {Object} props
+ * @param {string} props.lang - Current language code.
+ * @param {string} props.topic - Current discussion topic name.
+ * @param {boolean} props.hamburgerOpen - State of the mobile menu.
+ * @param {Function} props.setHamburgerOpen - Setter for mobile menu state.
+ */
 function Navbar({ lang, topic, hamburgerOpen, setHamburgerOpen }) {
   const isMobile = useMobile();
   const isMobileXs = useMobileXs();
@@ -15,9 +32,12 @@ function Navbar({ lang, topic, hamburgerOpen, setHamburgerOpen }) {
   const [activeMenuItem, setActiveMenuItem] = useState('');
   const location = useLocation();
   const navigate = useNavigate();
-  
+
   const { t } = useTranslation();
 
+  /* -------------------------------------------------------------------------- */
+  /*                                   Effects                                  */
+  /* -------------------------------------------------------------------------- */
 
   useEffect(() => {
     if (['#about', '#contact', '#settings'].includes(location.hash)) {
@@ -37,6 +57,10 @@ function Navbar({ lang, topic, hamburgerOpen, setHamburgerOpen }) {
     }
   }, [hamburgerOpen]);
 
+  /* -------------------------------------------------------------------------- */
+  /*                                  Handlers                                  */
+  /* -------------------------------------------------------------------------- */
+
   function handleOnNavigate(to) {
     navigate({
       hash: to
@@ -47,6 +71,10 @@ function Navbar({ lang, topic, hamburgerOpen, setHamburgerOpen }) {
       setHamburgerOpen(false);
     }
   }
+
+  /* -------------------------------------------------------------------------- */
+  /*                                    Styles                                  */
+  /* -------------------------------------------------------------------------- */
 
   const navbarStyle = {
     padding: isMobile ? (isMobileXs ? "15px 15px 0 15px" : "20px 20px 0 20px") : "20px",
@@ -82,6 +110,10 @@ function Navbar({ lang, topic, hamburgerOpen, setHamburgerOpen }) {
   const navItems = ["settings", "about", "contact"];
 
   const showMenu = (!isMobile || hamburgerOpen);
+
+  /* -------------------------------------------------------------------------- */
+  /*                                   Render                                   */
+  /* -------------------------------------------------------------------------- */
 
   return (
     <nav

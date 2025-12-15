@@ -1,6 +1,16 @@
 // FullscreenButton.jsx
 import { useState, useEffect } from "react";
 
+/**
+ * FullscreenButton Component
+ * 
+ * A fixed-position button that toggles browser fullscreen mode.
+ * Handles cross-browser fullscreen APIs (webkit, moz, ms).
+ * 
+ * Core Logic:
+ * - Listens for `fullscreenchange` events to sync local state.
+ * - Uses vendor-prefixed methods to request/exit fullscreen.
+ */
 const FullscreenButton = () => {
   const [isFullscreen, setIsFullscreen] = useState(false);
 

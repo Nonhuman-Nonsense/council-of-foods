@@ -1,17 +1,38 @@
 import { useEffect, useRef, useState } from "react";
 
+/**
+ * FoodAnimation Component
+ * 
+ * Renders the HTML5 video element for a food item.
+ * Manages playback state (play/pause) based on speaker activity.
+ * 
+ * Core Logic:
+ * - **Safari Fix**: Forces a brief play/pause to unlock video rendering on iOS/Safari.
+ * - **Codec Support**: Provides both HEVC (Safari) and VP9 (Chrome/Firefox) sources.
+ * - **Sync**: Observes `currentSpeakerId` to play video only when the food is speaking.
+ * 
+ * @param {Object} props
+ * @param {Object} props.food - Food object (id).
+ * @param {Object} props.styles - Computed styles from parent (FoodItem).
+ * @param {string} props.currentSpeakerId - Active speaker ID.
+ * @param {boolean} props.isPaused - Global pause state.
+ */
 function FoodAnimation({ food, styles, currentSpeakerId, isPaused }) {
 
   const video = useRef(null);
   const [vidLoaded, setVidLoaded] = useState(false);
 
+  /* -------------------------------------------------------------------------- */
+  /*                                   Effects                                  */
+  /* -------------------------------------------------------------------------- */
+
   //This is to fix a problem on safari where videos are not shown at all until they are played.
   //So we play the video for a moment on component mount, and then go back to the normal behaviour
   useEffect(() => {
     async function startVid() {
-      try{
+      try {
         await video.current.play();
-      }catch(e){
+      } catch (e) {
         //Sometimes video playing might fail due to being paused because it is a background tab etc.
         //But this is not a problem, just catch and proceed.
         console.log(e);//log for now but prob safe to fail silently
@@ -31,6 +52,10 @@ function FoodAnimation({ food, styles, currentSpeakerId, isPaused }) {
       }
     }
   }, [currentSpeakerId, isPaused, vidLoaded, food.id]);
+
+  /* -------------------------------------------------------------------------- */
+  /*                                   Render                                   */
+  /* -------------------------------------------------------------------------- */
 
   return (
     <video ref={video} style={{ ...styles, objectFit: "cover" }} loop muted playsInline>

@@ -1,9 +1,21 @@
 import { useTranslation } from "react-i18next";
 import { capitalizeFirstLetter } from "../../utils";
 
+/**
+ * ResetWarning Overlay
+ * 
+ * A confirmation dialog used when the user selects "Restart"
+ * from the navigation menu or attempts a destructive action.
+ * 
+ * @param {Object} props
+ * @param {string} [props.message] - Custom warning message (optional).
+ * @param {Function} props.onReset - Callback to confirm reset.
+ * @param {Function} props.onCancel - Callback to cancel reset.
+ */
 function ResetWarning({ message, onReset, onCancel }) {
 
   const { t } = useTranslation();
+
   return (
     <div>
       <h2>{t('reset.title')}</h2>

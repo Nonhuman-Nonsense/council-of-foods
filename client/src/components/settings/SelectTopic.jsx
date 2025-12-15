@@ -3,6 +3,19 @@ import ResetWarning from "../overlays/ResetWarning";
 import { capitalizeFirstLetter, toTitleCase, useMobile, useMobileXs } from "../../utils";
 import { useTranslation } from "react-i18next";
 
+/**
+ * SelectTopic Component
+ *
+ * This component allows the Chair to select the topic for discussion.
+ * It presents a list of predefined topics from the configuration file and an
+ * option to enter a custom topic.
+ *
+ * Core Logic:
+ * - Displays a grid of topics. If < 6 topics, it uses a single column; otherwise two columns.
+ * - Handles "Custom Topic" selection, revealing a text area for manual input.
+ * - Validates that a topic is selected (and custom text entered if applicable) before proceeding.
+ * - Shows a warning if the user attempts to change the topic mid-meeting.
+ */
 function SelectTopic({
   topics,
   onContinueForward,
@@ -10,55 +23,94 @@ function SelectTopic({
   onReset,
   onCancel
 }) {
+  const { t } = useTranslation();
+  const isMobile = useMobile();
+  const isMobileXs = useMobileXs();
+  const topicTextareaRef = useRef(null);
+
+  /* -------------------------------------------------------------------------- */
+  /*                                    State                                   */
+  /* -------------------------------------------------------------------------- */
+
   const [selectedTopic, setSelectedTopic] = useState("");
   const [hoverTopic, setHoverTopic] = useState(null);
   const [customTopic, setCustomTopic] = useState("");
   const [displayWarning, setDisplayWarning] = useState(false);
 
-  const topicTextareaRef = useRef(null);
-  const isMobile = useMobile();
-  const isMobileXs = useMobileXs();
+  /* -------------------------------------------------------------------------- */
+  /*                                   Effects                                  */
+  /* -------------------------------------------------------------------------- */
 
-  const { t } = useTranslation();
-
-  // useEffect hook to listen for changes in currentTopic
-  // If changing the topic in an ongoing meeting
+  // Pre-fill selection if editing an existing topic (e.g. backtracking)
   useEffect(() => {
     if (currentTopic?.prompt) {
-      let reSelectTopic = topics.find((t) => t.id === currentTopic.id);
-      if (currentTopic?.id === 'customtopic') {
+      if (currentTopic.id === 'customtopic' && currentTopic.description) {
         setCustomTopic(currentTopic.description);
       }
-      setSelectedTopic(reSelectTopic.id);
+      setSelectedTopic(currentTopic.id);
     }
-  }, [currentTopic]); // Dependency array includes only currentTopic
+  }, [currentTopic]);
 
-  // Function to proceed with the selected or custom topic
-  function proceedForward() {
-    if (currentTopic) {
-      // Current topic exists which means we are changing settings
-      setDisplayWarning(true);
-    } else {
-      onContinueForward({ topic: selectedTopic, custom: customTopic });
-    }
-  }
+  /* -------------------------------------------------------------------------- */
+  /*                                  Handlers                                  */
+  /* -------------------------------------------------------------------------- */
 
-  // Function to handle custom topic input changes
   function handleInputTopic(e) {
     const newTopic = e.target.value;
     const capitalizedTopic = capitalizeFirstLetter(newTopic).substring(0, 150);
     setCustomTopic(capitalizedTopic);
   }
 
-  // Conditional rendering for showing the Next button
+  function proceedForward() {
+    if (currentTopic) {
+      setDisplayWarning(true);
+    } else {
+      onContinueForward({ topic: selectedTopic, custom: customTopic });
+    }
+  }
+
+  /* -------------------------------------------------------------------------- */
+  /*                                   Helpers                                  */
+  /* -------------------------------------------------------------------------- */
+
+  /**
+   * Determines which tooltip text to display.
+   * Priority: Hovered Topic -> Selected Topic -> Default Instruction
+   */
+  function toolTip() {
+    if (hoverTopic) {
+      return topics.find(t => t.id === hoverTopic)?.description;
+    } else if (selectedTopic) {
+      return topics.find(t => t.id === selectedTopic)?.description;
+    } else {
+      return t("selectissue");
+    }
+  }
+
+  /**
+   * Determines if the custom topic text box should be visible.
+   * Logic: Visible if Custom is selected OR hovered (unless hovering another topic while Custom is selected).
+   */
+  function showTextBox() {
+    if (selectedTopic === 'customtopic' && hoverTopic && hoverTopic !== 'customtopic') {
+      return false;
+    }
+    return selectedTopic === 'customtopic' || hoverTopic === 'customtopic';
+  }
+
   const shouldShowNextButton =
     selectedTopic &&
-    !(
-      selectedTopic === "customtopic" &&
-      !customTopic.trim()
-    );
+    !(selectedTopic === "customtopic" && !customTopic.trim());
 
-  const container = {
+  /* -------------------------------------------------------------------------- */
+  /*                                    Styles                                  */
+  /* -------------------------------------------------------------------------- */
+
+  const standardTopics = topics.filter(t => t.id !== 'customtopic');
+  const customTopicObj = topics.find(t => t.id === 'customtopic');
+  const isSingleColumn = standardTopics.length <= 6;
+
+  const containerStyle = {
     width: "96vw",
     maxWidth: "850px",
     display: "flex",
@@ -67,11 +119,32 @@ function SelectTopic({
     alignItems: "center",
   };
 
-  const doubleColumn = {
-    width: "50%",
-    display: "flex",
-    flexDirection: "column",
-    margin: "0 7px"
+  const gridContainerStyle = {
+    display: "grid",
+    gridTemplateColumns: isSingleColumn ? "1fr" : "1fr 1fr",
+    width: "100%",
+    columnGap: "14px",
+    rowGap: isMobile ? "3px" : "15px",
+    justifyItems: "center"
+  };
+
+  const selectButtonStyle = {
+    padding: isMobile ? "3px 0" : "6px 0",
+    width: isSingleColumn ? "50%" : "100%",
+  };
+
+  const customButtonStyle = {
+    ...selectButtonStyle,
+    gridColumn: "1 / -1", // Always span full row for centering
+    width: "50%",         // Always 50% width for consistency
+  };
+
+  const descriptionStyle = {
+    marginTop: isMobile ? "9px" : "15px",
+    marginBottom: 0,
+    width: isMobile ? "80%" : "70%",
+    height: showTextBox() ? "0" : isMobile ? (isMobileXs ? "45px" : "60px") : "80px",
+    overflow: "hidden"
   };
 
   const textBoxStyle = {
@@ -82,7 +155,6 @@ function SelectTopic({
     border: "0",
     fontFamily: "Tinos, serif",
     lineHeight: "1.2em",
-    // fontSize: "25px",
     resize: "none",
     padding: "0",
     margin: "0",
@@ -90,46 +162,24 @@ function SelectTopic({
     display: showTextBox() ? "" : "none",
   };
 
-  function showTextBox() {
-    if (selectedTopic === 'customtopic' && hoverTopic !== null && hoverTopic !== 'customtopic') {
-      return false;
-    } else if (selectedTopic === 'customtopic') {
-      return true;
-    } else if (hoverTopic === "customtopic") {
-      return true;
-    } else {
-      return false;
-    }
-  }
-
-  const selectButtonStyle = {
-    marginBottom: isMobile ? "3px" : "15px",
-    padding: isMobile ? "3px 0" : "6px 0",
-  };
-
-  function toolTip() {
-    if (hoverTopic) {
-      return topics.find(t => t.id === hoverTopic)?.description;
-    } else if (selectedTopic) {
-      return topics.find(t => t.id === selectedTopic)?.description;
-    } else {
-      return t("selectissue")
-    }
-  }
+  /* -------------------------------------------------------------------------- */
+  /*                                   Render                                   */
+  /* -------------------------------------------------------------------------- */
 
   return (
     <>
       {displayWarning ? (
         <ResetWarning
           message={t('reset.changeTopic')}
-          onReset={() =>
-            onReset({ topic: selectedTopic, custom: customTopic })
-          }
+          onReset={() => onReset({ topic: selectedTopic, custom: customTopic })}
           onCancel={onCancel}
         />
       ) : (
-        <div style={container}>
-          <h1 style={{ marginBottom: isMobile && (isMobileXs ? "0px" : "5px") }}>{t('theissue')}</h1>
+        <div style={containerStyle}>
+          <h1 style={{ marginBottom: isMobile && (isMobileXs ? "0px" : "5px") }}>
+            {t('theissue')}
+          </h1>
+
           <div
             style={{
               display: "flex",
@@ -139,88 +189,64 @@ function SelectTopic({
               width: "100%",
             }}
           >
-            <div style={{ display: "flex", flexDirection: "row", width: "100%", justifyContent: "center" }}>
-              <div style={doubleColumn}>
-                {topics.filter((item, index) => {
-                  if (index === topics.length - 1) return false;
-                  if (topics.length <= 5 + 1) return true;
-                  return index < (topics.length - 1) / 2;
-                }).map((topic, index) => (
-                  <button
-                    key={index}
-                    className={selectedTopic === topic.id ? "selected " : ""}
-                    onClick={() => setSelectedTopic(topic.id)}
-                    onMouseEnter={() => setHoverTopic(topic.id)}
-                    onMouseLeave={() => setHoverTopic(null)}
-                    style={selectButtonStyle}
-                  >
-                    {toTitleCase(topic.title)}
-                  </button>
-                ))}
-              </div>
-              <div style={{ ...doubleColumn, display: topics.length > 5 + 1 ? "flex" : "none" }}>
-                {topics.filter((item, index) => {
-                  if (index === topics.length - 1) return false;
-                  if (topics.length <= 5 + 1) return false;
-                  return (index >= (topics.length - 1) / 2);
-                }).map((topic, index) => (
-                  <button
-                    key={index}
-                    className={selectedTopic === topic.id ? "selected " : ""}
-                    onClick={() => setSelectedTopic(topic.id)}
-                    onMouseEnter={() => setHoverTopic(topic.id)}
-                    onMouseLeave={() => setHoverTopic(null)}
-                    style={selectButtonStyle}
-                  >
-                    {toTitleCase(topic.title)}
-                  </button>
-                ))}
-              </div>
+            {/* Grid Layout for Topics */}
+            <div style={gridContainerStyle}>
+              {standardTopics.map((topic) => (
+                <button
+                  key={topic.id}
+                  data-testid="topic-button"
+                  className={selectedTopic === topic.id ? "selected " : ""}
+                  onClick={() => setSelectedTopic(topic.id)}
+                  onMouseEnter={() => setHoverTopic(topic.id)}
+                  onMouseLeave={() => setHoverTopic(null)}
+                  style={selectButtonStyle}
+                >
+                  {toTitleCase(topic.title)}
+                </button>
+              ))}
+
+              {/* Custom Topic Button */}
+              {customTopicObj && (
+                <button
+                  className={selectedTopic === customTopicObj.id ? "selected " : ""}
+                  onClick={() => {
+                    setSelectedTopic("customtopic");
+                    setTimeout(() => {
+                      topicTextareaRef.current && topicTextareaRef.current.focus();
+                    }, 0);
+                  }}
+                  onMouseEnter={() => setHoverTopic("customtopic")}
+                  onMouseLeave={() => setHoverTopic(null)}
+                  style={customButtonStyle}
+                >
+                  {toTitleCase(customTopicObj.title)}
+                </button>
+              )}
             </div>
-            {topics.slice(-1).map((topic, index) => (
-              <button
-                key={index}
-                className={selectedTopic === topic.id ? "selected " : ""}
-                onClick={() => {
-                  setSelectedTopic("customtopic");
-                  //Todo, not sure why this is on timeout?
-                  setTimeout(() => {
-                    topicTextareaRef.current && topicTextareaRef.current.focus();
-                  }, 0);
-                }}
-                onMouseEnter={() => setHoverTopic("customtopic")}
-                onMouseLeave={() => setHoverTopic(null)}
-                style={{ ...selectButtonStyle, width: "50%" }}
-              >
-                {toTitleCase(topic.title)}
-              </button>
-            ))}
-            <p
-              style={{
-                margin: "0",
-                width: isMobile ? "80%" : "70%",
-                height: showTextBox() ? "0" : isMobile ? (isMobileXs ? "45px" : "60px") : "80px",
-                overflow: "hidden"
-              }}
-            >{toolTip()}
+
+            {/* Description Tooltip */}
+            <p style={descriptionStyle}>
+              {toolTip()}
             </p>
           </div>
+
+          {/* Custom Topic Input */}
           <textarea
             ref={topicTextareaRef}
-            className="unfocused"
+            className="unfocused topic-textarea"
             rows="3"
             value={customTopic}
             placeholder={t('writetopic')}
             onChange={handleInputTopic}
             style={textBoxStyle}
           />
+
           <button
             onClick={proceedForward}
-            style={{
-              marginBottom: "10px",
-              visibility: shouldShowNextButton ? "" : "hidden",
-            }}
-          >{t('next')}</button>
+            style={{ visibility: shouldShowNextButton ? "" : "hidden" }}
+          >
+            {t('next')}
+          </button>
         </div>
       )}
     </>

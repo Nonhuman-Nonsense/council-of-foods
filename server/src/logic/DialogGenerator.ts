@@ -1,13 +1,57 @@
 import { splitSentences } from "../utils/textUtils.js";
 import { reportError } from "../../errorbot.js";
+import { Character, ConversationMessage } from "./SpeakerSelector.js";
+import { GlobalOptions } from "./GlobalOptions.js";
+import { OpenAI } from "openai";
+import { ChatCompletionMessageParam } from "openai/resources/chat/completions";
 
+interface Services {
+    getOpenAI: () => OpenAI;
+    [key: string]: any;
+}
+
+interface ConversationState {
+    humanName?: string;
+    [key: string]: any;
+}
+
+interface ConversationOptions {
+    options: GlobalOptions;
+    characters: Character[];
+    topic: string;
+    state?: ConversationState;
+    language: string;
+}
+
+export interface GPTResponse {
+    id: string | null;
+    response: string;
+    sentences?: string[];
+    trimmed?: string;
+    pretrimmed?: string;
+}
+
+/**
+ * Handles all interactions with the OpenAI API for text generation.
+ * Responsible for building prompt messages, calling the API, and parsing/post-processing the response.
+ */
 export class DialogGenerator {
-    constructor(services, options) {
+    services: Services;
+    options: GlobalOptions;
+
+    /**
+     * @param {object} services - Abstracted service container (must provide getOpenAI)
+     * @param {object} options - Global configuration options
+     */
+    constructor(services: Services, options: GlobalOptions) {
         this.services = services;
         this.options = options; // This assumes options are passed, or we might need access to current meeting options
     }
 
-    async generateTextFromGPT(speaker, conversation, conversationOptions, currentSpeakerIndex) {
+    /**
+     * Generates a conversational response for a specific character (food or chair).
+     */
+    async generateTextFromGPT(speaker: Character, conversation: ConversationMessage[], conversationOptions: ConversationOptions, currentSpeakerIndex: number): Promise<GPTResponse> {
         try {
             const messages = this.buildMessageStack(speaker, conversation, conversationOptions);
             const openai = this.services.getOpenAI();
@@ -25,17 +69,21 @@ export class DialogGenerator {
                 messages: messages,
             });
 
+            if (!completion.choices[0].message.content) {
+                throw new Error("No content received from GPT");
+            }
+
             let response = completion.choices[0].message.content
                 .trim()
                 .replaceAll("**", "");
 
-            let pretrimmedContent;
+            let pretrimmedContent: string | undefined;
             if (response.startsWith(speaker.name + ":")) {
                 pretrimmedContent = response.substring(0, speaker.name.length + 1);
                 response = response.substring(speaker.name.length + 1).trim();
             }
 
-            let trimmedContent;
+            let trimmedContent: string | undefined;
             let originalResponse = response;
 
             if (completion.choices[0].finish_reason != "stop") {
@@ -73,7 +121,7 @@ export class DialogGenerator {
                 if (conversationOptions.options.trimChairSemicolon) {
                     if (speaker.id === conversationOptions.options.chairId) {
 
-                        const trimmedSentences = splitSentences(trimmedContent?.trim()).filter((sentence) => sentence.length > 0 && sentence !== ".");
+                        const trimmedSentences = splitSentences(trimmedContent?.trim() || "").filter((sentence) => sentence.length > 0 && sentence !== ".");
 
                         if (
                             trimmedSentences &&
@@ -124,7 +172,11 @@ export class DialogGenerator {
         }
     }
 
-    async chairInterjection(interjectionPrompt, index, length, dontStop, conversation, conversationOptions, socket) {
+    /**
+     * Generates a specific interjection or system message (e.g., Chair inviting human).
+     * Uses a temporary system prompt injected at the end of the history.
+     */
+    async chairInterjection(interjectionPrompt: string, index: number, length: number, dontStop: boolean, conversation: ConversationMessage[], conversationOptions: ConversationOptions, socket: any): Promise<GPTResponse> {
         try {
             const chair = conversationOptions.characters[0];
             let messages = this.buildMessageStack(chair, conversation, conversationOptions, index);
@@ -141,9 +193,13 @@ export class DialogGenerator {
                 temperature: conversationOptions.options.temperature,
                 frequency_penalty: conversationOptions.options.frequencyPenalty,
                 presence_penalty: conversationOptions.options.presencePenalty,
-                stop: dontStop ? "" : "\n---",
+                stop: dontStop ? undefined : "\n---",
                 messages: messages,
             });
+
+            if (!completion.choices[0].message.content) {
+                return { response: "", id: completion.id };
+            }
 
             let response = completion.choices[0].message.content.trim();
 
@@ -162,13 +218,16 @@ export class DialogGenerator {
                     code: 500,
                 });
             }
-            reportError(error);
+            reportError("DialogGenerator", "Prompt Generation Error", error);
             return { response: "", id: null };
         }
     }
 
-    buildMessageStack(speaker, conversation, conversationOptions, upToIndex) {
-        let messages = [];
+    /**
+     * Constructs the array of message objects (system, user, assistant) for the GPT API.
+     */
+    buildMessageStack(speaker: Character, conversation: ConversationMessage[], conversationOptions: ConversationOptions, upToIndex?: number): ChatCompletionMessageParam[] {
+        let messages: ChatCompletionMessageParam[] = [];
 
         messages.push({
             role: "system",

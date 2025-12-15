@@ -21,6 +21,7 @@ describe('MeetingManager - Conversation Flow', () => {
     beforeEach(() => {
         const setup = createTestManager();
         manager = setup.manager;
+        manager.meetingId = 1; // Manually assign ID for DB method testing
         mockSocket = setup.mockSocket;
 
         // Spy on DB methods
@@ -36,6 +37,7 @@ describe('MeetingManager - Conversation Flow', () => {
 
         // 2. Verify 'prototype' mode
         const { manager: protoManager, mockSocket: protoSocket } = createTestManager('prototype');
+        protoManager.meetingId = 1;
 
         // Spy on DB/Methods for the new manager
         vi.spyOn(SpeakerSelector, 'calculateNextSpeaker');
@@ -114,6 +116,7 @@ describe('MeetingManager - Conversation Flow', () => {
         const { manager: diManager, mockSocket: diSocket } = createTestManager('test', null, {
             getOpenAI: mockGetOpenAI
         });
+        diManager.meetingId = 1;
 
         diManager.conversationOptions.options.conversationMaxLength = 10;
         // Mock current speaker to Tomato (index 1 in default, 2 in extended? Default has Water, Tomato, Potato)
@@ -184,6 +187,7 @@ describe('MeetingManager - Conversation Flow', () => {
 
         const mockGetOpenAI = () => mockOpenAI;
         const { manager: diManager } = createTestManager('test', null, { getOpenAI: mockGetOpenAI });
+        diManager.meetingId = 1;
 
         // Ensure characters[0] (Chair) has a voice property if needed, though default setup usually provides it
         if (!diManager.conversationOptions.characters[0].voice) {
@@ -243,6 +247,7 @@ describe('MeetingManager - Conversation Flow', () => {
         };
         const mockGetOpenAI = () => mockOpenAI;
         const { manager: keyManager, mockSocket: keySocket } = createTestManager('test', null, { getOpenAI: mockGetOpenAI });
+        keyManager.meetingId = 1;
 
         // Mock fetch for OpenAI API
         global.fetch = vi.fn().mockResolvedValue({

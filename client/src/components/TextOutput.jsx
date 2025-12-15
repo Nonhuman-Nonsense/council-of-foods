@@ -3,11 +3,21 @@ import { useMobile } from "../utils";
 
 /**
  * TextOutput Component
- * * Handles the synchronized display of subtitles based on absolute audio timing.
- * * CORE FEATURES:
- * 1. Absolute Timing: Calculates time based on Date.now() vs StartTime, eliminating drift.
- * 2. High Performance: Uses requestAnimationFrame (~60fps) and an O(1) cursor lookup.
- * 3. Render Safety: Uses Refs to track state inside the loop to prevent extra re-renders.
+ * 
+ * Handles the synchronized display of subtitles based on absolute audio timing.
+ * 
+ * Core Logic:
+ * - **Absolute Timing**: Calculates time based on `Date.now() - startTime` to derive exact position, eliminating drift.
+ * - **High Performance**: Uses `requestAnimationFrame` (~60fps) loop instead of `setInterval`.
+ * - **O(1) Lookup**: Maintains a `searchCursorRef` to find the current sentence without re-scanning the array.
+ * - **Render Safety**: Updates Refs inside the loop to track state without triggering unnecessary re-renders.
+ * 
+ * @param {Object} props
+ * @param {Object} props.currentTextMessage - The text object structure.
+ * @param {Object} props.currentAudioMessage - Audio metadata containing sentence timing `{ sentences: [{text, start, end}, ...] }`.
+ * @param {boolean} props.isPaused - Global pause state.
+ * @param {Function} props.setCurrentSnippetIndex - Updates the active sentence index in parent.
+ * @param {Function} props.setSentencesLength - Reports total sentences to parent.
  */
 function TextOutput({
   currentTextMessage,

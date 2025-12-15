@@ -2,6 +2,33 @@ import ConversationControlIcon from "./ConversationControlIcon";
 import { useMobile } from "../utils";
 import { useTranslation } from "react-i18next";
 
+/**
+ * ConversationControls Component
+ * 
+ * The control bar at the bottom of the screen.
+ * Provides playback controls (Play/Pause, Skip) and interaction buttons (Raise Hand).
+ * 
+ * Core Logic:
+ * - **Conditional Rendering**: Displays valid actions based on `canGoBack`, `canRaiseHand`, etc.
+ * - **Interjection Feedback**: Shows a "Waiting..." indicator when the user has raised their hand.
+ * - **Z-Index**: Adjusts `zIndex` based on `onTopOfOverlay` prop to remain visible over overlays.
+ * 
+ * @param {Object} props
+ * @param {boolean} props.isPaused - Global pause state.
+ * @param {Function} props.onPausePlay - Toggle playback.
+ * @param {boolean} props.isMuted - Global mute state.
+ * @param {Function} props.onSkipForward - Next message handler.
+ * @param {Function} props.onSkipBackward - Previous message handler.
+ * @param {Function} props.onRaiseHand - Raise hand handler.
+ * @param {Function} props.onMuteUnmute - Toggle mute.
+ * @param {boolean} props.isRaisedHand - Whether the user has requested to speak.
+ * @param {boolean} props.isWaitingToInterject - Whether the system is processing the interruption.
+ * @param {boolean} props.canGoBack - History navigation flag.
+ * @param {boolean} props.canGoForward - History navigation flag.
+ * @param {boolean} props.canRaiseHand - Interaction allowed flag.
+ * @param {boolean} props.onTopOfOverlay - Helper to boost z-index.
+ * @param {string} props.humanName - Name of human participant for status text.
+ */
 function ConversationControls({
   isPaused,
   onPausePlay,
