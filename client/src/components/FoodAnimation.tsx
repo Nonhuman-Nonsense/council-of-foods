@@ -1,4 +1,13 @@
 import { useEffect, useRef, useState } from "react";
+import { Food } from "./settings/SelectFoods";
+import React from 'react';
+
+interface FoodAnimationProps {
+  food: Food;
+  styles: React.CSSProperties;
+  currentSpeakerId: string;
+  isPaused: boolean;
+}
 
 /**
  * FoodAnimation Component
@@ -10,17 +19,11 @@ import { useEffect, useRef, useState } from "react";
  * - **Safari Fix**: Forces a brief play/pause to unlock video rendering on iOS/Safari.
  * - **Codec Support**: Provides both HEVC (Safari) and VP9 (Chrome/Firefox) sources.
  * - **Sync**: Observes `currentSpeakerId` to play video only when the food is speaking.
- * 
- * @param {Object} props
- * @param {Object} props.food - Food object (id).
- * @param {Object} props.styles - Computed styles from parent (FoodItem).
- * @param {string} props.currentSpeakerId - Active speaker ID.
- * @param {boolean} props.isPaused - Global pause state.
  */
-function FoodAnimation({ food, styles, currentSpeakerId, isPaused }) {
+function FoodAnimation({ food, styles, currentSpeakerId, isPaused }: FoodAnimationProps): React.ReactElement {
 
-  const video = useRef(null);
-  const [vidLoaded, setVidLoaded] = useState(false);
+  const video = useRef<HTMLVideoElement>(null);
+  const [vidLoaded, setVidLoaded] = useState<boolean>(false);
 
   /* -------------------------------------------------------------------------- */
   /*                                   Effects                                  */
@@ -30,21 +33,23 @@ function FoodAnimation({ food, styles, currentSpeakerId, isPaused }) {
   //So we play the video for a moment on component mount, and then go back to the normal behaviour
   useEffect(() => {
     async function startVid() {
-      try {
-        await video.current.play();
-      } catch (e) {
-        //Sometimes video playing might fail due to being paused because it is a background tab etc.
-        //But this is not a problem, just catch and proceed.
-        console.log(e);//log for now but prob safe to fail silently
+      if (video.current) {
+        try {
+          await video.current.play();
+        } catch (e) {
+          //Sometimes video playing might fail due to being paused because it is a background tab etc.
+          //But this is not a problem, just catch and proceed.
+          console.log(e);//log for now but prob safe to fail silently
+        }
+        video.current.pause();
+        setVidLoaded(true);
       }
-      video.current.pause();
-      setVidLoaded(true);
     };
     startVid();
   }, []);
 
   useEffect(() => {
-    if (vidLoaded) {
+    if (vidLoaded && video.current) {
       if (!isPaused && currentSpeakerId === food.id) {
         video.current.play().catch(e => console.log(e));//log for now but prob safe to fail silently
       } else {
@@ -58,7 +63,7 @@ function FoodAnimation({ food, styles, currentSpeakerId, isPaused }) {
   /* -------------------------------------------------------------------------- */
 
   return (
-    <video ref={video} style={{ ...styles, objectFit: "cover" }} loop muted playsInline>
+    <video ref={video} style={{ ...styles, objectFit: "cover" }} loop muted playsInline data-testid="food-video">
       <source
         src={`/foods/videos/${food.id}-hevc-safari.mp4`}
         type={'video/mp4; codecs="hvc1"'} />
