@@ -12,15 +12,16 @@ export function capitalizeFirstLetter(string) {
 }
 
 export function toTitleCase(string) {
+  if (!string || typeof string !== 'string') return "";
   return string
     .toLowerCase()
     .split(' ')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .map(capitalizeFirstLetter)
     .join(' ');
 }
 
 export function filename(string) {
-  return string.toLowerCase().replace(/ /g, "_");
+  return string ? string.toLowerCase().replaceAll(" ", "_") : "";
 }
 
 //Same breakpoint everywhere
