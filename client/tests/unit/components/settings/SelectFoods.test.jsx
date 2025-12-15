@@ -106,4 +106,28 @@ describe('SelectFoods Component', () => {
 
         expect(chair.prompt).toContain("on the panel are also selectfoods.humanAlice, A thoughtful human.");
     });
+
+    it('should maintain focus on description when typing', async () => {
+        render(<SelectFoods lang="en" topicTitle="Test Topic" onContinueForward={mockOnContinue} />);
+
+        // Add Human
+        const addBtn = screen.getByAltText('add human');
+        fireEvent.click(addBtn);
+
+        const nameInput = screen.getByPlaceholderText('selectfoods.humanname');
+        const descInput = screen.getByPlaceholderText('selectfoods.humandesc');
+
+        // Focus name (default behavior)
+        expect(document.activeElement).toBe(nameInput);
+
+        // Switch focus to description
+        descInput.focus();
+        expect(document.activeElement).toBe(descInput);
+
+        // Type in description - this updates state and re-renders
+        fireEvent.change(descInput, { target: { value: 'A' } });
+
+        // If bug exists, focus jumps back to nameInput
+        expect(document.activeElement).toBe(descInput);
+    });
 });

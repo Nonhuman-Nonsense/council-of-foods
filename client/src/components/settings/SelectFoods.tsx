@@ -440,15 +440,20 @@ function HumanInfo({ human, setHumans, lastSelected, unfocus, setRecheckHumansRe
     }
   }
 
+  // Effect to update values when human data changes (e.g. from parent re-render or switching humans)
   useEffect(() => {
-    //If we change from one human to another, also update the values
     if (nameArea.current && descriptionArea.current && human) {
       nameArea.current.value = human.name;
       descriptionArea.current.value = human.description;
+    }
+  }, [human]);
+
+  // Effect to handle focus ONLY when selection changes or unfocus trigger changes
+  useEffect(() => {
+    if (nameArea.current && descriptionArea.current && human) {
       if (lastSelected === human.id && unfocus !== true) {
-        //Set focus
+        //Set focus only when first selecting, not on every re-render
         nameArea.current.focus();
-        //Set cursor to end
         const length = nameArea.current.value.length;
         nameArea.current.setSelectionRange(length, length);
       } else if (unfocus === true) {
@@ -456,7 +461,7 @@ function HumanInfo({ human, setHumans, lastSelected, unfocus, setRecheckHumansRe
         descriptionArea.current.blur();
       }
     }
-  }, [unfocus, lastSelected, human]); // added human dependency because we access human.name
+  }, [unfocus, lastSelected, human?.id]); // Only depend on ID, not full human object
 
   const textStyle: React.CSSProperties = {
     backgroundColor: "transparent",
