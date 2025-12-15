@@ -30,6 +30,7 @@
     "analyze": "source-map-explorer 'dist/assets/*.js'",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:forest": "vitest run tests/forest",
     "e2e": "playwright test"
   },
   "eslintConfig": {
