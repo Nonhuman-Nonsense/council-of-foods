@@ -1,5 +1,11 @@
 import { useTranslation } from "react-i18next";
 
+/**
+ * CouncilError Overlay
+ * 
+ * Displayed when a critical non-recoverable error occurs (e.g., API failure).
+ * Provides a button to refresh the application.
+ */
 function CouncilError() {
 
   const { t } = useTranslation();

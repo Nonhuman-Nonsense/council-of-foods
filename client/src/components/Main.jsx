@@ -49,6 +49,20 @@ function useIsIphone() {
   return isIphone;
 }
 
+/**
+ * Main Component
+ * 
+ * Top-level application container. Manages global processing state and routing between setup phases.
+ * 
+ * Core Logic:
+ * - **Setup Flow**: Landing -> Topics -> Foods -> Meeting.
+ * - **State Management**: Lifts state up for `chosenTopic` and `participants` to persist across setup routes.
+ * - **Error Handling**: renders global error overlays for connection issues.
+ * - **Responsiveness**: Handles background zooming and device rotation logic.
+ * 
+ * @param {Object} props
+ * @param {string} props.lang - Active language code.
+ */
 function Main({ lang }) {
   const [topics, setTopics] = useState(topicsData['en'].topics);
   const [chosenTopic, setChosenTopic] = useState({});

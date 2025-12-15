@@ -411,7 +411,10 @@ function Council({
     calculateNextAction(true);
   }
 
-  // When skip back is pressed on controls
+  /** 
+   * Skips backward in the conversation history.
+   * Skips over any messages marked as 'skipped' to find the previous playable segment.
+   */
   function handleOnSkipBackward() {
     let skipLength = 1;
     //If trying to go back when a message was skipped
@@ -431,12 +434,17 @@ function Council({
     calculateNextAction();
   }
 
-  // When mute is pressed on controls
   function handleMuteUnmute() {
     setMuteUnmute(!isMuted);
   }
 
-  // When a new human message is submitted
+  /**
+   * Submits a human message to the server via socket.
+   * Differentiates between 'human_panelist' (interrupting) and 'human_input' (asked by system).
+   * 
+   * @param {string} newTopic - The text content of the user's message.
+   * @param {boolean} askParticular - Flag if specific addressing is needed.
+   */
   function handleOnSubmitHumanMessage(newTopic, askParticular) {
     if (councilState === 'human_panelist') {
       socketRef.current.emit("submit_human_panelist", { text: newTopic, speaker: currentSpeakerId });

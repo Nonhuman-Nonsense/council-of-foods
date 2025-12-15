@@ -1,6 +1,25 @@
 import { useEffect, useRef } from 'react';
 import io from 'socket.io-client';
 
+/**
+ * useCouncilSocket Hook
+ *
+ * Manages the WebSocket connection for the Council meeting.
+ * Handles connecting, emitting setup events, and dispatching incoming updates
+ * to the provided callback functions.
+ *
+ * @param {Object} props
+ * @param {Object} props.topic - The selected topic object.
+ * @param {Array} props.participants - List of participants (foods/humans).
+ * @param {string} props.lang - Language code (e.g. 'en').
+ * @param {Function} props.onMeetingStarted - Callback when valid meeting init is received.
+ * @param {Function} props.onAudioUpdate - Callback when an audio chunk arrives.
+ * @param {Function} props.onConversationUpdate - Callback when text transcripts arrive.
+ * @param {Function} props.onError - Callback for conversation logic errors.
+ * @param {Function} props.onConnectionError - Callback for socket connection errors.
+ * @param {Function} props.onReconnect - Callback for successful reconnection.
+ * @returns {Object} socketRef - Ref containing the socket instance.
+ */
 export const useCouncilSocket = ({
     topic,
     participants,

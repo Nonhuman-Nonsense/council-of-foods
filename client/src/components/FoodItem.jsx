@@ -19,6 +19,25 @@ const videoWithShadowSize = {
   "honey": 800
 };
 
+/**
+ * FoodItem Component
+ * 
+ * Renders a single food participant, handling its positioning (overview vs active speaker)
+ * and triggering the animation component.
+ * 
+ * Core Logic:
+ * - **Positioning**: Calculates a parabolic curve to arrange foods in a semi-circle during "overview" mode.
+ * - **Zooming**: Transitions the food to a large, central position when it becomes the `currentSpeakerId`.
+ * - **Sizing**: Normalizes video sizes based on `videoWithShadowSize` map to ensure visual consistency.
+ * 
+ * @param {Object} props
+ * @param {Object} props.food - The food object (id, size, etc.).
+ * @param {number} props.index - Index in the participants array.
+ * @param {number} props.total - Total count of participants.
+ * @param {string} props.currentSpeakerId - ID of the currently active speaker.
+ * @param {boolean} props.isPaused - Whether the animation/meeting is paused.
+ * @param {boolean} props.zoomIn - Global state flag for "zoom in" mode.
+ */
 function FoodItem({ food, index, total, currentSpeakerId, isPaused, zoomIn }) {
 
   //Adjust these to adjust overall sizes
@@ -26,6 +45,10 @@ function FoodItem({ food, index, total, currentSpeakerId, isPaused, zoomIn }) {
   const zoomInSize = 55;
 
   let videoSize = videoWithShadowSize[food.id];
+
+  /* -------------------------------------------------------------------------- */
+  /*                                 Calculations                               */
+  /* -------------------------------------------------------------------------- */
 
   // Adjusted function to set width and height based on window width
   const responsiveStyle = useMemo(() => {
@@ -106,6 +129,10 @@ function FoodItem({ food, index, total, currentSpeakerId, isPaused, zoomIn }) {
       };
     }
   }, [index, total, zoomIn, currentSpeakerId, food.id, videoSize]); // Dependencies
+
+  /* -------------------------------------------------------------------------- */
+  /*                                   Render                                   */
+  /* -------------------------------------------------------------------------- */
 
   return (
     <div style={containerStyle}>

@@ -1,6 +1,18 @@
 import React, { useState } from "react";
 import { useMobile } from "../utils";
 
+/**
+ * ConversationControlIcon Component
+ * 
+ * A circular button used in the conversation controls (e.g., mute, next, end).
+ * Handles hover states by swapping between outline and filled icon variants.
+ * 
+ * @param {Object} props
+ * @param {string} props.icon - Base icon filename (without extension).
+ * @param {string} [props.hoverIcon] - Hover icon filename (optional fallback to filled).
+ * @param {string} props.tooltip - Alt text for the icon.
+ * @param {Function} props.onClick - Click handler.
+ */
 function ConversationControlIcon({
   icon,
   hoverIcon,
@@ -13,6 +25,10 @@ function ConversationControlIcon({
   const imageUrl = `/icons/${icon}.svg`;
   let hoverUrl = `/icons/${icon}_filled.svg`;
   if (hoverIcon) hoverUrl = `/icons/${hoverIcon}.svg`;
+
+  /* -------------------------------------------------------------------------- */
+  /*                                    Styles                                  */
+  /* -------------------------------------------------------------------------- */
 
   const buttonStyle = {
     marginLeft: "4px",
@@ -45,6 +61,10 @@ function ConversationControlIcon({
     ...sharedStyle,
     opacity: (isHover ? "1" : "0")
   };
+
+  /* -------------------------------------------------------------------------- */
+  /*                                   Render                                   */
+  /* -------------------------------------------------------------------------- */
 
   return (
     <button style={buttonStyle} className={"control"} onClick={onClick} onMouseOver={() => setHover(true)} onMouseOut={() => setHover(false)}>
