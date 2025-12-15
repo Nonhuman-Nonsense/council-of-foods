@@ -7,7 +7,7 @@
   "description": "",
   "main": "dist/server.js",
   "scripts": {
-    "start": "node dist/server.js",
+    "start": "cross-env NODE_ENV=production node dist/server.js",
     "build": "tsc",
     "e2e-server": "cross-env NODE_ENV=test node dist/server.js",
     "dev": "cross-env NODE_ENV=development USE_TEST_OPTIONS=true nodemon --exec tsx server.ts",
