@@ -16,26 +16,41 @@ import { useTranslation } from "react-i18next";
  * - Validates that a topic is selected (and custom text entered if applicable) before proceeding.
  * - Shows a warning if the user attempts to change the topic mid-meeting.
  */
+interface Topic {
+  id: string;
+  title: string;
+  description: string;
+  prompt?: string;
+}
+
+interface SelectTopicProps {
+  topics: Topic[];
+  onContinueForward: (data: { topic: string; custom: string }) => void;
+  currentTopic?: Topic;
+  onReset: (data: { topic: string; custom: string }) => void;
+  onCancel: () => void;
+}
+
 function SelectTopic({
   topics,
   onContinueForward,
   currentTopic,
   onReset,
   onCancel
-}) {
+}: SelectTopicProps): React.ReactElement {
   const { t } = useTranslation();
   const isMobile = useMobile();
   const isMobileXs = useMobileXs();
-  const topicTextareaRef = useRef(null);
+  const topicTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   /* -------------------------------------------------------------------------- */
   /*                                    State                                   */
   /* -------------------------------------------------------------------------- */
 
-  const [selectedTopic, setSelectedTopic] = useState("");
-  const [hoverTopic, setHoverTopic] = useState(null);
-  const [customTopic, setCustomTopic] = useState("");
-  const [displayWarning, setDisplayWarning] = useState(false);
+  const [selectedTopic, setSelectedTopic] = useState<string>("");
+  const [hoverTopic, setHoverTopic] = useState<string | null>(null);
+  const [customTopic, setCustomTopic] = useState<string>("");
+  const [displayWarning, setDisplayWarning] = useState<boolean>(false);
 
   /* -------------------------------------------------------------------------- */
   /*                                   Effects                                  */
@@ -55,7 +70,7 @@ function SelectTopic({
   /*                                  Handlers                                  */
   /* -------------------------------------------------------------------------- */
 
-  function handleInputTopic(e) {
+  function handleInputTopic(e: React.ChangeEvent<HTMLTextAreaElement>) {
     const newTopic = e.target.value;
     const capitalizedTopic = capitalizeFirstLetter(newTopic).substring(0, 150);
     setCustomTopic(capitalizedTopic);
@@ -110,16 +125,16 @@ function SelectTopic({
   const customTopicObj = topics.find(t => t.id === 'customtopic');
   const isSingleColumn = standardTopics.length <= 6;
 
-  const containerStyle = {
+  const containerStyle: React.CSSProperties = {
     width: "96vw",
     maxWidth: "850px",
     display: "flex",
     flexDirection: "column",
-    justifyContent: "flexStart",
+    justifyContent: "flex-start", // Corrected typo flexStart
     alignItems: "center",
   };
 
-  const gridContainerStyle = {
+  const gridContainerStyle: React.CSSProperties = {
     display: "grid",
     gridTemplateColumns: isSingleColumn ? "1fr" : "1fr 1fr",
     width: "100%",
@@ -128,18 +143,18 @@ function SelectTopic({
     justifyItems: "center"
   };
 
-  const selectButtonStyle = {
+  const selectButtonStyle: React.CSSProperties = {
     padding: isMobile ? "3px 0" : "6px 0",
     width: isSingleColumn ? "50%" : "100%",
   };
 
-  const customButtonStyle = {
+  const customButtonStyle: React.CSSProperties = {
     ...selectButtonStyle,
     gridColumn: "1 / -1", // Always span full row for centering
     width: "50%",         // Always 50% width for consistency
   };
 
-  const descriptionStyle = {
+  const descriptionStyle: React.CSSProperties = {
     marginTop: isMobile ? "9px" : "15px",
     marginBottom: 0,
     width: isMobile ? "80%" : "70%",
@@ -147,7 +162,7 @@ function SelectTopic({
     overflow: "hidden"
   };
 
-  const textBoxStyle = {
+  const textBoxStyle: React.CSSProperties = {
     backgroundColor: "transparent",
     width: isMobile ? "80%" : "70%",
     color: "white",
@@ -176,7 +191,7 @@ function SelectTopic({
         />
       ) : (
         <div style={containerStyle}>
-          <h1 style={{ marginBottom: isMobile && (isMobileXs ? "0px" : "5px") }}>
+          <h1 style={{ marginBottom: isMobile ? (isMobileXs ? "0px" : "5px") : undefined }}>
             {t('theissue')}
           </h1>
 
@@ -234,7 +249,7 @@ function SelectTopic({
           <textarea
             ref={topicTextareaRef}
             className="unfocused topic-textarea"
-            rows="3"
+            rows={3}
             value={customTopic}
             placeholder={t('writetopic')}
             onChange={handleInputTopic}
@@ -243,7 +258,7 @@ function SelectTopic({
 
           <button
             onClick={proceedForward}
-            style={{ visibility: shouldShowNextButton ? "" : "hidden" }}
+            style={{ visibility: shouldShowNextButton ? undefined : "hidden" }}
           >
             {t('next')}
           </button>
