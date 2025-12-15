@@ -1,5 +1,19 @@
 import { useEffect, useRef } from "react";
 import AudioOutputMessage from "./AudioOutputMessage";
+import { AudioUpdatePayload } from "@shared/SocketTypes";
+import React from 'react';
+
+// At runtime in the client, 'audio' has been decoded to AudioBuffer
+interface PlayableAudioMessage extends Omit<AudioUpdatePayload, 'audio'> {
+  audio?: AudioBuffer;
+}
+
+interface AudioOutputProps {
+  audioContext: React.MutableRefObject<AudioContext | null>;
+  currentAudioMessage: PlayableAudioMessage | null;
+  onFinishedPlaying: () => void;
+  isMuted: boolean;
+}
 
 //Most of the audio processing should happen here, but the audioContext is owned higher up
 //Because incoming audio needs to be processed directly on arrival
@@ -8,8 +22,8 @@ function AudioOutput({
   currentAudioMessage,
   onFinishedPlaying,
   isMuted,
-}) {
-  const gainNode = useRef(null); //The general volume control node
+}: AudioOutputProps): React.ReactElement {
+  const gainNode = useRef<GainNode | null>(null); //The general volume control node
 
   if (audioContext.current && gainNode.current === null) {
     gainNode.current = audioContext.current.createGain();
