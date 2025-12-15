@@ -17,3 +17,22 @@ HTMLCanvasElement.prototype.getContext = () => {
         // Add other methods if lottie complains
     };
 }
+
+// Mock AudioContext
+global.AudioContext = class {
+    constructor() {
+        this.state = 'running';
+    }
+    decodeAudioData(buffer) {
+        return Promise.resolve(new ArrayBuffer(8)); // Mock buffer
+    }
+    suspend() {
+        this.state = 'suspended';
+        return Promise.resolve();
+    }
+    resume() {
+        this.state = 'running';
+        return Promise.resolve();
+    }
+};
+global.webkitAudioContext = global.AudioContext;
