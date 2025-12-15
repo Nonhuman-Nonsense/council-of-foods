@@ -2,19 +2,32 @@ import { useState, useRef, useEffect } from "react";
 import { toTitleCase, useMobile, useMobileXs, filename } from "../../utils";
 import { useTranslation } from "react-i18next";
 
-import globalOptions from "../../global-options-client.json";
+import globalOptionsData from "../../global-options-client.json";
 
 //Foods
 import foodDataEN from "../../prompts/foods_en.json";
 // import { replace, useParams } from "react-router";
+
+interface GlobalOptions {
+  audio_speed: number;
+  conversationMaxLength: number;
+  meetingVeryMaxLength: number;
+  extraMessageCount: number;
+  chairId: string;
+}
+
+const globalOptions: GlobalOptions = globalOptionsData;
 
 interface Food {
   id: string;
   name: string;
   description: string;
   prompt?: string;
-  type?: string; // 'panelist' or undefined
+  type?: 'panelist' | 'food' | 'chair' | string; // 'panelist' or undefined usually, but string implies flexibility
   index?: number; // Only for humans
+  voice?: string;
+  size?: number;
+  voiceInstruction?: string;
 }
 
 interface SelectFoodsProps {
@@ -39,7 +52,7 @@ interface FoodData {
 // We will type this.
 
 const localFoodData: Record<string, FoodData> = {
-  "en": foodDataEN as unknown as FoodData // Cast strict shape if needed
+  "en": foodDataEN as FoodData // Direct cast, JSON import should align
 };
 
 // Freeze original foodData to make it immutable
