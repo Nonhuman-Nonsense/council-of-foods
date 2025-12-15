@@ -11,6 +11,12 @@ export default defineConfig({
       '/socket.io': 'http://localhost:3001',
     },
   },
+  test: {
+    globals: true,
+    environment: 'jsdom',
+    setupFiles: './tests/unit/setupTests.js',
+    include: ['tests/unit/**/*.{test,spec}.{js,jsx}'],
+  },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),

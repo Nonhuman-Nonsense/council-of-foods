@@ -15,9 +15,9 @@ function FoodAnimation({ character, type, styles, isPaused, always_on, currentSp
   //So we play the video for a moment on component mount, and then go back to the normal behaviour
   useEffect(() => {
     async function startVid() {
-      try{
+      try {
         await video.current.play();
-      }catch(e){
+      } catch (e) {
         //Sometimes video playing might fail due to being paused because it is a background tab etc.
         //But this is not a problem, just catch and proceed.
         console.log(e);//log for now but prob safe to fail silently
@@ -38,6 +38,10 @@ function FoodAnimation({ character, type, styles, isPaused, always_on, currentSp
     }
   }, [isPaused, vidLoaded, currentSpeakerId]);
 
+  /* -------------------------------------------------------------------------- */
+  /*                                   Render                                   */
+  /* -------------------------------------------------------------------------- */
+
   return (
     <video ref={video} style={{ ...styles, objectFit: "contain", height: "100%" }} loop muted playsInline>
       {transparency && <>
@@ -48,10 +52,10 @@ function FoodAnimation({ character, type, styles, isPaused, always_on, currentSp
           src={`/characters/${folder}${filename(character.id)}-vp9-chrome.webm`}
           type={"video/webm"} />
       </>}
-      {!transparency && 
-      <source
-        src={`/characters/${folder}${filename(character.id)}.webm`}
-        type={"video/webm"} />
+      {!transparency &&
+        <source
+          src={`/characters/${folder}${filename(character.id)}.webm`}
+          type={"video/webm"} />
       }
     </video>
   );

@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
-import translations from '../../public/locales/en/translation.json' with { type: 'json' };
-import foodsData from '../../src/prompts/foods_en.json' with { type: 'json' };
-import routes from '../../src/routes.json' with { type: 'json' };
+import translations from '../../../public/locales/en/translation.json' with { type: 'json' };
+import foodsData from '../../../src/prompts/foods_en.json' with { type: 'json' };
+import routes from '../../../src/routes.json' with { type: 'json' };
 
 test('Full Meeting Flow', async ({ page }) => {
     // 1. Go to Landing Page

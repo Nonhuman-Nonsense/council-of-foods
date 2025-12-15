@@ -9,6 +9,23 @@ import ResetWarning from "./overlays/ResetWarning";
 import SelectTopic from "./settings/SelectTopic";
 import { useTranslation } from "react-i18next";
 
+/**
+ * MainOverlays Component
+ * 
+ * Manages the top-level application overlays that are triggered via URL hash.
+ * Examples: #about, #contact, #settings, #reset.
+ * 
+ * Core Logic:
+ * - **Hash Routing**: Listens to `location.hash` to determine which overlay to show.
+ * - **Auto-Close**: Logic to automatically close invalid overlays based on current route (e.g., closing #reset if not meaningful).
+ * - **Composition**: Wraps content in `Overlay` > `OverlayWrapper` for consistent layout.
+ * 
+ * @param {Object} props
+ * @param {Array} props.topics - List of available topics.
+ * @param {Object} props.topic - Current active topic.
+ * @param {Function} props.onReset - Global reset handler.
+ * @param {Function} props.onCloseOverlay - Callback when overlay is closed.
+ */
 function MainOverlays({ topics, topic, onReset, onCloseOverlay }) {
 
   const navigate = useNavigate();
@@ -24,7 +41,7 @@ function MainOverlays({ topics, topic, onReset, onCloseOverlay }) {
         removeOverlay();
       } else if (!location.pathname.substring(4).startsWith('meeting') && ["#settings"].includes(hash)) {
         removeOverlay();
-      } else if (location.pathname.substring(4) === '' && ["#reset",'#warning'].includes(hash)) {
+      } else if (location.pathname.substring(4) === '' && ["#reset", '#warning'].includes(hash)) {
         removeOverlay();
       }
     }

@@ -1,15 +1,36 @@
 import { v4 as uuidv4 } from "uuid";
 import { splitSentences } from "../utils/textUtils.js";
+import { Character, ConversationMessage } from "./SpeakerSelector.js";
+import { Socket } from "socket.io";
+import { ClientToServerEvents, ServerToClientEvents } from "../models/SocketTypes.js";
+
+import { IMeetingManager, ConversationOptions } from "../interfaces/MeetingInterfaces.js";
+
+export interface HumanMessage {
+    text: string;
+    askParticular?: string;
+    speaker?: string;
+    id?: string;
+    type?: string;
+    sentences?: string[];
+    [key: string]: any;
+}
+
+export interface InjectionMessage {
+    text: string;
+    date: string;
+    index: number;
+    length: number;
+}
 
 /**
  * Manages input from humans, including the primary user (questioner),
  * special panelists (via admin panel usually), and prototype scenarios.
  */
 export class HumanInputHandler {
-    /**
-     * @param {import('./MeetingManager').MeetingManager} meetingManager 
-     */
-    constructor(meetingManager) {
+    manager: IMeetingManager;
+
+    constructor(meetingManager: IMeetingManager) {
         this.manager = meetingManager;
     }
 
@@ -17,12 +38,8 @@ export class HumanInputHandler {
      * Handles the text submission from the user after they have raised their hand and been invited.
      * Validates that the state is 'awaiting_human_question' before processing.
      * Updates conversation w/ user text, triggers audio generation, and resumes the run loop.
-     * 
-     * @param {object} message 
-     * @param {string} message.text - The question/statement content
-     * @param {string} [message.askParticular] - Optional target character ID if directed at specific person
      */
-    handleSubmitHumanMessage(message) {
+    handleSubmitHumanMessage(message: HumanMessage): void {
         const { manager } = this;
         console.log(`[meeting ${manager.meetingId}] human input on index ${manager.conversation.length - 1}`);
 
@@ -37,6 +54,10 @@ export class HumanInputHandler {
             manager.conversation.pop();
         }
 
+        if (!manager.conversationOptions.state) {
+            manager.conversationOptions.state = {};
+        }
+
         if (message.askParticular) {
             console.log(`[meeting ${manager.meetingId}] specifically asked to ${message.askParticular}`);
             message.text = message.speaker + " asked " + message.askParticular + ":\xa0" + message.text;
@@ -44,27 +65,40 @@ export class HumanInputHandler {
             message.text = message.speaker + (manager.conversationOptions.language === 'en' ? " said:\xa0" : " sa:\xa0") + message.text;
         }
 
-        message.id = "human-" + uuidv4();
+        const msgId = "human-" + uuidv4();
+        message.id = msgId;
         message.type = "human";
         message.speaker = manager.conversationOptions.state.humanName;
 
-        manager.conversation.push(message);
+        manager.conversation.push(message as ConversationMessage);
 
-        manager.services.meetingsCollection.updateOne(
-            { _id: manager.meetingId },
-            { $set: { conversation: manager.conversation } }
-        );
+        if (manager.meetingId !== null) {
+            manager.services.meetingsCollection.updateOne(
+                { _id: manager.meetingId },
+                { $set: { conversation: manager.conversation } }
+            );
+        }
 
         manager.socket.emit("conversation_update", manager.conversation);
 
         message.sentences = splitSentences(message.text);
-        manager.audioSystem.queueAudioGeneration(
-            message,
-            manager.conversationOptions.characters[0],
-            manager.conversationOptions.options,
-            manager.meetingId,
-            manager.environment
-        );
+
+        // Assert types for Queue compatibility
+        const queueMsg = {
+            id: msgId,
+            sentences: message.sentences,
+            ...message
+        };
+
+        if (manager.meetingId !== null) {
+            manager.audioSystem.queueAudioGeneration(
+                queueMsg,
+                manager.conversationOptions.characters[0],
+                manager.conversationOptions.options,
+                manager.meetingId as number,
+                manager.environment
+            );
+        }
 
         manager.isPaused = false;
         manager.handRaised = false;
@@ -74,12 +108,8 @@ export class HumanInputHandler {
     /**
      * Handles input from a 'human panelist' (a human participant acting as a character/expert).
      * Validates that the state is 'awaiting_human_panelist'.
-     * 
-     * @param {object} message 
-     * @param {string} message.speaker - ID of the speaker (character ID)
-     * @param {string} message.text - The content of the message
      */
-    handleSubmitHumanPanelist(message) {
+    handleSubmitHumanPanelist(message: HumanMessage): void {
         const { manager } = this;
         console.log(`[meeting ${manager.meetingId}] human panelist ${message.speaker} on index ${manager.conversation.length - 1}`);
 
@@ -94,23 +124,34 @@ export class HumanInputHandler {
         message.id = message.speaker + uuidv4();
         message.type = "panelist";
 
-        manager.conversation.push(message);
+        manager.conversation.push(message as ConversationMessage);
 
-        manager.services.meetingsCollection.updateOne(
-            { _id: manager.meetingId },
-            { $set: { conversation: manager.conversation } }
-        );
+        if (manager.meetingId !== null) {
+            manager.services.meetingsCollection.updateOne(
+                { _id: manager.meetingId },
+                { $set: { conversation: manager.conversation } }
+            );
+        }
 
         manager.socket.emit("conversation_update", manager.conversation);
 
         message.sentences = splitSentences(message.text);
-        manager.audioSystem.queueAudioGeneration(
-            message,
-            manager.conversationOptions.characters[0],
-            manager.conversationOptions.options,
-            manager.meetingId,
-            manager.environment
-        );
+
+        const queueMsg = {
+            id: message.id,
+            sentences: message.sentences,
+            ...message
+        };
+
+        if (manager.meetingId !== null) {
+            manager.audioSystem.queueAudioGeneration(
+                queueMsg,
+                manager.conversationOptions.characters[0],
+                manager.conversationOptions.options,
+                manager.meetingId as number,
+                manager.environment
+            );
+        }
 
         manager.isPaused = false;
         manager.handRaised = false;
@@ -119,13 +160,8 @@ export class HumanInputHandler {
 
     /**
      * Handles injection of "Interjection" events, primarily for prototype demonstrations (e.g. "Time passes").
-     * @param {object} message 
-     * @param {string} message.text - The prompt text for the interjection
-     * @param {string} message.date - Date context to replace [DATE] placeholder
-     * @param {number} message.index - Insertion index
-     * @param {number} message.length - Desired length
      */
-    async handleSubmitInjection(message) {
+    async handleSubmitInjection(message: InjectionMessage): Promise<void> {
         const { manager } = this;
         if (manager.environment !== "prototype") return;
 
@@ -139,7 +175,7 @@ export class HumanInputHandler {
             manager.socket
         );
 
-        let summary = {
+        let summary: any = { // Using any as summary structure might vary or reuse Message interface
             id: id,
             speaker: manager.conversationOptions.characters[0].id,
             text: response,
@@ -153,12 +189,14 @@ export class HumanInputHandler {
 
         summary.sentences = splitSentences(response);
 
-        manager.audioSystem.queueAudioGeneration(
-            summary,
-            manager.conversationOptions.characters[0],
-            manager.conversationOptions.options,
-            manager.meetingId,
-            manager.environment
-        );
+        if (manager.meetingId !== null) {
+            manager.audioSystem.queueAudioGeneration(
+                summary,
+                manager.conversationOptions.characters[0],
+                manager.conversationOptions.options,
+                manager.meetingId as number,
+                manager.environment
+            );
+        }
     }
 }

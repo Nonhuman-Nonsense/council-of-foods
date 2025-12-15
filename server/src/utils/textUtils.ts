@@ -1,4 +1,16 @@
-export function splitSentences(response) {
+interface Word {
+    word: string;
+    start: number;
+    end: number;
+}
+
+interface MappedSentence {
+    text: string;
+    start: number;
+    end: number;
+}
+
+export function splitSentences(response: string): string[] {
     // BREAKDOWN:
     // 1. (?:\d+\.\s+)? -> Optional Numbered List
     // 2. .*?           -> Content
@@ -12,8 +24,8 @@ export function splitSentences(response) {
 
     if (!response) return [];
 
-    return response
-        .match(sentenceRegex)
+    return (response
+        .match(sentenceRegex) ?? [])
         .map((sentence) => sentence.trim())
         .filter((sentence) => sentence.length > 0);
 }
@@ -22,7 +34,7 @@ export function splitSentences(response) {
   * Optimized sentence mapper with Multi-Token Anchoring.
   * Handles numbers ("1." vs "One") and skipped words automatically.
   */
-export function mapSentencesToWords(sentences, words) {
+export function mapSentencesToWords(sentences: string[], words: Word[]): MappedSentence[] {
     if (!words || words.length === 0) return [];
 
     // 1. Pre-process Whisper tokens for O(1) lookups

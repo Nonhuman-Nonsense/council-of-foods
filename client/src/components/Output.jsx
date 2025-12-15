@@ -2,6 +2,30 @@ import { useState, useEffect } from "react";
 import TextOutput from "./TextOutput";
 import AudioOutput from "./AudioOutput";
 
+/**
+ * Output Component
+ * 
+ * Orchestrates the playback of audio and text (subtitles).
+ * Determines which message to play based on `playingNowIndex` and current `councilState`.
+ * 
+ * Core Logic:
+ * - Syncs `currentTextMessage` and `currentAudioMessage` when state is 'playing'.
+ * - Clears output during non-playing states (loading, human input).
+ * - Handles special 'summary' state logic.
+ * 
+ * @param {Object} props
+ * @param {Array} props.textMessages - Full list of text transcripts.
+ * @param {Array} props.audioMessages - Full list of audio snippets.
+ * @param {number} props.playingNowIndex - Index of the currently active message.
+ * @param {string} props.councilState - Current global state machine status.
+ * @param {boolean} props.isMuted - Global mute flag.
+ * @param {boolean} props.isPaused - Global pause flag.
+ * @param {number} props.currentSnippetIndex - Sub-index for sentence highlighting.
+ * @param {Function} props.setCurrentSnippetIndex - Setter for sub-index.
+ * @param {Object} props.audioContext - WebAudio API context.
+ * @param {Function} props.handleOnFinishedPlaying - Callback when audio ends.
+ * @param {Function} props.setSentencesLength - Callback to report sentence count.
+ */
 function Output({
   textMessages,
   audioMessages,

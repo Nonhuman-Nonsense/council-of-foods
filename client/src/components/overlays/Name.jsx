@@ -2,6 +2,15 @@ import { useState, useRef, useEffect } from "react";
 import { capitalizeFirstLetter, useMobile } from "../../utils";
 import { useTranslation } from "react-i18next";
 
+/**
+ * Name Overlay
+ * 
+ * Allows a human participant to enter their name before joining the council.
+ * 
+ * Core Logic:
+ * - Validates input to ensure name is not empty.
+ * - Checks for duplicate names against existing `participants`.
+ */
 function Name({ participants, onContinueForward }) {
 
   const { t } = useTranslation();
@@ -24,6 +33,12 @@ function Name({ participants, onContinueForward }) {
   );
 }
 
+/**
+ * HumanNameInput Component
+ * 
+ * The actual input field logic for name entry.
+ * Separated to manage its own focus and validation state.
+ */
 function HumanNameInput({ participants, onContinueForward }) {
   const [humanName, setHumanName] = useState("");
   const [isHumanNameMissing, setIsHumanNameMissing] = useState(false);
@@ -35,6 +50,10 @@ function HumanNameInput({ participants, onContinueForward }) {
 
   const imageUrl = `/icons/send_message_filled.svg`;
 
+  /* -------------------------------------------------------------------------- */
+  /*                                   Effects                                  */
+  /* -------------------------------------------------------------------------- */
+
   useEffect(() => {
     // Focus on the input field when the component mounts
     // Unle
@@ -42,6 +61,10 @@ function HumanNameInput({ participants, onContinueForward }) {
       inputRef.current.focus();
     }
   }, []);
+
+  /* -------------------------------------------------------------------------- */
+  /*                                  Handlers                                  */
+  /* -------------------------------------------------------------------------- */
 
   function handleChange(e) {
     const inputValue = e.target.value;
@@ -90,6 +113,10 @@ function HumanNameInput({ participants, onContinueForward }) {
     return (new Set(names).size !== names.length);
   }
 
+  /* -------------------------------------------------------------------------- */
+  /*                                    Styles                                  */
+  /* -------------------------------------------------------------------------- */
+
   const inputStyle = {
     width: "300px",
     height: "22px",
@@ -111,6 +138,10 @@ function HumanNameInput({ participants, onContinueForward }) {
     display: "inline-flex",
     alignItems: "center"
   };
+
+  /* -------------------------------------------------------------------------- */
+  /*                                   Render                                   */
+  /* -------------------------------------------------------------------------- */
 
   return (
     <div>

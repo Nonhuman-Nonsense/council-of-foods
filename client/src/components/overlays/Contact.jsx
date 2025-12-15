@@ -1,6 +1,12 @@
 import { useTranslation } from "react-i18next";
 import { useMobile, dvh } from "../../utils";
 
+/**
+ * Contact Overlay
+ * 
+ * Displays credits, logos, and contact information.
+ * Lists the team, partners, and funding sources (EU S+T+ARTS).
+ */
 function Contact() {
 
   const isMobile = useMobile();

@@ -29,6 +29,22 @@ const blankHuman = {
   description: ""
 };
 
+/**
+ * SelectFoods Component
+ * 
+ * The main configuration screen where the user selects AI food participants and adds human panelists.
+ * 
+ * Core Logic:
+ * - **Participant Management**: Maintains state for both AI foods and Human panelists.
+ * - **Validation**: Ensures minimum (2) and maximum (6) participants.
+ * - **Human Panelists**: Allows adding up to 3 manual human entries (`panelist0`, `panelist1`, etc.).
+ * - **Prompt Engineering**: Dynamically constructs the system prompt based on selected characters.
+ * 
+ * @param {Object} props
+ * @param {string} props.lang - Active language code.
+ * @param {string} props.topicTitle - Current topic title for display.
+ * @param {Function} props.onContinueForward - Handler to proceed to the meeting (passes configured foods).
+ */
 function SelectFoods({ lang, topicTitle, onContinueForward }) {
   const [foods, setFoods] = useState(foodData['en'].foods); // Make sure this is defined before using it to find chair
   const [selectedFoods, setSelectedFoods] = useState([foodData['en'].foods[0].id]);
@@ -58,6 +74,10 @@ function SelectFoods({ lang, topicTitle, onContinueForward }) {
     setFoods(newFoods);
   }, [lang]);
 
+  /* -------------------------------------------------------------------------- */
+  /*                                   Helpers                                  */
+  /* -------------------------------------------------------------------------- */
+
   function cloneHuman(id) {
     const newHuman = structuredClone(blankHuman);
     newHuman.id = "panelist" + id;
@@ -74,6 +94,10 @@ function SelectFoods({ lang, topicTitle, onContinueForward }) {
     //Because each value in the Set has to be unique, the value equality will be checked.
     return (new Set(names).size === names.length);
   }
+
+  /* -------------------------------------------------------------------------- */
+  /*                                  Handlers                                  */
+  /* -------------------------------------------------------------------------- */
 
   function continueForward() {
     if (atLeastTwoFoods() && selectedFoods.length <= maxFoods) {
@@ -161,6 +185,10 @@ function SelectFoods({ lang, topicTitle, onContinueForward }) {
     setSelectedFoods([foods[0].id, ...randomfoods]);
   }
 
+  /* -------------------------------------------------------------------------- */
+  /*                                   Effects                                  */
+  /* -------------------------------------------------------------------------- */
+
   useEffect(() => {
     const selectedHumans = selectedFoods.filter(id => id.startsWith('panelist'));
     let ready = true;
@@ -172,6 +200,10 @@ function SelectFoods({ lang, topicTitle, onContinueForward }) {
     }
     setHumansReady(ready);
   }, [recheckHumansReady, selectedFoods]);
+
+  /* -------------------------------------------------------------------------- */
+  /*                                   Render                                   */
+  /* -------------------------------------------------------------------------- */
 
   const showDefaultDescription = (currentFood === null && !lastSelected?.startsWith('panelist'));
 
@@ -273,6 +305,9 @@ function SelectFoods({ lang, topicTitle, onContinueForward }) {
   );
 }
 
+/**
+ * Display food character info when hovered/selected
+ */
 function FoodInfo({ food }) {
   const isMobile = useMobile();
   if (!food) return null;
@@ -297,6 +332,9 @@ function FoodInfo({ food }) {
   );
 }
 
+/**
+ * Editable form for human panelists
+ */
 function HumanInfo({ human, setHumans, lastSelected, unfocus, setRecheckHumansReady }) {
   const isMobile = useMobile();
   const nameArea = useRef(null);
