@@ -58,7 +58,7 @@ export class ConnectionHandler {
         const { manager } = this;
         // Check if socket is defined/connected before accessing property if needed, though 'id' should be there if it was connected
         if (manager.socket) {
-            Logger.info(`session ${manager.socket.id}`, `meeting ${manager.meetingId} disconnected`);
+            Logger.info(`meeting ${manager.meetingId}`, `disconnected (session ${manager.socket.id})`);
         }
         manager.run = false;
     }

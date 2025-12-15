@@ -94,7 +94,7 @@ export class MeetingLifecycleHandler {
         manager.meetingId = storeResult.insertedId;
 
         manager.socket.emit("meeting_started", { meeting_id: manager.meetingId });
-        Logger.info(`session ${manager.socket.id}`, `meeting ${manager.meetingId} started`);
+        Logger.info(`meeting ${manager.meetingId}`, `started (session ${manager.socket.id})`);
         manager.startLoop();
     }
 

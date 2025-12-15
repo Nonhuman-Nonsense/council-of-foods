@@ -1,4 +1,4 @@
-import { cyan, yellow, red, white, gray, bold } from "colorette";
+import { cyan, yellow, red, gray } from "colorette";
 
 export class Logger {
     private static formatContext(context: string): string {
@@ -6,7 +6,7 @@ export class Logger {
     }
 
     static info(context: string, message: string): void {
-        console.log(`${cyan(this.formatContext(context))} ${white(message)}`);
+        console.log(`${cyan(this.formatContext(context))} ${message}`);
     }
 
     static warn(context: string, message: string): void {
