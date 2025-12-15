@@ -36,3 +36,36 @@ global.AudioContext = class {
     }
 };
 global.webkitAudioContext = global.AudioContext;
+
+// Mock MediaDevices
+Object.defineProperty(navigator, 'mediaDevices', {
+    value: {
+        getUserMedia: () => Promise.resolve({
+            getTracks: () => [{ stop: () => { } }]
+        })
+    }
+});
+
+// Mock MediaRecorder
+global.MediaRecorder = class {
+    constructor(stream) { }
+    start() { }
+    stop() { }
+};
+
+// Mock RTCPeerConnection
+global.RTCPeerConnection = class {
+    constructor() { }
+    createDataChannel() {
+        return {
+            addEventListener: () => { }
+        };
+    }
+    createOffer() {
+        return Promise.resolve({ sdp: 'mock-sdp' });
+    }
+    setLocalDescription() { return Promise.resolve(); }
+    setRemoteDescription() { return Promise.resolve(); }
+    addTrack() { }
+    close() { }
+};
