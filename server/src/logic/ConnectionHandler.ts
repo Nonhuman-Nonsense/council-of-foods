@@ -1,5 +1,6 @@
 import { splitSentences } from "../utils/textUtils.js";
 import { reportError } from "../../errorbot.js";
+import { Logger } from "../utils/Logger.js";
 import { Character, ConversationMessage } from "./SpeakerSelector.js";
 import { GlobalOptions } from "./GlobalOptions.js";
 import { Socket } from "socket.io";
@@ -57,7 +58,7 @@ export class ConnectionHandler {
         const { manager } = this;
         // Check if socket is defined/connected before accessing property if needed, though 'id' should be there if it was connected
         if (manager.socket) {
-            console.log(`[session ${manager.socket.id} meeting ${manager.meetingId}] disconnected`);
+            Logger.info(`session ${manager.socket.id}`, `meeting ${manager.meetingId} disconnected`);
         }
         manager.run = false;
     }
@@ -69,7 +70,7 @@ export class ConnectionHandler {
      */
     async handleReconnection(options: ReconnectionOptions): Promise<void> {
         const { manager } = this;
-        console.log(`[meeting ${options.meetingId}] attempting to resume`);
+        Logger.info(`meeting ${options.meetingId}`, "attempting to resume");
         try {
             const meetingIdNum = Number(options.meetingId);
             const existingMeeting = await manager.services.meetingsCollection.findOne({
@@ -97,7 +98,7 @@ export class ConnectionHandler {
                 }
 
                 for (let i = 0; i < missingAudio.length; i++) {
-                    console.log(`[meeting ${manager.meetingId}] (async) generating missing audio for ${missingAudio[i].speaker}`);
+                    Logger.info(`meeting ${manager.meetingId}`, `(async) generating missing audio for ${missingAudio[i].speaker}`);
                     missingAudio[i].sentences = splitSentences(missingAudio[i].text as string);
                     // Ensure speaker is found
                     const speaker = manager.conversationOptions.characters.find(c => c.id == missingAudio[i].speaker);
@@ -112,17 +113,18 @@ export class ConnectionHandler {
                     }
                 }
 
-                console.log(`[meeting ${manager.meetingId}] resumed`);
+                Logger.info(`meeting ${manager.meetingId}`, "resumed");
                 manager.socket.emit("conversation_update", manager.conversation);
                 manager.startLoop();
             } else {
                 manager.socket.emit("meeting_not_found", { meeting_id: options.meetingId });
-                console.log(`[meeting ${options.meetingId}] not found`);
+                Logger.warn(`meeting ${options.meetingId}`, "not found");
             }
         } catch (error) {
-            console.error("Error resuming conversation:", error);
+            // console.error("Error resuming conversation:", error);
+            Logger.error(`meeting ${options.meetingId}`, "Error resuming conversation", error);
             manager.socket.emit("conversation_error", { message: "Error resuming", code: 500 });
-            reportError(error);
+            reportError(`meeting ${options.meetingId}`, "Reconnection Error", error);
         }
     }
 }

@@ -7,6 +7,7 @@ import { Server, Socket } from "socket.io";
 import path from 'path';
 import { fileURLToPath } from 'url';
 
+import { Logger } from './src/utils/Logger.js';
 import { initReporting, reportError } from './errorbot.js';
 import { initDb } from './src/services/DbService.js';
 import { initOpenAI } from './src/services/OpenAIService.js';
@@ -17,9 +18,8 @@ import { EnvSchema } from './src/models/ValidationSchemas.js';
 // Validate Env
 const envParse = EnvSchema.safeParse(process.env);
 if (!envParse.success) {
-  const errorMsg = "❌ Invalid environment variables: " + JSON.stringify(envParse.error.format(), null, 2);
-  console.error(errorMsg);
-  reportError(new Error(errorMsg)).then(() => process.exit(1));
+  const errorMsg = "Invalid environment variables: " + JSON.stringify(envParse.error.format(), null, 2);
+  reportError("init", errorMsg, envParse.error).then(() => process.exit(1));
 }
 
 const environment: string = envParse.data ? envParse.data.NODE_ENV : "production";
@@ -35,18 +35,16 @@ const io = new Server(httpServer, {
 // Initialize Services
 initReporting();
 initDb().catch(async (e: any) => {
-  console.error("Failed to initialize Database:", e);
-  await reportError(e);
+  await reportError("db", "Failed to initialize Database", e);
   process.exit(1);
 });
 try {
   initOpenAI();
 } catch (e: any) {
-  console.error("Failed to initialize OpenAI:", e);
-  reportError(e).then(() => process.exit(1));
+  reportError("openai", "Failed to initialize OpenAI", e).then(() => process.exit(1));
 }
 
-console.log(`[init] node_env is ${environment}`);
+Logger.info("init", `node_env is ${environment}`);
 
 // Express Logic
 app.get('/health', (req: Request, res: Response) => { res.sendStatus(200); });
@@ -72,20 +70,20 @@ if (environment === "prototype") {
 
 // Socket Logic
 io.on("connection", (socket: Socket) => {
-  console.log(`[session ${socket.id}] connected`);
+  Logger.info("socket", `[session ${socket.id}] connected`);
   new MeetingManager(socket, environment);
 });
 
 // Server Listen
 httpServer.listen(3001, () => {
-  console.log("[init] Listening on *:3001");
+  Logger.info("init", "Listening on *:3001");
 });
 
 process.on('SIGTERM', () => {
-  console.log('[Shutdown] SIGTERM shutdown');
+  Logger.info("shutdown", "SIGTERM shutdown");
   process.exit(1);
 });
 process.on('SIGINT', () => {
-  console.log('[Shutdown] SIGINT shutdown');
+  Logger.info("shutdown", "SIGINT shutdown");
   process.exit(1);
 });

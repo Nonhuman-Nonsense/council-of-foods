@@ -1,5 +1,6 @@
 import { splitSentences } from "../utils/textUtils.js";
 import { reportError } from "../../errorbot.js";
+import { Logger } from "../utils/Logger.js";
 import { Character, ConversationMessage } from "./SpeakerSelector.js";
 import { GlobalOptions } from "./GlobalOptions.js";
 import { Socket } from "socket.io";
@@ -93,7 +94,7 @@ export class MeetingLifecycleHandler {
         manager.meetingId = storeResult.insertedId;
 
         manager.socket.emit("meeting_started", { meeting_id: manager.meetingId });
-        console.log(`[session ${manager.socket.id} meeting ${manager.meetingId}] started`);
+        Logger.info(`session ${manager.socket.id}`, `meeting ${manager.meetingId} started`);
         manager.startLoop();
     }
 
@@ -103,7 +104,7 @@ export class MeetingLifecycleHandler {
      */
     async handleWrapUpMeeting(message: WrapUpMessage): Promise<void> {
         const { manager } = this;
-        console.log(`[meeting ${manager.meetingId}] attempting to wrap up`);
+        Logger.info(`meeting ${manager.meetingId}`, "attempting to wrap up");
         const summaryPrompt = manager.conversationOptions.options.finalizeMeetingPrompt[manager.conversationOptions.language].replace("[DATE]", message.date);
 
         // Note: chairInterjection is on manager (delegated to DialogGenerator)
@@ -127,7 +128,7 @@ export class MeetingLifecycleHandler {
         manager.conversation.push(summary);
 
         manager.socket.emit("conversation_update", manager.conversation);
-        console.log(`[meeting ${manager.meetingId}] summary generated on index ${manager.conversation.length - 1}`);
+        Logger.info(`meeting ${manager.meetingId}`, `summary generated on index ${manager.conversation.length - 1}`);
 
         if (manager.meetingId !== null) {
             manager.services.meetingsCollection.updateOne(
@@ -155,7 +156,7 @@ export class MeetingLifecycleHandler {
      */
     async handleRequestClientKey(): Promise<void> {
         const { manager } = this;
-        console.log(`[meeting ${manager.meetingId}] clientkey requested`);
+        Logger.info(`meeting ${manager.meetingId}`, "clientkey requested");
         try {
             const sessionConfig = JSON.stringify({
                 session: {
@@ -200,9 +201,11 @@ export class MeetingLifecycleHandler {
 
             const data = await response.json();
             manager.socket.emit("clientkey_response", data);
-            console.log(`[meeting ${manager.meetingId}] clientkey sent`);
+            Logger.info(`meeting ${manager.meetingId}`, "clientkey sent");
         } catch (error) {
-            console.error("Error during conversation:", error);
+            // console.log(error);
+            Logger.error(`meeting ${manager.meetingId}`, "Meeting Lifecycle Error", error);
+            reportError(`meeting ${manager.meetingId}`, "Meeting Lifecycle Error", error);
             manager.socket.emit(
                 "conversation_error",
                 {
@@ -210,7 +213,6 @@ export class MeetingLifecycleHandler {
                     code: 500
                 }
             );
-            reportError(error);
         }
     }
 
@@ -219,7 +221,7 @@ export class MeetingLifecycleHandler {
      */
     handleContinueConversation(): void {
         const { manager } = this;
-        console.log(`[meeting ${manager.meetingId}] continuing conversation`);
+        Logger.info(`meeting ${manager.meetingId}`, "continuing conversation");
         manager.extraMessageCount += manager.globalOptions.extraMessageCount;
         manager.startLoop();
     }

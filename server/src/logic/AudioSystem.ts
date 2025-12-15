@@ -1,4 +1,6 @@
 import { reportError } from "../../errorbot.js";
+import { Logger } from "../utils/Logger.js";
+import { Meeting, Audio } from "../models/DBModels.js";
 import { mapSentencesToWords } from "../utils/textUtils.js";
 import { OpenAI } from "openai";
 import { Collection, Document } from "mongodb";
@@ -51,7 +53,11 @@ export class AudioQueue {
         try {
             await task();
         } catch (error) {
-            console.error("Error processing audio task:", error);
+            console.error(error);
+            // Note: `this.meetingId` is not available in AudioQueue.
+            // The instruction implies a context that might be passed to the task or queue.
+            // For now, using a generic context.
+            reportError("AudioSystem", "Audio Generation Error", error);
         } finally {
             this.activeCount--;
             this.processNext();
@@ -59,7 +65,7 @@ export class AudioQueue {
     }
 }
 
-import { Audio, Meeting } from "../models/DBModels.js";
+
 
 // ...
 
@@ -194,8 +200,9 @@ export class AudioSystem {
             if (error.code === 11600 || (error.message && error.message.includes('interrupted at shutdown'))) {
                 return;
             }
-            console.error("Error generating audio:", error);
-            reportError(error);
+            // console.error("Error generating audio:", error);
+            Logger.error("AudioSystem", "Error generating audio", error);
+            reportError("AudioSystem", "Error generating audio", error);
         }
     }
 

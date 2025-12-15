@@ -24,6 +24,8 @@ import {
     ReconnectionOptionsSchema
 } from "../models/ValidationSchemas.js";
 
+import { Logger } from "../utils/Logger.js";
+
 interface Services {
     meetingsCollection: Collection<Meeting>;
     audioCollection: Collection<Audio>;
@@ -128,8 +130,8 @@ export class MeetingManager {
         this.socket.on("submit_human_message", (msg) => {
             const parse = HumanMessageSchema.safeParse(msg);
             if (!parse.success) {
-                console.error("Invalid submit_human_message payload", parse.error);
-                reportError(new Error(`Invalid submit_human_message payload: ${JSON.stringify(parse.error.format())}`));
+                const errorMsg = `Invalid submit_human_message payload: ${JSON.stringify(parse.error.format())}`;
+                reportError(`meeting ${this.meetingId}`, errorMsg, parse.error);
                 return;
             }
             this.humanInputHandler.handleSubmitHumanMessage(parse.data);
@@ -138,8 +140,8 @@ export class MeetingManager {
         this.socket.on("submit_human_panelist", (msg) => {
             const parse = HumanMessageSchema.safeParse(msg);
             if (!parse.success) {
-                console.error("Invalid submit_human_panelist payload", parse.error);
-                reportError(new Error(`Invalid submit_human_panelist payload: ${JSON.stringify(parse.error.format())}`));
+                const errorMsg = `Invalid submit_human_panelist payload: ${JSON.stringify(parse.error.format())}`;
+                reportError(`meeting ${this.meetingId}`, errorMsg, parse.error);
                 return;
             }
             this.humanInputHandler.handleSubmitHumanPanelist(parse.data);
@@ -148,8 +150,8 @@ export class MeetingManager {
         this.socket.on("submit_injection", (msg) => {
             const parse = InjectionMessageSchema.safeParse(msg);
             if (!parse.success) {
-                console.error("Invalid submit_injection payload", parse.error);
-                reportError(new Error(`Invalid submit_injection payload: ${JSON.stringify(parse.error.format())}`));
+                const errorMsg = `Invalid submit_injection payload: ${JSON.stringify(parse.error.format())}`;
+                reportError(`meeting ${this.meetingId}`, errorMsg, parse.error);
                 return;
             }
             this.humanInputHandler.handleSubmitInjection(parse.data);
@@ -158,8 +160,8 @@ export class MeetingManager {
         this.socket.on("raise_hand", (msg) => {
             const parse = HandRaisedOptionsSchema.safeParse(msg);
             if (!parse.success) {
-                console.error("Invalid raise_hand payload", parse.error);
-                reportError(new Error(`Invalid raise_hand payload: ${JSON.stringify(parse.error.format())}`));
+                const errorMsg = `Invalid raise_hand payload: ${JSON.stringify(parse.error.format())}`;
+                reportError(`meeting ${this.meetingId}`, errorMsg, parse.error);
                 return;
             }
             this.handRaisingHandler.handleRaiseHand(parse.data);
@@ -167,15 +169,16 @@ export class MeetingManager {
 
         this.socket.on("wrap_up_meeting", (msg) => {
             // Basic object check till we define strict schema for this one
-            if (!msg || typeof msg !== 'object') return console.error("Invalid wrap_up_meeting payload");
+            if (!msg || typeof msg !== 'object') return Logger.error(`meeting ${this.meetingId}`, "Invalid wrap_up_meeting payload");
             this.meetingLifecycleHandler.handleWrapUpMeeting(msg);
         });
 
         this.socket.on('attempt_reconnection', (options) => {
             const parse = ReconnectionOptionsSchema.safeParse(options);
             if (!parse.success) {
-                console.error("Invalid attempt_reconnection payload", parse.error);
-                reportError(new Error(`Invalid attempt_reconnection payload: ${JSON.stringify(parse.error.format())}`));
+                const errorMsg = `Invalid attempt_reconnection payload: ${JSON.stringify(parse.error.format())}`;
+                // This doesn't have a specific meeting context yet from 'this', use options.meetingId
+                reportError(`meeting ${options.meetingId}`, errorMsg, parse.error);
                 return;
             }
             this.connectionHandler.handleReconnection(parse.data);
@@ -184,8 +187,8 @@ export class MeetingManager {
         this.socket.on("start_conversation", async (setup) => {
             const parse = SetupOptionsSchema.safeParse(setup);
             if (!parse.success) {
-                console.error("Invalid start_conversation payload", parse.error);
-                reportError(new Error(`Invalid start_conversation payload: ${JSON.stringify(parse.error.format())}`));
+                const errorMsg = `Invalid start_conversation payload: ${JSON.stringify(parse.error.format())}`;
+                reportError("init", errorMsg, parse.error);
                 return;
             }
             this.meetingLifecycleHandler.handleStartConversation(parse.data);
@@ -201,12 +204,12 @@ export class MeetingManager {
         if (this.environment !== 'prototype') return;
 
         this.socket.on("pause_conversation", (msg: any) => {
-            console.log(`[meeting ${this.meetingId}] paused`);
+            Logger.info(`meeting ${this.meetingId}`, "paused");
             this.isPaused = true;
         });
 
         this.socket.on("resume_conversation", (msg: any) => {
-            console.log(`[meeting ${this.meetingId}] resumed`);
+            Logger.info(`meeting ${this.meetingId}`, "resumed");
             this.isPaused = false;
             this.startLoop();
         });
@@ -297,7 +300,7 @@ export class MeetingManager {
                             text: "", // Added to satisfy ConversationMessage
                             sentences: [] // Added to satisfy ConversationMessage
                         });
-                        console.log(`[meeting ${this.meetingId}] awaiting human panelist on index ${this.conversation.length - 1}`);
+                        Logger.info(`meeting ${this.meetingId}`, `awaiting human panelist on index ${this.conversation.length - 1}`);
                         this.socket.emit("conversation_update", this.conversation);
                         if (this.meetingId !== null) {
                             this.services.meetingsCollection.updateOne(
@@ -322,9 +325,10 @@ export class MeetingManager {
             ) {
                 return;
             }
-            console.error("Error during conversation:", error);
+            // console.error("Error during conversation:", error);
+            Logger.error(`meeting ${this.meetingId}`, "Error during conversation", error);
             this.socket.emit("conversation_error", { message: "Error", code: 500 });
-            reportError(error);
+            reportError(`meeting ${this.meetingId}`, "Conversation process error", error);
         }
     }
 
@@ -353,7 +357,7 @@ export class MeetingManager {
             if (thisMeetingId != this.meetingId) return;
             attempt++;
             if (output.response === "") {
-                console.log(`[meeting ${this.meetingId}] entire message trimmed, trying again. attempt ${attempt}`);
+                Logger.info(`meeting ${this.meetingId}`, `entire message trimmed, trying again. attempt ${attempt}`);
             }
         }
 
@@ -373,7 +377,7 @@ export class MeetingManager {
 
         if (message.text === "") {
             message.type = "skipped";
-            console.warn(`[meeting ${this.meetingId}] failed to make a message. Skipping speaker ${action.speaker.id}`);
+            Logger.warn(`meeting ${this.meetingId}`, `failed to make a message. Skipping speaker ${action.speaker.id}`);
         }
 
         this.conversation.push(message);
@@ -388,7 +392,7 @@ export class MeetingManager {
         }
 
         this.socket.emit("conversation_update", this.conversation);
-        console.log(`[meeting ${this.meetingId}] message generated, index ${message_index}, speaker ${message.speaker}`);
+        Logger.info(`meeting ${this.meetingId}`, `message generated, index ${message_index}, speaker ${message.speaker}`);
 
         // Queue audio generation
         this.audioSystem.queueAudioGeneration(

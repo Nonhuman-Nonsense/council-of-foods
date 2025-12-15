@@ -4,7 +4,7 @@ import { z } from "zod";
 export const EnvSchema = z.object({
     COUNCIL_DB_URL: z.string().url().default("mongodb://localhost:27017"),
     COUNCIL_DB_PREFIX: z.string().default("CouncilOfFoods"),
-    OPENAI_API_KEY: z.string().min(1, "OpenAI API Key is required"),
+    COUNCIL_OPENAI_API_KEY: z.string().min(1, "COUNCIL_OPENAI_API_KEY is required"),
     PORT: z.string().default("3001").transform((val) => parseInt(val, 10)),
     NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
     COUNCIL_ERRORBOT: z.string().optional(),

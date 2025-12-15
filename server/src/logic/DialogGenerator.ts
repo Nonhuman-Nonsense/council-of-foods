@@ -218,7 +218,7 @@ export class DialogGenerator {
                     code: 500,
                 });
             }
-            reportError(error);
+            reportError("DialogGenerator", "Prompt Generation Error", error);
             return { response: "", id: null };
         }
     }
