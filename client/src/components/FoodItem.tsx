@@ -46,7 +46,7 @@ function FoodItem({ food, index, total, currentSpeakerId, isPaused, zoomIn }: Fo
   const overviewSize = 12;
   const zoomInSize = 55;
 
-  let videoSize = videoWithShadowSize[food.id!] || 1080; // Added fallback for safety
+  let videoSize = (food.id && videoWithShadowSize[food.id]) ? videoWithShadowSize[food.id] : 1080;
 
   /* -------------------------------------------------------------------------- */
   /*                                 Calculations                               */
