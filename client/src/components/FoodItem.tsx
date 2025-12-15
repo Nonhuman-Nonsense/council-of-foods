@@ -1,9 +1,10 @@
 import React, { useMemo } from "react";
 import FoodAnimation from "./FoodAnimation";
 import { dvh } from "../utils";
+import { Food } from "./settings/SelectFoods";
 
 const videoBaseSize = 800;
-const videoWithShadowSize = {
+const videoWithShadowSize: Record<string, number> = {
   "avocado": 1080,
   "banana": 1080,
   "beer": 1080,
@@ -19,6 +20,15 @@ const videoWithShadowSize = {
   "honey": 800
 };
 
+interface FoodItemProps {
+  food: Food;
+  index: number;
+  total: number;
+  currentSpeakerId: string;
+  isPaused: boolean;
+  zoomIn: boolean;
+}
+
 /**
  * FoodItem Component
  * 
@@ -29,30 +39,25 @@ const videoWithShadowSize = {
  * - **Positioning**: Calculates a parabolic curve to arrange foods in a semi-circle during "overview" mode.
  * - **Zooming**: Transitions the food to a large, central position when it becomes the `currentSpeakerId`.
  * - **Sizing**: Normalizes video sizes based on `videoWithShadowSize` map to ensure visual consistency.
- * 
- * @param {Object} props
- * @param {Object} props.food - The food object (id, size, etc.).
- * @param {number} props.index - Index in the participants array.
- * @param {number} props.total - Total count of participants.
- * @param {string} props.currentSpeakerId - ID of the currently active speaker.
- * @param {boolean} props.isPaused - Whether the animation/meeting is paused.
- * @param {boolean} props.zoomIn - Global state flag for "zoom in" mode.
  */
-function FoodItem({ food, index, total, currentSpeakerId, isPaused, zoomIn }) {
+function FoodItem({ food, index, total, currentSpeakerId, isPaused, zoomIn }: FoodItemProps): React.ReactElement {
 
   //Adjust these to adjust overall sizes
   const overviewSize = 12;
   const zoomInSize = 55;
 
-  let videoSize = videoWithShadowSize[food.id];
+  let videoSize = videoWithShadowSize[food.id!] || 1080; // Added fallback for safety
 
   /* -------------------------------------------------------------------------- */
   /*                                 Calculations                               */
   /* -------------------------------------------------------------------------- */
 
   // Adjusted function to set width and height based on window width
-  const responsiveStyle = useMemo(() => {
-    const size = (zoomIn && currentSpeakerId === food.id ? zoomInSize * ((food.size - 1) / 2 + 1) : overviewSize * food.size); // 12% of the window's width
+  const responsiveStyle: React.CSSProperties = useMemo(() => {
+    // Determine size factor: active & zoomed in gets large size, overview gets base size scaled by food.size (if available)
+    // Note: food.size is optional in Food interface so we default to 1 if missing.
+    const fSize = food.size || 1;
+    const size = (zoomIn && currentSpeakerId === food.id ? zoomInSize * ((fSize - 1) / 2 + 1) : overviewSize * fSize); // 12% of the window's width
     const sizeUnit = zoomIn && currentSpeakerId === food.id ? dvh : "vw";
     return {
       width: `${size * videoSize / videoBaseSize + sizeUnit}`,
@@ -63,7 +68,7 @@ function FoodItem({ food, index, total, currentSpeakerId, isPaused, zoomIn }) {
     };
   }, [zoomIn, currentSpeakerId, food.id, food.size, index, videoSize]);
 
-  const singleFoodStyle = {
+  const singleFoodStyle: React.CSSProperties = {
     position: "relative",
     width: zoomInSize + dvh,
     height: zoomInSize + dvh,
@@ -72,7 +77,7 @@ function FoodItem({ food, index, total, currentSpeakerId, isPaused, zoomIn }) {
     alignItems: "flex-end",
   };
 
-  const containerStyle = useMemo(() => {
+  const containerStyle: React.CSSProperties = useMemo(() => {
     if (zoomIn && currentSpeakerId === food.id) {
       let baseHeight = -19;
       // Manual vertical adjustments for zoomed in view
@@ -87,7 +92,7 @@ function FoodItem({ food, index, total, currentSpeakerId, isPaused, zoomIn }) {
       const topMax = 3.0; // The curvature
       const topOffset = 14.5; // Vertical offset to adjust the curve's baseline
 
-      let middleIndex;
+      let middleIndex: number;
       let isEven = total % 2 === 0;
       if (isEven) {
         middleIndex = total / 2 - 1;
@@ -95,14 +100,14 @@ function FoodItem({ food, index, total, currentSpeakerId, isPaused, zoomIn }) {
         middleIndex = (total - 1) / 2;
       }
 
-      let a;
+      let a: number;
       if (isEven) {
         a = topMax / Math.pow(middleIndex + 0.5, 2);
       } else {
         a = topMax / Math.pow(middleIndex, 2);
       }
 
-      let top;
+      let top: number;
       if (isEven) {
         const distanceFromMiddle = Math.abs(index - middleIndex - 0.5);
         top = a * Math.pow(distanceFromMiddle, 2) + topMax - topOffset;
