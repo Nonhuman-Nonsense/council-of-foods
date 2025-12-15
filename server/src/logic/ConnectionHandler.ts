@@ -18,7 +18,7 @@ interface ConversationOptions {
 }
 
 interface IMeetingManager {
-    meetingId: string;
+    meetingId: number | null;
     socket: any;
     conversation: ConversationMessage[];
     conversationOptions: ConversationOptions;
@@ -30,12 +30,12 @@ interface IMeetingManager {
     services: any;
     environment: string;
     run: boolean;
-    meetingDate: Date;
+    meetingDate: Date | null;
     extraMessageCount: number;
 }
 
 export interface ReconnectionOptions {
-    meetingId: string;
+    meetingId: string | number; // Client might send string or number
     handRaised: boolean;
     conversationMaxLength: number;
 }
@@ -71,8 +71,9 @@ export class ConnectionHandler {
         const { manager } = this;
         console.log(`[meeting ${options.meetingId}] attempting to resume`);
         try {
+            const meetingIdNum = Number(options.meetingId);
             const existingMeeting = await manager.services.meetingsCollection.findOne({
-                _id: options.meetingId,
+                _id: meetingIdNum,
             });
 
             if (existingMeeting) {

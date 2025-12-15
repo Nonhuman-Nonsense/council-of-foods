@@ -1,9 +1,10 @@
-import { MongoClient, Db, Collection, Document, InsertOneResult } from "mongodb";
+import { MongoClient, Db, Collection, InsertOneResult } from "mongodb";
+import { Meeting, Audio, Counter } from "../models/DBModels.js";
 
 let db: Db;
-export let meetingsCollection: Collection<Document>;
-export let audioCollection: Collection<Document>;
-export let counters: Collection<any>;
+export let meetingsCollection: Collection<Meeting>;
+export let audioCollection: Collection<Audio>;
+export let counters: Collection<Counter>;
 
 export const initDb = async (): Promise<void> => {
   if (!process.env.COUNCIL_DB_URL) {
@@ -17,9 +18,9 @@ export const initDb = async (): Promise<void> => {
   console.log(`[init] COUNCIL_DB_PREFIX is ${process.env.COUNCIL_DB_PREFIX}`);
 
   db = mongoClient.db(process.env.COUNCIL_DB_PREFIX);
-  meetingsCollection = db.collection("meetings");
-  audioCollection = db.collection("audio");
-  counters = db.collection("counters");
+  meetingsCollection = db.collection<Meeting>("meetings");
+  audioCollection = db.collection<Audio>("audio");
+  counters = db.collection<Counter>("counters");
 
   await initializeCounters();
 };
@@ -39,16 +40,8 @@ const initializeCounters = async (): Promise<void> => {
   }
 };
 
-export const insertMeeting = async (meeting: Document): Promise<InsertOneResult<Document>> => {
-  // In v6, findOneAndUpdate returns ModifyResult { value: Document ... }
-  // We explicitly cast to any to replicate original JS behavior if it was relying on checking properties loosely.
-  // Original: const ret = ...; meeting._id = ret.seq; 
-  // This implies 'ret' had a 'seq' property. 
-  // If ret is ModifyResult, it doesn't have 'seq', it has 'value' which has 'seq'.
-  // However, maybe valid runtime code was actually wrong but working due to structure?
-  // Or maybe it was using an older driver where it returned the doc directly?
-  // Let's assume it returns the doc in `value` prop based on v6 specs.
-
+// We use 'Omit<Meeting, "_id">' because _id is assigned by the logic inside
+export const insertMeeting = async (meeting: Omit<Meeting, "_id">): Promise<InsertOneResult<Meeting>> => {
   const ret = await counters.findOneAndUpdate(
     { _id: "meeting_id" },
     { $inc: { seq: 1 } } as any
@@ -57,6 +50,7 @@ export const insertMeeting = async (meeting: Document): Promise<InsertOneResult<
   // Polyfill logic: try to find seq on ret (if legacy) or ret.value (if modern)
   const seq = ret.seq ?? ret.value?.seq;
 
-  meeting._id = seq;
-  return await meetingsCollection.insertOne(meeting);
+  // Cast to Meeting including the new _id
+  const meetingWithId = { ...meeting, _id: seq } as Meeting;
+  return await meetingsCollection.insertOne(meetingWithId);
 };

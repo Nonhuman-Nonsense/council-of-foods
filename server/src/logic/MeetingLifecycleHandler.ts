@@ -24,7 +24,7 @@ interface SetupOptions {
 }
 
 interface IMeetingManager {
-    meetingId: string;
+    meetingId: number | null; // Corrected to number
     socket: any;
     conversation: ConversationMessage[];
     conversationOptions: ConversationOptions;
@@ -36,7 +36,7 @@ interface IMeetingManager {
     services: any;
     environment: string;
     run: boolean;
-    meetingDate: Date;
+    meetingDate: Date | null;
     extraMessageCount: number;
     currentSpeaker: number;
     globalOptions: GlobalOptions;
@@ -127,20 +127,24 @@ export class MeetingLifecycleHandler {
         manager.socket.emit("conversation_update", manager.conversation);
         console.log(`[meeting ${manager.meetingId}] summary generated on index ${manager.conversation.length - 1}`);
 
-        manager.services.meetingsCollection.updateOne(
-            { _id: manager.meetingId },
-            { $set: { conversation: manager.conversation, summary: summary } }
-        );
+        if (manager.meetingId !== null) {
+            manager.services.meetingsCollection.updateOne(
+                { _id: manager.meetingId },
+                { $set: { conversation: manager.conversation, summary: summary } }
+            );
+        }
 
         summary.sentences = splitSentences(response);
-        await manager.audioSystem.generateAudio(
-            summary,
-            manager.conversationOptions.characters[0],
-            manager.conversationOptions.options,
-            manager.meetingId,
-            manager.environment,
-            true
-        );
+        if (manager.meetingId !== null) {
+            await manager.audioSystem.generateAudio(
+                summary,
+                manager.conversationOptions.characters[0],
+                manager.conversationOptions.options,
+                manager.meetingId,
+                manager.environment,
+                true
+            );
+        }
     }
 
     /**

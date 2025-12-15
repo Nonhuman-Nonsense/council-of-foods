@@ -11,12 +11,14 @@ import { HandRaisingHandler } from "./HandRaisingHandler.js";
 import { MeetingLifecycleHandler } from "./MeetingLifecycleHandler.js";
 import { ConnectionHandler } from "./ConnectionHandler.js";
 import { GlobalOptions } from "./GlobalOptions.js";
+import { Meeting, Audio } from "../models/DBModels.js";
+import { Collection, InsertOneResult } from "mongodb";
 import { OpenAI } from "openai";
 
 interface Services {
-    meetingsCollection: any;
-    audioCollection: any;
-    insertMeeting: any;
+    meetingsCollection: Collection<Meeting>;
+    audioCollection: Collection<Audio>;
+    insertMeeting: (meeting: Omit<Meeting, "_id">) => Promise<InsertOneResult<Meeting>>;
     getOpenAI: () => OpenAI;
 }
 
@@ -54,7 +56,7 @@ export class MeetingManager {
     isPaused: boolean;
     currentSpeaker: number;
     extraMessageCount: number;
-    meetingId: string | null;
+    meetingId: number | null;
     meetingDate: Date | null;
 
     audioSystem: AudioSystem;
@@ -90,9 +92,9 @@ export class MeetingManager {
         this.meetingDate = null;
 
         this.startLoop = this.startLoop.bind(this);
-        this.audioSystem = new AudioSystem(this.socket, this.services, this.globalOptions.audioConcurrency);
+        this.audioSystem = new AudioSystem(this.socket, this.services as any, this.globalOptions.audioConcurrency); // Cast services as AudioSystem expects generic collection for now
         this.dialogGenerator = new DialogGenerator(this.services, this.globalOptions);
-        this.humanInputHandler = new HumanInputHandler(this as any); // Cast to any because handlers expect IMeetingManager which this fulfills
+        this.humanInputHandler = new HumanInputHandler(this as any);
         this.handRaisingHandler = new HandRaisingHandler(this as any);
         this.meetingLifecycleHandler = new MeetingLifecycleHandler(this as any);
         this.connectionHandler = new ConnectionHandler(this as any);
@@ -229,10 +231,12 @@ export class MeetingManager {
                         });
                         console.log(`[meeting ${this.meetingId}] awaiting human panelist on index ${this.conversation.length - 1}`);
                         this.socket.emit("conversation_update", this.conversation);
-                        this.services.meetingsCollection.updateOne(
-                            { _id: this.meetingId },
-                            { $set: { conversation: this.conversation } }
-                        );
+                        if (this.meetingId !== null) {
+                            this.services.meetingsCollection.updateOne(
+                                { _id: this.meetingId },
+                                { $set: { conversation: this.conversation } }
+                            );
+                        }
                     }
                     return;
 
@@ -308,10 +312,12 @@ export class MeetingManager {
         const message_index = this.conversation.length - 1;
 
         // Save to DB *before* emitting to ensure consistency
-        await this.services.meetingsCollection.updateOne(
-            { _id: this.meetingId },
-            { $set: { conversation: this.conversation } }
-        );
+        if (this.meetingId !== null) {
+            await this.services.meetingsCollection.updateOne(
+                { _id: this.meetingId },
+                { $set: { conversation: this.conversation } }
+            );
+        }
 
         this.socket.emit("conversation_update", this.conversation);
         console.log(`[meeting ${this.meetingId}] message generated, index ${message_index}, speaker ${message.speaker}`);

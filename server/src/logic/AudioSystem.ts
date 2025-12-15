@@ -55,9 +55,13 @@ export class AudioQueue {
     }
 }
 
+import { Audio, Meeting } from "../models/DBModels.js";
+
+// ...
+
 export interface Services {
-    audioCollection: Collection<any>; // Using any for now as schema isn't fully defined
-    meetingsCollection: Collection<any>;
+    audioCollection: Collection<Audio>;
+    meetingsCollection: Collection<Meeting>;
     getOpenAI: () => OpenAI;
 }
 
@@ -103,7 +107,7 @@ export class AudioSystem {
         this.queue = new AudioQueue(concurrency);
     }
 
-    queueAudioGeneration(message: Message, speaker: Speaker, options: AudioSystemOptions, meetingId: string, environment: string): void {
+    queueAudioGeneration(message: Message, speaker: Speaker, options: AudioSystemOptions, meetingId: number, environment: string): void {
         this.queue.add(() => this.generateAudio(message, speaker, options, meetingId, environment));
     }
 
@@ -111,7 +115,7 @@ export class AudioSystem {
      * Generates or retrieves audio for a given message.
      * Emits 'audio_update' to the socket client.
      */
-    async generateAudio(message: Message, speaker: Speaker, options: AudioSystemOptions, meetingId: string, environment: string, skipMatching: boolean = false): Promise<void> {
+    async generateAudio(message: Message, speaker: Speaker, options: AudioSystemOptions, meetingId: number, environment: string, skipMatching: boolean = false): Promise<void> {
         if (options.skipAudio) return;
 
         if (message.type === "skipped") {
