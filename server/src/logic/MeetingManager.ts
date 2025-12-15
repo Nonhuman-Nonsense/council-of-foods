@@ -16,7 +16,7 @@ import { Collection, InsertOneResult } from "mongodb";
 import { OpenAI } from "openai";
 import { Socket } from "socket.io";
 import { ClientToServerEvents, ServerToClientEvents } from "../../../shared/SocketTypes.js";
-import { Character, ConversationMessage } from "../../../shared/ModelTypes.js";
+import type { Character, ConversationMessage } from "../../../shared/ModelTypes.js";
 import {
     SetupOptionsSchema,
     HumanMessageSchema,

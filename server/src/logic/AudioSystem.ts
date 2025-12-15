@@ -6,7 +6,7 @@ import { OpenAI } from "openai";
 import { Collection, Document } from "mongodb";
 import { Socket } from "socket.io";
 import { ClientToServerEvents, ServerToClientEvents } from "../../../shared/SocketTypes.js";
-import { Character, ConversationMessage } from "../../../shared/ModelTypes.js";
+import type { Character, ConversationMessage } from "../../../shared/ModelTypes.js";
 
 // OpenAI SDK accepts Buffer/Stream for 'file'.
 // Using File object for compatibility.
