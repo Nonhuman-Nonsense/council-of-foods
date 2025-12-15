@@ -9,7 +9,7 @@ import Loading from '../Loading';
  * Shows a loading spinner and a standardized error message.
  * Automatically disappears when connection is restored (handled by parent logic).
  */
-function Reconnecting() {
+function Reconnecting(): React.ReactElement {
 
   const isMobile = useMobile();
   const { t } = useTranslation();

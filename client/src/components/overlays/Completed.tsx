@@ -11,7 +11,13 @@ import { useTranslation } from "react-i18next";
  * @param {Function} props.onWrapItUp - Handler to trigger the summary phase.
  * @param {boolean} props.canExtendMeeting - Whether the extend option is available.
  */
-function Completed({ onContinue, onWrapItUp, canExtendMeeting }) {
+interface CompletedProps {
+  onContinue: () => void;
+  onWrapItUp: () => void;
+  canExtendMeeting: boolean;
+}
+
+function Completed({ onContinue, onWrapItUp, canExtendMeeting }: CompletedProps): React.ReactElement {
 
   const { t } = useTranslation();
 

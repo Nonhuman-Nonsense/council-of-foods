@@ -12,7 +12,13 @@ import { capitalizeFirstLetter } from "../../utils";
  * @param {Function} props.onReset - Callback to confirm reset.
  * @param {Function} props.onCancel - Callback to cancel reset.
  */
-function ResetWarning({ message, onReset, onCancel }) {
+interface ResetWarningProps {
+  message?: string;
+  onReset: () => void;
+  onCancel: () => void;
+}
+
+function ResetWarning({ message, onReset, onCancel }: ResetWarningProps): React.ReactElement {
 
   const { t } = useTranslation();
 

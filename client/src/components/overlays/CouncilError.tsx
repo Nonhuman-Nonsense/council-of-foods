@@ -6,7 +6,7 @@ import { useTranslation } from "react-i18next";
  * Displayed when a critical non-recoverable error occurs (e.g., API failure).
  * Provides a button to refresh the application.
  */
-function CouncilError() {
+function CouncilError(): React.ReactElement {
 
   const { t } = useTranslation();
 
