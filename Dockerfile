@@ -15,6 +15,7 @@ COPY server/package*.json ./
 # Install ALL dependencies (including devDeps for tsc)
 RUN npm ci
 COPY server/ .
+COPY shared/ ../shared/
 RUN npm run build
 
 # Stage 3: Production Runner
@@ -33,4 +34,4 @@ COPY --from=client-builder /usr/src/client/dist /usr/src/client/dist
 EXPOSE 3001
 
 # Run the compiled server
-CMD ["node", "dist/server.js"]
+CMD ["node", "dist/server/server.js"]

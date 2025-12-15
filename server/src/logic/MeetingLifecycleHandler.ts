@@ -4,7 +4,7 @@ import { Logger } from "../utils/Logger.js";
 import { Character, ConversationMessage } from "./SpeakerSelector.js";
 import { GlobalOptions } from "./GlobalOptions.js";
 import { Socket } from "socket.io";
-import { ClientToServerEvents, ServerToClientEvents } from "../models/SocketTypes.js";
+import { ClientToServerEvents, ServerToClientEvents } from "../../../shared/SocketTypes.js";
 
 import { IMeetingManager, ConversationOptions, ConversationState } from "../interfaces/MeetingInterfaces.js";
 

@@ -1,4 +1,4 @@
-import { ConversationMessage, Character } from "../logic/SpeakerSelector.js";
+import { ConversationMessage, Character } from "./ModelTypes.js";
 
 
 // Re-defining or importing types that are passed over the socket

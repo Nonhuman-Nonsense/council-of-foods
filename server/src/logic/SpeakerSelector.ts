@@ -1,20 +1,6 @@
+import { Character, ConversationMessage } from '../../../shared/ModelTypes.js';
 
-export interface Character {
-    id: string;
-    name: string;
-    voice: string;
-    [key: string]: any;
-}
-
-export interface ConversationMessage {
-    type: string;
-    id?: string;
-    text?: string;
-    sentences?: string[];
-    speaker?: string;
-    askParticular?: string;
-    [key: string]: any;
-}
+export { Character, ConversationMessage };
 
 /**
  * Logic for determining the next speaker in the conversation.

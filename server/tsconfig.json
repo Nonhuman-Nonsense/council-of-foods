@@ -3,7 +3,7 @@
         "target": "ES2022",
         "module": "NodeNext",
         "moduleResolution": "NodeNext",
-        "rootDir": ".",
+        "rootDir": "..",
         "outDir": "./dist",
         "esModuleInterop": true,
         "forceConsistentCasingInFileNames": true,
@@ -15,6 +15,7 @@
         "resolveJsonModule": true
     },
     "include": [
+        "../shared",
         "."
     ],
     "exclude": [

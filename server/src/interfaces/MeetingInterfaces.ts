@@ -2,23 +2,20 @@ import { Collection, InsertOneResult } from "mongodb";
 import { OpenAI } from "openai";
 import { Socket } from "socket.io";
 import { Meeting, Audio } from "../models/DBModels.js";
-import { ClientToServerEvents, ServerToClientEvents } from "../models/SocketTypes.js";
-import { Character, ConversationMessage } from "../logic/SpeakerSelector.js";
+import { ClientToServerEvents, ServerToClientEvents } from "../../../shared/SocketTypes.js";
+import { Character, ConversationMessage } from "../../../shared/ModelTypes.js";
 import { GlobalOptions } from "../logic/GlobalOptions.js";
 import { AudioSystem } from "../logic/AudioSystem.js";
 import { DialogGenerator } from "../logic/DialogGenerator.js";
+import { ConversationState } from "../../../shared/ModelTypes.js";
+
+export { ConversationState };
 
 export interface Services {
     meetingsCollection: Collection<Meeting>;
     audioCollection: Collection<Audio>;
     insertMeeting: (meeting: Omit<Meeting, "_id">) => Promise<InsertOneResult<Meeting>>;
     getOpenAI: () => OpenAI;
-}
-
-export interface ConversationState {
-    alreadyInvited?: boolean;
-    humanName?: string;
-    [key: string]: any;
 }
 
 export interface ConversationOptions {
