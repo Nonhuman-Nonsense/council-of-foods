@@ -148,8 +148,17 @@ function Council({
   /*                               Derived State                                */
   /* -------------------------------------------------------------------------- */
   useEffect(() => {
-     // Recalculate derived state if needed or keep inline
+    // Recalculate derived state if needed or keep inline
   }, [councilState, playingNowIndex, textMessages, playNextIndex, humanName]);
+
+  // Sync current speaker ID to parent component for Forest zoom
+  useEffect(() => {
+    if (playingNowIndex >= 0 && textMessages[playingNowIndex]) {
+      if (textMessages[playingNowIndex].speaker) {
+        setCurrentSpeakerId(textMessages[playingNowIndex].speaker.toLowerCase());
+      }
+    }
+  }, [playingNowIndex, textMessages, setCurrentSpeakerId]);
 
   // If we reach the end of one message, figure out what to do next
   function calculateNextAction(wait = false) {
@@ -181,13 +190,13 @@ function Council({
       playingNowIndex !== 0
     );
     setCanGoForward(
-        (councilState === 'playing' || councilState === 'waiting') &&
-        playingNowIndex < meetingMaxLength
+      (councilState === 'playing' || councilState === 'waiting') &&
+      playingNowIndex < meetingMaxLength
     );
     setCanRaiseHand(
-        (councilState === 'playing' || councilState === 'waiting') &&
-        playingNowIndex === maximumPlayedIndex &&
-        playingNowIndex !== meetingMaxLength - 1
+      (councilState === 'playing' || councilState === 'waiting') &&
+      playingNowIndex === maximumPlayedIndex &&
+      playingNowIndex !== meetingMaxLength - 1
     );
 
   }, [councilState, playingNowIndex, meetingMaxLength, maximumPlayedIndex]);

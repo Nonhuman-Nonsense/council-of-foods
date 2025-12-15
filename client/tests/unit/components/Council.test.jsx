@@ -281,5 +281,35 @@ describe('Council Component', () => {
         // Option: Provide a way to simulate name entry via the Overlay mock?
         // Yes! Pass the prop.
     });
+    it('updates currentSpeakerId when playing a message', async () => {
+        render(
+            <MemoryRouter>
+                <Council {...defaultProps} />
+            </MemoryRouter>
+        );
+
+        // 1. Setup Playing State
+        const firstMessage = { id: 'msg1', type: 'ai', speaker: 'banana', text: 'Msg1' };
+
+        act(() => {
+            if (socketHandlers['meeting_started']) socketHandlers['meeting_started']({ meeting_id: '123' });
+            if (socketHandlers['conversation_update']) socketHandlers['conversation_update']([firstMessage]);
+        });
+
+        // 2. Trigger Audio (playing starts)
+        await act(async () => {
+            if (socketHandlers['audio_update']) {
+                await socketHandlers['audio_update']({ id: 'msg1', audio: new ArrayBuffer(10) });
+            }
+        });
+
+        // 3. Wait for controls (playing)
+        await waitFor(() => {
+            expect(screen.getByTestId('controls')).toBeInTheDocument();
+        });
+
+        // 4. Verify setCurrentSpeakerId was called with "banana"
+        expect(defaultProps.setCurrentSpeakerId).toHaveBeenCalledWith('banana');
+    });
 });
 
