@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { MeetingManager } from '../src/logic/MeetingManager.js';
+import { MeetingManager } from '@logic/MeetingManager.js';
 import { setupTestOptions } from './testUtils.js';
-import { meetingsCollection } from '../src/services/DbService.js';
+import { meetingsCollection } from '@services/DbService.js';
 
 import { getTestMode, TEST_MODES } from './testUtils.js';
-import { getOpenAI } from '../src/services/OpenAIService.js';
+import { getOpenAI } from '@services/OpenAIService.js';
 
 // Reusable mock setup
 export const mockOpenAI = {

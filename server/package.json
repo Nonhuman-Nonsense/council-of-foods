@@ -8,7 +8,7 @@
   "main": "dist/server.js",
   "scripts": {
     "start": "node dist/server/server.js",
-    "build": "tsc",
+    "build": "tsc && tsc-alias",
     "e2e-server": "cross-env NODE_ENV=test node dist/server/server.js",
     "dev": "cross-env NODE_ENV=development USE_TEST_OPTIONS=true nodemon --exec tsx server.ts",
     "proto": "cross-env NODE_ENV=prototype node dist/server/server.js",
@@ -41,8 +41,10 @@
     "nodemon": "^3.1.10",
     "socket.io-client": "^4.8.1",
     "ts-node": "^10.9.2",
+    "tsc-alias": "^1.8.16",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
+    "vite-tsconfig-paths": "^6.0.1",
     "vitest": "^4.0.15"
   },
   "nodemonConfig": {
