@@ -8,3 +8,12 @@ if (typeof CSS === 'undefined') {
 if (!CSS.supports) {
     CSS.supports = (k, v) => false;
 }
+
+// Mock Canvas
+HTMLCanvasElement.prototype.getContext = () => {
+    return {
+        fillStyle: '',
+        fillRect: () => { },
+        // Add other methods if lottie complains
+    };
+}

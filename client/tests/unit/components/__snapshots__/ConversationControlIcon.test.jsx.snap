@@ -1,0 +1,21 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`ConversationControlIcon > renders normal icon by default 1`] = `
+<DocumentFragment>
+  <button
+    class="control"
+    style="margin-left: 4px; margin-right: 4px; width: 56px; height: 56px; border: 0px; border-radius: 50%; display: flex; justify-content: center; align-items: center; position: relative;"
+  >
+    <img
+      alt="Test Action"
+      src="/icons/test_icon.svg"
+      style="position: absolute; width: 40px; height: 40px; object-fit: cover; border-radius: 50%; opacity: 1;"
+    />
+    <img
+      alt="Test Action"
+      src="/icons/test_icon_filled.svg"
+      style="position: absolute; width: 40px; height: 40px; object-fit: cover; border-radius: 50%; opacity: 0;"
+    />
+  </button>
+</DocumentFragment>
+`;

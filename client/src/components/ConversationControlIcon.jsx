@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { useMobile } from "../utils";
 
 function ConversationControlIcon({
@@ -7,12 +7,12 @@ function ConversationControlIcon({
   tooltip,
   onClick
 }) {
-  let [isHover,setHover]= useState(false);
+  let [isHover, setHover] = useState(false);
   const isMobile = useMobile();
 
   const imageUrl = `/icons/${icon}.svg`;
   let hoverUrl = `/icons/${icon}_filled.svg`;
-  if(hoverIcon) hoverUrl = `/icons/${hoverIcon}.svg`;
+  if (hoverIcon) hoverUrl = `/icons/${hoverIcon}.svg`;
 
   const buttonStyle = {
     marginLeft: "4px",
@@ -38,30 +38,30 @@ function ConversationControlIcon({
 
   const imageStyle = {
     ...sharedStyle,
-    opacity:  (isHover ? "0" : "1")
+    opacity: (isHover ? "0" : "1")
   }
 
   const hoverStyle = {
     ...sharedStyle,
-    opacity:  (isHover ? "1" : "0")
+    opacity: (isHover ? "1" : "0")
   };
 
   return (
-    <button style={buttonStyle} className={"control"} onClick={onClick} onMouseOver={()=>setHover(true)} onMouseOut={()=>setHover(false)}>
+    <button style={buttonStyle} className={"control"} onClick={onClick} onMouseOver={() => setHover(true)} onMouseOut={() => setHover(false)}>
       <>
-      <img
-        src={imageUrl}
-        alt={tooltip}
-        style={imageStyle}
-      />
-      <img
-        src={hoverUrl}
-        alt={tooltip}
-        style={hoverStyle}
-      />
+        <img
+          src={imageUrl}
+          alt={tooltip}
+          style={imageStyle}
+        />
+        <img
+          src={hoverUrl}
+          alt={tooltip}
+          style={hoverStyle}
+        />
       </>
     </button>
   );
 }
 
-export default ConversationControlIcon;
+export default React.memo(ConversationControlIcon);

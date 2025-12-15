@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router";
 import io from "socket.io-client";
 import FoodItem from "./FoodItem";
@@ -578,22 +578,21 @@ function Council({
   /////////////////////
 
   //Only used for calculations on screen, so is current speaker of the foods.
-  function currentSpeakerIndex() {
+  const currentSpeakerIdx = useMemo(() => {
     let currentIndex;
-    foods.map((food, index) => {
+    foods.forEach((food, index) => {
       if (currentSpeakerId === food.id) {
         currentIndex = mapFoodIndex(foods.length, index);
       }
-      return false;//map expects return value, but this is irrelevant in our case
     });
     return currentIndex;
-  }
+  }, [foods, currentSpeakerId]);
 
   return (
     <>
-      <Background
+      <MemoizedBackground
         zoomIn={zoomIn}
-        currentSpeakerIndex={currentSpeakerIndex()}
+        currentSpeakerIndex={currentSpeakerIdx}
         totalSpeakers={foods.length - 1}
       />
       <div style={{
@@ -674,7 +673,7 @@ function Council({
   );
 }
 
-function Background({ zoomIn, currentSpeakerIndex, totalSpeakers }) {
+export function Background({ zoomIn, currentSpeakerIndex, totalSpeakers }) {
   function calculateBackdropPosition() {
     return 10 + (80 * currentSpeakerIndex) / totalSpeakers + "%";
   }
@@ -727,5 +726,7 @@ function Background({ zoomIn, currentSpeakerIndex, totalSpeakers }) {
     </>
   );
 }
+
+const MemoizedBackground = React.memo(Background);
 
 export default Council;

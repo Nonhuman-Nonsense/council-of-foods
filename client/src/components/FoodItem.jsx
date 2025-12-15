@@ -1,3 +1,4 @@
+import React, { useMemo } from "react";
 import FoodAnimation from "./FoodAnimation";
 import { dvh } from "../utils";
 
@@ -27,7 +28,7 @@ function FoodItem({ food, index, total, currentSpeakerId, isPaused, zoomIn }) {
   let videoSize = videoWithShadowSize[food.id];
 
   // Adjusted function to set width and height based on window width
-  const getResponsiveFoodImageStyle = () => {
+  const responsiveStyle = useMemo(() => {
     const size = (zoomIn && currentSpeakerId === food.id ? zoomInSize * ((food.size - 1) / 2 + 1) : overviewSize * food.size); // 12% of the window's width
     const sizeUnit = zoomIn && currentSpeakerId === food.id ? dvh : "vw";
     return {
@@ -37,7 +38,7 @@ function FoodItem({ food, index, total, currentSpeakerId, isPaused, zoomIn }) {
       animationDelay: 0.4 * index + "s",
       animationFillMode: "both",
     };
-  };
+  }, [zoomIn, currentSpeakerId, food.id, food.size, index, videoSize]);
 
   const singleFoodStyle = {
     position: "relative",
@@ -48,7 +49,7 @@ function FoodItem({ food, index, total, currentSpeakerId, isPaused, zoomIn }) {
     alignItems: "flex-end",
   };
 
-  const foodItemStyle = (index, total) => {
+  const containerStyle = useMemo(() => {
     if (zoomIn && currentSpeakerId === food.id) {
       let baseHeight = -19;
       // Manual vertical adjustments for zoomed in view
@@ -58,65 +59,59 @@ function FoodItem({ food, index, total, currentSpeakerId, isPaused, zoomIn }) {
       if (food.id === 'beer') baseHeight = -18;
       return { ...singleFoodStyle, top: baseHeight + dvh };
     } else {
-      return overViewFoodItemStyle(index, total);
+      const left = (index / (total - 1)) * 100;
+
+      const topMax = 3.0; // The curvature
+      const topOffset = 14.5; // Vertical offset to adjust the curve's baseline
+
+      let middleIndex;
+      let isEven = total % 2 === 0;
+      if (isEven) {
+        middleIndex = total / 2 - 1;
+      } else {
+        middleIndex = (total - 1) / 2;
+      }
+
+      let a;
+      if (isEven) {
+        a = topMax / Math.pow(middleIndex + 0.5, 2);
+      } else {
+        a = topMax / Math.pow(middleIndex, 2);
+      }
+
+      let top;
+      if (isEven) {
+        const distanceFromMiddle = Math.abs(index - middleIndex - 0.5);
+        top = a * Math.pow(distanceFromMiddle, 2) + topMax - topOffset;
+      } else {
+        top = a * Math.pow(index - middleIndex, 2) + topMax - topOffset;
+      }
+
+      // Manual vertical adjustments for overview
+      if (food.id === 'lollipop') top *= 1.05;
+      if (food.id === 'beer') top *= 0.97;
+      if (food.id === 'honey') top *= 0.95;
+
+      return {
+        position: "absolute",
+        left: `${left}%`,
+        top: `${top}vw`,
+        width: `${videoSize / videoBaseSize * overviewSize + "vw"}`,
+        height: `${overviewSize + "vw"}`,
+        transform: "translate(-50%, -50%)",
+        opacity: (zoomIn ? "0" : "1"),
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "flex-end",
+      };
     }
-  };
-
-  const overViewFoodItemStyle = (index, total) => {
-    const left = (index / (total - 1)) * 100;
-
-    const topMax = 3.0; // The curvature
-    const topOffset = 14.5; // Vertical offset to adjust the curve's baseline
-
-    let middleIndex;
-    let isEven = total % 2 === 0;
-    if (isEven) {
-      middleIndex = total / 2 - 1;
-    } else {
-      middleIndex = (total - 1) / 2;
-    }
-
-    let a;
-    if (isEven) {
-      a = topMax / Math.pow(middleIndex + 0.5, 2);
-    } else {
-      a = topMax / Math.pow(middleIndex, 2);
-    }
-
-    let top;
-    if (isEven) {
-      const distanceFromMiddle = Math.abs(index - middleIndex - 0.5);
-      top = a * Math.pow(distanceFromMiddle, 2) + topMax - topOffset;
-    } else {
-      top = a * Math.pow(index - middleIndex, 2) + topMax - topOffset;
-    }
-
-    // Manual vertical adjustments for overview
-    if (food.id === 'lollipop') top *= 1.05;
-    if (food.id === 'beer') top *= 0.97;
-    if (food.id === 'honey') top *= 0.95;
-
-    return {
-      position: "absolute",
-      left: `${left}%`,
-      top: `${top}vw`,
-      width: `${videoSize / videoBaseSize * overviewSize + "vw"}`,
-      height: `${overviewSize + "vw"}`,
-      transform: "translate(-50%, -50%)",
-      opacity: (zoomIn ? "0" : "1"),
-      display: "flex",
-      justifyContent: "center",
-      alignItems: "flex-end",
-    };
-  };
-
-  const responsiveStyle = getResponsiveFoodImageStyle();
+  }, [index, total, zoomIn, currentSpeakerId, food.id, videoSize]); // Dependencies
 
   return (
-    <div style={foodItemStyle(index, total)}>
+    <div style={containerStyle}>
       <FoodAnimation food={food} styles={responsiveStyle} currentSpeakerId={currentSpeakerId} isPaused={isPaused} />
     </div>
   );
 }
 
-export default FoodItem;
+export default React.memo(FoodItem);
