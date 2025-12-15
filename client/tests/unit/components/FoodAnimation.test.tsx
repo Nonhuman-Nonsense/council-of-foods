@@ -1,14 +1,15 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach, Mock } from 'vitest';
 import { render, screen, act } from '@testing-library/react';
 import FoodAnimation from '../../../src/components/FoodAnimation';
+import { Food } from '../../../src/components/settings/SelectFoods';
 
 // Mock video play/pause
 const originalPlay = window.HTMLMediaElement.prototype.play;
 const originalPause = window.HTMLMediaElement.prototype.pause;
 
 describe('FoodAnimation', () => {
-    let playMock;
-    let pauseMock;
+    let playMock: Mock;
+    let pauseMock: Mock;
 
     beforeEach(() => {
         playMock = vi.fn().mockResolvedValue(undefined);
@@ -23,7 +24,13 @@ describe('FoodAnimation', () => {
         vi.clearAllMocks();
     });
 
-    const mockFood = { id: 'banana', size: 1 };
+    const mockFood: Food = {
+        id: 'banana',
+        size: 1,
+        name: 'Banana',
+        description: 'A yellow fruit',
+        type: 'fruit'
+    };
     const mockStyles = { width: '100px' };
 
     it('renders video element with correct sources', () => {
@@ -144,5 +151,20 @@ describe('FoodAnimation', () => {
 
         await act(async () => { });
         expect(pauseMock).toHaveBeenCalled();
+    });
+
+    it('should not render video if food.id is missing', () => {
+        const noIdFood: Food = { ...mockFood, id: undefined };
+        render(
+            <FoodAnimation
+                food={noIdFood}
+                styles={mockStyles}
+                currentSpeakerId=""
+                isPaused={false}
+            />
+        );
+
+        const video = screen.queryByTestId('food-video');
+        expect(video).not.toBeInTheDocument();
     });
 });

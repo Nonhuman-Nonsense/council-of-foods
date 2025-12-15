@@ -62,6 +62,10 @@ function FoodAnimation({ food, styles, currentSpeakerId, isPaused }: FoodAnimati
   /*                                   Render                                   */
   /* -------------------------------------------------------------------------- */
 
+  if (!food.id) {
+    return <div style={styles}></div>;
+  }
+
   return (
     <video ref={video} style={{ ...styles, objectFit: "cover" }} loop muted playsInline data-testid="food-video">
       <source
