@@ -25,8 +25,21 @@ const FullscreenButton = () => {
     };
   }, []);
 
+  // Interfaces for vendor-prefixed fullscreen methods
+  interface VendorFullscreenElement extends HTMLElement {
+    mozRequestFullScreen?: () => Promise<void>;
+    webkitRequestFullscreen?: () => Promise<void>;
+    msRequestFullscreen?: () => Promise<void>;
+  }
+
+  interface VendorDocument extends Document {
+    mozCancelFullScreen?: () => Promise<void>;
+    webkitExitFullscreen?: () => Promise<void>;
+    msExitFullscreen?: () => Promise<void>;
+  }
+
   const toggleFullscreen = () => {
-    const element = document.documentElement as any;
+    const element = document.documentElement as VendorFullscreenElement;
     if (!document.fullscreenElement) {
       if (element.requestFullscreen) {
         element.requestFullscreen();
@@ -41,7 +54,7 @@ const FullscreenButton = () => {
         element.msRequestFullscreen();
       }
     } else {
-      const doc = document as any;
+      const doc = document as VendorDocument;
       if (document.exitFullscreen) {
         document.exitFullscreen();
       } else if (doc.mozCancelFullScreen) {
