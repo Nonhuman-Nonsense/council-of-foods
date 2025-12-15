@@ -75,7 +75,19 @@ describe('Council Component', () => {
         participants: mockParticipants,
         setUnrecoverableError: vi.fn(),
         setConnectionError: vi.fn(),
-        connectionError: false
+        connectionError: false,
+        audioContext: {
+            current: {
+                state: 'running',
+                resume: vi.fn(),
+                suspend: vi.fn(),
+                decodeAudioData: vi.fn().mockResolvedValue(new ArrayBuffer(10))
+            }
+        },
+        isPaused: false,
+        setPaused: vi.fn(),
+        currentSpeakerId: "",
+        setCurrentSpeakerId: vi.fn()
     };
 
     it('initializes in loading state and connects to socket', () => {

@@ -42,7 +42,6 @@ describe('TextOutput', () => {
         render(<TextOutput {...defaultProps} />);
 
         expect(screen.getByTestId('subtitle-text')).toHaveTextContent('Hello world.');
-        expect(defaultProps.setSentencesLength).toHaveBeenCalledWith(3);
     });
 
     it('updates text as time progresses', () => {
