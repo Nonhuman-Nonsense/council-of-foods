@@ -2,11 +2,15 @@ import { reportError } from "../../errorbot.js";
 import { mapSentencesToWords } from "../utils/textUtils.js";
 import { OpenAI } from "openai";
 import { Collection, Document } from "mongodb";
+import { Socket } from "socket.io";
+import { ServerToClientEvents, ClientToServerEvents } from "../models/SocketTypes.js";
 
 // OpenAI SDK accepts Buffer/Stream for 'file'.
 // Using File object for compatibility.
 
 export type AudioTask = () => Promise<void>;
+
+// ... (AudioQueue class remains unchanged) 
 
 export class AudioQueue {
     queue: AudioTask[];
@@ -97,11 +101,11 @@ export interface AudioSystemOptions {
  * - Skipping audio generation based on configuration (skipAudio).
  */
 export class AudioSystem {
-    socket: any; // Socket.io type
+    socket: Socket<ClientToServerEvents, ServerToClientEvents>;
     services: Services;
     queue: AudioQueue;
 
-    constructor(socket: any, services: Services, concurrency: number = 3) {
+    constructor(socket: Socket<ClientToServerEvents, ServerToClientEvents>, services: Services, concurrency: number = 3) {
         this.socket = socket;
         this.services = services;
         this.queue = new AudioQueue(concurrency);

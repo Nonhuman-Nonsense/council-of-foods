@@ -14,6 +14,8 @@ import { GlobalOptions } from "./GlobalOptions.js";
 import { Meeting, Audio } from "../models/DBModels.js";
 import { Collection, InsertOneResult } from "mongodb";
 import { OpenAI } from "openai";
+import { Socket } from "socket.io";
+import { ClientToServerEvents, ServerToClientEvents } from "../models/SocketTypes.js";
 
 interface Services {
     meetingsCollection: Collection<Meeting>;
@@ -46,7 +48,7 @@ interface Decision {
  * Orchestrates interaction between Client (Socket.IO), Database, and AI services.
  */
 export class MeetingManager {
-    socket: any;
+    socket: Socket<ClientToServerEvents, ServerToClientEvents>;
     environment: string;
     globalOptions: GlobalOptions;
     services: Services;
@@ -69,7 +71,7 @@ export class MeetingManager {
     conversation: ConversationMessage[];
     conversationOptions: ConversationOptions;
 
-    constructor(socket: any, environment: string, optionsOverride: GlobalOptions | null = null, services: Partial<Services> = {}) {
+    constructor(socket: Socket<ClientToServerEvents, ServerToClientEvents>, environment: string, optionsOverride: GlobalOptions | null = null, services: Partial<Services> = {}) {
         this.socket = socket;
         this.environment = environment;
         this.globalOptions = optionsOverride || ((environment === 'test' || process.env.USE_TEST_OPTIONS === 'true') ? (testOptions as unknown as GlobalOptions) : (defaultGlobalOptions as unknown as GlobalOptions));

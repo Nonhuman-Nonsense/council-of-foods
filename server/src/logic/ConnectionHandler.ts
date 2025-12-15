@@ -2,6 +2,8 @@ import { splitSentences } from "../utils/textUtils.js";
 import { reportError } from "../../errorbot.js";
 import { Character, ConversationMessage } from "./SpeakerSelector.js";
 import { GlobalOptions } from "./GlobalOptions.js";
+import { Socket } from "socket.io";
+import { ClientToServerEvents, ServerToClientEvents } from "../models/SocketTypes.js";
 
 // Local interface until MeetingManager is migrated
 interface ConversationState {
@@ -19,7 +21,7 @@ interface ConversationOptions {
 
 interface IMeetingManager {
     meetingId: number | null;
-    socket: any;
+    socket: Socket<ClientToServerEvents, ServerToClientEvents>;
     conversation: ConversationMessage[];
     conversationOptions: ConversationOptions;
     handRaised: boolean;

@@ -2,6 +2,8 @@ import { splitSentences } from "../utils/textUtils.js";
 import { reportError } from "../../errorbot.js";
 import { Character, ConversationMessage } from "./SpeakerSelector.js";
 import { GlobalOptions } from "./GlobalOptions.js";
+import { Socket } from "socket.io";
+import { ClientToServerEvents, ServerToClientEvents } from "../models/SocketTypes.js";
 
 interface ConversationState {
     alreadyInvited?: boolean;
@@ -25,7 +27,7 @@ interface SetupOptions {
 
 interface IMeetingManager {
     meetingId: number | null; // Corrected to number
-    socket: any;
+    socket: Socket<ClientToServerEvents, ServerToClientEvents>;
     conversation: ConversationMessage[];
     conversationOptions: ConversationOptions;
     handRaised: boolean;

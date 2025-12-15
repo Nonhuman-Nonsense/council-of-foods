@@ -1,5 +1,7 @@
 import { splitSentences } from "../utils/textUtils.js";
 import { Character, ConversationMessage } from "./SpeakerSelector.js";
+import { Socket } from "socket.io";
+import { ClientToServerEvents, ServerToClientEvents } from "../models/SocketTypes.js";
 
 // Define a local interface for MeetingManager functionality needed here.
 // Once MeetingManager is migrated, we can export this or import the real class type.
@@ -17,8 +19,8 @@ interface ConversationOptions {
 }
 
 interface IMeetingManager {
-    meetingId: string;
-    socket: any;
+    meetingId: string | number | null; // Allowing union until full migration to number everywhere
+    socket: Socket<ClientToServerEvents, ServerToClientEvents>;
     conversation: ConversationMessage[];
     conversationOptions: ConversationOptions;
     handRaised: boolean;
