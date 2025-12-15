@@ -1,0 +1,15 @@
+import './i18n';
+import { BrowserRouter } from "react-router";
+import Main from "./components/Main";
+
+function App(): JSX.Element {
+    return (
+        <div className="App">
+            <BrowserRouter>
+                <Main lang="en" />
+            </BrowserRouter>
+        </div>
+    );
+}
+
+export default App;

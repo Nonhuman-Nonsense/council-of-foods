@@ -49,7 +49,7 @@ export const useCouncilSocket = ({
             if (onConnectionError) onConnectionError(err);
         });
 
-        socketRef.current.on('connect_failed', (err: any) => {
+        socketRef.current.on('connect_error', (err: any) => {
             console.log(err);
         });
 

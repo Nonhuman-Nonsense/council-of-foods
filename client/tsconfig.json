@@ -6,9 +6,27 @@
                 "../shared/*"
             ]
         },
-        "allowJs": true,
-        "checkJs": false,
-        "maxNodeModuleJsDepth": 0
+        "target": "ESNext",
+        "lib": [
+            "DOM",
+            "DOM.Iterable",
+            "ESNext"
+        ],
+        "module": "ESNext",
+        "skipLibCheck": true,
+        "moduleResolution": "bundler",
+        "allowImportingTsExtensions": true,
+        "resolveJsonModule": true,
+        "isolatedModules": true,
+        "noEmit": true,
+        "jsx": "react-jsx",
+        /* Strictness */
+        "strict": true,
+        "noUnusedLocals": true,
+        "noUnusedParameters": true,
+        "noFallthroughCasesInSwitch": true,
+        "allowJs": false,
+        "esModuleInterop": true
     },
     "include": [
         "src",

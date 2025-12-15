@@ -1,0 +1,24 @@
+src/components/Council.tsx(1,55): error TS6133: 'MutableRefObject' is declared but its value is never read.
+src/components/Council.tsx(135,29): error TS2352: Conversion of type 'Buffer<ArrayBufferLike>' to type 'ArrayBuffer' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type 'Buffer<ArrayBufferLike>' is missing the following properties from type 'ArrayBuffer': maxByteLength, resizable, resize, detached, and 2 more.
+src/components/Council.tsx(178,31): error TS6133: 'setIsDocumentVisible' is declared but its value is never read.
+src/components/Council.tsx(492,98): error TS2322: Type 'boolean' is not assignable to type 'string'.
+src/components/Council.tsx(630,25): error TS2322: Type 'string | undefined' is not assignable to type 'string | null'.
+  Type 'undefined' is not assignable to type 'string | null'.
+src/components/Council.tsx(637,118): error TS2322: Type 'string | undefined' is not assignable to type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/components/Council.tsx(637,195): error TS2322: Type '(newTopic: string, askParticular: boolean) => void' is not assignable to type '(text: string, askParticular: string) => void'.
+  Types of parameters 'askParticular' and 'askParticular' are incompatible.
+    Type 'string' is not assignable to type 'boolean'.
+src/components/Council.tsx(643,21): error TS2322: Type '"playing" | "waiting" | ConversationState | "summary" | "loading" | "human_input" | "human_panelist" | "max_reached"' is not assignable to type '"playing" | "waiting" | "summary" | "loading" | "human_input" | "human_panelist" | "max_reached"'.
+  Type 'ConversationState' is not assignable to type '"playing" | "waiting" | "summary" | "loading" | "human_input" | "human_panelist" | "max_reached"'.
+src/components/Main.tsx(79,20): error TS6133: 'setTopics' is declared but its value is never read.
+src/components/MainOverlays.tsx(11,1): error TS6133: 'Character' is declared but its value is never read.
+src/components/Navbar.tsx(1,39): error TS6133: 'RefObject' is declared but its value is never read.
+src/components/Navbar.tsx(23,19): error TS6133: 'lang' is declared but its value is never read.
+src/components/settings/Landing.tsx(5,8): error TS6133: 'React' is declared but its value is never read.
+src/components/settings/SelectFoods.tsx(1,39): error TS6133: 'MouseEvent' is declared but its value is never read.
+src/components/settings/SelectFoods.tsx(372,33): error TS6133: 'e' is declared but its value is never read.
+src/components/settings/SelectFoods.tsx(383,26): error TS6133: 'e' is declared but its value is never read.
+src/components/settings/SelectTopic.tsx(190,21): error TS2322: Type '(() => void) | undefined' is not assignable to type '() => void'.
+  Type 'undefined' is not assignable to type '() => void'.
