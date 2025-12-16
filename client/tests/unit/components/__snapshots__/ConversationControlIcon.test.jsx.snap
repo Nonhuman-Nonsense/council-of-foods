@@ -3,6 +3,7 @@
 exports[`ConversationControlIcon > renders normal icon by default 1`] = `
 <DocumentFragment>
   <button
+    aria-label="Test Action"
     class="control"
     style="margin-left: 4px; margin-right: 4px; width: 56px; height: 56px; border: 0px; border-radius: 50%; display: flex; justify-content: center; align-items: center; position: relative;"
   >
