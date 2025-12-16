@@ -5,6 +5,7 @@ WORKDIR /usr/src/client
 COPY client/package*.json ./
 RUN npm ci --only=production --no-audit
 COPY client/ .
+COPY shared/ ../shared/
 RUN npm run build
 
 # Stage 2: Build the Node server
