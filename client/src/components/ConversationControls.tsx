@@ -1,6 +1,24 @@
+import React from 'react';
 import ConversationControlIcon from "./ConversationControlIcon";
 import { useMobile } from "../utils";
 import { useTranslation } from "react-i18next";
+
+interface ConversationControlsProps {
+  isPaused: boolean;
+  onPausePlay: () => void;
+  isMuted: boolean;
+  onSkipForward: () => void;
+  onSkipBackward: () => void;
+  onRaiseHand: () => void;
+  onMuteUnmute: () => void;
+  isRaisedHand: boolean;
+  isWaitingToInterject: boolean;
+  canGoBack: boolean;
+  canGoForward: boolean;
+  canRaiseHand: boolean;
+  onTopOfOverlay: boolean;
+  humanName: string;
+}
 
 /**
  * ConversationControls Component
@@ -12,22 +30,6 @@ import { useTranslation } from "react-i18next";
  * - **Conditional Rendering**: Displays valid actions based on `canGoBack`, `canRaiseHand`, etc.
  * - **Interjection Feedback**: Shows a "Waiting..." indicator when the user has raised their hand.
  * - **Z-Index**: Adjusts `zIndex` based on `onTopOfOverlay` prop to remain visible over overlays.
- * 
- * @param {Object} props
- * @param {boolean} props.isPaused - Global pause state.
- * @param {Function} props.onPausePlay - Toggle playback.
- * @param {boolean} props.isMuted - Global mute state.
- * @param {Function} props.onSkipForward - Next message handler.
- * @param {Function} props.onSkipBackward - Previous message handler.
- * @param {Function} props.onRaiseHand - Raise hand handler.
- * @param {Function} props.onMuteUnmute - Toggle mute.
- * @param {boolean} props.isRaisedHand - Whether the user has requested to speak.
- * @param {boolean} props.isWaitingToInterject - Whether the system is processing the interruption.
- * @param {boolean} props.canGoBack - History navigation flag.
- * @param {boolean} props.canGoForward - History navigation flag.
- * @param {boolean} props.canRaiseHand - Interaction allowed flag.
- * @param {boolean} props.onTopOfOverlay - Helper to boost z-index.
- * @param {string} props.humanName - Name of human participant for status text.
  */
 function ConversationControls({
   isPaused,
@@ -44,12 +46,12 @@ function ConversationControls({
   canRaiseHand,
   onTopOfOverlay,
   humanName
-}) {
+}: ConversationControlsProps) {
   const isMobile = useMobile();
 
   const { t } = useTranslation();
 
-  const divStyle = {
+  const divStyle: React.CSSProperties = {
     width: isMobile ? "45px" : "56px",
     height: isMobile ? "45px" : "56px",
   };
@@ -96,7 +98,7 @@ function ConversationControls({
               canRaiseHand &&
               <ConversationControlIcon
                 icon={isRaisedHand ? "raise_hand_filled" : "raise_hand"}
-                hoverIcon={isRaisedHand && "raise_hand_filled"}
+                hoverIcon={isRaisedHand ? "raise_hand_filled" : undefined}
                 tooltip={"Raise hand"}
                 onClick={() => { if (!isRaisedHand) { onRaiseHand() } }}
               />}
