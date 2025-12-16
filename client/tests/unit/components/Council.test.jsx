@@ -1,16 +1,16 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, act, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
-import Council from '../../../src/components/Council';
+import Council from '@components/Council';
 import io from 'socket.io-client';
 
 // --- Mocks ---
 
 // Mock Child Components to simplify testing (Shallow render approach)
 // Mock Child Components to simplify testing (Shallow render approach)
-vi.mock('../../../src/components/FoodItem', () => ({ default: () => <div data-testid="food-item">FoodItem</div> }));
-vi.mock('../../../src/components/Overlay', () => ({ default: ({ children }) => <div data-testid="overlay">{children}</div> }));
-vi.mock('../../../src/components/CouncilOverlays', () => ({
+vi.mock('@components/FoodItem', () => ({ default: () => <div data-testid="food-item">FoodItem</div> }));
+vi.mock('@components/Overlay', () => ({ default: ({ children }) => <div data-testid="overlay">{children}</div> }));
+vi.mock('@components/CouncilOverlays', () => ({
     default: ({ proceedWithHumanName, activeOverlay, onContinue, onWrapItUp }) => (
         <div data-testid="council-overlays">
             {activeOverlay === 'name' && (
@@ -40,16 +40,19 @@ vi.mock('../../../src/components/CouncilOverlays', () => ({
         </div>
     )
 }));
-vi.mock('../../../src/components/Loading', () => ({ default: () => <div data-testid="loading-screen">Loading...</div> }));
-vi.mock('../../../src/components/Output', () => ({ default: () => <div data-testid="output-component">Output</div> }));
-vi.mock('../../../src/components/ConversationControls', () => ({
+        </div >
+    )
+}));
+vi.mock('@components/Loading', () => ({ default: () => <div data-testid="loading-screen">Loading...</div> }));
+vi.mock('@components/Output', () => ({ default: () => <div data-testid="output-component">Output</div> }));
+vi.mock('@components/ConversationControls', () => ({
     default: ({ onRaiseHand }) => (
         <div data-testid="controls">
             <button data-testid="raise-hand-btn" onClick={onRaiseHand}>Raise Hand</button>
         </div>
     )
 }));
-vi.mock('../../../src/components/HumanInput', () => ({ default: () => <div data-testid="human-input">HumanInput</div> }));
+vi.mock('@components/HumanInput', () => ({ default: () => <div data-testid="human-input">HumanInput</div> }));
 
 // Mock useCouncilSocket
 const mockSocket = {
@@ -65,7 +68,7 @@ const mockSocket = {
 // And usage: "socketRef.current.emit(...)".
 // So useCouncilSocket returns a Ref object.
 
-vi.mock('../../../src/hooks/useCouncilSocket', () => ({
+vi.mock('@hooks/useCouncilSocket', () => ({
     useCouncilSocket: ({ onMeetingStarted, onConversationUpdate, onAudioUpdate }) => {
         // We can expose these callbacks globally or via a side-channel if we want to trigger them from tests
         // For now, let's attach them to the mock object so we can call them in tests
