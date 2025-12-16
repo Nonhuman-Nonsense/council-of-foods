@@ -21,7 +21,7 @@ const CUSTOM_TOPIC_ID = "customtopic";
 export interface Topic {
   id: string;
   title: string;
-  description: string;
+  description?: string;
   prompt?: string;
 }
 
