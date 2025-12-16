@@ -8,8 +8,9 @@ import Lottie from 'react-lottie-player';
 import loading from '../animations/loading.json';
 import { Socket } from "socket.io-client";
 import { ClientToServerEvents, ServerToClientEvents, ClientKeyResponse } from "@shared/SocketTypes";
-import { Food } from "./settings/SelectFoods";
+// import { Food } from "./settings/SelectFoods";
 import React from 'react';
+import { Character } from "@shared/ModelTypes";
 
 // OpenAI Realtime API Interfaces
 interface InputAudioTranscriptionCompletedEvent {
@@ -21,7 +22,7 @@ interface InputAudioTranscriptionCompletedEvent {
 type OpenAIRealtimeEvent = InputAudioTranscriptionCompletedEvent; // Union with other events if needed
 
 interface HumanInputProps {
-  foods: Food[];
+  foods: Character[];
   isPanelist: boolean;
   currentSpeakerName: string;
   onSubmitHumanMessage: (text: string, askParticular: string) => void;

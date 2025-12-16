@@ -15,7 +15,6 @@ import globalOptions from "../global-options-client.json";
 import { useCouncilSocket } from "../hooks/useCouncilSocket";
 import { Character, ConversationMessage } from "@shared/ModelTypes";
 import { AudioUpdatePayload } from "@shared/SocketTypes";
-import { Food } from "./settings/SelectFoods";
 
 interface CouncilProps {
   lang: string;
@@ -56,7 +55,7 @@ function Council({
   const [humanName, setHumanName] = useState("");
 
   //Humans and foods
-  const foods = participants.filter((part) => part.type !== 'panelist') as unknown as Food[];
+  const foods = participants.filter((part) => part.type !== 'panelist');
 
 
   /* -------------------------------------------------------------------------- */

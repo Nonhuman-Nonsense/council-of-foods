@@ -1,7 +1,13 @@
 import React, { useMemo } from "react";
 import FoodAnimation from "./FoodAnimation";
 import { dvh } from "../utils";
-import { Food } from "./settings/SelectFoods";
+// import { Food } from "./settings/SelectFoods";
+import { Character } from "@shared/ModelTypes";
+
+// Local interface for what FoodItem actually needs
+interface DisplayFood extends Character {
+  size?: number;
+}
 
 const videoBaseSize = 800;
 const videoWithShadowSize: Record<string, number> = {
@@ -21,7 +27,7 @@ const videoWithShadowSize: Record<string, number> = {
 };
 
 interface FoodItemProps {
-  food: Food;
+  food: DisplayFood;
   index: number;
   total: number;
   currentSpeakerId: string;

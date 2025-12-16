@@ -1,9 +1,13 @@
 import { useEffect, useRef, useState } from "react";
-import { Food } from "./settings/SelectFoods";
+// import { Food } from "./settings/SelectFoods";
 import React from 'react';
 
+interface AnimationFood {
+  id: string;
+}
+
 interface FoodAnimationProps {
-  food: Food;
+  food: AnimationFood;
   styles: React.CSSProperties;
   currentSpeakerId: string;
   isPaused: boolean;

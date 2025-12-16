@@ -21,7 +21,10 @@ export type ConversationControlIconName =
   | "pause"
   | "forward"
   | "raise_hand"
-  | "raise_hand_filled";
+  | "raise_hand_filled"
+  | "record_voice_on"
+  | "record_voice_off"
+  | "send_message";
 
 interface ConversationControlIconProps {
   icon: ConversationControlIconName;
