@@ -17,7 +17,7 @@ interface NameProps {
  * - Validates input to ensure name is not empty.
  * - Checks for duplicate names against existing `participants`.
  */
-function Name({ participants, onContinueForward }: NameProps) {
+function Name({ participants, onContinueForward }: NameProps): React.ReactElement {
 
   const { t } = useTranslation();
 
@@ -50,7 +50,7 @@ interface HumanNameInputProps {
  * The actual input field logic for name entry.
  * Separated to manage its own focus and validation state.
  */
-function HumanNameInput({ participants, onContinueForward }: HumanNameInputProps) {
+function HumanNameInput({ participants, onContinueForward }: HumanNameInputProps): React.ReactElement {
   const [humanName, setHumanName] = useState<string>("");
   const [isHumanNameMissing, setIsHumanNameMissing] = useState<boolean>(false);
   const [duplicateName, setDuplicateName] = useState<boolean>(false);
@@ -77,7 +77,7 @@ function HumanNameInput({ participants, onContinueForward }: HumanNameInputProps
   /*                                  Handlers                                  */
   /* -------------------------------------------------------------------------- */
 
-  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
+  function handleChange(e: React.ChangeEvent<HTMLInputElement>): void {
     const inputValue = e.target.value;
     const trimmedValue = inputValue.trim();
 
@@ -98,7 +98,7 @@ function HumanNameInput({ participants, onContinueForward }: HumanNameInputProps
     }
   }
 
-  function continueForward() {
+  function continueForward(): void {
 
     if (humanName && !isDuplicateName(humanName)) {
       onContinueForward({ humanName: humanName });
@@ -109,7 +109,7 @@ function HumanNameInput({ participants, onContinueForward }: HumanNameInputProps
     }
   }
 
-  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>): void {
     if (e.key === "Enter") {
       e.preventDefault(); // Prevent the default behavior of the Enter key
 
