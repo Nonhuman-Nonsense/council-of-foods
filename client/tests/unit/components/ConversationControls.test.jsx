@@ -44,6 +44,10 @@ describe('ConversationControls', () => {
         humanName: 'Human'
     };
 
+    beforeEach(() => {
+        vi.clearAllMocks();
+    });
+
     it('renders all controls when active and not paused', () => {
         const { asFragment } = render(<ConversationControls {...defaultProps} />);
 
@@ -98,5 +102,61 @@ describe('ConversationControls', () => {
 
         fireEvent.click(screen.getByTestId('control-icon-raise_hand'));
         expect(defaultProps.onRaiseHand).toHaveBeenCalled();
+    });
+
+    it('sets high z-index when onTopOfOverlay is true', () => {
+        const { container } = render(<ConversationControls {...defaultProps} onTopOfOverlay={true} />);
+        // The outer div has the style. currently it's the first child.
+        const outerDiv = container.firstChild;
+        expect(outerDiv).toHaveStyle({ zIndex: '10' });
+    });
+
+    it('sets default z-index when onTopOfOverlay is false', () => {
+        const { container } = render(<ConversationControls {...defaultProps} onTopOfOverlay={false} />);
+        const outerDiv = container.firstChild;
+        expect(outerDiv).toHaveStyle({ zIndex: '3' });
+    });
+
+    it('hides specific controls when capability flags are false', () => {
+        render(<ConversationControls
+            {...defaultProps}
+            canGoBack={false}
+            canGoForward={false}
+            canRaiseHand={false}
+        />);
+
+        expect(screen.queryByTestId('control-icon-backward')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('control-icon-forward')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('control-icon-raise_hand')).not.toBeInTheDocument();
+
+        // Volume and Pause/Play should still be there
+        expect(screen.getByTestId('control-icon-volume_on')).toBeInTheDocument();
+        expect(screen.getByTestId('control-icon-pause')).toBeInTheDocument();
+    });
+
+    it('disables pointer events on raise hand button when hand is already raised', () => {
+        const { container } = render(<ConversationControls {...defaultProps} isRaisedHand={true} />);
+
+        // The container of the raise hand icon has the pointer-events style
+        // We need to find the specific container div. 
+        // Based on implementation, it's the 5th child of the flex container.
+        // Structure: div(root) -> div(flex) -> div(child 1..5)
+
+        // Let's use a more robust selector if possible, or traverse
+        // Implementation: <div style={{ ...divStyle, pointerEvents: isRaisedHand ? "none" : "auto" }}>
+
+        // We can find the button and go up to its parent
+        const raiseHandBtn = screen.getByTestId('control-icon-raise_hand_filled');
+        const parentDiv = raiseHandBtn.parentElement;
+
+        expect(parentDiv).toHaveStyle({ pointerEvents: 'none' });
+    });
+
+    it('does not trigger onRaiseHand if already raised (redundant check via pointer-events, but logic check)', () => {
+        render(<ConversationControls {...defaultProps} isRaisedHand={true} />);
+        const raiseHandBtn = screen.getByTestId('control-icon-raise_hand_filled');
+
+        fireEvent.click(raiseHandBtn);
+        expect(defaultProps.onRaiseHand).not.toHaveBeenCalled();
     });
 });
