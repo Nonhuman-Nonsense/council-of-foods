@@ -1,5 +1,5 @@
 import Completed from "./overlays/Completed";
-import Summary from "./overlays/Summary";
+import Summary, { SummaryData } from "./overlays/Summary";
 import Name from "./overlays/Name";
 
 import OverlayWrapper from './OverlayWrapper';
@@ -15,7 +15,7 @@ interface CouncilOverlaysProps {
   proceedWithHumanName: (data: { humanName: string }) => void;
   canExtendMeeting: boolean;
   removeOverlay: () => void;
-  summary: any; // TODO: Strictly type Summary content
+  summary: SummaryData | null;
   meetingId: string;
   participants: Character[];
 }

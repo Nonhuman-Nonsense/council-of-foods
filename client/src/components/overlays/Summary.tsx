@@ -6,7 +6,7 @@ import { jsPDF } from "jspdf";
 import { useTranslation } from "react-i18next";
 import { QRCodeCanvas } from 'qrcode.react';
 
-interface SummaryData {
+export interface SummaryData {
   text: string;
 }
 

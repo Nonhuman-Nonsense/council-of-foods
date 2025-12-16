@@ -37,8 +37,15 @@ describe('CouncilOverlays', () => {
     const mockOnWrapItUp = vi.fn();
     const mockProceedWithHumanName = vi.fn();
     const mockRemoveOverlay = vi.fn();
-    const mockSummary = { title: 'Test Summary' };
-    const mockParticipants: Character[] = [{ id: '1', name: 'Char1', nameId: 'char1', core_archetype: 'arch', bio_short: 'bio', bio_long: 'bio', visual_description_short: 'vis', visual_description_long: 'vis', default_voice_id: 'v1' }];
+    const mockSummary = { text: 'Test Summary Content' };
+    const mockParticipants: Character[] = [{
+        id: 'water',
+        name: 'Water',
+        voice: 'alloy',
+        size: 0.8,
+        description: 'Variety: Tap water...',
+        prompt: 'You are Water...'
+    }];
 
     const defaultProps = {
         activeOverlay: null as CouncilOverlayType,
