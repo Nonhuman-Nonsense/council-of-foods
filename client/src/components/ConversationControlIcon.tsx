@@ -13,9 +13,19 @@ import { useMobile } from "../utils";
  * @param {string} props.tooltip - Alt text for the icon.
  * @param {Function} props.onClick - Click handler.
  */
+export type ConversationControlIconName =
+  | "volume_off"
+  | "volume_on"
+  | "backward"
+  | "play"
+  | "pause"
+  | "forward"
+  | "raise_hand"
+  | "raise_hand_filled";
+
 interface ConversationControlIconProps {
-  icon: string;
-  hoverIcon?: string;
+  icon: ConversationControlIconName;
+  hoverIcon?: ConversationControlIconName;
   tooltip?: string;
   onClick: () => void;
 }
@@ -74,7 +84,14 @@ function ConversationControlIcon({
   /* -------------------------------------------------------------------------- */
 
   return (
-    <button style={buttonStyle} className={"control"} onClick={onClick} onMouseOver={() => setHover(true)} onMouseOut={() => setHover(false)}>
+    <button
+      style={buttonStyle}
+      className={"control"}
+      onClick={onClick}
+      onMouseOver={() => setHover(true)}
+      onMouseOut={() => setHover(false)}
+      aria-label={tooltip}
+    >
       <>
         <img
           src={imageUrl}
