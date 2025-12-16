@@ -657,7 +657,7 @@ function Council({
           canGoBack={canGoBack}
           canGoForward={canGoForward}
           canRaiseHand={canRaiseHand}
-          onTopOfOverlay={activeOverlay === "summary"}
+          onTopOfOverlay={activeOverlay === "summary" && location.hash === ""}
           humanName={humanName}
         />
       )}

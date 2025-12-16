@@ -46,8 +46,8 @@ vi.mock('@components/Output', () => ({
     default: ({ playingNowIndex }) => <div data-testid="output-component" data-index={playingNowIndex}>Output: {playingNowIndex}</div>
 }));
 vi.mock('@components/ConversationControls', () => ({
-    default: ({ onRaiseHand, onSkipForward, onSkipBackward }) => (
-        <div data-testid="controls">
+    default: ({ onRaiseHand, onSkipForward, onSkipBackward, onTopOfOverlay }) => (
+        <div data-testid="controls" data-ontop={onTopOfOverlay ? "true" : "false"}>
             <button data-testid="raise-hand-btn" onClick={onRaiseHand}>Raise Hand</button>
             <button data-testid="skip-forward-btn" onClick={onSkipForward}>Forward</button>
             <button data-testid="skip-backward-btn" onClick={onSkipBackward}>Backward</button>
@@ -401,4 +401,62 @@ describe('Council Component', () => {
             meetingId: '123'
         }));
     });
+
+    it('sets onTopOfOverlay=true when summary is active and no hash is present', async () => {
+        render(<MemoryRouter initialEntries={['/']}><Council {...defaultProps} /></MemoryRouter>);
+
+        // 1. Setup Playing State
+        const firstMessage = { id: 'msg1', type: 'ai', speaker: 'banana', text: 'Msg1' };
+        act(() => {
+            if (mockSocket.callbacks.onConversationUpdate) mockSocket.callbacks.onConversationUpdate([firstMessage]);
+        });
+        await act(async () => {
+            if (mockSocket.callbacks.onAudioUpdate) await mockSocket.callbacks.onAudioUpdate({ id: 'msg1', audio: new ArrayBuffer(10) });
+        });
+
+        // 2. Receive Summary Message
+        const summaryMessage = { id: 'summary', type: 'summary', text: 'Summary' };
+        act(() => {
+            if (mockSocket.callbacks.onConversationUpdate) mockSocket.callbacks.onConversationUpdate([summaryMessage]);
+        });
+        // We MUST provide audio for the summary for showControls to be true
+        await act(async () => {
+            if (mockSocket.callbacks.onAudioUpdate) await mockSocket.callbacks.onAudioUpdate({ id: 'summary', audio: new ArrayBuffer(10) });
+        });
+
+        await waitFor(() => {
+            const controls = screen.getByTestId('controls');
+            expect(controls).toHaveAttribute('data-ontop', 'true');
+        });
+    });
+
+    it('sets onTopOfOverlay=false when summary is active BUT hash overlay is open', async () => {
+        // Start with #about hash
+        render(<MemoryRouter initialEntries={['/#about']}><Council {...defaultProps} /></MemoryRouter>);
+
+        // 1. Setup Playing State
+        const firstMessage = { id: 'msg1', type: 'ai', speaker: 'banana', text: 'Msg1' };
+        act(() => {
+            if (mockSocket.callbacks.onConversationUpdate) mockSocket.callbacks.onConversationUpdate([firstMessage]);
+        });
+        await act(async () => {
+            if (mockSocket.callbacks.onAudioUpdate) await mockSocket.callbacks.onAudioUpdate({ id: 'msg1', audio: new ArrayBuffer(10) });
+        });
+
+        // 2. Receive Summary Message
+        const summaryMessage = { id: 'summary', type: 'summary', text: 'Summary' };
+        act(() => {
+            if (mockSocket.callbacks.onConversationUpdate) mockSocket.callbacks.onConversationUpdate([summaryMessage]);
+        });
+        await act(async () => {
+            if (mockSocket.callbacks.onAudioUpdate) await mockSocket.callbacks.onAudioUpdate({ id: 'summary', audio: new ArrayBuffer(10) });
+        });
+
+        await waitFor(() => {
+            const controls = screen.getByTestId('controls');
+            // Should be FALSE because hash is #about
+            expect(controls).toHaveAttribute('data-ontop', 'false');
+        });
+    });
+
 });
