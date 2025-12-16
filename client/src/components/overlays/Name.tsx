@@ -1,6 +1,12 @@
 import { useState, useRef, useEffect } from "react";
 import { capitalizeFirstLetter, useMobile } from "../../utils";
 import { useTranslation } from "react-i18next";
+import { Character } from "@shared/ModelTypes";
+
+interface NameProps {
+  participants: Character[];
+  onContinueForward: (data: { humanName: string }) => void;
+}
 
 /**
  * Name Overlay
@@ -11,11 +17,11 @@ import { useTranslation } from "react-i18next";
  * - Validates input to ensure name is not empty.
  * - Checks for duplicate names against existing `participants`.
  */
-function Name({ participants, onContinueForward }) {
+function Name({ participants, onContinueForward }: NameProps) {
 
   const { t } = useTranslation();
 
-  const wrapper = {
+  const wrapper: React.CSSProperties = {
     maxWidth: "500px",
     display: "flex",
     flexDirection: "column"
@@ -33,17 +39,22 @@ function Name({ participants, onContinueForward }) {
   );
 }
 
+interface HumanNameInputProps {
+  participants: Character[];
+  onContinueForward: (data: { humanName: string }) => void;
+}
+
 /**
  * HumanNameInput Component
  * 
  * The actual input field logic for name entry.
  * Separated to manage its own focus and validation state.
  */
-function HumanNameInput({ participants, onContinueForward }) {
-  const [humanName, setHumanName] = useState("");
-  const [isHumanNameMissing, setIsHumanNameMissing] = useState(false);
-  const [duplicateName, setDuplicateName] = useState(false);
-  const inputRef = useRef(null);
+function HumanNameInput({ participants, onContinueForward }: HumanNameInputProps) {
+  const [humanName, setHumanName] = useState<string>("");
+  const [isHumanNameMissing, setIsHumanNameMissing] = useState<boolean>(false);
+  const [duplicateName, setDuplicateName] = useState<boolean>(false);
+  const inputRef = useRef<HTMLInputElement>(null);
   const isMobile = useMobile();
 
   const { t } = useTranslation();
@@ -57,16 +68,16 @@ function HumanNameInput({ participants, onContinueForward }) {
   useEffect(() => {
     // Focus on the input field when the component mounts
     // Unle
-    if (!isMobile) {
+    if (!isMobile && inputRef.current) {
       inputRef.current.focus();
     }
-  }, []);
+  }, [isMobile]);
 
   /* -------------------------------------------------------------------------- */
   /*                                  Handlers                                  */
   /* -------------------------------------------------------------------------- */
 
-  function handleChange(e) {
+  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const inputValue = e.target.value;
     const trimmedValue = inputValue.trim();
 
@@ -98,7 +109,7 @@ function HumanNameInput({ participants, onContinueForward }) {
     }
   }
 
-  function handleKeyDown(e) {
+  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key === "Enter") {
       e.preventDefault(); // Prevent the default behavior of the Enter key
 
@@ -106,7 +117,7 @@ function HumanNameInput({ participants, onContinueForward }) {
     }
   }
 
-  function isDuplicateName(check) {
+  function isDuplicateName(check: string): boolean {
     let names = participants.map(p => p.name);
     //Because each value in the Set has to be unique, the value equality will be checked.
     names.push(check);
@@ -117,13 +128,13 @@ function HumanNameInput({ participants, onContinueForward }) {
   /*                                    Styles                                  */
   /* -------------------------------------------------------------------------- */
 
-  const inputStyle = {
+  const inputStyle: React.CSSProperties = {
     width: "300px",
     height: "22px",
     paddingRight: "30px"/* Make room for the arrow */
   };
 
-  const imageStyle = {
+  const imageStyle: React.CSSProperties = {
     position: "absolute",
     right: "0",
     width: "23px",
@@ -133,7 +144,7 @@ function HumanNameInput({ participants, onContinueForward }) {
     filter: "brightness(30%)",
   };
 
-  const inputIconWrapper = {
+  const inputIconWrapper: React.CSSProperties = {
     position: "relative",
     display: "inline-flex",
     alignItems: "center"
@@ -167,7 +178,7 @@ function HumanNameInput({ participants, onContinueForward }) {
           onClick={continueForward}
         />
       </div>
-      <h3 style={{ visibility: (isHumanNameMissing || duplicateName) ? "" : "hidden" }}>
+      <h3 style={{ visibility: (isHumanNameMissing || duplicateName) ? "visible" : "hidden" }}>
         {duplicateName ? t('name.unique') : t('name.4')}
       </h3>
     </div>
