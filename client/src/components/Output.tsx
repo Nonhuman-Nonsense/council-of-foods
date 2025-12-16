@@ -94,7 +94,7 @@ function Output({
           currentTextMessage={currentTextMessage}
           currentAudioMessage={currentAudioMessage}
           isPaused={isPaused}
-          style={councilState !== 'playing' ? (hiddenStyle as React.CSSProperties) : undefined}
+          style={(councilState !== 'playing' && councilState !== 'waiting') ? (hiddenStyle as React.CSSProperties) : undefined}
           setCurrentSnippetIndex={setCurrentSnippetIndex}
           setSentencesLength={setSentencesLength}
         />
