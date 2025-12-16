@@ -12,7 +12,7 @@ interface SummaryData {
 
 interface SummaryProps {
   summary: SummaryData;
-  meetingId: string | number | null; // Can be null based on other components
+  meetingId: string | number | null;
 }
 
 /**
@@ -30,13 +30,13 @@ function Summary({ summary, meetingId }: SummaryProps): React.ReactElement {
   const protocolRef = useRef<HTMLDivElement>(null);
   const { t } = useTranslation();
 
-  const handleCreatePdf = () => {
+  const handleCreatePdf = (): void => {
     import("../../Tinos.js").then(() => {
       const pdf = new jsPDF("p", "pt", "a4");
       pdf.setFont("Tinos");
       if (protocolRef.current) {
         pdf.html(protocolRef.current, {
-          callback: function (doc) {
+          callback: function (doc: jsPDF) {
             pdf.save(`Council of Foods Meeting Summary #${meetingId}.pdf`);
           },
           autoPaging: 'text',
@@ -96,7 +96,8 @@ function Summary({ summary, meetingId }: SummaryProps): React.ReactElement {
           </div>
           <hr />
           <div id="protocol-container" style={protocolStyle}>
-            {parse(marked(summary.text) as string)}
+            {/* Ensure synchronous parsing for type safety */}
+            {parse(marked.parse(summary.text, { async: false }) as string)}
             <hr /><br />
             <Disclaimer />
           </div>
@@ -130,7 +131,8 @@ function Summary({ summary, meetingId }: SummaryProps): React.ReactElement {
             </div>
             <hr />
             <div id="printed-style">
-              {parse(marked(summary.text) as string)}
+              {/* Ensure synchronous parsing for type safety */}
+              {parse(marked.parse(summary.text, { async: false }) as string)}
               <hr /><br />
               <Disclaimer />
             </div>

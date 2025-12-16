@@ -20,7 +20,9 @@ vi.mock('html-react-parser', () => ({
 }));
 
 vi.mock('marked', () => ({
-    marked: (text: string) => text
+    marked: {
+        parse: (text: string) => text
+    }
 }));
 
 // Mock jsPDF
