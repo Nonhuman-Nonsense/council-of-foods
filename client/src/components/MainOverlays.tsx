@@ -1,13 +1,20 @@
 import { useEffect } from "react";
 import { useNavigate, useLocation } from "react-router";
 
-import OverlayWrapper from './OverlayWrapper.jsx';
+import OverlayWrapper from './OverlayWrapper';
 import Overlay from "./Overlay";
-import About from "./overlays/About.jsx";
-import Contact from "./overlays/Contact.jsx";
+import About from "./overlays/About";
+import Contact from "./overlays/Contact";
 import ResetWarning from "./overlays/ResetWarning";
-import SelectTopic from "./settings/SelectTopic";
+import SelectTopic, { Topic } from "./settings/SelectTopic";
 import { useTranslation } from "react-i18next";
+
+interface MainOverlaysProps {
+  topics: Topic[];
+  topic: Topic;
+  onReset: () => void;
+  onCloseOverlay: () => void;
+}
 
 /**
  * MainOverlays Component
@@ -19,14 +26,8 @@ import { useTranslation } from "react-i18next";
  * - **Hash Routing**: Listens to `location.hash` to determine which overlay to show.
  * - **Auto-Close**: Logic to automatically close invalid overlays based on current route (e.g., closing #reset if not meaningful).
  * - **Composition**: Wraps content in `Overlay` > `OverlayWrapper` for consistent layout.
- * 
- * @param {Object} props
- * @param {Array} props.topics - List of available topics.
- * @param {Object} props.topic - Current active topic.
- * @param {Function} props.onReset - Global reset handler.
- * @param {Function} props.onCloseOverlay - Callback when overlay is closed.
  */
-function MainOverlays({ topics, topic, onReset, onCloseOverlay }) {
+function MainOverlays({ topics, topic, onReset, onCloseOverlay }: MainOverlaysProps): React.ReactElement {
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -47,14 +48,14 @@ function MainOverlays({ topics, topic, onReset, onCloseOverlay }) {
     }
   }, [location]);
 
-  function removeOverlay() {
+  function removeOverlay(): void {
     navigate({ hash: "" });
     onCloseOverlay();
   }
 
   const showOverlay = (location.hash !== "");
 
-  const renderOverlayContent = () => {
+  const renderOverlayContent = (): React.ReactElement | null => {
     switch (location.hash) {
       case "#about":
         return <About />;
@@ -67,6 +68,7 @@ function MainOverlays({ topics, topic, onReset, onCloseOverlay }) {
             currentTopic={topic}
             onReset={onReset}
             onCancel={removeOverlay}
+            onContinueForward={() => { }}
           />
         );
       case "#reset":

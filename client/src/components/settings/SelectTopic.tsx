@@ -18,7 +18,7 @@ import { useTranslation } from "react-i18next";
  */
 const CUSTOM_TOPIC_ID = "customtopic";
 
-interface Topic {
+export interface Topic {
   id: string;
   title: string;
   description: string;
