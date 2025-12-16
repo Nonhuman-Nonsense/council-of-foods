@@ -19,7 +19,7 @@ interface LandingProps {
   onContinueForward: () => void;
 }
 
-function Landing({ onContinueForward }: LandingProps): React.ReactElement {
+const Landing: React.FC<LandingProps> = ({ onContinueForward }) => {
 
   const isPortrait = useMediaQuery({ query: '(orientation: portrait)' })
   const isMobile = useMobile();

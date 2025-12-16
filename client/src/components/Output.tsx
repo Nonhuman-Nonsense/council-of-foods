@@ -42,7 +42,7 @@ interface OutputProps {
   setSentencesLength: (length: number) => void;
 }
 
-function Output({
+const Output: React.FC<OutputProps> = ({
   textMessages,
   audioMessages,
   playingNowIndex,
@@ -54,10 +54,10 @@ function Output({
   audioContext,
   handleOnFinishedPlaying,
   setSentencesLength
-}: OutputProps): React.ReactElement {
+}) => {
   const [currentTextMessage, setCurrentTextMessage] = useState<ConversationMessage | null>(null);
   const [currentAudioMessage, setCurrentAudioMessage] = useState<DecodedAudioMessage | null>(null);
-  const hiddenStyle = { visibility: "hidden" };
+  const hiddenStyle: React.CSSProperties = { visibility: "hidden" };
 
   const showTextOutput = councilState !== 'playing' && councilState !== 'waiting';
 

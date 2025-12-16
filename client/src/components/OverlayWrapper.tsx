@@ -22,11 +22,11 @@ interface OverlayWrapperProps {
   children: React.ReactNode;
 }
 
-function OverlayWrapper({
+const OverlayWrapper: React.FC<OverlayWrapperProps> = ({
   showX,
   removeOverlay,
   children
-}: OverlayWrapperProps): React.ReactElement {
+}) => {
   const isMobile = useMobile();
   const isMobileXs = useMobileXs();
   const isPortait = usePortrait();
