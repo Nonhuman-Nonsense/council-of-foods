@@ -1,12 +1,12 @@
 import { useState, useRef, useEffect } from "react";
-import { toTitleCase, useMobile, useMobileXs, filename } from "../../utils";
+import { toTitleCase, useMobile, useMobileXs, filename } from "@/utils";
 import { useTranslation } from "react-i18next";
 
-import globalOptionsData from "../../global-options-client.json";
+import globalOptionsData from "@/global-options-client.json";
 import { Character } from "@shared/ModelTypes";
 
 //Foods
-import foodDataEN from "../../prompts/foods_en.json";
+import foodDataEN from "@prompts/foods_en.json";
 // import { replace, useParams } from "react-router";
 
 interface GlobalOptions {

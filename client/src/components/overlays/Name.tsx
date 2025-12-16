@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { capitalizeFirstLetter, useMobile } from "../../utils";
+import { capitalizeFirstLetter, useMobile } from "@/utils";
 import { useTranslation } from "react-i18next";
 import { Character } from "@shared/ModelTypes";
 

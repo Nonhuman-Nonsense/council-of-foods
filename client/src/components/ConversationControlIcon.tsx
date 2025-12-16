@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useMobile } from "../utils";
+import { useMobile } from "@/utils";
 
 /**
  * ConversationControlIcon Component

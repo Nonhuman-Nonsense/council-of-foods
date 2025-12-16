@@ -1,6 +1,6 @@
-import RotateDevice from '../RotateDevice';
+import RotateDevice from '@components/RotateDevice';
 import { useMediaQuery } from 'react-responsive'
-import { useMobile, dvh } from "../../utils";
+import { useMobile, dvh } from "@/utils";
 import { useTranslation } from 'react-i18next';
 
 /**

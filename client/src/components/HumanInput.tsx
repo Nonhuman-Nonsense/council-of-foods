@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef } from "react";
 import ConversationControlIcon from "./ConversationControlIcon";
 import TextareaAutosize from 'react-textarea-autosize';
-import { useMobile, dvh, mapFoodIndex } from "../utils";
+import { useMobile, dvh, mapFoodIndex } from "@/utils";
 import { useTranslation } from "react-i18next";
 import { LiveAudioVisualizer } from 'react-audio-visualize';
 import Lottie from 'react-lottie-player';
-import loading from '../animations/loading.json';
+import loading from '@animations/loading.json';
 import { Socket } from "socket.io-client";
 import { ClientToServerEvents, ServerToClientEvents, ClientKeyResponse } from "@shared/SocketTypes";
 // import { Food } from "./settings/SelectFoods";

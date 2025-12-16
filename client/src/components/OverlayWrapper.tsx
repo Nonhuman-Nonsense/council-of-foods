@@ -1,4 +1,4 @@
-import { useMobile, useMobileXs, usePortrait } from "../utils";
+import { useMobile, useMobileXs, usePortrait } from "@/utils";
 
 /**
  * OverlayWrapper Component

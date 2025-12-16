@@ -15,14 +15,14 @@ import SelectFoods, { Food } from "./settings/SelectFoods";
 import Council from "./Council";
 import RotateDevice from "./RotateDevice";
 import FullscreenButton from "./FullscreenButton";
-import { usePortrait, dvh } from "../utils";
+import { usePortrait, dvh } from "@/utils";
 import CouncilError from "./overlays/CouncilError.jsx";
 import Reconnecting from "./overlays/Reconnecting.jsx";
 // import { useTranslation } from 'react-i18next';
 
 //Topics
-import topicDataEN from "../prompts/topics_en.json";
-import routes from "../routes.json"; // Import routes directly
+import topicDataEN from "@prompts/topics_en.json";
+import routes from "@/routes.json"; // Import routes directly
 import { Character } from "@shared/ModelTypes";
 
 // interface Topic removed, imported from SelectTopic

@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
-import { useMobile } from '../../utils';
-import Loading from '../Loading';
+import { useMobile } from '@/utils';
+import Loading from '@components/Loading';
 
 /**
  * Reconnecting Overlay

@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
-import ResetWarning from "../overlays/ResetWarning";
-import { capitalizeFirstLetter, toTitleCase, useMobile, useMobileXs } from "../../utils";
+import ResetWarning from "@components/overlays/ResetWarning";
+import { capitalizeFirstLetter, toTitleCase, useMobile, useMobileXs } from "@/utils";
 import { useTranslation } from "react-i18next";
 
 /**

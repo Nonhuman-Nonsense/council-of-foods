@@ -23,6 +23,7 @@ export default defineConfig({
       '@components': path.resolve(__dirname, './src/components'),
       '@hooks': path.resolve(__dirname, './src/hooks'),
       '@animations': path.resolve(__dirname, './src/animations'),
+      '@prompts': path.resolve(__dirname, './src/prompts'),
       '@shared': path.resolve(__dirname, '../shared'),
     },
   },

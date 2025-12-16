@@ -1,6 +1,6 @@
 import React, { useMemo } from "react";
 import FoodAnimation from "./FoodAnimation";
-import { dvh } from "../utils";
+import { dvh } from "@/utils";
 // import { Food } from "./settings/SelectFoods";
 import { Character } from "@shared/ModelTypes";
 

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useMobile } from "../utils";
+import { useMobile } from "@/utils";
 import { Sentence } from "@shared/ModelTypes";
 import React from 'react';
 

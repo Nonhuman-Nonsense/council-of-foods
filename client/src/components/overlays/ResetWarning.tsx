@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { capitalizeFirstLetter } from "../../utils";
+import { capitalizeFirstLetter } from "@/utils";
 
 /**
  * ResetWarning Overlay

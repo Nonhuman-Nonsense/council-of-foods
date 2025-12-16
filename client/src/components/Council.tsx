@@ -8,11 +8,11 @@ import Loading from "./Loading";
 import Output from "./Output";
 import ConversationControls from "./ConversationControls";
 import HumanInput from "./HumanInput";
-import { useDocumentVisibility, mapFoodIndex } from "../utils";
+import { useDocumentVisibility, mapFoodIndex } from "@/utils";
 
 // @ts-ignore
-import globalOptions from "../global-options-client.json";
-import { useCouncilSocket } from "../hooks/useCouncilSocket";
+import globalOptions from "@/global-options-client.json";
+import { useCouncilSocket } from "@/hooks/useCouncilSocket";
 import { Character, ConversationMessage, Sentence } from "@shared/ModelTypes";
 import { AudioUpdatePayload } from "@shared/SocketTypes";
 

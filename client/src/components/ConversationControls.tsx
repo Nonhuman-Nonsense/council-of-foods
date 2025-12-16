@@ -1,6 +1,6 @@
 import React from 'react';
 import ConversationControlIcon from "./ConversationControlIcon";
-import { useMobile } from "../utils";
+import { useMobile } from "@/utils";
 import { useTranslation } from "react-i18next";
 
 interface ConversationControlsProps {

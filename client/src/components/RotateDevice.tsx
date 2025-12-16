@@ -1,5 +1,5 @@
 import Lottie from 'react-lottie-player';
-import rotate from '../animations/rotate.json';
+import rotate from '@animations/rotate.json';
 import { useTranslation } from 'react-i18next';
 
 /**

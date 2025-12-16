@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { useMobile, dvh } from "../../utils";
+import { useMobile, dvh } from "@/utils";
 
 /**
  * Contact Overlay

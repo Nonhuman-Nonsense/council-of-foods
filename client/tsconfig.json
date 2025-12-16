@@ -29,6 +29,9 @@
             "@animations/*": [
                 "src/animations/*"
             ],
+            "@prompts/*": [
+                "src/prompts/*"
+            ],
             "@shared/*": [
                 "../shared/*"
             ]
