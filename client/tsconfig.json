@@ -17,6 +17,18 @@
         "jsx": "react-jsx",
         "baseUrl": ".",
         "paths": {
+            "@/*": [
+                "src/*"
+            ],
+            "@components/*": [
+                "src/components/*"
+            ],
+            "@hooks/*": [
+                "src/hooks/*"
+            ],
+            "@animations/*": [
+                "src/animations/*"
+            ],
             "@shared/*": [
                 "../shared/*"
             ]
