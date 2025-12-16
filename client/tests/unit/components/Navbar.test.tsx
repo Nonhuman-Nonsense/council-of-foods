@@ -114,4 +114,17 @@ describe('Navbar', () => {
         // Should close menu
         expect(mockSetHamburgerOpen).toHaveBeenCalledWith(false);
     });
+
+    it('does not navigate when menu is hidden (pointer-events: none)', () => {
+        vi.mocked(utils.useMobile).mockReturnValue(true);
+        const props = { ...defaultProps, hamburgerOpen: false }; // Menu closed
+        renderNavbar(props);
+
+        const settingsLink = screen.getByText('SETTINGS');
+        fireEvent.click(settingsLink);
+
+        // If navigation happened, handleOnNavigate would call setHamburgerOpen(false).
+        // Since we are mocking useMobile=true, checking if setHamburgerOpen was called is a proxy for navigation.
+        expect(mockSetHamburgerOpen).not.toHaveBeenCalled();
+    });
 });

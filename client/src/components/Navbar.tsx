@@ -13,6 +13,12 @@ interface NavbarProps {
   setHamburgerOpen: (open: boolean) => void;
 }
 
+interface LottiePlayerHandle {
+  play: () => void;
+  setDirection: (direction: number) => void;
+  stop: () => void;
+}
+
 /**
  * Navbar Component
  * 
@@ -29,7 +35,7 @@ function Navbar({ lang, topic, hamburgerOpen, setHamburgerOpen }: NavbarProps): 
   const isMobileXs: boolean = useMobileXs();
   const isPortrait: boolean = usePortrait();
   const showIconinMeny: boolean = useMediaQuery({ query: '(min-width: 700px)' });
-  const hamburgerAnimation = useRef<any>(null); // react-lottie-player ref interface is tricky, usually any or specific type
+  const hamburgerAnimation = useRef<any>(null);
   const [activeMenuItem, setActiveMenuItem] = useState<string>('');
   const location: Location = useLocation();
   const navigate: NavigateFunction = useNavigate();
