@@ -40,15 +40,17 @@ vi.mock('@components/CouncilOverlays', () => ({
         </div>
     )
 }));
-        </div >
-    )
-}));
+
 vi.mock('@components/Loading', () => ({ default: () => <div data-testid="loading-screen">Loading...</div> }));
-vi.mock('@components/Output', () => ({ default: () => <div data-testid="output-component">Output</div> }));
+vi.mock('@components/Output', () => ({
+    default: ({ playingNowIndex }) => <div data-testid="output-component" data-index={playingNowIndex}>Output: {playingNowIndex}</div>
+}));
 vi.mock('@components/ConversationControls', () => ({
-    default: ({ onRaiseHand }) => (
+    default: ({ onRaiseHand, onSkipForward, onSkipBackward }) => (
         <div data-testid="controls">
             <button data-testid="raise-hand-btn" onClick={onRaiseHand}>Raise Hand</button>
+            <button data-testid="skip-forward-btn" onClick={onSkipForward}>Forward</button>
+            <button data-testid="skip-backward-btn" onClick={onSkipBackward}>Backward</button>
         </div>
     )
 }));
@@ -69,10 +71,14 @@ const mockSocket = {
 // So useCouncilSocket returns a Ref object.
 
 vi.mock('@hooks/useCouncilSocket', () => ({
-    useCouncilSocket: ({ onMeetingStarted, onConversationUpdate, onAudioUpdate }) => {
-        // We can expose these callbacks globally or via a side-channel if we want to trigger them from tests
-        // For now, let's attach them to the mock object so we can call them in tests
-        mockSocket.callbacks = { onMeetingStarted, onConversationUpdate, onAudioUpdate };
+    useCouncilSocket: (props) => {
+        // Capture all necessary callbacks
+        mockSocket.callbacks = {
+            onMeetingStarted: props.onMeetingStarted,
+            onConversationUpdate: props.onConversationUpdate,
+            onAudioUpdate: props.onAudioUpdate,
+            onReconnect: props.onReconnect
+        };
         return { current: mockSocket };
     }
 }));
@@ -328,5 +334,71 @@ describe('Council Component', () => {
             expect(mockSocket.emit).toHaveBeenCalledWith('wrap_up_meeting', expect.any(Object));
         });
     });
-});
 
+    it('skips over messages marked as "skipped" when going backward', async () => {
+        render(<MemoryRouter><Council {...defaultProps} /></MemoryRouter>);
+
+        // Setup 3 messages: [0: Normal, 1: Skipped, 2: Normal]
+        const messages = [
+            { id: '1', type: 'ai', speaker: 'a', text: '1' },
+            { id: '2', type: 'skipped', speaker: 'b', text: '2' },
+            { id: '3', type: 'ai', speaker: 'c', text: '3' }
+        ];
+
+        act(() => {
+            if (mockSocket.callbacks.onConversationUpdate) mockSocket.callbacks.onConversationUpdate(messages);
+        });
+
+        await act(async () => {
+            if (mockSocket.callbacks.onAudioUpdate) {
+                await mockSocket.callbacks.onAudioUpdate({ id: '1', audio: new ArrayBuffer(10) });
+                await mockSocket.callbacks.onAudioUpdate({ id: '3', audio: new ArrayBuffer(10) });
+            }
+        });
+
+        await waitFor(() => {
+            expect(screen.getByTestId('controls')).toBeInTheDocument();
+        });
+
+        // 1. We start at Index 0. Verify output index.
+        expect(screen.getByTestId('output-component')).toHaveAttribute('data-index', "0");
+
+        // 2. Click Forward. Should skip Index 1 and go to Index 2.
+        const forwardBtn = screen.getByTestId('skip-forward-btn');
+        act(() => { forwardBtn.click(); });
+
+        await waitFor(() => {
+            expect(screen.getByTestId('output-component')).toHaveAttribute('data-index', "2");
+        });
+
+        // 3. Click Backward. Should skip Index 1 and go to Index 0.
+        const backBtn = screen.getByTestId('skip-backward-btn');
+        act(() => { backBtn.click(); });
+
+        await waitFor(() => {
+            expect(screen.getByTestId('output-component')).toHaveAttribute('data-index', "0");
+        });
+    });
+
+    it('handles reconnection event', () => {
+        render(<MemoryRouter><Council {...defaultProps} /></MemoryRouter>);
+
+        // Trigger onMeetingStarted to have a meeting ID
+        act(() => {
+            if (mockSocket.callbacks.onMeetingStarted) mockSocket.callbacks.onMeetingStarted({ meeting_id: '123' });
+        });
+
+        // Trigger Reconnect
+        act(() => {
+            if (mockSocket.callbacks.onReconnect) mockSocket.callbacks.onReconnect();
+        });
+
+        // Trigger Effect by advancing timer or flush logic?
+        // Logic: onReconnect setAttemptingReconnect(true) -> Effect emits 'attempt_reconnection'
+
+        // We might need a small wait
+        expect(mockSocket.emit).toHaveBeenCalledWith('attempt_reconnection', expect.objectContaining({
+            meetingId: '123'
+        }));
+    });
+});
