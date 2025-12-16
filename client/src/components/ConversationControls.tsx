@@ -95,7 +95,7 @@ function ConversationControls({
           </div>
           <div style={{ ...divStyle, pointerEvents: isRaisedHand ? "none" : "auto" }}>
             {!isPaused &&
-              canRaiseHand &&
+              (canRaiseHand || isRaisedHand) &&
               <ConversationControlIcon
                 icon={isRaisedHand ? "raise_hand_filled" : "raise_hand"}
                 hoverIcon={isRaisedHand ? "raise_hand_filled" : undefined}
@@ -104,7 +104,7 @@ function ConversationControls({
               />}
           </div>
         </div>
-        {isWaitingToInterject && (
+        {!isPaused && isWaitingToInterject && (
           <span
             style={{
               fontFamily: "Arial, sans-serif",
