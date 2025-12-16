@@ -16,11 +16,17 @@ import { useMobile, useMobileXs, usePortrait } from "../utils";
  * @param {Function} props.removeOverlay - Callback function to close the overlay.
  * @param {React.ReactNode} props.children - The overlay content to wrap.
  */
+interface OverlayWrapperProps {
+  showX?: boolean;
+  removeOverlay: () => void;
+  children: React.ReactNode;
+}
+
 function OverlayWrapper({
   showX,
   removeOverlay,
   children
-}) {
+}: OverlayWrapperProps): React.ReactElement {
   const isMobile = useMobile();
   const isMobileXs = useMobileXs();
   const isPortait = usePortrait();
@@ -30,7 +36,7 @@ function OverlayWrapper({
   /*                                    Styles                                  */
   /* -------------------------------------------------------------------------- */
 
-  const closeStyle = {
+  const closeStyle: React.CSSProperties = {
     position: "absolute",
     cursor: "pointer",
     width: "35px",
@@ -40,17 +46,17 @@ function OverlayWrapper({
     zIndex: "20",
   };
 
-  const clickerStyle = {
+  const clickerStyle: React.CSSProperties = {
     flex: 1,
   };
 
-  const middleColumn = {
+  const middleColumn: React.CSSProperties = {
     display: "flex",
     flexDirection: "column",
-    overflow: isMobile && "auto",
+    overflow: isMobile ? "auto" : undefined,
   };
 
-  const closeWrapperStyle = {
+  const closeWrapperStyle: React.CSSProperties = {
     height: "100%",
     width: "100%",
     display: "flex",
@@ -59,7 +65,7 @@ function OverlayWrapper({
     zIndex: "5",
   };
 
-  const closeInnerStyle = {
+  const closeInnerStyle: React.CSSProperties = {
     position: "absolute",
     height: (isMobile || isPortait) ? "100%" : "calc(100% - 60px)",
     width: "100%",

@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import TextOutput from "./TextOutput";
 import AudioOutput from "./AudioOutput";
+import { ConversationMessage } from "@shared/ModelTypes";
+import { DecodedAudioMessage } from "./Council";
 
 /**
  * Output Component
@@ -26,6 +28,20 @@ import AudioOutput from "./AudioOutput";
  * @param {Function} props.handleOnFinishedPlaying - Callback when audio ends.
  * @param {Function} props.setSentencesLength - Callback to report sentence count.
  */
+interface OutputProps {
+  textMessages: ConversationMessage[];
+  audioMessages: DecodedAudioMessage[];
+  playingNowIndex: number;
+  councilState: string;
+  isMuted: boolean;
+  isPaused: boolean;
+  currentSnippetIndex: number;
+  setCurrentSnippetIndex: (index: number) => void;
+  audioContext: React.MutableRefObject<AudioContext | null>;
+  handleOnFinishedPlaying: () => void;
+  setSentencesLength: (length: number) => void;
+}
+
 function Output({
   textMessages,
   audioMessages,
@@ -38,9 +54,9 @@ function Output({
   audioContext,
   handleOnFinishedPlaying,
   setSentencesLength
-}) {
-  const [currentTextMessage, setCurrentTextMessage] = useState(null);
-  const [currentAudioMessage, setCurrentAudioMessage] = useState(null);
+}: OutputProps): React.ReactElement {
+  const [currentTextMessage, setCurrentTextMessage] = useState<ConversationMessage | null>(null);
+  const [currentAudioMessage, setCurrentAudioMessage] = useState<DecodedAudioMessage | null>(null);
   const hiddenStyle = { visibility: "hidden" };
 
   const showTextOutput = councilState !== 'playing' && councilState !== 'waiting';
@@ -78,8 +94,7 @@ function Output({
           currentTextMessage={currentTextMessage}
           currentAudioMessage={currentAudioMessage}
           isPaused={isPaused}
-          style={councilState !== 'playing' ? hiddenStyle : {}}
-          currentSnippetIndex={currentSnippetIndex}
+          style={councilState !== 'playing' ? (hiddenStyle as React.CSSProperties) : undefined}
           setCurrentSnippetIndex={setCurrentSnippetIndex}
           setSentencesLength={setSentencesLength}
         />

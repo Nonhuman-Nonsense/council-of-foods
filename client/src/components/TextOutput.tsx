@@ -13,6 +13,7 @@ interface TextOutputProps {
   isPaused: boolean;
   setCurrentSnippetIndex: (index: number) => void;
   setSentencesLength: (length: number) => void;
+  style?: React.CSSProperties;
 }
 
 /**
@@ -31,7 +32,8 @@ function TextOutput({
   currentAudioMessage, // Data structure: { sentences: [{text, start, end}, ...] }
   isPaused,
   setCurrentSnippetIndex, // Parent state setter
-  setSentencesLength
+  setSentencesLength,
+  style
 }: TextOutputProps): React.ReactElement {
   // --- LOCAL STATE ---
   // The text currently visible on screen. 
@@ -225,7 +227,7 @@ function TextOutput({
   };
 
   return (
-    <div style={textStyle}>
+    <div style={{ ...textStyle, ...style }}>
       <p style={paragraphStyle} data-testid="subtitle-text">{currentSnippet}</p>
     </div>
   );

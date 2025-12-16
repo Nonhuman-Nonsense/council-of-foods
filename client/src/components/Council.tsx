@@ -13,7 +13,7 @@ import { useDocumentVisibility, mapFoodIndex } from "../utils";
 // @ts-ignore
 import globalOptions from "../global-options-client.json";
 import { useCouncilSocket } from "../hooks/useCouncilSocket";
-import { Character, ConversationMessage } from "@shared/ModelTypes";
+import { Character, ConversationMessage, Sentence } from "@shared/ModelTypes";
 import { AudioUpdatePayload } from "@shared/SocketTypes";
 
 interface CouncilProps {
@@ -25,8 +25,10 @@ interface CouncilProps {
   connectionError: boolean;
 }
 
-interface DecodedAudioMessage extends Omit<AudioUpdatePayload, 'audio'> {
+export interface DecodedAudioMessage {
+  id: string;
   audio: AudioBuffer;
+  sentences?: Sentence[];
 }
 
 /**
