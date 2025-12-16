@@ -26,8 +26,7 @@ export interface Food extends Partial<Character> {
   prompt?: string;
   type?: 'panelist' | 'food' | 'chair' | string;
   index?: number;
-  // voice is in Character but optional here since we extend Partial<Character>
-  // size, voiceInstruction coming from JSON
+  voice?: string; // Optional in configuration, but required for Character
   size?: number;
   voiceInstruction?: string;
 }

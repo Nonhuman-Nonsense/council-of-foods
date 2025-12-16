@@ -111,8 +111,14 @@ function Main({ lang }: MainProps) {
   }
 
   function foodsSelected({ foods }: { foods: Food[] }) {
-    // Cast Food[] to Character[] assuming necessary properties are present or handled by subcomponents
-    setParticipants(foods as unknown as Character[]);
+    // Convert Food[] to Character[] by ensuring all required properties are present
+    const participants: Character[] = foods.map(food => ({
+      ...food,
+      voice: food.voice || "default_voice", // Provide default if missing
+      type: food.type || "food" // Ensure type is set
+    })) as Character[];
+
+    setParticipants(participants);
     proceedToMeeting();
   }
 
@@ -231,7 +237,7 @@ function Main({ lang }: MainProps) {
                 participants.length !== 0 &&// If page is reloaded, don't even start the council for now
                 <Council
                   lang={lang}
-                  topic={chosenTopic}
+                  topic={{ ...chosenTopic, prompt: chosenTopic.prompt || "" }}
                   participants={participants}
                   setUnrecoverableError={setUnrecoverableError}
                   connectionError={connectionError}

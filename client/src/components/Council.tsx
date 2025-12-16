@@ -75,7 +75,7 @@ function Council({
   /*                             Main State Variables                           */
   /* -------------------------------------------------------------------------- */
 
-  const [activeOverlay, setActiveOverlay] = useState("");
+  const [activeOverlay, setActiveOverlay] = useState<"name" | "completed" | "summary" | null>(null);
   const [textMessages, setTextMessages] = useState<ConversationMessage[]>([]); // State to store conversation updates
   const [audioMessages, setAudioMessages] = useState<DecodedAudioMessage[]>([]); // To store multiple ArrayBuffers
 
@@ -225,7 +225,7 @@ function Council({
 
   //Some cases when pause should be activated
   useEffect(() => {
-    if (activeOverlay !== "" && activeOverlay !== "summary" && !isPaused) {
+    if (activeOverlay !== null && activeOverlay !== "summary" && !isPaused) {
       setPaused(true);
     } else if (location.hash && !isPaused) {
       setPaused(true);
@@ -339,7 +339,7 @@ function Council({
         if (summary === null && textMessages[playNextIndex]?.type === 'summary') {
           setSummary(textMessages[playNextIndex]);
         }
-        if (activeOverlay === "") {
+        if (activeOverlay === null) {
           setActiveOverlay("summary");
         }
         if (textMessages[playNextIndex]?.type !== 'summary') {
@@ -531,7 +531,7 @@ function Council({
 
   // When overlay is closed
   function removeOverlay() {
-    setActiveOverlay("");
+    setActiveOverlay(null);
     navigate("/meeting/" + (currentMeetingId || "new"));
 
     //TODO put this in a better place?
@@ -659,8 +659,8 @@ function Council({
           humanName={humanName}
         />
       )}
-      <Overlay isActive={activeOverlay !== ""}>
-        {activeOverlay !== "" && (
+      <Overlay isActive={activeOverlay !== null}>
+        {activeOverlay !== null && (
           <CouncilOverlays
             activeOverlay={activeOverlay as any}
             onContinue={handleOnContinueMeetingLonger}
@@ -668,7 +668,7 @@ function Council({
             proceedWithHumanName={handleHumanNameEntered}
             canExtendMeeting={canExtendMeeting}
             removeOverlay={removeOverlay}
-            summary={summary as any}
+            summary={{ text: summary?.text || "" }}
             meetingId={currentMeetingId}
             participants={participants}
           />
