@@ -10,6 +10,7 @@ import ConversationControls from "./ConversationControls";
 import HumanInput from "./HumanInput";
 import { useDocumentVisibility, mapFoodIndex } from "../utils";
 
+// @ts-ignore
 import globalOptions from "../global-options-client";
 import { useCouncilSocket } from "../hooks/useCouncilSocket";
 
@@ -26,6 +27,7 @@ import { useCouncilSocket } from "../hooks/useCouncilSocket";
  * - Maintains a "Next Cursor" (`playNextIndex`) which tracks the target message to play next.
  * - The `useEffect` [Main State] drives valid transitions between `loading`, `playing`, `waiting`, etc.
  */
+// @ts-ignore
 function Council({
   lang,
   topic,
@@ -33,12 +35,12 @@ function Council({
   setUnrecoverableError,
   setConnectionError,
   connectionError
-}) {
+}: any) {
   //Overall Council settings for this meeting
   const [humanName, setHumanName] = useState("");
 
   //Humans and foods
-  const foods = participants.filter((part) => part.type !== 'panelist');
+  const foods = participants.filter((part: any) => part.type !== 'panelist');
 
 
   /* -------------------------------------------------------------------------- */
@@ -46,7 +48,7 @@ function Council({
   /* -------------------------------------------------------------------------- */
 
   // Connection variables
-  const [currentMeetingId, setCurrentMeetingId] = useState(null);
+  const [currentMeetingId, setCurrentMeetingId] = useState<string | null>(null);
   const [attemptingReconnect, setAttemptingReconnect] = useState(false);
   const isDocumentVisible = useDocumentVisibility();// If tab is not active etc
 
@@ -59,8 +61,8 @@ function Council({
   /* -------------------------------------------------------------------------- */
 
   const [activeOverlay, setActiveOverlay] = useState("");
-  const [textMessages, setTextMessages] = useState([]); // State to store conversation updates
-  const [audioMessages, setAudioMessages] = useState([]); // To store multiple ArrayBuffers
+  const [textMessages, setTextMessages] = useState<any[]>([]); // State to store conversation updates
+  const [audioMessages, setAudioMessages] = useState<any[]>([]); // To store multiple ArrayBuffers
 
   // The finite state machine for the meeting: 'loading' | 'playing' | 'waiting' | 'human_input' | 'human_panelist' | 'summary' | 'max_reached'
   const [councilState, setCouncilState] = useState("loading");
@@ -82,7 +84,7 @@ function Council({
   const waitTimer = useRef(null); // The waiting timer
 
   if (audioContext.current === null) {
-    const AudioContext = window.AudioContext || window.webkitAudioContext; //cross browser
+    const AudioContext = window.AudioContext || (window as any).webkitAudioContext; //cross browser
     audioContext.current = new AudioContext();
   }
 
@@ -104,7 +106,7 @@ function Council({
     participants,
     lang,
     onMeetingStarted: (meeting) => {
-      setCurrentMeetingId(meeting.meeting_id);
+      setCurrentMeetingId(String(meeting.meeting_id));
       navigate("/meeting/" + meeting.meeting_id);
     },
     onAudioUpdate: (audioMessage) => {
@@ -645,7 +647,7 @@ function Council({
       <Overlay isActive={activeOverlay !== ""}>
         {activeOverlay !== "" && (
           <CouncilOverlays
-            activeOverlay={activeOverlay}
+            activeOverlay={activeOverlay as any}
             onContinue={handleOnContinueMeetingLonger}
             onWrapItUp={handleOnGenerateSummary}
             proceedWithHumanName={handleHumanNameEntered}
@@ -672,7 +674,7 @@ export function Background({ zoomIn, currentSpeakerIndex, totalSpeakers }) {
     backgroundPosition: calculateBackdropPosition(),
     height: "100%",
     width: "100%",
-    position: "absolute",
+    position: "absolute" as "absolute",
     opacity: zoomIn ? "1" : "0",
   };
 
@@ -682,14 +684,14 @@ export function Background({ zoomIn, currentSpeakerIndex, totalSpeakers }) {
     backgroundPosition: "center",
     height: "100%",
     width: "100%",
-    position: "absolute",
+    position: "absolute" as "absolute",
     opacity: zoomIn ? "1" : "0",
   };
 
   const bottomShade = {
     width: "100%",
     height: "40%",
-    position: "absolute",
+    position: "absolute" as "absolute",
     bottom: "0",
     background: "linear-gradient(0, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0) 100%)",
     zIndex: "1",
@@ -698,7 +700,7 @@ export function Background({ zoomIn, currentSpeakerIndex, totalSpeakers }) {
   const topShade = {
     width: "100%",
     height: "10%",
-    position: "absolute",
+    position: "absolute" as "absolute",
     top: "0",
     background:
       "linear-gradient(180deg, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0) 100%)",
