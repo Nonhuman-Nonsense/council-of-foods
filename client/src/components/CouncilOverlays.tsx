@@ -2,7 +2,23 @@ import Completed from "./overlays/Completed";
 import Summary from "./overlays/Summary";
 import Name from "./overlays/Name";
 
-import OverlayWrapper from './OverlayWrapper.jsx';
+import OverlayWrapper from './OverlayWrapper';
+import { Character } from "@shared/ModelTypes";
+import { TopicSelection } from "./settings/SelectTopic";
+
+export type CouncilOverlayType = "name" | "completed" | "summary" | null;
+
+interface CouncilOverlaysProps {
+  activeOverlay: CouncilOverlayType;
+  onContinue: (data?: TopicSelection) => void;
+  onWrapItUp: () => void;
+  proceedWithHumanName: (data: { humanName: string }) => void;
+  canExtendMeeting: boolean;
+  removeOverlay: () => void;
+  summary: any; // TODO: Strictly type Summary content
+  meetingId: string;
+  participants: Character[];
+}
 
 /**
  * CouncilOverlays Component
@@ -14,17 +30,6 @@ import OverlayWrapper from './OverlayWrapper.jsx';
  * - `name`: Human Participant name input.
  * - `completed`: Meeting finished options.
  * - `summary`: Final protocol and PDF download.
- * 
- * @param {Object} props
- * @param {string} props.activeOverlay - ID of the overlay to show.
- * @param {Function} props.onContinue - Extend meeting handler.
- * @param {Function} props.onWrapItUp - Generate summary handler.
- * @param {Function} props.proceedWithHumanName - Name submission handler.
- * @param {boolean} props.canExtendMeeting - Flag for completed view.
- * @param {Function} props.removeOverlay - Close handler.
- * @param {Object} props.summary - Summary text/markdown data.
- * @param {string} props.meetingId - Unique meeting identifier.
- * @param {Array} props.participants - List of participants for name validation.
  */
 function CouncilOverlays({
   activeOverlay,
@@ -36,10 +41,10 @@ function CouncilOverlays({
   summary,
   meetingId,
   participants,
-}) {
+}: CouncilOverlaysProps): React.ReactElement {
 
   // Conditional rendering of overlay content based on activeOverlay state
-  const renderOverlayContent = () => {
+  const renderOverlayContent = (): React.ReactElement | null => {
     switch (activeOverlay) {
       case "name":
         return (

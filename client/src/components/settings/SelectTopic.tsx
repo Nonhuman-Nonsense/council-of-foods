@@ -25,7 +25,7 @@ export interface Topic {
   prompt?: string;
 }
 
-interface TopicSelection {
+export interface TopicSelection {
   topic: string;
   custom: string;
 }
