@@ -11,8 +11,24 @@ import HumanInput from "./HumanInput";
 import { useDocumentVisibility, mapFoodIndex } from "../utils";
 
 // @ts-ignore
-import globalOptions from "../global-options-client";
+import globalOptions from "../global-options-client.json";
 import { useCouncilSocket } from "../hooks/useCouncilSocket";
+import { Character, ConversationMessage } from "@shared/ModelTypes";
+import { AudioUpdatePayload } from "@shared/SocketTypes";
+import { Food } from "./settings/SelectFoods";
+
+interface CouncilProps {
+  lang: string;
+  topic: { prompt: string;[key: string]: any };
+  participants: Character[];
+  setUnrecoverableError: (error: boolean) => void;
+  setConnectionError: (error: boolean) => void;
+  connectionError: boolean;
+}
+
+interface DecodedAudioMessage extends Omit<AudioUpdatePayload, 'audio'> {
+  audio: AudioBuffer;
+}
 
 /**
  * Council Component
@@ -35,12 +51,12 @@ function Council({
   setUnrecoverableError,
   setConnectionError,
   connectionError
-}: any) {
+}: CouncilProps) {
   //Overall Council settings for this meeting
   const [humanName, setHumanName] = useState("");
 
   //Humans and foods
-  const foods = participants.filter((part: any) => part.type !== 'panelist');
+  const foods = participants.filter((part) => part.type !== 'panelist') as unknown as Food[];
 
 
   /* -------------------------------------------------------------------------- */
@@ -61,8 +77,8 @@ function Council({
   /* -------------------------------------------------------------------------- */
 
   const [activeOverlay, setActiveOverlay] = useState("");
-  const [textMessages, setTextMessages] = useState<any[]>([]); // State to store conversation updates
-  const [audioMessages, setAudioMessages] = useState<any[]>([]); // To store multiple ArrayBuffers
+  const [textMessages, setTextMessages] = useState<ConversationMessage[]>([]); // State to store conversation updates
+  const [audioMessages, setAudioMessages] = useState<DecodedAudioMessage[]>([]); // To store multiple ArrayBuffers
 
   // The finite state machine for the meeting: 'loading' | 'playing' | 'waiting' | 'human_input' | 'human_panelist' | 'summary' | 'max_reached'
   const [councilState, setCouncilState] = useState("loading");
@@ -80,8 +96,8 @@ function Council({
   /*                                 References                                 */
   /* -------------------------------------------------------------------------- */
 
-  const audioContext = useRef(null); // The AudioContext object
-  const waitTimer = useRef(null); // The waiting timer
+  const audioContext = useRef<AudioContext | null>(null); // The AudioContext object
+  const waitTimer = useRef<NodeJS.Timeout | null>(null); // The waiting timer
 
   if (audioContext.current === null) {
     const AudioContext = window.AudioContext || (window as any).webkitAudioContext; //cross browser
@@ -111,16 +127,16 @@ function Council({
     },
     onAudioUpdate: (audioMessage) => {
       (async () => {
-        if (audioMessage.audio) {
+        if (audioMessage.audio && audioContext.current) {
           const buffer = await audioContext.current.decodeAudioData(
-            audioMessage.audio
+            audioMessage.audio as unknown as ArrayBuffer
           );
-          audioMessage.audio = buffer;
+          const decodedMessage: DecodedAudioMessage = { ...audioMessage, audio: buffer };
+          setAudioMessages((prevAudioMessages) => [
+            ...prevAudioMessages,
+            decodedMessage,
+          ]);
         }
-        setAudioMessages((prevAudioMessages) => [
-          ...prevAudioMessages,
-          audioMessage,
-        ]);
       })();
     },
     onConversationUpdate: (textMessages) => {
@@ -146,7 +162,7 @@ function Council({
   // States passed down to children or used for specific features
   const [currentSnippetIndex, setCurrentSnippetIndex] = useState(0);
   const [sentencesLength, setSentencesLength] = useState(10);
-  const [summary, setSummary] = useState(null); // We store the summary here for easy access
+  const [summary, setSummary] = useState<ConversationMessage | null>(null); // We store the summary here for easy access
 
   /* -------------------------------------------------------------------------- */
   /*                               Derived State                                */
@@ -653,7 +669,7 @@ function Council({
             proceedWithHumanName={handleHumanNameEntered}
             canExtendMeeting={canExtendMeeting}
             removeOverlay={removeOverlay}
-            summary={summary}
+            summary={summary as any}
             meetingId={currentMeetingId}
             participants={participants}
           />
