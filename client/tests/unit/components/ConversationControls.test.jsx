@@ -80,9 +80,14 @@ describe('ConversationControls', () => {
         expect(screen.getByTestId('control-icon-raise_hand_filled')).toBeInTheDocument();
     });
 
-    it('shows waiting message when waiting to interject', () => {
-        render(<ConversationControls {...defaultProps} isRaisedHand={true} isWaitingToInterject={true} />);
+    it('shows waiting message when waiting to interject and not paused', () => {
+        render(<ConversationControls {...defaultProps} isRaisedHand={true} isWaitingToInterject={true} isPaused={false} />);
         expect(screen.getByText('Human, waiting to speak...')).toBeInTheDocument();
+    });
+
+    it('hides waiting message when paused even if waiting to interject', () => {
+        render(<ConversationControls {...defaultProps} isRaisedHand={true} isWaitingToInterject={true} isPaused={true} />);
+        expect(screen.queryByText('Human, waiting to speak...')).not.toBeInTheDocument();
     });
 
     it('calls callbacks when buttons are clicked', () => {
@@ -127,11 +132,23 @@ describe('ConversationControls', () => {
 
         expect(screen.queryByTestId('control-icon-backward')).not.toBeInTheDocument();
         expect(screen.queryByTestId('control-icon-forward')).not.toBeInTheDocument();
+
+        // Raise hand should be hidden if canRaiseHand is false AND isRaisedHand is false
         expect(screen.queryByTestId('control-icon-raise_hand')).not.toBeInTheDocument();
 
         // Volume and Pause/Play should still be there
         expect(screen.getByTestId('control-icon-volume_on')).toBeInTheDocument();
         expect(screen.getByTestId('control-icon-pause')).toBeInTheDocument();
+    });
+
+    it('shows raise hand controls if hand is already raised, even if canRaiseHand is false', () => {
+        render(<ConversationControls
+            {...defaultProps}
+            canRaiseHand={false}
+            isRaisedHand={true}
+        />);
+
+        expect(screen.getByTestId('control-icon-raise_hand_filled')).toBeInTheDocument();
     });
 
     it('disables pointer events on raise hand button when hand is already raised', () => {
