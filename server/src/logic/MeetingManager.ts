@@ -321,29 +321,21 @@ export class MeetingManager implements IMeetingManager {
         const thisMeetingId = this.meetingId;
 
         // Generate Logic
-        let attempt = 1;
-        let output: GPTResponse = {
-            response: "",
-            id: null,
-            sentences: [],
-            trimmed: undefined,
-            pretrimmed: undefined
-        };
-        while (attempt < 5 && output.response === "") {
-            output = await this.dialogGenerator.generateTextFromGPT(
-                action.speaker,
-                this.conversation,
-                this.conversationOptions,
-                this.currentSpeaker
-            );
-
-            if (!this.run || this.handRaised || this.isPaused) return;
-            if (thisMeetingId != this.meetingId) return;
-            attempt++;
-            if (output.response === "") {
-                Logger.info(`meeting ${this.meetingId}`, `entire message trimmed, trying again. attempt ${attempt}`);
-            }
+        // Check for interrupts function
+        const shouldAbort = () => {
+            return !this.run || this.handRaised || this.isPaused || thisMeetingId != this.meetingId;
         }
+
+        const output = await this.dialogGenerator.generateResponseWithRetry(
+            action.speaker,
+            this.conversation,
+            this.conversationOptions,
+            this.currentSpeaker,
+            shouldAbort,
+            `meeting ${this.meetingId}`
+        );
+
+        if (shouldAbort()) return;
 
         let message: ConversationMessage = {
             id: output.id || "",

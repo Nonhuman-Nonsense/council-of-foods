@@ -52,6 +52,51 @@ export class DialogGenerator {
     }
 
     /**
+     * Generates a conversational response with built-in retry logic for empty responses.
+     * Checks the `shouldAbort` callback between attempts to respect interrupts (e.g. Hand Raising).
+     */
+    async generateResponseWithRetry(
+        speaker: Character,
+        conversation: ConversationMessage[],
+        conversationOptions: ConversationOptions,
+        currentSpeakerIndex: number,
+        shouldAbort: () => boolean,
+        contextInfo: string
+    ): Promise<GPTResponse> {
+        let attempt = 1;
+        let output: GPTResponse = {
+            response: "",
+            id: null,
+            sentences: [],
+            trimmed: undefined,
+            pretrimmed: undefined
+        };
+
+        const maxAttempts = 5;
+
+        while (attempt < maxAttempts && output.response === "") {
+            output = await this.generateTextFromGPT(
+                speaker,
+                conversation,
+                conversationOptions,
+                currentSpeakerIndex
+            );
+
+            if (shouldAbort()) {
+                // Return whatever we have (likely empty or partial) or a specific "aborted" response?
+                // The caller will check state anyway.
+                return output;
+            }
+
+            attempt++;
+            if (output.response === "") {
+                Logger.info(contextInfo, `entire message trimmed, trying again. attempt ${attempt}`);
+            }
+        }
+        return output;
+    }
+
+    /**
      * Generates a conversational response for a specific character (food or chair).
      */
     async generateTextFromGPT(speaker: Character, conversation: ConversationMessage[], conversationOptions: ConversationOptions, currentSpeakerIndex: number): Promise<GPTResponse> {
@@ -123,7 +168,6 @@ export class DialogGenerator {
                 // Check if we can re-add some messages from the end, to put back some of the list of questions that chair often produces
                 if (conversationOptions.options.trimChairSemicolon) {
                     if (speaker.id === conversationOptions.options.chairId) {
-
                         const trimmedSentences = splitSentences(trimmedContent?.trim() || "").filter((sentence) => sentence.length > 0 && sentence !== ".");
 
                         if (
