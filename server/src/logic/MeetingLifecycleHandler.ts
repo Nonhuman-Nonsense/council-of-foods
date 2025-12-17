@@ -76,11 +76,22 @@ export class MeetingLifecycleHandler {
     async handleWrapUpMeeting(message: WrapUpMessage): Promise<void> {
         const { manager } = this;
         Logger.info(`meeting ${manager.meetingId}`, "attempting to wrap up");
-        const summaryPrompt = manager.conversationOptions.options.finalizeMeetingPrompt[manager.conversationOptions.language].replace("[DATE]", message.date);
 
-        // Note: chairInterjection is on manager (delegated to DialogGenerator)
+        let summaryPrompt = manager.conversationOptions.options.finalizeMeetingPrompt[manager.conversationOptions.language];
+        if (!summaryPrompt) {
+            summaryPrompt = manager.conversationOptions.options.finalizeMeetingPrompt['en'];
+            console.warn(`[MeetingLifecycleHandler] Missing finalizeMeetingPrompt for '${manager.conversationOptions.language}', falling back to 'en'.`);
+        }
+
+        // Ensure prompt is valid string
+        if (!summaryPrompt) {
+            console.error(`[MeetingLifecycleHandler] CRITICAL: No finalizeMeetingPrompt found even for fallback 'en'.`);
+            summaryPrompt = "Summarize the meeting."; // Hard fallback
+        }
+
+        const summaryPromptWithDate = summaryPrompt.replace("[DATE]", message.date);
         let { response, id } = await manager.dialogGenerator.chairInterjection(
-            summaryPrompt,
+            summaryPromptWithDate,
             manager.conversation.length,
             manager.conversationOptions.options.finalizeMeetingLength,
             true,
@@ -143,7 +154,7 @@ export class MeetingLifecycleHandler {
                             },
                             "transcription": {
                                 "model": manager.conversationOptions.options.transcribeModel,
-                                "prompt": manager.conversationOptions.options.transcribePrompt[manager.conversationOptions.language],
+                                "prompt": manager.conversationOptions.options.transcribePrompt[manager.conversationOptions.language] || manager.conversationOptions.options.transcribePrompt['en'] || "Transcribe the debate.",
                                 "language": manager.conversationOptions.language
                             },
                             "turn_detection": {

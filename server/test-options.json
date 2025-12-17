@@ -15,17 +15,20 @@
     "skipAudio": false,
     "conversationMaxLength": 10,
     "raiseHandPrompt": {
-        "en": "We have a question or comment from the audience, please invite a human speaker called [NAME] to the debate. After listening to the human, answer and engage deeper with their thoughts."
+        "en": "We have a question or comment from the audience, please invite a human speaker called [NAME] to the debate. After listening to the human, answer and engage deeper with their thoughts.",
+        "sv": "Vi har en fråga eller kommentar från publiken, bjud in a mänsklig talare vid namn [NAME] till samtalet. After att du lyssnat till människan, svara på dess fråga och engagera djupare med dess tankar."
     },
     "raiseHandInvitationLength": 50,
     "finalizeMeetingPrompt": {
-        "en": "Summarize the debate in 100 words or less."
+        "en": "Summarize the debate in 100 words or less.",
+        "sv": "Sammanfatta debatten med 100 ord eller mindre."
     },
     "finalizeMeetingLength": 100,
     "extraMessageCount": 5,
     "transcribeModel": "gpt-4o-transcribe",
     "transcribePrompt": {
-        "en": "Transcribe the debate in 100 words or less."
+        "en": "Transcribe the debate in 100 words or less.",
+        "sv": "Transkribera debatten med 100 ord eller mindre."
     },
     "audioConcurrency": 10
 }

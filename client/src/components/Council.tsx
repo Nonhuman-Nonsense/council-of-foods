@@ -454,7 +454,12 @@ function Council({
    */
   function handleOnSubmitHumanMessage(newTopic: string, askParticular: string) {
     if (councilState === 'human_panelist') {
-      socketRef.current.emit("submit_human_panelist", { text: newTopic, speaker: currentSpeakerId });
+      // Logic fix: currentSpeakerId might be pointing to the PREVIOUS speaker (because playingNowIndex hasn't advanced yet).
+      // We need to grab the speaker form the 'awaiting_human_panelist' message which is likely at playNextIndex.
+      const pendingMessage = textMessages[playNextIndex];
+      const actualSpeaker = (pendingMessage?.type === 'awaiting_human_panelist') ? pendingMessage.speaker : currentSpeakerId;
+
+      socketRef.current.emit("submit_human_panelist", { text: newTopic, speaker: actualSpeaker });
 
       //Slice off the waiting for panelist
       setTextMessages((prevMessages) => {

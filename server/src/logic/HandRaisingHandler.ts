@@ -53,8 +53,15 @@ export class HandRaisingHandler {
         manager.conversation = manager.conversation.slice(0, handRaisedOptions.index);
 
         if (!manager.conversationOptions.state.alreadyInvited) {
+            let prompt = manager.conversationOptions.options.raiseHandPrompt[manager.conversationOptions.language];
+            if (!prompt) {
+                // Fallback to English if specific language prompt is missing
+                prompt = manager.conversationOptions.options.raiseHandPrompt['en'];
+                console.warn(`[HandRaisingHandler] Missing raiseHandPrompt for language '${manager.conversationOptions.language}', falling back to 'en'.`);
+            }
+
             let { response, id } = await manager.dialogGenerator.chairInterjection(
-                manager.conversationOptions.options.raiseHandPrompt[manager.conversationOptions.language].replace(
+                prompt.replace(
                     "[NAME]",
                     manager.conversationOptions.state.humanName || "Human"
                 ),
