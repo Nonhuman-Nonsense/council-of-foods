@@ -22,17 +22,17 @@ const CharacterSchema = z.object({
     type: z.string().optional(),
     voice: z.string().min(1),
     prompt: z.string().optional(),
-}).passthrough(); // Keeping passthrough for extra character properties if dynamic
+});
 
 const ConversationStateSchema = z.object({
     humanName: z.string().optional(),
     alreadyInvited: z.boolean().optional(),
-}).passthrough();
+});
 
 const GlobalOptionsSchema = z.object({
     conversationMaxLength: z.number().optional(),
     // Add other known options as needed
-}).passthrough();
+});
 
 // 1. start_conversation
 export const SetupOptionsSchema = z.object({

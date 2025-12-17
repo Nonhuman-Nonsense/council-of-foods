@@ -3,7 +3,8 @@ export interface Character {
     id: string;
     name: string;
     voice: string;
-    [key: string]: any;
+    type?: string;
+    prompt?: string;
 }
 
 export interface ConversationMessage {
@@ -13,13 +14,11 @@ export interface ConversationMessage {
     sentences?: string[];
     speaker?: string;
     askParticular?: string;
-    [key: string]: any;
 }
 
 export interface ConversationState {
     alreadyInvited?: boolean;
     humanName?: string;
-    [key: string]: any;
 }
 
 export interface Sentence {
