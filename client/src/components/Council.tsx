@@ -8,7 +8,8 @@ import Output from "./Output";
 import ConversationControls from "./ConversationControls";
 import HumanInput from "./HumanInput";
 import { useDocumentVisibility, mapFoodIndex } from "@/utils";
-import { Character } from "@shared/ModelTypes";
+import routes from "@/routes.json";
+import { Character, ConversationMessage, Sentence } from "@shared/ModelTypes";
 import { useCouncilMachine } from "../hooks/useCouncilMachine";
 // @ts-ignore
 import globalOptions from "@/global-options-client.json";
@@ -48,6 +49,20 @@ function Council({
   const [isPaused, setPaused] = React.useState(false);
 
   // Hook Logic
+  const { state, actions, socketRef } = useCouncilMachine({
+    lang,
+    topic,
+    participants,
+    audioContext,
+    setUnrecoverableError,
+    setConnectionError,
+    connectionError,
+    isPaused,
+    setPaused,
+    // setAudioPaused is optional, we don't pass it here so Hook handles valid suspension via ref
+    baseUrl: `/${routes.meeting}`
+  });
+
   const {
     councilState,
     textMessages,
@@ -64,8 +79,11 @@ function Council({
     canRaiseHand,
     currentSnippetIndex,
     sentencesLength,
-    socketRef,
+    isMuted,
+    canExtendMeeting,
+  } = state;
 
+  const {
     tryToFindTextAndAudio,
     handleOnFinishedPlaying,
     handleOnSkipBackward,
@@ -80,18 +98,7 @@ function Council({
     setIsRaisedHand, // exposed if needed
     setCurrentSnippetIndex,
     setSentencesLength
-  } = useCouncilMachine({
-    lang,
-    topic,
-    participants,
-    audioContext,
-    setUnrecoverableError,
-    setConnectionError,
-    connectionError,
-    isPaused,
-    setPaused
-    // setAudioPaused is optional, we don't pass it here so Hook handles valid suspension via ref
-  });
+  } = actions;
 
   // Derived Visual State (Background Zoom)
   const currentSpeakerId = useMemo(() => {
@@ -148,10 +155,7 @@ function Council({
   // OR move canExtendMeeting into the hook. 
   // Hook has `handleOnContinueMeetingLonger`, maybe it should expose `canExtendMeeting` boolean?
 
-  // Let's assume for now we need to add `canExtendMeeting` to the hook return.
-
-  const canExtendMeeting = true; // Placeholder until fixed
-
+  // Placeholder removed as it comes from state now
   const location = useLocation();
   const isDocumentVisible = useDocumentVisibility();
 
@@ -204,7 +208,7 @@ function Council({
       {councilState === 'loading' && <Loading />}
       <>
         {(councilState === 'human_input' || councilState === 'human_panelist') && (
-          <HumanInput socketRef={socketRef} foods={foods} isPanelist={(councilState === 'human_panelist')} currentSpeakerName={participants.find(p => p.id === currentSpeakerId)?.name} onSubmitHumanMessage={handleOnSubmitHumanMessage} />
+          <HumanInput socketRef={socketRef} foods={foods} isPanelist={(councilState === 'human_panelist')} currentSpeakerName={participants.find(p => p.id === currentSpeakerId)?.name || ""} onSubmitHumanMessage={handleOnSubmitHumanMessage} />
         )}
         <Output
           textMessages={textMessages}
@@ -248,7 +252,7 @@ function Council({
             canExtendMeeting={canExtendMeeting}
             removeOverlay={removeOverlay}
             summary={{ text: summary?.text || "" }}
-            meetingId={currentMeetingId}
+            meetingId={currentMeetingId || ""}
             participants={participants}
           />
         )}
