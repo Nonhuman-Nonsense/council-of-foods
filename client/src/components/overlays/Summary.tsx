@@ -121,9 +121,8 @@ function Summary({ summary, meetingId }: SummaryProps): React.ReactElement {
           <div style={{ width: "100%" }}>
             <hr />
             <div style={{ height: "52px", position: 'relative' }}>
-              <img style={{ width: '70px' }} src='/logos/council_logo.png' alt="council of foods logo" />
-              <h2 style={{ fontSize: '24px', margin: '0', position: 'absolute', left: "80px", top: '2px' }}>{t('council').toUpperCase()}</h2>
-              <h3 style={{ fontSize: '15px', margin: '0', position: 'absolute', left: "80px", top: "28px" }}>{t('meeting')} #{meetingId}</h3>
+              <h2 style={{ fontSize: '24px', margin: '0', position: 'absolute', left: "10px", top: '2px' }}>{t('council').toUpperCase()}</h2>
+              <h3 style={{ fontSize: '15px', margin: '0', position: 'absolute', left: "10px", top: "28px" }}>{t('meeting')} #{meetingId}</h3>
               <QRCodeCanvas value={window.location.href} style={{ position: 'absolute', right: "10px", top: "2.5px", width: "45px", height: "45px" }} />
             </div>
             <hr />
