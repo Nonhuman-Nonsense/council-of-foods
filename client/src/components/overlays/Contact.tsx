@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { useMobile, dvh } from "../../utils";
+import { useMobile, dvh } from "@/utils";
 
 /**
  * Contact Overlay
@@ -7,12 +7,12 @@ import { useMobile, dvh } from "../../utils";
  * Displays credits, logos, and contact information.
  * Lists the team, partners, and funding sources (EU S+T+ARTS).
  */
-function Contact() {
+function Contact(): React.ReactElement {
 
   const isMobile = useMobile();
   const { t } = useTranslation();
 
-  const wrapper = {
+  const wrapper: React.CSSProperties = {
     width: "80vw",
     maxWidth: isMobile ? "550px" : "450px",
     display: "flex",

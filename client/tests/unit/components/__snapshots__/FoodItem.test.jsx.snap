@@ -74,3 +74,33 @@ exports[`FoodItem > renders correctly when zoomed in (inactive speaker) 1`] = `
   </div>
 </DocumentFragment>
 `;
+
+exports[`FoodItem > should apply special positioning for lollipop 1`] = `
+<DocumentFragment>
+  <div
+    style="position: absolute; left: 50%; top: -12.075000000000001vw; width: 16.200000000000003vw; height: 12vw; transform: translate(-50%, -50%); opacity: 1; display: flex; justify-content: center; align-items: flex-end;"
+  >
+    <div
+      data-testid="food-animation-lollipop"
+      style="width: 16.2vw; height: 12vw; animation: 2s foodAppearing; animation-delay: 0.4s; animation-fill-mode: both;"
+    >
+      Video for lollipop (Idle)
+    </div>
+  </div>
+</DocumentFragment>
+`;
+
+exports[`FoodItem > should handle food with missing id gracefully 1`] = `
+<DocumentFragment>
+  <div
+    style="position: absolute; left: 50%; top: -11.5vw; width: 16.200000000000003vw; height: 12vw; transform: translate(-50%, -50%); opacity: 1; display: flex; justify-content: center; align-items: flex-end;"
+  >
+    <div
+      data-testid="food-animation-undefined"
+      style="width: 16.2vw; height: 12vw; animation: 2s foodAppearing; animation-delay: 0.4s; animation-fill-mode: both;"
+    >
+      Video for  (Idle)
+    </div>
+  </div>
+</DocumentFragment>
+`;

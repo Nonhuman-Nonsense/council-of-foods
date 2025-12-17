@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useMobile } from "../utils";
+import { useMobile } from "@/utils";
 
 /**
  * ConversationControlIcon Component
@@ -13,12 +13,32 @@ import { useMobile } from "../utils";
  * @param {string} props.tooltip - Alt text for the icon.
  * @param {Function} props.onClick - Click handler.
  */
+export type ConversationControlIconName =
+  | "volume_off"
+  | "volume_on"
+  | "backward"
+  | "play"
+  | "pause"
+  | "forward"
+  | "raise_hand"
+  | "raise_hand_filled"
+  | "record_voice_on"
+  | "record_voice_off"
+  | "send_message";
+
+interface ConversationControlIconProps {
+  icon: ConversationControlIconName;
+  hoverIcon?: ConversationControlIconName;
+  tooltip?: string;
+  onClick: () => void;
+}
+
 function ConversationControlIcon({
   icon,
   hoverIcon,
   tooltip,
   onClick
-}) {
+}: ConversationControlIconProps) {
   let [isHover, setHover] = useState(false);
   const isMobile = useMobile();
 
@@ -30,7 +50,7 @@ function ConversationControlIcon({
   /*                                    Styles                                  */
   /* -------------------------------------------------------------------------- */
 
-  const buttonStyle = {
+  const buttonStyle: React.CSSProperties = {
     marginLeft: "4px",
     marginRight: "4px",
     width: isMobile ? "45px" : "56px",
@@ -43,7 +63,7 @@ function ConversationControlIcon({
     position: "relative",
   };
 
-  const sharedStyle = {
+  const sharedStyle: React.CSSProperties = {
     position: "absolute",
     // left: "0",
     width: isMobile ? "30px" : "40px",
@@ -67,7 +87,14 @@ function ConversationControlIcon({
   /* -------------------------------------------------------------------------- */
 
   return (
-    <button style={buttonStyle} className={"control"} onClick={onClick} onMouseOver={() => setHover(true)} onMouseOut={() => setHover(false)}>
+    <button
+      style={buttonStyle}
+      className={"control"}
+      onClick={onClick}
+      onMouseOver={() => setHover(true)}
+      onMouseOut={() => setHover(false)}
+      aria-label={tooltip}
+    >
       <>
         <img
           src={imageUrl}

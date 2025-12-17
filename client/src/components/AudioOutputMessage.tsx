@@ -1,7 +1,21 @@
-import { useEffect, useRef } from "react";
+import { AudioUpdatePayload } from "@shared/SocketTypes";
+import React, { useEffect, useRef } from 'react';
 
-function AudioOutputMessage({ currentAudioMessage, audioContext, gainNode, onFinishedPlaying }) {
-  const sourceNode = useRef(null);
+// At runtime in the client, 'audio' has been decoded to AudioBuffer
+// We extend the wire type to reflect the client-side reality
+interface PlayableAudioMessage extends Omit<AudioUpdatePayload, 'audio'> {
+  audio?: AudioBuffer;
+}
+
+interface AudioOutputMessageProps {
+  currentAudioMessage: PlayableAudioMessage | null;
+  audioContext: React.MutableRefObject<AudioContext | null>;
+  gainNode: React.MutableRefObject<GainNode | null>;
+  onFinishedPlaying: () => void;
+}
+
+function AudioOutputMessage({ currentAudioMessage, audioContext, gainNode, onFinishedPlaying }: AudioOutputMessageProps) {
+  const sourceNode = useRef<AudioBufferSourceNode | null>(null);
 
   useEffect(() => {
     let ignoreEndEvent = false;
@@ -9,18 +23,20 @@ function AudioOutputMessage({ currentAudioMessage, audioContext, gainNode, onFin
     // Handle updating the audio source when the message changes
 
     if (currentAudioMessage && currentAudioMessage.audio && currentAudioMessage.audio.length !== 0) {
-      function sourceFinished(){
-        if(!ignoreEndEvent){
+      function sourceFinished() {
+        if (!ignoreEndEvent) {
           onFinishedPlaying();
         }
       }
 
-      sourceNode.current = audioContext.current.createBufferSource();
-      sourceNode.current.buffer = currentAudioMessage.audio;
+      if (audioContext.current && gainNode.current) {
+        sourceNode.current = audioContext.current.createBufferSource();
+        sourceNode.current.buffer = currentAudioMessage.audio;
 
-      sourceNode.current.connect(gainNode.current);
-      sourceNode.current.start();
-      sourceNode.current.addEventListener('ended',sourceFinished, true);
+        sourceNode.current.connect(gainNode.current);
+        sourceNode.current.start();
+        sourceNode.current.addEventListener('ended', sourceFinished, true);
+      }
     }
 
     return () => {

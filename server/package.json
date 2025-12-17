@@ -9,7 +9,7 @@
   "scripts": {
     "start": "cross-env NODE_ENV=production node dist/server/server.js",
     "build": "tsc && tsc-alias",
-    "e2e-server": "cross-env NODE_ENV=test node dist/server/server.js",
+    "e2e-server": "cross-env NODE_ENV=test tsx server.ts",
     "dev": "cross-env NODE_ENV=development USE_TEST_OPTIONS=true nodemon --exec tsx server.ts",
     "proto": "cross-env NODE_ENV=prototype node dist/server/server.js",
     "protodev": "cross-env NODE_ENV=prototype nodemon --exec tsx server.ts",

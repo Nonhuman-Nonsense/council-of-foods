@@ -7,10 +7,35 @@ import Loading from "./Loading";
 import Output from "./Output";
 import ConversationControls from "./ConversationControls";
 import HumanInput from "./HumanInput";
-import { useDocumentVisibility, mapFoodIndex } from "../utils";
+import { useDocumentVisibility, mapFoodIndex } from "@/utils";
 
-import globalOptions from "../global-options-client";
-import { useCouncilSocket } from "../hooks/useCouncilSocket";
+// @ts-ignore
+import globalOptions from "@/global-options-client.json";
+import { useCouncilSocket } from "@/hooks/useCouncilSocket";
+import { Character, ConversationMessage, Sentence } from "@shared/ModelTypes";
+import { AudioUpdatePayload } from "@shared/SocketTypes";
+
+interface CouncilProps {
+  lang: string;
+  topic: { prompt: string;[key: string]: any };
+  participants: Character[];
+  setUnrecoverableError: (error: boolean) => void;
+  setConnectionError: (error: boolean) => void;
+  connectionError: boolean;
+  // Forest-Specific Props:
+  audioContext: React.MutableRefObject<AudioContext | null>;
+  setAudioPaused: (paused: boolean) => void;
+  currentSpeakerId: string;
+  setCurrentSpeakerId: (id: string) => void;
+  isPaused: boolean;
+  setPaused: (paused: boolean) => void;
+}
+
+export interface DecodedAudioMessage {
+  id: string;
+  audio: AudioBuffer;
+  sentences?: Sentence[];
+}
 
 /**
  * Council Component
@@ -38,7 +63,7 @@ function Council({
   connectionError,
   audioContext,
   setAudioPaused
-}) {
+}: CouncilProps) {
   //Overall Council settings for this meeting
   const [humanName, setHumanName] = useState("");
 
@@ -51,7 +76,7 @@ function Council({
   /* -------------------------------------------------------------------------- */
 
   // Connection variables
-  const [currentMeetingId, setCurrentMeetingId] = useState(null);
+  const [currentMeetingId, setCurrentMeetingId] = useState<string | null>(null);
   const [attemptingReconnect, setAttemptingReconnect] = useState(false);
   const isDocumentVisible = useDocumentVisibility();// If tab is not active etc
 
@@ -63,9 +88,9 @@ function Council({
   /*                             Main State Variables                           */
   /* -------------------------------------------------------------------------- */
 
-  const [activeOverlay, setActiveOverlay] = useState("");
-  const [textMessages, setTextMessages] = useState([]); // State to store conversation updates
-  const [audioMessages, setAudioMessages] = useState([]); // To store multiple ArrayBuffers
+  const [activeOverlay, setActiveOverlay] = useState<"name" | "completed" | "summary" | null>(null);
+  const [textMessages, setTextMessages] = useState<ConversationMessage[]>([]); // State to store conversation updates
+  const [audioMessages, setAudioMessages] = useState<DecodedAudioMessage[]>([]); // To store multiple ArrayBuffers
 
   // The finite state machine for the meeting: 'loading' | 'playing' | 'waiting' | 'human_input' | 'human_panelist' | 'summary' | 'max_reached'
   const [councilState, setCouncilState] = useState("loading");
@@ -79,7 +104,16 @@ function Council({
   const [maximumPlayedIndex, setMaximumPlayedIndex] = useState(0); // The maximum message every played
   const [meetingMaxLength, setMeetingMaxLength] = useState(globalOptions.conversationMaxLength);
 
-  //Secondary control variables
+  /* -------------------------------------------------------------------------- */
+  /*                                 References                                 */
+  /* -------------------------------------------------------------------------- */
+
+  const waitTimer = useRef<NodeJS.Timeout | null>(null); // The waiting timer
+
+  /* -------------------------------------------------------------------------- */
+  /*                             Secondary Controls                             */
+  /* -------------------------------------------------------------------------- */
+
   const [isRaisedHand, setIsRaisedHand] = useState(false);
   const [isMuted, setMuteUnmute] = useState(false);
 
@@ -97,9 +131,9 @@ function Council({
 
   //States from lower down
   const [currentSnippetIndex, setCurrentSnippetIndex] = useState(0);
-  const [summary, setSummary] = useState(null);//We store the summary here for easy access
+  const [sentencesLength, setSentencesLength] = useState(10);
+  const [summary, setSummary] = useState<ConversationMessage | null>(null);//We store the summary here for easy access
 
-  const waitTimer = useRef(null); // The waiting timer
 
   /* -------------------------------------------------------------------------- */
   /*                             Socket & Startup                               */
@@ -111,21 +145,21 @@ function Council({
     participants,
     lang,
     onMeetingStarted: (meeting) => {
-      setCurrentMeetingId(meeting.meeting_id);
+      setCurrentMeetingId(String(meeting.meeting_id));
       navigate(`/${lang}/meeting/${meeting.meeting_id}`);
     },
     onAudioUpdate: (audioMessage) => {
       (async () => {
-        if (audioMessage.audio) {
+        if (audioMessage.audio && audioContext.current) {
           const buffer = await audioContext.current.decodeAudioData(
-            audioMessage.audio
+            audioMessage.audio as unknown as ArrayBuffer
           );
-          audioMessage.audio = buffer;
+          const decodedMessage: DecodedAudioMessage = { ...audioMessage, audio: buffer };
+          setAudioMessages((prevAudioMessages) => [
+            ...prevAudioMessages,
+            decodedMessage,
+          ]);
         }
-        setAudioMessages((prevAudioMessages) => [
-          ...prevAudioMessages,
-          audioMessage,
-        ]);
       })();
     },
     onConversationUpdate: (textMessages) => {
@@ -208,7 +242,7 @@ function Council({
 
   //Some cases when pause should be activated
   useEffect(() => {
-    if (activeOverlay !== "" && activeOverlay !== "summary" && !isPaused) {
+    if (activeOverlay !== null && activeOverlay !== "summary" && !isPaused) {
       setPaused(true);
     } else if (location.hash && !isPaused) {
       setPaused(true);
@@ -221,7 +255,7 @@ function Council({
   useEffect(() => {
     if (isPaused) {
       setAudioPaused(true);
-    } else if (audioContext.current.state === "suspended") {
+    } else if (audioContext.current && audioContext.current.state === "suspended") {
       setAudioPaused(false);
     }
   }, [isPaused, councilState]);
@@ -231,7 +265,7 @@ function Council({
     if (councilState === 'waiting') {
       if (isPaused) {
         //Stop the waiting timer
-        clearTimeout(waitTimer.current);
+        if (waitTimer.current) clearTimeout(waitTimer.current);
         waitTimer.current = null;
       } else {
         setCouncilState('playing');
@@ -266,7 +300,7 @@ function Council({
   useEffect(() => {
 
     //In all cases accept if we are still waiting, clear the wait timer on state change
-    if (councilState !== 'waiting') {
+    if (councilState !== 'waiting' && waitTimer.current) {
       clearTimeout(waitTimer.current);
       waitTimer.current = null;
     }
@@ -320,7 +354,7 @@ function Council({
         if (summary === null && textMessages[playNextIndex]?.type === 'summary') {
           setSummary(textMessages[playNextIndex]);
         }
-        if (activeOverlay === "") {
+        if (activeOverlay === null) {
           setActiveOverlay("summary");
         }
         if (textMessages[playNextIndex]?.type !== 'summary') {
@@ -418,7 +452,7 @@ function Council({
    * @param {string} newTopic - The text content of the user's message.
    * @param {boolean} askParticular - Flag if specific addressing is needed.
    */
-  function handleOnSubmitHumanMessage(newTopic, askParticular) {
+  function handleOnSubmitHumanMessage(newTopic: string, askParticular: string) {
     if (councilState === 'human_panelist') {
       socketRef.current.emit("submit_human_panelist", { text: newTopic, speaker: currentSpeakerId });
 
@@ -472,7 +506,7 @@ function Council({
     }
   }
 
-  function handleHumanNameEntered(input) {
+  function handleHumanNameEntered(input: any) {
     if (input.humanName) {
       setHumanName(input.humanName);
       setIsRaisedHand(true);
@@ -484,7 +518,7 @@ function Council({
 
   // When overlay is closed
   function removeOverlay() {
-    setActiveOverlay("");
+    setActiveOverlay(null);
     navigate(`/${lang}/meeting/${(currentMeetingId || "new")}`);
 
     //TODO put this in a better place?
@@ -536,7 +570,7 @@ function Council({
       {councilState === 'loading' && <Loading />}
       <>
         {(councilState === 'human_input' || councilState === 'human_panelist') && (
-          <HumanInput socketRef={socketRef} isPanelist={(councilState === 'human_panelist')} currentSpeakerName={participants.find(p => p.id === currentSpeakerId)?.name} onSubmitHumanMessage={handleOnSubmitHumanMessage} />
+          <HumanInput socketRef={socketRef} isPanelist={(councilState === 'human_panelist')} currentSpeakerName={participants.find(p => p.id === currentSpeakerId)?.name || ""} onSubmitHumanMessage={handleOnSubmitHumanMessage} />
         )}
         <Output
           textMessages={textMessages}
@@ -546,7 +580,6 @@ function Council({
           isMuted={isMuted}
           isPaused={isPaused}
           currentSnippetIndex={currentSnippetIndex}
-          participants={participants}
           setCurrentSnippetIndex={setCurrentSnippetIndex}
           audioContext={audioContext}
           handleOnFinishedPlaying={handleOnFinishedPlaying}
@@ -566,20 +599,20 @@ function Council({
           canGoBack={canGoBack}
           canGoForward={canGoForward}
           canRaiseHand={canRaiseHand}
-          onTopOfOverlay={activeOverlay === "summary"}
+          onTopOfOverlay={activeOverlay === "summary" && location.hash === ""}
           humanName={humanName}
         />
       )}
-      <Overlay isActive={activeOverlay !== ""}>
-        {activeOverlay !== "" && (
+      <Overlay isActive={activeOverlay !== null}>
+        {activeOverlay !== null && (
           <CouncilOverlays
-            activeOverlay={activeOverlay}
+            activeOverlay={activeOverlay as any}
             onContinue={handleOnContinueMeetingLonger}
             onWrapItUp={handleOnGenerateSummary}
             proceedWithHumanName={handleHumanNameEntered}
             canExtendMeeting={canExtendMeeting}
             removeOverlay={removeOverlay}
-            summary={summary}
+            summary={{ text: summary?.text || "" }}
             meetingId={currentMeetingId}
             participants={participants}
           />
@@ -588,4 +621,5 @@ function Council({
     </>
   );
 }
+
 export default Council;

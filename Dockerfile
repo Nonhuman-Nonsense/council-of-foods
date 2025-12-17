@@ -6,6 +6,7 @@ COPY client/package*.json ./
 COPY client/react-audio-visualize-master ./react-audio-visualize-master
 RUN npm ci --only=production --no-audit
 COPY client/ .
+COPY shared/ ../shared/
 RUN npm run build
 
 # Stage 2: Build the Node server

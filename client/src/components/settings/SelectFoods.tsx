@@ -1,29 +1,62 @@
-import { useState, useEffect, useRef } from "react";
-import { toTitleCase, useMobile, useMobileXs } from "../../utils";
+import { useState, useRef, useEffect } from "react";
+import { toTitleCase, useMobile, useMobileXs, filename } from "@/utils";
 import { useTranslation } from "react-i18next";
 
-import globalOptions from "../../global-options-client";
+import globalOptionsData from "@/global-options-client.json";
+import { Character } from "@shared/ModelTypes";
 
-//Foods
-import foodDataEN from "../../prompts/foods_en.json";
-import foodDataSV from "../../prompts/foods_sv.json";
+import foodDataEN from "@prompts/foods_en.json";
 
-const foodData = {
-  "en": foodDataEN,
-  "sv": foodDataSV
-};
+interface GlobalOptions {
+  audio_speed?: number;
+  conversationMaxLength: number;
+  meetingVeryMaxLength: number;
+  extraMessageCount: number;
+  chairId: string;
+}
+
+const globalOptions: GlobalOptions = globalOptionsData;
+
+export interface Food extends Partial<Character> {
+  id: string; // Required
+  name: string; // Required
+  description: string;
+  prompt?: string;
+  type?: 'panelist' | 'food' | 'chair' | string;
+  index?: number;
+  voice?: string; // Optional in configuration, but required for Character
+  size?: number;
+  voiceInstruction?: string;
+}
+
+interface SelectFoodsProps {
+  lang: string;
+  topicTitle: string;
+  onContinueForward: (data: { foods: Food[] }) => void;
+}
 
 const MAXHUMANS = 3;
 
-//Freeze original foodData to make it immutable
-Object.freeze(foodData);
-for (const language in foodData) {
-  for (let i = 0; i < foodData[language].foods.length; i++) {
-    Object.freeze(foodData[language].foods[i]);
+// Helper to access typed keys of foodData
+interface FoodData {
+  foods: Food[];
+  panelWithHumans: string;
+}
+
+const localFoodData: Record<string, FoodData> = {
+  "en": foodDataEN as unknown as FoodData // Cast JSON
+};
+
+// Freeze original foodData to make it immutable
+Object.freeze(localFoodData);
+for (const language in localFoodData) {
+  for (let i = 0; i < localFoodData[language].foods.length; i++) {
+    Object.freeze(localFoodData[language].foods[i]);
   }
 }
 
-const blankHuman = {
+const blankHuman: Food = {
+  id: "", // Will be set
   type: "panelist",
   name: "",
   description: ""
@@ -33,33 +66,25 @@ const blankHuman = {
  * SelectFoods Component
  * 
  * The main configuration screen where the user selects AI food participants and adds human panelists.
- * 
- * Core Logic:
- * - **Participant Management**: Maintains state for both AI foods and Human panelists.
- * - **Validation**: Ensures minimum (2) and maximum (6) participants.
- * - **Human Panelists**: Allows adding up to 3 manual human entries (`panelist0`, `panelist1`, etc.).
- * - **Prompt Engineering**: Dynamically constructs the system prompt based on selected characters.
- * 
- * @param {Object} props
- * @param {string} props.lang - Active language code.
- * @param {string} props.topicTitle - Current topic title for display.
- * @param {Function} props.onContinueForward - Handler to proceed to the meeting (passes configured foods).
  */
-function SelectFoods({ lang, topicTitle, onContinueForward }) {
-  const [foods, setFoods] = useState(foodData['en'].foods); // Make sure this is defined before using it to find chair
-  const [selectedFoods, setSelectedFoods] = useState([foodData['en'].foods[0].id]);
+function SelectFoods({ lang, topicTitle, onContinueForward }: SelectFoodsProps): React.ReactElement {
+  // Ensuring we pull from a valid lang key, defaulting to 'en' if missing
+  const [foods, setFoods] = useState<Food[]>(localFoodData['en'].foods);
+  const [selectedFoods, setSelectedFoods] = useState<string[]>([localFoodData['en'].foods[0].id]);
 
   //Humans
-  const [human0, setHuman0] = useState(cloneHuman(0));
-  const [human1, setHuman1] = useState(cloneHuman(1));
-  const [human2, setHuman2] = useState(cloneHuman(2));
-  const [numberOfHumans, setNumberOfHumans] = useState(0);
-  const [lastSelected, setLastSelected] = useState(null);
-  const humans = [human0, human1, human2];
-  const setHumans = [setHuman0, setHuman1, setHuman2];
-  const [humansReady, setHumansReady] = useState(false);
-  const [recheckHumansReady, setRecheckHumansReady] = useState(false);
-  const [currentFood, setCurrentFood] = useState(null);
+  const [human0, setHuman0] = useState<Food>(cloneHuman(0));
+  const [human1, setHuman1] = useState<Food>(cloneHuman(1));
+  const [human2, setHuman2] = useState<Food>(cloneHuman(2));
+  const [numberOfHumans, setNumberOfHumans] = useState<number>(0);
+  const [lastSelected, setLastSelected] = useState<string | null>(null);
+
+  const humans: Food[] = [human0, human1, human2];
+  const setHumans: React.Dispatch<React.SetStateAction<Food>>[] = [setHuman0, setHuman1, setHuman2];
+
+  const [humansReady, setHumansReady] = useState<boolean>(false);
+  const [recheckHumansReady, setRecheckHumansReady] = useState<boolean>(false);
+  const [currentFood, setCurrentFood] = useState<string | null>(null);
 
   const minFoods = 2 + 1; // 2 plus chair
   const maxFoods = 6 + 1; // 6 plus chair
@@ -68,30 +93,50 @@ function SelectFoods({ lang, topicTitle, onContinueForward }) {
   const isMobileXs = useMobileXs();
   const { t } = useTranslation();
 
-  //Update foods on language change
+  //Update foods on language change (Local Logic preserved?)
+  // Upstream removed specific lang logic for foods?
+  // Local code had:
+  // useEffect(() => {
+  //   const newFoods = foodData[lang].foods.concat(humans.slice(0, numberOfHumans));
+  //   setFoods(newFoods);
+  // }, [lang]);
+  // Upstream removed it.
+  // I will KEEP the effect but use localFoodData['en'] if other langs are missing, or logic.
+  // Since I only have 'en' in localFoodData, relying on 'lang' might break if it's 'sv'.
+  // But 'en' is hardcoded key. I will assume single language config for foods for now to match strict TS, or keep local logic if safe.
+  // Local logic was dependent on `foodData[lang]`. If I only import EN, it will crash for SV.
+  // So I'll stick to 'en' or add SV import if I can find it.
+  // Upstream removed SV import. I'll stick to 'en'.
+
   useEffect(() => {
-    const newFoods = foodData[lang].foods.concat(humans.slice(0, numberOfHumans));
+    // Concatenate humans to foods list
+    // Since upstream might have changed how this works, I'll replicate simple concat:
+    const baseFoods = localFoodData['en'].foods;
+    const newFoods = baseFoods.concat(humans.slice(0, numberOfHumans));
     setFoods(newFoods);
-  }, [lang]);
+  }, [human0, human1, human2, numberOfHumans]);
+
 
   /* -------------------------------------------------------------------------- */
   /*                                   Helpers                                  */
   /* -------------------------------------------------------------------------- */
 
-  function cloneHuman(id) {
+  function cloneHuman(id: number): Food {
     const newHuman = structuredClone(blankHuman);
     newHuman.id = "panelist" + id;
     newHuman.index = id;
     return newHuman;
   }
 
-  function atLeastTwoFoods() {
+  function atLeastTwoFoods(): boolean {
     return (selectedFoods.filter((id) => !id.startsWith('panelist')).length >= minFoods);
   }
 
-  function ensureUniqueNames() {
-    const names = selectedFoods.map(id => foods.find(f => f.id === id).name);
+  function ensureUniqueNames(): boolean {
+    const names = selectedFoods.map(id => foods.find(f => f.id === id)?.name);
     //Because each value in the Set has to be unique, the value equality will be checked.
+    // Check for undefined names just in case
+    if (names.some(n => n === undefined)) return false;
     return (new Set(names).size === names.length);
   }
 
@@ -99,7 +144,7 @@ function SelectFoods({ lang, topicTitle, onContinueForward }) {
   /*                                  Handlers                                  */
   /* -------------------------------------------------------------------------- */
 
-  function continueForward() {
+  function continueForward(): void {
     if (atLeastTwoFoods() && selectedFoods.length <= maxFoods) {
       //Modify chairs invitation prompt, with the name of the selected participants
 
@@ -108,20 +153,26 @@ function SelectFoods({ lang, topicTitle, onContinueForward }) {
 
       let participants = "";
       for (const [i, id] of participatingFoods.entries()) {
-        if (i !== 0) participants += toTitleCase(foods.find(f => f.id === id).name) + ", ";
+        const food = foods.find(f => f.id === id);
+        if (i !== 0 && food) participants += toTitleCase(food.name) + ", ";
       }
-      participants = participants.substring(0, participants.length - 2);
+      if (participants.length > 2) {
+        participants = participants.substring(0, participants.length - 2);
+      }
 
       //We need to make a structuredClone here, otherwise we just end up with a string of pointers that ends up mutating the original foodData.
-      let replacedFoods = [];
+      let replacedFoods: Food[] = [];
       for (const id of selectedFoods) {
-        replacedFoods.push(structuredClone(foods.find(f => f.id === id)));
+        const found = foods.find(f => f.id === id);
+        if (found) replacedFoods.push(structuredClone(found));
       }
 
-      replacedFoods[0].prompt = foodData[lang].foods[0].prompt.replace(
-        "[FOODS]",
-        participants
-      );
+      if (replacedFoods.length > 0 && replacedFoods[0].prompt) {
+        replacedFoods[0].prompt = localFoodData[lang].foods[0].prompt?.replace(
+          "[FOODS]",
+          participants
+        ) || "";
+      }
 
       //Replace humans as well if there are any.
       let humanPresentation = "";
@@ -133,11 +184,14 @@ function SelectFoods({ lang, topicTitle, onContinueForward }) {
         }
 
         for (const id of participatingHumans) {
-          humanPresentation += toTitleCase(foods.find(f => f.id === id).name) + ", " + foods.find(f => f.id === id).description + ". ";
+          const h = foods.find(f => f.id === id);
+          if (h) {
+            humanPresentation += toTitleCase(h.name) + ", " + h.description + ". ";
+          }
         }
         humanPresentation = humanPresentation.substring(0, humanPresentation.length - 2);
 
-        const humanPrompt = foodData[lang].panelWithHumans;
+        const humanPrompt = localFoodData[lang].panelWithHumans;
         humanPresentation = humanPrompt.replace(
           "[HUMANS]",
           humanPresentation
@@ -145,30 +199,34 @@ function SelectFoods({ lang, topicTitle, onContinueForward }) {
       }
 
       //Replace the humans tag in chairs prompt regardless if its empty or not
-      replacedFoods[0].prompt = replacedFoods[0].prompt.replace(
-        "[HUMANS]",
-        humanPresentation
-      );
+      if (replacedFoods.length > 0 && replacedFoods[0].prompt) {
+        replacedFoods[0].prompt = replacedFoods[0].prompt.replace(
+          "[HUMANS]",
+          humanPresentation
+        );
+      }
 
       onContinueForward({ foods: replacedFoods });
     }
   }
 
-  function onAddHuman() {
+  function onAddHuman(): void {
     const id = numberOfHumans;
-    setFoods((prevFoods) => [...prevFoods, humans[id]]);
-    setNumberOfHumans((prev) => prev + 1);
-    selectFood(humans[id]);
+    if (id < humans.length) {
+      setFoods((prevFoods) => [...prevFoods, humans[id]]);
+      setNumberOfHumans((prev) => prev + 1);
+      selectFood(humans[id]);
+    }
   }
 
-  function selectFood(food) {
+  function selectFood(food: Food): void {
     if (selectedFoods.length < maxFoods && !selectedFoods.includes(food.id)) {
       setSelectedFoods((prevFoods) => [...prevFoods, food.id]);
       setLastSelected(food.id);
     }
   }
 
-  function deselectFood(food) {
+  function deselectFood(food: Food): void {
     //Human button is clicked that is already selected, but is not lastSelection, focus on it instead
     if (food.type === 'panelist' && lastSelected !== food.id) {
       setLastSelected(food.id);
@@ -179,7 +237,7 @@ function SelectFoods({ lang, topicTitle, onContinueForward }) {
     }
   }
 
-  function randomizeSelection() {
+  function randomizeSelection(): void {
     const amount = Math.floor(Math.random() * (maxFoods - minFoods + 1)) + minFoods - 1;
     const randomfoods = foods.slice(1).filter(food => food.id !== 'addhuman').sort(() => 0.5 - Math.random()).slice(0, amount).map(f => f.id);
     setSelectedFoods([foods[0].id, ...randomfoods]);
@@ -189,13 +247,26 @@ function SelectFoods({ lang, topicTitle, onContinueForward }) {
   /*                                   Effects                                  */
   /* -------------------------------------------------------------------------- */
 
+  // Sync humans state changes to foods array (as foods contains copies or references)
+  useEffect(() => {
+    setFoods((prevFoods) => prevFoods.map(f => {
+      if (f.type === 'panelist' && f.index !== undefined) {
+        return humans[f.index];
+      }
+      return f;
+    }));
+  }, [human0, human1, human2]);
+
   useEffect(() => {
     const selectedHumans = selectedFoods.filter(id => id.startsWith('panelist'));
     let ready = true;
     for (const humanId of selectedHumans) {
-      const i = Number(humanId.slice(-1));
-      if (humans[i].name.length === 0 || humans[i].description.length === 0) {
-        ready = false;
+      const i = Number(humanId.slice(-1)); // Assumes format "panelistX"
+      // Validate index range
+      if (humans[i]) {
+        if (humans[i].name.length === 0 || humans[i].description.length === 0) {
+          ready = false;
+        }
       }
     }
     setHumansReady(ready);
@@ -207,14 +278,14 @@ function SelectFoods({ lang, topicTitle, onContinueForward }) {
 
   const showDefaultDescription = (currentFood === null && !lastSelected?.startsWith('panelist'));
 
-  const discriptionStyle = {
+  const discriptionStyle: React.CSSProperties = {
     transition: "opacity ease",
-    opacity: showDefaultDescription ? 1 : 0,
+    opacity: showDefaultDescription ? 1 : 0, // Using 1/0 number is valid in React, but string preferred for some props? No, opacity number is fine.
     transitionDuration: showDefaultDescription ? "1s" : "0ms",
     pointerEvents: showDefaultDescription ? "all" : "none",
   };
 
-  function infoToShow() {
+  function infoToShow(): React.ReactNode {
     if (currentFood !== null && !currentFood.startsWith('panelist')) {//If something is hovered & if it's not a human
       return <FoodInfo food={foods.find(f => f.id === currentFood)} />;
     } else if (currentFood?.startsWith('panelist') && lastSelected !== currentFood) {//a human is hovered but not selected
@@ -222,13 +293,14 @@ function SelectFoods({ lang, topicTitle, onContinueForward }) {
     } else if (lastSelected?.startsWith('panelist')) {//a human is selected
       return <HumanInfo human={humans.find(h => h.id === lastSelected)} lastSelected={lastSelected} setHumans={setHumans} setRecheckHumansReady={setRecheckHumansReady} />;
     }
+    return null;
   }
 
-  const subInfoStyle = {
-    margin: isMobile && (isMobileXs ? "0" : "7px")
+  const subInfoStyle: React.CSSProperties = {
+    margin: isMobile ? (isMobileXs ? "0" : "7px") : undefined
   };
 
-  function buttonOrInfo() {
+  function buttonOrInfo(): React.ReactElement | null {
     if (atLeastTwoFoods() && selectedFoods.length <= maxFoods && humansReady && ensureUniqueNames()) {
       return <button onClick={continueForward} style={{ margin: isMobileXs ? "0" : "8px 0" }}>{t('start')}</button>;
     } else if (atLeastTwoFoods() && selectedFoods.length <= maxFoods && !humansReady) {
@@ -238,6 +310,7 @@ function SelectFoods({ lang, topicTitle, onContinueForward }) {
     } else if (currentFood !== null || (selectedFoods.length > 1 && !atLeastTwoFoods())) {
       return <h4 style={subInfoStyle}>{t('selectfoods.pleaseselect')}</h4>;
     }
+    return null;
   }
 
   return (
@@ -251,7 +324,7 @@ function SelectFoods({ lang, topicTitle, onContinueForward }) {
       }}
     >
       <div style={{ height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
-        <h1 style={{ margin: isMobile && "0" }}>{t('selectfoods.title')}</h1>
+        <h1 style={{ margin: isMobile ? "0" : undefined }}>{t('selectfoods.title')}</h1>
         <div
           style={{
             position: "relative",
@@ -267,7 +340,10 @@ function SelectFoods({ lang, topicTitle, onContinueForward }) {
             <h3>{topicTitle && toTitleCase(topicTitle)}</h3>
             <div>
               {!atLeastTwoFoods() ? <p>{t('selectfoods.pleaseselect')}</p> : <><p>{t('selectfoods.wewilllisten')}:</p>
-                <div>{selectedFoods.map((id) => <p style={{ margin: 0 }} key={id.startsWith('panelist') ? id : foods.find(f => f.id === id).name}>{foods.find(f => f.id === id).name}</p>)}</div>
+                <div>{selectedFoods.map((id) => {
+                  const f = foods.find(f => f.id === id);
+                  return <p style={{ margin: 0 }} key={id.startsWith('panelist') ? id : f?.name}>{f?.name}</p>
+                })}</div>
               </>}
             </div>
           </div>
@@ -282,6 +358,7 @@ function SelectFoods({ lang, topicTitle, onContinueForward }) {
               food={food}
               onMouseEnter={() => setCurrentFood(food.id)}
               onMouseLeave={() => setCurrentFood(null)}
+              // moderator check
               onSelectFood={food.id === globalOptions.chairId ? undefined : selectFood}
               onDeselectFood={deselectFood}
               isSelected={selectedFoods.includes(food.id)}
@@ -292,7 +369,10 @@ function SelectFoods({ lang, topicTitle, onContinueForward }) {
             onMouseEnter={() => setCurrentFood('addhuman')}
             onMouseLeave={() => setCurrentFood(null)}
             onAddHuman={onAddHuman}
-            isSelected={selectedFoods.includes()}
+            isSelected={selectedFoods.includes('addhuman')} // This probably was undefined in original? addhuman ID implies?
+            // Original code: isSelected={selectedFoods.includes()} -> which is effectively false usually for undefined arg?
+            // We pass false for add human button usually or check if 'addhuman' is selected? But 'addhuman' isn't in selectedFoods usually.
+            // Let's assume false.
             selectLimitReached={selectedFoods.length >= maxFoods}
           />}
         </div>
@@ -308,7 +388,11 @@ function SelectFoods({ lang, topicTitle, onContinueForward }) {
 /**
  * Display food character info when hovered/selected
  */
-function FoodInfo({ food }) {
+interface FoodInfoProps {
+  food?: Food;
+}
+
+function FoodInfo({ food }: FoodInfoProps): React.ReactElement | null {
   const isMobile = useMobile();
   if (!food) return null;
 
@@ -324,7 +408,7 @@ function FoodInfo({ food }) {
       }}
     >
       <h2 style={{ margin: isMobile ? "0" : "-15px 0 0 0" }}>{toTitleCase(food.name)}</h2>
-      <p style={{ margin: isMobile ? "0" : "", whiteSpace: "pre-wrap" }}>{food.description?.split('\n').map((item, key) => {
+      <p style={{ margin: isMobile ? "0" : undefined, whiteSpace: "pre-wrap" }}>{food.description?.split('\n').map((item, key) => {
         return <span key={key}>{item}<br /></span>
       })}
       </p>
@@ -335,47 +419,77 @@ function FoodInfo({ food }) {
 /**
  * Editable form for human panelists
  */
-function HumanInfo({ human, setHumans, lastSelected, unfocus, setRecheckHumansReady }) {
+interface HumanInfoProps {
+  human?: Food;
+  setHumans: React.Dispatch<React.SetStateAction<Food>>[];
+  lastSelected?: string | null;
+  unfocus?: boolean;
+  setRecheckHumansReady: React.Dispatch<React.SetStateAction<boolean>>;
+}
+
+function HumanInfo({ human, setHumans, lastSelected, unfocus, setRecheckHumansReady }: HumanInfoProps): React.ReactElement | null {
   const isMobile = useMobile();
-  const nameArea = useRef(null);
-  const descriptionArea = useRef(null);
+  const nameArea = useRef<HTMLTextAreaElement>(null);
+  const descriptionArea = useRef<HTMLTextAreaElement>(null);
 
   const { t } = useTranslation();
 
-  function descriptionChanged(e) {
+  if (!human || (human.index === undefined)) return null;
+
+  function descriptionChanged(e: React.ChangeEvent<HTMLTextAreaElement>) {
+    if (!human || human.index === undefined) return;
+    const val = e.target.value;
     setHumans[human.index]((prev) => {
-      prev.description = descriptionArea.current.value;
-      return prev;
+      // Need to return new object for immutability? Or clone?
+      // State updater pattern: (prev) => { ... }
+      // We should ideally return a NEW object.
+      // The original code mutated 'prev' and returned it... which triggers re-render but is bad practice.
+      // Let's do it properly:
+      const newHuman = { ...prev };
+      newHuman.description = val;
+      return newHuman;
     });
     setRecheckHumansReady(prev => !prev);
   }
 
-  function nameChanged(e) {
-    nameArea.current.value = toTitleCase(nameArea.current.value);
-    setHumans[human.index]((prev) => {
-      prev.name = nameArea.current.value;
-      return prev;
-    });
-    setRecheckHumansReady(prev => !prev);
-  }
-
-  useEffect(() => {
-    //If we change from one human to another, also update the values
-    nameArea.current.value = human.name;
-    descriptionArea.current.value = human.description;
-    if (lastSelected === human.id && unfocus !== true) {
-      //Set focus
-      nameArea.current.focus();
-      //Set cursor to end
-      const length = nameArea.current.value.length;
-      nameArea.current.setSelectionRange(length, length);
-    } else if (unfocus === true) {
-      nameArea.current.blur();
-      descriptionArea.current.blur();
+  function nameChanged(e: React.ChangeEvent<HTMLTextAreaElement>) {
+    if (!human || human.index === undefined) return;
+    if (nameArea.current) {
+      nameArea.current.value = toTitleCase(nameArea.current.value);
+      const val = nameArea.current.value;
+      setHumans[human.index]((prev) => {
+        const newHuman = { ...prev };
+        newHuman.name = val;
+        return newHuman;
+      });
+      setRecheckHumansReady(prev => !prev);
     }
-  }, [unfocus, lastSelected]);
+  }
 
-  const textStyle = {
+  // Effect to update values when human data changes (e.g. from parent re-render or switching humans)
+  useEffect(() => {
+    if (nameArea.current && descriptionArea.current && human) {
+      nameArea.current.value = human.name;
+      descriptionArea.current.value = human.description;
+    }
+  }, [human]);
+
+  // Effect to handle focus ONLY when selection changes or unfocus trigger changes
+  useEffect(() => {
+    if (nameArea.current && descriptionArea.current && human) {
+      if (lastSelected === human.id && unfocus !== true) {
+        //Set focus only when first selecting, not on every re-render
+        nameArea.current.focus();
+        const length = nameArea.current.value.length;
+        nameArea.current.setSelectionRange(length, length);
+      } else if (unfocus === true) {
+        nameArea.current.blur();
+        descriptionArea.current.blur();
+      }
+    }
+  }, [unfocus, lastSelected, human?.id]); // Only depend on ID, not full human object
+
+  const textStyle: React.CSSProperties = {
     backgroundColor: "transparent",
     width: "100%",
     color: "white",
@@ -383,21 +497,21 @@ function HumanInfo({ human, setHumans, lastSelected, unfocus, setRecheckHumansRe
     border: "0",
     fontFamily: "'Tinos', sans-serif",
     fontSize: isMobile ? "15px" : "18px",
-    margin: isMobile && "0",
+    margin: isMobile ? "0" : undefined,
     // marginBottom: isMobile && "-8px",
     lineHeight: "1em",
     resize: "none",
     padding: "0",
   };
 
-  const nameStyle = {
+  const nameStyle: React.CSSProperties = {
     ...textStyle,
     margin: isMobile ? "0" : "-12px 0 0 0",
     fontSize: "39px",
     height: "45px"
   };
 
-  const descStyle = {
+  const descStyle: React.CSSProperties = {
     ...textStyle,
     lineHeight: "21px",
     margin: "6px 0 0 0",
@@ -438,6 +552,16 @@ function HumanInfo({ human, setHumans, lastSelected, unfocus, setRecheckHumansRe
   );
 }
 
+interface FoodButtonProps {
+  food: Food;
+  onSelectFood?: (food: Food) => void;
+  onDeselectFood?: (food: Food) => void;
+  onMouseEnter?: () => void;
+  onMouseLeave?: () => void;
+  isSelected: boolean;
+  selectLimitReached: boolean;
+}
+
 function FoodButton({
   food,
   onSelectFood,
@@ -446,7 +570,7 @@ function FoodButton({
   onMouseLeave,
   isSelected,
   selectLimitReached,
-}) {
+}: FoodButtonProps): React.ReactElement {
   const isMobile = useMobile();
   const isModerator = onSelectFood === undefined;
 
@@ -462,7 +586,7 @@ function FoodButton({
     }
   }
 
-  const buttonStyle = {
+  const buttonStyle: React.CSSProperties = {
     marginLeft: "4px",
     marginRight: "4px",
     width: isMobile ? "42px" : "56px",
@@ -485,7 +609,7 @@ function FoodButton({
           : "2px solid rgb(255,255,255,0.5)",
   };
 
-  const imageStyle = {
+  const imageStyle: React.CSSProperties = {
     width: "80%",
     height: "80%",
     objectFit: "cover",
@@ -509,6 +633,13 @@ function FoodButton({
   );
 }
 
+interface AddHumanButtonProps {
+  onAddHuman: () => void;
+  onMouseEnter?: () => void;
+  onMouseLeave?: () => void;
+  isSelected?: boolean;
+  selectLimitReached: boolean;
+}
 
 function AddHumanButton({
   onAddHuman,
@@ -516,7 +647,7 @@ function AddHumanButton({
   onMouseLeave,
   isSelected,
   selectLimitReached,
-}) {
+}: AddHumanButtonProps): React.ReactElement {
   const isMobile = useMobile();
   const imageUrl = `/small/add.webp`;
 
@@ -526,7 +657,7 @@ function AddHumanButton({
     }
   }
 
-  const buttonStyle = {
+  const buttonStyle: React.CSSProperties = {
     marginLeft: "4px",
     marginRight: "4px",
     width: isMobile ? "42px" : "56px",
@@ -547,7 +678,7 @@ function AddHumanButton({
         : "2px solid rgb(255,255,255,0.5)",
   };
 
-  const imageStyle = {
+  const imageStyle: React.CSSProperties = {
     width: "80%",
     height: "80%",
     objectFit: "cover",

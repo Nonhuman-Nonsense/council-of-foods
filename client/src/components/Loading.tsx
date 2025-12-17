@@ -1,6 +1,6 @@
 import Lottie from 'react-lottie-player';
-import loading from '../animations/loading.json';
-import { useMobile } from "../utils";
+import loading from '@animations/loading.json';
+import { useMobile } from "@/utils";
 
 /**
  * Loading Component
@@ -8,7 +8,7 @@ import { useMobile } from "../utils";
  * Displays an animated Lottie spinner.
  * Centered vertically with a slight offset for visual balance.
  */
-function Loading() {
+function Loading(): React.ReactElement {
 
   const isMobile = useMobile();
 

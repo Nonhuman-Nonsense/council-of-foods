@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
-import ResetWarning from "../overlays/ResetWarning";
-import { capitalizeFirstLetter, toTitleCase, useMobile, useMobileXs } from "../../utils";
+import ResetWarning from "@components/overlays/ResetWarning";
+import { capitalizeFirstLetter, toTitleCase, useMobile, useMobileXs } from "@/utils";
 import { useTranslation } from "react-i18next";
 
 /**
@@ -16,26 +16,48 @@ import { useTranslation } from "react-i18next";
  * - Validates that a topic is selected (and custom text entered if applicable) before proceeding.
  * - Shows a warning if the user attempts to change the topic mid-meeting.
  */
+const CUSTOM_TOPIC_ID = "customtopic";
+
+export interface Topic {
+  id: string;
+  title: string;
+  description?: string;
+  prompt?: string;
+}
+
+export interface TopicSelection {
+  topic: string;
+  custom: string;
+}
+
+interface SelectTopicProps {
+  topics: Topic[];
+  onContinueForward: (data: TopicSelection) => void;
+  currentTopic?: Topic;
+  onReset: (data: TopicSelection) => void;
+  onCancel: () => void;
+}
+
 function SelectTopic({
   topics,
   onContinueForward,
   currentTopic,
   onReset,
   onCancel
-}) {
+}: SelectTopicProps): React.ReactElement {
   const { t } = useTranslation();
   const isMobile = useMobile();
   const isMobileXs = useMobileXs();
-  const topicTextareaRef = useRef(null);
+  const topicTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   /* -------------------------------------------------------------------------- */
   /*                                    State                                   */
   /* -------------------------------------------------------------------------- */
 
-  const [selectedTopic, setSelectedTopic] = useState("");
-  const [hoverTopic, setHoverTopic] = useState(null);
-  const [customTopic, setCustomTopic] = useState("");
-  const [displayWarning, setDisplayWarning] = useState(false);
+  const [selectedTopic, setSelectedTopic] = useState<string>("");
+  const [hoverTopic, setHoverTopic] = useState<string | null>(null);
+  const [customTopic, setCustomTopic] = useState<string>("");
+  const [displayWarning, setDisplayWarning] = useState<boolean>(false);
 
   /* -------------------------------------------------------------------------- */
   /*                                   Effects                                  */
@@ -44,7 +66,7 @@ function SelectTopic({
   // Pre-fill selection if editing an existing topic (e.g. backtracking)
   useEffect(() => {
     if (currentTopic?.prompt) {
-      if (currentTopic.id === 'customtopic' && currentTopic.description) {
+      if (currentTopic.id === CUSTOM_TOPIC_ID && currentTopic.description) {
         setCustomTopic(currentTopic.description);
       }
       setSelectedTopic(currentTopic.id);
@@ -55,13 +77,13 @@ function SelectTopic({
   /*                                  Handlers                                  */
   /* -------------------------------------------------------------------------- */
 
-  function handleInputTopic(e) {
+  function handleInputTopic(e: React.ChangeEvent<HTMLTextAreaElement>): void {
     const newTopic = e.target.value;
     const capitalizedTopic = capitalizeFirstLetter(newTopic).substring(0, 150);
     setCustomTopic(capitalizedTopic);
   }
 
-  function proceedForward() {
+  function proceedForward(): void {
     if (currentTopic) {
       setDisplayWarning(true);
     } else {
@@ -77,7 +99,7 @@ function SelectTopic({
    * Determines which tooltip text to display.
    * Priority: Hovered Topic -> Selected Topic -> Default Instruction
    */
-  function toolTip() {
+  function toolTip(): string | undefined {
     if (hoverTopic) {
       return topics.find(t => t.id === hoverTopic)?.description;
     } else if (selectedTopic) {
@@ -91,35 +113,35 @@ function SelectTopic({
    * Determines if the custom topic text box should be visible.
    * Logic: Visible if Custom is selected OR hovered (unless hovering another topic while Custom is selected).
    */
-  function showTextBox() {
-    if (selectedTopic === 'customtopic' && hoverTopic && hoverTopic !== 'customtopic') {
+  function showTextBox(): boolean {
+    if (selectedTopic === CUSTOM_TOPIC_ID && hoverTopic && hoverTopic !== CUSTOM_TOPIC_ID) {
       return false;
     }
-    return selectedTopic === 'customtopic' || hoverTopic === 'customtopic';
+    return selectedTopic === CUSTOM_TOPIC_ID || hoverTopic === CUSTOM_TOPIC_ID;
   }
 
   const shouldShowNextButton =
     selectedTopic &&
-    !(selectedTopic === "customtopic" && !customTopic.trim());
+    !(selectedTopic === CUSTOM_TOPIC_ID && !customTopic.trim());
 
   /* -------------------------------------------------------------------------- */
   /*                                    Styles                                  */
   /* -------------------------------------------------------------------------- */
 
-  const standardTopics = topics.filter(t => t.id !== 'customtopic');
-  const customTopicObj = topics.find(t => t.id === 'customtopic');
+  const standardTopics = topics.filter(t => t.id !== CUSTOM_TOPIC_ID);
+  const customTopicObj = topics.find(t => t.id === CUSTOM_TOPIC_ID);
   const isSingleColumn = standardTopics.length <= 6;
 
-  const containerStyle = {
+  const containerStyle: React.CSSProperties = {
     width: "96vw",
     maxWidth: "850px",
     display: "flex",
     flexDirection: "column",
-    justifyContent: "flexStart",
+    justifyContent: "flex-start",
     alignItems: "center",
   };
 
-  const gridContainerStyle = {
+  const gridContainerStyle: React.CSSProperties = {
     display: "grid",
     gridTemplateColumns: isSingleColumn ? "1fr" : "1fr 1fr",
     width: "100%",
@@ -128,18 +150,18 @@ function SelectTopic({
     justifyItems: "center"
   };
 
-  const selectButtonStyle = {
+  const selectButtonStyle: React.CSSProperties = {
     padding: isMobile ? "3px 0" : "6px 0",
     width: isSingleColumn ? "50%" : "100%",
   };
 
-  const customButtonStyle = {
+  const customButtonStyle: React.CSSProperties = {
     ...selectButtonStyle,
     gridColumn: "1 / -1", // Always span full row for centering
     width: "50%",         // Always 50% width for consistency
   };
 
-  const descriptionStyle = {
+  const descriptionStyle: React.CSSProperties = {
     marginTop: isMobile ? "9px" : "15px",
     marginBottom: 0,
     width: isMobile ? "80%" : "70%",
@@ -147,7 +169,7 @@ function SelectTopic({
     overflow: "hidden"
   };
 
-  const textBoxStyle = {
+  const textBoxStyle: React.CSSProperties = {
     backgroundColor: "transparent",
     width: isMobile ? "80%" : "70%",
     color: "white",
@@ -176,7 +198,7 @@ function SelectTopic({
         />
       ) : (
         <div style={containerStyle}>
-          <h1 style={{ marginBottom: isMobile && (isMobileXs ? "0px" : "5px") }}>
+          <h1 style={{ marginBottom: isMobile ? (isMobileXs ? "0px" : "5px") : undefined }}>
             {t('theissue')}
           </h1>
 
@@ -210,12 +232,12 @@ function SelectTopic({
                 <button
                   className={selectedTopic === customTopicObj.id ? "selected " : ""}
                   onClick={() => {
-                    setSelectedTopic("customtopic");
+                    setSelectedTopic(CUSTOM_TOPIC_ID);
                     setTimeout(() => {
                       topicTextareaRef.current && topicTextareaRef.current.focus();
                     }, 0);
                   }}
-                  onMouseEnter={() => setHoverTopic("customtopic")}
+                  onMouseEnter={() => setHoverTopic(CUSTOM_TOPIC_ID)}
                   onMouseLeave={() => setHoverTopic(null)}
                   style={customButtonStyle}
                 >
@@ -234,7 +256,7 @@ function SelectTopic({
           <textarea
             ref={topicTextareaRef}
             className="unfocused topic-textarea"
-            rows="3"
+            rows={3}
             value={customTopic}
             placeholder={t('writetopic')}
             onChange={handleInputTopic}
@@ -243,7 +265,7 @@ function SelectTopic({
 
           <button
             onClick={proceedForward}
-            style={{ visibility: shouldShowNextButton ? "" : "hidden" }}
+            style={{ visibility: shouldShowNextButton ? undefined : "hidden" }}
           >
             {t('next')}
           </button>

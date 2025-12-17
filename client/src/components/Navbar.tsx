@@ -1,10 +1,23 @@
-import { useState, useRef, useEffect } from "react";
-import { useLocation, Link, useNavigate } from "react-router";
+import { useState, useRef, useEffect, RefObject } from "react";
+import { useLocation, Link, useNavigate, NavigateFunction, Location } from "react-router";
 import { useMediaQuery } from 'react-responsive'
 import { useTranslation } from 'react-i18next';
-import { capitalizeFirstLetter, useMobile, useMobileXs, usePortrait } from "../utils";
+import { capitalizeFirstLetter, useMobile, useMobileXs, usePortrait } from "@/utils";
 import Lottie from "react-lottie-player";
-import hamburger from "../animations/hamburger.json";
+import hamburger from "@/animations/hamburger.json";
+
+interface NavbarProps {
+  lang: string;
+  topic: string;
+  hamburgerOpen: boolean;
+  setHamburgerOpen: (open: boolean) => void;
+}
+
+interface LottiePlayerHandle {
+  play: () => void;
+  setDirection: (direction: number) => void;
+  stop: () => void;
+}
 
 /**
  * Navbar Component
@@ -16,22 +29,16 @@ import hamburger from "../animations/hamburger.json";
  * - Detects active section based on URL hash (e.g. `#contact`).
  * - Manages hamburger menu animation state for mobile devices.
  * - Displays the "Council" logo and current topic when allowed (`showIconinMeny`).
- * 
- * @param {Object} props
- * @param {string} props.lang - Current language code.
- * @param {string} props.topic - Current discussion topic name.
- * @param {boolean} props.hamburgerOpen - State of the mobile menu.
- * @param {Function} props.setHamburgerOpen - Setter for mobile menu state.
  */
-function Navbar({ lang, topic, hamburgerOpen, setHamburgerOpen }) {
-  const isMobile = useMobile();
-  const isMobileXs = useMobileXs();
-  const isPortrait = usePortrait();
-  const showIconinMeny = useMediaQuery({ query: '(min-width: 700px)' });
-  const hamburgerAnimation = useRef(null);
-  const [activeMenuItem, setActiveMenuItem] = useState('');
-  const location = useLocation();
-  const navigate = useNavigate();
+function Navbar({ lang, topic, hamburgerOpen, setHamburgerOpen }: NavbarProps): React.ReactElement {
+  const isMobile: boolean = useMobile();
+  const isMobileXs: boolean = useMobileXs();
+  const isPortrait: boolean = usePortrait();
+  const showIconinMeny: boolean = useMediaQuery({ query: '(min-width: 700px)' });
+  const hamburgerAnimation = useRef<any>(null);
+  const [activeMenuItem, setActiveMenuItem] = useState<string>('');
+  const location: Location = useLocation();
+  const navigate: NavigateFunction = useNavigate();
 
   const { t } = useTranslation();
 
@@ -61,7 +68,7 @@ function Navbar({ lang, topic, hamburgerOpen, setHamburgerOpen }) {
   /*                                  Handlers                                  */
   /* -------------------------------------------------------------------------- */
 
-  function handleOnNavigate(to) {
+  function handleOnNavigate(to: string): void {
     navigate({
       hash: to
     });
@@ -76,11 +83,11 @@ function Navbar({ lang, topic, hamburgerOpen, setHamburgerOpen }) {
   /*                                    Styles                                  */
   /* -------------------------------------------------------------------------- */
 
-  const navbarStyle = {
+  const navbarStyle: React.CSSProperties = {
     padding: isMobile ? (isMobileXs ? "15px 15px 0 15px" : "20px 20px 0 20px") : "20px",
     display: isPortrait ? "none" : "flex",
     justifyContent: "space-between",
-    alignItems: "start",
+    alignItems: "flex-start",
     color: "white",
     position: "absolute",
     top: 0,
@@ -89,12 +96,12 @@ function Navbar({ lang, topic, hamburgerOpen, setHamburgerOpen }) {
     margin: "0 auto",
     width: "100%",
     boxSizing: "border-box",
-    zIndex: "10",
+    zIndex: 10,
     height: isMobile && isMobileXs ? "45px" : "60px",
     pointerEvents: "none"
   };
 
-  const hamburgerStyle = {
+  const hamburgerStyle: React.CSSProperties = {
     cursor: "pointer",
     width: isMobileXs ? "40px" : "50px",
     height: isMobileXs ? "40px" : "50px",
@@ -107,7 +114,7 @@ function Navbar({ lang, topic, hamburgerOpen, setHamburgerOpen }) {
     pointerEvents: "auto",
   };
 
-  const languageStyle = {
+  const languageStyle: React.CSSProperties = {
     cursor: "pointer",
     opacity: "1",
     transitionProperty: "opacity",
@@ -117,9 +124,9 @@ function Navbar({ lang, topic, hamburgerOpen, setHamburgerOpen }) {
     textUnderlineOffset: "4px",
   };
 
-  const navItems = ["settings", "about", "contact"];
+  const navItems: string[] = ["settings", "about", "contact"];
 
-  const showMenu = (!isMobile || hamburgerOpen);
+  const showMenu: boolean = (!isMobile || hamburgerOpen);
 
   /* -------------------------------------------------------------------------- */
   /*                                   Render                                   */
@@ -206,13 +213,20 @@ function Navbar({ lang, topic, hamburgerOpen, setHamburgerOpen }) {
   );
 }
 
-function NavItem({ name, isActive, show, onNavigate }) {
+interface NavItemProps {
+  name: string;
+  isActive: boolean;
+  show: boolean;
+  onNavigate: (to: string) => void;
+}
+
+function NavItem({ name, isActive, show, onNavigate }: NavItemProps): React.ReactElement {
   const { t } = useTranslation();
 
-  const navItemStyle = {
+  const navItemStyle: React.CSSProperties = {
     marginLeft: "19px",
     cursor: "pointer",
-    opacity: show ? "1" : "0",
+    opacity: show ? 1 : 0,
     transition: "opacity 1s 0.2s",
     pointerEvents: show ? "auto" : "none",
     textDecoration: isActive ? "underline" : "none",

@@ -5,25 +5,29 @@ import Overlay from "./Overlay";
 import MainOverlays from "./MainOverlays";
 import Landing from "./settings/Landing";
 import Navbar from "./Navbar";
-import SelectTopic from "./settings/SelectTopic";
-import SelectFoods from "./settings/SelectFoods";
+import SelectTopic, { Topic } from "./settings/SelectTopic";
+import SelectFoods, { Food } from "./settings/SelectFoods";
 import Council from "./Council";
 import RotateDevice from "./RotateDevice";
 import FullscreenButton from "./FullscreenButton";
-import { useDocumentVisibility, usePortrait } from "../utils";
-import CouncilError from "./overlays/CouncilError.jsx";
+import { usePortrait, useDocumentVisibility, dvh } from "@/utils";
+import CouncilError from "./overlays/CouncilError";
 import Forest from './Forest';
-import Reconnecting from "./overlays/Reconnecting.jsx";
+import Reconnecting from "./overlays/Reconnecting";
 import { useTranslation } from 'react-i18next';
 
 //Topics
-import topicDataEN from "../prompts/topics_en.json";
-import routes from "../routes.json"; // Import routes directly
-import topicDataSV from "../prompts/topics_sv.json";
+import topicDataEN from "@prompts/topics_en.json";
+import routes from "@/routes.json"; // Import routes directly
+import { Character } from "@shared/ModelTypes";
 
-const topicsData = {
-  "en": topicDataEN,
-  "sv": topicDataSV
+interface TopicsData {
+  topics: Topic[];
+  system: string;
+}
+
+const topicsData: Record<string, TopicsData> = {
+  "en": topicDataEN
 };
 
 //Freeze original topicData to make it immutable
@@ -38,8 +42,8 @@ function useIsIphone() {
   const [isIphone, setIsIphone] = useState(false);
 
   useEffect(() => {
-    const userAgent = navigator.userAgent || navigator.vendor || window.opera;
-    if (/iPhone/.test(userAgent) && !window.MSStream) {
+    const userAgent = navigator.userAgent || navigator.vendor || (window as any).opera;
+    if (/iPhone/.test(userAgent) && !(window as any).MSStream) {
       setIsIphone(true);
     }
   }, []);
@@ -61,11 +65,15 @@ function useIsIphone() {
  * @param {Object} props
  * @param {string} props.lang - Active language code.
  */
-function Main({ lang }) {
-  const [topics, setTopics] = useState(topicsData['en'].topics);
-  const [chosenTopic, setChosenTopic] = useState({});
+interface MainProps {
+  lang: string;
+}
+
+function Main({ lang }: MainProps) {
+  const [topics, setTopics] = useState<Topic[]>(topicsData['en'].topics);
+  const [chosenTopic, setChosenTopic] = useState<Topic>({ id: "", title: "" });
   const [customTopic, setCustomTopic] = useState("");
-  const [participants, setParticipants] = useState([]);
+  const [participants, setParticipants] = useState<Character[]>([]);
   const [unrecoverabeError, setUnrecoverableError] = useState(false);
   const [connectionError, setConnectionError] = useState(false);
 
@@ -76,18 +84,19 @@ function Main({ lang }) {
   const [currentSpeakerId, setCurrentSpeakerId] = useState("");
   const [isPaused, setPaused] = useState(false);
 
-  const audioContext = useRef(null); // The AudioContext object
+  const audioContext = useRef<AudioContext | null>(null); // The AudioContext object
   const [audioPaused, setAudioPaused] = useState(false);
 
   const location = useLocation();
   const navigate = useNavigate();
   const isIphone = useIsIphone();
   const isPortrait = usePortrait();
+  const isDocumentVisible = useDocumentVisibility();
 
   const { i18n } = useTranslation();
 
   if (audioContext.current === null) {
-    const AudioContext = window.AudioContext || window.webkitAudioContext; //cross browser
+    const AudioContext = window.AudioContext || (window as any).webkitAudioContext; //cross browser
     audioContext.current = new AudioContext();
   }
 
@@ -106,7 +115,10 @@ function Main({ lang }) {
     // Update the chosen topic if language changes later
     if (chosenTopic.id) {
       setChosenTopic(prev => {
-        prev.title = topicsData[lang].topics.find(t => t.id === chosenTopic.id).title
+        const found = topicsData[lang].topics.find(t => t.id === chosenTopic.id);
+        if (found) {
+          return { ...prev, title: found.title };
+        }
         return prev;
       });
     }
@@ -115,10 +127,10 @@ function Main({ lang }) {
   //When pause changes, suspend audio context
   useEffect(() => {
     if (audioPaused) {
-      if (audioContext.current.state !== "suspended") {
+      if (audioContext.current && audioContext.current.state !== "suspended") {
         audioContext.current.suspend();
       }
-    } else if (audioContext.current.state === "suspended") {
+    } else if (audioContext.current && audioContext.current.state === "suspended") {
       audioContext.current.resume();
     }
   }, [audioPaused]);
@@ -131,52 +143,63 @@ function Main({ lang }) {
     }
   }, [location.pathname]);
 
-  function topicSelected({ topic, custom }) {
-    setChosenTopic({ id: topic, title: topics.find(t => t.id === topic).title });
+  function topicSelected({ topic, custom }: { topic: string; custom?: string }) {
+    const found = topics.find(t => t.id === topic);
+    setChosenTopic({ id: topic, title: found?.title || "" });
     if (custom) {
       setCustomTopic(custom);
     }
     navigate(`/${lang}/${routes.foods}`);
   }
 
-  function beingsSelected({ foods }) {
-    setParticipants(foods);
+  function foodsSelected({ foods }: { foods: Food[] }) {
+    // Convert Food[] to Character[] by ensuring all required properties are present
+    const participants: Character[] = foods.map(food => ({
+      ...food,
+      voice: food.voice || "default_voice", // Provide default if missing
+      type: food.type || "food" // Ensure type is set
+    })) as Character[];
+
+    setParticipants(participants);
     proceedToMeeting();
   }
 
   function letsGo() {
-    audioContext.current.resume();
+    audioContext.current?.resume();
     navigate(`/${lang}/${routes.topics}`);
   }
 
   function proceedToMeeting() {
     //After this, the language cannot be changed anymore
 
-    //We need to make a structuredClone here, otherwise we just end up with a string of pointers that ends up mutating the original topicData.
-    let copiedTopic = structuredClone(topics.find(t => t.id === chosenTopic.id));
+    const foundTopic = topics.find(t => t.id === chosenTopic.id);
+    if (!foundTopic) return;
+
+    let copiedTopic = structuredClone(foundTopic);
     if (copiedTopic.id === "customtopic") {
       copiedTopic.prompt = customTopic;
       copiedTopic.description = customTopic;
     }
 
-    copiedTopic.prompt = topicsData[lang].system.replace(
-      "[TOPIC]",
-      copiedTopic.prompt
-    );
+    if (copiedTopic.prompt) {
+      copiedTopic.prompt = topicsData[lang].system.replace(
+        "[TOPIC]",
+        copiedTopic.prompt
+      );
+    }
 
     setChosenTopic(copiedTopic);
 
     //Start the meeting
-    //Start the meeting
     navigate(`/${lang}/${routes.meeting}/new`);
   }
 
-  function onReset(resetData) {
+  function onReset(resetData?: any) {
     setParticipants([]);
 
     if (!resetData?.topic) {
       // Reset from the start
-      setChosenTopic({});
+      setChosenTopic({ id: "", title: "" });
       navigate(`/${lang}`);
 
       //Reload the entire window, in case the frontend has been updated etc.
@@ -184,7 +207,7 @@ function Main({ lang }) {
       window.location.reload();
     } else {
       // Reset from foods selection
-      topicSelected(resetData);
+      topicSelected(resetData as any);
     }
   }
 
@@ -195,7 +218,7 @@ function Main({ lang }) {
 
   //Create a special div that covers all click events that are not on the menu
   //If this is clicked, then menu is closed
-  const hamburgerCloserStyle = {
+  const hamburgerCloserStyle: React.CSSProperties = {
     position: "absolute",
     width: "100%",
     height: "100%",
@@ -242,6 +265,8 @@ function Main({ lang }) {
                 <SelectTopic
                   topics={topics}
                   onContinueForward={(props) => topicSelected(props)}
+                  onReset={() => { }}
+                  onCancel={() => { }}
                 />
               }
             />
@@ -251,7 +276,7 @@ function Main({ lang }) {
                 <SelectFoods
                   lang={lang}
                   topicTitle={chosenTopic.title}
-                  onContinueForward={(props) => beingsSelected(props)}
+                  onContinueForward={(props) => foodsSelected(props)}
                 />
               }
             />
@@ -261,7 +286,7 @@ function Main({ lang }) {
                 participants.length !== 0 && ( // If page is reloaded, don't even start the council for now
                   <Council
                     lang={lang}
-                    topic={chosenTopic}
+                    topic={{ ...chosenTopic, prompt: chosenTopic.prompt || "" }}
                     participants={participants}
                     currentSpeakerId={currentSpeakerId}
                     setCurrentSpeakerId={setCurrentSpeakerId}

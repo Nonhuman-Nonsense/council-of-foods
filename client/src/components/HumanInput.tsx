@@ -1,11 +1,36 @@
 import { useState, useEffect, useRef } from "react";
 import ConversationControlIcon from "./ConversationControlIcon";
 import TextareaAutosize from 'react-textarea-autosize';
-import { useMobile, dvh } from "../utils";
+import { useMobile, dvh, mapFoodIndex } from "@/utils";
 import { useTranslation } from "react-i18next";
 import { LiveAudioVisualizer } from 'react-audio-visualize';
 import Lottie from 'react-lottie-player';
-import loading from '../animations/loading.json';
+import loading from '@animations/loading.json';
+import { Socket } from "socket.io-client";
+import { ClientToServerEvents, ServerToClientEvents, ClientKeyResponse } from "@shared/SocketTypes";
+// import { Food } from "./settings/SelectFoods";
+import React from 'react';
+import { Character } from "@shared/ModelTypes";
+
+// OpenAI Realtime API Interfaces
+interface InputAudioTranscriptionCompletedEvent {
+  type: "conversation.item.input_audio_transcription.completed";
+  item_id: string;
+  transcript: string;
+}
+
+type OpenAIRealtimeEvent = InputAudioTranscriptionCompletedEvent; // Union with other events if needed
+
+interface HumanInputProps {
+  // foods: Character[]; // Unused in Forest?
+  isPanelist: boolean;
+  currentSpeakerName: string;
+  onSubmitHumanMessage: (text: string, askParticular: string) => void;
+  socketRef: React.MutableRefObject<Socket<ServerToClientEvents, ClientToServerEvents>>;
+}
+
+// Workaround for TextareaAutosize strict height type
+type TextareaStyle = Omit<React.CSSProperties, 'height'> & { height?: number };
 
 /**
  * HumanInput Component
@@ -16,31 +41,26 @@ import loading from '../animations/loading.json';
  * - **Voice Input**: Establishes a WebRTC connection to OpenAI ('startRealtimeSession') to stream audio and receive live transcripts.
  * - **Text Input**: Provides a fallback manual text entry.
  * - **Targeting**: Should allow selection of specific characters to address (logic partially implemented via `askParticular`).
- * 
- * @param {Object} props
- * @param {boolean} props.isPanelist - Mode flag: True if acting as a specific human panelist (interruption), False if general audience entry.
- * @param {string} props.currentSpeakerName - Context for placeholder text.
- * @param {Function} props.onSubmitHumanMessage - Callback to send final text to server.
- * @param {Object} props.socketRef - Socket reference for requesting client keys.
  */
-function HumanInput({ isPanelist, currentSpeakerName, onSubmitHumanMessage, socketRef }) {
-  const [clientKey, setClientKey] = useState(null);
-  const [recordingState, setRecordingState] = useState("idle");
-  const [canContinue, setCanContinue] = useState(false);
-  const [transcript, setTranscript] = useState({});
-  const [previousTranscript, setPreviousTranscript] = useState("");
-  const [askParticular, setAskParticular] = useState("");
-  const [someoneHovered, setSomeoneHovered] = useState(false);
-  const inputArea = useRef(null);
+function HumanInput({ isPanelist, currentSpeakerName, onSubmitHumanMessage, socketRef }: HumanInputProps): React.ReactElement {
+  const [clientKey, setClientKey] = useState<string | null>(null);
+  const [recordingState, setRecordingState] = useState<"idle" | "loading" | "recording">("idle");
+  const [canContinue, setCanContinue] = useState<boolean>(false);
+  const [transcript, setTranscript] = useState<Record<string, string>>({});
+  const [previousTranscript, setPreviousTranscript] = useState<string>("");
+  const [askParticular, setAskParticular] = useState<string>("");
+  const [someoneHovered, setSomeoneHovered] = useState<boolean>(false);
+
+  const inputArea = useRef<HTMLTextAreaElement>(null);
   const isMobile = useMobile();
 
-  const [mediaRecorder, setMediaRecorder] = useState(null);
+  const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
 
-  const initialized = useRef(false);
-  const pc = useRef(null);
-  const mic = useRef(null);
+  const initialized = useRef<boolean>(false);
+  const pc = useRef<RTCPeerConnection | null>(null);
+  const mic = useRef<MediaStream | null>(null);
 
-  const [rerender, forceRerender] = useState(false);
+  const [rerender, forceRerender] = useState<boolean>(false);
   const { t } = useTranslation();
 
   const maxInputLength = isPanelist ? 1300 : 700;
@@ -97,11 +117,12 @@ function HumanInput({ isPanelist, currentSpeakerName, onSubmitHumanMessage, sock
     const answer = {
       type: "answer",
       sdp: await sdpResponse.text(),
-    };
+    } as RTCSessionDescriptionInit;
+
     await pc.current.setRemoteDescription(answer);
 
     dc.addEventListener("message", (e) => {
-      const event = JSON.parse(e.data);
+      const event: OpenAIRealtimeEvent = JSON.parse(e.data);
       // Delta events are not working at the moment
       // https://community.openai.com/t/gpt-4o-transcribe-realtime-the-delta-updates-not-received-during-the-transcription/1357039
       // if (event.type === "conversation.item.input_audio_transcription.delta") {
@@ -113,8 +134,9 @@ function HumanInput({ isPanelist, currentSpeakerName, onSubmitHumanMessage, sock
       // }
       if (event.type === "conversation.item.input_audio_transcription.completed") {
         setTranscript(prev => {
-          prev[event.item_id] = event.transcript;
-          return { ...prev };
+          const newTranscript = { ...prev };
+          newTranscript[event.item_id] = event.transcript;
+          return newTranscript;
         });
       }
     });
@@ -127,11 +149,12 @@ function HumanInput({ isPanelist, currentSpeakerName, onSubmitHumanMessage, sock
       socketRef.current.emit('request_clientkey');
       initialized.current = true;
     }
-    socketRef.current.on('clientkey_response', (data) => {
+    const handleClientKey = (data: ClientKeyResponse) => {
       setClientKey(data.value);
-    });
+    };
+    socketRef.current.on('clientkey_response', handleClientKey);
     return () => {
-      socketRef.current.off('clientkey_response');
+      socketRef.current.off('clientkey_response', handleClientKey);
       pc.current?.close();
       mic.current?.getTracks().forEach(track => track.stop());
     }
@@ -146,6 +169,8 @@ function HumanInput({ isPanelist, currentSpeakerName, onSubmitHumanMessage, sock
   }
 
   useEffect(() => {
+    if (!inputArea.current) return;
+
     if (recordingState === 'loading') {
       setPreviousTranscript(inputArea.current.value);
     } else if (recordingState === 'recording') {
@@ -165,19 +190,19 @@ function HumanInput({ isPanelist, currentSpeakerName, onSubmitHumanMessage, sock
     inputChanged();
   }, [transcript, recordingState]);
 
-  function inputFocused(e) {
+  function inputFocused(e: React.FocusEvent) {
     setRecordingState('idle');
   }
 
-  function inputChanged(e) {
-    if (inputArea.current.value.length > 0 && inputArea.current.value.trim().length !== 0) {
+  function inputChanged(e?: React.ChangeEvent) {
+    if (inputArea.current && inputArea.current.value.length > 0 && inputArea.current.value.trim().length !== 0) {
       setCanContinue(true);
     } else {
       setCanContinue(false);
     }
   }
 
-  function checkEnter(e) {
+  function checkEnter(e: React.KeyboardEvent) {
     if (canContinue && !e.shiftKey && e.key === "Enter") {
       e.preventDefault();
       submitAndContinue();
@@ -185,10 +210,12 @@ function HumanInput({ isPanelist, currentSpeakerName, onSubmitHumanMessage, sock
   }
 
   function submitAndContinue() {
-    onSubmitHumanMessage(inputArea.current.value.substring(0, maxInputLength), askParticular);
+    if (inputArea.current) {
+      onSubmitHumanMessage(inputArea.current.value.substring(0, maxInputLength), askParticular);
+    }
   }
 
-  const wrapperStyle = {
+  const wrapperStyle: React.CSSProperties = {
     position: "absolute",
     bottom: "0",
     display: "flex",
@@ -196,7 +223,7 @@ function HumanInput({ isPanelist, currentSpeakerName, onSubmitHumanMessage, sock
     alignItems: "center",
   };
 
-  const micStyle = {
+  const micStyle: React.CSSProperties = {
     position: "absolute",
     bottom: "0" + dvh,
     height: "65" + dvh,
@@ -206,7 +233,7 @@ function HumanInput({ isPanelist, currentSpeakerName, onSubmitHumanMessage, sock
     animationFillMode: "both",
   };
 
-  const divStyle = {
+  const divStyle: React.CSSProperties = {
     width: isMobile ? "45px" : "56px",
     height: isMobile ? "45px" : "56px",
     zIndex: "3",
@@ -214,7 +241,7 @@ function HumanInput({ isPanelist, currentSpeakerName, onSubmitHumanMessage, sock
     alignItems: "center"
   };
 
-  const textStyle = {
+  const textStyle: TextareaStyle = {
     backgroundColor: "rgba(0,0,0,0.5)",
     width: "70vw",
     color: "white",
@@ -222,8 +249,8 @@ function HumanInput({ isPanelist, currentSpeakerName, onSubmitHumanMessage, sock
     border: "0",
     fontFamily: "Arial, sans-serif",
     fontSize: isMobile ? "18px" : "25px",
-    margin: isMobile && "0",
-    marginBottom: isMobile && "-8px",
+    margin: isMobile ? "0" : undefined,
+    marginBottom: isMobile ? "-8px" : undefined,
     lineHeight: "1.1em",
     resize: "none",
     padding: "0",
@@ -242,8 +269,8 @@ function HumanInput({ isPanelist, currentSpeakerName, onSubmitHumanMessage, sock
           onKeyDown={checkEnter}
           onFocus={inputFocused}
           className="unfocused"
-          minRows="1"
-          maxRows="6"
+          minRows={1}
+          maxRows={6}
           cacheMeasurements={rerender}
           maxLength={maxInputLength}
           placeholder={isPanelist ? t('human.panelist', { name: currentSpeakerName }) : t("human.1")}
@@ -265,7 +292,7 @@ function HumanInput({ isPanelist, currentSpeakerName, onSubmitHumanMessage, sock
         </div>
         <div style={divStyle}>
           {recordingState === 'loading' &&
-            <Lottie play loop animationData={loading} style={{ height: isMobile ? "45px" : "56px" }} />
+            <Lottie play loop animationData={loading} style={{ height: isMobile ? 45 : 56 }} />
           }
           {recordingState !== 'loading' &&
             <ConversationControlIcon

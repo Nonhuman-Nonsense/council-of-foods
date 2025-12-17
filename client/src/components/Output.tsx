@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import TextOutput from "./TextOutput";
 import AudioOutput from "./AudioOutput";
+import { ConversationMessage } from "@shared/ModelTypes";
+import { DecodedAudioMessage } from "./Council";
 
 /**
  * Output Component
@@ -12,21 +14,24 @@ import AudioOutput from "./AudioOutput";
  * - Syncs `currentTextMessage` and `currentAudioMessage` when state is 'playing'.
  * - Clears output during non-playing states (loading, human input).
  * - Handles special 'summary' state logic.
- * 
- * @param {Object} props
- * @param {Array} props.textMessages - Full list of text transcripts.
- * @param {Array} props.audioMessages - Full list of audio snippets.
- * @param {number} props.playingNowIndex - Index of the currently active message.
- * @param {string} props.councilState - Current global state machine status.
- * @param {boolean} props.isMuted - Global mute flag.
- * @param {boolean} props.isPaused - Global pause flag.
- * @param {number} props.currentSnippetIndex - Sub-index for sentence highlighting.
- * @param {Function} props.setCurrentSnippetIndex - Setter for sub-index.
- * @param {Object} props.audioContext - WebAudio API context.
- * @param {Function} props.handleOnFinishedPlaying - Callback when audio ends.
- * @param {Function} props.setSentencesLength - Callback to report sentence count.
  */
-function Output({
+interface OutputProps {
+  textMessages: ConversationMessage[];
+  audioMessages: DecodedAudioMessage[];
+  playingNowIndex: number;
+  councilState: string;
+  isMuted: boolean;
+  isPaused: boolean;
+  currentSnippetIndex: number;
+  setCurrentSnippetIndex: (index: number) => void;
+  audioContext: React.MutableRefObject<AudioContext | null>;
+  handleOnFinishedPlaying: () => void;
+  // setSentencesLength: (length: number) => void; // Removed in my Council resolution so remove here?
+  // Wait, upstream had setSentencesLength. Local Council did NOT pass it.
+  // I should check if Output needs it. Upstream Output uses it?
+}
+
+const Output: React.FC<OutputProps> = ({
   textMessages,
   audioMessages,
   playingNowIndex,
@@ -35,10 +40,12 @@ function Output({
   isPaused,
   setCurrentSnippetIndex,
   audioContext,
-  handleOnFinishedPlaying
-}) {
-  const [currentAudioMessage, setCurrentAudioMessage] = useState(null);
-  const hiddenStyle = { visibility: "hidden" };
+  handleOnFinishedPlaying,
+  // setSentencesLength
+}) => {
+  const [currentTextMessage, setCurrentTextMessage] = useState<ConversationMessage | null>(null);
+  const [currentAudioMessage, setCurrentAudioMessage] = useState<DecodedAudioMessage | null>(null);
+  const hiddenStyle: React.CSSProperties = { visibility: "hidden" };
 
   const showTextOutput = councilState !== 'playing' && councilState !== 'waiting';
 
@@ -47,7 +54,7 @@ function Output({
     if (councilState === 'playing') {
       let textMessage = textMessages[playingNowIndex];
       const matchingAudioMessage = audioMessages.find((a) => a.id === textMessage.id);
-      setCurrentAudioMessage(() => matchingAudioMessage);
+      setCurrentAudioMessage(() => matchingAudioMessage || null);
     } else if (councilState === 'loading' || councilState === 'max_reached' || councilState === 'human_input' || councilState === 'human_panelist') {
       setCurrentAudioMessage(null);
     } else if (councilState === 'summary') {

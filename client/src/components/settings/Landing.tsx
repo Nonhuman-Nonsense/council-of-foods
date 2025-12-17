@@ -1,6 +1,6 @@
-import RotateDevice from '../RotateDevice';
+import RotateDevice from '@components/RotateDevice';
 import { useMediaQuery } from 'react-responsive'
-import { useMobile } from "../../utils";
+import { useMobile, dvh } from "@/utils";
 import { useTranslation } from 'react-i18next';
 
 /**
@@ -15,13 +15,17 @@ import { useTranslation } from 'react-i18next';
  * @param {Object} props
  * @param {Function} props.onContinueForward - Handler to start the app.
  */
-function Landing({ onContinueForward }) {
+interface LandingProps {
+  onContinueForward: () => void;
+}
+
+const Landing: React.FC<LandingProps> = ({ onContinueForward }) => {
 
   const isPortrait = useMediaQuery({ query: '(orientation: portrait)' })
   const isMobile = useMobile();
   const { t } = useTranslation();
 
-  const wrapper = {
+  const wrapper: React.CSSProperties = {
     position: "absolute",
     width: "100%",
     height: "100%",
@@ -30,7 +34,7 @@ function Landing({ onContinueForward }) {
     justifyContent: "center"
   };
 
-  const welcomeStyle = {
+  const welcomeStyle: React.CSSProperties = {
     display: "flex",
     flexDirection: "column",
     height: "85%",
