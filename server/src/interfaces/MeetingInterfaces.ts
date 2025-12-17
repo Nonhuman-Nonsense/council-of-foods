@@ -67,6 +67,21 @@ export interface IMeetingLogicSubsystems {
 }
 
 /**
+ * Context required by HumanInputHandler.
+ */
+export interface IHumanInputContext extends IMeetingContext, IConversationState, IMeetingControl, IMeetingLogicSubsystems { }
+
+/**
+ * Context required by HandRaisingHandler.
+ */
+export interface IHandRaisingContext extends IMeetingContext, IConversationState, IMeetingControl, IMeetingLogicSubsystems { }
+
+/**
+ * Context required by MeetingLifecycleHandler.
+ */
+export interface ILifecycleContext extends IMeetingContext, IConversationState, IMeetingControl, IMeetingLogicSubsystems { }
+
+/**
  * Composite interface for full access (used by MeetingManager itself and handlers that need everything).
  */
 export interface IMeetingManager extends IMeetingContext, IConversationState, IMeetingControl, IMeetingLogicSubsystems { }

@@ -4,7 +4,7 @@ import { Logger } from "@utils/Logger.js";
 import { Character } from "@logic/SpeakerSelector.js";
 import { ConversationMessage } from "@shared/ModelTypes.js";
 import { GlobalOptions } from "@logic/GlobalOptions.js";
-import { IMeetingManager, ConversationOptions } from "@interfaces/MeetingInterfaces.js";
+import { ILifecycleContext, ConversationOptions } from "@interfaces/MeetingInterfaces.js";
 import { Message as AudioMessage } from "@logic/AudioSystem.js";
 
 interface SetupOptions {
@@ -23,9 +23,9 @@ interface WrapUpMessage {
  * Handles initialization of session state, emitting lifecycle events, and managing the End-of-Meeting summary flow.
  */
 export class MeetingLifecycleHandler {
-    manager: IMeetingManager;
+    manager: ILifecycleContext;
 
-    constructor(meetingManager: IMeetingManager) {
+    constructor(meetingManager: ILifecycleContext) {
         this.manager = meetingManager;
     }
 

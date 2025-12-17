@@ -2,7 +2,7 @@ import { splitSentences } from "@utils/textUtils.js";
 import { ConversationMessage } from "@shared/ModelTypes.js";
 import { Logger } from "@utils/Logger.js";
 
-import { IMeetingManager } from "@interfaces/MeetingInterfaces.js";
+import { IHandRaisingContext } from "@interfaces/MeetingInterfaces.js";
 
 export interface HandRaisedOptions {
     index: number;
@@ -15,9 +15,9 @@ export interface HandRaisedOptions {
  * and transitioning state to await a human question.
  */
 export class HandRaisingHandler {
-    manager: IMeetingManager;
+    manager: IHandRaisingContext;
 
-    constructor(meetingManager: IMeetingManager) {
+    constructor(meetingManager: IHandRaisingContext) {
         this.manager = meetingManager;
     }
 

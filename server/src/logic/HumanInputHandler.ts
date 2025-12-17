@@ -2,7 +2,7 @@ import { Logger } from "@utils/Logger.js";
 import { v4 as uuidv4 } from "uuid";
 import { splitSentences } from "@utils/textUtils.js";
 import { ConversationMessage } from "@shared/ModelTypes.js";
-import { IMeetingManager } from "@interfaces/MeetingInterfaces.js";
+import { IHumanInputContext } from "@interfaces/MeetingInterfaces.js";
 
 export interface HumanMessage {
     text: string;
@@ -25,9 +25,9 @@ export interface InjectionMessage {
  * special panelists (via admin panel usually), and prototype scenarios.
  */
 export class HumanInputHandler {
-    manager: IMeetingManager;
+    manager: IHumanInputContext;
 
-    constructor(meetingManager: IMeetingManager) {
+    constructor(meetingManager: IHumanInputContext) {
         this.manager = meetingManager;
     }
 
