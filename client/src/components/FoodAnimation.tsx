@@ -12,6 +12,7 @@ interface FoodAnimationProps {
 }
 
 function FoodAnimation({ character, type, styles, isPaused, always_on, currentSpeakerId }: FoodAnimationProps) {
+  if (!character?.id) return null;
 
   const isMobile = useMobile();
   const video = useRef<HTMLVideoElement>(null);
@@ -51,7 +52,7 @@ function FoodAnimation({ character, type, styles, isPaused, always_on, currentSp
   }, [isPaused, vidLoaded, currentSpeakerId, character.id, always_on]);
 
   return (
-    <video ref={video} style={{ ...styles, objectFit: "contain", height: "100%" }} loop muted playsInline>
+    <video ref={video} data-testid="food-video" style={{ ...styles, objectFit: "contain", height: "100%" }} loop muted playsInline>
       {transparency && <>
         <source
           src={`/characters/${folder}${filename(character.id)}-hevc-safari.mp4`}

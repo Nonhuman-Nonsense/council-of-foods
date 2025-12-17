@@ -43,7 +43,7 @@ describe('FoodAnimation', () => {
     } as any;
     const mockStyles = { width: '100px' };
 
-    it.skip('renders video element with correct sources', () => {
+    it('renders video element with correct sources', () => {
         vi.mocked(useMobile).mockReturnValue(false);
         render(
             <FoodAnimation
@@ -173,7 +173,7 @@ describe('FoodAnimation', () => {
         expect(pauseMock).toHaveBeenCalled();
     });
 
-    it.skip('should not render video if food.id is missing', () => {
+    it('should not render video if food.id is missing', () => {
         const noIdFood: Food = { ...mockFood, id: undefined };
         render(
             <FoodAnimation
