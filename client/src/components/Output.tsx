@@ -26,9 +26,6 @@ interface OutputProps {
   setCurrentSnippetIndex: (index: number) => void;
   audioContext: React.MutableRefObject<AudioContext | null>;
   handleOnFinishedPlaying: () => void;
-  // setSentencesLength: (length: number) => void; // Removed in my Council resolution so remove here?
-  // Wait, upstream had setSentencesLength. Local Council did NOT pass it.
-  // I should check if Output needs it. Upstream Output uses it?
 }
 
 const Output: React.FC<OutputProps> = ({
@@ -41,7 +38,6 @@ const Output: React.FC<OutputProps> = ({
   setCurrentSnippetIndex,
   audioContext,
   handleOnFinishedPlaying,
-  // setSentencesLength
 }) => {
   const [currentTextMessage, setCurrentTextMessage] = useState<ConversationMessage | null>(null);
   const [currentAudioMessage, setCurrentAudioMessage] = useState<DecodedAudioMessage | null>(null);

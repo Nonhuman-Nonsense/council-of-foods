@@ -11,7 +11,7 @@ import { useDocumentVisibility, mapFoodIndex } from "@/utils";
 
 // @ts-ignore
 import globalOptions from "@/global-options-client.json";
-import { useCouncilMachine } from "@/hooks/useCouncilMachine"; // The new hook!
+import { useCouncilMachine } from "@/hooks/useCouncilMachine";
 import { Character, ConversationMessage, Sentence } from "@shared/ModelTypes";
 import { AudioUpdatePayload } from "@shared/SocketTypes";
 
@@ -175,7 +175,6 @@ function Council({
           setCurrentSnippetIndex={setCurrentSnippetIndex}
           audioContext={audioContext}
           handleOnFinishedPlaying={handleOnFinishedPlaying}
-          setSentencesLength={setSentencesLength}
         />
       </>
       {showControls && (
