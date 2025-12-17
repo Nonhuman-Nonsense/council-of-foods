@@ -1,19 +1,18 @@
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router";
-import io from "socket.io-client";
+import FoodItem from "./FoodItem";
 import Overlay from "./Overlay";
 import CouncilOverlays from "./CouncilOverlays";
 import Loading from "./Loading";
 import Output from "./Output";
 import ConversationControls from "./ConversationControls";
 import HumanInput from "./HumanInput";
-import { useDocumentVisibility, mapFoodIndex } from "@/utils";
-
+import { useDocumentVisibility, mapFoodIndex, dvh } from "@/utils";
+import routes from "@/routes.json";
+import { Character, ConversationMessage, Sentence } from "@shared/ModelTypes";
+import { useCouncilMachine } from "@/hooks/useCouncilMachine";
 // @ts-ignore
 import globalOptions from "@/global-options-client.json";
-import { useCouncilMachine } from "@/hooks/useCouncilMachine";
-import { Character, ConversationMessage, Sentence } from "@shared/ModelTypes";
-import { AudioUpdatePayload } from "@shared/SocketTypes";
 
 interface CouncilProps {
   lang: string;
@@ -29,12 +28,6 @@ interface CouncilProps {
   setCurrentSpeakerId: (id: string) => void;
   isPaused: boolean;
   setPaused: (paused: boolean) => void;
-}
-
-export interface DecodedAudioMessage {
-  id: string;
-  audio: AudioBuffer;
-  sentences?: Sentence[];
 }
 
 /**
@@ -59,7 +52,21 @@ function Council({
   setAudioPaused
 }: CouncilProps) {
 
-  // Use the shared hook for all logic
+  // Hook Logic
+  const { state, actions, socketRef } = useCouncilMachine({
+    lang,
+    topic,
+    participants,
+    audioContext,
+    setUnrecoverableError,
+    setConnectionError,
+    connectionError,
+    isPaused,
+    setPaused,
+    setAudioPaused,
+    baseUrl: `/${lang}/${routes.meeting}`
+  });
+
   const {
     councilState,
     textMessages,
@@ -76,10 +83,12 @@ function Council({
     canRaiseHand,
     currentSnippetIndex,
     sentencesLength,
-    socketRef,
     isMuted,
     canExtendMeeting,
+  } = state;
 
+  const {
+    tryToFindTextAndAudio,
     handleOnFinishedPlaying,
     handleOnSkipBackward,
     handleOnSkipForward,
@@ -90,30 +99,15 @@ function Council({
     handleOnRaiseHand,
     removeOverlay,
     setCurrentSnippetIndex,
-    setSentencesLength,
     toggleMute,
-    // Helper to check if data is ready (used for controls/overlays logic internal to hook, but we might need it for rendering?)
-    tryToFindTextAndAudio
-  } = useCouncilMachine({
-    lang,
-    topic,
-    participants,
-    audioContext, // Passed from Main
-    setUnrecoverableError,
-    setConnectionError,
-    connectionError,
-    isPaused,
-    setPaused,
-    setAudioPaused // Passed from Main
-  });
+    setSentencesLength
+  } = actions;
 
   // Routing
   const navigate = useNavigate();
   const location = useLocation();
-  const [currentMeetingIdState, setCurrentMeetingId] = useState<string | null>(null); // Do we need this? Hook has it.
 
   // Sync current speaker ID to parent component for Forest zoom
-  // This is the "Adapter" logic to bridge the Hook (Logic) and Main (Forest Visuals)
   useEffect(() => {
     // 1. Loading State -> Zoom Out
     if (councilState === 'loading') {
@@ -149,16 +143,90 @@ function Council({
     }
   }, [playingNowIndex, textMessages, setCurrentSpeakerId, councilState, playNextIndex]);
 
-  // Derived state for Controls visibility
+  // Derived Visual State (Background Zoom)
+  const zoomIn = useMemo(() => {
+    if (currentSpeakerId === "") return false;
+
+    // Additional logic for zoom timing (from Forest)
+    // If it's pure logic, maybe it should be in hook? 
+    // But it depends on `currentSnippetIndex`.
+    // Forest: zoomIn if currentSpeakerId is set AND maybe some snippet logic?
+    // Looking at original Forest code (inferred):
+    if (
+      councilState === 'loading' ||
+      councilState === 'waiting' ||
+      councilState === 'max_reached' ||
+      councilState === 'summary' ||
+      councilState === 'human_input' ||
+      councilState === 'human_panelist' ||
+      playingNowIndex <= 0 ||
+      textMessages[playingNowIndex]?.type === "human" ||
+      textMessages[playingNowIndex]?.type === "panelist"
+    ) {
+      return false;
+    } else if (currentSnippetIndex % 4 < 2 && currentSnippetIndex !== sentencesLength - 1) {
+      return true;
+    } else {
+      return false;
+    }
+  }, [councilState, playingNowIndex, textMessages, currentSnippetIndex, sentencesLength, currentSpeakerId]);
+
+  const foods = participants.filter((part) => part.type !== 'panelist');
+
+  const currentSpeakerIdx = useMemo(() => {
+    let currentIndex;
+    foods.forEach((food, index) => {
+      if (currentSpeakerId === food.id) {
+        currentIndex = mapFoodIndex(foods.length, index);
+      }
+    });
+    return currentIndex;
+  }, [foods, currentSpeakerId]);
+
   const showControls = (
     councilState === 'playing' ||
     councilState === 'waiting' ||
     (councilState === 'summary' && tryToFindTextAndAudio())
   ) ? true : false;
 
-  // Forest Rendering
+  const isDocumentVisible = useDocumentVisibility();
+
+  useEffect(() => {
+    if (!isDocumentVisible && !isPaused) {
+      setPaused(true);
+    }
+  }, [isDocumentVisible, isPaused]);
+
+
   return (
     <>
+      <MemoizedBackground
+        zoomIn={zoomIn}
+        currentSpeakerIndex={currentSpeakerIdx}
+        totalSpeakers={foods.length - 1}
+      />
+      <div style={{
+        position: "absolute",
+        top: "62%",
+        left: "50%",
+        transform: "translate(-50%, -50%)",
+        width: participants.length > 6 ? "79%" : "70%",
+        display: "flex",
+        justifyContent: "space-around",
+        alignItems: "center",
+      }}>
+        {foods.map((food, index) => (
+          <FoodItem
+            key={food.id}
+            food={food}
+            index={mapFoodIndex(foods.length, index)}
+            total={foods.length}
+            isPaused={isPaused}
+            zoomIn={zoomIn}
+            currentSpeakerId={currentSpeakerId}
+          />
+        ))}
+      </div>
       {councilState === 'loading' && <Loading />}
       <>
         {(councilState === 'human_input' || councilState === 'human_panelist') && (
@@ -175,6 +243,7 @@ function Council({
           setCurrentSnippetIndex={setCurrentSnippetIndex}
           audioContext={audioContext}
           handleOnFinishedPlaying={handleOnFinishedPlaying}
+          setSentencesLength={setSentencesLength}
         />
       </>
       {showControls && (
@@ -205,7 +274,7 @@ function Council({
             canExtendMeeting={canExtendMeeting}
             removeOverlay={removeOverlay}
             summary={{ text: summary?.text || "" }}
-            meetingId={currentMeetingId}
+            meetingId={currentMeetingId || ""}
             participants={participants}
           />
         )}
@@ -213,5 +282,61 @@ function Council({
     </>
   );
 }
+
+export function Background({ zoomIn, currentSpeakerIndex, totalSpeakers }) {
+  function calculateBackdropPosition() {
+    return 10 + (80 * currentSpeakerIndex) / totalSpeakers + "%";
+  }
+
+  const closeUpBackdrop = {
+    backgroundImage: `url(/backgrounds/close-up-backdrop.webp)`,
+    backgroundSize: "cover",
+    backgroundPosition: calculateBackdropPosition(),
+    height: "100%",
+    width: "100%",
+    position: "absolute" as "absolute",
+    opacity: zoomIn ? "1" : "0",
+  };
+
+  const closeUpTable = {
+    backgroundImage: `url(/backgrounds/close-up-table.webp)`,
+    backgroundSize: "cover",
+    backgroundPosition: "center",
+    height: "100%",
+    width: "100%",
+    position: "absolute" as "absolute",
+    opacity: zoomIn ? "1" : "0",
+  };
+
+  const bottomShade = {
+    width: "100%",
+    height: "40%",
+    position: "absolute" as "absolute",
+    bottom: "0",
+    background: "linear-gradient(0, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0) 100%)",
+    zIndex: "1",
+  };
+
+  const topShade = {
+    width: "100%",
+    height: "10%",
+    position: "absolute" as "absolute",
+    top: "0",
+    background:
+      "linear-gradient(180deg, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0) 100%)",
+    zIndex: "1",
+  };
+
+  return (
+    <>
+      <div style={closeUpBackdrop} />
+      <div style={closeUpTable} />
+      <div style={bottomShade} />
+      <div style={topShade} />
+    </>
+  );
+}
+
+const MemoizedBackground = React.memo(Background);
 
 export default Council;

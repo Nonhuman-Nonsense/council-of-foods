@@ -23,6 +23,7 @@ export interface UseCouncilMachineProps {
     isPaused: boolean;
     setPaused: (paused: boolean) => void;
     setAudioPaused?: (paused: boolean) => void;
+    baseUrl: string; // Base URL for meeting routes (e.g. "/meeting" or "/en/meeting")
 }
 
 export function useCouncilMachine({
@@ -35,7 +36,8 @@ export function useCouncilMachine({
     connectionError,
     isPaused,
     setPaused,
-    setAudioPaused
+    setAudioPaused,
+    baseUrl
 }: UseCouncilMachineProps) {
 
     /* -------------------------------------------------------------------------- */
@@ -87,7 +89,7 @@ export function useCouncilMachine({
         lang,
         onMeetingStarted: (meeting) => {
             setCurrentMeetingId(String(meeting.meeting_id));
-            navigate(`/${lang}/meeting/${meeting.meeting_id}`);
+            navigate(`${baseUrl}/${meeting.meeting_id}`);
         },
         onAudioUpdate: (audioMessage) => {
             (async () => {
@@ -325,7 +327,7 @@ export function useCouncilMachine({
 
     function removeOverlay() {
         setActiveOverlay(null);
-        navigate(`/${lang}/meeting/${(currentMeetingId || "new")}`);
+        navigate(`${baseUrl}/${(currentMeetingId || "new")}`);
 
         if (councilState === 'max_reached') {
             setPlayNextIndex(meetingMaxLength - 1);
@@ -459,42 +461,43 @@ export function useCouncilMachine({
 
 
     return {
-        // State
-        councilState,
-        textMessages,
-        audioMessages,
-        playingNowIndex,
-        playNextIndex,
-        activeOverlay,
-        summary,
-        humanName,
-        isRaisedHand,
-        currentMeetingId,
-        canGoBack,
-        canGoForward,
-        canRaiseHand,
-        currentSnippetIndex,
-        sentencesLength,
-        socketRef,
-        isMuted,
-        canExtendMeeting,
-
-        // Actions
-        tryToFindTextAndAudio,
-        handleOnFinishedPlaying,
-        handleOnSkipBackward,
-        handleOnSkipForward,
-        handleOnSubmitHumanMessage,
-        handleOnContinueMeetingLonger,
-        handleOnGenerateSummary,
-        handleHumanNameEntered,
-        handleOnRaiseHand,
-        removeOverlay,
-        setHumanName,
-        setIsRaisedHand,
-        setCurrentSnippetIndex,
-        setSentencesLength,
-        toggleMute
+        state: {
+            councilState,
+            textMessages,
+            audioMessages,
+            playingNowIndex,
+            playNextIndex,
+            activeOverlay,
+            summary,
+            humanName,
+            isRaisedHand,
+            currentMeetingId,
+            canGoBack,
+            canGoForward,
+            canRaiseHand,
+            currentSnippetIndex,
+            sentencesLength,
+            isMuted,
+            canExtendMeeting,
+        },
+        actions: {
+            tryToFindTextAndAudio,
+            handleOnFinishedPlaying,
+            handleOnSkipBackward,
+            handleOnSkipForward,
+            handleOnSubmitHumanMessage,
+            handleOnContinueMeetingLonger,
+            handleOnGenerateSummary,
+            handleHumanNameEntered,
+            handleOnRaiseHand,
+            removeOverlay,
+            setHumanName,
+            setIsRaisedHand,
+            setCurrentSnippetIndex,
+            setSentencesLength,
+            toggleMute
+        },
+        socketRef
     };
 }
 
