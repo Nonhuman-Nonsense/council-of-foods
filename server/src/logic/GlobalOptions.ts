@@ -1,5 +1,5 @@
-import globalOptions from '../../global-options.json' with { type: 'json' };
-import testOptions from '../../test-options.json' with { type: 'json' };
+import globalOptions from '@root/global-options.json' with { type: 'json' };
+import testOptions from '@root/test-options.json' with { type: 'json' };
 
 export interface GlobalOptions {
     gptModel: string;

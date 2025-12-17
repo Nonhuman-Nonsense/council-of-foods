@@ -7,13 +7,13 @@ import { Server, Socket } from "socket.io";
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-import { Logger } from './src/utils/Logger.js';
-import { initReporting, reportError } from './src/utils/errorbot.js';
-import { initDb } from './src/services/DbService.js';
-import { initOpenAI } from './src/services/OpenAIService.js';
-import { MeetingManager } from './src/logic/MeetingManager.js';
+import { Logger } from '@utils/Logger.js';
+import { initReporting, reportError } from '@utils/errorbot.js';
+import { initDb } from '@services/DbService.js';
+import { initOpenAI } from '@services/OpenAIService.js';
+import { MeetingManager } from '@logic/MeetingManager.js';
 
-import { EnvSchema } from './src/models/ValidationSchemas.js';
+import { EnvSchema } from '@models/ValidationSchemas.js';
 
 // Validate Env
 const envParse = EnvSchema.safeParse(process.env);

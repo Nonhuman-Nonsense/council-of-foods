@@ -1,4 +1,4 @@
-import type { Character, ConversationMessage } from '../../../shared/ModelTypes.js';
+import type { Character, ConversationMessage } from '@shared/ModelTypes.js';
 
 export type { Character, ConversationMessage };
 

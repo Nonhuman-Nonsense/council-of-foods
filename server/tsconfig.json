@@ -24,6 +24,9 @@
             ],
             "@interfaces/*": [
                 "src/interfaces/*"
+            ],
+            "@root/*": [
+                "./*"
             ]
         },
         "esModuleInterop": true,
