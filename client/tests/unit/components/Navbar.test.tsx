@@ -64,7 +64,7 @@ describe('Navbar', () => {
 
     const renderNavbar = (props = defaultProps) => {
         return render(
-            <MemoryRouter initialEntries={['/meeting/123']}>
+            <MemoryRouter initialEntries={['/en/meeting/123']}>
                 <Navbar {...props} />
             </MemoryRouter>
         );

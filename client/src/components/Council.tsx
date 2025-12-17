@@ -243,7 +243,6 @@ function Council({
           setCurrentSnippetIndex={setCurrentSnippetIndex}
           audioContext={audioContext}
           handleOnFinishedPlaying={handleOnFinishedPlaying}
-          setSentencesLength={setSentencesLength}
         />
       </>
       {showControls && (
