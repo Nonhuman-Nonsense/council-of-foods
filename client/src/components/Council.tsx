@@ -187,12 +187,49 @@ function Council({
 
   // Sync current speaker ID to parent component for Forest zoom
   useEffect(() => {
+    // 1. Loading State -> Zoom Out
+    if (councilState === 'loading') {
+      setCurrentSpeakerId("");
+      return;
+    }
+
+    // 2. Human Input State (Asking Question) -> Zoom Out
+    if (councilState === 'human_input') {
+      setCurrentSpeakerId("");
+      return;
+    }
+
+    // 3. Human Panelist State -> Zoom Out (unless we want to zoom on human representation?)
+    // User said: "when ... human input it is zoomed out."
+    // But for Panelist, we usually want to show the "Human" avatar if it exists?
+    // Upstream used pending message speaker.
+    // If pending speaker is 'human', Forest won't find it (unless added), so it zooms out. CORRECT.
+    if (councilState === 'human_panelist' && textMessages[playNextIndex]) {
+      if (textMessages[playNextIndex].speaker) {
+        let speaker = textMessages[playNextIndex].speaker.toLowerCase();
+        // Special case: River should be zoomed out
+        if (speaker === 'river') speaker = "";
+        setCurrentSpeakerId(speaker);
+      }
+      return;
+    }
+
+    // 4. Summary State -> Zoom Out
+    if (councilState === 'summary') {
+      setCurrentSpeakerId("");
+      return;
+    }
+
+    // 5. Playing / Waiting -> Zoom on Speaker
     if (playingNowIndex >= 0 && textMessages[playingNowIndex]) {
       if (textMessages[playingNowIndex].speaker) {
-        setCurrentSpeakerId(textMessages[playingNowIndex].speaker.toLowerCase());
+        let speaker = textMessages[playingNowIndex].speaker.toLowerCase();
+        // Special case: River should be zoomed out
+        if (speaker === 'river') speaker = "";
+        setCurrentSpeakerId(speaker);
       }
     }
-  }, [playingNowIndex, textMessages, setCurrentSpeakerId]);
+  }, [playingNowIndex, textMessages, setCurrentSpeakerId, councilState, playNextIndex]);
 
   // If we reach the end of one message, figure out what to do next
   function calculateNextAction(wait = false) {
