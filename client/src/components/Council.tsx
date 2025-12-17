@@ -9,10 +9,8 @@ import ConversationControls from "./ConversationControls";
 import HumanInput from "./HumanInput";
 import { useDocumentVisibility, mapFoodIndex } from "@/utils";
 import routes from "@/routes.json";
-import { Character, ConversationMessage, Sentence } from "@shared/ModelTypes";
+import { Character } from "@shared/ModelTypes";
 import { useCouncilMachine } from "../hooks/useCouncilMachine";
-// @ts-ignore
-import globalOptions from "@/global-options-client.json";
 
 interface CouncilProps {
   lang: string;
@@ -28,7 +26,6 @@ interface CouncilProps {
  * 
  * Now a "dumb" view component that consumes logic from `useCouncilMachine`.
  */
-// @ts-ignore
 function Council({
   lang,
   topic,
@@ -148,27 +145,10 @@ function Council({
     (councilState === 'summary' && tryToFindTextAndAudio())
   ) ? true : false;
 
-  // Note: meetingMaxLength is internal to hook now. We might need it for `canExtendMeeting`?
-  // Hook didn't expose meetingMaxLength. 
-  // Let's check `canExtendMeeting` logic in original file: `meetingMaxLength < globalOptions.meetingVeryMaxLength`.
-  // We need to expose `meetingMaxLength` from hook if we want this check here.
-  // OR move canExtendMeeting into the hook. 
-  // Hook has `handleOnContinueMeetingLonger`, maybe it should expose `canExtendMeeting` boolean?
-
   // Placeholder removed as it comes from state now
   const location = useLocation();
   const isDocumentVisible = useDocumentVisibility();
 
-  // Additional Pausing triggers that are purely local UI concerns?
-  // Actually, the Hook handles pausing based on Overlay/Location/DocumentVisibility?
-  // Hook handles Overlay, Location, ConnectionError.
-  // DocumentVisibility? Hook needs it passed in or handled?
-  // Original Council.tsx: `else if (connectionError || !isDocumentVisible) { setPaused(true); }`
-  // My Hook: `else if (connectionError) { setPaused(true); }`
-  // I missed `isDocumentVisible` in the hook logic!
-
-  // I need to update the hook to accept `isDocumentVisible` or handle logic there.
-  // For now, I can add a dedicated effect here to setPaused if !isDocumentVisible.
   useEffect(() => {
     if (!isDocumentVisible && !isPaused) {
       setPaused(true);
