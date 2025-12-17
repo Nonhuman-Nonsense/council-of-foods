@@ -1,112 +1,124 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { createTestManager, TestFactory } from './commonSetup.js';
-import { meetingsCollection } from '../src/services/DbService.js';
+import { HumanInputHandler } from '../src/logic/HumanInputHandler.js';
+import { TestFactory } from './commonSetup.js';
 
-describe('MeetingManager - Human Input', () => {
-    let manager;
-    let mockSocket;
+describe('HumanInputHandler (Isolated)', () => {
+    let handler;
+    let mockContext;
 
     beforeEach(() => {
-        const setup = createTestManager();
-        manager = setup.manager;
-        mockSocket = setup.mockSocket;
+        // Create a lightweight mock context based on IHumanInputContext
+        mockContext = {
+            meetingId: "test_meeting",
+            environment: "test",
+            conversation: [],
+            conversationOptions: {
+                characters: [{ id: 'chair', name: 'Chair' }, { id: 'alice', name: 'Alice', type: 'panelist' }],
+                options: {},
+                state: { humanName: 'Frank' }
+            },
+            socket: {
+                emit: vi.fn()
+            },
+            audioSystem: {
+                queueAudioGeneration: vi.fn()
+            },
+            services: {
+                meetingsCollection: {
+                    updateOne: vi.fn().mockResolvedValue({})
+                }
+            },
+            startLoop: vi.fn(),
 
-        // Spy on DB
-        vi.spyOn(meetingsCollection, 'updateOne');
-        // Spy on AudioSystem
-        vi.spyOn(manager.audioSystem, 'queueAudioGeneration').mockImplementation(() => { });
-        // Spy on startLoop to ensure it's called
-        vi.spyOn(manager, 'startLoop').mockImplementation(async () => { });
+            // IConversationState properties
+            handRaised: false,
+            isPaused: false,
+
+            // IMeetingLogicSubsystems (we already mocked audioSystem)
+            dialogGenerator: {} // Not used in this handler usually, or mocked if needed
+        };
+
+        handler = new HumanInputHandler(mockContext);
     });
 
     describe('handleSubmitHumanMessage', () => {
         it('should process human message when awaiting question', async () => {
             // Setup: Awaiting Human Question
-            // Must have some history so pop() doesn't make it empty (unless we handle empty, but for now add history)
-            manager.conversation = [
+            mockContext.conversation = [
                 { type: 'message', text: 'prev', id: '1' },
                 ...TestFactory.createAwaitingQuestion('Frank')
             ];
-            manager.meetingId = "test_meeting";
-            manager.isPaused = true; // Usually paused while awaiting? Or just stopped logic.
-            // Actually decideNextAction returns WAIT, effectively stopping loop. 
-            // handleSubmitHumanMessage calls startLoop.
+            mockContext.isPaused = true;
 
             const humanMsg = { text: "What is the meaning of soup?", speaker: "Frank" };
-            manager.humanInputHandler.handleSubmitHumanMessage(humanMsg);
+            await handler.handleSubmitHumanMessage(humanMsg);
 
             // 1. Verify Message Added
-            expect(manager.conversation).toHaveLength(2); // awaiting + human
-            const addedMsg = manager.conversation[1];
+            expect(mockContext.conversation).toHaveLength(2); // prev + human (awaiting popped)
+            const addedMsg = mockContext.conversation[1];
             expect(addedMsg.text).toContain("What is the meaning of soup?");
             expect(addedMsg.type).toBe('human');
             expect(addedMsg.speaker).toBe('Frank');
 
             // 2. Verify Audio Queued
-            expect(manager.audioSystem.queueAudioGeneration).toHaveBeenCalledWith(
+            expect(mockContext.audioSystem.queueAudioGeneration).toHaveBeenCalledWith(
                 addedMsg,
-                // Code passes characters[0] (Chair) as speaker for audio generation
-                expect.objectContaining({ id: 'water' }),
-                expect.any(Object),
+                expect.objectContaining({ id: 'chair' }), // Chair is char 0
+                mockContext.conversationOptions.options,
                 "test_meeting",
                 "test"
             );
 
             // 3. Verify socket emit
-            expect(mockSocket.emit).toHaveBeenCalledWith('conversation_update', manager.conversation);
+            expect(mockContext.socket.emit).toHaveBeenCalledWith('conversation_update', mockContext.conversation);
 
             // 4. Verify DB Update
-            expect(meetingsCollection.updateOne).toHaveBeenCalled();
+            expect(mockContext.services.meetingsCollection.updateOne).toHaveBeenCalled();
 
             // 5. Verify Loop Resumed
-            expect(manager.startLoop).toHaveBeenCalled();
+            expect(mockContext.startLoop).toHaveBeenCalled();
         });
 
-        it('should throw or ignore if not awaiting question (validation logic)', async () => {
-            // If the code has validation. Does it?
-            // "if (lastMsg.type !== 'awaiting_human_question') return;"?
-            // Let's assume it checks.
-            manager.conversation = TestFactory.createConversation(2);
-            manager.humanInputHandler.handleSubmitHumanMessage("Hello");
+        it('should ignore if not awaiting question (validation logic)', async () => {
+            // Setup: NOT awaiting question
+            mockContext.conversation = TestFactory.createConversation(2);
 
-            // Should verify if it added or not.
-            // If logic implies validation, we test it.
-            // Looking at code (memory), it checks `lastMsg.type`.
-            // Ideally we check if it added.
+            await handler.handleSubmitHumanMessage({ text: "Hello" });
+
+            // Should NOT have added message
+            expect(mockContext.conversation).toHaveLength(2);
+            // Should NOT have resumed loop
+            expect(mockContext.startLoop).not.toHaveBeenCalled();
         });
     });
 
     describe('handleSubmitHumanPanelist', () => {
         it('should process panelist answer when awaiting panelist', async () => {
             // Setup: Awaiting Panelist
-            // Need a panelist character "Alice"
-            const panelist = { id: 'alice', name: 'Alice', type: 'panelist' };
-            manager.conversationOptions.characters.push(panelist);
-            manager.conversation = [
+            mockContext.conversation = [
                 { type: 'message', text: 'prev', id: '1' },
                 ...TestFactory.createAwaitingPanelist('alice')
             ];
-            manager.meetingId = "test_meeting";
 
             const answer = { text: "I think soup is great.", speaker: "alice" };
-            manager.humanInputHandler.handleSubmitHumanPanelist(answer);
+            await handler.handleSubmitHumanPanelist(answer);
 
             // 1. Verify Message Added
-            expect(manager.conversation).toHaveLength(2);
-            const addedMsg = manager.conversation[1];
-            expect(addedMsg.text).toContain("I think soup is great."); // Note: logic adds "Alice said: " prefix
-            expect(addedMsg.type).toBe('panelist'); // Panelists speak panelist messages
+            expect(mockContext.conversation).toHaveLength(2);
+            const addedMsg = mockContext.conversation[1];
+            expect(addedMsg.text).toContain("I think soup is great.");
+            expect(addedMsg.type).toBe('panelist');
             expect(addedMsg.speaker).toBe('alice');
 
             // 2. Verify Audio Queued
-            expect(manager.audioSystem.queueAudioGeneration).toHaveBeenCalled();
+            expect(mockContext.audioSystem.queueAudioGeneration).toHaveBeenCalled();
 
             // 3. Verify DB & Socket
-            expect(meetingsCollection.updateOne).toHaveBeenCalled();
-            expect(mockSocket.emit).toHaveBeenCalledWith('conversation_update', manager.conversation);
+            expect(mockContext.services.meetingsCollection.updateOne).toHaveBeenCalled();
+            expect(mockContext.socket.emit).toHaveBeenCalledWith('conversation_update', mockContext.conversation);
 
             // 4. Verify Loop Resumed
-            expect(manager.startLoop).toHaveBeenCalled();
+            expect(mockContext.startLoop).toHaveBeenCalled();
         });
     });
 });
