@@ -1,5 +1,5 @@
 import { splitSentences } from "@utils/textUtils.js";
-import { reportError } from "../../errorbot.js";
+import { reportError } from "@utils/errorbot.js";
 import { Logger } from "@utils/Logger.js";
 import { v4 as uuidv4 } from "uuid";
 import { Character } from "./SpeakerSelector.js";
@@ -97,7 +97,6 @@ export class ConnectionHandler {
                 Logger.warn(`meeting ${options.meetingId}`, "not found");
             }
         } catch (error) {
-            // console.error("Error resuming conversation:", error);
             Logger.error(`meeting ${options.meetingId}`, "Error resuming conversation", error);
             manager.socket.emit("conversation_error", { message: "Error resuming", code: 500 });
             reportError(`meeting ${options.meetingId}`, "Reconnection Error", error);

@@ -1,6 +1,6 @@
 import { getOpenAI } from "@services/OpenAIService.js";
 import { meetingsCollection, audioCollection, insertMeeting } from "@services/DbService.js";
-import { reportError } from "../../errorbot.js";
+import { reportError } from "@utils/errorbot.js";
 
 import { AudioSystem } from "@logic/AudioSystem.js";
 import { SpeakerSelector } from "@logic/SpeakerSelector.js";
@@ -305,7 +305,6 @@ export class MeetingManager implements IMeetingManager {
             ) {
                 return;
             }
-            // console.error("Error during conversation:", error);
             Logger.error(`meeting ${this.meetingId}`, "Error during conversation", error);
             this.socket.emit("conversation_error", { message: "Error", code: 500 });
             reportError(`meeting ${this.meetingId}`, "Conversation process error", error);

@@ -1,5 +1,5 @@
 import { splitSentences } from "@utils/textUtils.js";
-import { reportError } from "../../errorbot.js";
+import { reportError } from "@utils/errorbot.js";
 import { Logger } from "@utils/Logger.js";
 import { v4 as uuidv4 } from "uuid";
 import { Socket } from "socket.io";

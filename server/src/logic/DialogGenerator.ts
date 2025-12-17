@@ -1,6 +1,6 @@
 import { splitSentences } from "@utils/textUtils.js";
 import { Logger } from "@utils/Logger.js";
-import { reportError } from "../../errorbot.js";
+import { reportError } from "@utils/errorbot.js";
 import { Character, ConversationMessage } from "./SpeakerSelector.js";
 import { GlobalOptions } from "./GlobalOptions.js";
 import { OpenAI } from "openai";

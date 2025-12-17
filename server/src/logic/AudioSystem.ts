@@ -1,4 +1,4 @@
-import { reportError } from "../../errorbot.js";
+import { reportError } from "@utils/errorbot.js";
 import { Logger } from "@utils/Logger.js";
 import { Meeting, Audio } from "@models/DBModels.js";
 import { mapSentencesToWords } from "@utils/textUtils.js";
@@ -201,7 +201,6 @@ export class AudioSystem {
             if (error.code === 11600 || (error.message && error.message.includes('interrupted at shutdown'))) {
                 return;
             }
-            // console.error("Error generating audio:", error);
             Logger.error("AudioSystem", "Error generating audio", error);
             reportError("AudioSystem", "Error generating audio", error);
         }

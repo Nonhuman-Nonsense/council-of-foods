@@ -8,7 +8,7 @@ export function initReporting(): void {
     }
 }
 
-import { Logger } from "./src/utils/Logger.js";
+import { Logger } from "./Logger.js";
 
 // Helper to reliably serialize Error objects
 function serializeError(err: any): any {

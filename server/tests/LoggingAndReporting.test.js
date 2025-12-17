@@ -1,7 +1,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { Logger } from '../src/utils/Logger.js';
-import { reportError } from '../errorbot.js';
+import { reportError } from '../src/utils/errorbot.js';
 
 describe('Logging & Reporting System', () => {
     let consoleLogSpy;

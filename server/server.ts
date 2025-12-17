@@ -8,7 +8,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 import { Logger } from './src/utils/Logger.js';
-import { initReporting, reportError } from './errorbot.js';
+import { initReporting, reportError } from './src/utils/errorbot.js';
 import { initDb } from './src/services/DbService.js';
 import { initOpenAI } from './src/services/OpenAIService.js';
 import { MeetingManager } from './src/logic/MeetingManager.js';
