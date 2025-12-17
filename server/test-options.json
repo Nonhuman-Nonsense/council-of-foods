@@ -19,13 +19,13 @@
     },
     "raiseHandInvitationLength": 50,
     "finalizeMeetingPrompt": {
-        "en": "Summarize the debate in 100 words or less."
+        "en": "Please summarise the meeting, held on [DATE], making a document that could work as a meeting protocol and a policy recommendation, that could be sent to the Swedish government for consideration."
     },
     "finalizeMeetingLength": 100,
     "extraMessageCount": 5,
     "transcribeModel": "gpt-4o-transcribe",
     "transcribePrompt": {
-        "en": "Transcribe the debate in 100 words or less."
+        "en": "Expect english input."
     },
     "audioConcurrency": 10
 }
