@@ -200,7 +200,7 @@ export class AudioSystem {
 
         } catch (error: unknown) {
             // Suppress "interrupted at shutdown" errors often seen during tests
-            const err = error as any; // Temporary cast for checking specific error properties safely
+            const err = error as { code?: number, message?: string }; // Safer cast
             if (err.code === 11600 || (err.message && err.message.includes('interrupted at shutdown'))) {
                 return;
             }

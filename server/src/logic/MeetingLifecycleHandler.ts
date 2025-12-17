@@ -2,8 +2,10 @@ import { splitSentences } from "@utils/textUtils.js";
 import { reportError } from "@utils/errorbot.js";
 import { Logger } from "@utils/Logger.js";
 import { Character } from "@logic/SpeakerSelector.js";
+import { ConversationMessage } from "@shared/ModelTypes.js";
 import { GlobalOptions } from "@logic/GlobalOptions.js";
 import { IMeetingManager, ConversationOptions } from "@interfaces/MeetingInterfaces.js";
+import { Message as AudioMessage } from "@logic/AudioSystem.js";
 
 interface SetupOptions {
     options?: Partial<GlobalOptions>;
@@ -85,11 +87,12 @@ export class MeetingLifecycleHandler {
             manager.socket
         );
 
-        let summary: any = { // Using any for summary structure until fully defined
-            id: id,
+        let summary: ConversationMessage = {
+            id: id || "",
             speaker: manager.conversationOptions.characters[0].id,
             text: response,
             type: "summary",
+            sentences: []
         };
 
         manager.conversation.push(summary);
@@ -107,7 +110,7 @@ export class MeetingLifecycleHandler {
         summary.sentences = splitSentences(response);
         if (manager.meetingId !== null) {
             await manager.audioSystem.generateAudio(
-                summary,
+                summary as AudioMessage,
                 manager.conversationOptions.characters[0],
                 manager.conversationOptions.options,
                 manager.meetingId,

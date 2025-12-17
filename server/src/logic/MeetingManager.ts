@@ -2,7 +2,7 @@ import { getOpenAI } from "@services/OpenAIService.js";
 import { meetingsCollection, audioCollection, insertMeeting } from "@services/DbService.js";
 import { reportError } from "@utils/errorbot.js";
 
-import { AudioSystem } from "@logic/AudioSystem.js";
+import { AudioSystem, Message as AudioMessage } from "@logic/AudioSystem.js";
 import { SpeakerSelector } from "@logic/SpeakerSelector.js";
 import { DialogGenerator, GPTResponse } from "@logic/DialogGenerator.js";
 import { HumanInputHandler } from "@logic/HumanInputHandler.js";
@@ -301,11 +301,12 @@ export class MeetingManager implements IMeetingManager {
                     }
                     break;
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
             // Suppress "interrupted at shutdown" and ECONNRESET errors often seen during tests
+            const err = error as { code?: number, message?: string };
             if (
-                error.code === 11600 ||
-                (error.message && (error.message.includes('interrupted at shutdown') || error.message.includes('ECONNRESET')))
+                err.code === 11600 ||
+                (err.message && (err.message.includes('interrupted at shutdown') || err.message.includes('ECONNRESET')))
             ) {
                 return;
             }
@@ -379,8 +380,8 @@ export class MeetingManager implements IMeetingManager {
 
         // Queue audio generation
         this.audioSystem.queueAudioGeneration(
-            message as any,
-            action.speaker as any,
+            message as AudioMessage,
+            action.speaker,
             this.conversationOptions.options,
             this.meetingId!,
             this.environment

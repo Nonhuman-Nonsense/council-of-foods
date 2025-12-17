@@ -11,7 +11,6 @@ export interface HumanMessage {
     id?: string;
     type?: string;
     sentences?: string[];
-    [key: string]: any;
 }
 
 export interface InjectionMessage {
@@ -173,11 +172,12 @@ export class HumanInputHandler {
             manager.socket
         );
 
-        let summary: any = { // Using any as summary structure might vary or reuse Message interface
-            id: id,
+        let summary: ConversationMessage = {
+            id: id || "",
             speaker: manager.conversationOptions.characters[0].id,
             text: response,
             type: "interjection",
+            sentences: []
         };
 
         manager.conversation.push(summary);
@@ -189,7 +189,7 @@ export class HumanInputHandler {
 
         if (manager.meetingId !== null) {
             manager.audioSystem.queueAudioGeneration(
-                summary,
+                summary as any,
                 manager.conversationOptions.characters[0],
                 manager.conversationOptions.options,
                 manager.meetingId as number,
