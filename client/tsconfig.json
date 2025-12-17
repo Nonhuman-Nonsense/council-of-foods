@@ -8,7 +8,13 @@
         },
         "allowJs": true,
         "checkJs": false,
-        "maxNodeModuleJsDepth": 0
+        "maxNodeModuleJsDepth": 0,
+        "jsx": "react-jsx",
+        "module": "esnext",
+        "moduleResolution": "bundler",
+        "target": "es2020",
+        "strict": false,
+        "skipLibCheck": true
     },
     "include": [
         "src",
