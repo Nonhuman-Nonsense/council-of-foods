@@ -1,6 +1,7 @@
 import { MongoClient, Db, Collection, InsertOneResult } from "mongodb";
 import { Meeting, Audio, Counter } from "@models/DBModels.js";
 import { Logger } from "@utils/Logger.js";
+import { reportError } from "@utils/errorbot.js";
 
 let db: Db;
 export let meetingsCollection: Collection<Meeting>;
@@ -44,15 +45,26 @@ const initializeCounters = async (): Promise<void> => {
 
 // We use 'Omit<Meeting, "_id">' because _id is assigned by the logic inside
 export const insertMeeting = async (meeting: Omit<Meeting, "_id">): Promise<InsertOneResult<Meeting>> => {
-  const ret = await counters.findOneAndUpdate(
-    { _id: "meeting_id" },
-    { $inc: { seq: 1 } }
-  ) as any;
+  try {
+    const ret = await counters.findOneAndUpdate(
+      { _id: "meeting_id" },
+      { $inc: { seq: 1 } },
+      { returnDocument: "after" } // Ensure we get the updated document
+    );
 
-  // Polyfill logic: try to find seq on ret (if legacy) or ret.value (if modern)
-  const seq = ret.seq ?? ret.value?.seq;
+    if (!ret) {
+      throw new Error("Failed to increment meeting_id sequence");
+    }
 
-  // Cast to Meeting including the new _id
-  const meetingWithId = { ...meeting, _id: seq } as Meeting;
-  return await meetingsCollection.insertOne(meetingWithId);
+    const seq = ret.seq;
+
+    // Cast to Meeting including the new _id
+    const meetingWithId = { ...meeting, _id: seq } as Meeting;
+    return await meetingsCollection.insertOne(meetingWithId);
+  } catch (error) {
+    // Report error and rethrow to allow caller or global handler to react
+    // We rethrow because database failure is critical for creating a meeting
+    await reportError("DbService", "Failed to insert meeting", error);
+    throw error;
+  }
 };
