@@ -94,7 +94,8 @@ function Council({
     setHumanName, // exposed if needed
     setIsRaisedHand, // exposed if needed
     setCurrentSnippetIndex,
-    setSentencesLength
+    setSentencesLength,
+    toggleMute
   } = actions;
 
   // Derived Visual State (Background Zoom)
@@ -195,7 +196,7 @@ function Council({
           audioMessages={audioMessages}
           playingNowIndex={playingNowIndex}
           councilState={councilState}
-          isMuted={false} // isMuted was state in Council.tsx, I need to add that back or to hook?
+          isMuted={isMuted}
           isPaused={isPaused}
           currentSnippetIndex={currentSnippetIndex}
           setCurrentSnippetIndex={setCurrentSnippetIndex}
@@ -211,8 +212,8 @@ function Council({
           onRaiseHand={handleOnRaiseHand}
           isRaisedHand={isRaisedHand}
           isWaitingToInterject={isRaisedHand && councilState !== 'human_input'}
-          isMuted={false} // Placeholder
-          onMuteUnmute={() => { }} // Placeholder
+          isMuted={isMuted}
+          onMuteUnmute={toggleMute}
           isPaused={isPaused}
           onPausePlay={() => setPaused(!isPaused)}
           canGoBack={canGoBack}
