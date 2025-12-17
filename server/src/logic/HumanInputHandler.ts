@@ -1,4 +1,4 @@
-
+import { Logger } from "@utils/Logger.js";
 import { v4 as uuidv4 } from "uuid";
 import { splitSentences } from "@utils/textUtils.js";
 import { Character } from "@logic/SpeakerSelector.js";
@@ -42,16 +42,16 @@ export class HumanInputHandler {
      */
     handleSubmitHumanMessage(message: HumanMessage): void {
         const { manager } = this;
-        console.log(`[meeting ${manager.meetingId}] human input on index ${manager.conversation.length - 1} `);
+        Logger.info(`meeting ${manager.meetingId}`, `human input on index ${manager.conversation.length - 1} `);
 
         if (manager.conversation[manager.conversation.length - 1].type !== 'awaiting_human_question') {
-            console.error("Received a human question but was not expecting one!");
+            Logger.error(`meeting ${manager.meetingId}`, "Received a human question but was not expecting one!");
             return;
         }
         manager.conversation.pop();
 
         if (manager.conversation[manager.conversation.length - 1].type === 'invitation') {
-            console.log(`[meeting ${manager.meetingId}] popping invitation down to index ${manager.conversation.length - 1} `);
+            Logger.info(`meeting ${manager.meetingId}`, `popping invitation down to index ${manager.conversation.length - 1} `);
             manager.conversation.pop();
         }
 
@@ -60,7 +60,7 @@ export class HumanInputHandler {
         }
 
         if (message.askParticular) {
-            console.log(`[meeting ${manager.meetingId}] specifically asked to ${message.askParticular} `);
+            Logger.info(`meeting ${manager.meetingId}`, `specifically asked to ${message.askParticular} `);
             message.text = message.speaker + " asked " + message.askParticular + ":\xa0" + message.text;
         } else {
             message.text = message.speaker + (manager.conversationOptions.language === 'en' ? " said:\xa0" : " sa:\xa0") + message.text;
@@ -112,10 +112,10 @@ export class HumanInputHandler {
      */
     handleSubmitHumanPanelist(message: HumanMessage): void {
         const { manager } = this;
-        console.log(`[meeting ${manager.meetingId}] human panelist ${message.speaker} on index ${manager.conversation.length - 1} `);
+        Logger.info(`meeting ${manager.meetingId}`, `human panelist ${message.speaker} on index ${manager.conversation.length - 1} `);
 
         if (manager.conversation[manager.conversation.length - 1].type !== 'awaiting_human_panelist') {
-            console.error("Received a human panelist but was not expecting one!");
+            Logger.error(`meeting ${manager.meetingId}`, "Received a human panelist but was not expecting one!");
             return;
         }
         manager.conversation.pop();
@@ -186,7 +186,7 @@ export class HumanInputHandler {
         manager.conversation.push(summary);
 
         manager.socket.emit("conversation_update", manager.conversation);
-        console.log(`[meeting ${manager.meetingId}] interjection generated on index ${manager.conversation.length - 1} `);
+        Logger.info(`meeting ${manager.meetingId}`, `interjection generated on index ${manager.conversation.length - 1} `);
 
         summary.sentences = splitSentences(response);
 

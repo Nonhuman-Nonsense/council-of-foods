@@ -1,5 +1,6 @@
 import { MongoClient, Db, Collection, InsertOneResult } from "mongodb";
 import { Meeting, Audio, Counter } from "@models/DBModels.js";
+import { Logger } from "@utils/Logger.js";
 
 let db: Db;
 export let meetingsCollection: Collection<Meeting>;
@@ -15,7 +16,7 @@ export const initDb = async (): Promise<void> => {
   if (!process.env.COUNCIL_DB_PREFIX) {
     throw new Error("COUNCIL_DB_PREFIX environment variable not set.");
   }
-  console.log(`[init] COUNCIL_DB_PREFIX is ${process.env.COUNCIL_DB_PREFIX}`);
+  Logger.info(`init`, `COUNCIL_DB_PREFIX is ${process.env.COUNCIL_DB_PREFIX}`);
 
   db = mongoClient.db(process.env.COUNCIL_DB_PREFIX);
   meetingsCollection = db.collection<Meeting>("meetings");
@@ -28,11 +29,11 @@ export const initDb = async (): Promise<void> => {
 const initializeCounters = async (): Promise<void> => {
   try {
     await counters.insertOne({ _id: "meeting_id", seq: 0 });
-    console.log("[init] No meeting ID found, created initial meeting #0");
+    Logger.info("init", "No meeting ID found, created initial meeting #0");
   } catch (e: any) {
     if (e.errorResponse?.code === 11000) {
-      console.log(
-        "[init] Meeting ID counter already found in database. Not creating meeting #0"
+      Logger.info(
+        "init", "Meeting ID counter already found in database. Not creating meeting #0"
       );
       return;
     }

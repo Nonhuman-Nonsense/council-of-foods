@@ -44,7 +44,7 @@ export class AudioQueue {
                 // Try to start another task if concurrency allows
                 this.processNext();
             } catch (error) {
-                console.error("Error starting audio task:", error);
+                Logger.error("AudioSystem", "Error starting audio task", error);
                 this.activeCount--;
             }
         }
@@ -54,7 +54,7 @@ export class AudioQueue {
         try {
             await task();
         } catch (error) {
-            console.error(error);
+            Logger.error("AudioSystem", "AudioQueue Error", error);
             // Note: `this.meetingId` is not available in AudioQueue.
             // The instruction implies a context that might be passed to the task or queue.
             // For now, using a generic context.
@@ -148,7 +148,7 @@ export class AudioSystem {
 
                 generateNew = false;
             }
-        } catch (e) { console.log(e); }
+        } catch (e) { Logger.error("AudioSystem", "Error retrieving existing audio", e); }
 
         try {
             const openai = this.services.getOpenAI();

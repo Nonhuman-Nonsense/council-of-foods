@@ -1,4 +1,5 @@
 import { splitSentences } from "@utils/textUtils.js";
+import { Logger } from "@utils/Logger.js";
 import { reportError } from "../../errorbot.js";
 import { Character, ConversationMessage } from "./SpeakerSelector.js";
 import { GlobalOptions } from "./GlobalOptions.js";
@@ -167,7 +168,7 @@ export class DialogGenerator {
                 pretrimmed: pretrimmedContent,
             };
         } catch (error) {
-            console.error("Error during API call:", error);
+            Logger.error("DialogGenerator", "Error during API call", error);
             throw error;
         }
     }
@@ -211,7 +212,7 @@ export class DialogGenerator {
 
             return { response, id: completion.id };
         } catch (error) {
-            console.error("Error during conversation:", error);
+            Logger.error("DialogGenerator", "Error during conversation", error);
             if (socket) {
                 socket.emit("conversation_error", {
                     message: "An error occurred during the conversation.",

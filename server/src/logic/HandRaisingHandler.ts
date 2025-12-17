@@ -41,7 +41,7 @@ export class HandRaisingHandler {
      */
     async handleRaiseHand(handRaisedOptions: HandRaisedOptions): Promise<void> {
         const { manager } = this;
-        console.log(`[meeting ${manager.meetingId}] hand raised on index ${handRaisedOptions.index - 1}`);
+        Logger.info(`meeting ${manager.meetingId}`, `hand raised on index ${handRaisedOptions.index - 1}`);
         if (!manager.conversationOptions.state) {
             manager.conversationOptions.state = {};
         }
@@ -86,7 +86,7 @@ export class HandRaisingHandler {
             message.sentences = splitSentences(message.text as string);
 
             manager.conversationOptions.state.alreadyInvited = true;
-            console.log(`[meeting ${manager.meetingId}] invitation generated, on index ${handRaisedOptions.index}`);
+            Logger.info(`meeting ${manager.meetingId}`, `invitation generated, on index ${handRaisedOptions.index}`);
 
             if (manager.meetingId !== null) {
                 manager.audioSystem.queueAudioGeneration(
@@ -105,10 +105,10 @@ export class HandRaisingHandler {
             text: ""
         } as ConversationMessage);
 
-        console.log(`[meeting ${manager.meetingId}] awaiting human question on index ${manager.conversation.length - 1} `);
+        Logger.info(`meeting ${manager.meetingId}`, `awaiting human question on index ${manager.conversation.length - 1} `);
 
         if (manager.meetingId !== null) {
-            manager.services.meetingsCollection.updateOne(
+            await manager.services.meetingsCollection.updateOne(
                 { _id: manager.meetingId },
                 { $set: { conversation: manager.conversation, 'options.state': manager.conversationOptions.state } }
             );
