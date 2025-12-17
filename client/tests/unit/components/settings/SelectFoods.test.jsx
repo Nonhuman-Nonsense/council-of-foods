@@ -1,6 +1,6 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import SelectFoods from '../../../../src/components/settings/SelectFoods';
 
 // Mock dependencies
@@ -136,45 +136,40 @@ describe('SelectFoods Component', () => {
 
         // Select 6 items (Chair + 5 others) to reach max (6 + 1 chair = 7)
 
-        // Chair (Water) is already selected.
-        // We select 6 more: Tomato, Potato, Mushroom, Maize, Avocado, Banana.
+        // Chair (River) is already selected.
+        // We select 6 more: Salmon, Lichen, Pine, Reindeer, Tree Harvester, Bumblebee.
         // Total = 7.
-        const foods = ['Tomato', 'Potato', 'Mushroom', 'Maize', 'Avocado', 'Banana'];
+        const foods = ['Salmon', 'Lichen', 'Pine', 'Reindeer', 'Tree Harvester', 'Bumblebee'];
 
         foods.forEach(food => {
             const btn = screen.getByAltText(food);
             fireEvent.click(btn);
         });
 
-        // Try to select one more (e.g. Bean)
-        const extraBtn = screen.getByAltText('Bean');
+        // Try to select one more (e.g. Wind Turbine)
+        const extraBtn = screen.getByAltText('Wind Turbine');
         fireEvent.click(extraBtn);
 
         const startBtn = screen.getByText('start');
         fireEvent.click(startBtn);
 
         const passedFoods = mockOnContinue.mock.calls[0][0].foods;
-        // Should only be 7 items (Water + 6 selected) ??
-        // Wait, maxFoods = 7.
-        // If I selected 6 others + Water = 7.
-        // If I click Bean, it checks < 7. 7 < 7 is false.
-        // So Bean is NOT selected.
 
         expect(passedFoods.length).toBeLessThanOrEqual(7);
-        expect(passedFoods.map(f => f.name)).not.toContain('Bean');
+        expect(passedFoods.map(f => f.name)).not.toContain('Wind Turbine');
     });
 
     it('should deselect a food when clicked again', () => {
         render(<SelectFoods lang="en" topicTitle="Test Topic" onContinueForward={mockOnContinue} />);
 
-        const tomatoBtn = screen.getByAltText('Tomato');
+        const salmonBtn = screen.getByAltText('Salmon');
 
         // Select
-        fireEvent.click(tomatoBtn);
+        fireEvent.click(salmonBtn);
         // Check if selected (we can assume it is if we can deselect it)
 
         // Deselect
-        fireEvent.click(tomatoBtn);
+        fireEvent.click(salmonBtn);
 
         // We can't easily check internal state, but we can check if Start button is hidden (since only Chair is left = 1 food, need 2)
         expect(screen.queryByText('start')).not.toBeInTheDocument();
@@ -183,9 +178,9 @@ describe('SelectFoods Component', () => {
     it('should show error when human panelists have duplicate names', async () => {
         render(<SelectFoods lang="en" topicTitle="Test Topic" onContinueForward={mockOnContinue} />);
 
-        // Select Tomato and Potato to satisfy atLeastTwoFoods requirement
-        fireEvent.click(screen.getByAltText('Tomato'));
-        fireEvent.click(screen.getByAltText('Potato'));
+        // Select Salmon and Pine to satisfy atLeastTwoFoods requirement
+        fireEvent.click(screen.getByAltText('Salmon'));
+        fireEvent.click(screen.getByAltText('Pine'));
 
         // Add Human 1
         const addBtn = screen.getByAltText('add human');
@@ -200,15 +195,24 @@ describe('SelectFoods Component', () => {
         // Add Human 2 (this should auto-select Human 2)
         fireEvent.click(addBtn);
 
-        // Edit Human 2
+        // Wait for the form to switch to the new human (who has empty name)
+        let nameInput2;
+        await waitFor(() => {
+            nameInput2 = screen.getByPlaceholderText('selectfoods.humanname');
+            // We expect the new human's name to be empty (or blank)
+            expect(nameInput2.value).toBe('');
+        });
+
+        // Re-query to be safe/clean
         nameInput = screen.getByPlaceholderText('selectfoods.humanname');
         descInput = screen.getByPlaceholderText('selectfoods.humandesc');
-        // Ensure input is empty or fresh (though we just added it)
+
+        // Now we edit Human 2
         fireEvent.change(nameInput, { target: { value: 'Bob' } });
         fireEvent.change(descInput, { target: { value: 'Desc 2' } });
 
         // Now we have two Bobs.
-        // We need to look for the global error message, not inside the form.
+        // We need to look for the global error message.
         expect(await screen.findByText('selectfoods.unique')).toBeInTheDocument();
 
         // Start button should be hidden

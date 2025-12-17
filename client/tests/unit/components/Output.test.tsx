@@ -7,9 +7,10 @@ import { DecodedAudioMessage } from '../../../src/components/Council';
 
 // Mock child components to verify props and rendering
 vi.mock('../../../src/components/TextOutput', () => ({
-    default: ({ currentTextMessage, style }: any) => (
+    default: ({ currentAudioMessage, style }: any) => (
         <div data-testid="mock-text-output" style={style}>
-            {currentTextMessage ? currentTextMessage.text : 'No Text'}
+            {/* Simulate text derived from audio message ID for verification */}
+            {currentAudioMessage ? `Message ${currentAudioMessage.id}` : 'No Text'}
         </div>
     ),
 }));
@@ -60,29 +61,28 @@ describe('Output', () => {
 
     it('passes correct message based on playingNowIndex when playing', () => {
         render(<Output {...defaultProps} playingNowIndex={1} />);
-        expect(screen.getByTestId('mock-text-output')).toHaveTextContent('Second Message');
+        // mockAudioMessage with index 1 has id '2'
+        expect(screen.getByTestId('mock-text-output')).toHaveTextContent('Message 2');
     });
 
     it('hides text output when state is loading', () => {
         render(<Output {...defaultProps} councilState="loading" />);
-        // In 'loading', state logic sets text to null, AND style to hidden.
         const textOutput = screen.getByTestId('mock-text-output');
-        expect(textOutput).toBeInTheDocument();
-        expect(textOutput.style.visibility).toBe('hidden');
+        expect(textOutput).not.toBeVisible();
         expect(textOutput).toHaveTextContent('No Text');
     });
 
     it('shows text output when state is playing or waiting', () => {
-        // Playing
+        // Playing. index 0 -> id '1'
         const { rerender } = render(<Output {...defaultProps} councilState="playing" />);
         const textOutput = screen.getByTestId('mock-text-output');
-        expect(textOutput.style.visibility).not.toBe('hidden');
-        expect(textOutput).toHaveTextContent('Hello World');
+        expect(textOutput).toBeVisible();
+        expect(textOutput).toHaveTextContent('Message 1');
 
-        // Waiting (Fix Verification)
+        // Waiting
         rerender(<Output {...defaultProps} councilState="waiting" />);
-        expect(textOutput.style.visibility).not.toBe('hidden');
-        expect(textOutput).toHaveTextContent('Hello World');
+        expect(textOutput).toBeVisible();
+        expect(textOutput).toHaveTextContent('Message 1');
     });
 
     it('hides text output when state is summary', () => {
@@ -97,7 +97,7 @@ describe('Output', () => {
 
         render(<Output {...summaryProps} />);
         const textOutput = screen.getByTestId('mock-text-output');
-        expect(textOutput.style.visibility).toBe('hidden');
+        expect(textOutput).not.toBeVisible();
         expect(textOutput).toHaveTextContent('No Text');
     });
 });

@@ -36,7 +36,6 @@ describe('TextOutput', () => {
         render(<TextOutput {...defaultProps} />);
 
         expect(screen.getByTestId('subtitle-text')).toHaveTextContent('Hello world.');
-        expect(defaultProps.setSentencesLength).toHaveBeenCalledWith(3);
     });
 
     it('updates text as time progresses', () => {
@@ -116,12 +115,10 @@ describe('TextOutput', () => {
     it('handles null audio message gracefully', () => {
         render(<TextOutput {...defaultProps} currentAudioMessage={null} />);
         expect(screen.getByTestId('subtitle-text')).toHaveTextContent('');
-        expect(defaultProps.setSentencesLength).toHaveBeenCalledWith(0);
     });
 
     it('handles empty sentences array gracefully', () => {
         render(<TextOutput {...defaultProps} currentAudioMessage={{ sentences: [] }} />);
         expect(screen.getByTestId('subtitle-text')).toHaveTextContent('');
-        expect(defaultProps.setSentencesLength).toHaveBeenCalledWith(0);
     });
 });

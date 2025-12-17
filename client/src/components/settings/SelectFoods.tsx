@@ -6,6 +6,7 @@ import globalOptionsData from "@/global-options-client.json";
 import { Character } from "@shared/ModelTypes";
 
 import foodDataEN from "@prompts/foods_en.json";
+import foodDataSV from "@prompts/foods_sv.json";
 
 interface GlobalOptions {
   audio_speed?: number;
@@ -44,7 +45,8 @@ interface FoodData {
 }
 
 const localFoodData: Record<string, FoodData> = {
-  "en": foodDataEN as unknown as FoodData // Cast JSON
+  "en": foodDataEN as unknown as FoodData,
+  "sv": foodDataSV as unknown as FoodData
 };
 
 // Freeze original foodData to make it immutable
@@ -110,11 +112,11 @@ function SelectFoods({ lang, topicTitle, onContinueForward }: SelectFoodsProps):
 
   useEffect(() => {
     // Concatenate humans to foods list
-    // Since upstream might have changed how this works, I'll replicate simple concat:
-    const baseFoods = localFoodData['en'].foods;
+    // Use the correct language data
+    const baseFoods = localFoodData[lang] ? localFoodData[lang].foods : localFoodData['en'].foods;
     const newFoods = baseFoods.concat(humans.slice(0, numberOfHumans));
     setFoods(newFoods);
-  }, [human0, human1, human2, numberOfHumans]);
+  }, [lang, human0, human1, human2, numberOfHumans]);
 
 
   /* -------------------------------------------------------------------------- */

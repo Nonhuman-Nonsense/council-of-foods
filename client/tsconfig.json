@@ -36,16 +36,10 @@
                 "../shared/*"
             ]
         },
-        "allowJs": false,
-        "strict": true,
-        "checkJs": false,
-        "maxNodeModuleJsDepth": 0,
-        "jsx": "react-jsx",
-        "module": "esnext",
-        "moduleResolution": "bundler",
-        "target": "es2020",
+        "allowJs": true,
         "strict": false,
-        "skipLibCheck": true
+        "checkJs": false,
+        "maxNodeModuleJsDepth": 0
     },
     "include": [
         "src",

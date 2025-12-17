@@ -18,6 +18,7 @@ import { useTranslation } from 'react-i18next';
 
 //Topics
 import topicDataEN from "@prompts/topics_en.json";
+import topicDataSV from "@prompts/topics_sv.json";
 import routes from "@/routes.json"; // Import routes directly
 import { Character } from "@shared/ModelTypes";
 
@@ -27,7 +28,8 @@ interface TopicsData {
 }
 
 const topicsData: Record<string, TopicsData> = {
-  "en": topicDataEN
+  "en": topicDataEN,
+  "sv": topicDataSV
 };
 
 //Freeze original topicData to make it immutable
