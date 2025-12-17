@@ -30,8 +30,9 @@ const initializeCounters = async (): Promise<void> => {
   try {
     await counters.insertOne({ _id: "meeting_id", seq: 0 });
     Logger.info("init", "No meeting ID found, created initial meeting #0");
-  } catch (e: any) {
-    if (e.errorResponse?.code === 11000) {
+  } catch (e: unknown) {
+    const error = e as { errorResponse?: { code: number } };
+    if (error.errorResponse?.code === 11000) {
       Logger.info(
         "init", "Meeting ID counter already found in database. Not creating meeting #0"
       );
@@ -45,7 +46,7 @@ const initializeCounters = async (): Promise<void> => {
 export const insertMeeting = async (meeting: Omit<Meeting, "_id">): Promise<InsertOneResult<Meeting>> => {
   const ret = await counters.findOneAndUpdate(
     { _id: "meeting_id" },
-    { $inc: { seq: 1 } } as any
+    { $inc: { seq: 1 } }
   ) as any;
 
   // Polyfill logic: try to find seq on ret (if legacy) or ret.value (if modern)

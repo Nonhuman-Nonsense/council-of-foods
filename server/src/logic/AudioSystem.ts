@@ -76,8 +76,11 @@ export interface Services {
 }
 
 export interface Speaker {
+    id: string;
     voice: string;
-    [key: string]: any;
+    name?: string;
+    // Removing [key: string]: any to enforce strictness. 
+    // If other props are needed, they should be added explicitly or we should use the shared Character type.
 }
 
 export interface Message {
@@ -195,9 +198,10 @@ export class AudioSystem {
                 );
             }
 
-        } catch (error: any) {
+        } catch (error: unknown) {
             // Suppress "interrupted at shutdown" errors often seen during tests
-            if (error.code === 11600 || (error.message && error.message.includes('interrupted at shutdown'))) {
+            const err = error as any; // Temporary cast for checking specific error properties safely
+            if (err.code === 11600 || (err.message && err.message.includes('interrupted at shutdown'))) {
                 return;
             }
             Logger.error("AudioSystem", "Error generating audio", error);

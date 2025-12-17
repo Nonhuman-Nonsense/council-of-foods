@@ -5,10 +5,12 @@ import { Character, ConversationMessage } from "./SpeakerSelector.js";
 import { GlobalOptions } from "./GlobalOptions.js";
 import { OpenAI } from "openai";
 import { ChatCompletionMessageParam } from "openai/resources/chat/completions";
+import { Collection } from "mongodb";
+import { Meeting } from "@models/DBModels.js";
 
-interface Services {
+export interface Services {
     getOpenAI: () => OpenAI;
-    [key: string]: any;
+    meetingsCollection: Collection<Meeting>;
 }
 
 interface ConversationState {
