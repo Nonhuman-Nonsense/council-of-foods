@@ -2,8 +2,8 @@ import { z } from "zod";
 
 // --- Environment Variables Schema ---
 export const EnvSchema = z.object({
-    COUNCIL_DB_URL: z.string().url().default("mongodb://localhost:27017"),
-    COUNCIL_DB_PREFIX: z.string().default("CouncilOfFoods"),
+    COUNCIL_DB_URL: z.string().url(),
+    COUNCIL_DB_PREFIX: z.string(),
     COUNCIL_OPENAI_API_KEY: z.string().min(1, "COUNCIL_OPENAI_API_KEY is required"),
     PORT: z.string().default("3001").transform((val) => parseInt(val, 10)),
     NODE_ENV: z.enum(["development", "production", "test", "prototype"]).default("production"),
@@ -17,12 +17,12 @@ export type EnvConfig = z.infer<typeof EnvSchema>;
 
 // Shared Sub-schemas
 const CharacterSchema = z.object({
-    id: z.string(),
-    name: z.string(),
+    id: z.string().min(1),
+    name: z.string().min(1),
     type: z.string().optional(),
-    voice: z.string().default("en_us_001"),
+    voice: z.string().min(1),
     prompt: z.string().optional(),
-}).passthrough(); // Allow other properties for flexibility
+}).passthrough(); // Keeping passthrough for extra character properties if dynamic
 
 const ConversationStateSchema = z.object({
     humanName: z.string().optional(),
@@ -45,18 +45,18 @@ export const SetupOptionsSchema = z.object({
 
 // 2. submit_human_message & submit_human_panelist
 export const HumanMessageSchema = z.object({
-    text: z.string(),
+    text: z.string().min(1),
     askParticular: z.string().optional(),
     speaker: z.string().optional(),
     id: z.string().optional(),
     type: z.string().optional(),
     sentences: z.array(z.string()).optional(),
-}).passthrough();
+});
 
 // 3. raise_hand
 export const HandRaisedOptionsSchema = z.object({
-    index: z.number(),
-    humanName: z.string(),
+    index: z.number().int(),
+    humanName: z.string().min(1),
 });
 
 // 4. attempt_reconnection

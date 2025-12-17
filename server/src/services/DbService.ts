@@ -3,23 +3,23 @@ import { Meeting, Audio, Counter } from "@models/DBModels.js";
 import { Logger } from "@utils/Logger.js";
 import { reportError } from "@utils/errorbot.js";
 
+import { config } from "../config.js";
+
 let db: Db;
 export let meetingsCollection: Collection<Meeting>;
 export let audioCollection: Collection<Audio>;
 export let counters: Collection<Counter>;
 
-export const initDb = async (): Promise<void> => {
-  if (!process.env.COUNCIL_DB_URL) {
-    throw new Error("COUNCIL_DB_URL environment variable not set.");
-  }
-  const mongoClient = new MongoClient(process.env.COUNCIL_DB_URL);
+export const initDb = async (dbUrl?: string, dbPrefix?: string): Promise<void> => {
+  // Config is already validated by the time we import this, but allow overrides for testing
+  const url = dbUrl || config.COUNCIL_DB_URL;
+  const prefix = dbPrefix || config.COUNCIL_DB_PREFIX;
 
-  if (!process.env.COUNCIL_DB_PREFIX) {
-    throw new Error("COUNCIL_DB_PREFIX environment variable not set.");
-  }
-  Logger.info(`init`, `COUNCIL_DB_PREFIX is ${process.env.COUNCIL_DB_PREFIX}`);
+  const mongoClient = new MongoClient(url);
 
-  db = mongoClient.db(process.env.COUNCIL_DB_PREFIX);
+  Logger.info(`init`, `COUNCIL_DB_PREFIX is ${prefix}`);
+
+  db = mongoClient.db(prefix);
   meetingsCollection = db.collection<Meeting>("meetings");
   audioCollection = db.collection<Audio>("audio");
   counters = db.collection<Counter>("counters");

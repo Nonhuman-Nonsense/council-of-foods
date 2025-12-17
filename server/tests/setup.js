@@ -13,12 +13,12 @@ beforeAll(async () => {
     mongod = await MongoMemoryServer.create();
     const uri = mongod.getUri();
 
-    // 2. Override Environment
+    // 2. Override Environment (optional, but good for other components reading env)
     process.env.COUNCIL_DB_URL = uri;
     process.env.COUNCIL_DB_PREFIX = "test_db";
 
-    // 3. Initialize App DB connection
-    await initDb();
+    // 3. Initialize App DB connection with overrides
+    await initDb(uri, "test_db");
 });
 
 beforeEach(async () => {

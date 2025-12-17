@@ -1,5 +1,4 @@
-import dotenv from 'dotenv';
-dotenv.config();
+import { config } from './src/config.js';
 
 import express, { Request, Response } from "express";
 import http from "http";
@@ -13,16 +12,7 @@ import { initDb } from '@services/DbService.js';
 import { initOpenAI } from '@services/OpenAIService.js';
 import { MeetingManager } from '@logic/MeetingManager.js';
 
-import { EnvSchema } from '@models/ValidationSchemas.js';
-
-// Validate Env
-const envParse = EnvSchema.safeParse(process.env);
-if (!envParse.success) {
-  const errorMsg = "Invalid environment variables: " + JSON.stringify(envParse.error.format(), null, 2);
-  reportError("init", errorMsg, envParse.error).then(() => process.exit(1));
-}
-
-const environment: string = envParse.data ? envParse.data.NODE_ENV : "production";
+const environment: string = config.NODE_ENV;
 const __filename: string = fileURLToPath(import.meta.url);
 const __dirname: string = path.dirname(__filename);
 
