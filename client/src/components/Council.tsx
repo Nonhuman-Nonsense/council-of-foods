@@ -206,10 +206,7 @@ function Council({
     // If pending speaker is 'human', Forest won't find it (unless added), so it zooms out. CORRECT.
     if (councilState === 'human_panelist' && textMessages[playNextIndex]) {
       if (textMessages[playNextIndex].speaker) {
-        let speaker = textMessages[playNextIndex].speaker.toLowerCase();
-        // Special case: River should be zoomed out
-        if (speaker === 'river') speaker = "";
-        setCurrentSpeakerId(speaker);
+        setCurrentSpeakerId(textMessages[playNextIndex].speaker.toLowerCase());
       }
       return;
     }
@@ -223,10 +220,7 @@ function Council({
     // 5. Playing / Waiting -> Zoom on Speaker
     if (playingNowIndex >= 0 && textMessages[playingNowIndex]) {
       if (textMessages[playingNowIndex].speaker) {
-        let speaker = textMessages[playingNowIndex].speaker.toLowerCase();
-        // Special case: River should be zoomed out
-        if (speaker === 'river') speaker = "";
-        setCurrentSpeakerId(speaker);
+        setCurrentSpeakerId(textMessages[playingNowIndex].speaker.toLowerCase());
       }
     }
   }, [playingNowIndex, textMessages, setCurrentSpeakerId, councilState, playNextIndex]);
