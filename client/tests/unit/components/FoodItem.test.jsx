@@ -7,10 +7,10 @@ import FoodItem from '../../../src/components/FoodItem';
 // However, FoodAnimation uses video APIs which are not fully implemented in JSDOM.
 // Let's mock it to avoid video.play() errors and focus on FoodItem logic.
 vi.mock('../../../src/components/FoodAnimation', () => ({
-    default: ({ food, styles, currentSpeakerId }) => (
-        <div data-testid={`food-animation-${food.id}`} style={styles}>
-            Video for {food.id}
-            {currentSpeakerId === food.id ? ' (Breathing)' : ' (Idle)'}
+    default: ({ character, styles, currentSpeakerId }) => (
+        <div data-testid={`food-animation-${character?.id || 'undefined'}`} style={styles}>
+            Video for {character?.id}
+            {currentSpeakerId === character?.id ? ' (Breathing)' : ' (Idle)'}
         </div>
     )
 }));
