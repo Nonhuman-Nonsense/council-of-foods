@@ -13,6 +13,7 @@ describe('MeetingLifecycleHandler Prompts', () => {
             conversation: [],
             conversationOptions: {
                 language: 'sv',
+                characters: [{ id: 'mock-char', name: 'Mock Char', model: 'mock-model', prompt: 'mock-prompt' }],
                 options: {
                     finalizeMeetingPrompt: {
                         en: "Summarize"
@@ -21,16 +22,21 @@ describe('MeetingLifecycleHandler Prompts', () => {
                     transcribePrompt: {
                         en: "Transcribe"
                         // sv missing
-                    }
+                    },
+                    transcribeModel: "whisper-1" // likely needed for handleRequestClientKey
                 }
             },
-            services: { meetingsCollection: { updateOne: vi.fn() } },
+            services: {
+                meetingsCollection: { updateOne: vi.fn() },
+                getOpenAI: vi.fn().mockReturnValue({ apiKey: "mock-key" })
+            },
             socket: { emit: vi.fn(), on: vi.fn() },
             dialogGenerator: {
                 generateTextFromGPT: vi.fn().mockResolvedValue({ response: "Summary" }),
                 chairInterjection: vi.fn().mockResolvedValue({ response: "Summary", id: "123" }) // Correct mock return structure
             },
-            connectionHandler: { handleRequestClientKey: vi.fn() }
+            connectionHandler: { handleRequestClientKey: vi.fn() },
+            audioSystem: { generateAudio: vi.fn() }
         } as unknown as IMeetingManager;
 
         handler = new MeetingLifecycleHandler(mockManager);
