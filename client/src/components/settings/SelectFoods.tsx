@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { toTitleCase, useMobile, useMobileXs, filename } from "@/utils";
+import { toTitleCase, useMobile, useMobileXs } from "@/utils";
 import { useTranslation } from "react-i18next";
 
 import globalOptionsData from "@/global-options-client.json";

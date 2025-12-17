@@ -93,7 +93,6 @@ function Main({ lang }: MainProps) {
   const navigate = useNavigate();
   const isIphone = useIsIphone();
   const isPortrait = usePortrait();
-  const isDocumentVisible = useDocumentVisibility();
 
   const { i18n } = useTranslation();
 

@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router"; // react-router-dom in this project?
 import { useCouncilSocket } from "../hooks/useCouncilSocket";
 import { Character, ConversationMessage, Sentence } from "@shared/ModelTypes";
-import { AudioUpdatePayload } from "@shared/SocketTypes";
+// import { AudioUpdatePayload } from "@shared/SocketTypes";
 // @ts-ignore
 import globalOptions from "@/global-options-client.json";
 

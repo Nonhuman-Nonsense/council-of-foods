@@ -1,18 +1,15 @@
-import React, { useState, useEffect, useMemo } from "react";
-import { useNavigate, useLocation } from "react-router";
-import FoodItem from "./FoodItem";
+import React, { useEffect, useMemo } from "react";
+import { useLocation } from "react-router";
 import Overlay from "./Overlay";
 import CouncilOverlays from "./CouncilOverlays";
 import Loading from "./Loading";
 import Output from "./Output";
 import ConversationControls from "./ConversationControls";
 import HumanInput from "./HumanInput";
-import { useDocumentVisibility, mapFoodIndex, dvh } from "@/utils";
+import { useDocumentVisibility } from "@/utils";
 import routes from "@/routes.json";
-import { Character, ConversationMessage, Sentence } from "@shared/ModelTypes";
+import { Character } from "@shared/ModelTypes";
 import { useCouncilMachine } from "@/hooks/useCouncilMachine";
-// @ts-ignore
-import globalOptions from "@/global-options-client.json";
 
 interface CouncilProps {
   lang: string;
@@ -82,7 +79,7 @@ function Council({
     canGoForward,
     canRaiseHand,
     currentSnippetIndex,
-    sentencesLength,
+    // sentencesLength,
     isMuted,
     canExtendMeeting,
   } = state;
@@ -100,11 +97,10 @@ function Council({
     removeOverlay,
     setCurrentSnippetIndex,
     toggleMute,
-    setSentencesLength
+    // setSentencesLength
   } = actions;
 
   // Routing
-  const navigate = useNavigate();
   const location = useLocation();
 
   // Sync current speaker ID to parent component for Forest zoom
@@ -143,46 +139,6 @@ function Council({
     }
   }, [playingNowIndex, textMessages, setCurrentSpeakerId, councilState, playNextIndex]);
 
-  // Derived Visual State (Background Zoom)
-  const zoomIn = useMemo(() => {
-    if (currentSpeakerId === "") return false;
-
-    // Additional logic for zoom timing (from Forest)
-    // If it's pure logic, maybe it should be in hook? 
-    // But it depends on `currentSnippetIndex`.
-    // Forest: zoomIn if currentSpeakerId is set AND maybe some snippet logic?
-    // Looking at original Forest code (inferred):
-    if (
-      councilState === 'loading' ||
-      councilState === 'waiting' ||
-      councilState === 'max_reached' ||
-      councilState === 'summary' ||
-      councilState === 'human_input' ||
-      councilState === 'human_panelist' ||
-      playingNowIndex <= 0 ||
-      textMessages[playingNowIndex]?.type === "human" ||
-      textMessages[playingNowIndex]?.type === "panelist"
-    ) {
-      return false;
-    } else if (currentSnippetIndex % 4 < 2 && currentSnippetIndex !== sentencesLength - 1) {
-      return true;
-    } else {
-      return false;
-    }
-  }, [councilState, playingNowIndex, textMessages, currentSnippetIndex, sentencesLength, currentSpeakerId]);
-
-  const foods = participants.filter((part) => part.type !== 'panelist');
-
-  const currentSpeakerIdx = useMemo(() => {
-    let currentIndex;
-    foods.forEach((food, index) => {
-      if (currentSpeakerId === food.id) {
-        currentIndex = mapFoodIndex(foods.length, index);
-      }
-    });
-    return currentIndex;
-  }, [foods, currentSpeakerId]);
-
   const showControls = (
     councilState === 'playing' ||
     councilState === 'waiting' ||
@@ -200,33 +156,6 @@ function Council({
 
   return (
     <>
-      <MemoizedBackground
-        zoomIn={zoomIn}
-        currentSpeakerIndex={currentSpeakerIdx}
-        totalSpeakers={foods.length - 1}
-      />
-      <div style={{
-        position: "absolute",
-        top: "62%",
-        left: "50%",
-        transform: "translate(-50%, -50%)",
-        width: participants.length > 6 ? "79%" : "70%",
-        display: "flex",
-        justifyContent: "space-around",
-        alignItems: "center",
-      }}>
-        {foods.map((food, index) => (
-          <FoodItem
-            key={food.id}
-            food={food}
-            index={mapFoodIndex(foods.length, index)}
-            total={foods.length}
-            isPaused={isPaused}
-            zoomIn={zoomIn}
-            currentSpeakerId={currentSpeakerId}
-          />
-        ))}
-      </div>
       {councilState === 'loading' && <Loading />}
       <>
         {(councilState === 'human_input' || councilState === 'human_panelist') && (
@@ -281,61 +210,5 @@ function Council({
     </>
   );
 }
-
-export function Background({ zoomIn, currentSpeakerIndex, totalSpeakers }) {
-  function calculateBackdropPosition() {
-    return 10 + (80 * currentSpeakerIndex) / totalSpeakers + "%";
-  }
-
-  const closeUpBackdrop = {
-    backgroundImage: `url(/backgrounds/close-up-backdrop.webp)`,
-    backgroundSize: "cover",
-    backgroundPosition: calculateBackdropPosition(),
-    height: "100%",
-    width: "100%",
-    position: "absolute" as "absolute",
-    opacity: zoomIn ? "1" : "0",
-  };
-
-  const closeUpTable = {
-    backgroundImage: `url(/backgrounds/close-up-table.webp)`,
-    backgroundSize: "cover",
-    backgroundPosition: "center",
-    height: "100%",
-    width: "100%",
-    position: "absolute" as "absolute",
-    opacity: zoomIn ? "1" : "0",
-  };
-
-  const bottomShade = {
-    width: "100%",
-    height: "40%",
-    position: "absolute" as "absolute",
-    bottom: "0",
-    background: "linear-gradient(0, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0) 100%)",
-    zIndex: "1",
-  };
-
-  const topShade = {
-    width: "100%",
-    height: "10%",
-    position: "absolute" as "absolute",
-    top: "0",
-    background:
-      "linear-gradient(180deg, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0) 100%)",
-    zIndex: "1",
-  };
-
-  return (
-    <>
-      <div style={closeUpBackdrop} />
-      <div style={closeUpTable} />
-      <div style={bottomShade} />
-      <div style={topShade} />
-    </>
-  );
-}
-
-const MemoizedBackground = React.memo(Background);
 
 export default Council;
