@@ -106,4 +106,112 @@ describe('SelectFoods Component', () => {
 
         expect(chair.prompt).toContain("on the panel are also selectfoods.humanAlice, A thoughtful human.");
     });
+
+    it('should maintain focus on description when typing', async () => {
+        render(<SelectFoods lang="en" topicTitle="Test Topic" onContinueForward={mockOnContinue} />);
+
+        // Add Human
+        const addBtn = screen.getByAltText('add human');
+        fireEvent.click(addBtn);
+
+        const nameInput = screen.getByPlaceholderText('selectfoods.humanname');
+        const descInput = screen.getByPlaceholderText('selectfoods.humandesc');
+
+        // Focus name (default behavior)
+        expect(document.activeElement).toBe(nameInput);
+
+        // Switch focus to description
+        descInput.focus();
+        expect(document.activeElement).toBe(descInput);
+
+        // Type in description - this updates state and re-renders
+        fireEvent.change(descInput, { target: { value: 'A' } });
+
+        // If bug exists, focus jumps back to nameInput
+        expect(document.activeElement).toBe(descInput);
+    });
+
+    it('should prevent selecting more than max participants (6)', () => {
+        render(<SelectFoods lang="en" topicTitle="Test Topic" onContinueForward={mockOnContinue} />);
+
+        // Select 6 items (Chair + 5 others) to reach max (6 + 1 chair = 7)
+
+        // Chair (Water) is already selected.
+        // We select 6 more: Tomato, Potato, Mushroom, Maize, Avocado, Banana.
+        // Total = 7.
+        const foods = ['Tomato', 'Potato', 'Mushroom', 'Maize', 'Avocado', 'Banana'];
+
+        foods.forEach(food => {
+            const btn = screen.getByAltText(food);
+            fireEvent.click(btn);
+        });
+
+        // Try to select one more (e.g. Bean)
+        const extraBtn = screen.getByAltText('Bean');
+        fireEvent.click(extraBtn);
+
+        const startBtn = screen.getByText('start');
+        fireEvent.click(startBtn);
+
+        const passedFoods = mockOnContinue.mock.calls[0][0].foods;
+        // Should only be 7 items (Water + 6 selected) ??
+        // Wait, maxFoods = 7.
+        // If I selected 6 others + Water = 7.
+        // If I click Bean, it checks < 7. 7 < 7 is false.
+        // So Bean is NOT selected.
+
+        expect(passedFoods.length).toBeLessThanOrEqual(7);
+        expect(passedFoods.map(f => f.name)).not.toContain('Bean');
+    });
+
+    it('should deselect a food when clicked again', () => {
+        render(<SelectFoods lang="en" topicTitle="Test Topic" onContinueForward={mockOnContinue} />);
+
+        const tomatoBtn = screen.getByAltText('Tomato');
+
+        // Select
+        fireEvent.click(tomatoBtn);
+        // Check if selected (we can assume it is if we can deselect it)
+
+        // Deselect
+        fireEvent.click(tomatoBtn);
+
+        // We can't easily check internal state, but we can check if Start button is hidden (since only Chair is left = 1 food, need 2)
+        expect(screen.queryByText('start')).not.toBeInTheDocument();
+    });
+
+    it('should show error when human panelists have duplicate names', async () => {
+        render(<SelectFoods lang="en" topicTitle="Test Topic" onContinueForward={mockOnContinue} />);
+
+        // Select Tomato and Potato to satisfy atLeastTwoFoods requirement
+        fireEvent.click(screen.getByAltText('Tomato'));
+        fireEvent.click(screen.getByAltText('Potato'));
+
+        // Add Human 1
+        const addBtn = screen.getByAltText('add human');
+        fireEvent.click(addBtn);
+
+        // Edit Human 1
+        let nameInput = screen.getByPlaceholderText('selectfoods.humanname');
+        let descInput = screen.getByPlaceholderText('selectfoods.humandesc');
+        fireEvent.change(nameInput, { target: { value: 'Bob' } });
+        fireEvent.change(descInput, { target: { value: 'Desc 1' } });
+
+        // Add Human 2 (this should auto-select Human 2)
+        fireEvent.click(addBtn);
+
+        // Edit Human 2
+        nameInput = screen.getByPlaceholderText('selectfoods.humanname');
+        descInput = screen.getByPlaceholderText('selectfoods.humandesc');
+        // Ensure input is empty or fresh (though we just added it)
+        fireEvent.change(nameInput, { target: { value: 'Bob' } });
+        fireEvent.change(descInput, { target: { value: 'Desc 2' } });
+
+        // Now we have two Bobs.
+        // We need to look for the global error message, not inside the form.
+        expect(await screen.findByText('selectfoods.unique')).toBeInTheDocument();
+
+        // Start button should be hidden
+        expect(screen.queryByText('start')).not.toBeInTheDocument();
+    });
 });

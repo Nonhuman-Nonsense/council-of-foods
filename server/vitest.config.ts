@@ -6,7 +6,12 @@ export default defineConfig({
         globals: true,
         environment: 'node',
         include: ['tests/**/*.test.js', 'tests/**/*.test.ts'],
+        exclude: ['node_modules', 'dist', '.idea', '.git', '.cache'],
         setupFiles: ['tests/setup.js'],
+        coverage: {
+            provider: 'v8',
+            reporter: ['text', 'json', 'html'],
+        },
     },
     resolve: {
         alias: {

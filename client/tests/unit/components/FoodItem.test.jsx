@@ -107,4 +107,39 @@ describe('FoodItem', () => {
         // Snapshot captures 'left: 100%' roughly
         expect(result2.asFragment()).toMatchSnapshot();
     });
+    it('should apply special positioning for lollipop', () => {
+        const lollipopFood = { ...mockFood, id: 'lollipop' };
+        // We can't easily assert exact style values due to complex math, but we can snapshot it
+        // Or check if it renders without error and has the correct id
+        const { asFragment } = render(
+            <FoodItem
+                food={lollipopFood}
+                index={1}
+                total={3}
+                currentSpeakerId=""
+                isPaused={false}
+                zoomIn={false}
+            />
+        );
+        expect(screen.getByTestId('food-animation-lollipop')).toBeInTheDocument();
+        expect(asFragment()).toMatchSnapshot();
+    });
+
+    it('should handle food with missing id gracefully', () => {
+        const noIdFood = { ...mockFood, id: undefined };
+        const { asFragment } = render(
+            <FoodItem
+                food={noIdFood}
+                index={1}
+                total={3}
+                currentSpeakerId=""
+                isPaused={false}
+                zoomIn={false}
+            />
+        );
+        // Should rely on fallback visualization or at least not crash
+        // Our mock FoodAnimation renders "Video for undefined" if id is missing
+        expect(screen.getByTestId('food-animation-undefined')).toBeInTheDocument();
+        expect(asFragment()).toMatchSnapshot();
+    });
 });

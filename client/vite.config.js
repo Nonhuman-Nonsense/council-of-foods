@@ -15,11 +15,15 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     setupFiles: './tests/unit/setupTests.js',
-    include: ['tests/unit/**/*.{test,spec}.{js,jsx}'],
+    include: ['tests/unit/**/*.{test,spec}.{js,jsx,ts,tsx}'],
   },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
+      '@components': path.resolve(__dirname, './src/components'),
+      '@hooks': path.resolve(__dirname, './src/hooks'),
+      '@animations': path.resolve(__dirname, './src/animations'),
+      '@prompts': path.resolve(__dirname, './src/prompts'),
       '@shared': path.resolve(__dirname, '../shared'),
     },
   },

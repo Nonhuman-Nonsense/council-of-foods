@@ -1,4 +1,4 @@
-import type { ConversationMessage, Character } from "./ModelTypes.js";
+import type { ConversationMessage, Character, Sentence } from "./ModelTypes.js";
 
 
 // Re-defining or importing types that are passed over the socket
@@ -41,7 +41,7 @@ export interface SetupOptions {
 export interface AudioUpdatePayload {
     id: string;
     audio?: Buffer;
-    sentences?: any[];
+    sentences?: Sentence[];
     type?: string;
     [key: string]: any;
 }
@@ -51,13 +51,17 @@ export interface ErrorPayload {
     code: number;
 }
 
+export interface ClientKeyResponse {
+    value: string;
+}
+
 // Events emitted by the Server to the Client
 export interface ServerToClientEvents {
     meeting_started: (data: { meeting_id: number | string | null }) => void; // Using union for safety during transition
     conversation_update: (conversation: ConversationMessage[]) => void;
     conversation_end: (conversation: ConversationMessage[]) => void;
     audio_update: (data: AudioUpdatePayload) => void;
-    clientkey_response: (data: any) => void;
+    clientkey_response: (data: ClientKeyResponse) => void;
     conversation_error: (error: ErrorPayload) => void;
     meeting_not_found: (data: { meeting_id: string | number }) => void;
 }

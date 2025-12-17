@@ -1,17 +1,49 @@
 {
     "compilerOptions": {
+        "target": "ES2021",
+        "useDefineForClassFields": true,
+        "lib": [
+            "ES2021",
+            "DOM",
+            "DOM.Iterable"
+        ],
+        "module": "ESNext",
+        "skipLibCheck": true,
+        "moduleResolution": "bundler",
+        "allowImportingTsExtensions": true,
+        "resolveJsonModule": true,
+        "isolatedModules": true,
+        "noEmit": true,
+        "jsx": "react-jsx",
         "baseUrl": ".",
         "paths": {
+            "@/*": [
+                "src/*"
+            ],
+            "@components/*": [
+                "src/components/*"
+            ],
+            "@hooks/*": [
+                "src/hooks/*"
+            ],
+            "@animations/*": [
+                "src/animations/*"
+            ],
+            "@prompts/*": [
+                "src/prompts/*"
+            ],
             "@shared/*": [
                 "../shared/*"
             ]
         },
-        "allowJs": true,
+        "allowJs": false,
+        "strict": true,
         "checkJs": false,
         "maxNodeModuleJsDepth": 0
     },
     "include": [
         "src",
+        "tests",
         "../shared"
     ]
 }
