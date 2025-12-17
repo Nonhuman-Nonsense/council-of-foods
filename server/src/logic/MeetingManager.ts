@@ -1,8 +1,7 @@
 import { getOpenAI } from "@services/OpenAIService.js";
 import { meetingsCollection, audioCollection, insertMeeting } from "@services/DbService.js";
 import { reportError } from "../../errorbot.js";
-import { default as defaultGlobalOptions } from "../../global-options.json" with { type: 'json' };
-import { default as testOptions } from "../../test-options.json" with { type: 'json' };
+
 import { AudioSystem } from "@logic/AudioSystem.js";
 import { SpeakerSelector } from "@logic/SpeakerSelector.js";
 import { DialogGenerator, GPTResponse } from "@logic/DialogGenerator.js";
@@ -10,7 +9,7 @@ import { HumanInputHandler } from "@logic/HumanInputHandler.js";
 import { HandRaisingHandler } from "@logic/HandRaisingHandler.js";
 import { MeetingLifecycleHandler } from "@logic/MeetingLifecycleHandler.js";
 import { ConnectionHandler } from "@logic/ConnectionHandler.js";
-import { GlobalOptions } from "@logic/GlobalOptions.js";
+import { GlobalOptions, getGlobalOptions } from "@logic/GlobalOptions.js";
 import { Meeting, Audio } from "@models/DBModels.js";
 import { Collection, InsertOneResult } from "mongodb";
 import { OpenAI } from "openai";
@@ -64,7 +63,7 @@ export class MeetingManager implements IMeetingManager {
     constructor(socket: Socket<ClientToServerEvents, ServerToClientEvents>, environment: string, optionsOverride: GlobalOptions | null = null, services: Partial<Services> = {}) {
         this.socket = socket;
         this.environment = environment;
-        this.globalOptions = optionsOverride || ((environment === 'test' || process.env.USE_TEST_OPTIONS === 'true') ? (testOptions as unknown as GlobalOptions) : (defaultGlobalOptions as unknown as GlobalOptions));
+        this.globalOptions = optionsOverride || getGlobalOptions();
 
         // Default Services
         this.services = {
