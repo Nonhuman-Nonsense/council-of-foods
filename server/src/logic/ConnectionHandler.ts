@@ -1,11 +1,7 @@
 import { splitSentences } from "@utils/textUtils.js";
 import { reportError } from "@utils/errorbot.js";
 import { Logger } from "@utils/Logger.js";
-import { v4 as uuidv4 } from "uuid";
-import { Character } from "./SpeakerSelector.js";
-import { GlobalOptions } from "./GlobalOptions.js";
-import { Socket } from "socket.io";
-import { ClientToServerEvents, ServerToClientEvents, ReconnectionOptions } from "@shared/SocketTypes.js";
+import { ReconnectionOptions } from "@shared/SocketTypes.js";
 import { ConversationMessage } from "@shared/ModelTypes.js";
 import { IMeetingManager } from "@interfaces/MeetingInterfaces.js";
 

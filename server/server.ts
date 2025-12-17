@@ -47,14 +47,14 @@ try {
 Logger.info("init", `node_env is ${environment}`);
 
 // Express Logic
-app.get('/health', (req: Request, res: Response) => { res.sendStatus(200); });
+app.get('/health', (_req: Request, res: Response) => { res.sendStatus(200); });
 
 if (environment === "prototype") {
   app.use(express.static(path.join(__dirname, "../prototype/", "public")));
   //Enable prototype to reset to default settings for each language
   for (const lang of ['en']) {
     for (const promptfile of ['foods', 'topics']) {
-      app.get(`/${promptfile}_${lang}.json`, function (req: Request, res: Response) {
+      app.get(`/${promptfile}_${lang}.json`, function (_req: Request, res: Response) {
         res.sendFile(path.join(__dirname, "../client/src/prompts", `${promptfile}_${lang}.json`));
       });
     }
@@ -63,7 +63,7 @@ if (environment === "prototype") {
 } else if (environment !== "development") {
   const clientDistPath = path.join(process.cwd(), "../client/dist");
   app.use(express.static(clientDistPath));
-  app.get("/{*splat}", function (req: Request, res: Response) {
+  app.get("/{*splat}", function (_req: Request, res: Response) {
     res.sendFile(path.join(clientDistPath, "index.html"));
   });
 }

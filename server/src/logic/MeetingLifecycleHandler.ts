@@ -1,13 +1,9 @@
 import { splitSentences } from "@utils/textUtils.js";
 import { reportError } from "@utils/errorbot.js";
 import { Logger } from "@utils/Logger.js";
-import { v4 as uuidv4 } from "uuid";
-import { Socket } from "socket.io";
 import { Character } from "@logic/SpeakerSelector.js";
 import { GlobalOptions } from "@logic/GlobalOptions.js";
-import { ClientToServerEvents, ServerToClientEvents } from "@shared/SocketTypes.js";
-import { meetingsCollection, insertMeeting } from "@services/DbService.js";
-import { IMeetingManager, ConversationOptions, ConversationState } from "@interfaces/MeetingInterfaces.js";
+import { IMeetingManager, ConversationOptions } from "@interfaces/MeetingInterfaces.js";
 
 interface SetupOptions {
     options?: Partial<GlobalOptions>;

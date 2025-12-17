@@ -3,10 +3,9 @@ import { Logger } from "@utils/Logger.js";
 import { Meeting, Audio } from "@models/DBModels.js";
 import { mapSentencesToWords } from "@utils/textUtils.js";
 import { OpenAI } from "openai";
-import { Collection, Document } from "mongodb";
+import { Collection } from "mongodb";
 import { Socket } from "socket.io";
 import { ClientToServerEvents, ServerToClientEvents } from "@shared/SocketTypes.js";
-import type { Character, ConversationMessage } from "@shared/ModelTypes.js";
 
 // OpenAI SDK accepts Buffer/Stream for 'file'.
 // Using File object for compatibility.

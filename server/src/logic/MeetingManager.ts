@@ -10,9 +10,6 @@ import { HandRaisingHandler } from "@logic/HandRaisingHandler.js";
 import { MeetingLifecycleHandler } from "@logic/MeetingLifecycleHandler.js";
 import { ConnectionHandler } from "@logic/ConnectionHandler.js";
 import { GlobalOptions, getGlobalOptions } from "@logic/GlobalOptions.js";
-import { Meeting, Audio } from "@models/DBModels.js";
-import { Collection, InsertOneResult } from "mongodb";
-import { OpenAI } from "openai";
 import { Socket } from "socket.io";
 import { ClientToServerEvents, ServerToClientEvents } from "@shared/SocketTypes.js";
 import type { Character, ConversationMessage } from "@shared/ModelTypes.js";
@@ -25,7 +22,7 @@ import {
 } from "@models/ValidationSchemas.js";
 
 import { Logger } from "@utils/Logger.js";
-import { IMeetingManager, Services, ConversationState, ConversationOptions } from "@interfaces/MeetingInterfaces.js";
+import { IMeetingManager, Services, ConversationOptions } from "@interfaces/MeetingInterfaces.js";
 
 interface Decision {
     type: 'END_CONVERSATION' | 'WAIT' | 'REQUEST_PANELIST' | 'GENERATE_AI_RESPONSE';
@@ -183,12 +180,12 @@ export class MeetingManager implements IMeetingManager {
     setupPrototypeListeners() {
         if (this.environment !== 'prototype') return;
 
-        this.socket.on("pause_conversation", (msg: any) => {
+        this.socket.on("pause_conversation", () => {
             Logger.info(`meeting ${this.meetingId}`, "paused");
             this.isPaused = true;
         });
 
-        this.socket.on("resume_conversation", (msg: any) => {
+        this.socket.on("resume_conversation", () => {
             Logger.info(`meeting ${this.meetingId}`, "resumed");
             this.isPaused = false;
             this.startLoop();
@@ -259,8 +256,6 @@ export class MeetingManager implements IMeetingManager {
      */
     async processTurn(): Promise<void> {
         try {
-            const thisMeetingId = this.meetingId;
-
             // Decoupled Decision Step
             const action = this.decideNextAction();
 

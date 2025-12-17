@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from "uuid";
-import type { Character, ConversationMessage, ConversationState } from "@shared/ModelTypes.js";
+import type { Character, ConversationMessage } from "@shared/ModelTypes.js";
 import type { Meeting, Audio } from "@models/DBModels.js";
 import type { ConversationOptions } from "@interfaces/MeetingInterfaces.js";
 
