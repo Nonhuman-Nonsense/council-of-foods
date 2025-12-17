@@ -1,4 +1,5 @@
 import globalOptions from '../../global-options.json' with { type: 'json' };
+import testOptions from '../../test-options.json' with { type: 'json' };
 
 export interface GlobalOptions {
     gptModel: string;
@@ -27,5 +28,19 @@ export interface GlobalOptions {
 }
 
 export const getGlobalOptions = (): GlobalOptions => {
-    return { ...globalOptions } as GlobalOptions;
+    const env = process.env.NODE_ENV;
+    const testMode = process.env.TEST_MODE;
+    const useTestOptions = process.env.USE_TEST_OPTIONS === 'true';
+
+    // Base options
+    let options = { ...globalOptions };
+
+    // Apply overrides for Test, Development, or Prototype environments
+    // OR if explicitly requested via USE_TEST_OPTIONS
+    // BUT SKIP if running in FULL test mode (which targets production models)
+    if (testMode !== 'full' && (env === 'test' || env === 'development' || env === 'prototype' || useTestOptions)) {
+        options = { ...options, ...testOptions };
+    }
+
+    return options as GlobalOptions;
 };
