@@ -1,7 +1,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { HandRaisingHandler } from '../../src/logic/HandRaisingHandler';
-import { IMeetingManager, ConversationOptions } from '../../src/interfaces/MeetingInterfaces';
+import { HandRaisingHandler } from '../../src/logic/HandRaisingHandler.js';
+import { IMeetingManager, ConversationOptions } from '../../src/interfaces/MeetingInterfaces.js';
 
 describe('HandRaisingHandler', () => {
     let mockManager: IMeetingManager;
@@ -40,7 +40,7 @@ describe('HandRaisingHandler', () => {
     it('should successfully handle raise hand in Swedish when prompts exist', async () => {
         await handler.handleRaiseHand({ index: 0, humanName: "Sven" });
         expect(mockManager.dialogGenerator.chairInterjection).toHaveBeenCalled();
-        expect(mockManager.conversationOptions.state.alreadyInvited).toBe(true);
+        expect(mockManager.conversationOptions.state?.alreadyInvited).toBe(true);
     });
 
     it('should NOT crash when Swedish prompt is MISSING (Fallback test)', async () => {

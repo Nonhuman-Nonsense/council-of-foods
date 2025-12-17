@@ -1,7 +1,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { MeetingLifecycleHandler } from '../../src/logic/MeetingLifecycleHandler';
-import { IMeetingManager } from '../../src/interfaces/MeetingInterfaces';
+import { MeetingLifecycleHandler } from '../../src/logic/MeetingLifecycleHandler.js';
+import { IMeetingManager } from '../../src/interfaces/MeetingInterfaces.js';
 
 describe('MeetingLifecycleHandler Prompts', () => {
     let mockManager: IMeetingManager;
