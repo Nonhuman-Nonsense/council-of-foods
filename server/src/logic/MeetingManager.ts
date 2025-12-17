@@ -11,6 +11,7 @@ import { MeetingLifecycleHandler } from "@logic/MeetingLifecycleHandler.js";
 import { ConnectionHandler } from "@logic/ConnectionHandler.js";
 import { GlobalOptions, getGlobalOptions } from "@logic/GlobalOptions.js";
 import { Socket } from "socket.io";
+import { SocketBroadcaster } from "@logic/SocketBroadcaster.js";
 import { ClientToServerEvents, ServerToClientEvents } from "@shared/SocketTypes.js";
 import type { Character, ConversationMessage } from "@shared/ModelTypes.js";
 import {
@@ -22,7 +23,7 @@ import {
 } from "@models/ValidationSchemas.js";
 
 import { Logger } from "@utils/Logger.js";
-import { IMeetingManager, Services, ConversationOptions } from "@interfaces/MeetingInterfaces.js";
+import { IMeetingManager, Services, ConversationOptions, IMeetingBroadcaster } from "@interfaces/MeetingInterfaces.js";
 
 interface Decision {
     type: 'END_CONVERSATION' | 'WAIT' | 'REQUEST_PANELIST' | 'GENERATE_AI_RESPONSE';
@@ -38,6 +39,7 @@ export class MeetingManager implements IMeetingManager {
     environment: string;
     globalOptions: GlobalOptions;
     services: Services;
+    broadcaster: IMeetingBroadcaster;
 
     run: boolean;
     handRaised: boolean;
@@ -59,6 +61,7 @@ export class MeetingManager implements IMeetingManager {
 
     constructor(socket: Socket<ClientToServerEvents, ServerToClientEvents>, environment: string, optionsOverride: GlobalOptions | null = null, services: Partial<Services> = {}) {
         this.socket = socket;
+        this.broadcaster = new SocketBroadcaster(this.socket);
         this.environment = environment;
         this.globalOptions = optionsOverride || getGlobalOptions();
 
@@ -201,7 +204,7 @@ export class MeetingManager implements IMeetingManager {
         });
         this.socket.on("remove_last_message", () => {
             this.conversation.pop();
-            this.socket.emit("conversation_update", this.conversation);
+            this.broadcaster.broadcastConversationUpdate(this.conversation);
         });
     }
 
@@ -273,7 +276,7 @@ export class MeetingManager implements IMeetingManager {
                     return; // Do nothing, just wait.
 
                 case 'END_CONVERSATION':
-                    this.socket.emit("conversation_end", this.conversation);
+                    this.broadcaster.broadcastConversationEnd(this.conversation);
                     return;
 
                 case 'REQUEST_PANELIST':
@@ -285,7 +288,7 @@ export class MeetingManager implements IMeetingManager {
                             sentences: [] // Added to satisfy ConversationMessage
                         });
                         Logger.info(`meeting ${this.meetingId}`, `awaiting human panelist on index ${this.conversation.length - 1}`);
-                        this.socket.emit("conversation_update", this.conversation);
+                        this.broadcaster.broadcastConversationUpdate(this.conversation);
                         if (this.meetingId !== null) {
                             this.services.meetingsCollection.updateOne(
                                 { _id: this.meetingId },
@@ -311,7 +314,7 @@ export class MeetingManager implements IMeetingManager {
                 return;
             }
             Logger.error(`meeting ${this.meetingId}`, "Error during conversation", error);
-            this.socket.emit("conversation_error", { message: "Error", code: 500 });
+            this.broadcaster.broadcastError("Error", 500);
             reportError(`meeting ${this.meetingId}`, "Conversation process error", error);
         }
     }
@@ -367,7 +370,7 @@ export class MeetingManager implements IMeetingManager {
             );
         }
 
-        this.socket.emit("conversation_update", this.conversation);
+        this.broadcaster.broadcastConversationUpdate(this.conversation);
         Logger.info(`meeting ${this.meetingId}`, `message generated, index ${message_index}, speaker ${message.speaker}`);
 
         // Queue audio generation

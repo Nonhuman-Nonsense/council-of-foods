@@ -14,6 +14,8 @@ export interface ConversationMessage {
     sentences?: string[];
     speaker?: string;
     askParticular?: string;
+    trimmed?: string;
+    pretrimmed?: string;
 }
 
 export interface ConversationState {

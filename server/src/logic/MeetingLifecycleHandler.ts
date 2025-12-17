@@ -62,7 +62,7 @@ export class MeetingLifecycleHandler {
 
         manager.meetingId = storeResult.insertedId;
 
-        manager.socket.emit("meeting_started", { meeting_id: manager.meetingId });
+        manager.broadcaster.broadcastMeetingStarted(manager.meetingId);
         Logger.info(`meeting ${manager.meetingId}`, `started (session ${manager.socket.id})`);
         manager.startLoop();
     }
@@ -97,7 +97,7 @@ export class MeetingLifecycleHandler {
 
         manager.conversation.push(summary);
 
-        manager.socket.emit("conversation_update", manager.conversation);
+        manager.broadcaster.broadcastConversationUpdate(manager.conversation);
         Logger.info(`meeting ${manager.meetingId}`, `summary generated on index ${manager.conversation.length - 1}`);
 
         if (manager.meetingId !== null) {
@@ -170,19 +170,15 @@ export class MeetingLifecycleHandler {
             );
 
             const data = await response.json();
-            manager.socket.emit("clientkey_response", data);
+            manager.broadcaster.broadcastClientKey(data);
             Logger.info(`meeting ${manager.meetingId}`, "clientkey sent");
         } catch (error) {
             // console.log(error);
             Logger.error(`meeting ${manager.meetingId}`, "Meeting Lifecycle Error", error);
             reportError(`meeting ${manager.meetingId}`, "Meeting Lifecycle Error", error);
-            manager.socket.emit(
-                "conversation_error",
-                {
-                    message: "An error occurred during the conversation.",
-                    code: 500
-                }
-            );
+            Logger.error(`meeting ${manager.meetingId}`, "Meeting Lifecycle Error", error);
+            reportError(`meeting ${manager.meetingId}`, "Meeting Lifecycle Error", error);
+            manager.broadcaster.broadcastError("An error occurred during the conversation.", 500);
         }
     }
 

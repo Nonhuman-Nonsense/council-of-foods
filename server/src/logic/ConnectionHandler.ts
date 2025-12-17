@@ -86,15 +86,15 @@ export class ConnectionHandler {
                 }
 
                 Logger.info(`meeting ${manager.meetingId}`, "resumed");
-                manager.socket.emit("conversation_update", manager.conversation);
+                manager.broadcaster.broadcastConversationUpdate(manager.conversation);
                 manager.startLoop();
             } else {
-                manager.socket.emit("meeting_not_found", { meeting_id: options.meetingId });
+                manager.broadcaster.broadcastMeetingNotFound(String(options.meetingId));
                 Logger.warn(`meeting ${options.meetingId}`, "not found");
             }
         } catch (error) {
             Logger.error(`meeting ${options.meetingId}`, "Error resuming conversation", error);
-            manager.socket.emit("conversation_error", { message: "Error resuming", code: 500 });
+            manager.broadcaster.broadcastError("Error resuming", 500);
             reportError(`meeting ${options.meetingId}`, "Reconnection Error", error);
         }
     }

@@ -26,15 +26,31 @@ export interface ConversationOptions {
     language: string;
 }
 
+export interface IMeetingBroadcaster {
+    broadcastMeetingStarted(meetingId: number): void;
+    broadcastConversationUpdate(conversation: ConversationMessage[]): void;
+    broadcastConversationEnd(conversation: ConversationMessage[]): void;
+    broadcastClientKey(data: any): void;
+    broadcastError(message: string, code: number): void;
+    broadcastMeetingNotFound(meetingId: string): void;
+}
+
 /**
  * Basic identity and environment context.
  */
 export interface IMeetingContext {
     meetingId: number | null;
-    socket: Socket<ClientToServerEvents, ServerToClientEvents>;
+    conversation: ConversationMessage[];
+    socket: Socket;
     environment: string;
-    services: Services;
+    services: {
+        meetingsCollection: Collection<Meeting>;
+        audioCollection: Collection<Audio>;
+        insertMeeting: (meeting: Omit<Meeting, "_id">) => Promise<InsertOneResult<Meeting>>;
+        getOpenAI: () => OpenAI;
+    };
     globalOptions: GlobalOptions;
+    broadcaster: IMeetingBroadcaster; // New abstraction
 }
 
 /**

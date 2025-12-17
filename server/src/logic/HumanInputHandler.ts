@@ -76,7 +76,7 @@ export class HumanInputHandler {
             );
         }
 
-        manager.socket.emit("conversation_update", manager.conversation);
+        manager.broadcaster.broadcastConversationUpdate(manager.conversation);
 
         message.sentences = splitSentences(message.text);
 
@@ -130,7 +130,7 @@ export class HumanInputHandler {
             );
         }
 
-        manager.socket.emit("conversation_update", manager.conversation);
+        manager.broadcaster.broadcastConversationUpdate(manager.conversation);
 
         message.sentences = splitSentences(message.text);
 
@@ -182,7 +182,7 @@ export class HumanInputHandler {
 
         manager.conversation.push(summary);
 
-        manager.socket.emit("conversation_update", manager.conversation);
+        manager.broadcaster.broadcastConversationUpdate(manager.conversation);
         Logger.info(`meeting ${manager.meetingId}`, `interjection generated on index ${manager.conversation.length - 1} `);
 
         summary.sentences = splitSentences(response);

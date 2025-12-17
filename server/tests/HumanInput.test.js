@@ -20,6 +20,14 @@ describe('HumanInputHandler (Isolated)', () => {
             socket: {
                 emit: vi.fn()
             },
+            broadcaster: {
+                broadcastConversationUpdate: vi.fn(),
+                broadcastMeetingStarted: vi.fn(),
+                broadcastClientKey: vi.fn(),
+                broadcastError: vi.fn(),
+                broadcastMeetingNotFound: vi.fn(),
+                broadcastConversationEnd: vi.fn()
+            },
             audioSystem: {
                 queueAudioGeneration: vi.fn()
             },
@@ -70,7 +78,7 @@ describe('HumanInputHandler (Isolated)', () => {
             );
 
             // 3. Verify socket emit
-            expect(mockContext.socket.emit).toHaveBeenCalledWith('conversation_update', mockContext.conversation);
+            expect(mockContext.broadcaster.broadcastConversationUpdate).toHaveBeenCalledWith(mockContext.conversation);
 
             // 4. Verify DB Update
             expect(mockContext.services.meetingsCollection.updateOne).toHaveBeenCalled();
@@ -115,7 +123,7 @@ describe('HumanInputHandler (Isolated)', () => {
 
             // 3. Verify DB & Socket
             expect(mockContext.services.meetingsCollection.updateOne).toHaveBeenCalled();
-            expect(mockContext.socket.emit).toHaveBeenCalledWith('conversation_update', mockContext.conversation);
+            expect(mockContext.broadcaster.broadcastConversationUpdate).toHaveBeenCalledWith(mockContext.conversation);
 
             // 4. Verify Loop Resumed
             expect(mockContext.startLoop).toHaveBeenCalled();
