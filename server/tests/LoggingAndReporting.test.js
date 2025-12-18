@@ -1,14 +1,49 @@
-
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { Logger } from '../src/utils/Logger.js';
-import { reportError } from '../src/utils/errorbot.js';
+import path from 'path';
 
 describe('Logging & Reporting System', () => {
+    let Logger;
+    let reportError;
+
+    const mocks = vi.hoisted(() => ({
+        config: {
+            COUNCIL_ERRORBOT: 'http://mock-errorbot',
+            COUNCIL_DB_PREFIX: 'TestService'
+        }
+    }));
+
+    // Mock the config module
+    vi.mock('@root/src/config.js', () => ({
+        get config() {
+            return mocks.config;
+        }
+    }));
+
+    vi.mock('../src/config.js', () => ({
+        get config() {
+            return mocks.config;
+        }
+    }));
+
     let consoleLogSpy;
     let consoleWarnSpy;
     let consoleErrorSpy;
 
-    beforeEach(() => {
+    beforeEach(async () => {
+        // Clear module cache to ensure we get mocked config
+        vi.resetModules();
+
+        // Dynamically import modules
+        const loggerModule = await import('../src/utils/Logger.js');
+        Logger = loggerModule.Logger;
+
+        const errorbotModule = await import('../src/utils/errorbot.js');
+        reportError = errorbotModule.reportError;
+
+        // Reset mock config for each test
+        mocks.config.COUNCIL_ERRORBOT = 'http://mock-errorbot';
+        mocks.config.COUNCIL_DB_PREFIX = 'TestService';
+
         // Spy on console methods and suppress output
         consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => { });
         consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => { });
@@ -19,10 +54,6 @@ describe('Logging & Reporting System', () => {
             ok: true,
             text: () => Promise.resolve('ok')
         });
-
-        // Mock environment
-        process.env.COUNCIL_ERRORBOT = 'http://mock-errorbot';
-        process.env.COUNCIL_DB_PREFIX = 'TestService';
     });
 
     afterEach(() => {
