@@ -1,106 +1,103 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { meetingsCollection } from '../src/services/DbService.js';
-import { createTestManager, mockOpenAI } from './commonSetup.js';
+import { HandRaisingHandler } from '@logic/HandRaisingHandler.js';
 
-// Mock dependencies
-// vi.mock('../src/services/OpenAIService.js', () => ({
-//     getOpenAI: vi.fn(() => mockOpenAI),
-// }));
-
-describe('MeetingManager - Hand Raising', () => {
-    let manager;
+describe('HandRaisingHandler', () => {
+    let handler;
+    let mockContext;
+    let mockBroadcaster;
+    let mockDialogGenerator;
+    let mockAudioSystem;
+    let mockMeetingsCollection;
 
     beforeEach(() => {
-        const setup = createTestManager();
-        manager = setup.manager;
+        mockBroadcaster = {
+            broadcastConversationUpdate: vi.fn(),
+            broadcastError: vi.fn()
+        };
 
-        // Spy on the real in-memory DB collection method logic
-        vi.spyOn(meetingsCollection, 'updateOne');
+        mockDialogGenerator = {
+            chairInterjection: vi.fn().mockResolvedValue({
+                response: 'Speak now.',
+                id: 'invitation_id'
+            })
+        };
+
+        mockAudioSystem = {
+            queueAudioGeneration: vi.fn()
+        };
+
+        mockMeetingsCollection = {
+            updateOne: vi.fn()
+        };
+
+        mockContext = {
+            manager: null, // Circular reference if needed, but handler stores 'manager' as this context usually
+            // Wait, HandRaisingHandler constructor takes 'meetingManager'. 
+            // The handler accesses 'this.manager'.
+            meetingId: 123,
+            conversation: [],
+            conversationOptions: {
+                state: {},
+                options: {
+                    raiseHandPrompt: { en: "Prompt [NAME]" },
+                    raiseHandInvitationLength: 50
+                },
+                characters: [{ id: 'chair', name: 'Chair' }],
+                language: 'en'
+            },
+            handRaised: false,
+            broadcaster: mockBroadcaster,
+            dialogGenerator: mockDialogGenerator,
+            audioSystem: mockAudioSystem,
+            services: {
+                meetingsCollection: mockMeetingsCollection
+            },
+            environment: 'production'
+        };
+
+        // In the real class, constructor is: constructor(meetingManager) { this.manager = meetingManager; }
+        // So we pass mockContext as meetingManager.
+        handler = new HandRaisingHandler(mockContext);
     });
 
-    describe('handleRaiseHand', () => {
-        it('should truncate conversation and set state when hand is raised', async () => {
-            // Setup conversion with 5 messages
-            manager.conversation = [
-                { id: 1, text: 'msg1' },
-                { id: 2, text: 'msg2' },
-                { id: 3, text: 'msg3' },
-                { id: 4, text: 'msg4' },
-                { id: 5, text: 'msg5' }
-            ];
-            manager.meetingId = "test_meeting";
+    it('should handle raise hand, truncate conversation, and generate invitation', async () => {
+        // Setup initial conversation
+        mockContext.conversation = [
+            { id: 1, text: 'msg1' },
+            { id: 2, text: 'msg2' },
+            { id: 3, text: 'msg3' }
+        ];
 
-            // Seed DB with initial state
-            await meetingsCollection.insertOne({
-                _id: "test_meeting",
-                conversation: [...manager.conversation]
-            });
+        await handler.handleRaiseHand({ index: 2, humanName: "Human" }); // Clip at index 2 (msg2 was the last heard?)
+        // logic: manager.conversation = manager.conversation.slice(0, handRaisedOptions.index);
+        // index 2 -> slice(0, 2) -> [msg1, msg2].
 
-            // Mock AudioSystem to avoid errors
-            vi.spyOn(manager.audioSystem, 'queueAudioGeneration').mockImplementation(() => { });
-            // Mock generateTextFromGPT as a fallback (though current impl calls OpenAI directly)
-            vi.spyOn(manager.dialogGenerator, 'generateTextFromGPT').mockResolvedValue({
-                id: 'invitation_id',
-                response: 'Speak now.',
-                sentences: [],
-                trimmed: 'Speak now.'
-            });
+        expect(mockContext.handRaised).toBe(true);
+        expect(mockContext.conversation.length).toBe(4); // [msg1, msg2] + Invitation + Awaiting
 
-            await manager.handRaisingHandler.handleRaiseHand({ index: 1, humanName: "Human" });
+        const invitation = mockContext.conversation[2];
+        expect(invitation.type).toBe('invitation');
+        expect(invitation.text).toBe('Speak now.');
 
-            expect(manager.handRaised).toBe(true);
+        const awaiting = mockContext.conversation[3];
+        expect(awaiting.type).toBe('awaiting_human_question');
 
-            // If it sliced at 1: [msg1] + Invitation + Awaiting = 3.
-            expect(manager.conversation.length).toBe(3);
-            expect(manager.conversation[0].text).toBe('msg1');
+        expect(mockBroadcaster.broadcastConversationUpdate).toHaveBeenCalledWith(mockContext.conversation);
+        expect(mockMeetingsCollection.updateOne).toHaveBeenCalledWith(
+            { _id: 123 },
+            expect.objectContaining({ $set: expect.anything() })
+        );
+        expect(mockAudioSystem.queueAudioGeneration).toHaveBeenCalled();
+    });
 
-            // Check Invitation (Chair Interjection)
-            expect(manager.conversation[1].type).toBe('invitation');
-            expect(manager.conversation[1].speaker).toBe('water'); // Chair
+    it('should not regenerate invitation if already invited', async () => {
+        mockContext.conversationOptions.state.alreadyInvited = true;
+        mockContext.conversation = [{ text: 'msg1' }];
 
-            // Check State Flag
-            expect(manager.conversation[2].type).toBe('awaiting_human_question');
+        await handler.handleRaiseHand({ index: 1, humanName: "Human" });
 
-            // Check DB Persistence (Function Call)
-            expect(meetingsCollection.updateOne).toHaveBeenCalledWith(
-                { _id: "test_meeting" },
-                expect.objectContaining({
-                    $set: expect.objectContaining({
-                        conversation: manager.conversation
-                    })
-                })
-            );
-
-            // Check DB Persistence (Actual Document)
-            const dbMeeting = await meetingsCollection.findOne({ _id: "test_meeting" });
-            expect(dbMeeting).toBeDefined();
-            expect(dbMeeting.conversation).toHaveLength(3);
-            expect(dbMeeting.conversation[1].type).toBe('invitation');
-            expect(dbMeeting.options.state.alreadyInvited).toBe(true);
-        });
-
-        it('should generate an invitation using GPT', async () => {
-            manager.conversation = [{ text: 'msg1' }];
-            manager.conversationOptions.options.raiseHandInvitationLength = 50;
-
-            // Mock OpenAI response for invitation
-            vi.spyOn(manager.audioSystem, 'queueAudioGeneration').mockImplementation(() => { });
-
-            await manager.handRaisingHandler.handleRaiseHand({ index: 0 });
-
-            // chairInterjection calls OpenAI directly.
-            // In MOCK mode, we verify the mock. In FAST mode, we verify the side effect (invitation added).
-            const { getTestMode, TEST_MODES } = await import('./testUtils.js');
-            if (getTestMode() === TEST_MODES.MOCK) {
-                expect(mockOpenAI.chat.completions.create).toHaveBeenCalled();
-                const callArgs = mockOpenAI.chat.completions.create.mock.calls[0][0];
-                expect(callArgs.messages).toBeDefined();
-            } else {
-                // FAST mode: Verify invitation was generated and added to conversation
-                const invitation = manager.conversation.find(m => m.type === 'invitation');
-                expect(invitation).toBeDefined();
-                expect(invitation.text).toBeTruthy();
-            }
-        });
+        expect(mockDialogGenerator.chairInterjection).not.toHaveBeenCalled();
+        expect(mockContext.conversation).toHaveLength(2); // msg1 + awaiting
+        expect(mockContext.conversation[1].type).toBe('awaiting_human_question');
     });
 });

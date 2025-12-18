@@ -1,13 +1,10 @@
+import type { Character, ConversationMessage } from '@shared/ModelTypes.js';
+import type { ILifecycleContext, ConversationOptions } from "@interfaces/MeetingInterfaces.js";
+import type { Message as AudioMessage } from "@logic/AudioSystem.js";
 import { splitSentences } from "@utils/textUtils.js";
-import { reportError } from "../../errorbot.js";
+import { reportError } from "@utils/errorbot.js";
 import { Logger } from "@utils/Logger.js";
-import { v4 as uuidv4 } from "uuid";
-import { Socket } from "socket.io";
-import { Character } from "@logic/SpeakerSelector.js";
 import { GlobalOptions } from "@logic/GlobalOptions.js";
-import { ClientToServerEvents, ServerToClientEvents } from "@shared/SocketTypes.js";
-import { meetingsCollection, insertMeeting } from "@services/DbService.js";
-import { IMeetingManager, ConversationOptions, ConversationState } from "@interfaces/MeetingInterfaces.js";
 
 interface SetupOptions {
     options?: Partial<GlobalOptions>;
@@ -25,9 +22,9 @@ interface WrapUpMessage {
  * Handles initialization of session state, emitting lifecycle events, and managing the End-of-Meeting summary flow.
  */
 export class MeetingLifecycleHandler {
-    manager: IMeetingManager;
+    manager: ILifecycleContext;
 
-    constructor(meetingManager: IMeetingManager) {
+    constructor(meetingManager: ILifecycleContext) {
         this.manager = meetingManager;
     }
 
@@ -64,7 +61,7 @@ export class MeetingLifecycleHandler {
 
         manager.meetingId = storeResult.insertedId;
 
-        manager.socket.emit("meeting_started", { meeting_id: manager.meetingId });
+        manager.broadcaster.broadcastMeetingStarted(manager.meetingId);
         Logger.info(`meeting ${manager.meetingId}`, `started (session ${manager.socket.id})`);
         manager.startLoop();
     }
@@ -97,19 +94,20 @@ export class MeetingLifecycleHandler {
             true,
             manager.conversation,
             manager.conversationOptions,
-            manager.socket
+            manager.broadcaster
         );
 
-        let summary: any = { // Using any for summary structure until fully defined
-            id: id,
+        let summary: ConversationMessage = {
+            id: id || "",
             speaker: manager.conversationOptions.characters[0].id,
             text: response,
             type: "summary",
+            sentences: []
         };
 
         manager.conversation.push(summary);
 
-        manager.socket.emit("conversation_update", manager.conversation);
+        manager.broadcaster.broadcastConversationUpdate(manager.conversation);
         Logger.info(`meeting ${manager.meetingId}`, `summary generated on index ${manager.conversation.length - 1}`);
 
         if (manager.meetingId !== null) {
@@ -122,7 +120,7 @@ export class MeetingLifecycleHandler {
         summary.sentences = splitSentences(response);
         if (manager.meetingId !== null) {
             await manager.audioSystem.generateAudio(
-                summary,
+                summary as AudioMessage,
                 manager.conversationOptions.characters[0],
                 manager.conversationOptions.options,
                 manager.meetingId,
@@ -182,19 +180,11 @@ export class MeetingLifecycleHandler {
             );
 
             const data = await response.json();
-            manager.socket.emit("clientkey_response", data);
+            manager.broadcaster.broadcastClientKey(data);
             Logger.info(`meeting ${manager.meetingId}`, "clientkey sent");
         } catch (error) {
-            // console.log(error);
-            Logger.error(`meeting ${manager.meetingId}`, "Meeting Lifecycle Error", error);
             reportError(`meeting ${manager.meetingId}`, "Meeting Lifecycle Error", error);
-            manager.socket.emit(
-                "conversation_error",
-                {
-                    message: "An error occurred during the conversation.",
-                    code: 500
-                }
-            );
+            manager.broadcaster.broadcastError("An error occurred during the conversation.", 500);
         }
     }
 

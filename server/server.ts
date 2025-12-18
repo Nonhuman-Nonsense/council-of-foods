@@ -1,5 +1,4 @@
-import dotenv from 'dotenv';
-dotenv.config();
+import { config } from './src/config.js';
 
 import express, { Request, Response } from "express";
 import http from "http";
@@ -7,30 +6,19 @@ import { Server, Socket } from "socket.io";
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-import { Logger } from './src/utils/Logger.js';
-import { initReporting, reportError } from './errorbot.js';
-import { initDb } from './src/services/DbService.js';
-import { initOpenAI } from './src/services/OpenAIService.js';
-import { MeetingManager } from './src/logic/MeetingManager.js';
+import { Logger } from '@utils/Logger.js';
+import { initReporting, reportError } from '@utils/errorbot.js';
+import { initDb } from '@services/DbService.js';
+import { initOpenAI } from '@services/OpenAIService.js';
+import { MeetingManager } from '@logic/MeetingManager.js';
 
-import { EnvSchema } from './src/models/ValidationSchemas.js';
-
-// Validate Env
-const envParse = EnvSchema.safeParse(process.env);
-if (!envParse.success) {
-  const errorMsg = "Invalid environment variables: " + JSON.stringify(envParse.error.format(), null, 2);
-  reportError("init", errorMsg, envParse.error).then(() => process.exit(1));
-}
-
-const environment: string = envParse.data ? envParse.data.NODE_ENV : "production";
+const environment: string = config.NODE_ENV;
 const __filename: string = fileURLToPath(import.meta.url);
 const __dirname: string = path.dirname(__filename);
 
 const app = express();
 const httpServer = http.createServer(app);
-const io = new Server(httpServer, {
-  // transports: ["websocket", "polling"], 
-});
+const io = new Server(httpServer);
 
 // Initialize Services
 initReporting();
@@ -44,17 +32,15 @@ try {
   reportError("openai", "Failed to initialize OpenAI", e).then(() => process.exit(1));
 }
 
-Logger.info("init", `node_env is ${environment}`);
-
-// Express Logic
-app.get('/health', (req: Request, res: Response) => { res.sendStatus(200); });
+// Express for health checks
+app.get('/health', (_req: Request, res: Response) => { res.sendStatus(200); });
 
 if (environment === "prototype") {
   app.use(express.static(path.join(__dirname, "../prototype/", "public")));
   //Enable prototype to reset to default settings for each language
   for (const lang of ['en']) {
     for (const promptfile of ['foods', 'topics']) {
-      app.get(`/${promptfile}_${lang}.json`, function (req: Request, res: Response) {
+      app.get(`/${promptfile}_${lang}.json`, function (_req: Request, res: Response) {
         res.sendFile(path.join(__dirname, "../client/src/prompts", `${promptfile}_${lang}.json`));
       });
     }
@@ -63,7 +49,7 @@ if (environment === "prototype") {
 } else if (environment !== "development") {
   const clientDistPath = path.join(process.cwd(), "../client/dist");
   app.use(express.static(clientDistPath));
-  app.get("/{*splat}", function (req: Request, res: Response) {
+  app.get("/{*splat}", function (_req: Request, res: Response) {
     res.sendFile(path.join(clientDistPath, "index.html"));
   });
 }
@@ -75,15 +61,15 @@ io.on("connection", (socket: Socket) => {
 });
 
 // Server Listen
-httpServer.listen(3001, () => {
-  Logger.info("init", "Listening on *:3001");
+httpServer.listen(config.PORT, () => {
+  Logger.info("init", `Listening on *:${config.PORT}`);
 });
 
 process.on('SIGTERM', () => {
-  Logger.info("shutdown", "SIGTERM shutdown");
+  Logger.warn("shutdown", "SIGTERM shutdown");
   process.exit(1);
 });
 process.on('SIGINT', () => {
-  Logger.info("shutdown", "SIGINT shutdown");
+  Logger.warn("shutdown", "SIGINT shutdown");
   process.exit(1);
 });

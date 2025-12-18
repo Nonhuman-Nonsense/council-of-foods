@@ -1,6 +1,4 @@
-import type { Character, ConversationMessage } from '../../../shared/ModelTypes.js';
-
-export type { Character, ConversationMessage };
+import type { Character, ConversationMessage } from '@shared/ModelTypes.js';
 
 /**
  * Logic for determining the next speaker in the conversation.

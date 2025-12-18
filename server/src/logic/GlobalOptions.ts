@@ -1,5 +1,6 @@
-import globalOptions from '../../global-options.json' with { type: 'json' };
-import testOptions from '../../test-options.json' with { type: 'json' };
+import { config } from '@root/src/config.js';
+import globalOptions from '@root/global-options.json' with { type: 'json' };
+import testOptions from '@root/test-options.json' with { type: 'json' };
 
 export interface GlobalOptions {
     gptModel: string;
@@ -28,9 +29,9 @@ export interface GlobalOptions {
 }
 
 export const getGlobalOptions = (): GlobalOptions => {
-    const env = process.env.NODE_ENV;
-    const testMode = process.env.TEST_MODE;
-    const useTestOptions = process.env.USE_TEST_OPTIONS === 'true';
+    const env = config.NODE_ENV;
+    const testMode = config.TEST_MODE;
+    const useTestOptions = config.USE_TEST_OPTIONS;
 
     // Base options
     let options = { ...globalOptions };

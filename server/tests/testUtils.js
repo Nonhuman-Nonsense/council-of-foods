@@ -1,5 +1,5 @@
 import { vi } from 'vitest';
-import { getGlobalOptions } from '../src/logic/GlobalOptions.js';
+import { getGlobalOptions } from '@logic/GlobalOptions.js';
 
 
 /**

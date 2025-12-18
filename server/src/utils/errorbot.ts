@@ -1,14 +1,15 @@
-//We wrap this in a function to make sure that it runs after .env is loaded
+import { config } from '@root/src/config.js';
+
 //We wrap this in a function to make sure that it runs after .env is loaded
 export function initReporting(): void {
-    if (process.env.COUNCIL_ERRORBOT) {
-        Logger.info("init", `Will attempt to post errors to errorbot on ${process.env.COUNCIL_ERRORBOT}`);
+    if (config.COUNCIL_ERRORBOT) {
+        Logger.info("init", `Will attempt to post errors to errorbot on ${config.COUNCIL_ERRORBOT}`);
     } else {
         Logger.warn("init", `COUNCIL_ERRORBOT not set, will not report errors.`);
     }
 }
 
-import { Logger } from "./src/utils/Logger.js";
+import { Logger } from "./Logger.js";
 
 // Helper to reliably serialize Error objects
 function serializeError(err: any): any {
@@ -31,13 +32,13 @@ export async function reportError(context: string, message: string, err?: any): 
     Logger.error(context, message, err);
 
     // 2. Report if configured
-    if (!process.env.COUNCIL_ERRORBOT) {
+    if (!config.COUNCIL_ERRORBOT) {
         Logger.warn("init", "COUNCIL_ERRORBOT not set, will not report error externally.");
         return;
     }
 
     const payload = {
-        service: process.env.COUNCIL_DB_PREFIX || "CouncilOfFoods", // Default if not set
+        service: config.COUNCIL_DB_PREFIX,
         level: "ERROR",
         context: context,
         message: message,
@@ -47,22 +48,18 @@ export async function reportError(context: string, message: string, err?: any): 
 
     const sendStr = JSON.stringify(payload);
 
-    await fetch(process.env.COUNCIL_ERRORBOT, {
+    await fetch(config.COUNCIL_ERRORBOT, {
         method: 'POST',
         body: sendStr,
         headers: { 'Content-Type': 'application/json' }
     }).catch(error => {
-        // Log failure to report to bot, but don't crash process here just because bot failed (unless critical)
-        console.error("Failed to post to errorbot:");
-        console.error(error);
+        Logger.error("reportError", "Failed to post to errorbot:", error);
     });
 }
 
 //For all unrecoverable errors, post the message to error bot, and then crash
-//For all unrecoverable errors, post the message to error bot, and then crash
 process.on('uncaughtException', async (err) => {
-    console.error(err);
     await reportError("process", "Uncaught Exception", err);
-    console.log('[Shutdown] Uncaught Exception');
+    Logger.error("process", "Uncaught Exception", err);
     process.exit(1);
 });

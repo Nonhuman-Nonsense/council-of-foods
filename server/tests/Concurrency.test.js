@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createTestManager, TestFactory } from './commonSetup.js';
-import { meetingsCollection } from '../src/services/DbService.js';
+import { meetingsCollection } from '@services/DbService.js';
 
 describe('MeetingManager - Concurrency & Isolation', () => {
     let p1, p2;

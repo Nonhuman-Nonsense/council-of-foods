@@ -1,18 +1,8 @@
+import type { ConversationMessage } from "@shared/ModelTypes.js";
+import type { IHandRaisingContext } from "@interfaces/MeetingInterfaces.js";
 import { splitSentences } from "@utils/textUtils.js";
-import { Character } from "./SpeakerSelector.js";
-import { getOpenAI } from "@services/OpenAIService.js";
-import { Socket } from "socket.io";
-import { ClientToServerEvents, ServerToClientEvents } from "@shared/SocketTypes.js";
-import { ConversationMessage } from "@shared/ModelTypes.js";
 import { Logger } from "@utils/Logger.js";
 
-import { IMeetingManager, ConversationOptions, ConversationState } from "@interfaces/MeetingInterfaces.js";
-import { HandRaisedOptionsSchema } from "@models/ValidationSchemas.js";
-
-export interface HandRaisedOptions {
-    index: number;
-    humanName: string;
-}
 
 export interface HandRaisedOptions {
     index: number;
@@ -25,9 +15,9 @@ export interface HandRaisedOptions {
  * and transitioning state to await a human question.
  */
 export class HandRaisingHandler {
-    manager: IMeetingManager;
+    manager: IHandRaisingContext;
 
-    constructor(meetingManager: IMeetingManager) {
+    constructor(meetingManager: IHandRaisingContext) {
         this.manager = meetingManager;
     }
 
@@ -41,7 +31,7 @@ export class HandRaisingHandler {
      */
     async handleRaiseHand(handRaisedOptions: HandRaisedOptions): Promise<void> {
         const { manager } = this;
-        console.log(`[meeting ${manager.meetingId}] hand raised on index ${handRaisedOptions.index - 1}`);
+        Logger.info(`meeting ${manager.meetingId}`, `hand raised on index ${handRaisedOptions.index - 1}`);
         if (!manager.conversationOptions.state) {
             manager.conversationOptions.state = {};
         }
@@ -70,7 +60,7 @@ export class HandRaisingHandler {
                 true,
                 manager.conversation,
                 manager.conversationOptions,
-                manager.socket
+                manager.broadcaster
             );
 
             const firstNewLineIndex = response.indexOf("\n\n");
@@ -83,7 +73,6 @@ export class HandRaisingHandler {
                 speaker: manager.conversationOptions.characters[0].id,
                 text: response,
                 type: "invitation",
-                message_index: handRaisedOptions.index,
                 sentences: [] // Will be populated
             }
 
@@ -93,7 +82,7 @@ export class HandRaisingHandler {
             message.sentences = splitSentences(message.text as string);
 
             manager.conversationOptions.state.alreadyInvited = true;
-            console.log(`[meeting ${manager.meetingId}] invitation generated, on index ${handRaisedOptions.index}`);
+            Logger.info(`meeting ${manager.meetingId}`, `invitation generated, on index ${handRaisedOptions.index}`);
 
             if (manager.meetingId !== null) {
                 manager.audioSystem.queueAudioGeneration(
@@ -112,15 +101,15 @@ export class HandRaisingHandler {
             text: ""
         } as ConversationMessage);
 
-        console.log(`[meeting ${manager.meetingId}] awaiting human question on index ${manager.conversation.length - 1} `);
+        Logger.info(`meeting ${manager.meetingId}`, `awaiting human question on index ${manager.conversation.length - 1} `);
 
         if (manager.meetingId !== null) {
-            manager.services.meetingsCollection.updateOne(
+            await manager.services.meetingsCollection.updateOne(
                 { _id: manager.meetingId },
                 { $set: { conversation: manager.conversation, 'options.state': manager.conversationOptions.state } }
             );
         }
 
-        manager.socket.emit("conversation_update", manager.conversation);
+        manager.broadcaster.broadcastConversationUpdate(manager.conversation);
     }
 }

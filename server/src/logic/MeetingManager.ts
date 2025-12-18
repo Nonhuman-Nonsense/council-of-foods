@@ -1,21 +1,21 @@
+import type { IMeetingManager, Services, ConversationOptions, IMeetingBroadcaster } from "@interfaces/MeetingInterfaces.js";
+import type { Character, ConversationMessage } from "@shared/ModelTypes.js";
+import type { ClientToServerEvents, ServerToClientEvents } from "@shared/SocketTypes.js";
+
 import { getOpenAI } from "@services/OpenAIService.js";
 import { meetingsCollection, audioCollection, insertMeeting } from "@services/DbService.js";
-import { reportError } from "../../errorbot.js";
-
-import { AudioSystem } from "@logic/AudioSystem.js";
+import { reportError } from "@utils/errorbot.js";
+import { AudioSystem, Message as AudioMessage } from "@logic/AudioSystem.js";
 import { SpeakerSelector } from "@logic/SpeakerSelector.js";
-import { DialogGenerator, GPTResponse } from "@logic/DialogGenerator.js";
+import { DialogGenerator } from "@logic/DialogGenerator.js";
 import { HumanInputHandler } from "@logic/HumanInputHandler.js";
 import { HandRaisingHandler } from "@logic/HandRaisingHandler.js";
 import { MeetingLifecycleHandler } from "@logic/MeetingLifecycleHandler.js";
 import { ConnectionHandler } from "@logic/ConnectionHandler.js";
 import { GlobalOptions, getGlobalOptions } from "@logic/GlobalOptions.js";
-import { Meeting, Audio } from "@models/DBModels.js";
-import { Collection, InsertOneResult } from "mongodb";
-import { OpenAI } from "openai";
 import { Socket } from "socket.io";
-import { ClientToServerEvents, ServerToClientEvents } from "@shared/SocketTypes.js";
-import type { Character, ConversationMessage } from "@shared/ModelTypes.js";
+import { SocketBroadcaster } from "@logic/SocketBroadcaster.js";
+import { Logger } from "@utils/Logger.js";
 import {
     SetupOptionsSchema,
     HumanMessageSchema,
@@ -24,8 +24,6 @@ import {
     ReconnectionOptionsSchema
 } from "@models/ValidationSchemas.js";
 
-import { Logger } from "@utils/Logger.js";
-import { IMeetingManager, Services, ConversationState, ConversationOptions } from "@interfaces/MeetingInterfaces.js";
 
 interface Decision {
     type: 'END_CONVERSATION' | 'WAIT' | 'REQUEST_PANELIST' | 'GENERATE_AI_RESPONSE';
@@ -41,6 +39,7 @@ export class MeetingManager implements IMeetingManager {
     environment: string;
     globalOptions: GlobalOptions;
     services: Services;
+    broadcaster: IMeetingBroadcaster;
 
     run: boolean;
     handRaised: boolean;
@@ -62,6 +61,7 @@ export class MeetingManager implements IMeetingManager {
 
     constructor(socket: Socket<ClientToServerEvents, ServerToClientEvents>, environment: string, optionsOverride: GlobalOptions | null = null, services: Partial<Services> = {}) {
         this.socket = socket;
+        this.broadcaster = new SocketBroadcaster(socket);
         this.environment = environment;
         this.globalOptions = optionsOverride || getGlobalOptions();
 
@@ -82,14 +82,6 @@ export class MeetingManager implements IMeetingManager {
         this.meetingId = null;
         this.meetingDate = null;
 
-        this.startLoop = this.startLoop.bind(this);
-        this.audioSystem = new AudioSystem(this.socket, this.services as any, this.globalOptions.audioConcurrency); // Cast services as AudioSystem expects generic collection for now
-        this.dialogGenerator = new DialogGenerator(this.services, this.globalOptions);
-        this.humanInputHandler = new HumanInputHandler(this as any);
-        this.handRaisingHandler = new HandRaisingHandler(this as any);
-        this.meetingLifecycleHandler = new MeetingLifecycleHandler(this as any);
-        this.connectionHandler = new ConnectionHandler(this as any);
-
         this.conversation = [];
         this.conversationOptions = {
             topic: "",
@@ -97,6 +89,15 @@ export class MeetingManager implements IMeetingManager {
             options: this.globalOptions,
             language: "en"
         };
+
+        this.startLoop = this.startLoop.bind(this);
+
+        this.audioSystem = new AudioSystem(this.broadcaster, this.services, this.globalOptions.audioConcurrency);
+        this.dialogGenerator = new DialogGenerator(this.services, this.globalOptions);
+        this.humanInputHandler = new HumanInputHandler(this);
+        this.handRaisingHandler = new HandRaisingHandler(this);
+        this.meetingLifecycleHandler = new MeetingLifecycleHandler(this);
+        this.connectionHandler = new ConnectionHandler(this);
 
         this.setupListeners();
     }
@@ -183,19 +184,19 @@ export class MeetingManager implements IMeetingManager {
     setupPrototypeListeners() {
         if (this.environment !== 'prototype') return;
 
-        this.socket.on("pause_conversation", (msg: any) => {
+        this.socket.on("pause_conversation", () => {
             Logger.info(`meeting ${this.meetingId}`, "paused");
             this.isPaused = true;
         });
 
-        this.socket.on("resume_conversation", (msg: any) => {
+        this.socket.on("resume_conversation", () => {
             Logger.info(`meeting ${this.meetingId}`, "resumed");
             this.isPaused = false;
             this.startLoop();
         });
         this.socket.on("remove_last_message", () => {
             this.conversation.pop();
-            this.socket.emit("conversation_update", this.conversation);
+            this.broadcaster.broadcastConversationUpdate(this.conversation);
         });
     }
 
@@ -259,8 +260,6 @@ export class MeetingManager implements IMeetingManager {
      */
     async processTurn(): Promise<void> {
         try {
-            const thisMeetingId = this.meetingId;
-
             // Decoupled Decision Step
             const action = this.decideNextAction();
 
@@ -269,7 +268,7 @@ export class MeetingManager implements IMeetingManager {
                     return; // Do nothing, just wait.
 
                 case 'END_CONVERSATION':
-                    this.socket.emit("conversation_end", this.conversation);
+                    this.broadcaster.broadcastConversationEnd();
                     return;
 
                 case 'REQUEST_PANELIST':
@@ -281,7 +280,7 @@ export class MeetingManager implements IMeetingManager {
                             sentences: [] // Added to satisfy ConversationMessage
                         });
                         Logger.info(`meeting ${this.meetingId}`, `awaiting human panelist on index ${this.conversation.length - 1}`);
-                        this.socket.emit("conversation_update", this.conversation);
+                        this.broadcaster.broadcastConversationUpdate(this.conversation);
                         if (this.meetingId !== null) {
                             this.services.meetingsCollection.updateOne(
                                 { _id: this.meetingId },
@@ -297,17 +296,17 @@ export class MeetingManager implements IMeetingManager {
                     }
                     break;
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
             // Suppress "interrupted at shutdown" and ECONNRESET errors often seen during tests
+            const err = error as { code?: number, message?: string };
             if (
-                error.code === 11600 ||
-                (error.message && (error.message.includes('interrupted at shutdown') || error.message.includes('ECONNRESET')))
+                err.code === 11600 ||
+                (err.message && (err.message.includes('interrupted at shutdown') || err.message.includes('ECONNRESET')))
             ) {
                 return;
             }
-            // console.error("Error during conversation:", error);
             Logger.error(`meeting ${this.meetingId}`, "Error during conversation", error);
-            this.socket.emit("conversation_error", { message: "Error", code: 500 });
+            this.broadcaster.broadcastError("Error", 500);
             reportError(`meeting ${this.meetingId}`, "Conversation process error", error);
         }
     }
@@ -317,29 +316,21 @@ export class MeetingManager implements IMeetingManager {
         const thisMeetingId = this.meetingId;
 
         // Generate Logic
-        let attempt = 1;
-        let output: GPTResponse = {
-            response: "",
-            id: null,
-            sentences: [],
-            trimmed: undefined,
-            pretrimmed: undefined
-        };
-        while (attempt < 5 && output.response === "") {
-            output = await this.dialogGenerator.generateTextFromGPT(
-                action.speaker,
-                this.conversation,
-                this.conversationOptions,
-                this.currentSpeaker
-            );
-
-            if (!this.run || this.handRaised || this.isPaused) return;
-            if (thisMeetingId != this.meetingId) return;
-            attempt++;
-            if (output.response === "") {
-                Logger.info(`meeting ${this.meetingId}`, `entire message trimmed, trying again. attempt ${attempt}`);
-            }
+        // Check for interrupts function
+        const shouldAbort = () => {
+            return !this.run || this.handRaised || this.isPaused || thisMeetingId != this.meetingId;
         }
+
+        const output = await this.dialogGenerator.generateResponseWithRetry(
+            action.speaker,
+            this.conversation,
+            this.conversationOptions,
+            this.currentSpeaker,
+            shouldAbort,
+            `meeting ${this.meetingId}`
+        );
+
+        if (shouldAbort()) return;
 
         let message: ConversationMessage = {
             id: output.id || "",
@@ -371,13 +362,13 @@ export class MeetingManager implements IMeetingManager {
             );
         }
 
-        this.socket.emit("conversation_update", this.conversation);
+        this.broadcaster.broadcastConversationUpdate(this.conversation);
         Logger.info(`meeting ${this.meetingId}`, `message generated, index ${message_index}, speaker ${message.speaker}`);
 
         // Queue audio generation
         this.audioSystem.queueAudioGeneration(
-            message as any,
-            action.speaker as any,
+            message as AudioMessage,
+            action.speaker,
             this.conversationOptions.options,
             this.meetingId!,
             this.environment
