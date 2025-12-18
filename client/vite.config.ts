@@ -11,7 +11,9 @@ export default defineConfig({
     react(),
     tsconfigPaths(), // Read paths directly from tsconfig.json
     checker({
-      typescript: true, // Show TS errors in browser overlay
+      typescript: {
+        tsconfigPath: 'tsconfig.build.json',
+      },
     })
   ],
   server: {
