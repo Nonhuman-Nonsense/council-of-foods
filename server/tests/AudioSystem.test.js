@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { AudioSystem } from '../src/logic/AudioSystem.js';
+import { AudioSystem } from '@root/src/logic/AudioSystem.js';
 
 describe('AudioSystem', () => {
     let audioSystem;

@@ -17,7 +17,6 @@ export const MockFactory = {
         speaker: "potato",
         text: "Hello, I am a potato.",
         type: "message",
-        timestamp: new Date().toISOString(),
         ...overrides,
     }),
 

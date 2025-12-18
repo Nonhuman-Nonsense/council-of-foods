@@ -84,7 +84,7 @@ export class MeetingLifecycleHandler {
             true,
             manager.conversation,
             manager.conversationOptions,
-            manager.socket
+            manager.broadcaster
         );
 
         let summary: ConversationMessage = {

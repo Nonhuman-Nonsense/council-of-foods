@@ -1,6 +1,6 @@
 import dotenv from 'dotenv';
 import { EnvSchema } from '@models/ValidationSchemas.js';
-import { reportError } from '@utils/errorbot.js';
+import { Logger } from '@utils/Logger.js';;
 
 // Load environment variables immediately
 dotenv.config();
@@ -12,14 +12,9 @@ if (!envParse.success) {
     const errorMsg = "Invalid environment variables: " + JSON.stringify(envParse.error.format(), null, 2);
     console.error(errorMsg); // Ensure it logs to stdout/stderr
 
-    // Attempt to report to errorbot
-    try {
-        await reportError("init", errorMsg, envParse.error);
-    } catch (e) {
-        console.error("Failed to report config error to errorbot");
-    }
-
     process.exit(1);
 }
+
+Logger.info("init", `node_env is ${envParse.data.NODE_ENV}`);
 
 export const config = envParse.data;

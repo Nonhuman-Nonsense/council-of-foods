@@ -1,8 +1,9 @@
-//We wrap this in a function to make sure that it runs after .env is loaded
+import { config } from '@root/src/config.js';
+
 //We wrap this in a function to make sure that it runs after .env is loaded
 export function initReporting(): void {
-    if (process.env.COUNCIL_ERRORBOT) {
-        Logger.info("init", `Will attempt to post errors to errorbot on ${process.env.COUNCIL_ERRORBOT}`);
+    if (config.COUNCIL_ERRORBOT) {
+        Logger.info("init", `Will attempt to post errors to errorbot on ${config.COUNCIL_ERRORBOT}`);
     } else {
         Logger.warn("init", `COUNCIL_ERRORBOT not set, will not report errors.`);
     }
@@ -31,13 +32,13 @@ export async function reportError(context: string, message: string, err?: any): 
     Logger.error(context, message, err);
 
     // 2. Report if configured
-    if (!process.env.COUNCIL_ERRORBOT) {
+    if (!config.COUNCIL_ERRORBOT) {
         Logger.warn("init", "COUNCIL_ERRORBOT not set, will not report error externally.");
         return;
     }
 
     const payload = {
-        service: process.env.COUNCIL_DB_PREFIX || "CouncilOfFoods", // Default if not set
+        service: config.COUNCIL_DB_PREFIX,
         level: "ERROR",
         context: context,
         message: message,
@@ -47,7 +48,7 @@ export async function reportError(context: string, message: string, err?: any): 
 
     const sendStr = JSON.stringify(payload);
 
-    await fetch(process.env.COUNCIL_ERRORBOT, {
+    await fetch(config.COUNCIL_ERRORBOT, {
         method: 'POST',
         body: sendStr,
         headers: { 'Content-Type': 'application/json' }

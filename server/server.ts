@@ -18,9 +18,7 @@ const __dirname: string = path.dirname(__filename);
 
 const app = express();
 const httpServer = http.createServer(app);
-const io = new Server(httpServer, {
-  // transports: ["websocket", "polling"], 
-});
+const io = new Server(httpServer);
 
 // Initialize Services
 initReporting();
@@ -34,9 +32,7 @@ try {
   reportError("openai", "Failed to initialize OpenAI", e).then(() => process.exit(1));
 }
 
-Logger.info("init", `node_env is ${environment}`);
-
-// Express Logic
+// Express for health checks
 app.get('/health', (_req: Request, res: Response) => { res.sendStatus(200); });
 
 if (environment === "prototype") {
@@ -65,15 +61,15 @@ io.on("connection", (socket: Socket) => {
 });
 
 // Server Listen
-httpServer.listen(3001, () => {
-  Logger.info("init", "Listening on *:3001");
+httpServer.listen(config.PORT, () => {
+  Logger.info("init", `Listening on *:${config.PORT}`);
 });
 
 process.on('SIGTERM', () => {
-  Logger.info("shutdown", "SIGTERM shutdown");
+  Logger.warn("shutdown", "SIGTERM shutdown");
   process.exit(1);
 });
 process.on('SIGINT', () => {
-  Logger.info("shutdown", "SIGINT shutdown");
+  Logger.warn("shutdown", "SIGINT shutdown");
   process.exit(1);
 });

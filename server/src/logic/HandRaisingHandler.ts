@@ -66,7 +66,6 @@ export class HandRaisingHandler {
                 speaker: manager.conversationOptions.characters[0].id,
                 text: response,
                 type: "invitation",
-                message_index: handRaisedOptions.index,
                 sentences: [] // Will be populated
             }
 

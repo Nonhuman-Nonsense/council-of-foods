@@ -1,4 +1,4 @@
-import { Server, Socket } from "socket.io";
+import { Socket } from "socket.io";
 import { IMeetingBroadcaster } from "@interfaces/MeetingInterfaces.js";
 import { ConversationMessage } from "@shared/ModelTypes.js";
 
@@ -37,6 +37,7 @@ export class SocketBroadcaster implements IMeetingBroadcaster {
         this.socket.emit("conversation_error", { message, code });
     }
 
+    //TODO: implement on client
     broadcastMeetingNotFound(meetingId: string): void {
         this.socket.emit("meeting_not_found", { meeting_id: meetingId });
     }

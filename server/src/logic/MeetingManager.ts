@@ -94,7 +94,7 @@ export class MeetingManager implements IMeetingManager {
 
         // Subsystems - AudioSystem still needs Services cast for now until AudioSystem is fully typed, 
         // but generally we are moving towards strict types.
-        this.audioSystem = new AudioSystem(this.broadcaster, this.services as any, this.globalOptions.audioConcurrency);
+        this.audioSystem = new AudioSystem(this.broadcaster, this.services, this.globalOptions.audioConcurrency);
         this.dialogGenerator = new DialogGenerator(this.services, this.globalOptions);
 
         // Handlers - Now 'this' is sufficiently initialized to satisfy IMeetingManager (mostly)
