@@ -1,12 +1,7 @@
-import type { AudioUpdatePayload } from "@shared/SocketTypes";
-import { useEffect, useRef } from "react";
-import AudioOutputMessage from "./AudioOutputMessage";
-import React from 'react';
 
-// At runtime in the client, 'audio' has been decoded to AudioBuffer
-interface PlayableAudioMessage extends Omit<AudioUpdatePayload, 'audio'> {
-  audio?: AudioBuffer;
-}
+import { useEffect, useRef } from "react";
+import AudioOutputMessage, { PlayableAudioMessage } from "./AudioOutputMessage";
+import React from 'react';
 
 interface AudioOutputProps {
   audioContext: React.MutableRefObject<AudioContext | null>;
