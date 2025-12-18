@@ -1,3 +1,4 @@
+import type { Character, ConversationMessage } from '@shared/ModelTypes';
 import { useEffect, useRef, MutableRefObject } from 'react';
 import { io, Socket } from 'socket.io-client';
 import {
@@ -6,10 +7,12 @@ import {
     AudioUpdatePayload,
     ErrorPayload
 } from '@shared/SocketTypes';
-import { Character, ConversationMessage } from '@shared/ModelTypes';
+
+
+import { Topic } from "../components/settings/SelectTopic";
 
 export interface UseCouncilSocketProps {
-    topic: { prompt: string;[key: string]: any };
+    topic: Topic;
     participants: Character[];
     lang: string;
     onMeetingStarted?: (data: { meeting_id: number | string | null }) => void;
@@ -51,12 +54,12 @@ export const useCouncilSocket = ({
 
 
 
-        socketRef.current.on('disconnect', (err: any) => {
-            console.log(err);
+        socketRef.current.on('disconnect', (reason: string) => {
+            console.log(reason);
         });
 
         const conversationOptions = {
-            topic: topic.prompt,
+            topic: topic.prompt || "",
             characters: participants,
             language: lang
         };

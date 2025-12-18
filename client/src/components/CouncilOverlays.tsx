@@ -1,9 +1,8 @@
+import type { Character } from "@shared/ModelTypes";
 import Completed from "./overlays/Completed";
 import Summary, { SummaryData } from "./overlays/Summary";
 import Name from "./overlays/Name";
-
 import OverlayWrapper from './OverlayWrapper';
-import { Character } from "@shared/ModelTypes";
 import { TopicSelection } from "./settings/SelectTopic";
 
 export type CouncilOverlayType = "name" | "completed" | "summary" | null;
@@ -59,11 +58,11 @@ function CouncilOverlays({
           />
         );
       case "summary":
-        return (
+        return (summary ?
           <Summary
             summary={summary}
             meetingId={meetingId}
-          />
+          /> : null
         );
       default:
         return null; // No overlay content if no section is active

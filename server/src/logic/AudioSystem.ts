@@ -2,15 +2,17 @@ import type { IMeetingBroadcaster } from "@interfaces/MeetingInterfaces.js";
 import type { Meeting, Audio } from "@models/DBModels.js";
 import type { OpenAI } from "openai";
 import type { Collection } from "mongodb";
+import type { OpenAIVoice } from "@shared/ModelTypes.js";
 
 import { reportError } from "@utils/errorbot.js";
 import { Logger } from "@utils/Logger.js";
-import { mapSentencesToWords } from "@utils/textUtils.js";
+import { mapSentencesToWords, Word } from "@utils/textUtils.js";
 
 // OpenAI SDK accepts Buffer/Stream for 'file'.
 // Using File object for compatibility.
 
 export type AudioTask = () => Promise<void>;
+
 
 export class AudioQueue {
     queue: AudioTask[];
@@ -71,7 +73,7 @@ export interface Services {
 
 export interface Speaker {
     id: string;
-    voice: string;
+    voice: OpenAIVoice;
     name?: string;
 }
 
@@ -80,7 +82,6 @@ export interface Message {
     type?: string;
     text: string;
     sentences: string[];
-    [key: string]: any;
 }
 
 export interface AudioSystemOptions {
@@ -88,7 +89,6 @@ export interface AudioSystemOptions {
     audio_speed: number;
     skipAudio?: boolean;
     skipMatchingSubtitles?: boolean;
-    [key: string]: any;
 }
 
 /**
@@ -149,7 +149,7 @@ export class AudioSystem {
             if (generateNew || !buffer) {
                 const mp3 = await openai.audio.speech.create({
                     model: options.voiceModel,
-                    voice: speaker.voice as any, // OpenAI types might be strict union
+                    voice: speaker.voice,
                     speed: options.audio_speed,
                     input: message.text.substring(0, 4096),
                 });
@@ -210,6 +210,6 @@ export class AudioSystem {
             response_format: "verbose_json",
             timestamp_granularities: ["word"]
         });
-        return mapSentencesToWords(message.sentences, transcription.words as any[]);
+        return mapSentencesToWords(message.sentences, (transcription.words || []) as Word[]);
     }
 }

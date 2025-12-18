@@ -1,10 +1,10 @@
+import type { AudioUpdatePayload } from "@shared/SocketTypes";
 import { useEffect, useRef } from "react";
-import { AudioUpdatePayload } from "@shared/SocketTypes";
 import React from 'react';
 
 // At runtime in the client, 'audio' has been decoded to AudioBuffer
 // We extend the wire type to reflect the client-side reality
-interface PlayableAudioMessage extends Omit<AudioUpdatePayload, 'audio'> {
+export interface PlayableAudioMessage extends Omit<AudioUpdatePayload, 'audio'> {
   audio?: AudioBuffer;
 }
 

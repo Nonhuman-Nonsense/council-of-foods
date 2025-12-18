@@ -1,5 +1,6 @@
 import type { ConversationMessage } from "@shared/ModelTypes.js";
 import type { IHumanInputContext } from "@interfaces/MeetingInterfaces.js";
+import type { Message } from "@logic/AudioSystem.js";
 import { Logger } from "@utils/Logger.js";
 import { v4 as uuidv4 } from "uuid";
 import { splitSentences } from "@utils/textUtils.js";
@@ -189,7 +190,7 @@ export class HumanInputHandler {
 
         if (manager.meetingId !== null) {
             manager.audioSystem.queueAudioGeneration(
-                summary as any,
+                summary as unknown as Message,
                 manager.conversationOptions.characters[0],
                 manager.conversationOptions.options,
                 manager.meetingId as number,

@@ -2,7 +2,7 @@ import type { Character, ConversationMessage } from '@shared/ModelTypes.js';
 import type { IMeetingBroadcaster } from "@interfaces/MeetingInterfaces.js";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
 import type { Collection } from "mongodb";
-import type { Meeting } from "@models/DBModels.js";
+import type { Meeting, ConversationState } from "@models/DBModels.js";
 
 import { splitSentences } from "@utils/textUtils.js";
 import { Logger } from "@utils/Logger.js";
@@ -13,11 +13,6 @@ import { OpenAI } from "openai";
 export interface Services {
     getOpenAI: () => OpenAI;
     meetingsCollection: Collection<Meeting>;
-}
-
-interface ConversationState {
-    humanName?: string;
-    [key: string]: any;
 }
 
 interface ConversationOptions {

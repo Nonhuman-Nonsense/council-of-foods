@@ -8,7 +8,6 @@ import type { GlobalOptions } from "@logic/GlobalOptions.js";
 export interface ConversationState {
     alreadyInvited?: boolean;
     humanName?: string;
-    [key: string]: any;
 }
 
 export interface ConversationOptions {

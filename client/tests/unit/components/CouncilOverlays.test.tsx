@@ -42,8 +42,8 @@ describe('CouncilOverlays', () => {
         id: 'water',
         name: 'Water',
         voice: 'alloy',
-        size: 0.8,
-        description: 'Variety: Tap water...',
+
+
         prompt: 'You are Water...'
     }];
 

@@ -3,13 +3,13 @@ import { describe, it, expect, vi } from 'vitest';
 import Output from '../../../src/components/Output';
 import React from 'react';
 import { ConversationMessage } from '@shared/ModelTypes';
-import { DecodedAudioMessage } from '../../../src/components/Council';
+import { DecodedAudioMessage } from '@hooks/useCouncilMachine';
 
 // Mock child components to verify props and rendering
 vi.mock('../../../src/components/TextOutput', () => ({
-    default: ({ currentTextMessage, style }: any) => (
+    default: ({ currentAudioMessage, style }: any) => (
         <div data-testid="mock-text-output" style={style}>
-            {currentTextMessage ? currentTextMessage.text : 'No Text'}
+            {currentAudioMessage && currentAudioMessage.sentences && currentAudioMessage.sentences.length > 0 ? currentAudioMessage.sentences[0].text : 'No Text'}
         </div>
     ),
 }));
@@ -34,8 +34,8 @@ describe('Output', () => {
     ];
 
     const mockAudioMessages: DecodedAudioMessage[] = [
-        { id: '1', audio: {} as AudioBuffer },
-        { id: '2', audio: {} as AudioBuffer },
+        { id: '1', audio: {} as AudioBuffer, sentences: [{ text: 'Hello World', start: 0, end: 1 }] },
+        { id: '2', audio: {} as AudioBuffer, sentences: [{ text: 'Second Message', start: 0, end: 1 }] },
     ];
 
     const defaultProps = {

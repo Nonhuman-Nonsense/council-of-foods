@@ -1,8 +1,9 @@
+
 import { useState, useEffect } from "react";
 import TextOutput from "./TextOutput";
 import AudioOutput from "./AudioOutput";
 import { ConversationMessage } from "@shared/ModelTypes";
-import { DecodedAudioMessage } from "./Council";
+import { DecodedAudioMessage } from "../hooks/useCouncilMachine";
 
 /**
  * Output Component
@@ -55,7 +56,6 @@ const Output: React.FC<OutputProps> = ({
   handleOnFinishedPlaying,
   setSentencesLength
 }) => {
-  const [currentTextMessage, setCurrentTextMessage] = useState<ConversationMessage | null>(null);
   const [currentAudioMessage, setCurrentAudioMessage] = useState<DecodedAudioMessage | null>(null);
   const hiddenStyle: React.CSSProperties = { visibility: "hidden" };
 
@@ -65,33 +65,25 @@ const Output: React.FC<OutputProps> = ({
   useEffect(() => {
     if (councilState === 'playing') {
       let textMessage = textMessages[playingNowIndex];
-      setCurrentTextMessage(() => textMessage);
       const matchingAudioMessage = audioMessages.find((a) => a.id === textMessage.id);
-      setCurrentAudioMessage(() => matchingAudioMessage);
+      setCurrentAudioMessage(() => matchingAudioMessage || null);
     } else if (councilState === 'loading' || councilState === 'max_reached' || councilState === 'human_input' || councilState === 'human_panelist') {
-      setCurrentTextMessage(null);
       setCurrentAudioMessage(null);
     } else if (councilState === 'summary') {
-      setCurrentTextMessage(null);
       let textMessage = textMessages[playingNowIndex];
-      if (textMessage.type === 'summary') {
+      if (textMessage && textMessage.type === 'summary') { // Added check for textMessage existence
         const matchingAudioMessage = audioMessages.find((a) => a.id === textMessage.id);
-        if (matchingAudioMessage) {
-          setCurrentAudioMessage(() => matchingAudioMessage);
-        } else {
-          setCurrentAudioMessage(null);
-        }
+        setCurrentAudioMessage(() => matchingAudioMessage || null); // Simplified to directly set null if not found
       } else {
         setCurrentAudioMessage(null);
       }
     }
-  }, [playingNowIndex, councilState]);
+  }, [playingNowIndex, councilState, textMessages, audioMessages]); // Added textMessages and audioMessages to dependency array
 
   return (
     <>
       <div style={showTextOutput ? hiddenStyle : {}}>
         <TextOutput
-          currentTextMessage={currentTextMessage}
           currentAudioMessage={currentAudioMessage}
           isPaused={isPaused}
           style={(councilState !== 'playing' && councilState !== 'waiting') ? (hiddenStyle as React.CSSProperties) : undefined}

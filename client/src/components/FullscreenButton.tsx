@@ -1,4 +1,3 @@
-// FullscreenButton.jsx
 import { useState, useEffect } from "react";
 
 /**
