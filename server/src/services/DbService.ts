@@ -2,7 +2,6 @@ import type { Meeting, Audio, Counter } from "@models/DBModels.js";
 import { MongoClient, Db, Collection, InsertOneResult } from "mongodb";
 import { Logger } from "@utils/Logger.js";
 import { reportError } from "@utils/errorbot.js";
-
 import { config } from "../config.js";
 
 let db: Db;

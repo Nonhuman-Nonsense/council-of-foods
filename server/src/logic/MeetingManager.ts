@@ -1,10 +1,13 @@
+import type { IMeetingManager, Services, ConversationOptions, IMeetingBroadcaster } from "@interfaces/MeetingInterfaces.js";
+import type { Character, ConversationMessage } from "@shared/ModelTypes.js";
+import type { ClientToServerEvents, ServerToClientEvents } from "@shared/SocketTypes.js";
+
 import { getOpenAI } from "@services/OpenAIService.js";
 import { meetingsCollection, audioCollection, insertMeeting } from "@services/DbService.js";
 import { reportError } from "@utils/errorbot.js";
-
 import { AudioSystem, Message as AudioMessage } from "@logic/AudioSystem.js";
 import { SpeakerSelector } from "@logic/SpeakerSelector.js";
-import { DialogGenerator, GPTResponse } from "@logic/DialogGenerator.js";
+import { DialogGenerator } from "@logic/DialogGenerator.js";
 import { HumanInputHandler } from "@logic/HumanInputHandler.js";
 import { HandRaisingHandler } from "@logic/HandRaisingHandler.js";
 import { MeetingLifecycleHandler } from "@logic/MeetingLifecycleHandler.js";
@@ -12,8 +15,7 @@ import { ConnectionHandler } from "@logic/ConnectionHandler.js";
 import { GlobalOptions, getGlobalOptions } from "@logic/GlobalOptions.js";
 import { Socket } from "socket.io";
 import { SocketBroadcaster } from "@logic/SocketBroadcaster.js";
-import { ClientToServerEvents, ServerToClientEvents } from "@shared/SocketTypes.js";
-import type { Character, ConversationMessage } from "@shared/ModelTypes.js";
+import { Logger } from "@utils/Logger.js";
 import {
     SetupOptionsSchema,
     HumanMessageSchema,
@@ -22,8 +24,6 @@ import {
     ReconnectionOptionsSchema
 } from "@models/ValidationSchemas.js";
 
-import { Logger } from "@utils/Logger.js";
-import { IMeetingManager, Services, ConversationOptions, IMeetingBroadcaster } from "@interfaces/MeetingInterfaces.js";
 
 interface Decision {
     type: 'END_CONVERSATION' | 'WAIT' | 'REQUEST_PANELIST' | 'GENERATE_AI_RESPONSE';

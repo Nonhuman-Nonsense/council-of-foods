@@ -1,14 +1,14 @@
+import type { Character, ConversationMessage } from '@shared/ModelTypes.js';
+import type { IMeetingBroadcaster } from "@interfaces/MeetingInterfaces.js";
+import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
+import type { Collection } from "mongodb";
+import type { Meeting } from "@models/DBModels.js";
+
 import { splitSentences } from "@utils/textUtils.js";
 import { Logger } from "@utils/Logger.js";
 import { reportError } from "@utils/errorbot.js";
-import type { Character, ConversationMessage } from '@shared/ModelTypes.js';
 import { GlobalOptions } from "./GlobalOptions.js";
 import { OpenAI } from "openai";
-import { ChatCompletionMessageParam } from "openai/resources/chat/completions";
-import { Collection } from "mongodb";
-import { Meeting } from "@models/DBModels.js";
-import { IMeetingBroadcaster } from "@interfaces/MeetingInterfaces.js";
-
 
 export interface Services {
     getOpenAI: () => OpenAI;

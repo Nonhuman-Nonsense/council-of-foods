@@ -1,10 +1,10 @@
 import type { Character, ConversationMessage } from '@shared/ModelTypes.js';
+import type { ILifecycleContext, ConversationOptions } from "@interfaces/MeetingInterfaces.js";
+import type { Message as AudioMessage } from "@logic/AudioSystem.js";
 import { splitSentences } from "@utils/textUtils.js";
 import { reportError } from "@utils/errorbot.js";
 import { Logger } from "@utils/Logger.js";
 import { GlobalOptions } from "@logic/GlobalOptions.js";
-import { ILifecycleContext, ConversationOptions } from "@interfaces/MeetingInterfaces.js";
-import { Message as AudioMessage } from "@logic/AudioSystem.js";
 
 interface SetupOptions {
     options?: Partial<GlobalOptions>;
