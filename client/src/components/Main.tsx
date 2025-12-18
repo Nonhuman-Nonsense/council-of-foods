@@ -153,7 +153,7 @@ function Main({ lang }: MainProps) {
     navigate(`/${routes.meeting}/new`);
   }
 
-  function onReset(resetData?: any) {
+  function onReset(resetData?: { topic: string; custom?: string }) {
     setParticipants([]);
 
     if (!resetData?.topic) {
@@ -166,7 +166,7 @@ function Main({ lang }: MainProps) {
       window.location.reload();
     } else {
       // Reset from foods selection
-      topicSelected(resetData as any);
+      topicSelected(resetData);
     }
   }
 

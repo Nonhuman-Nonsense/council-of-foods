@@ -15,9 +15,11 @@ import { useDocumentVisibility, mapFoodIndex } from "@/utils";
 import routes from "@/routes.json";
 import { useCouncilMachine } from "@hooks/useCouncilMachine";
 
+import { Topic } from "./settings/SelectTopic";
+
 interface CouncilProps {
   lang: string;
-  topic: { prompt: string;[key: string]: any };
+  topic: Topic;
   participants: Character[];
   setUnrecoverableError: (error: boolean) => void;
   setConnectionError: (error: boolean) => void;
@@ -41,7 +43,7 @@ function Council({
   // Audio Context Ref
   const audioContext = useRef<AudioContext | null>(null);
   if (audioContext.current === null) {
-    const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
     audioContext.current = new AudioContext();
   }
 
@@ -229,7 +231,7 @@ function Council({
       <Overlay isActive={activeOverlay !== null}>
         {activeOverlay !== null && (
           <CouncilOverlays
-            activeOverlay={activeOverlay as any}
+            activeOverlay={activeOverlay}
             onContinue={handleOnContinueMeetingLonger}
             onWrapItUp={handleOnGenerateSummary}
             proceedWithHumanName={handleHumanNameEntered}

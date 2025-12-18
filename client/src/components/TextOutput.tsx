@@ -8,7 +8,6 @@ interface AudioMessage {
 }
 
 interface TextOutputProps {
-  currentTextMessage: any; // We keep this as any or ConversationMessage if available, but component doesn't use it directly
   currentAudioMessage: AudioMessage | null;
   isPaused: boolean;
   setCurrentSnippetIndex: (index: number) => void;
@@ -28,7 +27,6 @@ interface TextOutputProps {
  * - **Render Safety**: Updates Refs inside the loop to track state without triggering unnecessary re-renders.
  */
 function TextOutput({
-  currentTextMessage,
   currentAudioMessage, // Data structure: { sentences: [{text, start, end}, ...] }
   isPaused,
   setCurrentSnippetIndex, // Parent state setter

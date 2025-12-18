@@ -101,7 +101,7 @@ vi.mock('../../../src/hooks/useCouncilMachine', () => ({
 describe('Council Component', () => {
     const defaultProps = {
         lang: 'en',
-        topic: { prompt: 'Test Topic' },
+        topic: { id: 'test', title: 'Test Topic', prompt: 'Test Topic Prompt' },
         participants: [] as Character[],
         setUnrecoverableError: vi.fn(),
         setConnectionError: vi.fn(),

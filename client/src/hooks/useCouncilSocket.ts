@@ -9,8 +9,10 @@ import {
 } from '@shared/SocketTypes';
 
 
+import { Topic } from "../components/settings/SelectTopic";
+
 export interface UseCouncilSocketProps {
-    topic: { prompt: string;[key: string]: any };
+    topic: Topic;
     participants: Character[];
     lang: string;
     onMeetingStarted?: (data: { meeting_id: number | string | null }) => void;
@@ -52,12 +54,12 @@ export const useCouncilSocket = ({
 
 
 
-        socketRef.current.on('disconnect', (err: any) => {
-            console.log(err);
+        socketRef.current.on('disconnect', (reason: string) => {
+            console.log(reason);
         });
 
         const conversationOptions = {
-            topic: topic.prompt,
+            topic: topic.prompt || "",
             characters: participants,
             language: lang
         };
