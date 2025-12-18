@@ -174,7 +174,7 @@ describe('FoodAnimation', () => {
     });
 
     it('should not render video if food.id is missing', () => {
-        const noIdFood: Food = { ...mockFood, id: undefined };
+        const noIdFood = { ...mockFood, id: undefined } as unknown as Food;
         render(
             <FoodAnimation
                 character={noIdFood}

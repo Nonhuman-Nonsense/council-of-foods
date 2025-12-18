@@ -47,8 +47,8 @@ function useIsIphone() {
   const [isIphone, setIsIphone] = useState(false);
 
   useEffect(() => {
-    const userAgent = navigator.userAgent || navigator.vendor || (window as any).opera;
-    if (/iPhone/.test(userAgent) && !(window as any).MSStream) {
+    const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+    if (/iPhone/.test(userAgent) && !window.MSStream) {
       setIsIphone(true);
     }
   }, []);
@@ -198,7 +198,7 @@ function Main({ lang }: MainProps) {
     navigate(`/${lang}/${routes.meeting}/new`);
   }
 
-  function onReset(resetData?: any) {
+  function onReset(resetData?: { topic: string; custom?: string }) {
     setParticipants([]);
 
     if (!resetData?.topic) {
@@ -211,7 +211,7 @@ function Main({ lang }: MainProps) {
       window.location.reload();
     } else {
       // Reset from foods selection
-      topicSelected(resetData as any);
+      topicSelected(resetData);
     }
   }
 

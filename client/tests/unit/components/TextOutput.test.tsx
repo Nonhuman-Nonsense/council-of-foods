@@ -25,7 +25,6 @@ describe('TextOutput', () => {
     };
 
     const defaultProps = {
-        currentTextMessage: { speaker: "Alice" }, // Not actually used by component directly?
         currentAudioMessage: mockAudioMessage,
         isPaused: false,
         setCurrentSnippetIndex: vi.fn(),

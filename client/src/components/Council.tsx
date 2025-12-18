@@ -1,4 +1,6 @@
 import type { Character } from "@shared/ModelTypes";
+import type { Socket } from "socket.io-client";
+import type { ServerToClientEvents, ClientToServerEvents } from "@shared/SocketTypes";
 
 import React, { useEffect, useMemo } from "react";
 import { useLocation } from "react-router";
@@ -12,9 +14,11 @@ import { useDocumentVisibility } from "@/utils";
 import routes from "@/routes.json";
 import { useCouncilMachine } from "@hooks/useCouncilMachine";
 
+import { Topic } from "./settings/SelectTopic";
+
 interface CouncilProps {
   lang: string;
-  topic: { prompt: string;[key: string]: any };
+  topic: Topic;
   participants: Character[];
   setUnrecoverableError: (error: boolean) => void;
   setConnectionError: (error: boolean) => void;
@@ -196,7 +200,7 @@ function Council({
       <Overlay isActive={activeOverlay !== null}>
         {activeOverlay !== null && (
           <CouncilOverlays
-            activeOverlay={activeOverlay as any}
+            activeOverlay={activeOverlay}
             onContinue={handleOnContinueMeetingLonger}
             onWrapItUp={handleOnGenerateSummary}
             proceedWithHumanName={handleHumanNameEntered}

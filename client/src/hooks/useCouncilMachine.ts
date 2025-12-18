@@ -2,9 +2,10 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router"; // react-router-dom in this project?
 import { useCouncilSocket } from "../hooks/useCouncilSocket";
 import { Character, ConversationMessage, Sentence } from "@shared/ModelTypes";
-// import { AudioUpdatePayload } from "@shared/SocketTypes";
-// @ts-ignore
+import { AudioUpdatePayload } from "@shared/SocketTypes";
 import globalOptions from "@/global-options-client.json";
+
+import { Topic } from "../components/settings/SelectTopic";
 
 export interface DecodedAudioMessage extends Omit<AudioUpdatePayload, 'audio'> {
     audio: AudioBuffer;
@@ -12,7 +13,7 @@ export interface DecodedAudioMessage extends Omit<AudioUpdatePayload, 'audio'> {
 
 export interface UseCouncilMachineProps {
     lang: string;
-    topic: { prompt: string;[key: string]: any };
+    topic: Topic;
     participants: Character[];
     audioContext: React.MutableRefObject<AudioContext | null>;
     setUnrecoverableError: (error: boolean) => void;
@@ -353,7 +354,7 @@ export function useCouncilMachine({
         setCouncilState('loading');
     }
 
-    function handleHumanNameEntered(input: any) {
+    function handleHumanNameEntered(input: { humanName: string }) {
         if (input.humanName) {
             setHumanName(input.humanName);
             setIsRaisedHand(true);

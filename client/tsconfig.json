@@ -20,6 +20,9 @@
             "@/*": [
                 "src/*"
             ],
+            "@root/*": [
+                "src/*"
+            ],
             "@components/*": [
                 "src/components/*"
             ],

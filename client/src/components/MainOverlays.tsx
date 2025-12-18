@@ -12,7 +12,7 @@ import { useTranslation } from "react-i18next";
 interface MainOverlaysProps {
   topics: Topic[];
   topic: Topic;
-  onReset: (data?: any) => void;
+  onReset: (data?: { topic: string; custom?: string }) => void;
   onCloseOverlay: () => void;
 }
 

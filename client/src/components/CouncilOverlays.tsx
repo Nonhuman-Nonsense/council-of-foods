@@ -58,11 +58,11 @@ function CouncilOverlays({
           />
         );
       case "summary":
-        return (
+        return (summary ?
           <Summary
             summary={summary}
             meetingId={meetingId}
-          />
+          /> : null
         );
       default:
         return null; // No overlay content if no section is active

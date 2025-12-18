@@ -8,7 +8,6 @@ interface AudioMessage {
 }
 
 interface TextOutputProps {
-  currentTextMessage?: any; // We keep this as any or ConversationMessage if available, but component doesn't use it directly
   currentAudioMessage: AudioMessage | null;
   isPaused: boolean;
   setCurrentSnippetIndex: (index: number) => void;

@@ -92,7 +92,7 @@ describe('MainOverlays', () => {
         mockLocation.hash = '#reset';
         mockLocation.pathname = '/meeting';
         render(<MainOverlays topics={mockTopics} topic={mockTopic} onReset={mockOnReset} onCloseOverlay={mockOnCloseOverlay} />);
-        screen.debug();
+
         expect(screen.getByTestId('reset-overlay')).toBeInTheDocument();
     });
 
