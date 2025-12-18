@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useDebugValue } from "react";
+import { useState, useEffect, useRef, CSSProperties } from "react";
 import FoodAnimation from "./FoodAnimation.jsx";
 import { dvh, minWindowHeight, filename, useMobile, useDocumentVisibility } from "../utils.js";
 
@@ -10,8 +10,8 @@ function Forest({ currentSpeakerId, isPaused, audioContext }) {
     const [zoomInOnBeing, setZoomInOnBeing] = useState(null);
     const containerRef = useRef(null);
     const [zoomInValue, setZoomInValue] = useState(1);
-    const [transformOrigin, setTransformOrigin] = useState([0, 0]);
-    const [translate, setTranslate] = useState([0, 0]);
+    const [transformOrigin, setTransformOrigin] = useState<(string | number)[]>([0, 0]);
+    const [translate, setTranslate] = useState<(string | number)[]>([0, 0]);
     const [animateTransformOrigin, setAnimateTransformOrigin] = useState(false);
     const [disableAnimations, setDisableAnimations] = useState(false);
 
@@ -42,7 +42,7 @@ function Forest({ currentSpeakerId, isPaused, audioContext }) {
         { ref: useRef(null), id: "snowyspruce", type: "image", height: 36, left: -37, bottom: 44.5, ratio: 1044 / 1800 },
     ];
 
-    const container = {
+    const container: CSSProperties = {
         position: "absolute",
         backgroundColor: "black",
         top: "0",
@@ -127,7 +127,7 @@ function Forest({ currentSpeakerId, isPaused, audioContext }) {
             <AmbientAudio audioContext={audioContext} />
             <img style={{ zIndex: "-5", height: "100%", position: "absolute", bottom: 0 }} src={`/backgrounds/forest${isMobile ? "-small" : ""}.avif`} alt="" />
             <div style={{ zIndex: "-4", height: "75.5%", position: "absolute", bottom: 0, left: "calc(50% - max(49dvh,147px))" }}>
-                <FoodAnimation type="transparent" character={{ id: "river" }} isPaused={isPaused} always_on={true} />
+                <FoodAnimation type="transparent" character={{ id: "river" }} isPaused={isPaused} always_on={true} styles={{}} currentSpeakerId={currentSpeakerId} />
                 <BeingAudio id={'river'} volume={0.15} currentSpeakerId={currentSpeakerId} audioContext={audioContext} />
             </div>
             {characters.map((character, index) => (
@@ -154,7 +154,7 @@ function Being({ id, ref, type, height, left, bottom, always_on, isPaused, curre
     return (<>
         {type !== "image" &&
             <div ref={ref} style={{ position: "absolute", height: height, left: left, bottom: bottom }}>
-                <FoodAnimation type={type} character={{ id: id }} isPaused={isPaused} always_on={always_on} currentSpeakerId={currentSpeakerId} />
+                <FoodAnimation type={type} character={{ id: id }} isPaused={isPaused} always_on={always_on} currentSpeakerId={currentSpeakerId} styles={{}} />
             </div>
         }
         {type === "image" && <img style={{ position: "absolute", height: height, left: left, bottom: bottom }} src={`/characters/images/${filename(id)}.avif`} alt="" />}

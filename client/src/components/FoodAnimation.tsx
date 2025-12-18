@@ -3,7 +3,7 @@ import { filename, useMobile } from "../utils";
 import { Character } from "@shared/ModelTypes";
 
 interface FoodAnimationProps {
-  character: Character;
+  character: { id: string };
   type: string;
   styles: React.CSSProperties;
   isPaused: boolean;
