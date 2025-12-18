@@ -7,6 +7,8 @@ import { OpenAI } from "openai";
 import { ChatCompletionMessageParam } from "openai/resources/chat/completions";
 import { Collection } from "mongodb";
 import { Meeting } from "@models/DBModels.js";
+import { IMeetingBroadcaster } from "@interfaces/MeetingInterfaces.js";
+
 
 export interface Services {
     getOpenAI: () => OpenAI;
@@ -223,7 +225,7 @@ export class DialogGenerator {
      * Generates a specific interjection or system message (e.g., Chair inviting human).
      * Uses a temporary system prompt injected at the end of the history.
      */
-    async chairInterjection(interjectionPrompt: string, index: number, length: number, dontStop: boolean, conversation: ConversationMessage[], conversationOptions: ConversationOptions, socket: any): Promise<GPTResponse> {
+    async chairInterjection(interjectionPrompt: string, index: number, length: number, dontStop: boolean, conversation: ConversationMessage[], conversationOptions: ConversationOptions, broadcaster: IMeetingBroadcaster): Promise<GPTResponse> {
         try {
             const chair = conversationOptions.characters[0];
             let messages = this.buildMessageStack(chair, conversation, conversationOptions, index);
@@ -259,11 +261,8 @@ export class DialogGenerator {
             return { response, id: completion.id };
         } catch (error) {
             Logger.error("DialogGenerator", "Error during conversation", error);
-            if (socket) {
-                socket.emit("conversation_error", {
-                    message: "An error occurred during the conversation.",
-                    code: 500,
-                });
+            if (broadcaster) {
+                broadcaster.broadcastError("An error occurred during the conversation.", 500);
             }
             reportError("DialogGenerator", "Prompt Generation Error", error);
             return { response: "", id: null };

@@ -4,15 +4,12 @@ import { Meeting, Audio } from "@models/DBModels.js";
 import { mapSentencesToWords } from "@utils/textUtils.js";
 import { OpenAI } from "openai";
 import { Collection } from "mongodb";
-import { Socket } from "socket.io";
-import { ClientToServerEvents, ServerToClientEvents } from "@shared/SocketTypes.js";
+import { IMeetingBroadcaster } from "@interfaces/MeetingInterfaces.js";
 
 // OpenAI SDK accepts Buffer/Stream for 'file'.
 // Using File object for compatibility.
 
 export type AudioTask = () => Promise<void>;
-
-// ... (AudioQueue class remains unchanged) 
 
 export class AudioQueue {
     queue: AudioTask[];
@@ -65,10 +62,6 @@ export class AudioQueue {
     }
 }
 
-
-
-// ...
-
 export interface Services {
     audioCollection: Collection<Audio>;
     meetingsCollection: Collection<Meeting>;
@@ -79,8 +72,6 @@ export interface Speaker {
     id: string;
     voice: string;
     name?: string;
-    // Removing [key: string]: any to enforce strictness. 
-    // If other props are needed, they should be added explicitly or we should use the shared Character type.
 }
 
 export interface Message {
@@ -110,12 +101,12 @@ export interface AudioSystemOptions {
  * - Skipping audio generation based on configuration (skipAudio).
  */
 export class AudioSystem {
-    socket: Socket<ClientToServerEvents, ServerToClientEvents>;
+    broadcaster: IMeetingBroadcaster;
     services: Services;
     queue: AudioQueue;
 
-    constructor(socket: Socket<ClientToServerEvents, ServerToClientEvents>, services: Services, concurrency: number = 3) {
-        this.socket = socket;
+    constructor(broadcaster: IMeetingBroadcaster, services: Services, concurrency: number = 3) {
+        this.broadcaster = broadcaster;
         this.services = services;
         this.queue = new AudioQueue(concurrency);
     }
@@ -132,7 +123,7 @@ export class AudioSystem {
         if (options.skipAudio) return;
 
         if (message.type === "skipped") {
-            this.socket.emit("audio_update", { id: message.id, type: "skipped" });
+            this.broadcaster.broadcastAudioUpdate({ id: message.id, type: "skipped" });
             return;
         }
 
@@ -174,7 +165,7 @@ export class AudioSystem {
                 sentences: sentencesWithTimings
             };
 
-            this.socket.emit("audio_update", audioObject);
+            this.broadcaster.broadcastAudioUpdate(audioObject);
 
             if (generateNew && environment !== "prototype") {
                 // Upsert logic

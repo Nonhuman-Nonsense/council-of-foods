@@ -21,8 +21,12 @@ export class SocketBroadcaster implements IMeetingBroadcaster {
         this.socket.emit("conversation_update", conversation);
     }
 
-    broadcastConversationEnd(conversation: ConversationMessage[]): void {
-        this.socket.emit("conversation_end", conversation);
+    broadcastConversationEnd(): void {
+        this.socket.emit("conversation_end");
+    }
+
+    broadcastAudioUpdate(audio: any): void {
+        this.socket.emit("audio_update", audio);
     }
 
     broadcastClientKey(data: any): void {

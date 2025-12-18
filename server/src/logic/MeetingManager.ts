@@ -61,7 +61,7 @@ export class MeetingManager implements IMeetingManager {
 
     constructor(socket: Socket<ClientToServerEvents, ServerToClientEvents>, environment: string, optionsOverride: GlobalOptions | null = null, services: Partial<Services> = {}) {
         this.socket = socket;
-        this.broadcaster = new SocketBroadcaster(this.socket);
+        this.broadcaster = new SocketBroadcaster(socket);
         this.environment = environment;
         this.globalOptions = optionsOverride || getGlobalOptions();
 
@@ -94,7 +94,7 @@ export class MeetingManager implements IMeetingManager {
 
         // Subsystems - AudioSystem still needs Services cast for now until AudioSystem is fully typed, 
         // but generally we are moving towards strict types.
-        this.audioSystem = new AudioSystem(this.socket, this.services as any, this.globalOptions.audioConcurrency);
+        this.audioSystem = new AudioSystem(this.broadcaster, this.services as any, this.globalOptions.audioConcurrency);
         this.dialogGenerator = new DialogGenerator(this.services, this.globalOptions);
 
         // Handlers - Now 'this' is sufficiently initialized to satisfy IMeetingManager (mostly)
@@ -276,7 +276,7 @@ export class MeetingManager implements IMeetingManager {
                     return; // Do nothing, just wait.
 
                 case 'END_CONVERSATION':
-                    this.broadcaster.broadcastConversationEnd(this.conversation);
+                    this.broadcaster.broadcastConversationEnd();
                     return;
 
                 case 'REQUEST_PANELIST':

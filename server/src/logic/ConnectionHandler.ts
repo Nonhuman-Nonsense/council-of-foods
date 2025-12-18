@@ -38,6 +38,7 @@ export class ConnectionHandler {
      */
     async handleReconnection(options: ReconnectionOptions): Promise<void> {
         const { manager } = this;
+
         Logger.info(`meeting ${options.meetingId}`, "attempting to resume");
         try {
             const meetingIdNum = Number(options.meetingId);

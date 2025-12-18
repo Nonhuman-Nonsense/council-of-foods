@@ -53,7 +53,7 @@ export class HandRaisingHandler {
                 true,
                 manager.conversation,
                 manager.conversationOptions,
-                manager.socket
+                manager.broadcaster
             );
 
             const firstNewLineIndex = response.indexOf("\n\n");
@@ -104,6 +104,6 @@ export class HandRaisingHandler {
             );
         }
 
-        manager.socket.emit("conversation_update", manager.conversation);
+        manager.broadcaster.broadcastConversationUpdate(manager.conversation);
     }
 }

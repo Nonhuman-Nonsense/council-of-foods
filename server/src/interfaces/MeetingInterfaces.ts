@@ -29,7 +29,8 @@ export interface ConversationOptions {
 export interface IMeetingBroadcaster {
     broadcastMeetingStarted(meetingId: number): void;
     broadcastConversationUpdate(conversation: ConversationMessage[]): void;
-    broadcastConversationEnd(conversation: ConversationMessage[]): void;
+    broadcastConversationEnd(): void;
+    broadcastAudioUpdate(audio: any): void;
     broadcastClientKey(data: any): void;
     broadcastError(message: string, code: number): void;
     broadcastMeetingNotFound(meetingId: string): void;
