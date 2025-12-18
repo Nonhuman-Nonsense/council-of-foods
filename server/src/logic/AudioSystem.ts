@@ -157,7 +157,7 @@ export class AudioSystem {
                 generateNew = true; // Ensure we save it if we regenerated it because buffer was missing
             }
 
-            const shouldSkipMatching = skipMatching || options.skipMatchingSubtitles;
+            const shouldSkipMatching = skipMatching || options.skipMatchingSubtitles || environment === 'prototype';
             const sentencesWithTimings = shouldSkipMatching ? [] : await this.getSentenceTimings(buffer, message);
 
             const audioObject = {
