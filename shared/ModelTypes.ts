@@ -1,8 +1,11 @@
 
+// Match OpenAI's expected voice types
+export type OpenAIVoice = "alloy" | "ash" | "ballad" | "coral" | "echo" | "fable" | "onyx" | "nova" | "sage" | "shimmer" | "verse";
+
 export interface Character {
     id: string;
     name: string;
-    voice: string;
+    voice: OpenAIVoice;
     type?: string;
     prompt?: string;
 }

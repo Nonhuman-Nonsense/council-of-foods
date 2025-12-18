@@ -21,7 +21,7 @@ function serializeError(err: any): any {
             name: err.name,
             message: err.message,
             stack: err.stack,
-            cause: (err as any).cause,
+            cause: (err as Error & { cause?: unknown }).cause,
         };
     }
     return err;

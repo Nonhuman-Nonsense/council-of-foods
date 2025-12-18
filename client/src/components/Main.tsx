@@ -49,8 +49,8 @@ function useIsIphone() {
   const [isIphone, setIsIphone] = useState(false);
 
   useEffect(() => {
-    const userAgent = navigator.userAgent || navigator.vendor || (window as any).opera;
-    if (/iPhone/.test(userAgent) && !(window as any).MSStream) {
+    const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+    if (/iPhone/.test(userAgent) && !window.MSStream) {
       setIsIphone(true);
     }
   }, []);

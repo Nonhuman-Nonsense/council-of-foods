@@ -3,7 +3,7 @@ import { toTitleCase, useMobile, useMobileXs, filename } from "@/utils";
 import { useTranslation } from "react-i18next";
 
 import globalOptionsData from "@/global-options-client.json";
-import { Character } from "@shared/ModelTypes";
+import { Character, OpenAIVoice } from "@shared/ModelTypes";
 
 //Foods
 import foodDataEN from "@prompts/foods_en.json";
@@ -26,7 +26,7 @@ export interface Food extends Partial<Character> {
   prompt?: string;
   type?: 'panelist' | 'food' | 'chair' | string;
   index?: number;
-  voice?: string; // Optional in configuration, but required for Character
+  voice?: OpenAIVoice; // Optional in configuration, but required for Character
   size?: number;
   voiceInstruction?: string;
 }

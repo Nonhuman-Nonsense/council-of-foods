@@ -18,11 +18,13 @@ export type EnvConfig = z.infer<typeof EnvSchema>;
 // --- Socket Payload Schemas ---
 
 // Shared Sub-schemas
+const OpenAIVoiceSchema = z.enum(["alloy", "ash", "ballad", "coral", "echo", "fable", "onyx", "nova", "sage", "shimmer", "verse"]);
+
 const CharacterSchema = z.object({
     id: z.string().min(1),
     name: z.string().min(1),
     type: z.string().optional(),
-    voice: z.string().min(1),
+    voice: OpenAIVoiceSchema,
     prompt: z.string().optional(),
 });
 
