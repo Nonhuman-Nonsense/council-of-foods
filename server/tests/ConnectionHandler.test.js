@@ -60,11 +60,14 @@ describe('ConnectionHandler', () => {
     });
 
     describe('handleReconnection', () => {
-        it.skip('should restore state from database when meeting exists', async () => {
+        it('should restore state from database when meeting exists', async () => {
             const savedMeeting = {
                 _id: 123,
                 conversation: [{ id: 'msg1', text: 'Hello' }],
-                options: { someOption: true },
+                options: {
+                    options: { conversationMaxLength: 50 },
+                    characters: []
+                },
                 date: new Date().toISOString(),
                 audio: ['msg1']
             };
