@@ -1,3 +1,6 @@
+import type { ClientToServerEvents, ServerToClientEvents, ClientKeyResponse } from "@shared/SocketTypes";
+import type { Character } from "@shared/ModelTypes";
+
 import { useState, useEffect, useRef } from "react";
 import ConversationControlIcon from "./ConversationControlIcon";
 import TextareaAutosize from 'react-textarea-autosize';
@@ -7,10 +10,7 @@ import { LiveAudioVisualizer } from 'react-audio-visualize';
 import Lottie from 'react-lottie-player';
 import loading from '@animations/loading.json';
 import { Socket } from "socket.io-client";
-import { ClientToServerEvents, ServerToClientEvents, ClientKeyResponse } from "@shared/SocketTypes";
-// import { Food } from "./settings/SelectFoods";
 import React from 'react';
-import { Character } from "@shared/ModelTypes";
 
 // OpenAI Realtime API Interfaces
 interface InputAudioTranscriptionCompletedEvent {

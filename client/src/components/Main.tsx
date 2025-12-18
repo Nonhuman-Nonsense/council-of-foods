@@ -1,4 +1,5 @@
-import "../App.css";
+import type { Character } from "@shared/ModelTypes";
+import "@root/App.css";
 import React, { useState, useEffect } from "react";
 import {
   Routes,
@@ -23,7 +24,7 @@ import Reconnecting from "./overlays/Reconnecting.jsx";
 //Topics
 import topicDataEN from "@prompts/topics_en.json";
 import routes from "@/routes.json"; // Import routes directly
-import { Character } from "@shared/ModelTypes";
+
 
 // interface Topic removed, imported from SelectTopic
 

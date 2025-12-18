@@ -1,5 +1,5 @@
-import { useState, useRef, useEffect, RefObject } from "react";
-import { useLocation, Link, useNavigate, NavigateFunction, Location } from "react-router";
+import { useState, useRef, useEffect } from "react";
+import { useLocation, useNavigate, NavigateFunction, Location } from "react-router";
 import { useMediaQuery } from 'react-responsive'
 import { useTranslation } from 'react-i18next';
 import { capitalizeFirstLetter, useMobile, useMobileXs, usePortrait } from "@/utils";

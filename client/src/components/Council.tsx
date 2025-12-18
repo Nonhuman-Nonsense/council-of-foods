@@ -1,3 +1,5 @@
+import type { Character } from "@shared/ModelTypes";
+
 import React, { useMemo, useEffect, useRef } from "react";
 import { useLocation } from "react-router";
 import FoodItem from "./FoodItem";
@@ -9,8 +11,7 @@ import ConversationControls from "./ConversationControls";
 import HumanInput from "./HumanInput";
 import { useDocumentVisibility, mapFoodIndex } from "@/utils";
 import routes from "@/routes.json";
-import { Character } from "@shared/ModelTypes";
-import { useCouncilMachine } from "../hooks/useCouncilMachine";
+import { useCouncilMachine } from "@hooks/useCouncilMachine";
 
 interface CouncilProps {
   lang: string;

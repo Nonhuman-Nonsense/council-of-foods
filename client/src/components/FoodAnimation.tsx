@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-// import { Food } from "./settings/SelectFoods";
 import React from 'react';
 
 interface AnimationFood {

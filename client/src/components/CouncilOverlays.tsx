@@ -1,9 +1,8 @@
+import type { Character } from "@shared/ModelTypes";
 import Completed from "./overlays/Completed";
 import Summary, { SummaryData } from "./overlays/Summary";
 import Name from "./overlays/Name";
-
 import OverlayWrapper from './OverlayWrapper';
-import { Character } from "@shared/ModelTypes";
 import { TopicSelection } from "./settings/SelectTopic";
 
 export type CouncilOverlayType = "name" | "completed" | "summary" | null;
