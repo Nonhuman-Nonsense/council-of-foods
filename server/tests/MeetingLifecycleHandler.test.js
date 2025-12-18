@@ -85,6 +85,44 @@ describe('MeetingLifecycleHandler', () => {
             expect(mockBroadcaster.broadcastMeetingStarted).toHaveBeenCalledWith(101);
             expect(mockContext.startLoop).toHaveBeenCalled();
         });
+
+        it('should merge provided options into conversationOptions when environment is prototype', async () => {
+            mockContext.environment = 'prototype';
+            const customOptions = { conversationMaxLength: 999 };
+            const setupOptions = {
+                topic: 'Test Topic',
+                characters: [],
+                options: customOptions
+            };
+
+            mockContext.services.insertMeeting.mockResolvedValue({ insertedId: 102 });
+
+            await handler.handleStartConversation(setupOptions);
+
+            expect(mockContext.conversationOptions.options.conversationMaxLength).toBe(999);
+            // Verify it kept global options too (globalOptions has extraMessageCount: 5 from beforeEach)
+            expect(mockContext.conversationOptions.options.extraMessageCount).toBe(5);
+        });
+
+        it('should IGNORE provided options when environment is production', async () => {
+            mockContext.environment = 'production';
+            const customOptions = { conversationMaxLength: 999 };
+            const setupOptions = {
+                topic: 'Test Topic',
+                characters: [],
+                options: customOptions
+            };
+
+            mockContext.services.insertMeeting.mockResolvedValue({ insertedId: 103 });
+
+            await handler.handleStartConversation(setupOptions);
+
+            // Should NOT represent the custom option (should be undefined or default from global)
+            // globalOptions in mock doesn't have conversationMaxLength, so it should be undefined
+            expect(mockContext.conversationOptions.options.conversationMaxLength).not.toBe(999);
+            // Should still have global option
+            expect(mockContext.conversationOptions.options.extraMessageCount).toBe(5);
+        });
     });
 
     describe('handleWrapUpMeeting', () => {

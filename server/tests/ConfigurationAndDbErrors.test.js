@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { EnvSchema } from '@models/ValidationSchemas.js';
+import { EnvSchema } from '@models/EnvValidation.js';
 import { insertMeeting, counters, initDb } from '@services/DbService.js';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import { Logger } from '@utils/Logger.js';
