@@ -118,3 +118,134 @@ describe('DialogGenerator - Prompt Construction', () => {
         expect(lastMessage.content).toBe(interjection);
     });
 });
+
+
+describe('DialogGenerator - Text Cleaning & Post-Processing', () => {
+    let manager;
+    let dialogGenerator;
+
+    // Helper to mock OpenAI response
+    const mockGPTResponse = (content, finish_reason = "stop") => {
+        const mockCreate = vi.fn().mockResolvedValue({
+            id: 'mock-id',
+            choices: [{
+                message: { content },
+                finish_reason
+            }]
+        });
+        vi.spyOn(manager.services, 'getOpenAI').mockReturnValue({
+            chat: { completions: { create: mockCreate } }
+        });
+    };
+
+    beforeEach(() => {
+        const setup = createTestManager();
+        manager = setup.manager;
+        dialogGenerator = manager.dialogGenerator;
+    });
+
+    it('should remove speaker name prefix from response', async () => {
+        const speaker = manager.conversationOptions.characters[1]; // Tomato
+        mockGPTResponse("Tomato: Hello world");
+
+        const result = await dialogGenerator.generateTextFromGPT(
+            speaker, [], manager.conversationOptions, 1
+        );
+
+        expect(result.response).toBe("Hello world");
+        expect(result.pretrimmed).toBe("Tomato:");
+    });
+
+    it('should remove markdown bold speaker name prefix', async () => {
+        const speaker = manager.conversationOptions.characters[1]; // Tomato
+        mockGPTResponse("**Tomato**: Hello bold world");
+
+        const result = await dialogGenerator.generateTextFromGPT(
+            speaker, [], manager.conversationOptions, 1
+        );
+
+        expect(result.response).toBe("Hello bold world");
+    });
+
+    it('should trim trailing text after periods if trimSentance is enabled', async () => {
+        const speaker = manager.conversationOptions.characters[1];
+        manager.conversationOptions.options.trimSentance = true;
+        // finish_reason must be NOT stop (e.g., length) for trimming to activate in some logics, 
+        // OR the logic runs if it IS stop? 
+        // Checking code: if (completion.choices[0].finish_reason != "stop") { ... trimming ... }
+        // So we must simulate run-on (length/content_filter) or just 'length'
+
+        mockGPTResponse("Hello world. This is extra", "length");
+
+        const result = await dialogGenerator.generateTextFromGPT(
+            speaker, [], manager.conversationOptions, 1
+        );
+
+        expect(result.response).toBe("Hello world.");
+        expect(result.trimmed).toBe(" This is extra");
+    });
+
+    it('should trim after double newline if trimParagraph is enabled', async () => {
+        const speaker = manager.conversationOptions.characters[1];
+        manager.conversationOptions.options.trimParagraph = true;
+
+        mockGPTResponse("First paragraph.\n\nSecond paragraph.", "length");
+
+        const result = await dialogGenerator.generateTextFromGPT(
+            speaker, [], manager.conversationOptions, 1
+        );
+
+        expect(result.response).toBe("First paragraph.");
+        expect(result.trimmed).toBe("\n\nSecond paragraph.");
+    });
+
+    it('should cut off text if another character starts speaking', async () => {
+        const speaker = manager.conversationOptions.characters[1]; // Tomato
+        const otherChar = manager.conversationOptions.characters[0]; // Water (Chair)
+
+        // "Water" is the name of character[0]
+        mockGPTResponse("I am talking. Water: Hey stop!");
+
+        const result = await dialogGenerator.generateTextFromGPT(
+            speaker, [], manager.conversationOptions, 1
+        );
+
+        expect(result.response).toBe("I am talking.");
+        expect(result.trimmed).toBe("Water: Hey stop!");
+    });
+
+    it('should handle complex Chair List logic (Semicolon trimming)', async () => {
+        const chair = manager.conversationOptions.characters[0];
+        manager.conversationOptions.options.chairId = chair.id; // ensure ID matches
+        manager.conversationOptions.options.trimChairSemicolon = true;
+
+        // Output mimics a list cutoff: "1. Topic\n2. Topic" where 3 is cut or partial
+        // Logic requires specific structure: 
+        // trimmedContent needs to exist, meaning finish_reason != stop AND split happened.
+        // OR splitSentences logic.
+
+        // Let's try to trigger the specific path:
+        // finish_reason != 'stop'
+        // trimSentance to create 'trimmedContent'
+        manager.conversationOptions.options.trimSentance = true;
+
+        // "1. First item.\n2. Second item. 3. Thi" -> cut at last period
+        mockGPTResponse("1. First.\n2. Second. 3. Thi", "length");
+
+        const result = await dialogGenerator.generateTextFromGPT(
+            chair, [], manager.conversationOptions, 0
+        );
+
+        // Expectation: The logic attempts to reconstruct the list or handle the split.
+        // Given "1. First.\n2. Second. 3. Thi", last period is after "Second."
+        // trimmedContent = " 3. Thi"
+        // sentences = ["1. First.", "2. Second."]
+        // The specific 'trimChairSemicolon' logic checks for "1" and "2" start chars.
+
+        // If logic works (lines 181+ in source), it should detect list format.
+        // We expect it to likely KEEP "1. First." and "2. Second." 
+        expect(result.response).toContain("1. First.");
+        expect(result.response).toContain("2. Second.");
+        expect(result.response).not.toContain("3. Thi");
+    });
+});
