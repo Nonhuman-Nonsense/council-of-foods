@@ -25,7 +25,7 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "tsc -b && vite build",
     "preview": "vite preview",
     "analyze": "source-map-explorer 'dist/assets/*.js'",
     "test": "vitest run",
@@ -47,6 +47,7 @@
     "@types/react-dom": "^19.2.3",
     "jsdom": "^27.3.0",
     "source-map-explorer": "^2.5.3",
+    "typescript": "^5.9.3",
     "vitest": "^4.0.15"
   }
 }

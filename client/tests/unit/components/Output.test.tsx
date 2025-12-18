@@ -3,7 +3,7 @@ import { describe, it, expect, vi } from 'vitest';
 import Output from '../../../src/components/Output';
 import React from 'react';
 import { ConversationMessage } from '@shared/ModelTypes';
-import { DecodedAudioMessage } from '../../../src/components/Council';
+import { DecodedAudioMessage } from '@hooks/useCouncilMachine';
 
 // Mock child components to verify props and rendering
 vi.mock('../../../src/components/TextOutput', () => ({

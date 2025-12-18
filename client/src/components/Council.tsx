@@ -1,4 +1,6 @@
 import type { Character } from "@shared/ModelTypes";
+import type { Socket } from "socket.io-client";
+import type { ServerToClientEvents, ClientToServerEvents } from "@shared/SocketTypes";
 
 import React, { useMemo, useEffect, useRef } from "react";
 import { useLocation } from "react-router";
@@ -137,7 +139,7 @@ function Council({
         currentIndex = mapFoodIndex(foods.length, index);
       }
     });
-    return currentIndex;
+    return currentIndex || 0;
   }, [foods, currentSpeakerId]);
 
   // Derived UI State
@@ -183,14 +185,14 @@ function Council({
             total={foods.length}
             isPaused={isPaused}
             zoomIn={zoomIn}
-            currentSpeakerId={currentSpeakerId}
+            currentSpeakerId={currentSpeakerId || ""}
           />
         ))}
       </div>
       {councilState === 'loading' && <Loading />}
       <>
         {(councilState === 'human_input' || councilState === 'human_panelist') && (
-          <HumanInput socketRef={socketRef} foods={foods} isPanelist={(councilState === 'human_panelist')} currentSpeakerName={participants.find(p => p.id === currentSpeakerId)?.name || ""} onSubmitHumanMessage={handleOnSubmitHumanMessage} />
+          <HumanInput socketRef={socketRef as React.MutableRefObject<Socket<ServerToClientEvents, ClientToServerEvents>>} foods={foods} isPanelist={(councilState === 'human_panelist')} currentSpeakerName={participants.find(p => p.id === currentSpeakerId)?.name || ""} onSubmitHumanMessage={handleOnSubmitHumanMessage} />
         )}
         <Output
           textMessages={textMessages}
@@ -243,7 +245,13 @@ function Council({
   );
 }
 
-export function Background({ zoomIn, currentSpeakerIndex, totalSpeakers }) {
+interface BackgroundProps {
+  zoomIn: boolean;
+  currentSpeakerIndex: number;
+  totalSpeakers: number;
+}
+
+export function Background({ zoomIn, currentSpeakerIndex, totalSpeakers }: BackgroundProps) {
   function calculateBackdropPosition() {
     return 10 + (80 * currentSpeakerIndex) / totalSpeakers + "%";
   }
