@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { HandRaisingHandler } from '../src/logic/HandRaisingHandler.js';
+import { HandRaisingHandler } from '@logic/HandRaisingHandler.js';
 
 describe('HandRaisingHandler', () => {
     let handler;

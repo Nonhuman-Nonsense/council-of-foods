@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { ConnectionHandler } from '../src/logic/ConnectionHandler.js';
+import { ConnectionHandler } from '@logic/ConnectionHandler.js';
 
 vi.mock('@utils/Logger.js', () => ({
     Logger: {

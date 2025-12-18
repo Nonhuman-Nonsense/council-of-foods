@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { createTestManager, TestFactory } from './commonSetup.js';
-import { SpeakerSelector } from '../src/logic/SpeakerSelector.js';
+import { SpeakerSelector } from '@logic/SpeakerSelector.js';
 
 describe('MeetingManager - State Machine (decideNextAction)', () => {
     let manager;

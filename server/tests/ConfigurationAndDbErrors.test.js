@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { EnvSchema } from '../src/models/ValidationSchemas.js';
-import { insertMeeting, counters, initDb } from '../src/services/DbService.js';
+import { EnvSchema } from '@models/ValidationSchemas.js';
+import { insertMeeting, counters, initDb } from '@services/DbService.js';
 import { MongoMemoryServer } from 'mongodb-memory-server';
-import { Logger } from '../src/utils/Logger.js';
+import { Logger } from '@utils/Logger.js';
 
 describe('Configuration & DB Error Handling', () => {
     let mongod;

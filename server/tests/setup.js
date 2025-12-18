@@ -1,6 +1,6 @@
 import { beforeAll, beforeEach, afterAll } from 'vitest';
 import { MongoMemoryServer } from 'mongodb-memory-server';
-import { initDb, meetingsCollection, audioCollection } from '../src/services/DbService.js';
+import { initDb, meetingsCollection, audioCollection } from '@services/DbService.js';
 import dotenv from 'dotenv';
 
 // Load env vars from .env file

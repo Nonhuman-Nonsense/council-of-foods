@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { HumanInputHandler } from '../src/logic/HumanInputHandler.js';
+import { HumanInputHandler } from '@logic/HumanInputHandler.js';
 import { TestFactory } from './commonSetup.js';
 
 describe('HumanInputHandler (Isolated)', () => {

@@ -19,7 +19,7 @@ describe('Logging & Reporting System', () => {
         }
     }));
 
-    vi.mock('../src/config.js', () => ({
+    vi.mock('@root/src/config.js', () => ({
         get config() {
             return mocks.config;
         }
@@ -34,10 +34,10 @@ describe('Logging & Reporting System', () => {
         vi.resetModules();
 
         // Dynamically import modules
-        const loggerModule = await import('../src/utils/Logger.js');
+        const loggerModule = await import('@utils/Logger.js');
         Logger = loggerModule.Logger;
 
-        const errorbotModule = await import('../src/utils/errorbot.js');
+        const errorbotModule = await import('@utils/errorbot.js');
         reportError = errorbotModule.reportError;
 
         // Reset mock config for each test

@@ -6,10 +6,10 @@ import { MockFactory } from './factories/MockFactory.ts';
 import { SpeakerSelector } from '@logic/SpeakerSelector.js';
 
 // Mock dependencies
-// vi.mock('../src/services/OpenAIService.js', () => ({
+// vi.mock('@services/OpenAIService.js', () => ({
 //     getOpenAI: vi.fn(() => mockOpenAI),
 // }));
-vi.mock('../src/logic/SpeakerSelector.js', () => ({
+vi.mock('@logic/SpeakerSelector.js', () => ({
     SpeakerSelector: {
         calculateNextSpeaker: vi.fn().mockReturnValue(0)
     }
