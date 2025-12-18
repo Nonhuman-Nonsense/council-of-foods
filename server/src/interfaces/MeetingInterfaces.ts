@@ -3,7 +3,7 @@ import type { Collection, InsertOneResult } from "mongodb";
 import type { OpenAI } from "openai";
 import type { Socket } from "socket.io";
 import type { Meeting, Audio } from "@models/DBModels.js";
-import type { ClientToServerEvents, ServerToClientEvents } from "@shared/SocketTypes.js";
+import type { ClientToServerEvents, ServerToClientEvents, AudioUpdatePayload, ClientKeyResponse } from "@shared/SocketTypes.js";
 import type { GlobalOptions } from "@logic/GlobalOptions.js";
 import type { AudioSystem } from "@logic/AudioSystem.js";
 import type { DialogGenerator } from "@logic/DialogGenerator.js";
@@ -30,8 +30,8 @@ export interface IMeetingBroadcaster {
     broadcastMeetingStarted(meetingId: number): void;
     broadcastConversationUpdate(conversation: ConversationMessage[]): void;
     broadcastConversationEnd(): void;
-    broadcastAudioUpdate(audio: any): void;
-    broadcastClientKey(data: any): void;
+    broadcastAudioUpdate(audio: AudioUpdatePayload): void;
+    broadcastClientKey(data: ClientKeyResponse): void;
     broadcastError(message: string, code: number): void;
     broadcastMeetingNotFound(meetingId: string): void;
 }
@@ -42,7 +42,7 @@ export interface IMeetingBroadcaster {
 export interface IMeetingContext {
     meetingId: number | null;
     conversation: ConversationMessage[];
-    socket: Socket;
+    socket: Socket<ClientToServerEvents, ServerToClientEvents>;
     environment: string;
     services: {
         meetingsCollection: Collection<Meeting>;

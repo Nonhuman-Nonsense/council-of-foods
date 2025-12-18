@@ -1,6 +1,7 @@
 import type { Socket } from "socket.io";
 import type { IMeetingBroadcaster } from "@interfaces/MeetingInterfaces.js";
 import type { ConversationMessage } from "@shared/ModelTypes.js";
+import type { AudioUpdatePayload, ClientKeyResponse } from "@shared/SocketTypes.js";
 
 /**
  * Concrete implementation of IMeetingBroadcaster that wraps a specific Socket.
@@ -25,11 +26,11 @@ export class SocketBroadcaster implements IMeetingBroadcaster {
         this.socket.emit("conversation_end");
     }
 
-    broadcastAudioUpdate(audio: any): void {
+    broadcastAudioUpdate(audio: AudioUpdatePayload): void {
         this.socket.emit("audio_update", audio);
     }
 
-    broadcastClientKey(data: any): void {
+    broadcastClientKey(data: ClientKeyResponse): void {
         this.socket.emit("clientkey_response", data);
     }
 

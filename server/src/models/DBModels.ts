@@ -1,4 +1,4 @@
-import type { Character, ConversationMessage } from '@shared/ModelTypes.js';
+import type { Character, ConversationMessage, Sentence } from '@shared/ModelTypes.js';
 import type { Document } from "mongodb";
 import type { GlobalOptions } from "@logic/GlobalOptions.js";
 
@@ -25,7 +25,7 @@ export interface Meeting extends Document {
     conversation: ConversationMessage[];
     options: ConversationOptions; // Stored options
     audio: string[]; // List of Audio IDs
-    summary?: any; // To be defined strictly later
+    summary?: ConversationMessage; // To be defined strictly later
 }
 
 export interface Audio extends Document {
@@ -33,7 +33,7 @@ export interface Audio extends Document {
     date: string; // ISO String
     meeting_id: number; // Reference to Meeting ID
     audio: Buffer; // Binary Data
-    sentences: any[]; // Timing data
+    sentences: Sentence[]; // Timing data
 }
 
 export interface Counter extends Document {
