@@ -177,4 +177,23 @@ describe('useCouncilMachine', () => {
         // setAudioPaused should be called if provided
         expect(defaultProps.setAudioPaused).toHaveBeenCalledWith(true);
     });
+
+    it('toggles mute state when toggleMute is called', () => {
+        const { result } = renderHook(() => useCouncilMachine(defaultProps as any));
+
+        // Initial state should be unmuted (false)
+        expect(result.current.state.isMuted).toBe(false);
+
+        // Toggle mute
+        act(() => {
+            result.current.actions.toggleMute();
+        });
+        expect(result.current.state.isMuted).toBe(true);
+
+        // Toggle again
+        act(() => {
+            result.current.actions.toggleMute();
+        });
+        expect(result.current.state.isMuted).toBe(false);
+    });
 });
