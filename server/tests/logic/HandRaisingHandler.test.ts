@@ -31,6 +31,9 @@ describe('HandRaisingHandler', () => {
                     },
                     raiseHandInvitationLength: 100
                 }
+            } as any,
+            broadcaster: {
+                broadcastConversationUpdate: vi.fn(),
             } as any
         } as unknown as IMeetingManager;
 

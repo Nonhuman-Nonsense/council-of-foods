@@ -36,7 +36,12 @@ describe('MeetingLifecycleHandler Prompts', () => {
                 chairInterjection: vi.fn().mockResolvedValue({ response: "Summary", id: "123" }) // Correct mock return structure
             },
             connectionHandler: { handleRequestClientKey: vi.fn() },
-            audioSystem: { generateAudio: vi.fn() }
+            audioSystem: { generateAudio: vi.fn() },
+            broadcaster: {
+                broadcastConversationUpdate: vi.fn(),
+                broadcastError: vi.fn(),
+                broadcastClientKey: vi.fn()
+            } as any
         } as unknown as IMeetingManager;
 
         handler = new MeetingLifecycleHandler(mockManager);
@@ -58,6 +63,6 @@ describe('MeetingLifecycleHandler Prompts', () => {
         });
 
         await handler.handleRequestClientKey();
-        expect(mockManager.socket.emit).toHaveBeenCalledWith("clientkey_response", expect.anything());
+        expect(mockManager.broadcaster.broadcastClientKey).toHaveBeenCalledWith(expect.anything());
     });
 });
