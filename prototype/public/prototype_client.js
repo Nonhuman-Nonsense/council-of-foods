@@ -1,5 +1,33 @@
 const { createApp } = Vue;
 
+const defaultOptions = {
+  gptModel: "gpt-4o-mini",
+  temperature: 1,
+  maxTokens: 200,
+  chairMaxTokens: 250,
+  frequencyPenalty: 0,
+  presencePenalty: 0,
+  audio_speed: 1.15,
+
+  trimSentance: false,
+  trimParagraph: true,
+  trimChairSemicolon: true,
+  showTrimmed: true,
+
+  conversationMaxLength: 10,
+  extraMessageCount: 5,
+  skipAudio: false,
+
+  injectPrompt: "",
+  maxTokensInject: 800,
+
+  language: 'en',
+
+  // Hardcoded
+  voiceModel: "gpt-4o-mini-tts",
+  skipMatchingSubtitles: true
+};
+
 createApp({
   data() {
     return {
@@ -14,33 +42,7 @@ createApp({
       endMessage: '',
 
       // Data Model
-      options: {
-        gptModel: "gpt-4o-mini",
-        temperature: 1,
-        maxTokens: 200,
-        chairMaxTokens: 250,
-        frequencyPenalty: 0,
-        presencePenalty: 0,
-        audio_speed: 1.15,
-
-        trimSentance: false,
-        trimParagraph: true,
-        trimChairSemicolon: true,
-        showTrimmed: true,
-
-        conversationMaxLength: 10,
-        extraMessageCount: 5,
-        skipAudio: false,
-
-        injectPrompt: "",
-        maxTokensInject: 800,
-
-        language: 'en',
-
-        // Hardcoded
-        voiceModel: "gpt-4o-mini-tts",
-        skipMatchingSubtitles: true
-      },
+      options: { ...defaultOptions },
 
       // Language storage
       languageData: {
@@ -127,22 +129,34 @@ createApp({
     },
 
     async factoryReset() {
+      // Reset options to defaults
+      this.options = { ...defaultOptions };
+
       let default_prompts = {};
       for (const lang of this.available_languages) {
-        default_prompts[lang] = {};
-        const resp = await fetch(`./foods_${lang}.json`);
-        default_prompts[lang] = await resp.json();
-        const resp2 = await fetch(`./topics_${lang}.json`);
-        default_prompts[lang].topics = await resp2.json();
+        try {
+          default_prompts[lang] = {};
 
-        this.languageData[lang] = {
-          system: default_prompts[lang].topics.system,
-          rooms: default_prompts[lang].topics.topics.map(topic => ({
-            name: topic.title,
-            topic: topic.prompt,
-            characters: JSON.parse(JSON.stringify(default_prompts[lang].foods))
-          }))
-        };
+          const resp = await fetch(`./foods_${lang}.json`);
+          if (!resp.ok) throw new Error(`Failed to fetch foods_${lang}.json: ${resp.status}`);
+          default_prompts[lang] = await resp.json();
+
+          const resp2 = await fetch(`./topics_${lang}.json`);
+          if (!resp2.ok) throw new Error(`Failed to fetch topics_${lang}.json: ${resp2.status}`);
+          default_prompts[lang].topics = await resp2.json();
+
+          this.languageData[lang] = {
+            system: default_prompts[lang].topics.system,
+            rooms: default_prompts[lang].topics.topics.map(topic => ({
+              name: topic.title,
+              topic: topic.prompt,
+              characters: JSON.parse(JSON.stringify(default_prompts[lang].foods))
+            }))
+          };
+        } catch (err) {
+          console.error("Factory Reset Error:", err);
+          alert("Failed to reset settings. Check console for details.");
+        }
       }
       this.options.language = 'en';
       this.currentRoomIndex = 0;
