@@ -1,11 +1,8 @@
-
+import type { ConversationMessage } from "@shared/ModelTypes.js";
+import type { IHumanInputContext } from "@interfaces/MeetingInterfaces.js";
+import { Logger } from "@utils/Logger.js";
 import { v4 as uuidv4 } from "uuid";
 import { splitSentences } from "@utils/textUtils.js";
-import { Character } from "@logic/SpeakerSelector.js";
-import { Socket } from "socket.io";
-import { ClientToServerEvents, ServerToClientEvents } from "@shared/SocketTypes.js";
-import { ConversationMessage } from "@shared/ModelTypes.js";
-import { IMeetingManager, ConversationOptions } from "@interfaces/MeetingInterfaces.js";
 
 export interface HumanMessage {
     text: string;
@@ -14,7 +11,6 @@ export interface HumanMessage {
     id?: string;
     type?: string;
     sentences?: string[];
-    [key: string]: any;
 }
 
 export interface InjectionMessage {
@@ -29,9 +25,9 @@ export interface InjectionMessage {
  * special panelists (via admin panel usually), and prototype scenarios.
  */
 export class HumanInputHandler {
-    manager: IMeetingManager;
+    manager: IHumanInputContext;
 
-    constructor(meetingManager: IMeetingManager) {
+    constructor(meetingManager: IHumanInputContext) {
         this.manager = meetingManager;
     }
 
@@ -42,16 +38,16 @@ export class HumanInputHandler {
      */
     handleSubmitHumanMessage(message: HumanMessage): void {
         const { manager } = this;
-        console.log(`[meeting ${manager.meetingId}] human input on index ${manager.conversation.length - 1} `);
+        Logger.info(`meeting ${manager.meetingId}`, `human input on index ${manager.conversation.length - 1} `);
 
         if (manager.conversation[manager.conversation.length - 1].type !== 'awaiting_human_question') {
-            console.error("Received a human question but was not expecting one!");
+            Logger.error(`meeting ${manager.meetingId}`, "Received a human question but was not expecting one!");
             return;
         }
         manager.conversation.pop();
 
         if (manager.conversation[manager.conversation.length - 1].type === 'invitation') {
-            console.log(`[meeting ${manager.meetingId}] popping invitation down to index ${manager.conversation.length - 1} `);
+            Logger.info(`meeting ${manager.meetingId}`, `popping invitation down to index ${manager.conversation.length - 1} `);
             manager.conversation.pop();
         }
 
@@ -60,7 +56,7 @@ export class HumanInputHandler {
         }
 
         if (message.askParticular) {
-            console.log(`[meeting ${manager.meetingId}] specifically asked to ${message.askParticular} `);
+            Logger.info(`meeting ${manager.meetingId}`, `specifically asked to ${message.askParticular} `);
             message.text = message.speaker + " asked " + message.askParticular + ":\xa0" + message.text;
         } else {
             message.text = message.speaker + (manager.conversationOptions.language === 'en' ? " said:\xa0" : " sa:\xa0") + message.text;
@@ -80,7 +76,7 @@ export class HumanInputHandler {
             );
         }
 
-        manager.socket.emit("conversation_update", manager.conversation);
+        manager.broadcaster.broadcastConversationUpdate(manager.conversation);
 
         message.sentences = splitSentences(message.text);
 
@@ -112,10 +108,10 @@ export class HumanInputHandler {
      */
     handleSubmitHumanPanelist(message: HumanMessage): void {
         const { manager } = this;
-        console.log(`[meeting ${manager.meetingId}] human panelist ${message.speaker} on index ${manager.conversation.length - 1} `);
+        Logger.info(`meeting ${manager.meetingId}`, `human panelist ${message.speaker} on index ${manager.conversation.length - 1} `);
 
         if (manager.conversation[manager.conversation.length - 1].type !== 'awaiting_human_panelist') {
-            console.error("Received a human panelist but was not expecting one!");
+            Logger.error(`meeting ${manager.meetingId}`, "Received a human panelist but was not expecting one!");
             return;
         }
         manager.conversation.pop();
@@ -134,7 +130,7 @@ export class HumanInputHandler {
             );
         }
 
-        manager.socket.emit("conversation_update", manager.conversation);
+        manager.broadcaster.broadcastConversationUpdate(manager.conversation);
 
         message.sentences = splitSentences(message.text);
 
@@ -173,26 +169,27 @@ export class HumanInputHandler {
             true,
             manager.conversation,
             manager.conversationOptions,
-            manager.socket
+            manager.broadcaster
         );
 
-        let summary: any = { // Using any as summary structure might vary or reuse Message interface
-            id: id,
+        let summary: ConversationMessage = {
+            id: id || "",
             speaker: manager.conversationOptions.characters[0].id,
             text: response,
             type: "interjection",
+            sentences: []
         };
 
         manager.conversation.push(summary);
 
-        manager.socket.emit("conversation_update", manager.conversation);
-        console.log(`[meeting ${manager.meetingId}] interjection generated on index ${manager.conversation.length - 1} `);
+        manager.broadcaster.broadcastConversationUpdate(manager.conversation);
+        Logger.info(`meeting ${manager.meetingId}`, `interjection generated on index ${manager.conversation.length - 1} `);
 
         summary.sentences = splitSentences(response);
 
         if (manager.meetingId !== null) {
             manager.audioSystem.queueAudioGeneration(
-                summary,
+                summary as any,
                 manager.conversationOptions.characters[0],
                 manager.conversationOptions.options,
                 manager.meetingId as number,

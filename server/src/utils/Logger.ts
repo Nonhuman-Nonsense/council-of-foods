@@ -13,7 +13,7 @@ export class Logger {
         console.warn(`${cyan(this.formatContext(context))} ${yellow(message)}`);
     }
 
-    static error(context: string, message: string, error?: any): void {
+    static error(context: string, message: string, error?: unknown): void {
         // Log the primary message in red
         console.error(`${red(this.formatContext(context))} ${red(message)}`);
 

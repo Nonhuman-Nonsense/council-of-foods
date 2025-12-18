@@ -1,13 +1,13 @@
-import { Collection, InsertOneResult } from "mongodb";
-import { OpenAI } from "openai";
-import { Socket } from "socket.io";
-import { Meeting, Audio } from "@models/DBModels.js";
-import { ClientToServerEvents, ServerToClientEvents } from "@shared/SocketTypes.js";
-import { Character, ConversationMessage } from "@shared/ModelTypes.js";
-import { GlobalOptions } from "@logic/GlobalOptions.js";
-import { AudioSystem } from "@logic/AudioSystem.js";
-import { DialogGenerator } from "@logic/DialogGenerator.js";
-import { ConversationState } from "@shared/ModelTypes.js";
+import type { Character, ConversationMessage } from "@shared/ModelTypes.js";
+import type { Collection, InsertOneResult } from "mongodb";
+import type { OpenAI } from "openai";
+import type { Socket } from "socket.io";
+import type { Meeting, Audio } from "@models/DBModels.js";
+import type { ClientToServerEvents, ServerToClientEvents, AudioUpdatePayload, ClientKeyResponse } from "@shared/SocketTypes.js";
+import type { GlobalOptions } from "@logic/GlobalOptions.js";
+import type { AudioSystem } from "@logic/AudioSystem.js";
+import type { DialogGenerator } from "@logic/DialogGenerator.js";
+import type { ConversationState } from "@shared/ModelTypes.js";
 
 export { ConversationState };
 
@@ -26,15 +26,32 @@ export interface ConversationOptions {
     language: string;
 }
 
+export interface IMeetingBroadcaster {
+    broadcastMeetingStarted(meetingId: number): void;
+    broadcastConversationUpdate(conversation: ConversationMessage[]): void;
+    broadcastConversationEnd(): void;
+    broadcastAudioUpdate(audio: AudioUpdatePayload): void;
+    broadcastClientKey(data: ClientKeyResponse): void;
+    broadcastError(message: string, code: number): void;
+    broadcastMeetingNotFound(meetingId: string): void;
+}
+
 /**
  * Basic identity and environment context.
  */
 export interface IMeetingContext {
     meetingId: number | null;
+    conversation: ConversationMessage[];
     socket: Socket<ClientToServerEvents, ServerToClientEvents>;
     environment: string;
-    services: Services;
+    services: {
+        meetingsCollection: Collection<Meeting>;
+        audioCollection: Collection<Audio>;
+        insertMeeting: (meeting: Omit<Meeting, "_id">) => Promise<InsertOneResult<Meeting>>;
+        getOpenAI: () => OpenAI;
+    };
     globalOptions: GlobalOptions;
+    broadcaster: IMeetingBroadcaster; // New abstraction
 }
 
 /**
@@ -65,6 +82,21 @@ export interface IMeetingLogicSubsystems {
     audioSystem: AudioSystem;
     dialogGenerator: DialogGenerator;
 }
+
+/**
+ * Context required by HumanInputHandler.
+ */
+export interface IHumanInputContext extends IMeetingContext, IConversationState, IMeetingControl, IMeetingLogicSubsystems { }
+
+/**
+ * Context required by HandRaisingHandler.
+ */
+export interface IHandRaisingContext extends IMeetingContext, IConversationState, IMeetingControl, IMeetingLogicSubsystems { }
+
+/**
+ * Context required by MeetingLifecycleHandler.
+ */
+export interface ILifecycleContext extends IMeetingContext, IConversationState, IMeetingControl, IMeetingLogicSubsystems { }
 
 /**
  * Composite interface for full access (used by MeetingManager itself and handlers that need everything).

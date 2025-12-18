@@ -1,19 +1,16 @@
-import { reportError } from "../../errorbot.js";
+import type { IMeetingBroadcaster } from "@interfaces/MeetingInterfaces.js";
+import type { Meeting, Audio } from "@models/DBModels.js";
+import type { OpenAI } from "openai";
+import type { Collection } from "mongodb";
+
+import { reportError } from "@utils/errorbot.js";
 import { Logger } from "@utils/Logger.js";
-import { Meeting, Audio } from "@models/DBModels.js";
 import { mapSentencesToWords } from "@utils/textUtils.js";
-import { OpenAI } from "openai";
-import { Collection, Document } from "mongodb";
-import { Socket } from "socket.io";
-import { ClientToServerEvents, ServerToClientEvents } from "@shared/SocketTypes.js";
-import type { Character, ConversationMessage } from "@shared/ModelTypes.js";
 
 // OpenAI SDK accepts Buffer/Stream for 'file'.
 // Using File object for compatibility.
 
 export type AudioTask = () => Promise<void>;
-
-// ... (AudioQueue class remains unchanged) 
 
 export class AudioQueue {
     queue: AudioTask[];
@@ -44,7 +41,7 @@ export class AudioQueue {
                 // Try to start another task if concurrency allows
                 this.processNext();
             } catch (error) {
-                console.error("Error starting audio task:", error);
+                Logger.error("AudioSystem", "Error starting audio task", error);
                 this.activeCount--;
             }
         }
@@ -54,7 +51,7 @@ export class AudioQueue {
         try {
             await task();
         } catch (error) {
-            console.error(error);
+            Logger.error("AudioSystem", "AudioQueue Error", error);
             // Note: `this.meetingId` is not available in AudioQueue.
             // The instruction implies a context that might be passed to the task or queue.
             // For now, using a generic context.
@@ -66,10 +63,6 @@ export class AudioQueue {
     }
 }
 
-
-
-// ...
-
 export interface Services {
     audioCollection: Collection<Audio>;
     meetingsCollection: Collection<Meeting>;
@@ -77,8 +70,9 @@ export interface Services {
 }
 
 export interface Speaker {
+    id: string;
     voice: string;
-    [key: string]: any;
+    name?: string;
 }
 
 export interface Message {
@@ -108,12 +102,12 @@ export interface AudioSystemOptions {
  * - Skipping audio generation based on configuration (skipAudio).
  */
 export class AudioSystem {
-    socket: Socket<ClientToServerEvents, ServerToClientEvents>;
+    broadcaster: IMeetingBroadcaster;
     services: Services;
     queue: AudioQueue;
 
-    constructor(socket: Socket<ClientToServerEvents, ServerToClientEvents>, services: Services, concurrency: number = 3) {
-        this.socket = socket;
+    constructor(broadcaster: IMeetingBroadcaster, services: Services, concurrency: number = 3) {
+        this.broadcaster = broadcaster;
         this.services = services;
         this.queue = new AudioQueue(concurrency);
     }
@@ -130,7 +124,7 @@ export class AudioSystem {
         if (options.skipAudio) return;
 
         if (message.type === "skipped") {
-            this.socket.emit("audio_update", { id: message.id, type: "skipped" });
+            this.broadcaster.broadcastAudioUpdate({ id: message.id, type: "skipped" });
             return;
         }
 
@@ -148,7 +142,7 @@ export class AudioSystem {
 
                 generateNew = false;
             }
-        } catch (e) { console.log(e); }
+        } catch (e) { Logger.error("AudioSystem", "Error retrieving existing audio", e); }
 
         try {
             const openai = this.services.getOpenAI();
@@ -172,7 +166,7 @@ export class AudioSystem {
                 sentences: sentencesWithTimings
             };
 
-            this.socket.emit("audio_update", audioObject);
+            this.broadcaster.broadcastAudioUpdate(audioObject);
 
             if (generateNew && environment !== "prototype") {
                 // Upsert logic
@@ -196,12 +190,12 @@ export class AudioSystem {
                 );
             }
 
-        } catch (error: any) {
+        } catch (error: unknown) {
             // Suppress "interrupted at shutdown" errors often seen during tests
-            if (error.code === 11600 || (error.message && error.message.includes('interrupted at shutdown'))) {
+            const err = error as { code?: number, message?: string }; // Safer cast
+            if (err.code === 11600 || (err.message && err.message.includes('interrupted at shutdown'))) {
                 return;
             }
-            // console.error("Error generating audio:", error);
             Logger.error("AudioSystem", "Error generating audio", error);
             reportError("AudioSystem", "Error generating audio", error);
         }

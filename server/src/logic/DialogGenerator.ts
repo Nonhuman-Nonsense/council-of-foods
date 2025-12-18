@@ -1,13 +1,18 @@
+import type { Character, ConversationMessage } from '@shared/ModelTypes.js';
+import type { IMeetingBroadcaster } from "@interfaces/MeetingInterfaces.js";
+import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
+import type { Collection } from "mongodb";
+import type { Meeting } from "@models/DBModels.js";
+
 import { splitSentences } from "@utils/textUtils.js";
-import { reportError } from "../../errorbot.js";
-import { Character, ConversationMessage } from "./SpeakerSelector.js";
+import { Logger } from "@utils/Logger.js";
+import { reportError } from "@utils/errorbot.js";
 import { GlobalOptions } from "./GlobalOptions.js";
 import { OpenAI } from "openai";
-import { ChatCompletionMessageParam } from "openai/resources/chat/completions";
 
-interface Services {
+export interface Services {
     getOpenAI: () => OpenAI;
-    [key: string]: any;
+    meetingsCollection: Collection<Meeting>;
 }
 
 interface ConversationState {
@@ -46,6 +51,51 @@ export class DialogGenerator {
     constructor(services: Services, options: GlobalOptions) {
         this.services = services;
         this.options = options; // This assumes options are passed, or we might need access to current meeting options
+    }
+
+    /**
+     * Generates a conversational response with built-in retry logic for empty responses.
+     * Checks the `shouldAbort` callback between attempts to respect interrupts (e.g. Hand Raising).
+     */
+    async generateResponseWithRetry(
+        speaker: Character,
+        conversation: ConversationMessage[],
+        conversationOptions: ConversationOptions,
+        currentSpeakerIndex: number,
+        shouldAbort: () => boolean,
+        contextInfo: string
+    ): Promise<GPTResponse> {
+        let attempt = 1;
+        let output: GPTResponse = {
+            response: "",
+            id: null,
+            sentences: [],
+            trimmed: undefined,
+            pretrimmed: undefined
+        };
+
+        const maxAttempts = 5;
+
+        while (attempt < maxAttempts && output.response === "") {
+            output = await this.generateTextFromGPT(
+                speaker,
+                conversation,
+                conversationOptions,
+                currentSpeakerIndex
+            );
+
+            if (shouldAbort()) {
+                // Return whatever we have (likely empty or partial) or a specific "aborted" response?
+                // The caller will check state anyway.
+                return output;
+            }
+
+            attempt++;
+            if (output.response === "") {
+                Logger.info(contextInfo, `entire message trimmed, trying again. attempt ${attempt}`);
+            }
+        }
+        return output;
     }
 
     /**
@@ -120,7 +170,6 @@ export class DialogGenerator {
                 // Check if we can re-add some messages from the end, to put back some of the list of questions that chair often produces
                 if (conversationOptions.options.trimChairSemicolon) {
                     if (speaker.id === conversationOptions.options.chairId) {
-
                         const trimmedSentences = splitSentences(trimmedContent?.trim() || "").filter((sentence) => sentence.length > 0 && sentence !== ".");
 
                         if (
@@ -167,7 +216,7 @@ export class DialogGenerator {
                 pretrimmed: pretrimmedContent,
             };
         } catch (error) {
-            console.error("Error during API call:", error);
+            Logger.error("DialogGenerator", "Error during API call", error);
             throw error;
         }
     }
@@ -176,7 +225,7 @@ export class DialogGenerator {
      * Generates a specific interjection or system message (e.g., Chair inviting human).
      * Uses a temporary system prompt injected at the end of the history.
      */
-    async chairInterjection(interjectionPrompt: string, index: number, length: number, dontStop: boolean, conversation: ConversationMessage[], conversationOptions: ConversationOptions, socket: any): Promise<GPTResponse> {
+    async chairInterjection(interjectionPrompt: string, index: number, length: number, dontStop: boolean, conversation: ConversationMessage[], conversationOptions: ConversationOptions, broadcaster: IMeetingBroadcaster): Promise<GPTResponse> {
         try {
             const chair = conversationOptions.characters[0];
             let messages = this.buildMessageStack(chair, conversation, conversationOptions, index);
@@ -211,12 +260,9 @@ export class DialogGenerator {
 
             return { response, id: completion.id };
         } catch (error) {
-            console.error("Error during conversation:", error);
-            if (socket) {
-                socket.emit("conversation_error", {
-                    message: "An error occurred during the conversation.",
-                    code: 500,
-                });
+            Logger.error("DialogGenerator", "Error during conversation", error);
+            if (broadcaster) {
+                broadcaster.broadcastError("An error occurred during the conversation.", 500);
             }
             reportError("DialogGenerator", "Prompt Generation Error", error);
             return { response: "", id: null };
@@ -245,7 +291,6 @@ export class DialogGenerator {
         }
 
         if (upToIndex !== undefined) {
-            // Original logic: messages.slice(0, 1 + upToIndex)
             // 1 (system prompt) + upToIndex.
             return messages.slice(0, 1 + upToIndex);
         }

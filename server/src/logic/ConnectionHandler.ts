@@ -1,14 +1,9 @@
+import type { ReconnectionOptions } from "@shared/SocketTypes.js";
+import type { ConversationMessage } from "@shared/ModelTypes.js";
+import type { IMeetingManager } from "@interfaces/MeetingInterfaces.js";
 import { splitSentences } from "@utils/textUtils.js";
-import { reportError } from "../../errorbot.js";
+import { reportError } from "@utils/errorbot.js";
 import { Logger } from "@utils/Logger.js";
-import { v4 as uuidv4 } from "uuid";
-import { Character } from "./SpeakerSelector.js";
-import { GlobalOptions } from "./GlobalOptions.js";
-import { Socket } from "socket.io";
-import { ClientToServerEvents, ServerToClientEvents, ReconnectionOptions } from "@shared/SocketTypes.js";
-import { ConversationMessage } from "@shared/ModelTypes.js";
-import { IMeetingManager } from "@interfaces/MeetingInterfaces.js";
-
 
 /**
  * Manages socket connection events (disconnect, reconnect).
@@ -42,6 +37,7 @@ export class ConnectionHandler {
      */
     async handleReconnection(options: ReconnectionOptions): Promise<void> {
         const { manager } = this;
+
         Logger.info(`meeting ${options.meetingId}`, "attempting to resume");
         try {
             const meetingIdNum = Number(options.meetingId);
@@ -90,16 +86,15 @@ export class ConnectionHandler {
                 }
 
                 Logger.info(`meeting ${manager.meetingId}`, "resumed");
-                manager.socket.emit("conversation_update", manager.conversation);
+                manager.broadcaster.broadcastConversationUpdate(manager.conversation);
                 manager.startLoop();
             } else {
-                manager.socket.emit("meeting_not_found", { meeting_id: options.meetingId });
+                manager.broadcaster.broadcastMeetingNotFound(String(options.meetingId));
                 Logger.warn(`meeting ${options.meetingId}`, "not found");
             }
         } catch (error) {
-            // console.error("Error resuming conversation:", error);
             Logger.error(`meeting ${options.meetingId}`, "Error resuming conversation", error);
-            manager.socket.emit("conversation_error", { message: "Error resuming", code: 500 });
+            manager.broadcaster.broadcastError("Error resuming", 500);
             reportError(`meeting ${options.meetingId}`, "Reconnection Error", error);
         }
     }

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { splitSentences, mapSentencesToWords } from '../src/utils/textUtils.js';
+import { splitSentences, mapSentencesToWords } from '@utils/textUtils.js';
 
 describe('textUtils', () => {
     describe('splitSentences', () => {

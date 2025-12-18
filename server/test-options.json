@@ -1,31 +1,9 @@
 {
     "gptModel": "gpt-4o-mini",
     "voiceModel": "gpt-4o-mini-tts",
-    "temperature": 1,
     "maxTokens": 50,
     "chairMaxTokens": 50,
-    "frequencyPenalty": 0,
-    "presencePenalty": 0,
     "audio_speed": 1.25,
-    "trimSentance": false,
-    "trimParagraph": true,
-    "chairId": "water",
-    "trimChairSemicolon": true,
-    "show_trimmed": true,
-    "skipAudio": false,
-    "conversationMaxLength": 10,
-    "raiseHandPrompt": {
-        "en": "We have a question or comment from the audience, please invite a human speaker called [NAME] to the debate. After listening to the human, answer and engage deeper with their thoughts."
-    },
-    "raiseHandInvitationLength": 50,
-    "finalizeMeetingPrompt": {
-        "en": "Summarize the debate in 100 words or less."
-    },
-    "finalizeMeetingLength": 100,
-    "extraMessageCount": 5,
-    "transcribeModel": "gpt-4o-transcribe",
-    "transcribePrompt": {
-        "en": "Transcribe the debate in 100 words or less."
-    },
-    "audioConcurrency": 10
+    "raiseHandInvitationLength": 150,
+    "finalizeMeetingLength": 200
 }

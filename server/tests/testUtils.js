@@ -1,6 +1,5 @@
 import { vi } from 'vitest';
-import testOptions from '../test-options.json';
-import { getGlobalOptions } from '../src/logic/GlobalOptions.js';
+import { getGlobalOptions } from '@logic/GlobalOptions.js';
 
 
 /**
@@ -29,18 +28,22 @@ export const getTestMode = () => process.env.TEST_MODE || TEST_MODES.MOCK;
  */
 export const setupTestOptions = () => {
     const mode = getTestMode();
-    let options = { ...testOptions }; // Clone
+    let options = getGlobalOptions(); // Start with correctly merged options
 
     if (mode === TEST_MODES.FAST) {
         console.log('[Test] Running in FAST mode (gpt-4o-mini, no audio)');
-        options.skipAudio = true; // Enable audio to verify actual API integration
+        options.skipAudio = true;
     } else if (mode === TEST_MODES.FULL) {
         console.log('[Test] Running in FULL mode (Production models)');
+        // In FULL mode, we want to test the actual production constants/models, 
+        // so we ignore the test-options.json overrides.
+        // This is now handled internally by getGlobalOptions checking TEST_MODE='full'.
         options = getGlobalOptions();
     } else {
         // MOCK mode
-        // Options remain default, but services will be mocked
+        // Uses default merged options (test-options.json)
     }
 
     return options;
 };
+

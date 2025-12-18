@@ -94,7 +94,7 @@ function Main({ lang }: MainProps) {
   // const { i18n } = useTranslation();
 
   useEffect(() => {
-    if (chosenTopic.id === undefined && (location.pathname !== "/" && location.pathname !== "/topics")) {
+    if (!chosenTopic.id && (location.pathname !== "/" && location.pathname !== "/topics")) {
       //Preserve the hash, but navigate to start
       navigate({ pathname: "/", hash: location.hash });
     }
