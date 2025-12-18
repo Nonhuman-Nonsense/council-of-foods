@@ -8,11 +8,9 @@ import { getGlobalOptions } from '@logic/GlobalOptions.js';
  * - FAST: Integration tests with Real OpenAI API but Skipped Audio (Fast, Low Cost).
  * - FULL: Full system tests with Real OpenAI API and Audio Generation (Slow, Higher Cost).
  */
-export const TEST_MODES = {
-    MOCK: 'mock',
-    FAST: 'fast',
-    FULL: 'full',
-};
+import { TEST_MODES } from '@interfaces/TestModes.js';
+export { TEST_MODES };
+
 
 /**
  * Retrieves the current test mode from environment variable TEST_MODE.

@@ -1,4 +1,4 @@
-import { TEST_MODES } from "@root/tests/testUtils.js";
+import { TEST_MODES } from "@interfaces/TestModes.js";
 import { z } from "zod";
 
 // --- Environment Variables Schema ---
