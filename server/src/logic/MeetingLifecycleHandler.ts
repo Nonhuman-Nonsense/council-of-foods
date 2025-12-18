@@ -6,7 +6,7 @@ import { reportError } from "@utils/errorbot.js";
 import { Logger } from "@utils/Logger.js";
 import { GlobalOptions } from "@logic/GlobalOptions.js";
 
-interface SetupOptions {
+export interface SetupOptions {
     options?: Partial<GlobalOptions>;
     characters: Character[];
     language: string;

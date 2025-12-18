@@ -21,13 +21,16 @@ const ConversationStateSchema = z.object({
 
 // 1. start_conversation
 export const SetupOptionsSchema = z.object({
-    ...(['test', 'prototype'].includes(process.env.NODE_ENV || '') ? {
-        options: GlobalOptionsSchema.partial().optional()
-    } : {}),
+    options: GlobalOptionsSchema.partial().optional(),
     characters: z.array(CharacterSchema),
     language: z.string().default('en'),
     topic: z.string(),
     state: ConversationStateSchema.optional()
+}).transform((data) => {
+    if (!['test', 'prototype'].includes(process.env.NODE_ENV || '')) {
+        delete data.options;
+    }
+    return data;
 });
 
 // 2. submit_human_message & submit_human_panelist

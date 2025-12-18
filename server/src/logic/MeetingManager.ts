@@ -10,7 +10,7 @@ import { SpeakerSelector } from "@logic/SpeakerSelector.js";
 import { DialogGenerator } from "@logic/DialogGenerator.js";
 import { HumanInputHandler } from "@logic/HumanInputHandler.js";
 import { HandRaisingHandler } from "@logic/HandRaisingHandler.js";
-import { MeetingLifecycleHandler } from "@logic/MeetingLifecycleHandler.js";
+import { MeetingLifecycleHandler, SetupOptions } from "@logic/MeetingLifecycleHandler.js";
 import { ConnectionHandler } from "@logic/ConnectionHandler.js";
 import { GlobalOptions, getGlobalOptions } from "@logic/GlobalOptions.js";
 import { Socket } from "socket.io";
