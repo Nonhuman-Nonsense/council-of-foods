@@ -1,6 +1,5 @@
 import type { ConversationMessage, Character, Sentence } from "./ModelTypes.js";
 
-
 // Re-defining or importing types that are passed over the socket
 
 export interface HumanMessage {
@@ -10,7 +9,6 @@ export interface HumanMessage {
     id?: string;
     type?: string;
     sentences?: string[];
-    [key: string]: any;
 }
 
 export interface InjectionMessage {
@@ -43,7 +41,6 @@ export interface AudioUpdatePayload {
     audio?: Buffer;
     sentences?: Sentence[];
     type?: string;
-    [key: string]: any;
 }
 
 export interface ErrorPayload {
