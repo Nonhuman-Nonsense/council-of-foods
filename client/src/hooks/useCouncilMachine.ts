@@ -6,10 +6,8 @@ import { Character, ConversationMessage, Sentence } from "@shared/ModelTypes";
 // @ts-ignore
 import globalOptions from "@/global-options-client.json";
 
-export interface DecodedAudioMessage {
-    id: string;
+export interface DecodedAudioMessage extends Omit<AudioUpdatePayload, 'audio'> {
     audio: AudioBuffer;
-    sentences?: Sentence[];
 }
 
 export interface UseCouncilMachineProps {

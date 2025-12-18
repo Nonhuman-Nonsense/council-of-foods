@@ -1,4 +1,5 @@
-import "../App.css";
+import type { Character } from "@shared/ModelTypes";
+import "@root/App.css";
 import { useState, useEffect, useRef } from "react";
 import { Routes, Route, useLocation, useNavigate } from "react-router";
 import Overlay from "./Overlay";
@@ -20,7 +21,9 @@ import { useTranslation } from 'react-i18next';
 import topicDataEN from "@prompts/topics_en.json";
 import topicDataSV from "@prompts/topics_sv.json";
 import routes from "@/routes.json"; // Import routes directly
-import { Character } from "@shared/ModelTypes";
+
+
+// interface Topic removed, imported from SelectTopic
 
 interface TopicsData {
   topics: Topic[];

@@ -1,3 +1,4 @@
+import type { Character, ConversationMessage } from '@shared/ModelTypes';
 import { useEffect, useRef, MutableRefObject } from 'react';
 import { io, Socket } from 'socket.io-client';
 import {
@@ -6,7 +7,7 @@ import {
     AudioUpdatePayload,
     ErrorPayload
 } from '@shared/SocketTypes';
-import { Character, ConversationMessage } from '@shared/ModelTypes';
+
 
 export interface UseCouncilSocketProps {
     topic: { prompt: string;[key: string]: any };

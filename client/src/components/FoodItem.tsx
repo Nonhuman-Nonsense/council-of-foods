@@ -1,8 +1,8 @@
+import type { Character } from "@shared/ModelTypes";
+
 import React, { useMemo } from "react";
 import FoodAnimation from "./FoodAnimation";
 import { dvh } from "@/utils";
-// import { Food } from "./settings/SelectFoods";
-import { Character } from "@shared/ModelTypes";
 
 // Local interface for what FoodItem actually needs
 interface DisplayFood extends Character {

@@ -1,3 +1,5 @@
+import type { Character } from "@shared/ModelTypes";
+
 import React, { useEffect, useMemo } from "react";
 import { useLocation } from "react-router";
 import Overlay from "./Overlay";
@@ -8,8 +10,7 @@ import ConversationControls from "./ConversationControls";
 import HumanInput from "./HumanInput";
 import { useDocumentVisibility } from "@/utils";
 import routes from "@/routes.json";
-import { Character } from "@shared/ModelTypes";
-import { useCouncilMachine } from "../hooks/useCouncilMachine";
+import { useCouncilMachine } from "@hooks/useCouncilMachine";
 
 interface CouncilProps {
   lang: string;
