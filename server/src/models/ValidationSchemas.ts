@@ -1,4 +1,5 @@
 import { TEST_MODES } from "@interfaces/TestModes.js";
+import { GlobalOptionsSchema } from "@logic/GlobalOptions.js";
 import { z } from "zod";
 
 // --- Environment Variables Schema ---
@@ -33,14 +34,11 @@ const ConversationStateSchema = z.object({
     alreadyInvited: z.boolean().optional(),
 });
 
-const GlobalOptionsSchema = z.object({
-    conversationMaxLength: z.number().optional(),
-    // Add other known options as needed
-});
-
 // 1. start_conversation
 export const SetupOptionsSchema = z.object({
-    options: GlobalOptionsSchema.optional(),
+    ...(['test', 'prototype'].includes(process.env.NODE_ENV || '') ? {
+        options: GlobalOptionsSchema.partial().optional()
+    } : {}),
     characters: z.array(CharacterSchema),
     language: z.string().default('en'),
     topic: z.string(),

@@ -2,31 +2,35 @@ import { config } from '@root/src/config.js';
 import globalOptions from '@root/global-options.json' with { type: 'json' };
 import testOptions from '@root/test-options.json' with { type: 'json' };
 
-export interface GlobalOptions {
-    gptModel: string;
-    voiceModel: string;
-    temperature: number;
-    maxTokens: number;
-    chairMaxTokens: number;
-    frequencyPenalty: number;
-    presencePenalty: number;
-    audio_speed: number;
-    trimSentance: boolean;
-    trimParagraph: boolean;
-    chairId: string;
-    trimChairSemicolon: boolean;
-    show_trimmed: boolean;
-    skipAudio: boolean;
-    conversationMaxLength: number;
-    raiseHandPrompt: Record<string, string>;
-    raiseHandInvitationLength: number;
-    finalizeMeetingPrompt: Record<string, string>;
-    finalizeMeetingLength: number;
-    extraMessageCount: number;
-    transcribeModel: string;
-    transcribePrompt: Record<string, string>;
-    audioConcurrency: number;
-}
+import { z } from "zod";
+
+export const GlobalOptionsSchema = z.object({
+    gptModel: z.string(),
+    voiceModel: z.string(),
+    temperature: z.number(),
+    maxTokens: z.number(),
+    chairMaxTokens: z.number(),
+    frequencyPenalty: z.number(),
+    presencePenalty: z.number(),
+    audio_speed: z.number(),
+    trimSentance: z.boolean(),
+    trimParagraph: z.boolean(),
+    chairId: z.string(),
+    trimChairSemicolon: z.boolean(),
+    show_trimmed: z.boolean(),
+    skipAudio: z.boolean(),
+    conversationMaxLength: z.number(),
+    raiseHandPrompt: z.record(z.string(), z.string()),
+    raiseHandInvitationLength: z.number(),
+    finalizeMeetingPrompt: z.record(z.string(), z.string()),
+    finalizeMeetingLength: z.number(),
+    extraMessageCount: z.number(),
+    transcribeModel: z.string(),
+    transcribePrompt: z.record(z.string(), z.string()),
+    audioConcurrency: z.number(),
+});
+
+export type GlobalOptions = z.infer<typeof GlobalOptionsSchema>;
 
 export const getGlobalOptions = (): GlobalOptions => {
     const env = config.NODE_ENV;
