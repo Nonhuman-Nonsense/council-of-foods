@@ -1,13 +1,13 @@
-import { Collection, InsertOneResult } from "mongodb";
-import { OpenAI } from "openai";
-import { Socket } from "socket.io";
-import { Meeting, Audio } from "@models/DBModels.js";
-import { ClientToServerEvents, ServerToClientEvents } from "@shared/SocketTypes.js";
-import { Character, ConversationMessage } from "@shared/ModelTypes.js";
-import { GlobalOptions } from "@logic/GlobalOptions.js";
-import { AudioSystem } from "@logic/AudioSystem.js";
-import { DialogGenerator } from "@logic/DialogGenerator.js";
-import { ConversationState } from "@shared/ModelTypes.js";
+import type { Character, ConversationMessage } from "@shared/ModelTypes.js";
+import type { Collection, InsertOneResult } from "mongodb";
+import type { OpenAI } from "openai";
+import type { Socket } from "socket.io";
+import type { Meeting, Audio } from "@models/DBModels.js";
+import type { ClientToServerEvents, ServerToClientEvents } from "@shared/SocketTypes.js";
+import type { GlobalOptions } from "@logic/GlobalOptions.js";
+import type { AudioSystem } from "@logic/AudioSystem.js";
+import type { DialogGenerator } from "@logic/DialogGenerator.js";
+import type { ConversationState } from "@shared/ModelTypes.js";
 
 export { ConversationState };
 

@@ -1,10 +1,11 @@
+import type { IMeetingBroadcaster } from "@interfaces/MeetingInterfaces.js";
+import type { Meeting, Audio } from "@models/DBModels.js";
+import type { OpenAI } from "openai";
+import type { Collection } from "mongodb";
+
 import { reportError } from "@utils/errorbot.js";
 import { Logger } from "@utils/Logger.js";
-import { Meeting, Audio } from "@models/DBModels.js";
 import { mapSentencesToWords } from "@utils/textUtils.js";
-import { OpenAI } from "openai";
-import { Collection } from "mongodb";
-import { IMeetingBroadcaster } from "@interfaces/MeetingInterfaces.js";
 
 // OpenAI SDK accepts Buffer/Stream for 'file'.
 // Using File object for compatibility.

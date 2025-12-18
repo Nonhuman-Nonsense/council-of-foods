@@ -1,7 +1,7 @@
 import { splitSentences } from "@utils/textUtils.js";
 import { Logger } from "@utils/Logger.js";
 import { reportError } from "@utils/errorbot.js";
-import { Character, ConversationMessage } from "./SpeakerSelector.js";
+import type { Character, ConversationMessage } from '@shared/ModelTypes.js';
 import { GlobalOptions } from "./GlobalOptions.js";
 import { OpenAI } from "openai";
 import { ChatCompletionMessageParam } from "openai/resources/chat/completions";
@@ -291,7 +291,6 @@ export class DialogGenerator {
         }
 
         if (upToIndex !== undefined) {
-            // Original logic: messages.slice(0, 1 + upToIndex)
             // 1 (system prompt) + upToIndex.
             return messages.slice(0, 1 + upToIndex);
         }

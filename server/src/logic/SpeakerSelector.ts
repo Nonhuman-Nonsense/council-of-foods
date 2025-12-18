@@ -1,7 +1,5 @@
 import type { Character, ConversationMessage } from '@shared/ModelTypes.js';
 
-export type { Character, ConversationMessage };
-
 /**
  * Logic for determining the next speaker in the conversation.
  * Handles specialized logic for human interruption, direct questions, and panelist interactions.

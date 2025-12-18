@@ -1,8 +1,7 @@
+import type { Character, ConversationMessage } from '@shared/ModelTypes.js';
 import { splitSentences } from "@utils/textUtils.js";
 import { reportError } from "@utils/errorbot.js";
 import { Logger } from "@utils/Logger.js";
-import { Character } from "@logic/SpeakerSelector.js";
-import { ConversationMessage } from "@shared/ModelTypes.js";
 import { GlobalOptions } from "@logic/GlobalOptions.js";
 import { ILifecycleContext, ConversationOptions } from "@interfaces/MeetingInterfaces.js";
 import { Message as AudioMessage } from "@logic/AudioSystem.js";
@@ -173,10 +172,6 @@ export class MeetingLifecycleHandler {
             manager.broadcaster.broadcastClientKey(data);
             Logger.info(`meeting ${manager.meetingId}`, "clientkey sent");
         } catch (error) {
-            // console.log(error);
-            Logger.error(`meeting ${manager.meetingId}`, "Meeting Lifecycle Error", error);
-            reportError(`meeting ${manager.meetingId}`, "Meeting Lifecycle Error", error);
-            Logger.error(`meeting ${manager.meetingId}`, "Meeting Lifecycle Error", error);
             reportError(`meeting ${manager.meetingId}`, "Meeting Lifecycle Error", error);
             manager.broadcaster.broadcastError("An error occurred during the conversation.", 500);
         }

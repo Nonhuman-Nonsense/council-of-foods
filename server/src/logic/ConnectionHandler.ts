@@ -1,10 +1,9 @@
+import type { ReconnectionOptions } from "@shared/SocketTypes.js";
+import type { ConversationMessage } from "@shared/ModelTypes.js";
+import type { IMeetingManager } from "@interfaces/MeetingInterfaces.js";
 import { splitSentences } from "@utils/textUtils.js";
 import { reportError } from "@utils/errorbot.js";
 import { Logger } from "@utils/Logger.js";
-import { ReconnectionOptions } from "@shared/SocketTypes.js";
-import { ConversationMessage } from "@shared/ModelTypes.js";
-import { IMeetingManager } from "@interfaces/MeetingInterfaces.js";
-
 
 /**
  * Manages socket connection events (disconnect, reconnect).

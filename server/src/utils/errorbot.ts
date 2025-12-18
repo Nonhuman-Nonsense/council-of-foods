@@ -53,17 +53,13 @@ export async function reportError(context: string, message: string, err?: any): 
         body: sendStr,
         headers: { 'Content-Type': 'application/json' }
     }).catch(error => {
-        // Log failure to report to bot, but don't crash process here just because bot failed (unless critical)
-        console.error("Failed to post to errorbot:");
-        console.error(error);
+        Logger.error("reportError", "Failed to post to errorbot:", error);
     });
 }
 
 //For all unrecoverable errors, post the message to error bot, and then crash
-//For all unrecoverable errors, post the message to error bot, and then crash
 process.on('uncaughtException', async (err) => {
-    console.error(err);
     await reportError("process", "Uncaught Exception", err);
-    console.log('[Shutdown] Uncaught Exception');
+    Logger.error("process", "Uncaught Exception", err);
     process.exit(1);
 });

@@ -1,5 +1,5 @@
+import type { Meeting, Audio, Counter } from "@models/DBModels.js";
 import { MongoClient, Db, Collection, InsertOneResult } from "mongodb";
-import { Meeting, Audio, Counter } from "@models/DBModels.js";
 import { Logger } from "@utils/Logger.js";
 import { reportError } from "@utils/errorbot.js";
 

@@ -1,6 +1,6 @@
-import { Socket } from "socket.io";
-import { IMeetingBroadcaster } from "@interfaces/MeetingInterfaces.js";
-import { ConversationMessage } from "@shared/ModelTypes.js";
+import type { Socket } from "socket.io";
+import type { IMeetingBroadcaster } from "@interfaces/MeetingInterfaces.js";
+import type { ConversationMessage } from "@shared/ModelTypes.js";
 
 /**
  * Concrete implementation of IMeetingBroadcaster that wraps a specific Socket.

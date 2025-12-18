@@ -1,8 +1,8 @@
+import type { ConversationMessage } from "@shared/ModelTypes.js";
+import type { IHandRaisingContext } from "@interfaces/MeetingInterfaces.js";
 import { splitSentences } from "@utils/textUtils.js";
-import { ConversationMessage } from "@shared/ModelTypes.js";
 import { Logger } from "@utils/Logger.js";
 
-import { IHandRaisingContext } from "@interfaces/MeetingInterfaces.js";
 
 export interface HandRaisedOptions {
     index: number;

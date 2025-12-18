@@ -1,8 +1,8 @@
+import type { ConversationMessage } from "@shared/ModelTypes.js";
+import type { IHumanInputContext } from "@interfaces/MeetingInterfaces.js";
 import { Logger } from "@utils/Logger.js";
 import { v4 as uuidv4 } from "uuid";
 import { splitSentences } from "@utils/textUtils.js";
-import { ConversationMessage } from "@shared/ModelTypes.js";
-import { IHumanInputContext } from "@interfaces/MeetingInterfaces.js";
 
 export interface HumanMessage {
     text: string;
