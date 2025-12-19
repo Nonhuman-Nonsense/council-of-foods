@@ -46,6 +46,10 @@ export class ConnectionHandler {
             });
 
             if (existingMeeting) {
+                // Check BEFORE overwriting state
+                const isSameMeeting = manager.meetingId === existingMeeting._id;
+                const isRunning = manager.run;
+
                 manager.meetingId = existingMeeting._id;
                 manager.conversation = existingMeeting.conversation;
                 manager.conversationOptions = existingMeeting.options;
@@ -87,11 +91,14 @@ export class ConnectionHandler {
 
                 Logger.info(`meeting ${manager.meetingId}`, "resumed");
                 manager.broadcaster.broadcastConversationUpdate(manager.conversation);
-                manager.startLoop();
-            } else {
-                //TODO: implement a special not found?
-                // manager.broadcaster.broadcastMeetingNotFound(String(options.meetingId));
 
+                if (!isRunning || !isSameMeeting) {
+                    manager.run = true;
+                    manager.startLoop();
+                } else {
+                    Logger.info(`meeting ${manager.meetingId}`, "Loop already running (same meeting), skipping startLoop");
+                }
+            } else {
                 manager.broadcaster.broadcastError('Meeting not found', 404);
                 reportWarning(`meeting ${options.meetingId}`, `Meeting not found`);
             }

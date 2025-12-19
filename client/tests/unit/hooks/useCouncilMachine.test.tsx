@@ -257,4 +257,44 @@ describe('useCouncilMachine', () => {
         // If textMessages is empty, tryToFind will fail -> loading
         expect(result.current.state.councilState).toBe('loading');
     });
+
+
+    it('should NOT emit attempt_reconnection if reconnection happens without a current meeting ID (race condition fix)', () => {
+        renderHook(() => useCouncilMachine(defaultProps as any));
+
+        // Simulate reconnect event
+        act(() => {
+            if (socketHandlers.onReconnect) {
+                socketHandlers.onReconnect();
+            }
+        });
+
+        // Should not have emitted attempt_reconnection because no meeting started yet
+        expect(mockSocketEmit).not.toHaveBeenCalledWith('attempt_reconnection', expect.anything());
+    });
+
+    it('should emit attempt_reconnection if a meeting was already active', () => {
+        const { result } = renderHook(() => useCouncilMachine(defaultProps as any));
+
+        // 1. Establish Meeting
+        act(() => {
+            if (socketHandlers.onMeetingStarted) {
+                socketHandlers.onMeetingStarted({ meeting_id: '999' });
+            }
+        });
+
+        // 2. Simulate Reconnect
+        act(() => {
+            if (socketHandlers.onReconnect) {
+                socketHandlers.onReconnect();
+            }
+        });
+
+        // Should emit
+        expect(mockSocketEmit).toHaveBeenCalledWith('attempt_reconnection', expect.objectContaining({
+            meetingId: '999'
+        }));
+    });
 });
+});
+
