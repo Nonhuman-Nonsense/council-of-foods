@@ -57,6 +57,9 @@ export function useCouncilMachine({
 
     // Connection variables
     const [currentMeetingId, setCurrentMeetingId] = useState<string | null>(null);
+    const currentMeetingIdRef = useRef<string | null>(null); // Ref to access current ID in stale closures
+    useEffect(() => { currentMeetingIdRef.current = currentMeetingId; }, [currentMeetingId]);
+
     const [attemptingReconnect, setAttemptingReconnect] = useState(false);
 
     // Limits
@@ -120,7 +123,12 @@ export function useCouncilMachine({
             setConnectionError(true);
         },
         onReconnect: () => {
-            setAttemptingReconnect(true);
+            // Only attempt to reconnect if we actually HAD a meeting ID before the reconnection event.
+            // This prevents a race condition on initial "delayed" connection where start_conversation sets the ID
+            // and we erroneously try to "resume" it immediately.
+            if (currentMeetingIdRef.current) {
+                setAttemptingReconnect(true);
+            }
         }
     });
 
