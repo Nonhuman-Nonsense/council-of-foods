@@ -113,6 +113,13 @@ function SelectFoods({ lang, topicTitle, onContinueForward }: SelectFoodsProps):
     const newHuman = structuredClone(blankHuman);
     newHuman.id = "panelist" + id;
     newHuman.index = id;
+
+    // Assign chair's voice to human panelist so validation passes
+    const chair = foods.find(f => f.id === globalOptions.chairId);
+    if (chair && chair.voice) {
+      newHuman.voice = chair.voice;
+    }
+
     return newHuman;
   }
 
