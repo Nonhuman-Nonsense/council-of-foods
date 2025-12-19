@@ -146,28 +146,29 @@ describe('Async Error Propagation (Comprehensive)', () => {
         // Re-init with prototype environment
         manager = new MeetingManager(mockSocket, 'prototype', null, mockServices);
 
-        const protoEvents = ['pause_conversation', 'resume_conversation', 'remove_last_message'];
+        const protoTestCases = [
+            { event: 'pause_conversation', method: 'handlePauseConversation' },
+            { event: 'resume_conversation', method: 'handleResumeConversation' },
+            { event: 'remove_last_message', method: 'handleRemoveLastMessage' }
+        ];
 
-        // We can't easily mock the inline arrow functions in setupPrototypeListeners without refactoring,
-        // but we can verify they don't crash the *test* (which would happen if they threw unhandled).
-        // For strict error bubbling on these, we'd need to mock the logic *inside* them (Logger, etc.) or refactor them to delegates.
-        // Given we just want to ensure they are async safe, calling them is a good start.
+        for (const { event, method } of protoTestCases) {
+            const error = new Error(`Simulated Crash in ${method}`);
 
-        // Let's force throw inside Logger.info (which they all use) to simulate an error
-        const loggerError = new Error("Logger Crash");
-        const Logger = await import('@utils/Logger.js');
-        Logger.Logger.info.mockImplementation(() => { throw loggerError; });
+            // Mock the method on the handler instance
+            manager.meetingLifecycleHandler[method].mockRejectedValue(error);
 
-        for (const event of protoEvents) {
             const handler = socketHandlers[event];
             expect(handler, `Handler for ${event} not found`).toBeDefined();
 
             await handler();
 
+            expect(manager.meetingLifecycleHandler[method]).toHaveBeenCalled();
             expect(mockSocket.emit).toHaveBeenCalledWith("conversation_error", expect.objectContaining({
                 message: "Internal Server Error",
                 code: 500
             }));
+
             // Clear for next loop
             mockSocket.emit.mockClear();
         }

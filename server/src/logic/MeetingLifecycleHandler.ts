@@ -186,4 +186,33 @@ export class MeetingLifecycleHandler {
         manager.extraMessageCount += manager.globalOptions.extraMessageCount;
         manager.startLoop();
     }
+
+    /**
+     * Pauses the conversation.
+     */
+    handlePauseConversation(): void {
+        const { manager } = this;
+        Logger.info(`meeting ${manager.meetingId}`, "paused");
+        manager.isPaused = true;
+    }
+
+    /**
+     * Resumes the conversation.
+     */
+    handleResumeConversation(): void {
+        const { manager } = this;
+        Logger.info(`meeting ${manager.meetingId}`, "resumed");
+        manager.isPaused = false;
+        manager.startLoop();
+    }
+
+    /**
+     * Removes the last message from the conversation (prototype functionality).
+     */
+    handleRemoveLastMessage(): void {
+        const { manager } = this;
+        Logger.info(`meeting ${manager.meetingId}`, "popping last message");
+        manager.conversation.pop();
+        manager.broadcaster.broadcastConversationUpdate(manager.conversation);
+    }
 }

@@ -161,22 +161,12 @@ export class MeetingManager implements IMeetingManager {
     setupPrototypeListeners() {
         if (this.environment !== 'prototype') return;
 
-        this.respondTo("pause_conversation", null, async () => {
-            Logger.info(`meeting ${this.meetingId}`, "paused");
-            this.isPaused = true;
-        });
+        //await not needed for these but we keep it for uniformity, it might be added in future
+        this.respondTo("pause_conversation", null, async () => await this.meetingLifecycleHandler.handlePauseConversation());
 
-        this.respondTo("resume_conversation", null, async () => {
-            Logger.info(`meeting ${this.meetingId}`, "resumed");
-            this.isPaused = false;
-            this.startLoop();
-        });
+        this.respondTo("resume_conversation", null, async () => await this.meetingLifecycleHandler.handleResumeConversation());
 
-        this.respondTo("remove_last_message", null, async () => {
-            Logger.info(`meeting ${this.meetingId}`, "popping last message");
-            this.conversation.pop();
-            this.broadcaster.broadcastConversationUpdate(this.conversation);
-        });
+        this.respondTo("remove_last_message", null, async () => await this.meetingLifecycleHandler.handleRemoveLastMessage());
     }
 
     async runLoop() {
