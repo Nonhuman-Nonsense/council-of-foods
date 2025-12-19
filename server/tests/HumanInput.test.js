@@ -25,7 +25,6 @@ describe('HumanInputHandler (Isolated)', () => {
                 broadcastMeetingStarted: vi.fn(),
                 broadcastClientKey: vi.fn(),
                 broadcastError: vi.fn(),
-                broadcastMeetingNotFound: vi.fn(),
                 broadcastConversationEnd: vi.fn()
             },
             audioSystem: {

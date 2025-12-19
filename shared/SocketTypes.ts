@@ -60,7 +60,7 @@ export interface ServerToClientEvents {
     audio_update: (data: AudioUpdatePayload) => void;
     clientkey_response: (data: ClientKeyResponse) => void;
     conversation_error: (error: ErrorPayload) => void;
-    meeting_not_found: (data: { meeting_id: string | number }) => void;
+
 }
 
 // Events received by the Server from the Client

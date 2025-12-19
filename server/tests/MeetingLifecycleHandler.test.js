@@ -21,7 +21,6 @@ describe('MeetingLifecycleHandler', () => {
             broadcastMeetingStarted: vi.fn(),
             broadcastConversationUpdate: vi.fn(),
             broadcastConversationEnd: vi.fn(),
-            broadcastMeetingNotFound: vi.fn(),
             broadcastClientKey: vi.fn(),
             broadcastError: vi.fn()
         };

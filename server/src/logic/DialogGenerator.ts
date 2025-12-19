@@ -6,7 +6,6 @@ import type { Meeting, ConversationState } from "@models/DBModels.js";
 
 import { splitSentences } from "@utils/textUtils.js";
 import { Logger } from "@utils/Logger.js";
-import { reportError } from "@utils/errorbot.js";
 import { GlobalOptions } from "./GlobalOptions.js";
 import { OpenAI } from "openai";
 
@@ -87,7 +86,7 @@ export class DialogGenerator {
 
             attempt++;
             if (output.response === "") {
-                Logger.info(contextInfo, `entire message trimmed, trying again. attempt ${attempt}`);
+                Logger.warn(contextInfo, `entire message trimmed, trying again. attempt ${attempt}`);
             }
         }
         return output;
@@ -211,7 +210,8 @@ export class DialogGenerator {
                 pretrimmed: pretrimmedContent,
             };
         } catch (error) {
-            Logger.error("DialogGenerator", "Error during API call", error);
+            //Just log and rethrow
+            Logger.error("DialogGenerator", "Error during response generation", error);
             throw error;
         }
     }
@@ -255,12 +255,9 @@ export class DialogGenerator {
 
             return { response, id: completion.id };
         } catch (error) {
-            Logger.error("DialogGenerator", "Error during conversation", error);
-            if (broadcaster) {
-                broadcaster.broadcastError("An error occurred during the conversation.", 500);
-            }
-            reportError("DialogGenerator", "Prompt Generation Error", error);
-            return { response: "", id: null };
+            //Just log and rethrow
+            Logger.error("DialogGenerator", "Error during chair interjection", error);
+            throw error;
         }
     }
 

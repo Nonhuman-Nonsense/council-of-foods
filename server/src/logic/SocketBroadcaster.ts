@@ -38,8 +38,9 @@ export class SocketBroadcaster implements IMeetingBroadcaster {
         this.socket.emit("conversation_error", { message, code });
     }
 
-    //TODO: implement on client
-    broadcastMeetingNotFound(meetingId: string): void {
-        this.socket.emit("meeting_not_found", { meeting_id: meetingId });
+    broadcastWarning(message: string, code: number, error?: Error): void {
+        // For now we use the same socket event for warnings and errors
+        // But warnings include error information (connectiong warnings etc.)
+        this.socket.emit("conversation_error", { message, code, error });
     }
 }

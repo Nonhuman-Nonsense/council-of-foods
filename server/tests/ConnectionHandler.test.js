@@ -19,7 +19,6 @@ describe('ConnectionHandler', () => {
     beforeEach(() => {
         mockBroadcaster = {
             broadcastConversationUpdate: vi.fn(),
-            broadcastMeetingNotFound: vi.fn(),
             broadcastError: vi.fn()
         };
 
@@ -90,7 +89,7 @@ describe('ConnectionHandler', () => {
 
             await handler.handleReconnection({ meetingId: 'invalid123' });
 
-            expect(mockBroadcaster.broadcastMeetingNotFound).toHaveBeenCalledWith('invalid123');
+            expect(mockBroadcaster.broadcastError).toHaveBeenCalledWith('Meeting not found', 404);
             expect(mockContext.meetingId).toBeNull();
         });
 
