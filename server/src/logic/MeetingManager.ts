@@ -203,8 +203,8 @@ export class MeetingManager implements IMeetingManager {
     async runLoop() {
         while (this.run) {
 
-            // Calculated next step
-            let action = this.decideNextAction();
+            // Calculate next step
+            const action = this.decideNextAction();
 
             // Do it
             await this.processTurn(action);

@@ -126,7 +126,10 @@ describe('MeetingManager - Conversation Flow', () => {
 
         // We DO NOT mock generateTextFromGPT. We test it!
 
-        await diManager.processTurn();
+        let action = diManager.decideNextAction();
+        expect(action.type).toBe('GENERATE_AI_RESPONSE');
+        const speaker = diManager.conversationOptions.characters[1];
+        await diManager.processTurn({ type: action.type, speaker });
 
         // Verify Message added
         expect(diManager.conversation).toHaveLength(1);
@@ -153,7 +156,10 @@ describe('MeetingManager - Conversation Flow', () => {
 
         vi.spyOn(SpeakerSelector, 'calculateNextSpeaker').mockReturnValue(panelistId); // Alice
 
-        await manager.processTurn();
+        let action = manager.decideNextAction();
+        expect(action.type).toBe('REQUEST_PANELIST');
+        const speaker = manager.conversationOptions.characters[panelistId];
+        await manager.processTurn({ type: action.type, speaker });
 
         expect(manager.conversation).toHaveLength(1);
         expect(manager.conversation[0].type).toBe('awaiting_human_panelist');
