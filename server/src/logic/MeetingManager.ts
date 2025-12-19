@@ -4,7 +4,7 @@ import type { ClientToServerEvents, ServerToClientEvents } from "@shared/SocketT
 
 import { getOpenAI } from "@services/OpenAIService.js";
 import { meetingsCollection, audioCollection, insertMeeting } from "@services/DbService.js";
-import { reportError } from "@utils/errorbot.js";
+import { reportError, reportWarning } from "@utils/errorbot.js";
 import { AudioSystem, Message as AudioMessage } from "@logic/AudioSystem.js";
 import { SpeakerSelector } from "@logic/SpeakerSelector.js";
 import { DialogGenerator } from "@logic/DialogGenerator.js";
@@ -112,7 +112,8 @@ export class MeetingManager implements IMeetingManager {
             const parse = HumanMessageSchema.safeParse(msg);
             if (!parse.success) {
                 const errorMsg = `Invalid submit_human_message payload: ${JSON.stringify(parse.error.format())}`;
-                reportError(`meeting ${this.meetingId}`, errorMsg, parse.error);
+                reportWarning(`meeting ${this.meetingId}`, errorMsg, parse.error);
+                this.broadcaster.broadcastError(errorMsg, 400);
                 return;
             }
             this.humanInputHandler.handleSubmitHumanMessage(parse.data);
@@ -122,7 +123,8 @@ export class MeetingManager implements IMeetingManager {
             const parse = HumanMessageSchema.safeParse(msg);
             if (!parse.success) {
                 const errorMsg = `Invalid submit_human_panelist payload: ${JSON.stringify(parse.error.format())}`;
-                reportError(`meeting ${this.meetingId}`, errorMsg, parse.error);
+                reportWarning(`meeting ${this.meetingId}`, errorMsg, parse.error);
+                this.broadcaster.broadcastError(errorMsg, 400);
                 return;
             }
             this.humanInputHandler.handleSubmitHumanPanelist(parse.data);
@@ -132,7 +134,8 @@ export class MeetingManager implements IMeetingManager {
             const parse = InjectionMessageSchema.safeParse(msg);
             if (!parse.success) {
                 const errorMsg = `Invalid submit_injection payload: ${JSON.stringify(parse.error.format())}`;
-                reportError(`meeting ${this.meetingId}`, errorMsg, parse.error);
+                reportWarning(`meeting ${this.meetingId}`, errorMsg, parse.error);
+                this.broadcaster.broadcastError(errorMsg, 400);
                 return;
             }
             this.humanInputHandler.handleSubmitInjection(parse.data);
@@ -142,7 +145,8 @@ export class MeetingManager implements IMeetingManager {
             const parse = HandRaisedOptionsSchema.safeParse(msg);
             if (!parse.success) {
                 const errorMsg = `Invalid raise_hand payload: ${JSON.stringify(parse.error.format())}`;
-                reportError(`meeting ${this.meetingId}`, errorMsg, parse.error);
+                reportWarning(`meeting ${this.meetingId}`, errorMsg, parse.error);
+                this.broadcaster.broadcastError(errorMsg, 400);
                 return;
             }
             this.handRaisingHandler.handleRaiseHand(parse.data);
@@ -150,7 +154,12 @@ export class MeetingManager implements IMeetingManager {
 
         this.socket.on("wrap_up_meeting", (msg) => {
             // Basic object check till we define strict schema for this one
-            if (!msg || typeof msg !== 'object') return Logger.error(`meeting ${this.meetingId}`, "Invalid wrap_up_meeting payload");
+            if (!msg || typeof msg !== 'object') {
+                const errorMsg = `Invalid wrap_up_meeting payload: ${JSON.stringify(msg)}`;
+                reportWarning(`meeting ${this.meetingId}`, errorMsg);
+                this.broadcaster.broadcastError(errorMsg, 400);
+                return;
+            }
             this.meetingLifecycleHandler.handleWrapUpMeeting(msg);
         });
 
@@ -159,7 +168,8 @@ export class MeetingManager implements IMeetingManager {
             if (!parse.success) {
                 const errorMsg = `Invalid attempt_reconnection payload: ${JSON.stringify(parse.error.format())}`;
                 // This doesn't have a specific meeting context yet from 'this', use options.meetingId
-                reportError(`meeting ${options.meetingId}`, errorMsg, parse.error);
+                reportWarning(`meeting ${options.meetingId}`, errorMsg, parse.error);
+                this.broadcaster.broadcastError(errorMsg, 400);
                 return;
             }
             this.connectionHandler.handleReconnection(parse.data);
@@ -169,7 +179,8 @@ export class MeetingManager implements IMeetingManager {
             const parse = SetupOptionsSchema.safeParse(setup);
             if (!parse.success) {
                 const errorMsg = `Invalid start_conversation payload: ${JSON.stringify(parse.error.format())}`;
-                reportError("init", errorMsg, parse.error);
+                reportWarning("start conversation", errorMsg);
+                this.broadcaster.broadcastError(errorMsg, 400);
                 return;
             }
             this.meetingLifecycleHandler.handleStartConversation(parse.data);
@@ -195,6 +206,7 @@ export class MeetingManager implements IMeetingManager {
             this.startLoop();
         });
         this.socket.on("remove_last_message", () => {
+            Logger.info(`meeting ${this.meetingId}`, "popping last message");
             this.conversation.pop();
             this.broadcaster.broadcastConversationUpdate(this.conversation);
         });
@@ -234,11 +246,12 @@ export class MeetingManager implements IMeetingManager {
     }
 
     startLoop() {
+        //Will run async
         this.runLoop();
     }
 
     decideNextAction(): Decision {
-        // Just wait
+        // 0. Just wait
         if (this.isPaused || this.handRaised) {
             return { type: 'WAIT' };
         }
