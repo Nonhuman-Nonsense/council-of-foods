@@ -109,28 +109,25 @@ export class MeetingManager implements IMeetingManager {
             this.setupPrototypeListeners();
         }
 
-        this.respondTo("submit_human_message", HumanMessageSchema, (msg) => this.humanInputHandler.handleSubmitHumanMessage(msg));
+        this.respondTo("submit_human_message", HumanMessageSchema, async (msg) => await this.humanInputHandler.handleSubmitHumanMessage(msg));
 
-        this.respondTo("submit_human_panelist", HumanMessageSchema, (msg) => this.humanInputHandler.handleSubmitHumanPanelist(msg));
+        this.respondTo("submit_human_panelist", HumanMessageSchema, async (msg) => await this.humanInputHandler.handleSubmitHumanPanelist(msg));
 
-        this.respondTo("submit_injection", InjectionMessageSchema, (msg) => this.humanInputHandler.handleSubmitInjection(msg));
+        this.respondTo("submit_injection", InjectionMessageSchema, async (msg) => await this.humanInputHandler.handleSubmitInjection(msg));
 
-        this.respondTo("raise_hand", HandRaisedOptionsSchema, (msg) => this.handRaisingHandler.handleRaiseHand(msg));
+        this.respondTo("raise_hand", HandRaisedOptionsSchema, async (msg) => await this.handRaisingHandler.handleRaiseHand(msg));
 
-        this.respondTo("wrap_up_meeting", WrapUpMessageSchema, async (msg) => {
-            await this.meetingLifecycleHandler.handleWrapUpMeeting(msg);
-        });
+        this.respondTo("wrap_up_meeting", WrapUpMessageSchema, async (msg) => await this.meetingLifecycleHandler.handleWrapUpMeeting(msg));
 
-        this.respondTo('attempt_reconnection', ReconnectionOptionsSchema, (options) => this.connectionHandler.handleReconnection(options));
+        this.respondTo('attempt_reconnection', ReconnectionOptionsSchema, async (options) => await this.connectionHandler.handleReconnection(options));
 
-        this.respondTo("start_conversation", SetupOptionsSchema, async (setup) => {
-            await this.meetingLifecycleHandler.handleStartConversation(setup);
-        });
+        this.respondTo("start_conversation", SetupOptionsSchema, async (setup) => await this.meetingLifecycleHandler.handleStartConversation(setup));
 
-        this.respondTo("disconnect", null, () => this.connectionHandler.handleDisconnect());
+        //await not needed for these but we keep it for uniformity, it might be added in future
+        this.respondTo("disconnect", null, async () => await this.connectionHandler.handleDisconnect());
+        this.respondTo('continue_conversation', null, async () => await this.meetingLifecycleHandler.handleContinueConversation());
 
-        this.respondTo('continue_conversation', null, () => this.meetingLifecycleHandler.handleContinueConversation());
-        this.respondTo('request_clientkey', null, async () => this.meetingLifecycleHandler.handleRequestClientKey());
+        this.respondTo('request_clientkey', null, async () => await this.meetingLifecycleHandler.handleRequestClientKey());
     }
 
     private respondTo<T>(
@@ -164,18 +161,18 @@ export class MeetingManager implements IMeetingManager {
     setupPrototypeListeners() {
         if (this.environment !== 'prototype') return;
 
-        this.respondTo("pause_conversation", null, () => {
+        this.respondTo("pause_conversation", null, async () => {
             Logger.info(`meeting ${this.meetingId}`, "paused");
             this.isPaused = true;
         });
 
-        this.respondTo("resume_conversation", null, () => {
+        this.respondTo("resume_conversation", null, async () => {
             Logger.info(`meeting ${this.meetingId}`, "resumed");
             this.isPaused = false;
             this.startLoop();
         });
 
-        this.respondTo("remove_last_message", null, () => {
+        this.respondTo("remove_last_message", null, async () => {
             Logger.info(`meeting ${this.meetingId}`, "popping last message");
             this.conversation.pop();
             this.broadcaster.broadcastConversationUpdate(this.conversation);
