@@ -202,25 +202,17 @@ export class MeetingManager implements IMeetingManager {
 
     async runLoop() {
         while (this.run) {
-            if (this.isPaused || this.handRaised) {
+
+            // Calculated next step
+            let action = this.decideNextAction();
+
+            // Do it
+            await this.processTurn(action);
+
+            // Break after certain actions
+            if (action.type === 'WAIT' || action.type === 'END_CONVERSATION') {
                 return;
             }
-
-            // Check max length
-            if (this.conversation.length >= this.conversationOptions.options.conversationMaxLength + this.extraMessageCount) {
-                return;
-            }
-
-            // Check awaiting states
-            if (this.conversation.length > 0 &&
-                (this.conversation[this.conversation.length - 1].type === 'awaiting_human_panelist' ||
-                    this.conversation[this.conversation.length - 1].type === 'awaiting_human_question')) {
-                return;
-            }
-
-            await this.processTurn();
-
-            // If processTurn resulted in a state change (pause, hand raise, end), the next iteration check handles it (or we return).
         }
     }
 
@@ -229,6 +221,10 @@ export class MeetingManager implements IMeetingManager {
     }
 
     decideNextAction(): Decision {
+        // Just wait
+        if (this.isPaused || this.handRaised) {
+            return { type: 'WAIT' };
+        }
         // 1. Check Limits
         if (this.conversation.length >= this.conversationOptions.options.conversationMaxLength + this.extraMessageCount) {
             return { type: 'END_CONVERSATION' };
@@ -258,11 +254,8 @@ export class MeetingManager implements IMeetingManager {
     /**
      * Core loop function. Decides the next action based on conversation state.
      */
-    async processTurn(): Promise<void> {
+    async processTurn(action: Decision): Promise<void> {
         try {
-            // Decoupled Decision Step
-            const action = this.decideNextAction();
-
             switch (action.type) {
                 case 'WAIT':
                     return; // Do nothing, just wait.
