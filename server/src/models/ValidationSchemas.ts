@@ -1,6 +1,6 @@
 import { GlobalOptionsSchema } from "@logic/GlobalOptions.js";
 import { z } from "zod";
-import type { Character, OpenAIVoice } from "@shared/ModelTypes.js";
+import { type Character, AVAILABLE_VOICES } from "@shared/ModelTypes.js";
 import type {
     HumanMessage,
     InjectionMessage,
@@ -13,13 +13,13 @@ import type {
 // --- Socket Payload Schemas ---
 
 // Shared Sub-schemas
-const OpenAIVoiceSchema = z.enum(["alloy", "ash", "ballad", "coral", "echo", "fable", "onyx", "nova", "sage", "shimmer", "verse"]);
+const VoiceOptionSchema = z.enum(AVAILABLE_VOICES);
 
 const CharacterSchema: z.ZodType<Character> = z.object({
     id: z.string().min(1),
     name: z.string().min(1),
     type: z.string().optional(),
-    voice: OpenAIVoiceSchema,
+    voice: VoiceOptionSchema,
     prompt: z.string().optional(),
 });
 

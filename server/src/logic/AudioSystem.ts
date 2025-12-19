@@ -2,7 +2,7 @@ import type { IMeetingBroadcaster } from "@interfaces/MeetingInterfaces.js";
 import type { Meeting, Audio } from "@models/DBModels.js";
 import type { OpenAI } from "openai";
 import type { Collection } from "mongodb";
-import type { OpenAIVoice } from "@shared/ModelTypes.js";
+import type { VoiceOption } from "@shared/ModelTypes.js";
 
 import { reportError } from "@utils/errorbot.js";
 import { Logger } from "@utils/Logger.js";
@@ -71,7 +71,7 @@ export interface Services {
 
 export interface Speaker {
     id: string;
-    voice: OpenAIVoice;
+    voice: VoiceOption;
     name?: string;
 }
 

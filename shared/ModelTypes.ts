@@ -1,11 +1,12 @@
 
-// Match OpenAI's expected voice types
-export type OpenAIVoice = "alloy" | "ash" | "ballad" | "coral" | "echo" | "fable" | "onyx" | "nova" | "sage" | "shimmer" | "verse";
+// Defines the available voice options for characters
+export const AVAILABLE_VOICES = ["alloy", "ash", "ballad", "coral", "echo", "fable", "onyx", "nova", "sage", "shimmer", "verse"] as const;
+export type VoiceOption = typeof AVAILABLE_VOICES[number];
 
 export interface Character {
     id: string;
     name: string;
-    voice: OpenAIVoice;
+    voice: VoiceOption;
     type?: string;
     prompt?: string;
 }
