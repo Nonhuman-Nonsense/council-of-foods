@@ -130,6 +130,17 @@ export class MeetingManager implements IMeetingManager {
         this.respondTo('request_clientkey', null, async () => await this.meetingLifecycleHandler.handleRequestClientKey());
     }
 
+    setupPrototypeListeners() {
+        if (this.environment !== 'prototype') return;
+
+        //await not needed for these but we keep it for uniformity, it might be added in future
+        this.respondTo("pause_conversation", null, async () => await this.meetingLifecycleHandler.handlePauseConversation());
+
+        this.respondTo("resume_conversation", null, async () => await this.meetingLifecycleHandler.handleResumeConversation());
+
+        this.respondTo("remove_last_message", null, async () => await this.meetingLifecycleHandler.handleRemoveLastMessage());
+    }
+
     private respondTo<T>(
         eventName: string,
         schema: ZodSchema<T> | null,
@@ -156,17 +167,6 @@ export class MeetingManager implements IMeetingManager {
                 this.broadcaster.broadcastError("Internal Server Error", 500);
             }
         });
-    }
-
-    setupPrototypeListeners() {
-        if (this.environment !== 'prototype') return;
-
-        //await not needed for these but we keep it for uniformity, it might be added in future
-        this.respondTo("pause_conversation", null, async () => await this.meetingLifecycleHandler.handlePauseConversation());
-
-        this.respondTo("resume_conversation", null, async () => await this.meetingLifecycleHandler.handleResumeConversation());
-
-        this.respondTo("remove_last_message", null, async () => await this.meetingLifecycleHandler.handleRemoveLastMessage());
     }
 
     async runLoop() {
