@@ -2,7 +2,7 @@ import type { ReconnectionOptions } from "@shared/SocketTypes.js";
 import type { ConversationMessage } from "@shared/ModelTypes.js";
 import type { IMeetingManager } from "@interfaces/MeetingInterfaces.js";
 import { splitSentences } from "@utils/textUtils.js";
-import { reportError } from "@utils/errorbot.js";
+import { reportError, reportWarning } from "@utils/errorbot.js";
 import { Logger } from "@utils/Logger.js";
 
 /**
@@ -89,13 +89,15 @@ export class ConnectionHandler {
                 manager.broadcaster.broadcastConversationUpdate(manager.conversation);
                 manager.startLoop();
             } else {
-                manager.broadcaster.broadcastMeetingNotFound(String(options.meetingId));
-                Logger.warn(`meeting ${options.meetingId}`, "not found");
+                //TODO: implement a special not found?
+                // manager.broadcaster.broadcastMeetingNotFound(String(options.meetingId));
+
+                manager.broadcaster.broadcastError('Meeting not found', 404);
+                reportWarning(`meeting ${options.meetingId}`, `Meeting not found`);
             }
         } catch (error) {
-            Logger.error(`meeting ${options.meetingId}`, "Error resuming conversation", error);
             manager.broadcaster.broadcastError("Error resuming", 500);
-            reportError(`meeting ${options.meetingId}`, "Reconnection Error", error);
+            reportError(`meeting ${options.meetingId}`, "Error resuming conversation", error);
         }
     }
 }

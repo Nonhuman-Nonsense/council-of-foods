@@ -63,7 +63,8 @@ describe('MeetingManager - Concurrency & Isolation', () => {
 
         // Trigger P1 logic
         p1.manager.conversation = TestFactory.createConversation(1); // [msg_0]
-        await p1.manager.processTurn();
+        const speaker = p1.manager.conversationOptions.characters[1];
+        await p1.manager.processTurn({ type: 'GENERATE_AI_RESPONSE', speaker });
 
         // 4. Verify P1 updated, P2 unchanged
         expect(p1.manager.conversation).toHaveLength(2);

@@ -9,8 +9,17 @@ export class Logger {
         console.log(`${cyan(this.formatContext(context))} ${message}`);
     }
 
-    static warn(context: string, message: string): void {
+    static warn(context: string, message: string, error?: unknown): void {
         console.warn(`${cyan(this.formatContext(context))} ${yellow(message)}`);
+
+        // Log error details if provided
+        if (error) {
+            if (error instanceof Error) {
+                console.warn(gray(error.stack || error.message));
+            } else {
+                console.warn(gray(JSON.stringify(error, null, 2)));
+            }
+        }
     }
 
     static error(context: string, message: string, error?: unknown): void {

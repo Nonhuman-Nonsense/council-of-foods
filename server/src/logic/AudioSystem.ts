@@ -2,7 +2,7 @@ import type { IMeetingBroadcaster } from "@interfaces/MeetingInterfaces.js";
 import type { Meeting, Audio } from "@models/DBModels.js";
 import type { OpenAI } from "openai";
 import type { Collection } from "mongodb";
-import type { OpenAIVoice } from "@shared/ModelTypes.js";
+import type { VoiceOption } from "@shared/ModelTypes.js";
 
 import { reportError } from "@utils/errorbot.js";
 import { Logger } from "@utils/Logger.js";
@@ -43,6 +43,7 @@ export class AudioQueue {
                 // Try to start another task if concurrency allows
                 this.processNext();
             } catch (error) {
+                //This block will only catch synchronous errors
                 Logger.error("AudioSystem", "Error starting audio task", error);
                 this.activeCount--;
             }
@@ -53,11 +54,8 @@ export class AudioQueue {
         try {
             await task();
         } catch (error) {
-            Logger.error("AudioSystem", "AudioQueue Error", error);
-            // Note: `this.meetingId` is not available in AudioQueue.
-            // The instruction implies a context that might be passed to the task or queue.
-            // For now, using a generic context.
-            reportError("AudioSystem", "Audio Generation Error", error);
+            //This block will catch asynchronous errors
+            reportError("AudioSystem", "Audio Task Error", error);
         } finally {
             this.activeCount--;
             this.processNext();
@@ -73,7 +71,7 @@ export interface Services {
 
 export interface Speaker {
     id: string;
-    voice: OpenAIVoice;
+    voice: VoiceOption;
     name?: string;
 }
 
@@ -142,7 +140,11 @@ export class AudioSystem {
 
                 generateNew = false;
             }
-        } catch (e) { Logger.error("AudioSystem", "Error retrieving existing audio", e); }
+        } catch (error: unknown) {
+            //Let's report this to see if it ever happens
+            //But let the client continue
+            reportError(`AudioSystem`, `Error retrieving existing audio (message id: ${message.id})`, error);
+        }
 
         try {
             const openai = this.services.getOpenAI();
@@ -157,7 +159,7 @@ export class AudioSystem {
                 generateNew = true; // Ensure we save it if we regenerated it because buffer was missing
             }
 
-            const shouldSkipMatching = skipMatching || options.skipMatchingSubtitles;
+            const shouldSkipMatching = skipMatching || options.skipMatchingSubtitles || environment === 'prototype';
             const sentencesWithTimings = shouldSkipMatching ? [] : await this.getSentenceTimings(buffer, message);
 
             const audioObject = {
@@ -191,12 +193,16 @@ export class AudioSystem {
             }
 
         } catch (error: unknown) {
+
+            // Disabling this for now, not sure if it is safe
             // Suppress "interrupted at shutdown" errors often seen during tests
-            const err = error as { code?: number, message?: string }; // Safer cast
-            if (err.code === 11600 || (err.message && err.message.includes('interrupted at shutdown'))) {
-                return;
-            }
-            Logger.error("AudioSystem", "Error generating audio", error);
+            // const err = error as { code?: number, message?: string }; // Safer cast
+            // if (err.code === 11600 || (err.message && err.message.includes('interrupted at shutdown'))) {
+            //     return;
+            // }
+
+            //Crash the client and report
+            this.broadcaster.broadcastError('Error generating audio', 500);
             reportError("AudioSystem", "Error generating audio", error);
         }
     }

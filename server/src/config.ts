@@ -1,5 +1,5 @@
 import dotenv from 'dotenv';
-import { EnvSchema } from '@models/ValidationSchemas.js';
+import { EnvSchema } from '@models/EnvValidation.js';
 import { Logger } from '@utils/Logger.js';;
 
 // Load environment variables immediately

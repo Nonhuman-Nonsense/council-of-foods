@@ -1,16 +1,17 @@
 import type { IMeetingManager, Services, ConversationOptions, IMeetingBroadcaster } from "@interfaces/MeetingInterfaces.js";
+import { ZodSchema } from "zod";
 import type { Character, ConversationMessage } from "@shared/ModelTypes.js";
-import type { ClientToServerEvents, ServerToClientEvents } from "@shared/SocketTypes.js";
+import type { ClientToServerEvents, ReconnectionOptions, ServerToClientEvents } from "@shared/SocketTypes.js";
 
 import { getOpenAI } from "@services/OpenAIService.js";
 import { meetingsCollection, audioCollection, insertMeeting } from "@services/DbService.js";
-import { reportError } from "@utils/errorbot.js";
+import { reportError, reportWarning } from "@utils/errorbot.js";
 import { AudioSystem, Message as AudioMessage } from "@logic/AudioSystem.js";
 import { SpeakerSelector } from "@logic/SpeakerSelector.js";
 import { DialogGenerator } from "@logic/DialogGenerator.js";
 import { HumanInputHandler } from "@logic/HumanInputHandler.js";
 import { HandRaisingHandler } from "@logic/HandRaisingHandler.js";
-import { MeetingLifecycleHandler } from "@logic/MeetingLifecycleHandler.js";
+import { MeetingLifecycleHandler, SetupOptions } from "@logic/MeetingLifecycleHandler.js";
 import { ConnectionHandler } from "@logic/ConnectionHandler.js";
 import { GlobalOptions, getGlobalOptions } from "@logic/GlobalOptions.js";
 import { Socket } from "socket.io";
@@ -21,7 +22,8 @@ import {
     HumanMessageSchema,
     InjectionMessageSchema,
     HandRaisedOptionsSchema,
-    ReconnectionOptionsSchema
+    ReconnectionOptionsSchema,
+    WrapUpMessageSchema
 } from "@models/ValidationSchemas.js";
 
 
@@ -107,128 +109,109 @@ export class MeetingManager implements IMeetingManager {
             this.setupPrototypeListeners();
         }
 
-        // Use handlers with Zod Validation
-        this.socket.on("submit_human_message", (msg) => {
-            const parse = HumanMessageSchema.safeParse(msg);
-            if (!parse.success) {
-                const errorMsg = `Invalid submit_human_message payload: ${JSON.stringify(parse.error.format())}`;
-                reportError(`meeting ${this.meetingId}`, errorMsg, parse.error);
-                return;
-            }
-            this.humanInputHandler.handleSubmitHumanMessage(parse.data);
-        });
+        this.respondTo("submit_human_message", HumanMessageSchema, async (msg) => await this.humanInputHandler.handleSubmitHumanMessage(msg));
 
-        this.socket.on("submit_human_panelist", (msg) => {
-            const parse = HumanMessageSchema.safeParse(msg);
-            if (!parse.success) {
-                const errorMsg = `Invalid submit_human_panelist payload: ${JSON.stringify(parse.error.format())}`;
-                reportError(`meeting ${this.meetingId}`, errorMsg, parse.error);
-                return;
-            }
-            this.humanInputHandler.handleSubmitHumanPanelist(parse.data);
-        });
+        this.respondTo("submit_human_panelist", HumanMessageSchema, async (msg) => await this.humanInputHandler.handleSubmitHumanPanelist(msg));
 
-        this.socket.on("submit_injection", (msg) => {
-            const parse = InjectionMessageSchema.safeParse(msg);
-            if (!parse.success) {
-                const errorMsg = `Invalid submit_injection payload: ${JSON.stringify(parse.error.format())}`;
-                reportError(`meeting ${this.meetingId}`, errorMsg, parse.error);
-                return;
-            }
-            this.humanInputHandler.handleSubmitInjection(parse.data);
-        });
+        this.respondTo("submit_injection", InjectionMessageSchema, async (msg) => await this.humanInputHandler.handleSubmitInjection(msg));
 
-        this.socket.on("raise_hand", (msg) => {
-            const parse = HandRaisedOptionsSchema.safeParse(msg);
-            if (!parse.success) {
-                const errorMsg = `Invalid raise_hand payload: ${JSON.stringify(parse.error.format())}`;
-                reportError(`meeting ${this.meetingId}`, errorMsg, parse.error);
-                return;
-            }
-            this.handRaisingHandler.handleRaiseHand(parse.data);
-        });
+        this.respondTo("raise_hand", HandRaisedOptionsSchema, async (msg) => await this.handRaisingHandler.handleRaiseHand(msg));
 
-        this.socket.on("wrap_up_meeting", (msg) => {
-            // Basic object check till we define strict schema for this one
-            if (!msg || typeof msg !== 'object') return Logger.error(`meeting ${this.meetingId}`, "Invalid wrap_up_meeting payload");
-            this.meetingLifecycleHandler.handleWrapUpMeeting(msg);
-        });
+        this.respondTo("wrap_up_meeting", WrapUpMessageSchema, async (msg) => await this.meetingLifecycleHandler.handleWrapUpMeeting(msg));
 
-        this.socket.on('attempt_reconnection', (options) => {
-            const parse = ReconnectionOptionsSchema.safeParse(options);
-            if (!parse.success) {
-                const errorMsg = `Invalid attempt_reconnection payload: ${JSON.stringify(parse.error.format())}`;
-                // This doesn't have a specific meeting context yet from 'this', use options.meetingId
-                reportError(`meeting ${options.meetingId}`, errorMsg, parse.error);
-                return;
-            }
-            this.connectionHandler.handleReconnection(parse.data);
-        });
+        this.respondTo('attempt_reconnection', ReconnectionOptionsSchema, async (options) => await this.connectionHandler.handleReconnection(options));
 
-        this.socket.on("start_conversation", async (setup) => {
-            const parse = SetupOptionsSchema.safeParse(setup);
-            if (!parse.success) {
-                const errorMsg = `Invalid start_conversation payload: ${JSON.stringify(parse.error.format())}`;
-                reportError("init", errorMsg, parse.error);
-                return;
-            }
-            this.meetingLifecycleHandler.handleStartConversation(parse.data);
-        });
+        this.respondTo("start_conversation", SetupOptionsSchema, async (setup) => await this.meetingLifecycleHandler.handleStartConversation(setup));
 
-        this.socket.on("disconnect", () => this.connectionHandler.handleDisconnect());
+        //await not needed for these but we keep it for uniformity, it might be added in future
+        this.respondTo("disconnect", null, async () => await this.connectionHandler.handleDisconnect());
+        this.respondTo('continue_conversation', null, async () => await this.meetingLifecycleHandler.handleContinueConversation());
 
-        this.socket.on('continue_conversation', () => this.meetingLifecycleHandler.handleContinueConversation());
-        this.socket.on('request_clientkey', async () => this.meetingLifecycleHandler.handleRequestClientKey());
+        this.respondTo('request_clientkey', null, async () => await this.meetingLifecycleHandler.handleRequestClientKey());
     }
 
     setupPrototypeListeners() {
         if (this.environment !== 'prototype') return;
 
-        this.socket.on("pause_conversation", () => {
-            Logger.info(`meeting ${this.meetingId}`, "paused");
-            this.isPaused = true;
-        });
+        //await not needed for these but we keep it for uniformity, it might be added in future
+        this.respondTo("pause_conversation", null, async () => await this.meetingLifecycleHandler.handlePauseConversation());
 
-        this.socket.on("resume_conversation", () => {
-            Logger.info(`meeting ${this.meetingId}`, "resumed");
-            this.isPaused = false;
-            this.startLoop();
-        });
-        this.socket.on("remove_last_message", () => {
-            this.conversation.pop();
-            this.broadcaster.broadcastConversationUpdate(this.conversation);
+        this.respondTo("resume_conversation", null, async () => await this.meetingLifecycleHandler.handleResumeConversation());
+
+        this.respondTo("remove_last_message", null, async () => await this.meetingLifecycleHandler.handleRemoveLastMessage());
+    }
+
+    private respondTo<T>(
+        eventName: string,
+        schema: ZodSchema<T> | null,
+        handler: (data: T) => Promise<void> | void
+    ): void {
+        this.socket.on(eventName as any, async (data: any) => {
+            let parsedData: T = data;
+
+            if (schema) {
+                const parse = schema.safeParse(data);
+                if (!parse.success) {
+                    const message = `Invalid ${eventName} payload`;
+                    reportWarning(this.meetingId ? `meeting ${this.meetingId}` : "DataValidation", message, parse.error);
+                    this.broadcaster.broadcastWarning(message, 400, parse.error);
+                    return;
+                }
+                parsedData = parse.data;
+            }
+
+            try {
+                await handler(parsedData);
+            } catch (error: unknown) {
+                reportError(this.meetingId ? `meeting ${this.meetingId}` : "SocketHandler", `Error in handler for ${eventName}`, error);
+                this.broadcaster.broadcastError("Internal Server Error", 500);
+            }
         });
     }
 
     async runLoop() {
         while (this.run) {
-            if (this.isPaused || this.handRaised) {
+
+            // Calculate next step
+            const action = this.decideNextAction();
+
+            try {
+                // Do it
+                await this.processTurn(action);
+            } catch (error: unknown) {
+                // This might lead to problems if connections reset, disabling for now
+
+                // const err = error as { code?: number, message?: string };
+                // if (
+                //     err.code === 11600 ||
+                //     (err.message && (err.message.includes('interrupted at shutdown') || err.message.includes('ECONNRESET')))
+                // ) {
+                //     Logger.error(`meeting ${this.meetingId}`, "Error during conversation", error);
+                //     return;
+                // }
+
+                this.broadcaster.broadcastError("Conversation process error", 500);
+                reportError(`meeting ${this.meetingId}`, "Conversation process error", error);
                 return;
             }
 
-            // Check max length
-            if (this.conversation.length >= this.conversationOptions.options.conversationMaxLength + this.extraMessageCount) {
+            // Break after certain actions
+            if (action.type === 'WAIT' || action.type === 'END_CONVERSATION') {
                 return;
             }
-
-            // Check awaiting states
-            if (this.conversation.length > 0 &&
-                (this.conversation[this.conversation.length - 1].type === 'awaiting_human_panelist' ||
-                    this.conversation[this.conversation.length - 1].type === 'awaiting_human_question')) {
-                return;
-            }
-
-            await this.processTurn();
-
-            // If processTurn resulted in a state change (pause, hand raise, end), the next iteration check handles it (or we return).
         }
     }
 
     startLoop() {
+        //Will run async
         this.runLoop();
     }
 
     decideNextAction(): Decision {
+        // 0. Just wait
+        if (this.isPaused || this.handRaised) {
+            return { type: 'WAIT' };
+        }
         // 1. Check Limits
         if (this.conversation.length >= this.conversationOptions.options.conversationMaxLength + this.extraMessageCount) {
             return { type: 'END_CONVERSATION' };
@@ -258,56 +241,39 @@ export class MeetingManager implements IMeetingManager {
     /**
      * Core loop function. Decides the next action based on conversation state.
      */
-    async processTurn(): Promise<void> {
-        try {
-            // Decoupled Decision Step
-            const action = this.decideNextAction();
+    async processTurn(action: Decision): Promise<void> {
+        switch (action.type) {
+            case 'WAIT':
+                return; // Do nothing, just wait.
 
-            switch (action.type) {
-                case 'WAIT':
-                    return; // Do nothing, just wait.
-
-                case 'END_CONVERSATION':
-                    this.broadcaster.broadcastConversationEnd();
-                    return;
-
-                case 'REQUEST_PANELIST':
-                    if (action.speaker) {
-                        this.conversation.push({
-                            type: 'awaiting_human_panelist',
-                            speaker: action.speaker.id,
-                            text: "", // Added to satisfy ConversationMessage
-                            sentences: [] // Added to satisfy ConversationMessage
-                        });
-                        Logger.info(`meeting ${this.meetingId}`, `awaiting human panelist on index ${this.conversation.length - 1}`);
-                        this.broadcaster.broadcastConversationUpdate(this.conversation);
-                        if (this.meetingId !== null) {
-                            this.services.meetingsCollection.updateOne(
-                                { _id: this.meetingId },
-                                { $set: { conversation: this.conversation } }
-                            );
-                        }
-                    }
-                    return;
-
-                case 'GENERATE_AI_RESPONSE':
-                    if (action.speaker) {
-                        await this.handleAITurn(action as { type: string, speaker: Character });
-                    }
-                    break;
-            }
-        } catch (error: unknown) {
-            // Suppress "interrupted at shutdown" and ECONNRESET errors often seen during tests
-            const err = error as { code?: number, message?: string };
-            if (
-                err.code === 11600 ||
-                (err.message && (err.message.includes('interrupted at shutdown') || err.message.includes('ECONNRESET')))
-            ) {
+            case 'END_CONVERSATION':
+                this.broadcaster.broadcastConversationEnd();
                 return;
-            }
-            Logger.error(`meeting ${this.meetingId}`, "Error during conversation", error);
-            this.broadcaster.broadcastError("Error", 500);
-            reportError(`meeting ${this.meetingId}`, "Conversation process error", error);
+
+            case 'REQUEST_PANELIST':
+                if (action.speaker) {
+                    this.conversation.push({
+                        type: 'awaiting_human_panelist',
+                        speaker: action.speaker.id,
+                        text: "", // Added to satisfy ConversationMessage
+                        sentences: [] // Added to satisfy ConversationMessage
+                    });
+                    Logger.info(`meeting ${this.meetingId}`, `awaiting human panelist on index ${this.conversation.length - 1}`);
+                    this.broadcaster.broadcastConversationUpdate(this.conversation);
+                    if (this.meetingId !== null) {
+                        this.services.meetingsCollection.updateOne(
+                            { _id: this.meetingId },
+                            { $set: { conversation: this.conversation } }
+                        );
+                    }
+                }
+                return;
+
+            case 'GENERATE_AI_RESPONSE':
+                if (action.speaker) {
+                    await this.handleAITurn(action as { type: string, speaker: Character });
+                }
+                break;
         }
     }
 

@@ -37,7 +37,7 @@ export class HumanInputHandler {
      * Validates that the state is 'awaiting_human_question' before processing.
      * Updates conversation w/ user text, triggers audio generation, and resumes the run loop.
      */
-    handleSubmitHumanMessage(message: HumanMessage): void {
+    async handleSubmitHumanMessage(message: HumanMessage): Promise<void> {
         const { manager } = this;
         Logger.info(`meeting ${manager.meetingId}`, `human input on index ${manager.conversation.length - 1} `);
 
@@ -71,7 +71,7 @@ export class HumanInputHandler {
         manager.conversation.push(message as ConversationMessage);
 
         if (manager.meetingId !== null) {
-            manager.services.meetingsCollection.updateOne(
+            await manager.services.meetingsCollection.updateOne(
                 { _id: manager.meetingId },
                 { $set: { conversation: manager.conversation } }
             );
@@ -107,7 +107,7 @@ export class HumanInputHandler {
      * Handles input from a 'human panelist' (a human participant acting as a character/expert).
      * Validates that the state is 'awaiting_human_panelist'.
      */
-    handleSubmitHumanPanelist(message: HumanMessage): void {
+    async handleSubmitHumanPanelist(message: HumanMessage): Promise<void> {
         const { manager } = this;
         Logger.info(`meeting ${manager.meetingId}`, `human panelist ${message.speaker} on index ${manager.conversation.length - 1} `);
 
@@ -125,7 +125,7 @@ export class HumanInputHandler {
         manager.conversation.push(message as ConversationMessage);
 
         if (manager.meetingId !== null) {
-            manager.services.meetingsCollection.updateOne(
+            await manager.services.meetingsCollection.updateOne(
                 { _id: manager.meetingId },
                 { $set: { conversation: manager.conversation } }
             );

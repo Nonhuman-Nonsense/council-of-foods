@@ -1,54 +1,45 @@
-import { TEST_MODES } from "@interfaces/TestModes.js";
+import { GlobalOptionsSchema } from "@logic/GlobalOptions.js";
 import { z } from "zod";
-
-// --- Environment Variables Schema ---
-export const EnvSchema = z.object({
-    COUNCIL_DB_URL: z.string().url(),
-    COUNCIL_DB_PREFIX: z.string(),
-    COUNCIL_OPENAI_API_KEY: z.string().min(1, "COUNCIL_OPENAI_API_KEY is required"),
-    PORT: z.string().default("3001").transform((val) => parseInt(val, 10)),
-    NODE_ENV: z.enum(["development", "production", "test", "prototype"]).default("production"),
-    COUNCIL_ERRORBOT: z.string().optional(),
-    TEST_MODE: z.enum(TEST_MODES).optional(),
-    USE_TEST_OPTIONS: z.enum(["true", "false"]).transform((val) => val === "true").optional()
-});
-
-export type EnvConfig = z.infer<typeof EnvSchema>;
+import { type Character, AVAILABLE_VOICES } from "@shared/ModelTypes.js";
+import type {
+    HumanMessage,
+    InjectionMessage,
+    HandRaisedOptions,
+    ReconnectionOptions,
+    WrapUpMessage,
+    SetupOptions
+} from "@shared/SocketTypes.js";
 
 // --- Socket Payload Schemas ---
 
 // Shared Sub-schemas
-const OpenAIVoiceSchema = z.enum(["alloy", "ash", "ballad", "coral", "echo", "fable", "onyx", "nova", "sage", "shimmer", "verse"]);
+const VoiceOptionSchema = z.enum(AVAILABLE_VOICES);
 
-const CharacterSchema = z.object({
+const CharacterSchema: z.ZodType<Character> = z.object({
     id: z.string().min(1),
     name: z.string().min(1),
     type: z.string().optional(),
-    voice: OpenAIVoiceSchema,
+    voice: VoiceOptionSchema,
     prompt: z.string().optional(),
 });
 
-const ConversationStateSchema = z.object({
-    humanName: z.string().optional(),
-    alreadyInvited: z.boolean().optional(),
-});
 
-const GlobalOptionsSchema = z.object({
-    conversationMaxLength: z.number().optional(),
-    // Add other known options as needed
-});
 
 // 1. start_conversation
-export const SetupOptionsSchema = z.object({
-    options: GlobalOptionsSchema.optional(),
+export const SetupOptionsSchema: z.ZodType<SetupOptions> = z.object({
+    options: GlobalOptionsSchema.partial().optional(),
     characters: z.array(CharacterSchema),
     language: z.string().default('en'),
     topic: z.string(),
-    state: ConversationStateSchema.optional()
+}).transform((data) => {
+    if (!['test', 'prototype'].includes(process.env.NODE_ENV || '')) {
+        delete data.options;
+    }
+    return data;
 });
 
 // 2. submit_human_message & submit_human_panelist
-export const HumanMessageSchema = z.object({
+export const HumanMessageSchema: z.ZodType<HumanMessage> = z.object({
     text: z.string().min(1),
     askParticular: z.string().optional(),
     speaker: z.string().optional(),
@@ -58,22 +49,27 @@ export const HumanMessageSchema = z.object({
 });
 
 // 3. raise_hand
-export const HandRaisedOptionsSchema = z.object({
+export const HandRaisedOptionsSchema: z.ZodType<HandRaisedOptions> = z.object({
     index: z.number().int(),
     humanName: z.string().min(1),
 });
 
 // 4. attempt_reconnection
-export const ReconnectionOptionsSchema = z.object({
+export const ReconnectionOptionsSchema: z.ZodType<ReconnectionOptions> = z.object({
     meetingId: z.union([z.string(), z.number()]),
     handRaised: z.boolean().optional(),
     conversationMaxLength: z.number().optional(),
 });
 
 // 5. submit_injection
-export const InjectionMessageSchema = z.object({
+export const InjectionMessageSchema: z.ZodType<InjectionMessage> = z.object({
     text: z.string(),
     date: z.string(),
     index: z.number(),
     length: z.number(),
+});
+
+// 6. wrap_up_meeting
+export const WrapUpMessageSchema: z.ZodType<WrapUpMessage> = z.object({
+    date: z.string(),
 });
