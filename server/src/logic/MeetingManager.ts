@@ -206,8 +206,25 @@ export class MeetingManager implements IMeetingManager {
             // Calculate next step
             const action = this.decideNextAction();
 
-            // Do it
-            await this.processTurn(action);
+            try {
+                // Do it
+                await this.processTurn(action);
+            } catch (error: unknown) {
+                // This might lead to problems if connections reset, disabling for now
+
+                // const err = error as { code?: number, message?: string };
+                // if (
+                //     err.code === 11600 ||
+                //     (err.message && (err.message.includes('interrupted at shutdown') || err.message.includes('ECONNRESET')))
+                // ) {
+                //     Logger.error(`meeting ${this.meetingId}`, "Error during conversation", error);
+                //     return;
+                // }
+
+                this.broadcaster.broadcastError("Error", 500);
+                reportError(`meeting ${this.meetingId}`, "Conversation process error", error);
+                return;
+            }
 
             // Break after certain actions
             if (action.type === 'WAIT' || action.type === 'END_CONVERSATION') {
@@ -255,52 +272,38 @@ export class MeetingManager implements IMeetingManager {
      * Core loop function. Decides the next action based on conversation state.
      */
     async processTurn(action: Decision): Promise<void> {
-        try {
-            switch (action.type) {
-                case 'WAIT':
-                    return; // Do nothing, just wait.
+        switch (action.type) {
+            case 'WAIT':
+                return; // Do nothing, just wait.
 
-                case 'END_CONVERSATION':
-                    this.broadcaster.broadcastConversationEnd();
-                    return;
-
-                case 'REQUEST_PANELIST':
-                    if (action.speaker) {
-                        this.conversation.push({
-                            type: 'awaiting_human_panelist',
-                            speaker: action.speaker.id,
-                            text: "", // Added to satisfy ConversationMessage
-                            sentences: [] // Added to satisfy ConversationMessage
-                        });
-                        Logger.info(`meeting ${this.meetingId}`, `awaiting human panelist on index ${this.conversation.length - 1}`);
-                        this.broadcaster.broadcastConversationUpdate(this.conversation);
-                        if (this.meetingId !== null) {
-                            this.services.meetingsCollection.updateOne(
-                                { _id: this.meetingId },
-                                { $set: { conversation: this.conversation } }
-                            );
-                        }
-                    }
-                    return;
-
-                case 'GENERATE_AI_RESPONSE':
-                    if (action.speaker) {
-                        await this.handleAITurn(action as { type: string, speaker: Character });
-                    }
-                    break;
-            }
-        } catch (error: unknown) {
-            // Suppress "interrupted at shutdown" and ECONNRESET errors often seen during tests
-            const err = error as { code?: number, message?: string };
-            if (
-                err.code === 11600 ||
-                (err.message && (err.message.includes('interrupted at shutdown') || err.message.includes('ECONNRESET')))
-            ) {
+            case 'END_CONVERSATION':
+                this.broadcaster.broadcastConversationEnd();
                 return;
-            }
-            Logger.error(`meeting ${this.meetingId}`, "Error during conversation", error);
-            this.broadcaster.broadcastError("Error", 500);
-            reportError(`meeting ${this.meetingId}`, "Conversation process error", error);
+
+            case 'REQUEST_PANELIST':
+                if (action.speaker) {
+                    this.conversation.push({
+                        type: 'awaiting_human_panelist',
+                        speaker: action.speaker.id,
+                        text: "", // Added to satisfy ConversationMessage
+                        sentences: [] // Added to satisfy ConversationMessage
+                    });
+                    Logger.info(`meeting ${this.meetingId}`, `awaiting human panelist on index ${this.conversation.length - 1}`);
+                    this.broadcaster.broadcastConversationUpdate(this.conversation);
+                    if (this.meetingId !== null) {
+                        this.services.meetingsCollection.updateOne(
+                            { _id: this.meetingId },
+                            { $set: { conversation: this.conversation } }
+                        );
+                    }
+                }
+                return;
+
+            case 'GENERATE_AI_RESPONSE':
+                if (action.speaker) {
+                    await this.handleAITurn(action as { type: string, speaker: Character });
+                }
+                break;
         }
     }
 
