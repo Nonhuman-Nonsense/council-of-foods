@@ -31,6 +31,18 @@ export async function reportError(context: string, message: string, err?: unknow
     // 1. Log locally first
     Logger.error(context, message, err);
 
+    await sendReport(context, "ERROR", message, err);
+}
+
+export async function reportWarning(context: string, message: string, err?: unknown): Promise<void> {
+    // 1. Log locally first
+    Logger.warn(context, message, err);
+
+    await sendReport(context, "WARNING", message, err);
+}
+
+async function sendReport(context: string, level: string, message: string, err?: unknown): Promise<void> {
+
     // 2. Don't send if not configured
     if (!config.COUNCIL_ERRORBOT) {
         Logger.warn("[config]", "COUNCIL_ERRORBOT not set, will not report to external error service.");
@@ -39,7 +51,7 @@ export async function reportError(context: string, message: string, err?: unknow
 
     const payload = {
         service: config.COUNCIL_DB_PREFIX,
-        level: "ERROR",
+        level: level,
         context: context,
         message: message,
         time: new Date().toISOString(),
