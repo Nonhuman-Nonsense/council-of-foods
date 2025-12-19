@@ -1,4 +1,5 @@
 import type { IMeetingManager, Services, ConversationOptions, IMeetingBroadcaster } from "@interfaces/MeetingInterfaces.js";
+import { ZodSchema } from "zod";
 import type { Character, ConversationMessage } from "@shared/ModelTypes.js";
 import type { ClientToServerEvents, ReconnectionOptions, ServerToClientEvents } from "@shared/SocketTypes.js";
 
@@ -21,7 +22,8 @@ import {
     HumanMessageSchema,
     InjectionMessageSchema,
     HandRaisedOptionsSchema,
-    ReconnectionOptionsSchema
+    ReconnectionOptionsSchema,
+    WrapUpMessageSchema
 } from "@models/ValidationSchemas.js";
 
 
@@ -107,96 +109,73 @@ export class MeetingManager implements IMeetingManager {
             this.setupPrototypeListeners();
         }
 
-        // Use handlers with Zod Validation
-        this.socket.on("submit_human_message", (msg) => {
-            const parse = HumanMessageSchema.safeParse(msg);
-            if (!parse.success) {
-                this.validationError("Invalid submit_human_message payload", parse.error, String(this.meetingId));
-                return;
-            }
-            this.humanInputHandler.handleSubmitHumanMessage(parse.data);
+        this.respondTo("submit_human_message", HumanMessageSchema, (msg) => this.humanInputHandler.handleSubmitHumanMessage(msg));
+
+        this.respondTo("submit_human_panelist", HumanMessageSchema, (msg) => this.humanInputHandler.handleSubmitHumanPanelist(msg));
+
+        this.respondTo("submit_injection", InjectionMessageSchema, (msg) => this.humanInputHandler.handleSubmitInjection(msg));
+
+        this.respondTo("raise_hand", HandRaisedOptionsSchema, (msg) => this.handRaisingHandler.handleRaiseHand(msg));
+
+        this.respondTo("wrap_up_meeting", WrapUpMessageSchema, async (msg) => {
+            await this.meetingLifecycleHandler.handleWrapUpMeeting(msg);
         });
 
-        this.socket.on("submit_human_panelist", (msg) => {
-            const parse = HumanMessageSchema.safeParse(msg);
-            if (!parse.success) {
-                this.validationError("Invalid submit_human_panelist payload", parse.error, String(this.meetingId));
-                return;
-            }
-            this.humanInputHandler.handleSubmitHumanPanelist(parse.data);
+        this.respondTo('attempt_reconnection', ReconnectionOptionsSchema, (options) => this.connectionHandler.handleReconnection(options));
+
+        this.respondTo("start_conversation", SetupOptionsSchema, async (setup) => {
+            await this.meetingLifecycleHandler.handleStartConversation(setup);
         });
 
-        this.socket.on("submit_injection", (msg) => {
-            const parse = InjectionMessageSchema.safeParse(msg);
-            if (!parse.success) {
-                this.validationError("Invalid submit_injection payload", parse.error, String(this.meetingId));
-                return;
-            }
-            this.humanInputHandler.handleSubmitInjection(parse.data);
-        });
+        this.respondTo("disconnect", null, () => this.connectionHandler.handleDisconnect());
 
-        this.socket.on("raise_hand", (msg) => {
-            const parse = HandRaisedOptionsSchema.safeParse(msg);
-            if (!parse.success) {
-                this.validationError("Invalid raise_hand payload", parse.error, String(this.meetingId));
-                return;
-            }
-            this.handRaisingHandler.handleRaiseHand(parse.data);
-        });
-
-        this.socket.on("wrap_up_meeting", (msg) => {
-            // Basic object check till we define strict schema for this one
-            // TODO: define a strict schema
-            if (!msg || typeof msg !== 'object') {
-                this.validationError("Invalid wrap_up_meeting payload", new Error(""), String(this.meetingId));
-                return;
-            }
-            this.meetingLifecycleHandler.handleWrapUpMeeting(msg);
-        });
-
-        this.socket.on('attempt_reconnection', (options) => {
-            const parse = ReconnectionOptionsSchema.safeParse(options);
-            if (!parse.success) {
-                this.validationError("Invalid attempt_reconnection payload", parse.error, String(options.meetingId));
-                return;
-            }
-            this.connectionHandler.handleReconnection(parse.data);
-        });
-
-        this.socket.on("start_conversation", async (setup) => {
-            const parse = SetupOptionsSchema.safeParse(setup);
-            if (!parse.success) {
-                this.validationError("Invalid start_conversation payload", parse.error);
-                return;
-            }
-            this.meetingLifecycleHandler.handleStartConversation(parse.data);
-        });
-
-        this.socket.on("disconnect", () => this.connectionHandler.handleDisconnect());
-
-        this.socket.on('continue_conversation', () => this.meetingLifecycleHandler.handleContinueConversation());
-        this.socket.on('request_clientkey', async () => this.meetingLifecycleHandler.handleRequestClientKey());
+        this.respondTo('continue_conversation', null, () => this.meetingLifecycleHandler.handleContinueConversation());
+        this.respondTo('request_clientkey', null, async () => this.meetingLifecycleHandler.handleRequestClientKey());
     }
 
-    validationError(message: string, error: Error, meetingId?: string): void {
-        reportWarning(meetingId ? `meeting ${meetingId}` : "DataValidation", message, error);
-        this.broadcaster.broadcastWarning(message, 400, error);
+    private respondTo<T>(
+        eventName: string,
+        schema: ZodSchema<T> | null,
+        handler: (data: T) => Promise<void> | void
+    ): void {
+        this.socket.on(eventName as any, async (data: any) => {
+            let parsedData: T = data;
+
+            if (schema) {
+                const parse = schema.safeParse(data);
+                if (!parse.success) {
+                    const message = `Invalid ${eventName} payload`;
+                    reportWarning(this.meetingId ? `meeting ${this.meetingId}` : "DataValidation", message, parse.error);
+                    this.broadcaster.broadcastWarning(message, 400, parse.error);
+                    return;
+                }
+                parsedData = parse.data;
+            }
+
+            try {
+                await handler(parsedData);
+            } catch (error: unknown) {
+                reportError(this.meetingId ? `meeting ${this.meetingId}` : "SocketHandler", `Error in handler for ${eventName}`, error);
+                this.broadcaster.broadcastError("Internal Server Error", 500);
+            }
+        });
     }
 
     setupPrototypeListeners() {
         if (this.environment !== 'prototype') return;
 
-        this.socket.on("pause_conversation", () => {
+        this.respondTo("pause_conversation", null, () => {
             Logger.info(`meeting ${this.meetingId}`, "paused");
             this.isPaused = true;
         });
 
-        this.socket.on("resume_conversation", () => {
+        this.respondTo("resume_conversation", null, () => {
             Logger.info(`meeting ${this.meetingId}`, "resumed");
             this.isPaused = false;
             this.startLoop();
         });
-        this.socket.on("remove_last_message", () => {
+
+        this.respondTo("remove_last_message", null, () => {
             Logger.info(`meeting ${this.meetingId}`, "popping last message");
             this.conversation.pop();
             this.broadcaster.broadcastConversationUpdate(this.conversation);

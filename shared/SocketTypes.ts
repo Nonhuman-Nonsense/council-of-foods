@@ -23,6 +23,10 @@ export interface HandRaisedOptions {
     humanName: string;
 }
 
+export interface WrapUpMessage {
+    date: string;
+}
+
 export interface ReconnectionOptions {
     meetingId: string | number;
     handRaised?: boolean;
@@ -71,7 +75,7 @@ export interface ClientToServerEvents {
     submit_human_panelist: (msg: HumanMessage) => void;
     submit_injection: (msg: InjectionMessage) => void;
     raise_hand: (opts: HandRaisedOptions) => void;
-    wrap_up_meeting: (msg: { date: string }) => void;
+    wrap_up_meeting: (msg: WrapUpMessage) => void;
     attempt_reconnection: (opts: ReconnectionOptions) => void;
     continue_conversation: () => void;
     request_clientkey: () => void;

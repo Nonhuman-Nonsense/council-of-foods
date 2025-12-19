@@ -63,3 +63,8 @@ export const InjectionMessageSchema = z.object({
     index: z.number(),
     length: z.number(),
 });
+
+// 6. wrap_up_meeting
+export const WrapUpMessageSchema = z.object({
+    date: z.string(),
+});
