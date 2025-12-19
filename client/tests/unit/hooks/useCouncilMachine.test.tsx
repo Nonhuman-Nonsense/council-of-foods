@@ -196,4 +196,65 @@ describe('useCouncilMachine', () => {
         });
         expect(result.current.state.isMuted).toBe(false);
     });
+
+    // --- Human Panelist Tests ---
+
+    it('transitions to human_panelist state when awaiting_human_panelist message is next', () => {
+        const { result } = renderHook(() => useCouncilMachine(defaultProps as any));
+
+        const panelistMsg = {
+            id: 'msg_panelist',
+            text: '...',
+            speaker: 'human-panelist',
+            type: 'awaiting_human_panelist'
+        };
+
+        act(() => {
+            if (socketHandlers.onConversationUpdate) {
+                socketHandlers.onConversationUpdate([panelistMsg]);
+            }
+        });
+
+        // The state machine effect should trigger
+        expect(result.current.state.councilState).toBe('human_panelist');
+    });
+
+    it('submits human panelist message correctly', () => {
+        const { result } = renderHook(() => useCouncilMachine(defaultProps as any));
+
+        const panelistMsg = {
+            id: 'msg_panelist',
+            text: '...',
+            speaker: 'human-panelist-1',
+            type: 'awaiting_human_panelist'
+        };
+
+        // 1. Enter state
+        act(() => {
+            if (socketHandlers.onConversationUpdate) {
+                socketHandlers.onConversationUpdate([panelistMsg]);
+            }
+        });
+        expect(result.current.state.councilState).toBe('human_panelist');
+
+        // 2. Submit
+        act(() => {
+            result.current.actions.handleOnSubmitHumanMessage('My Panelist Response', '');
+        });
+
+        // 3. Verify Emission
+        // Expect "submit_human_panelist" with correct structure
+        expect(mockSocketEmit).toHaveBeenCalledWith('submit_human_panelist', {
+            text: 'My Panelist Response',
+            speaker: 'human-panelist-1' // Should use the speaker ID from the awaiting message
+        });
+
+        // 4. Verify Local State update (slicing) and transition
+        // Slicing removes the 'awaiting' message, so textMessages should be empty
+        expect(result.current.state.textMessages).toEqual([]);
+
+        // Next action calculation should transition back to loading or appropriate state
+        // If textMessages is empty, tryToFind will fail -> loading
+        expect(result.current.state.councilState).toBe('loading');
+    });
 });
