@@ -181,6 +181,12 @@ createApp({
 
       let replacedCharacters = JSON.parse(JSON.stringify(this.currentRoom.characters));
 
+      // Ensure every character has an ID (default to name) and voice (default to "alloy")
+      replacedCharacters.forEach(c => {
+        if (!c.id && c.name) c.id = c.name;
+        // if (!c.voice) c.voice = this.audioVoices[0];
+      });
+
       if (replacedCharacters[0]) {
         let participants = this.currentRoom.characters
           .slice(1)
