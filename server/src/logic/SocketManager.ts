@@ -1,7 +1,7 @@
 import { Socket } from "socket.io";
 import { MeetingManager } from "./MeetingManager.js";
 import { Logger } from "@utils/Logger.js";
-import { ClientToServerEvents } from "@shared/SocketTypes.js";
+import { ClientToServerEvents, ReconnectionOptions, SetupOptions } from "@shared/SocketTypes.js";
 import { ZodError } from "zod";
 
 /**
@@ -66,8 +66,14 @@ export class SocketManager {
      * Helper to bind a socket event listener with standardized error handling.
      * Replaces the old 'respondTo' pattern.
      */
-    private bindSafeListener(event: string, handler: (payload: any) => Promise<void>, requireSession: boolean = false) {
-        this.socket.on(event, async (payload: any) => {
+    private bindSafeListener<EventName extends keyof ClientToServerEvents>(
+        event: EventName,
+        handler: (payload: Parameters<ClientToServerEvents[EventName]>[0]) => Promise<void>,
+        requireSession: boolean = false
+    ) {
+        // We cast event to string to bypass the strict mapped type check of strict socket.io
+        // The type safety is enforced by the method signature of bindSafeListener itself.
+        this.socket.on(event as string, async (payload: any) => {
             if (requireSession && !this.currentSession) {
                 // Safety Check:
                 // 1. Lifecycle events (start/reconnect) set requireSession=false, so they bypass this.
@@ -123,7 +129,7 @@ export class SocketManager {
         }
     }
 
-    private async handleStart(payload: any) {
+    private async handleStart(payload: SetupOptions) {
         Logger.info("socket", "Starting new meeting session...");
         this.destroySession();
 
@@ -134,7 +140,7 @@ export class SocketManager {
         await this.currentSession.initializeStart(payload);
     }
 
-    private async handleReconnect(payload: any) {
+    private async handleReconnect(payload: ReconnectionOptions) {
         Logger.info("socket", "Reconnecting to meeting session...");
 
         // 1. Check if payload.meetingId matches active session
