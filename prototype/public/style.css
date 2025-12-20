@@ -122,7 +122,33 @@ body {
 .sidebar-content {
   flex: 1;
   overflow-y: auto;
-  padding: var(--spacing-sm);
+  padding: 15px;
+}
+
+.room-item {
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.2s;
+}
+
+.room-item:hover {
+  background-color: var(--bg-hover);
+}
+
+.room-item.active {
+  background-color: var(--accent-color);
+  color: white;
+}
+
+.room-item.active .input-minimal {
+  color: white;
+}
+
+.room-item.active .input-minimal:focus {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
 }
 
 .sidebar.collapsed .sidebar-content {

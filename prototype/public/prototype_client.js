@@ -32,6 +32,7 @@ const defaultLocalOptions = {
   showTrimmed: true,
   leftSidebarOpen: true,
   rightSidebarOpen: true,
+  configCardExpanded: true,
   expandedCharacters: {}
 };
 

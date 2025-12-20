@@ -43,11 +43,11 @@
             <button @click="removeRoom" style="width: 40px;">-</button>
           </div>
           <div class="room-list" style="display: flex; flex-direction: column; gap: 4px;">
-            <button v-for="(room, index) in currentLanguageData.rooms" :key="index" @click="currentRoomIndex = index"
-              :class="{ primary: currentRoomIndex === index }"
-              style="text-align: left; overflow: hidden; text-overflow: ellipsis;">
-              {{ room.name || 'Untitled Room' }}
-            </button>
+            <div v-for="(room, index) in currentLanguageData.rooms" :key="index" class="room-item"
+              :class="{ active: currentRoomIndex === index }" @click="currentRoomIndex = index">
+              <input type="text" class="input-minimal" v-model="room.name" placeholder="Untitled Room"
+                style="width: 100%;">
+            </div>
           </div>
         </div>
         <hr>
@@ -69,16 +69,29 @@
           <div style="flex: 1; overflow-y: auto; padding: 15px;">
 
             <!-- Room Meta -->
-            <label>Room Name</label>
-            <input v-model="currentRoom.name" type="text" placeholder="Room name">
+            <!-- System & Topic Configuration -->
+            <div class="character-card">
+              <div class="card-header" @click="localOptions.configCardExpanded = !localOptions.configCardExpanded">
+                <div style="font-weight: bold;">System & Topic Config</div>
+                <button class="icon-btn" style="font-size: 12px;">
+                  {{ localOptions.configCardExpanded ? '▼' : '▶' }}
+                </button>
+              </div>
 
-            <label>Topic / Panel Prompt</label>
-            <textarea v-model="currentRoom.topic" placeholder="Describe the topic..." rows="3"></textarea>
+              <div class="card-body" v-if="localOptions.configCardExpanded">
+                <label class="sub-label">Topic / Panel Prompt</label>
+                <textarea class="input-area" v-model="currentRoom.topic" placeholder="Describe the topic..."
+                  v-auto-resize></textarea>
 
-            <label>System Prompt (Shared)</label>
-            <textarea v-model="currentSystemPrompt" placeholder="System prompt..." rows="3"></textarea>
-            <small style="color: var(--text-secondary); display: block; margin-bottom: 15px;">[TOPIC] will be replaced
-              by the room topic.</small>
+                <label class="sub-label">System Prompt (Shared)</label>
+                <textarea class="input-area" v-model="currentSystemPrompt" placeholder="System prompt..."
+                  v-auto-resize></textarea>
+                <small style="color: var(--text-secondary); display: block; margin-top: 5px;">[TOPIC] will be replaced
+                  by the topic above.</small>
+              </div>
+            </div>
+
+            <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 15px 0;">
 
             <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 15px 0;">
 
