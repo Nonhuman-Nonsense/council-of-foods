@@ -60,6 +60,7 @@ createApp({
       audioIsPlaying: false,
       audioPaused: false,
       nextOrBackClicked: false,
+      sortableInstance: null,
 
       // Constants
       audioVoices: ["alloy", "ash", "ballad", "coral", "echo", "fable", "onyx", "nova", "sage", "shimmer", "verse"]
@@ -98,6 +99,16 @@ createApp({
     languageData: {
       handler() { this.save(); },
       deep: true
+    },
+    currentRoom: {
+      handler(val) {
+        if (val) {
+          this.$nextTick(() => {
+            this.initSortable();
+          });
+        }
+      },
+      immediate: true
     }
   },
 
@@ -108,6 +119,28 @@ createApp({
   },
 
   methods: {
+    initSortable() {
+      const el = document.getElementById('characters');
+      if (!el) return;
+
+      // If already initialized on the same element, skip
+      if (this.sortableInstance && this.sortableInstance.el === el) return;
+
+      // If initialized on different element (re-render?), destroy old
+      if (this.sortableInstance) {
+        this.sortableInstance.destroy();
+      }
+
+      this.sortableInstance = new Sortable(el, {
+        animation: 150,
+        handle: ".drag-handle",
+        onEnd: (evt) => {
+          const item = this.currentRoom.characters.splice(evt.oldIndex, 1)[0];
+          this.currentRoom.characters.splice(evt.newIndex, 0, item);
+          this.save();
+        }
+      });
+    },
     // ===========================
     //   STARTUP & PERSISTENCE
     // ===========================
@@ -119,6 +152,8 @@ createApp({
           // Merge stored options to handle new fields gracefully
           this.options = { ...this.options, ...stored.options };
           this.languageData = stored.language;
+
+          this.sanitizeData();
         } else {
           throw new Error("No stored data");
         }
@@ -160,6 +195,7 @@ createApp({
       }
       this.options.language = 'en';
       this.currentRoomIndex = 0;
+      this.sanitizeData();
       this.save();
     },
 
@@ -256,7 +292,8 @@ createApp({
       if (this.currentRoom) {
         const voiceIndex = this.currentRoom.characters.length % this.audioVoices.length;
         this.currentRoom.characters.push({
-          voice: this.audioVoices[voiceIndex]
+          voice: this.audioVoices[voiceIndex],
+          _ui_id: Date.now() + Math.random()
         });
       }
     },
@@ -465,32 +502,27 @@ createApp({
     // ===========================
     //   DRAG & DROP
     // ===========================
-    onDragStart(event, index) {
-      event.dataTransfer.effectAllowed = 'move';
-      event.dataTransfer.setData('text/plain', index);
-      event.target.style.opacity = '0.5';
-    },
-
-    onDrop(event, targetIndex) {
-      event.preventDefault();
-      const draggedIndex = parseInt(event.dataTransfer.getData('text/plain'));
-      if (isNaN(draggedIndex)) return;
-
-      const chars = this.currentRoom.characters;
-      const [movedItem] = chars.splice(draggedIndex, 1);
-      chars.splice(targetIndex, 0, movedItem);
-
-      // Clean up styles (simple approach, Vue re-render handles most)
-      // In a real app we might reference refs to clean up opacity
-      // but Vue's reactivity usually resets the DOM element when list changes order
-
-      // Force save
-      this.save();
-    },
+    // Handled by SortableJS in mounted()
 
     // ===========================
     //   UTILS
     // ===========================
+    sanitizeData() {
+      // Ensure all characters across all languages and rooms have a unique UI ID
+      // This is critical for Vue + SortableJS stability
+      if (!this.languageData) return;
+
+      Object.values(this.languageData).forEach(lang => {
+        if (!lang.rooms) return;
+        lang.rooms.forEach(room => {
+          if (!room.characters) return;
+          room.characters.forEach(c => {
+            if (!c._ui_id) c._ui_id = Date.now() + Math.random();
+          });
+        });
+      });
+    },
+
     scrollToBottom() {
       this.$nextTick(() => {
         const container = document.getElementById("conversation-container");

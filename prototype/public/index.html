@@ -107,8 +107,8 @@
               prototype</small></p>
 
           <div id="characters">
-            <div class="character" v-for="(character, index) in currentRoom.characters" :key="index" draggable="true"
-              @dragstart="onDragStart($event, index)" @dragover.prevent @drop="onDrop($event, index)">
+            <div class="character" v-for="(character, index) in currentRoom.characters"
+              :key="character._ui_id || index">
 
               <span class="drag-handle" style="color: #ccc; font-weight: bold; margin-right: 5px; cursor: move;">⋮⋮
               </span>
@@ -183,6 +183,7 @@
     </main>
   </div>
 
+  <script src="Sortable.min.js"></script>
   <script src="prototype_client.js?v=2.0"></script>
 </body>
 
