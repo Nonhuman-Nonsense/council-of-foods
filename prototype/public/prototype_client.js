@@ -34,7 +34,9 @@ const defaultLocalOptions = {
   rightSidebarOpen: true,
   configCardExpanded: true,
   expandedCharacters: {},
-  roomStates: {}
+  configCardExpanded: true,
+  expandedCharacters: {},
+  topicStates: {}
 };
 
 createApp({
@@ -46,7 +48,7 @@ createApp({
       loading: false,
       conversationActive: false,
       conversationStarted: false,
-      currentRoomIndex: 0,
+      currentTopicIndex: 0,
       injectionStatus: '',
       endMessage: '',
 
@@ -56,7 +58,7 @@ createApp({
 
       // Language storage
       languageData: {
-        en: { system: '', rooms: [] }
+        en: { system: '', topics: [] }
       },
       available_languages: ['en'],
 
@@ -84,15 +86,15 @@ createApp({
   computed: {
     currentLanguageData() {
       if (!this.languageData[this.options.language]) {
-        this.languageData[this.options.language] = { system: '', rooms: [] };
+        this.languageData[this.options.language] = { system: '', topics: [] };
       }
       return this.languageData[this.options.language];
     },
 
-    currentRoom() {
-      const rooms = this.currentLanguageData.rooms;
-      if (!rooms || rooms.length === 0) return null;
-      return rooms[this.currentRoomIndex];
+    currentTopic() {
+      const topics = this.currentLanguageData.topics;
+      if (!topics || topics.length === 0) return null;
+      return topics[this.currentTopicIndex];
     },
 
     currentSystemPrompt: {
@@ -126,7 +128,7 @@ createApp({
       handler() { this.save(); },
       deep: true
     },
-    currentRoom: {
+    currentTopic: {
       handler(val) {
         if (val) {
           this.$nextTick(() => {
@@ -155,10 +157,10 @@ createApp({
       // Pinned characters are always active
       if (this.isCharacterPinned(char)) return true;
 
-      if (!this.currentRoom) return false;
-      const roomId = this.currentRoom.id;
-      const roomState = this.localOptions.roomStates[roomId];
-      const isActive = roomState?.activeCharacterIds?.[char._ui_id] || false;
+      if (!this.currentTopic) return false;
+      const topicId = this.currentTopic.id;
+      const topicState = this.localOptions.topicStates[topicId];
+      const isActive = topicState?.activeCharacterIds?.[char._ui_id] || false;
       return isActive;
     },
 
@@ -241,18 +243,26 @@ createApp({
             delete this.options.theme;
           }
 
-          // Ensure Global Characters and Room IDs for each language
+          // Ensure Global Characters and Topic IDs for each language
           Object.keys(stored.language).forEach(lang => {
             const data = stored.language[lang];
 
             // Ensure characters array
             if (!data.characters) data.characters = [];
 
-            // Ensure Room IDs
-            if (data.rooms) {
-              data.rooms.forEach(room => {
-                if (!room.id) room.id = 'room_' + Date.now() + Math.random();
+            // Ensure activeCharacterIds logic persists or migrates? 
+            // Since we renamed key, old roomStates are lost unless migrated.
+            // Simplified: User accepted reset. We focus on new structure.
+
+            // Ensure Topics
+            if (data.topics) {
+              data.topics.forEach(topic => {
+                if (!topic.id) topic.id = 'topic_' + Date.now() + Math.random();
               });
+            } else if (data.rooms) {
+              // Migration path if needed, but likely better to just encourage reset for clean state
+              data.topics = data.rooms.map(r => ({ ...r, prompt: r.topic }));
+              delete data.rooms;
             }
           });
 
@@ -303,28 +313,28 @@ createApp({
             _ui_id: Date.now() + Math.random() // Ensure unique ID
           }));
 
-          // Map Rooms
-          const rooms = topics.topics.map(t => ({
-            id: 'room_' + Date.now() + Math.random(),
+          // Map Topics
+          const topicsList = topics.topics.map(t => ({
+            id: 'topic_' + Date.now() + Math.random(),
             name: t.title,
-            topic: t.prompt
+            prompt: t.prompt
           }));
 
           this.languageData[lang] = {
             system: topics.system,
             characters: characters,
-            rooms: rooms
+            topics: topicsList
           };
 
           // Explicitly set default active state: Only Pinned (Index 0) is active
           if (characters.length > 0) {
             const pinnedChar = characters[0];
 
-            rooms.forEach((room, rIndex) => {
-              // Ensure roomStates object exists
-              if (!this.localOptions.roomStates) this.localOptions.roomStates = {};
+            topicsList.forEach((topic, rIndex) => {
+              // Ensure topicStates object exists
+              if (!this.localOptions.topicStates) this.localOptions.topicStates = {};
 
-              this.localOptions.roomStates[room.id] = {
+              this.localOptions.topicStates[topic.id] = {
                 activeCharacterIds: {
                   [pinnedChar._ui_id]: true
                 }
@@ -335,12 +345,12 @@ createApp({
         } catch (err) {
           console.error(`Failed to load defaults for ${lang}:`, err);
           // Fallback if fetch fails
-          this.languageData[lang] = { system: "Error loading defaults.", characters: [], rooms: [] };
+          this.languageData[lang] = { system: "Error loading defaults.", characters: [], topics: [] };
         }
       }
 
       this.options.language = 'en';
-      this.currentRoomIndex = 0;
+      this.currentTopicIndex = 0;
       this.sanitizeData();
 
       this.save();
@@ -358,7 +368,21 @@ createApp({
     getPayload() {
       // Pre-process payload for server (similar to updatePromptsAndOptions return)
 
-      let replacedCharacters = JSON.parse(JSON.stringify(this.currentRoom.characters));
+      // Construct participant list based on ACTIVE characters in current TOPIC
+      // We must manually filter the global list based on currentTopic active IDs.
+
+      // We need real characters, not deep copy yet
+      const allChars = this.currentLanguageData.characters || [];
+      const topicId = this.currentTopic.id;
+      const activeIds = this.localOptions.topicStates[topicId]?.activeCharacterIds || {};
+
+      // Filter active
+      let activeChars = allChars.filter(c => activeIds[c._ui_id]);
+
+      // Sort logic is enforced on UI, but we should double check data sort?
+      // The data array is sorted. So filtering in order works.
+
+      let replacedCharacters = JSON.parse(JSON.stringify(activeChars));
 
       // Ensure every character has an ID (default to name) and voice (default to "alloy")
       replacedCharacters.forEach(c => {
@@ -367,7 +391,7 @@ createApp({
       });
 
       if (replacedCharacters[0]) {
-        let participants = this.currentRoom.characters
+        let participants = activeChars
           .slice(1)
           .map(c => this.toTitleCase(c.name))
           .join(", ");
@@ -379,8 +403,10 @@ createApp({
 
       return {
         options: this.options,
-        topic: this.currentLanguageData.system.replace("[TOPIC]", this.currentRoom.topic),
-        characters: replacedCharacters
+        prompt: this.currentSystemPrompt.replace("[TOPIC]", this.currentTopic.prompt),
+        characters: replacedCharacters,
+        // For logging/debug, maybe send topic name too?
+        topicName: this.currentTopic.name
       };
     },
 
@@ -413,21 +439,21 @@ createApp({
     // ===========================
     //   UI ACTIONS
     // ===========================
-    addRoom() {
-      this.currentLanguageData.rooms.push({
-        id: 'room_' + Date.now(),
+    addTopic() {
+      this.currentLanguageData.topics.push({
+        id: 'topic_' + Date.now(),
         name: "New Topic",
-        topic: "",
+        prompt: "",
       });
-      // Switch to new room
-      this.currentRoomIndex = this.currentLanguageData.rooms.length - 1;
+      // Switch to new topic
+      this.currentTopicIndex = this.currentLanguageData.topics.length - 1;
     },
 
-    removeRoom() {
-      if (this.currentLanguageData.rooms.length > 1) {
-        this.currentLanguageData.rooms.splice(this.currentRoomIndex, 1);
-        if (this.currentRoomIndex >= this.currentLanguageData.rooms.length) {
-          this.currentRoomIndex = this.currentLanguageData.rooms.length - 1;
+    removeTopic() {
+      if (this.currentLanguageData.topics.length > 1) {
+        this.currentLanguageData.topics.splice(this.currentTopicIndex, 1);
+        if (this.currentTopicIndex >= this.currentLanguageData.topics.length) {
+          this.currentTopicIndex = this.currentLanguageData.topics.length - 1;
         }
       }
     },
@@ -450,8 +476,8 @@ createApp({
       // Auto-expand in UI logic
       this.localOptions.expandedCharacters[newId] = true;
 
-      // Auto-activate in current room
-      if (this.currentRoom) {
+      // Auto-activate in current topic
+      if (this.currentTopic) {
         this.toggleCharacterActive({ _ui_id: newId });
       }
     },
@@ -477,15 +503,16 @@ createApp({
 
     toggleCharacterActive(char) {
       console.log("toggleCharacterActive called", char);
-      if (!this.currentRoom) return;
-      const roomId = this.currentRoom.id;
+      // Toggle functionality inside Active vs Inactive logic
+      if (!this.currentTopic) return;
+      const topicId = this.currentTopic.id;
 
-      // Ensure state object exists
-      if (!this.localOptions.roomStates[roomId]) {
-        this.localOptions.roomStates[roomId] = { activeCharacterIds: {} };
+      // Ensure state object
+      if (!this.localOptions.topicStates[topicId]) {
+        this.localOptions.topicStates[topicId] = { activeCharacterIds: {} };
       }
 
-      const activeIds = this.localOptions.roomStates[roomId].activeCharacterIds;
+      const activeIds = this.localOptions.topicStates[topicId].activeCharacterIds;
 
       if (activeIds[char._ui_id]) {
         console.log("Deactivating", char._ui_id);
@@ -767,13 +794,18 @@ createApp({
       if (!this.languageData) return;
 
       Object.values(this.languageData).forEach(lang => {
-        if (!lang.rooms) return;
-        lang.rooms.forEach(room => {
-          if (!room.characters) return;
-          room.characters.forEach(c => {
+        if (!lang.topics) return;
+        lang.topics.forEach(topic => {
+          if (!topic.characters) return; // characters are global now, so this check might be legacy, but safe to keep or remove.
+          // Actually, characters are global. This loop was probably checking old structure.
+          // But if we have global characters, we iterate them:
+        });
+        // Correct global character ID check:
+        if (lang.characters) {
+          lang.characters.forEach(c => {
             if (!c._ui_id) c._ui_id = Date.now() + Math.random();
           });
-        });
+        }
       });
     },
 

@@ -125,25 +125,21 @@ body {
   padding: 15px;
 }
 
-.room-item {
-  padding: 4px 8px;
-  border-radius: 4px;
+/* Topics List in Sidebar */
+.topic-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.topic-item {
+  padding: 8px 10px;
   cursor: pointer;
-  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
   transition: all 0.2s;
-}
-
-.room-item:hover {
-  background-color: var(--bg-hover);
-}
-
-.room-item.active {
-  background-color: var(--accent-color);
-  color: white;
-}
-
-.room-item.active .input-minimal {
-  color: white;
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+  border: 1px solid transparent;
 }
 
 .room-item.active .input-minimal:focus {

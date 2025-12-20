@@ -42,16 +42,17 @@
           <div class="sidebar-section-header">
             <h3>Topics</h3>
             <div>
-              <button class="icon-btn" @click="addRoom">+</button>
-              <button class="icon-btn" @click="removeRoom">-</button>
+              <button class="icon-btn" @click="addTopic">+</button>
+              <button class="icon-btn" @click="removeTopic">-</button>
             </div>
           </div>
-          <div class="room-list" style="display: flex; flex-direction: column; gap: 4px;">
-            <div v-for="(room, index) in currentLanguageData.rooms" :key="index" class="room-item"
-              :class="{ active: currentRoomIndex === index }" @click="currentRoomIndex = index">
-              <input type="text" class="styled-input" v-model="room.name" style="display: none;">
-              <div style="font-weight: 500; overflow: hidden; text-overflow: ellipsis;">{{ room.name || 'Untitled Room'
-                }}</div>
+          <div class="topic-list" style="display: flex; flex-direction: column; gap: 4px;">
+            <div v-for="(topic, index) in currentLanguageData.topics" :key="index" class="topic-item"
+              :class="{ active: currentTopicIndex === index }" @click="currentTopicIndex = index">
+              <input type="text" class="styled-input" v-model="topic.name" style="display: none;">
+              <div style="font-weight: 500; overflow: hidden; text-overflow: ellipsis;">
+                {{ topic.name || 'Untitled Topic' }}
+              </div>
             </div>
           </div>
         </div>
@@ -63,13 +64,13 @@
       <div id="split-view-container" class="split-view">
 
         <!-- LEFT PANE: Prompts -->
-        <div class="split-pane pane-editor" :style="{ width: editorWidthPercent + '%' }" v-if="currentRoom">
+        <div class="split-pane pane-editor" :style="{ width: editorWidthPercent + '%' }" v-if="currentTopic">
           <div class="sidebar-header">
-            <h3>{{ currentRoom.name || 'Prompts' }}</h3>
+            <h3>{{ currentTopic.name || 'Prompts' }}</h3>
           </div>
           <div style="flex: 1; overflow-y: auto; padding: 15px;">
 
-            <!-- Room Meta -->
+            <!-- Topic Meta -->
             <!-- System & Topic Configuration -->
             <div class="character-card">
               <div class="card-header" @click="localOptions.configCardExpanded = !localOptions.configCardExpanded">
@@ -81,11 +82,11 @@
 
               <div class="card-body" v-if="localOptions.configCardExpanded">
                 <label class="sub-label">Topic Name</label>
-                <input type="text" class="input-full" v-model="currentRoom.name" placeholder="Room Name"
+                <input type="text" class="input-full" v-model="currentTopic.name" placeholder="Topic Name"
                   style="margin-bottom: 15px;">
 
                 <label class="sub-label">Topic / Panel Prompt</label>
-                <textarea class="input-area" v-model="currentRoom.topic" placeholder="Describe the topic..."
+                <textarea class="input-area" v-model="currentTopic.prompt" placeholder="Describe the topic..."
                   v-auto-resize></textarea>
 
                 <label class="sub-label">System Prompt (Shared)</label>
