@@ -178,8 +178,38 @@ createApp({
         animation: 150,
         handle: ".drag-handle",
         onEnd: (evt) => {
-          const item = this.currentRoom.characters.splice(evt.oldIndex, 1)[0];
-          this.currentRoom.characters.splice(evt.newIndex, 0, item);
+          if (evt.oldIndex === evt.newIndex) return;
+
+          const movedChar = this.sortedCharacters[evt.oldIndex];
+          const targetChar = this.sortedCharacters[evt.newIndex];
+
+          if (!movedChar) return;
+
+          const globalList = this.currentLanguageData.characters;
+
+          // Find current index of moved char in global string
+          const globalOldIndex = globalList.findIndex(c => c._ui_id === movedChar._ui_id);
+          if (globalOldIndex === -1) return;
+
+          // Remove from global list
+          const [removed] = globalList.splice(globalOldIndex, 1);
+
+          // Find where to insert
+          // If moving to end of displayed list, push to end of global list?
+          // Or insert before the target char?
+          if (!targetChar) {
+            // Moved to end
+            globalList.push(removed);
+          } else {
+            const globalNewIndex = globalList.findIndex(c => c._ui_id === targetChar._ui_id);
+            if (globalNewIndex !== -1) {
+              globalList.splice(globalNewIndex, 0, removed);
+            } else {
+              // Fallback
+              globalList.push(removed);
+            }
+          }
+
           this.save();
         }
       });

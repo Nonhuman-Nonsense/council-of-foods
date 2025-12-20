@@ -103,26 +103,24 @@
 
             <!-- Character List -->
             <div id="characters">
-              <div class="character-card" v-for="(character, index) in sortedCharacters"
-                :key="character._ui_id"
+              <div class="character-card" v-for="(character, index) in sortedCharacters" :key="character._ui_id"
                 :class="{ inactive: !character.isActive }">
-                
+
                 <!-- Card Header -->
                 <div class="card-header" @click="toggleCharacterExpanded(character._ui_id)">
                   <div style="display: flex; align-items: center; gap: 10px; flex: 1;">
                     <!-- Active Toggle -->
-                    <input type="checkbox" :checked="character.isActive" @change="toggleCharacterActive(character)" @click.stop
-                           style="width: 16px; height: 16px; accent-color: var(--accent-color);">
-                    
+                    <input type="checkbox" :checked="character.isActive" @change="toggleCharacterActive(character)"
+                      @click.stop style="width: 16px; height: 16px; accent-color: var(--accent-color);">
+
                     <!-- Name -->
                     <input type="text" class="input-minimal" placeholder="Name" v-model="character.name" @click.stop
-                           :style="{ color: character.isActive ? 'var(--text-primary)' : 'var(--text-secondary)' }">
+                      :style="{ color: character.isActive ? 'var(--text-primary)' : 'var(--text-secondary)' }">
                   </div>
                   <div style="display: flex; align-items: center; gap: 5px;">
-                    <!-- Toggle Icon -->
-                    <button class="icon-btn" style="font-size: 12px;">
-                      {{ localOptions.expandedCharacters[character._ui_id] ? '▼' : '▶' }}
-                    </button>
+                    <!-- Drag Handle (Active Only) -->
+                    <span v-if="character.isActive" class="drag-handle" @click.stop
+                      style="cursor: grab; padding: 0 5px; opacity: 0.5;">☰</span>
                   </div>
                 </div>
 
