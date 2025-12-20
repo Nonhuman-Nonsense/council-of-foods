@@ -465,6 +465,7 @@ createApp({
       const newId = Date.now() + Math.random();
       const voiceIndex = this.currentLanguageData.characters.length % this.audioVoices.length;
 
+      // Add at the BOTTOM (End) and maintain Inactive state
       this.currentLanguageData.characters.push({
         voice: this.audioVoices[voiceIndex],
         voiceInstruction: "",
@@ -476,18 +477,27 @@ createApp({
       // Auto-expand in UI logic
       this.localOptions.expandedCharacters[newId] = true;
 
-      // Auto-activate in current topic
-      if (this.currentTopic) {
-        this.toggleCharacterActive({ _ui_id: newId });
-      }
+      // Do NOT auto-activate. User wants it inactive (at bottom).
+      // if (this.currentTopic) {
+      //   this.toggleCharacterActive({ _ui_id: newId });
+      // }
+
+      this.save();
     },
 
     removeCharacter(index) {
       // Global Removal
       if (!this.currentLanguageData.characters || this.currentLanguageData.characters.length === 0) return;
 
-      // If index not provided, remove last
+      // If index not provided, remove the character at the BOTTOM (Last)
       let indexToRemove = (typeof index === 'number') ? index : this.currentLanguageData.characters.length - 1;
+
+      // Safety check to protect Chair (Index 0)
+      if (indexToRemove === 0 && this.currentLanguageData.characters.length > 1) {
+        // Try removing the last one instead if they accidentally tried to pop the chair contextually
+        indexToRemove = this.currentLanguageData.characters.length - 1;
+      }
+      // If only chair remains, allowing removal might be bad, but usually UI prevents it.
 
       const char = this.currentLanguageData.characters[indexToRemove];
       if (char) {

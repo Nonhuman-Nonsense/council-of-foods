@@ -198,6 +198,13 @@ body {
   flex-grow: 1;
 }
 
+.pane-scroll-area {
+  flex: 1;
+  overflow-y: auto;
+  padding: 15px;
+  scrollbar-gutter: stable;
+}
+
 /* Resizer Handle */
 .resizer {
   width: 6px;
