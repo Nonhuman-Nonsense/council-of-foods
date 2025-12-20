@@ -158,7 +158,8 @@ createApp({
       if (!this.currentRoom) return false;
       const roomId = this.currentRoom.id;
       const roomState = this.localOptions.roomStates[roomId];
-      return roomState?.activeCharacterIds?.[char._ui_id] || false;
+      const isActive = roomState?.activeCharacterIds?.[char._ui_id] || false;
+      return isActive;
     },
 
     // Sort logic to keep Active at top in the data model
@@ -232,7 +233,7 @@ createApp({
         if (stored) {
           // Merge stored options to handle new fields gracefully
           this.options = { ...defaultOptions, ...stored.options };
-          this.localOptions = { ...defaultLocalOptions, ...stored.localOptions };
+          this.localOptions = { ...JSON.parse(JSON.stringify(defaultLocalOptions)), ...stored.localOptions };
 
           // Backwards compatibility: if theme was in options
           if (stored.options && stored.options.theme) {
@@ -277,7 +278,8 @@ createApp({
     async factoryReset() {
       // Reset options to defaults
       this.options = { ...defaultOptions };
-      this.localOptions = { ...defaultLocalOptions };
+      // Deep copy defaults to ensure clean slate
+      this.localOptions = { ...JSON.parse(JSON.stringify(defaultLocalOptions)) };
       this.setTheme(this.localOptions.theme);
 
       // Initialize languages from server
@@ -314,6 +316,22 @@ createApp({
             rooms: rooms
           };
 
+          // Explicitly set default active state: Only Pinned (Index 0) is active
+          if (characters.length > 0) {
+            const pinnedChar = characters[0];
+
+            rooms.forEach((room, rIndex) => {
+              // Ensure roomStates object exists
+              if (!this.localOptions.roomStates) this.localOptions.roomStates = {};
+
+              this.localOptions.roomStates[room.id] = {
+                activeCharacterIds: {
+                  [pinnedChar._ui_id]: true
+                }
+              };
+            });
+          }
+
         } catch (err) {
           console.error(`Failed to load defaults for ${lang}:`, err);
           // Fallback if fetch fails
@@ -324,15 +342,6 @@ createApp({
       this.options.language = 'en';
       this.currentRoomIndex = 0;
       this.sanitizeData();
-
-      // Auto-activate all characters for the first room in English
-      if (this.languageData.en && this.languageData.en.rooms.length > 0) {
-        const firstRoomId = this.languageData.en.rooms[0].id;
-        const activeIds = {};
-        this.languageData.en.characters.forEach(c => activeIds[c._ui_id] = true);
-
-        this.localOptions.roomStates[firstRoomId] = { activeCharacterIds: activeIds };
-      }
 
       this.save();
     },
