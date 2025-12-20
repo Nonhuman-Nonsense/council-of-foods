@@ -184,7 +184,7 @@ createApp({
       // Ensure every character has an ID (default to name) and voice (default to "alloy")
       replacedCharacters.forEach(c => {
         if (!c.id && c.name) c.id = c.name;
-        // if (!c.voice) c.voice = this.audioVoices[0];
+        if (!c.voice) c.voice = this.audioVoices[0];
       });
 
       if (replacedCharacters[0]) {
@@ -254,7 +254,10 @@ createApp({
 
     addCharacter() {
       if (this.currentRoom) {
-        this.currentRoom.characters.push({});
+        const voiceIndex = this.currentRoom.characters.length % this.audioVoices.length;
+        this.currentRoom.characters.push({
+          voice: this.audioVoices[voiceIndex]
+        });
       }
     },
 
