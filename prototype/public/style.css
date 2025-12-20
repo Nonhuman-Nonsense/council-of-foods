@@ -196,6 +196,7 @@ body {
 .pane-output {
   /* Initial grow */
   flex-grow: 1;
+  margin-left: -5px;
 }
 
 .pane-scroll-area {
