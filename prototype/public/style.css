@@ -330,7 +330,6 @@ input[type="checkbox"] {
   border-color: var(--accent-color);
   /* Fallback or usage of color-mix if supported, or just a light tint */
   background-color: var(--bg-hover);
-  border-left: 4px solid var(--accent-color);
 }
 
 /* Ensure pinned card header has pointer events for expanding */
@@ -436,6 +435,26 @@ input[type="checkbox"] {
 
 .sub-label:first-child {
   margin-top: 0;
+}
+
+/* Badges */
+.badge {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 4px;
+  /* Less rounded, more like a tag? or keep pill? Let's keep pill but smaller padding */
+  border-radius: 12px;
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  background-color: transparent;
+  border: 1px solid var(--text-secondary);
+  /* Distinct but subtle boundary */
+  color: var(--text-secondary);
+  vertical-align: middle;
+  line-height: 1.2;
+  opacity: 0.8;
 }
 
 /* Voice Chips */

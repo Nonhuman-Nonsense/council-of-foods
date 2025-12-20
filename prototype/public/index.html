@@ -116,9 +116,10 @@
                         @change="toggleCharacterActive(character)" @click.stop
                         style="width: 16px; height: 16px; accent-color: var(--accent-color);">
 
-                      <span :style="{ fontWeight: '600', color: 'var(--text-primary)' }">
-                        {{ character.name || 'Unnamed Character' }} <span v-if="isCharacterPinned(character)">
-                          (Chair)</span>
+                      <span
+                        :style="{ fontWeight: '600', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }">
+                        {{ character.name || 'Unnamed Character' }}
+                        <span v-if="isCharacterPinned(character)" class="badge">Chair</span>
                       </span>
                     </div>
                     <div style="display: flex; align-items: center; gap: 5px;">
