@@ -3,6 +3,7 @@ import { MeetingManager } from "./MeetingManager.js";
 import { Logger } from "../utils/Logger.js";
 import { ClientToServerEvents } from "@shared/SocketTypes.js";
 import { reportError, reportWarning } from "../utils/errorbot.js";
+import { ZodError } from "zod";
 
 /**
  * SocketManager
@@ -91,17 +92,26 @@ export class SocketManager {
                 const context = this.currentSession?.meetingId
                     ? `meeting ${this.currentSession.meetingId}`
                     : `socket ${this.socket.id}`;
-                reportError(context, `Error handling event ${event} : ${error.message}`, error);
 
-                // If we have a session, use its broadcaster to send 500
-                if (this.currentSession) {
-                    this.currentSession.broadcaster.broadcastError("Internal Server Error", 500);
+                if (error instanceof ZodError) {
+                    reportWarning(context, `Validation Error for ${event}: ${error.message}`, error);
+
+                    if (this.currentSession) {
+                        this.currentSession.broadcaster.broadcastWarning("Invalid Input", 400, error);
+                    } else {
+                        this.socket.emit("conversation_error", { message: "Invalid Input", code: 400, error });
+                    }
                 } else {
-                    // Fallback: Emit directly to socket if session creation failed
-                    // This creates a temporary broadcaster or instantiates a raw emit
-                    // Since we know the event signature, we can emit directly.
-                    this.socket.emit("conversation_error", { message: "Internal Server Error", code: 500 });
-                    Logger.warn(`socket ${this.socket.id}`, "Broadcasted error directly to socket (no active session)");
+                    reportError(context, `Error handling event ${event} : ${error.message}`, error);
+
+                    // If we have a session, use its broadcaster to send 500
+                    if (this.currentSession) {
+                        this.currentSession.broadcaster.broadcastError("Internal Server Error", 500);
+                    } else {
+                        // Fallback: Emit directly to socket if session creation failed
+                        this.socket.emit("conversation_error", { message: "Internal Server Error", code: 500 });
+                        Logger.warn(`socket ${this.socket.id}`, "Broadcasted error directly to socket (no active session)");
+                    }
                 }
             }
         });

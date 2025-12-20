@@ -2,6 +2,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { SocketManager } from '@logic/SocketManager.js';
 import { MeetingManager } from '@logic/MeetingManager.js';
+import { ZodError } from 'zod';
 
 // Mock dependencies
 vi.mock('@utils/Logger.js', () => ({
@@ -16,7 +17,7 @@ vi.mock('@utils/errorbot.js', () => ({
     reportError: vi.fn(),
     reportWarning: vi.fn()
 }));
-import { reportError } from '@utils/errorbot.js';
+import { reportError, reportWarning } from '@utils/errorbot.js';
 
 // Mock logic modules
 // We need to return mock instances so we can control their methods
@@ -249,6 +250,37 @@ describe('Async Error Propagation (Comprehensive)', () => {
 
             mockSocket.emit.mockClear();
         }
+    });
+
+    it('should catch Zod validation errors and broadcast 400', async () => {
+        const error = new ZodError([]);
+        const method = 'handleSubmitHumanMessage';
+        const event = 'submit_human_message';
+
+        // Setup session
+        const startHandler = socketHandlers['start_conversation'];
+        mockMeetingLifecycleHandler.handleStartConversation.mockResolvedValueOnce();
+        await startHandler({ topic: 'Setup', language: 'en', characters: [] });
+
+        // Sabotage with ZodError
+        mockHumanInputHandler[method].mockRejectedValue(error);
+
+        const handler = socketHandlers[event];
+        await handler({ text: 'Invalid', speaker: 'User' });
+
+        // Assert
+        expect(mockSocket.emit).toHaveBeenCalledWith("conversation_error", expect.objectContaining({
+            message: "Invalid Input",
+            code: 400
+        }));
+
+        // Verify reportWarning called
+        expect(reportError).not.toHaveBeenCalled();
+        expect(reportWarning).toHaveBeenCalledWith(
+            expect.stringMatching(/^(meeting \d+|socket mock-socket)$/),
+            expect.stringContaining(`Validation Error for ${event}`),
+            expect.any(ZodError)
+        );
     });
 
 });
