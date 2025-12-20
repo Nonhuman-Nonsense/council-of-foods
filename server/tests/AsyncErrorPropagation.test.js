@@ -4,6 +4,8 @@ import { SocketManager } from '@logic/SocketManager.js';
 import { MeetingManager } from '@logic/MeetingManager.js';
 import { ZodError } from 'zod';
 
+import { Logger } from '@utils/Logger.js';
+
 // Mock dependencies
 vi.mock('@utils/Logger.js', () => ({
     Logger: {
@@ -13,11 +15,7 @@ vi.mock('@utils/Logger.js', () => ({
     }
 }));
 
-vi.mock('@utils/errorbot.js', () => ({
-    reportError: vi.fn(),
-    reportWarning: vi.fn()
-}));
-import { reportError, reportWarning } from '@utils/errorbot.js';
+// Mock logic modules
 
 // Mock logic modules
 // We need to return mock instances so we can control their methods
@@ -199,13 +197,13 @@ describe('Async Error Propagation (Comprehensive)', () => {
                 code: 500
             }));
 
-            expect(reportError).toHaveBeenCalledTimes(1);
-            expect(reportError).toHaveBeenCalledWith(
+            expect(Logger.error).toHaveBeenCalledTimes(1);
+            expect(Logger.error).toHaveBeenCalledWith(
                 expect.stringMatching(/^(meeting \d+|socket mock-socket)$/),
                 expect.stringContaining(`Error handling event ${event}`),
                 expect.any(Error)
             );
-            reportError.mockClear();
+            Logger.error.mockClear();
         });
     });
 
@@ -240,13 +238,13 @@ describe('Async Error Propagation (Comprehensive)', () => {
                 code: 500
             }));
 
-            expect(reportError).toHaveBeenCalledTimes(1);
-            expect(reportError).toHaveBeenCalledWith(
+            expect(Logger.error).toHaveBeenCalledTimes(1);
+            expect(Logger.error).toHaveBeenCalledWith(
                 expect.stringMatching(/^(meeting \d+|socket mock-socket)$/),
                 expect.stringContaining(`Error handling event ${event}`),
                 expect.any(Error)
             );
-            reportError.mockClear();
+            Logger.error.mockClear();
 
             mockSocket.emit.mockClear();
         }
@@ -275,8 +273,8 @@ describe('Async Error Propagation (Comprehensive)', () => {
         }));
 
         // Verify reportWarning called
-        expect(reportError).not.toHaveBeenCalled();
-        expect(reportWarning).toHaveBeenCalledWith(
+        expect(Logger.error).not.toHaveBeenCalled();
+        expect(Logger.warn).toHaveBeenCalledWith(
             expect.stringMatching(/^(meeting \d+|socket mock-socket)$/),
             expect.stringContaining(`Validation Error for ${event}`),
             expect.any(ZodError)

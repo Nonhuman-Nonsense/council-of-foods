@@ -2,7 +2,6 @@ import type { ReconnectionOptions } from "@shared/SocketTypes.js";
 import type { ConversationMessage } from "@shared/ModelTypes.js";
 import type { IMeetingManager } from "@interfaces/MeetingInterfaces.js";
 import { splitSentences } from "@utils/textUtils.js";
-import { reportError, reportWarning } from "@utils/errorbot.js";
 import { Logger } from "@utils/Logger.js";
 
 /**
@@ -100,11 +99,11 @@ export class ConnectionHandler {
                 }
             } else {
                 manager.broadcaster.broadcastError('Meeting not found', 404);
-                reportWarning(`meeting ${options.meetingId}`, `Meeting not found`);
+                Logger.warn(`meeting ${options.meetingId}`, `Meeting not found`);
             }
         } catch (error) {
             manager.broadcaster.broadcastError("Error resuming", 500);
-            reportError(`meeting ${options.meetingId}`, "Error resuming conversation", error);
+            Logger.error(`meeting ${options.meetingId}`, "Error resuming conversation", error);
         }
     }
 }

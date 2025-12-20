@@ -4,8 +4,8 @@ import type { OpenAI } from "openai";
 import type { Collection } from "mongodb";
 import type { VoiceOption } from "@shared/ModelTypes.js";
 
-import { reportError } from "@utils/errorbot.js";
 import { Logger } from "@utils/Logger.js";
+
 import { mapSentencesToWords, Word } from "@utils/textUtils.js";
 
 // OpenAI SDK accepts Buffer/Stream for 'file'.
@@ -55,7 +55,7 @@ export class AudioQueue {
             await task();
         } catch (error) {
             //This block will catch asynchronous errors
-            reportError("AudioSystem", "Audio Task Error", error);
+            Logger.error("AudioSystem", "Audio Task Error", error);
         } finally {
             this.activeCount--;
             this.processNext();
@@ -143,7 +143,7 @@ export class AudioSystem {
         } catch (error: unknown) {
             //Let's report this to see if it ever happens
             //But let the client continue
-            reportError(`AudioSystem`, `Error retrieving existing audio (message id: ${message.id})`, error);
+            Logger.error(`AudioSystem`, `Error retrieving existing audio (message id: ${message.id})`, error);
         }
 
         try {
@@ -203,7 +203,7 @@ export class AudioSystem {
 
             //Crash the client and report
             this.broadcaster.broadcastError('Error generating audio', 500);
-            reportError("AudioSystem", "Error generating audio", error);
+            Logger.error("AudioSystem", "Error generating audio", error);
         }
     }
 

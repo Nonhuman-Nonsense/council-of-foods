@@ -1,8 +1,7 @@
 import { Socket } from "socket.io";
 import { MeetingManager } from "./MeetingManager.js";
-import { Logger } from "../utils/Logger.js";
+import { Logger } from "@utils/Logger.js";
 import { ClientToServerEvents } from "@shared/SocketTypes.js";
-import { reportError, reportWarning } from "../utils/errorbot.js";
 import { ZodError } from "zod";
 
 /**
@@ -77,11 +76,9 @@ export class SocketManager {
                 //    or after it was destroyed. We drop it to prevent crashing.
                 //    
                 //    RECONNECTION/RACE CONDITION NOTE:
-                //    In practice, TCP guarantees packet order. If a client sends "Reconnect" then "Message",
-                //    the server processes "Reconnect" first (creating session), then "Message" (succeeds).
                 //    This check primarily protects against "ghost" events from old sessions, buggy clients,
                 //    or rare edge cases where the session might have crashed/reset in between events.
-                reportWarning("socket", `Ignored event ${event} - No active session`);
+                Logger.warn("socket", `Ignored event ${event} - No active session`);
                 return;
             }
 
@@ -94,7 +91,7 @@ export class SocketManager {
                     : `socket ${this.socket.id}`;
 
                 if (error instanceof ZodError) {
-                    reportWarning(context, `Validation Error for ${event}: ${error.message}`, error);
+                    Logger.warn(context, `Validation Error for ${event}: ${error.message}`, error);
 
                     if (this.currentSession) {
                         this.currentSession.broadcaster.broadcastWarning("Invalid Input", 400, error);
@@ -102,7 +99,7 @@ export class SocketManager {
                         this.socket.emit("conversation_error", { message: "Invalid Input", code: 400, error });
                     }
                 } else {
-                    reportError(context, `Error handling event ${event} : ${error.message}`, error);
+                    Logger.error(context, `Error handling event ${event}: ${error.message}`, error);
 
                     // If we have a session, use its broadcaster to send 500
                     if (this.currentSession) {

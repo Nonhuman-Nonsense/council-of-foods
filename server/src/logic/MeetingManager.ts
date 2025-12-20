@@ -1,11 +1,9 @@
 import type { IMeetingManager, Services, ConversationOptions, IMeetingBroadcaster } from "@interfaces/MeetingInterfaces.js";
-import { ZodSchema } from "zod";
 import type { Character, ConversationMessage } from "@shared/ModelTypes.js";
 import type { ClientToServerEvents, ReconnectionOptions, ServerToClientEvents, SetupOptions } from "@shared/SocketTypes.js";
 
 import { getOpenAI } from "@services/OpenAIService.js";
 import { meetingsCollection, audioCollection, insertMeeting } from "@services/DbService.js";
-import { reportError, reportWarning } from "@utils/errorbot.js";
 import { AudioSystem, Message as AudioMessage } from "@logic/AudioSystem.js";
 import { SpeakerSelector } from "@logic/SpeakerSelector.js";
 import { DialogGenerator } from "@logic/DialogGenerator.js";
@@ -216,7 +214,7 @@ export class MeetingManager implements IMeetingManager {
                 // }
 
                 this.broadcaster.broadcastError("Conversation process error", 500);
-                reportError(`meeting ${this.meetingId}`, "Conversation process error", error);
+                Logger.error(`meeting ${this.meetingId}`, "Conversation process error", error);
                 return;
             }
 
