@@ -160,7 +160,7 @@ function Main({ lang }: MainProps) {
     // Convert Food[] to Character[] by ensuring all required properties are present
     const participants: Character[] = foods.map(food => ({
       ...food,
-      voice: food.voice || "default_voice", // Provide default if missing
+      voice: food.voice, // Voice is now strictly required by Character type and Food type
       type: food.type || "food" // Ensure type is set
     })) as Character[];
 

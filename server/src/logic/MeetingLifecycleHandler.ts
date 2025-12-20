@@ -2,11 +2,10 @@ import type { Character, ConversationMessage } from '@shared/ModelTypes.js';
 import type { ILifecycleContext, ConversationOptions } from "@interfaces/MeetingInterfaces.js";
 import type { Message as AudioMessage } from "@logic/AudioSystem.js";
 import { splitSentences } from "@utils/textUtils.js";
-import { reportError } from "@utils/errorbot.js";
 import { Logger } from "@utils/Logger.js";
 import { GlobalOptions } from "@logic/GlobalOptions.js";
 
-interface SetupOptions {
+export interface SetupOptions {
     options?: Partial<GlobalOptions>;
     characters: Character[];
     language: string;
@@ -183,8 +182,7 @@ export class MeetingLifecycleHandler {
             manager.broadcaster.broadcastClientKey(data);
             Logger.info(`meeting ${manager.meetingId}`, "clientkey sent");
         } catch (error) {
-            reportError(`meeting ${manager.meetingId}`, "Meeting Lifecycle Error", error);
-            manager.broadcaster.broadcastError("An error occurred during the conversation.", 500);
+            Logger.reportAndCrashClient(`meeting ${manager.meetingId}`, "Failed to initialize realtime transcription.", error, manager.broadcaster);
         }
     }
 
@@ -196,5 +194,34 @@ export class MeetingLifecycleHandler {
         Logger.info(`meeting ${manager.meetingId}`, "continuing conversation");
         manager.extraMessageCount += manager.globalOptions.extraMessageCount;
         manager.startLoop();
+    }
+
+    /**
+     * Pauses the conversation.
+     */
+    handlePauseConversation(): void {
+        const { manager } = this;
+        Logger.info(`meeting ${manager.meetingId}`, "paused");
+        manager.isPaused = true;
+    }
+
+    /**
+     * Resumes the conversation.
+     */
+    handleResumeConversation(): void {
+        const { manager } = this;
+        Logger.info(`meeting ${manager.meetingId}`, "resumed");
+        manager.isPaused = false;
+        manager.startLoop();
+    }
+
+    /**
+     * Removes the last message from the conversation (prototype functionality).
+     */
+    handleRemoveLastMessage(): void {
+        const { manager } = this;
+        Logger.info(`meeting ${manager.meetingId}`, "popping last message");
+        manager.conversation.pop();
+        manager.broadcaster.broadcastConversationUpdate(manager.conversation);
     }
 }

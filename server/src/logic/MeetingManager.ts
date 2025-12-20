@@ -1,10 +1,9 @@
 import type { IMeetingManager, Services, ConversationOptions, IMeetingBroadcaster } from "@interfaces/MeetingInterfaces.js";
 import type { Character, ConversationMessage } from "@shared/ModelTypes.js";
-import type { ClientToServerEvents, ServerToClientEvents } from "@shared/SocketTypes.js";
+import type { ClientToServerEvents, ReconnectionOptions, ServerToClientEvents, SetupOptions } from "@shared/SocketTypes.js";
 
 import { getOpenAI } from "@services/OpenAIService.js";
 import { meetingsCollection, audioCollection, insertMeeting } from "@services/DbService.js";
-import { reportError } from "@utils/errorbot.js";
 import { AudioSystem, Message as AudioMessage } from "@logic/AudioSystem.js";
 import { SpeakerSelector } from "@logic/SpeakerSelector.js";
 import { DialogGenerator } from "@logic/DialogGenerator.js";
@@ -21,7 +20,8 @@ import {
     HumanMessageSchema,
     InjectionMessageSchema,
     HandRaisedOptionsSchema,
-    ReconnectionOptionsSchema
+    ReconnectionOptionsSchema,
+    WrapUpMessageSchema
 } from "@models/ValidationSchemas.js";
 
 
@@ -41,7 +41,7 @@ export class MeetingManager implements IMeetingManager {
     services: Services;
     broadcaster: IMeetingBroadcaster;
 
-    run: boolean;
+    isLoopActive: boolean;
     handRaised: boolean;
     isPaused: boolean;
     currentSpeaker: number;
@@ -74,7 +74,7 @@ export class MeetingManager implements IMeetingManager {
         };
 
         // Session variables
-        this.run = true;
+        this.isLoopActive = false; // Start inactive, explicit start required
         this.handRaised = false;
         this.isPaused = false;
         this.currentSpeaker = 0;
@@ -98,137 +98,139 @@ export class MeetingManager implements IMeetingManager {
         this.handRaisingHandler = new HandRaisingHandler(this);
         this.meetingLifecycleHandler = new MeetingLifecycleHandler(this);
         this.connectionHandler = new ConnectionHandler(this);
-
-        this.setupListeners();
     }
 
-    setupListeners() {
-        if (this.environment === "prototype") {
-            this.setupPrototypeListeners();
+    /**
+     * Called by SocketManager when this session is destroyed (user disconnected or switched meeting).
+     */
+    destroy() {
+        Logger.info(`meeting ${this.meetingId}`, "Session destroyed");
+        this.isLoopActive = false;
+        // Clean up listeners? No, we don't attach them anymore.
+        // Stop audio generation?
+        // Note: AudioSystem might still be processing. Ideally we'd cancel it.
+        // Ensure connection handler knows we are done (logging mainly)
+        this.connectionHandler.handleDisconnect();
+    }
+
+    /**
+     * Proxied event handler from SocketManager.
+     */
+    async handleEvent<K extends keyof ClientToServerEvents>(event: K, payload: Parameters<ClientToServerEvents[K]>[0]) {
+        switch (event) {
+            case "submit_human_message":
+                await this.humanInputHandler.handleSubmitHumanMessage(HumanMessageSchema.parse(payload));
+                break;
+            case "submit_human_panelist":
+                await this.humanInputHandler.handleSubmitHumanPanelist(HumanMessageSchema.parse(payload));
+                break;
+            case "submit_injection":
+                await this.humanInputHandler.handleSubmitInjection(InjectionMessageSchema.parse(payload));
+                break;
+            case "raise_hand":
+                await this.handRaisingHandler.handleRaiseHand(HandRaisedOptionsSchema.parse(payload));
+                break;
+            case "wrap_up_meeting":
+                await this.meetingLifecycleHandler.handleWrapUpMeeting(WrapUpMessageSchema.parse(payload));
+                break;
+            case "continue_conversation":
+                await this.meetingLifecycleHandler.handleContinueConversation();
+                break;
+            case "request_clientkey":
+                await this.meetingLifecycleHandler.handleRequestClientKey();
+                break;
+            // Prototype Listeners
+            case "pause_conversation":
+                if (this.environment === 'prototype') await this.meetingLifecycleHandler.handlePauseConversation();
+                break;
+            case "resume_conversation":
+                if (this.environment === 'prototype') await this.meetingLifecycleHandler.handleResumeConversation();
+                break;
+            case "remove_last_message":
+                if (this.environment === 'prototype') await this.meetingLifecycleHandler.handleRemoveLastMessage();
+                break;
+            default:
+                Logger.warn("MeetingManager", `Unhandled event: ${event}`);
         }
-
-        // Use handlers with Zod Validation
-        this.socket.on("submit_human_message", (msg) => {
-            const parse = HumanMessageSchema.safeParse(msg);
-            if (!parse.success) {
-                const errorMsg = `Invalid submit_human_message payload: ${JSON.stringify(parse.error.format())}`;
-                reportError(`meeting ${this.meetingId}`, errorMsg, parse.error);
-                return;
-            }
-            this.humanInputHandler.handleSubmitHumanMessage(parse.data);
-        });
-
-        this.socket.on("submit_human_panelist", (msg) => {
-            const parse = HumanMessageSchema.safeParse(msg);
-            if (!parse.success) {
-                const errorMsg = `Invalid submit_human_panelist payload: ${JSON.stringify(parse.error.format())}`;
-                reportError(`meeting ${this.meetingId}`, errorMsg, parse.error);
-                return;
-            }
-            this.humanInputHandler.handleSubmitHumanPanelist(parse.data);
-        });
-
-        this.socket.on("submit_injection", (msg) => {
-            const parse = InjectionMessageSchema.safeParse(msg);
-            if (!parse.success) {
-                const errorMsg = `Invalid submit_injection payload: ${JSON.stringify(parse.error.format())}`;
-                reportError(`meeting ${this.meetingId}`, errorMsg, parse.error);
-                return;
-            }
-            this.humanInputHandler.handleSubmitInjection(parse.data);
-        });
-
-        this.socket.on("raise_hand", (msg) => {
-            const parse = HandRaisedOptionsSchema.safeParse(msg);
-            if (!parse.success) {
-                const errorMsg = `Invalid raise_hand payload: ${JSON.stringify(parse.error.format())}`;
-                reportError(`meeting ${this.meetingId}`, errorMsg, parse.error);
-                return;
-            }
-            this.handRaisingHandler.handleRaiseHand(parse.data);
-        });
-
-        this.socket.on("wrap_up_meeting", (msg) => {
-            // Basic object check till we define strict schema for this one
-            if (!msg || typeof msg !== 'object') return Logger.error(`meeting ${this.meetingId}`, "Invalid wrap_up_meeting payload");
-            this.meetingLifecycleHandler.handleWrapUpMeeting(msg);
-        });
-
-        this.socket.on('attempt_reconnection', (options) => {
-            const parse = ReconnectionOptionsSchema.safeParse(options);
-            if (!parse.success) {
-                const errorMsg = `Invalid attempt_reconnection payload: ${JSON.stringify(parse.error.format())}`;
-                // This doesn't have a specific meeting context yet from 'this', use options.meetingId
-                reportError(`meeting ${options.meetingId}`, errorMsg, parse.error);
-                return;
-            }
-            this.connectionHandler.handleReconnection(parse.data);
-        });
-
-        this.socket.on("start_conversation", async (setup) => {
-            const parse = SetupOptionsSchema.safeParse(setup);
-            if (!parse.success) {
-                const errorMsg = `Invalid start_conversation payload: ${JSON.stringify(parse.error.format())}`;
-                reportError("init", errorMsg, parse.error);
-                return;
-            }
-            this.meetingLifecycleHandler.handleStartConversation(parse.data);
-        });
-
-        this.socket.on("disconnect", () => this.connectionHandler.handleDisconnect());
-
-        this.socket.on('continue_conversation', () => this.meetingLifecycleHandler.handleContinueConversation());
-        this.socket.on('request_clientkey', async () => this.meetingLifecycleHandler.handleRequestClientKey());
     }
 
-    setupPrototypeListeners() {
-        if (this.environment !== 'prototype') return;
-
-        this.socket.on("pause_conversation", () => {
-            Logger.info(`meeting ${this.meetingId}`, "paused");
-            this.isPaused = true;
-        });
-
-        this.socket.on("resume_conversation", () => {
-            Logger.info(`meeting ${this.meetingId}`, "resumed");
-            this.isPaused = false;
-            this.startLoop();
-        });
-        this.socket.on("remove_last_message", () => {
-            this.conversation.pop();
-            this.broadcaster.broadcastConversationUpdate(this.conversation);
-        });
+    async initializeStart(payload: SetupOptions) {
+        const data = SetupOptionsSchema.parse(payload);
+        await this.meetingLifecycleHandler.handleStartConversation(data);
     }
+
+    async initializeReconnect(payload: ReconnectionOptions) {
+        const data = ReconnectionOptionsSchema.parse(payload);
+        await this.connectionHandler.handleReconnection(data);
+    }
+
+    async syncClient() {
+        if (this.meetingId) {
+            this.connectionHandler.handleReconnection({ meetingId: this.meetingId });
+            // Note: handleReconnection includes broadcasting update.
+        }
+    }
+
 
     async runLoop() {
-        while (this.run) {
-            if (this.isPaused || this.handRaised) {
+        while (this.isLoopActive) {
+
+            // Calculate next step
+            const action = this.decideNextAction();
+
+            // Break after certain actions
+            // CRITICAL: We mark the loop as inactive BEFORE calling processTurn.
+            // Why? If processTurn yields (awaits), and the user clicks "Resume" immediately, 
+            // startLoop() needs to see isLoopActive=false to execute. 
+            // If we waited until after processTurn, startLoop() would think the loop is 
+            // still running and return early, failing to restart the conversation.
+            //
+            // We still proceed to processTurn below because 'END_CONVERSATION' needs 
+            // to broadcast the end event to clients.
+            if (action.type === 'WAIT' || action.type === 'END_CONVERSATION') {
+                this.isLoopActive = false;
+            }
+
+            try {
+                // Do it
+                await this.processTurn(action);
+            } catch (error: unknown) {
+                // This might lead to problems if connections reset, disabling for now
+
+                // const err = error as { code?: number, message?: string };
+                // if (
+                //     err.code === 11600 ||
+                //     (err.message && (err.message.includes('interrupted at shutdown') || err.message.includes('ECONNRESET')))
+                // ) {
+                //     Logger.error(`meeting ${this.meetingId}`, "Error during conversation", error);
+                //     return;
+                // }
+
+                Logger.reportAndCrashClient(`meeting ${this.meetingId}`, "Conversation process error", error, this.broadcaster);
                 return;
             }
 
-            // Check max length
-            if (this.conversation.length >= this.conversationOptions.options.conversationMaxLength + this.extraMessageCount) {
+            if (action.type === 'WAIT' || action.type === 'END_CONVERSATION') {
                 return;
             }
-
-            // Check awaiting states
-            if (this.conversation.length > 0 &&
-                (this.conversation[this.conversation.length - 1].type === 'awaiting_human_panelist' ||
-                    this.conversation[this.conversation.length - 1].type === 'awaiting_human_question')) {
-                return;
-            }
-
-            await this.processTurn();
-
-            // If processTurn resulted in a state change (pause, hand raise, end), the next iteration check handles it (or we return).
         }
+        this.isLoopActive = false; // Ensure state is synced if loop breaks naturally
     }
 
     startLoop() {
+        // Idempotent start
+        if (this.isLoopActive) return;
+
+        Logger.info(`meeting ${this.meetingId}`, "loop started");
+        this.isLoopActive = true;
         this.runLoop();
     }
 
     decideNextAction(): Decision {
+        // 0. Just wait
+        if (this.isPaused || this.handRaised) {
+            return { type: 'WAIT' };
+        }
         // 1. Check Limits
         if (this.conversation.length >= this.conversationOptions.options.conversationMaxLength + this.extraMessageCount) {
             return { type: 'END_CONVERSATION' };
@@ -258,56 +260,39 @@ export class MeetingManager implements IMeetingManager {
     /**
      * Core loop function. Decides the next action based on conversation state.
      */
-    async processTurn(): Promise<void> {
-        try {
-            // Decoupled Decision Step
-            const action = this.decideNextAction();
+    async processTurn(action: Decision): Promise<void> {
+        switch (action.type) {
+            case 'WAIT':
+                return; // Do nothing, just wait.
 
-            switch (action.type) {
-                case 'WAIT':
-                    return; // Do nothing, just wait.
-
-                case 'END_CONVERSATION':
-                    this.broadcaster.broadcastConversationEnd();
-                    return;
-
-                case 'REQUEST_PANELIST':
-                    if (action.speaker) {
-                        this.conversation.push({
-                            type: 'awaiting_human_panelist',
-                            speaker: action.speaker.id,
-                            text: "", // Added to satisfy ConversationMessage
-                            sentences: [] // Added to satisfy ConversationMessage
-                        });
-                        Logger.info(`meeting ${this.meetingId}`, `awaiting human panelist on index ${this.conversation.length - 1}`);
-                        this.broadcaster.broadcastConversationUpdate(this.conversation);
-                        if (this.meetingId !== null) {
-                            this.services.meetingsCollection.updateOne(
-                                { _id: this.meetingId },
-                                { $set: { conversation: this.conversation } }
-                            );
-                        }
-                    }
-                    return;
-
-                case 'GENERATE_AI_RESPONSE':
-                    if (action.speaker) {
-                        await this.handleAITurn(action as { type: string, speaker: Character });
-                    }
-                    break;
-            }
-        } catch (error: unknown) {
-            // Suppress "interrupted at shutdown" and ECONNRESET errors often seen during tests
-            const err = error as { code?: number, message?: string };
-            if (
-                err.code === 11600 ||
-                (err.message && (err.message.includes('interrupted at shutdown') || err.message.includes('ECONNRESET')))
-            ) {
+            case 'END_CONVERSATION':
+                this.broadcaster.broadcastConversationEnd();
                 return;
-            }
-            Logger.error(`meeting ${this.meetingId}`, "Error during conversation", error);
-            this.broadcaster.broadcastError("Error", 500);
-            reportError(`meeting ${this.meetingId}`, "Conversation process error", error);
+
+            case 'REQUEST_PANELIST':
+                if (action.speaker) {
+                    this.conversation.push({
+                        type: 'awaiting_human_panelist',
+                        speaker: action.speaker.id,
+                        text: "", // Added to satisfy ConversationMessage
+                        sentences: [] // Added to satisfy ConversationMessage
+                    });
+                    Logger.info(`meeting ${this.meetingId}`, `awaiting human panelist on index ${this.conversation.length - 1}`);
+                    this.broadcaster.broadcastConversationUpdate(this.conversation);
+                    if (this.meetingId !== null) {
+                        this.services.meetingsCollection.updateOne(
+                            { _id: this.meetingId },
+                            { $set: { conversation: this.conversation } }
+                        );
+                    }
+                }
+                return;
+
+            case 'GENERATE_AI_RESPONSE':
+                if (action.speaker) {
+                    await this.handleAITurn(action as { type: string, speaker: Character });
+                }
+                break;
         }
     }
 
@@ -318,7 +303,7 @@ export class MeetingManager implements IMeetingManager {
         // Generate Logic
         // Check for interrupts function
         const shouldAbort = () => {
-            return !this.run || this.handRaised || this.isPaused || thisMeetingId != this.meetingId;
+            return !this.isLoopActive || this.handRaised || this.isPaused || thisMeetingId != this.meetingId;
         }
 
         const output = await this.dialogGenerator.generateResponseWithRetry(

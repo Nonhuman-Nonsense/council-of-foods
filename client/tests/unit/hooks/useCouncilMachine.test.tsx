@@ -196,4 +196,104 @@ describe('useCouncilMachine', () => {
         });
         expect(result.current.state.isMuted).toBe(false);
     });
+
+    // --- Human Panelist Tests ---
+
+    it('transitions to human_panelist state when awaiting_human_panelist message is next', () => {
+        const { result } = renderHook(() => useCouncilMachine(defaultProps as any));
+
+        const panelistMsg = {
+            id: 'msg_panelist',
+            text: '...',
+            speaker: 'human-panelist',
+            type: 'awaiting_human_panelist'
+        };
+
+        act(() => {
+            if (socketHandlers.onConversationUpdate) {
+                socketHandlers.onConversationUpdate([panelistMsg]);
+            }
+        });
+
+        // The state machine effect should trigger
+        expect(result.current.state.councilState).toBe('human_panelist');
+    });
+
+    it('submits human panelist message correctly', () => {
+        const { result } = renderHook(() => useCouncilMachine(defaultProps as any));
+
+        const panelistMsg = {
+            id: 'msg_panelist',
+            text: '...',
+            speaker: 'human-panelist-1',
+            type: 'awaiting_human_panelist'
+        };
+
+        // 1. Enter state
+        act(() => {
+            if (socketHandlers.onConversationUpdate) {
+                socketHandlers.onConversationUpdate([panelistMsg]);
+            }
+        });
+        expect(result.current.state.councilState).toBe('human_panelist');
+
+        // 2. Submit
+        act(() => {
+            result.current.actions.handleOnSubmitHumanMessage('My Panelist Response', '');
+        });
+
+        // 3. Verify Emission
+        // Expect "submit_human_panelist" with correct structure
+        expect(mockSocketEmit).toHaveBeenCalledWith('submit_human_panelist', {
+            text: 'My Panelist Response',
+            speaker: 'human-panelist-1' // Should use the speaker ID from the awaiting message
+        });
+
+        // 4. Verify Local State update (slicing) and transition
+        // Slicing removes the 'awaiting' message, so textMessages should be empty
+        expect(result.current.state.textMessages).toEqual([]);
+
+        // Next action calculation should transition back to loading or appropriate state
+        // If textMessages is empty, tryToFind will fail -> loading
+        expect(result.current.state.councilState).toBe('loading');
+    });
+
+
+    it('should NOT emit attempt_reconnection if reconnection happens without a current meeting ID (race condition fix)', () => {
+        renderHook(() => useCouncilMachine(defaultProps as any));
+
+        // Simulate reconnect event
+        act(() => {
+            if (socketHandlers.onReconnect) {
+                socketHandlers.onReconnect();
+            }
+        });
+
+        // Should not have emitted attempt_reconnection because no meeting started yet
+        expect(mockSocketEmit).not.toHaveBeenCalledWith('attempt_reconnection', expect.anything());
+    });
+
+    it('should emit attempt_reconnection if a meeting was already active', () => {
+        const { result } = renderHook(() => useCouncilMachine(defaultProps as any));
+
+        // 1. Establish Meeting
+        act(() => {
+            if (socketHandlers.onMeetingStarted) {
+                socketHandlers.onMeetingStarted({ meeting_id: '999' });
+            }
+        });
+
+        // 2. Simulate Reconnect
+        act(() => {
+            if (socketHandlers.onReconnect) {
+                socketHandlers.onReconnect();
+            }
+        });
+
+        // Should emit
+        expect(mockSocketEmit).toHaveBeenCalledWith('attempt_reconnection', expect.objectContaining({
+            meetingId: '999'
+        }));
+    });
 });
+

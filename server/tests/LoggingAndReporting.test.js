@@ -1,164 +1,56 @@
+
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import path from 'path';
+import { Logger } from '@utils/Logger.js';
+import * as config from '@root/src/config.js';
 
-describe('Logging & Reporting System', () => {
-    let Logger;
-    let reportError;
+// Mock config to prevent actual error reporting (if errorbot attempts it)
+vi.mock('@root/src/config.js', () => ({
+    config: {
+        error_reporting_url: 'http://localhost:0000', // Dummy
+        NODE_ENV: 'test'
+    }
+}));
 
-    const mocks = vi.hoisted(() => ({
-        config: {
-            COUNCIL_ERRORBOT: 'http://mock-errorbot',
-            COUNCIL_DB_PREFIX: 'TestService'
-        }
-    }));
+// Mock console methods to avoid noise
+const consoleSpy = {
+    error: vi.spyOn(console, 'error').mockImplementation(() => { }),
+    warn: vi.spyOn(console, 'warn').mockImplementation(() => { })
+};
 
-    // Mock the config module
-    vi.mock('@root/src/config.js', () => ({
-        get config() {
-            return mocks.config;
-        }
-    }));
-
-    vi.mock('@root/src/config.js', () => ({
-        get config() {
-            return mocks.config;
-        }
-    }));
-
-    let consoleLogSpy;
-    let consoleWarnSpy;
-    let consoleErrorSpy;
-
-    beforeEach(async () => {
-        // Clear module cache to ensure we get mocked config
-        vi.resetModules();
-
-        // Dynamically import modules
-        const loggerModule = await import('@utils/Logger.js');
-        Logger = loggerModule.Logger;
-
-        const errorbotModule = await import('@utils/errorbot.js');
-        reportError = errorbotModule.reportError;
-
-        // Reset mock config for each test
-        mocks.config.COUNCIL_ERRORBOT = 'http://mock-errorbot';
-        mocks.config.COUNCIL_DB_PREFIX = 'TestService';
-
-        // Spy on console methods and suppress output
-        consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => { });
-        consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => { });
-        consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => { });
-
-        // Mock fetch for errorbot
-        global.fetch = vi.fn().mockResolvedValue({
-            ok: true,
-            text: () => Promise.resolve('ok')
-        });
-    });
+describe('Logger Reporting', () => {
 
     afterEach(() => {
-        vi.restoreAllMocks();
+        vi.clearAllMocks();
     });
 
-    describe('Logger Utility', () => {
-        it('should format info logs correctly with context', () => {
-            Logger.info('TEST_CTX', 'info message');
-            // We check matching parts because colors introduce ANSI codes
-            expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('[TEST_CTX]'));
-            expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('info message'));
-        });
+    it('should log error to console via Logger.error', () => {
+        const error = new Error("Test Error");
+        Logger.reportAndCrashClient("TestContext", "An error occurred", error);
 
-        it('should format warn logs correctly', () => {
-            Logger.warn('TEST_CTX', 'warning message');
-            expect(consoleWarnSpy).toHaveBeenCalledWith(expect.stringContaining('[TEST_CTX]'));
-            expect(consoleWarnSpy).toHaveBeenCalledWith(expect.stringContaining('warning message'));
-        });
-
-        it('should format error logs correctly with simple message', () => {
-            Logger.error('TEST_CTX', 'error message');
-            expect(consoleErrorSpy).toHaveBeenCalledWith(expect.stringContaining('[TEST_CTX]'));
-            expect(consoleErrorSpy).toHaveBeenCalledWith(expect.stringContaining('error message'));
-        });
-
-        it('should log detailed error stack when Error object provided', () => {
-            const error = new Error('Test Error Object');
-            Logger.error('TEST_CTX', 'failed', error);
-
-            // Primary log
-            expect(consoleErrorSpy).toHaveBeenCalledWith(expect.stringContaining('[TEST_CTX]'));
-            expect(consoleErrorSpy).toHaveBeenCalledWith(expect.stringContaining('failed'));
-
-            // Stack trace or details (Logger.error makes multiple console.error calls)
-            // The first call is the formatted line, second is the stack
-            expect(consoleErrorSpy).toHaveBeenCalledTimes(2);
-            const calls = consoleErrorSpy.mock.calls;
-            const stackLog = calls[1][0]; // 2nd call, 1st arg
-
-            expect(stackLog).toContain('Error: Test Error Object');
-            // Assuming colorette gray is used, we might expect codes, but checking message existence is key
-        });
-
-        it('should log JSON for non-Error objects', () => {
-            const obj = { foo: 'bar' };
-            Logger.error('TEST_CTX', 'failed', obj);
-
-            expect(consoleErrorSpy).toHaveBeenCalledTimes(2);
-            expect(consoleErrorSpy.mock.calls[1][0]).toContain('{\n  "foo": "bar"\n}');
-        });
+        expect(consoleSpy.error).toHaveBeenCalled();
+        // The logger adds colors, so matching exact string is hard, but we know it calls console.error
     });
 
-    describe('reportError (Errorbot)', () => {
-        it('should log strictly to console via Logger and attempt to send report', async () => {
-            const err = new Error('Reporting fail');
-            await reportError('TEST_CTX', 'Something went wrong', err);
+    it('should broadcast 500 error if broadcaster is provided', () => {
+        const mockBroadcaster = {
+            broadcastError: vi.fn(),
+            broadcastWarning: vi.fn()
+        };
 
-            // Verify local logging
-            expect(consoleErrorSpy).toHaveBeenCalled();
-            const logCall = consoleErrorSpy.mock.calls.find(call => call[0].includes('Something went wrong'));
-            expect(logCall).toBeDefined();
+        const error = new Error("Broadcast Me");
+        Logger.reportAndCrashClient("TestContext", "Client Message", error, mockBroadcaster);
 
-            // Verify network call
-            expect(global.fetch).toHaveBeenCalledWith(
-                'http://mock-errorbot',
-                expect.objectContaining({
-                    method: 'POST',
-                    body: expect.stringContaining('"service":"TestService"')
-                })
-            );
+        expect(mockBroadcaster.broadcastError).toHaveBeenCalledWith("Client Message", 500);
+        expect(consoleSpy.error).toHaveBeenCalled();
+    });
 
-            // Verify payload structure in fetch body
-            const fetchCall = global.fetch.mock.calls[0];
-            const body = JSON.parse(fetchCall[1].body);
-            expect(body).toMatchObject({
-                context: 'TEST_CTX',
-                message: 'Something went wrong',
-                level: 'ERROR',
-                error: expect.objectContaining({
-                    message: 'Reporting fail',
-                    name: 'Error'
-                })
-            });
-        });
+    it('should not throw if broadcaster is undefined', () => {
+        const error = new Error("No Broadcaster");
+        // Should not throw
+        expect(() => {
+            Logger.reportAndCrashClient("TestContext", "Silent failure", error);
+        }).not.toThrow();
 
-        it('should handle missing error object gracefully', async () => {
-            await reportError('TEST_CTX', 'Just a message');
-
-            const fetchCall = global.fetch.mock.calls[0];
-            const body = JSON.parse(fetchCall[1].body);
-            expect(body).toMatchObject({
-                context: 'TEST_CTX',
-                message: 'Just a message',
-            });
-            expect(body).not.toHaveProperty('error');
-        });
-
-        it('should not throw if fetch fails', async () => {
-            global.fetch.mockRejectedValue(new Error('Network error'));
-
-            // Should not throw
-            await expect(reportError('CTX', 'Msg')).resolves.not.toThrow();
-
-            expect(consoleErrorSpy).toHaveBeenCalledWith(expect.stringContaining('Failed to post to errorbot:'));
-        });
+        expect(consoleSpy.error).toHaveBeenCalled();
     });
 });

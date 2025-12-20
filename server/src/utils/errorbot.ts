@@ -1,15 +1,17 @@
 import { config } from '@root/src/config.js';
+import { cyan, yellow, red, gray } from "colorette";
+
+// Avoid circular dependency by not importing Logger here.
+// Instead, we use console directly for internal logging of the errorbot itself.
 
 //We wrap this in a function to make sure that it runs after .env is loaded
 export function initReporting(): void {
     if (config.COUNCIL_ERRORBOT) {
-        Logger.info("init", `Will attempt to post errors to errorbot on ${config.COUNCIL_ERRORBOT}`);
+        console.log(`${cyan("[init]")} Will attempt to post errors to errorbot on ${config.COUNCIL_ERRORBOT}`);
     } else {
-        Logger.warn("init", `COUNCIL_ERRORBOT not set, will not report errors.`);
+        console.warn(`${cyan("[init]")} ${yellow("COUNCIL_ERRORBOT not set, will not report errors.")}`);
     }
 }
-
-import { Logger } from "./Logger.js";
 
 // Helper to reliably serialize Error objects
 function serializeError(err: any): any {
@@ -27,19 +29,22 @@ function serializeError(err: any): any {
     return err;
 }
 
-export async function reportError(context: string, message: string, err?: any): Promise<void> {
-    // 1. Log locally first
-    Logger.error(context, message, err);
+/**
+ * Sends a report to the configured external error service.
+ * Designed to be called by Logger.ts.
+ */
+export async function sendReport(context: string, level: string, message: string, err?: unknown): Promise<void> {
 
-    // 2. Report if configured
+    // 2. Don't send if not configured
     if (!config.COUNCIL_ERRORBOT) {
-        Logger.warn("init", "COUNCIL_ERRORBOT not set, will not report error externally.");
+        // Reduced verbosity here to avoid log spam loops if Logger calls this
+        // console.warn(`${cyan("[config]")} ${yellow("COUNCIL_ERRORBOT not set, will not report to external error service.")}`);
         return;
     }
 
     const payload = {
         service: config.COUNCIL_DB_PREFIX,
-        level: "ERROR",
+        level: level,
         context: context,
         message: message,
         time: new Date().toISOString(),
@@ -53,13 +58,15 @@ export async function reportError(context: string, message: string, err?: any): 
         body: sendStr,
         headers: { 'Content-Type': 'application/json' }
     }).catch(error => {
-        Logger.error("reportError", "Failed to post to errorbot:", error);
+        console.error(`${red("[reportError]")} Failed to post to errorbot:`, error);
     });
 }
 
 //For all unrecoverable errors, post the message to error bot, and then crash
 process.on('uncaughtException', async (err) => {
-    await reportError("process", "Uncaught Exception", err);
-    Logger.error("process", "Uncaught Exception", err);
+    // Log locally
+    console.error(`${red("[process]")} Uncaught Exception`, err);
+    // Send report
+    await sendReport("process", "ERROR", "Uncaught Exception", err);
     process.exit(1);
 });

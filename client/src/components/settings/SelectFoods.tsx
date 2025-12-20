@@ -3,7 +3,7 @@ import { toTitleCase, useMobile, useMobileXs } from "@/utils";
 import { useTranslation } from "react-i18next";
 
 import globalOptionsData from "@/global-options-client.json";
-import { Character, OpenAIVoice } from "@shared/ModelTypes";
+import { Character, VoiceOption, AVAILABLE_VOICES } from "@shared/ModelTypes";
 
 import foodDataEN from "@prompts/foods_en.json";
 import foodDataSV from "@prompts/foods_sv.json";
@@ -19,14 +19,14 @@ interface GlobalOptions {
 const globalOptions: GlobalOptions = globalOptionsData;
 
 export interface Food extends Partial<Character> {
-  id: string; // Required
-  name: string; // Required
+  id: string;
+  name: string;
   description: string;
   prompt?: string;
   type?: 'panelist' | 'food' | 'chair' | string;
   index?: number;
-  voice?: OpenAIVoice; // Optional in configuration, but required for Character
-  size?: number;
+  voice: VoiceOption;
+  size: number;
   voiceInstruction?: string;
 }
 
@@ -41,6 +41,11 @@ const MAXHUMANS = 3;
 // Helper to access typed keys of foodData
 interface FoodData {
   foods: Food[];
+  addHuman: {
+    id: string;
+    name: string;
+    description: string;
+  };
   panelWithHumans: string;
 }
 
@@ -57,11 +62,17 @@ for (const language in localFoodData) {
   }
 }
 
+// Infer the default voice from the configuration to ensure blankHuman is valid
+const defaultChair = localFoodData['en'].foods.find(f => f.id === globalOptions.chairId);
+const defaultVoice: VoiceOption = defaultChair?.voice || AVAILABLE_VOICES[0];
+
 const blankHuman: Food = {
   id: "", // Will be set
   type: "panelist",
   name: "",
-  description: ""
+  description: "",
+  voice: defaultVoice,
+  size: 1.0
 };
 
 /**
@@ -127,6 +138,13 @@ function SelectFoods({ lang, topicTitle, onContinueForward }: SelectFoodsProps):
     const newHuman = structuredClone(blankHuman);
     newHuman.id = "panelist" + id;
     newHuman.index = id;
+
+    // Assign chair's voice to human panelist so validation passes
+    const chair = foods.find(f => f.id === globalOptions.chairId);
+    if (chair && chair.voice) {
+      newHuman.voice = chair.voice;
+    }
+
     return newHuman;
   }
 
@@ -241,7 +259,7 @@ function SelectFoods({ lang, topicTitle, onContinueForward }: SelectFoodsProps):
 
   function randomizeSelection(): void {
     const amount = Math.floor(Math.random() * (maxFoods - minFoods + 1)) + minFoods - 1;
-    const randomfoods = foods.slice(1).filter(food => food.id !== 'addhuman').sort(() => 0.5 - Math.random()).slice(0, amount).map(f => f.id);
+    const randomfoods = foods.slice(1).sort(() => 0.5 - Math.random()).slice(0, amount).map(f => f.id);
     setSelectedFoods([foods[0].id, ...randomfoods]);
   }
 
@@ -288,7 +306,10 @@ function SelectFoods({ lang, topicTitle, onContinueForward }: SelectFoodsProps):
   };
 
   function infoToShow(): React.ReactNode {
-    if (currentFood !== null && !currentFood.startsWith('panelist')) {//If something is hovered & if it's not a human
+    if (currentFood === 'addhuman') {
+      // No need for dummy objects anymore, FoodInfo accepts simple shape
+      return <FoodInfo food={localFoodData[lang].addHuman} />;
+    } else if (currentFood !== null && !currentFood.startsWith('panelist')) {//If something is hovered & if it's not a human
       return <FoodInfo food={foods.find(f => f.id === currentFood)} />;
     } else if (currentFood?.startsWith('panelist') && lastSelected !== currentFood) {//a human is hovered but not selected
       return <HumanInfo human={humans.find(h => h.id === currentFood)} unfocus={true} setHumans={setHumans} setRecheckHumansReady={setRecheckHumansReady} />;
@@ -355,7 +376,7 @@ function SelectFoods({ lang, topicTitle, onContinueForward }: SelectFoodsProps):
       <div style={{ height: isMobile ? "93px" : "110px" }}>
         <div style={{ display: "flex", alignItems: "center" }}>
           {foods.map((food) => (
-            food.id !== 'addhuman' && <FoodButton
+            <FoodButton
               key={food.type === 'panelist' ? food.id : food.name}
               food={food}
               onMouseEnter={() => setCurrentFood(food.id)}
@@ -371,10 +392,7 @@ function SelectFoods({ lang, topicTitle, onContinueForward }: SelectFoodsProps):
             onMouseEnter={() => setCurrentFood('addhuman')}
             onMouseLeave={() => setCurrentFood(null)}
             onAddHuman={onAddHuman}
-            isSelected={selectedFoods.includes('addhuman')} // This probably was undefined in original? addhuman ID implies?
-            // Original code: isSelected={selectedFoods.includes()} -> which is effectively false usually for undefined arg?
-            // We pass false for add human button usually or check if 'addhuman' is selected? But 'addhuman' isn't in selectedFoods usually.
-            // Let's assume false.
+            isSelected={selectedFoods.includes('addhuman')}
             selectLimitReached={selectedFoods.length >= maxFoods}
           />}
         </div>
@@ -390,8 +408,13 @@ function SelectFoods({ lang, topicTitle, onContinueForward }: SelectFoodsProps):
 /**
  * Display food character info when hovered/selected
  */
+interface FoodDisplayData {
+  name: string;
+  description: string;
+}
+
 interface FoodInfoProps {
-  food?: Food;
+  food?: FoodDisplayData;
 }
 
 function FoodInfo({ food }: FoodInfoProps): React.ReactElement | null {

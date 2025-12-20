@@ -33,7 +33,7 @@ export interface IMeetingBroadcaster {
     broadcastAudioUpdate(audio: AudioUpdatePayload): void;
     broadcastClientKey(data: ClientKeyResponse): void;
     broadcastError(message: string, code: number): void;
-    broadcastMeetingNotFound(meetingId: string): void;
+    broadcastWarning(message: string, code: number, error: Error): void;
 }
 
 /**
@@ -72,7 +72,7 @@ export interface IConversationState {
  */
 export interface IMeetingControl {
     startLoop: () => void;
-    run: boolean;
+    isLoopActive: boolean;
 }
 
 /**

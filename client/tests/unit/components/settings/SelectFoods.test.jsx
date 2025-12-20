@@ -105,6 +105,13 @@ describe('SelectFoods Component', () => {
         // Logic: "selectfoods.human" + "Alice, A thoughtful human"
 
         expect(chair.prompt).toContain("on the panel are also selectfoods.humanAlice, A thoughtful human.");
+
+        // Verify that the Human Panelist has a voice assigned (Chair's voice)
+        // Find the human object in the passed array
+        const humanPanelist = passedFoods.find(f => f.id.startsWith("panelist"));
+        expect(humanPanelist).toBeDefined();
+        // Since default chair is Water, voice should be 'alloy' (from foods_en.json)
+        expect(humanPanelist.voice).toBe('alloy');
     });
 
     it('should maintain focus on description when typing', async () => {
