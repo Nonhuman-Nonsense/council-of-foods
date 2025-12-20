@@ -11,6 +11,7 @@ import { initReporting, reportError } from '@utils/errorbot.js';
 import { initDb } from '@services/DbService.js';
 import { initOpenAI } from '@services/OpenAIService.js';
 import { MeetingManager } from '@logic/MeetingManager.js';
+import { SocketManager } from '@logic/SocketManager.js';
 
 const environment: string = config.NODE_ENV;
 const __filename: string = fileURLToPath(import.meta.url);
@@ -57,7 +58,7 @@ if (environment === "prototype") {
 // Socket Logic
 io.on("connection", (socket: Socket) => {
   Logger.info("socket", `[session ${socket.id}] connected`);
-  new MeetingManager(socket, environment);
+  new SocketManager(socket, environment);
 });
 
 // Server Listen

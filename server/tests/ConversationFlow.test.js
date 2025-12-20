@@ -30,10 +30,10 @@ describe('MeetingManager - Conversation Flow', () => {
         vi.clearAllMocks();
     });
 
-    it('should pause and resume conversation only in prototype mode', () => {
+    it('should pause and resume conversation only in prototype mode', async () => {
         // 1. Verify 'test' mode (default)
         expect(manager.environment).toBe('test');
-        mockSocket.trigger('pause_conversation');
+        await manager.handleEvent('pause_conversation', null);
         expect(manager.isPaused).toBe(false);
 
         // 2. Verify 'prototype' mode
@@ -44,8 +44,8 @@ describe('MeetingManager - Conversation Flow', () => {
         vi.spyOn(SpeakerSelector, 'calculateNextSpeaker');
         vi.spyOn(meetingsCollection, 'updateOne'); // Global spy still works if same module instance
 
-        // Trigger pause on the PROTO socket
-        protoSocket.trigger('pause_conversation');
+        // Trigger pause on the PROTO socket (via handleEvent)
+        await protoManager.handleEvent('pause_conversation', null);
         expect(protoManager.isPaused).toBe(true);
 
         // Verify startLoop/processTurn aborts when paused
@@ -67,7 +67,7 @@ describe('MeetingManager - Conversation Flow', () => {
         });
         vi.spyOn(protoManager.audioSystem, 'queueAudioGeneration').mockImplementation(() => { });
 
-        protoSocket.trigger('resume_conversation');
+        await protoManager.handleEvent('resume_conversation', null);
         expect(protoManager.isPaused).toBe(false);
         // It should have called startLoop -> runLoop -> processTurn -> calculateNextSpeaker
         expect(SpeakerSelector.calculateNextSpeaker).toHaveBeenCalled();
@@ -232,7 +232,7 @@ describe('MeetingManager - Conversation Flow', () => {
         const loopSpy = vi.spyOn(manager, 'startLoop');
 
         // Trigger continue
-        mockSocket.trigger('continue_conversation');
+        await manager.handleEvent('continue_conversation', null);
 
         // Verify count increased
         expect(manager.extraMessageCount).toBe(5);
