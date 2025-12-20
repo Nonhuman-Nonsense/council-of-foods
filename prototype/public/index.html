@@ -147,11 +147,11 @@
         </div>
 
         <br>
-        <button v-if="!conversationActive" @click="toggleConversation">Start</button>
-        <button v-else @click="toggleConversation">Pause</button>
-
-        <button v-if="conversationActive || conversationStarted" @click="restartConversation">Restart</button>
-        <button v-if="!conversationActive && conversationStarted" @click="continueConversation">Keep Going</button>
+        <button v-if="!conversationActive && !endMessage" @click="toggleConversation">{{ conversationStarted ? 'Resume'
+          : 'Start' }}</button>
+        <button v-if="conversationActive" @click="toggleConversation">Pause</button>
+        <button v-if="conversationStarted && !conversationActive" @click="restartConversation">Restart</button>
+        <button v-if="endMessage" @click="continueConversation">Keep Going</button>
       </div>
 
       <div id="conversation-container">
