@@ -21,21 +21,13 @@ const httpServer = http.createServer(app);
 const io = new Server(httpServer);
 
 // Initialize Services
-initReporting();
-await initDb().catch(async (e: any) => {
-  await Logger.error("db", "Failed to initialize Database", e);
-  process.exit(1);
-});
 try {
+  initReporting();
+  await initDb();
   initOpenAI();
-} catch (e: any) {
-  // We can't await inside a synchronous try/catch block if the function isn't async
-  // But top-level code or promise chain can.
-  // Actually, this catch block is synchronous.
-  // To await here, we need to wrap it or use .then().
-  Logger.error("openai", "Failed to initialize OpenAI", e).then(() => {
-    process.exit(1);
-  });
+} catch (e) {
+  await Logger.error("init", "Startup failed.", e);
+  process.exit(1);
 }
 
 // Express for health checks
