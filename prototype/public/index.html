@@ -29,18 +29,22 @@
       <div class="sidebar-content">
         <!-- Language -->
         <div class="section-group">
-          <label>Language</label>
-          <select v-model="options.language">
+          <label class="sub-label">Language</label>
+          <select v-model="options.language" class="styled-select">
             <option v-for="lang in available_languages" :key="lang" :value="lang">{{ lang }}</option>
           </select>
         </div>
+
         <hr>
+
         <!-- Rooms -->
         <div class="section-group">
-          <label>Rooms</label>
-          <div style="display: flex; gap: 5px; margin-bottom: 10px;">
-            <button @click="addRoom" style="flex: 1;">+</button>
-            <button @click="removeRoom" style="width: 40px;">-</button>
+          <div class="sidebar-section-header">
+            <h3>Rooms</h3>
+            <div>
+              <button class="icon-btn" @click="addRoom">+</button>
+              <button class="icon-btn" @click="removeRoom">-</button>
+            </div>
           </div>
           <div class="room-list" style="display: flex; flex-direction: column; gap: 4px;">
             <div v-for="(room, index) in currentLanguageData.rooms" :key="index" class="room-item"
@@ -49,10 +53,6 @@
                 style="width: 100%;">
             </div>
           </div>
-        </div>
-        <hr>
-        <div class="section-group" style="margin-top: auto;">
-          <button @click="factoryReset" style="width: 100%;">Factory Reset</button>
         </div>
       </div>
     </aside>
@@ -287,6 +287,12 @@
           <input type="checkbox" v-model="localOptions.showTrimmed" style="width: auto; margin: 0;"> Show Trimmed
           Content
         </label>
+        <hr>
+
+        <div class="section-group">
+          <button @click="factoryReset"
+            style="width: 100%; border-color: var(--danger-color); color: var(--danger-color);">Factory Reset</button>
+        </div>
       </div>
 
       <!-- Theme Switcher (Bottom) -->
