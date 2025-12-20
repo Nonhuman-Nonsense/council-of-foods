@@ -112,17 +112,15 @@ createApp({
       const roomState = this.localOptions.roomStates[roomId] || { activeCharacterIds: {} };
       const activeIds = roomState.activeCharacterIds || {};
 
-      const activeCharacters = (this.currentLanguageData.characters || []).filter(c => activeIds[c._ui_id]);
-
       // Map to separate arrays
       const active = [];
       const inactive = [];
 
       this.currentLanguageData.characters.forEach(c => {
         if (activeIds[c._ui_id]) {
-          active.push({ ...c, isActive: true });
+          active.push(c);
         } else {
-          inactive.push({ ...c, isActive: false });
+          inactive.push(c);
         }
       });
 
@@ -162,6 +160,13 @@ createApp({
   },
 
   methods: {
+    isCharacterActive(char) {
+      if (!this.currentRoom) return false;
+      const roomId = this.currentRoom.id;
+      const roomState = this.localOptions.roomStates[roomId];
+      return roomState?.activeCharacterIds?.[char._ui_id] || false;
+    },
+
     initSortable() {
       const el = document.getElementById('characters');
       if (!el) return;
