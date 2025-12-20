@@ -34,9 +34,9 @@ const defaultLocalOptions = {
   rightSidebarOpen: true,
   configCardExpanded: true,
   expandedCharacters: {},
-  configCardExpanded: true,
-  expandedCharacters: {},
-  topicStates: {}
+  topicStates: {},
+  currentTopicIndex: 0,
+  editorWidthPercent: 50
 };
 
 createApp({
@@ -48,7 +48,6 @@ createApp({
       loading: false,
       conversationActive: false,
       conversationStarted: false,
-      currentTopicIndex: 0,
       injectionStatus: '',
       endMessage: '',
 
@@ -62,7 +61,12 @@ createApp({
       },
       available_languages: ['en'],
 
-      // Conversation Data
+      // Runtime
+      audioVoices: ["alloy", "ash", "ballad", "coral", "echo", "fable", "onyx", "nova", "sage", "shimmer", "verse"],
+      sortableInstance: null,
+      isResizing: false,
+
+      // Conversation
       conversation: [],
 
       // Audio State
@@ -72,14 +76,6 @@ createApp({
       audioIsPlaying: false,
       audioPaused: false,
       nextOrBackClicked: false,
-      sortableInstance: null,
-
-      // UI Layout State
-      isResizing: false,
-      editorWidthPercent: 50, // width of the left pane in split view
-
-      // Constants
-      audioVoices: ["alloy", "ash", "ballad", "coral", "echo", "fable", "onyx", "nova", "sage", "shimmer", "verse"]
     }
   },
 
@@ -94,7 +90,9 @@ createApp({
     currentTopic() {
       const topics = this.currentLanguageData.topics;
       if (!topics || topics.length === 0) return null;
-      return topics[this.currentTopicIndex];
+      // Use persisted index, fallback to 0
+      const idx = this.localOptions.currentTopicIndex || 0;
+      return topics[idx] || topics[0];
     },
 
     currentSystemPrompt: {
@@ -350,7 +348,6 @@ createApp({
       }
 
       this.options.language = 'en';
-      this.currentTopicIndex = 0;
       this.sanitizeData();
 
       this.save();
@@ -446,14 +443,14 @@ createApp({
         prompt: "",
       });
       // Switch to new topic
-      this.currentTopicIndex = this.currentLanguageData.topics.length - 1;
+      this.localOptions.currentTopicIndex = this.currentLanguageData.topics.length - 1;
     },
 
     removeTopic() {
       if (this.currentLanguageData.topics.length > 1) {
-        this.currentLanguageData.topics.splice(this.currentTopicIndex, 1);
-        if (this.currentTopicIndex >= this.currentLanguageData.topics.length) {
-          this.currentTopicIndex = this.currentLanguageData.topics.length - 1;
+        this.currentLanguageData.topics.splice(this.localOptions.currentTopicIndex, 1);
+        if (this.localOptions.currentTopicIndex >= this.currentLanguageData.topics.length) {
+          this.localOptions.currentTopicIndex = this.currentLanguageData.topics.length - 1;
         }
       }
     },
@@ -619,7 +616,7 @@ createApp({
       await this.addToPlaylist(msgIndex, update.audio, false);
 
       // Auto-play if not playing and not paused
-      if (!this.audioIsPlaying && this.audioPlaylist[this.currentAudio] && !this.audioPaused) {
+      if (!this.audioIsPlaying && this.audioPlaylist[this.currentAudio] && !this.localOptions.audioPaused) {
         this.audioPlaylist[this.currentAudio].play();
       }
     },
@@ -644,9 +641,9 @@ createApp({
         source.buffer = buffer;
         source.connect(this.audioCtx.destination);
         source.addEventListener("ended", async () => {
-          if (this.audioPaused) return;
-          if (this.nextOrBackClicked) {
-            this.nextOrBackClicked = false;
+          if (this.localOptions.audioPaused) return;
+          if (this.localOptions.nextOrBackClicked) {
+            this.localOptions.nextOrBackClicked = false;
             return;
           }
 
@@ -689,11 +686,11 @@ createApp({
     },
 
     audioBack() {
-      if (this.audioPaused) return;
+      if (this.localOptions.audioPaused) return;
 
       if (this.audioIsPlaying) {
         this.stopCurrentAudio();
-        this.nextOrBackClicked = true;
+        this.localOptions.nextOrBackClicked = true;
       }
 
       if (this.currentAudio > 0) this.currentAudio--;
@@ -717,15 +714,15 @@ createApp({
         this.audioPlaylist[this.currentAudio].play();
       }
 
-      this.audioPaused = !this.audioPaused;
+      this.localOptions.audioPaused = !this.localOptions.audioPaused;
     },
 
     audioNext() {
-      if (this.audioPaused) return;
+      if (this.localOptions.audioPaused) return;
       if (this.audioPlaylist[this.currentAudio + 1]) {
         if (this.audioIsPlaying) {
           this.stopCurrentAudio();
-          this.nextOrBackClicked = true;
+          this.localOptions.nextOrBackClicked = true;
         }
         this.currentAudio++;
         this.audioPlaylist[this.currentAudio].play();
@@ -769,7 +766,7 @@ createApp({
       if (percent < 20) percent = 20;
       if (percent > 80) percent = 80;
 
-      this.editorWidthPercent = percent;
+      this.localOptions.editorWidthPercent = percent;
     },
 
     stopResize() {
