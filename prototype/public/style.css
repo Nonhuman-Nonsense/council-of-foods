@@ -326,6 +326,28 @@ input[type="checkbox"] {
   background-color: transparent;
 }
 
+.character-card.pinned {
+  border-color: var(--accent-color);
+  /* Fallback or usage of color-mix if supported, or just a light tint */
+  background-color: var(--bg-hover);
+  border-left: 4px solid var(--accent-color);
+}
+
+/* Ensure pinned card header has pointer events for expanding */
+.character-card.pinned .card-header {
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+/* Robustly ensure inputs are always usable */
+.card-body input,
+.card-body textarea {
+  user-select: text !important;
+  -webkit-user-select: text !important;
+  pointer-events: auto !important;
+  cursor: text !important;
+}
+
 .character-card.inactive .input-minimal {
   font-weight: normal;
 }

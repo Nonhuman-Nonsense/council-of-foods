@@ -145,13 +145,47 @@ createApp({
   },
 
   methods: {
+    isCharacterPinned(char) {
+      // The first character in the global list is considered "The Chair" and is pinned.
+      if (!this.currentLanguageData.characters || this.currentLanguageData.characters.length === 0) return false;
+      return this.currentLanguageData.characters[0]._ui_id === char._ui_id;
+    },
+
     isCharacterActive(char) {
+      // Pinned characters are always active
+      if (this.isCharacterPinned(char)) return true;
+
       if (!this.currentRoom) return false;
       const roomId = this.currentRoom.id;
       const roomState = this.localOptions.roomStates[roomId];
       return roomState?.activeCharacterIds?.[char._ui_id] || false;
     },
 
+    // Sort logic to keep Active at top in the data model
+    enforceActiveCharacterSort() {
+      if (!this.currentLanguageData.characters) return;
+
+      const pinned = [];
+      const active = [];
+      const inactive = [];
+
+      this.currentLanguageData.characters.forEach((c, index) => {
+        // Index 0 is pinned.
+        if (index === 0) {
+          pinned.push(c);
+          return;
+        }
+
+        if (this.isCharacterActive(c)) {
+          active.push(c);
+        } else {
+          inactive.push(c);
+        }
+      });
+
+      // Mutate the array structure directly: [Pinned, ...Active, ...Inactive]
+      this.currentLanguageData.characters = [...pinned, ...active, ...inactive];
+    },
     initSortable() {
       const el = document.getElementById('active-characters-list');
       if (!el) return;
@@ -163,6 +197,14 @@ createApp({
       this.sortableInstance = new Sortable(el, {
         animation: 150,
         handle: ".drag-handle",
+        filter: ".pinned", // Cannot drag pinned items
+        preventOnFilter: false, // Critical: Allow clicks/inputs to work in pinned items!
+        onMove: (evt) => {
+          // Prevent moving anything to index 0 (pinned position)
+          // If the target is the pinned element (index 0), disallow
+          if (evt.related.classList.contains('pinned')) return false;
+          return true;
+        },
         onEnd: (evt) => {
           if (evt.oldIndex === evt.newIndex) return;
 
@@ -220,6 +262,9 @@ createApp({
           }
 
           this.sanitizeData();
+
+          // Ensure sorting is enforced on load so index 0 is pinned correcty
+          this.enforceActiveCharacterSort();
         } else {
           throw new Error("No stored data");
         }

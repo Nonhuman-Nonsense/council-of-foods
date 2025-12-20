@@ -106,20 +106,24 @@
 
               <!-- Active Characters (Sortable) -->
               <div id="active-characters-list">
-                <div class="character-card" v-for="(character, index) in activeCharacters" :key="character._ui_id">
+                <div class="character-card" v-for="(character, index) in activeCharacters" :key="character._ui_id"
+                  :class="{ pinned: isCharacterPinned(character) }">
 
                   <!-- Card Header -->
                   <div class="card-header" @click="toggleCharacterExpanded(character._ui_id)">
                     <div style="display: flex; align-items: center; gap: 10px; flex: 1;">
-                      <input type="checkbox" :checked="true" @change="toggleCharacterActive(character)" @click.stop
+                      <input type="checkbox" :checked="true" :disabled="isCharacterPinned(character)"
+                        @change="toggleCharacterActive(character)" @click.stop
                         style="width: 16px; height: 16px; accent-color: var(--accent-color);">
 
                       <span :style="{ fontWeight: '600', color: 'var(--text-primary)' }">
-                        {{ character.name || 'Unnamed Character' }}
+                        {{ character.name || 'Unnamed Character' }} <span v-if="isCharacterPinned(character)">
+                          (Chair)</span>
                       </span>
                     </div>
                     <div style="display: flex; align-items: center; gap: 5px;">
-                      <span class="drag-handle" @click.stop style="cursor: grab; padding: 0 5px; opacity: 0.5;">☰</span>
+                      <span v-if="!isCharacterPinned(character)" class="drag-handle" @click.stop
+                        style="cursor: grab; padding: 0 5px; opacity: 0.5;">☰</span>
                     </div>
                   </div>
 
