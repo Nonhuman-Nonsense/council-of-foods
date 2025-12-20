@@ -317,7 +317,9 @@ createApp({
         const voiceIndex = this.currentRoom.characters.length % this.audioVoices.length;
         this.currentRoom.characters.push({
           voice: this.audioVoices[voiceIndex],
-          _ui_id: Date.now() + Math.random()
+          voiceInstruction: "",
+          _ui_id: Date.now() + Math.random(),
+          expanded: true
         });
       }
     },
@@ -592,6 +594,7 @@ createApp({
           if (!room.characters) return;
           room.characters.forEach(c => {
             if (!c._ui_id) c._ui_id = Date.now() + Math.random();
+            if (c.expanded === undefined) c.expanded = false;
           });
         });
       });
@@ -609,4 +612,22 @@ createApp({
       return str.toLowerCase().split(" ").map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(" ");
     }
   }
-}).mount('#app');
+})
+  .directive('auto-resize', {
+    mounted(el) {
+      const adjustHeight = () => {
+        el.style.height = 'auto';
+        el.style.height = (el.scrollHeight + 2) + 'px'; // +2 for border
+      };
+      // Adjust initially
+      adjustHeight();
+      // Adjust on input
+      el.addEventListener('input', adjustHeight);
+    },
+    updated(el) {
+      // Also adjust if the content changes programmatically (e.g. factory reset)
+      el.style.height = 'auto';
+      el.style.height = (el.scrollHeight + 2) + 'px';
+    }
+  })
+  .mount('#app');

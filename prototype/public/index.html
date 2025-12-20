@@ -94,27 +94,43 @@
             <div id="characters">
               <div class="character-card" v-for="(character, index) in currentRoom.characters"
                 :key="character._ui_id || index">
-                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px;">
-                  <span class="drag-handle" style="cursor: grab; color: var(--text-secondary);">☰</span>
-                  <input type="text" placeholder="Name" v-model="character.name"
-                    style="margin: 0 5px; font-weight: bold;">
+                <!-- Card Header -->
+                <div class="card-header" @click="character.expanded = !character.expanded">
+                  <div style="display: flex; align-items: center; gap: 10px; flex: 1;">
+                    <span class="drag-handle" @click.stop>☰</span>
+                    <!-- Name Input (Clicking it should not toggle accordion) -->
+                    <input type="text" class="input-minimal" placeholder="Name" v-model="character.name" @click.stop>
+                  </div>
+                  <div style="display: flex; align-items: center; gap: 5px;">
+                    <!-- Toggle Icon -->
+                    <button class="icon-btn" style="font-size: 12px;">
+                      {{ character.expanded ? '▼' : '▶' }}
+                    </button>
+                    <!-- Delete Button -->
+                    <button class="icon-btn" @click.stop="removeCharacter(index)" title="Remove"
+                      style="color: var(--danger-color);">×</button>
+                  </div>
                 </div>
 
-                <textarea placeholder="Character prompt..." v-model="character.prompt" rows="2"></textarea>
+                <!-- Card Body (Collapsible) -->
+                <div class="card-body" v-if="character.expanded">
+                  <label class="sub-label">System Prompt</label>
+                  <textarea class="input-area" placeholder="Character prompt..." v-model="character.prompt"
+                    v-auto-resize></textarea>
 
-                <div style="display: flex; gap: 5px; overflow-x: auto; padding-bottom: 5px; margin-bottom: 5px;">
-                  <template v-for="voiceName in audioVoices" :key="voiceName">
-                    <label
-                      style="font-size: 11px; white-space: nowrap; cursor: pointer; padding: 2px 6px; background: var(--bg-input); border-radius: 4px;"
-                      :style="{ background: character.voice === voiceName ? 'var(--accent-color)' : '' }">
-                      <input type="radio" :value="voiceName" v-model="character.voice" style="display: none;">
-                      {{ voiceName }}
-                    </label>
-                  </template>
+                  <label class="sub-label">Voice Options</label>
+                  <div class="voice-selector">
+                    <template v-for="voiceName in audioVoices" :key="voiceName">
+                      <label class="voice-chip" :class="{ active: character.voice === voiceName }">
+                        <input type="radio" :value="voiceName" v-model="character.voice" style="display: none;">
+                        {{ voiceName }}
+                      </label>
+                    </template>
+                  </div>
+
+                  <input type="text" placeholder="Voice Instruction (e.g. 'Excited')"
+                    v-model="character.voiceInstruction" style="margin-top: 5px;">
                 </div>
-
-                <input type="text" placeholder="Voice Instruction (e.g. 'Excited')"
-                  v-model="character.voiceInstruction">
               </div>
             </div>
 

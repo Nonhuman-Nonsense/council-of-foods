@@ -255,9 +255,137 @@ input[type="checkbox"] {
 .character-card {
   background-color: var(--bg-panel);
   border: 1px solid var(--border-color);
-  border-radius: 6px;
-  padding: var(--spacing-sm);
+  border-radius: 8px;
   margin-bottom: var(--spacing-sm);
+  overflow: hidden;
+  transition: all 0.2s ease;
+}
+
+.character-card:hover {
+  border-color: var(--accent-color);
+}
+
+.card-header {
+  padding: var(--spacing-sm) var(--spacing-md);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  background-color: var(--bg-panel);
+  user-select: none;
+}
+
+.card-header:hover {
+  background-color: var(--bg-hover);
+}
+
+.card-body {
+  padding: var(--spacing-md);
+  background-color: var(--bg-app);
+  /* Slightly distinct from header */
+  border-top: 1px solid var(--border-color);
+  animation: slideDown 0.2s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.drag-handle {
+  cursor: grab;
+  color: var(--text-secondary);
+  font-size: 1.2em;
+  padding-right: 5px;
+}
+
+/* Minimal Input (looks like text until focused) */
+.input-minimal {
+  background: transparent;
+  border: 1px solid transparent;
+  padding: 4px 8px;
+  font-weight: 600;
+  font-size: 1em;
+  width: auto;
+  flex: 1;
+  transition: all 0.2s;
+  margin-bottom: 0;
+  /* Override default */
+}
+
+.input-minimal:hover {
+  border-color: var(--border-color);
+  background: var(--bg-input);
+}
+
+.input-minimal:focus {
+  background: var(--bg-input);
+  border-color: var(--accent-color);
+}
+
+/* Sub labels */
+.sub-label {
+  display: block;
+  font-size: 0.75em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+  margin-top: 10px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.sub-label:first-child {
+  margin-top: 0;
+}
+
+/* Voice Chips */
+.voice-selector {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.voice-chip {
+  font-size: 0.85em;
+  padding: 4px 10px;
+  border-radius: 12px;
+  background-color: var(--bg-input);
+  border: 1px solid var(--border-color);
+  cursor: pointer;
+  transition: all 0.2s;
+  user-select: none;
+}
+
+.voice-chip:hover {
+  background-color: var(--bg-hover);
+  border-color: var(--text-secondary);
+}
+
+.voice-chip.active {
+  background-color: var(--accent-color);
+  color: white;
+  border-color: var(--accent-color);
+}
+
+.input-area {
+  font-family: monospace;
+  line-height: 1.4;
+  font-size: 0.9em;
+  resize: none;
+  /* Auto-resized by JS */
+  overflow-y: hidden;
+  /* Hide scrollbar */
+  min-height: 100px;
+  width: 100%;
 }
 
 .character-card.sortable-ghost {
