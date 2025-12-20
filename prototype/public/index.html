@@ -160,16 +160,16 @@
                         'user': false, /* Helper to distinguish styles if needed, user logic is implied by name context usually */ 
                         'chair': turn.speaker === 'Chair', 
                         'character': turn.speaker !== 'Chair' 
-                      }" style="margin-bottom: 10px;" v-show="options.showTrimmed || turn.type !== 'skipped'">
+                      }" style="margin-bottom: 10px;" v-show="localOptions.showTrimmed || turn.type !== 'skipped'">
               <div class="bubble-header">{{ turn.speaker }}</div>
 
-              <div v-if="options.showTrimmed && turn.pretrimmed" class="trimmed"
+              <div v-if="localOptions.showTrimmed && turn.pretrimmed" class="trimmed"
                 style="color: var(--text-secondary); font-size: 0.9em; margin-bottom: 5px;"
                 v-html="turn.pretrimmed.split('\n').join('<br>')"></div>
 
               <div v-html="turn.text.split('\n').join('<br>')"></div>
 
-              <div v-if="options.showTrimmed && turn.trimmed" class="trimmed"
+              <div v-if="localOptions.showTrimmed && turn.trimmed" class="trimmed"
                 style="color: var(--text-secondary); font-size: 0.9em; margin-top: 5px;"
                 v-html="turn.trimmed.split('\n').join('<br>')"></div>
             </div>
@@ -255,8 +255,24 @@
         </div>
         <hr>
         <label style="display: flex; align-items: center; gap: 5px;">
-          <input type="checkbox" v-model="options.showTrimmed" style="width: auto; margin: 0;"> Show Trimmed Content
+          <input type="checkbox" v-model="localOptions.showTrimmed" style="width: auto; margin: 0;"> Show Trimmed
+          Content
         </label>
+      </div>
+
+      <!-- Theme Switcher (Bottom) -->
+      <div
+        style="padding: 10px; border-top: 1px solid var(--border-color); display: flex; justify-content: center; gap: 8px; background: var(--bg-panel);">
+        <button class="icon-btn" @click="setTheme('')" title="Blue"
+          style="width: 12px; height: 12px; background: #1a73e8; border-radius: 50%; padding:0;"></button>
+        <button class="icon-btn" @click="setTheme('tomato')" title="Tomato"
+          style="width: 12px; height: 12px; background: #e04f38; border-radius: 50%; padding:0;"></button>
+        <button class="icon-btn" @click="setTheme('lime')" title="Lime"
+          style="width: 12px; height: 12px; background: #558b2f; border-radius: 50%; padding:0;"></button>
+        <button class="icon-btn" @click="setTheme('grape')" title="Grape"
+          style="width: 12px; height: 12px; background: #9d46ff; border-radius: 50%; padding:0;"></button>
+        <button class="icon-btn" @click="setTheme('berry')" title="Berry"
+          style="width: 12px; height: 12px; background: #e91e63; border-radius: 50%; padding:0;"></button>
       </div>
     </aside>
 

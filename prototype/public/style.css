@@ -1,16 +1,18 @@
 :root {
-  /* Colors - Dark Theme (AI Studio Vibes) */
-  --bg-app: #1e1e1e;
-  --bg-panel: #252526;
-  --bg-input: #3c3c3c;
-  --bg-hover: #2a2d2e;
-  --border-color: #3e3e42;
-  --text-primary: #cccccc;
-  --text-secondary: #9da5b4;
-  --accent-color: #007fd4;
-  --accent-hover: #0060a0;
-  --danger-color: #f48771;
-  --success-color: #89d185;
+  /* Colors - Light Theme (AI Studio Vibes) */
+  --bg-app: #ffffff;
+  --bg-panel: #f0f4f9;
+  /* Light Google-ish gray */
+  --bg-input: #ffffff;
+  --bg-hover: #e8eaed;
+  --border-color: #dfe1e5;
+  --text-primary: #1f1f1f;
+  --text-secondary: #5f6368;
+  --accent-color: #1a73e8;
+  /* Google Blue */
+  --accent-hover: #1765cc;
+  --danger-color: #d93025;
+  --success-color: #188038;
 
   /* Typography */
   --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -29,6 +31,29 @@
 
 * {
   box-sizing: border-box;
+}
+
+/* Themes */
+body.theme-tomato {
+  --accent-color: #e04f38;
+  --accent-hover: #c43c26;
+}
+
+body.theme-lime {
+  --accent-color: #558b2f;
+  /* Darker Lime to keep checkmarks white */
+  --accent-hover: #33691e;
+}
+
+body.theme-grape {
+  --accent-color: #9d46ff;
+  --accent-hover: #822ce0;
+}
+
+body.theme-berry {
+  --accent-color: #e91e63;
+  /* Berry Pink */
+  --accent-hover: #c2185b;
 }
 
 body {
@@ -220,6 +245,12 @@ textarea:focus {
   border-color: var(--accent-color);
 }
 
+input[type="range"],
+input[type="checkbox"] {
+  accent-color: var(--accent-color);
+  cursor: pointer;
+}
+
 /* Character Cards */
 .character-card {
   background-color: var(--bg-panel);
@@ -265,8 +296,10 @@ textarea:focus {
 
 .chat-bubble.character {
   align-self: flex-start;
-  background-color: #333;
+  background-color: #e8f0fe;
+  /* Light blue tint */
   border: 1px solid var(--border-color);
+  color: var(--text-primary);
 }
 
 .bubble-header {

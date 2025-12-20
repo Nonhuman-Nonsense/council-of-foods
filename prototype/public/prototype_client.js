@@ -12,7 +12,6 @@ const defaultOptions = {
   trimSentance: false,
   trimParagraph: true,
   trimChairSemicolon: true,
-  showTrimmed: true,
 
   conversationMaxLength: 10,
   extraMessageCount: 5,
@@ -26,6 +25,11 @@ const defaultOptions = {
   // Hardcoded
   voiceModel: "gpt-4o-mini-tts",
   skipMatchingSubtitles: true
+};
+
+const defaultLocalOptions = {
+  theme: '',
+  showTrimmed: true
 };
 
 createApp({
@@ -43,6 +47,7 @@ createApp({
 
       // Data Model
       options: { ...defaultOptions },
+      localOptions: { ...defaultLocalOptions },
 
       // Language storage
       languageData: {
@@ -102,6 +107,10 @@ createApp({
       handler() { this.save(); },
       deep: true
     },
+    localOptions: {
+      handler() { this.save(); },
+      deep: true
+    },
     languageData: {
       handler() { this.save(); },
       deep: true
@@ -154,10 +163,21 @@ createApp({
       try {
         const stored = JSON.parse(localStorage.getItem("PromptsAndOptions"));
         if (stored) {
-          console.log("Restoring from localStorage", stored);
           // Merge stored options to handle new fields gracefully
-          this.options = { ...this.options, ...stored.options };
+          this.options = { ...defaultOptions, ...stored.options };
+          this.localOptions = { ...defaultLocalOptions, ...stored.localOptions };
+
+          // Backwards compatibility: if theme was in options
+          if (stored.options && stored.options.theme) {
+            this.localOptions.theme = stored.options.theme;
+            delete this.options.theme;
+          }
+
           this.languageData = stored.language;
+
+          if (this.localOptions.theme) {
+            this.setTheme(this.localOptions.theme);
+          }
 
           this.sanitizeData();
         } else {
@@ -172,6 +192,8 @@ createApp({
     async factoryReset() {
       // Reset options to defaults
       this.options = { ...defaultOptions };
+      this.localOptions = { ...defaultLocalOptions };
+      this.setTheme(this.localOptions.theme);
 
       let default_prompts = {};
       for (const lang of this.available_languages) {
@@ -206,16 +228,12 @@ createApp({
     },
 
     save() {
-      // Ensure current room ID is set for the server
-      if (this.currentRoom && this.currentRoom.characters.length > 0) {
-        this.options.chairId = this.currentRoom.characters[0].id;
-      }
-
-      const payload = {
+      const data = {
         options: this.options,
+        localOptions: this.localOptions,
         language: this.languageData
       };
-      localStorage.setItem("PromptsAndOptions", JSON.stringify(payload));
+      localStorage.setItem("PromptsAndOptions", JSON.stringify(data));
     },
 
     getPayload() {
@@ -545,6 +563,14 @@ createApp({
 
       // Trigger resize for potential chart/canvas updates (if any)
       window.dispatchEvent(new Event('resize'));
+    },
+
+    setTheme(themeName) {
+      this.localOptions.theme = themeName || '';
+      document.body.className = ''; // reset
+      if (themeName) {
+        document.body.classList.add('theme-' + themeName);
+      }
     },
 
     // ===========================
