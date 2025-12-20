@@ -62,6 +62,12 @@ createApp({
       nextOrBackClicked: false,
       sortableInstance: null,
 
+      // UI Layout State
+      leftSidebarOpen: true,
+      rightSidebarOpen: true,
+      isResizing: false,
+      editorWidthPercent: 50, // width of the left pane in split view
+
       // Constants
       audioVoices: ["alloy", "ash", "ballad", "coral", "echo", "fable", "onyx", "nova", "sage", "shimmer", "verse"]
     }
@@ -497,6 +503,48 @@ createApp({
         this.currentAudio++;
         this.audioPlaylist[this.currentAudio].play();
       }
+    },
+
+    // ===========================
+    //   UI LAYOUT
+    // ===========================
+    toggleSidebar(side) {
+      if (side === 'left') this.leftSidebarOpen = !this.leftSidebarOpen;
+      if (side === 'right') this.rightSidebarOpen = !this.rightSidebarOpen;
+    },
+
+    startResize(event) {
+      this.isResizing = true;
+      document.addEventListener('mousemove', this.handleResize);
+      document.addEventListener('mouseup', this.stopResize);
+      // Prevent text selection
+      document.body.style.userSelect = 'none';
+    },
+
+    handleResize(event) {
+      if (!this.isResizing) return;
+      const container = document.getElementById('split-view-container');
+      if (!container) return;
+
+      const rect = container.getBoundingClientRect();
+      const x = event.clientX - rect.left;
+      let percent = (x / rect.width) * 100;
+
+      // Constraints (min 20%, max 80%)
+      if (percent < 20) percent = 20;
+      if (percent > 80) percent = 80;
+
+      this.editorWidthPercent = percent;
+    },
+
+    stopResize() {
+      this.isResizing = false;
+      document.removeEventListener('mousemove', this.handleResize);
+      document.removeEventListener('mouseup', this.stopResize);
+      document.body.style.userSelect = '';
+
+      // Trigger resize for potential chart/canvas updates (if any)
+      window.dispatchEvent(new Event('resize'));
     },
 
     // ===========================
