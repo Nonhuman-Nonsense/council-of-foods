@@ -315,17 +315,24 @@ input[type="checkbox"] {
 }
 
 /* Character Cards */
-.character-card {
-  background-color: var(--bg-panel);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  margin-bottom: var(--spacing-sm);
-  overflow: hidden;
-  transition: all 0.2s ease;
+.character-card.inactive {
+  border-color: transparent;
+  opacity: 0.7;
+  background-color: transparent;
+  border: 1px dashed var(--border-color);
+}
+
+.character-card.inactive .card-header {
+  background-color: transparent;
+}
+
+.character-card.inactive .input-minimal {
+  font-weight: normal;
 }
 
 .character-card:hover {
   border-color: var(--accent-color);
+  opacity: 1;
 }
 
 .card-header {

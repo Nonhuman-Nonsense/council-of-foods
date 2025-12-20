@@ -93,8 +93,6 @@
 
             <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 15px 0;">
 
-            <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 15px 0;">
-
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
               <h3>Characters</h3>
               <div>
@@ -103,16 +101,22 @@
               </div>
             </div>
 
-            <!-- Character List (Sortable) -->
+            <!-- Character List -->
             <div id="characters">
-              <div class="character-card" v-for="(character, index) in currentRoom.characters"
-                :key="character._ui_id || index">
+              <div class="character-card" v-for="(character, index) in sortedCharacters"
+                :key="character._ui_id"
+                :class="{ inactive: !character.isActive }">
+                
                 <!-- Card Header -->
                 <div class="card-header" @click="toggleCharacterExpanded(character._ui_id)">
                   <div style="display: flex; align-items: center; gap: 10px; flex: 1;">
-                    <span class="drag-handle" @click.stop>☰</span>
-                    <!-- Name Input (Clicking it should not toggle accordion) -->
-                    <input type="text" class="input-minimal" placeholder="Name" v-model="character.name" @click.stop>
+                    <!-- Active Toggle -->
+                    <input type="checkbox" :checked="character.isActive" @change="toggleCharacterActive(character)" @click.stop
+                           style="width: 16px; height: 16px; accent-color: var(--accent-color);">
+                    
+                    <!-- Name -->
+                    <input type="text" class="input-minimal" placeholder="Name" v-model="character.name" @click.stop
+                           :style="{ color: character.isActive ? 'var(--text-primary)' : 'var(--text-secondary)' }">
                   </div>
                   <div style="display: flex; align-items: center; gap: 5px;">
                     <!-- Toggle Icon -->

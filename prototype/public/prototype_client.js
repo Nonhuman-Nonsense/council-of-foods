@@ -33,7 +33,8 @@ const defaultLocalOptions = {
   leftSidebarOpen: true,
   rightSidebarOpen: true,
   configCardExpanded: true,
-  expandedCharacters: {}
+  expandedCharacters: {},
+  roomStates: {}
 };
 
 createApp({
@@ -101,6 +102,31 @@ createApp({
       set(val) {
         this.currentLanguageData.system = val;
       }
+    },
+    // Sorting active characters to top
+    sortedCharacters() {
+      if (!this.currentLanguageData.characters) return [];
+      if (!this.currentRoom) return [];
+
+      const roomId = this.currentRoom.id;
+      const roomState = this.localOptions.roomStates[roomId] || { activeCharacterIds: {} };
+      const activeIds = roomState.activeCharacterIds || {};
+
+      const activeCharacters = (this.currentLanguageData.characters || []).filter(c => activeIds[c._ui_id]);
+
+      // Map to separate arrays
+      const active = [];
+      const inactive = [];
+
+      this.currentLanguageData.characters.forEach(c => {
+        if (activeIds[c._ui_id]) {
+          active.push({ ...c, isActive: true });
+        } else {
+          inactive.push({ ...c, isActive: false });
+        }
+      });
+
+      return [...active, ...inactive];
     }
   },
 
@@ -175,6 +201,21 @@ createApp({
             delete this.options.theme;
           }
 
+          // Ensure Global Characters and Room IDs for each language
+          Object.keys(stored.language).forEach(lang => {
+            const data = stored.language[lang];
+
+            // Ensure characters array
+            if (!data.characters) data.characters = [];
+
+            // Ensure Room IDs
+            if (data.rooms) {
+              data.rooms.forEach(room => {
+                if (!room.id) room.id = 'room_' + Date.now() + Math.random();
+              });
+            }
+          });
+
           this.languageData = stored.language;
 
           if (this.localOptions.theme) {
@@ -197,35 +238,60 @@ createApp({
       this.localOptions = { ...defaultLocalOptions };
       this.setTheme(this.localOptions.theme);
 
-      let default_prompts = {};
+      // Initialize languages from server
       for (const lang of this.available_languages) {
         try {
-          default_prompts[lang] = {};
+          const [foodsResp, topicsResp] = await Promise.all([
+            fetch(`./foods_${lang}.json`),
+            fetch(`./topics_${lang}.json`)
+          ]);
 
-          const resp = await fetch(`./foods_${lang}.json`);
-          if (!resp.ok) throw new Error(`Failed to fetch foods_${lang}.json: ${resp.status}`);
-          default_prompts[lang] = await resp.json();
+          if (!foodsResp.ok) throw new Error(`Failed to fetch foods_${lang}: ${foodsResp.status}`);
+          if (!topicsResp.ok) throw new Error(`Failed to fetch topics_${lang}: ${topicsResp.status}`);
 
-          const resp2 = await fetch(`./topics_${lang}.json`);
-          if (!resp2.ok) throw new Error(`Failed to fetch topics_${lang}.json: ${resp2.status}`);
-          default_prompts[lang].topics = await resp2.json();
+          const foodsParams = await foodsResp.json();
+          const topics = await topicsResp.json();
+
+          // Map Characters (Global)
+          // foodsParams is { foods: [...] }
+          const characters = foodsParams.foods.map(f => ({
+            ...f,
+            _ui_id: Date.now() + Math.random() // Ensure unique ID
+          }));
+
+          // Map Rooms
+          const rooms = topics.topics.map(t => ({
+            id: 'room_' + Date.now() + Math.random(),
+            name: t.title,
+            topic: t.prompt
+          }));
 
           this.languageData[lang] = {
-            system: default_prompts[lang].topics.system,
-            rooms: default_prompts[lang].topics.topics.map(topic => ({
-              name: topic.title,
-              topic: topic.prompt,
-              characters: JSON.parse(JSON.stringify(default_prompts[lang].foods))
-            }))
+            system: topics.system,
+            characters: characters,
+            rooms: rooms
           };
+
         } catch (err) {
-          console.error("Factory Reset Error:", err);
-          alert("Failed to reset settings. Check console for details.");
+          console.error(`Failed to load defaults for ${lang}:`, err);
+          // Fallback if fetch fails
+          this.languageData[lang] = { system: "Error loading defaults.", characters: [], rooms: [] };
         }
       }
+
       this.options.language = 'en';
       this.currentRoomIndex = 0;
       this.sanitizeData();
+
+      // Auto-activate all characters for the first room in English
+      if (this.languageData.en && this.languageData.en.rooms.length > 0) {
+        const firstRoomId = this.languageData.en.rooms[0].id;
+        const activeIds = {};
+        this.languageData.en.characters.forEach(c => activeIds[c._ui_id] = true);
+
+        this.localOptions.roomStates[firstRoomId] = { activeCharacterIds: activeIds };
+      }
+
       this.save();
     },
 
@@ -298,10 +364,11 @@ createApp({
     // ===========================
     addRoom() {
       this.currentLanguageData.rooms.push({
-        name: "New Room",
+        id: 'room_' + Date.now(),
+        name: "New Topic",
         topic: "",
-        characters: []
       });
+      // Switch to new room
       this.currentRoomIndex = this.currentLanguageData.rooms.length - 1;
     },
 
@@ -315,39 +382,67 @@ createApp({
     },
 
     addCharacter() {
+      // Ensure global list exists for current language
+      if (!this.currentLanguageData.characters) this.currentLanguageData.characters = [];
+
+      const newId = Date.now() + Math.random();
+      const voiceIndex = this.currentLanguageData.characters.length % this.audioVoices.length;
+
+      this.currentLanguageData.characters.push({
+        voice: this.audioVoices[voiceIndex],
+        voiceInstruction: "",
+        _ui_id: newId,
+        name: "",
+        prompt: ""
+      });
+
+      // Auto-expand in UI logic
+      this.localOptions.expandedCharacters[newId] = true;
+
+      // Auto-activate in current room
       if (this.currentRoom) {
-        // Round robin voice assignment
-        const voiceIndex = this.currentRoom.characters.length % this.audioVoices.length;
-        const newId = Date.now() + Math.random();
-
-        this.currentRoom.characters.push({
-          voice: this.audioVoices[voiceIndex],
-          voiceInstruction: "",
-          _ui_id: newId
-        });
-
-        // Auto-expand new character
-        this.localOptions.expandedCharacters[newId] = true;
+        this.toggleCharacterActive({ _ui_id: newId });
       }
     },
 
     removeCharacter(index) {
-      if (!this.currentRoom || this.currentRoom.characters.length === 0) return;
+      // Global Removal
+      if (!this.currentLanguageData.characters || this.currentLanguageData.characters.length === 0) return;
 
-      let indexToRemove;
-      if (typeof index === 'number') {
-        // Specific removal
-        indexToRemove = index;
+      // If index not provided, remove last
+      let indexToRemove = (typeof index === 'number') ? index : this.currentLanguageData.characters.length - 1;
+
+      const char = this.currentLanguageData.characters[indexToRemove];
+      if (char) {
+        // Cleanup expansion state
+        if (this.localOptions.expandedCharacters[char._ui_id]) {
+          delete this.localOptions.expandedCharacters[char._ui_id];
+        }
+      }
+
+      this.currentLanguageData.characters.splice(indexToRemove, 1);
+      this.save();
+    },
+
+    toggleCharacterActive(char) {
+      console.log("toggleCharacterActive called", char);
+      if (!this.currentRoom) return;
+      const roomId = this.currentRoom.id;
+
+      // Ensure state object exists
+      if (!this.localOptions.roomStates[roomId]) {
+        this.localOptions.roomStates[roomId] = { activeCharacterIds: {} };
+      }
+
+      const activeIds = this.localOptions.roomStates[roomId].activeCharacterIds;
+
+      if (activeIds[char._ui_id]) {
+        console.log("Deactivating", char._ui_id);
+        delete activeIds[char._ui_id];
       } else {
-        // Remove last (called from Top button)
-        indexToRemove = this.currentRoom.characters.length - 1;
+        console.log("Activating", char._ui_id);
+        activeIds[char._ui_id] = true;
       }
-
-      const char = this.currentRoom.characters[indexToRemove];
-      if (char && char._ui_id) {
-        delete this.localOptions.expandedCharacters[char._ui_id];
-      }
-      this.currentRoom.characters.splice(indexToRemove, 1);
       this.save();
     },
 
