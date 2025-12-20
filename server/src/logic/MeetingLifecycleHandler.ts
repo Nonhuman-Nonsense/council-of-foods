@@ -171,8 +171,7 @@ export class MeetingLifecycleHandler {
             manager.broadcaster.broadcastClientKey(data);
             Logger.info(`meeting ${manager.meetingId}`, "clientkey sent");
         } catch (error) {
-            Logger.error(`meeting ${manager.meetingId}`, "Failed to initialize realtime transcription.", error);
-            manager.broadcaster.broadcastError("Failed to initialize realtime transcription.", 500);
+            Logger.reportAndCrashClient(`meeting ${manager.meetingId}`, "Failed to initialize realtime transcription.", error, manager.broadcaster);
         }
     }
 

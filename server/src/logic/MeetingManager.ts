@@ -214,8 +214,7 @@ export class MeetingManager implements IMeetingManager {
                 //     return;
                 // }
 
-                this.broadcaster.broadcastError("Conversation process error", 500);
-                Logger.error(`meeting ${this.meetingId}`, "Conversation process error", error);
+                Logger.reportAndCrashClient(`meeting ${this.meetingId}`, "Conversation process error", error, this.broadcaster);
                 return;
             }
 

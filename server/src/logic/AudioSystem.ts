@@ -201,8 +201,7 @@ export class AudioSystem {
             // }
 
             //Crash the client and report
-            this.broadcaster.broadcastError('Error generating audio', 500);
-            Logger.error("AudioSystem", "Error generating audio", error);
+            Logger.reportAndCrashClient("AudioSystem", "Error generating audio", error, this.broadcaster);
         }
     }
 

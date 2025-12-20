@@ -47,4 +47,20 @@ export class Logger {
         // Auto-report error
         await sendReport(context, "ERROR", message, error);
     }
+
+    /**
+     * Centralized helper to log an error and broadcast a 500 status to the client.
+     * "Crash" implies sending a terminal error to the client.
+     */
+    static reportAndCrashClient(context: string, message: string, error: unknown, broadcaster?: { broadcastError: (msg: string, code: number) => void }): void {
+        // Log it (which also reports to errorbot)
+        this.error(context, message, error);
+
+        // Tell the client
+        if (broadcaster) {
+            // Decouple the specific error details from the client message if desired, 
+            // or pass the generic message. For now, we use the message provided.
+            broadcaster.broadcastError(message, 500);
+        }
+    }
 }

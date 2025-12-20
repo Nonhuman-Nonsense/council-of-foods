@@ -19,9 +19,9 @@ describe('MeetingManager - Concurrency & Isolation', () => {
         vi.spyOn(meetingsCollection, 'updateOne');
         vi.spyOn(meetingsCollection, 'insertOne');
 
-        // Prevent background loops from running automatically
-        vi.spyOn(p1.manager, 'startLoop').mockImplementation(() => { });
-        vi.spyOn(p2.manager, 'startLoop').mockImplementation(() => { });
+        // Prevent background loops from running automatically, but mark as active
+        vi.spyOn(p1.manager, 'startLoop').mockImplementation(() => { p1.manager.isLoopActive = true; });
+        vi.spyOn(p2.manager, 'startLoop').mockImplementation(() => { p2.manager.isLoopActive = true; });
     });
 
     it('should maintain separate state for multiple concurrent meetings', async () => {

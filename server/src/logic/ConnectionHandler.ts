@@ -98,8 +98,7 @@ export class ConnectionHandler {
                 Logger.warn(`meeting ${options.meetingId}`, `Meeting not found`);
             }
         } catch (error) {
-            manager.broadcaster.broadcastError("Error resuming", 500);
-            Logger.error(`meeting ${options.meetingId}`, "Error resuming conversation", error);
+            Logger.reportAndCrashClient(`meeting ${options.meetingId}`, "Error resuming conversation", error, manager.broadcaster);
         }
     }
 }
