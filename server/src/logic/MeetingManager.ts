@@ -41,7 +41,7 @@ export class MeetingManager implements IMeetingManager {
     services: Services;
     broadcaster: IMeetingBroadcaster;
 
-    run: boolean;
+    isLoopActive: boolean;
     handRaised: boolean;
     isPaused: boolean;
     currentSpeaker: number;
@@ -74,7 +74,7 @@ export class MeetingManager implements IMeetingManager {
         };
 
         // Session variables
-        this.run = true;
+        this.isLoopActive = false; // Start inactive, explicit start required
         this.handRaised = false;
         this.isPaused = false;
         this.currentSpeaker = 0;
@@ -98,22 +98,14 @@ export class MeetingManager implements IMeetingManager {
         this.handRaisingHandler = new HandRaisingHandler(this);
         this.meetingLifecycleHandler = new MeetingLifecycleHandler(this);
         this.connectionHandler = new ConnectionHandler(this);
-
-        // setupListeners removed. Initialization via SocketManager.
-
     }
-
-
-
-    // NOTE: Listeners are now managed by SocketManager forwarding logic.
-    // We keep helper methods, but we don't attach listeners directly anymore.
 
     /**
      * Called by SocketManager when this session is destroyed (user disconnected or switched meeting).
      */
     destroy() {
         Logger.info(`meeting ${this.meetingId}`, "Session destroyed");
-        this.run = false;
+        this.isLoopActive = false;
         // Clean up listeners? No, we don't attach them anymore.
         // Stop audio generation?
         // Note: AudioSystem might still be processing. Ideally we'd cancel it.
@@ -187,16 +179,25 @@ export class MeetingManager implements IMeetingManager {
         }
     }
 
-    // Legacy method - remove when verification complete.
-    // private respondTo...
-
-
 
     async runLoop() {
-        while (this.run) {
+        while (this.isLoopActive) {
 
             // Calculate next step
             const action = this.decideNextAction();
+
+            // Break after certain actions
+            // CRITICAL: We mark the loop as inactive BEFORE calling processTurn.
+            // Why? If processTurn yields (awaits), and the user clicks "Resume" immediately, 
+            // startLoop() needs to see isLoopActive=false to execute. 
+            // If we waited until after processTurn, startLoop() would think the loop is 
+            // still running and return early, failing to restart the conversation.
+            //
+            // We still proceed to processTurn below because 'END_CONVERSATION' needs 
+            // to broadcast the end event to clients.
+            if (action.type === 'WAIT' || action.type === 'END_CONVERSATION') {
+                this.isLoopActive = false;
+            }
 
             try {
                 // Do it
@@ -218,15 +219,19 @@ export class MeetingManager implements IMeetingManager {
                 return;
             }
 
-            // Break after certain actions
             if (action.type === 'WAIT' || action.type === 'END_CONVERSATION') {
                 return;
             }
         }
+        this.isLoopActive = false; // Ensure state is synced if loop breaks naturally
     }
 
     startLoop() {
-        //Will run async
+        // Idempotent start
+        if (this.isLoopActive) return;
+
+        Logger.info(`meeting ${this.meetingId}`, "loop started");
+        this.isLoopActive = true;
         this.runLoop();
     }
 
@@ -307,7 +312,7 @@ export class MeetingManager implements IMeetingManager {
         // Generate Logic
         // Check for interrupts function
         const shouldAbort = () => {
-            return !this.run || this.handRaised || this.isPaused || thisMeetingId != this.meetingId;
+            return !this.isLoopActive || this.handRaised || this.isPaused || thisMeetingId != this.meetingId;
         }
 
         const output = await this.dialogGenerator.generateResponseWithRetry(

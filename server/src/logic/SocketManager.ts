@@ -76,6 +76,8 @@ export class SocketManager {
                 //    or after it was destroyed. We drop it to prevent crashing.
                 //    
                 //    RECONNECTION/RACE CONDITION NOTE:
+                //    In practice, TCP guarantees packet order. If a client sends "Reconnect" then "Message",
+                //    the server processes "Reconnect" first (creating session), then "Message" (succeeds).
                 //    This check primarily protects against "ghost" events from old sessions, buggy clients,
                 //    or rare edge cases where the session might have crashed/reset in between events.
                 Logger.warn("socket", `Ignored event ${event} - No active session`);

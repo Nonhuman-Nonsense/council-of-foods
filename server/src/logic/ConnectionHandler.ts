@@ -26,7 +26,7 @@ export class ConnectionHandler {
         if (manager.socket) {
             Logger.info(`meeting ${manager.meetingId}`, `disconnected (session ${manager.socket.id})`);
         }
-        manager.run = false;
+        manager.isLoopActive = false;
     }
 
     /**
@@ -46,8 +46,7 @@ export class ConnectionHandler {
 
             if (existingMeeting) {
                 // Check BEFORE overwriting state
-                const isSameMeeting = manager.meetingId === existingMeeting._id;
-                const isRunning = manager.run;
+                // We don't need isRunning check anymore with idempotent startLoop
 
                 manager.meetingId = existingMeeting._id;
                 manager.conversation = existingMeeting.conversation;
@@ -91,12 +90,9 @@ export class ConnectionHandler {
                 Logger.info(`meeting ${manager.meetingId}`, "resumed");
                 manager.broadcaster.broadcastConversationUpdate(manager.conversation);
 
-                if (!isRunning || !isSameMeeting) {
-                    manager.run = true;
-                    manager.startLoop();
-                } else {
-                    Logger.info(`meeting ${manager.meetingId}`, "Loop already running (same meeting), skipping startLoop");
-                }
+                // Simply ensure loop is running. 
+                // Idempotency in MeetingManager prevents double-start.
+                manager.startLoop();
             } else {
                 manager.broadcaster.broadcastError('Meeting not found', 404);
                 Logger.warn(`meeting ${options.meetingId}`, `Meeting not found`);

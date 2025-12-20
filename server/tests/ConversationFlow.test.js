@@ -36,13 +36,28 @@ describe('MeetingManager - Conversation Flow', () => {
         await manager.handleEvent('pause_conversation', null);
         expect(manager.isPaused).toBe(false);
 
+        // Mock DB collection to avoid connection errors during async loop
+        const mockCollection = {
+            updateOne: vi.fn().mockResolvedValue({ matchedCount: 1, modifiedCount: 1 }),
+            findOne: vi.fn(),
+            insertOne: vi.fn()
+        };
+        const mockAudioCollection = {
+            findOne: vi.fn(),
+            insertOne: vi.fn(),
+            updateOne: vi.fn()
+        };
+
         // 2. Verify 'prototype' mode
-        const { manager: protoManager, mockSocket: protoSocket } = createTestManager('prototype');
+        const { manager: protoManager, mockSocket: protoSocket } = createTestManager('prototype', null, {
+            meetingsCollection: mockCollection,
+            audioCollection: mockAudioCollection,
+            insertMeeting: vi.fn().mockResolvedValue({ insertedId: 1 })
+        });
         protoManager.meetingId = 1;
 
-        // Spy on DB/Methods for the new manager
+        // Spy on SpeakerSelector
         vi.spyOn(SpeakerSelector, 'calculateNextSpeaker');
-        vi.spyOn(meetingsCollection, 'updateOne'); // Global spy still works if same module instance
 
         // Trigger pause on the PROTO socket (via handleEvent)
         await protoManager.handleEvent('pause_conversation', null);
@@ -68,12 +83,17 @@ describe('MeetingManager - Conversation Flow', () => {
         vi.spyOn(protoManager.audioSystem, 'queueAudioGeneration').mockImplementation(() => { });
 
         await protoManager.handleEvent('resume_conversation', null);
+
+        // Wait for async loop to tick
+        await new Promise(resolve => setTimeout(resolve, 50));
+
         expect(protoManager.isPaused).toBe(false);
-        // It should have called startLoop -> runLoop -> processTurn -> calculateNextSpeaker
-        expect(SpeakerSelector.calculateNextSpeaker).toHaveBeenCalled();
+        // It should have called startLoop -> runLoop -> processTurn and generated a message
+        // Since we mocked generateTextFromGPT to return "Test", conversation should increase
+        expect(protoManager.conversation.length).toBeGreaterThan(0);
 
         // Cleanup: Stop the loop to prevent leakage into other tests
-        protoManager.run = false;
+        protoManager.isLoopActive = false;
     });
 
     it('should stop conversation when max length is reached', async () => {
@@ -118,6 +138,7 @@ describe('MeetingManager - Conversation Flow', () => {
             getOpenAI: mockGetOpenAI
         });
         diManager.meetingId = 1;
+        diManager.isLoopActive = true; // Enable execution for direct processTurn call
 
         diManager.conversationOptions.options.conversationMaxLength = 10;
         // Mock current speaker to Tomato (index 1 in default, 2 in extended? Default has Water, Tomato, Potato)

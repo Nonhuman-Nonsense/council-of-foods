@@ -5,7 +5,6 @@ import type { Collection } from "mongodb";
 import type { VoiceOption } from "@shared/ModelTypes.js";
 
 import { Logger } from "@utils/Logger.js";
-
 import { mapSentencesToWords, Word } from "@utils/textUtils.js";
 
 // OpenAI SDK accepts Buffer/Stream for 'file'.

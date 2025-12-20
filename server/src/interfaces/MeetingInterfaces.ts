@@ -72,7 +72,7 @@ export interface IConversationState {
  */
 export interface IMeetingControl {
     startLoop: () => void;
-    run: boolean;
+    isLoopActive: boolean;
 }
 
 /**

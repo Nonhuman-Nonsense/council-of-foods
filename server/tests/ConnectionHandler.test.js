@@ -36,7 +36,7 @@ describe('ConnectionHandler', () => {
             conversation: [],
             conversationOptions: {},
             meetingDate: null,
-            run: true,
+            isLoopActive: false,
             handRaised: false,
             broadcaster: mockBroadcaster,
             audioSystem: mockAudioSystem,
@@ -51,10 +51,10 @@ describe('ConnectionHandler', () => {
     });
 
     describe('handleDisconnect', () => {
-        it('should set run to false', () => {
-            mockContext.run = true;
+        it('should set isLoopActive to false', () => {
+            mockContext.isLoopActive = true;
             handler.handleDisconnect();
-            expect(mockContext.run).toBe(false);
+            expect(mockContext.isLoopActive).toBe(false);
         });
     });
 
@@ -79,7 +79,10 @@ describe('ConnectionHandler', () => {
             expect(mockContext.conversation).toEqual(savedMeeting.conversation);
             expect(mockContext.conversationOptions).toEqual(savedMeeting.options);
             expect(mockContext.meetingDate.toISOString()).toEqual(savedMeeting.date);
-            expect(mockContext.run).toBe(true);
+            expect(mockContext.meetingDate.toISOString()).toEqual(savedMeeting.date);
+
+            // ConnectionHandler now calls startLoop, which sets isLoopActive=true
+            expect(mockContext.startLoop).toHaveBeenCalled();
 
             expect(mockBroadcaster.broadcastConversationUpdate).toHaveBeenCalledWith(savedMeeting.conversation);
         });
