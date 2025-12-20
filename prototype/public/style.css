@@ -100,8 +100,9 @@ body {
 }
 
 .sidebar.collapsed {
-  width: 40px;
-  /* Width of toggle button */
+  width: 0;
+  border: none;
+  padding: 0;
 }
 
 /* Sidebar Header */
