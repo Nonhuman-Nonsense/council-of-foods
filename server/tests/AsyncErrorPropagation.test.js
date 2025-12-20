@@ -281,4 +281,25 @@ describe('Async Error Propagation (Comprehensive)', () => {
         );
     });
 
+    it('should catch real Zod validation errors in initializeStart and broadcast 400', async () => {
+        const event = 'start_conversation';
+        const handler = socketHandlers[event];
+
+        // Payload violates schema (missing 'topic', 'language', 'characters')
+        const invalidPayload = { invalid: 'data' };
+
+        await handler(invalidPayload);
+
+        expect(mockSocket.emit).toHaveBeenCalledWith("conversation_error", expect.objectContaining({
+            message: "Invalid Input",
+            code: 400
+        }));
+
+        expect(Logger.warn).toHaveBeenCalledWith(
+            expect.stringMatching(/^(meeting \d+|socket mock-socket)$/),
+            expect.stringContaining(`Validation Error for ${event}`),
+            expect.any(ZodError)
+        );
+    });
+
 });

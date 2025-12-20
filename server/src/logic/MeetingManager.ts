@@ -155,21 +155,13 @@ export class MeetingManager implements IMeetingManager {
     }
 
     async initializeStart(payload: SetupOptions) {
-        const parse = SetupOptionsSchema.safeParse(payload);
-        if (!parse.success) {
-            this.broadcaster.broadcastWarning("Invalid start options", 400, parse.error);
-            return;
-        }
-        await this.meetingLifecycleHandler.handleStartConversation(parse.data);
+        const data = SetupOptionsSchema.parse(payload);
+        await this.meetingLifecycleHandler.handleStartConversation(data);
     }
 
     async initializeReconnect(payload: ReconnectionOptions) {
-        const parse = ReconnectionOptionsSchema.safeParse(payload);
-        if (!parse.success) {
-            this.broadcaster.broadcastWarning("Invalid reconnection options", 400, parse.error);
-            return;
-        }
-        await this.connectionHandler.handleReconnection(parse.data);
+        const data = ReconnectionOptionsSchema.parse(payload);
+        await this.connectionHandler.handleReconnection(data);
     }
 
     async syncClient() {
