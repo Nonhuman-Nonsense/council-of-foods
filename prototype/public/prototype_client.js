@@ -332,14 +332,23 @@ createApp({
     },
 
     removeCharacter(index) {
-      if (this.currentRoom) {
-        const char = this.currentRoom.characters[index];
-        if (char && char._ui_id) {
-          delete this.localOptions.expandedCharacters[char._ui_id];
-        }
-        this.currentRoom.characters.splice(index, 1);
-        this.save();
+      if (!this.currentRoom || this.currentRoom.characters.length === 0) return;
+
+      let indexToRemove;
+      if (typeof index === 'number') {
+        // Specific removal
+        indexToRemove = index;
+      } else {
+        // Remove last (called from Top button)
+        indexToRemove = this.currentRoom.characters.length - 1;
       }
+
+      const char = this.currentRoom.characters[indexToRemove];
+      if (char && char._ui_id) {
+        delete this.localOptions.expandedCharacters[char._ui_id];
+      }
+      this.currentRoom.characters.splice(indexToRemove, 1);
+      this.save();
     },
 
     toggleConversation() {
