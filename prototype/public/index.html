@@ -37,10 +37,10 @@
 
         <hr>
 
-        <!-- Rooms -->
+        <!-- Topics -->
         <div class="section-group">
           <div class="sidebar-section-header">
-            <h3>Rooms</h3>
+            <h3>Topics</h3>
             <div>
               <button class="icon-btn" @click="addRoom">+</button>
               <button class="icon-btn" @click="removeRoom">-</button>
@@ -102,58 +102,97 @@
             </div>
 
             <!-- Character List -->
-            <div id="characters">
-              <div class="character-card" v-for="(character, index) in sortedCharacters" :key="character._ui_id"
-                :class="{ inactive: !isCharacterActive(character) }">
+            <div id="characters-container">
 
-                <!-- Card Header -->
-                <div class="card-header" @click="toggleCharacterExpanded(character._ui_id)">
-                  <div style="display: flex; align-items: center; gap: 10px; flex: 1;">
-                    <!-- Active Toggle -->
-                    <input type="checkbox" :checked="isCharacterActive(character)"
-                      @change="toggleCharacterActive(character)" @click.stop
-                      style="width: 16px; height: 16px; accent-color: var(--accent-color);">
+              <!-- Active Characters (Sortable) -->
+              <div id="active-characters-list">
+                <div class="character-card" v-for="(character, index) in activeCharacters" :key="character._ui_id">
 
-                    <!-- Name Display (Clicking anywhere in header expands) -->
-                    <span :style="{ 
-                        fontWeight: '600', 
-                        color: isCharacterActive(character) ? 'var(--text-primary)' : 'var(--text-secondary)' 
-                      }">
-                      {{ character.name || 'Unnamed Character' }}
-                    </span>
-                  </div>
-                  <div style="display: flex; align-items: center; gap: 5px;">
-                    <!-- Drag Handle (Active Only) -->
-                    <span v-if="isCharacterActive(character)" class="drag-handle" @click.stop
-                      style="cursor: grab; padding: 0 5px; opacity: 0.5;">☰</span>
-                  </div>
-                </div>
+                  <!-- Card Header -->
+                  <div class="card-header" @click="toggleCharacterExpanded(character._ui_id)">
+                    <div style="display: flex; align-items: center; gap: 10px; flex: 1;">
+                      <input type="checkbox" :checked="true" @change="toggleCharacterActive(character)" @click.stop
+                        style="width: 16px; height: 16px; accent-color: var(--accent-color);">
 
-                <!-- Card Body (Collapsible) -->
-                <div class="card-body" v-if="localOptions.expandedCharacters[character._ui_id]">
-                  <!-- Name Input (Moved here) -->
-                  <label class="sub-label">Name</label>
-                  <input type="text" class="input-full" placeholder="Character Name" v-model="character.name"
-                    style="margin-bottom: 15px;">
-
-                  <label class="sub-label">System Prompt</label>
-                  <textarea class="input-area" placeholder="Character prompt..." v-model="character.prompt"
-                    v-auto-resize></textarea>
-
-                  <label class="sub-label">Voice Options</label>
-                  <div class="voice-selector">
-                    <template v-for="voiceName in audioVoices" :key="voiceName">
-                      <label class="voice-chip" :class="{ active: character.voice === voiceName }">
-                        <input type="radio" :value="voiceName" v-model="character.voice" style="display: none;">
-                        {{ voiceName }}
-                      </label>
-                    </template>
+                      <span :style="{ fontWeight: '600', color: 'var(--text-primary)' }">
+                        {{ character.name || 'Unnamed Character' }}
+                      </span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 5px;">
+                      <span class="drag-handle" @click.stop style="cursor: grab; padding: 0 5px; opacity: 0.5;">☰</span>
+                    </div>
                   </div>
 
-                  <input type="text" placeholder="Voice Instruction (e.g. 'Excited')"
-                    v-model="character.voiceInstruction" style="margin-top: 5px;">
+                  <!-- Card Body -->
+                  <div class="card-body" v-if="localOptions.expandedCharacters[character._ui_id]">
+                    <label class="sub-label">Name</label>
+                    <input type="text" class="input-full" placeholder="Character Name" v-model="character.name"
+                      style="margin-bottom: 15px;">
+
+                    <label class="sub-label">System Prompt</label>
+                    <textarea class="input-area" placeholder="Character prompt..." v-model="character.prompt"
+                      v-auto-resize></textarea>
+
+                    <label class="sub-label">Voice Options</label>
+                    <div class="voice-selector">
+                      <template v-for="voiceName in audioVoices" :key="voiceName">
+                        <label class="voice-chip" :class="{ active: character.voice === voiceName }">
+                          <input type="radio" :value="voiceName" v-model="character.voice" style="display: none;">
+                          {{ voiceName }}
+                        </label>
+                      </template>
+                    </div>
+
+                    <input type="text" placeholder="Voice Instruction (e.g. 'Excited')"
+                      v-model="character.voiceInstruction" style="margin-top: 5px;">
+                  </div>
                 </div>
               </div>
+
+              <!-- Inactive Characters (Static) -->
+              <div id="inactive-characters-list">
+                <div class="character-card inactive" v-for="(character, index) in inactiveCharacters"
+                  :key="character._ui_id">
+
+                  <!-- Card Header -->
+                  <div class="card-header" @click="toggleCharacterExpanded(character._ui_id)">
+                    <div style="display: flex; align-items: center; gap: 10px; flex: 1;">
+                      <input type="checkbox" :checked="false" @change="toggleCharacterActive(character)" @click.stop
+                        style="width: 16px; height: 16px; accent-color: var(--accent-color);">
+
+                      <span :style="{ fontWeight: '600', color: 'var(--text-secondary)' }">
+                        {{ character.name || 'Unnamed Character' }}
+                      </span>
+                    </div>
+                    <!-- No Drag Handle -->
+                  </div>
+
+                  <!-- Card Body -->
+                  <div class="card-body" v-if="localOptions.expandedCharacters[character._ui_id]">
+                    <label class="sub-label">Name</label>
+                    <input type="text" class="input-full" placeholder="Character Name" v-model="character.name"
+                      style="margin-bottom: 15px;">
+
+                    <label class="sub-label">System Prompt</label>
+                    <textarea class="input-area" placeholder="Character prompt..." v-model="character.prompt"
+                      v-auto-resize></textarea>
+
+                    <label class="sub-label">Voice Options</label>
+                    <div class="voice-selector">
+                      <template v-for="voiceName in audioVoices" :key="voiceName">
+                        <label class="voice-chip" :class="{ active: character.voice === voiceName }">
+                          <input type="radio" :value="voiceName" v-model="character.voice" style="display: none;">
+                          {{ voiceName }}
+                        </label>
+                      </template>
+                    </div>
+
+                    <input type="text" placeholder="Voice Instruction (e.g. 'Excited')"
+                      v-model="character.voiceInstruction" style="margin-top: 5px;">
+                  </div>
+                </div>
+              </div>
+
             </div>
 
           </div>

@@ -103,28 +103,13 @@ createApp({
         this.currentLanguageData.system = val;
       }
     },
-    // Sorting active characters to top
-    sortedCharacters() {
-      if (!this.currentLanguageData.characters) return [];
-      if (!this.currentRoom) return [];
+    // Split lists for UI
+    activeCharacters() {
+      return (this.currentLanguageData.characters || []).filter(c => this.isCharacterActive(c));
+    },
 
-      const roomId = this.currentRoom.id;
-      const roomState = this.localOptions.roomStates[roomId] || { activeCharacterIds: {} };
-      const activeIds = roomState.activeCharacterIds || {};
-
-      // Map to separate arrays
-      const active = [];
-      const inactive = [];
-
-      this.currentLanguageData.characters.forEach(c => {
-        if (activeIds[c._ui_id]) {
-          active.push(c);
-        } else {
-          inactive.push(c);
-        }
-      });
-
-      return [...active, ...inactive];
+    inactiveCharacters() {
+      return (this.currentLanguageData.characters || []).filter(c => !this.isCharacterActive(c));
     }
   },
 
@@ -168,16 +153,12 @@ createApp({
     },
 
     initSortable() {
-      const el = document.getElementById('characters');
+      const el = document.getElementById('active-characters-list');
       if (!el) return;
 
       // If already initialized on the same element, skip
       if (this.sortableInstance && this.sortableInstance.el === el) return;
-
-      // If initialized on different element (re-render?), destroy old
-      if (this.sortableInstance) {
-        this.sortableInstance.destroy();
-      }
+      if (this.sortableInstance) this.sortableInstance.destroy();
 
       this.sortableInstance = new Sortable(el, {
         animation: 150,
@@ -185,35 +166,16 @@ createApp({
         onEnd: (evt) => {
           if (evt.oldIndex === evt.newIndex) return;
 
-          const movedChar = this.sortedCharacters[evt.oldIndex];
-          const targetChar = this.sortedCharacters[evt.newIndex];
-
-          if (!movedChar) return;
+          // Because we enforceActiveCharacterSort, active chars are at indices 0..N
+          // So the visual index corresponds exactly to the global array index for this subset.
 
           const globalList = this.currentLanguageData.characters;
 
-          // Find current index of moved char in global string
-          const globalOldIndex = globalList.findIndex(c => c._ui_id === movedChar._ui_id);
-          if (globalOldIndex === -1) return;
+          // Safety: ensure indices are within bounds
+          if (evt.oldIndex >= globalList.length) return;
 
-          // Remove from global list
-          const [removed] = globalList.splice(globalOldIndex, 1);
-
-          // Find where to insert
-          // If moving to end of displayed list, push to end of global list?
-          // Or insert before the target char?
-          if (!targetChar) {
-            // Moved to end
-            globalList.push(removed);
-          } else {
-            const globalNewIndex = globalList.findIndex(c => c._ui_id === targetChar._ui_id);
-            if (globalNewIndex !== -1) {
-              globalList.splice(globalNewIndex, 0, removed);
-            } else {
-              // Fallback
-              globalList.push(removed);
-            }
-          }
+          const item = globalList.splice(evt.oldIndex, 1)[0];
+          globalList.splice(evt.newIndex, 0, item);
 
           this.save();
         }
@@ -478,6 +440,9 @@ createApp({
         console.log("Activating", char._ui_id);
         activeIds[char._ui_id] = true;
       }
+
+      // Re-sort to move activated to top / deactivated to bottom
+      this.enforceActiveCharacterSort();
       this.save();
     },
 
