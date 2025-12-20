@@ -1,7 +1,6 @@
 import type { Meeting, Audio, Counter } from "@models/DBModels.js";
 import { MongoClient, Db, Collection, InsertOneResult } from "mongodb";
 import { Logger } from "@utils/Logger.js";
-import { reportError } from "@utils/errorbot.js";
 import { config } from "../config.js";
 
 let db: Db;
@@ -14,9 +13,9 @@ export const initDb = async (dbUrl?: string, dbPrefix?: string): Promise<void> =
   const url = dbUrl || config.COUNCIL_DB_URL;
   const prefix = dbPrefix || config.COUNCIL_DB_PREFIX;
 
-  const mongoClient = new MongoClient(url);
-
   Logger.info(`init`, `COUNCIL_DB_PREFIX is ${prefix}`);
+  Logger.info("init", "Initializing Database");
+  const mongoClient = new MongoClient(url);
 
   db = mongoClient.db(prefix);
   meetingsCollection = db.collection<Meeting>("meetings");
@@ -63,7 +62,7 @@ export const insertMeeting = async (meeting: Omit<Meeting, "_id">): Promise<Inse
   } catch (error) {
     // Report error and rethrow to allow caller or global handler to react
     // We rethrow because database failure is critical for creating a meeting
-    await reportError("DbService", "Failed to insert meeting", error);
+    await Logger.error("DbService", "Failed to insert meeting", error);
     throw error;
   }
 };

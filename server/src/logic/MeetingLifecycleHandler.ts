@@ -2,7 +2,6 @@ import type { Character, ConversationMessage } from '@shared/ModelTypes.js';
 import type { ILifecycleContext, ConversationOptions } from "@interfaces/MeetingInterfaces.js";
 import type { Message as AudioMessage } from "@logic/AudioSystem.js";
 import { splitSentences } from "@utils/textUtils.js";
-import { reportError } from "@utils/errorbot.js";
 import { Logger } from "@utils/Logger.js";
 import { GlobalOptions } from "@logic/GlobalOptions.js";
 
@@ -172,8 +171,7 @@ export class MeetingLifecycleHandler {
             manager.broadcaster.broadcastClientKey(data);
             Logger.info(`meeting ${manager.meetingId}`, "clientkey sent");
         } catch (error) {
-            reportError(`meeting ${manager.meetingId}`, "Failed to initialize realtime transcription.", error);
-            manager.broadcaster.broadcastError("Failed to initialize realtime transcription.", 500);
+            Logger.reportAndCrashClient(`meeting ${manager.meetingId}`, "Failed to initialize realtime transcription.", error, manager.broadcaster);
         }
     }
 

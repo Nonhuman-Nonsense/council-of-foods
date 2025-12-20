@@ -7,10 +7,10 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 import { Logger } from '@utils/Logger.js';
-import { initReporting, reportError } from '@utils/errorbot.js';
+import { initReporting } from '@utils/errorbot.js';
 import { initDb } from '@services/DbService.js';
 import { initOpenAI } from '@services/OpenAIService.js';
-import { MeetingManager } from '@logic/MeetingManager.js';
+import { SocketManager } from '@logic/SocketManager.js';
 
 const environment: string = config.NODE_ENV;
 const __filename: string = fileURLToPath(import.meta.url);
@@ -21,15 +21,13 @@ const httpServer = http.createServer(app);
 const io = new Server(httpServer);
 
 // Initialize Services
-initReporting();
-initDb().catch(async (e: any) => {
-  await reportError("db", "Failed to initialize Database", e);
-  process.exit(1);
-});
 try {
+  initReporting();
+  await initDb();
   initOpenAI();
-} catch (e: any) {
-  reportError("openai", "Failed to initialize OpenAI", e).then(() => process.exit(1));
+} catch (e) {
+  await Logger.error("init", "Startup failed.", e);
+  process.exit(1);
 }
 
 // Express for health checks
@@ -57,7 +55,7 @@ if (environment === "prototype") {
 // Socket Logic
 io.on("connection", (socket: Socket) => {
   Logger.info("socket", `[session ${socket.id}] connected`);
-  new MeetingManager(socket, environment);
+  new SocketManager(socket, environment);
 });
 
 // Server Listen

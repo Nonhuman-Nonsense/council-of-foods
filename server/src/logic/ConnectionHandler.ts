@@ -2,7 +2,6 @@ import type { ReconnectionOptions } from "@shared/SocketTypes.js";
 import type { ConversationMessage } from "@shared/ModelTypes.js";
 import type { IMeetingManager } from "@interfaces/MeetingInterfaces.js";
 import { splitSentences } from "@utils/textUtils.js";
-import { reportError, reportWarning } from "@utils/errorbot.js";
 import { Logger } from "@utils/Logger.js";
 
 /**
@@ -27,7 +26,7 @@ export class ConnectionHandler {
         if (manager.socket) {
             Logger.info(`meeting ${manager.meetingId}`, `disconnected (session ${manager.socket.id})`);
         }
-        manager.run = false;
+        manager.isLoopActive = false;
     }
 
     /**
@@ -46,6 +45,9 @@ export class ConnectionHandler {
             });
 
             if (existingMeeting) {
+                // Check BEFORE overwriting state
+                // We don't need isRunning check anymore with idempotent startLoop
+
                 manager.meetingId = existingMeeting._id;
                 manager.conversation = existingMeeting.conversation;
                 manager.conversationOptions = existingMeeting.options;
@@ -87,17 +89,16 @@ export class ConnectionHandler {
 
                 Logger.info(`meeting ${manager.meetingId}`, "resumed");
                 manager.broadcaster.broadcastConversationUpdate(manager.conversation);
+
+                // Simply ensure loop is running. 
+                // Idempotency in MeetingManager prevents double-start.
                 manager.startLoop();
             } else {
-                //TODO: implement a special not found?
-                // manager.broadcaster.broadcastMeetingNotFound(String(options.meetingId));
-
                 manager.broadcaster.broadcastError('Meeting not found', 404);
-                reportWarning(`meeting ${options.meetingId}`, `Meeting not found`);
+                Logger.warn(`meeting ${options.meetingId}`, `Meeting not found`);
             }
         } catch (error) {
-            manager.broadcaster.broadcastError("Error resuming", 500);
-            reportError(`meeting ${options.meetingId}`, "Error resuming conversation", error);
+            Logger.reportAndCrashClient(`meeting ${options.meetingId}`, "Error resuming conversation", error, manager.broadcaster);
         }
     }
 }
