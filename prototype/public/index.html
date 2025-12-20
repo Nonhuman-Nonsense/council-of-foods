@@ -19,11 +19,11 @@
   <div id="app" class="app-layout" v-cloak>
 
     <!-- LEFT SIDEBAR: Explorer -->
-    <aside class="sidebar sidebar-left" :class="{ collapsed: !leftSidebarOpen }">
+    <aside class="sidebar sidebar-left" :class="{ collapsed: !localOptions.leftSidebarOpen }">
       <div class="sidebar-header">
         <h3>Explorer</h3>
         <button class="icon-btn" @click="toggleSidebar('left')">
-          <span v-if="leftSidebarOpen">«</span><span v-else>»</span>
+          <span v-if="localOptions.leftSidebarOpen">«</span><span v-else>»</span>
         </button>
       </div>
       <div class="sidebar-content">
@@ -95,7 +95,7 @@
               <div class="character-card" v-for="(character, index) in currentRoom.characters"
                 :key="character._ui_id || index">
                 <!-- Card Header -->
-                <div class="card-header" @click="character.expanded = !character.expanded">
+                <div class="card-header" @click="toggleCharacterExpanded(character._ui_id)">
                   <div style="display: flex; align-items: center; gap: 10px; flex: 1;">
                     <span class="drag-handle" @click.stop>☰</span>
                     <!-- Name Input (Clicking it should not toggle accordion) -->
@@ -104,7 +104,7 @@
                   <div style="display: flex; align-items: center; gap: 5px;">
                     <!-- Toggle Icon -->
                     <button class="icon-btn" style="font-size: 12px;">
-                      {{ character.expanded ? '▼' : '▶' }}
+                      {{ localOptions.expandedCharacters[character._ui_id] ? '▼' : '▶' }}
                     </button>
                     <!-- Delete Button -->
                     <button class="icon-btn" @click.stop="removeCharacter(index)" title="Remove"
@@ -113,7 +113,7 @@
                 </div>
 
                 <!-- Card Body (Collapsible) -->
-                <div class="card-body" v-if="character.expanded">
+                <div class="card-body" v-if="localOptions.expandedCharacters[character._ui_id]">
                   <label class="sub-label">System Prompt</label>
                   <textarea class="input-area" placeholder="Character prompt..." v-model="character.prompt"
                     v-auto-resize></textarea>
@@ -216,10 +216,10 @@
     </main>
 
     <!-- RIGHT SIDEBAR: Options -->
-    <aside class="sidebar sidebar-right" :class="{ collapsed: !rightSidebarOpen }">
+    <aside class="sidebar sidebar-right" :class="{ collapsed: !localOptions.rightSidebarOpen }">
       <div class="sidebar-header">
         <button class="icon-btn" @click="toggleSidebar('right')">
-          <span v-if="rightSidebarOpen">»</span><span v-else>«</span>
+          <span v-if="localOptions.rightSidebarOpen">»</span><span v-else>«</span>
         </button>
         <h3>Settings</h3>
       </div>

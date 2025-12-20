@@ -29,7 +29,10 @@ const defaultOptions = {
 
 const defaultLocalOptions = {
   theme: '',
-  showTrimmed: true
+  showTrimmed: true,
+  leftSidebarOpen: true,
+  rightSidebarOpen: true,
+  expandedCharacters: {}
 };
 
 createApp({
@@ -68,8 +71,6 @@ createApp({
       sortableInstance: null,
 
       // UI Layout State
-      leftSidebarOpen: true,
-      rightSidebarOpen: true,
       isResizing: false,
       editorWidthPercent: 50, // width of the left pane in split view
 
@@ -314,19 +315,29 @@ createApp({
 
     addCharacter() {
       if (this.currentRoom) {
+        // Round robin voice assignment
         const voiceIndex = this.currentRoom.characters.length % this.audioVoices.length;
+        const newId = Date.now() + Math.random();
+
         this.currentRoom.characters.push({
           voice: this.audioVoices[voiceIndex],
           voiceInstruction: "",
-          _ui_id: Date.now() + Math.random(),
-          expanded: true
+          _ui_id: newId
         });
+
+        // Auto-expand new character
+        this.localOptions.expandedCharacters[newId] = true;
       }
     },
 
-    removeCharacter() {
-      if (this.currentRoom && this.currentRoom.characters.length > 0) {
-        this.currentRoom.characters.pop();
+    removeCharacter(index) {
+      if (this.currentRoom) {
+        const char = this.currentRoom.characters[index];
+        if (char && char._ui_id) {
+          delete this.localOptions.expandedCharacters[char._ui_id];
+        }
+        this.currentRoom.characters.splice(index, 1);
+        this.save();
       }
     },
 
@@ -529,8 +540,16 @@ createApp({
     //   UI LAYOUT
     // ===========================
     toggleSidebar(side) {
-      if (side === 'left') this.leftSidebarOpen = !this.leftSidebarOpen;
-      if (side === 'right') this.rightSidebarOpen = !this.rightSidebarOpen;
+      if (side === 'left') this.localOptions.leftSidebarOpen = !this.localOptions.leftSidebarOpen;
+      if (side === 'right') this.localOptions.rightSidebarOpen = !this.localOptions.rightSidebarOpen;
+    },
+
+    toggleCharacterExpanded(id) {
+      if (this.localOptions.expandedCharacters[id]) {
+        delete this.localOptions.expandedCharacters[id];
+      } else {
+        this.localOptions.expandedCharacters[id] = true;
+      }
     },
 
     startResize(event) {
@@ -594,7 +613,6 @@ createApp({
           if (!room.characters) return;
           room.characters.forEach(c => {
             if (!c._ui_id) c._ui_id = Date.now() + Math.random();
-            if (c.expanded === undefined) c.expanded = false;
           });
         });
       });
