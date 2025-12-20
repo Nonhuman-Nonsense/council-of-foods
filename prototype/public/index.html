@@ -49,8 +49,9 @@
           <div class="room-list" style="display: flex; flex-direction: column; gap: 4px;">
             <div v-for="(room, index) in currentLanguageData.rooms" :key="index" class="room-item"
               :class="{ active: currentRoomIndex === index }" @click="currentRoomIndex = index">
-              <input type="text" class="input-minimal" v-model="room.name" placeholder="Untitled Room"
-                style="width: 100%;">
+              <input type="text" class="styled-input" v-model="room.name" style="display: none;">
+              <div style="font-weight: 500; overflow: hidden; text-overflow: ellipsis;">{{ room.name || 'Untitled Room'
+                }}</div>
             </div>
           </div>
         </div>
@@ -64,7 +65,7 @@
         <!-- LEFT PANE: Prompts -->
         <div class="split-pane pane-editor" :style="{ width: editorWidthPercent + '%' }" v-if="currentRoom">
           <div class="sidebar-header">
-            <h3>Prompts</h3>
+            <h3>{{ currentRoom.name || 'Prompts' }}</h3>
           </div>
           <div style="flex: 1; overflow-y: auto; padding: 15px;">
 
@@ -79,6 +80,10 @@
               </div>
 
               <div class="card-body" v-if="localOptions.configCardExpanded">
+                <label class="sub-label">Topic Name</label>
+                <input type="text" class="input-full" v-model="currentRoom.name" placeholder="Room Name"
+                  style="margin-bottom: 15px;">
+
                 <label class="sub-label">Topic / Panel Prompt</label>
                 <textarea class="input-area" v-model="currentRoom.topic" placeholder="Describe the topic..."
                   v-auto-resize></textarea>
