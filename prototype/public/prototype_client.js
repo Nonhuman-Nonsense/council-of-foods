@@ -610,11 +610,16 @@ createApp({
       this.conversation = [];
       this.stopCurrentAudio();
 
+      // Reset Audio State
       this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       this.audioPlaylist = [];
       this.currentAudio = 0;
+      this.audioIsPlaying = false;
+      this.localOptions.audioPaused = false; // Force unpause
 
-      this.socket.emit("start_conversation", this.getPayload());
+      const payload = this.getPayload();
+      this.log('SOCKET_OUT', 'Restarting Conversation', payload);
+      this.socket.emit("start_conversation", payload);
     },
 
     continueConversation() {
