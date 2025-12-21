@@ -352,6 +352,17 @@
           <input type="range" min="0" max="2.0" step="0.01" v-model.number="options.presencePenalty">
         </div>
         <hr>
+        <div class="section-group" style="display: flex; gap: 10px;">
+          <div style="flex: 1;">
+            <label style="font-size: 11px;">Max Msg</label>
+            <input type="number" v-model.number="options.conversationMaxLength" class="input-full">
+          </div>
+          <div style="flex: 1;">
+            <label style="font-size: 11px;">Extra Msg</label>
+            <input type="number" v-model.number="options.extraMessageCount" class="input-full">
+          </div>
+        </div>
+        <hr>
         <div class="section-group">
           <label>Audio Speed: {{ options.audio_speed }}</label>
           <input type="range" min="0.5" max="2.0" step="0.05" v-model.number="options.audio_speed">
