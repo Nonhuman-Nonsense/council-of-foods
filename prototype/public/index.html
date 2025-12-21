@@ -231,10 +231,11 @@
             <h3>Meeting</h3>
             <div style="margin-left: auto; display: flex; gap: 5px;">
               <!-- Conversation Controls -->
-              <button v-if="!conversationActive && !endMessage" class="primary" @click="toggleConversation">
-                {{ conversationStarted ? 'Resume' : 'Start' }}
-              </button>
-              <button v-if="conversationActive" @click="toggleConversation">Pause</button>
+              <button v-if="!conversationActive && !endMessage && !conversationStarted" class="primary"
+                @click="startConversation">Start</button>
+              <button v-if="!conversationActive && !endMessage && conversationStarted" class="primary"
+                @click="resumeConversation">Resume</button>
+              <button v-if="conversationActive" @click="pauseConversation">Pause</button>
               <button v-if="conversationStarted && !conversationActive" @click="restartConversation">Restart</button>
               <button v-if="endMessage" class="primary" @click="continueConversation">Keep Going</button>
 

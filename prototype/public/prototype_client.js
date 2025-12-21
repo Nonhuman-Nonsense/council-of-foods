@@ -401,6 +401,7 @@ createApp({
       return {
         options: this.options,
         prompt: this.currentSystemPrompt.replace("[TOPIC]", this.currentTopic.prompt),
+        topic: this.currentTopic.prompt || "", // Fix for Zod validation
         characters: replacedCharacters,
         // For logging/debug, maybe send topic name too?
         topicName: this.currentTopic.name
@@ -534,28 +535,26 @@ createApp({
       this.save();
     },
 
-    toggleConversation() {
-      if (this.conversationActive) {
-        // Pause
-        this.conversationActive = false;
-        this.loading = false;
-        this.socket.emit("pause_conversation");
-      } else {
-        // Start/Resume
-        this.loading = true;
-        this.conversationActive = true;
+    startConversation() {
+      // Start fresh
+      this.loading = true;
+      this.conversationActive = true;
+      this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      this.conversationStarted = true;
+      this.socket.emit("start_conversation", this.getPayload());
+    },
 
-        if (!this.conversationStarted) {
-          // Start fresh
-          this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-          this.conversationStarted = true;
-          this.socket.emit("start_conversation", this.getPayload());
-        } else {
-          // Resume
-          console.log("Resuming...");
-          this.socket.emit("resume_conversation");
-        }
-      }
+    pauseConversation() {
+      this.conversationActive = false;
+      this.loading = false;
+      this.socket.emit("pause_conversation");
+    },
+
+    resumeConversation() {
+      this.loading = true;
+      this.conversationActive = true;
+      console.log("Resuming...");
+      this.socket.emit("resume_conversation");
     },
 
     restartConversation() {
