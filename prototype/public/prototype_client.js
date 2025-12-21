@@ -145,6 +145,29 @@ createApp({
   },
 
   methods: {
+    log(category, message, data = null) {
+      const styles = {
+        'SOCKET_OUT': 'color: #10b981; font-weight: bold;', // Green
+        'SOCKET_IN': 'color: #3b82f6; font-weight: bold;',  // Blue
+        'AUDIO': 'color: #8b5cf6; font-weight: bold;',      // Purple
+        'ERROR': 'color: #ef4444; font-weight: bold;',      // Red
+        'SYSTEM': 'color: #6b7280; font-weight: bold;'      // Gray
+      };
+
+      const icon = {
+        'SOCKET_OUT': '⬆️',
+        'SOCKET_IN': '⬇️',
+        'AUDIO': '🎵',
+        'ERROR': '❌',
+        'SYSTEM': '⚙️'
+      }[category] || '🔹';
+
+      console.groupCollapsed(`%c${icon} [${category}] ${message}`, styles[category] || '');
+      if (data) console.log(data);
+      console.trace('Stack');
+      console.groupEnd();
+    },
+
     isCharacterPinned(char) {
       // The first character in the global list is considered "The Chair" and is pinned.
       if (!this.currentLanguageData.characters || this.currentLanguageData.characters.length === 0) return false;
@@ -235,6 +258,8 @@ createApp({
           this.options = { ...defaultOptions, ...stored.options };
           this.localOptions = { ...JSON.parse(JSON.stringify(defaultLocalOptions)), ...stored.localOptions };
 
+          this.log('SYSTEM', 'State Loaded from LocalStorage');
+
           // Backwards compatibility: if theme was in options
           if (stored.options && stored.options.theme) {
             this.localOptions.theme = stored.options.theme;
@@ -275,16 +300,18 @@ createApp({
           // Ensure sorting is enforced on load so index 0 is pinned correcty
           this.enforceActiveCharacterSort();
         } else {
+          this.log('SYSTEM', 'Fresh Startup - No Save Found');
           throw new Error("No stored data");
         }
       } catch (e) {
-        console.log("Resetting to defaults", e);
+        this.log('ERROR', 'Startup Failed, Resetting Defaults', e);
         await this.factoryReset();
       }
     },
 
     async factoryReset() {
       // Reset options to defaults
+      this.log('SYSTEM', 'Factory Reset Executed');
       this.options = { ...defaultOptions };
       // Deep copy defaults to ensure clean slate
       this.localOptions = { ...JSON.parse(JSON.stringify(defaultLocalOptions)) };
@@ -413,21 +440,25 @@ createApp({
     // ===========================
     setupSocketListeners() {
       this.socket.on("conversation_update", (conversationUpdate) => {
+        this.log('SOCKET_IN', 'Conversation Update', conversationUpdate);
         this.conversation = conversationUpdate;
         this.scrollToBottom();
       });
 
       this.socket.on("audio_update", (update) => {
+        this.log('SOCKET_IN', 'Audio Update Received', update);
         this.handleAudioUpdate(update);
       });
 
       this.socket.on("conversation_end", () => {
+        this.log('SOCKET_IN', 'Conversation End');
         this.loading = false;
         this.conversationActive = false;
         this.endMessage = "End of Conversation";
       });
 
       this.socket.on("conversation_error", (errorMessage) => {
+        this.log('ERROR', 'Conversation Error', errorMessage);
         console.error(errorMessage);
         this.loading = false;
         alert(errorMessage.message);
@@ -438,17 +469,23 @@ createApp({
     //   UI ACTIONS
     // ===========================
     addTopic() {
-      this.currentLanguageData.topics.push({
+      const newTopic = {
         id: 'topic_' + Date.now(),
         name: "New Topic",
         prompt: "",
-      });
+      };
+      this.currentLanguageData.topics.push(newTopic);
+      this.log('SYSTEM', 'Topic Added', newTopic);
+
       // Switch to new topic
       this.localOptions.currentTopicIndex = this.currentLanguageData.topics.length - 1;
     },
 
     removeTopic() {
       if (this.currentLanguageData.topics.length > 1) {
+        const removed = this.currentLanguageData.topics[this.localOptions.currentTopicIndex];
+        this.log('SYSTEM', 'Topic Removed', removed);
+
         this.currentLanguageData.topics.splice(this.localOptions.currentTopicIndex, 1);
         if (this.localOptions.currentTopicIndex >= this.currentLanguageData.topics.length) {
           this.localOptions.currentTopicIndex = this.currentLanguageData.topics.length - 1;
@@ -510,7 +547,7 @@ createApp({
     },
 
     toggleCharacterActive(char) {
-      console.log("toggleCharacterActive called", char);
+      // console.log("toggleCharacterActive called", char);
       // Toggle functionality inside Active vs Inactive logic
       if (!this.currentTopic) return;
       const topicId = this.currentTopic.id;
@@ -548,10 +585,13 @@ createApp({
       this.localOptions.audioPaused = false; // Force unpause
 
       this.conversationStarted = true;
-      this.socket.emit("start_conversation", this.getPayload());
+      const payload = this.getPayload();
+      this.log('SOCKET_OUT', 'Starting Conversation', payload);
+      this.socket.emit("start_conversation", payload);
     },
 
     pauseConversation() {
+      this.log('SOCKET_OUT', 'Pausing Conversation');
       this.conversationActive = false;
       this.loading = false;
       this.socket.emit("pause_conversation");
@@ -560,7 +600,7 @@ createApp({
     resumeConversation() {
       this.loading = true;
       this.conversationActive = true;
-      console.log("Resuming...");
+      this.log('SOCKET_OUT', 'Resuming Conversation');
       this.socket.emit("resume_conversation");
     },
 
@@ -582,7 +622,9 @@ createApp({
       this.loading = true;
       this.conversationActive = true;
       this.endMessage = "";
-      this.socket.emit("continue_conversation", this.getPayload());
+      const payload = this.getPayload();
+      this.log('SOCKET_OUT', 'Continuing Conversation', payload);
+      this.socket.emit("continue_conversation", payload);
     },
 
     removeLastMessage() {
@@ -601,6 +643,7 @@ createApp({
       this.injectionStatus = "Instruction injected, just wait...";
       setTimeout(() => this.injectionStatus = "", 5000);
 
+      this.log('SOCKET_OUT', 'Submit Injection', message);
       this.socket.emit("submit_injection", message);
     },
 
@@ -610,9 +653,10 @@ createApp({
     async handleAudioUpdate(update) {
       // If message not found (e.g. restart happened), skip
       const msgIndex = this.conversation.findIndex(c => c.id === update.id);
-      if (msgIndex === -1) return;
-
-      console.log("Audio update", update);
+      if (msgIndex === -1) {
+        this.log('AUDIO', 'Update for unknown message', { id: update.id });
+        return;
+      }
 
       if (update.type == "skipped") {
         this.addToPlaylist(msgIndex, null, true); // skip = true
@@ -647,6 +691,7 @@ createApp({
         source.buffer = buffer;
         source.connect(this.audioCtx.destination);
         source.addEventListener("ended", async () => {
+          this.log('AUDIO', 'Playback Ended', { index });
           if (this.localOptions.audioPaused) return;
           if (this.localOptions.nextOrBackClicked) {
             this.localOptions.nextOrBackClicked = false;
@@ -665,6 +710,7 @@ createApp({
           }
         });
         source.start();
+        this.log('AUDIO', 'Playing Track', { index });
         this.audioIsPlaying = true;
       };
 
