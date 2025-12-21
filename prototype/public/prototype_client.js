@@ -539,7 +539,14 @@ createApp({
       // Start fresh
       this.loading = true;
       this.conversationActive = true;
+
+      // Reset Audio State
       this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      this.audioPlaylist = [];
+      this.currentAudio = 0;
+      this.audioIsPlaying = false;
+      this.localOptions.audioPaused = false; // Force unpause
+
       this.conversationStarted = true;
       this.socket.emit("start_conversation", this.getPayload());
     },
