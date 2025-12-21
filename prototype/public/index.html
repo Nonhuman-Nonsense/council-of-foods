@@ -68,7 +68,16 @@
           <div class="sidebar-header" style="justify-content: space-between;">
             <div style="display: flex; align-items: center; gap: 10px;">
               <button class="icon-btn" @click="toggleSidebar('left')" v-if="!localOptions.leftSidebarOpen"
-                title="Open Sidebar">»</button>
+                title="Open Sidebar">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"
+                  style="display: block;">
+                  <path d="M3 12H21" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                  <path d="M3 6H21" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                  <path d="M3 18H21" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                </svg>
+              </button>
+              <div style="border-left: 1px solid var(--border-color); height: 25px; margin: 0;"
+                v-if="!localOptions.leftSidebarOpen"></div>
               <h3>{{ currentTopic.name || 'Prompts' }}</h3>
             </div>
           </div>
