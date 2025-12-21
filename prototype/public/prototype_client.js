@@ -162,26 +162,9 @@ createApp({
         'SYSTEM': '⚙️'
       }[category] || '🔹';
 
-      // Extract caller info from stack
-      // Stack[0] is Error, [1] is this log function, [2] is the caller
-      let callerInfo = "";
-      try {
-        const stackLines = new Error().stack.split('\n');
-        if (stackLines.length > 2) {
-          const callerLine = stackLines[2].trim();
-          // Try to extract filename:line:col
-          // Format usually: "at Object.method (url:line:col)" or "at method (url:line:col)"
-          // We want just the "prototype_client.js:line" part if possible
-          const match = callerLine.match(/([a-zA-Z0-9_.-]+\.js:\d+)/);
-          if (match) {
-            callerInfo = ` (${match[1]})`;
-          }
-        }
-      } catch (e) { }
-
-      console.groupCollapsed(`%c${icon} [${category}] ${message}%c${callerInfo}`, styles[category] || '', 'color: #9ca3af; font-weight: normal; font-size: 0.9em;');
+      console.groupCollapsed(`%c${icon} [${category}] ${message}`, styles[category] || '');
       if (data) console.log(data);
-      // console.trace('Stack'); // Expanded stack usually not needed if we have the line
+      console.trace('Stack');
       console.groupEnd();
     },
 
