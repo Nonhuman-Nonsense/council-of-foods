@@ -162,9 +162,26 @@ createApp({
         'SYSTEM': '⚙️'
       }[category] || '🔹';
 
-      console.groupCollapsed(`%c${icon} [${category}] ${message}`, styles[category] || '');
+      // Extract caller info from stack
+      // Stack[0] is Error, [1] is this log function, [2] is the caller
+      let callerInfo = "";
+      try {
+        const stackLines = new Error().stack.split('\n');
+        if (stackLines.length > 2) {
+          const callerLine = stackLines[2].trim();
+          // Try to extract filename:line:col
+          // Format usually: "at Object.method (url:line:col)" or "at method (url:line:col)"
+          // We want just the "prototype_client.js:line" part if possible
+          const match = callerLine.match(/([a-zA-Z0-9_.-]+\.js:\d+)/);
+          if (match) {
+            callerInfo = ` (${match[1]})`;
+          }
+        }
+      } catch (e) { }
+
+      console.groupCollapsed(`%c${icon} [${category}] ${message}%c${callerInfo}`, styles[category] || '', 'color: #9ca3af; font-weight: normal; font-size: 0.9em;');
       if (data) console.log(data);
-      console.trace('Stack');
+      // console.trace('Stack'); // Expanded stack usually not needed if we have the line
       console.groupEnd();
     },
 
@@ -301,10 +318,10 @@ createApp({
           this.enforceActiveCharacterSort();
         } else {
           this.log('SYSTEM', 'Fresh Startup - No Save Found');
-          throw new Error("No stored data");
+          await this.factoryReset();
         }
       } catch (e) {
-        this.log('ERROR', 'Startup Failed, Resetting Defaults', e);
+        this.log('ERROR', 'Save File Corrupted - Resetting', e);
         await this.factoryReset();
       }
     },
@@ -547,7 +564,6 @@ createApp({
     },
 
     toggleCharacterActive(char) {
-      // console.log("toggleCharacterActive called", char);
       // Toggle functionality inside Active vs Inactive logic
       if (!this.currentTopic) return;
       const topicId = this.currentTopic.id;
