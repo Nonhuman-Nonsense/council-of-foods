@@ -239,7 +239,8 @@
               </button>
               <button class="icon-btn" @click="audioNext">⏭</button>
 
-              <div style="border-left: 1px solid var(--border-color); margin: 0 5px;"></div>
+              <div style="border-left: 1px solid var(--border-color); margin: 0 5px;"
+                v-if="!localOptions.rightSidebarOpen"></div>
 
               <button class="icon-btn" @click="toggleSidebar('right')" v-if="!localOptions.rightSidebarOpen"
                 :title="localOptions.rightSidebarOpen ? 'Close Settings' : 'Ope Settings'">
