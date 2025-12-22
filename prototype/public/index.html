@@ -98,7 +98,7 @@
                 <input type="text" class="input-full" v-model="currentTopic.name" placeholder="Topic Name"
                   style="margin-bottom: 15px;">
 
-                <label class="sub-label">Topic / Panel Prompt</label>
+                <label class="sub-label">Topic Prompt</label>
                 <textarea class="input-area" v-model="currentTopic.prompt" placeholder="Describe the topic..."
                   v-auto-resize></textarea>
 
@@ -153,11 +153,11 @@
                     <input type="text" class="input-full" placeholder="Character Name" v-model="character.name"
                       style="margin-bottom: 15px;">
 
-                    <label class="sub-label">System Prompt</label>
+                    <label class="sub-label">Character Prompt</label>
                     <textarea class="input-area" placeholder="Character prompt..." v-model="character.prompt"
                       v-auto-resize></textarea>
 
-                    <label class="sub-label">Voice Options</label>
+                    <label class="sub-label">Voice Option</label>
                     <div class="voice-selector">
                       <template v-for="voiceName in audioVoices" :key="voiceName">
                         <label class="voice-chip" :class="{ active: character.voice === voiceName }">
@@ -167,8 +167,10 @@
                       </template>
                     </div>
 
-                    <input type="text" placeholder="Voice Instruction (e.g. 'Excited')"
-                      v-model="character.voiceInstruction" style="margin-top: 5px;">
+                    <label class="sub-label">Voice Instruction</label>
+                    <textarea class="input-area" placeholder="e.g. 'Excited'" v-model="character.voiceInstruction"
+                      v-auto-resize rows="1"
+                      style="margin-top: 5px; min-height: 36px; height: 36px; padding: 8px;"></textarea>
                   </div>
                 </div>
               </div>
@@ -197,11 +199,11 @@
                     <input type="text" class="input-full" placeholder="Character Name" v-model="character.name"
                       style="margin-bottom: 15px;">
 
-                    <label class="sub-label">System Prompt</label>
+                    <label class="sub-label">Character Prompt</label>
                     <textarea class="input-area" placeholder="Character prompt..." v-model="character.prompt"
                       v-auto-resize></textarea>
 
-                    <label class="sub-label">Voice Options</label>
+                    <label class="sub-label">Voice Option</label>
                     <div class="voice-selector">
                       <template v-for="voiceName in audioVoices" :key="voiceName">
                         <label class="voice-chip" :class="{ active: character.voice === voiceName }">
@@ -211,8 +213,10 @@
                       </template>
                     </div>
 
-                    <input type="text" placeholder="Voice Instruction (e.g. 'Excited')"
-                      v-model="character.voiceInstruction" style="margin-top: 5px;">
+                    <label class="sub-label">Voice Instruction</label>
+                    <textarea class="input-area" placeholder="e.g. 'Excited'" v-model="character.voiceInstruction"
+                      v-auto-resize rows="1"
+                      style="margin-top: 5px; min-height: 36px; height: 36px; padding: 8px;"></textarea>
                   </div>
                 </div>
               </div>
