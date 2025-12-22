@@ -72,6 +72,7 @@ export interface Speaker {
     id: string;
     voice: VoiceOption;
     name?: string;
+    voiceInstruction?: string;
 }
 
 export interface Message {
@@ -153,6 +154,7 @@ export class AudioSystem {
                     voice: speaker.voice,
                     speed: options.audio_speed,
                     input: message.text.substring(0, 4096),
+                    instructions: speaker.voiceInstruction
                 });
                 buffer = Buffer.from(await mp3.arrayBuffer());
                 generateNew = true; // Ensure we save it if we regenerated it because buffer was missing

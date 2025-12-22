@@ -9,6 +9,7 @@ export interface Character {
     voice: VoiceOption;
     type?: string;
     prompt?: string;
+    voiceInstruction?: string;
 }
 
 export interface ConversationMessage {
