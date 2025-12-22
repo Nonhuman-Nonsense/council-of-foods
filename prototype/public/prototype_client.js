@@ -36,7 +36,8 @@ const defaultLocalOptions = {
   expandedCharacters: {},
   topicStates: {},
   currentTopicIndex: 0,
-  editorWidthPercent: 50
+  editorWidthPercent: 50,
+  isInjectionDrawerOpen: false
 };
 
 createApp({
@@ -442,6 +443,7 @@ createApp({
       this.socket.on("conversation_update", (conversationUpdate) => {
         this.log('SOCKET_IN', 'Conversation Update', conversationUpdate);
         this.conversation = conversationUpdate;
+        this.injectionStatus = ""; // Clear status on response
         this.scrollToBottom();
       });
 
@@ -645,7 +647,6 @@ createApp({
       };
 
       this.injectionStatus = "Instruction injected, just wait...";
-      setTimeout(() => this.injectionStatus = "", 5000);
 
       this.log('SOCKET_OUT', 'Submit Injection', message);
       this.socket.emit("submit_injection", message);

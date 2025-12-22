@@ -301,20 +301,45 @@
             <div v-if="endMessage"
               style="text-align: center; padding: 20px; font-weight: bold; color: var(--success-color);">{{ endMessage
               }}</div>
+            <div v-if="injectionStatus"
+              style="text-align: center; padding: 10px; font-style: italic; color: var(--accent-color);">
+              {{ injectionStatus }}
+            </div>
           </div>
 
-          <!-- Injection Bar -->
-          <div style="padding: 10px; border-top: 1px solid var(--border-color); background: var(--bg-panel);">
-            <div style="display: flex; gap: 5px;">
-              <textarea v-model="options.injectPrompt"
-                placeholder="Inject instruction (e.g. 'Ask specifically about apples')..." rows="1"
-                style="flex: 1; margin: 0;"></textarea>
-              <button @click="submitInjection" :disabled="!!injectionStatus" class="primary">Send</button>
+          <!-- Injection Bar (Collapsible Drawer) -->
+          <div style="border-top: 1px solid var(--border-color); background: var(--bg-panel);">
+
+            <!-- Drawer Header / Toggle -->
+            <div @click="localOptions.isInjectionDrawerOpen = !localOptions.isInjectionDrawerOpen"
+              style="padding: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; color: var(--text-secondary); font-size: 0.9em; user-select: none; transition: background 0.2s;">
+              <span v-if="!localOptions.isInjectionDrawerOpen">Inject Instruction</span>
+              <span v-else>Hide Injection</span>
+              <span style="font-size: 1.2em;">{{ localOptions.isInjectionDrawerOpen ? '↓' : '↑' }}</span>
             </div>
-            <div
-              style="display: flex; justify-content: space-between; margin-top: 5px; font-size: 11px; color: var(--text-secondary);">
-              <span>{{ injectionStatus || 'Injection helper' }}</span>
-              <button class="icon-btn" @click="removeLastMessage" title="Remove last message">↩ Undo Last</button>
+
+            <!-- Drawer Content -->
+            <div v-if="localOptions.isInjectionDrawerOpen"
+              style="padding: 10px; border-top: 1px solid var(--border-color-light);">
+              <div style="display: flex; gap: 5px; align-items: flex-end;">
+                <textarea v-model="options.injectPrompt"
+                  placeholder="Inject instruction (e.g. 'Ask specifically about apples')..." rows="1" v-auto-resize
+                  style="flex: 1; margin: 0; min-height: 36px; height: 36px; padding: 8px; font-family: monospace; line-height: 1.4; font-size: 0.9em; resize: none; overflow-y: hidden;"></textarea>
+                <button @click="submitInjection" :disabled="!!injectionStatus" class="primary"
+                  style="height: 36px;">Send</button>
+              </div>
+              <div
+                style="display: flex; justify-content: space-between; align-items: center; margin-top: 5px; font-size: 11px; color: var(--text-secondary);">
+                <!-- Length Slider -->
+                <div style="display: flex; align-items: center; gap: 8px; flex: 1; margin-right: 15px;">
+                  <span style="white-space: nowrap;">Length: {{ options.maxTokensInject }}</span>
+                  <input type="range" min="100" max="2000" step="50" v-model.number="options.maxTokensInject"
+                    style="flex: 1; height: 4px;">
+                </div>
+
+                <button class="icon-btn" @click="removeLastMessage" title="Remove last message"
+                  style="font-size: 11px; padding: 2px 5px;">↩ Undo Last</button>
+              </div>
             </div>
           </div>
         </div>
