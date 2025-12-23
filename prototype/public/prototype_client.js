@@ -510,6 +510,7 @@ createApp({
         voiceInstruction: "",
         _ui_id: newId,
         name: "",
+        description: "",
         prompt: ""
       });
 
