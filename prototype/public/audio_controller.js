@@ -10,6 +10,7 @@ class AudioController {
 
         this.items = new Map(); // Index -> { buffer, skipped }
         this.currentIndex = 0;
+        this.expectedLength = 0; // Total count of messages in conversation
 
         // Reactive State for Vue
         this.isActive = false; // "System" is trying to play
@@ -36,10 +37,33 @@ class AudioController {
 
         this.items.clear();
         this.currentIndex = 0;
+        this.expectedLength = 0;
         this.isActive = false;
         this.isPaused = false;
         this.isConversationComplete = false;
         this.hasItems = false;
+    }
+
+    checkQueueStatus() {
+        // Only finish if we have no item AND we aren't waiting for it to decode
+        // AND we have actually played past the expected number of items (or at least reached it if we assume 0-indexed count vs length)
+        // If length is 10, indices are 0..9. We are finished if currentIndex is 10.
+        if (this.isActive &&
+            !this.items.has(this.currentIndex) &&
+            this.isConversationComplete &&
+            this.currentIndex >= this.expectedLength
+        ) {
+            this.onLog('AUDIO', 'Queue Finished.');
+            this.isActive = false;
+            this.isPaused = false;
+        }
+    }
+
+    setExpectedLength(length) {
+        this.expectedLength = length;
+        // If we updated length, maybe we are now finished (or not)?
+        // Don't auto-stop here normally, but worth checking queue status?
+        // Usually conversation update comes before audio update.
     }
 
     markComplete() {
@@ -69,8 +93,13 @@ class AudioController {
         }
 
         this.hasItems = true;
+        this.attemptAutoPlay(index);
 
-        // Auto-play checks
+        // Check status just in case
+        this.checkQueueStatus();
+    }
+
+    attemptAutoPlay(index) {
         if (this.isActive && !this.isPaused && index === this.currentIndex && !this.currentSource) {
             if (this.ctx.state === "running") {
                 this.playInternal();
@@ -89,7 +118,7 @@ class AudioController {
     downloadAudio(index, filename) {
         const item = this.items.get(index);
         if (!item || !item.rawAudio) {
-            console.error("No audio found for index", index);
+            this.onLog('ERROR', "No audio found for index", { index });
             return;
         }
 
@@ -208,13 +237,7 @@ class AudioController {
         this.onLog('AUDIO', 'Playing Track', { index: this.currentIndex });
     }
 
-    checkQueueStatus() {
-        if (this.isActive && !this.items.has(this.currentIndex) && this.isConversationComplete) {
-            this.onLog('AUDIO', 'Queue Finished.');
-            this.isActive = false;
-            this.isPaused = false;
-        }
-    }
+
 
     isFinished() {
         return this.isConversationComplete && !this.items.has(this.currentIndex) && this.currentIndex > 0;

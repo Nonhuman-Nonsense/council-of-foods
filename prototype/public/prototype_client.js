@@ -366,7 +366,7 @@ createApp({
           }
 
         } catch (err) {
-          console.error(`Failed to load defaults for ${lang}:`, err);
+          this.log('ERROR', `Failed to load defaults for ${lang}:`, err);
           // Fallback if fetch fails
           this.languageData[lang] = { system: "Error loading defaults.", characters: [], topics: [] };
         }
@@ -443,6 +443,9 @@ createApp({
       this.socket.on("conversation_update", (conversationUpdate) => {
         this.log('SOCKET_IN', 'Conversation Update', conversationUpdate);
         this.conversation = conversationUpdate;
+        if (this.audioController) {
+          this.audioController.setExpectedLength(this.conversation.length);
+        }
 
         // If we get an update, we are active (unless paused, but usually this implies activity)
         if (this.status !== 'PAUSED') {
@@ -467,7 +470,6 @@ createApp({
 
       this.socket.on("conversation_error", (errorMessage) => {
         this.log('ERROR', 'Conversation Error', errorMessage);
-        console.error(errorMessage);
         this.status = 'ERROR';
         alert(errorMessage.message);
       });
@@ -604,7 +606,7 @@ createApp({
           rawTopics = await topicsResp.json();
         }
       } catch (e) {
-        console.error("Failed to fetch raw data", e);
+        this.log('ERROR', "Failed to fetch raw data", e);
       }
 
       // 1. Export Characters (Foods)
@@ -762,7 +764,14 @@ createApp({
       }
 
       this.audioController.addToPlaylist(msgIndex, update.audio, update.type == "skipped");
-      this.audioController.start();
+
+      // Fix for Race Condition:
+      // If a late packet arrives after we have already finished the conversation, 
+      // calling start() blindly will cause the AudioController to see isFinished()=true 
+      // and reset the index to 0, restarting playback unexpectedly.
+      if (!this.audioController.isActive && !this.audioController.isConversationComplete) {
+        this.audioController.start();
+      }
     },
 
     downloadMessageAudio(index) {
