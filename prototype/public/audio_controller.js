@@ -1,0 +1,209 @@
+class AudioController {
+    constructor() {
+        // defined non-enumerable to prevent Vue reactivity issues with AudioContext
+        Object.defineProperty(this, 'ctx', {
+            value: new (window.AudioContext || window.webkitAudioContext)(),
+            writable: true,
+            enumerable: false, // Hidden from Vue
+            configurable: true
+        });
+
+        this.items = new Map(); // Index -> { buffer, skipped }
+        this.currentIndex = 0;
+
+        // Reactive State for Vue
+        this.isActive = false; // "System" is trying to play
+        this.isPaused = false; // "User" has explicitly paused
+        this.isConversationComplete = false; // No more items expected
+        this.hasItems = false; // Helper since Map isn't reactive
+
+        this.currentSource = null;
+
+        // No more _ignoreEnded flag needed!
+
+        this.onLog = (category, message, data) => { console.log(category, message, data); };
+    }
+
+    setLogCallback(onLog) {
+        this.onLog = onLog;
+    }
+
+    reset() {
+        this.stopCurrent();
+        // Do not close/recreate context, just reuse it.
+        // If suspended or running, we just leave it. We will clear items.
+        // Ideally we ensure it's clean.
+
+        this.items.clear();
+        this.currentIndex = 0;
+        this.isActive = false;
+        this.isPaused = false;
+        this.isConversationComplete = false;
+        this.hasItems = false;
+    }
+
+    markComplete() {
+        this.isConversationComplete = true;
+        this.checkQueueStatus();
+    }
+
+    async addToPlaylist(index, audioData, isSkipped) {
+        if (isSkipped) {
+            this.items.set(index, { skipped: true });
+        } else {
+            try {
+                const buffer = await this.ctx.decodeAudioData(audioData);
+                this.items.set(index, { buffer, skipped: false });
+            } catch (e) {
+                this.onLog('ERROR', 'Failed to decode audio', { index, e });
+                return;
+            }
+        }
+
+        this.hasItems = true;
+
+        // Auto-play checks
+        if (this.isActive && !this.isPaused && index === this.currentIndex && !this.currentSource) {
+            if (this.ctx.state === "running") {
+                this.playInternal();
+            } else if (this.ctx.state === "suspended") {
+                this.ctx.resume();
+                this.playInternal();
+            }
+        }
+    }
+
+    start() {
+        if (!this.isPaused) {
+            this.play();
+        }
+    }
+
+    play() {
+        this.isPaused = false;
+        this.isActive = true;
+
+        if (this.isFinished()) {
+            this.currentIndex = 0;
+            // Do NOT reset isConversationComplete. The conversation is still done, we are just re-listening.
+        }
+
+        if (this.ctx.state === "suspended") {
+            this.ctx.resume();
+            if (this.currentSource) return;
+        }
+
+        this.playInternal();
+    }
+
+    pause() {
+        this.isPaused = true;
+        this.isActive = false;
+
+        if (this.ctx.state === "running") {
+            this.ctx.suspend();
+        }
+    }
+
+    togglePause() {
+        if (this.isActive && !this.isPaused) {
+            this.pause();
+        } else {
+            this.play();
+        }
+    }
+
+    stopCurrent() {
+        // Capture local reference
+        const oldSource = this.currentSource;
+        if (oldSource) {
+            // Nullify BEFORE stopping to ensure onended check fails
+            this.currentSource = null;
+            try { oldSource.stop(); } catch (e) { }
+        }
+    }
+
+    playInternal() {
+        if (this.isPaused) return;
+        if (this.currentSource) return;
+        if (!this.isActive) return;
+
+        const item = this.items.get(this.currentIndex);
+
+        if (!item) {
+            this.onLog('AUDIO', 'Waiting for audio...', { index: this.currentIndex });
+            this.checkQueueStatus();
+            return;
+        }
+
+        if (item.skipped) {
+            this.onLog('AUDIO', 'Skipping Track', { index: this.currentIndex });
+            this.currentIndex++;
+            this.playInternal();
+            return;
+        }
+
+        const source = this.ctx.createBufferSource();
+        source.buffer = item.buffer;
+        source.connect(this.ctx.destination);
+
+        source.onended = () => {
+            // IDENTITY CHECK:
+            // If this.currentSource is NOT the source triggering this event,
+            // then it means we have already moved on (manually stopped/skipped).
+            // So we ignore this event.
+            if (this.currentSource !== source) {
+                return;
+            }
+
+            this.currentSource = null;
+            this.onLog('AUDIO', 'Playback Ended', { index: this.currentIndex });
+
+            if (this.isActive && !this.isPaused) {
+                this.currentIndex++;
+                this.playInternal();
+            }
+        };
+
+        this.currentSource = source;
+        source.start();
+        this.onLog('AUDIO', 'Playing Track', { index: this.currentIndex });
+    }
+
+    checkQueueStatus() {
+        if (this.isActive && !this.items.has(this.currentIndex) && this.isConversationComplete) {
+            this.onLog('AUDIO', 'Queue Finished.');
+            this.isActive = false;
+            this.isPaused = false;
+        }
+    }
+
+    isFinished() {
+        return this.isConversationComplete && !this.items.has(this.currentIndex) && this.currentIndex > 0;
+    }
+
+    // Navigation
+    next() {
+        if (this.isPaused) return;
+
+        if (this.isActive) {
+            this.stopCurrent(); // This nulls currentSource, effectively cancelling its onended
+            this.currentIndex++;
+            this.playInternal();
+        } else {
+            this.currentIndex++;
+        }
+    }
+
+    back() {
+        if (this.isPaused) return;
+
+        if (this.isActive) {
+            this.stopCurrent(); // cancels onended
+            this.currentIndex = Math.max(0, this.currentIndex - 1);
+            this.playInternal();
+        } else {
+            this.currentIndex = Math.max(0, this.currentIndex - 1);
+        }
+    }
+}

@@ -262,12 +262,17 @@
               <div style="border-left: 1px solid var(--border-color); margin: 0 5px;"></div>
 
               <!-- Audio Controls -->
-              <button class="icon-btn" @click="audioBack">⏮</button>
-              <button class="icon-btn" @click="audioToggle"
-                :style="{ color: audioPaused ? 'var(--danger-color)' : '' }">
-                {{ audioIsPlaying && !audioPaused ? '⏸' : '▶' }}
+              <button class="icon-btn" @click="audioController.back()"
+                :disabled="!audioController || !audioController.isActive || audioController.isPaused"
+                :style="{ opacity: (!audioController || !audioController.isActive || audioController.isPaused) ? 0.3 : 1 }">⏮</button>
+              <button class="icon-btn" @click="audioController.togglePause()"
+                :disabled="!audioController || !audioController.hasItems"
+                :style="{ opacity: (!audioController || !audioController.hasItems) ? 0.3 : 1 }">
+                {{ audioController && audioController.isActive && !audioController.isPaused ? '⏸' : '▶' }}
               </button>
-              <button class="icon-btn" @click="audioNext">⏭</button>
+              <button class="icon-btn" @click="audioController.next()"
+                :disabled="!audioController || !audioController.isActive || audioController.isPaused || audioController.currentIndex >= conversation.length - 1"
+                :style="{ opacity: (!audioController || !audioController.isActive || audioController.isPaused || audioController.currentIndex >= conversation.length - 1) ? 0.3 : 1 }">⏭</button>
 
               <div style="border-left: 1px solid var(--border-color); margin: 0 5px;"
                 v-if="!localOptions.rightSidebarOpen"></div>
@@ -295,10 +300,11 @@
               Ready to start.
             </div>
 
-            <div v-for="turn in conversation" :key="turn.id" :id="turn.id" class="chat-bubble" :class="{ 
-                        'user': false, /* Helper to distinguish styles if needed, user logic is implied by name context usually */ 
+            <div v-for="(turn, index) in conversation" :key="turn.id" :id="turn.id" class="chat-bubble" :class="{ 
+                        'user': false, 
                         'chair': turn.speaker === 'Chair', 
-                        'character': turn.speaker !== 'Chair' 
+                        'character': turn.speaker !== 'Chair',
+                        'playing': audioController && audioController.currentIndex === index
                       }" style="margin-bottom: 10px;" v-show="localOptions.showTrimmed || turn.type !== 'skipped'">
               <div class="bubble-header">{{ turn.speaker }}</div>
 
@@ -463,6 +469,7 @@
   </div>
 
   <script src="Sortable.min.js"></script>
+  <script src="audio_controller.js"></script>
   <script src="prototype_client.js?v=2.1"></script>
 </body>
 

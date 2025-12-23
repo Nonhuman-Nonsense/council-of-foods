@@ -70,11 +70,7 @@ createApp({
       conversation: [],
 
       // Audio State
-      audioCtx: null,
-      audioPlaylist: [],
-      currentAudio: 0,
-      audioIsPlaying: false,
-      audioPaused: false,
+      audioController: null,
       nextOrBackClicked: false,
     }
   },
@@ -137,6 +133,9 @@ createApp({
   },
 
   mounted() {
+    this.audioController = new AudioController();
+    this.audioController.setLogCallback(this.log);
+
     this.socket = io();
     this.setupSocketListeners();
     this.startup();
@@ -463,6 +462,7 @@ createApp({
         this.log('SOCKET_IN', 'Conversation End');
         this.status = 'ENDED';
         this.endMessage = "End of Conversation";
+        if (this.audioController) this.audioController.markComplete();
       });
 
       this.socket.on("conversation_error", (errorMessage) => {
@@ -691,11 +691,7 @@ createApp({
       this.status = 'CONNECTING';
 
       // Reset Audio State
-      this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      this.audioPlaylist = [];
-      this.currentAudio = 0;
-      this.audioIsPlaying = false;
-      this.localOptions.audioPaused = false; // Force unpause
+      this.audioController.reset();
 
       const payload = this.getPayload();
       this.log('SOCKET_OUT', 'Starting Conversation', payload);
@@ -718,14 +714,9 @@ createApp({
       this.status = 'CONNECTING';
       this.endMessage = "";
       this.conversation = [];
-      this.stopCurrentAudio();
 
-      // Reset Audio State
-      this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      this.audioPlaylist = [];
-      this.currentAudio = 0;
-      this.audioIsPlaying = false;
-      this.localOptions.audioPaused = false; // Force unpause
+      // Reset Audio
+      this.audioController.reset();
 
       const payload = this.getPayload();
       this.log('SOCKET_OUT', 'Restarting Conversation', payload);
@@ -770,127 +761,8 @@ createApp({
         return;
       }
 
-      if (update.type == "skipped") {
-        this.addToPlaylist(msgIndex, null, true); // skip = true
-        return;
-      }
-
-      await this.addToPlaylist(msgIndex, update.audio, false);
-
-      // Auto-play if not playing and not paused
-      if (!this.audioIsPlaying && this.audioPlaylist[this.currentAudio] && !this.localOptions.audioPaused) {
-        this.audioPlaylist[this.currentAudio].play();
-      }
-    },
-
-    async addToPlaylist(index, audioData, isSkipped) {
-      if (isSkipped) {
-        this.audioPlaylist[index] = {
-          play: () => {
-            this.advancePlaylist();
-          },
-          stop: () => { this.audioIsPlaying = false; },
-          skip: true
-        };
-        return;
-      }
-
-      const buffer = await this.audioCtx.decodeAudioData(audioData);
-      let source;
-
-      const play = () => {
-        source = this.audioCtx.createBufferSource();
-        source.buffer = buffer;
-        source.connect(this.audioCtx.destination);
-        source.addEventListener("ended", async () => {
-          this.log('AUDIO', 'Playback Ended', { index });
-          if (this.localOptions.audioPaused) return;
-          if (this.localOptions.nextOrBackClicked) {
-            this.localOptions.nextOrBackClicked = false;
-            return;
-          }
-
-          // Audio ended naturally
-          if (this.audioPlaylist[this.currentAudio + 1]) {
-            // Wait a bit
-            await new Promise(r => setTimeout(r, 1000));
-            this.advancePlaylist();
-          } else if (this.audioIsPlaying) {
-            // End of queue
-            this.audioIsPlaying = false;
-            this.currentAudio++;
-          }
-        });
-        source.start();
-        this.log('AUDIO', 'Playing Track', { index });
-        this.audioIsPlaying = true;
-      };
-
-      const stop = () => {
-        if (source) {
-          try { source.stop(); } catch (e) { }
-        }
-        this.audioIsPlaying = false;
-      };
-
-      this.audioPlaylist[index] = { play, stop };
-    },
-
-    advancePlaylist() {
-      this.currentAudio++;
-      if (this.audioPlaylist[this.currentAudio]) {
-        this.audioPlaylist[this.currentAudio].play();
-      }
-    },
-
-    stopCurrentAudio() {
-      if (this.audioIsPlaying && this.audioPlaylist[this.currentAudio]) {
-        this.audioPlaylist[this.currentAudio].stop();
-      }
-    },
-
-    audioBack() {
-      if (this.localOptions.audioPaused) return;
-
-      if (this.audioIsPlaying) {
-        this.stopCurrentAudio();
-        this.localOptions.nextOrBackClicked = true;
-      }
-
-      if (this.currentAudio > 0) this.currentAudio--;
-      while (this.currentAudio > 0 && this.audioPlaylist[this.currentAudio]?.skip) {
-        this.currentAudio--;
-      }
-
-      if (this.audioPlaylist[this.currentAudio]) {
-        this.audioPlaylist[this.currentAudio].play();
-      }
-    },
-
-    audioToggle() {
-      if (this.audioIsPlaying) {
-        this.audioCtx.suspend();
-        this.audioIsPlaying = false;
-      } else if (this.audioCtx && this.audioCtx.state === "suspended") {
-        this.audioCtx.resume();
-        this.audioIsPlaying = true;
-      } else if (this.audioPlaylist[this.currentAudio]) {
-        this.audioPlaylist[this.currentAudio].play();
-      }
-
-      this.localOptions.audioPaused = !this.localOptions.audioPaused;
-    },
-
-    audioNext() {
-      if (this.localOptions.audioPaused) return;
-      if (this.audioPlaylist[this.currentAudio + 1]) {
-        if (this.audioIsPlaying) {
-          this.stopCurrentAudio();
-          this.localOptions.nextOrBackClicked = true;
-        }
-        this.currentAudio++;
-        this.audioPlaylist[this.currentAudio].play();
-      }
+      this.audioController.addToPlaylist(msgIndex, update.audio, update.type == "skipped");
+      this.audioController.start();
     },
 
     // ===========================
