@@ -1,3 +1,12 @@
+/**
+ * AudioController
+ * 
+ * Manages the Web Audio API context, handles audio queueing, sequential playback, 
+ * and state management for the conversation audio.
+ * 
+ * It ensures that audio messages are played in strict order and handles cases where
+ * the conversation might end before all audio packets have been received/decoded.
+ */
 class AudioController {
     constructor() {
         // defined non-enumerable to prevent Vue reactivity issues with AudioContext
@@ -8,9 +17,17 @@ class AudioController {
             configurable: true
         });
 
-        this.items = new Map(); // Index -> { buffer, rawAudio, skipped }
+        // Maps index -> { buffer: AudioBuffer, rawAudio: ArrayBuffer, skipped: boolean }
+        this.items = new Map();
+
+        // The index of the message currently being played (or about to be played)
         this.currentIndex = 0;
-        this.expectedLength = 0; // Total count of messages in conversation
+
+        // Total number of messages expected in the conversation.
+        // Critical for preventing premature "Queue Finished" state if the conversation 
+        // ends while the last audio packet is still processing.
+        this.expectedLength = 0;
+
 
         // Reactive State for Vue
         this.isActive = false; // "System" is trying to play
@@ -42,6 +59,19 @@ class AudioController {
         this.hasItems = false;
     }
 
+    /**
+     * Checks if the queue has finished playing all available content.
+     * 
+     * This method contains critical logic to prevent race conditions:
+     * It only marks the queue as "Finished" if:
+     * 1. We are currently active.
+     * 2. We have no item for the current index (meaning we played everything we have).
+     * 3. The conversation is marked as complete by the server.
+     * 4. CRITICAL: We have reached or exceeded the `expectedLength` of the conversation.
+     * 
+     * The last check ensures that if the "Conversation End" signal arrives BEFORE 
+     * the final audio packet, we don't stop prematurely.
+     */
     checkQueueStatus() {
         // Only finish if we have no item AND we aren't waiting for it to decode
         // AND we have actually played past the expected number of items (or at least reached it if we assume 0-indexed count vs length)
@@ -67,6 +97,16 @@ class AudioController {
         this.checkQueueStatus();
     }
 
+    /**
+     * Adds an audio packet to the playlist.
+     * 
+     * This handles the async decoding of the audio data.
+     * Once decoded, it attempts to "auto-play" if the controller is active and waiting for this specific index.
+     * 
+     * @param {number} index - The message index this audio belongs to.
+     * @param {ArrayBuffer} audioData - The raw MP3 audio data.
+     * @param {boolean} isSkipped - Whether this message should be skipped silently.
+     */
     async addToPlaylist(index, audioData, isSkipped) {
         if (isSkipped) {
             this.items.set(index, { skipped: true });
@@ -186,6 +226,13 @@ class AudioController {
         }
     }
 
+    /**
+     * Internal playback logic.
+     * 
+     * It fetches the buffer for `currentIndex` and plays it.
+     * When playback ends, `onended` triggers incrementing `currentIndex` and calling `playInternal` again,
+     * creating a playback loop until the queue is exhausted.
+     */
     playInternal() {
         if (this.isPaused) return;
         if (this.currentSource) return;

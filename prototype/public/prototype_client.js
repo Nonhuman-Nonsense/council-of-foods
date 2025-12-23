@@ -247,6 +247,14 @@ createApp({
     // ===========================
     //   STARTUP & PERSISTENCE
     // ===========================
+    /**
+     * Startup Sequence.
+     * 
+     * 1. Hydrates state from LocalStorage (`PromptsAndOptions`).
+     * 2. Migrates legacy data if needed.
+     * 3. Loads default prompts from `foods_en.json` if startup fails or is fresh.
+     * 4. Ensures character sorting (Pinned > Active > Inactive).
+     */
     async startup() {
       try {
         const stored = JSON.parse(localStorage.getItem("PromptsAndOptions"));
@@ -439,6 +447,14 @@ createApp({
     // ===========================
     //   SOCKET LISTENERS
     // ===========================
+    /**
+     * Sets up socket.io event listeners.
+     * 
+     * Handles:
+     * - `conversation_update`: Syncs conversation state and passes expected length to AudioController.
+     * - `audio_update`: Receives new audio packets.
+     * - `conversation_end`: Marks the Conversation (and potentially audio) as complete.
+     */
     setupSocketListeners() {
       this.socket.on("conversation_update", (conversationUpdate) => {
         this.log('SOCKET_IN', 'Conversation Update', conversationUpdate);
@@ -755,6 +771,19 @@ createApp({
     // ===========================
     //   AUDIO HANDLING
     // ===========================
+    /**
+     * Handles an incoming audio packet from the server.
+     * 
+     * It adds the audio to the AudioController playlist.
+     * 
+     * Critical Fix for Race Condition:
+     * It checks if the AudioController is inactive AND the conversation is NOT complete
+     * before triggering `start()`. 
+     * If we trigger `start()` blindly when the conversation is already complete (e.g. late packet),
+     * the AudioController might loop back to the beginning.
+     * 
+     * @param {Object} update - { id, audio, type }
+     */
     async handleAudioUpdate(update) {
       // If message not found (e.g. restart happened), skip
       const msgIndex = this.conversation.findIndex(c => c.id === update.id);
