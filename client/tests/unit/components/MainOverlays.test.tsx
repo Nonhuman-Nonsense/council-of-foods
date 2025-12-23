@@ -57,6 +57,7 @@ describe('MainOverlays', () => {
     const mockOnCloseOverlay = vi.fn();
     const mockTopics: LocalTopic[] = [{ id: '1', title: 'Topic A', description: 'Desc A' }];
     const mockTopic: LocalTopic = mockTopics[0];
+    const mockCustomTopicConfig: LocalTopic = { id: 'customtopic', title: 'Custom', description: 'Desc Custom' };
 
     beforeEach(() => {
         vi.clearAllMocks();
@@ -65,40 +66,40 @@ describe('MainOverlays', () => {
     });
 
     it('renders nothing when hash is empty', () => {
-        render(<MainOverlays topics={mockTopics} topic={mockTopic} onReset={mockOnReset} onCloseOverlay={mockOnCloseOverlay} />);
+        render(<MainOverlays topics={mockTopics} topic={mockTopic} customTopicConfig={mockCustomTopicConfig} onReset={mockOnReset} onCloseOverlay={mockOnCloseOverlay} />);
         expect(screen.queryByTestId('overlay-container')).not.toBeInTheDocument();
     });
 
     it('renders About overlay when hash is #about', () => {
         mockLocation.hash = '#about';
-        render(<MainOverlays topics={mockTopics} topic={mockTopic} onReset={mockOnReset} onCloseOverlay={mockOnCloseOverlay} />);
+        render(<MainOverlays topics={mockTopics} topic={mockTopic} customTopicConfig={mockCustomTopicConfig} onReset={mockOnReset} onCloseOverlay={mockOnCloseOverlay} />);
         expect(screen.getByTestId('about-overlay')).toBeInTheDocument();
     });
 
     it('renders Contact overlay when hash is #contact', () => {
         mockLocation.hash = '#contact';
-        render(<MainOverlays topics={mockTopics} topic={mockTopic} onReset={mockOnReset} onCloseOverlay={mockOnCloseOverlay} />);
+        render(<MainOverlays topics={mockTopics} topic={mockTopic} customTopicConfig={mockCustomTopicConfig} onReset={mockOnReset} onCloseOverlay={mockOnCloseOverlay} />);
         expect(screen.getByTestId('contact-overlay')).toBeInTheDocument();
     });
 
     it('renders Settings overlay when hash is #settings and path is meeting', () => {
         mockLocation.hash = '#settings';
         mockLocation.pathname = '/meeting/123';
-        render(<MainOverlays topics={mockTopics} topic={mockTopic} onReset={mockOnReset} onCloseOverlay={mockOnCloseOverlay} />);
+        render(<MainOverlays topics={mockTopics} topic={mockTopic} customTopicConfig={mockCustomTopicConfig} onReset={mockOnReset} onCloseOverlay={mockOnCloseOverlay} />);
         expect(screen.getByTestId('settings-overlay')).toBeInTheDocument();
     });
 
     it('renders Reset overlay when hash is #reset', () => {
         mockLocation.hash = '#reset';
         mockLocation.pathname = '/meeting';
-        render(<MainOverlays topics={mockTopics} topic={mockTopic} onReset={mockOnReset} onCloseOverlay={mockOnCloseOverlay} />);
+        render(<MainOverlays topics={mockTopics} topic={mockTopic} customTopicConfig={mockCustomTopicConfig} onReset={mockOnReset} onCloseOverlay={mockOnCloseOverlay} />);
 
         expect(screen.getByTestId('reset-overlay')).toBeInTheDocument();
     });
 
     it('removes overlay if hash is invalid', () => {
         mockLocation.hash = '#invalid';
-        render(<MainOverlays topics={mockTopics} topic={mockTopic} onReset={mockOnReset} onCloseOverlay={mockOnCloseOverlay} />);
+        render(<MainOverlays topics={mockTopics} topic={mockTopic} customTopicConfig={mockCustomTopicConfig} onReset={mockOnReset} onCloseOverlay={mockOnCloseOverlay} />);
         expect(mockNavigate).toHaveBeenCalledWith({ hash: "" });
         expect(mockOnCloseOverlay).toHaveBeenCalled();
     });

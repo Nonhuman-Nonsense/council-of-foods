@@ -29,8 +29,9 @@ import routes from "@/routes.json"; // Import routes directly
 // interface Topic removed, imported from SelectTopic
 
 interface TopicsData {
-  topics: Topic[];
   system: string;
+  custom_topic: Topic;
+  topics: Topic[];
 }
 
 const topicsData: Record<string, TopicsData> = {
@@ -130,7 +131,7 @@ function Main({ lang }: MainProps) {
   function proceedToMeeting() {
     //After this, the language cannot be changed anymore
 
-    const foundTopic = topics.find(t => t.id === chosenTopic.id);
+    const foundTopic = topics.find(t => t.id === chosenTopic.id) || (chosenTopic.id === "customtopic" ? topicsData[lang].custom_topic : null);
     if (!foundTopic) return;
 
     let copiedTopic = structuredClone(foundTopic);
@@ -216,6 +217,7 @@ function Main({ lang }: MainProps) {
               element={
                 <SelectTopic
                   topics={topics}
+                  customTopicConfig={topicsData[lang].custom_topic}
                   onContinueForward={(props) => topicSelected(props)}
                   onReset={() => { }}
                   onCancel={() => { }}
@@ -251,6 +253,7 @@ function Main({ lang }: MainProps) {
           <MainOverlays
             topics={topics}
             topic={chosenTopic}
+            customTopicConfig={topicsData[lang].custom_topic}
             onReset={onReset}
             onCloseOverlay={onCloseOverlay}
           />

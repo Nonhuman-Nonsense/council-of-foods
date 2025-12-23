@@ -80,4 +80,20 @@ describe('AudioSystem', () => {
             type: 'skipped'
         });
     });
+
+    it('should pass voiceInstruction to OpenAI API if provided', async () => {
+        const message = { id: 'msg1', text: 'Hello', sentences: ['Hello'] };
+        const speaker = { id: 'char1', voice: 'alloy', voiceInstruction: 'Speak like a pirate' };
+        const options = { voiceModel: 'tts-1', audio_speed: 1 };
+        const meetingId = 123;
+        const environment = 'production';
+
+        await audioSystem.generateAudio(message, speaker, options, meetingId, environment);
+
+        expect(mockOpenAI.audio.speech.create).toHaveBeenCalledWith(expect.objectContaining({
+            voice: 'alloy',
+            input: 'Hello',
+            instructions: 'Speak like a pirate'
+        }));
+    });
 });
