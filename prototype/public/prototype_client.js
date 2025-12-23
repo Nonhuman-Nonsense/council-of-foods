@@ -60,6 +60,7 @@ createApp({
       languageData: {
         en: { system: '', topics: [] }
       },
+      rawLanguageData: {},
       available_languages: ['en'],
 
       // Runtime
@@ -332,6 +333,12 @@ createApp({
           const foodsParams = await foodsResp.json();
           const topics = await topicsResp.json();
 
+          // Store raw data for export fidelity
+          this.rawLanguageData[lang] = {
+            foods: JSON.parse(JSON.stringify(foodsParams)),
+            topics: JSON.parse(JSON.stringify(topics))
+          };
+
           // Map Characters (Global)
           // foodsParams is { foods: [...] }
           const characters = foodsParams.foods.map(f => ({
@@ -583,41 +590,50 @@ createApp({
       const lang = this.options.language || 'en';
 
       // 1. Export Characters (Foods)
-      const foodsExport = {
-        // Hardcoded defaults as these are not editable in prototype but present in source
-        "panelWithHumans": " As a special for today, on the panel are also [HUMANS]. Welcome them especially! ",
-        "addHuman": {
-          "id": "addhuman",
-          "name": "Add Human",
-          "description": "Would you like to add a human speaker to the meeting?\n\nCreate a panel consisting of both humans and foods."
-        },
-        "foods": (this.currentLanguageData.characters || []).map(c => {
-          // Exclude internal fields like _ui_id
-          const { _ui_id, ...rest } = c;
-          // Ensure structure matches schema
-          return {
-            id: rest.id || (rest.name ? rest.name.toLowerCase().replace(/\s+/g, '') : 'unknown'),
-            name: rest.name,
-            voice: rest.voice,
-            size: rest.size,
-            voiceInstruction: rest.voiceInstruction || "",
-            description: rest.description || "",
-            prompt: rest.prompt || ""
-          };
-        })
-      };
+      // Clone raw structure to preserve static fields (addHuman, panelWithHumans, metadata etc)
+      let foodsExport = {};
+      if (this.rawLanguageData[lang] && this.rawLanguageData[lang].foods) {
+        foodsExport = JSON.parse(JSON.stringify(this.rawLanguageData[lang].foods));
+      } else {
+        // Fallback should not happen if factory reset works, but just in case
+        foodsExport = { foods: [] };
+      }
+
+      // Update the "foods" array with current active characters
+      foodsExport.foods = (this.currentLanguageData.characters || []).map(c => {
+        // Exclude internal fields like _ui_id
+        const { _ui_id, ...rest } = c;
+        // Ensure structure matches schema
+        return {
+          id: rest.id || (rest.name ? rest.name.toLowerCase().replace(/\s+/g, '') : 'unknown'),
+          name: rest.name,
+          voice: rest.voice,
+          size: rest.size,
+          voiceInstruction: rest.voiceInstruction || "",
+          description: rest.description || "",
+          prompt: rest.prompt || ""
+        };
+      });
 
       // 2. Export Topics
-      // Note: We lost original 'description' and 'id' during import, so we map what we have.
-      const topicsExport = {
-        "system": this.currentLanguageData.system,
-        "topics": (this.currentLanguageData.topics || []).map(t => ({
-          id: t.name ? t.name.toLowerCase().replace(/\s+/g, '') : 'unknown',
-          title: t.name,
-          description: t.description || t.prompt,
-          prompt: t.prompt
-        }))
-      };
+      // Clone raw structure
+      let topicsExport = {};
+      if (this.rawLanguageData[lang] && this.rawLanguageData[lang].topics) {
+        topicsExport = JSON.parse(JSON.stringify(this.rawLanguageData[lang].topics));
+      } else {
+        topicsExport = { topics: [] };
+      }
+
+      // Update system prompt (editable)
+      topicsExport.system = this.currentLanguageData.system;
+
+      // Update topics list
+      topicsExport.topics = (this.currentLanguageData.topics || []).map(t => ({
+        id: t.id || (t.name ? t.name.toLowerCase().replace(/\s+/g, '') : 'unknown'),
+        title: t.name,
+        description: t.description || t.prompt,
+        prompt: t.prompt
+      }));
 
       // Helper to trigger download
       const download = (filename, data) => {
