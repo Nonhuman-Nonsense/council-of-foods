@@ -599,6 +599,13 @@ createApp({
         foodsExport = { foods: [] };
       }
 
+      // Update timestamp if metadata exists
+      if (foodsExport.metadata) {
+        const dateStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+        const timeStr = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+        foodsExport.metadata.last_updated = `${dateStr} ${timeStr}`;
+      }
+
       // Update the "foods" array with current active characters
       foodsExport.foods = (this.currentLanguageData.characters || []).map(c => {
         // Exclude internal fields like _ui_id
@@ -622,6 +629,13 @@ createApp({
         topicsExport = JSON.parse(JSON.stringify(this.rawLanguageData[lang].topics));
       } else {
         topicsExport = { topics: [] };
+      }
+
+      // Update timestamp if metadata exists
+      if (topicsExport.metadata) {
+        const dateStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+        const timeStr = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+        topicsExport.metadata.last_updated = `${dateStr} ${timeStr}`;
       }
 
       // Update system prompt (editable)
