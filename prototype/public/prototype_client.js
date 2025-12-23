@@ -569,10 +569,10 @@ createApp({
       const activeIds = this.localOptions.topicStates[topicId].activeCharacterIds;
 
       if (activeIds[char._ui_id]) {
-        console.log("Deactivating", char._ui_id);
+        this.log('SYSTEM', "Deactivating Character", char._ui_id);
         delete activeIds[char._ui_id];
       } else {
-        console.log("Activating", char._ui_id);
+        this.log('SYSTEM', "Activating Character", char._ui_id);
         activeIds[char._ui_id] = true;
       }
 
@@ -767,7 +767,7 @@ createApp({
 
     downloadMessageAudio(index) {
       if (!this.audioController || !this.audioController.hasAudio(index)) {
-        console.warn("No audio available to download for message index", index);
+        this.log('AUDIO', "No audio available to download", { index });
         return;
       }
 
