@@ -8,7 +8,7 @@ class AudioController {
             configurable: true
         });
 
-        this.items = new Map(); // Index -> { buffer, skipped }
+        this.items = new Map(); // Index -> { buffer, rawAudio, skipped }
         this.currentIndex = 0;
         this.expectedLength = 0; // Total count of messages in conversation
 
@@ -20,7 +20,7 @@ class AudioController {
 
         this.currentSource = null;
 
-        // No more _ignoreEnded flag needed!
+
 
         this.onLog = (category, message, data) => { console.log(category, message, data); };
     }
@@ -32,8 +32,6 @@ class AudioController {
     reset() {
         this.stopCurrent();
         // Do not close/recreate context, just reuse it.
-        // If suspended or running, we just leave it. We will clear items.
-        // Ideally we ensure it's clean.
 
         this.items.clear();
         this.currentIndex = 0;
@@ -61,9 +59,7 @@ class AudioController {
 
     setExpectedLength(length) {
         this.expectedLength = length;
-        // If we updated length, maybe we are now finished (or not)?
-        // Don't auto-stop here normally, but worth checking queue status?
-        // Usually conversation update comes before audio update.
+
     }
 
     markComplete() {
@@ -215,10 +211,7 @@ class AudioController {
         source.connect(this.ctx.destination);
 
         source.onended = () => {
-            // IDENTITY CHECK:
-            // If this.currentSource is NOT the source triggering this event,
-            // then it means we have already moved on (manually stopped/skipped).
-            // So we ignore this event.
+            // Ignore if source was changed (stop/skip)
             if (this.currentSource !== source) {
                 return;
             }
