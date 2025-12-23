@@ -573,6 +573,69 @@ createApp({
       this.save();
     },
 
+    exportPrompts() {
+      const now = new Date();
+      const pad = (n) => String(n).padStart(2, '0');
+      const timestamp = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+      const lang = this.options.language || 'en';
+
+      // 1. Export Characters (Foods)
+      const foodsExport = {
+        // Hardcoded defaults as these are not editable in prototype but present in source
+        "panelWithHumans": " As a special for today, on the panel are also [HUMANS]. Welcome them especially! ",
+        "addHuman": {
+          "id": "addhuman",
+          "name": "Add Human",
+          "description": "Would you like to add a human speaker to the meeting?\n\nCreate a panel consisting of both humans and foods."
+        },
+        "foods": (this.currentLanguageData.characters || []).map(c => {
+          // Exclude internal fields like _ui_id
+          const { _ui_id, ...rest } = c;
+          // Ensure structure matches schema
+          return {
+            id: rest.id || (rest.name ? rest.name.toLowerCase().replace(/\s+/g, '') : 'unknown'),
+            name: rest.name,
+            voice: rest.voice,
+            size: rest.size,
+            voiceInstruction: rest.voiceInstruction || "",
+            description: rest.description || "",
+            prompt: rest.prompt || ""
+          };
+        })
+      };
+
+      // 2. Export Topics
+      // Note: We lost original 'description' and 'id' during import, so we map what we have.
+      const topicsExport = {
+        "system": this.currentLanguageData.system,
+        "topics": (this.currentLanguageData.topics || []).map(t => ({
+          id: t.id,
+          title: t.name,
+          // Fallback description to prompt as it was lost in import
+          description: t.prompt,
+          prompt: t.prompt
+        }))
+      };
+
+      // Helper to trigger download
+      const download = (filename, data) => {
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      };
+
+      download(`foods_${lang}_${timestamp}.json`, foodsExport);
+      download(`topics_${lang}_${timestamp}.json`, topicsExport);
+
+      this.log('SYSTEM', 'Exported Prompts to JSON');
+    },
+
     startConversation() {
       // Start fresh
       this.loading = true;
