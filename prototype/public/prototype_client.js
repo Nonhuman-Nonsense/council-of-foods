@@ -343,6 +343,7 @@ createApp({
           const topicsList = topics.topics.map(t => ({
             id: 'topic_' + Date.now() + Math.random(),
             name: t.title,
+            description: t.description || "",
             prompt: t.prompt
           }));
 
@@ -474,6 +475,7 @@ createApp({
       const newTopic = {
         id: 'topic_' + Date.now(),
         name: "New Topic",
+        description: "",
         prompt: "",
       };
       this.currentLanguageData.topics.push(newTopic);
@@ -609,10 +611,9 @@ createApp({
       const topicsExport = {
         "system": this.currentLanguageData.system,
         "topics": (this.currentLanguageData.topics || []).map(t => ({
-          id: t.id,
+          id: t.name ? t.name.toLowerCase().replace(/\s+/g, '') : 'unknown',
           title: t.name,
-          // Fallback description to prompt as it was lost in import
-          description: t.prompt,
+          description: t.description || t.prompt,
           prompt: t.prompt
         }))
       };

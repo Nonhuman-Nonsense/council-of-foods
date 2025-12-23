@@ -105,6 +105,12 @@
                 <input type="text" class="input-full" v-model="currentTopic.name" placeholder="Topic Name"
                   style="margin-bottom: 15px;">
 
+                <label class="sub-label">Topic Description</label>
+                <textarea class="input-full" v-model="currentTopic.description"
+                  placeholder="Description of the topic..." v-auto-resize
+                  style="min-height: 60px; margin-bottom: 15px; resize: none; overflow-y: hidden;"></textarea>
+
+
                 <label class="sub-label">Topic Prompt</label>
                 <textarea class="input-area" v-model="currentTopic.prompt" placeholder="Describe the topic..."
                   v-auto-resize></textarea>
