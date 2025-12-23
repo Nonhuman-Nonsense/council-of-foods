@@ -46,9 +46,8 @@ createApp({
       socket: null,
 
       // UI State
-      loading: false,
-      conversationActive: false,
-      conversationStarted: false,
+      // UI State
+      status: 'IDLE', // IDLE, CONNECTING, ACTIVE, PAUSED, ENDED, ERROR
       injectionStatus: '',
       endMessage: '',
 
@@ -445,6 +444,12 @@ createApp({
       this.socket.on("conversation_update", (conversationUpdate) => {
         this.log('SOCKET_IN', 'Conversation Update', conversationUpdate);
         this.conversation = conversationUpdate;
+
+        // If we get an update, we are active (unless paused, but usually this implies activity)
+        if (this.status !== 'PAUSED') {
+          this.status = 'ACTIVE';
+        }
+
         this.injectionStatus = ""; // Clear status on response
         this.scrollToBottom();
       });
@@ -456,15 +461,14 @@ createApp({
 
       this.socket.on("conversation_end", () => {
         this.log('SOCKET_IN', 'Conversation End');
-        this.loading = false;
-        this.conversationActive = false;
+        this.status = 'ENDED';
         this.endMessage = "End of Conversation";
       });
 
       this.socket.on("conversation_error", (errorMessage) => {
         this.log('ERROR', 'Conversation Error', errorMessage);
         console.error(errorMessage);
-        this.loading = false;
+        this.status = 'ERROR';
         alert(errorMessage.message);
       });
     },
@@ -684,8 +688,7 @@ createApp({
 
     startConversation() {
       // Start fresh
-      this.loading = true;
-      this.conversationActive = true;
+      this.status = 'CONNECTING';
 
       // Reset Audio State
       this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -694,7 +697,6 @@ createApp({
       this.audioIsPlaying = false;
       this.localOptions.audioPaused = false; // Force unpause
 
-      this.conversationStarted = true;
       const payload = this.getPayload();
       this.log('SOCKET_OUT', 'Starting Conversation', payload);
       this.socket.emit("start_conversation", payload);
@@ -702,21 +704,18 @@ createApp({
 
     pauseConversation() {
       this.log('SOCKET_OUT', 'Pausing Conversation');
-      this.conversationActive = false;
-      this.loading = false;
+      this.status = 'PAUSED';
       this.socket.emit("pause_conversation");
     },
 
     resumeConversation() {
-      this.loading = true;
-      this.conversationActive = true;
+      this.status = 'CONNECTING';
       this.log('SOCKET_OUT', 'Resuming Conversation');
       this.socket.emit("resume_conversation");
     },
 
     restartConversation() {
-      this.loading = true;
-      this.conversationActive = true;
+      this.status = 'CONNECTING';
       this.endMessage = "";
       this.conversation = [];
       this.stopCurrentAudio();
@@ -734,8 +733,7 @@ createApp({
     },
 
     continueConversation() {
-      this.loading = true;
-      this.conversationActive = true;
+      this.status = 'CONNECTING';
       this.endMessage = "";
       const payload = this.getPayload();
       this.log('SOCKET_OUT', 'Continuing Conversation', payload);

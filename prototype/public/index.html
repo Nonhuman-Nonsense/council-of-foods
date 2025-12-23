@@ -253,13 +253,11 @@
             <h3>Meeting</h3>
             <div style="margin-left: auto; display: flex; gap: 5px;">
               <!-- Conversation Controls -->
-              <button v-if="!conversationActive && !endMessage && !conversationStarted" class="primary"
-                @click="startConversation">Start</button>
-              <button v-if="!conversationActive && !endMessage && conversationStarted" class="primary"
-                @click="resumeConversation">Resume</button>
-              <button v-if="conversationActive" @click="pauseConversation">Pause</button>
-              <button v-if="conversationStarted && !conversationActive" @click="restartConversation">Restart</button>
-              <button v-if="endMessage" class="primary" @click="continueConversation">Keep Going</button>
+              <button v-if="status === 'IDLE'" class="primary" @click="startConversation">Start</button>
+              <button v-if="status === 'PAUSED'" class="primary" @click="resumeConversation">Resume</button>
+              <button v-if="status === 'ACTIVE' || status === 'CONNECTING'" @click="pauseConversation">Pause</button>
+              <button v-if="status === 'PAUSED' || status === 'ENDED'" @click="restartConversation">Restart</button>
+              <button v-if="status === 'ENDED'" class="primary" @click="continueConversation">Keep Going</button>
 
               <div style="border-left: 1px solid var(--border-color); margin: 0 5px;"></div>
 
@@ -292,7 +290,7 @@
 
           <!-- Chat Output -->
           <div id="conversation-container" style="flex: 1; padding: 20px; overflow-y: auto;">
-            <div v-if="conversation.length === 0 && !loading"
+            <div v-if="conversation.length === 0 && status !== 'CONNECTING'"
               style="text-align: center; color: var(--text-secondary); margin-top: 50px;">
               Ready to start.
             </div>
@@ -315,7 +313,8 @@
                 v-html="turn.trimmed.split('\n').join('<br>')"></div>
             </div>
 
-            <div v-if="loading" class="loader" style="text-align: center; padding: 20px;">Thinking...</div>
+            <div v-if="status === 'CONNECTING'" class="loader" style="text-align: center; padding: 20px;">Thinking...
+            </div>
             <div v-if="endMessage"
               style="text-align: center; padding: 20px; font-weight: bold; color: var(--success-color);">{{ endMessage
               }}</div>
