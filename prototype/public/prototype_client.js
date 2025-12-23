@@ -765,6 +765,35 @@ createApp({
       this.audioController.start();
     },
 
+    downloadMessageAudio(index) {
+      if (!this.audioController || !this.audioController.hasAudio(index)) {
+        console.warn("No audio available to download for message index", index);
+        return;
+      }
+
+      const msg = this.conversation[index];
+      if (!msg) return;
+
+      // Construct filename: [character.id]_[todays date and time]_[audio.id].mp3
+      const speakerName = msg.speaker;
+      let charId = speakerName;
+      // Try to find official ID if possible
+      if (this.currentLanguageData && this.currentLanguageData.characters) {
+        const char = this.currentLanguageData.characters.find(c => c.name === speakerName);
+        if (char && char.id) charId = char.id;
+      }
+      // Sanitize charId
+      charId = charId.replace(/[^a-zA-Z0-9-_]/g, '');
+
+      const now = new Date();
+      const pad = (n) => String(n).padStart(2, '0');
+      const dateStr = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+
+      const filename = `${charId}_${dateStr}_${msg.id}.mp3`;
+
+      this.audioController.downloadAudio(index, filename);
+    },
+
     // ===========================
     //   UI LAYOUT
     // ===========================

@@ -305,7 +305,20 @@
                         'chair': turn.speaker === 'Chair', 
                         'character': turn.speaker !== 'Chair',
                         'playing': audioController && audioController.currentIndex === index
-                      }" style="margin-bottom: 10px;" v-show="localOptions.showTrimmed || turn.type !== 'skipped'">
+                      }" style="margin-bottom: 10px; position: relative;"
+              v-show="localOptions.showTrimmed || turn.type !== 'skipped'">
+
+              <!-- Download Button -->
+              <button class="icon-btn" @click.stop="downloadMessageAudio(index)" title="Download Audio"
+                v-if="audioController && audioController.hasAudio(index)"
+                style="position: absolute; top: 4px; right: 4px; padding: 2px; opacity: 0.6; z-index: 5;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M12 16L12 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                  <path d="M19 12L12 19L5 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                    stroke-linejoin="round" />
+                </svg>
+              </button>
+
               <div class="bubble-header">{{ turn.speaker }}</div>
 
               <div v-if="localOptions.showTrimmed && turn.pretrimmed" class="trimmed"

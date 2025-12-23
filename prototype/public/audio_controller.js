@@ -52,8 +52,16 @@ class AudioController {
             this.items.set(index, { skipped: true });
         } else {
             try {
-                const buffer = await this.ctx.decodeAudioData(audioData);
-                this.items.set(index, { buffer, skipped: false });
+                // Clone the buffer because decodeAudioData detaches it
+                const audioDataForDecoding = audioData.slice(0);
+                const buffer = await this.ctx.decodeAudioData(audioDataForDecoding);
+
+                // Store BOTH the decoded buffer (for playback) AND the raw arraybuffer (for download)
+                this.items.set(index, {
+                    buffer,
+                    rawAudio: audioData,
+                    skipped: false
+                });
             } catch (e) {
                 this.onLog('ERROR', 'Failed to decode audio', { index, e });
                 return;
@@ -71,6 +79,36 @@ class AudioController {
                 this.playInternal();
             }
         }
+    }
+
+    hasAudio(index) {
+        const item = this.items.get(index);
+        return item && !item.skipped && !!item.rawAudio;
+    }
+
+    downloadAudio(index, filename) {
+        const item = this.items.get(index);
+        if (!item || !item.rawAudio) {
+            console.error("No audio found for index", index);
+            return;
+        }
+
+        const blob = new Blob([item.rawAudio], { type: 'audio/mpeg' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+
+        // Cleanup
+        window.setTimeout(() => {
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+        }, 100);
+
+        this.onLog('SYSTEM', 'Downloaded Audio', { filename });
     }
 
     start() {
