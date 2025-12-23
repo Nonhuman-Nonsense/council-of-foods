@@ -60,7 +60,6 @@ createApp({
       languageData: {
         en: { system: '', topics: [] }
       },
-      rawLanguageData: {},
       available_languages: ['en'],
 
       // Runtime
@@ -333,12 +332,6 @@ createApp({
           const foodsParams = await foodsResp.json();
           const topics = await topicsResp.json();
 
-          // Store raw data for export fidelity
-          this.rawLanguageData[lang] = {
-            foods: JSON.parse(JSON.stringify(foodsParams)),
-            topics: JSON.parse(JSON.stringify(topics))
-          };
-
           // Map Characters (Global)
           // foodsParams is { foods: [...] }
           const characters = foodsParams.foods.map(f => ({
@@ -583,21 +576,34 @@ createApp({
       this.save();
     },
 
-    exportPrompts() {
+    async exportPrompts() {
       const now = new Date();
       const pad = (n) => String(n).padStart(2, '0');
       const timestamp = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
       const lang = this.options.language || 'en';
 
+      // Always fetch raw data for export fidelity
+      let rawFoods = { foods: [] };
+      let rawTopics = { topics: [] };
+
+      try {
+        this.log('SYSTEM', 'Fetching raw data for export...');
+        const [foodsResp, topicsResp] = await Promise.all([
+          fetch(`./foods_${lang}.json`),
+          fetch(`./topics_${lang}.json`)
+        ]);
+        if (foodsResp.ok && topicsResp.ok) {
+          rawFoods = await foodsResp.json();
+          rawTopics = await topicsResp.json();
+        }
+      } catch (e) {
+        console.error("Failed to fetch raw data", e);
+      }
+
       // 1. Export Characters (Foods)
       // Clone raw structure to preserve static fields (addHuman, panelWithHumans, metadata etc)
-      let foodsExport = {};
-      if (this.rawLanguageData[lang] && this.rawLanguageData[lang].foods) {
-        foodsExport = JSON.parse(JSON.stringify(this.rawLanguageData[lang].foods));
-      } else {
-        // Fallback should not happen if factory reset works, but just in case
-        foodsExport = { foods: [] };
-      }
+      // Clone raw structure to preserve static fields (addHuman, panelWithHumans, metadata etc)
+      let foodsExport = JSON.parse(JSON.stringify(rawFoods));
 
       // Update timestamp if metadata exists
       if (foodsExport.metadata) {
@@ -624,12 +630,8 @@ createApp({
 
       // 2. Export Topics
       // Clone raw structure
-      let topicsExport = {};
-      if (this.rawLanguageData[lang] && this.rawLanguageData[lang].topics) {
-        topicsExport = JSON.parse(JSON.stringify(this.rawLanguageData[lang].topics));
-      } else {
-        topicsExport = { topics: [] };
-      }
+      // Clone raw structure
+      let topicsExport = JSON.parse(JSON.stringify(rawTopics));
 
       // Update timestamp if metadata exists
       if (topicsExport.metadata) {
@@ -642,12 +644,21 @@ createApp({
       topicsExport.system = this.currentLanguageData.system;
 
       // Update topics list
-      topicsExport.topics = (this.currentLanguageData.topics || []).map(t => ({
-        id: t.id || (t.name ? t.name.toLowerCase().replace(/\s+/g, '') : 'unknown'),
-        title: t.name,
-        description: t.description || t.prompt,
-        prompt: t.prompt
-      }));
+      // Reconcile with raw topics to preserve original IDs
+      const rawTopicsList = (rawTopics && rawTopics.topics) ? rawTopics.topics : [];
+
+      topicsExport.topics = (this.currentLanguageData.topics || []).map(t => {
+        // Try to find matching original topic by title to restore ID and Description
+        const match = rawTopicsList.find(rt => rt.title === t.name);
+
+        return {
+          id: match ? match.id : (t.id || (t.name ? t.name.toLowerCase().replace(/\s+/g, '') : 'unknown')),
+          title: t.name,
+          // Use current description if available (user edits), fallback to raw if needed, then prompt (legacy)
+          description: t.description || (match ? match.description : t.prompt),
+          prompt: t.prompt
+        };
+      });
 
       // Helper to trigger download
       const download = (filename, data) => {
