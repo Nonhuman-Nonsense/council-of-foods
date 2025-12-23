@@ -115,18 +115,6 @@ createApp({
   },
 
   watch: {
-    options: {
-      handler() { this.save(); },
-      deep: true
-    },
-    localOptions: {
-      handler() { this.save(); },
-      deep: true
-    },
-    languageData: {
-      handler() { this.save(); },
-      deep: true
-    },
     currentTopic: {
       handler(val) {
         if (val) {
@@ -137,6 +125,16 @@ createApp({
       },
       immediate: true
     }
+  },
+
+  created() {
+    // Dynamic Watchers for Persistence
+    ['options', 'localOptions', 'languageData'].forEach(key => {
+      this.$watch(key, {
+        handler() { this.save(); },
+        deep: true
+      });
+    });
   },
 
   mounted() {
@@ -383,6 +381,9 @@ createApp({
     },
 
     save() {
+      // Always sanitize before saving to ensure consistency
+      this.sanitizeData();
+
       const data = {
         options: this.options,
         localOptions: this.localOptions,
@@ -575,6 +576,8 @@ createApp({
       this.enforceActiveCharacterSort();
       this.save();
     },
+
+
 
     async exportPrompts() {
       const now = new Date();
@@ -974,6 +977,10 @@ createApp({
         if (lang.characters) {
           lang.characters.forEach(c => {
             if (!c._ui_id) c._ui_id = Date.now() + Math.random();
+            // Ensure ID matches Name
+            if (c.name) {
+              c.id = c.name.toLowerCase().replace(/\s+/g, '');
+            }
           });
         }
       });
