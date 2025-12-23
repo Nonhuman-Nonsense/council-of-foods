@@ -26,9 +26,10 @@ vi.mock('../../../../src/components/overlays/ResetWarning', () => ({
 
 const mockTopics = [
     { id: 'topic1', title: 'Topic One', description: 'Desc One' },
-    { id: 'topic2', title: 'Topic Two', description: 'Desc Two' },
-    { id: 'customtopic', title: 'Write your own', description: 'Custom' }
+    { id: 'topic2', title: 'Topic Two', description: 'Desc Two' }
 ];
+
+const mockCustomTopicConfig = { id: 'customtopic', title: 'Write your own', description: 'Custom' };
 
 describe('SelectTopic Component', () => {
     let mockOnContinue;
@@ -45,6 +46,7 @@ describe('SelectTopic Component', () => {
         render(
             <SelectTopic
                 topics={mockTopics}
+                customTopicConfig={mockCustomTopicConfig}
                 onContinueForward={mockOnContinue}
                 onReset={mockOnReset}
                 onCancel={mockOnCancel}
@@ -71,12 +73,10 @@ describe('SelectTopic Component', () => {
     });
 
     it('should allow custom topic entry', () => {
-        // Implementation note: The component expects the last topic to be the "Custom" placeholder.
-        // mockTopics already includes this as per previous fix.
-
         render(
             <SelectTopic
                 topics={mockTopics}
+                customTopicConfig={mockCustomTopicConfig}
                 onContinueForward={mockOnContinue}
                 onReset={mockOnReset}
                 onCancel={mockOnCancel}
@@ -108,13 +108,13 @@ describe('SelectTopic Component', () => {
             { id: '1', title: 'T1', description: 'A' },
             { id: '2', title: 'T2', description: 'B' },
             { id: '3', title: 'T3', description: 'C' },
-            { id: '4', title: 'T4', description: 'D' },
-            { id: 'customtopic', title: 'Custom', description: 'C' }
+            { id: '4', title: 'T4', description: 'D' }
         ];
 
         render(
             <SelectTopic
                 topics={fewTopics}
+                customTopicConfig={mockCustomTopicConfig}
                 onContinueForward={mockOnContinue}
                 onReset={mockOnReset}
                 onCancel={mockOnCancel}
@@ -140,11 +140,11 @@ describe('SelectTopic Component', () => {
         const manyTopics = Array.from({ length: 7 }, (_, i) => ({
             id: `topic${i}`, title: `Topic ${i}`, description: `Desc ${i}`
         }));
-        manyTopics.push({ id: 'customtopic', title: 'Custom', description: 'C' });
 
         render(
             <SelectTopic
                 topics={manyTopics}
+                customTopicConfig={mockCustomTopicConfig}
                 onContinueForward={mockOnContinue}
                 onReset={mockOnReset}
                 onCancel={mockOnCancel}
@@ -154,7 +154,7 @@ describe('SelectTopic Component', () => {
 
         const btn = screen.getByText('Topic 0');
         const gridContainer = btn.parentElement;
-        const customBtn = screen.getByText('Custom');
+        const customBtn = screen.getByText('Write your own');
 
         expect(gridContainer).toHaveStyle('grid-template-columns: 1fr 1fr');
 
@@ -174,6 +174,7 @@ describe('SelectTopic Component', () => {
         render(
             <SelectTopic
                 topics={mockTopics}
+                customTopicConfig={mockCustomTopicConfig}
                 onContinueForward={mockOnContinue}
                 onReset={mockOnReset}
                 onCancel={mockOnCancel}
@@ -205,6 +206,7 @@ describe('SelectTopic Component', () => {
         render(
             <SelectTopic
                 topics={mockTopics}
+                customTopicConfig={mockCustomTopicConfig}
                 onContinueForward={mockOnContinue}
                 onReset={mockOnReset}
                 onCancel={mockOnCancel}
@@ -240,6 +242,7 @@ describe('SelectTopic Component', () => {
         render(
             <SelectTopic
                 topics={mockTopics}
+                customTopicConfig={mockCustomTopicConfig}
                 onContinueForward={mockOnContinue}
                 onReset={mockOnReset}
                 onCancel={mockOnCancel}
@@ -274,6 +277,7 @@ describe('SelectTopic Component', () => {
         render(
             <SelectTopic
                 topics={mockTopics}
+                customTopicConfig={mockCustomTopicConfig}
                 onContinueForward={mockOnContinue}
                 onReset={mockOnReset}
                 onCancel={mockOnCancel}

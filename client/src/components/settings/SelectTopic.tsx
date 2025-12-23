@@ -16,7 +16,6 @@ import { useTranslation } from "react-i18next";
  * - Validates that a topic is selected (and custom text entered if applicable) before proceeding.
  * - Shows a warning if the user attempts to change the topic mid-meeting.
  */
-const CUSTOM_TOPIC_ID = "customtopic";
 
 export interface Topic {
   id: string;
@@ -32,6 +31,7 @@ export interface TopicSelection {
 
 interface SelectTopicProps {
   topics: Topic[];
+  customTopicConfig: Topic;
   onContinueForward: (data: TopicSelection) => void;
   currentTopic?: Topic;
   onReset: (data: TopicSelection) => void;
@@ -40,6 +40,7 @@ interface SelectTopicProps {
 
 function SelectTopic({
   topics,
+  customTopicConfig,
   onContinueForward,
   currentTopic,
   onReset,
@@ -66,7 +67,7 @@ function SelectTopic({
   // Pre-fill selection if editing an existing topic (e.g. backtracking)
   useEffect(() => {
     if (currentTopic?.prompt) {
-      if (currentTopic.id === CUSTOM_TOPIC_ID && currentTopic.description) {
+      if (currentTopic.id === customTopicConfig.id && currentTopic.description) {
         setCustomTopic(currentTopic.description);
       }
       setSelectedTopic(currentTopic.id);
@@ -114,22 +115,21 @@ function SelectTopic({
    * Logic: Visible if Custom is selected OR hovered (unless hovering another topic while Custom is selected).
    */
   function showTextBox(): boolean {
-    if (selectedTopic === CUSTOM_TOPIC_ID && hoverTopic && hoverTopic !== CUSTOM_TOPIC_ID) {
+    if (selectedTopic === customTopicConfig.id && hoverTopic && hoverTopic !== customTopicConfig.id) {
       return false;
     }
-    return selectedTopic === CUSTOM_TOPIC_ID || hoverTopic === CUSTOM_TOPIC_ID;
+    return selectedTopic === customTopicConfig.id || hoverTopic === customTopicConfig.id;
   }
 
   const shouldShowNextButton =
     selectedTopic &&
-    !(selectedTopic === CUSTOM_TOPIC_ID && !customTopic.trim());
+    !(selectedTopic === customTopicConfig.id && !customTopic.trim());
 
   /* -------------------------------------------------------------------------- */
   /*                                    Styles                                  */
   /* -------------------------------------------------------------------------- */
 
-  const standardTopics = topics.filter(t => t.id !== CUSTOM_TOPIC_ID);
-  const customTopicObj = topics.find(t => t.id === CUSTOM_TOPIC_ID);
+  const standardTopics = topics;
   const isSingleColumn = standardTopics.length <= 6;
 
   const containerStyle: React.CSSProperties = {
@@ -228,20 +228,20 @@ function SelectTopic({
               ))}
 
               {/* Custom Topic Button */}
-              {customTopicObj && (
+              {customTopicConfig && (
                 <button
-                  className={selectedTopic === customTopicObj.id ? "selected " : ""}
+                  className={selectedTopic === customTopicConfig.id ? "selected " : ""}
                   onClick={() => {
-                    setSelectedTopic(CUSTOM_TOPIC_ID);
+                    setSelectedTopic(customTopicConfig.id);
                     setTimeout(() => {
                       topicTextareaRef.current && topicTextareaRef.current.focus();
                     }, 0);
                   }}
-                  onMouseEnter={() => setHoverTopic(CUSTOM_TOPIC_ID)}
+                  onMouseEnter={() => setHoverTopic(customTopicConfig.id)}
                   onMouseLeave={() => setHoverTopic(null)}
                   style={customButtonStyle}
                 >
-                  {toTitleCase(customTopicObj.title)}
+                  {toTitleCase(customTopicConfig.title)}
                 </button>
               )}
             </div>
