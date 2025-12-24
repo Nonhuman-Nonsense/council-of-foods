@@ -10,12 +10,14 @@ if (!CSS.supports) {
 }
 
 // Mock Canvas
-HTMLCanvasElement.prototype.getContext = () => {
-    return {
-        fillStyle: '',
-        fillRect: () => { },
-        // Add other methods if lottie complains
-    };
+if (typeof HTMLCanvasElement !== 'undefined') {
+    HTMLCanvasElement.prototype.getContext = () => {
+        return {
+            fillStyle: '',
+            fillRect: () => { },
+            // Add other methods if lottie complains
+        };
+    }
 }
 
 // Mock AudioContext
@@ -38,13 +40,15 @@ global.AudioContext = class {
 global.webkitAudioContext = global.AudioContext;
 
 // Mock MediaDevices
-Object.defineProperty(navigator, 'mediaDevices', {
-    value: {
-        getUserMedia: () => Promise.resolve({
-            getTracks: () => [{ stop: () => { } }]
-        })
-    }
-});
+if (typeof navigator !== 'undefined') {
+    Object.defineProperty(navigator, 'mediaDevices', {
+        value: {
+            getUserMedia: () => Promise.resolve({
+                getTracks: () => [{ stop: () => { } }]
+            })
+        }
+    });
+}
 
 // Mock MediaRecorder
 global.MediaRecorder = class {

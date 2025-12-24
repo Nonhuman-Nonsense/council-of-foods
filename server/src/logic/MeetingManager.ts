@@ -1,3 +1,4 @@
+import { AVAILABLE_LANGUAGES } from "@shared/AvailableLanguages.js";
 import type { IMeetingManager, Services, ConversationOptions, IMeetingBroadcaster } from "@interfaces/MeetingInterfaces.js";
 import type { Character, ConversationMessage } from "@shared/ModelTypes.js";
 import type { ClientToServerEvents, ReconnectionOptions, ServerToClientEvents, SetupOptions } from "@shared/SocketTypes.js";
@@ -87,7 +88,7 @@ export class MeetingManager implements IMeetingManager {
             topic: "",
             characters: [] as Character[],
             options: this.globalOptions,
-            language: "en"
+            language: AVAILABLE_LANGUAGES[0]
         };
 
         this.startLoop = this.startLoop.bind(this);
@@ -360,8 +361,3 @@ export class MeetingManager implements IMeetingManager {
         );
     }
 }
-
-
-
-
-

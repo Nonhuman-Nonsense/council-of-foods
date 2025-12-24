@@ -11,6 +11,7 @@ import { initReporting } from '@utils/errorbot.js';
 import { initDb } from '@services/DbService.js';
 import { initOpenAI } from '@services/OpenAIService.js';
 import { SocketManager } from '@logic/SocketManager.js';
+import { AVAILABLE_LANGUAGES } from '@shared/AvailableLanguages.js';
 
 const environment: string = config.NODE_ENV;
 const __filename: string = fileURLToPath(import.meta.url);
@@ -36,7 +37,7 @@ app.get('/health', (_req: Request, res: Response) => { res.sendStatus(200); });
 if (environment === "prototype") {
   app.use(express.static(path.join(__dirname, "../prototype/", "public")));
   //Enable prototype to reset to default settings for each language
-  for (const lang of ['en']) {
+  for (const lang of AVAILABLE_LANGUAGES) {
     for (const promptfile of ['foods', 'topics']) {
       app.get(`/${promptfile}_${lang}.json`, function (_req: Request, res: Response) {
         res.sendFile(path.join(__dirname, "../client/src/prompts", `${promptfile}_${lang}.json`));
