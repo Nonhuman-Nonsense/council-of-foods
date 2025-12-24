@@ -18,23 +18,33 @@ import Reconnecting from "./overlays/Reconnecting";
 import { useTranslation } from 'react-i18next';
 
 //Topics
-import topicDataEN from "@prompts/topics_en.json";
-import topicDataSV from "@prompts/topics_sv.json";
+//Topics
+import { AVAILABLE_LANGUAGES } from "@shared/AvailableLanguages";
+// Dynamic topic import
+const topicModules = import.meta.glob<TopicsData>('../prompts/topics_*.json', { eager: true, import: 'default' });
 import routes from "@/routes.json"; // Import routes directly
 
 
 // interface Topic removed, imported from SelectTopic
 
 interface TopicsData {
+  metadata: {
+    version: string;
+    last_updated: string;
+  };
   system: string;
   custom_topic: Topic;
   topics: Topic[];
 }
 
-const topicsData: Record<string, TopicsData> = {
-  "en": topicDataEN,
-  "sv": topicDataSV
-};
+const topicsData: Record<string, TopicsData> = {};
+
+for (const lang of AVAILABLE_LANGUAGES) {
+  const moduleKey = Object.keys(topicModules).find(path => path.endsWith(`topics_${lang}.json`));
+  if (moduleKey) {
+    topicsData[lang] = topicModules[moduleKey];
+  }
+}
 
 //Freeze original topicData to make it immutable
 Object.freeze(topicsData);
@@ -76,7 +86,7 @@ interface MainProps {
 }
 
 function Main({ lang }: MainProps) {
-  const [topics, setTopics] = useState<Topic[]>(topicsData['en'].topics);
+  const [topics, setTopics] = useState<Topic[]>(topicsData[AVAILABLE_LANGUAGES[0]]?.topics || []);
   const [chosenTopic, setChosenTopic] = useState<Topic>({ id: "", title: "" });
   const [customTopic, setCustomTopic] = useState("");
   const [participants, setParticipants] = useState<Character[]>([]);
@@ -100,6 +110,9 @@ function Main({ lang }: MainProps) {
 
   const { i18n } = useTranslation();
 
+  // Dynamic base path for routing
+  const basePath = (AVAILABLE_LANGUAGES as readonly string[]).length === 1 ? "" : `/${lang}`;
+
   if (audioContext.current === null) {
     const AudioContext = window.AudioContext || (window as any).webkitAudioContext; //cross browser
     audioContext.current = new AudioContext();
@@ -108,7 +121,7 @@ function Main({ lang }: MainProps) {
   //Set language if changed
   useEffect(() => {
     i18n.changeLanguage(lang);
-    if (location.pathname.substring(4, 11) === 'meeting') {
+    if (location.pathname.substring(basePath.length + 1, basePath.length + 8) === 'meeting') {
       navigate({ hash: "warning" });
     }
   }, [lang]);
@@ -142,9 +155,13 @@ function Main({ lang }: MainProps) {
 
 
   useEffect(() => {
-    if (!chosenTopic.id && (location.pathname.length > 4 && location.pathname.substring(4) !== "" && location.pathname.substring(4) !== "topics")) {
+    // Logic: if not topic chosen, and we are deep in the app (not at root or topics), redirect to start
+    // We check if pathname is longer than base path
+    const relativePath = location.pathname.substring(basePath.length);
+
+    if (!chosenTopic.id && (relativePath.length > 1 && relativePath !== "/" && relativePath !== "/topics")) {
       //Preserve the hash, but navigate to start
-      navigate({ pathname: `/${lang}/`, hash: location.hash });
+      navigate({ pathname: `${basePath}/`, hash: location.hash });
     }
   }, [location.pathname]);
 
@@ -154,7 +171,7 @@ function Main({ lang }: MainProps) {
     if (custom) {
       setCustomTopic(custom);
     }
-    navigate(`/${lang}/${routes.foods}`);
+    navigate(`${basePath}/${routes.foods}`);
   }
 
   function foodsSelected({ foods }: { foods: Food[] }) {
@@ -171,7 +188,7 @@ function Main({ lang }: MainProps) {
 
   function letsGo() {
     audioContext.current?.resume();
-    navigate(`/${lang}/${routes.topics}`);
+    navigate(`${basePath}/${routes.topics}`);
   }
 
   function proceedToMeeting() {
@@ -196,7 +213,7 @@ function Main({ lang }: MainProps) {
     setChosenTopic(copiedTopic);
 
     //Start the meeting
-    navigate(`/${lang}/${routes.meeting}/new`);
+    navigate(`${basePath}/${routes.meeting}/new`);
   }
 
   function onReset(resetData?: { topic: string; custom?: string }) {
@@ -205,7 +222,7 @@ function Main({ lang }: MainProps) {
     if (!resetData?.topic) {
       // Reset from the start
       setChosenTopic({ id: "", title: "" });
-      navigate(`/${lang}`);
+      navigate(`${basePath}/`);
 
       //Reload the entire window, in case the frontend has been updated etc.
       //Usefull in exhibition settings where maybe there is no browser access
@@ -254,8 +271,8 @@ function Main({ lang }: MainProps) {
       )}
       {!unrecoverabeError && (
         <Overlay
-          isActive={!location.pathname.startsWith(`/${lang}/${routes.meeting}`)}
-          isBlurred={location.pathname.length > 4}
+          isActive={!location.pathname.startsWith(`${basePath}/${routes.meeting}`)}
+          isBlurred={location.pathname.length > (basePath.length + 1)}
         >
           <Routes>
             <Route

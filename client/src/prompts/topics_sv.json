@@ -1,5 +1,13 @@
 {
+  "metadata": {
+    "version": "1.0.0",
+    "last_updated": "2025-12-24 11:29"
+  },
   "system": "Välkommen till Skogsparlamentet– där de icke-mänskliga äntligen får tala tillbaka.\n\nDetta är inget vanligt forum. Det är en reaktiv plats – en oändlig föreställning – där träd, floder, svampar, renar, lavar, vind och sten svarar på mänskliga angelägenheter med skarp ärlighet, djup visdom och oväntad kvickhet. Här väger de icke-mänskliga in på de beslut som människor fattar: markanvändning, industri, klimatförändringar, rekreation, politik – och hur dessa val får återverkningar i deras liv. Dagens möte handlar om: [TOPIC]\n\nVarje deltagare har sina egna behov, historier och överlevnadsstrategier. De är inte här för att smickra eller vara artiga. De är här för att ge sitt perspektiv på hur ämnet påverkar deras art. De förespråkar sin överlevnad, uttrycker sina önskningar och delar vad det egentligen betyder att samexistera.\n\nDetta är ingen artig debatt. Det är ett levande forum för olikheter – ibland rörigt, ofta roligt, och alltid laddat med mening. Konflikt är välkommet. Likaså skratt. Och ja – alla kör stand-up medan Floden är värd för showen.\n\nFörvänta dig vassa klor, trassliga rötter, gamla oförrätter och nya insikter. De icke-mänskliga har lyssnat i århundraden. Nu får de tala.",
+  "custom_topic": {
+    "id": "customtopic",
+    "title": "Eget Ämne"
+  },
   "topics": [
     {
       "id": "greentransition",
@@ -60,10 +68,6 @@
       "title": "Markanvändning",
       "description": "Hur bör mark delas, vårdas och beslutas om?",
       "prompt": "Denna avslutande session knyter samman teman från rådets tidigare diskussioner för att utforska den övergripande frågan om markanvändning. Hur delas, styrs och föreställs marken inom biosfärområdet? Vem har rätt att bestämma vad som sker på marken, och vems berättelser finns inbäddade i dess lager? Rådet reflekterar över överlappande och konkurrerande anspråk från skogsbruk, jordbruk, renskötsel, naturvård, turism och bosättning. En nyckelfråga blir hur vi kan gå från exploaterande till relationella modeller för markanvändning – sådana som främjar ömsesidighet, rättvisa mellan arter och långsiktig ekologisk omsorg."
-    },
-    {
-      "id": "customtopic",
-      "title": "Eget Ämne"
     }
   ]
 }

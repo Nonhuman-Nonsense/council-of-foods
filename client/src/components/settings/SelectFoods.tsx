@@ -4,9 +4,10 @@ import { useTranslation } from "react-i18next";
 
 import globalOptionsData from "@/global-options-client.json";
 import { Character, VoiceOption, AVAILABLE_VOICES } from "@shared/ModelTypes";
+import { AVAILABLE_LANGUAGES } from "@shared/AvailableLanguages";
 
-import foodDataEN from "@prompts/foods_en.json";
-import foodDataSV from "@prompts/foods_sv.json";
+// Dynamic import of food data modules
+const foodModules = import.meta.glob<FoodData>('../../prompts/foods_*.json', { eager: true, import: 'default' });
 
 interface GlobalOptions {
   audio_speed?: number;
@@ -26,7 +27,7 @@ export interface Food extends Partial<Character> {
   type?: 'panelist' | 'food' | 'chair' | string;
   index?: number;
   voice: VoiceOption;
-  size: number;
+  size?: number;
   voiceInstruction?: string;
 }
 
@@ -40,19 +41,28 @@ const MAXHUMANS = 3;
 
 // Helper to access typed keys of foodData
 interface FoodData {
-  foods: Food[];
+  metadata: {
+    version: string;
+    last_updated: string;
+  };
+  panelWithHumans: string;
   addHuman: {
     id: string;
     name: string;
     description: string;
   };
-  panelWithHumans: string;
+  foods: Food[];
 }
 
-const localFoodData: Record<string, FoodData> = {
-  "en": foodDataEN as unknown as FoodData,
-  "sv": foodDataSV as unknown as FoodData
-};
+const localFoodData: Record<string, FoodData> = {};
+
+// We assume that the files exist, since we validate them in the tests
+for (const lang of AVAILABLE_LANGUAGES) {
+  const moduleKey = Object.keys(foodModules).find(path => path.endsWith(`foods_${lang}.json`));
+  if (moduleKey) {
+    localFoodData[lang] = foodModules[moduleKey];
+  }
+}
 
 // Freeze original foodData to make it immutable
 Object.freeze(localFoodData);
@@ -63,7 +73,7 @@ for (const language in localFoodData) {
 }
 
 // Infer the default voice from the configuration to ensure blankHuman is valid
-const defaultChair = localFoodData['en'].foods.find(f => f.id === globalOptions.chairId);
+const defaultChair = localFoodData[AVAILABLE_LANGUAGES[0]]?.foods.find(f => f.id === globalOptions.chairId);
 const defaultVoice: VoiceOption = defaultChair?.voice || AVAILABLE_VOICES[0];
 
 const blankHuman: Food = {
@@ -82,8 +92,8 @@ const blankHuman: Food = {
  */
 function SelectFoods({ lang, topicTitle, onContinueForward }: SelectFoodsProps): React.ReactElement {
   // Ensuring we pull from a valid lang key, defaulting to 'en' if missing
-  const [foods, setFoods] = useState<Food[]>(localFoodData['en'].foods);
-  const [selectedFoods, setSelectedFoods] = useState<string[]>([localFoodData['en'].foods[0].id]);
+  const [foods, setFoods] = useState<Food[]>(localFoodData[AVAILABLE_LANGUAGES[0]]?.foods || []);
+  const [selectedFoods, setSelectedFoods] = useState<string[]>([localFoodData[AVAILABLE_LANGUAGES[0]]?.foods[0].id || ""]);
 
   //Humans
   const [human0, setHuman0] = useState<Food>(cloneHuman(0));
@@ -106,25 +116,12 @@ function SelectFoods({ lang, topicTitle, onContinueForward }: SelectFoodsProps):
   const isMobileXs = useMobileXs();
   const { t } = useTranslation();
 
-  //Update foods on language change (Local Logic preserved?)
-  // Upstream removed specific lang logic for foods?
-  // Local code had:
-  // useEffect(() => {
-  //   const newFoods = foodData[lang].foods.concat(humans.slice(0, numberOfHumans));
-  //   setFoods(newFoods);
-  // }, [lang]);
-  // Upstream removed it.
-  // I will KEEP the effect but use localFoodData['en'] if other langs are missing, or logic.
-  // Since I only have 'en' in localFoodData, relying on 'lang' might break if it's 'sv'.
-  // But 'en' is hardcoded key. I will assume single language config for foods for now to match strict TS, or keep local logic if safe.
-  // Local logic was dependent on `foodData[lang]`. If I only import EN, it will crash for SV.
-  // So I'll stick to 'en' or add SV import if I can find it.
-  // Upstream removed SV import. I'll stick to 'en'.
+  // Update foods on language change
 
   useEffect(() => {
     // Concatenate humans to foods list
     // Use the correct language data
-    const baseFoods = localFoodData[lang] ? localFoodData[lang].foods : localFoodData['en'].foods;
+    const baseFoods = localFoodData[lang] ? localFoodData[lang].foods : localFoodData[AVAILABLE_LANGUAGES[0]].foods;
     const newFoods = baseFoods.concat(humans.slice(0, numberOfHumans));
     setFoods(newFoods);
   }, [lang, human0, human1, human2, numberOfHumans]);
