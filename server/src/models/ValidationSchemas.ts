@@ -21,6 +21,7 @@ const CharacterSchema: z.ZodType<Character> = z.object({
     type: z.string().optional(),
     voice: VoiceOptionSchema,
     prompt: z.string().optional(),
+    voiceInstruction: z.string().optional(),
 });
 
 

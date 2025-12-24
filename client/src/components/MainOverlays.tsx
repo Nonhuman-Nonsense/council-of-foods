@@ -12,6 +12,7 @@ import { useTranslation } from "react-i18next";
 interface MainOverlaysProps {
   topics: Topic[];
   topic: Topic;
+  customTopicConfig: Topic;
   onReset: (data?: { topic: string; custom?: string }) => void;
   onCloseOverlay: () => void;
 }
@@ -27,7 +28,7 @@ interface MainOverlaysProps {
  * - **Auto-Close**: Logic to automatically close invalid overlays based on current route (e.g., closing #reset if not meaningful).
  * - **Composition**: Wraps content in `Overlay` > `OverlayWrapper` for consistent layout.
  */
-function MainOverlays({ topics, topic, onReset, onCloseOverlay }: MainOverlaysProps): React.ReactElement {
+function MainOverlays({ topics, topic, customTopicConfig, onReset, onCloseOverlay }: MainOverlaysProps): React.ReactElement {
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -65,6 +66,7 @@ function MainOverlays({ topics, topic, onReset, onCloseOverlay }: MainOverlaysPr
         return (
           <SelectTopic
             topics={topics}
+            customTopicConfig={customTopicConfig}
             currentTopic={topic}
             onReset={onReset}
             onCancel={removeOverlay}

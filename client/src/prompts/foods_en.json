@@ -1,4 +1,8 @@
 {
+  "metadata": {
+    "version": "1.0.0",
+    "last_updated": "2025-12-24 11:29"
+  },
   "panelWithHumans": " As a special for today, on the panel are also [HUMANS]. Welcome them especially! ",
   "addHuman": {
     "id": "addhuman",
