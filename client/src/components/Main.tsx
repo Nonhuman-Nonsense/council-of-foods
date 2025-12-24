@@ -22,21 +22,33 @@ import Reconnecting from "./overlays/Reconnecting.jsx";
 // import { useTranslation } from 'react-i18next';
 
 //Topics
-import topicDataEN from "@prompts/topics_en.json";
+//Topics
+import { AVAILABLE_LANGUAGES } from "@shared/AvailableLanguages";
+// Dynamic topic import
+const topicModules = import.meta.glob<TopicsData>('../prompts/topics_*.json', { eager: true, import: 'default' });
 import routes from "@/routes.json"; // Import routes directly
 
 
 // interface Topic removed, imported from SelectTopic
 
 interface TopicsData {
+  metadata: {
+    version: string;
+    last_updated: string;
+  };
   system: string;
   custom_topic: Topic;
   topics: Topic[];
 }
 
-const topicsData: Record<string, TopicsData> = {
-  "en": topicDataEN
-};
+const topicsData: Record<string, TopicsData> = {};
+
+for (const lang of AVAILABLE_LANGUAGES) {
+  const moduleKey = Object.keys(topicModules).find(path => path.endsWith(`topics_${lang}.json`));
+  if (moduleKey) {
+    topicsData[lang] = topicModules[moduleKey];
+  }
+}
 
 //Freeze original topicData to make it immutable
 Object.freeze(topicsData);
@@ -78,7 +90,7 @@ interface MainProps {
 }
 
 function Main({ lang }: MainProps) {
-  const [topics, setTopics] = useState<Topic[]>(topicsData['en'].topics);
+  const [topics, setTopics] = useState<Topic[]>(topicsData[AVAILABLE_LANGUAGES[0]]?.topics || []);
   const [chosenTopic, setChosenTopic] = useState<Topic>({ id: "", title: "" });
   const [customTopic, setCustomTopic] = useState("");
   const [participants, setParticipants] = useState<Character[]>([]);
@@ -95,10 +107,17 @@ function Main({ lang }: MainProps) {
 
   // const { i18n } = useTranslation();
 
+  // Dynamic base path for routing
+  const basePath = (AVAILABLE_LANGUAGES as readonly string[]).length === 1 ? "" : `/${lang}`;
+
   useEffect(() => {
-    if (!chosenTopic.id && (location.pathname !== "/" && location.pathname !== "/topics")) {
+    // Logic: if not topic chosen, and we are deep in the app (not at root or topics), redirect to start
+    // We check if pathname is longer than base path
+    const relativePath = location.pathname.substring(basePath.length);
+
+    if (!chosenTopic.id && (relativePath.length > 1 && relativePath !== "/" && relativePath !== "/topics")) {
       //Preserve the hash, but navigate to start
-      navigate({ pathname: "/", hash: location.hash });
+      navigate({ pathname: `${basePath}/`, hash: location.hash });
     }
   }, [location.pathname]);
 
@@ -109,7 +128,7 @@ function Main({ lang }: MainProps) {
     if (custom) {
       setCustomTopic(custom);
     }
-    navigate(`/${routes.foods}`);
+    navigate(`${basePath}/${routes.foods}`);
   }
 
   function foodsSelected({ foods }: { foods: Food[] }) {
@@ -125,7 +144,7 @@ function Main({ lang }: MainProps) {
   }
 
   function letsGo() {
-    navigate(`/${routes.topics}`);
+    navigate(`${basePath}/${routes.topics}`);
   }
 
   function proceedToMeeting() {
@@ -150,8 +169,7 @@ function Main({ lang }: MainProps) {
     setChosenTopic(copiedTopic);
 
     //Start the meeting
-    //Start the meeting
-    navigate(`/${routes.meeting}/new`);
+    navigate(`${basePath}/${routes.meeting}/new`);
   }
 
   function onReset(resetData?: { topic: string; custom?: string }) {
@@ -160,7 +178,7 @@ function Main({ lang }: MainProps) {
     if (!resetData?.topic) {
       // Reset from the start
       setChosenTopic({ id: "", title: "" });
-      navigate(`/`);
+      navigate(`${basePath}/`);
 
       //Reload the entire window, in case the frontend has been updated etc.
       //Usefull in exhibition settings where maybe there is no browser access
@@ -202,8 +220,8 @@ function Main({ lang }: MainProps) {
       {hamburgerOpen && <div style={hamburgerCloserStyle} onClick={() => setHamburgerOpen(false)}></div>}
       {!unrecoverabeError &&
         <Overlay
-          isActive={!location.pathname.startsWith(`/${routes.meeting}`)}
-          isBlurred={location.pathname !== "/"}
+          isActive={!location.pathname.startsWith(`${basePath}/${routes.meeting}`)}
+          isBlurred={location.pathname.length > (basePath.length + 1)}
         >
           <Routes>
             <Route

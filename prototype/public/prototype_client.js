@@ -59,7 +59,7 @@ createApp({
       languageData: {
         en: { system: '', topics: [] }
       },
-      available_languages: ['en'],
+      available_languages: ['en', 'sv'],
 
       // Runtime
       audioVoices: ["alloy", "ash", "ballad", "coral", "echo", "fable", "onyx", "nova", "sage", "shimmer", "verse"],
@@ -823,11 +823,8 @@ createApp({
       // Sanitize charId
       charId = charId.replace(/[^a-zA-Z0-9-_]/g, '');
 
-      const now = new Date();
-      const pad = (n) => String(n).padStart(2, '0');
-      const dateStr = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
-
-      const filename = `${charId}_${dateStr}_${msg.id}.mp3`;
+      // Use message ID for stability so re-downloading gets same filename
+      const filename = `${charId}_${msg.id || index}.mp3`;
 
       this.audioController.downloadAudio(index, filename);
     },

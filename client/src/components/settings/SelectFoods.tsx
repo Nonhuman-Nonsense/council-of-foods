@@ -4,10 +4,10 @@ import { useTranslation } from "react-i18next";
 
 import globalOptionsData from "@/global-options-client.json";
 import { Character, VoiceOption, AVAILABLE_VOICES } from "@shared/ModelTypes";
+import { AVAILABLE_LANGUAGES } from "@shared/AvailableLanguages";
 
-//Foods
-import foodDataEN from "@prompts/foods_en.json";
-// import { replace, useParams } from "react-router";
+// Dynamic import of food data modules
+const foodModules = import.meta.glob<FoodData>('../../prompts/foods_*.json', { eager: true, import: 'default' });
 
 interface GlobalOptions {
   audio_speed: number;
@@ -27,7 +27,7 @@ export interface Food extends Partial<Character> {
   type?: 'panelist' | 'food' | 'chair' | string;
   index?: number;
   voice: VoiceOption;
-  size: number;
+  size?: number;
   voiceInstruction?: string;
 }
 
@@ -43,13 +43,17 @@ const MAXHUMANS = 3;
 // Assuming foodDataEN has a specific shape. Since it's JSON, TS infers it.
 // We'll cast it to a known interface for safety.
 interface FoodData {
-  foods: Food[];
+  metadata: {
+    version: string;
+    last_updated: string;
+  };
+  panelWithHumans: string;
   addHuman: {
     id: string;
     name: string;
     description: string;
   };
-  panelWithHumans: string;
+  foods: Food[];
 }
 
 // We need to support dynamic language keys ideally, but code hardcodes 'en'.
@@ -57,9 +61,15 @@ interface FoodData {
 // const foodData = { "en": foodDataEN };
 // We will type this.
 
-const localFoodData: Record<string, FoodData> = {
-  "en": foodDataEN as FoodData // Direct cast, JSON import should align
-};
+const localFoodData: Record<string, FoodData> = {};
+
+// We assume that the files exist, since we validate them in the tests
+for (const lang of AVAILABLE_LANGUAGES) {
+  const moduleKey = Object.keys(foodModules).find(path => path.endsWith(`foods_${lang}.json`));
+  if (moduleKey) {
+    localFoodData[lang] = foodModules[moduleKey];
+  }
+}
 
 // Freeze original foodData to make it immutable
 Object.freeze(localFoodData);
@@ -70,7 +80,7 @@ for (const language in localFoodData) {
 }
 
 // Infer the default voice from the configuration to ensure blankHuman is valid
-const defaultChair = localFoodData['en'].foods.find(f => f.id === globalOptions.chairId);
+const defaultChair = localFoodData[AVAILABLE_LANGUAGES[0]]?.foods.find(f => f.id === globalOptions.chairId);
 const defaultVoice: VoiceOption = defaultChair?.voice || AVAILABLE_VOICES[0];
 
 const blankHuman: Food = {
@@ -88,10 +98,9 @@ const blankHuman: Food = {
  * The main configuration screen where the user selects AI food participants and adds human panelists.
  */
 function SelectFoods({ lang, topicTitle, onContinueForward }: SelectFoodsProps): React.ReactElement {
-  // Ensuring we pull from a valid lang key, defaulting to 'en' if missing (though app seems to rely on 'en' for logic mostly or passed lang)
-  // The original code used foodData['en'] explicitly for initial state.
-  const [foods, setFoods] = useState<Food[]>(localFoodData['en'].foods);
-  const [selectedFoods, setSelectedFoods] = useState<string[]>([localFoodData['en'].foods[0].id]);
+  // Ensuring we pull from a valid lang key, defaulting to 'en' if missing
+  const [foods, setFoods] = useState<Food[]>(localFoodData[AVAILABLE_LANGUAGES[0]]?.foods || []);
+  const [selectedFoods, setSelectedFoods] = useState<string[]>([localFoodData[AVAILABLE_LANGUAGES[0]]?.foods[0].id || ""]);
 
   //Humans
   const [human0, setHuman0] = useState<Food>(cloneHuman(0));
