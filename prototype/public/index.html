@@ -1,145 +1,489 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 
 <head>
+  <meta charset="UTF-8">
   <title>Council Prototype</title>
-  <link rel="stylesheet" href="style.css?v=1.0">
+  <link rel="stylesheet" href="style.css?v=2.0">
   <link href="favicon.png" rel="shortcut icon" type="image/png" />
   <script src="/socket.io/socket.io.js"></script>
+  <script src="vue.global.js"></script>
+  <style>
+    [v-cloak] {
+      display: none;
+    }
+  </style>
 </head>
 
 <body>
-  <main>
-    <div id="setup">
-      <div id="global-vars">
-        <h3>model options</h3>
-        GPT Model: <select id="gpt-model">
-          <option value="gpt-4o-mini">GPT-4o mini</option>
-          <option value="gpt-4o">GPT-4o</option>
-          <option value="o1">o1</option>
-          <option value="o1-mini">o1 mini</option>
-        </select><br />
-        Temperature: <div class="explanaition">Controls randomness: Lowering results in less random completions. As the
-          temperature approaches zero, the model will become deterministic and repetitive.</div><input type="range"
-          min="0" max="2.0" step="0.01" value="1" class="slider"><input class="slider-value" step="0.01" type="number"
-          id="temperature"><br />
-        Maximum Length: <div class="explanaition">The maximum number of tokens to <b>generate</b> shared between the
-          prompt and completion. The exact limit varies by model. (One token is roughly 4 characters for standard
-          English text)</div><input type="range" min="1" max="600" value="200" class="slider"><input
-          class="slider-value" type="number" step="10" id="max-tokens"><br />
-        Chair Maximum Length: <div class="explanaition">Same as above, but for chair Water.</div><input type="range" min="1" max="600" value="250" class="slider"><input class="slider-value" type="number"
-          step="10" id="chair-max-tokens"><br />
-        Raised hand invitation length: <div class="explanaition">Length for invitation message.</div><input type="range" min="1" max="600" value="150" class="slider"><input class="slider-value" type="number"
-          step="10" id="raise-hand-invitation-length"><br />
-        Frequency Penalty: <div class="explanaition">How much to penalize new tokens based on their existing frequency
-          in the text so far. Decreases the model's likelihood to repeat the same line verbatim.</div><input
-          type="range" min="0" max="2.0" step="0.01" value="0" class="slider"><input class="slider-value" step="0.01"
-          type="number" id="frequency-penalty"><br />
-        Presence Penalty: <div class="explanaition">How much to penalize new tokens based on whether they appear in the
-          text so far. Increases the model's likelihood to talk about new topics.</div><input type="range" min="0"
-          max="2.0" step="0.01" value="0" class="slider"><input class="slider-value" type="number" step="0.01"
-          id="presence-penalty"><br />
-        <br/>
-        <h3>server options</h3>
-        trim response to last complete sentance: <input type="checkbox" id="trim-response-to-full-sentance"><br>
-        trim response to last complete paragraph: <input type="checkbox" id="trim-response-to-full-paragraph"
-          checked><br>
-        trim response to remove chairs semicolon ending: <input type="checkbox"
-          id="trim-response-to-remove-chair-semicolon" checked><br>
-        conversation max length: <input type="number" id="conversation-max-length" placeholder="conversation max length"
-          value="10"><br />
-        extra message count: <input type="number" id="extra-message-count" placeholder="extra message count"
-          value="5"><br />
+  <div id="app" class="app-layout" v-cloak>
 
-        Reset everything to default: <button id="factoryResetButton">Factory Reset</button><br/>
-        <br/>
-        <h3>prototype options</h3>
-        skip creating audio: <input type="checkbox" id="skip-audio"><br>
+    <!-- LEFT SIDEBAR: Topics -->
+    <aside class="sidebar sidebar-left" :class="{ collapsed: !localOptions.leftSidebarOpen }">
+      <div class="sidebar-header">
+        <h3>Topics</h3>
+        <button class="icon-btn" @click="toggleSidebar('left')">«</button>
       </div>
-      <br>
-      <div id="system-el">
-        <h3>system prompt</h3>
-        <textarea id="systemPrompt" placeholder="system prompt..."></textarea><br>
-        <p style="margin: 0;"><small>the word [TOPIC] will be replaced with the room topic from below</small></p>
+      <div class="sidebar-content">
+        <!-- Language -->
+        <div class="section-group">
+          <label class="sub-label">Language</label>
+          <select v-model="options.language" class="styled-select">
+            <option v-for="lang in available_languages" :key="lang" :value="lang">{{ lang }}</option>
+          </select>
+        </div>
+
+        <hr>
+
+        <!-- Topics -->
+        <div class="section-group">
+          <div class="sidebar-section-header">
+            <h3>Topics</h3>
+            <div>
+              <button class="icon-btn" @click="addTopic">+</button>
+              <button class="icon-btn" @click="removeTopic">-</button>
+            </div>
+          </div>
+          <div class="topic-list" style="display: flex; flex-direction: column; gap: 4px;">
+            <div v-for="(topic, index) in currentLanguageData.topics" :key="index" class="topic-item"
+              :class="{ active: localOptions.currentTopicIndex === index }"
+              @click="localOptions.currentTopicIndex = index">
+              <input type="text" class="styled-input" v-model="topic.name" style="display: none;">
+              <div style="font-weight: 500; overflow: hidden; text-overflow: ellipsis;">
+                {{ topic.name || 'Untitled Topic' }}
+              </div>
+            </div>
+          </div>
+        </div>
+
       </div>
-      <br>
-      <div id="room-el">
-        <h3>rooms</h3>
-        <div id="rooms">
-          <span id="room-buttons">
-          </span>
-          <button id="add-room">+</button>
-          <button id="remove-room">-</button>
+      <div class="sidebar-footer">
+        <button class="action-btn" @click="exportPrompts" style="width: 100%;">
+          Export Prompts (JSON)
+        </button>
+      </div>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main class="main-content">
+      <div id="split-view-container" class="split-view">
+
+        <!-- LEFT PANE: Prompts -->
+        <div class="split-pane pane-editor" :style="{ width: localOptions.editorWidthPercent + '%' }"
+          v-if="currentTopic">
+          <div class="sidebar-header" style="justify-content: space-between;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <button class="icon-btn" @click="toggleSidebar('left')" v-if="!localOptions.leftSidebarOpen"
+                title="Open Sidebar">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"
+                  style="display: block;">
+                  <path d="M3 12H21" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                  <path d="M3 6H21" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                  <path d="M3 18H21" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                </svg>
+              </button>
+              <div style="border-left: 1px solid var(--border-color); height: 25px; margin: 0;"
+                v-if="!localOptions.leftSidebarOpen"></div>
+              <h3>{{ currentTopic.name || 'Prompts' }}</h3>
+            </div>
+          </div>
+          <div class="pane-scroll-area">
+
+            <!-- Topic Meta -->
+            <!-- System & Topic Configuration -->
+            <div class="character-card">
+              <div class="card-header" @click="localOptions.configCardExpanded = !localOptions.configCardExpanded">
+                <div style="font-weight: bold;">System & Topic Config</div>
+                <button class="icon-btn" style="font-size: 12px;">
+                  {{ localOptions.configCardExpanded ? '▼' : '▶' }}
+                </button>
+              </div>
+
+              <div class="card-body" v-if="localOptions.configCardExpanded">
+                <label class="sub-label">Topic Name</label>
+                <input type="text" class="input-full" v-model="currentTopic.name" placeholder="Topic Name"
+                  style="margin-bottom: 15px;">
+
+                <label class="sub-label">Topic Description</label>
+                <textarea class="input-full" v-model="currentTopic.description"
+                  placeholder="Description of the topic..." v-auto-resize
+                  style="min-height: 60px; margin-bottom: 15px; resize: none; overflow-y: hidden;"></textarea>
+
+
+                <label class="sub-label">Topic Prompt</label>
+                <textarea class="input-area" v-model="currentTopic.prompt" placeholder="Describe the topic..."
+                  v-auto-resize></textarea>
+
+                <label class="sub-label">System Prompt (Shared)</label>
+                <textarea class="input-area" v-model="currentSystemPrompt" placeholder="System prompt..."
+                  v-auto-resize></textarea>
+                <small style="color: var(--text-secondary); display: block; margin-top: 5px;">[TOPIC] will be replaced
+                  by the topic above.</small>
+              </div>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+              <h3>Characters</h3>
+              <div>
+                <button class="icon-btn" @click="addCharacter">+</button>
+                <button class="icon-btn" @click="removeCharacter">-</button>
+              </div>
+            </div>
+
+            <!-- Character List -->
+            <div id="characters-container">
+
+              <!-- Active Characters (Sortable) -->
+              <div id="active-characters-list">
+                <div class="character-card" v-for="(character, index) in activeCharacters" :key="character._ui_id"
+                  :class="{ pinned: isCharacterPinned(character) }">
+
+                  <!-- Card Header -->
+                  <div class="card-header" @click="toggleCharacterExpanded(character._ui_id)">
+                    <div style="display: flex; align-items: center; gap: 10px; flex: 1;">
+                      <input type="checkbox" :checked="true" :disabled="isCharacterPinned(character)"
+                        @change="toggleCharacterActive(character)" @click.stop
+                        style="width: 16px; height: 16px; accent-color: var(--accent-color);">
+
+                      <span
+                        :style="{ fontWeight: '600', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }">
+                        {{ character.name || 'Unnamed Character' }}
+                        <span v-if="isCharacterPinned(character)" class="badge">Chair</span>
+                      </span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 5px;">
+                      <span v-if="!isCharacterPinned(character)" class="drag-handle" @click.stop
+                        style="cursor: grab; padding: 0 5px; opacity: 0.5;">☰</span>
+                    </div>
+                  </div>
+
+                  <!-- Card Body -->
+                  <div class="card-body" v-if="localOptions.expandedCharacters[character._ui_id]">
+                    <label class="sub-label">Name</label>
+                    <input type="text" class="input-full" placeholder="Character Name" v-model="character.name"
+                      style="margin-bottom: 15px;">
+
+                    <label class="sub-label">Character Description</label>
+                    <textarea class="input-area" placeholder="Character description..." v-model="character.description"
+                      v-auto-resize></textarea>
+
+                    <label class="sub-label">Character Prompt</label>
+                    <textarea class="input-area" placeholder="Character prompt..." v-model="character.prompt"
+                      v-auto-resize></textarea>
+
+                    <label class="sub-label">Voice Option</label>
+                    <div class="voice-selector">
+                      <template v-for="voiceName in audioVoices" :key="voiceName">
+                        <label class="voice-chip" :class="{ active: character.voice === voiceName }">
+                          <input type="radio" :value="voiceName" v-model="character.voice" style="display: none;">
+                          {{ voiceName }}
+                        </label>
+                      </template>
+                    </div>
+
+                    <label class="sub-label">Voice Instruction</label>
+                    <textarea class="input-area" placeholder="e.g. 'Excited'" v-model="character.voiceInstruction"
+                      v-auto-resize rows="1"
+                      style="margin-top: 5px; min-height: 36px; height: 36px; padding: 8px;"></textarea>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Inactive Characters (Static) -->
+              <div id="inactive-characters-list">
+                <div class="character-card inactive" v-for="(character, index) in inactiveCharacters"
+                  :key="character._ui_id">
+
+                  <!-- Card Header -->
+                  <div class="card-header" @click="toggleCharacterExpanded(character._ui_id)">
+                    <div style="display: flex; align-items: center; gap: 10px; flex: 1;">
+                      <input type="checkbox" :checked="false" @change="toggleCharacterActive(character)" @click.stop
+                        style="width: 16px; height: 16px; accent-color: var(--accent-color);">
+
+                      <span :style="{ fontWeight: '600', color: 'var(--text-secondary)' }">
+                        {{ character.name || 'Unnamed Character' }}
+                      </span>
+                    </div>
+                    <!-- No Drag Handle -->
+                  </div>
+
+                  <!-- Card Body -->
+                  <div class="card-body" v-if="localOptions.expandedCharacters[character._ui_id]">
+                    <label class="sub-label">Name</label>
+                    <input type="text" class="input-full" placeholder="Character Name" v-model="character.name"
+                      style="margin-bottom: 15px;">
+
+                    <label class="sub-label">Character Description</label>
+                    <textarea class="input-area" placeholder="Character description..." v-model="character.description"
+                      v-auto-resize></textarea>
+
+                    <label class="sub-label">Character Prompt</label>
+                    <textarea class="input-area" placeholder="Character prompt..." v-model="character.prompt"
+                      v-auto-resize></textarea>
+
+                    <label class="sub-label">Voice Option</label>
+                    <div class="voice-selector">
+                      <template v-for="voiceName in audioVoices" :key="voiceName">
+                        <label class="voice-chip" :class="{ active: character.voice === voiceName }">
+                          <input type="radio" :value="voiceName" v-model="character.voice" style="display: none;">
+                          {{ voiceName }}
+                        </label>
+                      </template>
+                    </div>
+
+                    <label class="sub-label">Voice Instruction</label>
+                    <textarea class="input-area" placeholder="e.g. 'Excited'" v-model="character.voiceInstruction"
+                      v-auto-resize rows="1"
+                      style="margin-top: 5px; min-height: 36px; height: 36px; padding: 8px;"></textarea>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+          </div>
+        </div>
+
+        <!-- RESIZER -->
+        <div class="resizer" @mousedown="startResize"></div>
+
+        <!-- RIGHT PANE: Output -->
+        <div class="split-pane pane-output" :style="{ width: (100 - localOptions.editorWidthPercent) + '%' }">
+          <div class="sidebar-header" style="justify-content: flex-start; gap: 10px;">
+            <h3>Meeting</h3>
+            <div style="margin-left: auto; display: flex; gap: 5px;">
+              <!-- Conversation Controls -->
+              <button v-if="status === 'IDLE'" class="primary" @click="startConversation">Start</button>
+              <button v-if="status === 'PAUSED'" class="primary" @click="resumeConversation">Resume</button>
+              <button v-if="status === 'ACTIVE' || status === 'CONNECTING'" @click="pauseConversation">Pause</button>
+              <button v-if="status === 'PAUSED' || status === 'ENDED'" @click="restartConversation">Restart</button>
+              <button v-if="status === 'ENDED'" class="primary" @click="continueConversation">Keep Going</button>
+
+              <div style="border-left: 1px solid var(--border-color); margin: 0 5px;"></div>
+
+              <!-- Audio Controls -->
+              <button class="icon-btn" @click="audioController.back()"
+                :disabled="!audioController || !audioController.isActive || audioController.isPaused"
+                :style="{ opacity: (!audioController || !audioController.isActive || audioController.isPaused) ? 0.3 : 1 }">⏮</button>
+              <button class="icon-btn" @click="audioController.togglePause()"
+                :disabled="!audioController || !audioController.hasItems"
+                :style="{ opacity: (!audioController || !audioController.hasItems) ? 0.3 : 1 }">
+                {{ audioController && audioController.isActive && !audioController.isPaused ? '⏸' : '▶' }}
+              </button>
+              <button class="icon-btn" @click="audioController.next()"
+                :disabled="!audioController || !audioController.isActive || audioController.isPaused || audioController.currentIndex >= conversation.length - 1"
+                :style="{ opacity: (!audioController || !audioController.isActive || audioController.isPaused || audioController.currentIndex >= conversation.length - 1) ? 0.3 : 1 }">⏭</button>
+
+              <div style="border-left: 1px solid var(--border-color); margin: 0 5px;"
+                v-if="!localOptions.rightSidebarOpen"></div>
+
+              <button class="icon-btn" @click="toggleSidebar('right')" v-if="!localOptions.rightSidebarOpen"
+                :title="localOptions.rightSidebarOpen ? 'Close Settings' : 'Ope Settings'">
+                <!-- Settings Icon -->
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"
+                  style="display: block;">
+                  <path d="M4 8H13" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                  <path d="M17 8H20" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                  <path d="M13 5L13 11" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                  <path d="M4 16H7" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                  <path d="M11 16H20" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                  <path d="M7 13L7 19" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- Chat Output -->
+          <div id="conversation-container" style="flex: 1; padding: 20px; overflow-y: auto;">
+            <div v-if="conversation.length === 0 && status !== 'CONNECTING'"
+              style="text-align: center; color: var(--text-secondary); margin-top: 50px;">
+              Ready to start.
+            </div>
+
+            <div v-for="(turn, index) in conversation" :key="turn.id" :id="turn.id" class="chat-bubble" :class="{ 
+                        'user': false, 
+                        'chair': turn.speaker === 'Chair', 
+                        'character': turn.speaker !== 'Chair',
+                        'playing': audioController && audioController.currentIndex === index
+                      }" style="margin-bottom: 10px; position: relative;"
+              v-show="localOptions.showTrimmed || turn.type !== 'skipped'">
+
+              <!-- Download Button -->
+              <button class="icon-btn" @click.stop="downloadMessageAudio(index)" title="Download Audio"
+                v-if="audioController && audioController.hasAudio(index)"
+                style="position: absolute; top: 4px; right: 4px; padding: 2px; opacity: 0.6; z-index: 5;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M12 16L12 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                  <path d="M19 12L12 19L5 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                    stroke-linejoin="round" />
+                </svg>
+              </button>
+
+              <div class="bubble-header">{{ turn.speaker }}</div>
+
+              <div v-if="localOptions.showTrimmed && turn.pretrimmed" class="trimmed"
+                style="color: var(--text-secondary); font-size: 0.9em; margin-bottom: 5px;"
+                v-html="turn.pretrimmed.split('\n').join('<br>')"></div>
+
+              <div v-html="turn.text.split('\n').join('<br>')"></div>
+
+              <div v-if="localOptions.showTrimmed && turn.trimmed" class="trimmed"
+                style="color: var(--text-secondary); font-size: 0.9em; margin-top: 5px;"
+                v-html="turn.trimmed.split('\n').join('<br>')"></div>
+            </div>
+
+            <div v-if="status === 'CONNECTING'" class="loader" style="text-align: center; padding: 20px;">Thinking...
+            </div>
+            <div v-if="endMessage"
+              style="text-align: center; padding: 20px; font-weight: bold; color: var(--success-color);">{{ endMessage
+              }}</div>
+            <div v-if="injectionStatus"
+              style="text-align: center; padding: 10px; font-style: italic; color: var(--accent-color);">
+              {{ injectionStatus }}
+            </div>
+          </div>
+
+          <!-- Injection Bar (Collapsible Drawer) -->
+          <div style="border-top: 1px solid var(--border-color); background: var(--bg-panel);">
+
+            <!-- Drawer Header / Toggle -->
+            <div @click="localOptions.isInjectionDrawerOpen = !localOptions.isInjectionDrawerOpen"
+              style="padding: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; color: var(--text-secondary); font-size: 0.9em; user-select: none; transition: background 0.2s;">
+              <span v-if="!localOptions.isInjectionDrawerOpen">Inject Instruction</span>
+              <span v-else>Hide Injection</span>
+              <span style="font-size: 1.2em;">{{ localOptions.isInjectionDrawerOpen ? '↓' : '↑' }}</span>
+            </div>
+
+            <!-- Drawer Content -->
+            <div v-if="localOptions.isInjectionDrawerOpen"
+              style="padding: 10px; border-top: 1px solid var(--border-color-light);">
+              <div style="display: flex; gap: 5px; align-items: flex-end;">
+                <textarea v-model="options.injectPrompt"
+                  placeholder="Inject instruction (e.g. 'Ask specifically about apples')..." rows="1" v-auto-resize
+                  style="flex: 1; margin: 0; min-height: 36px; height: 36px; padding: 8px; font-family: monospace; line-height: 1.4; font-size: 0.9em; resize: none; overflow-y: hidden;"></textarea>
+                <button @click="submitInjection" :disabled="!!injectionStatus" class="primary"
+                  style="height: 36px;">Send</button>
+              </div>
+              <div
+                style="display: flex; justify-content: space-between; align-items: center; margin-top: 5px; font-size: 11px; color: var(--text-secondary);">
+                <!-- Length Slider -->
+                <div style="display: flex; align-items: center; gap: 8px; flex: 1; margin-right: 15px;">
+                  <span style="white-space: nowrap;">Length: {{ options.maxTokensInject }}</span>
+                  <input type="range" min="100" max="2000" step="50" v-model.number="options.maxTokensInject"
+                    style="flex: 1; height: 4px;">
+                </div>
+
+                <button class="icon-btn" @click="removeLastMessage" title="Remove last message"
+                  style="font-size: 11px; padding: 2px 5px;">↩ Undo Last</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </main>
+
+    <!-- RIGHT SIDEBAR: Options -->
+    <aside class="sidebar sidebar-right" :class="{ collapsed: !localOptions.rightSidebarOpen }">
+      <div class="sidebar-header">
+        <button class="icon-btn" @click="toggleSidebar('right')">»</button>
+        <h3>Settings</h3>
+      </div>
+      <div class="sidebar-content">
+        <div class="section-group">
+          <label>Model</label>
+          <input type="text" v-model="options.gptModel">
+          <small style="color: var(--text-secondary);">See OpenAI docs for models</small>
+        </div>
+        <hr>
+        <div class="section-group">
+          <label>Temperature: {{ options.temperature }}</label>
+          <input type="range" min="0" max="2.0" step="0.01" v-model.number="options.temperature">
+        </div>
+        <div class="section-group">
+          <label>Max Tokens: {{ options.maxTokens }}</label>
+          <input type="range" min="10" max="600" step="10" v-model.number="options.maxTokens">
+        </div>
+        <div class="section-group">
+          <label>Chair Max Tokens: {{ options.chairMaxTokens }}</label>
+          <input type="range" min="10" max="600" step="10" v-model.number="options.chairMaxTokens">
+        </div>
+        <div class="section-group">
+          <label>Freq Penalty: {{ options.frequencyPenalty }}</label>
+          <input type="range" min="0" max="2.0" step="0.01" v-model.number="options.frequencyPenalty">
+        </div>
+        <div class="section-group">
+          <label>Pres Penalty: {{ options.presencePenalty }}</label>
+          <input type="range" min="0" max="2.0" step="0.01" v-model.number="options.presencePenalty">
+        </div>
+        <hr>
+        <div class="section-group" style="display: flex; gap: 10px;">
+          <div style="flex: 1;">
+            <label style="font-size: 11px;">Max Msg</label>
+            <input type="number" v-model.number="options.conversationMaxLength" class="input-full">
+          </div>
+          <div style="flex: 1;">
+            <label style="font-size: 11px;">Extra Msg</label>
+            <input type="number" v-model.number="options.extraMessageCount" class="input-full">
+          </div>
+        </div>
+        <hr>
+        <div class="section-group">
+          <label>Audio Speed: {{ options.audio_speed }}</label>
+          <input type="range" min="0.5" max="2.0" step="0.01" v-model.number="options.audio_speed">
+        </div>
+        <div class="section-group">
+          <label style="display: flex; align-items: center; gap: 5px;">
+            <input type="checkbox" v-model="options.skipAudio" style="width: auto; margin: 0;"> Skip Generating Audio
+          </label>
+        </div>
+        <hr>
+        <h3>Server Trimming</h3>
+        <div style="display: flex; flex-direction: column; gap: 5px;">
+          <label style="display: flex; align-items: center; gap: 5px;">
+            <input type="checkbox" v-model="options.trimSentance" style="width: auto; margin: 0;"> Sentence
+          </label>
+          <label style="display: flex; align-items: center; gap: 5px;">
+            <input type="checkbox" v-model="options.trimParagraph" style="width: auto; margin: 0;"> Paragraph
+          </label>
+          <label style="display: flex; align-items: center; gap: 5px;">
+            <input type="checkbox" v-model="options.trimChairSemicolon" style="width: auto; margin: 0;"> Chair Semicolon
+          </label>
+        </div>
+        <hr>
+        <label style="display: flex; align-items: center; gap: 5px;">
+          <input type="checkbox" v-model="localOptions.showTrimmed" style="width: auto; margin: 0;"> Show Trimmed
+          Content
+        </label>
+        <hr>
+
+        <div class="section-group">
+          <button @click="factoryReset"
+            style="width: 100%; border-color: var(--danger-color); color: var(--danger-color);">Factory Reset</button>
         </div>
       </div>
-      <br>
-      <div id="panel-prompt-el">
-        <h3>room name</h3>
-        <p><input id="room-name" type="text" placeholder="Room name" value=""></p>
-        <h3>topic</h3>
-        <p><textarea id="panel-prompt" placeholder="panel prompt"></textarea>
-        </p>
+
+      <!-- Theme Switcher (Bottom) -->
+      <div
+        style="padding: 10px; border-top: 1px solid var(--border-color); display: flex; justify-content: center; gap: 8px; background: var(--bg-panel);">
+        <button class="icon-btn" @click="setTheme('')" title="Blue"
+          style="width: 12px; height: 12px; background: #1a73e8; border-radius: 50%; padding:0;"></button>
+        <button class="icon-btn" @click="setTheme('tomato')" title="Tomato"
+          style="width: 12px; height: 12px; background: #e04f38; border-radius: 50%; padding:0;"></button>
+        <button class="icon-btn" @click="setTheme('lime')" title="Lime"
+          style="width: 12px; height: 12px; background: #558b2f; border-radius: 50%; padding:0;"></button>
+        <button class="icon-btn" @click="setTheme('grape')" title="Grape"
+          style="width: 12px; height: 12px; background: #9d46ff; border-radius: 50%; padding:0;"></button>
+        <button class="icon-btn" @click="setTheme('berry')" title="Berry"
+          style="width: 12px; height: 12px; background: #e91e63; border-radius: 50%; padding:0;"></button>
       </div>
-      <br>
-      <div id="characters-container">
-        <h3>characters</h3>
-        <br>
-        <p style="margin: 0;"><small>if the word [FOODS] is present in the first character, it will be replaced with names of the other characters.</small></p>
-        <div id="characters">
-        </div>
-        <button id="add-character">+</button>
-        <button id="remove-character">-</button>
-      </div>
+    </aside>
 
-      <div id="humanInputContainer">
-        <h3>human input</h3>
-        <span id="preHumanInputContainer"><br>We need at least one message before humans can talk...</span>
-        <div id="postHumanInputContainer">
-          <br>name:
-          <input type="text" id="human-name" placeholder="human name" value="Human">
-          <button id="raiseHand">I want to say something/Raise hand</button><br>
-          <textarea id="humanInput" placeholder="say something..."></textarea><br>
-          <button id="submitHumanInput">send</button>
-        </div>
-        <span id="raiseHandIcon">&#9995;</span>
-        <button id="viewHumanInputPrompts">configure</button>
-        <div id="humanConfig">
-          <br>Prompt for raised hand:
-          <textarea id="raiseHandPrompt"
-            placeholder="raise hand prompt...">We have a question or comment from the audience, please invite a human speaker called [NAME] to the debate. After listening to the human, answer and engage deeper with their thoughts.</textarea><br>
-        </div>
-      </div>
+  </div>
 
-      <div id="injections">
-        <h3>inject custom instruction</h3><br />
-        <p style="margin: 0;"><small>the word [DATE] will be replaced with todays date</small></p>
-        <textarea id="injectInputArea" placeholder="Inject something into water...">Please summarise the meeting, held on [DATE], making a document that could work as a meeting protocol and a policy recommendation, that could be sent to a official political department like the European Commission.</textarea><br>
-        Maximum Length: <div class="explanaition">The maximum number of tokens to <b>generate</b> shared between the
-          prompt and completion. The exact limit varies by model. (One token is roughly 4 characters for standard
-          English text)</div><input type="range" min="1" max="2000" value="800" class="slider"><input
-          class="slider-value" type="number" step="10" id="max-tokens-inject"><br />
-        <button id="removeLastMessage">remove last message</button>
-        <button id="submitInjection">send</button>
-        <span id="injectedMessage"></span>
-      </div>
-
-      <br>
-      <button id="toggleConversationBtn">Start</button>
-      <button id="restartButton">Restart</button>
-      <button id="continueButton">Keep Going</button>
-    </div>
-
-    <div id="conversation-container">
-      <div id="conversation"></div>
-      <div id="end-message"></div>
-      <div id="spinner" class="loader" style="display: none;"></div>
-      <div id="audio-controls"><button id="audioBack">&#x23EE;</button><button id="audioToggle">&#x23EF;</button><button
-          id="audioNext">&#x23ED;</button></div>
-      <div id="display-settings"><input type="checkbox" id="show-trimmed" checked> showed trimmed content</div>
-    </div>
-  </main>
-
-  <script src="prototype_client.js?v=1.0"></script>
+  <script src="Sortable.min.js"></script>
+  <script src="audio_controller.js"></script>
+  <script src="prototype_client.js?v=2.1"></script>
 </body>
 
 </html>

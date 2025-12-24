@@ -6,7 +6,6 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  user-select: none;
 }
 
 code {
@@ -17,6 +16,7 @@ code {
 img {
   object-fit: contain;
   color: transparent;/* Hiding alt texts of images from showing */
+  user-select: none;
 }
 
 
@@ -80,7 +80,8 @@ h4 {
   font-weight: normal;
 }
 
-p {
+p,
+.topic-textarea {
   font-size: 18px;
   margin-top: 13px;
   margin-bottom: 13px;
@@ -122,6 +123,7 @@ button {
   border-radius: 19px;
   padding: 0px 16px 0px 16px;
   cursor: pointer;
+  user-select: none;
 }
 
 button:hover:not(.control) {
@@ -159,6 +161,16 @@ nav.blur::before {
 .blur.hide::before {
   backdrop-filter: blur(10px) opacity(0);
   -webkit-backdrop-filter: blur(10px) opacity(0);
+}
+
+
+/* Select a special character */
+.ringHover{
+  border: 0px solid rgba(255,255,255,0.4);
+}
+.ringHover:hover{
+  border: 3px solid rgba(255,255,255,0.4);
+  cursor: pointer;
 }
 
 
@@ -326,7 +338,8 @@ nav.blur::before {
   #protocol-container p,
   #protocol-container ol,
   #protocol-container ul,
-  p {
+  p,
+  .topic-textarea {
     font-size: 16px;
     line-height: 1.1em;
   }
@@ -364,7 +377,8 @@ nav.blur::before {
     font-size: 15px;
   }
 
-  h3,p{
+  h3,p,
+  .topic-textarea{
     margin-top: 5px;
     margin-bottom: 5px;
   }
@@ -372,7 +386,8 @@ nav.blur::before {
   #protocol-container p,
   #protocol-container ol,
   #protocol-container ul,
-  p {
+  p,
+  .topic-textarea {
     font-size: 15px;
     line-height: 1.0em; 
   }
@@ -397,7 +412,8 @@ nav.blur::before {
     font-size: 26px;
   }
 
-  p {
+  p,
+  .topic-textarea {
     font-size: 16px;
     line-height: 1.1em;
   }

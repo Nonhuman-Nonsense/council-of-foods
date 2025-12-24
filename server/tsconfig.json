@@ -1,0 +1,49 @@
+{
+    "compilerOptions": {
+        "target": "ES2022",
+        "module": "NodeNext",
+        "moduleResolution": "NodeNext",
+        "rootDir": "..",
+        "outDir": "./dist",
+        "baseUrl": ".",
+        "paths": {
+            "@shared/*": [
+                "../shared/*"
+            ],
+            "@logic/*": [
+                "src/logic/*"
+            ],
+            "@services/*": [
+                "src/services/*"
+            ],
+            "@utils/*": [
+                "src/utils/*"
+            ],
+            "@models/*": [
+                "src/models/*"
+            ],
+            "@interfaces/*": [
+                "src/interfaces/*"
+            ],
+            "@root/*": [
+                "./*"
+            ]
+        },
+        "esModuleInterop": true,
+        "forceConsistentCasingInFileNames": true,
+        "strict": true,
+        "skipLibCheck": true,
+        "allowJs": true,
+        "checkJs": false,
+        "sourceMap": true,
+        "resolveJsonModule": true
+    },
+    "include": [
+        "../shared",
+        "."
+    ],
+    "exclude": [
+        "node_modules",
+        "dist"
+    ]
+}
