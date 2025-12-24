@@ -59,7 +59,7 @@ createApp({
       languageData: {
         en: { system: '', topics: [] }
       },
-      available_languages: ['en', 'sv'],
+      available_languages: ['en'],
 
       // Runtime
       audioVoices: ["alloy", "ash", "ballad", "coral", "echo", "fable", "onyx", "nova", "sage", "shimmer", "verse"],
