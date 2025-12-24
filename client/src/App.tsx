@@ -2,6 +2,7 @@ import './i18n';
 import { BrowserRouter } from "react-router";
 import Main from "./components/Main";
 import { AVAILABLE_LANGUAGES } from "@shared/AvailableLanguages";
+import { Routes, Route, Navigate } from "react-router";
 
 function App(): React.ReactElement {
   return (
