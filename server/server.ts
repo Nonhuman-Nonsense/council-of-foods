@@ -4,7 +4,6 @@ import express, { Request, Response } from "express";
 import http from "http";
 import { Server, Socket } from "socket.io";
 import path from 'path';
-import { fileURLToPath } from 'url';
 
 import { Logger } from '@utils/Logger.js';
 import { initReporting } from '@utils/errorbot.js';
@@ -14,8 +13,6 @@ import { SocketManager } from '@logic/SocketManager.js';
 import { AVAILABLE_LANGUAGES } from '@shared/AvailableLanguages.js';
 
 const environment: string = config.NODE_ENV;
-const __filename: string = fileURLToPath(import.meta.url);
-const __dirname: string = path.dirname(__filename);
 
 const app = express();
 const httpServer = http.createServer(app);
@@ -35,16 +32,15 @@ try {
 app.get('/health', (_req: Request, res: Response) => { res.sendStatus(200); });
 
 if (environment === "prototype") {
-  app.use(express.static(path.join(__dirname, "../prototype/", "public")));
+  app.use(express.static(path.join(process.cwd(), "../prototype/", "public")));
   //Enable prototype to reset to default settings for each language
   for (const lang of AVAILABLE_LANGUAGES) {
     for (const promptfile of ['foods', 'topics']) {
       app.get(`/${promptfile}_${lang}.json`, function (_req: Request, res: Response) {
-        res.sendFile(path.join(__dirname, "../client/src/prompts", `${promptfile}_${lang}.json`));
+        res.sendFile(path.join(process.cwd(), "../client/src/prompts", `${promptfile}_${lang}.json`));
       });
     }
   }
-
 } else if (environment !== "development") {
   const clientDistPath = path.join(process.cwd(), "../client/dist");
   app.use(express.static(clientDistPath));
