@@ -155,11 +155,7 @@ function Main({ lang }: MainProps) {
 
 
   useEffect(() => {
-    // Logic: if not topic chosen, and we are deep in the app (not at root or topics), redirect to start
-    // We check if pathname is longer than base path
-    const relativePath = location.pathname.substring(basePath.length);
-
-    if (!chosenTopic.id && (relativePath.length > 1 && relativePath !== "/" && relativePath !== "/topics")) {
+    if (!chosenTopic.id && (location.pathname !== "/" && location.pathname !== "/topics")) {
       //Preserve the hash, but navigate to start
       navigate({ pathname: `${basePath}/`, hash: location.hash });
     }
