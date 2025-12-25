@@ -105,7 +105,7 @@
                   style="margin-bottom: 15px;">
 
                 <label class="sub-label">Topic Description</label>
-                <textarea class="input-full" v-model="currentTopic.description"
+                <textarea class="input-area" v-model="currentTopic.description"
                   placeholder="Description of the topic..." v-auto-resize
                   style="min-height: 60px; margin-bottom: 15px; resize: none; overflow-y: hidden;"></textarea>
 
@@ -392,7 +392,7 @@
       <div class="sidebar-content">
         <div class="section-group">
           <label>Model</label>
-          <input type="text" v-model="options.gptModel">
+          <input type="text" class="input-full" v-model="options.gptModel">
           <small style="color: var(--text-secondary);">See OpenAI docs for models</small>
         </div>
         <hr>
