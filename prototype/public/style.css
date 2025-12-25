@@ -511,6 +511,12 @@ input[type="checkbox"] {
   border-color: var(--accent-color);
 }
 
+.input-full {
+  font-family: monospace;
+  font-size: 0.9em;
+  width: 100%;
+}
+
 .input-area {
   font-family: monospace;
   line-height: 1.4;
