@@ -7,7 +7,15 @@ import { Character, VoiceOption, AVAILABLE_VOICES } from "@shared/ModelTypes";
 import { AVAILABLE_LANGUAGES } from "@shared/AvailableLanguages";
 
 // Dynamic import of food data modules
-const foodModules = import.meta.glob<FoodData>('../../prompts/foods_*.json', { eager: true, import: 'default' });
+const foodModules = import.meta.glob<FoodData>('/src/prompts/foods_*.json', { eager: true, import: 'default' });
+
+// Eagerly import food images
+const foodImages = import.meta.glob('/src/assets/foods/small/*.webp', { eager: true, import: 'default' }) as Record<string, string>;
+
+function getFoodImageUrl(id: string): string | undefined {
+  // Construct the key that matches the glob pattern
+  return foodImages[`/src/assets/foods/small/${id}.webp`];
+}
 
 interface GlobalOptions {
   audio_speed: number;
@@ -594,7 +602,9 @@ function FoodButton({
   const isMobile = useMobile();
   const isModerator = onSelectFood === undefined;
 
-  const imageUrl = `/foods/small/${food.type === 'panelist' ? 'panelist' : food.id}.webp`;
+  // Resolve image from imported assets
+  const imageId = food.type === 'panelist' ? 'panelist' : food.id;
+  const imageUrl = getFoodImageUrl(imageId);
 
   function handleClickFood() {
     if (!isModerator && (!selectLimitReached || isSelected)) {
@@ -669,7 +679,7 @@ function AddHumanButton({
   selectLimitReached,
 }: AddHumanButtonProps): React.ReactElement {
   const isMobile = useMobile();
-  const imageUrl = `/foods/small/add.webp`;
+  const imageUrl = getFoodImageUrl('add');
 
   function handleAddHuman() {
     if ((!selectLimitReached)) {
