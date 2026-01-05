@@ -50,7 +50,7 @@ describe('Name Overlay', () => {
     it('validates empty input', () => {
         render(<Name participants={mockParticipants} onContinueForward={mockOnContinueForward} />);
 
-        const nextButton = screen.getByAltText('continue');
+        const nextButton = screen.getByLabelText('continue');
         fireEvent.click(nextButton);
 
         // Should show error (visiblity check)
@@ -66,7 +66,7 @@ describe('Name Overlay', () => {
         const input = screen.getByPlaceholderText('name.5');
         fireEvent.change(input, { target: { value: 'Banana' } });
 
-        const nextButton = screen.getByAltText('continue');
+        const nextButton = screen.getByLabelText('continue');
         fireEvent.click(nextButton);
 
         // Should show duplicate error ('name.unique')
@@ -80,7 +80,7 @@ describe('Name Overlay', () => {
         const input = screen.getByPlaceholderText('name.5');
         fireEvent.change(input, { target: { value: 'Cherry' } });
 
-        const nextButton = screen.getByAltText('continue');
+        const nextButton = screen.getByLabelText('continue');
         fireEvent.click(nextButton);
 
         expect(mockOnContinueForward).toHaveBeenCalledWith({ humanName: 'Cherry' });

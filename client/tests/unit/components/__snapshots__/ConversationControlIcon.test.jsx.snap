@@ -7,15 +7,15 @@ exports[`ConversationControlIcon > renders normal icon by default 1`] = `
     class="control"
     style="margin-left: 4px; margin-right: 4px; width: 56px; height: 56px; border: 0px; border-radius: 50%; display: flex; justify-content: center; align-items: center; position: relative;"
   >
-    <img
-      alt="Test Action"
-      src="/icons/test_icon.svg"
-      style="position: absolute; width: 40px; height: 40px; object-fit: cover; border-radius: 50%; opacity: 1;"
+    <svg
+      aria-label="Test Action"
+      data-testid="icon-test_icon"
+      style="position: absolute; width: 40px; height: 40px; border-radius: 50%; opacity: 1;"
     />
-    <img
-      alt="Test Action"
-      src="/icons/test_icon_filled.svg"
-      style="position: absolute; width: 40px; height: 40px; object-fit: cover; border-radius: 50%; opacity: 0;"
+    <svg
+      aria-label="Test Action"
+      data-testid="icon-test_icon_filled"
+      style="position: absolute; width: 40px; height: 40px; border-radius: 50%; opacity: 0;"
     />
   </button>
 </DocumentFragment>

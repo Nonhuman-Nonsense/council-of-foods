@@ -31,8 +31,8 @@ describe('FullscreenButton', () => {
 
         render(<FullscreenButton />);
 
-        const button = screen.getByRole('img', { name: /Open fullscreen/i }).parentElement;
-        fireEvent.click(button!);
+        const button = screen.getByLabelText(/Open fullscreen/i);
+        fireEvent.click(button);
 
         expect(requestFullscreenMock).toHaveBeenCalled();
     });
@@ -53,8 +53,8 @@ describe('FullscreenButton', () => {
         fireEvent(document, new Event('fullscreenchange'));
 
         // Should show Close icon
-        const button = screen.getByRole('img', { name: /Close fullscreen/i }).parentElement;
-        fireEvent.click(button!);
+        const button = screen.getByLabelText(/Close fullscreen/i);
+        fireEvent.click(button);
 
         expect(exitFullscreenMock).toHaveBeenCalled();
     });
@@ -66,7 +66,7 @@ describe('FullscreenButton', () => {
             value: null,
         });
         const { unmount } = render(<FullscreenButton />);
-        expect(screen.getByAltText('Open fullscreen')).toBeInTheDocument();
+        expect(screen.getByLabelText('Open fullscreen')).toBeInTheDocument();
         unmount();
 
         // Entered
@@ -90,6 +90,6 @@ describe('FullscreenButton', () => {
         fireEvent(document, new Event('fullscreenchange'));
 
         // Now it should update
-        expect(screen.getByAltText('Close fullscreen')).toBeInTheDocument();
+        expect(screen.getByLabelText('Close fullscreen')).toBeInTheDocument();
     });
 });

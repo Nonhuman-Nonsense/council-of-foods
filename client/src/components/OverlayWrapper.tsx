@@ -1,4 +1,5 @@
 import { useMobile, useMobileXs, usePortrait } from "@/utils";
+import { Icons } from "@icons";
 
 /**
  * OverlayWrapper Component
@@ -30,7 +31,7 @@ const OverlayWrapper: React.FC<OverlayWrapperProps> = ({
   const isMobile = useMobile();
   const isMobileXs = useMobileXs();
   const isPortait = usePortrait();
-  const closeUrl = `/icons/close.svg`;
+
 
   /* -------------------------------------------------------------------------- */
   /*                                    Styles                                  */
@@ -103,9 +104,8 @@ const OverlayWrapper: React.FC<OverlayWrapperProps> = ({
         </div>
       </div>
       {showX && (
-        <img
-          alt="close"
-          src={closeUrl}
+        <Icons.close
+          aria-label="close"
           style={closeStyle}
           onClick={removeOverlay}
         />

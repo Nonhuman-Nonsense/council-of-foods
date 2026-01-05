@@ -35,6 +35,9 @@
             "@prompts/*": [
                 "src/prompts/*"
             ],
+            "@icons": [
+                "src/icons/index"
+            ],
             "@shared/*": [
                 "../shared/*"
             ]
