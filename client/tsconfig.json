@@ -32,6 +32,9 @@
             "@animations/*": [
                 "src/animations/*"
             ],
+            "@assets/*": [
+                "src/assets/*"
+            ],
             "@prompts/*": [
                 "src/prompts/*"
             ],

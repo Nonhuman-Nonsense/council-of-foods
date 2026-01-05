@@ -1,5 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { useMobile, dvh } from "@/utils";
+import nonhumanLogo from "@assets/logos/nonhuman_nonsense_logo.png";
+import euLogo from "@assets/logos/logos_eu-white-starts-white.webp";
 
 /**
  * Contact Overlay
@@ -22,7 +24,7 @@ function Contact(): React.ReactElement {
 
   return (
     <div style={wrapper}>
-      <a href="https://nonhuman-nonsense.com"><img alt="Nonhuman Nonsense" src="/logos/nonhuman_nonsense_logo.png" style={{ maxWidth: isMobile ? "80px" : "120px", height: isMobile ? "10" + dvh : "61px", minHeight: "30px" }} /></a>
+      <a href="https://nonhuman-nonsense.com"><img alt="Nonhuman Nonsense" src={nonhumanLogo} style={{ maxWidth: isMobile ? "80px" : "120px", height: isMobile ? "10" + dvh : "61px", minHeight: "30px" }} /></a>
       <p>{t('contactText.1')}<a href="https://nonhuman-nonsense.com">Nonhuman&nbsp;Nonsense</a>{t('contactText.2')}<a href="https://studiootherspaces.net/">Studio&nbsp;Other&nbsp;Spaces</a>, <a href="https://www.in4art.eu/">In4Art</a>, <a href="https://elliott.computer/">Elliot&nbsp;Cost</a>, <a href="https://www.polymorf.se/">Albin&nbsp;Karlsson</a>, Lachlan Kenneally{t('contactText.3')}</p>
       <p>
         <a href="https://www.instagram.com/nonhuman_nonsense/">@nonhuman_nonsense</a>
@@ -32,7 +34,7 @@ function Contact(): React.ReactElement {
         <a href="mailto:hello@nonhuman-nonsense.com">hello@nonhuman-nonsense.com</a>
       </p>
       <p>{t('contactText.4')}<a href="https://starts.eu/hungryecocities/">The&nbsp;Hungry&nbsp;EcoCities&nbsp;project</a>{t('contactText.5')}<a href="https://starts.eu/">S+T+ARTS</a>{t('contactText.6')}<a href="https://cordis.europa.eu/project/id/101069990">Horizon&nbsp;Europe{t('contactText.7')} 101069990</a>.</p>
-      <img alt="Funded by the EU, as part of S+T+ARTS" src="/logos/logos_eu-white-starts-white.webp" style={{ width: "95vw", maxWidth: isMobile ? "300px" : "450px", height: isMobile ? "15vh" : "84px", minHeight: "45px" }} />
+      <img alt="Funded by the EU, as part of S+T+ARTS" src={euLogo} style={{ width: "95vw", maxWidth: isMobile ? "300px" : "450px", height: isMobile ? "15vh" : "84px", minHeight: "45px" }} />
     </div>
   );
 }

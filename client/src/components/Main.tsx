@@ -349,6 +349,9 @@ function Background({ path }: { path: string }) {
     <>
       <div style={zoomedOutStyle} />
       <div style={zoomedInStyle} />
+      {/* Preload Council Backgrounds */}
+      <div style={{ backgroundImage: `url(/backgrounds/close-up-backdrop.webp)`, opacity: 0, width: 0, height: 0, position: 'absolute', pointerEvents: 'none' }} />
+      <div style={{ backgroundImage: `url(/backgrounds/close-up-table.webp)`, opacity: 0, width: 0, height: 0, position: 'absolute', pointerEvents: 'none' }} />
     </>
   );
 }
