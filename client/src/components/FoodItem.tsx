@@ -84,6 +84,8 @@ function FoodItem({ food, index, total, currentSpeakerId, isPaused, zoomIn }: Fo
   };
 
   const containerStyle: React.CSSProperties = useMemo(() => {
+    // Note on using `calc()`: JSDOM 27+ drops negative style values (e.g. top: -20vh) as invalid.
+    // Wrapping them in `calc()` is a standard-compliant workaround that preserves the value in JSDOM.
     if (zoomIn && currentSpeakerId === food.id) {
       let baseHeight = -19;
       // Manual vertical adjustments for zoomed in view
@@ -91,7 +93,7 @@ function FoodItem({ food, index, total, currentSpeakerId, isPaused, zoomIn }: Fo
       if (food.id === 'banana') baseHeight = -20;
       if (food.id === 'honey') baseHeight = -18;
       if (food.id === 'beer') baseHeight = -18;
-      return { ...singleFoodStyle, top: baseHeight + dvh };
+      return { ...singleFoodStyle, top: `calc(${baseHeight}${dvh})` };
     } else {
       const left = (index / (total - 1)) * 100;
 
@@ -129,7 +131,7 @@ function FoodItem({ food, index, total, currentSpeakerId, isPaused, zoomIn }: Fo
       return {
         position: "absolute",
         left: `${left}%`,
-        top: `${top}vw`,
+        top: `calc(${top}vw)`,
         width: `${videoSize / videoBaseSize * overviewSize + "vw"}`,
         height: `${overviewSize + "vw"}`,
         transform: "translate(-50%, -50%)",
