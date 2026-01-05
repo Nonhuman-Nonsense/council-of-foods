@@ -39,6 +39,10 @@ export default defineConfig({
       // but ideally we trust tsconfigPaths.
       // Let's rely on tsconfigPaths for standard aliases.
       '@shared': path.resolve(__dirname, '../shared'),
+      'lottie-web': 'lottie-web/build/player/lottie_light',
     },
+  },
+  build: {
+    chunkSizeWarningLimit: 1600,
   },
 })
