@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Icons } from "@icons";
 
 /**
  * FullscreenButton Component
@@ -75,15 +76,13 @@ const FullscreenButton = () => {
       style={styles.container}
     >
       {isFullscreen ? (
-        <img
-          src={'/icons/close_fullscreen.svg'}
-          alt="Close fullscreen"
+        <Icons.close_fullscreen
+          aria-label="Close fullscreen"
           style={styles.icon}
         />
       ) : (
-        <img
-          src={'/icons/fullscreen.svg'}
-          alt="Open fullscreen"
+        <Icons.fullscreen
+          aria-label="Open fullscreen"
           style={styles.icon}
         />
       )}
@@ -100,7 +99,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     zIndex: 10,
     pointerEvents: "auto",
   },
-  icon: { width: "35px", cursor: "pointer" },
+  icon: { width: "35px", height: "35px", cursor: "pointer" },
 };
 
 export default FullscreenButton;
