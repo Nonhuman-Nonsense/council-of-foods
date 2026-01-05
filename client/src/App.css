@@ -24,7 +24,7 @@ img {
 
 @font-face {
   font-family: 'Tinos';
-  src: local('Tinos'), url(./Tinos-Regular.ttf) format('truetype');
+  src: local('Tinos'), url(./assets/fonts/Tinos-Regular.ttf) format('truetype');
 }
 
 body,

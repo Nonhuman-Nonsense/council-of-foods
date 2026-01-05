@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import errorIcon from "@assets/error.png";
 
 /**
  * CouncilError Overlay
@@ -12,7 +13,7 @@ function CouncilError(): React.ReactElement {
 
   return (
     <div>
-      <img alt="error" src="/error.png" style={{ height: "80px", opacity: "0.7" }} />
+      <img alt="error" src={errorIcon} style={{ height: "80px", opacity: "0.7" }} />
       <h2>{t('error.title')}</h2>
       <p>{t('error.1')}</p>
       <a href="/"><button style={{ marginTop: "10px" }}>{t('restart')}</button></a>

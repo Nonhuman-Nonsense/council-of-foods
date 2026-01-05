@@ -11,6 +11,7 @@ import Lottie from 'react-lottie-player';
 import loading from '@animations/loading.json';
 import { Socket } from "socket.io-client";
 import React from 'react';
+import micIcon from "@assets/mic.avif";
 
 // OpenAI Realtime API Interfaces
 interface InputAudioTranscriptionCompletedEvent {
@@ -357,7 +358,7 @@ function HumanInput({ foods, isPanelist, currentSpeakerName, onSubmitHumanMessag
       <div style={deselectorStyle} onClick={() => setAskParticular("")}></div>
     </>)}
     <div style={wrapperStyle}>
-      <img alt="Say something!" src="/mic.avif" style={micStyle} />
+      <img alt="Say something!" src={micIcon} style={micStyle} />
       <div style={{ zIndex: "4", position: "relative", pointerEvents: "auto" }}>
         <TextareaAutosize
           ref={inputArea}

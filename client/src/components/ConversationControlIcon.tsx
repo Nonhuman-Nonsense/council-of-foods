@@ -1,30 +1,20 @@
 import React, { useState } from "react";
 import { useMobile } from "@/utils";
+import { Icons, IconName } from "@icons";
 
 /**
  * ConversationControlIcon Component
- * 
+ *
  * A circular button used in the conversation controls (e.g., mute, next, end).
  * Handles hover states by swapping between outline and filled icon variants.
- * 
+ *
  * @param {Object} props
- * @param {string} props.icon - Base icon filename (without extension).
- * @param {string} [props.hoverIcon] - Hover icon filename (optional fallback to filled).
+ * @param {string} props.icon - Base icon name.
+ * @param {string} [props.hoverIcon] - Hover icon name (optional).
  * @param {string} props.tooltip - Alt text for the icon.
  * @param {Function} props.onClick - Click handler.
  */
-export type ConversationControlIconName =
-  | "volume_off"
-  | "volume_on"
-  | "backward"
-  | "play"
-  | "pause"
-  | "forward"
-  | "raise_hand"
-  | "raise_hand_filled"
-  | "record_voice_on"
-  | "record_voice_off"
-  | "send_message";
+export type ConversationControlIconName = IconName;
 
 interface ConversationControlIconProps {
   icon: ConversationControlIconName;
@@ -42,9 +32,18 @@ function ConversationControlIcon({
   let [isHover, setHover] = useState(false);
   const isMobile = useMobile();
 
-  const imageUrl = `/icons/${icon}.svg`;
-  let hoverUrl = `/icons/${icon}_filled.svg`;
-  if (hoverIcon) hoverUrl = `/icons/${hoverIcon}.svg`;
+  const IconComponent = Icons[icon];
+
+  // Determine hover component
+  // Default strategy: look for "icon_filled" if hoverIcon is not provided
+  let HoverComponent = Icons[icon + "_filled" as IconName];
+  if (hoverIcon) {
+    HoverComponent = Icons[hoverIcon];
+  }
+  // Fallback to the same icon if no filled version exists
+  if (!HoverComponent) {
+    HoverComponent = IconComponent;
+  }
 
   /* -------------------------------------------------------------------------- */
   /*                                    Styles                                  */
@@ -68,11 +67,11 @@ function ConversationControlIcon({
     // left: "0",
     width: isMobile ? "30px" : "40px",
     height: isMobile ? "30px" : "40px",
-    objectFit: "cover",
+    // objectFit: "cover", // Not applicable to SVG components
     borderRadius: "50%",
   };
 
-  const imageStyle = {
+  const baseStyle = {
     ...sharedStyle,
     opacity: (isHover ? "0" : "1")
   }
@@ -96,16 +95,10 @@ function ConversationControlIcon({
       aria-label={tooltip}
     >
       <>
-        <img
-          src={imageUrl}
-          alt={tooltip}
-          style={imageStyle}
-        />
-        <img
-          src={hoverUrl}
-          alt={tooltip}
-          style={hoverStyle}
-        />
+        <IconComponent style={baseStyle} aria-label={tooltip} />
+        {HoverComponent && (
+          <HoverComponent style={hoverStyle} aria-label={tooltip} />
+        )}
       </>
     </button>
   );

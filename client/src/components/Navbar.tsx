@@ -4,7 +4,8 @@ import { useMediaQuery } from 'react-responsive'
 import { useTranslation } from 'react-i18next';
 import { capitalizeFirstLetter, useMobile, useMobileXs, usePortrait } from "@/utils";
 import Lottie from "react-lottie-player";
-import hamburger from "@/animations/hamburger.json";
+import hamburger from "@animations/hamburger.json";
+import councilLogo from "@assets/logos/council_logo_white.svg";
 
 interface NavbarProps {
   lang: string;
@@ -142,7 +143,7 @@ function Navbar({ lang, topic, hamburgerOpen, setHamburgerOpen }: NavbarProps): 
         }}
       >
         {location.pathname !== "/" && <>
-          <img style={{ width: isMobile ? (isMobileXs ? '65px' : '70px') : '75px', marginRight: "10px", marginTop: isMobile ? (isMobileXs ? '0' : "3px") : "5px", cursor: "pointer", visibility: showIconinMeny ? "visible" : "hidden" }} onClick={() => handleOnNavigate("reset")} src='/logos/council_logo_white.svg' alt="Council of Foods logo" />
+          <img style={{ width: isMobile ? (isMobileXs ? '65px' : '70px') : '75px', marginRight: "10px", marginTop: isMobile ? (isMobileXs ? '0' : "3px") : "5px", cursor: "pointer", visibility: showIconinMeny ? "visible" : "hidden" }} onClick={() => handleOnNavigate("reset")} src={councilLogo} alt="Council of Foods logo" />
           <div>
             <h3
               style={{
