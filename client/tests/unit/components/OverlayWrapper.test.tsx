@@ -30,7 +30,7 @@ describe('OverlayWrapper', () => {
             </OverlayWrapper>
         );
 
-        const closeButton = screen.getByAltText('close');
+        const closeButton = screen.getByLabelText('close');
         expect(closeButton).toBeInTheDocument();
     });
 
@@ -42,7 +42,7 @@ describe('OverlayWrapper', () => {
             </OverlayWrapper>
         );
 
-        const closeButton = screen.queryByAltText('close');
+        const closeButton = screen.queryByLabelText('close');
         expect(closeButton).not.toBeInTheDocument();
     });
 
@@ -54,7 +54,7 @@ describe('OverlayWrapper', () => {
             </OverlayWrapper>
         );
 
-        const closeButton = screen.getByAltText('close');
+        const closeButton = screen.getByLabelText('close');
         fireEvent.click(closeButton);
         expect(removeOverlay).toHaveBeenCalledTimes(1);
     });

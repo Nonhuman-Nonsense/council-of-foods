@@ -17,12 +17,14 @@ describe('ConversationControlIcon', () => {
     it('renders normal icon by default', () => {
         const { asFragment } = render(<ConversationControlIcon {...defaultProps} />);
 
-        const imgs = screen.getAllByRole('img');
-        expect(imgs).toHaveLength(2); // Normal + Hover (hidden)
+        // We expect icon-test_icon and icon-test_icon_filled (hover, hidden)
+        const icon = screen.getByTestId('icon-test_icon');
+        const hoverIcon = screen.getByTestId('icon-test_icon_filled');
 
-        // Check src of first image
-        expect(imgs[0]).toHaveAttribute('src', '/icons/test_icon.svg');
-        expect(imgs[0]).toHaveStyle({ opacity: '1' });
+        expect(icon).toBeInTheDocument();
+        expect(hoverIcon).toBeInTheDocument();
+
+        expect(icon).toHaveStyle({ opacity: '1' });
 
         expect(asFragment()).toMatchSnapshot();
     });
@@ -33,18 +35,19 @@ describe('ConversationControlIcon', () => {
         const button = screen.getByRole('button');
         fireEvent.mouseOver(button);
 
-        const imgs = screen.getAllByRole('img');
+        const icon = screen.getByTestId('icon-test_icon');
+        const hoverIcon = screen.getByTestId('icon-test_icon_filled');
+
         // Normal icon hidden
-        expect(imgs[0]).toHaveStyle({ opacity: '0' });
+        expect(icon).toHaveStyle({ opacity: '0' });
         // Hover icon visible
-        expect(imgs[1]).toHaveAttribute('src', '/icons/test_icon_filled.svg');
-        expect(imgs[1]).toHaveStyle({ opacity: '1' });
+        expect(hoverIcon).toHaveStyle({ opacity: '1' });
     });
 
     it('uses custom hoverIcon if provided', () => {
         render(<ConversationControlIcon {...defaultProps} hoverIcon="custom_hover" />);
-        const imgs = screen.getAllByRole('img');
-        expect(imgs[1]).toHaveAttribute('src', '/icons/custom_hover.svg');
+        const hoverIcon = screen.getByTestId('icon-custom_hover');
+        expect(hoverIcon).toBeInTheDocument();
     });
 
     it('calls onClick when clicked', () => {

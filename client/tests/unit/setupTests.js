@@ -1,4 +1,21 @@
 import '@testing-library/jest-dom';
+import { vi } from 'vitest';
+import React from 'react';
+import '../../src/i18n';
+
+// Mock .svg?react imports
+// Mock .svg?react imports
+vi.mock('../../src/assets/icons/index', () => {
+    return {
+        Icons: new Proxy({}, {
+            get: (target, prop) => {
+                // Return a simple component for any icon access
+                const MockIcon = (props) => React.createElement('svg', { 'data-testid': `icon-${String(prop)}`, ...props });
+                return MockIcon;
+            }
+        })
+    };
+});
 
 // Mock CSS.supports if it doesn't exist (needed for JSDOM)
 if (typeof CSS === 'undefined') {
