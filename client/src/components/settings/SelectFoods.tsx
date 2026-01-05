@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import globalOptionsData from "@/global-options-client.json";
 import { Character, VoiceOption, AVAILABLE_VOICES } from "@shared/ModelTypes";
 import { AVAILABLE_LANGUAGES } from "@shared/AvailableLanguages";
+import VideoPreloader from "@components/VideoPreloader";
 
 // Dynamic import of food data modules
 const foodModules = import.meta.glob<FoodData>('/src/prompts/foods_*.json', { eager: true, import: 'default' });
@@ -404,6 +405,7 @@ function SelectFoods({ lang, topicTitle, onContinueForward }: SelectFoodsProps):
           {buttonOrInfo()}
         </div>
       </div>
+      <VideoPreloader foodIds={selectedFoods.filter(id => !id.startsWith('panelist') && id !== 'addhuman' && id !== '')} />
     </div>
   );
 }
