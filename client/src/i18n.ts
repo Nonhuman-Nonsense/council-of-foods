@@ -23,6 +23,12 @@ for (const path in locales) {
   resources[lang][ns] = locales[path];
 }
 
+for (const lang of AVAILABLE_LANGUAGES) {
+  if (!resources[lang]) {
+    throw new Error(`Missing translations for language: ${lang}. Make sure client/src/locales/${lang} exists and contains json files.`);
+  }
+}
+
 /**
  * i18n Configuration
  * 
