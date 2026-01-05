@@ -379,3 +379,40 @@ function RotateOverlay() {
     </div>
   );
 }
+
+function Background({ path }: { path: string }) {
+
+  const sharedStyle: React.CSSProperties = {
+    backgroundSize: "cover",
+    backgroundPositionX: "50%",
+    height: "100%",
+    width: "100%",
+    position: "absolute",
+  };
+
+  const zoomedOutStyle = {
+    ...sharedStyle,
+    backgroundPositionY: "50%",
+    backgroundImage: `url(/backgrounds/zoomed-out.webp)`,
+    zIndex: "-2",
+    opacity: path.startsWith(`/${routes.meeting}`) ? "0" : "1",
+  };
+
+  const zoomedInStyle = {
+    ...sharedStyle,
+    backgroundPositionY: `calc(50% + max(12${dvh},36px))`,// 50% is picture height, 12vh is from view, 36 is 12% of 300px which is minimum view
+    backgroundImage: `url(/backgrounds/zoomed-in.webp)`,
+    zIndex: "-1",
+    opacity: path.startsWith(`/${routes.meeting}`) ? "1" : "0.01",
+  };
+
+  return (
+    <>
+      <div style={zoomedOutStyle} />
+      <div style={zoomedInStyle} />
+      {/* Preload Council Backgrounds */}
+      <div style={{ backgroundImage: `url(/backgrounds/close-up-backdrop.webp)`, opacity: 0, width: 0, height: 0, position: 'absolute', pointerEvents: 'none' }} />
+      <div style={{ backgroundImage: `url(/backgrounds/close-up-table.webp)`, opacity: 0, width: 0, height: 0, position: 'absolute', pointerEvents: 'none' }} />
+    </>
+  );
+}

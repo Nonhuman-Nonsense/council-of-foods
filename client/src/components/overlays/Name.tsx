@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { capitalizeFirstLetter, useMobile } from "@/utils";
 import { useTranslation } from "react-i18next";
 import { Character } from "@shared/ModelTypes";
+import { Icons } from "@icons";
 
 interface NameProps {
   participants: Character[];
@@ -59,7 +60,7 @@ function HumanNameInput({ participants, onContinueForward }: HumanNameInputProps
 
   const { t } = useTranslation();
 
-  const imageUrl = `/icons/send_message_filled.svg`;
+
 
   /* -------------------------------------------------------------------------- */
   /*                                   Effects                                  */
@@ -171,10 +172,9 @@ function HumanNameInput({ participants, onContinueForward }: HumanNameInputProps
           />
           <input type="submit" style={{ position: "absolute", left: '-9999px' }} />
         </form>
-        <img
-          src={imageUrl}
-          alt="continue"
+        <Icons.send_message_filled
           style={imageStyle}
+          aria-label="continue"
           onClick={continueForward}
         />
       </div>
