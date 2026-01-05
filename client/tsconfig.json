@@ -30,7 +30,7 @@
                 "src/hooks/*"
             ],
             "@animations/*": [
-                "src/animations/*"
+                "src/assets/animations/*"
             ],
             "@assets/*": [
                 "src/assets/*"
@@ -39,7 +39,10 @@
                 "src/prompts/*"
             ],
             "@icons": [
-                "src/icons/index"
+                "src/assets/icons/index"
+            ],
+            "@fonts/*": [
+                "src/assets/fonts/*"
             ],
             "@shared/*": [
                 "../shared/*"
