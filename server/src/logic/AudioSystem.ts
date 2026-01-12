@@ -3,6 +3,7 @@ import type { Meeting, Audio } from "@models/DBModels.js";
 import type { OpenAI } from "openai";
 import type { Collection } from "mongodb";
 import type { VoiceOption } from "@shared/ModelTypes.js";
+import { withOpenAIRetry } from "@services/OpenAIService.js";
 
 import { Logger } from "@utils/Logger.js";
 import { mapSentencesToWords, Word } from "@utils/textUtils.js";
@@ -149,13 +150,13 @@ export class AudioSystem {
         try {
             const openai = this.services.getOpenAI();
             if (generateNew || !buffer) {
-                const mp3 = await openai.audio.speech.create({
+                const mp3 = await withOpenAIRetry(() => openai.audio.speech.create({
                     model: options.voiceModel,
                     voice: speaker.voice,
                     speed: options.audio_speed,
                     input: message.text.substring(0, 4096),
                     instructions: speaker.voiceInstruction
-                });
+                }));
                 buffer = Buffer.from(await mp3.arrayBuffer());
                 generateNew = true; // Ensure we save it if we regenerated it because buffer was missing
             }
@@ -210,12 +211,12 @@ export class AudioSystem {
     async getSentenceTimings(buffer: Buffer, message: Message): Promise<any[]> {
         const openai = this.services.getOpenAI();
         const audioFile = new File([new Uint8Array(buffer)], "speech.mp3", { type: "audio/mpeg" });
-        const transcription = await openai.audio.transcriptions.create({
+        const transcription = await withOpenAIRetry(() => openai.audio.transcriptions.create({
             file: audioFile,
             model: "whisper-1",
             response_format: "verbose_json",
             timestamp_granularities: ["word"]
-        });
+        }));
         return mapSentencesToWords(message.sentences, (transcription.words || []) as Word[]);
     }
 }

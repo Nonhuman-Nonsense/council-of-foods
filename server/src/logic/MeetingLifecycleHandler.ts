@@ -4,6 +4,7 @@ import type { Message as AudioMessage } from "@logic/AudioSystem.js";
 import { splitSentences } from "@utils/textUtils.js";
 import { Logger } from "@utils/Logger.js";
 import { GlobalOptions } from "@logic/GlobalOptions.js";
+import { withOpenAIRetry } from "@services/OpenAIService.js";
 
 export interface SetupOptions {
     options?: Partial<GlobalOptions>;
@@ -155,7 +156,7 @@ export class MeetingLifecycleHandler {
             });
 
             const openai = manager.services.getOpenAI();
-            const response = await fetch(
+            const response = await withOpenAIRetry(() => fetch(
                 "https://api.openai.com/v1/realtime/client_secrets",
                 {
                     method: "POST",
@@ -165,7 +166,7 @@ export class MeetingLifecycleHandler {
                     },
                     body: sessionConfig,
                 }
-            );
+            ));
 
             const data = await response.json();
             manager.broadcaster.broadcastClientKey(data);
