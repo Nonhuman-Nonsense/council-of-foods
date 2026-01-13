@@ -153,7 +153,6 @@ function Navbar({ lang, topic, hamburgerOpen, setHamburgerOpen }: NavbarProps): 
         }}
       >
         {location.pathname.length > 4 && <>
-          <img style={{ width: isMobile ? (isMobileXs ? '65px' : '70px') : '75px', marginRight: "10px", marginTop: isMobile ? (isMobileXs ? '0' : "3px") : "5px", cursor: "pointer", visibility: showIconinMeny ? "visible" : "hidden" }} onClick={() => handleOnNavigate("reset")} src={councilLogo} alt="Council of Foods logo" />
           <div>
             <h3
               style={{

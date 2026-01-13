@@ -8,6 +8,7 @@ import { splitSentences } from "@utils/textUtils.js";
 import { Logger } from "@utils/Logger.js";
 import { GlobalOptions } from "./GlobalOptions.js";
 import { OpenAI } from "openai";
+import { withOpenAIRetry } from "@services/OpenAIService.js";
 
 export interface Services {
     getOpenAI: () => OpenAI;
@@ -100,7 +101,7 @@ export class DialogGenerator {
             const messages = this.buildMessageStack(speaker, conversation, conversationOptions);
             const openai = this.services.getOpenAI();
 
-            const completion = await openai.chat.completions.create({
+            const completion = await withOpenAIRetry(() => openai.chat.completions.create({
                 model: conversationOptions.options.gptModel,
                 max_completion_tokens:
                     speaker.id === conversationOptions.options.chairId
@@ -111,7 +112,7 @@ export class DialogGenerator {
                 presence_penalty: conversationOptions.options.presencePenalty,
                 stop: "\n---",
                 messages: messages,
-            });
+            }));
 
             if (!completion.choices[0].message.content) {
                 throw new Error("No content received from GPT");
@@ -231,7 +232,7 @@ export class DialogGenerator {
             });
 
             const openai = this.services.getOpenAI();
-            const completion = await openai.chat.completions.create({
+            const completion = await withOpenAIRetry(() => openai.chat.completions.create({
                 model: conversationOptions.options.gptModel,
                 max_completion_tokens: length,
                 temperature: conversationOptions.options.temperature,
@@ -239,7 +240,7 @@ export class DialogGenerator {
                 presence_penalty: conversationOptions.options.presencePenalty,
                 stop: dontStop ? undefined : "\n---",
                 messages: messages,
-            });
+            }));
 
             if (!completion.choices[0].message.content) {
                 return { response: "", id: completion.id };
