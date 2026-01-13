@@ -355,7 +355,7 @@ export class MeetingManager implements IMeetingManager {
         this.audioSystem.queueAudioGeneration(
             message as AudioMessage,
             action.speaker,
-            this.conversationOptions.options,
+            this.conversationOptions,
             this.meetingId!,
             this.environment
         );

@@ -171,13 +171,38 @@
                     <textarea class="input-area" placeholder="Character prompt..." v-model="character.prompt"
                       v-auto-resize></textarea>
 
+                    <label class="sub-label">Voice Provider</label>
+                    <div class="voice-selector" style="margin-bottom: 10px;">
+                      <label class="voice-chip"
+                        :class="{ active: character.voiceProvider === 'openai' || !character.voiceProvider }">
+                        <input type="radio" value="openai" v-model="character.voiceProvider" style="display: none;"
+                          @change="updateVoice(character)">
+                        OpenAI
+                      </label>
+                      <label class="voice-chip" :class="{ active: character.voiceProvider === 'gemini' }">
+                        <input type="radio" value="gemini" v-model="character.voiceProvider" style="display: none;"
+                          @change="updateVoice(character)">
+                        Gemini
+                      </label>
+                    </div>
+
                     <label class="sub-label">Voice Option</label>
                     <div class="voice-selector">
-                      <template v-for="voiceName in audioVoices" :key="voiceName">
-                        <label class="voice-chip" :class="{ active: character.voice === voiceName }">
-                          <input type="radio" :value="voiceName" v-model="character.voice" style="display: none;">
-                          {{ voiceName }}
-                        </label>
+                      <template v-if="character.voiceProvider === 'gemini'">
+                        <template v-for="voiceName in audioVoicesGemini" :key="voiceName">
+                          <label class="voice-chip" :class="{ active: character.voice === voiceName }">
+                            <input type="radio" :value="voiceName" v-model="character.voice" style="display: none;">
+                            {{ voiceName }}
+                          </label>
+                        </template>
+                      </template>
+                      <template v-else>
+                        <template v-for="voiceName in audioVoices" :key="voiceName">
+                          <label class="voice-chip" :class="{ active: character.voice === voiceName }">
+                            <input type="radio" :value="voiceName" v-model="character.voice" style="display: none;">
+                            {{ voiceName }}
+                          </label>
+                        </template>
                       </template>
                     </div>
 
@@ -221,13 +246,38 @@
                     <textarea class="input-area" placeholder="Character prompt..." v-model="character.prompt"
                       v-auto-resize></textarea>
 
+                    <label class="sub-label">Voice Provider</label>
+                    <div class="voice-selector" style="margin-bottom: 10px;">
+                      <label class="voice-chip"
+                        :class="{ active: character.voiceProvider === 'openai' || !character.voiceProvider }">
+                        <input type="radio" value="openai" v-model="character.voiceProvider" style="display: none;"
+                          @change="updateVoice(character)">
+                        OpenAI
+                      </label>
+                      <label class="voice-chip" :class="{ active: character.voiceProvider === 'gemini' }">
+                        <input type="radio" value="gemini" v-model="character.voiceProvider" style="display: none;"
+                          @change="updateVoice(character)">
+                        Gemini
+                      </label>
+                    </div>
+
                     <label class="sub-label">Voice Option</label>
                     <div class="voice-selector">
-                      <template v-for="voiceName in audioVoices" :key="voiceName">
-                        <label class="voice-chip" :class="{ active: character.voice === voiceName }">
-                          <input type="radio" :value="voiceName" v-model="character.voice" style="display: none;">
-                          {{ voiceName }}
-                        </label>
+                      <template v-if="character.voiceProvider === 'gemini'">
+                        <template v-for="voiceName in audioVoicesGemini" :key="voiceName">
+                          <label class="voice-chip" :class="{ active: character.voice === voiceName }">
+                            <input type="radio" :value="voiceName" v-model="character.voice" style="display: none;">
+                            {{ voiceName }}
+                          </label>
+                        </template>
+                      </template>
+                      <template v-else>
+                        <template v-for="voiceName in audioVoices" :key="voiceName">
+                          <label class="voice-chip" :class="{ active: character.voice === voiceName }">
+                            <input type="radio" :value="voiceName" v-model="character.voice" style="display: none;">
+                            {{ voiceName }}
+                          </label>
+                        </template>
                       </template>
                     </div>
 

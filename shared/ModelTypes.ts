@@ -1,12 +1,19 @@
 
 // Defines the available voice options for characters
 export const AVAILABLE_VOICES = ["alloy", "ash", "ballad", "coral", "echo", "fable", "onyx", "nova", "sage", "shimmer", "verse"] as const;
-export type VoiceOption = typeof AVAILABLE_VOICES[number];
+export const AVAILABLE_VOICES_GEMINI = [
+    "Achernar", "Achird", "Algenib", "Algieba", "Alnilam", "Aoede", "Autonoe", "Callirrhoe", "Charon", "Despina",
+    "Enceladus", "Erinome", "Fenrir", "Gacrux", "Iapetus", "Kore", "Laomedeia", "Leda", "Orus", "Pulcherrima",
+    "Puck", "Rasalgethi", "Sadachbia", "Sadaltager", "Schedar", "Sulafat", "Umbriel", "Vindemiatrix", "Zephyr", "Zubenelgenubi"
+] as const;
+
+export type VoiceOption = typeof AVAILABLE_VOICES[number] | typeof AVAILABLE_VOICES_GEMINI[number];
 
 export interface Character {
     id: string;
     name: string;
     voice: VoiceOption;
+    voiceProvider?: 'openai' | 'gemini';
     type?: string;
     prompt?: string;
     voiceInstruction?: string;

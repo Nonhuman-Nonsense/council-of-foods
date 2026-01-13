@@ -58,6 +58,7 @@ export const MockFactory = {
                 // GlobalOptions fields
                 gptModel: "gpt-4o",
                 voiceModel: "tts-1",
+                geminiVoiceModel: "gemini-2.5-flash-preview-tts",
                 temperature: 0.7,
                 maxTokens: 100,
                 chairMaxTokens: 150,
