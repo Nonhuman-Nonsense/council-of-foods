@@ -210,8 +210,17 @@ export class AudioSystem {
 
                     const url = `https://texttospeech.googleapis.com/v1/text:synthesize`; // No key param needed with Bearer token
 
+                    // Construct Input Payload
+                    const input: { text: string; prompt?: string } = {
+                        text: message.text.substring(0, 4096)
+                    };
+
+                    if (speaker.voiceInstruction) {
+                        input.prompt = speaker.voiceInstruction;
+                    }
+
                     const body = {
-                        input: { text: message.text.substring(0, 4096) },
+                        input,
                         voice: {
                             languageCode: googleLangCode,
                             name: voiceName,

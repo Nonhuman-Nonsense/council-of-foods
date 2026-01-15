@@ -194,4 +194,30 @@ describe('AudioSystem Gemini Integration', () => {
             })
         );
     });
+    it('should include voice instruction in prompt if provided', async () => {
+        const message = { id: 'msgPrompt', text: 'Hello', sentences: ['Hello'] };
+        const speaker = {
+            id: 'char1',
+            voice: 'Kore',
+            voiceProvider: 'gemini',
+            voiceInstruction: 'Speak curiously'
+        };
+        const context = {
+            options: { geminiVoiceModel: 'gemini-flash', audio_speed: 1 }
+        };
+
+        mockFetch.mockResolvedValue({
+            ok: true,
+            json: async () => ({ audioContent: 'data' }),
+        });
+
+        await audioSystem.generateAudio(message, speaker, context, 123, 'production');
+
+        expect(mockFetch).toHaveBeenCalledWith(
+            expect.any(String),
+            expect.objectContaining({
+                body: expect.stringContaining('"prompt":"Speak curiously"')
+            })
+        );
+    });
 });
