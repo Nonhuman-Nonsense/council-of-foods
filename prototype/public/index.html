@@ -188,9 +188,9 @@
 
 
 
-                    <label class="sub-label" v-if="character.voiceProvider === 'gemini'">Voice Accent</label>
+                    <label class="sub-label" v-if="character.voiceProvider === 'gemini' && options.language === 'en'">Voice Accent</label>
                     <div class="voice-selector" style="margin-bottom: 10px;"
-                      v-if="character.voiceProvider === 'gemini'">
+                      v-if="character.voiceProvider === 'gemini' && options.language === 'en'">
                       <label class="voice-chip" :class="{ active: character.voiceLocale === 'en-US' }">
                         <input type="radio" value="en-US" v-model="character.voiceLocale" style="display: none;">
                         🇺🇸
