@@ -14,7 +14,7 @@ export const initDb = async (dbUrl?: string, dbPrefix?: string): Promise<void> =
   const prefix = dbPrefix || config.COUNCIL_DB_PREFIX;
 
   Logger.info(`init`, `COUNCIL_DB_PREFIX is ${prefix}`);
-  Logger.info("init", "Initializing Database");
+  Logger.info("init", "Initializing Database...");
   const mongoClient = new MongoClient(url);
 
   db = mongoClient.db(prefix);
@@ -23,6 +23,7 @@ export const initDb = async (dbUrl?: string, dbPrefix?: string): Promise<void> =
   counters = db.collection<Counter>("counters");
 
   await initializeCounters();
+  Logger.info("init", "Database ready.");
 };
 
 const initializeCounters = async (): Promise<void> => {

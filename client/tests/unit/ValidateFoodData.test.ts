@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, it, expect } from 'vitest';
 import { AVAILABLE_LANGUAGES } from '@shared/AvailableLanguages';
-import { AVAILABLE_VOICES, VoiceOption } from '@shared/ModelTypes';
+import { AVAILABLE_VOICES, AVAILABLE_VOICES_GEMINI, VoiceOption } from '@shared/ModelTypes';
 import fs from 'fs';
 import path from 'path';
 
@@ -16,6 +16,8 @@ interface Food {
     type?: string;
     index?: number;
     voice: VoiceOption;
+    voiceProvider?: 'openai' | 'gemini';
+    voiceLocale?: string;
     size?: number;
     voiceInstruction?: string;
 }
@@ -61,7 +63,12 @@ describe('Validate Food Data JSONs', () => {
                 expect(food).toHaveProperty('voice');
 
                 // Validate Voice Option
-                expect(AVAILABLE_VOICES).toContain(food.voice);
+                if (food.voiceProvider === 'gemini') {
+                    expect(AVAILABLE_VOICES_GEMINI).toContain(food.voice);
+                } else {
+                    // Default to OpenAI if provider is missing or explicitly 'openai'
+                    expect(AVAILABLE_VOICES).toContain(food.voice);
+                }
 
                 // Ensure prompt exists for at least the first food (Chair usually)
                 if (index === 0) {

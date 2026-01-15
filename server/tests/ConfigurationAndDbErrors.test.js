@@ -44,6 +44,7 @@ describe('Configuration & DB Error Handling', () => {
                 COUNCIL_DB_URL: 'mongodb://localhost:27017',
                 COUNCIL_DB_PREFIX: 'TestDB',
                 COUNCIL_OPENAI_API_KEY: 'sk-test',
+                GOOGLE_APPLICATION_CREDENTIALS: './google-credentials.json'
             });
             expect(result.success).toBe(true);
         });
