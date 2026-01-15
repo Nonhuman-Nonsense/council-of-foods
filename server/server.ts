@@ -12,6 +12,8 @@ import { initOpenAI } from '@services/OpenAIService.js';
 import { SocketManager } from '@logic/SocketManager.js';
 import { AVAILABLE_LANGUAGES } from '@shared/AvailableLanguages.js';
 
+import { verifyGoogleCredentials } from './src/utils/StartupChecks.js';
+
 const environment: string = config.NODE_ENV;
 
 const app = express();
@@ -22,11 +24,14 @@ const io = new Server(httpServer);
 try {
   initReporting();
   await initDb();
+  await verifyGoogleCredentials(config); // Strict Startup Check
   initOpenAI();
 } catch (e) {
   await Logger.error("init", "Startup failed.", e);
   process.exit(1);
 }
+
+Logger.info("init", "Startup complete.");
 
 // Express for health checks
 app.get('/health', (_req: Request, res: Response) => { res.sendStatus(200); });
