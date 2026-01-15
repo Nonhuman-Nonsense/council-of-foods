@@ -3,7 +3,7 @@
 exports[`FoodItem > calculates position correctly for different indices 1`] = `
 <DocumentFragment>
   <div
-    style="position: absolute; left: 0%; top: -8.5vw; width: 16.200000000000003vw; height: 12vw; transform: translate(-50%, -50%); opacity: 1; display: flex; justify-content: center; align-items: flex-end;"
+    style="position: absolute; left: 0%; top: calc(-8.5vw); width: 16.200000000000003vw; height: 12vw; transform: translate(-50%, -50%); opacity: 1; display: flex; justify-content: center; align-items: flex-end;"
   >
     <div
       data-testid="food-animation-banana"
@@ -18,7 +18,7 @@ exports[`FoodItem > calculates position correctly for different indices 1`] = `
 exports[`FoodItem > calculates position correctly for different indices 2`] = `
 <DocumentFragment>
   <div
-    style="position: absolute; left: 100%; top: -8.5vw; width: 16.200000000000003vw; height: 12vw; transform: translate(-50%, -50%); opacity: 1; display: flex; justify-content: center; align-items: flex-end;"
+    style="position: absolute; left: 100%; top: calc(-8.5vw); width: 16.200000000000003vw; height: 12vw; transform: translate(-50%, -50%); opacity: 1; display: flex; justify-content: center; align-items: flex-end;"
   >
     <div
       data-testid="food-animation-banana"
@@ -33,7 +33,7 @@ exports[`FoodItem > calculates position correctly for different indices 2`] = `
 exports[`FoodItem > renders correctly in overview mode 1`] = `
 <DocumentFragment>
   <div
-    style="position: absolute; left: 50%; top: -11.5vw; width: 16.200000000000003vw; height: 12vw; transform: translate(-50%, -50%); opacity: 1; display: flex; justify-content: center; align-items: flex-end;"
+    style="position: absolute; left: 50%; top: calc(-11.5vw); width: 16.200000000000003vw; height: 12vw; transform: translate(-50%, -50%); opacity: 1; display: flex; justify-content: center; align-items: flex-end;"
   >
     <div
       data-testid="food-animation-banana"
@@ -48,7 +48,7 @@ exports[`FoodItem > renders correctly in overview mode 1`] = `
 exports[`FoodItem > renders correctly when zoomed in (active speaker) 1`] = `
 <DocumentFragment>
   <div
-    style="position: relative; width: 55vh; height: 55vh; display: flex; justify-content: center; align-items: flex-end; top: -20vh;"
+    style="position: relative; width: 55vh; height: 55vh; display: flex; justify-content: center; align-items: flex-end; top: calc(-20vh);"
   >
     <div
       data-testid="food-animation-banana"
@@ -63,7 +63,7 @@ exports[`FoodItem > renders correctly when zoomed in (active speaker) 1`] = `
 exports[`FoodItem > renders correctly when zoomed in (inactive speaker) 1`] = `
 <DocumentFragment>
   <div
-    style="position: absolute; left: 50%; top: -11.5vw; width: 16.200000000000003vw; height: 12vw; transform: translate(-50%, -50%); opacity: 0; display: flex; justify-content: center; align-items: flex-end;"
+    style="position: absolute; left: 50%; top: calc(-11.5vw); width: 16.200000000000003vw; height: 12vw; transform: translate(-50%, -50%); opacity: 0; display: flex; justify-content: center; align-items: flex-end;"
   >
     <div
       data-testid="food-animation-banana"
@@ -78,7 +78,7 @@ exports[`FoodItem > renders correctly when zoomed in (inactive speaker) 1`] = `
 exports[`FoodItem > should apply special positioning for lollipop 1`] = `
 <DocumentFragment>
   <div
-    style="position: absolute; left: 50%; top: -12.075000000000001vw; width: 16.200000000000003vw; height: 12vw; transform: translate(-50%, -50%); opacity: 1; display: flex; justify-content: center; align-items: flex-end;"
+    style="position: absolute; left: 50%; top: calc(-12.075vw); width: 16.200000000000003vw; height: 12vw; transform: translate(-50%, -50%); opacity: 1; display: flex; justify-content: center; align-items: flex-end;"
   >
     <div
       data-testid="food-animation-lollipop"
@@ -93,7 +93,7 @@ exports[`FoodItem > should apply special positioning for lollipop 1`] = `
 exports[`FoodItem > should handle food with missing id gracefully 1`] = `
 <DocumentFragment>
   <div
-    style="position: absolute; left: 50%; top: -11.5vw; width: 16.200000000000003vw; height: 12vw; transform: translate(-50%, -50%); opacity: 1; display: flex; justify-content: center; align-items: flex-end;"
+    style="position: absolute; left: 50%; top: calc(-11.5vw); width: 16.200000000000003vw; height: 12vw; transform: translate(-50%, -50%); opacity: 1; display: flex; justify-content: center; align-items: flex-end;"
   >
     <div
       data-testid="food-animation-undefined"

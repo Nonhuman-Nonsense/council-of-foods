@@ -11,9 +11,8 @@
     "@vitejs/plugin-react": "^5.0.4",
     "html-react-parser": "^5.2.6",
     "i18next": "^25.6.1",
-    "i18next-http-backend": "^3.0.2",
-    "jspdf": "^3.0.3",
-    "marked": "^17.0.0",
+    "jspdf": "^4.0.0",
+    "marked": "^17.0.1",
     "qrcode.react": "^4.2.0",
     "react": "^19.2.0",
     "react-audio-visualize": "file:react-audio-visualize-master",
@@ -27,13 +26,14 @@
     "typescript": "^5.9.3",
     "vite": "^7.1.10",
     "vite-plugin-checker": "^0.8.0",
+    "vite-plugin-svgr": "^4.5.0",
     "vite-tsconfig-paths": "^6.0.2"
   },
   "scripts": {
     "dev": "vite",
     "build": "tsc -p tsconfig.build.json && vite build",
     "preview": "vite preview",
-    "analyze": "source-map-explorer 'dist/assets/*.js'",
+    "analyze": "vite build --mode analyze",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:forest": "vitest run tests/forest",
@@ -52,8 +52,9 @@
     "@testing-library/react": "^16.3.0",
     "@types/testing-library__react": "^10.0.1",
     "jsdom": "^27.3.0",
+    "rollup-plugin-visualizer": "^6.0.5",
     "source-map-explorer": "^2.5.3",
-    "vite-plugin-svgr": "^4.5.0",
+    "typescript": "^5.9.3",
     "vitest": "^4.0.15"
   }
 }

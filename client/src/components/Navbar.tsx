@@ -4,7 +4,8 @@ import { useMediaQuery } from 'react-responsive'
 import { useTranslation } from 'react-i18next';
 import { capitalizeFirstLetter, useMobile, useMobileXs, usePortrait } from "@/utils";
 import Lottie from "react-lottie-player";
-import hamburger from "@/animations/hamburger.json";
+import hamburger from "@animations/hamburger.json";
+import councilLogo from "@assets/logos/council_logo_white.svg";
 
 interface NavbarProps {
   lang: string;

@@ -5,6 +5,8 @@ import { marked } from "marked";
 import { jsPDF } from "jspdf";
 import { useTranslation } from "react-i18next";
 import { QRCodeCanvas } from 'qrcode.react';
+import councilLogoWhite from "@assets/logos/council_logo_white.svg";
+import councilLogo from "@assets/logos/council_logo.png";
 
 export interface SummaryData {
   text: string;
@@ -124,7 +126,7 @@ function Summary({ summary, meetingId }: SummaryProps): React.ReactElement {
               <h2 style={{ fontSize: '24px', margin: '0', position: 'absolute', left: "10px", top: '2px' }}>{t('council').toUpperCase()}</h2>
               <h3 style={{ fontSize: '15px', margin: '0', position: 'absolute', left: "10px", top: "28px" }}>{t('meeting')} #{meetingId}</h3>
               <QRCodeCanvas value={window.location.href} style={{ position: 'absolute', right: "10px", top: "2.5px", width: "45px", height: "45px" }} />
-            </div>
+            </div >
             <hr />
             <div id="printed-style">
               {/* Ensure synchronous parsing for type safety */}
@@ -132,9 +134,9 @@ function Summary({ summary, meetingId }: SummaryProps): React.ReactElement {
               <hr /><br />
               <Disclaimer />
             </div>
-          </div>
-        </div>
-      </div>
+          </div >
+        </div >
+      </div >
     </>
   );
 }

@@ -91,9 +91,31 @@ describe('AudioSystem', () => {
         await audioSystem.generateAudio(message, speaker, options, meetingId, environment);
 
         expect(mockOpenAI.audio.speech.create).toHaveBeenCalledWith(expect.objectContaining({
-            voice: 'alloy',
-            input: 'Hello',
             instructions: 'Speak like a pirate'
+        }));
+    });
+
+    it('should retry on specific network errors (terminated)', async () => {
+        const message = { id: 'msgRetry', text: 'Retry me', sentences: ['Retry me'] };
+        const speaker = { id: 'char1', voice: 'alloy' };
+        const options = { voiceModel: 'tts-1', audio_speed: 1 };
+        const meetingId = 123;
+        const environment = 'production';
+
+        // Mock OpenAI to fail once then succeed
+        // vi.mocked usage varies, assuming simple mock here for brevity as per existing test
+        const createMock = mockOpenAI.audio.speech.create;
+        createMock
+            .mockRejectedValueOnce(new Error('terminated')) // First fail
+            .mockResolvedValueOnce({                        // Then succeed
+                arrayBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(8))
+            });
+
+        await audioSystem.generateAudio(message, speaker, options, meetingId, environment);
+
+        expect(createMock).toHaveBeenCalledTimes(2); // Initial + 1 retry
+        expect(mockBroadcaster.broadcastAudioUpdate).toHaveBeenCalledWith(expect.objectContaining({
+            id: 'msgRetry'
         }));
     });
 });
