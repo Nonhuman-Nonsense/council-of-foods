@@ -92,7 +92,7 @@ export class HumanInputHandler {
             manager.audioSystem.queueAudioGeneration(
                 queueMsg,
                 manager.conversationOptions.characters[0],
-                manager.conversationOptions.options,
+                { options: manager.conversationOptions.options },
                 manager.meetingId as number,
                 manager.environment
             );
@@ -145,7 +145,7 @@ export class HumanInputHandler {
             manager.audioSystem.queueAudioGeneration(
                 queueMsg,
                 manager.conversationOptions.characters[0],
-                manager.conversationOptions.options,
+                { options: manager.conversationOptions.options },
                 manager.meetingId as number,
                 manager.environment
             );
@@ -192,7 +192,7 @@ export class HumanInputHandler {
             manager.audioSystem.queueAudioGeneration(
                 summary as unknown as Message,
                 manager.conversationOptions.characters[0],
-                manager.conversationOptions.options,
+                { options: manager.conversationOptions.options },
                 manager.meetingId as number,
                 manager.environment
             );
