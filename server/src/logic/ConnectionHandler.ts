@@ -80,7 +80,7 @@ export class ConnectionHandler {
                         manager.audioSystem.queueAudioGeneration(
                             { ...audioMsg, id: audioMsg.id!, text: audioMsg.text!, sentences: audioMsg.sentences! },
                             speaker,
-                            manager.conversationOptions.options,
+                            { options: manager.conversationOptions.options },
                             manager.meetingId as number,
                             manager.environment
                         );
