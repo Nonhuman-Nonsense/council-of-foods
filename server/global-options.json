@@ -1,6 +1,7 @@
 {
   "gptModel": "gpt-4o",
   "voiceModel": "tts-1",
+  "geminiVoiceModel": "gemini-2.5-flash-tts",
   "temperature": 1,
   "maxTokens": 200,
   "chairMaxTokens": 250,

@@ -151,6 +151,10 @@ class AudioController {
         return item && !item.skipped && !!item.rawAudio;
     }
 
+    hasItem(index) {
+        return this.items.has(index);
+    }
+
     downloadAudio(index, filename) {
         const item = this.items.get(index);
         if (!item || !item.rawAudio) {

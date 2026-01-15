@@ -63,6 +63,11 @@ createApp({
 
       // Runtime
       audioVoices: ["alloy", "ash", "ballad", "coral", "echo", "fable", "onyx", "nova", "sage", "shimmer", "verse"],
+      audioVoicesGemini: [
+        "Achernar", "Achird", "Algenib", "Algieba", "Alnilam", "Aoede", "Autonoe", "Callirrhoe", "Charon", "Despina",
+        "Enceladus", "Erinome", "Fenrir", "Gacrux", "Iapetus", "Kore", "Laomedeia", "Leda", "Orus", "Pulcherrima",
+        "Puck", "Rasalgethi", "Sadachbia", "Sadaltager", "Schedar", "Sulafat", "Umbriel", "Vindemiatrix", "Zephyr", "Zubenelgenubi"
+      ],
       sortableInstance: null,
       isResizing: false,
 
@@ -207,6 +212,16 @@ createApp({
       // Mutate the array structure directly: [Pinned, ...Active, ...Inactive]
       this.currentLanguageData.characters = [...pinned, ...active, ...inactive];
     },
+
+    updateVoice(char) {
+      // Reset voice to first available when provider switches
+      if (char.voiceProvider === 'gemini') {
+        char.voice = this.audioVoicesGemini[0];
+      } else {
+        char.voice = this.audioVoices[0];
+      }
+    },
+
     initSortable() {
       const el = document.getElementById('active-characters-list');
       if (!el) return;
@@ -420,7 +435,14 @@ createApp({
       // Ensure every character has an ID (default to name) and voice (default to "alloy")
       replacedCharacters.forEach(c => {
         if (!c.id && c.name) c.id = c.name;
-        if (!c.voice) c.voice = this.audioVoices[0];
+
+        // Ensure voiceProvider is set
+        if (!c.voiceProvider) c.voiceProvider = 'openai';
+
+        if (!c.voice) {
+          if (c.voiceProvider === 'gemini') c.voice = this.audioVoicesGemini[0];
+          else c.voice = this.audioVoices[0];
+        }
       });
 
       if (replacedCharacters[0]) {
@@ -529,6 +551,8 @@ createApp({
 
       // Add at the BOTTOM (End) and maintain Inactive state
       this.currentLanguageData.characters.push({
+        voiceProvider: 'openai',
+        voiceLocale: 'en-GB',
         voice: this.audioVoices[voiceIndex],
         voiceInstruction: "",
         _ui_id: newId,
@@ -646,6 +670,8 @@ createApp({
           id: rest.id || (rest.name ? rest.name.toLowerCase().replace(/\s+/g, '') : 'unknown'),
           name: rest.name,
           voice: rest.voice,
+          voiceProvider: rest.voiceProvider || 'openai',
+          voiceLocale: rest.voiceLocale,
           size: rest.size,
           voiceInstruction: rest.voiceInstruction || "",
           description: rest.description || "",
