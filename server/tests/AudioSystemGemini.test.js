@@ -1,6 +1,16 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { AudioSystem } from '@root/src/logic/AudioSystem.js';
+import { Logger } from '@root/src/utils/Logger.js';
+
+vi.mock('@root/src/utils/Logger.js', () => ({
+    Logger: {
+        warn: vi.fn(),
+        error: vi.fn(),
+        info: vi.fn(),
+        reportAndCrashClient: vi.fn()
+    }
+}));
 
 // Mock dependencies
 const mockGetAccessToken = vi.fn();
@@ -219,5 +229,63 @@ describe('AudioSystem Gemini Integration', () => {
                 body: expect.stringContaining('"prompt":"Speak curiously"')
             })
         );
+    });
+
+    it('should report error on non-ok API response', async () => {
+        const message = { id: 'msgErr', text: 'Hello' };
+        const speaker = { id: 'char1', voice: 'Kore', voiceProvider: 'gemini' };
+
+        mockFetch.mockResolvedValue({
+            ok: false,
+            status: 400,
+            text: async () => 'Bad Request'
+        });
+
+        await audioSystem.generateAudio(message, speaker, { options: {} }, 123, 'production');
+
+        expect(Logger.reportAndCrashClient).toHaveBeenCalledWith(
+            'AudioSystem',
+            'Error generating audio',
+            expect.objectContaining({ message: expect.stringContaining('Google TTS API Error: 400 Bad Request') }),
+            expect.anything()
+        );
+    });
+
+    it('should report error if audioContent is missing', async () => {
+        const message = { id: 'msgEmpty', text: 'Hello' };
+        const speaker = { id: 'char1', voice: 'Kore', voiceProvider: 'gemini' };
+
+        mockFetch.mockResolvedValue({
+            ok: true,
+            json: async () => ({}) // Empty object
+        });
+
+        await audioSystem.generateAudio(message, speaker, { options: {} }, 123, 'production');
+
+        expect(Logger.reportAndCrashClient).toHaveBeenCalledWith(
+            'AudioSystem',
+            'Error generating audio',
+            expect.objectContaining({ message: expect.stringContaining('No audio content returned from Google TTS') }),
+            expect.anything()
+        );
+    });
+
+    it('should truncate input text to 4096 characters', async () => {
+        const longText = 'a'.repeat(5000);
+        const message = { id: 'msgLong', text: longText };
+        const speaker = { id: 'char1', voice: 'Kore', voiceProvider: 'gemini' };
+
+        mockFetch.mockResolvedValue({
+            ok: true,
+            json: async () => ({ audioContent: 'data' })
+        });
+
+        await audioSystem.generateAudio(message, speaker, { options: {} }, 123, 'production');
+
+        // Extract the body from the fetch call to verify input length
+        const fetchCall = mockFetch.mock.calls[0];
+        const bodyParsed = JSON.parse(fetchCall[1].body);
+
+        expect(bodyParsed.input.text.length).toBe(4096);
     });
 });
