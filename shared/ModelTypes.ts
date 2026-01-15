@@ -14,6 +14,7 @@ export interface Character {
     name: string;
     voice: VoiceOption;
     voiceProvider?: 'openai' | 'gemini';
+    voiceLocale?: string;
     type?: string;
     prompt?: string;
     voiceInstruction?: string;

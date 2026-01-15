@@ -186,6 +186,30 @@
                       </label>
                     </div>
 
+
+
+                    <label class="sub-label" v-if="character.voiceProvider === 'gemini'">Voice Accent</label>
+                    <div class="voice-selector" style="margin-bottom: 10px;"
+                      v-if="character.voiceProvider === 'gemini'">
+                      <label class="voice-chip" :class="{ active: character.voiceLocale === 'en-US' }">
+                        <input type="radio" value="en-US" v-model="character.voiceLocale" style="display: none;">
+                        🇺🇸
+                      </label>
+                      <label class="voice-chip"
+                        :class="{ active: character.voiceLocale === 'en-GB' || (!character.voiceLocale) }">
+                        <input type="radio" value="en-GB" v-model="character.voiceLocale" style="display: none;">
+                        🇬🇧
+                      </label>
+                      <label class="voice-chip" :class="{ active: character.voiceLocale === 'en-AU' }">
+                        <input type="radio" value="en-AU" v-model="character.voiceLocale" style="display: none;">
+                        🇦🇺
+                      </label>
+                      <label class="voice-chip" :class="{ active: character.voiceLocale === 'en-IN' }">
+                        <input type="radio" value="en-IN" v-model="character.voiceLocale" style="display: none;">
+                        🇮🇳
+                      </label>
+                    </div>
+
                     <label class="sub-label">Voice Option</label>
                     <div class="voice-selector">
                       <template v-if="character.voiceProvider === 'gemini'">

@@ -171,4 +171,27 @@ describe('AudioSystem Gemini Integration', () => {
         // Internal methods called twice
         expect(mockGetClient).toHaveBeenCalledTimes(2);
     });
+
+    it('should prioritize character voiceLocale over global language', async () => {
+        const message = { id: 'msg4', text: 'Hello Mate', sentences: ['Hello Mate'] };
+        const speaker = { id: 'char1', voice: 'Kore', voiceProvider: 'gemini', voiceLocale: 'en-AU' }; // Aussie override
+        const context = {
+            options: { geminiVoiceModel: 'gemini-flash', audio_speed: 1 },
+            language: 'en' // Default is en-GB
+        };
+
+        mockFetch.mockResolvedValue({
+            ok: true,
+            json: async () => ({ audioContent: 'data' }),
+        });
+
+        await audioSystem.generateAudio(message, speaker, context, 123, 'production');
+
+        expect(mockFetch).toHaveBeenCalledWith(
+            expect.any(String),
+            expect.objectContaining({
+                body: expect.stringContaining('"languageCode":"en-AU"')
+            })
+        );
+    });
 });

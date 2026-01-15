@@ -552,6 +552,7 @@ createApp({
       // Add at the BOTTOM (End) and maintain Inactive state
       this.currentLanguageData.characters.push({
         voiceProvider: 'openai',
+        voiceLocale: 'en-GB',
         voice: this.audioVoices[voiceIndex],
         voiceInstruction: "",
         _ui_id: newId,

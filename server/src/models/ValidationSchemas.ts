@@ -22,6 +22,7 @@ const CharacterSchema: z.ZodType<Character> = z.object({
     type: z.string().optional(),
     voice: z.union([VoiceOptionSchema, VoiceOptionGeminiSchema]),
     voiceProvider: z.enum(['openai', 'gemini']).optional().default('openai'),
+    voiceLocale: z.string().optional(),
     prompt: z.string().optional(),
     voiceInstruction: z.string().optional(),
 });

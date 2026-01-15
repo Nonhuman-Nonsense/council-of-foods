@@ -49,7 +49,7 @@ describe('AudioSystem', () => {
         const meetingId = 123;
         const environment = 'production';
 
-        await audioSystem.generateAudio(message, speaker, options, meetingId, environment);
+        await audioSystem.generateAudio(message, speaker, { options }, meetingId, environment);
 
         expect(mockOpenAI.audio.speech.create).toHaveBeenCalled();
         expect(mockBroadcaster.broadcastAudioUpdate).toHaveBeenCalledWith(expect.objectContaining({
@@ -63,7 +63,7 @@ describe('AudioSystem', () => {
         const speaker = { id: 'char1', voice: 'alloy' };
         const options = { skipAudio: true };
 
-        await audioSystem.generateAudio(message, speaker, options, 123, 'production');
+        await audioSystem.generateAudio(message, speaker, { options }, 123, 'production');
 
         expect(mockOpenAI.audio.speech.create).not.toHaveBeenCalled();
         expect(mockBroadcaster.broadcastAudioUpdate).not.toHaveBeenCalled();
@@ -73,7 +73,7 @@ describe('AudioSystem', () => {
         const message = { id: 'msg1', type: 'skipped', text: '' };
         const options = {};
 
-        await audioSystem.generateAudio(message, {}, options, 123, 'production');
+        await audioSystem.generateAudio(message, {}, { options }, 123, 'production');
 
         expect(mockBroadcaster.broadcastAudioUpdate).toHaveBeenCalledWith({
             id: 'msg1',
@@ -88,7 +88,7 @@ describe('AudioSystem', () => {
         const meetingId = 123;
         const environment = 'production';
 
-        await audioSystem.generateAudio(message, speaker, options, meetingId, environment);
+        await audioSystem.generateAudio(message, speaker, { options }, meetingId, environment);
 
         expect(mockOpenAI.audio.speech.create).toHaveBeenCalledWith(expect.objectContaining({
             instructions: 'Speak like a pirate'
@@ -111,7 +111,7 @@ describe('AudioSystem', () => {
                 arrayBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(8))
             });
 
-        await audioSystem.generateAudio(message, speaker, options, meetingId, environment);
+        await audioSystem.generateAudio(message, speaker, { options }, meetingId, environment);
 
         expect(createMock).toHaveBeenCalledTimes(2); // Initial + 1 retry
         expect(mockBroadcaster.broadcastAudioUpdate).toHaveBeenCalledWith(expect.objectContaining({

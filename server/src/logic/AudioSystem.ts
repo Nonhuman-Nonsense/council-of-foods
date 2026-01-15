@@ -3,7 +3,7 @@ import type { Meeting, Audio } from "@models/DBModels.js";
 import type { OpenAI } from "openai";
 import type { Collection } from "mongodb";
 import type { VoiceOption } from "@shared/ModelTypes.js";
-import { withOpenAIRetry } from "@services/OpenAIService.js";
+import { withNetworkRetry } from "@utils/NetworkUtils.js";
 
 import { Logger } from "@utils/Logger.js";
 import { mapSentencesToWords, Word } from "@utils/textUtils.js";
@@ -80,6 +80,7 @@ export interface Speaker {
     id: string;
     voice: VoiceOption;
     voiceProvider?: 'openai' | 'gemini';
+    voiceLocale?: string;
     name?: string;
     voiceInstruction?: string;
 }
@@ -200,7 +201,8 @@ export class AudioSystem {
                     // Use configured model (defaulting to Flash via global-options) or user preference
                     const geminiModel = effectiveOptions.geminiVoiceModel;
                     const voiceName = speaker.voice;
-                    const googleLangCode = getGoogleLanguageCode(effectiveOptions.language);
+                    // Prioritize speaker-specific locale, fallback to conversation language -> default
+                    const googleLangCode = speaker.voiceLocale || getGoogleLanguageCode(effectiveOptions.language);
 
                     // --- Service Account Auth Strategy ---
                     // Helper method handles caching of the auth client
@@ -221,14 +223,14 @@ export class AudioSystem {
                         }
                     };
 
-                    const response = await fetch(url, {
+                    const response = await withNetworkRetry(() => fetch(url, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
                             'Authorization': `Bearer ${token}`
                         },
                         body: JSON.stringify(body)
-                    });
+                    }), "AudioSystemGemini");
 
                     if (!response.ok) {
                         const errText = await response.text();
@@ -245,7 +247,7 @@ export class AudioSystem {
                 } else {
                     // Default to OpenAI
                     const openai = this.services.getOpenAI();
-                    const mp3 = await withOpenAIRetry(() => openai.audio.speech.create({
+                    const mp3 = await withNetworkRetry(() => openai.audio.speech.create({
                         model: effectiveOptions.voiceModel,
                         voice: speaker.voice as any, // Cast to any or OpenAI compatible type since we unioned them
                         speed: effectiveOptions.audio_speed,
@@ -300,12 +302,12 @@ export class AudioSystem {
     async getSentenceTimings(buffer: Buffer, message: Message): Promise<any[]> {
         const openai = this.services.getOpenAI();
         const audioFile = new File([new Uint8Array(buffer)], "speech.mp3", { type: "audio/mpeg" });
-        const transcription = await withOpenAIRetry(() => openai.audio.transcriptions.create({
+        const transcription = await withNetworkRetry(() => openai.audio.transcriptions.create({
             file: audioFile,
             model: "whisper-1",
             response_format: "verbose_json",
             timestamp_granularities: ["word"]
-        }));
+        }), "AudioSystemWhisper");
         return mapSentencesToWords(message.sentences, (transcription.words || []) as Word[]);
     }
 }
