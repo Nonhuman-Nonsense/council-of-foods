@@ -182,12 +182,12 @@ describe('AudioSystem Gemini Integration', () => {
         expect(mockGetClient).toHaveBeenCalledTimes(2);
     });
 
-    it('should prioritize character voiceLocale over global language', async () => {
+    it('should prioritize character voiceLocale over global language IF language is en', async () => {
         const message = { id: 'msg4', text: 'Hello Mate', sentences: ['Hello Mate'] };
         const speaker = { id: 'char1', voice: 'Kore', voiceProvider: 'gemini', voiceLocale: 'en-AU' }; // Aussie override
         const context = {
             options: { geminiVoiceModel: 'gemini-flash', audio_speed: 1 },
-            language: 'en' // Default is en-GB
+            language: 'en'
         };
 
         mockFetch.mockResolvedValue({
@@ -201,6 +201,30 @@ describe('AudioSystem Gemini Integration', () => {
             expect.any(String),
             expect.objectContaining({
                 body: expect.stringContaining('"languageCode":"en-AU"')
+            })
+        );
+    });
+
+    it('should IGNORE character voiceLocale if global language is not en', async () => {
+        const message = { id: 'msg5', text: 'Hej', sentences: ['Hej'] };
+        const speaker = { id: 'char1', voice: 'Kore', voiceProvider: 'gemini', voiceLocale: 'en-AU' }; // Stray persisted setting
+        const context = {
+            options: { geminiVoiceModel: 'gemini-flash', audio_speed: 1 },
+            language: 'sv' // Swedish
+        };
+
+        mockFetch.mockResolvedValue({
+            ok: true,
+            json: async () => ({ audioContent: 'data' }),
+        });
+
+        await audioSystem.generateAudio(message, speaker, context, 123, 'production');
+
+        // Should be sv-SE (default for sv), NOT en-AU
+        expect(mockFetch).toHaveBeenCalledWith(
+            expect.any(String),
+            expect.objectContaining({
+                body: expect.stringContaining('"languageCode":"sv-SE"')
             })
         );
     });

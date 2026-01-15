@@ -201,8 +201,11 @@ export class AudioSystem {
                     // Use configured model (defaulting to Flash via global-options) or user preference
                     const geminiModel = effectiveOptions.geminiVoiceModel;
                     const voiceName = speaker.voice;
-                    // Prioritize speaker-specific locale, fallback to conversation language -> default
-                    const googleLangCode = speaker.voiceLocale || getGoogleLanguageCode(effectiveOptions.language);
+                    // Prioritize speaker-specific locale ONLY if language is English
+                    let googleLangCode = getGoogleLanguageCode(effectiveOptions.language);
+                    if (effectiveOptions.language === 'en' && speaker.voiceLocale) {
+                        googleLangCode = speaker.voiceLocale;
+                    }
 
                     // --- Service Account Auth Strategy ---
                     // Helper method handles caching of the auth client
