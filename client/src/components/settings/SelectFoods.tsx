@@ -36,6 +36,8 @@ export interface Food extends Partial<Character> {
   type?: 'panelist' | 'food' | 'chair' | string;
   index?: number;
   voice: VoiceOption;
+  voiceProvider?: 'openai' | 'gemini';
+  voiceLocale?: string;
   size?: number;
   voiceInstruction?: string;
 }
