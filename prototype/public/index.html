@@ -393,6 +393,11 @@
                 </svg>
               </button>
 
+              <!-- Loading Spinner -->
+              <div class="spinner"
+                v-if="!options.skipAudio && turn.type !== 'skipped' && (!audioController || !audioController.hasItem(index))">
+              </div>
+
               <div class="bubble-header">{{ turn.speaker }}</div>
 
               <div v-if="localOptions.showTrimmed && turn.pretrimmed" class="trimmed"
