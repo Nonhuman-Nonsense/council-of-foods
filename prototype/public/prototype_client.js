@@ -670,6 +670,8 @@ createApp({
           id: rest.id || (rest.name ? rest.name.toLowerCase().replace(/\s+/g, '') : 'unknown'),
           name: rest.name,
           voice: rest.voice,
+          voiceProvider: rest.voiceProvider || 'openai',
+          voiceLocale: rest.voiceLocale,
           size: rest.size,
           voiceInstruction: rest.voiceInstruction || "",
           description: rest.description || "",
