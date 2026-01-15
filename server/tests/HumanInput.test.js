@@ -71,7 +71,7 @@ describe('HumanInputHandler (Isolated)', () => {
             expect(mockContext.audioSystem.queueAudioGeneration).toHaveBeenCalledWith(
                 addedMsg,
                 expect.objectContaining({ id: 'chair' }), // Chair is char 0
-                mockContext.conversationOptions.options,
+                { options: mockContext.conversationOptions.options },
                 "test_meeting",
                 "test"
             );
