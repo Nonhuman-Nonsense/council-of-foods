@@ -3,10 +3,17 @@ import type { Meeting, Audio } from "@models/DBModels.js";
 import type { OpenAI } from "openai";
 import type { Collection } from "mongodb";
 import type { VoiceOption } from "@shared/ModelTypes.js";
-import { withOpenAIRetry } from "@services/OpenAIService.js";
+import { withNetworkRetry } from "@utils/NetworkUtils.js";
 
 import { Logger } from "@utils/Logger.js";
 import { mapSentencesToWords, Word } from "@utils/textUtils.js";
+import { GoogleAuth } from 'google-auth-library';
+import { GOOGLE_LANGUAGE_MAP } from "@shared/AvailableLanguages.js";
+
+function getGoogleLanguageCode(appLang?: string): string {
+    if (!appLang) return 'en-GB';
+    return GOOGLE_LANGUAGE_MAP[appLang] || 'en-GB';
+}
 
 // OpenAI SDK accepts Buffer/Stream for 'file'.
 // Using File object for compatibility.
@@ -72,6 +79,8 @@ export interface Services {
 export interface Speaker {
     id: string;
     voice: VoiceOption;
+    voiceProvider?: 'openai' | 'gemini';
+    voiceLocale?: string;
     name?: string;
     voiceInstruction?: string;
 }
@@ -83,11 +92,22 @@ export interface Message {
     sentences: string[];
 }
 
+// Redefine AudioSystemOptions to include language directly, merging concepts.
 export interface AudioSystemOptions {
     voiceModel: string;
+    geminiVoiceModel: string;
     audio_speed: number;
+    language?: string;
     skipAudio?: boolean;
     skipMatchingSubtitles?: boolean;
+}
+
+/**
+ * Helper interface to match the structure of ConversationOptions for easier passing.
+ */
+export interface AudioContext {
+    options: AudioSystemOptions;
+    language?: string;
 }
 
 /**
@@ -104,6 +124,7 @@ export class AudioSystem {
     broadcaster: IMeetingBroadcaster;
     services: Services;
     queue: AudioQueue;
+    private googleAuthClient: GoogleAuth | null = null;
 
     constructor(broadcaster: IMeetingBroadcaster, services: Services, concurrency: number = 3) {
         this.broadcaster = broadcaster;
@@ -111,16 +132,43 @@ export class AudioSystem {
         this.queue = new AudioQueue(concurrency);
     }
 
-    queueAudioGeneration(message: Message, speaker: Speaker, options: AudioSystemOptions, meetingId: number, environment: string): void {
-        this.queue.add(() => this.generateAudio(message, speaker, options, meetingId, environment));
+    /**
+     * Lazily initializes and caches the GoogleAuth client.
+     * Reuses the client to leverage built-in token caching.
+     */
+    private async getGoogleAuthToken(): Promise<string> {
+        if (!this.googleAuthClient) {
+            try {
+                // Use standard Google Application Default Credentials (ADC) strategy
+                // This automatically picks up specific env vars like GOOGLE_APPLICATION_CREDENTIALS
+                this.googleAuthClient = new GoogleAuth({
+                    scopes: ['https://www.googleapis.com/auth/cloud-platform']
+                });
+            } catch (e) {
+                Logger.error("AudioSystem", "Failed to load Google credentials", e);
+                throw e;
+            }
+        }
+
+        const client = await this.googleAuthClient.getClient();
+        const accessToken = await client.getAccessToken();
+        return accessToken.token || '';
+    }
+
+    queueAudioGeneration(message: Message, speaker: Speaker, context: AudioContext, meetingId: number, environment: string): void {
+        this.queue.add(() => this.generateAudio(message, speaker, context, meetingId, environment));
     }
 
     /**
      * Generates or retrieves audio for a given message.
      * Emits 'audio_update' to the socket client.
      */
-    async generateAudio(message: Message, speaker: Speaker, options: AudioSystemOptions, meetingId: number, environment: string, skipMatching: boolean = false): Promise<void> {
-        if (options.skipAudio) return;
+    async generateAudio(message: Message, speaker: Speaker, context: AudioContext, meetingId: number, environment: string, skipMatching: boolean = false): Promise<void> {
+        const { options } = context;
+        // Merge context language into options for consistent usage internally
+        const effectiveOptions: AudioSystemOptions = { ...options, language: context.language || options.language };
+
+        if (effectiveOptions.skipAudio) return;
 
         if (message.type === "skipped") {
             this.broadcaster.broadcastAudioUpdate({ id: message.id, type: "skipped" });
@@ -148,21 +196,80 @@ export class AudioSystem {
         }
 
         try {
-            const openai = this.services.getOpenAI();
             if (generateNew || !buffer) {
-                const mp3 = await withOpenAIRetry(() => openai.audio.speech.create({
-                    model: options.voiceModel,
-                    voice: speaker.voice,
-                    speed: options.audio_speed,
-                    input: message.text.substring(0, 4096),
-                    instructions: speaker.voiceInstruction
-                }));
-                buffer = Buffer.from(await mp3.arrayBuffer());
-                generateNew = true; // Ensure we save it if we regenerated it because buffer was missing
+                if (speaker.voiceProvider === 'gemini') {
+                    // Use configured model (defaulting to Flash via global-options) or user preference
+                    const geminiModel = effectiveOptions.geminiVoiceModel;
+                    const voiceName = speaker.voice;
+                    // Prioritize speaker-specific locale, fallback to conversation language -> default
+                    const googleLangCode = speaker.voiceLocale || getGoogleLanguageCode(effectiveOptions.language);
+
+                    // --- Service Account Auth Strategy ---
+                    // Helper method handles caching of the auth client
+                    const token = await this.getGoogleAuthToken();
+
+                    const url = `https://texttospeech.googleapis.com/v1/text:synthesize`; // No key param needed with Bearer token
+
+                    // Construct Input Payload
+                    const input: { text: string; prompt?: string } = {
+                        text: message.text.substring(0, 4096)
+                    };
+
+                    if (speaker.voiceInstruction) {
+                        input.prompt = speaker.voiceInstruction;
+                    }
+
+                    const body = {
+                        input,
+                        voice: {
+                            languageCode: googleLangCode,
+                            name: voiceName,
+                            model_name: geminiModel
+                        },
+                        audioConfig: {
+                            audioEncoding: "OGG_OPUS",
+                            speakingRate: effectiveOptions.audio_speed
+                        }
+                    };
+
+                    const response = await withNetworkRetry(() => fetch(url, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify(body)
+                    }), "AudioSystemGemini");
+
+                    if (!response.ok) {
+                        const errText = await response.text();
+                        throw new Error(`Google TTS API Error: ${response.status} ${errText}`);
+                    }
+
+                    const data = await response.json();
+                    if (data.audioContent) {
+                        buffer = Buffer.from(data.audioContent, 'base64');
+                        generateNew = true;
+                    } else {
+                        throw new Error("No audio content returned from Google TTS");
+                    }
+                } else {
+                    // Default to OpenAI
+                    const openai = this.services.getOpenAI();
+                    const mp3 = await withNetworkRetry(() => openai.audio.speech.create({
+                        model: effectiveOptions.voiceModel,
+                        voice: speaker.voice as any, // Cast to any or OpenAI compatible type since we unioned them
+                        speed: effectiveOptions.audio_speed,
+                        input: message.text.substring(0, 4096),
+                        instructions: speaker.voiceInstruction
+                    }));
+                    buffer = Buffer.from(await mp3.arrayBuffer());
+                    generateNew = true;
+                }
             }
 
-            const shouldSkipMatching = skipMatching || options.skipMatchingSubtitles || environment === 'prototype';
-            const sentencesWithTimings = shouldSkipMatching ? [] : await this.getSentenceTimings(buffer, message);
+            const shouldSkipMatching = skipMatching || effectiveOptions.skipMatchingSubtitles || environment === 'prototype';
+            const sentencesWithTimings = shouldSkipMatching ? [] : await this.getSentenceTimings(buffer!, message);
 
             const audioObject = {
                 id: message.id,
@@ -196,13 +303,6 @@ export class AudioSystem {
 
         } catch (error: unknown) {
 
-            // Disabling this for now, not sure if it is safe
-            // Suppress "interrupted at shutdown" errors often seen during tests
-            // const err = error as { code?: number, message?: string }; // Safer cast
-            // if (err.code === 11600 || (err.message && err.message.includes('interrupted at shutdown'))) {
-            //     return;
-            // }
-
             //Crash the client and report
             Logger.reportAndCrashClient("AudioSystem", "Error generating audio", error, this.broadcaster);
         }
@@ -211,12 +311,12 @@ export class AudioSystem {
     async getSentenceTimings(buffer: Buffer, message: Message): Promise<any[]> {
         const openai = this.services.getOpenAI();
         const audioFile = new File([new Uint8Array(buffer)], "speech.mp3", { type: "audio/mpeg" });
-        const transcription = await withOpenAIRetry(() => openai.audio.transcriptions.create({
+        const transcription = await withNetworkRetry(() => openai.audio.transcriptions.create({
             file: audioFile,
             model: "whisper-1",
             response_format: "verbose_json",
             timestamp_granularities: ["word"]
-        }));
+        }), "AudioSystemWhisper");
         return mapSentencesToWords(message.sentences, (transcription.words || []) as Word[]);
     }
 }

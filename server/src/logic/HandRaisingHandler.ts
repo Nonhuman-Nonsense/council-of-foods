@@ -88,7 +88,7 @@ export class HandRaisingHandler {
                 manager.audioSystem.queueAudioGeneration(
                     { ...message, id: message.id as string, text: message.text as string, sentences: message.sentences! },
                     manager.conversationOptions.characters[0],
-                    manager.conversationOptions.options,
+                    manager.conversationOptions,
                     manager.meetingId as number,
                     manager.environment
                 );

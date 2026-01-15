@@ -7,6 +7,7 @@ import { z } from "zod";
 export const GlobalOptionsSchema = z.object({
     gptModel: z.string(),
     voiceModel: z.string(),
+    geminiVoiceModel: z.string(),
     temperature: z.number(),
     maxTokens: z.number(),
     chairMaxTokens: z.number(),
