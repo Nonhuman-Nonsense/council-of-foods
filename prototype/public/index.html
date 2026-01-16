@@ -69,9 +69,8 @@
       <div id="split-view-container" class="split-view">
 
         <!-- LEFT PANE: Prompts -->
-        <div class="split-pane pane-editor" :style="{ width: localOptions.editorWidthPercent + '%' }"
-          v-if="currentTopic">
-          <div class="sidebar-header" style="justify-content: space-between;">
+        <div class="split-pane pane-editor" :style="{ width: localOptions.editorWidthPercent + '%' }">
+          <div class="sidebar-header" style="justify-content: space-between;" v-if="currentTopic">
             <div style="display: flex; align-items: center; gap: 10px;">
               <button class="icon-btn" @click="toggleSidebar('left')" v-if="!localOptions.leftSidebarOpen"
                 title="Open Sidebar">
@@ -88,80 +87,83 @@
             </div>
           </div>
           <div class="pane-scroll-area">
+            <div>
 
-            <!-- Topic Meta -->
-            <!-- System & Topic Configuration -->
-            <div class="character-card">
-              <div class="card-header" @click="localOptions.configCardExpanded = !localOptions.configCardExpanded">
-                <div style="font-weight: bold;">System & Topic Config</div>
-                <button class="icon-btn" style="font-size: 12px;">
-                  {{ localOptions.configCardExpanded ? '▼' : '▶' }}
-                </button>
+              <!-- Topic Meta -->
+              <!-- System & Topic Configuration -->
+              <div class="character-card" v-if="currentTopic">
+                <div class="card-header" @click="localOptions.configCardExpanded = !localOptions.configCardExpanded">
+                  <div style="font-weight: bold;">System & Topic Config</div>
+                  <button class="icon-btn" style="font-size: 12px;">
+                    {{ localOptions.configCardExpanded ? '▼' : '▶' }}
+                  </button>
+                </div>
+
+                <div class="card-body" v-if="localOptions.configCardExpanded">
+                  <label class="sub-label">Topic Name</label>
+                  <input type="text" class="input-full" v-model="currentTopic.name" placeholder="Topic Name"
+                    style="margin-bottom: 15px;">
+
+                  <label class="sub-label">Topic Description</label>
+                  <textarea class="input-area" v-model="currentTopic.description"
+                    placeholder="Description of the topic..." v-auto-resize
+                    style="min-height: 60px; margin-bottom: 15px; resize: none; overflow-y: hidden;"></textarea>
+
+
+                  <label class="sub-label">Topic Prompt</label>
+                  <textarea class="input-area" v-model="currentTopic.prompt" placeholder="Describe the topic..."
+                    v-auto-resize></textarea>
+
+                  <label class="sub-label">System Prompt (Shared)</label>
+                  <textarea class="input-area" v-model="currentSystemPrompt" placeholder="System prompt..."
+                    v-auto-resize></textarea>
+                  <small style="color: var(--text-secondary); display: block; margin-top: 5px;">[TOPIC] will be replaced
+                    by the topic above.</small>
+                </div>
               </div>
 
-              <div class="card-body" v-if="localOptions.configCardExpanded">
-                <label class="sub-label">Topic Name</label>
-                <input type="text" class="input-full" v-model="currentTopic.name" placeholder="Topic Name"
-                  style="margin-bottom: 15px;">
-
-                <label class="sub-label">Topic Description</label>
-                <textarea class="input-area" v-model="currentTopic.description"
-                  placeholder="Description of the topic..." v-auto-resize
-                  style="min-height: 60px; margin-bottom: 15px; resize: none; overflow-y: hidden;"></textarea>
-
-
-                <label class="sub-label">Topic Prompt</label>
-                <textarea class="input-area" v-model="currentTopic.prompt" placeholder="Describe the topic..."
-                  v-auto-resize></textarea>
-
-                <label class="sub-label">System Prompt (Shared)</label>
-                <textarea class="input-area" v-model="currentSystemPrompt" placeholder="System prompt..."
-                  v-auto-resize></textarea>
-                <small style="color: var(--text-secondary); display: block; margin-top: 5px;">[TOPIC] will be replaced
-                  by the topic above.</small>
-              </div>
-            </div>
-
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-              <h3>Characters</h3>
-              <div>
-                <button class="icon-btn" @click="addCharacter">+</button>
-                <button class="icon-btn" @click="removeCharacter">-</button>
-              </div>
-            </div>
-
-            <!-- Character List -->
-            <div id="characters-container">
-
-              <!-- Active Characters (Sortable) -->
-              <div id="active-characters-list" class="character-list">
-                <character-card v-for="(character, index) in activeCharacters" :key="character._ui_id"
-                  :character="character" :is-active="true"
-                  :is-expanded="localOptions.expandedCharacters[character._ui_id]"
-                  :voice-lists="{ openai: audioVoices, gemini: audioVoicesGemini, inworld: audioVoicesInworld }"
-                  :is-sorting="isResizing" :is-pinned="isCharacterPinned(character)"
-                  @toggle-expanded="toggleCharacterExpanded(character._ui_id)"
-                  @toggle-active="toggleCharacterActive(character)" :data-id="character._ui_id"
-                  :class="{ pinned: isCharacterPinned(character) }">
-                </character-card>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;"
+                v-if="currentTopic">
+                <h3>Characters</h3>
+                <div>
+                  <button class="icon-btn" @click="addCharacter">+</button>
+                  <button class="icon-btn" @click="removeCharacter">-</button>
+                </div>
               </div>
 
-              <!-- Inactive Characters (Static) -->
-              <div id="inactive-characters-list">
-                <character-card v-for="(character, index) in inactiveCharacters" :key="character._ui_id"
-                  :character="character" :is-active="false"
-                  :is-expanded="localOptions.expandedCharacters[character._ui_id]"
-                  :voice-lists="{ openai: audioVoices, gemini: audioVoicesGemini, inworld: audioVoicesInworld }"
-                  :is-sorting="false" :is-pinned="isCharacterPinned(character)"
-                  @toggle-expanded="toggleCharacterExpanded(character._ui_id)"
-                  @toggle-active="toggleCharacterActive(character)">
-                </character-card>
-              </div>
+              <!-- Character List -->
+              <div id="characters-container">
 
-            </div>
+                <!-- Active Characters (Sortable) -->
+                <div id="active-characters-list" class="character-list">
+                  <character-card v-for="(character, index) in activeCharacters" :key="character._ui_id"
+                    :character="character" :is-active="true"
+                    :is-expanded="localOptions.expandedCharacters[character._ui_id]"
+                    :voice-lists="{ openai: audioVoices, gemini: audioVoicesGemini, inworld: audioVoicesInworld }"
+                    :is-sorting="isResizing" :is-pinned="isCharacterPinned(character)"
+                    @toggle-expanded="toggleCharacterExpanded(character._ui_id)"
+                    @toggle-active="toggleCharacterActive(character)" :data-id="character._ui_id"
+                    :class="{ pinned: isCharacterPinned(character) }">
+                  </character-card>
+                </div>
 
-          </div>
-        </div>
+                <!-- Inactive Characters (Static) -->
+                <div id="inactive-characters-list">
+                  <character-card v-for="(character, index) in inactiveCharacters" :key="character._ui_id"
+                    :character="character" :is-active="false"
+                    :is-expanded="localOptions.expandedCharacters[character._ui_id]"
+                    :voice-lists="{ openai: audioVoices, gemini: audioVoicesGemini, inworld: audioVoicesInworld }"
+                    :is-sorting="false" :is-pinned="isCharacterPinned(character)"
+                    @toggle-expanded="toggleCharacterExpanded(character._ui_id)"
+                    @toggle-active="toggleCharacterActive(character)">
+                  </character-card>
+                </div>
+
+              </div> <!-- Close characters-container -->
+
+            </div> <!-- Close inner v-if div -->
+          </div> <!-- Close .pane-scroll-area -->
+        </div> <!-- Close .split-pane -->
 
         <!-- RESIZER -->
         <div class="resizer" @mousedown="startResize"></div>

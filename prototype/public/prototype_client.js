@@ -163,6 +163,24 @@ createApp({
     });
   },
 
+  beforeUpdate() {
+    // Global Scroll Guard (Left Pane)
+    // Vue's patching process can sometimes cause layout shifts that reset scroll
+    // We capture the position right before the patch is applied.
+    const el = document.querySelector('.pane-scroll-area');
+    if (el) {
+      this._leftPaneScrollTop = el.scrollTop;
+    }
+  },
+  updated() {
+    // Restore scroll position immediately after DOM patch
+    if (this._leftPaneScrollTop !== undefined) {
+      const el = document.querySelector('.pane-scroll-area');
+      if (el) {
+        el.scrollTop = this._leftPaneScrollTop;
+      }
+    }
+  },
   mounted() {
     this.audioController = new AudioController();
     this.audioController.setLogCallback(this.log);
@@ -977,8 +995,33 @@ createApp({
     scrollToBottom() {
       this.$nextTick(() => {
         const container = document.getElementById("conversation-container");
-        if (container) container.scrollTop = container.scrollHeight;
+        if (!container) return;
+
+        // Smart Scroll: only auto-scroll if we are already near the bottom (or if it's the very start)
+        const threshold = 100; // pixels from bottom
+        const distanceToBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+
+        // If distance is small (user is at bottom), OR if we just started (scrollHeight is small?)
+        // We assume that if a new message arrived, distanceToBottom includes that new message's height.
+        // So we should be lenient. If user is way up (> 300px), don't scroll.
+        if (distanceToBottom < 300) {
+          container.scrollTop = container.scrollHeight;
+        }
       });
+    },
+
+
+
+    save() {
+      // Always sanitize before saving to ensure consistency
+      this.sanitizeData();
+
+      const data = {
+        options: this.options,
+        localOptions: this.localOptions,
+        language: this.languageData
+      };
+      localStorage.setItem("PromptsAndOptions", JSON.stringify(data));
     },
 
     toTitleCase(str) {
