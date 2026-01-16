@@ -42,7 +42,27 @@ const defaultLocalOptions = {
   isInjectionDrawerOpen: false
 };
 
+
+const CharacterCard = {
+  template: '#character-card-template',
+  props: ['character', 'isActive', 'isExpanded', 'voiceLists', 'isSorting', 'isPinned'],
+  emits: ['toggle-active', 'toggle-expanded'],
+  methods: {
+    onProviderChange() {
+      const char = this.character;
+      if (char.voiceProvider === 'gemini') {
+        char.voice = this.voiceLists.gemini[0];
+      } else if (char.voiceProvider === 'inworld') {
+        char.voice = this.voiceLists.inworld[0];
+      } else {
+        char.voice = this.voiceLists.openai[0];
+      }
+    }
+  }
+};
+
 createApp({
+  components: { CharacterCard },
   data() {
     return {
       socket: null,
