@@ -24,6 +24,8 @@ const defaultOptions = {
 
   // Hardcoded
   voiceModel: "gpt-4o-mini-tts",
+  geminiVoiceModel: "gemini-2.5-flash-tts",
+  inworldVoiceModel: "inworld-tts-1",
   skipMatchingSubtitles: true
 };
 
@@ -46,7 +48,6 @@ createApp({
       socket: null,
 
       // UI State
-      // UI State
       status: 'IDLE', // IDLE, CONNECTING, ACTIVE, PAUSED, ENDED, ERROR
       injectionStatus: '',
       endMessage: '',
@@ -67,6 +68,11 @@ createApp({
         "Achernar", "Achird", "Algenib", "Algieba", "Alnilam", "Aoede", "Autonoe", "Callirrhoe", "Charon", "Despina",
         "Enceladus", "Erinome", "Fenrir", "Gacrux", "Iapetus", "Kore", "Laomedeia", "Leda", "Orus", "Pulcherrima",
         "Puck", "Rasalgethi", "Sadachbia", "Sadaltager", "Schedar", "Sulafat", "Umbriel", "Vindemiatrix", "Zephyr", "Zubenelgenubi"
+      ],
+      audioVoicesInworld: [
+        "Alex", "Ashley", "Blake", "Carter", "Clive", "Craig", "Deborah", "Dennis", "Dominus", "Edward",
+        "Elizabeth", "Hades", "Hana", "Julia", "Luna", "Mark", "Olivia", "Pixie", "Priya", "Ronald",
+        "Sarah", "Shaun", "Theodore", "Timothy", "Wendy"
       ],
       sortableInstance: null,
       isResizing: false,
@@ -217,6 +223,8 @@ createApp({
       // Reset voice to first available when provider switches
       if (char.voiceProvider === 'gemini') {
         char.voice = this.audioVoicesGemini[0];
+      } else if (char.voiceProvider === 'inworld') {
+        char.voice = this.audioVoicesInworld[0];
       } else {
         char.voice = this.audioVoices[0];
       }

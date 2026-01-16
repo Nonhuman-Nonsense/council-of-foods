@@ -184,11 +184,17 @@
                           @change="updateVoice(character)">
                         Gemini
                       </label>
+                      <label class="voice-chip" :class="{ active: character.voiceProvider === 'inworld' }">
+                        <input type="radio" value="inworld" v-model="character.voiceProvider" style="display: none;"
+                          @change="updateVoice(character)">
+                        Inworld
+                      </label>
                     </div>
 
 
 
-                    <label class="sub-label" v-if="character.voiceProvider === 'gemini' && options.language === 'en'">Voice Accent</label>
+                    <label class="sub-label"
+                      v-if="character.voiceProvider === 'gemini' && options.language === 'en'">Voice Accent</label>
                     <div class="voice-selector" style="margin-bottom: 10px;"
                       v-if="character.voiceProvider === 'gemini' && options.language === 'en'">
                       <label class="voice-chip" :class="{ active: character.voiceLocale === 'en-US' }">
@@ -220,6 +226,14 @@
                           </label>
                         </template>
                       </template>
+                      <template v-else-if="character.voiceProvider === 'inworld'">
+                        <template v-for="voiceName in audioVoicesInworld" :key="voiceName">
+                          <label class="voice-chip" :class="{ active: character.voice === voiceName }">
+                            <input type="radio" :value="voiceName" v-model="character.voice" style="display: none;">
+                            {{ voiceName }}
+                          </label>
+                        </template>
+                      </template>
                       <template v-else>
                         <template v-for="voiceName in audioVoices" :key="voiceName">
                           <label class="voice-chip" :class="{ active: character.voice === voiceName }">
@@ -230,10 +244,19 @@
                       </template>
                     </div>
 
-                    <label class="sub-label">Voice Instruction</label>
-                    <textarea class="input-area" placeholder="e.g. 'Excited'" v-model="character.voiceInstruction"
-                      v-auto-resize rows="1"
-                      style="margin-top: 5px; min-height: 36px; height: 36px; padding: 8px;"></textarea>
+                    <template v-if="character.voiceProvider === 'inworld'">
+                      <label class="sub-label">Custom Voice ID</label>
+                      <input type="text" class="input-full" placeholder="Enter Inworld Voice ID..."
+                        :value="audioVoicesInworld.includes(character.voice) ? '' : character.voice"
+                        @input="character.voice = $event.target.value"
+                        style="margin-top: 5px; height: 36px; padding: 8px;">
+                    </template>
+                    <template v-else>
+                      <label class="sub-label">Voice Instruction</label>
+                      <textarea class="input-area" placeholder="e.g. 'Excited'" v-model="character.voiceInstruction"
+                        v-auto-resize rows="1"
+                        style="margin-top: 5px; min-height: 36px; height: 36px; padding: 8px;"></textarea>
+                    </template>
                   </div>
                 </div>
               </div>
@@ -283,12 +306,25 @@
                           @change="updateVoice(character)">
                         Gemini
                       </label>
+                      <label class="voice-chip" :class="{ active: character.voiceProvider === 'inworld' }">
+                        <input type="radio" value="inworld" v-model="character.voiceProvider" style="display: none;"
+                          @change="updateVoice(character)">
+                        Inworld
+                      </label>
                     </div>
 
                     <label class="sub-label">Voice Option</label>
                     <div class="voice-selector">
                       <template v-if="character.voiceProvider === 'gemini'">
                         <template v-for="voiceName in audioVoicesGemini" :key="voiceName">
+                          <label class="voice-chip" :class="{ active: character.voice === voiceName }">
+                            <input type="radio" :value="voiceName" v-model="character.voice" style="display: none;">
+                            {{ voiceName }}
+                          </label>
+                        </template>
+                      </template>
+                      <template v-else-if="character.voiceProvider === 'inworld'">
+                        <template v-for="voiceName in audioVoicesInworld" :key="voiceName">
                           <label class="voice-chip" :class="{ active: character.voice === voiceName }">
                             <input type="radio" :value="voiceName" v-model="character.voice" style="display: none;">
                             {{ voiceName }}
@@ -305,10 +341,19 @@
                       </template>
                     </div>
 
-                    <label class="sub-label">Voice Instruction</label>
-                    <textarea class="input-area" placeholder="e.g. 'Excited'" v-model="character.voiceInstruction"
-                      v-auto-resize rows="1"
-                      style="margin-top: 5px; min-height: 36px; height: 36px; padding: 8px;"></textarea>
+                    <template v-if="character.voiceProvider === 'inworld'">
+                      <label class="sub-label">Custom Voice ID</label>
+                      <input type="text" class="input-full" placeholder="Enter Inworld Voice ID..."
+                        :value="audioVoicesInworld.includes(character.voice) ? '' : character.voice"
+                        @input="character.voice = $event.target.value"
+                        style="margin-top: 5px; height: 36px; padding: 8px;">
+                    </template>
+                    <template v-else>
+                      <label class="sub-label">Voice Instruction</label>
+                      <textarea class="input-area" placeholder="e.g. 'Excited'" v-model="character.voiceInstruction"
+                        v-auto-resize rows="1"
+                        style="margin-top: 5px; min-height: 36px; height: 36px; padding: 8px;"></textarea>
+                    </template>
                   </div>
                 </div>
               </div>
@@ -509,7 +554,7 @@
         <hr>
         <div class="section-group">
           <label>Audio Speed: {{ options.audio_speed }}</label>
-          <input type="range" min="0.5" max="2.0" step="0.01" v-model.number="options.audio_speed">
+          <input type="range" min="0.5" max="1.5" step="0.01" v-model.number="options.audio_speed">
         </div>
         <div class="section-group">
           <label style="display: flex; align-items: center; gap: 5px;">

@@ -78,8 +78,8 @@ export interface Services {
 
 export interface Speaker {
     id: string;
-    voice: VoiceOption;
-    voiceProvider?: 'openai' | 'gemini';
+    voice: VoiceOption | string;
+    voiceProvider?: 'openai' | 'gemini' | 'inworld';
     voiceLocale?: string;
     name?: string;
     voiceInstruction?: string;
@@ -96,6 +96,7 @@ export interface Message {
 export interface AudioSystemOptions {
     voiceModel: string;
     geminiVoiceModel: string;
+    inworldVoiceModel: string;
     audio_speed: number;
     language?: string;
     skipAudio?: boolean;
@@ -256,6 +257,9 @@ export class AudioSystem {
                     } else {
                         throw new Error("No audio content returned from Google TTS");
                     }
+                } else if (speaker.voiceProvider === 'inworld') {
+                    buffer = await this.generateInworldAudio(message.text, speaker, effectiveOptions);
+                    generateNew = true;
                 } else {
                     // Default to OpenAI
                     const openai = this.services.getOpenAI();
@@ -308,6 +312,42 @@ export class AudioSystem {
 
             //Crash the client and report
             Logger.reportAndCrashClient("AudioSystem", "Error generating audio", error, this.broadcaster);
+        }
+    }
+
+    private async generateInworldAudio(text: string, speaker: Speaker, options: AudioSystemOptions): Promise<Buffer> {
+        const apiKey = process.env.INWORLD_API_KEY;
+
+        const url = 'https://api.inworld.ai/tts/v1/voice';
+
+        const response = await withNetworkRetry(() => fetch(url, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Basic ${apiKey}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                text: text,
+                voice_id: speaker.voice,
+                model_id: options.inworldVoiceModel,
+                audio_config: {
+                    audio_encoding: "OGG_OPUS",
+                    speaking_rate: options.audio_speed
+                },
+                // Phase 1: We do NOT ask for timestampType: "WORD" yet, as we rely on Whisper
+            })
+        }), "AudioSystemInworld");
+
+        if (!response.ok) {
+            const errText = await response.text();
+            throw new Error(`Inworld TTS API Error: ${response.status} ${errText}`);
+        }
+
+        const data: any = await response.json();
+        if (data.audioContent) {
+            return Buffer.from(data.audioContent, 'base64');
+        } else {
+            throw new Error("No audio content returned from Inworld TTS");
         }
     }
 

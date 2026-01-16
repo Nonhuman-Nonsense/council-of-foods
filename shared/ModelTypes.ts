@@ -7,13 +7,19 @@ export const AVAILABLE_VOICES_GEMINI = [
     "Puck", "Rasalgethi", "Sadachbia", "Sadaltager", "Schedar", "Sulafat", "Umbriel", "Vindemiatrix", "Zephyr", "Zubenelgenubi"
 ] as const;
 
-export type VoiceOption = typeof AVAILABLE_VOICES[number] | typeof AVAILABLE_VOICES_GEMINI[number];
+export const AVAILABLE_VOICES_INWORLD = [
+    "Alex", "Ashley", "Blake", "Carter", "Clive", "Craig", "Deborah", "Dennis", "Dominus", "Edward",
+    "Elizabeth", "Hades", "Hana", "Julia", "Luna", "Mark", "Olivia", "Pixie", "Priya", "Ronald",
+    "Sarah", "Shaun", "Theodore", "Timothy", "Wendy"
+] as const;
+
+export type VoiceOption = typeof AVAILABLE_VOICES[number] | typeof AVAILABLE_VOICES_GEMINI[number] | typeof AVAILABLE_VOICES_INWORLD[number];
 
 export interface Character {
     id: string;
     name: string;
-    voice: VoiceOption;
-    voiceProvider?: 'openai' | 'gemini';
+    voice: VoiceOption | string;
+    voiceProvider?: 'openai' | 'gemini' | 'inworld';
     voiceLocale?: string;
     type?: string;
     prompt?: string;
