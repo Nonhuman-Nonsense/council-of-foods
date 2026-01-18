@@ -11,7 +11,8 @@ export const EnvSchema = z.object({
     COUNCIL_ERRORBOT: z.string().optional(),
     TEST_MODE: z.enum(TEST_MODES).optional(),
     USE_TEST_OPTIONS: z.enum(["true", "false"]).transform((val) => val === "true").optional(),
-    GOOGLE_APPLICATION_CREDENTIALS: z.string().min(1)
+    GOOGLE_APPLICATION_CREDENTIALS: z.string().min(1),
+    INWORLD_API_KEY: z.string().min(1)
 });
 
 export type EnvConfig = z.infer<typeof EnvSchema>;

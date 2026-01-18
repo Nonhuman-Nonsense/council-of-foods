@@ -69,9 +69,8 @@
       <div id="split-view-container" class="split-view">
 
         <!-- LEFT PANE: Prompts -->
-        <div class="split-pane pane-editor" :style="{ width: localOptions.editorWidthPercent + '%' }"
-          v-if="currentTopic">
-          <div class="sidebar-header" style="justify-content: space-between;">
+        <div class="split-pane pane-editor" :style="{ width: localOptions.editorWidthPercent + '%' }">
+          <div class="sidebar-header" style="justify-content: space-between;" v-if="currentTopic">
             <div style="display: flex; align-items: center; gap: 10px;">
               <button class="icon-btn" @click="toggleSidebar('left')" v-if="!localOptions.leftSidebarOpen"
                 title="Open Sidebar">
@@ -88,235 +87,83 @@
             </div>
           </div>
           <div class="pane-scroll-area">
+            <div>
 
-            <!-- Topic Meta -->
-            <!-- System & Topic Configuration -->
-            <div class="character-card">
-              <div class="card-header" @click="localOptions.configCardExpanded = !localOptions.configCardExpanded">
-                <div style="font-weight: bold;">System & Topic Config</div>
-                <button class="icon-btn" style="font-size: 12px;">
-                  {{ localOptions.configCardExpanded ? '▼' : '▶' }}
-                </button>
-              </div>
+              <!-- Topic Meta -->
+              <!-- System & Topic Configuration -->
+              <div class="character-card" v-if="currentTopic">
+                <div class="card-header" @click="localOptions.configCardExpanded = !localOptions.configCardExpanded">
+                  <div style="font-weight: bold;">System & Topic Config</div>
+                  <button class="icon-btn" style="font-size: 12px;">
+                    {{ localOptions.configCardExpanded ? '▼' : '▶' }}
+                  </button>
+                </div>
 
-              <div class="card-body" v-if="localOptions.configCardExpanded">
-                <label class="sub-label">Topic Name</label>
-                <input type="text" class="input-full" v-model="currentTopic.name" placeholder="Topic Name"
-                  style="margin-bottom: 15px;">
+                <div class="card-body" v-if="localOptions.configCardExpanded">
+                  <label class="sub-label">Topic Name</label>
+                  <input type="text" class="input-full" v-model="currentTopic.name" placeholder="Topic Name"
+                    style="margin-bottom: 15px;">
 
-                <label class="sub-label">Topic Description</label>
-                <textarea class="input-area" v-model="currentTopic.description"
-                  placeholder="Description of the topic..." v-auto-resize
-                  style="min-height: 60px; margin-bottom: 15px; resize: none; overflow-y: hidden;"></textarea>
-
-
-                <label class="sub-label">Topic Prompt</label>
-                <textarea class="input-area" v-model="currentTopic.prompt" placeholder="Describe the topic..."
-                  v-auto-resize></textarea>
-
-                <label class="sub-label">System Prompt (Shared)</label>
-                <textarea class="input-area" v-model="currentSystemPrompt" placeholder="System prompt..."
-                  v-auto-resize></textarea>
-                <small style="color: var(--text-secondary); display: block; margin-top: 5px;">[TOPIC] will be replaced
-                  by the topic above.</small>
-              </div>
-            </div>
-
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-              <h3>Characters</h3>
-              <div>
-                <button class="icon-btn" @click="addCharacter">+</button>
-                <button class="icon-btn" @click="removeCharacter">-</button>
-              </div>
-            </div>
-
-            <!-- Character List -->
-            <div id="characters-container">
-
-              <!-- Active Characters (Sortable) -->
-              <div id="active-characters-list">
-                <div class="character-card" v-for="(character, index) in activeCharacters" :key="character._ui_id"
-                  :class="{ pinned: isCharacterPinned(character) }">
-
-                  <!-- Card Header -->
-                  <div class="card-header" @click="toggleCharacterExpanded(character._ui_id)">
-                    <div style="display: flex; align-items: center; gap: 10px; flex: 1;">
-                      <input type="checkbox" :checked="true" :disabled="isCharacterPinned(character)"
-                        @change="toggleCharacterActive(character)" @click.stop
-                        style="width: 16px; height: 16px; accent-color: var(--accent-color);">
-
-                      <span
-                        :style="{ fontWeight: '600', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }">
-                        {{ character.name || 'Unnamed Character' }}
-                        <span v-if="isCharacterPinned(character)" class="badge">Chair</span>
-                      </span>
-                    </div>
-                    <div style="display: flex; align-items: center; gap: 5px;">
-                      <span v-if="!isCharacterPinned(character)" class="drag-handle" @click.stop
-                        style="cursor: grab; padding: 0 5px; opacity: 0.5;">☰</span>
-                    </div>
-                  </div>
-
-                  <!-- Card Body -->
-                  <div class="card-body" v-if="localOptions.expandedCharacters[character._ui_id]">
-                    <label class="sub-label">Name</label>
-                    <input type="text" class="input-full" placeholder="Character Name" v-model="character.name"
-                      style="margin-bottom: 15px;">
-
-                    <label class="sub-label">Character Description</label>
-                    <textarea class="input-area" placeholder="Character description..." v-model="character.description"
-                      v-auto-resize></textarea>
-
-                    <label class="sub-label">Character Prompt</label>
-                    <textarea class="input-area" placeholder="Character prompt..." v-model="character.prompt"
-                      v-auto-resize></textarea>
-
-                    <label class="sub-label">Voice Provider</label>
-                    <div class="voice-selector" style="margin-bottom: 10px;">
-                      <label class="voice-chip"
-                        :class="{ active: character.voiceProvider === 'openai' || !character.voiceProvider }">
-                        <input type="radio" value="openai" v-model="character.voiceProvider" style="display: none;"
-                          @change="updateVoice(character)">
-                        OpenAI
-                      </label>
-                      <label class="voice-chip" :class="{ active: character.voiceProvider === 'gemini' }">
-                        <input type="radio" value="gemini" v-model="character.voiceProvider" style="display: none;"
-                          @change="updateVoice(character)">
-                        Gemini
-                      </label>
-                    </div>
+                  <label class="sub-label">Topic Description</label>
+                  <textarea class="input-area" v-model="currentTopic.description"
+                    placeholder="Description of the topic..." v-auto-resize
+                    style="min-height: 60px; margin-bottom: 15px; resize: none; overflow-y: hidden;"></textarea>
 
 
+                  <label class="sub-label">Topic Prompt</label>
+                  <textarea class="input-area" v-model="currentTopic.prompt" placeholder="Describe the topic..."
+                    v-auto-resize></textarea>
 
-                    <label class="sub-label" v-if="character.voiceProvider === 'gemini' && options.language === 'en'">Voice Accent</label>
-                    <div class="voice-selector" style="margin-bottom: 10px;"
-                      v-if="character.voiceProvider === 'gemini' && options.language === 'en'">
-                      <label class="voice-chip" :class="{ active: character.voiceLocale === 'en-US' }">
-                        <input type="radio" value="en-US" v-model="character.voiceLocale" style="display: none;">
-                        🇺🇸
-                      </label>
-                      <label class="voice-chip"
-                        :class="{ active: character.voiceLocale === 'en-GB' || (!character.voiceLocale) }">
-                        <input type="radio" value="en-GB" v-model="character.voiceLocale" style="display: none;">
-                        🇬🇧
-                      </label>
-                      <label class="voice-chip" :class="{ active: character.voiceLocale === 'en-AU' }">
-                        <input type="radio" value="en-AU" v-model="character.voiceLocale" style="display: none;">
-                        🇦🇺
-                      </label>
-                      <label class="voice-chip" :class="{ active: character.voiceLocale === 'en-IN' }">
-                        <input type="radio" value="en-IN" v-model="character.voiceLocale" style="display: none;">
-                        🇮🇳
-                      </label>
-                    </div>
-
-                    <label class="sub-label">Voice Option</label>
-                    <div class="voice-selector">
-                      <template v-if="character.voiceProvider === 'gemini'">
-                        <template v-for="voiceName in audioVoicesGemini" :key="voiceName">
-                          <label class="voice-chip" :class="{ active: character.voice === voiceName }">
-                            <input type="radio" :value="voiceName" v-model="character.voice" style="display: none;">
-                            {{ voiceName }}
-                          </label>
-                        </template>
-                      </template>
-                      <template v-else>
-                        <template v-for="voiceName in audioVoices" :key="voiceName">
-                          <label class="voice-chip" :class="{ active: character.voice === voiceName }">
-                            <input type="radio" :value="voiceName" v-model="character.voice" style="display: none;">
-                            {{ voiceName }}
-                          </label>
-                        </template>
-                      </template>
-                    </div>
-
-                    <label class="sub-label">Voice Instruction</label>
-                    <textarea class="input-area" placeholder="e.g. 'Excited'" v-model="character.voiceInstruction"
-                      v-auto-resize rows="1"
-                      style="margin-top: 5px; min-height: 36px; height: 36px; padding: 8px;"></textarea>
-                  </div>
+                  <label class="sub-label">System Prompt (Shared)</label>
+                  <textarea class="input-area" v-model="currentSystemPrompt" placeholder="System prompt..."
+                    v-auto-resize></textarea>
+                  <small style="color: var(--text-secondary); display: block; margin-top: 5px;">[TOPIC] will be replaced
+                    by the topic above.</small>
                 </div>
               </div>
 
-              <!-- Inactive Characters (Static) -->
-              <div id="inactive-characters-list">
-                <div class="character-card inactive" v-for="(character, index) in inactiveCharacters"
-                  :key="character._ui_id">
-
-                  <!-- Card Header -->
-                  <div class="card-header" @click="toggleCharacterExpanded(character._ui_id)">
-                    <div style="display: flex; align-items: center; gap: 10px; flex: 1;">
-                      <input type="checkbox" :checked="false" @change="toggleCharacterActive(character)" @click.stop
-                        style="width: 16px; height: 16px; accent-color: var(--accent-color);">
-
-                      <span :style="{ fontWeight: '600', color: 'var(--text-secondary)' }">
-                        {{ character.name || 'Unnamed Character' }}
-                      </span>
-                    </div>
-                    <!-- No Drag Handle -->
-                  </div>
-
-                  <!-- Card Body -->
-                  <div class="card-body" v-if="localOptions.expandedCharacters[character._ui_id]">
-                    <label class="sub-label">Name</label>
-                    <input type="text" class="input-full" placeholder="Character Name" v-model="character.name"
-                      style="margin-bottom: 15px;">
-
-                    <label class="sub-label">Character Description</label>
-                    <textarea class="input-area" placeholder="Character description..." v-model="character.description"
-                      v-auto-resize></textarea>
-
-                    <label class="sub-label">Character Prompt</label>
-                    <textarea class="input-area" placeholder="Character prompt..." v-model="character.prompt"
-                      v-auto-resize></textarea>
-
-                    <label class="sub-label">Voice Provider</label>
-                    <div class="voice-selector" style="margin-bottom: 10px;">
-                      <label class="voice-chip"
-                        :class="{ active: character.voiceProvider === 'openai' || !character.voiceProvider }">
-                        <input type="radio" value="openai" v-model="character.voiceProvider" style="display: none;"
-                          @change="updateVoice(character)">
-                        OpenAI
-                      </label>
-                      <label class="voice-chip" :class="{ active: character.voiceProvider === 'gemini' }">
-                        <input type="radio" value="gemini" v-model="character.voiceProvider" style="display: none;"
-                          @change="updateVoice(character)">
-                        Gemini
-                      </label>
-                    </div>
-
-                    <label class="sub-label">Voice Option</label>
-                    <div class="voice-selector">
-                      <template v-if="character.voiceProvider === 'gemini'">
-                        <template v-for="voiceName in audioVoicesGemini" :key="voiceName">
-                          <label class="voice-chip" :class="{ active: character.voice === voiceName }">
-                            <input type="radio" :value="voiceName" v-model="character.voice" style="display: none;">
-                            {{ voiceName }}
-                          </label>
-                        </template>
-                      </template>
-                      <template v-else>
-                        <template v-for="voiceName in audioVoices" :key="voiceName">
-                          <label class="voice-chip" :class="{ active: character.voice === voiceName }">
-                            <input type="radio" :value="voiceName" v-model="character.voice" style="display: none;">
-                            {{ voiceName }}
-                          </label>
-                        </template>
-                      </template>
-                    </div>
-
-                    <label class="sub-label">Voice Instruction</label>
-                    <textarea class="input-area" placeholder="e.g. 'Excited'" v-model="character.voiceInstruction"
-                      v-auto-resize rows="1"
-                      style="margin-top: 5px; min-height: 36px; height: 36px; padding: 8px;"></textarea>
-                  </div>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;"
+                v-if="currentTopic">
+                <h3>Characters</h3>
+                <div>
+                  <button class="icon-btn" @click="addCharacter">+</button>
+                  <button class="icon-btn" @click="removeCharacter">-</button>
                 </div>
               </div>
 
-            </div>
+              <!-- Character List -->
+              <div id="characters-container">
 
-          </div>
-        </div>
+                <!-- Active Characters (Sortable) -->
+                <div id="active-characters-list" class="character-list">
+                  <character-card v-for="(character, index) in activeCharacters" :key="character._ui_id"
+                    :character="character" :is-active="true"
+                    :is-expanded="localOptions.expandedCharacters[character._ui_id]"
+                    :voice-lists="{ openai: audioVoices, gemini: audioVoicesGemini, inworld: audioVoicesInworld }"
+                    :is-sorting="isResizing" :is-pinned="isCharacterPinned(character)"
+                    @toggle-expanded="toggleCharacterExpanded(character._ui_id)"
+                    @toggle-active="toggleCharacterActive(character)" :data-id="character._ui_id"
+                    :class="{ pinned: isCharacterPinned(character) }">
+                  </character-card>
+                </div>
+
+                <!-- Inactive Characters (Static) -->
+                <div id="inactive-characters-list">
+                  <character-card v-for="(character, index) in inactiveCharacters" :key="character._ui_id"
+                    :character="character" :is-active="false"
+                    :is-expanded="localOptions.expandedCharacters[character._ui_id]"
+                    :voice-lists="{ openai: audioVoices, gemini: audioVoicesGemini, inworld: audioVoicesInworld }"
+                    :is-sorting="false" :is-pinned="isCharacterPinned(character)"
+                    @toggle-expanded="toggleCharacterExpanded(character._ui_id)"
+                    @toggle-active="toggleCharacterActive(character)">
+                  </character-card>
+                </div>
+
+              </div> <!-- Close characters-container -->
+
+            </div> <!-- Close inner v-if div -->
+          </div> <!-- Close .pane-scroll-area -->
+        </div> <!-- Close .split-pane -->
 
         <!-- RESIZER -->
         <div class="resizer" @mousedown="startResize"></div>
@@ -509,7 +356,7 @@
         <hr>
         <div class="section-group">
           <label>Audio Speed: {{ options.audio_speed }}</label>
-          <input type="range" min="0.5" max="2.0" step="0.01" v-model.number="options.audio_speed">
+          <input type="range" min="0.5" max="1.5" step="0.01" v-model.number="options.audio_speed">
         </div>
         <div class="section-group">
           <label style="display: flex; align-items: center; gap: 5px;">
@@ -559,6 +406,116 @@
     </aside>
 
   </div>
+
+  <!-- COMPONENT TEMPLATE -->
+  <template id="character-card-template">
+    <div class="character-card" :class="{ inactive: !isActive }">
+      <!-- Card Header -->
+      <div class="card-header" @click="$emit('toggle-expanded')">
+        <div style="display: flex; align-items: center; gap: 10px; flex: 1;">
+          <input type="checkbox" :checked="isActive" :disabled="isPinned" @change="$emit('toggle-active')" @click.stop
+            style="width: 16px; height: 16px; accent-color: var(--accent-color);">
+          <span
+            :style="{ fontWeight: '600', color: isActive ? 'var(--text-color)' : 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '8px' }">
+            {{ character.name || 'Unnamed Character' }}
+            <span v-if="isPinned" class="badge">Chair</span>
+          </span>
+        </div>
+        <div class="drag-handle" v-if="isActive && !isSorting && !isPinned" style="cursor: grab;">☰</div>
+      </div>
+
+      <!-- Card Body -->
+      <div class="card-body" v-if="isExpanded">
+        <label class="sub-label">Name</label>
+        <input type="text" class="input-full" placeholder="Character Name" v-model="character.name"
+          style="margin-bottom: 15px;">
+
+        <label class="sub-label">Character Description</label>
+        <textarea class="input-area" placeholder="Character description..." v-model="character.description"
+          v-auto-resize></textarea>
+
+        <label class="sub-label">Character Prompt</label>
+        <textarea class="input-area" placeholder="Character prompt..." v-model="character.prompt"
+          v-auto-resize></textarea>
+
+        <label class="sub-label">Voice Provider</label>
+        <div class="voice-selector" style="margin-bottom: 10px;">
+          <label class="voice-chip"
+            :class="{ active: character.voiceProvider === 'openai' || !character.voiceProvider }">
+            <input type="radio" value="openai" v-model="character.voiceProvider" style="display: none;"
+              @change="onProviderChange">
+            OpenAI
+          </label>
+          <label class="voice-chip" :class="{ active: character.voiceProvider === 'gemini' }">
+            <input type="radio" value="gemini" v-model="character.voiceProvider" style="display: none;"
+              @change="onProviderChange">
+            Gemini
+          </label>
+          <label class="voice-chip" :class="{ active: character.voiceProvider === 'inworld' }">
+            <input type="radio" value="inworld" v-model="character.voiceProvider" style="display: none;"
+              @change="onProviderChange">
+            Inworld
+          </label>
+        </div>
+
+        <label class="sub-label" v-if="character.voiceProvider === 'gemini'">Voice Accent</label>
+        <div class="voice-selector" style="margin-bottom: 10px;" v-if="character.voiceProvider === 'gemini'">
+          <label class="voice-chip" :class="{ active: character.voiceLocale === 'en-US' }">
+            <input type="radio" value="en-US" v-model="character.voiceLocale" style="display: none;"> 🇺🇸
+          </label>
+          <label class="voice-chip" :class="{ active: character.voiceLocale === 'en-GB' || (!character.voiceLocale) }">
+            <input type="radio" value="en-GB" v-model="character.voiceLocale" style="display: none;"> 🇬🇧
+          </label>
+          <label class="voice-chip" :class="{ active: character.voiceLocale === 'en-AU' }">
+            <input type="radio" value="en-AU" v-model="character.voiceLocale" style="display: none;"> 🇦🇺
+          </label>
+          <label class="voice-chip" :class="{ active: character.voiceLocale === 'en-IN' }">
+            <input type="radio" value="en-IN" v-model="character.voiceLocale" style="display: none;"> 🇮🇳
+          </label>
+        </div>
+
+        <label class="sub-label">Voice Option</label>
+        <div class="voice-selector">
+          <template v-if="character.voiceProvider === 'gemini'">
+            <template v-for="voiceName in voiceLists.gemini" :key="voiceName">
+              <label class="voice-chip" :class="{ active: character.voice === voiceName }">
+                <input type="radio" :value="voiceName" v-model="character.voice" style="display: none;">
+                {{ voiceName }}
+              </label>
+            </template>
+          </template>
+          <template v-else-if="character.voiceProvider === 'inworld'">
+            <template v-for="voiceName in voiceLists.inworld" :key="voiceName">
+              <label class="voice-chip" :class="{ active: character.voice === voiceName }">
+                <input type="radio" :value="voiceName" v-model="character.voice" style="display: none;">
+                {{ voiceName }}
+              </label>
+            </template>
+          </template>
+          <template v-else>
+            <template v-for="voiceName in voiceLists.openai" :key="voiceName">
+              <label class="voice-chip" :class="{ active: character.voice === voiceName }">
+                <input type="radio" :value="voiceName" v-model="character.voice" style="display: none;">
+                {{ voiceName }}
+              </label>
+            </template>
+          </template>
+        </div>
+
+        <template v-if="character.voiceProvider === 'inworld'">
+          <label class="sub-label">Custom Voice ID</label>
+          <input type="text" class="input-full" placeholder="Enter Inworld Voice ID..."
+            :value="voiceLists.inworld.includes(character.voice) ? '' : character.voice"
+            @input="character.voice = $event.target.value" style="margin-top: 5px; height: 36px; padding: 8px;">
+        </template>
+        <template v-else>
+          <label class="sub-label">Voice Instruction</label>
+          <textarea class="input-area" placeholder="e.g. 'Excited'" v-model="character.voiceInstruction" v-auto-resize
+            rows="1" style="margin-top: 5px; min-height: 36px; height: 36px; padding: 8px;"></textarea>
+        </template>
+      </div>
+    </div>
+  </template>
 
   <script src="Sortable.min.js"></script>
   <script src="audio_controller.js"></script>

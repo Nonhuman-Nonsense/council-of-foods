@@ -214,6 +214,7 @@ body {
   /* Reduce right padding since scrollbar-gutter provides space */
   padding-right: 5px;
   scrollbar-gutter: stable;
+  overflow-anchor: none;
 }
 
 /* Resizer Handle */
