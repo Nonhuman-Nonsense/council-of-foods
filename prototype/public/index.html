@@ -503,6 +503,13 @@
         </div>
 
         <template v-if="character.voiceProvider === 'inworld'">
+          <label class="sub-label">Voice Temperature ({{ character.voiceTemperature || 1.0 }})</label>
+          <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+            <input type="range" class="styled-range" min="0.7" max="1.5" step="0.01"
+              :value="character.voiceTemperature || 1.0"
+              @input="character.voiceTemperature = parseFloat($event.target.value)" style="flex: 1;">
+          </div>
+
           <label class="sub-label">Custom Voice ID</label>
           <input type="text" class="input-full" placeholder="Enter Inworld Voice ID..."
             :value="voiceLists.inworld.includes(character.voice) ? '' : character.voice"

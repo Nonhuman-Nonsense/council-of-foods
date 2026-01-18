@@ -720,6 +720,7 @@ createApp({
           voiceLocale: rest.voiceLocale,
           size: rest.size,
           voiceInstruction: rest.voiceInstruction || "",
+          voiceTemperature: rest.voiceTemperature || 1.0,
           description: rest.description || "",
           prompt: rest.prompt || ""
         };
