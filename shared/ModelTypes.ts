@@ -24,6 +24,7 @@ export interface Character {
     type?: string;
     prompt?: string;
     voiceInstruction?: string;
+    voiceTemperature?: number;
 }
 
 export interface ConversationMessage {

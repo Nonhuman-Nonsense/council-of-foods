@@ -83,6 +83,7 @@ export interface Speaker {
     voiceLocale?: string;
     name?: string;
     voiceInstruction?: string;
+    voiceTemperature?: number;
 }
 
 export interface Message {
@@ -330,6 +331,7 @@ export class AudioSystem {
                 text: text,
                 voice_id: speaker.voice,
                 model_id: options.inworldVoiceModel,
+                temperature: speaker.voiceTemperature || 1.0,
                 audio_config: {
                     audio_encoding: "OGG_OPUS",
                     speaking_rate: options.audio_speed
