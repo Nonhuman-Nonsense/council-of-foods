@@ -357,21 +357,6 @@ input[type="checkbox"] {
   background-color: var(--bg-hover);
 }
 
-/* Ensure pinned card header has pointer events for expanding */
-.character-card.pinned .card-header {
-  cursor: pointer;
-  pointer-events: auto;
-}
-
-/* Robustly ensure inputs are always usable */
-.card-body input,
-.card-body textarea {
-  user-select: text !important;
-  -webkit-user-select: text !important;
-  pointer-events: auto !important;
-  cursor: text !important;
-}
-
 .character-card.inactive .input-minimal {
   font-weight: normal;
 }
@@ -615,7 +600,7 @@ input[type="checkbox"] {
   border-left-color: var(--accent-color);
   border-radius: 50%;
   animation: spin 1s linear infinite;
-  
+
   /* Positioning (Matching Download Button) */
   position: absolute;
   top: 4px;
@@ -624,6 +609,11 @@ input[type="checkbox"] {
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
 }
