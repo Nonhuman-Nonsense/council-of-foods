@@ -1,7 +1,6 @@
 {
     "gptModel": "gpt-4o-mini",
     "voiceModel": "gpt-4o-mini-tts",
-    "geminiVoiceModel": "gemini-2.5-flash-tts",
     "maxTokens": 50,
     "chairMaxTokens": 50,
     "audio_speed": 1.25,

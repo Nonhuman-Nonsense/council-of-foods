@@ -24,6 +24,8 @@ const defaultOptions = {
 
   // Hardcoded
   voiceModel: "gpt-4o-mini-tts",
+  geminiVoiceModel: "gemini-2.5-flash-tts",
+  inworldVoiceModel: "inworld-tts-1",
   skipMatchingSubtitles: true
 };
 
@@ -40,12 +42,31 @@ const defaultLocalOptions = {
   isInjectionDrawerOpen: false
 };
 
+
+const CharacterCard = {
+  template: '#character-card-template',
+  props: ['character', 'isActive', 'isExpanded', 'voiceLists', 'isSorting', 'isPinned'],
+  emits: ['toggle-active', 'toggle-expanded'],
+  methods: {
+    onProviderChange() {
+      const char = this.character;
+      if (char.voiceProvider === 'gemini') {
+        char.voice = this.voiceLists.gemini[0];
+      } else if (char.voiceProvider === 'inworld') {
+        char.voice = this.voiceLists.inworld[0];
+      } else {
+        char.voice = this.voiceLists.openai[0];
+      }
+    }
+  }
+};
+
 createApp({
+  components: { CharacterCard },
   data() {
     return {
       socket: null,
 
-      // UI State
       // UI State
       status: 'IDLE', // IDLE, CONNECTING, ACTIVE, PAUSED, ENDED, ERROR
       injectionStatus: '',
@@ -67,6 +88,11 @@ createApp({
         "Achernar", "Achird", "Algenib", "Algieba", "Alnilam", "Aoede", "Autonoe", "Callirrhoe", "Charon", "Despina",
         "Enceladus", "Erinome", "Fenrir", "Gacrux", "Iapetus", "Kore", "Laomedeia", "Leda", "Orus", "Pulcherrima",
         "Puck", "Rasalgethi", "Sadachbia", "Sadaltager", "Schedar", "Sulafat", "Umbriel", "Vindemiatrix", "Zephyr", "Zubenelgenubi"
+      ],
+      audioVoicesInworld: [
+        "Alex", "Ashley", "Blake", "Carter", "Clive", "Craig", "Deborah", "Dennis", "Dominus", "Edward",
+        "Elizabeth", "Hades", "Hana", "Julia", "Luna", "Mark", "Olivia", "Pixie", "Priya", "Ronald",
+        "Sarah", "Shaun", "Theodore", "Timothy", "Wendy"
       ],
       sortableInstance: null,
       isResizing: false,
@@ -137,6 +163,24 @@ createApp({
     });
   },
 
+  beforeUpdate() {
+    // Global Scroll Guard (Left Pane)
+    // Vue's patching process can sometimes cause layout shifts that reset scroll
+    // We capture the position right before the patch is applied.
+    const el = document.querySelector('.pane-scroll-area');
+    if (el) {
+      this._leftPaneScrollTop = el.scrollTop;
+    }
+  },
+  updated() {
+    // Restore scroll position immediately after DOM patch
+    if (this._leftPaneScrollTop !== undefined) {
+      const el = document.querySelector('.pane-scroll-area');
+      if (el) {
+        el.scrollTop = this._leftPaneScrollTop;
+      }
+    }
+  },
   mounted() {
     this.audioController = new AudioController();
     this.audioController.setLogCallback(this.log);
@@ -217,6 +261,8 @@ createApp({
       // Reset voice to first available when provider switches
       if (char.voiceProvider === 'gemini') {
         char.voice = this.audioVoicesGemini[0];
+      } else if (char.voiceProvider === 'inworld') {
+        char.voice = this.audioVoicesInworld[0];
       } else {
         char.voice = this.audioVoices[0];
       }
@@ -949,8 +995,33 @@ createApp({
     scrollToBottom() {
       this.$nextTick(() => {
         const container = document.getElementById("conversation-container");
-        if (container) container.scrollTop = container.scrollHeight;
+        if (!container) return;
+
+        // Smart Scroll: only auto-scroll if we are already near the bottom (or if it's the very start)
+        const threshold = 100; // pixels from bottom
+        const distanceToBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+
+        // If distance is small (user is at bottom), OR if we just started (scrollHeight is small?)
+        // We assume that if a new message arrived, distanceToBottom includes that new message's height.
+        // So we should be lenient. If user is way up (> 300px), don't scroll.
+        if (distanceToBottom < 300) {
+          container.scrollTop = container.scrollHeight;
+        }
       });
+    },
+
+
+
+    save() {
+      // Always sanitize before saving to ensure consistency
+      this.sanitizeData();
+
+      const data = {
+        options: this.options,
+        localOptions: this.localOptions,
+        language: this.languageData
+      };
+      localStorage.setItem("PromptsAndOptions", JSON.stringify(data));
     },
 
     toTitleCase(str) {
