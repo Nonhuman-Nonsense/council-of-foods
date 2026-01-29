@@ -221,9 +221,6 @@ createApp({
     },
 
     isCharacterActive(char) {
-      // Pinned characters are always active
-      if (this.isCharacterPinned(char)) return true;
-
       if (!this.currentTopic) return false;
       const topicId = this.currentTopic.id;
       const topicState = this.localOptions.topicStates[topicId];
@@ -572,6 +569,19 @@ createApp({
       this.currentLanguageData.topics.push(newTopic);
       this.log('SYSTEM', 'Topic Added', newTopic);
 
+      // Initialize state for new topic with Pinned Character (Chair) Active
+      // Logic mirrors factoryReset initialization
+      if (this.currentLanguageData.characters && this.currentLanguageData.characters.length > 0) {
+        const pinnedChar = this.currentLanguageData.characters[0];
+        if (!this.localOptions.topicStates) this.localOptions.topicStates = {};
+
+        this.localOptions.topicStates[newTopic.id] = {
+          activeCharacterIds: {
+            [pinnedChar._ui_id]: true
+          }
+        };
+      }
+
       // Switch to new topic
       this.localOptions.currentTopicIndex = this.currentLanguageData.topics.length - 1;
     },
@@ -645,6 +655,9 @@ createApp({
     },
 
     toggleCharacterActive(char) {
+      // Safety: Cannot toggle pinned characters (they must remain active)
+      if (this.isCharacterPinned(char)) return;
+
       // Toggle functionality inside Active vs Inactive logic
       if (!this.currentTopic) return;
       const topicId = this.currentTopic.id;
