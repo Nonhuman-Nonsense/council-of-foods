@@ -287,16 +287,23 @@ createApp({
         onEnd: (evt) => {
           if (evt.oldIndex === evt.newIndex) return;
 
-          // Because we enforceActiveCharacterSort, active chars are at indices 0..N
-          // So the visual index corresponds exactly to the global array index for this subset.
+          // Fix: Ensure we are reordering relative to the Active list, not just raw global indices.
+          // The visual list represents 'activeCharacters'. We must reflect that reorder in the global list.
 
-          const globalList = this.currentLanguageData.characters;
+          // 1. Get current active characters (which matches visual order BEFORE the drag)
+          const activeRefs = [...this.activeCharacters];
 
-          // Safety: ensure indices are within bounds
-          if (evt.oldIndex >= globalList.length) return;
+          // 2. Apply the move to this active list subset
+          if (evt.oldIndex >= activeRefs.length) return;
+          const [movedItem] = activeRefs.splice(evt.oldIndex, 1);
+          activeRefs.splice(evt.newIndex, 0, movedItem);
 
-          const item = globalList.splice(evt.oldIndex, 1)[0];
-          globalList.splice(evt.newIndex, 0, item);
+          // 3. Get all other (inactive) characters
+          const inactiveRefs = (this.currentLanguageData.characters || []).filter(c => !this.isCharacterActive(c));
+
+          // 4. Reconstruct global list: [Reordered Active] + [Inactive]
+          // This enforces "Active at Top" AND applies the user's sort.
+          this.currentLanguageData.characters = [...activeRefs, ...inactiveRefs];
 
           this.save();
         }
