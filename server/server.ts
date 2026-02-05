@@ -39,7 +39,6 @@ app.get('/health', (_req: Request, res: Response) => { res.sendStatus(200); });
 if (environment === "prototype") {
   // Explicitly serve favicon to avoid 404s
   app.get('/favicon.png', (_req: Request, res: Response) => {
-    Logger.info("server", "Serving favicon.png explicitly");
     res.sendFile(path.join(process.cwd(), "../prototype/public/favicon.png"));
   });
   app.use(express.static(path.join(process.cwd(), "../prototype/", "public")));
