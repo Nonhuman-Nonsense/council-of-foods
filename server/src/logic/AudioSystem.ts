@@ -7,7 +7,8 @@ import {
     generateGeminiAudio,
     generateInworldAudio,
     generateOpenAIAudio,
-    getWhisperWords
+    getWhisperWords,
+    AudioResult
 } from "./audio/TTSProviders.js";
 import {
     AudioQueue,
@@ -110,10 +111,14 @@ export class AudioSystem {
                 Logger.info("AudioSystem", `Message ${message.id} split into ${textChunks.length} chunks for TTS.`);
             }
 
+            let providerWords: (Word[] | undefined)[] = [];
+
             if (generateNew || buffers.length === 0) {
                 Logger.info("AudioSystem", `Generating new audio for message ${message.id} (${speaker.voiceProvider}/${speaker.voice})`);
                 // Generate audio for all chunks in parallel
-                buffers = await Promise.all(textChunks.map(chunk => this.generateProviderAudio(chunk, speaker, effectiveOptions)));
+                const results = await Promise.all(textChunks.map(chunk => this.generateProviderAudio(chunk, speaker, effectiveOptions)));
+                buffers = results.map(r => r.audio);
+                providerWords = results.map(r => r.words);
                 generateNew = true;
             }
 
@@ -123,8 +128,20 @@ export class AudioSystem {
 
             if (!shouldSkipMatching) {
                 // Get timings for all chunks in parallel
-                // Note: getWhisperWords logic is stateless now.
-                const chunkWordsWithTimings = await Promise.all(buffers.map(b => this.getWhisperWordsWrapper(b)));
+                let chunkWordsWithTimings: Word[][] = [];
+
+                // Check if we have native words for all chunks
+                const hasNativeWords = providerWords.length === buffers.length && providerWords.every(w => w !== undefined);
+
+                if (hasNativeWords) {
+                    // Use native timings
+                    chunkWordsWithTimings = providerWords as Word[][];
+                    // Logger.info("AudioSystem", `Using native timings for message ${message.id}`);
+                } else {
+                    // Fallback to Whisper
+                    // Note: getWhisperWords logic is stateless now.
+                    chunkWordsWithTimings = await Promise.all(buffers.map(b => this.getWhisperWordsWrapper(b)));
+                }
 
                 // Calculate durations
                 const durations = await Promise.all(buffers.map(async b => {
@@ -205,7 +222,7 @@ export class AudioSystem {
         }
     }
 
-    private async generateProviderAudio(text: string, speaker: Speaker, options: AudioSystemOptions): Promise<Buffer> {
+    private async generateProviderAudio(text: string, speaker: Speaker, options: AudioSystemOptions): Promise<AudioResult> {
         const baseParams = { text, speaker, options };
 
         if (speaker.voiceProvider === 'gemini') {

@@ -13,7 +13,12 @@ interface GenerateParams {
     services?: { getOpenAI: () => OpenAI }; // For OpenAI
 }
 
-export async function generateGeminiAudio(params: GenerateParams): Promise<Buffer> {
+export interface AudioResult {
+    audio: Buffer;
+    words?: Word[];
+}
+
+export async function generateGeminiAudio(params: GenerateParams): Promise<AudioResult> {
     const { text, speaker, options, auth } = params;
     if (!auth) throw new Error("GoogleAuth required for Gemini TTS");
 
@@ -62,13 +67,13 @@ export async function generateGeminiAudio(params: GenerateParams): Promise<Buffe
 
     const data = await response.json();
     if (data.audioContent) {
-        return Buffer.from(data.audioContent, 'base64');
+        return { audio: Buffer.from(data.audioContent, 'base64') };
     } else {
         throw new Error("No audio content returned from Google TTS");
     }
 }
 
-export async function generateOpenAIAudio(params: GenerateParams): Promise<Buffer> {
+export async function generateOpenAIAudio(params: GenerateParams): Promise<AudioResult> {
     const { text, speaker, options, services } = params;
     if (!services) throw new Error("Services required for OpenAI TTS");
 
@@ -81,10 +86,10 @@ export async function generateOpenAIAudio(params: GenerateParams): Promise<Buffe
         instructions: speaker.voiceInstruction,
         response_format: "opus"
     }));
-    return Buffer.from(await mp3.arrayBuffer());
+    return { audio: Buffer.from(await mp3.arrayBuffer()) };
 }
 
-export async function generateInworldAudio(params: GenerateParams): Promise<Buffer> {
+export async function generateInworldAudio(params: GenerateParams): Promise<AudioResult> {
     const { text, speaker, options } = params;
     const apiKey = process.env.INWORLD_API_KEY;
 
@@ -101,6 +106,7 @@ export async function generateInworldAudio(params: GenerateParams): Promise<Buff
             voice_id: speaker.voice,
             model_id: options.inworldVoiceModel,
             temperature: speaker.voiceTemperature || 1.0,
+            timestampType: "WORD",
             audio_config: {
                 audio_encoding: "OGG_OPUS",
                 speaking_rate: options.audio_speed
@@ -115,7 +121,21 @@ export async function generateInworldAudio(params: GenerateParams): Promise<Buff
 
     const data: any = await response.json();
     if (data.audioContent) {
-        return Buffer.from(data.audioContent, 'base64');
+        const buffer = Buffer.from(data.audioContent, 'base64');
+        let words: Word[] | undefined;
+
+        if (data.timestampInfo?.wordAlignment) {
+            const wa = data.timestampInfo.wordAlignment;
+            if (Array.isArray(wa.words) && Array.isArray(wa.wordStartTimeSeconds) && Array.isArray(wa.wordEndTimeSeconds)) {
+                words = wa.words.map((word: string, i: number) => ({
+                    word: word,
+                    start: wa.wordStartTimeSeconds[i],
+                    end: wa.wordEndTimeSeconds[i]
+                }));
+            }
+        }
+
+        return { audio: buffer, words };
     } else {
         throw new Error("No audio content returned from Inworld TTS");
     }

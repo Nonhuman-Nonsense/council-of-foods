@@ -120,6 +120,55 @@ describe('AudioSystem Inworld Integration', () => {
         expect(openai.audio.transcriptions.create).toHaveBeenCalled();
     });
 
+    it('should use native timings if provided (Phase 2) and bypass Whisper', async () => {
+        const message = { id: 'msg3', text: 'Native Test', sentences: ['Native Test'] };
+        const speaker = { id: 'char1', voice: 'Dennis', voiceProvider: 'inworld' };
+        const context = { options: { audio_speed: 1.0, inworldVoiceModel: 'inworld-tts-1.5' } };
+
+        mockFetch.mockResolvedValue({
+            ok: true,
+            json: async () => ({
+                audioContent: Buffer.from('audio').toString('base64'),
+                timestampInfo: {
+                    wordAlignment: {
+                        words: ['Native', 'Test'],
+                        wordStartTimeSeconds: [0, 0.5],
+                        wordEndTimeSeconds: [0.5, 1.0]
+                    }
+                }
+            }),
+            text: async () => ''
+        });
+
+        const openai = mockServices.getOpenAI();
+        // Clear previous calls (if any from beforeEach/mocks setup, though fresh instance is created)
+        vi.clearAllMocks();
+        // We need to re-setup fetch mock after clearAllMocks
+        mockFetch.mockResolvedValue({
+            ok: true,
+            json: async () => ({
+                audioContent: Buffer.from('audio').toString('base64'),
+                timestampInfo: {
+                    wordAlignment: {
+                        words: ['Native', 'Test'],
+                        wordStartTimeSeconds: [0, 0.5],
+                        wordEndTimeSeconds: [0.5, 1.0]
+                    }
+                }
+            }),
+            text: async () => ''
+        });
+
+        // Need to recreate audioSystem or just assume state is fresh. beforeEach creates new audioSystem.
+        // But vi.clearAllMocks cleared the spy on openai.audio.transcriptions.create too?
+        // mockServices.getOpenAI() returns the SAME mockOpenAI object defined in beforeEach.
+        // vi.clearAllMocks() clears calls on all spies.
+
+        await audioSystem.generateAudio(message, speaker, context, 123, 'production');
+
+        expect(openai.audio.transcriptions.create).not.toHaveBeenCalled();
+    });
+
     it('should report error on non-ok Inworld API response', async () => {
         const message = { id: 'msgErr', text: 'Hello' };
         const speaker = { id: 'char1', voice: 'Dennis', voiceProvider: 'inworld' };
