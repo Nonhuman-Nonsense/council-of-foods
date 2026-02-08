@@ -1,6 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AudioSystem } from '@root/src/logic/AudioSystem.js';
 
+vi.mock('music-metadata', () => ({
+    parseBuffer: vi.fn().mockResolvedValue({
+        format: { duration: 1 }
+    })
+}));
+
 describe('AudioSystem', () => {
     let audioSystem;
     let mockBroadcaster;

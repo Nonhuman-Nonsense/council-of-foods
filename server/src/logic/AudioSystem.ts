@@ -9,6 +9,15 @@ import { Logger } from "@utils/Logger.js";
 import { mapSentencesToWords, Word } from "@utils/textUtils.js";
 import { GoogleAuth } from 'google-auth-library';
 import { GOOGLE_LANGUAGE_MAP } from "@shared/AvailableLanguages.js";
+import { parseBuffer } from 'music-metadata';
+import ffmpeg from 'fluent-ffmpeg';
+import ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
+import { promises as fs } from 'fs';
+import { tmpdir } from 'os';
+import { join } from 'path';
+
+// Set ffmpeg path from installer
+ffmpeg.setFfmpegPath(ffmpegInstaller.path);
 
 function getGoogleLanguageCode(appLang?: string): string {
     if (!appLang) return 'en-GB';
@@ -122,6 +131,72 @@ export interface AudioContext {
  * - Error suppression for test environments (shutdown/ECONNRESET).
  * - Skipping audio generation based on configuration (skipAudio).
  */
+
+/**
+ * Merges multiple audio buffers into a single buffer using FFmpeg.
+ * Uses the concat demuxer for lossless concatenation of audio files.
+ * 
+ * @param buffers - Array of audio buffers to merge (OGG, MP3, etc.)
+ * @returns Single merged audio buffer
+ */
+async function mergeAudioBuffers(buffers: Buffer[]): Promise<Buffer> {
+    if (buffers.length === 0) {
+        throw new Error('Cannot merge empty array of buffers');
+    }
+
+    if (buffers.length === 1) {
+        return buffers[0];
+    }
+
+    const tempDir = tmpdir();
+    const timestamp = Date.now();
+    const randomId = Math.random().toString(36).substring(7);
+    const tempFiles: string[] = [];
+    const listFile = join(tempDir, `ffmpeg-list-${timestamp}-${randomId}.txt`);
+    const outputFile = join(tempDir, `merged-${timestamp}-${randomId}.ogg`);
+
+    try {
+        // Write each buffer to a temporary file
+        for (let i = 0; i < buffers.length; i++) {
+            const tempFile = join(tempDir, `chunk-${timestamp}-${randomId}-${i}.ogg`);
+            await fs.writeFile(tempFile, buffers[i]);
+            tempFiles.push(tempFile);
+        }
+
+        // Create concat list file
+        const listContent = tempFiles.map(f => `file '${f}'`).join('\n');
+        await fs.writeFile(listFile, listContent);
+
+        // Run FFmpeg concat
+        await new Promise<void>((resolve, reject) => {
+            ffmpeg()
+                .input(listFile)
+                .inputOptions(['-f', 'concat', '-safe', '0'])
+                .outputOptions(['-c', 'copy']) // Copy codec without re-encoding
+                .output(outputFile)
+                .on('end', () => resolve())
+                .on('error', (err) => reject(new Error(`FFmpeg error: ${err.message}`)))
+                .run();
+        });
+
+        // Read merged file
+        const mergedBuffer = await fs.readFile(outputFile);
+        return mergedBuffer;
+
+    } finally {
+        // Cleanup temp files
+        const filesToClean = [...tempFiles, listFile, outputFile];
+        await Promise.all(
+            filesToClean.map(f => fs.unlink(f).catch(() => {
+                // Ignore cleanup errors
+            }))
+        );
+    }
+}
+
+// Limit for text-to-speech requests
+const MAX_AUDIO_CHUNK_LENGTH = 2000;
+
 export class AudioSystem {
     broadcaster: IMeetingBroadcaster;
     services: Services;
@@ -133,6 +208,7 @@ export class AudioSystem {
         this.services = services;
         this.queue = new AudioQueue(concurrency);
     }
+
 
     /**
      * Lazily initializes and caches the GoogleAuth client.
@@ -177,113 +253,109 @@ export class AudioSystem {
             return;
         }
 
-        let buffer: Buffer | undefined;
+        let buffers: Buffer[] = [];
         let generateNew = true;
-        try {
-            const existingAudio = await this.services.audioCollection.findOne({ _id: message.id });
-            if (existingAudio) {
-                buffer = existingAudio.buffer?.buffer ? Buffer.from(existingAudio.buffer.buffer) : existingAudio.audio?.buffer ? Buffer.from(existingAudio.audio.buffer) : existingAudio.buffer;
-                // Handling potential bson binary format difference
-                // But for now, let's assume it works as before or cast.
-                // Reverting to robust check:
-                if (!buffer && existingAudio.audio) buffer = existingAudio.audio; // Legacy
-                // Actually, existingAudio.buffer is often Binary type.
 
-                generateNew = false;
+        let existingAudio: any;
+        try {
+            existingAudio = await this.services.audioCollection.findOne({ _id: message.id });
+            if (existingAudio) {
+                let singleBuffer;
+                if (existingAudio.buffer?.buffer) singleBuffer = Buffer.from(existingAudio.buffer.buffer);
+                else if (existingAudio.audio?.buffer) singleBuffer = Buffer.from(existingAudio.audio.buffer);
+                else singleBuffer = existingAudio.buffer || existingAudio.audio;
+
+                if (singleBuffer) {
+                    buffers = [singleBuffer];
+                    generateNew = false;
+                }
             }
         } catch (error: unknown) {
-            //Let's report this to see if it ever happens
-            //But let the client continue
             Logger.error(`AudioSystem`, `Error retrieving existing audio (message id: ${message.id})`, error);
         }
 
         try {
-            if (generateNew || !buffer) {
-                if (speaker.voiceProvider === 'gemini') {
-                    // Use configured model (defaulting to Flash via global-options) or user preference
-                    const geminiModel = effectiveOptions.geminiVoiceModel;
-                    const voiceName = speaker.voice;
-                    // Prioritize speaker-specific locale ONLY if language is English
-                    let googleLangCode = getGoogleLanguageCode(effectiveOptions.language);
-                    if (effectiveOptions.language === 'en' && speaker.voiceLocale) {
-                        googleLangCode = speaker.voiceLocale;
-                    }
+            const limit = MAX_AUDIO_CHUNK_LENGTH;
+            const textChunks = this.splitText(message.text, limit);
 
-                    // --- Service Account Auth Strategy ---
-                    // Helper method handles caching of the auth client
-                    const token = await this.getGoogleAuthToken();
-
-                    const url = `https://texttospeech.googleapis.com/v1/text:synthesize`; // No key param needed with Bearer token
-
-                    // Construct Input Payload
-                    const input: { text: string; prompt?: string } = {
-                        text: message.text.substring(0, 4096)
-                    };
-
-                    if (speaker.voiceInstruction) {
-                        input.prompt = speaker.voiceInstruction;
-                    }
-
-                    const body = {
-                        input,
-                        voice: {
-                            languageCode: googleLangCode,
-                            name: voiceName,
-                            model_name: geminiModel
-                        },
-                        audioConfig: {
-                            audioEncoding: "OGG_OPUS",
-                            speakingRate: effectiveOptions.audio_speed
-                        }
-                    };
-
-                    const response = await withNetworkRetry(() => fetch(url, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${token}`
-                        },
-                        body: JSON.stringify(body)
-                    }), "AudioSystemGemini");
-
-                    if (!response.ok) {
-                        const errText = await response.text();
-                        throw new Error(`Google TTS API Error: ${response.status} ${errText}`);
-                    }
-
-                    const data = await response.json();
-                    if (data.audioContent) {
-                        buffer = Buffer.from(data.audioContent, 'base64');
-                        generateNew = true;
-                    } else {
-                        throw new Error("No audio content returned from Google TTS");
-                    }
-                } else if (speaker.voiceProvider === 'inworld') {
-                    buffer = await this.generateInworldAudio(message.text, speaker, effectiveOptions);
-                    generateNew = true;
-                } else {
-                    // Default to OpenAI
-                    const openai = this.services.getOpenAI();
-                    const mp3 = await withNetworkRetry(() => openai.audio.speech.create({
-                        model: effectiveOptions.voiceModel,
-                        voice: speaker.voice as any, // Cast to any or OpenAI compatible type since we unioned them
-                        speed: effectiveOptions.audio_speed,
-                        input: message.text.substring(0, 4096),
-                        instructions: speaker.voiceInstruction
-                    }));
-                    buffer = Buffer.from(await mp3.arrayBuffer());
-                    generateNew = true;
-                }
+            if (generateNew || buffers.length === 0) {
+                // Generate audio for all chunks in parallel
+                buffers = await Promise.all(textChunks.map(chunk => this.generateProviderAudio(chunk, speaker, effectiveOptions)));
+                generateNew = true;
             }
 
             const shouldSkipMatching = skipMatching || effectiveOptions.skipMatchingSubtitles || environment === 'prototype';
-            const sentencesWithTimings = shouldSkipMatching ? [] : await this.getSentenceTimings(buffer!, message);
 
-            const audioObject = {
+            let sentencesWithTimings: any[] = [];
+
+            if (!shouldSkipMatching) {
+                // Get timings for all chunks in parallel
+                const timingsPromises = buffers.map(buffer => this.getSentenceTimings(buffer, message));
+                // Note: we pass full message just for sentences ref? getSentenceTimings implementation needs review.
+                // Actually getSentenceTimings uses mapSentencesToWords which uses message.sentences.
+                // We need to be careful here. The full message sentences correspond to the full text.
+                // If we run whisper on chunks, we get words for chunks.
+                // We should probably stitch words together then map to sentences?
+                // OR: 
+                // We can run Whisper on each chunk to get words/timings.
+                // We then need to offset these timings.
+                // Finally we have a big list of words with correct absolute timings.
+                // Then we run mapSentencesToWords ONCE with the full list of words and full list of sentences.
+
+                // Revised strategy for timings:
+                // 1. Get Whisper words for each chunk.
+                // 2. Get duration of each chunk to calculate offsets.
+                // 3. Flatten words with offsets.
+                // 4. Map to sentences.
+
+                const chunkWordsWithTimings = await Promise.all(buffers.map(b => this.getWhisperWords(b)));
+
+                // Calculate durations
+                const durations = await Promise.all(buffers.map(async b => {
+                    try {
+                        const metadata = await parseBuffer(b);
+                        return metadata.format.duration || 0;
+                    } catch (e) {
+                        Logger.warn("AudioSystem", `Failed to parse audio duration`, e);
+                        return 0; // Fallback? Or maybe calculate from last word?
+                    }
+                }));
+
+                let currentOffset = 0;
+                let allWords: Word[] = [];
+
+                chunkWordsWithTimings.forEach((words, index) => {
+                    const offsetWords = words.map(w => ({
+                        ...w,
+                        start: w.start + currentOffset,
+                        end: w.end + currentOffset
+                    }));
+                    allWords.push(...offsetWords);
+
+                    // Helper: if duration is 0 (failed parse), use end of last word as heuristic?
+                    const duration = durations[index];
+                    if (duration > 0) {
+                        currentOffset += duration;
+                    } else if (words.length > 0) {
+                        currentOffset = offsetWords[offsetWords.length - 1].end + 0.5; // padding
+                    }
+                });
+
+                sentencesWithTimings = mapSentencesToWords(message.sentences, allWords);
+            } else {
+                sentencesWithTimings = [];
+            }
+
+            // Merge chunks into single buffer using FFmpeg
+            const combinedBuffer = await mergeAudioBuffers(buffers);
+
+            // Construct payload
+            const audioObject: any = {
                 id: message.id,
-                audio: buffer,
+                audio: combinedBuffer,
                 sentences: sentencesWithTimings
             };
+
 
             this.broadcaster.broadcastAudioUpdate(audioObject);
 
@@ -295,7 +367,7 @@ export class AudioSystem {
                         $set: {
                             date: new Date().toISOString(),
                             meeting_id: meetingId,
-                            audio: buffer,
+                            audio: combinedBuffer,
                             sentences: sentencesWithTimings
                         }
                     },
@@ -310,11 +382,129 @@ export class AudioSystem {
             }
 
         } catch (error: unknown) {
-
             //Crash the client and report
             Logger.reportAndCrashClient("AudioSystem", "Error generating audio", error, this.broadcaster);
         }
     }
+
+    private splitText(text: string, limit: number): string[] {
+        if (text.length <= limit) return [text];
+
+        const chunks: string[] = [];
+        let currentText = text;
+
+        while (currentText.length > limit) {
+            let splitIndex = -1;
+
+            // Try splitting by double newline (paragraph)
+            // Look for last \n\n within limit
+            const doubleNewlineIndex = currentText.lastIndexOf('\n\n', limit);
+            if (doubleNewlineIndex !== -1) {
+                splitIndex = doubleNewlineIndex;
+            } else {
+                // Try single newline
+                const newlineIndex = currentText.lastIndexOf('\n', limit);
+                if (newlineIndex !== -1) {
+                    splitIndex = newlineIndex;
+                } else {
+                    // Try sentence (period space)
+                    const sentenceIndex = currentText.lastIndexOf('. ', limit);
+                    if (sentenceIndex !== -1) {
+                        splitIndex = sentenceIndex + 1; // Include period
+                    } else {
+                        // Hard split
+                        splitIndex = limit;
+                    }
+                }
+            }
+
+            chunks.push(currentText.substring(0, splitIndex).trim());
+            currentText = currentText.substring(splitIndex).trim();
+        }
+
+        if (currentText.length > 0) {
+            chunks.push(currentText);
+        }
+
+        return chunks;
+    }
+
+    private async generateProviderAudio(text: string, speaker: Speaker, options: AudioSystemOptions): Promise<Buffer> {
+        if (speaker.voiceProvider === 'gemini') {
+            // ... Gemini logic ...
+            // Extract Gemini logic from original generateAudio to here or helper
+            // For brevity, refactoring logic:
+            return this.generateGeminiAudio(text, speaker, options);
+        } else if (speaker.voiceProvider === 'inworld') {
+            return this.generateInworldAudio(text, speaker, options);
+        } else {
+            // OpenAI
+            return this.generateOpenAIAudio(text, speaker, options);
+        }
+    }
+
+    // Refactored helpers for providers
+    private async generateGeminiAudio(text: string, speaker: Speaker, options: AudioSystemOptions): Promise<Buffer> {
+        const geminiModel = options.geminiVoiceModel;
+        const voiceName = speaker.voice;
+        let googleLangCode = getGoogleLanguageCode(options.language);
+        if (options.language === 'en' && speaker.voiceLocale) {
+            googleLangCode = speaker.voiceLocale;
+        }
+
+        const token = await this.getGoogleAuthToken();
+        const url = `https://texttospeech.googleapis.com/v1/text:synthesize`;
+
+        const input: { text: string; prompt?: string } = { text: text.substring(0, 4096) };
+        if (speaker.voiceInstruction) input.prompt = speaker.voiceInstruction;
+
+        const body = {
+            input,
+            voice: {
+                languageCode: googleLangCode,
+                name: voiceName,
+                model_name: geminiModel
+            },
+            audioConfig: {
+                audioEncoding: "OGG_OPUS",
+                speakingRate: options.audio_speed
+            }
+        };
+
+        const response = await withNetworkRetry(() => fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify(body)
+        }), "AudioSystemGemini");
+
+        if (!response.ok) {
+            const errText = await response.text();
+            throw new Error(`Google TTS API Error: ${response.status} ${errText}`);
+        }
+
+        const data = await response.json();
+        if (data.audioContent) {
+            return Buffer.from(data.audioContent, 'base64');
+        } else {
+            throw new Error("No audio content returned from Google TTS");
+        }
+    }
+
+    private async generateOpenAIAudio(text: string, speaker: Speaker, options: AudioSystemOptions): Promise<Buffer> {
+        const openai = this.services.getOpenAI();
+        const mp3 = await withNetworkRetry(() => openai.audio.speech.create({
+            model: options.voiceModel,
+            voice: speaker.voice as any,
+            speed: options.audio_speed,
+            input: text.substring(0, 4096),
+            instructions: speaker.voiceInstruction
+        }));
+        return Buffer.from(await mp3.arrayBuffer());
+    }
+
 
     private async generateInworldAudio(text: string, speaker: Speaker, options: AudioSystemOptions): Promise<Buffer> {
         const apiKey = process.env.INWORLD_API_KEY;
@@ -353,7 +543,8 @@ export class AudioSystem {
         }
     }
 
-    async getSentenceTimings(buffer: Buffer, message: Message): Promise<any[]> {
+    // Helper to get raw whisper words for a buffer
+    async getWhisperWords(buffer: Buffer): Promise<Word[]> {
         const openai = this.services.getOpenAI();
         const audioFile = new File([new Uint8Array(buffer)], "speech.mp3", { type: "audio/mpeg" });
         const transcription = await withNetworkRetry(() => openai.audio.transcriptions.create({
@@ -362,6 +553,12 @@ export class AudioSystem {
             response_format: "verbose_json",
             timestamp_granularities: ["word"]
         }), "AudioSystemWhisper");
-        return mapSentencesToWords(message.sentences, (transcription.words || []) as Word[]);
+        return (transcription.words || []) as Word[];
+    }
+
+    // Kept for signature compatibility if used elsewhere, but internally we use getWhisperWords + mapping
+    async getSentenceTimings(buffer: Buffer, message: Message): Promise<any[]> {
+        const words = await this.getWhisperWords(buffer);
+        return mapSentencesToWords(message.sentences, words);
     }
 }
