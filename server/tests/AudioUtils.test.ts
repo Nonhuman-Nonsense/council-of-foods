@@ -8,7 +8,8 @@ const __dirname = path.dirname(__filename);
 
 // Import the mergeAudioBuffers function directly to test it
 // We'll dynamically import the module to access the private function
-import { AudioSystem, mergeAudioBuffers } from '@root/src/logic/AudioSystem.js';
+// Import directly from the new utility file
+import { mergeAudioBuffers, splitText } from '@root/src/logic/audio/AudioUtils.js';
 
 // Mock music-metadata
 vi.mock('music-metadata', () => ({
@@ -17,7 +18,35 @@ vi.mock('music-metadata', () => ({
     })
 }));
 
-describe('FFmpeg Audio Merging with Real Files', () => {
+describe('AudioUtils: Splitting Text', () => {
+    it('should split long text into smaller chunks based on limit', () => {
+        const longText = 'A'.repeat(3000);
+        const limit = 2000;
+        const chunks = splitText(longText, limit);
+        expect(chunks.length).toBeGreaterThan(1);
+        chunks.forEach(chunk => {
+            expect(chunk.length).toBeLessThanOrEqual(limit);
+        });
+    });
+
+    it('should respect semantic boundaries (paragraphs) when splitting', () => {
+        const part1 = 'First part.\n\n';
+        const part2 = 'Second part.';
+        const combined = part1 + part2;
+        // Force split by setting limit smaller than combined length but larger than parts
+        const limit = part1.length + 1;
+
+        // This test case depends on splitText logic preferring \n\n
+        const chunks = splitText(combined, limit);
+
+        // With current logic, it should look for \n\n. 
+        // If the limit cuts into part2, it should backtrack to \n\n.
+        // Let's rely on the property that chunks are valid.
+        expect(chunks).toContain(part1.trim());
+    });
+});
+
+describe('AudioUtils: FFmpeg Audio Merging', () => {
     let fixture1: Buffer;
     let fixture2: Buffer;
     let fixture3: Buffer;
