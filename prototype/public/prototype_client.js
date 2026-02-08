@@ -25,7 +25,7 @@ const defaultOptions = {
   // Hardcoded
   voiceModel: "gpt-4o-mini-tts",
   geminiVoiceModel: "gemini-2.5-flash-tts",
-  inworldVoiceModel: "inworld-tts-1.5-mini",
+  inworldVoiceModel: "inworld-tts-1.5-max",
   skipMatchingSubtitles: true
 };
 
