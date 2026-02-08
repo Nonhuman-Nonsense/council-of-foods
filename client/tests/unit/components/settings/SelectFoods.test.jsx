@@ -2,6 +2,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import SelectFoods from '../../../../src/components/settings/SelectFoods';
+import foodsEn from '../../../../src/prompts/foods_en.json';
 
 // Mock dependencies
 vi.mock('react-i18next', () => ({
@@ -110,8 +111,8 @@ describe('SelectFoods Component', () => {
         // Find the human object in the passed array
         const humanPanelist = passedFoods.find(f => f.id.startsWith("panelist"));
         expect(humanPanelist).toBeDefined();
-        // Since default chair is Water, voice should be 'alloy' (from foods_en.json)
-        expect(humanPanelist.voice).toBe('alloy');
+        // Since default chair is Water, voice should be the one from foods_en.json (which is now Wendy or whatever is in the file)
+        expect(humanPanelist.voice).toBe(foodsEn.foods[0].voice);
     });
 
     it('should maintain focus on description when typing', async () => {

@@ -16,7 +16,7 @@ interface Food {
     type?: string;
     index?: number;
     voice: VoiceOption;
-    voiceProvider?: 'openai' | 'gemini';
+    voiceProvider?: 'openai' | 'gemini' | 'inworld';
     voiceLocale?: string;
     size?: number;
     voiceInstruction?: string;
@@ -65,6 +65,10 @@ describe('Validate Food Data JSONs', () => {
                 // Validate Voice Option
                 if (food.voiceProvider === 'gemini') {
                     expect(AVAILABLE_VOICES_GEMINI).toContain(food.voice);
+                } else if (food.voiceProvider === 'inworld') {
+                    // Inworld allows custom voices as strings, so we just check it's a non-empty string
+                    expect(typeof food.voice).toBe('string');
+                    expect(food.voice.length).toBeGreaterThan(0);
                 } else {
                     // Default to OpenAI if provider is missing or explicitly 'openai'
                     expect(AVAILABLE_VOICES).toContain(food.voice);
