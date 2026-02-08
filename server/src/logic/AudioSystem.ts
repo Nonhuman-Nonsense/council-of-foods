@@ -101,11 +101,17 @@ export class AudioSystem {
             Logger.error(`AudioSystem`, `Error retrieving existing audio (message id: ${message.id})`, error);
         }
 
+
         try {
             const limit = MAX_AUDIO_CHUNK_LENGTH;
             const textChunks = splitText(message.text, limit);
 
+            if (textChunks.length > 1) {
+                Logger.info("AudioSystem", `Message ${message.id} split into ${textChunks.length} chunks for TTS.`);
+            }
+
             if (generateNew || buffers.length === 0) {
+                Logger.info("AudioSystem", `Generating new audio for message ${message.id} (${speaker.voiceProvider}/${speaker.voice})`);
                 // Generate audio for all chunks in parallel
                 buffers = await Promise.all(textChunks.map(chunk => this.generateProviderAudio(chunk, speaker, effectiveOptions)));
                 generateNew = true;
@@ -164,6 +170,9 @@ export class AudioSystem {
                 audio: combinedBuffer,
                 sentences: sentencesWithTimings
             };
+
+            Logger.info("AudioSystem", `Audio generated for message ${message.id}. Size: ${combinedBuffer.length} bytes.`);
+
 
 
             this.broadcaster.broadcastAudioUpdate(audioObject);
