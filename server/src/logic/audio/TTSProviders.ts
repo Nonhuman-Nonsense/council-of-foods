@@ -78,7 +78,8 @@ export async function generateOpenAIAudio(params: GenerateParams): Promise<Buffe
         voice: speaker.voice as any,
         speed: options.audio_speed,
         input: text.substring(0, 4096),
-        instructions: speaker.voiceInstruction
+        instructions: speaker.voiceInstruction,
+        response_format: "opus"
     }));
     return Buffer.from(await mp3.arrayBuffer());
 }
@@ -122,7 +123,9 @@ export async function generateInworldAudio(params: GenerateParams): Promise<Buff
 
 export async function getWhisperWords(buffer: Buffer, services: { getOpenAI: () => OpenAI }): Promise<Word[]> {
     const openai = services.getOpenAI();
-    const audioFile = new File([new Uint8Array(buffer)], "speech.mp3", { type: "audio/mpeg" });
+    // All our providers (OpenAI, Gemini, Inworld) now return OGG/Opus.
+    // FFmpeg (used by Whisper) performs content sniffing, but correct extension helps.
+    const audioFile = new File([new Uint8Array(buffer)], "speech.ogg", { type: "audio/ogg" });
     const transcription = await withNetworkRetry(() => openai.audio.transcriptions.create({
         file: audioFile,
         model: "whisper-1",
