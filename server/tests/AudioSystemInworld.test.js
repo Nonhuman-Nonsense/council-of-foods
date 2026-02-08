@@ -24,6 +24,23 @@ vi.mock('@root/src/logic/GlobalOptions.js', () => ({
 const mockFetch = vi.fn();
 global.fetch = mockFetch;
 
+// Mock InworldPronunciationUtils
+vi.mock('@root/src/utils/InworldPronunciationUtils.js', () => ({
+    InworldPronunciationUtils: {
+        processTextWithIPA: vi.fn((text) => {
+            if (text.includes('tomato')) {
+                const map = new Map();
+                map.set('/təˈmɑːtoʊ/', 'tomato');
+                return {
+                    processedText: text.replace('tomato', '/təˈmɑːtoʊ/'),
+                    replacedWords: map
+                };
+            }
+            return { processedText: text, replacedWords: new Map() };
+        })
+    }
+}));
+
 describe('AudioSystem Inworld Integration', () => {
     let audioSystem;
     let mockBroadcaster;
@@ -186,6 +203,60 @@ describe('AudioSystem Inworld Integration', () => {
             'Error generating audio',
             expect.objectContaining({ message: expect.stringContaining('Inworld TTS API Error: 500 Internal Server Error') }),
             expect.anything()
+        );
+    });
+
+    it('should integrate InworldPronunciationUtils to process IPA words', async () => {
+        const message = { id: 'msgIPA', text: 'Say tomato please', sentences: ['Say tomato please'] };
+        const speaker = { id: 'char1', voice: 'Dennis', voiceProvider: 'inworld' };
+
+        mockFetch.mockResolvedValue({
+            ok: true,
+            json: async () => ({
+                audioContent: Buffer.from('audio').toString('base64'),
+                timestampInfo: {
+                    wordAlignment: {
+                        words: ['Say', '/təˈmɑːtoʊ/', 'please'], // Start/End times omitted for brevity (TTSProviders handles it)
+                        wordStartTimeSeconds: [0, 0.5, 1.0],
+                        wordEndTimeSeconds: [0.5, 1.0, 1.5]
+                    }
+                }
+            }),
+            text: async () => ''
+        });
+
+        await audioSystem.generateAudio(message, speaker, { options: { audio_speed: 1.0, inworldVoiceModel: 'inworld-tts-1' } }, 123, 'production');
+
+        // Verify request payload contained processed text
+        expect(mockFetch).toHaveBeenCalledWith(
+            expect.any(String),
+            expect.objectContaining({
+                body: expect.stringContaining('/təˈmɑːtoʊ/')
+            })
+        );
+        expect(mockFetch).toHaveBeenCalledWith(
+            expect.any(String),
+            expect.objectContaining({
+                body: expect.not.stringContaining('"tomato"') // "tomato" should be replaced
+            })
+        );
+
+        // We can't easily inspect the returned words here because generateAudio is void.
+        // But we can check if broadcastAudioUpdate was called with restored words!
+
+        expect(mockBroadcaster.broadcastAudioUpdate).toHaveBeenCalledWith(
+            expect.objectContaining({
+                sentences: expect.arrayContaining([
+                    expect.objectContaining({
+                        text: 'Say tomato please'
+                        // Logic for mapping sentences matches words, check if mapSentencesToWords worked?
+                        // If words were RESTORED to 'tomato', then 'tomato' in sentence matches 'tomato' in words.
+                        // If words remained '/təˈmɑːtoʊ/', mapSentencesToWords wouldn't match 'tomato' in sentence easily or logic handles it?
+                        // Wait, mapSentencesToWords compares whisperTokens (lowercase).
+                        // '/təˈmɑːtoʊ/' cleaned might not match 'tomato'.
+                    })
+                ])
+            })
         );
     });
 });

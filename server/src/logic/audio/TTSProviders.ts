@@ -4,6 +4,7 @@ import { withNetworkRetry } from "@utils/NetworkUtils.js";
 import { Word } from "@utils/textUtils.js";
 import { AudioSystemOptions, Speaker } from "./AudioTypes.js";
 import { getGoogleLanguageCode } from "./AudioUtils.js";
+import { InworldPronunciationUtils } from "@utils/InworldPronunciationUtils.js";
 
 interface GenerateParams {
     text: string;
@@ -93,6 +94,9 @@ export async function generateInworldAudio(params: GenerateParams): Promise<Audi
     const { text, speaker, options } = params;
     const apiKey = process.env.INWORLD_API_KEY;
 
+    // 1. Process text for IPA substitutions
+    const { processedText, replacedWords } = InworldPronunciationUtils.processTextWithIPA(text);
+
     const url = 'https://api.inworld.ai/tts/v1/voice';
 
     const response = await withNetworkRetry(() => fetch(url, {
@@ -102,7 +106,7 @@ export async function generateInworldAudio(params: GenerateParams): Promise<Audi
             'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-            text: text,
+            text: processedText, // Use processed text
             voice_id: speaker.voice,
             model_id: options.inworldVoiceModel,
             temperature: speaker.voiceTemperature || 1.0,
@@ -127,11 +131,15 @@ export async function generateInworldAudio(params: GenerateParams): Promise<Audi
         if (data.timestampInfo?.wordAlignment) {
             const wa = data.timestampInfo.wordAlignment;
             if (Array.isArray(wa.words) && Array.isArray(wa.wordStartTimeSeconds) && Array.isArray(wa.wordEndTimeSeconds)) {
-                words = wa.words.map((word: string, i: number) => ({
-                    word: word,
-                    start: wa.wordStartTimeSeconds[i],
-                    end: wa.wordEndTimeSeconds[i]
-                }));
+                words = wa.words.map((word: string, i: number) => {
+                    // Restore original word if it was replaced with IPA
+                    const original = replacedWords.get(word);
+                    return {
+                        word: original || word,
+                        start: wa.wordStartTimeSeconds[i],
+                        end: wa.wordEndTimeSeconds[i]
+                    };
+                });
             }
         }
 
