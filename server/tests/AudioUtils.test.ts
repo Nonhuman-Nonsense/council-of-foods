@@ -44,6 +44,29 @@ describe('AudioUtils: Splitting Text', () => {
         // Let's rely on the property that chunks are valid.
         expect(chunks).toContain(part1.trim());
     });
+
+    it('should split balanced chunks (approx 1500 chars) for 3000 chars input with 2000 limit', () => {
+        // Create a text with sentence boundaries every 100 chars
+        let text = '';
+        const sentence = 'A'.repeat(98) + '. ';
+        for (let i = 0; i < 30; i++) {
+            text += sentence;
+        }
+        // Total length = 30 * 100 = 3000
+        const limit = 2000;
+
+        const chunks = splitText(text, limit);
+        expect(chunks.length).toBe(2);
+
+        // Ideal split is 1500 / 1500
+        // Acceptable range: 1300 - 1700 to allow for sentence boundary finding
+        expect(chunks[0].length).toBeGreaterThan(1300);
+        expect(chunks[0].length).toBeLessThan(1700);
+
+        expect(chunks[1].length).toBeGreaterThan(1300);
+        expect(chunks[1].length).toBeLessThan(1700);
+    });
+
 });
 
 describe('AudioUtils: FFmpeg Audio Merging', () => {

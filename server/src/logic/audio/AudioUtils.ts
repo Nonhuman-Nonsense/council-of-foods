@@ -154,28 +154,69 @@ export function splitText(text: string, limit: number): string[] {
     let currentText = text;
 
     while (currentText.length > limit) {
-        let splitIndex = -1;
+        // Calculate balanced target length
+        // e.g. 3000 chars / 2000 limit = 1.5 -> 2 chunks. Target = 1500.
+        const totalChunksNeeded = Math.ceil(currentText.length / limit);
+        const targetLength = Math.ceil(currentText.length / totalChunksNeeded);
 
-        // Try splitting by double newline (paragraph)
-        // Look for last \n\n within limit
-        const doubleNewlineIndex = currentText.lastIndexOf('\n\n', limit);
-        if (doubleNewlineIndex !== -1) {
-            splitIndex = doubleNewlineIndex;
-        } else {
-            // Try single newline
-            const newlineIndex = currentText.lastIndexOf('\n', limit);
-            if (newlineIndex !== -1) {
-                splitIndex = newlineIndex;
-            } else {
-                // Try sentence (period space)
-                const sentenceIndex = currentText.lastIndexOf('. ', limit);
-                if (sentenceIndex !== -1) {
-                    splitIndex = sentenceIndex + 1; // Include period
-                } else {
-                    // Hard split
-                    splitIndex = limit;
+        let splitIndex = -1;
+        let bestScore = Infinity; // Lower is better (distance from target)
+
+        // Helper to update best split if better than current
+        const checkSplit = (idx: number) => {
+            if (idx === -1) return;
+            const distance = Math.abs(idx - targetLength);
+            // We prefer splits that are closer to target
+            // But strict constraint: idx <= limit
+            if (idx <= limit && distance < bestScore) {
+                bestScore = distance;
+                splitIndex = idx;
+            }
+        };
+
+        // Strategy:
+        // 1. Calculate an ideal "target length" (e.g., 1500 chars) to balance chunks.
+        // 2. Scan for logical separators (\n\n, \n, sentence endings) within the entire allowable range (up to limit).
+        // 3. Pick the separator that is closest to the target length to ensure chunks are evenly sized.
+
+        // Note: For typical text lengths (<5000 chars), scanning all separators is performant enough.
+
+        const separators = ['\n\n', '\n', '. ', ', '];
+        let foundSplit = false;
+
+        for (const sep of separators) {
+            let idx = currentText.indexOf(sep);
+            const candidates: number[] = [];
+            while (idx !== -1 && idx <= limit) {
+                candidates.push(idx + (sep === '. ' ? 1 : 0)); // Include period in previous chunk
+                idx = currentText.indexOf(sep, idx + 1);
+            }
+
+            if (candidates.length > 0) {
+                // Find candidate closest to target
+                let bestForSep = -1;
+                let bestDistForSep = Infinity;
+
+                for (const cand of candidates) {
+                    const dist = Math.abs(cand - targetLength);
+                    if (dist < bestDistForSep) {
+                        bestDistForSep = dist;
+                        bestForSep = cand;
+                    }
+                }
+
+                checkSplit(bestForSep);
+
+                if (splitIndex !== -1) {
+                    foundSplit = true;
+                    break; // Found a split with this high-priority separator
                 }
             }
+        }
+
+        if (splitIndex === -1) {
+            // Fallback: Hard split at limit
+            splitIndex = limit;
         }
 
         chunks.push(currentText.substring(0, splitIndex).trim());
