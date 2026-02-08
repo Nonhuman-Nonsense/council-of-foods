@@ -10,14 +10,11 @@ import { mapSentencesToWords, Word } from "@utils/textUtils.js";
 import { GoogleAuth } from 'google-auth-library';
 import { GOOGLE_LANGUAGE_MAP } from "@shared/AvailableLanguages.js";
 import { parseBuffer } from 'music-metadata';
-import ffmpeg from 'fluent-ffmpeg';
-import ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
+import { spawn } from 'child_process';
+import ffmpegPath from 'ffmpeg-static';
 import { promises as fs } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
-
-// Set ffmpeg path from installer
-ffmpeg.setFfmpegPath(ffmpegInstaller.path);
 
 function getGoogleLanguageCode(appLang?: string): string {
     if (!appLang) return 'en-GB';
@@ -131,15 +128,7 @@ export interface AudioContext {
  * - Error suppression for test environments (shutdown/ECONNRESET).
  * - Skipping audio generation based on configuration (skipAudio).
  */
-
-/**
- * Merges multiple audio buffers into a single buffer using FFmpeg.
- * Uses the concat demuxer for lossless concatenation of audio files.
- * 
- * @param buffers - Array of audio buffers to merge (OGG, MP3, etc.)
- * @returns Single merged audio buffer
- */
-async function mergeAudioBuffers(buffers: Buffer[]): Promise<Buffer> {
+export async function mergeAudioBuffers(buffers: Buffer[]): Promise<Buffer> {
     if (buffers.length === 0) {
         throw new Error('Cannot merge empty array of buffers');
     }
@@ -167,16 +156,39 @@ async function mergeAudioBuffers(buffers: Buffer[]): Promise<Buffer> {
         const listContent = tempFiles.map(f => `file '${f}'`).join('\n');
         await fs.writeFile(listFile, listContent);
 
-        // Run FFmpeg concat
+        if (!ffmpegPath) {
+            throw new Error('FFmpeg binary not found');
+        }
+
+        // Run FFmpeg using spawn
         await new Promise<void>((resolve, reject) => {
-            ffmpeg()
-                .input(listFile)
-                .inputOptions(['-f', 'concat', '-safe', '0'])
-                .outputOptions(['-c', 'copy']) // Copy codec without re-encoding
-                .output(outputFile)
-                .on('end', () => resolve())
-                .on('error', (err) => reject(new Error(`FFmpeg error: ${err.message}`)))
-                .run();
+            const args = [
+                '-f', 'concat',
+                '-safe', '0',
+                '-i', listFile,
+                '-c', 'copy', // Copy codec without re-encoding
+                outputFile
+            ];
+
+            const ffmpegProcess = spawn(ffmpegPath as unknown as string, args);
+
+            let errorOutput = '';
+
+            ffmpegProcess.stderr.on('data', (data) => {
+                errorOutput += data.toString();
+            });
+
+            ffmpegProcess.on('close', (code) => {
+                if (code === 0) {
+                    resolve();
+                } else {
+                    reject(new Error(`FFmpeg process exited with code ${code}: ${errorOutput}`));
+                }
+            });
+
+            ffmpegProcess.on('error', (err) => {
+                reject(new Error(`Failed to start FFmpeg process: ${err.message}`));
+            });
         });
 
         // Read merged file
