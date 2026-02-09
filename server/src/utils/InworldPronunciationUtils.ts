@@ -42,6 +42,10 @@ export class InworldPronunciationUtils {
         }
     }
 
+    static escapeRegExp(string: string): string {
+        return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
     /**
      * Replaces known words with their IPA equivalent.
      * Returns:
@@ -59,8 +63,16 @@ export class InworldPronunciationUtils {
 
         for (const word of InworldPronunciationUtils.sortedKeys) {
             const ipa = pronunciations[word];
-            // Match whole word, case-insensitive
-            const regex = new RegExp(`\\b${word}\\b`, 'gi');
+
+            const escapedWord = InworldPronunciationUtils.escapeRegExp(word);
+
+            // Apply boundaries only if the key starts/ends with a word character
+            // If key is "...", adding \b would fail because . is non-word.
+            const startBoundary = /^\w/.test(word) ? '\\b' : '';
+            const endBoundary = /\w$/.test(word) ? '\\b' : '';
+
+            // Match whole word/phrase, case-insensitive
+            const regex = new RegExp(`${startBoundary}${escapedWord}${endBoundary}`, 'gi');
 
             if (regex.test(processedText)) {
                 // Determine original capitalization or just use dictionary key?

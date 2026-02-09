@@ -97,6 +97,41 @@ describe('InworldPronunciationUtils', () => {
         expect(result.processedText).not.toContain("/suːpər/man");
     });
 
+    it('should handle keys with special characters and mixed boundaries', () => {
+        vi.mocked(fs.existsSync).mockReturnValue(true);
+        const mockData = JSON.stringify({
+            "RRRRRRRRR...": "rrrrrrrrrrrrr",
+            "TICK. TICK.": "tick tick",
+            "...start": "start-marker"
+        });
+        vi.mocked(fs.readFileSync).mockReturnValue(mockData);
+
+        const result = InworldPronunciationUtils.processTextWithIPA("I heard RRRRRRRRR... and TICK. TICK. ...start");
+
+        expect(result.processedText).toContain("rrrrrrrrrrrrr");
+        expect(result.processedText).toContain("tick tick");
+        expect(result.processedText).toContain("start-marker");
+        expect(result.replacedWords.get("rrrrrrrrrrrrr")).toBe("RRRRRRRRR...");
+    });
+
+    it('should handle mixed IPA and symbol replacements', () => {
+        vi.mocked(fs.existsSync).mockReturnValue(true);
+        const mockData = JSON.stringify({
+            "tomato": "/təˈmɑːtoʊ/",
+            "RRRRRRRRR...": "rrrrrrrrrrrrr"
+        });
+        vi.mocked(fs.readFileSync).mockReturnValue(mockData);
+
+        const result = InworldPronunciationUtils.processTextWithIPA("I want a tomato while hearing RRRRRRRRR...");
+
+        expect(result.processedText).toContain("/təˈmɑːtoʊ/");
+        expect(result.processedText).toContain("rrrrrrrrrrrrr");
+
+        // Check reverse map
+        expect(result.replacedWords.get("/təˈmɑːtoʊ/")).toBe("tomato");
+        expect(result.replacedWords.get("rrrrrrrrrrrrr")).toBe("RRRRRRRRR...");
+    });
+
     it('should cache pronunciations after first load', () => {
         vi.mocked(fs.existsSync).mockReturnValue(true);
         vi.mocked(fs.readFileSync).mockReturnValue('{"a": "/a/"}');
