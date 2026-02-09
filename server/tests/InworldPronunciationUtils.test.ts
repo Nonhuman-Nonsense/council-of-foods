@@ -26,7 +26,7 @@ describe('InworldPronunciationUtils', () => {
     beforeEach(() => {
         // Clear cached state
         (InworldPronunciationUtils as any).pronunciations = null;
-        (InworldPronunciationUtils as any).sortedKeys = null;
+        (InworldPronunciationUtils as any).sortedRegexes = null;
         vi.clearAllMocks();
     });
 
