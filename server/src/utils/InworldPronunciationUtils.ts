@@ -1,52 +1,31 @@
-
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import pronunciationsData from '../data/pronunciations.json' with { type: "json" };
 
 interface Pronunciations {
     [word: string]: string;
 }
 
 export class InworldPronunciationUtils {
-    private static pronunciations: Pronunciations | null = null;
     private static sortedRegexes: { regex: RegExp, original: string, replacement: string }[] | null = null;
 
-    static loadPronunciations(): Pronunciations {
-        if (InworldPronunciationUtils.pronunciations) return InworldPronunciationUtils.pronunciations;
+    static loadPronunciations(): void {
+        if (InworldPronunciationUtils.sortedRegexes) return;
 
         try {
-            let dataPath = path.resolve(__dirname, '../data/pronunciations.json');
+            // Pre-compile regexes for performance from imported data
+            const keys = Object.keys(pronunciationsData).sort((a, b) => b.length - a.length);
+            InworldPronunciationUtils.sortedRegexes = keys.map(word => {
+                const replacement = (pronunciationsData as Pronunciations)[word];
+                const escapedWord = InworldPronunciationUtils.escapeRegExp(word);
+                // Apply boundaries only if the key starts/ends with a word character
+                const startBoundary = /^\w/.test(word) ? '\\b' : '';
+                const endBoundary = /\w$/.test(word) ? '\\b' : '';
+                const regex = new RegExp(`${startBoundary}${escapedWord}${endBoundary}`, 'gi');
 
-            if (!fs.existsSync(dataPath)) {
-                console.warn(`Pronunciation file not found at ${dataPath}`);
-                return {};
-            }
-
-            const data = fs.readFileSync(dataPath, 'utf-8');
-            InworldPronunciationUtils.pronunciations = JSON.parse(data);
-
-            // Pre-compile regexes for performance
-            if (InworldPronunciationUtils.pronunciations) {
-                const keys = Object.keys(InworldPronunciationUtils.pronunciations).sort((a, b) => b.length - a.length);
-                InworldPronunciationUtils.sortedRegexes = keys.map(word => {
-                    const replacement = InworldPronunciationUtils.pronunciations![word];
-                    const escapedWord = InworldPronunciationUtils.escapeRegExp(word);
-                    // Apply boundaries only if the key starts/ends with a word character
-                    const startBoundary = /^\w/.test(word) ? '\\b' : '';
-                    const endBoundary = /\w$/.test(word) ? '\\b' : '';
-                    const regex = new RegExp(`${startBoundary}${escapedWord}${endBoundary}`, 'gi');
-
-                    return { regex, original: word, replacement };
-                });
-            }
-
-            return InworldPronunciationUtils.pronunciations || {};
+                return { regex, original: word, replacement };
+            });
         } catch (error) {
-            console.error("Failed to load pronunciations:", error);
-            return {};
+            console.error("Failed to parse pronunciations:", error);
+            InworldPronunciationUtils.sortedRegexes = [];
         }
     }
 
@@ -61,11 +40,11 @@ export class InworldPronunciationUtils {
      * - replacedWords: A map of IPA string -> Original Word for restoration.
      */
     static processTextWithIPA(text: string): { processedText: string, replacedWords: Map<string, string> } {
-        const pronunciations = InworldPronunciationUtils.loadPronunciations();
+        InworldPronunciationUtils.loadPronunciations();
         let processedText = text;
         const replacedWords = new Map<string, string>();
 
-        if (!pronunciations || !InworldPronunciationUtils.sortedRegexes || InworldPronunciationUtils.sortedRegexes.length === 0) {
+        if (!InworldPronunciationUtils.sortedRegexes || InworldPronunciationUtils.sortedRegexes.length === 0) {
             return { processedText, replacedWords };
         }
 
