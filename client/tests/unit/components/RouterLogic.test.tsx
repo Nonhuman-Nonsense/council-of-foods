@@ -33,6 +33,9 @@ vi.mock('../../../src/components/RotateDevice', () => ({
 vi.mock('../../../src/components/FullscreenButton', () => ({
     default: () => <div data-testid="fullscreen-btn">Fullscreen</div>
 }));
+vi.mock('../../../src/components/Forest', () => ({
+    default: () => <div data-testid="forest">Forest</div>
+}));
 
 // Mock utils
 vi.mock('../../../src/utils', () => ({
@@ -40,12 +43,17 @@ vi.mock('../../../src/utils', () => ({
     useMobile: () => false,
     useMobileXs: () => false,
     capitalizeFirstLetter: (str) => str,
-    dvh: 'vh'
+    dvh: 'vh',
+    minWindowHeight: 300,
+    useDocumentVisibility: () => true
 }));
 
 // Mock react-i18next
 vi.mock('react-i18next', () => ({
-    useTranslation: () => ({ t: (key) => key }),
+    useTranslation: () => ({
+        t: (key) => key,
+        i18n: { changeLanguage: vi.fn() }
+    }),
 }));
 
 // Mock react-responsive
