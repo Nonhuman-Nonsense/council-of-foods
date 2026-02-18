@@ -13,6 +13,7 @@ import ConversationControls from "./ConversationControls";
 import HumanInput from "./HumanInput";
 import { useDocumentVisibility, mapFoodIndex } from "@/utils";
 import routes from "@/routes.json";
+import { AVAILABLE_LANGUAGES } from "@shared/AvailableLanguages";
 import { useCouncilMachine } from "@hooks/useCouncilMachine";
 
 import { Topic } from "./settings/SelectTopic";
@@ -62,7 +63,8 @@ function Council({
     isPaused,
     setPaused,
     // setAudioPaused is optional, we don't pass it here so Hook handles valid suspension via ref
-    baseUrl: `/${routes.meeting}`
+    // setAudioPaused is optional, we don't pass it here so Hook handles valid suspension via ref
+    baseUrl: (AVAILABLE_LANGUAGES.length === 1) ? `/${routes.meeting}` : `/${lang}/${routes.meeting}`
   });
 
   const {
