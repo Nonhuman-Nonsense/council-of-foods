@@ -93,6 +93,10 @@ const blankHuman: Food = {
   name: "",
   description: "",
   voice: defaultVoice,
+  voiceProvider: defaultChair?.voiceProvider,
+  voiceTemperature: defaultChair?.voiceTemperature,
+  voiceInstruction: defaultChair?.voiceInstruction,
+  voiceLocale: defaultChair?.voiceLocale,
   size: 1.0
 };
 
@@ -151,6 +155,10 @@ function SelectFoods({ lang, topicTitle, onContinueForward }: SelectFoodsProps):
     const chair = foods.find(f => f.id === globalOptions.chairId);
     if (chair && chair.voice) {
       newHuman.voice = chair.voice;
+      newHuman.voiceProvider = chair.voiceProvider;
+      newHuman.voiceTemperature = chair.voiceTemperature;
+      newHuman.voiceInstruction = chair.voiceInstruction;
+      newHuman.voiceLocale = chair.voiceLocale;
     }
 
     return newHuman;
