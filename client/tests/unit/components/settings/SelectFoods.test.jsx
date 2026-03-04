@@ -113,6 +113,10 @@ describe('SelectFoods Component', () => {
         expect(humanPanelist).toBeDefined();
         // Since default chair is Water, voice should be the one from foods_en.json (which is now Wendy or whatever is in the file)
         expect(humanPanelist.voice).toBe(foodsEn.foods[0].voice);
+        expect(humanPanelist.voiceProvider).toBe(foodsEn.foods[0].voiceProvider);
+        expect(humanPanelist.voiceTemperature).toBe(foodsEn.foods[0].voiceTemperature);
+        expect(humanPanelist.voiceInstruction).toBe(foodsEn.foods[0].voiceInstruction);
+        expect(humanPanelist.voiceLocale).toBe(foodsEn.foods[0].voiceLocale);
     });
 
     it('should maintain focus on description when typing', async () => {
