@@ -52,10 +52,14 @@ const CharacterCard = {
       const char = this.character;
       if (char.voiceProvider === 'gemini') {
         char.voice = this.voiceLists.gemini[0];
+        if (!char.voiceLocale) char.voiceLocale = 'en-GB';
+        if (char.voiceInstruction === undefined) char.voiceInstruction = "";
       } else if (char.voiceProvider === 'inworld') {
         char.voice = this.voiceLists.inworld[0];
+        if (char.voiceTemperature === undefined) char.voiceTemperature = 1.1;
       } else {
         char.voice = this.voiceLists.openai[0];
+        if (char.voiceInstruction === undefined) char.voiceInstruction = "";
       }
     }
   }
@@ -732,18 +736,32 @@ createApp({
         // Exclude internal fields like _ui_id
         const { _ui_id, ...rest } = c;
         // Ensure structure matches schema
-        return {
+        const provider = rest.voiceProvider || 'openai';
+        
+        let charExport = {
           id: rest.id || (rest.name ? rest.name.toLowerCase().replace(/\s+/g, '') : 'unknown'),
           name: rest.name,
           voice: rest.voice,
-          voiceProvider: rest.voiceProvider || 'openai',
-          voiceLocale: rest.voiceLocale,
+          voiceProvider: provider,
           size: rest.size,
-          voiceInstruction: rest.voiceInstruction || "",
-          voiceTemperature: rest.voiceTemperature || 1.0,
           description: rest.description || "",
           prompt: rest.prompt || ""
         };
+
+        if (rest.voiceSpeed !== undefined) {
+          charExport.voiceSpeed = rest.voiceSpeed;
+        }
+
+        if (provider === 'gemini') {
+          charExport.voiceLocale = rest.voiceLocale || 'en-GB';
+          charExport.voiceInstruction = rest.voiceInstruction || "";
+        } else if (provider === 'openai') {
+          charExport.voiceInstruction = rest.voiceInstruction || "";
+        } else if (provider === 'inworld') {
+          charExport.voiceTemperature = rest.voiceTemperature || 1.1;
+        }
+
+        return charExport;
       });
 
       // 2. Export Topics
