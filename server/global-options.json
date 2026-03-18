@@ -1,6 +1,8 @@
 {
   "gptModel": "gpt-4o",
   "voiceModel": "tts-1",
+  "geminiVoiceModel": "gemini-2.5-flash-tts",
+  "inworldVoiceModel": "inworld-tts-1.5-max",
   "temperature": 1,
   "maxTokens": 200,
   "chairMaxTokens": 250,
@@ -26,5 +28,6 @@
   "transcribeModel": "gpt-4o-transcribe",
   "transcribePrompt": {
     "en": "Expect english input."
-  }
+  },
+  "audioConcurrency": 10
 }

@@ -1,0 +1,64 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`ConversationControls > renders all controls when active and not paused 1`] = `
+<DocumentFragment>
+  <div
+    style="position: absolute; bottom: 0px; pointer-events: auto; z-index: 3;"
+  >
+    <div
+      style="display: flex; flex-direction: row;"
+    >
+      <div
+        style="width: 56px; height: 56px;"
+      >
+        <button
+          data-testid="control-icon-volume_on"
+          title="Mute"
+        >
+          volume_on
+        </button>
+      </div>
+      <div
+        style="width: 56px; height: 56px;"
+      >
+        <button
+          data-testid="control-icon-backward"
+          title="Backward"
+        >
+          backward
+        </button>
+      </div>
+      <div
+        style="width: 56px; height: 56px;"
+      >
+        <button
+          data-testid="control-icon-pause"
+          title="Pause"
+        >
+          pause
+        </button>
+      </div>
+      <div
+        style="width: 56px; height: 56px;"
+      >
+        <button
+          data-testid="control-icon-forward"
+          title="Forward"
+        >
+          forward
+        </button>
+      </div>
+      <div
+        style="width: 56px; height: 56px; pointer-events: auto;"
+      >
+        <button
+          data-testid="control-icon-raise_hand"
+          title="Raise hand"
+        >
+          raise_hand
+        </button>
+      </div>
+    </div>
+  </div>
+</DocumentFragment>
+`;

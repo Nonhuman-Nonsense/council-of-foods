@@ -1,895 +1,1089 @@
-document.addEventListener("DOMContentLoaded", () => {
-  const socket = io();
+const { createApp } = Vue;
 
-  //State for conversation control
-  let conversationActive = false;
-  let conversationStarted = false;
-  let promptsAndOptions;
-  let conversation;
+const defaultOptions = {
+  gptModel: "gpt-4o-mini",
+  temperature: 1,
+  maxTokens: 200,
+  chairMaxTokens: 250,
+  frequencyPenalty: 0,
+  presencePenalty: 0,
+  audio_speed: 1.15,
 
-  const conversationContainer = document.getElementById(
-    "conversation-container"
-  );
+  trimSentance: false,
+  trimParagraph: true,
+  trimChairSemicolon: true,
 
-  //Global graphic buttons and elements
-  const toggleConversationBtn = document.getElementById(
-    "toggleConversationBtn"
-  );
-  const restartBtn = document.getElementById("restartButton");
-  const continueBtn = document.getElementById("continueButton");
-  const conversationDiv = document.getElementById("conversation");
-  const endMessage = document.getElementById("end-message");
-  const spinner = document.getElementById("spinner");
+  conversationMaxLength: 10,
+  extraMessageCount: 5,
+  skipAudio: false,
 
-  //Audio control
-  const audioBackButton = document.getElementById("audioBack");
-  const audioToggleButton = document.getElementById("audioToggle");
-  const audioNextButton = document.getElementById("audioNext");
+  injectPrompt: "",
+  maxTokensInject: 800,
 
-  //System prompt
-  const systemPrompt = document.getElementById("systemPrompt");
+  language: 'en',
 
-  //Inject
-  const injectInputArea = document.getElementById("injectInputArea");
-  const submitInjection = document.getElementById("submitInjection");
-  const injectedMessage = document.getElementById("injectedMessage");
-  const removeLastMessage = document.getElementById("removeLastMessage");
+  // Hardcoded
+  voiceModel: "gpt-4o-mini-tts",
+  geminiVoiceModel: "gemini-2.5-flash-tts",
+  inworldVoiceModel: "inworld-tts-1.5-max",
+  skipMatchingSubtitles: true
+};
 
-  //Objects for audio control
-  let audioCtx;
-  let audioPlaylist = [];
-  let currentAudio = 0;
-  let audioIsPlaying = false;
-  let pauseAudio = false;
-  let nextOrBackClicked = false;
+const defaultLocalOptions = {
+  theme: '',
+  showTrimmed: true,
+  leftSidebarOpen: true,
+  rightSidebarOpen: true,
+  configCardExpanded: true,
+  expandedCharacters: {},
+  topicStates: {},
+  currentTopicIndex: 0,
+  editorWidthPercent: 50,
+  isInjectionDrawerOpen: false
+};
 
-  const available_languages = ['en'];
-  let current_language = 'en';
-  const languageButtons = document.getElementById("language-el").querySelectorAll("input[type=radio]");
 
-  //Room control
-  let currentRoom = 0;
-
-  //Names of OpenAI voices
-  const audioVoices = ["alloy", "ash", "ballad", "coral", "echo", "fable", "onyx", "nova", "sage", "shimmer", "verse"];
-
-  // ===========================
-  //   UI UPDATING AND STORING
-  // ===========================
-
-  function unpackPromptsAndOptions() {
-    //Update the UI with the data stored in localStorage
-    //Do the same as update, but reverse
-    document.getElementById("gpt-model").value =
-      promptsAndOptions.options.gptModel;
-    document.getElementById("temperature").value =
-      promptsAndOptions.options.temperature;
-    document.getElementById("temperature").previousSibling.value =
-      promptsAndOptions.options.temperature;
-    document.getElementById("max-tokens").value =
-      promptsAndOptions.options.maxTokens;
-    document.getElementById("max-tokens").previousSibling.value =
-      promptsAndOptions.options.maxTokens;
-    document.getElementById("chair-max-tokens").value =
-      promptsAndOptions.options.chairMaxTokens;
-    document.getElementById("chair-max-tokens").previousSibling.value =
-      promptsAndOptions.options.chairMaxTokens;
-    document.getElementById("max-tokens-inject").value =
-      promptsAndOptions.options.maxTokensInject;
-    document.getElementById("max-tokens-inject").previousSibling.value =
-      promptsAndOptions.options.maxTokensInject;
-    document.getElementById("frequency-penalty").value =
-      promptsAndOptions.options.frequencyPenalty;
-    document.getElementById("frequency-penalty").previousSibling.value =
-      promptsAndOptions.options.frequencyPenalty;
-    document.getElementById("presence-penalty").value =
-      promptsAndOptions.options.presencePenalty;
-    document.getElementById("presence-penalty").previousSibling.value =
-      promptsAndOptions.options.presencePenalty;
-
-    document.getElementById("trim-response-to-full-sentance").checked =
-      promptsAndOptions.options.trimSentance;
-    document.getElementById("trim-response-to-full-paragraph").checked =
-      promptsAndOptions.options.trimParagraph;
-    document.getElementById(
-      "trim-response-to-remove-chair-semicolon"
-    ).checked = promptsAndOptions.options.trimChairSemicolon;
-    document.getElementById("show-trimmed").checked =
-      promptsAndOptions.options.showTrimmed;
-    document.getElementById("conversation-max-length").value =
-      promptsAndOptions.options.conversationMaxLength;
-    document.getElementById("extra-message-count").value =
-      promptsAndOptions.options.extraMessageCount;
-    document.getElementById("skip-audio").checked =
-      promptsAndOptions.options.skipAudio;
-
-    document.getElementById("language-el").querySelector(`input[value=${promptsAndOptions.options.language}]`).checked = true;
-
-    injectInputArea.value = promptsAndOptions.options.injectPrompt;
-    systemPrompt.value = promptsAndOptions.language[current_language].system;
-
-    // Room buttons
-    let roomButtonsDiv = document.createElement("span");
-    roomButtonsDiv.id = "room-buttons";
-    if (promptsAndOptions.language[current_language].rooms.length > 0) {
-      promptsAndOptions.language[current_language].rooms.forEach((room, i) => {
-        const newDiv = document.createElement("button");
-        newDiv.innerHTML = room.name;
-        newDiv.setAttribute("room-id", i);
-        newDiv.addEventListener("click", roomButtonClicked);
-        roomButtonsDiv.appendChild(newDiv);
-      });
+const CharacterCard = {
+  template: '#character-card-template',
+  props: ['character', 'isActive', 'isExpanded', 'voiceLists', 'isSorting', 'isPinned'],
+  emits: ['toggle-active', 'toggle-expanded'],
+  methods: {
+    onProviderChange() {
+      const char = this.character;
+      if (char.voiceProvider === 'gemini') {
+        char.voice = this.voiceLists.gemini[0];
+        if (!char.voiceLocale) char.voiceLocale = 'en-GB';
+        if (char.voiceInstruction === undefined) char.voiceInstruction = "";
+      } else if (char.voiceProvider === 'inworld') {
+        char.voice = this.voiceLists.inworld[0];
+        if (char.voiceTemperature === undefined) char.voiceTemperature = 1.1;
+      } else {
+        char.voice = this.voiceLists.openai[0];
+        if (char.voiceInstruction === undefined) char.voiceInstruction = "";
+      }
     }
-    document.getElementById("room-buttons").replaceWith(roomButtonsDiv);
-
-    // Retrieve the panel topic and name
-    document.getElementById("room-name").value =
-      promptsAndOptions.language[current_language].rooms[currentRoom].name;
-    document.getElementById("panel-prompt").value =
-      promptsAndOptions.language[current_language].rooms[currentRoom].topic;
-
-    // Build array of characters
-    let characterDiv = document.createElement("div");
-    characterDiv.id = "characters";
-    if (promptsAndOptions.language[current_language].rooms[currentRoom].characters.length > 0) {
-      promptsAndOptions.language[current_language].rooms[currentRoom].characters.forEach(
-        (character, j) => {
-          const newDiv = document.createElement("div");
-          newDiv.className = "character";
-
-          const inputDiv = document.createElement("input");
-          inputDiv.placeholder = "character name";
-          inputDiv.type = "text";
-          inputDiv.value = character.name ?? "";
-
-          const textDiv = document.createElement("textarea");
-          textDiv.placeholder = "character prompt";
-          textDiv.value = character.prompt ?? "";
-
-          const voiceDiv = document.createElement("div");
-          voiceDiv.className = "voices";
-          const voicesDescDiv = document.createElement("span");
-          voicesDescDiv.innerHTML = "voice: ";
-          voiceDiv.appendChild(voicesDescDiv);
-          for (let i = 0; i < audioVoices.length; i++) {
-            const voiceRadioDiv = document.createElement("input");
-            voiceRadioDiv.id = "voice-" + j + "-" + audioVoices[i];
-            voiceRadioDiv.name = "voice-" + j;
-            voiceRadioDiv.type = "radio";
-            voiceRadioDiv.value = audioVoices[i];
-            if (character.voice === undefined) {
-              if (j % audioVoices.length == i) voiceRadioDiv.checked = true;
-            } else {
-              if (character.voice == audioVoices[i])
-                voiceRadioDiv.checked = true;
-            }
-            voiceDiv.appendChild(voiceRadioDiv);
-            const voiceRadioLabelDiv = document.createElement("label");
-            voiceRadioLabelDiv.innerHTML = audioVoices[i];
-            voiceRadioLabelDiv.htmlFor = "voice-" + j + "-" + audioVoices[i];
-            voiceDiv.appendChild(voiceRadioLabelDiv);
-          }
-
-          newDiv.appendChild(inputDiv);
-          newDiv.appendChild(textDiv);
-          newDiv.appendChild(voiceDiv);
-          characterDiv.appendChild(newDiv);
-        }
-      );
-    }
-    document.getElementById("characters").replaceWith(characterDiv);
-    enableDragAndDrop();
   }
+};
 
-  const updatePromptsAndOptions = (reset = false) => {
-    // Retrieve the global options
-    promptsAndOptions.options = {}; //Reset to remove possible orphan options
-    promptsAndOptions.options.gptModel =
-      document.getElementById("gpt-model").value;
-    promptsAndOptions.options.temperature =
-      +document.getElementById("temperature").value;
-    promptsAndOptions.options.maxTokens =
-      +document.getElementById("max-tokens").value;
-    promptsAndOptions.options.chairMaxTokens =
-      +document.getElementById("chair-max-tokens").value;
-    promptsAndOptions.options.frequencyPenalty =
-      +document.getElementById("frequency-penalty").value;
-    promptsAndOptions.options.presencePenalty =
-      +document.getElementById("presence-penalty").value;
-    promptsAndOptions.options.trimSentance = document.getElementById(
-      "trim-response-to-full-sentance"
-    ).checked;
-    promptsAndOptions.options.trimParagraph = document.getElementById(
-      "trim-response-to-full-paragraph"
-    ).checked;
-    promptsAndOptions.options.trimChairSemicolon = document.getElementById(
-      "trim-response-to-remove-chair-semicolon"
-    ).checked;
-    promptsAndOptions.options.showTrimmed =
-      document.getElementById("show-trimmed").checked;
-    promptsAndOptions.options.conversationMaxLength = +document.getElementById(
-      "conversation-max-length"
-    ).value;
-    promptsAndOptions.options.extraMessageCount = +document.getElementById(
-      "extra-message-count"
-    ).value;
-    promptsAndOptions.options.skipAudio =
-      document.getElementById("skip-audio").checked;
-
-    promptsAndOptions.options.injectPrompt = injectInputArea.value;
-    promptsAndOptions.options.maxTokensInject =
-      +document.getElementById("max-tokens-inject").value;
-
-    promptsAndOptions.options.language = document.getElementById("language-el").querySelector(':checked').value;
-
-    if (!reset) {
-      promptsAndOptions.language[current_language].system = systemPrompt.value;
-      // Retrieve the panel topic
-      promptsAndOptions.language[current_language].rooms[currentRoom].name =
-        document.getElementById("room-name").value;
-      promptsAndOptions.language[current_language].rooms[currentRoom].topic =
-        document.getElementById("panel-prompt").value;
-
-      // Gather character data
-      const characters = document.querySelectorAll("#characters .character");
-
-      promptsAndOptions.language[current_language].rooms[currentRoom].characters = Array.from(
-        characters
-      ).map((characterDiv) => {
-        const nameInput = characterDiv.querySelector("input").value; // Assuming the first input is still for the name
-        const roleTextarea = characterDiv.querySelector("textarea").value; // Select the textarea for the role
-        const voice = characterDiv.querySelector("input[type=radio]:checked");
-
-        return {
-          id: nameInput,//this will be swedish ids on the prototype, but english on main site. Does it matter?
-          name: nameInput,
-          prompt: roleTextarea,
-          voice: voice?.value,
-        };
-      });
-    }
-
-    promptsAndOptions.options.chairName = promptsAndOptions.language[current_language].rooms[currentRoom].characters[0].name;
-    promptsAndOptions.options.audio_speed = 1.15;
-
-    localStorage.setItem(
-      "PromptsAndOptions",
-      JSON.stringify(promptsAndOptions)
-    );
-
-    let replacedCharacters = structuredClone(
-      promptsAndOptions.language[current_language].rooms[currentRoom].characters
-    );
-
-    if (replacedCharacters[0]) {
-      let participants = "";
-      promptsAndOptions.language[current_language].rooms[currentRoom].characters.forEach(function (
-        food,
-        index
-      ) {
-        if (index !== 0) participants += toTitleCase(food.name) + ", ";
-      });
-      participants = participants.substring(0, participants.length - 2);
-      replacedCharacters[0].prompt = promptsAndOptions.language[current_language].rooms[
-        currentRoom
-      ].characters[0]?.prompt.replace("[FOODS]", participants).replace('[HUMANS]', '');
-    }
-
-
+createApp({
+  components: { CharacterCard },
+  data() {
     return {
-      options: promptsAndOptions.options,
-      topic: promptsAndOptions.language[current_language].system.replace(
-        "[TOPIC]",
-        promptsAndOptions.language[current_language].rooms[currentRoom].topic
-      ),
-      characters: replacedCharacters,
-    };
-  };
+      socket: null,
 
-  // ==================
-  //   SOCKET EVENTS
-  // ==================
+      // UI State
+      status: 'IDLE', // IDLE, CONNECTING, ACTIVE, PAUSED, ENDED, ERROR
+      injectionStatus: '',
+      endMessage: '',
 
-  // Handle conversation updates
-  socket.on("conversation_update", (conversationUpdate) => {
-    conversation = conversationUpdate;
-    reloadConversations();
-    conversationContainer.scrollTop = conversationContainer.scrollHeight;
-  });
+      // Data Model
+      options: { ...defaultOptions },
+      localOptions: { ...defaultLocalOptions },
 
-  // Handle audio updates
-  socket.on("audio_update", async (update) => {
-    if (document.getElementById(update.id) === null) {
-      //If an audio is received for a message that is not currently on screen, skip it!
-      //This could happen after a restart etc.
-      return;
+      // Language storage
+      languageData: {
+        en: { system: '', topics: [] }
+      },
+      available_languages: ['en'],
+
+      // Runtime
+      audioVoices: ["alloy", "ash", "ballad", "coral", "echo", "fable", "onyx", "nova", "sage", "shimmer", "verse"],
+      audioVoicesGemini: [
+        "Achernar", "Achird", "Algenib", "Algieba", "Alnilam", "Aoede", "Autonoe", "Callirrhoe", "Charon", "Despina",
+        "Enceladus", "Erinome", "Fenrir", "Gacrux", "Iapetus", "Kore", "Laomedeia", "Leda", "Orus", "Pulcherrima",
+        "Puck", "Rasalgethi", "Sadachbia", "Sadaltager", "Schedar", "Sulafat", "Umbriel", "Vindemiatrix", "Zephyr", "Zubenelgenubi"
+      ],
+      audioVoicesInworld: [
+        "Alex", "Ashley", "Blake", "Carter", "Clive", "Craig", "Deborah", "Dennis", "Dominus", "Edward",
+        "Elizabeth", "Hades", "Hana", "Julia", "Luna", "Mark", "Olivia", "Pixie", "Priya", "Ronald",
+        "Sarah", "Shaun", "Theodore", "Timothy", "Wendy"
+      ],
+      sortableInstance: null,
+      isResizing: false,
+
+      // Conversation
+      conversation: [],
+
+      // Audio State
+      audioController: null,
+      nextOrBackClicked: false,
     }
-    console.log(update);
+  },
 
-    let message_index;
-    const conversationId = document.getElementById("conversation");
-    for (let i = 0; i < conversationId.children.length; i++) {
-      if (conversationId.children[i].id === update.id) message_index = i;
+  computed: {
+    currentLanguageData() {
+      if (!this.languageData[this.options.language]) {
+        this.languageData[this.options.language] = { system: '', topics: [] };
+      }
+      return this.languageData[this.options.language];
+    },
+
+    currentTopic() {
+      const topics = this.currentLanguageData.topics;
+      if (!topics || topics.length === 0) return null;
+      // Use persisted index, fallback to 0
+      const idx = this.localOptions.currentTopicIndex || 0;
+      return topics[idx] || topics[0];
+    },
+
+    currentSystemPrompt: {
+      get() {
+        return this.currentLanguageData.system;
+      },
+      set(val) {
+        this.currentLanguageData.system = val;
+      }
+    },
+    // Split lists for UI
+    activeCharacters() {
+      return (this.currentLanguageData.characters || []).filter(c => this.isCharacterActive(c));
+    },
+
+    inactiveCharacters() {
+      return (this.currentLanguageData.characters || []).filter(c => !this.isCharacterActive(c));
     }
+  },
 
-    if (update.type == "skipped") {
-      ignorePlaylist(message_index);
-      return;
+  watch: {
+    currentTopic: {
+      handler(val) {
+        if (val) {
+          this.$nextTick(() => {
+            this.initSortable();
+          });
+        }
+      },
+      immediate: true
     }
-    //This is an async function
-    await addToPlaylist(update.audio, message_index);
-    //If audio is not playing, we then need to move to the next item in playlist
-    if (
-      !audioIsPlaying &&
-      audioPlaylist[currentAudio] !== undefined &&
-      !pauseAudio
-    ) {
-      audioPlaylist[currentAudio].play();
+  },
+
+  created() {
+    // Dynamic Watchers for Persistence
+    ['options', 'localOptions', 'languageData'].forEach(key => {
+      this.$watch(key, {
+        handler() { this.save(); },
+        deep: true
+      });
+    });
+  },
+
+  beforeUpdate() {
+    // Global Scroll Guard (Left Pane)
+    // Vue's patching process can sometimes cause layout shifts that reset scroll
+    // We capture the position right before the patch is applied.
+    const el = document.querySelector('.pane-scroll-area');
+    if (el) {
+      this._leftPaneScrollTop = el.scrollTop;
     }
-  });
+  },
+  updated() {
+    // Restore scroll position immediately after DOM patch
+    if (this._leftPaneScrollTop !== undefined) {
+      const el = document.querySelector('.pane-scroll-area');
+      if (el) {
+        el.scrollTop = this._leftPaneScrollTop;
+      }
+    }
+  },
+  mounted() {
+    this.audioController = new AudioController();
+    this.audioController.setLogCallback(this.log);
 
-  // Handle conversation end
-  socket.on("conversation_end", () => {
-    spinner.style.display = "none";
-    toggleConversationBtn.style.display = "none";
-    restartBtn.style.display = "inline";
-    continueBtn.style.display = "inline";
-    endMessage.innerHTML = "End of Conversation";
-    conversationActive = false;
-  });
+    this.socket = io();
+    this.setupSocketListeners();
+    this.startup();
+  },
 
-  // Handle conversation error
-  socket.on("conversation_error", (errorMessage) => {
-    console.error(errorMessage);
-    spinner.style.display = 'none';
-    alert(errorMessage.message);
-  });
+  methods: {
+    log(category, message, data = null) {
+      const styles = {
+        'SOCKET_OUT': 'color: #10b981; font-weight: bold;', // Green
+        'SOCKET_IN': 'color: #3b82f6; font-weight: bold;',  // Blue
+        'AUDIO': 'color: #8b5cf6; font-weight: bold;',      // Purple
+        'ERROR': 'color: #ef4444; font-weight: bold;',      // Red
+        'SYSTEM': 'color: #6b7280; font-weight: bold;'      // Gray
+      };
 
-  // ==================
-  //   AUDIO CONTROL
-  // ==================
+      const icon = {
+        'SOCKET_OUT': '⬆️',
+        'SOCKET_IN': '⬇️',
+        'AUDIO': '🎵',
+        'ERROR': '❌',
+        'SYSTEM': '⚙️'
+      }[category] || '🔹';
 
-  const addToPlaylist = async (audio, index) => {
-    //functions related to each audio is kept here in an object oriented way
-    //so that they are properly scoped and garbage collected
-    //and so that they can easily recreate the source buffer every time they are played
+      console.groupCollapsed(`%c${icon} [${category}] ${message}`, styles[category] || '');
+      if (data) console.log(data);
+      console.trace('Stack');
+      console.groupEnd();
+    },
 
-    const buffer = await audioCtx.decodeAudioData(audio);
-    let source;
+    isCharacterPinned(char) {
+      // The first character in the global list is considered "The Chair" and is pinned.
+      if (!this.currentLanguageData.characters || this.currentLanguageData.characters.length === 0) return false;
+      return this.currentLanguageData.characters[0]._ui_id === char._ui_id;
+    },
 
-    const play = function () {
-      source = audioCtx.createBufferSource();
-      // set the buffer in the AudioBufferSourceNode
-      source.buffer = buffer;
-      // connect the AudioBufferSourceNode to the
-      // destination so we can hear the sound
-      source.connect(audioCtx.destination);
-      source.addEventListener("ended", async () => {
-        //If audio is paused, do nothing
-        if (pauseAudio) return;
-        if (nextOrBackClicked) {
-          //If we just clicked next or back, skip this end event.
-          nextOrBackClicked = false;
+    isCharacterActive(char) {
+      if (!this.currentTopic) return false;
+      const topicId = this.currentTopic.id;
+      const topicState = this.localOptions.topicStates[topicId];
+      const isActive = topicState?.activeCharacterIds?.[char._ui_id] || false;
+      return isActive;
+    },
+
+    // Sort logic to keep Active at top in the data model
+    enforceActiveCharacterSort() {
+      if (!this.currentLanguageData.characters) return;
+
+      const pinned = [];
+      const active = [];
+      const inactive = [];
+
+      this.currentLanguageData.characters.forEach((c, index) => {
+        // Index 0 is pinned.
+        if (index === 0) {
+          pinned.push(c);
           return;
         }
 
-        //Otherwise, audio should be playing
-        //If next audio is ready to play
-        if (audioPlaylist[currentAudio + 1] !== undefined) {
-          //Wait a bit before the next audio plays
-          //This type of waiting is non-blocking
-          await new Promise((r) => setTimeout(r, 1000));
-
-          //Play the next audio in the list
-          currentAudio++;
-          //Play next audio
-          audioPlaylist[currentAudio].play();
-        } else if (audioIsPlaying) {
-          //If audio is still playing means we have reached the end of the queue
-          //Otherwise, it might be stopped for other reasons
-          audioIsPlaying = false;
-          currentAudio++;
+        if (this.isCharacterActive(c)) {
+          active.push(c);
+        } else {
+          inactive.push(c);
         }
       });
-      source.start();
-      audioIsPlaying = true;
-    };
 
-    const stop = function () {
-      source.stop();
-      audioIsPlaying = false;
-    };
+      // Mutate the array structure directly: [Pinned, ...Active, ...Inactive]
+      this.currentLanguageData.characters = [...pinned, ...active, ...inactive];
+    },
 
-    //This array can be filled in a sparse way, because audio files might not be downloaded in the right order
-    //This has to be handled in the playback
-    audioPlaylist[index] = { play: play, stop: stop };
-  };
-
-  const ignorePlaylist = (index) => {
-    const ignore = function () {
-      if (audioPlaylist[currentAudio + 1] !== undefined) {
-        //Play the next audio in the list
-        currentAudio++;
-        //Play next audio
-        audioPlaylist[currentAudio].play();
-      } else if (audioIsPlaying) {
-        //If audio is still playing means we have reached the end of the queue
-        //Otherwise, it might be stopped for other reasons
-        audioIsPlaying = false;
-        currentAudio++;
-      }
-    };
-    const stop = function () {
-      audioIsPlaying = false;
-    };
-    audioPlaylist[index] = { play: ignore, stop: stop, skip: true };
-  };
-
-  audioBackButton.addEventListener("click", async () => {
-    //If audio is paused, do nothing
-    if (pauseAudio) return;
-
-    if (audioIsPlaying) {
-      //If audio is playing
-      //Stop the current audio
-      audioPlaylist[currentAudio].stop();
-      //Skip the next end event
-      nextOrBackClicked = true;
-    }
-    if (currentAudio > 0) currentAudio--;
-    //If there is anything to skip
-    while (audioPlaylist[currentAudio].skip && currentAudio > 0) {
-      currentAudio--;
-    }
-    if (audioPlaylist[currentAudio] !== undefined) {
-      audioPlaylist[currentAudio].play();
-    }
-  });
-
-  audioToggleButton.addEventListener("click", () => {
-    if (audioIsPlaying) {
-      //If audio is playing, pause it.
-      audioCtx.suspend();
-      audioIsPlaying = false;
-    } else if (audioCtx && audioCtx.state == "suspended") {
-      //If current playback is suspended, resume it.
-      //Also check that audio context has been initialized
-      audioCtx.resume();
-      audioIsPlaying = true;
-    } else if (audioPlaylist[currentAudio] !== undefined) {
-      //If audio is not playing, and is not suspended, check if the current audio exists, and start it.
-      audioPlaylist[currentAudio].play();
-    }
-
-    if (!pauseAudio) {
-      pauseAudio = true;
-      audioToggleButton.style.background = "red";
-    } else {
-      pauseAudio = false;
-      audioToggleButton.style.background = null;
-    }
-  });
-
-  audioNextButton.addEventListener("click", () => {
-    //If audio is paused, do nothing
-    if (pauseAudio) return;
-
-    if (audioPlaylist[currentAudio + 1] !== undefined) {
-      //If audio is playing
-      if (audioIsPlaying) {
-        //Stop the current audio
-        audioPlaylist[currentAudio].stop();
-        //Skip the next end event
-        nextOrBackClicked = true;
-      }
-      currentAudio++;
-      audioPlaylist[currentAudio].play();
-    }
-  });
-
-  // ==================
-  //   BUTTON CONTROL
-  // ==================
-
-  toggleConversationBtn.addEventListener("click", () => {
-    if (conversationActive) {
-      //Pause the conversation
-      toggleConversationBtn.textContent = "Resume";
-      restartBtn.style.display = "inline";
-      conversationActive = false;
-      spinner.style.display = "none";
-      socket.emit("pause_conversation");
-    } else {
-      //Start from scratch or resume
-      spinner.style.display = "block";
-      continueBtn.style.display = "none";
-      restartBtn.style.display = "none";
-      toggleConversationBtn.textContent = "Pause";
-      conversationActive = true;
-
-      if (!conversationStarted) {
-        //Start the conversation from scratch!
-        spinner.style.display = "block";
-
-        //Initialize the audio context
-        audioCtx = new window.AudioContext();
-
-        conversationStarted = true;
-        // Emit the start conversation event with all necessary data
-        const sentPromptsAndOptions = updatePromptsAndOptions();
-        socket.emit("start_conversation", sentPromptsAndOptions);
+    updateVoice(char) {
+      // Reset voice to first available when provider switches
+      if (char.voiceProvider === 'gemini') {
+        char.voice = this.audioVoicesGemini[0];
+      } else if (char.voiceProvider === 'inworld') {
+        char.voice = this.audioVoicesInworld[0];
       } else {
-        // Resume the conversation if it's paused
-        isPaused = false;
-        console.log("Conversation has been resumed");
-        socket.emit("resume_conversation");
+        char.voice = this.audioVoices[0];
       }
-    }
-  });
+    },
 
-  restartBtn.addEventListener("click", () => {
-    //Continue to generate more even after it has previously stopped
-    spinner.style.display = "block";
-    continueBtn.style.display = "none";
-    restartBtn.style.display = "none";
-    toggleConversationBtn.style.display = "inline";
-    toggleConversationBtn.textContent = "Pause";
-    conversationActive = true;
-    endMessage.innerHTML = "";
-    conversationDiv.innerHTML = "";
+    initSortable() {
+      const el = document.getElementById('active-characters-list');
+      if (!el) return;
 
-    //Stop audio if it's playing, and reset the data
-    if (audioIsPlaying) {
-      audioPlaylist[currentAudio].stop();
-    }
-    audioCtx = new window.AudioContext();
-    audioPlaylist = [];
-    currentAudio = 0;
+      // If already initialized on the same element, skip
+      if (this.sortableInstance && this.sortableInstance.el === el) return;
+      if (this.sortableInstance) this.sortableInstance.destroy();
 
-    const sentPromptsAndOptions = updatePromptsAndOptions();
-    // Emit the start conversation event with all necessary data
-    socket.emit("start_conversation", sentPromptsAndOptions);
-  });
+      this.sortableInstance = new Sortable(el, {
+        animation: 150,
+        handle: ".drag-handle",
+        filter: ".pinned", // Cannot drag pinned items
+        preventOnFilter: false, // Critical: Allow clicks/inputs to work in pinned items!
+        onMove: (evt) => {
+          // Prevent moving anything to index 0 (pinned position)
+          // If the target is the pinned element (index 0), disallow
+          if (evt.related.classList.contains('pinned')) return false;
+          return true;
+        },
+        onEnd: (evt) => {
+          if (evt.oldIndex === evt.newIndex) return;
 
-  continueBtn.addEventListener("click", () => {
-    //Continue to generate more even after it has previously stopped
-    spinner.style.display = "block";
-    restartBtn.style.display = "none";
-    continueBtn.style.display = "none";
-    toggleConversationBtn.style.display = "inline";
-    toggleConversationBtn.textContent = "Pause";
-    conversationActive = true;
-    endMessage.innerHTML = "";
+          // Fix: Ensure we are reordering relative to the Active list, not just raw global indices.
+          // The visual list represents 'activeCharacters'. We must reflect that reorder in the global list.
 
-    // Emit the start conversation event with all necessary data
-    const sentPromptsAndOptions = updatePromptsAndOptions();
-    socket.emit("continue_conversation", sentPromptsAndOptions);
-  });
+          // 1. Get current active characters (which matches visual order BEFORE the drag)
+          const activeRefs = [...this.activeCharacters];
 
-  removeLastMessage.addEventListener("click", () => {
-    socket.emit("remove_last_message");
-  });
+          // 2. Apply the move to this active list subset
+          if (evt.oldIndex >= activeRefs.length) return;
+          const [movedItem] = activeRefs.splice(evt.oldIndex, 1);
+          activeRefs.splice(evt.newIndex, 0, movedItem);
 
-  submitInjection.addEventListener("click", () => {
-    reloadUI();
+          // 3. Get all other (inactive) characters
+          const inactiveRefs = (this.currentLanguageData.characters || []).filter(c => !this.isCharacterActive(c));
 
-    const conversationLength =
-      document.getElementById("conversation").children.length;
-    const message = {
-      text: injectInputArea.value,
-      length: promptsAndOptions.options.maxTokensInject,
-      index: conversationLength,
-      date: new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10)//Use local browser date, in ISO format to avoid ambiguity
-    };
-    injectedMessage.innerHTML = "Instruction injected, just wait...";
-    submitInjection.style.display = "none";
-    setTimeout(function () {
-      submitInjection.style.display = "inline";
-      injectedMessage.innerHTML = "";
-    }, 5000);
-    socket.emit("submit_injection", message);
-  });
+          // 4. Reconstruct global list: [Reordered Active] + [Inactive]
+          // This enforces "Active at Top" AND applies the user's sort.
+          this.currentLanguageData.characters = [...activeRefs, ...inactiveRefs];
 
-
-  // Adding a character to the panel
-  document.getElementById("add-character").addEventListener("click", () => {
-    updatePromptsAndOptions();
-
-    promptsAndOptions.language[current_language].rooms[currentRoom].characters.push({});
-    unpackPromptsAndOptions();
-  });
-
-  // Remove the last character
-  document.getElementById("remove-character").addEventListener("click", () => {
-    const characters = document.getElementById("characters");
-    if (characters.lastChild) characters.removeChild(characters.lastChild);
-  });
-
-  document
-    .getElementById("factoryResetButton")
-    .addEventListener("click", () => {
-      localStorage.clear();
-      location.reload();
-    });
-
-  const roomButtonClicked = function (e) {
-    //First save what we have at the moment
-    updatePromptsAndOptions();
-    //Set the room
-    currentRoom = e.target.getAttribute("room-id");
-    //Update UI
-    unpackPromptsAndOptions();
-  };
-
-  function reloadConversations() {
-    if (!conversation) return;
-    conversationDiv.innerHTML = conversation
-      .map((turn) => {
-        //If if we should skip this message, we still need to put the id in to the DOM, to keep track if which messages have received audio information
-        //So we put a hidden object
-        //This might not be the best idea
-        if (!promptsAndOptions.options.showTrimmed && turn.type == "skipped") {
-          return `<p id="${turn.id}" style="display:none;"></p>`;
+          this.save();
         }
-        let speech = `<p id="${turn.id}">`;
-        speech += `<strong>${turn.speaker}:</strong> `;
-        if (promptsAndOptions.options.showTrimmed && turn.pretrimmed) {
-          speech += `<span class="trimmed">${turn.pretrimmed
-            .split("\n")
-            .join("<br>")}</span>`;
+      });
+    },
+    // ===========================
+    //   STARTUP & PERSISTENCE
+    // ===========================
+    /**
+     * Startup Sequence.
+     * 
+     * 1. Hydrates state from LocalStorage (`PromptsAndOptions`).
+     * 2. Migrates legacy data if needed.
+     * 3. Loads default prompts from `foods_en.json` if startup fails or is fresh.
+     * 4. Ensures character sorting (Pinned > Active > Inactive).
+     */
+    async startup() {
+      try {
+        const stored = JSON.parse(localStorage.getItem("PromptsAndOptions"));
+        if (stored) {
+          // Merge stored options to handle new fields gracefully
+          this.options = { ...defaultOptions, ...stored.options };
+          this.localOptions = { ...JSON.parse(JSON.stringify(defaultLocalOptions)), ...stored.localOptions };
+
+          this.log('SYSTEM', 'State Loaded from LocalStorage');
+
+          // Backwards compatibility: if theme was in options
+          if (stored.options && stored.options.theme) {
+            this.localOptions.theme = stored.options.theme;
+            delete this.options.theme;
+          }
+
+          // Ensure Global Characters and Topic IDs for each language
+          Object.keys(stored.language).forEach(lang => {
+            const data = stored.language[lang];
+
+            // Ensure characters array
+            if (!data.characters) data.characters = [];
+
+            // Ensure activeCharacterIds logic persists or migrates? 
+            // Since we renamed key, old roomStates are lost unless migrated.
+            // Simplified: User accepted reset. We focus on new structure.
+
+            // Ensure Topics
+            if (data.topics) {
+              data.topics.forEach(topic => {
+                if (!topic.id) topic.id = 'topic_' + Date.now() + Math.random();
+              });
+            } else if (data.rooms) {
+              // Migration path if needed, but likely better to just encourage reset for clean state
+              data.topics = data.rooms.map(r => ({ ...r, prompt: r.topic }));
+              delete data.rooms;
+            }
+          });
+
+          this.languageData = stored.language;
+
+          if (this.localOptions.theme) {
+            this.setTheme(this.localOptions.theme);
+          }
+
+          this.sanitizeData();
+
+          // Ensure sorting is enforced on load so index 0 is pinned correcty
+          this.enforceActiveCharacterSort();
+        } else {
+          this.log('SYSTEM', 'Fresh Startup - No Save Found');
+          await this.factoryReset();
         }
-        speech += turn.text.split("\n").join("<br>");
-        if (promptsAndOptions.options.showTrimmed && turn.trimmed) {
-          speech += `<span class="trimmed">${turn.trimmed
-            .split("\n")
-            .join("<br>")}</span>`;
+      } catch (e) {
+        this.log('ERROR', 'Save File Corrupted - Resetting', e);
+        await this.factoryReset();
+      }
+    },
+
+    async factoryReset() {
+      // Reset options to defaults
+      this.log('SYSTEM', 'Factory Reset Executed');
+      this.options = { ...defaultOptions };
+      // Deep copy defaults to ensure clean slate
+      this.localOptions = { ...JSON.parse(JSON.stringify(defaultLocalOptions)) };
+      this.setTheme(this.localOptions.theme);
+
+      // Initialize languages from server
+      for (const lang of this.available_languages) {
+        try {
+          const [foodsResp, topicsResp] = await Promise.all([
+            fetch(`./foods_${lang}.json`),
+            fetch(`./topics_${lang}.json`)
+          ]);
+
+          if (!foodsResp.ok) throw new Error(`Failed to fetch foods_${lang}: ${foodsResp.status}`);
+          if (!topicsResp.ok) throw new Error(`Failed to fetch topics_${lang}: ${topicsResp.status}`);
+
+          const foodsParams = await foodsResp.json();
+          const topics = await topicsResp.json();
+
+          // Map Characters (Global)
+          // foodsParams is { foods: [...] }
+          const characters = foodsParams.foods.map(f => ({
+            ...f,
+            _ui_id: Date.now() + Math.random() // Ensure unique ID
+          }));
+
+          // Map Topics
+          const topicsList = topics.topics.map(t => ({
+            id: 'topic_' + Date.now() + Math.random(),
+            name: t.title,
+            description: t.description || "",
+            prompt: t.prompt
+          }));
+
+          this.languageData[lang] = {
+            system: topics.system,
+            characters: characters,
+            topics: topicsList
+          };
+
+          // Explicitly set default active state: Only Pinned (Index 0) is active
+          if (characters.length > 0) {
+            const pinnedChar = characters[0];
+
+            topicsList.forEach((topic, rIndex) => {
+              // Ensure topicStates object exists
+              if (!this.localOptions.topicStates) this.localOptions.topicStates = {};
+
+              this.localOptions.topicStates[topic.id] = {
+                activeCharacterIds: {
+                  [pinnedChar._ui_id]: true
+                }
+              };
+            });
+          }
+
+        } catch (err) {
+          this.log('ERROR', `Failed to load defaults for ${lang}:`, err);
+          // Fallback if fetch fails
+          this.languageData[lang] = { system: "Error loading defaults.", characters: [], topics: [] };
         }
-        speech += "</p>";
-        return speech;
-      })
-      .join("");
-  }
-
-  document.getElementById("show-trimmed").addEventListener("click", () => {
-    reloadUI();
-  });
-
-  // Remove the last character
-  document.getElementById("add-room").addEventListener("click", () => {
-    const rooms = document.getElementById("room-buttons");
-    // const roomsCount = rooms.getElementsByTagName('button').length;
-
-    const newRoomButton = document.createElement("button");
-    newRoomButton.innerHTML = "New Room";
-    rooms.appendChild(newRoomButton);
-
-    //First save what we have at the moment
-    updatePromptsAndOptions();
-
-    //Add another room
-    promptsAndOptions.language[current_language].rooms.push({
-      name: "New Room",
-      topic: "",
-      characters: {},
-    });
-    currentRoom = promptsAndOptions.language[current_language].rooms.length - 1;
-    unpackPromptsAndOptions();
-
-    //Save again
-    updatePromptsAndOptions();
-  });
-
-  document.getElementById("remove-room").addEventListener("click", () => {
-    if (promptsAndOptions.language[current_language].rooms.length > 1) {
-      updatePromptsAndOptions();
-      const rooms = document.getElementById("room-buttons");
-      if (rooms.lastChild) rooms.removeChild(rooms.lastChild);
-
-      promptsAndOptions.language[current_language].rooms.pop();
-      if (currentRoom > promptsAndOptions.language[current_language].rooms.length - 1)
-        currentRoom = promptsAndOptions.language[current_language].rooms.length - 1;
-      //Save
-      unpackPromptsAndOptions();
-      updatePromptsAndOptions();
-    }
-  });
-
-  //range sliders for model options
-  Array.from(document.querySelectorAll(".explain")).map((range) => {
-    range.nextSibling.value = range.value;
-    range.oninput = () => (range.nextSibling.value = range.value);
-    range.nextSibling.oninput = () => (range.value = range.nextSibling.value);
-    range.onmouseover = () => (range.previousSibling.style.display = "block");
-    range.onmouseout = () => (range.previousSibling.style.display = "none");
-  });
-
-  for (const radio of languageButtons) {
-    radio.addEventListener('change', e => {
-      
-      //First save what we have at the moment
-      updatePromptsAndOptions();
-      //Set the language
-      current_language = e.target.value;
-      //Update UI
-      unpackPromptsAndOptions();
-
-      reloadUI();
-    })
-  }
-
-  //When to reload the UI
-
-  const reloadUI = () => {
-    updatePromptsAndOptions();
-    unpackPromptsAndOptions();
-    reloadConversations();
-  };
-
-  document.getElementById("room-name").addEventListener("change", reloadUI);
-
-  //Lastly, try to fill the initial UI
-
-  // ====================
-  //   STARTUP COMMANDS
-  // ====================
-
-  async function startup() {
-    try {
-      promptsAndOptions = JSON.parse(localStorage.getItem("PromptsAndOptions"));
-      console.log("Stored prompts and settings to restore:");
-      console.log(promptsAndOptions);
-
-      //Set the current language on startup
-      current_language = promptsAndOptions.options.language;
-      unpackPromptsAndOptions();
-    } catch (e) {
-      console.log(e);
-      console.log("Resetting to default settings");
-
-      let default_prompts = {};
-      for (const lang of available_languages) {
-        default_prompts[lang] = {};
-        const resp = await fetch(`./foods_${lang}.json`);
-        default_prompts[lang] = await resp.json();//foods json has one item foods
-        const resp2 = await fetch(`./topics_${lang}.json`);
-        default_prompts[lang].topics = await resp2.json();
       }
 
-      promptsAndOptions = {
-        options: {},
-        language: {},
+      this.options.language = 'en';
+      this.sanitizeData();
+
+      this.save();
+    },
+
+    save() {
+      // Always sanitize before saving to ensure consistency
+      this.sanitizeData();
+
+      const data = {
+        options: this.options,
+        localOptions: this.localOptions,
+        language: this.languageData
+      };
+      localStorage.setItem("PromptsAndOptions", JSON.stringify(data));
+    },
+
+    getPayload() {
+      // Pre-process payload for server (similar to updatePromptsAndOptions return)
+
+      // Construct participant list based on ACTIVE characters in current TOPIC
+      // We must manually filter the global list based on currentTopic active IDs.
+
+      // We need real characters, not deep copy yet
+      const allChars = this.currentLanguageData.characters || [];
+      const topicId = this.currentTopic.id;
+      const activeIds = this.localOptions.topicStates[topicId]?.activeCharacterIds || {};
+
+      // Filter active
+      let activeChars = allChars.filter(c => activeIds[c._ui_id]);
+
+      // Sort logic is enforced on UI, but we should double check data sort?
+      // The data array is sorted. So filtering in order works.
+
+      let replacedCharacters = JSON.parse(JSON.stringify(activeChars));
+
+      // Ensure every character has an ID (default to name) and voice (default to "alloy")
+      replacedCharacters.forEach(c => {
+        if (!c.id && c.name) c.id = c.name;
+
+        // Ensure voiceProvider is set
+        if (!c.voiceProvider) c.voiceProvider = 'openai';
+
+        if (!c.voice) {
+          if (c.voiceProvider === 'gemini') c.voice = this.audioVoicesGemini[0];
+          else c.voice = this.audioVoices[0];
+        }
+      });
+
+      if (replacedCharacters[0]) {
+        let participants = activeChars
+          .slice(1)
+          .map(c => this.toTitleCase(c.name))
+          .join(", ");
+
+        replacedCharacters[0].prompt = replacedCharacters[0].prompt
+          .replace("[FOODS]", participants)
+          .replace('[HUMANS]', '');
+      }
+
+      return {
+        options: this.options,
+        prompt: this.currentSystemPrompt.replace("[TOPIC]", this.currentTopic.prompt),
+        topic: this.currentTopic.prompt || "", // Fix for Zod validation
+        characters: replacedCharacters,
+        // For logging/debug, maybe send topic name too?
+        topicName: this.currentTopic.name
+      };
+    },
+
+    // ===========================
+    //   SOCKET LISTENERS
+    // ===========================
+    /**
+     * Sets up socket.io event listeners.
+     * 
+     * Handles:
+     * - `conversation_update`: Syncs conversation state and passes expected length to AudioController.
+     * - `audio_update`: Receives new audio packets.
+     * - `conversation_end`: Marks the Conversation (and potentially audio) as complete.
+     */
+    setupSocketListeners() {
+      this.socket.on("conversation_update", (conversationUpdate) => {
+        this.log('SOCKET_IN', 'Conversation Update', conversationUpdate);
+        this.conversation = conversationUpdate;
+        if (this.audioController) {
+          this.audioController.setExpectedLength(this.conversation.length);
+        }
+
+        // If we get an update, we are active (unless paused, but usually this implies activity)
+        if (this.status !== 'PAUSED') {
+          this.status = 'ACTIVE';
+        }
+
+        this.injectionStatus = ""; // Clear status on response
+        this.scrollToBottom();
+      });
+
+      this.socket.on("audio_update", (update) => {
+        this.log('SOCKET_IN', 'Audio Update Received', update);
+        this.handleAudioUpdate(update);
+      });
+
+      this.socket.on("conversation_end", () => {
+        this.log('SOCKET_IN', 'Conversation End');
+        this.status = 'ENDED';
+        this.endMessage = "End of Conversation";
+        if (this.audioController) this.audioController.markComplete();
+      });
+
+      this.socket.on("conversation_error", (errorMessage) => {
+        this.log('ERROR', 'Conversation Error', errorMessage);
+        this.status = 'ERROR';
+        alert(errorMessage.message);
+      });
+    },
+
+    // ===========================
+    //   UI ACTIONS
+    // ===========================
+    addTopic() {
+      const newTopic = {
+        id: 'topic_' + Date.now(),
+        name: "New Topic",
+        description: "",
+        prompt: "",
+      };
+      this.currentLanguageData.topics.push(newTopic);
+      this.log('SYSTEM', 'Topic Added', newTopic);
+
+      // Initialize state for new topic with Pinned Character (Chair) Active
+      // Logic mirrors factoryReset initialization
+      if (this.currentLanguageData.characters && this.currentLanguageData.characters.length > 0) {
+        const pinnedChar = this.currentLanguageData.characters[0];
+        if (!this.localOptions.topicStates) this.localOptions.topicStates = {};
+
+        this.localOptions.topicStates[newTopic.id] = {
+          activeCharacterIds: {
+            [pinnedChar._ui_id]: true
+          }
+        };
+      }
+
+      // Switch to new topic
+      this.localOptions.currentTopicIndex = this.currentLanguageData.topics.length - 1;
+    },
+
+    removeTopic() {
+      if (this.currentLanguageData.topics.length > 1) {
+        const removed = this.currentLanguageData.topics[this.localOptions.currentTopicIndex];
+        this.log('SYSTEM', 'Topic Removed', removed);
+
+        this.currentLanguageData.topics.splice(this.localOptions.currentTopicIndex, 1);
+        if (this.localOptions.currentTopicIndex >= this.currentLanguageData.topics.length) {
+          this.localOptions.currentTopicIndex = this.currentLanguageData.topics.length - 1;
+        }
+      }
+    },
+
+    addCharacter() {
+      // Ensure global list exists for current language
+      if (!this.currentLanguageData.characters) this.currentLanguageData.characters = [];
+
+      const newId = Date.now() + Math.random();
+      const voiceIndex = this.currentLanguageData.characters.length % this.audioVoices.length;
+
+      // Add at the BOTTOM (End) and maintain Inactive state
+      this.currentLanguageData.characters.push({
+        voiceProvider: 'openai',
+        voiceLocale: 'en-GB',
+        voice: this.audioVoices[voiceIndex],
+        voiceInstruction: "",
+        _ui_id: newId,
+        name: "",
+        description: "",
+        prompt: ""
+      });
+
+      // Auto-expand in UI logic
+      this.localOptions.expandedCharacters[newId] = true;
+
+      // Do NOT auto-activate. User wants it inactive (at bottom).
+      // if (this.currentTopic) {
+      //   this.toggleCharacterActive({ _ui_id: newId });
+      // }
+
+      this.save();
+    },
+
+    removeCharacter(index) {
+      // Global Removal
+      if (!this.currentLanguageData.characters || this.currentLanguageData.characters.length === 0) return;
+
+      // If index not provided, remove the character at the BOTTOM (Last)
+      let indexToRemove = (typeof index === 'number') ? index : this.currentLanguageData.characters.length - 1;
+
+      // Safety check to protect Chair (Index 0)
+      if (indexToRemove === 0 && this.currentLanguageData.characters.length > 1) {
+        // Try removing the last one instead if they accidentally tried to pop the chair contextually
+        indexToRemove = this.currentLanguageData.characters.length - 1;
+      }
+      // If only chair remains, allowing removal might be bad, but usually UI prevents it.
+
+      const char = this.currentLanguageData.characters[indexToRemove];
+      if (char) {
+        // Cleanup expansion state
+        if (this.localOptions.expandedCharacters[char._ui_id]) {
+          delete this.localOptions.expandedCharacters[char._ui_id];
+        }
+      }
+
+      this.currentLanguageData.characters.splice(indexToRemove, 1);
+      this.save();
+    },
+
+    toggleCharacterActive(char) {
+      // Safety: Cannot toggle pinned characters (they must remain active)
+      if (this.isCharacterPinned(char)) return;
+
+      // Toggle functionality inside Active vs Inactive logic
+      if (!this.currentTopic) return;
+      const topicId = this.currentTopic.id;
+
+      // Ensure state object
+      if (!this.localOptions.topicStates[topicId]) {
+        this.localOptions.topicStates[topicId] = { activeCharacterIds: {} };
+      }
+
+      const activeIds = this.localOptions.topicStates[topicId].activeCharacterIds;
+
+      if (activeIds[char._ui_id]) {
+        this.log('SYSTEM', "Deactivating Character", char._ui_id);
+        delete activeIds[char._ui_id];
+      } else {
+        this.log('SYSTEM', "Activating Character", char._ui_id);
+        activeIds[char._ui_id] = true;
+      }
+
+      // Re-sort to move activated to top / deactivated to bottom
+      this.enforceActiveCharacterSort();
+      this.save();
+    },
+
+
+
+    async exportPrompts() {
+      const now = new Date();
+      const pad = (n) => String(n).padStart(2, '0');
+      const timestamp = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+      const lang = this.options.language || 'en';
+
+      // Always fetch raw data for export fidelity
+      let rawFoods = { foods: [] };
+      let rawTopics = { topics: [] };
+
+      try {
+        this.log('SYSTEM', 'Fetching raw data for export...');
+        const [foodsResp, topicsResp] = await Promise.all([
+          fetch(`./foods_${lang}.json`),
+          fetch(`./topics_${lang}.json`)
+        ]);
+        if (foodsResp.ok && topicsResp.ok) {
+          rawFoods = await foodsResp.json();
+          rawTopics = await topicsResp.json();
+        }
+      } catch (e) {
+        this.log('ERROR', "Failed to fetch raw data", e);
+      }
+
+      // 1. Export Characters (Foods)
+      // Clone raw structure to preserve static fields (addHuman, panelWithHumans, metadata etc)
+      // Clone raw structure to preserve static fields (addHuman, panelWithHumans, metadata etc)
+      let foodsExport = JSON.parse(JSON.stringify(rawFoods));
+
+      // Update timestamp if metadata exists
+      if (foodsExport.metadata) {
+        const dateStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+        const timeStr = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+        foodsExport.metadata.last_updated = `${dateStr} ${timeStr}`;
+      }
+
+      // Update the "foods" array with current active characters
+      foodsExport.foods = (this.currentLanguageData.characters || []).map(c => {
+        // Exclude internal fields like _ui_id
+        const { _ui_id, ...rest } = c;
+        // Ensure structure matches schema
+        const provider = rest.voiceProvider || 'openai';
+        
+        let charExport = {
+          id: rest.id || (rest.name ? rest.name.toLowerCase().replace(/\s+/g, '') : 'unknown'),
+          name: rest.name,
+          voice: rest.voice,
+          voiceProvider: provider,
+          size: rest.size,
+          description: rest.description || "",
+          prompt: rest.prompt || ""
+        };
+
+        if (rest.voiceSpeed !== undefined) {
+          charExport.voiceSpeed = rest.voiceSpeed;
+        }
+
+        if (provider === 'gemini') {
+          charExport.voiceLocale = rest.voiceLocale || 'en-GB';
+          charExport.voiceInstruction = rest.voiceInstruction || "";
+        } else if (provider === 'openai') {
+          charExport.voiceInstruction = rest.voiceInstruction || "";
+        } else if (provider === 'inworld') {
+          charExport.voiceTemperature = rest.voiceTemperature || 1.1;
+        }
+
+        return charExport;
+      });
+
+      // 2. Export Topics
+      // Clone raw structure
+      // Clone raw structure
+      let topicsExport = JSON.parse(JSON.stringify(rawTopics));
+
+      // Update timestamp if metadata exists
+      if (topicsExport.metadata) {
+        const dateStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+        const timeStr = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+        topicsExport.metadata.last_updated = `${dateStr} ${timeStr}`;
+      }
+
+      // Update system prompt (editable)
+      topicsExport.system = this.currentLanguageData.system;
+
+      // Update topics list
+      // Reconcile with raw topics to preserve original IDs
+      const rawTopicsList = (rawTopics && rawTopics.topics) ? rawTopics.topics : [];
+
+      topicsExport.topics = (this.currentLanguageData.topics || []).map(t => {
+        // Try to find matching original topic by title to restore ID and Description
+        const match = rawTopicsList.find(rt => rt.title === t.name);
+
+        return {
+          id: match ? match.id : (t.id || (t.name ? t.name.toLowerCase().replace(/\s+/g, '') : 'unknown')),
+          title: t.name,
+          // Use current description if available (user edits), fallback to raw if needed, then prompt (legacy)
+          description: t.description || (match ? match.description : t.prompt),
+          prompt: t.prompt
+        };
+      });
+
+      // Helper to trigger download
+      const download = (filename, data) => {
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
       };
 
+      download(`foods_${lang}_${timestamp}.json`, foodsExport);
+      download(`topics_${lang}_${timestamp}.json`, topicsExport);
 
-      for (const lang of available_languages) {
-        promptsAndOptions.language[lang] = {};
-        promptsAndOptions.language[lang].system = default_prompts[lang].topics.system;
-        let rooms = [];
-        for (const topic of default_prompts[lang].topics.topics) {
-          rooms.push({
-            name: topic.title,
-            topic: topic.prompt,
-            characters: default_prompts[lang].foods,
-          })
-        }
-        promptsAndOptions.language[lang].rooms = rooms;
+      this.log('SYSTEM', 'Exported Prompts to JSON');
+    },
+
+    startConversation() {
+      // Start fresh
+      this.status = 'CONNECTING';
+
+      // Reset Audio State
+      this.audioController.reset();
+
+      const payload = this.getPayload();
+      this.log('SOCKET_OUT', 'Starting Conversation', payload);
+      this.socket.emit("start_conversation", payload);
+    },
+
+    pauseConversation() {
+      this.log('SOCKET_OUT', 'Pausing Conversation');
+      this.status = 'PAUSED';
+      this.socket.emit("pause_conversation");
+    },
+
+    resumeConversation() {
+      this.status = 'CONNECTING';
+      this.log('SOCKET_OUT', 'Resuming Conversation');
+      this.socket.emit("resume_conversation");
+    },
+
+    restartConversation() {
+      this.status = 'CONNECTING';
+      this.endMessage = "";
+      this.conversation = [];
+
+      // Reset Audio
+      this.audioController.reset();
+
+      const payload = this.getPayload();
+      this.log('SOCKET_OUT', 'Restarting Conversation', payload);
+      this.socket.emit("start_conversation", payload);
+    },
+
+    continueConversation() {
+      this.status = 'CONNECTING';
+      this.endMessage = "";
+      const payload = this.getPayload();
+      this.log('SOCKET_OUT', 'Continuing Conversation', payload);
+      this.socket.emit("continue_conversation", payload);
+    },
+
+    removeLastMessage() {
+      this.socket.emit("remove_last_message");
+    },
+
+    submitInjection() {
+      const message = {
+        text: this.options.injectPrompt,
+        length: this.options.maxTokensInject,
+        index: this.conversation.length,
+        // Use local browser date
+        date: new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10)
+      };
+
+      this.injectionStatus = "Instruction injected, just wait...";
+
+      this.log('SOCKET_OUT', 'Submit Injection', message);
+      this.socket.emit("submit_injection", message);
+    },
+
+    // ===========================
+    //   AUDIO HANDLING
+    // ===========================
+    /**
+     * Handles an incoming audio packet from the server.
+     * 
+     * It adds the audio to the AudioController playlist.
+     * 
+     * Critical Fix for Race Condition:
+     * It checks if the AudioController is inactive AND the conversation is NOT complete
+     * before triggering `start()`. 
+     * If we trigger `start()` blindly when the conversation is already complete (e.g. late packet),
+     * the AudioController might loop back to the beginning.
+     * 
+     * @param {Object} update - { id, audio, type }
+     */
+    async handleAudioUpdate(update) {
+      // If message not found (e.g. restart happened), skip
+      const msgIndex = this.conversation.findIndex(c => c.id === update.id);
+      if (msgIndex === -1) {
+        this.log('AUDIO', 'Update for unknown message', { id: update.id });
+        return;
       }
 
-      updatePromptsAndOptions(true);
-      unpackPromptsAndOptions();
-      reloadConversations();
+      this.audioController.addToPlaylist(msgIndex, update.audio, update.type == "skipped");
+
+      // Fix for Race Condition:
+      // If a late packet arrives after we have already finished the conversation, 
+      // calling start() blindly will cause the AudioController to see isFinished()=true 
+      // and reset the index to 0, restarting playback unexpectedly.
+      if (!this.audioController.isActive && !this.audioController.isConversationComplete) {
+        this.audioController.start();
+      }
+    },
+
+    downloadMessageAudio(index) {
+      if (!this.audioController || !this.audioController.hasAudio(index)) {
+        this.log('AUDIO', "No audio available to download", { index });
+        return;
+      }
+
+      const msg = this.conversation[index];
+      if (!msg) return;
+
+      // Construct filename: [character.id]_[todays date and time]_[audio.id].mp3
+      const speakerName = msg.speaker;
+      let charId = speakerName;
+      // Try to find official ID if possible
+      if (this.currentLanguageData && this.currentLanguageData.characters) {
+        const char = this.currentLanguageData.characters.find(c => c.name === speakerName);
+        if (char && char.id) charId = char.id;
+      }
+      // Sanitize charId
+      charId = charId.replace(/[^a-zA-Z0-9-_]/g, '');
+
+      // Use message ID for stability so re-downloading gets same filename
+      const filename = `${charId}_${msg.id || index}.mp3`;
+
+      this.audioController.downloadAudio(index, filename);
+    },
+
+    // ===========================
+    //   UI LAYOUT
+    // ===========================
+    toggleSidebar(side) {
+      if (side === 'left') this.localOptions.leftSidebarOpen = !this.localOptions.leftSidebarOpen;
+      if (side === 'right') this.localOptions.rightSidebarOpen = !this.localOptions.rightSidebarOpen;
+    },
+
+    toggleCharacterExpanded(id) {
+      if (this.localOptions.expandedCharacters[id]) {
+        delete this.localOptions.expandedCharacters[id];
+      } else {
+        this.localOptions.expandedCharacters[id] = true;
+      }
+    },
+
+    startResize(event) {
+      this.isResizing = true;
+      document.addEventListener('mousemove', this.handleResize);
+      document.addEventListener('mouseup', this.stopResize);
+      // Prevent text selection
+      document.body.style.userSelect = 'none';
+    },
+
+    handleResize(event) {
+      if (!this.isResizing) return;
+      const container = document.getElementById('split-view-container');
+      if (!container) return;
+
+      const rect = container.getBoundingClientRect();
+      const x = event.clientX - rect.left;
+      let percent = (x / rect.width) * 100;
+
+      // Constraints (min 20%, max 80%)
+      if (percent < 20) percent = 20;
+      if (percent > 80) percent = 80;
+
+      this.localOptions.editorWidthPercent = percent;
+    },
+
+    stopResize() {
+      this.isResizing = false;
+      document.removeEventListener('mousemove', this.handleResize);
+      document.removeEventListener('mouseup', this.stopResize);
+      document.body.style.userSelect = '';
+
+      // Trigger resize for potential chart/canvas updates (if any)
+      window.dispatchEvent(new Event('resize'));
+    },
+
+    setTheme(themeName) {
+      this.localOptions.theme = themeName || '';
+      document.body.className = ''; // reset
+      if (themeName) {
+        document.body.classList.add('theme-' + themeName);
+      }
+    },
+
+    // ===========================
+    //   DRAG & DROP
+    // ===========================
+    // Handled by SortableJS in mounted()
+
+    // ===========================
+    //   UTILS
+    // ===========================
+    sanitizeData() {
+      // Ensure all characters across all languages and rooms have a unique UI ID
+      // This is critical for Vue + SortableJS stability
+      if (!this.languageData) return;
+
+      Object.values(this.languageData).forEach(lang => {
+        if (!lang.topics) return;
+        lang.topics.forEach(topic => {
+          if (!topic.characters) return; // characters are global now, so this check might be legacy, but safe to keep or remove.
+          // Actually, characters are global. This loop was probably checking old structure.
+          // But if we have global characters, we iterate them:
+        });
+        // Correct global character ID check:
+        if (lang.characters) {
+          lang.characters.forEach(c => {
+            if (!c._ui_id) c._ui_id = Date.now() + Math.random();
+            // Ensure ID matches Name
+            if (c.name) {
+              c.id = c.name.toLowerCase().replace(/\s+/g, '');
+            }
+          });
+        }
+      });
+    },
+
+    scrollToBottom() {
+      this.$nextTick(() => {
+        const container = document.getElementById("conversation-container");
+        if (!container) return;
+
+        // Smart Scroll: only auto-scroll if we are already near the bottom (or if it's the very start)
+        const threshold = 100; // pixels from bottom
+        const distanceToBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+
+        // If distance is small (user is at bottom), OR if we just started (scrollHeight is small?)
+        // We assume that if a new message arrived, distanceToBottom includes that new message's height.
+        // So we should be lenient. If user is way up (> 300px), don't scroll.
+        if (distanceToBottom < 300) {
+          container.scrollTop = container.scrollHeight;
+        }
+      });
+    },
+
+
+
+    save() {
+      // Always sanitize before saving to ensure consistency
+      this.sanitizeData();
+
+      const data = {
+        options: this.options,
+        localOptions: this.localOptions,
+        language: this.languageData
+      };
+      localStorage.setItem("PromptsAndOptions", JSON.stringify(data));
+    },
+
+    toTitleCase(str) {
+      if (!str) return "";
+      return str.toLowerCase().split(" ").map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(" ");
     }
   }
-
-  startup();
-
-
-
-  // //////////////
-  // DRAG AND DROP CHARACTERS
-  // //////////////
-
-  let draggedElem = null;
-  let draggedIndex = null;
-
-  function enableDragAndDrop() {
-    const charactersDiv = document.getElementById("characters");
-    const charElems = charactersDiv.querySelectorAll(".character");
-
-    charElems.forEach((charElem, index) => {
-      charElem.setAttribute("draggable", true);
-      charElem.dataset.index = index;
-      charElem.style.cursor = "move";
-
-      if (!charElem.querySelector(".drag-handle")) {
-        const dragHandle = document.createElement("span");
-        dragHandle.innerHTML = "⋮⋮ ";
-        dragHandle.className = "drag-handle";
-        dragHandle.style.cssText =
-          "color: #ccc; font-weight: bold; margin-right: 5px;";
-        charElem.insertBefore(dragHandle, charElem.firstChild);
-      }
-
-      charElem.addEventListener("dragstart", (e) => {
-        draggedElem = charElem;
-        draggedIndex = index;
-        e.dataTransfer.effectAllowed = "move";
-        e.dataTransfer.setData("text/plain", index);
-        charElem.style.opacity = "0.5";
-        console.log(`Dragging character at index ${index}`);
-      });
-
-      charElem.addEventListener("dragend", (e) => {
-        draggedElem = null;
-        draggedIndex = null;
-        charElem.style.opacity = "1";
-      });
-
-      charElem.addEventListener("dragover", (e) => {
-        e.preventDefault();
-        e.dataTransfer.dropEffect = "move";
-        if (charElem !== draggedElem) {
-          charElem.style.borderTop = "2px solid #007cba";
-        }
-      });
-
-      charElem.addEventListener("dragleave", (e) => {
-        charElem.style.borderTop = "";
-      });
-
-      charElem.addEventListener("drop", (e) => {
-        e.preventDefault();
-        charElem.style.borderTop = "";
-
-        if (!draggedElem || draggedElem === charElem) return;
-
-        const targetIndex = parseInt(charElem.dataset.index);
-
-        console.log(
-          `Moving character from index ${draggedIndex} to ${targetIndex}`
-        );
-
-        updatePromptsAndOptions();
-
-        const characters = promptsAndOptions.language[current_language].rooms[currentRoom].characters;
-        const draggedChar = characters.splice(draggedIndex, 1)[0];
-        characters.splice(targetIndex, 0, draggedChar);
-
-        unpackPromptsAndOptions();
-
-        console.log(
-          "Character order updated:",
-          characters.map((c) => c.name)
-        );
-      });
-    });
-  }
-
-  const observer = new MutationObserver((mutations) => {
-    mutations.forEach((mutation) => {
-      if (
-        mutation.type === "childList" &&
-        mutation.target.id === "characters"
-      ) {
-        setTimeout(() => enableDragAndDrop(), 50);
-      }
-    });
-  });
-
-  observer.observe(document.getElementById("characters"), {
-    childList: true,
-    subtree: true,
-  });
-});
-
-// //////////////
-// UTILS
-// //////////////
-
-function toTitleCase(string) {
-  return string
-    .toLowerCase()
-    .split(" ")
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
-}
+})
+  .directive('auto-resize', {
+    mounted(el) {
+      const adjustHeight = () => {
+        el.style.height = 'auto';
+        el.style.height = (el.scrollHeight + 2) + 'px'; // +2 for border
+      };
+      // Adjust initially
+      adjustHeight();
+      // Adjust on input
+      el.addEventListener('input', adjustHeight);
+    },
+    updated(el) {
+      // Also adjust if the content changes programmatically (e.g. factory reset)
+      el.style.height = 'auto';
+      el.style.height = (el.scrollHeight + 2) + 'px';
+    }
+  })
+  .mount('#app');
