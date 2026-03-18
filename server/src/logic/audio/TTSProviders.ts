@@ -48,7 +48,7 @@ export async function generateGeminiAudio(params: GenerateParams): Promise<Audio
         },
         audioConfig: {
             audioEncoding: "OGG_OPUS",
-            speakingRate: options.audio_speed
+            speakingRate: speaker.voiceSpeed ?? options.audio_speed
         }
     };
 
@@ -82,7 +82,7 @@ export async function generateOpenAIAudio(params: GenerateParams): Promise<Audio
     const mp3 = await withNetworkRetry(() => openai.audio.speech.create({
         model: options.voiceModel,
         voice: speaker.voice as any,
-        speed: options.audio_speed,
+        speed: speaker.voiceSpeed ?? options.audio_speed,
         input: text.substring(0, 4096),
         instructions: speaker.voiceInstruction,
         response_format: "opus"
@@ -113,7 +113,7 @@ export async function generateInworldAudio(params: GenerateParams): Promise<Audi
             timestampType: "WORD",
             audio_config: {
                 audio_encoding: "OGG_OPUS",
-                speaking_rate: options.audio_speed
+                speaking_rate: speaker.voiceSpeed ?? options.audio_speed
             },
         })
     }), "AudioSystemInworld");

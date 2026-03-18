@@ -3,7 +3,6 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import svgr from 'vite-plugin-svgr'
 import checker from 'vite-plugin-checker'
-import tsconfigPaths from 'vite-tsconfig-paths'
 import path from 'path'
 
 export default defineConfig(async ({ mode }) => {
@@ -20,7 +19,6 @@ export default defineConfig(async ({ mode }) => {
     plugins: [
       react(),
       svgr(),
-      tsconfigPaths(), // Read paths directly from tsconfig.json
       checker({
         typescript: {
           tsconfigPath: 'tsconfig.build.json',
@@ -41,6 +39,7 @@ export default defineConfig(async ({ mode }) => {
       include: ['tests/unit/**/*.{test,spec}.{js,jsx,ts,tsx}'],
     },
     resolve: {
+      tsconfigPaths: true,
       alias: {
         // Manual aliases are mostly removed as tsconfigPaths handles them.
         // Keeping @shared as it's outside src and might need explicit handling or just to be safe.
