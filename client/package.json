@@ -5,25 +5,37 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
-    "@vitejs/plugin-react": "^5.0.4",
-    "html-react-parser": "^5.2.6",
-    "jspdf": "^3.0.3",
-    "marked": "^16.3.0",
-    "react": "^19.2.0",
+    "@types/node": "^25.5.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.1",
+    "html-react-parser": "^5.2.17",
+    "i18next": "^25.8.18",
+    "jspdf": "^4.2.1",
+    "marked": "^17.0.4",
+    "qrcode.react": "^4.2.0",
+    "react": "^19.2.4",
     "react-audio-visualize": "file:react-audio-visualize-master",
-    "react-dom": "^19.2.0",
+    "react-dom": "^19.2.4",
+    "react-i18next": "^16.5.8",
     "react-lottie-player": "^2.1.0",
     "react-responsive": "^10.0.1",
-    "react-router-dom": "^7.9.3",
+    "react-router": "^7.13.1",
     "react-textarea-autosize": "^8.5.9",
-    "socket.io-client": "^4.8.1",
-    "vite": "^7.1.10"
+    "socket.io-client": "^4.8.3",
+    "typescript": "^5.9.3",
+    "vite-plugin-checker": "^0.8.0",
+    "vite": "^8.0.0",
+    "vite-plugin-svgr": "^4.5.0"
   },
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "tsc -p tsconfig.build.json && vite build",
     "preview": "vite preview",
-    "analyze": "source-map-explorer 'dist/assets/*.js'"
+    "analyze": "vite build --mode analyze",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "e2e": "playwright test"
   },
   "eslintConfig": {
     "extends": [
@@ -32,6 +44,13 @@
     ]
   },
   "devDependencies": {
-    "source-map-explorer": "^2.5.3"
+    "@playwright/test": "^1.58.2",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@types/testing-library__react": "^10.0.1",
+    "jsdom": "^29.0.0",
+    "rollup-plugin-visualizer": "^7.0.1",
+    "vitest": "^4.1.0"
   }
 }
