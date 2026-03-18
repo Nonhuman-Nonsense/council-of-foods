@@ -20,6 +20,7 @@ export interface Speaker {
     name?: string;
     voiceInstruction?: string;
     voiceTemperature?: number;
+    voiceSpeed?: number;
 }
 
 export interface Message {
