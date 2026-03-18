@@ -3,6 +3,7 @@ import { useMediaQuery } from 'react-responsive'
 import { useMobile, dvh } from "@/utils";
 import { useTranslation } from 'react-i18next';
 import councilLogo from "@assets/logos/council_logo_white.svg";
+import asilomarLogo from "@assets/logos/SOA_PrimaryLogo_WHT.png";
 
 /**
  * Landing Component
@@ -51,13 +52,15 @@ const Landing: React.FC<LandingProps> = ({ onContinueForward }) => {
           <img style={{ width: `min(95px, 18${dvh})` }} src={councilLogo} alt="Council of Foods logo" />
           <h2 style={{ marginBottom: "-10px", marginTop: isMobile ? "0" : "" }}>{t('welcome')}</h2>
           <h1 style={{ margin: isMobile ? "5px 0 0 0" : "" }}>{t('council').toUpperCase()}</h1>
+          <p>at</p>
+          <a href="https://www.spiritofasilomar.org/"><img style={{ height: `18${dvh}`, minHeight: "54px" }} src={asilomarLogo} alt="The Spirit of Asilomar" /></a>
         </div>
 
         {isPortrait ?
           <RotateDevice />
           :
-          (<div style={{ maxWidth: "380px" }}>
-            <p style={{ marginBottom: "30px" }}>{t('description')}</p>
+          (<div style={{ maxWidth: "470px" }}>
+            <p style={{ marginBottom: isMobile ? "10px" : "20px" }}>{t('description')}</p>
             <div><button onClick={() => onContinueForward()}>{t('go')}</button></div>
           </div>)
         }

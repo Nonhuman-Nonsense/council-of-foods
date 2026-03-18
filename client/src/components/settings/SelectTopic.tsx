@@ -80,7 +80,7 @@ function SelectTopic({
 
   function handleInputTopic(e: React.ChangeEvent<HTMLTextAreaElement>): void {
     const newTopic = e.target.value;
-    const capitalizedTopic = capitalizeFirstLetter(newTopic).substring(0, 150);
+    const capitalizedTopic = capitalizeFirstLetter(newTopic).substring(0, 300);
     setCustomTopic(capitalizedTopic);
   }
 
@@ -134,7 +134,7 @@ function SelectTopic({
 
   const containerStyle: React.CSSProperties = {
     width: "96vw",
-    maxWidth: "850px",
+    maxWidth: "1100px",
     display: "flex",
     flexDirection: "column",
     justifyContent: "flex-start",
@@ -165,7 +165,7 @@ function SelectTopic({
     marginTop: isMobile ? "9px" : "15px",
     marginBottom: 0,
     width: isMobile ? "80%" : "70%",
-    height: showTextBox() ? "0" : isMobile ? (isMobileXs ? "45px" : "60px") : "80px",
+    height: showTextBox() ? "0" : isMobile ? (isMobileXs ? "65px" : "80px") : "100px",
     overflow: "hidden"
   };
 
@@ -180,7 +180,7 @@ function SelectTopic({
     resize: "none",
     padding: "0",
     margin: "0",
-    height: isMobile ? (isMobileXs ? "45px" : "60px") : "80px",
+    height: isMobile ? (isMobileXs ? "65px" : "80px") : "100px",
     display: showTextBox() ? "" : "none",
   };
 

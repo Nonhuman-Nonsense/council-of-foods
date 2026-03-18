@@ -210,7 +210,7 @@ function TextOutput({
   // --- STYLING ---
   const paragraphStyle: React.CSSProperties = {
     fontFamily: "Arial, sans-serif",
-    fontSize: isMobile ? "18px" : "25px",
+    fontSize: isMobile ? "18px" : "35px",
     margin: isMobile ? "0" : undefined,
   };
 
