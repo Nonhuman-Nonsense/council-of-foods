@@ -5,6 +5,7 @@ import { splitSentences } from "@utils/textUtils.js";
 import { Logger } from "@utils/Logger.js";
 import { GlobalOptions } from "@logic/GlobalOptions.js";
 import { withNetworkRetry } from "@utils/NetworkUtils.js";
+import removeMd from 'remove-markdown';
 
 export interface SetupOptions {
     options?: Partial<GlobalOptions>;
@@ -86,10 +87,13 @@ export class MeetingLifecycleHandler {
             manager.broadcaster
         );
 
+        // Strip markdown formatting for TTS (prevents reading "**banana**" as "asterisk banana asterisk")
+        const textForAudio = removeMd(response);
+
         let summary: ConversationMessage = {
             id: id || "",
             speaker: manager.conversationOptions.characters[0].id,
-            text: response,
+            text: response, // Keep markdown for display
             type: "summary",
             sentences: []
         };
@@ -106,10 +110,20 @@ export class MeetingLifecycleHandler {
             );
         }
 
+        // Create a specific message payload for audio generation with stripped text
+        // We split sentences based on the *audio* text so alignment works accurately
+        const audioMessage = {
+            ...summary,
+            text: textForAudio,
+            sentences: splitSentences(textForAudio)
+        };
+
+        // Also update the main summary object's sentences for consistency, though they won't have timings yet
         summary.sentences = splitSentences(response);
+
         if (manager.meetingId !== null) {
             await manager.audioSystem.generateAudio(
-                summary as AudioMessage,
+                audioMessage as AudioMessage,
                 manager.conversationOptions.characters[0],
                 manager.conversationOptions,
                 manager.meetingId,

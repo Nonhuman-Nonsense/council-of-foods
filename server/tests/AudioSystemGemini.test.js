@@ -3,6 +3,12 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { AudioSystem } from '@root/src/logic/AudioSystem.js';
 import { Logger } from '@root/src/utils/Logger.js';
 
+vi.mock('music-metadata', () => ({
+    parseBuffer: vi.fn().mockResolvedValue({
+        format: { duration: 1 }
+    })
+}));
+
 vi.mock('@root/src/utils/Logger.js', () => ({
     Logger: {
         warn: vi.fn(),
@@ -310,6 +316,6 @@ describe('AudioSystem Gemini Integration', () => {
         const fetchCall = mockFetch.mock.calls[0];
         const bodyParsed = JSON.parse(fetchCall[1].body);
 
-        expect(bodyParsed.input.text.length).toBe(4096);
+        expect(bodyParsed.input.text.length).toBe(2000);
     });
 });

@@ -27,6 +27,7 @@ const CharacterSchema: z.ZodType<Character> = z.object({
     prompt: z.string().optional(),
     voiceInstruction: z.string().optional(),
     voiceTemperature: z.number().min(0.1).max(2.0).optional(),
+    voiceSpeed: z.number().min(0.8).max(1.5).optional(),
 }).superRefine((data, ctx) => {
     if (!data.voiceProvider || data.voiceProvider === 'openai') {
         if (!VoiceOptionSchema.safeParse(data.voice).success) {
