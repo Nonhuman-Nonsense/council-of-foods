@@ -741,6 +741,7 @@ createApp({
           size: rest.size,
           voiceInstruction: rest.voiceInstruction || "",
           voiceTemperature: rest.voiceTemperature || 1.0,
+          voiceSpeed: rest.voiceSpeed,
           description: rest.description || "",
           prompt: rest.prompt || ""
         };

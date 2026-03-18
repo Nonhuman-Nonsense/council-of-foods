@@ -502,6 +502,16 @@
           </template>
         </div>
 
+        <label class="sub-label" style="display: flex; align-items: center; justify-content: space-between;">
+          <span>Voice Speed ({{ character.voiceSpeed || 'Global' }})</span>
+          <button v-if="character.voiceSpeed" @click.stop="character.voiceSpeed = undefined" class="icon-btn"
+            style="font-size: 10px; padding: 2px 6px; height: auto;">Clear Override</button>
+        </label>
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+          <input type="range" class="styled-range" min="0.8" max="1.5" step="0.01" :value="character.voiceSpeed || 1.15"
+            @input="character.voiceSpeed = parseFloat($event.target.value)" style="flex: 1;">
+        </div>
+
         <template v-if="character.voiceProvider === 'inworld'">
           <label class="sub-label">Voice Temperature ({{ character.voiceTemperature || 1.0 }})</label>
           <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
