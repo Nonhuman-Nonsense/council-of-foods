@@ -9,6 +9,7 @@ export const EnvSchema = z.object({
     PORT: z.string().default("3001").transform((val) => parseInt(val, 10)),
     NODE_ENV: z.enum(["development", "production", "test", "prototype"]).default("production"),
     COUNCIL_ERRORBOT: z.string().optional(),
+    COUNCIL_ERRORBOT_KEY: z.string().optional(),
     TEST_MODE: z.enum(TEST_MODES).optional(),
     USE_TEST_OPTIONS: z.enum(["true", "false"]).transform((val) => val === "true").optional(),
     GOOGLE_APPLICATION_CREDENTIALS: z.string().min(1),
