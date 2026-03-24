@@ -3,6 +3,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import MainOverlays from '../../../src/components/MainOverlays';
 import React from 'react';
 import '@testing-library/jest-dom';
+import routes from '../../../src/routes.json';
 // import { Topic } from '../../../../src/components/settings/SelectTopic';
 
 interface LocalTopic {
@@ -84,14 +85,31 @@ describe('MainOverlays', () => {
 
     it('renders Settings overlay when hash is #settings and path is meeting', () => {
         mockLocation.hash = '#settings';
-        mockLocation.pathname = '/meeting/123';
+        mockLocation.pathname = `/${routes.meeting}/123`;
         render(<MainOverlays topics={mockTopics} topic={mockTopic} customTopicConfig={mockCustomTopicConfig} onReset={mockOnReset} onCloseOverlay={mockOnCloseOverlay} />);
         expect(screen.getByTestId('settings-overlay')).toBeInTheDocument();
+        expect(mockNavigate).not.toHaveBeenCalled();
+    });
+
+    it('keeps settings overlay on language-prefixed meeting paths', () => {
+        mockLocation.hash = '#settings';
+        mockLocation.pathname = `/en/${routes.meeting}/123`;
+        render(<MainOverlays topics={mockTopics} topic={mockTopic} customTopicConfig={mockCustomTopicConfig} onReset={mockOnReset} onCloseOverlay={mockOnCloseOverlay} />);
+        expect(screen.getByTestId('settings-overlay')).toBeInTheDocument();
+        expect(mockNavigate).not.toHaveBeenCalled();
+    });
+
+    it('removes settings overlay on non-meeting paths', () => {
+        mockLocation.hash = '#settings';
+        mockLocation.pathname = `/${routes.foods}`;
+        render(<MainOverlays topics={mockTopics} topic={mockTopic} customTopicConfig={mockCustomTopicConfig} onReset={mockOnReset} onCloseOverlay={mockOnCloseOverlay} />);
+        expect(mockNavigate).toHaveBeenCalledWith({ hash: "" });
+        expect(mockOnCloseOverlay).toHaveBeenCalled();
     });
 
     it('renders Reset overlay when hash is #reset', () => {
         mockLocation.hash = '#reset';
-        mockLocation.pathname = '/meeting';
+        mockLocation.pathname = `/${routes.meeting}`;
         render(<MainOverlays topics={mockTopics} topic={mockTopic} customTopicConfig={mockCustomTopicConfig} onReset={mockOnReset} onCloseOverlay={mockOnCloseOverlay} />);
 
         expect(screen.getByTestId('reset-overlay')).toBeInTheDocument();

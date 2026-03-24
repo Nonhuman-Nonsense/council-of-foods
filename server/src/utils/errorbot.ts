@@ -52,11 +52,17 @@ export async function sendReport(context: string, level: string, message: string
     };
 
     const sendStr = JSON.stringify(payload);
+    const headers: Record<string, string> = {
+        'Content-Type': 'application/json'
+    };
+    if (config.COUNCIL_ERRORBOT_KEY) {
+        headers['X-Errorbot-Key'] = config.COUNCIL_ERRORBOT_KEY;
+    }
 
     await fetch(config.COUNCIL_ERRORBOT, {
         method: 'POST',
         body: sendStr,
-        headers: { 'Content-Type': 'application/json' }
+        headers
     }).catch(error => {
         console.error(`${red("[reportError]")} Failed to post to errorbot:`, error);
     });
