@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useNavigate, useLocation } from "react-router";
+import { isMeetingPath, isRootPath } from "@/routing";
 
 import OverlayWrapper from './OverlayWrapper';
 import Overlay from "./Overlay";
@@ -41,9 +42,9 @@ function MainOverlays({ topics, topic, customTopicConfig, onReset, onCloseOverla
     if (hash) {
       if (!["#about", "#contact", "#reset", "#settings", '#warning'].includes(hash)) {
         removeOverlay();
-      } else if (!location.pathname.substring(4).startsWith('meeting') && ["#settings"].includes(hash)) {
+      } else if (!isMeetingPath(location.pathname) && ["#settings"].includes(hash)) {
         removeOverlay();
-      } else if (location.pathname.substring(4) === '' && ["#reset", '#warning'].includes(hash)) {
+      } else if (isRootPath(location.pathname) && ["#reset", '#warning'].includes(hash)) {
         removeOverlay();
       }
     }

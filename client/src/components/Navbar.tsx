@@ -3,6 +3,7 @@ import { useLocation, useNavigate, NavigateFunction, Location, Link } from "reac
 import { useMediaQuery } from 'react-responsive'
 import { useTranslation } from 'react-i18next';
 import { capitalizeFirstLetter, useMobile, useMobileXs, usePortrait } from "@/utils";
+import { stripLanguagePrefix } from "@/routing";
 import Lottie from "react-lottie-player";
 import hamburger from "@animations/hamburger.json";
 import councilLogo from "@assets/logos/council_logo_white.svg";
@@ -194,7 +195,7 @@ function Navbar({ lang, topic, hamburgerOpen, setHamburgerOpen }: NavbarProps): 
                 <span key={l}>
                   <Link
                     style={{ ...languageStyle, textDecoration: lang === l ? "underline" : "none", pointerEvents: showMenu ? "auto" : "none" }}
-                    to={`/${l}/${location.pathname.replace(/^\/(en|sv)/, '').replace(/^\//, '')}${location.hash}`} // Replaces existing lang prefix or root slash
+                    to={`/${l}/${stripLanguagePrefix(location.pathname).replace(/^\//, '')}${location.hash}`}
                     onClick={() => { if (isMobile) { setHamburgerOpen(false); } }}
                   >
                     {t(l).toUpperCase()}
