@@ -1,19 +1,46 @@
-import { useState, useEffect, useRef, CSSProperties } from "react";
+import { useState, useEffect, useRef, useMemo, createRef, CSSProperties, type RefObject } from "react";
 import FoodAnimation from "./FoodAnimation.jsx";
 import { dvh, minWindowHeight, filename, useMobile, useDocumentVisibility } from "../utils.js";
+import forestCharacters from "../prompts/forest_characters.json";
+import { forestCharacterRatios } from "../generated/forestCharacterRatios";
+
+type ForestManifestEntry = (typeof forestCharacters)[number];
+
+type ForestCharacter = ForestManifestEntry & {
+    ratio: number;
+    ref: RefObject<HTMLDivElement | HTMLImageElement | null>;
+};
 
 function Forest({ currentSpeakerId, isPaused, audioContext }) {
 
     const isMobile = useMobile();
 
     //Zooming variables
-    const [zoomInOnBeing, setZoomInOnBeing] = useState(null);
+    const [zoomInOnBeing, setZoomInOnBeing] = useState<ForestCharacter | null>(null);
     const containerRef = useRef(null);
     const [zoomInValue, setZoomInValue] = useState(1);
     const [transformOrigin, setTransformOrigin] = useState<(string | number)[]>([0, 0]);
     const [translate, setTranslate] = useState<(string | number)[]>([0, 0]);
     const [animateTransformOrigin, setAnimateTransformOrigin] = useState(false);
     const [disableAnimations, setDisableAnimations] = useState(false);
+
+    const characterRefs = useMemo(() => {
+        const map: Record<string, RefObject<HTMLDivElement | HTMLImageElement | null>> = {};
+        for (const c of forestCharacters) {
+            map[c.id] = createRef<HTMLDivElement | HTMLImageElement>();
+        }
+        return map;
+    }, []);
+
+    const characters: ForestCharacter[] = useMemo(
+        () =>
+            forestCharacters.map((c) => ({
+                ...c,
+                ratio: forestCharacterRatios[c.id],
+                ref: characterRefs[c.id],
+            })),
+        [characterRefs],
+    );
 
     useEffect(() => {
         const handleResize = () => {
@@ -23,24 +50,6 @@ function Forest({ currentSpeakerId, isPaused, audioContext }) {
         // Cleanup function to remove the event listener
         return () => window.removeEventListener('resize', handleResize);
     }, []); // Empty dependency array ensures this effect runs only once on mount and unmount
-
-    const characters = [//Ratio is video width / height
-        { ref: useRef(null), id: "salmon", type: "transparent", audio: 0.2, zoom: 60, height: 9, left: 2.5, bottom: 42.5, ratio: 1000 / 500 },
-        { ref: useRef(null), id: "bird", type: "transparent", height: 14, left: 12.5, bottom: 52, ratio: 760 / 760 },
-        { ref: useRef(null), id: "bumblebee", type: "transparent", audio: 0.2, zoom: 60, height: 10, left: -48, bottom: 44, ratio: 850 / 750 },
-        { ref: useRef(null), id: "concortapine", type: "image", height: 27, left: -73, bottom: 13, ratio: 401 / 500 },
-        { ref: useRef(null), id: "pine", type: "transparent", audio: 0.2, zoom: 100, height: 61, left: 26, bottom: 0, ratio: 460 / 800 },
-        { ref: useRef(null), id: "reindeer", type: "transparent", audio: 0.2, height: 16, left: -26.5, bottom: 27, ratio: 1100 / 1000 },
-        { ref: useRef(null), id: "windturbine", type: "transparent", audio: 0.2, height: 22, left: 1, bottom: 69.5, ratio: 1200 / 1000 },
-        { ref: useRef(null), id: "treeharvester", type: "transparent", audio: 0.05, zoom: 80, height: 19, left: 57.5, bottom: 1, ratio: 674 / 900 },
-        { ref: useRef(null), id: "kota", type: "transparent", always_on: true, height: 35, left: 54, bottom: 20, ratio: 348 / 606 },
-        { ref: useRef(null), id: "lichen", type: "transparent", audio: 0.2, height: 25, left: 40, bottom: 53.5, ratio: 1332 / 1000 },
-        { ref: useRef(null), id: "burningpine", type: "transparent", always_on: true, height: 14, left: -88, bottom: 85.5, ratio: 474 / 474 },
-        { ref: useRef(null), id: "aurora", type: "transparent", always_on: true, height: 21, left: -35, bottom: 80, ratio: 1600 / 800 },
-        { ref: useRef(null), id: "mountain", type: "transparent", audio: 0.2, zoom: 40, height: 16, left: -52, bottom: 71.5, ratio: 1600 / 480 },
-        { ref: useRef(null), id: "kota2", type: "image", height: 11, left: -19.5, bottom: 64, ratio: 564 / 400 },
-        { ref: useRef(null), id: "snowyspruce", type: "image", height: 36, left: -37, bottom: 44.5, ratio: 1044 / 1800 },
-    ];
 
     const container: CSSProperties = {
         position: "absolute",
@@ -67,7 +76,7 @@ function Forest({ currentSpeakerId, isPaused, audioContext }) {
         } else {
             setZoomInOnBeing(null);
         }
-    }, [currentSpeakerId]);
+    }, [currentSpeakerId, characters]);
 
     useEffect(() => {
         if (zoomInOnBeing) {
@@ -119,7 +128,7 @@ function Forest({ currentSpeakerId, isPaused, audioContext }) {
         //Position is from center, minus percentage of view height
         //capped at 300px view height, which is our minimum
         const sign = Math.sign(amount) === 1 ? "+" : "-";
-        return `calc(50% ${sign} max(${Math.abs(amount) + dvh}, ${minWindowHeight * Math.abs(amount) / 100}px)`;
+        return `calc(50% ${sign} max(${Math.abs(amount) + dvh}, ${minWindowHeight * Math.abs(amount) / 100}px))`;
     }
 
     return (
@@ -130,8 +139,8 @@ function Forest({ currentSpeakerId, isPaused, audioContext }) {
                 <FoodAnimation type="transparent" character={{ id: "river" }} isPaused={isPaused} always_on={true} styles={{}} currentSpeakerId={currentSpeakerId} />
                 <BeingAudio id={'river'} volume={0.15} currentSpeakerId={currentSpeakerId} audioContext={audioContext} />
             </div>
-            {characters.map((character, index) => (
-                <div key={index}>
+            {characters.map((character) => (
+                <div key={character.id}>
                     <Being
                         id={character.id}
                         type={character.type}
@@ -157,7 +166,7 @@ function Being({ id, ref, type, height, left, bottom, always_on, isPaused, curre
                 <FoodAnimation type={type} character={{ id: id }} isPaused={isPaused} always_on={always_on} currentSpeakerId={currentSpeakerId} styles={{}} />
             </div>
         }
-        {type === "image" && <img style={{ position: "absolute", height: height, left: left, bottom: bottom }} src={`/characters/images/${filename(id)}.avif`} alt="" />}
+        {type === "image" && <img ref={ref} style={{ position: "absolute", height: height, left: left, bottom: bottom }} src={`/characters/images/${filename(id)}.avif`} alt="" />}
     </>
     );
 }
