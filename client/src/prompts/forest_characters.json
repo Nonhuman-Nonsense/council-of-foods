@@ -1,0 +1,123 @@
+[
+  {
+    "id": "salmon",
+    "type": "transparent",
+    "audio": 0.2,
+    "zoom": 60,
+    "height": 9,
+    "left": 2.5,
+    "bottom": 42.5
+  },
+  {
+    "id": "bird",
+    "type": "transparent",
+    "height": 14,
+    "left": 12.5,
+    "bottom": 52
+  },
+  {
+    "id": "bumblebee",
+    "type": "transparent",
+    "audio": 0.2,
+    "zoom": 60,
+    "height": 10,
+    "left": -48,
+    "bottom": 44
+  },
+  {
+    "id": "concortapine",
+    "type": "image",
+    "height": 27,
+    "left": -73,
+    "bottom": 13
+  },
+  {
+    "id": "pine",
+    "type": "transparent",
+    "audio": 0.2,
+    "zoom": 100,
+    "height": 61,
+    "left": 26,
+    "bottom": 0
+  },
+  {
+    "id": "reindeer",
+    "type": "transparent",
+    "audio": 0.2,
+    "height": 16,
+    "left": -26.5,
+    "bottom": 27
+  },
+  {
+    "id": "windturbine",
+    "type": "transparent",
+    "audio": 0.2,
+    "height": 22,
+    "left": 1,
+    "bottom": 69.5
+  },
+  {
+    "id": "treeharvester",
+    "type": "transparent",
+    "audio": 0.05,
+    "zoom": 80,
+    "height": 19,
+    "left": 57.5,
+    "bottom": 1
+  },
+  {
+    "id": "kota",
+    "type": "transparent",
+    "always_on": true,
+    "height": 35,
+    "left": 54,
+    "bottom": 20
+  },
+  {
+    "id": "lichen",
+    "type": "transparent",
+    "audio": 0.2,
+    "height": 25,
+    "left": 40,
+    "bottom": 53.5
+  },
+  {
+    "id": "burningpine",
+    "type": "transparent",
+    "always_on": true,
+    "height": 14,
+    "left": -88,
+    "bottom": 85.5
+  },
+  {
+    "id": "aurora",
+    "type": "transparent",
+    "always_on": true,
+    "height": 21,
+    "left": -35,
+    "bottom": 80
+  },
+  {
+    "id": "mountain",
+    "type": "transparent",
+    "audio": 0.2,
+    "zoom": 40,
+    "height": 16,
+    "left": -52,
+    "bottom": 71.5
+  },
+  {
+    "id": "kota2",
+    "type": "image",
+    "height": 11,
+    "left": -19.5,
+    "bottom": 64
+  },
+  {
+    "id": "snowyspruce",
+    "type": "image",
+    "height": 36,
+    "left": -37,
+    "bottom": 44.5
+  }
+]
