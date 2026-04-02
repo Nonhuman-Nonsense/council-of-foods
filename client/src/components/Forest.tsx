@@ -11,13 +11,28 @@ type ForestCharacter = ForestManifestEntry & {
     ref: RefObject<HTMLDivElement | HTMLImageElement | null>;
 };
 
-function Forest({ currentSpeakerId, isPaused, audioContext }) {
+type ForestProps = {
+    currentSpeakerId: string;
+    isPaused: boolean;
+    audioContext: RefObject<AudioContext | null>;
+};
+
+/** Build-time sync guarantees a ratio per manifest id; fail fast if manifest and generated file drift. */
+function ratioFor(id: string): number {
+    const r = forestCharacterRatios[id];
+    if (r === undefined) {
+        throw new Error(`Forest: missing forestCharacterRatios entry for id "${id}". Run prebuild / sync script.`);
+    }
+    return r;
+}
+
+function Forest({ currentSpeakerId, isPaused, audioContext }: ForestProps) {
 
     const isMobile = useMobile();
 
     //Zooming variables
     const [zoomInOnBeing, setZoomInOnBeing] = useState<ForestCharacter | null>(null);
-    const containerRef = useRef(null);
+    const containerRef = useRef<HTMLDivElement | null>(null);
     const [zoomInValue, setZoomInValue] = useState(1);
     const [transformOrigin, setTransformOrigin] = useState<(string | number)[]>([0, 0]);
     const [translate, setTranslate] = useState<(string | number)[]>([0, 0]);
@@ -36,7 +51,7 @@ function Forest({ currentSpeakerId, isPaused, audioContext }) {
         () =>
             forestCharacters.map((c) => ({
                 ...c,
-                ratio: forestCharacterRatios[c.id],
+                ratio: ratioFor(c.id),
                 ref: characterRefs[c.id],
             })),
         [characterRefs],
@@ -116,10 +131,11 @@ function Forest({ currentSpeakerId, isPaused, audioContext }) {
             setTranslate([0, 0]);
         }
         //If we are zooming in from an actual zoom out state, don't animate the change of transform origin.
-        if (window.getComputedStyle(containerRef.current).transform === "matrix(1, 0, 0, 1, 0, 0)") {
-            setAnimateTransformOrigin(false);
+        if (containerRef.current) {
+            const m = window.getComputedStyle(containerRef.current).transform;
+            setAnimateTransformOrigin(m !== "none" && m !== "matrix(1, 0, 0, 1, 0, 0)");
         } else {
-            setAnimateTransformOrigin(true);
+            setAnimateTransformOrigin(false);
         }
         setDisableAnimations(false);
     }, [zoomInOnBeing]);
@@ -159,19 +175,39 @@ function Forest({ currentSpeakerId, isPaused, audioContext }) {
     );
 }
 
-function Being({ id, ref, type, height, left, bottom, always_on, isPaused, currentSpeakerId }) {
+type BeingProps = {
+    id: string;
+    ref: RefObject<HTMLDivElement | HTMLImageElement | null>;
+    type: ForestManifestEntry["type"];
+    height: string;
+    left: string;
+    bottom: string;
+    always_on?: boolean;
+    isPaused: boolean;
+    currentSpeakerId: string;
+};
+
+function Being({ id, ref, type, height, left, bottom, always_on, isPaused, currentSpeakerId }: BeingProps) {
+    // One ref object is reused per character; only one of div / img mounts — narrow per branch for ref types.
     return (<>
         {type !== "image" &&
-            <div ref={ref} style={{ position: "absolute", height: height, left: left, bottom: bottom }}>
+            <div ref={ref as RefObject<HTMLDivElement | null>} style={{ position: "absolute", height: height, left: left, bottom: bottom }}>
                 <FoodAnimation type={type} character={{ id: id }} isPaused={isPaused} always_on={always_on} currentSpeakerId={currentSpeakerId} styles={{}} />
             </div>
         }
-        {type === "image" && <img ref={ref} style={{ position: "absolute", height: height, left: left, bottom: bottom }} src={`/characters/images/${filename(id)}.avif`} alt="" />}
+        {type === "image" && <img ref={ref as RefObject<HTMLImageElement | null>} style={{ position: "absolute", height: height, left: left, bottom: bottom }} src={`/characters/images/${filename(id)}.avif`} alt="" />}
     </>
     );
 }
 
-function BeingAudio({ id, currentSpeakerId, volume, audioContext }) {
+type BeingAudioProps = {
+    id: string;
+    currentSpeakerId: string;
+    volume: number;
+    audioContext: RefObject<AudioContext | null>;
+};
+
+function BeingAudio({ id, currentSpeakerId, volume, audioContext }: BeingAudioProps) {
     const gainNode = useRef(null); //The general volume control node
     const sourceNode = useRef(null);
 
@@ -218,7 +254,11 @@ function BeingAudio({ id, currentSpeakerId, volume, audioContext }) {
     return null;
 }
 
-function AmbientAudio({ audioContext }) {
+type AmbientAudioProps = {
+    audioContext: RefObject<AudioContext | null>;
+};
+
+function AmbientAudio({ audioContext }: AmbientAudioProps) {
     const gainNode = useRef(null); //The general volume control node
     const sourceNode = useRef(null);
 
