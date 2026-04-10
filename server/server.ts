@@ -12,11 +12,14 @@ import { initOpenAI } from '@services/OpenAIService.js';
 import { SocketManager } from '@logic/SocketManager.js';
 import { AVAILABLE_LANGUAGES } from '@shared/AvailableLanguages.js';
 
-import { verifyGoogleCredentials } from './src/utils/StartupChecks.js';
+import { verifyGoogleCredentials } from '@utils/StartupChecks.js';
+import { createMeetingRecord } from '@api/createMeetingRecord.js';
+import { ZodError } from 'zod';
 
 const environment: string = config.NODE_ENV;
 
 const app = express();
+app.use(express.json());
 const httpServer = http.createServer(app);
 const io = new Server(httpServer);
 
@@ -53,6 +56,23 @@ if (environment === "prototype") {
     res.sendFile(path.join(clientDistPath, "index.html"));
   });
 }
+
+
+app.post('/api/meetings', async (req: Request, res: Response) => {
+  try {
+    const meetingId = await createMeetingRecord(req.body, environment);
+    await Logger.info('api', 'POST /api/meetings successful', { meetingId });
+    res.status(201).json({ meetingId });
+  } catch (e: unknown) {
+    if (e instanceof ZodError) {
+      await Logger.warn('api', 'POST /api/meetings failed', e);
+      res.status(400).json({ message: 'Invalid payload' });
+      return;
+    }
+    await Logger.error('api', 'POST /api/meetings failed', e);
+    res.status(500).json({ message: 'Internal Server Error' });
+  }
+});
 
 // Socket Logic
 io.on("connection", (socket: Socket) => {

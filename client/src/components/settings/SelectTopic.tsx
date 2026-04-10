@@ -34,8 +34,9 @@ interface SelectTopicProps {
   customTopicConfig: Topic;
   onContinueForward: (data: TopicSelection) => void;
   currentTopic?: Topic;
-  onReset: (data: TopicSelection) => void;
-  onCancel: () => void;
+  /** Required when `currentTopic` is set (mid-meeting topic change → warning dialog). */
+  onReset?: (data: TopicSelection) => void;
+  onCancel?: () => void;
 }
 
 function SelectTopic({
@@ -193,8 +194,8 @@ function SelectTopic({
       {displayWarning ? (
         <ResetWarning
           message={t('reset.changeTopic')}
-          onReset={() => onReset({ topic: selectedTopic, custom: customTopic })}
-          onCancel={onCancel}
+          onReset={() => onReset?.({ topic: selectedTopic, custom: customTopic })}
+          onCancel={() => onCancel?.()}
         />
       ) : (
         <div style={containerStyle}>
