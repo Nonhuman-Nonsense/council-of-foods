@@ -1,13 +1,13 @@
 import type { Topic } from "@shared/ModelTypes";
 import { useState } from "react";
 import { useNavigate } from "react-router";
+import { useTranslation } from "react-i18next";
 import SelectTopic from "./settings/SelectTopic";
 import SelectFoods, { Food } from "./settings/SelectFoods";
 import { createMeeting } from "@/api/createMeeting";
-import { meetingPath } from "@/routing";
+import { useRouting } from "@/routing";
 
 export interface NewMeetingProps {
-  lang: string;
   setUnrecoverableError: (error: boolean) => void;
   topicSelection: Topic | null;
   setTopicSelection: (topic: Topic) => void;
@@ -15,13 +15,14 @@ export interface NewMeetingProps {
 }
 
 export default function NewMeeting({
-  lang,
   setUnrecoverableError,
   topicSelection,
   setTopicSelection,
   setMeetingCreatorKey,
 }: NewMeetingProps) {
   const navigate = useNavigate();
+  const { i18n } = useTranslation();
+  const { meetingPath } = useRouting();
   const [step, setStep] = useState<"topic" | "foods">(() =>
     // If a topic has been selected, go to the foods step, eg. on reset
     topicSelection != null ? "foods" : "topic"
@@ -43,10 +44,10 @@ export default function NewMeeting({
       const { meetingId, creatorKey } = await createMeeting({
         topic: topicSelection,
         characters: foods,
-        language: lang,
+        language: i18n.language,
       });
       setMeetingCreatorKey(creatorKey);
-      navigate(meetingPath(lang, Number(meetingId)));
+      navigate(meetingPath(Number(meetingId)));
     } catch (e) {
       console.error(e);
       setUnrecoverableError(true);
@@ -59,7 +60,6 @@ export default function NewMeeting({
   if (step === "topic") {
     return (
       <SelectTopic
-        lang={lang}
         currentTopic={topicSelection ?? undefined}
         onContinueForward={handleTopicContinue}
       />
@@ -69,7 +69,6 @@ export default function NewMeeting({
   return (
     <>
       <SelectFoods
-        lang={lang}
         topicTitle={topicSelection?.title ?? ""}
         onContinueForward={handleFoodsContinue}
         loading={creating}

@@ -14,6 +14,18 @@ vi.mock('react-router', () => ({
     useLocation: () => mockUseLocation() // Call it to allow changing return value
 }));
 
+vi.mock('react-i18next', () => ({
+    useTranslation: () => ({ i18n: { language: 'en' } }),
+}));
+
+vi.mock('@/routing', () => ({
+    useRouting: () => ({
+        newMeetingPath: '/new',
+        meetingPath: (id: number) => `/meeting/${id}`,
+        meetingRoutesBase: '/meeting',
+    }),
+}));
+
 // Mock Global Options
 vi.mock('@/global-options-client.json', () => ({
     default: {
@@ -52,7 +64,6 @@ describe('useCouncilMachine', () => {
             }
         };
         defaultProps = {
-            lang: 'en',
             currentMeetingId: 0,
             creatorKey: 'test-creator-key',
             topic: { id: 't', title: 'T', description: 'D', prompt: 'Test Topic' },
@@ -64,7 +75,6 @@ describe('useCouncilMachine', () => {
             isPaused: false,
             setPaused: vi.fn(),
             setAudioPaused: vi.fn(),
-            baseUrl: '/test/meeting'
         };
     });
 
@@ -145,7 +155,7 @@ describe('useCouncilMachine', () => {
         });
 
         expect(mockNavigate).toHaveBeenCalledWith(
-            { pathname: `${defaultProps.baseUrl}/42`, hash: '' },
+            { pathname: '/meeting/42', hash: '' },
             { replace: true }
         );
     });
@@ -158,7 +168,7 @@ describe('useCouncilMachine', () => {
         });
 
         expect(mockNavigate).toHaveBeenCalledWith(
-            { pathname: `${defaultProps.baseUrl}/new`, hash: '' },
+            { pathname: '/meeting/new', hash: '' },
             { replace: true }
         );
     });

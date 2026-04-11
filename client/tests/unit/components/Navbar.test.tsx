@@ -7,7 +7,7 @@ import '@testing-library/jest-dom';
 
 // Mock Dependencies
 vi.mock('react-i18next', () => ({
-    useTranslation: () => ({ t: (key: string) => key }),
+    useTranslation: () => ({ t: (key: string) => key, i18n: { language: 'en' } }),
 }));
 
 vi.mock('react-lottie-player', async () => {
@@ -47,7 +47,6 @@ import * as responsive from 'react-responsive';
 describe('Navbar', () => {
     const mockSetHamburgerOpen = vi.fn();
     const defaultProps = {
-        lang: 'en',
         topicTitle: 'test topic',
         hamburgerOpen: false,
         setHamburgerOpen: mockSetHamburgerOpen

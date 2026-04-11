@@ -15,6 +15,7 @@ const mockTopic = (partial: Pick<Topic, 'id' | 'title' | 'description'> & Partia
 vi.mock('react-i18next', () => ({
     useTranslation: () => ({
         t: (key: string) => key,
+        i18n: { language: 'en' },
     }),
 }));
 
@@ -64,26 +65,26 @@ describe('MainOverlays', () => {
     });
 
     it('renders nothing when hash is empty', () => {
-        render(<MainOverlays lang="en" topic={topic} onReset={mockOnReset} onCloseOverlay={mockOnCloseOverlay} />);
+        render(<MainOverlays topic={topic} onReset={mockOnReset} onCloseOverlay={mockOnCloseOverlay} />);
         expect(screen.queryByTestId('overlay-container')).not.toBeInTheDocument();
     });
 
     it('renders About overlay when hash is #about', () => {
         mockLocation.hash = '#about';
-        render(<MainOverlays lang="en" topic={topic} onReset={mockOnReset} onCloseOverlay={mockOnCloseOverlay} />);
+        render(<MainOverlays topic={topic} onReset={mockOnReset} onCloseOverlay={mockOnCloseOverlay} />);
         expect(screen.getByTestId('about-overlay')).toBeInTheDocument();
     });
 
     it('renders Contact overlay when hash is #contact', () => {
         mockLocation.hash = '#contact';
-        render(<MainOverlays lang="en" topic={topic} onReset={mockOnReset} onCloseOverlay={mockOnCloseOverlay} />);
+        render(<MainOverlays topic={topic} onReset={mockOnReset} onCloseOverlay={mockOnCloseOverlay} />);
         expect(screen.getByTestId('contact-overlay')).toBeInTheDocument();
     });
 
     it('renders Settings overlay when hash is #settings and path is meeting', () => {
         mockLocation.hash = '#settings';
         mockLocation.pathname = `/${routes.meeting}/123`;
-        render(<MainOverlays lang="en" topic={topic} onReset={mockOnReset} onCloseOverlay={mockOnCloseOverlay} />);
+        render(<MainOverlays topic={topic} onReset={mockOnReset} onCloseOverlay={mockOnCloseOverlay} />);
         expect(screen.getByTestId('settings-overlay')).toBeInTheDocument();
         expect(mockNavigate).not.toHaveBeenCalled();
     });
@@ -91,7 +92,7 @@ describe('MainOverlays', () => {
     it('keeps settings overlay on language-prefixed meeting paths', () => {
         mockLocation.hash = '#settings';
         mockLocation.pathname = `/en/${routes.meeting}/123`;
-        render(<MainOverlays lang="en" topic={topic} onReset={mockOnReset} onCloseOverlay={mockOnCloseOverlay} />);
+        render(<MainOverlays topic={topic} onReset={mockOnReset} onCloseOverlay={mockOnCloseOverlay} />);
         expect(screen.getByTestId('settings-overlay')).toBeInTheDocument();
         expect(mockNavigate).not.toHaveBeenCalled();
     });
@@ -99,7 +100,7 @@ describe('MainOverlays', () => {
     it('removes settings overlay on non-meeting paths', () => {
         mockLocation.hash = '#settings';
         mockLocation.pathname = `/${routes.newMeeting}`;
-        render(<MainOverlays lang="en" topic={topic} onReset={mockOnReset} onCloseOverlay={mockOnCloseOverlay} />);
+        render(<MainOverlays topic={topic} onReset={mockOnReset} onCloseOverlay={mockOnCloseOverlay} />);
         expect(mockNavigate).toHaveBeenCalledWith({ hash: "" });
         expect(mockOnCloseOverlay).toHaveBeenCalled();
     });
@@ -107,14 +108,14 @@ describe('MainOverlays', () => {
     it('renders Reset overlay when hash is #reset', () => {
         mockLocation.hash = '#reset';
         mockLocation.pathname = `/${routes.meeting}`;
-        render(<MainOverlays lang="en" topic={topic} onReset={mockOnReset} onCloseOverlay={mockOnCloseOverlay} />);
+        render(<MainOverlays topic={topic} onReset={mockOnReset} onCloseOverlay={mockOnCloseOverlay} />);
 
         expect(screen.getByTestId('reset-overlay')).toBeInTheDocument();
     });
 
     it('removes overlay if hash is invalid', () => {
         mockLocation.hash = '#invalid';
-        render(<MainOverlays lang="en" topic={topic} onReset={mockOnReset} onCloseOverlay={mockOnCloseOverlay} />);
+        render(<MainOverlays topic={topic} onReset={mockOnReset} onCloseOverlay={mockOnCloseOverlay} />);
         expect(mockNavigate).toHaveBeenCalledWith({ hash: "" });
         expect(mockOnCloseOverlay).toHaveBeenCalled();
     });

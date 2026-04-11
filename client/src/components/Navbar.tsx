@@ -11,7 +11,6 @@ import { AVAILABLE_LANGUAGES } from "@shared/AvailableLanguages";
 import routes from "@/routes.json";
 
 interface NavbarProps {
-  lang: string;
   topicTitle: string;
   hamburgerOpen: boolean;
   setHamburgerOpen: (open: boolean) => void;
@@ -34,7 +33,7 @@ interface LottiePlayerHandle {
  * - Manages hamburger menu animation state for mobile devices.
  * - Displays the "Council" logo and current topic when allowed (`showIconinMeny`).
  */
-function Navbar({ lang, topicTitle: topic, hamburgerOpen, setHamburgerOpen }: NavbarProps): React.ReactElement {
+function Navbar({ topicTitle: topic, hamburgerOpen, setHamburgerOpen }: NavbarProps): React.ReactElement {
   const isMobile: boolean = useMobile();
   const isMobileXs: boolean = useMobileXs();
   const isPortrait: boolean = usePortrait();
@@ -44,7 +43,7 @@ function Navbar({ lang, topicTitle: topic, hamburgerOpen, setHamburgerOpen }: Na
   const location: Location = useLocation();
   const navigate: NavigateFunction = useNavigate();
 
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
 
   /* -------------------------------------------------------------------------- */
   /*                                   Effects                                  */
@@ -195,7 +194,7 @@ function Navbar({ lang, topicTitle: topic, hamburgerOpen, setHamburgerOpen }: Na
               {AVAILABLE_LANGUAGES.map((l, index) => (
                 <span key={l}>
                   <Link
-                    style={{ ...languageStyle, textDecoration: lang === l ? "underline" : "none", pointerEvents: showMenu ? "auto" : "none" }}
+                    style={{ ...languageStyle, textDecoration: i18n.language === l ? "underline" : "none", pointerEvents: showMenu ? "auto" : "none" }}
                     to={`/${l}/${stripLanguagePrefix(location.pathname).replace(/^\//, '')}${location.hash}`}
                     onClick={() => { if (isMobile) { setHamburgerOpen(false); } }}
                   >

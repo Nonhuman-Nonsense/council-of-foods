@@ -6,6 +6,7 @@ import {
   useLocation,
   useNavigate
 } from "react-router";
+import { useTranslation } from "react-i18next";
 import Overlay from "./Overlay";
 import MainOverlays from "./MainOverlays";
 import Landing from "./settings/Landing";
@@ -13,7 +14,7 @@ import Navbar from "./Navbar";
 import type { Topic } from "@shared/ModelTypes";
 import NewMeeting from "./NewMeeting";
 import Council from "./Council";
-import { getBasePath, isMeetingPath, isRootPath, newMeetingPath, stripLanguagePrefix } from "@/routing";
+import { isMeetingPath, isRootPath, stripLanguagePrefix, useRouting } from "@/routing";
 import RotateDevice from "./RotateDevice";
 import FullscreenButton from "./FullscreenButton";
 import { usePortrait, dvh } from "@/utils";
@@ -49,10 +50,16 @@ export default function Main(props: MainProps) {
   //Had to lift up navbar state to this level to be able to close it from main overlay
   const [hamburgerOpen, setHamburgerOpen] = useState(false);
 
+  const { i18n } = useTranslation();
+  const { newMeetingPath } = useRouting();
   const location = useLocation();
   const navigate = useNavigate();
   const isIphone = useIsIphone();
   const isPortrait = usePortrait();
+
+  useEffect(() => {
+    i18n.changeLanguage(props.lang);
+  }, [props.lang]);
 
   // If the user navigates back to the landing page, treat it as a fresh start.
   useEffect(() => {
@@ -80,7 +87,7 @@ export default function Main(props: MainProps) {
     setTopicSelection(resetTopic);
 
     navigate({
-      pathname: newMeetingPath(props.lang),
+      pathname: newMeetingPath,
       hash: "",
     });
   }
@@ -107,7 +114,6 @@ export default function Main(props: MainProps) {
       <Background pathname={location.pathname} />
       {!(unrecoverabeError || connectionError) &&
         <Navbar
-          lang={props.lang}
           topicTitle={topicSelection?.title || ""}
           hamburgerOpen={hamburgerOpen}
           setHamburgerOpen={setHamburgerOpen}
@@ -123,14 +129,13 @@ export default function Main(props: MainProps) {
             <Route
               path="/"
               element={
-                <Landing newMeetingPath={newMeetingPath(props.lang)} />
+                <Landing newMeetingPath={newMeetingPath} />
               }
             />
             <Route
               path={routes.newMeeting}
               element={
                 <NewMeeting
-                  lang={props.lang}
                   setUnrecoverableError={setUnrecoverableError}
                   topicSelection={topicSelection}
                   setTopicSelection={setTopicSelection}
@@ -143,7 +148,6 @@ export default function Main(props: MainProps) {
               element={
                 <Council
                   key={location.pathname}
-                  lang={props.lang}
                   creatorKey={meetingCreatorKey}
                   setUnrecoverableError={setUnrecoverableError}
                   connectionError={connectionError}
@@ -154,7 +158,6 @@ export default function Main(props: MainProps) {
           </Routes>
           {!isIphone && <FullscreenButton />}
           <MainOverlays
-            lang={props.lang}
             topic={topicSelection}
             onReset={onReset}
             onCloseOverlay={onCloseOverlay}

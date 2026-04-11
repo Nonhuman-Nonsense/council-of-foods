@@ -13,12 +13,10 @@ import ConversationControls from "./ConversationControls";
 import HumanInput from "./HumanInput";
 import { useDocumentVisibility, mapFoodIndex } from "@/utils";
 import { useCouncilMachine } from "@hooks/useCouncilMachine";
-import { meetingRoutesBase } from "@/routing";
 import { getMeeting } from "@api/getMeeting.js";
 import type { Meeting } from "@shared/ModelTypes";
 
 interface CouncilProps {
-  lang: string;
   creatorKey: string | null;
   setUnrecoverableError: (error: boolean) => void;
   setConnectionError: (error: boolean) => void;
@@ -26,7 +24,6 @@ interface CouncilProps {
 }
 
 function Council({
-  lang,
   creatorKey,
   setUnrecoverableError,
   setConnectionError,
@@ -82,7 +79,6 @@ function Council({
 
   // Hook Logic
   const { state, actions, socketRef } = useCouncilMachine({
-    lang,
     currentMeetingId,
     creatorKey: creatorKey ?? undefined,
     topic,
@@ -93,7 +89,6 @@ function Council({
     connectionError,
     isPaused,
     setPaused,
-    baseUrl: meetingRoutesBase(lang)
   });
 
   const {

@@ -46,7 +46,6 @@ export interface Food extends Partial<Character> {
 }
 
 interface SelectFoodsProps {
-  lang: string;
   topicTitle: string;
   onContinueForward: (data: { foods: Food[] }) => void | Promise<void>;
   loading?: boolean;
@@ -116,7 +115,7 @@ const blankHuman: Food = {
  * 
  * The main configuration screen where the user selects AI food participants and adds human panelists.
  */
-function SelectFoods({ lang, topicTitle, onContinueForward, loading: loading = false }: SelectFoodsProps): React.ReactElement {
+function SelectFoods({ topicTitle, onContinueForward, loading: loading = false }: SelectFoodsProps): React.ReactElement {
   // Ensuring we pull from a valid lang key, defaulting to 'en' if missing
   const [foods, setFoods] = useState<Food[]>(localFoodData[AVAILABLE_LANGUAGES[0]]?.foods || []);
   const [selectedFoods, setSelectedFoods] = useState<string[]>([localFoodData[AVAILABLE_LANGUAGES[0]]?.foods[0].id || ""]);
@@ -140,7 +139,7 @@ function SelectFoods({ lang, topicTitle, onContinueForward, loading: loading = f
 
   const isMobile = useMobile();
   const isMobileXs = useMobileXs();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
 
   /* -------------------------------------------------------------------------- */
   /*                                   Helpers                                  */
@@ -207,7 +206,7 @@ function SelectFoods({ lang, topicTitle, onContinueForward, loading: loading = f
       }
 
       if (replacedFoods.length > 0 && replacedFoods[0].prompt) {
-        replacedFoods[0].prompt = localFoodData[lang].foods[0].prompt?.replace(
+        replacedFoods[0].prompt = localFoodData[i18n.language].foods[0].prompt?.replace(
           "[FOODS]",
           participants
         ) || "";
@@ -230,7 +229,7 @@ function SelectFoods({ lang, topicTitle, onContinueForward, loading: loading = f
         }
         humanPresentation = humanPresentation.substring(0, humanPresentation.length - 2);
 
-        const humanPrompt = localFoodData[lang].panelWithHumans;
+        const humanPrompt = localFoodData[i18n.language].panelWithHumans;
         humanPresentation = humanPrompt.replace(
           "[HUMANS]",
           humanPresentation
@@ -317,7 +316,7 @@ function SelectFoods({ lang, topicTitle, onContinueForward, loading: loading = f
 
   function infoToShow(): React.ReactNode {
     if (currentFood === 'addhuman') {
-      return <FoodInfo food={localFoodData[lang].addHuman} />;
+      return <FoodInfo food={localFoodData[i18n.language].addHuman} />;
     } else if (currentFood !== null && !currentFood.startsWith('panelist')) {//If something is hovered & if it's not a human
       return <FoodInfo food={foods.find(f => f.id === currentFood)} />;
     } else if (currentFood?.startsWith('panelist') && lastSelected !== currentFood) {//a human is hovered but not selected

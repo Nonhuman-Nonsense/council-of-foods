@@ -6,7 +6,7 @@ import { getTopicsBundle } from '../../../../src/components/topicsBundle';
 
 // Mocks
 vi.mock('react-i18next', () => ({
-    useTranslation: () => ({ t: (key) => key }),
+    useTranslation: () => ({ t: (key) => key, i18n: { language: 'en' } }),
 }));
 
 vi.mock('../../../../src/utils', () => ({
@@ -57,7 +57,6 @@ describe('SelectTopic Component', () => {
     it('should render topics and allow selection', () => {
         render(
             <SelectTopic
-                lang="en"
                 onContinueForward={mockOnContinue}
                 onReset={mockOnReset}
                 onCancel={mockOnCancel}
@@ -88,7 +87,6 @@ describe('SelectTopic Component', () => {
     it('should allow custom topic entry', () => {
         render(
             <SelectTopic
-                lang="en"
                 onContinueForward={mockOnContinue}
                 onReset={mockOnReset}
                 onCancel={mockOnCancel}
@@ -131,7 +129,6 @@ describe('SelectTopic Component', () => {
 
         render(
             <SelectTopic
-                lang="en"
                 onContinueForward={mockOnContinue}
                 onReset={mockOnReset}
                 onCancel={mockOnCancel}
@@ -164,7 +161,6 @@ describe('SelectTopic Component', () => {
 
         render(
             <SelectTopic
-                lang="en"
                 onContinueForward={mockOnContinue}
                 onReset={mockOnReset}
                 onCancel={mockOnCancel}
@@ -193,7 +189,6 @@ describe('SelectTopic Component', () => {
 
         render(
             <SelectTopic
-                lang="en"
                 onContinueForward={mockOnContinue}
                 onReset={mockOnReset}
                 onCancel={mockOnCancel}
@@ -215,7 +210,6 @@ describe('SelectTopic Component', () => {
 
         render(
             <SelectTopic
-                lang="en"
                 onContinueForward={mockOnContinue}
                 onReset={mockOnReset}
                 onCancel={mockOnCancel}
@@ -248,7 +242,6 @@ describe('SelectTopic Component', () => {
     it('updates tooltip text based on hover and selection priority', () => {
         render(
             <SelectTopic
-                lang="en"
                 onContinueForward={mockOnContinue}
                 onReset={mockOnReset}
                 onCancel={mockOnCancel}
@@ -283,7 +276,6 @@ describe('SelectTopic Component', () => {
     it('hides/shows Next button based on validation', () => {
         render(
             <SelectTopic
-                lang="en"
                 onContinueForward={mockOnContinue}
                 onReset={mockOnReset}
                 onCancel={mockOnCancel}
@@ -317,7 +309,6 @@ describe('SelectTopic Component', () => {
     it('shows custom text box when hovering custom topic button', () => {
         render(
             <SelectTopic
-                lang="en"
                 onContinueForward={mockOnContinue}
                 onReset={mockOnReset}
                 onCancel={mockOnCancel}

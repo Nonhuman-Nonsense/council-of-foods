@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router";
 import { useCouncilSocket } from "../hooks/useCouncilSocket";
+import { useRouting } from "@/routing";
 import type { Character, Message, Topic } from "@shared/ModelTypes";
 import { AudioUpdatePayload } from "@shared/SocketTypes";
 import globalOptions from "@/global-options-client.json";
@@ -10,7 +11,6 @@ export interface DecodedAudioMessage extends Omit<AudioUpdatePayload, 'audio'> {
 }
 
 export interface UseCouncilMachineProps {
-    lang: string;
     currentMeetingId: number;
     creatorKey: string | undefined;
     topic: Topic | null;
@@ -22,11 +22,9 @@ export interface UseCouncilMachineProps {
     isPaused: boolean;
     setPaused: (paused: boolean) => void;
     setAudioPaused?: (paused: boolean) => void;
-    baseUrl: string; // Prefix before :meetingId (e.g. "/meeting" or "/en/meeting"), not including the id
 }
 
 export function useCouncilMachine({
-    lang,
     currentMeetingId,
     creatorKey,
     topic,
@@ -38,8 +36,9 @@ export function useCouncilMachine({
     isPaused,
     setPaused,
     setAudioPaused,
-    baseUrl
 }: UseCouncilMachineProps) {
+
+    const { meetingRoutesBase } = useRouting();
 
     /* -------------------------------------------------------------------------- */
     /*                             Main State Variables                           */
@@ -325,7 +324,7 @@ export function useCouncilMachine({
     function removeOverlay() {
         setActiveOverlay(null);
         const pathSuffix = currentMeetingId > 0 ? String(currentMeetingId) : "new";
-        const pathname = `${baseUrl}/${pathSuffix}`;
+        const pathname = `${meetingRoutesBase}/${pathSuffix}`;
         navigate({ pathname, hash: "" }, { replace: true });
 
         if (councilState === 'max_reached') {

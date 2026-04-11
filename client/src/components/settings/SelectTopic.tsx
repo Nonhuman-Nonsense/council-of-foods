@@ -21,7 +21,6 @@ import { getTopicsBundle } from "@/components/topicsBundle";
  */
 
 interface SelectTopicProps {
-  lang: string;
   onContinueForward: (selectedTopic: Topic) => void;
   currentTopic?: Topic;
   onReset?: (resetTopic: Topic) => void;
@@ -29,18 +28,17 @@ interface SelectTopicProps {
 }
 
 function SelectTopic({
-  lang,
   onContinueForward,
   currentTopic,
   onReset,
   onCancel
 }: SelectTopicProps): React.ReactElement {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const isMobile = useMobile();
   const isMobileXs = useMobileXs();
   const topicTextareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const topicsBundle = getTopicsBundle(lang);
+  const topicsBundle = getTopicsBundle(i18n.language);
 
   /* -------------------------------------------------------------------------- */
   /*                                    State                                   */

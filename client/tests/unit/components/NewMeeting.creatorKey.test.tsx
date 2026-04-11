@@ -4,8 +4,19 @@ import { MemoryRouter, Routes, Route } from "react-router";
 import NewMeeting from "@/components/NewMeeting";
 import { createMeeting } from "@/api/createMeeting";
 import routes from "@/routes.json";
-import { meetingPath } from "@/routing";
 import type { Food } from "@/components/settings/SelectFoods";
+
+vi.mock("react-i18next", () => ({
+    useTranslation: () => ({ t: (key: string) => key, i18n: { language: "en" } }),
+}));
+
+vi.mock("@/routing", () => ({
+    useRouting: () => ({
+        newMeetingPath: `/${routes.newMeeting}`,
+        meetingPath: (id: number) => `/${routes.meeting}/${id}`,
+        meetingRoutesBase: `/${routes.meeting}`,
+    }),
+}));
 
 vi.mock("@/api/createMeeting", () => ({
     createMeeting: vi.fn(),
@@ -77,7 +88,6 @@ describe("NewMeeting — creator key handoff", () => {
                         path={`/${routes.newMeeting}`}
                         element={
                             <NewMeeting
-                                lang="en"
                                 setUnrecoverableError={setUnrecoverableError}
                                 topicSelection={{ id: "test-topic", title: "Test Topic", description: "D", prompt: "P" }}
                                 setTopicSelection={setTopicSelection}
@@ -86,7 +96,7 @@ describe("NewMeeting — creator key handoff", () => {
                         }
                     />
                     <Route
-                        path={meetingPath("en", 99999).replace("99999", ":meetingId")}
+                        path={`/${routes.meeting}/:meetingId`}
                         element={<div data-testid="meeting-screen">Meeting</div>}
                     />
                 </Routes>

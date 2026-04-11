@@ -1,15 +1,21 @@
-import { describe, it, expect } from "vitest";
-import { meetingPath, meetingRoutesBase } from "@/routing";
+import { renderHook } from "@testing-library/react";
+import { describe, it, expect, vi } from "vitest";
+import { useRouting } from "@/routing";
+
+vi.mock("react-i18next", () => ({
+    useTranslation: () => ({ i18n: { language: "en" } }),
+}));
 
 /**
- * `removeOverlay` does `navigate(\`${baseUrl}/${meetingId}\`)` with `baseUrl = meetingRoutesBase(lang)`.
- * That must equal `meetingPath(lang, meetingId)` whether the app uses `/meeting/:id` or `/:lang/meeting/:id`,
- * because both helpers use the same `getBasePath(lang)` from `AVAILABLE_LANGUAGES`.
+ * `removeOverlay` does `navigate(\`${meetingRoutesBase}/${meetingId}\`)`.
+ * That must equal `meetingPath(meetingId)` from the same hook call,
+ * because both use the same base path derived from i18n.language.
  */
 describe("routing bridge", () => {
     it("meetingRoutesBase + id equals meetingPath (single- and multi-language safe)", () => {
-        const lang = "en";
         const id = 175;
-        expect(`${meetingRoutesBase(lang)}/${id}`).toBe(meetingPath(lang, id));
+        const { result } = renderHook(() => useRouting());
+        const { meetingRoutesBase, meetingPath } = result.current;
+        expect(`${meetingRoutesBase}/${id}`).toBe(meetingPath(id));
     });
 });
