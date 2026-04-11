@@ -6,7 +6,7 @@ import foodsEn from '../../../../src/prompts/foods_en.json';
 
 // Mock dependencies
 vi.mock('react-i18next', () => ({
-    useTranslation: () => ({ t: (key) => key }),
+    useTranslation: () => ({ t: (key) => key, i18n: { language: 'en' } }),
 }));
 
 vi.mock('../../../../src/utils', () => ({

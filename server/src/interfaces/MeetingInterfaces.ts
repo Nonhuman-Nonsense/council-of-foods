@@ -1,20 +1,20 @@
-import type { Character, ConversationMessage } from "@shared/ModelTypes.js";
+import type { Character, Message } from "@shared/ModelTypes.js";
 import type { Collection, InsertOneResult } from "mongodb";
 import type { OpenAI } from "openai";
 import type { Socket } from "socket.io";
-import type { Meeting, Audio } from "@models/DBModels.js";
+import type { StoredMeeting, StoredAudio } from "@models/DBModels.js";
 import type { ClientToServerEvents, ServerToClientEvents, AudioUpdatePayload, ClientKeyResponse } from "@shared/SocketTypes.js";
 import type { GlobalOptions } from "@logic/GlobalOptions.js";
 import type { AudioSystem } from "@logic/AudioSystem.js";
 import type { DialogGenerator } from "@logic/DialogGenerator.js";
-import type { ConversationState } from "@shared/ModelTypes.js";
+import type { ConversationState, Meeting } from "@shared/ModelTypes.js";
 
 export { ConversationState };
 
 export interface Services {
-    meetingsCollection: Collection<Meeting>;
-    audioCollection: Collection<Audio>;
-    insertMeeting: (meeting: Omit<Meeting, "_id">) => Promise<InsertOneResult<Meeting>>;
+    meetingsCollection: Collection<StoredMeeting>;
+    audioCollection: Collection<StoredAudio>;
+    insertMeeting: (meeting: Omit<StoredMeeting, "_id">) => Promise<InsertOneResult<StoredMeeting>>;
     getOpenAI: () => OpenAI;
 }
 
@@ -27,8 +27,7 @@ export interface ConversationOptions {
 }
 
 export interface IMeetingBroadcaster {
-    broadcastMeetingStarted(meetingId: number): void;
-    broadcastConversationUpdate(conversation: ConversationMessage[]): void;
+    broadcastConversationUpdate(conversation: Message[]): void;
     broadcastConversationEnd(): void;
     broadcastAudioUpdate(audio: AudioUpdatePayload): void;
     broadcastClientKey(data: ClientKeyResponse): void;
@@ -40,29 +39,27 @@ export interface IMeetingBroadcaster {
  * Basic identity and environment context.
  */
 export interface IMeetingContext {
-    meetingId: number | null;
-    conversation: ConversationMessage[];
     socket: Socket<ClientToServerEvents, ServerToClientEvents>;
     environment: string;
     services: {
-        meetingsCollection: Collection<Meeting>;
-        audioCollection: Collection<Audio>;
-        insertMeeting: (meeting: Omit<Meeting, "_id">) => Promise<InsertOneResult<Meeting>>;
+        meetingsCollection: Collection<StoredMeeting>;
+        audioCollection: Collection<StoredAudio>;
+        insertMeeting: (meeting: Omit<StoredMeeting, "_id">) => Promise<InsertOneResult<StoredMeeting>>;
         getOpenAI: () => OpenAI;
     };
-    globalOptions: GlobalOptions;
+    serverOptions: GlobalOptions;
     broadcaster: IMeetingBroadcaster; // New abstraction
 }
 
 /**
  * State of the current conversation/meeting.
  */
-export interface IConversationState {
-    conversation: ConversationMessage[];
-    conversationOptions: ConversationOptions;
+export interface IMeetingState {
+    /** Populated after start or reconnect; null only before a meeting is bound. */
+    meeting: StoredMeeting | null;
+    serverOptions: GlobalOptions;
     handRaised: boolean;
     isPaused: boolean;
-    meetingDate: Date | null;
     extraMessageCount: number;
     currentSpeaker: number;
 }
@@ -86,19 +83,19 @@ export interface IMeetingLogicSubsystems {
 /**
  * Context required by HumanInputHandler.
  */
-export interface IHumanInputContext extends IMeetingContext, IConversationState, IMeetingControl, IMeetingLogicSubsystems { }
+export interface IHumanInputContext extends IMeetingContext, IMeetingState, IMeetingControl, IMeetingLogicSubsystems { }
 
 /**
  * Context required by HandRaisingHandler.
  */
-export interface IHandRaisingContext extends IMeetingContext, IConversationState, IMeetingControl, IMeetingLogicSubsystems { }
+export interface IHandRaisingContext extends IMeetingContext, IMeetingState, IMeetingControl, IMeetingLogicSubsystems { }
 
 /**
  * Context required by MeetingLifecycleHandler.
  */
-export interface ILifecycleContext extends IMeetingContext, IConversationState, IMeetingControl, IMeetingLogicSubsystems { }
+export interface ILifecycleContext extends IMeetingContext, IMeetingState, IMeetingControl, IMeetingLogicSubsystems { }
 
 /**
  * Composite interface for full access (used by MeetingManager itself and handlers that need everything).
  */
-export interface IMeetingManager extends IMeetingContext, IConversationState, IMeetingControl, IMeetingLogicSubsystems { }
+export interface IMeetingManager extends IMeetingContext, IMeetingState, IMeetingControl, IMeetingLogicSubsystems { }

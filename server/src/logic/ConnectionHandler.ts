@@ -1,6 +1,7 @@
 import type { ReconnectionOptions } from "@shared/SocketTypes.js";
-import type { ConversationMessage } from "@shared/ModelTypes.js";
+import type { Message } from "@shared/ModelTypes.js";
 import type { IMeetingManager } from "@interfaces/MeetingInterfaces.js";
+import type { StoredMeeting } from "@models/DBModels.js";
 import { splitSentences } from "@utils/textUtils.js";
 import { Logger } from "@utils/Logger.js";
 
@@ -24,7 +25,7 @@ export class ConnectionHandler {
         const { manager } = this;
         // Check if socket is defined/connected before accessing property if needed, though 'id' should be there if it was connected
         if (manager.socket) {
-            Logger.info(`meeting ${manager.meetingId}`, `disconnected (session ${manager.socket.id})`);
+            Logger.info(`meeting ${manager.meeting?._id}`, `disconnected (session ${manager.socket.id})`);
         }
         manager.isLoopActive = false;
     }
@@ -48,23 +49,21 @@ export class ConnectionHandler {
                 // Check BEFORE overwriting state
                 // We don't need isRunning check anymore with idempotent startLoop
 
-                manager.meetingId = existingMeeting._id;
-                manager.conversation = existingMeeting.conversation;
-                manager.conversationOptions = existingMeeting.options;
-                manager.meetingDate = new Date(existingMeeting.date);
+                manager.meeting = existingMeeting as StoredMeeting;
                 manager.handRaised = options.handRaised ?? false;
 
-                const clientMax = options.conversationMaxLength ?? manager.conversationOptions.options.conversationMaxLength;
-                manager.extraMessageCount = clientMax - manager.conversationOptions.options.conversationMaxLength;
+                const baseMax = manager.serverOptions.conversationMaxLength;
+                const clientMax = options.conversationMaxLength ?? baseMax;
+                manager.extraMessageCount = Math.max(0, clientMax - baseMax);
 
                 // Missing audio regen logic
-                let missingAudio: ConversationMessage[] = [];
-                for (let i = 0; i < manager.conversation.length; i++) {
-                    if (manager.conversation[i].type === 'awaiting_human_panelist') continue;
-                    if (manager.conversation[i].type === 'awaiting_human_question') continue;
-                    const msgId = manager.conversation[i].id;
+                let missingAudio: Message[] = [];
+                for (let i = 0; i < existingMeeting.conversation.length; i++) {
+                    if (existingMeeting.conversation[i].type === 'awaiting_human_panelist') continue;
+                    if (existingMeeting.conversation[i].type === 'awaiting_human_question') continue;
+                    const msgId = existingMeeting.conversation[i].id;
                     if (msgId && existingMeeting.audio.indexOf(msgId) === -1) {
-                        missingAudio.push(manager.conversation[i]);
+                        missingAudio.push(existingMeeting.conversation[i]);
                     }
                 }
 
@@ -72,23 +71,23 @@ export class ConnectionHandler {
                     const audioMsg = missingAudio[i];
                     if (!audioMsg.id || !audioMsg.text) continue; // Skip malformed methods
 
-                    Logger.info(`meeting ${manager.meetingId}`, `(async) generating missing audio for ${audioMsg.speaker}`);
+                    Logger.info(`meeting ${manager.meeting._id}`, `(async) generating missing audio for ${audioMsg.speaker}`);
                     audioMsg.sentences = splitSentences(audioMsg.text as string);
                     // Ensure speaker is found
-                    const speaker = manager.conversationOptions.characters.find(c => c.id == audioMsg.speaker);
+                    const speaker = existingMeeting.characters.find(c => c.id === audioMsg.speaker);
                     if (speaker) {
                         manager.audioSystem.queueAudioGeneration(
                             { ...audioMsg, id: audioMsg.id!, text: audioMsg.text!, sentences: audioMsg.sentences! },
                             speaker,
-                            { options: manager.conversationOptions.options },
-                            manager.meetingId as number,
-                            manager.environment
+                            manager.meeting,
+                            manager.environment,
+                            manager.serverOptions
                         );
                     }
                 }
 
-                Logger.info(`meeting ${manager.meetingId}`, "resumed");
-                manager.broadcaster.broadcastConversationUpdate(manager.conversation);
+                Logger.info(`meeting ${manager.meeting._id}`, "resumed");
+                manager.broadcaster.broadcastConversationUpdate(manager.meeting.conversation);
 
                 // Simply ensure loop is running. 
                 // Idempotency in MeetingManager prevents double-start.

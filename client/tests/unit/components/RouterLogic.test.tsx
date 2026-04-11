@@ -10,7 +10,7 @@ import routes from '../../../src/routes.json';
 
 // Mock child components to focus on routing logic
 vi.mock('../../../src/components/Overlay', () => ({
-    default: ({ children }) => <div data-testid="overlay">{children}</div>
+    default: ({ children }: { children: React.ReactNode }) => <div data-testid="overlay">{children}</div>
 }));
 vi.mock('../../../src/components/MainOverlays', () => ({
     default: () => <div data-testid="main-overlays">MainOverlays</div>
@@ -42,7 +42,7 @@ vi.mock('../../../src/utils', () => ({
     usePortrait: () => false,
     useMobile: () => false,
     useMobileXs: () => false,
-    capitalizeFirstLetter: (str) => str,
+    capitalizeFirstLetter: (str: string) => str,
     dvh: 'vh',
     minWindowHeight: 300,
     useDocumentVisibility: () => true
@@ -51,7 +51,7 @@ vi.mock('../../../src/utils', () => ({
 // Mock react-i18next
 vi.mock('react-i18next', () => ({
     useTranslation: () => ({
-        t: (key) => key,
+        t: (key: string) => key,
         i18n: { changeLanguage: vi.fn() }
     }),
 }));
@@ -145,7 +145,7 @@ describe('Router Logic', () => {
         it('Navbar should NOT show language toggle for single language', () => {
             render(
                 <MemoryRouter>
-                    <Navbar lang="en" topic="Topic" hamburgerOpen={false} setHamburgerOpen={() => { }} />
+                    <Navbar lang="en" topicTitle="Topic" hamburgerOpen={false} setHamburgerOpen={() => { }} />
                 </MemoryRouter>
             );
             // Assuming we implement the hiding logic. 
@@ -160,7 +160,7 @@ describe('Router Logic', () => {
 
     describe('Multi Language (en, sv)', () => {
         beforeEach(() => {
-            vi.spyOn(AvailableLanguagesModule, 'AVAILABLE_LANGUAGES', 'get').mockReturnValue(['en', 'sv']);
+            vi.spyOn(AvailableLanguagesModule, 'AVAILABLE_LANGUAGES', 'get').mockReturnValue(['en', 'sv'] as any);
         });
 
         afterEach(() => {
@@ -187,7 +187,7 @@ describe('Router Logic', () => {
         it('Navbar SHOULD show language toggle for multi language', () => {
             render(
                 <MemoryRouter>
-                    <Navbar lang="en" topic="Topic" hamburgerOpen={false} setHamburgerOpen={() => { }} />
+                    <Navbar lang="en" topicTitle="Topic" hamburgerOpen={false} setHamburgerOpen={() => { }} />
                 </MemoryRouter>
             );
             expect(screen.getByText('EN')).toBeVisible();

@@ -1,11 +1,12 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import SelectTopic from '../../../../src/components/settings/SelectTopic';
+import { getTopicsBundle } from '../../../../src/components/topicsBundle';
 
 // Mocks
 vi.mock('react-i18next', () => ({
-    useTranslation: () => ({ t: (key) => key }),
+    useTranslation: () => ({ t: (key) => key, i18n: { language: 'en' } }),
 }));
 
 vi.mock('../../../../src/utils', () => ({
@@ -24,12 +25,22 @@ vi.mock('../../../../src/components/overlays/ResetWarning', () => ({
     )
 }));
 
+vi.mock('../../../../src/components/topicsBundle', () => ({
+    getTopicsBundle: vi.fn(),
+}));
+
 const mockTopics = [
-    { id: 'topic1', title: 'Topic One', description: 'Desc One' },
-    { id: 'topic2', title: 'Topic Two', description: 'Desc Two' }
+    { id: 'topic1', title: 'Topic One', description: 'Desc One', prompt: 'Prompt One' },
+    { id: 'topic2', title: 'Topic Two', description: 'Desc Two', prompt: 'Prompt Two' }
 ];
 
-const mockCustomTopicConfig = { id: 'customtopic', title: 'Write your own', description: 'Custom' };
+const mockCustomTopicConfig = { id: 'customtopic', title: 'Write your own', description: 'Custom', prompt: '' };
+
+const defaultBundle = {
+    topics: mockTopics,
+    custom_topic: mockCustomTopicConfig,
+    system: 'System [TOPIC]',
+};
 
 describe('SelectTopic Component', () => {
     let mockOnContinue;
@@ -40,13 +51,12 @@ describe('SelectTopic Component', () => {
         mockOnContinue = vi.fn();
         mockOnReset = vi.fn();
         mockOnCancel = vi.fn();
+        vi.mocked(getTopicsBundle).mockReturnValue(defaultBundle);
     });
 
     it('should render topics and allow selection', () => {
         render(
             <SelectTopic
-                topics={mockTopics}
-                customTopicConfig={mockCustomTopicConfig}
                 onContinueForward={mockOnContinue}
                 onReset={mockOnReset}
                 onCancel={mockOnCancel}
@@ -69,14 +79,14 @@ describe('SelectTopic Component', () => {
         // Click Next
         fireEvent.click(nextBtn);
 
-        expect(mockOnContinue).toHaveBeenCalledWith({ topic: 'topic1', custom: '' });
+        expect(mockOnContinue).toHaveBeenCalledWith(
+            expect.objectContaining({ id: 'topic1', title: 'Topic One', description: 'Desc One' })
+        );
     });
 
     it('should allow custom topic entry', () => {
         render(
             <SelectTopic
-                topics={mockTopics}
-                customTopicConfig={mockCustomTopicConfig}
                 onContinueForward={mockOnContinue}
                 onReset={mockOnReset}
                 onCancel={mockOnCancel}
@@ -99,22 +109,26 @@ describe('SelectTopic Component', () => {
         // Click Next
         fireEvent.click(screen.getByText('next'));
 
-        expect(mockOnContinue).toHaveBeenCalledWith({ topic: 'customtopic', custom: 'My Custom Topic' });
+        expect(mockOnContinue).toHaveBeenCalledWith(
+            expect.objectContaining({ id: 'customtopic', description: 'My Custom Topic' })
+        );
     });
 
     it('should use single-column layout for few topics (<=6)', () => {
-        // Create 4 topics (plus custom)
         const fewTopics = [
-            { id: '1', title: 'T1', description: 'A' },
-            { id: '2', title: 'T2', description: 'B' },
-            { id: '3', title: 'T3', description: 'C' },
-            { id: '4', title: 'T4', description: 'D' }
+            { id: '1', title: 'T1', description: 'A', prompt: '' },
+            { id: '2', title: 'T2', description: 'B', prompt: '' },
+            { id: '3', title: 'T3', description: 'C', prompt: '' },
+            { id: '4', title: 'T4', description: 'D', prompt: '' }
         ];
+        vi.mocked(getTopicsBundle).mockReturnValue({
+            topics: fewTopics,
+            custom_topic: mockCustomTopicConfig,
+            system: 'System [TOPIC]',
+        });
 
         render(
             <SelectTopic
-                topics={fewTopics}
-                customTopicConfig={mockCustomTopicConfig}
                 onContinueForward={mockOnContinue}
                 onReset={mockOnReset}
                 onCancel={mockOnCancel}
@@ -136,15 +150,17 @@ describe('SelectTopic Component', () => {
     });
 
     it('should use two-column layout for many topics (>6)', () => {
-        // Create 7 topics (plus custom)
         const manyTopics = Array.from({ length: 7 }, (_, i) => ({
-            id: `topic${i}`, title: `Topic ${i}`, description: `Desc ${i}`
+            id: `topic${i}`, title: `Topic ${i}`, description: `Desc ${i}`, prompt: ''
         }));
+        vi.mocked(getTopicsBundle).mockReturnValue({
+            topics: manyTopics,
+            custom_topic: mockCustomTopicConfig,
+            system: 'System [TOPIC]',
+        });
 
         render(
             <SelectTopic
-                topics={manyTopics}
-                customTopicConfig={mockCustomTopicConfig}
                 onContinueForward={mockOnContinue}
                 onReset={mockOnReset}
                 onCancel={mockOnCancel}
@@ -168,13 +184,32 @@ describe('SelectTopic Component', () => {
         expect(btn).not.toHaveStyle('width: 50%');
     });
 
-    it('should show reset warning if currentTopic is set (changing mid-meeting)', () => {
-        const currentTopic = { id: 'topic1', prompt: 'OLD PROMPT' };
+    it('always shows reset warning when currentTopic is set, even if topic unchanged', async () => {
+        const currentTopic = { id: 'topic1', title: 'Topic One', description: '', prompt: 'p' };
 
         render(
             <SelectTopic
-                topics={mockTopics}
-                customTopicConfig={mockCustomTopicConfig}
+                onContinueForward={mockOnContinue}
+                onReset={mockOnReset}
+                onCancel={mockOnCancel}
+                currentTopic={currentTopic}
+            />
+        );
+
+        const nextBtn = screen.getByText('next');
+        await waitFor(() => expect(nextBtn).toBeVisible());
+        fireEvent.click(nextBtn);
+
+        expect(mockOnContinue).not.toHaveBeenCalled();
+        expect(screen.getByTestId('reset-warning')).toBeInTheDocument();
+        expect(mockOnCancel).not.toHaveBeenCalled();
+    });
+
+    it('should show reset warning if currentTopic is set (changing mid-meeting)', () => {
+        const currentTopic = { id: 'topic1', title: 'Topic One', description: '', prompt: 'OLD PROMPT' };
+
+        render(
+            <SelectTopic
                 onContinueForward={mockOnContinue}
                 onReset={mockOnReset}
                 onCancel={mockOnCancel}
@@ -199,14 +234,14 @@ describe('SelectTopic Component', () => {
 
         // Confirm Reset
         fireEvent.click(screen.getByText('Confirm Reset'));
-        expect(mockOnReset).toHaveBeenCalledWith({ topic: 'topic2', custom: '' });
+        expect(mockOnReset).toHaveBeenCalledWith(
+            expect.objectContaining({ id: 'topic2', title: 'Topic Two' })
+        );
     });
 
     it('updates tooltip text based on hover and selection priority', () => {
         render(
             <SelectTopic
-                topics={mockTopics}
-                customTopicConfig={mockCustomTopicConfig}
                 onContinueForward={mockOnContinue}
                 onReset={mockOnReset}
                 onCancel={mockOnCancel}
@@ -241,8 +276,6 @@ describe('SelectTopic Component', () => {
     it('hides/shows Next button based on validation', () => {
         render(
             <SelectTopic
-                topics={mockTopics}
-                customTopicConfig={mockCustomTopicConfig}
                 onContinueForward={mockOnContinue}
                 onReset={mockOnReset}
                 onCancel={mockOnCancel}
@@ -276,8 +309,6 @@ describe('SelectTopic Component', () => {
     it('shows custom text box when hovering custom topic button', () => {
         render(
             <SelectTopic
-                topics={mockTopics}
-                customTopicConfig={mockCustomTopicConfig}
                 onContinueForward={mockOnContinue}
                 onReset={mockOnReset}
                 onCancel={mockOnCancel}
