@@ -14,6 +14,7 @@ export function useRouting() {
   const { i18n } = useTranslation();
   const base = basePath(i18n.language);
   return {
+    rootPath: `${base}/`,
     newMeetingPath: `${base}/${routes.newMeeting}`,
     meetingPath: (meetingId: number) => `${base}/${routes.meeting}/${meetingId}`,
     meetingRoutesBase: `${base}/${routes.meeting}`,
