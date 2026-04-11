@@ -36,6 +36,11 @@ interface FoodData {
     foods: Food[];
 }
 
+function loadFoodData(lang: string): FoodData {
+    const filePath = path.resolve(__dirname, `../../src/prompts/foods_${lang}.json`);
+    return JSON.parse(fs.readFileSync(filePath, 'utf-8')) as FoodData;
+}
+
 describe('Validate Food Data JSONs', () => {
     it('should have a valid JSON file for every available language', () => {
         AVAILABLE_LANGUAGES.forEach((lang) => {
@@ -86,5 +91,19 @@ describe('Validate Food Data JSONs', () => {
             expect(data.addHuman).toHaveProperty('name');
             expect(data.addHuman).toHaveProperty('description');
         });
+    });
+
+    it('should have matching food IDs across all languages', () => {
+        if (AVAILABLE_LANGUAGES.length < 2) return;
+
+        const reference = loadFoodData(AVAILABLE_LANGUAGES[0]);
+        const referenceIds = reference.foods.map(f => f.id).sort();
+
+        for (const lang of AVAILABLE_LANGUAGES.slice(1)) {
+            const other = loadFoodData(lang);
+            const otherIds = other.foods.map(f => f.id).sort();
+
+            expect(otherIds, `Food IDs in "${lang}" do not match "${AVAILABLE_LANGUAGES[0]}"`).toEqual(referenceIds);
+        }
     });
 });
