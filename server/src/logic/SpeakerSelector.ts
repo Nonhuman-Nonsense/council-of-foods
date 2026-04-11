@@ -1,4 +1,4 @@
-import type { Character, ConversationMessage } from '@shared/ModelTypes.js';
+import type { Character, Message } from '@shared/ModelTypes.js';
 
 /**
  * Logic for determining the next speaker in the conversation.
@@ -12,7 +12,7 @@ export class SpeakerSelector {
      * @param characters - List of available characters (council members + chair).
      * @returns The index of the character in the `characters` array who should speak next.
      */
-    static calculateNextSpeaker(conversation: ConversationMessage[], characters: Character[]): number {
+    static calculateNextSpeaker(conversation: Message[], characters: Character[]): number {
         if (conversation.length === 0) return 0;
 
         for (let i = conversation.length - 1; i >= 0; i--) {

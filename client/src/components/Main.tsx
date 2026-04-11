@@ -10,10 +10,11 @@ import Overlay from "./Overlay";
 import MainOverlays from "./MainOverlays";
 import Landing from "./settings/Landing";
 import Navbar from "./Navbar";
-import { Topic, TopicSelection } from "./settings/SelectTopic";
+import type { Topic } from "@shared/ModelTypes";
+import type { TopicSelection } from "./settings/SelectTopic";
 import NewMeeting from "./NewMeeting";
 import Council from "./Council";
-import { getBasePath, isMeetingPath, isRootPath, newMeetingPath } from "@/routing";
+import { getBasePath, isMeetingPath, isRootPath, newMeetingPath, stripLanguagePrefix } from "@/routing";
 import RotateDevice from "./RotateDevice";
 import FullscreenButton from "./FullscreenButton";
 import { usePortrait, dvh } from "@/utils";
@@ -50,6 +51,7 @@ export default function Main(props: MainProps) {
   const topicTitle = deriveTopicTitle(topics, customTopicConfig, topicSelection);
   const [unrecoverabeError, setUnrecoverableError] = useState(false);
   const [connectionError, setConnectionError] = useState(false);
+  const [meetingCreatorKey, setMeetingCreatorKey] = useState<string | null>(null);
 
   //Had to lift up navbar state to this level to be able to close it from main overlay
   const [hamburgerOpen, setHamburgerOpen] = useState(false);
@@ -67,6 +69,13 @@ export default function Main(props: MainProps) {
   useEffect(() => {
     if (isRootPath(location.pathname)) {
       setTopicSelection(null);
+    }
+  }, [location.pathname]);
+
+  useEffect(() => {
+    const withoutLang = stripLanguagePrefix(location.pathname);
+    if (withoutLang === `/${routes.newMeeting}` || isRootPath(location.pathname)) {
+      setMeetingCreatorKey(null);
     }
   }, [location.pathname]);
 
@@ -132,6 +141,7 @@ export default function Main(props: MainProps) {
                   setUnrecoverableError={setUnrecoverableError}
                   topicSelection={topicSelection}
                   setTopicSelection={setTopicSelection}
+                  setMeetingCreatorKey={setMeetingCreatorKey}
                 />
               }
             />
@@ -141,6 +151,7 @@ export default function Main(props: MainProps) {
                 <Council
                   key={location.pathname}
                   lang={props.lang}
+                  creatorKey={meetingCreatorKey}
                   setUnrecoverableError={setUnrecoverableError}
                   connectionError={connectionError}
                   setConnectionError={setConnectionError}
@@ -192,11 +203,11 @@ function deriveTopicForOverlays(
   selection: TopicSelection | null,
   fallbackTitle: string
 ): Topic {
-  if (!selection) return { id: "", title: fallbackTitle, prompt: "" };
+  if (!selection) return { id: "", title: fallbackTitle, prompt: "", description: "" };
   if (selection.topic === customTopicConfig.id) {
     return { ...customTopicConfig, description: selection.custom, prompt: selection.custom };
   }
-  return topics.find((t) => t.id === selection.topic) ?? { id: selection.topic, title: fallbackTitle, prompt: "" };
+  return topics.find((t) => t.id === selection.topic) ?? { id: selection.topic, title: fallbackTitle, prompt: "", description: "" };
 }
 
 function RotateOverlay() {

@@ -23,6 +23,9 @@
             "@root/*": [
                 "src/*"
             ],
+            "@api/*": [
+                "src/api/*"
+            ],
             "@components/*": [
                 "src/components/*"
             ],

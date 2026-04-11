@@ -123,13 +123,13 @@ describe('Async Error Propagation (Comprehensive)', () => {
             event: 'attempt_reconnection',
             mockObj: mockConnectionHandler,
             method: 'handleReconnection',
-            payload: { meetingId: 123, clientKey: 'key' }
+            payload: { meetingId: 123 }
         },
         {
             event: 'start_conversation',
             mockObj: mockMeetingLifecycleHandler,
             method: 'handleStartConversation',
-            payload: { topic: 'Test', language: 'en', characters: [] }
+            payload: { meetingId: 1, creatorKey: 'test-creator-key' }
         },
         // Disconnect is handled by SocketManager directly calling destroySession.
         // It's not async awaited in a way that catches errors easily?
@@ -169,7 +169,7 @@ describe('Async Error Propagation (Comprehensive)', () => {
                 // Since currentSession is private, we'll trigger start_conversation
                 const startHandler = socketHandlers['start_conversation'];
                 mockMeetingLifecycleHandler.handleStartConversation.mockResolvedValueOnce(); // succeed
-                await startHandler({ topic: 'Setup', language: 'en', characters: [] });
+                await startHandler({ meetingId: 1, creatorKey: 'test-creator-key' });
             }
 
             // Sabotage
@@ -214,7 +214,7 @@ describe('Async Error Propagation (Comprehensive)', () => {
         // Initialize session
         const startHandler = socketHandlers['start_conversation'];
         mockMeetingLifecycleHandler.handleStartConversation.mockResolvedValueOnce();
-        await startHandler({ topic: 'Setup', language: 'en', characters: [] });
+        await startHandler({ meetingId: 1, creatorKey: 'test-creator-key' });
 
 
         const protoTestCases = [
@@ -258,7 +258,7 @@ describe('Async Error Propagation (Comprehensive)', () => {
         // Setup session
         const startHandler = socketHandlers['start_conversation'];
         mockMeetingLifecycleHandler.handleStartConversation.mockResolvedValueOnce();
-        await startHandler({ topic: 'Setup', language: 'en', characters: [] });
+        await startHandler({ meetingId: 1, creatorKey: 'test-creator-key' });
 
         // Sabotage with ZodError
         mockHumanInputHandler[method].mockRejectedValue(error);

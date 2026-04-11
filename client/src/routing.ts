@@ -9,6 +9,16 @@ export function meetingPath(lang: string, meetingId: number): string {
   return `${getBasePath(lang)}/${routes.meeting}/${meetingId}`;
 }
 
+/**
+ * Prefix for `meeting/:meetingId` (no trailing id). Same language bridge as {@link meetingPath}:
+ * - one language → `/meeting`
+ * - several → `/${lang}/meeting`
+ * So `${meetingRoutesBase(lang)}/${id}` always equals {@link meetingPath}.
+ */
+export function meetingRoutesBase(lang: string): string {
+  return `${getBasePath(lang)}/${routes.meeting}`;
+}
+
 export function getBasePath(lang: string): string {
   return (AVAILABLE_LANGUAGES as readonly string[]).length === 1 ? "" : `/${lang}`;
 }

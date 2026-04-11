@@ -1,12 +1,6 @@
-import type { Character } from "@shared/ModelTypes";
+import type { CreateMeetingBody } from "@shared/SocketTypes.js";
 
-export interface CreateMeetingBody {
-  topic: string;
-  characters: Character[];
-  language: string;
-}
-
-export async function createMeeting(body: CreateMeetingBody): Promise<{ meetingId: number }> {
+export async function createMeeting(body: CreateMeetingBody): Promise<{ meetingId: number, creatorKey: string }> {
   const res = await fetch("/api/meetings", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -16,5 +10,5 @@ export async function createMeeting(body: CreateMeetingBody): Promise<{ meetingI
     const errText = await res.text();
     throw new Error(errText || `Create meeting failed (${res.status})`);
   }
-  return res.json() as Promise<{ meetingId: number }>;
+  return res.json() as Promise<{ meetingId: number, creatorKey: string }>;
 }

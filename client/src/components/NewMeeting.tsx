@@ -1,7 +1,7 @@
-import type { Character } from "@shared/ModelTypes";
+import type { Character, Topic } from "@shared/ModelTypes";
 import { useState } from "react";
 import { useNavigate } from "react-router";
-import SelectTopic, { Topic, TopicSelection } from "./settings/SelectTopic";
+import SelectTopic, { TopicSelection } from "./settings/SelectTopic";
 import SelectFoods, { Food } from "./settings/SelectFoods";
 import { getTopicsBundle } from "@/components/topicsBundle";
 import { createMeeting } from "@/api/createMeeting";
@@ -12,6 +12,7 @@ export interface NewMeetingProps {
   setUnrecoverableError: (error: boolean) => void;
   topicSelection: TopicSelection | null;
   setTopicSelection: (selection: TopicSelection | null) => void;
+  setMeetingCreatorKey: (key: string) => void;
 }
 
 export default function NewMeeting({
@@ -19,6 +20,7 @@ export default function NewMeeting({
   setUnrecoverableError,
   topicSelection,
   setTopicSelection,
+  setMeetingCreatorKey,
 }: NewMeetingProps) {
   const topicsBundle = getTopicsBundle(lang);
   const { topics, custom_topic: customTopicConfig, system: systemPrompt } = topicsBundle;
@@ -52,11 +54,12 @@ export default function NewMeeting({
 
     setCreating(true);
     try {
-      const { meetingId } = await createMeeting({
-        topic: topic.prompt || "",
+      const { meetingId, creatorKey } = await createMeeting({
+        topic,
         characters: participants,
         language: lang,
       });
+      setMeetingCreatorKey(creatorKey);
       navigate(meetingPath(lang, meetingId));
     } catch (e) {
       console.error(e);

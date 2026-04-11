@@ -1,11 +1,11 @@
-import type { Meeting, Audio, Counter } from "@models/DBModels.js";
+import type { StoredMeeting, StoredAudio, Counter } from "@models/DBModels.js";
 import { MongoClient, Db, Collection, InsertOneResult } from "mongodb";
 import { Logger } from "@utils/Logger.js";
 import { config } from "../config.js";
 
 let db: Db;
-export let meetingsCollection: Collection<Meeting>;
-export let audioCollection: Collection<Audio>;
+export let meetingsCollection: Collection<StoredMeeting>;
+export let audioCollection: Collection<StoredAudio>;
 export let counters: Collection<Counter>;
 
 export const initDb = async (dbUrl?: string, dbPrefix?: string): Promise<void> => {
@@ -18,8 +18,8 @@ export const initDb = async (dbUrl?: string, dbPrefix?: string): Promise<void> =
   const mongoClient = new MongoClient(url);
 
   db = mongoClient.db(prefix);
-  meetingsCollection = db.collection<Meeting>("meetings");
-  audioCollection = db.collection<Audio>("audio");
+  meetingsCollection = db.collection<StoredMeeting>("meetings");
+  audioCollection = db.collection<StoredAudio>("audio");
   counters = db.collection<Counter>("counters");
 
   await initializeCounters();
@@ -42,8 +42,8 @@ const initializeCounters = async (): Promise<void> => {
   }
 };
 
-// We use 'Omit<Meeting, "_id">' because _id is assigned by the logic inside
-export const insertMeeting = async (meeting: Omit<Meeting, "_id">): Promise<InsertOneResult<Meeting>> => {
+// _id is assigned by the sequence counter inside this function
+export const insertMeeting = async (meeting: Omit<StoredMeeting, "_id">): Promise<InsertOneResult<StoredMeeting>> => {
   try {
     const ret = await counters.findOneAndUpdate(
       { _id: "meeting_id" },
@@ -57,8 +57,7 @@ export const insertMeeting = async (meeting: Omit<Meeting, "_id">): Promise<Inse
 
     const seq = ret.seq;
 
-    // Cast to Meeting including the new _id
-    const meetingWithId = { ...meeting, _id: seq } as Meeting;
+    const meetingWithId = { ...meeting, _id: seq } as StoredMeeting;
     return await meetingsCollection.insertOne(meetingWithId);
   } catch (error) {
     // Report error and rethrow to allow caller or global handler to react

@@ -1,4 +1,4 @@
-import type { Topic } from "@/components/settings/SelectTopic";
+import type { Topic } from "@shared/ModelTypes";
 import { AVAILABLE_LANGUAGES } from "@shared/AvailableLanguages";
 
 export interface TopicsData {

@@ -15,7 +15,7 @@ interface CouncilOverlaysProps {
   canExtendMeeting: boolean;
   removeOverlay: () => void;
   summary: SummaryData | null;
-  meetingId: string;
+  meetingId: number;
   participants: Character[];
 }
 

@@ -7,7 +7,8 @@ import Overlay from "./Overlay";
 import About from "./overlays/About";
 import Contact from "./overlays/Contact";
 import ResetWarning from "./overlays/ResetWarning";
-import SelectTopic, { Topic } from "./settings/SelectTopic";
+import SelectTopic  from "./settings/SelectTopic";
+import type { Topic } from "@shared/ModelTypes";
 import { useTranslation } from "react-i18next";
 
 interface MainOverlaysProps {

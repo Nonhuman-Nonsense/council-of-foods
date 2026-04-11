@@ -1,6 +1,6 @@
 import { AVAILABLE_LANGUAGES } from "@shared/AvailableLanguages.js";
-import type { IMeetingManager, Services, ConversationOptions, IMeetingBroadcaster } from "@interfaces/MeetingInterfaces.js";
-import type { Character, ConversationMessage } from "@shared/ModelTypes.js";
+import type { IMeetingManager, Services, IMeetingBroadcaster } from "@interfaces/MeetingInterfaces.js";
+import type { Character, Message } from "@shared/ModelTypes.js";
 import type { ClientToServerEvents, ReconnectionOptions, ServerToClientEvents, SetupOptions } from "@shared/SocketTypes.js";
 
 import { getOpenAI } from "@services/OpenAIService.js";
@@ -16,6 +16,7 @@ import { GlobalOptions, getGlobalOptions } from "@logic/GlobalOptions.js";
 import { Socket } from "socket.io";
 import { SocketBroadcaster } from "@logic/SocketBroadcaster.js";
 import { Logger } from "@utils/Logger.js";
+import type { StoredMeeting } from "@models/DBModels.js";
 import {
     SetupOptionsSchema,
     HumanMessageSchema,
@@ -38,17 +39,17 @@ interface Decision {
 export class MeetingManager implements IMeetingManager {
     socket: Socket<ClientToServerEvents, ServerToClientEvents>;
     environment: string;
-    globalOptions: GlobalOptions;
+    serverOptions: GlobalOptions;
     services: Services;
     broadcaster: IMeetingBroadcaster;
+
+    meeting: StoredMeeting | null;
 
     isLoopActive: boolean;
     handRaised: boolean;
     isPaused: boolean;
     currentSpeaker: number;
     extraMessageCount: number;
-    meetingId: number | null;
-    meetingDate: Date | null;
 
     audioSystem: AudioSystem;
     dialogGenerator: DialogGenerator;
@@ -57,14 +58,11 @@ export class MeetingManager implements IMeetingManager {
     meetingLifecycleHandler: MeetingLifecycleHandler;
     connectionHandler: ConnectionHandler;
 
-    conversation: ConversationMessage[];
-    conversationOptions: ConversationOptions;
-
-    constructor(socket: Socket<ClientToServerEvents, ServerToClientEvents>, environment: string, optionsOverride: GlobalOptions | null = null, services: Partial<Services> = {}) {
+    constructor(socket: Socket<ClientToServerEvents, ServerToClientEvents>, environment: string, serverOptions: GlobalOptions | null = null, services: Partial<Services> = {}) {
         this.socket = socket;
         this.broadcaster = new SocketBroadcaster(socket);
         this.environment = environment;
-        this.globalOptions = optionsOverride || getGlobalOptions();
+        this.serverOptions = serverOptions || getGlobalOptions();
 
         // Default Services
         this.services = {
@@ -74,27 +72,19 @@ export class MeetingManager implements IMeetingManager {
             getOpenAI: services.getOpenAI || getOpenAI
         };
 
+        this.meeting = null;
+
         // Session variables
         this.isLoopActive = false; // Start inactive, explicit start required
         this.handRaised = false;
         this.isPaused = false;
         this.currentSpeaker = 0;
         this.extraMessageCount = 0;
-        this.meetingId = null;
-        this.meetingDate = null;
-
-        this.conversation = [];
-        this.conversationOptions = {
-            topic: "",
-            characters: [] as Character[],
-            options: this.globalOptions,
-            language: AVAILABLE_LANGUAGES[0]
-        };
 
         this.startLoop = this.startLoop.bind(this);
 
-        this.audioSystem = new AudioSystem(this.broadcaster, this.services, this.globalOptions.audioConcurrency);
-        this.dialogGenerator = new DialogGenerator(this.services, this.globalOptions);
+        this.audioSystem = new AudioSystem(this.broadcaster, this.services, this.serverOptions.audioConcurrency);
+        this.dialogGenerator = new DialogGenerator(this.services, this.serverOptions);
         this.humanInputHandler = new HumanInputHandler(this);
         this.handRaisingHandler = new HandRaisingHandler(this);
         this.meetingLifecycleHandler = new MeetingLifecycleHandler(this);
@@ -105,7 +95,7 @@ export class MeetingManager implements IMeetingManager {
      * Called by SocketManager when this session is destroyed (user disconnected or switched meeting).
      */
     destroy() {
-        Logger.info(`meeting ${this.meetingId}`, "Session destroyed");
+        Logger.info(`meeting ${this.meeting?._id}`, "Session destroyed");
         this.isLoopActive = false;
         // Clean up listeners? No, we don't attach them anymore.
         // Stop audio generation?
@@ -166,8 +156,8 @@ export class MeetingManager implements IMeetingManager {
     }
 
     async syncClient() {
-        if (this.meetingId) {
-            this.connectionHandler.handleReconnection({ meetingId: this.meetingId });
+        if (this.meeting) {
+            this.connectionHandler.handleReconnection({ meetingId: this.meeting._id });
             // Note: handleReconnection includes broadcasting update.
         }
     }
@@ -175,6 +165,11 @@ export class MeetingManager implements IMeetingManager {
 
     async runLoop() {
         while (this.isLoopActive) {
+            const meeting = this.meeting;
+            if (!meeting) {
+                this.isLoopActive = false;
+                return;
+            }
 
             // Calculate next step
             const action = this.decideNextAction();
@@ -196,18 +191,7 @@ export class MeetingManager implements IMeetingManager {
                 // Do it
                 await this.processTurn(action);
             } catch (error: unknown) {
-                // This might lead to problems if connections reset, disabling for now
-
-                // const err = error as { code?: number, message?: string };
-                // if (
-                //     err.code === 11600 ||
-                //     (err.message && (err.message.includes('interrupted at shutdown') || err.message.includes('ECONNRESET')))
-                // ) {
-                //     Logger.error(`meeting ${this.meetingId}`, "Error during conversation", error);
-                //     return;
-                // }
-
-                Logger.reportAndCrashClient(`meeting ${this.meetingId}`, "Conversation process error", error, this.broadcaster);
+                Logger.reportAndCrashClient(`meeting ${meeting._id}`, "Conversation process error", error, this.broadcaster);
                 return;
             }
 
@@ -221,33 +205,39 @@ export class MeetingManager implements IMeetingManager {
     startLoop() {
         // Idempotent start
         if (this.isLoopActive) return;
+        if (!this.meeting) return;
 
-        Logger.info(`meeting ${this.meetingId}`, "loop started");
+        Logger.info(`meeting ${this.meeting._id}`, "loop started");
         this.isLoopActive = true;
         this.runLoop();
     }
 
     decideNextAction(): Decision {
+        const meeting = this.meeting;
+        if (!meeting) {
+            return { type: 'WAIT' };
+        }
+
         // 0. Just wait
         if (this.isPaused || this.handRaised) {
             return { type: 'WAIT' };
         }
         // 1. Check Limits
-        if (this.conversation.length >= this.conversationOptions.options.conversationMaxLength + this.extraMessageCount) {
+        if (meeting.conversation.length >= this.serverOptions.conversationMaxLength + this.extraMessageCount) {
             return { type: 'END_CONVERSATION' };
         }
 
         // 2. Check Awaiting States
-        if (this.conversation.length > 0) {
-            const lastMsg = this.conversation[this.conversation.length - 1];
+        if (meeting.conversation.length > 0) {
+            const lastMsg = meeting.conversation[meeting.conversation.length - 1];
             if (lastMsg.type === 'awaiting_human_panelist' || lastMsg.type === 'awaiting_human_question') {
                 return { type: 'WAIT' };
             }
         }
 
         // 3. Determine Speaker
-        const nextSpeakerIndex = SpeakerSelector.calculateNextSpeaker(this.conversation, this.conversationOptions.characters);
-        const nextSpeaker = this.conversationOptions.characters[nextSpeakerIndex];
+        const nextSpeakerIndex = SpeakerSelector.calculateNextSpeaker(meeting.conversation, meeting.characters);
+        const nextSpeaker = meeting.characters[nextSpeakerIndex];
 
         // 4. Panelist Turn
         if (nextSpeaker.type === 'panelist') {
@@ -262,6 +252,9 @@ export class MeetingManager implements IMeetingManager {
      * Core loop function. Decides the next action based on conversation state.
      */
     async processTurn(action: Decision): Promise<void> {
+        const meeting = this.meeting;
+        if (!meeting) return;
+
         switch (action.type) {
             case 'WAIT':
                 return; // Do nothing, just wait.
@@ -272,20 +265,18 @@ export class MeetingManager implements IMeetingManager {
 
             case 'REQUEST_PANELIST':
                 if (action.speaker) {
-                    this.conversation.push({
+                    meeting.conversation.push({
                         type: 'awaiting_human_panelist',
                         speaker: action.speaker.id,
                         text: "", // Added to satisfy ConversationMessage
                         sentences: [] // Added to satisfy ConversationMessage
                     });
-                    Logger.info(`meeting ${this.meetingId}`, `awaiting human panelist on index ${this.conversation.length - 1}`);
-                    this.broadcaster.broadcastConversationUpdate(this.conversation);
-                    if (this.meetingId !== null) {
-                        this.services.meetingsCollection.updateOne(
-                            { _id: this.meetingId },
-                            { $set: { conversation: this.conversation } }
-                        );
-                    }
+                    Logger.info(`meeting ${meeting._id}`, `awaiting human panelist on index ${meeting.conversation.length - 1}`);
+                    this.broadcaster.broadcastConversationUpdate(meeting.conversation);
+                    await this.services.meetingsCollection.updateOne(
+                        { _id: meeting._id },
+                        { $set: { conversation: meeting.conversation } }
+                    );
                 }
                 return;
 
@@ -298,27 +289,29 @@ export class MeetingManager implements IMeetingManager {
     }
 
     async handleAITurn(action: { type: string, speaker: Character }): Promise<void> {
-        this.currentSpeaker = this.conversationOptions.characters.findIndex(c => c.id === action.speaker.id);
-        const thisMeetingId = this.meetingId;
+        const meeting = this.meeting;
+        if (!meeting) return;
+
+        this.currentSpeaker = meeting.characters.findIndex(c => c.id === action.speaker.id);
+        const thisMeetingId = meeting._id;
 
         // Generate Logic
         // Check for interrupts function
         const shouldAbort = () => {
-            return !this.isLoopActive || this.handRaised || this.isPaused || thisMeetingId != this.meetingId;
+            return !this.isLoopActive || this.handRaised || this.isPaused || thisMeetingId !== this.meeting?._id;
         }
 
         const output = await this.dialogGenerator.generateResponseWithRetry(
             action.speaker,
-            this.conversation,
-            this.conversationOptions,
+            meeting,
             this.currentSpeaker,
             shouldAbort,
-            `meeting ${this.meetingId}`
+            `meeting ${meeting._id}`
         );
 
         if (shouldAbort()) return;
 
-        let message: ConversationMessage = {
+        let message: Message = {
             id: output.id || "",
             speaker: action.speaker.id,
             text: output.response,
@@ -328,36 +321,34 @@ export class MeetingManager implements IMeetingManager {
             type: "assistant" // Default
         };
 
-        if (this.conversation.length > 1 && this.conversation[this.conversation.length - 1].type === "human" && this.conversation[this.conversation.length - 1].askParticular === message.speaker) {
+        if (meeting.conversation.length > 1 && meeting.conversation[meeting.conversation.length - 1].type === "human" && meeting.conversation[meeting.conversation.length - 1].askParticular === message.speaker) {
             message.type = "response";
         }
 
         if (message.text === "") {
             message.type = "skipped";
-            Logger.warn(`meeting ${this.meetingId}`, `failed to make a message. Skipping speaker ${action.speaker.id}`);
+            Logger.warn(`meeting ${meeting._id}`, `failed to make a message. Skipping speaker ${action.speaker.id}`);
         }
 
-        this.conversation.push(message);
-        const message_index = this.conversation.length - 1;
+        meeting.conversation.push(message);
+        const message_index = meeting.conversation.length - 1;
 
         // Save to DB *before* emitting to ensure consistency
-        if (this.meetingId !== null) {
-            await this.services.meetingsCollection.updateOne(
-                { _id: this.meetingId },
-                { $set: { conversation: this.conversation } }
-            );
-        }
+        await this.services.meetingsCollection.updateOne(
+            { _id: meeting._id },
+            { $set: { conversation: meeting.conversation } }
+        );
 
-        this.broadcaster.broadcastConversationUpdate(this.conversation);
-        Logger.info(`meeting ${this.meetingId}`, `message generated, index ${message_index}, speaker ${message.speaker}`);
+        this.broadcaster.broadcastConversationUpdate(meeting.conversation);
+        Logger.info(`meeting ${meeting._id}`, `message generated, index ${message_index}, speaker ${message.speaker}`);
 
         // Queue audio generation
         this.audioSystem.queueAudioGeneration(
             message as AudioMessage,
             action.speaker,
-            this.conversationOptions,
-            this.meetingId!,
-            this.environment
+            meeting,
+            this.environment,
+            this.serverOptions
         );
     }
 }

@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import ResetWarning from "@components/overlays/ResetWarning";
 import { capitalizeFirstLetter, toTitleCase, useMobile, useMobileXs } from "@/utils";
 import { useTranslation } from "react-i18next";
+import type { Topic } from "@shared/ModelTypes";
 
 /**
  * SelectTopic Component
@@ -16,13 +17,6 @@ import { useTranslation } from "react-i18next";
  * - Validates that a topic is selected (and custom text entered if applicable) before proceeding.
  * - Shows a warning if the user attempts to change the topic mid-meeting.
  */
-
-export interface Topic {
-  id: string;
-  title: string;
-  description?: string;
-  prompt?: string;
-}
 
 export interface TopicSelection {
   topic: string;

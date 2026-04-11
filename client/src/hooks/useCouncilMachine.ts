@@ -1,11 +1,9 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { useNavigate, useLocation } from "react-router"; // react-router-dom in this project?
+import { useNavigate, useLocation } from "react-router";
 import { useCouncilSocket } from "../hooks/useCouncilSocket";
-import { Character, ConversationMessage, Sentence } from "@shared/ModelTypes";
+import type { Character, Message, Topic } from "@shared/ModelTypes";
 import { AudioUpdatePayload } from "@shared/SocketTypes";
 import globalOptions from "@/global-options-client.json";
-
-import { Topic } from "../components/settings/SelectTopic";
 
 export interface DecodedAudioMessage extends Omit<AudioUpdatePayload, 'audio'> {
     audio: AudioBuffer;
@@ -13,8 +11,10 @@ export interface DecodedAudioMessage extends Omit<AudioUpdatePayload, 'audio'> {
 
 export interface UseCouncilMachineProps {
     lang: string;
-    topic: Topic;
-    participants: Character[];
+    currentMeetingId: number;
+    creatorKey: string | undefined;
+    topic: Topic | null;
+    participants: Character[] | null;
     audioContext: React.MutableRefObject<AudioContext | null>;
     setUnrecoverableError: (error: boolean) => void;
     setConnectionError: (error: boolean) => void;
@@ -22,11 +22,13 @@ export interface UseCouncilMachineProps {
     isPaused: boolean;
     setPaused: (paused: boolean) => void;
     setAudioPaused?: (paused: boolean) => void;
-    baseUrl: string; // Base URL for meeting routes (e.g. "/meeting" or "/en/meeting")
+    baseUrl: string; // Prefix before :meetingId (e.g. "/meeting" or "/en/meeting"), not including the id
 }
 
 export function useCouncilMachine({
     lang,
+    currentMeetingId,
+    creatorKey,
     topic,
     participants,
     audioContext,
@@ -47,19 +49,15 @@ export function useCouncilMachine({
     const [playingNowIndex, setPlayingNowIndex] = useState(-1);
     const [playNextIndex, setPlayNextIndex] = useState(0);
 
-    const [textMessages, setTextMessages] = useState<ConversationMessage[]>([]); // State to store conversation updates
+    const [textMessages, setTextMessages] = useState<Message[]>([]); // State to store conversation updates
     const [audioMessages, setAudioMessages] = useState<DecodedAudioMessage[]>([]); // To store multiple ArrayBuffers
     const [activeOverlay, setActiveOverlay] = useState<"name" | "completed" | "summary" | null>(null);
-    const [summary, setSummary] = useState<ConversationMessage | null>(null);
+    const [summary, setSummary] = useState<Message | null>(null);
 
     const [humanName, setHumanName] = useState("");
     const [isRaisedHand, setIsRaisedHand] = useState(false);
 
     // Connection variables
-    const [currentMeetingId, setCurrentMeetingId] = useState<string | null>(null);
-    const currentMeetingIdRef = useRef<string | null>(null); // Ref to access current ID in stale closures
-    useEffect(() => { currentMeetingIdRef.current = currentMeetingId; }, [currentMeetingId]);
-
     const [attemptingReconnect, setAttemptingReconnect] = useState(false);
 
     // Limits
@@ -86,13 +84,8 @@ export function useCouncilMachine({
     /*                             Socket & Startup                               */
     /* -------------------------------------------------------------------------- */
     const socketRef = useCouncilSocket({
-        topic,
-        participants,
-        lang,
-        onMeetingStarted: (meeting) => {
-            setCurrentMeetingId(String(meeting.meeting_id));
-            navigate(`${baseUrl}/${meeting.meeting_id}`);
-        },
+        meetingId: currentMeetingId,
+        creatorKey,
         onAudioUpdate: (audioMessage) => {
             (async () => {
                 if (audioMessage.audio && audioContext.current) {
@@ -123,18 +116,13 @@ export function useCouncilMachine({
             setConnectionError(true);
         },
         onReconnect: () => {
-            // Only attempt to reconnect if we actually HAD a meeting ID before the reconnection event.
-            // This prevents a race condition on initial "delayed" connection where start_conversation sets the ID
-            // and we erroneously try to "resume" it immediately.
-            if (currentMeetingIdRef.current) {
-                setAttemptingReconnect(true);
-            }
+            setAttemptingReconnect(true);
         }
     });
 
     // Reconnect logic
     useEffect(() => {
-        if (attemptingReconnect && currentMeetingId && socketRef.current) {
+        if (attemptingReconnect && socketRef.current && currentMeetingId > 0) {
             socketRef.current.emit("attempt_reconnection", {
                 meetingId: currentMeetingId,
                 handRaised: isRaisedHand,
@@ -142,8 +130,10 @@ export function useCouncilMachine({
             });
             setConnectionError(false);
             setAttemptingReconnect(false);
+        } else if (attemptingReconnect) {
+            setAttemptingReconnect(false);
         }
-    }, [attemptingReconnect, currentMeetingId]);
+    }, [attemptingReconnect]);
 
     /* -------------------------------------------------------------------------- */
     /*                               Helpers                                      */
@@ -185,7 +175,7 @@ export function useCouncilMachine({
     /*                          Main State Machine Logic                          */
     /* -------------------------------------------------------------------------- */
     useEffect(() => {
-        //In all cases accept if we are still waiting, clear the wait timer on state change
+        //In all cases except if we are still waiting, clear the wait timer on state change
         if (councilState !== 'waiting' && waitTimer.current) {
             clearTimeout(waitTimer.current);
             waitTimer.current = null;
@@ -334,7 +324,9 @@ export function useCouncilMachine({
 
     function removeOverlay() {
         setActiveOverlay(null);
-        navigate(`${baseUrl}/${(currentMeetingId || "new")}`);
+        const pathSuffix = currentMeetingId > 0 ? String(currentMeetingId) : "new";
+        const pathname = `${baseUrl}/${pathSuffix}`;
+        navigate({ pathname, hash: "" }, { replace: true });
 
         if (councilState === 'max_reached') {
             setPlayNextIndex(meetingMaxLength - 1);

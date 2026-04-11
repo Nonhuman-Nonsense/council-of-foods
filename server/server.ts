@@ -13,7 +13,8 @@ import { SocketManager } from '@logic/SocketManager.js';
 import { AVAILABLE_LANGUAGES } from '@shared/AvailableLanguages.js';
 
 import { verifyGoogleCredentials } from '@utils/StartupChecks.js';
-import { createMeetingRecord } from '@api/createMeetingRecord.js';
+import { createMeeting } from '@api/createMeeting.js';
+import { getMeeting } from '@api/getMeeting.js';
 import { ZodError } from 'zod';
 
 const environment: string = config.NODE_ENV;
@@ -60,9 +61,9 @@ if (environment === "prototype") {
 
 app.post('/api/meetings', async (req: Request, res: Response) => {
   try {
-    const meetingId = await createMeetingRecord(req.body, environment);
-    await Logger.info('api', 'POST /api/meetings successful', { meetingId });
-    res.status(201).json({ meetingId });
+    const { meetingId, creatorKey } = await createMeeting(req.body, environment);
+    await Logger.info('api', `POST /api/meetings successful: ${meetingId}`);
+    res.status(201).json({ meetingId: meetingId.toString(), creatorKey: creatorKey });
   } catch (e: unknown) {
     if (e instanceof ZodError) {
       await Logger.warn('api', 'POST /api/meetings failed', e);
@@ -71,6 +72,23 @@ app.post('/api/meetings', async (req: Request, res: Response) => {
     }
     await Logger.error('api', 'POST /api/meetings failed', e);
     res.status(500).json({ message: 'Internal Server Error' });
+  }
+});
+
+app.get('/api/meetings/:meetingId', async (req: Request, res: Response) => {
+  try {
+    const meeting = await getMeeting(Number(req.params.meetingId));
+    await Logger.info('api', `GET /api/meetings/${req.params.meetingId} successful`);
+    res.status(200).json(meeting);
+  } catch (e) {
+    if (e instanceof ZodError) {
+      await Logger.warn('api', `GET /api/meetings/${req.params.meetingId} failed`, e );
+      res.status(400).json({ message: 'Invalid meeting ID' });
+      return;
+    }
+    await Logger.error('api', `GET /api/meetings/${req.params.meetingId} failed`, e);
+    res.status(500).json({ message: 'Internal Server Error' });
+    return;
   }
 });
 
