@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { HandRaisingHandler } from '../../src/logic/HandRaisingHandler.js';
-import type { IMeetingManager } from '../../src/interfaces/MeetingInterfaces.js';
+import { HandRaisingHandler } from '../src/logic/HandRaisingHandler.js';
+import type { IMeetingManager } from '../src/interfaces/MeetingInterfaces.js';
 
 describe('HandRaisingHandler', () => {
     let mockManager: IMeetingManager;

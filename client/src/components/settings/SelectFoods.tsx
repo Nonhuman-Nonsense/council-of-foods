@@ -139,10 +139,10 @@ function SelectFoods({ topicTitle, onContinueForward, loading: loading = false }
   useEffect(() => {
     // Concatenate humans to foods list
     // Use the correct language data
-    const baseFoods = localFoodData[lang] ? localFoodData[lang].foods : localFoodData[AVAILABLE_LANGUAGES[0]].foods;
+    const baseFoods = localFoodData[i18n.language] ? localFoodData[i18n.language].foods : localFoodData[AVAILABLE_LANGUAGES[0]].foods;
     const newFoods = baseFoods.concat(humans.slice(0, numberOfHumans));
     setFoods(newFoods);
-  }, [lang, human0, human1, human2, numberOfHumans]);
+  }, [i18n.language, human0, human1, human2, numberOfHumans]);
 
 
   /* -------------------------------------------------------------------------- */

@@ -79,11 +79,16 @@ vi.mock('react-i18next', () => ({
     initReactI18next: { type: '3rdParty', init: () => { } }
 }));
 
+vi.mock('../../../src/components/Forest', () => ({
+    default: () => <div data-testid="forest">Forest</div>
+}));
+
 // Mock utils
 vi.mock('../../../src/utils', () => ({
     usePortrait: () => false,
     useDocumentVisibility: () => true,
-    dvh: 'vh'
+    dvh: 'vh',
+    useMobile: () => false,
 }));
 
 describe('Main Component', () => {
