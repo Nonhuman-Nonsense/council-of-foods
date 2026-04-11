@@ -1,6 +1,6 @@
 import type { Socket } from "socket.io";
 import type { IMeetingBroadcaster } from "@interfaces/MeetingInterfaces.js";
-import type { ConversationMessage } from "@shared/ModelTypes.js";
+import type { Message } from "@shared/ModelTypes.js";
 import type { AudioUpdatePayload, ClientKeyResponse } from "@shared/SocketTypes.js";
 
 /**
@@ -14,11 +14,7 @@ export class SocketBroadcaster implements IMeetingBroadcaster {
         this.socket = socket;
     }
 
-    broadcastMeetingStarted(meetingId: number): void {
-        this.socket.emit("meeting_started", { meeting_id: meetingId });
-    }
-
-    broadcastConversationUpdate(conversation: ConversationMessage[]): void {
+    broadcastConversationUpdate(conversation: Message[]): void {
         this.socket.emit("conversation_update", conversation);
     }
 

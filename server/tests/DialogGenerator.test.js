@@ -14,29 +14,31 @@ describe('DialogGenerator - Prompt Construction', () => {
     });
 
     it('should build a message stack with the correct system prompt', () => {
-        const speaker = manager.conversationOptions.characters[1]; // Tomato
+        const speaker = manager.meeting.characters[1]; // Tomato
         const conversation = [];
-        const options = manager.conversationOptions;
-        // Mock a specific topic
-        options.topic = "The deliciousness of pizza";
+        manager.meeting.topic = MockFactory.createTopic({
+            prompt: 'The deliciousness of pizza',
+            title: manager.meeting.topic.title,
+            description: manager.meeting.topic.description,
+            id: manager.meeting.topic.id
+        });
         speaker.prompt = "You are a red tomato.";
 
-        const messages = dialogGenerator.buildMessageStack(speaker, conversation, options);
+        const messages = dialogGenerator.buildMessageStack(speaker, conversation, manager.meeting);
 
         expect(messages[0].role).toBe("system");
-        expect(messages[0].content).toContain(options.topic);
+        expect(messages[0].content).toContain('The deliciousness of pizza');
         expect(messages[0].content).toContain(speaker.prompt);
     });
 
     it('should correctly format conversation history', () => {
-        const speaker = manager.conversationOptions.characters[1]; // Tomato
+        const speaker = manager.meeting.characters[1]; // Tomato
         const conversation = [
             MockFactory.createMessage({ speaker: 'water', text: 'Hello' }), // Water (Chair)
             MockFactory.createMessage({ speaker: 'tomato', text: 'Hi there' }) // Tomato (Self)
         ];
-        const options = manager.conversationOptions;
 
-        const messages = dialogGenerator.buildMessageStack(speaker, conversation, options);
+        const messages = dialogGenerator.buildMessageStack(speaker, conversation, manager.meeting);
 
         // System prompt + 2 messages + 1 partial assistant prompt
         expect(messages).toHaveLength(4);
@@ -55,13 +57,12 @@ describe('DialogGenerator - Prompt Construction', () => {
     });
 
     it('should correctly format a Human Panelist in history', () => {
-        const speaker = manager.conversationOptions.characters[1]; // Tomato
+        const speaker = manager.meeting.characters[1]; // Tomato
         const conversation = [
             MockFactory.createMessage({ speaker: 'alice', text: 'I agree' })
         ];
 
-        // Add human panelist "Alice"
-        manager.conversationOptions.characters.push(
+        manager.meeting.characters.push(
             MockFactory.createCharacter({
                 id: 'alice',
                 name: 'Alice',
@@ -69,20 +70,20 @@ describe('DialogGenerator - Prompt Construction', () => {
             })
         );
 
-        const messages = dialogGenerator.buildMessageStack(speaker, conversation, manager.conversationOptions);
+        const messages = dialogGenerator.buildMessageStack(speaker, conversation, manager.meeting);
 
         expect(messages[1].content).toContain("Alice: I agree");
     });
 
     it('should correctly format a Human Input (Question) in history', () => {
-        const speaker = manager.conversationOptions.characters[0]; // Chair
-        manager.conversationOptions.state.humanName = "Frank";
+        const speaker = manager.meeting.characters[0]; // Chair
+        manager.meeting.state = { ...manager.meeting.state, humanName: "Frank" };
 
         const conversation = [
             MockFactory.createMessage({ speaker: 'Frank', text: 'What about sauce?', type: 'human' })
         ];
 
-        const messages = dialogGenerator.buildMessageStack(speaker, conversation, manager.conversationOptions);
+        const messages = dialogGenerator.buildMessageStack(speaker, conversation, manager.meeting);
 
         expect(messages[1].content).toContain("Frank: What about sauce?");
     });
@@ -100,14 +101,22 @@ describe('DialogGenerator - Prompt Construction', () => {
         });
 
         const interjection = "Invite the human to speak.";
+        const mockBroadcaster = {
+            broadcastConversationUpdate: vi.fn(),
+            broadcastConversationEnd: vi.fn(),
+            broadcastAudioUpdate: vi.fn(),
+            broadcastClientKey: vi.fn(),
+            broadcastError: vi.fn(),
+            broadcastWarning: vi.fn()
+        };
+
         await dialogGenerator.chairInterjection(
             interjection,
             0,
             100,
             false,
-            [],
-            manager.conversationOptions,
-            null
+            manager.meeting,
+            mockBroadcaster
         );
 
         const callArgs = mockCreate.mock.calls[0][0];
@@ -124,7 +133,6 @@ describe('DialogGenerator - Text Cleaning & Post-Processing', () => {
     let manager;
     let dialogGenerator;
 
-    // Helper to mock OpenAI response
     const mockGPTResponse = (content, finish_reason = "stop") => {
         const mockCreate = vi.fn().mockResolvedValue({
             id: 'mock-id',
@@ -145,11 +153,12 @@ describe('DialogGenerator - Text Cleaning & Post-Processing', () => {
     });
 
     it('should remove speaker name prefix from response', async () => {
-        const speaker = manager.conversationOptions.characters[1]; // Tomato
+        const speaker = manager.meeting.characters[1]; // Tomato
         mockGPTResponse("Tomato: Hello world");
 
+        const m = { ...manager.meeting, conversation: [] };
         const result = await dialogGenerator.generateTextFromGPT(
-            speaker, [], manager.conversationOptions, 1
+            speaker, m, 1
         );
 
         expect(result.response).toBe("Hello world");
@@ -157,28 +166,26 @@ describe('DialogGenerator - Text Cleaning & Post-Processing', () => {
     });
 
     it('should remove markdown bold speaker name prefix', async () => {
-        const speaker = manager.conversationOptions.characters[1]; // Tomato
+        const speaker = manager.meeting.characters[1]; // Tomato
         mockGPTResponse("**Tomato**: Hello bold world");
 
+        const m = { ...manager.meeting, conversation: [] };
         const result = await dialogGenerator.generateTextFromGPT(
-            speaker, [], manager.conversationOptions, 1
+            speaker, m, 1
         );
 
         expect(result.response).toBe("Hello bold world");
     });
 
     it('should trim trailing text after periods if trimSentance is enabled', async () => {
-        const speaker = manager.conversationOptions.characters[1];
-        manager.conversationOptions.options.trimSentance = true;
-        // finish_reason must be NOT stop (e.g., length) for trimming to activate in some logics, 
-        // OR the logic runs if it IS stop? 
-        // Checking code: if (completion.choices[0].finish_reason != "stop") { ... trimming ... }
-        // So we must simulate run-on (length/content_filter) or just 'length'
+        const speaker = manager.meeting.characters[1];
+        manager.serverOptions.trimSentance = true;
 
         mockGPTResponse("Hello world. This is extra", "length");
 
+        const m = { ...manager.meeting, conversation: [] };
         const result = await dialogGenerator.generateTextFromGPT(
-            speaker, [], manager.conversationOptions, 1
+            speaker, m, 1
         );
 
         expect(result.response).toBe("Hello world.");
@@ -186,13 +193,14 @@ describe('DialogGenerator - Text Cleaning & Post-Processing', () => {
     });
 
     it('should trim after double newline if trimParagraph is enabled', async () => {
-        const speaker = manager.conversationOptions.characters[1];
-        manager.conversationOptions.options.trimParagraph = true;
+        const speaker = manager.meeting.characters[1];
+        manager.serverOptions.trimParagraph = true;
 
         mockGPTResponse("First paragraph.\n\nSecond paragraph.", "length");
 
+        const m = { ...manager.meeting, conversation: [] };
         const result = await dialogGenerator.generateTextFromGPT(
-            speaker, [], manager.conversationOptions, 1
+            speaker, m, 1
         );
 
         expect(result.response).toBe("First paragraph.");
@@ -200,14 +208,13 @@ describe('DialogGenerator - Text Cleaning & Post-Processing', () => {
     });
 
     it('should cut off text if another character starts speaking', async () => {
-        const speaker = manager.conversationOptions.characters[1]; // Tomato
-        const otherChar = manager.conversationOptions.characters[0]; // Water (Chair)
+        const speaker = manager.meeting.characters[1]; // Tomato
 
-        // "Water" is the name of character[0]
         mockGPTResponse("I am talking. Water: Hey stop!");
 
+        const m = { ...manager.meeting, conversation: [] };
         const result = await dialogGenerator.generateTextFromGPT(
-            speaker, [], manager.conversationOptions, 1
+            speaker, m, 1
         );
 
         expect(result.response).toBe("I am talking.");
@@ -215,25 +222,16 @@ describe('DialogGenerator - Text Cleaning & Post-Processing', () => {
     });
 
     it('should handle complex Chair List logic (Semicolon trimming)', async () => {
-        const chair = manager.conversationOptions.characters[0];
-        manager.conversationOptions.options.chairId = chair.id; // ensure ID matches
-        manager.conversationOptions.options.trimChairSemicolon = true;
+        const chair = manager.meeting.characters[0];
+        manager.serverOptions.chairId = chair.id;
+        manager.serverOptions.trimChairSemicolon = true;
+        manager.serverOptions.trimSentance = true;
 
-        // Output mimics a list cutoff: "1. Topic\n2. Topic" where 3 is cut or partial
-        // Logic requires specific structure: 
-        // trimmedContent needs to exist, meaning finish_reason != stop AND split happened.
-        // OR splitSentences logic.
-
-        // Let's try to trigger the specific path:
-        // finish_reason != 'stop'
-        // trimSentance to create 'trimmedContent'
-        manager.conversationOptions.options.trimSentance = true;
-
-        // "1. First item.\n2. Second item. 3. Thi" -> cut at last period
         mockGPTResponse("1. First.\n2. Second. 3. Thi", "length");
 
+        const m = { ...manager.meeting, conversation: [] };
         const result = await dialogGenerator.generateTextFromGPT(
-            chair, [], manager.conversationOptions, 0
+            chair, m, 0
         );
 
         // Expectation: The logic attempts to reconstruct the list or handle the split.

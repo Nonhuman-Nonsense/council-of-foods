@@ -39,8 +39,8 @@ describe('FoodAnimation', () => {
         name: 'Banana',
         description: 'A yellow fruit',
         type: 'fruit',
-        voice: 'default'
-    } as any;
+        voice: 'alloy',
+    };
     const mockStyles = { width: '100px' };
 
     it('renders video element with correct sources', () => {

@@ -1,58 +1,24 @@
-import type { Character } from "@shared/ModelTypes";
 import "@root/App.css";
 import { useState, useEffect, useRef } from "react";
+import { getTopicsBundle } from "@/components/topicsBundle";
 import { Routes, Route, useLocation, useNavigate } from "react-router";
+import { useTranslation } from "react-i18next";
 import Overlay from "./Overlay";
 import MainOverlays from "./MainOverlays";
 import Landing from "./settings/Landing";
 import Navbar from "./Navbar";
-import SelectTopic, { Topic } from "./settings/SelectTopic";
-import SelectFoods, { Food } from "./settings/SelectFoods";
+import type { Topic } from "@shared/ModelTypes";
+import NewMeeting from "./NewMeeting";
 import Council from "./Council";
+import { isMeetingPath, isRootPath, stripLanguagePrefix, useRouting } from "@/routing";
 import RotateDevice from "./RotateDevice";
 import FullscreenButton from "./FullscreenButton";
-import { usePortrait, useDocumentVisibility, dvh } from "@/utils";
+import { usePortrait, dvh } from "@/utils";
 import CouncilError from "./overlays/CouncilError";
 import Forest from './Forest';
 import Reconnecting from "./overlays/Reconnecting";
-import { useTranslation } from 'react-i18next';
 
-//Topics
-//Topics
-import { AVAILABLE_LANGUAGES } from "@shared/AvailableLanguages";
-// Dynamic topic import
-const topicModules = import.meta.glob<TopicsData>('../prompts/topics_*.json', { eager: true, import: 'default' });
-import routes from "@/routes.json"; // Import routes directly
-
-
-// interface Topic removed, imported from SelectTopic
-
-interface TopicsData {
-  metadata: {
-    version: string;
-    last_updated: string;
-  };
-  system: string;
-  custom_topic: Topic;
-  topics: Topic[];
-}
-
-const topicsData: Record<string, TopicsData> = {};
-
-for (const lang of AVAILABLE_LANGUAGES) {
-  const moduleKey = Object.keys(topicModules).find(path => path.endsWith(`topics_${lang}.json`));
-  if (moduleKey) {
-    topicsData[lang] = topicModules[moduleKey];
-  }
-}
-
-//Freeze original topicData to make it immutable
-Object.freeze(topicsData);
-for (const language in topicsData) {
-  for (let i = 0; i < topicsData[language].topics.length; i++) {
-    Object.freeze(topicsData[language].topics[i]);
-  }
-}
+import routes from "@/routes.json";
 
 function useIsIphone() {
   const [isIphone, setIsIphone] = useState(false);
@@ -67,82 +33,78 @@ function useIsIphone() {
   return isIphone;
 }
 
-/**
- * Main Component
- * 
- * Top-level application container. Manages global processing state and routing between setup phases.
- * 
- * Core Logic:
- * - **Setup Flow**: Landing -> Topics -> Foods -> Meeting.
- * - **State Management**: Lifts state up for `chosenTopic` and `participants` to persist across setup routes.
- * - **Error Handling**: renders global error overlays for connection issues.
- * - **Responsiveness**: Handles background zooming and device rotation logic.
- * 
- * @param {Object} props
- * @param {string} props.lang - Active language code.
- */
 interface MainProps {
   lang: string;
 }
 
-function Main({ lang }: MainProps) {
-  const [topics, setTopics] = useState<Topic[]>(topicsData[AVAILABLE_LANGUAGES[0]]?.topics || []);
-  const [chosenTopic, setChosenTopic] = useState<Topic>({ id: "", title: "" });
-  const [customTopic, setCustomTopic] = useState("");
-  const [participants, setParticipants] = useState<Character[]>([]);
+export default function Main(props: MainProps) {
+  const [topicSelection, setTopicSelection] = useState<Topic | null>(null);
+
   const [unrecoverabeError, setUnrecoverableError] = useState(false);
   const [connectionError, setConnectionError] = useState(false);
+  const [meetingCreatorKey, setMeetingCreatorKey] = useState<string | null>(null);
 
   //Had to lift up navbar state to this level to be able to close it from main overlay
   const [hamburgerOpen, setHamburgerOpen] = useState(false);
 
-  //Council variables moved up to this level, so that the background can access them
+  // Council variables lifted to this level so the Forest background can access them
   const [currentSpeakerId, setCurrentSpeakerId] = useState("");
   const [isPaused, setPaused] = useState(false);
 
-  const audioContext = useRef<AudioContext | null>(null); // The AudioContext object
+  const audioContext = useRef<AudioContext | null>(null);
   const [audioPaused, setAudioPaused] = useState(false);
 
+  const { i18n } = useTranslation();
+  const { rootPath, newMeetingPath } = useRouting();
   const location = useLocation();
   const navigate = useNavigate();
   const isIphone = useIsIphone();
   const isPortrait = usePortrait();
 
-  const { i18n } = useTranslation();
-
-  // Dynamic base path for routing
-  const basePath = (AVAILABLE_LANGUAGES as readonly string[]).length === 1 ? "" : `/${lang}`;
-
   if (audioContext.current === null) {
-    const AudioContext = window.AudioContext || (window as any).webkitAudioContext; //cross browser
+    const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
     audioContext.current = new AudioContext();
   }
 
-  //Set language if changed
   useEffect(() => {
-    i18n.changeLanguage(lang);
-    if (location.pathname.substring(basePath.length + 1, basePath.length + 8) === 'meeting') {
+    i18n.changeLanguage(props.lang);
+
+    if (topicSelection?.id) {
+      const bundle = getTopicsBundle(props.lang);
+      if (topicSelection.id === 'customtopic') {
+        setTopicSelection(prev => prev
+          ? { ...prev, title: bundle.custom_topic.title }
+          : prev);
+      } else {
+        const found = bundle.topics.find(t => t.id === topicSelection.id);
+        if (found) {
+          setTopicSelection(prev => prev
+            ? { ...prev, title: found.title, description: found.description, prompt: bundle.system.replace("[TOPIC]", found.prompt) }
+            : prev);
+        }
+      }
+    }
+
+    if (isMeetingPath(location.pathname)) {
       navigate({ hash: "warning" });
     }
-  }, [lang]);
+  }, [props.lang]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  //Update topics on language change
+  // If the user navigates back to the landing page, treat it as a fresh start.
   useEffect(() => {
-    setTopics(topicsData[lang].topics);
-
-    // Update the chosen topic if language changes later
-    if (chosenTopic.id) {
-      setChosenTopic(prev => {
-        const found = topicsData[lang].topics.find(t => t.id === chosenTopic.id);
-        if (found) {
-          return { ...prev, title: found.title };
-        }
-        return prev;
-      });
+    if (isRootPath(location.pathname)) {
+      setTopicSelection(null);
     }
-  }, [lang]);
+  }, [location.pathname]);
 
-  //When pause changes, suspend audio context
+  useEffect(() => {
+    const withoutLang = stripLanguagePrefix(location.pathname);
+    if (withoutLang === `/${routes.newMeeting}` || isRootPath(location.pathname)) {
+      setMeetingCreatorKey(null);
+    }
+  }, [location.pathname]);
+
+  // Suspend/resume the shared AudioContext based on audioPaused state
   useEffect(() => {
     if (audioPaused) {
       if (audioContext.current && audioContext.current.state !== "suspended") {
@@ -153,84 +115,18 @@ function Main({ lang }: MainProps) {
     }
   }, [audioPaused]);
 
-
-  useEffect(() => {
-    // Logic: if not topic chosen, and we are deep in the app (not at root or topics), redirect to start
-    // We check if pathname is longer than base path
-    const relativePath = location.pathname.substring(basePath.length);
-
-    if (!chosenTopic.id && (relativePath.length > 1 && relativePath !== "/" && relativePath !== "/topics")) {
-      //Preserve the hash, but navigate to start
-      navigate({ pathname: `${basePath}/`, hash: location.hash });
-    }
-  }, [location.pathname]);
-
-  function topicSelected({ topic, custom }: { topic: string; custom?: string }) {
-    const found = topics.find(t => t.id === topic);
-    setChosenTopic({ id: topic, title: found?.title || "" });
-    if (custom) {
-      setCustomTopic(custom);
-    }
-    navigate(`${basePath}/${routes.foods}`);
-  }
-
-  function foodsSelected({ foods }: { foods: Food[] }) {
-    // Convert Food[] to Character[] by ensuring all required properties are present
-    const participants: Character[] = foods.map(food => ({
-      ...food,
-      voice: food.voice, // Voice is now strictly required by Character type and Food type
-      type: food.type || "food" // Ensure type is set
-    })) as Character[];
-
-    setParticipants(participants);
-    proceedToMeeting();
-  }
-
-  function letsGo() {
-    audioContext.current?.resume();
-    navigate(`${basePath}/${routes.topics}`);
-  }
-
-  function proceedToMeeting() {
-    //After this, the language cannot be changed anymore
-
-    const foundTopic = topics.find(t => t.id === chosenTopic.id) || (chosenTopic.id === "customtopic" ? topicsData[lang].custom_topic : null);
-    if (!foundTopic) return;
-
-    let copiedTopic = structuredClone(foundTopic);
-    if (copiedTopic.id === "customtopic") {
-      copiedTopic.prompt = customTopic;
-      copiedTopic.description = customTopic;
+  function onReset(resetTopic?: Topic) {
+    if (!resetTopic) {
+      window.location.href = rootPath;
+      return;
     }
 
-    if (copiedTopic.prompt) {
-      copiedTopic.prompt = topicsData[lang].system.replace(
-        "[TOPIC]",
-        copiedTopic.prompt
-      );
-    }
+    setTopicSelection(resetTopic);
 
-    setChosenTopic(copiedTopic);
-
-    //Start the meeting
-    navigate(`${basePath}/${routes.meeting}/new`);
-  }
-
-  function onReset(resetData?: { topic: string; custom?: string }) {
-    setParticipants([]);
-
-    if (!resetData?.topic) {
-      // Reset from the start
-      setChosenTopic({ id: "", title: "" });
-      navigate(`${basePath}/`);
-
-      //Reload the entire window, in case the frontend has been updated etc.
-      //Usefull in exhibition settings where maybe there is no browser access
-      window.location.reload();
-    } else {
-      // Reset from foods selection
-      topicSelected(resetData);
-    }
+    navigate({
+      pathname: newMeetingPath,
+      hash: "",
+    });
   }
 
   //Close hamburger when main overlay is closing on mobile
@@ -257,8 +153,7 @@ function Main({ lang }: MainProps) {
       <div style={{ width: "100%", height: "7%", minHeight: 300 * 0.07 + "px", position: "absolute", bottom: 0, background: "linear-gradient(0deg, rgba(0, 0, 0, 0.95) 0%, rgba(0, 0, 0, 0) 100%)", zIndex: 1 }} />
       {!(unrecoverabeError || connectionError) && (
         <Navbar
-          lang={lang}
-          topic={chosenTopic.title}
+          topicTitle={topicSelection?.title || ""}
           hamburgerOpen={hamburgerOpen}
           setHamburgerOpen={setHamburgerOpen}
         />
@@ -271,65 +166,49 @@ function Main({ lang }: MainProps) {
       )}
       {!unrecoverabeError && (
         <Overlay
-          isActive={!location.pathname.startsWith(`${basePath}/${routes.meeting}`)}
-          isBlurred={location.pathname.length > (basePath.length + 1)}
+          isActive={!isMeetingPath(location.pathname)}
+          isBlurred={!isRootPath(location.pathname)}
         >
           <Routes>
             <Route
               path="/"
               element={
-                <Landing onContinueForward={letsGo} />
+                <Landing newMeetingPath={newMeetingPath} />
               }
             />
             <Route
-              path={routes.topics}
+              path={routes.newMeeting}
               element={
-                <SelectTopic
-                  topics={topics}
-                  customTopicConfig={topicsData[lang].custom_topic}
-                  onContinueForward={(props) => topicSelected(props)}
-                  onReset={() => { }}
-                  onCancel={() => { }}
-                />
-              }
-            />
-            <Route
-              path={routes.foods}
-              element={
-                <SelectFoods
-                  lang={lang}
-                  topicTitle={chosenTopic.title}
-                  onContinueForward={(props) => foodsSelected(props)}
+                <NewMeeting
+                  setUnrecoverableError={setUnrecoverableError}
+                  topicSelection={topicSelection}
+                  setTopicSelection={setTopicSelection}
+                  setMeetingCreatorKey={setMeetingCreatorKey}
                 />
               }
             />
             <Route
               path={`${routes.meeting}/:meetingId`}
               element={
-                participants.length !== 0 && ( // If page is reloaded, don't even start the council for now
-                  <Council
-                    lang={lang}
-                    topic={{ ...chosenTopic, prompt: chosenTopic.prompt || "" }}
-                    participants={participants}
-                    currentSpeakerId={currentSpeakerId}
-                    setCurrentSpeakerId={setCurrentSpeakerId}
-                    isPaused={isPaused}
-                    setPaused={setPaused}
-                    setUnrecoverableError={setUnrecoverableError}
-                    connectionError={connectionError}
-                    setConnectionError={setConnectionError}
-                    audioContext={audioContext}
-                    setAudioPaused={setAudioPaused}
-                  />
-                )
+                <Council
+                  key={stripLanguagePrefix(location.pathname)}
+                  creatorKey={meetingCreatorKey}
+                  setUnrecoverableError={setUnrecoverableError}
+                  connectionError={connectionError}
+                  setConnectionError={setConnectionError}
+                  currentSpeakerId={currentSpeakerId}
+                  setCurrentSpeakerId={setCurrentSpeakerId}
+                  isPaused={isPaused}
+                  setPaused={setPaused}
+                  audioContext={audioContext}
+                  setAudioPaused={setAudioPaused}
+                />
               }
             />
           </Routes>
           {!isIphone && <FullscreenButton />}
           <MainOverlays
-            topics={topics}
-            topic={chosenTopic}
-            customTopicConfig={topicsData[lang].custom_topic}
+            topic={topicSelection}
             onReset={onReset}
             onCloseOverlay={onCloseOverlay}
           />
@@ -356,8 +235,6 @@ function Main({ lang }: MainProps) {
   );
 }
 
-export default Main;
-
 function RotateOverlay() {
   return (
     <div
@@ -377,42 +254,5 @@ function RotateOverlay() {
         <RotateDevice />
       </Overlay>
     </div>
-  );
-}
-
-function Background({ path }: { path: string }) {
-
-  const sharedStyle: React.CSSProperties = {
-    backgroundSize: "cover",
-    backgroundPositionX: "50%",
-    height: "100%",
-    width: "100%",
-    position: "absolute",
-  };
-
-  const zoomedOutStyle = {
-    ...sharedStyle,
-    backgroundPositionY: "50%",
-    backgroundImage: `url(/backgrounds/zoomed-out.webp)`,
-    zIndex: "-2",
-    opacity: path.startsWith(`/${routes.meeting}`) ? "0" : "1",
-  };
-
-  const zoomedInStyle = {
-    ...sharedStyle,
-    backgroundPositionY: `calc(50% + max(12${dvh},36px))`,// 50% is picture height, 12vh is from view, 36 is 12% of 300px which is minimum view
-    backgroundImage: `url(/backgrounds/zoomed-in.webp)`,
-    zIndex: "-1",
-    opacity: path.startsWith(`/${routes.meeting}`) ? "1" : "0.01",
-  };
-
-  return (
-    <>
-      <div style={zoomedOutStyle} />
-      <div style={zoomedInStyle} />
-      {/* Preload Council Backgrounds */}
-      <div style={{ backgroundImage: `url(/backgrounds/close-up-backdrop.webp)`, opacity: 0, width: 0, height: 0, position: 'absolute', pointerEvents: 'none' }} />
-      <div style={{ backgroundImage: `url(/backgrounds/close-up-table.webp)`, opacity: 0, width: 0, height: 0, position: 'absolute', pointerEvents: 'none' }} />
-    </>
   );
 }

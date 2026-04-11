@@ -1,18 +1,12 @@
-import type { Character, ConversationMessage } from '@shared/ModelTypes.js';
-import type { ILifecycleContext, ConversationOptions } from "@interfaces/MeetingInterfaces.js";
+import type { Message } from '@shared/ModelTypes.js';
+import type { SetupOptions } from '@shared/SocketTypes.js';
+import type { ILifecycleContext } from "@interfaces/MeetingInterfaces.js";
 import type { Message as AudioMessage } from "@logic/AudioSystem.js";
 import { splitSentences } from "@utils/textUtils.js";
 import { Logger } from "@utils/Logger.js";
-import { GlobalOptions } from "@logic/GlobalOptions.js";
 import { withNetworkRetry } from "@utils/NetworkUtils.js";
 import removeMd from 'remove-markdown';
-
-export interface SetupOptions {
-    options?: Partial<GlobalOptions>;
-    characters: Character[];
-    language: string;
-    topic: string;
-}
+import type { StoredMeeting } from "@models/DBModels.js";
 
 interface WrapUpMessage {
     date: string;
@@ -30,40 +24,26 @@ export class MeetingLifecycleHandler {
     }
 
     /**
-     * Initializes a new conversation/meeting.
-     * Sets up global state, stores initial record in DB, and kicks off the run loop.
+     * Connects to the meeting and starts the conversation loop.
      */
     async handleStartConversation(setup: SetupOptions): Promise<void> {
         const { manager } = this;
-        manager.conversationOptions = setup as ConversationOptions; // Initial cast, will be populated
-        if (manager.environment === "prototype") {
-            manager.conversationOptions.options = { ...manager.globalOptions, ...(setup.options || {}) };
-        } else {
-            manager.conversationOptions.options = manager.globalOptions;
+
+        // Fetch the meeting from the DB
+        const meeting = await manager.services.meetingsCollection.findOne({ _id: setup.meetingId });
+        if (!meeting) {
+            throw new Error("Meeting not found");
         }
 
-        manager.conversation = [];
-        manager.currentSpeaker = 0;
-        manager.extraMessageCount = 0;
-        manager.isPaused = false;
-        manager.handRaised = false;
-        manager.meetingDate = new Date();
+        if(meeting.creatorKey !== setup.creatorKey) {
+            throw new Error("Invalid creator key");
+        }
 
-        manager.conversationOptions.state = {
-            alreadyInvited: false
-        };
+        const stored: StoredMeeting = meeting as StoredMeeting;
+        manager.meeting = stored;
+        // Session serverOptions come from MeetingManager constructor (SocketManager merges prototype overrides from start_conversation).
 
-        const storeResult = await manager.services.insertMeeting({
-            options: manager.conversationOptions,
-            audio: [],
-            conversation: [],
-            date: manager.meetingDate.toISOString(),
-        });
-
-        manager.meetingId = storeResult.insertedId;
-
-        manager.broadcaster.broadcastMeetingStarted(manager.meetingId);
-        Logger.info(`meeting ${manager.meetingId}`, `started (session ${manager.socket.id})`);
+        Logger.info(`meeting ${stored._id}`, `started (session ${manager.socket.id})`);
         manager.startLoop();
     }
 
@@ -73,51 +53,40 @@ export class MeetingLifecycleHandler {
      */
     async handleWrapUpMeeting(message: WrapUpMessage): Promise<void> {
         const { manager } = this;
-        Logger.info(`meeting ${manager.meetingId}`, "attempting to wrap up");
+        const m = manager.meeting;
+        if (!m) return;
 
-        let summaryPrompt = manager.conversationOptions.options.finalizeMeetingPrompt[manager.conversationOptions.language];
-        if (!summaryPrompt) {
-            summaryPrompt = manager.conversationOptions.options.finalizeMeetingPrompt['en'];
-            console.warn(`[MeetingLifecycleHandler] Missing finalizeMeetingPrompt for '${manager.conversationOptions.language}', falling back to 'en'.`);
-        }
-
-        // Ensure prompt is valid string
-        if (!summaryPrompt) {
-            console.error(`[MeetingLifecycleHandler] CRITICAL: No finalizeMeetingPrompt found even for fallback 'en'.`);
-            summaryPrompt = "Summarize the meeting."; // Hard fallback
-        }
-
-        const summaryPromptWithDate = summaryPrompt.replace("[DATE]", message.date);
+        Logger.info(`meeting ${m._id}`, "attempting to wrap up");
+        const summaryPrompt = manager.serverOptions.finalizeMeetingPrompt[m.language].replace("[DATE]", message.date);
         let { response, id } = await manager.dialogGenerator.chairInterjection(
-            summaryPromptWithDate,
-            manager.conversation.length,
-            manager.conversationOptions.options.finalizeMeetingLength,
+            summaryPrompt,
+            m.conversation.length,
+            manager.serverOptions.finalizeMeetingLength,
             true,
-            manager.conversation,
-            manager.conversationOptions,
+            m,
             manager.broadcaster
         );
 
         // Strip markdown formatting for TTS (prevents reading "**banana**" as "asterisk banana asterisk")
         const textForAudio = removeMd(response);
 
-        let summary: ConversationMessage = {
+        let summary: Message = {
             id: id || "",
-            speaker: manager.conversationOptions.characters[0].id,
+            speaker: m.characters[0].id,
             text: response, // Keep markdown for display
             type: "summary",
             sentences: []
         };
 
-        manager.conversation.push(summary);
+        m.conversation.push(summary);
 
-        manager.broadcaster.broadcastConversationUpdate(manager.conversation);
-        Logger.info(`meeting ${manager.meetingId}`, `summary generated on index ${manager.conversation.length - 1}`);
+        manager.broadcaster.broadcastConversationUpdate(m.conversation);
+        Logger.info(`meeting ${m._id}`, `summary generated on index ${m.conversation.length - 1}`);
 
-        if (manager.meetingId !== null) {
+        if (m._id !== null) {
             manager.services.meetingsCollection.updateOne(
-                { _id: manager.meetingId },
-                { $set: { conversation: manager.conversation, summary: summary } }
+                { _id: m._id },
+                { $set: { conversation: m.conversation, summary: summary } }
             );
         }
 
@@ -132,12 +101,13 @@ export class MeetingLifecycleHandler {
         // Also update the main summary object's sentences for consistency, though they won't have timings yet
         summary.sentences = splitSentences(response);
 
-        if (manager.meetingId !== null) {
+        if (m._id !== null) {
             await manager.audioSystem.generateAudio(
                 audioMessage as AudioMessage,
-                manager.conversationOptions.characters[0],
-                manager.conversationOptions,
-                manager.meetingId,
+                m.characters[0],
+                m.language,
+                manager.serverOptions,
+                m,
                 manager.environment,
                 true
             );
@@ -150,7 +120,10 @@ export class MeetingLifecycleHandler {
      */
     async handleRequestClientKey(): Promise<void> {
         const { manager } = this;
-        Logger.info(`meeting ${manager.meetingId}`, "clientkey requested");
+        const m = manager.meeting;
+        if (!m) return;
+
+        Logger.info(`meeting ${m._id}`, "clientkey requested");
         try {
             const sessionConfig = JSON.stringify({
                 session: {
@@ -165,9 +138,9 @@ export class MeetingLifecycleHandler {
                                 "type": "near_field"
                             },
                             "transcription": {
-                                "model": manager.conversationOptions.options.transcribeModel,
-                                "prompt": manager.conversationOptions.options.transcribePrompt[manager.conversationOptions.language] || manager.conversationOptions.options.transcribePrompt['en'] || "Transcribe the debate.",
-                                "language": manager.conversationOptions.language
+                                "model": manager.serverOptions.transcribeModel,
+                                "prompt": manager.serverOptions.transcribePrompt[m.language],
+                                "language": m.language
                             },
                             "turn_detection": {
                                 "type": "server_vad",
@@ -195,9 +168,9 @@ export class MeetingLifecycleHandler {
 
             const data = await response.json();
             manager.broadcaster.broadcastClientKey(data);
-            Logger.info(`meeting ${manager.meetingId}`, "clientkey sent");
+            Logger.info(`meeting ${m._id}`, "clientkey sent");
         } catch (error) {
-            Logger.reportAndCrashClient(`meeting ${manager.meetingId}`, "Failed to initialize realtime transcription.", error, manager.broadcaster);
+            Logger.reportAndCrashClient(`meeting ${m._id}`, "Failed to initialize realtime transcription.", error, manager.broadcaster);
         }
     }
 
@@ -206,8 +179,11 @@ export class MeetingLifecycleHandler {
      */
     handleContinueConversation(): void {
         const { manager } = this;
-        Logger.info(`meeting ${manager.meetingId}`, "continuing conversation");
-        manager.extraMessageCount += manager.globalOptions.extraMessageCount;
+        const m = manager.meeting;
+        if (!m) return;
+
+        Logger.info(`meeting ${m._id}`, "continuing conversation");
+        manager.extraMessageCount += manager.serverOptions.extraMessageCount;
         manager.startLoop();
     }
 
@@ -216,7 +192,10 @@ export class MeetingLifecycleHandler {
      */
     handlePauseConversation(): void {
         const { manager } = this;
-        Logger.info(`meeting ${manager.meetingId}`, "paused");
+        const m = manager.meeting;
+        if (!m) return;
+
+        Logger.info(`meeting ${m._id}`, "paused");
         manager.isPaused = true;
     }
 
@@ -225,7 +204,10 @@ export class MeetingLifecycleHandler {
      */
     handleResumeConversation(): void {
         const { manager } = this;
-        Logger.info(`meeting ${manager.meetingId}`, "resumed");
+        const m = manager.meeting;
+        if (!m) return;
+
+        Logger.info(`meeting ${m._id}`, "resumed");
         manager.isPaused = false;
         manager.startLoop();
     }
@@ -235,8 +217,11 @@ export class MeetingLifecycleHandler {
      */
     handleRemoveLastMessage(): void {
         const { manager } = this;
-        Logger.info(`meeting ${manager.meetingId}`, "popping last message");
-        manager.conversation.pop();
-        manager.broadcaster.broadcastConversationUpdate(manager.conversation);
+        const m = manager.meeting;
+        if (!m) return;
+
+        Logger.info(`meeting ${m._id}`, "popping last message");
+        m.conversation.pop();
+        manager.broadcaster.broadcastConversationUpdate(m.conversation);
     }
 }

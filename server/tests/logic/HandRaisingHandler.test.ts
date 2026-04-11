@@ -1,7 +1,6 @@
-
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { HandRaisingHandler } from '../../src/logic/HandRaisingHandler.js';
-import { IMeetingManager, ConversationOptions } from '../../src/interfaces/MeetingInterfaces.js';
+import type { IMeetingManager } from '../../src/interfaces/MeetingInterfaces.js';
 
 describe('HandRaisingHandler', () => {
     let mockManager: IMeetingManager;
@@ -9,32 +8,31 @@ describe('HandRaisingHandler', () => {
 
     beforeEach(() => {
         mockManager = {
-            meetingId: 123,
-            conversation: [],
+            meeting: {
+                _id: 123,
+                language: 'sv',
+                characters: [{ id: 'chair', name: 'Chair' }],
+                conversation: [],
+                state: { alreadyInvited: false, humanName: '' },
+            } as any,
             handRaised: false,
+            environment: 'test',
             socket: { emit: vi.fn() } as any,
             audioSystem: { queueAudioGeneration: vi.fn() } as any,
             services: { meetingsCollection: { updateOne: vi.fn() } } as any,
-            dialogGenerator: { chairInterjection: vi.fn().mockResolvedValue({ response: "Hello [NAME]", id: "msg_123" }) } as any,
-            conversationOptions: {
-                language: 'sv',
-                state: {},
-                characters: [{ id: 'chair', name: 'Chair' }],
-                options: {
-                    // Simulating a potential missing key scenario or structure mismatch
-                    raiseHandPrompt: {
-                        en: "Invite [NAME]",
-                        // sv intentionally omitted to test if this reproduces likely cause, 
-                        // or if it fails even WITH sv present due to some other access issue.
-                        // But first let's see if providing it works, then remove it to reproduce.
-                        sv: "Bjud in [NAME]"
-                    },
-                    raiseHandInvitationLength: 100
-                }
+            dialogGenerator: {
+                chairInterjection: vi.fn().mockResolvedValue({ response: "Hello [NAME]", id: "msg_123" }),
+            } as any,
+            serverOptions: {
+                raiseHandPrompt: {
+                    en: "Invite [NAME]",
+                    sv: "Bjud in [NAME]",
+                },
+                raiseHandInvitationLength: 100,
             } as any,
             broadcaster: {
                 broadcastConversationUpdate: vi.fn(),
-            } as any
+            } as any,
         } as unknown as IMeetingManager;
 
         handler = new HandRaisingHandler(mockManager);
@@ -43,16 +41,13 @@ describe('HandRaisingHandler', () => {
     it('should successfully handle raise hand in Swedish when prompts exist', async () => {
         await handler.handleRaiseHand({ index: 0, humanName: "Sven" });
         expect(mockManager.dialogGenerator.chairInterjection).toHaveBeenCalled();
-        expect(mockManager.conversationOptions.state?.alreadyInvited).toBe(true);
+        expect(mockManager.meeting!.state.alreadyInvited).toBe(true);
     });
 
-    it('should NOT crash when Swedish prompt is MISSING (Fallback test)', async () => {
-        // Remove sv prompt
-        // @ts-ignore
-        delete mockManager.conversationOptions.options.raiseHandPrompt.sv;
-
-        // Should succeed now due to fallback
+    it('should use the language-specific prompt', async () => {
         await handler.handleRaiseHand({ index: 0, humanName: "Sven" });
-        expect(mockManager.dialogGenerator.chairInterjection).toHaveBeenCalled();
+        const callArgs = (mockManager.dialogGenerator.chairInterjection as ReturnType<typeof vi.fn>).mock.calls[0];
+        expect(callArgs[0]).toContain("Sven");
+        expect(callArgs[0]).toContain("Bjud in");
     });
 });

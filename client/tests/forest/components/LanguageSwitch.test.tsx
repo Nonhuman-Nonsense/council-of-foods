@@ -89,7 +89,7 @@ describe('Language Switching', () => {
         render(
             <MemoryRouter initialEntries={['/sv/beings']}>
                 <Routes>
-                    <Route path="/sv/beings" element={<SelectFoods lang="sv" topicTitle="Test Topic" onContinueForward={() => { }} />} />
+                    <Route path="/sv/beings" element={<SelectFoods topicTitle="Test Topic" onContinueForward={() => { }} />} />
                 </Routes>
             </MemoryRouter>
         );

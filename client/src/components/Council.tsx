@@ -1,9 +1,9 @@
-import type { Character } from "@shared/ModelTypes";
+import type { Character, Topic } from "@shared/ModelTypes";
 import type { Socket } from "socket.io-client";
 import type { ServerToClientEvents, ClientToServerEvents } from "@shared/SocketTypes";
 
-import React, { useEffect, useMemo } from "react";
-import { useLocation } from "react-router";
+import React, { useEffect, useMemo, useState } from "react";
+import { useLocation, useNavigate, useParams } from "react-router";
 import Overlay from "./Overlay";
 import CouncilOverlays from "./CouncilOverlays";
 import Loading from "./Loading";
@@ -11,16 +11,12 @@ import Output from "./Output";
 import ConversationControls from "./ConversationControls";
 import HumanInput from "./HumanInput";
 import { useDocumentVisibility } from "@/utils";
-import routes from "@/routes.json";
-import { AVAILABLE_LANGUAGES } from "@shared/AvailableLanguages";
 import { useCouncilMachine } from "@hooks/useCouncilMachine";
-
-import { Topic } from "./settings/SelectTopic";
+import { getMeeting } from "@api/getMeeting.js";
+import type { Meeting } from "@shared/ModelTypes";
 
 interface CouncilProps {
-  lang: string;
-  topic: Topic;
-  participants: Character[];
+  creatorKey: string | null;
   setUnrecoverableError: (error: boolean) => void;
   setConnectionError: (error: boolean) => void;
   connectionError: boolean;
@@ -33,31 +29,60 @@ interface CouncilProps {
   setPaused: (paused: boolean) => void;
 }
 
-/**
- * Council Component (Forest Version)
- * 
- * Integrated with useCouncilMachine hook.
- * Visuals: Forest (via Output/Props)
- * Logic: Shared Hook
- */
 function Council({
-  lang,
-  topic,
-  participants,
-  currentSpeakerId,
-  setCurrentSpeakerId,
-  isPaused,
-  setPaused,
+  creatorKey,
   setUnrecoverableError,
   setConnectionError,
   connectionError,
   audioContext,
-  setAudioPaused
+  setAudioPaused,
+  currentSpeakerId,
+  setCurrentSpeakerId,
+  isPaused,
+  setPaused,
 }: CouncilProps) {
+
+  const { meetingId } = useParams<{ meetingId: string }>();
+
+  const navigate = useNavigate();
+
+  const currentMeetingId = Number(meetingId);
+
+  const [topic, setTopic] = useState<Topic | null>(null);
+  const [participants, setParticipants] = useState<Character[]>([]);
+
+  // Abort in-flight GET when deps change or on unmount (StrictMode-safe); same pattern as TanStack Query/SWR cancellation.
+  useEffect(() => {
+    if (!creatorKey || !meetingId || !/^\d+$/.test(meetingId)) {
+      navigate("/");
+      return;
+    }
+
+    const ac = new AbortController();
+    void (async () => {
+      try {
+        const meeting: Meeting = await getMeeting({
+          meetingId: currentMeetingId,
+          creatorKey,
+          signal: ac.signal,
+        });
+        if (ac.signal.aborted) return;
+        setTopic(meeting.topic);
+        setParticipants(meeting.characters);
+      } catch (error) {
+        if (ac.signal.aborted) return;
+        console.error(error);
+        setUnrecoverableError(true);
+      }
+    })();
+
+    return () => ac.abort();
+  }, [creatorKey, meetingId, currentMeetingId, navigate, setUnrecoverableError]);
 
   // Hook Logic
   const { state, actions, socketRef } = useCouncilMachine({
-    lang,
+    currentMeetingId,
+    creatorKey: creatorKey ?? undefined,
     topic,
     participants,
     audioContext,
@@ -66,8 +91,7 @@ function Council({
     connectionError,
     isPaused,
     setPaused,
-    // setAudioPaused is optional, we don't pass it here so Hook handles valid suspension via ref
-    baseUrl: ((AVAILABLE_LANGUAGES as readonly string[]).length === 1) ? `/${routes.meeting}` : `/${lang}/${routes.meeting}`
+    setAudioPaused,
   });
 
   const {
@@ -80,7 +104,6 @@ function Council({
     summary,
     humanName,
     isRaisedHand,
-    currentMeetingId,
     canGoBack,
     canGoForward,
     canRaiseHand,
@@ -208,7 +231,7 @@ function Council({
             canExtendMeeting={canExtendMeeting}
             removeOverlay={removeOverlay}
             summary={{ text: summary?.text || "" }}
-            meetingId={currentMeetingId || ""}
+            meetingId={currentMeetingId}
             participants={participants}
           />
         )}

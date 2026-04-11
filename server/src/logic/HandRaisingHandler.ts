@@ -1,4 +1,4 @@
-import type { ConversationMessage } from "@shared/ModelTypes.js";
+import type { Message } from "@shared/ModelTypes.js";
 import type { IHandRaisingContext } from "@interfaces/MeetingInterfaces.js";
 import { splitSentences } from "@utils/textUtils.js";
 import { Logger } from "@utils/Logger.js";
@@ -31,35 +31,30 @@ export class HandRaisingHandler {
      */
     async handleRaiseHand(handRaisedOptions: HandRaisedOptions): Promise<void> {
         const { manager } = this;
-        Logger.info(`meeting ${manager.meetingId}`, `hand raised on index ${handRaisedOptions.index - 1}`);
-        if (!manager.conversationOptions.state) {
-            manager.conversationOptions.state = {};
+        const m = manager.meeting;
+        if (!m) {
+            Logger.error("HandRaisingHandler", "raise_hand with no active meeting");
+            return;
         }
 
+        Logger.info(`meeting ${m._id}`, `hand raised on index ${handRaisedOptions.index - 1}`);
+
         manager.handRaised = true;
-        manager.conversationOptions.state.humanName = handRaisedOptions.humanName;
+        m.state.humanName = handRaisedOptions.humanName;
 
         // Cut everything after the raised index
-        manager.conversation = manager.conversation.slice(0, handRaisedOptions.index);
+        m.conversation = m.conversation.slice(0, handRaisedOptions.index);
 
-        if (!manager.conversationOptions.state.alreadyInvited) {
-            let prompt = manager.conversationOptions.options.raiseHandPrompt[manager.conversationOptions.language];
-            if (!prompt) {
-                // Fallback to English if specific language prompt is missing
-                prompt = manager.conversationOptions.options.raiseHandPrompt['en'];
-                console.warn(`[HandRaisingHandler] Missing raiseHandPrompt for language '${manager.conversationOptions.language}', falling back to 'en'.`);
-            }
-
+        if (!m.state.alreadyInvited) {
             let { response, id } = await manager.dialogGenerator.chairInterjection(
-                prompt.replace(
+                manager.serverOptions.raiseHandPrompt[m.language].replace(
                     "[NAME]",
-                    manager.conversationOptions.state.humanName || "Human"
+                    m.state.humanName || "Human"
                 ),
                 handRaisedOptions.index,
-                manager.conversationOptions.options.raiseHandInvitationLength,
+                manager.serverOptions.raiseHandInvitationLength,
                 true,
-                manager.conversation,
-                manager.conversationOptions,
+                m,
                 manager.broadcaster
             );
 
@@ -68,48 +63,42 @@ export class HandRaisingHandler {
                 response = response.substring(0, firstNewLineIndex);
             }
 
-            const message: ConversationMessage = {
+            const message: Message = {
                 id: id as string,
-                speaker: manager.conversationOptions.characters[0].id,
+                speaker: m.characters[0].id,
                 text: response,
                 type: "invitation",
                 sentences: [] // Will be populated
             }
 
-            manager.conversation.push(message);
-            // Cast message to any or ensure it matches what Queue expects (AudioSystem expects Message with text/id)
-            // Ideally define a comprehensive Message type or use intersection
+            m.conversation.push(message);
             message.sentences = splitSentences(message.text as string);
 
-            manager.conversationOptions.state.alreadyInvited = true;
-            Logger.info(`meeting ${manager.meetingId}`, `invitation generated, on index ${handRaisedOptions.index}`);
+            m.state.alreadyInvited = true;
+            Logger.info(`meeting ${m._id}`, `invitation generated, on index ${handRaisedOptions.index}`);
 
-            if (manager.meetingId !== null) {
-                manager.audioSystem.queueAudioGeneration(
-                    { ...message, id: message.id as string, text: message.text as string, sentences: message.sentences! },
-                    manager.conversationOptions.characters[0],
-                    manager.conversationOptions,
-                    manager.meetingId as number,
-                    manager.environment
-                );
-            }
-        }
-
-        manager.conversation.push({
-            type: 'awaiting_human_question',
-            speaker: manager.conversationOptions.state.humanName,
-            text: ""
-        } as ConversationMessage);
-
-        Logger.info(`meeting ${manager.meetingId}`, `awaiting human question on index ${manager.conversation.length - 1} `);
-
-        if (manager.meetingId !== null) {
-            await manager.services.meetingsCollection.updateOne(
-                { _id: manager.meetingId },
-                { $set: { conversation: manager.conversation, 'options.state': manager.conversationOptions.state } }
+            manager.audioSystem.queueAudioGeneration(
+                { ...message, id: message.id as string, text: message.text as string, sentences: message.sentences! },
+                m.characters[0],
+                m,
+                manager.environment,
+                manager.serverOptions
             );
         }
 
-        manager.broadcaster.broadcastConversationUpdate(manager.conversation);
+        m.conversation.push({
+            type: 'awaiting_human_question',
+            speaker: m.state.humanName,
+            text: ""
+        } as Message);
+
+        Logger.info(`meeting ${m._id}`, `awaiting human question on index ${m.conversation.length - 1} `);
+
+        await manager.services.meetingsCollection.updateOne(
+            { _id: m._id },
+            { $set: { conversation: m.conversation, state: m.state } }
+        );
+
+        manager.broadcaster.broadcastConversationUpdate(m.conversation);
     }
 }

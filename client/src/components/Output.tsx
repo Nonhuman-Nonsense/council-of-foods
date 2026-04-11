@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import TextOutput from "./TextOutput";
 import AudioOutput from "./AudioOutput";
-import { ConversationMessage } from "@shared/ModelTypes";
+import { Message } from "@shared/ModelTypes";
 import { DecodedAudioMessage } from "../hooks/useCouncilMachine";
 
 /**
@@ -17,7 +17,7 @@ import { DecodedAudioMessage } from "../hooks/useCouncilMachine";
  * - Handles special 'summary' state logic.
  */
 interface OutputProps {
-  textMessages: ConversationMessage[];
+  textMessages: Message[];
   audioMessages: DecodedAudioMessage[];
   playingNowIndex: number;
   councilState: string;

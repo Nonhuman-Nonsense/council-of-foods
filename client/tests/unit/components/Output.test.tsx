@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import Output from '../../../src/components/Output';
 import React from 'react';
-import { ConversationMessage } from '@shared/ModelTypes';
+import { Message } from '@shared/ModelTypes';
 import { DecodedAudioMessage } from '@hooks/useCouncilMachine';
 
 // Mock child components to verify props and rendering
@@ -29,7 +29,7 @@ describe('Output', () => {
     const mockSetSentencesLength = vi.fn();
     const mockHandleOnFinishedPlaying = vi.fn();
 
-    const mockTextMessages: ConversationMessage[] = [
+    const mockTextMessages: Message[] = [
         { id: '1', text: 'Hello World', speaker: 'Speaker 1', type: 'human' },
         { id: '2', text: 'Second Message', speaker: 'Speaker 2', type: 'human' },
     ];
@@ -87,7 +87,7 @@ describe('Output', () => {
 
     it('hides text output when state is summary', () => {
         // In summary, text is cleared from Output (handled by overlay) and hidden
-        const summaryMessage: ConversationMessage = { id: 's1', text: 'Summary Text', type: 'summary', speaker: 'System' };
+        const summaryMessage: Message = { id: 's1', text: 'Summary Text', type: 'summary', speaker: 'System' };
         const summaryProps = {
             ...defaultProps,
             textMessages: [summaryMessage],

@@ -55,7 +55,7 @@ describe('CouncilOverlays', () => {
         canExtendMeeting: true,
         removeOverlay: mockRemoveOverlay,
         summary: mockSummary,
-        meetingId: 'meeting-123',
+        meetingId: 123,
         participants: mockParticipants
     };
 

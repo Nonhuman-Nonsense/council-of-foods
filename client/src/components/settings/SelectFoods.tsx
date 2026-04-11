@@ -7,6 +7,9 @@ import { Character, VoiceOption, AVAILABLE_VOICES } from "@shared/ModelTypes";
 import { AVAILABLE_LANGUAGES } from "@shared/AvailableLanguages";
 import VideoPreloader from "@components/VideoPreloader";
 
+import Lottie from 'react-lottie-player';
+import loadingAnimation from '@animations/loading.json';
+
 // Dynamic import of food data modules
 const foodModules = import.meta.glob<FoodData>('/src/prompts/foods_*.json', { eager: true, import: 'default' });
 
@@ -43,9 +46,9 @@ export interface Food extends Partial<Character> {
 }
 
 interface SelectFoodsProps {
-  lang: string;
   topicTitle: string;
-  onContinueForward: (data: { foods: Food[] }) => void;
+  onContinueForward: (data: { foods: Food[] }) => void | Promise<void>;
+  loading?: boolean;
 }
 
 const MAXHUMANS = 3;
@@ -105,7 +108,7 @@ const blankHuman: Food = {
  * 
  * The main configuration screen where the user selects AI food participants and adds human panelists.
  */
-function SelectFoods({ lang, topicTitle, onContinueForward }: SelectFoodsProps): React.ReactElement {
+function SelectFoods({ topicTitle, onContinueForward, loading: loading = false }: SelectFoodsProps): React.ReactElement {
   // Ensuring we pull from a valid lang key, defaulting to 'en' if missing
   const [foods, setFoods] = useState<Food[]>(localFoodData[AVAILABLE_LANGUAGES[0]]?.foods || []);
   const [selectedFoods, setSelectedFoods] = useState<string[]>([localFoodData[AVAILABLE_LANGUAGES[0]]?.foods[0].id || ""]);
@@ -129,17 +132,17 @@ function SelectFoods({ lang, topicTitle, onContinueForward }: SelectFoodsProps):
 
   const isMobile = useMobile();
   const isMobileXs = useMobileXs();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
 
   // Update foods on language change
 
   useEffect(() => {
     // Concatenate humans to foods list
     // Use the correct language data
-    const baseFoods = localFoodData[lang] ? localFoodData[lang].foods : localFoodData[AVAILABLE_LANGUAGES[0]].foods;
+    const baseFoods = localFoodData[i18n.language] ? localFoodData[i18n.language].foods : localFoodData[AVAILABLE_LANGUAGES[0]].foods;
     const newFoods = baseFoods.concat(humans.slice(0, numberOfHumans));
     setFoods(newFoods);
-  }, [lang, human0, human1, human2, numberOfHumans]);
+  }, [i18n.language, human0, human1, human2, numberOfHumans]);
 
 
   /* -------------------------------------------------------------------------- */
@@ -181,6 +184,7 @@ function SelectFoods({ lang, topicTitle, onContinueForward }: SelectFoodsProps):
   /* -------------------------------------------------------------------------- */
 
   function continueForward(): void {
+    if (loading) return;
     if (atLeastTwoFoods() && selectedFoods.length <= maxFoods) {
       //Modify chairs invitation prompt, with the name of the selected participants
 
@@ -204,7 +208,7 @@ function SelectFoods({ lang, topicTitle, onContinueForward }: SelectFoodsProps):
       }
 
       if (replacedFoods.length > 0 && replacedFoods[0].prompt) {
-        replacedFoods[0].prompt = localFoodData[lang].foods[0].prompt?.replace(
+        replacedFoods[0].prompt = localFoodData[i18n.language].foods[0].prompt?.replace(
           "[FOODS]",
           participants
         ) || "";
@@ -227,7 +231,7 @@ function SelectFoods({ lang, topicTitle, onContinueForward }: SelectFoodsProps):
         }
         humanPresentation = humanPresentation.substring(0, humanPresentation.length - 2);
 
-        const humanPrompt = localFoodData[lang].panelWithHumans;
+        const humanPrompt = localFoodData[i18n.language].panelWithHumans;
         humanPresentation = humanPrompt.replace(
           "[HUMANS]",
           humanPresentation
@@ -312,25 +316,30 @@ function SelectFoods({ lang, topicTitle, onContinueForward }: SelectFoodsProps):
   /*                                   Render                                   */
   /* -------------------------------------------------------------------------- */
 
-  const showDefaultDescription = (currentFood === null && !lastSelected?.startsWith('panelist'));
-
-  const discriptionStyle: React.CSSProperties = {
-    transition: "opacity ease",
-    opacity: showDefaultDescription ? 1 : 0, // Using 1/0 number is valid in React, but string preferred for some props? No, opacity number is fine.
-    transitionDuration: showDefaultDescription ? "1s" : "0ms",
-    pointerEvents: showDefaultDescription ? "all" : "none",
-  };
-
   function infoToShow(): React.ReactNode {
     if (currentFood === 'addhuman') {
-      // No need for dummy objects anymore, FoodInfo accepts simple shape
-      return <FoodInfo food={localFoodData[lang].addHuman} />;
+      return <FoodInfo food={localFoodData[i18n.language].addHuman} />;
     } else if (currentFood !== null && !currentFood.startsWith('panelist')) {//If something is hovered & if it's not a human
       return <FoodInfo food={foods.find(f => f.id === currentFood)} />;
     } else if (currentFood?.startsWith('panelist') && lastSelected !== currentFood) {//a human is hovered but not selected
       return <HumanInfo human={humans.find(h => h.id === currentFood)} unfocus={true} setHumans={setHumans} setRecheckHumansReady={setRecheckHumansReady} />;
     } else if (lastSelected?.startsWith('panelist')) {//a human is selected
       return <HumanInfo human={humans.find(h => h.id === lastSelected)} lastSelected={lastSelected} setHumans={setHumans} setRecheckHumansReady={setRecheckHumansReady} />;
+    } else {
+      return (
+      <div className="fadein">
+        <p style={{ margin: 0 }}>{t('selectfoods.meetingon')}</p>
+        <h3>{topicTitle && toTitleCase(topicTitle)}</h3>
+        <div>
+          {!atLeastTwoFoods() ? <p>{t('selectfoods.pleaseselect')}</p> : <><p>{t('selectfoods.wewilllisten')}:</p>
+            <div>{selectedFoods.map((id) => {
+              const f = foods.find(f => f.id === id);
+              return <p style={{ margin: 0 }} key={id.startsWith('panelist') ? id : f?.name}>{f?.name}</p>
+            })}</div>
+          </>}
+        </div>
+      </div>
+      );
     }
     return null;
   }
@@ -340,14 +349,29 @@ function SelectFoods({ lang, topicTitle, onContinueForward }: SelectFoodsProps):
   };
 
   function buttonOrInfo(): React.ReactElement | null {
-    if (atLeastTwoFoods() && selectedFoods.length <= maxFoods && humansReady && ensureUniqueNames()) {
-      return <button onClick={continueForward} style={{ margin: isMobileXs ? "0" : "8px 0" }}>{t('start')}</button>;
+    if (loading) {
+      return <div>
+        <Lottie play loop animationData={loadingAnimation} style={{ height: isMobile ? "40px" : "60px" }} />
+      </div>
+    } else if (atLeastTwoFoods() && selectedFoods.length <= maxFoods && humansReady && ensureUniqueNames()) {
+      return (
+        <button
+          type="button"
+          disabled={loading}
+          onClick={continueForward}
+          style={{ margin: isMobileXs ? "0" : "8px 0" }}
+        >
+          {t('start')}
+        </button>
+      );
     } else if (atLeastTwoFoods() && selectedFoods.length <= maxFoods && !humansReady) {
       return <h4 style={subInfoStyle}>{t('selectfoods.requirename')}</h4>;
     } else if (atLeastTwoFoods() && selectedFoods.length <= maxFoods && humansReady && !ensureUniqueNames()) {
       return <h4 style={subInfoStyle}>{t('selectfoods.unique')}</h4>;
     } else if (currentFood !== null || (selectedFoods.length > 1 && !atLeastTwoFoods())) {
       return <h4 style={subInfoStyle}>{t('selectfoods.pleaseselect')}</h4>;
+    } else if (selectedFoods.length < 2) {
+      return <button onClick={randomizeSelection} className="fadein" style={{ margin: isMobileXs ? "0" : "8px 0", position: "absolute" }}>{t('selectfoods.random')}</button>;
     }
     return null;
   }
@@ -374,18 +398,6 @@ function SelectFoods({ lang, topicTitle, onContinueForward }: SelectFoodsProps):
             alignItems: "center"
           }}
         >
-          <div style={discriptionStyle}>
-            <p style={{ margin: 0 }}>{t('selectfoods.meetingon')}</p>
-            <h3>{topicTitle && toTitleCase(topicTitle)}</h3>
-            <div>
-              {!atLeastTwoFoods() ? <p>{t('selectfoods.pleaseselect')}</p> : <><p>{t('selectfoods.wewilllisten')}:</p>
-                <div>{selectedFoods.map((id) => {
-                  const f = foods.find(f => f.id === id);
-                  return <p style={{ margin: 0 }} key={id.startsWith('panelist') ? id : f?.name}>{f?.name}</p>
-                })}</div>
-              </>}
-            </div>
-          </div>
           {infoToShow()}
         </div>
       </div>
@@ -413,7 +425,6 @@ function SelectFoods({ lang, topicTitle, onContinueForward }: SelectFoodsProps):
           />}
         </div>
         <div style={{ display: "flex", justifyContent: "center", marginTop: isMobileXs ? "2px" : "5px" }}>
-          {selectedFoods.length < 2 && <button onClick={randomizeSelection} style={{ ...discriptionStyle, margin: isMobileXs ? "0" : "8px 0", position: "absolute" }}>{t('selectfoods.random')}</button>}
           {buttonOrInfo()}
         </div>
       </div>

@@ -9,16 +9,16 @@ describe('MeetingManager - State Machine (decideNextAction)', () => {
         const setup = createTestManager();
         manager = setup.manager;
         // Add Alice (id: 'alice', type: 'panelist') to index 3
-        manager.conversationOptions.characters.push({ id: 'alice', name: 'Alice', type: 'panelist' });
+        manager.meeting.characters.push({ id: 'alice', name: 'Alice', type: 'panelist' });
     });
 
     const scenarios = [
         {
             name: 'should end conversation if max length reached',
             setup: (mgr) => {
-                mgr.conversationOptions.options.conversationMaxLength = 5;
+                mgr.serverOptions.conversationMaxLength = 5;
                 mgr.extraMessageCount = 0;
-                mgr.conversation = TestFactory.createConversation(5);
+                mgr.meeting.conversation = TestFactory.createConversation(5);
             },
             nextSpeakerIndex: 0,
             expected: { type: 'END_CONVERSATION' }
@@ -26,7 +26,7 @@ describe('MeetingManager - State Machine (decideNextAction)', () => {
         {
             name: 'should wait if awaiting human panelist',
             setup: (mgr) => {
-                mgr.conversation = TestFactory.createAwaitingPanelist('alice');
+                mgr.meeting.conversation = TestFactory.createAwaitingPanelist('alice');
             },
             nextSpeakerIndex: 0,
             expected: { type: 'WAIT' }
@@ -34,7 +34,7 @@ describe('MeetingManager - State Machine (decideNextAction)', () => {
         {
             name: 'should wait if awaiting human question',
             setup: (mgr) => {
-                mgr.conversation = TestFactory.createAwaitingQuestion();
+                mgr.meeting.conversation = TestFactory.createAwaitingQuestion();
             },
             nextSpeakerIndex: 0,
             expected: { type: 'WAIT' }
@@ -42,7 +42,7 @@ describe('MeetingManager - State Machine (decideNextAction)', () => {
         {
             name: 'should request panelist if next speaker is panelist',
             setup: (mgr) => {
-                mgr.conversation = [];
+                mgr.meeting.conversation = [];
             },
             nextSpeakerIndex: 3, // Alice
             expected: {
@@ -53,7 +53,7 @@ describe('MeetingManager - State Machine (decideNextAction)', () => {
         {
             name: 'should generate AI response if next speaker is AI',
             setup: (mgr) => {
-                mgr.conversation = [];
+                mgr.meeting.conversation = [];
             },
             nextSpeakerIndex: 1, // Tomato
             expected: {

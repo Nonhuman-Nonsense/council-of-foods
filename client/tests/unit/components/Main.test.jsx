@@ -5,12 +5,17 @@ import { MemoryRouter, Routes, Route, useNavigate } from 'react-router';
 import Main from '../../../src/components/Main';
 import routes from '../../../src/routes.json';
 
+vi.mock('@/api/createMeeting', () => ({
+    createMeeting: vi.fn().mockResolvedValue({ meetingId: 99, creatorKey: 'test-creator-key' }),
+}));
+
 // Mock topics data
 vi.mock('../../../src/prompts/topics_en.json', () => ({
     default: {
         topics: [
-            { id: "test-topic", title: "Test Topic", prompt: "Test Prompt" }
+            { id: "test-topic", title: "Test Topic", description: "D", prompt: "Test Prompt" }
         ],
+        custom_topic: { id: "customtopic", title: "Custom", description: "C", prompt: "Custom" },
         system: "System Prompt [TOPIC]"
     }
 }));
@@ -22,13 +27,25 @@ vi.mock('../../../src/components/Overlay', () => ({
 vi.mock('../../../src/components/MainOverlays', () => ({
     default: () => <div data-testid="main-overlays">MainOverlays</div>
 }));
-vi.mock('../../../src/components/settings/Landing', () => ({
-    default: ({ onContinueForward }) => (
-        <div data-testid="landing">
-            <button onClick={onContinueForward} data-testid="landing-btn">Lets Go</button>
-        </div>
-    )
-}));
+vi.mock('../../../src/components/settings/Landing', async () => {
+    const { useNavigate } = await import('react-router');
+    return {
+        default: function MockLanding({ newMeetingPath }) {
+            const navigate = useNavigate();
+            return (
+                <div data-testid="landing">
+                    <button
+                        type="button"
+                        data-testid="landing-btn"
+                        onClick={() => navigate(newMeetingPath)}
+                    >
+                        Lets Go
+                    </button>
+                </div>
+            );
+        }
+    };
+});
 vi.mock('../../../src/components/Navbar', () => ({
     default: () => <div data-testid="navbar">Navbar</div>
 }));
@@ -62,11 +79,16 @@ vi.mock('react-i18next', () => ({
     initReactI18next: { type: '3rdParty', init: () => { } }
 }));
 
+vi.mock('../../../src/components/Forest', () => ({
+    default: () => <div data-testid="forest">Forest</div>
+}));
+
 // Mock utils
 vi.mock('../../../src/utils', () => ({
     usePortrait: () => false,
     useDocumentVisibility: () => true,
-    dvh: 'vh'
+    dvh: 'vh',
+    useMobile: () => false,
 }));
 
 describe('Main Component', () => {
@@ -95,7 +117,7 @@ describe('Main Component', () => {
 
     it.skip('navigates to Foods on Topic selection', async () => {
         render(
-            <MemoryRouter initialEntries={['/' + routes.topics]}>
+            <MemoryRouter initialEntries={[`/${routes.newMeeting}`]}>
                 <Main lang="en" />
             </MemoryRouter>
         );
@@ -107,14 +129,13 @@ describe('Main Component', () => {
         });
     });
 
-    it.skip('renders Council when participants are selected', async () => {
+    it('renders Council on meeting route', async () => {
         render(
-            <MemoryRouter initialEntries={['/' + routes.foods]}>
+            <MemoryRouter initialEntries={[`/${routes.meeting}/42`]}>
                 <Main lang="en" />
             </MemoryRouter>
         );
-
-        // Logic test skipped
+        expect(screen.getByTestId('council')).toBeInTheDocument();
     });
 
     it.skip('full flow: Landing -> Topics -> Foods -> Council', async () => {

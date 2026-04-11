@@ -1,7 +1,10 @@
-
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createTestManager } from './commonSetup.js';
 import { meetingsCollection } from '@services/DbService.js';
+import { MockFactory } from './factories/MockFactory.ts';
+
+const DRAIN_MEETING_ID = 9001;
+const DRAIN_CREATOR_KEY = 'audio-drain-creator';
 
 describe('Audio Queue Draining', () => {
     let p1;
@@ -10,6 +13,18 @@ describe('Audio Queue Draining', () => {
         p1 = createTestManager('test');
         vi.spyOn(meetingsCollection, 'updateOne').mockResolvedValue({});
         vi.spyOn(meetingsCollection, 'insertOne').mockResolvedValue({});
+        vi.spyOn(meetingsCollection, 'findOne').mockResolvedValue(
+            MockFactory.createStoredMeeting({
+                _id: DRAIN_MEETING_ID,
+                creatorKey: DRAIN_CREATOR_KEY,
+                topic: MockFactory.createTopic({ title: 'Drain Test' }),
+                characters: [
+                    MockFactory.createCharacter({ id: 'water', name: 'Water', type: 'food' }),
+                    MockFactory.createCharacter({ id: 'tomato', name: 'Tomato', type: 'food' }),
+                ],
+                conversation: [],
+            })
+        );
     });
 
     it('should stop generation loop on destroy but allow audio queue to drain', async () => {
@@ -38,11 +53,11 @@ describe('Audio Queue Draining', () => {
             audioCompletions.push(msg.id);
         });
 
-        // 2. Start Conversation
+        // 2. Start Conversation (loads StoredMeeting from DB; see findOne mock in beforeEach)
         await p1.manager.meetingLifecycleHandler.handleStartConversation({
-            topic: "Drain Test",
-            characters: [{ id: 'water', name: "Water", type: 'food' }],
-            options: { conversationMaxLength: 10 }
+            meetingId: DRAIN_MEETING_ID,
+            creatorKey: DRAIN_CREATOR_KEY,
+            serverOptions: { conversationMaxLength: 10 },
         });
 
         // 3. Trigger a few turns
@@ -87,7 +102,7 @@ describe('Audio Queue Draining', () => {
         // the method `generateAudio` WAS called for messages generated before destroy.
 
         // Let's inspect the conversation to see how many messages were generated.
-        const conversationCount = p1.manager.conversation.length;
+        const conversationCount = p1.manager.meeting.conversation.length;
 
         // We expect audio generation to eventually match the conversation count
         // (excluding system messages if any, though audio queue handles that).
@@ -100,12 +115,12 @@ describe('Audio Queue Draining', () => {
         // After wait, it should be 1.
 
         // Let's check that we didn't generate NEW text/turns after destroy
-        const finalConversationCount = p1.manager.conversation.length;
+        const finalConversationCount = p1.manager.meeting.conversation.length;
 
         // Wait MORE to see if "Zombie Loop" (text generation) continues
         await new Promise(r => setTimeout(r, 100));
 
-        expect(p1.manager.conversation.length).toBe(finalConversationCount);
+        expect(p1.manager.meeting.conversation.length).toBe(finalConversationCount);
         // This proves the text loop stopped.
 
         // And regarding audio:

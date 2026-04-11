@@ -1,5 +1,6 @@
 import RotateDevice from '@components/RotateDevice';
 import { useMediaQuery } from 'react-responsive'
+import { Link } from "react-router";
 import { useMobile, dvh } from "@/utils";
 import { useTranslation } from 'react-i18next';
 import councilLogo from "@assets/logos/council_logo_white.svg";
@@ -12,15 +13,12 @@ import councilLogo from "@assets/logos/council_logo_white.svg";
  * Core Logic:
  * - **Device Orientation**: Forces landscape on mobile/tablet via `RotateDevice`.
  * - **Welcome Message**: Displays logo and welcome text.
- * 
- * @param {Object} props
- * @param {Function} props.onContinueForward - Handler to start the app.
  */
 interface LandingProps {
-  onContinueForward: () => void;
+  newMeetingPath: string;
 }
 
-const Landing: React.FC<LandingProps> = ({ onContinueForward }) => {
+const Landing: React.FC<LandingProps> = ({ newMeetingPath }) => {
 
   const isPortrait = useMediaQuery({ query: '(orientation: portrait)' })
   const isMobile = useMobile();
@@ -57,7 +55,11 @@ const Landing: React.FC<LandingProps> = ({ onContinueForward }) => {
           :
           (<div style={{ maxWidth: "380px" }}>
             <p style={{ marginBottom: "30px" }}>{t('description')}</p>
-            <div><button onClick={() => onContinueForward()}>{t('go')}</button></div>
+            <div>
+              <Link to={newMeetingPath} className="button" data-testid="landing-go">
+                {t('go')}
+              </Link>
+            </div>
           </div>)
         }
       </div>

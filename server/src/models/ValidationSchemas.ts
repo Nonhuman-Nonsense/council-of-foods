@@ -7,7 +7,8 @@ import type {
     HandRaisedOptions,
     ReconnectionOptions,
     WrapUpMessage,
-    SetupOptions
+    SetupOptions,
+    CreateMeetingBody
 } from "@shared/SocketTypes.js";
 
 // --- Socket Payload Schemas ---
@@ -51,17 +52,26 @@ const CharacterSchema: z.ZodType<Character> = z.object({
     // Inworld allows custom IDs, so no validation against the preset enum is performed.
 });
 
-
-
-// 1. start_conversation
-export const SetupOptionsSchema: z.ZodType<SetupOptions> = z.object({
-    options: GlobalOptionsSchema.partial().optional(),
+// Create new meeting via API
+export const CreateMeetingSchema: z.ZodType<CreateMeetingBody> = z.object({
+    topic: z.object({
+        id: z.string(),
+        title: z.string(),
+        description: z.string(),
+        prompt: z.string()
+    }),
     characters: z.array(CharacterSchema),
-    language: z.string().default('en'),
-    topic: z.string(),
+    language: z.string().min(2).max(2),
+});
+
+// 1. start_conversation — serverOptions is only applied when socket environment is prototype (see SocketManager / MeetingLifecycleHandler)
+export const SetupOptionsSchema: z.ZodType<SetupOptions> = z.object({
+    meetingId: z.number(),
+    creatorKey: z.string(),
+    serverOptions: GlobalOptionsSchema.partial().optional(),
 }).transform((data) => {
     if (!['test', 'prototype'].includes(process.env.NODE_ENV || '')) {
-        delete data.options;
+        delete data.serverOptions;
     }
     return data;
 });
@@ -84,7 +94,7 @@ export const HandRaisedOptionsSchema: z.ZodType<HandRaisedOptions> = z.object({
 
 // 4. attempt_reconnection
 export const ReconnectionOptionsSchema: z.ZodType<ReconnectionOptions> = z.object({
-    meetingId: z.union([z.string(), z.number()]),
+    meetingId: z.number(),
     handRaised: z.boolean().optional(),
     conversationMaxLength: z.number().optional(),
 });

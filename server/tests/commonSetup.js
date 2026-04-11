@@ -1,7 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { vi } from 'vitest';
 import { MeetingManager } from '@logic/MeetingManager.js';
 import { setupTestOptions } from './testUtils.js';
-import { meetingsCollection } from '@services/DbService.js';
 import { MockFactory } from './factories/MockFactory.ts';
 
 import { getTestMode, TEST_MODES } from './testUtils.js';
@@ -59,36 +58,25 @@ export const createTestManager = (env = 'test', optionsOverride = null, services
         mockSocket.handlers[event] = callback;
     });
 
-    // Use MockFactory for options
     const baseOptions = optionsOverride || setupTestOptions();
 
     // Merge defaults with provided services
     const defaultServices = setupTestDependencies();
     const finalServices = { ...defaultServices, ...services };
 
-    // Create Manager
     const manager = new MeetingManager(mockSocket, env, baseOptions, finalServices);
 
-    // Initialize with Mock Data
-    manager.conversationOptions = MockFactory.createConversationOptions({
-        ...baseOptions,
+    const meeting = MockFactory.createStoredMeeting({
         characters: [
             MockFactory.createCharacter({ id: 'water', name: 'Water' }),
             MockFactory.createCharacter({ id: 'tomato', name: 'Tomato' }),
             MockFactory.createCharacter({ id: 'potato', name: 'Potato' })
         ],
-        state: { humanName: 'Frank' },
-        options: {
-            ...MockFactory.createConversationOptions().options,
-            chairId: 'water',
-            ...baseOptions
-        }
+        state: { humanName: 'Frank', alreadyInvited: false },
+        conversation: []
     });
 
-    // Ensure language is set if it was missing in baseOptions
-    if (!manager.conversationOptions.language) {
-        manager.conversationOptions.language = 'en';
-    }
+    manager.meeting = meeting;
 
     return { manager, mockSocket };
 };

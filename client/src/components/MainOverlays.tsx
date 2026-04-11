@@ -7,14 +7,13 @@ import Overlay from "./Overlay";
 import About from "./overlays/About";
 import Contact from "./overlays/Contact";
 import ResetWarning from "./overlays/ResetWarning";
-import SelectTopic, { Topic } from "./settings/SelectTopic";
+import SelectTopic  from "./settings/SelectTopic";
+import type { Topic } from "@shared/ModelTypes";
 import { useTranslation } from "react-i18next";
 
 interface MainOverlaysProps {
-  topics: Topic[];
-  topic: Topic;
-  customTopicConfig: Topic;
-  onReset: (data?: { topic: string; custom?: string }) => void;
+  topic: Topic | null;
+  onReset: (resetTopic?: Topic) => void;
   onCloseOverlay: () => void;
 }
 
@@ -29,7 +28,7 @@ interface MainOverlaysProps {
  * - **Auto-Close**: Logic to automatically close invalid overlays based on current route (e.g., closing #reset if not meaningful).
  * - **Composition**: Wraps content in `Overlay` > `OverlayWrapper` for consistent layout.
  */
-function MainOverlays({ topics, topic, customTopicConfig, onReset, onCloseOverlay }: MainOverlaysProps): React.ReactElement {
+function MainOverlays({ topic, onReset, onCloseOverlay }: MainOverlaysProps): React.ReactElement {
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -66,9 +65,7 @@ function MainOverlays({ topics, topic, customTopicConfig, onReset, onCloseOverla
       case "#settings":
         return (
           <SelectTopic
-            topics={topics}
-            customTopicConfig={customTopicConfig}
-            currentTopic={topic}
+            currentTopic={topic ?? undefined}
             onReset={onReset}
             onCancel={removeOverlay}
             onContinueForward={() => { }}
