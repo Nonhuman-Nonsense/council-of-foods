@@ -5,12 +5,17 @@ import { MemoryRouter, Routes, Route, useNavigate } from 'react-router';
 import Main from '../../../src/components/Main';
 import routes from '../../../src/routes.json';
 
+vi.mock('@/api/createMeeting', () => ({
+    createMeeting: vi.fn().mockResolvedValue({ meetingId: 99, creatorKey: 'test-creator-key' }),
+}));
+
 // Mock topics data
 vi.mock('../../../src/prompts/topics_en.json', () => ({
     default: {
         topics: [
-            { id: "test-topic", title: "Test Topic", prompt: "Test Prompt" }
+            { id: "test-topic", title: "Test Topic", description: "D", prompt: "Test Prompt" }
         ],
+        custom_topic: { id: "customtopic", title: "Custom", description: "C", prompt: "Custom" },
         system: "System Prompt [TOPIC]"
     }
 }));
@@ -22,13 +27,25 @@ vi.mock('../../../src/components/Overlay', () => ({
 vi.mock('../../../src/components/MainOverlays', () => ({
     default: () => <div data-testid="main-overlays">MainOverlays</div>
 }));
-vi.mock('../../../src/components/settings/Landing', () => ({
-    default: ({ onContinueForward }) => (
-        <div data-testid="landing">
-            <button onClick={onContinueForward} data-testid="landing-btn">Lets Go</button>
-        </div>
-    )
-}));
+vi.mock('../../../src/components/settings/Landing', async () => {
+    const { useNavigate } = await import('react-router');
+    return {
+        default: function MockLanding({ newMeetingPath }) {
+            const navigate = useNavigate();
+            return (
+                <div data-testid="landing">
+                    <button
+                        type="button"
+                        data-testid="landing-btn"
+                        onClick={() => navigate(newMeetingPath)}
+                    >
+                        Lets Go
+                    </button>
+                </div>
+            );
+        }
+    };
+});
 vi.mock('../../../src/components/Navbar', () => ({
     default: () => <div data-testid="navbar">Navbar</div>
 }));
@@ -88,7 +105,7 @@ describe('Main Component', () => {
 
     it('navigates to Foods on Topic selection', async () => {
         render(
-            <MemoryRouter initialEntries={['/' + routes.topics]}>
+            <MemoryRouter initialEntries={[`/${routes.newMeeting}`]}>
                 <Main lang="en" />
             </MemoryRouter>
         );
@@ -100,20 +117,13 @@ describe('Main Component', () => {
         });
     });
 
-    it('renders Council when participants are selected', async () => {
+    it('renders Council on meeting route', async () => {
         render(
-            <MemoryRouter initialEntries={['/' + routes.foods]}>
+            <MemoryRouter initialEntries={[`/${routes.meeting}/42`]}>
                 <Main lang="en" />
             </MemoryRouter>
         );
-
-        // First need to select topic to set chosenTopic? 
-        // Actually Main holds the state. If we start at foods, chosenTopic might be empty.
-        // The component has a useEffect to redirect if chosenTopic.id is undefined.
-        // So we need to simulate the flow properly or mock the redirect check if possible?
-        // Or just integration test the whole flow from start.
-
-        // Let's do a full flow test for this one to ensure state is carried over.
+        expect(screen.getByTestId('council')).toBeInTheDocument();
     });
 
     it('full flow: Landing -> Topics -> Foods -> Council', async () => {

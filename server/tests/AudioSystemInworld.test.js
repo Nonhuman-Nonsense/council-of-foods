@@ -2,6 +2,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { AudioSystem } from '@root/src/logic/AudioSystem.js';
 import { Logger } from '@root/src/utils/Logger.js';
+import { MockFactory } from './factories/MockFactory.ts';
 
 vi.mock('@root/src/utils/Logger.js', () => ({
     Logger: {
@@ -46,6 +47,9 @@ describe('AudioSystem Inworld Integration', () => {
     let mockBroadcaster;
     let mockServices;
 
+    const meeting = () => MockFactory.createStoredMeeting({ _id: 123 });
+    const serverOptions = (overrides = {}) => MockFactory.createServerOptions(overrides);
+
     beforeEach(() => {
         vi.clearAllMocks();
 
@@ -87,10 +91,6 @@ describe('AudioSystem Inworld Integration', () => {
     it('should call Inworld API when voiceProvider is inworld', async () => {
         const message = { id: 'msg1', text: 'Hello Inworld', sentences: ['Hello Inworld'] };
         const speaker = { id: 'char1', voice: 'Dennis', voiceProvider: 'inworld' };
-        // We pass GlobalOptions explicitly or rely on resolved options in context.
-        // But tests for generateAudio typically mock context.
-        const context = { options: { audio_speed: 1.2, inworldVoiceModel: 'inworld-tts-1' } };
-        const meetingId = 123;
         const environment = 'production';
 
         const mockAudioContent = Buffer.from('fake-inworld-audio').toString('base64');
@@ -100,7 +100,14 @@ describe('AudioSystem Inworld Integration', () => {
             text: async () => ''
         });
 
-        await audioSystem.generateAudio(message, speaker, context, meetingId, environment);
+        await audioSystem.generateAudio(
+            message,
+            speaker,
+            'en',
+            serverOptions({ audio_speed: 1.2, inworldVoiceModel: 'inworld-tts-1' }),
+            meeting(),
+            environment
+        );
 
         expect(mockFetch).toHaveBeenCalledWith(
             'https://api.inworld.ai/tts/v1/voice',
@@ -124,14 +131,20 @@ describe('AudioSystem Inworld Integration', () => {
     it('should use Whisper for timings (Phase 1)', async () => {
         const message = { id: 'msg2', text: 'Timing Test', sentences: ['Timing Test'] };
         const speaker = { id: 'char1', voice: 'Dennis', voiceProvider: 'inworld' };
-        const context = { options: { audio_speed: 1.0, inworldVoiceModel: 'inworld-tts-1' } };
 
         mockFetch.mockResolvedValue({
             ok: true,
             json: async () => ({ audioContent: Buffer.from('audio').toString('base64') }),
         });
 
-        await audioSystem.generateAudio(message, speaker, context, 123, 'production');
+        await audioSystem.generateAudio(
+            message,
+            speaker,
+            'en',
+            serverOptions({ audio_speed: 1.0, inworldVoiceModel: 'inworld-tts-1' }),
+            meeting(),
+            'production'
+        );
 
         const openai = mockServices.getOpenAI();
         expect(openai.audio.transcriptions.create).toHaveBeenCalled();
@@ -140,7 +153,6 @@ describe('AudioSystem Inworld Integration', () => {
     it('should use native timings if provided (Phase 2) and bypass Whisper', async () => {
         const message = { id: 'msg3', text: 'Native Test', sentences: ['Native Test'] };
         const speaker = { id: 'char1', voice: 'Dennis', voiceProvider: 'inworld' };
-        const context = { options: { audio_speed: 1.0, inworldVoiceModel: 'inworld-tts-1.5' } };
 
         mockFetch.mockResolvedValue({
             ok: true,
@@ -181,7 +193,14 @@ describe('AudioSystem Inworld Integration', () => {
         // mockServices.getOpenAI() returns the SAME mockOpenAI object defined in beforeEach.
         // vi.clearAllMocks() clears calls on all spies.
 
-        await audioSystem.generateAudio(message, speaker, context, 123, 'production');
+        await audioSystem.generateAudio(
+            message,
+            speaker,
+            'en',
+            serverOptions({ audio_speed: 1.0, inworldVoiceModel: 'inworld-tts-1.5' }),
+            meeting(),
+            'production'
+        );
 
         expect(openai.audio.transcriptions.create).not.toHaveBeenCalled();
     });
@@ -196,7 +215,14 @@ describe('AudioSystem Inworld Integration', () => {
             text: async () => 'Internal Server Error'
         });
 
-        await audioSystem.generateAudio(message, speaker, { options: { audio_speed: 1.0, inworldVoiceModel: 'inworld-tts-1' } }, 123, 'production');
+        await audioSystem.generateAudio(
+            message,
+            speaker,
+            'en',
+            serverOptions({ audio_speed: 1.0, inworldVoiceModel: 'inworld-tts-1' }),
+            meeting(),
+            'production'
+        );
 
         expect(Logger.reportAndCrashClient).toHaveBeenCalledWith(
             'AudioSystem',
@@ -225,7 +251,14 @@ describe('AudioSystem Inworld Integration', () => {
             text: async () => ''
         });
 
-        await audioSystem.generateAudio(message, speaker, { options: { audio_speed: 1.0, inworldVoiceModel: 'inworld-tts-1' } }, 123, 'production');
+        await audioSystem.generateAudio(
+            message,
+            speaker,
+            'en',
+            serverOptions({ audio_speed: 1.0, inworldVoiceModel: 'inworld-tts-1' }),
+            meeting(),
+            'production'
+        );
 
         // Verify request payload contained processed text
         expect(mockFetch).toHaveBeenCalledWith(

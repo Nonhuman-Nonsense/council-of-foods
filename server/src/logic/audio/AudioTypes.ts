@@ -1,14 +1,14 @@
 import type { Collection } from "mongodb";
 import type { OpenAI } from "openai";
-import type { Meeting, Audio } from "@models/DBModels.js";
+import type { StoredMeeting, StoredAudio } from "@models/DBModels.js";
 import type { VoiceOption } from "@shared/ModelTypes.js";
 
 // Re-export AudioTask from AudioUtils or move here? Let's move AudioTask here if it's used across files.
 // Actually AudioTask is used in AudioQueue which is in AudioUtils. Let's keep AudioTask in AudioUtils or export it from there.
 
 export interface Services {
-    audioCollection: Collection<Audio>;
-    meetingsCollection: Collection<Meeting>;
+    audioCollection: Collection<StoredAudio>;
+    meetingsCollection: Collection<StoredMeeting>;
     getOpenAI: () => OpenAI;
 }
 

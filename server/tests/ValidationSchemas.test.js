@@ -1,7 +1,12 @@
-
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
-describe('ValidationSchemas Environment Logic', () => {
+const baseSetupOptions = () => ({
+    meetingId: 1,
+    creatorKey: 'creator-key',
+    serverOptions: { conversationMaxLength: 999 }
+});
+
+describe('ValidationSchemas — SetupOptionsSchema (serverOptions safety)', () => {
     let originalEnv;
 
     beforeEach(() => {
@@ -13,55 +18,35 @@ describe('ValidationSchemas Environment Logic', () => {
         process.env.NODE_ENV = originalEnv;
     });
 
-    it('should ACCEPT options in prototype environment', async () => {
+    it('should ACCEPT serverOptions in prototype environment', async () => {
         process.env.NODE_ENV = 'prototype';
 
-        // Dynamic import to enforce re-evaluation of the module after env change
         const { SetupOptionsSchema } = await import('@models/ValidationSchemas.js');
 
-        const input = {
-            topic: "Test",
-            characters: [],
-            options: { conversationMaxLength: 999 }
-        };
-
-        const result = SetupOptionsSchema.safeParse(input);
+        const result = SetupOptionsSchema.safeParse(baseSetupOptions());
         expect(result.success).toBe(true);
-        expect(result.data.options).toBeDefined();
-        expect(result.data.options.conversationMaxLength).toBe(999);
+        expect(result.data.serverOptions).toBeDefined();
+        expect(result.data.serverOptions.conversationMaxLength).toBe(999);
     });
 
-    it('should ACCEPT options in test environment', async () => {
+    it('should ACCEPT serverOptions in test environment', async () => {
         process.env.NODE_ENV = 'test';
 
         const { SetupOptionsSchema } = await import('@models/ValidationSchemas.js');
 
-        const input = {
-            topic: "Test",
-            characters: [],
-            options: { conversationMaxLength: 999 }
-        };
-
-        const result = SetupOptionsSchema.safeParse(input);
+        const result = SetupOptionsSchema.safeParse(baseSetupOptions());
         expect(result.success).toBe(true);
-        expect(result.data.options).toBeDefined();
+        expect(result.data.serverOptions).toBeDefined();
+        expect(result.data.serverOptions.conversationMaxLength).toBe(999);
     });
 
-    it('should STRIP options in production environment', async () => {
+    it('should STRIP serverOptions in production environment', async () => {
         process.env.NODE_ENV = 'production';
 
         const { SetupOptionsSchema } = await import('@models/ValidationSchemas.js');
 
-        const input = {
-            topic: "Test",
-            characters: [],
-            options: { conversationMaxLength: 999 }
-        };
-
-        const result = SetupOptionsSchema.safeParse(input);
+        const result = SetupOptionsSchema.safeParse(baseSetupOptions());
         expect(result.success).toBe(true);
-        // In production, 'options' is not in the schema, so Zod strips it.
-        // verification:
-        expect(result.data.options).toBeUndefined();
+        expect(result.data.serverOptions).toBeUndefined();
     });
 });

@@ -1,98 +1,102 @@
-
 import { describe, it, expect } from 'vitest';
-import { SetupOptionsSchema } from '../src/models/ValidationSchemas.js';
+import { CreateMeetingSchema } from '../src/models/ValidationSchemas.js';
 
-describe('ValidationSchemas Custom Voice Logic', () => {
+const topic = {
+    id: 't1',
+    title: 'T',
+    description: 'D',
+    prompt: 'P'
+};
+
+describe('ValidationSchemas Custom Voice Logic (CreateMeeting)', () => {
 
     it('should allow custom voice ID for Inworld provider', () => {
         const payload = {
+            topic,
             characters: [
                 {
                     id: 'char1',
                     name: 'Test Char',
                     voice: 'custom-cloned-voice-id-123',
-                    voiceProvider: 'inworld'
+                    voiceProvider: 'inworld' as const
                 }
             ],
-            language: 'en',
-            topic: 'Test Topic',
-            options: {} // Partial options allowed
+            language: 'en'
         };
 
-        const result = SetupOptionsSchema.safeParse(payload);
+        const result = CreateMeetingSchema.safeParse(payload);
         expect(result.success).toBe(true);
     });
 
     it('should validate standard OpenAI voices', () => {
         const payload = {
+            topic,
             characters: [
                 {
                     id: 'char1',
                     name: 'Test Char',
                     voice: 'alloy',
-                    voiceProvider: 'openai'
+                    voiceProvider: 'openai' as const
                 }
             ],
-            language: 'en',
-            topic: 'Test Topic',
-            options: {}
+            language: 'en'
         };
 
-        const result = SetupOptionsSchema.safeParse(payload);
+        const result = CreateMeetingSchema.safeParse(payload);
         expect(result.success).toBe(true);
     });
 
     it('should reject invalid OpenAI voices', () => {
         const payload = {
+            topic,
             characters: [
                 {
                     id: 'char1',
                     name: 'Test Char',
                     voice: 'invalid-voice',
-                    voiceProvider: 'openai'
+                    voiceProvider: 'openai' as const
                 }
             ],
-            language: 'en',
-            topic: 'Test Topic'
+            language: 'en'
         };
 
-        const result = SetupOptionsSchema.safeParse(payload);
+        const result = CreateMeetingSchema.safeParse(payload);
         expect(result.success).toBe(false);
     });
 
     it('should validate standard Gemini voices', () => {
         const payload = {
+            topic,
             characters: [
                 {
                     id: 'char1',
                     name: 'Test Char',
                     voice: 'Puck',
-                    voiceProvider: 'gemini'
+                    voiceProvider: 'gemini' as const
                 }
             ],
-            language: 'en',
-            topic: 'Test Topic'
+            language: 'en'
         };
 
-        const result = SetupOptionsSchema.safeParse(payload);
+        const result = CreateMeetingSchema.safeParse(payload);
         expect(result.success).toBe(true);
     });
 
     it('should reject invalid Gemini voices', () => {
         const payload = {
+            topic,
             characters: [
                 {
                     id: 'char1',
                     name: 'Test Char',
-                    voice: 'alloy', // Openai voice, invalid for gemini
-                    voiceProvider: 'gemini'
+                    voice: 'alloy',
+                    voiceProvider: 'gemini' as const
                 }
             ],
-            language: 'en',
-            topic: 'Test Topic'
+            language: 'en'
         };
 
-        const result = SetupOptionsSchema.safeParse(payload);
+        const result = CreateMeetingSchema.safeParse(payload);
         expect(result.success).toBe(false);
     });
 });

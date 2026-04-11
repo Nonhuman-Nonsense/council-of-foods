@@ -1,6 +1,8 @@
 import type { IMeetingBroadcaster } from "@interfaces/MeetingInterfaces.js";
+import type { GlobalOptions } from "@logic/GlobalOptions.js";
 import { Logger } from "@utils/Logger.js";
 import { mapSentencesToWords, Word } from "@utils/textUtils.js";
+import type { StoredMeeting } from "@models/DBModels.js";
 import { GoogleAuth } from 'google-auth-library';
 import { parseBuffer } from 'music-metadata';
 import {
@@ -16,7 +18,6 @@ import {
     splitText
 } from "./audio/AudioUtils.js";
 import {
-    AudioContext,
     AudioSystemOptions,
     Message,
     Services,
@@ -61,18 +62,19 @@ export class AudioSystem {
         return this.googleAuthClient;
     }
 
-    queueAudioGeneration(message: Message, speaker: Speaker, context: AudioContext, meetingId: number, environment: string): void {
-        this.queue.add(() => this.generateAudio(message, speaker, context, meetingId, environment));
+    queueAudioGeneration(message: Message, speaker: Speaker, meeting: StoredMeeting, environment: string, serverOptions: GlobalOptions): void {
+        this.queue.add(() =>
+            this.generateAudio(message, speaker, meeting.language, serverOptions, meeting, environment)
+        );
     }
 
     /**
      * Generates or retrieves audio for a given message.
      * Emits 'audio_update' to the socket client.
      */
-    async generateAudio(message: Message, speaker: Speaker, context: AudioContext, meetingId: number, environment: string, skipMatching: boolean = false): Promise<void> {
-        const { options } = context;
+    async generateAudio(message: Message, speaker: Speaker, language: string, serverOptions: GlobalOptions, meeting: StoredMeeting, environment: string, skipMatching: boolean = false): Promise<void> {
         // Merge context language into options for consistent usage internally
-        const effectiveOptions: AudioSystemOptions = { ...options, language: context.language || options.language };
+        const effectiveOptions: AudioSystemOptions = { ...serverOptions, language };
 
         if (effectiveOptions.skipAudio) return;
 
@@ -201,7 +203,7 @@ export class AudioSystem {
                     {
                         $set: {
                             date: new Date().toISOString(),
-                            meeting_id: meetingId,
+                            meeting_id: meeting._id,
                             audio: combinedBuffer,
                             sentences: sentencesWithTimings
                         }
@@ -211,7 +213,7 @@ export class AudioSystem {
             }
             if (environment !== "prototype") {
                 await this.services.meetingsCollection.updateOne(
-                    { _id: meetingId },
+                    { _id: meeting._id },
                     { $addToSet: { audio: audioObject.id } }
                 );
             }

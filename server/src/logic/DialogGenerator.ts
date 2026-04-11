@@ -1,8 +1,8 @@
-import type { Character, ConversationMessage } from '@shared/ModelTypes.js';
+import type { Character, Message } from '@shared/ModelTypes.js';
 import type { IMeetingBroadcaster } from "@interfaces/MeetingInterfaces.js";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
 import type { Collection } from "mongodb";
-import type { Meeting, ConversationState } from "@models/DBModels.js";
+import type { StoredMeeting } from "@models/DBModels.js";
 
 import { splitSentences } from "@utils/textUtils.js";
 import { Logger } from "@utils/Logger.js";
@@ -12,15 +12,7 @@ import { withNetworkRetry } from "@utils/NetworkUtils.js";
 
 export interface Services {
     getOpenAI: () => OpenAI;
-    meetingsCollection: Collection<Meeting>;
-}
-
-interface ConversationOptions {
-    options: GlobalOptions;
-    characters: Character[];
-    topic: string;
-    state?: ConversationState;
-    language: string;
+    meetingsCollection: Collection<StoredMeeting>;
 }
 
 export interface GPTResponse {
@@ -37,15 +29,15 @@ export interface GPTResponse {
  */
 export class DialogGenerator {
     services: Services;
-    options: GlobalOptions;
+    serverOptions: GlobalOptions;
 
     /**
      * @param {object} services - Abstracted service container (must provide getOpenAI)
-     * @param {object} options - Global configuration options
+     * @param {object} serverOptions - Global configuration options
      */
-    constructor(services: Services, options: GlobalOptions) {
+    constructor(services: Services, serverOptions: GlobalOptions) {
         this.services = services;
-        this.options = options; // This assumes options are passed, or we might need access to current meeting options
+        this.serverOptions = serverOptions; // This assumes options are passed, or we might need access to current meeting options
     }
 
     /**
@@ -54,8 +46,7 @@ export class DialogGenerator {
      */
     async generateResponseWithRetry(
         speaker: Character,
-        conversation: ConversationMessage[],
-        conversationOptions: ConversationOptions,
+        meeting: StoredMeeting,
         currentSpeakerIndex: number,
         shouldAbort: () => boolean,
         contextInfo: string
@@ -74,8 +65,7 @@ export class DialogGenerator {
         while (attempt < maxAttempts && output.response === "") {
             output = await this.generateTextFromGPT(
                 speaker,
-                conversation,
-                conversationOptions,
+                meeting,
                 currentSpeakerIndex
             );
 
@@ -96,20 +86,20 @@ export class DialogGenerator {
     /**
      * Generates a conversational response for a specific character (food or chair).
      */
-    async generateTextFromGPT(speaker: Character, conversation: ConversationMessage[], conversationOptions: ConversationOptions, currentSpeakerIndex: number): Promise<GPTResponse> {
+    async generateTextFromGPT(speaker: Character, meeting: StoredMeeting, currentSpeakerIndex: number): Promise<GPTResponse> {
         try {
-            const messages = this.buildMessageStack(speaker, conversation, conversationOptions);
+            const messages = this.buildMessageStack(speaker, meeting.conversation, meeting);
             const openai = this.services.getOpenAI();
 
             const completion = await withNetworkRetry(() => openai.chat.completions.create({
-                model: conversationOptions.options.gptModel,
+                model: this.serverOptions.gptModel,
                 max_completion_tokens:
-                    speaker.id === conversationOptions.options.chairId
-                        ? conversationOptions.options.chairMaxTokens
-                        : conversationOptions.options.maxTokens,
-                temperature: conversationOptions.options.temperature,
-                frequency_penalty: conversationOptions.options.frequencyPenalty,
-                presence_penalty: conversationOptions.options.presencePenalty,
+                    speaker.id === this.serverOptions.chairId
+                        ? this.serverOptions.chairMaxTokens
+                        : this.serverOptions.maxTokens,
+                temperature: this.serverOptions.temperature,
+                frequency_penalty: this.serverOptions.frequencyPenalty,
+                presence_penalty: this.serverOptions.presencePenalty,
                 stop: "\n---",
                 messages: messages,
             }), "DialogGenerator");
@@ -132,7 +122,7 @@ export class DialogGenerator {
             let originalResponse = response;
 
             if (completion.choices[0].finish_reason != "stop") {
-                if (conversationOptions.options.trimSentance) {
+                if (this.serverOptions.trimSentance) {
                     const lastPeriodIndex = response.lastIndexOf(".");
                     if (lastPeriodIndex !== -1) {
                         trimmedContent = originalResponse.substring(lastPeriodIndex + 1);
@@ -140,7 +130,7 @@ export class DialogGenerator {
                     }
                 }
 
-                if (conversationOptions.options.trimParagraph) {
+                if (this.serverOptions.trimParagraph) {
                     const lastNewLineIndex = response.lastIndexOf("\n\n");
                     if (lastNewLineIndex !== -1) {
                         trimmedContent = originalResponse.substring(lastNewLineIndex);
@@ -150,9 +140,9 @@ export class DialogGenerator {
             }
 
             // Check others speaking
-            for (var i = 0; i < conversationOptions.characters.length; i++) {
+            for (var i = 0; i < meeting.characters.length; i++) {
                 if (i === currentSpeakerIndex) continue;
-                const nameIndex = response.indexOf(conversationOptions.characters[i].name + ":");
+                const nameIndex = response.indexOf(meeting.characters[i].name + ":");
                 if (nameIndex != -1 && nameIndex < 20) {
                     response = response.substring(0, nameIndex).trim();
                     trimmedContent = originalResponse.substring(nameIndex);
@@ -163,8 +153,8 @@ export class DialogGenerator {
 
             if (completion.choices[0].finish_reason != "stop") {
                 // Check if we can re-add some messages from the end, to put back some of the list of questions that chair often produces
-                if (conversationOptions.options.trimChairSemicolon) {
-                    if (speaker.id === conversationOptions.options.chairId) {
+                if (this.serverOptions.trimChairSemicolon) {
+                    if (speaker.id === this.serverOptions.chairId) {
                         const trimmedSentences = splitSentences(trimmedContent?.trim() || "").filter((sentence) => sentence.length > 0 && sentence !== ".");
 
                         if (
@@ -221,10 +211,10 @@ export class DialogGenerator {
      * Generates a specific interjection or system message (e.g., Chair inviting human).
      * Uses a temporary system prompt injected at the end of the history.
      */
-    async chairInterjection(interjectionPrompt: string, index: number, length: number, dontStop: boolean, conversation: ConversationMessage[], conversationOptions: ConversationOptions, broadcaster: IMeetingBroadcaster): Promise<GPTResponse> {
+    async chairInterjection(interjectionPrompt: string, index: number, length: number, dontStop: boolean, meeting: StoredMeeting, broadcaster: IMeetingBroadcaster): Promise<GPTResponse> {
         try {
-            const chair = conversationOptions.characters[0];
-            let messages = this.buildMessageStack(chair, conversation, conversationOptions, index);
+            const chair = meeting.characters[0];
+            let messages = this.buildMessageStack(chair, meeting.conversation, meeting, index);
 
             messages.push({
                 role: "system",
@@ -233,11 +223,11 @@ export class DialogGenerator {
 
             const openai = this.services.getOpenAI();
             const completion = await withNetworkRetry(() => openai.chat.completions.create({
-                model: conversationOptions.options.gptModel,
+                model: this.serverOptions.gptModel,
                 max_completion_tokens: length,
-                temperature: conversationOptions.options.temperature,
-                frequency_penalty: conversationOptions.options.frequencyPenalty,
-                presence_penalty: conversationOptions.options.presencePenalty,
+                temperature: this.serverOptions.temperature,
+                frequency_penalty: this.serverOptions.frequencyPenalty,
+                presence_penalty: this.serverOptions.presencePenalty,
                 stop: dontStop ? undefined : "\n---",
                 messages: messages,
             }), "DialogGenerator");
@@ -265,18 +255,18 @@ export class DialogGenerator {
     /**
      * Constructs the array of message objects (system, user, assistant) for the GPT API.
      */
-    buildMessageStack(speaker: Character, conversation: ConversationMessage[], conversationOptions: ConversationOptions, upToIndex?: number): ChatCompletionMessageParam[] {
+    buildMessageStack(speaker: Character, conversation: Message[], meeting: StoredMeeting, upToIndex?: number): ChatCompletionMessageParam[] {
         let messages: ChatCompletionMessageParam[] = [];
 
         messages.push({
             role: "system",
-            content: `${conversationOptions.topic}\n\n${speaker.prompt}`.trim(),
+            content: `${meeting.topic.prompt}\n\n${speaker.prompt}`.trim(),
         });
 
         for (const msg of conversation) {
             if (msg.type === "skipped") continue;
 
-            const speakerName = msg.type === 'human' ? (conversationOptions.state?.humanName || "Human") : (conversationOptions.characters.find(c => c.id === msg.speaker)?.name || "Unknown");
+            const speakerName = msg.type === 'human' ? (meeting.state?.humanName || "Human") : (meeting.characters.find(c => c.id === msg.speaker)?.name || "Unknown");
             messages.push({
                 role: speaker.id === msg.speaker ? "assistant" : "user",
                 content: speakerName + ": " + msg.text + "\n---",

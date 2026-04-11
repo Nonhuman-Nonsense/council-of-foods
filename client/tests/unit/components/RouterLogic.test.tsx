@@ -10,7 +10,7 @@ import routes from '../../../src/routes.json';
 
 // Mock child components to focus on routing logic
 vi.mock('../../../src/components/Overlay', () => ({
-    default: ({ children }) => <div data-testid="overlay">{children}</div>
+    default: ({ children }: { children: React.ReactNode }) => <div data-testid="overlay">{children}</div>
 }));
 vi.mock('../../../src/components/MainOverlays', () => ({
     default: () => <div data-testid="main-overlays">MainOverlays</div>
@@ -42,7 +42,7 @@ vi.mock('../../../src/utils', () => ({
     usePortrait: () => false,
     useMobile: () => false,
     useMobileXs: () => false,
-    capitalizeFirstLetter: (str) => str,
+    capitalizeFirstLetter: (str: string) => str,
     dvh: 'vh',
     minWindowHeight: 300,
     useDocumentVisibility: () => true
@@ -51,7 +51,7 @@ vi.mock('../../../src/utils', () => ({
 // Mock react-i18next
 vi.mock('react-i18next', () => ({
     useTranslation: () => ({
-        t: (key) => key,
+        t: (key: string) => key,
         i18n: { changeLanguage: vi.fn() }
     }),
 }));
@@ -107,22 +107,6 @@ describe('Router Logic', () => {
         });
 
         it('renders Council at /meeting/new', async () => {
-            // We need to simulate the state where participants are set, otherwise Main redirects or doesn't render Council
-            // However, testing Main directly might be hard because of internal state (participants).
-            // But we can check if the route IS MATCHED.
-
-            // Actually, Main.tsx renders Routes. We want to see if the Route for meeting is correctly set up.
-            // If we go to /meeting/123, does it try to render Council?
-            // In Main.tsx: path={`${routes.meeting}/:meetingId`} element={<Council ... />}
-            // But check: participants.length !== 0 && <Council ... />
-            // So if no participants, it renders nothing (null).
-
-            // Use a wrapper that sets state if possible? No, Main has internal state.
-            // We can mock useState? No, that's too intrusive.
-
-            // Let's assume for routing matching:
-            // We can just verify that it DOES NOT redirect to /en/meeting/123
-
             render(
                 <MemoryRouter initialEntries={[`/${routes.meeting}/123`]}>
                     <Main lang="en" />
@@ -145,7 +129,7 @@ describe('Router Logic', () => {
         it('Navbar should NOT show language toggle for single language', () => {
             render(
                 <MemoryRouter>
-                    <Navbar lang="en" topic="Topic" hamburgerOpen={false} setHamburgerOpen={() => { }} />
+                    <Navbar topicTitle="Topic" hamburgerOpen={false} setHamburgerOpen={() => { }} />
                 </MemoryRouter>
             );
             // Assuming we implement the hiding logic. 
@@ -160,7 +144,7 @@ describe('Router Logic', () => {
 
     describe('Multi Language (en, sv)', () => {
         beforeEach(() => {
-            vi.spyOn(AvailableLanguagesModule, 'AVAILABLE_LANGUAGES', 'get').mockReturnValue(['en', 'sv']);
+            vi.spyOn(AvailableLanguagesModule, 'AVAILABLE_LANGUAGES', 'get').mockReturnValue(['en', 'sv'] as any);
         });
 
         afterEach(() => {
@@ -187,7 +171,7 @@ describe('Router Logic', () => {
         it('Navbar SHOULD show language toggle for multi language', () => {
             render(
                 <MemoryRouter>
-                    <Navbar lang="en" topic="Topic" hamburgerOpen={false} setHamburgerOpen={() => { }} />
+                    <Navbar topicTitle="Topic" hamburgerOpen={false} setHamburgerOpen={() => { }} />
                 </MemoryRouter>
             );
             expect(screen.getByText('EN')).toBeVisible();

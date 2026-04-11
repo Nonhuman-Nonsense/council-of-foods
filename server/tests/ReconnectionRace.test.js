@@ -1,12 +1,13 @@
-
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { ConnectionHandler } from '../src/logic/ConnectionHandler';
+import { ConnectionHandler } from '../src/logic/ConnectionHandler.js';
+import { MockFactory } from './factories/MockFactory.ts';
 
 vi.mock('@utils/Logger.js', () => ({
     Logger: {
         info: vi.fn(),
         error: vi.fn(),
-        warn: vi.fn()
+        warn: vi.fn(),
+        reportAndCrashClient: vi.fn()
     }
 }));
 
@@ -33,10 +34,9 @@ describe('ConnectionHandler - Race Condition', () => {
         };
 
         mockContext = {
-            meetingId: 100,
-            conversation: [],
-            conversationOptions: { options: { conversationMaxLength: 10 } },
-            meetingDate: new Date(),
+            meeting: null,
+            serverOptions: MockFactory.createServerOptions(),
+            extraMessageCount: 0,
             isLoopActive: true,
             handRaised: false,
             broadcaster: mockBroadcaster,
@@ -52,61 +52,46 @@ describe('ConnectionHandler - Race Condition', () => {
     });
 
     it('should NOT start a new loop if already running the same meeting', async () => {
-        const existingMeeting = {
+        const existingMeeting = MockFactory.createStoredMeeting({
             _id: 100,
-            conversation: [{ id: 'msg1' }],
-            options: { options: { conversationMaxLength: 10 } },
-            date: new Date().toISOString(),
+            conversation: [{ id: 'msg1', type: 'message', text: 'hi', speaker: 'water' }],
             audio: ['msg1']
-        };
+        });
 
         mockMeetingsCollection.findOne.mockResolvedValue(existingMeeting);
 
-        // Act
         await handler.handleReconnection({ meetingId: '100' });
 
-        // Assert
-        // ConnectionHandler ALWAYS calls startLoop to ensure liveness. Idempotency is handled inside MeetingManager.
         expect(mockContext.startLoop).toHaveBeenCalled();
         expect(mockBroadcaster.broadcastConversationUpdate).toHaveBeenCalledWith(existingMeeting.conversation);
     });
 
     it('should start a new loop if meeting ID is different (switching meetings)', async () => {
-        // Current: 100. New: 200.
-        mockContext.meetingId = 100;
-
-        const newMeeting = {
+        const newMeeting = MockFactory.createStoredMeeting({
             _id: 200,
             conversation: [],
-            options: { options: {} },
-            date: new Date().toISOString(),
             audio: []
-        };
+        });
 
         mockMeetingsCollection.findOne.mockResolvedValue(newMeeting);
 
-        // Act
         await handler.handleReconnection({ meetingId: '200' });
 
-        // Assert
-        expect(mockContext.meetingId).toBe(200);
-        expect(mockContext.startLoop).toHaveBeenCalled(); // Should start loop for new meeting logic
+        expect(mockContext.meeting._id).toBe(200);
+        expect(mockContext.startLoop).toHaveBeenCalled();
     });
 
     it('should start a new loop if current loop is NOT running', async () => {
-        mockContext.isLoopActive = false; // Stopped
-        const existingMeeting = {
+        mockContext.isLoopActive = false;
+        const existingMeeting = MockFactory.createStoredMeeting({
             _id: 100,
             conversation: [],
-            options: { options: {} },
-            date: new Date().toISOString(),
             audio: []
-        };
+        });
         mockMeetingsCollection.findOne.mockResolvedValue(existingMeeting);
 
         await handler.handleReconnection({ meetingId: '100' });
 
-        // ConnectionHandler just calls startLoop(), checking logic is inside startLoop or implied
         expect(mockContext.startLoop).toHaveBeenCalled();
     });
 });

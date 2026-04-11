@@ -3,6 +3,7 @@ import { MeetingManager } from "./MeetingManager.js";
 import { Logger } from "@utils/Logger.js";
 import { ClientToServerEvents, ReconnectionOptions, SetupOptions } from "@shared/SocketTypes.js";
 import { ZodError } from "zod";
+import { getGlobalOptions } from "./GlobalOptions.js";
 
 /**
  * SocketManager
@@ -94,8 +95,8 @@ export class SocketManager {
                 await handler(payload);
             } catch (error: any) {
                 // Report to external error service
-                const context = this.currentSession?.meetingId
-                    ? `meeting ${this.currentSession.meetingId}`
+                const context = this.currentSession?.meeting
+                    ? `meeting ${this.currentSession.meeting._id}`
                     : `socket ${this.socket.id}`;
 
                 if (error instanceof ZodError) {
@@ -133,8 +134,11 @@ export class SocketManager {
         Logger.info("socket", "Starting new meeting session...");
         this.destroySession();
 
+        const baseOptions = getGlobalOptions();
+        const serverOptions = this.environment === "prototype" ? ({ ...baseOptions, ...(payload.serverOptions || {}) }) : baseOptions;
+
         // Create new session
-        this.currentSession = new MeetingManager(this.socket, this.environment);
+        this.currentSession = new MeetingManager(this.socket, this.environment, serverOptions);
 
         // No try-catch needed here, handled by bindSafeListener
         await this.currentSession.initializeStart(payload);
@@ -144,7 +148,10 @@ export class SocketManager {
         Logger.info("socket", "Reconnecting to meeting session...");
 
         // 1. Check if payload.meetingId matches active session
-        if (this.currentSession && this.currentSession.meetingId === payload.meetingId) {
+        if (
+            this.currentSession?.meeting &&
+            this.currentSession.meeting._id === Number(payload.meetingId)
+        ) {
             Logger.info("socket", "Session already active for this meeting. Syncing only.");
             this.currentSession.syncClient();
             return;

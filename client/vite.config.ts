@@ -30,6 +30,7 @@ export default defineConfig(async ({ mode }) => {
       // mirrors your old CRA proxy setting
       proxy: {
         '/socket.io': 'http://localhost:3001',
+        '/api': 'http://localhost:3001'
       },
     },
     test: {
