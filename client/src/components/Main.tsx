@@ -1,5 +1,6 @@
 import "@root/App.css";
 import React, { useState, useEffect } from "react";
+import { getTopicsBundle } from "@/components/topicsBundle";
 import {
   Routes,
   Route,
@@ -51,7 +52,7 @@ export default function Main(props: MainProps) {
   const [hamburgerOpen, setHamburgerOpen] = useState(false);
 
   const { i18n } = useTranslation();
-  const { newMeetingPath } = useRouting();
+  const { rootPath, newMeetingPath } = useRouting();
   const location = useLocation();
   const navigate = useNavigate();
   const isIphone = useIsIphone();
@@ -59,7 +60,27 @@ export default function Main(props: MainProps) {
 
   useEffect(() => {
     i18n.changeLanguage(props.lang);
-  }, [props.lang]);
+
+    if (topicSelection?.id) {
+      const bundle = getTopicsBundle(props.lang);
+      if (topicSelection.id === 'customtopic') {
+        setTopicSelection(prev => prev
+          ? { ...prev, title: bundle.custom_topic.title }
+          : prev);
+      } else {
+        const found = bundle.topics.find(t => t.id === topicSelection.id);
+        if (found) {
+          setTopicSelection(prev => prev
+            ? { ...prev, title: found.title, description: found.description, prompt: bundle.system.replace("[TOPIC]", found.prompt) }
+            : prev);
+        }
+      }
+    }
+
+    if (isMeetingPath(location.pathname)) {
+      navigate({ hash: "warning" });
+    }
+  }, [props.lang]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // If the user navigates back to the landing page, treat it as a fresh start.
   useEffect(() => {
@@ -78,8 +99,7 @@ export default function Main(props: MainProps) {
   function onReset(resetTopic?: Topic) {
     //If resetting completely
     if (!resetTopic) {
-      // Just redirect to root and let the app redirect to the correct language root
-      window.location.href = "/";
+      window.location.href = rootPath;
       return;
     }
 
@@ -147,7 +167,7 @@ export default function Main(props: MainProps) {
               path={`${routes.meeting}/:meetingId`}
               element={
                 <Council
-                  key={location.pathname}
+                  key={stripLanguagePrefix(location.pathname)}
                   creatorKey={meetingCreatorKey}
                   setUnrecoverableError={setUnrecoverableError}
                   connectionError={connectionError}
