@@ -10,5 +10,6 @@ export async function createMeeting(body: CreateMeetingBody): Promise<{ meetingI
     const errText = await res.text();
     throw new Error(errText || `Create meeting failed (${res.status})`);
   }
-  return res.json() as Promise<{ meetingId: number, creatorKey: string }>;
+  const data = await res.json() as { meetingId: string | number; creatorKey: string };
+  return { meetingId: Number(data.meetingId), creatorKey: data.creatorKey };
 }

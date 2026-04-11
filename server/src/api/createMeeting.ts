@@ -1,5 +1,4 @@
 import { CreateMeetingSchema } from "@models/ValidationSchemas.js";
-import { getGlobalOptions } from "@logic/GlobalOptions.js";
 import { insertMeeting } from "@services/DbService.js";
 import type { StoredMeeting } from "@models/DBModels.js";
 import { v4 as uuidv4 } from "uuid";
@@ -8,10 +7,9 @@ import { v4 as uuidv4 } from "uuid";
  * Create a new meeting record (DB only).
  *
  * This is the *only* creation path: HTTP `POST /api/meetings`.
- * The meeting loop is started later when a controller opens the meeting via WebSocket (`meeting_open`),
- * inside `MeetingSession.syncFromDbAndEnsureLoop()`.
+ * The conversation loop starts when the client connects and emits `start_conversation` with `meetingId` and `creatorKey`.
  */
-export async function createMeeting(rawBody: unknown, environment: string): Promise<{ meetingId: string, creatorKey: string }> {
+export async function createMeeting(rawBody: unknown, _environment: string): Promise<{ meetingId: string, creatorKey: string }> {
     const setup = CreateMeetingSchema.parse(rawBody);
 
     //Initial meeting record in DB

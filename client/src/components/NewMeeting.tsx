@@ -60,7 +60,7 @@ export default function NewMeeting({
         language: lang,
       });
       setMeetingCreatorKey(creatorKey);
-      navigate(meetingPath(lang, meetingId));
+      navigate(meetingPath(lang, Number(meetingId)));
     } catch (e) {
       console.error(e);
       setUnrecoverableError(true);
