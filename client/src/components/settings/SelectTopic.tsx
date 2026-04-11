@@ -4,6 +4,8 @@ import { capitalizeFirstLetter, toTitleCase, useMobile, useMobileXs } from "@/ut
 import { useTranslation } from "react-i18next";
 import type { Topic } from "@shared/ModelTypes";
 
+import { getTopicsBundle } from "@/components/topicsBundle";
+
 /**
  * SelectTopic Component
  *
@@ -18,24 +20,16 @@ import type { Topic } from "@shared/ModelTypes";
  * - Shows a warning if the user attempts to change the topic mid-meeting.
  */
 
-export interface TopicSelection {
-  topic: string;
-  custom: string;
-}
-
 interface SelectTopicProps {
-  topics: Topic[];
-  customTopicConfig: Topic;
-  onContinueForward: (data: TopicSelection) => void;
+  lang: string;
+  onContinueForward: (selectedTopic: Topic) => void;
   currentTopic?: Topic;
-  /** Required when `currentTopic` is set (mid-meeting topic change → warning dialog). */
-  onReset?: (data: TopicSelection) => void;
+  onReset?: (resetTopic: Topic) => void;
   onCancel?: () => void;
 }
 
 function SelectTopic({
-  topics,
-  customTopicConfig,
+  lang,
   onContinueForward,
   currentTopic,
   onReset,
@@ -45,6 +39,8 @@ function SelectTopic({
   const isMobile = useMobile();
   const isMobileXs = useMobileXs();
   const topicTextareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const topicsBundle = getTopicsBundle(lang);
 
   /* -------------------------------------------------------------------------- */
   /*                                    State                                   */
@@ -59,15 +55,18 @@ function SelectTopic({
   /*                                   Effects                                  */
   /* -------------------------------------------------------------------------- */
 
-  // Pre-fill selection if editing an existing topic (e.g. backtracking)
+  // Pre-fill when editing the meeting topic (#settings)
   useEffect(() => {
-    if (currentTopic?.prompt) {
-      if (currentTopic.id === customTopicConfig.id && currentTopic.description) {
-        setCustomTopic(currentTopic.description);
-      }
-      setSelectedTopic(currentTopic.id);
+    const id = currentTopic?.id;
+    if (!id) return;
+
+    if (id === topicsBundle.custom_topic.id && currentTopic.description) {
+      setCustomTopic(currentTopic.description);
+    } else if (id !== topicsBundle.custom_topic.id) {
+      setCustomTopic("");
     }
-  }, [currentTopic]);
+    setSelectedTopic(id);
+  }, [currentTopic?.id, currentTopic?.description]);
 
   /* -------------------------------------------------------------------------- */
   /*                                  Handlers                                  */
@@ -79,11 +78,25 @@ function SelectTopic({
     setCustomTopic(capitalizedTopic);
   }
 
+  function buildTopic(): Topic {
+    const raw =
+      topicsBundle.topics.find(t => t.id === selectedTopic) ??
+      (selectedTopic === topicsBundle.custom_topic.id ? topicsBundle.custom_topic : undefined);
+    if (!raw) throw new Error(`Topic not found: ${selectedTopic}`);
+    const built = structuredClone(raw);
+    if (built.id === topicsBundle.custom_topic.id) {
+      built.prompt = customTopic;
+      built.description = customTopic;
+    }
+    built.prompt = topicsBundle.system.replace("[TOPIC]", built.prompt);
+    return built;
+  }
+
   function proceedForward(): void {
     if (currentTopic) {
       setDisplayWarning(true);
     } else {
-      onContinueForward({ topic: selectedTopic, custom: customTopic });
+      onContinueForward(buildTopic());
     }
   }
 
@@ -97,9 +110,9 @@ function SelectTopic({
    */
   function toolTip(): string | undefined {
     if (hoverTopic) {
-      return topics.find(t => t.id === hoverTopic)?.description;
+      return topicsBundle.topics.find(t => t.id === hoverTopic)?.description;
     } else if (selectedTopic) {
-      return topics.find(t => t.id === selectedTopic)?.description;
+      return topicsBundle.topics.find(t => t.id === selectedTopic)?.description;
     } else {
       return t("selectissue");
     }
@@ -110,21 +123,21 @@ function SelectTopic({
    * Logic: Visible if Custom is selected OR hovered (unless hovering another topic while Custom is selected).
    */
   function showTextBox(): boolean {
-    if (selectedTopic === customTopicConfig.id && hoverTopic && hoverTopic !== customTopicConfig.id) {
+    if (selectedTopic === topicsBundle.custom_topic.id && hoverTopic && hoverTopic !== topicsBundle.custom_topic.id) {
       return false;
     }
-    return selectedTopic === customTopicConfig.id || hoverTopic === customTopicConfig.id;
+    return selectedTopic === topicsBundle.custom_topic.id || hoverTopic === topicsBundle.custom_topic.id;
   }
 
   const shouldShowNextButton =
     selectedTopic &&
-    !(selectedTopic === customTopicConfig.id && !customTopic.trim());
+    !(selectedTopic === topicsBundle.custom_topic.id && !customTopic.trim());
 
   /* -------------------------------------------------------------------------- */
   /*                                    Styles                                  */
   /* -------------------------------------------------------------------------- */
 
-  const standardTopics = topics;
+  const standardTopics = topicsBundle.topics;
   const isSingleColumn = standardTopics.length <= 6;
 
   const containerStyle: React.CSSProperties = {
@@ -188,7 +201,7 @@ function SelectTopic({
       {displayWarning ? (
         <ResetWarning
           message={t('reset.changeTopic')}
-          onReset={() => onReset?.({ topic: selectedTopic, custom: customTopic })}
+          onReset={() => onReset?.(buildTopic() as Topic)}
           onCancel={() => onCancel?.()}
         />
       ) : (
@@ -223,20 +236,20 @@ function SelectTopic({
               ))}
 
               {/* Custom Topic Button */}
-              {customTopicConfig && (
+              {topicsBundle.custom_topic && (
                 <button
-                  className={selectedTopic === customTopicConfig.id ? "selected " : ""}
+                  className={selectedTopic === topicsBundle.custom_topic.id ? "selected " : ""}
                   onClick={() => {
-                    setSelectedTopic(customTopicConfig.id);
+                    setSelectedTopic(topicsBundle.custom_topic.id);
                     setTimeout(() => {
                       topicTextareaRef.current && topicTextareaRef.current.focus();
                     }, 0);
                   }}
-                  onMouseEnter={() => setHoverTopic(customTopicConfig.id)}
+                  onMouseEnter={() => setHoverTopic(topicsBundle.custom_topic.id)}
                   onMouseLeave={() => setHoverTopic(null)}
                   style={customButtonStyle}
                 >
-                  {toTitleCase(customTopicConfig.title)}
+                  {toTitleCase(topicsBundle.custom_topic.title)}
                 </button>
               )}
             </div>

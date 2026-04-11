@@ -12,7 +12,7 @@ import routes from "@/routes.json";
 
 interface NavbarProps {
   lang: string;
-  topic: string;
+  topicTitle: string;
   hamburgerOpen: boolean;
   setHamburgerOpen: (open: boolean) => void;
 }
@@ -34,7 +34,7 @@ interface LottiePlayerHandle {
  * - Manages hamburger menu animation state for mobile devices.
  * - Displays the "Council" logo and current topic when allowed (`showIconinMeny`).
  */
-function Navbar({ lang, topic, hamburgerOpen, setHamburgerOpen }: NavbarProps): React.ReactElement {
+function Navbar({ lang, topicTitle: topic, hamburgerOpen, setHamburgerOpen }: NavbarProps): React.ReactElement {
   const isMobile: boolean = useMobile();
   const isMobileXs: boolean = useMobileXs();
   const isPortrait: boolean = usePortrait();

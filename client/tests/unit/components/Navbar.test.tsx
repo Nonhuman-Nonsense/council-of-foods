@@ -48,7 +48,7 @@ describe('Navbar', () => {
     const mockSetHamburgerOpen = vi.fn();
     const defaultProps = {
         lang: 'en',
-        topic: 'test topic',
+        topicTitle: 'test topic',
         hamburgerOpen: false,
         setHamburgerOpen: mockSetHamburgerOpen
     };

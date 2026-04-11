@@ -1,17 +1,16 @@
-import type { Character, Topic } from "@shared/ModelTypes";
+import type { Topic } from "@shared/ModelTypes";
 import { useState } from "react";
 import { useNavigate } from "react-router";
-import SelectTopic, { TopicSelection } from "./settings/SelectTopic";
+import SelectTopic from "./settings/SelectTopic";
 import SelectFoods, { Food } from "./settings/SelectFoods";
-import { getTopicsBundle } from "@/components/topicsBundle";
 import { createMeeting } from "@/api/createMeeting";
 import { meetingPath } from "@/routing";
 
 export interface NewMeetingProps {
   lang: string;
   setUnrecoverableError: (error: boolean) => void;
-  topicSelection: TopicSelection | null;
-  setTopicSelection: (selection: TopicSelection | null) => void;
+  topicSelection: Topic | null;
+  setTopicSelection: (topic: Topic) => void;
   setMeetingCreatorKey: (key: string) => void;
 }
 
@@ -22,41 +21,28 @@ export default function NewMeeting({
   setTopicSelection,
   setMeetingCreatorKey,
 }: NewMeetingProps) {
-  const topicsBundle = getTopicsBundle(lang);
-  const { topics, custom_topic: customTopicConfig, system: systemPrompt } = topicsBundle;
-
   const navigate = useNavigate();
-  const [step, setStep] = useState<"topic" | "foods">("topic");
+  const [step, setStep] = useState<"topic" | "foods">(() =>
+    // If a topic has been selected, go to the foods step, eg. on reset
+    topicSelection != null ? "foods" : "topic"
+  );
   const [creating, setCreating] = useState(false);
 
-  const selectedForFoodsStep =
-    topicSelection && resolveSelectedTopic(topics, customTopicConfig, topicSelection);
-  const foodsStepTitle = selectedForFoodsStep?.title ?? "";
-
-  function handleTopicContinue(data: TopicSelection) {
-    const selected = resolveSelectedTopic(topics, customTopicConfig, data);
-    if (!selected) return;
-    setTopicSelection(data);
+  function handleTopicContinue(selectedTopic: Topic) {
+    setTopicSelection(selectedTopic);
     setStep("foods");
   }
 
   async function handleFoodsContinue({ foods }: { foods: Food[] }) {
-    if (!topicSelection) return;
-    const baseTopic = resolveSelectedTopic(topics, customTopicConfig, topicSelection);
-    if (!baseTopic) return;
-
-    const topic = buildTopicDraftForMeeting(baseTopic, topicSelection, systemPrompt);
-    const participants: Character[] = foods.map((food) => ({
-      ...food,
-      voice: food.voice,
-      type: food.type || "food",
-    })) as Character[];
-
+    if (!topicSelection) {
+      console.error("NewMeeting: missing topic when creating meeting");
+      return;
+    }
     setCreating(true);
     try {
       const { meetingId, creatorKey } = await createMeeting({
-        topic,
-        characters: participants,
+        topic: topicSelection,
+        characters: foods,
         language: lang,
       });
       setMeetingCreatorKey(creatorKey);
@@ -73,9 +59,8 @@ export default function NewMeeting({
   if (step === "topic") {
     return (
       <SelectTopic
-        topics={topics}
-        customTopicConfig={customTopicConfig}
-        currentTopic={topicSelection ? resolveSelectedTopic(topics, customTopicConfig, topicSelection) ?? undefined : undefined}
+        lang={lang}
+        currentTopic={topicSelection ?? undefined}
         onContinueForward={handleTopicContinue}
       />
     );
@@ -85,34 +70,10 @@ export default function NewMeeting({
     <>
       <SelectFoods
         lang={lang}
-        topicTitle={foodsStepTitle}
+        topicTitle={topicSelection?.title ?? ""}
         onContinueForward={handleFoodsContinue}
         loading={creating}
       />
     </>
   );
-}
-
-function resolveSelectedTopic(
-  topics: Topic[],
-  customTopicConfig: Topic,
-  selection: TopicSelection
-): Topic | null {
-  return (
-    topics.find((t) => t.id === selection.topic) ??
-    (selection.topic === customTopicConfig.id ? customTopicConfig : null) ??
-    null
-  );
-}
-
-function buildTopicDraftForMeeting(base: Topic, selection: TopicSelection, systemPrompt: string): Topic {
-  const t = structuredClone(base);
-  if (t.id === "customtopic") {
-    t.prompt = selection.custom;
-    t.description = selection.custom;
-  }
-  if (t.prompt) {
-    t.prompt = systemPrompt.replace("[TOPIC]", t.prompt);
-  }
-  return t;
 }

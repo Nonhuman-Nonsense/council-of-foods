@@ -145,7 +145,7 @@ describe('Router Logic', () => {
         it('Navbar should NOT show language toggle for single language', () => {
             render(
                 <MemoryRouter>
-                    <Navbar lang="en" topic="Topic" hamburgerOpen={false} setHamburgerOpen={() => { }} />
+                    <Navbar lang="en" topicTitle="Topic" hamburgerOpen={false} setHamburgerOpen={() => { }} />
                 </MemoryRouter>
             );
             // Assuming we implement the hiding logic. 
@@ -187,7 +187,7 @@ describe('Router Logic', () => {
         it('Navbar SHOULD show language toggle for multi language', () => {
             render(
                 <MemoryRouter>
-                    <Navbar lang="en" topic="Topic" hamburgerOpen={false} setHamburgerOpen={() => { }} />
+                    <Navbar lang="en" topicTitle="Topic" hamburgerOpen={false} setHamburgerOpen={() => { }} />
                 </MemoryRouter>
             );
             expect(screen.getByText('EN')).toBeVisible();

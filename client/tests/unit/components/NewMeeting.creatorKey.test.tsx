@@ -36,8 +36,8 @@ vi.mock("@/components/settings/SelectTopic", () => ({
 }));
 
 const twoFoods: Food[] = [
-    { id: "water", name: "Water", type: "food", voice: "alloy" },
-    { id: "tomato", name: "Tomato", type: "food", voice: "alloy" },
+    { id: "water", name: "Water", description: "", type: "food", voice: "alloy" },
+    { id: "tomato", name: "Tomato", description: "", type: "food", voice: "alloy" },
 ];
 
 vi.mock("@/components/settings/SelectFoods", () => ({
@@ -79,7 +79,7 @@ describe("NewMeeting — creator key handoff", () => {
                             <NewMeeting
                                 lang="en"
                                 setUnrecoverableError={setUnrecoverableError}
-                                topicSelection={{ topic: "test-topic", custom: "" }}
+                                topicSelection={{ id: "test-topic", title: "Test Topic", description: "D", prompt: "P" }}
                                 setTopicSelection={setTopicSelection}
                                 setMeetingCreatorKey={setMeetingCreatorKey}
                             />
@@ -93,11 +93,7 @@ describe("NewMeeting — creator key handoff", () => {
             </MemoryRouter>
         );
 
-        fireEvent.click(screen.getByTestId("topic-next"));
-        await waitFor(() => {
-            expect(screen.getByTestId("foods-continue")).toBeInTheDocument();
-        });
-
+        // topicSelection is preset → NewMeeting opens on the foods step
         fireEvent.click(screen.getByTestId("foods-continue"));
 
         await waitFor(() => {

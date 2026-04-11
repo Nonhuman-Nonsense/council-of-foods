@@ -11,7 +11,6 @@ import MainOverlays from "./MainOverlays";
 import Landing from "./settings/Landing";
 import Navbar from "./Navbar";
 import type { Topic } from "@shared/ModelTypes";
-import type { TopicSelection } from "./settings/SelectTopic";
 import NewMeeting from "./NewMeeting";
 import Council from "./Council";
 import { getBasePath, isMeetingPath, isRootPath, newMeetingPath, stripLanguagePrefix } from "@/routing";
@@ -20,10 +19,8 @@ import FullscreenButton from "./FullscreenButton";
 import { usePortrait, dvh } from "@/utils";
 import CouncilError from "./overlays/CouncilError.jsx";
 import Reconnecting from "./overlays/Reconnecting.jsx";
-// import { useTranslation } from 'react-i18next';
 
 import routes from "@/routes.json";
-import { getTopicsBundle } from "@/components/topicsBundle";
 
 function useIsIphone() {
   const [isIphone, setIsIphone] = useState(false);
@@ -43,12 +40,8 @@ interface MainProps {
 }
 
 export default function Main(props: MainProps) {
-  const topicsBundle = getTopicsBundle(props.lang);
-  const topics = topicsBundle.topics;
-  const customTopicConfig = topicsBundle.custom_topic;
-
-  const [topicSelection, setTopicSelection] = useState<TopicSelection | null>(null);
-  const topicTitle = deriveTopicTitle(topics, customTopicConfig, topicSelection);
+  const [topicSelection, setTopicSelection] = useState<Topic | null>(null);
+  
   const [unrecoverabeError, setUnrecoverableError] = useState(false);
   const [connectionError, setConnectionError] = useState(false);
   const [meetingCreatorKey, setMeetingCreatorKey] = useState<string | null>(null);
@@ -60,10 +53,6 @@ export default function Main(props: MainProps) {
   const navigate = useNavigate();
   const isIphone = useIsIphone();
   const isPortrait = usePortrait();
-
-  // const { i18n } = useTranslation();
-
-  const topicForOverlays: Topic = deriveTopicForOverlays(topics, customTopicConfig, topicSelection, topicTitle);
 
   // If the user navigates back to the landing page, treat it as a fresh start.
   useEffect(() => {
@@ -79,17 +68,21 @@ export default function Main(props: MainProps) {
     }
   }, [location.pathname]);
 
-  function onReset(resetData?: { topic: string; custom?: string }) {
-    setTopicSelection(resetData ? ({ topic: resetData.topic, custom: resetData.custom ?? "" } satisfies TopicSelection) : null);
-    if (!resetData?.topic) {
-      navigate(getBasePath(props.lang));
-
-      //Reload the entire window, in case the frontend has been updated etc.
-      //Usefull in exhibition settings where maybe there is no browser access
-      window.location.reload();
-    } else {
-      navigate(newMeetingPath(props.lang));
+  function onReset(resetTopic?: Topic) {
+    //If resetting completely
+    if (!resetTopic) {
+      // Just redirect to root and let the app redirect to the correct language root
+      window.location.href = "/";
+      return;
     }
+
+    //If resetting to a specific topic
+    setTopicSelection(resetTopic);
+
+    navigate({
+      pathname: newMeetingPath(props.lang),
+      hash: "",
+    });
   }
 
   //Close hamburger when main overlay is closing on mobile
@@ -115,7 +108,7 @@ export default function Main(props: MainProps) {
       {!(unrecoverabeError || connectionError) &&
         <Navbar
           lang={props.lang}
-          topic={topicTitle}
+          topicTitle={topicSelection?.title || ""}
           hamburgerOpen={hamburgerOpen}
           setHamburgerOpen={setHamburgerOpen}
         />
@@ -161,9 +154,8 @@ export default function Main(props: MainProps) {
           </Routes>
           {!isIphone && <FullscreenButton />}
           <MainOverlays
-            topics={topics}
-            topic={topicForOverlays}
-            customTopicConfig={customTopicConfig}
+            lang={props.lang}
+            topic={topicSelection}
             onReset={onReset}
             onCloseOverlay={onCloseOverlay}
           />
@@ -185,29 +177,6 @@ export default function Main(props: MainProps) {
       )}
     </>
   );
-}
-
-function deriveTopicTitle(
-  topics: Topic[],
-  customTopicConfig: Topic,
-  selection: TopicSelection | null
-): string {
-  if (!selection) return "";
-  if (selection.topic === customTopicConfig.id) return selection.custom?.trim() || customTopicConfig.title || "";
-  return topics.find((t) => t.id === selection.topic)?.title ?? "";
-}
-
-function deriveTopicForOverlays(
-  topics: Topic[],
-  customTopicConfig: Topic,
-  selection: TopicSelection | null,
-  fallbackTitle: string
-): Topic {
-  if (!selection) return { id: "", title: fallbackTitle, prompt: "", description: "" };
-  if (selection.topic === customTopicConfig.id) {
-    return { ...customTopicConfig, description: selection.custom, prompt: selection.custom };
-  }
-  return topics.find((t) => t.id === selection.topic) ?? { id: selection.topic, title: fallbackTitle, prompt: "", description: "" };
 }
 
 function RotateOverlay() {
