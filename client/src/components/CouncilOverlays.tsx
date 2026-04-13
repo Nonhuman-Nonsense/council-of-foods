@@ -3,19 +3,19 @@ import Completed from "./overlays/Completed";
 import Summary, { SummaryData } from "./overlays/Summary";
 import Name from "./overlays/Name";
 import OverlayWrapper from './OverlayWrapper';
-import { TopicSelection } from "./settings/SelectTopic";
+import type { Topic } from "@shared/ModelTypes";
 
 export type CouncilOverlayType = "name" | "completed" | "summary" | null;
 
 interface CouncilOverlaysProps {
   activeOverlay: CouncilOverlayType;
-  onContinue: (data?: TopicSelection) => void;
+  onContinue: (data?: Topic) => void;
   onWrapItUp: () => void;
   proceedWithHumanName: (data: { humanName: string }) => void;
   canExtendMeeting: boolean;
   removeOverlay: () => void;
   summary: SummaryData | null;
-  meetingId: string;
+  meetingId: number;
   participants: Character[];
 }
 

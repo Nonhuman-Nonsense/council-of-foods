@@ -21,6 +21,11 @@ interface TopicsData {
     topics: Topic[];
 }
 
+function loadTopicsData(lang: string): TopicsData {
+    const filePath = path.resolve(__dirname, `../../src/prompts/topics_${lang}.json`);
+    return JSON.parse(fs.readFileSync(filePath, 'utf-8')) as TopicsData;
+}
+
 describe('Validate Topics Data JSONs', () => {
     it('should have a valid JSON file for every available language', () => {
         AVAILABLE_LANGUAGES.forEach((lang) => {
@@ -58,5 +63,19 @@ describe('Validate Topics Data JSONs', () => {
                 expect(topic).toHaveProperty('prompt');
             });
         });
+    });
+
+    it('should have matching topic IDs across all languages', () => {
+        if (AVAILABLE_LANGUAGES.length < 2) return;
+
+        const reference = loadTopicsData(AVAILABLE_LANGUAGES[0]);
+        const referenceIds = reference.topics.map(t => t.id).sort();
+
+        for (const lang of AVAILABLE_LANGUAGES.slice(1)) {
+            const other = loadTopicsData(lang);
+            const otherIds = other.topics.map(t => t.id).sort();
+
+            expect(otherIds, `Topic IDs in "${lang}" do not match "${AVAILABLE_LANGUAGES[0]}"`).toEqual(referenceIds);
+        }
     });
 });

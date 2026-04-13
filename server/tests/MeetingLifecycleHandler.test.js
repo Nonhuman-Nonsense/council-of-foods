@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { MeetingLifecycleHandler } from '@logic/MeetingLifecycleHandler.js';
+import { MockFactory } from './factories/MockFactory.ts';
 
 vi.mock('@utils/Logger.js', () => ({
     Logger: {
@@ -15,6 +16,23 @@ describe('MeetingLifecycleHandler', () => {
     let mockBroadcaster;
     let mockMeetingsCollection;
     let mockAudioCollection;
+
+    const sessionServerOptions = () =>
+        MockFactory.createServerOptions({
+            extraMessageCount: 5,
+            finalizeMeetingPrompt: { en: 'Summary [DATE]' },
+            finalizeMeetingLength: 10,
+            conversationMaxLength: 10
+        });
+
+    const storedMeeting = (overrides = {}) =>
+        MockFactory.createStoredMeeting({
+            _id: 101,
+            creatorKey: 'test-creator-key',
+            conversation: [],
+            characters: [MockFactory.createCharacter({ id: 'chair', name: 'Chair' })],
+            ...overrides
+        });
 
     beforeEach(() => {
         mockBroadcaster = {
@@ -36,107 +54,68 @@ describe('MeetingLifecycleHandler', () => {
         };
 
         mockContext = {
-            meetingId: null,
-            conversation: [],
-            conversationOptions: {},
+            meeting: null,
+            serverOptions: sessionServerOptions(),
+            socket: { id: 'socket1' },
+            environment: 'test',
+            extraMessageCount: 0,
+            isPaused: false,
+            broadcaster: mockBroadcaster,
             services: {
                 meetingsCollection: mockMeetingsCollection,
                 audioCollection: mockAudioCollection,
                 insertMeeting: vi.fn()
             },
-            broadcaster: mockBroadcaster,
             startLoop: vi.fn(),
-            environment: 'prod',
-            socket: { id: 'socket1' }, // Fallback if handler uses it for logging
-            extraMessageCount: 0,
-            isPaused: false,
-            globalOptions: { extraMessageCount: 5 },
-            dialogGenerator: { chairInterjection: vi.fn().mockResolvedValue({ response: 'Summary', id: 'sum1' }) },
-            audioSystem: { generateAudio: vi.fn() }
-        };
-
-        mockContext.conversationOptions = {
-            options: {
-                conversationMaxLength: 10,
-                extraMessageCount: 5,
-                finalizeMeetingPrompt: { en: "Summary [DATE]" }
+            dialogGenerator: {
+                chairInterjection: vi.fn().mockResolvedValue({ response: 'Summary', id: 'sum1' })
             },
-            language: 'en',
-            characters: [{ id: 'char1', name: 'Chair' }]
+            audioSystem: { generateAudio: vi.fn() }
         };
 
         handler = new MeetingLifecycleHandler(mockContext);
     });
 
     describe('handleStartConversation', () => {
-        it('should initialize conversation and save to DB', async () => {
-            const setupOptions = {
-                topic: 'Test Topic',
-                characters: [{ id: 'char1', name: 'Char1', type: 'assistant', prompt: 'Prompt', voice: 'Voice' }],
-                options: { greeting: 'Hello' }
-            };
+        it('should load meeting from DB, attach to manager, and start loop', async () => {
+            const doc = storedMeeting();
+            const optsBefore = mockContext.serverOptions;
+            mockMeetingsCollection.findOne.mockResolvedValue(doc);
 
-            mockContext.services.insertMeeting.mockResolvedValue({ insertedId: 101 });
+            await handler.handleStartConversation({ meetingId: 101, creatorKey: 'test-creator-key' });
 
-            await handler.handleStartConversation(setupOptions);
-
-            expect(mockContext.meetingId).toBe(101);
-            expect(mockBroadcaster.broadcastMeetingStarted).toHaveBeenCalledWith(101);
+            expect(mockMeetingsCollection.findOne).toHaveBeenCalledWith({ _id: 101 });
+            expect(mockContext.meeting).toBe(doc);
+            expect(mockContext.serverOptions).toBe(optsBefore);
             expect(mockContext.startLoop).toHaveBeenCalled();
         });
 
-        it('should merge provided options into conversationOptions when environment is prototype', async () => {
-            mockContext.environment = 'prototype';
-            const customOptions = { conversationMaxLength: 999 };
-            const setupOptions = {
-                topic: 'Test Topic',
-                characters: [],
-                options: customOptions
-            };
+        it('should throw when creator key does not match the stored meeting', async () => {
+            mockMeetingsCollection.findOne.mockResolvedValue(storedMeeting());
 
-            mockContext.services.insertMeeting.mockResolvedValue({ insertedId: 102 });
+            await expect(
+                handler.handleStartConversation({ meetingId: 101, creatorKey: 'wrong-key' })
+            ).rejects.toThrow('Invalid creator key');
 
-            await handler.handleStartConversation(setupOptions);
-
-            expect(mockContext.conversationOptions.options.conversationMaxLength).toBe(999);
-            // Verify it kept global options too (globalOptions has extraMessageCount: 5 from beforeEach)
-            expect(mockContext.conversationOptions.options.extraMessageCount).toBe(5);
-        });
-
-        it('should IGNORE provided options when environment is production', async () => {
-            mockContext.environment = 'production';
-            const customOptions = { conversationMaxLength: 999 };
-            const setupOptions = {
-                topic: 'Test Topic',
-                characters: [],
-                options: customOptions
-            };
-
-            mockContext.services.insertMeeting.mockResolvedValue({ insertedId: 103 });
-
-            await handler.handleStartConversation(setupOptions);
-
-            // Should NOT represent the custom option (should be undefined or default from global)
-            // globalOptions in mock doesn't have conversationMaxLength, so it should be undefined
-            expect(mockContext.conversationOptions.options.conversationMaxLength).not.toBe(999);
-            // Should still have global option
-            expect(mockContext.conversationOptions.options.extraMessageCount).toBe(5);
+            expect(mockContext.startLoop).not.toHaveBeenCalled();
         });
     });
 
     describe('handleWrapUpMeeting', () => {
-        it('should update DB and broadcast end', async () => {
-            mockContext.meetingId = 101;
-            mockContext.conversation = [{ id: '1', text: 'hi' }];
+        it('should update DB after summary', async () => {
+            mockContext.meeting = storedMeeting({
+                conversation: [{ id: '1', text: 'hi', type: 'message', speaker: 'chair' }]
+            });
 
-            await handler.handleWrapUpMeeting({});
+            await handler.handleWrapUpMeeting({ date: '2025-01-01' });
 
             expect(mockMeetingsCollection.updateOne).toHaveBeenCalled();
         });
     });
 
     describe('handleContinueConversation', () => {
-        it('should resume loop', () => {
+        it('should resume loop when meeting is loaded', () => {
+            mockContext.meeting = storedMeeting();
             handler.handleContinueConversation();
             expect(mockContext.startLoop).toHaveBeenCalled();
         });

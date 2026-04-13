@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { MeetingLifecycleHandler } from '@root/src/logic/MeetingLifecycleHandler.js';
+import { MockFactory } from './factories/MockFactory.js';
 
-// Mock Logger
 vi.mock('@root/src/utils/Logger.js', () => ({
     Logger: {
         info: vi.fn(),
@@ -12,18 +12,16 @@ vi.mock('@root/src/utils/Logger.js', () => ({
 
 describe('Summary Markdown Handling', () => {
     it('should keep markdown for client but strip it for audio', async () => {
-        // Mock Manager Context
         const mockManager = {
-            meetingId: 123,
-            conversation: [] as any[],
-            conversationOptions: {
-                options: {
-                    finalizeMeetingPrompt: { en: "Prompt" },
-                    finalizeMeetingLength: 100
-                },
-                language: 'en',
-                characters: [{ id: 'chair', name: 'Chair' }]
-            },
+            meeting: MockFactory.createStoredMeeting({
+                _id: 123,
+                conversation: [],
+                characters: [{ id: 'chair', name: 'Chair', voice: 'alloy' }]
+            }),
+            serverOptions: MockFactory.createServerOptions({
+                finalizeMeetingPrompt: { en: 'Prompt [DATE]' },
+                finalizeMeetingLength: 100
+            }),
             broadcaster: {
                 broadcastConversationUpdate: vi.fn()
             },
@@ -40,19 +38,17 @@ describe('Summary Markdown Handling', () => {
             },
             audioSystem: {
                 generateAudio: vi.fn()
-            }
+            },
+            environment: 'test'
         };
 
         const handler = new MeetingLifecycleHandler(mockManager as any);
 
-        // Act
         await handler.handleWrapUpMeeting({ date: '2023-01-01' } as any);
 
-        // Assert 1: Conversation should have Markdown (for client display)
-        expect(mockManager.conversation.length).toBe(1);
-        expect(mockManager.conversation[0].text).toBe('This is **bold** and *italic*.');
+        expect(mockManager.meeting.conversation.length).toBe(1);
+        expect(mockManager.meeting.conversation[0].text).toBe('This is **bold** and *italic*.');
 
-        // Assert 2: AudioSystem should receive Stripped Text
         expect(mockManager.audioSystem.generateAudio).toHaveBeenCalledTimes(1);
         const audioCallArgs = (mockManager.audioSystem.generateAudio as any).mock.calls[0];
         const audioMessage = audioCallArgs[0];

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { HandRaisingHandler } from '@logic/HandRaisingHandler.js';
+import { MockFactory } from './factories/MockFactory.ts';
 
 describe('HandRaisingHandler', () => {
     let handler;
@@ -30,22 +31,20 @@ describe('HandRaisingHandler', () => {
             updateOne: vi.fn()
         };
 
+        const meeting = MockFactory.createStoredMeeting({
+            _id: 123,
+            characters: [{ id: 'chair', name: 'Chair', voice: 'alloy' }],
+            state: {},
+            conversation: []
+        });
+
         mockContext = {
-            manager: null, // Circular reference if needed, but handler stores 'manager' as this context usually
-            // Wait, HandRaisingHandler constructor takes 'meetingManager'. 
-            // The handler accesses 'this.manager'.
-            meetingId: 123,
-            conversation: [],
-            conversationOptions: {
-                state: {},
-                options: {
-                    raiseHandPrompt: { en: "Prompt [NAME]" },
-                    raiseHandInvitationLength: 50
-                },
-                characters: [{ id: 'chair', name: 'Chair' }],
-                language: 'en'
-            },
+            meeting,
             handRaised: false,
+            serverOptions: MockFactory.createServerOptions({
+                raiseHandPrompt: { en: "Prompt [NAME]" },
+                raiseHandInvitationLength: 50
+            }),
             broadcaster: mockBroadcaster,
             dialogGenerator: mockDialogGenerator,
             audioSystem: mockAudioSystem,
@@ -55,34 +54,29 @@ describe('HandRaisingHandler', () => {
             environment: 'production'
         };
 
-        // In the real class, constructor is: constructor(meetingManager) { this.manager = meetingManager; }
-        // So we pass mockContext as meetingManager.
         handler = new HandRaisingHandler(mockContext);
     });
 
     it('should handle raise hand, truncate conversation, and generate invitation', async () => {
-        // Setup initial conversation
-        mockContext.conversation = [
+        mockContext.meeting.conversation = [
             { id: 1, text: 'msg1' },
             { id: 2, text: 'msg2' },
             { id: 3, text: 'msg3' }
         ];
 
-        await handler.handleRaiseHand({ index: 2, humanName: "Human" }); // Clip at index 2 (msg2 was the last heard?)
-        // logic: manager.conversation = manager.conversation.slice(0, handRaisedOptions.index);
-        // index 2 -> slice(0, 2) -> [msg1, msg2].
+        await handler.handleRaiseHand({ index: 2, humanName: "Human" });
 
         expect(mockContext.handRaised).toBe(true);
-        expect(mockContext.conversation.length).toBe(4); // [msg1, msg2] + Invitation + Awaiting
+        expect(mockContext.meeting.conversation.length).toBe(4);
 
-        const invitation = mockContext.conversation[2];
+        const invitation = mockContext.meeting.conversation[2];
         expect(invitation.type).toBe('invitation');
         expect(invitation.text).toBe('Speak now.');
 
-        const awaiting = mockContext.conversation[3];
+        const awaiting = mockContext.meeting.conversation[3];
         expect(awaiting.type).toBe('awaiting_human_question');
 
-        expect(mockBroadcaster.broadcastConversationUpdate).toHaveBeenCalledWith(mockContext.conversation);
+        expect(mockBroadcaster.broadcastConversationUpdate).toHaveBeenCalledWith(mockContext.meeting.conversation);
         expect(mockMeetingsCollection.updateOne).toHaveBeenCalledWith(
             { _id: 123 },
             expect.objectContaining({ $set: expect.anything() })
@@ -91,13 +85,13 @@ describe('HandRaisingHandler', () => {
     });
 
     it('should not regenerate invitation if already invited', async () => {
-        mockContext.conversationOptions.state.alreadyInvited = true;
-        mockContext.conversation = [{ text: 'msg1' }];
+        mockContext.meeting.state = { ...mockContext.meeting.state, alreadyInvited: true };
+        mockContext.meeting.conversation = [{ text: 'msg1' }];
 
         await handler.handleRaiseHand({ index: 1, humanName: "Human" });
 
         expect(mockDialogGenerator.chairInterjection).not.toHaveBeenCalled();
-        expect(mockContext.conversation).toHaveLength(2); // msg1 + awaiting
-        expect(mockContext.conversation[1].type).toBe('awaiting_human_question');
+        expect(mockContext.meeting.conversation).toHaveLength(2);
+        expect(mockContext.meeting.conversation[1].type).toBe('awaiting_human_question');
     });
 });

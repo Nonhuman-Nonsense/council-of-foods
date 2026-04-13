@@ -1,5 +1,5 @@
-import type { Character, ConversationMessage } from '@shared/ModelTypes';
-import { useEffect, useRef, MutableRefObject } from 'react';
+import type { Message } from '@shared/ModelTypes';
+import { useEffect, useRef, type MutableRefObject } from 'react';
 import { io, Socket } from 'socket.io-client';
 import {
     ServerToClientEvents,
@@ -8,16 +8,12 @@ import {
     ErrorPayload
 } from '@shared/SocketTypes';
 
-
-import { Topic } from "../components/settings/SelectTopic";
-
 export interface UseCouncilSocketProps {
-    topic: Topic;
-    participants: Character[];
-    lang: string;
-    onMeetingStarted?: (data: { meeting_id: number | string | null }) => void;
+    meetingId: number;
+    /** Required to authenticate `start_conversation`; omit until known. */
+    creatorKey: string | undefined;
     onAudioUpdate?: (data: AudioUpdatePayload) => void;
-    onConversationUpdate?: (data: ConversationMessage[]) => void;
+    onConversationUpdate?: (data: Message[]) => void;
     onError?: (error: ErrorPayload) => void;
     onConnectionError?: (error: Error) => void;
     onReconnect?: () => void;
@@ -31,10 +27,8 @@ export interface UseCouncilSocketProps {
  * to the provided callback functions.
  */
 export const useCouncilSocket = ({
-    topic,
-    participants,
-    lang,
-    onMeetingStarted,
+    meetingId,
+    creatorKey,
     onAudioUpdate,
     onConversationUpdate,
     onError,
@@ -44,66 +38,54 @@ export const useCouncilSocket = ({
     const socketRef = useRef<Socket<ServerToClientEvents, ClientToServerEvents> | null>(null);
 
     useEffect(() => {
-        // Connect to the server
-        socketRef.current = io();
+        if (!creatorKey) {
+            return;
+        }
 
-        socketRef.current.on('connect_error', (err: Error) => {
+        const socket = io();
+        socketRef.current = socket;
+
+        socket.on('connect_error', (err: Error) => {
             console.error(err);
             if (onConnectionError) onConnectionError(err);
         });
 
-
-
-        socketRef.current.on('disconnect', (reason: string) => {
+        socket.on('disconnect', (reason: string) => {
             console.log(reason);
         });
 
-        const conversationOptions = {
-            topic: topic.prompt || "",
-            characters: participants,
-            language: lang
-        };
-
-        socketRef.current.io.on("reconnect", () => {
+        socket.io.on("reconnect", () => {
             if (onReconnect) onReconnect();
         });
 
-        socketRef.current.emit("start_conversation", conversationOptions);
+        socket.emit("start_conversation", { meetingId, creatorKey });
 
-        socketRef.current.on("meeting_started", (meeting) => {
-            if (onMeetingStarted) onMeetingStarted(meeting);
-        });
-
-        socketRef.current.on("audio_update", (audioMessage) => {
+        socket.on("audio_update", (audioMessage) => {
             if (onAudioUpdate) onAudioUpdate(audioMessage);
         });
 
-        socketRef.current.on("conversation_update", (textMessages) => {
+        socket.on("conversation_update", (textMessages) => {
             if (onConversationUpdate) onConversationUpdate(textMessages);
         });
 
-        socketRef.current.on("conversation_error", (error) => {
+        socket.on("conversation_error", (error) => {
             if (onError) onError(error);
         });
 
-        // Add event listener for tab close
         const handleTabClose = () => {
-            if (socketRef.current) {
-                socketRef.current.disconnect();
-            }
+            socket.disconnect();
         };
 
         window.addEventListener("beforeunload", handleTabClose);
 
-        // Clean up the socket connection when the component unmounts
         return () => {
-            if (socketRef.current) {
-                socketRef.current.disconnect();
-            }
+            socket.disconnect();
+            socketRef.current = null;
             window.removeEventListener("beforeunload", handleTabClose);
         };
+        // Callbacks intentionally omitted: parent passes fresh closures; reconnect only when meeting/auth changes.
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []); // Run once on mount
+    }, [meetingId, creatorKey]);
 
     return socketRef;
 };

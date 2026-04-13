@@ -2,6 +2,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { meetingsCollection } from '@services/DbService.js';
 import { createTestManager, mockOpenAI } from './commonSetup.js';
+import { setupTestOptions } from './testUtils.js';
 import { MockFactory } from './factories/MockFactory.ts';
 import { SpeakerSelector } from '@logic/SpeakerSelector.js';
 
@@ -22,7 +23,7 @@ describe('MeetingManager - Conversation Flow', () => {
     beforeEach(() => {
         const setup = createTestManager();
         manager = setup.manager;
-        manager.meetingId = 1; // Manually assign ID for DB method testing
+        manager.meeting._id = 1;
         mockSocket = setup.mockSocket;
 
         // Spy on DB methods
@@ -54,7 +55,7 @@ describe('MeetingManager - Conversation Flow', () => {
             audioCollection: mockAudioCollection,
             insertMeeting: vi.fn().mockResolvedValue({ insertedId: 1 })
         });
-        protoManager.meetingId = 1;
+        protoManager.meeting._id = 1;
 
         // Spy on SpeakerSelector
         vi.spyOn(SpeakerSelector, 'calculateNextSpeaker');
@@ -90,17 +91,16 @@ describe('MeetingManager - Conversation Flow', () => {
         expect(protoManager.isPaused).toBe(false);
         // It should have called startLoop -> runLoop -> processTurn and generated a message
         // Since we mocked generateTextFromGPT to return "Test", conversation should increase
-        expect(protoManager.conversation.length).toBeGreaterThan(0);
+        expect(protoManager.meeting.conversation.length).toBeGreaterThan(0);
 
         // Cleanup: Stop the loop to prevent leakage into other tests
         protoManager.isLoopActive = false;
     });
 
     it('should stop conversation when max length is reached', async () => {
-        manager.conversationOptions.options.conversationMaxLength = 5;
+        manager.serverOptions.conversationMaxLength = 5;
         manager.extraMessageCount = 0;
-        // Mock conversation to be full
-        manager.conversation = new Array(5).fill({ type: 'message' });
+        manager.meeting.conversation = new Array(5).fill({ type: 'message' });
 
         const spy = vi.spyOn(SpeakerSelector, 'calculateNextSpeaker');
 
@@ -137,10 +137,10 @@ describe('MeetingManager - Conversation Flow', () => {
         const { manager: diManager, mockSocket: diSocket } = createTestManager('test', null, {
             getOpenAI: mockGetOpenAI
         });
-        diManager.meetingId = 1;
-        diManager.isLoopActive = true; // Enable execution for direct processTurn call
+        diManager.meeting._id = 1;
+        diManager.isLoopActive = true;
 
-        diManager.conversationOptions.options.conversationMaxLength = 10;
+        diManager.serverOptions.conversationMaxLength = 10;
         // Mock current speaker to Tomato (index 1 in default, 2 in extended? Default has Water, Tomato, Potato)
         // Water=0, Tomato=1.
         vi.spyOn(SpeakerSelector, 'calculateNextSpeaker').mockReturnValue(1);
@@ -149,12 +149,11 @@ describe('MeetingManager - Conversation Flow', () => {
 
         let action = diManager.decideNextAction();
         expect(action.type).toBe('GENERATE_AI_RESPONSE');
-        const speaker = diManager.conversationOptions.characters[1];
+        const speaker = diManager.meeting.characters[1];
         await diManager.processTurn({ type: action.type, speaker });
 
-        // Verify Message added
-        expect(diManager.conversation).toHaveLength(1);
-        expect(diManager.conversation[0].text).toBe('Hello from DI Tomato');
+        expect(diManager.meeting.conversation).toHaveLength(1);
+        expect(diManager.meeting.conversation[0].text).toBe('Hello from DI Tomato');
 
         // Verify OpenAI usage
         expect(mockOpenAI.chat.completions.create).toHaveBeenCalled();
@@ -169,22 +168,22 @@ describe('MeetingManager - Conversation Flow', () => {
     it('should set awaiting_human_panelist state when current speaker is a panelist', async () => {
         // Setup: Next speaker is Alice (Panelist)
         // Alice is index 2 in default setup (Water, Tomato, Potato) -> wait, need to add Alice.
-        manager.conversationOptions.characters = [
-            { id: 'water', name: 'Water', type: 'food' },
-            { id: 'alice', name: 'Alice', type: 'panelist' }
+        manager.meeting.characters = [
+            { id: 'water', name: 'Water', type: 'food', voice: 'alloy' },
+            { id: 'alice', name: 'Alice', type: 'panelist', voice: 'alloy' }
         ];
-        const panelistId = 1; // Alice is now index 1
+        const panelistId = 1;
 
-        vi.spyOn(SpeakerSelector, 'calculateNextSpeaker').mockReturnValue(panelistId); // Alice
+        vi.spyOn(SpeakerSelector, 'calculateNextSpeaker').mockReturnValue(panelistId);
 
         let action = manager.decideNextAction();
         expect(action.type).toBe('REQUEST_PANELIST');
-        const speaker = manager.conversationOptions.characters[panelistId];
+        const speaker = manager.meeting.characters[panelistId];
         await manager.processTurn({ type: action.type, speaker });
 
-        expect(manager.conversation).toHaveLength(1);
-        expect(manager.conversation[0].type).toBe('awaiting_human_panelist');
-        expect(manager.conversation[0].speaker).toBe('alice');
+        expect(manager.meeting.conversation).toHaveLength(1);
+        expect(manager.meeting.conversation[0].type).toBe('awaiting_human_panelist');
+        expect(manager.meeting.conversation[0].speaker).toBe('alice');
         expect(meetingsCollection.updateOne).toHaveBeenCalled();
 
         // Verify it returns early (does not call generateGPT/Audio/recurse)
@@ -215,20 +214,16 @@ describe('MeetingManager - Conversation Flow', () => {
 
         const mockGetOpenAI = () => mockOpenAI;
         const { manager: diManager } = createTestManager('test', null, { getOpenAI: mockGetOpenAI });
-        diManager.meetingId = 1;
+        diManager.meeting._id = 1;
 
-        // Ensure characters[0] (Chair) has a voice property if needed, though default setup usually provides it
-        if (!diManager.conversationOptions.characters[0].voice) {
-            diManager.conversationOptions.characters[0].voice = 'alloy';
+        if (!diManager.meeting.characters[0].voice) {
+            diManager.meeting.characters[0].voice = 'alloy';
         }
 
-        const message = { date: '2025-01-01', text: "Summary text", id: "summary_msg_id" };
-
-        // This call previously failed with ReferenceError: speaker is not defined
         await diManager.meetingLifecycleHandler.handleWrapUpMeeting({ date: "2024-01-01" });
 
         // Verify audio generation was attempted (which uses the 'speaker' variable)
-        if (!diManager.globalOptions.skipAudio) {
+        if (!diManager.serverOptions.skipAudio) {
             expect(mockOpenAI.audio.speech.create).toHaveBeenCalled();
 
             // Verify socket emit
@@ -239,15 +234,10 @@ describe('MeetingManager - Conversation Flow', () => {
     });
 
     it('should extend meeting on continue_conversation', async () => {
-        // Setup initial max length state
-        manager.conversationOptions.options = {
-            conversationMaxLength: 5,
-            extraMessageCount: 5
-        };
+        const { manager } = createTestManager('test', { ...setupTestOptions(), extraMessageCount: 5 });
+        manager.serverOptions.conversationMaxLength = 5;
         manager.extraMessageCount = 0;
-
-        // Populate conversation to limit
-        manager.conversation = new Array(5).fill({});
+        manager.meeting.conversation = new Array(5).fill({ type: 'message' });
 
         // Spy on startLoop/runLoop to verify resumption
         const loopSpy = vi.spyOn(manager, 'startLoop');
@@ -275,7 +265,7 @@ describe('MeetingManager - Conversation Flow', () => {
         };
         const mockGetOpenAI = () => mockOpenAI;
         const { manager: keyManager, mockSocket: keySocket } = createTestManager('test', null, { getOpenAI: mockGetOpenAI });
-        keyManager.meetingId = 1;
+        keyManager.meeting._id = 1;
 
         // Mock fetch for OpenAI API
         global.fetch = vi.fn().mockResolvedValue({

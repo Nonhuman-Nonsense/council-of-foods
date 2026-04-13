@@ -1,6 +1,7 @@
 {
     "gptModel": "gpt-4o-mini",
     "voiceModel": "gpt-4o-mini-tts",
+    "inworldVoiceModel": "inworld-tts-1.5-mini",
     "maxTokens": 50,
     "chairMaxTokens": 50,
     "audio_speed": 1.25,

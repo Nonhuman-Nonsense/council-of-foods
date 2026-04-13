@@ -23,8 +23,16 @@ vi.mock('../../../src/components/ConversationControls', () => ({
 
 // Mock React Router
 vi.mock('react-router', () => ({
-    useLocation: vi.fn().mockReturnValue({ hash: '', pathname: '' }),
-    useNavigate: vi.fn()
+    useLocation: vi.fn().mockReturnValue({ hash: '', pathname: '/en/meeting/123', state: null }),
+    useNavigate: vi.fn(),
+    useParams: vi.fn().mockReturnValue({ meetingId: '123' }),
+}));
+
+vi.mock('@api/getMeeting.js', () => ({
+    getMeeting: vi.fn().mockResolvedValue({
+        topic: { id: 't', title: 'T', description: 'D', prompt: 'p' },
+        characters: [],
+    }),
 }));
 
 // Mock Utils
@@ -64,7 +72,7 @@ const mockCouncilStateMachine = {
         summary: null,
         humanName: '',
         isRaisedHand: false,
-        currentMeetingId: '123',
+        currentMeetingId: 123,
         canGoBack: true,
         canGoForward: true,
         canRaiseHand: true,
@@ -101,8 +109,7 @@ vi.mock('../../../src/hooks/useCouncilMachine', () => ({
 describe('Council Component', () => {
     const defaultProps = {
         lang: 'en',
-        topic: { id: 'test', title: 'Test Topic', prompt: 'Test Topic Prompt' },
-        participants: [] as Character[],
+        creatorKey: 'test-creator',
         setUnrecoverableError: vi.fn(),
         setConnectionError: vi.fn(),
         connectionError: false

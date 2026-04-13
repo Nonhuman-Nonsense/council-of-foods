@@ -1,6 +1,6 @@
 {
   "gptModel": "gpt-4o",
-  "voiceModel": "tts-1",
+  "voiceModel": "gpt-4o-mini-tts",
   "geminiVoiceModel": "gemini-2.5-flash-tts",
   "inworldVoiceModel": "inworld-tts-1.5-max",
   "temperature": 1,

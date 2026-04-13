@@ -112,7 +112,8 @@ textarea.unfocused:focus {
   outline: none;
 }
 
-button {
+button,
+a.button {
   font-family: "Tinos", serif;
   font-style: normal;
   font-size: 25px;
@@ -124,14 +125,17 @@ button {
   padding: 0px 16px 0px 16px;
   cursor: pointer;
   user-select: none;
+  text-decoration: none;
 }
 
-button:hover:not(.control) {
+button:hover:not(.control),
+a.button:hover {
   background-color: white;
   color: rgba(0, 0, 0, 0.9);
 }
 
-button.selected {
+button.selected,
+a.button.selected {
   background-color: white;
   color: rgba(0, 0, 0, 0.9);
 }
@@ -145,22 +149,20 @@ button.selected {
   height: 100%;
   top: 0;
   left: 0;
-  transition: backdrop-filter 0.2s;
-  backdrop-filter: blur(10px) opacity(1);
-  -webkit-backdrop-filter: blur(10px) opacity(1);
+  transition: opacity 0.2s;
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
   z-index: -1;
 }
 
 /* Soft edge fade on menu */
 nav.blur::before {
-  /* background: red; */
-  transition: backdrop-filter 1s;
+  transition: opacity 1s;
   mask: linear-gradient(to top, transparent, black 20%);
 }
 
 .blur.hide::before {
-  backdrop-filter: blur(10px) opacity(0);
-  -webkit-backdrop-filter: blur(10px) opacity(0);
+  opacity: 0;
 }
 
 
@@ -274,6 +276,22 @@ nav.blur::before {
 
   100% {
     transform: translateY(0%);
+    opacity: 1;
+  }
+}
+
+/* Making this as an animation instead of a transition so that it can run on component mount */
+.fadein {
+  animation: FadeIn 1s ease;
+  animation-fill-mode: both;
+}
+
+@keyframes FadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
     opacity: 1;
   }
 }
