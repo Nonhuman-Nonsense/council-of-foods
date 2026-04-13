@@ -1,5 +1,5 @@
 import "@root/App.css";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { getTopicsBundle } from "@/components/topicsBundle";
 import {
   Routes,
@@ -58,7 +58,12 @@ export default function Main(props: MainProps) {
   const isIphone = useIsIphone();
   const isPortrait = usePortrait();
 
+  // Prevent changing langauge on component mount
+  const prevLangRef = useRef(props.lang);
   useEffect(() => {
+    if (prevLangRef.current === props.lang) return;
+    prevLangRef.current = props.lang;
+
     i18n.changeLanguage(props.lang);
 
     if (topicSelection?.id) {
