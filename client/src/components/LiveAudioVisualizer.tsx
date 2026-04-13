@@ -51,7 +51,7 @@ interface CustomCanvasRenderingContext2D extends CanvasRenderingContext2D {
   ) => void;
 }
 
-function calculateBarData(
+export function calculateBarData(
   frequencyData: Uint8Array,
   width: number,
   barWidth: number,
@@ -78,7 +78,7 @@ function calculateBarData(
   return data;
 }
 
-function draw(
+export function draw(
   data: number[],
   canvas: HTMLCanvasElement,
   barWidth: number,
