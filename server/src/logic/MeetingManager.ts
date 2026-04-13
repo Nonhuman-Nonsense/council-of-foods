@@ -127,9 +127,6 @@ export class MeetingManager implements IMeetingManager {
             case "continue_conversation":
                 await this.meetingLifecycleHandler.handleContinueConversation();
                 break;
-            case "request_clientkey":
-                await this.meetingLifecycleHandler.handleRequestClientKey();
-                break;
             // Prototype Listeners
             case "pause_conversation":
                 if (this.environment === 'prototype') await this.meetingLifecycleHandler.handlePauseConversation();

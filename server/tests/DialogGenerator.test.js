@@ -105,7 +105,6 @@ describe('DialogGenerator - Prompt Construction', () => {
             broadcastConversationUpdate: vi.fn(),
             broadcastConversationEnd: vi.fn(),
             broadcastAudioUpdate: vi.fn(),
-            broadcastClientKey: vi.fn(),
             broadcastError: vi.fn(),
             broadcastWarning: vi.fn()
         };

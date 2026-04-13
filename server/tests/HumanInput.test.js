@@ -28,7 +28,6 @@ describe('HumanInputHandler (Isolated)', () => {
             broadcaster: {
                 broadcastConversationUpdate: vi.fn(),
                 broadcastMeetingStarted: vi.fn(),
-                broadcastClientKey: vi.fn(),
                 broadcastError: vi.fn(),
                 broadcastConversationEnd: vi.fn()
             },

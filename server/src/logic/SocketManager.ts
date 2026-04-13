@@ -51,8 +51,7 @@ export class SocketManager {
             "submit_injection",
             "raise_hand",
             "wrap_up_meeting",
-            "continue_conversation",
-            "request_clientkey"
+            "continue_conversation"
         ];
 
         for (const event of proxyEvents) {

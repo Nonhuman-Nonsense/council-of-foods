@@ -25,7 +25,6 @@ const mockMeetingLifecycleHandler = {
     handleWrapUpMeeting: vi.fn(),
     handleStartConversation: vi.fn(),
     handleContinueConversation: vi.fn(),
-    handleRequestClientKey: vi.fn(),
     handlePauseConversation: vi.fn(),
     handleResumeConversation: vi.fn(),
     handleRemoveLastMessage: vi.fn()
@@ -140,12 +139,6 @@ describe('Async Error Propagation (Comprehensive)', () => {
             event: 'continue_conversation',
             mockObj: mockMeetingLifecycleHandler,
             method: 'handleContinueConversation',
-            payload: null
-        },
-        {
-            event: 'request_clientkey',
-            mockObj: mockMeetingLifecycleHandler,
-            method: 'handleRequestClientKey',
             payload: null
         }
     ];

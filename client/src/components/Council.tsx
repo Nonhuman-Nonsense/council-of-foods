@@ -1,7 +1,4 @@
 import type { Character, Topic } from "@shared/ModelTypes";
-import type { Socket } from "socket.io-client";
-import type { ServerToClientEvents, ClientToServerEvents } from "@shared/SocketTypes";
-
 import React, { useMemo, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router";
 import FoodItem from "./FoodItem";
@@ -219,7 +216,7 @@ function Council({
       {councilState === 'loading' && <Loading />}
       <>
         {(councilState === 'human_input' || councilState === 'human_panelist') && (
-          <HumanInput socketRef={socketRef as React.MutableRefObject<Socket<ServerToClientEvents, ClientToServerEvents>>} foods={foods} isPanelist={(councilState === 'human_panelist')} currentSpeakerName={participants.find(p => p.id === currentSpeakerId)?.name || ""} onSubmitHumanMessage={handleOnSubmitHumanMessage} />
+          <HumanInput creatorKey={creatorKey!} foods={foods} isPanelist={(councilState === 'human_panelist')} currentSpeakerName={participants.find(p => p.id === currentSpeakerId)?.name || ""} onSubmitHumanMessage={handleOnSubmitHumanMessage} />
         )}
         <Output
           textMessages={textMessages}
