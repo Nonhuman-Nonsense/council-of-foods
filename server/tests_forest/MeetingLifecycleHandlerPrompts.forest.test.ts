@@ -14,13 +14,13 @@ describe("MeetingLifecycleHandler prompts (forest / Swedish)", () => {
                 characters: [{ id: "mock-char", name: "Mock Char" }],
                 conversation: [],
                 state: {},
-            } as any,
+            },
             environment: "test",
-            socket: { emit: vi.fn(), on: vi.fn() } as any,
+            socket: { emit: vi.fn(), on: vi.fn() },
             services: {
                 meetingsCollection: { updateOne: vi.fn() },
                 getOpenAI: vi.fn().mockReturnValue({ apiKey: "mock-key" }),
-            } as any,
+            },
             serverOptions: {
                 finalizeMeetingPrompt: {
                     en: "Summarize [DATE]",
@@ -32,15 +32,15 @@ describe("MeetingLifecycleHandler prompts (forest / Swedish)", () => {
                     en: "Transcribe",
                     sv: "Transkribera",
                 },
-            } as any,
+            },
             dialogGenerator: {
                 chairInterjection: vi.fn().mockResolvedValue({ response: "Summary text", id: "msg_456" }),
-            } as any,
-            audioSystem: { generateAudio: vi.fn() } as any,
+            },
+            audioSystem: { generateAudio: vi.fn() },
             broadcaster: {
                 broadcastConversationUpdate: vi.fn(),
                 broadcastError: vi.fn(),
-            } as any,
+            },
         } as unknown as IMeetingManager;
 
         handler = new MeetingLifecycleHandler(mockManager);

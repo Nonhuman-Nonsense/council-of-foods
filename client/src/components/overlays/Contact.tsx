@@ -1,7 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { useMobile, dvh } from "@/utils";
 import nonhumanLogo from "@assets/logos/nonhuman_nonsense_logo.png";
-import euLogo from "@assets/logos/logos_eu-white-starts-white.webp";
 import biosphereLogo from "@assets/logos/logo_biosphere.webp";
 import vinnovaLogo from "@assets/logos/logo_vinnova.webp";
 

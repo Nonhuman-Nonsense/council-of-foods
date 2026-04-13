@@ -1,9 +1,8 @@
 import RotateDevice from '@components/RotateDevice';
 import { useMediaQuery } from 'react-responsive'
 import { Link } from "react-router";
-import { useMobile, dvh } from "@/utils";
+import { useMobile } from "@/utils";
 import { useTranslation } from 'react-i18next';
-import councilLogo from "@assets/logos/council_logo_white.svg";
 
 /**
  * Landing Component

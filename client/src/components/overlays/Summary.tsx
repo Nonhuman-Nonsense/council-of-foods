@@ -5,8 +5,6 @@ import { marked } from "marked";
 import { jsPDF } from "jspdf";
 import { useTranslation } from "react-i18next";
 import { QRCodeCanvas } from 'qrcode.react';
-import councilLogoWhite from "@assets/logos/council_logo_white.svg";
-import councilLogo from "@assets/logos/council_logo.png";
 
 export interface SummaryData {
   text: string;

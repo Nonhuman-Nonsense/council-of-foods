@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, act, waitFor } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, waitFor } from '@testing-library/react';
 import Forest from '@/components/Forest';
 
 // Mock utils to avoid layout issues
@@ -95,7 +95,7 @@ describe('Forest Audio Logic', () => {
         const speakerId = 'river';
 
         // Initial render with valid speaker
-        const { rerender } = render(<Forest currentSpeakerId={speakerId} isPaused={false} audioContext={audioContextRef} />);
+        render(<Forest currentSpeakerId={speakerId} isPaused={false} audioContext={audioContextRef} />);
 
         // Wait for connection
         await waitFor(() => {
