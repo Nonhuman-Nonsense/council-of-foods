@@ -149,22 +149,20 @@ a.button.selected {
   height: 100%;
   top: 0;
   left: 0;
-  transition: backdrop-filter 0.2s;
-  backdrop-filter: blur(10px) opacity(1);
-  -webkit-backdrop-filter: blur(10px) opacity(1);
+  transition: opacity 0.2s;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   z-index: -1;
 }
 
 /* Soft edge fade on menu */
 nav.blur::before {
-  /* background: red; */
-  transition: backdrop-filter 1s;
+  transition: opacity 1s;
   mask: linear-gradient(to top, transparent, black 20%);
 }
 
 .blur.hide::before {
-  backdrop-filter: blur(10px) opacity(0);
-  -webkit-backdrop-filter: blur(10px) opacity(0);
+  opacity: 0;
 }
 
 
