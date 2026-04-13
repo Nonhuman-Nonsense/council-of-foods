@@ -5,7 +5,7 @@ import ConversationControlIcon from "./ConversationControlIcon";
 import TextareaAutosize from 'react-textarea-autosize';
 import { useMobile, dvh, mapFoodIndex } from "@/utils";
 import { useTranslation } from "react-i18next";
-import { LiveAudioVisualizer } from "@/components/LiveAudioVisualizer";
+import { LiveAudioVisualizerPair } from "@/components/LiveAudioVisualizer";
 import Lottie from 'react-lottie-player';
 import loading from '@animations/loading.json';
 import { getClientKey } from "@api/getClientKey";
@@ -59,6 +59,9 @@ function HumanInput({ foods, isPanelist, currentSpeakerName, onSubmitHumanMessag
   const initialized = useRef<boolean>(false);
   const pc = useRef<RTCPeerConnection | null>(null);
   const mic = useRef<MediaStream | null>(null);
+
+  const vizLeftHostRef = useRef<HTMLDivElement>(null);
+  const vizRightHostRef = useRef<HTMLDivElement>(null);
 
   const [rerender, forceRerender] = useState<boolean>(false);
   const { t, i18n } = useTranslation();
@@ -370,19 +373,10 @@ function HumanInput({ foods, isPanelist, currentSpeakerName, onSubmitHumanMessag
         />
       </div>
       <div style={{ display: "flex", flexDirection: "row", pointerEvents: "auto", justifyContent: "center" }}>
-        <div style={{ ...divStyle, transform: "scale(-1, -1)" }}>
-          {recordingState === 'recording' && mediaRecorder && (
-            <LiveAudioVisualizer
-              mediaRecorder={mediaRecorder}
-              width={100}
-              height={40}
-              barWidth={3}
-              gap={2}
-              barColor={'#ffffff'}
-              smoothingTimeConstant={0.85}
-            />
-          )}
-        </div>
+        <div
+          ref={vizLeftHostRef}
+          style={{ ...divStyle, transform: "scale(-1, -1)" }}
+        />
         <div style={divStyle}>
           {recordingState === 'loading' &&
             <Lottie play loop animationData={loading} style={{ height: isMobile ? 45 : 56 }} />
@@ -394,18 +388,7 @@ function HumanInput({ foods, isPanelist, currentSpeakerName, onSubmitHumanMessag
             />
           }
         </div>
-        <div style={divStyle}>
-          {recordingState === 'recording' && mediaRecorder && (
-            <LiveAudioVisualizer
-              mediaRecorder={mediaRecorder}
-              width={100}
-              height={40}
-              barColor={'#ffffff'}
-              barWidth={3}
-              gap={2}
-              smoothingTimeConstant={0.85}
-            />
-          )}
+        <div style={divStyle} ref={vizRightHostRef}>
           {recordingState === 'idle' && canContinue &&
             <ConversationControlIcon
               icon={"send_message"}
@@ -414,6 +397,19 @@ function HumanInput({ foods, isPanelist, currentSpeakerName, onSubmitHumanMessag
             />
           }
         </div>
+        {recordingState === 'recording' && mediaRecorder && (
+          <LiveAudioVisualizerPair
+            mediaRecorder={mediaRecorder}
+            leftHostRef={vizLeftHostRef}
+            rightHostRef={vizRightHostRef}
+            width={100}
+            height={40}
+            barWidth={3}
+            gap={2}
+            barColor="#ffffff"
+            smoothingTimeConstant={0.85}
+          />
+        )}
       </div>
     </div>
   </>

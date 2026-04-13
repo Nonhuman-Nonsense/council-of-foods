@@ -22,7 +22,7 @@ vi.mock('../../../src/api/getClientKey', () => ({
 
 // Mock child components to avoid complex rendering issues
 vi.mock('../../../src/components/LiveAudioVisualizer', () => ({
-    LiveAudioVisualizer: () => <div data-testid="visualizer" />
+    LiveAudioVisualizerPair: () => <div data-testid="visualizer" />
 }));
 
 vi.mock('react-lottie-player', () => ({
