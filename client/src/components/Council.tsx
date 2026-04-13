@@ -1,7 +1,4 @@
 import type { Character, Topic } from "@shared/ModelTypes";
-import type { Socket } from "socket.io-client";
-import type { ServerToClientEvents, ClientToServerEvents } from "@shared/SocketTypes";
-
 import React, { useMemo, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router";
 import FoodItem from "./FoodItem";
