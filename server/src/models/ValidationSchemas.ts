@@ -1,6 +1,6 @@
 import { GlobalOptionsSchema } from "@logic/GlobalOptions.js";
 import { z } from "zod";
-import { type Character, AVAILABLE_VOICES, AVAILABLE_VOICES_GEMINI, AVAILABLE_VOICES_INWORLD } from "@shared/ModelTypes.js";
+import { type Character, AVAILABLE_VOICES, AVAILABLE_VOICES_GEMINI } from "@shared/ModelTypes.js";
 import type {
     HumanMessage,
     InjectionMessage,
@@ -16,7 +16,6 @@ import type {
 // Shared Sub-schemas
 const VoiceOptionSchema = z.enum(AVAILABLE_VOICES);
 const VoiceOptionGeminiSchema = z.enum(AVAILABLE_VOICES_GEMINI);
-const VoiceOptionInworldSchema = z.enum(AVAILABLE_VOICES_INWORLD);
 
 const CharacterSchema: z.ZodType<Character> = z.object({
     id: z.string().min(1),

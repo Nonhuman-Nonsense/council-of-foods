@@ -95,7 +95,10 @@ export function registerMeetingRoutes(app: Express, environment: string): void {
             }
 
             const language = req.body?.language;
-            if (typeof language !== "string" || !AVAILABLE_LANGUAGES.includes(language as any)) {
+            if (
+                typeof language !== "string" ||
+                !(AVAILABLE_LANGUAGES as readonly string[]).includes(language)
+            ) {
                 res.status(400).json({ message: "Invalid or missing language" });
                 return;
             }

@@ -1,6 +1,5 @@
-import type { Audio, ConversationState, Meeting } from '@shared/ModelTypes.js';
+import type { Audio, Meeting } from '@shared/ModelTypes.js';
 import type { Document } from "mongodb";
-import type { GlobalOptions } from "@logic/GlobalOptions.js";
 
 // Re-using local interfaces or defining them here if they need to be shared broadly
 // For now, we import what we can.

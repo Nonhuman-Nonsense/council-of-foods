@@ -7,7 +7,7 @@ import type { ClientToServerEvents, ServerToClientEvents, AudioUpdatePayload } f
 import type { GlobalOptions } from "@logic/GlobalOptions.js";
 import type { AudioSystem } from "@logic/AudioSystem.js";
 import type { DialogGenerator } from "@logic/DialogGenerator.js";
-import type { ConversationState, Meeting } from "@shared/ModelTypes.js";
+import type { ConversationState } from "@shared/ModelTypes.js";
 
 export { ConversationState };
 

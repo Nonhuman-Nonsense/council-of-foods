@@ -89,7 +89,7 @@ describe('Audio Queue Draining', () => {
         expect(p1.manager.isLoopActive).toBe(false);
 
         // B: Capture current audio completions
-        const completionsAtDestroy = [...audioCompletions];
+        const _completionsAtDestroy = [...audioCompletions];
 
         // C: Wait for the "slow" audio tasks to finish
         await new Promise(r => setTimeout(r, 200));
@@ -102,7 +102,7 @@ describe('Audio Queue Draining', () => {
         // the method `generateAudio` WAS called for messages generated before destroy.
 
         // Let's inspect the conversation to see how many messages were generated.
-        const conversationCount = p1.manager.meeting.conversation.length;
+        const _conversationCount = p1.manager.meeting.conversation.length;
 
         // We expect audio generation to eventually match the conversation count
         // (excluding system messages if any, though audio queue handles that).

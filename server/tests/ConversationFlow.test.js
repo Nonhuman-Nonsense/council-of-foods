@@ -1,9 +1,8 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { meetingsCollection } from '@services/DbService.js';
-import { createTestManager, mockOpenAI } from './commonSetup.js';
+import { createTestManager } from './commonSetup.js';
 import { setupTestOptions } from './testUtils.js';
-import { MockFactory } from './factories/MockFactory.ts';
 import { SpeakerSelector } from '@logic/SpeakerSelector.js';
 
 // Mock dependencies
@@ -18,13 +17,11 @@ vi.mock('@logic/SpeakerSelector.js', () => ({
 
 describe('MeetingManager - Conversation Flow', () => {
     let manager;
-    let mockSocket;
 
     beforeEach(() => {
         const setup = createTestManager();
         manager = setup.manager;
         manager.meeting._id = 1;
-        mockSocket = setup.mockSocket;
 
         // Spy on DB methods
         vi.spyOn(meetingsCollection, 'updateOne');
@@ -50,7 +47,7 @@ describe('MeetingManager - Conversation Flow', () => {
         };
 
         // 2. Verify 'prototype' mode
-        const { manager: protoManager, mockSocket: protoSocket } = createTestManager('prototype', null, {
+        const { manager: protoManager } = createTestManager('prototype', null, {
             meetingsCollection: mockCollection,
             audioCollection: mockAudioCollection,
             insertMeeting: vi.fn().mockResolvedValue({ insertedId: 1 })
