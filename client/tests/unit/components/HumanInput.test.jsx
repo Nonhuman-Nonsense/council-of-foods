@@ -21,7 +21,7 @@ vi.mock('../../../src/api/getClientKey', () => ({
 }));
 
 // Mock child components to avoid complex rendering issues
-vi.mock('react-audio-visualize', () => ({
+vi.mock('../../../src/components/LiveAudioVisualizer', () => ({
     LiveAudioVisualizer: () => <div data-testid="visualizer" />
 }));
 

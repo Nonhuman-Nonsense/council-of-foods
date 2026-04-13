@@ -5,7 +5,7 @@ import ConversationControlIcon from "./ConversationControlIcon";
 import TextareaAutosize from 'react-textarea-autosize';
 import { useMobile, dvh, mapFoodIndex } from "@/utils";
 import { useTranslation } from "react-i18next";
-import { LiveAudioVisualizer } from 'react-audio-visualize';
+import { LiveAudioVisualizer } from "@/components/LiveAudioVisualizer";
 import Lottie from 'react-lottie-player';
 import loading from '@animations/loading.json';
 import { getClientKey } from "@api/getClientKey";
