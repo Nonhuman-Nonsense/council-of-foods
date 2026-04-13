@@ -1,4 +1,4 @@
-import type { OpenAI } from "openai";
+import type OpenAI from "openai";
 import { GoogleAuth } from 'google-auth-library';
 import { withNetworkRetry } from "@utils/NetworkUtils.js";
 import { Word } from "@utils/textUtils.js";
@@ -66,7 +66,7 @@ export async function generateGeminiAudio(params: GenerateParams): Promise<Audio
         throw new Error(`Google TTS API Error: ${response.status} ${errText}`);
     }
 
-    const data = await response.json();
+    const data = (await response.json()) as { audioContent?: string };
     if (data.audioContent) {
         return { audio: Buffer.from(data.audioContent, 'base64') };
     } else {
@@ -81,7 +81,7 @@ export async function generateOpenAIAudio(params: GenerateParams): Promise<Audio
     const openai = services.getOpenAI();
     const mp3 = await withNetworkRetry(() => openai.audio.speech.create({
         model: options.voiceModel,
-        voice: speaker.voice as any,
+        voice: speaker.voice as OpenAI.Audio.SpeechCreateParams["voice"],
         speed: speaker.voiceSpeed ?? options.audio_speed,
         input: text.substring(0, 4096),
         instructions: speaker.voiceInstruction,
@@ -123,21 +123,35 @@ export async function generateInworldAudio(params: GenerateParams): Promise<Audi
         throw new Error(`Inworld TTS API Error: ${response.status} ${errText}`);
     }
 
-    const data: any = await response.json();
+    interface InworldTtsJson {
+        audioContent?: string;
+        timestampInfo?: {
+            wordAlignment?: {
+                words?: string[];
+                wordStartTimeSeconds?: number[];
+                wordEndTimeSeconds?: number[];
+            };
+        };
+    }
+
+    const data = (await response.json()) as InworldTtsJson;
     if (data.audioContent) {
         const buffer = Buffer.from(data.audioContent, 'base64');
         let words: Word[] | undefined;
 
         if (data.timestampInfo?.wordAlignment) {
             const wa = data.timestampInfo.wordAlignment;
-            if (Array.isArray(wa.words) && Array.isArray(wa.wordStartTimeSeconds) && Array.isArray(wa.wordEndTimeSeconds)) {
-                words = wa.words.map((word: string, i: number) => {
+            const waWords = wa.words;
+            const starts = wa.wordStartTimeSeconds;
+            const ends = wa.wordEndTimeSeconds;
+            if (Array.isArray(waWords) && Array.isArray(starts) && Array.isArray(ends)) {
+                words = waWords.map((word: string, i: number) => {
                     // Restore original word if it was replaced with IPA
                     const original = replacedWords.get(word);
                     return {
                         word: original || word,
-                        start: wa.wordStartTimeSeconds[i],
-                        end: wa.wordEndTimeSeconds[i]
+                        start: starts[i],
+                        end: ends[i]
                     };
                 });
             }

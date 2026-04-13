@@ -4,7 +4,7 @@ export interface Word {
     end: number;
 }
 
-interface MappedSentence {
+export interface MappedSentence {
     text: string;
     start: number;
     end: number;

@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { DialogGenerator } from '@logic/DialogGenerator.js';
 import { MockFactory } from './factories/MockFactory.ts';
 import { createTestManager } from './commonSetup.js';
 

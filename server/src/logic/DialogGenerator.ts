@@ -211,7 +211,7 @@ export class DialogGenerator {
      * Generates a specific interjection or system message (e.g., Chair inviting human).
      * Uses a temporary system prompt injected at the end of the history.
      */
-    async chairInterjection(interjectionPrompt: string, index: number, length: number, dontStop: boolean, meeting: StoredMeeting, broadcaster: IMeetingBroadcaster): Promise<GPTResponse> {
+    async chairInterjection(interjectionPrompt: string, index: number, length: number, dontStop: boolean, meeting: StoredMeeting, _broadcaster: IMeetingBroadcaster): Promise<GPTResponse> {
         try {
             const chair = meeting.characters[0];
             const messages = this.buildMessageStack(chair, meeting.conversation, meeting, index);
