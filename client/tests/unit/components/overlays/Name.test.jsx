@@ -1,7 +1,6 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import Name from '../../../../src/components/overlays/Name';
-import React from 'react';
 
 // Mock dependencies
 vi.mock('react-i18next', () => ({

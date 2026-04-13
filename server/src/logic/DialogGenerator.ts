@@ -119,7 +119,7 @@ export class DialogGenerator {
             }
 
             let trimmedContent: string | undefined;
-            let originalResponse = response;
+            const originalResponse = response;
 
             if (completion.choices[0].finish_reason != "stop") {
                 if (this.serverOptions.trimSentance) {
@@ -140,7 +140,7 @@ export class DialogGenerator {
             }
 
             // Check others speaking
-            for (var i = 0; i < meeting.characters.length; i++) {
+            for (let i = 0; i < meeting.characters.length; i++) {
                 if (i === currentSpeakerIndex) continue;
                 const nameIndex = response.indexOf(meeting.characters[i].name + ":");
                 if (nameIndex != -1 && nameIndex < 20) {
@@ -211,10 +211,10 @@ export class DialogGenerator {
      * Generates a specific interjection or system message (e.g., Chair inviting human).
      * Uses a temporary system prompt injected at the end of the history.
      */
-    async chairInterjection(interjectionPrompt: string, index: number, length: number, dontStop: boolean, meeting: StoredMeeting, broadcaster: IMeetingBroadcaster): Promise<GPTResponse> {
+    async chairInterjection(interjectionPrompt: string, index: number, length: number, dontStop: boolean, meeting: StoredMeeting, _broadcaster: IMeetingBroadcaster): Promise<GPTResponse> {
         try {
             const chair = meeting.characters[0];
-            let messages = this.buildMessageStack(chair, meeting.conversation, meeting, index);
+            const messages = this.buildMessageStack(chair, meeting.conversation, meeting, index);
 
             messages.push({
                 role: "system",
@@ -256,7 +256,7 @@ export class DialogGenerator {
      * Constructs the array of message objects (system, user, assistant) for the GPT API.
      */
     buildMessageStack(speaker: Character, conversation: Message[], meeting: StoredMeeting, upToIndex?: number): ChatCompletionMessageParam[] {
-        let messages: ChatCompletionMessageParam[] = [];
+        const messages: ChatCompletionMessageParam[] = [];
 
         messages.push({
             role: "system",

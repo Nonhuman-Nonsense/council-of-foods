@@ -182,7 +182,6 @@ export function splitText(text: string, limit: number): string[] {
         // Note: For typical text lengths (<5000 chars), scanning all separators is performant enough.
 
         const separators = ['\n\n', '\n', '. ', ', '];
-        let foundSplit = false;
 
         for (const sep of separators) {
             let idx = currentText.indexOf(sep);
@@ -208,7 +207,6 @@ export function splitText(text: string, limit: number): string[] {
                 checkSplit(bestForSep);
 
                 if (splitIndex !== -1) {
-                    foundSplit = true;
                     break; // Found a split with this high-priority separator
                 }
             }

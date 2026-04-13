@@ -1,13 +1,14 @@
 /// <reference types="vite/client" />
 import i18n from 'i18next';
+import type { Resource, ResourceKey } from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import { AVAILABLE_LANGUAGES } from "@shared/AvailableLanguages";
 
 // Eagerly import all translation files to bundle them
 const locales = import.meta.glob('/src/locales/*/*.json', { eager: true, import: 'default' });
 
-// Construct the resources object dynamically
-const resources: Record<string, any> = {};
+// Construct the resources object dynamically (JSON from glob → i18next Resource)
+const resources: Resource = {};
 
 for (const path in locales) {
   // Path format: /src/locales/{lang}/{ns}.json
@@ -20,7 +21,7 @@ for (const path in locales) {
     resources[lang] = {};
   }
 
-  resources[lang][ns] = locales[path];
+  resources[lang][ns] = locales[path] as ResourceKey;
 }
 
 for (const lang of AVAILABLE_LANGUAGES) {

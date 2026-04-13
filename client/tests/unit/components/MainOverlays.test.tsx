@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import MainOverlays from '../../../src/components/MainOverlays';
-import React from 'react';
+import type { ReactNode } from 'react';
 import '@testing-library/jest-dom';
 import routes from '../../../src/routes.json';
 import type { Topic } from '@shared/ModelTypes';
@@ -34,23 +34,23 @@ vi.mock('react-router', () => ({
 vi.mock('../../../src/components/overlays/About', () => ({ default: () => <div data-testid="about-overlay">About</div> }));
 vi.mock('../../../src/components/overlays/Contact', () => ({ default: () => <div data-testid="contact-overlay">Contact</div> }));
 vi.mock('../../../src/components/overlays/ResetWarning', () => ({
-    default: (props: any) => (
+    default: ({ onReset, onCancel }: { onReset: () => void; onCancel: () => void }) => (
         <div data-testid="reset-overlay">
-            <button onClick={props.onReset}>Confirm Reset</button>
-            <button onClick={props.onCancel}>Cancel</button>
+            <button onClick={onReset}>Confirm Reset</button>
+            <button onClick={onCancel}>Cancel</button>
         </div>
     )
 }));
 vi.mock('../../../src/components/settings/SelectTopic', () => ({
-    default: (props: any) => <div data-testid="settings-overlay">Settings</div>
+    default: () => <div data-testid="settings-overlay">Settings</div>
 }));
 
 // Mock Wrapper Components
 vi.mock('../../../src/components/Overlay', () => ({
-    default: ({ children, isActive }: { children: React.ReactNode, isActive: boolean }) => isActive ? <div data-testid="overlay-container">{children}</div> : null
+    default: ({ children, isActive }: { children: ReactNode; isActive: boolean }) => isActive ? <div data-testid="overlay-container">{children}</div> : null
 }));
 vi.mock('../../../src/components/OverlayWrapper', () => ({
-    default: ({ children }: { children: React.ReactNode }) => <div data-testid="overlay-wrapper">{children}</div>
+    default: ({ children }: { children: ReactNode }) => <div data-testid="overlay-wrapper">{children}</div>
 }));
 
 describe('MainOverlays', () => {

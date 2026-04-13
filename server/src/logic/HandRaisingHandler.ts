@@ -46,7 +46,7 @@ export class HandRaisingHandler {
         m.conversation = m.conversation.slice(0, handRaisedOptions.index);
 
         if (!m.state.alreadyInvited) {
-            let { response, id } = await manager.dialogGenerator.chairInterjection(
+            const chairInterjection = await manager.dialogGenerator.chairInterjection(
                 manager.serverOptions.raiseHandPrompt[m.language].replace(
                     "[NAME]",
                     m.state.humanName || "Human"
@@ -57,6 +57,8 @@ export class HandRaisingHandler {
                 m,
                 manager.broadcaster
             );
+            let response = chairInterjection.response;
+            const { id } = chairInterjection;
 
             const firstNewLineIndex = response.indexOf("\n\n");
             if (firstNewLineIndex !== -1) {

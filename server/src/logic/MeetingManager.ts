@@ -1,4 +1,3 @@
-import { AVAILABLE_LANGUAGES } from "@shared/AvailableLanguages.js";
 import type { IMeetingManager, Services, IMeetingBroadcaster } from "@interfaces/MeetingInterfaces.js";
 import type { Character, Message } from "@shared/ModelTypes.js";
 import type { ClientToServerEvents, ReconnectionOptions, ServerToClientEvents, SetupOptions } from "@shared/SocketTypes.js";
@@ -126,9 +125,6 @@ export class MeetingManager implements IMeetingManager {
                 break;
             case "continue_conversation":
                 await this.meetingLifecycleHandler.handleContinueConversation();
-                break;
-            case "request_clientkey":
-                await this.meetingLifecycleHandler.handleRequestClientKey();
                 break;
             // Prototype Listeners
             case "pause_conversation":
@@ -311,7 +307,7 @@ export class MeetingManager implements IMeetingManager {
 
         if (shouldAbort()) return;
 
-        let message: Message = {
+        const message: Message = {
             id: output.id || "",
             speaker: action.speaker.id,
             text: output.response,

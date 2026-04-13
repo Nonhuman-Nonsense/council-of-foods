@@ -17,11 +17,6 @@ describe('Background', () => {
             <Background zoomIn={false} currentSpeakerIndex={0} totalSpeakers={5} />
         );
 
-        const divs = container.firstChild.querySelectorAll('div'); // Since it uses fragment, might need care
-        // Actually render returns container which wraps the result. 
-        // <Background> returns <><div/><div/>...</>
-        // So container.children will be the divs.
-
         const backdrop = container.children[0];
         const table = container.children[1];
 
