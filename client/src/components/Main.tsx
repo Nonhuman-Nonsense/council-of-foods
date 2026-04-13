@@ -58,12 +58,7 @@ export default function Main(props: MainProps) {
   const isIphone = useIsIphone();
   const isPortrait = usePortrait();
 
-  // Prevent changing langauge on component mount
-  const prevLangRef = useRef(props.lang);
   useEffect(() => {
-    if (prevLangRef.current === props.lang) return;
-    prevLangRef.current = props.lang;
-
     i18n.changeLanguage(props.lang);
 
     if (topicSelection?.id) {
@@ -82,7 +77,7 @@ export default function Main(props: MainProps) {
       }
     }
 
-    if (isMeetingPath(location.pathname)) {
+    if (isMeetingPath(location.pathname) && meetingCreatorKey) {
       navigate({ hash: "warning" });
     }
   }, [props.lang]); // eslint-disable-line react-hooks/exhaustive-deps
