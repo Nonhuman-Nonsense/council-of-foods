@@ -189,11 +189,11 @@ function HumanInput({ foods, isPanelist, currentSpeakerName, onSubmitHumanMessag
     inputChanged();
   }, [transcript, recordingState]);
 
-  function inputFocused(e: React.FocusEvent) {
+  function inputFocused(_e: React.FocusEvent) {
     setRecordingState('idle');
   }
 
-  function inputChanged(e?: React.ChangeEvent) {
+  function inputChanged(_e?: React.ChangeEvent) {
     if (inputArea.current && inputArea.current.value.length > 0 && inputArea.current.value.trim().length !== 0) {
       setCanContinue(true);
     } else {
@@ -263,7 +263,7 @@ function HumanInput({ foods, isPanelist, currentSpeakerName, onSubmitHumanMessag
     const topOffset = 14.5; // Vertical offset to adjust the curve's baseline
 
     let middleIndex: number;
-    let isEven = total % 2 === 0;
+    const isEven = total % 2 === 0;
     if (isEven) {
       middleIndex = total / 2 - 1;
     } else {

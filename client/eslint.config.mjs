@@ -42,7 +42,8 @@ export default tseslint.config(
     },
     rules: {
       'react-hooks/rules-of-hooks': 'error',
-      'react-hooks/exhaustive-deps': 'warn',
+      // Intentionally off: many effects use stable props/refs; re-enabling is a Phase B cleanup.
+      'react-hooks/exhaustive-deps': 'off',
       // Props are typed with TypeScript, not runtime propTypes.
       'react/prop-types': 'off',
     },
@@ -51,6 +52,26 @@ export default tseslint.config(
     files: ['playwright.config.js'],
     languageOptions: {
       globals: globals.node,
+    },
+  },
+  {
+    files: ['src/**/*.{ts,tsx,js,jsx}'],
+    rules: {
+      'no-unused-vars': 'off',
+      '@typescript-eslint/no-unused-vars': [
+        'warn',
+        {
+          argsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+        },
+      ],
+      '@typescript-eslint/no-explicit-any': 'warn',
+      '@typescript-eslint/ban-ts-comment': 'off',
+      '@typescript-eslint/prefer-as-const': 'warn',
+      '@typescript-eslint/no-unused-expressions': 'warn',
+      'prefer-const': 'warn',
+      'no-var': 'warn',
     },
   },
   {
@@ -76,11 +97,6 @@ export default tseslint.config(
     },
     rules: {
       'react/display-name': 'off',
-    },
-  },
-  {
-    rules: {
-      // Prefer tsc for unused checks; keep ESLint focused on clear issues.
       'no-unused-vars': 'off',
       '@typescript-eslint/no-unused-vars': [
         'warn',
@@ -90,7 +106,8 @@ export default tseslint.config(
           varsIgnorePattern: '^_',
         },
       ],
-      '@typescript-eslint/no-explicit-any': 'warn',
+      // Tests use loose mocks; type-safety is enforced in src + tsc.
+      '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/ban-ts-comment': 'off',
       '@typescript-eslint/prefer-as-const': 'warn',
       '@typescript-eslint/no-unused-expressions': 'warn',

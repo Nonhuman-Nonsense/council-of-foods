@@ -23,7 +23,7 @@ if (typeof CSS === 'undefined') {
 }
 
 if (!CSS.supports) {
-    CSS.supports = (k, v) => false;
+    CSS.supports = (_k, _v) => false;
 }
 
 // Mock Canvas
@@ -42,7 +42,7 @@ global.AudioContext = class {
     constructor() {
         this.state = 'running';
     }
-    decodeAudioData(buffer) {
+    decodeAudioData(_buffer) {
         return Promise.resolve(new ArrayBuffer(8)); // Mock buffer
     }
     suspend() {
@@ -82,7 +82,7 @@ global.MediaStream = class MediaStream {
 
 // Mock MediaRecorder
 global.MediaRecorder = class {
-    constructor(stream) { }
+    constructor(_stream) { }
     start() { }
     stop() { }
 };

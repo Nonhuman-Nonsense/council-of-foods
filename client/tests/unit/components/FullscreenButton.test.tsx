@@ -10,8 +10,8 @@ describe('FullscreenButton', () => {
     const exitFullscreenMock = vi.fn();
 
     // Preserve original implementations
-    const originalDocElement = document.documentElement;
-    const originalExit = document.exitFullscreen;
+    const _originalDocElement = document.documentElement;
+    const _originalExit = document.exitFullscreen;
 
     afterEach(() => {
         vi.restoreAllMocks();

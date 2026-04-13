@@ -157,7 +157,7 @@ export class AudioSystem {
                 }));
 
                 let currentOffset = 0;
-                let allWords: Word[] = [];
+                const allWords: Word[] = [];
 
                 chunkWordsWithTimings.forEach((words, index) => {
                     const offsetWords = words.map(w => ({

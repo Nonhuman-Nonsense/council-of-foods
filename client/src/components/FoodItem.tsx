@@ -52,7 +52,7 @@ function FoodItem({ food, index, total, currentSpeakerId, isPaused, zoomIn }: Fo
   const overviewSize = 12;
   const zoomInSize = 55;
 
-  let videoSize = (food.id && videoWithShadowSize[food.id]) ? videoWithShadowSize[food.id] : 1080;
+  const videoSize = (food.id && videoWithShadowSize[food.id]) ? videoWithShadowSize[food.id] : 1080;
 
   /* -------------------------------------------------------------------------- */
   /*                                 Calculations                               */
@@ -101,7 +101,7 @@ function FoodItem({ food, index, total, currentSpeakerId, isPaused, zoomIn }: Fo
       const topOffset = 14.5; // Vertical offset to adjust the curve's baseline
 
       let middleIndex: number;
-      let isEven = total % 2 === 0;
+      const isEven = total % 2 === 0;
       if (isEven) {
         middleIndex = total / 2 - 1;
       } else {

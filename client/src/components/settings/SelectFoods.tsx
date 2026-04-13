@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { toTitleCase, useMobile, useMobileXs, filename } from "@/utils";
+import { toTitleCase, useMobile, useMobileXs } from "@/utils";
 import { useTranslation } from "react-i18next";
 
 import globalOptionsData from "@/global-options-client.json";
@@ -199,7 +199,7 @@ function SelectFoods({ topicTitle, onContinueForward, loading: loading = false }
       }
 
       //We need to make a structuredClone here, otherwise we just end up with a string of pointers that ends up mutating the original foodData.
-      let replacedFoods: Food[] = [];
+      const replacedFoods: Food[] = [];
       for (const id of selectedFoods) {
         const found = foods.find(f => f.id === id);
         if (found) replacedFoods.push(structuredClone(found));
@@ -527,7 +527,7 @@ function HumanInfo({ human, setHumans, lastSelected, unfocus, setRecheckHumansRe
     setRecheckHumansReady(prev => !prev);
   }
 
-  function nameChanged(e: React.ChangeEvent<HTMLTextAreaElement>) {
+  function nameChanged(_e: React.ChangeEvent<HTMLTextAreaElement>) {
     if (!human || human.index === undefined) return;
     if (nameArea.current) {
       nameArea.current.value = toTitleCase(nameArea.current.value);

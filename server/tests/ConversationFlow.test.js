@@ -147,7 +147,7 @@ describe('MeetingManager - Conversation Flow', () => {
 
         // We DO NOT mock generateTextFromGPT. We test it!
 
-        let action = diManager.decideNextAction();
+        const action = diManager.decideNextAction();
         expect(action.type).toBe('GENERATE_AI_RESPONSE');
         const speaker = diManager.meeting.characters[1];
         await diManager.processTurn({ type: action.type, speaker });
@@ -176,7 +176,7 @@ describe('MeetingManager - Conversation Flow', () => {
 
         vi.spyOn(SpeakerSelector, 'calculateNextSpeaker').mockReturnValue(panelistId);
 
-        let action = manager.decideNextAction();
+        const action = manager.decideNextAction();
         expect(action.type).toBe('REQUEST_PANELIST');
         const speaker = manager.meeting.characters[panelistId];
         await manager.processTurn({ type: action.type, speaker });
