@@ -1,4 +1,3 @@
-import type { ClientToServerEvents, ServerToClientEvents, ClientKeyResponse } from "@shared/SocketTypes";
 import type { Character } from "@shared/ModelTypes";
 
 import { useState, useEffect, useRef } from "react";
@@ -6,10 +5,10 @@ import ConversationControlIcon from "./ConversationControlIcon";
 import TextareaAutosize from 'react-textarea-autosize';
 import { useMobile, dvh, mapFoodIndex } from "@/utils";
 import { useTranslation } from "react-i18next";
-import { LiveAudioVisualizer } from 'react-audio-visualize';
+import { LiveAudioVisualizerPair } from "@/components/LiveAudioVisualizer";
 import Lottie from 'react-lottie-player';
 import loading from '@animations/loading.json';
-import { Socket } from "socket.io-client";
+import { getClientKey } from "@api/getClientKey";
 import React from 'react';
 import micIcon from "@assets/mic.avif";
 
@@ -27,7 +26,7 @@ interface HumanInputProps {
   isPanelist: boolean;
   currentSpeakerName: string;
   onSubmitHumanMessage: (text: string, askParticular: string) => void;
-  socketRef: React.MutableRefObject<Socket<ServerToClientEvents, ClientToServerEvents>>;
+  creatorKey: string;
 }
 
 // Workaround for TextareaAutosize strict height type
@@ -43,7 +42,7 @@ type TextareaStyle = Omit<React.CSSProperties, 'height'> & { height?: number };
  * - **Text Input**: Provides a fallback manual text entry.
  * - **Targeting**: Should allow selection of specific characters to address (logic partially implemented via `askParticular`).
  */
-function HumanInput({ isPanelist, currentSpeakerName, onSubmitHumanMessage, socketRef }: HumanInputProps): React.ReactElement {
+function HumanInput({ isPanelist, currentSpeakerName, onSubmitHumanMessage, creatorKey }: HumanInputProps): React.ReactElement {
   const [clientKey, setClientKey] = useState<string | null>(null);
   const [recordingState, setRecordingState] = useState<"idle" | "loading" | "recording">("idle");
   const [canContinue, setCanContinue] = useState<boolean>(false);
@@ -61,8 +60,11 @@ function HumanInput({ isPanelist, currentSpeakerName, onSubmitHumanMessage, sock
   const pc = useRef<RTCPeerConnection | null>(null);
   const mic = useRef<MediaStream | null>(null);
 
+  const vizLeftHostRef = useRef<HTMLDivElement>(null);
+  const vizRightHostRef = useRef<HTMLDivElement>(null);
+
   const [rerender, forceRerender] = useState<boolean>(false);
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
 
   const maxInputLength = isPanelist ? 1300 : 700;
 
@@ -146,19 +148,15 @@ function HumanInput({ isPanelist, currentSpeakerName, onSubmitHumanMessage, sock
   }
 
   useEffect(() => {
-    if (!initialized.current) {
-      socketRef.current.emit('request_clientkey');
-      initialized.current = true;
-    }
-    const handleClientKey = (data: ClientKeyResponse) => {
-      setClientKey(data.value);
-    };
-    socketRef.current.on('clientkey_response', handleClientKey);
+    if (initialized.current) return;
+    initialized.current = true;
+    getClientKey({ language: i18n.language, creatorKey })
+      .then(data => setClientKey(data.value))
+      .catch(err => console.error("Failed to get client key", err));
     return () => {
-      socketRef.current.off('clientkey_response', handleClientKey);
       pc.current?.close();
       mic.current?.getTracks().forEach(track => track.stop());
-    }
+    };
   }, []);
 
   function handleStartStopRecording() {
@@ -278,19 +276,10 @@ function HumanInput({ isPanelist, currentSpeakerName, onSubmitHumanMessage, sock
         />
       </div>
       <div style={{ display: "flex", flexDirection: "row", pointerEvents: "auto", justifyContent: "center" }}>
-        <div style={{ ...divStyle, transform: "scale(-1, -1)" }}>
-          {recordingState === 'recording' && mediaRecorder && (
-            <LiveAudioVisualizer
-              mediaRecorder={mediaRecorder}
-              width={100}
-              height={40}
-              barWidth={3}
-              gap={2}
-              barColor={'#ffffff'}
-              smoothingTimeConstant={0.85}
-            />
-          )}
-        </div>
+        <div
+          ref={vizLeftHostRef}
+          style={{ ...divStyle, transform: "scale(-1, -1)" }}
+        />
         <div style={divStyle}>
           {recordingState === 'loading' &&
             <Lottie play loop animationData={loading} style={{ height: isMobile ? 45 : 56 }} />
@@ -302,18 +291,7 @@ function HumanInput({ isPanelist, currentSpeakerName, onSubmitHumanMessage, sock
             />
           }
         </div>
-        <div style={divStyle}>
-          {recordingState === 'recording' && mediaRecorder && (
-            <LiveAudioVisualizer
-              mediaRecorder={mediaRecorder}
-              width={100}
-              height={40}
-              barColor={'#ffffff'}
-              barWidth={3}
-              gap={2}
-              smoothingTimeConstant={0.85}
-            />
-          )}
+        <div style={divStyle} ref={vizRightHostRef}>
           {recordingState === 'idle' && canContinue &&
             <ConversationControlIcon
               icon={"send_message"}
@@ -322,6 +300,19 @@ function HumanInput({ isPanelist, currentSpeakerName, onSubmitHumanMessage, sock
             />
           }
         </div>
+        {recordingState === 'recording' && mediaRecorder && (
+          <LiveAudioVisualizerPair
+            mediaRecorder={mediaRecorder}
+            leftHostRef={vizLeftHostRef}
+            rightHostRef={vizRightHostRef}
+            width={100}
+            height={40}
+            barWidth={3}
+            gap={2}
+            barColor="#ffffff"
+            smoothingTimeConstant={0.85}
+          />
+        )}
       </div>
     </div>
   </>

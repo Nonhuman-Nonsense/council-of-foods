@@ -72,7 +72,7 @@ export function useCouncilMachine({
     const location = useLocation();
 
     // Refs
-    const waitTimer = useRef<NodeJS.Timeout | null>(null);
+    const waitTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     // Derived State
     const [canGoBack, setCanGoBack] = useState(false);

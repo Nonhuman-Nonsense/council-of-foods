@@ -2,12 +2,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import HumanInput from '../../../src/components/HumanInput';
-import { useTranslation } from 'react-i18next';
 import { useMobile } from '../../../src/utils';
+import { getClientKey } from '../../../src/api/getClientKey';
 
 // Mocks
 vi.mock('react-i18next', () => ({
-    useTranslation: () => ({ t: (key) => key }),
+    useTranslation: () => ({ t: (key) => key, i18n: { language: 'en' } }),
 }));
 
 vi.mock('../../../src/utils', () => ({
@@ -16,9 +16,13 @@ vi.mock('../../../src/utils', () => ({
     mapFoodIndex: (l, i) => i
 }));
 
+vi.mock('../../../src/api/getClientKey', () => ({
+    getClientKey: vi.fn(),
+}));
+
 // Mock child components to avoid complex rendering issues
-vi.mock('react-audio-visualize', () => ({
-    LiveAudioVisualizer: () => <div data-testid="visualizer" />
+vi.mock('../../../src/components/LiveAudioVisualizer', () => ({
+    LiveAudioVisualizerPair: () => <div data-testid="visualizer" />
 }));
 
 vi.mock('react-lottie-player', () => ({
@@ -32,19 +36,12 @@ vi.mock('../../../src/components/ConversationControlIcon', () => ({
 }));
 
 describe('HumanInput Component', () => {
-    let mockSocket;
     let mockOnSubmit;
 
     beforeEach(() => {
-        mockSocket = {
-            current: {
-                emit: vi.fn(),
-                on: vi.fn(),
-                off: vi.fn(),
-            }
-        };
         mockOnSubmit = vi.fn();
         useMobile.mockReturnValue(false);
+        getClientKey.mockResolvedValue({ value: 'mock_client_key' });
         global.fetch = vi.fn().mockResolvedValue({
             text: () => Promise.resolve("mock_sdp_answer")
         });
@@ -61,7 +58,7 @@ describe('HumanInput Component', () => {
                 isPanelist={false}
                 currentSpeakerName="TestSpeaker"
                 onSubmitHumanMessage={mockOnSubmit}
-                socketRef={mockSocket}
+                creatorKey="test-key"
             />
         );
 
@@ -78,10 +75,10 @@ describe('HumanInput Component', () => {
                 isPanelist={false}
                 currentSpeakerName=""
                 onSubmitHumanMessage={mockOnSubmit}
-                socketRef={mockSocket}
+                creatorKey="test-key"
             />
         );
-        expect(mockSocket.current.emit).toHaveBeenCalledWith('request_clientkey');
+        expect(getClientKey).toHaveBeenCalledWith({ language: 'en', creatorKey: 'test-key' });
     });
 
     it('should handle text input and submission', () => {
@@ -91,7 +88,7 @@ describe('HumanInput Component', () => {
                 isPanelist={false}
                 currentSpeakerName=""
                 onSubmitHumanMessage={mockOnSubmit}
-                socketRef={mockSocket}
+                creatorKey="test-key"
             />
         );
 
@@ -112,22 +109,20 @@ describe('HumanInput Component', () => {
     });
 
     it('should handle recording flow (click mic -> loading -> recording -> stop)', async () => {
-        // Mock socket.on to simulate receiving client key immediately
-        mockSocket.current.on.mockImplementation((event, callback) => {
-            if (event === 'clientkey_response') {
-                callback({ value: 'secret_key' });
-            }
-        });
-
-        const { rerender } = render(
+        render(
             <HumanInput
                 foods={[]}
                 isPanelist={false}
                 currentSpeakerName=""
                 onSubmitHumanMessage={mockOnSubmit}
-                socketRef={mockSocket}
+                creatorKey="test-key"
             />
         );
+
+        // Wait for client key to be fetched
+        await waitFor(() => {
+            expect(getClientKey).toHaveBeenCalled();
+        });
 
         // Click Mic
         const micBtn = screen.getByTestId('icon-record_voice_off');
@@ -162,14 +157,10 @@ describe('HumanInput Component', () => {
                 isPanelist={true}
                 currentSpeakerName="Mr. Potato"
                 onSubmitHumanMessage={mockOnSubmit}
-                socketRef={mockSocket}
+                creatorKey="test-key"
             />
         );
         expect(screen.getByPlaceholderText('human.panelist')).toBeInTheDocument();
-        // Note: mock implementation of useTranslation returns the key, so 'human.panelist'.
-        // The real component substitutes {name}, but our mock returns key.
-        // Wait, the mock in line 10 is: t: (key) => key.
-        // So for t('human.panelist', { name: ... }) it returns 'human.panelist'.
     });
 
     it.skip('should select and deselect a specific food to ask (askParticular)', async () => {
@@ -180,16 +171,9 @@ describe('HumanInput Component', () => {
                 isPanelist={false}
                 currentSpeakerName=""
                 onSubmitHumanMessage={mockOnSubmit}
-                socketRef={mockSocket}
+                creatorKey="test-key"
             />
         );
-
-        // Find ring items (we rely on class "ringHover" or structure)
-        // The code has <div className="ringHover" ... onClick={() => setAskParticular(food.name)}>
-        // Let's rely on firing clicks on ring items. Since they don't have text, we might need a testid or selector.
-        // But we didn't add testids to the rings in the component.
-        // We can inspect the DOM structure in the component:
-        // {foods.map((food, index) => ( <div className="ringHover" ... /> ))}
 
         const ringItems = document.getElementsByClassName('ringHover');
         expect(ringItems.length).toBe(2);
@@ -213,7 +197,7 @@ describe('HumanInput Component', () => {
                 isPanelist={false}
                 currentSpeakerName=""
                 onSubmitHumanMessage={mockOnSubmit}
-                socketRef={mockSocket}
+                creatorKey="test-key"
             />
         );
         const textarea = screen.getByPlaceholderText('human.1');
@@ -238,13 +222,10 @@ describe('HumanInput Component', () => {
                 isPanelist={false} // max 700
                 currentSpeakerName=""
                 onSubmitHumanMessage={mockOnSubmit}
-                socketRef={mockSocket}
+                creatorKey="test-key"
             />
         );
         const textarea = screen.getByPlaceholderText('human.1');
         expect(textarea).toHaveAttribute('maxLength', '700');
-
-        // Re-render as panelist
-        // (Cleanest to just make a new test or unmount, but simplified here)
     });
 });

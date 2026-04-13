@@ -67,6 +67,19 @@ if (typeof navigator !== 'undefined') {
     });
 }
 
+// Mock MediaStream (jsdom has no WebRTC stream constructor; tests use `new MediaStream()`)
+global.MediaStream = class MediaStream {
+    constructor(tracks = []) {
+        this._tracks = Array.isArray(tracks) ? [...tracks] : [];
+    }
+    getTracks() {
+        return this._tracks;
+    }
+    addTrack(track) {
+        this._tracks.push(track);
+    }
+};
+
 // Mock MediaRecorder
 global.MediaRecorder = class {
     constructor(stream) { }
