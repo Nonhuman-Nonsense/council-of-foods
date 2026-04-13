@@ -485,7 +485,31 @@ function HumanInfo({ human, setHumans, lastSelected, unfocus, setRecheckHumansRe
 
   const { t } = useTranslation();
 
-  if (!human || (human.index === undefined)) return null;
+  // Effect to update values when human data changes (e.g. from parent re-render or switching humans)
+  useEffect(() => {
+    if (!human || human.index === undefined) return;
+    if (nameArea.current && descriptionArea.current) {
+      nameArea.current.value = human.name;
+      descriptionArea.current.value = human.description;
+    }
+  }, [human]);
+
+  // Effect to handle focus ONLY when selection changes or unfocus trigger changes
+  useEffect(() => {
+    if (!human || human.index === undefined) return;
+    if (nameArea.current && descriptionArea.current) {
+      if (lastSelected === human.id && unfocus !== true) {
+        nameArea.current.focus();
+        const length = nameArea.current.value.length;
+        nameArea.current.setSelectionRange(length, length);
+      } else if (unfocus === true) {
+        nameArea.current.blur();
+        descriptionArea.current.blur();
+      }
+    }
+  }, [unfocus, lastSelected, human?.id]);
+
+  if (!human || human.index === undefined) return null;
 
   function descriptionChanged(e: React.ChangeEvent<HTMLTextAreaElement>) {
     if (!human || human.index === undefined) return;
@@ -516,29 +540,6 @@ function HumanInfo({ human, setHumans, lastSelected, unfocus, setRecheckHumansRe
       setRecheckHumansReady(prev => !prev);
     }
   }
-
-  // Effect to update values when human data changes (e.g. from parent re-render or switching humans)
-  useEffect(() => {
-    if (nameArea.current && descriptionArea.current && human) {
-      nameArea.current.value = human.name;
-      descriptionArea.current.value = human.description;
-    }
-  }, [human]);
-
-  // Effect to handle focus ONLY when selection changes or unfocus trigger changes
-  useEffect(() => {
-    if (nameArea.current && descriptionArea.current && human) {
-      if (lastSelected === human.id && unfocus !== true) {
-        //Set focus only when first selecting, not on every re-render
-        nameArea.current.focus();
-        const length = nameArea.current.value.length;
-        nameArea.current.setSelectionRange(length, length);
-      } else if (unfocus === true) {
-        nameArea.current.blur();
-        descriptionArea.current.blur();
-      }
-    }
-  }, [unfocus, lastSelected, human?.id]); // Only depend on ID, not full human object
 
   const textStyle: React.CSSProperties = {
     backgroundColor: "transparent",
