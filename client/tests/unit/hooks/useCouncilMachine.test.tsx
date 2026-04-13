@@ -14,6 +14,18 @@ vi.mock('react-router', () => ({
     useLocation: () => mockUseLocation() // Call it to allow changing return value
 }));
 
+vi.mock('react-i18next', () => ({
+    useTranslation: () => ({ i18n: { language: 'en' } }),
+}));
+
+vi.mock('@/routing', () => ({
+    useRouting: () => ({
+        newMeetingPath: '/new',
+        meetingPath: (id: number) => `/meeting/${id}`,
+        meetingRoutesBase: '/meeting',
+    }),
+}));
+
 // Mock Global Options
 vi.mock('@/global-options-client.json', () => ({
     default: {
@@ -52,8 +64,9 @@ describe('useCouncilMachine', () => {
             }
         };
         defaultProps = {
-            lang: 'en',
-            topic: { prompt: 'Test Topic' },
+            currentMeetingId: 0,
+            creatorKey: 'test-creator-key',
+            topic: { id: 't', title: 'T', description: 'D', prompt: 'Test Topic' },
             participants: [],
             audioContext: audioContextMock,
             setUnrecoverableError: vi.fn(),
@@ -62,7 +75,6 @@ describe('useCouncilMachine', () => {
             isPaused: false,
             setPaused: vi.fn(),
             setAudioPaused: vi.fn(),
-            baseUrl: '/test/meeting'
         };
     });
 
@@ -71,20 +83,11 @@ describe('useCouncilMachine', () => {
         expect(result.current.state.councilState).toBe('loading');
     });
 
-    it('navigates to meeting URL when meeting starts', () => {
-        renderHook(() => useCouncilMachine(defaultProps as any));
-
-        // Simulate meeting started event
-        act(() => {
-            if (socketHandlers.onMeetingStarted) {
-                socketHandlers.onMeetingStarted({ meeting_id: '12345' });
-            }
-        });
-
-        // Expect navigation with baseUrl
-        expect(mockNavigate).toHaveBeenCalledWith(`${defaultProps.baseUrl}/12345`);
-        // We can't easily check state.currentMeetingId immediately inside act if it triggers re-render, 
-        // but the hook should update.
+    it('exposes currentMeetingId from props in state', () => {
+        const { result } = renderHook(() =>
+            useCouncilMachine({ ...defaultProps, currentMeetingId: 12345 } as any)
+        );
+        expect(result.current.state.currentMeetingId).toBe(12345);
     });
 
     it('updates text messages on conversation update', () => {
@@ -142,22 +145,19 @@ describe('useCouncilMachine', () => {
     });
 
     it('navigates correctly on removeOverlay', () => {
-        const { result } = renderHook(() => useCouncilMachine(defaultProps as any));
-
-        // First simulate meeting started to set currentMeetingId
-        act(() => {
-            if (socketHandlers.onMeetingStarted) {
-                socketHandlers.onMeetingStarted({ meeting_id: 'existing-id' });
-            }
-        });
+        const { result } = renderHook(() =>
+            useCouncilMachine({ ...defaultProps, currentMeetingId: 42 } as any)
+        );
         mockNavigate.mockClear();
 
         act(() => {
             result.current.actions.removeOverlay();
         });
 
-        // Expect navigation to current meeting ID, using baseUrl
-        expect(mockNavigate).toHaveBeenCalledWith(`${defaultProps.baseUrl}/existing-id`);
+        expect(mockNavigate).toHaveBeenCalledWith(
+            { pathname: '/meeting/42', hash: '' },
+            { replace: true }
+        );
     });
 
     it('navigates to "new" if no current meeting id on removeOverlay', () => {
@@ -167,7 +167,10 @@ describe('useCouncilMachine', () => {
             result.current.actions.removeOverlay();
         });
 
-        expect(mockNavigate).toHaveBeenCalledWith(`${defaultProps.baseUrl}/new`);
+        expect(mockNavigate).toHaveBeenCalledWith(
+            { pathname: '/meeting/new', hash: '' },
+            { replace: true }
+        );
     });
 
     it('pauses audio context when isPaused becomes true', () => {
@@ -274,25 +277,16 @@ describe('useCouncilMachine', () => {
     });
 
     it('should emit attempt_reconnection if a meeting was already active', () => {
-        const { result } = renderHook(() => useCouncilMachine(defaultProps as any));
+        renderHook(() => useCouncilMachine({ ...defaultProps, currentMeetingId: 999 } as any));
 
-        // 1. Establish Meeting
-        act(() => {
-            if (socketHandlers.onMeetingStarted) {
-                socketHandlers.onMeetingStarted({ meeting_id: '999' });
-            }
-        });
-
-        // 2. Simulate Reconnect
         act(() => {
             if (socketHandlers.onReconnect) {
                 socketHandlers.onReconnect();
             }
         });
 
-        // Should emit
         expect(mockSocketEmit).toHaveBeenCalledWith('attempt_reconnection', expect.objectContaining({
-            meetingId: '999'
+            meetingId: 999
         }));
     });
 });

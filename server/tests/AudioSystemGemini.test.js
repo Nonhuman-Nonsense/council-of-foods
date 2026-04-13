@@ -2,6 +2,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { AudioSystem } from '@root/src/logic/AudioSystem.js';
 import { Logger } from '@root/src/utils/Logger.js';
+import { MockFactory } from './factories/MockFactory.ts';
 
 vi.mock('music-metadata', () => ({
     parseBuffer: vi.fn().mockResolvedValue({
@@ -45,6 +46,9 @@ describe('AudioSystem Gemini Integration', () => {
     let mockBroadcaster;
     let mockServices;
 
+    const meeting = (overrides = {}) => MockFactory.createStoredMeeting({ _id: 123, ...overrides });
+    const serverOptions = (overrides = {}) => MockFactory.createServerOptions(overrides);
+
     beforeEach(() => {
         vi.clearAllMocks();
 
@@ -87,20 +91,8 @@ describe('AudioSystem Gemini Integration', () => {
         const message = { id: 'msg1', text: 'Hello Gemini', sentences: ['Hello Gemini'] };
         const speaker = { id: 'char1', voice: 'Kore', voiceProvider: 'gemini' };
 
-        // Context object
-        const context = {
-            options: {
-                voiceModel: 'tts-1',
-                geminiVoiceModel: 'gemini-2.5-flash-tts',
-                audio_speed: 1.25 // speed is inside options
-            },
-            language: 'sv' // language is outside options
-        };
-
-        const meetingId = 123;
         const environment = 'production';
 
-        // Mock successful fetch response
         const mockAudioContent = Buffer.from('fake-audio').toString('base64');
         mockFetch.mockResolvedValue({
             ok: true,
@@ -108,7 +100,18 @@ describe('AudioSystem Gemini Integration', () => {
             text: async () => ''
         });
 
-        await audioSystem.generateAudio(message, speaker, context, meetingId, environment);
+        await audioSystem.generateAudio(
+            message,
+            speaker,
+            'sv',
+            serverOptions({
+                voiceModel: 'tts-1',
+                geminiVoiceModel: 'gemini-2.5-flash-tts',
+                audio_speed: 1.25
+            }),
+            meeting({ language: 'sv' }),
+            environment
+        );
 
         // Verify GoogleAuth usage
         expect(mockGoogleAuthConstructor).toHaveBeenCalledWith(expect.objectContaining({
@@ -144,16 +147,20 @@ describe('AudioSystem Gemini Integration', () => {
     it('should default to en-GB if language is missing', async () => {
         const message = { id: 'msg2', text: 'Hello', sentences: ['Hello'] };
         const speaker = { id: 'char1', voice: 'Kore', voiceProvider: 'gemini' };
-        const context = {
-            options: { geminiVoiceModel: 'gemini-flash', audio_speed: 1 }
-        };
 
         mockFetch.mockResolvedValue({
             ok: true,
             json: async () => ({ audioContent: 'data' }),
         });
 
-        await audioSystem.generateAudio(message, speaker, context, 123, 'production');
+        await audioSystem.generateAudio(
+            message,
+            speaker,
+            'en',
+            serverOptions({ geminiVoiceModel: 'gemini-flash', audio_speed: 1 }),
+            meeting(),
+            'production'
+        );
 
         expect(mockFetch).toHaveBeenCalledWith(
             expect.any(String),
@@ -166,20 +173,17 @@ describe('AudioSystem Gemini Integration', () => {
     it('should reuse cached GoogleAuth client on subsequent calls', async () => {
         const message = { id: 'msg3', text: 'Hello again', sentences: ['Hello again'] };
         const speaker = { id: 'char1', voice: 'Kore', voiceProvider: 'gemini' };
-        const context = {
-            options: { geminiVoiceModel: 'gemini-flash', audio_speed: 1 }
-        };
+        const opts = serverOptions({ geminiVoiceModel: 'gemini-flash', audio_speed: 1 });
+        const m = meeting();
 
         mockFetch.mockResolvedValue({
             ok: true,
             json: async () => ({ audioContent: 'data' }),
         });
 
-        // First Call
-        await audioSystem.generateAudio(message, speaker, context, 123, 'production');
+        await audioSystem.generateAudio(message, speaker, 'en', opts, m, 'production');
 
-        // Second Call
-        await audioSystem.generateAudio(message, speaker, context, 123, 'production');
+        await audioSystem.generateAudio(message, speaker, 'en', opts, m, 'production');
 
         // Constructor should be called ONLY ONCE
         expect(mockGoogleAuthConstructor).toHaveBeenCalledTimes(1);
@@ -190,18 +194,21 @@ describe('AudioSystem Gemini Integration', () => {
 
     it('should prioritize character voiceLocale over global language IF language is en', async () => {
         const message = { id: 'msg4', text: 'Hello Mate', sentences: ['Hello Mate'] };
-        const speaker = { id: 'char1', voice: 'Kore', voiceProvider: 'gemini', voiceLocale: 'en-AU' }; // Aussie override
-        const context = {
-            options: { geminiVoiceModel: 'gemini-flash', audio_speed: 1 },
-            language: 'en'
-        };
+        const speaker = { id: 'char1', voice: 'Kore', voiceProvider: 'gemini', voiceLocale: 'en-AU' };
 
         mockFetch.mockResolvedValue({
             ok: true,
             json: async () => ({ audioContent: 'data' }),
         });
 
-        await audioSystem.generateAudio(message, speaker, context, 123, 'production');
+        await audioSystem.generateAudio(
+            message,
+            speaker,
+            'en',
+            serverOptions({ geminiVoiceModel: 'gemini-flash', audio_speed: 1 }),
+            meeting({ language: 'en' }),
+            'production'
+        );
 
         expect(mockFetch).toHaveBeenCalledWith(
             expect.any(String),
@@ -213,18 +220,21 @@ describe('AudioSystem Gemini Integration', () => {
 
     it('should IGNORE character voiceLocale if global language is not en', async () => {
         const message = { id: 'msg5', text: 'Hej', sentences: ['Hej'] };
-        const speaker = { id: 'char1', voice: 'Kore', voiceProvider: 'gemini', voiceLocale: 'en-AU' }; // Stray persisted setting
-        const context = {
-            options: { geminiVoiceModel: 'gemini-flash', audio_speed: 1 },
-            language: 'sv' // Swedish
-        };
+        const speaker = { id: 'char1', voice: 'Kore', voiceProvider: 'gemini', voiceLocale: 'en-AU' };
 
         mockFetch.mockResolvedValue({
             ok: true,
             json: async () => ({ audioContent: 'data' }),
         });
 
-        await audioSystem.generateAudio(message, speaker, context, 123, 'production');
+        await audioSystem.generateAudio(
+            message,
+            speaker,
+            'sv',
+            serverOptions({ geminiVoiceModel: 'gemini-flash', audio_speed: 1 }),
+            meeting({ language: 'sv' }),
+            'production'
+        );
 
         // Should be sv-SE (default for sv), NOT en-AU
         expect(mockFetch).toHaveBeenCalledWith(
@@ -242,16 +252,20 @@ describe('AudioSystem Gemini Integration', () => {
             voiceProvider: 'gemini',
             voiceInstruction: 'Speak curiously'
         };
-        const context = {
-            options: { geminiVoiceModel: 'gemini-flash', audio_speed: 1 }
-        };
 
         mockFetch.mockResolvedValue({
             ok: true,
             json: async () => ({ audioContent: 'data' }),
         });
 
-        await audioSystem.generateAudio(message, speaker, context, 123, 'production');
+        await audioSystem.generateAudio(
+            message,
+            speaker,
+            'en',
+            serverOptions({ geminiVoiceModel: 'gemini-flash', audio_speed: 1 }),
+            meeting(),
+            'production'
+        );
 
         expect(mockFetch).toHaveBeenCalledWith(
             expect.any(String),
@@ -271,7 +285,7 @@ describe('AudioSystem Gemini Integration', () => {
             text: async () => 'Bad Request'
         });
 
-        await audioSystem.generateAudio(message, speaker, { options: {} }, 123, 'production');
+        await audioSystem.generateAudio(message, speaker, 'en', serverOptions(), meeting(), 'production');
 
         expect(Logger.reportAndCrashClient).toHaveBeenCalledWith(
             'AudioSystem',
@@ -290,7 +304,7 @@ describe('AudioSystem Gemini Integration', () => {
             json: async () => ({}) // Empty object
         });
 
-        await audioSystem.generateAudio(message, speaker, { options: {} }, 123, 'production');
+        await audioSystem.generateAudio(message, speaker, 'en', serverOptions(), meeting(), 'production');
 
         expect(Logger.reportAndCrashClient).toHaveBeenCalledWith(
             'AudioSystem',
@@ -300,7 +314,7 @@ describe('AudioSystem Gemini Integration', () => {
         );
     });
 
-    it('should truncate input text to 4096 characters', async () => {
+    it('should chunk long text before Gemini (max chunk length 2000)', async () => {
         const longText = 'a'.repeat(5000);
         const message = { id: 'msgLong', text: longText };
         const speaker = { id: 'char1', voice: 'Kore', voiceProvider: 'gemini' };
@@ -310,9 +324,8 @@ describe('AudioSystem Gemini Integration', () => {
             json: async () => ({ audioContent: 'data' })
         });
 
-        await audioSystem.generateAudio(message, speaker, { options: {} }, 123, 'production');
+        await audioSystem.generateAudio(message, speaker, 'en', serverOptions(), meeting(), 'production');
 
-        // Extract the body from the fetch call to verify input length
         const fetchCall = mockFetch.mock.calls[0];
         const bodyParsed = JSON.parse(fetchCall[1].body);
 

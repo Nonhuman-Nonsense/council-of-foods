@@ -1,4 +1,3 @@
-
 // Defines the available voice options for characters
 export const AVAILABLE_VOICES = ["alloy", "ash", "ballad", "coral", "echo", "fable", "onyx", "nova", "sage", "shimmer", "verse"] as const;
 export const AVAILABLE_VOICES_GEMINI = [
@@ -15,6 +14,35 @@ export const AVAILABLE_VOICES_INWORLD = [
 
 export type VoiceOption = typeof AVAILABLE_VOICES[number] | typeof AVAILABLE_VOICES_GEMINI[number] | typeof AVAILABLE_VOICES_INWORLD[number];
 
+export interface Topic {
+    id: string;
+    title: string;
+    description: string;
+    prompt: string;
+}
+
+export interface Meeting {
+    _id: number; // Sequence ID
+    creatorKey: string;
+    date: string; // ISO String
+    topic: Topic;
+    characters: Character[];
+    language: string;
+    state: ConversationState;
+    conversation: Message[];
+    audio: string[]; // List of Audio IDs
+    summary?: Message; // To be defined strictly later
+}
+
+export interface PlaybackState {
+    mode: 'live' | 'replay';
+}
+
+export interface ConversationState {
+    alreadyInvited: boolean;
+    humanName: string | undefined;
+}
+
 export interface Character {
     id: string;
     name: string;
@@ -28,7 +56,7 @@ export interface Character {
     voiceSpeed?: number;
 }
 
-export interface ConversationMessage {
+export interface Message {
     type: string;
     id?: string;
     text?: string;
@@ -39,9 +67,12 @@ export interface ConversationMessage {
     pretrimmed?: string;
 }
 
-export interface ConversationState {
-    alreadyInvited?: boolean;
-    humanName?: string;
+export interface Audio {
+    _id: string; // Message ID (UUID)
+    date: string; // ISO String
+    meeting_id: number; // Reference to Meeting ID
+    audio: Buffer; // Binary Data
+    sentences: Sentence[]; // Timing data
 }
 
 export interface Sentence {

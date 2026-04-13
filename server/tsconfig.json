@@ -25,6 +25,9 @@
             "@interfaces/*": [
                 "src/interfaces/*"
             ],
+            "@api/*": [
+                "src/api/*"
+            ],
             "@root/*": [
                 "./*"
             ]

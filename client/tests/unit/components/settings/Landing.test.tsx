@@ -2,6 +2,7 @@ import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import Landing from '@components/settings/Landing';
 import React from 'react';
+import { MemoryRouter } from 'react-router';
 
 // Mock dependencies
 vi.mock('react-i18next', () => ({
@@ -27,13 +28,11 @@ import { useMediaQuery } from 'react-responsive';
 import { useMobile } from '@/utils';
 
 describe('Landing', () => {
-    const onContinueForward = vi.fn();
-
     beforeEach(() => {
         vi.clearAllMocks();
         // Default to landscape (not portrait) and not mobile for base case
-        (useMediaQuery as any).mockReturnValue(false); // isPortrait = false
-        (useMobile as any).mockReturnValue(false);
+        (useMediaQuery as ReturnType<typeof vi.fn>).mockReturnValue(false); // isPortrait = false
+        (useMobile as ReturnType<typeof vi.fn>).mockReturnValue(false);
     });
 
     afterEach(() => {
@@ -41,30 +40,46 @@ describe('Landing', () => {
     });
 
     it('renders welcome message', () => {
-        render(<Landing onContinueForward={onContinueForward} />);
+        render(
+            <MemoryRouter>
+                <Landing newMeetingPath="/en/new" />
+            </MemoryRouter>
+        );
         expect(screen.getByText('welcome')).toBeInTheDocument();
         expect(screen.getByText('COUNCIL')).toBeInTheDocument();
     });
 
     it('renders "Go" button in landscape mode', () => {
-        (useMediaQuery as any).mockReturnValue(false); // Portrait false
-        render(<Landing onContinueForward={onContinueForward} />);
+        (useMediaQuery as ReturnType<typeof vi.fn>).mockReturnValue(false); // Portrait false
+        render(
+            <MemoryRouter>
+                <Landing newMeetingPath="/en/new" />
+            </MemoryRouter>
+        );
         expect(screen.getByText('go')).toBeInTheDocument();
         expect(screen.getByText('description')).toBeInTheDocument();
         expect(screen.queryByTestId('rotate-device')).not.toBeInTheDocument();
     });
 
     it('renders RotateDevice in portrait mode', () => {
-        (useMediaQuery as any).mockReturnValue(true); // Portrait true
-        render(<Landing onContinueForward={onContinueForward} />);
+        (useMediaQuery as ReturnType<typeof vi.fn>).mockReturnValue(true); // Portrait true
+        render(
+            <MemoryRouter>
+                <Landing newMeetingPath="/en/new" />
+            </MemoryRouter>
+        );
         expect(screen.getByTestId('rotate-device')).toBeInTheDocument();
         expect(screen.queryByText('go')).not.toBeInTheDocument();
     });
 
-    it('calls onContinueForward when Go button is clicked', () => {
-        render(<Landing onContinueForward={onContinueForward} />);
-        const button = screen.getByText('go');
-        fireEvent.click(button);
-        expect(onContinueForward).toHaveBeenCalledTimes(1);
+    it('Go link points at newMeetingPath', () => {
+        render(
+            <MemoryRouter>
+                <Landing newMeetingPath="/en/new" />
+            </MemoryRouter>
+        );
+        const link = screen.getByTestId('landing-go');
+        expect(link).toHaveAttribute('href', '/en/new');
+        fireEvent.click(link);
     });
 });

@@ -1,4 +1,4 @@
-import type { ConversationMessage, Character, Sentence } from "./ModelTypes.js";
+import type { Message, Character, Sentence, Topic } from "./ModelTypes.js";
 
 // Re-defining or importing types that are passed over the socket
 
@@ -28,16 +28,21 @@ export interface WrapUpMessage {
 }
 
 export interface ReconnectionOptions {
-    meetingId: string | number;
+    meetingId: number;
     handRaised?: boolean;
     conversationMaxLength?: number;
 }
 
-export interface SetupOptions {
-    options?: any;
+export interface CreateMeetingBody {
+    topic: Topic;
     characters: Character[];
     language: string;
-    topic: string;
+}
+
+export interface SetupOptions {
+    meetingId: number;
+    creatorKey: string;
+    serverOptions?: any; //This is global options object on prototype
 }
 
 export interface AudioUpdatePayload {
@@ -59,17 +64,16 @@ export interface ClientKeyResponse {
 // Events emitted by the Server to the Client
 export interface ServerToClientEvents {
     meeting_started: (data: { meeting_id: number | string | null }) => void; // Using union for safety during transition
-    conversation_update: (conversation: ConversationMessage[]) => void;
-    conversation_end: (conversation: ConversationMessage[]) => void;
+    conversation_update: (conversation: Message[]) => void;
+    conversation_end: (conversation: Message[]) => void;
     audio_update: (data: AudioUpdatePayload) => void;
     clientkey_response: (data: ClientKeyResponse) => void;
     conversation_error: (error: ErrorPayload) => void;
-
 }
 
 // Events received by the Server from the Client
 export interface ClientToServerEvents {
-    start_conversation: (setup: SetupOptions) => void;
+    start_conversation: (opts: SetupOptions) => void;
     disconnect: () => void;
     submit_human_message: (msg: HumanMessage) => void;
     submit_human_panelist: (msg: HumanMessage) => void;

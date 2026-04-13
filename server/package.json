@@ -10,7 +10,7 @@
     "start": "node dist/server/server.js",
     "build": "tsc && tsc-alias",
     "e2e-server": "cross-env NODE_ENV=test tsx server.ts",
-    "dev": "cross-env NODE_ENV=development USE_TEST_OPTIONS=true nodemon --exec tsx server.ts",
+    "dev": "npm run type-check && cross-env NODE_ENV=development USE_TEST_OPTIONS=true concurrently -n types,server -c yellow,cyan \"tsc --noEmit --watch --preserveWatchOutput\" \"nodemon --exec tsx server.ts\"",
     "proto": "cross-env NODE_ENV=prototype node dist/server/server.js",
     "protodev": "npm run type-check && cross-env NODE_ENV=prototype nodemon --exec tsx server.ts",
     "type-check": "tsc --noEmit",
@@ -38,6 +38,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "concurrently": "^9.2.1",
     "@types/express": "^5.0.6",
     "@types/node": "^25.5.2",
     "@types/remove-markdown": "^0.3.4",

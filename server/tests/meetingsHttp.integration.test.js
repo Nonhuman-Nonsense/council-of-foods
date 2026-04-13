@@ -1,0 +1,121 @@
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import express from 'express';
+import http from 'http';
+import { registerMeetingRoutes } from '@api/meetingRoutes.js';
+
+function validCreateBody() {
+    return {
+        topic: { id: 't-int', title: 'Integration Topic', description: 'D', prompt: 'Prompt' },
+        characters: [
+            {
+                id: 'water',
+                name: 'Water',
+                type: 'food',
+                voice: 'alloy',
+            },
+        ],
+        language: 'en',
+    };
+}
+
+describe('HTTP meetings API (integration)', () => {
+    let httpServer;
+    let port;
+
+    beforeAll(async () => {
+        const app = express();
+        app.use(express.json());
+        registerMeetingRoutes(app, 'test');
+        httpServer = http.createServer(app);
+        port = await new Promise((resolve, reject) => {
+            httpServer.listen(0, '127.0.0.1', () => {
+                const addr = httpServer.address();
+                if (addr && typeof addr !== 'string') resolve(addr.port);
+                else reject(new Error('no port'));
+            });
+            httpServer.on('error', reject);
+        });
+    });
+
+    afterAll(
+        async () =>
+            new Promise((resolve) => {
+                httpServer?.close(() => resolve());
+            })
+    );
+
+    const base = () => `http://127.0.0.1:${port}`;
+
+    it('POST /api/meetings creates a meeting and returns id + creatorKey', async () => {
+        const res = await fetch(`${base()}/api/meetings`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(validCreateBody()),
+        });
+        expect(res.status).toBe(201);
+        const data = await res.json();
+        expect(data.meetingId).toBeDefined();
+        expect(data.creatorKey).toMatch(/^[0-9a-f-]{36}$/i);
+    });
+
+    it('POST /api/meetings returns 400 on invalid payload', async () => {
+        const res = await fetch(`${base()}/api/meetings`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({}),
+        });
+        expect(res.status).toBe(400);
+    });
+
+    it('GET /api/meetings/:id returns 401 without Authorization', async () => {
+        const createRes = await fetch(`${base()}/api/meetings`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(validCreateBody()),
+        });
+        const { meetingId } = await createRes.json();
+
+        const res = await fetch(`${base()}/api/meetings/${meetingId}`);
+        expect(res.status).toBe(401);
+    });
+
+    it('GET /api/meetings/:id returns 403 when Bearer does not match creatorKey', async () => {
+        const createRes = await fetch(`${base()}/api/meetings`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(validCreateBody()),
+        });
+        const { meetingId } = await createRes.json();
+
+        const res = await fetch(`${base()}/api/meetings/${meetingId}`, {
+            headers: { Authorization: 'Bearer wrong-key' },
+        });
+        expect(res.status).toBe(403);
+    });
+
+    it('GET /api/meetings/:id returns 404 for unknown id', async () => {
+        const res = await fetch(`${base()}/api/meetings/999999999`, {
+            headers: { Authorization: 'Bearer any' },
+        });
+        expect(res.status).toBe(404);
+    });
+
+    it('GET /api/meetings/:id returns 200 and meeting when Bearer matches creatorKey', async () => {
+        const body = validCreateBody();
+        const createRes = await fetch(`${base()}/api/meetings`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+        });
+        const { meetingId, creatorKey } = await createRes.json();
+
+        const res = await fetch(`${base()}/api/meetings/${meetingId}`, {
+            headers: { Authorization: `Bearer ${creatorKey}` },
+        });
+        expect(res.status).toBe(200);
+        const meeting = await res.json();
+        expect(meeting._id).toBe(Number(meetingId));
+        expect(meeting.topic.title).toBe(body.topic.title);
+        expect(meeting.creatorKey).toBe(creatorKey);
+    });
+});
