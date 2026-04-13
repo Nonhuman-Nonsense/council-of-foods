@@ -67,7 +67,6 @@ export interface ServerToClientEvents {
     conversation_update: (conversation: Message[]) => void;
     conversation_end: (conversation: Message[]) => void;
     audio_update: (data: AudioUpdatePayload) => void;
-    clientkey_response: (data: ClientKeyResponse) => void;
     conversation_error: (error: ErrorPayload) => void;
 }
 
@@ -82,7 +81,6 @@ export interface ClientToServerEvents {
     wrap_up_meeting: (msg: WrapUpMessage) => void;
     attempt_reconnection: (opts: ReconnectionOptions) => void;
     continue_conversation: () => void;
-    request_clientkey: () => void;
 
     // Prototype only
     pause_conversation: (msg: any) => void;

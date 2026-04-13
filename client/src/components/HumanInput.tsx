@@ -1,4 +1,3 @@
-import type { ClientToServerEvents, ServerToClientEvents, ClientKeyResponse } from "@shared/SocketTypes";
 import type { Character } from "@shared/ModelTypes";
 
 import { useState, useEffect, useRef } from "react";
@@ -9,7 +8,7 @@ import { useTranslation } from "react-i18next";
 import { LiveAudioVisualizer } from 'react-audio-visualize';
 import Lottie from 'react-lottie-player';
 import loading from '@animations/loading.json';
-import { Socket } from "socket.io-client";
+import { getClientKey } from "@api/getClientKey";
 import React from 'react';
 import micIcon from "@assets/mic.avif";
 
@@ -27,7 +26,7 @@ interface HumanInputProps {
   isPanelist: boolean;
   currentSpeakerName: string;
   onSubmitHumanMessage: (text: string, askParticular: string) => void;
-  socketRef: React.MutableRefObject<Socket<ServerToClientEvents, ClientToServerEvents>>;
+  creatorKey: string;
 }
 
 // Workaround for TextareaAutosize strict height type
@@ -43,7 +42,7 @@ type TextareaStyle = Omit<React.CSSProperties, 'height'> & { height?: number };
  * - **Text Input**: Provides a fallback manual text entry.
  * - **Targeting**: Should allow selection of specific characters to address (logic partially implemented via `askParticular`).
  */
-function HumanInput({ foods, isPanelist, currentSpeakerName, onSubmitHumanMessage, socketRef }: HumanInputProps): React.ReactElement {
+function HumanInput({ foods, isPanelist, currentSpeakerName, onSubmitHumanMessage, creatorKey }: HumanInputProps): React.ReactElement {
   const [clientKey, setClientKey] = useState<string | null>(null);
   const [recordingState, setRecordingState] = useState<"idle" | "loading" | "recording">("idle");
   const [canContinue, setCanContinue] = useState<boolean>(false);
@@ -62,7 +61,7 @@ function HumanInput({ foods, isPanelist, currentSpeakerName, onSubmitHumanMessag
   const mic = useRef<MediaStream | null>(null);
 
   const [rerender, forceRerender] = useState<boolean>(false);
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
 
   const maxInputLength = isPanelist ? 1300 : 700;
 
@@ -146,19 +145,15 @@ function HumanInput({ foods, isPanelist, currentSpeakerName, onSubmitHumanMessag
   }
 
   useEffect(() => {
-    if (!initialized.current) {
-      socketRef.current.emit('request_clientkey');
-      initialized.current = true;
-    }
-    const handleClientKey = (data: ClientKeyResponse) => {
-      setClientKey(data.value);
-    };
-    socketRef.current.on('clientkey_response', handleClientKey);
+    if (initialized.current) return;
+    initialized.current = true;
+    getClientKey({ language: i18n.language, creatorKey })
+      .then(data => setClientKey(data.value))
+      .catch(err => console.error("Failed to get client key", err));
     return () => {
-      socketRef.current.off('clientkey_response', handleClientKey);
       pc.current?.close();
       mic.current?.getTracks().forEach(track => track.stop());
-    }
+    };
   }, []);
 
   function handleStartStopRecording() {

@@ -4,7 +4,7 @@ import type { ILifecycleContext } from "@interfaces/MeetingInterfaces.js";
 import type { Message as AudioMessage } from "@logic/AudioSystem.js";
 import { splitSentences } from "@utils/textUtils.js";
 import { Logger } from "@utils/Logger.js";
-import { withNetworkRetry } from "@utils/NetworkUtils.js";
+
 import removeMd from 'remove-markdown';
 import type { StoredMeeting } from "@models/DBModels.js";
 
@@ -113,66 +113,6 @@ export class MeetingLifecycleHandler {
                 manager.environment,
                 true
             );
-        }
-    }
-
-    /**
-     * Handles request for OpenAI Realtime API Client Key (for client-side usage).
-     * Fetches ephemeral secret from OpenAI and returns to client.
-     */
-    async handleRequestClientKey(): Promise<void> {
-        const { manager } = this;
-        const m = manager.meeting;
-        if (!m) return;
-
-        Logger.info(`meeting ${m._id}`, "clientkey requested");
-        try {
-            const sessionConfig = JSON.stringify({
-                session: {
-                    "type": "transcription",
-                    "audio": {
-                        "input": {
-                            "format": {
-                                "type": "audio/pcm",
-                                "rate": 24000
-                            },
-                            "noise_reduction": {
-                                "type": "near_field"
-                            },
-                            "transcription": {
-                                "model": manager.serverOptions.transcribeModel,
-                                "prompt": manager.serverOptions.transcribePrompt[m.language],
-                                "language": m.language
-                            },
-                            "turn_detection": {
-                                "type": "server_vad",
-                                "threshold": 0.5,
-                                "prefix_padding_ms": 300,
-                                "silence_duration_ms": 500
-                            }
-                        }
-                    }
-                }
-            });
-
-            const openai = manager.services.getOpenAI();
-            const response = await withNetworkRetry(() => fetch(
-                "https://api.openai.com/v1/realtime/client_secrets",
-                {
-                    method: "POST",
-                    headers: {
-                        Authorization: `Bearer ${openai.apiKey}`,
-                        "Content-Type": "application/json",
-                    },
-                    body: sessionConfig,
-                }
-            ), "MeetingLifecycleHandler");
-
-            const data = await response.json();
-            manager.broadcaster.broadcastClientKey(data);
-            Logger.info(`meeting ${m._id}`, "clientkey sent");
-        } catch (error) {
-            Logger.reportAndCrashClient(`meeting ${m._id}`, "Failed to initialize realtime transcription.", error, manager.broadcaster);
         }
     }
 

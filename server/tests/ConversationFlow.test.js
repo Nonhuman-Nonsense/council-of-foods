@@ -256,37 +256,4 @@ describe('MeetingManager - Conversation Flow', () => {
         // length (5) < 5 + 5
     });
 
-    it('should handle request_clientkey event', async () => {
-        // Setup mock OpenAI with audio capability
-        const mockOpenAI = {
-            chat: {},
-            audio: {},
-            apiKey: 'test-api-key'
-        };
-        const mockGetOpenAI = () => mockOpenAI;
-        const { manager: keyManager, mockSocket: keySocket } = createTestManager('test', null, { getOpenAI: mockGetOpenAI });
-        keyManager.meeting._id = 1;
-
-        // Mock fetch for OpenAI API
-        global.fetch = vi.fn().mockResolvedValue({
-            json: vi.fn().mockResolvedValue({ value: 'mock_client_secret' })
-        });
-
-        // Trigger request
-        await keyManager.meetingLifecycleHandler.handleRequestClientKey();
-
-        // Verify fetch called with correct URL and headers
-        expect(global.fetch).toHaveBeenCalledWith(
-            "https://api.openai.com/v1/realtime/client_secrets",
-            expect.objectContaining({
-                method: "POST",
-                headers: expect.objectContaining({
-                    Authorization: "Bearer test-api-key"
-                })
-            })
-        );
-
-        // Verify socket response
-        expect(keySocket.emit).toHaveBeenCalledWith("clientkey_response", { value: 'mock_client_secret' });
-    });
 });
