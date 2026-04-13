@@ -101,6 +101,10 @@ createApp({
       sortableInstance: null,
       isResizing: false,
 
+      // Meeting
+      meetingId: null,
+      creatorKey: null,
+
       // Conversation
       conversation: [],
 
@@ -467,36 +471,22 @@ createApp({
       localStorage.setItem("PromptsAndOptions", JSON.stringify(data));
     },
 
-    getPayload() {
-      // Pre-process payload for server (similar to updatePromptsAndOptions return)
-
-      // Construct participant list based on ACTIVE characters in current TOPIC
-      // We must manually filter the global list based on currentTopic active IDs.
-
-      // We need real characters, not deep copy yet
+    buildCharacters() {
       const allChars = this.currentLanguageData.characters || [];
       const topicId = this.currentTopic.id;
       const activeIds = this.localOptions.topicStates[topicId]?.activeCharacterIds || {};
 
-      // Filter active
       let activeChars = allChars.filter(c => activeIds[c._ui_id]);
-
-      // Sort logic is enforced on UI, but we should double check data sort?
-      // The data array is sorted. So filtering in order works.
-
       let replacedCharacters = JSON.parse(JSON.stringify(activeChars));
 
-      // Ensure every character has an ID (default to name) and voice (default to "alloy")
       replacedCharacters.forEach(c => {
         if (!c.id && c.name) c.id = c.name;
-
-        // Ensure voiceProvider is set
         if (!c.voiceProvider) c.voiceProvider = 'openai';
-
         if (!c.voice) {
           if (c.voiceProvider === 'gemini') c.voice = this.audioVoicesGemini[0];
           else c.voice = this.audioVoices[0];
         }
+        delete c._ui_id;
       });
 
       if (replacedCharacters[0]) {
@@ -510,13 +500,40 @@ createApp({
           .replace('[HUMANS]', '');
       }
 
+      return replacedCharacters;
+    },
+
+    getMeetingBody() {
       return {
-        options: this.options,
-        prompt: this.currentSystemPrompt.replace("[TOPIC]", this.currentTopic.prompt),
-        topic: this.currentTopic.prompt || "", // Fix for Zod validation
-        characters: replacedCharacters,
-        // For logging/debug, maybe send topic name too?
-        topicName: this.currentTopic.name
+        topic: {
+          id: this.currentTopic.id,
+          title: this.currentTopic.name,
+          description: this.currentTopic.description,
+          prompt: this.currentSystemPrompt.replace("[TOPIC]", this.currentTopic.prompt),
+        },
+        characters: this.buildCharacters(),
+        language: this.options.language,
+      };
+    },
+
+    getServerOptions() {
+      return {
+        gptModel: this.options.gptModel,
+        temperature: this.options.temperature,
+        maxTokens: this.options.maxTokens,
+        chairMaxTokens: this.options.chairMaxTokens,
+        frequencyPenalty: this.options.frequencyPenalty,
+        presencePenalty: this.options.presencePenalty,
+        audio_speed: this.options.audio_speed,
+        trimSentance: this.options.trimSentance,
+        trimParagraph: this.options.trimParagraph,
+        trimChairSemicolon: this.options.trimChairSemicolon,
+        skipAudio: this.options.skipAudio,
+        conversationMaxLength: this.options.conversationMaxLength,
+        extraMessageCount: this.options.extraMessageCount,
+        voiceModel: this.options.voiceModel,
+        geminiVoiceModel: this.options.geminiVoiceModel,
+        inworldVoiceModel: this.options.inworldVoiceModel,
       };
     },
 
@@ -815,16 +832,35 @@ createApp({
       this.log('SYSTEM', 'Exported Prompts to JSON');
     },
 
-    startConversation() {
-      // Start fresh
+    async startConversation() {
       this.status = 'CONNECTING';
-
-      // Reset Audio State
       this.audioController.reset();
 
-      const payload = this.getPayload();
-      this.log('SOCKET_OUT', 'Starting Conversation', payload);
-      this.socket.emit("start_conversation", payload);
+      try {
+        const meetingBody = this.getMeetingBody();
+        this.log('SYSTEM', 'Creating meeting via API', meetingBody);
+
+        const res = await fetch("/api/meetings", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(meetingBody),
+        });
+        if (!res.ok) {
+          const errText = await res.text();
+          throw new Error(errText || `Create meeting failed (${res.status})`);
+        }
+        const { meetingId, creatorKey } = await res.json();
+        this.meetingId = Number(meetingId);
+        this.creatorKey = creatorKey;
+
+        const setupPayload = { meetingId: this.meetingId, creatorKey: this.creatorKey, serverOptions: this.getServerOptions() };
+        this.log('SOCKET_OUT', 'Starting Conversation', setupPayload);
+        this.socket.emit("start_conversation", setupPayload);
+      } catch (e) {
+        this.log('ERROR', 'Failed to create meeting', e);
+        this.status = 'ERROR';
+        alert(e.message);
+      }
     },
 
     pauseConversation() {
@@ -839,25 +875,44 @@ createApp({
       this.socket.emit("resume_conversation");
     },
 
-    restartConversation() {
+    async restartConversation() {
       this.status = 'CONNECTING';
       this.endMessage = "";
       this.conversation = [];
-
-      // Reset Audio
       this.audioController.reset();
 
-      const payload = this.getPayload();
-      this.log('SOCKET_OUT', 'Restarting Conversation', payload);
-      this.socket.emit("start_conversation", payload);
+      try {
+        const meetingBody = this.getMeetingBody();
+        this.log('SYSTEM', 'Creating new meeting for restart', meetingBody);
+
+        const res = await fetch("/api/meetings", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(meetingBody),
+        });
+        if (!res.ok) {
+          const errText = await res.text();
+          throw new Error(errText || `Create meeting failed (${res.status})`);
+        }
+        const { meetingId, creatorKey } = await res.json();
+        this.meetingId = Number(meetingId);
+        this.creatorKey = creatorKey;
+
+        const setupPayload = { meetingId: this.meetingId, creatorKey: this.creatorKey, serverOptions: this.getServerOptions() };
+        this.log('SOCKET_OUT', 'Restarting Conversation', setupPayload);
+        this.socket.emit("start_conversation", setupPayload);
+      } catch (e) {
+        this.log('ERROR', 'Failed to create meeting for restart', e);
+        this.status = 'ERROR';
+        alert(e.message);
+      }
     },
 
     continueConversation() {
       this.status = 'CONNECTING';
       this.endMessage = "";
-      const payload = this.getPayload();
-      this.log('SOCKET_OUT', 'Continuing Conversation', payload);
-      this.socket.emit("continue_conversation", payload);
+      this.log('SOCKET_OUT', 'Continuing Conversation');
+      this.socket.emit("continue_conversation");
     },
 
     removeLastMessage() {

@@ -66,7 +66,12 @@ export default function Main(props: MainProps) {
     audioContext.current = new AudioContext();
   }
 
+  // Prevent changing langauge on component mount
+  const prevLangRef = useRef(props.lang);
   useEffect(() => {
+    if (prevLangRef.current === props.lang) return;
+    prevLangRef.current = props.lang;
+
     i18n.changeLanguage(props.lang);
 
     if (topicSelection?.id) {
