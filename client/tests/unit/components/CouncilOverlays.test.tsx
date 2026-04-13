@@ -1,13 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import CouncilOverlays, { CouncilOverlayType } from '@components/CouncilOverlays';
-import React from 'react';
-import { Character } from '@shared/ModelTypes';
+import type { ReactNode } from 'react';
+import type { Character } from '@shared/ModelTypes';
 import '@testing-library/jest-dom';
 
 // Mock Child Components
 vi.mock('@components/overlays/Name', () => ({
-    default: ({ participants, onContinueForward }: any) => (
+    default: ({ participants: _participants, onContinueForward }: { participants?: Character[]; onContinueForward: (data: { humanName: string }) => void }) => (
         <div data-testid="name-overlay">
             Name Overlay
             <button onClick={() => onContinueForward({ humanName: 'Leo' })}>Submit Name</button>
@@ -15,7 +15,7 @@ vi.mock('@components/overlays/Name', () => ({
     )
 }));
 vi.mock('@components/overlays/Completed', () => ({
-    default: ({ onContinue, onWrapItUp, canExtendMeeting }: any) => (
+    default: ({ onContinue, onWrapItUp, canExtendMeeting: _canExtendMeeting }: { onContinue: () => void; onWrapItUp: () => void; canExtendMeeting?: boolean }) => (
         <div data-testid="completed-overlay">
             Completed Overlay
             <button onClick={() => onContinue()}>Continue</button>
@@ -24,12 +24,12 @@ vi.mock('@components/overlays/Completed', () => ({
     )
 }));
 vi.mock('@components/overlays/Summary', () => ({
-    default: ({ summary, meetingId }: any) => <div data-testid="summary-overlay">Summary Overlay</div>
+    default: ({ summary: _summary, meetingId: _meetingId }: { summary?: unknown; meetingId?: number }) => <div data-testid="summary-overlay">Summary Overlay</div>
 }));
 
 // Mock OverlayWrapper
 vi.mock('@components/OverlayWrapper', () => ({
-    default: ({ children }: any) => <div data-testid="overlay-wrapper">{children}</div>
+    default: ({ children }: { children?: ReactNode }) => <div data-testid="overlay-wrapper">{children}</div>
 }));
 
 describe('CouncilOverlays', () => {

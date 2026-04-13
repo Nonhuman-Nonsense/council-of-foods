@@ -27,8 +27,8 @@ export interface UseCouncilMachineProps {
 export function useCouncilMachine({
     currentMeetingId,
     creatorKey,
-    topic,
-    participants,
+    topic: _topic,
+    participants: _participants,
     audioContext,
     setUnrecoverableError,
     setConnectionError,
@@ -142,7 +142,7 @@ export function useCouncilMachine({
      * Checks if the required text and audio data for the `playNextIndex` are available in local state.
      */
     function tryToFindTextAndAudio() {
-        let textMessage = textMessages[playNextIndex];
+        const textMessage = textMessages[playNextIndex];
         if (textMessage) {
             const matchingAudioMessage = audioMessages.find((a) => a.id === textMessage.id);
             if (matchingAudioMessage) {

@@ -24,7 +24,7 @@ function useIsIphone() {
   const [isIphone, setIsIphone] = useState(false);
 
   useEffect(() => {
-    const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+    const userAgent = String(navigator.userAgent || navigator.vendor || window.opera || "");
     if (/iPhone/.test(userAgent) && !window.MSStream) {
       setIsIphone(true);
     }
@@ -88,7 +88,7 @@ export default function Main(props: MainProps) {
     if (isMeetingPath(location.pathname) && meetingCreatorKey) {
       navigate({ hash: "warning" });
     }
-  }, [props.lang]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [props.lang]);
 
   // If the user navigates back to the landing page, treat it as a fresh start.
   useEffect(() => {

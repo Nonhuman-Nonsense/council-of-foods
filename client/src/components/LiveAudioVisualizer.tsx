@@ -148,7 +148,9 @@ function useMediaRecorderAnalyser(
     return () => {
       source.disconnect();
       analyserNode.disconnect();
-      ctx.state !== "closed" && void ctx.close();
+      if (ctx.state !== "closed") {
+        void ctx.close();
+      }
     };
   }, [
     mediaRecorder.stream,

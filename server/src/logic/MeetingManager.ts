@@ -308,7 +308,7 @@ export class MeetingManager implements IMeetingManager {
 
         if (shouldAbort()) return;
 
-        let message: Message = {
+        const message: Message = {
             id: output.id || "",
             speaker: action.speaker.id,
             text: output.response,

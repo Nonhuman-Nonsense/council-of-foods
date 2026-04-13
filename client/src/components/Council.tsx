@@ -1,5 +1,5 @@
 import type { Character, Topic } from "@shared/ModelTypes";
-import React, { useMemo, useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router";
 import Overlay from "./Overlay";
 import CouncilOverlays from "./CouncilOverlays";
@@ -77,7 +77,7 @@ function Council({
   }, [creatorKey, meetingId, currentMeetingId, navigate, setUnrecoverableError]);
 
   // Hook Logic
-  const { state, actions, socketRef } = useCouncilMachine({
+  const { state, actions } = useCouncilMachine({
     currentMeetingId,
     creatorKey: creatorKey ?? undefined,
     topic,

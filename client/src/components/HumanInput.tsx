@@ -1,15 +1,12 @@
-import type { Character } from "@shared/ModelTypes";
-
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import ConversationControlIcon from "./ConversationControlIcon";
 import TextareaAutosize from 'react-textarea-autosize';
-import { useMobile, dvh, mapFoodIndex } from "@/utils";
+import { useMobile, dvh } from "@/utils";
 import { useTranslation } from "react-i18next";
 import { LiveAudioVisualizerPair } from "@/components/LiveAudioVisualizer";
 import Lottie from 'react-lottie-player';
 import loading from '@animations/loading.json';
 import { getClientKey } from "@api/getClientKey";
-import React from 'react';
 import micIcon from "@assets/mic.avif";
 
 // OpenAI Realtime API Interfaces
@@ -22,7 +19,6 @@ interface InputAudioTranscriptionCompletedEvent {
 type OpenAIRealtimeEvent = InputAudioTranscriptionCompletedEvent; // Union with other events if needed
 
 interface HumanInputProps {
-  // foods: Character[]; // Unused in Forest?
   isPanelist: boolean;
   currentSpeakerName: string;
   onSubmitHumanMessage: (text: string, askParticular: string) => void;
@@ -48,8 +44,7 @@ function HumanInput({ isPanelist, currentSpeakerName, onSubmitHumanMessage, crea
   const [canContinue, setCanContinue] = useState<boolean>(false);
   const [transcript, setTranscript] = useState<Record<string, string>>({});
   const [previousTranscript, setPreviousTranscript] = useState<string>("");
-  const [askParticular, setAskParticular] = useState<string>("");
-  const [someoneHovered, setSomeoneHovered] = useState<boolean>(false);
+  const [askParticular, _setAskParticular] = useState<string>("");
 
   const inputArea = useRef<HTMLTextAreaElement>(null);
   const isMobile = useMobile();
@@ -189,11 +184,11 @@ function HumanInput({ isPanelist, currentSpeakerName, onSubmitHumanMessage, crea
     inputChanged();
   }, [transcript, recordingState]);
 
-  function inputFocused(e: React.FocusEvent) {
+  function inputFocused(_e: React.FocusEvent) {
     setRecordingState('idle');
   }
 
-  function inputChanged(e?: React.ChangeEvent) {
+  function inputChanged(_e?: React.ChangeEvent) {
     if (inputArea.current && inputArea.current.value.length > 0 && inputArea.current.value.trim().length !== 0) {
       setCanContinue(true);
     } else {
@@ -255,7 +250,7 @@ function HumanInput({ isPanelist, currentSpeakerName, onSubmitHumanMessage, crea
     padding: "0",
   };
 
-  //TODO implement ask partikular graphics
+  // TODO implement ask particular graphics
 
   return (<>
     <div style={wrapperStyle}>

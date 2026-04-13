@@ -58,7 +58,9 @@ export class MeetingLifecycleHandler {
 
         Logger.info(`meeting ${m._id}`, "attempting to wrap up");
         const summaryPrompt = manager.serverOptions.finalizeMeetingPrompt[m.language].replace("[DATE]", message.date);
-        let { response, id } = await manager.dialogGenerator.chairInterjection(
+
+        // Note: chairInterjection is on manager (delegated to DialogGenerator)
+        const { response, id } = await manager.dialogGenerator.chairInterjection(
             summaryPrompt,
             m.conversation.length,
             manager.serverOptions.finalizeMeetingLength,
@@ -70,7 +72,7 @@ export class MeetingLifecycleHandler {
         // Strip markdown formatting for TTS (prevents reading "**banana**" as "asterisk banana asterisk")
         const textForAudio = removeMd(response);
 
-        let summary: Message = {
+        const summary: Message = {
             id: id || "",
             speaker: m.characters[0].id,
             text: response, // Keep markdown for display
