@@ -65,11 +65,6 @@ export default function Main(props: MainProps) {
     const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
     audioContext.current = new AudioContext();
   }
-
-  if (audioContext.current === null) {
-    const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
-    audioContext.current = new AudioContext();
-  }
   
   useEffect(() => {
     i18n.changeLanguage(props.lang);
