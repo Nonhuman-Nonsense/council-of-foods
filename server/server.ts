@@ -38,6 +38,9 @@ Logger.info("init", "Startup complete.");
 // Express for health checks
 app.get('/health', (_req: Request, res: Response) => { res.sendStatus(200); });
 
+// Api routes run before static files
+registerMeetingRoutes(app, environment);
+
 if (environment === "prototype") {
   app.use(express.static(path.join(process.cwd(), "../prototype/", "public")));
   //Enable prototype to reset to default settings for each language
@@ -55,9 +58,6 @@ if (environment === "prototype") {
     res.sendFile(path.join(clientDistPath, "index.html"));
   });
 }
-
-
-registerMeetingRoutes(app, environment);
 
 // Socket Logic
 io.on("connection", (socket: Socket) => {
