@@ -3,7 +3,6 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import Main from '../../../src/components/Main';
 import SelectFoods from '../../../src/components/settings/SelectFoods';
-import React from 'react';
 
 // Mock child components that might cause issues or aren't relevant for this test
 vi.mock('../../../src/components/Council', () => ({

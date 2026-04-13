@@ -84,7 +84,6 @@ export const useCouncilSocket = ({
             window.removeEventListener("beforeunload", handleTabClose);
         };
         // Callbacks intentionally omitted: parent passes fresh closures; reconnect only when meeting/auth changes.
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [meetingId, creatorKey]);
 
     return socketRef;

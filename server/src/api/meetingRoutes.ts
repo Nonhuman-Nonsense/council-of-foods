@@ -3,6 +3,9 @@ import { ZodError } from "zod";
 import { Logger } from "@utils/Logger.js";
 import { createMeeting } from "./createMeeting.js";
 import { getMeeting, MeetingNotFoundError } from "./getMeeting.js";
+import { getClientKey } from "./getClientKey.js";
+import { meetingsCollection } from "@services/DbService.js";
+import { AVAILABLE_LANGUAGES } from "@shared/AvailableLanguages.js";
 
 const BEARER = /^Bearer\s+(.+)$/i;
 
@@ -73,6 +76,37 @@ export function registerMeetingRoutes(app: Express, environment: string): void {
                 return;
             }
             await Logger.error("api", `GET /api/meetings/${req.params.meetingId} failed`, e);
+            res.status(500).json({ message: "Internal Server Error" });
+        }
+    });
+
+    app.post("/api/clientkey", async (req: Request, res: Response) => {
+        const bearer = parseBearerToken(req);
+        if (!bearer) {
+            res.status(401).json({ message: "Authorization required" });
+            return;
+        }
+
+        try {
+            const exists = await meetingsCollection.findOne({ creatorKey: bearer }, { projection: { _id: 1 } });
+            if (!exists) {
+                res.status(403).json({ message: "Forbidden" });
+                return;
+            }
+
+            const language = req.body?.language;
+            if (
+                typeof language !== "string" ||
+                !(AVAILABLE_LANGUAGES as readonly string[]).includes(language)
+            ) {
+                res.status(400).json({ message: "Invalid or missing language" });
+                return;
+            }
+
+            const data = await getClientKey(language);
+            res.status(200).json(data);
+        } catch (e: unknown) {
+            await Logger.error("api", "POST /api/clientkey failed", e);
             res.status(500).json({ message: "Internal Server Error" });
         }
     });

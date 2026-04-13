@@ -4,7 +4,7 @@ import type { ILifecycleContext } from "@interfaces/MeetingInterfaces.js";
 import type { Message as AudioMessage } from "@logic/AudioSystem.js";
 import { splitSentences } from "@utils/textUtils.js";
 import { Logger } from "@utils/Logger.js";
-import { withNetworkRetry } from "@utils/NetworkUtils.js";
+
 import removeMd from 'remove-markdown';
 import type { StoredMeeting } from "@models/DBModels.js";
 
@@ -58,7 +58,9 @@ export class MeetingLifecycleHandler {
 
         Logger.info(`meeting ${m._id}`, "attempting to wrap up");
         const summaryPrompt = manager.serverOptions.finalizeMeetingPrompt[m.language].replace("[DATE]", message.date);
-        let { response, id } = await manager.dialogGenerator.chairInterjection(
+
+        // Note: chairInterjection is on manager (delegated to DialogGenerator)
+        const { response, id } = await manager.dialogGenerator.chairInterjection(
             summaryPrompt,
             m.conversation.length,
             manager.serverOptions.finalizeMeetingLength,
@@ -70,7 +72,7 @@ export class MeetingLifecycleHandler {
         // Strip markdown formatting for TTS (prevents reading "**banana**" as "asterisk banana asterisk")
         const textForAudio = removeMd(response);
 
-        let summary: Message = {
+        const summary: Message = {
             id: id || "",
             speaker: m.characters[0].id,
             text: response, // Keep markdown for display
@@ -111,66 +113,6 @@ export class MeetingLifecycleHandler {
                 manager.environment,
                 true
             );
-        }
-    }
-
-    /**
-     * Handles request for OpenAI Realtime API Client Key (for client-side usage).
-     * Fetches ephemeral secret from OpenAI and returns to client.
-     */
-    async handleRequestClientKey(): Promise<void> {
-        const { manager } = this;
-        const m = manager.meeting;
-        if (!m) return;
-
-        Logger.info(`meeting ${m._id}`, "clientkey requested");
-        try {
-            const sessionConfig = JSON.stringify({
-                session: {
-                    "type": "transcription",
-                    "audio": {
-                        "input": {
-                            "format": {
-                                "type": "audio/pcm",
-                                "rate": 24000
-                            },
-                            "noise_reduction": {
-                                "type": "near_field"
-                            },
-                            "transcription": {
-                                "model": manager.serverOptions.transcribeModel,
-                                "prompt": manager.serverOptions.transcribePrompt[m.language],
-                                "language": m.language
-                            },
-                            "turn_detection": {
-                                "type": "server_vad",
-                                "threshold": 0.5,
-                                "prefix_padding_ms": 300,
-                                "silence_duration_ms": 500
-                            }
-                        }
-                    }
-                }
-            });
-
-            const openai = manager.services.getOpenAI();
-            const response = await withNetworkRetry(() => fetch(
-                "https://api.openai.com/v1/realtime/client_secrets",
-                {
-                    method: "POST",
-                    headers: {
-                        Authorization: `Bearer ${openai.apiKey}`,
-                        "Content-Type": "application/json",
-                    },
-                    body: sessionConfig,
-                }
-            ), "MeetingLifecycleHandler");
-
-            const data = await response.json();
-            manager.broadcaster.broadcastClientKey(data);
-            Logger.info(`meeting ${m._id}`, "clientkey sent");
-        } catch (error) {
-            Logger.reportAndCrashClient(`meeting ${m._id}`, "Failed to initialize realtime transcription.", error, manager.broadcaster);
         }
     }
 

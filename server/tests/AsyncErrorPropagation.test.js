@@ -1,7 +1,6 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { SocketManager } from '@logic/SocketManager.js';
-import { MeetingManager } from '@logic/MeetingManager.js';
 import { ZodError } from 'zod';
 
 import { Logger } from '@utils/Logger.js';
@@ -25,7 +24,6 @@ const mockMeetingLifecycleHandler = {
     handleWrapUpMeeting: vi.fn(),
     handleStartConversation: vi.fn(),
     handleContinueConversation: vi.fn(),
-    handleRequestClientKey: vi.fn(),
     handlePauseConversation: vi.fn(),
     handleResumeConversation: vi.fn(),
     handleRemoveLastMessage: vi.fn()
@@ -69,7 +67,7 @@ vi.mock('@logic/GlobalOptions.js', async (importOriginal) => {
 
 describe('Async Error Propagation (Comprehensive)', () => {
     let mockSocket;
-    let socketManager;
+    let _socketManager;
     let socketHandlers = {};
 
     beforeEach(() => {
@@ -85,7 +83,7 @@ describe('Async Error Propagation (Comprehensive)', () => {
         // Reset mocks
         vi.clearAllMocks();
 
-        socketManager = new SocketManager(mockSocket, 'test');
+        _socketManager = new SocketManager(mockSocket, 'test');
     });
 
     const testCases = [
@@ -141,12 +139,6 @@ describe('Async Error Propagation (Comprehensive)', () => {
             mockObj: mockMeetingLifecycleHandler,
             method: 'handleContinueConversation',
             payload: null
-        },
-        {
-            event: 'request_clientkey',
-            mockObj: mockMeetingLifecycleHandler,
-            method: 'handleRequestClientKey',
-            payload: null
         }
     ];
 
@@ -178,7 +170,7 @@ describe('Async Error Propagation (Comprehensive)', () => {
             // Execute
             try {
                 await handler(payload);
-            } catch (e) {
+            } catch {
                 // Should use try/catch in socket manager
             }
 
@@ -210,7 +202,7 @@ describe('Async Error Propagation (Comprehensive)', () => {
     // Prototype listeners
     it('should verify prototype listeners if environment is prototype', async () => {
         // Re-init with prototype environment
-        socketManager = new SocketManager(mockSocket, 'prototype');
+        _socketManager = new SocketManager(mockSocket, 'prototype');
         // Initialize session
         const startHandler = socketHandlers['start_conversation'];
         mockMeetingLifecycleHandler.handleStartConversation.mockResolvedValueOnce();

@@ -1,8 +1,5 @@
 import type { Character, Topic } from "@shared/ModelTypes";
-import type { Socket } from "socket.io-client";
-import type { ServerToClientEvents, ClientToServerEvents } from "@shared/SocketTypes";
-
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router";
 import Overlay from "./Overlay";
 import CouncilOverlays from "./CouncilOverlays";
@@ -80,7 +77,7 @@ function Council({
   }, [creatorKey, meetingId, currentMeetingId, navigate, setUnrecoverableError]);
 
   // Hook Logic
-  const { state, actions, socketRef } = useCouncilMachine({
+  const { state, actions } = useCouncilMachine({
     currentMeetingId,
     creatorKey: creatorKey ?? undefined,
     topic,
@@ -188,7 +185,12 @@ function Council({
       {councilState === 'loading' && <Loading />}
       <>
         {(councilState === 'human_input' || councilState === 'human_panelist') && (
-          <HumanInput socketRef={socketRef} isPanelist={(councilState === 'human_panelist')} currentSpeakerName={participants.find(p => p.id === currentSpeakerId)?.name || ""} onSubmitHumanMessage={handleOnSubmitHumanMessage} />
+          <HumanInput
+            creatorKey={creatorKey!}
+            isPanelist={councilState === "human_panelist"}
+            currentSpeakerName={participants.find((p) => p.id === currentSpeakerId)?.name || ""}
+            onSubmitHumanMessage={handleOnSubmitHumanMessage}
+          />
         )}
         <Output
           textMessages={textMessages}

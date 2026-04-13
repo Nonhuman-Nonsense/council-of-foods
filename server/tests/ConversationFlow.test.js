@@ -1,9 +1,8 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { meetingsCollection } from '@services/DbService.js';
-import { createTestManager, mockOpenAI } from './commonSetup.js';
+import { createTestManager } from './commonSetup.js';
 import { setupTestOptions } from './testUtils.js';
-import { MockFactory } from './factories/MockFactory.ts';
 import { SpeakerSelector } from '@logic/SpeakerSelector.js';
 
 // Mock dependencies
@@ -18,13 +17,11 @@ vi.mock('@logic/SpeakerSelector.js', () => ({
 
 describe('MeetingManager - Conversation Flow', () => {
     let manager;
-    let mockSocket;
 
     beforeEach(() => {
         const setup = createTestManager();
         manager = setup.manager;
         manager.meeting._id = 1;
-        mockSocket = setup.mockSocket;
 
         // Spy on DB methods
         vi.spyOn(meetingsCollection, 'updateOne');
@@ -50,7 +47,7 @@ describe('MeetingManager - Conversation Flow', () => {
         };
 
         // 2. Verify 'prototype' mode
-        const { manager: protoManager, mockSocket: protoSocket } = createTestManager('prototype', null, {
+        const { manager: protoManager } = createTestManager('prototype', null, {
             meetingsCollection: mockCollection,
             audioCollection: mockAudioCollection,
             insertMeeting: vi.fn().mockResolvedValue({ insertedId: 1 })
@@ -147,7 +144,7 @@ describe('MeetingManager - Conversation Flow', () => {
 
         // We DO NOT mock generateTextFromGPT. We test it!
 
-        let action = diManager.decideNextAction();
+        const action = diManager.decideNextAction();
         expect(action.type).toBe('GENERATE_AI_RESPONSE');
         const speaker = diManager.meeting.characters[1];
         await diManager.processTurn({ type: action.type, speaker });
@@ -176,7 +173,7 @@ describe('MeetingManager - Conversation Flow', () => {
 
         vi.spyOn(SpeakerSelector, 'calculateNextSpeaker').mockReturnValue(panelistId);
 
-        let action = manager.decideNextAction();
+        const action = manager.decideNextAction();
         expect(action.type).toBe('REQUEST_PANELIST');
         const speaker = manager.meeting.characters[panelistId];
         await manager.processTurn({ type: action.type, speaker });
@@ -256,37 +253,4 @@ describe('MeetingManager - Conversation Flow', () => {
         // length (5) < 5 + 5
     });
 
-    it('should handle request_clientkey event', async () => {
-        // Setup mock OpenAI with audio capability
-        const mockOpenAI = {
-            chat: {},
-            audio: {},
-            apiKey: 'test-api-key'
-        };
-        const mockGetOpenAI = () => mockOpenAI;
-        const { manager: keyManager, mockSocket: keySocket } = createTestManager('test', null, { getOpenAI: mockGetOpenAI });
-        keyManager.meeting._id = 1;
-
-        // Mock fetch for OpenAI API
-        global.fetch = vi.fn().mockResolvedValue({
-            json: vi.fn().mockResolvedValue({ value: 'mock_client_secret' })
-        });
-
-        // Trigger request
-        await keyManager.meetingLifecycleHandler.handleRequestClientKey();
-
-        // Verify fetch called with correct URL and headers
-        expect(global.fetch).toHaveBeenCalledWith(
-            "https://api.openai.com/v1/realtime/client_secrets",
-            expect.objectContaining({
-                method: "POST",
-                headers: expect.objectContaining({
-                    Authorization: "Bearer test-api-key"
-                })
-            })
-        );
-
-        // Verify socket response
-        expect(keySocket.emit).toHaveBeenCalledWith("clientkey_response", { value: 'mock_client_secret' });
-    });
 });

@@ -152,7 +152,7 @@ describe('ConversationControls', () => {
     });
 
     it('disables pointer events on raise hand button when hand is already raised', () => {
-        const { container } = render(<ConversationControls {...defaultProps} isRaisedHand={true} />);
+        render(<ConversationControls {...defaultProps} isRaisedHand={true} />);
 
         // The container of the raise hand icon has the pointer-events style
         // We need to find the specific container div. 

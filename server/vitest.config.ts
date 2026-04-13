@@ -5,7 +5,12 @@ export default defineConfig({
     test: {
         globals: true,
         environment: 'node',
-        include: ['tests/**/*.test.js', 'tests/**/*.test.ts'],
+        include: [
+            'tests/**/*.test.js',
+            'tests/**/*.test.ts',
+            'tests_forest/**/*.test.js',
+            'tests_forest/**/*.test.ts',
+        ],
         exclude: ['node_modules', 'dist', '.idea', '.git', '.cache'],
         setupFiles: ['tests/setup.js'],
         coverage: {

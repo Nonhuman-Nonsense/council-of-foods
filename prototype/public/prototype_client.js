@@ -718,9 +718,12 @@ createApp({
       const timestamp = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
       const lang = this.options.language || 'en';
 
-      // Always fetch raw data for export fidelity
+      // Base export shape from the active locale JSON (parse each file independently so one failed fetch does not wipe the other)
       let rawFoods = { foods: [] };
       let rawTopics = { topics: [] };
+      // English JSON: only fetched when exporting a non-English locale (canonical ids + topic slot fallback); when lang is en, reuse rawFoods/rawTopics
+      let rawFoodsEn = null;
+      let rawTopicsEn = null;
 
       try {
         this.log('SYSTEM', 'Fetching raw data for export...');
@@ -728,16 +731,29 @@ createApp({
           fetch(`./foods_${lang}.json`),
           fetch(`./topics_${lang}.json`)
         ]);
-        if (foodsResp.ok && topicsResp.ok) {
+        if (foodsResp.ok) {
           rawFoods = await foodsResp.json();
+        }
+        if (topicsResp.ok) {
           rawTopics = await topicsResp.json();
+        }
+
+        if (lang !== 'en') {
+          const [foodsEnResp, topicsEnResp] = await Promise.all([
+            fetch('./foods_en.json'),
+            fetch('./topics_en.json')
+          ]);
+          if (foodsEnResp.ok) rawFoodsEn = await foodsEnResp.json();
+          if (topicsEnResp.ok) rawTopicsEn = await topicsEnResp.json();
         }
       } catch (e) {
         this.log('ERROR', "Failed to fetch raw data", e);
       }
 
+      const enCharsForExport = (this.languageData.en && this.languageData.en.characters) || [];
+      const rawEnFoodsList = ((lang === 'en' ? rawFoods : rawFoodsEn) || {}).foods || [];
+
       // 1. Export Characters (Foods)
-      // Clone raw structure to preserve static fields (addHuman, panelWithHumans, metadata etc)
       // Clone raw structure to preserve static fields (addHuman, panelWithHumans, metadata etc)
       let foodsExport = JSON.parse(JSON.stringify(rawFoods));
 
@@ -749,14 +765,19 @@ createApp({
       }
 
       // Update the "foods" array with current active characters
-      foodsExport.foods = (this.currentLanguageData.characters || []).map(c => {
+      foodsExport.foods = (this.currentLanguageData.characters || []).map((c, idx) => {
         // Exclude internal fields like _ui_id
         const { _ui_id, ...rest } = c;
         // Ensure structure matches schema
         const provider = rest.voiceProvider || 'openai';
-        
+        const canonicalFoodId =
+          (enCharsForExport[idx] && enCharsForExport[idx].id) ||
+          rawEnFoodsList[idx]?.id ||
+          rest.id ||
+          (rest.name ? rest.name.toLowerCase().replace(/\s+/g, '') : 'unknown');
+
         let charExport = {
-          id: rest.id || (rest.name ? rest.name.toLowerCase().replace(/\s+/g, '') : 'unknown'),
+          id: canonicalFoodId,
           name: rest.name,
           voice: rest.voice,
           voiceProvider: provider,
@@ -782,8 +803,6 @@ createApp({
       });
 
       // 2. Export Topics
-      // Clone raw structure
-      // Clone raw structure
       let topicsExport = JSON.parse(JSON.stringify(rawTopics));
 
       // Update timestamp if metadata exists
@@ -796,16 +815,23 @@ createApp({
       // Update system prompt (editable)
       topicsExport.system = this.currentLanguageData.system;
 
-      // Update topics list
-      // Reconcile with raw topics to preserve original IDs
+      // Reconcile with raw topics to preserve original IDs; prefer English topic ids when bilingual
       const rawTopicsList = (rawTopics && rawTopics.topics) ? rawTopics.topics : [];
+      const rawTopicsEnList = ((lang === 'en' ? rawTopics : rawTopicsEn) || {}).topics || [];
 
-      topicsExport.topics = (this.currentLanguageData.topics || []).map(t => {
+      topicsExport.topics = (this.currentLanguageData.topics || []).map((t, idx) => {
         // Try to find matching original topic by title to restore ID and Description
         const match = rawTopicsList.find(rt => rt.title === t.name);
+        // Prefer stable ids from English JSON (same as sv ids); avoid in-memory topic_* ids from factoryReset
+        const canonicalTopicId =
+          (match ? match.id : null) ||
+          rawTopicsEnList[idx]?.id ||
+          rawTopicsList[idx]?.id ||
+          t.id ||
+          (t.name ? t.name.toLowerCase().replace(/\s+/g, '') : 'unknown');
 
         return {
-          id: match ? match.id : (t.id || (t.name ? t.name.toLowerCase().replace(/\s+/g, '') : 'unknown')),
+          id: canonicalTopicId,
           title: t.name,
           // Use current description if available (user edits), fallback to raw if needed, then prompt (legacy)
           description: t.description || (match ? match.description : t.prompt),
@@ -1077,8 +1103,8 @@ createApp({
         if (lang.characters) {
           lang.characters.forEach(c => {
             if (!c._ui_id) c._ui_id = Date.now() + Math.random();
-            // Ensure ID matches Name
-            if (c.name) {
+            // Only derive id from display name when missing (preserve canonical ids from JSON / en fork)
+            if (!c.id && c.name) {
               c.id = c.name.toLowerCase().replace(/\s+/g, '');
             }
           });

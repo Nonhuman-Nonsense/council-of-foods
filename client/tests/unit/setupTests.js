@@ -23,7 +23,7 @@ if (typeof CSS === 'undefined') {
 }
 
 if (!CSS.supports) {
-    CSS.supports = (k, v) => false;
+    CSS.supports = (_k, _v) => false;
 }
 
 // Mock Canvas
@@ -42,7 +42,7 @@ global.AudioContext = class {
     constructor() {
         this.state = 'running';
     }
-    decodeAudioData(buffer) {
+    decodeAudioData(_buffer) {
         return Promise.resolve(new ArrayBuffer(8)); // Mock buffer
     }
     suspend() {
@@ -67,9 +67,22 @@ if (typeof navigator !== 'undefined') {
     });
 }
 
+// Mock MediaStream (jsdom has no WebRTC stream constructor; tests use `new MediaStream()`)
+global.MediaStream = class MediaStream {
+    constructor(tracks = []) {
+        this._tracks = Array.isArray(tracks) ? [...tracks] : [];
+    }
+    getTracks() {
+        return this._tracks;
+    }
+    addTrack(track) {
+        this._tracks.push(track);
+    }
+};
+
 // Mock MediaRecorder
 global.MediaRecorder = class {
-    constructor(stream) { }
+    constructor(_stream) { }
     start() { }
     stop() { }
 };

@@ -51,8 +51,7 @@ export class SocketManager {
             "submit_injection",
             "raise_hand",
             "wrap_up_meeting",
-            "continue_conversation",
-            "request_clientkey"
+            "continue_conversation"
         ];
 
         for (const event of proxyEvents) {
@@ -74,7 +73,7 @@ export class SocketManager {
     ) {
         // We cast event to string to bypass the strict mapped type check of strict socket.io
         // The type safety is enforced by the method signature of bindSafeListener itself.
-        this.socket.on(event as string, async (payload: any) => {
+        this.socket.on(event as string, async (payload: unknown) => {
             if (requireSession && !this.currentSession) {
                 // Safety Check:
                 // 1. Lifecycle events (start/reconnect) set requireSession=false, so they bypass this.
@@ -92,8 +91,8 @@ export class SocketManager {
             }
 
             try {
-                await handler(payload);
-            } catch (error: any) {
+                await handler(payload as Parameters<ClientToServerEvents[EventName]>[0]);
+            } catch (error: unknown) {
                 // Report to external error service
                 const context = this.currentSession?.meeting
                     ? `meeting ${this.currentSession.meeting._id}`
@@ -108,7 +107,8 @@ export class SocketManager {
                         this.socket.emit("conversation_error", { message: "Invalid Input", code: 400, error });
                     }
                 } else {
-                    Logger.error(context, `Error handling event ${event}: ${error.message}`, error);
+                    const errMessage = error instanceof Error ? error.message : String(error);
+                    Logger.error(context, `Error handling event ${event}: ${errMessage}`, error);
 
                     // If we have a session, use its broadcaster to send 500
                     if (this.currentSession) {

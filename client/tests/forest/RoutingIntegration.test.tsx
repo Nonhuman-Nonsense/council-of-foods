@@ -151,7 +151,7 @@ describe('Forest Routing Integration', () => {
             expect(screen.getByTestId('council')).toBeInTheDocument();
         });
         // Meeting URL typically includes ID, e.g. /sv/meeting/new or /sv/meeting/123
-        expect(screen.getByTestId('location-spy')).toHaveTextContent(new RegExp(`\/sv\/${routes.meeting}\/.*`));
+        expect(screen.getByTestId('location-spy')).toHaveTextContent(new RegExp(`/sv/${routes.meeting}/.*`));
     });
 
     it('preserves /en/ language prefix when navigating flow', async () => {

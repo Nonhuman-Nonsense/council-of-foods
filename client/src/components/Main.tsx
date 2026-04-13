@@ -13,7 +13,7 @@ import Council from "./Council";
 import { isMeetingPath, isRootPath, stripLanguagePrefix, useRouting } from "@/routing";
 import RotateDevice from "./RotateDevice";
 import FullscreenButton from "./FullscreenButton";
-import { usePortrait, dvh } from "@/utils";
+import { usePortrait } from "@/utils";
 import CouncilError from "./overlays/CouncilError";
 import Forest from './Forest';
 import Reconnecting from "./overlays/Reconnecting";
@@ -24,7 +24,7 @@ function useIsIphone() {
   const [isIphone, setIsIphone] = useState(false);
 
   useEffect(() => {
-    const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+    const userAgent = String(navigator.userAgent || navigator.vendor || window.opera || "");
     if (/iPhone/.test(userAgent) && !window.MSStream) {
       setIsIphone(true);
     }
@@ -62,8 +62,13 @@ export default function Main(props: MainProps) {
   const isPortrait = usePortrait();
 
   if (audioContext.current === null) {
-    const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
-    audioContext.current = new AudioContext();
+    type WindowWithWebkitAudio = Window & { webkitAudioContext?: typeof AudioContext };
+    const AudioContextCtor =
+      window.AudioContext ?? (window as WindowWithWebkitAudio).webkitAudioContext;
+    if (!AudioContextCtor) {
+      throw new Error("Web Audio API is not available in this environment");
+    }
+    audioContext.current = new AudioContextCtor();
   }
   
   useEffect(() => {
@@ -88,7 +93,7 @@ export default function Main(props: MainProps) {
     if (isMeetingPath(location.pathname) && meetingCreatorKey) {
       navigate({ hash: "warning" });
     }
-  }, [props.lang]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [props.lang]);
 
   // If the user navigates back to the landing page, treat it as a fresh start.
   useEffect(() => {

@@ -5,8 +5,8 @@ import { useTranslation } from 'react-i18next';
 import { capitalizeFirstLetter, useMobile, useMobileXs, usePortrait } from "@/utils";
 import { stripLanguagePrefix } from "@/routing";
 import Lottie from "react-lottie-player";
+import type { ComponentRef } from "react";
 import hamburger from "@animations/hamburger.json";
-import councilLogo from "@assets/logos/council_logo_white.svg";
 import { AVAILABLE_LANGUAGES } from "@shared/AvailableLanguages";
 import routes from "@/routes.json";
 
@@ -14,12 +14,6 @@ interface NavbarProps {
   topicTitle: string;
   hamburgerOpen: boolean;
   setHamburgerOpen: (open: boolean) => void;
-}
-
-interface LottiePlayerHandle {
-  play: () => void;
-  setDirection: (direction: number) => void;
-  stop: () => void;
 }
 
 /**
@@ -38,7 +32,7 @@ function Navbar({ topicTitle: topic, hamburgerOpen, setHamburgerOpen }: NavbarPr
   const isMobileXs: boolean = useMobileXs();
   const isPortrait: boolean = usePortrait();
   const showIconinMeny: boolean = useMediaQuery({ query: '(min-width: 700px)' });
-  const hamburgerAnimation = useRef<any>(null);
+  const hamburgerAnimation = useRef<ComponentRef<typeof Lottie>>(null);
   const [activeMenuItem, setActiveMenuItem] = useState<string>('');
   const location: Location = useLocation();
   const navigate: NavigateFunction = useNavigate();

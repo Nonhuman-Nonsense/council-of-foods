@@ -5,28 +5,27 @@
         "moduleResolution": "NodeNext",
         "rootDir": "..",
         "outDir": "./dist",
-        "baseUrl": ".",
         "paths": {
             "@shared/*": [
                 "../shared/*"
             ],
             "@logic/*": [
-                "src/logic/*"
+                "./src/logic/*"
             ],
             "@services/*": [
-                "src/services/*"
+                "./src/services/*"
             ],
             "@utils/*": [
-                "src/utils/*"
+                "./src/utils/*"
             ],
             "@models/*": [
-                "src/models/*"
+                "./src/models/*"
             ],
             "@interfaces/*": [
-                "src/interfaces/*"
+                "./src/interfaces/*"
             ],
             "@api/*": [
-                "src/api/*"
+                "./src/api/*"
             ],
             "@root/*": [
                 "./*"

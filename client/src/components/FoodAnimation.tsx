@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import { filename, useMobile } from "../utils";
-import { Character } from "@shared/ModelTypes";
 
 interface FoodAnimationProps {
   character: { id: string };
@@ -12,11 +11,10 @@ interface FoodAnimationProps {
 }
 
 function FoodAnimation({ character, type, styles, isPaused, always_on, currentSpeakerId }: FoodAnimationProps) {
-  if (!character?.id) return null;
-
   const isMobile = useMobile();
   const video = useRef<HTMLVideoElement>(null);
   const [vidLoaded, setVidLoaded] = useState(false);
+  const hasCharacter = Boolean(character?.id);
 
   // Forest-specific logic: River has no subfolder, others do based on device size
   const folder = character.id === "river" ? "" : isMobile ? "small/" : "large/";
@@ -50,6 +48,8 @@ function FoodAnimation({ character, type, styles, isPaused, always_on, currentSp
       }
     }
   }, [isPaused, vidLoaded, currentSpeakerId, character.id, always_on]);
+
+  if (!hasCharacter) return null;
 
   return (
     <video ref={video} data-testid="food-video" style={{ ...styles, objectFit: "contain", height: "100%" }} loop muted playsInline>

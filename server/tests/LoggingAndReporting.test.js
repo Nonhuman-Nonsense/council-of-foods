@@ -1,7 +1,6 @@
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { Logger } from '@utils/Logger.js';
-import * as config from '@root/src/config.js';
 
 // Mock config to prevent actual error reporting (if errorbot attempts it)
 vi.mock('@root/src/config.js', () => ({

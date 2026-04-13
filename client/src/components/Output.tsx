@@ -36,6 +36,7 @@ const Output: React.FC<OutputProps> = ({
   councilState,
   isMuted,
   isPaused,
+  currentSnippetIndex: _currentSnippetIndex,
   setCurrentSnippetIndex,
   audioContext,
   handleOnFinishedPlaying,
@@ -48,13 +49,13 @@ const Output: React.FC<OutputProps> = ({
   //Everytime the play now index changes, set the current text and audio
   useEffect(() => {
     if (councilState === 'playing') {
-      let textMessage = textMessages[playingNowIndex];
+      const textMessage = textMessages[playingNowIndex];
       const matchingAudioMessage = audioMessages.find((a) => a.id === textMessage.id);
       setCurrentAudioMessage(() => matchingAudioMessage || null);
     } else if (councilState === 'loading' || councilState === 'max_reached' || councilState === 'human_input' || councilState === 'human_panelist') {
       setCurrentAudioMessage(null);
     } else if (councilState === 'summary') {
-      let textMessage = textMessages[playingNowIndex];
+      const textMessage = textMessages[playingNowIndex];
       if (textMessage && textMessage.type === 'summary') { // Added check for textMessage existence
         const matchingAudioMessage = audioMessages.find((a) => a.id === textMessage.id);
         setCurrentAudioMessage(() => matchingAudioMessage || null); // Simplified to directly set null if not found

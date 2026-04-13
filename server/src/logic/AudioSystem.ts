@@ -1,7 +1,7 @@
 import type { IMeetingBroadcaster } from "@interfaces/MeetingInterfaces.js";
 import type { GlobalOptions } from "@logic/GlobalOptions.js";
 import { Logger } from "@utils/Logger.js";
-import { mapSentencesToWords, Word } from "@utils/textUtils.js";
+import { mapSentencesToWords, Word, type MappedSentence } from "@utils/textUtils.js";
 import type { StoredMeeting } from "@models/DBModels.js";
 import { GoogleAuth } from 'google-auth-library';
 import { parseBuffer } from 'music-metadata';
@@ -23,6 +23,7 @@ import {
     Services,
     Speaker
 } from "./audio/AudioTypes.js";
+import type { AudioUpdatePayload } from "@shared/SocketTypes.js";
 
 // Re-export types for compatibility
 export * from "./audio/AudioTypes.js";
@@ -86,14 +87,21 @@ export class AudioSystem {
         let buffers: Buffer[] = [];
         let generateNew = true;
 
-        let existingAudio: any;
+        type LegacyAudioRow = {
+            buffer?: Buffer | { buffer?: ArrayBufferLike };
+            audio?: Buffer | { buffer?: ArrayBufferLike };
+        };
+
         try {
-            existingAudio = await this.services.audioCollection.findOne({ _id: message.id });
+            const existingAudio = await this.services.audioCollection.findOne({ _id: message.id });
             if (existingAudio) {
-                let singleBuffer;
-                if (existingAudio.buffer?.buffer) singleBuffer = Buffer.from(existingAudio.buffer.buffer);
-                else if (existingAudio.audio?.buffer) singleBuffer = Buffer.from(existingAudio.audio.buffer);
-                else singleBuffer = existingAudio.buffer || existingAudio.audio;
+                const row = existingAudio as typeof existingAudio & LegacyAudioRow;
+                let singleBuffer: Buffer | undefined;
+                if (row.buffer && typeof row.buffer === "object" && "buffer" in row.buffer && row.buffer.buffer)
+                    singleBuffer = Buffer.from(row.buffer.buffer);
+                else if (row.audio && typeof row.audio === "object" && "buffer" in row.audio && row.audio.buffer)
+                    singleBuffer = Buffer.from(row.audio.buffer);
+                else singleBuffer = (row.buffer as Buffer | undefined) || (row.audio as Buffer | undefined);
 
                 if (singleBuffer) {
                     buffers = [singleBuffer];
@@ -126,7 +134,7 @@ export class AudioSystem {
 
             const shouldSkipMatching = skipMatching || effectiveOptions.skipMatchingSubtitles || environment === 'prototype';
 
-            let sentencesWithTimings: any[] = [];
+            let sentencesWithTimings: MappedSentence[] = [];
 
             if (!shouldSkipMatching) {
                 // Get timings for all chunks in parallel
@@ -157,7 +165,7 @@ export class AudioSystem {
                 }));
 
                 let currentOffset = 0;
-                let allWords: Word[] = [];
+                const allWords: Word[] = [];
 
                 chunkWordsWithTimings.forEach((words, index) => {
                     const offsetWords = words.map(w => ({
@@ -184,7 +192,7 @@ export class AudioSystem {
             const combinedBuffer = await mergeAudioBuffers(buffers);
 
             // Construct payload
-            const audioObject: any = {
+            const audioObject: AudioUpdatePayload = {
                 id: message.id,
                 audio: combinedBuffer,
                 sentences: sentencesWithTimings
@@ -249,7 +257,7 @@ export class AudioSystem {
     }
 
     // Kept for signature compatibility if used elsewhere
-    async getSentenceTimings(buffer: Buffer, message: Message): Promise<any[]> {
+    async getSentenceTimings(buffer: Buffer, message: Message): Promise<MappedSentence[]> {
         const words = await this.getWhisperWordsWrapper(buffer);
         return mapSentencesToWords(message.sentences, words);
     }

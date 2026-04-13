@@ -47,7 +47,6 @@ describe('Inworld TTS Summary Generation Limit', () => {
             broadcastMeetingStarted: vi.fn(),
             broadcastConversationUpdate: vi.fn(),
             broadcastConversationEnd: vi.fn(),
-            broadcastClientKey: vi.fn(),
             broadcastWarning: vi.fn(),
             broadcastSpeakerUpdate: vi.fn()
         };

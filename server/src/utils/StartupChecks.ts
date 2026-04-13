@@ -12,7 +12,7 @@ export const verifyGoogleCredentials = async (config: EnvConfig) => {
     // 1. Check File Existence
     try {
         await fs.access(keyFilePath, constants.F_OK);
-    } catch (error) {
+    } catch {
         throw new Error(`Google Application Credentials file not found at: ${keyFilePath}`);
     }
 
@@ -28,7 +28,8 @@ export const verifyGoogleCredentials = async (config: EnvConfig) => {
         await client.getAccessToken();
 
         Logger.info("init", "Google Cloud Authentication successful.");
-    } catch (error: any) {
-        throw new Error(`Google Cloud Authentication failed: ${error.message}`);
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
+        throw new Error(`Google Cloud Authentication failed: ${message}`);
     }
 };
