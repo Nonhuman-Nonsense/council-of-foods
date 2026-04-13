@@ -1,6 +1,6 @@
 {
   "welcome": "Välkommen till",
-  "council": "Skogsparlamentet",
+  "council": "Skogsrådet",
   "meeting": "Möte",
   "description": "En politisk arena där skogen själv får tala, med hjälp av artificiell intelligens. Följ skogens invånare när de diskuterar avskogning, återvildning och ödet för deras gemensamma hem.",
   "go": "Nu kör vi!",
@@ -11,14 +11,14 @@
   "en": "EN",
   "sv": "SV",
   "aboutText": {
-    "about": "Vad skulle en urgammal tall säga om avskogning? Hur skulle fiskar reagera på ett vattenkraftverk? Kan AI förmedla visdomen hos en flod, ett träd eller en renhjord?\n\nGenom AI samlas icke-mänskliga varelser—träd, svampar, floder och djur—för att överlägga om ödet för deras gemensamma hem. Deras röster formas av en blandning av kunskapssystem, inklusive traditionella och ursprungliga perspektiv, ekologisk vetenskap och data. De är hämtade från intervjuer och samtal med människor som lever i och vårdar Vindelälven-Juhttátahkka biosfärområde—renskötare, skogsägare, återvildningsorganisationer, pollinator-experter och kulturarbetare—var och en med djup anknytning till naturen.\n\nSkogsparlamentet fungerar som ett forum där skogens invånare uttrycker sina behov och reflekterar över mänskliga aktiviteter som skogsavverkning, återvildning och klimatförändringar. Människor är inbjudna att lyssna, ställa frågor och reflektera. Varje session avslutas med ett gemensamt uttalande och en policyrekommendation från skogen. Det är ett experiment i ekologiskt tänkande och spekulativ design—som utforskar hur teknologi kan fungera som brygga mellan människor och den mer-än-mänskliga världen.\n\nVad innebär det att agera i skogens bästa intresse? Vems kunskap räknas? Och vad händer när vi tar icke-mänskliga röster på allvar?",
+    "about": "Vad skulle en urgammal tall säga om avskogning? Hur skulle fiskar reagera på ett vattenkraftverk? Kan AI förmedla visdomen hos en flod, ett träd eller en renhjord?\n\nGenom AI samlas icke-mänskliga varelser—träd, svampar, floder och djur—för att överlägga om ödet för deras gemensamma hem. Deras röster formas av en blandning av kunskapssystem, inklusive traditionella och ursprungliga perspektiv, ekologisk vetenskap och data. De är hämtade från intervjuer och samtal med människor som lever i och vårdar Vindelälven-Juhttátahkka biosfärområde—renskötare, skogsägare, återvildningsorganisationer, pollinator-experter och kulturarbetare—var och en med djup anknytning till naturen.\n\nSkogsrådet fungerar som ett forum där skogens invånare uttrycker sina behov och reflekterar över mänskliga aktiviteter som skogsavverkning, återvildning och klimatförändringar. Människor är inbjudna att lyssna, ställa frågor och reflektera. Varje session avslutas med ett gemensamt uttalande och en policyrekommendation från skogen. Det är ett experiment i ekologiskt tänkande och spekulativ design—som utforskar hur teknologi kan fungera som brygga mellan människor och den mer-än-mänskliga världen.\n\nVad innebär det att agera i skogens bästa intresse? Vems kunskap räknas? Och vad händer när vi tar icke-mänskliga röster på allvar?",
     "link": "ett project av"
   },
   "contactText": {
     "1": "Projektet är ett initiativ av konst & designkollektivet ",
     "2": " utvecklat i samarbete med ",
     "3": ", med flera.",
-    "4": "Skogsparlamentet är finansierat av ",
+    "4": "Skogsrådet är finansierat av ",
     "5": " och är en fortsättning av projektet ",
     "6": " some har fått stöd av Europeiska\u00a0Unionens ",
     "7": " forsknings och innovationsprogram under avtal",
@@ -33,7 +33,7 @@
   "restart": "Starta om",
   "name": {
     "title": "SÄG NÅT",
-    "1": "Vill du tala i Skogsparlamentet?",
+    "1": "Vill du tala i Skogsrådet?",
     "2": "Vänligen skriv in ditt namn för att begära ordet,",
     "21": "och vänta sedan tills du blir inbjuden att tala av Älven, moderatorn.",
     "3": "vänligen skriv ditt namn",
@@ -59,7 +59,7 @@
     "download": "Ladda ned PDF"
   },
   "disclaimer": {
-    "1": "Detta dokument är skapat av Skogsparlamentet, en politisk arena där skogen själv talar, genom användning av artificiell intelligens. Trots att varje ansträngning har gjort för att skapa meningsfullt innehåll, vänligen notera:",
+    "1": "Detta dokument är skapat av Skogsrådet, en politisk arena där skogen själv talar, genom användning av artificiell intelligens. Trots att varje ansträngning har gjort för att skapa meningsfullt innehåll, vänligen notera:",
     "2": "Detta dokument kan innehålla felaktig information, föråldrade uppgifter, propaganda eller dåliga idéer.",
     "3": "Diskussionerna kan ge värdefulla insikter och spegla olika etiska ståndpunkter, men bör inte ersätta evidensbaserad forskning eller djup reflektion.",
     "4": "Prata inte bara om det – res dig upp och agera!",
@@ -78,7 +78,7 @@
   "next": "Nästa",
   "selectfoods": {
     "title": "VARELSERNA",
-    "meetingon": "Skogsparlamentet möte om",
+    "meetingon": "Skogsrådet möte om",
     "wewilllisten": "kommer vi lyssna till",
     "pleaseselect": "välj 2-6 varelser för diskussionen",
     "unique": "inga deltagare får ha samma namn, det blir så förvirrat...",

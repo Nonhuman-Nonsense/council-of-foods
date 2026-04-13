@@ -21,6 +21,6 @@ describe('Multilingual Verification (Swedish)', () => {
         // Deep check for system prompt structure
         expect(topicsSv.system).toBeDefined();
         // Check for Swedish "Forest Parliament" equivalent
-        expect(topicsSv.system).toContain("Skogsparlamentet");
+        expect(topicsSv.system).toContain("Skogsrådet");
     });
 });
