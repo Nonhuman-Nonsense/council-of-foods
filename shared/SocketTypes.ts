@@ -1,3 +1,4 @@
+/// <reference types="node" />
 import type { Message, Character, Sentence, Topic } from "./ModelTypes.js";
 
 // Re-defining or importing types that are passed over the socket
