@@ -1,3 +1,4 @@
+/// <reference types="node" />
 // Defines the available voice options for characters
 export const AVAILABLE_VOICES = ["alloy", "ash", "ballad", "coral", "echo", "fable", "onyx", "nova", "sage", "shimmer", "verse"] as const;
 export const AVAILABLE_VOICES_GEMINI = [

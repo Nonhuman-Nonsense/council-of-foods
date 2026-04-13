@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { DialogGenerator } from '@logic/DialogGenerator.js';
 import { MockFactory } from './factories/MockFactory.ts';
 import { createTestManager } from './commonSetup.js';
 
@@ -105,7 +104,6 @@ describe('DialogGenerator - Prompt Construction', () => {
             broadcastConversationUpdate: vi.fn(),
             broadcastConversationEnd: vi.fn(),
             broadcastAudioUpdate: vi.fn(),
-            broadcastClientKey: vi.fn(),
             broadcastError: vi.fn(),
             broadcastWarning: vi.fn()
         };

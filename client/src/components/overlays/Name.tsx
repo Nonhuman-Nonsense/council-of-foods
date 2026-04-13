@@ -119,7 +119,7 @@ function HumanNameInput({ participants, onContinueForward }: HumanNameInputProps
   }
 
   function isDuplicateName(check: string): boolean {
-    let names = participants.map(p => p.name);
+    const names = participants.map(p => p.name);
     //Because each value in the Set has to be unique, the value equality will be checked.
     names.push(check);
     return (new Set(names).size !== names.length);

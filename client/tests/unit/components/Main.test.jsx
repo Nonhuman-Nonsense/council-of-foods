@@ -1,7 +1,7 @@
 
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
-import { MemoryRouter, Routes, Route, useNavigate } from 'react-router';
+import { MemoryRouter } from 'react-router';
 import Main from '../../../src/components/Main';
 import routes from '../../../src/routes.json';
 

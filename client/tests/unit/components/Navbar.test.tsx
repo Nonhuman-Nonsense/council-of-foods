@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import type { Ref } from 'react';
 import Navbar from '@components/Navbar';
-import React from 'react';
 import { MemoryRouter } from 'react-router';
 import '@testing-library/jest-dom';
 
@@ -14,7 +14,7 @@ vi.mock('react-lottie-player', async () => {
     const React = await import('react');
     const { vi } = await import('vitest');
     return {
-        default: React.forwardRef((props: any, ref: any) => {
+        default: React.forwardRef((props: Record<string, unknown>, ref: Ref<unknown>) => {
             React.useImperativeHandle(ref, () => ({
                 play: vi.fn(),
                 setDirection: vi.fn(),

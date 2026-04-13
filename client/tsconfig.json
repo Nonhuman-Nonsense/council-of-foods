@@ -15,37 +15,36 @@
         "isolatedModules": true,
         "noEmit": true,
         "jsx": "react-jsx",
-        "baseUrl": ".",
         "paths": {
             "@/*": [
-                "src/*"
+                "./src/*"
             ],
             "@root/*": [
-                "src/*"
+                "./src/*"
             ],
             "@api/*": [
-                "src/api/*"
+                "./src/api/*"
             ],
             "@components/*": [
-                "src/components/*"
+                "./src/components/*"
             ],
             "@hooks/*": [
-                "src/hooks/*"
+                "./src/hooks/*"
             ],
             "@animations/*": [
-                "src/assets/animations/*"
+                "./src/assets/animations/*"
             ],
             "@assets/*": [
-                "src/assets/*"
+                "./src/assets/*"
             ],
             "@prompts/*": [
-                "src/prompts/*"
+                "./src/prompts/*"
             ],
             "@icons": [
-                "src/assets/icons/index"
+                "./src/assets/icons/index"
             ],
             "@fonts/*": [
-                "src/assets/fonts/*"
+                "./src/assets/fonts/*"
             ],
             "@shared/*": [
                 "../shared/*"
