@@ -75,7 +75,7 @@ function Council({
   const [isPaused, setPaused] = React.useState(false);
 
   // Hook Logic
-  const { state, actions, socketRef } = useCouncilMachine({
+  const { state, actions } = useCouncilMachine({
     currentMeetingId,
     creatorKey: creatorKey ?? undefined,
     topic,
@@ -118,8 +118,6 @@ function Council({
     handleHumanNameEntered,
     handleOnRaiseHand,
     removeOverlay,
-    setHumanName, // exposed if needed
-    setIsRaisedHand, // exposed if needed
     setCurrentSnippetIndex,
     setSentencesLength,
     toggleMute
@@ -280,39 +278,39 @@ export function Background({ zoomIn, currentSpeakerIndex, totalSpeakers }: Backg
     return 10 + (80 * currentSpeakerIndex) / totalSpeakers + "%";
   }
 
-  const closeUpBackdrop = {
+  const closeUpBackdrop: React.CSSProperties = {
     backgroundImage: `url(/backgrounds/close-up-backdrop.webp)`,
     backgroundSize: "cover",
     backgroundPosition: calculateBackdropPosition(),
     height: "100%",
     width: "100%",
-    position: "absolute" as "absolute",
+    position: "absolute",
     opacity: zoomIn ? "1" : "0",
   };
 
-  const closeUpTable = {
+  const closeUpTable: React.CSSProperties = {
     backgroundImage: `url(/backgrounds/close-up-table.webp)`,
     backgroundSize: "cover",
     backgroundPosition: "center",
     height: "100%",
     width: "100%",
-    position: "absolute" as "absolute",
+    position: "absolute",
     opacity: zoomIn ? "1" : "0",
   };
 
-  const bottomShade = {
+  const bottomShade: React.CSSProperties = {
     width: "100%",
     height: "40%",
-    position: "absolute" as "absolute",
+    position: "absolute",
     bottom: "0",
     background: "linear-gradient(0, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0) 100%)",
     zIndex: "1",
   };
 
-  const topShade = {
+  const topShade: React.CSSProperties = {
     width: "100%",
     height: "10%",
-    position: "absolute" as "absolute",
+    position: "absolute",
     top: "0",
     background:
       "linear-gradient(180deg, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0) 100%)",

@@ -1,4 +1,3 @@
-import { vi } from 'vitest';
 import { getGlobalOptions } from '@logic/GlobalOptions.js';
 
 

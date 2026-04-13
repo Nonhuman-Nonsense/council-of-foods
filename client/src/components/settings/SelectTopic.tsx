@@ -240,7 +240,7 @@ function SelectTopic({
                   onClick={() => {
                     setSelectedTopic(topicsBundle.custom_topic.id);
                     setTimeout(() => {
-                      topicTextareaRef.current && topicTextareaRef.current.focus();
+                      topicTextareaRef.current?.focus();
                     }, 0);
                   }}
                   onMouseEnter={() => setHoverTopic(topicsBundle.custom_topic.id)}

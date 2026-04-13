@@ -1,7 +1,6 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import OverlayWrapper from '../../../src/components/OverlayWrapper';
-import React from 'react';
 
 // Mock utils
 vi.mock('../../../src/utils', () => ({

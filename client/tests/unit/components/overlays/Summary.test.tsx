@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import Summary from '../../../../src/components/overlays/Summary';
-import React from 'react';
 
 // Mock dependencies
 vi.mock('react-i18next', () => ({

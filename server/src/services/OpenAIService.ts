@@ -1,6 +1,5 @@
 import OpenAI from "openai";
 import { config } from "../config.js";
-import { Logger } from "@utils/Logger.js";
 
 let openai: OpenAI;
 

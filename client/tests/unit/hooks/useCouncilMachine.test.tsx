@@ -107,7 +107,7 @@ describe('useCouncilMachine', () => {
     });
 
     it('transitions to playing when audio and text are available', async () => {
-        const { result } = renderHook(() => useCouncilMachine(defaultProps as any));
+        renderHook(() => useCouncilMachine(defaultProps as any));
 
         // 1. Add Text
         act(() => {

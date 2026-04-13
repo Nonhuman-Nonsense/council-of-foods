@@ -38,7 +38,7 @@ function Summary({ summary, meetingId }: SummaryProps): React.ReactElement {
       pdf.setFont("Tinos");
       if (protocolRef.current) {
         pdf.html(protocolRef.current, {
-          callback: function (doc: jsPDF) {
+          callback: function (_doc: jsPDF) {
             pdf.save(`Council of Foods Meeting Summary #${meetingId}.pdf`);
           },
           autoPaging: 'text',

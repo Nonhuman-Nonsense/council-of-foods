@@ -160,7 +160,7 @@ export class HumanInputHandler {
         const m = manager.meeting;
         if (!m) return;
 
-        let { response, id } = await manager.dialogGenerator.chairInterjection(
+        const { response, id } = await manager.dialogGenerator.chairInterjection(
             message.text.replace("[DATE]", message.date),
             message.index,
             message.length,
@@ -169,7 +169,7 @@ export class HumanInputHandler {
             manager.broadcaster
         );
 
-        let summary: Message = {
+        const summary: Message = {
             id: id || "",
             speaker: m.characters[0].id,
             text: response,

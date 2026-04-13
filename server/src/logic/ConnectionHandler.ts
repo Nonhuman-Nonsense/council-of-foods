@@ -57,7 +57,7 @@ export class ConnectionHandler {
                 manager.extraMessageCount = Math.max(0, clientMax - baseMax);
 
                 // Missing audio regen logic
-                let missingAudio: Message[] = [];
+                const missingAudio: Message[] = [];
                 for (let i = 0; i < existingMeeting.conversation.length; i++) {
                     if (existingMeeting.conversation[i].type === 'awaiting_human_panelist') continue;
                     if (existingMeeting.conversation[i].type === 'awaiting_human_question') continue;

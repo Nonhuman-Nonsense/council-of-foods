@@ -1,7 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import Output from '../../../src/components/Output';
-import React from 'react';
 import { Message } from '@shared/ModelTypes';
 import { DecodedAudioMessage } from '@hooks/useCouncilMachine';
 

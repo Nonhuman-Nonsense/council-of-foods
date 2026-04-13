@@ -60,7 +60,7 @@ export class MeetingLifecycleHandler {
         const summaryPrompt = manager.serverOptions.finalizeMeetingPrompt[m.language].replace("[DATE]", message.date);
 
         // Note: chairInterjection is on manager (delegated to DialogGenerator)
-        let { response, id } = await manager.dialogGenerator.chairInterjection(
+        const { response, id } = await manager.dialogGenerator.chairInterjection(
             summaryPrompt,
             m.conversation.length,
             manager.serverOptions.finalizeMeetingLength,
@@ -72,7 +72,7 @@ export class MeetingLifecycleHandler {
         // Strip markdown formatting for TTS (prevents reading "**banana**" as "asterisk banana asterisk")
         const textForAudio = removeMd(response);
 
-        let summary: Message = {
+        const summary: Message = {
             id: id || "",
             speaker: m.characters[0].id,
             text: response, // Keep markdown for display

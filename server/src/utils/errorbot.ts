@@ -1,5 +1,5 @@
 import { config } from '@root/src/config.js';
-import { cyan, yellow, red, gray } from "colorette";
+import { cyan, yellow, red } from "colorette";
 
 // Avoid circular dependency by not importing Logger here.
 // Instead, we use console directly for internal logging of the errorbot itself.
@@ -14,7 +14,7 @@ export function initReporting(): void {
 }
 
 // Helper to reliably serialize Error objects
-function serializeError(err: any): any {
+function serializeError(err: unknown): unknown {
     if (err instanceof Error) {
         return {
             ...err, // validation errors might have extra props

@@ -29,7 +29,7 @@ function ConversationControlIcon({
   tooltip,
   onClick
 }: ConversationControlIconProps) {
-  let [isHover, setHover] = useState(false);
+  const [isHover, setHover] = useState(false);
   const isMobile = useMobile();
 
   const IconComponent = Icons[icon];

@@ -1,5 +1,5 @@
 import "@root/App.css";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { getTopicsBundle } from "@/components/topicsBundle";
 import {
   Routes,
@@ -28,7 +28,7 @@ function useIsIphone() {
   const [isIphone, setIsIphone] = useState(false);
 
   useEffect(() => {
-    const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+    const userAgent = String(navigator.userAgent || navigator.vendor || window.opera || "");
     if (/iPhone/.test(userAgent) && !window.MSStream) {
       setIsIphone(true);
     }
@@ -80,7 +80,7 @@ export default function Main(props: MainProps) {
     if (isMeetingPath(location.pathname) && meetingCreatorKey) {
       navigate({ hash: "warning" });
     }
-  }, [props.lang]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [props.lang]);
 
   // If the user navigates back to the landing page, treat it as a fresh start.
   useEffect(() => {
