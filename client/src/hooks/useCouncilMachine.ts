@@ -121,9 +121,10 @@ export function useCouncilMachine({
 
     // Reconnect logic
     useEffect(() => {
-        if (attemptingReconnect && socketRef.current && currentMeetingId > 0) {
+        if (attemptingReconnect && socketRef.current && currentMeetingId > 0 && creatorKey) {
             socketRef.current.emit("attempt_reconnection", {
                 meetingId: currentMeetingId,
+                creatorKey,
                 handRaised: isRaisedHand,
                 conversationMaxLength: meetingMaxLength
             });
@@ -132,7 +133,7 @@ export function useCouncilMachine({
         } else if (attemptingReconnect) {
             setAttemptingReconnect(false);
         }
-    }, [attemptingReconnect]);
+    }, [attemptingReconnect, creatorKey, currentMeetingId, isRaisedHand, meetingMaxLength]);
 
     /* -------------------------------------------------------------------------- */
     /*                               Helpers                                      */

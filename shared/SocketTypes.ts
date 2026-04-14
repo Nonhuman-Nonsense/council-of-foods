@@ -30,6 +30,7 @@ export interface WrapUpMessage {
 
 export interface ReconnectionOptions {
     meetingId: number;
+    creatorKey: string;
     handRaised?: boolean;
     conversationMaxLength?: number;
 }

@@ -146,15 +146,17 @@ export class MeetingManager implements IMeetingManager {
         await this.meetingLifecycleHandler.handleStartConversation(data);
     }
 
-    async initializeReconnect(payload: ReconnectionOptions) {
+    async initializeReconnect(payload: ReconnectionOptions): Promise<boolean> {
         const data = ReconnectionOptionsSchema.parse(payload);
-        await this.connectionHandler.handleReconnection(data);
+        return this.connectionHandler.handleReconnection(data);
     }
 
     async syncClient() {
         if (this.meeting) {
-            this.connectionHandler.handleReconnection({ meetingId: this.meeting._id });
-            // Note: handleReconnection includes broadcasting update.
+            await this.connectionHandler.handleReconnection({
+                meetingId: this.meeting._id,
+                creatorKey: this.meeting.creatorKey,
+            });
         }
     }
 

@@ -121,7 +121,7 @@ describe('Async Error Propagation (Comprehensive)', () => {
             event: 'attempt_reconnection',
             mockObj: mockConnectionHandler,
             method: 'handleReconnection',
-            payload: { meetingId: 123 }
+            payload: { meetingId: 123, creatorKey: 'test-creator-key' }
         },
         {
             event: 'start_conversation',
@@ -192,7 +192,7 @@ describe('Async Error Propagation (Comprehensive)', () => {
             expect(Logger.error).toHaveBeenCalledTimes(1);
             expect(Logger.error).toHaveBeenCalledWith(
                 expect.stringMatching(/^(meeting \d+|socket mock-socket)$/),
-                expect.stringContaining(`Error handling event ${event}`),
+                expect.stringContaining(`Error handling event ${event}; notifying client (500):`),
                 expect.any(Error)
             );
             Logger.error.mockClear();
@@ -233,7 +233,7 @@ describe('Async Error Propagation (Comprehensive)', () => {
             expect(Logger.error).toHaveBeenCalledTimes(1);
             expect(Logger.error).toHaveBeenCalledWith(
                 expect.stringMatching(/^(meeting \d+|socket mock-socket)$/),
-                expect.stringContaining(`Error handling event ${event}`),
+                expect.stringContaining(`Error handling event ${event}; notifying client (500):`),
                 expect.any(Error)
             );
             Logger.error.mockClear();
@@ -268,7 +268,7 @@ describe('Async Error Propagation (Comprehensive)', () => {
         expect(Logger.error).not.toHaveBeenCalled();
         expect(Logger.warn).toHaveBeenCalledWith(
             expect.stringMatching(/^(meeting \d+|socket mock-socket)$/),
-            expect.stringContaining(`Validation Error for ${event}`),
+            expect.stringContaining(`Validation error for ${event}; notifying client (400):`),
             expect.any(ZodError)
         );
     });
@@ -289,7 +289,7 @@ describe('Async Error Propagation (Comprehensive)', () => {
 
         expect(Logger.warn).toHaveBeenCalledWith(
             expect.stringMatching(/^(meeting \d+|socket mock-socket)$/),
-            expect.stringContaining(`Validation Error for ${event}`),
+            expect.stringContaining(`Validation error for ${event}; notifying client (400):`),
             expect.any(ZodError)
         );
     });

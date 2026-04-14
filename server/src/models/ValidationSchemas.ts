@@ -94,6 +94,7 @@ export const HandRaisedOptionsSchema: z.ZodType<HandRaisedOptions> = z.object({
 // 4. attempt_reconnection
 export const ReconnectionOptionsSchema: z.ZodType<ReconnectionOptions> = z.object({
     meetingId: z.number(),
+    creatorKey: z.string().min(1),
     handRaised: z.boolean().optional(),
     conversationMaxLength: z.number().optional(),
 });

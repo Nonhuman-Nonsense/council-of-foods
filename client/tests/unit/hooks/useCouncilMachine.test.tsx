@@ -286,7 +286,8 @@ describe('useCouncilMachine', () => {
         });
 
         expect(mockSocketEmit).toHaveBeenCalledWith('attempt_reconnection', expect.objectContaining({
-            meetingId: 999
+            meetingId: 999,
+            creatorKey: 'test-creator-key',
         }));
     });
 });

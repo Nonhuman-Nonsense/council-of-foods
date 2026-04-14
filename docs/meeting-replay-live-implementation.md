@@ -97,7 +97,7 @@ Stop when the tail is not one of these or the array is empty. **Do not** remove 
 
 ---
 
-## Phase 3 — In-memory one live session per meeting
+## Phase 3 — In-memory one live session per meeting ✅
 
 **Do:** Map on `start_conversation`; reject second session with agreed message; cleanup on disconnect; `attempt_reconnection` validates `creatorKey`; restart → acceptable failure.
 
@@ -144,3 +144,4 @@ Stop when the tail is not one of these or the array is empty. **Do not** remove 
 | (init) | 0 | Contracts written; no runtime code required for Phase 0 beyond this file. |
 | — | 1 | `GET /api/audio/:audioId` + `PublicAudioClipResponse`; doc edits (no live_spectator; `maximumPlayedIndex` = hook value; prefetch order). |
 | — | 2 | Public replay `GET /api/meetings/:id` (`buildReplayMeetingManifest`, `ReplayMeetingManifest`); creator GET unchanged + optional `maximumPlayedIndex`. |
+| — | 3 | `liveSessionRegistry` + `SocketManager` acquire/release; `ReconnectionOptions.creatorKey`; `ConnectionHandler` 403; integration tests. |
