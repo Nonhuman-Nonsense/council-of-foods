@@ -27,6 +27,11 @@ export function releaseLiveSession(meetingId: number, socketId: string): void {
     }
 }
 
+export function socketHoldsLiveSession(meetingId: number, socketId: string): boolean {
+    const cur = liveSessions.get(meetingId);
+    return cur !== undefined && cur.socketId === socketId;
+}
+
 /** Test helper — vitest clears DB between tests; registry must match. */
 export function clearLiveSessionRegistryForTests(): void {
     liveSessions.clear();

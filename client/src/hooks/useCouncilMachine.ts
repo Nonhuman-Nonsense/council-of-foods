@@ -73,6 +73,7 @@ export function useCouncilMachine({
 
     // Refs
     const waitTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const maximumPlayedProgressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     // Derived State
     const [canGoBack, setCanGoBack] = useState(false);
@@ -371,12 +372,34 @@ export function useCouncilMachine({
         }
     }
 
-    // Update Max Played
+    // Furthest playback index (UI + replay cap): bump state when `playingNowIndex` advances,
+    // then debounce socket `report_maximum_played_index` with `furthest = max(state, current)`.
+    // Single effect avoids one-render lag between two separate `useEffect`s on the same turn.
     useEffect(() => {
+        if (!creatorKey || !socketRef.current || currentMeetingId <= 0) {
+            return;
+        }
+        if (playingNowIndex < 0) {
+            return;
+        }
         if (playingNowIndex > maximumPlayedIndex) {
             setMaximumPlayedIndex(playingNowIndex);
         }
-    }, [playingNowIndex]);
+        const furthest = Math.max(maximumPlayedIndex, playingNowIndex);
+        if (maximumPlayedProgressTimer.current !== null) {
+            clearTimeout(maximumPlayedProgressTimer.current);
+        }
+        maximumPlayedProgressTimer.current = setTimeout(() => {
+            maximumPlayedProgressTimer.current = null;
+            socketRef.current?.emit("report_maximum_played_index", { index: furthest });
+        }, 400);
+        return () => {
+            if (maximumPlayedProgressTimer.current !== null) {
+                clearTimeout(maximumPlayedProgressTimer.current);
+                maximumPlayedProgressTimer.current = null;
+            }
+        };
+    }, [playingNowIndex, maximumPlayedIndex, creatorKey, currentMeetingId]);
 
     // Update canGoBack etc
     useEffect(() => {

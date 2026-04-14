@@ -64,6 +64,7 @@ export class SocketManager {
             "submit_injection",
             "raise_hand",
             "wrap_up_meeting",
+            "report_maximum_played_index",
             "continue_conversation"
         ];
 

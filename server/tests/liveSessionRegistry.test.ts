@@ -3,6 +3,7 @@ import {
     clearLiveSessionRegistryForTests,
     LIVE_SESSION_CONFLICT_MESSAGE,
     releaseLiveSession,
+    socketHoldsLiveSession,
     tryAcquireLiveSession,
 } from "@logic/liveSessionRegistry.js";
 
@@ -35,5 +36,12 @@ describe("liveSessionRegistry", () => {
 
     it("exports conflict message for API parity", () => {
         expect(LIVE_SESSION_CONFLICT_MESSAGE).toContain("somewhere else");
+    });
+
+    it("socketHoldsLiveSession is true only for the registered socket", () => {
+        tryAcquireLiveSession(9, "sock-a", "k");
+        expect(socketHoldsLiveSession(9, "sock-a")).toBe(true);
+        expect(socketHoldsLiveSession(9, "sock-b")).toBe(false);
+        expect(socketHoldsLiveSession(99, "sock-a")).toBe(false);
     });
 });

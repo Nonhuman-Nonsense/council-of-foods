@@ -6,6 +6,7 @@ import type {
     InjectionMessage,
     HandRaisedOptions,
     ReconnectionOptions,
+    ReportMaximumPlayedIndexPayload,
     WrapUpMessage,
     SetupOptions,
     CreateMeetingBody
@@ -97,6 +98,11 @@ export const ReconnectionOptionsSchema: z.ZodType<ReconnectionOptions> = z.objec
     creatorKey: z.string().min(1),
     handRaised: z.boolean().optional(),
     conversationMaxLength: z.number().optional(),
+});
+
+// 4b. report_maximum_played_index (live session playback progress)
+export const ReportMaximumPlayedIndexSchema: z.ZodType<ReportMaximumPlayedIndexPayload> = z.object({
+    index: z.number().int(),
 });
 
 // 5. submit_injection

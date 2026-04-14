@@ -22,8 +22,10 @@ import {
     InjectionMessageSchema,
     HandRaisedOptionsSchema,
     ReconnectionOptionsSchema,
+    ReportMaximumPlayedIndexSchema,
     WrapUpMessageSchema
 } from "@models/ValidationSchemas.js";
+import { socketHoldsLiveSession } from "@logic/liveSessionRegistry.js";
 
 
 interface Decision {
@@ -126,6 +128,9 @@ export class MeetingManager implements IMeetingManager {
             case "continue_conversation":
                 await this.meetingLifecycleHandler.handleContinueConversation();
                 break;
+            case "report_maximum_played_index":
+                await this.handleReportMaximumPlayedIndex(payload);
+                break;
             // Prototype Listeners
             case "pause_conversation":
                 if (this.environment === 'prototype') await this.meetingLifecycleHandler.handlePauseConversation();
@@ -139,6 +144,40 @@ export class MeetingManager implements IMeetingManager {
             default:
                 Logger.warn("MeetingManager", `Unhandled event: ${event}`);
         }
+    }
+
+    /**
+     * Live session only: monotonic progress for replay cap (`maximumPlayedIndex` on meeting doc).
+     */
+    private async handleReportMaximumPlayedIndex(payload: unknown): Promise<void> {
+        const { index } = ReportMaximumPlayedIndexSchema.parse(payload);
+        const meeting = this.meeting;
+        if (!meeting) {
+            Logger.warn("PlaybackProgress", "report_maximum_played_index ignored: no active meeting");
+            return;
+        }
+        if (!socketHoldsLiveSession(meeting._id, this.socket.id)) {
+            Logger.warn(`meeting ${meeting._id}`, `report_maximum_played_index ignored: socket ${this.socket.id} is not the live session holder`);
+            return;
+        }
+        const conv = meeting.conversation ?? [];
+        if (conv.length === 0) {
+            Logger.warn(`meeting ${meeting._id}`, "report_maximum_played_index ignored: empty conversation");
+            return;
+        }
+        const maxValid = conv.length - 1;
+        if (index < 0 || index > maxValid) {
+            Logger.warn(`meeting ${meeting._id}`, `report_maximum_played_index ignored: index ${index} out of range 0..${maxValid}`);
+            return;
+        }
+        await this.services.meetingsCollection.updateOne(
+            { _id: meeting._id },
+            { $max: { maximumPlayedIndex: index } }
+        );
+
+        const prevLocal = meeting.maximumPlayedIndex;
+        meeting.maximumPlayedIndex =
+            prevLocal == null ? index : Math.max(prevLocal, index);
     }
 
     async initializeStart(payload: SetupOptions) {

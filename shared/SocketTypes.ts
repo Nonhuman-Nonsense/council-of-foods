@@ -35,6 +35,11 @@ export interface ReconnectionOptions {
     conversationMaxLength?: number;
 }
 
+/** Live session only: persist furthest played conversation index (`$max` on server). */
+export interface ReportMaximumPlayedIndexPayload {
+    index: number;
+}
+
 export interface CreateMeetingBody {
     topic: Topic;
     characters: Character[];
@@ -91,6 +96,7 @@ export interface ClientToServerEvents {
     raise_hand: (opts: HandRaisedOptions) => void;
     wrap_up_meeting: (msg: WrapUpMessage) => void;
     attempt_reconnection: (opts: ReconnectionOptions) => void;
+    report_maximum_played_index: (payload: ReportMaximumPlayedIndexPayload) => void;
     continue_conversation: () => void;
 
     // Prototype only

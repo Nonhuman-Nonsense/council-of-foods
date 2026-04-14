@@ -61,7 +61,7 @@ Stop when the tail is not one of these or the array is empty. **Do not** remove 
 ### Socket: live registry + progress (names to implement in later phases)
 
 - **Live lock**: In-memory **`Map<meetingId, { creatorKey: string; socketId: string }>`** (or equivalent). Second **`start_conversation`** for same meeting → error to client, message: **`This meeting is happening somewhere else`** (exact string for UI/i18n if needed).
-- **Progress event (C2S)**: **`report_maximum_played_index`** with payload **`{ index: number }`** (meeting inferred from session). Handler: only if this socket holds the live lock for that meeting and **`creatorKey`** matches the meeting document; then **`$max`** persist.
+- **Progress event (C2S)**: **`report_maximum_played_index`** with payload **`{ index: number }`** (meeting inferred from session). Handler: only if this socket holds the live lock for that meeting; then **`$max: { maximumPlayedIndex: index }`** on the meeting document. **`index`** must lie in **`0 .. conversation.length - 1`**.
 
 ### Public audio URLs and caching
 
@@ -105,9 +105,9 @@ Stop when the tail is not one of these or the array is empty. **Do not** remove 
 
 ---
 
-## Phase 4 — Socket-only `maximumPlayedIndex` (`report_maximum_played_index`)
+## Phase 4 — Socket-only `maximumPlayedIndex` (`report_maximum_played_index`) ✅
 
-**Do:** C2S handler + `$max` update; live client debounced emit on playback advance.
+**Do:** C2S handler + `$max` update + in-memory **`meeting.maximumPlayedIndex`** local max; live client debounced emit of **`max(maximumPlayedIndex, playingNowIndex)`** when **`playingNowIndex >= 0`** (400 ms debounce, so burst coalescing does not regress the cap after skip-back within the window).
 
 **Verify:** DB field moves with live play; replay GET reflects cap.
 
@@ -145,3 +145,4 @@ Stop when the tail is not one of these or the array is empty. **Do not** remove 
 | — | 1 | `GET /api/audio/:audioId` + `PublicAudioClipResponse`; doc edits (no live_spectator; `maximumPlayedIndex` = hook value; prefetch order). |
 | — | 2 | Public replay `GET /api/meetings/:id` (`buildReplayMeetingManifest`, `ReplayMeetingManifest`); creator GET unchanged + optional `maximumPlayedIndex`. |
 | — | 3 | `liveSessionRegistry` + `SocketManager` acquire/release; `ReconnectionOptions.creatorKey`; `ConnectionHandler` 403; integration tests. |
+| — | 4 | `report_maximum_played_index` + Mongo `$max`; `socketHoldsLiveSession`; client debounced emit on `playingNowIndex`. |
