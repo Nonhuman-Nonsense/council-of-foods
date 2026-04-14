@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import express from 'express';
 import http from 'http';
 import { registerMeetingRoutes } from '@api/meetingRoutes.js';
+import { meetingsCollection } from '@services/DbService.js';
 
 function validCreateBody() {
     return {
@@ -67,16 +68,43 @@ describe('HTTP meetings API (integration)', () => {
         expect(res.status).toBe(400);
     });
 
-    it('GET /api/meetings/:id returns 401 without Authorization', async () => {
+    it('GET /api/meetings/:id without Authorization returns 200 replay manifest without creatorKey', async () => {
         const createRes = await fetch(`${base()}/api/meetings`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(validCreateBody()),
         });
-        const { meetingId } = await createRes.json();
+        const { meetingId, creatorKey } = await createRes.json();
+
+        await meetingsCollection.updateOne(
+            { _id: Number(meetingId) },
+            {
+                $set: {
+                    conversation: [
+                        { id: 'pub-m1', type: 'message', speaker: 'water', text: 'Hello' },
+                    ],
+                    audio: ['pub-m1'],
+                    summary: { id: 'sum1', type: 'summary', speaker: 'water', text: 'Summary' },
+                },
+            }
+        );
 
         const res = await fetch(`${base()}/api/meetings/${meetingId}`);
-        expect(res.status).toBe(401);
+        expect(res.status).toBe(200);
+        const meeting = await res.json();
+        expect(meeting.creatorKey).toBeUndefined();
+        expect(meeting._id).toBe(Number(meetingId));
+        expect(meeting.conversation).toHaveLength(1);
+        expect(meeting.conversation[0].id).toBe('pub-m1');
+        expect(meeting.audio).toEqual(['pub-m1']);
+
+        const authRes = await fetch(`${base()}/api/meetings/${meetingId}`, {
+            headers: { Authorization: `Bearer ${creatorKey}` },
+        });
+        expect(authRes.status).toBe(200);
+        const full = await authRes.json();
+        expect(full.creatorKey).toBe(creatorKey);
+        expect(full.conversation).toEqual(meeting.conversation);
     });
 
     it('GET /api/meetings/:id returns 403 when Bearer does not match creatorKey', async () => {
@@ -93,11 +121,14 @@ describe('HTTP meetings API (integration)', () => {
         expect(res.status).toBe(403);
     });
 
-    it('GET /api/meetings/:id returns 404 for unknown id', async () => {
-        const res = await fetch(`${base()}/api/meetings/999999999`, {
+    it('GET /api/meetings/:id returns 404 for unknown id (public or Bearer)', async () => {
+        const resPublic = await fetch(`${base()}/api/meetings/999999999`);
+        expect(resPublic.status).toBe(404);
+
+        const resAuth = await fetch(`${base()}/api/meetings/999999999`, {
             headers: { Authorization: 'Bearer any' },
         });
-        expect(res.status).toBe(404);
+        expect(resAuth.status).toBe(404);
     });
 
     it('GET /api/meetings/:id returns 200 and meeting when Bearer matches creatorKey', async () => {

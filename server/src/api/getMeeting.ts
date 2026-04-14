@@ -11,16 +11,20 @@ export class MeetingNotFoundError extends Error {
     }
 }
 
+export async function getStoredMeetingById(meetingId: number): Promise<StoredMeeting> {
+    const storedMeeting = await meetingsCollection.findOne({ _id: meetingId }) as StoredMeeting | null;
+    if (!storedMeeting) {
+        throw new MeetingNotFoundError();
+    }
+    return storedMeeting;
+}
+
 /**
- * Get a meeting record from the database.
+ * Get a meeting record from the database (creator API — full document as stored).
  */
 export async function getMeeting(meetingId: number): Promise<Meeting> {
     try {
-        const storedMeeting = await meetingsCollection.findOne({ _id: meetingId }) as StoredMeeting | null;
-
-        if (!storedMeeting) {
-            throw new MeetingNotFoundError();
-        }
+        const storedMeeting = await getStoredMeetingById(meetingId);
 
         const meeting: Meeting = {
             _id: storedMeeting._id,
@@ -33,6 +37,7 @@ export async function getMeeting(meetingId: number): Promise<Meeting> {
             conversation: storedMeeting.conversation,
             audio: storedMeeting.audio,
             summary: storedMeeting.summary,
+            maximumPlayedIndex: storedMeeting.maximumPlayedIndex,
         };
 
         return meeting;

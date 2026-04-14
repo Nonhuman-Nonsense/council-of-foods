@@ -89,9 +89,9 @@ Stop when the tail is not one of these or the array is empty. **Do not** remove 
 
 ---
 
-## Phase 2 — Replay manifest on `GET /api/meetings/:id`
+## Phase 2 — Replay manifest on `GET /api/meetings/:id` ✅
 
-**Do:** No Bearer → replay DTO (slice, tail sanitizer, strip `creatorKey`, align `audio`, append `meeting_incomplete` when no summary). Bearer + creator → existing / creator view.
+**Do:** No Bearer → replay DTO (slice, tail sanitizer, strip `creatorKey`, align `audio`, append `meeting_incomplete` when no summary). Bearer + creator → full stored meeting (includes `creatorKey`, optional `maximumPlayedIndex`).
 
 **Verify:** curl public vs Bearer; no secret leakage; `audio` matches slice.
 
@@ -143,3 +143,4 @@ Stop when the tail is not one of these or the array is empty. **Do not** remove 
 |------|-------|-------|
 | (init) | 0 | Contracts written; no runtime code required for Phase 0 beyond this file. |
 | — | 1 | `GET /api/audio/:audioId` + `PublicAudioClipResponse`; doc edits (no live_spectator; `maximumPlayedIndex` = hook value; prefetch order). |
+| — | 2 | Public replay `GET /api/meetings/:id` (`buildReplayMeetingManifest`, `ReplayMeetingManifest`); creator GET unchanged + optional `maximumPlayedIndex`. |

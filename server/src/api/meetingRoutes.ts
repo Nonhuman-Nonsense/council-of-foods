@@ -2,7 +2,8 @@ import type { Express, Request, Response } from "express";
 import { ZodError } from "zod";
 import { Logger } from "@utils/Logger.js";
 import { createMeeting } from "./createMeeting.js";
-import { getMeeting, MeetingNotFoundError } from "./getMeeting.js";
+import { getMeeting, getStoredMeetingById, MeetingNotFoundError } from "./getMeeting.js";
+import { buildReplayMeetingManifest } from "./replayManifest.js";
 import { getClientKey } from "./getClientKey.js";
 import { meetingsCollection } from "@services/DbService.js";
 import { AVAILABLE_LANGUAGES } from "@shared/AvailableLanguages.js";
@@ -44,19 +45,23 @@ export function registerMeetingRoutes(app: Express, environment: string): void {
     });
 
     app.get("/api/meetings/:meetingId", async (req: Request, res: Response) => {
-        const bearer = parseBearerToken(req);
-        if (!bearer) {
-            res.status(401).json({ message: "Authorization required" });
-            return;
-        }
-
         const meetingId = Number(req.params.meetingId);
         if (!Number.isInteger(meetingId) || meetingId < 1) {
             res.status(400).json({ message: "Invalid meeting ID" });
             return;
         }
 
+        const bearer = parseBearerToken(req);
+
         try {
+            if (!bearer) {
+                const stored = await getStoredMeetingById(meetingId);
+                const manifest = buildReplayMeetingManifest(stored);
+                await Logger.info("api", `GET /api/meetings/${req.params.meetingId} replay manifest`);
+                res.status(200).json(manifest);
+                return;
+            }
+
             const meeting = await getMeeting(meetingId);
             if (bearer !== meeting.creatorKey) {
                 res.status(403).json({ message: "Forbidden" });
