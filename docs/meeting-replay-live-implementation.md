@@ -7,9 +7,8 @@ This document is the **single source of truth** for the replay/live meeting work
 ## Goals (summary)
 
 - **Live**: One WebSocket-driven session per meeting at a time; **`maximumPlayedIndex`** advances **only** over that socket and is stored in MongoDB (**`$max`**).
-- **Replay**: **Public** manifest (`GET /api/meetings/:id` without auth) + **public** per-clip audio (`GET /api/audio/:audioId`), parallel fetches on the client (~10–15 max).
+- **Replay**: **Public** manifest (`GET /api/meetings/:id` without auth) + **public** per-clip audio (`GET /api/audio/:audioId`); client loads clips in **conversation order** (first clip first for short time-to-start, then the rest in parallel or a small queue — see **Replay audio prefetch**).
 - **Half-finished meetings**: Synthetic **`meeting_incomplete`** message on the manifest tail when there is no **`summary`**; client **Incomplete** state (complete-meeting action stubbed until re-open/PUT exists).
-- **Live spectators** (optional later): Snapshot manifest + audio at load; **reload** to see more; no mid-session manifest growth (see phases).
 - **Server restart**: In-memory live lock is lost; **`attempt_reconnection`** with **`creatorKey`** check may fail and the client may error — **acceptable** until Redis/TTL later.
 
 ---
@@ -20,7 +19,8 @@ These choices avoid thrash between server and client. **Change them here first**
 
 ### `maximumPlayedIndex` (Mongo + manifest)
 
-- **Meaning**: Greatest **0-based index** into the meeting’s persisted **`conversation`** array that the **live creator session** has **entered as the current playback position** (aligned with client **`playingNowIndex`** when it advances during live play — i.e. “furthest message the live session has reached”).
+- **Client source of truth**: The same **`maximumPlayedIndex`** state already tracked in **`client/src/hooks/useCouncilMachine.ts`** (updated when **`playingNowIndex`** exceeds the previous max) is the value the **live** client sends to the server and the server persists. No separate client-side definition.
+- **Meaning**: Greatest **0-based index** into the meeting’s persisted **`conversation`** array that the **live creator session** has **reached** in playback — aligned with that hook’s semantics relative to **`playingNowIndex`** / conversation indices when emitted over the socket (Phase 4).
 - **Replay slice**: The manifest **`conversation`** array returned to clients is **`storedConversation.slice(0, maximumPlayedIndex + 1)`** — **inclusive** of `maximumPlayedIndex`. If that would be empty and the field is **missing**, see default below.
 - **Default when field is absent or `null`** (legacy meetings): Treat as **no artificial cap**: use the **full** `storedConversation` for slicing purposes, i.e. same as **`maximumPlayedIndex = storedConversation.length - 1`** after any non-destructive prep, **before** tail sanitization and synthetic append (so legacy = “full history” subject to sanitizer + incomplete tail).
 - **Monotonicity**: Server updates only via **`$max: { maximumPlayedIndex: newIndex }`** so retries never shrink the cap.
@@ -28,7 +28,7 @@ These choices avoid thrash between server and client. **Change them here first**
 ### `audio` array on the meeting document (manifest)
 
 - **`Meeting.audio`**: List of **message ids** that have associated rows in **`audioCollection`** (existing convention).
-- **Replay manifest alignment**: After the **`conversation`** slice is computed, the manifest’s **`audio`** field MUST list **only** those audio ids whose **message id** appears on a **non-synthetic** message in the **sliced** conversation (and typically only types that actually have TTS audio — document exceptions here if any). Order can match message order in the slice or be sorted; **client should treat it as a set** for prefetch unless we later guarantee order.
+- **Replay manifest alignment**: After the **`conversation`** slice is computed, the manifest’s **`audio`** field MUST list **only** those audio ids whose **message id** appears on a **non-synthetic** message in the **sliced** conversation (and typically only types that actually have TTS audio — document exceptions here if any). The manifest SHOULD expose ids in **the same order as messages appear in `conversation`** (for each message that has audio, in sequence) so the client can prefetch in conversation order.
 
 ### Tail sanitizer (replay manifest only)
 
@@ -56,7 +56,7 @@ Stop when the tail is not one of these or the array is empty. **Do not** remove 
 |----------|------|---------|
 | `GET /api/meetings/:meetingId` | None | **Replay manifest** (sliced, sanitized, no `creatorKey`) |
 | `GET /api/meetings/:meetingId` | `Authorization: Bearer <creatorKey>` | **Creator** fetch (full or creator view; may share builder with replay branch) |
-| `GET /api/audio/:audioId` | None | Single clip; **Cache-Control** friendly for CDN |
+| `GET /api/audio/:audioId` | None | Single clip as **`application/json`** (`PublicAudioClipResponse`: **`audioBase64`** + **`sentences`** + **`id`**); **Cache-Control** + **ETag** for CDN |
 
 ### Socket: live registry + progress (names to implement in later phases)
 
@@ -71,15 +71,21 @@ Stop when the tail is not one of these or the array is empty. **Do not** remove 
 ### Client modes (reference)
 
 - **`live_creator`**: Socket on, may emit **`report_maximum_played_index`**, full controls where allowed.
-- **`replay`**: Public manifest + parallel **`GET /api/audio/:id`**; **no** socket emits; no raise-hand / human continuation.
+- **`replay`**: Public manifest + **`GET /api/audio/:id`** per clip; **no** socket emits; no raise-hand / human continuation.
+
+### Replay audio prefetch (client, Phase 5)
+
+- After the manifest is loaded, derive the ordered list of **message ids** that have audio (**conversation order**).
+- **First clip**: `GET` the first id **before** or **without waiting for** the rest, so **time-to-first-playable-message** stays short.
+- **Remaining clips**: Fetch the rest in **conversation order** using either **parallel** requests (bounded concurrency, e.g. 4–8) or a **small client queue** (e.g. pipeline the next 2–3 while playback runs). Pick one implementation and tune later; both satisfy “reasonable” load after the first byte.
 
 ---
 
 ## Phase 1 — `GET /api/audio/:audioId` (public)
 
-**Do:** Implement route; load `audioCollection` by `_id`; 404 if missing; correct content type; cache headers per Phase 0.
+**Do:** Implement route; load `audioCollection` by `_id`; 404 if missing or empty payload; respond with **`PublicAudioClipResponse`** JSON (**`audioBase64`**); **`Cache-Control: public, max-age=86400, immutable`**; **ETag** (SHA-256 of audio bytes) with **304** on **`If-None-Match`**.
 
-**Verify:** Known id → 200 + playable file; unknown → 304/200 behavior if ETag added; CF cache smoke test optional.
+**Verify:** Known id → **200** + JSON + **`Cache-Control`**; base64 decodes to stored bytes; unknown id → **404**; repeat GET with **`If-None-Match`** → **304**.
 
 ---
 
@@ -109,9 +115,9 @@ Stop when the tail is not one of these or the array is empty. **Do not** remove 
 
 ## Phase 5 — Client replay path
 
-**Do:** Council without `creatorKey` loads public manifest; `useCouncilMachine` replay mode; parallel audio prefetch; disable hand/human.
+**Do:** Council without `creatorKey` loads public manifest; `useCouncilMachine` replay mode; prefetch audio in **conversation order** (first clip prioritized, then remainder per **Replay audio prefetch** above); disable hand/human.
 
-**Verify:** Incognito URL plays; network shows manifest + N audio, no conversation socket.
+**Verify:** Incognito URL plays; network shows manifest then first **`/api/audio/...`** quickly; no conversation socket.
 
 ---
 
@@ -123,17 +129,9 @@ Stop when the tail is not one of these or the array is empty. **Do not** remove 
 
 ---
 
-## Phase 7 — Live spectator snapshot (optional)
+## Phase 7 — Tests and hardening
 
-**Do:** Only if needed in same release as replay.
-
-**Verify:** Reload after creator advances cap shows longer manifest.
-
----
-
-## Phase 8 — Tests and hardening
-
-**Do:** Integration tests for audio route, public GET, registry, `$max`, optional reconnect; client tests for replay bootstrap and incomplete.
+**Do:** Integration tests for public GET meeting, registry, `$max`, optional reconnect; client tests for replay bootstrap and incomplete. (Audio route covered in Phase 1 tests.)
 
 **Verify:** CI green.
 
@@ -144,3 +142,4 @@ Stop when the tail is not one of these or the array is empty. **Do not** remove 
 | Date | Phase | Notes |
 |------|-------|-------|
 | (init) | 0 | Contracts written; no runtime code required for Phase 0 beyond this file. |
+| — | 1 | `GET /api/audio/:audioId` + `PublicAudioClipResponse`; doc edits (no live_spectator; `maximumPlayedIndex` = hook value; prefetch order). |

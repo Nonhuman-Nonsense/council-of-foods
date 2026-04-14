@@ -53,6 +53,15 @@ export interface AudioUpdatePayload {
     type?: string;
 }
 
+/** JSON body for public `GET /api/audio/:audioId` (replay); same bytes as socket `audio_update` after base64 decode. */
+export interface PublicAudioClipResponse {
+    id: string;
+    type?: string;
+    sentences?: Sentence[];
+    /** Base64-encoded audio bytes (decode then `AudioContext.decodeAudioData`). */
+    audioBase64: string;
+}
+
 export interface ErrorPayload {
     message: string;
     code: number;
