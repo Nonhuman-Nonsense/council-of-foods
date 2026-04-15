@@ -1,5 +1,6 @@
 import type { Character } from "@shared/ModelTypes";
 import Completed from "./overlays/Completed";
+import Incomplete from "./overlays/Incomplete";
 import Summary, { SummaryData } from "./overlays/Summary";
 import Name from "./overlays/Name";
 import OverlayWrapper from './OverlayWrapper';
@@ -10,6 +11,7 @@ export type CouncilOverlayType = "name" | "completed" | "summary" | "incomplete"
 interface CouncilOverlaysProps {
   activeOverlay: CouncilOverlayType;
   onContinue: (data?: Topic) => void;
+  onAttemptResume: () => void;
   onWrapItUp: () => void;
   proceedWithHumanName: (data: { humanName: string }) => void;
   canExtendMeeting: boolean;
@@ -33,6 +35,7 @@ interface CouncilOverlaysProps {
 function CouncilOverlays({
   activeOverlay,
   onContinue,
+  onAttemptResume,
   onWrapItUp,
   proceedWithHumanName,
   canExtendMeeting,
@@ -51,10 +54,10 @@ function CouncilOverlays({
         );
       case "incomplete":
         return (
-          <div>
-            <h1>Meeting Incomplete</h1>
-            <p>The meeting is incomplete. Please continue the meeting.</p>
-          </div>
+          <Incomplete
+            onAttemptResume={onAttemptResume}
+            onNevermind={removeOverlay}
+          />
         );
       case "completed":
         return (

@@ -5,6 +5,7 @@ import { createMeeting } from "./createMeeting.js";
 import { getMeeting } from "./getMeeting.js";
 import { buildReplayMeetingManifest } from "./replayManifest.js";
 import { getClientKey } from "./getClientKey.js";
+import { resumeMeeting } from "./resumeMeeting.js";
 import { meetingsCollection } from "@services/DbService.js";
 import { AVAILABLE_LANGUAGES } from "@shared/AvailableLanguages.js";
 import { BadRequestError, ForbiddenError, InternalServerError, NotFoundError, UnauthorizedError } from "@models/Errors.js";
@@ -108,6 +109,19 @@ export function registerMeetingRoutes(app: Express, environment: string): void {
                 return;
             }
             await Logger.info("api", `GET /api/meetings/${meetingId} live`);
+            res.status(200).json(meeting);
+        });
+    });
+
+    app.put("/api/meetings/:meetingId", async (req: Request, res: Response) => {
+        await apiRouteWithErrorHandling("PUT", "/api/meetings/:meetingId", req, res, async (req: Request, res: Response) => {
+            const meetingId = req.params.meetingId;
+            if (typeof meetingId !== "string" || !/^\d+$/.test(meetingId)) {
+                throw new BadRequestError();
+            }
+            const meetingIdNumber = Number(meetingId);
+            const meeting = await resumeMeeting(meetingIdNumber);
+            await Logger.info("api", `PUT /api/meetings/${meetingId} live`);
             res.status(200).json(meeting);
         });
     });

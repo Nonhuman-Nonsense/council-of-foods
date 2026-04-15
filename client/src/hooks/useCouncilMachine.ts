@@ -6,6 +6,7 @@ import type { Character, Message, Meeting, Topic } from "@shared/ModelTypes";
 import type { AudioUpdatePayload, PublicAudioClipResponse } from "@shared/SocketTypes";
 import globalOptions from "@/global-options-client.json";
 import { CouncilOverlayType } from "@/components/CouncilOverlays";
+import { resumeMeeting } from "@/api/resumeMeeting";
 
 export interface DecodedAudioMessage extends Omit<AudioUpdatePayload, 'audio'> {
     audio: AudioBuffer;
@@ -330,6 +331,10 @@ export function useCouncilMachine({
                 if (activeOverlay !== "incomplete") {
                     setActiveOverlay("incomplete");
                 }
+                if (textMessages[playNextIndex]?.type !== 'meeting_incomplete') {
+                    removeOverlay();
+                    return;
+                }
                 break;
             case 'human_panelist':
                 break;
@@ -344,7 +349,6 @@ export function useCouncilMachine({
                 }
                 if (textMessages[playNextIndex]?.type !== 'summary') {
                     removeOverlay();
-                    setCouncilState('playing');
                     return;
                 }
                 if (tryToFindTextAndAudio()) {
@@ -443,6 +447,9 @@ export function useCouncilMachine({
         } else if (councilState === 'summary') {
             setPlayNextIndex(meetingMaxLength - 2);
             setCouncilState('playing');
+        } else if (councilState === 'meeting_incomplete') {
+            setPlayNextIndex(playNextIndex - 1);
+            setCouncilState('playing');
         }
     }
 
@@ -462,6 +469,17 @@ export function useCouncilMachine({
         if (socketRef.current) socketRef.current.emit("wrap_up_meeting", { date: browserDate });
         setCouncilState('loading');
     }
+
+    async function handleOnAttemptResume() {
+        removeOverlay();
+        setCouncilState('loading');
+        try {
+            const response = await resumeMeeting({ meetingId: currentMeetingId });
+        } catch (error) {
+            console.error(error);
+        }
+    }
+
 
     function handleHumanNameEntered(input: { humanName: string }) {
         if (input.humanName) {
@@ -623,6 +641,7 @@ export function useCouncilMachine({
             handleOnSkipForward,
             handleOnSubmitHumanMessage,
             handleOnContinueMeetingLonger,
+            handleOnAttemptResume,
             handleOnGenerateSummary,
             handleHumanNameEntered,
             handleOnRaiseHand,

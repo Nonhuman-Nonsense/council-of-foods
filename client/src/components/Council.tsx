@@ -120,6 +120,7 @@ function Council({
     handleOnSkipForward,
     handleOnSubmitHumanMessage,
     handleOnContinueMeetingLonger,
+    handleOnAttemptResume,
     handleOnGenerateSummary,
     handleHumanNameEntered,
     handleOnRaiseHand,
@@ -259,6 +260,7 @@ function Council({
           <CouncilOverlays
             activeOverlay={activeOverlay}
             onContinue={handleOnContinueMeetingLonger}
+            onAttemptResume={handleOnAttemptResume}
             onWrapItUp={handleOnGenerateSummary}
             proceedWithHumanName={handleHumanNameEntered}
             canExtendMeeting={canExtendMeeting}

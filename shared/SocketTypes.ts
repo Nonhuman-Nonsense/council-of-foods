@@ -1,5 +1,5 @@
 /// <reference types="node" />
-import type { Character, Sentence, Topic, Message } from "./ModelTypes.js";
+import type { Character, Sentence, Topic, Message, Meeting } from "./ModelTypes.js";
 
 // Re-defining or importing types that are passed over the socket
 
@@ -35,6 +35,11 @@ export interface CreateMeetingBody {
     topic: Topic;
     characters: Character[];
     language: string;
+}
+
+export interface ResumeMeetingResponse {
+    meeting: Meeting;
+    creatorKey: string;
 }
 
 export interface SetupOptions {

@@ -22,6 +22,5 @@ export async function getMeeting({
     const errText = await res.text();
     throw new Error(errText || `Get meeting failed (${res.status})`);
   }
-  const meeting = await res.json() as Meeting;
-  return meeting;
+  return await res.json() as Meeting;
 }

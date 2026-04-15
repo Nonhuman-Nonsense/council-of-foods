@@ -55,6 +55,13 @@
     "3": "Yes, let's wrap it up!",
     "4": "No, continue a bit more."
   },
+  "incomplete": {
+    "title": "Meeting Unfinished",
+    "1": "Oh, it looks like this meeting was cut short.",
+    "2": "Would you like to resume the meeting now?",
+    "3": "Yes, let's continue!",
+    "4": "No, never mind."
+  },
   "summary": {
     "download": "Download PDF"
   },
