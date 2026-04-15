@@ -6,12 +6,16 @@ export async function getMeeting({
   signal,
 }: {
   meetingId: number;
-  creatorKey: string;
+  creatorKey?: string | null;
   signal?: AbortSignal;
 }): Promise<Meeting> {
+  const headers: HeadersInit = { "Content-Type": "application/json" };
+  if (creatorKey) {
+    headers["Authorization"] = `Bearer ${creatorKey}`;
+  }
   const res = await fetch(`/api/meetings/${meetingId}`, {
     method: "GET",
-    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${creatorKey}` },
+    headers,
     signal,
   });
   if (!res.ok) {

@@ -1,4 +1,4 @@
-import type { Character, Topic } from "@shared/ModelTypes";
+import type { Character, Meeting, Topic } from "@shared/ModelTypes";
 import React, { useMemo, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router";
 import FoodItem from "./FoodItem";
@@ -11,7 +11,6 @@ import HumanInput from "./HumanInput";
 import { useDocumentVisibility, mapFoodIndex } from "@/utils";
 import { useCouncilMachine } from "@hooks/useCouncilMachine";
 import { getMeeting } from "@api/getMeeting.js";
-import type { Meeting } from "@shared/ModelTypes";
 
 interface CouncilProps {
   creatorKey: string | null;
@@ -35,10 +34,11 @@ function Council({
 
   const [topic, setTopic] = useState<Topic | null>(null);
   const [participants, setParticipants] = useState<Character[]>([]);
+  const [replayManifest, setReplayManifest] = useState<Meeting | null>(null);
 
   // Abort in-flight GET when deps change or on unmount (StrictMode-safe); same pattern as TanStack Query/SWR cancellation.
   useEffect(() => {
-    if (!creatorKey || !meetingId || !/^\d+$/.test(meetingId)) {
+    if (!meetingId || !/^\d+$/.test(meetingId)) {
       navigate("/");
       return;
     }
@@ -46,12 +46,15 @@ function Council({
     const ac = new AbortController();
     void (async () => {
       try {
-        const meeting: Meeting = await getMeeting({
+        const meeting = await getMeeting({
           meetingId: currentMeetingId,
           creatorKey,
           signal: ac.signal,
         });
         if (ac.signal.aborted) return;
+        if (!creatorKey) {
+          setReplayManifest(meeting);
+        }
         setTopic(meeting.topic);
         setParticipants(meeting.characters);
       } catch (error) {
@@ -60,9 +63,8 @@ function Council({
         setUnrecoverableError(true);
       }
     })();
-
     return () => ac.abort();
-  }, [creatorKey, meetingId, currentMeetingId, navigate, setUnrecoverableError]);
+  }, [creatorKey, meetingId, currentMeetingId, setUnrecoverableError]);
 
   // Audio Context Ref
   const audioContext = useRef<AudioContext | null>(null);
@@ -78,6 +80,7 @@ function Council({
   const { state, actions } = useCouncilMachine({
     currentMeetingId,
     creatorKey: creatorKey ?? undefined,
+    replayManifest: creatorKey ? null : replayManifest,
     topic,
     participants,
     audioContext,
@@ -213,8 +216,8 @@ function Council({
       </div>
       {councilState === 'loading' && <Loading />}
       <>
-        {(councilState === 'human_input' || councilState === 'human_panelist') && (
-          <HumanInput creatorKey={creatorKey!} foods={foods} isPanelist={(councilState === 'human_panelist')} currentSpeakerName={participants.find(p => p.id === currentSpeakerId)?.name || ""} onSubmitHumanMessage={handleOnSubmitHumanMessage} />
+        {creatorKey && (councilState === 'human_input' || councilState === 'human_panelist') && (
+          <HumanInput creatorKey={creatorKey} foods={foods} isPanelist={(councilState === 'human_panelist')} currentSpeakerName={participants.find(p => p.id === currentSpeakerId)?.name || ""} onSubmitHumanMessage={handleOnSubmitHumanMessage} />
         )}
         <Output
           textMessages={textMessages}

@@ -1,27 +1,23 @@
-import type { StoredMeeting } from "@models/DBModels.js";
-import type { Message, ReplayMeetingManifest } from "@shared/ModelTypes.js";
+import type { Meeting, Message } from "@shared/ModelTypes.js";
 
-const MEETING_INCOMPLETE_MESSAGE: Message = {
-    type: "meeting_incomplete",
-    id: "meeting_incomplete",
-};
+const MEETING_INCOMPLETE_MESSAGE: Message = { type: "meeting_incomplete" };
 
-function computeCapIndex(stored: StoredMeeting): number {
-    const conv = stored.conversation ?? [];
+function computeCapIndex(meeting: Meeting): number {
+    const conv = meeting.conversation ?? [];
     const len = conv.length;
     if (len === 0) {
         return -1;
     }
-    const raw = stored.maximumPlayedIndex;
+    const raw = meeting.maximumPlayedIndex;
     if (raw == null) {
         return len - 1;
     }
     return Math.max(-1, Math.min(raw, len - 1));
 }
 
-function sliceConversation(stored: StoredMeeting): Message[] {
-    const conv = [...(stored.conversation ?? [])];
-    const cap = computeCapIndex(stored);
+function sliceConversation(meeting: Meeting): Message[] {
+    const conv = [...(meeting.conversation ?? [])];
+    const cap = computeCapIndex(meeting);
     if (cap < 0) {
         return [];
     }
@@ -60,30 +56,19 @@ export function orderedAudioIdsForConversation(
 }
 
 /**
- * Build the public replay manifest from a stored meeting (no `creatorKey`).
- * Does not read other collections.
+ * Build the public replay manifest from a meeting
  */
-export function buildReplayMeetingManifest(stored: StoredMeeting): ReplayMeetingManifest {
-    let conversation = sliceConversation(stored);
+export function buildReplayMeetingManifest(meeting: Meeting): Meeting {
+    let conversation = sliceConversation(meeting);
     stripAwaitingHumanTail(conversation);
 
-    const hasSummary = stored.summary != null;
+    const hasSummary = meeting.summary != null;
     if (!hasSummary) {
         conversation = [...conversation, { ...MEETING_INCOMPLETE_MESSAGE }];
     }
 
     const conversationForAudio = hasSummary ? conversation : conversation.slice(0, -1);
-    const audio = orderedAudioIdsForConversation(conversationForAudio, stored.audio);
+    const audio = orderedAudioIdsForConversation(conversationForAudio, meeting.audio);
 
-    return {
-        _id: stored._id,
-        date: stored.date,
-        topic: stored.topic,
-        characters: stored.characters,
-        language: stored.language,
-        state: stored.state,
-        conversation,
-        audio,
-        summary: stored.summary,
-    };
+    return { ...meeting, conversation, audio, summary: meeting.summary };
 }

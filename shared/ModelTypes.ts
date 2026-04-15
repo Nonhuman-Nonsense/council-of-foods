@@ -22,9 +22,8 @@ export interface Topic {
     prompt: string;
 }
 
-export interface Meeting {
+export interface BaseMeeting {
     _id: number; // Sequence ID
-    creatorKey: string;
     date: string; // ISO String
     topic: Topic;
     characters: Character[];
@@ -33,12 +32,13 @@ export interface Meeting {
     conversation: Message[];
     audio: string[]; // List of Audio IDs
     summary?: Message; // To be defined strictly later
-    /** Furthest conversation index reached in live play; persisted for replay cap (see docs). */
     maximumPlayedIndex?: number | null;
 }
 
-/** Public `GET /api/meetings/:id` response — never includes `creatorKey`. */
-export type ReplayMeetingManifest = Omit<Meeting, "creatorKey">;
+export interface Meeting extends BaseMeeting {
+    /** This property must NOT exist on a public Meeting object */
+    creatorKey?: never; 
+}
 
 export interface PlaybackState {
     mode: 'live' | 'replay';

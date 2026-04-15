@@ -103,8 +103,8 @@ describe('HTTP meetings API (integration)', () => {
         });
         expect(authRes.status).toBe(200);
         const full = await authRes.json();
-        expect(full.creatorKey).toBe(creatorKey);
         expect(full.conversation).toEqual(meeting.conversation);
+        expect(full.creatorKey).toBeUndefined();
     });
 
     it('GET /api/meetings/:id returns 403 when Bearer does not match creatorKey', async () => {
@@ -147,6 +147,6 @@ describe('HTTP meetings API (integration)', () => {
         const meeting = await res.json();
         expect(meeting._id).toBe(Number(meetingId));
         expect(meeting.topic.title).toBe(body.topic.title);
-        expect(meeting.creatorKey).toBe(creatorKey);
+        expect(meeting.creatorKey).toBeUndefined();
     });
 });

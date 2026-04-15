@@ -8,21 +8,8 @@ import { MockFactory } from "./factories/MockFactory.js";
 import type { Message } from "@shared/ModelTypes.js";
 
 describe("buildReplayMeetingManifest", () => {
-    it("strips creatorKey by type — manifest has no creatorKey field", () => {
-        const stored = MockFactory.createStoredMeeting({
-            conversation: [
-                { id: "a1", type: "message", speaker: "water", text: "Hi" },
-            ],
-            audio: ["a1"],
-            summary: { id: "s", type: "summary", speaker: "water", text: "Done" },
-        });
-        const m = buildReplayMeetingManifest(stored);
-        expect("creatorKey" in m).toBe(false);
-        expect(m.conversation).toHaveLength(1);
-    });
-
     it("slices by maximumPlayedIndex inclusive", () => {
-        const stored = MockFactory.createStoredMeeting({
+        const meeting = MockFactory.createMeeting({
             maximumPlayedIndex: 1,
             conversation: [
                 { id: "m0", type: "message", speaker: "water", text: "0" },
@@ -31,24 +18,24 @@ describe("buildReplayMeetingManifest", () => {
             ],
             summary: { id: "s", type: "summary", text: "x" },
         });
-        const m = buildReplayMeetingManifest(stored);
+        const m = buildReplayMeetingManifest(meeting);
         expect(m.conversation.map((c) => c.id)).toEqual(["m0", "m1"]);
     });
 
     it("defaults missing maximumPlayedIndex to full conversation", () => {
-        const stored = MockFactory.createStoredMeeting({
+        const meeting = MockFactory.createMeeting({
             conversation: [
                 { id: "m0", type: "message", speaker: "water", text: "0" },
                 { id: "m1", type: "message", speaker: "water", text: "1" },
             ],
             summary: { id: "s", type: "summary", text: "x" },
         });
-        const m = buildReplayMeetingManifest(stored);
+        const m = buildReplayMeetingManifest(meeting);
         expect(m.conversation).toHaveLength(2);
     });
 
     it("strips awaiting_human tail then appends meeting_incomplete when no summary", () => {
-        const stored = MockFactory.createStoredMeeting({
+        const meeting = MockFactory.createMeeting({
             conversation: [
                 { id: "m0", type: "message", speaker: "water", text: "0" },
                 {
@@ -59,13 +46,13 @@ describe("buildReplayMeetingManifest", () => {
             ],
             audio: [],
         });
-        const m = buildReplayMeetingManifest(stored);
+        const m = buildReplayMeetingManifest(meeting);
         expect(m.conversation.map((c) => c.type)).toEqual(["message", "meeting_incomplete"]);
         expect(m.summary).toBeUndefined();
     });
 
     it("orders audio ids by conversation order, not stored audio array order", () => {
-        const stored = MockFactory.createStoredMeeting({
+        const meeting = MockFactory.createMeeting({
             conversation: [
                 { id: "first", type: "message", speaker: "water", text: "a" },
                 { id: "second", type: "message", speaker: "water", text: "b" },
@@ -73,7 +60,7 @@ describe("buildReplayMeetingManifest", () => {
             audio: ["second", "first"],
             summary: { id: "s", type: "summary", text: "x" },
         });
-        const m = buildReplayMeetingManifest(stored);
+        const m = buildReplayMeetingManifest(meeting);
         expect(m.audio).toEqual(["first", "second"]);
     });
 });

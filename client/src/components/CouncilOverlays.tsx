@@ -5,7 +5,7 @@ import Name from "./overlays/Name";
 import OverlayWrapper from './OverlayWrapper';
 import type { Topic } from "@shared/ModelTypes";
 
-export type CouncilOverlayType = "name" | "completed" | "summary" | null;
+export type CouncilOverlayType = "name" | "completed" | "summary" | "incomplete" | null;
 
 interface CouncilOverlaysProps {
   activeOverlay: CouncilOverlayType;
@@ -48,6 +48,13 @@ function CouncilOverlays({
       case "name":
         return (
           <Name participants={participants} onContinueForward={proceedWithHumanName} />
+        );
+      case "incomplete":
+        return (
+          <div>
+            <h1>Meeting Incomplete</h1>
+            <p>The meeting is incomplete. Please continue the meeting.</p>
+          </div>
         );
       case "completed":
         return (

@@ -66,6 +66,7 @@ describe('useCouncilMachine', () => {
         defaultProps = {
             currentMeetingId: 0,
             creatorKey: 'test-creator-key',
+            replayManifest: null,
             topic: { id: 't', title: 'T', description: 'D', prompt: 'Test Topic' },
             participants: [],
             audioContext: audioContextMock,

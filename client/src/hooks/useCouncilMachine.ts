@@ -2,9 +2,10 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router";
 import { useCouncilSocket } from "../hooks/useCouncilSocket";
 import { useRouting } from "@/routing";
-import type { Character, Message, Topic } from "@shared/ModelTypes";
-import { AudioUpdatePayload } from "@shared/SocketTypes";
+import type { Character, Message, Meeting, Topic } from "@shared/ModelTypes";
+import type { AudioUpdatePayload, PublicAudioClipResponse } from "@shared/SocketTypes";
 import globalOptions from "@/global-options-client.json";
+import { CouncilOverlayType } from "@/components/CouncilOverlays";
 
 export interface DecodedAudioMessage extends Omit<AudioUpdatePayload, 'audio'> {
     audio: AudioBuffer;
@@ -13,6 +14,7 @@ export interface DecodedAudioMessage extends Omit<AudioUpdatePayload, 'audio'> {
 export interface UseCouncilMachineProps {
     currentMeetingId: number;
     creatorKey: string | undefined;
+    replayManifest: Meeting | null;
     topic: Topic | null;
     participants: Character[] | null;
     audioContext: React.MutableRefObject<AudioContext | null>;
@@ -27,6 +29,7 @@ export interface UseCouncilMachineProps {
 export function useCouncilMachine({
     currentMeetingId,
     creatorKey,
+    replayManifest,
     topic: _topic,
     participants: _participants,
     audioContext,
@@ -50,7 +53,7 @@ export function useCouncilMachine({
 
     const [textMessages, setTextMessages] = useState<Message[]>([]); // State to store conversation updates
     const [audioMessages, setAudioMessages] = useState<DecodedAudioMessage[]>([]); // To store multiple ArrayBuffers
-    const [activeOverlay, setActiveOverlay] = useState<"name" | "completed" | "summary" | null>(null);
+    const [activeOverlay, setActiveOverlay] = useState<CouncilOverlayType | null>(null);
     const [summary, setSummary] = useState<Message | null>(null);
 
     const [humanName, setHumanName] = useState("");
@@ -136,6 +139,94 @@ export function useCouncilMachine({
         }
     }, [attemptingReconnect, creatorKey, currentMeetingId, isRaisedHand, meetingMaxLength]);
 
+    const decodeReplayClip = useCallback(
+        async (audioId: string, signal: AbortSignal): Promise<DecodedAudioMessage> => {
+            const res = await fetch(`/api/audio/${encodeURIComponent(audioId)}`, {
+                method: "GET",
+                headers: { Accept: "application/json" },
+                signal,
+            });
+            if (!res.ok) {
+                throw new Error(`Replay audio fetch failed (${res.status})`);
+            }
+            const clip = (await res.json()) as PublicAudioClipResponse;
+            const ctx = audioContext.current;
+            if (!ctx) {
+                throw new Error("AudioContext not available");
+            }
+            const bin = atob(clip.audioBase64);
+            const bytes = new Uint8Array(bin.length);
+            for (let i = 0; i < bin.length; i++) {
+                bytes[i] = bin.charCodeAt(i);
+            }
+            const buffer = await ctx.decodeAudioData(
+                bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength),
+            );
+            return { id: clip.id, type: clip.type, sentences: clip.sentences, audio: buffer };
+        },
+        [audioContext],
+    );
+
+    useEffect(() => {
+        if (creatorKey || !replayManifest || currentMeetingId <= 0) {
+            return;
+        }
+
+        const ac = new AbortController();
+        const convo = replayManifest.conversation;
+        const orderedIds = [...replayManifest.audio];
+        setTextMessages(convo);
+        const len = convo.length;
+        setMeetingMaxLength(len > 0 ? len : globalOptions.conversationMaxLength);
+        setMaximumPlayedIndex(len > 0 ? len - 1 : 0);
+        setPlayNextIndex(0);
+        setPlayingNowIndex(-1);
+        setCouncilState("loading");
+        setAudioMessages([]);
+
+        let cancelled = false;
+
+        void (async () => {
+            try {
+                if (orderedIds.length === 0) {
+                    return;
+                }
+                const firstDecoded = await decodeReplayClip(orderedIds[0], ac.signal);
+                if (cancelled || ac.signal.aborted) {
+                    return;
+                }
+                setAudioMessages([firstDecoded]);
+
+                const batchSize = 6;
+                for (let i = 1; i < orderedIds.length; i += batchSize) {
+                    const batch = orderedIds.slice(i, i + batchSize);
+                    const decodedBatch = await Promise.all(
+                        batch.map((id) => decodeReplayClip(id, ac.signal)),
+                    );
+                    if (cancelled || ac.signal.aborted) {
+                        return;
+                    }
+                    setAudioMessages((prev) => {
+                        const have = new Set(prev.map((m) => m.id));
+                        const add = decodedBatch.filter((m) => !have.has(m.id));
+                        return add.length ? [...prev, ...add] : prev;
+                    });
+                }
+            } catch (e) {
+                if (ac.signal.aborted || cancelled) {
+                    return;
+                }
+                console.error("Replay audio prefetch error", e);
+                setUnrecoverableError(true);
+            }
+        })();
+
+        return () => {
+            cancelled = true;
+            ac.abort();
+        };
+    }, [creatorKey, replayManifest, currentMeetingId, decodeReplayClip, setUnrecoverableError]);
+
     /* -------------------------------------------------------------------------- */
     /*                               Helpers                                      */
     /* -------------------------------------------------------------------------- */
@@ -188,24 +279,36 @@ export function useCouncilMachine({
             return;
         }
 
-        //If we have reached a human panelist
-        if (councilState !== 'human_panelist' && textMessages[playNextIndex]?.type === 'awaiting_human_panelist') {
-            setCouncilState('human_panelist');
-            return;
-        }
-
-        //If we have reached a human question
-        if (councilState !== 'human_input' && textMessages[playNextIndex]?.type === 'awaiting_human_question') {
-            setCouncilState('human_input');
-            return;
-        }
-
         //If message is skipped
         if (textMessages[playNextIndex]?.type === 'skipped') {
             console.log(`[warning] skipped speaker ${textMessages[playNextIndex].speaker}`);
             setPlayNextIndex(current => current + 1);
             return;
         }
+
+        //If we have reached a meeting incomplete message
+        if (councilState !== 'meeting_incomplete' && textMessages[playNextIndex]?.type === 'meeting_incomplete') {
+            setCouncilState('meeting_incomplete');
+            return;
+        }
+
+        //Live only states
+        if (creatorKey) {
+
+            //If we have reached a human panelist (live only)
+            if (councilState !== 'human_panelist' && textMessages[playNextIndex]?.type === 'awaiting_human_panelist') {
+                setCouncilState('human_panelist');
+                return;
+            }
+
+            //If we have reached a human question (live only)
+            if (councilState !== 'human_input' && textMessages[playNextIndex]?.type === 'awaiting_human_question') {
+                setCouncilState('human_input');
+                return;
+            }
+
+        }
+
 
         switch (councilState) {
             case 'loading':
@@ -221,6 +324,11 @@ export function useCouncilMachine({
                     } else {//If it's not ready, show the loading
                         setCouncilState('loading');
                     }
+                }
+                break;
+            case 'meeting_incomplete':
+                if (activeOverlay !== "incomplete") {
+                    setActiveOverlay("incomplete");
                 }
                 break;
             case 'human_panelist':
@@ -263,7 +371,7 @@ export function useCouncilMachine({
             default:
                 break;
         }
-    }, [councilState, textMessages, audioMessages, playingNowIndex, playNextIndex, activeOverlay]);
+    }, [councilState, textMessages, audioMessages, playingNowIndex, playNextIndex, activeOverlay, creatorKey, summary]);
 
     /* -------------------------------------------------------------------------- */
     /*                                 Actions                                    */
@@ -413,12 +521,16 @@ export function useCouncilMachine({
             (councilState === 'playing' || councilState === 'waiting') &&
             playingNowIndex < meetingMaxLength
         );
+        if (!creatorKey) {
+            setCanRaiseHand(false);
+            return;
+        }
         setCanRaiseHand(
             (councilState === 'playing' || councilState === 'waiting') &&
             playingNowIndex === maximumPlayedIndex &&
             playingNowIndex !== meetingMaxLength - 1
         );
-    }, [councilState, playingNowIndex, meetingMaxLength, maximumPlayedIndex]);
+    }, [councilState, playingNowIndex, meetingMaxLength, maximumPlayedIndex, creatorKey]);
 
     // Raise Hand Effect
     useEffect(() => {
@@ -479,7 +591,7 @@ export function useCouncilMachine({
         setIsMuted(!isMuted);
     }
 
-    const canExtendMeeting = meetingMaxLength < globalOptions.meetingVeryMaxLength;
+    const canExtendMeeting = (creatorKey !== undefined) && meetingMaxLength < globalOptions.meetingVeryMaxLength;
 
 
     return {

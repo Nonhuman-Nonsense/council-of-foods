@@ -113,7 +113,7 @@ Stop when the tail is not one of these or the array is empty. **Do not** remove 
 
 ---
 
-## Phase 5 — Client replay path
+## Phase 5 — Client replay path ✅
 
 **Do:** Council without `creatorKey` loads public manifest; `useCouncilMachine` replay mode; prefetch audio in **conversation order** (first clip prioritized, then remainder per **Replay audio prefetch** above); disable hand/human.
 
@@ -146,3 +146,4 @@ Stop when the tail is not one of these or the array is empty. **Do not** remove 
 | — | 2 | Public replay `GET /api/meetings/:id` (`buildReplayMeetingManifest`, `ReplayMeetingManifest`); creator GET unchanged + optional `maximumPlayedIndex`. |
 | — | 3 | `liveSessionRegistry` + `SocketManager` acquire/release; `ReconnectionOptions.creatorKey`; `ConnectionHandler` 403; integration tests. |
 | — | 4 | `report_maximum_played_index` + Mongo `$max`; `socketHoldsLiveSession`; client debounced emit on `playingNowIndex`. |
+| — | 5 | Public manifest bootstrap in `Council.tsx`; `getPublicMeeting`; replay prefetch + FSM (`meeting_incomplete`, no socket emits); `HumanInput` gated on `creatorKey`. |
