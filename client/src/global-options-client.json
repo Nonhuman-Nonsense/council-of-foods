@@ -1,6 +1,6 @@
 {
   "audio_speed": 1.10,
-  "conversationMaxLength": 10,
+  "conversationMaxLength": 3,
   "meetingVeryMaxLength": 30,
   "extraMessageCount": 5,
   "chairId": "water"

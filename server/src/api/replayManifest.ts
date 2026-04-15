@@ -1,4 +1,5 @@
 import type { Meeting, Message } from "@shared/ModelTypes.js";
+import { BadRequestError } from "@models/Errors.js";
 
 const MEETING_INCOMPLETE_MESSAGE: Message = { type: "meeting_incomplete" };
 
@@ -36,6 +37,21 @@ export function stripAwaitingHumanTail(messages: Message[]): void {
     }
 }
 
+/** Stop conversation at first message that requires audio but doesn't have it yet. */
+function truncateToAvailableAudio(conversation: Message[], audioIds: string[] | undefined): Message[] {
+    const allowed = new Set(audioIds ?? []);
+    const result: Message[] = [];
+    for (const msg of conversation) {
+        // If message has an ID, it is a content message that needs audio.
+        // If it's not in the 'audio' array, it's either still generating or missing.
+        if (msg.id && !allowed.has(msg.id)) {
+            break;
+        }
+        result.push(msg);
+    }
+    return result;
+}
+
 /**
  * Audio ids in **conversation order**, only for messages that appear in `conversation`
  * and whose `id` is listed on the stored meeting's `audio` array.
@@ -60,9 +76,24 @@ export function orderedAudioIdsForConversation(
  */
 export function buildReplayMeetingManifest(meeting: Meeting): Meeting {
     let conversation = sliceConversation(meeting);
+
+    // Ensure we only include messages that actually have audio available.
+    // This prevents the replay client from getting stuck if a live session 
+    // is currently generating audio for late-arriving messages.
+    conversation = truncateToAvailableAudio(conversation, meeting.audio);
+
     stripAwaitingHumanTail(conversation);
 
-    const hasSummary = meeting.summary != null;
+    if (conversation.length === 0) {
+        throw new BadRequestError("No messages available for replay.");
+    }
+
+    // Consolidate summary: only include it if the summary message survived truncation
+    const lastMessageObj = conversation.length > 0 ? conversation[conversation.length - 1] : null;
+    const hasSummaryInConversation = lastMessageObj?.type === "summary";
+    const finalSummary = hasSummaryInConversation ? meeting.summary : undefined;
+
+    const hasSummary = finalSummary != null;
     if (!hasSummary) {
         conversation = [...conversation, { ...MEETING_INCOMPLETE_MESSAGE }];
     }
@@ -70,5 +101,5 @@ export function buildReplayMeetingManifest(meeting: Meeting): Meeting {
     const conversationForAudio = hasSummary ? conversation : conversation.slice(0, -1);
     const audio = orderedAudioIdsForConversation(conversationForAudio, meeting.audio);
 
-    return { ...meeting, conversation, audio, summary: meeting.summary };
+    return { ...meeting, conversation, audio, summary: finalSummary };
 }

@@ -249,6 +249,7 @@ describe('useCouncilMachine', () => {
         // 3. Verify Emission
         // Expect "submit_human_panelist" with correct structure
         expect(mockSocketEmit).toHaveBeenCalledWith('submit_human_panelist', {
+            type: 'panelist',
             text: 'My Panelist Response',
             speaker: 'human-panelist-1' // Should use the speaker ID from the awaiting message
         });
@@ -290,6 +291,53 @@ describe('useCouncilMachine', () => {
             meetingId: 999,
             creatorKey: 'test-creator-key',
         }));
+    });
+
+    it('reports summary index when summary is shown (after preceding message finishes)', async () => {
+        vi.useFakeTimers();
+        const { result } = renderHook(() => useCouncilMachine({ ...defaultProps, currentMeetingId: 100 } as any));
+
+        // 1. Initial message and audio to start playing index 0
+        audioContextMock.current.decodeAudioData.mockResolvedValue('fake-buffer');
+        await act(async () => {
+            if (socketHandlers.onConversationUpdate) {
+                socketHandlers.onConversationUpdate([
+                    { id: '1', text: 'Hello', speaker: 'banana', type: 'message' }
+                ]);
+            }
+            if (socketHandlers.onAudioUpdate) {
+                socketHandlers.onAudioUpdate({ id: '1', audio: new ArrayBuffer(8) });
+            }
+        });
+
+        // 2. Add Summary via conversation update
+        act(() => {
+            if (socketHandlers.onConversationUpdate) {
+                socketHandlers.onConversationUpdate([
+                    { id: '1', text: 'Hello', speaker: 'banana', type: 'message' },
+                    { id: 'sum1', text: 'Summary', speaker: 'water', type: 'summary' }
+                ]);
+            }
+        });
+
+        // Clear any reports for index 0
+        act(() => { vi.advanceTimersByTime(400); });
+        mockSocketEmit.mockClear();
+
+        // 3. Finish playing message 0 -> playNextIndex becomes 1
+        act(() => {
+            result.current.actions.handleOnFinishedPlaying();
+        });
+
+        // Machine sees summary at playNextIndex=1, sets 'summary' state, triggers effect
+        act(() => {
+            vi.advanceTimersByTime(400);
+        });
+
+        // Should now have reported index 1
+        expect(mockSocketEmit).toHaveBeenCalledWith('report_maximum_played_index', { index: 1 });
+
+        vi.useRealTimers();
     });
 });
 

@@ -493,7 +493,9 @@ export function useCouncilMachine({
         if (playingNowIndex > maximumPlayedIndex) {
             setMaximumPlayedIndex(playingNowIndex);
         }
-        const furthest = Math.max(maximumPlayedIndex, playingNowIndex);
+        // Summary is a special case when we should increase the counter directly when text arrives
+        const summaryIndex = textMessages.findIndex((message) => message.type === 'summary');
+        const furthest = Math.max(maximumPlayedIndex, playingNowIndex, summaryIndex);
         if (maximumPlayedProgressTimer.current !== null) {
             clearTimeout(maximumPlayedProgressTimer.current);
         }
@@ -507,7 +509,7 @@ export function useCouncilMachine({
                 maximumPlayedProgressTimer.current = null;
             }
         };
-    }, [playingNowIndex, maximumPlayedIndex, creatorKey, currentMeetingId]);
+    }, [playingNowIndex, maximumPlayedIndex, creatorKey, currentMeetingId, summary]);
 
     // Update canGoBack etc
     useEffect(() => {

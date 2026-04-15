@@ -87,9 +87,11 @@ describe('HTTP meetings API (integration)', () => {
                 $set: {
                     conversation: [
                         { id: 'pub-m1', type: 'message', speaker: 'water', text: 'Hello' },
+                        { id: 'sum1', type: 'summary', speaker: 'water', text: 'Summary' },
                     ],
-                    audio: ['pub-m1'],
+                    audio: ['pub-m1', 'sum1'],
                     summary: { id: 'sum1', type: 'summary', speaker: 'water', text: 'Summary' },
+                    maximumPlayedIndex: 1,
                 },
             }
         );
@@ -99,9 +101,9 @@ describe('HTTP meetings API (integration)', () => {
         const meeting = await res.json();
         expect(meeting.creatorKey).toBeUndefined();
         expect(meeting._id).toBe(Number(meetingId));
-        expect(meeting.conversation).toHaveLength(1);
+        expect(meeting.conversation).toHaveLength(2);
         expect(meeting.conversation[0].id).toBe('pub-m1');
-        expect(meeting.audio).toEqual(['pub-m1']);
+        expect(meeting.audio).toEqual(['pub-m1', 'sum1']);
 
         const authRes = await fetch(`${base()}/api/meetings/${meetingId}`, {
             headers: { Authorization: `Bearer ${creatorKey}` },

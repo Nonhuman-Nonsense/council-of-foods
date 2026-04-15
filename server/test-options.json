@@ -4,6 +4,7 @@
     "inworldVoiceModel": "inworld-tts-1.5-mini",
     "maxTokens": 50,
     "chairMaxTokens": 50,
+    "conversationMaxLength": 3,
     "audio_speed": 1.25,
     "raiseHandInvitationLength": 150,
     "finalizeMeetingLength": 200
