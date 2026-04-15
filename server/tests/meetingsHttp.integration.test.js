@@ -68,6 +68,11 @@ describe('HTTP meetings API (integration)', () => {
         expect(res.status).toBe(400);
     });
 
+    it('GET /api/meetings/:id returns 400 on invalid meeting id', async () => {
+        const res = await fetch(`${base()}/api/meetings/invalid-id`);
+        expect(res.status).toBe(400);
+    });
+
     it('GET /api/meetings/:id without Authorization returns 200 replay manifest without creatorKey', async () => {
         const createRes = await fetch(`${base()}/api/meetings`, {
             method: 'POST',
