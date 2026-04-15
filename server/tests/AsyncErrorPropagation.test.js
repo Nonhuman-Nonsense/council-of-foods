@@ -91,13 +91,13 @@ describe('Async Error Propagation (Comprehensive)', () => {
             event: 'submit_human_message',
             mockObj: mockHumanInputHandler,
             method: 'handleSubmitHumanMessage',
-            payload: { text: 'Hello', speaker: 'User' }
+            payload: { text: 'Hello', speaker: 'User', type: 'human' }
         },
         {
             event: 'submit_human_panelist',
             mockObj: mockHumanInputHandler,
             method: 'handleSubmitHumanPanelist',
-            payload: { text: 'Answer', speaker: 'Expert' }
+            payload: { text: 'Answer', speaker: 'Expert', type: 'panelist' }
         },
         {
             event: 'submit_injection',
@@ -256,7 +256,7 @@ describe('Async Error Propagation (Comprehensive)', () => {
         mockHumanInputHandler[method].mockRejectedValue(error);
 
         const handler = socketHandlers[event];
-        await handler({ text: 'Invalid', speaker: 'User' });
+        await handler({ text: 'Logically invalid message, valid but handler will throw ZodError', speaker: 'User', type: 'human' });
 
         // Assert
         expect(mockSocket.emit).toHaveBeenCalledWith("conversation_error", expect.objectContaining({

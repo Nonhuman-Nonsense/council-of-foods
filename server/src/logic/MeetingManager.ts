@@ -18,7 +18,7 @@ import { Logger } from "@utils/Logger.js";
 import type { StoredMeeting } from "@models/DBModels.js";
 import {
     SetupOptionsSchema,
-    HumanMessageSchema,
+    MessageSchema,
     InjectionMessageSchema,
     HandRaisedOptionsSchema,
     ReconnectionOptionsSchema,
@@ -111,10 +111,10 @@ export class MeetingManager implements IMeetingManager {
     async handleEvent<K extends keyof ClientToServerEvents>(event: K, payload: Parameters<ClientToServerEvents[K]>[0]) {
         switch (event) {
             case "submit_human_message":
-                await this.humanInputHandler.handleSubmitHumanMessage(HumanMessageSchema.parse(payload));
+                await this.humanInputHandler.handleSubmitHumanMessage(MessageSchema.parse(payload));
                 break;
             case "submit_human_panelist":
-                await this.humanInputHandler.handleSubmitHumanPanelist(HumanMessageSchema.parse(payload));
+                await this.humanInputHandler.handleSubmitHumanPanelist(MessageSchema.parse(payload));
                 break;
             case "submit_injection":
                 await this.humanInputHandler.handleSubmitInjection(InjectionMessageSchema.parse(payload));
@@ -355,7 +355,7 @@ export class MeetingManager implements IMeetingManager {
             sentences: output.sentences || [],
             trimmed: output.trimmed,
             pretrimmed: output.pretrimmed,
-            type: "assistant" // Default
+            type: "message" // Default
         };
 
         if (meeting.conversation.length > 1 && meeting.conversation[meeting.conversation.length - 1].type === "human" && meeting.conversation[meeting.conversation.length - 1].askParticular === message.speaker) {

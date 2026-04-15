@@ -58,15 +58,18 @@ export class SocketManager {
         const proxyEvents: (keyof ClientToServerEvents)[] = [
             "submit_human_message",
             "submit_human_panelist",
-            "pause_conversation",
-            "resume_conversation",
-            "remove_last_message",
-            "submit_injection",
             "raise_hand",
             "wrap_up_meeting",
             "report_maximum_played_index",
             "continue_conversation"
         ];
+
+        if (this.environment === "prototype" || this.environment === "test") {
+            proxyEvents.push("submit_injection");
+            proxyEvents.push("pause_conversation");
+            proxyEvents.push("resume_conversation");
+            proxyEvents.push("remove_last_message");
+        }
 
         for (const event of proxyEvents) {
             this.bindSafeListener(event, async (payload) => {

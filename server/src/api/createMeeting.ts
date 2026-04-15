@@ -25,7 +25,8 @@ export async function createMeeting(rawBody: unknown, _environment: string): Pro
         state: {
             alreadyInvited: false,
             humanName: null,
-        }
+        },
+        maximumPlayedIndex: 0,
     };
 
     const result = await insertMeeting(meeting);

@@ -62,8 +62,16 @@ export interface Character {
     voiceSpeed?: number;
 }
 
+// For Zod validation
+export const MessageTypeValues = ["message", "human", "panelist", "summary", "response", "invitation", "interjection"] as const;
+export const SyntheticMessageTypeValues = ["skipped", "awaiting_human_question", "awaiting_human_panelist", "meeting_incomplete"] as const;
+
+// Derive the types from the arrays
+export type MessageType = (typeof MessageTypeValues)[number];
+export type SyntheticMessageType = (typeof SyntheticMessageTypeValues)[number];
+
 export interface Message {
-    type: string;
+    type: MessageType | SyntheticMessageType;
     id?: string;
     text?: string;
     sentences?: string[];

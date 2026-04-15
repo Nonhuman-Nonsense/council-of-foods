@@ -408,7 +408,7 @@ export function useCouncilMachine({
             const pendingMessage = textMessages[playNextIndex];
             const actualSpeaker = (pendingMessage?.type === 'awaiting_human_panelist') ? pendingMessage.speaker : ""; // Fallback?
 
-            if (socketRef.current) socketRef.current.emit("submit_human_panelist", { text: newTopic, speaker: actualSpeaker });
+            if (socketRef.current) socketRef.current.emit("submit_human_panelist", { type: "panelist", text: newTopic, speaker: actualSpeaker });
 
             //Slice off the waiting for panelist
             setTextMessages((prevMessages) => {
@@ -416,7 +416,7 @@ export function useCouncilMachine({
             });
             calculateNextAction();
         } else {
-            if (socketRef.current) socketRef.current.emit("submit_human_message", { text: newTopic, speaker: humanName, askParticular: askParticular });
+            if (socketRef.current) socketRef.current.emit("submit_human_message", { type: "human", text: newTopic, speaker: humanName, askParticular: askParticular });
 
             const now = textMessages[playingNowIndex].type === 'invitation' ? playingNowIndex - 1 : playingNowIndex;
             const next = textMessages[playingNowIndex].type === 'invitation' ? playNextIndex - 1 : playNextIndex;

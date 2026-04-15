@@ -1,16 +1,7 @@
 /// <reference types="node" />
-import type { Message, Character, Sentence, Topic } from "./ModelTypes.js";
+import type { Character, Sentence, Topic, Message } from "./ModelTypes.js";
 
 // Re-defining or importing types that are passed over the socket
-
-export interface HumanMessage {
-    text: string;
-    askParticular?: string;
-    speaker?: string;
-    id?: string;
-    type?: string;
-    sentences?: string[];
-}
 
 export interface InjectionMessage {
     text: string;
@@ -90,9 +81,8 @@ export interface ServerToClientEvents {
 export interface ClientToServerEvents {
     start_conversation: (opts: SetupOptions) => void;
     disconnect: () => void;
-    submit_human_message: (msg: HumanMessage) => void;
-    submit_human_panelist: (msg: HumanMessage) => void;
-    submit_injection: (msg: InjectionMessage) => void;
+    submit_human_message: (msg: Message) => void;
+    submit_human_panelist: (msg: Message) => void;
     raise_hand: (opts: HandRaisedOptions) => void;
     wrap_up_meeting: (msg: WrapUpMessage) => void;
     attempt_reconnection: (opts: ReconnectionOptions) => void;
@@ -103,4 +93,5 @@ export interface ClientToServerEvents {
     pause_conversation: (msg: any) => void;
     resume_conversation: (msg: any) => void;
     remove_last_message: () => void;
+    submit_injection: (msg: InjectionMessage) => void;
 }

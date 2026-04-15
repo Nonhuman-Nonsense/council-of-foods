@@ -14,6 +14,8 @@ import { getMeeting } from "@api/getMeeting.js";
 
 interface CouncilProps {
   creatorKey: string | null;
+  topic: Topic | null;
+  setTopic: (topic: Topic) => void;
   setUnrecoverableError: (error: boolean) => void;
   setConnectionError: (error: boolean) => void;
   connectionError: boolean;
@@ -21,6 +23,8 @@ interface CouncilProps {
 
 function Council({
   creatorKey,
+  topic,
+  setTopic,
   setUnrecoverableError,
   setConnectionError,
   connectionError
@@ -32,7 +36,6 @@ function Council({
 
   const currentMeetingId = Number(meetingId);
 
-  const [topic, setTopic] = useState<Topic | null>(null);
   const [participants, setParticipants] = useState<Character[]>([]);
   const [replayManifest, setReplayManifest] = useState<Meeting | null>(null);
 
