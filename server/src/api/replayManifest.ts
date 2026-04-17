@@ -25,7 +25,7 @@ function sliceConversation(meeting: Meeting): Message[] {
     return conv.slice(0, cap + 1);
 }
 
-/** Pop tail while last message is a live human-wait placeholder (replay only). */
+/** Pop tail while last message is a live human-wait placeholder or a dangling `invitation`. */
 export function stripAwaitingHumanTail(messages: Message[]): void {
     while (messages.length > 0) {
         const t = messages[messages.length - 1]?.type;
@@ -69,6 +69,22 @@ export function orderedAudioIdsForConversation(
         }
     }
     return out;
+}
+
+/**
+ * Sanitized conversation shared by replay (GET) and resume (PUT):
+ *  does not only view up to the maximumPlayedIndex, but starts with the whole conversation
+ *
+ * Does **not** append the synthetic `meeting_incomplete` message (that is replay-only).
+ */
+export function buildResumeConversation(meeting: Meeting): Message[] {
+    // Start with the whole conversation
+    let conversation = meeting.conversation;
+    // Then truncate to the available audio
+    conversation = truncateToAvailableAudio(conversation, meeting.audio);
+    // Then strip the awaiting human and invitation tails
+    stripAwaitingHumanTail(conversation);
+    return conversation;
 }
 
 /**

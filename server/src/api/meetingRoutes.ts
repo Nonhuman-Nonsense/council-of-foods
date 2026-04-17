@@ -8,7 +8,7 @@ import { getClientKey } from "./getClientKey.js";
 import { resumeMeeting } from "./resumeMeeting.js";
 import { meetingsCollection } from "@services/DbService.js";
 import { AVAILABLE_LANGUAGES } from "@shared/AvailableLanguages.js";
-import { BadRequestError, ForbiddenError, InternalServerError, NotFoundError, UnauthorizedError } from "@models/Errors.js";
+import { BadRequestError, ConflictError, ForbiddenError, InternalServerError, NotFoundError, UnauthorizedError } from "@models/Errors.js";
 
 const BEARER = /^Bearer\s+(.+)$/i;
 
@@ -69,6 +69,11 @@ async function apiRouteWithErrorHandling(
             res.status(400).json({ message: e.name });
             return;
         }
+        if (e instanceof ConflictError) {
+            await Logger.warn("api", `${method} ${path} failed, ${e.name}`, e);
+            res.status(409).json({ message: e.name });
+            return;
+        }
         if (e instanceof InternalServerError) {
             await Logger.error("api", `${method} ${path} failed, ${e.name}`, e);
             res.status(500).json({ message: e.name });
@@ -120,9 +125,9 @@ export function registerMeetingRoutes(app: Express, environment: string): void {
                 throw new BadRequestError();
             }
             const meetingIdNumber = Number(meetingId);
-            const meeting = await resumeMeeting(meetingIdNumber);
-            await Logger.info("api", `PUT /api/meetings/${meetingId} live`);
-            res.status(200).json(meeting);
+            const response = await resumeMeeting(meetingIdNumber);
+            await Logger.info("api", `PUT /api/meetings/${meetingId} resumed`);
+            res.status(200).json(response);
         });
     });
 

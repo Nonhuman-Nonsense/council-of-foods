@@ -30,6 +30,14 @@ export class BadRequestError extends Error {
     }
 }
 
+/** Thrown when the request conflicts with the current server state (maps to HTTP 409). */
+export class ConflictError extends Error {
+    override readonly name = "Conflict";
+    constructor(message?: string) {
+        super(message || "Conflict");
+    }
+}
+
 /** Thrown when an internal server error occurs (maps to HTTP 500). */
 export class InternalServerError extends Error {
     override readonly name = "Internal server error";

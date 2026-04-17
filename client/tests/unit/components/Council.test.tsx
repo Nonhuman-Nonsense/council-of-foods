@@ -117,8 +117,10 @@ vi.mock('../../../src/hooks/useCouncilMachine', () => ({
 
 describe('Council Component', () => {
     const defaultProps = {
-        lang: 'en',
         creatorKey: 'test-creator',
+        setCreatorKey: vi.fn(),
+        topic: { id: 't', title: 'T', description: 'D', prompt: 'p' },
+        setTopic: vi.fn(),
         setUnrecoverableError: vi.fn(),
         setConnectionError: vi.fn(),
         connectionError: false

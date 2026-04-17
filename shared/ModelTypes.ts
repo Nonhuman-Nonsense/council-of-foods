@@ -46,7 +46,7 @@ export interface PlaybackState {
 
 export interface ConversationState {
     alreadyInvited: boolean;
-    humanName: string | undefined;
+    humanName?: string;
 }
 
 export interface Character {

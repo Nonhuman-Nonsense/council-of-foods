@@ -3,18 +3,15 @@ import { useNavigate, useLocation } from "react-router";
 import { useCouncilSocket } from "../hooks/useCouncilSocket";
 import { useRouting } from "@/routing";
 import type { Character, Message, Meeting, Topic } from "@shared/ModelTypes";
-import type { AudioUpdatePayload, PublicAudioClipResponse } from "@shared/SocketTypes";
+import type { PublicAudioClipResponse, DecodedAudioMessage } from "@shared/SocketTypes";
 import globalOptions from "@/global-options-client.json";
 import { CouncilOverlayType } from "@/components/CouncilOverlays";
 import { resumeMeeting } from "@/api/resumeMeeting";
 
-export interface DecodedAudioMessage extends Omit<AudioUpdatePayload, 'audio'> {
-    audio: AudioBuffer;
-}
-
 export interface UseCouncilMachineProps {
     currentMeetingId: number;
     creatorKey: string | undefined;
+    setCreatorKey: (key: string) => void;
     replayManifest: Meeting | null;
     topic: Topic | null;
     participants: Character[] | null;
@@ -30,6 +27,7 @@ export interface UseCouncilMachineProps {
 export function useCouncilMachine({
     currentMeetingId,
     creatorKey,
+    setCreatorKey,
     replayManifest,
     topic: _topic,
     participants: _participants,
@@ -168,65 +166,48 @@ export function useCouncilMachine({
         [audioContext],
     );
 
+    // Download first audio, then batch download the rest
+    async function downloadAudio(audioIds: string[], ac: AbortController) {
+        try {
+            const firstDecoded = await decodeReplayClip(audioIds[0], ac.signal);
+            if (ac.signal.aborted) return;
+            setAudioMessages(prev => [...prev, firstDecoded]);
+            const batchSize = 6;
+            for (let i = 1; i < audioIds.length; i += batchSize) {
+                const batch = audioIds.slice(i, i + batchSize);
+                await Promise.all(
+                    batch.map(async (id) => {
+                        const decodedAudio = await decodeReplayClip(id, ac.signal)
+                        if (ac.signal.aborted) return;
+                        setAudioMessages(prev => [...prev, decodedAudio]);
+                    }),
+                );
+            }
+        } catch (e) {
+            if (!ac.signal.aborted) {
+                setUnrecoverableError(true);
+                console.error("Audio download error", e);
+            }
+        }
+    }
+
+    // Replay startup logic
     useEffect(() => {
-        if (creatorKey || !replayManifest || currentMeetingId <= 0) {
+        if (creatorKey || !replayManifest) {
             return;
         }
 
+        const meeting = replayManifest;
+        setTextMessages(meeting.conversation);
+
+        // Download the audio in the background
         const ac = new AbortController();
-        const convo = replayManifest.conversation;
-        const orderedIds = [...replayManifest.audio];
-        setTextMessages(convo);
-        const len = convo.length;
-        setMeetingMaxLength(len > 0 ? len : globalOptions.conversationMaxLength);
-        setMaximumPlayedIndex(len > 0 ? len - 1 : 0);
-        setPlayNextIndex(0);
-        setPlayingNowIndex(-1);
-        setCouncilState("loading");
-        setAudioMessages([]);
-
-        let cancelled = false;
-
-        void (async () => {
-            try {
-                if (orderedIds.length === 0) {
-                    return;
-                }
-                const firstDecoded = await decodeReplayClip(orderedIds[0], ac.signal);
-                if (cancelled || ac.signal.aborted) {
-                    return;
-                }
-                setAudioMessages([firstDecoded]);
-
-                const batchSize = 6;
-                for (let i = 1; i < orderedIds.length; i += batchSize) {
-                    const batch = orderedIds.slice(i, i + batchSize);
-                    const decodedBatch = await Promise.all(
-                        batch.map((id) => decodeReplayClip(id, ac.signal)),
-                    );
-                    if (cancelled || ac.signal.aborted) {
-                        return;
-                    }
-                    setAudioMessages((prev) => {
-                        const have = new Set(prev.map((m) => m.id));
-                        const add = decodedBatch.filter((m) => !have.has(m.id));
-                        return add.length ? [...prev, ...add] : prev;
-                    });
-                }
-            } catch (e) {
-                if (ac.signal.aborted || cancelled) {
-                    return;
-                }
-                console.error("Replay audio prefetch error", e);
-                setUnrecoverableError(true);
-            }
-        })();
+        downloadAudio(meeting.audio, ac);
 
         return () => {
-            cancelled = true;
             ac.abort();
         };
-    }, [creatorKey, replayManifest, currentMeetingId, decodeReplayClip, setUnrecoverableError]);
+    }, [creatorKey, replayManifest]);
 
     /* -------------------------------------------------------------------------- */
     /*                               Helpers                                      */
@@ -437,6 +418,8 @@ export function useCouncilMachine({
 
     function removeOverlay() {
         setActiveOverlay(null);
+
+        // Are these actually needed?
         const pathSuffix = currentMeetingId > 0 ? String(currentMeetingId) : "new";
         const pathname = `${meetingRoutesBase}/${pathSuffix}`;
         navigate({ pathname, hash: "" }, { replace: true });
@@ -470,13 +453,45 @@ export function useCouncilMachine({
         setCouncilState('loading');
     }
 
+    /**
+     * PUT `/api/meetings/:id` → rotate `creatorKey`, reconcile the local replay buffer
+     * against the server's sanitized conversation, then hand over to the live socket
+     * by calling the lifted `setCreatorKey`. See Phase 9 of the replay/live doc.
+     */
     async function handleOnAttemptResume() {
+
+        // strip the meeting_incomplete message
+        const meetingIncompleteIndex = textMessages.findIndex((message) => message.type === 'meeting_incomplete');
+        if (meetingIncompleteIndex !== -1) {
+            setTextMessages((prevMessages) => prevMessages.slice(0, meetingIncompleteIndex));
+        }
+
+        // Go to loading state, and remove the overlay once the state is set
+        setCouncilState(("loading"));
         removeOverlay();
-        setCouncilState('loading');
+
+
         try {
             const response = await resumeMeeting({ meetingId: currentMeetingId });
-        } catch (error) {
-            console.error(error);
+            const updatedConversation = response.meeting.conversation;
+            const updatedAudioIds = response.meeting.audio;
+
+            // Set the conversation, might be new messages at the end, or might be the same as the previous conversation
+            setTextMessages(updatedConversation);
+
+            // Download the missing audios in the background
+            const currentAudioIds = new Set(audioMessages.map((a) => a.id));
+            const missingAudioIds = updatedAudioIds.filter((id) => !currentAudioIds.has(id));
+            if (missingAudioIds.length > 0) {
+                const ac = new AbortController();
+                downloadAudio(missingAudioIds, ac);
+            }
+
+            // Flip to live directly, no need to wait for the audio to be downloaded
+            // This will allow us to raise hand past this point etc.
+            setCreatorKey(response.creatorKey);
+        } catch (err) {
+            setUnrecoverableError(true);
         }
     }
 

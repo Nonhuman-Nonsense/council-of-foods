@@ -6,10 +6,12 @@ import { ClientToServerEvents, ReconnectionOptions, SetupOptions } from "@shared
 import { ZodError } from "zod";
 import { getGlobalOptions } from "./GlobalOptions.js";
 import {
-    LIVE_SESSION_CONFLICT_MESSAGE,
     releaseLiveSession,
     tryAcquireLiveSession,
 } from "./liveSessionRegistry.js";
+
+/** Shared user-facing 409 reason for live-session conflicts across HTTP + socket. */
+const LIVE_SESSION_CONFLICT_MESSAGE = "This meeting is happening somewhere else";
 import { SetupOptionsSchema, ReconnectionOptionsSchema } from "@models/ValidationSchemas.js";
 
 /**

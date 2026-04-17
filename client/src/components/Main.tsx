@@ -171,6 +171,7 @@ export default function Main(props: MainProps) {
                   topic={topicSelection}
                   setTopic={setTopicSelection}
                   creatorKey={meetingCreatorKey}
+                  setCreatorKey={setMeetingCreatorKey}
                   setUnrecoverableError={setUnrecoverableError}
                   connectionError={connectionError}
                   setConnectionError={setConnectionError}

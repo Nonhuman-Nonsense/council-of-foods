@@ -14,6 +14,7 @@ import { getMeeting } from "@api/getMeeting.js";
 
 interface CouncilProps {
   creatorKey: string | null;
+  setCreatorKey: (key: string) => void;
   topic: Topic | null;
   setTopic: (topic: Topic) => void;
   setUnrecoverableError: (error: boolean) => void;
@@ -23,6 +24,7 @@ interface CouncilProps {
 
 function Council({
   creatorKey,
+  setCreatorKey,
   topic,
   setTopic,
   setUnrecoverableError,
@@ -83,6 +85,7 @@ function Council({
   const { state, actions } = useCouncilMachine({
     currentMeetingId,
     creatorKey: creatorKey ?? undefined,
+    setCreatorKey,
     replayManifest: creatorKey ? null : replayManifest,
     topic,
     participants,

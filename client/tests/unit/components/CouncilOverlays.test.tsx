@@ -34,6 +34,7 @@ vi.mock('@components/OverlayWrapper', () => ({
 
 describe('CouncilOverlays', () => {
     const mockOnContinue = vi.fn();
+    const mockOnAttemptResume = vi.fn();
     const mockOnWrapItUp = vi.fn();
     const mockProceedWithHumanName = vi.fn();
     const mockRemoveOverlay = vi.fn();
@@ -50,6 +51,7 @@ describe('CouncilOverlays', () => {
     const defaultProps = {
         activeOverlay: null as CouncilOverlayType,
         onContinue: mockOnContinue,
+        onAttemptResume: mockOnAttemptResume,
         onWrapItUp: mockOnWrapItUp,
         proceedWithHumanName: mockProceedWithHumanName,
         canExtendMeeting: true,

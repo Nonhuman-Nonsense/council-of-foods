@@ -5,8 +5,6 @@
 
 const liveSessions = new Map<number, { socketId: string; creatorKey: string }>();
 
-export const LIVE_SESSION_CONFLICT_MESSAGE = "This meeting is happening somewhere else";
-
 export function tryAcquireLiveSession(meetingId: number, socketId: string, creatorKey: string): boolean {
     const cur = liveSessions.get(meetingId);
     if (!cur) {
@@ -30,6 +28,11 @@ export function releaseLiveSession(meetingId: number, socketId: string): void {
 export function socketHoldsLiveSession(meetingId: number, socketId: string): boolean {
     const cur = liveSessions.get(meetingId);
     return cur !== undefined && cur.socketId === socketId;
+}
+
+/** True when any socket currently holds the live lock for this meeting. */
+export function hasLiveSession(meetingId: number): boolean {
+    return liveSessions.has(meetingId);
 }
 
 /** Test helper — vitest clears DB between tests; registry must match. */

@@ -5,7 +5,11 @@ import { Server } from 'socket.io';
 import { io as ioClient } from 'socket.io-client';
 import { registerMeetingRoutes } from '@api/meetingRoutes.js';
 import { SocketManager } from '@logic/SocketManager.js';
-import { clearLiveSessionRegistryForTests } from '@logic/liveSessionRegistry.js';
+import {
+    clearLiveSessionRegistryForTests,
+    tryAcquireLiveSession,
+} from '@logic/liveSessionRegistry.js';
+import { meetingsCollection } from '@services/DbService.js';
 
 const { integrationGetOpenAI } = vi.hoisted(() => {
     const integrationGetOpenAI = () => ({
@@ -206,6 +210,110 @@ describe('HTTP + Socket full chain (integration)', () => {
 
         socket1.close();
         socket2.close();
+    });
+
+    describe('PUT /api/meetings/:meetingId (resume)', () => {
+        async function seedIncompleteMeeting(meetingId) {
+            const createRes = await fetch(`${base()}/api/meetings`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(validCreateBody()),
+            });
+            const { meetingId: createdId, creatorKey } = await createRes.json();
+            const id = meetingId ?? Number(createdId);
+            await meetingsCollection.updateOne(
+                { _id: Number(createdId) },
+                {
+                    $set: {
+                        conversation: [
+                            { id: 'r-m0', type: 'message', speaker: 'water', text: 'hi' },
+                            { id: 'r-m1', type: 'message', speaker: 'water', text: 'pending' },
+                            { type: 'awaiting_human_question', speaker: 'h', text: '' },
+                        ],
+                        audio: ['r-m0', 'orphan'],
+                        maximumPlayedIndex: 2,
+                    },
+                }
+            );
+            return { meetingId: Number(createdId), originalCreatorKey: creatorKey, id };
+        }
+
+        it('rotates the creatorKey, trims audio, and returns the updated meeting', async () => {
+            const { meetingId, originalCreatorKey } = await seedIncompleteMeeting();
+
+            const res = await fetch(`${base()}/api/meetings/${meetingId}`, { method: 'PUT' });
+            expect(res.status).toBe(200);
+            const body = await res.json();
+            expect(body.creatorKey).toMatch(/^[0-9a-f-]{36}$/i);
+            expect(body.creatorKey).not.toBe(originalCreatorKey);
+            expect(body.meeting.creatorKey).toBeUndefined();
+            expect(body.meeting.conversation.map((c) => c.id)).toEqual(['r-m0']);
+            expect(body.meeting.audio).toEqual(['r-m0']);
+            // `maximumPlayedIndex` is *not* reset by resume — it's still the seeded 2.
+            // Live catch-up via `report_maximum_played_index` will nudge it forward.
+            expect(body.meeting.maximumPlayedIndex).toBe(2);
+
+            const stored = await meetingsCollection.findOne({ _id: meetingId });
+            expect(stored.creatorKey).toBe(body.creatorKey);
+            expect(stored.audio).toEqual(['r-m0']);
+            expect(stored.conversation.map((c) => c.id)).toEqual(['r-m0']);
+        });
+
+        it('returns 409 when a live session currently holds the meeting', async () => {
+            const { meetingId, originalCreatorKey } = await seedIncompleteMeeting();
+            tryAcquireLiveSession(meetingId, 'some-socket', 'some-key');
+
+            const res = await fetch(`${base()}/api/meetings/${meetingId}`, { method: 'PUT' });
+            expect(res.status).toBe(409);
+
+            const stored = await meetingsCollection.findOne({ _id: meetingId });
+            expect(stored.creatorKey).toBe(originalCreatorKey);
+        });
+
+        it('returns 400 when the meeting already has a summary', async () => {
+            const { meetingId } = await seedIncompleteMeeting();
+            await meetingsCollection.updateOne(
+                { _id: meetingId },
+                { $set: { summary: { id: 's', type: 'summary', text: 'done' } } }
+            );
+
+            const res = await fetch(`${base()}/api/meetings/${meetingId}`, { method: 'PUT' });
+            expect(res.status).toBe(400);
+        });
+
+        it('returns 404 for an unknown meeting id', async () => {
+            const res = await fetch(`${base()}/api/meetings/99999999`, { method: 'PUT' });
+            expect(res.status).toBe(404);
+        });
+
+        it('lets the new creatorKey start a fresh live session that picks up the sanitized conversation', async () => {
+            const { meetingId } = await seedIncompleteMeeting();
+
+            const putRes = await fetch(`${base()}/api/meetings/${meetingId}`, { method: 'PUT' });
+            const { creatorKey } = await putRes.json();
+
+            const socket = ioClient(`${base()}`, { transports: ['websocket'], autoConnect: false });
+            socket.connect();
+            await new Promise((resolve, reject) => {
+                const t = setTimeout(() => reject(new Error('socket connect timeout')), 5000);
+                socket.once('connect', () => {
+                    clearTimeout(t);
+                    resolve();
+                });
+                socket.once('connect_error', (e) => {
+                    clearTimeout(t);
+                    reject(e);
+                });
+            });
+
+            const updatePromise = waitForSocketEvent(socket, 'conversation_update');
+            socket.emit('start_conversation', { meetingId, creatorKey });
+            const conversation = await updatePromise;
+            expect(Array.isArray(conversation)).toBe(true);
+            expect(conversation.some((m) => m.id === 'r-m0')).toBe(true);
+
+            socket.close();
+        });
     });
 
     it('attempt_reconnection with wrong creatorKey gets conversation_error 403', async () => {

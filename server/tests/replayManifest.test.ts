@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
     buildReplayMeetingManifest,
+    buildResumeConversation,
     orderedAudioIdsForConversation,
     stripAwaitingHumanTail,
 } from "@api/replayManifest.js";
@@ -122,6 +123,58 @@ describe("stripAwaitingHumanTail", () => {
         expect(messages).toHaveLength(2);
         expect(messages[0].type).toBe("awaiting_human_question");
         expect(messages[1].id).toBe("x");
+    });
+
+    it("strips a dangling invitation from the tail", () => {
+        const messages: Message[] = [
+            { id: "x", type: "message", speaker: "water", text: "mid" },
+            { id: "inv-1", type: "invitation", speaker: "water", text: "please join" },
+        ];
+        stripAwaitingHumanTail(messages);
+        expect(messages).toHaveLength(1);
+        expect(messages[0].id).toBe("x");
+    });
+});
+
+describe("buildResumeConversation", () => {
+    it("slices by maximumPlayedIndex, truncates to audio, strips awaiting-human tail, and never appends meeting_incomplete", () => {
+        const meeting = MockFactory.createMeeting({
+            maximumPlayedIndex: 3,
+            conversation: [
+                { id: "m0", type: "message", speaker: "water", text: "0" },
+                { id: "m1", type: "message", speaker: "water", text: "1" },
+                { id: "m2", type: "message", speaker: "water", text: "2" }, // no audio → truncated
+                { type: "awaiting_human_question", speaker: "h", text: "" },
+            ],
+            audio: ["m0", "m1"],
+        });
+        const result = buildResumeConversation(meeting);
+        expect(result.map((c) => c.id)).toEqual(["m0", "m1"]);
+        expect(result.every((c) => c.type !== "meeting_incomplete")).toBe(true);
+    });
+
+    it("drops a dangling invitation from the tail when resuming", () => {
+        const meeting = MockFactory.createMeeting({
+            maximumPlayedIndex: 1,
+            conversation: [
+                { id: "m0", type: "message", speaker: "water", text: "0" },
+                { id: "inv-1", type: "invitation", speaker: "water", text: "please join" },
+            ],
+            audio: ["m0", "inv-1"],
+        });
+        const result = buildResumeConversation(meeting);
+        expect(result.map((c) => c.id)).toEqual(["m0"]);
+    });
+
+    it("returns an empty array when nothing is playable yet", () => {
+        const meeting = MockFactory.createMeeting({
+            maximumPlayedIndex: 0,
+            conversation: [
+                { type: "awaiting_human_question", speaker: "h", text: "" },
+            ],
+            audio: [],
+        });
+        expect(buildResumeConversation(meeting)).toEqual([]);
     });
 });
 

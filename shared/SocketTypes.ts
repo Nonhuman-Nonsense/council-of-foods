@@ -55,6 +55,10 @@ export interface AudioUpdatePayload {
     type?: string;
 }
 
+export interface DecodedAudioMessage extends Omit<AudioUpdatePayload, 'audio'> {
+    audio: AudioBuffer;
+}
+
 /** JSON body for public `GET /api/audio/:audioId` (replay); same bytes as socket `audio_update` after base64 decode. */
 export interface PublicAudioClipResponse {
     id: string;
