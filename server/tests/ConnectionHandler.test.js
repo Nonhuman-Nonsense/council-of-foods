@@ -37,7 +37,6 @@ describe('ConnectionHandler', () => {
             meeting: null,
             isLoopActive: false,
             handRaised: false,
-            extraMessageCount: 0,
             serverOptions: MockFactory.createServerOptions({ conversationMaxLength: 50 }),
             broadcaster: mockBroadcaster,
             audioSystem: mockAudioSystem,
@@ -135,6 +134,21 @@ describe('ConnectionHandler', () => {
                 mockContext.serverOptions
             );
             expect(mockAudioSystem.queueAudioGeneration).toHaveBeenCalledTimes(1);
+        });
+
+        it('loads meeting document with persisted conversationExtraSlots unchanged', async () => {
+            const savedMeeting = MockFactory.createStoredMeeting({
+                _id: 123,
+                conversationExtraSlots: 12,
+                conversation: [],
+                audio: [],
+            });
+            mockMeetingsCollection.findOne.mockResolvedValue(savedMeeting);
+
+            const ok = await handler.handleReconnection({ meetingId: 123, creatorKey: savedMeeting.creatorKey });
+
+            expect(ok).toBe(true);
+            expect(mockContext.meeting?.conversationExtraSlots).toBe(12);
         });
     });
 });

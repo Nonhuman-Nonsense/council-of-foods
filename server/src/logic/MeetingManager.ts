@@ -50,7 +50,6 @@ export class MeetingManager implements IMeetingManager {
     handRaised: boolean;
     isPaused: boolean;
     currentSpeaker: number;
-    extraMessageCount: number;
 
     audioSystem: AudioSystem;
     dialogGenerator: DialogGenerator;
@@ -80,7 +79,6 @@ export class MeetingManager implements IMeetingManager {
         this.handRaised = false;
         this.isPaused = false;
         this.currentSpeaker = 0;
-        this.extraMessageCount = 0;
 
         this.startLoop = this.startLoop.bind(this);
 
@@ -259,12 +257,19 @@ export class MeetingManager implements IMeetingManager {
         if (this.isPaused || this.handRaised) {
             return { type: 'WAIT' };
         }
-        // 1. Check Limits
-        if (meeting.conversation.length >= this.serverOptions.conversationMaxLength + this.extraMessageCount) {
+        // 1. Already ended at length cap (synthetic tail)
+        if (meeting.conversation.length > 0) {
+            const lastMsg = meeting.conversation[meeting.conversation.length - 1];
+            if (lastMsg.type === 'max_reached') {
+                return { type: 'WAIT' };
+            }
+        }
+        // 2. Check Limits
+        if (meeting.conversation.length >= this.serverOptions.conversationMaxLength + meeting.conversationExtraSlots) {
             return { type: 'END_CONVERSATION' };
         }
 
-        // 2. Check Awaiting States
+        // 3. Check Awaiting States
         if (meeting.conversation.length > 0) {
             const lastMsg = meeting.conversation[meeting.conversation.length - 1];
             if (lastMsg.type === 'awaiting_human_panelist' || lastMsg.type === 'awaiting_human_question') {
@@ -272,16 +277,16 @@ export class MeetingManager implements IMeetingManager {
             }
         }
 
-        // 3. Determine Speaker
+        // 4. Determine Speaker
         const nextSpeakerIndex = SpeakerSelector.calculateNextSpeaker(meeting.conversation, meeting.characters);
         const nextSpeaker = meeting.characters[nextSpeakerIndex];
 
-        // 4. Panelist Turn
+        // 5. Panelist Turn
         if (nextSpeaker.type === 'panelist') {
             return { type: 'REQUEST_PANELIST', speaker: nextSpeaker };
         }
 
-        // 5. AI Turn
+        // 6. AI Turn
         return { type: 'GENERATE_AI_RESPONSE', speaker: nextSpeaker };
     }
 
@@ -296,9 +301,17 @@ export class MeetingManager implements IMeetingManager {
             case 'WAIT':
                 return; // Do nothing, just wait.
 
-            case 'END_CONVERSATION':
+            case 'END_CONVERSATION': {
+                const currentCap = this.serverOptions.conversationMaxLength + meeting.conversationExtraSlots;
+                meeting.conversation.push({ type: 'max_reached', canContinue: currentCap < this.serverOptions.meetingVeryMaxLength, });
+                await this.services.meetingsCollection.updateOne(
+                    { _id: meeting._id },
+                    {$set: {conversation: meeting.conversation}}
+                );
+                this.broadcaster.broadcastConversationUpdate(meeting.conversation);
                 this.broadcaster.broadcastConversationEnd();
                 return;
+            }
 
             case 'REQUEST_PANELIST':
                 if (action.speaker) {

@@ -59,7 +59,6 @@ export interface IMeetingState {
     serverOptions: GlobalOptions;
     handRaised: boolean;
     isPaused: boolean;
-    extraMessageCount: number;
     currentSpeaker: number;
 }
 

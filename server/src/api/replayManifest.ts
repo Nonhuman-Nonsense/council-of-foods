@@ -29,7 +29,7 @@ function sliceConversation(meeting: Meeting): Message[] {
 export function stripAwaitingHumanTail(messages: Message[]): void {
     while (messages.length > 0) {
         const t = messages[messages.length - 1]?.type;
-        if (t === "invitation" || t === "awaiting_human_question" || t === "awaiting_human_panelist") {
+        if (t === "invitation" || t === "awaiting_human_question" || t === "awaiting_human_panelist" || t === "max_reached") {
             messages.pop();
         } else {
             break;

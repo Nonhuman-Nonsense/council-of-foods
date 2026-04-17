@@ -40,6 +40,19 @@ describe("buildReplayMeetingManifest", () => {
         expect(m.conversation[2].type).toBe("summary");
     });
 
+    it("strips max_reached from replay tail then appends meeting_incomplete when no summary", () => {
+        const meeting = MockFactory.createMeeting({
+            conversation: [
+                { id: "m0", type: "message", speaker: "water", text: "0" },
+                { type: "max_reached" },
+            ],
+            audio: ["m0"],
+        });
+        const m = buildReplayMeetingManifest(meeting);
+        expect(m.conversation.map((c) => c.type)).toEqual(["message", "meeting_incomplete"]);
+        expect(m.summary).toBeUndefined();
+    });
+
     it("strips awaiting_human tail then appends meeting_incomplete when no summary", () => {
         const meeting = MockFactory.createMeeting({
             conversation: [
@@ -129,6 +142,16 @@ describe("stripAwaitingHumanTail", () => {
         const messages: Message[] = [
             { id: "x", type: "message", speaker: "water", text: "mid" },
             { id: "inv-1", type: "invitation", speaker: "water", text: "please join" },
+        ];
+        stripAwaitingHumanTail(messages);
+        expect(messages).toHaveLength(1);
+        expect(messages[0].id).toBe("x");
+    });
+
+    it("strips max_reached from the tail", () => {
+        const messages: Message[] = [
+            { id: "x", type: "message", speaker: "water", text: "mid" },
+            { type: "max_reached" },
         ];
         stripAwaitingHumanTail(messages);
         expect(messages).toHaveLength(1);

@@ -36,7 +36,6 @@ describe('ConnectionHandler - Race Condition', () => {
         mockContext = {
             meeting: null,
             serverOptions: MockFactory.createServerOptions(),
-            extraMessageCount: 0,
             isLoopActive: true,
             handRaised: false,
             broadcaster: mockBroadcaster,

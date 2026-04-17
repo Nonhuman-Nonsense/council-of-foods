@@ -83,6 +83,7 @@ export const MessageSchema: z.ZodType<Message> = z.object({
     id: z.string().optional(),
     type: z.enum([...MessageTypeValues, ...SyntheticMessageTypeValues]),
     sentences: z.array(z.string()).optional(),
+    canContinue: z.boolean().optional(),
 });
 
 // 3. raise_hand

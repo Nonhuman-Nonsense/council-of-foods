@@ -29,9 +29,8 @@ vi.mock('@/routing', () => ({
 // Mock Global Options
 vi.mock('@/global-options-client.json', () => ({
     default: {
-        conversationMaxLength: 5,
-        extraMessageCount: 3,
-        meetingVeryMaxLength: 10
+        audio_speed: 1.1,
+        chairId: 'water',
     }
 }));
 
@@ -151,7 +150,7 @@ describe('useCouncilMachine', () => {
         // Note: The hook state update happens after await decodeAudioData.
     });
 
-    it('navigates correctly on removeOverlay', () => {
+    it('removeOverlay does not navigate (routing handled elsewhere)', () => {
         const { result } = renderHook(() =>
             useCouncilMachine({ ...defaultProps, currentMeetingId: 42 } as any)
         );
@@ -161,23 +160,7 @@ describe('useCouncilMachine', () => {
             result.current.actions.removeOverlay();
         });
 
-        expect(mockNavigate).toHaveBeenCalledWith(
-            { pathname: '/meeting/42', hash: '' },
-            { replace: true }
-        );
-    });
-
-    it('navigates to "new" if no current meeting id on removeOverlay', () => {
-        const { result } = renderHook(() => useCouncilMachine(defaultProps as any));
-
-        act(() => {
-            result.current.actions.removeOverlay();
-        });
-
-        expect(mockNavigate).toHaveBeenCalledWith(
-            { pathname: '/meeting/new', hash: '' },
-            { replace: true }
-        );
+        expect(mockNavigate).not.toHaveBeenCalled();
     });
 
     it('pauses audio context when isPaused becomes true', () => {
@@ -208,6 +191,76 @@ describe('useCouncilMachine', () => {
     });
 
     // --- Human Panelist Tests ---
+
+    it('enters max_reached when conversation ends with max_reached sentinel', () => {
+        const { result } = renderHook(() => useCouncilMachine(defaultProps as any));
+
+        act(() => {
+            if (socketHandlers.onConversationUpdate) {
+                socketHandlers.onConversationUpdate([{ type: 'max_reached', canContinue: true }]);
+            }
+        });
+
+        expect(result.current.state.councilState).toBe('max_reached');
+        expect(result.current.state.activeOverlay).toBe('completed');
+        expect(result.current.state.canExtendMeeting).toBe(true);
+    });
+
+    it('canExtendMeeting respects canContinue false on max_reached', () => {
+        const { result } = renderHook(() => useCouncilMachine(defaultProps as any));
+
+        act(() => {
+            if (socketHandlers.onConversationUpdate) {
+                socketHandlers.onConversationUpdate([
+                    { id: 'm0', type: 'message', text: 'x', speaker: 'water' },
+                    { type: 'max_reached', canContinue: false },
+                ]);
+            }
+        });
+
+        expect(result.current.state.canExtendMeeting).toBe(false);
+    });
+
+    it('handleOnContinueMeetingLonger drops max_reached locally and emits continue_conversation', () => {
+        const { result } = renderHook(() => useCouncilMachine(defaultProps as any));
+        mockSocketEmit.mockClear();
+        act(() => {
+            if (socketHandlers.onConversationUpdate) {
+                socketHandlers.onConversationUpdate([
+                    { id: 'm0', type: 'message', text: 'x', speaker: 'water' },
+                    { type: 'max_reached', canContinue: true },
+                ]);
+            }
+        });
+        act(() => {
+            result.current.actions.handleOnContinueMeetingLonger();
+        });
+        expect(result.current.state.textMessages.map((m) => m.type)).toEqual(['message']);
+        expect(mockSocketEmit).toHaveBeenCalledWith('continue_conversation');
+        expect(result.current.state.councilState).toBe('loading');
+    });
+
+    it('handleOnGenerateSummary drops max_reached locally and emits wrap_up_meeting', () => {
+        const { result } = renderHook(() => useCouncilMachine(defaultProps as any));
+        mockSocketEmit.mockClear();
+        act(() => {
+            if (socketHandlers.onConversationUpdate) {
+                socketHandlers.onConversationUpdate([
+                    { id: 'm0', type: 'message', text: 'x', speaker: 'water' },
+                    { type: 'max_reached', canContinue: false },
+                ]);
+            }
+        });
+        act(() => {
+            result.current.actions.handleOnGenerateSummary();
+        });
+        expect(result.current.state.textMessages.map((m) => m.type)).toEqual(['message']);
+        expect(mockSocketEmit).toHaveBeenCalledWith(
+            'wrap_up_meeting',
+            expect.objectContaining({ date: expect.any(String) }),
+        );
+        expect(result.current.state.councilState).toBe('loading');
+    });
 
     it('transitions to human_panelist state when awaiting_human_panelist message is next', () => {
         const { result } = renderHook(() => useCouncilMachine(defaultProps as any));

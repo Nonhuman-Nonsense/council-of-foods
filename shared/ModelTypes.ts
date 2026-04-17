@@ -33,6 +33,7 @@ export interface BaseMeeting {
     audio: string[]; // List of Audio IDs
     summary?: Message; // To be defined strictly later
     maximumPlayedIndex?: number | null;
+    conversationExtraSlots: number;
 }
 
 export interface Meeting extends BaseMeeting {
@@ -64,7 +65,7 @@ export interface Character {
 
 // For Zod validation
 export const MessageTypeValues = ["message", "human", "panelist", "summary", "response", "invitation", "interjection"] as const;
-export const SyntheticMessageTypeValues = ["skipped", "awaiting_human_question", "awaiting_human_panelist", "meeting_incomplete"] as const;
+export const SyntheticMessageTypeValues = ["skipped", "awaiting_human_question", "awaiting_human_panelist", "meeting_incomplete", "max_reached"] as const;
 
 // Derive the types from the arrays
 export type MessageType = (typeof MessageTypeValues)[number];
@@ -79,6 +80,8 @@ export interface Message {
     askParticular?: string;
     trimmed?: string;
     pretrimmed?: string;
+    /** On `max_reached`: whether the server allows `continue_conversation` (meeting not past absolute cap). */
+    canContinue?: boolean;
 }
 
 export interface Audio {

@@ -15,7 +15,10 @@ describe('Summary Markdown Handling', () => {
         const mockManager = {
             meeting: MockFactory.createStoredMeeting({
                 _id: 123,
-                conversation: [],
+                conversation: [
+                    { id: 'm1', type: 'message', text: 'prior', speaker: 'chair' },
+                    { type: 'max_reached' },
+                ],
                 characters: [{ id: 'chair', name: 'Chair', voice: 'alloy' }]
             }),
             serverOptions: MockFactory.createServerOptions({
@@ -46,8 +49,10 @@ describe('Summary Markdown Handling', () => {
 
         await handler.handleWrapUpMeeting({ date: '2023-01-01' } as any);
 
-        expect(mockManager.meeting.conversation.length).toBe(1);
-        expect(mockManager.meeting.conversation[0].text).toBe('This is **bold** and *italic*.');
+        expect(mockManager.meeting.conversation.length).toBe(2);
+        expect(mockManager.meeting.conversation[0].text).toBe('prior');
+        expect(mockManager.meeting.conversation[1].type).toBe('summary');
+        expect(mockManager.meeting.conversation[1].text).toBe('This is **bold** and *italic*.');
 
         expect(mockManager.audioSystem.generateAudio).toHaveBeenCalledTimes(1);
         const audioCallArgs = (mockManager.audioSystem.generateAudio as any).mock.calls[0];

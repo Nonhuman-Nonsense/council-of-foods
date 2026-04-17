@@ -23,7 +23,6 @@ export interface ReconnectionOptions {
     meetingId: number;
     creatorKey: string;
     handRaised?: boolean;
-    conversationMaxLength?: number;
 }
 
 /** Live session only: persist furthest played conversation index (`$max` on server). */

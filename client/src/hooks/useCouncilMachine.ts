@@ -4,7 +4,6 @@ import { useCouncilSocket } from "../hooks/useCouncilSocket";
 import { useRouting } from "@/routing";
 import type { Character, Message, Meeting, Topic } from "@shared/ModelTypes";
 import type { PublicAudioClipResponse, DecodedAudioMessage } from "@shared/SocketTypes";
-import globalOptions from "@/global-options-client.json";
 import { CouncilOverlayType } from "@/components/CouncilOverlays";
 import { resumeMeeting } from "@/api/resumeMeeting";
 
@@ -63,7 +62,6 @@ export function useCouncilMachine({
 
     // Limits
     const [maximumPlayedIndex, setMaximumPlayedIndex] = useState(0);
-    const [meetingMaxLength, setMeetingMaxLength] = useState(globalOptions.conversationMaxLength);
 
     // States from lower down (Snippet management)
     const [currentSnippetIndex, setCurrentSnippetIndex] = useState(0);
@@ -129,14 +127,13 @@ export function useCouncilMachine({
                 meetingId: currentMeetingId,
                 creatorKey,
                 handRaised: isRaisedHand,
-                conversationMaxLength: meetingMaxLength
             });
             setConnectionError(false);
             setAttemptingReconnect(false);
         } else if (attemptingReconnect) {
             setAttemptingReconnect(false);
         }
-    }, [attemptingReconnect, creatorKey, currentMeetingId, isRaisedHand, meetingMaxLength]);
+    }, [attemptingReconnect, creatorKey, currentMeetingId, isRaisedHand]);
 
     const decodeReplayClip = useCallback(
         async (audioId: string, signal: AbortSignal): Promise<DecodedAudioMessage> => {
@@ -232,18 +229,15 @@ export function useCouncilMachine({
         if (councilState === 'human_input' || councilState === 'human_panelist') {// if human input was submitted
             setCouncilState('loading');
         } else if (councilState === 'playing' || councilState === 'waiting') {
-            if (playingNowIndex + 1 < meetingMaxLength) {
-                setPlayNextIndex(playingNowIndex + 1);
-                if (wait) {
-                    setCouncilState('waiting');
-                } else {
-                    setCouncilState('playing');
-                }
+            // Server drives the conversation, so we just increment the index
+            setPlayNextIndex(playingNowIndex + 1);
+            if (wait) {
+                setCouncilState('waiting');
             } else {
-                setCouncilState('max_reached');
+                setCouncilState('playing');
             }
         }
-    }, [councilState, playingNowIndex, meetingMaxLength]);
+    }, [councilState, playingNowIndex]);
 
     /* -------------------------------------------------------------------------- */
     /*                          Main State Machine Logic                          */
@@ -255,16 +249,16 @@ export function useCouncilMachine({
             waitTimer.current = null;
         }
 
-        // This will be triggered directly when text is set
-        if (councilState !== 'summary' && textMessages[playNextIndex]?.type === 'summary') {
-            setCouncilState("summary");
-            return;
-        }
-
         //If message is skipped
         if (textMessages[playNextIndex]?.type === 'skipped') {
             console.log(`[warning] skipped speaker ${textMessages[playNextIndex].speaker}`);
             setPlayNextIndex(current => current + 1);
+            return;
+        }
+
+        // This will be triggered directly when text is set
+        if (councilState !== 'summary' && textMessages[playNextIndex]?.type === 'summary') {
+            setCouncilState("summary");
             return;
         }
 
@@ -274,21 +268,23 @@ export function useCouncilMachine({
             return;
         }
 
-        //Live only states
-        if (creatorKey) {
+        // Conversation length cap (server-sent synthetic)
+        if (councilState !== 'max_reached' && textMessages[playNextIndex]?.type === 'max_reached') {
+            setCouncilState('max_reached');
+            return;
+        }
 
-            //If we have reached a human panelist (live only)
-            if (councilState !== 'human_panelist' && textMessages[playNextIndex]?.type === 'awaiting_human_panelist') {
-                setCouncilState('human_panelist');
-                return;
-            }
 
-            //If we have reached a human question (live only)
-            if (councilState !== 'human_input' && textMessages[playNextIndex]?.type === 'awaiting_human_question') {
-                setCouncilState('human_input');
-                return;
-            }
+        //If we have reached a human panelist (live only)
+        if (councilState !== 'human_panelist' && textMessages[playNextIndex]?.type === 'awaiting_human_panelist') {
+            setCouncilState('human_panelist');
+            return;
+        }
 
+        //If we have reached a human question (live only)
+        if (councilState !== 'human_input' && textMessages[playNextIndex]?.type === 'awaiting_human_question') {
+            setCouncilState('human_input');
+            return;
         }
 
 
@@ -348,9 +344,12 @@ export function useCouncilMachine({
                 }
                 break;
             case 'max_reached':
-                // Wait for transition effect?
                 if (activeOverlay !== "completed") {
                     setActiveOverlay("completed");
+                }
+                if (textMessages[playNextIndex]?.type !== 'max_reached') {
+                    removeOverlay();
+                    return;
                 }
                 break;
             default:
@@ -420,34 +419,47 @@ export function useCouncilMachine({
         setActiveOverlay(null);
 
         // Are these actually needed?
-        const pathSuffix = currentMeetingId > 0 ? String(currentMeetingId) : "new";
-        const pathname = `${meetingRoutesBase}/${pathSuffix}`;
-        navigate({ pathname, hash: "" }, { replace: true });
+        // const pathSuffix = currentMeetingId > 0 ? String(currentMeetingId) : "new";
+        // const pathname = `${meetingRoutesBase}/${pathSuffix}`;
+        // navigate({ pathname, hash: "" }, { replace: true });
 
+        //TODO rewrite this to be more DRY, shouldnt be as a side effect here in removeOverlay?
+        //TODO if reaching a synthetic message from the end of the previous one, going back should reset the audio but it doesnt at the moment
         if (councilState === 'max_reached') {
-            setPlayNextIndex(meetingMaxLength - 1);
+            // Reliably set the play state to the last content before the synthetic max_reached message
+            const mr = textMessages.findIndex((m) => m.type === 'max_reached');
+            const lastContent = mr >= 0 ? mr - 1 : textMessages.length - 1;
+            setPlayNextIndex(Math.max(0, lastContent));
             setCouncilState('playing');
         } else if (councilState === 'summary') {
-            setPlayNextIndex(meetingMaxLength - 2);
+            // Reliably set the play state to the last content before the  summary message
+            // Why 2?
+            const si = textMessages.findIndex((m) => m.type === 'summary');
+            const before = si > 0 ? si - 1 : Math.max(0, textMessages.length - 2);
+            setPlayNextIndex(Math.max(0, before));
             setCouncilState('playing');
         } else if (councilState === 'meeting_incomplete') {
-            setPlayNextIndex(playNextIndex - 1);
+            // Reliably set the play state to the last content before the synthetic meeting_incomplete message
+            const mi = textMessages.findIndex((m) => m.type === 'meeting_incomplete');
+            const lastContent = mi >= 0 ? mi - 1 : textMessages.length - 1;
+            setPlayNextIndex(Math.max(0, lastContent));
             setCouncilState('playing');
         }
     }
 
     function handleOnContinueMeetingLonger() {
-        removeOverlay();
-        setPlayNextIndex(meetingMaxLength);
-        setMeetingMaxLength((prev) => prev + globalOptions.extraMessageCount);
+        const mr = textMessages.findIndex((m) => m.type === 'max_reached');
+        setTextMessages(prevMessages => prevMessages.slice(0, mr));
+        setActiveOverlay(null);
         setPaused(false);
         if (socketRef.current) socketRef.current.emit("continue_conversation");
+        setCouncilState('loading');
     }
 
     function handleOnGenerateSummary() {
-        removeOverlay();
-        setMeetingMaxLength((prev) => prev + 1);
-        setPlayNextIndex(meetingMaxLength);
+        const mr = textMessages.findIndex((m) => m.type === 'max_reached');
+        setTextMessages(prevMessages => prevMessages.slice(0, mr));
+        setActiveOverlay(null);
         const browserDate = new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
         if (socketRef.current) socketRef.current.emit("wrap_up_meeting", { date: browserDate });
         setCouncilState('loading');
@@ -553,8 +565,7 @@ export function useCouncilMachine({
             playingNowIndex !== 0
         );
         setCanGoForward(
-            (councilState === 'playing' || councilState === 'waiting') &&
-            playingNowIndex < meetingMaxLength
+            (councilState === 'playing' || councilState === 'waiting')
         );
         if (!creatorKey) {
             setCanRaiseHand(false);
@@ -562,10 +573,9 @@ export function useCouncilMachine({
         }
         setCanRaiseHand(
             (councilState === 'playing' || councilState === 'waiting') &&
-            playingNowIndex === maximumPlayedIndex &&
-            playingNowIndex !== meetingMaxLength - 1
+            playingNowIndex === maximumPlayedIndex
         );
-    }, [councilState, playingNowIndex, meetingMaxLength, maximumPlayedIndex, creatorKey]);
+    }, [councilState, playingNowIndex, maximumPlayedIndex, creatorKey]);
 
     // Raise Hand Effect
     useEffect(() => {
@@ -626,7 +636,9 @@ export function useCouncilMachine({
         setIsMuted(!isMuted);
     }
 
-    const canExtendMeeting = (creatorKey !== undefined) && meetingMaxLength < globalOptions.meetingVeryMaxLength;
+    // TODO, make this nicer somehow?
+    const maxReachedMessage = textMessages.find((m) => m.type === "max_reached");
+    const canExtendMeeting = creatorKey !== undefined && (maxReachedMessage?.canContinue ?? false);
 
 
     return {

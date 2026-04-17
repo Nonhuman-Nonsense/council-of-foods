@@ -55,6 +55,7 @@ export const MockFactory = {
             show_trimmed: false,
             skipAudio: false,
             conversationMaxLength: 20,
+            meetingVeryMaxLength: 30,
             raiseHandPrompt: { en: "Raise Hand" },
             raiseHandInvitationLength: 50,
             finalizeMeetingPrompt: { en: "Finalize" },
@@ -86,6 +87,7 @@ export const MockFactory = {
             state: { alreadyInvited: false, humanName: "Frank" },
             conversation: [],
             audio: [],
+            conversationExtraSlots: 0,
         };
         return { ...defaults, ...restOverrides, topic };
     },
