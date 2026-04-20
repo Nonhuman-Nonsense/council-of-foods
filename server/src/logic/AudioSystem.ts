@@ -143,15 +143,15 @@ export class AudioSystem {
                 // Check if we have native words for all chunks
                 const hasNativeWords = providerWords.length === buffers.length && providerWords.every(w => w !== undefined);
 
-                if (hasNativeWords) {
+                // if (hasNativeWords) {
                     // Use native timings
-                    chunkWordsWithTimings = providerWords as Word[][];
+                    // chunkWordsWithTimings = providerWords as Word[][];
                     // Logger.info("AudioSystem", `Using native timings for message ${message.id}`);
-                } else {
+                // } else {
                     // Fallback to Whisper
                     // Note: getWhisperWords logic is stateless now.
                     chunkWordsWithTimings = await Promise.all(buffers.map(b => this.getWhisperWordsWrapper(b)));
-                }
+                // }
 
                 // Calculate durations
                 const durations = await Promise.all(buffers.map(async b => {
