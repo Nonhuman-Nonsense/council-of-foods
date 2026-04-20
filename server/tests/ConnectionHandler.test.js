@@ -37,7 +37,6 @@ describe('ConnectionHandler', () => {
             meeting: null,
             isLoopActive: false,
             handRaised: false,
-            extraMessageCount: 0,
             serverOptions: MockFactory.createServerOptions({ conversationMaxLength: 50 }),
             broadcaster: mockBroadcaster,
             audioSystem: mockAudioSystem,
@@ -71,8 +70,9 @@ describe('ConnectionHandler', () => {
 
             mockMeetingsCollection.findOne.mockResolvedValue(savedMeeting);
 
-            await handler.handleReconnection({ meetingId: '123' });
+            const ok = await handler.handleReconnection({ meetingId: 123, liveKey: savedMeeting.liveKey });
 
+            expect(ok).toBe(true);
             expect(mockContext.meeting._id).toBe(123);
             expect(mockContext.meeting.conversation).toEqual(savedMeeting.conversation);
             expect(mockContext.serverOptions).toBe(optsBefore);
@@ -84,9 +84,26 @@ describe('ConnectionHandler', () => {
         it('should broadcast notification if meeting not found', async () => {
             mockMeetingsCollection.findOne.mockResolvedValue(null);
 
-            await handler.handleReconnection({ meetingId: 'invalid123' });
+            const ok = await handler.handleReconnection({ meetingId: 999, liveKey: 'any' });
 
+            expect(ok).toBe(false);
             expect(mockBroadcaster.broadcastError).toHaveBeenCalledWith('Meeting not found', 404);
+            expect(mockContext.meeting).toBeNull();
+        });
+
+        it('should broadcast Forbidden when liveKey does not match', async () => {
+            const savedMeeting = MockFactory.createStoredMeeting({
+                _id: 123,
+                liveKey: 'real-key',
+                conversation: [],
+                audio: [],
+            });
+            mockMeetingsCollection.findOne.mockResolvedValue(savedMeeting);
+
+            const ok = await handler.handleReconnection({ meetingId: 123, liveKey: 'wrong-key' });
+
+            expect(ok).toBe(false);
+            expect(mockBroadcaster.broadcastError).toHaveBeenCalledWith('Forbidden', 403);
             expect(mockContext.meeting).toBeNull();
         });
 
@@ -106,8 +123,9 @@ describe('ConnectionHandler', () => {
 
             mockMeetingsCollection.findOne.mockResolvedValue(savedMeeting);
 
-            await handler.handleReconnection({ meetingId: '123' });
+            const ok = await handler.handleReconnection({ meetingId: 123, liveKey: savedMeeting.liveKey });
 
+            expect(ok).toBe(true);
             expect(mockAudioSystem.queueAudioGeneration).toHaveBeenCalledWith(
                 expect.objectContaining({ id: 'msg2' }),
                 expect.anything(),
@@ -116,6 +134,21 @@ describe('ConnectionHandler', () => {
                 mockContext.serverOptions
             );
             expect(mockAudioSystem.queueAudioGeneration).toHaveBeenCalledTimes(1);
+        });
+
+        it('loads meeting document with persisted conversationExtraSlots unchanged', async () => {
+            const savedMeeting = MockFactory.createStoredMeeting({
+                _id: 123,
+                conversationExtraSlots: 12,
+                conversation: [],
+                audio: [],
+            });
+            mockMeetingsCollection.findOne.mockResolvedValue(savedMeeting);
+
+            const ok = await handler.handleReconnection({ meetingId: 123, liveKey: savedMeeting.liveKey });
+
+            expect(ok).toBe(true);
+            expect(mockContext.meeting?.conversationExtraSlots).toBe(12);
         });
     });
 });

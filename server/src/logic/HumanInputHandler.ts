@@ -5,15 +5,6 @@ import { Logger } from "@utils/Logger.js";
 import { v4 as uuidv4 } from "uuid";
 import { splitSentences } from "@utils/textUtils.js";
 
-export interface HumanMessage {
-    text: string;
-    askParticular?: string;
-    speaker?: string;
-    id?: string;
-    type?: string;
-    sentences?: string[];
-}
-
 export interface InjectionMessage {
     text: string;
     date: string;
@@ -37,7 +28,7 @@ export class HumanInputHandler {
      * Validates that the state is 'awaiting_human_question' before processing.
      * Updates conversation w/ user text, triggers audio generation, and resumes the run loop.
      */
-    async handleSubmitHumanMessage(message: HumanMessage): Promise<void> {
+    async handleSubmitHumanMessage(message: Message): Promise<void> {
         const { manager } = this;
         const m = manager.meeting;
         if (!m) return;
@@ -102,7 +93,7 @@ export class HumanInputHandler {
      * Handles input from a 'human panelist' (a human participant acting as a character/expert).
      * Validates that the state is 'awaiting_human_panelist'.
      */
-    async handleSubmitHumanPanelist(message: HumanMessage): Promise<void> {
+    async handleSubmitHumanPanelist(message: Message): Promise<void> {
         const { manager } = this;
         const m = manager.meeting;
         if (!m) return;
@@ -151,7 +142,7 @@ export class HumanInputHandler {
     }
 
     /**
-     * Handles injection of "Interjection" events, primarily for prototype demonstrations (e.g. "Time passes").
+     * Handles injection of "Interjection" events, only on prototype
      */
     async handleSubmitInjection(message: InjectionMessage): Promise<void> {
         const { manager } = this;

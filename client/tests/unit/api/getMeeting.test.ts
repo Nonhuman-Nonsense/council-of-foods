@@ -6,7 +6,7 @@ describe("getMeeting", () => {
         vi.unstubAllGlobals();
     });
 
-    it("sends Authorization Bearer with the creator key", async () => {
+    it("sends Authorization Bearer with the live key", async () => {
         const fetchMock = vi.fn().mockResolvedValue(
             new Response(JSON.stringify({ _id: 7, topic: { id: "t", title: "T", description: "", prompt: "" } }), {
                 status: 200,
@@ -15,7 +15,7 @@ describe("getMeeting", () => {
         );
         vi.stubGlobal("fetch", fetchMock);
 
-        await getMeeting({ meetingId: 7, creatorKey: "secret-key" });
+        await getMeeting({ meetingId: 7, liveKey: "secret-key" });
 
         expect(fetchMock).toHaveBeenCalledWith(
             "/api/meetings/7",
@@ -36,7 +36,7 @@ describe("getMeeting", () => {
         );
         vi.stubGlobal("fetch", fetchMock);
 
-        await getMeeting({ meetingId: 1, creatorKey: "k", signal: ac.signal });
+        await getMeeting({ meetingId: 1, liveKey: "k", signal: ac.signal });
 
         expect(fetchMock).toHaveBeenCalledWith(
             "/api/meetings/1",

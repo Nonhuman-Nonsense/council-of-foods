@@ -1,4 +1,4 @@
-import type { Character, Topic } from "@shared/ModelTypes";
+import type { Character, Meeting, Topic } from "@shared/ModelTypes";
 import React, { useMemo, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router";
 import FoodItem from "./FoodItem";
@@ -9,36 +9,43 @@ import Output from "./Output";
 import ConversationControls from "./ConversationControls";
 import HumanInput from "./HumanInput";
 import { useDocumentVisibility, mapFoodIndex } from "@/utils";
+import { useTranslation } from "react-i18next";
 import { useCouncilMachine } from "@hooks/useCouncilMachine";
 import { getMeeting } from "@api/getMeeting.js";
-import type { Meeting } from "@shared/ModelTypes";
 
 interface CouncilProps {
-  creatorKey: string | null;
-  setUnrecoverableError: (error: boolean) => void;
+  liveKey: string | null;
+  setliveKey: (key: string) => void;
+  topic: Topic | null;
+  setTopic: (topic: Topic) => void;
+  setUnrecoverableError: (message: string) => void;
   setConnectionError: (error: boolean) => void;
   connectionError: boolean;
 }
 
 function Council({
-  creatorKey,
+  liveKey,
+  setliveKey,
+  topic,
+  setTopic,
   setUnrecoverableError,
   setConnectionError,
   connectionError
 }: CouncilProps) {
 
   const { meetingId } = useParams<{ meetingId: string }>();
+  const { t } = useTranslation();
 
   const navigate = useNavigate();
 
   const currentMeetingId = Number(meetingId);
 
-  const [topic, setTopic] = useState<Topic | null>(null);
   const [participants, setParticipants] = useState<Character[]>([]);
+  const [replayManifest, setReplayManifest] = useState<Meeting | null>(null);
 
   // Abort in-flight GET when deps change or on unmount (StrictMode-safe); same pattern as TanStack Query/SWR cancellation.
   useEffect(() => {
-    if (!creatorKey || !meetingId || !/^\d+$/.test(meetingId)) {
+    if (!meetingId || !/^\d+$/.test(meetingId)) {
       navigate("/");
       return;
     }
@@ -46,23 +53,27 @@ function Council({
     const ac = new AbortController();
     void (async () => {
       try {
-        const meeting: Meeting = await getMeeting({
+        const meeting = await getMeeting({
           meetingId: currentMeetingId,
-          creatorKey,
+          liveKey,
           signal: ac.signal,
         });
         if (ac.signal.aborted) return;
+        if (!liveKey) {
+          setReplayManifest(meeting);
+        }
         setTopic(meeting.topic);
         setParticipants(meeting.characters);
       } catch (error) {
         if (ac.signal.aborted) return;
         console.error(error);
-        setUnrecoverableError(true);
+        const msg =
+          error instanceof Error && error.message.trim().length > 0 ? error.message : t("error.1");
+        setUnrecoverableError(msg);
       }
     })();
-
     return () => ac.abort();
-  }, [creatorKey, meetingId, currentMeetingId, navigate, setUnrecoverableError]);
+  }, [liveKey, meetingId, currentMeetingId, setUnrecoverableError]);
 
   // Audio Context Ref
   const audioContext = useRef<AudioContext | null>(null);
@@ -77,7 +88,9 @@ function Council({
   // Hook Logic
   const { state, actions } = useCouncilMachine({
     currentMeetingId,
-    creatorKey: creatorKey ?? undefined,
+    liveKey: liveKey ?? undefined,
+    setliveKey,
+    replayManifest: liveKey ? null : replayManifest,
     topic,
     participants,
     audioContext,
@@ -114,10 +127,11 @@ function Council({
     handleOnSkipForward,
     handleOnSubmitHumanMessage,
     handleOnContinueMeetingLonger,
+    handleOnAttemptResume,
     handleOnGenerateSummary,
     handleHumanNameEntered,
     handleOnRaiseHand,
-    removeOverlay,
+    cancelOverlay,
     setCurrentSnippetIndex,
     setSentencesLength,
     toggleMute
@@ -213,8 +227,8 @@ function Council({
       </div>
       {councilState === 'loading' && <Loading />}
       <>
-        {(councilState === 'human_input' || councilState === 'human_panelist') && (
-          <HumanInput creatorKey={creatorKey!} foods={foods} isPanelist={(councilState === 'human_panelist')} currentSpeakerName={participants.find(p => p.id === currentSpeakerId)?.name || ""} onSubmitHumanMessage={handleOnSubmitHumanMessage} />
+        {liveKey && (councilState === 'human_input' || councilState === 'human_panelist') && (
+          <HumanInput liveKey={liveKey} foods={foods} isPanelist={(councilState === 'human_panelist')} currentSpeakerName={participants.find(p => p.id === currentSpeakerId)?.name || ""} onSubmitHumanMessage={handleOnSubmitHumanMessage} />
         )}
         <Output
           textMessages={textMessages}
@@ -253,10 +267,11 @@ function Council({
           <CouncilOverlays
             activeOverlay={activeOverlay}
             onContinue={handleOnContinueMeetingLonger}
+            onAttemptResume={handleOnAttemptResume}
             onWrapItUp={handleOnGenerateSummary}
             proceedWithHumanName={handleHumanNameEntered}
             canExtendMeeting={canExtendMeeting}
-            removeOverlay={removeOverlay}
+            cancelOverlay={cancelOverlay}
             summary={{ text: summary?.text || "" }}
             meetingId={currentMeetingId}
             participants={participants}

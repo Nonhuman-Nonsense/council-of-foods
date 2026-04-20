@@ -1,6 +1,6 @@
 
 import { renderHook, act } from '@testing-library/react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { useCouncilMachine } from '../../../src/hooks/useCouncilMachine';
 // import { useCouncilSocket } from "../../../src/hooks/useCouncilSocket"; // doing manual mock
 
@@ -15,7 +15,7 @@ vi.mock('react-router', () => ({
 }));
 
 vi.mock('react-i18next', () => ({
-    useTranslation: () => ({ i18n: { language: 'en' } }),
+    useTranslation: () => ({ i18n: { language: 'en' }, t: (key: string) => key }),
 }));
 
 vi.mock('@/routing', () => ({
@@ -29,9 +29,8 @@ vi.mock('@/routing', () => ({
 // Mock Global Options
 vi.mock('@/global-options-client.json', () => ({
     default: {
-        conversationMaxLength: 5,
-        extraMessageCount: 3,
-        meetingVeryMaxLength: 10
+        audio_speed: 1.1,
+        chairId: 'water',
     }
 }));
 
@@ -45,6 +44,20 @@ vi.mock('../../../src/hooks/useCouncilSocket', () => ({
         socketHandlers = props; // Capture handlers
         return { current: { emit: mockSocketEmit } }; // Return mock socket ref
     }
+}));
+
+// Mock resumeMeeting API for resume-flow tests.
+const mockResumeMeeting = vi.fn();
+vi.mock('@/api/resumeMeeting', () => ({
+    ResumeMeetingError: class ResumeMeetingError extends Error {
+        readonly status: number;
+        constructor(status: number, message: string) {
+            super(message);
+            this.name = 'ResumeMeetingError';
+            this.status = status;
+        }
+    },
+    resumeMeeting: (...args: any[]) => mockResumeMeeting(...args),
 }));
 
 describe('useCouncilMachine', () => {
@@ -65,7 +78,8 @@ describe('useCouncilMachine', () => {
         };
         defaultProps = {
             currentMeetingId: 0,
-            creatorKey: 'test-creator-key',
+            liveKey: 'test-live-key',
+            replayManifest: null,
             topic: { id: 't', title: 'T', description: 'D', prompt: 'Test Topic' },
             participants: [],
             audioContext: audioContextMock,
@@ -144,33 +158,17 @@ describe('useCouncilMachine', () => {
         // Note: The hook state update happens after await decodeAudioData.
     });
 
-    it('navigates correctly on removeOverlay', () => {
+    it('cancelOverlay does not navigate (routing handled elsewhere)', () => {
         const { result } = renderHook(() =>
             useCouncilMachine({ ...defaultProps, currentMeetingId: 42 } as any)
         );
         mockNavigate.mockClear();
 
         act(() => {
-            result.current.actions.removeOverlay();
+            result.current.actions.cancelOverlay();
         });
 
-        expect(mockNavigate).toHaveBeenCalledWith(
-            { pathname: '/meeting/42', hash: '' },
-            { replace: true }
-        );
-    });
-
-    it('navigates to "new" if no current meeting id on removeOverlay', () => {
-        const { result } = renderHook(() => useCouncilMachine(defaultProps as any));
-
-        act(() => {
-            result.current.actions.removeOverlay();
-        });
-
-        expect(mockNavigate).toHaveBeenCalledWith(
-            { pathname: '/meeting/new', hash: '' },
-            { replace: true }
-        );
+        expect(mockNavigate).not.toHaveBeenCalled();
     });
 
     it('pauses audio context when isPaused becomes true', () => {
@@ -201,6 +199,76 @@ describe('useCouncilMachine', () => {
     });
 
     // --- Human Panelist Tests ---
+
+    it('enters max_reached when conversation ends with max_reached sentinel', () => {
+        const { result } = renderHook(() => useCouncilMachine(defaultProps as any));
+
+        act(() => {
+            if (socketHandlers.onConversationUpdate) {
+                socketHandlers.onConversationUpdate([{ type: 'max_reached', canContinue: true }]);
+            }
+        });
+
+        expect(result.current.state.councilState).toBe('max_reached');
+        expect(result.current.state.activeOverlay).toBe('completed');
+        expect(result.current.state.canExtendMeeting).toBe(true);
+    });
+
+    it('canExtendMeeting respects canContinue false on max_reached', () => {
+        const { result } = renderHook(() => useCouncilMachine(defaultProps as any));
+
+        act(() => {
+            if (socketHandlers.onConversationUpdate) {
+                socketHandlers.onConversationUpdate([
+                    { id: 'm0', type: 'message', text: 'x', speaker: 'water' },
+                    { type: 'max_reached', canContinue: false },
+                ]);
+            }
+        });
+
+        expect(result.current.state.canExtendMeeting).toBe(false);
+    });
+
+    it('handleOnContinueMeetingLonger drops max_reached locally and emits continue_conversation', () => {
+        const { result } = renderHook(() => useCouncilMachine(defaultProps as any));
+        mockSocketEmit.mockClear();
+        act(() => {
+            if (socketHandlers.onConversationUpdate) {
+                socketHandlers.onConversationUpdate([
+                    { id: 'm0', type: 'message', text: 'x', speaker: 'water' },
+                    { type: 'max_reached', canContinue: true },
+                ]);
+            }
+        });
+        act(() => {
+            result.current.actions.handleOnContinueMeetingLonger();
+        });
+        expect(result.current.state.textMessages.map((m) => m.type)).toEqual(['message']);
+        expect(mockSocketEmit).toHaveBeenCalledWith('continue_conversation');
+        expect(result.current.state.councilState).toBe('loading');
+    });
+
+    it('handleOnGenerateSummary drops max_reached locally and emits wrap_up_meeting', () => {
+        const { result } = renderHook(() => useCouncilMachine(defaultProps as any));
+        mockSocketEmit.mockClear();
+        act(() => {
+            if (socketHandlers.onConversationUpdate) {
+                socketHandlers.onConversationUpdate([
+                    { id: 'm0', type: 'message', text: 'x', speaker: 'water' },
+                    { type: 'max_reached', canContinue: false },
+                ]);
+            }
+        });
+        act(() => {
+            result.current.actions.handleOnGenerateSummary();
+        });
+        expect(result.current.state.textMessages.map((m) => m.type)).toEqual(['message']);
+        expect(mockSocketEmit).toHaveBeenCalledWith(
+            'wrap_up_meeting',
+            expect.objectContaining({ date: expect.any(String) }),
+        );
+        expect(result.current.state.councilState).toBe('loading');
+    });
 
     it('transitions to human_panelist state when awaiting_human_panelist message is next', () => {
         const { result } = renderHook(() => useCouncilMachine(defaultProps as any));
@@ -248,6 +316,7 @@ describe('useCouncilMachine', () => {
         // 3. Verify Emission
         // Expect "submit_human_panelist" with correct structure
         expect(mockSocketEmit).toHaveBeenCalledWith('submit_human_panelist', {
+            type: 'panelist',
             text: 'My Panelist Response',
             speaker: 'human-panelist-1' // Should use the speaker ID from the awaiting message
         });
@@ -286,8 +355,182 @@ describe('useCouncilMachine', () => {
         });
 
         expect(mockSocketEmit).toHaveBeenCalledWith('attempt_reconnection', expect.objectContaining({
-            meetingId: 999
+            meetingId: 999,
+            liveKey: 'test-live-key',
         }));
+    });
+
+    // --- Resume flow ---
+    //
+    // The resume path is a one-shot handoff: strip the synthetic `meeting_incomplete`
+    // sentinel, PUT `/api/meetings/:id`, replace `textMessages` with the server's
+    // sanitized conversation, kick off any missing audio in the background, and lift
+    // the rotated `liveKey` via `setliveKey` so the socket effect flips us live.
+    // Errors fall through to `setUnrecoverableError(message)` — there is no
+    // per-status UI state inside the hook.
+
+    describe('handleOnAttemptResume', () => {
+        // Stub global fetch so the background audio prefetch triggered by the happy path
+        // doesn't raise ERR_INVALID_URL in Node (which would call setUnrecoverableError).
+        // The actual clip payload doesn't matter — only that it resolves successfully.
+        beforeEach(() => {
+            const payload = { id: 'x', type: 'chat', audioBase64: btoa('raw'), sentences: [] };
+            vi.stubGlobal('fetch', vi.fn().mockResolvedValue(
+                new Response(JSON.stringify(payload), {
+                    status: 200,
+                    headers: { 'Content-Type': 'application/json' },
+                })
+            ));
+            audioContextMock.current.decodeAudioData.mockResolvedValue('fake-buffer');
+        });
+
+        afterEach(() => {
+            vi.unstubAllGlobals();
+        });
+
+        // Seed a replay buffer that ends with the synthetic `meeting_incomplete` sentinel,
+        // as if the replay FSM had driven the hook into the `meeting_incomplete` state.
+        function seedReplayAtIncomplete() {
+            act(() => {
+                if (socketHandlers.onConversationUpdate) {
+                    socketHandlers.onConversationUpdate([
+                        { id: 'a', text: 'Hi', speaker: 'banana', type: 'message' },
+                        { id: 'b', text: 'Bye', speaker: 'apple', type: 'message' },
+                        { id: 'incomplete', text: '', speaker: '', type: 'meeting_incomplete' },
+                    ]);
+                }
+            });
+        }
+
+        it('flips to live by calling setliveKey on success and drops the meeting_incomplete sentinel', async () => {
+            const setliveKey = vi.fn();
+            const { result } = renderHook(() =>
+                useCouncilMachine({ ...defaultProps, liveKey: undefined, setliveKey, currentMeetingId: 77 } as any)
+            );
+            seedReplayAtIncomplete();
+
+            mockResumeMeeting.mockResolvedValueOnce({
+                liveKey: 'rotated-key',
+                meeting: {
+                    _id: 77,
+                    topic: { id: 't', title: 'T', description: '', prompt: '' },
+                    characters: [],
+                    conversation: [
+                        { id: 'a', text: 'Hi', speaker: 'banana', type: 'message' },
+                        { id: 'b', text: 'Bye', speaker: 'apple', type: 'message' },
+                    ],
+                    audio: ['a', 'b'],
+                },
+            });
+
+            await act(async () => {
+                await result.current.actions.handleOnAttemptResume();
+            });
+
+            expect(mockResumeMeeting).toHaveBeenCalledWith({ meetingId: 77 });
+            expect(setliveKey).toHaveBeenCalledWith('rotated-key');
+            expect(result.current.state.textMessages.map((m: any) => m.id)).toEqual(['a', 'b']);
+        });
+
+        it('picks up server-side messages that were generated past maximumPlayedIndex', async () => {
+            const setliveKey = vi.fn();
+            const { result } = renderHook(() =>
+                useCouncilMachine({ ...defaultProps, liveKey: undefined, setliveKey, currentMeetingId: 1 } as any)
+            );
+            seedReplayAtIncomplete();
+
+            mockResumeMeeting.mockResolvedValueOnce({
+                liveKey: 'k',
+                meeting: {
+                    _id: 1,
+                    topic: { id: 't', title: 'T', description: '', prompt: '' },
+                    characters: [],
+                    conversation: [
+                        { id: 'a', text: 'Hi', speaker: 'banana', type: 'message' },
+                        { id: 'b', text: 'Bye', speaker: 'apple', type: 'message' },
+                        { id: 'c', text: 'New', speaker: 'cherry', type: 'message' },
+                    ],
+                    audio: ['a', 'b', 'c'],
+                },
+            });
+
+            await act(async () => {
+                await result.current.actions.handleOnAttemptResume();
+            });
+
+            expect(result.current.state.textMessages.map((m: any) => m.id)).toEqual(['a', 'b', 'c']);
+        });
+
+        it('on API failure does not flip to live and surfaces an unrecoverable error', async () => {
+            const setliveKey = vi.fn();
+            const setUnrecoverableError = vi.fn();
+            const { result } = renderHook(() =>
+                useCouncilMachine({
+                    ...defaultProps,
+                    liveKey: undefined,
+                    setliveKey,
+                    setUnrecoverableError,
+                    currentMeetingId: 5,
+                } as any)
+            );
+            seedReplayAtIncomplete();
+
+            mockResumeMeeting.mockRejectedValueOnce(new Error('anything'));
+
+            await act(async () => {
+                await result.current.actions.handleOnAttemptResume();
+            });
+
+            expect(setliveKey).not.toHaveBeenCalled();
+            expect(setUnrecoverableError).toHaveBeenCalledWith('anything');
+        });
+    });
+
+    it('reports summary index when summary is shown (after preceding message finishes)', async () => {
+        vi.useFakeTimers();
+        const { result } = renderHook(() => useCouncilMachine({ ...defaultProps, currentMeetingId: 100 } as any));
+
+        // 1. Initial message and audio to start playing index 0
+        audioContextMock.current.decodeAudioData.mockResolvedValue('fake-buffer');
+        await act(async () => {
+            if (socketHandlers.onConversationUpdate) {
+                socketHandlers.onConversationUpdate([
+                    { id: '1', text: 'Hello', speaker: 'banana', type: 'message' }
+                ]);
+            }
+            if (socketHandlers.onAudioUpdate) {
+                socketHandlers.onAudioUpdate({ id: '1', audio: new ArrayBuffer(8) });
+            }
+        });
+
+        // 2. Add Summary via conversation update
+        act(() => {
+            if (socketHandlers.onConversationUpdate) {
+                socketHandlers.onConversationUpdate([
+                    { id: '1', text: 'Hello', speaker: 'banana', type: 'message' },
+                    { id: 'sum1', text: 'Summary', speaker: 'water', type: 'summary' }
+                ]);
+            }
+        });
+
+        // Clear any reports for index 0
+        act(() => { vi.advanceTimersByTime(400); });
+        mockSocketEmit.mockClear();
+
+        // 3. Finish playing message 0 -> playNextIndex becomes 1
+        act(() => {
+            result.current.actions.handleOnFinishedPlaying();
+        });
+
+        // Machine sees summary at playNextIndex=1, sets 'summary' state, triggers effect
+        act(() => {
+            vi.advanceTimersByTime(400);
+        });
+
+        // Should now have reported index 1
+        expect(mockSocketEmit).toHaveBeenCalledWith('report_maximum_played_index', { index: 1 });
+
+        vi.useRealTimers();
     });
 });
 

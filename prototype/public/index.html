@@ -178,7 +178,7 @@
               <button v-if="status === 'PAUSED'" class="primary" @click="resumeConversation">Resume</button>
               <button v-if="status === 'ACTIVE' || status === 'CONNECTING'" @click="pauseConversation">Pause</button>
               <button v-if="status === 'PAUSED' || status === 'ENDED'" @click="restartConversation">Restart</button>
-              <button v-if="status === 'ENDED'" class="primary" @click="continueConversation">Keep Going</button>
+              <button v-if="status === 'ENDED' && canContinueMeeting" class="primary" @click="continueConversation">Keep Going</button>
 
               <div style="border-left: 1px solid var(--border-color); margin: 0 5px;"></div>
 
@@ -192,8 +192,8 @@
                 {{ audioController && audioController.isActive && !audioController.isPaused ? '⏸' : '▶' }}
               </button>
               <button class="icon-btn" @click="audioController.next()"
-                :disabled="!audioController || !audioController.isActive || audioController.isPaused || audioController.currentIndex >= conversation.length - 1"
-                :style="{ opacity: (!audioController || !audioController.isActive || audioController.isPaused || audioController.currentIndex >= conversation.length - 1) ? 0.3 : 1 }">⏭</button>
+                :disabled="!audioController || !audioController.isActive || audioController.isPaused || lastPlayableIndex < 0 || audioController.currentIndex >= lastPlayableIndex"
+                :style="{ opacity: (!audioController || !audioController.isActive || audioController.isPaused || lastPlayableIndex < 0 || audioController.currentIndex >= lastPlayableIndex) ? 0.3 : 1 }">⏭</button>
 
               <div style="border-left: 1px solid var(--border-color); margin: 0 5px;"
                 v-if="!localOptions.rightSidebarOpen"></div>
@@ -221,14 +221,23 @@
               Ready to start.
             </div>
 
-            <div v-for="(turn, index) in conversation" :key="turn.id" :id="turn.id" class="chat-bubble" :class="{ 
+            <div v-for="(turn, index) in conversation" :key="turn.id || 'idx-' + index" :id="turn.id || ('bubble-' + index)" class="chat-bubble" :class="{ 
                         'user': false, 
                         'chair': turn.speaker === 'Chair', 
                         'character': turn.speaker !== 'Chair',
+                        'system': turn.type === 'max_reached',
                         'playing': audioController && audioController.currentIndex === index
                       }" style="margin-bottom: 10px; position: relative;"
               v-show="localOptions.showTrimmed || turn.type !== 'skipped'">
 
+              <template v-if="turn.type === 'max_reached'">
+                <div style="color: var(--text-secondary); font-size: 0.95em;">
+                  Conversation reached the current length limit.
+                  <span v-if="turn.canContinue === false"> Absolute cap reached — continue is not available.</span>
+                </div>
+              </template>
+
+              <template v-else>
               <!-- Download Button -->
               <button class="icon-btn" @click.stop="downloadMessageAudio(index)" title="Download Audio"
                 v-if="audioController && audioController.hasAudio(index)"
@@ -240,29 +249,27 @@
                 </svg>
               </button>
 
-              <!-- Loading Spinner -->
+              <!-- Loading Spinner (no audio for synthetic rows like max_reached — handled above) -->
               <div class="spinner"
                 v-if="!options.skipAudio && turn.type !== 'skipped' && (!audioController || !audioController.hasItem(index))">
               </div>
 
-              <div class="bubble-header">{{ turn.speaker }}</div>
+              <div class="bubble-header">{{ turn.speaker || '—' }}</div>
 
               <div v-if="localOptions.showTrimmed && turn.pretrimmed" class="trimmed"
                 style="color: var(--text-secondary); font-size: 0.9em; margin-bottom: 5px;"
                 v-html="turn.pretrimmed.split('\n').join('<br>')"></div>
 
-              <div v-html="turn.text.split('\n').join('<br>')"></div>
+              <div v-if="turn.text" v-html="turn.text.split('\n').join('<br>')"></div>
 
               <div v-if="localOptions.showTrimmed && turn.trimmed" class="trimmed"
                 style="color: var(--text-secondary); font-size: 0.9em; margin-top: 5px;"
                 v-html="turn.trimmed.split('\n').join('<br>')"></div>
+              </template>
             </div>
 
             <div v-if="status === 'CONNECTING'" class="loader" style="text-align: center; padding: 20px;">Thinking...
             </div>
-            <div v-if="endMessage"
-              style="text-align: center; padding: 20px; font-weight: bold; color: var(--success-color);">{{ endMessage
-              }}</div>
             <div v-if="injectionStatus"
               style="text-align: center; padding: 10px; font-style: italic; color: var(--accent-color);">
               {{ injectionStatus }}
@@ -352,6 +359,10 @@
             <label style="font-size: 11px;">Extra Msg</label>
             <input type="number" v-model.number="options.extraMessageCount" class="input-full">
           </div>
+        </div>
+        <div class="section-group">
+          <label style="font-size: 11px;">Very max (absolute cap)</label>
+          <input type="number" v-model.number="options.meetingVeryMaxLength" class="input-full">
         </div>
         <hr>
         <div class="section-group">
@@ -536,7 +547,7 @@
 
   <script src="Sortable.min.js"></script>
   <script src="audio_controller.js"></script>
-  <script src="prototype_client.js?v=2.1"></script>
+  <script src="prototype_client.js?v=2.2"></script>
 </body>
 
 </html>

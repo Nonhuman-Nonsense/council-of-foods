@@ -40,16 +40,16 @@ function MainOverlays({ topic, onReset, onCloseOverlay }: MainOverlaysProps): Re
     const hash = location.hash;
     if (hash) {
       if (!["#about", "#contact", "#reset", "#settings", '#warning'].includes(hash)) {
-        removeOverlay();
+        cancelOverlay();
       } else if (!isMeetingPath(location.pathname) && ["#settings"].includes(hash)) {
-        removeOverlay();
+        cancelOverlay();
       } else if (isRootPath(location.pathname) && ["#reset", '#warning'].includes(hash)) {
-        removeOverlay();
+        cancelOverlay();
       }
     }
   }, [location]);
 
-  function removeOverlay(): void {
+  function cancelOverlay(): void {
     navigate({ hash: "" });
     onCloseOverlay();
   }
@@ -67,20 +67,20 @@ function MainOverlays({ topic, onReset, onCloseOverlay }: MainOverlaysProps): Re
           <SelectTopic
             currentTopic={topic ?? undefined}
             onReset={onReset}
-            onCancel={removeOverlay}
+            onCancel={cancelOverlay}
             onContinueForward={() => { }}
           />
         );
       case "#reset":
         return <ResetWarning
           onReset={() => onReset()}
-          onCancel={removeOverlay}
+          onCancel={cancelOverlay}
         />;
       case "#warning":
         return <ResetWarning
           message={t('reset.lang')}
           onReset={() => onReset()}
-          onCancel={removeOverlay}
+          onCancel={cancelOverlay}
         />;
       default:
         return null; // No overlay content if no section is active
@@ -90,7 +90,7 @@ function MainOverlays({ topic, onReset, onCloseOverlay }: MainOverlaysProps): Re
   return (
     <Overlay isActive={showOverlay}>
       {showOverlay &&
-        <OverlayWrapper showX={true} removeOverlay={removeOverlay}>
+        <OverlayWrapper showX={true} cancelOverlay={cancelOverlay}>
           {renderOverlayContent()}
         </OverlayWrapper>
       }

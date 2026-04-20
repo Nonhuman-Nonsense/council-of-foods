@@ -14,18 +14,18 @@ import { Icons } from "@icons";
  *
  * @param {Object} props
  * @param {boolean} props.showX - Whether to show the close "X" button.
- * @param {Function} props.removeOverlay - Callback function to close the overlay.
+ * @param {Function} props.cancelOverlay - Callback function to close the overlay.
  * @param {React.ReactNode} props.children - The overlay content to wrap.
  */
 interface OverlayWrapperProps {
   showX?: boolean;
-  removeOverlay: () => void;
+  cancelOverlay: () => void;
   children: React.ReactNode;
 }
 
 const OverlayWrapper: React.FC<OverlayWrapperProps> = ({
   showX,
-  removeOverlay,
+  cancelOverlay,
   children
 }) => {
   const isMobile = useMobile();
@@ -84,22 +84,22 @@ const OverlayWrapper: React.FC<OverlayWrapperProps> = ({
         <div style={closeInnerStyle}>
           <div
             style={clickerStyle}
-            onClick={removeOverlay}
+            onClick={cancelOverlay}
           />
           <div style={middleColumn}>
             <div
               style={clickerStyle}
-              onClick={removeOverlay}
+              onClick={cancelOverlay}
             />
             {children}
             <div
               style={clickerStyle}
-              onClick={removeOverlay}
+              onClick={cancelOverlay}
             />
           </div>
           <div
             style={clickerStyle}
-            onClick={removeOverlay}
+            onClick={cancelOverlay}
           />
         </div>
       </div>
@@ -107,7 +107,7 @@ const OverlayWrapper: React.FC<OverlayWrapperProps> = ({
         <Icons.close
           aria-label="close"
           style={closeStyle}
-          onClick={removeOverlay}
+          onClick={cancelOverlay}
         />
       )}
     </>

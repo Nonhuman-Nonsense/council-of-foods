@@ -19,19 +19,30 @@ vi.mock('../../../src/components/ConversationControls', () => ({
     )
 }));
 
+const mockNavigate = vi.fn();
+
 // Mock React Router
 vi.mock('react-router', () => ({
     useLocation: vi.fn().mockReturnValue({ hash: '', pathname: '/en/meeting/123', state: null }),
-    useNavigate: vi.fn(),
+    useNavigate: () => mockNavigate,
     useParams: vi.fn().mockReturnValue({ meetingId: '123' }),
 }));
 
 vi.mock('@api/getMeeting.js', () => ({
-    getMeeting: vi.fn().mockResolvedValue({
-        topic: { id: 't', title: 'T', description: 'D', prompt: 'p' },
-        characters: [],
-    }),
+    getMeeting: (...args: any[]) => mockGetMeeting(...args),
 }));
+
+const mockGetMeeting = vi.fn().mockResolvedValue({
+    _id: 123,
+    topic: { id: 't', title: 'T', description: 'D', prompt: 'p' },
+    characters: [],
+    conversation: [],
+    audio: [],
+    state: { alreadyInvited: false, humanName: undefined },
+    date: '2026-01-01',
+    language: 'en',
+});
+
 
 // Mock Utils
 vi.mock('@/utils', () => ({
@@ -89,7 +100,7 @@ const mockCouncilStateMachine = {
         handleOnGenerateSummary: vi.fn(),
         handleHumanNameEntered: vi.fn(),
         handleOnRaiseHand: vi.fn(),
-        removeOverlay: vi.fn(),
+        cancelOverlay: vi.fn(),
         setHumanName: vi.fn(),
         setIsRaisedHand: vi.fn(),
         setCurrentSnippetIndex: vi.fn(),
@@ -106,8 +117,10 @@ vi.mock('../../../src/hooks/useCouncilMachine', () => ({
 
 describe('Council Component', () => {
     const defaultProps = {
-        lang: 'en',
-        creatorKey: 'test-creator',
+        liveKey: 'test-creator',
+        setliveKey: vi.fn(),
+        topic: { id: 't', title: 'T', description: 'D', prompt: 'p' },
+        setTopic: vi.fn(),
         setUnrecoverableError: vi.fn(),
         setConnectionError: vi.fn(),
         connectionError: false
@@ -115,6 +128,7 @@ describe('Council Component', () => {
 
     beforeEach(() => {
         vi.clearAllMocks();
+        mockNavigate.mockClear();
         // Reset mock state defaults if needed
         mockCouncilStateMachine.state.isMuted = false;
     });
@@ -131,6 +145,18 @@ describe('Council Component', () => {
 
         // Verify action called
         expect(mockToggleMute).toHaveBeenCalled();
+    });
+
+    it('loads replay manifest when there is no liveKey', async () => {
+        render(<Council {...defaultProps} liveKey={null} />);
+
+        await vi.waitFor(() => {
+            expect(mockGetMeeting).toHaveBeenCalledWith(
+                expect.objectContaining({ meetingId: 123 }),
+            );
+        });
+
+        expect(mockNavigate).not.toHaveBeenCalledWith('/');
     });
 
     it('passes isMuted state correctly to ConversationControls', () => {
