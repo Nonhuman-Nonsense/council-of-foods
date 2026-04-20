@@ -7,6 +7,9 @@ import type { PublicAudioClipResponse, DecodedAudioMessage } from "@shared/Socke
 import { CouncilOverlayType } from "@/components/CouncilOverlays";
 import { resumeMeeting } from "@/api/resumeMeeting";
 
+/** Keep the loading UI visible this long on first paint so the Loading animation can run. */
+const MIN_INITIAL_LOADING_DISPLAY_MS = 2000;
+
 export interface UseCouncilMachineProps {
     currentMeetingId: number;
     creatorKey: string | undefined;
@@ -74,6 +77,17 @@ export function useCouncilMachine({
     // Refs
     const waitTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const maximumPlayedProgressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    /** After mount / meeting change, blocks leaving `loading` until this is true (first ~2s only). */
+    const [initialLoadingMinElapsed, setInitialLoadingMinElapsed] = useState(false);
+    useEffect(() => {
+        setInitialLoadingMinElapsed(false);
+        const id = window.setTimeout(
+            () => setInitialLoadingMinElapsed(true),
+            MIN_INITIAL_LOADING_DISPLAY_MS,
+        );
+        return () => window.clearTimeout(id);
+    }, [currentMeetingId]);
 
     // Derived State
     const [canGoBack, setCanGoBack] = useState(false);
@@ -290,7 +304,7 @@ export function useCouncilMachine({
 
         switch (councilState) {
             case 'loading':
-                if (tryToFindTextAndAudio()) {
+                if (tryToFindTextAndAudio() && initialLoadingMinElapsed) {
                     setPlayingNowIndex(playNextIndex);
                     setCouncilState("playing");
                 }
@@ -355,7 +369,7 @@ export function useCouncilMachine({
             default:
                 break;
         }
-    }, [councilState, textMessages, audioMessages, playingNowIndex, playNextIndex, activeOverlay, creatorKey, summary]);
+    }, [councilState, textMessages, audioMessages, playingNowIndex, playNextIndex, activeOverlay, creatorKey, summary, initialLoadingMinElapsed]);
 
     /* -------------------------------------------------------------------------- */
     /*                                 Actions                                    */
