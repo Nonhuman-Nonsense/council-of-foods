@@ -30,7 +30,7 @@ function Incomplete({ onAttemptResume, onNevermind }: IncompleteProps): React.Re
         <button
           onClick={onNevermind}
           style={{ marginLeft: "9px" }}
-        >{t('completed.4')}</button>
+        >{t('incomplete.4')}</button>
         <div style={{ height: "60px" }} />
       </div>
     </div>

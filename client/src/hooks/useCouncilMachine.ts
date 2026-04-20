@@ -494,7 +494,8 @@ export function useCouncilMachine({
 
         // Go to loading state, and remove the overlay once the state is set
         setCouncilState(("loading"));
-        removeOverlay();
+        setActiveOverlay(null);
+        setPaused(false);
 
 
         try {
