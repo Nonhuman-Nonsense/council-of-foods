@@ -2,18 +2,18 @@ import type { ClientKeyResponse } from "@shared/SocketTypes";
 
 export async function getClientKey({
   language,
-  creatorKey,
+  liveKey,
   signal,
 }: {
   language: string;
-  creatorKey: string;
+  liveKey: string;
   signal?: AbortSignal;
 }): Promise<ClientKeyResponse> {
   const res = await fetch("/api/clientkey", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "Authorization": `Bearer ${creatorKey}`,
+      "Authorization": `Bearer ${liveKey}`,
     },
     body: JSON.stringify({ language }),
     signal,

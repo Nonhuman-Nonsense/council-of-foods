@@ -11,9 +11,9 @@ vi.mock('../../../src/utils', () => ({
 
 describe('OverlayWrapper', () => {
     it('renders children correctly', () => {
-        const removeOverlay = vi.fn();
+        const cancelOverlay = vi.fn();
         render(
-            <OverlayWrapper removeOverlay={removeOverlay}>
+            <OverlayWrapper cancelOverlay={cancelOverlay}>
                 <div data-testid="child-content">Child Content</div>
             </OverlayWrapper>
         );
@@ -22,9 +22,9 @@ describe('OverlayWrapper', () => {
     });
 
     it('renders close button when showX is true', () => {
-        const removeOverlay = vi.fn();
+        const cancelOverlay = vi.fn();
         render(
-            <OverlayWrapper showX={true} removeOverlay={removeOverlay}>
+            <OverlayWrapper showX={true} cancelOverlay={cancelOverlay}>
                 <div>Content</div>
             </OverlayWrapper>
         );
@@ -34,9 +34,9 @@ describe('OverlayWrapper', () => {
     });
 
     it('does not render close button when showX is false', () => {
-        const removeOverlay = vi.fn();
+        const cancelOverlay = vi.fn();
         render(
-            <OverlayWrapper showX={false} removeOverlay={removeOverlay}>
+            <OverlayWrapper showX={false} cancelOverlay={cancelOverlay}>
                 <div>Content</div>
             </OverlayWrapper>
         );
@@ -45,20 +45,20 @@ describe('OverlayWrapper', () => {
         expect(closeButton).not.toBeInTheDocument();
     });
 
-    it('calls removeOverlay when close button is clicked', () => {
-        const removeOverlay = vi.fn();
+    it('calls cancelOverlay when close button is clicked', () => {
+        const cancelOverlay = vi.fn();
         render(
-            <OverlayWrapper showX={true} removeOverlay={removeOverlay}>
+            <OverlayWrapper showX={true} cancelOverlay={cancelOverlay}>
                 <div>Content</div>
             </OverlayWrapper>
         );
 
         const closeButton = screen.getByLabelText('close');
         fireEvent.click(closeButton);
-        expect(removeOverlay).toHaveBeenCalledTimes(1);
+        expect(cancelOverlay).toHaveBeenCalledTimes(1);
     });
 
     // Note: Testing the background clicks ('clickerStyle' divs) is a bit tricky relying on layout,
     // but we can check if there are clickable elements that trigger the function.
-    // The component structure has multiple divs with onClick=removeOverlay.
+    // The component structure has multiple divs with onClick=cancelOverlay.
 });

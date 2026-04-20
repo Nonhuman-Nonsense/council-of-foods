@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import TextOutput from "./TextOutput";
 import AudioOutput from "./AudioOutput";
 import { Message } from "@shared/ModelTypes";
-import { DecodedAudioMessage } from "../hooks/useCouncilMachine";
+import type { DecodedAudioMessage } from "@shared/SocketTypes";
 
 /**
  * Output Component

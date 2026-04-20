@@ -14,6 +14,7 @@ import { AVAILABLE_LANGUAGES } from '@shared/AvailableLanguages.js';
 
 import { verifyGoogleCredentials } from '@utils/StartupChecks.js';
 import { registerMeetingRoutes } from '@api/meetingRoutes.js';
+import { registerAudioRoutes } from '@api/audioRoutes.js';
 
 const environment: string = config.NODE_ENV;
 
@@ -40,6 +41,7 @@ app.get('/health', (_req: Request, res: Response) => { res.sendStatus(200); });
 
 // Api routes run before static files
 registerMeetingRoutes(app, environment);
+registerAudioRoutes(app);
 
 if (environment === "prototype") {
   app.use(express.static(path.join(process.cwd(), "../prototype/", "public")));

@@ -30,9 +30,7 @@ export class SocketBroadcaster implements IMeetingBroadcaster {
         this.socket.emit("conversation_error", { message, code });
     }
 
-    broadcastWarning(message: string, code: number, error?: Error): void {
-        // For now we use the same socket event for warnings and errors
-        // But warnings include error information (connectiong warnings etc.)
-        this.socket.emit("conversation_error", { message, code, error });
+    broadcastWarning(message: string, code: number, _error?: Error): void {
+        this.socket.emit("conversation_error", { message, code });
     }
 }

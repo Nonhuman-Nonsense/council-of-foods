@@ -18,14 +18,14 @@ describe('MeetingManager - Concurrency & Isolation', () => {
 
         const doc1 = MockFactory.createStoredMeeting({
             _id: 201,
-            creatorKey: 'key-201',
+            liveKey: 'key-201',
             topic: MockFactory.createTopic({ id: 't1', title: 'Topic 1', description: 'd', prompt: 'p' }),
             characters,
             conversation: [],
         });
         const doc2 = MockFactory.createStoredMeeting({
             _id: 202,
-            creatorKey: 'key-202',
+            liveKey: 'key-202',
             topic: MockFactory.createTopic({ id: 't2', title: 'Topic 2', description: 'd', prompt: 'p' }),
             characters,
             conversation: [],
@@ -47,13 +47,13 @@ describe('MeetingManager - Concurrency & Isolation', () => {
     it('should maintain separate state for multiple concurrent meetings', async () => {
         await p1.manager.meetingLifecycleHandler.handleStartConversation({
             meetingId: 201,
-            creatorKey: 'key-201',
+            liveKey: 'key-201',
         });
         const id1 = p1.manager.meeting._id;
 
         await p2.manager.meetingLifecycleHandler.handleStartConversation({
             meetingId: 202,
-            creatorKey: 'key-202',
+            liveKey: 'key-202',
         });
         const id2 = p2.manager.meeting._id;
 
@@ -92,7 +92,7 @@ describe('MeetingManager - Concurrency & Isolation', () => {
             Promise.resolve(
                 MockFactory.createStoredMeeting({
                     _id,
-                    creatorKey: _id === 203 ? 'key-slow' : 'key-fast',
+                    liveKey: _id === 203 ? 'key-slow' : 'key-fast',
                     topic: MockFactory.createTopic({
                         id: _id === 203 ? 'slow' : 'fast',
                         title: _id === 203 ? 'Slow' : 'Fast',
@@ -107,11 +107,11 @@ describe('MeetingManager - Concurrency & Isolation', () => {
 
         await p1.manager.meetingLifecycleHandler.handleStartConversation({
             meetingId: 203,
-            creatorKey: 'key-slow',
+            liveKey: 'key-slow',
         });
         await p2.manager.meetingLifecycleHandler.handleStartConversation({
             meetingId: 204,
-            creatorKey: 'key-fast',
+            liveKey: 'key-fast',
         });
 
         // Ensure Audio queue doesn't actually try to generate

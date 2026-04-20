@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from "uuid";
-import type { Character, Message, Topic, Audio } from "@shared/ModelTypes.js";
+import type { Character, Message, Topic, Audio, Meeting } from "@shared/ModelTypes.js";
 import type { StoredMeeting } from "@models/DBModels.js";
 import type { GlobalOptions } from "@logic/GlobalOptions.js";
 
@@ -55,6 +55,7 @@ export const MockFactory = {
             show_trimmed: false,
             skipAudio: false,
             conversationMaxLength: 20,
+            meetingVeryMaxLength: 30,
             raiseHandPrompt: { en: "Raise Hand" },
             raiseHandInvitationLength: 50,
             finalizeMeetingPrompt: { en: "Finalize" },
@@ -74,7 +75,7 @@ export const MockFactory = {
         };
         const defaults: StoredMeeting = {
             _id: 123,
-            creatorKey: "test-creator-key",
+            liveKey: "test-live-key",
             date: new Date().toISOString(),
             topic,
             characters: [
@@ -86,8 +87,15 @@ export const MockFactory = {
             state: { alreadyInvited: false, humanName: "Frank" },
             conversation: [],
             audio: [],
+            conversationExtraSlots: 0,
         };
         return { ...defaults, ...restOverrides, topic };
+    },
+
+    createMeeting: (overrides: Partial<Meeting> = {}): Meeting => {
+        const storedMeeting = MockFactory.createStoredMeeting();
+        const { liveKey, ...meeting } = storedMeeting;
+        return { ...meeting, ...overrides };
     },
 
     createAudio: (overrides: Partial<Audio> = {}): Audio => ({

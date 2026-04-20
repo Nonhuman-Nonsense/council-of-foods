@@ -1,23 +1,27 @@
 import type { Meeting } from "@shared/ModelTypes";
+import { httpErrorMessage } from "./httpErrorMessage";
 
 export async function getMeeting({
   meetingId,
-  creatorKey,
+  liveKey,
   signal,
 }: {
   meetingId: number;
-  creatorKey: string;
+  liveKey?: string | null;
   signal?: AbortSignal;
 }): Promise<Meeting> {
+  const headers: HeadersInit = { "Content-Type": "application/json" };
+  if (liveKey) {
+    headers["Authorization"] = `Bearer ${liveKey}`;
+  }
   const res = await fetch(`/api/meetings/${meetingId}`, {
     method: "GET",
-    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${creatorKey}` },
+    headers,
     signal,
   });
   if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(errText || `Get meeting failed (${res.status})`);
+    const message = await httpErrorMessage(res, `Get meeting failed (${res.status})`);
+    throw new Error(message);
   }
-  const meeting = await res.json() as Meeting;
-  return meeting;
+  return await res.json() as Meeting;
 }
