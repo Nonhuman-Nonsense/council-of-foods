@@ -2,16 +2,16 @@ import type { Meeting } from "@shared/ModelTypes";
 
 export async function getMeeting({
   meetingId,
-  creatorKey,
+  liveKey,
   signal,
 }: {
   meetingId: number;
-  creatorKey?: string | null;
+  liveKey?: string | null;
   signal?: AbortSignal;
 }): Promise<Meeting> {
   const headers: HeadersInit = { "Content-Type": "application/json" };
-  if (creatorKey) {
-    headers["Authorization"] = `Bearer ${creatorKey}`;
+  if (liveKey) {
+    headers["Authorization"] = `Bearer ${liveKey}`;
   }
   const res = await fetch(`/api/meetings/${meetingId}`, {
     method: "GET",

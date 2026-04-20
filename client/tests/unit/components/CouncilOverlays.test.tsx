@@ -37,7 +37,7 @@ describe('CouncilOverlays', () => {
     const mockOnAttemptResume = vi.fn();
     const mockOnWrapItUp = vi.fn();
     const mockProceedWithHumanName = vi.fn();
-    const mockRemoveOverlay = vi.fn();
+    const mockcancelOverlay = vi.fn();
     const mockSummary = { text: 'Test Summary Content' };
     const mockParticipants: Character[] = [{
         id: 'water',
@@ -55,7 +55,7 @@ describe('CouncilOverlays', () => {
         onWrapItUp: mockOnWrapItUp,
         proceedWithHumanName: mockProceedWithHumanName,
         canExtendMeeting: true,
-        removeOverlay: mockRemoveOverlay,
+        cancelOverlay: mockcancelOverlay,
         summary: mockSummary,
         meetingId: 123,
         participants: mockParticipants

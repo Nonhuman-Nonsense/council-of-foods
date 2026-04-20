@@ -91,9 +91,9 @@ export function registerMeetingRoutes(app: Express, environment: string): void {
 
     app.post("/api/meetings", async (req: Request, res: Response) => {
         await apiRouteWithErrorHandling("POST", "/api/meetings", req, res, async (req: Request, res: Response) => {
-            const { meetingId, creatorKey } = await createMeeting(req.body, environment);
+            const { meetingId, liveKey } = await createMeeting(req.body, environment);
             await Logger.info("api", `POST /api/meetings successful: ${meetingId}`);
-            res.status(201).json({ meetingId, creatorKey });
+            res.status(201).json({ meetingId, liveKey });
         });
     });
 
@@ -135,8 +135,8 @@ export function registerMeetingRoutes(app: Express, environment: string): void {
         await apiRouteWithErrorHandling("POST", "/api/clientkey", req, res, async (req: Request, res: Response) => {
             const bearer = parseRequiredBearerToken(req);
 
-            // Check if the creator key exists in the database
-            const exists = await meetingsCollection.findOne({ creatorKey: bearer }, { projection: { _id: 1 } });
+            // Check if the live key exists in the database
+            const exists = await meetingsCollection.findOne({ liveKey: bearer }, { projection: { _id: 1 } });
             if (!exists) {
                 throw new ForbiddenError();
             }

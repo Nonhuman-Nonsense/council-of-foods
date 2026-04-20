@@ -38,7 +38,7 @@ export interface BaseMeeting {
 
 export interface Meeting extends BaseMeeting {
     /** This property must NOT exist on a public Meeting object */
-    creatorKey?: never; 
+    liveKey?: never; 
 }
 
 export interface PlaybackState {

@@ -12,7 +12,7 @@ import { MockFactory } from "./factories/MockFactory.js";
 async function seedMeeting(overrides: Partial<StoredMeeting> = {}): Promise<StoredMeeting> {
     const meeting = MockFactory.createStoredMeeting({
         _id: 777,
-        creatorKey: "original-key",
+        liveKey: "original-key",
         conversation: [],
         audio: [],
         ...overrides,
@@ -31,7 +31,7 @@ describe("resumeMeeting (server)", () => {
         clearLiveSessionRegistryForTests();
     });
 
-    it("rotates creatorKey, sanitizes the conversation, trims audio, and returns the updated public meeting", async () => {
+    it("rotates liveKey, sanitizes the conversation, trims audio, and returns the updated public meeting", async () => {
         const conversation: Message[] = [
             { id: "m0", type: "message", speaker: "water", text: "0" },
             { id: "m1", type: "message", speaker: "water", text: "1" },
@@ -46,13 +46,13 @@ describe("resumeMeeting (server)", () => {
 
         const response = await resumeMeeting(777);
 
-        expect(response.creatorKey).not.toBe("original-key");
-        expect(response.creatorKey).toMatch(/^[0-9a-f-]{36}$/i);
+        expect(response.liveKey).not.toBe("original-key");
+        expect(response.liveKey).toMatch(/^[0-9a-f-]{36}$/i);
         expect(response.meeting._id).toBe(777);
-        expect(response.meeting).not.toHaveProperty("creatorKey");
+        expect(response.meeting).not.toHaveProperty("liveKey");
 
         const stored = await meetingsCollection.findOne({ _id: 777 });
-        expect(stored?.creatorKey).toBe(response.creatorKey);
+        expect(stored?.liveKey).toBe(response.liveKey);
         expect(stored?.conversation.map((c) => c.id)).toEqual(["m0", "m1"]);
         expect(stored?.audio).toEqual(["m0", "m1"]);
         // `maximumPlayedIndex` is intentionally *not* reset here — the live session will
@@ -92,7 +92,7 @@ describe("resumeMeeting (server)", () => {
 
         await expect(resumeMeeting(777)).rejects.toThrow(/somewhere else/);
         const stored = await meetingsCollection.findOne({ _id: 777 });
-        expect(stored?.creatorKey).toBe("original-key");
+        expect(stored?.liveKey).toBe("original-key");
     });
 
     it("rejects with BadRequestError when the meeting already has a summary", async () => {
@@ -105,14 +105,14 @@ describe("resumeMeeting (server)", () => {
 
         await expect(resumeMeeting(777)).rejects.toThrow(/MeetingAlreadyComplete/);
         const stored = await meetingsCollection.findOne({ _id: 777 });
-        expect(stored?.creatorKey).toBe("original-key");
+        expect(stored?.liveKey).toBe("original-key");
     });
 
     it("rejects with NotFoundError for an unknown meeting id", async () => {
         await expect(resumeMeeting(9_999_999)).rejects.toThrow();
     });
 
-    it("is idempotent-ish: a second resume rotates to yet another creatorKey", async () => {
+    it("is idempotent-ish: a second resume rotates to yet another liveKey", async () => {
         await seedMeeting({
             conversation: [{ id: "m0", type: "message", speaker: "water", text: "0" }],
             audio: ["m0"],
@@ -121,10 +121,10 @@ describe("resumeMeeting (server)", () => {
 
         const first = await resumeMeeting(777);
         const second = await resumeMeeting(777);
-        expect(second.creatorKey).not.toBe(first.creatorKey);
-        expect(second.creatorKey).not.toBe("original-key");
+        expect(second.liveKey).not.toBe(first.liveKey);
+        expect(second.liveKey).not.toBe("original-key");
 
         const stored = await meetingsCollection.findOne({ _id: 777 });
-        expect(stored?.creatorKey).toBe(second.creatorKey);
+        expect(stored?.liveKey).toBe(second.liveKey);
     });
 });

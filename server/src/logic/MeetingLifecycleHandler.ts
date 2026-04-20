@@ -34,8 +34,8 @@ export class MeetingLifecycleHandler {
             throw new Error("Meeting not found");
         }
 
-        if(meeting.creatorKey !== setup.creatorKey) {
-            throw new Error("Invalid creator key");
+        if(meeting.liveKey !== setup.liveKey) {
+            throw new Error("Invalid live key");
         }
 
         const stored: StoredMeeting = meeting as StoredMeeting;

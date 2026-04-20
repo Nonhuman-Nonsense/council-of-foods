@@ -75,7 +75,7 @@ export const MockFactory = {
         };
         const defaults: StoredMeeting = {
             _id: 123,
-            creatorKey: "test-creator-key",
+            liveKey: "test-live-key",
             date: new Date().toISOString(),
             topic,
             characters: [
@@ -94,7 +94,7 @@ export const MockFactory = {
 
     createMeeting: (overrides: Partial<Meeting> = {}): Meeting => {
         const storedMeeting = MockFactory.createStoredMeeting();
-        const { creatorKey, ...meeting } = storedMeeting;
+        const { liveKey, ...meeting } = storedMeeting;
         return { ...meeting, ...overrides };
     },
 

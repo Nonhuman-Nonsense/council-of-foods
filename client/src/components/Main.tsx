@@ -46,7 +46,7 @@ export default function Main(props: MainProps) {
   
   const [unrecoverabeError, setUnrecoverableError] = useState(false);
   const [connectionError, setConnectionError] = useState(false);
-  const [meetingCreatorKey, setMeetingCreatorKey] = useState<string | null>(null);
+  const [meetingliveKey, setMeetingliveKey] = useState<string | null>(null);
 
   //Had to lift up navbar state to this level to be able to close it from main overlay
   const [hamburgerOpen, setHamburgerOpen] = useState(false);
@@ -77,7 +77,7 @@ export default function Main(props: MainProps) {
       }
     }
 
-    if (isMeetingPath(location.pathname) && meetingCreatorKey) {
+    if (isMeetingPath(location.pathname) && meetingliveKey) {
       navigate({ hash: "warning" });
     }
   }, [props.lang]);
@@ -92,7 +92,7 @@ export default function Main(props: MainProps) {
   useEffect(() => {
     const withoutLang = stripLanguagePrefix(location.pathname);
     if (withoutLang === `/${routes.newMeeting}` || isRootPath(location.pathname)) {
-      setMeetingCreatorKey(null);
+      setMeetingliveKey(null);
     }
   }, [location.pathname]);
 
@@ -159,7 +159,7 @@ export default function Main(props: MainProps) {
                   setUnrecoverableError={setUnrecoverableError}
                   topicSelection={topicSelection}
                   setTopicSelection={setTopicSelection}
-                  setMeetingCreatorKey={setMeetingCreatorKey}
+                  setMeetingliveKey={setMeetingliveKey}
                 />
               }
             />
@@ -170,8 +170,8 @@ export default function Main(props: MainProps) {
                   key={stripLanguagePrefix(location.pathname)}
                   topic={topicSelection}
                   setTopic={setTopicSelection}
-                  creatorKey={meetingCreatorKey}
-                  setCreatorKey={setMeetingCreatorKey}
+                  liveKey={meetingliveKey}
+                  setliveKey={setMeetingliveKey}
                   setUnrecoverableError={setUnrecoverableError}
                   connectionError={connectionError}
                   setConnectionError={setConnectionError}

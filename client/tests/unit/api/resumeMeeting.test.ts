@@ -4,7 +4,7 @@ import { resumeMeeting, ResumeMeetingError } from "@/api/resumeMeeting";
 /**
  * Covers `PUT /api/meetings/:id`:
  *   - request shape (method + content-type, no auth header — meetingId is the secret for this route)
- *   - 200 body is returned as `ResumeMeetingResponse` (meeting + new creatorKey)
+ *   - 200 body is returned as `ResumeMeetingResponse` (meeting + new liveKey)
  *   - non-OK responses throw `ResumeMeetingError` with the `status` preserved and the
  *     server-provided `{ message }` string surfaced. Callers key on `status` to choose
  *     409 / 400 / 404 / generic copy, so this preservation is load-bearing.
@@ -17,7 +17,7 @@ describe("resumeMeeting", () => {
     it("issues a PUT with JSON content type and returns the parsed body", async () => {
         const body = {
             meeting: { _id: 42, topic: { id: "t", title: "T", description: "", prompt: "" }, characters: [], conversation: [], audio: [] },
-            creatorKey: "new-key",
+            liveKey: "new-key",
         };
         const fetchMock = vi.fn().mockResolvedValue(
             new Response(JSON.stringify(body), {
@@ -36,7 +36,7 @@ describe("resumeMeeting", () => {
                 headers: { "Content-Type": "application/json" },
             }),
         );
-        expect(res.creatorKey).toBe("new-key");
+        expect(res.liveKey).toBe("new-key");
         expect(res.meeting._id).toBe(42);
     });
 

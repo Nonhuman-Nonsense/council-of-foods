@@ -6,7 +6,7 @@ describe("getClientKey", () => {
         vi.unstubAllGlobals();
     });
 
-    it("POSTs JSON body with language and Authorization Bearer creatorKey", async () => {
+    it("POSTs JSON body with language and Authorization Bearer liveKey", async () => {
         const fetchMock = vi.fn().mockResolvedValue(
             new Response(JSON.stringify({ value: "ephemeral-from-server" }), {
                 status: 200,
@@ -15,7 +15,7 @@ describe("getClientKey", () => {
         );
         vi.stubGlobal("fetch", fetchMock);
 
-        const result = await getClientKey({ language: "en", creatorKey: "creator-secret" });
+        const result = await getClientKey({ language: "en", liveKey: "creator-secret" });
 
         expect(result).toEqual({ value: "ephemeral-from-server" });
         expect(fetchMock).toHaveBeenCalledWith(
@@ -41,7 +41,7 @@ describe("getClientKey", () => {
         );
         vi.stubGlobal("fetch", fetchMock);
 
-        await getClientKey({ language: "en", creatorKey: "k", signal: ac.signal });
+        await getClientKey({ language: "en", liveKey: "k", signal: ac.signal });
 
         expect(fetchMock).toHaveBeenCalledWith(
             "/api/clientkey",
@@ -53,6 +53,6 @@ describe("getClientKey", () => {
         const fetchMock = vi.fn().mockResolvedValue(new Response("nope", { status: 403 }));
         vi.stubGlobal("fetch", fetchMock);
 
-        await expect(getClientKey({ language: "en", creatorKey: "bad" })).rejects.toThrow("nope");
+        await expect(getClientKey({ language: "en", liveKey: "bad" })).rejects.toThrow("nope");
     });
 });

@@ -28,7 +28,7 @@ describe('MeetingLifecycleHandler', () => {
     const storedMeeting = (overrides = {}) =>
         MockFactory.createStoredMeeting({
             _id: 101,
-            creatorKey: 'test-creator-key',
+            liveKey: 'test-live-key',
             conversation: [],
             characters: [MockFactory.createCharacter({ id: 'chair', name: 'Chair' })],
             ...overrides
@@ -80,7 +80,7 @@ describe('MeetingLifecycleHandler', () => {
             const optsBefore = mockContext.serverOptions;
             mockMeetingsCollection.findOne.mockResolvedValue(doc);
 
-            await handler.handleStartConversation({ meetingId: 101, creatorKey: 'test-creator-key' });
+            await handler.handleStartConversation({ meetingId: 101, liveKey: 'test-live-key' });
 
             expect(mockMeetingsCollection.findOne).toHaveBeenCalledWith({ _id: 101 });
             expect(mockContext.meeting).toBe(doc);
@@ -92,17 +92,17 @@ describe('MeetingLifecycleHandler', () => {
             const doc = storedMeeting({ conversationExtraSlots: 15 });
             mockMeetingsCollection.findOne.mockResolvedValue(doc);
 
-            await handler.handleStartConversation({ meetingId: 101, creatorKey: 'test-creator-key' });
+            await handler.handleStartConversation({ meetingId: 101, liveKey: 'test-live-key' });
 
             expect(mockContext.meeting?.conversationExtraSlots).toBe(15);
         });
 
-        it('should throw when creator key does not match the stored meeting', async () => {
+        it('should throw when live key does not match the stored meeting', async () => {
             mockMeetingsCollection.findOne.mockResolvedValue(storedMeeting());
 
             await expect(
-                handler.handleStartConversation({ meetingId: 101, creatorKey: 'wrong-key' })
-            ).rejects.toThrow('Invalid creator key');
+                handler.handleStartConversation({ meetingId: 101, liveKey: 'wrong-key' })
+            ).rejects.toThrow('Invalid live key');
 
             expect(mockContext.startLoop).not.toHaveBeenCalled();
         });

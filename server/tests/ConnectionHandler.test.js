@@ -70,7 +70,7 @@ describe('ConnectionHandler', () => {
 
             mockMeetingsCollection.findOne.mockResolvedValue(savedMeeting);
 
-            const ok = await handler.handleReconnection({ meetingId: 123, creatorKey: savedMeeting.creatorKey });
+            const ok = await handler.handleReconnection({ meetingId: 123, liveKey: savedMeeting.liveKey });
 
             expect(ok).toBe(true);
             expect(mockContext.meeting._id).toBe(123);
@@ -84,23 +84,23 @@ describe('ConnectionHandler', () => {
         it('should broadcast notification if meeting not found', async () => {
             mockMeetingsCollection.findOne.mockResolvedValue(null);
 
-            const ok = await handler.handleReconnection({ meetingId: 999, creatorKey: 'any' });
+            const ok = await handler.handleReconnection({ meetingId: 999, liveKey: 'any' });
 
             expect(ok).toBe(false);
             expect(mockBroadcaster.broadcastError).toHaveBeenCalledWith('Meeting not found', 404);
             expect(mockContext.meeting).toBeNull();
         });
 
-        it('should broadcast Forbidden when creatorKey does not match', async () => {
+        it('should broadcast Forbidden when liveKey does not match', async () => {
             const savedMeeting = MockFactory.createStoredMeeting({
                 _id: 123,
-                creatorKey: 'real-key',
+                liveKey: 'real-key',
                 conversation: [],
                 audio: [],
             });
             mockMeetingsCollection.findOne.mockResolvedValue(savedMeeting);
 
-            const ok = await handler.handleReconnection({ meetingId: 123, creatorKey: 'wrong-key' });
+            const ok = await handler.handleReconnection({ meetingId: 123, liveKey: 'wrong-key' });
 
             expect(ok).toBe(false);
             expect(mockBroadcaster.broadcastError).toHaveBeenCalledWith('Forbidden', 403);
@@ -123,7 +123,7 @@ describe('ConnectionHandler', () => {
 
             mockMeetingsCollection.findOne.mockResolvedValue(savedMeeting);
 
-            const ok = await handler.handleReconnection({ meetingId: 123, creatorKey: savedMeeting.creatorKey });
+            const ok = await handler.handleReconnection({ meetingId: 123, liveKey: savedMeeting.liveKey });
 
             expect(ok).toBe(true);
             expect(mockAudioSystem.queueAudioGeneration).toHaveBeenCalledWith(
@@ -145,7 +145,7 @@ describe('ConnectionHandler', () => {
             });
             mockMeetingsCollection.findOne.mockResolvedValue(savedMeeting);
 
-            const ok = await handler.handleReconnection({ meetingId: 123, creatorKey: savedMeeting.creatorKey });
+            const ok = await handler.handleReconnection({ meetingId: 123, liveKey: savedMeeting.liveKey });
 
             expect(ok).toBe(true);
             expect(mockContext.meeting?.conversationExtraSlots).toBe(12);

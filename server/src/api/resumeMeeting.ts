@@ -11,7 +11,7 @@ import { v4 as uuidv4 } from "uuid";
  *
  * Public endpoint (anyone with the id may try) but gated by the in-memory live-session
  * registry — refuses if a live session currently holds the meeting. On success it rotates
- * the `creatorKey`, sanitizes the stored conversation with the same rules as the replay
+ * the `liveKey`, sanitizes the stored conversation with the same rules as the replay
  * manifest (slice by `maximumPlayedIndex` → truncate to available audio → strip
  * awaiting-human / invitation tail), trims the `audio` array to the ids that survive, and
  * returns the full updated meeting so the caller can reconcile any messages that landed
@@ -37,14 +37,14 @@ export async function resumeMeeting(meetingId: number): Promise<ResumeMeetingRes
     // Make sure that audio is in the same order as the conversation
     const trimmedAudio = orderedAudioIdsForConversation(conversation, stored.audio);    
     
-    const newCreatorKey = uuidv4();
+    const newliveKey = uuidv4();
 
     // Optimistic filter: if a `summary` has since been written (race with wrap-up), abort.
     const updateResult = await meetingsCollection.updateOne(
         { _id: meetingId, summary: { $exists: false } },
         {
             $set: {
-                creatorKey: newCreatorKey,
+                liveKey: newliveKey,
                 conversation,
                 audio: trimmedAudio,
                 state: { alreadyInvited: false },
@@ -55,7 +55,7 @@ export async function resumeMeeting(meetingId: number): Promise<ResumeMeetingRes
         throw new BadRequestError("MeetingAlreadyComplete");
     }
 
-    // Fetch through the creator-GET path so `creatorKey` is stripped and the shape is consistent.
-    const meeting = await getMeeting(meetingId, newCreatorKey);
-    return { meeting, creatorKey: newCreatorKey };
+    // Fetch through the creator-GET path so `liveKey` is stripped and the shape is consistent.
+    const meeting = await getMeeting(meetingId, newliveKey);
+    return { meeting, liveKey: newliveKey };
 }

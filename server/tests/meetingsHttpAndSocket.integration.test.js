@@ -122,10 +122,10 @@ describe('HTTP + Socket full chain (integration)', () => {
             body: JSON.stringify(validCreateBody()),
         });
         expect(createRes.status).toBe(201);
-        const { meetingId, creatorKey } = await createRes.json();
+        const { meetingId, liveKey } = await createRes.json();
 
         const getRes = await fetch(`${base()}/api/meetings/${meetingId}`, {
-            headers: { Authorization: `Bearer ${creatorKey}` },
+            headers: { Authorization: `Bearer ${liveKey}` },
         });
         expect(getRes.status).toBe(200);
 
@@ -151,7 +151,7 @@ describe('HTTP + Socket full chain (integration)', () => {
 
         socket.emit('start_conversation', {
             meetingId: Number(meetingId),
-            creatorKey,
+            liveKey,
         });
 
         const conversation = await updatePromise;
@@ -167,7 +167,7 @@ describe('HTTP + Socket full chain (integration)', () => {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(validCreateBody()),
         });
-        const { meetingId, creatorKey } = await createRes.json();
+        const { meetingId, liveKey } = await createRes.json();
 
         const socket1 = ioClient(`${base()}`, { transports: ['websocket'], autoConnect: false });
         const socket2 = ioClient(`${base()}`, { transports: ['websocket'], autoConnect: false });
@@ -200,10 +200,10 @@ describe('HTTP + Socket full chain (integration)', () => {
         ]);
 
         const errPromise = waitForSocketEvent(socket2, 'conversation_error', 5000);
-        socket1.emit('start_conversation', { meetingId: Number(meetingId), creatorKey });
+        socket1.emit('start_conversation', { meetingId: Number(meetingId), liveKey });
         await waitForSocketEvent(socket1, 'conversation_update', 8000);
 
-        socket2.emit('start_conversation', { meetingId: Number(meetingId), creatorKey });
+        socket2.emit('start_conversation', { meetingId: Number(meetingId), liveKey });
         const err = await errPromise;
         expect(err.code).toBe(409);
         expect(err.message).toBe('This meeting is happening somewhere else');
@@ -219,7 +219,7 @@ describe('HTTP + Socket full chain (integration)', () => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(validCreateBody()),
             });
-            const { meetingId: createdId, creatorKey } = await createRes.json();
+            const { meetingId: createdId, liveKey } = await createRes.json();
             const id = meetingId ?? Number(createdId);
             await meetingsCollection.updateOne(
                 { _id: Number(createdId) },
@@ -235,18 +235,18 @@ describe('HTTP + Socket full chain (integration)', () => {
                     },
                 }
             );
-            return { meetingId: Number(createdId), originalCreatorKey: creatorKey, id };
+            return { meetingId: Number(createdId), originalliveKey: liveKey, id };
         }
 
-        it('rotates the creatorKey, trims audio, and returns the updated meeting', async () => {
-            const { meetingId, originalCreatorKey } = await seedIncompleteMeeting();
+        it('rotates the liveKey, trims audio, and returns the updated meeting', async () => {
+            const { meetingId, originalliveKey } = await seedIncompleteMeeting();
 
             const res = await fetch(`${base()}/api/meetings/${meetingId}`, { method: 'PUT' });
             expect(res.status).toBe(200);
             const body = await res.json();
-            expect(body.creatorKey).toMatch(/^[0-9a-f-]{36}$/i);
-            expect(body.creatorKey).not.toBe(originalCreatorKey);
-            expect(body.meeting.creatorKey).toBeUndefined();
+            expect(body.liveKey).toMatch(/^[0-9a-f-]{36}$/i);
+            expect(body.liveKey).not.toBe(originalliveKey);
+            expect(body.meeting.liveKey).toBeUndefined();
             expect(body.meeting.conversation.map((c) => c.id)).toEqual(['r-m0']);
             expect(body.meeting.audio).toEqual(['r-m0']);
             // `maximumPlayedIndex` is *not* reset by resume — it's still the seeded 2.
@@ -254,20 +254,20 @@ describe('HTTP + Socket full chain (integration)', () => {
             expect(body.meeting.maximumPlayedIndex).toBe(2);
 
             const stored = await meetingsCollection.findOne({ _id: meetingId });
-            expect(stored.creatorKey).toBe(body.creatorKey);
+            expect(stored.liveKey).toBe(body.liveKey);
             expect(stored.audio).toEqual(['r-m0']);
             expect(stored.conversation.map((c) => c.id)).toEqual(['r-m0']);
         });
 
         it('returns 409 when a live session currently holds the meeting', async () => {
-            const { meetingId, originalCreatorKey } = await seedIncompleteMeeting();
+            const { meetingId, originalliveKey } = await seedIncompleteMeeting();
             tryAcquireLiveSession(meetingId, 'some-socket', 'some-key');
 
             const res = await fetch(`${base()}/api/meetings/${meetingId}`, { method: 'PUT' });
             expect(res.status).toBe(409);
 
             const stored = await meetingsCollection.findOne({ _id: meetingId });
-            expect(stored.creatorKey).toBe(originalCreatorKey);
+            expect(stored.liveKey).toBe(originalliveKey);
         });
 
         it('returns 400 when the meeting already has a summary', async () => {
@@ -286,11 +286,11 @@ describe('HTTP + Socket full chain (integration)', () => {
             expect(res.status).toBe(404);
         });
 
-        it('lets the new creatorKey start a fresh live session that picks up the sanitized conversation', async () => {
+        it('lets the new liveKey start a fresh live session that picks up the sanitized conversation', async () => {
             const { meetingId } = await seedIncompleteMeeting();
 
             const putRes = await fetch(`${base()}/api/meetings/${meetingId}`, { method: 'PUT' });
-            const { creatorKey } = await putRes.json();
+            const { liveKey } = await putRes.json();
 
             const socket = ioClient(`${base()}`, { transports: ['websocket'], autoConnect: false });
             socket.connect();
@@ -307,7 +307,7 @@ describe('HTTP + Socket full chain (integration)', () => {
             });
 
             const updatePromise = waitForSocketEvent(socket, 'conversation_update');
-            socket.emit('start_conversation', { meetingId, creatorKey });
+            socket.emit('start_conversation', { meetingId, liveKey });
             const conversation = await updatePromise;
             expect(Array.isArray(conversation)).toBe(true);
             expect(conversation.some((m) => m.id === 'r-m0')).toBe(true);
@@ -316,13 +316,13 @@ describe('HTTP + Socket full chain (integration)', () => {
         });
     });
 
-    it('attempt_reconnection with wrong creatorKey gets conversation_error 403', async () => {
+    it('attempt_reconnection with wrong liveKey gets conversation_error 403', async () => {
         const createRes = await fetch(`${base()}/api/meetings`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(validCreateBody()),
         });
-        const { meetingId, creatorKey } = await createRes.json();
+        const { meetingId, liveKey } = await createRes.json();
 
         const socket = ioClient(`${base()}`, { transports: ['websocket'], autoConnect: false });
         socket.connect();
@@ -341,7 +341,7 @@ describe('HTTP + Socket full chain (integration)', () => {
         const errPromise = waitForSocketEvent(socket, 'conversation_error', 5000);
         socket.emit('attempt_reconnection', {
             meetingId: Number(meetingId),
-            creatorKey: 'not-the-real-key',
+            liveKey: 'not-the-real-key',
             handRaised: false,
             conversationMaxLength: 20,
         });

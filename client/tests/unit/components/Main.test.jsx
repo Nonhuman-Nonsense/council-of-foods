@@ -6,7 +6,7 @@ import Main from '../../../src/components/Main';
 import routes from '../../../src/routes.json';
 
 vi.mock('@/api/createMeeting', () => ({
-    createMeeting: vi.fn().mockResolvedValue({ meetingId: 99, creatorKey: 'test-creator-key' }),
+    createMeeting: vi.fn().mockResolvedValue({ meetingId: 99, liveKey: 'test-live-key' }),
 }));
 
 // Mock topics data

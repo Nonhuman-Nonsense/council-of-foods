@@ -6,7 +6,7 @@ import type { Document } from "mongodb";
 
 // Additional fields for the stored meeting, never sent to the client
 export interface StoredMeeting extends BaseMeeting, Document {
-    creatorKey: string;
+    liveKey: string;
 }
 
 export interface StoredAudio extends Audio, Document {}

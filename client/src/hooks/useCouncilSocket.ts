@@ -11,7 +11,7 @@ import {
 export interface UseCouncilSocketProps {
     meetingId: number;
     /** Required to authenticate `start_conversation`; omit until known. */
-    creatorKey: string | undefined;
+    liveKey: string | undefined;
     onAudioUpdate?: (data: AudioUpdatePayload) => void;
     onConversationUpdate?: (data: Message[]) => void;
     onError?: (error: ErrorPayload) => void;
@@ -28,7 +28,7 @@ export interface UseCouncilSocketProps {
  */
 export const useCouncilSocket = ({
     meetingId,
-    creatorKey,
+    liveKey,
     onAudioUpdate,
     onConversationUpdate,
     onError,
@@ -38,7 +38,7 @@ export const useCouncilSocket = ({
     const socketRef = useRef<Socket<ServerToClientEvents, ClientToServerEvents> | null>(null);
 
     useEffect(() => {
-        if (!creatorKey) {
+        if (!liveKey) {
             return;
         }
 
@@ -58,7 +58,7 @@ export const useCouncilSocket = ({
             if (onReconnect) onReconnect();
         });
 
-        socket.emit("start_conversation", { meetingId, creatorKey });
+        socket.emit("start_conversation", { meetingId, liveKey });
 
         socket.on("audio_update", (audioMessage) => {
             if (onAudioUpdate) onAudioUpdate(audioMessage);
@@ -84,7 +84,7 @@ export const useCouncilSocket = ({
             window.removeEventListener("beforeunload", handleTabClose);
         };
         // Callbacks intentionally omitted: parent passes fresh closures; reconnect only when meeting/auth changes.
-    }, [meetingId, creatorKey]);
+    }, [meetingId, liveKey]);
 
     return socketRef;
 };

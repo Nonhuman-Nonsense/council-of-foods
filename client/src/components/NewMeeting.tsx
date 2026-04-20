@@ -11,14 +11,14 @@ export interface NewMeetingProps {
   setUnrecoverableError: (error: boolean) => void;
   topicSelection: Topic | null;
   setTopicSelection: (topic: Topic) => void;
-  setMeetingCreatorKey: (key: string) => void;
+  setMeetingliveKey: (key: string) => void;
 }
 
 export default function NewMeeting({
   setUnrecoverableError,
   topicSelection,
   setTopicSelection,
-  setMeetingCreatorKey,
+  setMeetingliveKey,
 }: NewMeetingProps) {
   const navigate = useNavigate();
   const { i18n } = useTranslation();
@@ -41,12 +41,12 @@ export default function NewMeeting({
     }
     setCreating(true);
     try {
-      const { meetingId, creatorKey } = await createMeeting({
+      const { meetingId, liveKey } = await createMeeting({
         topic: topicSelection,
         characters: foods,
         language: i18n.language,
       });
-      setMeetingCreatorKey(creatorKey);
+      setMeetingliveKey(liveKey);
       navigate(meetingPath(Number(meetingId)));
     } catch (e) {
       console.error(e);

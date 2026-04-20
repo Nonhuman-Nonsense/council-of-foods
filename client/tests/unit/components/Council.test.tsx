@@ -100,7 +100,7 @@ const mockCouncilStateMachine = {
         handleOnGenerateSummary: vi.fn(),
         handleHumanNameEntered: vi.fn(),
         handleOnRaiseHand: vi.fn(),
-        removeOverlay: vi.fn(),
+        cancelOverlay: vi.fn(),
         setHumanName: vi.fn(),
         setIsRaisedHand: vi.fn(),
         setCurrentSnippetIndex: vi.fn(),
@@ -117,8 +117,8 @@ vi.mock('../../../src/hooks/useCouncilMachine', () => ({
 
 describe('Council Component', () => {
     const defaultProps = {
-        creatorKey: 'test-creator',
-        setCreatorKey: vi.fn(),
+        liveKey: 'test-creator',
+        setliveKey: vi.fn(),
         topic: { id: 't', title: 'T', description: 'D', prompt: 'p' },
         setTopic: vi.fn(),
         setUnrecoverableError: vi.fn(),
@@ -147,8 +147,8 @@ describe('Council Component', () => {
         expect(mockToggleMute).toHaveBeenCalled();
     });
 
-    it('loads replay manifest when there is no creatorKey', async () => {
-        render(<Council {...defaultProps} creatorKey={null} />);
+    it('loads replay manifest when there is no liveKey', async () => {
+        render(<Council {...defaultProps} liveKey={null} />);
 
         await vi.waitFor(() => {
             expect(mockGetMeeting).toHaveBeenCalledWith(

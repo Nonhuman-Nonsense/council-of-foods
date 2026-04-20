@@ -145,7 +145,7 @@ export class SocketManager {
 
         const data = SetupOptionsSchema.parse(payload);
 
-        if (!tryAcquireLiveSession(data.meetingId, this.socket.id, data.creatorKey)) {
+        if (!tryAcquireLiveSession(data.meetingId, this.socket.id, data.liveKey)) {
             Logger.warn("socket",`Live session already held for meeting ${data.meetingId}; rejecting start_conversation on socket ${this.socket.id} (409)`);
             this.socketBroadcaster.broadcastError(LIVE_SESSION_CONFLICT_MESSAGE, 409);
             return;
@@ -181,7 +181,7 @@ export class SocketManager {
 
         const data = ReconnectionOptionsSchema.parse(payload);
 
-        if (!tryAcquireLiveSession(data.meetingId, this.socket.id, data.creatorKey)) {
+        if (!tryAcquireLiveSession(data.meetingId, this.socket.id, data.liveKey)) {
             Logger.warn("socket",`Live session already held for meeting ${data.meetingId}; rejecting attempt_reconnection on socket ${this.socket.id} (409)`);
             this.socketBroadcaster.broadcastError(LIVE_SESSION_CONFLICT_MESSAGE, 409);
             return;

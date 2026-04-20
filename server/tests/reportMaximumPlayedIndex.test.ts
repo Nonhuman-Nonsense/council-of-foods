@@ -25,7 +25,7 @@ describe("report_maximum_played_index (MeetingManager)", () => {
         });
         manager.meeting = meeting;
 
-        expect(tryAcquireLiveSession(501, "holder-socket", meeting.creatorKey)).toBe(true);
+        expect(tryAcquireLiveSession(501, "holder-socket", meeting.liveKey)).toBe(true);
 
         await manager.handleEvent("report_maximum_played_index", { index: 2 });
 
@@ -44,7 +44,7 @@ describe("report_maximum_played_index (MeetingManager)", () => {
         });
         manager.meeting = meeting;
 
-        tryAcquireLiveSession(502, "real-holder", meeting.creatorKey);
+        tryAcquireLiveSession(502, "real-holder", meeting.liveKey);
 
         await manager.handleEvent("report_maximum_played_index", { index: 0 });
 
@@ -62,7 +62,7 @@ describe("report_maximum_played_index (MeetingManager)", () => {
             conversation: [{ id: "a", type: "message", speaker: "water", text: "1" }],
         });
         manager.meeting = meeting;
-        tryAcquireLiveSession(503, "holder-socket", meeting.creatorKey);
+        tryAcquireLiveSession(503, "holder-socket", meeting.liveKey);
 
         await manager.handleEvent("report_maximum_played_index", { index: 99 });
 
@@ -83,7 +83,7 @@ describe("report_maximum_played_index (MeetingManager)", () => {
             maximumPlayedIndex: 1,
         });
         manager.meeting = meeting;
-        tryAcquireLiveSession(504, "holder-socket", meeting.creatorKey);
+        tryAcquireLiveSession(504, "holder-socket", meeting.liveKey);
 
         await manager.handleEvent("report_maximum_played_index", { index: 0 });
 

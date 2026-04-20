@@ -59,7 +59,7 @@ describe('ConnectionHandler - Race Condition', () => {
 
         mockMeetingsCollection.findOne.mockResolvedValue(existingMeeting);
 
-        await handler.handleReconnection({ meetingId: 100, creatorKey: existingMeeting.creatorKey });
+        await handler.handleReconnection({ meetingId: 100, liveKey: existingMeeting.liveKey });
 
         expect(mockContext.startLoop).toHaveBeenCalled();
         expect(mockBroadcaster.broadcastConversationUpdate).toHaveBeenCalledWith(existingMeeting.conversation);
@@ -74,7 +74,7 @@ describe('ConnectionHandler - Race Condition', () => {
 
         mockMeetingsCollection.findOne.mockResolvedValue(newMeeting);
 
-        await handler.handleReconnection({ meetingId: 200, creatorKey: newMeeting.creatorKey });
+        await handler.handleReconnection({ meetingId: 200, liveKey: newMeeting.liveKey });
 
         expect(mockContext.meeting._id).toBe(200);
         expect(mockContext.startLoop).toHaveBeenCalled();
@@ -89,7 +89,7 @@ describe('ConnectionHandler - Race Condition', () => {
         });
         mockMeetingsCollection.findOne.mockResolvedValue(existingMeeting);
 
-        await handler.handleReconnection({ meetingId: 100, creatorKey: existingMeeting.creatorKey });
+        await handler.handleReconnection({ meetingId: 100, liveKey: existingMeeting.liveKey });
 
         expect(mockContext.startLoop).toHaveBeenCalled();
     });

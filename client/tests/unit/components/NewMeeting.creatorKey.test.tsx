@@ -67,8 +67,8 @@ vi.mock("@/components/settings/SelectFoods", () => ({
     ),
 }));
 
-describe("NewMeeting — creator key handoff", () => {
-    const setMeetingCreatorKey = vi.fn();
+describe("NewMeeting — live key handoff", () => {
+    const setMeetingliveKey = vi.fn();
     const setUnrecoverableError = vi.fn();
     const setTopicSelection = vi.fn();
 
@@ -76,11 +76,11 @@ describe("NewMeeting — creator key handoff", () => {
         vi.clearAllMocks();
         vi.mocked(createMeeting).mockResolvedValue({
             meetingId: 42,
-            creatorKey: "returned-creator-key",
+            liveKey: "returned-live-key",
         });
     });
 
-    it("calls setMeetingCreatorKey with the API key then navigates to the meeting route", async () => {
+    it("calls setMeetingliveKey with the API key then navigates to the meeting route", async () => {
         render(
             <MemoryRouter initialEntries={[`/${routes.newMeeting}`]}>
                 <Routes>
@@ -91,7 +91,7 @@ describe("NewMeeting — creator key handoff", () => {
                                 setUnrecoverableError={setUnrecoverableError}
                                 topicSelection={{ id: "test-topic", title: "Test Topic", description: "D", prompt: "P" }}
                                 setTopicSelection={setTopicSelection}
-                                setMeetingCreatorKey={setMeetingCreatorKey}
+                                setMeetingliveKey={setMeetingliveKey}
                             />
                         }
                     />
@@ -107,7 +107,7 @@ describe("NewMeeting — creator key handoff", () => {
         fireEvent.click(screen.getByTestId("foods-continue"));
 
         await waitFor(() => {
-            expect(setMeetingCreatorKey).toHaveBeenCalledWith("returned-creator-key");
+            expect(setMeetingliveKey).toHaveBeenCalledWith("returned-live-key");
         });
 
         expect(createMeeting).toHaveBeenCalled();

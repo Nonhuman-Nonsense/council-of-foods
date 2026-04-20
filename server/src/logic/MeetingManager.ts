@@ -192,7 +192,7 @@ export class MeetingManager implements IMeetingManager {
         if (this.meeting) {
             await this.connectionHandler.handleReconnection({
                 meetingId: this.meeting._id,
-                creatorKey: this.meeting.creatorKey,
+                liveKey: this.meeting.liveKey,
             });
         }
     }

@@ -70,7 +70,7 @@ describe('useCouncilMachine', () => {
         };
         defaultProps = {
             currentMeetingId: 0,
-            creatorKey: 'test-creator-key',
+            liveKey: 'test-live-key',
             replayManifest: null,
             topic: { id: 't', title: 'T', description: 'D', prompt: 'Test Topic' },
             participants: [],
@@ -150,14 +150,14 @@ describe('useCouncilMachine', () => {
         // Note: The hook state update happens after await decodeAudioData.
     });
 
-    it('removeOverlay does not navigate (routing handled elsewhere)', () => {
+    it('cancelOverlay does not navigate (routing handled elsewhere)', () => {
         const { result } = renderHook(() =>
             useCouncilMachine({ ...defaultProps, currentMeetingId: 42 } as any)
         );
         mockNavigate.mockClear();
 
         act(() => {
-            result.current.actions.removeOverlay();
+            result.current.actions.cancelOverlay();
         });
 
         expect(mockNavigate).not.toHaveBeenCalled();
@@ -348,7 +348,7 @@ describe('useCouncilMachine', () => {
 
         expect(mockSocketEmit).toHaveBeenCalledWith('attempt_reconnection', expect.objectContaining({
             meetingId: 999,
-            creatorKey: 'test-creator-key',
+            liveKey: 'test-live-key',
         }));
     });
 
@@ -357,7 +357,7 @@ describe('useCouncilMachine', () => {
     // The resume path is a one-shot handoff: strip the synthetic `meeting_incomplete`
     // sentinel, PUT `/api/meetings/:id`, replace `textMessages` with the server's
     // sanitized conversation, kick off any missing audio in the background, and lift
-    // the rotated `creatorKey` via `setCreatorKey` so the socket effect flips us live.
+    // the rotated `liveKey` via `setliveKey` so the socket effect flips us live.
     // Errors just fall through to `setUnrecoverableError(true)` — there is no
     // per-status UI state inside the hook.
 
@@ -394,15 +394,15 @@ describe('useCouncilMachine', () => {
             });
         }
 
-        it('flips to live by calling setCreatorKey on success and drops the meeting_incomplete sentinel', async () => {
-            const setCreatorKey = vi.fn();
+        it('flips to live by calling setliveKey on success and drops the meeting_incomplete sentinel', async () => {
+            const setliveKey = vi.fn();
             const { result } = renderHook(() =>
-                useCouncilMachine({ ...defaultProps, creatorKey: undefined, setCreatorKey, currentMeetingId: 77 } as any)
+                useCouncilMachine({ ...defaultProps, liveKey: undefined, setliveKey, currentMeetingId: 77 } as any)
             );
             seedReplayAtIncomplete();
 
             mockResumeMeeting.mockResolvedValueOnce({
-                creatorKey: 'rotated-key',
+                liveKey: 'rotated-key',
                 meeting: {
                     _id: 77,
                     topic: { id: 't', title: 'T', description: '', prompt: '' },
@@ -420,19 +420,19 @@ describe('useCouncilMachine', () => {
             });
 
             expect(mockResumeMeeting).toHaveBeenCalledWith({ meetingId: 77 });
-            expect(setCreatorKey).toHaveBeenCalledWith('rotated-key');
+            expect(setliveKey).toHaveBeenCalledWith('rotated-key');
             expect(result.current.state.textMessages.map((m: any) => m.id)).toEqual(['a', 'b']);
         });
 
         it('picks up server-side messages that were generated past maximumPlayedIndex', async () => {
-            const setCreatorKey = vi.fn();
+            const setliveKey = vi.fn();
             const { result } = renderHook(() =>
-                useCouncilMachine({ ...defaultProps, creatorKey: undefined, setCreatorKey, currentMeetingId: 1 } as any)
+                useCouncilMachine({ ...defaultProps, liveKey: undefined, setliveKey, currentMeetingId: 1 } as any)
             );
             seedReplayAtIncomplete();
 
             mockResumeMeeting.mockResolvedValueOnce({
-                creatorKey: 'k',
+                liveKey: 'k',
                 meeting: {
                     _id: 1,
                     topic: { id: 't', title: 'T', description: '', prompt: '' },
@@ -454,13 +454,13 @@ describe('useCouncilMachine', () => {
         });
 
         it('on API failure does not flip to live and surfaces an unrecoverable error', async () => {
-            const setCreatorKey = vi.fn();
+            const setliveKey = vi.fn();
             const setUnrecoverableError = vi.fn();
             const { result } = renderHook(() =>
                 useCouncilMachine({
                     ...defaultProps,
-                    creatorKey: undefined,
-                    setCreatorKey,
+                    liveKey: undefined,
+                    setliveKey,
                     setUnrecoverableError,
                     currentMeetingId: 5,
                 } as any)
@@ -473,7 +473,7 @@ describe('useCouncilMachine', () => {
                 await result.current.actions.handleOnAttemptResume();
             });
 
-            expect(setCreatorKey).not.toHaveBeenCalled();
+            expect(setliveKey).not.toHaveBeenCalled();
             expect(setUnrecoverableError).toHaveBeenCalledWith(true);
         });
     });

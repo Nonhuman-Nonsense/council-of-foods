@@ -47,7 +47,7 @@ describe('HTTP meetings API (integration)', () => {
 
     const base = () => `http://127.0.0.1:${port}`;
 
-    it('POST /api/meetings creates a meeting and returns id + creatorKey', async () => {
+    it('POST /api/meetings creates a meeting and returns id + liveKey', async () => {
         const res = await fetch(`${base()}/api/meetings`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -56,7 +56,7 @@ describe('HTTP meetings API (integration)', () => {
         expect(res.status).toBe(201);
         const data = await res.json();
         expect(data.meetingId).toBeDefined();
-        expect(data.creatorKey).toMatch(/^[0-9a-f-]{36}$/i);
+        expect(data.liveKey).toMatch(/^[0-9a-f-]{36}$/i);
     });
 
     it('POST /api/meetings returns 400 on invalid payload', async () => {
@@ -73,13 +73,13 @@ describe('HTTP meetings API (integration)', () => {
         expect(res.status).toBe(400);
     });
 
-    it('GET /api/meetings/:id without Authorization returns 200 replay manifest without creatorKey', async () => {
+    it('GET /api/meetings/:id without Authorization returns 200 replay manifest without liveKey', async () => {
         const createRes = await fetch(`${base()}/api/meetings`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(validCreateBody()),
         });
-        const { meetingId, creatorKey } = await createRes.json();
+        const { meetingId, liveKey } = await createRes.json();
 
         await meetingsCollection.updateOne(
             { _id: Number(meetingId) },
@@ -99,22 +99,22 @@ describe('HTTP meetings API (integration)', () => {
         const res = await fetch(`${base()}/api/meetings/${meetingId}`);
         expect(res.status).toBe(200);
         const meeting = await res.json();
-        expect(meeting.creatorKey).toBeUndefined();
+        expect(meeting.liveKey).toBeUndefined();
         expect(meeting._id).toBe(Number(meetingId));
         expect(meeting.conversation).toHaveLength(2);
         expect(meeting.conversation[0].id).toBe('pub-m1');
         expect(meeting.audio).toEqual(['pub-m1', 'sum1']);
 
         const authRes = await fetch(`${base()}/api/meetings/${meetingId}`, {
-            headers: { Authorization: `Bearer ${creatorKey}` },
+            headers: { Authorization: `Bearer ${liveKey}` },
         });
         expect(authRes.status).toBe(200);
         const full = await authRes.json();
         expect(full.conversation).toEqual(meeting.conversation);
-        expect(full.creatorKey).toBeUndefined();
+        expect(full.liveKey).toBeUndefined();
     });
 
-    it('GET /api/meetings/:id returns 403 when Bearer does not match creatorKey', async () => {
+    it('GET /api/meetings/:id returns 403 when Bearer does not match liveKey', async () => {
         const createRes = await fetch(`${base()}/api/meetings`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -138,22 +138,22 @@ describe('HTTP meetings API (integration)', () => {
         expect(resAuth.status).toBe(404);
     });
 
-    it('GET /api/meetings/:id returns 200 and meeting when Bearer matches creatorKey', async () => {
+    it('GET /api/meetings/:id returns 200 and meeting when Bearer matches liveKey', async () => {
         const body = validCreateBody();
         const createRes = await fetch(`${base()}/api/meetings`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body),
         });
-        const { meetingId, creatorKey } = await createRes.json();
+        const { meetingId, liveKey } = await createRes.json();
 
         const res = await fetch(`${base()}/api/meetings/${meetingId}`, {
-            headers: { Authorization: `Bearer ${creatorKey}` },
+            headers: { Authorization: `Bearer ${liveKey}` },
         });
         expect(res.status).toBe(200);
         const meeting = await res.json();
         expect(meeting._id).toBe(Number(meetingId));
         expect(meeting.topic.title).toBe(body.topic.title);
-        expect(meeting.creatorKey).toBeUndefined();
+        expect(meeting.liveKey).toBeUndefined();
     });
 });

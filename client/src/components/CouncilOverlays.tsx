@@ -15,7 +15,7 @@ interface CouncilOverlaysProps {
   onWrapItUp: () => void;
   proceedWithHumanName: (data: { humanName: string }) => void;
   canExtendMeeting: boolean;
-  removeOverlay: () => void;
+  cancelOverlay: () => void;
   summary: SummaryData | null;
   meetingId: number;
   participants: Character[];
@@ -39,7 +39,7 @@ function CouncilOverlays({
   onWrapItUp,
   proceedWithHumanName,
   canExtendMeeting,
-  removeOverlay,
+  cancelOverlay,
   summary,
   meetingId,
   participants,
@@ -56,7 +56,7 @@ function CouncilOverlays({
         return (
           <Incomplete
             onAttemptResume={onAttemptResume}
-            onNevermind={removeOverlay}
+            onNevermind={cancelOverlay}
           />
         );
       case "completed":
@@ -80,7 +80,7 @@ function CouncilOverlays({
   };
 
   return (
-    <OverlayWrapper showX={true} removeOverlay={removeOverlay}>
+    <OverlayWrapper showX={true} cancelOverlay={cancelOverlay}>
       {renderOverlayContent()}
     </OverlayWrapper>
   );

@@ -29,7 +29,7 @@ describe('Incomplete overlay', () => {
 
     it('invokes onNevermind when the nevermind button is clicked', () => {
         render(<Incomplete {...defaultProps} />);
-        fireEvent.click(screen.getByText('completed.4'));
+        fireEvent.click(screen.getByText('incomplete.4'));
         expect(defaultProps.onNevermind).toHaveBeenCalledTimes(1);
     });
 });

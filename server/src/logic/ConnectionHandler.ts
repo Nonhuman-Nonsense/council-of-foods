@@ -51,9 +51,9 @@ export class ConnectionHandler {
                 return false;
             }
 
-            if (existingMeeting.creatorKey !== options.creatorKey) {
+            if (existingMeeting.liveKey !== options.liveKey) {
                 manager.broadcaster.broadcastError("Forbidden", 403);
-                Logger.warn(`meeting ${options.meetingId}`, "attempt_reconnection creatorKey mismatch");
+                Logger.warn(`meeting ${options.meetingId}`, "attempt_reconnection liveKey mismatch");
                 return false;
             }
 

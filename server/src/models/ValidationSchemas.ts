@@ -66,7 +66,7 @@ export const CreateMeetingSchema: z.ZodType<CreateMeetingBody> = z.object({
 // 1. start_conversation — serverOptions is only applied when socket environment is prototype (see SocketManager / MeetingLifecycleHandler)
 export const SetupOptionsSchema: z.ZodType<SetupOptions> = z.object({
     meetingId: z.number(),
-    creatorKey: z.string(),
+    liveKey: z.string(),
     serverOptions: GlobalOptionsSchema.partial().optional(),
 }).transform((data) => {
     if (!['test', 'prototype'].includes(process.env.NODE_ENV || '')) {
@@ -95,7 +95,7 @@ export const HandRaisedOptionsSchema: z.ZodType<HandRaisedOptions> = z.object({
 // 4. attempt_reconnection
 export const ReconnectionOptionsSchema: z.ZodType<ReconnectionOptions> = z.object({
     meetingId: z.number(),
-    creatorKey: z.string().min(1),
+    liveKey: z.string().min(1),
     handRaised: z.boolean().optional(),
     conversationMaxLength: z.number().optional(),
 });

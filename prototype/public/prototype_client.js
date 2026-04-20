@@ -117,7 +117,7 @@ createApp({
 
       // Meeting
       meetingId: null,
-      creatorKey: null,
+      liveKey: null,
 
       // Conversation
       conversation: [],
@@ -907,11 +907,11 @@ createApp({
           const errText = await res.text();
           throw new Error(errText || `Create meeting failed (${res.status})`);
         }
-        const { meetingId, creatorKey } = await res.json();
+        const { meetingId, liveKey } = await res.json();
         this.meetingId = Number(meetingId);
-        this.creatorKey = creatorKey;
+        this.liveKey = liveKey;
 
-        const setupPayload = { meetingId: this.meetingId, creatorKey: this.creatorKey, serverOptions: this.getServerOptions() };
+        const setupPayload = { meetingId: this.meetingId, liveKey: this.liveKey, serverOptions: this.getServerOptions() };
         this.log('SOCKET_OUT', 'Starting Conversation', setupPayload);
         this.socket.emit("start_conversation", setupPayload);
       } catch (e) {
@@ -951,11 +951,11 @@ createApp({
           const errText = await res.text();
           throw new Error(errText || `Create meeting failed (${res.status})`);
         }
-        const { meetingId, creatorKey } = await res.json();
+        const { meetingId, liveKey } = await res.json();
         this.meetingId = Number(meetingId);
-        this.creatorKey = creatorKey;
+        this.liveKey = liveKey;
 
-        const setupPayload = { meetingId: this.meetingId, creatorKey: this.creatorKey, serverOptions: this.getServerOptions() };
+        const setupPayload = { meetingId: this.meetingId, liveKey: this.liveKey, serverOptions: this.getServerOptions() };
         this.log('SOCKET_OUT', 'Restarting Conversation', setupPayload);
         this.socket.emit("start_conversation", setupPayload);
       } catch (e) {

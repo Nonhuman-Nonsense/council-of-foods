@@ -3,16 +3,16 @@
  * Cleared when that socket disconnects or is replaced (see SocketManager).
  */
 
-const liveSessions = new Map<number, { socketId: string; creatorKey: string }>();
+const liveSessions = new Map<number, { socketId: string; liveKey: string }>();
 
-export function tryAcquireLiveSession(meetingId: number, socketId: string, creatorKey: string): boolean {
+export function tryAcquireLiveSession(meetingId: number, socketId: string, liveKey: string): boolean {
     const cur = liveSessions.get(meetingId);
     if (!cur) {
-        liveSessions.set(meetingId, { socketId, creatorKey });
+        liveSessions.set(meetingId, { socketId, liveKey });
         return true;
     }
     if (cur.socketId === socketId) {
-        liveSessions.set(meetingId, { socketId, creatorKey });
+        liveSessions.set(meetingId, { socketId, liveKey });
         return true;
     }
     return false;
