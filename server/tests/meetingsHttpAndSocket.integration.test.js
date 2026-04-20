@@ -10,6 +10,7 @@ import {
     tryAcquireLiveSession,
 } from '@logic/liveSessionRegistry.js';
 import { meetingsCollection } from '@services/DbService.js';
+import { ConflictError } from '@models/Errors.js';
 
 const { integrationGetOpenAI } = vi.hoisted(() => {
     const integrationGetOpenAI = () => ({
@@ -206,7 +207,7 @@ describe('HTTP + Socket full chain (integration)', () => {
         socket2.emit('start_conversation', { meetingId: Number(meetingId), liveKey });
         const err = await errPromise;
         expect(err.code).toBe(409);
-        expect(err.message).toBe('This meeting is happening somewhere else');
+        expect(err.message).toBe(ConflictError.clientErrorMessage);
 
         socket1.close();
         socket2.close();

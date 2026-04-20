@@ -21,11 +21,11 @@ export async function resumeMeeting(meetingId: number): Promise<ResumeMeetingRes
     const stored = await getMeeting(meetingId);
 
     if (stored.summary != null) {
-        throw new BadRequestError("MeetingAlreadyComplete");
+        throw new BadRequestError("Meeting already complete");
     }
 
     if (hasLiveSession(meetingId)) {
-        throw new ConflictError("This meeting is happening somewhere else");
+        throw new ConflictError();
     }
 
     // Let start with seeing how far of a conversation that we already have
@@ -52,7 +52,7 @@ export async function resumeMeeting(meetingId: number): Promise<ResumeMeetingRes
         }
     );
     if (updateResult.matchedCount !== 1) {
-        throw new BadRequestError("MeetingAlreadyComplete");
+        throw new BadRequestError();
     }
 
     // Fetch through the creator-GET path so `liveKey` is stripped and the shape is consistent.

@@ -7,6 +7,7 @@ import {
     clearLiveSessionRegistryForTests,
     tryAcquireLiveSession,
 } from "@logic/liveSessionRegistry.js";
+import { BadRequestError, ConflictError } from "@models/Errors.js";
 import { MockFactory } from "./factories/MockFactory.js";
 
 async function seedMeeting(overrides: Partial<StoredMeeting> = {}): Promise<StoredMeeting> {
@@ -90,7 +91,11 @@ describe("resumeMeeting (server)", () => {
         });
         tryAcquireLiveSession(777, "some-socket", "some-key");
 
-        await expect(resumeMeeting(777)).rejects.toThrow(/somewhere else/);
+        await expect(resumeMeeting(777)).rejects.toSatisfy(
+            (err: unknown) =>
+                err instanceof ConflictError &&
+                /somewhere else/.test((err as ConflictError).clientMessage)
+        );
         const stored = await meetingsCollection.findOne({ _id: 777 });
         expect(stored?.liveKey).toBe("original-key");
     });
@@ -103,7 +108,11 @@ describe("resumeMeeting (server)", () => {
             maximumPlayedIndex: 0,
         });
 
-        await expect(resumeMeeting(777)).rejects.toThrow(/MeetingAlreadyComplete/);
+        await expect(resumeMeeting(777)).rejects.toSatisfy(
+            (err: unknown) =>
+                err instanceof BadRequestError &&
+                /meeting already complete/i.test((err as BadRequestError).clientMessage)
+        );
         const stored = await meetingsCollection.findOne({ _id: 777 });
         expect(stored?.liveKey).toBe("original-key");
     });

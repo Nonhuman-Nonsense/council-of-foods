@@ -44,7 +44,7 @@ interface MainProps {
 export default function Main(props: MainProps) {
   const [topicSelection, setTopicSelection] = useState<Topic | null>(null);
   
-  const [unrecoverabeError, setUnrecoverableError] = useState(false);
+  const [unrecoverableErrorMessage, setUnrecoverableErrorMessage] = useState<string | null>(null);
   const [connectionError, setConnectionError] = useState(false);
   const [meetingliveKey, setMeetingliveKey] = useState<string | null>(null);
 
@@ -132,7 +132,7 @@ export default function Main(props: MainProps) {
   return (
     <>
       <Background pathname={location.pathname} />
-      {!(unrecoverabeError || connectionError) &&
+      {!(unrecoverableErrorMessage != null || connectionError) &&
         <Navbar
           topicTitle={topicSelection?.title || ""}
           hamburgerOpen={hamburgerOpen}
@@ -140,7 +140,7 @@ export default function Main(props: MainProps) {
         />
       }
       {hamburgerOpen && <div style={hamburgerCloserStyle} onClick={() => setHamburgerOpen(false)}></div>}
-      {!unrecoverabeError &&
+      {unrecoverableErrorMessage == null &&
         <Overlay
           isActive={!isMeetingPath(location.pathname)}
           isBlurred={!isRootPath(location.pathname)}
@@ -156,7 +156,7 @@ export default function Main(props: MainProps) {
               path={routes.newMeeting}
               element={
                 <NewMeeting
-                  setUnrecoverableError={setUnrecoverableError}
+                  setUnrecoverableError={setUnrecoverableErrorMessage}
                   topicSelection={topicSelection}
                   setTopicSelection={setTopicSelection}
                   setMeetingliveKey={setMeetingliveKey}
@@ -172,7 +172,7 @@ export default function Main(props: MainProps) {
                   setTopic={setTopicSelection}
                   liveKey={meetingliveKey}
                   setliveKey={setMeetingliveKey}
-                  setUnrecoverableError={setUnrecoverableError}
+                  setUnrecoverableError={setUnrecoverableErrorMessage}
                   connectionError={connectionError}
                   setConnectionError={setConnectionError}
                 />
@@ -188,12 +188,12 @@ export default function Main(props: MainProps) {
           {isPortrait && location.pathname !== "/" && <RotateOverlay />}
         </Overlay>
       }
-      {unrecoverabeError &&
+      {unrecoverableErrorMessage != null && (
         <Overlay isActive={true} isBlurred={true}>
-          <CouncilError />
+          <CouncilError detailMessage={unrecoverableErrorMessage} />
         </Overlay>
-      }
-      {connectionError && !unrecoverabeError && (
+      )}
+      {connectionError && unrecoverableErrorMessage == null && (
         <Overlay
           isActive={true}
           isBlurred={true}

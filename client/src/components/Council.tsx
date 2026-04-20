@@ -9,6 +9,7 @@ import Output from "./Output";
 import ConversationControls from "./ConversationControls";
 import HumanInput from "./HumanInput";
 import { useDocumentVisibility, mapFoodIndex } from "@/utils";
+import { useTranslation } from "react-i18next";
 import { useCouncilMachine } from "@hooks/useCouncilMachine";
 import { getMeeting } from "@api/getMeeting.js";
 
@@ -17,7 +18,7 @@ interface CouncilProps {
   setliveKey: (key: string) => void;
   topic: Topic | null;
   setTopic: (topic: Topic) => void;
-  setUnrecoverableError: (error: boolean) => void;
+  setUnrecoverableError: (message: string) => void;
   setConnectionError: (error: boolean) => void;
   connectionError: boolean;
 }
@@ -33,6 +34,7 @@ function Council({
 }: CouncilProps) {
 
   const { meetingId } = useParams<{ meetingId: string }>();
+  const { t } = useTranslation();
 
   const navigate = useNavigate();
 
@@ -65,7 +67,9 @@ function Council({
       } catch (error) {
         if (ac.signal.aborted) return;
         console.error(error);
-        setUnrecoverableError(true);
+        const msg =
+          error instanceof Error && error.message.trim().length > 0 ? error.message : t("error.1");
+        setUnrecoverableError(msg);
       }
     })();
     return () => ac.abort();

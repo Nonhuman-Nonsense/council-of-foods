@@ -10,10 +10,8 @@ import {
     tryAcquireLiveSession,
 } from "./liveSessionRegistry.js";
 
-/** Shared user-facing 409 reason for live-session conflicts across HTTP + socket. */
-const LIVE_SESSION_CONFLICT_MESSAGE = "This meeting is happening somewhere else";
 import { SetupOptionsSchema, ReconnectionOptionsSchema } from "@models/ValidationSchemas.js";
-
+import { ConflictError } from "@models/Errors.js";
 /**
  * SocketManager
  * 
@@ -147,7 +145,7 @@ export class SocketManager {
 
         if (!tryAcquireLiveSession(data.meetingId, this.socket.id, data.liveKey)) {
             Logger.warn("socket",`Live session already held for meeting ${data.meetingId}; rejecting start_conversation on socket ${this.socket.id} (409)`);
-            this.socketBroadcaster.broadcastError(LIVE_SESSION_CONFLICT_MESSAGE, 409);
+            this.socketBroadcaster.broadcastError(ConflictError.clientErrorMessage, ConflictError.statusCode);
             return;
         }
 
@@ -183,7 +181,7 @@ export class SocketManager {
 
         if (!tryAcquireLiveSession(data.meetingId, this.socket.id, data.liveKey)) {
             Logger.warn("socket",`Live session already held for meeting ${data.meetingId}; rejecting attempt_reconnection on socket ${this.socket.id} (409)`);
-            this.socketBroadcaster.broadcastError(LIVE_SESSION_CONFLICT_MESSAGE, 409);
+            this.socketBroadcaster.broadcastError(ConflictError.clientErrorMessage, ConflictError.statusCode);
             return;
         }
 

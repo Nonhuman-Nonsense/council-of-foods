@@ -15,7 +15,7 @@ vi.mock('react-router', () => ({
 }));
 
 vi.mock('react-i18next', () => ({
-    useTranslation: () => ({ i18n: { language: 'en' } }),
+    useTranslation: () => ({ i18n: { language: 'en' }, t: (key: string) => key }),
 }));
 
 vi.mock('@/routing', () => ({
@@ -49,6 +49,14 @@ vi.mock('../../../src/hooks/useCouncilSocket', () => ({
 // Mock resumeMeeting API for resume-flow tests.
 const mockResumeMeeting = vi.fn();
 vi.mock('@/api/resumeMeeting', () => ({
+    ResumeMeetingError: class ResumeMeetingError extends Error {
+        readonly status: number;
+        constructor(status: number, message: string) {
+            super(message);
+            this.name = 'ResumeMeetingError';
+            this.status = status;
+        }
+    },
     resumeMeeting: (...args: any[]) => mockResumeMeeting(...args),
 }));
 
@@ -358,7 +366,7 @@ describe('useCouncilMachine', () => {
     // sentinel, PUT `/api/meetings/:id`, replace `textMessages` with the server's
     // sanitized conversation, kick off any missing audio in the background, and lift
     // the rotated `liveKey` via `setliveKey` so the socket effect flips us live.
-    // Errors just fall through to `setUnrecoverableError(true)` — there is no
+    // Errors fall through to `setUnrecoverableError(message)` — there is no
     // per-status UI state inside the hook.
 
     describe('handleOnAttemptResume', () => {
@@ -474,7 +482,7 @@ describe('useCouncilMachine', () => {
             });
 
             expect(setliveKey).not.toHaveBeenCalled();
-            expect(setUnrecoverableError).toHaveBeenCalledWith(true);
+            expect(setUnrecoverableError).toHaveBeenCalledWith('anything');
         });
     });
 

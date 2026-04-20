@@ -5,6 +5,7 @@ import {
     orderedAudioIdsForConversation,
     stripAwaitingHumanTail,
 } from "@api/replayManifest.js";
+import { BadRequestError } from "@models/Errors.js";
 import { MockFactory } from "./factories/MockFactory.js";
 import type { Message } from "@shared/ModelTypes.js";
 
@@ -88,7 +89,13 @@ describe("buildReplayMeetingManifest", () => {
         const meeting = MockFactory.createMeeting({
             conversation: [],
         });
-        expect(() => buildReplayMeetingManifest(meeting)).toThrow("No messages available for replay.");
+        try {
+            buildReplayMeetingManifest(meeting);
+            expect.fail("expected BadRequestError");
+        } catch (e) {
+            expect(e).toBeInstanceOf(BadRequestError);
+            expect((e as BadRequestError).clientMessage).toBe("No messages available for replay.");
+        }
     });
 
     it("truncates summary if its audio is missing and appends incomplete marker", () => {

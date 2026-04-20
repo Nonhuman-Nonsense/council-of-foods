@@ -3,6 +3,7 @@ import { insertMeeting } from "@services/DbService.js";
 import type { StoredMeeting } from "@models/DBModels.js";
 import { v4 as uuidv4 } from "uuid";
 import { InternalServerError } from "@models/Errors.js";
+import { Logger } from "@utils/Logger.js";
 
 /**
  * Create a new meeting record (DB only).
@@ -31,6 +32,9 @@ export async function createMeeting(rawBody: unknown, _environment: string): Pro
     };
 
     const result = await insertMeeting(meeting);
-    if (result.insertedId == null) throw new InternalServerError("Meeting insert did not return an id");
+    if (result.insertedId == null) {
+        await Logger.error("createMeeting", "Meeting insert did not return an id");
+        throw new InternalServerError();
+    }
     return { meetingId: result.insertedId.toString(), liveKey: meeting.liveKey };
 }

@@ -1,11 +1,12 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router";
+import { useTranslation } from "react-i18next";
 import { useCouncilSocket } from "../hooks/useCouncilSocket";
 import { useRouting } from "@/routing";
 import type { Character, Message, Meeting, Topic } from "@shared/ModelTypes";
 import type { PublicAudioClipResponse, DecodedAudioMessage } from "@shared/SocketTypes";
 import { CouncilOverlayType } from "@/components/CouncilOverlays";
-import { resumeMeeting } from "@/api/resumeMeeting";
+import { resumeMeeting, ResumeMeetingError } from "@/api/resumeMeeting";
 
 /** Keep the loading UI visible this long on first paint so the Loading animation can run. */
 const MIN_INITIAL_LOADING_DISPLAY_MS = import.meta.env.VITEST ? 0 : 2000;
@@ -18,7 +19,7 @@ export interface UseCouncilMachineProps {
     topic: Topic | null;
     participants: Character[] | null;
     audioContext: React.MutableRefObject<AudioContext | null>;
-    setUnrecoverableError: (error: boolean) => void;
+    setUnrecoverableError: (message: string) => void;
     setConnectionError: (error: boolean) => void;
     connectionError: boolean;
     isPaused: boolean;
@@ -42,6 +43,7 @@ export function useCouncilMachine({
     setAudioPaused,
 }: UseCouncilMachineProps) {
 
+    const { t } = useTranslation();
     const { meetingRoutesBase } = useRouting();
 
     /* -------------------------------------------------------------------------- */
@@ -123,7 +125,8 @@ export function useCouncilMachine({
         },
         onError: (error) => {
             console.error(error);
-            setUnrecoverableError(true);
+            const msg = error.message?.trim() ? error.message : t("error.1");
+            setUnrecoverableError(msg);
         },
         onConnectionError: (err) => {
             console.error(err);
@@ -196,7 +199,7 @@ export function useCouncilMachine({
             }
         } catch (e) {
             if (!ac.signal.aborted) {
-                setUnrecoverableError(true);
+                setUnrecoverableError(t("error.audioLoad"));
                 console.error("Audio download error", e);
             }
         }
@@ -518,7 +521,13 @@ export function useCouncilMachine({
             // This will allow us to raise hand past this point etc.
             setliveKey(response.liveKey);
         } catch (err) {
-            setUnrecoverableError(true);
+            const msg =
+                err instanceof ResumeMeetingError
+                    ? err.message
+                    : err instanceof Error && err.message.trim().length > 0
+                      ? err.message
+                      : t("error.1");
+            setUnrecoverableError(msg);
         }
     }
 

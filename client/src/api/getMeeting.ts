@@ -1,4 +1,5 @@
 import type { Meeting } from "@shared/ModelTypes";
+import { httpErrorMessage } from "./httpErrorMessage";
 
 export async function getMeeting({
   meetingId,
@@ -19,8 +20,8 @@ export async function getMeeting({
     signal,
   });
   if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(errText || `Get meeting failed (${res.status})`);
+    const message = await httpErrorMessage(res, `Get meeting failed (${res.status})`);
+    throw new Error(message);
   }
   return await res.json() as Meeting;
 }

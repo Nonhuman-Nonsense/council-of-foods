@@ -77,6 +77,7 @@
   "error": {
     "title": "ERROR",
     "1": "Something went wrong...",
+    "audioLoad": "Could not load meeting audio.",
     "connection": "Connection Lost",
     "reconnecting": "Attempting to reconnect..."
   },
