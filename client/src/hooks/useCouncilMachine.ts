@@ -8,7 +8,7 @@ import { CouncilOverlayType } from "@/components/CouncilOverlays";
 import { resumeMeeting } from "@/api/resumeMeeting";
 
 /** Keep the loading UI visible this long on first paint so the Loading animation can run. */
-const MIN_INITIAL_LOADING_DISPLAY_MS = 2000;
+const MIN_INITIAL_LOADING_DISPLAY_MS = import.meta.env.VITEST ? 0 : 2000;
 
 export interface UseCouncilMachineProps {
     currentMeetingId: number;
