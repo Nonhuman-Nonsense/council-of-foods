@@ -72,7 +72,7 @@ describe('Navbar', () => {
     it('renders desktop navbar correctly', () => {
         renderNavbar();
         expect(screen.getByText('COUNCIL')).toBeVisible();
-        expect(screen.getByText('Test topic')).toBeVisible();
+        expect(screen.getByText('#123: Test topic')).toBeVisible();
         expect(screen.getByText('SETTINGS')).toBeVisible();
         expect(screen.getByText('ABOUT')).toBeVisible();
         expect(screen.getByText('CONTACT')).toBeVisible();

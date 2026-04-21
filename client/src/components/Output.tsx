@@ -82,15 +82,13 @@ const Output: React.FC<OutputProps> = ({
 
   return (
     <>
-      <div style={showTextOutput ? hiddenStyle : {}}>
-        <TextOutput
-          currentAudioMessage={currentAudioMessage}
-          isPaused={isPaused}
-          style={(councilState !== 'playing' && councilState !== 'waiting') ? (hiddenStyle as React.CSSProperties) : undefined}
-          setCurrentSnippetIndex={setCurrentSnippetIndex}
-          setSentencesLength={setSentencesLength}
-        />
-      </div>
+      <TextOutput
+        currentAudioMessage={currentAudioMessage}
+        isPaused={isPaused}
+        style={showTextOutput ? hiddenStyle : undefined}
+        setCurrentSnippetIndex={setCurrentSnippetIndex}
+        setSentencesLength={setSentencesLength}
+      />
       <div data-testid="audio-indicator" data-playing={!!currentAudioMessage}>
         <AudioOutput
           currentAudioMessage={currentAudioMessage}
