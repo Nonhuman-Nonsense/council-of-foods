@@ -23,6 +23,7 @@ import CouncilError from "./overlays/CouncilError.jsx";
 import Reconnecting from "./overlays/Reconnecting.jsx";
 
 import routes from "@/routes.json";
+import { backgroundImageUrls } from "@assets/backgrounds/index";
 
 function useIsIphone() {
   const [isIphone, setIsIphone] = useState(false);
@@ -240,7 +241,7 @@ function Background({ pathname }: { pathname: string }) {
   const zoomedOutStyle = {
     ...sharedStyle,
     backgroundPositionY: "50%",
-    backgroundImage: `url(/backgrounds/zoomed-out.webp)`,
+    backgroundImage: `url(${backgroundImageUrls.zoomedOut})`,
     zIndex: "-2",
     opacity: isMeetingPath(pathname) ? "0" : "1",
   };
@@ -248,7 +249,7 @@ function Background({ pathname }: { pathname: string }) {
   const zoomedInStyle = {
     ...sharedStyle,
     backgroundPositionY: `calc(50% + max(12${dvh},36px))`,// 50% is picture height, 12vh is from view, 36 is 12% of 300px which is minimum view
-    backgroundImage: `url(/backgrounds/zoomed-in.webp)`,
+    backgroundImage: `url(${backgroundImageUrls.zoomedIn})`,
     zIndex: "-1",
     opacity: isMeetingPath(pathname) ? "1" : "0.01",
   };
@@ -258,8 +259,8 @@ function Background({ pathname }: { pathname: string }) {
       <div style={zoomedOutStyle} />
       <div style={zoomedInStyle} />
       {/* Preload Council Backgrounds */}
-      <div style={{ backgroundImage: `url(/backgrounds/close-up-backdrop.webp)`, opacity: 0, width: 0, height: 0, position: 'absolute', pointerEvents: 'none' }} />
-      <div style={{ backgroundImage: `url(/backgrounds/close-up-table.webp)`, opacity: 0, width: 0, height: 0, position: 'absolute', pointerEvents: 'none' }} />
+      <div style={{ backgroundImage: `url(${backgroundImageUrls.closeUpBackdrop})`, opacity: 0, width: 0, height: 0, position: 'absolute', pointerEvents: 'none' }} />
+      <div style={{ backgroundImage: `url(${backgroundImageUrls.closeUpTable})`, opacity: 0, width: 0, height: 0, position: 'absolute', pointerEvents: 'none' }} />
     </>
   );
 }
