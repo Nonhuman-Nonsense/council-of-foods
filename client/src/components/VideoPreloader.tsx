@@ -1,4 +1,5 @@
 import React from 'react';
+import { foodVideoUrlsForId } from "@assets/foods/foodVideos";
 
 interface VideoPreloaderProps {
     foodIds: string[];
@@ -16,23 +17,26 @@ interface VideoPreloaderProps {
 function VideoPreloader({ foodIds }: VideoPreloaderProps): React.ReactElement {
     return (
         <div style={{ display: 'none', width: 0, height: 0, overflow: 'hidden' }}>
-            {foodIds.map((id) => (
-                <video
-                    key={id}
-                    preload="auto"
-                    muted
-                    playsInline
-                    width="0"
-                    height="0"
-                >
-                    <source
-                        src={`/foods/videos/${id}-hevc-safari.mp4`}
-                        type={'video/mp4; codecs="hvc1"'} />
-                    <source
-                        src={`/foods/videos/${id}-vp9-chrome.webm`}
-                        type={"video/webm"} />
-                </video>
-            ))}
+            {foodIds.map((id) => {
+                const urls = foodVideoUrlsForId(id);
+                return (
+                    <video
+                        key={id}
+                        preload="auto"
+                        muted
+                        playsInline
+                        width="0"
+                        height="0"
+                    >
+                        <source
+                            src={urls.hevc}
+                            type={'video/mp4; codecs="hvc1"'} />
+                        <source
+                            src={urls.vp9}
+                            type={"video/webm"} />
+                    </video>
+                );
+            })}
         </div>
     );
 }

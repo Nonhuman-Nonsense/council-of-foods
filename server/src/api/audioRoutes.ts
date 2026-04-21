@@ -4,8 +4,7 @@ import type { StoredAudio } from "@models/DBModels.js";
 import { audioCollection } from "@services/DbService.js";
 import type { PublicAudioClipResponse } from "@shared/SocketTypes.js";
 import { Logger } from "@utils/Logger.js";
-
-const CACHE_CONTROL = "public, max-age=86400, immutable";
+import { CACHE_CONTROL_PUBLIC_AUDIO } from "@utils/httpCache.js";
 
 /** Same extraction rules as `AudioSystem.generateAudio` when reading legacy rows. */
 function extractAudioBuffer(row: unknown): Buffer | null {
@@ -56,7 +55,7 @@ export function registerAudioRoutes(app: Express): void {
 
             const etag = `"${createHash("sha256").update(audioBuf).digest("hex").slice(0, 32)}"`;
             if (req.headers["if-none-match"] === etag) {
-                res.setHeader("Cache-Control", CACHE_CONTROL);
+                res.setHeader("Cache-Control", CACHE_CONTROL_PUBLIC_AUDIO);
                 res.setHeader("ETag", etag);
                 res.sendStatus(304);
                 return;
@@ -69,7 +68,7 @@ export function registerAudioRoutes(app: Express): void {
                 audioBase64: audioBuf.toString("base64"),
             };
 
-            res.setHeader("Cache-Control", CACHE_CONTROL);
+            res.setHeader("Cache-Control", CACHE_CONTROL_PUBLIC_AUDIO);
             res.setHeader("ETag", etag);
             res.status(200).type("application/json").json(body);
         } catch (e: unknown) {
