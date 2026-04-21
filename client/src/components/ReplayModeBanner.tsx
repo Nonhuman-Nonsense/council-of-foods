@@ -3,6 +3,8 @@ import { useEffect, useRef, useState } from "react";
 import { useMobile } from "@/utils";
 import { useTranslation } from "react-i18next";
 import { Icons } from "@icons";
+import { useRouting } from "@/routing";
+import { Link } from "react-router";
 
 const BANNER_TRANSITION_MS = 2000;
 const ANIMATION = BANNER_TRANSITION_MS + 'ms cubic-bezier(0.22, 1, 0.36, 1)';
@@ -11,17 +13,16 @@ interface ReplayModeBannerProps {
   meeting: Meeting;
   isPaused: boolean;
   visible: boolean;
-  onStartNewMeeting: () => void;
 }
 
 export default function ReplayModeBanner({
   meeting,
   isPaused,
-  visible,
-  onStartNewMeeting,
+  visible
 }: ReplayModeBannerProps) {
   const isMobile = useMobile();
   const { t, i18n } = useTranslation();
+  const { rootPath } = useRouting();
   const sawReplayRef = useRef(false);
   const [fullyHidden, setFullyHidden] = useState(() => !visible);
   const [open, setOpen] = useState(false);
@@ -94,7 +95,7 @@ export default function ReplayModeBanner({
     backfaceVisibility: "hidden",
     animationPlayState: isPaused ? "paused" : "running"
   }
-  
+
   const marqueeSegmentStyle: React.CSSProperties = {
     display: "inline-flex",
     alignItems: "center",
@@ -123,13 +124,13 @@ export default function ReplayModeBanner({
   return (
     <div style={bannerStyle}>
       <div style={innerStyle}>
-        <a onClick={onStartNewMeeting}>
+        <Link to={rootPath} style={{ pointerEvents: "auto" }}>
           <p style={paragraphStyle}>
             <span style={{ ...marqueeTrackStyle, "--marquee-segments": segmentCount } as React.CSSProperties}>
               {Array.from({ length: segmentCount }, (_, i) => renderSegment(i))}
             </span>
           </p>
-        </a>
+        </Link>
       </div>
     </div>
   );
