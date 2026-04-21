@@ -15,6 +15,7 @@ import { AVAILABLE_LANGUAGES } from '@shared/AvailableLanguages.js';
 import { verifyGoogleCredentials } from '@utils/StartupChecks.js';
 import {
   CACHE_CONTROL_DIST_ASSET_IMMUTABLE,
+  CACHE_CONTROL_DIST_PUBLIC_ROOT,
   CACHE_CONTROL_HTML_SHELL,
   CACHE_CONTROL_NO_STORE,
   cacheControlPrivateNoStoreApi,
@@ -78,8 +79,10 @@ if (environment === "prototype") {
       const normalized = filePath.replace(/\\/g, '/');
       if (normalized.includes('/assets/')) {
         res.setHeader('Cache-Control', CACHE_CONTROL_DIST_ASSET_IMMUTABLE);
-      } else {
+      } else if (normalized.endsWith('/index.html')) {
         res.setHeader('Cache-Control', CACHE_CONTROL_HTML_SHELL);
+      } else {
+        res.setHeader('Cache-Control', CACHE_CONTROL_DIST_PUBLIC_ROOT);
       }
     },
   }));

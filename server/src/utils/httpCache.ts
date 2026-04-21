@@ -12,11 +12,17 @@ export const CACHE_CONTROL_PRIVATE_NO_STORE = "private, no-store";
 /** Vite `dist/assets/*` filenames are content-hashed; safe for long immutable caching. */
 export const CACHE_CONTROL_DIST_ASSET_IMMUTABLE = "public, max-age=31536000, immutable";
 
-/** SPA shell and other non-fingerprinted files from `dist` (e.g. index.html, manifest.json). */
+/** SPA shell: `dist/index.html` must revalidate so deploys propagate. */
 export const CACHE_CONTROL_HTML_SHELL = "no-cache";
 
+/**
+ * Copied from `client/public/` to `dist/` root (favicon, manifest, robots, og image).
+ * Short TTL: no content hash, but safe to cache at the edge to reduce origin hits.
+ */
+export const CACHE_CONTROL_DIST_PUBLIC_ROOT = "public, max-age=86400";
+
 /** Public replay clip JSON at a stable URL; bytes at id are immutable. */
-export const CACHE_CONTROL_PUBLIC_AUDIO = "public, max-age=86400, immutable";
+export const CACHE_CONTROL_PUBLIC_AUDIO = "public, max-age=31536000, immutable";
 
 export function cacheControlPrivateNoStoreApi(_req: Request, res: Response, next: NextFunction): void {
     res.setHeader("Cache-Control", CACHE_CONTROL_PRIVATE_NO_STORE);
