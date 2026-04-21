@@ -556,6 +556,12 @@ input[type="checkbox"] {
   color: var(--text-primary);
 }
 
+.chat-bubble.system {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+}
+
 .bubble-header {
   font-size: 0.85em;
   margin-bottom: 4px;

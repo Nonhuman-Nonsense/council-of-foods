@@ -17,7 +17,7 @@ describe('MeetingManager - State Machine (decideNextAction)', () => {
             name: 'should end conversation if max length reached',
             setup: (mgr) => {
                 mgr.serverOptions.conversationMaxLength = 5;
-                mgr.extraMessageCount = 0;
+                mgr.meeting.conversationExtraSlots = 0;
                 mgr.meeting.conversation = TestFactory.createConversation(5);
             },
             nextSpeakerIndex: 0,
@@ -35,6 +35,16 @@ describe('MeetingManager - State Machine (decideNextAction)', () => {
             name: 'should wait if awaiting human question',
             setup: (mgr) => {
                 mgr.meeting.conversation = TestFactory.createAwaitingQuestion();
+            },
+            nextSpeakerIndex: 0,
+            expected: { type: 'WAIT' }
+        },
+        {
+            name: 'should wait if conversation already ended with max_reached sentinel',
+            setup: (mgr) => {
+                mgr.serverOptions.conversationMaxLength = 5;
+                mgr.meeting.conversationExtraSlots = 0;
+                mgr.meeting.conversation = [...TestFactory.createConversation(5), { type: 'max_reached' }];
             },
             nextSpeakerIndex: 0,
             expected: { type: 'WAIT' }

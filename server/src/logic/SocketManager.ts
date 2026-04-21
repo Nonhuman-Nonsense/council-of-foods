@@ -1,10 +1,17 @@
 import { Socket } from "socket.io";
 import { MeetingManager } from "./MeetingManager.js";
+import { SocketBroadcaster } from "./SocketBroadcaster.js";
 import { Logger } from "@utils/Logger.js";
 import { ClientToServerEvents, ReconnectionOptions, SetupOptions } from "@shared/SocketTypes.js";
 import { ZodError } from "zod";
 import { getGlobalOptions } from "./GlobalOptions.js";
+import {
+    releaseLiveSession,
+    tryAcquireLiveSession,
+} from "./liveSessionRegistry.js";
 
+import { SetupOptionsSchema, ReconnectionOptionsSchema } from "@models/ValidationSchemas.js";
+import { ConflictError } from "@models/Errors.js";
 /**
  * SocketManager
  * 
@@ -21,10 +28,16 @@ export class SocketManager {
     private socket: Socket;
     private environment: string;
     private currentSession: MeetingManager | null = null; // Using MeetingManager as the "Session" class
+    /**
+     * Connection-scoped broadcaster (same socket as `MeetingManager`’s broadcaster).
+     * SocketManager uses this for lifecycle/validation errors; the session uses its own instance for meeting traffic — both emit on the same socket.
+     */
+    private readonly socketBroadcaster: SocketBroadcaster;
 
     constructor(socket: Socket, environment: string) {
         this.socket = socket;
         this.environment = environment;
+        this.socketBroadcaster = new SocketBroadcaster(socket);
         this.setupListeners();
     }
 
@@ -45,14 +58,18 @@ export class SocketManager {
         const proxyEvents: (keyof ClientToServerEvents)[] = [
             "submit_human_message",
             "submit_human_panelist",
-            "pause_conversation",
-            "resume_conversation",
-            "remove_last_message",
-            "submit_injection",
             "raise_hand",
             "wrap_up_meeting",
+            "report_maximum_played_index",
             "continue_conversation"
         ];
+
+        if (this.environment === "prototype" || this.environment === "test") {
+            proxyEvents.push("submit_injection");
+            proxyEvents.push("pause_conversation");
+            proxyEvents.push("resume_conversation");
+            proxyEvents.push("remove_last_message");
+        }
 
         for (const event of proxyEvents) {
             this.bindSafeListener(event, async (payload) => {
@@ -99,31 +116,21 @@ export class SocketManager {
                     : `socket ${this.socket.id}`;
 
                 if (error instanceof ZodError) {
-                    Logger.warn(context, `Validation Error for ${event}: ${error.message}`, error);
-
-                    if (this.currentSession) {
-                        this.currentSession.broadcaster.broadcastWarning("Invalid Input", 400, error);
-                    } else {
-                        this.socket.emit("conversation_error", { message: "Invalid Input", code: 400, error });
-                    }
+                    Logger.warn(context, `Validation error for ${event}; notifying client (400): ${error.message}`, error);
+                    this.socketBroadcaster.broadcastWarning("Invalid Input", 400, error);
                 } else {
                     const errMessage = error instanceof Error ? error.message : String(error);
-                    Logger.error(context, `Error handling event ${event}: ${errMessage}`, error);
-
-                    // If we have a session, use its broadcaster to send 500
-                    if (this.currentSession) {
-                        this.currentSession.broadcaster.broadcastError("Internal Server Error", 500);
-                    } else {
-                        // Fallback: Emit directly to socket if session creation failed
-                        this.socket.emit("conversation_error", { message: "Internal Server Error", code: 500 });
-                        Logger.warn(`socket ${this.socket.id}`, "Broadcasted error directly to socket (no active session)");
-                    }
+                    Logger.error(context, `Error handling event ${event}; notifying client (500): ${errMessage}`, error);
+                    this.socketBroadcaster.broadcastError("Internal Server Error", 500);
                 }
             }
         });
     }
 
     private destroySession() {
+        if (this.currentSession?.meeting) {
+            releaseLiveSession(this.currentSession.meeting._id, this.socket.id);
+        }
         if (this.currentSession) {
             this.currentSession.destroy();
             this.currentSession = null;
@@ -134,14 +141,25 @@ export class SocketManager {
         Logger.info("socket", "Starting new meeting session...");
         this.destroySession();
 
+        const data = SetupOptionsSchema.parse(payload);
+
+        if (!tryAcquireLiveSession(data.meetingId, this.socket.id, data.liveKey)) {
+            Logger.warn("socket",`Live session already held for meeting ${data.meetingId}; rejecting start_conversation on socket ${this.socket.id} (409)`);
+            this.socketBroadcaster.broadcastError(ConflictError.clientErrorMessage, ConflictError.statusCode);
+            return;
+        }
+
         const baseOptions = getGlobalOptions();
         const serverOptions = this.environment === "prototype" ? ({ ...baseOptions, ...(payload.serverOptions || {}) }) : baseOptions;
 
-        // Create new session
         this.currentSession = new MeetingManager(this.socket, this.environment, serverOptions);
 
-        // No try-catch needed here, handled by bindSafeListener
-        await this.currentSession.initializeStart(payload);
+        try {
+            await this.currentSession.initializeStart(payload);
+        } catch (e) {
+            releaseLiveSession(data.meetingId, this.socket.id);
+            throw e;
+        }
     }
 
     private async handleReconnect(payload: ReconnectionOptions) {
@@ -153,15 +171,30 @@ export class SocketManager {
             this.currentSession.meeting._id === Number(payload.meetingId)
         ) {
             Logger.info("socket", "Session already active for this meeting. Syncing only.");
-            this.currentSession.syncClient();
+            await this.currentSession.syncClient();
             return;
         }
 
-        // 2. Else, destroy and load new
         this.destroySession();
+
+        const data = ReconnectionOptionsSchema.parse(payload);
+
+        if (!tryAcquireLiveSession(data.meetingId, this.socket.id, data.liveKey)) {
+            Logger.warn("socket",`Live session already held for meeting ${data.meetingId}; rejecting attempt_reconnection on socket ${this.socket.id} (409)`);
+            this.socketBroadcaster.broadcastError(ConflictError.clientErrorMessage, ConflictError.statusCode);
+            return;
+        }
+
         this.currentSession = new MeetingManager(this.socket, this.environment);
 
-        // No try-catch needed here, handled by bindSafeListener
-        await this.currentSession.initializeReconnect(payload);
+        try {
+            const ok = await this.currentSession.initializeReconnect(payload);
+            if (!ok) {
+                releaseLiveSession(data.meetingId, this.socket.id);
+            }
+        } catch (e) {
+            releaseLiveSession(data.meetingId, this.socket.id);
+            throw e;
+        }
     }
 }

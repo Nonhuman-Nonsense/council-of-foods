@@ -3,6 +3,7 @@ import express from "express";
 import http from "http";
 import { registerMeetingRoutes } from "@api/meetingRoutes.js";
 import { getClientKey } from "@api/getClientKey.js";
+import { cacheControlPrivateNoStoreApi } from "@utils/httpCache.js";
 
 vi.mock("@api/getClientKey.js", () => ({
     getClientKey: vi.fn(),
@@ -23,6 +24,7 @@ describe("POST /api/clientkey (integration)", () => {
     beforeAll(async () => {
         const app = express();
         app.use(express.json());
+        app.use("/api", cacheControlPrivateNoStoreApi);
         registerMeetingRoutes(app, "test");
         httpServer = http.createServer(app);
         port = await new Promise((resolve, reject) => {
@@ -56,8 +58,8 @@ describe("POST /api/clientkey (integration)", () => {
             body: JSON.stringify(validCreateBody()),
         });
         expect(createRes.status).toBe(201);
-        const { creatorKey } = await createRes.json();
-        return creatorKey;
+        const { liveKey } = await createRes.json();
+        return liveKey;
     }
 
     it("returns 401 without Authorization", async () => {
@@ -70,7 +72,7 @@ describe("POST /api/clientkey (integration)", () => {
         expect(vi.mocked(getClientKey)).not.toHaveBeenCalled();
     });
 
-    it("returns 403 when Bearer creatorKey is not in the database", async () => {
+    it("returns 403 when Bearer liveKey is not in the database", async () => {
         const res = await fetch(`${base()}/api/clientkey`, {
             method: "POST",
             headers: {
@@ -84,13 +86,13 @@ describe("POST /api/clientkey (integration)", () => {
     });
 
     it("returns 400 when language is missing or not allowed", async () => {
-        const creatorKey = await createMeetingAndKey();
+        const liveKey = await createMeetingAndKey();
 
         const resMissing = await fetch(`${base()}/api/clientkey`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
-                Authorization: `Bearer ${creatorKey}`,
+                Authorization: `Bearer ${liveKey}`,
             },
             body: JSON.stringify({}),
         });
@@ -101,7 +103,7 @@ describe("POST /api/clientkey (integration)", () => {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
-                Authorization: `Bearer ${creatorKey}`,
+                Authorization: `Bearer ${liveKey}`,
             },
             body: JSON.stringify({ language: "xx" }),
         });
@@ -110,13 +112,13 @@ describe("POST /api/clientkey (integration)", () => {
     });
 
     it("returns 200 and delegates to getClientKey when authorized", async () => {
-        const creatorKey = await createMeetingAndKey();
+        const liveKey = await createMeetingAndKey();
 
         const res = await fetch(`${base()}/api/clientkey`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
-                Authorization: `Bearer ${creatorKey}`,
+                Authorization: `Bearer ${liveKey}`,
             },
             body: JSON.stringify({ language: "en" }),
         });

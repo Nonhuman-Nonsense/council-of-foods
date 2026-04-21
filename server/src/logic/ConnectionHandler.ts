@@ -35,7 +35,7 @@ export class ConnectionHandler {
      * Retrieves meeting state from DB, restores manager context, 
      * identifies missing audio for existing text, and resumes the loop.
      */
-    async handleReconnection(options: ReconnectionOptions): Promise<void> {
+    async handleReconnection(options: ReconnectionOptions): Promise<boolean> {
         const { manager } = this;
 
         Logger.info(`meeting ${options.meetingId}`, "attempting to resume");
@@ -45,59 +45,67 @@ export class ConnectionHandler {
                 _id: meetingIdNum,
             });
 
-            if (existingMeeting) {
-                // Check BEFORE overwriting state
-                // We don't need isRunning check anymore with idempotent startLoop
-
-                manager.meeting = existingMeeting as StoredMeeting;
-                manager.handRaised = options.handRaised ?? false;
-
-                const baseMax = manager.serverOptions.conversationMaxLength;
-                const clientMax = options.conversationMaxLength ?? baseMax;
-                manager.extraMessageCount = Math.max(0, clientMax - baseMax);
-
-                // Missing audio regen logic
-                const missingAudio: Message[] = [];
-                for (let i = 0; i < existingMeeting.conversation.length; i++) {
-                    if (existingMeeting.conversation[i].type === 'awaiting_human_panelist') continue;
-                    if (existingMeeting.conversation[i].type === 'awaiting_human_question') continue;
-                    const msgId = existingMeeting.conversation[i].id;
-                    if (msgId && existingMeeting.audio.indexOf(msgId) === -1) {
-                        missingAudio.push(existingMeeting.conversation[i]);
-                    }
-                }
-
-                for (let i = 0; i < missingAudio.length; i++) {
-                    const audioMsg = missingAudio[i];
-                    if (!audioMsg.id || !audioMsg.text) continue; // Skip malformed methods
-
-                    Logger.info(`meeting ${manager.meeting._id}`, `(async) generating missing audio for ${audioMsg.speaker}`);
-                    audioMsg.sentences = splitSentences(audioMsg.text as string);
-                    // Ensure speaker is found
-                    const speaker = existingMeeting.characters.find(c => c.id === audioMsg.speaker);
-                    if (speaker) {
-                        manager.audioSystem.queueAudioGeneration(
-                            { ...audioMsg, id: audioMsg.id!, text: audioMsg.text!, sentences: audioMsg.sentences! },
-                            speaker,
-                            manager.meeting,
-                            manager.environment,
-                            manager.serverOptions
-                        );
-                    }
-                }
-
-                Logger.info(`meeting ${manager.meeting._id}`, "resumed");
-                manager.broadcaster.broadcastConversationUpdate(manager.meeting.conversation);
-
-                // Simply ensure loop is running. 
-                // Idempotency in MeetingManager prevents double-start.
-                manager.startLoop();
-            } else {
-                manager.broadcaster.broadcastError('Meeting not found', 404);
+            if (!existingMeeting) {
+                manager.broadcaster.broadcastError("Meeting not found", 404);
                 Logger.warn(`meeting ${options.meetingId}`, `Meeting not found`);
+                return false;
             }
+
+            if (existingMeeting.liveKey !== options.liveKey) {
+                manager.broadcaster.broadcastError("Forbidden", 403);
+                Logger.warn(`meeting ${options.meetingId}`, "attempt_reconnection liveKey mismatch");
+                return false;
+            }
+
+            manager.meeting = existingMeeting as StoredMeeting;
+            manager.handRaised = options.handRaised ?? false;
+
+            // TODO, check how the server stores extraMessageCount
+            // const baseMax = manager.serverOptions.conversationMaxLength;
+            // const clientMax = options.conversationMaxLength ?? baseMax;
+            // manager.extraMessageCount = Math.max(0, clientMax - baseMax);
+
+            // Missing audio regen logic
+            const missingAudio: Message[] = [];
+            for (let i = 0; i < existingMeeting.conversation.length; i++) {
+                if (existingMeeting.conversation[i].type === 'awaiting_human_panelist') continue;
+                if (existingMeeting.conversation[i].type === 'awaiting_human_question') continue;
+                if (existingMeeting.conversation[i].type === 'max_reached') continue;
+                const msgId = existingMeeting.conversation[i].id;
+                if (msgId && existingMeeting.audio.indexOf(msgId) === -1) {
+                    missingAudio.push(existingMeeting.conversation[i]);
+                }
+            }
+
+            for (let i = 0; i < missingAudio.length; i++) {
+                const audioMsg = missingAudio[i];
+                if (!audioMsg.id || !audioMsg.text) continue; // Skip malformed methods
+
+                Logger.info(`meeting ${manager.meeting._id}`, `(async) generating missing audio for ${audioMsg.speaker}`);
+                audioMsg.sentences = splitSentences(audioMsg.text as string);
+                // Ensure speaker is found
+                const speaker = existingMeeting.characters.find(c => c.id === audioMsg.speaker);
+                if (speaker) {
+                    manager.audioSystem.queueAudioGeneration(
+                        { ...audioMsg, id: audioMsg.id!, text: audioMsg.text!, sentences: audioMsg.sentences! },
+                        speaker,
+                        manager.meeting,
+                        manager.environment,
+                        manager.serverOptions
+                    );
+                }
+            }
+
+            Logger.info(`meeting ${manager.meeting._id}`, "resumed");
+            manager.broadcaster.broadcastConversationUpdate(manager.meeting.conversation);
+
+            // Simply ensure loop is running.
+            // Idempotency in MeetingManager prevents double-start.
+            manager.startLoop();
+            return true;
         } catch (error) {
             Logger.reportAndCrashClient(`meeting ${options.meetingId}`, "Error resuming conversation", error, manager.broadcaster);
         }
+        return false;
     }
 }

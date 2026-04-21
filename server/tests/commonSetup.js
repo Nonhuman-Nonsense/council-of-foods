@@ -45,6 +45,7 @@ export const setupTestDependencies = () => {
 
 export const createTestManager = (env = 'test', optionsOverride = null, services = {}) => {
     const mockSocket = {
+        id: 'test-manager-socket',
         on: vi.fn(),
         emit: vi.fn(),
         handlers: {},

@@ -51,7 +51,7 @@ describe('SocketManager (start_conversation)', () => {
         new SocketManager(mockSocket, 'prototype');
         await handlers.start_conversation({
             meetingId: 1,
-            creatorKey: 'k',
+            liveKey: 'k',
             serverOptions: { conversationMaxLength: 999 },
         });
 
@@ -67,7 +67,7 @@ describe('SocketManager (start_conversation)', () => {
         new SocketManager(mockSocket, 'production');
         await handlers.start_conversation({
             meetingId: 1,
-            creatorKey: 'k',
+            liveKey: 'k',
             serverOptions: { conversationMaxLength: 999 },
         });
 

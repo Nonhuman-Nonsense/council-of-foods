@@ -2,10 +2,13 @@ import type { Express, Request, Response } from "express";
 import { ZodError } from "zod";
 import { Logger } from "@utils/Logger.js";
 import { createMeeting } from "./createMeeting.js";
-import { getMeeting, MeetingNotFoundError } from "./getMeeting.js";
+import { getMeeting } from "./getMeeting.js";
+import { buildReplayMeetingManifest } from "./replayManifest.js";
 import { getClientKey } from "./getClientKey.js";
+import { resumeMeeting } from "./resumeMeeting.js";
 import { meetingsCollection } from "@services/DbService.js";
 import { AVAILABLE_LANGUAGES } from "@shared/AvailableLanguages.js";
+import { BadRequestError, CouncilError, ForbiddenError, UnauthorizedError } from "@models/Errors.js";
 
 const BEARER = /^Bearer\s+(.+)$/i;
 
@@ -16,98 +19,117 @@ function authorizationHeader(req: Request): string | undefined {
     return undefined;
 }
 
-function parseBearerToken(req: Request): string | null {
+function parseOptionalBearerToken(req: Request): string | undefined {
     const h = authorizationHeader(req);
-    if (!h) return null;
+    if (!h) return undefined;
     const m = h.match(BEARER);
-    return m ? m[1].trim() : null;
+    return m ? m[1].trim() : undefined;
+}
+
+function parseRequiredBearerToken(req: Request): string {
+    const bearer = parseOptionalBearerToken(req);
+    if (!bearer) {
+        throw new UnauthorizedError();
+    }
+    return bearer;
+}
+
+async function apiRouteWithErrorHandling(
+    method: string,
+    path: string,
+    req: Request,
+    res: Response,
+    handler: (req: Request, res: Response) => Promise<void>
+): Promise<void> {
+    try {
+        await handler(req, res);
+    } catch (e: unknown) {
+        if (e instanceof ZodError) {
+            await Logger.warn("api", `${method} ${path} failed, validation error`, e);
+            res.status(400).json({ message: "Invalid request" });
+            return;
+        }
+        if (e instanceof CouncilError) {
+            await Logger.warn("api", `${method} ${path} failed, ${e.name}`, e);
+            res.status(e.statusCode).json({ message: e.clientMessage });
+            return;
+        }
+        await Logger.error("api", `${method} ${path} failed, internal server error`, e);
+        res.status(500).json({ message: "Internal Server Error" });
+    }
 }
 
 /**
  * REST endpoints for meeting lifecycle: create (POST) and fetch for the SPA (GET, creator-authenticated).
  */
 export function registerMeetingRoutes(app: Express, environment: string): void {
+
     app.post("/api/meetings", async (req: Request, res: Response) => {
-        try {
-            const { meetingId, creatorKey } = await createMeeting(req.body, environment);
+        await apiRouteWithErrorHandling("POST", "/api/meetings", req, res, async (req: Request, res: Response) => {
+            const { meetingId, liveKey } = await createMeeting(req.body, environment);
             await Logger.info("api", `POST /api/meetings successful: ${meetingId}`);
-            res.status(201).json({ meetingId, creatorKey });
-        } catch (e: unknown) {
-            if (e instanceof ZodError) {
-                await Logger.warn("api", "POST /api/meetings failed", e);
-                res.status(400).json({ message: "Invalid payload" });
-                return;
-            }
-            await Logger.error("api", "POST /api/meetings failed", e);
-            res.status(500).json({ message: "Internal Server Error" });
-        }
+            res.status(201).json({ meetingId, liveKey });
+        });
     });
 
     app.get("/api/meetings/:meetingId", async (req: Request, res: Response) => {
-        const bearer = parseBearerToken(req);
-        if (!bearer) {
-            res.status(401).json({ message: "Authorization required" });
-            return;
-        }
-
-        const meetingId = Number(req.params.meetingId);
-        if (!Number.isInteger(meetingId) || meetingId < 1) {
-            res.status(400).json({ message: "Invalid meeting ID" });
-            return;
-        }
-
-        try {
-            const meeting = await getMeeting(meetingId);
-            if (bearer !== meeting.creatorKey) {
-                res.status(403).json({ message: "Forbidden" });
+        await apiRouteWithErrorHandling("GET", "/api/meetings/:meetingId", req, res, async (req: Request, res: Response) => {
+            // Get the meeting id from the request params
+            const meetingId = req.params.meetingId;
+            if (typeof meetingId !== "string" || !/^\d+$/.test(meetingId)) {
+                throw new BadRequestError();
+            }
+            const meetingIdNumber = Number(meetingId);
+            const bearer = parseOptionalBearerToken(req);
+            const meeting = await getMeeting(meetingIdNumber, bearer);
+            if (!bearer) {
+                const manifest = buildReplayMeetingManifest(meeting);
+                await Logger.info("api", `GET /api/meetings/${meetingId} replay`);
+                res.status(200).json(manifest);
                 return;
             }
-
-            await Logger.info("api", `GET /api/meetings/${req.params.meetingId} successful`);
+            await Logger.info("api", `GET /api/meetings/${meetingId} live`);
             res.status(200).json(meeting);
-        } catch (e: unknown) {
-            if (e instanceof MeetingNotFoundError) {
-                res.status(404).json({ message: "Not found" });
-                return;
+        });
+    });
+
+    app.put("/api/meetings/:meetingId", async (req: Request, res: Response) => {
+        await apiRouteWithErrorHandling("PUT", "/api/meetings/:meetingId", req, res, async (req: Request, res: Response) => {
+            const meetingId = req.params.meetingId;
+            if (typeof meetingId !== "string" || !/^\d+$/.test(meetingId)) {
+                throw new BadRequestError();
             }
-            if (e instanceof ZodError) {
-                await Logger.warn("api", `GET /api/meetings/${req.params.meetingId} failed`, e);
-                res.status(400).json({ message: "Invalid meeting ID" });
-                return;
-            }
-            await Logger.error("api", `GET /api/meetings/${req.params.meetingId} failed`, e);
-            res.status(500).json({ message: "Internal Server Error" });
-        }
+            const meetingIdNumber = Number(meetingId);
+            const response = await resumeMeeting(meetingIdNumber);
+            await Logger.info("api", `PUT /api/meetings/${meetingId} resumed`);
+            res.status(200).json(response);
+        });
     });
 
     app.post("/api/clientkey", async (req: Request, res: Response) => {
-        const bearer = parseBearerToken(req);
-        if (!bearer) {
-            res.status(401).json({ message: "Authorization required" });
-            return;
-        }
+        await apiRouteWithErrorHandling("POST", "/api/clientkey", req, res, async (req: Request, res: Response) => {
+            const bearer = parseRequiredBearerToken(req);
 
-        try {
-            const exists = await meetingsCollection.findOne({ creatorKey: bearer }, { projection: { _id: 1 } });
+            // Check if the live key exists in the database
+            const exists = await meetingsCollection.findOne({ liveKey: bearer }, { projection: { _id: 1 } });
             if (!exists) {
-                res.status(403).json({ message: "Forbidden" });
-                return;
+                throw new ForbiddenError();
             }
 
+            // Check if the language is valid
             const language = req.body?.language;
             if (
                 typeof language !== "string" ||
                 !(AVAILABLE_LANGUAGES as readonly string[]).includes(language)
             ) {
-                res.status(400).json({ message: "Invalid or missing language" });
-                return;
+                throw new BadRequestError();
             }
 
+            // All good
+            // Get the client key
             const data = await getClientKey(language);
+            await Logger.info("api", `POST /api/clientkey successful`);
             res.status(200).json(data);
-        } catch (e: unknown) {
-            await Logger.error("api", "POST /api/clientkey failed", e);
-            res.status(500).json({ message: "Internal Server Error" });
-        }
+        });
     });
 }

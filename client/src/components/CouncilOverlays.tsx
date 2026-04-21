@@ -1,19 +1,21 @@
 import type { Character } from "@shared/ModelTypes";
 import Completed from "./overlays/Completed";
+import Incomplete from "./overlays/Incomplete";
 import Summary, { SummaryData } from "./overlays/Summary";
 import Name from "./overlays/Name";
 import OverlayWrapper from './OverlayWrapper';
 import type { Topic } from "@shared/ModelTypes";
 
-export type CouncilOverlayType = "name" | "completed" | "summary" | null;
+export type CouncilOverlayType = "name" | "completed" | "summary" | "incomplete" | null;
 
 interface CouncilOverlaysProps {
   activeOverlay: CouncilOverlayType;
   onContinue: (data?: Topic) => void;
+  onAttemptResume: () => void;
   onWrapItUp: () => void;
   proceedWithHumanName: (data: { humanName: string }) => void;
   canExtendMeeting: boolean;
-  removeOverlay: () => void;
+  cancelOverlay: () => void;
   summary: SummaryData | null;
   meetingId: number;
   participants: Character[];
@@ -33,10 +35,11 @@ interface CouncilOverlaysProps {
 function CouncilOverlays({
   activeOverlay,
   onContinue,
+  onAttemptResume,
   onWrapItUp,
   proceedWithHumanName,
   canExtendMeeting,
-  removeOverlay,
+  cancelOverlay,
   summary,
   meetingId,
   participants,
@@ -48,6 +51,13 @@ function CouncilOverlays({
       case "name":
         return (
           <Name participants={participants} onContinueForward={proceedWithHumanName} />
+        );
+      case "incomplete":
+        return (
+          <Incomplete
+            onAttemptResume={onAttemptResume}
+            onNevermind={cancelOverlay}
+          />
         );
       case "completed":
         return (
@@ -70,7 +80,7 @@ function CouncilOverlays({
   };
 
   return (
-    <OverlayWrapper showX={true} removeOverlay={removeOverlay}>
+    <OverlayWrapper showX={true} cancelOverlay={cancelOverlay}>
       {renderOverlayContent()}
     </OverlayWrapper>
   );

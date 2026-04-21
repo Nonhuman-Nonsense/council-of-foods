@@ -1,4 +1,5 @@
 import { cyan, yellow, red, gray } from "colorette";
+import { InternalServerError } from "@models/Errors.js";
 import { sendReport } from "./errorbot.js";
 
 export class Logger {
@@ -58,9 +59,7 @@ export class Logger {
 
         // Tell the client
         if (broadcaster) {
-            // Decouple the specific error details from the client message if desired, 
-            // or pass the generic message. For now, we use the message provided.
-            broadcaster.broadcastError(message, 500);
+            broadcaster.broadcastError(new InternalServerError().clientMessage, 500);
         }
     }
 }
