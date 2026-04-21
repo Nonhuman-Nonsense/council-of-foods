@@ -215,11 +215,7 @@ function TextOutput({
   };
 
   const textStyle: React.CSSProperties = {
-    width: isMobile ? "85%" : "70%",
-    position: "absolute",
-    bottom: isMobile ? "40px" : "50px",
-    left: "50%",
-    transform: "translateX(-50%)",
+    maxWidth: isMobile ? "85%" : "70%",
     zIndex: "3",
     pointerEvents: 'auto'
   };
