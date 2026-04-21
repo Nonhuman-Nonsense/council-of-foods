@@ -37,5 +37,8 @@ playwright/.auth/
 
 # TypeScript
 *.tsbuildinfo
+
+# Generated from `src/assets/favicon-source.webp` (see `vite-plugins/generate-icons.ts`)
+client/public/icons/
 server/google-credentials.json
 server/gen-lang-client-*.json
