@@ -44,7 +44,6 @@ export function useCouncilMachine({
 }: UseCouncilMachineProps) {
 
     const { t } = useTranslation();
-    const { meetingRoutesBase } = useRouting();
 
     /* -------------------------------------------------------------------------- */
     /*                             Main State Variables                           */
@@ -73,7 +72,6 @@ export function useCouncilMachine({
     const [sentencesLength, setSentencesLength] = useState(10);
 
     // Routing
-    const navigate = useNavigate();
     const location = useLocation();
 
     // Refs

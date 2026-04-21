@@ -4,10 +4,28 @@
   "description": "A political arena for AI foods to discuss the broken food system.",
   "icons": [
     {
-      "src": "favicon.webp",
-      "sizes": "800x800",
+      "src": "icons/favicon-48.webp",
+      "sizes": "48x48",
       "type": "image/webp",
       "purpose": "any"
+    },
+    {
+      "src": "icons/pwa-192.webp",
+      "sizes": "192x192",
+      "type": "image/webp",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/pwa-512.webp",
+      "sizes": "512x512",
+      "type": "image/webp",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/pwa-512.webp",
+      "sizes": "512x512",
+      "type": "image/webp",
+      "purpose": "maskable"
     }
   ],
   "start_url": ".",
