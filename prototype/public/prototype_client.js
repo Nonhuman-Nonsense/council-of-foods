@@ -14,7 +14,10 @@ const defaultOptions = {
   trimChairSemicolon: true,
 
   conversationMaxLength: 10,
+  /** Increment applied server-side on "Keep Going" (matches server `extraMessageCount`). */
   extraMessageCount: 5,
+  /** Absolute cap for extends (server `meetingVeryMaxLength`); reflected in `max_reached.canContinue`. */
+  meetingVeryMaxLength: 30,
   skipAudio: false,
 
   injectPrompt: "",
@@ -28,6 +31,18 @@ const defaultOptions = {
   inworldVoiceModel: "inworld-tts-1.5-max",
   skipMatchingSubtitles: true
 };
+
+/**
+ * Rows that participate in TTS (excludes trailing `max_reached` synthetic with no audio).
+ */
+function countPlayableMessages(conversation) {
+  if (!conversation || conversation.length === 0) return 0;
+  const last = conversation[conversation.length - 1];
+  if (last && last.type === 'max_reached') {
+    return conversation.length - 1;
+  }
+  return conversation.length;
+}
 
 const defaultLocalOptions = {
   theme: '',
@@ -74,7 +89,6 @@ createApp({
       // UI State
       status: 'IDLE', // IDLE, CONNECTING, ACTIVE, PAUSED, ENDED, ERROR
       injectionStatus: '',
-      endMessage: '',
 
       // Data Model
       options: { ...defaultOptions },
@@ -103,7 +117,7 @@ createApp({
 
       // Meeting
       meetingId: null,
-      creatorKey: null,
+      liveKey: null,
 
       // Conversation
       conversation: [],
@@ -145,6 +159,24 @@ createApp({
 
     inactiveCharacters() {
       return (this.currentLanguageData.characters || []).filter(c => !this.isCharacterActive(c));
+    },
+
+    /** Number of rows that have TTS (excludes trailing `max_reached`). */
+    playableCount() {
+      return countPlayableMessages(this.conversation);
+    },
+
+    /** Last index with audio; -1 when empty. */
+    lastPlayableIndex() {
+      const n = this.playableCount;
+      return n > 0 ? n - 1 : -1;
+    },
+
+    /** Server allows `continue_conversation` when `canContinue === true`; hide Keep Going when false. */
+    canContinueMeeting() {
+      const last = this.conversation[this.conversation.length - 1];
+      if (last && last.type === 'max_reached' && last.canContinue === false) return false;
+      return true;
     }
   },
 
@@ -531,6 +563,7 @@ createApp({
         skipAudio: this.options.skipAudio,
         conversationMaxLength: this.options.conversationMaxLength,
         extraMessageCount: this.options.extraMessageCount,
+        meetingVeryMaxLength: this.options.meetingVeryMaxLength,
         voiceModel: this.options.voiceModel,
         geminiVoiceModel: this.options.geminiVoiceModel,
         inworldVoiceModel: this.options.inworldVoiceModel,
@@ -553,7 +586,7 @@ createApp({
         this.log('SOCKET_IN', 'Conversation Update', conversationUpdate);
         this.conversation = conversationUpdate;
         if (this.audioController) {
-          this.audioController.setExpectedLength(this.conversation.length);
+          this.audioController.setExpectedLength(countPlayableMessages(this.conversation));
         }
 
         // If we get an update, we are active (unless paused, but usually this implies activity)
@@ -571,9 +604,8 @@ createApp({
       });
 
       this.socket.on("conversation_end", () => {
-        this.log('SOCKET_IN', 'Conversation End');
+        this.log('SOCKET_IN', 'Conversation End (length cap — see max_reached in conversation)');
         this.status = 'ENDED';
-        this.endMessage = "End of Conversation";
         if (this.audioController) this.audioController.markComplete();
       });
 
@@ -875,11 +907,11 @@ createApp({
           const errText = await res.text();
           throw new Error(errText || `Create meeting failed (${res.status})`);
         }
-        const { meetingId, creatorKey } = await res.json();
+        const { meetingId, liveKey } = await res.json();
         this.meetingId = Number(meetingId);
-        this.creatorKey = creatorKey;
+        this.liveKey = liveKey;
 
-        const setupPayload = { meetingId: this.meetingId, creatorKey: this.creatorKey, serverOptions: this.getServerOptions() };
+        const setupPayload = { meetingId: this.meetingId, liveKey: this.liveKey, serverOptions: this.getServerOptions() };
         this.log('SOCKET_OUT', 'Starting Conversation', setupPayload);
         this.socket.emit("start_conversation", setupPayload);
       } catch (e) {
@@ -903,7 +935,6 @@ createApp({
 
     async restartConversation() {
       this.status = 'CONNECTING';
-      this.endMessage = "";
       this.conversation = [];
       this.audioController.reset();
 
@@ -920,11 +951,11 @@ createApp({
           const errText = await res.text();
           throw new Error(errText || `Create meeting failed (${res.status})`);
         }
-        const { meetingId, creatorKey } = await res.json();
+        const { meetingId, liveKey } = await res.json();
         this.meetingId = Number(meetingId);
-        this.creatorKey = creatorKey;
+        this.liveKey = liveKey;
 
-        const setupPayload = { meetingId: this.meetingId, creatorKey: this.creatorKey, serverOptions: this.getServerOptions() };
+        const setupPayload = { meetingId: this.meetingId, liveKey: this.liveKey, serverOptions: this.getServerOptions() };
         this.log('SOCKET_OUT', 'Restarting Conversation', setupPayload);
         this.socket.emit("start_conversation", setupPayload);
       } catch (e) {
@@ -936,7 +967,14 @@ createApp({
 
     continueConversation() {
       this.status = 'CONNECTING';
-      this.endMessage = "";
+      // Match web client: drop synthetic tail locally so UI matches server after strip.
+      const mr = this.conversation.findIndex((m) => m.type === 'max_reached');
+      if (mr !== -1) {
+        this.conversation = this.conversation.slice(0, mr);
+        if (this.audioController) {
+          this.audioController.setExpectedLength(countPlayableMessages(this.conversation));
+        }
+      }
       this.log('SOCKET_OUT', 'Continuing Conversation');
       this.socket.emit("continue_conversation");
     },

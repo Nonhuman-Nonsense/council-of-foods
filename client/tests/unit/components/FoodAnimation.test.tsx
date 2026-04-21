@@ -50,8 +50,8 @@ describe('FoodAnimation', () => {
 
         const sources = video.querySelectorAll('source');
         expect(sources).toHaveLength(2);
-        expect(sources[0]).toHaveAttribute('src', '/foods/videos/banana-hevc-safari.mp4');
-        expect(sources[1]).toHaveAttribute('src', '/foods/videos/banana-vp9-chrome.webm');
+        expect(sources[0].getAttribute('src')).toContain('banana-hevc-safari');
+        expect(sources[1].getAttribute('src')).toContain('banana-vp9-chrome');
     });
 
     it('pauses video initially after mount (safari fix)', async () => {

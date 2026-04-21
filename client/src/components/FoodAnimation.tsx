@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import React from 'react';
+import { foodVideoUrlsForId } from "@assets/foods/foodVideos";
 
 interface AnimationFood {
   id: string;
@@ -69,13 +70,14 @@ function FoodAnimation({ food, styles, currentSpeakerId, isPaused }: FoodAnimati
     return <div style={styles}></div>;
   }
 
+  const urls = foodVideoUrlsForId(food.id);
   return (
     <video ref={video} style={{ ...styles, objectFit: "cover" }} loop muted playsInline data-testid="food-video">
       <source
-        src={`/foods/videos/${food.id}-hevc-safari.mp4`}
+        src={urls.hevc}
         type={'video/mp4; codecs="hvc1"'} />
       <source
-        src={`/foods/videos/${food.id}-vp9-chrome.webm`}
+        src={urls.vp9}
         type={"video/webm"} />
     </video>
   );

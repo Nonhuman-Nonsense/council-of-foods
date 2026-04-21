@@ -4,7 +4,6 @@ import type { ILifecycleContext } from "@interfaces/MeetingInterfaces.js";
 import type { Message as AudioMessage } from "@logic/AudioSystem.js";
 import { splitSentences } from "@utils/textUtils.js";
 import { Logger } from "@utils/Logger.js";
-
 import removeMd from 'remove-markdown';
 import type { StoredMeeting } from "@models/DBModels.js";
 
@@ -35,8 +34,8 @@ export class MeetingLifecycleHandler {
             throw new Error("Meeting not found");
         }
 
-        if(meeting.creatorKey !== setup.creatorKey) {
-            throw new Error("Invalid creator key");
+        if(meeting.liveKey !== setup.liveKey) {
+            throw new Error("Invalid live key");
         }
 
         const stored: StoredMeeting = meeting as StoredMeeting;
@@ -57,6 +56,15 @@ export class MeetingLifecycleHandler {
         if (!m) return;
 
         Logger.info(`meeting ${m._id}`, "attempting to wrap up");
+
+        //remove the max reached message
+        const mr = m.conversation.findIndex((m) => m.type === "max_reached");
+        if(mr === -1) {
+            throw new Error("Attempted to wrap up meeting but not at max reached");
+        }
+        m.conversation = m.conversation.slice(0, mr);
+
+        //generate the summary
         const summaryPrompt = manager.serverOptions.finalizeMeetingPrompt[m.language].replace("[DATE]", message.date);
 
         // Note: chairInterjection is on manager (delegated to DialogGenerator)
@@ -119,13 +127,33 @@ export class MeetingLifecycleHandler {
     /**
      * Extends the meeting length and resumes the conversation loop if it had stopped due to length limits.
      */
-    handleContinueConversation(): void {
+    async handleContinueConversation(): Promise<void> {
         const { manager } = this;
         const m = manager.meeting;
         if (!m) return;
 
         Logger.info(`meeting ${m._id}`, "continuing conversation");
-        manager.extraMessageCount += manager.serverOptions.extraMessageCount;
+
+        //remove the max reached message
+        const mr = m.conversation.findIndex((m) => m.type === "max_reached");
+        if(mr === -1) {
+            throw new Error("Attempted to continue meeting but not at max reached");
+        }
+        m.conversation = m.conversation.slice(0, mr);
+
+        //if the conversation extra slots is undefined, set it to 0, could happen if the meeting is legacy
+        //TODO: Could we have a problem here if we view an old meeting that is already past the max reached?
+        //TODO: Should we migrate all old data to set conversationsExtraSlots if more than 10? No because meetings could have different settings?
+        if(m.conversationExtraSlots === undefined) {
+            m.conversationExtraSlots = 0;
+        }
+        m.conversationExtraSlots += manager.serverOptions.extraMessageCount;
+
+        await manager.services.meetingsCollection.updateOne(
+            { _id: m._id },
+            { $set: { conversation: m.conversation, conversationExtraSlots: m.conversationExtraSlots } }
+        );
+
         manager.startLoop();
     }
 

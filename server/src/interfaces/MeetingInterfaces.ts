@@ -31,7 +31,7 @@ export interface IMeetingBroadcaster {
     broadcastConversationEnd(): void;
     broadcastAudioUpdate(audio: AudioUpdatePayload): void;
     broadcastError(message: string, code: number): void;
-    broadcastWarning(message: string, code: number, error: Error): void;
+    broadcastWarning(message: string, code: number, error?: Error): void;
 }
 
 /**
@@ -59,7 +59,6 @@ export interface IMeetingState {
     serverOptions: GlobalOptions;
     handRaised: boolean;
     isPaused: boolean;
-    extraMessageCount: number;
     currentSpeaker: number;
 }
 

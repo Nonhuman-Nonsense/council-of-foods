@@ -8,20 +8,20 @@ import { createMeeting } from "@/api/createMeeting";
 import { useRouting } from "@/routing";
 
 export interface NewMeetingProps {
-  setUnrecoverableError: (error: boolean) => void;
+  setUnrecoverableError: (message: string) => void;
   topicSelection: Topic | null;
   setTopicSelection: (topic: Topic) => void;
-  setMeetingCreatorKey: (key: string) => void;
+  setMeetingliveKey: (key: string) => void;
 }
 
 export default function NewMeeting({
   setUnrecoverableError,
   topicSelection,
   setTopicSelection,
-  setMeetingCreatorKey,
+  setMeetingliveKey,
 }: NewMeetingProps) {
   const navigate = useNavigate();
-  const { i18n } = useTranslation();
+  const { i18n, t } = useTranslation();
   const { meetingPath } = useRouting();
   const [step, setStep] = useState<"topic" | "foods">(() =>
     // If a topic has been selected, go to the foods step, eg. on reset
@@ -41,16 +41,17 @@ export default function NewMeeting({
     }
     setCreating(true);
     try {
-      const { meetingId, creatorKey } = await createMeeting({
+      const { meetingId, liveKey } = await createMeeting({
         topic: topicSelection,
         characters: foods,
         language: i18n.language,
       });
-      setMeetingCreatorKey(creatorKey);
+      setMeetingliveKey(liveKey);
       navigate(meetingPath(Number(meetingId)));
     } catch (e) {
       console.error(e);
-      setUnrecoverableError(true);
+      const msg = e instanceof Error && e.message.trim().length > 0 ? e.message : t("error.1");
+      setUnrecoverableError(msg);
     } finally {
       setCreating(false);
     }

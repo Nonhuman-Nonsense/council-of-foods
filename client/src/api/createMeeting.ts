@@ -1,15 +1,16 @@
 import type { CreateMeetingBody } from "@shared/SocketTypes.js";
+import { httpErrorMessage } from "./httpErrorMessage";
 
-export async function createMeeting(body: CreateMeetingBody): Promise<{ meetingId: number, creatorKey: string }> {
+export async function createMeeting(body: CreateMeetingBody): Promise<{ meetingId: number, liveKey: string }> {
   const res = await fetch("/api/meetings", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
   if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(errText || `Create meeting failed (${res.status})`);
+    const message = await httpErrorMessage(res, `Create meeting failed (${res.status})`);
+    throw new Error(message);
   }
-  const data = await res.json() as { meetingId: string | number; creatorKey: string };
-  return { meetingId: Number(data.meetingId), creatorKey: data.creatorKey };
+  const data = await res.json() as { meetingId: string | number; liveKey: string };
+  return { meetingId: Number(data.meetingId), liveKey: data.liveKey };
 }

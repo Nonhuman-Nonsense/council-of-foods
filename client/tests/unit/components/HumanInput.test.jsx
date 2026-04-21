@@ -58,7 +58,7 @@ describe('HumanInput Component', () => {
                 isPanelist={false}
                 currentSpeakerName="TestSpeaker"
                 onSubmitHumanMessage={mockOnSubmit}
-                creatorKey="test-key"
+                liveKey="test-key"
             />
         );
 
@@ -75,10 +75,10 @@ describe('HumanInput Component', () => {
                 isPanelist={false}
                 currentSpeakerName=""
                 onSubmitHumanMessage={mockOnSubmit}
-                creatorKey="test-key"
+                liveKey="test-key"
             />
         );
-        expect(getClientKey).toHaveBeenCalledWith({ language: 'en', creatorKey: 'test-key' });
+        expect(getClientKey).toHaveBeenCalledWith({ language: 'en', liveKey: 'test-key' });
     });
 
     it('should handle text input and submission', () => {
@@ -88,7 +88,7 @@ describe('HumanInput Component', () => {
                 isPanelist={false}
                 currentSpeakerName=""
                 onSubmitHumanMessage={mockOnSubmit}
-                creatorKey="test-key"
+                liveKey="test-key"
             />
         );
 
@@ -115,7 +115,7 @@ describe('HumanInput Component', () => {
                 isPanelist={false}
                 currentSpeakerName=""
                 onSubmitHumanMessage={mockOnSubmit}
-                creatorKey="test-key"
+                liveKey="test-key"
             />
         );
 
@@ -157,7 +157,7 @@ describe('HumanInput Component', () => {
                 isPanelist={true}
                 currentSpeakerName="Mr. Potato"
                 onSubmitHumanMessage={mockOnSubmit}
-                creatorKey="test-key"
+                liveKey="test-key"
             />
         );
         expect(screen.getByPlaceholderText('human.panelist')).toBeInTheDocument();
@@ -171,7 +171,7 @@ describe('HumanInput Component', () => {
                 isPanelist={false}
                 currentSpeakerName=""
                 onSubmitHumanMessage={mockOnSubmit}
-                creatorKey="test-key"
+                liveKey="test-key"
             />
         );
 
@@ -197,7 +197,7 @@ describe('HumanInput Component', () => {
                 isPanelist={false}
                 currentSpeakerName=""
                 onSubmitHumanMessage={mockOnSubmit}
-                creatorKey="test-key"
+                liveKey="test-key"
             />
         );
         const textarea = screen.getByPlaceholderText('human.1');
@@ -222,7 +222,7 @@ describe('HumanInput Component', () => {
                 isPanelist={false} // max 700
                 currentSpeakerName=""
                 onSubmitHumanMessage={mockOnSubmit}
-                creatorKey="test-key"
+                liveKey="test-key"
             />
         );
         const textarea = screen.getByPlaceholderText('human.1');

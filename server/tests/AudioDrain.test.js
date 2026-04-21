@@ -4,7 +4,7 @@ import { meetingsCollection } from '@services/DbService.js';
 import { MockFactory } from './factories/MockFactory.ts';
 
 const DRAIN_MEETING_ID = 9001;
-const DRAIN_CREATOR_KEY = 'audio-drain-creator';
+const DRAIN_LIVE_KEY = 'audio-drain-creator';
 
 describe('Audio Queue Draining', () => {
     let p1;
@@ -16,7 +16,7 @@ describe('Audio Queue Draining', () => {
         vi.spyOn(meetingsCollection, 'findOne').mockResolvedValue(
             MockFactory.createStoredMeeting({
                 _id: DRAIN_MEETING_ID,
-                creatorKey: DRAIN_CREATOR_KEY,
+                liveKey: DRAIN_LIVE_KEY,
                 topic: MockFactory.createTopic({ title: 'Drain Test' }),
                 characters: [
                     MockFactory.createCharacter({ id: 'water', name: 'Water', type: 'food' }),
@@ -56,7 +56,7 @@ describe('Audio Queue Draining', () => {
         // 2. Start Conversation (loads StoredMeeting from DB; see findOne mock in beforeEach)
         await p1.manager.meetingLifecycleHandler.handleStartConversation({
             meetingId: DRAIN_MEETING_ID,
-            creatorKey: DRAIN_CREATOR_KEY,
+            liveKey: DRAIN_LIVE_KEY,
             serverOptions: { conversationMaxLength: 10 },
         });
 

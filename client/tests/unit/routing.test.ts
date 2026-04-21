@@ -7,7 +7,7 @@ vi.mock("react-i18next", () => ({
 }));
 
 /**
- * `removeOverlay` does `navigate(\`${meetingRoutesBase}/${meetingId}\`)`.
+ * `cancelOverlay` does `navigate(\`${meetingRoutesBase}/${meetingId}\`)`.
  * That must equal `meetingPath(meetingId)` from the same hook call,
  * because both use the same base path derived from i18n.language.
  */

@@ -48,6 +48,5 @@ export async function getClientKey(language: string): Promise<ClientKeyResponse>
     }
 
     const data: ClientKeyResponse = await response.json();
-    await Logger.info("api", "POST /api/clientkey: client key issued");
     return data;
 }

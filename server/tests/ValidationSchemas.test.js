@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 const baseSetupOptions = () => ({
     meetingId: 1,
-    creatorKey: 'creator-key',
+    liveKey: 'live-key',
     serverOptions: { conversationMaxLength: 999 }
 });
 

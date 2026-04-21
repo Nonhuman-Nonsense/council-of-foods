@@ -96,8 +96,9 @@ describe('MeetingManager - Conversation Flow', () => {
 
     it('should stop conversation when max length is reached', async () => {
         manager.serverOptions.conversationMaxLength = 5;
-        manager.extraMessageCount = 0;
+        manager.meeting.conversationExtraSlots = 0;
         manager.meeting.conversation = new Array(5).fill({ type: 'message' });
+        manager.isLoopActive = true;
 
         const spy = vi.spyOn(SpeakerSelector, 'calculateNextSpeaker');
 
@@ -105,6 +106,23 @@ describe('MeetingManager - Conversation Flow', () => {
         await manager.runLoop();
 
         expect(spy).not.toHaveBeenCalled();
+        expect(manager.meeting.conversation.at(-1)?.type).toBe('max_reached');
+        expect(manager.meeting.conversation.at(-1)?.canContinue).toBe(true);
+        expect(meetingsCollection.updateOne).toHaveBeenCalled();
+    });
+
+    it('sets canContinue false on max_reached when at meetingVeryMaxLength', async () => {
+        manager.serverOptions.conversationMaxLength = 5;
+        manager.serverOptions.meetingVeryMaxLength = 5;
+        manager.meeting.conversationExtraSlots = 0;
+        manager.meeting.conversation = new Array(5).fill({ type: 'message' });
+        manager.isLoopActive = true;
+
+        await manager.runLoop();
+
+        expect(manager.meeting.conversation.at(-1)).toEqual(
+            expect.objectContaining({ type: 'max_reached', canContinue: false }),
+        );
     });
 
     it('should handle conversation turns (single turn verification) using DI', async () => {
@@ -217,6 +235,11 @@ describe('MeetingManager - Conversation Flow', () => {
             diManager.meeting.characters[0].voice = 'alloy';
         }
 
+        diManager.meeting.conversation = [
+            { id: 'pre', type: 'message', text: 'before', speaker: diManager.meeting.characters[0].id },
+            { type: 'max_reached' },
+        ];
+
         await diManager.meetingLifecycleHandler.handleWrapUpMeeting({ date: "2024-01-01" });
 
         // Verify audio generation was attempted (which uses the 'speaker' variable)
@@ -233,8 +256,8 @@ describe('MeetingManager - Conversation Flow', () => {
     it('should extend meeting on continue_conversation', async () => {
         const { manager } = createTestManager('test', { ...setupTestOptions(), extraMessageCount: 5 });
         manager.serverOptions.conversationMaxLength = 5;
-        manager.extraMessageCount = 0;
-        manager.meeting.conversation = new Array(5).fill({ type: 'message' });
+        manager.meeting.conversationExtraSlots = 0;
+        manager.meeting.conversation = [...new Array(5).fill({ type: 'message' }), { type: 'max_reached' }];
 
         // Spy on startLoop/runLoop to verify resumption
         const loopSpy = vi.spyOn(manager, 'startLoop');
@@ -242,15 +265,13 @@ describe('MeetingManager - Conversation Flow', () => {
         // Trigger continue
         await manager.handleEvent('continue_conversation', null);
 
-        // Verify count increased
-        expect(manager.extraMessageCount).toBe(5);
+        expect(manager.meeting.conversationExtraSlots).toBe(5);
+        expect(manager.meeting.conversation.map((m) => m.type)).toEqual([
+            'message', 'message', 'message', 'message', 'message',
+        ]);
 
         // Verify loop resumed
         expect(loopSpy).toHaveBeenCalled();
-
-        // Verify that with new limit, another turn would be processed
-        // (If we were to run processTurn, it would pass the length check now)
-        // length (5) < 5 + 5
     });
 
 });
