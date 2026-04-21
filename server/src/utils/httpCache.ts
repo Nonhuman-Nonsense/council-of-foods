@@ -16,7 +16,7 @@ export const CACHE_CONTROL_DIST_ASSET_IMMUTABLE = "public, max-age=31536000, imm
 export const CACHE_CONTROL_HTML_SHELL = "no-cache";
 
 /**
- * Copied from `client/public/` to `dist/` root (favicon, manifest, robots, og image).
+ * Copied from `client/public/` to `dist/` (manifest, robots, og image, generated `icons/*`, etc.).
  * Short TTL: no content hash, but safe to cache at the edge to reduce origin hits.
  */
 export const CACHE_CONTROL_DIST_PUBLIC_ROOT = "public, max-age=86400";

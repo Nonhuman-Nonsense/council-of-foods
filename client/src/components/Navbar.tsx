@@ -3,7 +3,7 @@ import { useLocation, useNavigate, NavigateFunction, Location, Link } from "reac
 import { useMediaQuery } from 'react-responsive'
 import { useTranslation } from 'react-i18next';
 import { capitalizeFirstLetter, useMobile, useMobileXs, usePortrait } from "@/utils";
-import { stripLanguagePrefix } from "@/routing";
+import { getMeetingIdFromPathname, stripLanguagePrefix } from "@/routing";
 import Lottie from "react-lottie-player";
 import type { ComponentRef } from "react";
 import hamburger from "@animations/hamburger.json";
@@ -37,6 +37,7 @@ function Navbar({ topicTitle: topic, hamburgerOpen, setHamburgerOpen }: NavbarPr
   const [activeMenuItem, setActiveMenuItem] = useState<string>('');
   const location: Location = useLocation();
   const navigate: NavigateFunction = useNavigate();
+  const meetingId = getMeetingIdFromPathname(location.pathname);
 
   const { t, i18n } = useTranslation();
 
@@ -161,7 +162,7 @@ function Navbar({ topicTitle: topic, hamburgerOpen, setHamburgerOpen }: NavbarPr
               }}
               onClick={() => handleOnNavigate("reset")}
             >{t('council').toUpperCase()}</h3>
-            <h4 style={{ marginTop: "5px", visibility: showIconinMeny ? "visible" : "hidden" }}>{capitalizeFirstLetter(topic)}</h4>
+            <h4 style={{ marginTop: "5px", visibility: showIconinMeny ? "visible" : "hidden" }}>{`${meetingId ? "#" + meetingId + ": " : ""}${capitalizeFirstLetter(topic)}`}</h4>
           </div>
         </>}
       </div>
