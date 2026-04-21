@@ -3,6 +3,7 @@ import express from 'express';
 import http from 'http';
 import { registerAudioRoutes } from '@api/audioRoutes.js';
 import { audioCollection } from '@services/DbService.js';
+import { cacheControlPrivateNoStoreApi } from '@utils/httpCache.js';
 
 describe('HTTP GET /api/audio/:audioId (integration)', () => {
     let httpServer;
@@ -11,6 +12,7 @@ describe('HTTP GET /api/audio/:audioId (integration)', () => {
     beforeAll(async () => {
         const app = express();
         app.use(express.json());
+        app.use('/api', cacheControlPrivateNoStoreApi);
         registerAudioRoutes(app);
         httpServer = http.createServer(app);
         port = await new Promise((resolve, reject) => {
@@ -65,10 +67,12 @@ describe('HTTP GET /api/audio/:audioId (integration)', () => {
     it('returns 404 when clip is missing', async () => {
         const res = await fetch(`${base()}/api/audio/${encodeURIComponent('missing-id-xyz')}`);
         expect(res.status).toBe(404);
+        expect(res.headers.get('cache-control')).toBe('private, no-store');
     });
 
     it('returns 400 for invalid audio id', async () => {
         const res = await fetch(`${base()}/api/audio/${encodeURIComponent('../etc/passwd')}`);
         expect(res.status).toBe(400);
+        expect(res.headers.get('cache-control')).toBe('private, no-store');
     });
 });

@@ -3,6 +3,7 @@ import express from "express";
 import http from "http";
 import { registerMeetingRoutes } from "@api/meetingRoutes.js";
 import { getClientKey } from "@api/getClientKey.js";
+import { cacheControlPrivateNoStoreApi } from "@utils/httpCache.js";
 
 vi.mock("@api/getClientKey.js", () => ({
     getClientKey: vi.fn(),
@@ -23,6 +24,7 @@ describe("POST /api/clientkey (integration)", () => {
     beforeAll(async () => {
         const app = express();
         app.use(express.json());
+        app.use("/api", cacheControlPrivateNoStoreApi);
         registerMeetingRoutes(app, "test");
         httpServer = http.createServer(app);
         port = await new Promise((resolve, reject) => {

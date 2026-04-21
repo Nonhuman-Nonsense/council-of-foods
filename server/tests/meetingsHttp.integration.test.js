@@ -3,6 +3,7 @@ import express from 'express';
 import http from 'http';
 import { registerMeetingRoutes } from '@api/meetingRoutes.js';
 import { meetingsCollection } from '@services/DbService.js';
+import { cacheControlPrivateNoStoreApi } from '@utils/httpCache.js';
 
 function validCreateBody() {
     return {
@@ -26,6 +27,7 @@ describe('HTTP meetings API (integration)', () => {
     beforeAll(async () => {
         const app = express();
         app.use(express.json());
+        app.use('/api', cacheControlPrivateNoStoreApi);
         registerMeetingRoutes(app, 'test');
         httpServer = http.createServer(app);
         port = await new Promise((resolve, reject) => {
@@ -54,6 +56,7 @@ describe('HTTP meetings API (integration)', () => {
             body: JSON.stringify(validCreateBody()),
         });
         expect(res.status).toBe(201);
+        expect(res.headers.get('cache-control')).toBe('private, no-store');
         const data = await res.json();
         expect(data.meetingId).toBeDefined();
         expect(data.liveKey).toMatch(/^[0-9a-f-]{36}$/i);
