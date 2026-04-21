@@ -33,6 +33,13 @@ export function isMeetingPath(pathname: string): boolean {
   return stripLanguagePrefix(pathname).startsWith(`/${routes.meeting}`);
 }
 
+/** Numeric id from `/meeting/:meetingId` (after language prefix strip). */
+export function getMeetingIdFromPathname(pathname: string): string | undefined {
+  const withoutLang = stripLanguagePrefix(pathname);
+  const m = withoutLang.match(new RegExp(`^/${routes.meeting}/(\\d+)(?:/|$)`));
+  return m?.[1];
+}
+
 export function isRootPath(pathname: string): boolean {
   const pathWithoutLangPrefix = stripLanguagePrefix(pathname);
   return pathWithoutLangPrefix === "" || pathWithoutLangPrefix === "/";

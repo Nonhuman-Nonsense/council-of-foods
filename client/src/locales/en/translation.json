@@ -97,6 +97,10 @@
     "human": "1 human: ",
     "twohumans": " humans: "
   },
+  "replayModeBanner": {
+    "preamble": "This is a replay of the meeting #{{meetingId}}: {{meetingTitle}} on {{meetingDate}}. ",
+    "click": "Click here to start a new meeting."
+  },
   "selectissue": "please select an issue for the discussion",
   "writetopic": "Write a topic here...",
   "rotate": "rotate your device"

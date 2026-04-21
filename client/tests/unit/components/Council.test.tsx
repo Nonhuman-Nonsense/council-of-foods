@@ -47,6 +47,7 @@ const mockGetMeeting = vi.fn().mockResolvedValue({
 // Mock Utils
 vi.mock('@/utils', () => ({
     useDocumentVisibility: vi.fn().mockReturnValue(true),
+    useMobile: vi.fn().mockReturnValue(false),
     mapFoodIndex: vi.fn((total, index) => index) // Simple pass-through
 }));
 
