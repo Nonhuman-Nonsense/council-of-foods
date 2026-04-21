@@ -12,6 +12,7 @@ import { useDocumentVisibility, mapFoodIndex } from "@/utils";
 import { useTranslation } from "react-i18next";
 import { useCouncilMachine } from "@hooks/useCouncilMachine";
 import { getMeeting } from "@api/getMeeting.js";
+import { backgroundImageUrls } from "@assets/backgrounds/index";
 
 interface CouncilProps {
   liveKey: string | null;
@@ -294,7 +295,7 @@ export function Background({ zoomIn, currentSpeakerIndex, totalSpeakers }: Backg
   }
 
   const closeUpBackdrop: React.CSSProperties = {
-    backgroundImage: `url(/backgrounds/close-up-backdrop.webp)`,
+    backgroundImage: `url(${backgroundImageUrls.closeUpBackdrop})`,
     backgroundSize: "cover",
     backgroundPosition: calculateBackdropPosition(),
     height: "100%",
@@ -304,7 +305,7 @@ export function Background({ zoomIn, currentSpeakerIndex, totalSpeakers }: Backg
   };
 
   const closeUpTable: React.CSSProperties = {
-    backgroundImage: `url(/backgrounds/close-up-table.webp)`,
+    backgroundImage: `url(${backgroundImageUrls.closeUpTable})`,
     backgroundSize: "cover",
     backgroundPosition: "center",
     height: "100%",

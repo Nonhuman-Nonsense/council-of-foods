@@ -30,9 +30,9 @@ describe('VideoPreloader', () => {
 
         const sources = tomatoVideo.querySelectorAll('source');
         expect(sources).toHaveLength(2);
-        expect(sources[0]).toHaveAttribute('src', '/foods/videos/tomato-hevc-safari.mp4');
+        expect(sources[0].getAttribute('src')).toContain('tomato-hevc-safari');
         expect(sources[0]).toHaveAttribute('type', 'video/mp4; codecs="hvc1"');
-        expect(sources[1]).toHaveAttribute('src', '/foods/videos/tomato-vp9-chrome.webm');
+        expect(sources[1].getAttribute('src')).toContain('tomato-vp9-chrome');
         expect(sources[1]).toHaveAttribute('type', 'video/webm');
     });
 });

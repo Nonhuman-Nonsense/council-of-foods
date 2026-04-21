@@ -5,6 +5,7 @@ import { Server } from 'socket.io';
 import { io as ioClient } from 'socket.io-client';
 import { registerMeetingRoutes } from '@api/meetingRoutes.js';
 import { SocketManager } from '@logic/SocketManager.js';
+import { cacheControlPrivateNoStoreApi } from '@utils/httpCache.js';
 import {
     clearLiveSessionRegistryForTests,
     tryAcquireLiveSession,
@@ -89,6 +90,7 @@ describe('HTTP + Socket full chain (integration)', () => {
     beforeAll(async () => {
         const app = express();
         app.use(express.json());
+        app.use('/api', cacheControlPrivateNoStoreApi);
         registerMeetingRoutes(app, 'test');
         httpServer = http.createServer(app);
         io = new Server(httpServer);

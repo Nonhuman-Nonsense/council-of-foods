@@ -13,6 +13,13 @@ import { SocketManager } from '@logic/SocketManager.js';
 import { AVAILABLE_LANGUAGES } from '@shared/AvailableLanguages.js';
 
 import { verifyGoogleCredentials } from '@utils/StartupChecks.js';
+import {
+  CACHE_CONTROL_DIST_ASSET_IMMUTABLE,
+  CACHE_CONTROL_DIST_PUBLIC_ROOT,
+  CACHE_CONTROL_HTML_SHELL,
+  CACHE_CONTROL_NO_STORE,
+  cacheControlPrivateNoStoreApi,
+} from '@utils/httpCache.js';
 import { registerMeetingRoutes } from '@api/meetingRoutes.js';
 import { registerAudioRoutes } from '@api/audioRoutes.js';
 
@@ -37,26 +44,50 @@ try {
 Logger.info("init", "Startup complete.");
 
 // Express for health checks
-app.get('/health', (_req: Request, res: Response) => { res.sendStatus(200); });
+app.get('/health', (_req: Request, res: Response) => {
+  res.setHeader('Cache-Control', CACHE_CONTROL_NO_STORE);
+  res.sendStatus(200);
+});
 
-// Api routes run before static files
+// Api routes run before static files (audio GET overwrites Cache-Control on success)
+app.use('/api', cacheControlPrivateNoStoreApi);
 registerMeetingRoutes(app, environment);
 registerAudioRoutes(app);
 
 if (environment === "prototype") {
-  app.use(express.static(path.join(process.cwd(), "../prototype/", "public")));
+  app.use(express.static(path.join(process.cwd(), "../prototype/", "public"), {
+    setHeaders(res) {
+      res.setHeader('Cache-Control', CACHE_CONTROL_NO_STORE);
+    },
+  }));
   //Enable prototype to reset to default settings for each language
   for (const lang of AVAILABLE_LANGUAGES) {
     for (const promptfile of ['foods', 'topics']) {
       app.get(`/${promptfile}_${lang}.json`, function (_req: Request, res: Response) {
+        res.setHeader('Cache-Control', CACHE_CONTROL_NO_STORE);
         res.sendFile(path.join(process.cwd(), "../client/src/prompts", `${promptfile}_${lang}.json`));
       });
     }
   }
 } else if (environment !== "development") {
   const clientDistPath = path.join(process.cwd(), "../client/dist");
-  app.use(express.static(clientDistPath));
+  const ONE_YEAR_MS = 31536000000;
+  app.use(express.static(clientDistPath, {
+    maxAge: ONE_YEAR_MS,
+    immutable: true,
+    setHeaders(res, filePath) {
+      const normalized = filePath.replace(/\\/g, '/');
+      if (normalized.includes('/assets/')) {
+        res.setHeader('Cache-Control', CACHE_CONTROL_DIST_ASSET_IMMUTABLE);
+      } else if (normalized.endsWith('/index.html')) {
+        res.setHeader('Cache-Control', CACHE_CONTROL_HTML_SHELL);
+      } else {
+        res.setHeader('Cache-Control', CACHE_CONTROL_DIST_PUBLIC_ROOT);
+      }
+    },
+  }));
   app.get("/{*splat}", function (_req: Request, res: Response) {
+    res.setHeader('Cache-Control', CACHE_CONTROL_HTML_SHELL);
     res.sendFile(path.join(clientDistPath, "index.html"));
   });
 }
