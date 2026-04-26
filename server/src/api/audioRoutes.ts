@@ -53,7 +53,16 @@ export function registerAudioRoutes(app: Express): void {
                 return;
             }
 
-            const etag = `"${createHash("sha256").update(audioBuf).digest("hex").slice(0, 32)}"`;
+            const sentencesPart =
+                stored.sentences === undefined
+                    ? "\0" // field omitted in JSON; distinct from `null` / `[]`
+                    : JSON.stringify(stored.sentences);
+            const etag = `"${createHash("sha256")
+                .update(audioBuf)
+                .update("\0")
+                .update(sentencesPart)
+                .digest("hex")
+                .slice(0, 32)}"`;
             if (req.headers["if-none-match"] === etag) {
                 res.setHeader("Cache-Control", CACHE_CONTROL_PUBLIC_AUDIO);
                 res.setHeader("ETag", etag);

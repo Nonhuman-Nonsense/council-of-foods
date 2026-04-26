@@ -21,8 +21,8 @@ export const CACHE_CONTROL_HTML_SHELL = "no-cache";
  */
 export const CACHE_CONTROL_DIST_PUBLIC_ROOT = "public, max-age=86400";
 
-/** Public replay clip JSON at a stable URL; bytes at id are immutable. */
-export const CACHE_CONTROL_PUBLIC_AUDIO = "public, max-age=31536000, immutable";
+/** Public replay clip JSON at a stable URL; bytes at id are immutable. sentences timings rarely update, so we use 1 week. */
+export const CACHE_CONTROL_PUBLIC_AUDIO = "public, max-age=604800, immutable";
 
 export function cacheControlPrivateNoStoreApi(_req: Request, res: Response, next: NextFunction): void {
     res.setHeader("Cache-Control", CACHE_CONTROL_PRIVATE_NO_STORE);
