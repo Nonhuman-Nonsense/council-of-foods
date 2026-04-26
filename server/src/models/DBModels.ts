@@ -9,7 +9,10 @@ export interface StoredMeeting extends BaseMeeting, Document {
     liveKey: string;
 }
 
-export interface StoredAudio extends Audio, Document {}
+export type SubtitleTimingType = 'whisper' | 'inworld' | 'estimated' | undefined;
+export interface StoredAudio extends Audio, Document {
+    subtitleTimingType?: SubtitleTimingType;
+}
 
 export interface Counter extends Document {
     _id: string;
