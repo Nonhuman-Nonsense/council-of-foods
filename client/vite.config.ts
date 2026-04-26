@@ -6,17 +6,7 @@ import checker from 'vite-plugin-checker'
 import path from 'path'
 import { generateIconsPlugin } from './vite-plugins/generate-icons'
 
-export default defineConfig(async ({ mode }) => {
-  let visualizerPlugin;
-  if (mode === 'analyze') {
-    const { visualizer } = await import('rollup-plugin-visualizer');
-    visualizerPlugin = visualizer({
-      open: true,
-      filename: 'dist/stats.html',
-    });
-  }
-
-  return {
+export default defineConfig(({ mode }) => ({
     plugins: [
       generateIconsPlugin(),
       react(),
@@ -26,7 +16,6 @@ export default defineConfig(async ({ mode }) => {
           tsconfigPath: 'tsconfig.build.json',
         },
       }),
-      mode === 'analyze' && visualizerPlugin,
     ],
     server: {
       // mirrors your old CRA proxy setting
@@ -59,5 +48,4 @@ export default defineConfig(async ({ mode }) => {
       assetsInlineLimit: 10240,
       sourcemap: mode === 'analyze',
     },
-  }
-})
+}))
