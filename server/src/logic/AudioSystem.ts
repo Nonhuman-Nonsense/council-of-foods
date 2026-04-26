@@ -2,7 +2,7 @@ import type { IMeetingBroadcaster } from "@interfaces/MeetingInterfaces.js";
 import type { GlobalOptions } from "@logic/GlobalOptions.js";
 import { Logger } from "@utils/Logger.js";
 import { mapSentencesToWords, Word, type MappedSentence } from "@utils/textUtils.js";
-import type { StoredMeeting } from "@models/DBModels.js";
+import type { StoredMeeting, SubtitleTimingType } from "@models/DBModels.js";
 import { GoogleAuth } from 'google-auth-library';
 import { parseBuffer } from 'music-metadata';
 import {
@@ -135,6 +135,7 @@ export class AudioSystem {
             const shouldSkipMatching = skipMatching || effectiveOptions.skipMatchingSubtitles || environment === 'prototype';
 
             let sentencesWithTimings: MappedSentence[] = [];
+            let subtitleTimingType: SubtitleTimingType;
 
             if (!shouldSkipMatching) {
                 // Get timings for all chunks in parallel
@@ -146,11 +147,13 @@ export class AudioSystem {
                 if (hasNativeWords) {
                     // Use native timings
                     chunkWordsWithTimings = providerWords as Word[][];
+                    subtitleTimingType = 'inworld';
                     // Logger.info("AudioSystem", `Using native timings for message ${message.id}`);
                 } else {
                     // Fallback to Whisper
                     // Note: getWhisperWords logic is stateless now.
                     chunkWordsWithTimings = await Promise.all(buffers.map(b => this.getWhisperWordsWrapper(b)));
+                    subtitleTimingType = 'whisper';
                 }
 
                 // Calculate durations
@@ -213,7 +216,8 @@ export class AudioSystem {
                             date: new Date().toISOString(),
                             meeting_id: meeting._id,
                             audio: combinedBuffer,
-                            sentences: sentencesWithTimings
+                            sentences: sentencesWithTimings,
+                            subtitleTimingType: subtitleTimingType
                         }
                     },
                     { upsert: true }
