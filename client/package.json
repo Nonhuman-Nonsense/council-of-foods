@@ -32,7 +32,7 @@
     "dev": "vite",
     "build": "tsc -p tsconfig.build.json && vite build",
     "preview": "vite preview",
-    "analyze": "vite build --mode analyze",
+    "analyze": "vite build --config vite.config.analyze.ts --mode analyze",
     "test": "vitest run",
     "test:watch": "vitest",
     "e2e": "playwright test",
