@@ -27,6 +27,8 @@ import {
 } from "@models/ValidationSchemas.js";
 import { socketHoldsLiveSession } from "@logic/liveSessionRegistry.js";
 
+/** How many message indices beyond `maximumPlayedIndex` the server may generate before waiting for client playback progress. */
+const PLAYBACK_AHEAD_BUFFER = 3;
 
 interface Decision {
     type: 'END_CONVERSATION' | 'WAIT' | 'REQUEST_PANELIST' | 'GENERATE_AI_RESPONSE';
@@ -176,6 +178,8 @@ export class MeetingManager implements IMeetingManager {
         const prevLocal = meeting.maximumPlayedIndex;
         meeting.maximumPlayedIndex =
             prevLocal == null ? index : Math.max(prevLocal, index);
+
+        this.startLoop();
     }
 
     async initializeStart(payload: SetupOptions) {
@@ -242,7 +246,7 @@ export class MeetingManager implements IMeetingManager {
         if (this.isLoopActive) return;
         if (!this.meeting) return;
 
-        Logger.info(`meeting ${this.meeting._id}`, "loop started");
+        // Logger.info(`meeting ${this.meeting._id}`, "loop started");
         this.isLoopActive = true;
         this.runLoop();
     }
@@ -267,6 +271,13 @@ export class MeetingManager implements IMeetingManager {
         // 2. Check Limits
         if (meeting.conversation.length >= this.serverOptions.conversationMaxLength + meeting.conversationExtraSlots) {
             return { type: 'END_CONVERSATION' };
+        }
+
+        // 2b. Live playback: do not get more than `PLAYBACK_AHEAD_BUFFER` messages ahead of what the client has played
+        if (meeting.maximumPlayedIndex != null) {
+            if (meeting.conversation.length > meeting.maximumPlayedIndex + PLAYBACK_AHEAD_BUFFER) {
+                return { type: 'WAIT' };
+            }
         }
 
         // 3. Check Awaiting States
