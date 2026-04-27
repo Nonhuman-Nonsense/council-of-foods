@@ -70,6 +70,37 @@ describe('MeetingManager - State Machine (decideNextAction)', () => {
                 type: 'GENERATE_AI_RESPONSE',
                 speaker: expect.objectContaining({ id: 'tomato', type: 'food' })
             }
+        },
+        {
+            name: 'should wait if conversation is more than 3 messages ahead of maximumPlayedIndex',
+            setup: (mgr) => {
+                mgr.meeting.maximumPlayedIndex = 0;
+                mgr.meeting.conversation = [
+                    { id: 'a', type: 'message', speaker: 'water', text: '1' },
+                    { id: 'b', type: 'message', speaker: 'water', text: '2' },
+                    { id: 'c', type: 'message', speaker: 'water', text: '3' },
+                    { id: 'd', type: 'message', speaker: 'water', text: '4' }
+                ];
+            },
+            nextSpeakerIndex: 1,
+            expected: { type: 'WAIT' }
+        },
+        {
+            name: 'should not apply playback buffer when maximumPlayedIndex is unset',
+            setup: (mgr) => {
+                mgr.meeting.maximumPlayedIndex = undefined;
+                mgr.meeting.conversation = [
+                    { id: 'a', type: 'message', speaker: 'water', text: '1' },
+                    { id: 'b', type: 'message', speaker: 'water', text: '2' },
+                    { id: 'c', type: 'message', speaker: 'water', text: '3' },
+                    { id: 'd', type: 'message', speaker: 'water', text: '4' }
+                ];
+            },
+            nextSpeakerIndex: 1,
+            expected: {
+                type: 'GENERATE_AI_RESPONSE',
+                speaker: expect.objectContaining({ id: 'tomato', type: 'food' })
+            }
         }
     ];
 
