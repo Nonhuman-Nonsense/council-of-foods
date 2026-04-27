@@ -19,6 +19,7 @@ import { withNetworkRetry } from "@utils/NetworkUtils.js";
  * Endpoints registered by `registerVoiceGuideRoutes`:
  *  - GET  /api/voice-guide/ice-servers : Inworld STUN/TURN config (JSON)
  *  - POST /api/voice-guide/session     : forwards an SDP offer (text) and returns the SDP answer (text)
+ *  - POST /api/voice-guide/call        : forwards { sdp, session? } (JSON) and returns { id, sdp, ice_servers? } (JSON)
  */
 
 const INWORLD_BASE = "https://api.inworld.ai";
@@ -35,6 +36,28 @@ export interface IceServer {
 
 export interface IceServersResponse {
     iceServers: IceServer[];
+}
+
+export interface InworldRealtimeSession {
+    model?: string;
+    instructions?: string;
+    output_modalities?: string[];
+    audio?: unknown;
+    tools?: unknown[];
+    tool_choice?: unknown;
+    temperature?: number;
+    max_output_tokens?: number | "inf";
+}
+
+export interface InworldCreateCallRequest {
+    sdp: string;
+    session?: InworldRealtimeSession;
+}
+
+export interface InworldCreateCallResponse {
+    id: string;
+    sdp: string;
+    ice_servers?: IceServer[];
 }
 
 /** Fetch Inworld's STUN/TURN servers so the browser can seed `RTCPeerConnection` before generating an offer. */
@@ -94,6 +117,43 @@ export async function exchangeSdpWithInworld(sdpOffer: string): Promise<string> 
     return sdpAnswer;
 }
 
+/**
+ * Create a call via Inworld's JSON API (preferred): { sdp, session } -> { id, sdp, ice_servers }.
+ * This lets us apply initial model/voice/tools config at call creation time.
+ */
+export async function createInworldCall(req: InworldCreateCallRequest): Promise<InworldCreateCallResponse> {
+    if (!req || typeof req !== "object") {
+        throw new Error("Invalid call request");
+    }
+    if (typeof req.sdp !== "string" || req.sdp.trim().length === 0) {
+        throw new Error("SDP offer must be a non-empty string");
+    }
+
+    const response = await withNetworkRetry(
+        () =>
+            fetch(INWORLD_REALTIME_CALLS_URL, {
+                method: "POST",
+                headers: {
+                    Authorization: `Bearer ${config.INWORLD_API_KEY}`,
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify(req),
+            }),
+        "voiceGuideSession.call"
+    );
+
+    if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`Inworld /v1/realtime/calls JSON failed (${response.status}): ${text}`);
+    }
+
+    const data = (await response.json()) as InworldCreateCallResponse;
+    if (!data?.sdp || typeof data.sdp !== "string" || data.sdp.trim().length === 0) {
+        throw new Error("Inworld /v1/realtime/calls JSON returned an empty SDP answer");
+    }
+    return data;
+}
+
 /** Wires the voice-guide proxy endpoints onto the express app. */
 export function registerVoiceGuideRoutes(app: Express): void {
     app.get("/api/voice-guide/ice-servers", async (_req: Request, res: Response) => {
@@ -125,4 +185,19 @@ export function registerVoiceGuideRoutes(app: Express): void {
             }
         }
     );
+
+    app.post("/api/voice-guide/call", async (req: Request, res: Response) => {
+        const body = req.body as unknown;
+        if (!body || typeof body !== "object") {
+            res.status(400).json({ message: "Invalid request" });
+            return;
+        }
+        try {
+            const data = await createInworldCall(body as InworldCreateCallRequest);
+            res.status(200).json(data);
+        } catch (e) {
+            await Logger.error("api", "POST /api/voice-guide/call failed", e);
+            res.status(500).json({ message: "Voice guide unavailable" });
+        }
+    });
 }

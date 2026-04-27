@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { exchangeSdpWithInworld, getInworldIceServers } from "@api/voiceGuideSession.js";
+import { createInworldCall, exchangeSdpWithInworld, getInworldIceServers } from "@api/voiceGuideSession.js";
 
 vi.mock("../src/config.js", () => ({
     config: {
@@ -129,6 +129,43 @@ describe("voiceGuideSession", () => {
             );
 
             await expect(exchangeSdpWithInworld(SDP_OFFER)).rejects.toThrow(/empty SDP answer/);
+        });
+    });
+
+    describe("createInworldCall", () => {
+        it("POSTs JSON {sdp, session} and returns JSON response", async () => {
+            vi.mocked(global.fetch).mockResolvedValue(
+                new Response(JSON.stringify({ id: "call_abc123", sdp: SDP_ANSWER, ice_servers: [] }), {
+                    status: 200,
+                    headers: { "Content-Type": "application/json" },
+                })
+            );
+
+            const result = await createInworldCall({
+                sdp: SDP_OFFER,
+                session: { model: "llama-3.3-70b-versatile", instructions: "hello", output_modalities: ["audio", "text"] },
+            });
+
+            expect(result.id).toBe("call_abc123");
+            expect(result.sdp).toBe(SDP_ANSWER);
+            expect(global.fetch).toHaveBeenCalledWith(
+                "https://api.inworld.ai/v1/realtime/calls",
+                expect.objectContaining({
+                    method: "POST",
+                    headers: expect.objectContaining({
+                        Authorization: "Bearer test-inworld-api-key",
+                        "Content-Type": "application/json",
+                    }),
+                })
+            );
+        });
+
+        it("throws when Inworld returns non-OK", async () => {
+            vi.mocked(global.fetch).mockResolvedValue(
+                new Response("bad", { status: 400, statusText: "Bad Request" })
+            );
+
+            await expect(createInworldCall({ sdp: SDP_OFFER })).rejects.toThrow(/calls JSON failed/);
         });
     });
 });

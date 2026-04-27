@@ -100,6 +100,11 @@ function requireFoodData(language: string): FoodData {
   return data;
 }
 
+/** Frozen foods + chair/system prompts for one UI language (wizard). */
+export function getFoodsBundle(lang: string): FoodData {
+  return requireFoodData(lang);
+}
+
 // Infer the default voice from the configuration to ensure blankHuman is valid
 const defaultChair = localFoodData[AVAILABLE_LANGUAGES[0]]?.foods.find(f => f.id === globalClientOptions.chairId);
 const defaultVoice: VoiceOption = defaultChair?.voice || AVAILABLE_VOICES[0];

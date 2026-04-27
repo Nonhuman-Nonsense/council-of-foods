@@ -70,6 +70,12 @@ vi.mock("@/components/settings/SelectFoods", () => ({
         { id: "panelist1", name: "", description: "", type: "panelist", voice: "alloy", index: 1 },
         { id: "panelist2", name: "", description: "", type: "panelist", voice: "alloy", index: 2 },
     ]),
+    getFoodsBundle: () => ({
+        metadata: { version: "test", last_updated: "test" },
+        panelWithHumans: "",
+        addHuman: { id: "addhuman", name: "Add Human", description: "" },
+        foods: [{ id: "water", name: "Water", description: "", voice: "alloy" }],
+    }),
 }));
 
 describe("NewMeeting — live key handoff", () => {
