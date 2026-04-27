@@ -11,6 +11,7 @@
  *    cascading `status: "cancelled"` events we saw in production logs).
  */
 
+import type { RealtimeSessionConfig } from "./realtimeProtocol";
 import type { ToolHandler, ToolResult } from "./guideTools";
 
 export type RealtimeEventCtx = {
@@ -25,8 +26,19 @@ export type EventLoopCallbacks = {
   onUserTranscript: (text: string) => void;
   /** Reported error (e.g. session-level error). */
   onError: (message: string) => void;
+  /** Fired when the server confirms the session config was applied. */
+  onSessionReady?: () => void;
   /** Optional debug hook. */
   log?: (...args: unknown[]) => void;
+};
+
+export type ConfigureSessionOptions = {
+  /**
+   * If true, automatically send `response.create` once the server confirms
+   * the session config with `session.updated`. Used for the opening greeting
+   * so it's generated with the configured instructions + tools.
+   */
+  triggerGreetingOnReady?: boolean;
 };
 
 export type EventLoop = {
@@ -36,6 +48,8 @@ export type EventLoop = {
   requestResponseIfIdle: () => boolean;
   /** Whether a response is currently in flight (between created and done). */
   isResponseActive: () => boolean;
+  /** Send `session.update` with the given config; optionally queue a greeting. */
+  configureSession: (session: RealtimeSessionConfig, options?: ConfigureSessionOptions) => void;
 };
 
 type FunctionCallMeta = { name?: string; call_id?: string };
@@ -61,12 +75,24 @@ export function createEventLoop(params: {
   let activeResponses = 0;
   /** Function-call item_id → metadata (call_id, name). */
   const functionCallMeta = new Map<string, FunctionCallMeta>();
+  /** True after we've seen a `session.updated` for the most recent update. */
+  let sessionReady = false;
+  /** True if we should fire response.create the moment the session is ready. */
+  let pendingGreeting = false;
 
   const isResponseActive = () => activeResponses > 0;
 
   const requestResponseIfIdle = (): boolean => {
     if (activeResponses > 0) {
       log("skip response.create: already active", { activeResponses });
+      return false;
+    }
+    if (!sessionReady) {
+      // Don't fire greetings before the session is configured: the model
+      // would run with default instructions/tools and produce server_error
+      // (observed) or topic-less chitchat (also observed).
+      log("skip response.create: session not yet ready");
+      pendingGreeting = true;
       return false;
     }
     send({ type: "response.create" });
@@ -81,12 +107,39 @@ export function createEventLoop(params: {
     }
   };
 
+  const configureSession = (
+    session: RealtimeSessionConfig,
+    options?: ConfigureSessionOptions
+  ): void => {
+    sessionReady = false;
+    if (options?.triggerGreetingOnReady) pendingGreeting = true;
+    log("send session.update", {
+      instructionsLen: session.instructions.length,
+      tools: session.tools.length,
+      voice: session.audio?.output?.voice,
+      model: session.model,
+    });
+    trySendJson({ type: "session.update", session });
+  };
+
   const handleEvent = async (event: unknown): Promise<boolean> => {
     const obj = asObj(event);
     if (!obj) return false;
     const type = asStr(obj.type);
     if (!type) return false;
     log("event", type);
+
+    if (type === "session.updated") {
+      sessionReady = true;
+      callbacks.onSessionReady?.();
+      if (pendingGreeting) {
+        pendingGreeting = false;
+        if (activeResponses === 0) {
+          send({ type: "response.create" });
+        }
+      }
+      return true;
+    }
 
     if (type === "response.created") {
       activeResponses += 1;
@@ -185,5 +238,5 @@ export function createEventLoop(params: {
     return false;
   };
 
-  return { handleEvent, requestResponseIfIdle, isResponseActive };
+  return { handleEvent, requestResponseIfIdle, isResponseActive, configureSession };
 }

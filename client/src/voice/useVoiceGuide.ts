@@ -81,11 +81,18 @@ function attachRemoteAudio(track: MediaStreamTrack, audioElement: HTMLAudioEleme
  * Design choices:
  *  - Tools / handlers live in a ref, so `start()` doesn't re-bind on every
  *    render and the event loop always sees the latest closures.
- *  - Session config is sent to the server `/call` endpoint, so we don't need
- *    a `session.update` round trip and there's no "wait for session.created"
- *    state machine.
+ *  - Per Inworld's WebRTC docs, the canonical way to apply session config
+ *    (instructions, tools, voice, …) is to send `session.update` as soon as
+ *    the data channel opens, then wait for `session.updated` before the
+ *    first `response.create`. The `session` field in the `/v1/realtime/calls`
+ *    JSON body is partially honored at best — for tools/instructions we MUST
+ *    use `session.update`. Skipping this caused "server_error" on the first
+ *    auto-greeting and tool-less chitchat afterwards.
  *  - VAD eagerness is "medium" by default (Inworld's recommended default).
  *    The previous `"high"` setting caused response cancel-cascades.
+ *  - StrictMode-safe: `start()` uses an attempt counter + AbortController so
+ *    the dev-only mount → unmount → mount cycle doesn't leak two parallel
+ *    WebRTC connections.
  */
 export function useVoiceGuide(params: UseVoiceGuideParams): VoiceGuideState {
   const {
@@ -221,6 +228,7 @@ export function useVoiceGuide(params: UseVoiceGuideParams): VoiceGuideState {
             setError(message);
             setStatus("error");
           },
+          onSessionReady: () => debugLog("session ready"),
           log: debugLog,
         },
       });
@@ -245,9 +253,10 @@ export function useVoiceGuide(params: UseVoiceGuideParams): VoiceGuideState {
         },
         onOpen: () => {
           if (isStale()) return;
-          // Session config was baked into /call, so by the time the data
-          // channel opens we are fully configured. Trigger the greeting.
-          loop.requestResponseIfIdle();
+          // Apply the full session config (instructions + tools + audio) and
+          // queue the opening greeting; the loop will fire response.create
+          // once `session.updated` arrives so the model sees our tools.
+          loop.configureSession(buildSessionConfig(), { triggerGreetingOnReady: true });
         },
         onClose: (reason) => {
           debugLog("connection closed", reason);
