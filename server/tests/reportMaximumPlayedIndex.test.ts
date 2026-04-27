@@ -27,7 +27,7 @@ describe("report_maximum_played_index (MeetingManager)", () => {
 
         expect(tryAcquireLiveSession(501, "holder-socket", meeting.liveKey)).toBe(true);
 
-        const startSpy = vi.spyOn(manager, "startLoop");
+        const startSpy = vi.spyOn(manager, "startLoop").mockImplementation(() => {});
 
         await manager.handleEvent("report_maximum_played_index", { index: 2 });
 
@@ -94,7 +94,7 @@ describe("report_maximum_played_index (MeetingManager)", () => {
         manager.meeting = meeting;
         tryAcquireLiveSession(504, "holder-socket", meeting.liveKey);
 
-        const startSpy = vi.spyOn(manager, "startLoop");
+        const startSpy = vi.spyOn(manager, "startLoop").mockImplementation(() => {});
 
         await manager.handleEvent("report_maximum_played_index", { index: 0 });
 
