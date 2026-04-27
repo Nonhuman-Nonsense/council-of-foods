@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router";
 import { isMeetingPath, isRootPath } from "@/routing";
 
@@ -7,7 +7,7 @@ import Overlay from "./Overlay";
 import About from "./overlays/About";
 import Contact from "./overlays/Contact";
 import ResetWarning from "./overlays/ResetWarning";
-import SelectTopic  from "./settings/SelectTopic";
+import SelectTopic from "./settings/SelectTopic";
 import type { Topic } from "@shared/ModelTypes";
 import { useTranslation } from "react-i18next";
 
@@ -64,7 +64,7 @@ function MainOverlays({ topic, onReset, onCloseOverlay }: MainOverlaysProps): Re
         return <Contact />;
       case "#settings":
         return (
-          <SelectTopic
+          <ControlledSelectTopic
             currentTopic={topic ?? undefined}
             onReset={onReset}
             onCancel={cancelOverlay}
@@ -95,6 +95,32 @@ function MainOverlays({ topic, onReset, onCloseOverlay }: MainOverlaysProps): Re
         </OverlayWrapper>
       }
     </Overlay>
+  );
+}
+
+interface ControlledSelectTopicProps {
+  currentTopic: Topic | undefined;
+  onReset: (resetTopic?: Topic) => void;
+  onCancel: () => void;
+  onContinueForward: (topic: Topic) => void;
+}
+
+function ControlledSelectTopic({ currentTopic, onReset, onCancel, onContinueForward }: ControlledSelectTopicProps): React.ReactElement {
+
+  const [selectedTopic, setSelectedTopic] = useState<string>("");
+  const [customTopic, setCustomTopic] = useState<string>("");
+
+  return (
+    <SelectTopic
+      currentTopic={currentTopic}
+      onReset={onReset}
+      onCancel={onCancel}
+      onContinueForward={onContinueForward}
+      selectedTopic={selectedTopic}
+      setSelectedTopic={setSelectedTopic}
+      customTopic={customTopic}
+      setCustomTopic={setCustomTopic}
+    />
   );
 }
 

@@ -1,8 +1,9 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import SelectFoods from '../../../../src/components/settings/SelectFoods';
+import SelectFoods, { createDefaultHumans } from '../../../../src/components/settings/SelectFoods';
 import foodsEn from '../../../../src/prompts/foods_en.json';
+import { useState } from 'react';
 
 // Mock dependencies
 vi.mock('react-i18next', () => ({
@@ -24,8 +25,26 @@ describe('SelectFoods Component', () => {
         mockOnContinue = vi.fn();
     });
 
+    function ControlledSelectFoods() {
+        const [selectedFoods, setSelectedFoods] = useState([foodsEn.foods[0].id]);
+        const [humans, setHumans] = useState(() => createDefaultHumans());
+        const [numberOfHumans, setNumberOfHumans] = useState(0);
+        return (
+            <SelectFoods
+                topicTitle="Test Topic"
+                onContinueForward={mockOnContinue}
+                selectedFoods={selectedFoods}
+                setSelectedFoods={setSelectedFoods}
+                humans={humans}
+                setHumans={setHumans}
+                numberOfHumans={numberOfHumans}
+                setNumberOfHumans={setNumberOfHumans}
+            />
+        );
+    }
+
     it('should render correctly with default chair selected', () => {
-        render(<SelectFoods lang="en" topicTitle="Test Topic" onContinueForward={mockOnContinue} />);
+        render(<ControlledSelectFoods />);
 
         // Real file default chair is Water
         const waterBtn = screen.getByAltText('Water');
@@ -33,7 +52,7 @@ describe('SelectFoods Component', () => {
     });
 
     it('should enforce min participants (2) before allowing Start', () => {
-        render(<SelectFoods lang="en" topicTitle="Test Topic" onContinueForward={mockOnContinue} />);
+        render(<ControlledSelectFoods />);
 
         expect(screen.queryByText('start')).not.toBeInTheDocument();
         expect(screen.getByText('selectfoods.pleaseselect')).toBeInTheDocument();
@@ -54,7 +73,7 @@ describe('SelectFoods Component', () => {
     });
 
     it('should construct the prompt correctly with participants', () => {
-        render(<SelectFoods lang="en" topicTitle="Test Topic" onContinueForward={mockOnContinue} />);
+        render(<ControlledSelectFoods />);
 
         // Select Tomato and Potato
         fireEvent.click(screen.getByAltText('Tomato'));
@@ -78,7 +97,7 @@ describe('SelectFoods Component', () => {
     });
 
     it('should handle Human Panelists injection into prompt', async () => {
-        render(<SelectFoods lang="en" topicTitle="Test Topic" onContinueForward={mockOnContinue} />);
+        render(<ControlledSelectFoods />);
 
         // Select Tomato AND Potato to meet min requirements (3 foods)
         fireEvent.click(screen.getByAltText('Tomato'));
@@ -120,7 +139,7 @@ describe('SelectFoods Component', () => {
     });
 
     it('should maintain focus on description when typing', async () => {
-        render(<SelectFoods lang="en" topicTitle="Test Topic" onContinueForward={mockOnContinue} />);
+        render(<ControlledSelectFoods />);
 
         // Add Human
         const addBtn = screen.getByAltText('add human');
@@ -144,7 +163,7 @@ describe('SelectFoods Component', () => {
     });
 
     it('should prevent selecting more than max participants (6)', () => {
-        render(<SelectFoods lang="en" topicTitle="Test Topic" onContinueForward={mockOnContinue} />);
+        render(<ControlledSelectFoods />);
 
         // Select 6 items (Chair + 5 others) to reach max (6 + 1 chair = 7)
 
@@ -177,7 +196,7 @@ describe('SelectFoods Component', () => {
     });
 
     it('should deselect a food when clicked again', () => {
-        render(<SelectFoods lang="en" topicTitle="Test Topic" onContinueForward={mockOnContinue} />);
+        render(<ControlledSelectFoods />);
 
         const tomatoBtn = screen.getByAltText('Tomato');
 
@@ -193,7 +212,7 @@ describe('SelectFoods Component', () => {
     });
 
     it('should show error when human panelists have duplicate names', async () => {
-        render(<SelectFoods lang="en" topicTitle="Test Topic" onContinueForward={mockOnContinue} />);
+        render(<ControlledSelectFoods />);
 
         // Select Tomato and Potato to satisfy atLeastTwoFoods requirement
         fireEvent.click(screen.getByAltText('Tomato'));

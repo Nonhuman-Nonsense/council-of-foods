@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { toTitleCase, useMobile, useMobileXs } from "@/utils";
 import { useTranslation } from "react-i18next";
 import { Character, VoiceOption, AVAILABLE_VOICES } from "@shared/ModelTypes";
@@ -38,6 +38,12 @@ interface SelectFoodsProps {
   topicTitle: string;
   onContinueForward: (data: { foods: Food[] }) => void | Promise<void>;
   loading?: boolean;
+  selectedFoods: string[];
+  setSelectedFoods: React.Dispatch<React.SetStateAction<string[]>>;
+  humans: Food[]; // fixed length (MAXHUMANS)
+  setHumans: React.Dispatch<React.SetStateAction<Food[]>>;
+  numberOfHumans: number;
+  setNumberOfHumans: React.Dispatch<React.SetStateAction<number>>;
 }
 
 const MAXHUMANS = 3;
@@ -82,6 +88,18 @@ for (const language in localFoodData) {
   }
 }
 
+function requireFoodData(language: string): FoodData {
+  // The app expects prompt bundles for all supported languages to exist at build time.
+  // We still keep a hard runtime invariant so both TS and failures are crisp.
+  const data = localFoodData[language] ?? localFoodData[AVAILABLE_LANGUAGES[0]];
+  if (!data) {
+    throw new Error(
+      `Missing food prompt bundle. language=${language}, fallback=${AVAILABLE_LANGUAGES[0]}`
+    );
+  }
+  return data;
+}
+
 // Infer the default voice from the configuration to ensure blankHuman is valid
 const defaultChair = localFoodData[AVAILABLE_LANGUAGES[0]]?.foods.find(f => f.id === globalClientOptions.chairId);
 const defaultVoice: VoiceOption = defaultChair?.voice || AVAILABLE_VOICES[0];
@@ -99,25 +117,35 @@ const blankHuman: Food = {
   size: 1.0
 };
 
+export function createHuman(index: number): Food {
+  // Uses chair voice by default so validation passes.
+  const newHuman = structuredClone(blankHuman);
+  newHuman.id = "panelist" + index;
+  newHuman.index = index;
+  return newHuman;
+}
+
+export function createDefaultHumans(): Food[] {
+  return [createHuman(0), createHuman(1), createHuman(2)];
+}
+
 /**
  * SelectFoods Component
  * 
  * The main configuration screen where the user selects AI food participants and adds human panelists.
  */
-function SelectFoods({ topicTitle, onContinueForward, loading: loading = false }: SelectFoodsProps): React.ReactElement {
-  // Ensuring we pull from a valid lang key, defaulting to 'en' if missing
-  const [foods, setFoods] = useState<Food[]>(localFoodData[AVAILABLE_LANGUAGES[0]]?.foods || []);
-  const [selectedFoods, setSelectedFoods] = useState<string[]>([localFoodData[AVAILABLE_LANGUAGES[0]]?.foods[0].id || ""]);
-
-  //Humans
-  const [human0, setHuman0] = useState<Food>(cloneHuman(0));
-  const [human1, setHuman1] = useState<Food>(cloneHuman(1));
-  const [human2, setHuman2] = useState<Food>(cloneHuman(2));
-  const [numberOfHumans, setNumberOfHumans] = useState<number>(0);
+function SelectFoods({
+  topicTitle,
+  onContinueForward,
+  loading: loading = false,
+  selectedFoods,
+  setSelectedFoods,
+  humans,
+  setHumans,
+  numberOfHumans,
+  setNumberOfHumans,
+}: SelectFoodsProps): React.ReactElement {
   const [lastSelected, setLastSelected] = useState<string | null>(null);
-
-  const humans: Food[] = [human0, human1, human2];
-  const setHumans: React.Dispatch<React.SetStateAction<Food>>[] = [setHuman0, setHuman1, setHuman2];
 
   const [humansReady, setHumansReady] = useState<boolean>(false);
   const [recheckHumansReady, setRecheckHumansReady] = useState<boolean>(false);
@@ -134,25 +162,18 @@ function SelectFoods({ topicTitle, onContinueForward, loading: loading = false }
   /*                                   Helpers                                  */
   /* -------------------------------------------------------------------------- */
 
-  function cloneHuman(id: number): Food {
-    // structuredClone is available in modern envs (Node 17+, Browsers)
-    // TypeScript needs "lib": ["DOM"] which we have.
-    const newHuman = structuredClone(blankHuman);
-    newHuman.id = "panelist" + id;
-    newHuman.index = id;
+  const foodData = useMemo(() => {
+    return requireFoodData(i18n.language);
+  }, [i18n.language]);
 
-    // Assign chair's voice to human panelist so validation passes
-    const chair = foods.find(f => f.id === globalClientOptions.chairId);
-    if (chair && chair.voice) {
-      newHuman.voice = chair.voice;
-      newHuman.voiceProvider = chair.voiceProvider;
-      newHuman.voiceTemperature = chair.voiceTemperature;
-      newHuman.voiceInstruction = chair.voiceInstruction;
-      newHuman.voiceLocale = chair.voiceLocale;
-    }
+  const baseFoods = useMemo(() => {
+    return foodData.foods;
+  }, [foodData]);
 
-    return newHuman;
-  }
+  const foods = useMemo(() => {
+    const humanFoods = humans.slice(0, numberOfHumans);
+    return [...baseFoods, ...humanFoods];
+  }, [baseFoods, humans, numberOfHumans]);
 
   function atLeastTwoFoods(): boolean {
     return (selectedFoods.filter((id) => !id.startsWith('panelist')).length >= minFoods);
@@ -195,7 +216,7 @@ function SelectFoods({ topicTitle, onContinueForward, loading: loading = false }
       }
 
       if (replacedFoods.length > 0 && replacedFoods[0].prompt) {
-        replacedFoods[0].prompt = localFoodData[i18n.language].foods[0].prompt?.replace(
+        replacedFoods[0].prompt = foodData.foods[0].prompt?.replace(
           "[FOODS]",
           participants
         ) || "";
@@ -218,7 +239,7 @@ function SelectFoods({ topicTitle, onContinueForward, loading: loading = false }
         }
         humanPresentation = humanPresentation.substring(0, humanPresentation.length - 2);
 
-        const humanPrompt = localFoodData[i18n.language].panelWithHumans;
+        const humanPrompt = foodData.panelWithHumans;
         humanPresentation = humanPrompt.replace(
           "[HUMANS]",
           humanPresentation
@@ -238,12 +259,11 @@ function SelectFoods({ topicTitle, onContinueForward, loading: loading = false }
   }
 
   function onAddHuman(): void {
-    const id = numberOfHumans;
-    if (id < humans.length) {
-      setFoods((prevFoods) => [...prevFoods, humans[id]]);
-      setNumberOfHumans((prev) => prev + 1);
-      selectFood(humans[id]);
-    }
+    const idx = numberOfHumans;
+    if (idx >= MAXHUMANS) return;
+    if (!humans[idx]) return;
+    setNumberOfHumans((prev) => Math.min(MAXHUMANS, prev + 1));
+    selectFood(humans[idx]);
   }
 
   function selectFood(food: Food): void {
@@ -274,16 +294,6 @@ function SelectFoods({ topicTitle, onContinueForward, loading: loading = false }
   /*                                   Effects                                  */
   /* -------------------------------------------------------------------------- */
 
-  // Sync humans state changes to foods array (as foods contains copies or references)
-  useEffect(() => {
-    setFoods((prevFoods) => prevFoods.map(f => {
-      if (f.type === 'panelist' && f.index !== undefined) {
-        return humans[f.index];
-      }
-      return f;
-    }));
-  }, [human0, human1, human2]);
-
   useEffect(() => {
     const selectedHumans = selectedFoods.filter(id => id.startsWith('panelist'));
     let ready = true;
@@ -297,7 +307,7 @@ function SelectFoods({ topicTitle, onContinueForward, loading: loading = false }
       }
     }
     setHumansReady(ready);
-  }, [recheckHumansReady, selectedFoods]);
+  }, [recheckHumansReady, selectedFoods, humans]);
 
   /* -------------------------------------------------------------------------- */
   /*                                   Render                                   */
@@ -305,7 +315,7 @@ function SelectFoods({ topicTitle, onContinueForward, loading: loading = false }
 
   function infoToShow(): React.ReactNode {
     if (currentFood === 'addhuman') {
-      return <FoodInfo food={localFoodData[i18n.language].addHuman} />;
+      return <FoodInfo food={foodData.addHuman} />;
     } else if (currentFood !== null && !currentFood.startsWith('panelist')) {//If something is hovered & if it's not a human
       return <FoodInfo food={foods.find(f => f.id === currentFood)} />;
     } else if (currentFood?.startsWith('panelist') && lastSelected !== currentFood) {//a human is hovered but not selected
@@ -461,7 +471,7 @@ function FoodInfo({ food }: FoodInfoProps): React.ReactElement | null {
  */
 interface HumanInfoProps {
   human?: Food;
-  setHumans: React.Dispatch<React.SetStateAction<Food>>[];
+  setHumans: React.Dispatch<React.SetStateAction<Food[]>>;
   lastSelected?: string | null;
   unfocus?: boolean;
   setRecheckHumansReady: React.Dispatch<React.SetStateAction<boolean>>;
@@ -503,15 +513,12 @@ function HumanInfo({ human, setHumans, lastSelected, unfocus, setRecheckHumansRe
   function descriptionChanged(e: React.ChangeEvent<HTMLTextAreaElement>) {
     if (!human || human.index === undefined) return;
     const val = e.target.value;
-    setHumans[human.index]((prev) => {
-      // Need to return new object for immutability? Or clone?
-      // State updater pattern: (prev) => { ... }
-      // We should ideally return a NEW object.
-      // The original code mutated 'prev' and returned it... which triggers re-render but is bad practice.
-      // Let's do it properly:
-      const newHuman = { ...prev };
-      newHuman.description = val;
-      return newHuman;
+    setHumans((prev) => {
+      const next = [...prev];
+      const old = next[human.index!];
+      if (!old) return prev;
+      next[human.index!] = { ...old, description: val };
+      return next;
     });
     setRecheckHumansReady(prev => !prev);
   }
@@ -521,10 +528,12 @@ function HumanInfo({ human, setHumans, lastSelected, unfocus, setRecheckHumansRe
     if (nameArea.current) {
       nameArea.current.value = toTitleCase(nameArea.current.value);
       const val = nameArea.current.value;
-      setHumans[human.index]((prev) => {
-        const newHuman = { ...prev };
-        newHuman.name = val;
-        return newHuman;
+      setHumans((prev) => {
+        const next = [...prev];
+        const old = next[human.index!];
+        if (!old) return prev;
+        next[human.index!] = { ...old, name: val };
+        return next;
       });
       setRecheckHumansReady(prev => !prev);
     }

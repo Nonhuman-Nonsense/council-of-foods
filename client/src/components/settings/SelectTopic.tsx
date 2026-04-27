@@ -25,13 +25,21 @@ interface SelectTopicProps {
   currentTopic?: Topic;
   onReset?: (resetTopic: Topic) => void;
   onCancel?: () => void;
+  selectedTopic: string;
+  setSelectedTopic: (id: string) => void;
+  customTopic: string;
+  setCustomTopic: (text: string) => void;
 }
 
 function SelectTopic({
   onContinueForward,
   currentTopic,
   onReset,
-  onCancel
+  onCancel,
+  selectedTopic,
+  setSelectedTopic,
+  customTopic,
+  setCustomTopic,
 }: SelectTopicProps): React.ReactElement {
   const { t, i18n } = useTranslation();
   const isMobile = useMobile();
@@ -44,9 +52,7 @@ function SelectTopic({
   /*                                    State                                   */
   /* -------------------------------------------------------------------------- */
 
-  const [selectedTopic, setSelectedTopic] = useState<string>("");
   const [hoverTopic, setHoverTopic] = useState<string | null>(null);
-  const [customTopic, setCustomTopic] = useState<string>("");
   const [displayWarning, setDisplayWarning] = useState<boolean>(false);
 
   /* -------------------------------------------------------------------------- */

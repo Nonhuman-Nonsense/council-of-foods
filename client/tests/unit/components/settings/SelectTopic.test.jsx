@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import SelectTopic from '../../../../src/components/settings/SelectTopic';
 import { getTopicsBundle } from '../../../../src/components/topicsBundle';
+import { useState } from 'react';
 
 // Mocks
 vi.mock('react-i18next', () => ({
@@ -42,6 +43,20 @@ const defaultBundle = {
     system: 'System [TOPIC]',
 };
 
+function ControlledSelectTopic(props) {
+    const [selectedTopic, setSelectedTopic] = useState('');
+    const [customTopic, setCustomTopic] = useState('');
+    return (
+        <SelectTopic
+            {...props}
+            selectedTopic={selectedTopic}
+            setSelectedTopic={setSelectedTopic}
+            customTopic={customTopic}
+            setCustomTopic={setCustomTopic}
+        />
+    );
+}
+
 describe('SelectTopic Component', () => {
     let mockOnContinue;
     let mockOnReset;
@@ -56,7 +71,7 @@ describe('SelectTopic Component', () => {
 
     it('should render topics and allow selection', () => {
         render(
-            <SelectTopic
+            <ControlledSelectTopic
                 onContinueForward={mockOnContinue}
                 onReset={mockOnReset}
                 onCancel={mockOnCancel}
@@ -86,7 +101,7 @@ describe('SelectTopic Component', () => {
 
     it('should allow custom topic entry', () => {
         render(
-            <SelectTopic
+            <ControlledSelectTopic
                 onContinueForward={mockOnContinue}
                 onReset={mockOnReset}
                 onCancel={mockOnCancel}
@@ -128,7 +143,7 @@ describe('SelectTopic Component', () => {
         });
 
         render(
-            <SelectTopic
+            <ControlledSelectTopic
                 onContinueForward={mockOnContinue}
                 onReset={mockOnReset}
                 onCancel={mockOnCancel}
@@ -160,7 +175,7 @@ describe('SelectTopic Component', () => {
         });
 
         render(
-            <SelectTopic
+            <ControlledSelectTopic
                 onContinueForward={mockOnContinue}
                 onReset={mockOnReset}
                 onCancel={mockOnCancel}
@@ -188,7 +203,7 @@ describe('SelectTopic Component', () => {
         const currentTopic = { id: 'topic1', title: 'Topic One', description: '', prompt: 'p' };
 
         render(
-            <SelectTopic
+            <ControlledSelectTopic
                 onContinueForward={mockOnContinue}
                 onReset={mockOnReset}
                 onCancel={mockOnCancel}
@@ -209,7 +224,7 @@ describe('SelectTopic Component', () => {
         const currentTopic = { id: 'topic1', title: 'Topic One', description: '', prompt: 'OLD PROMPT' };
 
         render(
-            <SelectTopic
+            <ControlledSelectTopic
                 onContinueForward={mockOnContinue}
                 onReset={mockOnReset}
                 onCancel={mockOnCancel}
@@ -241,7 +256,7 @@ describe('SelectTopic Component', () => {
 
     it('updates tooltip text based on hover and selection priority', () => {
         render(
-            <SelectTopic
+            <ControlledSelectTopic
                 onContinueForward={mockOnContinue}
                 onReset={mockOnReset}
                 onCancel={mockOnCancel}
@@ -275,7 +290,7 @@ describe('SelectTopic Component', () => {
 
     it('hides/shows Next button based on validation', () => {
         render(
-            <SelectTopic
+            <ControlledSelectTopic
                 onContinueForward={mockOnContinue}
                 onReset={mockOnReset}
                 onCancel={mockOnCancel}
@@ -308,7 +323,7 @@ describe('SelectTopic Component', () => {
 
     it('shows custom text box when hovering custom topic button', () => {
         render(
-            <SelectTopic
+            <ControlledSelectTopic
                 onContinueForward={mockOnContinue}
                 onReset={mockOnReset}
                 onCancel={mockOnCancel}

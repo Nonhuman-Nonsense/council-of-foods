@@ -65,6 +65,11 @@ vi.mock("@/components/settings/SelectFoods", () => ({
             continue foods
         </button>
     ),
+    createDefaultHumans: () => ([
+        { id: "panelist0", name: "", description: "", type: "panelist", voice: "alloy", index: 0 },
+        { id: "panelist1", name: "", description: "", type: "panelist", voice: "alloy", index: 1 },
+        { id: "panelist2", name: "", description: "", type: "panelist", voice: "alloy", index: 2 },
+    ]),
 }));
 
 describe("NewMeeting — live key handoff", () => {

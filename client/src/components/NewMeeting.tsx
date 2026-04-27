@@ -1,11 +1,12 @@
 import type { Topic } from "@shared/ModelTypes";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import SelectTopic from "./settings/SelectTopic";
-import SelectFoods, { Food } from "./settings/SelectFoods";
+import SelectFoods, { createDefaultHumans, Food } from "./settings/SelectFoods";
 import { createMeeting } from "@/api/createMeeting";
 import { useRouting } from "@/routing";
+import { globalClientOptions } from "@/globalClientOptions";
 
 export interface NewMeetingProps {
   setUnrecoverableError: (message: string) => void;
@@ -28,6 +29,25 @@ export default function NewMeeting({
     topicSelection != null ? "foods" : "topic"
   );
   const [creating, setCreating] = useState(false);
+
+  // Lifted setup state (single source of truth for both clicks and voiceguide tools)
+  const [selectedTopic, setSelectedTopic] = useState<string>("");
+  const [customTopic, setCustomTopic] = useState<string>("");
+
+  const [selectedFoods, setSelectedFoods] = useState<string[]>([globalClientOptions.chairId]);
+  const [humans, setHumans] = useState<Food[]>(() => createDefaultHumans());
+  const [numberOfHumans, setNumberOfHumans] = useState<number>(0);
+
+  // Keep lifted topic UI state consistent if we start on foods step (e.g. reset flow)
+  useEffect(() => {
+    if (!topicSelection) return;
+    setSelectedTopic(topicSelection.id);
+    if (topicSelection.id === "customtopic") {
+      setCustomTopic(topicSelection.description ?? "");
+    } else {
+      setCustomTopic("");
+    }
+  }, [topicSelection?.id, topicSelection?.description]);
 
   function handleTopicContinue(selectedTopic: Topic) {
     setTopicSelection(selectedTopic);
@@ -62,6 +82,10 @@ export default function NewMeeting({
     return (
       <SelectTopic
         currentTopic={topicSelection ?? undefined}
+        selectedTopic={selectedTopic}
+        setSelectedTopic={setSelectedTopic}
+        customTopic={customTopic}
+        setCustomTopic={setCustomTopic}
         onContinueForward={handleTopicContinue}
       />
     );
@@ -73,6 +97,12 @@ export default function NewMeeting({
         topicTitle={topicSelection?.title ?? ""}
         onContinueForward={handleFoodsContinue}
         loading={creating}
+        selectedFoods={selectedFoods}
+        setSelectedFoods={setSelectedFoods}
+        humans={humans}
+        setHumans={setHumans}
+        numberOfHumans={numberOfHumans}
+        setNumberOfHumans={setNumberOfHumans}
       />
     </>
   );

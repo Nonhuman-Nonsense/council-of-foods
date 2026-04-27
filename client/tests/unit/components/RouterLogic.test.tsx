@@ -22,7 +22,12 @@ vi.mock('../../../src/components/settings/SelectTopic', () => ({
     default: () => <div data-testid="select-topic">SelectTopic</div>
 }));
 vi.mock('../../../src/components/settings/SelectFoods', () => ({
-    default: () => <div data-testid="select-foods">SelectFoods</div>
+    default: () => <div data-testid="select-foods">SelectFoods</div>,
+    createDefaultHumans: () => ([
+        { id: "panelist0", name: "", description: "", type: "panelist", voice: "alloy", index: 0 },
+        { id: "panelist1", name: "", description: "", type: "panelist", voice: "alloy", index: 1 },
+        { id: "panelist2", name: "", description: "", type: "panelist", voice: "alloy", index: 2 },
+    ]),
 }));
 vi.mock('../../../src/components/Council', () => ({
     default: () => <div data-testid="council">Council</div>
