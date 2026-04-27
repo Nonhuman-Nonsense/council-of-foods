@@ -33,8 +33,8 @@ Implemented a server-side proxy so the browser can connect to Inworld Realtime w
 
 - `GET /api/voice-guide/ice-servers`
   - Fetches ICE servers from Inworld and returns `{ iceServers }` to the client.
-- `POST /api/voice-guide/session`
-  - Accepts a raw SDP offer (`Content-Type: application/sdp`) and returns the raw SDP answer from Inworld.
+- `POST /api/voice-guide/call`
+  - Accepts `{ sdp, session? }` (JSON), forwards it to Inworld's `POST /v1/realtime/calls`, and returns `{ id, sdp, ice_servers? }`. Note: per Inworld's WebRTC docs, the `session` field here is at best a hint — tools/instructions must be applied via `session.update` over the data channel after it opens.
 
 Key files:
 
@@ -71,7 +71,7 @@ This is the prerequisite for letting the voice guide drive the UI via tool dispa
    - Establishes WebRTC connection to Inworld Realtime:
      - fetch ICE servers via `GET /api/voice-guide/ice-servers`
      - creates SDP offer locally
-     - exchanges SDP via `POST /api/voice-guide/session` (server uses `INWORLD_API_KEY`)
+     - exchanges SDP via `POST /api/voice-guide/call` (server uses `INWORLD_API_KEY`)
    - Opens a WebRTC **data channel** for events and tool calls.
 3. Voice guide:
    - Speaks prompts and listens to visitor speech.
@@ -138,8 +138,8 @@ Create a small, testable client voice layer:
   - create data channel (e.g. `"oai-events"` or `"events"`)
   - `createOffer` → `setLocalDescription`
 - Exchange offer:
-  - `POST /api/voice-guide/session` with the offer SDP as `application/sdp`
-  - Set remote description with returned SDP answer.
+  - `POST /api/voice-guide/call` with `{ sdp, session? }` as JSON
+  - Set remote description with the SDP answer from the response body.
 
 ### Data channel message handling (minimum)
 
@@ -317,4 +317,5 @@ Add operational behavior needed in a museum:
 | 2026-04-27 | Refactored `client/src/voice/` into three small, testable modules to fix glitchy realtime behavior: `realtimeConnection.ts` (pure WebRTC + SDP exchange), `realtimeEventLoop.ts` (pure data-channel event handling with single-flight `response.create` and ref-based tool dispatch), and a thin React glue `useVoiceGuide.ts`. Session config is now sent server-side via `POST /api/voice-guide/call`, removing the `session.update` round trip. VAD eagerness lowered to `medium`. System prompt no longer inlines topic/food descriptions; the model uses `describe_topic` / `describe_food` tools instead. Tool handlers always read fresh wizard state via a `handlersRef`, fixing a stale-closure bug where `confirm_topic` always saw `selectedTopic === ""`. |
 | 2026-04-27 | Made `useVoiceGuide` StrictMode-safe: `start()` now uses an attempt counter + `AbortController` so any in-flight handshake (ICE, `getUserMedia`, SDP POST) is cancelled cleanly when React unmounts/remounts in dev. Auto-start was moved into the hook's own `useEffect` (with proper cleanup) instead of a ref-guarded `useEffect` in `NewMeeting.tsx`, which was producing two parallel WebRTC connections in dev. ICE-gather timeout reduced from 8s to 3s for faster connection. |
 | 2026-04-27 | Restored `session.update` over the data channel (partial revert of the prior "send session via /call body" change). Per Inworld's WebRTC docs, `session.created` always reflects defaults and `session.update` is the canonical way to apply tools/instructions/voice — sending only the `/call` body's `session` left tools unregistered, which produced `response.failed reason: server_error` on the auto-greeting and tool-less chitchat afterwards. The new `realtimeEventLoop.configureSession()` sends `session.update` and gates the opening `response.create` on `session.updated`, so the greeting is always generated with the configured tools and prompt. Added `tests/unit/voice/realtimeEventLoop.test.ts` covering the gating, the no-stack-on-active-response invariant, and fresh-handler dispatch via `getCtx()`. |
+| 2026-04-27 | Tightened `server/src/api/voiceGuideSession.ts` from 204 lines to 109. Removed the dead `POST /api/voice-guide/session` endpoint and `exchangeSdpWithInworld` helper (only `/call` is used by the client now). Consolidated the two remaining helpers behind a small `inworldFetch` wrapper that handles Bearer auth + uniform error shape. Endpoint surface is now just `GET /ice-servers` + `POST /call`, mirroring Inworld's own API. |
 

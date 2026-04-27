@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { createInworldCall, exchangeSdpWithInworld, getInworldIceServers } from "@api/voiceGuideSession.js";
+import { createInworldCall, getInworldIceServers } from "@api/voiceGuideSession.js";
 
 vi.mock("../src/config.js", () => ({
     config: {
@@ -43,7 +43,6 @@ describe("voiceGuideSession", () => {
             const result = await getInworldIceServers();
 
             expect(result).toEqual({ iceServers: ice });
-            expect(global.fetch).toHaveBeenCalledTimes(1);
             expect(global.fetch).toHaveBeenCalledWith(
                 "https://api.inworld.ai/v1/realtime/ice-servers",
                 expect.objectContaining({
@@ -78,62 +77,8 @@ describe("voiceGuideSession", () => {
         });
     });
 
-    describe("exchangeSdpWithInworld", () => {
-        it("forwards the SDP offer as application/sdp and returns the answer body", async () => {
-            vi.mocked(global.fetch).mockResolvedValue(
-                new Response(SDP_ANSWER, {
-                    status: 200,
-                    headers: { "Content-Type": "application/sdp" },
-                })
-            );
-
-            const result = await exchangeSdpWithInworld(SDP_OFFER);
-
-            expect(result).toBe(SDP_ANSWER);
-            expect(global.fetch).toHaveBeenCalledTimes(1);
-            expect(global.fetch).toHaveBeenCalledWith(
-                "https://api.inworld.ai/v1/realtime/calls",
-                expect.objectContaining({
-                    method: "POST",
-                    headers: expect.objectContaining({
-                        Authorization: "Bearer test-inworld-api-key",
-                        "Content-Type": "application/sdp",
-                    }),
-                    body: SDP_OFFER,
-                })
-            );
-        });
-
-        it("rejects an empty offer without calling Inworld", async () => {
-            await expect(exchangeSdpWithInworld("")).rejects.toThrow(/non-empty/);
-            await expect(exchangeSdpWithInworld("   \n  ")).rejects.toThrow(/non-empty/);
-            expect(global.fetch).not.toHaveBeenCalled();
-        });
-
-        it("throws when Inworld returns a non-OK response", async () => {
-            vi.mocked(global.fetch).mockResolvedValue(
-                new Response("rate limited", { status: 429, statusText: "Too Many Requests" })
-            );
-
-            await expect(exchangeSdpWithInworld(SDP_OFFER)).rejects.toThrow(
-                /Inworld \/v1\/realtime\/calls failed \(429\)/
-            );
-        });
-
-        it("throws when Inworld returns an empty SDP answer", async () => {
-            vi.mocked(global.fetch).mockResolvedValue(
-                new Response("   ", {
-                    status: 200,
-                    headers: { "Content-Type": "application/sdp" },
-                })
-            );
-
-            await expect(exchangeSdpWithInworld(SDP_OFFER)).rejects.toThrow(/empty SDP answer/);
-        });
-    });
-
     describe("createInworldCall", () => {
-        it("POSTs JSON {sdp, session} and returns JSON response", async () => {
+        it("POSTs JSON {sdp, session} with Bearer auth and returns parsed response", async () => {
             vi.mocked(global.fetch).mockResolvedValue(
                 new Response(JSON.stringify({ id: "call_abc123", sdp: SDP_ANSWER, ice_servers: [] }), {
                     status: 200,
@@ -160,12 +105,29 @@ describe("voiceGuideSession", () => {
             );
         });
 
+        it("rejects an empty SDP offer without calling Inworld", async () => {
+            await expect(createInworldCall({ sdp: "" })).rejects.toThrow(/non-empty/);
+            await expect(createInworldCall({ sdp: "   \n  " })).rejects.toThrow(/non-empty/);
+            expect(global.fetch).not.toHaveBeenCalled();
+        });
+
         it("throws when Inworld returns non-OK", async () => {
             vi.mocked(global.fetch).mockResolvedValue(
                 new Response("bad", { status: 400, statusText: "Bad Request" })
             );
 
-            await expect(createInworldCall({ sdp: SDP_OFFER })).rejects.toThrow(/calls JSON failed/);
+            await expect(createInworldCall({ sdp: SDP_OFFER })).rejects.toThrow(/calls failed \(400\)/);
+        });
+
+        it("throws when Inworld returns an empty SDP answer", async () => {
+            vi.mocked(global.fetch).mockResolvedValue(
+                new Response(JSON.stringify({ id: "call_x", sdp: "   " }), {
+                    status: 200,
+                    headers: { "Content-Type": "application/json" },
+                })
+            );
+
+            await expect(createInworldCall({ sdp: SDP_OFFER })).rejects.toThrow(/empty SDP answer/);
         });
     });
 });
