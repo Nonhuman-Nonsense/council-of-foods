@@ -3,17 +3,13 @@
  *
  * The contract is intentionally tiny: open a peer connection with a mic track,
  * a single data channel ("oai-events"), exchange SDP via our server proxy with
- * a merged session (server defaults from `POST /api/voice-guide/realtime-session`
+ * a merged session (server defaults from `GET /api/voice-guide/bootstrap`
  * plus client instructions/tools), and surface remote audio + data channel
  * events through callbacks. Everything else (status state, captions, tool
  * dispatch) lives one layer up.
  */
 
-import type {
-  RealtimeSessionConfig,
-  RealtimeSessionServerDefaults,
-  VoiceGuideRealtimeSessionResponse,
-} from "./realtimeProtocol";
+import type { RealtimeSessionConfig, RealtimeSessionServerDefaults } from "./realtimeProtocol";
 
 export type IceServer = {
   urls: string[] | string;
@@ -37,6 +33,13 @@ export type RealtimeConnection = {
 export type CreateConnectionParams = {
   /** Full session sent to Inworld at /call time; tools/instructions still require `session.update` on the data channel. */
   session: RealtimeSessionConfig;
+  /** From `fetchVoiceGuideBootstrap()` (browser seeds `RTCPeerConnection`). */
+  iceServers: IceServer[];
+  /**
+   * When passed (e.g. acquired in parallel with bootstrap in the hook), skips an
+   * internal `getUserMedia` call.
+   */
+  micStream?: MediaStream;
   /** Forwarded to ontrack so the caller can attach <audio>. */
   onRemoteTrack: (track: MediaStreamTrack) => void;
   /** Receives all data channel JSON events. */
@@ -55,7 +58,7 @@ export type CreateConnectionParams = {
   signal?: AbortSignal;
 };
 
-const ICE_GATHER_TIMEOUT_MS = 3_000;
+const ICE_GATHER_TIMEOUT_MS = 2_500;
 const FETCH_TIMEOUT_MS = 15_000;
 
 async function fetchWithTimeout(
@@ -120,14 +123,46 @@ async function waitForIceGatheringComplete(pc: RTCPeerConnection, timeoutMs: num
   });
 }
 
-async function fetchIceServers(log: ConnectionLogger, signal?: AbortSignal): Promise<IceServer[]> {
-  const resp = await fetchWithTimeout("/api/voice-guide/ice-servers", { method: "GET" }, 10_000, signal);
-  if (!resp.ok) {
-    throw new Error(`ICE servers request failed (${resp.status})`);
+function parseRealtimeSessionServerDefaults(
+  session: unknown,
+  context: string
+): RealtimeSessionServerDefaults {
+  const s = session as RealtimeSessionServerDefaults | null | undefined;
+  if (
+    !s ||
+    s.type !== "realtime" ||
+    typeof s.model !== "string" ||
+    !Array.isArray(s.output_modalities)
+  ) {
+    throw new Error(`${context}: response invalid`);
   }
-  const data = (await resp.json()) as { iceServers?: IceServer[] };
-  log("ice servers", data.iceServers?.length ?? 0);
-  return Array.isArray(data.iceServers) ? data.iceServers : [];
+  return s;
+}
+
+export type VoiceGuideBootstrapResponse = {
+  iceServers: IceServer[];
+  session: RealtimeSessionServerDefaults;
+};
+
+/**
+ * One HTTP round-trip: Inworld ICE servers + realtime session defaults.
+ * Prefer this over separate realtime-session + ice-servers calls.
+ */
+export async function fetchVoiceGuideBootstrap(
+  log: ConnectionLogger = () => undefined,
+  signal?: AbortSignal
+): Promise<VoiceGuideBootstrapResponse> {
+  log("GET /api/voice-guide/bootstrap");
+  const resp = await fetchWithTimeout("/api/voice-guide/bootstrap", { method: "GET" }, FETCH_TIMEOUT_MS, signal);
+  if (!resp.ok) {
+    const text = await resp.text().catch(() => "");
+    throw new Error(`Voice guide bootstrap failed (${resp.status}): ${text}`);
+  }
+  const data = (await resp.json()) as { iceServers?: unknown; session?: unknown };
+  const session = parseRealtimeSessionServerDefaults(data?.session, "Voice guide bootstrap");
+  const iceServers = Array.isArray(data?.iceServers) ? (data.iceServers as IceServer[]) : [];
+  log("bootstrap ok", { ice: iceServers.length, model: session.model });
+  return { iceServers, session };
 }
 
 /** Loads model / audio / VAD defaults from the server (GlobalOptions). Instructions and tools are merged client-side. */
@@ -135,31 +170,7 @@ export async function fetchVoiceGuideRealtimeSessionDefaults(
   log: ConnectionLogger = () => undefined,
   signal?: AbortSignal
 ): Promise<RealtimeSessionServerDefaults> {
-  log("POST /api/voice-guide/realtime-session");
-  const resp = await fetchWithTimeout(
-    "/api/voice-guide/realtime-session",
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: "{}",
-    },
-    FETCH_TIMEOUT_MS,
-    signal
-  );
-  if (!resp.ok) {
-    const text = await resp.text().catch(() => "");
-    throw new Error(`Realtime session defaults failed (${resp.status}): ${text}`);
-  }
-  const data = (await resp.json()) as VoiceGuideRealtimeSessionResponse;
-  const session = data?.session;
-  if (
-    !session ||
-    session.type !== "realtime" ||
-    typeof session.model !== "string" ||
-    !Array.isArray(session.output_modalities)
-  ) {
-    throw new Error("Realtime session defaults response invalid");
-  }
+  const { session } = await fetchVoiceGuideBootstrap(log, signal);
   return session;
 }
 
@@ -201,7 +212,17 @@ async function exchangeSdp(
  * is thrown. Callers can use `(err.name === "AbortError")` to distinguish.
  */
 export async function createRealtimeConnection(params: CreateConnectionParams): Promise<RealtimeConnection> {
-  const { session, onRemoteTrack, onEvent, onOpen, onClose, log = () => undefined, signal } = params;
+  const {
+    session,
+    iceServers,
+    micStream: micStreamParam,
+    onRemoteTrack,
+    onEvent,
+    onOpen,
+    onClose,
+    log = () => undefined,
+    signal,
+  } = params;
 
   // Resources we may need to clean up on abort.
   let pc: RTCPeerConnection | null = null;
@@ -224,10 +245,21 @@ export async function createRealtimeConnection(params: CreateConnectionParams): 
   try {
     throwIfAborted(signal);
 
-    const iceServers = await fetchIceServers(log, signal);
+    if (micStreamParam) {
+      micStream = micStreamParam;
+    } else {
+      log("getUserMedia");
+      micStream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      });
+    }
     throwIfAborted(signal);
 
-    pc = new RTCPeerConnection({ iceServers });
+    pc = new RTCPeerConnection({ iceServers, iceCandidatePoolSize: 10 });
     log("peer connection created");
 
     pc.onconnectionstatechange = () => {
@@ -264,15 +296,6 @@ export async function createRealtimeConnection(params: CreateConnectionParams): 
       if (e.track.kind === "audio") onRemoteTrack(e.track);
     };
 
-    log("getUserMedia");
-    micStream = await navigator.mediaDevices.getUserMedia({
-      audio: {
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: true,
-      },
-    });
-    throwIfAborted(signal);
     micStream.getAudioTracks().forEach((t) => pc!.addTrack(t, micStream!));
 
     log("createOffer");

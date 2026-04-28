@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { RealtimeTool, ToolHandler } from "./guideTools";
 import {
   createRealtimeConnection,
-  fetchVoiceGuideRealtimeSessionDefaults,
+  fetchVoiceGuideBootstrap,
   type RealtimeConnection,
 } from "./realtimeConnection";
 import { createEventLoop } from "./realtimeEventLoop";
@@ -93,7 +93,7 @@ function attachRemoteAudio(track: MediaStreamTrack, audioElement: HTMLAudioEleme
  *    use `session.update`. Skipping this caused "server_error" on the first
  *    auto-greeting and tool-less chitchat afterwards.
  *  - Model, voice, TTS, transcription, VAD, and audio speed come from the server
- *    (`POST /api/voice-guide/realtime-session`, backed by GlobalOptions).
+ *    (`GET /api/voice-guide/bootstrap`, backed by GlobalOptions).
  *    Instructions and tool schemas stay on the client.
  *  - StrictMode-safe: `start()` uses an attempt counter + AbortController so
  *    the dev-only mount → unmount → mount cycle doesn't leak two parallel
@@ -123,7 +123,7 @@ export function useVoiceGuide(params: UseVoiceGuideParams): VoiceGuideState {
   const handlersRef = useRef<Record<string, ToolHandler>>(toolHandlers);
   const instructionsRef = useRef(instructions);
   const toolsRef = useRef(tools);
-  /** Set after a successful `POST /api/voice-guide/realtime-session` during `start()`. */
+  /** Set after a successful `GET /api/voice-guide/bootstrap` during `start()`. */
   const serverDefaultsRef = useRef<RealtimeSessionServerDefaults | null>(null);
   useEffect(() => {
     handlersRef.current = toolHandlers;
@@ -185,8 +185,33 @@ export function useVoiceGuide(params: UseVoiceGuideParams): VoiceGuideState {
 
     let conn: RealtimeConnection | null = null;
     try {
-      const defaults = await fetchVoiceGuideRealtimeSessionDefaults(debugLog, controller.signal);
-      if (isStale()) return;
+      const settled = await Promise.allSettled([
+        fetchVoiceGuideBootstrap(debugLog, controller.signal),
+        navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          },
+        }),
+      ]);
+      const bootResult = settled[0];
+      const micResult = settled[1];
+      if (bootResult.status === "rejected") {
+        if (micResult.status === "fulfilled") {
+          micResult.value.getTracks().forEach((t) => t.stop());
+        }
+        throw bootResult.reason;
+      }
+      if (micResult.status === "rejected") {
+        throw micResult.reason;
+      }
+      const { session: defaults, iceServers } = bootResult.value;
+      const micStream = micResult.value;
+      if (isStale()) {
+        micStream.getTracks().forEach((t) => t.stop());
+        return;
+      }
       serverDefaultsRef.current = defaults;
 
       let activeConn: RealtimeConnection | null = null;
@@ -218,6 +243,8 @@ export function useVoiceGuide(params: UseVoiceGuideParams): VoiceGuideState {
 
       conn = await createRealtimeConnection({
         session: buildSessionConfig(),
+        iceServers,
+        micStream,
         log: debugLog,
         signal: controller.signal,
         onRemoteTrack: (track) => {

@@ -21,9 +21,8 @@ const chair = foodsEn.foods[0];
  * audio hot path.
  *
  * Endpoints:
- *   GET  /api/voice-guide/ice-servers      : { iceServers }
- *   POST /api/voice-guide/realtime-session : { session } — model/VAD from GlobalOptions; chair output voice/speed from foods_en foods[0]
- *   POST /api/voice-guide/call             : { sdp, session? } -> { id, sdp, ice_servers? }
+ *   GET  /api/voice-guide/bootstrap : { iceServers, session } — Inworld ICE + session fragment (model/VAD/voice from GlobalOptions + foods_en chair)
+ *   POST /api/voice-guide/call      : { sdp, session? } -> { id, sdp, ice_servers? }
  */
 
 const INWORLD_BASE = "https://api.inworld.ai";
@@ -88,43 +87,42 @@ export async function createInworldCall(req: { sdp: string; session?: unknown })
     return data;
 }
 
+/** Session fragment merged client-side with instructions/tools (no network). */
+function buildVoiceGuideRealtimeSessionFragment() {
+    return {
+        type: "realtime" as const,
+        model: opts.voiceGuideRealtimeModel,
+        output_modalities: ["audio", "text"] as const,
+        audio: {
+            input: {
+                transcription: { model: opts.voiceGuideRealtimeTranscriptionModel },
+                turn_detection: {
+                    type: "semantic_vad" as const,
+                    eagerness: "medium" as const,
+                    create_response: true,
+                    interrupt_response: true,
+                },
+            },
+            output: {
+                voice: chair.voice,
+                model: opts.inworldVoiceModel,
+                speed: chair.voiceSpeed,
+            },
+        },
+    };
+}
+
 /** Wires the voice-guide proxy endpoints onto the express app. */
 export function registerVoiceGuideRoutes(app: Express): void {
-    app.get("/api/voice-guide/ice-servers", async (_req: Request, res: ExpressResponse) => {
+    app.get("/api/voice-guide/bootstrap", async (_req: Request, res: ExpressResponse) => {
         try {
-            res.status(200).json(await getInworldIceServers());
+            const [ice, session] = await Promise.all([
+                getInworldIceServers(),
+                Promise.resolve(buildVoiceGuideRealtimeSessionFragment()),
+            ]);
+            res.status(200).json({ iceServers: ice.iceServers, session });
         } catch (e) {
-            await Logger.error("api", "GET /api/voice-guide/ice-servers failed", e);
-            res.status(500).json({ message: "Voice guide unavailable" });
-        }
-    });
-
-    app.post("/api/voice-guide/realtime-session", async (_req: Request, res: ExpressResponse) => {
-        try {
-            const session = {
-                type: "realtime",
-                model: opts.voiceGuideRealtimeModel,
-                output_modalities: ["audio", "text"],
-                audio: {
-                    input: {
-                        transcription: { model: opts.voiceGuideRealtimeTranscriptionModel },
-                        turn_detection: {
-                            type: "semantic_vad",
-                            eagerness: "medium",
-                            create_response: true,
-                            interrupt_response: true,
-                        },
-                    },
-                    output: {
-                        voice: chair.voice,
-                        model: opts.inworldVoiceModel,
-                        speed: chair.voiceSpeed,
-                    },
-                },
-            }
-            res.status(200).json({ session });
-        } catch (e) {
-            await Logger.error("api", "POST /api/voice-guide/realtime-session failed", e);
+            await Logger.error("api", "GET /api/voice-guide/bootstrap failed", e);
             res.status(500).json({ message: "Voice guide unavailable" });
         }
     });

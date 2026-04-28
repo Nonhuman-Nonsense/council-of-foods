@@ -36,7 +36,7 @@ export type RealtimeSessionConfig = {
   providerData?: Record<string, unknown>;
 };
 
-/** Subset built on the server from GlobalOptions (`POST /api/voice-guide/realtime-session`). */
+/** Subset built on the server from GlobalOptions (`GET /api/voice-guide/bootstrap`). */
 export type RealtimeSessionServerDefaults = Pick<RealtimeSessionConfig, "type" | "model" | "output_modalities" | "audio">;
 
 export function mergeVoiceGuideRealtimeSession(
@@ -57,7 +57,7 @@ export type RealtimeCallRequest = {
   session: RealtimeSessionConfig;
 };
 
-/** Response from `POST /api/voice-guide/realtime-session`. */
+/** Session field from `GET /api/voice-guide/bootstrap`. */
 export type VoiceGuideRealtimeSessionResponse = {
   session: RealtimeSessionServerDefaults;
 };
