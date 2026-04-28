@@ -1,314 +1,123 @@
 # Voice Guide (Museum/Kiosk) — migration plan
 
-This document is the **single source of truth** for the “voice-only guide” migration that adds an always-on (for now) speech interface to the **New Meeting** wizard (`client/src/components/NewMeeting.tsx`), using **Inworld realtime speech-to-speech** (OpenAI Realtime compatible) and **tool calls** to drive the existing React flow.
+This document tracks the **intent**, **architecture**, and **implementation status** of the voice-only guide on the **New Meeting** wizard (`client/src/components/NewMeeting.tsx`), using **Inworld realtime speech-to-speech** (OpenAI Realtime–compatible) and **tool calls** to drive the existing React flow.
 
-The goal is to keep the **existing mouse/touch UI fully functional** while enabling a voice-only path that can run in a museum installation (no mouse).
+**How to read this doc:** Sections below distinguish **goals** (still valid), **what shipped** (grounded in the repo today), **gaps** (planned but missing or stubbed), and **design changes** vs earlier assumptions in older revisions of this file.
 
 ---
 
 ## Goals
 
-- **Voice-only wizard**: During the `NewMeeting` stage, the system can:
-  - Ask the visitor what they want to do (pick a topic, pick foods/characters, add humans).
-  - Explain the differences between topics and foods using:
-    - `client/src/prompts/topics_*.json`
-    - `client/src/prompts/foods_*.json`
-  - Drive the UI state **through tools**, not through “LLM guesses”.
-- **Seamless handoff**: Once the visitor starts the meeting, the flow hands off to the normal meeting route and the voice guide **tears down**.
-- **Key safety**: The **Inworld API key stays server-side**. The browser does **not** receive `INWORLD_API_KEY`.
-- **Kiosk survivability**: Reasonable always-on behavior (turn taking, silence handling, reset behavior), with future option for wakeword/button gating.
+- **Voice-only wizard**: During `NewMeeting`, the visitor can pick a topic, foods/characters, and humans using speech; the model uses tools to mutate UI state rather than guessing clicks.
+- **Grounding**: Topics and foods come from shared prompt bundles (`shared/prompts/topics_*.json`, `shared/prompts/foods_*.json`, loaded via `getTopicsBundle` / `getFoodsBundle`). The system prompt stays short; details are fetched through `describe_topic` / `describe_food` tools (avoids oversized instructions and related realtime failures).
+- **Seamless handoff**: After the meeting starts, navigation leaves `NewMeeting`; the voice hook’s **unmount cleanup** should stop mic, peer connection, and data channel (no background realtime session).
+- **Key safety**: **`INWORLD_API_KEY` is server-only**; the browser never receives it.
+- **Kiosk survivability** (longer term): Turn-taking, silence handling, optional wake/button gating — mostly **not implemented** yet (see Phase 4).
 
-Non-goals (for now):
+Non-goals (unchanged):
 
-- No fully autonomous “meeting moderator” during the council meeting. The guide only runs during `NewMeeting`.
-- No long-term memory system/MCP store; the guide can be grounded on the JSON prompts + a small “project description” prompt.
+- No voice “moderator” during the live council meeting itself.
+- No long-term memory / MCP store for the guide.
 
 ---
 
-## Current status (what’s already done)
+## Implementation status (authoritative vs this codebase)
 
-### Server: secure WebRTC handshake proxy (✅ complete)
+### Server — Inworld WebRTC proxy (**done**)
 
-Implemented a server-side proxy so the browser can connect to Inworld Realtime without exposing `INWORLD_API_KEY`:
+| Route | Role |
+|-------|------|
+| `GET /api/voice-guide/bootstrap` | Returns `{ iceServers, session }` in **one** round-trip: Inworld ICE (via `getInworldIceServers`) plus a **local** session fragment from `getGlobalOptions()` and chair audio fields from `shared/prompts/foods_en.json` (`foods[0]`). |
+| `POST /api/voice-guide/call` | Proxies `{ sdp, session? }` JSON to Inworld `POST /v1/realtime/calls`; returns answer SDP. |
 
-- `GET /api/voice-guide/ice-servers`
-  - Fetches ICE servers from Inworld and returns `{ iceServers }` to the client.
-- `POST /api/voice-guide/realtime-session`
-  - Returns `{ session }` with realtime model, input transcription model, output TTS/voice, semantic VAD, and `audio_speed` from `global-options.json` / `getGlobalOptions()`. The client merges this with locally built `instructions` and `tools` before `session.update` and `/call`.
-- `POST /api/voice-guide/call`
-  - Accepts `{ sdp, session? }` (JSON), forwards it to Inworld's `POST /v1/realtime/calls`, and returns `{ id, sdp, ice_servers? }`. Note: per Inworld's WebRTC docs, the `session` field here is at best a hint — tools/instructions must be applied via `session.update` over the data channel after it opens.
+**Removed (superseded by bootstrap):** `GET /api/voice-guide/ice-servers`, `POST /api/voice-guide/realtime-session` — the client no longer calls them.
 
-Key files:
+**Files:** `server/src/api/voiceGuideSession.ts` (session fragment built inline; **`server/src/logic/voiceGuideRealtimeDefaults.ts` does not exist** — that was an earlier plan, not the current tree).
 
-- `server/src/api/voiceGuideSession.ts` (new)
-- `server/src/logic/voiceGuideRealtimeDefaults.ts` — maps `GlobalOptions` → session fragment
-- `server/server.ts` wired with `registerVoiceGuideRoutes(app)`
-- `server/tests/voiceGuideSession.test.ts` (new, unit tests)
+**Tests:** `server/tests/voiceGuideSession.test.ts` exercises `getInworldIceServers` and `createInworldCall` (Inworld-shaped `fetch` mocks), not Express route handlers.
 
-### Client: state lifted for tool-driven selection (✅ complete)
-
-The wizard state is now reducer-driven in `NewMeeting`, while still preserving current UI behavior:
-
-- `client/src/components/NewMeeting.tsx`
-  - Introduces a `useReducer` with actions for topic/foods/humans selection.
-  - Passes controlled props into `SelectTopic` and `SelectFoods`.
-- `client/src/components/settings/SelectTopic.tsx`
-  - Added optional controlled-mode props (`selectedTopicId`, `onSelectedTopicIdChange`, `customTopic`, `onCustomTopicChange`).
-- `client/src/components/settings/SelectFoods.tsx`
-  - Added optional `controls` prop (controlled-mode) and exported helpers:
-    - `createBlankHuman(index, lang)`
-    - `getFoodsForLanguage(lang)`
-    - `MAXHUMANS`
-
-This is the prerequisite for letting the voice guide drive the UI via tool dispatch.
+**Global options:** `global-options.json` includes `voiceGuideRealtimeModel`, `voiceGuideRealtimeTranscriptionModel`, and `inworldVoiceModel` (TTS). Older changelog mentions extra voice-guide keys; the **live schema** is what `GlobalOptions.ts` + JSON define today.
 
 ---
 
-## Architecture overview (end state)
+### Client — voice stack (**done** for core realtime)
 
-### High-level flow
+| Module | Role |
+|--------|------|
+| `client/src/voice/useVoiceGuide.ts` | React glue: status, captions/transcripts, auto-start, StrictMode-safe `AbortController` + attempt counter, teardown. |
+| `client/src/voice/realtimeConnection.ts` | WebRTC: bootstrap + parallel `getUserMedia`, `RTCPeerConnection` (`iceCandidatePoolSize`), data channel `oai-events`, SDP via `/call`. |
+| `client/src/voice/realtimeEventLoop.ts` | Data-channel events: `session.update` / `session.updated`, gated `response.create`, synthetic **user** `conversation.item.create` before the opening greeting (required for some models), tool call dispatch via fresh `handlersRef`. |
+| `client/src/voice/realtimeProtocol.ts` | Types + `mergeVoiceGuideRealtimeSession`. |
+| `client/src/voice/guidePrompt.ts` | Builds instructions from base JSON prompt + topic/food id lists (no long inlined descriptions). |
+| `client/src/voice/guideTools.ts` | Tool **schemas** + **handlers** for the wizard (see gaps below). |
 
-1. **NewMeeting mounts**.
-2. Voice guide starts:
-   - Fetches realtime defaults via `POST /api/voice-guide/realtime-session` (model/audio/VAD from GlobalOptions).
-   - Requests mic via `getUserMedia`.
-   - Establishes WebRTC connection to Inworld Realtime:
-     - fetch ICE servers via `GET /api/voice-guide/ice-servers`
-     - creates SDP offer locally (merged session = server defaults + client instructions + tools)
-     - exchanges SDP via `POST /api/voice-guide/call` (server uses `INWORLD_API_KEY`)
-   - Opens a WebRTC **data channel** for events and tool calls.
-3. Voice guide:
-   - Speaks prompts and listens to visitor speech.
-   - Uses tool calls to update the reducer state (topic/foods/humans).
-   - When ready, calls a `start_meeting` tool, which triggers the existing `createMeeting` flow.
-4. **On navigation to meeting route**:
-   - Voice guide is torn down (stop tracks, close peer connection, close channels).
-
-### Trust boundaries / security
-
-- **Server** is the only place that knows `INWORLD_API_KEY`.
-- **Client** only gets:
-  - ICE server config (safe to expose)
-  - SDP answer (safe to expose)
-- Audio media stream is client ↔ Inworld media servers after handshake.
-
-### Why the reducer pattern matters
-
-Tools should not “click buttons”; they should **dispatch the same state changes** as the UI. This makes:
-
-- Voice and touch stay in sync.
-- Tool calls easy to test (pure reducer transitions).
-- UI components remain the single place for visual validation rules.
+**Observability:** Debug logging is gated by `localStorage.voiceGuideDebug` (`"1"` / `"verbose"`) in `useVoiceGuide`.
 
 ---
 
-## Migration phases (execute in order)
+### Client — New Meeting integration (**partial**)
 
-## Phase 1 — Voice client module (`client/src/voice/`) (pending)
-
-Create a small, testable client voice layer:
-
-### Files
-
-- `client/src/voice/useVoiceGuide.ts`
-  - Owns:
-    - connection state (`idle | connecting | connected | error`)
-    - microphone stream lifecycle
-    - `RTCPeerConnection` lifecycle
-    - remote audio playback (attach remote track to an `<audio>` element)
-    - data channel event loop (tool calls, transcripts/captions)
-  - Exposes:
-    - `start()` / `stop()`
-    - current status + last error
-    - last transcript/caption snippet (for overlay)
-- `client/src/voice/guidePrompt.ts`
-  - Builds the system prompt from:
-    - project description (short static string)
-    - `topicsBundle` (titles, descriptions)
-    - foods bundle (name, description, “character prompt” summary)
-  - Must be language-aware (`i18n.language`).
-- `client/src/voice/guideTools.ts`
-  - Declares:
-    - tool schemas (OpenAI Realtime-style)
-    - local handlers that dispatch reducer actions
-
-### WebRTC handshake details
-
-- Fetch ICE servers:
-  - `GET /api/voice-guide/ice-servers`
-  - Set `RTCPeerConnection({ iceServers })`.
-- Create offer:
-  - add local mic track
-  - create data channel (e.g. `"oai-events"` or `"events"`)
-  - `createOffer` → `setLocalDescription`
-- Exchange offer:
-  - `POST /api/voice-guide/call` with `{ sdp, session? }` as JSON
-  - Set remote description with the SDP answer from the response body.
-
-### Data channel message handling (minimum)
-
-Support parsing events for:
-
-- session/response lifecycle (connected, ready, errors)
-- tool calls:
-  - function name + JSON args
-  - invoke local handler
-  - send function result back (if protocol expects it)
-- transcripts/captions:
-  - keep minimal last-seen caption to display in overlay
+- **`NewMeeting.tsx`** wires `useVoiceGuide`, `buildGuidePrompt`, `createGuideTools` / `createGuideToolHandlers`, and **`VoiceGuideOverlay`** on both topic and foods steps.
+- **Wizard state** is implemented with **`useState` lifts** (`selectedTopic`, `customTopic`, `selectedFoods`, `humans`, …), **not** a `useReducer` as originally sketched in this plan. Functionally the same idea (single source of truth for UI + voice); the doc previously overstated “reducer-driven.”
+- **Critical gap:** `startMeeting` passed into `createGuideToolHandlers` is a **stub** (`TODO` in source): voice cannot yet trigger the same path as **Continue** in `SelectFoods` / `handleFoodsContinue`. There is also **no `start_meeting` tool** registered in `guideTools.ts` yet — the model cannot complete the flow by voice alone.
+- **Missing tools vs original Phase 2 sketch:** `randomize_foods`, `add_human`, `update_human`, and `start_meeting` are **not** in `createGuideTools` / handlers today (only topic + list/describe/select/deselect food tools).
 
 ---
 
-## Phase 2 — Tool schema + mapping to reducer (pending)
+### `VoiceGuideOverlay` (**partial**)
 
-Define a tool set that matches the wizard tasks. Suggested tools:
+**File:** `client/src/components/VoiceGuideOverlay.tsx`
 
-### Topic step tools
+**Shipped:** Fixed corner panel; status pill (idle / connecting / listening / error); Start/Stop; last user transcript and guide caption; error line.
 
-- `list_topics`
-  - Returns a short list of topic ids + titles.
-- `describe_topic`
-  - Args: `{ topicId }`
-  - Returns title + description.
-- `select_topic`
-  - Args: `{ topicId }`
-  - Dispatch: `SET_TOPIC_ID`.
-- `set_custom_topic`
-  - Args: `{ text }`
-  - Dispatch: `SET_TOPIC_ID` to custom topic id + `SET_CUSTOM_TOPIC`.
-- `confirm_topic`
-  - Performs the same operation as clicking “Next”:
-    - build a concrete `Topic` object (matching `SelectTopic.buildTopic()` semantics)
-    - call the existing `handleTopicContinue(topic)`
-
-### Foods step tools
-
-- `list_foods`
-  - Returns available foods (id + name).
-- `describe_food`
-  - Args: `{ foodId }`
-  - Returns food description + a short “character vibe” note.
-- `select_food`
-  - Args: `{ foodId }`
-  - Dispatch: `SELECT_FOOD`.
-- `deselect_food`
-  - Args: `{ foodId }`
-  - Dispatch: `DESELECT_FOOD`.
-- `randomize_foods`
-  - Dispatch: `SET_SELECTED_FOOD_IDS` with a computed random set (or reuse SelectFoods’ logic by moving it into a shared helper).
-- `add_human`
-  - Args: none (or optional `{ name?, description? }`)
-  - Dispatch: `ADD_HUMAN` (using `createBlankHuman`).
-- `update_human`
-  - Args: `{ index, name?, description? }`
-  - Dispatch: `UPDATE_HUMAN`.
-- `start_meeting`
-  - Calls the existing `handleFoodsContinue({ foods })` using the same prompt-injection logic as `SelectFoods.continueForward()`.
-  - **Important**: ensure voice teardown happens before navigation.
-
-Tool design constraints:
-
-- Tools should be **id-based** (stable IDs), not “click tomato button”.
-- Tools should enforce basic validation (unknown ids, index bounds) and return friendly error strings.
+**Not shipped** (still nice-to-haves from the original overlay spec): explicit “Speaking / Thinking” states, Reset, Mute mic.
 
 ---
 
-## Phase 3 — UI overlay and integration into `NewMeeting` (pending)
+### Phase 4 — Kiosk polish (**not started**)
 
-### `VoiceGuideOverlay` component
-
-Create `client/src/components/VoiceGuideOverlay.tsx` with:
-
-- minimal always-visible indicator:
-  - `Listening…` / `Speaking…` / `Thinking…` / `Disconnected`
-- last caption line (short)
-- “Reset” button (optional; useful for kiosk ops)
-- “Mute mic” toggle (optional)
-
-### Integrate into `NewMeeting`
-
-- Mount `VoiceGuideOverlay` only during `NewMeeting`.
-- Start the voice guide automatically (always-on for now).
-- Pass in:
-  - wizard reducer state (for prompt grounding / confirmations)
-  - reducer dispatchers (via tool handlers)
-  - callbacks:
-    - `onConfirmTopic(topic: Topic)`
-    - `onStartMeeting(foods: Food[])` (wraps existing flow)
+Wake word, idle reset, attract loop, debounce tuning beyond semantic VAD, dedicated hard-reset UX — **not** implemented in code reviewed for this update.
 
 ---
 
-## Phase 4 — Kiosk polish (pending, iterative)
+### Testing (**partial**)
 
-Add operational behavior needed in a museum:
-
-- **Always-on vs wake**:
-  - Start always-on initially.
-  - Add later:
-    - wake phrase OR
-    - physical “Talk” button OR
-    - push-to-talk style input.
-- **Silence / idle reset**:
-  - If no speech for \(N\) minutes, reset the wizard to the topic step.
-  - Show an attract loop prompt (short voice line + overlay hint).
-- **Audio processing flags**:
-  - `getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } })`
-- **Debounce short utterances**:
-  - avoid tool spam from partial recognition
-  - prefer “semantic VAD” / turn detection events
-- **Hard reset mechanism**:
-  - keyboard hidden in kiosk; provide an on-screen reset, or remote admin route.
+| Area | Status |
+|------|--------|
+| `client/tests/unit/voice/realtimeEventLoop.test.ts` | Covers greeting gating, no stacked `response.create`, tool dispatch via `getCtx`. |
+| `client/tests/unit/voice/realtimeProtocol.test.ts` | Protocol/types. |
+| Reducer / tool-handler unit tests (as described in older “Testing strategy”) | **Not** present as named; `NewMeeting.creatorKey.test.tsx` focuses on meeting key handoff, not voice tools. |
 
 ---
 
-## Testing strategy
+## Architecture (current end-to-end flow)
 
-### Unit tests
+1. **`NewMeeting` mounts** → `useVoiceGuide` auto-starts (unless disabled).
+2. **Parallel:** `GET /api/voice-guide/bootstrap` and **`getUserMedia`** (`Promise.allSettled` with cleanup if bootstrap fails).
+3. **WebRTC:** Build merged `session` (server defaults + client `instructions` + `tools`), create offer, **`POST /api/voice-guide/call`**, `setRemoteDescription`, wait for ICE + data channel open.
+4. **Data channel:** On open, send **`session.update`** with full config; wait for **`session.updated`**; send synthetic **user** `conversation.item.create` + **`response.create`** for opening greeting.
+5. **Runtime:** Semantic VAD + tool calls update React state via handlers; captions/transcripts feed the overlay.
+6. **Teardown:** Hook `cleanup` on unmount (StrictMode-safe) closes PC, stops tracks, clears refs.
 
-- Reducer transitions in `NewMeeting` (pure function tests):
-  - selecting topic, custom topic text, selecting/deselecting foods, add/update human.
-- Tool handlers:
-  - validate args; ensure correct dispatch actions.
-  - “confirm_topic” produces the correct `Topic` object for both normal and custom topic.
-  - “start_meeting” uses the same chair prompt injection semantics as UI.
-
-### Component tests
-
-- `NewMeeting`:
-  - voice module mocked; ensure mounting/unmounting tears down resources.
-  - tool calls update visible selection state.
-
-### Manual test plan (kiosk-ish)
-
-- Start on topic step with no mouse:
-  - guide prompts; user says “I want the climate topic” → selects and confirms.
-- On foods step:
-  - user says “Add Tomato and Potato” → selections appear, start becomes available.
-  - user adds a human named Alice with a description → validation passes.
-- Start meeting:
-  - `createMeeting` executes, navigation occurs
-  - voice guide stops (no background mic, no remote audio).
+**Trust model:** unchanged — only the app server holds `INWORLD_API_KEY`; media goes browser ↔ Inworld after handshake.
 
 ---
 
-## Observability & debugging
+## Design decisions (evolved since first draft)
 
-- Add client-side logs gated behind a flag:
-  - connection transitions
-  - last event type received on data channel
-  - tool call names + args (redacting sensitive info; there shouldn’t be any)
-- Server logs already use the shared `Logger` and `withNetworkRetry`.
+1. **`session.update` on the data channel is required** for tools/instructions; relying on `/call` body alone caused `server_error` / missing tools. The session in `/call` is still sent as a merged snapshot for Inworld’s handshake, but the **canonical** tool+instruction registration is the DC `session.update` after the channel opens.
+2. **Opening greeting** needs a minimal **user** turn before the first `response.create` for some models (e.g. Gemini path).
+3. **Bootstrap endpoint** replaces separate ICE + realtime-session fetches for fewer RTTs; mic acquisition runs in parallel with bootstrap.
+4. **Prompt shape:** Short system prompt + tool-backed `describe_*` instead of inlining all topic/food text (stability + token limits).
 
 ---
 
 ## Open questions / follow-ups
 
-- Should the guide allow changing topic after moving to foods step via voice?
-  - If yes: add a tool that sets `step` back to `"topic"` and preserves prior selections.
-- Do we want a small curated “allowed phrasing” set for museum UX?
-  - If yes: encode in prompt as examples (few-shot).
-- Should we support multi-language voice selection tied to `i18n.language`?
-  - Likely yes; needs mapping between UI language and Inworld voice/locale.
+- Should the guide allow changing topic after moving to foods (voice “go back”)?
+- Curated phrasing / few-shot examples for museum UX?
+- Multi-language voice/TTS alignment with `i18n.language` beyond current text bundles?
+- Implement **`start_meeting`** (and any human-panelist tools) so voice can finish the wizard.
 
 ---
 
@@ -317,10 +126,11 @@ Add operational behavior needed in a museum:
 | Date | Change |
 |------|--------|
 | 2026-04-27 | Added server-side Inworld WebRTC handshake proxy (`/api/voice-guide/*`). |
-| 2026-04-27 | Lifted NewMeeting wizard state into a reducer and made `SelectTopic`/`SelectFoods` support controlled-mode props for voice/tool driving. |
-| 2026-04-27 | Refactored `client/src/voice/` into three small, testable modules to fix glitchy realtime behavior: `realtimeConnection.ts` (pure WebRTC + SDP exchange), `realtimeEventLoop.ts` (pure data-channel event handling with single-flight `response.create` and ref-based tool dispatch), and a thin React glue `useVoiceGuide.ts`. Session config is now sent server-side via `POST /api/voice-guide/call`, removing the `session.update` round trip. VAD eagerness lowered to `medium`. System prompt no longer inlines topic/food descriptions; the model uses `describe_topic` / `describe_food` tools instead. Tool handlers always read fresh wizard state via a `handlersRef`, fixing a stale-closure bug where `confirm_topic` always saw `selectedTopic === ""`. |
-| 2026-04-27 | Made `useVoiceGuide` StrictMode-safe: `start()` now uses an attempt counter + `AbortController` so any in-flight handshake (ICE, `getUserMedia`, SDP POST) is cancelled cleanly when React unmounts/remounts in dev. Auto-start was moved into the hook's own `useEffect` (with proper cleanup) instead of a ref-guarded `useEffect` in `NewMeeting.tsx`, which was producing two parallel WebRTC connections in dev. ICE-gather timeout reduced from 8s to 3s for faster connection. |
-| 2026-04-27 | Restored `session.update` over the data channel (partial revert of the prior "send session via /call body" change). Per Inworld's WebRTC docs, `session.created` always reflects defaults and `session.update` is the canonical way to apply tools/instructions/voice — sending only the `/call` body's `session` left tools unregistered, which produced `response.failed reason: server_error` on the auto-greeting and tool-less chitchat afterwards. The new `realtimeEventLoop.configureSession()` sends `session.update` and gates the opening `response.create` on `session.updated`, so the greeting is always generated with the configured tools and prompt. Added `tests/unit/voice/realtimeEventLoop.test.ts` covering the gating, the no-stack-on-active-response invariant, and fresh-handler dispatch via `getCtx()`. |
-| 2026-04-27 | Tightened `server/src/api/voiceGuideSession.ts` from 204 lines to 109. Removed the dead `POST /api/voice-guide/session` endpoint and `exchangeSdpWithInworld` helper (only `/call` is used by the client now). Consolidated the two remaining helpers behind a small `inworldFetch` wrapper that handles Bearer auth + uniform error shape. |
-| 2026-04-27 | Added `POST /api/voice-guide/realtime-session` plus `voiceGuideRealtimeModel`, `voiceGuideRealtimeTranscriptionModel`, `voiceGuideRealtimeTtsModel`, and `voiceGuideRealtimeVoice` in `global-options.json`. The client loads this fragment before ICE/WebRTC, then merges local `instructions` and `tools` for `/call` and `session.update`. |
-
+| 2026-04-27 | Lifted NewMeeting wizard state for voice/tool driving; `SelectTopic` / `SelectFoods` controlled-mode props. |
+| 2026-04-27 | Split client voice into `realtimeConnection.ts`, `realtimeEventLoop.ts`, `useVoiceGuide.ts`; VAD eagerness `medium`; short prompt + describe tools; `handlersRef` for fresh tool closures. |
+| 2026-04-27 | StrictMode-safe start (`AbortController` + attempt counter); auto-start inside hook; ICE gather timeout tightened. |
+| 2026-04-27 | Restored **`session.update`** over the data channel; gated opening `response.create` on `session.updated`; added `realtimeEventLoop` unit tests. |
+| 2026-04-27 | Tightened `voiceGuideSession` proxy; removed unused session route; `inworldFetch` helper. |
+| 2026-04-27 | `voiceGuideRealtimeModel` + `voiceGuideRealtimeTranscriptionModel` in `global-options.json`; client merges session for `/call` + `session.update`. |
+| 2026-04-28 | **`GET /api/voice-guide/bootstrap`** replaces separate ICE + realtime-session client calls; parallel `getUserMedia`; `iceCandidatePoolSize`; opening greeting uses synthetic user item before `response.create`. |
+| 2026-04-28 | Removed redundant **`ice-servers`** and **`realtime-session`** HTTP routes; doc updated to match (**this revision**). |
