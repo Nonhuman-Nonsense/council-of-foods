@@ -1,10 +1,13 @@
 import type { Express, Request, Response as ExpressResponse } from "express";
+import foodsEn from "@shared/prompts/foods_en.json" with { type: "json" };
 import { config } from "../config.js";
 import { getGlobalOptions } from "@logic/GlobalOptions.js";
 import { Logger } from "@utils/Logger.js";
 import { withNetworkRetry } from "@utils/NetworkUtils.js";
 
 const opts = getGlobalOptions();
+/** Chair realtime output — aligns with foods[0] in shared/prompts/foods_en.json. */
+const chair = foodsEn.foods[0];
 /**
  * Server-side proxy for the Inworld Realtime API used by the NewMeeting voice guide.
  *
@@ -19,7 +22,7 @@ const opts = getGlobalOptions();
  *
  * Endpoints:
  *   GET  /api/voice-guide/ice-servers      : { iceServers }
- *   POST /api/voice-guide/realtime-session : { session } — model/audio/VAD from GlobalOptions (no instructions/tools)
+ *   POST /api/voice-guide/realtime-session : { session } — model/VAD from GlobalOptions; chair output voice/speed from foods_en foods[0]
  *   POST /api/voice-guide/call             : { sdp, session? } -> { id, sdp, ice_servers? }
  */
 
@@ -113,9 +116,9 @@ export function registerVoiceGuideRoutes(app: Express): void {
                         },
                     },
                     output: {
-                        voice: "Pippa",
+                        voice: chair.voice,
                         model: opts.inworldVoiceModel,
-                        speed: 1.15,
+                        speed: chair.voiceSpeed,
                     },
                 },
             }
