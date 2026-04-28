@@ -30,5 +30,7 @@
   "transcribePrompt": {
     "en": "Expect english input."
   },
-  "audioConcurrency": 10
+  "audioConcurrency": 10,
+  "voiceGuideRealtimeModel": "google-ai-studio/gemini-2.5-flash",
+  "voiceGuideRealtimeTranscriptionModel": "assemblyai/u3-rt-pro"
 }

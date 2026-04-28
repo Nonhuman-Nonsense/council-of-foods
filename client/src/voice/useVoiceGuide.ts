@@ -1,8 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { RealtimeTool, ToolHandler } from "./guideTools";
-import { createRealtimeConnection, type RealtimeConnection } from "./realtimeConnection";
+import {
+  createRealtimeConnection,
+  fetchVoiceGuideRealtimeSessionDefaults,
+  type RealtimeConnection,
+} from "./realtimeConnection";
 import { createEventLoop } from "./realtimeEventLoop";
-import type { RealtimeSessionConfig } from "./realtimeProtocol";
+import {
+  mergeVoiceGuideRealtimeSession,
+  type RealtimeSessionConfig,
+  type RealtimeSessionServerDefaults,
+} from "./realtimeProtocol";
 
 type VoiceGuideStatus = "idle" | "connecting" | "connected" | "error";
 
@@ -13,10 +21,6 @@ export type UseVoiceGuideParams = {
   tools: RealtimeTool[];
   /** Tool handlers, keyed by tool name. May change between renders. */
   toolHandlers: Record<string, ToolHandler>;
-  /** Optional voice override. */
-  voice?: string;
-  /** Optional model override. */
-  model?: string;
   /** Optional remote audio sink; one is created and appended to body if absent. */
   audioElement?: HTMLAudioElement | null;
   /**
@@ -88,22 +92,15 @@ function attachRemoteAudio(track: MediaStreamTrack, audioElement: HTMLAudioEleme
  *    JSON body is partially honored at best — for tools/instructions we MUST
  *    use `session.update`. Skipping this caused "server_error" on the first
  *    auto-greeting and tool-less chitchat afterwards.
- *  - VAD eagerness is "medium" by default (Inworld's recommended default).
- *    The previous `"high"` setting caused response cancel-cascades.
+ *  - Model, voice, TTS, transcription, VAD, and audio speed come from the server
+ *    (`POST /api/voice-guide/realtime-session`, backed by GlobalOptions).
+ *    Instructions and tool schemas stay on the client.
  *  - StrictMode-safe: `start()` uses an attempt counter + AbortController so
  *    the dev-only mount → unmount → mount cycle doesn't leak two parallel
  *    WebRTC connections.
  */
 export function useVoiceGuide(params: UseVoiceGuideParams): VoiceGuideState {
-  const {
-    instructions,
-    tools,
-    toolHandlers,
-    voice = "Pippa",
-    model = "google-ai-studio/gemini-2.5-flash",
-    audioElement,
-    autoStart = true,
-  } = params;
+  const { instructions, tools, toolHandlers, audioElement, autoStart = true } = params;
 
   const [status, setStatus] = useState<VoiceGuideStatus>("idle");
   const [error, setError] = useState<string | null>(null);
@@ -126,40 +123,20 @@ export function useVoiceGuide(params: UseVoiceGuideParams): VoiceGuideState {
   const handlersRef = useRef<Record<string, ToolHandler>>(toolHandlers);
   const instructionsRef = useRef(instructions);
   const toolsRef = useRef(tools);
-  const voiceRef = useRef(voice);
-  const modelRef = useRef(model);
+  /** Set after a successful `POST /api/voice-guide/realtime-session` during `start()`. */
+  const serverDefaultsRef = useRef<RealtimeSessionServerDefaults | null>(null);
   useEffect(() => {
     handlersRef.current = toolHandlers;
     instructionsRef.current = instructions;
     toolsRef.current = tools;
-    voiceRef.current = voice;
-    modelRef.current = model;
   });
 
   const buildSessionConfig = useCallback((): RealtimeSessionConfig => {
-    return {
-      type: "realtime",
-      model: modelRef.current,
-      instructions: instructionsRef.current,
-      output_modalities: ["audio", "text"],
-      tools: toolsRef.current,
-      audio: {
-        input: {
-          transcription: { model: "assemblyai/u3-rt-pro" },
-          turn_detection: {
-            type: "semantic_vad",
-            eagerness: "medium",
-            create_response: true,
-            interrupt_response: true,
-          },
-        },
-        output: {
-          voice: voiceRef.current,
-          model: "inworld-tts-1.5-mini",
-          speed: 1.0,
-        },
-      },
-    };
+    const defaults = serverDefaultsRef.current;
+    if (!defaults) {
+      throw new Error("Voice guide realtime defaults not loaded");
+    }
+    return mergeVoiceGuideRealtimeSession(defaults, instructionsRef.current, toolsRef.current);
   }, []);
 
   const cleanup = useCallback(() => {
@@ -170,6 +147,8 @@ export function useVoiceGuide(params: UseVoiceGuideParams): VoiceGuideState {
     // Bump the attempt counter so any in-flight start that's past its abort
     // checks still recognises itself as superseded.
     attemptRef.current += 1;
+
+    serverDefaultsRef.current = null;
 
     connectionRef.current?.close();
     connectionRef.current = null;
@@ -206,6 +185,10 @@ export function useVoiceGuide(params: UseVoiceGuideParams): VoiceGuideState {
 
     let conn: RealtimeConnection | null = null;
     try {
+      const defaults = await fetchVoiceGuideRealtimeSessionDefaults(debugLog, controller.signal);
+      if (isStale()) return;
+      serverDefaultsRef.current = defaults;
+
       let activeConn: RealtimeConnection | null = null;
       const sendOnDc = (payload: unknown) => {
         const dc = activeConn?.dc ?? connectionRef.current?.dc;

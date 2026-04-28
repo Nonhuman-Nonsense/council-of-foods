@@ -64,6 +64,8 @@ export const MockFactory = {
             transcribeModel: "whisper-1",
             transcribePrompt: { en: "Transcribe" },
             audioConcurrency: 2,
+            voiceGuideRealtimeModel: "google-ai-studio/gemini-2.5-flash",
+            voiceGuideRealtimeTranscriptionModel: "assemblyai/u3-rt-pro",
             ...overrides,
         }) as GlobalOptions,
 

@@ -3,12 +3,17 @@
  *
  * The contract is intentionally tiny: open a peer connection with a mic track,
  * a single data channel ("oai-events"), exchange SDP via our server proxy with
- * the session config baked in, and surface remote audio + data channel events
- * through callbacks. Everything else (status state, captions, tool dispatch)
- * lives one layer up.
+ * a merged session (server defaults from `POST /api/voice-guide/realtime-session`
+ * plus client instructions/tools), and surface remote audio + data channel
+ * events through callbacks. Everything else (status state, captions, tool
+ * dispatch) lives one layer up.
  */
 
-import type { RealtimeSessionConfig } from "./realtimeProtocol";
+import type {
+  RealtimeSessionConfig,
+  RealtimeSessionServerDefaults,
+  VoiceGuideRealtimeSessionResponse,
+} from "./realtimeProtocol";
 
 export type IceServer = {
   urls: string[] | string;
@@ -30,7 +35,7 @@ export type RealtimeConnection = {
 };
 
 export type CreateConnectionParams = {
-  /** Session config sent to Inworld at /call time (no session.update needed). */
+  /** Full session sent to Inworld at /call time; tools/instructions still require `session.update` on the data channel. */
   session: RealtimeSessionConfig;
   /** Forwarded to ontrack so the caller can attach <audio>. */
   onRemoteTrack: (track: MediaStreamTrack) => void;
@@ -123,6 +128,39 @@ async function fetchIceServers(log: ConnectionLogger, signal?: AbortSignal): Pro
   const data = (await resp.json()) as { iceServers?: IceServer[] };
   log("ice servers", data.iceServers?.length ?? 0);
   return Array.isArray(data.iceServers) ? data.iceServers : [];
+}
+
+/** Loads model / audio / VAD defaults from the server (GlobalOptions). Instructions and tools are merged client-side. */
+export async function fetchVoiceGuideRealtimeSessionDefaults(
+  log: ConnectionLogger = () => undefined,
+  signal?: AbortSignal
+): Promise<RealtimeSessionServerDefaults> {
+  log("POST /api/voice-guide/realtime-session");
+  const resp = await fetchWithTimeout(
+    "/api/voice-guide/realtime-session",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}",
+    },
+    FETCH_TIMEOUT_MS,
+    signal
+  );
+  if (!resp.ok) {
+    const text = await resp.text().catch(() => "");
+    throw new Error(`Realtime session defaults failed (${resp.status}): ${text}`);
+  }
+  const data = (await resp.json()) as VoiceGuideRealtimeSessionResponse;
+  const session = data?.session;
+  if (
+    !session ||
+    session.type !== "realtime" ||
+    typeof session.model !== "string" ||
+    !Array.isArray(session.output_modalities)
+  ) {
+    throw new Error("Realtime session defaults response invalid");
+  }
+  return session;
 }
 
 async function exchangeSdp(

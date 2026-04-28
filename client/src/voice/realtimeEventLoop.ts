@@ -113,12 +113,7 @@ export function createEventLoop(params: {
   ): void => {
     sessionReady = false;
     if (options?.triggerGreetingOnReady) pendingGreeting = true;
-    log("send session.update", {
-      instructionsLen: session.instructions.length,
-      tools: session.tools.length,
-      voice: session.audio?.output?.voice,
-      model: session.model,
-    });
+    log("send session.update", session);
     trySendJson({ type: "session.update", session });
   };
 
@@ -224,8 +219,24 @@ export function createEventLoop(params: {
     }
 
     if (type === "error") {
-      const errObj = (obj.error ?? {}) as { message?: unknown };
-      const message = asStr(errObj.message) ?? "Voice guide error";
+      log("event error raw", obj);
+      const errRaw = obj.error;
+      let message = "Voice guide error";
+      if (errRaw && typeof errRaw === "object") {
+        const e = errRaw as Record<string, unknown>;
+        const msg = asStr(e.message);
+        const code = asStr(e.code);
+        const param = asStr(e.param);
+        const errType = asStr(e.type);
+        const parts: string[] = [];
+        if (msg) parts.push(msg);
+        if (code) parts.push(`code=${code}`);
+        if (param) parts.push(`param=${param}`);
+        if (errType) parts.push(`type=${errType}`);
+        if (parts.length > 0) message = parts.join(" | ");
+      } else if (typeof errRaw === "string") {
+        message = errRaw;
+      }
       callbacks.onError(message);
       return true;
     }

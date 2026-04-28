@@ -1,8 +1,10 @@
 import type { Express, Request, Response as ExpressResponse } from "express";
 import { config } from "../config.js";
+import { getGlobalOptions } from "@logic/GlobalOptions.js";
 import { Logger } from "@utils/Logger.js";
 import { withNetworkRetry } from "@utils/NetworkUtils.js";
 
+const opts = getGlobalOptions();
 /**
  * Server-side proxy for the Inworld Realtime API used by the NewMeeting voice guide.
  *
@@ -15,9 +17,10 @@ import { withNetworkRetry } from "@utils/NetworkUtils.js";
  * between the browser and Inworld's media servers, so this is not on the
  * audio hot path.
  *
- * Endpoints (just two, mirroring Inworld's own API surface):
- *   GET  /api/voice-guide/ice-servers : { iceServers }
- *   POST /api/voice-guide/call        : { sdp, session? } -> { id, sdp, ice_servers? }
+ * Endpoints:
+ *   GET  /api/voice-guide/ice-servers      : { iceServers }
+ *   POST /api/voice-guide/realtime-session : { session } — model/audio/VAD from GlobalOptions (no instructions/tools)
+ *   POST /api/voice-guide/call             : { sdp, session? } -> { id, sdp, ice_servers? }
  */
 
 const INWORLD_BASE = "https://api.inworld.ai";
@@ -82,13 +85,43 @@ export async function createInworldCall(req: { sdp: string; session?: unknown })
     return data;
 }
 
-/** Wires the two voice-guide proxy endpoints onto the express app. */
+/** Wires the voice-guide proxy endpoints onto the express app. */
 export function registerVoiceGuideRoutes(app: Express): void {
     app.get("/api/voice-guide/ice-servers", async (_req: Request, res: ExpressResponse) => {
         try {
             res.status(200).json(await getInworldIceServers());
         } catch (e) {
             await Logger.error("api", "GET /api/voice-guide/ice-servers failed", e);
+            res.status(500).json({ message: "Voice guide unavailable" });
+        }
+    });
+
+    app.post("/api/voice-guide/realtime-session", async (_req: Request, res: ExpressResponse) => {
+        try {
+            const session = {
+                type: "realtime",
+                model: opts.voiceGuideRealtimeModel,
+                output_modalities: ["audio", "text"],
+                audio: {
+                    input: {
+                        transcription: { model: opts.voiceGuideRealtimeTranscriptionModel },
+                        turn_detection: {
+                            type: "semantic_vad",
+                            eagerness: "medium",
+                            create_response: true,
+                            interrupt_response: true,
+                        },
+                    },
+                    output: {
+                        voice: "Pippa",
+                        model: opts.inworldVoiceModel,
+                        speed: 1.15,
+                    },
+                },
+            }
+            res.status(200).json({ session });
+        } catch (e) {
+            await Logger.error("api", "POST /api/voice-guide/realtime-session failed", e);
             res.status(500).json({ message: "Voice guide unavailable" });
         }
     });

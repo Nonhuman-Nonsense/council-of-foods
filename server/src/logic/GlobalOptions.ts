@@ -31,6 +31,8 @@ export const GlobalOptionsSchema = z.object({
     transcribeModel: z.string(),
     transcribePrompt: z.record(z.string(), z.string()),
     audioConcurrency: z.number(),
+    voiceGuideRealtimeModel: z.string(),
+    voiceGuideRealtimeTranscriptionModel: z.string()
 });
 
 export type GlobalOptions = z.infer<typeof GlobalOptionsSchema>;
