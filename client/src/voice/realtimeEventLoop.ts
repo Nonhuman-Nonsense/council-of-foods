@@ -32,6 +32,10 @@ export type EventLoopCallbacks = {
   log?: (...args: unknown[]) => void;
 };
 
+/** Synthetic user turn that kicks off the first assistant reply (Inworld WebRTC quickstart pattern). */
+const DEFAULT_GREETING_USER_TEXT =
+  "The session just connected. Give your opening greeting now, following your instructions.";
+
 export type ConfigureSessionOptions = {
   /**
    * If true, automatically send `response.create` once the server confirms
@@ -39,6 +43,13 @@ export type ConfigureSessionOptions = {
    * so it's generated with the configured instructions + tools.
    */
   triggerGreetingOnReady?: boolean;
+  /**
+   * Text for the synthetic `conversation.item.create` (user message) sent
+   * immediately before the opening `response.create`. Some models error with
+   * `server_error` if `response.create` runs on an empty transcript; Inworld's
+   * docs send this user item before `response.create` in the WebRTC sample.
+   */
+  greetingUserText?: string;
 };
 
 export type EventLoop = {
@@ -77,8 +88,10 @@ export function createEventLoop(params: {
   const functionCallMeta = new Map<string, FunctionCallMeta>();
   /** True after we've seen a `session.updated` for the most recent update. */
   let sessionReady = false;
-  /** True if we should fire response.create the moment the session is ready. */
-  let pendingGreeting = false;
+  /** If set, after `session.updated` send this user item then `response.create`. */
+  let pendingOpeningGreeting: string | null = null;
+  /** Set when `requestResponseIfIdle` runs before `session.updated` (e.g. tool output); flush with bare `response.create`. */
+  let pendingDeferredResponse = false;
 
   const isResponseActive = () => activeResponses > 0;
 
@@ -88,11 +101,10 @@ export function createEventLoop(params: {
       return false;
     }
     if (!sessionReady) {
-      // Don't fire greetings before the session is configured: the model
-      // would run with default instructions/tools and produce server_error
-      // (observed) or topic-less chitchat (also observed).
+      // Don't fire before the session is configured: the model would run with
+      // default instructions/tools and produce server_error (observed).
       log("skip response.create: session not yet ready");
-      pendingGreeting = true;
+      pendingDeferredResponse = true;
       return false;
     }
     send({ type: "response.create" });
@@ -112,7 +124,12 @@ export function createEventLoop(params: {
     options?: ConfigureSessionOptions
   ): void => {
     sessionReady = false;
-    if (options?.triggerGreetingOnReady) pendingGreeting = true;
+    pendingDeferredResponse = false;
+    if (options?.triggerGreetingOnReady) {
+      pendingOpeningGreeting = options.greetingUserText ?? DEFAULT_GREETING_USER_TEXT;
+    } else {
+      pendingOpeningGreeting = null;
+    }
     log("send session.update", session);
     trySendJson({ type: "session.update", session });
   };
@@ -127,11 +144,23 @@ export function createEventLoop(params: {
     if (type === "session.updated") {
       sessionReady = true;
       callbacks.onSessionReady?.();
-      if (pendingGreeting) {
-        pendingGreeting = false;
+      if (pendingOpeningGreeting != null) {
+        const userText = pendingOpeningGreeting;
+        pendingOpeningGreeting = null;
         if (activeResponses === 0) {
+          trySendJson({
+            type: "conversation.item.create",
+            item: {
+              type: "message",
+              role: "user",
+              content: [{ type: "input_text", text: userText }],
+            },
+          });
           send({ type: "response.create" });
         }
+      } else if (pendingDeferredResponse && activeResponses === 0) {
+        pendingDeferredResponse = false;
+        send({ type: "response.create" });
       }
       return true;
     }
@@ -145,6 +174,10 @@ export function createEventLoop(params: {
       activeResponses = Math.max(0, activeResponses - 1);
       const r = obj.response as { status?: string; status_details?: unknown } | undefined;
       if (r?.status === "failed") log("response.failed", r.status_details);
+      if (pendingDeferredResponse && sessionReady && activeResponses === 0) {
+        pendingDeferredResponse = false;
+        send({ type: "response.create" });
+      }
       return true;
     }
 

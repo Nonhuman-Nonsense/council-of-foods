@@ -64,7 +64,11 @@ describe("realtimeEventLoop", () => {
         expect(sentTypes()).toEqual(["session.update"]);
 
         void loop.handleEvent({ type: "session.updated" });
-        expect(sentTypes()).toEqual(["session.update", "response.create"]);
+        expect(sentTypes()).toEqual([
+            "session.update",
+            "conversation.item.create",
+            "response.create",
+        ]);
     });
 
     /**
