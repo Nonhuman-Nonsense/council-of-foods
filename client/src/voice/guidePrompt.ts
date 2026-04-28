@@ -43,6 +43,7 @@ export function buildGuidePrompt(params: BuildGuidePromptParams): string {
       "Use the provided tools to make every selection. Never claim you selected something unless a tool returned ok.",
       "If the visitor wants details, call describe_topic or describe_food and summarize briefly.",
       "Confirm the topic with confirm_topic before moving to the foods step.",
+      "On the foods step, when selections are valid, call start_meeting to begin (same requirements as the Start button).",
     ]),
     "",
     "## Available topic ids",

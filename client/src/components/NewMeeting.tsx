@@ -149,9 +149,14 @@ export default function NewMeeting({
       setNumberOfHumans,
       buildSelectedTopicFromUi,
       confirmTopic: (topic: Topic) => handleTopicContinue(topic),
-      startMeeting: async (_foods: Food[]) => {
-        // TODO: wire to the same path as clicking Continue in SelectFoods (Phase 4/5).
-        return;
+      startMeeting: async (foods: Food[]) => {
+        await handleFoodsContinue({ foods });
+      },
+      meetingStep: step,
+      voiceGuideLanguage: i18n.language,
+      meetingFoodsLabels: {
+        oneHuman: t("selectfoods.human"),
+        twoHumansSuffix: t("selectfoods.twohumans"),
       },
     }),
   });

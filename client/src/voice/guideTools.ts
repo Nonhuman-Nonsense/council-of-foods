@@ -1,5 +1,9 @@
 import type { Topic, Character } from "@shared/ModelTypes";
-import type { Food } from "@/components/settings/SelectFoods";
+import {
+  type Food,
+  type MeetingFoodsI18n,
+  buildMeetingFoodsPayload,
+} from "@/components/settings/SelectFoods";
 
 export type JsonSchemaObject = {
   type: "object";
@@ -47,6 +51,10 @@ export type GuideToolContext = {
   buildSelectedTopicFromUi: () => Topic;
   confirmTopic: (topic: Topic) => void;
   startMeeting: (foods: Food[]) => void | Promise<void>;
+
+  meetingStep: "topic" | "foods";
+  voiceGuideLanguage: string;
+  meetingFoodsLabels: MeetingFoodsI18n;
 };
 
 function asObject(args: unknown): Record<string, unknown> | null {
@@ -145,6 +153,14 @@ export function createGuideTools(_ctx: Pick<GuideToolContext, "topics" | "foods"
         required: ["foodId"],
       },
     },
+    {
+      type: "function",
+      name: "start_meeting",
+      description:
+        "Start the council meeting with the current selections. Same as the Start button on the foods step. " +
+        "Requires the same validation: topic already confirmed, enough foods selected, unique names, and any human panelists filled in.",
+      parameters: { type: "object", additionalProperties: false },
+    },
   ];
 }
 
@@ -214,6 +230,24 @@ export function createGuideToolHandlers(ctx: GuideToolContext): Record<string, T
       if (!foodId) return { ok: false, error: "Missing foodId" };
       ctx.setSelectedFoods((prev) => prev.filter((id) => id !== foodId));
       return { ok: true };
+    },
+    start_meeting: async () => {
+      if (ctx.meetingStep !== "foods") {
+        return {
+          ok: false,
+          error: "Confirm the topic first; start_meeting only works on the foods step after confirm_topic.",
+        };
+      }
+      const built = buildMeetingFoodsPayload({
+        language: ctx.voiceGuideLanguage,
+        selectedFoods: ctx.selectedFoods,
+        humans: ctx.humans,
+        numberOfHumans: ctx.numberOfHumans,
+        labels: ctx.meetingFoodsLabels,
+      });
+      if (!built.ok) return built;
+      await Promise.resolve(ctx.startMeeting(built.foods));
+      return { ok: true, data: { started: true } };
     },
   };
 }

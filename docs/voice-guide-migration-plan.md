@@ -59,8 +59,8 @@ Non-goals (unchanged):
 
 - **`NewMeeting.tsx`** wires `useVoiceGuide`, `buildGuidePrompt`, `createGuideTools` / `createGuideToolHandlers`, and **`VoiceGuideOverlay`** on both topic and foods steps.
 - **Wizard state** is implemented with **`useState` lifts** (`selectedTopic`, `customTopic`, `selectedFoods`, `humans`, …), **not** a `useReducer` as originally sketched in this plan. Functionally the same idea (single source of truth for UI + voice); the doc previously overstated “reducer-driven.”
-- **Critical gap:** `startMeeting` passed into `createGuideToolHandlers` is a **stub** (`TODO` in source): voice cannot yet trigger the same path as **Continue** in `SelectFoods` / `handleFoodsContinue`. There is also **no `start_meeting` tool** registered in `guideTools.ts` yet — the model cannot complete the flow by voice alone.
-- **Missing tools vs original Phase 2 sketch:** `randomize_foods`, `add_human`, `update_human`, and `start_meeting` are **not** in `createGuideTools` / handlers today (only topic + list/describe/select/deselect food tools).
+- **`start_meeting`:** Implemented — `buildMeetingFoodsPayload` in `SelectFoods.tsx` shares validation + chair prompt injection with the Start button; `guideTools` calls `handleFoodsContinue` via `startMeeting` when `meetingStep === "foods"`.
+- **Still missing vs original Phase 2 sketch:** `randomize_foods`, `add_human`, `update_human` (humans can still be added via UI; voice tools for them are not exposed).
 
 ---
 
@@ -117,7 +117,7 @@ Wake word, idle reset, attract loop, debounce tuning beyond semantic VAD, dedica
 - Should the guide allow changing topic after moving to foods (voice “go back”)?
 - Curated phrasing / few-shot examples for museum UX?
 - Multi-language voice/TTS alignment with `i18n.language` beyond current text bundles?
-- Implement **`start_meeting`** (and any human-panelist tools) so voice can finish the wizard.
+- Add voice tools for **`add_human` / `update_human`** / **`randomize_foods`** if full kiosk voice-only coverage is required.
 
 ---
 
@@ -134,3 +134,4 @@ Wake word, idle reset, attract loop, debounce tuning beyond semantic VAD, dedica
 | 2026-04-27 | `voiceGuideRealtimeModel` + `voiceGuideRealtimeTranscriptionModel` in `global-options.json`; client merges session for `/call` + `session.update`. |
 | 2026-04-28 | **`GET /api/voice-guide/bootstrap`** replaces separate ICE + realtime-session client calls; parallel `getUserMedia`; `iceCandidatePoolSize`; opening greeting uses synthetic user item before `response.create`. |
 | 2026-04-28 | Removed redundant **`ice-servers`** and **`realtime-session`** HTTP routes; doc updated to match (**this revision**). |
+| 2026-04-28 | Voice **`start_meeting`** tool + shared **`buildMeetingFoodsPayload`** (same path as SelectFoods Start / `handleFoodsContinue`). |
