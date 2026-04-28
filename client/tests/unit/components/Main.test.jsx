@@ -94,6 +94,7 @@ vi.mock('../../../src/components/FullscreenButton', () => ({
 // Mock utils
 vi.mock('../../../src/utils', () => ({
     usePortrait: () => false,
+    useMobile: () => false,
     dvh: 'vh'
 }));
 

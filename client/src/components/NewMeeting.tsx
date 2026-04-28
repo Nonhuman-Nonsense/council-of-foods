@@ -176,12 +176,12 @@ export default function NewMeeting({
           onContinueForward={handleTopicContinue}
         />
         <VoiceGuideOverlay
-          status={voice.status}
+          isConnecting={voice.isConnecting}
           error={voice.error}
           lastCaption={voice.lastCaption}
           lastUserTranscript={voice.lastUserTranscript}
-          onStart={() => void voice.start()}
-          onStop={voice.stop}
+          muted={voice.muted}
+          onToggleMuted={() => voice.setMuted(!voice.muted)}
         />
       </>
     );
@@ -201,12 +201,12 @@ export default function NewMeeting({
         setNumberOfHumans={setNumberOfHumans}
       />
       <VoiceGuideOverlay
-        status={voice.status}
+        isConnecting={voice.isConnecting}
         error={voice.error}
         lastCaption={voice.lastCaption}
         lastUserTranscript={voice.lastUserTranscript}
-        onStart={() => void voice.start()}
-        onStop={voice.stop}
+        muted={voice.muted}
+        onToggleMuted={() => voice.setMuted(!voice.muted)}
       />
     </>
   );

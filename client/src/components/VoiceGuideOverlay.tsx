@@ -1,92 +1,112 @@
 import type { ReactElement } from "react";
+import Lottie from "react-lottie-player";
+import loadingAnimation from "@animations/loading.json";
+import ConversationControlIcon from "@/components/ConversationControlIcon";
+import { useMobile } from "@/utils";
 
 type VoiceGuideOverlayProps = {
-  status: "idle" | "connecting" | "connected" | "error";
+  isConnecting: boolean;
   error: string | null;
   lastCaption: string | null;
   lastUserTranscript: string | null;
-  onStart: () => void;
-  onStop: () => void;
+  muted: boolean;
+  onToggleMuted: () => void;
 };
 
+/**
+ * Centered caption area for the setup wizard voice guide, with a single mute control
+ * (same icon pattern as conversation controls). Mute stops the realtime connection.
+ */
 export default function VoiceGuideOverlay(props: VoiceGuideOverlayProps): ReactElement {
-  const { status, error, lastCaption, lastUserTranscript, onStart, onStop } = props;
+  const { isConnecting, error, lastCaption, lastUserTranscript, muted, onToggleMuted } = props;
+  const isMobile = useMobile();
 
-  const isActive = status === "connecting" || status === "connected";
+  const paragraphStyle: React.CSSProperties = {
+    fontFamily: "Arial, sans-serif",
+    fontSize: isMobile ? "18px" : "25px",
+    margin: isMobile ? "0" : undefined,
+  };
+
+  const secondaryStyle: React.CSSProperties = {
+    ...paragraphStyle,
+    fontSize: isMobile ? "15px" : "20px",
+    opacity: 0.85,
+  };
 
   const containerStyle: React.CSSProperties = {
     position: "fixed",
-    right: "12px",
-    bottom: "12px",
+    left: "50%",
+    bottom: isMobile ? "24px" : "32px",
+    transform: "translateX(-50%)",
     zIndex: 9999,
-    width: "min(420px, calc(100vw - 24px))",
-    padding: "10px 12px",
+    pointerEvents: "none",
+    maxWidth: isMobile ? "85%" : "70%",
+    width: "max-content",
+    minWidth: isMobile ? "min(280px, 85vw)" : "min(400px, 70vw)",
+    padding: isMobile ? "14px 48px 16px 16px" : "16px 56px 20px 20px",
     borderRadius: "12px",
     background: "rgba(0,0,0,0.55)",
     border: "1px solid rgba(255,255,255,0.15)",
     color: "white",
-    fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, sans-serif",
+    boxSizing: "border-box",
   };
 
-  const rowStyle: React.CSSProperties = {
+  const textBlockStyle: React.CSSProperties = {
     display: "flex",
+    flexDirection: "column",
     alignItems: "center",
-    justifyContent: "space-between",
-    gap: "8px",
+    justifyContent: "center",
+    textAlign: "center",
+    minHeight: isMobile ? "56px" : "64px",
+    pointerEvents: "none",
   };
 
-  const pillStyle: React.CSSProperties = {
-    fontSize: "12px",
-    opacity: 0.9,
-    padding: "2px 8px",
-    borderRadius: "999px",
-    border: "1px solid rgba(255,255,255,0.2)",
+  const iconSlotStyle: React.CSSProperties = {
+    position: "absolute",
+    top: isMobile ? "8px" : "10px",
+    right: isMobile ? "6px" : "8px",
+    pointerEvents: "auto",
   };
 
-  const label =
-    status === "idle"
-      ? "Voice guide: idle"
-      : status === "connecting"
-        ? "Voice guide: connecting…"
-        : status === "connected"
-          ? "Voice guide: listening"
-          : "Voice guide: error";
+  const showLoading = isConnecting && !muted;
+  const hasText = Boolean(lastUserTranscript || lastCaption);
 
   return (
     <div style={containerStyle} aria-live="polite">
-      <div style={rowStyle}>
-        <div style={pillStyle}>{label}</div>
-        <div style={{ display: "flex", gap: "8px" }}>
-          {!isActive ? (
-            <button type="button" onClick={onStart}>
-              Start
-            </button>
-          ) : (
-            <button type="button" onClick={onStop}>
-              Stop
-            </button>
-          )}
-        </div>
+      <div style={iconSlotStyle}>
+        <ConversationControlIcon
+          icon={muted ? "volume_off" : "volume_on"}
+          tooltip={muted ? "Unmute" : "Mute"}
+          onClick={onToggleMuted}
+        />
       </div>
 
-      {error ? (
-        <div style={{ marginTop: "8px", fontSize: "12px", opacity: 0.95 }}>
-          <b>Error:</b> {error}
-        </div>
-      ) : null}
+      <div style={textBlockStyle}>
+        {error ? (
+          <p style={{ ...paragraphStyle, color: "#ffb4b4", margin: 0 }} role="alert">
+            {error}
+          </p>
+        ) : null}
 
-      {lastUserTranscript ? (
-        <div style={{ marginTop: "8px", fontSize: "12px", opacity: 0.9 }}>
-          <b>You:</b> {lastUserTranscript}
-        </div>
-      ) : null}
+        {showLoading ? (
+          <Lottie play loop animationData={loadingAnimation} style={{ height: isMobile ? "40px" : "60px" }} />
+        ) : null}
 
-      {lastCaption ? (
-        <div style={{ marginTop: "6px", fontSize: "12px", opacity: 0.9 }}>
-          <b>Guide:</b> {lastCaption}
-        </div>
-      ) : null}
+        {!showLoading && hasText ? (
+          <>
+            {lastUserTranscript ? (
+              <p style={{ ...secondaryStyle, margin: 0 }} data-testid="voice-guide-user">
+                {lastUserTranscript}
+              </p>
+            ) : null}
+            {lastCaption ? (
+              <p style={{ ...paragraphStyle, margin: lastUserTranscript ? "8px 0 0" : 0 }} data-testid="voice-guide-caption">
+                {lastCaption}
+              </p>
+            ) : null}
+          </>
+        ) : null}
+      </div>
     </div>
   );
 }
-

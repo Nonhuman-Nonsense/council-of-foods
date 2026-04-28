@@ -29,13 +29,19 @@ export type UseVoiceGuideParams = {
    * dev (in-flight start is aborted by the cleanup).
    */
   autoStart?: boolean;
+  /** If true, begin with WebRTC disconnected until the user unmutes (default false). */
+  initialMuted?: boolean;
 };
 
 export type VoiceGuideState = {
-  status: VoiceGuideStatus;
+  /** True while bootstrapping / handshaking (only when not muted). */
+  isConnecting: boolean;
   error: string | null;
   lastCaption: string | null;
   lastUserTranscript: string | null;
+  /** When true, WebRTC is torn down (no mic, no remote audio). */
+  muted: boolean;
+  setMuted: (muted: boolean) => void;
   start: () => Promise<void>;
   stop: () => void;
 };
@@ -63,16 +69,8 @@ function attachRemoteAudio(track: MediaStreamTrack, audioElement: HTMLAudioEleme
   el.muted = false;
   el.volume = 1.0;
   el.srcObject = new MediaStream([track]);
+  el.style.display = "none";
   if (!audioElement) {
-    if (getDebugLevel() === "off") {
-      el.style.display = "none";
-    } else {
-      el.controls = true;
-      el.style.position = "fixed";
-      el.style.left = "12px";
-      el.style.bottom = "12px";
-      el.style.zIndex = "10000";
-    }
     document.body.appendChild(el);
   }
   void el.play().catch((err) => debugLog("audio play blocked", err));
@@ -100,8 +98,9 @@ function attachRemoteAudio(track: MediaStreamTrack, audioElement: HTMLAudioEleme
  *    WebRTC connections.
  */
 export function useVoiceGuide(params: UseVoiceGuideParams): VoiceGuideState {
-  const { instructions, tools, toolHandlers, audioElement, autoStart = true } = params;
+  const { instructions, tools, toolHandlers, audioElement, autoStart = true, initialMuted = false } = params;
 
+  const [muted, setMuted] = useState(initialMuted);
   const [status, setStatus] = useState<VoiceGuideStatus>("idle");
   const [error, setError] = useState<string | null>(null);
   const [lastCaption, setLastCaption] = useState<string | null>(null);
@@ -165,10 +164,8 @@ export function useVoiceGuide(params: UseVoiceGuideParams): VoiceGuideState {
   }, [audioElement]);
 
   const stop = useCallback(() => {
-    cleanup();
-    setStatus("idle");
-    setError(null);
-  }, [cleanup]);
+    setMuted(true);
+  }, []);
 
   const start = useCallback(async () => {
     // Already connected/connecting? Don't spawn a duplicate.
@@ -307,16 +304,38 @@ export function useVoiceGuide(params: UseVoiceGuideParams): VoiceGuideState {
     }
   }, [audioElement, buildSessionConfig]);
 
-  // Auto-start (default) and unconditional teardown on unmount.
+  // Unconditional teardown on unmount.
   useEffect(() => {
-    if (autoStart) void start();
     return () => {
       cleanup();
       setStatus("idle");
     };
-    // Intentionally mount/unmount-only: start and cleanup are stable, and
-    // autoStart is treated as a mount-time prop.
-  }, []);
+  }, [cleanup]);
 
-  return { status, error, lastCaption, lastUserTranscript, start, stop };
+  // When muted, tear down WebRTC; when unmuted and autoStart, connect.
+  useEffect(() => {
+    if (muted) {
+      cleanup();
+      setStatus("idle");
+      setError(null);
+      setLastCaption(null);
+      setLastUserTranscript(null);
+      return;
+    }
+    if (!autoStart) return;
+    void start();
+  }, [muted, autoStart, cleanup, start]);
+
+  return {
+    isConnecting: status === "connecting",
+    error,
+    lastCaption,
+    lastUserTranscript,
+    muted,
+    setMuted,
+    start: async () => {
+      setMuted(false);
+    },
+    stop,
+  };
 }
