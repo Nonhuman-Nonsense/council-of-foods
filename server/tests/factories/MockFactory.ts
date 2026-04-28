@@ -1,7 +1,7 @@
 import { v4 as uuidv4 } from "uuid";
 import type { Character, Message, Topic, Audio, Meeting } from "@shared/ModelTypes.js";
 import type { StoredMeeting } from "@models/DBModels.js";
-import type { GlobalOptions } from "@logic/GlobalOptions.js";
+import { CHAIR_ID, type GlobalOptions } from "@logic/GlobalOptions.js";
 
 export const MockFactory = {
     createCharacter: (overrides: Partial<Character> = {}): Character => ({
@@ -50,7 +50,7 @@ export const MockFactory = {
             audio_speed: 1.0,
             trimSentance: true,
             trimParagraph: true,
-            chairId: "water",
+            chairId: CHAIR_ID,
             trimChairSemicolon: true,
             show_trimmed: false,
             skipAudio: false,

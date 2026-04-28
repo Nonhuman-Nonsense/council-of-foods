@@ -1,7 +1,10 @@
-import globalClientOptionsData from "@/global-options-client.json";
+import foodsEn from "@shared/prompts/foods_en.json";
 
 export interface GlobalClientOptions {
-  chairId: string;
+    chairId: string;
 }
 
-export const globalClientOptions: GlobalClientOptions = globalClientOptionsData;
+/** Chair id from `foods[0]` in `foods_en` (validated in ValidateFoodData tests). */
+export const globalClientOptions: GlobalClientOptions = {
+    chairId: foodsEn.foods[0].id,
+};

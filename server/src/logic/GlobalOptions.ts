@@ -1,8 +1,12 @@
 import { config } from '@root/src/config.js';
 import globalOptions from '@root/global-options.json' with { type: 'json' };
 import testOptions from '@root/test-options.json' with { type: 'json' };
+import foodsEn from '@shared/prompts/foods_en.json' with { type: 'json' };
 
 import { z } from "zod";
+
+/** Same as `foods[0].id` in `shared/prompts/foods_en.json` (validated in ValidateFoodData tests). */
+export const CHAIR_ID = foodsEn.foods[0].id;
 
 export const GlobalOptionsSchema = z.object({
     gptModel: z.string(),
@@ -42,8 +46,8 @@ export const getGlobalOptions = (): GlobalOptions => {
     const testMode = config.TEST_MODE;
     const useTestOptions = config.USE_TEST_OPTIONS;
 
-    // Base options
-    let options = { ...globalOptions };
+    // Base options (chairId comes from prompts, not global-options.json)
+    let options = { ...globalOptions, chairId: CHAIR_ID };
 
     // Apply overrides for Test, Development, or Prototype environments
     // OR if explicitly requested via USE_TEST_OPTIONS
