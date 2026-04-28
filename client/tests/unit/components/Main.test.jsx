@@ -10,7 +10,7 @@ vi.mock('@/api/createMeeting', () => ({
 }));
 
 // Mock topics data
-vi.mock('../../../src/prompts/topics_en.json', () => ({
+vi.mock('@shared/prompts/topics_en.json', () => ({
     default: {
         topics: [
             { id: "test-topic", title: "Test Topic", description: "D", prompt: "Test Prompt" }

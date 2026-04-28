@@ -2,7 +2,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import SelectFoods, { createDefaultHumans } from '../../../../src/components/settings/SelectFoods';
-import foodsEn from '../../../../src/prompts/foods_en.json';
+import foodsEn from '@shared/prompts/foods_en.json';
 import { useState } from 'react';
 
 // Mock dependencies

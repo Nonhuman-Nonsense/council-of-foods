@@ -3,6 +3,7 @@ import { describe, it, expect } from 'vitest';
 import { AVAILABLE_LANGUAGES } from '@shared/AvailableLanguages';
 import fs from 'fs';
 import path from 'path';
+import { SHARED_PROMPTS_DIR } from '../sharedPromptsDir';
 
 interface Topic {
     id: string;
@@ -22,14 +23,14 @@ interface TopicsData {
 }
 
 function loadTopicsData(lang: string): TopicsData {
-    const filePath = path.resolve(__dirname, `../../src/prompts/topics_${lang}.json`);
+    const filePath = path.join(SHARED_PROMPTS_DIR, `topics_${lang}.json`);
     return JSON.parse(fs.readFileSync(filePath, 'utf-8')) as TopicsData;
 }
 
 describe('Validate Topics Data JSONs', () => {
     it('should have a valid JSON file for every available language', () => {
         AVAILABLE_LANGUAGES.forEach((lang) => {
-            const filePath = path.resolve(__dirname, `../../src/prompts/topics_${lang}.json`);
+            const filePath = path.join(SHARED_PROMPTS_DIR, `topics_${lang}.json`);
 
             // 1. Check file existence
             expect(fs.existsSync(filePath), `Missing topics data file for language: ${lang}`).toBe(true);

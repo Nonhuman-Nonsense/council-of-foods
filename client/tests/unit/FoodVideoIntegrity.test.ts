@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 
-const foodsModules = import.meta.glob<{ foods: { id: string }[] }>("/src/prompts/foods_*.json", {
+const foodsModules = import.meta.glob<{ foods: { id: string }[] }>("@shared/prompts/foods_*.json", {
     eager: true,
     import: "default",
 });

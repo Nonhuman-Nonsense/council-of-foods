@@ -67,7 +67,7 @@ if (environment === "prototype") {
     for (const promptfile of ['foods', 'topics']) {
       app.get(`/${promptfile}_${lang}.json`, function (_req: Request, res: Response) {
         res.setHeader('Cache-Control', CACHE_CONTROL_NO_STORE);
-        res.sendFile(path.join(process.cwd(), "../client/src/prompts", `${promptfile}_${lang}.json`));
+        res.sendFile(path.join(process.cwd(), "../shared/prompts", `${promptfile}_${lang}.json`));
       });
     }
   }

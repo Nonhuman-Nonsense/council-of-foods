@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import foodsEn from '../../src/prompts/foods_en.json';
+import foodsEn from '@shared/prompts/foods_en.json';
 
 describe('Food Image Integrity', () => {
     it('has a matching image asset for every food item', () => {

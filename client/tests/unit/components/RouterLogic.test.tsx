@@ -73,14 +73,14 @@ vi.mock('react-responsive', () => ({
 }));
 
 // Mock topics data to avoid loading real files
-vi.mock('../../../src/prompts/topics_en.json', () => ({
+vi.mock('@shared/prompts/topics_en.json', () => ({
     default: {
         topics: [{ id: "test-topic", title: "Test Topic" }],
         custom_topic: { id: "custom" },
         system: "System Prompt"
     }
 }));
-vi.mock('../../../src/prompts/topics_sv.json', () => ({
+vi.mock('@shared/prompts/topics_sv.json', () => ({
     default: {
         topics: [{ id: "test-topic-sv", title: "Test Topic SV" }],
         custom_topic: { id: "custom" },

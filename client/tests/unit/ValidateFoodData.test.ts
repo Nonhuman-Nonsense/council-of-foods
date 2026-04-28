@@ -4,6 +4,7 @@ import { AVAILABLE_LANGUAGES } from '@shared/AvailableLanguages';
 import { AVAILABLE_VOICES, AVAILABLE_VOICES_GEMINI, VoiceOption } from '@shared/ModelTypes';
 import fs from 'fs';
 import path from 'path';
+import { SHARED_PROMPTS_DIR } from '../sharedPromptsDir';
 
 // Define expected Types locally since we are in a test environment
 // and want to ensure the JSONs match OUR expected interface,
@@ -37,14 +38,14 @@ interface FoodData {
 }
 
 function loadFoodData(lang: string): FoodData {
-    const filePath = path.resolve(__dirname, `../../src/prompts/foods_${lang}.json`);
+    const filePath = path.join(SHARED_PROMPTS_DIR, `foods_${lang}.json`);
     return JSON.parse(fs.readFileSync(filePath, 'utf-8')) as FoodData;
 }
 
 describe('Validate Food Data JSONs', () => {
     it('should have a valid JSON file for every available language', () => {
         AVAILABLE_LANGUAGES.forEach((lang) => {
-            const filePath = path.resolve(__dirname, `../../src/prompts/foods_${lang}.json`);
+            const filePath = path.join(SHARED_PROMPTS_DIR, `foods_${lang}.json`);
 
             // 1. Check file existence
             expect(fs.existsSync(filePath), `Missing food data file for language: ${lang}`).toBe(true);

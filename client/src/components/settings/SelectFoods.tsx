@@ -10,7 +10,7 @@ import Lottie from 'react-lottie-player';
 import loadingAnimation from '@animations/loading.json';
 
 // Dynamic import of food data modules
-const foodModules = import.meta.glob<FoodData>('/src/prompts/foods_*.json', { eager: true, import: 'default' });
+const foodModules = import.meta.glob<FoodData>('@shared/prompts/foods_*.json', { eager: true, import: 'default' });
 
 // Eagerly import food images
 const foodImages = import.meta.glob('/src/assets/foods/small/*.webp', { eager: true, import: 'default' }) as Record<string, string>;

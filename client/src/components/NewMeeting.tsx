@@ -11,7 +11,7 @@ import VoiceGuideOverlay from "@/components/VoiceGuideOverlay";
 import { buildGuidePrompt } from "@/voice/guidePrompt";
 import { useVoiceGuide } from "@/voice/useVoiceGuide";
 import { getTopicsBundle } from "@/components/topicsBundle";
-import voiceGuidePromptEn from "@/prompts/voice_guide_en.json";
+import voiceGuidePromptEn from "@shared/prompts/voice_guide_en.json";
 import { createGuideToolHandlers, createGuideTools } from "@/voice/guideTools";
 
 export interface NewMeetingProps {
