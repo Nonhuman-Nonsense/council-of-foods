@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import type { ReactElement } from "react";
 import Lottie from "react-lottie-player";
 import loadingAnimation from "@animations/loading.json";
@@ -21,15 +22,30 @@ export default function VoiceGuideOverlay(props: VoiceGuideOverlayProps): ReactE
   const { isConnecting, error, lastCaption, lastUserTranscript, muted, onToggleMuted } = props;
   const isMobile = useMobile();
 
+  const [displayedUserTranscript, setDisplayedUserTranscript] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (lastUserTranscript) {
+      setDisplayedUserTranscript(lastUserTranscript);
+      const timer = setTimeout(() => {
+        setDisplayedUserTranscript(null);
+      }, 3000);
+      return () => clearTimeout(timer);
+    } else {
+      setDisplayedUserTranscript(null);
+    }
+  }, [lastUserTranscript]);
+
+
   const paragraphStyle: React.CSSProperties = {
     fontFamily: "Arial, sans-serif",
-    fontSize: isMobile ? "18px" : "25px",
+    fontSize: isMobile ? "18px" : "20px",
     margin: isMobile ? "0" : undefined,
   };
 
   const secondaryStyle: React.CSSProperties = {
     ...paragraphStyle,
-    fontSize: isMobile ? "15px" : "20px",
+    fontSize: isMobile ? "15px" : "18px",
     opacity: 0.85,
   };
 
@@ -41,12 +57,7 @@ export default function VoiceGuideOverlay(props: VoiceGuideOverlayProps): ReactE
     zIndex: 9999,
     pointerEvents: "none",
     maxWidth: isMobile ? "85%" : "70%",
-    width: "max-content",
-    minWidth: isMobile ? "min(280px, 85vw)" : "min(400px, 70vw)",
-    padding: isMobile ? "14px 48px 16px 16px" : "16px 56px 20px 20px",
-    borderRadius: "12px",
-    background: "rgba(0,0,0,0.55)",
-    border: "1px solid rgba(255,255,255,0.15)",
+    width: "100%",
     color: "white",
     boxSizing: "border-box",
   };
@@ -61,10 +72,12 @@ export default function VoiceGuideOverlay(props: VoiceGuideOverlayProps): ReactE
     pointerEvents: "none",
   };
 
-  const iconSlotStyle: React.CSSProperties = {
-    position: "absolute",
-    top: isMobile ? "8px" : "10px",
-    right: isMobile ? "6px" : "8px",
+  const muteButtonStyle: React.CSSProperties = {
+    position: "fixed",
+    bottom: "6px",
+    left: "10px",
+    opacity: 0.7,
+    zIndex: 10,
     pointerEvents: "auto",
   };
 
@@ -72,8 +85,8 @@ export default function VoiceGuideOverlay(props: VoiceGuideOverlayProps): ReactE
   const hasText = Boolean(lastUserTranscript || lastCaption);
 
   return (
-    <div style={containerStyle} aria-live="polite">
-      <div style={iconSlotStyle}>
+    <>
+      <div style={muteButtonStyle}>
         <ConversationControlIcon
           icon={muted ? "volume_off" : "volume_on"}
           tooltip={muted ? "Unmute" : "Mute"}
@@ -81,32 +94,34 @@ export default function VoiceGuideOverlay(props: VoiceGuideOverlayProps): ReactE
         />
       </div>
 
-      <div style={textBlockStyle}>
-        {error ? (
-          <p style={{ ...paragraphStyle, color: "#ffb4b4", margin: 0 }} role="alert">
-            {error}
-          </p>
-        ) : null}
+      <div style={containerStyle} aria-live="polite">
+        <div style={textBlockStyle}>
+          {error ? (
+            <p style={{ ...paragraphStyle, color: "#ffb4b4", margin: 0 }} role="alert">
+              {error}
+            </p>
+          ) : null}
 
-        {showLoading ? (
-          <Lottie play loop animationData={loadingAnimation} style={{ height: isMobile ? "40px" : "60px" }} />
-        ) : null}
+          {showLoading ? (
+            <Lottie play loop animationData={loadingAnimation} style={{ height: isMobile ? "40px" : "60px" }} />
+          ) : null}
 
-        {!showLoading && hasText ? (
-          <>
-            {lastUserTranscript ? (
-              <p style={{ ...secondaryStyle, margin: 0 }} data-testid="voice-guide-user">
-                {lastUserTranscript}
-              </p>
-            ) : null}
-            {lastCaption ? (
-              <p style={{ ...paragraphStyle, margin: lastUserTranscript ? "8px 0 0" : 0 }} data-testid="voice-guide-caption">
-                {lastCaption}
-              </p>
-            ) : null}
-          </>
-        ) : null}
+          {!showLoading && hasText ? (
+            <>
+              {lastUserTranscript ? (
+                <p style={{ ...secondaryStyle, margin: 0 }} data-testid="voice-guide-user">
+                  {lastUserTranscript}
+                </p>
+              ) : null}
+              {lastCaption ? (
+                <p style={{ ...paragraphStyle, margin: lastUserTranscript ? "8px 0 0" : 0 }} data-testid="voice-guide-caption">
+                  {lastCaption}
+                </p>
+              ) : null}
+            </>
+          ) : null}
+        </div>
       </div>
-    </div>
+    </>
   );
 }
