@@ -3,16 +3,16 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import SelectTopic from "./settings/SelectTopic";
-import SelectFoods, { createDefaultHumans, getFoodsBundle, Food } from "./settings/SelectFoods";
+import SelectFoods, { getFoodsBundle, Food } from "./settings/SelectFoods";
 import { createMeeting } from "@/api/createMeeting";
 import { useRouting } from "@/routing";
-import { globalClientOptions } from "@/globalClientOptions";
 import VoiceGuideOverlay from "@/components/VoiceGuideOverlay";
 import { buildGuidePrompt } from "@/voice/guidePrompt";
 import { useVoiceGuide } from "@/voice/useVoiceGuide";
 import { getTopicsBundle } from "@/components/topicsBundle";
 import voiceGuidePromptEn from "@shared/prompts/voice_guide_en.json";
 import { createGuideToolHandlers, createGuideTools } from "@/voice/guideTools";
+import { useMeetingSetupStore } from "@/stores/useMeetingSetupStore";
 
 export interface NewMeetingProps {
   setUnrecoverableError: (message: string) => void;
@@ -36,29 +36,13 @@ export default function NewMeeting({
   );
   const [creating, setCreating] = useState(false);
 
-  // Lifted setup state (single source of truth for both clicks and voiceguide tools)
-  const [selectedTopic, setSelectedTopic] = useState<string>("");
-  const [customTopic, setCustomTopic] = useState<string>("");
-
-  const [selectedFoods, setSelectedFoods] = useState<string[]>([globalClientOptions.chairId]);
-  const [humans, setHumans] = useState<Food[]>(() => createDefaultHumans());
-  const [numberOfHumans, setNumberOfHumans] = useState<number>(0);
-
-  const [hoveredTopic, setHoveredTopic] = useState<string | null>(null);
-  const [hoveredFood, setHoveredFood] = useState<string | null>(null);
-
-  const handleSelectFoodId = (foodId: string): boolean => {
-    const maxFoods = 6 + 1; // 6 plus chair
-    if (selectedFoods.length >= maxFoods && !selectedFoods.includes(foodId)) {
-      return false;
-    }
-    setSelectedFoods((prev) => (prev.includes(foodId) ? prev : [...prev, foodId]));
-    return true;
-  };
-
-  const handleDeselectFoodId = (foodId: string) => {
-    setSelectedFoods((prev) => prev.filter((id) => id !== foodId));
-  };
+  // Setup state from store
+  const {
+    selectedTopic, setSelectedTopic,
+    customTopic, setCustomTopic,
+    selectedFoods,
+    humans,
+  } = useMeetingSetupStore();
 
   // Keep lifted topic UI state consistent if we start on foods step (e.g. reset flow)
   useEffect(() => {
@@ -69,7 +53,7 @@ export default function NewMeeting({
     } else {
       setCustomTopic("");
     }
-  }, [topicSelection?.id, topicSelection?.description]);
+  }, [topicSelection?.id, topicSelection?.description, setSelectedTopic, setCustomTopic]);
 
   const topicsBundle = useMemo(() => getTopicsBundle(i18n.language), [i18n.language]);
   const foodsBundle = useMemo(() => getFoodsBundle(i18n.language), [i18n.language]);
@@ -153,19 +137,6 @@ export default function NewMeeting({
     toolHandlers: createGuideToolHandlers({
       topics: guideTopics,
       foods: guideFoods,
-      selectedTopic,
-      setSelectedTopic,
-      customTopic,
-      setCustomTopic,
-      selectedFoods,
-      handleSelectFoodId,
-      handleDeselectFoodId,
-      humans,
-      setHumans,
-      numberOfHumans,
-      setNumberOfHumans,
-      setHoveredTopic,
-      setHoveredFood,
       buildSelectedTopicFromUi,
       confirmTopic: (topic: Topic) => handleTopicContinue(topic),
       startMeeting: async (foods: Food[]) => {
@@ -180,51 +151,43 @@ export default function NewMeeting({
     }),
   });
 
-  // Auto-start + cleanup are owned by useVoiceGuide() itself, which is
-  // StrictMode-safe (in-flight start is aborted on unmount).
+  // Sync state changes back to the voice agent so it "sees" what the user is doing.
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (step === 'topic' && selectedTopic) {
+        const topicName = selectedTopic === 'customtopic' ? customTopic : guideTopics.find(t => t.id === selectedTopic)?.title;
+        if (topicName) {
+          voice.sendUserMessage(`(SYSTEM SYNC: User selected topic "${topicName}")`);
+        }
+      } else if (step === 'foods') {
+        const names = selectedFoods.map(id => {
+          if (id.startsWith('panelist')) {
+            const idx = parseInt(id.replace('panelist', ''));
+            return (humans[idx] as any)?.name || `Human ${idx + 1}`;
+          }
+          return guideFoods.find(f => f.id === id)?.name;
+        }).filter(Boolean);
+        voice.sendUserMessage(`(SYSTEM SYNC: Current participants: ${names.join(', ')})`);
+      }
+    }, 1000); // Debounce sync by 1s
+    return () => clearTimeout(timer);
+  }, [selectedTopic, customTopic, selectedFoods, humans, step]);
 
-  if (step === "topic") {
-    return (
-      <>
-        <SelectTopic
-          currentTopic={topicSelection ?? undefined}
-          selectedTopic={selectedTopic}
-          setSelectedTopic={setSelectedTopic}
-          customTopic={customTopic}
-          setCustomTopic={setCustomTopic}
-          onContinueForward={handleTopicContinue}
-          hoveredTopic={hoveredTopic}
-          setHoveredTopic={setHoveredTopic}
-        />
-        <VoiceGuideOverlay
-          isConnecting={voice.isConnecting}
-          error={voice.error}
-          lastCaption={voice.lastCaption}
-          lastUserTranscript={voice.lastUserTranscript}
-          muted={voice.muted}
-          onToggleMuted={() => voice.setMuted(!voice.muted)}
-        />
-      </>
-    );
-  }
 
   return (
     <>
-      <SelectFoods
-        topicTitle={topicSelection?.title ?? ""}
-        onContinueForward={handleFoodsContinue}
-        loading={creating}
-        selectedFoods={selectedFoods}
-        setSelectedFoods={setSelectedFoods}
-        handleSelectFoodId={handleSelectFoodId}
-        handleDeselectFoodId={handleDeselectFoodId}
-        humans={humans}
-        setHumans={setHumans}
-        numberOfHumans={numberOfHumans}
-        setNumberOfHumans={setNumberOfHumans}
-        hoveredFood={hoveredFood}
-        setHoveredFood={setHoveredFood}
-      />
+      {step === "topic" && (
+        <SelectTopic
+          currentTopic={topicSelection ?? undefined}
+          onContinueForward={handleTopicContinue}
+        />
+      )}
+      {step === "foods" && (
+        <SelectFoods
+          topicTitle={topicSelection?.title ?? ""}
+          onContinueForward={handleFoodsContinue}
+          loading={creating}
+        />)}
       <VoiceGuideOverlay
         isConnecting={voice.isConnecting}
         error={voice.error}

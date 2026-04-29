@@ -3,6 +3,7 @@ import ResetWarning from "@components/overlays/ResetWarning";
 import { capitalizeFirstLetter, toTitleCase, useMobile, useMobileXs } from "@/utils";
 import { useTranslation } from "react-i18next";
 import type { Topic } from "@shared/ModelTypes";
+import { useMeetingSetupStore } from "@/stores/useMeetingSetupStore";
 
 import { getTopicsBundle } from "@/components/topicsBundle";
 
@@ -25,12 +26,6 @@ interface SelectTopicProps {
   currentTopic?: Topic;
   onReset?: (resetTopic: Topic) => void;
   onCancel?: () => void;
-  selectedTopic: string;
-  setSelectedTopic: (id: string) => void;
-  customTopic: string;
-  setCustomTopic: (text: string) => void;
-  hoveredTopic: string | null;
-  setHoveredTopic: (topicId: string | null) => void;
 }
 
 function SelectTopic({
@@ -38,13 +33,12 @@ function SelectTopic({
   currentTopic,
   onReset,
   onCancel,
-  selectedTopic,
-  setSelectedTopic,
-  customTopic,
-  setCustomTopic,
-  hoveredTopic,
-  setHoveredTopic,
 }: SelectTopicProps): React.ReactElement {
+  const {
+    selectedTopic, setSelectedTopic,
+    customTopic, setCustomTopic,
+    hoveredTopic, setHoveredTopic
+  } = useMeetingSetupStore();
   const { t, i18n } = useTranslation();
   const isMobile = useMobile();
   const isMobileXs = useMobileXs();

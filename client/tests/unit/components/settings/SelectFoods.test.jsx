@@ -1,9 +1,11 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import SelectFoods, { createDefaultHumans } from '../../../../src/components/settings/SelectFoods';
+import SelectFoods from '../../../../src/components/settings/SelectFoods';
+import { createDefaultHumans } from '../../../../src/components/settings/FoodUtils';
 import foodsEn from '@shared/prompts/foods_en.json';
 import { useState } from 'react';
+import { useMeetingSetupStore } from '../../../../src/stores/useMeetingSetupStore';
 
 // Mock dependencies
 vi.mock('react-i18next', () => ({
@@ -22,41 +24,15 @@ describe('SelectFoods Component', () => {
     let mockOnContinue;
 
     beforeEach(() => {
+        useMeetingSetupStore.getState().resetStore();
         mockOnContinue = vi.fn();
     });
 
     function ControlledSelectFoods() {
-        const [selectedFoods, setSelectedFoods] = useState([foodsEn.foods[0].id]);
-        const [humans, setHumans] = useState(() => createDefaultHumans());
-        const [numberOfHumans, setNumberOfHumans] = useState(0);
-        const [hoveredFood, setHoveredFood] = useState(null);
-
-        const handleSelectFoodId = (foodId) => {
-            if (selectedFoods.length >= 7 && !selectedFoods.includes(foodId)) {
-                return false;
-            }
-            setSelectedFoods((prev) => (prev.includes(foodId) ? prev : [...prev, foodId]));
-            return true;
-        };
-
-        const handleDeselectFoodId = (foodId) => {
-            setSelectedFoods((prev) => prev.filter((id) => id !== foodId));
-        };
-
         return (
             <SelectFoods
                 topicTitle="Test Topic"
                 onContinueForward={mockOnContinue}
-                selectedFoods={selectedFoods}
-                setSelectedFoods={setSelectedFoods}
-                handleSelectFoodId={handleSelectFoodId}
-                handleDeselectFoodId={handleDeselectFoodId}
-                humans={humans}
-                setHumans={setHumans}
-                numberOfHumans={numberOfHumans}
-                setNumberOfHumans={setNumberOfHumans}
-                hoveredFood={hoveredFood}
-                setHoveredFood={setHoveredFood}
             />
         );
     }

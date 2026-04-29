@@ -48,6 +48,8 @@ export type VoiceGuideState = {
   setMuted: (muted: boolean) => void;
   start: () => Promise<void>;
   stop: () => void;
+  /** Send a manual user message to the conversation transcript (e.g. state sync). */
+  sendUserMessage: (text: string) => void;
 };
 
 function getDebugLevel(): "off" | "basic" | "verbose" {
@@ -117,6 +119,7 @@ export function useVoiceGuide(params: UseVoiceGuideParams): VoiceGuideState {
   const audioAnchorFallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const captionSchedulerRef = useRef<CaptionScheduler | null>(null);
   const userTranscriptTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const eventLoopRef = useRef<ReturnType<typeof createEventLoop> | null>(null);
   /**
    * Each call to start() bumps this counter and creates a fresh AbortController.
    * Any prior in-flight start observes its old controller has been aborted and
@@ -293,6 +296,7 @@ export function useVoiceGuide(params: UseVoiceGuideParams): VoiceGuideState {
           log: debugLog,
         },
       });
+      eventLoopRef.current = loop;
 
       conn = await createRealtimeConnection({
         session: buildSessionConfig(),
@@ -401,6 +405,10 @@ export function useVoiceGuide(params: UseVoiceGuideParams): VoiceGuideState {
     void start();
   }, [muted, autoStart, cleanup, start]);
 
+  const sendUserMessage = useCallback((text: string) => {
+    eventLoopRef.current?.sendUserMessage(text);
+  }, []);
+
   return {
     isConnecting: status === "connecting" || (status === "connected" && !hasSeenFirstMessage),
     error,
@@ -412,5 +420,6 @@ export function useVoiceGuide(params: UseVoiceGuideParams): VoiceGuideState {
       setMuted(false);
     },
     stop,
+    sendUserMessage,
   };
 }

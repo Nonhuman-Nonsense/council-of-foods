@@ -5,12 +5,19 @@ import { Character, VoiceOption, AVAILABLE_VOICES } from "@shared/ModelTypes";
 import { AVAILABLE_LANGUAGES } from "@shared/AvailableLanguages";
 import VideoPreloader from "@components/VideoPreloader";
 import { globalClientOptions } from "@/globalClientOptions";
+import { useMeetingSetupStore } from "@/stores/useMeetingSetupStore";
 
 import Lottie from 'react-lottie-player';
 import loadingAnimation from '@animations/loading.json';
 
-// Dynamic import of food data modules
-const foodModules = import.meta.glob<FoodData>('@shared/prompts/foods_*.json', { eager: true, import: 'default' });
+export type { Food, FoodData } from "./FoodUtils";
+export { getFoodsBundle, createDefaultHumans, createHuman } from "./FoodUtils";
+
+interface SelectFoodsProps {
+  topicTitle: string;
+  onContinueForward: (data: { foods: Food[] }) => void | Promise<void>;
+  loading?: boolean;
+}
 
 // Eagerly import food images
 const foodImages = import.meta.glob('/src/assets/foods/small/*.webp', { eager: true, import: 'default' }) as Record<string, string>;
@@ -20,96 +27,8 @@ function getFoodImageUrl(id: string): string | undefined {
   return foodImages[`/src/assets/foods/small/${id}.webp`];
 }
 
-export interface Food extends Partial<Character> {
-  id: string;
-  name: string;
-  description: string;
-  prompt?: string;
-  type?: 'panelist' | 'food' | 'chair' | string;
-  index?: number;
-  voice: VoiceOption;
-  voiceProvider?: 'openai' | 'gemini';
-  voiceLocale?: string;
-  size?: number;
-  voiceInstruction?: string;
-}
-
-interface SelectFoodsProps {
-  topicTitle: string;
-  onContinueForward: (data: { foods: Food[] }) => void | Promise<void>;
-  loading?: boolean;
-  selectedFoods: string[];
-  setSelectedFoods: React.Dispatch<React.SetStateAction<string[]>>;
-  handleSelectFoodId: (foodId: string) => boolean;
-  handleDeselectFoodId: (foodId: string) => void;
-  humans: Food[]; // fixed length (MAXHUMANS)
-  setHumans: React.Dispatch<React.SetStateAction<Food[]>>;
-  numberOfHumans: number;
-  setNumberOfHumans: React.Dispatch<React.SetStateAction<number>>;
-  hoveredFood: string | null;
-  setHoveredFood: (foodId: string | null) => void;
-}
-
-const MAXHUMANS = 3;
-
-// Helper to access typed keys of foodData
-// Assuming foodDataEN has a specific shape. Since it's JSON, TS infers it.
-// We'll cast it to a known interface for safety.
-interface FoodData {
-  metadata: {
-    version: string;
-    last_updated: string;
-  };
-  panelWithHumans: string;
-  addHuman: {
-    id: string;
-    name: string;
-    description: string;
-  };
-  foods: Food[];
-}
-
-// We need to support dynamic language keys ideally, but code hardcodes 'en'.
-// The foodData object in original code:
-// const foodData = { "en": foodDataEN };
-// We will type this.
-
-const localFoodData: Record<string, FoodData> = {};
-
-// We assume that the files exist, since we validate them in the tests
-for (const lang of AVAILABLE_LANGUAGES) {
-  const moduleKey = Object.keys(foodModules).find(path => path.endsWith(`foods_${lang}.json`));
-  if (moduleKey) {
-    localFoodData[lang] = foodModules[moduleKey];
-  }
-}
-
-// Freeze original foodData to make it immutable
-Object.freeze(localFoodData);
-for (const language in localFoodData) {
-  for (let i = 0; i < localFoodData[language].foods.length; i++) {
-    Object.freeze(localFoodData[language].foods[i]);
-  }
-}
-
-function requireFoodData(language: string): FoodData {
-  // The app expects prompt bundles for all supported languages to exist at build time.
-  // We still keep a hard runtime invariant so both TS and failures are crisp.
-  const data = localFoodData[language] ?? localFoodData[AVAILABLE_LANGUAGES[0]];
-  if (!data) {
-    throw new Error(
-      `Missing food prompt bundle. language=${language}, fallback=${AVAILABLE_LANGUAGES[0]}`
-    );
-  }
-  return data;
-}
-
-/** Frozen foods + chair/system prompts for one UI language (wizard). */
-export function getFoodsBundle(lang: string): FoodData {
-  return requireFoodData(lang);
-}
-
-/** i18n fragments used when injecting human panelists into the chair prompt (same as Continue). */
+import type { Food, FoodData } from "./FoodUtils";
+import { getFoodsBundle } from "./FoodUtils";
 export type MeetingFoodsI18n = {
   oneHuman: string;
   twoHumansSuffix: string;
@@ -127,7 +46,7 @@ export function buildMeetingFoodsPayload(params: {
   labels: MeetingFoodsI18n;
 }): { ok: true; foods: Food[] } | { ok: false; error: string } {
   const { language, selectedFoods, humans, numberOfHumans, labels } = params;
-  const foodData = requireFoodData(language);
+  const foodData = getFoodsBundle(language);
   const baseFoods = foodData.foods;
   const foods = [...baseFoods, ...humans.slice(0, numberOfHumans)];
 
@@ -215,34 +134,10 @@ export function buildMeetingFoodsPayload(params: {
   return { ok: true, foods: replacedFoods };
 }
 
-// Infer the default voice from the configuration to ensure blankHuman is valid
-const defaultChair = localFoodData[AVAILABLE_LANGUAGES[0]]?.foods.find(f => f.id === globalClientOptions.chairId);
-const defaultVoice: VoiceOption = defaultChair?.voice || AVAILABLE_VOICES[0];
+const MAXHUMANS = 3;
+import { createHuman, createDefaultHumans } from "./FoodUtils";
 
-const blankHuman: Food = {
-  id: "", // Will be set
-  type: "panelist",
-  name: "",
-  description: "",
-  voice: defaultVoice,
-  voiceProvider: defaultChair?.voiceProvider,
-  voiceTemperature: defaultChair?.voiceTemperature,
-  voiceInstruction: defaultChair?.voiceInstruction,
-  voiceLocale: defaultChair?.voiceLocale,
-  size: 1.0
-};
-
-export function createHuman(index: number): Food {
-  // Uses chair voice by default so validation passes.
-  const newHuman = structuredClone(blankHuman);
-  newHuman.id = "panelist" + index;
-  newHuman.index = index;
-  return newHuman;
-}
-
-export function createDefaultHumans(): Food[] {
-  return [createHuman(0), createHuman(1), createHuman(2)];
-}
+/** i18n fragments used when injecting human panelists into the chair prompt (same as Continue). */
 
 /**
  * SelectFoods Component
@@ -253,17 +148,19 @@ function SelectFoods({
   topicTitle,
   onContinueForward,
   loading: loading = false,
-  selectedFoods,
-  setSelectedFoods,
-  humans,
-  setHumans,
-  numberOfHumans,
-  setNumberOfHumans,
-  handleSelectFoodId,
-  handleDeselectFoodId,
-  hoveredFood,
-  setHoveredFood,
 }: SelectFoodsProps): React.ReactElement {
+  const {
+    selectedFoods,
+    setSelectedFoods,
+    handleSelectFoodId,
+    handleDeselectFoodId,
+    humans,
+    setHumans,
+    numberOfHumans,
+    setNumberOfHumans,
+    hoveredFood,
+    setHoveredFood,
+  } = useMeetingSetupStore();
   const [lastSelected, setLastSelected] = useState<string | null>(null);
 
   const [humansReady, setHumansReady] = useState<boolean>(false);
@@ -281,7 +178,7 @@ function SelectFoods({
   /* -------------------------------------------------------------------------- */
 
   const foodData = useMemo(() => {
-    return requireFoodData(i18n.language);
+    return getFoodsBundle(i18n.language);
   }, [i18n.language]);
 
   const baseFoods = useMemo(() => {

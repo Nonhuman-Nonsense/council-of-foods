@@ -4,6 +4,7 @@ import {
   type MeetingFoodsI18n,
   buildMeetingFoodsPayload,
 } from "@/components/settings/SelectFoods";
+import { useMeetingSetupStore } from "@/stores/useMeetingSetupStore";
 
 export type JsonSchemaObject = {
   type: "object";
@@ -33,23 +34,6 @@ export type GuideFood = Pick<Character, "id" | "name"> & { description?: string 
 export type GuideToolContext = {
   topics: GuideTopic[];
   foods: GuideFood[];
-
-  // Wizard state (lifted in NewMeeting)
-  selectedTopic: string;
-  setSelectedTopic: (id: string) => void;
-  customTopic: string;
-  setCustomTopic: (text: string) => void;
-
-  selectedFoods: string[];
-  handleSelectFoodId: (id: string) => boolean;
-  handleDeselectFoodId: (id: string) => void;
-  humans: Food[];
-  setHumans: React.Dispatch<React.SetStateAction<Food[]>>;
-  numberOfHumans: number;
-  setNumberOfHumans: React.Dispatch<React.SetStateAction<number>>;
-
-  setHoveredTopic: (id: string | null) => void;
-  setHoveredFood: (id: string | null) => void;
 
   // Imperative handoff points (Phase 3 wires these)
   buildSelectedTopicFromUi: () => Topic;
@@ -211,32 +195,33 @@ export function createGuideToolHandlers(ctx: GuideToolContext): Record<string, T
       if (!ctx.topics.some((t) => t.id === topicId) && topicId !== "customtopic") {
         return { ok: false, error: `Unknown topicId: ${topicId}` };
       }
-      ctx.setSelectedTopic(topicId);
+      useMeetingSetupStore.getState().setSelectedTopic(topicId);
       return { ok: true };
     },
     highlight_topic: (raw) => {
       const obj = asObject(raw);
       const topicId = asString(obj?.topicId);
       if (!topicId) {
-        ctx.setHoveredTopic(null);
+        useMeetingSetupStore.getState().setHoveredTopic(null);
         return { ok: true };
       }
       if (!ctx.topics.some((t) => t.id === topicId) && topicId !== "customtopic") {
         return { ok: false, error: `Unknown topicId: ${topicId}` };
       }
-      ctx.setHoveredTopic(topicId);
+      useMeetingSetupStore.getState().setHoveredTopic(topicId);
       return { ok: true };
     },
     set_custom_topic: (raw) => {
       const obj = asObject(raw);
       const text = asString(obj?.text);
       if (!text) return { ok: false, error: "Missing text" };
-      ctx.setSelectedTopic("customtopic");
-      ctx.setCustomTopic(text);
+      useMeetingSetupStore.getState().setSelectedTopic("customtopic");
+      useMeetingSetupStore.getState().setCustomTopic(text);
       return { ok: true };
     },
     confirm_topic: () => {
-      if (!ctx.selectedTopic) return { ok: false, error: "No topic selected" };
+      const { selectedTopic } = useMeetingSetupStore.getState();
+      if (!selectedTopic) return { ok: false, error: "No topic selected" };
       const topic = ctx.buildSelectedTopicFromUi();
       ctx.confirmTopic(topic);
       return { ok: true };
@@ -260,7 +245,7 @@ export function createGuideToolHandlers(ctx: GuideToolContext): Record<string, T
       if (!ctx.foods.some((f) => f.id === foodId) && !foodId.startsWith("panelist")) {
         return { ok: false, error: `Unknown foodId: ${foodId}` };
       }
-      const success = ctx.handleSelectFoodId(foodId);
+      const success = useMeetingSetupStore.getState().handleSelectFoodId(foodId);
       if (!success) {
         return { ok: false, error: "Maximum number of characters (6 plus the chair) already selected." };
       }
@@ -270,20 +255,20 @@ export function createGuideToolHandlers(ctx: GuideToolContext): Record<string, T
       const obj = asObject(raw);
       const foodId = asString(obj?.foodId);
       if (!foodId) {
-        ctx.setHoveredFood(null);
+        useMeetingSetupStore.getState().setHoveredFood(null);
         return { ok: true };
       }
       if (!ctx.foods.some((f) => f.id === foodId) && !foodId.startsWith("panelist") && foodId !== "addhuman") {
         return { ok: false, error: `Unknown foodId: ${foodId}` };
       }
-      ctx.setHoveredFood(foodId);
+      useMeetingSetupStore.getState().setHoveredFood(foodId);
       return { ok: true };
     },
     deselect_food: (raw) => {
       const obj = asObject(raw);
       const foodId = asString(obj?.foodId);
       if (!foodId) return { ok: false, error: "Missing foodId" };
-      ctx.handleDeselectFoodId(foodId);
+      useMeetingSetupStore.getState().handleDeselectFoodId(foodId);
       return { ok: true };
     },
     start_meeting: async () => {
@@ -293,11 +278,12 @@ export function createGuideToolHandlers(ctx: GuideToolContext): Record<string, T
           error: "Confirm the topic first; start_meeting only works on the foods step after confirm_topic.",
         };
       }
+      const { selectedFoods, humans, numberOfHumans } = useMeetingSetupStore.getState();
       const built = buildMeetingFoodsPayload({
         language: ctx.voiceGuideLanguage,
-        selectedFoods: ctx.selectedFoods,
-        humans: ctx.humans,
-        numberOfHumans: ctx.numberOfHumans,
+        selectedFoods,
+        humans,
+        numberOfHumans,
         labels: ctx.meetingFoodsLabels,
       });
       if (!built.ok) return built;

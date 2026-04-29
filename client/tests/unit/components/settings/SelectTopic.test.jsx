@@ -4,6 +4,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import SelectTopic from '../../../../src/components/settings/SelectTopic';
 import { getTopicsBundle } from '../../../../src/components/topicsBundle';
 import { useState } from 'react';
+import { useMeetingSetupStore } from '../../../../src/stores/useMeetingSetupStore';
 
 // Mocks
 vi.mock('react-i18next', () => ({
@@ -44,18 +45,9 @@ const defaultBundle = {
 };
 
 function ControlledSelectTopic(props) {
-    const [selectedTopic, setSelectedTopic] = useState('');
-    const [customTopic, setCustomTopic] = useState('');
-    const [hoveredTopic, setHoveredTopic] = useState(null);
     return (
         <SelectTopic
             {...props}
-            selectedTopic={selectedTopic}
-            setSelectedTopic={setSelectedTopic}
-            customTopic={customTopic}
-            setCustomTopic={setCustomTopic}
-            hoveredTopic={hoveredTopic}
-            setHoveredTopic={setHoveredTopic}
         />
     );
 }
@@ -66,6 +58,7 @@ describe('SelectTopic Component', () => {
     let mockOnCancel;
 
     beforeEach(() => {
+        useMeetingSetupStore.getState().resetStore();
         mockOnContinue = vi.fn();
         mockOnReset = vi.fn();
         mockOnCancel = vi.fn();

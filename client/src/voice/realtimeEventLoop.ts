@@ -66,6 +66,8 @@ export type EventLoop = {
   isResponseActive: () => boolean;
   /** Send `session.update` with the given config; optionally queue a greeting. */
   configureSession: (session: RealtimeSessionConfig, options?: ConfigureSessionOptions) => void;
+  /** Send a manual user message to the conversation transcript. */
+  sendUserMessage: (text: string) => void;
 };
 
 type FunctionCallMeta = { name?: string; call_id?: string };
@@ -138,6 +140,18 @@ export function createEventLoop(params: {
     }
     log("send session.update", session);
     trySendJson({ type: "session.update", session });
+  };
+  
+  const sendUserMessage = (text: string): void => {
+    log("send user message", text);
+    trySendJson({
+      type: "conversation.item.create",
+      item: {
+        type: "message",
+        role: "user",
+        content: [{ type: "input_text", text }],
+      },
+    });
   };
 
   const handleEvent = async (event: unknown): Promise<boolean> => {
@@ -314,5 +328,5 @@ export function createEventLoop(params: {
     return false;
   };
 
-  return { handleEvent, requestResponseIfIdle, isResponseActive, configureSession };
+  return { handleEvent, requestResponseIfIdle, isResponseActive, configureSession, sendUserMessage };
 }

@@ -64,7 +64,7 @@ function MainOverlays({ topic, onReset, onCloseOverlay }: MainOverlaysProps): Re
         return <Contact />;
       case "#settings":
         return (
-          <ControlledSelectTopic
+          <SelectTopic
             currentTopic={topic ?? undefined}
             onReset={onReset}
             onCancel={cancelOverlay}
@@ -98,33 +98,6 @@ function MainOverlays({ topic, onReset, onCloseOverlay }: MainOverlaysProps): Re
   );
 }
 
-interface ControlledSelectTopicProps {
-  currentTopic: Topic | undefined;
-  onReset: (resetTopic?: Topic) => void;
-  onCancel: () => void;
-  onContinueForward: (topic: Topic) => void;
-}
 
-function ControlledSelectTopic({ currentTopic, onReset, onCancel, onContinueForward }: ControlledSelectTopicProps): React.ReactElement {
-
-  const [selectedTopic, setSelectedTopic] = useState<string>("");
-  const [customTopic, setCustomTopic] = useState<string>("");
-  const [hoveredTopic, setHoveredTopic] = useState<string | null>(null);
-
-  return (
-    <SelectTopic
-      currentTopic={currentTopic}
-      onReset={onReset}
-      onCancel={onCancel}
-      onContinueForward={onContinueForward}
-      selectedTopic={selectedTopic}
-      setSelectedTopic={setSelectedTopic}
-      customTopic={customTopic}
-      setCustomTopic={setCustomTopic}
-      hoveredTopic={hoveredTopic}
-      setHoveredTopic={setHoveredTopic}
-    />
-  );
-}
 
 export default MainOverlays;
