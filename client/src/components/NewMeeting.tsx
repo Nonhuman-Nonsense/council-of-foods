@@ -44,6 +44,22 @@ export default function NewMeeting({
   const [humans, setHumans] = useState<Food[]>(() => createDefaultHumans());
   const [numberOfHumans, setNumberOfHumans] = useState<number>(0);
 
+  const [hoveredTopic, setHoveredTopic] = useState<string | null>(null);
+  const [hoveredFood, setHoveredFood] = useState<string | null>(null);
+
+  const handleSelectFoodId = (foodId: string): boolean => {
+    const maxFoods = 6 + 1; // 6 plus chair
+    if (selectedFoods.length >= maxFoods && !selectedFoods.includes(foodId)) {
+      return false;
+    }
+    setSelectedFoods((prev) => (prev.includes(foodId) ? prev : [...prev, foodId]));
+    return true;
+  };
+
+  const handleDeselectFoodId = (foodId: string) => {
+    setSelectedFoods((prev) => prev.filter((id) => id !== foodId));
+  };
+
   // Keep lifted topic UI state consistent if we start on foods step (e.g. reset flow)
   useEffect(() => {
     if (!topicSelection) return;
@@ -142,11 +158,14 @@ export default function NewMeeting({
       customTopic,
       setCustomTopic,
       selectedFoods,
-      setSelectedFoods,
+      handleSelectFoodId,
+      handleDeselectFoodId,
       humans,
       setHumans,
       numberOfHumans,
       setNumberOfHumans,
+      setHoveredTopic,
+      setHoveredFood,
       buildSelectedTopicFromUi,
       confirmTopic: (topic: Topic) => handleTopicContinue(topic),
       startMeeting: async (foods: Food[]) => {
@@ -174,6 +193,8 @@ export default function NewMeeting({
           customTopic={customTopic}
           setCustomTopic={setCustomTopic}
           onContinueForward={handleTopicContinue}
+          hoveredTopic={hoveredTopic}
+          setHoveredTopic={setHoveredTopic}
         />
         <VoiceGuideOverlay
           isConnecting={voice.isConnecting}
@@ -195,10 +216,14 @@ export default function NewMeeting({
         loading={creating}
         selectedFoods={selectedFoods}
         setSelectedFoods={setSelectedFoods}
+        handleSelectFoodId={handleSelectFoodId}
+        handleDeselectFoodId={handleDeselectFoodId}
         humans={humans}
         setHumans={setHumans}
         numberOfHumans={numberOfHumans}
         setNumberOfHumans={setNumberOfHumans}
+        hoveredFood={hoveredFood}
+        setHoveredFood={setHoveredFood}
       />
       <VoiceGuideOverlay
         isConnecting={voice.isConnecting}

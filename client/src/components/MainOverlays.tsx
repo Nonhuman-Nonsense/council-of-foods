@@ -109,6 +109,7 @@ function ControlledSelectTopic({ currentTopic, onReset, onCancel, onContinueForw
 
   const [selectedTopic, setSelectedTopic] = useState<string>("");
   const [customTopic, setCustomTopic] = useState<string>("");
+  const [hoveredTopic, setHoveredTopic] = useState<string | null>(null);
 
   return (
     <SelectTopic
@@ -120,6 +121,8 @@ function ControlledSelectTopic({ currentTopic, onReset, onCancel, onContinueForw
       setSelectedTopic={setSelectedTopic}
       customTopic={customTopic}
       setCustomTopic={setCustomTopic}
+      hoveredTopic={hoveredTopic}
+      setHoveredTopic={setHoveredTopic}
     />
   );
 }

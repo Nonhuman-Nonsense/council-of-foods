@@ -29,16 +29,34 @@ describe('SelectFoods Component', () => {
         const [selectedFoods, setSelectedFoods] = useState([foodsEn.foods[0].id]);
         const [humans, setHumans] = useState(() => createDefaultHumans());
         const [numberOfHumans, setNumberOfHumans] = useState(0);
+        const [hoveredFood, setHoveredFood] = useState(null);
+
+        const handleSelectFoodId = (foodId) => {
+            if (selectedFoods.length >= 7 && !selectedFoods.includes(foodId)) {
+                return false;
+            }
+            setSelectedFoods((prev) => (prev.includes(foodId) ? prev : [...prev, foodId]));
+            return true;
+        };
+
+        const handleDeselectFoodId = (foodId) => {
+            setSelectedFoods((prev) => prev.filter((id) => id !== foodId));
+        };
+
         return (
             <SelectFoods
                 topicTitle="Test Topic"
                 onContinueForward={mockOnContinue}
                 selectedFoods={selectedFoods}
                 setSelectedFoods={setSelectedFoods}
+                handleSelectFoodId={handleSelectFoodId}
+                handleDeselectFoodId={handleDeselectFoodId}
                 humans={humans}
                 setHumans={setHumans}
                 numberOfHumans={numberOfHumans}
                 setNumberOfHumans={setNumberOfHumans}
+                hoveredFood={hoveredFood}
+                setHoveredFood={setHoveredFood}
             />
         );
     }

@@ -46,6 +46,7 @@ const defaultBundle = {
 function ControlledSelectTopic(props) {
     const [selectedTopic, setSelectedTopic] = useState('');
     const [customTopic, setCustomTopic] = useState('');
+    const [hoveredTopic, setHoveredTopic] = useState(null);
     return (
         <SelectTopic
             {...props}
@@ -53,6 +54,8 @@ function ControlledSelectTopic(props) {
             setSelectedTopic={setSelectedTopic}
             customTopic={customTopic}
             setCustomTopic={setCustomTopic}
+            hoveredTopic={hoveredTopic}
+            setHoveredTopic={setHoveredTopic}
         />
     );
 }

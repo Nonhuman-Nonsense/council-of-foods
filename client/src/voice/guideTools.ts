@@ -41,11 +41,15 @@ export type GuideToolContext = {
   setCustomTopic: (text: string) => void;
 
   selectedFoods: string[];
-  setSelectedFoods: React.Dispatch<React.SetStateAction<string[]>>;
+  handleSelectFoodId: (id: string) => boolean;
+  handleDeselectFoodId: (id: string) => void;
   humans: Food[];
   setHumans: React.Dispatch<React.SetStateAction<Food[]>>;
   numberOfHumans: number;
   setNumberOfHumans: React.Dispatch<React.SetStateAction<number>>;
+
+  setHoveredTopic: (id: string | null) => void;
+  setHoveredFood: (id: string | null) => void;
 
   // Imperative handoff points (Phase 3 wires these)
   buildSelectedTopicFromUi: () => Topic;
@@ -89,6 +93,17 @@ export function createGuideTools(_ctx: Pick<GuideToolContext, "topics" | "foods"
       type: "function",
       name: "select_topic",
       description: "Select a topic by id.",
+      parameters: {
+        type: "object",
+        additionalProperties: false,
+        properties: { topicId: { type: "string" } },
+        required: ["topicId"],
+      },
+    },
+    {
+      type: "function",
+      name: "highlight_topic",
+      description: "Highlight or hover a topic on the screen (e.g. while explaining it). Pass null or empty string to clear the highlight.",
       parameters: {
         type: "object",
         additionalProperties: false,
@@ -144,6 +159,17 @@ export function createGuideTools(_ctx: Pick<GuideToolContext, "topics" | "foods"
     },
     {
       type: "function",
+      name: "highlight_food",
+      description: "Highlight or hover a food character on the screen (e.g. while explaining it). Pass null or empty string to clear the highlight.",
+      parameters: {
+        type: "object",
+        additionalProperties: false,
+        properties: { foodId: { type: "string" } },
+        required: ["foodId"],
+      },
+    },
+    {
+      type: "function",
       name: "deselect_food",
       description: "Deselect a food character by id.",
       parameters: {
@@ -188,6 +214,19 @@ export function createGuideToolHandlers(ctx: GuideToolContext): Record<string, T
       ctx.setSelectedTopic(topicId);
       return { ok: true };
     },
+    highlight_topic: (raw) => {
+      const obj = asObject(raw);
+      const topicId = asString(obj?.topicId);
+      if (!topicId) {
+        ctx.setHoveredTopic(null);
+        return { ok: true };
+      }
+      if (!ctx.topics.some((t) => t.id === topicId) && topicId !== "customtopic") {
+        return { ok: false, error: `Unknown topicId: ${topicId}` };
+      }
+      ctx.setHoveredTopic(topicId);
+      return { ok: true };
+    },
     set_custom_topic: (raw) => {
       const obj = asObject(raw);
       const text = asString(obj?.text);
@@ -221,14 +260,30 @@ export function createGuideToolHandlers(ctx: GuideToolContext): Record<string, T
       if (!ctx.foods.some((f) => f.id === foodId) && !foodId.startsWith("panelist")) {
         return { ok: false, error: `Unknown foodId: ${foodId}` };
       }
-      ctx.setSelectedFoods((prev) => (prev.includes(foodId) ? prev : [...prev, foodId]));
+      const success = ctx.handleSelectFoodId(foodId);
+      if (!success) {
+        return { ok: false, error: "Maximum number of characters (6 plus the chair) already selected." };
+      }
+      return { ok: true };
+    },
+    highlight_food: (raw) => {
+      const obj = asObject(raw);
+      const foodId = asString(obj?.foodId);
+      if (!foodId) {
+        ctx.setHoveredFood(null);
+        return { ok: true };
+      }
+      if (!ctx.foods.some((f) => f.id === foodId) && !foodId.startsWith("panelist") && foodId !== "addhuman") {
+        return { ok: false, error: `Unknown foodId: ${foodId}` };
+      }
+      ctx.setHoveredFood(foodId);
       return { ok: true };
     },
     deselect_food: (raw) => {
       const obj = asObject(raw);
       const foodId = asString(obj?.foodId);
       if (!foodId) return { ok: false, error: "Missing foodId" };
-      ctx.setSelectedFoods((prev) => prev.filter((id) => id !== foodId));
+      ctx.handleDeselectFoodId(foodId);
       return { ok: true };
     },
     start_meeting: async () => {

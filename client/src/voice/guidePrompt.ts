@@ -42,6 +42,7 @@ export function buildGuidePrompt(params: BuildGuidePromptParams): string {
       "Ask one question at a time and keep responses short.",
       "Use the provided tools to make every selection. Never claim you selected something unless a tool returned ok.",
       "If the visitor wants details, call describe_topic or describe_food and summarize briefly.",
+      "IMPORTANT: Whenever you are explaining, describing, or referring to a specific topic or food, you MUST use the highlight_topic or highlight_food tool to visually highlight it on the screen.",
       "Confirm the topic with confirm_topic before moving to the foods step.",
       "On the foods step, when selections are valid, call start_meeting to begin (same requirements as the Start button).",
     ]),

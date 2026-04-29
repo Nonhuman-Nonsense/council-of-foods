@@ -109,6 +109,7 @@ export function useVoiceGuide(params: UseVoiceGuideParams): VoiceGuideState {
   const [error, setError] = useState<string | null>(null);
   const [lastCaption, setLastCaption] = useState<string | null>(null);
   const [lastUserTranscript, setLastUserTranscript] = useState<string | null>(null);
+  const [hasSeenFirstMessage, setHasSeenFirstMessage] = useState(false);
 
   const connectionRef = useRef<RealtimeConnection | null>(null);
   const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -204,6 +205,7 @@ export function useVoiceGuide(params: UseVoiceGuideParams): VoiceGuideState {
 
     setStatus("connecting");
     setError(null);
+    setHasSeenFirstMessage(false);
 
     let conn: RealtimeConnection | null = null;
     try {
@@ -275,6 +277,7 @@ export function useVoiceGuide(params: UseVoiceGuideParams): VoiceGuideState {
             setStatus("error");
           },
           onResponseStarted: () => {
+            if (!isStale()) setHasSeenFirstMessage(true);
             clearAudioAnchorFallback();
             remoteAudioAnchorRef.current?.arm();
           },
@@ -399,7 +402,7 @@ export function useVoiceGuide(params: UseVoiceGuideParams): VoiceGuideState {
   }, [muted, autoStart, cleanup, start]);
 
   return {
-    isConnecting: status === "connecting",
+    isConnecting: status === "connecting" || (status === "connected" && !hasSeenFirstMessage),
     error,
     lastCaption,
     lastUserTranscript,

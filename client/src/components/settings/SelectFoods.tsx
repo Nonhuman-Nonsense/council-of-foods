@@ -40,10 +40,14 @@ interface SelectFoodsProps {
   loading?: boolean;
   selectedFoods: string[];
   setSelectedFoods: React.Dispatch<React.SetStateAction<string[]>>;
+  handleSelectFoodId: (foodId: string) => boolean;
+  handleDeselectFoodId: (foodId: string) => void;
   humans: Food[]; // fixed length (MAXHUMANS)
   setHumans: React.Dispatch<React.SetStateAction<Food[]>>;
   numberOfHumans: number;
   setNumberOfHumans: React.Dispatch<React.SetStateAction<number>>;
+  hoveredFood: string | null;
+  setHoveredFood: (foodId: string | null) => void;
 }
 
 const MAXHUMANS = 3;
@@ -255,12 +259,15 @@ function SelectFoods({
   setHumans,
   numberOfHumans,
   setNumberOfHumans,
+  handleSelectFoodId,
+  handleDeselectFoodId,
+  hoveredFood,
+  setHoveredFood,
 }: SelectFoodsProps): React.ReactElement {
   const [lastSelected, setLastSelected] = useState<string | null>(null);
 
   const [humansReady, setHumansReady] = useState<boolean>(false);
   const [recheckHumansReady, setRecheckHumansReady] = useState<boolean>(false);
-  const [currentFood, setCurrentFood] = useState<string | null>(null);
 
   const minFoods = 2 + 1; // 2 plus chair
   const maxFoods = 6 + 1; // 6 plus chair
@@ -325,8 +332,8 @@ function SelectFoods({
   }
 
   function selectFood(food: Food): void {
-    if (selectedFoods.length < maxFoods && !selectedFoods.includes(food.id)) {
-      setSelectedFoods((prevFoods) => [...prevFoods, food.id]);
+    const success = handleSelectFoodId(food.id);
+    if (success) {
       setLastSelected(food.id);
     }
   }
@@ -337,7 +344,7 @@ function SelectFoods({
       setLastSelected(food.id);
     } else {
       //Normal deselection
-      setSelectedFoods((prevFoods) => prevFoods.filter((f) => f !== food.id));
+      handleDeselectFoodId(food.id);
       setLastSelected(null);
     }
   }
@@ -372,12 +379,12 @@ function SelectFoods({
   /* -------------------------------------------------------------------------- */
 
   function infoToShow(): React.ReactNode {
-    if (currentFood === 'addhuman') {
+    if (hoveredFood === 'addhuman') {
       return <FoodInfo food={foodData.addHuman} />;
-    } else if (currentFood !== null && !currentFood.startsWith('panelist')) {//If something is hovered & if it's not a human
-      return <FoodInfo food={foods.find(f => f.id === currentFood)} />;
-    } else if (currentFood?.startsWith('panelist') && lastSelected !== currentFood) {//a human is hovered but not selected
-      return <HumanInfo human={humans.find(h => h.id === currentFood)} unfocus={true} setHumans={setHumans} setRecheckHumansReady={setRecheckHumansReady} />;
+    } else if (hoveredFood !== null && !hoveredFood.startsWith('panelist')) {//If something is hovered & if it's not a human
+      return <FoodInfo food={foods.find(f => f.id === hoveredFood)} />;
+    } else if (hoveredFood?.startsWith('panelist') && lastSelected !== hoveredFood) {//a human is hovered but not selected
+      return <HumanInfo human={humans.find(h => h.id === hoveredFood)} unfocus={true} setHumans={setHumans} setRecheckHumansReady={setRecheckHumansReady} />;
     } else if (lastSelected?.startsWith('panelist')) {//a human is selected
       return <HumanInfo human={humans.find(h => h.id === lastSelected)} lastSelected={lastSelected} setHumans={setHumans} setRecheckHumansReady={setRecheckHumansReady} />;
     } else {
@@ -423,7 +430,7 @@ function SelectFoods({
       return <h4 style={subInfoStyle}>{t('selectfoods.requirename')}</h4>;
     } else if (atLeastTwoFoods() && selectedFoods.length <= maxFoods && humansReady && !ensureUniqueNames()) {
       return <h4 style={subInfoStyle}>{t('selectfoods.unique')}</h4>;
-    } else if (currentFood !== null || (selectedFoods.length > 1 && !atLeastTwoFoods())) {
+    } else if (hoveredFood !== null || (selectedFoods.length > 1 && !atLeastTwoFoods())) {
       return <h4 style={subInfoStyle}>{t('selectfoods.pleaseselect')}</h4>;
     } else if (selectedFoods.length < 2) {
       return <button onClick={randomizeSelection} className="fadein" style={{ margin: isMobileXs ? "0" : "8px 0", position: "absolute" }}>{t('selectfoods.random')}</button>;
@@ -462,8 +469,8 @@ function SelectFoods({
             <FoodButton
               key={food.type === 'panelist' ? food.id : food.name}
               food={food}
-              onMouseEnter={() => setCurrentFood(food.id)}
-              onMouseLeave={() => setCurrentFood(null)}
+              onMouseEnter={() => setHoveredFood(food.id)}
+              onMouseLeave={() => setHoveredFood(null)}
               // moderator check
               onSelectFood={food.id === globalClientOptions.chairId ? undefined : selectFood}
               onDeselectFood={deselectFood}
@@ -472,8 +479,8 @@ function SelectFoods({
             />
           ))}
           {(numberOfHumans < MAXHUMANS) && <AddHumanButton
-            onMouseEnter={() => setCurrentFood('addhuman')}
-            onMouseLeave={() => setCurrentFood(null)}
+            onMouseEnter={() => setHoveredFood('addhuman')}
+            onMouseLeave={() => setHoveredFood(null)}
             onAddHuman={onAddHuman}
             isSelected={selectedFoods.includes('addhuman')}
             selectLimitReached={selectedFoods.length >= maxFoods}
