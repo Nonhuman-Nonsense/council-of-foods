@@ -2,7 +2,7 @@ import type { Message } from '@shared/ModelTypes.js';
 import type { SetupOptions } from '@shared/SocketTypes.js';
 import type { ILifecycleContext } from "@interfaces/MeetingInterfaces.js";
 import type { Message as AudioMessage } from "@logic/AudioSystem.js";
-import { splitSentences } from "@utils/textUtils.js";
+import { splitSentences } from "@shared/textUtils.js";
 import { Logger } from "@utils/Logger.js";
 import removeMd from 'remove-markdown';
 import type { StoredMeeting } from "@models/DBModels.js";

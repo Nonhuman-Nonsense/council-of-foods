@@ -11,8 +11,12 @@ import {
   type RealtimeSessionConfig,
   type RealtimeSessionServerDefaults,
 } from "./realtimeProtocol";
+import { createCaptionScheduler, type CaptionScheduler } from "./captionScheduler";
+import { createRemoteAudioAnchor, type RemoteAudioAnchor } from "./remoteAudioAnchor";
 
 type VoiceGuideStatus = "idle" | "connecting" | "connected" | "error";
+
+const AUDIO_ANCHOR_FALLBACK_DELAY_MS = 600;
 
 export type UseVoiceGuideParams = {
   /** System instructions/prompt. */
@@ -108,6 +112,9 @@ export function useVoiceGuide(params: UseVoiceGuideParams): VoiceGuideState {
 
   const connectionRef = useRef<RealtimeConnection | null>(null);
   const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
+  const remoteAudioAnchorRef = useRef<RemoteAudioAnchor | null>(null);
+  const audioAnchorFallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const captionSchedulerRef = useRef<CaptionScheduler | null>(null);
   /**
    * Each call to start() bumps this counter and creates a fresh AbortController.
    * Any prior in-flight start observes its old controller has been aborted and
@@ -138,6 +145,13 @@ export function useVoiceGuide(params: UseVoiceGuideParams): VoiceGuideState {
     return mergeVoiceGuideRealtimeSession(defaults, instructionsRef.current, toolsRef.current);
   }, []);
 
+  const clearAudioAnchorFallback = useCallback(() => {
+    if (audioAnchorFallbackTimerRef.current != null) {
+      clearTimeout(audioAnchorFallbackTimerRef.current);
+      audioAnchorFallbackTimerRef.current = null;
+    }
+  }, []);
+
   const cleanup = useCallback(() => {
     // Cancel any in-flight start(): aborts fetches and getUserMedia, and
     // makes the start() promise observe the abort and tear down what it had.
@@ -148,6 +162,12 @@ export function useVoiceGuide(params: UseVoiceGuideParams): VoiceGuideState {
     attemptRef.current += 1;
 
     serverDefaultsRef.current = null;
+    clearAudioAnchorFallback();
+    captionSchedulerRef.current?.cancel();
+    captionSchedulerRef.current = null;
+
+    remoteAudioAnchorRef.current?.dispose();
+    remoteAudioAnchorRef.current = null;
 
     connectionRef.current?.close();
     connectionRef.current = null;
@@ -161,7 +181,7 @@ export function useVoiceGuide(params: UseVoiceGuideParams): VoiceGuideState {
       }
     }
     remoteAudioRef.current = null;
-  }, [audioElement]);
+  }, [audioElement, clearAudioAnchorFallback]);
 
   const stop = useCallback(() => {
     setMuted(true);
@@ -210,6 +230,13 @@ export function useVoiceGuide(params: UseVoiceGuideParams): VoiceGuideState {
         return;
       }
       serverDefaultsRef.current = defaults;
+      const captionScheduler = createCaptionScheduler({
+        onCaption: (text) => {
+          if (!isStale()) setLastCaption(text);
+        },
+      });
+      captionScheduler.setSpeed(defaults.audio.output?.speed);
+      captionSchedulerRef.current = captionScheduler;
 
       let activeConn: RealtimeConnection | null = null;
       const sendOnDc = (payload: unknown) => {
@@ -221,6 +248,7 @@ export function useVoiceGuide(params: UseVoiceGuideParams): VoiceGuideState {
       const loop = createEventLoop({
         send: sendOnDc,
         getCtx: () => ({ toolHandlers: handlersRef.current }),
+        captionScheduler,
         callbacks: {
           onCaption: (text) => {
             if (!isStale()) setLastCaption(text);
@@ -232,6 +260,18 @@ export function useVoiceGuide(params: UseVoiceGuideParams): VoiceGuideState {
             if (isStale()) return;
             setError(message);
             setStatus("error");
+          },
+          onResponseStarted: () => {
+            clearAudioAnchorFallback();
+            remoteAudioAnchorRef.current?.arm();
+          },
+          onAudioPartReady: () => {
+            clearAudioAnchorFallback();
+            audioAnchorFallbackTimerRef.current = setTimeout(() => {
+              audioAnchorFallbackTimerRef.current = null;
+              captionScheduler.setAudioAnchor(performance.now());
+              debugLog("caption audio anchor fallback fired");
+            }, AUDIO_ANCHOR_FALLBACK_DELAY_MS);
           },
           onSessionReady: () => debugLog("session ready"),
           log: debugLog,
@@ -252,7 +292,26 @@ export function useVoiceGuide(params: UseVoiceGuideParams): VoiceGuideState {
             return;
           }
           remoteAudioRef.current = attachRemoteAudio(track, audioElement ?? null);
-          track.onended = () => debugLog("remote track ended");
+          try {
+            remoteAudioAnchorRef.current?.dispose();
+            remoteAudioAnchorRef.current = createRemoteAudioAnchor({
+              track,
+              onAudioStart: (nowMs) => {
+                if (isStale()) return;
+                clearAudioAnchorFallback();
+                captionScheduler.setAudioAnchor(nowMs);
+              },
+              log: debugLog,
+            });
+          } catch (err) {
+            debugLog("remote audio anchor unavailable", err);
+          }
+          track.onended = () => {
+            debugLog("remote track ended");
+            clearAudioAnchorFallback();
+            remoteAudioAnchorRef.current?.dispose();
+            remoteAudioAnchorRef.current = null;
+          };
         },
         onEvent: (event) => {
           if (isStale()) return;
@@ -302,7 +361,7 @@ export function useVoiceGuide(params: UseVoiceGuideParams): VoiceGuideState {
     } finally {
       if (abortRef.current === controller) abortRef.current = null;
     }
-  }, [audioElement, buildSessionConfig]);
+  }, [audioElement, buildSessionConfig, clearAudioAnchorFallback]);
 
   // Unconditional teardown on unmount.
   useEffect(() => {

@@ -1,6 +1,6 @@
 import type { Message } from "@shared/ModelTypes.js";
 import type { IHandRaisingContext } from "@interfaces/MeetingInterfaces.js";
-import { splitSentences } from "@utils/textUtils.js";
+import { splitSentences } from "@shared/textUtils.js";
 import { Logger } from "@utils/Logger.js";
 
 

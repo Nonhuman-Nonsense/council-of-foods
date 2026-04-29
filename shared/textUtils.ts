@@ -99,7 +99,7 @@ export function mapSentencesToWords(sentences: string[], words: Word[]): MappedS
             for (let i = startIndex; i < endSearchLimit; i++) {
                 if (whisperTokens[i] === targetToken) {
                     endIndex = i;
-                    // Heuristic: If we found the word very early, it might be a duplicate "the". 
+                    // Heuristic: If we found the word very early, it might be a duplicate "the".
                     // Keep searching if it's too close, otherwise take it.
                     if (i > startIndex + (estimatedLength * 0.5)) break;
                 }

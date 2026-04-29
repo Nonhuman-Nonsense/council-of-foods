@@ -13,6 +13,7 @@
 
 import type { RealtimeSessionConfig } from "./realtimeProtocol";
 import type { ToolHandler, ToolResult } from "./guideTools";
+import type { CaptionScheduler } from "./captionScheduler";
 
 export type RealtimeEventCtx = {
   /** Tool name -> handler. May change per render. */
@@ -28,6 +29,10 @@ export type EventLoopCallbacks = {
   onError: (message: string) => void;
   /** Fired when the server confirms the session config was applied. */
   onSessionReady?: () => void;
+  /** Fired when an assistant response begins, before audio is audible. */
+  onResponseStarted?: () => void;
+  /** Fired when the data channel reports that the audio content part exists. */
+  onAudioPartReady?: () => void;
   /** Optional debug hook. */
   log?: (...args: unknown[]) => void;
 };
@@ -79,8 +84,9 @@ export function createEventLoop(params: {
   send: (payload: unknown) => void;
   getCtx: () => RealtimeEventCtx;
   callbacks: EventLoopCallbacks;
+  captionScheduler?: CaptionScheduler;
 }): EventLoop {
-  const { send, getCtx, callbacks } = params;
+  const { send, getCtx, callbacks, captionScheduler } = params;
   const log = callbacks.log ?? (() => undefined);
 
   let activeResponses = 0;
@@ -167,6 +173,8 @@ export function createEventLoop(params: {
 
     if (type === "response.created") {
       activeResponses += 1;
+      captionScheduler?.beginResponse();
+      callbacks.onResponseStarted?.();
       return true;
     }
 
@@ -174,6 +182,9 @@ export function createEventLoop(params: {
       activeResponses = Math.max(0, activeResponses - 1);
       const r = obj.response as { status?: string; status_details?: unknown } | undefined;
       if (r?.status === "failed") log("response.failed", r.status_details);
+      if (r?.status === "cancelled" || r?.status === "failed") {
+        captionScheduler?.cancel();
+      }
       if (pendingDeferredResponse && sessionReady && activeResponses === 0) {
         pendingDeferredResponse = false;
         send({ type: "response.create" });
@@ -185,6 +196,14 @@ export function createEventLoop(params: {
       const item = (obj as { item?: { type?: string; id?: string; call_id?: string; name?: string } }).item;
       if (item?.type === "function_call" && item.id) {
         functionCallMeta.set(item.id, { call_id: item.call_id, name: item.name });
+      }
+      return true;
+    }
+
+    if (type === "response.content_part.added") {
+      const part = asObj(obj.part);
+      if (asStr(part?.type) === "audio") {
+        callbacks.onAudioPartReady?.();
       }
       return true;
     }
@@ -229,15 +248,19 @@ export function createEventLoop(params: {
     }
 
     if (type === "response.output_audio_transcript.delta") {
-      // We surface the .done event below; ignore deltas to avoid duplicated
-      // accumulation (the .done event has the full transcript).
+      const delta = asStr(obj.delta);
+      if (delta) captionScheduler?.appendDelta(delta);
       return true;
     }
 
     if (type === "response.output_audio_transcript.done") {
       const transcript = asStr(obj.transcript);
       if (transcript && transcript.trim().length > 0) {
-        callbacks.onCaption(transcript);
+        if (captionScheduler) {
+          captionScheduler.finalize(transcript);
+        } else {
+          callbacks.onCaption(transcript);
+        }
       }
       return true;
     }
@@ -246,7 +269,11 @@ export function createEventLoop(params: {
       const transcript = asStr(obj.transcript);
       if (transcript && transcript.trim().length > 0) {
         callbacks.onUserTranscript(transcript);
-        callbacks.onCaption(null);
+        if (captionScheduler) {
+          captionScheduler.cancel();
+        } else {
+          callbacks.onCaption(null);
+        }
       }
       return true;
     }
@@ -275,7 +302,12 @@ export function createEventLoop(params: {
     }
 
     // Speech VAD events: useful for diagnostics but not actionable here.
-    if (type === "input_audio_buffer.speech_started" || type === "input_audio_buffer.speech_stopped") {
+    if (type === "input_audio_buffer.speech_started") {
+      captionScheduler?.cancel();
+      return true;
+    }
+
+    if (type === "input_audio_buffer.speech_stopped") {
       return true;
     }
 
