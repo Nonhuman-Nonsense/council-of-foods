@@ -115,6 +115,7 @@ export function useVoiceGuide(params: UseVoiceGuideParams): VoiceGuideState {
   const remoteAudioAnchorRef = useRef<RemoteAudioAnchor | null>(null);
   const audioAnchorFallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const captionSchedulerRef = useRef<CaptionScheduler | null>(null);
+  const userTranscriptTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   /**
    * Each call to start() bumps this counter and creates a fresh AbortController.
    * Any prior in-flight start observes its old controller has been aborted and
@@ -163,6 +164,10 @@ export function useVoiceGuide(params: UseVoiceGuideParams): VoiceGuideState {
 
     serverDefaultsRef.current = null;
     clearAudioAnchorFallback();
+    if (userTranscriptTimerRef.current) {
+      clearTimeout(userTranscriptTimerRef.current);
+      userTranscriptTimerRef.current = null;
+    }
     captionSchedulerRef.current?.cancel();
     captionSchedulerRef.current = null;
 
@@ -254,7 +259,15 @@ export function useVoiceGuide(params: UseVoiceGuideParams): VoiceGuideState {
             if (!isStale()) setLastCaption(text);
           },
           onUserTranscript: (text) => {
-            if (!isStale()) setLastUserTranscript(text);
+            if (isStale()) return;
+            setLastUserTranscript(text);
+            if (userTranscriptTimerRef.current) {
+              clearTimeout(userTranscriptTimerRef.current);
+            }
+            userTranscriptTimerRef.current = setTimeout(() => {
+              if (!isStale()) setLastUserTranscript(null);
+              userTranscriptTimerRef.current = null;
+            }, 3000);
           },
           onError: (message) => {
             if (isStale()) return;

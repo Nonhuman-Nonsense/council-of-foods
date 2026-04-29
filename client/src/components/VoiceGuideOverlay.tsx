@@ -1,4 +1,3 @@
-import { useState, useEffect } from "react";
 import type { ReactElement } from "react";
 import Lottie from "react-lottie-player";
 import loadingAnimation from "@animations/loading.json";
@@ -21,21 +20,6 @@ type VoiceGuideOverlayProps = {
 export default function VoiceGuideOverlay(props: VoiceGuideOverlayProps): ReactElement {
   const { isConnecting, error, lastCaption, lastUserTranscript, muted, onToggleMuted } = props;
   const isMobile = useMobile();
-
-  const [displayedUserTranscript, setDisplayedUserTranscript] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (lastUserTranscript) {
-      setDisplayedUserTranscript(lastUserTranscript);
-      const timer = setTimeout(() => {
-        setDisplayedUserTranscript(null);
-      }, 3000);
-      return () => clearTimeout(timer);
-    } else {
-      setDisplayedUserTranscript(null);
-    }
-  }, [lastUserTranscript]);
-
 
   const paragraphStyle: React.CSSProperties = {
     fontFamily: "Arial, sans-serif",
