@@ -5,7 +5,7 @@ import VoiceGuideOverlay from "@/components/VoiceGuideOverlay";
 import { getTopicsBundle } from "@/components/topicsBundle";
 import { getFoodsBundle } from "@/components/settings/FoodUtils";
 import type { Food } from "@/components/settings/FoodUtils";
-import { buildTopicFromSelection } from "@/meetingSetup/meetingSetup";
+import { buildMeetingSetupSyncMessage, buildTopicFromSelection, type MeetingSetupUserEvent } from "@/meetingSetup/meetingSetup";
 import { useMeetingSetupStore } from "@/stores/useMeetingSetupStore";
 import { buildGuidePrompt } from "@/voice/guidePrompt";
 import { createGuideToolHandlers, createGuideTools } from "@/voice/guideTools";
@@ -14,6 +14,7 @@ import voiceGuidePromptEn from "@shared/prompts/voice_guide_en.json";
 
 type MeetingVoiceGuideProps = {
   step: "topic" | "foods";
+  lastUserEvent: MeetingSetupUserEvent | null;
   onGoToTopicStep: () => void;
   onSelectTopic: (topic: Topic) => void;
   onStartMeeting: (foods: Food[]) => Promise<void> | void;
@@ -21,6 +22,7 @@ type MeetingVoiceGuideProps = {
 
 export default function MeetingVoiceGuide({
   step,
+  lastUserEvent,
   onGoToTopicStep,
   onSelectTopic,
   onStartMeeting,
@@ -29,8 +31,6 @@ export default function MeetingVoiceGuide({
   const {
     selectedTopic,
     customTopic,
-    selectedFoods,
-    humans,
   } = useMeetingSetupStore();
 
   const topicsBundle = useMemo(() => getTopicsBundle(i18n.language), [i18n.language]);
@@ -96,34 +96,16 @@ export default function MeetingVoiceGuide({
   const { sendUserMessage } = voice;
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      if (step === "topic" && selectedTopic) {
-        const topicName =
-          selectedTopic === topicsBundle.custom_topic.id
-            ? customTopic
-            : guideTopics.find((topic) => topic.id === selectedTopic)?.title;
-        if (topicName) {
-          sendUserMessage(`(SYSTEM SYNC: User selected topic "${topicName}")`);
-        }
-        return;
-      }
+    if (!lastUserEvent) {
+      return;
+    }
 
-      if (step === "foods") {
-        const names = selectedFoods
-          .map((id) => {
-            if (id.startsWith("panelist")) {
-              const index = parseInt(id.replace("panelist", ""), 10);
-              return humans[index]?.name || `Human ${index + 1}`;
-            }
-            return guideFoods.find((food) => food.id === id)?.name;
-          })
-          .filter(Boolean);
-        sendUserMessage(`(SYSTEM SYNC: Current participants: ${names.join(", ")})`);
-      }
+    const timer = setTimeout(() => {
+      sendUserMessage(buildMeetingSetupSyncMessage(lastUserEvent));
     }, 1000);
 
     return () => clearTimeout(timer);
-  }, [customTopic, guideFoods, guideTopics, humans, selectedFoods, selectedTopic, sendUserMessage, step, topicsBundle]);
+  }, [lastUserEvent, sendUserMessage]);
 
   return (
     <VoiceGuideOverlay

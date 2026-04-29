@@ -9,6 +9,38 @@ export type MeetingFoodsI18n = {
   twoHumansSuffix: string;
 };
 
+export type MeetingSetupUserEvent =
+  | {
+      type: "topic_previewed";
+      topicId: string;
+      topicTitle: string;
+    }
+  | {
+      type: "topic_committed";
+      topicId: string;
+      topicTitle: string;
+    };
+
+export function buildMeetingSetupSyncMessage(event: MeetingSetupUserEvent): string {
+  if (event.type === "topic_previewed") {
+    return `(STATE SYNC: ${JSON.stringify({
+      source: "user",
+      type: "topic_previewed",
+      step: "topic",
+      topicId: event.topicId,
+      topicTitle: event.topicTitle,
+    })})`;
+  }
+
+  return `(STATE SYNC: ${JSON.stringify({
+    source: "user",
+    type: "topic_committed",
+    step: "foods",
+    topicId: event.topicId,
+    topicTitle: event.topicTitle,
+  })})`;
+}
+
 export function buildTopicFromSelection(params: {
   topicsBundle: TopicsData;
   selectedTopicId: string;

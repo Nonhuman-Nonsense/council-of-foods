@@ -24,6 +24,8 @@ import { buildTopicFromSelection } from "@/meetingSetup/meetingSetup";
 
 interface SelectTopicProps {
   onContinueForward: (selectedTopic: Topic) => void;
+  onPreviewTopic?: (topicId: string, topicTitle: string) => void;
+  onCommitTopic?: (selectedTopic: Topic) => void;
   currentTopic?: Topic;
   onReset?: (resetTopic: Topic) => void;
   onCancel?: () => void;
@@ -31,6 +33,8 @@ interface SelectTopicProps {
 
 function SelectTopic({
   onContinueForward,
+  onPreviewTopic,
+  onCommitTopic,
   currentTopic,
   onReset,
   onCancel,
@@ -84,13 +88,13 @@ function SelectTopic({
     if (currentTopic) {
       setDisplayWarning(true);
     } else {
-      onContinueForward(
-        buildTopicFromSelection({
-          topicsBundle,
-          selectedTopicId: selectedTopic,
-          customTopic,
-        })
-      );
+      const builtTopic = buildTopicFromSelection({
+        topicsBundle,
+        selectedTopicId: selectedTopic,
+        customTopic,
+      });
+      onCommitTopic?.(builtTopic);
+      onContinueForward(builtTopic);
     }
   }
 
@@ -228,7 +232,10 @@ function SelectTopic({
                   key={topic.id}
                   data-testid="topic-button"
                   className={selectedTopic === topic.id ? "selected " : ""}
-                  onClick={() => setSelectedTopic(topic.id)}
+                  onClick={() => {
+                    setSelectedTopic(topic.id);
+                    onPreviewTopic?.(topic.id, topic.title);
+                  }}
                   onMouseEnter={() => setHoveredTopic(topic.id)}
                   onMouseLeave={() => setHoveredTopic(null)}
                   style={selectButtonStyle}
@@ -243,6 +250,7 @@ function SelectTopic({
                   className={selectedTopic === topicsBundle.custom_topic.id ? "selected " : ""}
                   onClick={() => {
                     setSelectedTopic(topicsBundle.custom_topic.id);
+                    onPreviewTopic?.(topicsBundle.custom_topic.id, topicsBundle.custom_topic.title);
                     setTimeout(() => {
                       topicTextareaRef.current?.focus();
                     }, 0);

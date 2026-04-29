@@ -52,7 +52,7 @@ export const useMeetingSetupStore = create<MeetingSetupState>((set, get) => ({
 
   handleDeselectFoodId: (foodId) => {
     set((state) => ({
-      selectedFoods: state.selectedFoods.filter((id) => id !== foodId)
+      selectedFoods: state.selectedFoods.filter((id) => id !== foodId),
     }));
   },
 

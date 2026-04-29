@@ -7,6 +7,7 @@ import SelectFoods, { type Food } from "./settings/SelectFoods";
 import { createMeeting } from "@/api/createMeeting";
 import { useRouting } from "@/routing";
 import MeetingVoiceGuide from "@/components/MeetingVoiceGuide";
+import type { MeetingSetupUserEvent } from "@/meetingSetup/meetingSetup";
 import { useMeetingSetupStore } from "@/stores/useMeetingSetupStore";
 
 export interface NewMeetingProps {
@@ -30,6 +31,7 @@ export default function NewMeeting({
     topicSelection != null ? "foods" : "topic"
   );
   const [creating, setCreating] = useState(false);
+  const [lastUserEvent, setLastUserEvent] = useState<MeetingSetupUserEvent | null>(null);
 
   // Setup state from store
   const {
@@ -47,6 +49,22 @@ export default function NewMeeting({
       setCustomTopic("");
     }
   }, [topicSelection?.id, topicSelection?.description, setSelectedTopic, setCustomTopic]);
+
+  function handleTopicPreview(topicId: string, topicTitle: string) {
+    setLastUserEvent({
+      type: "topic_previewed",
+      topicId,
+      topicTitle,
+    });
+  }
+
+  function handleTopicCommitted(topic: Topic) {
+    setLastUserEvent({
+      type: "topic_committed",
+      topicId: topic.id,
+      topicTitle: topic.title,
+    });
+  }
 
   function handleTopicContinue(selectedTopic: Topic) {
     setTopicSelection(selectedTopic);
@@ -85,6 +103,8 @@ export default function NewMeeting({
       {step === "topic" && (
         <SelectTopic
           currentTopic={topicSelection ?? undefined}
+          onPreviewTopic={handleTopicPreview}
+          onCommitTopic={handleTopicCommitted}
           onContinueForward={handleTopicContinue}
         />
       )}
@@ -96,6 +116,7 @@ export default function NewMeeting({
         />)}
       <MeetingVoiceGuide
         step={step}
+        lastUserEvent={lastUserEvent}
         onGoToTopicStep={handleGoToTopicStep}
         onSelectTopic={handleTopicContinue}
         onStartMeeting={(foods) => handleFoodsContinue({ foods })}
