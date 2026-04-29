@@ -25,30 +25,26 @@ describe('guideTools', () => {
     };
   });
 
-  describe('highlight_topic', () => {
-    it('should set hovered topic if valid', async () => {
+  describe('select_topic', () => {
+    it('should set selected topic if valid', async () => {
       const handlers = createGuideToolHandlers(ctx);
-      const res = await handlers.highlight_topic({ topicId: 'topic1' });
+      const res = await handlers.select_topic({ topicId: 'topic1' });
       expect(res).toEqual({ ok: true });
-      expect(useMeetingSetupStore.getState().hoveredTopic).toBe('topic1');
+      expect(useMeetingSetupStore.getState().selectedTopic).toBe('topic1');
     });
 
-    it('should set hovered topic to null if missing or empty', async () => {
+    it('should return error if topicId is missing', async () => {
       const handlers = createGuideToolHandlers(ctx);
-      const res = await handlers.highlight_topic({});
-      expect(res).toEqual({ ok: true });
-      expect(useMeetingSetupStore.getState().hoveredTopic).toBe(null);
-
-      const res2 = await handlers.highlight_topic({ topicId: '' });
-      expect(res2).toEqual({ ok: true });
-      expect(useMeetingSetupStore.getState().hoveredTopic).toBe(null);
+      const res = await handlers.select_topic({});
+      expect(res).toEqual({ ok: false, error: 'Missing topicId' });
+      expect(useMeetingSetupStore.getState().selectedTopic).toBe('');
     });
 
     it('should return error if invalid topicId', async () => {
       const handlers = createGuideToolHandlers(ctx);
-      const res = await handlers.highlight_topic({ topicId: 'invalid' });
+      const res = await handlers.select_topic({ topicId: 'invalid' });
       expect(res).toEqual({ ok: false, error: 'Unknown topicId: invalid' });
-      expect(useMeetingSetupStore.getState().hoveredTopic).toBe(null);
+      expect(useMeetingSetupStore.getState().selectedTopic).toBe('');
     });
   });
 

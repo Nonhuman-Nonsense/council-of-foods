@@ -38,7 +38,6 @@ function SelectTopic({
   const {
     selectedTopic, setSelectedTopic,
     customTopic, setCustomTopic,
-    hoveredTopic, setHoveredTopic
   } = useMeetingSetupStore();
   const { t, i18n } = useTranslation();
   const isMobile = useMobile();
@@ -52,6 +51,7 @@ function SelectTopic({
   /* -------------------------------------------------------------------------- */
 
   const [displayWarning, setDisplayWarning] = useState<boolean>(false);
+  const [hoveredTopic, setHoveredTopic] = useState<string | null>(null);
 
   /* -------------------------------------------------------------------------- */
   /*                                   Effects                                  */

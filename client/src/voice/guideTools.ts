@@ -73,18 +73,9 @@ export function createGuideTools(_ctx: Pick<GuideToolContext, "topics" | "foods"
     {
       type: "function",
       name: "select_topic",
-      description: "Select a topic by id.",
-      parameters: {
-        type: "object",
-        additionalProperties: false,
-        properties: { topicId: { type: "string" } },
-        required: ["topicId"],
-      },
-    },
-    {
-      type: "function",
-      name: "highlight_topic",
-      description: "Highlight or hover a topic on the screen (e.g. while explaining it). Pass null or empty string to clear the highlight.",
+      description:
+        "Select a topic by id. Use this both to choose a topic and to visibly focus it on screen while discussing it. " +
+        "After calling this tool, continue speaking if the visitor asked for an explanation.",
       parameters: {
         type: "object",
         additionalProperties: false,
@@ -193,19 +184,6 @@ export function createGuideToolHandlers(ctx: GuideToolContext): Record<string, T
         return { ok: false, error: `Unknown topicId: ${topicId}` };
       }
       useMeetingSetupStore.getState().setSelectedTopic(topicId);
-      return { ok: true };
-    },
-    highlight_topic: (raw) => {
-      const obj = asObject(raw);
-      const topicId = asString(obj?.topicId);
-      if (!topicId) {
-        useMeetingSetupStore.getState().setHoveredTopic(null);
-        return { ok: true };
-      }
-      if (!ctx.topics.some((t) => t.id === topicId) && topicId !== "customtopic") {
-        return { ok: false, error: `Unknown topicId: ${topicId}` };
-      }
-      useMeetingSetupStore.getState().setHoveredTopic(topicId);
       return { ok: true };
     },
     set_custom_topic: (raw) => {

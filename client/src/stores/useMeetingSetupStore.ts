@@ -9,8 +9,6 @@ export interface MeetingSetupState {
   setSelectedTopic: (topicId: string) => void;
   customTopic: string;
   setCustomTopic: (topic: string) => void;
-  hoveredTopic: string | null;
-  setHoveredTopic: (topicId: string | null) => void;
 
   // Foods State
   selectedFoods: string[];
@@ -36,9 +34,6 @@ export const useMeetingSetupStore = create<MeetingSetupState>((set, get) => ({
   
   customTopic: '',
   setCustomTopic: (topic) => set({ customTopic: topic }),
-  
-  hoveredTopic: null,
-  setHoveredTopic: (topicId) => set({ hoveredTopic: topicId }),
 
   selectedFoods: [globalClientOptions.chairId],
   setSelectedFoods: (foods) => set({ selectedFoods: foods }),
@@ -75,7 +70,6 @@ export const useMeetingSetupStore = create<MeetingSetupState>((set, get) => ({
     set({
       selectedTopic: '',
       customTopic: '',
-      hoveredTopic: null,
       selectedFoods: [globalClientOptions.chairId],
       hoveredFood: null,
       humans: createDefaultHumans(),
