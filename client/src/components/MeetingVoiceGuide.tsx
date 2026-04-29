@@ -14,13 +14,15 @@ import voiceGuidePromptEn from "@shared/prompts/voice_guide_en.json";
 
 type MeetingVoiceGuideProps = {
   step: "topic" | "foods";
-  onConfirmTopic: (topic: Topic) => void;
+  onGoToTopicStep: () => void;
+  onSelectTopic: (topic: Topic) => void;
   onStartMeeting: (foods: Food[]) => Promise<void> | void;
 };
 
 export default function MeetingVoiceGuide({
   step,
-  onConfirmTopic,
+  onGoToTopicStep,
+  onSelectTopic,
   onStartMeeting,
 }: MeetingVoiceGuideProps) {
   const { i18n, t } = useTranslation();
@@ -74,13 +76,14 @@ export default function MeetingVoiceGuide({
     toolHandlers: createGuideToolHandlers({
       topics: guideTopics,
       foods: guideFoods,
+      goToTopicStep: onGoToTopicStep,
       buildSelectedTopic: () =>
         buildTopicFromSelection({
           topicsBundle,
           selectedTopicId: selectedTopic,
           customTopic,
         }),
-      confirmTopic: onConfirmTopic,
+      selectTopic: onSelectTopic,
       startMeeting: onStartMeeting,
       meetingStep: step,
       voiceGuideLanguage: i18n.language,

@@ -16,8 +16,9 @@ describe('guideTools', () => {
         { id: 'addhuman', name: 'Add Human', description: 'Add' },
         { id: 'panelist0', name: 'Alice', description: 'Human' }
       ],
+      goToTopicStep: vi.fn(),
       buildSelectedTopic: vi.fn(),
-      confirmTopic: vi.fn(),
+      selectTopic: vi.fn(),
       startMeeting: vi.fn(),
       meetingStep: 'topic',
       voiceGuideLanguage: 'en',
@@ -25,12 +26,26 @@ describe('guideTools', () => {
     };
   });
 
+  describe('describe_topic', () => {
+    it('should select the topic in the UI and return its details', async () => {
+      const handlers = createGuideToolHandlers(ctx);
+      const res = await handlers.describe_topic({ topicId: 'topic1' });
+      expect(res).toEqual({
+        ok: true,
+        data: { id: 'topic1', title: 'Topic One', description: 'Desc One' }
+      });
+      expect(useMeetingSetupStore.getState().selectedTopic).toBe('topic1');
+    });
+  });
+
   describe('select_topic', () => {
-    it('should set selected topic if valid', async () => {
+    it('should select the topic and continue if valid', async () => {
       const handlers = createGuideToolHandlers(ctx);
       const res = await handlers.select_topic({ topicId: 'topic1' });
       expect(res).toEqual({ ok: true });
       expect(useMeetingSetupStore.getState().selectedTopic).toBe('topic1');
+      expect(ctx.buildSelectedTopic).toHaveBeenCalledTimes(1);
+      expect(ctx.selectTopic).toHaveBeenCalledTimes(1);
     });
 
     it('should return error if topicId is missing', async () => {
@@ -45,6 +60,24 @@ describe('guideTools', () => {
       const res = await handlers.select_topic({ topicId: 'invalid' });
       expect(res).toEqual({ ok: false, error: 'Unknown topicId: invalid' });
       expect(useMeetingSetupStore.getState().selectedTopic).toBe('');
+    });
+
+    it('should require custom topic text before choosing customtopic', async () => {
+      const handlers = createGuideToolHandlers(ctx);
+      const res = await handlers.select_topic({ topicId: 'customtopic' });
+      expect(res).toEqual({
+        ok: false,
+        error: 'Set the custom topic text before choosing the custom topic.'
+      });
+    });
+  });
+
+  describe('go_to_topic_step', () => {
+    it('should call the topic-step callback', async () => {
+      const handlers = createGuideToolHandlers(ctx);
+      const res = await handlers.go_to_topic_step({});
+      expect(res).toEqual({ ok: true });
+      expect(ctx.goToTopicStep).toHaveBeenCalledTimes(1);
     });
   });
 

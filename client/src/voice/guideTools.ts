@@ -33,8 +33,9 @@ export type GuideToolContext = {
   foods: GuideFood[];
 
   // Imperative handoff points (Phase 3 wires these)
+  goToTopicStep: () => void;
   buildSelectedTopic: () => Topic;
-  confirmTopic: (topic: Topic) => void;
+  selectTopic: (topic: Topic) => void;
   startMeeting: (foods: Food[]) => void | Promise<void>;
 
   meetingStep: "topic" | "foods";
@@ -62,7 +63,8 @@ export function createGuideTools(_ctx: Pick<GuideToolContext, "topics" | "foods"
     {
       type: "function",
       name: "describe_topic",
-      description: "Describe a topic by id.",
+      description:
+        "Preview a topic by id. This also selects it in the UI so the visitor can see which topic is being discussed, but it stays on the topic step.",
       parameters: {
         type: "object",
         additionalProperties: false,
@@ -74,8 +76,7 @@ export function createGuideTools(_ctx: Pick<GuideToolContext, "topics" | "foods"
       type: "function",
       name: "select_topic",
       description:
-        "Select a topic by id. Use this both to choose a topic and to visibly focus it on screen while discussing it. " +
-        "After calling this tool, continue speaking if the visitor asked for an explanation.",
+        "Choose a topic by id and continue to the foods step. Use this when the visitor has decided to go with that topic.",
       parameters: {
         type: "object",
         additionalProperties: false,
@@ -96,9 +97,9 @@ export function createGuideTools(_ctx: Pick<GuideToolContext, "topics" | "foods"
     },
     {
       type: "function",
-      name: "confirm_topic",
+      name: "go_to_topic_step",
       description:
-        "Confirm the current topic selection and proceed to the foods step (same as clicking Next).",
+        "Go back to the topic step so the visitor can review or change the topic selection.",
       parameters: { type: "object", additionalProperties: false },
     },
     {
@@ -174,6 +175,7 @@ export function createGuideToolHandlers(ctx: GuideToolContext): Record<string, T
       if (!topicId) return { ok: false, error: "Missing topicId" };
       const found = ctx.topics.find((t) => t.id === topicId);
       if (!found) return { ok: false, error: `Unknown topicId: ${topicId}` };
+      useMeetingSetupStore.getState().setSelectedTopic(topicId);
       return { ok: true, data: found };
     },
     select_topic: (raw) => {
@@ -183,7 +185,13 @@ export function createGuideToolHandlers(ctx: GuideToolContext): Record<string, T
       if (!ctx.topics.some((t) => t.id === topicId) && topicId !== "customtopic") {
         return { ok: false, error: `Unknown topicId: ${topicId}` };
       }
-      useMeetingSetupStore.getState().setSelectedTopic(topicId);
+      const store = useMeetingSetupStore.getState();
+      store.setSelectedTopic(topicId);
+      if (topicId === "customtopic" && !store.customTopic.trim()) {
+        return { ok: false, error: "Set the custom topic text before choosing the custom topic." };
+      }
+      const topic = ctx.buildSelectedTopic();
+      ctx.selectTopic(topic);
       return { ok: true };
     },
     set_custom_topic: (raw) => {
@@ -194,11 +202,8 @@ export function createGuideToolHandlers(ctx: GuideToolContext): Record<string, T
       useMeetingSetupStore.getState().setCustomTopic(text);
       return { ok: true };
     },
-    confirm_topic: () => {
-      const { selectedTopic } = useMeetingSetupStore.getState();
-      if (!selectedTopic) return { ok: false, error: "No topic selected" };
-      const topic = ctx.buildSelectedTopic();
-      ctx.confirmTopic(topic);
+    go_to_topic_step: () => {
+      ctx.goToTopicStep();
       return { ok: true };
     },
     list_foods: () => ({
@@ -250,7 +255,7 @@ export function createGuideToolHandlers(ctx: GuideToolContext): Record<string, T
       if (ctx.meetingStep !== "foods") {
         return {
           ok: false,
-          error: "Confirm the topic first; start_meeting only works on the foods step after confirm_topic.",
+          error: "Choose a topic first; start_meeting only works on the foods step after select_topic.",
         };
       }
       const { selectedFoods, humans, numberOfHumans } = useMeetingSetupStore.getState();

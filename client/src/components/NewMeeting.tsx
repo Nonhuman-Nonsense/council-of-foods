@@ -53,6 +53,10 @@ export default function NewMeeting({
     setStep("foods");
   }
 
+  function handleGoToTopicStep() {
+    setStep("topic");
+  }
+
   async function handleFoodsContinue({ foods }: { foods: Food[] }) {
     if (!topicSelection) {
       console.error("NewMeeting: missing topic when creating meeting");
@@ -92,7 +96,8 @@ export default function NewMeeting({
         />)}
       <MeetingVoiceGuide
         step={step}
-        onConfirmTopic={handleTopicContinue}
+        onGoToTopicStep={handleGoToTopicStep}
+        onSelectTopic={handleTopicContinue}
         onStartMeeting={(foods) => handleFoodsContinue({ foods })}
       />
     </>
