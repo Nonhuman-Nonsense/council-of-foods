@@ -1,9 +1,6 @@
 import type { Topic, Character } from "@shared/ModelTypes";
-import {
-  type Food,
-  type MeetingFoodsI18n,
-  buildMeetingFoodsPayload,
-} from "@/components/settings/SelectFoods";
+import type { Food } from "@/components/settings/FoodUtils";
+import { buildMeetingFoodsPayload, type MeetingFoodsI18n } from "@/meetingSetup/meetingSetup";
 import { useMeetingSetupStore } from "@/stores/useMeetingSetupStore";
 
 export type JsonSchemaObject = {
@@ -36,7 +33,7 @@ export type GuideToolContext = {
   foods: GuideFood[];
 
   // Imperative handoff points (Phase 3 wires these)
-  buildSelectedTopicFromUi: () => Topic;
+  buildSelectedTopic: () => Topic;
   confirmTopic: (topic: Topic) => void;
   startMeeting: (foods: Food[]) => void | Promise<void>;
 
@@ -222,7 +219,7 @@ export function createGuideToolHandlers(ctx: GuideToolContext): Record<string, T
     confirm_topic: () => {
       const { selectedTopic } = useMeetingSetupStore.getState();
       if (!selectedTopic) return { ok: false, error: "No topic selected" };
-      const topic = ctx.buildSelectedTopicFromUi();
+      const topic = ctx.buildSelectedTopic();
       ctx.confirmTopic(topic);
       return { ok: true };
     },

@@ -1,11 +1,12 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { toTitleCase, useMobile, useMobileXs } from "@/utils";
 import { useTranslation } from "react-i18next";
-import { Character, VoiceOption, AVAILABLE_VOICES } from "@shared/ModelTypes";
-import { AVAILABLE_LANGUAGES } from "@shared/AvailableLanguages";
 import VideoPreloader from "@components/VideoPreloader";
 import { globalClientOptions } from "@/globalClientOptions";
 import { useMeetingSetupStore } from "@/stores/useMeetingSetupStore";
+import { buildMeetingFoodsPayload } from "@/meetingSetup/meetingSetup";
+import type { Food, FoodData } from "./FoodUtils";
+import { getFoodsBundle } from "./FoodUtils";
 
 import Lottie from 'react-lottie-player';
 import loadingAnimation from '@animations/loading.json';
@@ -27,117 +28,7 @@ function getFoodImageUrl(id: string): string | undefined {
   return foodImages[`/src/assets/foods/small/${id}.webp`];
 }
 
-import type { Food, FoodData } from "./FoodUtils";
-import { getFoodsBundle } from "./FoodUtils";
-export type MeetingFoodsI18n = {
-  oneHuman: string;
-  twoHumansSuffix: string;
-};
-
-/**
- * Validates foods-step state and builds the `Food[]` passed to `createMeeting` / `onContinueForward`,
- * including chair `[FOODS]` / `[HUMANS]` prompt injection. Shared by the Start button and voice `start_meeting`.
- */
-export function buildMeetingFoodsPayload(params: {
-  language: string;
-  selectedFoods: string[];
-  humans: Food[];
-  numberOfHumans: number;
-  labels: MeetingFoodsI18n;
-}): { ok: true; foods: Food[] } | { ok: false; error: string } {
-  const { language, selectedFoods, humans, numberOfHumans, labels } = params;
-  const foodData = getFoodsBundle(language);
-  const baseFoods = foodData.foods;
-  const foods = [...baseFoods, ...humans.slice(0, numberOfHumans)];
-
-  const minFoods = 2 + 1;
-  const maxFoods = 6 + 1;
-
-  if (selectedFoods.filter((id) => !id.startsWith("panelist")).length < minFoods) {
-    return {
-      ok: false,
-      error:
-        "Select at least two foods besides the chair (three non-human participants minimum), then try again.",
-    };
-  }
-  if (selectedFoods.length > maxFoods) {
-    return { ok: false, error: "Too many participants (at most six foods plus the chair)." };
-  }
-
-  const selectedHumans = selectedFoods.filter((id) => id.startsWith("panelist"));
-  for (const humanId of selectedHumans) {
-    const i = Number(humanId.slice(-1));
-    const h = humans[i];
-    if (h && (h.name.length === 0 || h.description.length === 0)) {
-      return {
-        ok: false,
-        error: "Each human panelist needs a name and description before starting.",
-      };
-    }
-  }
-
-  const names = selectedFoods.map((id) => foods.find((f) => f.id === id)?.name);
-  if (names.some((n) => n === undefined)) {
-    return { ok: false, error: "Selection references an unknown participant." };
-  }
-  if (new Set(names).size !== names.length) {
-    return { ok: false, error: "All participants must have unique names." };
-  }
-
-  const participatingFoods = selectedFoods.filter((id) => !id.startsWith("panelist"));
-  const participatingHumans = selectedFoods.filter((id) => id.startsWith("panelist"));
-
-  let participants = "";
-  for (const [i, id] of participatingFoods.entries()) {
-    const food = foods.find((f) => f.id === id);
-    if (i !== 0 && food) participants += toTitleCase(food.name) + ", ";
-  }
-  if (participants.length > 2) {
-    participants = participants.substring(0, participants.length - 2);
-  }
-
-  const replacedFoods: Food[] = [];
-  for (const id of selectedFoods) {
-    const found = foods.find((f) => f.id === id);
-    if (found) replacedFoods.push(structuredClone(found));
-  }
-
-  if (replacedFoods.length > 0 && replacedFoods[0].prompt) {
-    replacedFoods[0].prompt =
-      foodData.foods[0].prompt?.replace("[FOODS]", participants) || "";
-  }
-
-  let humanPresentation = "";
-  if (participatingHumans.length > 0) {
-    if (participatingHumans.length === 1) {
-      humanPresentation += labels.oneHuman;
-    } else {
-      humanPresentation += participatingHumans.length + labels.twoHumansSuffix;
-    }
-
-    for (const id of participatingHumans) {
-      const h = foods.find((f) => f.id === id);
-      if (h) {
-        humanPresentation += toTitleCase(h.name) + ", " + h.description + ". ";
-      }
-    }
-    humanPresentation = humanPresentation.substring(0, humanPresentation.length - 2);
-
-    const humanPrompt = foodData.panelWithHumans;
-    humanPresentation = humanPrompt.replace("[HUMANS]", humanPresentation);
-  }
-
-  if (replacedFoods.length > 0 && replacedFoods[0].prompt) {
-    replacedFoods[0].prompt = replacedFoods[0].prompt.replace("[HUMANS]", humanPresentation);
-  }
-
-  return { ok: true, foods: replacedFoods };
-}
-
 const MAXHUMANS = 3;
-import { createHuman, createDefaultHumans } from "./FoodUtils";
-
-/** i18n fragments used when injecting human panelists into the chair prompt (same as Continue). */
 
 /**
  * SelectFoods Component

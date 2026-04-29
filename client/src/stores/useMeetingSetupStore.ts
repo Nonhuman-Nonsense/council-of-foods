@@ -2,12 +2,9 @@ import { create } from 'zustand';
 import type { Food } from '../components/settings/FoodUtils';
 import { createDefaultHumans } from '../components/settings/FoodUtils';
 import { globalClientOptions } from '../globalClientOptions';
-import type { Topic } from '@shared/ModelTypes';
 
 export interface MeetingSetupState {
   // Topic State
-  topicSelection: Topic | null;
-  setTopicSelection: (topic: Topic | null) => void;
   selectedTopic: string;
   setSelectedTopic: (topicId: string) => void;
   customTopic: string;
@@ -34,9 +31,6 @@ export interface MeetingSetupState {
 }
 
 export const useMeetingSetupStore = create<MeetingSetupState>((set, get) => ({
-  topicSelection: null,
-  setTopicSelection: (topic) => set({ topicSelection: topic }),
-  
   selectedTopic: '',
   setSelectedTopic: (topicId) => set({ selectedTopic: topicId }),
   
@@ -79,7 +73,6 @@ export const useMeetingSetupStore = create<MeetingSetupState>((set, get) => ({
 
   resetStore: () => {
     set({
-      topicSelection: null,
       selectedTopic: '',
       customTopic: '',
       hoveredTopic: null,

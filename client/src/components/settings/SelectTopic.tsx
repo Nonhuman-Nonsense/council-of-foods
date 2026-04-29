@@ -6,6 +6,7 @@ import type { Topic } from "@shared/ModelTypes";
 import { useMeetingSetupStore } from "@/stores/useMeetingSetupStore";
 
 import { getTopicsBundle } from "@/components/topicsBundle";
+import { buildTopicFromSelection } from "@/meetingSetup/meetingSetup";
 
 /**
  * SelectTopic Component
@@ -79,25 +80,17 @@ function SelectTopic({
     setCustomTopic(capitalizedTopic);
   }
 
-  function buildTopic(): Topic {
-    const raw =
-      topicsBundle.topics.find(t => t.id === selectedTopic) ??
-      (selectedTopic === topicsBundle.custom_topic.id ? topicsBundle.custom_topic : undefined);
-    if (!raw) throw new Error(`Topic not found: ${selectedTopic}`);
-    const built = structuredClone(raw);
-    if (built.id === topicsBundle.custom_topic.id) {
-      built.prompt = customTopic;
-      built.description = customTopic;
-    }
-    built.prompt = topicsBundle.system.replace("[TOPIC]", built.prompt);
-    return built;
-  }
-
   function proceedForward(): void {
     if (currentTopic) {
       setDisplayWarning(true);
     } else {
-      onContinueForward(buildTopic());
+      onContinueForward(
+        buildTopicFromSelection({
+          topicsBundle,
+          selectedTopicId: selectedTopic,
+          customTopic,
+        })
+      );
     }
   }
 
@@ -202,7 +195,15 @@ function SelectTopic({
       {displayWarning ? (
         <ResetWarning
           message={t('reset.changeTopic')}
-          onReset={() => onReset?.(buildTopic() as Topic)}
+          onReset={() =>
+            onReset?.(
+              buildTopicFromSelection({
+                topicsBundle,
+                selectedTopicId: selectedTopic,
+                customTopic,
+              })
+            )
+          }
           onCancel={() => onCancel?.()}
         />
       ) : (

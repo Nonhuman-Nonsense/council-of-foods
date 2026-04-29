@@ -16,7 +16,7 @@ describe('guideTools', () => {
         { id: 'addhuman', name: 'Add Human', description: 'Add' },
         { id: 'panelist0', name: 'Alice', description: 'Human' }
       ],
-      buildSelectedTopicFromUi: vi.fn(),
+      buildSelectedTopic: vi.fn(),
       confirmTopic: vi.fn(),
       startMeeting: vi.fn(),
       meetingStep: 'topic',
