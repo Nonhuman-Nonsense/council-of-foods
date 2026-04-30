@@ -1,5 +1,5 @@
 const { createApp } = Vue;
-const CHARACTERS_FILE = "foods";
+const CHARACTERS_FILE = "beings";
 
 const defaultOptions = {
   gptModel: "gpt-4o-mini",

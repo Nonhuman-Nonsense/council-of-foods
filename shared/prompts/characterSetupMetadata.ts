@@ -1,1 +1,1 @@
-export const CHARACTERS_FILE = "foods" as const;
+export const CHARACTERS_FILE = "beings" as const;
