@@ -1,5 +1,5 @@
 import type { Message } from '@shared/ModelTypes';
-import { useEffect, useRef, type MutableRefObject } from 'react';
+import { useEffect, useRef, type RefObject } from 'react';
 import { io, Socket } from 'socket.io-client';
 import {
     ServerToClientEvents,
@@ -34,7 +34,7 @@ export const useCouncilSocket = ({
     onError,
     onConnectionError,
     onReconnect
-}: UseCouncilSocketProps): MutableRefObject<Socket<ServerToClientEvents, ClientToServerEvents> | null> => {
+}: UseCouncilSocketProps): RefObject<Socket<ServerToClientEvents, ClientToServerEvents> | null> => {
     const socketRef = useRef<Socket<ServerToClientEvents, ClientToServerEvents> | null>(null);
 
     useEffect(() => {

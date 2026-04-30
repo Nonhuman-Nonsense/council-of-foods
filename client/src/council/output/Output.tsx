@@ -38,7 +38,7 @@ interface OutputProps {
   isPaused: boolean;
   currentSnippetIndex: number;
   setCurrentSnippetIndex: (index: number) => void;
-  audioContext: React.MutableRefObject<AudioContext | null>;
+  audioContext: React.RefObject<AudioContext | null>;
   handleOnFinishedPlaying: () => void;
   setSentencesLength: (length: number) => void;
 }

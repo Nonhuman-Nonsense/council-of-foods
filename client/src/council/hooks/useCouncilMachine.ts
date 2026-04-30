@@ -18,7 +18,7 @@ export interface UseCouncilMachineProps {
     replayManifest: Meeting | null;
     topic: Topic | null;
     participants: Character[] | null;
-    audioContext: React.MutableRefObject<AudioContext | null>;
+    audioContext: React.RefObject<AudioContext | null>;
     setUnrecoverableError: (message: string) => void;
     setConnectionError: (error: boolean) => void;
     connectionError: boolean;
