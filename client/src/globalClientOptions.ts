@@ -1,10 +1,10 @@
-import foodsEn from "@shared/prompts/foods_en.json";
+import { defaultCharacterSetupBundle } from "@/prompts/characterSetupBundles";
 
 export interface GlobalClientOptions {
     chairId: string;
 }
 
-/** Chair id from `foods[0]` in `foods_en` (validated in ValidateFoodData tests). */
+/** Chair id from the default character-setup bundle (validated in food data tests). */
 export const globalClientOptions: GlobalClientOptions = {
-    chairId: foodsEn.foods[0].id,
+    chairId: defaultCharacterSetupBundle.foods[0].id,
 };

@@ -1,13 +1,10 @@
 import { Character, VoiceOption, AVAILABLE_VOICES } from "@shared/ModelTypes";
 import { AVAILABLE_LANGUAGES } from "@shared/AvailableLanguages";
 import { globalClientOptions } from "@/globalClientOptions";
-
-// Dynamic import of Foods prompt bundles. The files stay Foods-specific even
-// though the setup screen now uses character-oriented names for shared logic.
-const foodPromptModules = import.meta.glob<CharacterSetupData>('@shared/prompts/foods_*.json', {
-  eager: true,
-  import: 'default',
-});
+import {
+  characterSetupBundleModules,
+  defaultCharacterSetupBundle,
+} from "@/prompts/characterSetupBundles";
 
 export interface MeetingCharacter extends Partial<Character> {
   id: string;
@@ -41,9 +38,11 @@ const localCharacterSetupData: Record<string, CharacterSetupData> = {};
 
 // We assume that the files exist, since we validate them in the tests.
 for (const lang of AVAILABLE_LANGUAGES) {
-  const moduleKey = Object.keys(foodPromptModules).find((path) => path.endsWith(`foods_${lang}.json`));
+  const moduleKey = Object.keys(characterSetupBundleModules).find((path) =>
+    path.endsWith(`foods_${lang}.json`)
+  );
   if (moduleKey) {
-    localCharacterSetupData[lang] = foodPromptModules[moduleKey];
+    localCharacterSetupData[lang] = characterSetupBundleModules[moduleKey];
   }
 }
 
@@ -72,7 +71,7 @@ export function getCharacterSetupBundle(lang: string): CharacterSetupData {
 
 // Infer the default voice from the configuration to ensure blankHuman is valid.
 const defaultChair =
-  localCharacterSetupData[AVAILABLE_LANGUAGES[0]]?.foods.find(
+  (localCharacterSetupData[AVAILABLE_LANGUAGES[0]] ?? defaultCharacterSetupBundle).foods.find(
     (character) => character.id === globalClientOptions.chairId
   );
 const defaultVoice: VoiceOption = defaultChair?.voice || AVAILABLE_VOICES[0];
