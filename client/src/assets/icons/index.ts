@@ -25,6 +25,8 @@ import CloseFullscreen from './close_fullscreen.svg?react';
 import Fullscreen from './fullscreen.svg?react';
 import Hamburger from './hamburger.svg?react';
 import Tomato from './tomato.svg?react';
+import Ai from './ai.svg?react';
+import AiFilled from './ai_filled.svg?react';
 
 export const Icons = {
     volume_off: VolumeOff,
@@ -52,6 +54,8 @@ export const Icons = {
     fullscreen: Fullscreen,
     hamburger: Hamburger,
     tomato: Tomato,
+    ai: Ai,
+    ai_filled: AiFilled,
 } as const;
 
 export type IconName = keyof typeof Icons;

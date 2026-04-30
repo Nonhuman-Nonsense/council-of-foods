@@ -21,6 +21,7 @@ import {
   CACHE_CONTROL_NO_STORE,
   cacheControlPrivateNoStoreApi,
 } from '@utils/httpCache.js';
+import { shouldServeSpaShell } from '@utils/spaFallback.js';
 import { registerMeetingRoutes } from '@api/meetingRoutes.js';
 import { registerAudioRoutes } from '@api/audioRoutes.js';
 import { registerVoiceGuideRoutes } from '@api/voiceGuideSession.js';
@@ -89,7 +90,13 @@ if (environment === "prototype") {
       }
     },
   }));
-  app.get("/{*splat}", function (_req: Request, res: Response) {
+  app.get("/{*splat}", function (req: Request, res: Response) {
+    if (!shouldServeSpaShell(req.path)) {
+      res.setHeader('Cache-Control', CACHE_CONTROL_NO_STORE);
+      res.sendStatus(404);
+      return;
+    }
+
     res.setHeader('Cache-Control', CACHE_CONTROL_HTML_SHELL);
     res.sendFile(path.join(clientDistPath, "index.html"));
   });

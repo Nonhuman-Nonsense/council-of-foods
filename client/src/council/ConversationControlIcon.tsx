@@ -21,13 +21,15 @@ interface ConversationControlIconProps {
   hoverIcon?: ConversationControlIconName;
   tooltip?: string;
   onClick: () => void;
+  size?: number;
 }
 
 function ConversationControlIcon({
   icon,
   hoverIcon,
   tooltip,
-  onClick
+  onClick,
+  size
 }: ConversationControlIconProps) {
   const [isHover, setHover] = useState(false);
   const isMobile = useMobile();
@@ -52,8 +54,8 @@ function ConversationControlIcon({
   const buttonStyle: React.CSSProperties = {
     marginLeft: "4px",
     marginRight: "4px",
-    width: isMobile ? "45px" : "56px",
-    height: isMobile ? "45px" : "56px",
+    width: size ? `${size}px` : isMobile ? "45px" : "56px",
+    height: size ? `${size}px` : isMobile ? "45px" : "56px",
     border: "0",
     borderRadius: "50%",
     display: "flex",
@@ -65,8 +67,8 @@ function ConversationControlIcon({
   const sharedStyle: React.CSSProperties = {
     position: "absolute",
     // left: "0",
-    width: isMobile ? "30px" : "40px",
-    height: isMobile ? "30px" : "40px",
+    width: size ? `${size - 5}px` : isMobile ? "30px" : "40px",
+    height: size ? `${size - 5}px` : isMobile ? "30px" : "40px",
     // objectFit: "cover", // Not applicable to SVG components
     borderRadius: "50%",
   };
