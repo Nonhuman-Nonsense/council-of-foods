@@ -12,6 +12,10 @@ interface DisplayFood extends Character {
 
 const defaultVideoRatio = 1080 / 800;
 
+function formatCssNumber(value: number): string {
+  return String(parseFloat(value.toFixed(3)));
+}
+
 interface FoodItemProps {
   food: DisplayFood;
   index: number;
@@ -52,8 +56,8 @@ function FoodItem({ food, index, total, currentSpeakerId, isPaused, zoomIn }: Fo
     const size = (zoomIn && currentSpeakerId === food.id ? zoomInSize * ((fSize - 1) / 2 + 1) : overviewSize * fSize); // 12% of the window's width
     const sizeUnit = zoomIn && currentSpeakerId === food.id ? dvh : "vw";
     return {
-      width: `${size * videoRatio + sizeUnit}`,
-      height: `${size + sizeUnit}`,
+      width: `${formatCssNumber(size * videoRatio)}${sizeUnit}`,
+      height: `${formatCssNumber(size)}${sizeUnit}`,
       animation: "2s foodAppearing",
       animationDelay: 0.4 * index + "s",
       animationFillMode: "both",
@@ -118,8 +122,8 @@ function FoodItem({ food, index, total, currentSpeakerId, isPaused, zoomIn }: Fo
         position: "absolute",
         left: `${left}%`,
         top: `calc(${top}vw)`,
-        width: `${videoRatio * overviewSize + "vw"}`,
-        height: `${overviewSize + "vw"}`,
+        width: `${formatCssNumber(videoRatio * overviewSize)}vw`,
+        height: `${formatCssNumber(overviewSize)}vw`,
         transform: "translate(-50%, -50%)",
         opacity: (zoomIn ? "0" : "1"),
         display: "flex",
