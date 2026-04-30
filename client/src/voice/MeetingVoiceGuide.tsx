@@ -114,7 +114,8 @@ export default function MeetingVoiceGuide({
       lastCaption={voice.lastCaption}
       lastUserTranscript={voice.lastUserTranscript}
       muted={voice.muted}
-      onToggleMuted={() => voice.setMuted(!voice.muted)}
+      onStart={voice.start}
+      onStop={voice.stop}
     />
   );
 }

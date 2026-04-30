@@ -10,7 +10,7 @@ import {
 import { createPortal } from "react-dom";
 
 export interface LiveAudioVisualizerProps {
-  mediaRecorder: MediaRecorder;
+  stream: MediaStream;
   width?: number | string;
   height?: number | string;
   barWidth?: number;
@@ -116,8 +116,8 @@ export function draw(
   });
 }
 
-function useMediaRecorderAnalyser(
-  mediaRecorder: MediaRecorder,
+function useMediaStreamAnalyser(
+  stream: MediaStream,
   {
     fftSize = 1024,
     maxDecibels = -10,
@@ -132,8 +132,6 @@ function useMediaRecorderAnalyser(
   const [analyser, setAnalyser] = useState<AnalyserNode>();
 
   useEffect(() => {
-    if (!mediaRecorder.stream) return;
-
     const ctx = new AudioContext();
     const analyserNode = ctx.createAnalyser();
     setAnalyser(analyserNode);
@@ -141,7 +139,7 @@ function useMediaRecorderAnalyser(
     analyserNode.minDecibels = minDecibels;
     analyserNode.maxDecibels = maxDecibels;
     analyserNode.smoothingTimeConstant = smoothingTimeConstant;
-    const source = ctx.createMediaStreamSource(mediaRecorder.stream);
+    const source = ctx.createMediaStreamSource(stream);
     source.connect(analyserNode);
     setContext(ctx);
 
@@ -153,7 +151,7 @@ function useMediaRecorderAnalyser(
       }
     };
   }, [
-    mediaRecorder.stream,
+    stream,
     fftSize,
     minDecibels,
     maxDecibels,
@@ -163,89 +161,8 @@ function useMediaRecorderAnalyser(
   return { analyser, context };
 }
 
-export function LiveAudioVisualizer({
-  mediaRecorder,
-  width = "100%",
-  height = "100%",
-  barWidth = 2,
-  gap = 1,
-  backgroundColor = "transparent",
-  barColor = "rgb(160, 198, 255)",
-  fftSize = 1024,
-  maxDecibels = -10,
-  minDecibels = -90,
-  smoothingTimeConstant = 0.4,
-}: LiveAudioVisualizerProps): ReactElement {
-  const { analyser, context } = useMediaRecorderAnalyser(mediaRecorder, {
-    fftSize,
-    maxDecibels,
-    minDecibels,
-    smoothingTimeConstant,
-  });
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-
-  const processFrequencyData = useCallback(
-    (data: Uint8Array): void => {
-      if (!canvasRef.current) return;
-
-      const dataPoints = calculateBarData(
-        data,
-        canvasRef.current.width,
-        barWidth,
-        gap
-      );
-      draw(
-        dataPoints,
-        canvasRef.current,
-        barWidth,
-        gap,
-        backgroundColor,
-        barColor
-      );
-    },
-    [barWidth, gap, backgroundColor, barColor]
-  );
-
-  const report = useCallback(() => {
-    if (!analyser || !context) return;
-
-    const data = new Uint8Array(analyser.frequencyBinCount);
-
-    if (mediaRecorder.state === "recording") {
-      analyser.getByteFrequencyData(data);
-      processFrequencyData(data);
-      requestAnimationFrame(() => {
-        reportRef.current();
-      });
-    } else if (mediaRecorder.state === "paused") {
-      processFrequencyData(data);
-    } else if (
-      mediaRecorder.state === "inactive" &&
-      context.state !== "closed"
-    ) {
-      void context.close();
-    }
-  }, [analyser, context, mediaRecorder, processFrequencyData]);
-
-  const reportRef = useRef(report);
-  reportRef.current = report;
-
-  useEffect(() => {
-    if (analyser && mediaRecorder.state === "recording") {
-      reportRef.current();
-    }
-  }, [analyser, mediaRecorder.state]);
-
-  return (
-    <canvas
-      ref={canvasRef}
-      width={width}
-      height={height}
-      style={{
-        aspectRatio: "unset",
-      }}
-    />
-  );
+function hasLiveAudioTrack(stream: MediaStream): boolean {
+  return stream.getAudioTracks().some((track) => track.readyState === "live");
 }
 
 /**
@@ -253,7 +170,7 @@ export function LiveAudioVisualizer({
  * two canvases (e.g. mirrored left / normal right) via portals.
  */
 export function LiveAudioVisualizerPair({
-  mediaRecorder,
+  stream,
   leftHostRef,
   rightHostRef,
   width = "100%",
@@ -267,7 +184,7 @@ export function LiveAudioVisualizerPair({
   minDecibels = -90,
   smoothingTimeConstant = 0.4,
 }: LiveAudioVisualizerPairProps): ReactElement | null {
-  const { analyser, context } = useMediaRecorderAnalyser(mediaRecorder, {
+  const { analyser, context } = useMediaStreamAnalyser(stream, {
     fftSize,
     maxDecibels,
     minDecibels,
@@ -303,30 +220,25 @@ export function LiveAudioVisualizerPair({
 
     const data = new Uint8Array(analyser.frequencyBinCount);
 
-    if (mediaRecorder.state === "recording") {
+    if (hasLiveAudioTrack(stream)) {
       analyser.getByteFrequencyData(data);
       processFrequencyData(data);
       requestAnimationFrame(() => {
         pairReportRef.current();
       });
-    } else if (mediaRecorder.state === "paused") {
-      processFrequencyData(data);
-    } else if (
-      mediaRecorder.state === "inactive" &&
-      context.state !== "closed"
-    ) {
+    } else if (context.state !== "closed") {
       void context.close();
     }
-  }, [analyser, context, mediaRecorder, processFrequencyData]);
+  }, [analyser, context, processFrequencyData, stream]);
 
   const pairReportRef = useRef(report);
   pairReportRef.current = report;
 
   useEffect(() => {
-    if (analyser && mediaRecorder.state === "recording") {
+    if (analyser && hasLiveAudioTrack(stream)) {
       pairReportRef.current();
     }
-  }, [analyser, mediaRecorder.state]);
+  }, [analyser, stream]);
 
   const leftHost = leftHostRef.current;
   const rightHost = rightHostRef.current;
