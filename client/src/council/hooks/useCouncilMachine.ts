@@ -27,6 +27,16 @@ export interface UseCouncilMachineProps {
     setAudioPaused?: (paused: boolean) => void;
 }
 
+export type CouncilState =
+    | "loading"
+    | "playing"
+    | "waiting"
+    | "human_input"
+    | "human_panelist"
+    | "summary"
+    | "meeting_incomplete"
+    | "max_reached";
+
 export function useCouncilMachine({
     currentMeetingId,
     liveKey,
@@ -48,8 +58,9 @@ export function useCouncilMachine({
     /* -------------------------------------------------------------------------- */
     /*                             Main State Variables                           */
     /* -------------------------------------------------------------------------- */
-    // The finite state machine for the meeting: 'loading' | 'playing' | 'waiting' | 'human_input' | 'human_panelist' | 'summary' | 'max_reached'
-    const [councilState, setCouncilState] = useState("loading");
+    // Keep the runtime state machine explicit so orchestration components can narrow safely
+    // when shared scene logic is split into app-specific leaf components.
+    const [councilState, setCouncilState] = useState<CouncilState>("loading");
     const [playingNowIndex, setPlayingNowIndex] = useState(-1);
     const [playNextIndex, setPlayNextIndex] = useState(0);
 

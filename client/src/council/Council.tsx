@@ -2,18 +2,17 @@ import type { Character, Meeting, Topic } from "@shared/ModelTypes";
 import { isSpeakerMessage } from "@shared/ModelTypes";
 import React, { useMemo, useEffect, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router";
-import FoodItem from "./FoodItem";
+import FoodsCouncilScene from "./FoodsCouncilScene";
 import Overlay from "@main/overlay/Overlay";
 import CouncilOverlays from "./overlays/CouncilOverlays";
 import Loading from "@main/Loading";
 import Output from "./output/Output";
 import ConversationControls from "./ConversationControls";
 import HumanInput from "./humanInput/HumanInput";
-import { useDocumentVisibility, mapFoodIndex, useMobile } from "@/utils";
+import { useDocumentVisibility } from "@/utils";
 import { useTranslation } from "react-i18next";
 import { useCouncilMachine } from "./hooks/useCouncilMachine";
 import { getMeeting } from "@api/getMeeting.js";
-import { backgroundImageUrls } from "@assets/backgrounds/index";
 import ReplayModeBanner from "./ReplayModeBanner";
 
 interface CouncilProps {
@@ -173,37 +172,7 @@ function Council({
     setCurrentSpeakerId(derivedCurrentSpeakerId);
   }, [derivedCurrentSpeakerId, setCurrentSpeakerId]);
 
-  const zoomIn = useMemo(() => {
-    if (
-      councilState === 'loading' ||
-      councilState === 'waiting' ||
-      councilState === 'max_reached' ||
-      councilState === 'summary' ||
-      councilState === 'human_input' ||
-      councilState === 'human_panelist' ||
-      playingNowIndex <= 0 ||
-      textMessages[playingNowIndex]?.type === "human" ||
-      textMessages[playingNowIndex]?.type === "panelist"
-    ) {
-      return false;
-    } else if (currentSnippetIndex % 4 < 2 && currentSnippetIndex !== sentencesLength - 1) {
-      return true;
-    } else {
-      return false;
-    }
-  }, [councilState, playingNowIndex, textMessages, currentSnippetIndex, sentencesLength]);
-
   const foods = participants.filter((part) => part.type !== 'panelist');
-
-  const currentSpeakerIdx = useMemo(() => {
-    let currentIndex;
-    foods.forEach((food, index) => {
-      if (currentSpeakerId === food.id) {
-        currentIndex = mapFoodIndex(foods.length, index);
-      }
-    });
-    return currentIndex || 0;
-  }, [foods, currentSpeakerId]);
 
   // Derived UI State
   const showControls = (
@@ -224,33 +193,16 @@ function Council({
 
   return (
     <>
-      <MemoizedBackground
-        zoomIn={zoomIn}
-        currentSpeakerIndex={currentSpeakerIdx}
-        totalSpeakers={foods.length - 1}
+      <FoodsCouncilScene
+        participants={participants}
+        currentSpeakerId={currentSpeakerId}
+        councilState={councilState}
+        playingNowIndex={playingNowIndex}
+        textMessages={textMessages}
+        currentSnippetIndex={currentSnippetIndex}
+        sentencesLength={sentencesLength}
+        isPaused={isPaused}
       />
-      <div style={{
-        position: "absolute",
-        top: "62%",
-        left: "50%",
-        transform: "translate(-50%, -50%)",
-        width: participants.length > 6 ? "79%" : "70%",
-        display: "flex",
-        justifyContent: "space-around",
-        alignItems: "center",
-      }}>
-        {foods.map((food, index) => (
-          <FoodItem
-            key={food.id}
-            food={food}
-            index={mapFoodIndex(foods.length, index)}
-            total={foods.length}
-            isPaused={isPaused}
-            zoomIn={zoomIn}
-            currentSpeakerId={currentSpeakerId || ""}
-          />
-        ))}
-      </div>
       {councilState === 'loading' && <Loading />}
       {liveKey && (councilState === 'human_input' || councilState === 'human_panelist') && (
         <HumanInput liveKey={liveKey} foods={foods} isPanelist={(councilState === 'human_panelist')} currentSpeakerName={participants.find(p => p.id === currentSpeakerId)?.name || ""} onSubmitHumanMessage={handleOnSubmitHumanMessage} />
@@ -314,67 +266,5 @@ function Council({
     </>
   );
 }
-
-interface BackgroundProps {
-  zoomIn: boolean;
-  currentSpeakerIndex: number;
-  totalSpeakers: number;
-}
-
-export function Background({ zoomIn, currentSpeakerIndex, totalSpeakers }: BackgroundProps) {
-  function calculateBackdropPosition() {
-    return 10 + (80 * currentSpeakerIndex) / totalSpeakers + "%";
-  }
-
-  const closeUpBackdrop: React.CSSProperties = {
-    backgroundImage: `url(${backgroundImageUrls.closeUpBackdrop})`,
-    backgroundSize: "cover",
-    backgroundPosition: calculateBackdropPosition(),
-    height: "100%",
-    width: "100%",
-    position: "absolute",
-    opacity: zoomIn ? "1" : "0",
-  };
-
-  const closeUpTable: React.CSSProperties = {
-    backgroundImage: `url(${backgroundImageUrls.closeUpTable})`,
-    backgroundSize: "cover",
-    backgroundPosition: "center",
-    height: "100%",
-    width: "100%",
-    position: "absolute",
-    opacity: zoomIn ? "1" : "0",
-  };
-
-  const bottomShade: React.CSSProperties = {
-    width: "100%",
-    height: "40%",
-    position: "absolute",
-    bottom: "0",
-    background: "linear-gradient(0, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0) 100%)",
-    zIndex: "1",
-  };
-
-  const topShade: React.CSSProperties = {
-    width: "100%",
-    height: "10%",
-    position: "absolute",
-    top: "0",
-    background:
-      "linear-gradient(180deg, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0) 100%)",
-    zIndex: "1",
-  };
-
-  return (
-    <>
-      <div style={closeUpBackdrop} />
-      <div style={closeUpTable} />
-      <div style={bottomShade} />
-      <div style={topShade} />
-    </>
-  );
-}
-
-const MemoizedBackground = React.memo(Background);
 
 export default Council;

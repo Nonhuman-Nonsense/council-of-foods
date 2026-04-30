@@ -1,0 +1,159 @@
+import type { Character, Message } from "@shared/ModelTypes";
+import React, { useMemo } from "react";
+import FoodItem from "./FoodItem";
+import { mapFoodIndex } from "@/utils";
+import { backgroundImageUrls } from "@assets/backgrounds/index";
+import type { CouncilState } from "./hooks/useCouncilMachine";
+
+interface FoodsCouncilSceneProps {
+  participants: Character[];
+  currentSpeakerId: string;
+  councilState: CouncilState;
+  playingNowIndex: number;
+  textMessages: Message[];
+  currentSnippetIndex: number;
+  sentencesLength: number;
+  isPaused: boolean;
+}
+
+export default function FoodsCouncilScene({
+  participants,
+  currentSpeakerId,
+  councilState,
+  playingNowIndex,
+  textMessages,
+  currentSnippetIndex,
+  sentencesLength,
+  isPaused,
+}: FoodsCouncilSceneProps) {
+  const zoomIn = useMemo(() => {
+    if (
+      councilState === "loading" ||
+      councilState === "waiting" ||
+      councilState === "max_reached" ||
+      councilState === "meeting_incomplete" ||
+      councilState === "summary" ||
+      councilState === "human_input" ||
+      councilState === "human_panelist" ||
+      playingNowIndex <= 0 ||
+      textMessages[playingNowIndex]?.type === "human" ||
+      textMessages[playingNowIndex]?.type === "panelist"
+    ) {
+      return false;
+    } else if (currentSnippetIndex % 4 < 2 && currentSnippetIndex !== sentencesLength - 1) {
+      return true;
+    } else {
+      return false;
+    }
+  }, [councilState, playingNowIndex, textMessages, currentSnippetIndex, sentencesLength]);
+
+  const foods = useMemo(
+    () => participants.filter((part) => part.type !== "panelist"),
+    [participants]
+  );
+
+  const currentSpeakerIdx = useMemo(() => {
+    let currentIndex: number | undefined;
+    foods.forEach((food, index) => {
+      if (currentSpeakerId === food.id) {
+        currentIndex = mapFoodIndex(foods.length, index);
+      }
+    });
+    return currentIndex || 0;
+  }, [foods, currentSpeakerId]);
+
+  return (
+    <>
+      <MemoizedBackground
+        zoomIn={zoomIn}
+        currentSpeakerIndex={currentSpeakerIdx}
+        totalSpeakers={foods.length - 1}
+      />
+      <div
+        style={{
+          position: "absolute",
+          top: "62%",
+          left: "50%",
+          transform: "translate(-50%, -50%)",
+          width: participants.length > 6 ? "79%" : "70%",
+          display: "flex",
+          justifyContent: "space-around",
+          alignItems: "center",
+        }}
+      >
+        {foods.map((food, index) => (
+          <FoodItem
+            key={food.id}
+            food={food}
+            index={mapFoodIndex(foods.length, index)}
+            total={foods.length}
+            isPaused={isPaused}
+            zoomIn={zoomIn}
+            currentSpeakerId={currentSpeakerId}
+          />
+        ))}
+      </div>
+    </>
+  );
+}
+
+interface BackgroundProps {
+  zoomIn: boolean;
+  currentSpeakerIndex: number;
+  totalSpeakers: number;
+}
+
+export function Background({ zoomIn, currentSpeakerIndex, totalSpeakers }: BackgroundProps) {
+  function calculateBackdropPosition() {
+    return 10 + (80 * currentSpeakerIndex) / totalSpeakers + "%";
+  }
+
+  const closeUpBackdrop: React.CSSProperties = {
+    backgroundImage: `url(${backgroundImageUrls.closeUpBackdrop})`,
+    backgroundSize: "cover",
+    backgroundPosition: calculateBackdropPosition(),
+    height: "100%",
+    width: "100%",
+    position: "absolute",
+    opacity: zoomIn ? "1" : "0",
+  };
+
+  const closeUpTable: React.CSSProperties = {
+    backgroundImage: `url(${backgroundImageUrls.closeUpTable})`,
+    backgroundSize: "cover",
+    backgroundPosition: "center",
+    height: "100%",
+    width: "100%",
+    position: "absolute",
+    opacity: zoomIn ? "1" : "0",
+  };
+
+  const bottomShade: React.CSSProperties = {
+    width: "100%",
+    height: "40%",
+    position: "absolute",
+    bottom: "0",
+    background: "linear-gradient(0, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0) 100%)",
+    zIndex: "1",
+  };
+
+  const topShade: React.CSSProperties = {
+    width: "100%",
+    height: "10%",
+    position: "absolute",
+    top: "0",
+    background: "linear-gradient(180deg, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0) 100%)",
+    zIndex: "1",
+  };
+
+  return (
+    <>
+      <div style={closeUpBackdrop} />
+      <div style={closeUpTable} />
+      <div style={bottomShade} />
+      <div style={topShade} />
+    </>
+  );
+}
+
+const MemoizedBackground = React.memo(Background);
