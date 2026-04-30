@@ -47,7 +47,7 @@ export const MockFactory = {
             chairMaxTokens: 150,
             frequencyPenalty: 0.0,
             presencePenalty: 0.0,
-            audio_speed: 1.0,
+            defaultAudioSpeed: 1.0,
             trimSentance: true,
             trimParagraph: true,
             chairId: CHAIR_ID,

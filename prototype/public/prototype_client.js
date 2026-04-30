@@ -7,7 +7,7 @@ const defaultOptions = {
   chairMaxTokens: 250,
   frequencyPenalty: 0,
   presencePenalty: 0,
-  audio_speed: 1.15,
+  defaultAudioSpeed: 1.15,
 
   trimSentance: false,
   trimParagraph: true,
@@ -556,7 +556,7 @@ createApp({
         chairMaxTokens: this.options.chairMaxTokens,
         frequencyPenalty: this.options.frequencyPenalty,
         presencePenalty: this.options.presencePenalty,
-        audio_speed: this.options.audio_speed,
+        defaultAudioSpeed: this.options.defaultAudioSpeed,
         trimSentance: this.options.trimSentance,
         trimParagraph: this.options.trimParagraph,
         trimChairSemicolon: this.options.trimChairSemicolon,
