@@ -172,7 +172,7 @@ function Council({
     setCurrentSpeakerId(derivedCurrentSpeakerId);
   }, [derivedCurrentSpeakerId, setCurrentSpeakerId]);
 
-  const characters = participants.filter((part) => part.type !== 'panelist');
+  const characters = participants.filter((part) => !part.id.startsWith('panelist'));
 
   // Derived UI State
   const showControls = (

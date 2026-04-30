@@ -19,8 +19,8 @@ describe('Audio Queue Draining', () => {
                 liveKey: DRAIN_LIVE_KEY,
                 topic: MockFactory.createTopic({ title: 'Drain Test' }),
                 characters: [
-                    MockFactory.createCharacter({ id: 'water', name: 'Water', type: 'food' }),
-                    MockFactory.createCharacter({ id: 'tomato', name: 'Tomato', type: 'food' }),
+                    MockFactory.createCharacter({ id: 'water', name: 'Water' }),
+                    MockFactory.createCharacter({ id: 'tomato', name: 'Tomato' }),
                 ],
                 conversation: [],
             })

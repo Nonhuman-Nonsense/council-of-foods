@@ -20,9 +20,9 @@ describe("FoodsCouncilScene", () => {
     render(
       <FoodsCouncilScene
         participants={[
-          { id: "banana", name: "Banana", voice: "alloy" },
-          { id: "sage", name: "Sage", voice: "alloy", type: "panelist" },
-          { id: "tomato", name: "Tomato", voice: "alloy" },
+          { id: "banana", name: "Banana", description: "", prompt: "", voice: "alloy" },
+          { id: "panelist0", name: "Sage", description: "", prompt: "", voice: "alloy" },
+          { id: "tomato", name: "Tomato", description: "", prompt: "", voice: "alloy" },
         ]}
         currentSpeakerId="banana"
         councilState="playing"

@@ -88,10 +88,10 @@ describe('MeetingManager - Speaker Selection', () => {
             beforeEach(() => {
                 // Add a human panelist "Alice" between Tomato and Potato
                 manager.meeting.characters = [
-                    { id: 'water', name: 'Water', type: 'food' },
-                    { id: 'tomato', name: 'Tomato', type: 'food' },
-                    { id: 'alice', name: 'Alice', type: 'panelist' },
-                    { id: 'potato', name: 'Potato', type: 'food' }
+                    { id: 'water', name: 'Water', description: '', prompt: '', voice: 'alloy' },
+                    { id: 'tomato', name: 'Tomato', description: '', prompt: '', voice: 'alloy' },
+                    { id: 'panelist0', name: 'Alice', description: '', prompt: '', voice: 'alloy' },
+                    { id: 'potato', name: 'Potato', description: '', prompt: '', voice: 'alloy' }
                 ];
             });
 
@@ -104,7 +104,7 @@ describe('MeetingManager - Speaker Selection', () => {
 
             it('should move from panelist to next food', () => {
                 manager.meeting.conversation = [
-                    { speaker: 'alice', type: 'message' }
+                    { speaker: 'panelist0', type: 'message' }
                 ];
                 expect(SpeakerSelector.calculateNextSpeaker(manager.meeting.conversation, manager.meeting.characters)).toBe(3);
             });
@@ -115,10 +115,10 @@ describe('MeetingManager - Speaker Selection', () => {
             beforeEach(() => {
                 // Setup mixed council
                 manager.meeting.characters = [
-                    { id: 'water', name: 'Water', type: 'food' },     // 0
-                    { id: 'tomato', name: 'Tomato', type: 'food' },   // 1
-                    { id: 'alice', name: 'Alice', type: 'panelist' }, // 2
-                    { id: 'potato', name: 'Potato', type: 'food' }    // 3
+                    { id: 'water', name: 'Water', description: '', prompt: '', voice: 'alloy' },     // 0
+                    { id: 'tomato', name: 'Tomato', description: '', prompt: '', voice: 'alloy' },   // 1
+                    { id: 'panelist0', name: 'Alice', description: '', prompt: '', voice: 'alloy' }, // 2
+                    { id: 'potato', name: 'Potato', description: '', prompt: '', voice: 'alloy' }    // 3
                 ];
             });
 
@@ -143,15 +143,15 @@ describe('MeetingManager - Speaker Selection', () => {
 
             it('should handle multiple panelists and hand raises mingled', () => {
                 manager.meeting.characters = [
-                    { id: 'water', name: 'Water', type: 'food' },
-                    { id: 'tomato', name: 'Tomato', type: 'food' },
-                    { id: 'alice', name: 'Alice', type: 'panelist' },
-                    { id: 'bob', name: 'Bob', type: 'panelist' },
-                    { id: 'potato', name: 'Potato', type: 'food' }
+                    { id: 'water', name: 'Water', description: '', prompt: '', voice: 'alloy' },
+                    { id: 'tomato', name: 'Tomato', description: '', prompt: '', voice: 'alloy' },
+                    { id: 'panelist0', name: 'Alice', description: '', prompt: '', voice: 'alloy' },
+                    { id: 'panelist1', name: 'Bob', description: '', prompt: '', voice: 'alloy' },
+                    { id: 'potato', name: 'Potato', description: '', prompt: '', voice: 'alloy' }
                 ];
 
                 manager.meeting.conversation = [
-                    { speaker: 'alice', type: 'message' }
+                    { speaker: 'panelist0', type: 'message' }
                 ];
                 expect(SpeakerSelector.calculateNextSpeaker(manager.meeting.conversation, manager.meeting.characters)).toBe(3); // Bob
             });

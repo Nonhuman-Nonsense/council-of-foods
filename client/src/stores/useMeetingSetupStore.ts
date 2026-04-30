@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { MeetingCharacter } from '@newMeeting/CharacterSetup';
+import type { Character } from '@shared/ModelTypes';
 import { createDefaultHumans } from '@newMeeting/CharacterSetup';
 import { globalClientOptions } from '@/globalClientOptions';
 
@@ -19,8 +19,8 @@ export interface MeetingSetupState {
   handleDeselectCharacterId: (characterId: string) => void;
 
   // Human State
-  humans: MeetingCharacter[];
-  setHumans: (humans: MeetingCharacter[] | ((prev: MeetingCharacter[]) => MeetingCharacter[])) => void;
+  humans: Character[];
+  setHumans: (humans: Character[] | ((prev: Character[]) => Character[])) => void;
   numberOfHumans: number;
   setNumberOfHumans: (count: number | ((prev: number) => number)) => void;
 

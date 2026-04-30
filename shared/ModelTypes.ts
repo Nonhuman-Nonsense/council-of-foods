@@ -54,13 +54,30 @@ export interface Character {
     id: string;
     name: string;
     voice: VoiceOption | string;
+    description: string;
+    prompt: string;
     voiceProvider?: 'openai' | 'gemini' | 'inworld';
     voiceLocale?: string;
-    type?: string;
-    prompt?: string;
     voiceInstruction?: string;
     voiceTemperature?: number;
     voiceSpeed?: number;
+    size?: number;
+    // type?: string;
+    // index?: number;
+}
+
+export interface CharacterSetupData {
+    metadata: {
+        version: string;
+        last_updated: string;
+    };
+    panelWithHumans: string;
+    addHuman: {
+        id: string;
+        name: string;
+        description: string;
+    };
+    characters: Character[];
 }
 
 // For Zod validation

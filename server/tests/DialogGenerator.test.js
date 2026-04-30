@@ -58,14 +58,13 @@ describe('DialogGenerator - Prompt Construction', () => {
     it('should correctly format a Human Panelist in history', () => {
         const speaker = manager.meeting.characters[1]; // Tomato
         const conversation = [
-            MockFactory.createMessage({ speaker: 'alice', text: 'I agree' })
+            MockFactory.createMessage({ speaker: 'panelist0', text: 'I agree' })
         ];
 
         manager.meeting.characters.push(
             MockFactory.createCharacter({
-                id: 'alice',
+                id: 'panelist0',
                 name: 'Alice',
-                type: 'panelist'
             })
         );
 

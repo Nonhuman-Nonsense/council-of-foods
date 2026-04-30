@@ -7,8 +7,9 @@ export const MockFactory = {
     createCharacter: (overrides: Partial<Character> = {}): Character => ({
         id: "potato",
         name: "Potato",
+        description: "A starchy root vegetable",
+        prompt: "Speak as Potato in the council.",
         voice: "alloy",
-        type: "food",
         ...overrides,
     }),
 

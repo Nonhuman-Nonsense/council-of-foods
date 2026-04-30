@@ -1,4 +1,9 @@
-import { Character, VoiceOption, AVAILABLE_VOICES } from "@shared/ModelTypes";
+import {
+  AVAILABLE_VOICES,
+  type Character,
+  type CharacterSetupData,
+  type VoiceOption,
+} from "@shared/ModelTypes";
 import { AVAILABLE_LANGUAGES } from "@shared/AvailableLanguages";
 import { globalClientOptions } from "@/globalClientOptions";
 import {
@@ -6,34 +11,7 @@ import {
   characterSetupBundleModules,
   defaultCharacterSetupBundle,
 } from "@/prompts/characterSetupBundles";
-
-export interface MeetingCharacter extends Partial<Character> {
-  id: string;
-  name: string;
-  description: string;
-  prompt?: string;
-  type?: 'panelist' | 'food' | 'chair' | string;
-  index?: number;
-  voice: VoiceOption;
-  voiceProvider?: 'openai' | 'gemini';
-  voiceLocale?: string;
-  size?: number;
-  voiceInstruction?: string;
-}
-
-export interface CharacterSetupData {
-  metadata: {
-    version: string;
-    last_updated: string;
-  };
-  panelWithHumans: string;
-  addHuman: {
-    id: string;
-    name: string;
-    description: string;
-  };
-  characters: MeetingCharacter[];
-}
+export type { Character, CharacterSetupData } from "@shared/ModelTypes";
 
 const localCharacterSetupData: Record<string, CharacterSetupData> = {};
 
@@ -75,13 +53,13 @@ const defaultChair =
   (localCharacterSetupData[AVAILABLE_LANGUAGES[0]] ?? defaultCharacterSetupBundle).characters.find(
     (character) => character.id === globalClientOptions.chairId
   );
-const defaultVoice: VoiceOption = defaultChair?.voice || AVAILABLE_VOICES[0];
+const defaultVoice: VoiceOption = (defaultChair?.voice as VoiceOption | undefined) ?? AVAILABLE_VOICES[0];
 
-const blankHuman: MeetingCharacter = {
+const blankHuman: Character = {
   id: "",
-  type: "panelist",
   name: "",
   description: "",
+  prompt: "",
   voice: defaultVoice,
   voiceProvider: defaultChair?.voiceProvider,
   voiceTemperature: defaultChair?.voiceTemperature,
@@ -90,13 +68,12 @@ const blankHuman: MeetingCharacter = {
   size: 1.0,
 };
 
-export function createHuman(index: number): MeetingCharacter {
+export function createHuman(index: number): Character {
   const newHuman = structuredClone(blankHuman);
   newHuman.id = "panelist" + index;
-  newHuman.index = index;
   return newHuman;
 }
 
-export function createDefaultHumans(): MeetingCharacter[] {
+export function createDefaultHumans(): Character[] {
   return [createHuman(0), createHuman(1), createHuman(2)];
 }

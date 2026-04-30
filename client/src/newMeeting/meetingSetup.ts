@@ -1,8 +1,7 @@
-import type { Topic } from "@shared/ModelTypes";
+import type { Character, Topic } from "@shared/ModelTypes";
 import { toTitleCase } from "@/utils";
 import type { TopicsData } from "@main/topicsBundle";
 import { getCharacterSetupBundle } from "./CharacterSetup";
-import type { MeetingCharacter } from "./CharacterSetup";
 
 export type MeetingCharactersI18n = {
   oneHuman: string;
@@ -71,10 +70,10 @@ export function buildTopicFromSelection(params: {
 export function buildMeetingCharactersPayload(params: {
   language: string;
   selectedCharacters: string[];
-  humans: MeetingCharacter[];
+  humans: Character[];
   numberOfHumans: number;
   labels: MeetingCharactersI18n;
-}): { ok: true; characters: MeetingCharacter[] } | { ok: false; error: string } {
+}): { ok: true; characters: Character[] } | { ok: false; error: string } {
   const { language, selectedCharacters, humans, numberOfHumans, labels } = params;
   const characterSetupData = getCharacterSetupBundle(language);
   const baseCharacters = characterSetupData.characters;
@@ -98,7 +97,7 @@ export function buildMeetingCharactersPayload(params: {
   for (const humanId of selectedHumans) {
     const index = Number(humanId.slice(-1));
     const human = humans[index];
-    if (human && (human.name.length === 0 || human.description.length === 0)) {
+    if (human && (human.name.length === 0 || (human.description?.length ?? 0) === 0)) {
       return {
         ok: false,
         error: "Each human panelist needs a name and description before starting.",
@@ -128,7 +127,7 @@ export function buildMeetingCharactersPayload(params: {
     participants = participants.substring(0, participants.length - 2);
   }
 
-  const replacedCharacters: MeetingCharacter[] = [];
+  const replacedCharacters: Character[] = [];
   for (const id of selectedCharacters) {
     const found = characters.find((character) => character.id === id);
     if (found) {

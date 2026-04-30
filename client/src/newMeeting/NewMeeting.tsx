@@ -8,7 +8,7 @@ import { createMeeting } from "@api/createMeeting";
 import { useRouting } from "@/routing";
 import MeetingVoiceGuide from "@voice/MeetingVoiceGuide";
 import type { MeetingSetupUserEvent } from "./meetingSetup";
-import type { MeetingCharacter } from "./CharacterSetup";
+import type { Character } from "@shared/ModelTypes";
 import { useMeetingSetupStore } from "@stores/useMeetingSetupStore";
 
 export interface NewMeetingProps {
@@ -76,7 +76,7 @@ export default function NewMeeting({
     setStep("topic");
   }
 
-  async function handleCharactersContinue({ characters }: { characters: MeetingCharacter[] }) {
+  async function handleCharactersContinue({ characters }: { characters: Character[] }) {
     if (!topicSelection) {
       console.error("NewMeeting: missing topic when creating meeting");
       return;
@@ -120,7 +120,7 @@ export default function NewMeeting({
         lastUserEvent={lastUserEvent}
         onGoToTopicStep={handleGoToTopicStep}
         onSelectTopic={handleTopicContinue}
-        onStartMeeting={(characters: MeetingCharacter[]) => handleCharactersContinue({ characters })}
+        onStartMeeting={(characters: Character[]) => handleCharactersContinue({ characters })}
       />
     </>
   );

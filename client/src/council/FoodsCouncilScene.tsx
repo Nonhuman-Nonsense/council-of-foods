@@ -48,7 +48,7 @@ export default function FoodsCouncilScene({
   }, [councilState, playingNowIndex, textMessages, currentSnippetIndex, sentencesLength]);
 
   const foods = useMemo(
-    () => participants.filter((part) => part.type !== "panelist"),
+    () => participants.filter((part) => !part.id.startsWith("panelist")),
     [participants]
   );
 

@@ -54,13 +54,15 @@ function validCreateBody() {
             {
                 id: 'water',
                 name: 'Water',
-                type: 'food',
+                description: 'Hydrating and clear-headed.',
+                prompt: 'Speak as Water in the council.',
                 voice: 'alloy',
             },
             {
                 id: 'tomato',
                 name: 'Tomato',
-                type: 'food',
+                description: 'Opinionated and juicy.',
+                prompt: 'Speak as Tomato in the council.',
                 voice: 'alloy',
             },
         ],

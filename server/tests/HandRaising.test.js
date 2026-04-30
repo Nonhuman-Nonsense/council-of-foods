@@ -33,7 +33,7 @@ describe('HandRaisingHandler', () => {
 
         const meeting = MockFactory.createStoredMeeting({
             _id: 123,
-            characters: [{ id: 'chair', name: 'Chair', voice: 'alloy' }],
+            characters: [{ id: 'chair', name: 'Chair', description: '', prompt: '', voice: 'alloy' }],
             state: {},
             conversation: []
         });

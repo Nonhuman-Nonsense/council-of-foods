@@ -17,6 +17,8 @@ describe('ValidationSchemas Custom Voice Logic (CreateMeeting)', () => {
                 {
                     id: 'char1',
                     name: 'Test Char',
+                    description: 'D',
+                    prompt: 'P',
                     voice: 'custom-cloned-voice-id-123',
                     voiceProvider: 'inworld' as const
                 }
@@ -35,6 +37,8 @@ describe('ValidationSchemas Custom Voice Logic (CreateMeeting)', () => {
                 {
                     id: 'char1',
                     name: 'Test Char',
+                    description: 'D',
+                    prompt: 'P',
                     voice: 'alloy',
                     voiceProvider: 'openai' as const
                 }
@@ -53,6 +57,8 @@ describe('ValidationSchemas Custom Voice Logic (CreateMeeting)', () => {
                 {
                     id: 'char1',
                     name: 'Test Char',
+                    description: 'D',
+                    prompt: 'P',
                     voice: 'invalid-voice',
                     voiceProvider: 'openai' as const
                 }
@@ -71,6 +77,8 @@ describe('ValidationSchemas Custom Voice Logic (CreateMeeting)', () => {
                 {
                     id: 'char1',
                     name: 'Test Char',
+                    description: 'D',
+                    prompt: 'P',
                     voice: 'Puck',
                     voiceProvider: 'gemini' as const
                 }
@@ -89,6 +97,8 @@ describe('ValidationSchemas Custom Voice Logic (CreateMeeting)', () => {
                 {
                     id: 'char1',
                     name: 'Test Char',
+                    description: 'D',
+                    prompt: 'P',
                     voice: 'alloy',
                     voiceProvider: 'gemini' as const
                 }

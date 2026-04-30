@@ -43,8 +43,7 @@ describe('CouncilOverlays', () => {
         id: 'water',
         name: 'Water',
         voice: 'alloy',
-
-
+        description: '',
         prompt: 'You are Water...'
     }];
 

@@ -24,15 +24,15 @@ vi.mock('@newMeeting/SelectTopic', () => ({
 vi.mock('@newMeeting/SelectCharacters', () => ({
     default: () => <div data-testid="select-foods">SelectFoods</div>,
     createDefaultHumans: () => ([
-        { id: "panelist0", name: "", description: "", type: "panelist", voice: "alloy", index: 0 },
-        { id: "panelist1", name: "", description: "", type: "panelist", voice: "alloy", index: 1 },
-        { id: "panelist2", name: "", description: "", type: "panelist", voice: "alloy", index: 2 },
+        { id: "panelist0", name: "", description: "", prompt: "", voice: "alloy" },
+        { id: "panelist1", name: "", description: "", prompt: "", voice: "alloy" },
+        { id: "panelist2", name: "", description: "", prompt: "", voice: "alloy" },
     ]),
     getFoodsBundle: () => ({
         metadata: { version: "test", last_updated: "test" },
         panelWithHumans: "",
         addHuman: { id: "addhuman", name: "Add Human", description: "" },
-        characters: [{ id: "water", name: "Water", description: "", voice: "alloy" }],
+        characters: [{ id: "water", name: "Water", description: "", prompt: "", voice: "alloy" }],
     }),
 }));
 vi.mock('@council/Council', () => ({
