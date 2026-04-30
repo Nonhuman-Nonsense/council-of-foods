@@ -43,7 +43,7 @@ export default function VoiceGuideOverlay(props: VoiceGuideOverlayProps): ReactE
   const containerStyle: CSSProperties = {
     position: "fixed",
     left: "50%",
-    bottom: "6px",
+    bottom: isMobile ? "0px" : "20px",
     transform: "translateX(-50%)",
     zIndex: 9999,
     pointerEvents: "none",
@@ -67,12 +67,13 @@ export default function VoiceGuideOverlay(props: VoiceGuideOverlayProps): ReactE
     marginBottom: isMobile ? "8px" : "12px",
   };
 
-  const controlsRowStyle: CSSProperties = {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
+  const controlContainerStyle: CSSProperties = {
+    position: "fixed",
+    bottom: "6px",
+    left: "5px",
+    opacity: 0.7,
+    zIndex: 10,
     pointerEvents: "auto",
-    minHeight: isMobile ? "45px" : "56px",
   };
 
   const controlSlotStyle: CSSProperties = {
@@ -85,38 +86,40 @@ export default function VoiceGuideOverlay(props: VoiceGuideOverlayProps): ReactE
   const hasText = Boolean(lastUserTranscript || lastCaption);
 
   return (
-    <div style={containerStyle}>
-      <div style={textBlockStyle} aria-live="polite">
-        {error ? (
-          <p style={{ ...paragraphStyle, color: "#ffb4b4", margin: 0 }} role="alert">
-            {error}
-          </p>
-        ) : null}
+    <>
+      <div style={containerStyle}>
+        <div style={textBlockStyle} aria-live="polite">
+          {error ? (
+            <p style={{ ...paragraphStyle, color: "#ffb4b4", margin: 0 }} role="alert">
+              {error}
+            </p>
+          ) : null}
 
-        {hasText ? (
-          <>
-            {lastUserTranscript ? (
-              <p style={{ ...secondaryStyle, margin: 0 }} data-testid="voice-guide-user">
-                {lastUserTranscript}
-              </p>
-            ) : null}
-            {lastCaption ? (
-              <p style={{ ...paragraphStyle, margin: lastUserTranscript ? "8px 0 0" : 0 }} data-testid="voice-guide-caption">
-                {lastCaption}
-              </p>
-            ) : null}
-          </>
-        ) : null}
+          {hasText ? (
+            <>
+              {lastUserTranscript ? (
+                <p style={{ ...secondaryStyle, margin: 0 }} data-testid="voice-guide-user">
+                  {lastUserTranscript}
+                </p>
+              ) : null}
+              {lastCaption ? (
+                <p style={{ ...paragraphStyle, margin: lastUserTranscript ? "8px 0 0" : 0 }} data-testid="voice-guide-caption">
+                  {lastCaption}
+                </p>
+              ) : null}
+            </>
+          ) : null}
+        </div>
       </div>
 
-      <div style={controlsRowStyle}>
+      <div style={controlContainerStyle}>
         <div style={controlSlotStyle}>
           {recordingState === "loading" ? (
             <Lottie
               play
               loop
               animationData={loadingAnimation}
-              style={{ height: isMobile ? 45 : 56 }}
+              style={{ height: isMobile ? 35 : 40 }}
             />
           ) : (
             <ConversationControlIcon
@@ -124,10 +127,11 @@ export default function VoiceGuideOverlay(props: VoiceGuideOverlayProps): ReactE
               hoverIcon={recordingState === "recording" ? "ai" : "ai_filled"}
               tooltip={recordingState === "recording" ? "Stop voice guide" : "Start voice guide"}
               onClick={recordingState === "recording" ? onStop : onStart}
+              size={isMobile ? 30 : 40}
             />
           )}
         </div>
       </div>
-    </div>
+    </>
   );
 }
