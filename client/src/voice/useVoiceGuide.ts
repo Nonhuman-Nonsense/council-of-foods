@@ -111,7 +111,7 @@ export function useVoiceGuide(params: UseVoiceGuideParams): VoiceGuideState {
   const [error, setError] = useState<string | null>(null);
   const [lastCaption, setLastCaption] = useState<string | null>(null);
   const [lastUserTranscript, setLastUserTranscript] = useState<string | null>(null);
-  const [hasSeenFirstMessage, setHasSeenFirstMessage] = useState(false);
+  const [hasSeenFirstGreetingAudio, setHasSeenFirstGreetingAudio] = useState(false);
 
   const connectionRef = useRef<RealtimeConnection | null>(null);
   const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -208,7 +208,7 @@ export function useVoiceGuide(params: UseVoiceGuideParams): VoiceGuideState {
 
     setStatus("connecting");
     setError(null);
-    setHasSeenFirstMessage(false);
+    setHasSeenFirstGreetingAudio(false);
 
     let conn: RealtimeConnection | null = null;
     try {
@@ -280,11 +280,11 @@ export function useVoiceGuide(params: UseVoiceGuideParams): VoiceGuideState {
             setStatus("error");
           },
           onResponseStarted: () => {
-            if (!isStale()) setHasSeenFirstMessage(true);
             clearAudioAnchorFallback();
             remoteAudioAnchorRef.current?.arm();
           },
           onAudioPartReady: () => {
+            if (!isStale()) setHasSeenFirstGreetingAudio(true);
             clearAudioAnchorFallback();
             audioAnchorFallbackTimerRef.current = setTimeout(() => {
               audioAnchorFallbackTimerRef.current = null;
@@ -399,6 +399,7 @@ export function useVoiceGuide(params: UseVoiceGuideParams): VoiceGuideState {
       setError(null);
       setLastCaption(null);
       setLastUserTranscript(null);
+      setHasSeenFirstGreetingAudio(false);
       return;
     }
     if (!autoStart) return;
@@ -410,7 +411,7 @@ export function useVoiceGuide(params: UseVoiceGuideParams): VoiceGuideState {
   }, []);
 
   return {
-    isConnecting: status === "connecting" || (status === "connected" && !hasSeenFirstMessage),
+    isConnecting: status === "connecting" || (status === "connected" && !hasSeenFirstGreetingAudio),
     error,
     lastCaption,
     lastUserTranscript,

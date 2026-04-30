@@ -1,4 +1,4 @@
-import type { ReactElement } from "react";
+import { type CSSProperties, type ReactElement } from "react";
 import Lottie from "react-lottie-player";
 import loadingAnimation from "@assets/animations/loading.json";
 import ConversationControlIcon from "@council/ConversationControlIcon";
@@ -10,43 +10,53 @@ type VoiceGuideOverlayProps = {
   lastCaption: string | null;
   lastUserTranscript: string | null;
   muted: boolean;
-  onToggleMuted: () => void;
+  onStart: () => void;
+  onStop: () => void;
 };
 
 /**
- * Centered caption area for the setup wizard voice guide, with a single mute control
- * (same icon pattern as conversation controls). Mute stops the realtime connection.
+ * Centered caption area for the setup wizard voice guide, with a single AI
+ * toggle button at the bottom. Stopping the guide tears down WebRTC.
  */
 export default function VoiceGuideOverlay(props: VoiceGuideOverlayProps): ReactElement {
-  const { isConnecting, error, lastCaption, lastUserTranscript, muted, onToggleMuted } = props;
+  const { isConnecting, error, lastCaption, lastUserTranscript, muted, onStart, onStop } = props;
   const isMobile = useMobile();
 
-  const paragraphStyle: React.CSSProperties = {
+  const recordingState: "idle" | "loading" | "recording" = muted
+    ? "idle"
+    : isConnecting
+      ? "loading"
+      : "recording";
+
+  const paragraphStyle: CSSProperties = {
     fontFamily: "Arial, sans-serif",
     fontSize: isMobile ? "18px" : "20px",
     margin: isMobile ? "0" : undefined,
   };
 
-  const secondaryStyle: React.CSSProperties = {
+  const secondaryStyle: CSSProperties = {
     ...paragraphStyle,
     fontSize: isMobile ? "15px" : "18px",
     opacity: 0.85,
   };
 
-  const containerStyle: React.CSSProperties = {
+  const containerStyle: CSSProperties = {
     position: "fixed",
     left: "50%",
-    bottom: isMobile ? "24px" : "32px",
+    bottom: isMobile ? "0px" : "20px",
     transform: "translateX(-50%)",
     zIndex: 9999,
     pointerEvents: "none",
-    maxWidth: isMobile ? "85%" : "70%",
+    maxWidth: isMobile ? "92%" : "70%",
     width: "100%",
     color: "white",
     boxSizing: "border-box",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
   };
 
-  const textBlockStyle: React.CSSProperties = {
+  const textBlockStyle: CSSProperties = {
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
@@ -54,43 +64,38 @@ export default function VoiceGuideOverlay(props: VoiceGuideOverlayProps): ReactE
     textAlign: "center",
     minHeight: isMobile ? "56px" : "64px",
     pointerEvents: "none",
+    marginBottom: isMobile ? "8px" : "12px",
   };
 
-  const muteButtonStyle: React.CSSProperties = {
+  const controlContainerStyle: CSSProperties = {
     position: "fixed",
     bottom: "6px",
-    left: "10px",
+    left: "5px",
     opacity: 0.7,
     zIndex: 10,
     pointerEvents: "auto",
   };
 
-  const showLoading = isConnecting && !muted;
+  const controlSlotStyle: CSSProperties = {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "visible",
+  };
+
   const hasText = Boolean(lastUserTranscript || lastCaption);
 
   return (
     <>
-      <div style={muteButtonStyle}>
-        <ConversationControlIcon
-          icon={muted ? "volume_off" : "volume_on"}
-          tooltip={muted ? "Unmute" : "Mute"}
-          onClick={onToggleMuted}
-        />
-      </div>
-
-      <div style={containerStyle} aria-live="polite">
-        <div style={textBlockStyle}>
+      <div style={containerStyle}>
+        <div style={textBlockStyle} aria-live="polite">
           {error ? (
             <p style={{ ...paragraphStyle, color: "#ffb4b4", margin: 0 }} role="alert">
               {error}
             </p>
           ) : null}
 
-          {showLoading ? (
-            <Lottie play loop animationData={loadingAnimation} style={{ height: isMobile ? "40px" : "60px" }} />
-          ) : null}
-
-          {!showLoading && hasText ? (
+          {hasText ? (
             <>
               {lastUserTranscript ? (
                 <p style={{ ...secondaryStyle, margin: 0 }} data-testid="voice-guide-user">
@@ -104,6 +109,27 @@ export default function VoiceGuideOverlay(props: VoiceGuideOverlayProps): ReactE
               ) : null}
             </>
           ) : null}
+        </div>
+      </div>
+
+      <div style={controlContainerStyle}>
+        <div style={controlSlotStyle}>
+          {recordingState === "loading" ? (
+            <Lottie
+              play
+              loop
+              animationData={loadingAnimation}
+              style={{ height: isMobile ? 35 : 40 }}
+            />
+          ) : (
+            <ConversationControlIcon
+              icon={recordingState === "recording" ? "ai_filled" : "ai"}
+              hoverIcon={recordingState === "recording" ? "ai" : "ai_filled"}
+              tooltip={recordingState === "recording" ? "Stop voice guide" : "Start voice guide"}
+              onClick={recordingState === "recording" ? onStop : onStart}
+              size={isMobile ? 30 : 40}
+            />
+          )}
         </div>
       </div>
     </>

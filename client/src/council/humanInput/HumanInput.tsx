@@ -49,11 +49,10 @@ function HumanInput({ isPanelist, currentSpeakerName, onSubmitHumanMessage, live
   const inputArea = useRef<HTMLTextAreaElement>(null);
   const isMobile = useMobile();
 
-  const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
-
   const initialized = useRef<boolean>(false);
   const pc = useRef<RTCPeerConnection | null>(null);
   const mic = useRef<MediaStream | null>(null);
+  const [micStream, setMicStream] = useState<MediaStream | null>(null);
 
   const vizLeftHostRef = useRef<HTMLDivElement>(null);
   const vizRightHostRef = useRef<HTMLDivElement>(null);
@@ -71,9 +70,10 @@ function HumanInput({ isPanelist, currentSpeakerName, onSubmitHumanMessage, live
     } else if (recordingState === 'recording') {
       //do something here?
     } else if (recordingState === 'idle') {
-      mediaRecorder?.stop();
       pc.current?.close();
       mic.current?.getTracks().forEach(track => track.stop());
+      mic.current = null;
+      setMicStream(null);
     }
   }, [recordingState, clientKey]);
 
@@ -91,9 +91,7 @@ function HumanInput({ isPanelist, currentSpeakerName, onSubmitHumanMessage, live
     mic.current = await navigator.mediaDevices.getUserMedia({
       audio: true,
     });
-    const recorder = new MediaRecorder(mic.current);
-    recorder.start();
-    setMediaRecorder(recorder);
+    setMicStream(mic.current);
     pc.current.addTrack(mic.current.getTracks()[0]);
 
     // Set up data channel for sending and receiving events
@@ -151,6 +149,8 @@ function HumanInput({ isPanelist, currentSpeakerName, onSubmitHumanMessage, live
     return () => {
       pc.current?.close();
       mic.current?.getTracks().forEach(track => track.stop());
+      mic.current = null;
+      setMicStream(null);
     };
   }, []);
 
@@ -295,9 +295,9 @@ function HumanInput({ isPanelist, currentSpeakerName, onSubmitHumanMessage, live
             />
           }
         </div>
-        {recordingState === 'recording' && mediaRecorder && (
+        {recordingState === 'recording' && micStream && (
           <LiveAudioVisualizerPair
-            mediaRecorder={mediaRecorder}
+            stream={micStream}
             leftHostRef={vizLeftHostRef}
             rightHostRef={vizRightHostRef}
             width={100}
