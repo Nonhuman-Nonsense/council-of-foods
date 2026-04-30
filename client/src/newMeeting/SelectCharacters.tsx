@@ -3,7 +3,7 @@ import { toTitleCase, useMobile, useMobileXs } from "@/utils";
 import { useTranslation } from "react-i18next";
 import VideoPreloader from "@main/VideoPreloader";
 import { globalClientOptions } from "@/globalClientOptions";
-import { foodIconWebpUrl } from "@assets/foods/foodIcons";
+import { characterIconWebpUrl } from "@assets/characters/characterData";
 import { useMeetingSetupStore } from "@stores/useMeetingSetupStore";
 import { buildMeetingCharactersPayload } from "./meetingSetup";
 import type { MeetingCharacter, CharacterSetupData } from "./CharacterSetup";
@@ -22,7 +22,7 @@ export interface SelectCharactersProps {
 }
 
 function getCharacterImageUrl(id: string): string | undefined {
-  return foodIconWebpUrl(id);
+  return characterIconWebpUrl(id);
 }
 
 const MAXHUMANS = 3;
