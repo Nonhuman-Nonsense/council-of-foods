@@ -22,9 +22,9 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "docker": "docker build ../. -t nonhumannonsense/council-of-forest:latest --platform linux/amd64",
-    "docker:test": "docker build ../. -t nonhumannonsense/council-of-foods:test --platform linux/amd64",
+    "docker:test": "docker build ../. -t nonhumannonsense/council-of-forest:test --platform linux/amd64",
     "push": "docker push nonhumannonsense/council-of-forest:latest",
-    "push:test": "docker push nonhumannonsense/council-of-foods:test"
+    "push:test": "docker push nonhumannonsense/council-of-forest:test"
   },
   "dependencies": {
     "colorette": "^2.0.20",
