@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useParams } from 'react-router';
 import Main from '@main/Main';
-import SelectFoods from '@newMeeting/SelectFoods';
+import SelectCharacters from '@newMeeting/SelectCharacters';
 import i18n from '@/i18n';
 import { useMeetingSetupStore } from '@stores/useMeetingSetupStore';
 
@@ -107,13 +107,13 @@ describe('Language Switching', () => {
         });
     });
 
-    it('shows Swedish food names on SelectFoods when language is sv', async () => {
+    it('shows Swedish food names on SelectCharacters when language is sv', async () => {
         window.scrollTo = vi.fn();
         await i18n.changeLanguage('sv');
 
         render(
             <MemoryRouter initialEntries={['/sv/new']}>
-                <SelectFoods topicTitle="Testämne" onContinueForward={() => { }} />
+                <SelectCharacters topicTitle="Testämne" onContinueForward={() => { }} />
             </MemoryRouter>
         );
 
