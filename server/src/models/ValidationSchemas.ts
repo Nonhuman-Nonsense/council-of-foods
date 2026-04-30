@@ -22,14 +22,15 @@ const VoiceOptionGeminiSchema = z.enum(AVAILABLE_VOICES_GEMINI);
 const CharacterSchema: z.ZodType<Character> = z.object({
     id: z.string().min(1),
     name: z.string().min(1),
-    type: z.string().optional(),
+    description: z.string(),
+    prompt: z.string(),
     voice: z.string(),
     voiceProvider: z.enum(['openai', 'gemini', 'inworld']).optional().default('openai'),
     voiceLocale: z.string().optional(),
-    prompt: z.string().optional(),
     voiceInstruction: z.string().optional(),
     voiceTemperature: z.number().min(0.1).max(2.0).optional(),
     voiceSpeed: z.number().min(0.8).max(1.5).optional(),
+    size: z.number().optional(),
 }).superRefine((data, ctx) => {
     if (!data.voiceProvider || data.voiceProvider === 'openai') {
         if (!VoiceOptionSchema.safeParse(data.voice).success) {

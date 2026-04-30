@@ -1,5 +1,4 @@
 import type { Topic, Character } from "@shared/ModelTypes";
-import type { MeetingCharacter } from "@newMeeting/CharacterSetup";
 import { buildMeetingCharactersPayload, type MeetingCharactersI18n } from "@newMeeting/meetingSetup";
 import { useMeetingSetupStore } from "@stores/useMeetingSetupStore";
 
@@ -36,7 +35,7 @@ export type GuideToolContext = {
   goToTopicStep: () => void;
   buildSelectedTopic: () => Topic;
   selectTopic: (topic: Topic) => void;
-  startMeeting: (characters: MeetingCharacter[]) => void | Promise<void>;
+  startMeeting: (characters: Character[]) => void | Promise<void>;
 
   meetingStep: "topic" | "foods";
   voiceGuideLanguage: string;

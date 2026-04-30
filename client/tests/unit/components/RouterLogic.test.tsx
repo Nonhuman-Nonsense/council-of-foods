@@ -7,6 +7,7 @@ import Main from '@main/Main';
 import Navbar from '@main/Navbar';
 import * as AvailableLanguagesModule from '@shared/AvailableLanguages';
 import routes from '@/routes.json';
+import { MockFactory } from '../factories/MockFactory';
 
 // Mock child components to focus on routing logic
 vi.mock('@main/overlay/Overlay', () => ({
@@ -24,16 +25,11 @@ vi.mock('@newMeeting/SelectTopic', () => ({
 vi.mock('@newMeeting/SelectCharacters', () => ({
     default: () => <div data-testid="select-foods">SelectFoods</div>,
     createDefaultHumans: () => ([
-        { id: "panelist0", name: "", description: "", type: "panelist", voice: "alloy", index: 0 },
-        { id: "panelist1", name: "", description: "", type: "panelist", voice: "alloy", index: 1 },
-        { id: "panelist2", name: "", description: "", type: "panelist", voice: "alloy", index: 2 },
+        MockFactory.createPanelist(0),
+        MockFactory.createPanelist(1),
+        MockFactory.createPanelist(2),
     ]),
-    getFoodsBundle: () => ({
-        metadata: { version: "test", last_updated: "test" },
-        panelWithHumans: "",
-        addHuman: { id: "addhuman", name: "Add Human", description: "" },
-        characters: [{ id: "water", name: "Water", description: "", voice: "alloy" }],
-    }),
+    getFoodsBundle: () => MockFactory.createCharacterSetupBundle(),
 }));
 vi.mock('@council/Council', () => ({
     default: () => <div data-testid="council">Council</div>

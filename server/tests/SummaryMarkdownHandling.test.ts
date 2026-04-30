@@ -19,7 +19,7 @@ describe('Summary Markdown Handling', () => {
                     { id: 'm1', type: 'message', text: 'prior', speaker: 'chair' },
                     { type: 'max_reached', canContinue: false },
                 ],
-                characters: [{ id: 'chair', name: 'Chair', voice: 'alloy' }]
+                characters: [MockFactory.createChair()]
             }),
             serverOptions: MockFactory.createServerOptions({
                 finalizeMeetingPrompt: { en: 'Prompt [DATE]' },

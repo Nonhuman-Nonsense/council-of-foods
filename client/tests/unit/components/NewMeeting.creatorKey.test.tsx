@@ -4,7 +4,8 @@ import { MemoryRouter, Routes, Route } from "react-router";
 import NewMeeting from "@newMeeting/NewMeeting";
 import { createMeeting } from "@api/createMeeting";
 import routes from "@/routes.json";
-import type { MeetingCharacter } from "@newMeeting/SelectCharacters";
+import type { Character } from "@newMeeting/SelectCharacters";
+import { MockFactory } from "../factories/MockFactory";
 
 vi.mock("react-i18next", () => ({
     useTranslation: () => ({ t: (key: string) => key, i18n: { language: "en" } }),
@@ -24,8 +25,13 @@ vi.mock("@api/createMeeting", () => ({
 
 vi.mock("@main/topicsBundle", () => ({
     getTopicsBundle: () => ({
-        topics: [{ id: "test-topic", title: "Test Topic", description: "D", prompt: "P" }],
-        custom_topic: { id: "customtopic", title: "Custom", description: "C", prompt: "Custom" },
+        topics: [MockFactory.createTopic({ id: "test-topic", title: "Test Topic", description: "D", prompt: "P" })],
+        custom_topic: MockFactory.createTopic({
+            id: "customtopic",
+            title: "Custom",
+            description: "C",
+            prompt: "Custom",
+        }),
         system: "System [TOPIC]",
     }),
 }));
@@ -46,16 +52,16 @@ vi.mock("@newMeeting/SelectTopic", () => ({
     ),
 }));
 
-const twoCharacters: MeetingCharacter[] = [
-    { id: "water", name: "Water", description: "", type: "food", voice: "alloy" },
-    { id: "tomato", name: "Tomato", description: "", type: "food", voice: "alloy" },
+const twoCharacters: Character[] = [
+    MockFactory.createCharacter({ id: "water", name: "Water", description: "", prompt: "" }),
+    MockFactory.createCharacter({ id: "tomato", name: "Tomato", description: "", prompt: "" }),
 ];
 
 vi.mock("@newMeeting/SelectCharacters", () => ({
     default: ({
         onContinueForward,
     }: {
-        onContinueForward: (data: { characters: MeetingCharacter[] }) => void | Promise<void>;
+        onContinueForward: (data: { characters: Character[] }) => void | Promise<void>;
     }) => (
         <button
             type="button"
@@ -66,16 +72,11 @@ vi.mock("@newMeeting/SelectCharacters", () => ({
         </button>
     ),
     createDefaultHumans: () => ([
-        { id: "panelist0", name: "", description: "", type: "panelist", voice: "alloy", index: 0 },
-        { id: "panelist1", name: "", description: "", type: "panelist", voice: "alloy", index: 1 },
-        { id: "panelist2", name: "", description: "", type: "panelist", voice: "alloy", index: 2 },
+        MockFactory.createPanelist(0),
+        MockFactory.createPanelist(1),
+        MockFactory.createPanelist(2),
     ]),
-    getFoodsBundle: () => ({
-        metadata: { version: "test", last_updated: "test" },
-        panelWithHumans: "",
-        addHuman: { id: "addhuman", name: "Add Human", description: "" },
-        characters: [{ id: "water", name: "Water", description: "", voice: "alloy" }],
-    }),
+    getFoodsBundle: () => MockFactory.createCharacterSetupBundle(),
 }));
 
 describe("NewMeeting — live key handoff", () => {
@@ -100,7 +101,12 @@ describe("NewMeeting — live key handoff", () => {
                         element={
                             <NewMeeting
                                 setUnrecoverableError={setUnrecoverableError}
-                                topicSelection={{ id: "test-topic", title: "Test Topic", description: "D", prompt: "P" }}
+                                topicSelection={MockFactory.createTopic({
+                                    id: "test-topic",
+                                    title: "Test Topic",
+                                    description: "D",
+                                    prompt: "P",
+                                })}
                                 setTopicSelection={setTopicSelection}
                                 setMeetingliveKey={setMeetingliveKey}
                             />

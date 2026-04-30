@@ -294,7 +294,7 @@ export class MeetingManager implements IMeetingManager {
         const nextSpeaker = meeting.characters[nextSpeakerIndex];
 
         // 5. Panelist Turn
-        if (nextSpeaker.type === 'panelist') {
+        if (nextSpeaker.id.startsWith('panelist')) {
             return { type: 'REQUEST_PANELIST', speaker: nextSpeaker };
         }
 

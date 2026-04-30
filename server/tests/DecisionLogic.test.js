@@ -8,8 +8,8 @@ describe('MeetingManager - State Machine (decideNextAction)', () => {
     beforeEach(() => {
         const setup = createTestManager();
         manager = setup.manager;
-        // Add Alice (id: 'alice', type: 'panelist') to index 3
-        manager.meeting.characters.push({ id: 'alice', name: 'Alice', type: 'panelist' });
+        // Add a human panelist at index 3.
+        manager.meeting.characters.push({ id: 'panelist0', name: 'Alice', description: '', prompt: '', voice: 'alloy' });
     });
 
     const scenarios = [
@@ -57,7 +57,7 @@ describe('MeetingManager - State Machine (decideNextAction)', () => {
             nextSpeakerIndex: 3, // Alice
             expected: {
                 type: 'REQUEST_PANELIST',
-                speaker: expect.objectContaining({ id: 'alice', type: 'panelist' })
+                speaker: expect.objectContaining({ id: 'panelist0' })
             }
         },
         {
@@ -68,7 +68,7 @@ describe('MeetingManager - State Machine (decideNextAction)', () => {
             nextSpeakerIndex: 1, // Tomato
             expected: {
                 type: 'GENERATE_AI_RESPONSE',
-                speaker: expect.objectContaining({ id: 'tomato', type: 'food' })
+                speaker: expect.objectContaining({ id: 'tomato' })
             }
         },
         {
@@ -99,7 +99,7 @@ describe('MeetingManager - State Machine (decideNextAction)', () => {
             nextSpeakerIndex: 1,
             expected: {
                 type: 'GENERATE_AI_RESPONSE',
-                speaker: expect.objectContaining({ id: 'tomato', type: 'food' })
+                speaker: expect.objectContaining({ id: 'tomato' })
             }
         }
     ];

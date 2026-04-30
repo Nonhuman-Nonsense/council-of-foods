@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from "react";
+import type { Character } from "@shared/ModelTypes";
 import { toTitleCase, useMobile, useMobileXs } from "@/utils";
 import { useTranslation } from "react-i18next";
 import VideoPreloader from "@main/VideoPreloader";
@@ -6,18 +7,17 @@ import { globalClientOptions } from "@/globalClientOptions";
 import { characterIconWebpUrl } from "@assets/characters/characterData";
 import { useMeetingSetupStore } from "@stores/useMeetingSetupStore";
 import { buildMeetingCharactersPayload } from "./meetingSetup";
-import type { MeetingCharacter } from "./CharacterSetup";
 import { getCharacterSetupBundle } from "./CharacterSetup";
 
 import Lottie from "react-lottie-player";
 import loadingAnimation from "@assets/animations/loading.json";
 
-export type { MeetingCharacter, CharacterSetupData } from "./CharacterSetup";
+export type { Character, CharacterSetupData } from "./CharacterSetup";
 export { getCharacterSetupBundle, createDefaultHumans, createHuman } from "./CharacterSetup";
 
 export interface SelectCharactersProps {
   topicTitle: string;
-  onContinueForward: (data: { characters: MeetingCharacter[] }) => void | Promise<void>;
+  onContinueForward: (data: { characters: Character[] }) => void | Promise<void>;
   loading?: boolean;
 }
 
@@ -26,6 +26,18 @@ function getCharacterImageUrl(id: string): string | undefined {
 }
 
 const MAXHUMANS = 3;
+
+function isPanelistId(id: string): boolean {
+  return id.startsWith("panelist");
+}
+
+function panelistIndexFromId(id: string): number | null {
+  if (!isPanelistId(id)) return null;
+  const match = id.match(/^panelist(\d+)$/);
+  if (!match) return null;
+  const index = Number(match[1]);
+  return Number.isInteger(index) ? index : null;
+}
 
 /**
  * The shared participant-selection screen used before meeting creation.
@@ -109,15 +121,15 @@ function SelectCharacters({
     selectCharacter(humans[idx]);
   }
 
-  function selectCharacter(character: MeetingCharacter): void {
+  function selectCharacter(character: Character): void {
     const success = handleSelectCharacterId(character.id);
     if (success) {
       setLastSelected(character.id);
     }
   }
 
-  function deselectCharacter(character: MeetingCharacter): void {
-    if (character.type === "panelist" && lastSelected !== character.id) {
+  function deselectCharacter(character: Character): void {
+    if (isPanelistId(character.id) && lastSelected !== character.id) {
       setLastSelected(character.id);
     } else {
       handleDeselectCharacterId(character.id);
@@ -140,8 +152,8 @@ function SelectCharacters({
     const selectedHumans = selectedCharacters.filter((id) => id.startsWith("panelist"));
     let ready = true;
     for (const humanId of selectedHumans) {
-      const index = Number(humanId.slice(-1));
-      if (humans[index]) {
+      const index = panelistIndexFromId(humanId);
+      if (index !== null && humans[index]) {
         if (humans[index].name.length === 0 || humans[index].description.length === 0) {
           ready = false;
         }
@@ -304,7 +316,7 @@ function SelectCharacters({
         <div style={{ display: "flex", alignItems: "center" }}>
           {characters.map((character) => (
             <CharacterButton
-              key={character.type === "panelist" ? character.id : character.name}
+              key={isPanelistId(character.id) ? character.id : character.name}
               character={character}
               onMouseEnter={() => setHoveredCharacter(character.id)}
               onMouseLeave={() => setHoveredCharacter(null)}
@@ -341,7 +353,7 @@ function SelectCharacters({
 
 interface CharacterDisplayData {
   name: string;
-  description: string;
+  description?: string;
 }
 
 interface CharacterInfoProps {
@@ -379,8 +391,8 @@ function CharacterInfo({ character }: CharacterInfoProps): React.ReactElement | 
 }
 
 interface HumanInfoProps {
-  human?: MeetingCharacter;
-  setHumans: React.Dispatch<React.SetStateAction<MeetingCharacter[]>>;
+  human?: Character;
+  setHumans: React.Dispatch<React.SetStateAction<Character[]>>;
   lastSelected?: string | null;
   unfocus?: boolean;
   setRecheckHumansReady: React.Dispatch<React.SetStateAction<boolean>>;
@@ -398,17 +410,18 @@ function HumanInfo({
   const descriptionArea = useRef<HTMLTextAreaElement>(null);
 
   const { t } = useTranslation();
+  const humanIndex = human ? panelistIndexFromId(human.id) : null;
 
   useEffect(() => {
-    if (!human || human.index === undefined) return;
+    if (!human || humanIndex === null) return;
     if (nameArea.current && descriptionArea.current) {
       nameArea.current.value = human.name;
       descriptionArea.current.value = human.description;
     }
-  }, [human]);
+  }, [human, humanIndex]);
 
   useEffect(() => {
-    if (!human || human.index === undefined) return;
+    if (!human || humanIndex === null) return;
     if (nameArea.current && descriptionArea.current) {
       if (lastSelected === human.id && unfocus !== true) {
         nameArea.current.focus();
@@ -419,33 +432,33 @@ function HumanInfo({
         descriptionArea.current.blur();
       }
     }
-  }, [unfocus, lastSelected, human?.id]);
+  }, [unfocus, lastSelected, human?.id, humanIndex]);
 
-  if (!human || human.index === undefined) return null;
+  if (!human || humanIndex === null) return null;
 
   function descriptionChanged(e: React.ChangeEvent<HTMLTextAreaElement>) {
-    if (!human || human.index === undefined) return;
+    if (!human || humanIndex === null) return;
     const val = e.target.value;
     setHumans((prev) => {
       const next = [...prev];
-      const old = next[human.index!];
+      const old = next[humanIndex];
       if (!old) return prev;
-      next[human.index!] = { ...old, description: val };
+      next[humanIndex] = { ...old, description: val };
       return next;
     });
     setRecheckHumansReady((prev) => !prev);
   }
 
   function nameChanged(_e: React.ChangeEvent<HTMLTextAreaElement>) {
-    if (!human || human.index === undefined) return;
+    if (!human || humanIndex === null) return;
     if (nameArea.current) {
       nameArea.current.value = toTitleCase(nameArea.current.value);
       const val = nameArea.current.value;
       setHumans((prev) => {
         const next = [...prev];
-        const old = next[human.index!];
+        const old = next[humanIndex];
         if (!old) return prev;
-        next[human.index!] = { ...old, name: val };
+        next[humanIndex] = { ...old, name: val };
         return next;
       });
       setRecheckHumansReady((prev) => !prev);
@@ -515,9 +528,9 @@ function HumanInfo({
 }
 
 interface CharacterButtonProps {
-  character: MeetingCharacter;
-  onSelectCharacter?: (character: MeetingCharacter) => void;
-  onDeselectCharacter?: (character: MeetingCharacter) => void;
+  character: Character;
+  onSelectCharacter?: (character: Character) => void;
+  onDeselectCharacter?: (character: Character) => void;
   onMouseEnter?: () => void;
   onMouseLeave?: () => void;
   isSelected: boolean;
@@ -536,7 +549,7 @@ function CharacterButton({
   const isMobile = useMobile();
   const isModerator = onSelectCharacter === undefined;
 
-  const imageId = character.type === "panelist" ? "panelist" : character.id;
+  const imageId = isPanelistId(character.id) ? "panelist" : character.id;
   const imageUrl = getCharacterImageUrl(imageId);
 
   function handleClickCharacter() {

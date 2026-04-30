@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { resumeMeeting, ResumeMeetingError } from "@api/resumeMeeting";
+import { MockFactory } from "../factories/MockFactory";
 
 /**
  * Covers `PUT /api/meetings/:id`:
@@ -16,7 +17,13 @@ describe("resumeMeeting", () => {
 
     it("issues a PUT with JSON content type and returns the parsed body", async () => {
         const body = {
-            meeting: { _id: 42, topic: { id: "t", title: "T", description: "", prompt: "" }, characters: [], conversation: [], audio: [] },
+            meeting: {
+                _id: 42,
+                topic: MockFactory.createTopic({ id: "t", title: "T", description: "", prompt: "" }),
+                characters: [],
+                conversation: [],
+                audio: [],
+            },
             liveKey: "new-key",
         };
         const fetchMock = vi.fn().mockResolvedValue(

@@ -1,4 +1,4 @@
-import type { CharacterSetupData } from "@newMeeting/CharacterSetup";
+import type { CharacterSetupData } from "@shared/ModelTypes";
 export { CHARACTERS_FILE } from "@shared/prompts/characterSetupMetadata";
 import { CHARACTERS_FILE } from "@shared/prompts/characterSetupMetadata";
 

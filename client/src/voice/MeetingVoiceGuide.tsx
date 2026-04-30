@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import VoiceGuideOverlay from "./VoiceGuideOverlay";
 import { getTopicsBundle } from "@main/topicsBundle";
 import { getCharacterSetupBundle } from "@newMeeting/CharacterSetup";
-import type { MeetingCharacter } from "@newMeeting/CharacterSetup";
+import type { Character } from "@shared/ModelTypes";
 import { buildMeetingSetupSyncMessage, buildTopicFromSelection, type MeetingSetupUserEvent } from "@newMeeting/meetingSetup";
 import { useMeetingSetupStore } from "@stores/useMeetingSetupStore";
 import { buildGuidePrompt } from "./guidePrompt";
@@ -17,7 +17,7 @@ type MeetingVoiceGuideProps = {
   lastUserEvent: MeetingSetupUserEvent | null;
   onGoToTopicStep: () => void;
   onSelectTopic: (topic: Topic) => void;
-  onStartMeeting: (characters: MeetingCharacter[]) => Promise<void> | void;
+  onStartMeeting: (characters: Character[]) => Promise<void> | void;
 };
 
 export default function MeetingVoiceGuide({
@@ -52,7 +52,7 @@ export default function MeetingVoiceGuide({
   }, [topicsBundle]);
 
   const guideCharacters = useMemo(() => {
-    return characterSetupBundle.characters.map((character: MeetingCharacter) => ({
+    return characterSetupBundle.characters.map((character: Character) => ({
       id: character.id,
       name: character.name,
       description: character.description,
