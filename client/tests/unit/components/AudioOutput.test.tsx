@@ -22,7 +22,7 @@ const mockAudioContext = {
 };
 
 describe('AudioOutput', () => {
-    let audioContextRef: React.MutableRefObject<any>;
+    let audioContextRef: React.RefObject<any>;
 
     beforeEach(() => {
         vi.clearAllMocks();

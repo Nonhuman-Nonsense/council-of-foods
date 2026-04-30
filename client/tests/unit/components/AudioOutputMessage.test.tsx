@@ -29,8 +29,8 @@ const mockAudioContext = {
 const mockGainNode = {};
 
 describe('AudioOutputMessage', () => {
-    let audioContextRef: React.MutableRefObject<any>;
-    let gainNodeRef: React.MutableRefObject<any>;
+    let audioContextRef: React.RefObject<any>;
+    let gainNodeRef: React.RefObject<any>;
 
     beforeEach(() => {
         vi.clearAllMocks();

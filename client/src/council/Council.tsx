@@ -22,7 +22,7 @@ interface CouncilProps {
   setUnrecoverableError: (message: string) => void;
   setConnectionError: (error: boolean) => void;
   connectionError: boolean;
-  audioContext: React.MutableRefObject<AudioContext | null>;
+  audioContext: React.RefObject<AudioContext | null>;
   setAudioPaused: (paused: boolean) => void;
   currentSpeakerId: string;
   setCurrentSpeakerId: (id: string) => void;

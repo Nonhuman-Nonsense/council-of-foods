@@ -9,8 +9,8 @@ export interface PlayableAudioMessage extends Omit<AudioUpdatePayload, 'audio'> 
 
 interface AudioOutputMessageProps {
   currentAudioMessage: PlayableAudioMessage | null;
-  audioContext: React.MutableRefObject<AudioContext | null>;
-  gainNode: React.MutableRefObject<GainNode | null>;
+  audioContext: React.RefObject<AudioContext | null>;
+  gainNode: React.RefObject<GainNode | null>;
   onFinishedPlaying: () => void;
 }
 

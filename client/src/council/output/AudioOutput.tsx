@@ -4,7 +4,7 @@ import AudioOutputMessage, { PlayableAudioMessage } from "./AudioOutputMessage";
 import React from 'react';
 
 interface AudioOutputProps {
-  audioContext: React.MutableRefObject<AudioContext | null>;
+  audioContext: React.RefObject<AudioContext | null>;
   currentAudioMessage: PlayableAudioMessage | null;
   onFinishedPlaying: () => void;
   isMuted: boolean;
