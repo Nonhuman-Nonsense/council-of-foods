@@ -22,7 +22,9 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "docker": "docker build ../. -t nonhumannonsense/council-of-foods:latest --platform linux/amd64",
-    "push": "docker push nonhumannonsense/council-of-foods:latest"
+    "docker:test": "docker build ../. -t nonhumannonsense/council-of-foods:test --platform linux/amd64",
+    "push": "docker push nonhumannonsense/council-of-foods:latest",
+    "push:test": "docker push nonhumannonsense/council-of-foods:test"
   },
   "dependencies": {
     "colorette": "^2.0.20",
