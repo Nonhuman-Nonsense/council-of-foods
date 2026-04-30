@@ -58,7 +58,6 @@ vi.mock('@council/overlays/CouncilOverlays', () => ({ default: () => <div>Counci
 vi.mock('@main/Loading', () => ({ default: () => <div>Loading...</div> }));
 vi.mock('@council/output/Output', () => ({ default: () => <div>Output</div> }));
 vi.mock('@council/humanInput/HumanInput', () => ({ default: () => <div>Human Input</div> }));
-vi.mock('@council/FoodsCouncilScene', () => ({ default: () => <div data-testid="foods-scene">Foods Scene</div> }));
 
 
 // Mock useCouncilMachine Hook
