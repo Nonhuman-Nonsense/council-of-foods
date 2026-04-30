@@ -1,16 +1,16 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { toTitleCase, useMobile, useMobileXs } from "@/utils";
 import { useTranslation } from "react-i18next";
-import VideoPreloader from "@components/VideoPreloader";
+import VideoPreloader from "@main/VideoPreloader";
 import { globalClientOptions } from "@/globalClientOptions";
 import { characterIconWebpUrl } from "@assets/characters/characterData";
-import { useMeetingSetupStore } from "@/stores/useMeetingSetupStore";
-import { buildMeetingFoodsPayload } from "@/meetingSetup/meetingSetup";
+import { useMeetingSetupStore } from "@stores/useMeetingSetupStore";
+import { buildMeetingFoodsPayload } from "./meetingSetup";
 import type { Food, FoodData } from "./FoodUtils";
 import { getFoodsBundle } from "./FoodUtils";
 
 import Lottie from 'react-lottie-player';
-import loadingAnimation from '@animations/loading.json';
+import loadingAnimation from "@assets/animations/loading.json";
 
 export type { Food, FoodData } from "./FoodUtils";
 export { getFoodsBundle, createDefaultHumans, createHuman } from "./FoodUtils";

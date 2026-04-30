@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render } from '@testing-library/react';
-import AudioOutputMessage from '../../../src/components/AudioOutputMessage';
+import AudioOutputMessage from '@council/output/AudioOutputMessage';
 import React from 'react';
 
 // Specialized Mocks

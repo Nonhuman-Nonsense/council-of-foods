@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render } from '@testing-library/react';
-import VideoPreloader from '../../../src/components/VideoPreloader';
+import VideoPreloader from '@main/VideoPreloader';
 
 vi.mock('../../../src/utils', async (importOriginal) => {
     const actual = await importOriginal<typeof import('../../../src/utils')>();

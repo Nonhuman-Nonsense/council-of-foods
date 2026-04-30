@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import Name from '../../../../src/components/overlays/Name';
+import Name from '@council/overlays/Name';
 
 // Mock dependencies
 vi.mock('react-i18next', () => ({
@@ -11,7 +11,7 @@ vi.mock('react-i18next', () => ({
 
 // Mock utils - defaulting to desktop (false)
 const mockUseMobile = vi.fn();
-vi.mock('../../../../src/utils', () => ({
+vi.mock('@/utils', () => ({
     useMobile: () => mockUseMobile(),
     capitalizeFirstLetter: (str) => str.charAt(0).toUpperCase() + str.slice(1)
 }));

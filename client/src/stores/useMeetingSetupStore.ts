@@ -1,7 +1,7 @@
 import { create } from 'zustand';
-import type { Food } from '../components/settings/FoodUtils';
-import { createDefaultHumans } from '../components/settings/FoodUtils';
-import { globalClientOptions } from '../globalClientOptions';
+import type { Food } from '@newMeeting/FoodUtils';
+import { createDefaultHumans } from '@newMeeting/FoodUtils';
+import { globalClientOptions } from '@/globalClientOptions';
 
 export interface MeetingSetupState {
   // Topic State

@@ -1,18 +1,16 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import SelectFoods from '../../../../src/components/settings/SelectFoods';
-import { createDefaultHumans } from '../../../../src/components/settings/FoodUtils';
+import SelectFoods from '@newMeeting/SelectFoods';
 import foodsEn from '@shared/prompts/foods_en.json';
-import { useState } from 'react';
-import { useMeetingSetupStore } from '../../../../src/stores/useMeetingSetupStore';
+import { useMeetingSetupStore } from '@stores/useMeetingSetupStore';
 
 // Mock dependencies
 vi.mock('react-i18next', () => ({
     useTranslation: () => ({ t: (key) => key, i18n: { language: 'en' } }),
 }));
 
-vi.mock('../../../../src/utils', () => ({
+vi.mock('@/utils', () => ({
     useMobile: () => false,
     useMobileXs: () => false,
     toTitleCase: (str) => str,

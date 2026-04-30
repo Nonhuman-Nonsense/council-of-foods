@@ -2,10 +2,10 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import { MemoryRouter } from 'react-router';
-import Main from '../../../src/components/Main';
-import routes from '../../../src/routes.json';
+import Main from '@main/Main';
+import routes from '@/routes.json';
 
-vi.mock('@/api/createMeeting', () => ({
+vi.mock('@api/createMeeting', () => ({
     createMeeting: vi.fn().mockResolvedValue({ meetingId: 99, liveKey: 'test-live-key' }),
 }));
 
@@ -21,13 +21,13 @@ vi.mock('@shared/prompts/topics_en.json', () => ({
 }));
 
 // Mock child components to isolate Main logic
-vi.mock('../../../src/components/Overlay', () => ({
+vi.mock('@main/overlay/Overlay', () => ({
     default: ({ children }) => <div data-testid="overlay">{children}</div>
 }));
-vi.mock('../../../src/components/MainOverlays', () => ({
+vi.mock('@main/overlay/MainOverlays', () => ({
     default: () => <div data-testid="main-overlays">MainOverlays</div>
 }));
-vi.mock('../../../src/components/settings/Landing', async () => {
+vi.mock('@newMeeting/Landing', async () => {
     const { useNavigate } = await import('react-router');
     return {
         default: function MockLanding({ newMeetingPath }) {
@@ -46,10 +46,10 @@ vi.mock('../../../src/components/settings/Landing', async () => {
         }
     };
 });
-vi.mock('../../../src/components/Navbar', () => ({
+vi.mock('@main/Navbar', () => ({
     default: () => <div data-testid="navbar">Navbar</div>
 }));
-vi.mock('../../../src/components/settings/SelectTopic', () => ({
+vi.mock('@newMeeting/SelectTopic', () => ({
     default: ({ onContinueForward }) => (
         <div data-testid="select-topic">
             <button
@@ -63,7 +63,7 @@ vi.mock('../../../src/components/settings/SelectTopic', () => ({
         </div>
     )
 }));
-vi.mock('../../../src/components/settings/SelectFoods', () => ({
+vi.mock('@newMeeting/SelectFoods', () => ({
     default: ({ onContinueForward }) => (
         <div data-testid="select-foods">
             <button onClick={() => onContinueForward({ foods: [{ id: "apple" }] })} data-testid="foods-btn">Select Foods</button>
@@ -81,13 +81,13 @@ vi.mock('../../../src/components/settings/SelectFoods', () => ({
         foods: [{ id: "water", name: "Water", description: "", voice: "alloy" }],
     }),
 }));
-vi.mock('../../../src/components/Council', () => ({
+vi.mock('@council/Council', () => ({
     default: () => <div data-testid="council">Council</div>
 }));
-vi.mock('../../../src/components/RotateDevice', () => ({
+vi.mock('@main/overlay/RotateDevice', () => ({
     default: () => <div data-testid="rotate-device">RotateDevice</div>
 }));
-vi.mock('../../../src/components/FullscreenButton', () => ({
+vi.mock('@main/FullscreenButton', () => ({
     default: () => <div data-testid="fullscreen-btn">Fullscreen</div>
 }));
 
@@ -97,12 +97,12 @@ vi.mock('react-i18next', () => ({
     initReactI18next: { type: '3rdParty', init: () => { } }
 }));
 
-vi.mock('../../../src/components/Forest', () => ({
+vi.mock('@council/Forest', () => ({
     default: () => <div data-testid="forest">Forest</div>
 }));
 
 // Mock utils
-vi.mock('../../../src/utils', () => ({
+vi.mock('@/utils', () => ({
     usePortrait: () => false,
     useMobile: () => false,
     dvh: 'vh'

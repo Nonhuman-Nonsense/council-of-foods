@@ -1,8 +1,8 @@
 
 import { renderHook, act } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { useCouncilMachine } from '../../../src/hooks/useCouncilMachine';
-// import { useCouncilSocket } from "../../../src/hooks/useCouncilSocket"; // doing manual mock
+import { useCouncilMachine } from '@council/hooks/useCouncilMachine';
+// import { useCouncilSocket } from "@council/hooks/useCouncilSocket"; // doing manual mock
 
 // --- Mocks ---
 
@@ -31,7 +31,7 @@ vi.mock('@/routing', () => ({
 let socketHandlers: any = {};
 const mockSocketEmit = vi.fn();
 
-vi.mock('../../../src/hooks/useCouncilSocket', () => ({
+vi.mock('@council/hooks/useCouncilSocket', () => ({
     useCouncilSocket: (props: any) => {
         socketHandlers = props; // Capture handlers
         return { current: { emit: mockSocketEmit } }; // Return mock socket ref
@@ -40,7 +40,7 @@ vi.mock('../../../src/hooks/useCouncilSocket', () => ({
 
 // Mock resumeMeeting API for resume-flow tests.
 const mockResumeMeeting = vi.fn();
-vi.mock('@/api/resumeMeeting', () => ({
+vi.mock('@api/resumeMeeting', () => ({
     ResumeMeetingError: class ResumeMeetingError extends Error {
         readonly status: number;
         constructor(status: number, message: string) {

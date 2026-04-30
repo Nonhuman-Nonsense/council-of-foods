@@ -1,22 +1,27 @@
-import "@root/App.css";
-import { useState, useEffect, useRef } from "react";
-import { getTopicsBundle } from "@/components/topicsBundle";
-import { Routes, Route, useLocation, useNavigate } from "react-router";
+import "@/App.css";
+import React, { useState, useEffect, useRef } from "react";
+import { getTopicsBundle } from "./topicsBundle";
+import {
+  Routes,
+  Route,
+  useLocation,
+  useNavigate
+} from "react-router";
 import { useTranslation } from "react-i18next";
-import Overlay from "./Overlay";
-import MainOverlays from "./MainOverlays";
-import Landing from "./settings/Landing";
+import Overlay from "./overlay/Overlay";
+import MainOverlays from "./overlay/MainOverlays";
+import Landing from "@newMeeting/Landing";
 import Navbar from "./Navbar";
 import type { Topic } from "@shared/ModelTypes";
-import NewMeeting from "./NewMeeting";
-import Council from "./Council";
+import NewMeeting from "@newMeeting/NewMeeting";
+import Council from "@council/Council";
+import Forest from "@council/Forest";
 import { isMeetingPath, isRootPath, stripLanguagePrefix, useRouting } from "@/routing";
-import RotateDevice from "./RotateDevice";
+import RotateDevice from "./overlay/RotateDevice";
 import FullscreenButton from "./FullscreenButton";
 import { usePortrait } from "@/utils";
-import CouncilError from "./overlays/CouncilError";
-import Forest from './Forest';
-import Reconnecting from "./overlays/Reconnecting";
+import CouncilError from "./overlay/CouncilError";
+import Reconnecting from "./overlay/Reconnecting";
 
 import routes from "@/routes.json";
 
@@ -81,7 +86,7 @@ export default function Main(props: MainProps) {
           ? { ...prev, title: bundle.custom_topic.title }
           : prev);
       } else {
-        const found = bundle.topics.find(t => t.id === topicSelection.id);
+        const found = bundle.topics.find((t: Topic) => t.id === topicSelection.id);
         if (found) {
           setTopicSelection(prev => prev
             ? { ...prev, title: found.title, description: found.description, prompt: bundle.system.replace("[TOPIC]", found.prompt) }

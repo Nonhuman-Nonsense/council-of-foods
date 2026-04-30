@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo, createRef, CSSProperties, type RefObject } from "react";
-import FoodAnimation from "./FoodAnimation.jsx";
-import { dvh, minWindowHeight, useMobile, useDocumentVisibility } from "../utils.js";
+import FoodAnimation from "./FoodAnimation";
+import { dvh, minWindowHeight, useMobile, useDocumentVisibility } from "@/utils";
 import forestCharacters from "@shared/prompts/forest_characters.json";
 import { forestCharacterRatios } from "../generated/forestCharacterRatios";
 import { forestBackgroundUrls } from "@assets/backgrounds/index";

@@ -1,12 +1,12 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import Council from '../../../src/components/Council';
+import Council from '@council/Council';
 import '@testing-library/jest-dom';
 
 // --- Mocks ---
 
 // Mock Child Components
-vi.mock('../../../src/components/ConversationControls', () => ({
+vi.mock('@council/ConversationControls', () => ({
     default: ({ onMuteUnmute, isMuted }: any) => (
         <div data-testid="conversation-controls">
             <button
@@ -52,14 +52,14 @@ vi.mock('@/utils', () => ({
 }));
 
 // Mock other children to avoid rendering complexity
-vi.mock('../../../src/components/FoodItem', () => ({ default: () => <div data-testid="food-item">Food Item</div> }));
-vi.mock('../../../src/components/Overlay', () => ({ default: ({ children }: any) => <div>{children}</div> }));
-vi.mock('../../../src/components/CouncilOverlays', () => ({ default: () => <div>Council Overlays</div> }));
-vi.mock('../../../src/components/Loading', () => ({ default: () => <div>Loading...</div> }));
-vi.mock('../../../src/components/Output', () => ({ default: () => <div>Output</div> }));
-vi.mock('../../../src/components/HumanInput', () => ({ default: () => <div>Human Input</div> }));
+vi.mock('@council/FoodItem', () => ({ default: () => <div data-testid="food-item">Food Item</div> }));
+vi.mock('@main/overlay/Overlay', () => ({ default: ({ children }: any) => <div>{children}</div> }));
+vi.mock('@council/overlays/CouncilOverlays', () => ({ default: () => <div>Council Overlays</div> }));
+vi.mock('@main/Loading', () => ({ default: () => <div>Loading...</div> }));
+vi.mock('@council/output/Output', () => ({ default: () => <div>Output</div> }));
+vi.mock('@council/humanInput/HumanInput', () => ({ default: () => <div>Human Input</div> }));
 // Mock Background to avoid Memoization issues or complex rendering if any
-vi.mock('../../../src/components/Council', async (importOriginal) => {
+vi.mock('@council/Council', async (importOriginal) => {
     const actual = await importOriginal<any>();
     return {
         ...actual,
@@ -111,7 +111,7 @@ const mockCouncilStateMachine = {
     socketRef: { current: null }
 }
 
-vi.mock('../../../src/hooks/useCouncilMachine', () => ({
+vi.mock('@council/hooks/useCouncilMachine', () => ({
     useCouncilMachine: () => mockCouncilStateMachine
 }));
 

@@ -6,7 +6,7 @@ import { capitalizeFirstLetter, useMobile, useMobileXs, usePortrait } from "@/ut
 import { getMeetingIdFromPathname, stripLanguagePrefix } from "@/routing";
 import Lottie from "react-lottie-player";
 import type { ComponentRef } from "react";
-import hamburger from "@animations/hamburger.json";
+import hamburger from "@assets/animations/hamburger.json";
 import { AVAILABLE_LANGUAGES } from "@shared/AvailableLanguages";
 import routes from "@/routes.json";
 

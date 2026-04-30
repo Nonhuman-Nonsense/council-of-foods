@@ -1,27 +1,27 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import HumanInput from '../../../src/components/HumanInput';
-import { useMobile } from '../../../src/utils';
-import { getClientKey } from '../../../src/api/getClientKey';
+import HumanInput from '@council/humanInput/HumanInput';
+import { useMobile } from '@/utils';
+import { getClientKey } from '@api/getClientKey';
 
 // Mocks
 vi.mock('react-i18next', () => ({
     useTranslation: () => ({ t: (key) => key, i18n: { language: 'en' } }),
 }));
 
-vi.mock('../../../src/utils', () => ({
+vi.mock('@/utils', () => ({
     useMobile: vi.fn(),
     dvh: "vh",
     mapFoodIndex: (l, i) => i
 }));
 
-vi.mock('../../../src/api/getClientKey', () => ({
+vi.mock('@api/getClientKey', () => ({
     getClientKey: vi.fn(),
 }));
 
 // Mock child components to avoid complex rendering issues
-vi.mock('../../../src/components/LiveAudioVisualizer', () => ({
+vi.mock('@council/humanInput/LiveAudioVisualizer', () => ({
     LiveAudioVisualizerPair: () => <div data-testid="visualizer" />
 }));
 
@@ -29,7 +29,7 @@ vi.mock('react-lottie-player', () => ({
     default: () => <div data-testid="lottie-loading" />
 }));
 
-vi.mock('../../../src/components/ConversationControlIcon', () => ({
+vi.mock('@council/ConversationControlIcon', () => ({
     default: ({ icon, onClick }) => (
         <button data-testid={`icon-${icon}`} onClick={onClick}>{icon}</button>
     )

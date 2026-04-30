@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useMobile } from "@/utils";
-import { Icons, IconName } from "@icons";
+import { Icons, IconName } from "@assets/icons";
 
 /**
  * ConversationControlIcon Component

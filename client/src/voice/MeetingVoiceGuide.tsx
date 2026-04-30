@@ -1,15 +1,15 @@
 import type { Topic } from "@shared/ModelTypes";
 import { useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import VoiceGuideOverlay from "@/components/VoiceGuideOverlay";
-import { getTopicsBundle } from "@/components/topicsBundle";
-import { getFoodsBundle } from "@/components/settings/FoodUtils";
-import type { Food } from "@/components/settings/FoodUtils";
-import { buildMeetingSetupSyncMessage, buildTopicFromSelection, type MeetingSetupUserEvent } from "@/meetingSetup/meetingSetup";
-import { useMeetingSetupStore } from "@/stores/useMeetingSetupStore";
-import { buildGuidePrompt } from "@/voice/guidePrompt";
-import { createGuideToolHandlers, createGuideTools } from "@/voice/guideTools";
-import { useVoiceGuide } from "@/voice/useVoiceGuide";
+import VoiceGuideOverlay from "./VoiceGuideOverlay";
+import { getTopicsBundle } from "@main/topicsBundle";
+import { getFoodsBundle } from "@newMeeting/FoodUtils";
+import type { Food } from "@newMeeting/FoodUtils";
+import { buildMeetingSetupSyncMessage, buildTopicFromSelection, type MeetingSetupUserEvent } from "@newMeeting/meetingSetup";
+import { useMeetingSetupStore } from "@stores/useMeetingSetupStore";
+import { buildGuidePrompt } from "./guidePrompt";
+import { createGuideToolHandlers, createGuideTools } from "./guideTools";
+import { useVoiceGuide } from "./useVoiceGuide";
 import voiceGuidePromptEn from "@shared/prompts/voice_guide_en.json";
 
 type MeetingVoiceGuideProps = {
@@ -38,7 +38,7 @@ export default function MeetingVoiceGuide({
 
   const guideTopics = useMemo(() => {
     return [
-      ...topicsBundle.topics.map((topic) => ({
+      ...topicsBundle.topics.map((topic: Topic) => ({
         id: topic.id,
         title: topic.title,
         description: topic.description,
@@ -52,7 +52,7 @@ export default function MeetingVoiceGuide({
   }, [topicsBundle]);
 
   const guideFoods = useMemo(() => {
-    return foodsBundle.foods.map((food) => ({
+    return foodsBundle.foods.map((food: Food) => ({
       id: food.id,
       name: food.name,
       description: food.description,

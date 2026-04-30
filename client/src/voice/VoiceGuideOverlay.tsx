@@ -1,7 +1,7 @@
 import type { ReactElement } from "react";
 import Lottie from "react-lottie-player";
-import loadingAnimation from "@animations/loading.json";
-import ConversationControlIcon from "@/components/ConversationControlIcon";
+import loadingAnimation from "@assets/animations/loading.json";
+import ConversationControlIcon from "@council/ConversationControlIcon";
 import { useMobile } from "@/utils";
 
 type VoiceGuideOverlayProps = {

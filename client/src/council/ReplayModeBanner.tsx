@@ -2,7 +2,7 @@ import type { Meeting } from "@shared/ModelTypes";
 import { useEffect, useRef, useState } from "react";
 import { useMobile } from "@/utils";
 import { useTranslation } from "react-i18next";
-import { Icons } from "@icons";
+import { Icons } from "@assets/icons";
 import { useRouting } from "@/routing";
 import { Link } from "react-router";
 

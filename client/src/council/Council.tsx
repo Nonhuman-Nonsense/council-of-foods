@@ -1,15 +1,15 @@
 import type { Character, Meeting, Topic } from "@shared/ModelTypes";
 import React, { useEffect, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router";
-import Overlay from "./Overlay";
-import CouncilOverlays from "./CouncilOverlays";
-import Loading from "./Loading";
-import Output from "./Output";
+import Overlay from "@main/overlay/Overlay";
+import CouncilOverlays from "./overlays/CouncilOverlays";
+import Loading from "@main/Loading";
+import Output from "./output/Output";
 import ConversationControls from "./ConversationControls";
-import HumanInput from "./HumanInput";
+import HumanInput from "./humanInput/HumanInput";
 import { useDocumentVisibility } from "@/utils";
 import { useTranslation } from "react-i18next";
-import { useCouncilMachine } from "@hooks/useCouncilMachine";
+import { useCouncilMachine } from "./hooks/useCouncilMachine";
 import { getMeeting } from "@api/getMeeting.js";
 import ReplayModeBanner from "./ReplayModeBanner";
 

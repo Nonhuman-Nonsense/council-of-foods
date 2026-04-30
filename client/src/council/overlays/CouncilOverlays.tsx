@@ -1,9 +1,9 @@
 import type { Character } from "@shared/ModelTypes";
-import Completed from "./overlays/Completed";
-import Incomplete from "./overlays/Incomplete";
-import Summary, { SummaryData } from "./overlays/Summary";
-import Name from "./overlays/Name";
-import OverlayWrapper from './OverlayWrapper';
+import Completed from "./Completed";
+import Incomplete from "./Incomplete";
+import Summary, { SummaryData } from "./Summary";
+import Name from "./Name";
+import OverlayWrapper from "@main/overlay/OverlayWrapper";
 import type { Topic } from "@shared/ModelTypes";
 
 export type CouncilOverlayType = "name" | "completed" | "summary" | "incomplete" | null;

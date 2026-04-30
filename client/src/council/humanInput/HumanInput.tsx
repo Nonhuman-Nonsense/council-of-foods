@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef } from "react";
-import ConversationControlIcon from "./ConversationControlIcon";
+import ConversationControlIcon from "../ConversationControlIcon";
 import TextareaAutosize from 'react-textarea-autosize';
 import { useMobile, dvh } from "@/utils";
 import { useTranslation } from "react-i18next";
-import { LiveAudioVisualizerPair } from "@/components/LiveAudioVisualizer";
+import { LiveAudioVisualizerPair } from "./LiveAudioVisualizer";
 import Lottie from 'react-lottie-player';
-import loading from '@animations/loading.json';
+import loading from "@assets/animations/loading.json";
 import { getClientKey } from "@api/getClientKey";
 import micIcon from "@assets/mic.avif";
 

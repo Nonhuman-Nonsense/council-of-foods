@@ -1,6 +1,6 @@
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import Landing from '@components/settings/Landing';
+import Landing from '@newMeeting/Landing';
 import { MemoryRouter } from 'react-router';
 
 // Mock dependencies
@@ -19,7 +19,7 @@ vi.mock('@/utils', () => ({
     dvh: 'vh',
 }));
 
-vi.mock('@components/RotateDevice', () => ({
+vi.mock('@main/overlay/RotateDevice', () => ({
     default: () => <div data-testid="rotate-device">Rotate Device</div>,
 }));
 
