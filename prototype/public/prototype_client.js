@@ -430,20 +430,20 @@ createApp({
       // Initialize languages from server
       for (const lang of this.available_languages) {
         try {
-          const [foodsResp, topicsResp] = await Promise.all([
+          const [charactersResp, topicsResp] = await Promise.all([
             fetch(`./foods_${lang}.json`),
             fetch(`./topics_${lang}.json`)
           ]);
 
-          if (!foodsResp.ok) throw new Error(`Failed to fetch foods_${lang}: ${foodsResp.status}`);
+          if (!charactersResp.ok) throw new Error(`Failed to fetch foods_${lang}: ${charactersResp.status}`);
           if (!topicsResp.ok) throw new Error(`Failed to fetch topics_${lang}: ${topicsResp.status}`);
 
-          const foodsParams = await foodsResp.json();
+          const charactersParams = await charactersResp.json();
           const topics = await topicsResp.json();
 
           // Map Characters (Global)
-          // foodsParams is { foods: [...] }
-          const characters = foodsParams.foods.map(f => ({
+          // charactersParams is { characters: [...] }
+          const characters = charactersParams.characters.map(f => ({
             ...f,
             _ui_id: Date.now() + Math.random() // Ensure unique ID
           }));
@@ -528,7 +528,7 @@ createApp({
           .join(", ");
 
         replacedCharacters[0].prompt = replacedCharacters[0].prompt
-          .replace("[FOODS]", participants)
+          .replace("[CHARACTERS]", participants)
           .replace('[HUMANS]', '');
       }
 
@@ -751,31 +751,31 @@ createApp({
       const lang = this.options.language || 'en';
 
       // Base export shape from the active locale JSON (parse each file independently so one failed fetch does not wipe the other)
-      let rawFoods = { foods: [] };
+      let rawCharacters = { characters: [] };
       let rawTopics = { topics: [] };
-      // English JSON: only fetched when exporting a non-English locale (canonical ids + topic slot fallback); when lang is en, reuse rawFoods/rawTopics
-      let rawFoodsEn = null;
+      // English JSON: only fetched when exporting a non-English locale (canonical ids + topic slot fallback); when lang is en, reuse rawCharacters/rawTopics
+      let rawCharactersEn = null;
       let rawTopicsEn = null;
 
       try {
         this.log('SYSTEM', 'Fetching raw data for export...');
-        const [foodsResp, topicsResp] = await Promise.all([
+        const [charactersResp, topicsResp] = await Promise.all([
           fetch(`./foods_${lang}.json`),
           fetch(`./topics_${lang}.json`)
         ]);
-        if (foodsResp.ok) {
-          rawFoods = await foodsResp.json();
+        if (charactersResp.ok) {
+          rawCharacters = await charactersResp.json();
         }
         if (topicsResp.ok) {
           rawTopics = await topicsResp.json();
         }
 
         if (lang !== 'en') {
-          const [foodsEnResp, topicsEnResp] = await Promise.all([
+          const [charactersEnResp, topicsEnResp] = await Promise.all([
             fetch('./foods_en.json'),
             fetch('./topics_en.json')
           ]);
-          if (foodsEnResp.ok) rawFoodsEn = await foodsEnResp.json();
+          if (charactersEnResp.ok) rawCharactersEn = await charactersEnResp.json();
           if (topicsEnResp.ok) rawTopicsEn = await topicsEnResp.json();
         }
       } catch (e) {
@@ -783,28 +783,28 @@ createApp({
       }
 
       const enCharsForExport = (this.languageData.en && this.languageData.en.characters) || [];
-      const rawEnFoodsList = ((lang === 'en' ? rawFoods : rawFoodsEn) || {}).foods || [];
+      const rawEnCharactersList = ((lang === 'en' ? rawCharacters : rawCharactersEn) || {}).characters || [];
 
-      // 1. Export Characters (Foods)
+      // 1. Export Characters
       // Clone raw structure to preserve static fields (addHuman, panelWithHumans, metadata etc)
-      let foodsExport = JSON.parse(JSON.stringify(rawFoods));
+      let charactersExport = JSON.parse(JSON.stringify(rawCharacters));
 
       // Update timestamp if metadata exists
-      if (foodsExport.metadata) {
+      if (charactersExport.metadata) {
         const dateStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
         const timeStr = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
-        foodsExport.metadata.last_updated = `${dateStr} ${timeStr}`;
+        charactersExport.metadata.last_updated = `${dateStr} ${timeStr}`;
       }
 
-      // Update the "foods" array with current active characters
-      foodsExport.foods = (this.currentLanguageData.characters || []).map((c, idx) => {
+      // Update the "characters" array with current active characters
+      charactersExport.characters = (this.currentLanguageData.characters || []).map((c, idx) => {
         // Exclude internal fields like _ui_id
         const { _ui_id, ...rest } = c;
         // Ensure structure matches schema
         const provider = rest.voiceProvider || 'openai';
         const canonicalFoodId =
           (enCharsForExport[idx] && enCharsForExport[idx].id) ||
-          rawEnFoodsList[idx]?.id ||
+          rawEnCharactersList[idx]?.id ||
           rest.id ||
           (rest.name ? rest.name.toLowerCase().replace(/\s+/g, '') : 'unknown');
 
@@ -884,7 +884,7 @@ createApp({
         URL.revokeObjectURL(url);
       };
 
-      download(`foods_${lang}_${timestamp}.json`, foodsExport);
+      download(`foods_${lang}_${timestamp}.json`, charactersExport);
       download(`topics_${lang}_${timestamp}.json`, topicsExport);
 
       this.log('SYSTEM', 'Exported Prompts to JSON');

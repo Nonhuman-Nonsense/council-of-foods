@@ -1,13 +1,13 @@
 import type { Express, Request, Response as ExpressResponse } from "express";
-import foodsEn from "@shared/prompts/foods_en.json" with { type: "json" };
+import characterSetupEn from "@shared/prompts/foods_en.json" with { type: "json" };
 import { config } from "../config.js";
 import { getGlobalOptions } from "@logic/GlobalOptions.js";
 import { Logger } from "@utils/Logger.js";
 import { withNetworkRetry } from "@utils/NetworkUtils.js";
 
 const opts = getGlobalOptions();
-/** Chair realtime output — aligns with foods[0] in shared/prompts/foods_en.json. */
-const chair = foodsEn.foods[0];
+/** Chair realtime output — aligns with characters[0] in shared/prompts/foods_en.json. */
+const chair = characterSetupEn.characters[0];
 /**
  * Server-side proxy for the Inworld Realtime API used by the NewMeeting voice guide.
  *

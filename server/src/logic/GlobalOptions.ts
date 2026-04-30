@@ -1,12 +1,12 @@
 import { config } from '@root/src/config.js';
 import globalOptions from '@root/global-options.json' with { type: 'json' };
 import testOptions from '@root/test-options.json' with { type: 'json' };
-import foodsEn from '@shared/prompts/foods_en.json' with { type: 'json' };
+import characterSetupEn from '@shared/prompts/foods_en.json' with { type: 'json' };
 
 import { z } from "zod";
 
-/** Same as `foods[0].id` in `shared/prompts/foods_en.json` (validated in ValidateFoodData tests). */
-export const CHAIR_ID = foodsEn.foods[0].id;
+/** Same as `characters[0].id` in `shared/prompts/foods_en.json` (validated in prompt data tests). */
+export const CHAIR_ID = characterSetupEn.characters[0].id;
 
 export const GlobalOptionsSchema = z.object({
     gptModel: z.string(),

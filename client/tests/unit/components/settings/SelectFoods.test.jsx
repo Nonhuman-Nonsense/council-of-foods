@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import SelectCharacters from '@newMeeting/SelectCharacters';
 import { createDefaultHumans } from '@newMeeting/CharacterSetup';
-import foodsEn from '@shared/prompts/foods_en.json';
+import characterSetupEn from '@shared/prompts/foods_en.json';
 import { useState } from 'react';
 import { useMeetingSetupStore } from '@stores/useMeetingSetupStore';
 
@@ -84,7 +84,7 @@ describe('SelectCharacters Component', () => {
         expect(passedCharacters).toHaveLength(3); // Water, Tomato, Potato
 
         // Check Chair's prompt injection
-        // Using real text from foods_en.json: "Todays participants are: [FOODS].[HUMANS]"
+        // Using real text from foods_en.json: "Todays participants are: [CHARACTERS].[HUMANS]"
         // Expected replacement: "Todays participants are: Tomato, Potato."
 
         expect(passedCharacters[0].prompt).toContain("Todays participants are: Tomato, Potato.");
@@ -124,12 +124,12 @@ describe('SelectCharacters Component', () => {
         // Find the human object in the passed array
         const humanPanelist = passedCharacters.find(f => f.id.startsWith("panelist"));
         expect(humanPanelist).toBeDefined();
-        // Since default chair is Water, voice should be the one from foods_en.json (which is now Wendy or whatever is in the file)
-        expect(humanPanelist.voice).toBe(foodsEn.foods[0].voice);
-        expect(humanPanelist.voiceProvider).toBe(foodsEn.foods[0].voiceProvider);
-        expect(humanPanelist.voiceTemperature).toBe(foodsEn.foods[0].voiceTemperature);
-        expect(humanPanelist.voiceInstruction).toBe(foodsEn.foods[0].voiceInstruction);
-        expect(humanPanelist.voiceLocale).toBe(foodsEn.foods[0].voiceLocale);
+        // Since default chair is Water, voice should mirror the first character in foods_en.json.
+        expect(humanPanelist.voice).toBe(characterSetupEn.characters[0].voice);
+        expect(humanPanelist.voiceProvider).toBe(characterSetupEn.characters[0].voiceProvider);
+        expect(humanPanelist.voiceTemperature).toBe(characterSetupEn.characters[0].voiceTemperature);
+        expect(humanPanelist.voiceInstruction).toBe(characterSetupEn.characters[0].voiceInstruction);
+        expect(humanPanelist.voiceLocale).toBe(characterSetupEn.characters[0].voiceLocale);
     });
 
     it('should maintain focus on description when typing', async () => {
