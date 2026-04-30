@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import SelectCharacters from '@newMeeting/SelectCharacters';
 import { createDefaultHumans } from '@newMeeting/CharacterSetup';
-import characterSetupEn from '@shared/prompts/foods_en.json';
+import { characterSetupEn } from '../../../characterSetupTestData';
 import { useState } from 'react';
 import { useMeetingSetupStore } from '@stores/useMeetingSetupStore';
 
@@ -18,7 +18,7 @@ vi.mock('@/utils', () => ({
     toTitleCase: (str) => str,
     filename: (str) => str
 }));
-// Removed mock for foods_en.json to use the real file
+// Uses the real default character setup bundle through the shared test loader.
 
 describe('SelectCharacters Component', () => {
     let mockOnContinue;
@@ -84,7 +84,7 @@ describe('SelectCharacters Component', () => {
         expect(passedCharacters).toHaveLength(3); // Water, Tomato, Potato
 
         // Check Chair's prompt injection
-        // Using real text from foods_en.json: "Todays participants are: [CHARACTERS].[HUMANS]"
+        // Using real text from the default character bundle: "Todays participants are: [CHARACTERS].[HUMANS]"
         // Expected replacement: "Todays participants are: Tomato, Potato."
 
         expect(passedCharacters[0].prompt).toContain("Todays participants are: Tomato, Potato.");
@@ -124,7 +124,7 @@ describe('SelectCharacters Component', () => {
         // Find the human object in the passed array
         const humanPanelist = passedCharacters.find(f => f.id.startsWith("panelist"));
         expect(humanPanelist).toBeDefined();
-        // Since default chair is Water, voice should mirror the first character in foods_en.json.
+        // Since default chair is Water, voice should mirror the first character in the default character bundle.
         expect(humanPanelist.voice).toBe(characterSetupEn.characters[0].voice);
         expect(humanPanelist.voiceProvider).toBe(characterSetupEn.characters[0].voiceProvider);
         expect(humanPanelist.voiceTemperature).toBe(characterSetupEn.characters[0].voiceTemperature);

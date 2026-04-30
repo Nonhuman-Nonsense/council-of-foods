@@ -11,6 +11,7 @@ import { initDb } from '@services/DbService.js';
 import { initOpenAI } from '@services/OpenAIService.js';
 import { SocketManager } from '@logic/SocketManager.js';
 import { AVAILABLE_LANGUAGES } from '@shared/AvailableLanguages.js';
+import { CHARACTERS_FILE } from '@shared/prompts/characterSetupMetadata.js';
 
 import { verifyGoogleCredentials } from '@utils/StartupChecks.js';
 import {
@@ -64,7 +65,7 @@ if (environment === "prototype") {
   }));
   //Enable prototype to reset to default settings for each language
   for (const lang of AVAILABLE_LANGUAGES) {
-    for (const promptfile of ['foods', 'topics']) {
+    for (const promptfile of [CHARACTERS_FILE, 'topics']) {
       app.get(`/${promptfile}_${lang}.json`, function (_req: Request, res: Response) {
         res.setHeader('Cache-Control', CACHE_CONTROL_NO_STORE);
         res.sendFile(path.join(process.cwd(), "../shared/prompts", `${promptfile}_${lang}.json`));

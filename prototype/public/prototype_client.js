@@ -1,4 +1,5 @@
 const { createApp } = Vue;
+const CHARACTERS_FILE = "foods";
 
 const defaultOptions = {
   gptModel: "gpt-4o-mini",
@@ -357,7 +358,7 @@ createApp({
      * 
      * 1. Hydrates state from LocalStorage (`PromptsAndOptions`).
      * 2. Migrates legacy data if needed.
-     * 3. Loads default prompts from `foods_en.json` if startup fails or is fresh.
+     * 3. Loads default prompts from the app-specific character bundle if startup fails or is fresh.
      * 4. Ensures character sorting (Pinned > Active > Inactive).
      */
     async startup() {
@@ -431,11 +432,11 @@ createApp({
       for (const lang of this.available_languages) {
         try {
           const [charactersResp, topicsResp] = await Promise.all([
-            fetch(`./foods_${lang}.json`),
+            fetch(`./${CHARACTERS_FILE}_${lang}.json`),
             fetch(`./topics_${lang}.json`)
           ]);
 
-          if (!charactersResp.ok) throw new Error(`Failed to fetch foods_${lang}: ${charactersResp.status}`);
+          if (!charactersResp.ok) throw new Error(`Failed to fetch ${CHARACTERS_FILE}_${lang}: ${charactersResp.status}`);
           if (!topicsResp.ok) throw new Error(`Failed to fetch topics_${lang}: ${topicsResp.status}`);
 
           const charactersParams = await charactersResp.json();
@@ -760,7 +761,7 @@ createApp({
       try {
         this.log('SYSTEM', 'Fetching raw data for export...');
         const [charactersResp, topicsResp] = await Promise.all([
-          fetch(`./foods_${lang}.json`),
+          fetch(`./${CHARACTERS_FILE}_${lang}.json`),
           fetch(`./topics_${lang}.json`)
         ]);
         if (charactersResp.ok) {
@@ -772,7 +773,7 @@ createApp({
 
         if (lang !== 'en') {
           const [charactersEnResp, topicsEnResp] = await Promise.all([
-            fetch('./foods_en.json'),
+            fetch(`./${CHARACTERS_FILE}_en.json`),
             fetch('./topics_en.json')
           ]);
           if (charactersEnResp.ok) rawCharactersEn = await charactersEnResp.json();
@@ -884,7 +885,7 @@ createApp({
         URL.revokeObjectURL(url);
       };
 
-      download(`foods_${lang}_${timestamp}.json`, charactersExport);
+      download(`${CHARACTERS_FILE}_${lang}_${timestamp}.json`, charactersExport);
       download(`topics_${lang}_${timestamp}.json`, topicsExport);
 
       this.log('SYSTEM', 'Exported Prompts to JSON');

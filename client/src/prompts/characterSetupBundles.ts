@@ -1,15 +1,29 @@
-import characterSetupEn from "@shared/prompts/foods_en.json";
 import type { CharacterSetupData } from "@newMeeting/CharacterSetup";
-export { CHARACTERS_FILE, CHARACTERS_PLACEHOLDER } from "@shared/prompts/characterSetupMetadata";
+export { CHARACTERS_FILE } from "@shared/prompts/characterSetupMetadata";
+import { CHARACTERS_FILE } from "@shared/prompts/characterSetupMetadata";
 
 // Keep Foods-specific bundle filenames behind an app-local module so shared setup
 // code can use character-oriented naming that mirrors the Forest app.
-export const characterSetupBundleModules = import.meta.glob<CharacterSetupData>(
-    "@shared/prompts/foods_*.json",
+const promptModules = import.meta.glob<CharacterSetupData>(
+    "@shared/prompts/*.json",
     {
         eager: true,
         import: "default",
     },
 );
 
-export const defaultCharacterSetupBundle = characterSetupEn as CharacterSetupData;
+export const characterSetupBundleModules = Object.fromEntries(
+    Object.entries(promptModules).filter(([path]) =>
+        path.endsWith(`/${CHARACTERS_FILE}_en.json`) || new RegExp(`/${CHARACTERS_FILE}_[^/]+\\.json$`).test(path),
+    ),
+) as Record<string, CharacterSetupData>;
+
+const defaultCharacterSetupModuleKey = Object.keys(characterSetupBundleModules).find((path) =>
+    path.endsWith(`/${CHARACTERS_FILE}_en.json`),
+);
+
+if (!defaultCharacterSetupModuleKey) {
+    throw new Error(`Missing default character setup bundle for ${CHARACTERS_FILE}_en.json`);
+}
+
+export const defaultCharacterSetupBundle = characterSetupBundleModules[defaultCharacterSetupModuleKey];

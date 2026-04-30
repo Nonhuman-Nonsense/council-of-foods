@@ -3,7 +3,6 @@ import { toTitleCase } from "@/utils";
 import type { TopicsData } from "@main/topicsBundle";
 import { getCharacterSetupBundle } from "./CharacterSetup";
 import type { MeetingCharacter } from "./CharacterSetup";
-import { CHARACTERS_PLACEHOLDER } from "@/prompts/characterSetupBundles";
 
 export type MeetingCharactersI18n = {
   oneHuman: string;
@@ -139,7 +138,7 @@ export function buildMeetingCharactersPayload(params: {
 
   if (replacedCharacters.length > 0 && replacedCharacters[0].prompt) {
     replacedCharacters[0].prompt =
-      characterSetupData.characters[0].prompt?.replace(CHARACTERS_PLACEHOLDER, participants) || "";
+      characterSetupData.characters[0].prompt?.replace("[CHARACTERS]", participants) || "";
   }
 
   let humanPresentation = "";

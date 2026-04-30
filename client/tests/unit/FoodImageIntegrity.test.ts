@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import characterSetupEn from '@shared/prompts/foods_en.json';
+import { characterSetupEn } from '../characterSetupTestData';
 
 describe('Food Image Integrity', () => {
     it('has a matching image asset for every food item', () => {

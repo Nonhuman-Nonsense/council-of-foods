@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 import translations from "../../../src/locales/translation_en.json" with { type: "json" };
-import characterSetupData from "@shared/prompts/foods_en.json" with { type: "json" };
+import { characterSetupEn } from "../../characterSetupTestData";
 import routes from "@/routes.json" with { type: "json" };
 
 test("Full Meeting Flow", async ({ page }) => {
@@ -28,11 +28,11 @@ test("Full Meeting Flow", async ({ page }) => {
     // Wait for "THE FOODS" title equivalent
     await expect(page.getByText(new RegExp(translations.selectfoods.title, "i"))).toBeVisible();
 
-    // Dynamically select characters from foods_en.json
+    // Dynamically select characters from the app-specific default character bundle.
     // We need 2 foods.
     // User requested to filter out the first 3 items to be safe against ID changes/special characters at start.
     // We assume the list has enough items.
-    const validFoods = characterSetupData.characters.slice(3);
+    const validFoods = characterSetupEn.characters.slice(3);
     const food1 = validFoods[0];
     const food2 = validFoods[1];
 

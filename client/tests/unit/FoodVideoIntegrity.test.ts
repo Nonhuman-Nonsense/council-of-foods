@@ -1,9 +1,13 @@
 import { describe, it, expect } from "vitest";
+import { CHARACTERS_FILE } from "@shared/prompts/characterSetupMetadata";
 
-const characterModules = import.meta.glob<{ characters: { id: string }[] }>("@shared/prompts/foods_*.json", {
+const promptModules = import.meta.glob<{ characters: { id: string }[] }>("@shared/prompts/*.json", {
     eager: true,
     import: "default",
 });
+const characterModules = Object.fromEntries(
+    Object.entries(promptModules).filter(([path]) => new RegExp(`/${CHARACTERS_FILE}_[^/]+\\.json$`).test(path)),
+) as Record<string, { characters: { id: string }[] }>;
 
 const hevcVideos = import.meta.glob("/src/assets/characters/videos/*-hevc-safari.mp4");
 const vp9Videos = import.meta.glob("/src/assets/characters/videos/*-vp9-chrome.webm");
