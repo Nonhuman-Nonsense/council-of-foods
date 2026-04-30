@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import React from 'react';
-import { foodVideoUrlsForId } from "@assets/foods/foodVideos";
+import { characterTransparentVideoUrls } from "@assets/characters/characterData";
 
 interface AnimationFood {
   id: string;
@@ -70,7 +70,7 @@ function FoodAnimation({ food, styles, currentSpeakerId, isPaused }: FoodAnimati
     return <div style={styles}></div>;
   }
 
-  const urls = foodVideoUrlsForId(food.id);
+  const urls = characterTransparentVideoUrls(food.id, false);
   return (
     <video ref={video} style={{ ...styles, objectFit: "cover" }} loop muted playsInline data-testid="food-video">
       <source

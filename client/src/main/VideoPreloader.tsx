@@ -1,5 +1,5 @@
 import React from 'react';
-import { foodVideoUrlsForId } from "@assets/foods/foodVideos";
+import { characterTransparentVideoUrls } from "@assets/characters/characterData";
 
 interface VideoPreloaderProps {
     foodIds: string[];
@@ -18,7 +18,7 @@ function VideoPreloader({ foodIds }: VideoPreloaderProps): React.ReactElement {
     return (
         <div style={{ display: 'none', width: 0, height: 0, overflow: 'hidden' }}>
             {foodIds.map((id) => {
-                const urls = foodVideoUrlsForId(id);
+                const urls = characterTransparentVideoUrls(id, false);
                 return (
                     <video
                         key={id}

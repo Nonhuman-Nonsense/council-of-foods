@@ -3,8 +3,8 @@ import foodsEn from '@shared/prompts/foods_en.json';
 
 describe('Food Image Integrity', () => {
     it('has a matching image asset for every food item', () => {
-        // Import all webp images in the assets folder
-        const imageFiles = import.meta.glob('/src/assets/foods/small/*.webp');
+        // Import all webp images in the app's shared character asset folder.
+        const imageFiles = import.meta.glob('/src/assets/characters/small/*.webp');
 
         // Helper to check if image exists
         const hasImage = (id: string) => {

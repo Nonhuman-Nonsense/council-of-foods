@@ -5,8 +5,8 @@ const foodsModules = import.meta.glob<{ foods: { id: string }[] }>("@shared/prom
     import: "default",
 });
 
-const hevcVideos = import.meta.glob("/src/assets/foods/videos/*-hevc-safari.mp4");
-const vp9Videos = import.meta.glob("/src/assets/foods/videos/*-vp9-chrome.webm");
+const hevcVideos = import.meta.glob("/src/assets/characters/videos/*-hevc-safari.mp4");
+const vp9Videos = import.meta.glob("/src/assets/characters/videos/*-vp9-chrome.webm");
 
 function collectFoodIds(): Set<string> {
     const ids = new Set<string>();
