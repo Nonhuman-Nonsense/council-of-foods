@@ -6,8 +6,8 @@ import { globalClientOptions } from "@/globalClientOptions";
 import { characterIconWebpUrl } from "@assets/characters/characterData";
 import { useMeetingSetupStore } from "@stores/useMeetingSetupStore";
 import { buildMeetingCharactersPayload } from "./meetingSetup";
-import type { MeetingCharacter, CharacterSetupData } from "./CharacterSetup";
-import { getCharacterSetupBundle, createDefaultHumans, createHuman } from "./CharacterSetup";
+import type { MeetingCharacter } from "./CharacterSetup";
+import { getCharacterSetupBundle } from "./CharacterSetup";
 
 import Lottie from "react-lottie-player";
 import loadingAnimation from "@assets/animations/loading.json";
