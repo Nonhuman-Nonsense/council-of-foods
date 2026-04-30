@@ -70,6 +70,7 @@ vi.mock('@council/Council', async (importOriginal) => {
 
 // Mock useCouncilMachine Hook
 const mockToggleMute = vi.fn();
+const mockUseCouncilMachine = vi.fn();
 // We can control the state returned by the mock hook
 const mockCouncilStateMachine = {
     state: {
@@ -112,7 +113,7 @@ const mockCouncilStateMachine = {
 }
 
 vi.mock('@council/hooks/useCouncilMachine', () => ({
-    useCouncilMachine: () => mockCouncilStateMachine
+    useCouncilMachine: (...args: any[]) => mockUseCouncilMachine(...args)
 }));
 
 
@@ -124,13 +125,23 @@ describe('Council Component', () => {
         setTopic: vi.fn(),
         setUnrecoverableError: vi.fn(),
         setConnectionError: vi.fn(),
-        connectionError: false
+        connectionError: false,
+        audioContext: { current: null },
+        setAudioPaused: vi.fn(),
+        currentSpeakerId: '',
+        setCurrentSpeakerId: vi.fn(),
+        isPaused: false,
+        setPaused: vi.fn(),
     };
 
     beforeEach(() => {
         vi.clearAllMocks();
         mockNavigate.mockClear();
+        mockUseCouncilMachine.mockReturnValue(mockCouncilStateMachine);
         // Reset mock state defaults if needed
+        mockCouncilStateMachine.state.councilState = 'playing';
+        mockCouncilStateMachine.state.textMessages = [];
+        mockCouncilStateMachine.state.playNextIndex = 1;
         mockCouncilStateMachine.state.isMuted = false;
     });
 
@@ -169,5 +180,28 @@ describe('Council Component', () => {
 
         const muteButton = screen.getByTestId('mock-mute-button');
         expect(muteButton).toHaveTextContent("Unmute"); // Should reflect mocked state
+    });
+
+    it('passes lifted runtime state into useCouncilMachine', () => {
+        render(<Council {...defaultProps} />);
+
+        expect(mockUseCouncilMachine).toHaveBeenCalledWith(expect.objectContaining({
+            audioContext: defaultProps.audioContext,
+            isPaused: defaultProps.isPaused,
+            setPaused: defaultProps.setPaused,
+            setAudioPaused: defaultProps.setAudioPaused,
+        }));
+    });
+
+    it('surfaces an unrecoverable error if human_panelist has no awaiting marker', () => {
+        mockCouncilStateMachine.state.councilState = 'human_panelist';
+        mockCouncilStateMachine.state.textMessages = [];
+        mockCouncilStateMachine.state.playNextIndex = 0;
+
+        render(<Council {...defaultProps} />);
+
+        expect(defaultProps.setUnrecoverableError).toHaveBeenCalledWith(
+            'Internal state mismatch: human_panelist state requires an awaiting_human_panelist message.'
+        );
     });
 });

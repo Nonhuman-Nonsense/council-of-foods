@@ -52,10 +52,11 @@ export default function Main(props: MainProps) {
   //Had to lift up navbar state to this level to be able to close it from main overlay
   const [hamburgerOpen, setHamburgerOpen] = useState(false);
 
-  // Council variables lifted to this level so the Forest background can access them
+  // Keep these at Main level because Forest lives outside the routed Council tree and still
+  // needs live speaker/audio state. Matching this ownership across apps also reduces merge
+  // conflicts when Council and background/audio behavior evolve together.
   const [currentSpeakerId, setCurrentSpeakerId] = useState("");
   const [isPaused, setPaused] = useState(false);
-
   const audioContext = useRef<AudioContext | null>(null);
   const [audioPaused, setAudioPaused] = useState(false);
 
@@ -75,7 +76,6 @@ export default function Main(props: MainProps) {
     }
     audioContext.current = new AudioContextCtor();
   }
-  
   useEffect(() => {
     i18n.changeLanguage(props.lang);
 
@@ -114,7 +114,8 @@ export default function Main(props: MainProps) {
     }
   }, [location.pathname]);
 
-  // Suspend/resume the shared AudioContext based on audioPaused state
+  // Centralize Web Audio suspension here so Council and Forest can share one AudioContext
+  // without each feature trying to suspend/resume it independently.
   useEffect(() => {
     if (audioPaused) {
       if (audioContext.current && audioContext.current.state !== "suspended") {

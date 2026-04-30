@@ -1,4 +1,5 @@
 import type { Character, Meeting, Topic } from "@shared/ModelTypes";
+import { isSpeakerMessage } from "@shared/ModelTypes";
 import React, { useEffect, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router";
 import Overlay from "@main/overlay/Overlay";
@@ -21,7 +22,6 @@ interface CouncilProps {
   setUnrecoverableError: (message: string) => void;
   setConnectionError: (error: boolean) => void;
   connectionError: boolean;
-  // Forest-Specific Props:
   audioContext: React.MutableRefObject<AudioContext | null>;
   setAudioPaused: (paused: boolean) => void;
   currentSpeakerId: string;
@@ -45,11 +45,11 @@ function Council({
   isPaused,
   setPaused,
 }: CouncilProps) {
-
   const { meetingId } = useParams<{ meetingId: string }>();
   const { t } = useTranslation();
 
   const navigate = useNavigate();
+  const location = useLocation();
 
   const currentMeetingId = Number(meetingId);
 
@@ -88,7 +88,6 @@ function Council({
     return () => ac.abort();
   }, [liveKey, meetingId, currentMeetingId, navigate, setUnrecoverableError]);
 
-  // Hook Logic
   const { state, actions } = useCouncilMachine({
     currentMeetingId,
     liveKey: liveKey ?? undefined,
@@ -119,7 +118,6 @@ function Council({
     canGoForward,
     canRaiseHand,
     currentSnippetIndex,
-    // sentencesLength,
     isMuted,
     canExtendMeeting,
   } = state;
@@ -138,53 +136,58 @@ function Council({
     cancelOverlay,
     setCurrentSnippetIndex,
     toggleMute,
-    // setSentencesLength
   } = actions;
 
-  // Routing
-  const location = useLocation();
-
-  // Sync current speaker ID to parent component for Forest zoom
   useEffect(() => {
-    // 1. Loading State -> Zoom Out
-    if (councilState === 'loading') {
+    if (councilState !== "human_panelist") return;
+
+    const pendingMessage = textMessages[playNextIndex];
+    if (pendingMessage?.type !== "awaiting_human_panelist") {
+      setUnrecoverableError(
+        "Internal state mismatch: human_panelist state requires an awaiting_human_panelist message."
+      );
+    }
+  }, [councilState, textMessages, playNextIndex, setUnrecoverableError]);
+
+  // Sync current speaker ID to parent component for Forest zoom.
+  useEffect(() => {
+    if (councilState === "loading") {
       setCurrentSpeakerId("");
       return;
     }
 
-    // 2. Human Input State (Asking Question) -> Zoom Out
-    if (councilState === 'human_input') {
+    if (councilState === "human_input") {
       setCurrentSpeakerId("");
       return;
     }
 
-    // 3. Human Panelist State
-    if (councilState === 'human_panelist' && textMessages[playNextIndex]) {
-      if (textMessages[playNextIndex].speaker) {
-        setCurrentSpeakerId(textMessages[playNextIndex].speaker.toLowerCase());
+    if (councilState === "human_panelist") {
+      const pendingMessage = textMessages[playNextIndex];
+      if (pendingMessage?.type === "awaiting_human_panelist") {
+        setCurrentSpeakerId(pendingMessage.speaker.toLowerCase());
+      } else {
+        setCurrentSpeakerId("");
       }
       return;
     }
 
-    // 4. Summary State -> Zoom Out
-    if (councilState === 'summary') {
+    if (councilState === "summary") {
       setCurrentSpeakerId("");
       return;
     }
 
-    // 5. Playing / Waiting -> Zoom on Speaker
-    if (playingNowIndex >= 0 && textMessages[playingNowIndex]) {
-      if (textMessages[playingNowIndex].speaker) {
-        setCurrentSpeakerId(textMessages[playingNowIndex].speaker.toLowerCase());
+    if (playingNowIndex >= 0) {
+      const activeMessage = textMessages[playingNowIndex];
+      if (activeMessage && isSpeakerMessage(activeMessage)) {
+        setCurrentSpeakerId(activeMessage.speaker.toLowerCase());
       }
     }
   }, [playingNowIndex, textMessages, setCurrentSpeakerId, councilState, playNextIndex]);
 
-  const showControls = (
-    councilState === 'playing' ||
-    councilState === 'waiting' ||
-    (councilState === 'summary' && tryToFindTextAndAudio())
-  ) ? true : false;
+  const showControls =
+    councilState === "playing" ||
+    councilState === "waiting" ||
+    (councilState === "summary" && tryToFindTextAndAudio());
 
   const isDocumentVisible = useDocumentVisibility();
 
@@ -196,9 +199,14 @@ function Council({
 
   return (
     <>
-      {councilState === 'loading' && <Loading />}
-      {liveKey && (councilState === 'human_input' || councilState === 'human_panelist') && (
-        <HumanInput liveKey={liveKey} isPanelist={(councilState === 'human_panelist')} currentSpeakerName={participants.find(p => p.id === currentSpeakerId)?.name || ""} onSubmitHumanMessage={handleOnSubmitHumanMessage} />
+      {councilState === "loading" && <Loading />}
+      {liveKey && (councilState === "human_input" || councilState === "human_panelist") && (
+        <HumanInput
+          liveKey={liveKey}
+          isPanelist={councilState === "human_panelist"}
+          currentSpeakerName={participants.find((p) => p.id === currentSpeakerId)?.name || ""}
+          onSubmitHumanMessage={handleOnSubmitHumanMessage}
+        />
       )}
       <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, display: "flex", flexDirection: "column", alignItems: "center", overflow: "visible" }}>
         <Output
@@ -219,7 +227,7 @@ function Council({
             onSkipForward={handleOnSkipForward}
             onRaiseHand={handleOnRaiseHand}
             isRaisedHand={isRaisedHand}
-            isWaitingToInterject={isRaisedHand && councilState !== 'human_input'}
+            isWaitingToInterject={isRaisedHand}
             isMuted={isMuted}
             onMuteUnmute={toggleMute}
             isPaused={isPaused}

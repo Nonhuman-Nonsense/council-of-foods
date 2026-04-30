@@ -308,7 +308,6 @@ describe('useCouncilMachine', () => {
         // 3. Verify Emission
         // Expect "submit_human_panelist" with correct structure
         expect(mockSocketEmit).toHaveBeenCalledWith('submit_human_panelist', {
-            type: 'panelist',
             text: 'My Panelist Response',
             speaker: 'human-panelist-1' // Should use the speaker ID from the awaiting message
         });
@@ -320,6 +319,43 @@ describe('useCouncilMachine', () => {
         // Next action calculation should transition back to loading or appropriate state
         // If textMessages is empty, tryToFind will fail -> loading
         expect(result.current.state.councilState).toBe('loading');
+    });
+
+    it('surfaces an unrecoverable error if human_panelist submit loses its awaiting message', () => {
+        const setUnrecoverableError = vi.fn();
+        const { result } = renderHook(() =>
+            useCouncilMachine({ ...defaultProps, setUnrecoverableError } as any)
+        );
+
+        const panelistMsg = {
+            id: 'msg_panelist',
+            text: '...',
+            speaker: 'human-panelist-1',
+            type: 'awaiting_human_panelist'
+        };
+
+        act(() => {
+            socketHandlers.onConversationUpdate?.([panelistMsg]);
+        });
+        expect(result.current.state.councilState).toBe('human_panelist');
+
+        // Simulate the impossible state we now treat as unrecoverable: panelist mode
+        // remains active but the queued awaiting marker is gone.
+        act(() => {
+            socketHandlers.onConversationUpdate?.([]);
+        });
+
+        act(() => {
+            result.current.actions.handleOnSubmitHumanMessage('My Panelist Response', '');
+        });
+
+        expect(mockSocketEmit).not.toHaveBeenCalledWith(
+            'submit_human_panelist',
+            expect.anything()
+        );
+        expect(setUnrecoverableError).toHaveBeenCalledWith(
+            'Internal state mismatch: expected awaiting_human_panelist before submitting panelist response.'
+        );
     });
 
 

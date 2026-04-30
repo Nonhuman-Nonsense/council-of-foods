@@ -5,6 +5,8 @@ import { MemoryRouter } from 'react-router';
 import Main from '@main/Main';
 import routes from '@/routes.json';
 
+const mockCouncil = vi.fn(() => <div data-testid="council">Council</div>);
+
 vi.mock('@api/createMeeting', () => ({
     createMeeting: vi.fn().mockResolvedValue({ meetingId: 99, liveKey: 'test-live-key' }),
 }));
@@ -82,7 +84,7 @@ vi.mock('@newMeeting/SelectFoods', () => ({
     }),
 }));
 vi.mock('@council/Council', () => ({
-    default: () => <div data-testid="council">Council</div>
+    default: (props) => mockCouncil(props)
 }));
 vi.mock('@main/overlay/RotateDevice', () => ({
     default: () => <div data-testid="rotate-device">RotateDevice</div>
@@ -107,6 +109,20 @@ vi.mock('@/utils', () => ({
     useMobile: () => false,
     dvh: 'vh'
 }));
+
+window.AudioContext = class {
+    constructor() {
+        this.state = 'running';
+    }
+
+    suspend() {
+        this.state = 'suspended';
+    }
+
+    resume() {
+        this.state = 'running';
+    }
+};
 
 describe('Main Component', () => {
     it.skip('renders Landing page by default', () => {
@@ -153,6 +169,14 @@ describe('Main Component', () => {
             </MemoryRouter>
         );
         expect(screen.getByTestId('council')).toBeInTheDocument();
+        expect(mockCouncil).toHaveBeenCalledWith(expect.objectContaining({
+            currentSpeakerId: '',
+            isPaused: false,
+            audioContext: expect.objectContaining({ current: expect.any(window.AudioContext) }),
+            setAudioPaused: expect.any(Function),
+            setCurrentSpeakerId: expect.any(Function),
+            setPaused: expect.any(Function),
+        }));
     });
 
     it.skip('full flow: Landing -> Topics -> Foods -> Council', async () => {
