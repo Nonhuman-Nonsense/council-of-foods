@@ -184,8 +184,8 @@ describe('MeetingManager - Conversation Flow', () => {
         // Setup: Next speaker is Alice (Panelist)
         // Alice is index 2 in default setup (Water, Tomato, Potato) -> wait, need to add Alice.
         manager.meeting.characters = [
-            { id: 'water', name: 'Water', type: 'food', voice: 'alloy' },
-            { id: 'alice', name: 'Alice', type: 'panelist', voice: 'alloy' }
+            { id: 'water', name: 'Water', description: '', prompt: '', voice: 'alloy' },
+            { id: 'panelist0', name: 'Alice', description: '', prompt: '', voice: 'alloy' }
         ];
         const panelistId = 1;
 
@@ -198,7 +198,7 @@ describe('MeetingManager - Conversation Flow', () => {
 
         expect(manager.meeting.conversation).toHaveLength(1);
         expect(manager.meeting.conversation[0].type).toBe('awaiting_human_panelist');
-        expect(manager.meeting.conversation[0].speaker).toBe('alice');
+        expect(manager.meeting.conversation[0].speaker).toBe('panelist0');
         expect(meetingsCollection.updateOne).toHaveBeenCalled();
 
         // Verify it returns early (does not call generateGPT/Audio/recurse)

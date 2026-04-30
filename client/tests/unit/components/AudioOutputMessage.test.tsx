@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render } from '@testing-library/react';
-import AudioOutputMessage from '../../../src/components/AudioOutputMessage';
+import AudioOutputMessage from '@council/output/AudioOutputMessage';
 import React from 'react';
 
 // Specialized Mocks
@@ -29,8 +29,8 @@ const mockAudioContext = {
 const mockGainNode = {};
 
 describe('AudioOutputMessage', () => {
-    let audioContextRef: React.MutableRefObject<any>;
-    let gainNodeRef: React.MutableRefObject<any>;
+    let audioContextRef: React.RefObject<any>;
+    let gainNodeRef: React.RefObject<any>;
 
     beforeEach(() => {
         vi.clearAllMocks();

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import Incomplete from '@components/overlays/Incomplete';
+import Incomplete from '@council/overlays/Incomplete';
 import '@testing-library/jest-dom';
 
 vi.mock('react-i18next', () => ({

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import type { Ref } from 'react';
-import Navbar from '@components/Navbar';
+import Navbar from '@main/Navbar';
 import { MemoryRouter } from 'react-router';
 import '@testing-library/jest-dom';
 
@@ -39,7 +39,7 @@ vi.mock('react-responsive', () => ({
 }));
 
 // Mock Assets
-vi.mock('@/animations/hamburger.json', () => ({ default: {} }));
+vi.mock('@assets/animations/hamburger.json', () => ({ default: {} }));
 
 import * as utils from '@/utils';
 import * as responsive from 'react-responsive';

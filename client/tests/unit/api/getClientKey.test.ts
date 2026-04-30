@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { getClientKey } from "@/api/getClientKey";
+import { getClientKey } from "@api/getClientKey";
 
 describe("getClientKey", () => {
     afterEach(() => {

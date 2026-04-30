@@ -1,6 +1,6 @@
 import './i18n';
 import { BrowserRouter, Routes, Route, Navigate } from "react-router";
-import Main from "./components/Main";
+import Main from "@main/Main";
 import { AVAILABLE_LANGUAGES } from "@shared/AvailableLanguages";
 
 function App(): React.ReactElement {

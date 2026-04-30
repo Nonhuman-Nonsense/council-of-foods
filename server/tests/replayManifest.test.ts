@@ -19,7 +19,7 @@ describe("buildReplayMeetingManifest", () => {
                 { id: "m2", type: "message", speaker: "water", text: "2" },
             ],
             audio: ["m0", "m1", "m2", "s"],
-            summary: { id: "s", type: "summary", text: "x" },
+            summary: { id: "s", type: "summary", speaker: "water", text: "x" },
         });
         const m = buildReplayMeetingManifest(meeting);
         expect(m.conversation.map((c) => c.id)).toEqual(["m0", "m1", undefined]);
@@ -31,10 +31,10 @@ describe("buildReplayMeetingManifest", () => {
             conversation: [
                 { id: "m0", type: "message", speaker: "water", text: "0" },
                 { id: "m1", type: "message", speaker: "water", text: "1" },
-                { id: "s", type: "summary", text: "x" }
+                { id: "s", type: "summary", speaker: "water", text: "x" }
             ],
             audio: ["m0", "m1", "s"],
-            summary: { id: "s", type: "summary", text: "x" },
+            summary: { id: "s", type: "summary", speaker: "water", text: "x" },
         });
         const m = buildReplayMeetingManifest(meeting);
         expect(m.conversation).toHaveLength(3);
@@ -45,7 +45,7 @@ describe("buildReplayMeetingManifest", () => {
         const meeting = MockFactory.createMeeting({
             conversation: [
                 { id: "m0", type: "message", speaker: "water", text: "0" },
-                { type: "max_reached" },
+                { type: "max_reached", canContinue: false },
             ],
             audio: ["m0"],
         });
@@ -102,10 +102,10 @@ describe("buildReplayMeetingManifest", () => {
         const meeting = MockFactory.createMeeting({
             conversation: [
                 { id: "m0", type: "message", speaker: "water", text: "0" },
-                { id: "s", type: "summary", text: "x" },
+                { id: "s", type: "summary", speaker: "water", text: "x" },
             ],
             audio: ["m0"],
-            summary: { id: "s", type: "summary", text: "x" },
+            summary: { id: "s", type: "summary", speaker: "water", text: "x" },
             maximumPlayedIndex: 1, // Summary is reached by the index
         });
         const m = buildReplayMeetingManifest(meeting);
@@ -119,10 +119,10 @@ describe("buildReplayMeetingManifest", () => {
         const meeting = MockFactory.createMeeting({
             conversation: [
                 { id: "m0", type: "message", speaker: "water", text: "0" },
-                { id: "s", type: "summary", text: "x" },
+                { id: "s", type: "summary", speaker: "water", text: "x" },
             ],
             audio: ["m0", "s"],
-            summary: { id: "s", type: "summary", text: "x" },
+            summary: { id: "s", type: "summary", speaker: "water", text: "x" },
             maximumPlayedIndex: 1,
         });
         const m = buildReplayMeetingManifest(meeting);
@@ -158,7 +158,7 @@ describe("stripAwaitingHumanTail", () => {
     it("strips max_reached from the tail", () => {
         const messages: Message[] = [
             { id: "x", type: "message", speaker: "water", text: "mid" },
-            { type: "max_reached" },
+            { type: "max_reached", canContinue: false },
         ];
         stripAwaitingHumanTail(messages);
         expect(messages).toHaveLength(1);
@@ -211,9 +211,9 @@ describe("buildResumeConversation", () => {
 describe("orderedAudioIdsForConversation", () => {
     it("skips messages without id or not in stored audio list", () => {
         const conv: Message[] = [
-            { id: "a", type: "message", text: "1" },
-            { type: "skipped", id: "s" },
-            { id: "b", type: "message", text: "2" },
+            { id: "a", type: "message", speaker: "water", text: "1" },
+            { type: "skipped", id: "s", speaker: "water", text: "" },
+            { id: "b", type: "message", speaker: "water", text: "2" },
         ];
         expect(orderedAudioIdsForConversation(conv, ["b", "a"])).toEqual(["a", "b"]);
     });

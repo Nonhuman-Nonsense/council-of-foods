@@ -19,32 +19,29 @@
             "@/*": [
                 "./src/*"
             ],
-            "@root/*": [
-                "./src/*"
-            ],
             "@api/*": [
                 "./src/api/*"
-            ],
-            "@components/*": [
-                "./src/components/*"
-            ],
-            "@hooks/*": [
-                "./src/hooks/*"
-            ],
-            "@animations/*": [
-                "./src/assets/animations/*"
             ],
             "@assets/*": [
                 "./src/assets/*"
             ],
-            "@prompts/*": [
-                "./src/prompts/*"
+            "@council/*": [
+                "./src/council/*"
             ],
-            "@icons": [
-                "./src/assets/icons/index"
+            "@locales/*": [
+                "./src/locales/*"
             ],
-            "@fonts/*": [
-                "./src/assets/fonts/*"
+            "@main/*": [
+                "./src/main/*"
+            ],
+            "@newMeeting/*": [
+                "./src/newMeeting/*"
+            ],
+            "@stores/*": [
+                "./src/stores/*"
+            ],
+            "@voice/*": [
+                "./src/voice/*"
             ],
             "@shared/*": [
                 "../shared/*"

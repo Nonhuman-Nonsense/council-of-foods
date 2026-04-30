@@ -104,7 +104,7 @@ describe("resumeMeeting (server)", () => {
         await seedMeeting({
             conversation: [{ id: "m0", type: "message", speaker: "water", text: "0" }],
             audio: ["m0"],
-            summary: { id: "s", type: "summary", text: "done" },
+            summary: { id: "s", type: "summary", speaker: "water", text: "done" },
             maximumPlayedIndex: 0,
         });
 

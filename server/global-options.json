@@ -8,10 +8,9 @@
   "chairMaxTokens": 250,
   "frequencyPenalty": 0,
   "presencePenalty": 0,
-  "audio_speed": 1.15,
+  "defaultAudioSpeed": 1.15,
   "trimSentance": false,
   "trimParagraph": true,
-  "chairId": "water",
   "trimChairSemicolon": true,
   "show_trimmed": true,
   "skipAudio": false,
@@ -30,5 +29,7 @@
   "transcribePrompt": {
     "en": "Expect english input."
   },
-  "audioConcurrency": 10
+  "audioConcurrency": 10,
+  "voiceGuideRealtimeModel": "google-ai-studio/gemini-2.5-flash",
+  "voiceGuideRealtimeTranscriptionModel": "assemblyai/u3-rt-pro"
 }

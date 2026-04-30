@@ -1,10 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { MemoryRouter, Routes, Route } from "react-router";
-import NewMeeting from "@/components/NewMeeting";
-import { createMeeting } from "@/api/createMeeting";
+import NewMeeting from "@newMeeting/NewMeeting";
+import { createMeeting } from "@api/createMeeting";
 import routes from "@/routes.json";
-import type { Food } from "@/components/settings/SelectFoods";
+import type { Character } from "@newMeeting/SelectCharacters";
+import { MockFactory } from "../factories/MockFactory";
 
 vi.mock("react-i18next", () => ({
     useTranslation: () => ({ t: (key: string) => key, i18n: { language: "en" } }),
@@ -18,19 +19,24 @@ vi.mock("@/routing", () => ({
     }),
 }));
 
-vi.mock("@/api/createMeeting", () => ({
+vi.mock("@api/createMeeting", () => ({
     createMeeting: vi.fn(),
 }));
 
-vi.mock("@/components/topicsBundle", () => ({
+vi.mock("@main/topicsBundle", () => ({
     getTopicsBundle: () => ({
-        topics: [{ id: "test-topic", title: "Test Topic", description: "D", prompt: "P" }],
-        custom_topic: { id: "customtopic", title: "Custom", description: "C", prompt: "Custom" },
+        topics: [MockFactory.createTopic({ id: "test-topic", title: "Test Topic", description: "D", prompt: "P" })],
+        custom_topic: MockFactory.createTopic({
+            id: "customtopic",
+            title: "Custom",
+            description: "C",
+            prompt: "Custom",
+        }),
         system: "System [TOPIC]",
     }),
 }));
 
-vi.mock("@/components/settings/SelectTopic", () => ({
+vi.mock("@newMeeting/SelectTopic", () => ({
     default: ({
         onContinueForward,
     }: {
@@ -46,25 +52,31 @@ vi.mock("@/components/settings/SelectTopic", () => ({
     ),
 }));
 
-const twoFoods: Food[] = [
-    { id: "water", name: "Water", description: "", type: "food", voice: "alloy" },
-    { id: "tomato", name: "Tomato", description: "", type: "food", voice: "alloy" },
+const twoCharacters: Character[] = [
+    MockFactory.createCharacter({ id: "water", name: "Water", description: "", prompt: "" }),
+    MockFactory.createCharacter({ id: "tomato", name: "Tomato", description: "", prompt: "" }),
 ];
 
-vi.mock("@/components/settings/SelectFoods", () => ({
+vi.mock("@newMeeting/SelectCharacters", () => ({
     default: ({
         onContinueForward,
     }: {
-        onContinueForward: (data: { foods: Food[] }) => void | Promise<void>;
+        onContinueForward: (data: { characters: Character[] }) => void | Promise<void>;
     }) => (
         <button
             type="button"
             data-testid="foods-continue"
-            onClick={() => onContinueForward({ foods: twoFoods })}
+            onClick={() => onContinueForward({ characters: twoCharacters })}
         >
             continue foods
         </button>
     ),
+    createDefaultHumans: () => ([
+        MockFactory.createPanelist(0),
+        MockFactory.createPanelist(1),
+        MockFactory.createPanelist(2),
+    ]),
+    getFoodsBundle: () => MockFactory.createCharacterSetupBundle(),
 }));
 
 describe("NewMeeting — live key handoff", () => {
@@ -89,7 +101,12 @@ describe("NewMeeting — live key handoff", () => {
                         element={
                             <NewMeeting
                                 setUnrecoverableError={setUnrecoverableError}
-                                topicSelection={{ id: "test-topic", title: "Test Topic", description: "D", prompt: "P" }}
+                                topicSelection={MockFactory.createTopic({
+                                    id: "test-topic",
+                                    title: "Test Topic",
+                                    description: "D",
+                                    prompt: "P",
+                                })}
                                 setTopicSelection={setTopicSelection}
                                 setMeetingliveKey={setMeetingliveKey}
                             />

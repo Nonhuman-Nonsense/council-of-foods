@@ -7,8 +7,8 @@ describe('MeetingManager - Concurrency & Isolation', () => {
     let p1, p2;
 
     const characters = [
-        MockFactory.createCharacter({ id: 'water', name: 'Water', type: 'food' }),
-        MockFactory.createCharacter({ id: 'tomato', name: 'Tomato', type: 'food' }),
+        MockFactory.createCharacter({ id: 'water', name: 'Water' }),
+        MockFactory.createCharacter({ id: 'tomato', name: 'Tomato' }),
     ];
 
     beforeEach(() => {

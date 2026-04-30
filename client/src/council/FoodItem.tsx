@@ -1,0 +1,147 @@
+import type { Character } from "@shared/ModelTypes";
+
+import React, { useMemo } from "react";
+import { characterRatios } from "@/generated/characterMedia";
+import FoodAnimation from "./FoodAnimation";
+import { dvh } from "@/utils";
+
+// Local interface for what FoodItem actually needs
+interface DisplayFood extends Character {
+  size?: number;
+}
+
+const defaultVideoRatio = 1080 / 800;
+
+function formatCssNumber(value: number): string {
+  return String(parseFloat(value.toFixed(3)));
+}
+
+interface FoodItemProps {
+  food: DisplayFood;
+  index: number;
+  total: number;
+  currentSpeakerId: string;
+  isPaused: boolean;
+  zoomIn: boolean;
+}
+
+/**
+ * FoodItem Component
+ * 
+ * Renders a single food participant, handling its positioning (overview vs active speaker)
+ * and triggering the animation component.
+ * 
+ * Core Logic:
+ * - **Positioning**: Calculates a parabolic curve to arrange foods in a semi-circle during "overview" mode.
+ * - **Zooming**: Transitions the food to a large, central position when it becomes the `currentSpeakerId`.
+ * - **Sizing**: Uses generated video ratios so rendered widths stay in sync with the source media.
+ */
+function FoodItem({ food, index, total, currentSpeakerId, isPaused, zoomIn }: FoodItemProps): React.ReactElement {
+
+  //Adjust these to adjust overall sizes
+  const overviewSize = 12;
+  const zoomInSize = 55;
+
+  const videoRatio = (food.id && characterRatios[food.id]) ? characterRatios[food.id] : defaultVideoRatio;
+
+  /* -------------------------------------------------------------------------- */
+  /*                                 Calculations                               */
+  /* -------------------------------------------------------------------------- */
+
+  // Adjusted function to set width and height based on window width
+  const responsiveStyle: React.CSSProperties = useMemo(() => {
+    // Determine size factor: active & zoomed in gets large size, overview gets base size scaled by food.size (if available)
+    // Note: food.size is optional in Food interface so we default to 1 if missing.
+    const fSize = food.size || 1;
+    const size = (zoomIn && currentSpeakerId === food.id ? zoomInSize * ((fSize - 1) / 2 + 1) : overviewSize * fSize); // 12% of the window's width
+    const sizeUnit = zoomIn && currentSpeakerId === food.id ? dvh : "vw";
+    return {
+      width: `${formatCssNumber(size * videoRatio)}${sizeUnit}`,
+      height: `${formatCssNumber(size)}${sizeUnit}`,
+      animation: "2s foodAppearing",
+      animationDelay: 0.4 * index + "s",
+      animationFillMode: "both",
+    };
+  }, [zoomIn, currentSpeakerId, food.id, food.size, index, videoRatio]);
+
+  const singleFoodStyle: React.CSSProperties = {
+    position: "relative",
+    width: zoomInSize + dvh,
+    height: zoomInSize + dvh,
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "flex-end",
+  };
+
+  const containerStyle: React.CSSProperties = useMemo(() => {
+    // Note on using `calc()`: JSDOM 27+ drops negative style values (e.g. top: -20vh) as invalid.
+    // Wrapping them in `calc()` is a standard-compliant workaround that preserves the value in JSDOM.
+    if (zoomIn && currentSpeakerId === food.id) {
+      let baseHeight = -19;
+      // Manual vertical adjustments for zoomed in view
+      if (food.id === 'lollipop') baseHeight = -22;
+      if (food.id === 'banana') baseHeight = -20;
+      if (food.id === 'honey') baseHeight = -18;
+      if (food.id === 'beer') baseHeight = -18;
+      return { ...singleFoodStyle, top: `calc(${baseHeight}${dvh})` };
+    } else {
+      const left = (index / (total - 1)) * 100;
+
+      const topMax = 3.0; // The curvature
+      const topOffset = 14.5; // Vertical offset to adjust the curve's baseline
+
+      let middleIndex: number;
+      const isEven = total % 2 === 0;
+      if (isEven) {
+        middleIndex = total / 2 - 1;
+      } else {
+        middleIndex = (total - 1) / 2;
+      }
+
+      let a: number;
+      if (isEven) {
+        a = topMax / Math.pow(middleIndex + 0.5, 2);
+      } else {
+        a = topMax / Math.pow(middleIndex, 2);
+      }
+
+      let top: number;
+      if (isEven) {
+        const distanceFromMiddle = Math.abs(index - middleIndex - 0.5);
+        top = a * Math.pow(distanceFromMiddle, 2) + topMax - topOffset;
+      } else {
+        top = a * Math.pow(index - middleIndex, 2) + topMax - topOffset;
+      }
+
+      // Manual vertical adjustments for overview
+      if (food.id === 'lollipop') top *= 1.05;
+      if (food.id === 'beer') top *= 0.97;
+      if (food.id === 'honey') top *= 0.95;
+
+      return {
+        position: "absolute",
+        left: `${left}%`,
+        top: `calc(${top}vw)`,
+        width: `${formatCssNumber(videoRatio * overviewSize)}vw`,
+        height: `${formatCssNumber(overviewSize)}vw`,
+        transform: "translate(-50%, -50%)",
+        opacity: (zoomIn ? "0" : "1"),
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "flex-end",
+      };
+    }
+  }, [index, total, zoomIn, currentSpeakerId, food.id, videoRatio]); // Dependencies
+
+  /* -------------------------------------------------------------------------- */
+  /*                                   Render                                   */
+  /* -------------------------------------------------------------------------- */
+
+  return (
+    <div style={containerStyle}>
+      <FoodAnimation food={food} styles={responsiveStyle} currentSpeakerId={currentSpeakerId} isPaused={isPaused} />
+    </div>
+  );
+}
+
+export default React.memo(FoodItem);

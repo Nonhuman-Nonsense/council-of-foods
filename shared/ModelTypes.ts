@@ -54,13 +54,30 @@ export interface Character {
     id: string;
     name: string;
     voice: VoiceOption | string;
+    description: string;
+    prompt: string;
     voiceProvider?: 'openai' | 'gemini' | 'inworld';
     voiceLocale?: string;
-    type?: string;
-    prompt?: string;
     voiceInstruction?: string;
     voiceTemperature?: number;
     voiceSpeed?: number;
+    size?: number;
+    // type?: string;
+    // index?: number;
+}
+
+export interface CharacterSetupData {
+    metadata: {
+        version: string;
+        last_updated: string;
+    };
+    panelWithHumans: string;
+    addHuman: {
+        id: string;
+        name: string;
+        description: string;
+    };
+    characters: Character[];
 }
 
 // For Zod validation
@@ -71,17 +88,133 @@ export const SyntheticMessageTypeValues = ["skipped", "awaiting_human_question",
 export type MessageType = (typeof MessageTypeValues)[number];
 export type SyntheticMessageType = (typeof SyntheticMessageTypeValues)[number];
 
-export interface Message {
+// `Message` is the canonical stored/broadcast conversation record. Keep submit payloads separate
+// in `SocketTypes` so conversation invariants stay strict and the client/server can narrow on `type`.
+interface BaseMessage {
     type: MessageType | SyntheticMessageType;
-    id?: string;
-    text?: string;
+}
+
+interface SpeakerFields {
+    speaker: string;
+}
+
+interface TextFields {
+    text: string;
+}
+
+interface IdentifiedFields {
+    id: string;
+}
+
+interface SentenceFields {
     sentences?: string[];
-    speaker?: string;
-    askParticular?: string;
+}
+
+interface GeneratedDebugFields {
     trimmed?: string;
     pretrimmed?: string;
-    /** On `max_reached`: whether the server allows `continue_conversation` (meeting not past absolute cap). */
-    canContinue?: boolean;
+}
+
+type GeneratedTurnType =
+    | "message"
+    | "response"
+    | "summary"
+    | "invitation"
+    | "interjection"
+    | "skipped";
+
+export interface GeneratedTurnMessage
+    extends BaseMessage, SpeakerFields, TextFields, IdentifiedFields, SentenceFields, GeneratedDebugFields {
+    type: GeneratedTurnType;
+    askParticular?: never;
+    canContinue?: never;
+}
+
+export interface HumanMessage extends BaseMessage, SpeakerFields, TextFields, IdentifiedFields, SentenceFields {
+    type: "human";
+    askParticular?: string;
+    trimmed?: never;
+    pretrimmed?: never;
+    canContinue?: never;
+}
+
+export interface PanelistMessage extends BaseMessage, SpeakerFields, TextFields, IdentifiedFields, SentenceFields {
+    type: "panelist";
+    askParticular?: never;
+    trimmed?: never;
+    pretrimmed?: never;
+    canContinue?: never;
+}
+
+export interface AwaitingHumanQuestionMessage extends BaseMessage, SpeakerFields, TextFields {
+    type: "awaiting_human_question";
+    id?: never;
+    sentences?: never;
+    askParticular?: never;
+    trimmed?: never;
+    pretrimmed?: never;
+    canContinue?: never;
+}
+
+export interface AwaitingHumanPanelistMessage extends BaseMessage, SpeakerFields, TextFields {
+    type: "awaiting_human_panelist";
+    id?: never;
+    sentences?: never;
+    askParticular?: never;
+    trimmed?: never;
+    pretrimmed?: never;
+    canContinue?: never;
+}
+
+export interface MeetingIncompleteMessage extends BaseMessage {
+    type: "meeting_incomplete";
+    id?: never;
+    text?: never;
+    sentences?: never;
+    speaker?: never;
+    askParticular?: never;
+    trimmed?: never;
+    pretrimmed?: never;
+    canContinue?: never;
+}
+
+export interface MaxReachedMessage extends BaseMessage {
+    type: "max_reached";
+    canContinue: boolean;
+    id?: never;
+    text?: never;
+    sentences?: never;
+    speaker?: never;
+    askParticular?: never;
+    trimmed?: never;
+    pretrimmed?: never;
+}
+
+export type SpeakerMessage =
+    | GeneratedTurnMessage
+    | HumanMessage
+    | PanelistMessage
+    | AwaitingHumanQuestionMessage
+    | AwaitingHumanPanelistMessage;
+
+export type SyntheticMessage =
+    | Extract<GeneratedTurnMessage, { type: "skipped" }>
+    | AwaitingHumanQuestionMessage
+    | AwaitingHumanPanelistMessage
+    | MeetingIncompleteMessage
+    | MaxReachedMessage;
+
+export type Message =
+    | GeneratedTurnMessage
+    | HumanMessage
+    | PanelistMessage
+    | AwaitingHumanQuestionMessage
+    | AwaitingHumanPanelistMessage
+    | MeetingIncompleteMessage
+    | MaxReachedMessage;
+
+export function isSpeakerMessage(message: Message): message is SpeakerMessage {
+    return "speaker" in message;
 }
 
 export interface Audio {

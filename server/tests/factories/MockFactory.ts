@@ -1,24 +1,50 @@
 import { v4 as uuidv4 } from "uuid";
 import type { Character, Message, Topic, Audio, Meeting } from "@shared/ModelTypes.js";
 import type { StoredMeeting } from "@models/DBModels.js";
-import type { GlobalOptions } from "@logic/GlobalOptions.js";
+import { CHAIR_ID, type GlobalOptions } from "@logic/GlobalOptions.js";
 
 export const MockFactory = {
     createCharacter: (overrides: Partial<Character> = {}): Character => ({
         id: "potato",
         name: "Potato",
+        description: "A starchy root vegetable",
+        prompt: "Speak as Potato in the council.",
         voice: "alloy",
-        type: "food",
         ...overrides,
     }),
 
-    createMessage: (overrides: Partial<Message> = {}): Message => ({
-        id: uuidv4(),
-        speaker: "potato",
-        text: "Hello, I am a potato.",
-        type: "message",
-        ...overrides,
-    }),
+    createChair: (overrides: Partial<Character> = {}): Character =>
+        MockFactory.createCharacter({
+            id: "chair",
+            name: "Chair",
+            description: "Facilitates the council discussion.",
+            prompt: "Guide the council toward a clear outcome.",
+            ...overrides,
+        }),
+
+    createPanelist: (indexOrId: number | string = 0, overrides: Partial<Character> = {}): Character => {
+        const id = typeof indexOrId === "number" ? `panelist${indexOrId}` : indexOrId;
+        return MockFactory.createCharacter({
+            id,
+            name: "",
+            description: "",
+            prompt: "",
+            voice: "alloy",
+            ...overrides,
+        });
+    },
+
+    createCharacters: (...overridesList: Array<Partial<Character>>): Character[] =>
+        overridesList.map((overrides) => MockFactory.createCharacter(overrides)),
+
+    createMessage: (overrides: Partial<Message> = {}): Message =>
+        ({
+            id: uuidv4(),
+            speaker: "potato",
+            text: "Hello, I am a potato.",
+            type: "message",
+            ...overrides,
+        }) as Message,
 
     createConversation: (length: number, speakers: string[] = ["potato", "tomato"]): Message[] => {
         return Array.from({ length }, (_, i) => MockFactory.createMessage({
@@ -35,6 +61,19 @@ export const MockFactory = {
         ...overrides,
     }),
 
+    createCreateMeetingBody: (
+        overrides: Partial<{
+            topic: Topic;
+            characters: Character[];
+            language: string;
+        }> = {},
+    ) => ({
+        topic: MockFactory.createTopic(),
+        characters: [MockFactory.createCharacter()],
+        language: "en",
+        ...overrides,
+    }),
+
     /** Session / global options — not persisted on StoredMeeting. */
     createServerOptions: (overrides: Partial<GlobalOptions> = {}): GlobalOptions =>
         ({
@@ -47,10 +86,10 @@ export const MockFactory = {
             chairMaxTokens: 150,
             frequencyPenalty: 0.0,
             presencePenalty: 0.0,
-            audio_speed: 1.0,
+            defaultAudioSpeed: 1.0,
             trimSentance: true,
             trimParagraph: true,
-            chairId: "water",
+            chairId: CHAIR_ID,
             trimChairSemicolon: true,
             show_trimmed: false,
             skipAudio: false,
@@ -64,6 +103,8 @@ export const MockFactory = {
             transcribeModel: "whisper-1",
             transcribePrompt: { en: "Transcribe" },
             audioConcurrency: 2,
+            voiceGuideRealtimeModel: "google-ai-studio/gemini-2.5-flash",
+            voiceGuideRealtimeTranscriptionModel: "assemblyai/u3-rt-pro",
             ...overrides,
         }) as GlobalOptions,
 
@@ -78,11 +119,11 @@ export const MockFactory = {
             liveKey: "test-live-key",
             date: new Date().toISOString(),
             topic,
-            characters: [
-                MockFactory.createCharacter({ id: "water", name: "Water" }),
-                MockFactory.createCharacter({ id: "tomato", name: "Tomato" }),
-                MockFactory.createCharacter({ id: "potato", name: "Potato" }),
-            ],
+            characters: MockFactory.createCharacters(
+                { id: "water", name: "Water" },
+                { id: "tomato", name: "Tomato" },
+                { id: "potato", name: "Potato" },
+            ),
             language: "en",
             state: { alreadyInvited: false, humanName: "Frank" },
             conversation: [],

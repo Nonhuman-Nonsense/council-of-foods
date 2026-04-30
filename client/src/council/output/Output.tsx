@@ -1,0 +1,104 @@
+
+import { useState, useEffect } from "react";
+import TextOutput from "./TextOutput";
+import AudioOutput from "./AudioOutput";
+import { Message } from "@shared/ModelTypes";
+import type { DecodedAudioMessage } from "@shared/SocketTypes";
+
+/**
+ * Output Component
+ * 
+ * Orchestrates the playback of audio and text (subtitles).
+ * Determines which message to play based on `playingNowIndex` and current `councilState`.
+ * 
+ * Core Logic:
+ * - Syncs `currentTextMessage` and `currentAudioMessage` when state is 'playing'.
+ * - Clears output during non-playing states (loading, human input).
+ * - Handles special 'summary' state logic.
+ * 
+ * @param {Object} props
+ * @param {Array} props.textMessages - Full list of text transcripts.
+ * @param {Array} props.audioMessages - Full list of audio snippets.
+ * @param {number} props.playingNowIndex - Index of the currently active message.
+ * @param {string} props.councilState - Current global state machine status.
+ * @param {boolean} props.isMuted - Global mute flag.
+ * @param {boolean} props.isPaused - Global pause flag.
+ * @param {number} props.currentSnippetIndex - Sub-index for sentence highlighting.
+ * @param {Function} props.setCurrentSnippetIndex - Setter for sub-index.
+ * @param {Object} props.audioContext - WebAudio API context.
+ * @param {Function} props.handleOnFinishedPlaying - Callback when audio ends.
+ * @param {Function} props.setSentencesLength - Callback to report sentence count.
+ */
+interface OutputProps {
+  textMessages: Message[];
+  audioMessages: DecodedAudioMessage[];
+  playingNowIndex: number;
+  councilState: string;
+  isMuted: boolean;
+  isPaused: boolean;
+  currentSnippetIndex: number;
+  setCurrentSnippetIndex: (index: number) => void;
+  audioContext: React.RefObject<AudioContext | null>;
+  handleOnFinishedPlaying: () => void;
+  setSentencesLength: (length: number) => void;
+}
+
+const Output: React.FC<OutputProps> = ({
+  textMessages,
+  audioMessages,
+  playingNowIndex,
+  councilState,
+  isMuted,
+  isPaused,
+  currentSnippetIndex: _currentSnippetIndex,
+  setCurrentSnippetIndex,
+  audioContext,
+  handleOnFinishedPlaying,
+  setSentencesLength
+}) => {
+  const [currentAudioMessage, setCurrentAudioMessage] = useState<DecodedAudioMessage | null>(null);
+  const hiddenStyle: React.CSSProperties = { visibility: "hidden" };
+
+  const showTextOutput = councilState !== 'playing' && councilState !== 'waiting';
+
+  //Everytime the play now index changes, set the current text and audio
+  useEffect(() => {
+    if (councilState === 'playing') {
+      const textMessage = textMessages[playingNowIndex];
+      const matchingAudioMessage = audioMessages.find((a) => a.id === textMessage.id);
+      setCurrentAudioMessage(() => matchingAudioMessage || null);
+    } else if (councilState === 'loading' || councilState === 'max_reached' || councilState === 'human_input' || councilState === 'human_panelist') {
+      setCurrentAudioMessage(null);
+    } else if (councilState === 'summary') {
+      const textMessage = textMessages[playingNowIndex];
+      if (textMessage && textMessage.type === 'summary') { // Added check for textMessage existence
+        const matchingAudioMessage = audioMessages.find((a) => a.id === textMessage.id);
+        setCurrentAudioMessage(() => matchingAudioMessage || null); // Simplified to directly set null if not found
+      } else {
+        setCurrentAudioMessage(null);
+      }
+    }
+  }, [playingNowIndex, councilState, textMessages, audioMessages]); // Added textMessages and audioMessages to dependency array
+
+  return (
+    <>
+      <TextOutput
+        currentAudioMessage={currentAudioMessage}
+        isPaused={isPaused}
+        style={showTextOutput ? hiddenStyle : undefined}
+        setCurrentSnippetIndex={setCurrentSnippetIndex}
+        setSentencesLength={setSentencesLength}
+      />
+      <div data-testid="audio-indicator" data-playing={!!currentAudioMessage}>
+        <AudioOutput
+          currentAudioMessage={currentAudioMessage}
+          onFinishedPlaying={handleOnFinishedPlaying}
+          isMuted={isMuted}
+          audioContext={audioContext}
+        />
+      </div>
+    </>
+  );
+}
+
+export default Output;

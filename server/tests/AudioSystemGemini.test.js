@@ -107,7 +107,7 @@ describe('AudioSystem Gemini Integration', () => {
             serverOptions({
                 voiceModel: 'tts-1',
                 geminiVoiceModel: 'gemini-2.5-flash-tts',
-                audio_speed: 1.25
+                defaultAudioSpeed: 1.25
             }),
             meeting({ language: 'sv' }),
             environment
@@ -157,7 +157,7 @@ describe('AudioSystem Gemini Integration', () => {
             message,
             speaker,
             'en',
-            serverOptions({ geminiVoiceModel: 'gemini-flash', audio_speed: 1 }),
+            serverOptions({ geminiVoiceModel: 'gemini-flash', defaultAudioSpeed: 1 }),
             meeting(),
             'production'
         );
@@ -173,7 +173,7 @@ describe('AudioSystem Gemini Integration', () => {
     it('should reuse cached GoogleAuth client on subsequent calls', async () => {
         const message = { id: 'msg3', text: 'Hello again', sentences: ['Hello again'] };
         const speaker = { id: 'char1', voice: 'Kore', voiceProvider: 'gemini' };
-        const opts = serverOptions({ geminiVoiceModel: 'gemini-flash', audio_speed: 1 });
+        const opts = serverOptions({ geminiVoiceModel: 'gemini-flash', defaultAudioSpeed: 1 });
         const m = meeting();
 
         mockFetch.mockResolvedValue({
@@ -205,7 +205,7 @@ describe('AudioSystem Gemini Integration', () => {
             message,
             speaker,
             'en',
-            serverOptions({ geminiVoiceModel: 'gemini-flash', audio_speed: 1 }),
+            serverOptions({ geminiVoiceModel: 'gemini-flash', defaultAudioSpeed: 1 }),
             meeting({ language: 'en' }),
             'production'
         );
@@ -231,7 +231,7 @@ describe('AudioSystem Gemini Integration', () => {
             message,
             speaker,
             'sv',
-            serverOptions({ geminiVoiceModel: 'gemini-flash', audio_speed: 1 }),
+            serverOptions({ geminiVoiceModel: 'gemini-flash', defaultAudioSpeed: 1 }),
             meeting({ language: 'sv' }),
             'production'
         );
@@ -262,7 +262,7 @@ describe('AudioSystem Gemini Integration', () => {
             message,
             speaker,
             'en',
-            serverOptions({ geminiVoiceModel: 'gemini-flash', audio_speed: 1 }),
+            serverOptions({ geminiVoiceModel: 'gemini-flash', defaultAudioSpeed: 1 }),
             meeting(),
             'production'
         );

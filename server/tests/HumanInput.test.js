@@ -11,8 +11,8 @@ describe('HumanInputHandler (Isolated)', () => {
         const meeting = MockFactory.createStoredMeeting({
             _id: 42,
             characters: [
-                { id: 'chair', name: 'Chair', voice: 'alloy' },
-                { id: 'alice', name: 'Alice', type: 'panelist', voice: 'alloy' }
+                { id: 'chair', name: 'Chair', description: '', prompt: '', voice: 'alloy' },
+                { id: 'panelist0', name: 'Alice', description: '', prompt: '', voice: 'alloy' }
             ],
             state: { humanName: 'Frank' },
             conversation: []

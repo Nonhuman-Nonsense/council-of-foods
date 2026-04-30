@@ -1,7 +1,7 @@
 import type { IMeetingBroadcaster } from "@interfaces/MeetingInterfaces.js";
 import type { GlobalOptions } from "@logic/GlobalOptions.js";
 import { Logger } from "@utils/Logger.js";
-import { mapSentencesToWords, Word, type MappedSentence } from "@utils/textUtils.js";
+import { mapSentencesToWords, Word, type MappedSentence } from "@shared/textUtils.js";
 import type { StoredMeeting, SubtitleTimingType } from "@models/DBModels.js";
 import { GoogleAuth } from 'google-auth-library';
 import { parseBuffer } from 'music-metadata';

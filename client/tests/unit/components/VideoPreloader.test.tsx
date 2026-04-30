@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { render } from '@testing-library/react';
-import VideoPreloader from '../../../src/components/VideoPreloader';
+import VideoPreloader from '@main/VideoPreloader';
 
 describe('VideoPreloader', () => {
     it('renders empty container when list is empty', () => {

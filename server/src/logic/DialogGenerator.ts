@@ -4,7 +4,7 @@ import type { ChatCompletionMessageParam } from "openai/resources/chat/completio
 import type { Collection } from "mongodb";
 import type { StoredMeeting } from "@models/DBModels.js";
 
-import { splitSentences } from "@utils/textUtils.js";
+import { splitSentences } from "@shared/textUtils.js";
 import { Logger } from "@utils/Logger.js";
 import { GlobalOptions } from "./GlobalOptions.js";
 import { OpenAI } from "openai";

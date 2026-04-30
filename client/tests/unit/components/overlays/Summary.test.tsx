@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import Summary from '../../../../src/components/overlays/Summary';
+import Summary from '@council/overlays/Summary';
 
 // Mock dependencies
 vi.mock('react-i18next', () => ({
@@ -53,7 +53,7 @@ vi.mock('jspdf', () => {
 
 // Mock utils
 const mockUseMobile = vi.fn();
-vi.mock('../../../../src/utils', () => ({
+vi.mock('@/utils', () => ({
     useMobile: () => mockUseMobile(),
     dvh: 'vh' // Mock dvh constant
 }));

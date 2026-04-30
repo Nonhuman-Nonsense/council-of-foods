@@ -1,12 +1,13 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import Council from '../../../src/components/Council';
+import Council from '@council/Council';
 import '@testing-library/jest-dom';
+import { MockFactory } from '../factories/MockFactory';
 
 // --- Mocks ---
 
 // Mock Child Components
-vi.mock('../../../src/components/ConversationControls', () => ({
+vi.mock('@council/ConversationControls', () => ({
     default: ({ onMuteUnmute, isMuted }: any) => (
         <div data-testid="conversation-controls">
             <button
@@ -34,7 +35,7 @@ vi.mock('@api/getMeeting.js', () => ({
 
 const mockGetMeeting = vi.fn().mockResolvedValue({
     _id: 123,
-    topic: { id: 't', title: 'T', description: 'D', prompt: 'p' },
+    topic: MockFactory.createTopic({ id: 't', title: 'T', description: 'D', prompt: 'p' }),
     characters: [],
     conversation: [],
     audio: [],
@@ -52,24 +53,18 @@ vi.mock('@/utils', () => ({
 }));
 
 // Mock other children to avoid rendering complexity
-vi.mock('../../../src/components/FoodItem', () => ({ default: () => <div data-testid="food-item">Food Item</div> }));
-vi.mock('../../../src/components/Overlay', () => ({ default: ({ children }: any) => <div>{children}</div> }));
-vi.mock('../../../src/components/CouncilOverlays', () => ({ default: () => <div>Council Overlays</div> }));
-vi.mock('../../../src/components/Loading', () => ({ default: () => <div>Loading...</div> }));
-vi.mock('../../../src/components/Output', () => ({ default: () => <div>Output</div> }));
-vi.mock('../../../src/components/HumanInput', () => ({ default: () => <div>Human Input</div> }));
-// Mock Background to avoid Memoization issues or complex rendering if any
-vi.mock('../../../src/components/Council', async (importOriginal) => {
-    const actual = await importOriginal<any>();
-    return {
-        ...actual,
-        Background: () => <div data-testid="background">Background</div>
-    };
-});
+vi.mock('@council/FoodItem', () => ({ default: () => <div data-testid="food-item">Food Item</div> }));
+vi.mock('@main/overlay/Overlay', () => ({ default: ({ children }: any) => <div>{children}</div> }));
+vi.mock('@council/overlays/CouncilOverlays', () => ({ default: () => <div>Council Overlays</div> }));
+vi.mock('@main/Loading', () => ({ default: () => <div>Loading...</div> }));
+vi.mock('@council/output/Output', () => ({ default: () => <div>Output</div> }));
+vi.mock('@council/humanInput/HumanInput', () => ({ default: () => <div>Human Input</div> }));
+vi.mock('@council/FoodsCouncilScene', () => ({ default: () => <div data-testid="foods-scene">Foods Scene</div> }));
 
 
 // Mock useCouncilMachine Hook
 const mockToggleMute = vi.fn();
+const mockUseCouncilMachine = vi.fn();
 // We can control the state returned by the mock hook
 const mockCouncilStateMachine = {
     state: {
@@ -111,8 +106,8 @@ const mockCouncilStateMachine = {
     socketRef: { current: null }
 }
 
-vi.mock('../../../src/hooks/useCouncilMachine', () => ({
-    useCouncilMachine: () => mockCouncilStateMachine
+vi.mock('@council/hooks/useCouncilMachine', () => ({
+    useCouncilMachine: (...args: any[]) => mockUseCouncilMachine(...args)
 }));
 
 
@@ -120,17 +115,27 @@ describe('Council Component', () => {
     const defaultProps = {
         liveKey: 'test-creator',
         setliveKey: vi.fn(),
-        topic: { id: 't', title: 'T', description: 'D', prompt: 'p' },
+        topic: MockFactory.createTopic({ id: 't', title: 'T', description: 'D', prompt: 'p' }),
         setTopic: vi.fn(),
         setUnrecoverableError: vi.fn(),
         setConnectionError: vi.fn(),
-        connectionError: false
+        connectionError: false,
+        audioContext: { current: null },
+        setAudioPaused: vi.fn(),
+        currentSpeakerId: '',
+        setCurrentSpeakerId: vi.fn(),
+        isPaused: false,
+        setPaused: vi.fn(),
     };
 
     beforeEach(() => {
         vi.clearAllMocks();
         mockNavigate.mockClear();
+        mockUseCouncilMachine.mockReturnValue(mockCouncilStateMachine);
         // Reset mock state defaults if needed
+        mockCouncilStateMachine.state.councilState = 'playing';
+        mockCouncilStateMachine.state.textMessages = [];
+        mockCouncilStateMachine.state.playNextIndex = 1;
         mockCouncilStateMachine.state.isMuted = false;
     });
 
@@ -169,5 +174,28 @@ describe('Council Component', () => {
 
         const muteButton = screen.getByTestId('mock-mute-button');
         expect(muteButton).toHaveTextContent("Unmute"); // Should reflect mocked state
+    });
+
+    it('passes lifted runtime state into useCouncilMachine', () => {
+        render(<Council {...defaultProps} />);
+
+        expect(mockUseCouncilMachine).toHaveBeenCalledWith(expect.objectContaining({
+            audioContext: defaultProps.audioContext,
+            isPaused: defaultProps.isPaused,
+            setPaused: defaultProps.setPaused,
+            setAudioPaused: defaultProps.setAudioPaused,
+        }));
+    });
+
+    it('surfaces an unrecoverable error if human_panelist has no awaiting marker', () => {
+        mockCouncilStateMachine.state.councilState = 'human_panelist';
+        mockCouncilStateMachine.state.textMessages = [];
+        mockCouncilStateMachine.state.playNextIndex = 0;
+
+        render(<Council {...defaultProps} />);
+
+        expect(defaultProps.setUnrecoverableError).toHaveBeenCalledWith(
+            'Internal state mismatch: human_panelist state requires an awaiting_human_panelist message.'
+        );
     });
 });

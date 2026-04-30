@@ -13,13 +13,17 @@ vi.mock('@root/src/utils/Logger.js', () => ({
     }
 }));
 
-vi.mock('@root/src/logic/GlobalOptions.js', () => ({
-    GlobalOptionsSchema: {},
-    getGlobalOptions: vi.fn(() => ({
-        inworldVoiceModel: 'inworld-tts-1',
-        audio_speed: 1.0
-    }))
-}));
+vi.mock('@root/src/logic/GlobalOptions.js', async () => {
+    const actual = await vi.importActual('@root/src/logic/GlobalOptions.js');
+    return {
+        ...actual,
+        getGlobalOptions: vi.fn(() => ({
+            inworldVoiceModel: 'inworld-tts-1',
+            defaultAudioSpeed: 1.0,
+            chairId: actual.CHAIR_ID
+        }))
+    };
+});
 
 // Mock fetch globally
 const mockFetch = vi.fn();
@@ -104,7 +108,7 @@ describe('AudioSystem Inworld Integration', () => {
             message,
             speaker,
             'en',
-            serverOptions({ audio_speed: 1.2, inworldVoiceModel: 'inworld-tts-1' }),
+            serverOptions({ defaultAudioSpeed: 1.2, inworldVoiceModel: 'inworld-tts-1' }),
             meeting(),
             environment
         );
@@ -141,7 +145,7 @@ describe('AudioSystem Inworld Integration', () => {
             message,
             speaker,
             'en',
-            serverOptions({ audio_speed: 1.0, inworldVoiceModel: 'inworld-tts-1' }),
+            serverOptions({ defaultAudioSpeed: 1.0, inworldVoiceModel: 'inworld-tts-1' }),
             meeting(),
             'production'
         );
@@ -197,7 +201,7 @@ describe('AudioSystem Inworld Integration', () => {
             message,
             speaker,
             'en',
-            serverOptions({ audio_speed: 1.0, inworldVoiceModel: 'inworld-tts-1.5' }),
+            serverOptions({ defaultAudioSpeed: 1.0, inworldVoiceModel: 'inworld-tts-1.5' }),
             meeting(),
             'production'
         );
@@ -219,7 +223,7 @@ describe('AudioSystem Inworld Integration', () => {
             message,
             speaker,
             'en',
-            serverOptions({ audio_speed: 1.0, inworldVoiceModel: 'inworld-tts-1' }),
+            serverOptions({ defaultAudioSpeed: 1.0, inworldVoiceModel: 'inworld-tts-1' }),
             meeting(),
             'production'
         );
@@ -255,7 +259,7 @@ describe('AudioSystem Inworld Integration', () => {
             message,
             speaker,
             'en',
-            serverOptions({ audio_speed: 1.0, inworldVoiceModel: 'inworld-tts-1' }),
+            serverOptions({ defaultAudioSpeed: 1.0, inworldVoiceModel: 'inworld-tts-1' }),
             meeting(),
             'production'
         );

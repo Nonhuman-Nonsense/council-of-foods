@@ -1,27 +1,27 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import HumanInput from '../../../src/components/HumanInput';
-import { useMobile } from '../../../src/utils';
-import { getClientKey } from '../../../src/api/getClientKey';
+import HumanInput from '@council/humanInput/HumanInput';
+import { useMobile } from '@/utils';
+import { getClientKey } from '@api/getClientKey';
 
 // Mocks
 vi.mock('react-i18next', () => ({
     useTranslation: () => ({ t: (key) => key, i18n: { language: 'en' } }),
 }));
 
-vi.mock('../../../src/utils', () => ({
+vi.mock('@/utils', () => ({
     useMobile: vi.fn(),
     dvh: "vh",
     mapFoodIndex: (l, i) => i
 }));
 
-vi.mock('../../../src/api/getClientKey', () => ({
+vi.mock('@api/getClientKey', () => ({
     getClientKey: vi.fn(),
 }));
 
 // Mock child components to avoid complex rendering issues
-vi.mock('../../../src/components/LiveAudioVisualizer', () => ({
+vi.mock('@council/humanInput/LiveAudioVisualizer', () => ({
     LiveAudioVisualizerPair: () => <div data-testid="visualizer" />
 }));
 
@@ -29,7 +29,7 @@ vi.mock('react-lottie-player', () => ({
     default: () => <div data-testid="lottie-loading" />
 }));
 
-vi.mock('../../../src/components/ConversationControlIcon', () => ({
+vi.mock('@council/ConversationControlIcon', () => ({
     default: ({ icon, onClick }) => (
         <button data-testid={`icon-${icon}`} onClick={onClick}>{icon}</button>
     )
@@ -54,7 +54,7 @@ describe('HumanInput Component', () => {
     it('should render in idle state with mic icon', () => {
         render(
             <HumanInput
-                foods={[]}
+                characters={[]}
                 isPanelist={false}
                 currentSpeakerName="TestSpeaker"
                 onSubmitHumanMessage={mockOnSubmit}
@@ -71,7 +71,7 @@ describe('HumanInput Component', () => {
     it('should request client key when component mounts', () => {
         render(
             <HumanInput
-                foods={[]}
+                characters={[]}
                 isPanelist={false}
                 currentSpeakerName=""
                 onSubmitHumanMessage={mockOnSubmit}
@@ -84,7 +84,7 @@ describe('HumanInput Component', () => {
     it('should handle text input and submission', () => {
         render(
             <HumanInput
-                foods={[]}
+                characters={[]}
                 isPanelist={false}
                 currentSpeakerName=""
                 onSubmitHumanMessage={mockOnSubmit}
@@ -111,7 +111,7 @@ describe('HumanInput Component', () => {
     it('should handle recording flow (click mic -> loading -> recording -> stop)', async () => {
         render(
             <HumanInput
-                foods={[]}
+                characters={[]}
                 isPanelist={false}
                 currentSpeakerName=""
                 onSubmitHumanMessage={mockOnSubmit}
@@ -153,7 +153,7 @@ describe('HumanInput Component', () => {
     it('should show panelist-specific placeholder when isPanelist is true', () => {
         render(
             <HumanInput
-                foods={[]}
+                characters={[]}
                 isPanelist={true}
                 currentSpeakerName="Mr. Potato"
                 onSubmitHumanMessage={mockOnSubmit}
@@ -164,10 +164,10 @@ describe('HumanInput Component', () => {
     });
 
     it('should select and deselect a specific food to ask (askParticular)', () => {
-        const foods = [{ name: 'Tomato' }, { name: 'Potato' }];
+        const characters = [{ name: 'Tomato' }, { name: 'Potato' }];
         render(
             <HumanInput
-                foods={foods}
+                characters={characters}
                 isPanelist={false}
                 currentSpeakerName=""
                 onSubmitHumanMessage={mockOnSubmit}
@@ -193,7 +193,7 @@ describe('HumanInput Component', () => {
     it('should NOT submit on Shift+Enter', () => {
         render(
             <HumanInput
-                foods={[]}
+                characters={[]}
                 isPanelist={false}
                 currentSpeakerName=""
                 onSubmitHumanMessage={mockOnSubmit}
@@ -218,7 +218,7 @@ describe('HumanInput Component', () => {
     it('should enforce max input length', () => {
         render(
             <HumanInput
-                foods={[]}
+                characters={[]}
                 isPanelist={false} // max 700
                 currentSpeakerName=""
                 onSubmitHumanMessage={mockOnSubmit}

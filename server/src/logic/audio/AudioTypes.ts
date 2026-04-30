@@ -35,7 +35,7 @@ export interface AudioSystemOptions {
     voiceModel: string;
     geminiVoiceModel: string;
     inworldVoiceModel: string;
-    audio_speed: number;
+    defaultAudioSpeed: number;
     language?: string;
     skipAudio?: boolean;
     skipMatchingSubtitles?: boolean;
