@@ -18,7 +18,8 @@ import { Logger } from "@utils/Logger.js";
 import type { StoredMeeting } from "@models/DBModels.js";
 import {
     SetupOptionsSchema,
-    MessageSchema,
+    SubmitHumanMessageSchema,
+    SubmitHumanPanelistSchema,
     InjectionMessageSchema,
     HandRaisedOptionsSchema,
     ReconnectionOptionsSchema,
@@ -111,10 +112,10 @@ export class MeetingManager implements IMeetingManager {
     async handleEvent<K extends keyof ClientToServerEvents>(event: K, payload: Parameters<ClientToServerEvents[K]>[0]) {
         switch (event) {
             case "submit_human_message":
-                await this.humanInputHandler.handleSubmitHumanMessage(MessageSchema.parse(payload));
+                await this.humanInputHandler.handleSubmitHumanMessage(SubmitHumanMessageSchema.parse(payload));
                 break;
             case "submit_human_panelist":
-                await this.humanInputHandler.handleSubmitHumanPanelist(MessageSchema.parse(payload));
+                await this.humanInputHandler.handleSubmitHumanPanelist(SubmitHumanPanelistSchema.parse(payload));
                 break;
             case "submit_injection":
                 await this.humanInputHandler.handleSubmitInjection(InjectionMessageSchema.parse(payload));
@@ -329,8 +330,7 @@ export class MeetingManager implements IMeetingManager {
                     meeting.conversation.push({
                         type: 'awaiting_human_panelist',
                         speaker: action.speaker.id,
-                        text: "", // Added to satisfy ConversationMessage
-                        sentences: [] // Added to satisfy ConversationMessage
+                        text: "",
                     });
                     Logger.info(`meeting ${meeting._id}`, `awaiting human panelist on index ${meeting.conversation.length - 1}`);
                     this.broadcaster.broadcastConversationUpdate(meeting.conversation);

@@ -12,13 +12,14 @@ export const MockFactory = {
         ...overrides,
     }),
 
-    createMessage: (overrides: Partial<Message> = {}): Message => ({
-        id: uuidv4(),
-        speaker: "potato",
-        text: "Hello, I am a potato.",
-        type: "message",
-        ...overrides,
-    }),
+    createMessage: (overrides: Partial<Message> = {}): Message =>
+        ({
+            id: uuidv4(),
+            speaker: "potato",
+            text: "Hello, I am a potato.",
+            type: "message",
+            ...overrides,
+        }) as Message,
 
     createConversation: (length: number, speakers: string[] = ["potato", "tomato"]): Message[] => {
         return Array.from({ length }, (_, i) => MockFactory.createMessage({

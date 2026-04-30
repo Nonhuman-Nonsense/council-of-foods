@@ -1,4 +1,5 @@
 import type { Character, Meeting, Topic } from "@shared/ModelTypes";
+import { isSpeakerMessage } from "@shared/ModelTypes";
 import React, { useMemo, useEffect, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router";
 import FoodItem from "./FoodItem";
@@ -148,12 +149,25 @@ function Council({
   const derivedCurrentSpeakerId = useMemo(() => {
     if (councilState === 'loading') return "";
     if (councilState === 'human_input') return humanName;
-    if (councilState === 'human_panelist' && textMessages[playNextIndex]) {
-      return textMessages[playNextIndex].speaker ?? "";
+    if (councilState === 'human_panelist') {
+      const pendingMessage = textMessages[playNextIndex];
+      return pendingMessage?.type === 'awaiting_human_panelist' ? pendingMessage.speaker : "";
     }
-    if (textMessages[playingNowIndex]) return textMessages[playingNowIndex].speaker ?? "";
+    const activeMessage = textMessages[playingNowIndex];
+    if (activeMessage && isSpeakerMessage(activeMessage)) return activeMessage.speaker;
     return "";
   }, [councilState, playingNowIndex, textMessages, playNextIndex, humanName]);
+
+  useEffect(() => {
+    if (councilState !== 'human_panelist') return;
+
+    const pendingMessage = textMessages[playNextIndex];
+    if (pendingMessage?.type !== 'awaiting_human_panelist') {
+      setUnrecoverableError(
+        "Internal state mismatch: human_panelist state requires an awaiting_human_panelist message."
+      );
+    }
+  }, [councilState, textMessages, playNextIndex, setUnrecoverableError]);
 
   useEffect(() => {
     setCurrentSpeakerId(derivedCurrentSpeakerId);

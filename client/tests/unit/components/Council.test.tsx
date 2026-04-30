@@ -139,6 +139,9 @@ describe('Council Component', () => {
         mockNavigate.mockClear();
         mockUseCouncilMachine.mockReturnValue(mockCouncilStateMachine);
         // Reset mock state defaults if needed
+        mockCouncilStateMachine.state.councilState = 'playing';
+        mockCouncilStateMachine.state.textMessages = [];
+        mockCouncilStateMachine.state.playNextIndex = 1;
         mockCouncilStateMachine.state.isMuted = false;
     });
 
@@ -188,5 +191,17 @@ describe('Council Component', () => {
             setPaused: defaultProps.setPaused,
             setAudioPaused: defaultProps.setAudioPaused,
         }));
+    });
+
+    it('surfaces an unrecoverable error if human_panelist has no awaiting marker', () => {
+        mockCouncilStateMachine.state.councilState = 'human_panelist';
+        mockCouncilStateMachine.state.textMessages = [];
+        mockCouncilStateMachine.state.playNextIndex = 0;
+
+        render(<Council {...defaultProps} />);
+
+        expect(defaultProps.setUnrecoverableError).toHaveBeenCalledWith(
+            'Internal state mismatch: human_panelist state requires an awaiting_human_panelist message.'
+        );
     });
 });

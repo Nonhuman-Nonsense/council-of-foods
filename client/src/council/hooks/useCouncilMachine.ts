@@ -398,16 +398,16 @@ export function useCouncilMachine({
     }
 
     function handleOnSubmitHumanMessage(newTopic: string, askParticular: string) {
-        // NOTE: Logic copied from upstream, but we need to check if we need special handling here
         if (councilState === 'human_panelist') {
-            // Logic fix: currentSpeakerId logic was handled in Component view in Upstream, but ideally logic is here
-            // BUT wait, in Upstream, currentSpeakerId was derived state in the component.
-            // Here we don't have currentSpeakerId unless we pass it or derive it.
-            // The logic says: use pendingMessage.speaker.
             const pendingMessage = textMessages[playNextIndex];
-            const actualSpeaker = (pendingMessage?.type === 'awaiting_human_panelist') ? pendingMessage.speaker : ""; // Fallback?
+            if (pendingMessage?.type !== 'awaiting_human_panelist') {
+                const detail = "Internal state mismatch: expected awaiting_human_panelist before submitting panelist response.";
+                console.error(detail);
+                setUnrecoverableError(detail);
+                return;
+            }
 
-            if (socketRef.current) socketRef.current.emit("submit_human_panelist", { type: "panelist", text: newTopic, speaker: actualSpeaker });
+            if (socketRef.current) socketRef.current.emit("submit_human_panelist", { text: newTopic, speaker: pendingMessage.speaker });
 
             //Slice off the waiting for panelist
             setTextMessages((prevMessages) => {
@@ -415,7 +415,7 @@ export function useCouncilMachine({
             });
             calculateNextAction();
         } else {
-            if (socketRef.current) socketRef.current.emit("submit_human_message", { type: "human", text: newTopic, speaker: humanName, askParticular: askParticular });
+            if (socketRef.current) socketRef.current.emit("submit_human_message", { text: newTopic, askParticular: askParticular || undefined });
 
             const now = textMessages[playingNowIndex].type === 'invitation' ? playingNowIndex - 1 : playingNowIndex;
             const next = textMessages[playingNowIndex].type === 'invitation' ? playNextIndex - 1 : playNextIndex;
