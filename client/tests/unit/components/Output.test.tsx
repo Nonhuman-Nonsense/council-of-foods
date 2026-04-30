@@ -1,11 +1,11 @@
 import { render, screen } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
-import Output from '../../../src/components/Output';
+import Output from '@council/output/Output';
 import { Message } from '@shared/ModelTypes';
-import { DecodedAudioMessage } from '@hooks/useCouncilMachine';
+import { DecodedAudioMessage } from '@council/hooks/useCouncilMachine';
 
 // Mock child components to verify props and rendering
-vi.mock('../../../src/components/TextOutput', () => ({
+vi.mock('@council/output/TextOutput', () => ({
     default: ({ currentAudioMessage, style }: any) => (
         <div data-testid="mock-text-output" style={style}>
             {currentAudioMessage && currentAudioMessage.sentences && currentAudioMessage.sentences.length > 0 ? currentAudioMessage.sentences[0].text : 'No Text'}
@@ -13,7 +13,7 @@ vi.mock('../../../src/components/TextOutput', () => ({
     ),
 }));
 
-vi.mock('../../../src/components/AudioOutput', () => ({
+vi.mock('@council/output/AudioOutput', () => ({
     default: ({ currentAudioMessage }: any) => (
         <div data-testid="mock-audio-output">
             {currentAudioMessage ? 'Audio Present' : 'No Audio'}

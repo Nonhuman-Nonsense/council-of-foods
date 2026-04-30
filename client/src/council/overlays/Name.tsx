@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { capitalizeFirstLetter, useMobile } from "@/utils";
 import { useTranslation } from "react-i18next";
 import { Character } from "@shared/ModelTypes";
-import { Icons } from "@icons";
+import { Icons } from "@assets/icons";
 
 interface NameProps {
   participants: Character[];

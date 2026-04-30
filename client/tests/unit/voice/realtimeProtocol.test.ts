@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { mergeVoiceGuideRealtimeSession } from "@/voice/realtimeProtocol";
-import type { RealtimeSessionServerDefaults } from "@/voice/realtimeProtocol";
-import type { RealtimeTool } from "@/voice/guideTools";
+import { mergeVoiceGuideRealtimeSession } from "@voice/realtimeProtocol";
+import type { RealtimeSessionServerDefaults } from "@voice/realtimeProtocol";
+import type { RealtimeTool } from "@voice/guideTools";
 
 const defaults: RealtimeSessionServerDefaults = {
   type: "realtime",

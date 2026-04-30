@@ -3,7 +3,7 @@ import { describe, it, expect, vi } from 'vitest';
 describe('Icon Integrity', () => {
     it('exports filled variants for all control icons', async () => {
         // Import the ACTUAL module, bypassing the global mock in setupTests
-        const { Icons } = await vi.importActual<typeof import('../../src/assets/icons/index')>('../../src/assets/icons/index');
+        const { Icons } = await vi.importActual<typeof import('@assets/icons')>('@assets/icons');
 
         const iconsRequiringHoverState = [
             'play',

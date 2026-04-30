@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { MemoryRouter, Routes, Route } from "react-router";
-import NewMeeting from "@/components/NewMeeting";
-import { createMeeting } from "@/api/createMeeting";
+import NewMeeting from "@newMeeting/NewMeeting";
+import { createMeeting } from "@api/createMeeting";
 import routes from "@/routes.json";
-import type { Food } from "@/components/settings/SelectFoods";
+import type { Food } from "@newMeeting/SelectFoods";
 
 vi.mock("react-i18next", () => ({
     useTranslation: () => ({ t: (key: string) => key, i18n: { language: "en" } }),
@@ -18,11 +18,11 @@ vi.mock("@/routing", () => ({
     }),
 }));
 
-vi.mock("@/api/createMeeting", () => ({
+vi.mock("@api/createMeeting", () => ({
     createMeeting: vi.fn(),
 }));
 
-vi.mock("@/components/topicsBundle", () => ({
+vi.mock("@main/topicsBundle", () => ({
     getTopicsBundle: () => ({
         topics: [{ id: "test-topic", title: "Test Topic", description: "D", prompt: "P" }],
         custom_topic: { id: "customtopic", title: "Custom", description: "C", prompt: "Custom" },
@@ -30,7 +30,7 @@ vi.mock("@/components/topicsBundle", () => ({
     }),
 }));
 
-vi.mock("@/components/settings/SelectTopic", () => ({
+vi.mock("@newMeeting/SelectTopic", () => ({
     default: ({
         onContinueForward,
     }: {
@@ -51,7 +51,7 @@ const twoFoods: Food[] = [
     { id: "tomato", name: "Tomato", description: "", type: "food", voice: "alloy" },
 ];
 
-vi.mock("@/components/settings/SelectFoods", () => ({
+vi.mock("@newMeeting/SelectFoods", () => ({
     default: ({
         onContinueForward,
     }: {

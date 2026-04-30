@@ -1,5 +1,5 @@
 import { useMobile, useMobileXs, usePortrait } from "@/utils";
-import { Icons } from "@icons";
+import { Icons } from "@assets/icons";
 
 /**
  * OverlayWrapper Component

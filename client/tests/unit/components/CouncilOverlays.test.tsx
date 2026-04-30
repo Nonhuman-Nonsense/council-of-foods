@@ -1,12 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import CouncilOverlays, { CouncilOverlayType } from '@components/CouncilOverlays';
+import CouncilOverlays, { CouncilOverlayType } from '@council/overlays/CouncilOverlays';
 import type { ReactNode } from 'react';
 import type { Character } from '@shared/ModelTypes';
 import '@testing-library/jest-dom';
 
 // Mock Child Components
-vi.mock('@components/overlays/Name', () => ({
+vi.mock('@council/overlays/Name', () => ({
     default: ({ participants: _participants, onContinueForward }: { participants?: Character[]; onContinueForward: (data: { humanName: string }) => void }) => (
         <div data-testid="name-overlay">
             Name Overlay
@@ -14,7 +14,7 @@ vi.mock('@components/overlays/Name', () => ({
         </div>
     )
 }));
-vi.mock('@components/overlays/Completed', () => ({
+vi.mock('@council/overlays/Completed', () => ({
     default: ({ onContinue, onWrapItUp, canExtendMeeting: _canExtendMeeting }: { onContinue: () => void; onWrapItUp: () => void; canExtendMeeting?: boolean }) => (
         <div data-testid="completed-overlay">
             Completed Overlay
@@ -23,12 +23,12 @@ vi.mock('@components/overlays/Completed', () => ({
         </div>
     )
 }));
-vi.mock('@components/overlays/Summary', () => ({
+vi.mock('@council/overlays/Summary', () => ({
     default: ({ summary: _summary, meetingId: _meetingId }: { summary?: unknown; meetingId?: number }) => <div data-testid="summary-overlay">Summary Overlay</div>
 }));
 
 // Mock OverlayWrapper
-vi.mock('@components/OverlayWrapper', () => ({
+vi.mock('@main/overlay/OverlayWrapper', () => ({
     default: ({ children }: { children?: ReactNode }) => <div data-testid="overlay-wrapper">{children}</div>
 }));
 

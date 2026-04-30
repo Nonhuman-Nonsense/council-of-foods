@@ -1,9 +1,9 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import ConversationControlIcon from '../../../src/components/ConversationControlIcon';
+import ConversationControlIcon from '@council/ConversationControlIcon';
 
 // Mock utils
-vi.mock('../../../src/utils', () => ({
+vi.mock('@/utils', () => ({
     useMobile: () => false,
 }));
 

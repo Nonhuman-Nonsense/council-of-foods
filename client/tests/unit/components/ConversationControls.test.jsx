@@ -1,9 +1,9 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import ConversationControls from '../../../src/components/ConversationControls';
+import ConversationControls from '@council/ConversationControls';
 
 // Mock dependencies
-vi.mock('../../../src/components/ConversationControlIcon', () => ({
+vi.mock('@council/ConversationControlIcon', () => ({
     default: ({ icon, onClick, tooltip }) => (
         <button data-testid={`control-icon-${icon}`} onClick={onClick} title={tooltip}>
             {icon}
@@ -22,7 +22,7 @@ vi.mock('react-i18next', () => ({
 }));
 
 // Mock utils
-vi.mock('../../../src/utils', () => ({
+vi.mock('@/utils', () => ({
     useMobile: () => false,
 }));
 

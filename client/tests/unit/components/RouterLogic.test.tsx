@@ -3,25 +3,25 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { MemoryRouter, Routes, Route, useLocation } from 'react-router';
-import Main from '../../../src/components/Main';
-import Navbar from '../../../src/components/Navbar';
+import Main from '@main/Main';
+import Navbar from '@main/Navbar';
 import * as AvailableLanguagesModule from '@shared/AvailableLanguages';
-import routes from '../../../src/routes.json';
+import routes from '@/routes.json';
 
 // Mock child components to focus on routing logic
-vi.mock('../../../src/components/Overlay', () => ({
+vi.mock('@main/overlay/Overlay', () => ({
     default: ({ children }: { children: React.ReactNode }) => <div data-testid="overlay">{children}</div>
 }));
-vi.mock('../../../src/components/MainOverlays', () => ({
+vi.mock('@main/overlay/MainOverlays', () => ({
     default: () => <div data-testid="main-overlays">MainOverlays</div>
 }));
-vi.mock('../../../src/components/settings/Landing', () => ({
+vi.mock('@newMeeting/Landing', () => ({
     default: () => <div data-testid="landing">Landing</div>
 }));
-vi.mock('../../../src/components/settings/SelectTopic', () => ({
+vi.mock('@newMeeting/SelectTopic', () => ({
     default: () => <div data-testid="select-topic">SelectTopic</div>
 }));
-vi.mock('../../../src/components/settings/SelectFoods', () => ({
+vi.mock('@newMeeting/SelectFoods', () => ({
     default: () => <div data-testid="select-foods">SelectFoods</div>,
     createDefaultHumans: () => ([
         { id: "panelist0", name: "", description: "", type: "panelist", voice: "alloy", index: 0 },
@@ -35,21 +35,18 @@ vi.mock('../../../src/components/settings/SelectFoods', () => ({
         foods: [{ id: "water", name: "Water", description: "", voice: "alloy" }],
     }),
 }));
-vi.mock('../../../src/components/Council', () => ({
+vi.mock('@council/Council', () => ({
     default: () => <div data-testid="council">Council</div>
 }));
-vi.mock('../../../src/components/RotateDevice', () => ({
+vi.mock('@main/overlay/RotateDevice', () => ({
     default: () => <div data-testid="rotate-device">RotateDevice</div>
 }));
-vi.mock('../../../src/components/FullscreenButton', () => ({
+vi.mock('@main/FullscreenButton', () => ({
     default: () => <div data-testid="fullscreen-btn">Fullscreen</div>
-}));
-vi.mock('../../../src/components/Forest', () => ({
-    default: () => <div data-testid="forest">Forest</div>
 }));
 
 // Mock utils
-vi.mock('../../../src/utils', () => ({
+vi.mock('@/utils', () => ({
     usePortrait: () => false,
     useMobile: () => false,
     useMobileXs: () => false,

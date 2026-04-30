@@ -1,8 +1,8 @@
 import type { Topic } from "@shared/ModelTypes";
 import { toTitleCase } from "@/utils";
-import type { TopicsData } from "@/components/topicsBundle";
-import { getFoodsBundle } from "@/components/settings/FoodUtils";
-import type { Food } from "@/components/settings/FoodUtils";
+import type { TopicsData } from "@main/topicsBundle";
+import { getFoodsBundle } from "./FoodUtils";
+import type { Food } from "./FoodUtils";
 
 export type MeetingFoodsI18n = {
   oneHuman: string;
@@ -48,7 +48,7 @@ export function buildTopicFromSelection(params: {
 }): Topic {
   const { topicsBundle, selectedTopicId, customTopic } = params;
   const raw =
-    topicsBundle.topics.find((topic) => topic.id === selectedTopicId) ??
+    topicsBundle.topics.find((topic: Topic) => topic.id === selectedTopicId) ??
     (selectedTopicId === topicsBundle.custom_topic.id ? topicsBundle.custom_topic : undefined);
 
   if (!raw) {

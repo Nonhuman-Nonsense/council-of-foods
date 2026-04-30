@@ -1,12 +1,12 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router";
 import { useTranslation } from "react-i18next";
-import { useCouncilSocket } from "../hooks/useCouncilSocket";
+import { useCouncilSocket } from "./useCouncilSocket";
 import { useRouting } from "@/routing";
 import type { Character, Message, Meeting, Topic } from "@shared/ModelTypes";
 import type { PublicAudioClipResponse, DecodedAudioMessage } from "@shared/SocketTypes";
-import { CouncilOverlayType } from "@/components/CouncilOverlays";
-import { resumeMeeting, ResumeMeetingError } from "@/api/resumeMeeting";
+import { CouncilOverlayType } from "../overlays/CouncilOverlays";
+import { resumeMeeting, ResumeMeetingError } from "@api/resumeMeeting";
 
 /** Keep the loading UI visible this long on first paint so the Loading animation can run. */
 const MIN_INITIAL_LOADING_DISPLAY_MS = import.meta.env.VITEST ? 0 : 2000;

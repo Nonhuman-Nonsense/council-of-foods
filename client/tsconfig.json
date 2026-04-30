@@ -22,8 +22,14 @@
             "@api/*": [
                 "./src/api/*"
             ],
+            "@assets/*": [
+                "./src/assets/*"
+            ],
             "@council/*": [
                 "./src/council/*"
+            ],
+            "@locales/*": [
+                "./src/locales/*"
             ],
             "@main/*": [
                 "./src/main/*"
@@ -31,8 +37,11 @@
             "@newMeeting/*": [
                 "./src/newMeeting/*"
             ],
-            "@assets/*": [
-                "./src/assets/*"
+            "@stores/*": [
+                "./src/stores/*"
+            ],
+            "@voice/*": [
+                "./src/voice/*"
             ],
             "@shared/*": [
                 "../shared/*"

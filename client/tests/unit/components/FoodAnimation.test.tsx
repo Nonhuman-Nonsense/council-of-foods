@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach, Mock } from 'vitest';
 import { render, screen, act } from '@testing-library/react';
-import FoodAnimation from '../../../src/components/FoodAnimation';
-import { Food } from '../../../src/components/settings/SelectFoods';
+import FoodAnimation from '@council/FoodAnimation';
+import { Food } from '@newMeeting/SelectFoods';
 
 // Mock video play/pause
 const originalPlay = window.HTMLMediaElement.prototype.play;

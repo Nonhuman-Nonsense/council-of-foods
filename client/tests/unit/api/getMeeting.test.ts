@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { getMeeting } from "@/api/getMeeting";
+import { getMeeting } from "@api/getMeeting";
 
 describe("getMeeting", () => {
     afterEach(() => {

@@ -1,7 +1,7 @@
 import type { Topic, Character } from "@shared/ModelTypes";
-import type { Food } from "@/components/settings/FoodUtils";
-import { buildMeetingFoodsPayload, type MeetingFoodsI18n } from "@/meetingSetup/meetingSetup";
-import { useMeetingSetupStore } from "@/stores/useMeetingSetupStore";
+import type { Food } from "@newMeeting/FoodUtils";
+import { buildMeetingFoodsPayload, type MeetingFoodsI18n } from "@newMeeting/meetingSetup";
+import { useMeetingSetupStore } from "@stores/useMeetingSetupStore";
 
 export type JsonSchemaObject = {
   type: "object";

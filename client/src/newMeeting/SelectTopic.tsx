@@ -1,12 +1,12 @@
 import { useState, useRef, useEffect } from "react";
-import ResetWarning from "@components/overlays/ResetWarning";
+import ResetWarning from "@main/overlay/ResetWarning";
 import { capitalizeFirstLetter, toTitleCase, useMobile, useMobileXs } from "@/utils";
 import { useTranslation } from "react-i18next";
 import type { Topic } from "@shared/ModelTypes";
-import { useMeetingSetupStore } from "@/stores/useMeetingSetupStore";
+import { useMeetingSetupStore } from "@stores/useMeetingSetupStore";
 
-import { getTopicsBundle } from "@/components/topicsBundle";
-import { buildTopicFromSelection } from "@/meetingSetup/meetingSetup";
+import { getTopicsBundle } from "@main/topicsBundle";
+import { buildTopicFromSelection } from "./meetingSetup";
 
 /**
  * SelectTopic Component
@@ -108,9 +108,9 @@ function SelectTopic({
    */
   function toolTip(): string | undefined {
     if (hoveredTopic) {
-      return topicsBundle.topics.find(t => t.id === hoveredTopic)?.description;
+      return topicsBundle.topics.find((t: Topic) => t.id === hoveredTopic)?.description;
     } else if (selectedTopic) {
-      return topicsBundle.topics.find(t => t.id === selectedTopic)?.description;
+      return topicsBundle.topics.find((t: Topic) => t.id === selectedTopic)?.description;
     } else {
       return t("selectissue");
     }
@@ -227,7 +227,7 @@ function SelectTopic({
           >
             {/* Grid Layout for Topics */}
             <div style={gridContainerStyle}>
-              {standardTopics.map((topic) => (
+              {standardTopics.map((topic: Topic) => (
                 <button
                   key={topic.id}
                   data-testid="topic-button"

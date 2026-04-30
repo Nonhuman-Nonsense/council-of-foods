@@ -1,5 +1,5 @@
-import { createGuideToolHandlers, GuideToolContext } from '../../../src/voice/guideTools';
-import { useMeetingSetupStore } from '../../../src/stores/useMeetingSetupStore';
+import { createGuideToolHandlers, GuideToolContext } from '@voice/guideTools';
+import { useMeetingSetupStore } from '@stores/useMeetingSetupStore';
 
 describe('guideTools', () => {
   let ctx: GuideToolContext;

@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import MainOverlays from '../../../src/components/MainOverlays';
+import MainOverlays from '@main/overlay/MainOverlays';
 import type { ReactNode } from 'react';
 import '@testing-library/jest-dom';
-import routes from '../../../src/routes.json';
+import routes from '@/routes.json';
 import type { Topic } from '@shared/ModelTypes';
 
 const mockTopic = (partial: Pick<Topic, 'id' | 'title' | 'description'> & Partial<Topic>): Topic => ({
@@ -31,9 +31,9 @@ vi.mock('react-router', () => ({
 }));
 
 // Mock Child Components
-vi.mock('../../../src/components/overlays/About', () => ({ default: () => <div data-testid="about-overlay">About</div> }));
-vi.mock('../../../src/components/overlays/Contact', () => ({ default: () => <div data-testid="contact-overlay">Contact</div> }));
-vi.mock('../../../src/components/overlays/ResetWarning', () => ({
+vi.mock('@main/overlay/About', () => ({ default: () => <div data-testid="about-overlay">About</div> }));
+vi.mock('@main/overlay/Contact', () => ({ default: () => <div data-testid="contact-overlay">Contact</div> }));
+vi.mock('@main/overlay/ResetWarning', () => ({
     default: ({ onReset, onCancel }: { onReset: () => void; onCancel: () => void }) => (
         <div data-testid="reset-overlay">
             <button onClick={onReset}>Confirm Reset</button>
@@ -41,15 +41,15 @@ vi.mock('../../../src/components/overlays/ResetWarning', () => ({
         </div>
     )
 }));
-vi.mock('../../../src/components/settings/SelectTopic', () => ({
+vi.mock('@newMeeting/SelectTopic', () => ({
     default: () => <div data-testid="settings-overlay">Settings</div>
 }));
 
 // Mock Wrapper Components
-vi.mock('../../../src/components/Overlay', () => ({
+vi.mock('@main/overlay/Overlay', () => ({
     default: ({ children, isActive }: { children: ReactNode; isActive: boolean }) => isActive ? <div data-testid="overlay-container">{children}</div> : null
 }));
-vi.mock('../../../src/components/OverlayWrapper', () => ({
+vi.mock('@main/overlay/OverlayWrapper', () => ({
     default: ({ children }: { children: ReactNode }) => <div data-testid="overlay-wrapper">{children}</div>
 }));
 

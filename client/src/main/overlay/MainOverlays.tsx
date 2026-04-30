@@ -4,10 +4,10 @@ import { isMeetingPath, isRootPath } from "@/routing";
 
 import OverlayWrapper from './OverlayWrapper';
 import Overlay from "./Overlay";
-import About from "./overlays/About";
-import Contact from "./overlays/Contact";
-import ResetWarning from "./overlays/ResetWarning";
-import SelectTopic from "./settings/SelectTopic";
+import About from "./About";
+import Contact from "./Contact";
+import ResetWarning from "./ResetWarning";
+import SelectTopic from "@newMeeting/SelectTopic";
 import type { Topic } from "@shared/ModelTypes";
 import { useTranslation } from "react-i18next";
 

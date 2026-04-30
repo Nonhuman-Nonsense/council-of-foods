@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { resumeMeeting, ResumeMeetingError } from "@/api/resumeMeeting";
+import { resumeMeeting, ResumeMeetingError } from "@api/resumeMeeting";
 
 /**
  * Covers `PUT /api/meetings/:id`:

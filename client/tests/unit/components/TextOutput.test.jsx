@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, act } from '@testing-library/react';
-import TextOutput from '../../../src/components/TextOutput';
+import TextOutput from '@council/output/TextOutput';
 
 // Mock utils
-vi.mock('../../../src/utils', () => ({
+vi.mock('@/utils', () => ({
     useMobile: () => false,
 }));
 

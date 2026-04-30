@@ -2,13 +2,13 @@ import type { Topic } from "@shared/ModelTypes";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
-import SelectTopic from "./settings/SelectTopic";
-import SelectFoods, { type Food } from "./settings/SelectFoods";
-import { createMeeting } from "@/api/createMeeting";
+import SelectTopic from "./SelectTopic";
+import SelectFoods, { type Food } from "./SelectFoods";
+import { createMeeting } from "@api/createMeeting";
 import { useRouting } from "@/routing";
-import MeetingVoiceGuide from "@/components/MeetingVoiceGuide";
-import type { MeetingSetupUserEvent } from "@/meetingSetup/meetingSetup";
-import { useMeetingSetupStore } from "@/stores/useMeetingSetupStore";
+import MeetingVoiceGuide from "@voice/MeetingVoiceGuide";
+import type { MeetingSetupUserEvent } from "./meetingSetup";
+import { useMeetingSetupStore } from "@stores/useMeetingSetupStore";
 
 export interface NewMeetingProps {
   setUnrecoverableError: (message: string) => void;
@@ -119,7 +119,7 @@ export default function NewMeeting({
         lastUserEvent={lastUserEvent}
         onGoToTopicStep={handleGoToTopicStep}
         onSelectTopic={handleTopicContinue}
-        onStartMeeting={(foods) => handleFoodsContinue({ foods })}
+        onStartMeeting={(foods: Food[]) => handleFoodsContinue({ foods })}
       />
     </>
   );

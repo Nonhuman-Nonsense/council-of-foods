@@ -1,4 +1,4 @@
-import RotateDevice from '@components/RotateDevice';
+import RotateDevice from "@main/overlay/RotateDevice";
 import { useMediaQuery } from 'react-responsive'
 import { Link } from "react-router";
 import { useMobile, dvh } from "@/utils";

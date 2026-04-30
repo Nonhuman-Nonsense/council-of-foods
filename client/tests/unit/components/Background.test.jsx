@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { render } from '@testing-library/react';
-import { Background } from '../../../src/components/Council'; // Importing the named export
+import { Background } from '@council/Council'; // Importing the named export
 
 describe('Background', () => {
     it('is hidden when not zoomed in', () => {
