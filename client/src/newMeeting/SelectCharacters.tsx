@@ -66,7 +66,7 @@ function SelectCharacters({
   }, [i18n.language]);
 
   const baseCharacters = useMemo(() => {
-    return characterSetupData.foods;
+    return characterSetupData.characters;
   }, [characterSetupData]);
 
   const characters = useMemo(() => {

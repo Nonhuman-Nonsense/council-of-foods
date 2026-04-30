@@ -80,7 +80,7 @@ vi.mock('@newMeeting/SelectCharacters', () => ({
         metadata: { version: "test", last_updated: "test" },
         panelWithHumans: "",
         addHuman: { id: "addhuman", name: "Add Human", description: "" },
-        foods: [{ id: "water", name: "Water", description: "", voice: "alloy" }],
+        characters: [{ id: "water", name: "Water", description: "", voice: "alloy" }],
     }),
 }));
 vi.mock('@council/Council', () => ({

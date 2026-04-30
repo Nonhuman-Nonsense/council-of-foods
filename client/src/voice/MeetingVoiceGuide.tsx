@@ -52,7 +52,7 @@ export default function MeetingVoiceGuide({
   }, [topicsBundle]);
 
   const guideCharacters = useMemo(() => {
-    return characterSetupBundle.foods.map((character: MeetingCharacter) => ({
+    return characterSetupBundle.characters.map((character: MeetingCharacter) => ({
       id: character.id,
       name: character.name,
       description: character.description,

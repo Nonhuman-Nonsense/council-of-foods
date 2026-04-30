@@ -1,14 +1,13 @@
 import type { Express, Request, Response as ExpressResponse } from "express";
-import type { Character } from "@shared/ModelTypes.js";
-import foodsEn from "@shared/prompts/foods_en.json" with { type: "json" };
 import { config } from "../config.js";
+import { defaultCharacterSetupBundle } from "@logic/characterSetupBundle.js";
 import { getGlobalOptions } from "@logic/GlobalOptions.js";
 import { Logger } from "@utils/Logger.js";
 import { withNetworkRetry } from "@utils/NetworkUtils.js";
 
 const opts = getGlobalOptions();
-/** Chair realtime output — aligns with foods[0] in shared/prompts/foods_en.json. */
-const chair = foodsEn.foods[0] as Character;
+/** Chair realtime output — aligns with `characters[0]` in the default character-setup bundle. */
+const chair = defaultCharacterSetupBundle.characters[0];
 /**
  * Server-side proxy for the Inworld Realtime API used by the NewMeeting voice guide.
  *
@@ -22,7 +21,7 @@ const chair = foodsEn.foods[0] as Character;
  * audio hot path.
  *
  * Endpoints:
- *   GET  /api/voice-guide/bootstrap : { iceServers, session } — Inworld ICE + session fragment (model/VAD/voice from GlobalOptions + foods_en chair)
+ *   GET  /api/voice-guide/bootstrap : { iceServers, session } — Inworld ICE + session fragment (model/VAD/voice from GlobalOptions + default character-setup chair)
  *   POST /api/voice-guide/call      : { sdp, session? } -> { id, sdp, ice_servers? }
  */
 

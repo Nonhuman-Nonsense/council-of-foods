@@ -66,7 +66,7 @@ export function buildTopicFromSelection(params: {
 
 /**
  * Validates foods-step state and builds the meeting `characters` payload,
- * including chair `[FOODS]` / `[HUMANS]` prompt injection.
+ * including chair `[CHARACTERS]` / `[HUMANS]` prompt injection.
  */
 export function buildMeetingCharactersPayload(params: {
   language: string;
@@ -77,7 +77,7 @@ export function buildMeetingCharactersPayload(params: {
 }): { ok: true; characters: MeetingCharacter[] } | { ok: false; error: string } {
   const { language, selectedCharacters, humans, numberOfHumans, labels } = params;
   const characterSetupData = getCharacterSetupBundle(language);
-  const baseCharacters = characterSetupData.foods;
+  const baseCharacters = characterSetupData.characters;
   const characters = [...baseCharacters, ...humans.slice(0, numberOfHumans)];
 
   const minFoods = 2 + 1;
@@ -138,7 +138,7 @@ export function buildMeetingCharactersPayload(params: {
 
   if (replacedCharacters.length > 0 && replacedCharacters[0].prompt) {
     replacedCharacters[0].prompt =
-      characterSetupData.foods[0].prompt?.replace("[FOODS]", participants) || "";
+      characterSetupData.characters[0].prompt?.replace("[CHARACTERS]", participants) || "";
   }
 
   let humanPresentation = "";

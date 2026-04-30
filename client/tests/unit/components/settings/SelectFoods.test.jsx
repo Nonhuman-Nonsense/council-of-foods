@@ -2,8 +2,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import SelectCharacters from '@newMeeting/SelectCharacters';
-import { createDefaultHumans } from '@newMeeting/CharacterSetup';
-import foodsEn from '@shared/prompts/foods_en.json';
+import { characterSetupEn } from '../../../characterSetupTestData';
 import { useMeetingSetupStore } from '@stores/useMeetingSetupStore';
 
 // Mock dependencies
@@ -17,7 +16,7 @@ vi.mock('@/utils', () => ({
     toTitleCase: (str) => str,
     filename: (str) => str
 }));
-// Removed mock for foods_en.json to use the real file
+// Uses the real default character setup bundle through the shared test loader.
 
 describe('SelectCharacters Component', () => {
     let mockOnContinue;
@@ -83,7 +82,7 @@ describe('SelectCharacters Component', () => {
         expect(passedCharacters).toHaveLength(3); // River, Salmon, Pine
 
         // Check Chair's prompt injection
-        // Using real text from foods_en.json: "Briefly welcome the participants: [FOODS].[HUMANS]"
+        // Using real text from the default character bundle.
         // Expected replacement: "Briefly welcome the participants: Salmon, Pine."
 
         expect(passedCharacters[0].prompt).toContain("Briefly welcome the participants: Salmon, Pine.");
@@ -123,12 +122,12 @@ describe('SelectCharacters Component', () => {
         // Find the human object in the passed array
         const humanPanelist = passedCharacters.find(f => f.id.startsWith("panelist"));
         expect(humanPanelist).toBeDefined();
-        // Since default chair is Water, voice should be the one from foods_en.json (which is now Wendy or whatever is in the file)
-        expect(humanPanelist.voice).toBe(foodsEn.foods[0].voice);
-        expect(humanPanelist.voiceProvider).toBe(foodsEn.foods[0].voiceProvider);
-        expect(humanPanelist.voiceTemperature).toBe(foodsEn.foods[0].voiceTemperature);
-        expect(humanPanelist.voiceInstruction).toBe(foodsEn.foods[0].voiceInstruction);
-        expect(humanPanelist.voiceLocale).toBe(foodsEn.foods[0].voiceLocale);
+        // Since default chair is River, voice should mirror the first character in the default character bundle.
+        expect(humanPanelist.voice).toBe(characterSetupEn.characters[0].voice);
+        expect(humanPanelist.voiceProvider).toBe(characterSetupEn.characters[0].voiceProvider);
+        expect(humanPanelist.voiceTemperature).toBe(characterSetupEn.characters[0].voiceTemperature);
+        expect(humanPanelist.voiceInstruction).toBe(characterSetupEn.characters[0].voiceInstruction);
+        expect(humanPanelist.voiceLocale).toBe(characterSetupEn.characters[0].voiceLocale);
     });
 
     it('should maintain focus on description when typing', async () => {

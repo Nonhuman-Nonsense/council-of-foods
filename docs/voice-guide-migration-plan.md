@@ -9,7 +9,7 @@ This document tracks the **intent**, **architecture**, and **implementation stat
 ## Goals
 
 - **Voice-only wizard**: During `NewMeeting`, the visitor can pick a topic, foods/characters, and humans using speech; the model uses tools to mutate UI state rather than guessing clicks.
-- **Grounding**: Topics and foods come from shared prompt bundles (`shared/prompts/topics_*.json`, `shared/prompts/foods_*.json`, loaded via `getTopicsBundle` / `getFoodsBundle`). The system prompt stays short; details are fetched through `describe_topic` / `describe_food` tools (avoids oversized instructions and related realtime failures).
+- **Grounding**: Topics and foods come from shared prompt bundles (`shared/prompts/topics_*.json` plus the app-specific character bundle selected via `CHARACTERS_FILE`, loaded via `getTopicsBundle` / `getFoodsBundle`). The system prompt stays short; details are fetched through `describe_topic` / `describe_food` tools (avoids oversized instructions and related realtime failures). The raw Foods bundle keeps its app-specific filename, but its internal participant shape uses the generic `characters` key.
 - **Seamless handoff**: After the meeting starts, navigation leaves `NewMeeting`; the voice hook’s **unmount cleanup** should stop mic, peer connection, and data channel (no background realtime session).
 - **Key safety**: **`INWORLD_API_KEY` is server-only**; the browser never receives it.
 - **Kiosk survivability** (longer term): Turn-taking, silence handling, optional wake/button gating — mostly **not implemented** yet (see Phase 4).
@@ -27,7 +27,7 @@ Non-goals (unchanged):
 
 | Route | Role |
 |-------|------|
-| `GET /api/voice-guide/bootstrap` | Returns `{ iceServers, session }` in **one** round-trip: Inworld ICE (via `getInworldIceServers`) plus a **local** session fragment from `getGlobalOptions()` and chair audio fields from `shared/prompts/foods_en.json` (`foods[0]`). |
+| `GET /api/voice-guide/bootstrap` | Returns `{ iceServers, session }` in **one** round-trip: Inworld ICE (via `getInworldIceServers`) plus a **local** session fragment from `getGlobalOptions()` and chair audio fields from the default character-setup bundle (`characters[0]`). |
 | `POST /api/voice-guide/call` | Proxies `{ sdp, session? }` JSON to Inworld `POST /v1/realtime/calls`; returns answer SDP. |
 
 **Removed (superseded by bootstrap):** `GET /api/voice-guide/ice-servers`, `POST /api/voice-guide/realtime-session` — the client no longer calls them.
