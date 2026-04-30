@@ -62,10 +62,10 @@ vi.mock('@newMeeting/SelectTopic', () => ({
         </div>
     )
 }));
-vi.mock('@newMeeting/SelectFoods', () => ({
+vi.mock('@newMeeting/SelectCharacters', () => ({
     default: ({ onContinueForward }) => (
         <div data-testid="select-foods">
-            <button type="button" onClick={() => onContinueForward({ foods: [{ id: "apple" }] })} data-testid="foods-btn">Select Foods</button>
+            <button type="button" onClick={() => onContinueForward({ characters: [{ id: "apple" }] })} data-testid="foods-btn">Select Foods</button>
         </div>
     ),
     createDefaultHumans: () => ([
@@ -73,11 +73,11 @@ vi.mock('@newMeeting/SelectFoods', () => ({
         { id: "panelist1", name: "", description: "", type: "panelist", voice: "alloy", index: 1 },
         { id: "panelist2", name: "", description: "", type: "panelist", voice: "alloy", index: 2 },
     ]),
-    getFoodsBundle: () => ({
+    getCharacterSetupBundle: () => ({
         metadata: { version: "test", last_updated: "test" },
         panelWithHumans: "",
         addHuman: { id: "addhuman", name: "Add Human", description: "" },
-        foods: [{ id: "water", name: "Water", description: "", voice: "alloy" }],
+        characters: [{ id: "water", name: "Water", description: "", voice: "alloy" }],
     }),
 }));
 vi.mock('@council/Council', () => ({
@@ -99,10 +99,13 @@ vi.mock('@main/FullscreenButton', () => ({
 vi.mock('@/utils', () => ({
     usePortrait: () => false,
     useMobile: () => false,
+    useMobileXs: () => false,
     useDocumentVisibility: () => true,
     dvh: 'vh',
     minWindowHeight: 300,
-    filename: (str) => str
+    filename: (str) => str,
+    toTitleCase: (str) => str,
+    capitalizeFirstLetter: (str) => str
 }));
 
 global.fetch = vi.fn(() =>

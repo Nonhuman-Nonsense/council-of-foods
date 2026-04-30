@@ -67,14 +67,14 @@ vi.mock('@newMeeting/SelectTopic', () => ({
     )
 }));
 
-vi.mock('@newMeeting/SelectFoods', () => ({
-    default: ({ onContinueForward }: { onContinueForward: (x: { foods: { id: string }[] }) => void }) => (
+vi.mock('@newMeeting/SelectCharacters', () => ({
+    default: ({ onContinueForward }: { onContinueForward: (x: { characters: { id: string }[] }) => void }) => (
         <div data-testid="select-foods">
             <LocationSpy />
-            <button type="button" onClick={() => onContinueForward({ foods: [{ id: "apple" }] })} data-testid="foods-btn">Select Foods</button>
+            <button type="button" onClick={() => onContinueForward({ characters: [{ id: "apple" }] })} data-testid="foods-btn">Select Foods</button>
         </div>
     ),
-    getFoodsBundle: () => ({ foods: [] }),
+    getCharacterSetupBundle: () => ({ characters: [] }),
     createDefaultHumans: () => [],
 }));
 
@@ -107,7 +107,9 @@ vi.mock('@/utils', () => ({
     dvh: 'vh',
     useMobile: () => false,
     useMobileXs: () => false,
-    capitalizeFirstLetter: (str: string) => str
+    capitalizeFirstLetter: (str: string) => str,
+    toTitleCase: (str: string) => str,
+    filename: (str: string) => str
 }));
 
 describe('Forest Routing Integration', () => {
