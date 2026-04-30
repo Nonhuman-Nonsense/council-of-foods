@@ -104,7 +104,7 @@ describe('Inworld TTS Summary Generation Limit', () => {
         const context = {
             options: {
                 inworldVoiceModel: globalOptions.inworldVoiceModel,
-                audio_speed: 1.0,
+                defaultAudioSpeed: 1.0,
                 skipMatchingSubtitles: true // Summaries don't need subtitle timings
             }
         };

@@ -18,7 +18,7 @@ export const GlobalOptionsSchema = z.object({
     chairMaxTokens: z.number(),
     frequencyPenalty: z.number(),
     presencePenalty: z.number(),
-    audio_speed: z.number(),
+    defaultAudioSpeed: z.number(),
     trimSentance: z.boolean(),
     trimParagraph: z.boolean(),
     chairId: z.string(),

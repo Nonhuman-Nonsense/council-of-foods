@@ -8,7 +8,7 @@
   "chairMaxTokens": 220,
   "frequencyPenalty": 0,
   "presencePenalty": 0,
-  "audio_speed": 1.1,
+  "defaultAudioSpeed": 1.1,
   "trimSentance": false,
   "trimParagraph": true,
   "trimChairSemicolon": true,

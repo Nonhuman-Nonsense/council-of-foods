@@ -107,7 +107,7 @@ function buildVoiceGuideRealtimeSessionFragment() {
             output: {
                 voice: chair.voice,
                 model: opts.inworldVoiceModel,
-                speed: chair.voiceSpeed,
+                speed: chair.voiceSpeed ?? opts.defaultAudioSpeed,
             },
         },
     };

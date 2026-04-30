@@ -61,7 +61,7 @@ describe('AudioSystem', () => {
             message,
             speaker,
             'en',
-            serverOptions({ voiceModel: 'tts-1', audio_speed: 1 }),
+            serverOptions({ voiceModel: 'tts-1', defaultAudioSpeed: 1 }),
             meeting(),
             environment
         );
@@ -109,7 +109,7 @@ describe('AudioSystem', () => {
             message,
             speaker,
             'en',
-            serverOptions({ voiceModel: 'tts-1', audio_speed: 1 }),
+            serverOptions({ voiceModel: 'tts-1', defaultAudioSpeed: 1 }),
             meeting(),
             'production'
         );
@@ -134,7 +134,7 @@ describe('AudioSystem', () => {
             message,
             speaker,
             'en',
-            serverOptions({ voiceModel: 'tts-1', audio_speed: 1 }),
+            serverOptions({ voiceModel: 'tts-1', defaultAudioSpeed: 1 }),
             meeting(),
             'production'
         );
