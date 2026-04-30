@@ -1,5 +1,5 @@
 import "@/App.css";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { getTopicsBundle } from "./topicsBundle";
 import {
   Routes,
@@ -52,12 +52,30 @@ export default function Main(props: MainProps) {
   //Had to lift up navbar state to this level to be able to close it from main overlay
   const [hamburgerOpen, setHamburgerOpen] = useState(false);
 
+  // Keep these at Main level even though Foods currently renders its scene inside Council.
+  // Forest needs the same runtime state outside the routed Council tree, and matching that
+  // ownership here reduces cross-app merge conflicts when background/audio behavior changes.
+  const [currentSpeakerId, setCurrentSpeakerId] = useState("");
+  const [isPaused, setPaused] = useState(false);
+  const audioContext = useRef<AudioContext | null>(null);
+  const [audioPaused, setAudioPaused] = useState(false);
+
   const { i18n } = useTranslation();
   const { rootPath, newMeetingPath } = useRouting();
   const location = useLocation();
   const navigate = useNavigate();
   const isIphone = useIsIphone();
   const isPortrait = usePortrait();
+
+  if (audioContext.current === null) {
+    type WindowWithWebkitAudio = Window & { webkitAudioContext?: typeof AudioContext };
+    const AudioContextCtor =
+      window.AudioContext ?? (window as WindowWithWebkitAudio).webkitAudioContext;
+    if (!AudioContextCtor) {
+      throw new Error("Web Audio API is not available in this environment");
+    }
+    audioContext.current = new AudioContextCtor();
+  }
 
   useEffect(() => {
     i18n.changeLanguage(props.lang);
@@ -96,6 +114,18 @@ export default function Main(props: MainProps) {
       setMeetingliveKey(null);
     }
   }, [location.pathname]);
+
+  // Centralize Web Audio suspension here so Council and future scene components can share one
+  // AudioContext without each feature trying to suspend/resume it independently.
+  useEffect(() => {
+    if (audioPaused) {
+      if (audioContext.current && audioContext.current.state !== "suspended") {
+        audioContext.current.suspend();
+      }
+    } else if (audioContext.current && audioContext.current.state === "suspended") {
+      audioContext.current.resume();
+    }
+  }, [audioPaused]);
 
   function onReset(resetTopic?: Topic) {
     //If resetting completely
@@ -176,6 +206,12 @@ export default function Main(props: MainProps) {
                   setUnrecoverableError={setUnrecoverableErrorMessage}
                   connectionError={connectionError}
                   setConnectionError={setConnectionError}
+                  currentSpeakerId={currentSpeakerId}
+                  setCurrentSpeakerId={setCurrentSpeakerId}
+                  isPaused={isPaused}
+                  setPaused={setPaused}
+                  audioContext={audioContext}
+                  setAudioPaused={setAudioPaused}
                 />
               }
             />

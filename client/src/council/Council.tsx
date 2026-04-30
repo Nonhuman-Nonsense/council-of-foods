@@ -1,5 +1,5 @@
 import type { Character, Meeting, Topic } from "@shared/ModelTypes";
-import React, { useMemo, useEffect, useRef, useState } from "react";
+import React, { useMemo, useEffect, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router";
 import FoodItem from "./FoodItem";
 import Overlay from "@main/overlay/Overlay";
@@ -23,6 +23,12 @@ interface CouncilProps {
   setUnrecoverableError: (message: string) => void;
   setConnectionError: (error: boolean) => void;
   connectionError: boolean;
+  audioContext: React.MutableRefObject<AudioContext | null>;
+  setAudioPaused: (paused: boolean) => void;
+  currentSpeakerId: string;
+  setCurrentSpeakerId: (id: string) => void;
+  isPaused: boolean;
+  setPaused: (paused: boolean) => void;
 }
 
 function Council({
@@ -32,7 +38,13 @@ function Council({
   setTopic,
   setUnrecoverableError,
   setConnectionError,
-  connectionError
+  connectionError,
+  audioContext,
+  setAudioPaused,
+  currentSpeakerId,
+  setCurrentSpeakerId,
+  isPaused,
+  setPaused,
 }: CouncilProps) {
 
   const { meetingId } = useParams<{ meetingId: string }>();
@@ -77,16 +89,6 @@ function Council({
     return () => ac.abort();
   }, [liveKey, meetingId, currentMeetingId, setUnrecoverableError]);
 
-  // Audio Context Ref
-  const audioContext = useRef<AudioContext | null>(null);
-  if (audioContext.current === null) {
-    const AudioContext = window.AudioContext || window.webkitAudioContext;
-    audioContext.current = new AudioContext();
-  }
-
-  // Local UI State
-  const [isPaused, setPaused] = React.useState(false);
-
   // Hook Logic
   const { state, actions } = useCouncilMachine({
     currentMeetingId,
@@ -101,6 +103,7 @@ function Council({
     connectionError,
     isPaused,
     setPaused,
+    setAudioPaused,
   });
 
   const {
@@ -139,14 +142,22 @@ function Council({
     toggleMute
   } = actions;
 
-  // Derived Visual State (Background Zoom)
-  const currentSpeakerId = useMemo(() => {
+  // Derive the active speaker locally from playback state, but publish it to Main.
+  // The extra hop is intentional: it keeps the cross-app contract aligned with Forest, where
+  // an always-mounted sibling scene needs this value outside the routed Council subtree.
+  const derivedCurrentSpeakerId = useMemo(() => {
     if (councilState === 'loading') return "";
     if (councilState === 'human_input') return humanName;
-    if (councilState === 'human_panelist' && textMessages[playNextIndex]) return textMessages[playNextIndex].speaker;
-    if (textMessages[playingNowIndex]) return textMessages[playingNowIndex].speaker;
+    if (councilState === 'human_panelist' && textMessages[playNextIndex]) {
+      return textMessages[playNextIndex].speaker ?? "";
+    }
+    if (textMessages[playingNowIndex]) return textMessages[playingNowIndex].speaker ?? "";
     return "";
   }, [councilState, playingNowIndex, textMessages, playNextIndex, humanName]);
+
+  useEffect(() => {
+    setCurrentSpeakerId(derivedCurrentSpeakerId);
+  }, [derivedCurrentSpeakerId, setCurrentSpeakerId]);
 
   const zoomIn = useMemo(() => {
     if (
