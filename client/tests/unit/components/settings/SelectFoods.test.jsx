@@ -1,8 +1,8 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import SelectFoods from '@newMeeting/SelectFoods';
-import { createDefaultHumans } from '@newMeeting/FoodUtils';
+import SelectCharacters from '@newMeeting/SelectCharacters';
+import { createDefaultHumans } from '@newMeeting/CharacterSetup';
 import foodsEn from '@shared/prompts/foods_en.json';
 import { useState } from 'react';
 import { useMeetingSetupStore } from '@stores/useMeetingSetupStore';
@@ -20,7 +20,7 @@ vi.mock('@/utils', () => ({
 }));
 // Removed mock for foods_en.json to use the real file
 
-describe('SelectFoods Component', () => {
+describe('SelectCharacters Component', () => {
     let mockOnContinue;
 
     beforeEach(() => {
@@ -28,9 +28,9 @@ describe('SelectFoods Component', () => {
         mockOnContinue = vi.fn();
     });
 
-    function ControlledSelectFoods() {
+    function ControlledSelectCharacters() {
         return (
-            <SelectFoods
+            <SelectCharacters
                 topicTitle="Test Topic"
                 onContinueForward={mockOnContinue}
             />
@@ -38,7 +38,7 @@ describe('SelectFoods Component', () => {
     }
 
     it('should render correctly with default chair selected', () => {
-        render(<ControlledSelectFoods />);
+        render(<ControlledSelectCharacters />);
 
         // Real file default chair is Water
         const waterBtn = screen.getByAltText('Water');
@@ -46,7 +46,7 @@ describe('SelectFoods Component', () => {
     });
 
     it('should enforce min participants (2) before allowing Start', () => {
-        render(<ControlledSelectFoods />);
+        render(<ControlledSelectCharacters />);
 
         expect(screen.queryByText('start')).not.toBeInTheDocument();
         expect(screen.getByText('selectfoods.pleaseselect')).toBeInTheDocument();
@@ -67,7 +67,7 @@ describe('SelectFoods Component', () => {
     });
 
     it('should construct the prompt correctly with participants', () => {
-        render(<ControlledSelectFoods />);
+        render(<ControlledSelectCharacters />);
 
         // Select Tomato and Potato
         fireEvent.click(screen.getByAltText('Tomato'));
@@ -80,18 +80,18 @@ describe('SelectFoods Component', () => {
         expect(mockOnContinue).toHaveBeenCalledTimes(1);
         const calledArg = mockOnContinue.mock.calls[0][0];
 
-        const passedFoods = calledArg.foods;
-        expect(passedFoods).toHaveLength(3); // Water, Tomato, Potato
+        const passedCharacters = calledArg.characters;
+        expect(passedCharacters).toHaveLength(3); // Water, Tomato, Potato
 
         // Check Chair's prompt injection
         // Using real text from foods_en.json: "Todays participants are: [FOODS].[HUMANS]"
         // Expected replacement: "Todays participants are: Tomato, Potato."
 
-        expect(passedFoods[0].prompt).toContain("Todays participants are: Tomato, Potato.");
+        expect(passedCharacters[0].prompt).toContain("Todays participants are: Tomato, Potato.");
     });
 
     it('should handle Human Panelists injection into prompt', async () => {
-        render(<ControlledSelectFoods />);
+        render(<ControlledSelectCharacters />);
 
         // Select Tomato AND Potato to meet min requirements (3 foods)
         fireEvent.click(screen.getByAltText('Tomato'));
@@ -111,8 +111,8 @@ describe('SelectFoods Component', () => {
         const startBtn = await screen.findByText('start');
         fireEvent.click(startBtn);
 
-        const passedFoods = mockOnContinue.mock.calls[0][0].foods;
-        const chair = passedFoods[0];
+        const passedCharacters = mockOnContinue.mock.calls[0][0].characters;
+        const chair = passedCharacters[0];
 
         // Verify [HUMANS] replacement
         // Using real text for panelWithHumans: " As a special for today, on the panel are also [HUMANS]. Welcome them especially! "
@@ -122,7 +122,7 @@ describe('SelectFoods Component', () => {
 
         // Verify that the Human Panelist has a voice assigned (Chair's voice)
         // Find the human object in the passed array
-        const humanPanelist = passedFoods.find(f => f.id.startsWith("panelist"));
+        const humanPanelist = passedCharacters.find(f => f.id.startsWith("panelist"));
         expect(humanPanelist).toBeDefined();
         // Since default chair is Water, voice should be the one from foods_en.json (which is now Wendy or whatever is in the file)
         expect(humanPanelist.voice).toBe(foodsEn.foods[0].voice);
@@ -133,7 +133,7 @@ describe('SelectFoods Component', () => {
     });
 
     it('should maintain focus on description when typing', async () => {
-        render(<ControlledSelectFoods />);
+        render(<ControlledSelectCharacters />);
 
         // Add Human
         const addBtn = screen.getByAltText('add human');
@@ -157,7 +157,7 @@ describe('SelectFoods Component', () => {
     });
 
     it('should prevent selecting more than max participants (6)', () => {
-        render(<ControlledSelectFoods />);
+        render(<ControlledSelectCharacters />);
 
         // Select 6 items (Chair + 5 others) to reach max (6 + 1 chair = 7)
 
@@ -178,19 +178,19 @@ describe('SelectFoods Component', () => {
         const startBtn = screen.getByText('start');
         fireEvent.click(startBtn);
 
-        const passedFoods = mockOnContinue.mock.calls[0][0].foods;
+        const passedCharacters = mockOnContinue.mock.calls[0][0].characters;
         // Should only be 7 items (Water + 6 selected) ??
         // Wait, maxFoods = 7.
         // If I selected 6 others + Water = 7.
         // If I click Bean, it checks < 7. 7 < 7 is false.
         // So Bean is NOT selected.
 
-        expect(passedFoods.length).toBeLessThanOrEqual(7);
-        expect(passedFoods.map(f => f.name)).not.toContain('Bean');
+        expect(passedCharacters.length).toBeLessThanOrEqual(7);
+        expect(passedCharacters.map(f => f.name)).not.toContain('Bean');
     });
 
     it('should deselect a food when clicked again', () => {
-        render(<ControlledSelectFoods />);
+        render(<ControlledSelectCharacters />);
 
         const tomatoBtn = screen.getByAltText('Tomato');
 
@@ -206,7 +206,7 @@ describe('SelectFoods Component', () => {
     });
 
     it('should show error when human panelists have duplicate names', async () => {
-        render(<ControlledSelectFoods />);
+        render(<ControlledSelectCharacters />);
 
         // Select Tomato and Potato to satisfy atLeastTwoFoods requirement
         fireEvent.click(screen.getByAltText('Tomato'));

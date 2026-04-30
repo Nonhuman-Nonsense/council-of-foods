@@ -65,10 +65,10 @@ vi.mock('@newMeeting/SelectTopic', () => ({
         </div>
     )
 }));
-vi.mock('@newMeeting/SelectFoods', () => ({
+vi.mock('@newMeeting/SelectCharacters', () => ({
     default: ({ onContinueForward }) => (
         <div data-testid="select-foods">
-            <button onClick={() => onContinueForward({ foods: [{ id: "apple" }] })} data-testid="foods-btn">Select Foods</button>
+            <button onClick={() => onContinueForward({ characters: [{ id: "apple" }] })} data-testid="foods-btn">Select Foods</button>
         </div>
     ),
     createDefaultHumans: () => ([

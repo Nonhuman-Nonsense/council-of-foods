@@ -1,13 +1,13 @@
 import type { Topic, Character } from "@shared/ModelTypes";
 
 export type GuideTopic = Pick<Topic, "id" | "title" | "description">;
-export type GuideFood = Pick<Character, "id" | "name"> & { description?: string };
+export type GuideCharacter = Pick<Character, "id" | "name"> & { description?: string };
 
 export type BuildGuidePromptParams = {
   baseSystemPrompt: string;
   projectDescription: string;
   topics: GuideTopic[];
-  foods: GuideFood[];
+  characters: GuideCharacter[];
 };
 
 function formatBullets(lines: string[]): string {
@@ -24,10 +24,10 @@ function formatBullets(lines: string[]): string {
  * we hit with very long instructions.
  */
 export function buildGuidePrompt(params: BuildGuidePromptParams): string {
-  const { baseSystemPrompt, projectDescription, topics, foods } = params;
+  const { baseSystemPrompt, projectDescription, topics, characters } = params;
 
   const topicsList = topics.map((t) => `${t.id}: ${t.title}`);
-  const foodsList = foods.map((f) => `${f.id}: ${f.name}`);
+  const charactersList = characters.map((character) => `${character.id}: ${character.name}`);
 
   return [
     baseSystemPrompt.trim(),
@@ -55,6 +55,6 @@ export function buildGuidePrompt(params: BuildGuidePromptParams): string {
     formatBullets(topicsList),
     "",
     "Available food ids:",
-    formatBullets(foodsList),
+    formatBullets(charactersList),
   ].join("\n");
 }

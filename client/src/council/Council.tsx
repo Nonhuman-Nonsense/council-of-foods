@@ -172,7 +172,7 @@ function Council({
     setCurrentSpeakerId(derivedCurrentSpeakerId);
   }, [derivedCurrentSpeakerId, setCurrentSpeakerId]);
 
-  const foods = participants.filter((part) => part.type !== 'panelist');
+  const characters = participants.filter((part) => part.type !== 'panelist');
 
   // Derived UI State
   const showControls = (
@@ -205,7 +205,7 @@ function Council({
       />
       {councilState === 'loading' && <Loading />}
       {liveKey && (councilState === 'human_input' || councilState === 'human_panelist') && (
-        <HumanInput liveKey={liveKey} foods={foods} isPanelist={(councilState === 'human_panelist')} currentSpeakerName={participants.find(p => p.id === currentSpeakerId)?.name || ""} onSubmitHumanMessage={handleOnSubmitHumanMessage} />
+        <HumanInput liveKey={liveKey} characters={characters} isPanelist={(councilState === 'human_panelist')} currentSpeakerName={participants.find(p => p.id === currentSpeakerId)?.name || ""} onSubmitHumanMessage={handleOnSubmitHumanMessage} />
       )}
       <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, display: "flex", flexDirection: "column", alignItems: "center", overflow: "visible" }}>
         <Output

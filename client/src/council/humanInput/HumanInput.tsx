@@ -22,7 +22,7 @@ interface InputAudioTranscriptionCompletedEvent {
 type OpenAIRealtimeEvent = InputAudioTranscriptionCompletedEvent; // Union with other events if needed
 
 interface HumanInputProps {
-  foods: Character[];
+  characters: Character[];
   isPanelist: boolean;
   currentSpeakerName: string;
   onSubmitHumanMessage: (text: string, askParticular: string) => void;
@@ -42,7 +42,7 @@ type TextareaStyle = Omit<React.CSSProperties, 'height'> & { height?: number };
  * - **Text Input**: Provides a fallback manual text entry.
  * - **Targeting**: Should allow selection of specific characters to address (logic partially implemented via `askParticular`).
  */
-function HumanInput({ foods, isPanelist, currentSpeakerName, onSubmitHumanMessage, liveKey }: HumanInputProps): React.ReactElement {
+function HumanInput({ characters, isPanelist, currentSpeakerName, onSubmitHumanMessage, liveKey }: HumanInputProps): React.ReactElement {
   const [clientKey, setClientKey] = useState<string | null>(null);
   const [recordingState, setRecordingState] = useState<"idle" | "loading" | "recording">("idle");
   const [canContinue, setCanContinue] = useState<boolean>(false);
@@ -306,7 +306,7 @@ function HumanInput({ foods, isPanelist, currentSpeakerName, onSubmitHumanMessag
     top: "62%",
     left: "50%",
     transform: "translate(-50%, -50%)",
-    width: foods.length > 6 ? "79%" : "70%",
+    width: characters.length > 6 ? "79%" : "70%",
     display: "flex",
     justifyContent: "space-around",
     alignItems: "center",
@@ -337,17 +337,17 @@ function HumanInput({ foods, isPanelist, currentSpeakerName, onSubmitHumanMessag
         <div style={{ position: "absolute", bottom: "21vw" }}>
           <div style={selectTooltip}>Select a food to ask them directly</div>
         </div>
-        {foods.map((food, index) => (
-          <div style={{ ...overViewFoodItemStyle(mapFoodIndex(foods.length, index), foods.length), backgroundColor: askParticular === food.name ? "rgba(0,0,0,0.4)" : "rgba(0,0,0,0)" }} key={index}></div>
+        {characters.map((character, index) => (
+          <div style={{ ...overViewFoodItemStyle(mapFoodIndex(characters.length, index), characters.length), backgroundColor: askParticular === character.name ? "rgba(0,0,0,0.4)" : "rgba(0,0,0,0)" }} key={index}></div>
         ))}
       </div>
       <div style={{ ...ringStyle, zIndex: "0" }}>
-        {foods.map((food, index) => (
+        {characters.map((character, index) => (
           <div
-            style={{ ...overViewFoodItemStyle(mapFoodIndex(foods.length, index), foods.length), border: askParticular === food.name ? "3px solid rgba(255,255,255,0.8)" : undefined, pointerEvents: "auto" }}
+            style={{ ...overViewFoodItemStyle(mapFoodIndex(characters.length, index), characters.length), border: askParticular === character.name ? "3px solid rgba(255,255,255,0.8)" : undefined, pointerEvents: "auto" }}
             className="ringHover"
             key={index}
-            onClick={() => setAskParticular(food.name)}
+            onClick={() => setAskParticular(character.name)}
             onMouseEnter={() => setSomeoneHovered(true)}
             onMouseLeave={() => setSomeoneHovered(false)}
           ></div>

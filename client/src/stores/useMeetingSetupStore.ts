@@ -1,6 +1,6 @@
 import { create } from 'zustand';
-import type { Food } from '@newMeeting/FoodUtils';
-import { createDefaultHumans } from '@newMeeting/FoodUtils';
+import type { MeetingCharacter } from '@newMeeting/CharacterSetup';
+import { createDefaultHumans } from '@newMeeting/CharacterSetup';
 import { globalClientOptions } from '@/globalClientOptions';
 
 export interface MeetingSetupState {
@@ -10,17 +10,17 @@ export interface MeetingSetupState {
   customTopic: string;
   setCustomTopic: (topic: string) => void;
 
-  // Foods State
-  selectedFoods: string[];
-  setSelectedFoods: (foods: string[]) => void;
-  hoveredFood: string | null;
-  setHoveredFood: (foodId: string | null) => void;
-  handleSelectFoodId: (foodId: string) => boolean;
-  handleDeselectFoodId: (foodId: string) => void;
+  // Character Selection State
+  selectedCharacters: string[];
+  setSelectedCharacters: (characters: string[]) => void;
+  hoveredCharacter: string | null;
+  setHoveredCharacter: (characterId: string | null) => void;
+  handleSelectCharacterId: (characterId: string) => boolean;
+  handleDeselectCharacterId: (characterId: string) => void;
 
   // Human State
-  humans: Food[];
-  setHumans: (humans: Food[] | ((prev: Food[]) => Food[])) => void;
+  humans: MeetingCharacter[];
+  setHumans: (humans: MeetingCharacter[] | ((prev: MeetingCharacter[]) => MeetingCharacter[])) => void;
   numberOfHumans: number;
   setNumberOfHumans: (count: number | ((prev: number) => number)) => void;
 
@@ -35,24 +35,28 @@ export const useMeetingSetupStore = create<MeetingSetupState>((set, get) => ({
   customTopic: '',
   setCustomTopic: (topic) => set({ customTopic: topic }),
 
-  selectedFoods: [globalClientOptions.chairId],
-  setSelectedFoods: (foods) => set({ selectedFoods: foods }),
-  hoveredFood: null,
-  setHoveredFood: (foodId) => set({ hoveredFood: foodId }),
+  selectedCharacters: [globalClientOptions.chairId],
+  setSelectedCharacters: (characters) => set({ selectedCharacters: characters }),
+  hoveredCharacter: null,
+  setHoveredCharacter: (characterId) => set({ hoveredCharacter: characterId }),
 
-  handleSelectFoodId: (foodId) => {
-    const { selectedFoods } = get();
-    const maxFoods = 6 + 1; // 6 plus chair
-    if (selectedFoods.length >= maxFoods && !selectedFoods.includes(foodId)) {
+  handleSelectCharacterId: (characterId) => {
+    const { selectedCharacters } = get();
+    const maxCharacters = 6 + 1; // 6 plus chair
+    if (selectedCharacters.length >= maxCharacters && !selectedCharacters.includes(characterId)) {
       return false;
     }
-    set({ selectedFoods: selectedFoods.includes(foodId) ? selectedFoods : [...selectedFoods, foodId] });
+    set({
+      selectedCharacters: selectedCharacters.includes(characterId)
+        ? selectedCharacters
+        : [...selectedCharacters, characterId],
+    });
     return true;
   },
 
-  handleDeselectFoodId: (foodId) => {
+  handleDeselectCharacterId: (characterId) => {
     set((state) => ({
-      selectedFoods: state.selectedFoods.filter((id) => id !== foodId),
+      selectedCharacters: state.selectedCharacters.filter((id) => id !== characterId),
     }));
   },
 
@@ -70,8 +74,8 @@ export const useMeetingSetupStore = create<MeetingSetupState>((set, get) => ({
     set({
       selectedTopic: '',
       customTopic: '',
-      selectedFoods: [globalClientOptions.chairId],
-      hoveredFood: null,
+      selectedCharacters: [globalClientOptions.chairId],
+      hoveredCharacter: null,
       humans: createDefaultHumans(),
       numberOfHumans: 0,
     });

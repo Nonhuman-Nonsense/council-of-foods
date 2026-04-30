@@ -21,7 +21,7 @@ vi.mock('@newMeeting/Landing', () => ({
 vi.mock('@newMeeting/SelectTopic', () => ({
     default: () => <div data-testid="select-topic">SelectTopic</div>
 }));
-vi.mock('@newMeeting/SelectFoods', () => ({
+vi.mock('@newMeeting/SelectCharacters', () => ({
     default: () => <div data-testid="select-foods">SelectFoods</div>,
     createDefaultHumans: () => ([
         { id: "panelist0", name: "", description: "", type: "panelist", voice: "alloy", index: 0 },

@@ -3,11 +3,12 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import SelectTopic from "./SelectTopic";
-import SelectFoods, { type Food } from "./SelectFoods";
+import SelectCharacters from "./SelectCharacters";
 import { createMeeting } from "@api/createMeeting";
 import { useRouting } from "@/routing";
 import MeetingVoiceGuide from "@voice/MeetingVoiceGuide";
 import type { MeetingSetupUserEvent } from "./meetingSetup";
+import type { MeetingCharacter } from "./CharacterSetup";
 import { useMeetingSetupStore } from "@stores/useMeetingSetupStore";
 
 export interface NewMeetingProps {
@@ -75,7 +76,7 @@ export default function NewMeeting({
     setStep("topic");
   }
 
-  async function handleFoodsContinue({ foods }: { foods: Food[] }) {
+  async function handleCharactersContinue({ characters }: { characters: MeetingCharacter[] }) {
     if (!topicSelection) {
       console.error("NewMeeting: missing topic when creating meeting");
       return;
@@ -84,7 +85,7 @@ export default function NewMeeting({
     try {
       const { meetingId, liveKey } = await createMeeting({
         topic: topicSelection,
-        characters: foods,
+        characters,
         language: i18n.language,
       });
       setMeetingliveKey(liveKey);
@@ -109,9 +110,9 @@ export default function NewMeeting({
         />
       )}
       {step === "foods" && (
-        <SelectFoods
+        <SelectCharacters
           topicTitle={topicSelection?.title ?? ""}
-          onContinueForward={handleFoodsContinue}
+          onContinueForward={handleCharactersContinue}
           loading={creating}
         />)}
       <MeetingVoiceGuide
@@ -119,7 +120,7 @@ export default function NewMeeting({
         lastUserEvent={lastUserEvent}
         onGoToTopicStep={handleGoToTopicStep}
         onSelectTopic={handleTopicContinue}
-        onStartMeeting={(foods: Food[]) => handleFoodsContinue({ foods })}
+        onStartMeeting={(characters: MeetingCharacter[]) => handleCharactersContinue({ characters })}
       />
     </>
   );
