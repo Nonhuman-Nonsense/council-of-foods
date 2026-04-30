@@ -28,6 +28,9 @@
             "@council/*": [
                 "./src/council/*"
             ],
+            "@forest/*": [
+                "./src/forest/*"
+            ],
             "@locales/*": [
                 "./src/locales/*"
             ],

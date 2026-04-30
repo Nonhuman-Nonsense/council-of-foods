@@ -1,9 +1,9 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render } from '@testing-library/react';
-import Forest from '@/components/Forest';
+import Forest from '@forest/Forest';
 
 // Mock child components
-vi.mock('@/components/FoodAnimation', () => ({ default: () => <div data-testid="food-animation" /> }));
+vi.mock('@council/FoodAnimation', () => ({ default: () => <div data-testid="food-animation" /> }));
 
 // Mock utils
 vi.mock('@/utils', () => ({

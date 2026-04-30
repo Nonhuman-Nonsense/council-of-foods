@@ -1,118 +1,130 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
-import { MemoryRouter, Route, Routes } from 'react-router';
-import Main from '../../../src/components/Main';
-import SelectFoods from '../../../src/components/settings/SelectFoods';
+import { MemoryRouter, Route, Routes, useParams } from 'react-router';
+import Main from '@main/Main';
+import SelectFoods from '@newMeeting/SelectFoods';
+import i18n from '@/i18n';
+import { useMeetingSetupStore } from '@stores/useMeetingSetupStore';
 
-// Mock child components that might cause issues or aren't relevant for this test
-vi.mock('../../../src/components/Council', () => ({
-    default: () => <div data-testid="mock-council">Council Component</div>
-}));
-vi.mock('../../../src/components/Forest', () => ({
+vi.mock('@forest/Forest', () => ({
     default: () => <div data-testid="mock-forest">Forest Component</div>
 }));
-
-// Mock i18n
-vi.mock('react-i18next', () => ({
-    useTranslation: () => ({
-        t: (key: string) => key,
-        i18n: {
-            changeLanguage: vi.fn(),
-            language: 'en'
-        }
-    })
+vi.mock('@voice/MeetingVoiceGuide', () => ({
+    default: () => null,
 }));
 
-// Mock responsive utilities
 vi.mock('@/utils', async (importOriginal) => {
-    const actual = await importOriginal<typeof import('../../../src/utils')>();
+    const actual = await importOriginal<typeof import('@/utils')>();
     return {
         ...actual,
         useMobile: () => false,
         useMobileXs: () => false,
         usePortrait: () => false,
         useDocumentVisibility: () => true,
-        dvh: (v: any) => v,
+        dvh: (v: unknown) => v,
     };
 });
 
+function MainByLangParam() {
+    const { lang } = useParams();
+    return <Main lang={lang ?? 'en'} />;
+}
+
 describe('Language Switching', () => {
-    it('successfully loads Swedish topics without crashing when language is passed as "sv"', async () => {
+    beforeEach(() => {
+        useMeetingSetupStore.getState().resetStore();
+        void i18n.changeLanguage('en');
+
+        window.AudioContext = class {
+            constructor() {
+                this.state = 'running';
+                this.destination = {};
+                this.currentTime = 0;
+            }
+            createGain() {
+                return {
+                    connect: vi.fn(),
+                    gain: {
+                        value: 1,
+                        linearRampToValueAtTime: vi.fn(),
+                        setValueAtTime: vi.fn()
+                    }
+                };
+            }
+            createBufferSource() {
+                return {
+                    connect: vi.fn(),
+                    start: vi.fn(),
+                    stop: vi.fn(),
+                    buffer: null,
+                    loop: false
+                };
+            }
+            decodeAudioData() {
+                return Promise.resolve({});
+            }
+            suspend() { }
+            resume() { }
+        } as unknown as typeof AudioContext;
+        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext = window.AudioContext;
+    });
+
+    it('loads Swedish topics when Main is mounted with lang sv', async () => {
         render(
-            <MemoryRouter initialEntries={['/sv/topics']}>
+            <MemoryRouter initialEntries={['/sv/new']}>
                 <Routes>
-                    <Route path="/sv/*" element={<Main lang="sv" />} />
+                    <Route path="/:lang/*" element={<MainByLangParam />} />
                 </Routes>
             </MemoryRouter>
         );
 
-        // Check if we can see a topic title from the Swedish file
-        // "greentransition" in SV is "Den gröna omställningen".
-        // Utils toTitleCase capitalizes every word -> "Den Gröna Omställningen".
-
-        // Wait for topics to render
         await waitFor(() => {
-            expect(screen.getByText('Den Gröna Omställningen')).toBeInTheDocument();
+            expect(
+                screen.getByText('Den Gröna Omställningen Och Kumulativa Effekter.')
+            ).toBeInTheDocument();
         });
     });
 
-    it('successfully switches topics when clicking language link', async () => {
+    it('switches topic language when clicking the SV link in the navbar', async () => {
         render(
-            <MemoryRouter initialEntries={['/en/topics']}>
+            <MemoryRouter initialEntries={['/en/new']}>
                 <Routes>
-                    <Route path="/en/*" element={<Main lang="en" />} />
-                    <Route path="/sv/*" element={<Main lang="sv" />} />
+                    <Route path="/:lang/*" element={<MainByLangParam />} />
                 </Routes>
             </MemoryRouter>
         );
 
-        // Check for English topic
         await waitFor(() => {
-            expect(screen.getByText('The Green Transition')).toBeInTheDocument();
+            expect(screen.getByText('Cumulative Pressure')).toBeInTheDocument();
         });
 
-        // Find and click the SV link
-        const svLink = screen.getByText('SV');
-        fireEvent.click(svLink);
+        fireEvent.click(screen.getByText('SV'));
 
-        // Wait for Swedish topic to appear
         await waitFor(() => {
-            expect(screen.getByText('Den Gröna Omställningen')).toBeInTheDocument();
+            expect(
+                screen.getByText('Den Gröna Omställningen Och Kumulativa Effekter.')
+            ).toBeInTheDocument();
         });
     });
 
-    it('successfully selects foods and proceeds in Swedish', async () => {
-        // Mock window.scrollTo
+    it('shows Swedish food names on SelectFoods when language is sv', async () => {
         window.scrollTo = vi.fn();
+        await i18n.changeLanguage('sv');
 
         render(
-            <MemoryRouter initialEntries={['/sv/beings']}>
-                <Routes>
-                    <Route path="/sv/beings" element={<SelectFoods topicTitle="Test Topic" onContinueForward={() => { }} />} />
-                </Routes>
+            <MemoryRouter initialEntries={['/sv/new']}>
+                <SelectFoods topicTitle="Testämne" onContinueForward={() => { }} />
             </MemoryRouter>
         );
 
-        // Check for Swedish food name "Laxen" (Salmon) via Alt Text (images render first)
         await waitFor(() => {
             expect(screen.getByAltText('Laxen')).toBeInTheDocument();
         });
 
-        // Select two foods: Laxen and Tallen (Pine)
-        const laxen = screen.getByAltText('Laxen');
-        const tallen = screen.getByAltText('Tallen');
+        const tall = screen.getByAltText('Tallen');
+        fireEvent.click(screen.getByAltText('Laxen'));
+        fireEvent.click(tall);
 
-        fireEvent.click(laxen);
-        fireEvent.click(tallen);
-
-        // Click Start
-        // "start" in SV is "BÖRJA" from i18n? Or maybe check raw translation key default
-        // Need to check what t('start') returns for SV. Often keys are returned if missing, but let's assume standard i18n mock returns key if unconfigured, OR check actual translations.
-        // Wait, my mock returns key. So t('start') -> 'start'.
-
-        fireEvent.click(screen.getByText('start'));
-
-        // If no error thrown, success.
-        // Ideally mocking onContinueForward to verify call.
+        fireEvent.click(screen.getByText('Starta'));
     });
 });

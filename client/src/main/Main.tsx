@@ -15,7 +15,7 @@ import Navbar from "./Navbar";
 import type { Topic } from "@shared/ModelTypes";
 import NewMeeting from "@newMeeting/NewMeeting";
 import Council from "@council/Council";
-import Forest from "@council/Forest";
+import Forest from "@forest/Forest";
 import { isMeetingPath, isRootPath, stripLanguagePrefix, useRouting } from "@/routing";
 import RotateDevice from "./overlay/RotateDevice";
 import FullscreenButton from "./FullscreenButton";

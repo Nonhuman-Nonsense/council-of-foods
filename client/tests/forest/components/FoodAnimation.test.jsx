@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render } from '@testing-library/react';
-import FoodAnimation from '@/components/FoodAnimation';
+import FoodAnimation from '@council/FoodAnimation';
 
 vi.mock('lottie-web', () => ({
     default: {

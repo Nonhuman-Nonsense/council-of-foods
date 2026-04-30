@@ -30,8 +30,8 @@
     "zustand": "^5.0.12"
   },
   "scripts": {
-    "predev": "node scripts/sync-forest-character-ratios.mjs",
-    "prebuild": "node scripts/sync-forest-character-ratios.mjs",
+    "predev": "node scripts/forest-sync-character-ratios.mjs",
+    "prebuild": "node scripts/forest-sync-character-ratios.mjs",
     "dev": "vite",
     "generate-icons": "node scripts/generate-icons.mjs",
     "build": "tsc -p tsconfig.build.json && vite build",

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import foodsSv from '@/prompts/foods_sv.json';
-import topicsSv from '@/prompts/topics_sv.json';
+import foodsSv from '@shared/prompts/foods_sv.json';
+import topicsSv from '@shared/prompts/topics_sv.json';
 
 describe('Multilingual Verification (Swedish)', () => {
     it('loads Swedish foods data', () => {

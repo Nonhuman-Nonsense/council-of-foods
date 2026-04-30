@@ -97,7 +97,7 @@ vi.mock('react-i18next', () => ({
     initReactI18next: { type: '3rdParty', init: () => { } }
 }));
 
-vi.mock('@council/Forest', () => ({
+vi.mock('@forest/Forest', () => ({
     default: () => <div data-testid="forest">Forest</div>
 }));
 

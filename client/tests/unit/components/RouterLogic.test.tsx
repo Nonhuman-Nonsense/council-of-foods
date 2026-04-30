@@ -38,7 +38,7 @@ vi.mock('@newMeeting/SelectFoods', () => ({
 vi.mock('@council/Council', () => ({
     default: () => <div data-testid="council">Council</div>
 }));
-vi.mock('@council/Forest', () => ({
+vi.mock('@forest/Forest', () => ({
     default: () => <div data-testid="forest">Forest</div>
 }));
 vi.mock('@main/overlay/RotateDevice', () => ({

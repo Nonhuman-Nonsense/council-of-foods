@@ -1,9 +1,7 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
-// We need to test Landing.jsx for branding
-import Landing from '@/components/settings/Landing';
-// We verify characters from a source of truth (e.g. Forest.jsx characters array)
-import Forest from '@/components/Forest';
+import Landing from '@newMeeting/Landing';
+import Forest from '@forest/Forest';
 
 // Mock router
 import { MemoryRouter } from 'react-router';
@@ -22,16 +20,20 @@ global.fetch = vi.fn(() => Promise.resolve({
     arrayBuffer: () => Promise.resolve(new ArrayBuffer(8))
 }));
 
+// Mock portrait / mobile so Landing shows the main content
+vi.mock('react-responsive', () => ({
+    useMediaQuery: () => false,
+}));
+
 describe('Forest Content & Branding', () => {
 
     it('Landing page shows Council branding', () => {
         render(
             <MemoryRouter>
-                <Landing onContinueForward={() => { }} />
+                <Landing newMeetingPath="/en/new" />
             </MemoryRouter>
         );
-        // "COUNCIL" is hardcoded in Landing.jsx
-        expect(screen.getByText('COUNCIL')).toBeInTheDocument();
+        expect(screen.getByText('COUNCIL OF FOREST')).toBeInTheDocument();
     });
 
     it('Forest component has correct character set', () => {
