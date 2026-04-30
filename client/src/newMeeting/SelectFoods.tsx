@@ -3,6 +3,7 @@ import { toTitleCase, useMobile, useMobileXs } from "@/utils";
 import { useTranslation } from "react-i18next";
 import VideoPreloader from "@main/VideoPreloader";
 import { globalClientOptions } from "@/globalClientOptions";
+import { foodIconWebpUrl } from "@assets/foods/foodIcons";
 import { useMeetingSetupStore } from "@stores/useMeetingSetupStore";
 import { buildMeetingFoodsPayload } from "./meetingSetup";
 import type { Food, FoodData } from "./FoodUtils";
@@ -20,12 +21,8 @@ interface SelectFoodsProps {
   loading?: boolean;
 }
 
-// Eagerly import food images
-const foodImages = import.meta.glob('/src/assets/foods/small/*.webp', { eager: true, import: 'default' }) as Record<string, string>;
-
 function getFoodImageUrl(id: string): string | undefined {
-  // Construct the key that matches the glob pattern
-  return foodImages[`/src/assets/foods/small/${id}.webp`];
+  return foodIconWebpUrl(id);
 }
 
 const MAXHUMANS = 3;
