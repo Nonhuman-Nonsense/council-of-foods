@@ -22,8 +22,7 @@ interface SelectFoodsProps {
 }
 
 function getFoodImageUrl(id: string): string | undefined {
-  // Construct the key that matches the glob pattern
-  return foodImages[`/src/assets/foods/small/${id}.webp`];
+  return characterIconWebpUrl(id);
 }
 
 const MAXHUMANS = 3;
@@ -61,16 +60,6 @@ function SelectFoods({
   const isMobile = useMobile();
   const isMobileXs = useMobileXs();
   const { t, i18n } = useTranslation();
-
-  // Update foods on language change
-
-  useEffect(() => {
-    // Concatenate humans to foods list
-    // Use the correct language data
-    const baseFoods = localFoodData[i18n.language] ? localFoodData[i18n.language].foods : localFoodData[AVAILABLE_LANGUAGES[0]].foods;
-    const newFoods = baseFoods.concat(humans.slice(0, numberOfHumans));
-    setFoods(newFoods);
-  }, [i18n.language, human0, human1, human2, numberOfHumans]);
 
 
   /* -------------------------------------------------------------------------- */

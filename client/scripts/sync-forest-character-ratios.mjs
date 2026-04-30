@@ -16,8 +16,9 @@ import imageSize from "image-size";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const clientRoot = join(__dirname, "..");
+const sharedRoot = join(clientRoot, "../shared");
 const characterAssets = join(clientRoot, "src", "assets", "characters");
-const manifestPath = join(clientRoot, "src", "prompts", "forest_characters.json");
+const manifestPath = join(sharedRoot, "prompts", "forest_characters.json");
 const outPath = join(clientRoot, "src", "generated", "forestCharacterRatios.ts");
 
 // Allow tiny drift between codecs and large/small encodes; still catches materially wrong aspect ratios.

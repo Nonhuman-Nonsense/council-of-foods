@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import foodsEn from "../../src/prompts/foods_en.json";
-import forestCharacters from "../../src/prompts/forest_characters.json";
+import foodsEn from "@shared/prompts/foods_en.json";
+import forestCharacters from "@shared/prompts/forest_characters.json";
 import { filename } from "@/utils";
 
 const largeHevc = import.meta.glob("/src/assets/characters/large/*-hevc-safari.mp4");
