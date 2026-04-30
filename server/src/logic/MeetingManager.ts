@@ -18,7 +18,8 @@ import { Logger } from "@utils/Logger.js";
 import type { StoredMeeting } from "@models/DBModels.js";
 import {
     SetupOptionsSchema,
-    MessageSchema,
+    SubmitHumanMessageSchema,
+    SubmitHumanPanelistSchema,
     InjectionMessageSchema,
     HandRaisedOptionsSchema,
     ReconnectionOptionsSchema,
@@ -27,6 +28,8 @@ import {
 } from "@models/ValidationSchemas.js";
 import { socketHoldsLiveSession } from "@logic/liveSessionRegistry.js";
 
+/** How many message indices beyond `maximumPlayedIndex` the server may generate before waiting for client playback progress. */
+const PLAYBACK_AHEAD_BUFFER = 3;
 
 interface Decision {
     type: 'END_CONVERSATION' | 'WAIT' | 'REQUEST_PANELIST' | 'GENERATE_AI_RESPONSE';
@@ -109,10 +112,10 @@ export class MeetingManager implements IMeetingManager {
     async handleEvent<K extends keyof ClientToServerEvents>(event: K, payload: Parameters<ClientToServerEvents[K]>[0]) {
         switch (event) {
             case "submit_human_message":
-                await this.humanInputHandler.handleSubmitHumanMessage(MessageSchema.parse(payload));
+                await this.humanInputHandler.handleSubmitHumanMessage(SubmitHumanMessageSchema.parse(payload));
                 break;
             case "submit_human_panelist":
-                await this.humanInputHandler.handleSubmitHumanPanelist(MessageSchema.parse(payload));
+                await this.humanInputHandler.handleSubmitHumanPanelist(SubmitHumanPanelistSchema.parse(payload));
                 break;
             case "submit_injection":
                 await this.humanInputHandler.handleSubmitInjection(InjectionMessageSchema.parse(payload));
@@ -176,6 +179,8 @@ export class MeetingManager implements IMeetingManager {
         const prevLocal = meeting.maximumPlayedIndex;
         meeting.maximumPlayedIndex =
             prevLocal == null ? index : Math.max(prevLocal, index);
+
+        this.startLoop();
     }
 
     async initializeStart(payload: SetupOptions) {
@@ -242,7 +247,7 @@ export class MeetingManager implements IMeetingManager {
         if (this.isLoopActive) return;
         if (!this.meeting) return;
 
-        Logger.info(`meeting ${this.meeting._id}`, "loop started");
+        // Logger.info(`meeting ${this.meeting._id}`, "loop started");
         this.isLoopActive = true;
         this.runLoop();
     }
@@ -265,8 +270,15 @@ export class MeetingManager implements IMeetingManager {
             }
         }
         // 2. Check Limits
-        if (meeting.conversation.length >= this.serverOptions.conversationMaxLength + meeting.conversationExtraSlots) {
+        if (meeting.conversation.length >= this.serverOptions.meetingVeryMaxLength || meeting.conversation.length >= this.serverOptions.conversationMaxLength + meeting.conversationExtraSlots) {
             return { type: 'END_CONVERSATION' };
+        }
+
+        // 2b. Live playback: do not get more than `PLAYBACK_AHEAD_BUFFER` messages ahead of what the client has played
+        if (meeting.maximumPlayedIndex != null) {
+            if (meeting.conversation.length > meeting.maximumPlayedIndex + PLAYBACK_AHEAD_BUFFER) {
+                return { type: 'WAIT' };
+            }
         }
 
         // 3. Check Awaiting States
@@ -282,7 +294,7 @@ export class MeetingManager implements IMeetingManager {
         const nextSpeaker = meeting.characters[nextSpeakerIndex];
 
         // 5. Panelist Turn
-        if (nextSpeaker.type === 'panelist') {
+        if (nextSpeaker.id.startsWith('panelist')) {
             return { type: 'REQUEST_PANELIST', speaker: nextSpeaker };
         }
 
@@ -318,8 +330,7 @@ export class MeetingManager implements IMeetingManager {
                     meeting.conversation.push({
                         type: 'awaiting_human_panelist',
                         speaker: action.speaker.id,
-                        text: "", // Added to satisfy ConversationMessage
-                        sentences: [] // Added to satisfy ConversationMessage
+                        text: "",
                     });
                     Logger.info(`meeting ${meeting._id}`, `awaiting human panelist on index ${meeting.conversation.length - 1}`);
                     this.broadcaster.broadcastConversationUpdate(meeting.conversation);

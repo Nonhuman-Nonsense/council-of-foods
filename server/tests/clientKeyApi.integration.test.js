@@ -12,7 +12,7 @@ vi.mock("@api/getClientKey.js", () => ({
 function validCreateBody() {
     return {
         topic: { id: "t-ck", title: "Topic", description: "D", prompt: "P" },
-        characters: [{ id: "water", name: "Water", type: "food", voice: "alloy" }],
+        characters: [{ id: "water", name: "Water", description: "D", prompt: "P", voice: "alloy" }],
         language: "en",
     };
 }

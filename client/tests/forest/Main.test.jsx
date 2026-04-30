@@ -2,84 +2,118 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import { MemoryRouter, Routes, Route } from 'react-router';
-import Main from '../../src/components/Main';
-import routes from '../../src/routes.json';
+import Main from '@main/Main';
+import routes from '@/routes.json';
 
-// Mock topics data
-vi.mock('../../src/prompts/topics_en.json', () => ({
+vi.mock('@api/createMeeting', () => ({
+    createMeeting: vi.fn().mockResolvedValue({ meetingId: 99, liveKey: 'test-live-key' }),
+}));
+
+vi.mock('@shared/prompts/topics_en.json', () => ({
     default: {
         topics: [
-            { id: "test-topic", title: "Test Topic", prompt: "Test Prompt" }
+            { id: "test-topic", title: "Test Topic", description: "D", prompt: "Test Prompt" }
         ],
+        custom_topic: { id: "customtopic", title: "Custom", description: "C", prompt: "Custom" },
         system: "System Prompt [TOPIC]"
     }
 }));
 
-// Mock child components to isolate Main logic
-vi.mock('../../src/components/Overlay', () => ({
+vi.mock('@main/overlay/Overlay', () => ({
     default: ({ children }) => <div data-testid="overlay">{children}</div>
 }));
-vi.mock('../../src/components/MainOverlays', () => ({
+vi.mock('@main/overlay/MainOverlays', () => ({
     default: () => <div data-testid="main-overlays">MainOverlays</div>
 }));
-vi.mock('../../src/components/settings/Landing', () => ({
-    default: ({ onContinueForward }) => (
-        <div data-testid="landing">
-            <button onClick={onContinueForward} data-testid="landing-btn">Lets Go</button>
-        </div>
-    )
-}));
-vi.mock('../../src/components/Navbar', () => ({
+vi.mock('@newMeeting/Landing', async () => {
+    const { useNavigate } = await import('react-router');
+    return {
+        default: function MockLanding({ newMeetingPath }) {
+            const navigate = useNavigate();
+            return (
+                <div data-testid="landing">
+                    <button
+                        type="button"
+                        data-testid="landing-btn"
+                        onClick={() => navigate(newMeetingPath)}
+                    >
+                        Lets Go
+                    </button>
+                </div>
+            );
+        }
+    };
+});
+vi.mock('@main/Navbar', () => ({
     default: () => <div data-testid="navbar">Navbar</div>
 }));
-vi.mock('../../src/components/settings/SelectTopic', () => ({
+vi.mock('@newMeeting/SelectTopic', () => ({
     default: ({ onContinueForward }) => (
         <div data-testid="select-topic">
-            <button onClick={() => onContinueForward({ topic: "test-topic" })} data-testid="topic-btn">Select Topic</button>
+            <button
+                type="button"
+                onClick={() =>
+                    onContinueForward({ id: "test-topic", title: "Test Topic", description: "D", prompt: "System Prompt Test Prompt" })
+                }
+                data-testid="topic-btn"
+            >
+                Select Topic
+            </button>
         </div>
     )
 }));
-vi.mock('../../src/components/settings/SelectFoods', () => ({
+vi.mock('@newMeeting/SelectCharacters', () => ({
     default: ({ onContinueForward }) => (
         <div data-testid="select-foods">
-            <button onClick={() => onContinueForward({ foods: [{ id: "apple" }] })} data-testid="foods-btn">Select Foods</button>
+            <button type="button" onClick={() => onContinueForward({ characters: [{ id: "apple" }] })} data-testid="foods-btn">Select Foods</button>
         </div>
-    )
+    ),
+    createDefaultHumans: () => ([
+        { id: "panelist0", name: "", description: "", type: "panelist", voice: "alloy", index: 0 },
+        { id: "panelist1", name: "", description: "", type: "panelist", voice: "alloy", index: 1 },
+        { id: "panelist2", name: "", description: "", type: "panelist", voice: "alloy", index: 2 },
+    ]),
+    getCharacterSetupBundle: () => ({
+        metadata: { version: "test", last_updated: "test" },
+        panelWithHumans: "",
+        addHuman: { id: "addhuman", name: "Add Human", description: "" },
+        characters: [{ id: "water", name: "Water", description: "", voice: "alloy" }],
+    }),
 }));
-vi.mock('../../src/components/Council', () => ({
+vi.mock('@council/Council', () => ({
     default: () => <div data-testid="council">Council</div>
 }));
-vi.mock('../../src/components/RotateDevice', () => ({
+vi.mock('@forest/Forest', () => ({
+    default: () => <div data-testid="forest">Forest</div>
+}));
+vi.mock('@main/overlay/RotateDevice', () => ({
     default: () => <div data-testid="rotate-device">RotateDevice</div>
 }));
-vi.mock('../../src/components/FullscreenButton', () => ({
+vi.mock('@voice/MeetingVoiceGuide', () => ({
+    default: () => null,
+}));
+vi.mock('@main/FullscreenButton', () => ({
     default: () => <div data-testid="fullscreen-btn">Fullscreen</div>
 }));
 
-// Mock react-i18next
-vi.mock('react-i18next', () => ({
-    useTranslation: () => ({ t: (key) => key, i18n: { changeLanguage: () => new Promise(() => { }) } }),
-    initReactI18next: { type: '3rdParty', init: () => { } }
-}));
-
-// Mock utils
-vi.mock('../../src/utils', () => ({
+vi.mock('@/utils', () => ({
     usePortrait: () => false,
     useMobile: () => false,
+    useMobileXs: () => false,
     useDocumentVisibility: () => true,
     dvh: 'vh',
     minWindowHeight: 300,
-    filename: (str) => str
+    filename: (str) => str,
+    toTitleCase: (str) => str,
+    capitalizeFirstLetter: (str) => str
 }));
 
-// Mock Fetch
 global.fetch = vi.fn(() =>
     Promise.resolve({
         arrayBuffer: () => Promise.resolve(new ArrayBuffer(0)),
     })
 );
 
-// Mock AudioContext
 window.AudioContext = class {
     constructor() {
         this.state = 'running';
@@ -120,7 +154,6 @@ window.AudioContext = class {
     resume() { }
 };
 
-// Mock HTMLMediaElement
 window.HTMLMediaElement.prototype.play = vi.fn(() => Promise.resolve());
 window.HTMLMediaElement.prototype.pause = vi.fn();
 
@@ -154,7 +187,7 @@ describe('Main Component (Forest)', () => {
 
     it('navigates to Foods on Topic selection', async () => {
         render(
-            <MemoryRouter initialEntries={['/en/' + routes.topics]}>
+            <MemoryRouter initialEntries={[`/en/${routes.newMeeting}`]}>
                 <Routes>
                     <Route path="/:lang/*" element={<Main lang="en" />} />
                 </Routes>
@@ -170,18 +203,16 @@ describe('Main Component (Forest)', () => {
 
     it('renders Council when participants are selected (Flow)', async () => {
         render(
-            <MemoryRouter initialEntries={['/en/' + routes.topics]}>
+            <MemoryRouter initialEntries={[`/en/${routes.newMeeting}`]}>
                 <Routes>
                     <Route path="/:lang/*" element={<Main lang="en" />} />
                 </Routes>
             </MemoryRouter>
         );
 
-        // Select Topic -> Go to Foods
         fireEvent.click(screen.getByTestId('topic-btn'));
         await waitFor(() => expect(screen.getByTestId('select-foods')).toBeInTheDocument());
 
-        // Select Foods -> Go to Council
         fireEvent.click(screen.getByTestId('foods-btn'));
         await waitFor(() => expect(screen.getByTestId('council')).toBeInTheDocument());
     });
@@ -195,15 +226,12 @@ describe('Main Component (Forest)', () => {
             </MemoryRouter>
         );
 
-        // Landing -> Topics
         fireEvent.click(screen.getByTestId('landing-btn'));
         await waitFor(() => expect(screen.getByTestId('select-topic')).toBeInTheDocument());
 
-        // Topics -> Foods
         fireEvent.click(screen.getByTestId('topic-btn'));
         await waitFor(() => expect(screen.getByTestId('select-foods')).toBeInTheDocument());
 
-        // Foods -> Council
         fireEvent.click(screen.getByTestId('foods-btn'));
         await waitFor(() => expect(screen.getByTestId('council')).toBeInTheDocument());
     });

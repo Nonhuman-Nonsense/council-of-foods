@@ -1,8 +1,9 @@
 
 import { renderHook, act } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { useCouncilMachine } from '../../../src/hooks/useCouncilMachine';
-// import { useCouncilSocket } from "../../../src/hooks/useCouncilSocket"; // doing manual mock
+import { useCouncilMachine } from '@council/hooks/useCouncilMachine';
+import { MockFactory } from '../factories/MockFactory';
+// import { useCouncilSocket } from "@council/hooks/useCouncilSocket"; // doing manual mock
 
 // --- Mocks ---
 
@@ -26,20 +27,12 @@ vi.mock('@/routing', () => ({
     }),
 }));
 
-// Mock Global Options
-vi.mock('@/global-options-client.json', () => ({
-    default: {
-        audio_speed: 1.1,
-        chairId: 'water',
-    }
-}));
-
 // Mock Socket Hook
 // We need to be able to trigger callbacks passed to useCouncilSocket
 let socketHandlers: any = {};
 const mockSocketEmit = vi.fn();
 
-vi.mock('../../../src/hooks/useCouncilSocket', () => ({
+vi.mock('@council/hooks/useCouncilSocket', () => ({
     useCouncilSocket: (props: any) => {
         socketHandlers = props; // Capture handlers
         return { current: { emit: mockSocketEmit } }; // Return mock socket ref
@@ -48,7 +41,7 @@ vi.mock('../../../src/hooks/useCouncilSocket', () => ({
 
 // Mock resumeMeeting API for resume-flow tests.
 const mockResumeMeeting = vi.fn();
-vi.mock('@/api/resumeMeeting', () => ({
+vi.mock('@api/resumeMeeting', () => ({
     ResumeMeetingError: class ResumeMeetingError extends Error {
         readonly status: number;
         constructor(status: number, message: string) {
@@ -80,7 +73,7 @@ describe('useCouncilMachine', () => {
             currentMeetingId: 0,
             liveKey: 'test-live-key',
             replayManifest: null,
-            topic: { id: 't', title: 'T', description: 'D', prompt: 'Test Topic' },
+            topic: MockFactory.createTopic({ id: 't', title: 'T', description: 'D', prompt: 'Test Topic' }),
             participants: [],
             audioContext: audioContextMock,
             setUnrecoverableError: vi.fn(),
@@ -316,7 +309,6 @@ describe('useCouncilMachine', () => {
         // 3. Verify Emission
         // Expect "submit_human_panelist" with correct structure
         expect(mockSocketEmit).toHaveBeenCalledWith('submit_human_panelist', {
-            type: 'panelist',
             text: 'My Panelist Response',
             speaker: 'human-panelist-1' // Should use the speaker ID from the awaiting message
         });
@@ -328,6 +320,43 @@ describe('useCouncilMachine', () => {
         // Next action calculation should transition back to loading or appropriate state
         // If textMessages is empty, tryToFind will fail -> loading
         expect(result.current.state.councilState).toBe('loading');
+    });
+
+    it('surfaces an unrecoverable error if human_panelist submit loses its awaiting message', () => {
+        const setUnrecoverableError = vi.fn();
+        const { result } = renderHook(() =>
+            useCouncilMachine({ ...defaultProps, setUnrecoverableError } as any)
+        );
+
+        const panelistMsg = {
+            id: 'msg_panelist',
+            text: '...',
+            speaker: 'human-panelist-1',
+            type: 'awaiting_human_panelist'
+        };
+
+        act(() => {
+            socketHandlers.onConversationUpdate?.([panelistMsg]);
+        });
+        expect(result.current.state.councilState).toBe('human_panelist');
+
+        // Simulate the impossible state we now treat as unrecoverable: panelist mode
+        // remains active but the queued awaiting marker is gone.
+        act(() => {
+            socketHandlers.onConversationUpdate?.([]);
+        });
+
+        act(() => {
+            result.current.actions.handleOnSubmitHumanMessage('My Panelist Response', '');
+        });
+
+        expect(mockSocketEmit).not.toHaveBeenCalledWith(
+            'submit_human_panelist',
+            expect.anything()
+        );
+        expect(setUnrecoverableError).toHaveBeenCalledWith(
+            'Internal state mismatch: expected awaiting_human_panelist before submitting panelist response.'
+        );
     });
 
 
@@ -413,7 +442,7 @@ describe('useCouncilMachine', () => {
                 liveKey: 'rotated-key',
                 meeting: {
                     _id: 77,
-                    topic: { id: 't', title: 'T', description: '', prompt: '' },
+                    topic: MockFactory.createTopic({ id: 't', title: 'T', description: '', prompt: '' }),
                     characters: [],
                     conversation: [
                         { id: 'a', text: 'Hi', speaker: 'banana', type: 'message' },
@@ -443,7 +472,7 @@ describe('useCouncilMachine', () => {
                 liveKey: 'k',
                 meeting: {
                     _id: 1,
-                    topic: { id: 't', title: 'T', description: '', prompt: '' },
+                    topic: MockFactory.createTopic({ id: 't', title: 'T', description: '', prompt: '' }),
                     characters: [],
                     conversation: [
                         { id: 'a', text: 'Hi', speaker: 'banana', type: 'message' },

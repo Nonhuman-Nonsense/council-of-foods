@@ -1,12 +1,12 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import FoodItem from '../../../src/components/FoodItem';
+import FoodItem from '@council/FoodItem';
 
 // Mock the child component FoodAnimation to isolate FoodItem testing
 // But actually FoodAnimation is simple enough we might want to test the composition.
 // However, FoodAnimation uses video APIs which are not fully implemented in JSDOM.
 // Let's mock it to avoid video.play() errors and focus on FoodItem logic.
-vi.mock('../../../src/components/FoodAnimation', () => ({
+vi.mock('@council/FoodAnimation', () => ({
     default: ({ character, styles, currentSpeakerId }) => (
         <div data-testid={`food-animation-${character?.id || 'undefined'}`} style={styles}>
             Video for {character?.id}

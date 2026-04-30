@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, waitFor } from '@testing-library/react';
-import Forest from '@/components/Forest';
+import Forest from '@forest/Forest';
 
 // Mock utils to avoid layout issues
 vi.mock('@/utils', () => ({

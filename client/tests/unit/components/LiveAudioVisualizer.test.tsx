@@ -6,7 +6,7 @@ import {
   LiveAudioVisualizerPair,
   calculateBarData,
   draw,
-} from "../../../src/components/LiveAudioVisualizer";
+} from "@council/humanInput/LiveAudioVisualizer";
 
 describe("calculateBarData", () => {
   it("downsamples frequency bins to one value per bar column", () => {

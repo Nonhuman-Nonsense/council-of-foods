@@ -1,6 +1,6 @@
 import { GlobalOptionsSchema } from "@logic/GlobalOptions.js";
 import { z } from "zod";
-import { type Character, type Message, AVAILABLE_VOICES, AVAILABLE_VOICES_GEMINI, MessageTypeValues, SyntheticMessageTypeValues } from "@shared/ModelTypes.js";
+import { type Character, AVAILABLE_VOICES, AVAILABLE_VOICES_GEMINI } from "@shared/ModelTypes.js";
 import type {
     InjectionMessage,
     HandRaisedOptions,
@@ -8,7 +8,9 @@ import type {
     ReportMaximumPlayedIndexPayload,
     WrapUpMessage,
     SetupOptions,
-    CreateMeetingBody
+    CreateMeetingBody,
+    SubmitHumanMessagePayload,
+    SubmitHumanPanelistPayload
 } from "@shared/SocketTypes.js";
 
 // --- Socket Payload Schemas ---
@@ -20,14 +22,15 @@ const VoiceOptionGeminiSchema = z.enum(AVAILABLE_VOICES_GEMINI);
 const CharacterSchema: z.ZodType<Character> = z.object({
     id: z.string().min(1),
     name: z.string().min(1),
-    type: z.string().optional(),
+    description: z.string(),
+    prompt: z.string(),
     voice: z.string(),
     voiceProvider: z.enum(['openai', 'gemini', 'inworld']).optional().default('openai'),
     voiceLocale: z.string().optional(),
-    prompt: z.string().optional(),
     voiceInstruction: z.string().optional(),
     voiceTemperature: z.number().min(0.1).max(2.0).optional(),
     voiceSpeed: z.number().min(0.8).max(1.5).optional(),
+    size: z.number().optional(),
 }).superRefine((data, ctx) => {
     if (!data.voiceProvider || data.voiceProvider === 'openai') {
         if (!VoiceOptionSchema.safeParse(data.voice).success) {
@@ -75,15 +78,16 @@ export const SetupOptionsSchema: z.ZodType<SetupOptions> = z.object({
     return data;
 });
 
-// 2. submit_human_message & submit_human_panelist
-export const MessageSchema: z.ZodType<Message> = z.object({
+// 2. submit_human_message
+export const SubmitHumanMessageSchema: z.ZodType<SubmitHumanMessagePayload> = z.object({
     text: z.string().min(1),
     askParticular: z.string().optional(),
-    speaker: z.string().optional(),
-    id: z.string().optional(),
-    type: z.enum([...MessageTypeValues, ...SyntheticMessageTypeValues]),
-    sentences: z.array(z.string()).optional(),
-    canContinue: z.boolean().optional(),
+});
+
+// 2b. submit_human_panelist
+export const SubmitHumanPanelistSchema: z.ZodType<SubmitHumanPanelistPayload> = z.object({
+    text: z.string().min(1),
+    speaker: z.string().min(1),
 });
 
 // 3. raise_hand

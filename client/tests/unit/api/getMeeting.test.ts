@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { getMeeting } from "@/api/getMeeting";
+import { getMeeting } from "@api/getMeeting";
+import { MockFactory } from "../factories/MockFactory";
 
 describe("getMeeting", () => {
     afterEach(() => {
@@ -8,7 +9,7 @@ describe("getMeeting", () => {
 
     it("sends Authorization Bearer with the live key", async () => {
         const fetchMock = vi.fn().mockResolvedValue(
-            new Response(JSON.stringify({ _id: 7, topic: { id: "t", title: "T", description: "", prompt: "" } }), {
+            new Response(JSON.stringify({ _id: 7, topic: MockFactory.createTopic({ id: "t", title: "T", description: "", prompt: "" }) }), {
                 status: 200,
                 headers: { "Content-Type": "application/json" },
             })

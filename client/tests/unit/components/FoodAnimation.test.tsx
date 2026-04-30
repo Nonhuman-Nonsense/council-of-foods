@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach, Mock } from 'vitest';
 import { render, screen, act } from '@testing-library/react';
-import FoodAnimation from '../../../src/components/FoodAnimation';
-import { Food } from '../../../src/components/settings/SelectFoods';
+import FoodAnimation from '@council/FoodAnimation';
+import type { Character } from '@newMeeting/SelectCharacters';
 
 vi.mock('../../../src/utils', async (importOriginal) => {
     const actual = await importOriginal<typeof import('../../../src/utils')>();
@@ -34,12 +34,12 @@ describe('FoodAnimation', () => {
         vi.clearAllMocks();
     });
 
-    const mockFood: Food = {
+    const mockFood: Character = {
         id: 'reindeer',
         size: 1,
         name: 'Reindeer',
         description: 'Test',
-        type: 'food',
+        prompt: 'You are Reindeer.',
         voice: 'alloy',
     };
     const mockStyles = { width: '100px' };
@@ -159,7 +159,7 @@ describe('FoodAnimation', () => {
     });
 
     it('should not render video if food.id is missing', () => {
-        const noIdFood = { ...mockFood, id: undefined } as unknown as Food;
+        const noIdFood = { ...mockFood, id: undefined } as unknown as Character;
         render(
             <FoodAnimation
                 character={noIdFood}

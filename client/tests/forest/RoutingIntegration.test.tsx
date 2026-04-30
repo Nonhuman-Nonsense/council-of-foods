@@ -1,14 +1,16 @@
 
+import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import { MemoryRouter, useLocation, Routes, Route } from 'react-router';
-import Main from '../../src/components/Main';
-import routes from '../../src/routes.json';
+import Main from '@main/Main';
+import routes from '@/routes.json';
 
-// --- Mocks ---
+vi.mock('@api/createMeeting', () => ({
+    createMeeting: vi.fn().mockResolvedValue({ meetingId: 99, liveKey: 'test-live-key' }),
+}));
 
-// Mock topics data
-vi.mock('../../src/prompts/topics_en.json', () => ({
+vi.mock('@shared/prompts/topics_en.json', () => ({
     default: {
         topics: [
             { id: "test-topic", title: "Test Topic", prompt: "Test Prompt" }
@@ -16,7 +18,7 @@ vi.mock('../../src/prompts/topics_en.json', () => ({
         system: "System Prompt [TOPIC]"
     }
 }));
-vi.mock('../../src/prompts/topics_sv.json', () => ({
+vi.mock('@shared/prompts/topics_sv.json', () => ({
     default: {
         topics: [
             { id: "test-topic", title: "Test Topic", prompt: "Test Prompt" }
@@ -25,57 +27,58 @@ vi.mock('../../src/prompts/topics_sv.json', () => ({
     }
 }));
 
-// Helper to confirm current path
 const LocationSpy = () => {
     const location = useLocation();
     return <span data-testid="location-spy">{location.pathname}</span>;
 };
 
-// Mock child components to isolate Main logic and spy on location
-vi.mock('../../src/components/Overlay', () => ({
-    default: ({ children }) => <div data-testid="overlay">{children}</div>
+vi.mock('@main/overlay/Overlay', () => ({
+    default: ({ children }: { children: React.ReactNode }) => <div data-testid="overlay">{children}</div>
 }));
-vi.mock('../../src/components/MainOverlays', () => ({
+vi.mock('@main/overlay/MainOverlays', () => ({
     default: () => <div data-testid="main-overlays">MainOverlays</div>
 }));
 
-// Landing Mock
-vi.mock('../../src/components/settings/Landing', () => ({
-    default: ({ onContinueForward }) => (
-        <div data-testid="landing">
-            <LocationSpy />
-            <button onClick={onContinueForward} data-testid="landing-btn">Lets Go</button>
-        </div>
-    )
-}));
+vi.mock('@newMeeting/Landing', async () => {
+    const { useNavigate } = await import('react-router');
+    return {
+        default: function MockLanding({ newMeetingPath }: { newMeetingPath: string }) {
+            const navigate = useNavigate();
+            return (
+                <div data-testid="landing">
+                    <LocationSpy />
+                    <button type="button" data-testid="landing-btn" onClick={() => navigate(newMeetingPath)}>Lets Go</button>
+                </div>
+            );
+        }
+    };
+});
 
-// Navbar Mock
-vi.mock('../../src/components/Navbar', () => ({
+vi.mock('@main/Navbar', () => ({
     default: () => <div data-testid="navbar">Navbar</div>
 }));
 
-// SelectTopic Mock
-vi.mock('../../src/components/settings/SelectTopic', () => ({
-    default: ({ onContinueForward }) => (
+vi.mock('@newMeeting/SelectTopic', () => ({
+    default: ({ onContinueForward }: { onContinueForward: (t: object) => void }) => (
         <div data-testid="select-topic">
             <LocationSpy />
-            <button onClick={() => onContinueForward({ topic: "test-topic" })} data-testid="topic-btn">Select Topic</button>
+            <button type="button" onClick={() => onContinueForward({ id: "test-topic", title: "Test Topic", description: "D", prompt: "P" })} data-testid="topic-btn">Select Topic</button>
         </div>
     )
 }));
 
-// SelectFoods Mock
-vi.mock('../../src/components/settings/SelectFoods', () => ({
-    default: ({ onContinueForward }) => (
+vi.mock('@newMeeting/SelectCharacters', () => ({
+    default: ({ onContinueForward }: { onContinueForward: (x: { characters: { id: string }[] }) => void }) => (
         <div data-testid="select-foods">
             <LocationSpy />
-            <button onClick={() => onContinueForward({ foods: [{ id: "apple" }] })} data-testid="foods-btn">Select Foods</button>
+            <button type="button" onClick={() => onContinueForward({ characters: [{ id: "apple" }] })} data-testid="foods-btn">Select Foods</button>
         </div>
-    )
+    ),
+    getCharacterSetupBundle: () => ({ characters: [] }),
+    createDefaultHumans: () => [],
 }));
 
-// Council Mock
-vi.mock('../../src/components/Council', () => ({
+vi.mock('@council/Council', () => ({
     default: () => (
         <div data-testid="council">
             <LocationSpy />
@@ -84,41 +87,33 @@ vi.mock('../../src/components/Council', () => ({
     )
 }));
 
-vi.mock('../../src/components/RotateDevice', () => ({
+vi.mock('@main/overlay/RotateDevice', () => ({
     default: () => <div data-testid="rotate-device">RotateDevice</div>
 }));
-vi.mock('../../src/components/FullscreenButton', () => ({
+vi.mock('@voice/MeetingVoiceGuide', () => ({
+    default: () => null,
+}));
+vi.mock('@main/FullscreenButton', () => ({
     default: () => <div data-testid="fullscreen-btn">Fullscreen</div>
 }));
 
-// Mock Forest to avoid complex utils dependencies
-vi.mock('../../src/components/Forest', () => ({
+vi.mock('@forest/Forest', () => ({
     default: () => <div data-testid="forest">Forest</div>
 }));
 
-// Mock react-i18next
-vi.mock('react-i18next', () => ({
-    useTranslation: () => ({ t: (key) => key, i18n: { changeLanguage: () => new Promise(() => { }) } }),
-    initReactI18next: { type: '3rdParty', init: () => { } }
-}));
-
-// Mock utils
-vi.mock('../../src/utils', () => ({
+vi.mock('@/utils', () => ({
     usePortrait: () => false,
     useDocumentVisibility: () => true,
     dvh: 'vh',
     useMobile: () => false,
     useMobileXs: () => false,
-    capitalizeFirstLetter: (str) => str
+    capitalizeFirstLetter: (str: string) => str,
+    toTitleCase: (str: string) => str,
+    filename: (str: string) => str
 }));
 
 describe('Forest Routing Integration', () => {
     it('preserves /sv/ language prefix when navigating flow', async () => {
-        // Setup simple router structure mimicking App.tsx
-        // <Main> expects to be rendered within a route that has provided the lang
-        // But Main itself defines sub-routes.
-        // We need to mount Main at /sv/*
-
         render(
             <MemoryRouter initialEntries={['/sv/']}>
                 <Routes>
@@ -127,31 +122,26 @@ describe('Forest Routing Integration', () => {
             </MemoryRouter>
         );
 
-        // 1. Landing Page
         expect(screen.getByTestId('landing')).toBeInTheDocument();
         expect(screen.getByTestId('location-spy')).toHaveTextContent('/sv/');
 
-        // 2. Click "Lets Go" -> Topics
         fireEvent.click(screen.getByTestId('landing-btn'));
         await waitFor(() => {
             expect(screen.getByTestId('select-topic')).toBeInTheDocument();
         });
-        expect(screen.getByTestId('location-spy')).toHaveTextContent(`/sv/${routes.topics}`);
+        expect(screen.getByTestId('location-spy')).toHaveTextContent(`/sv/${routes.newMeeting}`);
 
-        // 3. Select Topic -> Foods
         fireEvent.click(screen.getByTestId('topic-btn'));
         await waitFor(() => {
             expect(screen.getByTestId('select-foods')).toBeInTheDocument();
         });
-        expect(screen.getByTestId('location-spy')).toHaveTextContent(`/sv/${routes.foods}`);
+        expect(screen.getByTestId('location-spy')).toHaveTextContent(`/sv/${routes.newMeeting}`);
 
-        // 4. Select Foods -> Meeting
         fireEvent.click(screen.getByTestId('foods-btn'));
         await waitFor(() => {
             expect(screen.getByTestId('council')).toBeInTheDocument();
         });
-        // Meeting URL typically includes ID, e.g. /sv/meeting/new or /sv/meeting/123
-        expect(screen.getByTestId('location-spy')).toHaveTextContent(new RegExp(`/sv/${routes.meeting}/.*`));
+        expect(screen.getByTestId('location-spy')).toHaveTextContent(`/sv/${routes.meeting}/99`);
     });
 
     it('preserves /en/ language prefix when navigating flow', async () => {
@@ -163,14 +153,12 @@ describe('Forest Routing Integration', () => {
             </MemoryRouter>
         );
 
-        // 1. Landing
         expect(screen.getByTestId('landing')).toBeInTheDocument();
         expect(screen.getByTestId('location-spy')).toHaveTextContent('/en/');
 
-        // 2. Navigate
         fireEvent.click(screen.getByTestId('landing-btn'));
         await waitFor(() => {
-            expect(screen.getByTestId('location-spy')).toHaveTextContent(`/en/${routes.topics}`);
+            expect(screen.getByTestId('location-spy')).toHaveTextContent(`/en/${routes.newMeeting}`);
         });
     });
 });

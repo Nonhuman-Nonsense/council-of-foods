@@ -11,6 +11,7 @@ import { initDb } from '@services/DbService.js';
 import { initOpenAI } from '@services/OpenAIService.js';
 import { SocketManager } from '@logic/SocketManager.js';
 import { AVAILABLE_LANGUAGES } from '@shared/AvailableLanguages.js';
+import { CHARACTERS_FILE } from '@shared/prompts/characterSetupMetadata.js';
 
 import { verifyGoogleCredentials } from '@utils/StartupChecks.js';
 import {
@@ -22,6 +23,7 @@ import {
 } from '@utils/httpCache.js';
 import { registerMeetingRoutes } from '@api/meetingRoutes.js';
 import { registerAudioRoutes } from '@api/audioRoutes.js';
+import { registerVoiceGuideRoutes } from '@api/voiceGuideSession.js';
 
 const environment: string = config.NODE_ENV;
 
@@ -53,6 +55,7 @@ app.get('/health', (_req: Request, res: Response) => {
 app.use('/api', cacheControlPrivateNoStoreApi);
 registerMeetingRoutes(app, environment);
 registerAudioRoutes(app);
+registerVoiceGuideRoutes(app);
 
 if (environment === "prototype") {
   app.use(express.static(path.join(process.cwd(), "../prototype/", "public"), {
@@ -62,10 +65,10 @@ if (environment === "prototype") {
   }));
   //Enable prototype to reset to default settings for each language
   for (const lang of AVAILABLE_LANGUAGES) {
-    for (const promptfile of ['foods', 'topics']) {
+    for (const promptfile of [CHARACTERS_FILE, 'topics']) {
       app.get(`/${promptfile}_${lang}.json`, function (_req: Request, res: Response) {
         res.setHeader('Cache-Control', CACHE_CONTROL_NO_STORE);
-        res.sendFile(path.join(process.cwd(), "../client/src/prompts", `${promptfile}_${lang}.json`));
+        res.sendFile(path.join(process.cwd(), "../shared/prompts", `${promptfile}_${lang}.json`));
       });
     }
   }

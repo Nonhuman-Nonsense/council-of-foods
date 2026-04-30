@@ -1,7 +1,10 @@
-import globalClientOptionsData from "@/global-options-client.json";
+import { defaultCharacterSetupBundle } from "@/prompts/characterSetupBundles";
 
 export interface GlobalClientOptions {
-  chairId: string;
+    chairId: string;
 }
 
-export const globalClientOptions: GlobalClientOptions = globalClientOptionsData;
+/** Chair id from the default character-setup bundle (validated in prompt data tests). */
+export const globalClientOptions: GlobalClientOptions = {
+    chairId: defaultCharacterSetupBundle.characters[0].id,
+};

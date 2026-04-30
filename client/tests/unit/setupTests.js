@@ -1,11 +1,11 @@
 import '@testing-library/jest-dom';
 import { vi } from 'vitest';
 import React from 'react';
-import '../../src/i18n';
+import '@/i18n';
 
 // Mock .svg?react imports
 // Mock .svg?react imports
-vi.mock('../../src/assets/icons/index', () => {
+vi.mock('@assets/icons', () => {
     return {
         Icons: new Proxy({}, {
             get: (target, prop) => {

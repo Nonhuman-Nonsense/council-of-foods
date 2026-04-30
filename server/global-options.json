@@ -8,10 +8,9 @@
   "chairMaxTokens": 220,
   "frequencyPenalty": 0,
   "presencePenalty": 0,
-  "audio_speed": 1.1,
+  "defaultAudioSpeed": 1.1,
   "trimSentance": false,
   "trimParagraph": true,
-  "chairId": "river",
   "trimChairSemicolon": true,
   "show_trimmed": true,
   "skipAudio": false,
@@ -33,5 +32,7 @@
     "en": "Expect english input.",
     "sv": "Förvänta dig svenska."
   },
-  "audioConcurrency": 10
+  "audioConcurrency": 10,
+  "voiceGuideRealtimeModel": "google-ai-studio/gemini-2.5-flash",
+  "voiceGuideRealtimeTranscriptionModel": "assemblyai/u3-rt-pro"
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import foodsEn from '../../src/prompts/foods_en.json';
+import { characterSetupEn } from '../characterSetupTestData';
 
 describe('Food Image Integrity', () => {
     it('has a matching icon asset for every food item', () => {
@@ -10,8 +10,9 @@ describe('Food Image Integrity', () => {
             return Object.keys(imageFiles).some((key: string) => key.replace(/\\/g, '/').endsWith(filename));
         };
 
-        foodsEn.foods.forEach((food: { id: string }) => {
-            expect(hasImage(food.id), `Missing icon for food: ${food.id}`).toBe(true);
+        // Check all characters from JSON
+        characterSetupEn.characters.forEach((character: { id: string }) => {
+            expect(hasImage(character.id), `Missing image for character: ${character.id}`).toBe(true);
         });
 
         expect(hasImage('panelist'), 'Missing image for panelist').toBe(true);

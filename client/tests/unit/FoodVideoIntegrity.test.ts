@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import foodsEn from "../../src/prompts/foods_en.json";
-import forestCharacters from "../../src/prompts/forest_characters.json";
+import { characterSetupEn } from "../characterSetupTestData";
+import forestCharacters from "@shared/prompts/forest_characters.json";
 import { filename } from "@/utils";
 
 const largeHevc = import.meta.glob("/src/assets/characters/large/*-hevc-safari.mp4");
@@ -16,13 +16,13 @@ function includesAsset(keys: string[], fragment: string): boolean {
 }
 
 describe("Character video integrity", () => {
-    it("foods_en selectable characters have full alpha video codec sets (or river root)", () => {
+    it("default selectable characters have full alpha video codec sets (or river root)", () => {
         const largeHevcKeys = Object.keys(largeHevc);
         const largeVp9Keys = Object.keys(largeVp9);
         const smallHevcKeys = Object.keys(smallHevc);
         const smallVp9Keys = Object.keys(smallVp9);
-        for (const food of foodsEn.foods) {
-            const id = food.id;
+        for (const character of characterSetupEn.characters) {
+            const id = character.id;
             if (id === "river") {
                 expect(Object.keys(riverHevc).length).toBe(1);
                 expect(Object.keys(riverVp9).length).toBe(1);

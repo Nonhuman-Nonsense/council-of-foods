@@ -1,0 +1,89 @@
+import type { Character } from "@shared/ModelTypes";
+import Completed from "./Completed";
+import Incomplete from "./Incomplete";
+import Summary, { SummaryData } from "./Summary";
+import Name from "./Name";
+import OverlayWrapper from "@main/overlay/OverlayWrapper";
+import type { Topic } from "@shared/ModelTypes";
+
+export type CouncilOverlayType = "name" | "completed" | "summary" | "incomplete" | null;
+
+interface CouncilOverlaysProps {
+  activeOverlay: CouncilOverlayType;
+  onContinue: (data?: Topic) => void;
+  onAttemptResume: () => void;
+  onWrapItUp: () => void;
+  proceedWithHumanName: (data: { humanName: string }) => void;
+  canExtendMeeting: boolean;
+  cancelOverlay: () => void;
+  summary: SummaryData | null;
+  meetingId: number;
+  participants: Character[];
+}
+
+/**
+ * CouncilOverlays Component
+ * 
+ * Manages modal overlays specific to the active meeting flow.
+ * Unlike MainOverlays (which are hash-based), these are controlled by internal meeting state.
+ * 
+ * Supported Overlays:
+ * - `name`: Human Participant name input.
+ * - `completed`: Meeting finished options.
+ * - `summary`: Final protocol and PDF download.
+ */
+function CouncilOverlays({
+  activeOverlay,
+  onContinue,
+  onAttemptResume,
+  onWrapItUp,
+  proceedWithHumanName,
+  canExtendMeeting,
+  cancelOverlay,
+  summary,
+  meetingId,
+  participants,
+}: CouncilOverlaysProps): React.ReactElement {
+
+  // Conditional rendering of overlay content based on activeOverlay state
+  const renderOverlayContent = (): React.ReactElement | null => {
+    switch (activeOverlay) {
+      case "name":
+        return (
+          <Name participants={participants} onContinueForward={proceedWithHumanName} />
+        );
+      case "incomplete":
+        return (
+          <Incomplete
+            onAttemptResume={onAttemptResume}
+            onNevermind={cancelOverlay}
+          />
+        );
+      case "completed":
+        return (
+          <Completed
+            onContinue={onContinue}
+            onWrapItUp={onWrapItUp}
+            canExtendMeeting={canExtendMeeting}
+          />
+        );
+      case "summary":
+        return (summary ?
+          <Summary
+            summary={summary}
+            meetingId={meetingId}
+          /> : null
+        );
+      default:
+        return null; // No overlay content if no section is active
+    }
+  };
+
+  return (
+    <OverlayWrapper showX={true} cancelOverlay={cancelOverlay}>
+      {renderOverlayContent()}
+    </OverlayWrapper>
+  );
+}
+
+export default CouncilOverlays;
