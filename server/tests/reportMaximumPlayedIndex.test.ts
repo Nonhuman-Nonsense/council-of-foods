@@ -27,10 +27,13 @@ describe("report_maximum_played_index (MeetingManager)", () => {
 
         expect(tryAcquireLiveSession(501, "holder-socket", meeting.liveKey)).toBe(true);
 
+        const startSpy = vi.spyOn(manager, "startLoop").mockImplementation(() => {});
+
         await manager.handleEvent("report_maximum_played_index", { index: 2 });
 
         expect(updateSpy).toHaveBeenCalledWith({ _id: 501 }, { $max: { maximumPlayedIndex: 2 } });
         expect(meeting.maximumPlayedIndex).toBe(2);
+        expect(startSpy).toHaveBeenCalledTimes(1);
     });
 
     it("does not update when socket is not the live session holder", async () => {
@@ -46,10 +49,13 @@ describe("report_maximum_played_index (MeetingManager)", () => {
 
         tryAcquireLiveSession(502, "real-holder", meeting.liveKey);
 
+        const startSpy = vi.spyOn(manager, "startLoop");
+
         await manager.handleEvent("report_maximum_played_index", { index: 0 });
 
         expect(updateSpy).not.toHaveBeenCalled();
         expect(meeting.maximumPlayedIndex).toBeUndefined();
+        expect(startSpy).not.toHaveBeenCalled();
     });
 
     it("does not update when index is out of range", async () => {
@@ -64,9 +70,12 @@ describe("report_maximum_played_index (MeetingManager)", () => {
         manager.meeting = meeting;
         tryAcquireLiveSession(503, "holder-socket", meeting.liveKey);
 
+        const startSpy = vi.spyOn(manager, "startLoop");
+
         await manager.handleEvent("report_maximum_played_index", { index: 99 });
 
         expect(updateSpy).not.toHaveBeenCalled();
+        expect(startSpy).not.toHaveBeenCalled();
     });
 
     it("keeps in-memory maximumPlayedIndex at local max when client sends a lower index", async () => {
@@ -85,8 +94,11 @@ describe("report_maximum_played_index (MeetingManager)", () => {
         manager.meeting = meeting;
         tryAcquireLiveSession(504, "holder-socket", meeting.liveKey);
 
+        const startSpy = vi.spyOn(manager, "startLoop").mockImplementation(() => {});
+
         await manager.handleEvent("report_maximum_played_index", { index: 0 });
 
         expect(meeting.maximumPlayedIndex).toBe(1);
+        expect(startSpy).toHaveBeenCalledTimes(1);
     });
 });

@@ -3,7 +3,7 @@ import type { IHumanInputContext } from "@interfaces/MeetingInterfaces.js";
 import type { Message as AudioQueueMessage } from "@logic/audio/AudioTypes.js";
 import { Logger } from "@utils/Logger.js";
 import { v4 as uuidv4 } from "uuid";
-import { splitSentences } from "@utils/textUtils.js";
+import { splitSentences } from "@shared/textUtils.js";
 
 export interface InjectionMessage {
     text: string;

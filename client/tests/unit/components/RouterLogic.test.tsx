@@ -22,7 +22,18 @@ vi.mock('../../../src/components/settings/SelectTopic', () => ({
     default: () => <div data-testid="select-topic">SelectTopic</div>
 }));
 vi.mock('../../../src/components/settings/SelectFoods', () => ({
-    default: () => <div data-testid="select-foods">SelectFoods</div>
+    default: () => <div data-testid="select-foods">SelectFoods</div>,
+    createDefaultHumans: () => ([
+        { id: "panelist0", name: "", description: "", type: "panelist", voice: "alloy", index: 0 },
+        { id: "panelist1", name: "", description: "", type: "panelist", voice: "alloy", index: 1 },
+        { id: "panelist2", name: "", description: "", type: "panelist", voice: "alloy", index: 2 },
+    ]),
+    getFoodsBundle: () => ({
+        metadata: { version: "test", last_updated: "test" },
+        panelWithHumans: "",
+        addHuman: { id: "addhuman", name: "Add Human", description: "" },
+        foods: [{ id: "water", name: "Water", description: "", voice: "alloy" }],
+    }),
 }));
 vi.mock('../../../src/components/Council', () => ({
     default: () => <div data-testid="council">Council</div>
@@ -62,14 +73,14 @@ vi.mock('react-responsive', () => ({
 }));
 
 // Mock topics data to avoid loading real files
-vi.mock('../../../src/prompts/topics_en.json', () => ({
+vi.mock('@shared/prompts/topics_en.json', () => ({
     default: {
         topics: [{ id: "test-topic", title: "Test Topic" }],
         custom_topic: { id: "custom" },
         system: "System Prompt"
     }
 }));
-vi.mock('../../../src/prompts/topics_sv.json', () => ({
+vi.mock('@shared/prompts/topics_sv.json', () => ({
     default: {
         topics: [{ id: "test-topic-sv", title: "Test Topic SV" }],
         custom_topic: { id: "custom" },

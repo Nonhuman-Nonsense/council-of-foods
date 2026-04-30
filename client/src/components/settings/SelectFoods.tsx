@@ -1,39 +1,19 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { toTitleCase, useMobile, useMobileXs } from "@/utils";
 import { useTranslation } from "react-i18next";
-import { Character, VoiceOption, AVAILABLE_VOICES } from "@shared/ModelTypes";
-import { AVAILABLE_LANGUAGES } from "@shared/AvailableLanguages";
 import VideoPreloader from "@components/VideoPreloader";
 import { globalClientOptions } from "@/globalClientOptions";
 import { characterIconWebpUrl } from "@assets/characters/characterData";
+import { useMeetingSetupStore } from "@/stores/useMeetingSetupStore";
+import { buildMeetingFoodsPayload } from "@/meetingSetup/meetingSetup";
+import type { Food, FoodData } from "./FoodUtils";
+import { getFoodsBundle } from "./FoodUtils";
 
 import Lottie from 'react-lottie-player';
 import loadingAnimation from '@animations/loading.json';
 
-// Dynamic import of food data modules
-const foodModules = import.meta.glob<FoodData>('/src/prompts/foods_*.json', { eager: true, import: 'default' });
-
-function getFoodImageUrl(id: string): string | undefined {
-  try {
-    return characterIconWebpUrl(id);
-  } catch {
-    return undefined;
-  }
-}
-
-export interface Food extends Partial<Character> {
-  id: string;
-  name: string;
-  description: string;
-  prompt?: string;
-  type?: 'panelist' | 'food' | 'chair' | string;
-  index?: number;
-  voice: VoiceOption;
-  voiceProvider?: 'openai' | 'gemini';
-  voiceLocale?: string;
-  size?: number;
-  voiceInstruction?: string;
-}
+export type { Food, FoodData } from "./FoodUtils";
+export { getFoodsBundle, createDefaultHumans, createHuman } from "./FoodUtils";
 
 interface SelectFoodsProps {
   topicTitle: string;
@@ -41,81 +21,39 @@ interface SelectFoodsProps {
   loading?: boolean;
 }
 
+function getFoodImageUrl(id: string): string | undefined {
+  // Construct the key that matches the glob pattern
+  return foodImages[`/src/assets/foods/small/${id}.webp`];
+}
+
 const MAXHUMANS = 3;
-
-// Helper to access typed keys of foodData
-interface FoodData {
-  metadata: {
-    version: string;
-    last_updated: string;
-  };
-  panelWithHumans: string;
-  addHuman: {
-    id: string;
-    name: string;
-    description: string;
-  };
-  foods: Food[];
-}
-
-const localFoodData: Record<string, FoodData> = {};
-
-// We assume that the files exist, since we validate them in the tests
-for (const lang of AVAILABLE_LANGUAGES) {
-  const moduleKey = Object.keys(foodModules).find(path => path.endsWith(`foods_${lang}.json`));
-  if (moduleKey) {
-    localFoodData[lang] = foodModules[moduleKey];
-  }
-}
-
-// Freeze original foodData to make it immutable
-Object.freeze(localFoodData);
-for (const language in localFoodData) {
-  for (let i = 0; i < localFoodData[language].foods.length; i++) {
-    Object.freeze(localFoodData[language].foods[i]);
-  }
-}
-
-// Infer the default voice from the configuration to ensure blankHuman is valid
-const defaultChair = localFoodData[AVAILABLE_LANGUAGES[0]]?.foods.find(f => f.id === globalClientOptions.chairId);
-const defaultVoice: VoiceOption = defaultChair?.voice || AVAILABLE_VOICES[0];
-
-const blankHuman: Food = {
-  id: "", // Will be set
-  type: "panelist",
-  name: "",
-  description: "",
-  voice: defaultVoice,
-  voiceProvider: defaultChair?.voiceProvider,
-  voiceTemperature: defaultChair?.voiceTemperature,
-  voiceInstruction: defaultChair?.voiceInstruction,
-  voiceLocale: defaultChair?.voiceLocale,
-  size: 1.0
-};
 
 /**
  * SelectFoods Component
  * 
  * The main configuration screen where the user selects AI food participants and adds human panelists.
  */
-function SelectFoods({ topicTitle, onContinueForward, loading: loading = false }: SelectFoodsProps): React.ReactElement {
-  // Ensuring we pull from a valid lang key, defaulting to 'en' if missing
-  const [foods, setFoods] = useState<Food[]>(localFoodData[AVAILABLE_LANGUAGES[0]]?.foods || []);
-  const [selectedFoods, setSelectedFoods] = useState<string[]>([localFoodData[AVAILABLE_LANGUAGES[0]]?.foods[0].id || ""]);
-
-  //Humans
-  const [human0, setHuman0] = useState<Food>(cloneHuman(0));
-  const [human1, setHuman1] = useState<Food>(cloneHuman(1));
-  const [human2, setHuman2] = useState<Food>(cloneHuman(2));
-  const [numberOfHumans, setNumberOfHumans] = useState<number>(0);
+function SelectFoods({
+  topicTitle,
+  onContinueForward,
+  loading: loading = false,
+}: SelectFoodsProps): React.ReactElement {
+  const {
+    selectedFoods,
+    setSelectedFoods,
+    handleSelectFoodId,
+    handleDeselectFoodId,
+    humans,
+    setHumans,
+    numberOfHumans,
+    setNumberOfHumans,
+    hoveredFood,
+    setHoveredFood,
+  } = useMeetingSetupStore();
   const [lastSelected, setLastSelected] = useState<string | null>(null);
-
-  const humans: Food[] = [human0, human1, human2];
-  const setHumans: React.Dispatch<React.SetStateAction<Food>>[] = [setHuman0, setHuman1, setHuman2];
 
   const [humansReady, setHumansReady] = useState<boolean>(false);
   const [recheckHumansReady, setRecheckHumansReady] = useState<boolean>(false);
-  const [currentFood, setCurrentFood] = useState<string | null>(null);
 
   const minFoods = 2 + 1; // 2 plus chair
   const maxFoods = 6 + 1; // 6 plus chair
@@ -139,23 +77,18 @@ function SelectFoods({ topicTitle, onContinueForward, loading: loading = false }
   /*                                   Helpers                                  */
   /* -------------------------------------------------------------------------- */
 
-  function cloneHuman(id: number): Food {
-    const newHuman = structuredClone(blankHuman);
-    newHuman.id = "panelist" + id;
-    newHuman.index = id;
+  const foodData = useMemo(() => {
+    return getFoodsBundle(i18n.language);
+  }, [i18n.language]);
 
-    // Assign chair's voice to human panelist so validation passes
-    const chair = foods.find(f => f.id === globalClientOptions.chairId);
-    if (chair && chair.voice) {
-      newHuman.voice = chair.voice;
-      newHuman.voiceProvider = chair.voiceProvider;
-      newHuman.voiceTemperature = chair.voiceTemperature;
-      newHuman.voiceInstruction = chair.voiceInstruction;
-      newHuman.voiceLocale = chair.voiceLocale;
-    }
+  const baseFoods = useMemo(() => {
+    return foodData.foods;
+  }, [foodData]);
 
-    return newHuman;
-  }
+  const foods = useMemo(() => {
+    const humanFoods = humans.slice(0, numberOfHumans);
+    return [...baseFoods, ...humanFoods];
+  }, [baseFoods, humans, numberOfHumans]);
 
   function atLeastTwoFoods(): boolean {
     return (selectedFoods.filter((id) => !id.startsWith('panelist')).length >= minFoods);
@@ -175,83 +108,29 @@ function SelectFoods({ topicTitle, onContinueForward, loading: loading = false }
 
   function continueForward(): void {
     if (loading) return;
-    if (atLeastTwoFoods() && selectedFoods.length <= maxFoods) {
-      //Modify chairs invitation prompt, with the name of the selected participants
-
-      const participatingFoods = selectedFoods.filter(id => !id.startsWith('panelist'));
-      const participatingHumans = selectedFoods.filter(id => id.startsWith('panelist'));
-
-      let participants = "";
-      for (const [i, id] of participatingFoods.entries()) {
-        const food = foods.find(f => f.id === id);
-        if (i !== 0 && food) participants += toTitleCase(food.name) + ", ";
-      }
-      if (participants.length > 2) {
-        participants = participants.substring(0, participants.length - 2);
-      }
-
-      //We need to make a structuredClone here, otherwise we just end up with a string of pointers that ends up mutating the original foodData.
-      const replacedFoods: Food[] = [];
-      for (const id of selectedFoods) {
-        const found = foods.find(f => f.id === id);
-        if (found) replacedFoods.push(structuredClone(found));
-      }
-
-      if (replacedFoods.length > 0 && replacedFoods[0].prompt) {
-        replacedFoods[0].prompt = localFoodData[i18n.language].foods[0].prompt?.replace(
-          "[FOODS]",
-          participants
-        ) || "";
-      }
-
-      //Replace humans as well if there are any.
-      let humanPresentation = "";
-      if (participatingHumans.length > 0) {
-        if (participatingHumans.length === 1) {
-          humanPresentation += t('selectfoods.human');
-        } else {
-          humanPresentation += participatingHumans.length + t('selectfoods.twohumans');
-        }
-
-        for (const id of participatingHumans) {
-          const h = foods.find(f => f.id === id);
-          if (h) {
-            humanPresentation += toTitleCase(h.name) + ", " + h.description + ". ";
-          }
-        }
-        humanPresentation = humanPresentation.substring(0, humanPresentation.length - 2);
-
-        const humanPrompt = localFoodData[i18n.language].panelWithHumans;
-        humanPresentation = humanPrompt.replace(
-          "[HUMANS]",
-          humanPresentation
-        );
-      }
-
-      //Replace the humans tag in chairs prompt regardless if its empty or not
-      if (replacedFoods.length > 0 && replacedFoods[0].prompt) {
-        replacedFoods[0].prompt = replacedFoods[0].prompt.replace(
-          "[HUMANS]",
-          humanPresentation
-        );
-      }
-
-      onContinueForward({ foods: replacedFoods });
+    const built = buildMeetingFoodsPayload({
+      language: i18n.language,
+      selectedFoods,
+      humans,
+      numberOfHumans,
+      labels: { oneHuman: t("selectfoods.human"), twoHumansSuffix: t("selectfoods.twohumans") },
+    });
+    if (built.ok) {
+      onContinueForward({ foods: built.foods });
     }
   }
 
   function onAddHuman(): void {
-    const id = numberOfHumans;
-    if (id < humans.length) {
-      setFoods((prevFoods) => [...prevFoods, humans[id]]);
-      setNumberOfHumans((prev) => prev + 1);
-      selectFood(humans[id]);
-    }
+    const idx = numberOfHumans;
+    if (idx >= MAXHUMANS) return;
+    if (!humans[idx]) return;
+    setNumberOfHumans((prev) => Math.min(MAXHUMANS, prev + 1));
+    selectFood(humans[idx]);
   }
 
   function selectFood(food: Food): void {
-    if (selectedFoods.length < maxFoods && !selectedFoods.includes(food.id)) {
-      setSelectedFoods((prevFoods) => [...prevFoods, food.id]);
+    const success = handleSelectFoodId(food.id);
+    if (success) {
       setLastSelected(food.id);
     }
   }
@@ -262,7 +141,7 @@ function SelectFoods({ topicTitle, onContinueForward, loading: loading = false }
       setLastSelected(food.id);
     } else {
       //Normal deselection
-      setSelectedFoods((prevFoods) => prevFoods.filter((f) => f !== food.id));
+      handleDeselectFoodId(food.id);
       setLastSelected(null);
     }
   }
@@ -277,16 +156,6 @@ function SelectFoods({ topicTitle, onContinueForward, loading: loading = false }
   /*                                   Effects                                  */
   /* -------------------------------------------------------------------------- */
 
-  // Sync humans state changes to foods array (as foods contains copies or references)
-  useEffect(() => {
-    setFoods((prevFoods) => prevFoods.map(f => {
-      if (f.type === 'panelist' && f.index !== undefined) {
-        return humans[f.index];
-      }
-      return f;
-    }));
-  }, [human0, human1, human2]);
-
   useEffect(() => {
     const selectedHumans = selectedFoods.filter(id => id.startsWith('panelist'));
     let ready = true;
@@ -300,19 +169,19 @@ function SelectFoods({ topicTitle, onContinueForward, loading: loading = false }
       }
     }
     setHumansReady(ready);
-  }, [recheckHumansReady, selectedFoods]);
+  }, [recheckHumansReady, selectedFoods, humans]);
 
   /* -------------------------------------------------------------------------- */
   /*                                   Render                                   */
   /* -------------------------------------------------------------------------- */
 
   function infoToShow(): React.ReactNode {
-    if (currentFood === 'addhuman') {
-      return <FoodInfo food={localFoodData[i18n.language].addHuman} />;
-    } else if (currentFood !== null && !currentFood.startsWith('panelist')) {//If something is hovered & if it's not a human
-      return <FoodInfo food={foods.find(f => f.id === currentFood)} />;
-    } else if (currentFood?.startsWith('panelist') && lastSelected !== currentFood) {//a human is hovered but not selected
-      return <HumanInfo human={humans.find(h => h.id === currentFood)} unfocus={true} setHumans={setHumans} setRecheckHumansReady={setRecheckHumansReady} />;
+    if (hoveredFood === 'addhuman') {
+      return <FoodInfo food={foodData.addHuman} />;
+    } else if (hoveredFood !== null && !hoveredFood.startsWith('panelist')) {//If something is hovered & if it's not a human
+      return <FoodInfo food={foods.find(f => f.id === hoveredFood)} />;
+    } else if (hoveredFood?.startsWith('panelist') && lastSelected !== hoveredFood) {//a human is hovered but not selected
+      return <HumanInfo human={humans.find(h => h.id === hoveredFood)} unfocus={true} setHumans={setHumans} setRecheckHumansReady={setRecheckHumansReady} />;
     } else if (lastSelected?.startsWith('panelist')) {//a human is selected
       return <HumanInfo human={humans.find(h => h.id === lastSelected)} lastSelected={lastSelected} setHumans={setHumans} setRecheckHumansReady={setRecheckHumansReady} />;
     } else {
@@ -358,7 +227,7 @@ function SelectFoods({ topicTitle, onContinueForward, loading: loading = false }
       return <h4 style={subInfoStyle}>{t('selectfoods.requirename')}</h4>;
     } else if (atLeastTwoFoods() && selectedFoods.length <= maxFoods && humansReady && !ensureUniqueNames()) {
       return <h4 style={subInfoStyle}>{t('selectfoods.unique')}</h4>;
-    } else if (currentFood !== null || (selectedFoods.length > 1 && !atLeastTwoFoods())) {
+    } else if (hoveredFood !== null || (selectedFoods.length > 1 && !atLeastTwoFoods())) {
       return <h4 style={subInfoStyle}>{t('selectfoods.pleaseselect')}</h4>;
     } else if (selectedFoods.length < 2) {
       return <button onClick={randomizeSelection} className="fadein" style={{ margin: isMobileXs ? "0" : "8px 0", position: "absolute" }}>{t('selectfoods.random')}</button>;
@@ -397,8 +266,8 @@ function SelectFoods({ topicTitle, onContinueForward, loading: loading = false }
             <FoodButton
               key={food.type === 'panelist' ? food.id : food.name}
               food={food}
-              onMouseEnter={() => setCurrentFood(food.id)}
-              onMouseLeave={() => setCurrentFood(null)}
+              onMouseEnter={() => setHoveredFood(food.id)}
+              onMouseLeave={() => setHoveredFood(null)}
               // moderator check
               onSelectFood={food.id === globalClientOptions.chairId ? undefined : selectFood}
               onDeselectFood={deselectFood}
@@ -407,8 +276,8 @@ function SelectFoods({ topicTitle, onContinueForward, loading: loading = false }
             />
           ))}
           {(numberOfHumans < MAXHUMANS) && <AddHumanButton
-            onMouseEnter={() => setCurrentFood('addhuman')}
-            onMouseLeave={() => setCurrentFood(null)}
+            onMouseEnter={() => setHoveredFood('addhuman')}
+            onMouseLeave={() => setHoveredFood(null)}
             onAddHuman={onAddHuman}
             isSelected={selectedFoods.includes('addhuman')}
             selectLimitReached={selectedFoods.length >= maxFoods}
@@ -464,7 +333,7 @@ function FoodInfo({ food }: FoodInfoProps): React.ReactElement | null {
  */
 interface HumanInfoProps {
   human?: Food;
-  setHumans: React.Dispatch<React.SetStateAction<Food>>[];
+  setHumans: React.Dispatch<React.SetStateAction<Food[]>>;
   lastSelected?: string | null;
   unfocus?: boolean;
   setRecheckHumansReady: React.Dispatch<React.SetStateAction<boolean>>;
@@ -506,15 +375,12 @@ function HumanInfo({ human, setHumans, lastSelected, unfocus, setRecheckHumansRe
   function descriptionChanged(e: React.ChangeEvent<HTMLTextAreaElement>) {
     if (!human || human.index === undefined) return;
     const val = e.target.value;
-    setHumans[human.index]((prev) => {
-      // Need to return new object for immutability? Or clone?
-      // State updater pattern: (prev) => { ... }
-      // We should ideally return a NEW object.
-      // The original code mutated 'prev' and returned it... which triggers re-render but is bad practice.
-      // Let's do it properly:
-      const newHuman = { ...prev };
-      newHuman.description = val;
-      return newHuman;
+    setHumans((prev) => {
+      const next = [...prev];
+      const old = next[human.index!];
+      if (!old) return prev;
+      next[human.index!] = { ...old, description: val };
+      return next;
     });
     setRecheckHumansReady(prev => !prev);
   }
@@ -524,10 +390,12 @@ function HumanInfo({ human, setHumans, lastSelected, unfocus, setRecheckHumansRe
     if (nameArea.current) {
       nameArea.current.value = toTitleCase(nameArea.current.value);
       const val = nameArea.current.value;
-      setHumans[human.index]((prev) => {
-        const newHuman = { ...prev };
-        newHuman.name = val;
-        return newHuman;
+      setHumans((prev) => {
+        const next = [...prev];
+        const old = next[human.index!];
+        if (!old) return prev;
+        next[human.index!] = { ...old, name: val };
+        return next;
       });
       setRecheckHumansReady(prev => !prev);
     }

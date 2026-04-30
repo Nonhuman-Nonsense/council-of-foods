@@ -26,14 +26,6 @@ vi.mock('@/routing', () => ({
     }),
 }));
 
-// Mock Global Options
-vi.mock('@/global-options-client.json', () => ({
-    default: {
-        audio_speed: 1.1,
-        chairId: 'water',
-    }
-}));
-
 // Mock Socket Hook
 // We need to be able to trigger callbacks passed to useCouncilSocket
 let socketHandlers: any = {};

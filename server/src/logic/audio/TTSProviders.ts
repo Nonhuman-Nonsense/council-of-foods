@@ -1,7 +1,7 @@
 import type OpenAI from "openai";
 import { GoogleAuth } from 'google-auth-library';
 import { withNetworkRetry } from "@utils/NetworkUtils.js";
-import { Word } from "@utils/textUtils.js";
+import { Word } from "@shared/textUtils.js";
 import { AudioSystemOptions, Speaker } from "./AudioTypes.js";
 import { getGoogleLanguageCode } from "./AudioUtils.js";
 import { InworldPronunciationUtils } from "@utils/InworldPronunciationUtils.js";

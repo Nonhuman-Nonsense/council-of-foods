@@ -1,11 +1,14 @@
 import type { Topic } from "@shared/ModelTypes";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import SelectTopic from "./settings/SelectTopic";
-import SelectFoods, { Food } from "./settings/SelectFoods";
+import SelectFoods, { type Food } from "./settings/SelectFoods";
 import { createMeeting } from "@/api/createMeeting";
 import { useRouting } from "@/routing";
+import MeetingVoiceGuide from "@/components/MeetingVoiceGuide";
+import type { MeetingSetupUserEvent } from "@/meetingSetup/meetingSetup";
+import { useMeetingSetupStore } from "@/stores/useMeetingSetupStore";
 
 export interface NewMeetingProps {
   setUnrecoverableError: (message: string) => void;
@@ -28,10 +31,48 @@ export default function NewMeeting({
     topicSelection != null ? "foods" : "topic"
   );
   const [creating, setCreating] = useState(false);
+  const [lastUserEvent, setLastUserEvent] = useState<MeetingSetupUserEvent | null>(null);
+
+  // Setup state from store
+  const {
+    setSelectedTopic,
+    setCustomTopic,
+  } = useMeetingSetupStore();
+
+  // Keep lifted topic UI state consistent if we start on foods step (e.g. reset flow)
+  useEffect(() => {
+    if (!topicSelection) return;
+    setSelectedTopic(topicSelection.id);
+    if (topicSelection.id === "customtopic") {
+      setCustomTopic(topicSelection.description ?? "");
+    } else {
+      setCustomTopic("");
+    }
+  }, [topicSelection?.id, topicSelection?.description, setSelectedTopic, setCustomTopic]);
+
+  function handleTopicPreview(topicId: string, topicTitle: string) {
+    setLastUserEvent({
+      type: "topic_previewed",
+      topicId,
+      topicTitle,
+    });
+  }
+
+  function handleTopicCommitted(topic: Topic) {
+    setLastUserEvent({
+      type: "topic_committed",
+      topicId: topic.id,
+      topicTitle: topic.title,
+    });
+  }
 
   function handleTopicContinue(selectedTopic: Topic) {
     setTopicSelection(selectedTopic);
     setStep("foods");
+  }
+
+  function handleGoToTopicStep() {
+    setStep("topic");
   }
 
   async function handleFoodsContinue({ foods }: { foods: Food[] }) {
@@ -56,23 +97,29 @@ export default function NewMeeting({
       setCreating(false);
     }
   }
-  
-
-  if (step === "topic") {
-    return (
-      <SelectTopic
-        currentTopic={topicSelection ?? undefined}
-        onContinueForward={handleTopicContinue}
-      />
-    );
-  }
 
   return (
     <>
-      <SelectFoods
-        topicTitle={topicSelection?.title ?? ""}
-        onContinueForward={handleFoodsContinue}
-        loading={creating}
+      {step === "topic" && (
+        <SelectTopic
+          currentTopic={topicSelection ?? undefined}
+          onPreviewTopic={handleTopicPreview}
+          onCommitTopic={handleTopicCommitted}
+          onContinueForward={handleTopicContinue}
+        />
+      )}
+      {step === "foods" && (
+        <SelectFoods
+          topicTitle={topicSelection?.title ?? ""}
+          onContinueForward={handleFoodsContinue}
+          loading={creating}
+        />)}
+      <MeetingVoiceGuide
+        step={step}
+        lastUserEvent={lastUserEvent}
+        onGoToTopicStep={handleGoToTopicStep}
+        onSelectTopic={handleTopicContinue}
+        onStartMeeting={(foods) => handleFoodsContinue({ foods })}
       />
     </>
   );

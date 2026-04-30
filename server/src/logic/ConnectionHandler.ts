@@ -2,7 +2,7 @@ import type { ReconnectionOptions } from "@shared/SocketTypes.js";
 import type { Message } from "@shared/ModelTypes.js";
 import type { IMeetingManager } from "@interfaces/MeetingInterfaces.js";
 import type { StoredMeeting } from "@models/DBModels.js";
-import { splitSentences } from "@utils/textUtils.js";
+import { splitSentences } from "@shared/textUtils.js";
 import { Logger } from "@utils/Logger.js";
 
 /**

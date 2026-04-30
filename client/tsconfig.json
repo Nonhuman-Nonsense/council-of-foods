@@ -37,9 +37,6 @@
             "@assets/*": [
                 "./src/assets/*"
             ],
-            "@prompts/*": [
-                "./src/prompts/*"
-            ],
             "@icons": [
                 "./src/assets/icons/index"
             ],

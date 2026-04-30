@@ -27,8 +27,8 @@ COPY --from=server-builder /usr/src/server/dist ./dist
 WORKDIR /usr/src
 COPY prototype/public/ ./prototype/public
 
-# Prompts from client (JSON files)
-COPY client/src/prompts/ ./client/src/prompts
+# Prompt JSON (server serves from ../shared/prompts relative to server cwd)
+COPY shared/prompts/ ./shared/prompts
 
 WORKDIR /usr/src/server
 

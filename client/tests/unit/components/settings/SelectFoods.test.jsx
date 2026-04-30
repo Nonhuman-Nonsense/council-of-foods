@@ -2,7 +2,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import SelectFoods from '../../../../src/components/settings/SelectFoods';
-import foodsEn from '../../../../src/prompts/foods_en.json';
+import { createDefaultHumans } from '../../../../src/components/settings/FoodUtils';
+import foodsEn from '@shared/prompts/foods_en.json';
+import { useState } from 'react';
+import { useMeetingSetupStore } from '../../../../src/stores/useMeetingSetupStore';
 
 // Mock dependencies
 vi.mock('react-i18next', () => ({
@@ -21,11 +24,21 @@ describe('SelectFoods Component', () => {
     let mockOnContinue;
 
     beforeEach(() => {
+        useMeetingSetupStore.getState().resetStore();
         mockOnContinue = vi.fn();
     });
 
+    function ControlledSelectFoods() {
+        return (
+            <SelectFoods
+                topicTitle="Test Topic"
+                onContinueForward={mockOnContinue}
+            />
+        );
+    }
+
     it('should render correctly with default chair selected', () => {
-        render(<SelectFoods lang="en" topicTitle="Test Topic" onContinueForward={mockOnContinue} />);
+        render(<ControlledSelectFoods />);
 
         // Real file default chair is River
         const riverBtn = screen.getByAltText('River');
@@ -33,7 +46,7 @@ describe('SelectFoods Component', () => {
     });
 
     it('should enforce min participants (2) before allowing Start', () => {
-        render(<SelectFoods lang="en" topicTitle="Test Topic" onContinueForward={mockOnContinue} />);
+        render(<ControlledSelectFoods />);
 
         expect(screen.queryByText('start')).not.toBeInTheDocument();
         expect(screen.getByText('selectfoods.pleaseselect')).toBeInTheDocument();
@@ -54,7 +67,7 @@ describe('SelectFoods Component', () => {
     });
 
     it('should construct the prompt correctly with participants', () => {
-        render(<SelectFoods lang="en" topicTitle="Test Topic" onContinueForward={mockOnContinue} />);
+        render(<ControlledSelectFoods />);
 
         // Select Salmon and Pine
         fireEvent.click(screen.getByAltText('Salmon'));
@@ -78,7 +91,7 @@ describe('SelectFoods Component', () => {
     });
 
     it('should handle Human Panelists injection into prompt', async () => {
-        render(<SelectFoods lang="en" topicTitle="Test Topic" onContinueForward={mockOnContinue} />);
+        render(<ControlledSelectFoods />);
 
         // Select Salmon AND Pine to meet min requirements (3 foods)
         fireEvent.click(screen.getByAltText('Salmon'));
@@ -120,7 +133,7 @@ describe('SelectFoods Component', () => {
     });
 
     it('should maintain focus on description when typing', async () => {
-        render(<SelectFoods lang="en" topicTitle="Test Topic" onContinueForward={mockOnContinue} />);
+        render(<ControlledSelectFoods />);
 
         // Add Human
         const addBtn = screen.getByAltText('add human');
@@ -144,7 +157,7 @@ describe('SelectFoods Component', () => {
     });
 
     it('should prevent selecting more than max participants (6)', () => {
-        render(<SelectFoods lang="en" topicTitle="Test Topic" onContinueForward={mockOnContinue} />);
+        render(<ControlledSelectFoods />);
 
         // Select 6 items (Chair + 5 others) to reach max (6 + 1 chair = 7)
 
@@ -172,7 +185,7 @@ describe('SelectFoods Component', () => {
     });
 
     it('should deselect a food when clicked again', () => {
-        render(<SelectFoods lang="en" topicTitle="Test Topic" onContinueForward={mockOnContinue} />);
+        render(<ControlledSelectFoods />);
 
         const salmonBtn = screen.getByAltText('Salmon');
 
@@ -188,7 +201,7 @@ describe('SelectFoods Component', () => {
     });
 
     it('should show error when human panelists have duplicate names', async () => {
-        render(<SelectFoods lang="en" topicTitle="Test Topic" onContinueForward={mockOnContinue} />);
+        render(<ControlledSelectFoods />);
 
         // Select Salmon and Pine to satisfy atLeastTwoFoods requirement
         fireEvent.click(screen.getByAltText('Salmon'));

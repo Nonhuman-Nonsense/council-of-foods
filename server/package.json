@@ -66,6 +66,7 @@
       "src",
       "global-options.json",
       "test-options.json",
+      "../shared",
       ".env"
     ],
     "ext": "ts,js,json"

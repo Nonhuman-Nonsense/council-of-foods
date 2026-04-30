@@ -11,8 +11,8 @@ export interface TopicsData {
   topics: Topic[];
 }
 
-// Topics bundles live in `src/prompts/`.
-const topicModules = import.meta.glob<TopicsData>("/src/prompts/topics_*.json", {
+// Topics bundles live in `shared/prompts/`.
+const topicModules = import.meta.glob<TopicsData>("@shared/prompts/topics_*.json", {
   eager: true,
   import: "default",
 });
@@ -29,7 +29,7 @@ for (const lang of AVAILABLE_LANGUAGES) {
     const available = Object.keys(localTopicsData).sort().join(", ") || "(none)";
     throw new Error(
       `[topicsBundle] Missing topics bundle for lang "${lang}". Available: ${available}. ` +
-        `Expected a file at /src/prompts/topics_${lang}.json`
+        `Expected a file at shared/prompts/topics_${lang}.json`
     );
   }
 }

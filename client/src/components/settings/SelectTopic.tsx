@@ -3,8 +3,10 @@ import ResetWarning from "@components/overlays/ResetWarning";
 import { capitalizeFirstLetter, toTitleCase, useMobile, useMobileXs } from "@/utils";
 import { useTranslation } from "react-i18next";
 import type { Topic } from "@shared/ModelTypes";
+import { useMeetingSetupStore } from "@/stores/useMeetingSetupStore";
 
 import { getTopicsBundle } from "@/components/topicsBundle";
+import { buildTopicFromSelection } from "@/meetingSetup/meetingSetup";
 
 /**
  * SelectTopic Component
@@ -22,6 +24,8 @@ import { getTopicsBundle } from "@/components/topicsBundle";
 
 interface SelectTopicProps {
   onContinueForward: (selectedTopic: Topic) => void;
+  onPreviewTopic?: (topicId: string, topicTitle: string) => void;
+  onCommitTopic?: (selectedTopic: Topic) => void;
   currentTopic?: Topic;
   onReset?: (resetTopic: Topic) => void;
   onCancel?: () => void;
@@ -29,10 +33,16 @@ interface SelectTopicProps {
 
 function SelectTopic({
   onContinueForward,
+  onPreviewTopic,
+  onCommitTopic,
   currentTopic,
   onReset,
-  onCancel
+  onCancel,
 }: SelectTopicProps): React.ReactElement {
+  const {
+    selectedTopic, setSelectedTopic,
+    customTopic, setCustomTopic,
+  } = useMeetingSetupStore();
   const { t, i18n } = useTranslation();
   const isMobile = useMobile();
   const isMobileXs = useMobileXs();
@@ -44,10 +54,8 @@ function SelectTopic({
   /*                                    State                                   */
   /* -------------------------------------------------------------------------- */
 
-  const [selectedTopic, setSelectedTopic] = useState<string>("");
-  const [hoverTopic, setHoverTopic] = useState<string | null>(null);
-  const [customTopic, setCustomTopic] = useState<string>("");
   const [displayWarning, setDisplayWarning] = useState<boolean>(false);
+  const [hoveredTopic, setHoveredTopic] = useState<string | null>(null);
 
   /* -------------------------------------------------------------------------- */
   /*                                   Effects                                  */
@@ -76,25 +84,17 @@ function SelectTopic({
     setCustomTopic(capitalizedTopic);
   }
 
-  function buildTopic(): Topic {
-    const raw =
-      topicsBundle.topics.find(t => t.id === selectedTopic) ??
-      (selectedTopic === topicsBundle.custom_topic.id ? topicsBundle.custom_topic : undefined);
-    if (!raw) throw new Error(`Topic not found: ${selectedTopic}`);
-    const built = structuredClone(raw);
-    if (built.id === topicsBundle.custom_topic.id) {
-      built.prompt = customTopic;
-      built.description = customTopic;
-    }
-    built.prompt = topicsBundle.system.replace("[TOPIC]", built.prompt);
-    return built;
-  }
-
   function proceedForward(): void {
     if (currentTopic) {
       setDisplayWarning(true);
     } else {
-      onContinueForward(buildTopic());
+      const builtTopic = buildTopicFromSelection({
+        topicsBundle,
+        selectedTopicId: selectedTopic,
+        customTopic,
+      });
+      onCommitTopic?.(builtTopic);
+      onContinueForward(builtTopic);
     }
   }
 
@@ -107,8 +107,8 @@ function SelectTopic({
    * Priority: Hovered Topic -> Selected Topic -> Default Instruction
    */
   function toolTip(): string | undefined {
-    if (hoverTopic) {
-      return topicsBundle.topics.find(t => t.id === hoverTopic)?.description;
+    if (hoveredTopic) {
+      return topicsBundle.topics.find(t => t.id === hoveredTopic)?.description;
     } else if (selectedTopic) {
       return topicsBundle.topics.find(t => t.id === selectedTopic)?.description;
     } else {
@@ -121,10 +121,10 @@ function SelectTopic({
    * Logic: Visible if Custom is selected OR hovered (unless hovering another topic while Custom is selected).
    */
   function showTextBox(): boolean {
-    if (selectedTopic === topicsBundle.custom_topic.id && hoverTopic && hoverTopic !== topicsBundle.custom_topic.id) {
+    if (selectedTopic === topicsBundle.custom_topic.id && hoveredTopic && hoveredTopic !== topicsBundle.custom_topic.id) {
       return false;
     }
-    return selectedTopic === topicsBundle.custom_topic.id || hoverTopic === topicsBundle.custom_topic.id;
+    return selectedTopic === topicsBundle.custom_topic.id || hoveredTopic === topicsBundle.custom_topic.id;
   }
 
   const shouldShowNextButton =
@@ -199,7 +199,15 @@ function SelectTopic({
       {displayWarning ? (
         <ResetWarning
           message={t('reset.changeTopic')}
-          onReset={() => onReset?.(buildTopic() as Topic)}
+          onReset={() =>
+            onReset?.(
+              buildTopicFromSelection({
+                topicsBundle,
+                selectedTopicId: selectedTopic,
+                customTopic,
+              })
+            )
+          }
           onCancel={() => onCancel?.()}
         />
       ) : (
@@ -224,9 +232,12 @@ function SelectTopic({
                   key={topic.id}
                   data-testid="topic-button"
                   className={selectedTopic === topic.id ? "selected " : ""}
-                  onClick={() => setSelectedTopic(topic.id)}
-                  onMouseEnter={() => setHoverTopic(topic.id)}
-                  onMouseLeave={() => setHoverTopic(null)}
+                  onClick={() => {
+                    setSelectedTopic(topic.id);
+                    onPreviewTopic?.(topic.id, topic.title);
+                  }}
+                  onMouseEnter={() => setHoveredTopic(topic.id)}
+                  onMouseLeave={() => setHoveredTopic(null)}
                   style={selectButtonStyle}
                 >
                   {toTitleCase(topic.title)}
@@ -239,12 +250,13 @@ function SelectTopic({
                   className={selectedTopic === topicsBundle.custom_topic.id ? "selected " : ""}
                   onClick={() => {
                     setSelectedTopic(topicsBundle.custom_topic.id);
+                    onPreviewTopic?.(topicsBundle.custom_topic.id, topicsBundle.custom_topic.title);
                     setTimeout(() => {
                       topicTextareaRef.current?.focus();
                     }, 0);
                   }}
-                  onMouseEnter={() => setHoverTopic(topicsBundle.custom_topic.id)}
-                  onMouseLeave={() => setHoverTopic(null)}
+                  onMouseEnter={() => setHoveredTopic(topicsBundle.custom_topic.id)}
+                  onMouseLeave={() => setHoveredTopic(null)}
                   style={customButtonStyle}
                 >
                   {toTitleCase(topicsBundle.custom_topic.title)}

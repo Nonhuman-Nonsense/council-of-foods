@@ -53,7 +53,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ['playwright.config.js'],
+    files: ['playwright.config.js', 'scripts/**/*.mjs'],
     languageOptions: {
       globals: globals.node,
     },

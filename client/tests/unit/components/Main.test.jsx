@@ -10,7 +10,7 @@ vi.mock('@/api/createMeeting', () => ({
 }));
 
 // Mock topics data
-vi.mock('../../../src/prompts/topics_en.json', () => ({
+vi.mock('@shared/prompts/topics_en.json', () => ({
     default: {
         topics: [
             { id: "test-topic", title: "Test Topic", description: "D", prompt: "Test Prompt" }
@@ -52,7 +52,14 @@ vi.mock('../../../src/components/Navbar', () => ({
 vi.mock('../../../src/components/settings/SelectTopic', () => ({
     default: ({ onContinueForward }) => (
         <div data-testid="select-topic">
-            <button onClick={() => onContinueForward({ topic: "test-topic" })} data-testid="topic-btn">Select Topic</button>
+            <button
+                onClick={() =>
+                    onContinueForward({ id: "test-topic", title: "Test Topic", description: "D", prompt: "System Prompt Test Prompt" })
+                }
+                data-testid="topic-btn"
+            >
+                Select Topic
+            </button>
         </div>
     )
 }));
@@ -61,7 +68,18 @@ vi.mock('../../../src/components/settings/SelectFoods', () => ({
         <div data-testid="select-foods">
             <button onClick={() => onContinueForward({ foods: [{ id: "apple" }] })} data-testid="foods-btn">Select Foods</button>
         </div>
-    )
+    ),
+    createDefaultHumans: () => ([
+        { id: "panelist0", name: "", description: "", type: "panelist", voice: "alloy", index: 0 },
+        { id: "panelist1", name: "", description: "", type: "panelist", voice: "alloy", index: 1 },
+        { id: "panelist2", name: "", description: "", type: "panelist", voice: "alloy", index: 2 },
+    ]),
+    getFoodsBundle: () => ({
+        metadata: { version: "test", last_updated: "test" },
+        panelWithHumans: "",
+        addHuman: { id: "addhuman", name: "Add Human", description: "" },
+        foods: [{ id: "water", name: "Water", description: "", voice: "alloy" }],
+    }),
 }));
 vi.mock('../../../src/components/Council', () => ({
     default: () => <div data-testid="council">Council</div>
@@ -86,9 +104,8 @@ vi.mock('../../../src/components/Forest', () => ({
 // Mock utils
 vi.mock('../../../src/utils', () => ({
     usePortrait: () => false,
-    useDocumentVisibility: () => true,
-    dvh: 'vh',
     useMobile: () => false,
+    dvh: 'vh'
 }));
 
 describe('Main Component', () => {

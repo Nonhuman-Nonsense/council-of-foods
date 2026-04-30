@@ -2,20 +2,26 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import svgr from 'vite-plugin-svgr'
-import checker from 'vite-plugin-checker'
 import path from 'path'
-import { generateIconsPlugin } from './vite-plugins/generate-icons'
 
-export default defineConfig(({ mode }) => ({
+/** Checker is dev-only (vite-plugin-checker is a devDependency); production/docker runs `tsc` before `vite build`. */
+async function devPlugins(command: string) {
+  if (command !== 'serve') return []
+  const checker = (await import(/* @vite-ignore */ 'vite-plugin-checker')).default
+  return [
+    checker({
+      typescript: {
+        tsconfigPath: 'tsconfig.build.json',
+      },
+    }),
+  ]
+}
+
+export default defineConfig(async ({ command, mode }) => ({
     plugins: [
-      generateIconsPlugin(),
       react(),
       svgr(),
-      checker({
-        typescript: {
-          tsconfigPath: 'tsconfig.build.json',
-        },
-      }),
+      ...(await devPlugins(command)),
     ],
     server: {
       // mirrors your old CRA proxy setting
