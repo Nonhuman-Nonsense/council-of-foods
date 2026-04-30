@@ -4,12 +4,7 @@ import MainOverlays from '@main/overlay/MainOverlays';
 import type { ReactNode } from 'react';
 import '@testing-library/jest-dom';
 import routes from '@/routes.json';
-import type { Topic } from '@shared/ModelTypes';
-
-const mockTopic = (partial: Pick<Topic, 'id' | 'title' | 'description'> & Partial<Topic>): Topic => ({
-    prompt: '',
-    ...partial,
-});
+import { MockFactory } from '../factories/MockFactory';
 
 // Mock dependencies
 vi.mock('react-i18next', () => ({
@@ -56,7 +51,7 @@ vi.mock('@main/overlay/OverlayWrapper', () => ({
 describe('MainOverlays', () => {
     const mockOnReset = vi.fn();
     const mockOnCloseOverlay = vi.fn();
-    const topic: Topic = mockTopic({ id: '1', title: 'Topic A', description: 'Desc A' });
+    const topic = MockFactory.createTopic({ id: '1', title: 'Topic A', description: 'Desc A', prompt: '' });
 
     beforeEach(() => {
         vi.clearAllMocks();

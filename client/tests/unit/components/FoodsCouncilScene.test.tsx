@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import FoodsCouncilScene from "@council/FoodsCouncilScene";
+import { MockFactory } from "../factories/MockFactory";
 
 const mockFoodItem = vi.fn(() => <div data-testid="food-item" />);
 
@@ -20,9 +21,9 @@ describe("FoodsCouncilScene", () => {
     render(
       <FoodsCouncilScene
         participants={[
-          { id: "banana", name: "Banana", description: "", prompt: "", voice: "alloy" },
-          { id: "panelist0", name: "Sage", description: "", prompt: "", voice: "alloy" },
-          { id: "tomato", name: "Tomato", description: "", prompt: "", voice: "alloy" },
+          MockFactory.createCharacter({ id: "banana", name: "Banana", description: "", prompt: "" }),
+          MockFactory.createPanelist(0, { name: "Sage" }),
+          MockFactory.createCharacter({ id: "tomato", name: "Tomato", description: "", prompt: "" }),
         ]}
         currentSpeakerId="banana"
         councilState="playing"

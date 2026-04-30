@@ -2,6 +2,7 @@
 import { renderHook, act } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { useCouncilMachine } from '@council/hooks/useCouncilMachine';
+import { MockFactory } from '../factories/MockFactory';
 // import { useCouncilSocket } from "@council/hooks/useCouncilSocket"; // doing manual mock
 
 // --- Mocks ---
@@ -72,7 +73,7 @@ describe('useCouncilMachine', () => {
             currentMeetingId: 0,
             liveKey: 'test-live-key',
             replayManifest: null,
-            topic: { id: 't', title: 'T', description: 'D', prompt: 'Test Topic' },
+            topic: MockFactory.createTopic({ id: 't', title: 'T', description: 'D', prompt: 'Test Topic' }),
             participants: [],
             audioContext: audioContextMock,
             setUnrecoverableError: vi.fn(),
@@ -441,7 +442,7 @@ describe('useCouncilMachine', () => {
                 liveKey: 'rotated-key',
                 meeting: {
                     _id: 77,
-                    topic: { id: 't', title: 'T', description: '', prompt: '' },
+                    topic: MockFactory.createTopic({ id: 't', title: 'T', description: '', prompt: '' }),
                     characters: [],
                     conversation: [
                         { id: 'a', text: 'Hi', speaker: 'banana', type: 'message' },
@@ -471,7 +472,7 @@ describe('useCouncilMachine', () => {
                 liveKey: 'k',
                 meeting: {
                     _id: 1,
-                    topic: { id: 't', title: 'T', description: '', prompt: '' },
+                    topic: MockFactory.createTopic({ id: 't', title: 'T', description: '', prompt: '' }),
                     characters: [],
                     conversation: [
                         { id: 'a', text: 'Hi', speaker: 'banana', type: 'message' },

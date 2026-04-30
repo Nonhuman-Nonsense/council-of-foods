@@ -4,6 +4,7 @@ import CouncilOverlays, { CouncilOverlayType } from '@council/overlays/CouncilOv
 import type { ReactNode } from 'react';
 import type { Character } from '@shared/ModelTypes';
 import '@testing-library/jest-dom';
+import { MockFactory } from '../factories/MockFactory';
 
 // Mock Child Components
 vi.mock('@council/overlays/Name', () => ({
@@ -39,13 +40,14 @@ describe('CouncilOverlays', () => {
     const mockProceedWithHumanName = vi.fn();
     const mockcancelOverlay = vi.fn();
     const mockSummary = { text: 'Test Summary Content' };
-    const mockParticipants: Character[] = [{
-        id: 'water',
-        name: 'Water',
-        voice: 'alloy',
-        description: '',
-        prompt: 'You are Water...'
-    }];
+    const mockParticipants: Character[] = [
+        MockFactory.createCharacter({
+            id: 'water',
+            name: 'Water',
+            description: '',
+            prompt: 'You are Water...',
+        }),
+    ];
 
     const defaultProps = {
         activeOverlay: null as CouncilOverlayType,

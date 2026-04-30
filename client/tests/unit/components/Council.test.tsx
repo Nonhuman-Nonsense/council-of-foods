@@ -2,6 +2,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import Council from '@council/Council';
 import '@testing-library/jest-dom';
+import { MockFactory } from '../factories/MockFactory';
 
 // --- Mocks ---
 
@@ -34,7 +35,7 @@ vi.mock('@api/getMeeting.js', () => ({
 
 const mockGetMeeting = vi.fn().mockResolvedValue({
     _id: 123,
-    topic: { id: 't', title: 'T', description: 'D', prompt: 'p' },
+    topic: MockFactory.createTopic({ id: 't', title: 'T', description: 'D', prompt: 'p' }),
     characters: [],
     conversation: [],
     audio: [],
@@ -114,7 +115,7 @@ describe('Council Component', () => {
     const defaultProps = {
         liveKey: 'test-creator',
         setliveKey: vi.fn(),
-        topic: { id: 't', title: 'T', description: 'D', prompt: 'p' },
+        topic: MockFactory.createTopic({ id: 't', title: 'T', description: 'D', prompt: 'p' }),
         setTopic: vi.fn(),
         setUnrecoverableError: vi.fn(),
         setConnectionError: vi.fn(),
