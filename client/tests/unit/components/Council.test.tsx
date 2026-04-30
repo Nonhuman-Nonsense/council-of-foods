@@ -58,14 +58,7 @@ vi.mock('@council/overlays/CouncilOverlays', () => ({ default: () => <div>Counci
 vi.mock('@main/Loading', () => ({ default: () => <div>Loading...</div> }));
 vi.mock('@council/output/Output', () => ({ default: () => <div>Output</div> }));
 vi.mock('@council/humanInput/HumanInput', () => ({ default: () => <div>Human Input</div> }));
-// Mock Background to avoid Memoization issues or complex rendering if any
-vi.mock('@council/Council', async (importOriginal) => {
-    const actual = await importOriginal<any>();
-    return {
-        ...actual,
-        Background: () => <div data-testid="background">Background</div>
-    };
-});
+vi.mock('@council/FoodsCouncilScene', () => ({ default: () => <div data-testid="foods-scene">Foods Scene</div> }));
 
 
 // Mock useCouncilMachine Hook
