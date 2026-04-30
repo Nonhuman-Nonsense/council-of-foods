@@ -5,6 +5,7 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
+    "@ffprobe-installer/ffprobe": "^2.1.2",
     "@types/node": "^25.6.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
@@ -28,6 +29,8 @@
     "zustand": "^5.0.12"
   },
   "scripts": {
+    "predev": "node scripts/sync-character-media.mjs",
+    "prebuild": "node scripts/sync-character-media.mjs",
     "dev": "vite",
     "generate-icons": "node scripts/generate-icons.mjs",
     "build": "tsc -p tsconfig.build.json && vite build",

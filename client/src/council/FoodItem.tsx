@@ -1,6 +1,7 @@
 import type { Character } from "@shared/ModelTypes";
 
 import React, { useMemo } from "react";
+import { characterRatios } from "@/generated/characterMedia";
 import FoodAnimation from "./FoodAnimation";
 import { dvh } from "@/utils";
 
@@ -9,22 +10,7 @@ interface DisplayFood extends Character {
   size?: number;
 }
 
-const videoBaseSize = 800;
-const videoWithShadowSize: Record<string, number> = {
-  "avocado": 1080,
-  "banana": 1080,
-  "beer": 1080,
-  "bean": 1080,
-  "lollipop": 1080,
-  "maize": 1080,
-  "meat": 1080,
-  "mushroom": 1080,
-  "potato": 1080,
-  "tomato": 1080,
-  "water": 1080,
-  "kale": 1000,
-  "honey": 800
-};
+const defaultVideoRatio = 1080 / 800;
 
 interface FoodItemProps {
   food: DisplayFood;
@@ -44,7 +30,7 @@ interface FoodItemProps {
  * Core Logic:
  * - **Positioning**: Calculates a parabolic curve to arrange foods in a semi-circle during "overview" mode.
  * - **Zooming**: Transitions the food to a large, central position when it becomes the `currentSpeakerId`.
- * - **Sizing**: Normalizes video sizes based on `videoWithShadowSize` map to ensure visual consistency.
+ * - **Sizing**: Uses generated video ratios so rendered widths stay in sync with the source media.
  */
 function FoodItem({ food, index, total, currentSpeakerId, isPaused, zoomIn }: FoodItemProps): React.ReactElement {
 
@@ -52,7 +38,7 @@ function FoodItem({ food, index, total, currentSpeakerId, isPaused, zoomIn }: Fo
   const overviewSize = 12;
   const zoomInSize = 55;
 
-  const videoSize = (food.id && videoWithShadowSize[food.id]) ? videoWithShadowSize[food.id] : 1080;
+  const videoRatio = (food.id && characterRatios[food.id]) ? characterRatios[food.id] : defaultVideoRatio;
 
   /* -------------------------------------------------------------------------- */
   /*                                 Calculations                               */
@@ -66,13 +52,13 @@ function FoodItem({ food, index, total, currentSpeakerId, isPaused, zoomIn }: Fo
     const size = (zoomIn && currentSpeakerId === food.id ? zoomInSize * ((fSize - 1) / 2 + 1) : overviewSize * fSize); // 12% of the window's width
     const sizeUnit = zoomIn && currentSpeakerId === food.id ? dvh : "vw";
     return {
-      width: `${size * videoSize / videoBaseSize + sizeUnit}`,
+      width: `${size * videoRatio + sizeUnit}`,
       height: `${size + sizeUnit}`,
       animation: "2s foodAppearing",
       animationDelay: 0.4 * index + "s",
       animationFillMode: "both",
     };
-  }, [zoomIn, currentSpeakerId, food.id, food.size, index, videoSize]);
+  }, [zoomIn, currentSpeakerId, food.id, food.size, index, videoRatio]);
 
   const singleFoodStyle: React.CSSProperties = {
     position: "relative",
@@ -132,7 +118,7 @@ function FoodItem({ food, index, total, currentSpeakerId, isPaused, zoomIn }: Fo
         position: "absolute",
         left: `${left}%`,
         top: `calc(${top}vw)`,
-        width: `${videoSize / videoBaseSize * overviewSize + "vw"}`,
+        width: `${videoRatio * overviewSize + "vw"}`,
         height: `${overviewSize + "vw"}`,
         transform: "translate(-50%, -50%)",
         opacity: (zoomIn ? "0" : "1"),
@@ -141,7 +127,7 @@ function FoodItem({ food, index, total, currentSpeakerId, isPaused, zoomIn }: Fo
         alignItems: "flex-end",
       };
     }
-  }, [index, total, zoomIn, currentSpeakerId, food.id, videoSize]); // Dependencies
+  }, [index, total, zoomIn, currentSpeakerId, food.id, videoRatio]); // Dependencies
 
   /* -------------------------------------------------------------------------- */
   /*                                   Render                                   */
