@@ -1,17 +1,32 @@
+/**
+ * Reads forest character image/video dimensions from client/src/assets/characters,
+ * verifies all video encodes share one aspect ratio, and writes
+ * src/generated/characterMedia.ts.
+ *
+ * Video-type characters use large/ and small/ encodes (HEVC + VP9). Image-type
+ * characters use images/*.avif.
+ */
 import { execFileSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import ffprobe from "@ffprobe-installer/ffprobe";
+import imageSize from "image-size";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const clientRoot = join(__dirname, "..");
 const sharedRoot = join(clientRoot, "../shared");
 const characterAssets = join(clientRoot, "src", "assets", "characters");
+const sceneManifestPath = join(sharedRoot, "prompts", "forest_characters.json");
 const outPath = join(clientRoot, "src", "generated", "characterMedia.ts");
 
-// Allow tiny drift between codecs; still catches materially wrong aspect ratios.
+const entries = JSON.parse(readFileSync(sceneManifestPath, "utf8"));
+if (!Array.isArray(entries)) {
+  throw new Error(`${sceneManifestPath} must be a JSON array.`);
+}
+
+// Allow tiny drift between codecs and large/small encodes; still catches materially wrong aspect ratios.
 const RATIO_EPS = 0.005;
 const RATIO_IDENTICAL_EPS = 1e-12;
 
@@ -19,24 +34,13 @@ function filenameId(id) {
   return String(id).toLowerCase().replaceAll(" ", "_");
 }
 
-function getCharactersFileBasename() {
-  const metadataPath = join(sharedRoot, "prompts", "characterSetupMetadata.ts");
-  const source = readFileSync(metadataPath, "utf8");
-  const match = source.match(/CHARACTERS_FILE\s*=\s*"([^"]+)"/);
-  if (!match) {
-    throw new Error(`Could not read CHARACTERS_FILE from ${metadataPath}`);
+function getImageDimensions(absPath) {
+  const buf = readFileSync(absPath);
+  const result = imageSize(buf);
+  if (!result.width || !result.height) {
+    throw new Error(`Could not read dimensions for image: ${absPath}`);
   }
-  return match[1];
-}
-
-function loadCharacterEntries(language = "en") {
-  const charactersFile = getCharactersFileBasename();
-  const manifestPath = join(sharedRoot, "prompts", `${charactersFile}_${language}.json`);
-  const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
-  if (!Array.isArray(manifest?.characters)) {
-    throw new Error(`${manifestPath} must contain a characters array.`);
-  }
-  return manifest.characters.map(({ id }) => ({ id, type: "video" }));
+  return { width: result.width, height: result.height };
 }
 
 function getVideoDimensions(absPath) {
@@ -137,8 +141,6 @@ ${ratioLines.join("\n")}
 }
 
 function main() {
-  const entries = loadCharacterEntries();
-
   /** @type {Record<string, { width: number; height: number }>} */
   const dimensions = {};
   /** @type {Record<string, number>} */
@@ -147,30 +149,54 @@ function main() {
   for (const entry of entries) {
     const id = entry.id;
     const basename = filenameId(id);
-    const relPaths = [
-      join("videos", `${basename}-vp9-chrome.webm`),
-      join("videos", `${basename}-hevc-safari.mp4`),
-    ];
-    const measured = [];
 
-    for (const relPath of relPaths) {
+    if (entry.type === "image") {
+      const relPath = join("images", `${basename}.avif`);
       const absPath = join(characterAssets, relPath);
       try {
-        const { width, height } = getVideoDimensions(absPath);
-        measured.push({ path: relPath, width, height });
+        const { width, height } = getImageDimensions(absPath);
+        dimensions[id] = { width, height };
+        ratios[id] = ratioKey(width, height);
       } catch (error) {
         console.error(
-          `[sync-character-media] Failed reading video for "${id}" (${absPath}):`,
+          `[sync-character-media] Failed reading image for "${id}" (${absPath}):`,
           error.message || error,
         );
         process.exit(1);
       }
+      continue;
     }
 
-    assertSameRatio(id, `${relPaths.length} encode(s)`, measured);
-    const { width, height } = measured[0];
-    dimensions[id] = { width, height };
-    ratios[id] = ratioKey(width, height);
+    if (entry.type === "video") {
+      const relPaths = [
+        join("large", `${basename}-vp9-chrome.webm`),
+        join("large", `${basename}-hevc-safari.mp4`),
+        join("small", `${basename}-vp9-chrome.webm`),
+        join("small", `${basename}-hevc-safari.mp4`),
+      ];
+      const measured = [];
+      for (const relPath of relPaths) {
+        const absPath = join(characterAssets, relPath);
+        try {
+          const { width, height } = getVideoDimensions(absPath);
+          measured.push({ path: relPath, width, height });
+        } catch (error) {
+          console.error(
+            `[sync-character-media] Failed reading video for "${id}" (${absPath}):`,
+            error.message || error,
+          );
+          process.exit(1);
+        }
+      }
+      assertSameRatio(id, `${relPaths.length} encode(s)`, measured);
+      const { width, height } = measured[0];
+      dimensions[id] = { width, height };
+      ratios[id] = ratioKey(width, height);
+      continue;
+    }
+
+    console.error(`Unknown type for "${id}": ${entry.type}`);
+    process.exit(1);
   }
 
   writeOutput(dimensions, ratios);

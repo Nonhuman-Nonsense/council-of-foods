@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo, createRef, CSSProperties, type Re
 import FoodAnimation from "@council/FoodAnimation";
 import { dvh, minWindowHeight, useMobile, useDocumentVisibility } from "@/utils";
 import forestCharacters from "@shared/prompts/forest_characters.json";
-import { forestCharacterRatios } from "./generated/forestCharacterRatios";
+import { characterRatios } from "@/generated/characterMedia";
 import { forestBackgroundUrls } from "@assets/backgrounds/index";
 import {
     characterAmbienceUrl,
@@ -25,9 +25,9 @@ type ForestProps = {
 
 /** Build-time sync guarantees a ratio per manifest id; fail fast if manifest and generated file drift. */
 function ratioFor(id: string): number {
-    const r = forestCharacterRatios[id];
+    const r = characterRatios[id];
     if (r === undefined) {
-        throw new Error(`Forest: missing forestCharacterRatios entry for id "${id}". Run prebuild / sync script.`);
+        throw new Error(`Forest: missing generated character ratio for id "${id}". Run prebuild / sync script.`);
     }
     return r;
 }
