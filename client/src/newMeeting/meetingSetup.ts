@@ -1,10 +1,10 @@
 import type { Topic } from "@shared/ModelTypes";
 import { toTitleCase } from "@/utils";
 import type { TopicsData } from "@main/topicsBundle";
-import { getFoodsBundle } from "./FoodUtils";
-import type { Food } from "./FoodUtils";
+import { getCharacterSetupBundle } from "./CharacterSetup";
+import type { MeetingCharacter } from "./CharacterSetup";
 
-export type MeetingFoodsI18n = {
+export type MeetingCharactersI18n = {
   oneHuman: string;
   twoHumansSuffix: string;
 };
@@ -65,36 +65,36 @@ export function buildTopicFromSelection(params: {
 }
 
 /**
- * Validates foods-step state and builds the `Food[]` passed to `createMeeting`,
+ * Validates foods-step state and builds the meeting `characters` payload,
  * including chair `[FOODS]` / `[HUMANS]` prompt injection.
  */
-export function buildMeetingFoodsPayload(params: {
+export function buildMeetingCharactersPayload(params: {
   language: string;
-  selectedFoods: string[];
-  humans: Food[];
+  selectedCharacters: string[];
+  humans: MeetingCharacter[];
   numberOfHumans: number;
-  labels: MeetingFoodsI18n;
-}): { ok: true; foods: Food[] } | { ok: false; error: string } {
-  const { language, selectedFoods, humans, numberOfHumans, labels } = params;
-  const foodData = getFoodsBundle(language);
-  const baseFoods = foodData.foods;
-  const foods = [...baseFoods, ...humans.slice(0, numberOfHumans)];
+  labels: MeetingCharactersI18n;
+}): { ok: true; characters: MeetingCharacter[] } | { ok: false; error: string } {
+  const { language, selectedCharacters, humans, numberOfHumans, labels } = params;
+  const characterSetupData = getCharacterSetupBundle(language);
+  const baseCharacters = characterSetupData.foods;
+  const characters = [...baseCharacters, ...humans.slice(0, numberOfHumans)];
 
   const minFoods = 2 + 1;
   const maxFoods = 6 + 1;
 
-  if (selectedFoods.filter((id) => !id.startsWith("panelist")).length < minFoods) {
+  if (selectedCharacters.filter((id) => !id.startsWith("panelist")).length < minFoods) {
     return {
       ok: false,
       error:
         "Select at least two foods besides the chair (three non-human participants minimum), then try again.",
     };
   }
-  if (selectedFoods.length > maxFoods) {
+  if (selectedCharacters.length > maxFoods) {
     return { ok: false, error: "Too many participants (at most six foods plus the chair)." };
   }
 
-  const selectedHumans = selectedFoods.filter((id) => id.startsWith("panelist"));
+  const selectedHumans = selectedCharacters.filter((id) => id.startsWith("panelist"));
   for (const humanId of selectedHumans) {
     const index = Number(humanId.slice(-1));
     const human = humans[index];
@@ -106,7 +106,7 @@ export function buildMeetingFoodsPayload(params: {
     }
   }
 
-  const names = selectedFoods.map((id) => foods.find((food) => food.id === id)?.name);
+  const names = selectedCharacters.map((id) => characters.find((character) => character.id === id)?.name);
   if (names.some((name) => name === undefined)) {
     return { ok: false, error: "Selection references an unknown participant." };
   }
@@ -114,30 +114,31 @@ export function buildMeetingFoodsPayload(params: {
     return { ok: false, error: "All participants must have unique names." };
   }
 
-  const participatingFoods = selectedFoods.filter((id) => !id.startsWith("panelist"));
-  const participatingHumans = selectedFoods.filter((id) => id.startsWith("panelist"));
+  const participatingFoods = selectedCharacters.filter((id) => !id.startsWith("panelist"));
+  const participatingHumans = selectedCharacters.filter((id) => id.startsWith("panelist"));
 
   let participants = "";
   for (const [index, id] of participatingFoods.entries()) {
-    const food = foods.find((item) => item.id === id);
-    if (index !== 0 && food) {
-      participants += `${toTitleCase(food.name)}, `;
+    const character = characters.find((item) => item.id === id);
+    if (index !== 0 && character) {
+      participants += `${toTitleCase(character.name)}, `;
     }
   }
   if (participants.length > 2) {
     participants = participants.substring(0, participants.length - 2);
   }
 
-  const replacedFoods: Food[] = [];
-  for (const id of selectedFoods) {
-    const found = foods.find((food) => food.id === id);
+  const replacedCharacters: MeetingCharacter[] = [];
+  for (const id of selectedCharacters) {
+    const found = characters.find((character) => character.id === id);
     if (found) {
-      replacedFoods.push(structuredClone(found));
+      replacedCharacters.push(structuredClone(found));
     }
   }
 
-  if (replacedFoods.length > 0 && replacedFoods[0].prompt) {
-    replacedFoods[0].prompt = foodData.foods[0].prompt?.replace("[FOODS]", participants) || "";
+  if (replacedCharacters.length > 0 && replacedCharacters[0].prompt) {
+    replacedCharacters[0].prompt =
+      characterSetupData.foods[0].prompt?.replace("[FOODS]", participants) || "";
   }
 
   let humanPresentation = "";
@@ -149,19 +150,22 @@ export function buildMeetingFoodsPayload(params: {
     }
 
     for (const id of participatingHumans) {
-      const human = foods.find((food) => food.id === id);
+      const human = characters.find((character) => character.id === id);
       if (human) {
         humanPresentation += `${toTitleCase(human.name)}, ${human.description}. `;
       }
     }
     humanPresentation = humanPresentation.substring(0, humanPresentation.length - 2);
 
-    humanPresentation = foodData.panelWithHumans.replace("[HUMANS]", humanPresentation);
+    humanPresentation = characterSetupData.panelWithHumans.replace("[HUMANS]", humanPresentation);
   }
 
-  if (replacedFoods.length > 0 && replacedFoods[0].prompt) {
-    replacedFoods[0].prompt = replacedFoods[0].prompt.replace("[HUMANS]", humanPresentation);
+  if (replacedCharacters.length > 0 && replacedCharacters[0].prompt) {
+    replacedCharacters[0].prompt = replacedCharacters[0].prompt.replace("[HUMANS]", humanPresentation);
   }
 
-  return { ok: true, foods: replacedFoods };
+  return { ok: true, characters: replacedCharacters };
 }
+
+export type MeetingFoodsI18n = MeetingCharactersI18n;
+export const buildMeetingFoodsPayload = buildMeetingCharactersPayload;

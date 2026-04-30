@@ -4,7 +4,7 @@ import { MemoryRouter, Routes, Route } from "react-router";
 import NewMeeting from "@newMeeting/NewMeeting";
 import { createMeeting } from "@api/createMeeting";
 import routes from "@/routes.json";
-import type { Food } from "@newMeeting/SelectFoods";
+import type { MeetingCharacter } from "@newMeeting/SelectCharacters";
 
 vi.mock("react-i18next", () => ({
     useTranslation: () => ({ t: (key: string) => key, i18n: { language: "en" } }),
@@ -46,21 +46,21 @@ vi.mock("@newMeeting/SelectTopic", () => ({
     ),
 }));
 
-const twoFoods: Food[] = [
+const twoCharacters: MeetingCharacter[] = [
     { id: "water", name: "Water", description: "", type: "food", voice: "alloy" },
     { id: "tomato", name: "Tomato", description: "", type: "food", voice: "alloy" },
 ];
 
-vi.mock("@newMeeting/SelectFoods", () => ({
+vi.mock("@newMeeting/SelectCharacters", () => ({
     default: ({
         onContinueForward,
     }: {
-        onContinueForward: (data: { foods: Food[] }) => void | Promise<void>;
+        onContinueForward: (data: { characters: MeetingCharacter[] }) => void | Promise<void>;
     }) => (
         <button
             type="button"
             data-testid="foods-continue"
-            onClick={() => onContinueForward({ foods: twoFoods })}
+            onClick={() => onContinueForward({ characters: twoCharacters })}
         >
             continue foods
         </button>

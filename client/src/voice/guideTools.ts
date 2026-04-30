@@ -1,6 +1,6 @@
 import type { Topic, Character } from "@shared/ModelTypes";
-import type { Food } from "@newMeeting/FoodUtils";
-import { buildMeetingFoodsPayload, type MeetingFoodsI18n } from "@newMeeting/meetingSetup";
+import type { MeetingCharacter } from "@newMeeting/CharacterSetup";
+import { buildMeetingCharactersPayload, type MeetingCharactersI18n } from "@newMeeting/meetingSetup";
 import { useMeetingSetupStore } from "@stores/useMeetingSetupStore";
 
 export type JsonSchemaObject = {
@@ -26,21 +26,21 @@ export type ToolResult =
 export type ToolHandler = (args: unknown) => Promise<ToolResult> | ToolResult;
 
 export type GuideTopic = Pick<Topic, "id" | "title" | "description">;
-export type GuideFood = Pick<Character, "id" | "name"> & { description?: string };
+export type GuideCharacter = Pick<Character, "id" | "name"> & { description?: string };
 
 export type GuideToolContext = {
   topics: GuideTopic[];
-  foods: GuideFood[];
+  characters: GuideCharacter[];
 
   // Imperative handoff points (Phase 3 wires these)
   goToTopicStep: () => void;
   buildSelectedTopic: () => Topic;
   selectTopic: (topic: Topic) => void;
-  startMeeting: (foods: Food[]) => void | Promise<void>;
+  startMeeting: (characters: MeetingCharacter[]) => void | Promise<void>;
 
   meetingStep: "topic" | "foods";
   voiceGuideLanguage: string;
-  meetingFoodsLabels: MeetingFoodsI18n;
+  meetingCharactersLabels: MeetingCharactersI18n;
 };
 
 function asObject(args: unknown): Record<string, unknown> | null {
@@ -52,7 +52,7 @@ function asString(v: unknown): string | null {
   return typeof v === "string" ? v : null;
 }
 
-export function createGuideTools(_ctx: Pick<GuideToolContext, "topics" | "foods">): RealtimeTool[] {
+export function createGuideTools(_ctx: Pick<GuideToolContext, "topics" | "characters">): RealtimeTool[] {
   return [
     {
       type: "function",
@@ -208,13 +208,13 @@ export function createGuideToolHandlers(ctx: GuideToolContext): Record<string, T
     },
     list_foods: () => ({
       ok: true,
-      data: ctx.foods.map((f) => ({ id: f.id, name: f.name })),
+      data: ctx.characters.map((character) => ({ id: character.id, name: character.name })),
     }),
     describe_food: (raw) => {
       const obj = asObject(raw);
       const foodId = asString(obj?.foodId);
       if (!foodId) return { ok: false, error: "Missing foodId" };
-      const found = ctx.foods.find((f) => f.id === foodId);
+      const found = ctx.characters.find((character) => character.id === foodId);
       if (!found) return { ok: false, error: `Unknown foodId: ${foodId}` };
       return { ok: true, data: found };
     },
@@ -222,10 +222,10 @@ export function createGuideToolHandlers(ctx: GuideToolContext): Record<string, T
       const obj = asObject(raw);
       const foodId = asString(obj?.foodId);
       if (!foodId) return { ok: false, error: "Missing foodId" };
-      if (!ctx.foods.some((f) => f.id === foodId) && !foodId.startsWith("panelist")) {
+      if (!ctx.characters.some((character) => character.id === foodId) && !foodId.startsWith("panelist")) {
         return { ok: false, error: `Unknown foodId: ${foodId}` };
       }
-      const success = useMeetingSetupStore.getState().handleSelectFoodId(foodId);
+      const success = useMeetingSetupStore.getState().handleSelectCharacterId(foodId);
       if (!success) {
         return { ok: false, error: "Maximum number of characters (6 plus the chair) already selected." };
       }
@@ -235,20 +235,24 @@ export function createGuideToolHandlers(ctx: GuideToolContext): Record<string, T
       const obj = asObject(raw);
       const foodId = asString(obj?.foodId);
       if (!foodId) {
-        useMeetingSetupStore.getState().setHoveredFood(null);
+        useMeetingSetupStore.getState().setHoveredCharacter(null);
         return { ok: true };
       }
-      if (!ctx.foods.some((f) => f.id === foodId) && !foodId.startsWith("panelist") && foodId !== "addhuman") {
+      if (
+        !ctx.characters.some((character) => character.id === foodId) &&
+        !foodId.startsWith("panelist") &&
+        foodId !== "addhuman"
+      ) {
         return { ok: false, error: `Unknown foodId: ${foodId}` };
       }
-      useMeetingSetupStore.getState().setHoveredFood(foodId);
+      useMeetingSetupStore.getState().setHoveredCharacter(foodId);
       return { ok: true };
     },
     deselect_food: (raw) => {
       const obj = asObject(raw);
       const foodId = asString(obj?.foodId);
       if (!foodId) return { ok: false, error: "Missing foodId" };
-      useMeetingSetupStore.getState().handleDeselectFoodId(foodId);
+      useMeetingSetupStore.getState().handleDeselectCharacterId(foodId);
       return { ok: true };
     },
     start_meeting: async () => {
@@ -258,16 +262,16 @@ export function createGuideToolHandlers(ctx: GuideToolContext): Record<string, T
           error: "Choose a topic first; start_meeting only works on the foods step after select_topic.",
         };
       }
-      const { selectedFoods, humans, numberOfHumans } = useMeetingSetupStore.getState();
-      const built = buildMeetingFoodsPayload({
+      const { selectedCharacters, humans, numberOfHumans } = useMeetingSetupStore.getState();
+      const built = buildMeetingCharactersPayload({
         language: ctx.voiceGuideLanguage,
-        selectedFoods,
+        selectedCharacters,
         humans,
         numberOfHumans,
-        labels: ctx.meetingFoodsLabels,
+        labels: ctx.meetingCharactersLabels,
       });
       if (!built.ok) return built;
-      await Promise.resolve(ctx.startMeeting(built.foods));
+      await Promise.resolve(ctx.startMeeting(built.characters));
       return { ok: true, data: { started: true } };
     },
   };

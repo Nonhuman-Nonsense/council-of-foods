@@ -3,8 +3,8 @@ import { useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import VoiceGuideOverlay from "./VoiceGuideOverlay";
 import { getTopicsBundle } from "@main/topicsBundle";
-import { getFoodsBundle } from "@newMeeting/FoodUtils";
-import type { Food } from "@newMeeting/FoodUtils";
+import { getCharacterSetupBundle } from "@newMeeting/CharacterSetup";
+import type { MeetingCharacter } from "@newMeeting/CharacterSetup";
 import { buildMeetingSetupSyncMessage, buildTopicFromSelection, type MeetingSetupUserEvent } from "@newMeeting/meetingSetup";
 import { useMeetingSetupStore } from "@stores/useMeetingSetupStore";
 import { buildGuidePrompt } from "./guidePrompt";
@@ -17,7 +17,7 @@ type MeetingVoiceGuideProps = {
   lastUserEvent: MeetingSetupUserEvent | null;
   onGoToTopicStep: () => void;
   onSelectTopic: (topic: Topic) => void;
-  onStartMeeting: (foods: Food[]) => Promise<void> | void;
+  onStartMeeting: (characters: MeetingCharacter[]) => Promise<void> | void;
 };
 
 export default function MeetingVoiceGuide({
@@ -34,7 +34,7 @@ export default function MeetingVoiceGuide({
   } = useMeetingSetupStore();
 
   const topicsBundle = useMemo(() => getTopicsBundle(i18n.language), [i18n.language]);
-  const foodsBundle = useMemo(() => getFoodsBundle(i18n.language), [i18n.language]);
+  const characterSetupBundle = useMemo(() => getCharacterSetupBundle(i18n.language), [i18n.language]);
 
   const guideTopics = useMemo(() => {
     return [
@@ -51,13 +51,13 @@ export default function MeetingVoiceGuide({
     ];
   }, [topicsBundle]);
 
-  const guideFoods = useMemo(() => {
-    return foodsBundle.foods.map((food: Food) => ({
-      id: food.id,
-      name: food.name,
-      description: food.description,
+  const guideCharacters = useMemo(() => {
+    return characterSetupBundle.foods.map((character: MeetingCharacter) => ({
+      id: character.id,
+      name: character.name,
+      description: character.description,
     }));
-  }, [foodsBundle]);
+  }, [characterSetupBundle]);
 
   const instructions = useMemo(() => {
     return buildGuidePrompt({
@@ -66,16 +66,16 @@ export default function MeetingVoiceGuide({
         "Council of Foods is a political arena where foods debate the broken food system. " +
         "In this setup wizard, the visitor chooses a topic and selects food characters (and optionally human panelists) to join the council.",
       topics: guideTopics,
-      foods: guideFoods,
+      characters: guideCharacters,
     });
-  }, [guideFoods, guideTopics]);
+  }, [guideCharacters, guideTopics]);
 
   const voice = useVoiceGuide({
     instructions,
-    tools: createGuideTools({ topics: guideTopics, foods: guideFoods }),
+    tools: createGuideTools({ topics: guideTopics, characters: guideCharacters }),
     toolHandlers: createGuideToolHandlers({
       topics: guideTopics,
-      foods: guideFoods,
+      characters: guideCharacters,
       goToTopicStep: onGoToTopicStep,
       buildSelectedTopic: () =>
         buildTopicFromSelection({
@@ -87,7 +87,7 @@ export default function MeetingVoiceGuide({
       startMeeting: onStartMeeting,
       meetingStep: step,
       voiceGuideLanguage: i18n.language,
-      meetingFoodsLabels: {
+      meetingCharactersLabels: {
         oneHuman: t("selectfoods.human"),
         twoHumansSuffix: t("selectfoods.twohumans"),
       },
