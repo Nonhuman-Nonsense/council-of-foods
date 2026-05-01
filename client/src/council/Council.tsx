@@ -199,14 +199,9 @@ function Council({
 
   return (
     <>
-      {councilState === "loading" && <Loading />}
-      {liveKey && (councilState === "human_input" || councilState === "human_panelist") && (
-        <HumanInput
-          liveKey={liveKey}
-          isPanelist={councilState === "human_panelist"}
-          currentSpeakerName={participants.find((p) => p.id === currentSpeakerId)?.name || ""}
-          onSubmitHumanMessage={handleOnSubmitHumanMessage}
-        />
+      {councilState === 'loading' && <Loading />}
+      {liveKey && (councilState === 'human_input' || councilState === 'human_panelist') && (
+        <HumanInput liveKey={liveKey} isPanelist={(councilState === 'human_panelist')} currentSpeakerName={participants.find(p => p.id === currentSpeakerId)?.name || ""} onSubmitHumanMessage={handleOnSubmitHumanMessage} />
       )}
       <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, display: "flex", flexDirection: "column", alignItems: "center", overflow: "visible" }}>
         <Output

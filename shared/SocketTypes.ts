@@ -80,7 +80,6 @@ export interface ClientKeyResponse {
 // stricter `Message` variants before persistence/broadcast, which keeps the shared message union honest.
 export interface SubmitHumanMessagePayload {
     text: string;
-    askParticular?: string;
 }
 
 export interface SubmitHumanPanelistPayload {
