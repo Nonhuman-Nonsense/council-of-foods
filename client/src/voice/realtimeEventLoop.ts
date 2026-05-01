@@ -11,7 +11,7 @@
  *    cascading `status: "cancelled"` events we saw in production logs).
  */
 
-import type { RealtimeSessionConfig } from "./realtimeProtocol";
+import type { RealtimeSessionConfig } from "@realtime/realtimeProtocol";
 import type { ToolHandler, ToolResult } from "./guideTools";
 import type { CaptionScheduler } from "./captionScheduler";
 

@@ -2,15 +2,15 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { RealtimeTool, ToolHandler } from "./guideTools";
 import {
   createRealtimeConnection,
-  fetchVoiceGuideBootstrap,
+  fetchRealtimeBootstrap,
   type RealtimeConnection,
-} from "./realtimeConnection";
+} from "@realtime/realtimeConnection";
 import { createEventLoop } from "./realtimeEventLoop";
 import {
-  mergeVoiceGuideRealtimeSession,
+  mergeRealtimeSessionWithClientConfig,
   type RealtimeSessionConfig,
   type RealtimeSessionServerDefaults,
-} from "./realtimeProtocol";
+} from "@realtime/realtimeProtocol";
 import { createCaptionScheduler, type CaptionScheduler } from "./captionScheduler";
 import { createRemoteAudioAnchor, type RemoteAudioAnchor } from "./remoteAudioAnchor";
 
@@ -84,7 +84,7 @@ function attachRemoteAudio(track: MediaStreamTrack, audioElement: HTMLAudioEleme
 }
 
 /**
- * React glue around the pure realtimeConnection + realtimeEventLoop modules.
+ * React glue around the pure @realtime/realtimeConnection + realtimeEventLoop modules.
  *
  * Design choices:
  *  - Tools / handlers live in a ref, so `start()` doesn't re-bind on every
@@ -97,7 +97,7 @@ function attachRemoteAudio(track: MediaStreamTrack, audioElement: HTMLAudioEleme
  *    use `session.update`. Skipping this caused "server_error" on the first
  *    auto-greeting and tool-less chitchat afterwards.
  *  - Model, voice, TTS, transcription, VAD, and audio speed come from the server
- *    (`GET /api/voice-guide/bootstrap`, backed by GlobalOptions).
+ *    (`POST /api/realtime/bootstrap` with `feature: "voice-guide"`, backed by GlobalOptions).
  *    Instructions and tool schemas stay on the client.
  *  - StrictMode-safe: `start()` uses an attempt counter + AbortController so
  *    the dev-only mount → unmount → mount cycle doesn't leak two parallel
@@ -134,7 +134,7 @@ export function useVoiceGuide(params: UseVoiceGuideParams): VoiceGuideState {
   const handlersRef = useRef<Record<string, ToolHandler>>(toolHandlers);
   const instructionsRef = useRef(instructions);
   const toolsRef = useRef(tools);
-  /** Set after a successful `GET /api/voice-guide/bootstrap` during `start()`. */
+  /** Set after a successful voice-guide bootstrap during `start()`. */
   const serverDefaultsRef = useRef<RealtimeSessionServerDefaults | null>(null);
   useEffect(() => {
     handlersRef.current = toolHandlers;
@@ -147,7 +147,7 @@ export function useVoiceGuide(params: UseVoiceGuideParams): VoiceGuideState {
     if (!defaults) {
       throw new Error("Voice guide realtime defaults not loaded");
     }
-    return mergeVoiceGuideRealtimeSession(defaults, instructionsRef.current, toolsRef.current);
+    return mergeRealtimeSessionWithClientConfig(defaults, instructionsRef.current, toolsRef.current);
   }, []);
 
   const clearAudioAnchorFallback = useCallback(() => {
@@ -213,7 +213,7 @@ export function useVoiceGuide(params: UseVoiceGuideParams): VoiceGuideState {
     let conn: RealtimeConnection | null = null;
     try {
       const settled = await Promise.allSettled([
-        fetchVoiceGuideBootstrap(debugLog, controller.signal),
+        fetchRealtimeBootstrap({ feature: "voice-guide" }, debugLog, controller.signal),
         navigator.mediaDevices.getUserMedia({
           audio: {
             echoCancellation: true,
@@ -301,6 +301,11 @@ export function useVoiceGuide(params: UseVoiceGuideParams): VoiceGuideState {
       conn = await createRealtimeConnection({
         session: buildSessionConfig(),
         iceServers,
+        callPath: "/api/realtime/call",
+        callBodyExtras: {
+          feature: "voice-guide",
+          provider: "inworld",
+        },
         micStream,
         log: debugLog,
         signal: controller.signal,

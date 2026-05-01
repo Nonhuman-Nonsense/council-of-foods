@@ -1,11 +1,11 @@
 /**
  * Inworld Realtime / OpenAI Realtime-compatible event types and session config.
  *
- * Kept as a separate module so connection logic and event-loop logic share a
- * single source of truth, and so non-React modules don't pull in React types.
+ * Kept separate from `src/voice` so human input and other features can share the
+ * realtime session shape without pulling voice-guide UI into the tree.
  */
 
-import type { RealtimeTool } from "./guideTools";
+import type { RealtimeTool } from "@voice/guideTools";
 
 export type SemanticVadEagerness = "low" | "medium" | "high";
 
@@ -36,10 +36,10 @@ export type RealtimeSessionConfig = {
   providerData?: Record<string, unknown>;
 };
 
-/** Subset built on the server from GlobalOptions (`GET /api/voice-guide/bootstrap`). */
+/** Subset built on the server from realtime bootstrap defaults. */
 export type RealtimeSessionServerDefaults = Pick<RealtimeSessionConfig, "type" | "model" | "output_modalities" | "audio">;
 
-export function mergeVoiceGuideRealtimeSession(
+export function mergeRealtimeSessionWithClientConfig(
   defaults: RealtimeSessionServerDefaults,
   instructions: string,
   tools: RealtimeTool[]
@@ -51,13 +51,13 @@ export function mergeVoiceGuideRealtimeSession(
   };
 }
 
-/** Shape of the payload we POST to /api/voice-guide/call. */
+/** Shape of the provider session payload sent to the shared realtime call endpoint. */
 export type RealtimeCallRequest = {
   sdp: string;
   session: RealtimeSessionConfig;
 };
 
-/** Session field from `GET /api/voice-guide/bootstrap`. */
-export type VoiceGuideRealtimeSessionResponse = {
+/** Session field returned by a shared realtime bootstrap response. */
+export type RealtimeSessionResponse = {
   session: RealtimeSessionServerDefaults;
 };
