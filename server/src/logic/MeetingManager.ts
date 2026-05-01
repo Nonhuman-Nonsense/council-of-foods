@@ -168,7 +168,7 @@ export class MeetingManager implements IMeetingManager {
         }
         const maxValid = conv.length - 1;
         if (index < 0 || index > maxValid) {
-            Logger.warn(`meeting ${meeting._id}`, `report_maximum_played_index ignored: index ${index} out of range 0..${maxValid}`);
+            Logger.info(`meeting ${meeting._id}`, `report_maximum_played_index ignored: index ${index} out of range 0..${maxValid}`);
             return;
         }
         await this.services.meetingsCollection.updateOne(

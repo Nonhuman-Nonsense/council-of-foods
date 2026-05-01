@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import ConversationControlIcon from "../ConversationControlIcon";
 import TextareaAutosize from 'react-textarea-autosize';
 import { useMobile, dvh } from "@/utils";
@@ -21,7 +21,7 @@ type OpenAIRealtimeEvent = InputAudioTranscriptionCompletedEvent; // Union with 
 interface HumanInputProps {
   isPanelist: boolean;
   currentSpeakerName: string;
-  onSubmitHumanMessage: (text: string, askParticular: string) => void;
+  onSubmitHumanMessage: (text: string) => void;
   liveKey: string;
 }
 
@@ -36,7 +36,7 @@ type TextareaStyle = Omit<React.CSSProperties, 'height'> & { height?: number };
  * Core Logic:
  * - **Voice Input**: Establishes a WebRTC connection to OpenAI ('startRealtimeSession') to stream audio and receive live transcripts.
  * - **Text Input**: Provides a fallback manual text entry.
- * - **Targeting**: Should allow selection of specific characters to address (logic partially implemented via `askParticular`).
+ * - **Routing**: The server infers whether the human is addressing a specific character.
  */
 function HumanInput({ isPanelist, currentSpeakerName, onSubmitHumanMessage, liveKey }: HumanInputProps): React.ReactElement {
   const [clientKey, setClientKey] = useState<string | null>(null);
@@ -44,7 +44,6 @@ function HumanInput({ isPanelist, currentSpeakerName, onSubmitHumanMessage, live
   const [canContinue, setCanContinue] = useState<boolean>(false);
   const [transcript, setTranscript] = useState<Record<string, string>>({});
   const [previousTranscript, setPreviousTranscript] = useState<string>("");
-  const [askParticular, _setAskParticular] = useState<string>("");
 
   const inputArea = useRef<HTMLTextAreaElement>(null);
   const isMobile = useMobile();
@@ -205,7 +204,7 @@ function HumanInput({ isPanelist, currentSpeakerName, onSubmitHumanMessage, live
 
   function submitAndContinue() {
     if (inputArea.current) {
-      onSubmitHumanMessage(inputArea.current.value.substring(0, maxInputLength), askParticular);
+      onSubmitHumanMessage(inputArea.current.value.substring(0, maxInputLength));
     }
   }
 
@@ -249,8 +248,6 @@ function HumanInput({ isPanelist, currentSpeakerName, onSubmitHumanMessage, live
     resize: "none",
     padding: "0",
   };
-
-  // TODO implement ask particular graphics
 
   return (<>
     <div style={wrapperStyle}>

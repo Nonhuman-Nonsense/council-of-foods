@@ -46,6 +46,9 @@ describe('HumanInputHandler (Isolated)', () => {
         };
 
         handler = new HumanInputHandler(mockContext);
+        handler.targetClassifier = {
+            inferTarget: vi.fn().mockResolvedValue(undefined)
+        };
     });
 
     describe('handleSubmitHumanMessage', () => {
@@ -85,6 +88,22 @@ describe('HumanInputHandler (Isolated)', () => {
 
             expect(mockContext.meeting.conversation).toHaveLength(2);
             expect(mockContext.startLoop).not.toHaveBeenCalled();
+        });
+
+        it('should persist inferred target ids while rendering the character name', async () => {
+            mockContext.meeting.conversation = [
+                { type: 'message', text: 'prev', id: '1' },
+                ...TestFactory.createAwaitingQuestion('Frank')
+            ];
+            handler.targetClassifier.inferTarget.mockResolvedValue('panelist0');
+
+            await handler.handleSubmitHumanMessage({ text: "What do you think?" });
+
+            const addedMsg = mockContext.meeting.conversation[1];
+            expect(handler.targetClassifier.inferTarget).toHaveBeenCalledWith(mockContext.meeting, "What do you think?");
+            expect(addedMsg.askParticular).toBe('panelist0');
+            expect(addedMsg.text).toContain('Frank said:');
+            expect(addedMsg.text).not.toContain('asked Alice');
         });
     });
 

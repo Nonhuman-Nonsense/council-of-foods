@@ -54,7 +54,6 @@ describe('HumanInput Component', () => {
     it('should render in idle state with mic icon', () => {
         render(
             <HumanInput
-                characters={[]}
                 isPanelist={false}
                 currentSpeakerName="TestSpeaker"
                 onSubmitHumanMessage={mockOnSubmit}
@@ -71,7 +70,6 @@ describe('HumanInput Component', () => {
     it('should request client key when component mounts', () => {
         render(
             <HumanInput
-                characters={[]}
                 isPanelist={false}
                 currentSpeakerName=""
                 onSubmitHumanMessage={mockOnSubmit}
@@ -84,7 +82,6 @@ describe('HumanInput Component', () => {
     it('should handle text input and submission', () => {
         render(
             <HumanInput
-                characters={[]}
                 isPanelist={false}
                 currentSpeakerName=""
                 onSubmitHumanMessage={mockOnSubmit}
@@ -105,13 +102,12 @@ describe('HumanInput Component', () => {
         // Click send
         fireEvent.click(sendButton);
 
-        expect(mockOnSubmit).toHaveBeenCalledWith('Hello World', '');
+        expect(mockOnSubmit).toHaveBeenCalledWith('Hello World');
     });
 
     it('should handle recording flow (click mic -> loading -> recording -> stop)', async () => {
         render(
             <HumanInput
-                characters={[]}
                 isPanelist={false}
                 currentSpeakerName=""
                 onSubmitHumanMessage={mockOnSubmit}
@@ -153,7 +149,6 @@ describe('HumanInput Component', () => {
     it('should show panelist-specific placeholder when isPanelist is true', () => {
         render(
             <HumanInput
-                characters={[]}
                 isPanelist={true}
                 currentSpeakerName="Mr. Potato"
                 onSubmitHumanMessage={mockOnSubmit}
@@ -163,11 +158,9 @@ describe('HumanInput Component', () => {
         expect(screen.getByPlaceholderText('human.panelist')).toBeInTheDocument();
     });
 
-    it.skip('should select and deselect a specific food to ask (askParticular)', async () => {
-        const characters = [{ name: 'Tomato' }, { name: 'Potato' }];
+    it('should submit text input without manual character targeting', () => {
         render(
             <HumanInput
-                characters={characters}
                 isPanelist={false}
                 currentSpeakerName=""
                 onSubmitHumanMessage={mockOnSubmit}
@@ -175,25 +168,17 @@ describe('HumanInput Component', () => {
             />
         );
 
-        const ringItems = document.getElementsByClassName('ringHover');
-        expect(ringItems.length).toBe(2);
-
-        // Interact with first item (Tomato)
-        fireEvent.click(ringItems[0]);
-
-        // Now type and submit
         const textarea = screen.getByPlaceholderText('human.1');
-        fireEvent.change(textarea, { target: { value: 'Question for Tomato' } });
+        fireEvent.change(textarea, { target: { value: 'Question for the council' } });
         const sendButton = screen.getByTestId('icon-send_message');
         fireEvent.click(sendButton);
 
-        expect(mockOnSubmit).toHaveBeenCalledWith('Question for Tomato', 'Tomato');
+        expect(mockOnSubmit).toHaveBeenCalledWith('Question for the council');
     });
 
     it('should NOT submit on Shift+Enter', () => {
         render(
             <HumanInput
-                characters={[]}
                 isPanelist={false}
                 currentSpeakerName=""
                 onSubmitHumanMessage={mockOnSubmit}
@@ -212,13 +197,12 @@ describe('HumanInput Component', () => {
 
         // Press Enter (no shift)
         fireEvent.keyDown(textarea, { key: 'Enter', shiftKey: false });
-        expect(mockOnSubmit).toHaveBeenCalledWith('Line 1', '');
+        expect(mockOnSubmit).toHaveBeenCalledWith('Line 1');
     });
 
     it('should enforce max input length', () => {
         render(
             <HumanInput
-                characters={[]}
                 isPanelist={false} // max 700
                 currentSpeakerName=""
                 onSubmitHumanMessage={mockOnSubmit}
