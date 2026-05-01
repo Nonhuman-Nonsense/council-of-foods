@@ -47,6 +47,14 @@ describe('MeetingManager - Speaker Selection', () => {
             expect(SpeakerSelector.calculateNextSpeaker(manager.meeting.conversation, manager.meeting.characters)).toBe(2); // Potato
         });
 
+        it('should also route direct questions when askParticular stores a character id', () => {
+            manager.meeting.conversation = [
+                { speaker: 'water', type: 'message' },
+                { speaker: 'Frank', type: 'human', askParticular: 'potato' }
+            ];
+            expect(SpeakerSelector.calculateNextSpeaker(manager.meeting.conversation, manager.meeting.characters)).toBe(2); // Potato
+        });
+
         it('should return to natural order after a direct response', () => {
             manager.meeting.conversation = [
                 { speaker: 'water', type: 'message' },         // Index 0
