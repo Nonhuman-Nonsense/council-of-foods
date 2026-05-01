@@ -1,9 +1,10 @@
 {
-    "conversationModel": "google-ai-studio/gemini-2.5-flash",
+    "conversationModel": "mistral/mistral-small-3-2",
+    "conversationReasoning": "none",
     "voiceModel": "gpt-4o-mini-tts",
     "inworldVoiceModel": "inworld-tts-1.5-mini",
-    "maxTokens": 50,
-    "chairMaxTokens": 50,
+    "maxTokens": 150,
+    "chairMaxTokens": 150,
     "conversationMaxLength": 5,
     "defaultAudioSpeed": 1.25,
     "raiseHandInvitationLength": 100,

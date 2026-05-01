@@ -18,19 +18,20 @@ vi.mock('@services/ConversationService.js', async () => {
                 model,
                 maxCompletionTokens,
                 temperature,
-                frequencyPenalty,
-                presencePenalty,
+                reasoning,
                 stop,
             }) => {
-                const completion = await getOpenAI().chat.completions.create({
+                const request = {
                     messages,
                     model,
                     max_completion_tokens: maxCompletionTokens,
                     temperature,
-                    frequency_penalty: frequencyPenalty,
-                    presence_penalty: presencePenalty,
                     stop,
-                });
+                };
+                if (reasoning && reasoning !== 'none') {
+                    request.reasoning_effort = reasoning;
+                }
+                const completion = await getOpenAI().chat.completions.create(request);
 
                 return {
                     id: completion.id ?? null,

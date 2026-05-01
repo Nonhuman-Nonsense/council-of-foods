@@ -90,15 +90,14 @@ export const MockFactory = {
     /** Session / global options — not persisted on StoredMeeting. */
     createServerOptions: (overrides: Partial<GlobalOptions> = {}): GlobalOptions =>
         ({
-            conversationModel: "anthropic/claude-opus-4-6",
+            conversationModel: "mistral/mistral-small-3-2",
+            conversationReasoning: "none",
             voiceModel: "gpt-4o-mini-tts",
             geminiVoiceModel: "gemini-2.5-flash-tts",
             inworldVoiceModel: "inworld-tts-1.5-mini",
             temperature: 1,
             maxTokens: 100,
             chairMaxTokens: 50,
-            frequencyPenalty: 0.0,
-            presencePenalty: 0.0,
             defaultAudioSpeed: 1.25,
             trimSentance: false,
             trimParagraph: true,
