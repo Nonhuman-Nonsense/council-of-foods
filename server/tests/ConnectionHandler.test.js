@@ -111,12 +111,12 @@ describe('ConnectionHandler', () => {
             const savedMeeting = MockFactory.createStoredMeeting({
                 _id: 123,
                 conversation: [
-                    { id: 'msg1', text: 'Has Audio', sentences: [], speaker: 'water' },
-                    { id: 'msg2', text: 'Missing Audio', sentences: [], speaker: 'potato' }
+                    { id: 'msg1', text: 'Has Audio', sentences: [], speaker: 'speaker1' },
+                    { id: 'msg2', text: 'Missing Audio', sentences: [], speaker: 'speaker2' }
                 ],
                 characters: [
-                    { id: 'water', name: 'Water', description: '', prompt: '', voice: 'alloy' },
-                    { id: 'potato', name: 'Potato', description: '', prompt: '', voice: 'alloy' }
+                    { id: 'speaker1', name: 'Speaker 1', description: '', prompt: '', voice: 'alloy' },
+                    { id: 'speaker2', name: 'Speaker 2', description: '', prompt: '', voice: 'alloy' }
                 ],
                 audio: ['msg1']
             });

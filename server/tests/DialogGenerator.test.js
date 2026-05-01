@@ -31,10 +31,11 @@ describe('DialogGenerator - Prompt Construction', () => {
     });
 
     it('should correctly format conversation history', () => {
-        const speaker = manager.meeting.characters[1]; // Tomato
+        const chair = manager.meeting.characters[0];
+        const speaker = manager.meeting.characters[1];
         const conversation = [
-            MockFactory.createMessage({ speaker: 'water', text: 'Hello' }), // Water (Chair)
-            MockFactory.createMessage({ speaker: 'tomato', text: 'Hi there' }) // Tomato (Self)
+            MockFactory.createMessage({ speaker: chair.id, text: 'Hello' }),
+            MockFactory.createMessage({ speaker: speaker.id, text: 'Hi there' })
         ];
 
         const messages = dialogGenerator.buildMessageStack(speaker, conversation, manager.meeting);
@@ -44,15 +45,15 @@ describe('DialogGenerator - Prompt Construction', () => {
 
         // Message 1 (Water)
         expect(messages[1].role).toBe("user");
-        expect(messages[1].content).toContain("Water: Hello");
+        expect(messages[1].content).toContain(`${chair.name}: Hello`);
 
         // Message 2 (Tomato/Self)
         expect(messages[2].role).toBe("assistant");
-        expect(messages[2].content).toContain("Tomato: Hi there");
+        expect(messages[2].content).toContain(`${speaker.name}: Hi there`);
 
         // Final message (Prompt for completion)
         expect(messages[3].role).toBe("system");
-        expect(messages[3].content).toBe("Tomato: ");
+        expect(messages[3].content).toBe(`${speaker.name}: `);
     });
 
     it('should correctly format a Human Panelist in history', () => {
@@ -150,8 +151,8 @@ describe('DialogGenerator - Text Cleaning & Post-Processing', () => {
     });
 
     it('should remove speaker name prefix from response', async () => {
-        const speaker = manager.meeting.characters[1]; // Tomato
-        mockGPTResponse("Tomato: Hello world");
+        const speaker = manager.meeting.characters[1];
+        mockGPTResponse(`${speaker.name}: Hello world`);
 
         const m = { ...manager.meeting, conversation: [] };
         const result = await dialogGenerator.generateTextFromGPT(
@@ -159,12 +160,12 @@ describe('DialogGenerator - Text Cleaning & Post-Processing', () => {
         );
 
         expect(result.response).toBe("Hello world");
-        expect(result.pretrimmed).toBe("Tomato:");
+        expect(result.pretrimmed).toBe(`${speaker.name}:`);
     });
 
     it('should remove markdown bold speaker name prefix', async () => {
-        const speaker = manager.meeting.characters[1]; // Tomato
-        mockGPTResponse("**Tomato**: Hello bold world");
+        const speaker = manager.meeting.characters[1];
+        mockGPTResponse(`**${speaker.name}**: Hello bold world`);
 
         const m = { ...manager.meeting, conversation: [] };
         const result = await dialogGenerator.generateTextFromGPT(
@@ -205,9 +206,10 @@ describe('DialogGenerator - Text Cleaning & Post-Processing', () => {
     });
 
     it('should cut off text if another character starts speaking', async () => {
-        const speaker = manager.meeting.characters[1]; // Tomato
+        const chair = manager.meeting.characters[0];
+        const speaker = manager.meeting.characters[1];
 
-        mockGPTResponse("I am talking. Water: Hey stop!");
+        mockGPTResponse(`I am talking. ${chair.name}: Hey stop!`);
 
         const m = { ...manager.meeting, conversation: [] };
         const result = await dialogGenerator.generateTextFromGPT(
@@ -215,7 +217,7 @@ describe('DialogGenerator - Text Cleaning & Post-Processing', () => {
         );
 
         expect(result.response).toBe("I am talking.");
-        expect(result.trimmed).toBe("Water: Hey stop!");
+        expect(result.trimmed).toBe(`${chair.name}: Hey stop!`);
     });
 
     it('should handle complex Chair List logic (Semicolon trimming)', async () => {

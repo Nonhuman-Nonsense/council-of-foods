@@ -3,7 +3,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import HumanInput from '@council/humanInput/HumanInput';
 import { useMobile } from '@/utils';
-import { getClientKey } from '@api/getClientKey';
+import { bootstrapHumanInputRealtimeSession } from '@api/realtimeSession';
+import { createRealtimeConnection } from '@/realtime/realtimeConnection';
 
 // Mocks
 vi.mock('react-i18next', () => ({
@@ -16,8 +17,12 @@ vi.mock('@/utils', () => ({
     mapFoodIndex: (l, i) => i
 }));
 
-vi.mock('@api/getClientKey', () => ({
-    getClientKey: vi.fn(),
+vi.mock('@api/realtimeSession', () => ({
+    bootstrapHumanInputRealtimeSession: vi.fn(),
+}));
+
+vi.mock('@/realtime/realtimeConnection', () => ({
+    createRealtimeConnection: vi.fn(),
 }));
 
 // Mock child components to avoid complex rendering issues
@@ -38,12 +43,29 @@ vi.mock('@council/ConversationControlIcon', () => ({
 describe('HumanInput Component', () => {
     let mockOnSubmit;
 
+    function deferred() {
+        let resolve;
+        let reject;
+        const promise = new Promise((res, rej) => {
+            resolve = res;
+            reject = rej;
+        });
+        return { promise, resolve, reject };
+    }
+
     beforeEach(() => {
         mockOnSubmit = vi.fn();
         useMobile.mockReturnValue(false);
-        getClientKey.mockResolvedValue({ value: 'mock_client_key' });
-        global.fetch = vi.fn().mockResolvedValue({
-            text: () => Promise.resolve("mock_sdp_answer")
+        bootstrapHumanInputRealtimeSession.mockResolvedValue({
+            provider: 'inworld',
+            iceServers: [],
+            session: { type: 'realtime' },
+        });
+        createRealtimeConnection.mockResolvedValue({
+            pc: {},
+            dc: {},
+            micStream: { id: 'mock-stream' },
+            close: vi.fn(),
         });
     });
 
@@ -67,7 +89,7 @@ describe('HumanInput Component', () => {
         expect(screen.getByPlaceholderText('human.1')).toBeInTheDocument();
     });
 
-    it('should request client key when component mounts', () => {
+    it('should not bootstrap a realtime session until recording starts', () => {
         render(
             <HumanInput
                 isPanelist={false}
@@ -76,7 +98,7 @@ describe('HumanInput Component', () => {
                 liveKey="test-key"
             />
         );
-        expect(getClientKey).toHaveBeenCalledWith({ language: 'en', liveKey: 'test-key' });
+        expect(bootstrapHumanInputRealtimeSession).not.toHaveBeenCalled();
     });
 
     it('should handle text input and submission', () => {
@@ -115,11 +137,6 @@ describe('HumanInput Component', () => {
             />
         );
 
-        // Wait for client key to be fetched
-        await waitFor(() => {
-            expect(getClientKey).toHaveBeenCalled();
-        });
-
         // Click Mic
         const micBtn = screen.getByTestId('icon-record_voice_off');
         fireEvent.click(micBtn);
@@ -136,6 +153,19 @@ describe('HumanInput Component', () => {
             expect(visualizers.length).toBeGreaterThan(0);
         });
 
+        expect(bootstrapHumanInputRealtimeSession).toHaveBeenCalledWith(
+            { feature: 'human-input', language: 'en' },
+            'test-key',
+            expect.any(AbortSignal)
+        );
+        expect(createRealtimeConnection).toHaveBeenCalledWith(
+            expect.objectContaining({
+                callPath: '/api/realtime/call',
+                callBodyExtras: { feature: 'human-input', provider: 'inworld' },
+                onOpen: expect.any(Function),
+            })
+        );
+
         // Now button should be 'record_voice_on' (STOP button)
         const stopBtn = screen.getByTestId('icon-record_voice_on');
 
@@ -144,6 +174,61 @@ describe('HumanInput Component', () => {
 
         // Should go back to idle
         expect(screen.getByTestId('icon-record_voice_off')).toBeInTheDocument();
+    });
+
+    it('should send session.update on data channel open for Inworld human input', async () => {
+        const send = vi.fn();
+        createRealtimeConnection.mockImplementation(async (opts) => {
+            if (opts.onOpen) opts.onOpen({ dc: { send } });
+            return { pc: {}, dc: { send }, micStream: {}, close: vi.fn() };
+        });
+
+        render(
+            <HumanInput
+                isPanelist={false}
+                currentSpeakerName=""
+                onSubmitHumanMessage={mockOnSubmit}
+                liveKey="test-key"
+            />
+        );
+
+        fireEvent.click(screen.getByTestId('icon-record_voice_off'));
+
+        await waitFor(() => {
+            expect(send).toHaveBeenCalled();
+        });
+
+        const payload = JSON.parse(send.mock.calls[0][0]);
+        expect(payload).toEqual({
+            type: 'session.update',
+            session: { type: 'realtime' },
+        });
+    });
+
+    it('should not register onOpen for OpenAI human-input bootstrap', async () => {
+        bootstrapHumanInputRealtimeSession.mockResolvedValue({
+            provider: 'openai',
+            iceServers: [],
+            session: { type: 'transcription', audio: {} },
+        });
+
+        render(
+            <HumanInput
+                isPanelist={false}
+                currentSpeakerName=""
+                onSubmitHumanMessage={mockOnSubmit}
+                liveKey="test-key"
+            />
+        );
+
+        fireEvent.click(screen.getByTestId('icon-record_voice_off'));
+
+        await waitFor(() => {
+            expect(createRealtimeConnection).toHaveBeenCalled();
+        });
+
+        const opts = createRealtimeConnection.mock.calls[0][0];
+        expect(opts.onOpen).toBeUndefined();
     });
 
     it('should show panelist-specific placeholder when isPanelist is true', () => {
@@ -156,6 +241,108 @@ describe('HumanInput Component', () => {
             />
         );
         expect(screen.getByPlaceholderText('human.panelist')).toBeInTheDocument();
+    });
+
+    it('should stop recording when the textarea receives focus', async () => {
+        render(
+            <HumanInput
+                isPanelist={false}
+                currentSpeakerName=""
+                onSubmitHumanMessage={mockOnSubmit}
+                liveKey="test-key"
+            />
+        );
+
+        fireEvent.click(screen.getByTestId('icon-record_voice_off'));
+
+        await waitFor(() => {
+            expect(screen.getByTestId('icon-record_voice_on')).toBeInTheDocument();
+        });
+
+        fireEvent.focus(screen.getByPlaceholderText('human.1'));
+
+        await waitFor(() => {
+            expect(screen.getByTestId('icon-record_voice_off')).toBeInTheDocument();
+        });
+    });
+
+    it('should close a connection that resolves after the start was aborted', async () => {
+        const pending = deferred();
+        const close = vi.fn();
+        createRealtimeConnection.mockReturnValue(pending.promise);
+
+        render(
+            <HumanInput
+                isPanelist={false}
+                currentSpeakerName=""
+                onSubmitHumanMessage={mockOnSubmit}
+                liveKey="test-key"
+            />
+        );
+
+        fireEvent.click(screen.getByTestId('icon-record_voice_off'));
+
+        await waitFor(() => {
+            expect(createRealtimeConnection).toHaveBeenCalled();
+        });
+
+        fireEvent.focus(screen.getByPlaceholderText('human.1'));
+
+        pending.resolve({ pc: {}, dc: {}, micStream: {}, close });
+
+        await waitFor(() => {
+            expect(close).toHaveBeenCalled();
+        });
+
+        expect(screen.getByTestId('icon-record_voice_off')).toBeInTheDocument();
+    });
+
+    it('should ignore AbortError during startup without logging an error', async () => {
+        const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+        createRealtimeConnection.mockRejectedValue(Object.assign(new Error('aborted'), { name: 'AbortError' }));
+
+        render(
+            <HumanInput
+                isPanelist={false}
+                currentSpeakerName=""
+                onSubmitHumanMessage={mockOnSubmit}
+                liveKey="test-key"
+            />
+        );
+
+        fireEvent.click(screen.getByTestId('icon-record_voice_off'));
+
+        await waitFor(() => {
+            expect(createRealtimeConnection).toHaveBeenCalled();
+        });
+
+        expect(consoleError).not.toHaveBeenCalled();
+        expect(screen.getByTestId('lottie-loading')).toBeInTheDocument();
+    });
+
+    it('should surface non-abort startup failures and reset to idle', async () => {
+        const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+        createRealtimeConnection.mockRejectedValue(new Error('network blew up'));
+
+        render(
+            <HumanInput
+                isPanelist={false}
+                currentSpeakerName=""
+                onSubmitHumanMessage={mockOnSubmit}
+                liveKey="test-key"
+            />
+        );
+
+        fireEvent.click(screen.getByTestId('icon-record_voice_off'));
+
+        await waitFor(() => {
+            expect(screen.getByTestId('icon-record_voice_off')).toBeInTheDocument();
+        });
+
+        expect(consoleError).toHaveBeenCalledWith(
+            'Failed to start realtime human input session',
+            expect.any(Error)
+        );
     });
 
     it('should submit text input without manual character targeting', () => {
@@ -211,5 +398,58 @@ describe('HumanInput Component', () => {
         );
         const textarea = screen.getByPlaceholderText('human.1');
         expect(textarea).toHaveAttribute('maxLength', '700');
+    });
+
+    it('should close the active connection when unmounting after recording starts', async () => {
+        const close = vi.fn();
+        createRealtimeConnection.mockResolvedValue({
+            pc: {},
+            dc: {},
+            micStream: { id: 'mock-stream' },
+            close,
+        });
+
+        const { unmount } = render(
+            <HumanInput
+                isPanelist={false}
+                currentSpeakerName=""
+                onSubmitHumanMessage={mockOnSubmit}
+                liveKey="test-key"
+            />
+        );
+
+        fireEvent.click(screen.getByTestId('icon-record_voice_off'));
+
+        await waitFor(() => {
+            expect(screen.getByTestId('icon-record_voice_on')).toBeInTheDocument();
+        });
+
+        unmount();
+
+        expect(close).toHaveBeenCalled();
+    });
+
+    it('should reset to idle when the realtime connection closes unexpectedly', async () => {
+        render(
+            <HumanInput
+                isPanelist={false}
+                currentSpeakerName=""
+                onSubmitHumanMessage={mockOnSubmit}
+                liveKey="test-key"
+            />
+        );
+
+        fireEvent.click(screen.getByTestId('icon-record_voice_off'));
+
+        await waitFor(() => {
+            expect(screen.getByTestId('icon-record_voice_on')).toBeInTheDocument();
+        });
+
+        const opts = createRealtimeConnection.mock.calls[0][0];
+        opts.onClose();
+
+        await waitFor(() => {
+            expect(screen.getByTestId('icon-record_voice_off')).toBeInTheDocument();
+        });
     });
 });

@@ -1,9 +1,9 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { meetingsCollection } from '@services/DbService.js';
 import { createTestManager } from './commonSetup.js';
 import { setupTestOptions } from './testUtils.js';
 import { SpeakerSelector } from '@logic/SpeakerSelector.js';
+import { MockFactory } from './factories/MockFactory.ts';
 
 // Mock dependencies
 // vi.mock('@services/OpenAIService.js', () => ({
@@ -24,7 +24,7 @@ describe('MeetingManager - Conversation Flow', () => {
         manager.meeting._id = 1;
 
         // Spy on DB methods
-        vi.spyOn(meetingsCollection, 'updateOne');
+        vi.spyOn(manager.services.meetingsCollection, 'updateOne');
         vi.clearAllMocks();
     });
 
@@ -108,7 +108,7 @@ describe('MeetingManager - Conversation Flow', () => {
         expect(spy).not.toHaveBeenCalled();
         expect(manager.meeting.conversation.at(-1)?.type).toBe('max_reached');
         expect(manager.meeting.conversation.at(-1)?.canContinue).toBe(true);
-        expect(meetingsCollection.updateOne).toHaveBeenCalled();
+        expect(manager.services.meetingsCollection.updateOne).toHaveBeenCalled();
     });
 
     it('sets canContinue false on max_reached when at meetingVeryMaxLength', async () => {
@@ -177,14 +177,12 @@ describe('MeetingManager - Conversation Flow', () => {
         expect(diSocket.emit).toHaveBeenCalledWith('conversation_update', expect.any(Array));
 
         // Verify DB logic (still uses global mock unless we inject that too, but global mock is fine for now)
-        expect(meetingsCollection.updateOne).toHaveBeenCalled();
+        expect(diManager.services.meetingsCollection.updateOne).toHaveBeenCalled();
     });
 
     it('should set awaiting_human_panelist state when current speaker is a panelist', async () => {
-        // Setup: Next speaker is Alice (Panelist)
-        // Alice is index 2 in default setup (Water, Tomato, Potato) -> wait, need to add Alice.
         manager.meeting.characters = [
-            { id: 'water', name: 'Water', description: '', prompt: '', voice: 'alloy' },
+            MockFactory.createChair(),
             { id: 'panelist0', name: 'Alice', description: '', prompt: '', voice: 'alloy' }
         ];
         const panelistId = 1;
@@ -199,7 +197,7 @@ describe('MeetingManager - Conversation Flow', () => {
         expect(manager.meeting.conversation).toHaveLength(1);
         expect(manager.meeting.conversation[0].type).toBe('awaiting_human_panelist');
         expect(manager.meeting.conversation[0].speaker).toBe('panelist0');
-        expect(meetingsCollection.updateOne).toHaveBeenCalled();
+        expect(manager.services.meetingsCollection.updateOne).toHaveBeenCalled();
 
         // Verify it returns early (does not call generateGPT/Audio/recurse)
         // calculateCurrentSpeaker WAS called, but generateTextFromGPT should NOT be.
@@ -230,6 +228,7 @@ describe('MeetingManager - Conversation Flow', () => {
         const mockGetOpenAI = () => mockOpenAI;
         const { manager: diManager } = createTestManager('test', null, { getOpenAI: mockGetOpenAI });
         diManager.meeting._id = 1;
+        const generateAudioSpy = vi.spyOn(diManager.audioSystem, 'generateAudio').mockResolvedValue();
 
         if (!diManager.meeting.characters[0].voice) {
             diManager.meeting.characters[0].voice = 'alloy';
@@ -242,14 +241,10 @@ describe('MeetingManager - Conversation Flow', () => {
 
         await diManager.meetingLifecycleHandler.handleWrapUpMeeting({ date: "2024-01-01" });
 
-        // Verify audio generation was attempted (which uses the 'speaker' variable)
+        // Verify audio generation was attempted regardless of the chair's current voice provider.
         if (!diManager.serverOptions.skipAudio) {
-            expect(mockOpenAI.audio.speech.create).toHaveBeenCalled();
-
-            // Verify socket emit
-            expect(diManager.socket.emit).toHaveBeenCalledWith("audio_update", expect.objectContaining({
-                id: 'gpt_id'
-            }));
+            expect(generateAudioSpy).toHaveBeenCalled();
+            expect(generateAudioSpy.mock.calls[0][0]).toEqual(expect.objectContaining({ id: 'gpt_id' }));
         }
     });
 

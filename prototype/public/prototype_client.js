@@ -2,12 +2,11 @@ const { createApp } = Vue;
 const CHARACTERS_FILE = "foods";
 
 const defaultOptions = {
-  gptModel: "gpt-4o-mini",
+  conversationModel: "mistral/mistral-small-3-2",
+  conversationReasoning: "none",
   temperature: 1,
   maxTokens: 200,
   chairMaxTokens: 250,
-  frequencyPenalty: 0,
-  presencePenalty: 0,
   defaultAudioSpeed: 1.15,
 
   trimSentance: false,
@@ -366,7 +365,7 @@ createApp({
         const stored = JSON.parse(localStorage.getItem("PromptsAndOptions"));
         if (stored) {
           // Merge stored options to handle new fields gracefully
-          this.options = { ...defaultOptions, ...stored.options };
+          this.options = { ...defaultOptions, ...(stored.options || {}) };
           this.localOptions = { ...JSON.parse(JSON.stringify(defaultLocalOptions)), ...stored.localOptions };
 
           this.log('SYSTEM', 'State Loaded from LocalStorage');
@@ -551,12 +550,11 @@ createApp({
 
     getServerOptions() {
       return {
-        gptModel: this.options.gptModel,
+        conversationModel: this.options.conversationModel,
+        conversationReasoning: this.options.conversationReasoning,
         temperature: this.options.temperature,
         maxTokens: this.options.maxTokens,
         chairMaxTokens: this.options.chairMaxTokens,
-        frequencyPenalty: this.options.frequencyPenalty,
-        presencePenalty: this.options.presencePenalty,
         defaultAudioSpeed: this.options.defaultAudioSpeed,
         trimSentance: this.options.trimSentance,
         trimParagraph: this.options.trimParagraph,

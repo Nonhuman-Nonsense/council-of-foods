@@ -4,6 +4,8 @@ import { Logger } from "@utils/Logger.js";
 import { config } from "../config.js";
 
 let db: Db;
+let mongoClient: MongoClient | null = null;
+let activeConnectionKey: string | null = null;
 export let meetingsCollection: Collection<StoredMeeting>;
 export let audioCollection: Collection<StoredAudio>;
 export let counters: Collection<Counter>;
@@ -12,18 +14,39 @@ export const initDb = async (dbUrl?: string, dbPrefix?: string): Promise<void> =
   // Config is already validated by the time we import this, but allow overrides for testing
   const url = dbUrl || config.COUNCIL_DB_URL;
   const prefix = dbPrefix || config.COUNCIL_DB_PREFIX;
+  const connectionKey = `${url}::${prefix}`;
+
+  if (mongoClient && activeConnectionKey === connectionKey) {
+    return;
+  }
+
+  if (mongoClient) {
+    await mongoClient.close();
+  }
 
   Logger.info(`init`, `COUNCIL_DB_PREFIX is ${prefix}`);
   Logger.info("init", "Initializing Database...");
-  const mongoClient = new MongoClient(url);
+  mongoClient = new MongoClient(url);
+  await mongoClient.connect();
 
   db = mongoClient.db(prefix);
   meetingsCollection = db.collection<StoredMeeting>("meetings");
   audioCollection = db.collection<StoredAudio>("audio");
   counters = db.collection<Counter>("counters");
+  activeConnectionKey = connectionKey;
 
   await initializeCounters();
   Logger.info("init", "Database ready.");
+};
+
+export const closeDb = async (): Promise<void> => {
+  if (!mongoClient) {
+    return;
+  }
+
+  await mongoClient.close();
+  mongoClient = null;
+  activeConnectionKey = null;
 };
 
 const initializeCounters = async (): Promise<void> => {

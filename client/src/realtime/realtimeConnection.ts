@@ -1,21 +1,14 @@
 /**
- * Pure (React-free) WebRTC connection helper for the Inworld Realtime API.
+ * Pure (React-free) WebRTC connection helper for provider-backed Realtime APIs.
  *
  * The contract is intentionally tiny: open a peer connection with a mic track,
- * a single data channel ("oai-events"), exchange SDP via our server proxy with
- * a merged session (server defaults from `GET /api/voice-guide/bootstrap`
- * plus client instructions/tools), and surface remote audio + data channel
- * events through callbacks. Everything else (status state, captions, tool
- * dispatch) lives one layer up.
+ * a single data channel ("oai-events"), exchange SDP via our server proxy, and
+ * surface remote audio + data channel events through callbacks. Everything
+ * else (status state, captions, tool dispatch) lives one layer up.
  */
 
-import type { RealtimeSessionConfig, RealtimeSessionServerDefaults } from "./realtimeProtocol";
-
-export type IceServer = {
-  urls: string[] | string;
-  username?: string;
-  credential?: string;
-};
+import type { RealtimeSessionServerDefaults } from "./realtimeProtocol";
+import type { IceServer, RealtimeBootstrapResponse } from "@shared/RealtimeSessionTypes";
 
 export type ConnectionLogger = (...args: unknown[]) => void;
 
@@ -31,10 +24,16 @@ export type RealtimeConnection = {
 };
 
 export type CreateConnectionParams = {
-  /** Full session sent to Inworld at /call time; tools/instructions still require `session.update` on the data channel. */
-  session: RealtimeSessionConfig;
-  /** From `fetchVoiceGuideBootstrap()` (browser seeds `RTCPeerConnection`). */
+  /** Full provider-owned session sent to the app server at /call time. */
+  session: Record<string, unknown>;
+  /** From bootstrap (browser seeds `RTCPeerConnection`). */
   iceServers: IceServer[];
+  /** App-server call endpoint that proxies to the upstream realtime provider. */
+  callPath: string;
+  /** Optional extra headers such as live-key auth. */
+  callHeaders?: HeadersInit;
+  /** Optional extra JSON fields appended to the call body. */
+  callBodyExtras?: Record<string, unknown>;
   /**
    * When passed (e.g. acquired in parallel with bootstrap in the hook), skips an
    * internal `getUserMedia` call.
@@ -44,8 +43,8 @@ export type CreateConnectionParams = {
   onRemoteTrack: (track: MediaStreamTrack) => void;
   /** Receives all data channel JSON events. */
   onEvent: (event: unknown) => void;
-  /** Called when the data channel opens; useful for "kick off greeting". */
-  onOpen?: () => void;
+  /** Called when the data channel opens (e.g. Inworld expects `session.update` here over WebRTC). */
+  onOpen?: (ctx: { dc: RTCDataChannel }) => void;
   /** Called when the channel/peer closes (or errors). */
   onClose?: (reason: "dc_close" | "dc_error" | "pc_failed") => void;
   /** Optional debug hook. */
@@ -139,54 +138,62 @@ function parseRealtimeSessionServerDefaults(
   return s;
 }
 
-export type VoiceGuideBootstrapResponse = {
-  iceServers: IceServer[];
-  session: RealtimeSessionServerDefaults;
-};
-
 /**
- * One HTTP round-trip: Inworld ICE servers + realtime session defaults.
- * Prefer this over separate realtime-session + ice-servers calls.
+ * One HTTP round-trip: shared app realtime bootstrap for a given feature.
  */
-export async function fetchVoiceGuideBootstrap(
+export async function fetchRealtimeBootstrap(
+  requestBody: Record<string, unknown>,
   log: ConnectionLogger = () => undefined,
   signal?: AbortSignal
-): Promise<VoiceGuideBootstrapResponse> {
-  log("GET /api/voice-guide/bootstrap");
-  const resp = await fetchWithTimeout("/api/voice-guide/bootstrap", { method: "GET" }, FETCH_TIMEOUT_MS, signal);
+): Promise<RealtimeBootstrapResponse & { session: RealtimeSessionServerDefaults }> {
+  log("POST /api/realtime/bootstrap");
+  const resp = await fetchWithTimeout(
+    "/api/realtime/bootstrap",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(requestBody),
+    },
+    FETCH_TIMEOUT_MS,
+    signal
+  );
   if (!resp.ok) {
     const text = await resp.text().catch(() => "");
-    throw new Error(`Voice guide bootstrap failed (${resp.status}): ${text}`);
+    throw new Error(`Realtime bootstrap failed (${resp.status}): ${text}`);
   }
-  const data = (await resp.json()) as { iceServers?: unknown; session?: unknown };
-  const session = parseRealtimeSessionServerDefaults(data?.session, "Voice guide bootstrap");
+  const data = (await resp.json()) as RealtimeBootstrapResponse;
+  const session = parseRealtimeSessionServerDefaults(data?.session, "Realtime bootstrap");
   const iceServers = Array.isArray(data?.iceServers) ? (data.iceServers as IceServer[]) : [];
   log("bootstrap ok", { ice: iceServers.length, model: session.model });
-  return { iceServers, session };
+  return { provider: data.provider ?? "inworld", iceServers, session };
 }
 
-/** Loads model / audio / VAD defaults from the server (GlobalOptions). Instructions and tools are merged client-side. */
-export async function fetchVoiceGuideRealtimeSessionDefaults(
+/** Loads model / audio / VAD defaults from the server. Instructions/tools are merged client-side. */
+export async function fetchRealtimeSessionDefaults(
+  requestBody: Record<string, unknown>,
   log: ConnectionLogger = () => undefined,
   signal?: AbortSignal
 ): Promise<RealtimeSessionServerDefaults> {
-  const { session } = await fetchVoiceGuideBootstrap(log, signal);
+  const { session } = await fetchRealtimeBootstrap(requestBody, log, signal);
   return session;
 }
 
 async function exchangeSdp(
   sdpOffer: string,
-  session: RealtimeSessionConfig,
+  session: Record<string, unknown>,
+  callPath: string,
+  callHeaders: HeadersInit | undefined,
+  callBodyExtras: Record<string, unknown> | undefined,
   log: ConnectionLogger,
   signal?: AbortSignal
 ): Promise<string> {
-  log("POST /api/voice-guide/call");
+  log(`POST ${callPath}`);
   const resp = await fetchWithTimeout(
-    "/api/voice-guide/call",
+    callPath,
     {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sdp: sdpOffer, session }),
+      headers: { "Content-Type": "application/json", ...(callHeaders ?? {}) },
+      body: JSON.stringify({ sdp: sdpOffer, session, ...(callBodyExtras ?? {}) }),
     },
     FETCH_TIMEOUT_MS,
     signal
@@ -202,19 +209,22 @@ async function exchangeSdp(
 }
 
 /**
- * Build a fully-wired Inworld Realtime WebRTC connection.
+ * Build a fully-wired provider-backed Realtime WebRTC connection.
  *
  * Resolves once SDP has been exchanged and `setRemoteDescription` succeeded.
  * The data channel may still be opening at that point — `onOpen` fires later.
  *
- * If `signal` is aborted at any point, in-flight network calls and partial
- * resources (PeerConnection, mic stream) are torn down and an `AbortError`
- * is thrown. Callers can use `(err.name === "AbortError")` to distinguish.
+ * If `signal` is aborted at any point, in-flight network/getUserMedia calls
+ * are torn down and an `AbortError` is thrown. Callers can use
+ * `(err.name === "AbortError")` to distinguish.
  */
 export async function createRealtimeConnection(params: CreateConnectionParams): Promise<RealtimeConnection> {
   const {
     session,
     iceServers,
+    callPath,
+    callHeaders,
+    callBodyExtras,
     micStream: micStreamParam,
     onRemoteTrack,
     onEvent,
@@ -224,7 +234,6 @@ export async function createRealtimeConnection(params: CreateConnectionParams): 
     signal,
   } = params;
 
-  // Resources we may need to clean up on abort.
   let pc: RTCPeerConnection | null = null;
   let dc: RTCDataChannel | null = null;
   let micStream: MediaStream | null = null;
@@ -271,7 +280,8 @@ export async function createRealtimeConnection(params: CreateConnectionParams): 
     dc = pc.createDataChannel("oai-events", { ordered: true });
     dc.onopen = () => {
       log("data channel open");
-      onOpen?.();
+      const openDc = dc!;
+      onOpen?.({ dc: openDc });
     };
     dc.onclose = () => {
       log("data channel closed");
@@ -287,7 +297,7 @@ export async function createRealtimeConnection(params: CreateConnectionParams): 
         const parsed = JSON.parse(evt.data) as unknown;
         onEvent(parsed);
       } catch {
-        // Drop non-JSON or malformed payloads.
+        /* drop */
       }
     };
 
@@ -307,13 +317,11 @@ export async function createRealtimeConnection(params: CreateConnectionParams): 
     const sdpOffer = pc.localDescription?.sdp;
     if (!sdpOffer) throw new Error("Missing SDP offer");
 
-    const sdpAnswer = await exchangeSdp(sdpOffer, session, log, signal);
+    const sdpAnswer = await exchangeSdp(sdpOffer, session, callPath, callHeaders, callBodyExtras, log, signal);
     throwIfAborted(signal);
     await pc.setRemoteDescription({ type: "answer", sdp: sdpAnswer });
     log("setRemoteDescription ok");
 
-    // From here on, the connection is fully owned by the caller; we no longer
-    // tear it down on abort, only via the returned `close()`.
     let closed = false;
     const finalPc = pc;
     const finalDc = dc;

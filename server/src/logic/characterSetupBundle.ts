@@ -6,12 +6,25 @@ type CharacterSetupDataFile = {
     characters: Array<{
         id: string;
         voice: string;
+        voiceProvider?: string;
+        voiceInstruction?: string;
         voiceSpeed?: number;
     }>;
 };
 
-const characterSetupPath = path.join(process.cwd(), "../shared/prompts", `${CHARACTERS_FILE}_en.json`);
+const sharedPromptsDir = path.join(process.cwd(), "../shared/prompts");
+
+function readCharacterSetupBundle(language: string): CharacterSetupDataFile {
+    const requestedPath = path.join(sharedPromptsDir, `${CHARACTERS_FILE}_${language}.json`);
+    const fallbackPath = path.join(sharedPromptsDir, `${CHARACTERS_FILE}_en.json`);
+    const filePath = fs.existsSync(requestedPath) ? requestedPath : fallbackPath;
+    return JSON.parse(fs.readFileSync(filePath, "utf-8")) as CharacterSetupDataFile;
+}
 
 export const defaultCharacterSetupBundle = JSON.parse(
-    fs.readFileSync(characterSetupPath, "utf-8"),
+    fs.readFileSync(path.join(sharedPromptsDir, `${CHARACTERS_FILE}_en.json`), "utf-8"),
 ) as CharacterSetupDataFile;
+
+export function getCharacterSetupBundle(language: string): CharacterSetupDataFile {
+    return readCharacterSetupBundle(language);
+}

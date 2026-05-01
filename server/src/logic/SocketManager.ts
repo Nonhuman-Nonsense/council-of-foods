@@ -44,7 +44,7 @@ export class SocketManager {
     private setupListeners() {
         this.socket.on("disconnect", () => {
             Logger.info("socket", `[${this.socket.id}] session disconnected`);
-            this.destroySession();
+            void this.destroySession("drain");
         });
 
         // Lifecycle Events
@@ -127,19 +127,19 @@ export class SocketManager {
         });
     }
 
-    private destroySession() {
+    private async destroySession(audioStrategy: "drain" | "cancel" = "drain") {
         if (this.currentSession?.meeting) {
             releaseLiveSession(this.currentSession.meeting._id, this.socket.id);
         }
         if (this.currentSession) {
-            this.currentSession.destroy();
+            await this.currentSession.destroy(audioStrategy);
             this.currentSession = null;
         }
     }
 
     private async handleStart(payload: SetupOptions) {
         Logger.info("socket", "Starting new meeting session...");
-        this.destroySession();
+        await this.destroySession("cancel");
 
         const data = SetupOptionsSchema.parse(payload);
 
@@ -175,7 +175,7 @@ export class SocketManager {
             return;
         }
 
-        this.destroySession();
+        await this.destroySession("cancel");
 
         const data = ReconnectionOptionsSchema.parse(payload);
 

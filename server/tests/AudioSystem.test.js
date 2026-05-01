@@ -69,7 +69,13 @@ describe('AudioSystem', () => {
         expect(mockOpenAI.audio.speech.create).toHaveBeenCalled();
         expect(mockBroadcaster.broadcastAudioUpdate).toHaveBeenCalledWith(expect.objectContaining({
             id: 'msg1',
-            sentences: []
+            sentences: [
+                expect.objectContaining({
+                    text: 'Hello',
+                    start: 0,
+                    end: 1
+                })
+            ]
         }));
     });
 
@@ -143,5 +149,56 @@ describe('AudioSystem', () => {
         expect(mockBroadcaster.broadcastAudioUpdate).toHaveBeenCalledWith(expect.objectContaining({
             id: 'msgRetry'
         }));
+    });
+
+    it('should suppress stale side effects after cancelPendingWork', async () => {
+        const message = { id: 'msg-stale', text: 'Hello later', sentences: ['Hello later'] };
+        const speaker = { id: 'char1', voice: 'alloy' };
+
+        let resolveCreate;
+        mockOpenAI.audio.speech.create.mockImplementation(
+            () =>
+                new Promise((resolve) => {
+                    resolveCreate = resolve;
+                })
+        );
+
+        const generationPromise = audioSystem.generateAudio(
+            message,
+            speaker,
+            'en',
+            serverOptions({ voiceModel: 'tts-1', defaultAudioSpeed: 1 }),
+            meeting(),
+            'production'
+        );
+
+        await vi.waitFor(() => expect(mockOpenAI.audio.speech.create).toHaveBeenCalledTimes(1));
+        audioSystem.cancelPendingWork();
+        resolveCreate({
+            arrayBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(8))
+        });
+
+        await generationPromise;
+
+        expect(mockBroadcaster.broadcastAudioUpdate).not.toHaveBeenCalled();
+        expect(mockServices.audioCollection.updateOne).not.toHaveBeenCalled();
+        expect(mockServices.meetingsCollection.updateOne).not.toHaveBeenCalled();
+    });
+
+    it('should suppress skipped broadcasts for stale generations', async () => {
+        audioSystem.cancelPendingWork();
+
+        await audioSystem.generateAudio(
+            { id: 'msg-skipped', type: 'skipped', text: '' },
+            {},
+            'en',
+            serverOptions(),
+            meeting(),
+            'production',
+            false,
+            0
+        );
+
+        expect(mockBroadcaster.broadcastAudioUpdate).not.toHaveBeenCalled();
     });
 });

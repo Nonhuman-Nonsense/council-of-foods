@@ -10,10 +10,10 @@ function validCreateBody() {
         topic: { id: 't-int', title: 'Integration Topic', description: 'D', prompt: 'Prompt' },
         characters: [
             {
-                id: 'water',
-                name: 'Water',
-                description: 'Hydrating and clear-headed.',
-                prompt: 'Speak as Water in the council.',
+                id: 'speaker1',
+                name: 'Speaker 1',
+                description: 'Generic integration-test speaker.',
+                prompt: 'Speak as Speaker 1 in the council.',
                 voice: 'alloy',
             },
         ],
@@ -90,11 +90,11 @@ describe('HTTP meetings API (integration)', () => {
             {
                 $set: {
                     conversation: [
-                        { id: 'pub-m1', type: 'message', speaker: 'water', text: 'Hello' },
-                        { id: 'sum1', type: 'summary', speaker: 'water', text: 'Summary' },
+                        { id: 'pub-m1', type: 'message', speaker: 'speaker1', text: 'Hello' },
+                        { id: 'sum1', type: 'summary', speaker: 'speaker1', text: 'Summary' },
                     ],
                     audio: ['pub-m1', 'sum1'],
-                    summary: { id: 'sum1', type: 'summary', speaker: 'water', text: 'Summary' },
+                    summary: { id: 'sum1', type: 'summary', speaker: 'speaker1', text: 'Summary' },
                     maximumPlayedIndex: 1,
                 },
             }
