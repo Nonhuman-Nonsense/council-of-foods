@@ -8,7 +8,7 @@
   "maxTokens": 200,
   "chairMaxTokens": 250,
   "defaultAudioSpeed": 1.15,
-  "subtitleTimingPriorities": ["inworld", "estimated", "whisper"],
+  "subtitleTimingPriorities": ["estimated", "inworld", "whisper"],
   "trimSentance": false,
   "trimParagraph": true,
   "trimChairSemicolon": true,
