@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, waitFor } from "@testing-library/react";
 import { useRef } from "react";
 import {
-  LiveAudioVisualizer,
   LiveAudioVisualizerPair,
   calculateBarData,
   draw,
@@ -146,114 +145,39 @@ function installAudioContextMock() {
 }
 
 function fakeMediaStream(): MediaStream {
-  return { id: "test-stream", getTracks: () => [] } as unknown as MediaStream;
+  const audioTrack = { readyState: "live" } as MediaStreamTrack;
+
+  return {
+    id: "test-stream",
+    getTracks: () => [audioTrack],
+    getAudioTracks: () => [audioTrack],
+  } as unknown as MediaStream;
 }
 
-function fakeMediaRecorder(
-  state: "inactive" | "paused" | "recording"
-): MediaRecorder {
-  const stream = fakeMediaStream();
-  return { stream, state } as unknown as MediaRecorder;
+function fakeInactiveMediaStream(): MediaStream {
+  const audioTrack = { readyState: "ended" } as MediaStreamTrack;
+
+  return {
+    id: "inactive-stream",
+    getTracks: () => [audioTrack],
+    getAudioTracks: () => [audioTrack],
+  } as unknown as MediaStream;
 }
-
-describe("LiveAudioVisualizer", () => {
-  let audioMock: ReturnType<typeof installAudioContextMock>;
-
-  beforeEach(() => {
-    audioMock = installAudioContextMock();
-  });
-
-  afterEach(() => {
-    audioMock.restore();
-    vi.restoreAllMocks();
-  });
-
-  it("renders a canvas with the requested dimensions", async () => {
-    const recorder = fakeMediaRecorder("paused");
-
-    const { container } = render(
-      <LiveAudioVisualizer
-        mediaRecorder={recorder}
-        width={88}
-        height={33}
-        barWidth={2}
-        gap={1}
-      />
-    );
-
-    const canvas = container.querySelector("canvas");
-    expect(canvas).toBeTruthy();
-    expect(canvas).toHaveAttribute("width", "88");
-    expect(canvas).toHaveAttribute("height", "33");
-  });
-
-  it("wires one MediaStreamSource and one Analyser to the recorder stream", async () => {
-    const recorder = fakeMediaRecorder("paused");
-
-    render(<LiveAudioVisualizer mediaRecorder={recorder} width={10} height={10} />);
-
-    await waitFor(() => {
-      expect(audioMock.createMediaStreamSource).toHaveBeenCalledTimes(1);
-    });
-    expect(audioMock.createMediaStreamSource.mock.calls[0][0]).toBe(
-      recorder.stream
-    );
-    expect(audioMock.createAnalyser).toHaveBeenCalledTimes(1);
-    expect(audioMock.mockSource.connect).toHaveBeenCalledWith(
-      audioMock.mockAnalyser
-    );
-  });
-
-  it("reads frequency data while recording", async () => {
-    const mock2d = {
-      clearRect: vi.fn(),
-      fillRect: vi.fn(),
-      beginPath: vi.fn(),
-      fill: vi.fn(),
-      roundRect: vi.fn(),
-      fillStyle: "",
-    };
-    const getContextSpy = vi
-      .spyOn(HTMLCanvasElement.prototype, "getContext")
-      .mockImplementation(() => mock2d as unknown as CanvasRenderingContext2D);
-
-    const recorder = fakeMediaRecorder("recording");
-    const rafSpy = vi
-      .spyOn(globalThis, "requestAnimationFrame")
-      .mockImplementation((cb: FrameRequestCallback) => {
-        queueMicrotask(() => {
-          Object.assign(recorder, { state: "inactive" as const });
-          cb(0);
-        });
-        return 1;
-      });
-
-    render(<LiveAudioVisualizer mediaRecorder={recorder} width={40} height={20} />);
-
-    await waitFor(() => {
-      expect(audioMock.mockAnalyser.getByteFrequencyData).toHaveBeenCalled();
-    });
-
-    rafSpy.mockRestore();
-    getContextSpy.mockRestore();
-  });
-});
 
 function PairHarness({
-  recorderState,
+  stream = fakeMediaStream(),
 }: {
-  recorderState: "inactive" | "paused" | "recording";
+  stream?: MediaStream;
 }) {
   const leftRef = useRef<HTMLDivElement>(null);
   const rightRef = useRef<HTMLDivElement>(null);
-  const recorder = fakeMediaRecorder(recorderState);
 
   return (
     <>
       <div ref={leftRef} data-testid="viz-left-host" />
       <div ref={rightRef} data-testid="viz-right-host" />
       <LiveAudioVisualizerPair
-        mediaRecorder={recorder}
+        stream={stream}
         leftHostRef={leftRef}
         rightHostRef={rightRef}
         width={32}
@@ -279,7 +203,8 @@ describe("LiveAudioVisualizerPair", () => {
   });
 
   it("portals one canvas into each host and shares a single analyser", async () => {
-    const { getByTestId } = render(<PairHarness recorderState="paused" />);
+    const stream = fakeInactiveMediaStream();
+    const { getByTestId } = render(<PairHarness stream={stream} />);
 
     await waitFor(() => {
       expect(getByTestId("viz-left-host").querySelector("canvas")).toBeTruthy();
@@ -296,5 +221,47 @@ describe("LiveAudioVisualizerPair", () => {
 
     expect(audioMock.createAnalyser).toHaveBeenCalledTimes(1);
     expect(audioMock.createMediaStreamSource).toHaveBeenCalledTimes(1);
+    expect(audioMock.createMediaStreamSource.mock.calls[0][0]).toBe(stream);
+    expect(audioMock.mockSource.connect).toHaveBeenCalledWith(
+      audioMock.mockAnalyser
+    );
+  });
+
+  it("draws into both canvases while the stream has a live audio track", async () => {
+    const mock2d = {
+      clearRect: vi.fn(),
+      fillRect: vi.fn(),
+      beginPath: vi.fn(),
+      fill: vi.fn(),
+      roundRect: vi.fn(),
+      fillStyle: "",
+    };
+    const getContextSpy = vi
+      .spyOn(HTMLCanvasElement.prototype, "getContext")
+      .mockImplementation(() => mock2d as unknown as CanvasRenderingContext2D);
+    const rafSpy = vi
+      .spyOn(globalThis, "requestAnimationFrame")
+      .mockImplementation(() => 1);
+
+    render(<PairHarness stream={fakeMediaStream()} />);
+
+    await waitFor(() => {
+      expect(audioMock.mockAnalyser.getByteFrequencyData).toHaveBeenCalled();
+      expect(mock2d.clearRect).toHaveBeenCalledTimes(2);
+    });
+
+    rafSpy.mockRestore();
+    getContextSpy.mockRestore();
+  });
+
+  it("stops immediately when the stream audio track is not live", async () => {
+    render(<PairHarness stream={fakeInactiveMediaStream()} />);
+
+    await waitFor(() => {
+      expect(audioMock.createMediaStreamSource).toHaveBeenCalledTimes(1);
+    });
+
+    expect(audioMock.mockAnalyser.getByteFrequencyData).not.toHaveBeenCalled();
+    expect(audioMock.createAnalyser).toHaveBeenCalledTimes(1);
   });
 });

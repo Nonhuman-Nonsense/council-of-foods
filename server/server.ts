@@ -23,8 +23,8 @@ import {
 } from '@utils/httpCache.js';
 import { shouldServeSpaShell } from '@utils/spaFallback.js';
 import { registerMeetingRoutes } from '@api/meetingRoutes.js';
+import { registerRealtimeRoutes } from '@api/realtimeSession.js';
 import { registerAudioRoutes } from '@api/audioRoutes.js';
-import { registerVoiceGuideRoutes } from '@api/voiceGuideSession.js';
 
 const environment: string = config.NODE_ENV;
 
@@ -55,8 +55,8 @@ app.get('/health', (_req: Request, res: Response) => {
 // Api routes run before static files (audio GET overwrites Cache-Control on success)
 app.use('/api', cacheControlPrivateNoStoreApi);
 registerMeetingRoutes(app, environment);
+registerRealtimeRoutes(app);
 registerAudioRoutes(app);
-registerVoiceGuideRoutes(app);
 
 if (environment === "prototype") {
   app.use(express.static(path.join(process.cwd(), "../prototype/", "public"), {

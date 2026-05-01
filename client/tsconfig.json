@@ -46,6 +46,9 @@
             "@voice/*": [
                 "./src/voice/*"
             ],
+            "@realtime/*": [
+                "./src/realtime/*"
+            ],
             "@shared/*": [
                 "../shared/*"
             ]

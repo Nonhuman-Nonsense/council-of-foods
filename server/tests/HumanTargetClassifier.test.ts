@@ -135,7 +135,7 @@ describe("HumanTargetClassifier", () => {
         expect(prompt).toContain("Tomato: Message 12");
         expect(prompt).not.toContain("Chair: Message 1\n");
         expect(prompt).not.toContain("Tomato: Message 2\n");
-        expect(prompt).toContain("Latest human input:");
+        expect(prompt).toContain("Human question:");
         expect(prompt).toContain("Allowed target ids: chair, tomato, potato, anyone");
     });
 });

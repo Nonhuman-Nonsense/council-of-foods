@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { mergeVoiceGuideRealtimeSession } from "@voice/realtimeProtocol";
-import type { RealtimeSessionServerDefaults } from "@voice/realtimeProtocol";
+import { mergeRealtimeSessionWithClientConfig } from "@realtime/realtimeProtocol";
+import type { RealtimeSessionServerDefaults } from "@realtime/realtimeProtocol";
 import type { RealtimeTool } from "@voice/guideTools";
 
 const defaults: RealtimeSessionServerDefaults = {
@@ -21,12 +21,12 @@ const defaults: RealtimeSessionServerDefaults = {
   },
 };
 
-describe("mergeVoiceGuideRealtimeSession", () => {
+describe("mergeRealtimeSessionWithClientConfig", () => {
   it("merges server defaults with client instructions and tools", () => {
     const tools: RealtimeTool[] = [
       { type: "function", name: "x", description: "d", parameters: { type: "object" } },
     ];
-    const merged = mergeVoiceGuideRealtimeSession(defaults, "sys", tools);
+    const merged = mergeRealtimeSessionWithClientConfig(defaults, "sys", tools);
     expect(merged.model).toBe("m1");
     expect(merged.instructions).toBe("sys");
     expect(merged.tools).toBe(tools);
