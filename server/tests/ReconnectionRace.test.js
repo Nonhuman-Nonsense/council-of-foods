@@ -53,7 +53,7 @@ describe('ConnectionHandler - Race Condition', () => {
     it('should NOT start a new loop if already running the same meeting', async () => {
         const existingMeeting = MockFactory.createStoredMeeting({
             _id: 100,
-            conversation: [{ id: 'msg1', type: 'message', text: 'hi', speaker: 'water' }],
+            conversation: [{ id: 'msg1', type: 'message', text: 'hi', speaker: 'speaker1' }],
             audio: ['msg1']
         });
 

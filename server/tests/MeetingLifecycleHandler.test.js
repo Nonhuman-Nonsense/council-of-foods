@@ -16,6 +16,7 @@ describe('MeetingLifecycleHandler', () => {
     let mockBroadcaster;
     let mockMeetingsCollection;
     let mockAudioCollection;
+    const chair = MockFactory.createChair();
 
     const sessionServerOptions = () =>
         MockFactory.createServerOptions({
@@ -30,7 +31,7 @@ describe('MeetingLifecycleHandler', () => {
             _id: 101,
             liveKey: 'test-live-key',
             conversation: [],
-            characters: [MockFactory.createCharacter({ id: 'chair', name: 'Chair' })],
+            characters: [MockFactory.createChair()],
             ...overrides
         });
 
@@ -112,7 +113,7 @@ describe('MeetingLifecycleHandler', () => {
         it('should update DB after summary', async () => {
             mockContext.meeting = storedMeeting({
                 conversation: [
-                    { id: '1', text: 'hi', type: 'message', speaker: 'chair' },
+                    { id: '1', text: 'hi', type: 'message', speaker: chair.id },
                     { type: 'max_reached' },
                 ],
             });
@@ -125,7 +126,7 @@ describe('MeetingLifecycleHandler', () => {
         it('should strip max_reached before appending summary', async () => {
             mockContext.meeting = storedMeeting({
                 conversation: [
-                    { id: '1', text: 'hi', type: 'message', speaker: 'chair' },
+                    { id: '1', text: 'hi', type: 'message', speaker: chair.id },
                     { type: 'max_reached' }
                 ]
             });
@@ -137,7 +138,7 @@ describe('MeetingLifecycleHandler', () => {
 
         it('throws when wrap-up is requested without max_reached sentinel', async () => {
             mockContext.meeting = storedMeeting({
-                conversation: [{ id: '1', text: 'hi', type: 'message', speaker: 'chair' }],
+                conversation: [{ id: '1', text: 'hi', type: 'message', speaker: chair.id }],
             });
             await expect(handler.handleWrapUpMeeting({ date: '2025-01-01' })).rejects.toThrow(
                 'Attempted to wrap up meeting but not at max reached',
@@ -149,7 +150,7 @@ describe('MeetingLifecycleHandler', () => {
         it('should resume loop when meeting is at max_reached', async () => {
             mockContext.meeting = storedMeeting({
                 conversation: [
-                    { id: 'a', type: 'message', text: 'x', speaker: 'chair' },
+                    { id: 'a', type: 'message', text: 'x', speaker: chair.id },
                     { type: 'max_reached' },
                 ],
             });
@@ -159,7 +160,7 @@ describe('MeetingLifecycleHandler', () => {
 
         it('throws when continue is requested without max_reached sentinel', async () => {
             mockContext.meeting = storedMeeting({
-                conversation: [{ id: 'a', type: 'message', text: 'x', speaker: 'chair' }],
+                conversation: [{ id: 'a', type: 'message', text: 'x', speaker: chair.id }],
             });
             await expect(handler.handleContinueConversation()).rejects.toThrow(
                 'Attempted to continue meeting but not at max reached',
@@ -169,7 +170,7 @@ describe('MeetingLifecycleHandler', () => {
         it('should strip max_reached, persist slots, then resume', async () => {
             mockContext.meeting = storedMeeting({
                 conversation: [
-                    { id: 'a', type: 'message', text: 'x', speaker: 'chair' },
+                    { id: 'a', type: 'message', text: 'x', speaker: chair.id },
                     { type: 'max_reached' },
                 ],
             });

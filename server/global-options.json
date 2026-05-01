@@ -1,5 +1,5 @@
 {
-  "gptModel": "gpt-4o",
+  "conversationModel": "anthropic/claude-opus-4-6",
   "voiceModel": "gpt-4o-mini-tts",
   "geminiVoiceModel": "gemini-2.5-flash-tts",
   "inworldVoiceModel": "inworld-tts-1.5-max",

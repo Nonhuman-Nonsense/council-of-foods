@@ -10,6 +10,8 @@ import {
 import { BadRequestError, ConflictError } from "@models/Errors.js";
 import { MockFactory } from "./factories/MockFactory.js";
 
+const SPEAKER_ID = "speaker1";
+
 async function seedMeeting(overrides: Partial<StoredMeeting> = {}): Promise<StoredMeeting> {
     const meeting = MockFactory.createStoredMeeting({
         _id: 777,
@@ -34,9 +36,9 @@ describe("resumeMeeting (server)", () => {
 
     it("rotates liveKey, sanitizes the conversation, trims audio, and returns the updated public meeting", async () => {
         const conversation: Message[] = [
-            { id: "m0", type: "message", speaker: "water", text: "0" },
-            { id: "m1", type: "message", speaker: "water", text: "1" },
-            { id: "m2", type: "message", speaker: "water", text: "2" }, // no audio → truncated away
+            { id: "m0", type: "message", speaker: SPEAKER_ID, text: "0" },
+            { id: "m1", type: "message", speaker: SPEAKER_ID, text: "1" },
+            { id: "m2", type: "message", speaker: SPEAKER_ID, text: "2" }, // no audio → truncated away
             { type: "awaiting_human_question", speaker: "h", text: "" },
         ];
         await seedMeeting({
@@ -70,8 +72,8 @@ describe("resumeMeeting (server)", () => {
     it("strips a dangling invitation at the tail", async () => {
         await seedMeeting({
             conversation: [
-                { id: "m0", type: "message", speaker: "water", text: "0" },
-                { id: "inv-1", type: "invitation", speaker: "water", text: "please join" },
+                { id: "m0", type: "message", speaker: SPEAKER_ID, text: "0" },
+                { id: "inv-1", type: "invitation", speaker: SPEAKER_ID, text: "please join" },
             ],
             audio: ["m0", "inv-1"],
             maximumPlayedIndex: 1,
@@ -85,7 +87,7 @@ describe("resumeMeeting (server)", () => {
 
     it("rejects with ConflictError when a live session holds the meeting", async () => {
         await seedMeeting({
-            conversation: [{ id: "m0", type: "message", speaker: "water", text: "0" }],
+            conversation: [{ id: "m0", type: "message", speaker: SPEAKER_ID, text: "0" }],
             audio: ["m0"],
             maximumPlayedIndex: 0,
         });
@@ -102,9 +104,9 @@ describe("resumeMeeting (server)", () => {
 
     it("rejects with BadRequestError when the meeting already has a summary", async () => {
         await seedMeeting({
-            conversation: [{ id: "m0", type: "message", speaker: "water", text: "0" }],
+            conversation: [{ id: "m0", type: "message", speaker: SPEAKER_ID, text: "0" }],
             audio: ["m0"],
-            summary: { id: "s", type: "summary", speaker: "water", text: "done" },
+            summary: { id: "s", type: "summary", speaker: SPEAKER_ID, text: "done" },
             maximumPlayedIndex: 0,
         });
 
@@ -123,7 +125,7 @@ describe("resumeMeeting (server)", () => {
 
     it("is idempotent-ish: a second resume rotates to yet another liveKey", async () => {
         await seedMeeting({
-            conversation: [{ id: "m0", type: "message", speaker: "water", text: "0" }],
+            conversation: [{ id: "m0", type: "message", speaker: SPEAKER_ID, text: "0" }],
             audio: ["m0"],
             maximumPlayedIndex: 0,
         });

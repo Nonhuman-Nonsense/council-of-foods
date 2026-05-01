@@ -2,23 +2,36 @@ import { v4 as uuidv4 } from "uuid";
 import type { Character, Message, Topic, Audio, Meeting } from "@shared/ModelTypes.js";
 import type { StoredMeeting } from "@models/DBModels.js";
 import { CHAIR_ID, type GlobalOptions } from "@logic/GlobalOptions.js";
+import { defaultCharacterSetupBundle } from "@logic/characterSetupBundle.js";
+
+function cloneCharacter(character: Character): Character {
+    return {
+        ...character,
+    };
+}
+
+export const DEFAULT_TEST_CHARACTERS: Character[] = defaultCharacterSetupBundle.characters
+    .slice(0, 3)
+    .map((character) => cloneCharacter(character as Character));
+
+export const DEFAULT_TEST_CHAIR = cloneCharacter(DEFAULT_TEST_CHARACTERS[0]);
+export const DEFAULT_TEST_SPEAKER_1 = cloneCharacter(DEFAULT_TEST_CHARACTERS[1] ?? DEFAULT_TEST_CHAIR);
+export const DEFAULT_TEST_SPEAKER_2 = cloneCharacter(DEFAULT_TEST_CHARACTERS[2] ?? DEFAULT_TEST_SPEAKER_1);
 
 export const MockFactory = {
     createCharacter: (overrides: Partial<Character> = {}): Character => ({
-        id: "potato",
-        name: "Potato",
-        description: "A starchy root vegetable",
-        prompt: "Speak as Potato in the council.",
+        id: "speaker1",
+        name: "Speaker 1",
+        description: "A generic participant used for tests where identity is irrelevant.",
+        prompt: "Speak as Speaker 1 in the council.",
         voice: "alloy",
         ...overrides,
     }),
 
     createChair: (overrides: Partial<Character> = {}): Character =>
         MockFactory.createCharacter({
-            id: "chair",
-            name: "Chair",
-            description: "Facilitates the council discussion.",
-            prompt: "Guide the council toward a clear outcome.",
+            ...DEFAULT_TEST_CHAIR,
+            id: CHAIR_ID,
             ...overrides,
         }),
 
@@ -40,13 +53,13 @@ export const MockFactory = {
     createMessage: (overrides: Partial<Message> = {}): Message =>
         ({
             id: uuidv4(),
-            speaker: "potato",
-            text: "Hello, I am a potato.",
+            speaker: "speaker1",
+            text: "Hello from speaker1.",
             type: "message",
             ...overrides,
         }) as Message,
 
-    createConversation: (length: number, speakers: string[] = ["potato", "tomato"]): Message[] => {
+    createConversation: (length: number, speakers: string[] = ["speaker1", "speaker2"]): Message[] => {
         return Array.from({ length }, (_, i) => MockFactory.createMessage({
             text: `Message ${i}`,
             speaker: speakers[i % speakers.length],
@@ -77,17 +90,17 @@ export const MockFactory = {
     /** Session / global options — not persisted on StoredMeeting. */
     createServerOptions: (overrides: Partial<GlobalOptions> = {}): GlobalOptions =>
         ({
-            gptModel: "gpt-4o",
-            voiceModel: "tts-1",
+            conversationModel: "anthropic/claude-opus-4-6",
+            voiceModel: "gpt-4o-mini-tts",
             geminiVoiceModel: "gemini-2.5-flash-tts",
-            inworldVoiceModel: "inworld-tts-1",
-            temperature: 0.7,
+            inworldVoiceModel: "inworld-tts-1.5-mini",
+            temperature: 1,
             maxTokens: 100,
-            chairMaxTokens: 150,
+            chairMaxTokens: 50,
             frequencyPenalty: 0.0,
             presencePenalty: 0.0,
-            defaultAudioSpeed: 1.0,
-            trimSentance: true,
+            defaultAudioSpeed: 1.25,
+            trimSentance: false,
             trimParagraph: true,
             chairId: CHAIR_ID,
             trimChairSemicolon: true,
@@ -121,9 +134,7 @@ export const MockFactory = {
             date: new Date().toISOString(),
             topic,
             characters: MockFactory.createCharacters(
-                { id: "water", name: "Water" },
-                { id: "tomato", name: "Tomato" },
-                { id: "potato", name: "Potato" },
+                ...DEFAULT_TEST_CHARACTERS,
             ),
             language: "en",
             state: { alreadyInvited: false, humanName: "Frank" },

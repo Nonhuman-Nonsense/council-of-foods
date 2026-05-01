@@ -16,7 +16,6 @@ export const dbBackedTests = [
     'tests/AudioDrain.test.js',
     'tests/Concurrency.test.js',
     'tests/ConfigurationAndDbErrors.test.js',
-    'tests/ConversationFlow.test.js',
     'tests/reportMaximumPlayedIndex.test.ts',
     'tests/resumeMeeting.test.ts',
 ];

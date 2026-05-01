@@ -19,7 +19,7 @@ vi.mock("@api/realtimeProviders.js", () => ({
 function validCreateBody() {
     return {
         topic: { id: "t-rt", title: "Topic", description: "D", prompt: "P" },
-        characters: [{ id: "water", name: "Water", description: "D", prompt: "P", voice: "alloy" }],
+        characters: [{ id: "speaker1", name: "Speaker 1", description: "D", prompt: "P", voice: "alloy" }],
         language: "en",
     };
 }

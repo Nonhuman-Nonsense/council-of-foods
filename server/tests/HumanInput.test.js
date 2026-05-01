@@ -6,12 +6,13 @@ import { MockFactory } from './factories/MockFactory.ts';
 describe('HumanInputHandler (Isolated)', () => {
     let handler;
     let mockContext;
+    const chair = MockFactory.createChair();
 
     beforeEach(() => {
         const meeting = MockFactory.createStoredMeeting({
             _id: 42,
             characters: [
-                { id: 'chair', name: 'Chair', description: '', prompt: '', voice: 'alloy' },
+                chair,
                 { id: 'panelist0', name: 'Alice', description: '', prompt: '', voice: 'alloy' }
             ],
             state: { humanName: 'Frank' },
@@ -70,7 +71,7 @@ describe('HumanInputHandler (Isolated)', () => {
 
             expect(mockContext.audioSystem.queueAudioGeneration).toHaveBeenCalledWith(
                 expect.objectContaining({ type: 'human' }),
-                expect.objectContaining({ id: 'chair' }),
+                expect.objectContaining({ id: chair.id }),
                 mockContext.meeting,
                 "test",
                 mockContext.serverOptions

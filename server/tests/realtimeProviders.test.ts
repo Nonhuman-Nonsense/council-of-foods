@@ -6,6 +6,7 @@ import {
     pickHumanInputRealtimeProvider,
     pickVoiceGuideRealtimeProvider,
 } from "@api/realtimeProviders.js";
+import { getCharacterSetupBundle } from "@logic/characterSetupBundle.js";
 
 vi.mock("@services/OpenAIService.js", () => ({
     getOpenAI: () => ({ apiKey: "test-openai-api-key" }),
@@ -18,6 +19,8 @@ vi.mock("../src/config.js", () => ({
 }));
 
 const SDP_OFFER = "v=0\r\no=- 1 2 IN IP4 127.0.0.1\r\nm=audio 9 UDP/TLS/RTP/SAVPF 111\r\n";
+const swedishGuideChair = getCharacterSetupBundle("sv").characters[0];
+const englishGuideChair = getCharacterSetupBundle("en").characters[0];
 
 describe("realtimeProviders", () => {
     beforeEach(() => {
@@ -91,7 +94,7 @@ describe("realtimeProviders", () => {
                     },
                 },
                 output: {
-                    voice: "alloy",
+                    voice: swedishGuideChair.voice,
                 },
             },
         });
@@ -114,7 +117,7 @@ describe("realtimeProviders", () => {
             output_modalities: ["audio", "text"],
             audio: {
                 output: {
-                    voice: "Ashley",
+                    voice: englishGuideChair.voice,
                 },
             },
         });
