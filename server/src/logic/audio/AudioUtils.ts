@@ -12,16 +12,23 @@ export class AudioQueue {
     queue: AudioTask[];
     activeCount: number;
     concurrency: number;
+    private idleResolvers: Array<() => void>;
 
     constructor(concurrency: number = 3) {
         this.queue = [];
         this.activeCount = 0;
         this.concurrency = concurrency;
+        this.idleResolvers = [];
     }
 
     add(task: AudioTask): void {
         this.queue.push(task);
         this.processNext();
+    }
+
+    clearPending(): void {
+        this.queue = [];
+        this.resolveIdleIfNeeded();
     }
 
     async processNext(): Promise<void> {
@@ -52,7 +59,29 @@ export class AudioQueue {
             Logger.error("AudioSystem", "Audio Task Error", error);
         } finally {
             this.activeCount--;
+            this.resolveIdleIfNeeded();
             this.processNext();
+        }
+    }
+
+    async onIdle(): Promise<void> {
+        if (this.activeCount === 0 && this.queue.length === 0) {
+            return;
+        }
+
+        await new Promise<void>((resolve) => {
+            this.idleResolvers.push(resolve);
+        });
+    }
+
+    private resolveIdleIfNeeded(): void {
+        if (this.activeCount !== 0 || this.queue.length !== 0) {
+            return;
+        }
+
+        const resolvers = this.idleResolvers.splice(0);
+        for (const resolve of resolvers) {
+            resolve();
         }
     }
 }

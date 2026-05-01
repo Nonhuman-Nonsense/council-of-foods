@@ -96,12 +96,14 @@ export class MeetingManager implements IMeetingManager {
     /**
      * Called by SocketManager when this session is destroyed (user disconnected or switched meeting).
      */
-    destroy() {
+    async destroy(audioStrategy: "drain" | "cancel" = "drain") {
         Logger.info(`meeting ${this.meeting?._id}`, "Session destroyed");
         this.isLoopActive = false;
-        // Clean up listeners? No, we don't attach them anymore.
-        // Stop audio generation?
-        // Note: AudioSystem might still be processing. Ideally we'd cancel it.
+        if (audioStrategy === "cancel") {
+            this.audioSystem.cancelPendingWork();
+        } else {
+            await this.audioSystem.waitForIdle();
+        }
         // Ensure connection handler knows we are done (logging mainly)
         this.connectionHandler.handleDisconnect();
     }

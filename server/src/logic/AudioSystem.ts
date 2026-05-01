@@ -37,6 +37,7 @@ export class AudioSystem {
     services: Services;
     queue: AudioQueue;
     private googleAuthClient: GoogleAuth | null = null;
+    private generationToken = 0;
 
     constructor(broadcaster: IMeetingBroadcaster, services: Services, concurrency: number = 3) {
         this.broadcaster = broadcaster;
@@ -65,21 +66,42 @@ export class AudioSystem {
 
     queueAudioGeneration(message: Message, speaker: Speaker, meeting: StoredMeeting, environment: string, serverOptions: GlobalOptions): void {
         this.queue.add(() =>
-            this.generateAudio(message, speaker, meeting.language, serverOptions, meeting, environment)
+            this.generateAudio(message, speaker, meeting.language, serverOptions, meeting, environment, false, this.generationToken)
         );
+    }
+
+    async waitForIdle(): Promise<void> {
+        await this.queue.onIdle();
+    }
+
+    cancelPendingWork(): void {
+        this.generationToken++;
+        this.queue.clearPending();
     }
 
     /**
      * Generates or retrieves audio for a given message.
      * Emits 'audio_update' to the socket client.
      */
-    async generateAudio(message: Message, speaker: Speaker, language: string, serverOptions: GlobalOptions, meeting: StoredMeeting, environment: string, skipMatching: boolean = false): Promise<void> {
+    async generateAudio(
+        message: Message,
+        speaker: Speaker,
+        language: string,
+        serverOptions: GlobalOptions,
+        meeting: StoredMeeting,
+        environment: string,
+        skipMatching: boolean = false,
+        generationToken: number = this.generationToken
+    ): Promise<void> {
         // Merge context language into options for consistent usage internally
         const effectiveOptions: AudioSystemOptions = { ...serverOptions, language };
 
         if (effectiveOptions.skipAudio) return;
 
         if (message.type === "skipped") {
+            if (generationToken !== this.generationToken) {
+                return;
+            }
             this.broadcaster.broadcastAudioUpdate({ id: message.id, type: "skipped" });
             return;
         }
@@ -130,6 +152,10 @@ export class AudioSystem {
                 buffers = results.map(r => r.audio);
                 providerWords = results.map(r => r.words);
                 generateNew = true;
+            }
+
+            if (generationToken !== this.generationToken) {
+                return;
             }
 
             const shouldSkipMatching = skipMatching || effectiveOptions.skipMatchingSubtitles || environment === 'prototype';
@@ -191,6 +217,10 @@ export class AudioSystem {
                 sentencesWithTimings = [];
             }
 
+            if (generationToken !== this.generationToken) {
+                return;
+            }
+
             // Merge chunks into single buffer using FFmpeg
             const combinedBuffer = await mergeAudioBuffers(buffers);
 
@@ -203,9 +233,15 @@ export class AudioSystem {
 
             Logger.info("AudioSystem", `Audio generated for message ${message.id}. Size: ${combinedBuffer.length} bytes.`);
 
-
+            if (generationToken !== this.generationToken) {
+                return;
+            }
 
             this.broadcaster.broadcastAudioUpdate(audioObject);
+
+            if (generationToken !== this.generationToken) {
+                return;
+            }
 
             if (generateNew && environment !== "prototype") {
                 // Upsert logic
