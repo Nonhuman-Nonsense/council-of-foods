@@ -69,7 +69,13 @@ describe('AudioSystem', () => {
         expect(mockOpenAI.audio.speech.create).toHaveBeenCalled();
         expect(mockBroadcaster.broadcastAudioUpdate).toHaveBeenCalledWith(expect.objectContaining({
             id: 'msg1',
-            sentences: []
+            sentences: [
+                expect.objectContaining({
+                    text: 'Hello',
+                    start: 0,
+                    end: 1
+                })
+            ]
         }));
     });
 
