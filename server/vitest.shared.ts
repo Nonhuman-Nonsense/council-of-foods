@@ -1,11 +1,18 @@
 import path from 'path';
 
-export const commonInclude = ['tests/**/*.test.js', 'tests/**/*.test.ts'];
+export const commonInclude = [
+    'tests/**/*.test.js',
+    'tests/**/*.test.ts',
+    'tests_forest/**/*.test.js',
+    'tests_forest/**/*.test.ts',
+];
 export const commonExclude = ['node_modules', 'dist', '.idea', '.git', '.cache'];
 
 export const dbBackedTests = [
     'tests/**/*.integration.test.js',
     'tests/**/*.integration.test.ts',
+    'tests_forest/**/*.integration.test.js',
+    'tests_forest/**/*.integration.test.ts',
     'tests/AudioDrain.test.js',
     'tests/Concurrency.test.js',
     'tests/ConfigurationAndDbErrors.test.js',
