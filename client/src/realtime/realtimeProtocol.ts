@@ -9,12 +9,25 @@ import type { RealtimeTool } from "@voice/guideTools";
 
 export type SemanticVadEagerness = "low" | "medium" | "high";
 
-export type RealtimeTurnDetection = {
+export type RealtimeSemanticTurnDetection = {
   type: "semantic_vad";
   eagerness?: SemanticVadEagerness;
   create_response?: boolean;
   interrupt_response?: boolean;
 };
+
+export type RealtimeServerVadTurnDetection = {
+  type: "server_vad";
+  threshold?: number;
+  prefix_padding_ms?: number;
+  silence_duration_ms?: number;
+  create_response?: boolean;
+  interrupt_response?: boolean;
+};
+
+export type RealtimeTurnDetection =
+  | RealtimeSemanticTurnDetection
+  | RealtimeServerVadTurnDetection;
 
 export type RealtimeSessionConfig = {
   type: "realtime";
@@ -24,12 +37,24 @@ export type RealtimeSessionConfig = {
   tools: RealtimeTool[];
   audio: {
     input?: {
-      transcription?: { model: string };
+      format?: {
+        type: string;
+        rate?: number;
+      };
+      noise_reduction?: { type: string } | null;
+      transcription?: {
+        model: string;
+        language?: string;
+        prompt?: string;
+      };
       turn_detection?: RealtimeTurnDetection;
     };
     output?: {
-      voice: string;
-      model: string;
+      format?: {
+        type: string;
+      };
+      voice: string | { id: string };
+      model?: string;
       speed?: number;
     };
   };

@@ -53,8 +53,11 @@ describe("spaFallback", () => {
         });
 
         it("uses the configured shared languages by default", () => {
-            if (AVAILABLE_LANGUAGES.length === 1) {
-                expect(AVAILABLE_LANGUAGES).toEqual(ENGLISH_ONLY);
+            const configuredLanguages: readonly string[] = AVAILABLE_LANGUAGES;
+            expect([1, 2]).toContain(configuredLanguages.length);
+
+            if (configuredLanguages.length === 1) {
+                expect(configuredLanguages).toEqual(ENGLISH_ONLY);
                 expect(shouldServeSpaShell("/")).toBe(true);
                 expect(shouldServeSpaShell("/new")).toBe(true);
                 expect(shouldServeSpaShell("/meeting/9")).toBe(true);
@@ -65,7 +68,7 @@ describe("spaFallback", () => {
                 return;
             }
 
-            expect(AVAILABLE_LANGUAGES).toEqual(ENGLISH_AND_SWEDISH);
+            expect(configuredLanguages).toEqual(ENGLISH_AND_SWEDISH);
             expect(shouldServeSpaShell("/")).toBe(true);
             expect(shouldServeSpaShell("/en")).toBe(true);
             expect(shouldServeSpaShell("/sv/new")).toBe(true);
