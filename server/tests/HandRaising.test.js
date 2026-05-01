@@ -9,6 +9,7 @@ describe('HandRaisingHandler', () => {
     let mockDialogGenerator;
     let mockAudioSystem;
     let mockMeetingsCollection;
+    const chair = MockFactory.createChair();
 
     beforeEach(() => {
         mockBroadcaster = {
@@ -33,7 +34,7 @@ describe('HandRaisingHandler', () => {
 
         const meeting = MockFactory.createStoredMeeting({
             _id: 123,
-            characters: [{ id: 'chair', name: 'Chair', description: '', prompt: '', voice: 'alloy' }],
+            characters: [chair],
             state: {},
             conversation: []
         });

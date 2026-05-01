@@ -1,6 +1,7 @@
 import type { Topic, Character } from "@shared/ModelTypes";
 import { buildMeetingCharactersPayload, type MeetingCharactersI18n } from "@newMeeting/meetingSetup";
 import { useMeetingSetupStore } from "@stores/useMeetingSetupStore";
+import type { VoiceGuidePromptBundle } from "./guidePrompt";
 
 export type JsonSchemaObject = {
   type: "object";
@@ -51,19 +52,21 @@ function asString(v: unknown): string | null {
   return typeof v === "string" ? v : null;
 }
 
-export function createGuideTools(_ctx: Pick<GuideToolContext, "topics" | "characters">): RealtimeTool[] {
+export function createGuideTools(params: {
+  promptBundle: VoiceGuidePromptBundle;
+}): RealtimeTool[] {
+  const copy = params.promptBundle.toolDescriptions;
   return [
     {
       type: "function",
       name: "list_topics",
-      description: "List available topics (id + title).",
-      parameters: { type: "object", additionalProperties: false },
+      description: copy.list_topics,
+      parameters: { type: "object", properties: {}, additionalProperties: false },
     },
     {
       type: "function",
       name: "describe_topic",
-      description:
-        "Preview a topic by id. This also selects it in the UI so the visitor can see which topic is being discussed, but it stays on the topic step.",
+      description: copy.describe_topic,
       parameters: {
         type: "object",
         additionalProperties: false,
@@ -74,8 +77,7 @@ export function createGuideTools(_ctx: Pick<GuideToolContext, "topics" | "charac
     {
       type: "function",
       name: "select_topic",
-      description:
-        "Choose a topic by id and continue to the foods step. Use this when the visitor has decided to go with that topic.",
+      description: copy.select_topic,
       parameters: {
         type: "object",
         additionalProperties: false,
@@ -86,7 +88,7 @@ export function createGuideTools(_ctx: Pick<GuideToolContext, "topics" | "charac
     {
       type: "function",
       name: "set_custom_topic",
-      description: "Select the custom topic and set the custom topic text.",
+      description: copy.set_custom_topic,
       parameters: {
         type: "object",
         additionalProperties: false,
@@ -97,20 +99,19 @@ export function createGuideTools(_ctx: Pick<GuideToolContext, "topics" | "charac
     {
       type: "function",
       name: "go_to_topic_step",
-      description:
-        "Go back to the topic step so the visitor can review or change the topic selection.",
-      parameters: { type: "object", additionalProperties: false },
+      description: copy.go_to_topic_step,
+      parameters: { type: "object", properties: {}, additionalProperties: false },
     },
     {
       type: "function",
       name: "list_foods",
-      description: "List available foods (id + name).",
-      parameters: { type: "object", additionalProperties: false },
+      description: copy.list_foods,
+      parameters: { type: "object", properties: {}, additionalProperties: false },
     },
     {
       type: "function",
       name: "describe_food",
-      description: "Describe a food character by id.",
+      description: copy.describe_food,
       parameters: {
         type: "object",
         additionalProperties: false,
@@ -121,7 +122,7 @@ export function createGuideTools(_ctx: Pick<GuideToolContext, "topics" | "charac
     {
       type: "function",
       name: "select_food",
-      description: "Select a food character by id.",
+      description: copy.select_food,
       parameters: {
         type: "object",
         additionalProperties: false,
@@ -132,7 +133,7 @@ export function createGuideTools(_ctx: Pick<GuideToolContext, "topics" | "charac
     {
       type: "function",
       name: "highlight_food",
-      description: "Highlight or hover a food character on the screen (e.g. while explaining it). Pass null or empty string to clear the highlight.",
+      description: copy.highlight_food,
       parameters: {
         type: "object",
         additionalProperties: false,
@@ -143,7 +144,7 @@ export function createGuideTools(_ctx: Pick<GuideToolContext, "topics" | "charac
     {
       type: "function",
       name: "deselect_food",
-      description: "Deselect a food character by id.",
+      description: copy.deselect_food,
       parameters: {
         type: "object",
         additionalProperties: false,
@@ -154,10 +155,8 @@ export function createGuideTools(_ctx: Pick<GuideToolContext, "topics" | "charac
     {
       type: "function",
       name: "start_meeting",
-      description:
-        "Start the council meeting with the current selections. Same as the Start button on the foods step. " +
-        "Requires the same validation: topic already confirmed, enough foods selected, unique names, and any human panelists filled in.",
-      parameters: { type: "object", additionalProperties: false },
+      description: copy.start_meeting,
+      parameters: { type: "object", properties: {}, additionalProperties: false },
     },
   ];
 }

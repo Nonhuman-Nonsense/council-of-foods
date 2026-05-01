@@ -302,6 +302,15 @@ input[type="checkbox"] {
   cursor: pointer;
 }
 
+input + small,
+select + small,
+textarea + small{
+  display:block;
+  margin-top: calc(var(--spacing-sm) * -1);
+  margin-bottom: var(--spacing-md);
+  color: var(--text-secondary);
+}
+
 /* Styled Select */
 .styled-select {
   width: 100%;

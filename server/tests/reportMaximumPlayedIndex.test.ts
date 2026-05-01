@@ -4,6 +4,8 @@ import { clearLiveSessionRegistryForTests, tryAcquireLiveSession } from "@logic/
 import { createTestManager } from "./commonSetup.js";
 import { MockFactory } from "./factories/MockFactory.js";
 
+const SPEAKER_ID = "speaker1";
+
 describe("report_maximum_played_index (MeetingManager)", () => {
     beforeEach(() => {
         clearLiveSessionRegistryForTests();
@@ -18,9 +20,9 @@ describe("report_maximum_played_index (MeetingManager)", () => {
         const meeting = MockFactory.createStoredMeeting({
             _id: 501,
             conversation: [
-                { id: "a", type: "message", speaker: "water", text: "1" },
-                { id: "b", type: "message", speaker: "water", text: "2" },
-                { id: "c", type: "message", speaker: "water", text: "3" },
+                { id: "a", type: "message", speaker: SPEAKER_ID, text: "1" },
+                { id: "b", type: "message", speaker: SPEAKER_ID, text: "2" },
+                { id: "c", type: "message", speaker: SPEAKER_ID, text: "3" },
             ],
         });
         manager.meeting = meeting;
@@ -43,7 +45,7 @@ describe("report_maximum_played_index (MeetingManager)", () => {
         mockSocket.id = "intruder-socket";
         const meeting = MockFactory.createStoredMeeting({
             _id: 502,
-            conversation: [{ id: "a", type: "message", speaker: "water", text: "1" }],
+            conversation: [{ id: "a", type: "message", speaker: SPEAKER_ID, text: "1" }],
         });
         manager.meeting = meeting;
 
@@ -65,7 +67,7 @@ describe("report_maximum_played_index (MeetingManager)", () => {
         mockSocket.id = "holder-socket";
         const meeting = MockFactory.createStoredMeeting({
             _id: 503,
-            conversation: [{ id: "a", type: "message", speaker: "water", text: "1" }],
+            conversation: [{ id: "a", type: "message", speaker: SPEAKER_ID, text: "1" }],
         });
         manager.meeting = meeting;
         tryAcquireLiveSession(503, "holder-socket", meeting.liveKey);
@@ -86,8 +88,8 @@ describe("report_maximum_played_index (MeetingManager)", () => {
         const meeting = MockFactory.createStoredMeeting({
             _id: 504,
             conversation: [
-                { id: "a", type: "message", speaker: "water", text: "1" },
-                { id: "b", type: "message", speaker: "water", text: "2" },
+                { id: "a", type: "message", speaker: SPEAKER_ID, text: "1" },
+                { id: "b", type: "message", speaker: SPEAKER_ID, text: "2" },
             ],
             maximumPlayedIndex: 1,
         });

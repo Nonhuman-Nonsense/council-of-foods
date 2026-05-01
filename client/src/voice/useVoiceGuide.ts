@@ -2,15 +2,15 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { RealtimeTool, ToolHandler } from "./guideTools";
 import {
   createRealtimeConnection,
-  fetchVoiceGuideBootstrap,
+  fetchRealtimeBootstrap,
   type RealtimeConnection,
-} from "./realtimeConnection";
+} from "@realtime/realtimeConnection";
 import { createEventLoop } from "./realtimeEventLoop";
 import {
-  mergeVoiceGuideRealtimeSession,
+  mergeRealtimeSessionWithClientConfig,
   type RealtimeSessionConfig,
   type RealtimeSessionServerDefaults,
-} from "./realtimeProtocol";
+} from "@realtime/realtimeProtocol";
 import { createCaptionScheduler, type CaptionScheduler } from "./captionScheduler";
 import { createRemoteAudioAnchor, type RemoteAudioAnchor } from "./remoteAudioAnchor";
 
@@ -19,6 +19,7 @@ type VoiceGuideStatus = "idle" | "connecting" | "connected" | "error";
 const AUDIO_ANCHOR_FALLBACK_DELAY_MS = 600;
 
 export type UseVoiceGuideParams = {
+  language: string;
   /** System instructions/prompt. */
   instructions: string;
   /** Realtime function tools. May change between renders. */
@@ -84,7 +85,7 @@ function attachRemoteAudio(track: MediaStreamTrack, audioElement: HTMLAudioEleme
 }
 
 /**
- * React glue around the pure realtimeConnection + realtimeEventLoop modules.
+ * React glue around the pure @realtime/realtimeConnection + realtimeEventLoop modules.
  *
  * Design choices:
  *  - Tools / handlers live in a ref, so `start()` doesn't re-bind on every
@@ -97,14 +98,14 @@ function attachRemoteAudio(track: MediaStreamTrack, audioElement: HTMLAudioEleme
  *    use `session.update`. Skipping this caused "server_error" on the first
  *    auto-greeting and tool-less chitchat afterwards.
  *  - Model, voice, TTS, transcription, VAD, and audio speed come from the server
- *    (`GET /api/voice-guide/bootstrap`, backed by GlobalOptions).
+ *    (`POST /api/realtime/bootstrap` with `feature: "voice-guide"`, backed by GlobalOptions).
  *    Instructions and tool schemas stay on the client.
  *  - StrictMode-safe: `start()` uses an attempt counter + AbortController so
  *    the dev-only mount → unmount → mount cycle doesn't leak two parallel
  *    WebRTC connections.
  */
 export function useVoiceGuide(params: UseVoiceGuideParams): VoiceGuideState {
-  const { instructions, tools, toolHandlers, audioElement, autoStart = true, initialMuted = false } = params;
+  const { language, instructions, tools, toolHandlers, audioElement, autoStart = true, initialMuted = false } = params;
 
   const [muted, setMuted] = useState(initialMuted);
   const [status, setStatus] = useState<VoiceGuideStatus>("idle");
@@ -128,13 +129,14 @@ export function useVoiceGuide(params: UseVoiceGuideParams): VoiceGuideState {
    */
   const attemptRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
+  const previousLanguageRef = useRef(language);
 
   // Latest tool handlers + config, kept in refs so the event loop and the
   // session config builder always see the latest values without re-binding.
   const handlersRef = useRef<Record<string, ToolHandler>>(toolHandlers);
   const instructionsRef = useRef(instructions);
   const toolsRef = useRef(tools);
-  /** Set after a successful `GET /api/voice-guide/bootstrap` during `start()`. */
+  /** Set after a successful voice-guide bootstrap during `start()`. */
   const serverDefaultsRef = useRef<RealtimeSessionServerDefaults | null>(null);
   useEffect(() => {
     handlersRef.current = toolHandlers;
@@ -147,7 +149,7 @@ export function useVoiceGuide(params: UseVoiceGuideParams): VoiceGuideState {
     if (!defaults) {
       throw new Error("Voice guide realtime defaults not loaded");
     }
-    return mergeVoiceGuideRealtimeSession(defaults, instructionsRef.current, toolsRef.current);
+    return mergeRealtimeSessionWithClientConfig(defaults, instructionsRef.current, toolsRef.current);
   }, []);
 
   const clearAudioAnchorFallback = useCallback(() => {
@@ -213,7 +215,7 @@ export function useVoiceGuide(params: UseVoiceGuideParams): VoiceGuideState {
     let conn: RealtimeConnection | null = null;
     try {
       const settled = await Promise.allSettled([
-        fetchVoiceGuideBootstrap(debugLog, controller.signal),
+        fetchRealtimeBootstrap({ feature: "voice-guide", language }, debugLog, controller.signal),
         navigator.mediaDevices.getUserMedia({
           audio: {
             echoCancellation: true,
@@ -233,7 +235,7 @@ export function useVoiceGuide(params: UseVoiceGuideParams): VoiceGuideState {
       if (micResult.status === "rejected") {
         throw micResult.reason;
       }
-      const { session: defaults, iceServers } = bootResult.value;
+      const { provider, session: defaults, iceServers } = bootResult.value;
       const micStream = micResult.value;
       if (isStale()) {
         micStream.getTracks().forEach((t) => t.stop());
@@ -298,9 +300,18 @@ export function useVoiceGuide(params: UseVoiceGuideParams): VoiceGuideState {
       });
       eventLoopRef.current = loop;
 
+      // Keep the call-creation payload minimal. We still send the full
+      // instructions + tools via session.update on data-channel open, which is
+      // what the voice guide relies on anyway. This avoids asking providers to
+      // process the full prompt/tool bundle during the initial SDP exchange.
       conn = await createRealtimeConnection({
-        session: buildSessionConfig(),
+        session: defaults,
         iceServers,
+        callPath: "/api/realtime/call",
+        callBodyExtras: {
+          feature: "voice-guide",
+          provider,
+        },
         micStream,
         log: debugLog,
         signal: controller.signal,
@@ -381,7 +392,7 @@ export function useVoiceGuide(params: UseVoiceGuideParams): VoiceGuideState {
     } finally {
       if (abortRef.current === controller) abortRef.current = null;
     }
-  }, [audioElement, buildSessionConfig, clearAudioAnchorFallback]);
+  }, [audioElement, buildSessionConfig, clearAudioAnchorFallback, language]);
 
   // Unconditional teardown on unmount.
   useEffect(() => {
@@ -405,6 +416,33 @@ export function useVoiceGuide(params: UseVoiceGuideParams): VoiceGuideState {
     if (!autoStart) return;
     void start();
   }, [muted, autoStart, cleanup, start]);
+
+  // Main switches the route language in an effect after first render. If the
+  // voice guide auto-starts before that finishes, we can briefly connect with
+  // the wrong provider (e.g. English/Inworld on /sv/*). Restart the session
+  // whenever the effective guide language changes.
+  useEffect(() => {
+    const previousLanguage = previousLanguageRef.current;
+    if (previousLanguage === language) {
+      return;
+    }
+    previousLanguageRef.current = language;
+
+    if (muted) {
+      return;
+    }
+
+    cleanup();
+    setStatus("idle");
+    setError(null);
+    setLastCaption(null);
+    setLastUserTranscript(null);
+    setHasSeenFirstGreetingAudio(false);
+
+    if (autoStart) {
+      void start();
+    }
+  }, [language, muted, autoStart, cleanup, start]);
 
   const sendUserMessage = useCallback((text: string) => {
     eventLoopRef.current?.sendUserMessage(text);

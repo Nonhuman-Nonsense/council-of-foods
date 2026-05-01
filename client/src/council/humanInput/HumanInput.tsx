@@ -6,17 +6,30 @@ import { useTranslation } from "react-i18next";
 import { LiveAudioVisualizerPair } from "./LiveAudioVisualizer";
 import Lottie from 'react-lottie-player';
 import loading from "@assets/animations/loading.json";
-import { getClientKey } from "@api/getClientKey";
+import { bootstrapHumanInputRealtimeSession } from "@api/realtimeSession";
+import {
+  createRealtimeConnection,
+  type RealtimeConnection,
+} from "@realtime/realtimeConnection";
+import type { RealtimeProvider } from "@shared/RealtimeSessionTypes";
+import React from 'react';
 import micIcon from "@assets/mic.avif";
 
-// OpenAI Realtime API Interfaces
+interface InputAudioTranscriptionDeltaEvent {
+  type: "conversation.item.input_audio_transcription.delta";
+  item_id: string;
+  delta: string;
+}
+
 interface InputAudioTranscriptionCompletedEvent {
   type: "conversation.item.input_audio_transcription.completed";
   item_id: string;
   transcript: string;
 }
 
-type OpenAIRealtimeEvent = InputAudioTranscriptionCompletedEvent; // Union with other events if needed
+type HumanInputRealtimeEvent =
+  | InputAudioTranscriptionDeltaEvent
+  | InputAudioTranscriptionCompletedEvent;
 
 interface HumanInputProps {
   isPanelist: boolean;
@@ -31,15 +44,16 @@ type TextareaStyle = Omit<React.CSSProperties, 'height'> & { height?: number };
 /**
  * HumanInput Component
  * 
- * Manages the user interface for human participation, supporting both voice (OpenAI Realtime API) and text input.
+ * Manages the user interface for human participation, supporting both voice and text input.
  * 
  * Core Logic:
- * - **Voice Input**: Establishes a WebRTC connection to OpenAI ('startRealtimeSession') to stream audio and receive live transcripts.
+ * - **Voice Input**: Opens a server-proxied realtime WebRTC session and receives live transcript deltas/finals.
+ *   For Inworld WebRTC, the session is mirrored with `session.update` on the data channel when it opens (per docs),
+ *   in addition to the payload on `/api/realtime/call`.
  * - **Text Input**: Provides a fallback manual text entry.
  * - **Routing**: The server infers whether the human is addressing a specific character.
  */
 function HumanInput({ isPanelist, currentSpeakerName, onSubmitHumanMessage, liveKey }: HumanInputProps): React.ReactElement {
-  const [clientKey, setClientKey] = useState<string | null>(null);
   const [recordingState, setRecordingState] = useState<"idle" | "loading" | "recording">("idle");
   const [canContinue, setCanContinue] = useState<boolean>(false);
   const [transcript, setTranscript] = useState<Record<string, string>>({});
@@ -48,9 +62,8 @@ function HumanInput({ isPanelist, currentSpeakerName, onSubmitHumanMessage, live
   const inputArea = useRef<HTMLTextAreaElement>(null);
   const isMobile = useMobile();
 
-  const initialized = useRef<boolean>(false);
-  const pc = useRef<RTCPeerConnection | null>(null);
-  const mic = useRef<MediaStream | null>(null);
+  const connectionRef = useRef<RealtimeConnection | null>(null);
+  const startAbortRef = useRef<AbortController | null>(null);
   const [micStream, setMicStream] = useState<MediaStream | null>(null);
 
   const vizLeftHostRef = useRef<HTMLDivElement>(null);
@@ -63,92 +76,114 @@ function HumanInput({ isPanelist, currentSpeakerName, onSubmitHumanMessage, live
 
   // Effect to manage speech recognition state
   useEffect(() => {
-    if (recordingState === 'loading' && clientKey) {
+    if (recordingState === 'loading') {
       setTranscript({});
-      startRealtimeSession();
-    } else if (recordingState === 'recording') {
-      //do something here?
+      void startRealtimeSession();
     } else if (recordingState === 'idle') {
-      pc.current?.close();
-      mic.current?.getTracks().forEach(track => track.stop());
-      mic.current = null;
+      startAbortRef.current?.abort();
+      startAbortRef.current = null;
+      connectionRef.current?.close();
+      connectionRef.current = null;
       setMicStream(null);
     }
-  }, [recordingState, clientKey]);
+  }, [recordingState]);
+
+  function handleRealtimeEvent(event: HumanInputRealtimeEvent) {
+    if (event.type === "conversation.item.input_audio_transcription.delta") {
+      setTranscript(prev => {
+        const next = { ...prev };
+        next[event.item_id] = `${next[event.item_id] ?? ""}${event.delta}`;
+        return next;
+      });
+      return;
+    }
+
+    if (event.type === "conversation.item.input_audio_transcription.completed") {
+      setTranscript(prev => {
+        const next = { ...prev };
+        next[event.item_id] = event.transcript;
+        return next;
+      });
+    }
+  }
 
   /**
-   * Initiates a WebRTC session with OpenAI's Realtime API.
-   * - Captures local microphone stream.
-   * - Negotiates SDP offer/answer.
-   * - Listens for transcription completion events via Data Channel.
+   * Initiates a provider-backed realtime transcription session via the app server.
    */
   async function startRealtimeSession() {
+    const controller = new AbortController();
+    startAbortRef.current?.abort();
+    startAbortRef.current = controller;
 
-    // Create a peer connection
-    pc.current = new RTCPeerConnection();
+    try {
+      const bootstrap = await bootstrapHumanInputRealtimeSession(
+        { feature: "human-input", language: i18n.language },
+        liveKey,
+        controller.signal
+      );
 
-    mic.current = await navigator.mediaDevices.getUserMedia({
-      audio: true,
-    });
-    setMicStream(mic.current);
-    pc.current.addTrack(mic.current.getTracks()[0]);
+      const sessionForDc = bootstrap.session;
+      const providerForDc: RealtimeProvider = bootstrap.provider;
 
-    // Set up data channel for sending and receiving events
-    const dc = pc.current.createDataChannel("oai-events");
+      const connection = await createRealtimeConnection({
+        session: bootstrap.session,
+        iceServers: bootstrap.iceServers,
+        callPath: "/api/realtime/call",
+        callHeaders: {
+          Authorization: `Bearer ${liveKey}`,
+        },
+        callBodyExtras: {
+          feature: "human-input",
+          provider: bootstrap.provider,
+        },
+        signal: controller.signal,
+        onOpen:
+          providerForDc === "inworld"
+            ? ({ dc }) => {
+                if (controller.signal.aborted) return;
+                try {
+                  dc.send(JSON.stringify({ type: "session.update", session: sessionForDc }));
+                } catch {
+                  /* closed before send; ignore */
+                }
+              }
+            : undefined,
+        onRemoteTrack: () => undefined,
+        onEvent: (event) => handleRealtimeEvent(event as HumanInputRealtimeEvent),
+        onClose: () => {
+          if (!controller.signal.aborted) {
+            setRecordingState("idle");
+          }
+        },
+      });
 
-    // Start the session using the Session Description Protocol (SDP)
-    const offer = await pc.current.createOffer();
-    await pc.current.setLocalDescription(offer);
-
-    const sdpResponse = await fetch("https://api.openai.com/v1/realtime/calls", {
-      method: "POST",
-      body: offer.sdp,
-      headers: {
-        Authorization: `Bearer ${clientKey}`,
-        "Content-Type": "application/sdp",
-      },
-    });
-
-    const answer = {
-      type: "answer",
-      sdp: await sdpResponse.text(),
-    } as RTCSessionDescriptionInit;
-
-    await pc.current.setRemoteDescription(answer);
-
-    dc.addEventListener("message", (e) => {
-      const event: OpenAIRealtimeEvent = JSON.parse(e.data);
-      // Delta events are not working at the moment
-      // https://community.openai.com/t/gpt-4o-transcribe-realtime-the-delta-updates-not-received-during-the-transcription/1357039
-      // if (event.type === "conversation.item.input_audio_transcription.delta") {
-      //   setTranscript(prev => {
-      //     prev[event.item_id] = !prev[event.item_id] ? event.delta : prev[event.item_id] += event.delta;
-      //     return {...prev};
-      //   }
-      //   );
-      // }
-      if (event.type === "conversation.item.input_audio_transcription.completed") {
-        setTranscript(prev => {
-          const newTranscript = { ...prev };
-          newTranscript[event.item_id] = event.transcript;
-          return newTranscript;
-        });
+      if (controller.signal.aborted) {
+        connection.close();
+        return;
       }
-    });
 
-    setRecordingState('recording');
+      connectionRef.current = connection;
+      setMicStream(connection.micStream);
+      setRecordingState('recording');
+    } catch (err) {
+      if (err instanceof Error && err.name === "AbortError") {
+        return;
+      }
+      console.error("Failed to start realtime human input session", err);
+      setRecordingState("idle");
+    } finally {
+      if (startAbortRef.current === controller) {
+        startAbortRef.current = null;
+      }
+    }
   }
 
   useEffect(() => {
-    if (initialized.current) return;
-    initialized.current = true;
-    getClientKey({ language: i18n.language, liveKey })
-      .then(data => setClientKey(data.value))
-      .catch(err => console.error("Failed to get client key", err));
     return () => {
-      pc.current?.close();
-      mic.current?.getTracks().forEach(track => track.stop());
-      mic.current = null;
+      startAbortRef.current?.abort();
+      startAbortRef.current = null;
+      connectionRef.current?.close();
+      connectionRef.current = null;
       setMicStream(null);
     };
   }, []);

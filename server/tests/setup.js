@@ -1,32 +1,66 @@
-import { beforeAll, beforeEach, afterAll } from 'vitest';
-import { MongoMemoryServer } from 'mongodb-memory-server';
-import { initDb, meetingsCollection, audioCollection } from '@services/DbService.js';
-import dotenv from 'dotenv';
+import { beforeAll, beforeEach, afterAll, vi } from 'vitest';
+import { initDb, closeDb, meetingsCollection, audioCollection, counters } from '@services/DbService.js';
+import { TEST_MODES } from '@interfaces/TestModes.js';
 
-// Load env vars from .env file
-dotenv.config();
+vi.mock('@services/ConversationService.js', async () => {
+    const actual = await vi.importActual('@services/ConversationService.js');
+    const mode = process.env.TEST_MODE || TEST_MODES.MOCK;
 
-let mongod;
+    if (mode === TEST_MODES.FAST || mode === TEST_MODES.FULL) {
+        return actual;
+    }
+
+    return {
+        ...actual,
+        createConversationService: (getOpenAI) => ({
+            createChatCompletion: async ({
+                messages,
+                model,
+                maxCompletionTokens,
+                temperature,
+                reasoning,
+                stop,
+            }) => {
+                const request = {
+                    messages,
+                    model,
+                    max_completion_tokens: maxCompletionTokens,
+                    temperature,
+                    stop,
+                };
+                if (reasoning && reasoning !== 'none') {
+                    request.reasoning_effort = reasoning;
+                }
+                const completion = await getOpenAI().chat.completions.create(request);
+
+                return {
+                    id: completion.id ?? null,
+                    content: completion.choices?.[0]?.message?.content ?? null,
+                    finishReason: completion.choices?.[0]?.finish_reason ?? 'stop',
+                };
+            },
+        }),
+    };
+});
+
+const baseDbPrefix = process.env.COUNCIL_DB_PREFIX || 'test_db';
+const workerId = process.env.VITEST_POOL_ID || process.env.VITEST_WORKER_ID || `${process.pid}`;
+const workerDbPrefix = `${baseDbPrefix}_${workerId}`;
 
 beforeAll(async () => {
-    // 1. Start In-Memory DB
-    mongod = await MongoMemoryServer.create();
-    const uri = mongod.getUri();
-
-    // 2. Override Environment (optional, but good for other components reading env)
-    process.env.COUNCIL_DB_URL = uri;
-    process.env.COUNCIL_DB_PREFIX = "test_db";
-
-    // 3. Initialize App DB connection with overrides
-    await initDb(uri, "test_db");
+    process.env.COUNCIL_DB_PREFIX = workerDbPrefix;
+    await initDb(process.env.COUNCIL_DB_URL, workerDbPrefix);
 });
 
 beforeEach(async () => {
-    // Clear data between tests
     if (meetingsCollection) await meetingsCollection.deleteMany({});
     if (audioCollection) await audioCollection.deleteMany({});
+    if (counters) {
+        await counters.deleteMany({});
+        await counters.insertOne({ _id: 'meeting_id', seq: 0 });
+    }
 });
 
 afterAll(async () => {
-    if (mongod) await mongod.stop();
+    await closeDb();
 });

@@ -77,7 +77,9 @@ export default function Main(props: MainProps) {
     audioContext.current = new AudioContextCtor();
   }
   useEffect(() => {
-    i18n.changeLanguage(props.lang);
+    if (i18n.language !== props.lang) {
+      void i18n.changeLanguage(props.lang);
+    }
 
     if (topicSelection?.id) {
       const bundle = getTopicsBundle(props.lang);

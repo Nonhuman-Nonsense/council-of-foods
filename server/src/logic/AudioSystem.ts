@@ -1,7 +1,7 @@
 import type { IMeetingBroadcaster } from "@interfaces/MeetingInterfaces.js";
 import type { GlobalOptions } from "@logic/GlobalOptions.js";
 import { Logger } from "@utils/Logger.js";
-import { mapSentencesToWords, Word, type MappedSentence } from "@shared/textUtils.js";
+import { mapSentencesToWords, splitSentences, Word, type MappedSentence } from "@shared/textUtils.js";
 import type { StoredMeeting, SubtitleTimingType } from "@models/DBModels.js";
 import { GoogleAuth } from 'google-auth-library';
 import { parseBuffer } from 'music-metadata';
@@ -17,6 +17,7 @@ import {
     mergeAudioBuffers,
     splitText
 } from "./audio/AudioUtils.js";
+import { buildEstimatedSentenceTimings } from "./audio/EstimatedSubtitles.js";
 import {
     AudioSystemOptions,
     Message,
@@ -31,12 +32,14 @@ export * from "./audio/AudioUtils.js";
 
 // Limit for text-to-speech requests
 const MAX_AUDIO_CHUNK_LENGTH = 2000;
+const DEFAULT_SUBTITLE_TIMING_PRIORITIES: SubtitleTimingType[] = ['inworld', 'estimated', 'whisper'];
 
 export class AudioSystem {
     broadcaster: IMeetingBroadcaster;
     services: Services;
     queue: AudioQueue;
     private googleAuthClient: GoogleAuth | null = null;
+    private generationToken = 0;
 
     constructor(broadcaster: IMeetingBroadcaster, services: Services, concurrency: number = 3) {
         this.broadcaster = broadcaster;
@@ -65,21 +68,42 @@ export class AudioSystem {
 
     queueAudioGeneration(message: Message, speaker: Speaker, meeting: StoredMeeting, environment: string, serverOptions: GlobalOptions): void {
         this.queue.add(() =>
-            this.generateAudio(message, speaker, meeting.language, serverOptions, meeting, environment)
+            this.generateAudio(message, speaker, meeting.language, serverOptions, meeting, environment, false, this.generationToken)
         );
+    }
+
+    async waitForIdle(): Promise<void> {
+        await this.queue.onIdle();
+    }
+
+    cancelPendingWork(): void {
+        this.generationToken++;
+        this.queue.clearPending();
     }
 
     /**
      * Generates or retrieves audio for a given message.
      * Emits 'audio_update' to the socket client.
      */
-    async generateAudio(message: Message, speaker: Speaker, language: string, serverOptions: GlobalOptions, meeting: StoredMeeting, environment: string, skipMatching: boolean = false): Promise<void> {
+    async generateAudio(
+        message: Message,
+        speaker: Speaker,
+        language: string,
+        serverOptions: GlobalOptions,
+        meeting: StoredMeeting,
+        environment: string,
+        skipMatching: boolean = false,
+        generationToken: number = this.generationToken
+    ): Promise<void> {
         // Merge context language into options for consistent usage internally
         const effectiveOptions: AudioSystemOptions = { ...serverOptions, language };
 
         if (effectiveOptions.skipAudio) return;
 
         if (message.type === "skipped") {
+            if (generationToken !== this.generationToken) {
+                return;
+            }
             this.broadcaster.broadcastAudioUpdate({ id: message.id, type: "skipped" });
             return;
         }
@@ -132,63 +156,69 @@ export class AudioSystem {
                 generateNew = true;
             }
 
+            if (generationToken !== this.generationToken) {
+                return;
+            }
+
             const shouldSkipMatching = skipMatching || effectiveOptions.skipMatchingSubtitles || environment === 'prototype';
+            const sentenceTexts = this.getSentencesForTiming(message);
 
             let sentencesWithTimings: MappedSentence[] = [];
             let subtitleTimingType: SubtitleTimingType;
 
+            const durations = shouldSkipMatching ? [] : await Promise.all(buffers.map(async b => this.getAudioDuration(b)));
+
             if (!shouldSkipMatching) {
-                // Get timings for all chunks in parallel
-                let chunkWordsWithTimings: Word[][] = [];
+                const subtitleTimingPriorities =
+                    effectiveOptions.subtitleTimingPriorities ?? DEFAULT_SUBTITLE_TIMING_PRIORITIES;
 
-                // Check if we have native words for all chunks
-                const hasNativeWords = providerWords.length === buffers.length && providerWords.every(w => w !== undefined);
+                for (const timingType of subtitleTimingPriorities) {
+                    if (timingType === 'inworld') {
+                        const nativeSentences = this.getInworldSentenceTimings(providerWords, buffers, durations, sentenceTexts);
+                        if (nativeSentences.length > 0) {
+                            sentencesWithTimings = nativeSentences;
+                            subtitleTimingType = 'inworld';
+                            break;
+                        }
+                    }
 
-                if (hasNativeWords) {
-                    // Use native timings
-                    chunkWordsWithTimings = providerWords as Word[][];
-                    subtitleTimingType = 'inworld';
-                    // Logger.info("AudioSystem", `Using native timings for message ${message.id}`);
-                } else {
-                    // Fallback to Whisper
-                    // Note: getWhisperWords logic is stateless now.
-                    chunkWordsWithTimings = await Promise.all(buffers.map(b => this.getWhisperWordsWrapper(b)));
-                    subtitleTimingType = 'whisper';
+                    if (timingType === 'estimated') {
+                        let totalDuration = durations.reduce((sum, duration) => sum + Math.max(duration, 0), 0);
+                        if (totalDuration <= 0) {
+                            totalDuration = await this.getAudioDurationFromBuffers(buffers);
+                        }
+
+                        const estimatedSentences = buildEstimatedSentenceTimings(message, totalDuration);
+                        if (estimatedSentences.length > 0) {
+                            sentencesWithTimings = estimatedSentences;
+                            subtitleTimingType = 'estimated';
+                            break;
+                        }
+                    }
+
+                    if (timingType === 'whisper') {
+                        try {
+                            const chunkWordsWithTimings = await Promise.all(buffers.map(b => this.getWhisperWordsWrapper(b)));
+                            const whisperSentences = mapSentencesToWords(
+                                sentenceTexts,
+                                this.offsetChunkWords(chunkWordsWithTimings, durations)
+                            );
+                            if (whisperSentences.length > 0) {
+                                sentencesWithTimings = whisperSentences;
+                                subtitleTimingType = 'whisper';
+                                break;
+                            }
+                        } catch (error: unknown) {
+                            Logger.warn("AudioSystem", `Whisper timings failed for message ${message.id}.`, error);
+                        }
+                    }
                 }
-
-                // Calculate durations
-                const durations = await Promise.all(buffers.map(async b => {
-                    try {
-                        const metadata = await parseBuffer(b);
-                        return metadata.format.duration || 0;
-                    } catch (e) {
-                        Logger.warn("AudioSystem", `Failed to parse audio duration`, e);
-                        return 0;
-                    }
-                }));
-
-                let currentOffset = 0;
-                const allWords: Word[] = [];
-
-                chunkWordsWithTimings.forEach((words, index) => {
-                    const offsetWords = words.map(w => ({
-                        ...w,
-                        start: w.start + currentOffset,
-                        end: w.end + currentOffset
-                    }));
-                    allWords.push(...offsetWords);
-
-                    const duration = durations[index];
-                    if (duration > 0) {
-                        currentOffset += duration;
-                    } else if (words.length > 0) {
-                        currentOffset = offsetWords[offsetWords.length - 1].end + 0.5; // padding
-                    }
-                });
-
-                sentencesWithTimings = mapSentencesToWords(message.sentences, allWords);
             } else {
                 sentencesWithTimings = [];
+            }
+
+            if (generationToken !== this.generationToken) {
+                return;
             }
 
             // Merge chunks into single buffer using FFmpeg
@@ -203,9 +233,15 @@ export class AudioSystem {
 
             Logger.info("AudioSystem", `Audio generated for message ${message.id}. Size: ${combinedBuffer.length} bytes.`);
 
-
+            if (generationToken !== this.generationToken) {
+                return;
+            }
 
             this.broadcaster.broadcastAudioUpdate(audioObject);
+
+            if (generationToken !== this.generationToken) {
+                return;
+            }
 
             if (generateNew && environment !== "prototype") {
                 // Upsert logic
@@ -263,6 +299,80 @@ export class AudioSystem {
     // Kept for signature compatibility if used elsewhere
     async getSentenceTimings(buffer: Buffer, message: Message): Promise<MappedSentence[]> {
         const words = await this.getWhisperWordsWrapper(buffer);
-        return mapSentencesToWords(message.sentences, words);
+        return mapSentencesToWords(this.getSentencesForTiming(message), words);
+    }
+
+    private async getAudioDuration(buffer: Buffer): Promise<number> {
+        try {
+            const metadata = await parseBuffer(
+                buffer,
+                { mimeType: "audio/ogg", size: buffer.length },
+                { duration: true }
+            );
+            return metadata.format.duration || 0;
+        } catch (error: unknown) {
+            Logger.warn("AudioSystem", `Failed to parse audio duration`, error);
+            return 0;
+        }
+    }
+
+    private async getAudioDurationFromBuffers(buffers: Buffer[]): Promise<number> {
+        if (buffers.length === 0) {
+            return 0;
+        }
+
+        if (buffers.length === 1) {
+            return this.getAudioDuration(buffers[0]);
+        }
+
+        const combinedBuffer = await mergeAudioBuffers(buffers);
+        return this.getAudioDuration(combinedBuffer);
+    }
+
+    private getInworldSentenceTimings(
+        providerWords: (Word[] | undefined)[],
+        buffers: Buffer[],
+        durations: number[],
+        sentenceTexts: string[]
+    ): MappedSentence[] {
+        const hasUsableNativeWords =
+            providerWords.length === buffers.length &&
+            providerWords.every(words => Array.isArray(words) && words.length > 0);
+
+        if (!hasUsableNativeWords) {
+            return [];
+        }
+
+        return mapSentencesToWords(
+            sentenceTexts,
+            this.offsetChunkWords(providerWords as Word[][], durations)
+        );
+    }
+
+    private offsetChunkWords(chunkWordsWithTimings: Word[][], durations: number[]): Word[] {
+        let currentOffset = 0;
+        const allWords: Word[] = [];
+
+        chunkWordsWithTimings.forEach((words, index) => {
+            const offsetWords = words.map(word => ({
+                ...word,
+                start: word.start + currentOffset,
+                end: word.end + currentOffset
+            }));
+            allWords.push(...offsetWords);
+
+            const duration = durations[index];
+            if (duration > 0) {
+                currentOffset += duration;
+            } else if (offsetWords.length > 0) {
+                currentOffset = offsetWords[offsetWords.length - 1].end + 0.5;
+            }
+        });
+
+        return allWords;
+    }
+
+    private getSentencesForTiming(message: Message): string[] {
+        return message.sentences.length > 0 ? message.sentences : splitSentences(message.text);
     }
 }

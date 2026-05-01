@@ -1,6 +1,7 @@
 import type { Collection } from "mongodb";
 import type { OpenAI } from "openai";
 import type { StoredMeeting, StoredAudio } from "@models/DBModels.js";
+import type { GlobalOptions } from "@logic/GlobalOptions.js";
 import type { VoiceOption } from "@shared/ModelTypes.js";
 
 // Re-export AudioTask from AudioUtils or move here? Let's move AudioTask here if it's used across files.
@@ -36,6 +37,7 @@ export interface AudioSystemOptions {
     geminiVoiceModel: string;
     inworldVoiceModel: string;
     defaultAudioSpeed: number;
+    subtitleTimingPriorities: GlobalOptions["subtitleTimingPriorities"];
     language?: string;
     skipAudio?: boolean;
     skipMatchingSubtitles?: boolean;

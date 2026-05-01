@@ -1,9 +1,11 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { createTestManager, TestFactory } from './commonSetup.js';
 import { SpeakerSelector } from '@logic/SpeakerSelector.js';
+import { DEFAULT_TEST_CHARACTERS } from './factories/MockFactory.ts';
 
 describe('MeetingManager - State Machine (decideNextAction)', () => {
     let manager;
+    const [chairCharacter, firstSpeaker] = DEFAULT_TEST_CHARACTERS;
 
     beforeEach(() => {
         const setup = createTestManager();
@@ -68,7 +70,7 @@ describe('MeetingManager - State Machine (decideNextAction)', () => {
             nextSpeakerIndex: 1, // Tomato
             expected: {
                 type: 'GENERATE_AI_RESPONSE',
-                speaker: expect.objectContaining({ id: 'tomato' })
+                speaker: expect.objectContaining({ id: firstSpeaker.id })
             }
         },
         {
@@ -76,10 +78,10 @@ describe('MeetingManager - State Machine (decideNextAction)', () => {
             setup: (mgr) => {
                 mgr.meeting.maximumPlayedIndex = 0;
                 mgr.meeting.conversation = [
-                    { id: 'a', type: 'message', speaker: 'water', text: '1' },
-                    { id: 'b', type: 'message', speaker: 'water', text: '2' },
-                    { id: 'c', type: 'message', speaker: 'water', text: '3' },
-                    { id: 'd', type: 'message', speaker: 'water', text: '4' }
+                    { id: 'a', type: 'message', speaker: chairCharacter.id, text: '1' },
+                    { id: 'b', type: 'message', speaker: chairCharacter.id, text: '2' },
+                    { id: 'c', type: 'message', speaker: chairCharacter.id, text: '3' },
+                    { id: 'd', type: 'message', speaker: chairCharacter.id, text: '4' }
                 ];
             },
             nextSpeakerIndex: 1,
@@ -90,16 +92,16 @@ describe('MeetingManager - State Machine (decideNextAction)', () => {
             setup: (mgr) => {
                 mgr.meeting.maximumPlayedIndex = undefined;
                 mgr.meeting.conversation = [
-                    { id: 'a', type: 'message', speaker: 'water', text: '1' },
-                    { id: 'b', type: 'message', speaker: 'water', text: '2' },
-                    { id: 'c', type: 'message', speaker: 'water', text: '3' },
-                    { id: 'd', type: 'message', speaker: 'water', text: '4' }
+                    { id: 'a', type: 'message', speaker: chairCharacter.id, text: '1' },
+                    { id: 'b', type: 'message', speaker: chairCharacter.id, text: '2' },
+                    { id: 'c', type: 'message', speaker: chairCharacter.id, text: '3' },
+                    { id: 'd', type: 'message', speaker: chairCharacter.id, text: '4' }
                 ];
             },
             nextSpeakerIndex: 1,
             expected: {
                 type: 'GENERATE_AI_RESPONSE',
-                speaker: expect.objectContaining({ id: 'tomato' })
+                speaker: expect.objectContaining({ id: firstSpeaker.id })
             }
         }
     ];

@@ -7,11 +7,11 @@ import type { StoredMeeting } from "@models/DBModels.js";
 import { splitSentences } from "@shared/textUtils.js";
 import { Logger } from "@utils/Logger.js";
 import { GlobalOptions } from "./GlobalOptions.js";
-import { OpenAI } from "openai";
+import type { ConversationService } from "@services/ConversationService.js";
 import { withNetworkRetry } from "@utils/NetworkUtils.js";
 
 export interface Services {
-    getOpenAI: () => OpenAI;
+    conversationService: ConversationService;
     meetingsCollection: Collection<StoredMeeting>;
 }
 
@@ -24,7 +24,7 @@ export interface GPTResponse {
 }
 
 /**
- * Handles all interactions with the OpenAI API for text generation.
+ * Handles all interactions with the configured conversation completion provider.
  * Responsible for building prompt messages, calling the API, and parsing/post-processing the response.
  */
 export class DialogGenerator {
@@ -32,7 +32,7 @@ export class DialogGenerator {
     serverOptions: GlobalOptions;
 
     /**
-     * @param {object} services - Abstracted service container (must provide getOpenAI)
+     * @param {object} services - Abstracted service container (must provide conversationService)
      * @param {object} serverOptions - Global configuration options
      */
     constructor(services: Services, serverOptions: GlobalOptions) {
@@ -89,26 +89,24 @@ export class DialogGenerator {
     async generateTextFromGPT(speaker: Character, meeting: StoredMeeting, currentSpeakerIndex: number): Promise<GPTResponse> {
         try {
             const messages = this.buildMessageStack(speaker, meeting.conversation, meeting);
-            const openai = this.services.getOpenAI();
 
-            const completion = await withNetworkRetry(() => openai.chat.completions.create({
-                model: this.serverOptions.gptModel,
-                max_completion_tokens:
+            const completion = await withNetworkRetry(() => this.services.conversationService.createChatCompletion({
+                model: this.serverOptions.conversationModel,
+                maxCompletionTokens:
                     speaker.id === this.serverOptions.chairId
                         ? this.serverOptions.chairMaxTokens
                         : this.serverOptions.maxTokens,
                 temperature: this.serverOptions.temperature,
-                frequency_penalty: this.serverOptions.frequencyPenalty,
-                presence_penalty: this.serverOptions.presencePenalty,
-                stop: "\n---",
-                messages: messages,
+                reasoning: this.serverOptions.conversationReasoning,
+                stop: ["\n---"],
+                messages,
             }), "DialogGenerator");
 
-            if (!completion.choices[0].message.content) {
+            if (!completion.content) {
                 throw new Error("No content received from GPT");
             }
 
-            let response = completion.choices[0].message.content
+            let response = completion.content
                 .trim()
                 .replaceAll("**", "");
 
@@ -121,7 +119,7 @@ export class DialogGenerator {
             let trimmedContent: string | undefined;
             const originalResponse = response;
 
-            if (completion.choices[0].finish_reason != "stop") {
+            if (completion.finishReason !== "stop") {
                 if (this.serverOptions.trimSentance) {
                     const lastPeriodIndex = response.lastIndexOf(".");
                     if (lastPeriodIndex !== -1) {
@@ -151,7 +149,7 @@ export class DialogGenerator {
 
             let sentences = splitSentences(response);
 
-            if (completion.choices[0].finish_reason != "stop") {
+            if (completion.finishReason !== "stop") {
                 // Check if we can re-add some messages from the end, to put back some of the list of questions that chair often produces
                 if (this.serverOptions.trimChairSemicolon) {
                     if (speaker.id === this.serverOptions.chairId) {
@@ -221,22 +219,20 @@ export class DialogGenerator {
                 content: interjectionPrompt,
             });
 
-            const openai = this.services.getOpenAI();
-            const completion = await withNetworkRetry(() => openai.chat.completions.create({
-                model: this.serverOptions.gptModel,
-                max_completion_tokens: length,
+            const completion = await withNetworkRetry(() => this.services.conversationService.createChatCompletion({
+                model: this.serverOptions.conversationModel,
+                maxCompletionTokens: length,
                 temperature: this.serverOptions.temperature,
-                frequency_penalty: this.serverOptions.frequencyPenalty,
-                presence_penalty: this.serverOptions.presencePenalty,
-                stop: dontStop ? undefined : "\n---",
-                messages: messages,
+                reasoning: this.serverOptions.conversationReasoning,
+                stop: dontStop ? undefined : ["\n---"],
+                messages,
             }), "DialogGenerator");
 
-            if (!completion.choices[0].message.content) {
-                return { response: "", id: completion.id };
+            if (!completion.content) {
+                throw new Error("No content received from GPT");
             }
 
-            let response = completion.choices[0].message.content.trim();
+            let response = completion.content.trim();
 
             if (response.startsWith(chair.name + ":")) {
                 response = response.substring(chair.name.length + 1).trim();

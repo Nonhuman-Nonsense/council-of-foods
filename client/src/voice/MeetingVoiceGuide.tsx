@@ -11,6 +11,7 @@ import { buildGuidePrompt } from "./guidePrompt";
 import { createGuideToolHandlers, createGuideTools } from "./guideTools";
 import { useVoiceGuide } from "./useVoiceGuide";
 import voiceGuidePromptEn from "@shared/prompts/voice_guide_en.json";
+import voiceGuidePromptSv from "@shared/prompts/voice_guide_sv.json";
 
 type MeetingVoiceGuideProps = {
   step: "topic" | "foods";
@@ -35,6 +36,8 @@ export default function MeetingVoiceGuide({
 
   const topicsBundle = useMemo(() => getTopicsBundle(i18n.language), [i18n.language]);
   const characterSetupBundle = useMemo(() => getCharacterSetupBundle(i18n.language), [i18n.language]);
+  const guideLanguage = i18n.language.toLowerCase().startsWith("sv") ? "sv" : "en";
+  const promptBundle = guideLanguage === "sv" ? voiceGuidePromptSv : voiceGuidePromptEn;
 
   const guideTopics = useMemo(() => {
     return [
@@ -61,18 +64,16 @@ export default function MeetingVoiceGuide({
 
   const instructions = useMemo(() => {
     return buildGuidePrompt({
-      baseSystemPrompt: voiceGuidePromptEn.system,
-      projectDescription:
-        "Council of Foods is a political arena where foods debate the broken food system. " +
-        "In this setup wizard, the visitor chooses a topic and selects food characters (and optionally human panelists) to join the council.",
+      bundle: promptBundle,
       topics: guideTopics,
       characters: guideCharacters,
     });
-  }, [guideCharacters, guideTopics]);
+  }, [guideCharacters, guideTopics, promptBundle]);
 
   const voice = useVoiceGuide({
+    language: guideLanguage,
     instructions,
-    tools: createGuideTools({ topics: guideTopics, characters: guideCharacters }),
+    tools: createGuideTools({ promptBundle }),
     toolHandlers: createGuideToolHandlers({
       topics: guideTopics,
       characters: guideCharacters,

@@ -8,6 +8,7 @@ import type { GlobalOptions } from "@logic/GlobalOptions.js";
 import type { AudioSystem } from "@logic/AudioSystem.js";
 import type { DialogGenerator } from "@logic/DialogGenerator.js";
 import type { ConversationState } from "@shared/ModelTypes.js";
+import type { ConversationService } from "@services/ConversationService.js";
 
 export { ConversationState };
 
@@ -16,6 +17,7 @@ export interface Services {
     audioCollection: Collection<StoredAudio>;
     insertMeeting: (meeting: Omit<StoredMeeting, "_id">) => Promise<InsertOneResult<StoredMeeting>>;
     getOpenAI: () => OpenAI;
+    conversationService: ConversationService;
 }
 
 export interface ConversationOptions {
@@ -45,6 +47,7 @@ export interface IMeetingContext {
         audioCollection: Collection<StoredAudio>;
         insertMeeting: (meeting: Omit<StoredMeeting, "_id">) => Promise<InsertOneResult<StoredMeeting>>;
         getOpenAI: () => OpenAI;
+        conversationService: ConversationService;
     };
     serverOptions: GlobalOptions;
     broadcaster: IMeetingBroadcaster; // New abstraction
