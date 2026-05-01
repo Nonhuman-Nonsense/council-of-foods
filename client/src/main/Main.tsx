@@ -78,7 +78,9 @@ export default function Main(props: MainProps) {
   }
 
   useEffect(() => {
-    i18n.changeLanguage(props.lang);
+    if (i18n.language !== props.lang) {
+      void i18n.changeLanguage(props.lang);
+    }
 
     if (topicSelection?.id) {
       const bundle = getTopicsBundle(props.lang);

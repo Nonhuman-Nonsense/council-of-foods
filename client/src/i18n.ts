@@ -34,6 +34,20 @@ for (const lang of AVAILABLE_LANGUAGES) {
   }
 }
 
+function resolveInitialLanguage(): string {
+  const fallbackLanguage = AVAILABLE_LANGUAGES[0];
+  if (typeof window === "undefined") {
+    return fallbackLanguage;
+  }
+
+  const pathname = window.location.pathname;
+  const matchedLanguage = (AVAILABLE_LANGUAGES as readonly string[]).find((lang) =>
+    pathname === `/${lang}` || pathname.startsWith(`/${lang}/`)
+  );
+
+  return matchedLanguage ?? fallbackLanguage;
+}
+
 /**
  * i18n Configuration
  *
@@ -44,7 +58,7 @@ i18n
   .use(initReactI18next) // pass the instance to react-i18next
   .init({
     resources,
-    lng: AVAILABLE_LANGUAGES[0],
+    lng: resolveInitialLanguage(),
     fallbackLng: AVAILABLE_LANGUAGES[0],
     debug: import.meta.env.DEV,
     interpolation: {
