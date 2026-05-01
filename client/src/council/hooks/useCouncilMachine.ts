@@ -408,7 +408,7 @@ export function useCouncilMachine({
         calculateNextAction();
     }
 
-    function handleOnSubmitHumanMessage(newTopic: string, askParticular: string) {
+    function handleOnSubmitHumanMessage(newTopic: string) {
         if (councilState === 'human_panelist') {
             const pendingMessage = textMessages[playNextIndex];
             if (pendingMessage?.type !== 'awaiting_human_panelist') {
@@ -426,7 +426,7 @@ export function useCouncilMachine({
             });
             calculateNextAction();
         } else {
-            if (socketRef.current) socketRef.current.emit("submit_human_message", { text: newTopic, askParticular: askParticular || undefined });
+            if (socketRef.current) socketRef.current.emit("submit_human_message", { text: newTopic });
 
             const now = textMessages[playingNowIndex].type === 'invitation' ? playingNowIndex - 1 : playingNowIndex;
             const next = textMessages[playingNowIndex].type === 'invitation' ? playNextIndex - 1 : playNextIndex;

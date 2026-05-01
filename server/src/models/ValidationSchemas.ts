@@ -81,7 +81,6 @@ export const SetupOptionsSchema: z.ZodType<SetupOptions> = z.object({
 // 2. submit_human_message
 export const SubmitHumanMessageSchema: z.ZodType<SubmitHumanMessagePayload> = z.object({
     text: z.string().min(1),
-    askParticular: z.string().optional(),
 });
 
 // 2b. submit_human_panelist

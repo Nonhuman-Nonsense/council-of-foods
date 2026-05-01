@@ -1,9 +1,7 @@
-import type { Character } from "@shared/ModelTypes";
-
 import { useState, useEffect, useRef } from "react";
 import ConversationControlIcon from "../ConversationControlIcon";
 import TextareaAutosize from 'react-textarea-autosize';
-import { useMobile, dvh, mapFoodIndex } from "@/utils";
+import { useMobile, dvh } from "@/utils";
 import { useTranslation } from "react-i18next";
 import { LiveAudioVisualizerPair } from "./LiveAudioVisualizer";
 import Lottie from 'react-lottie-player';
@@ -22,10 +20,9 @@ interface InputAudioTranscriptionCompletedEvent {
 type OpenAIRealtimeEvent = InputAudioTranscriptionCompletedEvent; // Union with other events if needed
 
 interface HumanInputProps {
-  characters: Character[];
   isPanelist: boolean;
   currentSpeakerName: string;
-  onSubmitHumanMessage: (text: string, askParticular: string) => void;
+  onSubmitHumanMessage: (text: string) => void;
   liveKey: string;
 }
 
@@ -40,16 +37,14 @@ type TextareaStyle = Omit<React.CSSProperties, 'height'> & { height?: number };
  * Core Logic:
  * - **Voice Input**: Establishes a WebRTC connection to OpenAI ('startRealtimeSession') to stream audio and receive live transcripts.
  * - **Text Input**: Provides a fallback manual text entry.
- * - **Targeting**: Should allow selection of specific characters to address (logic partially implemented via `askParticular`).
+ * - **Routing**: The server infers whether the human is addressing a specific character.
  */
-function HumanInput({ characters, isPanelist, currentSpeakerName, onSubmitHumanMessage, liveKey }: HumanInputProps): React.ReactElement {
+function HumanInput({ isPanelist, currentSpeakerName, onSubmitHumanMessage, liveKey }: HumanInputProps): React.ReactElement {
   const [clientKey, setClientKey] = useState<string | null>(null);
   const [recordingState, setRecordingState] = useState<"idle" | "loading" | "recording">("idle");
   const [canContinue, setCanContinue] = useState<boolean>(false);
   const [transcript, setTranscript] = useState<Record<string, string>>({});
   const [previousTranscript, setPreviousTranscript] = useState<string>("");
-  const [askParticular, setAskParticular] = useState<string>("");
-  const [someoneHovered, setSomeoneHovered] = useState<boolean>(false);
 
   const inputArea = useRef<HTMLTextAreaElement>(null);
   const isMobile = useMobile();
@@ -210,7 +205,7 @@ function HumanInput({ characters, isPanelist, currentSpeakerName, onSubmitHumanM
 
   function submitAndContinue() {
     if (inputArea.current) {
-      onSubmitHumanMessage(inputArea.current.value.substring(0, maxInputLength), askParticular);
+      onSubmitHumanMessage(inputArea.current.value.substring(0, maxInputLength));
     }
   }
 
@@ -255,106 +250,7 @@ function HumanInput({ characters, isPanelist, currentSpeakerName, onSubmitHumanM
     padding: "0",
   };
 
-  // This is same calculation as in the FoodItem
-  const overViewFoodItemStyle = (index: number, total: number): React.CSSProperties => {
-    const left = (index / (total - 1)) * 100;
-
-    const topMax = 3.0; // The curvature
-    const topOffset = 14.5; // Vertical offset to adjust the curve's baseline
-
-    let middleIndex: number;
-    const isEven = total % 2 === 0;
-    if (isEven) {
-      middleIndex = total / 2 - 1;
-    } else {
-      middleIndex = (total - 1) / 2;
-    }
-
-    let a: number;
-    if (isEven) {
-      a = topMax / Math.pow(middleIndex + 0.5, 2);
-    } else {
-      a = topMax / Math.pow(middleIndex, 2);
-    }
-
-    let top: number;
-    if (isEven) {
-      const distanceFromMiddle = Math.abs(index - middleIndex - 0.5);
-      top = a * Math.pow(distanceFromMiddle, 2) + topMax - topOffset;
-    } else {
-      top = a * Math.pow(index - middleIndex, 2) + topMax - topOffset;
-    }
-
-    return {
-      position: "absolute",
-      left: `${left}%`,
-      top: `${top}vw`,
-      width: `14vw`,
-      height: `14vw`,
-      borderRadius: "14vw",
-      transform: "translate(-50%, -50%)",
-      opacity: "1",
-      display: "flex",
-      justifyContent: "center",
-      alignItems: "flex-end",
-      transition: "border 0.2s, background-color 0.2s"
-    };
-  };
-
-  const ringStyle: React.CSSProperties = {
-    position: "absolute",
-    top: "62%",
-    left: "50%",
-    transform: "translate(-50%, -50%)",
-    width: characters.length > 6 ? "79%" : "70%",
-    display: "flex",
-    justifyContent: "space-around",
-    alignItems: "center",
-  };
-
-  const deselectorStyle: React.CSSProperties = {
-    position: "absolute",
-    top: `${15}${dvh}`,
-    height: `${60}${dvh}`,
-    width: "100vw",
-    pointerEvents: "auto",
-    zIndex: "-1"
-  };
-
-  const selectTooltip: React.CSSProperties = {
-    fontSize: "20px",
-    opacity: someoneHovered ? "0.9" : "0",
-    transition: "opacity 0.2s",
-    padding: "12px",
-    backdropFilter: "blur(3px)",
-    backgroundColor: "rgba(0, 0, 0, 0.1)",
-    borderRadius: "28px",
-  };
-
   return (<>
-    {!isPanelist && (<>
-      <div style={{ ...ringStyle, zIndex: "-1" }}>
-        <div style={{ position: "absolute", bottom: "21vw" }}>
-          <div style={selectTooltip}>Select a food to ask them directly</div>
-        </div>
-        {characters.map((character, index) => (
-          <div style={{ ...overViewFoodItemStyle(mapFoodIndex(characters.length, index), characters.length), backgroundColor: askParticular === character.name ? "rgba(0,0,0,0.4)" : "rgba(0,0,0,0)" }} key={index}></div>
-        ))}
-      </div>
-      <div style={{ ...ringStyle, zIndex: "0" }}>
-        {characters.map((character, index) => (
-          <div
-            style={{ ...overViewFoodItemStyle(mapFoodIndex(characters.length, index), characters.length), border: askParticular === character.name ? "3px solid rgba(255,255,255,0.8)" : undefined, pointerEvents: "auto" }}
-            className="ringHover"
-            key={index}
-            onClick={() => setAskParticular(character.name)}
-            onMouseEnter={() => setSomeoneHovered(true)}
-            onMouseLeave={() => setSomeoneHovered(false)}
-          ></div>
-        ))}
-      </div>
-      <div style={deselectorStyle} onClick={() => setAskParticular("")}></div>
-    </>)}
     <div style={wrapperStyle}>
       <img alt="Say something!" src={micIcon} style={micStyle} />
       <div style={{ zIndex: "4", position: "relative", pointerEvents: "auto" }}>
