@@ -145,4 +145,154 @@ describe("realtimeEventLoop", () => {
         });
         expect(JSON.parse(outputArg.item.output)).toEqual({ ok: true });
     });
+
+    it("supports deferred response creation, manual messages, and ignores unknown events", async () => {
+        const send = vi.fn();
+        const log = vi.fn();
+        const onSessionReady = vi.fn();
+        const loop = createEventLoop({
+            send,
+            getCtx: () => ({ toolHandlers: {} }),
+            callbacks: {
+                onCaption: vi.fn(),
+                onUserTranscript: vi.fn(),
+                onError: vi.fn(),
+                onSessionReady,
+                log,
+            },
+        });
+
+        expect(loop.isResponseActive()).toBe(false);
+        expect(loop.requestResponseIfIdle()).toBe(false);
+
+        loop.sendUserMessage("hello there");
+        expect(send).toHaveBeenNthCalledWith(
+            1,
+            expect.objectContaining({
+                type: "conversation.item.create",
+                item: expect.objectContaining({
+                    role: "user",
+                    content: [{ type: "input_text", text: "hello there" }],
+                }),
+            })
+        );
+
+        await expect(loop.handleEvent(null)).resolves.toBe(false);
+        await expect(loop.handleEvent({ nope: true })).resolves.toBe(false);
+
+        await loop.handleEvent({ type: "session.updated" });
+        expect(onSessionReady).toHaveBeenCalledOnce();
+        expect(send).toHaveBeenNthCalledWith(2, { type: "response.create" });
+
+        await loop.handleEvent({ type: "response.created" });
+        expect(loop.isResponseActive()).toBe(true);
+        expect(loop.requestResponseIfIdle()).toBe(false);
+        expect(log).toHaveBeenCalledWith("skip response.create: already active", { activeResponses: 1 });
+    });
+
+    it("handles caption, user transcript, error, and VAD events", async () => {
+        const send = vi.fn();
+        const onCaption = vi.fn();
+        const onUserTranscript = vi.fn();
+        const onError = vi.fn();
+        const onAudioPartReady = vi.fn();
+        const onResponseStarted = vi.fn();
+        const captionScheduler = {
+            beginResponse: vi.fn(),
+            appendDelta: vi.fn(),
+            finalize: vi.fn(),
+            cancel: vi.fn(),
+        };
+
+        const loop = createEventLoop({
+            send,
+            getCtx: () => ({ toolHandlers: {} }),
+            callbacks: {
+                onCaption,
+                onUserTranscript,
+                onError,
+                onAudioPartReady,
+                onResponseStarted,
+                log: vi.fn(),
+            },
+            captionScheduler,
+        });
+
+        loop.configureSession(makeSession());
+        await loop.handleEvent({ type: "session.updated" });
+        await loop.handleEvent({ type: "response.created" });
+        await loop.handleEvent({ type: "response.content_part.added", part: { type: "audio" } });
+        await loop.handleEvent({ type: "response.output_audio_transcript.delta", delta: "hello" });
+        await loop.handleEvent({ type: "response.output_audio_transcript.done", transcript: "hello world" });
+        await loop.handleEvent({
+            type: "conversation.item.input_audio_transcription.completed",
+            transcript: "I have a question",
+        });
+        await loop.handleEvent({ type: "input_audio_buffer.speech_started" });
+        await loop.handleEvent({ type: "input_audio_buffer.speech_stopped" });
+        await loop.handleEvent({
+            type: "error",
+            error: { message: "bad", code: "boom", param: "x", type: "server_error" },
+        });
+        await loop.handleEvent({ type: "response.done", response: { status: "failed", status_details: { why: 1 } } });
+        await loop.handleEvent({ type: "error", error: "just a string" });
+
+        expect(onResponseStarted).toHaveBeenCalledOnce();
+        expect(captionScheduler.beginResponse).toHaveBeenCalledOnce();
+        expect(onAudioPartReady).toHaveBeenCalledOnce();
+        expect(captionScheduler.appendDelta).toHaveBeenCalledWith("hello");
+        expect(captionScheduler.finalize).toHaveBeenCalledWith("hello world");
+        expect(onUserTranscript).toHaveBeenCalledWith("I have a question");
+        expect(captionScheduler.cancel).toHaveBeenCalledTimes(3);
+        expect(onError).toHaveBeenNthCalledWith(1, "bad | code=boom | param=x | type=server_error");
+        expect(onError).toHaveBeenNthCalledWith(2, "just a string");
+    });
+
+    it("falls back without a caption scheduler and handles missing tool handlers", async () => {
+        const send = vi.fn();
+        const onCaption = vi.fn();
+        const loop = createEventLoop({
+            send,
+            getCtx: () => ({ toolHandlers: {} }),
+            callbacks: {
+                onCaption,
+                onUserTranscript: vi.fn(),
+                onError: vi.fn(),
+            },
+        });
+
+        loop.configureSession(makeSession());
+        await loop.handleEvent({ type: "session.updated" });
+        await loop.handleEvent({ type: "response.output_audio_transcript.delta", delta: "" });
+        await loop.handleEvent({ type: "response.output_audio_transcript.done", transcript: "spoken answer" });
+        await loop.handleEvent({
+            type: "conversation.item.input_audio_transcription.completed",
+            transcript: "   ",
+        });
+        await loop.handleEvent({
+            type: "response.output_item.added",
+            item: { type: "function_call", id: "item-2", name: "missing_tool" },
+        });
+        await loop.handleEvent({
+            type: "response.function_call_arguments.done",
+            item_id: "item-2",
+            arguments: "{bad json",
+        });
+        await loop.handleEvent({
+            type: "response.function_call_arguments.done",
+            item_id: "missing-meta",
+            arguments: JSON.stringify({ x: 1 }),
+        });
+        await loop.handleEvent({ type: "response.done", response: { status: "cancelled" } });
+
+        expect(onCaption).toHaveBeenNthCalledWith(1, "spoken answer");
+        const outputCall = send.mock.calls.find(
+            (c) => (c[0] as { item?: { type?: string } }).item?.type === "function_call_output"
+        );
+        expect(outputCall).toBeDefined();
+        expect(JSON.parse((outputCall![0] as { item: { output: string } }).item.output)).toEqual({
+            ok: false,
+            error: "No handler for tool: missing_tool",
+        });
+    });
 });
