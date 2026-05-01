@@ -1,5 +1,40 @@
-import { beforeAll, beforeEach, afterAll } from 'vitest';
+import { beforeAll, beforeEach, afterAll, vi } from 'vitest';
 import { initDb, closeDb, meetingsCollection, audioCollection, counters } from '@services/DbService.js';
+
+vi.mock('@services/ConversationService.js', async () => {
+    const actual = await vi.importActual('@services/ConversationService.js');
+
+    return {
+        ...actual,
+        createConversationService: (getOpenAI) => ({
+            createChatCompletion: async ({
+                messages,
+                model,
+                maxCompletionTokens,
+                temperature,
+                frequencyPenalty,
+                presencePenalty,
+                stop,
+            }) => {
+                const completion = await getOpenAI().chat.completions.create({
+                    messages,
+                    model,
+                    max_completion_tokens: maxCompletionTokens,
+                    temperature,
+                    frequency_penalty: frequencyPenalty,
+                    presence_penalty: presencePenalty,
+                    stop,
+                });
+
+                return {
+                    id: completion.id ?? null,
+                    content: completion.choices?.[0]?.message?.content ?? null,
+                    finishReason: completion.choices?.[0]?.finish_reason ?? 'stop',
+                };
+            },
+        }),
+    };
+});
 
 const baseDbPrefix = process.env.COUNCIL_DB_PREFIX || 'test_db';
 const workerId = process.env.VITEST_POOL_ID || process.env.VITEST_WORKER_ID || `${process.pid}`;

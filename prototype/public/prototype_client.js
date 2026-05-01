@@ -2,7 +2,7 @@ const { createApp } = Vue;
 const CHARACTERS_FILE = "foods";
 
 const defaultOptions = {
-  gptModel: "gpt-4o-mini",
+  conversationModel: "openai-direct/gpt-4o-mini",
   temperature: 1,
   maxTokens: 200,
   chairMaxTokens: 250,
@@ -366,7 +366,7 @@ createApp({
         const stored = JSON.parse(localStorage.getItem("PromptsAndOptions"));
         if (stored) {
           // Merge stored options to handle new fields gracefully
-          this.options = { ...defaultOptions, ...stored.options };
+          this.options = { ...defaultOptions, ...(stored.options || {}) };
           this.localOptions = { ...JSON.parse(JSON.stringify(defaultLocalOptions)), ...stored.localOptions };
 
           this.log('SYSTEM', 'State Loaded from LocalStorage');
@@ -551,7 +551,7 @@ createApp({
 
     getServerOptions() {
       return {
-        gptModel: this.options.gptModel,
+        conversationModel: this.options.conversationModel,
         temperature: this.options.temperature,
         maxTokens: this.options.maxTokens,
         chairMaxTokens: this.options.chairMaxTokens,

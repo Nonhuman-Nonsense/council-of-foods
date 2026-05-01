@@ -9,7 +9,7 @@ import { z } from "zod";
 export const CHAIR_ID = defaultCharacterSetupBundle.characters[0].id;
 
 export const GlobalOptionsSchema = z.object({
-    gptModel: z.string(),
+    conversationModel: z.string(),
     voiceModel: z.string(),
     geminiVoiceModel: z.string(),
     inworldVoiceModel: z.string(),

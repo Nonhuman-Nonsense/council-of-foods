@@ -29,6 +29,34 @@ export const mockOpenAI = {
     }
 };
 
+const createMockConversationService = (getOpenAIClient) => ({
+    createChatCompletion: async ({
+        messages,
+        model,
+        maxCompletionTokens,
+        temperature,
+        frequencyPenalty,
+        presencePenalty,
+        stop
+    }) => {
+        const completion = await getOpenAIClient().chat.completions.create({
+            messages,
+            model,
+            max_completion_tokens: maxCompletionTokens,
+            temperature,
+            frequency_penalty: frequencyPenalty,
+            presence_penalty: presencePenalty,
+            stop,
+        });
+
+        return {
+            id: completion.id ?? null,
+            content: completion.choices?.[0]?.message?.content ?? null,
+            finishReason: completion.choices?.[0]?.finish_reason ?? 'stop',
+        };
+    }
+});
+
 export const setupTestDependencies = () => {
     const mode = getTestMode();
     if (mode === TEST_MODES.MOCK) {
@@ -66,6 +94,9 @@ export const createTestManager = (env = 'test', optionsOverride = null, services
     const finalServices = { ...defaultServices, ...services };
 
     const manager = new MeetingManager(mockSocket, env, baseOptions, finalServices);
+    if (!finalServices.conversationService) {
+        manager.services.conversationService = createMockConversationService(() => manager.services.getOpenAI());
+    }
 
     const meeting = MockFactory.createStoredMeeting({
         characters: [

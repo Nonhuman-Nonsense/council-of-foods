@@ -325,8 +325,12 @@
       <div class="sidebar-content">
         <div class="section-group">
           <label>Model</label>
-          <input type="text" class="input-full" v-model="options.gptModel">
-          <small style="color: var(--text-secondary);">See OpenAI docs for models</small>
+          <input
+            type="text"
+            class="input-full"
+            v-model="options.conversationModel"
+            placeholder="anthropic/claude-opus-4-6 or openai-direct/gpt-5.2">
+          <small style="color: var(--text-secondary);">Use any Inworld-supported model id, or `openai-direct/...` to bypass Inworld.</small>
         </div>
         <hr>
         <div class="section-group">
