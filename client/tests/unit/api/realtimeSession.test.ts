@@ -85,4 +85,28 @@ describe("realtimeSession api", () => {
             bootstrapHumanInputRealtimeSession({ feature: "human-input", language: "en" }, "bad-key")
         ).rejects.toThrow("nope");
     });
+
+    it("falls back to a status-based message when the bootstrap error body is empty", async () => {
+        vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("", { status: 503 })));
+
+        await expect(
+            bootstrapHumanInputRealtimeSession({ feature: "human-input", language: "en" }, "bad-key")
+        ).rejects.toThrow("Realtime bootstrap failed (503)");
+    });
+
+    it("throws a status-based message when realtime call creation fails without a body", async () => {
+        vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("", { status: 502 })));
+
+        await expect(
+            createHumanInputRealtimeCall(
+                {
+                    feature: "human-input",
+                    provider: "inworld",
+                    sdp: "mock-offer",
+                    session: { type: "realtime" },
+                },
+                "creator-secret"
+            )
+        ).rejects.toThrow("Realtime call failed (502)");
+    });
 });

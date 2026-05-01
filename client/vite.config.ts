@@ -38,6 +38,10 @@ export default defineConfig(async ({ command, mode }) => ({
         'tests/unit/**/*.{test,spec}.{js,jsx,ts,tsx}',
         'tests/forest/**/*.{test,spec}.{js,jsx,ts,tsx}',
       ],
+      coverage: {
+        provider: 'v8',
+        reporter: ['text', 'json', 'html'],
+      },
     },
     resolve: {
       tsconfigPaths: true,
