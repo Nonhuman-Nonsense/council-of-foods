@@ -1,5 +1,5 @@
 import { config } from "../config.js";
-import { defaultCharacterSetupBundle } from "@logic/characterSetupBundle.js";
+import { getCharacterSetupBundle } from "@logic/characterSetupBundle.js";
 import { getGlobalOptions } from "@logic/GlobalOptions.js";
 import { getOpenAI } from "@services/OpenAIService.js";
 import { withNetworkRetry } from "@utils/NetworkUtils.js";
@@ -11,9 +11,16 @@ import type {
 } from "@shared/RealtimeSessionTypes.js";
 
 const opts = getGlobalOptions();
-const chair = defaultCharacterSetupBundle.characters[0];
 const INWORLD_BASE = "https://api.inworld.ai";
 const OPENAI_CALLS_URL = "https://api.openai.com/v1/realtime/calls";
+
+function normalizeLanguage(language: string): string {
+    return language.toLowerCase().startsWith("sv") ? "sv" : "en";
+}
+
+function getGuideChair(language: string) {
+    return getCharacterSetupBundle(normalizeLanguage(language)).characters[0];
+}
 
 async function inworldFetch(path: string, init: RequestInit, context: string): Promise<Response> {
     const response = await withNetworkRetry(
@@ -100,7 +107,39 @@ export async function createOpenAICall(req: { sdp: string; session?: unknown }):
     };
 }
 
-export function buildVoiceGuideRealtimeSessionFragment(): Record<string, unknown> {
+export function buildVoiceGuideRealtimeSessionFragment(
+    language: string,
+    provider: RealtimeProvider
+): Record<string, unknown> {
+    const normalizedLanguage = normalizeLanguage(language);
+    const chair = getGuideChair(normalizedLanguage);
+
+    if (provider === "openai") {
+        return {
+            type: "realtime" as const,
+            model: opts.voiceGuideOpenAIRealtimeModel,
+            output_modalities: ["audio"] as const,
+            audio: {
+                input: {
+                    transcription: {
+                        model: opts.transcribeModel,
+                        language: normalizedLanguage,
+                    },
+                    turn_detection: {
+                        type: "semantic_vad" as const,
+                        eagerness: "medium" as const,
+                        create_response: true,
+                        interrupt_response: true,
+                    },
+                },
+                output: {
+                    voice: chair.voice,
+                    speed: chair.voiceSpeed ?? opts.defaultAudioSpeed,
+                },
+            },
+        };
+    }
+
     return {
         type: "realtime" as const,
         model: opts.voiceGuideRealtimeModel,
@@ -125,7 +164,11 @@ export function buildVoiceGuideRealtimeSessionFragment(): Record<string, unknown
 }
 
 export function pickHumanInputRealtimeProvider(language: string): RealtimeProvider {
-    return language.toLowerCase().startsWith("sv") ? "openai" : "inworld";
+    return normalizeLanguage(language) === "sv" ? "openai" : "inworld";
+}
+
+export function pickVoiceGuideRealtimeProvider(language: string): RealtimeProvider {
+    return normalizeLanguage(language) === "sv" ? "openai" : "inworld";
 }
 
 export async function getHumanInputRealtimeBootstrap(language: string): Promise<RealtimeBootstrapResponse> {
@@ -184,12 +227,23 @@ export async function getHumanInputRealtimeBootstrap(language: string): Promise<
     };
 }
 
-export async function getVoiceGuideRealtimeBootstrap(): Promise<RealtimeBootstrapResponse> {
+export async function getVoiceGuideRealtimeBootstrap(language: string): Promise<RealtimeBootstrapResponse> {
+    const provider = pickVoiceGuideRealtimeProvider(language);
+    const session = buildVoiceGuideRealtimeSessionFragment(language, provider);
+
+    if (provider === "openai") {
+        return {
+            provider,
+            iceServers: [],
+            session,
+        };
+    }
+
     const ice = await getInworldIceServers();
     return {
-        provider: "inworld",
+        provider,
         iceServers: ice.iceServers,
-        session: buildVoiceGuideRealtimeSessionFragment(),
+        session,
     };
 }
 

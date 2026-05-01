@@ -119,7 +119,7 @@ describe("POST /api/realtime/* (integration)", () => {
             headers: {
                 "Content-Type": "application/json",
             },
-            body: JSON.stringify({ feature: "voice-guide" }),
+            body: JSON.stringify({ feature: "voice-guide", language: "en" }),
         });
 
         expect(res.status).toBe(200);
@@ -128,7 +128,31 @@ describe("POST /api/realtime/* (integration)", () => {
             iceServers: [{ urls: ["stun:guide.example.com"] }],
             session: { type: "realtime", output_modalities: ["audio", "text"] },
         });
-        expect(vi.mocked(getVoiceGuideRealtimeBootstrap)).toHaveBeenCalledWith();
+        expect(vi.mocked(getVoiceGuideRealtimeBootstrap)).toHaveBeenCalledWith("en");
+    });
+
+    it("returns 200 and delegates Swedish voice-guide bootstrap to OpenAI", async () => {
+        vi.mocked(getVoiceGuideRealtimeBootstrap).mockResolvedValueOnce({
+            provider: "openai",
+            iceServers: [],
+            session: { type: "realtime", output_modalities: ["audio"] },
+        });
+
+        const res = await fetch(`${base()}/api/realtime/bootstrap`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ feature: "voice-guide", language: "sv" }),
+        });
+
+        expect(res.status).toBe(200);
+        expect(await res.json()).toEqual({
+            provider: "openai",
+            iceServers: [],
+            session: { type: "realtime", output_modalities: ["audio"] },
+        });
+        expect(vi.mocked(getVoiceGuideRealtimeBootstrap)).toHaveBeenCalledWith("sv");
     });
 
     it("returns 200 and delegates call when authorized", async () => {
@@ -164,7 +188,7 @@ describe("POST /api/realtime/* (integration)", () => {
             },
             body: JSON.stringify({
                 feature: "voice-guide",
-                provider: "inworld",
+                provider: "openai",
                 sdp: "offer",
                 session: { type: "realtime" },
             }),
@@ -172,7 +196,7 @@ describe("POST /api/realtime/* (integration)", () => {
 
         expect(res.status).toBe(200);
         expect(await res.json()).toEqual({ sdp: "mock-answer" });
-        expect(vi.mocked(createRealtimeCall)).toHaveBeenCalledWith("inworld", {
+        expect(vi.mocked(createRealtimeCall)).toHaveBeenCalledWith("openai", {
             sdp: "offer",
             session: { type: "realtime" },
         });

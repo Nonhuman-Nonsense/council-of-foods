@@ -39,11 +39,12 @@ export interface HumanInputRealtimeCallRequest {
 
 export interface VoiceGuideRealtimeBootstrapRequest {
     feature: "voice-guide";
+    language: string;
 }
 
 export interface VoiceGuideRealtimeCallRequest {
     feature: "voice-guide";
-    provider: "inworld";
+    provider: RealtimeProvider;
     sdp: string;
     session: Record<string, unknown>;
 }

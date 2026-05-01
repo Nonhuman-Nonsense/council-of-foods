@@ -38,7 +38,13 @@ export function registerRealtimeRoutes(app: Express): void {
 
         try {
             if (feature === "voice-guide") {
-                const data = await getVoiceGuideRealtimeBootstrap();
+                const { language } = body as VoiceGuideRealtimeBootstrapRequest;
+                if (typeof language !== "string" || language.trim().length === 0) {
+                    res.status(400).json({ message: "Invalid request" });
+                    return;
+                }
+
+                const data = await getVoiceGuideRealtimeBootstrap(language);
                 await Logger.info("api", `POST /api/realtime/bootstrap successful (${feature}:${data.provider})`);
                 res.status(200).json(data);
                 return;
@@ -99,9 +105,6 @@ export function registerRealtimeRoutes(app: Express): void {
                     res.status(403).json({ message: "Forbidden" });
                     return;
                 }
-            } else if (body.provider !== "inworld") {
-                res.status(400).json({ message: "Invalid request" });
-                return;
             }
 
             const data = await createRealtimeCall(body.provider, { sdp: body.sdp, session: body.session });

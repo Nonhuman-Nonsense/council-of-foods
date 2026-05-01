@@ -154,7 +154,7 @@ describe("realtimeConnection", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
 
-    const result = await fetchRealtimeBootstrap({ feature: "voice-guide" });
+    const result = await fetchRealtimeBootstrap({ feature: "voice-guide", language: "sv" });
 
     expect(result.provider).toBe("inworld");
     expect(result.iceServers).toEqual([{ urls: ["stun:guide.example.com"] }]);
@@ -165,7 +165,7 @@ describe("realtimeConnection", () => {
         headers: expect.objectContaining({
           "Content-Type": "application/json",
         }),
-        body: JSON.stringify({ feature: "voice-guide" }),
+        body: JSON.stringify({ feature: "voice-guide", language: "sv" }),
         signal: expect.any(AbortSignal),
       })
     );
@@ -190,7 +190,7 @@ describe("realtimeConnection", () => {
       )
     );
 
-    const result = await fetchRealtimeSessionDefaults({ feature: "voice-guide" });
+    const result = await fetchRealtimeSessionDefaults({ feature: "voice-guide", language: "en" });
 
     expect(result).toMatchObject({
       type: "realtime",
@@ -202,7 +202,7 @@ describe("realtimeConnection", () => {
   it("throws when bootstrap fails or returns an invalid session", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(new Response("denied", { status: 403 })));
 
-    await expect(fetchRealtimeBootstrap({ feature: "voice-guide" })).rejects.toThrow(
+    await expect(fetchRealtimeBootstrap({ feature: "voice-guide", language: "en" })).rejects.toThrow(
       "Realtime bootstrap failed (403): denied"
     );
 
@@ -216,7 +216,7 @@ describe("realtimeConnection", () => {
       )
     );
 
-    await expect(fetchRealtimeBootstrap({ feature: "voice-guide" })).rejects.toThrow(
+    await expect(fetchRealtimeBootstrap({ feature: "voice-guide", language: "en" })).rejects.toThrow(
       "Realtime bootstrap: response invalid"
     );
   });

@@ -2,7 +2,9 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
     createOpenAICall,
     getHumanInputRealtimeBootstrap,
+    getVoiceGuideRealtimeBootstrap,
     pickHumanInputRealtimeProvider,
+    pickVoiceGuideRealtimeProvider,
 } from "@api/realtimeProviders.js";
 
 vi.mock("@services/OpenAIService.js", () => ({
@@ -30,6 +32,12 @@ describe("realtimeProviders", () => {
         expect(pickHumanInputRealtimeProvider("sv")).toBe("openai");
         expect(pickHumanInputRealtimeProvider("sv-SE")).toBe("openai");
         expect(pickHumanInputRealtimeProvider("en")).toBe("inworld");
+    });
+
+    it("routes Swedish voice-guide sessions to OpenAI", () => {
+        expect(pickVoiceGuideRealtimeProvider("sv")).toBe("openai");
+        expect(pickVoiceGuideRealtimeProvider("sv-SE")).toBe("openai");
+        expect(pickVoiceGuideRealtimeProvider("en")).toBe("inworld");
     });
 
     it("builds an OpenAI transcription bootstrap for Swedish", async () => {
@@ -64,6 +72,51 @@ describe("realtimeProviders", () => {
         expect(result.session).toMatchObject({
             type: "realtime",
             output_modalities: ["text"],
+        });
+    });
+
+    it("builds an OpenAI voice-guide bootstrap for Swedish", async () => {
+        const result = await getVoiceGuideRealtimeBootstrap("sv");
+
+        expect(result.provider).toBe("openai");
+        expect(result.iceServers).toEqual([]);
+        expect(result.session).toMatchObject({
+            type: "realtime",
+            model: "gpt-realtime",
+            output_modalities: ["audio"],
+            audio: {
+                input: {
+                    transcription: {
+                        language: "sv",
+                    },
+                },
+                output: {
+                    voice: "alloy",
+                },
+            },
+        });
+    });
+
+    it("builds an Inworld voice-guide bootstrap for English", async () => {
+        vi.mocked(global.fetch).mockResolvedValue(
+            new Response(JSON.stringify({ ice_servers: [{ urls: ["stun:guide.example.com"] }] }), {
+                status: 200,
+                headers: { "Content-Type": "application/json" },
+            })
+        );
+
+        const result = await getVoiceGuideRealtimeBootstrap("en");
+
+        expect(result.provider).toBe("inworld");
+        expect(result.iceServers).toEqual([{ urls: ["stun:guide.example.com"] }]);
+        expect(result.session).toMatchObject({
+            type: "realtime",
+            output_modalities: ["audio", "text"],
+            audio: {
+                output: {
+                    voice: "Ashley",
+                },
+            },
         });
     });
 
