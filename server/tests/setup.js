@@ -1,8 +1,13 @@
 import { beforeAll, beforeEach, afterAll } from 'vitest';
 import { initDb, closeDb, meetingsCollection, audioCollection, counters } from '@services/DbService.js';
 
+const baseDbPrefix = process.env.COUNCIL_DB_PREFIX || 'test_db';
+const workerId = process.env.VITEST_POOL_ID || process.env.VITEST_WORKER_ID || `${process.pid}`;
+const workerDbPrefix = `${baseDbPrefix}_${workerId}`;
+
 beforeAll(async () => {
-    await initDb(process.env.COUNCIL_DB_URL, process.env.COUNCIL_DB_PREFIX);
+    process.env.COUNCIL_DB_PREFIX = workerDbPrefix;
+    await initDb(process.env.COUNCIL_DB_URL, workerDbPrefix);
 });
 
 beforeEach(async () => {
