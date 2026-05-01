@@ -5,6 +5,7 @@ import { MockFactory } from './factories/MockFactory.ts';
 
 import { getTestMode, TEST_MODES } from './testUtils.js';
 import { getOpenAI } from '@services/OpenAIService.js';
+import { meetingsCollection as dbMeetingsCollection, audioCollection as dbAudioCollection, insertMeeting as dbInsertMeeting } from '@services/DbService.js';
 
 // Reusable mock setup
 export const mockOpenAI = {
@@ -57,15 +58,39 @@ const createMockConversationService = (getOpenAIClient) => ({
     }
 });
 
+const createMockCollections = () => ({
+    meetingsCollection: {
+        findOne: vi.fn(),
+        updateOne: vi.fn().mockResolvedValue({ matchedCount: 1, modifiedCount: 1 }),
+        insertOne: vi.fn(),
+        deleteMany: vi.fn(),
+    },
+    audioCollection: {
+        findOne: vi.fn(),
+        updateOne: vi.fn().mockResolvedValue({ matchedCount: 1, modifiedCount: 1 }),
+        insertOne: vi.fn(),
+        deleteMany: vi.fn(),
+    },
+    insertMeeting: vi.fn().mockResolvedValue({ insertedId: 1 }),
+});
+
 export const setupTestDependencies = () => {
     const mode = getTestMode();
+    const fallbackCollections = createMockCollections();
+    const collectionServices = {
+        meetingsCollection: dbMeetingsCollection || fallbackCollections.meetingsCollection,
+        audioCollection: dbAudioCollection || fallbackCollections.audioCollection,
+        insertMeeting: dbInsertMeeting || fallbackCollections.insertMeeting,
+    };
     if (mode === TEST_MODES.MOCK) {
         return {
+            ...collectionServices,
             getOpenAI: () => mockOpenAI
         };
     } else {
         // FAST or FULL mode: Use real service
         return {
+            ...collectionServices,
             getOpenAI: getOpenAI
         };
     }
@@ -92,7 +117,6 @@ export const createTestManager = (env = 'test', optionsOverride = null, services
     // Merge defaults with provided services
     const defaultServices = setupTestDependencies();
     const finalServices = { ...defaultServices, ...services };
-
     const manager = new MeetingManager(mockSocket, env, baseOptions, finalServices);
     if (!finalServices.conversationService) {
         manager.services.conversationService = createMockConversationService(() => manager.services.getOpenAI());

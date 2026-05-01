@@ -1,5 +1,5 @@
 {
-    "conversationModel": "anthropic/claude-opus-4-6",
+    "conversationModel": "google-ai-studio/gemini-2.5-flash",
     "voiceModel": "gpt-4o-mini-tts",
     "inworldVoiceModel": "inworld-tts-1.5-mini",
     "maxTokens": 50,

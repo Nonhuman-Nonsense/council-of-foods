@@ -1,6 +1,5 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { meetingsCollection } from '@services/DbService.js';
 import { createTestManager } from './commonSetup.js';
 import { setupTestOptions } from './testUtils.js';
 import { SpeakerSelector } from '@logic/SpeakerSelector.js';
@@ -24,7 +23,7 @@ describe('MeetingManager - Conversation Flow', () => {
         manager.meeting._id = 1;
 
         // Spy on DB methods
-        vi.spyOn(meetingsCollection, 'updateOne');
+        vi.spyOn(manager.services.meetingsCollection, 'updateOne');
         vi.clearAllMocks();
     });
 
@@ -108,7 +107,7 @@ describe('MeetingManager - Conversation Flow', () => {
         expect(spy).not.toHaveBeenCalled();
         expect(manager.meeting.conversation.at(-1)?.type).toBe('max_reached');
         expect(manager.meeting.conversation.at(-1)?.canContinue).toBe(true);
-        expect(meetingsCollection.updateOne).toHaveBeenCalled();
+        expect(manager.services.meetingsCollection.updateOne).toHaveBeenCalled();
     });
 
     it('sets canContinue false on max_reached when at meetingVeryMaxLength', async () => {
@@ -177,7 +176,7 @@ describe('MeetingManager - Conversation Flow', () => {
         expect(diSocket.emit).toHaveBeenCalledWith('conversation_update', expect.any(Array));
 
         // Verify DB logic (still uses global mock unless we inject that too, but global mock is fine for now)
-        expect(meetingsCollection.updateOne).toHaveBeenCalled();
+        expect(diManager.services.meetingsCollection.updateOne).toHaveBeenCalled();
     });
 
     it('should set awaiting_human_panelist state when current speaker is a panelist', async () => {
@@ -199,7 +198,7 @@ describe('MeetingManager - Conversation Flow', () => {
         expect(manager.meeting.conversation).toHaveLength(1);
         expect(manager.meeting.conversation[0].type).toBe('awaiting_human_panelist');
         expect(manager.meeting.conversation[0].speaker).toBe('panelist0');
-        expect(meetingsCollection.updateOne).toHaveBeenCalled();
+        expect(manager.services.meetingsCollection.updateOne).toHaveBeenCalled();
 
         // Verify it returns early (does not call generateGPT/Audio/recurse)
         // calculateCurrentSpeaker WAS called, but generateTextFromGPT should NOT be.

@@ -1,8 +1,14 @@
 import { beforeAll, beforeEach, afterAll, vi } from 'vitest';
 import { initDb, closeDb, meetingsCollection, audioCollection, counters } from '@services/DbService.js';
+import { TEST_MODES } from '@interfaces/TestModes.js';
 
 vi.mock('@services/ConversationService.js', async () => {
     const actual = await vi.importActual('@services/ConversationService.js');
+    const mode = process.env.TEST_MODE || TEST_MODES.MOCK;
+
+    if (mode === TEST_MODES.FAST || mode === TEST_MODES.FULL) {
+        return actual;
+    }
 
     return {
         ...actual,

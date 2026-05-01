@@ -70,6 +70,28 @@ function getInworldClient(): OpenAI {
     return inworldClient;
 }
 
+function normalizeMessagesForInworldRouting(messages: ChatCompletionMessageParam[]): ChatCompletionMessageParam[] {
+    if (messages.some((message) => message.role !== "system")) {
+        return messages;
+    }
+
+    if (messages.length === 0) {
+        return [{ role: "user", content: "Continue the conversation." }];
+    }
+
+    const normalizedMessages = [...messages];
+    const lastMessage = normalizedMessages[normalizedMessages.length - 1];
+    const userContent = typeof lastMessage.content === "string"
+        ? lastMessage.content
+        : "Continue the conversation.";
+    normalizedMessages[normalizedMessages.length - 1] = {
+        role: "user",
+        content: userContent,
+    };
+
+    return normalizedMessages;
+}
+
 export function resolveConversationModel(model: string): ResolvedConversationModel {
     if (model.startsWith(OPENAI_DIRECT_PREFIX)) {
         return {
@@ -118,7 +140,10 @@ export function createConversationService(
                 return requestChatCompletion(getOpenAI(), params, resolvedModel.model);
             }
 
-            return requestChatCompletion(getInworld(), params, resolvedModel.model);
+            return requestChatCompletion(getInworld(), {
+                ...params,
+                messages: normalizeMessagesForInworldRouting(params.messages),
+            }, resolvedModel.model);
         }
     };
 }

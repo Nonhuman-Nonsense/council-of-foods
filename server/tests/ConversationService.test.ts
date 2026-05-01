@@ -102,6 +102,37 @@ describe("ConversationService", () => {
         expect(direct.create).not.toHaveBeenCalled();
     });
 
+    it("converts an all-system first-turn stack into a valid routed request", async () => {
+        const direct = createMockClient({ content: "direct-response" });
+        const inworld = createMockClient({ id: "inworld-id", content: "inworld-response" });
+
+        const service = createConversationService(
+            () => direct.client as never,
+            () => inworld.client,
+        );
+
+        await service.createChatCompletion({
+            model: "anthropic/claude-opus-4-6",
+            messages: [
+                { role: "system", content: "You are Water in the council." },
+                { role: "system", content: "Water: " },
+            ],
+            maxCompletionTokens: 123,
+            temperature: 0.7,
+            frequencyPenalty: 0.2,
+            presencePenalty: 0.4,
+            stop: ["\n---"],
+        });
+
+        expect(inworld.create).toHaveBeenCalledWith(expect.objectContaining({
+            messages: [
+                { role: "system", content: "You are Water in the council." },
+                { role: "user", content: "Water: " },
+            ],
+        }));
+        expect(direct.create).not.toHaveBeenCalled();
+    });
+
     it("defaults the finish reason to stop when the provider omits it", async () => {
         const direct = {
             client: {
