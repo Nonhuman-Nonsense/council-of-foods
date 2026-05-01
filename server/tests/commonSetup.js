@@ -1,7 +1,7 @@
 import { vi } from 'vitest';
 import { MeetingManager } from '@logic/MeetingManager.js';
 import { setupTestOptions } from './testUtils.js';
-import { MockFactory } from './factories/MockFactory.ts';
+import { DEFAULT_TEST_CHARACTERS, MockFactory } from './factories/MockFactory.ts';
 
 import { getTestMode, TEST_MODES } from './testUtils.js';
 import { getOpenAI } from '@services/OpenAIService.js';
@@ -123,11 +123,7 @@ export const createTestManager = (env = 'test', optionsOverride = null, services
     }
 
     const meeting = MockFactory.createStoredMeeting({
-        characters: [
-            MockFactory.createCharacter({ id: 'water', name: 'Water' }),
-            MockFactory.createCharacter({ id: 'tomato', name: 'Tomato' }),
-            MockFactory.createCharacter({ id: 'potato', name: 'Potato' })
-        ],
+        characters: DEFAULT_TEST_CHARACTERS.map((character) => MockFactory.createCharacter(character)),
         state: { humanName: 'Frank', alreadyInvited: false },
         conversation: []
     });
@@ -140,7 +136,7 @@ export const createTestManager = (env = 'test', optionsOverride = null, services
 export const TestFactory = {
     createConversation: (length, lastSpeakerId = null, type = 'message') => {
         // Use MockFactory but adapt to match old TestFactory behavior (Modulo speakers)
-        const speakers = ['water', 'tomato'];
+        const speakers = DEFAULT_TEST_CHARACTERS.slice(0, 2).map((character) => character.id);
         const conv = Array.from({ length }, (_, i) => MockFactory.createMessage({
             id: `msg_${i}`,
             type: type,

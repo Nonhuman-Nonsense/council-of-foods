@@ -12,14 +12,15 @@ vi.mock('@root/src/utils/Logger.js', () => ({
 
 describe('Summary Markdown Handling', () => {
     it('should keep markdown for client but strip it for audio', async () => {
+        const chair = MockFactory.createChair();
         const mockManager = {
             meeting: MockFactory.createStoredMeeting({
                 _id: 123,
                 conversation: [
-                    { id: 'm1', type: 'message', text: 'prior', speaker: 'chair' },
+                    { id: 'm1', type: 'message', text: 'prior', speaker: chair.id },
                     { type: 'max_reached', canContinue: false },
                 ],
-                characters: [MockFactory.createChair()]
+                characters: [chair]
             }),
             serverOptions: MockFactory.createServerOptions({
                 finalizeMeetingPrompt: { en: 'Prompt [DATE]' },
