@@ -39,8 +39,7 @@ function createParams(model: string): ConversationCompletionParams {
         messages: [{ role: "user", content: "Hello there" }],
         maxCompletionTokens: 123,
         temperature: 0.7,
-        frequencyPenalty: 0.2,
-        presencePenalty: 0.4,
+        reasoning: "none",
         stop: ["\n---"],
     };
 }
@@ -67,8 +66,6 @@ describe("ConversationService", () => {
             messages: [{ role: "user", content: "Hello there" }],
             max_completion_tokens: 123,
             temperature: 0.7,
-            frequency_penalty: 0.2,
-            presence_penalty: 0.4,
             stop: ["\n---"],
         }));
         expect(inworld.create).not.toHaveBeenCalled();
@@ -95,9 +92,14 @@ describe("ConversationService", () => {
             messages: [{ role: "user", content: "Hello there" }],
             max_completion_tokens: 123,
             temperature: 0.7,
-            frequency_penalty: 0.2,
-            presence_penalty: 0.4,
             stop: ["\n---"],
+            extra_body: {
+                reasoning: {
+                    effort: "none",
+                    max_tokens: 0,
+                    exclude: true,
+                },
+            },
         }));
         expect(direct.create).not.toHaveBeenCalled();
     });
@@ -119,8 +121,7 @@ describe("ConversationService", () => {
             ],
             maxCompletionTokens: 123,
             temperature: 0.7,
-            frequencyPenalty: 0.2,
-            presencePenalty: 0.4,
+            reasoning: "none",
             stop: ["\n---"],
         });
 
@@ -129,6 +130,59 @@ describe("ConversationService", () => {
                 { role: "system", content: "You are Water in the council." },
                 { role: "user", content: "Water: " },
             ],
+            extra_body: {
+                reasoning: {
+                    effort: "none",
+                    max_tokens: 0,
+                    exclude: true,
+                },
+            },
+        }));
+        expect(direct.create).not.toHaveBeenCalled();
+    });
+
+    it("passes non-none reasoning to direct OpenAI models via reasoning_effort", async () => {
+        const direct = createMockClient({ id: "direct-id", content: "direct-response" });
+        const inworld = createMockClient({ id: "inworld-id", content: "inworld-response" });
+
+        const service = createConversationService(
+            () => direct.client as never,
+            () => inworld.client,
+        );
+
+        await service.createChatCompletion({
+            ...createParams("openai-direct/gpt-5.2"),
+            reasoning: "low",
+        });
+
+        expect(direct.create).toHaveBeenCalledWith(expect.objectContaining({
+            model: "gpt-5.2",
+            reasoning_effort: "low",
+        }));
+        expect(inworld.create).not.toHaveBeenCalled();
+    });
+
+    it("passes non-none reasoning to Inworld via extra_body", async () => {
+        const direct = createMockClient({ content: "direct-response" });
+        const inworld = createMockClient({ id: "inworld-id", content: "inworld-response" });
+
+        const service = createConversationService(
+            () => direct.client as never,
+            () => inworld.client,
+        );
+
+        await service.createChatCompletion({
+            ...createParams("mistral/mistral-small-3-2"),
+            reasoning: "low",
+        });
+
+        expect(inworld.create).toHaveBeenCalledWith(expect.objectContaining({
+            model: "mistral/mistral-small-3-2",
+            extra_body: {
+                reasoning: {
+                    effort: "low",
+                },
+            },
         }));
         expect(direct.create).not.toHaveBeenCalled();
     });
@@ -165,9 +219,9 @@ describe("ConversationService", () => {
     });
 
     it("classifies regular provider/model ids as Inworld-routed", () => {
-        expect(resolveConversationModel("google-ai-studio/gemini-2.5-pro")).toEqual({
+        expect(resolveConversationModel("mistral/mistral-small-3-2")).toEqual({
             provider: "inworld",
-            model: "google-ai-studio/gemini-2.5-pro",
+            model: "mistral/mistral-small-3-2",
         });
     });
 });

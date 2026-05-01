@@ -97,8 +97,7 @@ export class DialogGenerator {
                         ? this.serverOptions.chairMaxTokens
                         : this.serverOptions.maxTokens,
                 temperature: this.serverOptions.temperature,
-                frequencyPenalty: this.serverOptions.frequencyPenalty,
-                presencePenalty: this.serverOptions.presencePenalty,
+                reasoning: this.serverOptions.conversationReasoning,
                 stop: ["\n---"],
                 messages,
             }), "DialogGenerator");
@@ -224,14 +223,13 @@ export class DialogGenerator {
                 model: this.serverOptions.conversationModel,
                 maxCompletionTokens: length,
                 temperature: this.serverOptions.temperature,
-                frequencyPenalty: this.serverOptions.frequencyPenalty,
-                presencePenalty: this.serverOptions.presencePenalty,
+                reasoning: this.serverOptions.conversationReasoning,
                 stop: dontStop ? undefined : ["\n---"],
                 messages,
             }), "DialogGenerator");
 
             if (!completion.content) {
-                return { response: "", id: completion.id };
+                throw new Error("No content received from GPT");
             }
 
             let response = completion.content.trim();

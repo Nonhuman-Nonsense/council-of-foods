@@ -5,15 +5,15 @@ import { config } from "@root/src/config.js";
 
 const INWORLD_BASE_URL = "https://api.inworld.ai/v1";
 const OPENAI_DIRECT_PREFIX = "openai-direct/";
+type ConversationReasoning = "none" | "minimal" | "low" | "medium" | "high" | "xhigh";
 
 export interface ConversationCompletionParams {
     model: string;
     messages: ChatCompletionMessageParam[];
     maxCompletionTokens: number;
     temperature: number;
-    frequencyPenalty: number;
-    presencePenalty: number;
     stop?: string[];
+    reasoning: ConversationReasoning;
 }
 
 export interface ConversationCompletionResult {
@@ -34,9 +34,15 @@ interface ChatCompletionClient {
                 messages: ChatCompletionMessageParam[];
                 max_completion_tokens: number;
                 temperature: number;
-                frequency_penalty: number;
-                presence_penalty: number;
                 stop?: string[];
+                reasoning_effort?: ConversationReasoning;
+                extra_body?: {
+                    reasoning: {
+                        effort: ConversationReasoning;
+                        max_tokens?: number;
+                        exclude?: boolean;
+                    };
+                };
             }) => Promise<{
                 id?: string | null;
                 choices?: Array<{
@@ -106,20 +112,51 @@ export function resolveConversationModel(model: string): ResolvedConversationMod
     };
 }
 
+function buildInworldReasoningExtraBody(reasoning: ConversationReasoning): {
+    reasoning: {
+        effort: ConversationReasoning;
+        max_tokens?: number;
+        exclude?: boolean;
+    };
+} {
+    if (reasoning === "none") {
+        return {
+            reasoning: {
+                effort: "none",
+                max_tokens: 0,
+                exclude: true,
+            },
+        };
+    }
+
+    return {
+        reasoning: {
+            effort: reasoning,
+        },
+    };
+}
+
 async function requestChatCompletion(
     client: ChatCompletionClient,
     params: ConversationCompletionParams,
     model: string,
+    provider: ResolvedConversationModel["provider"],
 ): Promise<ConversationCompletionResult> {
-    const completion = await client.chat.completions.create({
+    const requestParams: Parameters<ChatCompletionClient["chat"]["completions"]["create"]>[0] = {
         model,
         messages: params.messages,
         max_completion_tokens: params.maxCompletionTokens,
         temperature: params.temperature,
-        frequency_penalty: params.frequencyPenalty,
-        presence_penalty: params.presencePenalty,
         stop: params.stop,
-    });
+    };
+
+    if (provider === "inworld") {
+        requestParams.extra_body = buildInworldReasoningExtraBody(params.reasoning);
+    } else if (params.reasoning !== "none") {
+        requestParams.reasoning_effort = params.reasoning;
+    }
+
+    const completion = await client.chat.completions.create(requestParams);
 
     return {
         id: completion.id ?? null,
@@ -137,13 +174,13 @@ export function createConversationService(
             const resolvedModel = resolveConversationModel(params.model);
 
             if (resolvedModel.provider === "openai-direct") {
-                return requestChatCompletion(getOpenAI(), params, resolvedModel.model);
+                return requestChatCompletion(getOpenAI(), params, resolvedModel.model, resolvedModel.provider);
             }
 
             return requestChatCompletion(getInworld(), {
                 ...params,
                 messages: normalizeMessagesForInworldRouting(params.messages),
-            }, resolvedModel.model);
+            }, resolvedModel.model, resolvedModel.provider);
         }
     };
 }

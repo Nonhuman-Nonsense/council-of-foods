@@ -2,12 +2,11 @@ const { createApp } = Vue;
 const CHARACTERS_FILE = "beings";
 
 const defaultOptions = {
-  conversationModel: "openai-direct/gpt-4o-mini",
+  conversationModel: "mistral/mistral-small-3-2",
+  conversationReasoning: "none",
   temperature: 1,
   maxTokens: 200,
   chairMaxTokens: 250,
-  frequencyPenalty: 0,
-  presencePenalty: 0,
   defaultAudioSpeed: 1.15,
 
   trimSentance: false,
@@ -552,11 +551,10 @@ createApp({
     getServerOptions() {
       return {
         conversationModel: this.options.conversationModel,
+        conversationReasoning: this.options.conversationReasoning,
         temperature: this.options.temperature,
         maxTokens: this.options.maxTokens,
         chairMaxTokens: this.options.chairMaxTokens,
-        frequencyPenalty: this.options.frequencyPenalty,
-        presencePenalty: this.options.presencePenalty,
         defaultAudioSpeed: this.options.defaultAudioSpeed,
         trimSentance: this.options.trimSentance,
         trimParagraph: this.options.trimParagraph,
