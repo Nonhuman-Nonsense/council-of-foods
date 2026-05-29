@@ -93,14 +93,8 @@ describe("ConversationService", () => {
             max_completion_tokens: 123,
             temperature: 0.7,
             stop: ["\n---"],
-            extra_body: {
-                reasoning: {
-                    effort: "none",
-                    max_tokens: 0,
-                    exclude: true,
-                },
-            },
         }));
+        expect(inworld.create.mock.calls[0]?.[0]).not.toHaveProperty("extra_body");
         expect(direct.create).not.toHaveBeenCalled();
     });
 
@@ -130,14 +124,8 @@ describe("ConversationService", () => {
                 { role: "system", content: "You are Water in the council." },
                 { role: "user", content: "Water: " },
             ],
-            extra_body: {
-                reasoning: {
-                    effort: "none",
-                    max_tokens: 0,
-                    exclude: true,
-                },
-            },
         }));
+        expect(inworld.create.mock.calls[0]?.[0]).not.toHaveProperty("extra_body");
         expect(direct.create).not.toHaveBeenCalled();
     });
 
