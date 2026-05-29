@@ -150,7 +150,7 @@ async function requestChatCompletion(
         stop: params.stop,
     };
 
-    if (provider === "inworld") {
+    if (provider === "inworld" && params.reasoning !== "none") {
         requestParams.extra_body = buildInworldReasoningExtraBody(params.reasoning);
     } else if (params.reasoning !== "none") {
         requestParams.reasoning_effort = params.reasoning;

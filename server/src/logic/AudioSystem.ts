@@ -24,6 +24,7 @@ import {
     Services,
     Speaker
 } from "./audio/AudioTypes.js";
+import { validateSentenceTimingsAgainstDuration } from "./audio/SubtitleTimingValidation.js";
 import type { AudioUpdatePayload } from "@shared/SocketTypes.js";
 
 // Re-export types for compatibility
@@ -175,7 +176,7 @@ export class AudioSystem {
                 for (const timingType of subtitleTimingPriorities) {
                     if (timingType === 'inworld') {
                         const nativeSentences = this.getInworldSentenceTimings(providerWords, buffers, durations, sentenceTexts);
-                        if (nativeSentences.length > 0) {
+                        if (this.areSentenceTimingsUsable(nativeSentences, durations, timingType, message.id)) {
                             sentencesWithTimings = nativeSentences;
                             subtitleTimingType = 'inworld';
                             break;
@@ -189,7 +190,7 @@ export class AudioSystem {
                         }
 
                         const estimatedSentences = buildEstimatedSentenceTimings(message, totalDuration);
-                        if (estimatedSentences.length > 0) {
+                        if (this.areSentenceTimingsUsable(estimatedSentences, [totalDuration], timingType, message.id)) {
                             sentencesWithTimings = estimatedSentences;
                             subtitleTimingType = 'estimated';
                             break;
@@ -203,7 +204,7 @@ export class AudioSystem {
                                 sentenceTexts,
                                 this.offsetChunkWords(chunkWordsWithTimings, durations)
                             );
-                            if (whisperSentences.length > 0) {
+                            if (this.areSentenceTimingsUsable(whisperSentences, durations, timingType, message.id)) {
                                 sentencesWithTimings = whisperSentences;
                                 subtitleTimingType = 'whisper';
                                 break;
@@ -370,6 +371,24 @@ export class AudioSystem {
         });
 
         return allWords;
+    }
+
+    private areSentenceTimingsUsable(
+        sentences: MappedSentence[],
+        durations: number[],
+        timingType: SubtitleTimingType,
+        messageId: string
+    ): boolean {
+        const totalDuration = durations.reduce((sum, duration) => sum + Math.max(duration, 0), 0);
+        const validation = validateSentenceTimingsAgainstDuration(sentences, totalDuration);
+        if (!validation.valid) {
+            Logger.warn(
+                "AudioSystem",
+                `Rejected ${timingType ?? "unknown"} subtitle timings for message ${messageId}: ${validation.reason}.`
+            );
+            return false;
+        }
+        return true;
     }
 
     private getSentencesForTiming(message: Message): string[] {

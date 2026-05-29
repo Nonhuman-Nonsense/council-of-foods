@@ -19,6 +19,10 @@ export interface AudioResult {
     words?: Word[];
 }
 
+function hasSpokenToken(word: string): boolean {
+    return word.toLowerCase().replace(/[^\w]|_/g, "").length > 0;
+}
+
 export async function generateGeminiAudio(params: GenerateParams): Promise<AudioResult> {
     const { text, speaker, options, auth } = params;
     if (!auth) throw new Error("GoogleAuth required for Gemini TTS");
@@ -145,14 +149,20 @@ export async function generateInworldAudio(params: GenerateParams): Promise<Audi
             const starts = wa.wordStartTimeSeconds;
             const ends = wa.wordEndTimeSeconds;
             if (Array.isArray(waWords) && Array.isArray(starts) && Array.isArray(ends)) {
-                words = waWords.map((word: string, i: number) => {
+                words = waWords.flatMap((word: string, i: number) => {
+                    // Inworld includes punctuation, spaces, and empty strings as timed alignment entries.
+                    // The sentence mapper expects spoken tokens only; otherwise long sentences compress.
+                    if (!hasSpokenToken(word) || typeof starts[i] !== "number" || typeof ends[i] !== "number") {
+                        return [];
+                    }
+
                     // Restore original word if it was replaced with IPA
                     const original = replacedWords.get(word);
-                    return {
+                    return [{
                         word: original || word,
                         start: starts[i],
                         end: ends[i]
-                    };
+                    }];
                 });
             }
         }
