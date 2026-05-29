@@ -10,6 +10,10 @@ export interface MappedSentence {
     end: number;
 }
 
+interface NormalizedWord extends Word {
+    token: string;
+}
+
 export function splitSentences(response: string): string[] {
     // BREAKDOWN:
     // 1. (?:\d+\.\s+)? -> Optional Numbered List
@@ -30,26 +34,106 @@ export function splitSentences(response: string): string[] {
         .filter((sentence) => sentence.length > 0);
 }
 
+const START_SEARCH_WINDOW = 30;
+const START_ANCHOR_TOKENS = 4;
+const ALIGNMENT_LOOKAHEAD = 12;
+const SCORE_TOKEN_LIMIT = 8;
+
+function normalizeToken(token: string): string {
+    return token.toLowerCase().replace(/[^\w]|_/g, "");
+}
+
+function tokenizeSentence(sentence: string): string[] {
+    return sentence.trim().split(/\s+/)
+        .map(normalizeToken)
+        .filter(token => token.length > 0);
+}
+
+function scoreCandidateStart(providerWords: NormalizedWord[], sentenceTokens: string[], candidateStart: number): number {
+    let score = 0;
+    let providerIndex = candidateStart;
+    const scoredTokenCount = Math.min(sentenceTokens.length, SCORE_TOKEN_LIMIT);
+
+    for (let tokenIndex = 0; tokenIndex < scoredTokenCount; tokenIndex++) {
+        const token = sentenceTokens[tokenIndex];
+        const searchLimit = Math.min(providerIndex + ALIGNMENT_LOOKAHEAD, providerWords.length);
+
+        for (let index = providerIndex; index < searchLimit; index++) {
+            if (providerWords[index]!.token === token) {
+                score += 1;
+                providerIndex = index + 1;
+                break;
+            }
+        }
+    }
+
+    return score;
+}
+
+function findBestStartIndex(providerWords: NormalizedWord[], sentenceTokens: string[], cursor: number): number {
+    let bestIndex = -1;
+    let bestScore = -Infinity;
+    const startSearchLimit = Math.min(cursor + START_SEARCH_WINDOW, providerWords.length);
+    const anchorTokenCount = Math.min(START_ANCHOR_TOKENS, sentenceTokens.length);
+
+    for (let providerIndex = cursor; providerIndex < startSearchLimit; providerIndex++) {
+        for (let tokenOffset = 0; tokenOffset < anchorTokenCount; tokenOffset++) {
+            if (providerWords[providerIndex]!.token !== sentenceTokens[tokenOffset]) {
+                continue;
+            }
+
+            const candidateStart = Math.max(cursor, providerIndex - tokenOffset);
+            const score = scoreCandidateStart(providerWords, sentenceTokens, candidateStart);
+            const distancePenalty = (candidateStart - cursor) * 0.01;
+            const adjustedScore = score - distancePenalty;
+
+            if (adjustedScore > bestScore) {
+                bestScore = adjustedScore;
+                bestIndex = candidateStart;
+            }
+        }
+    }
+
+    return bestIndex === -1 ? cursor : bestIndex;
+}
+
+function alignSentenceTokens(providerWords: NormalizedWord[], sentenceTokens: string[], startIndex: number): number[] {
+    const matchedIndices: number[] = [];
+    let providerIndex = startIndex;
+
+    for (const token of sentenceTokens) {
+        const searchLimit = Math.min(providerIndex + ALIGNMENT_LOOKAHEAD, providerWords.length);
+
+        for (let index = providerIndex; index < searchLimit; index++) {
+            if (providerWords[index]!.token === token) {
+                matchedIndices.push(index);
+                providerIndex = index + 1;
+                break;
+            }
+        }
+    }
+
+    return matchedIndices;
+}
+
 /**
-  * Optimized sentence mapper with Multi-Token Anchoring.
-  * Handles numbers ("1." vs "One") and skipped words automatically.
+  * Sequential sentence mapper with multi-token anchoring.
+  * Handles punctuation differences, repeated common words, and skipped provider words.
   */
 export function mapSentencesToWords(sentences: string[], words: Word[]): MappedSentence[] {
     if (!words || words.length === 0) return [];
 
-    // 1. Pre-process Whisper tokens for O(1) lookups
-    const whisperTokens = words.map(w =>
-        w.word.toLowerCase().replace(/[^\w]|_/g, "")
-    );
+    const providerWords = words
+        .map(word => ({ ...word, token: normalizeToken(word.word) }))
+        .filter(word => word.token.length > 0);
+
+    if (providerWords.length === 0) return [];
 
     let cursor = 0;
     let lastEndTime = 0;
 
     return sentences.map((sentence) => {
-        // 1. Tokenize (strips emojis/punctuation)
-        const sentenceTokens = sentence.trim().split(/\s+/)
-            .map(t => t.toLowerCase().replace(/[^\w]|_/g, ""))
-            .filter(t => t.length > 0);
+        const sentenceTokens = tokenizeSentence(sentence);
 
         // --- CASE: SILENT SENTENCE (Emojis/Punctuation only) ---
         // If there are no words to match, we can't find it in audio.
@@ -62,63 +146,19 @@ export function mapSentencesToWords(sentences: string[], words: Word[]): MappedS
             };
         }
 
-        // --- NORMAL MATCHING LOGIC ---
-        let startIndex = -1;
-
-        // We scan a window of 15 words from the cursor
-        const startSearchLimit = Math.min(cursor + 15, whisperTokens.length);
-
-        // Multi-token start search
-        for (let tokenOffset = 0; tokenOffset < Math.min(3, sentenceTokens.length); tokenOffset++) {
-            const targetToken = sentenceTokens[tokenOffset];
-            for (let i = cursor; i < startSearchLimit; i++) {
-                if (whisperTokens[i] === targetToken) {
-                    // Found a match! Adjust start index back to the theoretical beginning
-                    startIndex = Math.max(cursor, i - tokenOffset);
-                    break;
-                }
-            }
-            if (startIndex !== -1) break; // Stop if we found a match
-        }
-
-        // Fallback: If absolutely no words matched, stay at cursor
-        if (startIndex === -1) startIndex = cursor;
-
-        // Find End
-        let endIndex = -1;
-        const estimatedLength = sentenceTokens.length;
-        // Look ahead from the FOUND start index
-        const endSearchLimit = Math.min(startIndex + estimatedLength + 10, whisperTokens.length);
-
-        // Try to match the last word, or the second to last (in case of punctuation issues)
-        for (let tokenOffset = 0; tokenOffset < Math.min(3, sentenceTokens.length); tokenOffset++) {
-            const targetToken = sentenceTokens[sentenceTokens.length - 1 - tokenOffset];
-
-            // Scan backwards from limit to start (preferred for end words) or forwards
-            // Here we scan forwards for simplicity and speed
-            for (let i = startIndex; i < endSearchLimit; i++) {
-                if (whisperTokens[i] === targetToken) {
-                    endIndex = i;
-                    // Heuristic: If we found the word very early, it might be a duplicate "the".
-                    // Keep searching if it's too close, otherwise take it.
-                    if (i > startIndex + (estimatedLength * 0.5)) break;
-                }
-            }
-            if (endIndex !== -1) break;
-        }
-
-        // Fallback: Calculate based on length if end not found
-        if (endIndex === -1) {
-            endIndex = Math.min(startIndex + estimatedLength - 1, whisperTokens.length - 1);
-        }
+        const startIndex = findBestStartIndex(providerWords, sentenceTokens, cursor);
+        const matchedIndices = alignSentenceTokens(providerWords, sentenceTokens, startIndex);
+        const endIndex = matchedIndices.length > 0
+            ? matchedIndices[matchedIndices.length - 1]!
+            : Math.min(startIndex + sentenceTokens.length - 1, providerWords.length - 1);
 
         // Update cursor for next loop
-        cursor = endIndex + 1;
+        cursor = Math.max(endIndex + 1, startIndex + 1);
 
         // --- BOUNDS SAFETY ---
         // Ensure we don't crash or return "questions" for everything if we run off the end
-        const safeStart = words[startIndex] || words[words.length - 1];
-        const safeEnd = words[endIndex] || words[words.length - 1];
+        const safeStart = providerWords[startIndex] || providerWords[providerWords.length - 1];
+        const safeEnd = providerWords[endIndex] || providerWords[providerWords.length - 1];
 
         // Update our tracker so the NEXT emoji sentence knows where to start
         lastEndTime = safeEnd ? safeEnd.end : lastEndTime;

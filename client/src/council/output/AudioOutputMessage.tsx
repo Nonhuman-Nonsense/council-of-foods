@@ -8,15 +8,34 @@ export interface PlayableAudioMessage extends Omit<AudioUpdatePayload, 'audio'> 
   audio?: AudioBuffer;
 }
 
+export interface PlaybackStartInfo {
+  messageId: string;
+  startedAtAudioContextTime: number;
+}
+
 interface AudioOutputMessageProps {
   currentAudioMessage: PlayableAudioMessage | null;
   audioContext: React.RefObject<AudioContext | null>;
   gainNode: React.RefObject<GainNode | null>;
   onFinishedPlaying: () => void;
+  onPlaybackStarted?: (info: PlaybackStartInfo) => void;
 }
 
-function AudioOutputMessage({ currentAudioMessage, audioContext, gainNode, onFinishedPlaying }: AudioOutputMessageProps) {
+function AudioOutputMessage({
+  currentAudioMessage,
+  audioContext,
+  gainNode,
+  onFinishedPlaying,
+  onPlaybackStarted
+}: AudioOutputMessageProps) {
   const sourceNode = useRef<AudioBufferSourceNode | null>(null);
+  const onFinishedPlayingRef = useRef(onFinishedPlaying);
+  const onPlaybackStartedRef = useRef(onPlaybackStarted);
+
+  useEffect(() => {
+    onFinishedPlayingRef.current = onFinishedPlaying;
+    onPlaybackStartedRef.current = onPlaybackStarted;
+  }, [onFinishedPlaying, onPlaybackStarted]);
 
   useEffect(() => {
     let ignoreEndEvent = false;
@@ -26,7 +45,7 @@ function AudioOutputMessage({ currentAudioMessage, audioContext, gainNode, onFin
     if (currentAudioMessage && currentAudioMessage.audio && currentAudioMessage.audio.length !== 0) {
       function sourceFinished() {
         if (!ignoreEndEvent) {
-          onFinishedPlaying();
+          onFinishedPlayingRef.current();
         }
       }
 
@@ -35,7 +54,12 @@ function AudioOutputMessage({ currentAudioMessage, audioContext, gainNode, onFin
         sourceNode.current.buffer = currentAudioMessage.audio;
 
         sourceNode.current.connect(gainNode.current);
+        const startedAtAudioContextTime = audioContext.current.currentTime;
         sourceNode.current.start();
+        onPlaybackStartedRef.current?.({
+          messageId: currentAudioMessage.id,
+          startedAtAudioContextTime
+        });
         sourceNode.current.addEventListener('ended', sourceFinished, true);
       }
     }
@@ -47,7 +71,7 @@ function AudioOutputMessage({ currentAudioMessage, audioContext, gainNode, onFin
       // sourceNode.current?.close();
       // sourceNode.current = null;
     }
-  }, [currentAudioMessage]);
+  }, [currentAudioMessage, audioContext, gainNode]);
 
   return null; // This component does not render anything itself
 }
