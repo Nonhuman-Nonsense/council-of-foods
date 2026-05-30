@@ -36,6 +36,34 @@ describe('SubtitleTimingValidation', () => {
         });
     });
 
+    it('accepts short clips with trailing nonverbal audio', () => {
+        const result = validateSentenceTimingsAgainstDuration(
+            [
+                { text: 'K-CHHHHK...', start: 0, end: 0.56 },
+                { text: 'stone heart no chest body save destroy path greed', start: 0.9, end: 5.4 },
+                { text: 'SKREEEEE...', start: 5.82, end: 6.36 },
+            ],
+            8.45
+        );
+
+        expect(result.valid).toBe(true);
+    });
+
+    it('rejects trailing gaps that are larger than expected nonverbal audio', () => {
+        const result = validateSentenceTimingsAgainstDuration(
+            [
+                { text: 'One.', start: 0, end: 1 },
+                { text: 'Two.', start: 1.2, end: 3 },
+            ],
+            6.25
+        );
+
+        expect(result).toEqual({
+            valid: false,
+            reason: 'last subtitle ends 3.25s before audio ends'
+        });
+    });
+
     it('rejects timings that move backwards', () => {
         const result = validateSentenceTimingsAgainstDuration(
             [
