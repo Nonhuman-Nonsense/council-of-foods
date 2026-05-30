@@ -1,11 +1,21 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AudioSystem } from '@root/src/logic/AudioSystem.js';
+import { Logger } from '@root/src/utils/Logger.js';
 import { MockFactory } from './factories/MockFactory.ts';
 
 vi.mock('music-metadata', () => ({
     parseBuffer: vi.fn().mockResolvedValue({
         format: { duration: 1 }
     })
+}));
+
+vi.mock('@root/src/utils/Logger.js', () => ({
+    Logger: {
+        warn: vi.fn(),
+        error: vi.fn(),
+        info: vi.fn(),
+        reportAndCrashClient: vi.fn()
+    }
 }));
 
 describe('AudioSystem', () => {
@@ -18,6 +28,8 @@ describe('AudioSystem', () => {
     const serverOptions = (overrides = {}) => MockFactory.createServerOptions(overrides);
 
     beforeEach(() => {
+        vi.clearAllMocks();
+
         mockBroadcaster = {
             broadcastAudioUpdate: vi.fn(),
             broadcastError: vi.fn()
@@ -200,5 +212,28 @@ describe('AudioSystem', () => {
         );
 
         expect(mockBroadcaster.broadcastAudioUpdate).not.toHaveBeenCalled();
+    });
+
+    it('should not try Inworld subtitle timings for OpenAI voices', async () => {
+        const message = { id: 'msg-openai-timings', text: 'Hello', sentences: ['Hello'] };
+        const speaker = { id: 'char1', voice: 'shimmer', voiceProvider: 'openai' };
+
+        await audioSystem.generateAudio(
+            message,
+            speaker,
+            'en',
+            serverOptions({
+                subtitleTimingPriorities: ['inworld', 'estimated', 'whisper'],
+                voiceModel: 'tts-1',
+                defaultAudioSpeed: 1
+            }),
+            meeting(),
+            'production'
+        );
+
+        expect(Logger.warn).not.toHaveBeenCalledWith(
+            'AudioSystem',
+            expect.stringContaining('Rejected inworld subtitle timings'),
+        );
     });
 });
