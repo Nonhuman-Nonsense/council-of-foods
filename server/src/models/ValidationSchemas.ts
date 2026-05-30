@@ -16,6 +16,7 @@ import type {
 // --- Socket Payload Schemas ---
 
 // Shared Sub-schemas
+const MAX_HUMAN_INPUT_LENGTH = 10000;
 const VoiceOptionSchema = z.enum(AVAILABLE_VOICES);
 const VoiceOptionGeminiSchema = z.enum(AVAILABLE_VOICES_GEMINI);
 
@@ -80,12 +81,12 @@ export const SetupOptionsSchema: z.ZodType<SetupOptions> = z.object({
 
 // 2. submit_human_message
 export const SubmitHumanMessageSchema: z.ZodType<SubmitHumanMessagePayload> = z.object({
-    text: z.string().min(1),
+    text: z.string().min(1).max(MAX_HUMAN_INPUT_LENGTH),
 });
 
 // 2b. submit_human_panelist
 export const SubmitHumanPanelistSchema: z.ZodType<SubmitHumanPanelistPayload> = z.object({
-    text: z.string().min(1),
+    text: z.string().min(1).max(MAX_HUMAN_INPUT_LENGTH),
     speaker: z.string().min(1),
 });
 

@@ -67,6 +67,7 @@ export class HumanTargetClassifier {
             this.buildMessages(meeting, humanText),
             HUMAN_TARGETING_MAX_TOKENS
         );
+        if (content.trim().length === 0) return undefined;
         return this.parseOutput(content, meeting.characters);
     }
 
@@ -101,11 +102,7 @@ export class HumanTargetClassifier {
 
             const data = (await response.json()) as RouterChatCompletionResponse;
             const content = data.choices?.[0]?.message?.content;
-            if (typeof content !== "string" || content.trim().length === 0) {
-                throw new Error("Inworld human targeting returned empty content");
-            }
-
-            return content;
+            return typeof content === "string" ? content : "";
         } finally {
             clearTimeout(timeout);
         }
