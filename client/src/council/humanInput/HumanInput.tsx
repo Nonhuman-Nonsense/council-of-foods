@@ -36,10 +36,15 @@ interface InputAudioBufferSpeechStoppedEvent {
   type: "input_audio_buffer.speech_stopped";
 }
 
+interface InputAudioBufferSpeechStartedEvent {
+  type: "input_audio_buffer.speech_started";
+}
+
 type HumanInputRealtimeEvent =
   | InputAudioTranscriptionDeltaEvent
   | InputAudioTranscriptionCompletedEvent
-  | InputAudioBufferSpeechStoppedEvent;
+  | InputAudioBufferSpeechStoppedEvent
+  | InputAudioBufferSpeechStartedEvent;
 
 type RecordingState = "idle" | "loading" | "recording" | "finishing";
 
@@ -99,7 +104,8 @@ function isHumanInputRealtimeEvent(event: unknown): event is HumanInputRealtimeE
   return (
     type === "conversation.item.input_audio_transcription.delta" ||
     type === "conversation.item.input_audio_transcription.completed" ||
-    type === "input_audio_buffer.speech_stopped"
+    type === "input_audio_buffer.speech_stopped" ||
+    type === "input_audio_buffer.speech_started"
   );
 }
 
@@ -137,6 +143,7 @@ function HumanInput({ isPanelist, currentSpeakerName, onSubmitHumanMessage, live
   const isMobile = useMobile();
 
   const recordingStateRef = useRef<RecordingState>("idle");
+  const inputAudioActiveRef = useRef<boolean>(false);
   const connectionRef = useRef<RealtimeConnection | null>(null);
   const startAbortRef = useRef<AbortController | null>(null);
   const finishingQuietTimerRef = useRef<number | null>(null);
@@ -168,6 +175,7 @@ function HumanInput({ isPanelist, currentSpeakerName, onSubmitHumanMessage, live
   useEffect(() => {
     if (recordingState === 'loading') {
       clearFinishingTimers();
+      inputAudioActiveRef.current = false;
       setTranscriptSegments([]);
       void startRealtimeSession();
     } else if (recordingState === 'idle') {
@@ -182,6 +190,7 @@ function HumanInput({ isPanelist, currentSpeakerName, onSubmitHumanMessage, live
 
   function handleRealtimeEvent(event: HumanInputRealtimeEvent) {
     if (event.type === "conversation.item.input_audio_transcription.delta") {
+      inputAudioActiveRef.current = true;
       setTranscriptSegments(prev => upsertTranscriptSegment(
         prev,
         event.item_id,
@@ -192,13 +201,20 @@ function HumanInput({ isPanelist, currentSpeakerName, onSubmitHumanMessage, live
     }
 
     if (event.type === "conversation.item.input_audio_transcription.completed") {
+      inputAudioActiveRef.current = false;
       setTranscriptSegments(prev => upsertTranscriptSegment(prev, event.item_id, event.transcript));
       scheduleFinishingQuietClose();
       return;
     }
 
     if (event.type === "input_audio_buffer.speech_stopped") {
+      inputAudioActiveRef.current = false;
       scheduleFinishingQuietClose();
+      return;
+    }
+
+    if (event.type === "input_audio_buffer.speech_started") {
+      inputAudioActiveRef.current = true;
     }
   }
 
@@ -236,6 +252,13 @@ function HumanInput({ isPanelist, currentSpeakerName, onSubmitHumanMessage, live
       track.enabled = false;
     });
     setMicStream(null);
+
+    if (!inputAudioActiveRef.current) {
+      closeRealtimeConnection();
+      setRecordingState("idle");
+      return;
+    }
+
     finishingNoEventsTimerRef.current = window.setTimeout(() => {
       closeRealtimeConnection();
       setRecordingState("idle");
