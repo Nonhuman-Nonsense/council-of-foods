@@ -1,8 +1,6 @@
 import type { MappedSentence } from "@shared/textUtils.js";
 
-const MIN_ALLOWED_END_GAP_SEC = 0.75;
-const MAX_ALLOWED_END_GAP_SEC = 3;
-const ALLOWED_END_GAP_RATIO = 0.2;
+const ALLOWED_END_GAP_SEC = 3;
 
 export interface SubtitleTimingValidationResult {
     valid: boolean;
@@ -42,19 +40,15 @@ export function validateSentenceTimingsAgainstDuration(
     }
 
     const lastEnd = sentences[sentences.length - 1]!.end;
-    const allowedEndGap = Math.min(
-        MAX_ALLOWED_END_GAP_SEC,
-        Math.max(MIN_ALLOWED_END_GAP_SEC, durationSec * ALLOWED_END_GAP_RATIO)
-    );
 
-    if (durationSec - lastEnd > allowedEndGap) {
+    if (durationSec - lastEnd > ALLOWED_END_GAP_SEC) {
         return {
             valid: false,
             reason: `last subtitle ends ${Number((durationSec - lastEnd).toFixed(3))}s before audio ends`
         };
     }
 
-    if (lastEnd - durationSec > allowedEndGap) {
+    if (lastEnd - durationSec > ALLOWED_END_GAP_SEC) {
         return {
             valid: false,
             reason: `last subtitle ends ${Number((lastEnd - durationSec).toFixed(3))}s after audio ends`

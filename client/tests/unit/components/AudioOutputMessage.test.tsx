@@ -23,6 +23,7 @@ const mockCreateBufferSource = vi.fn(() => mockSourceNode);
 
 const mockAudioContext = {
     createBufferSource: mockCreateBufferSource,
+    currentTime: 12.5,
 };
 
 // Mock Gain Node
@@ -58,6 +59,26 @@ describe('AudioOutputMessage', () => {
         expect(mockConnect).toHaveBeenCalledWith(mockGainNode);
         expect(mockStart).toHaveBeenCalled();
         expect(mockAddEventListener).toHaveBeenCalledWith('ended', expect.any(Function), true);
+    });
+
+    it('reports the AudioContext time when playback starts', () => {
+        const onPlaybackStarted = vi.fn();
+        const message = { id: 'msg-clock', audio: mockAudioBuffer };
+
+        render(
+            <AudioOutputMessage
+                currentAudioMessage={message}
+                audioContext={audioContextRef}
+                gainNode={gainNodeRef}
+                onFinishedPlaying={vi.fn()}
+                onPlaybackStarted={onPlaybackStarted}
+            />
+        );
+
+        expect(onPlaybackStarted).toHaveBeenCalledWith({
+            messageId: 'msg-clock',
+            startedAtAudioContextTime: 12.5
+        });
     });
 
     it('does not play if audio is missing or empty', () => {

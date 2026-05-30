@@ -1,12 +1,13 @@
 
 import { useEffect, useRef } from "react";
-import AudioOutputMessage, { PlayableAudioMessage } from "./AudioOutputMessage";
+import AudioOutputMessage, { PlayableAudioMessage, type PlaybackStartInfo } from "./AudioOutputMessage";
 import React from 'react';
 
 interface AudioOutputProps {
   audioContext: React.RefObject<AudioContext | null>;
   currentAudioMessage: PlayableAudioMessage | null;
   onFinishedPlaying: () => void;
+  onPlaybackStarted?: (info: PlaybackStartInfo) => void;
   isMuted: boolean;
 }
 
@@ -16,6 +17,7 @@ function AudioOutput({
   audioContext,
   currentAudioMessage,
   onFinishedPlaying,
+  onPlaybackStarted,
   isMuted,
 }: AudioOutputProps): React.ReactElement {
   const gainNode = useRef<GainNode | null>(null); //The general volume control node
@@ -47,6 +49,7 @@ function AudioOutput({
       audioContext={audioContext}
       gainNode={gainNode}
       onFinishedPlaying={onFinishedPlaying}
+      onPlaybackStarted={onPlaybackStarted}
     />
   );
 }
