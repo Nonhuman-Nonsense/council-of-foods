@@ -12,7 +12,7 @@
   "sv": "SV",
   "aboutText": {
     "about": "Vad skulle en urgammal tall säga om avskogning? Hur skulle fiskar reagera på ett vattenkraftverk? Kan AI förmedla visdomen hos en flod, ett träd eller en renhjord?\n\nGenom AI samlas icke-mänskliga varelser—träd, svampar, floder och djur—för att överlägga om ödet för deras gemensamma hem. Deras röster formas av en blandning av kunskapssystem, inklusive traditionella och ursprungliga perspektiv, ekologisk vetenskap och data. De är hämtade från intervjuer och samtal med människor som lever i och vårdar Vindelälven-Juhttátahkka biosfärområde—renskötare, skogsägare, återvildningsorganisationer, pollinator-experter och kulturarbetare—var och en med djup anknytning till naturen.\n\nSkogsrådet fungerar som ett forum där skogens invånare uttrycker sina behov och reflekterar över mänskliga aktiviteter som skogsavverkning, återvildning och klimatförändringar. Människor är inbjudna att lyssna, ställa frågor och reflektera. Varje session avslutas med ett gemensamt uttalande och en policyrekommendation från skogen. Det är ett experiment i ekologiskt tänkande och spekulativ design—som utforskar hur teknologi kan fungera som brygga mellan människor och den mer-än-mänskliga världen.\n\nVad innebär det att agera i skogens bästa intresse? Vems kunskap räknas? Och vad händer när vi tar icke-mänskliga röster på allvar?",
-    "link": "ett project av"
+    "link": "ett projekt av"
   },
   "contactText": {
     "1": "Projektet är ett initiativ av konst & designkollektivet ",
@@ -20,7 +20,7 @@
     "3": ", med flera.",
     "4": "Skogsrådet är finansierat av ",
     "5": " och är en fortsättning av projektet ",
-    "6": " some har fått stöd av Europeiska\u00a0Unionens ",
+    "6": " som har fått stöd av Europeiska\u00a0Unionens ",
     "7": " forsknings och innovationsprogram under avtal",
     "8": "Finansierat av EU, som en del av S+T+ARTS"
   },
@@ -75,7 +75,7 @@
     "7": "För mer information, se council-of-forest.com"
   },
   "error": {
-    "title": "ERROR",
+    "title": "FEL",
     "1": "Något gick snett...",
     "audioLoad": "Kunde inte ladda mötesljud.",
     "connection": "Anslutning förlorad",
@@ -101,7 +101,7 @@
     "preamble": "Detta är en repris av möte #{{meetingId}}: {{meetingTitle}} den {{meetingDate}}. ",
     "click": "Klicka här för att starta ett nytt möte."
   },
-  "selectissue": "välj ett ämne för dagens discussion",
+  "selectissue": "välj ett ämne för dagens diskussion",
   "writetopic": "Skriv ett eget ämne...",
   "biosphere": "Biosfärområdet\u00a0Vindelälven-Juhttátahkka",
   "rotate": "rotera din enhet"

@@ -76,6 +76,7 @@ describe("HumanTargetClassifier", () => {
         const classifier = new HumanTargetClassifier(MockFactory.createServerOptions());
 
         await expect(classifier.inferTarget(meeting, "Speaker Two?")).resolves.toBeUndefined();
+        expect(Logger.warn).not.toHaveBeenCalled();
     });
 
     it("salvages a target id from leading prose", async () => {
@@ -148,6 +149,25 @@ describe("HumanTargetClassifier", () => {
         expect(prompt).not.toContain(`${primarySpeaker.name}: Message 2\n`);
         expect(prompt).toContain("Human question:");
         expect(prompt).toContain(`Allowed target ids: ${chair.id}, ${primarySpeaker.id}, ${secondarySpeaker.id}, anyone`);
+    });
+
+    it("sends the full human text in the routing prompt", async () => {
+        const longHumanText = `${"Speaker One should answer. ".repeat(120)}END`;
+
+        global.fetch = vi.fn().mockResolvedValue(mockJsonResponse({
+            choices: [{ message: { content: primarySpeaker.id } }]
+        }));
+        const classifier = new HumanTargetClassifier(MockFactory.createServerOptions());
+
+        await classifier.inferTarget(meeting, longHumanText);
+
+        const fetchMock = global.fetch as ReturnType<typeof vi.fn>;
+        const requestInit = fetchMock.mock.calls[0][1];
+        const body = JSON.parse(requestInit.body);
+        const prompt = body.messages[1].content;
+
+        expect(prompt).toContain("Human question:");
+        expect(prompt).toContain(longHumanText);
     });
 });
 

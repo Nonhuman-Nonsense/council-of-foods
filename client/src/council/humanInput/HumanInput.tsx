@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useRef } from "react";
 import ConversationControlIcon from "../ConversationControlIcon";
 import TextareaAutosize from 'react-textarea-autosize';
 import { useMobile, dvh } from "@/utils";
@@ -15,6 +15,11 @@ import type { RealtimeProvider } from "@shared/RealtimeSessionTypes";
 import React from 'react';
 import micIcon from "@assets/mic.avif";
 
+const MAX_INPUT_LENGTH = 10000;
+const FINISHING_QUIET_MS = 2000;
+const FINISHING_NO_EVENTS_TIMEOUT_MS = 4500;
+const FINISHING_HARD_TIMEOUT_MS = 12000;
+
 interface InputAudioTranscriptionDeltaEvent {
   type: "conversation.item.input_audio_transcription.delta";
   item_id: string;
@@ -27,9 +32,82 @@ interface InputAudioTranscriptionCompletedEvent {
   transcript: string;
 }
 
+interface InputAudioBufferSpeechStoppedEvent {
+  type: "input_audio_buffer.speech_stopped";
+}
+
+interface InputAudioBufferSpeechStartedEvent {
+  type: "input_audio_buffer.speech_started";
+}
+
 type HumanInputRealtimeEvent =
   | InputAudioTranscriptionDeltaEvent
-  | InputAudioTranscriptionCompletedEvent;
+  | InputAudioTranscriptionCompletedEvent
+  | InputAudioBufferSpeechStoppedEvent
+  | InputAudioBufferSpeechStartedEvent;
+
+type RecordingState = "idle" | "loading" | "recording" | "finishing";
+
+export interface TranscriptSegment {
+  itemId: string;
+  text: string;
+}
+
+export function upsertTranscriptSegment(
+  segments: TranscriptSegment[],
+  itemId: string,
+  text: string
+): TranscriptSegment[] {
+  const existingIndex = segments.findIndex(segment => segment.itemId === itemId);
+
+  if (existingIndex === -1) {
+    return [...segments, { itemId, text }];
+  }
+
+  const next = [...segments];
+  next[existingIndex] = { itemId, text };
+  return next;
+}
+
+export function formatTranscriptInputValue({
+  previousTranscript,
+  transcriptSegments,
+  isRecording,
+  maxLength,
+}: {
+  previousTranscript: string;
+  transcriptSegments: TranscriptSegment[];
+  isRecording: boolean;
+  maxLength: number;
+}): string {
+  const transcriptText = transcriptSegments
+    .map(segment => segment.text)
+    .filter(text => text.trim().length > 0)
+    .join(" ")
+    .trim();
+  const baseText = previousTranscript.trim();
+  const combined = [baseText, transcriptText].filter(Boolean).join(" ");
+  const hasEllipsisRoom = combined.length + 3 <= maxLength;
+  const liveSuffix = isRecording && transcriptText && hasEllipsisRoom ? "..." : "";
+
+  return `${combined}${liveSuffix}`.slice(0, maxLength);
+}
+
+export function scrollTextareaToBottom(textarea: HTMLTextAreaElement) {
+  textarea.scrollTop = textarea.scrollHeight;
+}
+
+function isHumanInputRealtimeEvent(event: unknown): event is HumanInputRealtimeEvent {
+  if (!event || typeof event !== "object" || !("type" in event)) return false;
+
+  const type = (event as { type: unknown }).type;
+  return (
+    type === "conversation.item.input_audio_transcription.delta" ||
+    type === "conversation.item.input_audio_transcription.completed" ||
+    type === "input_audio_buffer.speech_stopped" ||
+    type === "input_audio_buffer.speech_started"
+  );
+}
 
 interface HumanInputProps {
   isPanelist: boolean;
@@ -54,32 +132,54 @@ type TextareaStyle = Omit<React.CSSProperties, 'height'> & { height?: number };
  * - **Routing**: The server infers whether the human is addressing a specific character.
  */
 function HumanInput({ isPanelist, currentSpeakerName, onSubmitHumanMessage, liveKey }: HumanInputProps): React.ReactElement {
-  const [recordingState, setRecordingState] = useState<"idle" | "loading" | "recording">("idle");
+  const [recordingState, setRecordingState] = useState<RecordingState>("idle");
   const [canContinue, setCanContinue] = useState<boolean>(false);
-  const [transcript, setTranscript] = useState<Record<string, string>>({});
+  const [inputValue, setInputValue] = useState<string>("");
+  const [transcriptSegments, setTranscriptSegments] = useState<TranscriptSegment[]>([]);
   const [previousTranscript, setPreviousTranscript] = useState<string>("");
 
   const inputArea = useRef<HTMLTextAreaElement>(null);
+  const inputValueRef = useRef<string>("");
   const isMobile = useMobile();
 
+  const recordingStateRef = useRef<RecordingState>("idle");
+  const inputAudioActiveRef = useRef<boolean>(false);
   const connectionRef = useRef<RealtimeConnection | null>(null);
   const startAbortRef = useRef<AbortController | null>(null);
+  const finishingQuietTimerRef = useRef<number | null>(null);
+  const finishingNoEventsTimerRef = useRef<number | null>(null);
+  const finishingHardTimerRef = useRef<number | null>(null);
   const [micStream, setMicStream] = useState<MediaStream | null>(null);
 
   const vizLeftHostRef = useRef<HTMLDivElement>(null);
   const vizRightHostRef = useRef<HTMLDivElement>(null);
 
-  const [rerender, forceRerender] = useState<boolean>(false);
   const { t, i18n } = useTranslation();
 
-  const maxInputLength = isPanelist ? 1300 : 700;
+  const maxInputLength = MAX_INPUT_LENGTH;
+
+  useEffect(() => {
+    recordingStateRef.current = recordingState;
+  }, [recordingState]);
+
+  useEffect(() => {
+    inputValueRef.current = inputValue;
+  }, [inputValue]);
+
+  useLayoutEffect(() => {
+    if (!inputArea.current) return;
+    scrollTextareaToBottom(inputArea.current);
+  }, [inputValue]);
 
   // Effect to manage speech recognition state
   useEffect(() => {
     if (recordingState === 'loading') {
-      setTranscript({});
+      clearFinishingTimers();
+      inputAudioActiveRef.current = false;
+      setTranscriptSegments([]);
       void startRealtimeSession();
     } else if (recordingState === 'idle') {
+      clearFinishingTimers();
       startAbortRef.current?.abort();
       startAbortRef.current = null;
       connectionRef.current?.close();
@@ -90,21 +190,101 @@ function HumanInput({ isPanelist, currentSpeakerName, onSubmitHumanMessage, live
 
   function handleRealtimeEvent(event: HumanInputRealtimeEvent) {
     if (event.type === "conversation.item.input_audio_transcription.delta") {
-      setTranscript(prev => {
-        const next = { ...prev };
-        next[event.item_id] = `${next[event.item_id] ?? ""}${event.delta}`;
-        return next;
-      });
+      inputAudioActiveRef.current = true;
+      setTranscriptSegments(prev => upsertTranscriptSegment(
+        prev,
+        event.item_id,
+        `${prev.find(segment => segment.itemId === event.item_id)?.text ?? ""}${event.delta}`
+      ));
+      scheduleFinishingQuietClose();
       return;
     }
 
     if (event.type === "conversation.item.input_audio_transcription.completed") {
-      setTranscript(prev => {
-        const next = { ...prev };
-        next[event.item_id] = event.transcript;
-        return next;
-      });
+      inputAudioActiveRef.current = false;
+      setTranscriptSegments(prev => upsertTranscriptSegment(prev, event.item_id, event.transcript));
+      scheduleFinishingQuietClose();
+      return;
     }
+
+    if (event.type === "input_audio_buffer.speech_stopped") {
+      inputAudioActiveRef.current = false;
+      scheduleFinishingQuietClose();
+      return;
+    }
+
+    if (event.type === "input_audio_buffer.speech_started") {
+      inputAudioActiveRef.current = true;
+    }
+  }
+
+  function clearFinishingTimers() {
+    if (finishingQuietTimerRef.current !== null) {
+      window.clearTimeout(finishingQuietTimerRef.current);
+      finishingQuietTimerRef.current = null;
+    }
+    if (finishingNoEventsTimerRef.current !== null) {
+      window.clearTimeout(finishingNoEventsTimerRef.current);
+      finishingNoEventsTimerRef.current = null;
+    }
+    if (finishingHardTimerRef.current !== null) {
+      window.clearTimeout(finishingHardTimerRef.current);
+      finishingHardTimerRef.current = null;
+    }
+  }
+
+  function closeRealtimeConnection() {
+    clearFinishingTimers();
+    connectionRef.current?.close();
+    connectionRef.current = null;
+    setMicStream(null);
+  }
+
+  function finishRealtimeSession() {
+    if (!connectionRef.current) {
+      setRecordingState("idle");
+      return;
+    }
+
+    recordingStateRef.current = "finishing";
+    setRecordingState("finishing");
+    connectionRef.current.micStream.getAudioTracks().forEach(track => {
+      track.enabled = false;
+    });
+    setMicStream(null);
+
+    if (!inputAudioActiveRef.current) {
+      closeRealtimeConnection();
+      setRecordingState("idle");
+      return;
+    }
+
+    finishingNoEventsTimerRef.current = window.setTimeout(() => {
+      closeRealtimeConnection();
+      setRecordingState("idle");
+    }, FINISHING_NO_EVENTS_TIMEOUT_MS);
+    finishingHardTimerRef.current = window.setTimeout(() => {
+      closeRealtimeConnection();
+      setRecordingState("idle");
+    }, FINISHING_HARD_TIMEOUT_MS);
+  }
+
+  function scheduleFinishingQuietClose() {
+    if (recordingStateRef.current !== "finishing") return;
+
+    if (finishingNoEventsTimerRef.current !== null) {
+      window.clearTimeout(finishingNoEventsTimerRef.current);
+      finishingNoEventsTimerRef.current = null;
+    }
+
+    if (finishingQuietTimerRef.current !== null) {
+      window.clearTimeout(finishingQuietTimerRef.current);
+    }
+
+    finishingQuietTimerRef.current = window.setTimeout(() => {
+      closeRealtimeConnection();
+      setRecordingState("idle");
+    }, FINISHING_QUIET_MS);
   }
 
   /**
@@ -149,7 +329,11 @@ function HumanInput({ isPanelist, currentSpeakerName, onSubmitHumanMessage, live
               }
             : undefined,
         onRemoteTrack: () => undefined,
-        onEvent: (event) => handleRealtimeEvent(event as HumanInputRealtimeEvent),
+        onEvent: (event) => {
+          if (isHumanInputRealtimeEvent(event)) {
+            handleRealtimeEvent(event);
+          }
+        },
         onClose: () => {
           if (!controller.signal.aborted) {
             setRecordingState("idle");
@@ -180,6 +364,7 @@ function HumanInput({ isPanelist, currentSpeakerName, onSubmitHumanMessage, live
 
   useEffect(() => {
     return () => {
+      clearFinishingTimers();
       startAbortRef.current?.abort();
       startAbortRef.current = null;
       connectionRef.current?.close();
@@ -190,57 +375,82 @@ function HumanInput({ isPanelist, currentSpeakerName, onSubmitHumanMessage, live
 
   function handleStartStopRecording() {
     if (recordingState === 'idle') {
+      if (inputValue.length >= maxInputLength) {
+        setCanContinue(true);
+        return;
+      }
       setRecordingState('loading'); // Toggle the recording state  
-    } else {
+    } else if (recordingState === 'recording') {
+      finishRealtimeSession();
+    } else if (recordingState === 'loading') {
       setRecordingState('idle');
     }
   }
 
   useEffect(() => {
-    if (!inputArea.current) return;
-
     if (recordingState === 'loading') {
-      setPreviousTranscript(inputArea.current.value);
+      setPreviousTranscript(inputValueRef.current);
     } else if (recordingState === 'recording') {
-      //Completed order is not guaranteed, so we sort the result
-      const sortedTranscript = Object.keys(transcript).sort().map(key => transcript[key]).join(" ") + "...";
-      inputArea.current.value = (previousTranscript ? previousTranscript + " " + sortedTranscript : sortedTranscript).trim();
+      const nextValue = formatTranscriptInputValue({
+        previousTranscript,
+        transcriptSegments,
+        isRecording: true,
+        maxLength: maxInputLength,
+      });
+      setInputValue(nextValue);
+      updateCanContinue(nextValue);
 
-      // For some reason the textarea doesn't recalculate when the value is changed here
-      // So we just flip a rerender variable and pass it to the component to trigger a react re-render
-      forceRerender(r => !r);
-
-      if (inputArea.current.value.length > maxInputLength) setRecordingState('idle');
+      if (nextValue.length >= maxInputLength) {
+        setPreviousTranscript(nextValue);
+        setTranscriptSegments([]);
+        setRecordingState('idle');
+      }
     } else {
-      const sortedTranscript = Object.keys(transcript).sort().map(key => transcript[key]).join(" ");
-      inputArea.current.value = (previousTranscript ? previousTranscript + " " + sortedTranscript : sortedTranscript);
+      const nextValue = formatTranscriptInputValue({
+        previousTranscript,
+        transcriptSegments,
+        isRecording: false,
+        maxLength: maxInputLength,
+      });
+      setInputValue(nextValue);
+      updateCanContinue(nextValue);
     }
-    inputChanged();
-  }, [transcript, recordingState]);
+  }, [transcriptSegments, recordingState, previousTranscript, maxInputLength]);
 
   function inputFocused(_e: React.FocusEvent) {
-    setRecordingState('idle');
+    if (recordingState === "recording") {
+      finishRealtimeSession();
+    } else if (recordingState === "loading") {
+      setRecordingState("idle");
+    }
   }
 
-  function inputChanged(_e?: React.ChangeEvent) {
-    if (inputArea.current && inputArea.current.value.length > 0 && inputArea.current.value.trim().length !== 0) {
-      setCanContinue(true);
-    } else {
-      setCanContinue(false);
-    }
+  function updateCanContinue(value: string) {
+    setCanContinue(value.length > 0 && value.trim().length !== 0);
+  }
+
+  function inputChanged(e: React.ChangeEvent<HTMLTextAreaElement>) {
+    const nextValue = e.target.value;
+    setInputValue(nextValue);
+    updateCanContinue(nextValue);
   }
 
   function checkEnter(e: React.KeyboardEvent) {
-    if (canContinue && !e.shiftKey && e.key === "Enter") {
+    if (recordingState === "idle" && canContinue && !e.shiftKey && e.key === "Enter") {
       e.preventDefault();
       submitAndContinue();
     }
   }
 
   function submitAndContinue() {
-    if (inputArea.current) {
-      onSubmitHumanMessage(inputArea.current.value.substring(0, maxInputLength));
-    }
+    if (recordingState !== "idle") return;
+
+    onSubmitHumanMessage(inputValue.substring(0, maxInputLength));
+    setInputValue("");
+    setPreviousTranscript("");
+    setTranscriptSegments([]);
+    setRecordingState("idle");
+    setCanContinue(false);
   }
 
   const wrapperStyle: React.CSSProperties = {
@@ -283,6 +493,7 @@ function HumanInput({ isPanelist, currentSpeakerName, onSubmitHumanMessage, live
     resize: "none",
     padding: "0",
   };
+  const isWaitingForRealtime = recordingState === 'loading' || recordingState === 'finishing';
 
   return (<>
     <div style={wrapperStyle}>
@@ -297,7 +508,8 @@ function HumanInput({ isPanelist, currentSpeakerName, onSubmitHumanMessage, live
           className="unfocused"
           minRows={1}
           maxRows={6}
-          cacheMeasurements={rerender}
+          value={inputValue}
+          cacheMeasurements={false}
           maxLength={maxInputLength}
           placeholder={isPanelist ? t('human.panelist', { name: currentSpeakerName }) : t("human.1")}
         />
@@ -308,10 +520,10 @@ function HumanInput({ isPanelist, currentSpeakerName, onSubmitHumanMessage, live
           style={{ ...divStyle, transform: "scale(-1, -1)" }}
         />
         <div style={divStyle}>
-          {recordingState === 'loading' &&
+          {isWaitingForRealtime &&
             <Lottie play loop animationData={loading} style={{ height: isMobile ? 45 : 56 }} />
           }
-          {recordingState !== 'loading' &&
+          {!isWaitingForRealtime &&
             <ConversationControlIcon
               icon={(recordingState === 'recording' ? "record_voice_on" : "record_voice_off")}
               onClick={handleStartStopRecording}
