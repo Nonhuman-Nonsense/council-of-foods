@@ -174,7 +174,7 @@ export class AudioSystem {
                     effectiveOptions.subtitleTimingPriorities ?? DEFAULT_SUBTITLE_TIMING_PRIORITIES;
 
                 for (const timingType of subtitleTimingPriorities) {
-                    if (timingType === 'inworld') {
+                    if (timingType === 'inworld' && speaker.voiceProvider === 'inworld') {
                         const nativeSentences = this.getInworldSentenceTimings(providerWords, buffers, durations, sentenceTexts);
                         if (this.areSentenceTimingsUsable(nativeSentences, durations, timingType, message.id)) {
                             sentencesWithTimings = nativeSentences;
