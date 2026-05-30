@@ -2,7 +2,7 @@ const { createApp } = Vue;
 const CHARACTERS_FILE = "beings";
 
 const defaultOptions = {
-  conversationModel: "mistral/mistral-small-3-2",
+  conversationModel: "mistral/mistral-large-3",
   conversationReasoning: "none",
   temperature: 1,
   maxTokens: 200,

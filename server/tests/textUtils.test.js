@@ -21,6 +21,12 @@ describe('textUtils', () => {
             expect(splitSentences(input)).toEqual(expected);
         });
 
+        it('should not split after vs. abbreviations', () => {
+            const input = "This is markets vs. ecosystems in one debate. Next sentence.";
+            const expected = ["This is markets vs. ecosystems in one debate.", "Next sentence."];
+            expect(splitSentences(input)).toEqual(expected);
+        });
+
         it('should handle emojis as punctuation or end of sentence', () => {
             const input = "This is fun! 🚀 Next sentence.";
             const expected = ["This is fun! 🚀", "Next sentence."];

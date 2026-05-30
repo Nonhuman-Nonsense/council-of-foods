@@ -14,6 +14,16 @@ interface NormalizedWord extends Word {
     token: string;
 }
 
+const PROTECTED_PERIOD = "<COF_PERIOD>";
+
+function protectSentenceInternalPeriods(text: string): string {
+    return text.replace(/\bvs\.(?=\s|$)/gi, (match) => match.replace(".", PROTECTED_PERIOD));
+}
+
+function restoreSentenceInternalPeriods(text: string): string {
+    return text.replaceAll(PROTECTED_PERIOD, ".");
+}
+
 export function splitSentences(response: string): string[] {
     // BREAKDOWN:
     // 1. (?:\d+\.\s+)? -> Optional Numbered List
@@ -28,9 +38,10 @@ export function splitSentences(response: string): string[] {
 
     if (!response) return [];
 
-    return (response
+    return (protectSentenceInternalPeriods(response)
         .match(sentenceRegex) ?? [])
         .map((sentence) => sentence.trim())
+        .map(restoreSentenceInternalPeriods)
         .filter((sentence) => sentence.length > 0);
 }
 
