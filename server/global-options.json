@@ -1,5 +1,5 @@
 {
-  "conversationModel": "mistral/mistral-medium-latest",
+  "conversationModel": "mistral/mistral-large-3",
   "conversationReasoning": "none",
   "voiceModel": "gpt-4o-mini-tts",
   "geminiVoiceModel": "gemini-2.5-flash-tts",
