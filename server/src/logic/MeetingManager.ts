@@ -54,6 +54,9 @@ export class MeetingManager implements IMeetingManager {
     handRaised: boolean;
     isPaused: boolean;
     currentSpeaker: number;
+    private isConversationTransitionActive: boolean;
+    private conversationTransitionQueue: Promise<void>;
+    private pendingLoopStart: boolean;
 
     audioSystem: AudioSystem;
     dialogGenerator: DialogGenerator;
@@ -86,6 +89,9 @@ export class MeetingManager implements IMeetingManager {
         this.handRaised = false;
         this.isPaused = false;
         this.currentSpeaker = 0;
+        this.isConversationTransitionActive = false;
+        this.conversationTransitionQueue = Promise.resolve();
+        this.pendingLoopStart = false;
 
         this.startLoop = this.startLoop.bind(this);
 
@@ -118,22 +124,34 @@ export class MeetingManager implements IMeetingManager {
     async handleEvent<K extends keyof ClientToServerEvents>(event: K, payload: Parameters<ClientToServerEvents[K]>[0]) {
         switch (event) {
             case "submit_human_message":
-                await this.humanInputHandler.handleSubmitHumanMessage(SubmitHumanMessageSchema.parse(payload));
+                await this.withConversationTransition(() =>
+                    this.humanInputHandler.handleSubmitHumanMessage(SubmitHumanMessageSchema.parse(payload))
+                );
                 break;
             case "submit_human_panelist":
-                await this.humanInputHandler.handleSubmitHumanPanelist(SubmitHumanPanelistSchema.parse(payload));
+                await this.withConversationTransition(() =>
+                    this.humanInputHandler.handleSubmitHumanPanelist(SubmitHumanPanelistSchema.parse(payload))
+                );
                 break;
             case "submit_injection":
-                await this.humanInputHandler.handleSubmitInjection(InjectionMessageSchema.parse(payload));
+                await this.withConversationTransition(() =>
+                    this.humanInputHandler.handleSubmitInjection(InjectionMessageSchema.parse(payload))
+                );
                 break;
             case "raise_hand":
-                await this.handRaisingHandler.handleRaiseHand(HandRaisedOptionsSchema.parse(payload));
+                await this.withConversationTransition(() =>
+                    this.handRaisingHandler.handleRaiseHand(HandRaisedOptionsSchema.parse(payload))
+                );
                 break;
             case "wrap_up_meeting":
-                await this.meetingLifecycleHandler.handleWrapUpMeeting(WrapUpMessageSchema.parse(payload));
+                await this.withConversationTransition(() =>
+                    this.meetingLifecycleHandler.handleWrapUpMeeting(WrapUpMessageSchema.parse(payload))
+                );
                 break;
             case "continue_conversation":
-                await this.meetingLifecycleHandler.handleContinueConversation();
+                await this.withConversationTransition(() =>
+                    this.meetingLifecycleHandler.handleContinueConversation()
+                );
                 break;
             case "report_maximum_played_index":
                 await this.handleReportMaximumPlayedIndex(payload);
@@ -146,11 +164,38 @@ export class MeetingManager implements IMeetingManager {
                 if (this.environment === 'prototype') await this.meetingLifecycleHandler.handleResumeConversation();
                 break;
             case "remove_last_message":
-                if (this.environment === 'prototype') await this.meetingLifecycleHandler.handleRemoveLastMessage();
+                if (this.environment === 'prototype') {
+                    await this.withConversationTransition(() =>
+                        Promise.resolve(this.meetingLifecycleHandler.handleRemoveLastMessage())
+                    );
+                }
                 break;
             default:
                 Logger.warn("MeetingManager", `Unhandled event: ${event}`);
         }
+    }
+
+    private async withConversationTransition<T>(operation: () => Promise<T>): Promise<T> {
+        const run = async (): Promise<T> => {
+            this.isConversationTransitionActive = true;
+            try {
+                return await operation();
+            } finally {
+                this.isConversationTransitionActive = false;
+                if (this.pendingLoopStart) {
+                    this.pendingLoopStart = false;
+                    this.startLoop();
+                }
+            }
+        };
+
+        const result = this.conversationTransitionQueue.then(run, run);
+        this.conversationTransitionQueue = result.then(
+            () => undefined,
+            () => undefined
+        );
+
+        return result;
     }
 
     /**
@@ -249,6 +294,10 @@ export class MeetingManager implements IMeetingManager {
     }
 
     startLoop() {
+        if (this.isConversationTransitionActive) {
+            this.pendingLoopStart = true;
+            return;
+        }
         // Idempotent start
         if (this.isLoopActive) return;
         if (!this.meeting) return;

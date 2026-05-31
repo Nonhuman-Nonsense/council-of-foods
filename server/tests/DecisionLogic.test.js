@@ -76,6 +76,7 @@ describe('MeetingManager - State Machine (decideNextAction)', () => {
         {
             name: 'should wait if conversation is more than 3 messages ahead of maximumPlayedIndex',
             setup: (mgr) => {
+                mgr.serverOptions.conversationMaxLength = 10;
                 mgr.meeting.maximumPlayedIndex = 0;
                 mgr.meeting.conversation = [
                     { id: 'a', type: 'message', speaker: chairCharacter.id, text: '1' },
@@ -90,6 +91,7 @@ describe('MeetingManager - State Machine (decideNextAction)', () => {
         {
             name: 'should not apply playback buffer when maximumPlayedIndex is unset',
             setup: (mgr) => {
+                mgr.serverOptions.conversationMaxLength = 10;
                 mgr.meeting.maximumPlayedIndex = undefined;
                 mgr.meeting.conversation = [
                     { id: 'a', type: 'message', speaker: chairCharacter.id, text: '1' },
