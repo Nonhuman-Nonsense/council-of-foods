@@ -33,7 +33,7 @@ import { socketHoldsLiveSession } from "@logic/liveSessionRegistry.js";
 const PLAYBACK_AHEAD_BUFFER = 3;
 
 interface Decision {
-    type: 'END_CONVERSATION' | 'WAIT' | 'REQUEST_PANELIST' | 'GENERATE_AI_RESPONSE';
+    type: 'END_CONVERSATION' | 'IDLE' | 'REQUEST_PANELIST' | 'GENERATE_AI_RESPONSE';
     speaker?: Character;
 }
 
@@ -54,6 +54,9 @@ export class MeetingManager implements IMeetingManager {
     handRaised: boolean;
     isPaused: boolean;
     currentSpeaker: number;
+    private isConversationTransitionActive: boolean;
+    private conversationTransitionQueue: Promise<void>;
+    private pendingLoopStart: boolean;
 
     audioSystem: AudioSystem;
     dialogGenerator: DialogGenerator;
@@ -86,6 +89,9 @@ export class MeetingManager implements IMeetingManager {
         this.handRaised = false;
         this.isPaused = false;
         this.currentSpeaker = 0;
+        this.isConversationTransitionActive = false;
+        this.conversationTransitionQueue = Promise.resolve();
+        this.pendingLoopStart = false;
 
         this.startLoop = this.startLoop.bind(this);
 
@@ -118,22 +124,34 @@ export class MeetingManager implements IMeetingManager {
     async handleEvent<K extends keyof ClientToServerEvents>(event: K, payload: Parameters<ClientToServerEvents[K]>[0]) {
         switch (event) {
             case "submit_human_message":
-                await this.humanInputHandler.handleSubmitHumanMessage(SubmitHumanMessageSchema.parse(payload));
+                await this.withConversationTransition(() =>
+                    this.humanInputHandler.handleSubmitHumanMessage(SubmitHumanMessageSchema.parse(payload))
+                );
                 break;
             case "submit_human_panelist":
-                await this.humanInputHandler.handleSubmitHumanPanelist(SubmitHumanPanelistSchema.parse(payload));
+                await this.withConversationTransition(() =>
+                    this.humanInputHandler.handleSubmitHumanPanelist(SubmitHumanPanelistSchema.parse(payload))
+                );
                 break;
             case "submit_injection":
-                await this.humanInputHandler.handleSubmitInjection(InjectionMessageSchema.parse(payload));
+                await this.withConversationTransition(() =>
+                    this.humanInputHandler.handleSubmitInjection(InjectionMessageSchema.parse(payload))
+                );
                 break;
             case "raise_hand":
-                await this.handRaisingHandler.handleRaiseHand(HandRaisedOptionsSchema.parse(payload));
+                await this.withConversationTransition(() =>
+                    this.handRaisingHandler.handleRaiseHand(HandRaisedOptionsSchema.parse(payload))
+                );
                 break;
             case "wrap_up_meeting":
-                await this.meetingLifecycleHandler.handleWrapUpMeeting(WrapUpMessageSchema.parse(payload));
+                await this.withConversationTransition(() =>
+                    this.meetingLifecycleHandler.handleWrapUpMeeting(WrapUpMessageSchema.parse(payload))
+                );
                 break;
             case "continue_conversation":
-                await this.meetingLifecycleHandler.handleContinueConversation();
+                await this.withConversationTransition(() =>
+                    this.meetingLifecycleHandler.handleContinueConversation()
+                );
                 break;
             case "report_maximum_played_index":
                 await this.handleReportMaximumPlayedIndex(payload);
@@ -146,11 +164,38 @@ export class MeetingManager implements IMeetingManager {
                 if (this.environment === 'prototype') await this.meetingLifecycleHandler.handleResumeConversation();
                 break;
             case "remove_last_message":
-                if (this.environment === 'prototype') await this.meetingLifecycleHandler.handleRemoveLastMessage();
+                if (this.environment === 'prototype') {
+                    await this.withConversationTransition(() =>
+                        Promise.resolve(this.meetingLifecycleHandler.handleRemoveLastMessage())
+                    );
+                }
                 break;
             default:
                 Logger.warn("MeetingManager", `Unhandled event: ${event}`);
         }
+    }
+
+    private async withConversationTransition<T>(operation: () => Promise<T>): Promise<T> {
+        const run = async (): Promise<T> => {
+            this.isConversationTransitionActive = true;
+            try {
+                return await operation();
+            } finally {
+                this.isConversationTransitionActive = false;
+                if (this.pendingLoopStart) {
+                    this.pendingLoopStart = false;
+                    this.startLoop();
+                }
+            }
+        };
+
+        const result = this.conversationTransitionQueue.then(run, run);
+        this.conversationTransitionQueue = result.then(
+            () => undefined,
+            () => undefined
+        );
+
+        return result;
     }
 
     /**
@@ -229,7 +274,7 @@ export class MeetingManager implements IMeetingManager {
             //
             // We still proceed to processTurn below because 'END_CONVERSATION' needs 
             // to broadcast the end event to clients.
-            if (action.type === 'WAIT' || action.type === 'END_CONVERSATION') {
+            if (action.type === 'IDLE' || action.type === 'END_CONVERSATION') {
                 this.isLoopActive = false;
             }
 
@@ -241,7 +286,7 @@ export class MeetingManager implements IMeetingManager {
                 return;
             }
 
-            if (action.type === 'WAIT' || action.type === 'END_CONVERSATION') {
+            if (action.type === 'IDLE' || action.type === 'END_CONVERSATION') {
                 return;
             }
         }
@@ -249,6 +294,10 @@ export class MeetingManager implements IMeetingManager {
     }
 
     startLoop() {
+        if (this.isConversationTransitionActive) {
+            this.pendingLoopStart = true;
+            return;
+        }
         // Idempotent start
         if (this.isLoopActive) return;
         if (!this.meeting) return;
@@ -261,18 +310,18 @@ export class MeetingManager implements IMeetingManager {
     decideNextAction(): Decision {
         const meeting = this.meeting;
         if (!meeting) {
-            return { type: 'WAIT' };
+            return { type: 'IDLE' };
         }
 
-        // 0. Just wait
+        // 0. No work while paused or interrupted.
         if (this.isPaused || this.handRaised) {
-            return { type: 'WAIT' };
+            return { type: 'IDLE' };
         }
-        // 1. Already ended at length cap (synthetic tail)
+        // 1. Already ended at length cap or finalized with a summary.
         if (meeting.conversation.length > 0) {
             const lastMsg = meeting.conversation[meeting.conversation.length - 1];
-            if (lastMsg.type === 'max_reached') {
-                return { type: 'WAIT' };
+            if (lastMsg.type === 'max_reached' || lastMsg.type === 'summary') {
+                return { type: 'IDLE' };
             }
         }
         // 2. Check Limits
@@ -283,7 +332,7 @@ export class MeetingManager implements IMeetingManager {
         // 2b. Live playback: do not get more than `PLAYBACK_AHEAD_BUFFER` messages ahead of what the client has played
         if (meeting.maximumPlayedIndex != null) {
             if (meeting.conversation.length > meeting.maximumPlayedIndex + PLAYBACK_AHEAD_BUFFER) {
-                return { type: 'WAIT' };
+                return { type: 'IDLE' };
             }
         }
 
@@ -291,7 +340,7 @@ export class MeetingManager implements IMeetingManager {
         if (meeting.conversation.length > 0) {
             const lastMsg = meeting.conversation[meeting.conversation.length - 1];
             if (lastMsg.type === 'awaiting_human_panelist' || lastMsg.type === 'awaiting_human_question') {
-                return { type: 'WAIT' };
+                return { type: 'IDLE' };
             }
         }
 
@@ -316,8 +365,8 @@ export class MeetingManager implements IMeetingManager {
         if (!meeting) return;
 
         switch (action.type) {
-            case 'WAIT':
-                return; // Do nothing, just wait.
+            case 'IDLE':
+                return; // Do nothing.
 
             case 'END_CONVERSATION': {
                 const currentCap = this.serverOptions.conversationMaxLength + meeting.conversationExtraSlots;

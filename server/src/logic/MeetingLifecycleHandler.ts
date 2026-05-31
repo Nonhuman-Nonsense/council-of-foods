@@ -94,7 +94,7 @@ export class MeetingLifecycleHandler {
         Logger.info(`meeting ${m._id}`, `summary generated on index ${m.conversation.length - 1}`);
 
         if (m._id !== null) {
-            manager.services.meetingsCollection.updateOne(
+            await manager.services.meetingsCollection.updateOne(
                 { _id: m._id },
                 { $set: { conversation: m.conversation, summary: summary } }
             );
@@ -112,7 +112,7 @@ export class MeetingLifecycleHandler {
         summary.sentences = splitSentences(response);
 
         if (m._id !== null) {
-            await manager.audioSystem.generateAudio(
+            void manager.audioSystem.generateAudio(
                 audioMessage as AudioMessage,
                 m.characters[0],
                 m.language,
