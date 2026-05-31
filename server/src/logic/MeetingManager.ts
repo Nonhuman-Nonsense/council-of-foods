@@ -33,7 +33,7 @@ import { socketHoldsLiveSession } from "@logic/liveSessionRegistry.js";
 const PLAYBACK_AHEAD_BUFFER = 3;
 
 interface Decision {
-    type: 'END_CONVERSATION' | 'WAIT' | 'REQUEST_PANELIST' | 'GENERATE_AI_RESPONSE';
+    type: 'END_CONVERSATION' | 'IDLE' | 'REQUEST_PANELIST' | 'GENERATE_AI_RESPONSE';
     speaker?: Character;
 }
 
@@ -274,7 +274,7 @@ export class MeetingManager implements IMeetingManager {
             //
             // We still proceed to processTurn below because 'END_CONVERSATION' needs 
             // to broadcast the end event to clients.
-            if (action.type === 'WAIT' || action.type === 'END_CONVERSATION') {
+            if (action.type === 'IDLE' || action.type === 'END_CONVERSATION') {
                 this.isLoopActive = false;
             }
 
@@ -286,7 +286,7 @@ export class MeetingManager implements IMeetingManager {
                 return;
             }
 
-            if (action.type === 'WAIT' || action.type === 'END_CONVERSATION') {
+            if (action.type === 'IDLE' || action.type === 'END_CONVERSATION') {
                 return;
             }
         }
@@ -310,18 +310,18 @@ export class MeetingManager implements IMeetingManager {
     decideNextAction(): Decision {
         const meeting = this.meeting;
         if (!meeting) {
-            return { type: 'WAIT' };
+            return { type: 'IDLE' };
         }
 
-        // 0. Just wait
+        // 0. No work while paused or interrupted.
         if (this.isPaused || this.handRaised) {
-            return { type: 'WAIT' };
+            return { type: 'IDLE' };
         }
-        // 1. Already ended at length cap (synthetic tail)
+        // 1. Already ended at length cap or finalized with a summary.
         if (meeting.conversation.length > 0) {
             const lastMsg = meeting.conversation[meeting.conversation.length - 1];
-            if (lastMsg.type === 'max_reached') {
-                return { type: 'WAIT' };
+            if (lastMsg.type === 'max_reached' || lastMsg.type === 'summary') {
+                return { type: 'IDLE' };
             }
         }
         // 2. Check Limits
@@ -332,7 +332,7 @@ export class MeetingManager implements IMeetingManager {
         // 2b. Live playback: do not get more than `PLAYBACK_AHEAD_BUFFER` messages ahead of what the client has played
         if (meeting.maximumPlayedIndex != null) {
             if (meeting.conversation.length > meeting.maximumPlayedIndex + PLAYBACK_AHEAD_BUFFER) {
-                return { type: 'WAIT' };
+                return { type: 'IDLE' };
             }
         }
 
@@ -340,7 +340,7 @@ export class MeetingManager implements IMeetingManager {
         if (meeting.conversation.length > 0) {
             const lastMsg = meeting.conversation[meeting.conversation.length - 1];
             if (lastMsg.type === 'awaiting_human_panelist' || lastMsg.type === 'awaiting_human_question') {
-                return { type: 'WAIT' };
+                return { type: 'IDLE' };
             }
         }
 
@@ -365,8 +365,8 @@ export class MeetingManager implements IMeetingManager {
         if (!meeting) return;
 
         switch (action.type) {
-            case 'WAIT':
-                return; // Do nothing, just wait.
+            case 'IDLE':
+                return; // Do nothing.
 
             case 'END_CONVERSATION': {
                 const currentCap = this.serverOptions.conversationMaxLength + meeting.conversationExtraSlots;

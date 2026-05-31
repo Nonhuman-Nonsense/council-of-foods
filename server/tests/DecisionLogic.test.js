@@ -31,7 +31,7 @@ describe('MeetingManager - State Machine (decideNextAction)', () => {
                 mgr.meeting.conversation = TestFactory.createAwaitingPanelist('alice');
             },
             nextSpeakerIndex: 0,
-            expected: { type: 'WAIT' }
+            expected: { type: 'IDLE' }
         },
         {
             name: 'should wait if awaiting human question',
@@ -39,7 +39,7 @@ describe('MeetingManager - State Machine (decideNextAction)', () => {
                 mgr.meeting.conversation = TestFactory.createAwaitingQuestion();
             },
             nextSpeakerIndex: 0,
-            expected: { type: 'WAIT' }
+            expected: { type: 'IDLE' }
         },
         {
             name: 'should wait if conversation already ended with max_reached sentinel',
@@ -49,7 +49,20 @@ describe('MeetingManager - State Machine (decideNextAction)', () => {
                 mgr.meeting.conversation = [...TestFactory.createConversation(5), { type: 'max_reached' }];
             },
             nextSpeakerIndex: 0,
-            expected: { type: 'WAIT' }
+            expected: { type: 'IDLE' }
+        },
+        {
+            name: 'should wait if conversation has already been finalized with a summary',
+            setup: (mgr) => {
+                mgr.serverOptions.conversationMaxLength = 5;
+                mgr.meeting.conversationExtraSlots = 0;
+                mgr.meeting.conversation = [
+                    ...TestFactory.createConversation(5),
+                    { id: 'sum1', type: 'summary', speaker: chairCharacter.id, text: 'Summary' },
+                ];
+            },
+            nextSpeakerIndex: 0,
+            expected: { type: 'IDLE' }
         },
         {
             name: 'should request panelist if next speaker is panelist',
@@ -86,7 +99,7 @@ describe('MeetingManager - State Machine (decideNextAction)', () => {
                 ];
             },
             nextSpeakerIndex: 1,
-            expected: { type: 'WAIT' }
+            expected: { type: 'IDLE' }
         },
         {
             name: 'should not apply playback buffer when maximumPlayedIndex is unset',
