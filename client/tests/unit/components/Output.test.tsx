@@ -25,7 +25,6 @@ vi.mock('@council/output/AudioOutput', () => ({
 describe('Output', () => {
     const mockAudioContext = { current: {} } as any;
     const mockSetCurrentSnippetIndex = vi.fn();
-    const mockSetSentencesLength = vi.fn();
     const mockHandleOnFinishedPlaying = vi.fn();
 
     const mockTextMessages: Message[] = [
@@ -49,7 +48,6 @@ describe('Output', () => {
         setCurrentSnippetIndex: mockSetCurrentSnippetIndex,
         audioContext: mockAudioContext,
         handleOnFinishedPlaying: mockHandleOnFinishedPlaying,
-        setSentencesLength: mockSetSentencesLength,
     };
 
     it('renders TextOutput and AudioOutput', () => {

@@ -80,7 +80,6 @@ export function useCouncilMachine({
 
     // States from lower down (Snippet management)
     const [currentSnippetIndex, setCurrentSnippetIndex] = useState(0);
-    const [sentencesLength, setSentencesLength] = useState(10);
 
     // Routing
     const location = useLocation();
@@ -694,7 +693,6 @@ export function useCouncilMachine({
             canGoForward,
             canRaiseHand,
             currentSnippetIndex,
-            sentencesLength,
             isMuted,
             canExtendMeeting,
         },
@@ -713,7 +711,6 @@ export function useCouncilMachine({
             setHumanName,
             setIsRaisedHand,
             setCurrentSnippetIndex,
-            setSentencesLength,
             toggleMute
         },
         socketRef

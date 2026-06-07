@@ -81,7 +81,6 @@ const mockCouncilStateMachine = {
         canGoForward: true,
         canRaiseHand: true,
         currentSnippetIndex: 0,
-        sentencesLength: 10,
         isMuted: false, // Default
         canExtendMeeting: true,
     },
@@ -99,7 +98,6 @@ const mockCouncilStateMachine = {
         setHumanName: vi.fn(),
         setIsRaisedHand: vi.fn(),
         setCurrentSnippetIndex: vi.fn(),
-        setSentencesLength: vi.fn(),
         toggleMute: mockToggleMute
     },
     socketRef: { current: null }

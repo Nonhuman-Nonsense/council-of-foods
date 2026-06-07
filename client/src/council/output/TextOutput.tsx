@@ -14,7 +14,7 @@ interface TextOutputProps {
   audioContext: React.RefObject<AudioContext | null>;
   playbackStartInfo: PlaybackStartInfo | null;
   isPaused: boolean;
-  style: React.CSSProperties;
+  style?: React.CSSProperties;
   setCurrentSnippetIndex: (index: number) => void;
 }
 
