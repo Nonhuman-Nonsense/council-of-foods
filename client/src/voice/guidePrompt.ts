@@ -1,4 +1,5 @@
 import type { Topic, Character } from "@shared/ModelTypes";
+import type { MeetingSetupPhase } from "@newMeeting/meetingSetup";
 
 export type GuideTopic = Pick<Topic, "id" | "title" | "description">;
 export type GuideCharacter = Pick<Character, "id" | "name"> & { description?: string };
@@ -7,6 +8,8 @@ export type VoiceGuidePromptBundle = {
   system: string;
   projectDescription: string;
   promptTemplate: string;
+  landingJobInstructions: string[];
+  landingJobInstructionsPushToTalk: string[];
   jobInstructions: string[];
   toolDescriptions: Record<string, string>;
 };
@@ -15,6 +18,8 @@ export type BuildGuidePromptParams = {
   bundle: VoiceGuidePromptBundle;
   topics: GuideTopic[];
   characters: GuideCharacter[];
+  phase: MeetingSetupPhase;
+  pushToTalkMode?: boolean;
 };
 
 function formatBullets(lines: string[]): string {
@@ -31,14 +36,20 @@ function formatBullets(lines: string[]): string {
  * we hit with very long instructions.
  */
 export function buildGuidePrompt(params: BuildGuidePromptParams): string {
-  const { bundle, topics, characters } = params;
+  const { bundle, topics, characters, phase, pushToTalkMode = false } = params;
 
   const topicsList = topics.map((t) => `${t.id}: ${t.title}`);
   const charactersList = characters.map((character) => `${character.id}: ${character.name}`);
+  const phaseLabel = phase === "landing" ? "welcome landing" : phase;
+  const jobLines =
+    phase === "landing"
+      ? (pushToTalkMode ? bundle.landingJobInstructionsPushToTalk : bundle.landingJobInstructions)
+      : bundle.jobInstructions;
   const replacements: Record<string, string> = {
     system: bundle.system.trim(),
     projectDescription: bundle.projectDescription.trim(),
-    jobInstructions: formatBullets(bundle.jobInstructions),
+    currentStep: phaseLabel,
+    jobInstructions: formatBullets(jobLines),
     topicsList: formatBullets(topicsList),
     foodsList: formatBullets(charactersList),
   };

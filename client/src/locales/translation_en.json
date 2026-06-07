@@ -7,6 +7,25 @@
   "start": "Start",
   "about": "About",
   "contact": "Contact",
+  "setup": {
+    "title": "SETUP",
+    "voiceGuide": "Voice Guide",
+    "alwaysOn": "Always On",
+    "pushToTalk": "Push to Talk",
+    "holdToSpeak": "Push the button to speak",
+    "serial": {
+      "title": "Talk button",
+      "connect": "Connect talk button",
+      "disconnect": "Disconnect",
+      "status": "Serial status",
+      "lastEvent": "Last event",
+      "unsupported": "Web Serial is not available in this browser",
+      "connected": "Connected",
+      "connecting": "Connecting…",
+      "disconnected": "Disconnected",
+      "error": "Error"
+    }
+  },
   "settings": "Settings",
   "en": "EN",
   "sv": "SV",

@@ -8,6 +8,8 @@ export type MeetingCharactersI18n = {
   twoHumansSuffix: string;
 };
 
+export type MeetingSetupPhase = "landing" | "topic" | "foods";
+
 export type MeetingSetupUserEvent =
   | {
       type: "topic_previewed";

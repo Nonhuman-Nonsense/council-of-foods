@@ -2,7 +2,13 @@ import { type CSSProperties, type ReactElement } from "react";
 import Lottie from "react-lottie-player";
 import loadingAnimation from "@assets/animations/loading.json";
 import ConversationControlIcon from "@council/ConversationControlIcon";
+import MarqueeRollingBanner from "@council/MarqueeRollingBanner";
+import { Icons } from "@assets/icons";
 import { useMobile } from "@/utils";
+import { useTranslation } from "react-i18next";
+
+/** Short PTT copy needs many segments so the marquee fills the viewport. */
+const PTT_HINT_SEGMENT_COUNT = 14;
 
 type VoiceGuideOverlayProps = {
   isConnecting: boolean;
@@ -10,6 +16,8 @@ type VoiceGuideOverlayProps = {
   lastCaption: string | null;
   lastUserTranscript: string | null;
   muted: boolean;
+  pushToTalkMode?: boolean;
+  showHoldToSpeakHint?: boolean;
   onStart: () => void;
   onStop: () => void;
 };
@@ -19,10 +27,22 @@ type VoiceGuideOverlayProps = {
  * toggle button at the bottom. Stopping the guide tears down WebRTC.
  */
 export default function VoiceGuideOverlay(props: VoiceGuideOverlayProps): ReactElement {
-  const { isConnecting, error, lastCaption, lastUserTranscript, muted, onStart, onStop } = props;
+  const {
+    isConnecting,
+    error,
+    lastCaption,
+    lastUserTranscript,
+    muted,
+    pushToTalkMode = false,
+    showHoldToSpeakHint = false,
+    onStart,
+    onStop,
+  } = props;
   const isMobile = useMobile();
+  const { t } = useTranslation();
 
-  const recordingState: "idle" | "loading" | "recording" = muted
+  const sessionActive = !muted;
+  const recordingState: "idle" | "loading" | "recording" = !sessionActive
     ? "idle"
     : isConnecting
       ? "loading"
@@ -40,7 +60,7 @@ export default function VoiceGuideOverlay(props: VoiceGuideOverlayProps): ReactE
     opacity: 0.85,
   };
 
-  const containerStyle: CSSProperties = {
+  const captionContainerStyle: CSSProperties = {
     position: "fixed",
     left: "50%",
     bottom: isMobile ? "0px" : "20px",
@@ -72,7 +92,7 @@ export default function VoiceGuideOverlay(props: VoiceGuideOverlayProps): ReactE
     bottom: "6px",
     left: "5px",
     opacity: 0.7,
-    zIndex: 10,
+    zIndex: 10000,
     pointerEvents: "auto",
   };
 
@@ -84,10 +104,11 @@ export default function VoiceGuideOverlay(props: VoiceGuideOverlayProps): ReactE
   };
 
   const hasText = Boolean(lastUserTranscript || lastCaption);
+  const holdToSpeakMessage = t("setup.holdToSpeak");
 
   return (
     <>
-      <div style={containerStyle}>
+      <div style={captionContainerStyle}>
         <div style={textBlockStyle} aria-live="polite">
           {error ? (
             <p style={{ ...paragraphStyle, color: "#ffb4b4", margin: 0 }} role="alert">
@@ -103,7 +124,10 @@ export default function VoiceGuideOverlay(props: VoiceGuideOverlayProps): ReactE
                 </p>
               ) : null}
               {lastCaption ? (
-                <p style={{ ...paragraphStyle, margin: lastUserTranscript ? "8px 0 0" : 0 }} data-testid="voice-guide-caption">
+                <p
+                  style={{ ...paragraphStyle, margin: lastUserTranscript ? "8px 0 0" : 0 }}
+                  data-testid="voice-guide-caption"
+                >
                   {lastCaption}
                 </p>
               ) : null}
@@ -111,6 +135,24 @@ export default function VoiceGuideOverlay(props: VoiceGuideOverlayProps): ReactE
           ) : null}
         </div>
       </div>
+
+      {pushToTalkMode ? (
+        <div className="bottom-ui-banner-anchor">
+          <MarqueeRollingBanner
+            visible={showHoldToSpeakHint}
+            segmentCount={PTT_HINT_SEGMENT_COUNT}
+            testId="voice-guide-hold-to-speak"
+            renderSegment={(index) => (
+              <>
+                <Icons.tomato className="marquee-rolling-banner__tomato" aria-hidden={index !== 0} />
+                <span aria-hidden={index !== 0}>{holdToSpeakMessage}</span>
+                <Icons.tomato className="marquee-rolling-banner__tomato" aria-hidden />
+                <span aria-hidden={index !== 0}>{holdToSpeakMessage}</span>
+              </>
+            )}
+          />
+        </div>
+      ) : null}
 
       <div style={controlContainerStyle}>
         <div style={controlSlotStyle}>
