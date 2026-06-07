@@ -3,7 +3,7 @@ import {
   computeShowHoldToSpeakHint,
   PTT_IDLE_REMIND_MS,
   shouldShowIdleRemind,
-} from "@voice/holdToSpeakHint";
+} from "@voice/useHoldToSpeakHint";
 
 describe("computeShowHoldToSpeakHint", () => {
   const base = {
