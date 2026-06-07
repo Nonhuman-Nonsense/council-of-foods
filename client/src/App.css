@@ -446,3 +446,97 @@ nav.blur::before {
     transform: translate3d(calc(-100% / var(--marquee-segments, 2)), 0, 0);
   }
 }
+
+/* Shared rolling marquee banner (replay mode, push-to-talk hint, etc.) */
+.bottom-ui-banner-anchor {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow: visible;
+  pointer-events: none;
+  z-index: 9998;
+}
+
+.marquee-rolling-banner {
+  display: grid;
+  grid-template-rows: 0fr;
+  width: 100%;
+  overflow: clip;
+  z-index: 2;
+  margin-top: 0;
+  margin-bottom: 0;
+  transition:
+    grid-template-rows 2000ms cubic-bezier(0.22, 1, 0.36, 1),
+    margin 2000ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.marquee-rolling-banner--open {
+  grid-template-rows: 1fr;
+}
+
+.marquee-rolling-banner--open.marquee-rolling-banner--desktop-margins {
+  margin-top: 10px;
+  margin-bottom: 5px;
+}
+
+.marquee-rolling-banner__inner {
+  overflow: hidden;
+  min-height: 0;
+  transition:
+    transform 2000ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 2000ms cubic-bezier(0.22, 1, 0.36, 1);
+  transform: translate3d(0, 120%, 0);
+  opacity: 0;
+}
+
+.marquee-rolling-banner--open .marquee-rolling-banner__inner {
+  transform: translate3d(0, 0, 0);
+  opacity: 1;
+}
+
+.marquee-rolling-banner__paragraph {
+  font-family: Arial, sans-serif;
+  font-size: 20px;
+  margin: 0;
+  color: rgba(255, 255, 255, 0.6);
+  display: inline-block;
+  white-space: nowrap;
+}
+
+.marquee-rolling-banner__track {
+  display: inline-block;
+  white-space: nowrap;
+  animation: marquee-animation 40s linear infinite;
+  will-change: transform;
+  backface-visibility: hidden;
+}
+
+.marquee-rolling-banner__track--paused {
+  animation-play-state: paused;
+}
+
+.marquee-rolling-banner__segment {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.marquee-rolling-banner__tomato {
+  width: 13px;
+  height: 13px;
+  display: inline-block;
+  opacity: 0.6;
+  margin-right: 10px;
+  margin-left: 10px;
+}
+
+@media (max-width: 768px) {
+  .marquee-rolling-banner__paragraph {
+    font-size: 15px;
+  }
+}

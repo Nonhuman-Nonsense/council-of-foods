@@ -12,7 +12,7 @@
     "voiceGuide": "Voice Guide",
     "alwaysOn": "Always On",
     "pushToTalk": "Push to Talk",
-    "holdToSpeak": "Hold to speak",
+    "holdToSpeak": "Push the button to speak",
     "serial": {
       "title": "Talk button",
       "connect": "Connect talk button",

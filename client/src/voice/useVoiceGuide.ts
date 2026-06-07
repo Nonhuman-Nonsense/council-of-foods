@@ -13,6 +13,7 @@ import {
 } from "@realtime/realtimeProtocol";
 import { createCaptionScheduler, type CaptionScheduler } from "./captionScheduler";
 import { createRemoteAudioAnchor, type RemoteAudioAnchor } from "./remoteAudioAnchor";
+import { createMicGainGate, type MicGainGate } from "./micGainGate";
 
 type VoiceGuideStatus = "idle" | "connecting" | "connected" | "error";
 
@@ -130,6 +131,9 @@ export function useVoiceGuide(params: UseVoiceGuideParams): VoiceGuideState {
 
   const connectionRef = useRef<RealtimeConnection | null>(null);
   const micStreamRef = useRef<MediaStream | null>(null);
+  const micGainGateRef = useRef<MicGainGate | null>(null);
+  const pushToTalkModeRef = useRef(pushToTalkMode);
+  const micOpenRef = useRef(micOpen);
   const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
   const remoteAudioAnchorRef = useRef<RemoteAudioAnchor | null>(null);
   const audioAnchorFallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -158,6 +162,11 @@ export function useVoiceGuide(params: UseVoiceGuideParams): VoiceGuideState {
     instructionsRef.current = instructions;
     toolsRef.current = tools;
   });
+
+  useEffect(() => {
+    pushToTalkModeRef.current = pushToTalkMode;
+    micOpenRef.current = micOpen;
+  }, [pushToTalkMode, micOpen]);
 
   const buildSessionConfig = useCallback((): RealtimeSessionConfig => {
     const defaults = serverDefaultsRef.current;
@@ -197,6 +206,8 @@ export function useVoiceGuide(params: UseVoiceGuideParams): VoiceGuideState {
 
     connectionRef.current?.close();
     connectionRef.current = null;
+    micGainGateRef.current?.dispose();
+    micGainGateRef.current = null;
     micStreamRef.current = null;
 
     if (remoteAudioRef.current && remoteAudioRef.current !== audioElement) {
@@ -252,10 +263,24 @@ export function useVoiceGuide(params: UseVoiceGuideParams): VoiceGuideState {
         throw micResult.reason;
       }
       const { provider, session: defaults, iceServers } = bootResult.value;
-      const micStream = micResult.value;
+      const rawMicStream = micResult.value;
       if (isStale()) {
-        micStream.getTracks().forEach((t) => t.stop());
+        rawMicStream.getTracks().forEach((t) => t.stop());
         return;
+      }
+
+      let webrtcMicStream = rawMicStream;
+      if (pushToTalkModeRef.current) {
+        const gate = await createMicGainGate(rawMicStream);
+        if (isStale()) {
+          gate.dispose();
+          return;
+        }
+        micGainGateRef.current = gate;
+        gate.setGateOpen(micOpenRef.current);
+        webrtcMicStream = gate.gatedStream;
+      } else {
+        micGainGateRef.current = null;
       }
       serverDefaultsRef.current = defaults;
       const captionScheduler = createCaptionScheduler({
@@ -328,7 +353,7 @@ export function useVoiceGuide(params: UseVoiceGuideParams): VoiceGuideState {
           feature: "voice-guide",
           provider,
         },
-        micStream,
+        micStream: webrtcMicStream,
         log: debugLog,
         signal: controller.signal,
         onRemoteTrack: (track) => {
@@ -386,6 +411,8 @@ export function useVoiceGuide(params: UseVoiceGuideParams): VoiceGuideState {
       if (isStale()) {
         debugLog("start superseded; closing new connection");
         conn.close();
+        micGainGateRef.current?.dispose();
+        micGainGateRef.current = null;
         return;
       }
 
@@ -399,11 +426,15 @@ export function useVoiceGuide(params: UseVoiceGuideParams): VoiceGuideState {
       if (isAbort || isStale()) {
         debugLog("start aborted", { attempt: myAttempt });
         conn?.close();
+        micGainGateRef.current?.dispose();
+        micGainGateRef.current = null;
         return;
       }
       const msg = e instanceof Error ? e.message : "Voice guide failed to start";
       debugLog("start failed", msg);
       conn?.close();
+      micGainGateRef.current?.dispose();
+      micGainGateRef.current = null;
       setError(msg);
       setStatus("error");
     } finally {
@@ -435,13 +466,9 @@ export function useVoiceGuide(params: UseVoiceGuideParams): VoiceGuideState {
   }, [muted, autoStart, cleanup, start]);
 
   useEffect(() => {
-    const stream = micStreamRef.current;
-    if (!stream || muted) return;
-    const enabled = pushToTalkMode ? micOpen : true;
-    stream.getAudioTracks().forEach((track) => {
-      track.enabled = enabled;
-    });
-  }, [micOpen, pushToTalkMode, muted, status]);
+    if (!pushToTalkMode || muted) return;
+    micGainGateRef.current?.setGateOpen(micOpen);
+  }, [micOpen, pushToTalkMode, muted]);
 
   // Main switches the route language in an effect after first render. If the
   // voice guide auto-starts before that finishes, we can briefly connect with

@@ -16,6 +16,7 @@ import { usePushToTalkStore } from "@stores/usePushToTalkStore";
 import { getPushToTalk } from "@/settings/councilSettings";
 import { buildGuidePrompt } from "./guidePrompt";
 import { createGuideToolHandlers, createGuideTools } from "./guideTools";
+import { useHoldToSpeakHint } from "./useHoldToSpeakHint";
 import { useVoiceGuide } from "./useVoiceGuide";
 import voiceGuidePromptEn from "@shared/prompts/voice_guide_en.json";
 import voiceGuidePromptSv from "@shared/prompts/voice_guide_sv.json";
@@ -113,6 +114,15 @@ export default function MeetingVoiceGuide({
   });
   const { sendUserMessage, muted } = voice;
 
+  const showHoldToSpeakHint = useHoldToSpeakHint({
+    pushToTalkMode,
+    sessionActive: !muted,
+    isConnecting: voice.isConnecting,
+    micOpen: pressed,
+    lastUserTranscript: voice.lastUserTranscript,
+    lastCaption: voice.lastCaption,
+  });
+
   useEffect(() => {
     if (!pushToTalkMode || muted) {
       void setLed(false);
@@ -141,7 +151,7 @@ export default function MeetingVoiceGuide({
       lastUserTranscript={voice.lastUserTranscript}
       muted={voice.muted}
       pushToTalkMode={pushToTalkMode}
-      micOpen={pressed}
+      showHoldToSpeakHint={showHoldToSpeakHint}
       onStart={voice.start}
       onStop={voice.stop}
     />
