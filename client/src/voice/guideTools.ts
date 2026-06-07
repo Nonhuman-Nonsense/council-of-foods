@@ -2,6 +2,7 @@ import type { Topic, Character } from "@shared/ModelTypes";
 import type { MeetingSetupPhase } from "@newMeeting/meetingSetup";
 import { buildMeetingCharactersPayload, type MeetingCharactersI18n } from "@newMeeting/meetingSetup";
 import { useMeetingSetupStore } from "@stores/useMeetingSetupStore";
+import { capitalizeFirstLetter } from "@/utils";
 import type { VoiceGuidePromptBundle } from "./guidePrompt";
 
 export type JsonSchemaObject = {
@@ -62,6 +63,26 @@ function asObject(args: unknown): Record<string, unknown> | null {
 
 function asString(v: unknown): string | null {
   return typeof v === "string" ? v : null;
+}
+
+function normalizeVisitorName(raw: string): string {
+  const trimmed = raw.trim();
+  if (!trimmed) return "";
+  return capitalizeFirstLetter(trimmed);
+}
+
+function participantNames(ctx: GuideToolContext): string[] {
+  const store = useMeetingSetupStore.getState();
+  return [
+    ...ctx.characters.map((character) => character.name),
+    ...store.humans.slice(0, store.numberOfHumans).map((human) => human.name),
+  ].filter((name) => name.length > 0);
+}
+
+function isDuplicateParticipantName(name: string, ctx: GuideToolContext): boolean {
+  const names = participantNames(ctx);
+  names.push(name);
+  return new Set(names).size !== names.length;
 }
 
 export function createGuideTools(params: {
@@ -168,6 +189,17 @@ export function createGuideTools(params: {
         additionalProperties: false,
         properties: { characterId: { type: "string" } },
         required: ["characterId"],
+      },
+    },
+    {
+      type: "function",
+      name: "remember_visitor_name",
+      description: copy.remember_visitor_name,
+      parameters: {
+        type: "object",
+        additionalProperties: false,
+        properties: { name: { type: "string" } },
+        required: ["name"],
       },
     },
     {
@@ -312,7 +344,14 @@ export function createGuideToolHandlers(ctx: GuideToolContext): Record<string, T
           error: "Choose a topic first; start_meeting only works on the character selection step after select_topic.",
         };
       }
-      const { selectedCharacters, humans, numberOfHumans } = useMeetingSetupStore.getState();
+      const { selectedCharacters, humans, numberOfHumans, visitorName } = useMeetingSetupStore.getState();
+      if (!visitorName.trim()) {
+        return {
+          ok: false,
+          error:
+            "Learn the visitor's name first and call remember_visitor_name before start_meeting. Ask casually until they tell you.",
+        };
+      }
       const built = buildMeetingCharactersPayload({
         language: ctx.voiceGuideLanguage,
         selectedCharacters,
@@ -322,7 +361,22 @@ export function createGuideToolHandlers(ctx: GuideToolContext): Record<string, T
       });
       if (!built.ok) return built;
       await Promise.resolve(ctx.startMeeting(built.characters));
-      return { ok: true, data: { started: true } };
+      return { ok: true, data: { started: true, visitorName } };
+    },
+    remember_visitor_name: (raw) => {
+      const obj = asObject(raw);
+      const rawName = asString(obj?.name);
+      if (!rawName) return { ok: false, error: "Missing name" };
+      const name = normalizeVisitorName(rawName);
+      if (!name) return { ok: false, error: "Name cannot be empty." };
+      if (isDuplicateParticipantName(name, ctx)) {
+        return {
+          ok: false,
+          error: "That name is already used by a council participant. Ask for a different name.",
+        };
+      }
+      useMeetingSetupStore.getState().setVisitorName(name);
+      return { ok: true, data: { name } };
     },
   };
 }

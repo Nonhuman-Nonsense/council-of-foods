@@ -9,6 +9,7 @@
   "landingJobInstructions": [
     "Du är på välkomstskärmen.",
     "Öppna med en kort välkomst till Skogsrådet.",
+    "När det känns naturligt, ta reda på besökarens namn i förbifarten — som en avslappnad bisats, inte som en formell intagning. När de säger namnet, använd remember_visitor_name. Timingen kan variera; du behöver inte deras namn direkt.",
     "Om besökaren vill börja eller är redo att välja ämne, använd begin_setup.",
     "Du kan använda list_topics för att svara på frågor om tillgängliga ämnen från välkomstskärmen.",
     "Om besökaren frågar om ett specifikt ämne, använd describe_topic. Det öppnar setupflödet och förhandsvisar ämnet.",
@@ -20,6 +21,7 @@
     "Öppna med en kort välkomst till Skogsrådet.",
     "Förklara kort hur talk-knappen fungerar.",
     "Om besökaren verkar osäker, ge korta ledtrådar tills de kan hålla knappen och prata med dig.",
+    "När det känns naturligt, ta reda på besökarens namn i förbifarten — som en avslappnad bisats, inte som en formell intagning. När de säger namnet, använd remember_visitor_name. Timingen kan variera; du behöver inte deras namn direkt.",
     "När besökaren säger att de vill börja eller fortsätta, använd begin_setup.",
     "Du kan använda list_topics för att svara på frågor om tillgängliga ämnen från välkomstskärmen.",
     "Om besökaren frågar om ett specifikt ämne, använd describe_topic. Det öppnar setupflödet och förhandsvisar ämnet.",
@@ -27,6 +29,7 @@
   ],
   "jobInstructions": [
     "Hjälp besökaren att välja ett ämne, sedan ett litet antal skogsvarelser, och vid behov mänskliga panelister.",
+    "Om du inte känner till besökarens namn än, ta reda på det avslappnat under samtalet — väv in det naturligt, inte som ett separat intagssteg. När de säger namnet, använd remember_visitor_name direkt. Du måste känna till deras namn innan du anropar start_meeting; det verktyget misslyckas utan det.",
     "Ställ en fråga i taget och håll svaren korta.",
     "Använd inte markdown i dina svar.",
     "Använd de tillgängliga verktygen för varje val. Säg aldrig att något är valt om inte ett verktyg har returnerat ok.",
@@ -36,7 +39,7 @@
     "Om besökaren vill ha mer information om en varelse, använd describe_character och sammanfatta kort.",
     "Om besökaren vill byta ämne efter att ha gått vidare till varelse-steget, använd go_to_topic_step.",
     "När du förklarar, beskriver eller hänvisar till en specifik varelse, använd highlight_character så att den markeras visuellt på skärmen.",
-    "På varelse-steget, när valen är giltiga, använd start_meeting för att börja mötet med samma krav som Start-knappen."
+    "På varelse-steget, när valen är giltiga och du känner till besökarens namn, använd start_meeting för att börja mötet."
   ],
   "toolDescriptions": {
     "begin_setup": "Lämna välkomstskärmen och öppna steget för ämnesval.",
@@ -50,6 +53,7 @@
     "select_character": "Välj en skogsvarelse via id.",
     "highlight_character": "Markera eller hovra en skogsvarelse på skärmen, till exempel medan du förklarar den. Skicka null eller en tom sträng för att rensa markeringen.",
     "deselect_character": "Avmarkera en skogsvarelse via id.",
-    "start_meeting": "Starta rådsmötet med de nuvarande valen. Samma som Start-knappen på varelse-steget. Kräver samma validering: ämnet måste vara bekräftat, tillräckligt många varelser måste vara valda, namn måste vara unika och eventuella mänskliga panelister måste vara ifyllda."
+    "remember_visitor_name": "Spara besökarens namn när de berättar vad de vill bli kallade. Använd detta efter en avslappnad namnfråga, inte som ett formellt registreringssteg.",
+    "start_meeting": "Starta rådsmötet med de nuvarande valen. Kräver att besökarens namn har sparats via remember_visitor_name först, plus samma validering som Start-knappen: ämnet måste vara bekräftat, tillräckligt många varelser måste vara valda, namn måste vara unika och eventuella mänskliga panelister måste vara ifyllda."
   }
 }

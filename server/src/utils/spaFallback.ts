@@ -99,3 +99,31 @@ export function shouldServeSpaShell(
         || NEW_MEETING_ROUTE_PATTERN.test(routePath)
         || MEETING_ROUTE_PATTERN.test(routePath);
 }
+
+function extractLanguagePrefix(
+    pathname: string,
+    languages: readonly string[],
+): string | null {
+    const normalized = normalizePathname(pathname);
+
+    for (const lang of languages) {
+        if (normalized === `/${lang}` || normalized.startsWith(`/${lang}/`)) {
+            return lang;
+        }
+    }
+
+    return null;
+}
+
+/** Landing path for invalid user-facing SPA routes (not scanner probes). */
+export function getSpaRedirectTarget(
+    pathname: string,
+    languages: readonly string[] = AVAILABLE_LANGUAGES,
+): string {
+    if (languages.length <= 1) {
+        return "/";
+    }
+
+    const lang = extractLanguagePrefix(pathname, languages);
+    return lang ? `/${lang}/` : `/${languages[0]}/`;
+}

@@ -44,12 +44,13 @@ export default function MeetingSetupShell({
 
   const phase: MeetingSetupPhase = isRootPath(location.pathname) ? "landing" : step;
 
-  const { setSelectedTopic, setCustomTopic } = useMeetingSetupStore();
+  const { setSelectedTopic, setCustomTopic, visitorName } = useMeetingSetupStore();
 
   useEffect(() => {
     if (isRootPath(location.pathname)) {
       setStep("topic");
       setLastUserEvent(null);
+      useMeetingSetupStore.getState().setVisitorName("");
     }
   }, [location.pathname]);
 
@@ -99,6 +100,7 @@ export default function MeetingSetupShell({
         topic: topicSelection,
         characters,
         language: i18n.language,
+        ...(visitorName.trim() ? { humanName: visitorName.trim() } : {}),
       });
       setMeetingliveKey(liveKey);
       navigate(meetingPath(Number(meetingId)));
