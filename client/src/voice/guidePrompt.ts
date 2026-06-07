@@ -4,17 +4,27 @@ import type { MeetingSetupPhase } from "@newMeeting/meetingSetup";
 export type GuideTopic = Pick<Topic, "id" | "title" | "description">;
 export type GuideCharacter = Pick<Character, "id" | "name"> & { description?: string };
 
+/** Domain terms shown to the voice agent (e.g. foods vs forest beings). Shared code stays "character". */
+export type CharacterVocabulary = {
+  singular: string;
+  plural: string;
+  stepLabel: string;
+};
+
 export type VoiceGuidePromptBundle = {
   system: string;
   projectDescription: string;
-  promptTemplate: string;
-  /** Human-readable label for the character-selection wizard step (internal phase is still "foods"). */
-  characterStepLabel?: string;
+  /** Agent-facing names for council participants; internal phase and tools stay "character". */
+  characterVocabulary: CharacterVocabulary;
   landingJobInstructions: string[];
   landingJobInstructionsPushToTalk: string[];
   jobInstructions: string[];
   toolDescriptions: Record<string, string>;
 };
+
+/** Shared prompt skeleton; per-app JSON only supplies vocabulary and prose. */
+export const VOICE_GUIDE_PROMPT_TEMPLATE =
+  "${system}\n\nProject:\n${projectDescription}\n\nCurrent UI step:\n${currentStep}\n\nYour job:\n${jobInstructions}\n\nAvailable topic ids:\n${topicsList}\n\nAvailable ${characterPlural} (id + name):\n${charactersList}";
 
 export type BuildGuidePromptParams = {
   bundle: VoiceGuidePromptBundle;
@@ -40,13 +50,15 @@ function formatBullets(lines: string[]): string {
 export function buildGuidePrompt(params: BuildGuidePromptParams): string {
   const { bundle, topics, characters, phase, pushToTalkMode = false } = params;
 
+  const { singular: characterSingular, plural: characterPlural, stepLabel: characterStepLabel } =
+    bundle.characterVocabulary;
   const topicsList = topics.map((t) => `${t.id}: ${t.title}`);
   const charactersList = characters.map((character) => `${character.id}: ${character.name}`);
   const phaseLabel =
     phase === "landing"
       ? "welcome landing"
-      : phase === "foods"
-        ? (bundle.characterStepLabel ?? "foods")
+      : phase === "characters"
+        ? characterStepLabel
         : phase;
   const jobLines =
     phase === "landing"
@@ -59,8 +71,10 @@ export function buildGuidePrompt(params: BuildGuidePromptParams): string {
     jobInstructions: formatBullets(jobLines),
     topicsList: formatBullets(topicsList),
     charactersList: formatBullets(charactersList),
-    foodsList: formatBullets(charactersList),
+    characterSingular,
+    characterPlural,
+    characterStepLabel,
   };
 
-  return bundle.promptTemplate.replace(/\$\{(\w+)\}/g, (_match, key: string) => replacements[key] ?? "");
+  return VOICE_GUIDE_PROMPT_TEMPLATE.replace(/\$\{(\w+)\}/g, (_match, key: string) => replacements[key] ?? "");
 }
