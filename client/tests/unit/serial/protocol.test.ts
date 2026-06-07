@@ -29,4 +29,17 @@ describe("serial protocol", () => {
     expect(formatSerialCommand(PTT_DOWN)).toBe(`${PTT_DOWN}\n`);
     expect(formatSerialCommand(LED_ON)).toBe(`${LED_ON}\n`);
   });
+
+  it("trims whitespace and ignores empty lines", () => {
+    expect(parseSerialLine("  PTT_DOWN  ")).toEqual({ type: "ptt_down" });
+    expect(parseSerialLine("")).toBeNull();
+    expect(parseSerialLine("   ")).toBeNull();
+  });
+
+  it("returns unknown for unrecognized lines", () => {
+    expect(parseSerialLine("DEBUG: hello")).toEqual({
+      type: "unknown",
+      line: "DEBUG: hello",
+    });
+  });
 });

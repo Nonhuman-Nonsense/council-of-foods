@@ -1,15 +1,19 @@
 /*
  * Council of Foods — push-to-talk button firmware
  *
- * Hardware: Adafruit LED Arcade Button QT (PID 5296) on STEMMA QT / I2C
+ * Hardware: one Adafruit seesaw board (e.g. LED Arcade Button QT family) on
+ * STEMMA QT / I2C, with up to four buttons on the same chip.
  * Guide: https://learn.adafruit.com/adafruit-led-arcade-button-qt/arduino
  *
  * Serial protocol (115200 baud, newline-terminated):
  *   Device → host: PTT_DOWN, PTT_UP, PONG
  *   Host → device: LED_ON, LED_OFF, PING
  *
- * Multiple buttons are merged on the Arduino: any press sends PTT_DOWN,
- * all released sends PTT_UP. LED commands apply to every button LED.
+ * Multiple buttons are merged: any press sends PTT_DOWN, all released sends
+ * PTT_UP. LED commands from the host apply to every button LED together.
+ *
+ * When no host has opened the USB serial port, buttons still work and the
+ * LEDs cycle one-at-a-time (connecting indicator).
  */
 
 #include "Adafruit_seesaw.h"
@@ -30,6 +34,7 @@ const uint8_t PWM_PINS[BUTTON_COUNT] = { PWM1, PWM2, PWM3 };
 
 #define LED_BRIGHTNESS 255
 #define DEBOUNCE_MS 35
+#define CONNECTING_ANIM_STEP_MS 1000
 
 Adafruit_seesaw ss;
 
@@ -37,14 +42,25 @@ bool mergedPressed = false;
 bool lastStableMergedPressed = false;
 unsigned long lastDebounceTime = 0;
 
+bool hostConnected = false;
+uint8_t connectingAnimIndex = 0;
+unsigned long connectingAnimLastStep = 0;
+
 void sendLine(const __FlashStringHelper *line) {
   Serial.println(line);
 }
 
-void setAllLeds(bool on) {
+void setLedAt(uint8_t index, bool on) {
+  if (index >= BUTTON_COUNT) {
+    return;
+  }
   uint8_t level = on ? LED_BRIGHTNESS : 0;
+  ss.analogWrite(PWM_PINS[index], level);
+}
+
+void setAllLeds(bool on) {
   for (uint8_t i = 0; i < BUTTON_COUNT; i++) {
-    ss.analogWrite(PWM_PINS[i], level);
+    setLedAt(i, on);
   }
 }
 
@@ -55,6 +71,35 @@ bool readAnyButtonPressed() {
     }
   }
   return false;
+}
+
+void updateHostConnection() {
+  bool nowConnected = (bool)Serial;
+  if (nowConnected == hostConnected) {
+    return;
+  }
+
+  hostConnected = nowConnected;
+  setAllLeds(false);
+
+  if (!hostConnected) {
+    connectingAnimIndex = 0;
+    connectingAnimLastStep = 0;
+  }
+}
+
+void runConnectingAnimation() {
+  if (hostConnected) {
+    return;
+  }
+
+  unsigned long now = millis();
+  if (connectingAnimLastStep == 0 || (now - connectingAnimLastStep) >= CONNECTING_ANIM_STEP_MS) {
+    setAllLeds(false);
+    setLedAt(connectingAnimIndex, true);
+    connectingAnimIndex = (connectingAnimIndex + 1) % BUTTON_COUNT;
+    connectingAnimLastStep = now;
+  }
 }
 
 void handleSerialInput() {
@@ -76,10 +121,6 @@ void handleSerialInput() {
 
 void setup() {
   Serial.begin(115200);
-
-  while (!Serial) {
-    delay(10);
-  }
 
   if (!ss.begin(DEFAULT_I2C_ADDR)) {
     Serial.println(F("ERROR seesaw not found"));
@@ -104,11 +145,21 @@ void setup() {
   }
   setAllLeds(false);
 
+  hostConnected = (bool)Serial;
+  connectingAnimIndex = 0;
+  connectingAnimLastStep = 0;
+
   Serial.println(F("READY council-ptt"));
 }
 
 void loop() {
-  handleSerialInput();
+  updateHostConnection();
+
+  if (hostConnected) {
+    handleSerialInput();
+  } else {
+    runConnectingAnimation();
+  }
 
   bool reading = readAnyButtonPressed();
   if (reading != mergedPressed) {

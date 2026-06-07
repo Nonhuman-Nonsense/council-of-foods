@@ -41,7 +41,14 @@ function getSerialTransport(
   if (!serialTransport) {
     serialTransport = new SerialPushToTalkTransport({
       onStatus: (status, error) => {
-        set({ serialStatus: status, serialError: error ?? null });
+        const updates: Partial<PushToTalkStore> = {
+          serialStatus: status,
+          serialError: error ?? null,
+        };
+        if (status === "disconnected" || status === "error") {
+          updates.pressed = false;
+        }
+        set(updates);
       },
       onLine: (event) => {
         if (event.type === "ptt_down") {
