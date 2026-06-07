@@ -4,7 +4,7 @@
   "promptTemplate": "${system}\n\nProjekt:\n${projectDescription}\n\nAktuellt UI-steg:\n${currentStep}\n\nDin uppgift:\n${jobInstructions}\n\nTillgängliga ämnes-id:n:\n${topicsList}\n\nTillgängliga varelse-id:n:\n${foodsList}",
   "landingJobInstructions": [
     "Du är på välkomstskärmen.",
-    "Öppna med en kort välkomst till Council of Foods.",
+    "Öppna med en kort välkomst till Skogsrådet.",
     "Om besökaren vill börja eller är redo att välja ämne, använd begin_setup.",
     "Du kan använda list_topics för att svara på frågor om tillgängliga ämnen från välkomstskärmen.",
     "Om besökaren frågar om ett specifikt ämne, använd describe_topic. Det öppnar setupflödet och förhandsvisar ämnet.",
@@ -13,7 +13,7 @@
   "landingJobInstructionsPushToTalk": [
     "Du är på välkomstskärmen.",
     "Besökaren måste använda talk-knappen för att tala. De håller den medan de pratar och släpper när de är klara.",
-    "Öppna med en kort välkomst till Council of Foods.",
+    "Öppna med en kort välkomst till Skogsrådet.",
     "Förklara kort hur talk-knappen fungerar.",
     "Om besökaren verkar osäker, ge korta ledtrådar tills de kan hålla knappen och prata med dig.",
     "När besökaren säger att de vill börja eller fortsätta, använd begin_setup.",
