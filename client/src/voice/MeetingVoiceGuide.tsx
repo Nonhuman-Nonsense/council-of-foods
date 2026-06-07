@@ -5,7 +5,12 @@ import VoiceGuideOverlay from "./VoiceGuideOverlay";
 import { getTopicsBundle } from "@main/topicsBundle";
 import { getCharacterSetupBundle } from "@newMeeting/CharacterSetup";
 import type { Character } from "@shared/ModelTypes";
-import { buildMeetingSetupSyncMessage, buildTopicFromSelection, type MeetingSetupUserEvent } from "@newMeeting/meetingSetup";
+import {
+  buildMeetingSetupSyncMessage,
+  buildTopicFromSelection,
+  type MeetingSetupPhase,
+  type MeetingSetupUserEvent,
+} from "@newMeeting/meetingSetup";
 import { useMeetingSetupStore } from "@stores/useMeetingSetupStore";
 import { buildGuidePrompt } from "./guidePrompt";
 import { createGuideToolHandlers, createGuideTools } from "./guideTools";
@@ -14,16 +19,18 @@ import voiceGuidePromptEn from "@shared/prompts/voice_guide_en.json";
 import voiceGuidePromptSv from "@shared/prompts/voice_guide_sv.json";
 
 type MeetingVoiceGuideProps = {
-  step: "topic" | "foods";
+  phase: MeetingSetupPhase;
   lastUserEvent: MeetingSetupUserEvent | null;
+  onBeginSetup: () => void;
   onGoToTopicStep: () => void;
   onSelectTopic: (topic: Topic) => void;
   onStartMeeting: (characters: Character[]) => Promise<void> | void;
 };
 
 export default function MeetingVoiceGuide({
-  step,
+  phase,
   lastUserEvent,
+  onBeginSetup,
   onGoToTopicStep,
   onSelectTopic,
   onStartMeeting,
@@ -67,8 +74,9 @@ export default function MeetingVoiceGuide({
       bundle: promptBundle,
       topics: guideTopics,
       characters: guideCharacters,
+      phase,
     });
-  }, [guideCharacters, guideTopics, promptBundle]);
+  }, [guideCharacters, guideTopics, phase, promptBundle]);
 
   const voice = useVoiceGuide({
     language: guideLanguage,
@@ -77,6 +85,7 @@ export default function MeetingVoiceGuide({
     toolHandlers: createGuideToolHandlers({
       topics: guideTopics,
       characters: guideCharacters,
+      beginSetup: onBeginSetup,
       goToTopicStep: onGoToTopicStep,
       buildSelectedTopic: () =>
         buildTopicFromSelection({
@@ -86,7 +95,7 @@ export default function MeetingVoiceGuide({
         }),
       selectTopic: onSelectTopic,
       startMeeting: onStartMeeting,
-      meetingStep: step,
+      meetingStep: phase,
       voiceGuideLanguage: i18n.language,
       meetingCharactersLabels: {
         oneHuman: t("selectfoods.human"),

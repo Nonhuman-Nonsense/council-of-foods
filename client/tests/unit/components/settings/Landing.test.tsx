@@ -10,6 +10,12 @@ vi.mock('react-i18next', () => ({
     }),
 }));
 
+vi.mock('@/routing', () => ({
+    useRouting: () => ({
+        newMeetingPath: '/en/new',
+    }),
+}));
+
 vi.mock('react-responsive', () => ({
     useMediaQuery: vi.fn(),
 }));
@@ -41,7 +47,7 @@ describe('Landing', () => {
     it('renders welcome message', () => {
         render(
             <MemoryRouter>
-                <Landing newMeetingPath="/en/new" />
+                <Landing />
             </MemoryRouter>
         );
         expect(screen.getByText('welcome')).toBeInTheDocument();
@@ -52,7 +58,7 @@ describe('Landing', () => {
         (useMediaQuery as ReturnType<typeof vi.fn>).mockReturnValue(false); // Portrait false
         render(
             <MemoryRouter>
-                <Landing newMeetingPath="/en/new" />
+                <Landing />
             </MemoryRouter>
         );
         expect(screen.getByText('go')).toBeInTheDocument();
@@ -64,7 +70,7 @@ describe('Landing', () => {
         (useMediaQuery as ReturnType<typeof vi.fn>).mockReturnValue(true); // Portrait true
         render(
             <MemoryRouter>
-                <Landing newMeetingPath="/en/new" />
+                <Landing />
             </MemoryRouter>
         );
         expect(screen.getByTestId('rotate-device')).toBeInTheDocument();
@@ -74,7 +80,7 @@ describe('Landing', () => {
     it('Go link points at newMeetingPath', () => {
         render(
             <MemoryRouter>
-                <Landing newMeetingPath="/en/new" />
+                <Landing />
             </MemoryRouter>
         );
         const link = screen.getByTestId('landing-go');

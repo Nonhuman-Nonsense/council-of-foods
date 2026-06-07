@@ -13,6 +13,7 @@ import MainOverlays from "./overlay/MainOverlays";
 import Landing from "@newMeeting/Landing";
 import Navbar from "./Navbar";
 import type { Topic } from "@shared/ModelTypes";
+import MeetingSetupShell from "@newMeeting/MeetingSetupShell";
 import NewMeeting from "@newMeeting/NewMeeting";
 import Council from "@council/Council";
 import { isMeetingPath, isRootPath, stripLanguagePrefix, useRouting } from "@/routing";
@@ -180,22 +181,18 @@ export default function Main(props: MainProps) {
         >
           <Routes>
             <Route
-              path="/"
               element={
-                <Landing newMeetingPath={newMeetingPath} />
-              }
-            />
-            <Route
-              path={routes.newMeeting}
-              element={
-                <NewMeeting
+                <MeetingSetupShell
                   setUnrecoverableError={setUnrecoverableErrorMessage}
                   topicSelection={topicSelection}
                   setTopicSelection={setTopicSelection}
                   setMeetingliveKey={setMeetingliveKey}
                 />
               }
-            />
+            >
+              <Route path="/" element={<Landing />} />
+              <Route path={routes.newMeeting} element={<NewMeeting />} />
+            </Route>
             <Route
               path={`${routes.meeting}/:meetingId`}
               element={
