@@ -1,4 +1,5 @@
 import type { Topic, Character } from "@shared/ModelTypes";
+import type { MeetingSetupPhase } from "@newMeeting/meetingSetup";
 import { buildMeetingCharactersPayload, type MeetingCharactersI18n } from "@newMeeting/meetingSetup";
 import { useMeetingSetupStore } from "@stores/useMeetingSetupStore";
 import type { VoiceGuidePromptBundle } from "./guidePrompt";
@@ -32,16 +33,20 @@ export type GuideToolContext = {
   topics: GuideTopic[];
   characters: GuideCharacter[];
 
-  // Imperative handoff points (Phase 3 wires these)
+  beginSetup: () => void;
   goToTopicStep: () => void;
   buildSelectedTopic: () => Topic;
   selectTopic: (topic: Topic) => void;
   startMeeting: (characters: Character[]) => void | Promise<void>;
 
-  meetingStep: "topic" | "foods";
+  meetingStep: MeetingSetupPhase;
   voiceGuideLanguage: string;
   meetingCharactersLabels: MeetingCharactersI18n;
 };
+
+function requiresFoodsStep(step: MeetingSetupPhase): boolean {
+  return step === "foods";
+}
 
 function asObject(args: unknown): Record<string, unknown> | null {
   if (!args || typeof args !== "object") return null;
@@ -57,6 +62,12 @@ export function createGuideTools(params: {
 }): RealtimeTool[] {
   const copy = params.promptBundle.toolDescriptions;
   return [
+    {
+      type: "function",
+      name: "begin_setup",
+      description: copy.begin_setup,
+      parameters: { type: "object", properties: {}, additionalProperties: false },
+    },
     {
       type: "function",
       name: "list_topics",
@@ -163,6 +174,13 @@ export function createGuideTools(params: {
 
 export function createGuideToolHandlers(ctx: GuideToolContext): Record<string, ToolHandler> {
   return {
+    begin_setup: () => {
+      if (ctx.meetingStep !== "landing") {
+        return { ok: true, data: { alreadyOnSetup: true } };
+      }
+      ctx.beginSetup();
+      return { ok: true };
+    },
     list_topics: () => ({
       ok: true,
       data: ctx.topics.map((t) => ({ id: t.id, title: t.title })),
@@ -173,6 +191,9 @@ export function createGuideToolHandlers(ctx: GuideToolContext): Record<string, T
       if (!topicId) return { ok: false, error: "Missing topicId" };
       const found = ctx.topics.find((t) => t.id === topicId);
       if (!found) return { ok: false, error: `Unknown topicId: ${topicId}` };
+      if (ctx.meetingStep === "landing") {
+        ctx.beginSetup();
+      }
       useMeetingSetupStore.getState().setSelectedTopic(topicId);
       return { ok: true, data: found };
     },
@@ -196,19 +217,34 @@ export function createGuideToolHandlers(ctx: GuideToolContext): Record<string, T
       const obj = asObject(raw);
       const text = asString(obj?.text);
       if (!text) return { ok: false, error: "Missing text" };
+      if (ctx.meetingStep === "landing") {
+        ctx.beginSetup();
+      }
       useMeetingSetupStore.getState().setSelectedTopic("customtopic");
       useMeetingSetupStore.getState().setCustomTopic(text);
       return { ok: true };
     },
     go_to_topic_step: () => {
+      if (ctx.meetingStep === "landing") {
+        ctx.beginSetup();
+        return { ok: true };
+      }
       ctx.goToTopicStep();
       return { ok: true };
     },
-    list_foods: () => ({
-      ok: true,
-      data: ctx.characters.map((character) => ({ id: character.id, name: character.name })),
-    }),
+    list_foods: () => {
+      if (!requiresFoodsStep(ctx.meetingStep)) {
+        return { ok: false, error: "Choose a topic first; food tools are only available on the foods step." };
+      }
+      return {
+        ok: true,
+        data: ctx.characters.map((character) => ({ id: character.id, name: character.name })),
+      };
+    },
     describe_food: (raw) => {
+      if (!requiresFoodsStep(ctx.meetingStep)) {
+        return { ok: false, error: "Choose a topic first; food tools are only available on the foods step." };
+      }
       const obj = asObject(raw);
       const foodId = asString(obj?.foodId);
       if (!foodId) return { ok: false, error: "Missing foodId" };
@@ -217,6 +253,9 @@ export function createGuideToolHandlers(ctx: GuideToolContext): Record<string, T
       return { ok: true, data: found };
     },
     select_food: (raw) => {
+      if (!requiresFoodsStep(ctx.meetingStep)) {
+        return { ok: false, error: "Choose a topic first; food tools are only available on the foods step." };
+      }
       const obj = asObject(raw);
       const foodId = asString(obj?.foodId);
       if (!foodId) return { ok: false, error: "Missing foodId" };
@@ -230,6 +269,9 @@ export function createGuideToolHandlers(ctx: GuideToolContext): Record<string, T
       return { ok: true };
     },
     highlight_food: (raw) => {
+      if (!requiresFoodsStep(ctx.meetingStep)) {
+        return { ok: false, error: "Choose a topic first; food tools are only available on the foods step." };
+      }
       const obj = asObject(raw);
       const foodId = asString(obj?.foodId);
       if (!foodId) {
@@ -247,6 +289,9 @@ export function createGuideToolHandlers(ctx: GuideToolContext): Record<string, T
       return { ok: true };
     },
     deselect_food: (raw) => {
+      if (!requiresFoodsStep(ctx.meetingStep)) {
+        return { ok: false, error: "Choose a topic first; food tools are only available on the foods step." };
+      }
       const obj = asObject(raw);
       const foodId = asString(obj?.foodId);
       if (!foodId) return { ok: false, error: "Missing foodId" };
@@ -254,7 +299,7 @@ export function createGuideToolHandlers(ctx: GuideToolContext): Record<string, T
       return { ok: true };
     },
     start_meeting: async () => {
-      if (ctx.meetingStep !== "foods") {
+      if (!requiresFoodsStep(ctx.meetingStep)) {
         return {
           ok: false,
           error: "Choose a topic first; start_meeting only works on the foods step after select_topic.",

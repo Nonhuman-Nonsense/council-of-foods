@@ -17,6 +17,7 @@ describe('guideTools', () => {
         { id: 'panelist0', name: 'Alice', description: 'Human' }
       ],
       goToTopicStep: vi.fn(),
+      beginSetup: vi.fn(),
       buildSelectedTopic: vi.fn(),
       selectTopic: vi.fn(),
       startMeeting: vi.fn(),
@@ -79,9 +80,32 @@ describe('guideTools', () => {
       expect(res).toEqual({ ok: true });
       expect(ctx.goToTopicStep).toHaveBeenCalledTimes(1);
     });
+
+    it('should call beginSetup from landing', async () => {
+      ctx.meetingStep = 'landing';
+      const handlers = createGuideToolHandlers(ctx);
+      const res = await handlers.go_to_topic_step({});
+      expect(res).toEqual({ ok: true });
+      expect(ctx.beginSetup).toHaveBeenCalledTimes(1);
+      expect(ctx.goToTopicStep).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('begin_setup', () => {
+    it('should open setup from landing', async () => {
+      ctx.meetingStep = 'landing';
+      const handlers = createGuideToolHandlers(ctx);
+      const res = await handlers.begin_setup({});
+      expect(res).toEqual({ ok: true });
+      expect(ctx.beginSetup).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('highlight_food', () => {
+    beforeEach(() => {
+      ctx.meetingStep = 'foods';
+    });
+
     it('should set hovered food if valid', async () => {
       const handlers = createGuideToolHandlers(ctx);
       const res = await handlers.highlight_food({ foodId: 'food1' });

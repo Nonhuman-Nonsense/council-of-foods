@@ -43,6 +43,9 @@
             "@voice/*": [
                 "./src/voice/*"
             ],
+            "@serial/*": [
+                "./src/serial/*"
+            ],
             "@realtime/*": [
                 "./src/realtime/*"
             ],
