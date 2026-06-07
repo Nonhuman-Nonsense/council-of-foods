@@ -18,6 +18,7 @@ export interface UseCouncilMachineProps {
     replayManifest: Meeting | null;
     topic: Topic | null;
     participants: Character[] | null;
+    initialHumanName?: string;
     audioContext: React.RefObject<AudioContext | null>;
     setUnrecoverableError: (message: string) => void;
     setConnectionError: (error: boolean) => void;
@@ -44,6 +45,7 @@ export function useCouncilMachine({
     replayManifest,
     topic: _topic,
     participants: _participants,
+    initialHumanName,
     audioContext,
     setUnrecoverableError,
     setConnectionError,
@@ -69,8 +71,14 @@ export function useCouncilMachine({
     const [activeOverlay, setActiveOverlay] = useState<CouncilOverlayType | null>(null);
     const [summary, setSummary] = useState<Message | null>(null);
 
-    const [humanName, setHumanName] = useState("");
+    const [humanName, setHumanName] = useState(initialHumanName ?? "");
     const [isRaisedHand, setIsRaisedHand] = useState(false);
+
+    useEffect(() => {
+        if (initialHumanName && initialHumanName.trim().length > 0) {
+            setHumanName(initialHumanName.trim());
+        }
+    }, [initialHumanName]);
 
     // Connection variables
     const [attemptingReconnect, setAttemptingReconnect] = useState(false);
@@ -80,7 +88,6 @@ export function useCouncilMachine({
 
     // States from lower down (Snippet management)
     const [currentSnippetIndex, setCurrentSnippetIndex] = useState(0);
-    const [sentencesLength, setSentencesLength] = useState(10);
 
     // Routing
     const location = useLocation();
@@ -694,7 +701,6 @@ export function useCouncilMachine({
             canGoForward,
             canRaiseHand,
             currentSnippetIndex,
-            sentencesLength,
             isMuted,
             canExtendMeeting,
         },
@@ -713,7 +719,6 @@ export function useCouncilMachine({
             setHumanName,
             setIsRaisedHand,
             setCurrentSnippetIndex,
-            setSentencesLength,
             toggleMute
         },
         socketRef

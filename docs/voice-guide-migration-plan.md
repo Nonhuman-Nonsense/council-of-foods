@@ -9,7 +9,7 @@ This document tracks the **intent**, **architecture**, and **implementation stat
 ## Goals
 
 - **Voice-only wizard**: During `NewMeeting`, the visitor can pick a topic, foods/characters, and humans using speech; the model uses tools to mutate UI state rather than guessing clicks.
-- **Grounding**: Topics and foods come from shared prompt bundles (`shared/prompts/topics_*.json` plus the app-specific character bundle selected via `CHARACTERS_FILE`, loaded via `getTopicsBundle` / `getFoodsBundle`). The system prompt stays short; details are fetched through `describe_topic` / `describe_food` tools (avoids oversized instructions and related realtime failures). The raw Foods bundle keeps its app-specific filename, but its internal participant shape uses the generic `characters` key.
+- **Grounding**: Topics and participants come from shared prompt bundles (`shared/prompts/topics_*.json` plus the app-specific character bundle selected via `CHARACTERS_FILE`, loaded via `getTopicsBundle` / `getFoodsBundle`). The system prompt stays short; details are fetched through `describe_topic` / `describe_character` tools (avoids oversized instructions and related realtime failures). Shared TypeScript uses neutral `character` terms; each app’s `voice_guide_${CHARACTERS_FILE}_*.json` supplies domain vocabulary (`foods`, `forest beings`, …) for agent-facing copy.
 - **Seamless handoff**: After the meeting starts, navigation leaves `NewMeeting`; the voice hook’s **unmount cleanup** should stop mic, peer connection, and data channel (no background realtime session).
 - **Key safety**: **`INWORLD_API_KEY` is server-only**; the browser never receives it.
 - **Kiosk survivability** (longer term): Turn-taking, silence handling, optional wake/button gating — mostly **not implemented** yet (see Phase 4).
@@ -48,7 +48,7 @@ Non-goals (unchanged):
 | `client/src/voice/realtimeConnection.ts` | WebRTC: bootstrap + parallel `getUserMedia`, `RTCPeerConnection` (`iceCandidatePoolSize`), data channel `oai-events`, SDP via `/call`. |
 | `client/src/voice/realtimeEventLoop.ts` | Data-channel events: `session.update` / `session.updated`, gated `response.create`, synthetic **user** `conversation.item.create` before the opening greeting (required for some models), tool call dispatch via fresh `handlersRef`. |
 | `client/src/voice/realtimeProtocol.ts` | Types + `mergeVoiceGuideRealtimeSession`. |
-| `client/src/voice/guidePrompt.ts` | Builds instructions from base JSON prompt + topic/food id lists (no long inlined descriptions). |
+| `client/src/voice/guidePrompt.ts` | Builds instructions from per-app voice-guide JSON + topic/character id lists (no long inlined descriptions). Prompt skeleton is shared in code; JSON supplies `characterVocabulary` and domain prose. |
 | `client/src/voice/guideTools.ts` | Tool **schemas** + **handlers** for the wizard (see gaps below). |
 
 **Observability:** Debug logging is gated by `localStorage.voiceGuideDebug` (`"1"` / `"verbose"`) in `useVoiceGuide`.

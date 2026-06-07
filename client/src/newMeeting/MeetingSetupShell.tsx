@@ -16,8 +16,8 @@ export interface MeetingSetupShellProps {
 }
 
 export type MeetingSetupOutletContext = {
-  step: "topic" | "foods";
-  setStep: (step: "topic" | "foods") => void;
+  step: "topic" | "characters";
+  setStep: (step: "topic" | "characters") => void;
   setLastUserEvent: (event: MeetingSetupUserEvent | null) => void;
   topicSelection: Topic | null;
   setTopicSelection: (topic: Topic) => void;
@@ -36,20 +36,21 @@ export default function MeetingSetupShell({
   const { i18n, t } = useTranslation();
   const { newMeetingPath, meetingPath } = useRouting();
 
-  const [step, setStep] = useState<"topic" | "foods">(() =>
-    topicSelection != null ? "foods" : "topic"
+  const [step, setStep] = useState<"topic" | "characters">(() =>
+    topicSelection != null ? "characters" : "topic"
   );
   const [lastUserEvent, setLastUserEvent] = useState<MeetingSetupUserEvent | null>(null);
   const [creating, setCreating] = useState(false);
 
   const phase: MeetingSetupPhase = isRootPath(location.pathname) ? "landing" : step;
 
-  const { setSelectedTopic, setCustomTopic } = useMeetingSetupStore();
+  const { setSelectedTopic, setCustomTopic, visitorName } = useMeetingSetupStore();
 
   useEffect(() => {
     if (isRootPath(location.pathname)) {
       setStep("topic");
       setLastUserEvent(null);
+      useMeetingSetupStore.getState().setVisitorName("");
     }
   }, [location.pathname]);
 
@@ -57,7 +58,7 @@ export default function MeetingSetupShell({
     if (!topicSelection || isRootPath(location.pathname)) {
       return;
     }
-    setStep("foods");
+    setStep("characters");
     setSelectedTopic(topicSelection.id);
     if (topicSelection.id === "customtopic") {
       setCustomTopic(topicSelection.description ?? "");
@@ -85,7 +86,7 @@ export default function MeetingSetupShell({
     if (isRootPath(location.pathname)) {
       navigate(newMeetingPath);
     }
-    setStep("foods");
+    setStep("characters");
   }
 
   async function handleStartMeeting(characters: Character[]) {
@@ -99,6 +100,7 @@ export default function MeetingSetupShell({
         topic: topicSelection,
         characters,
         language: i18n.language,
+        ...(visitorName.trim() ? { humanName: visitorName.trim() } : {}),
       });
       setMeetingliveKey(liveKey);
       navigate(meetingPath(Number(meetingId)));

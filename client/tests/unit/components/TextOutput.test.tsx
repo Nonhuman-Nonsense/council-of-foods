@@ -34,7 +34,6 @@ describe('TextOutput', () => {
         playbackStartInfo: { messageId: 'msg1', startedAtAudioContextTime: 0 },
         isPaused: false,
         setCurrentSnippetIndex: vi.fn(),
-        setSentencesLength: vi.fn(),
     });
 
     it('initializes with the first sentence', () => {
@@ -42,7 +41,7 @@ describe('TextOutput', () => {
         render(<TextOutput {...props} />);
 
         expect(screen.getByTestId('subtitle-text')).toHaveTextContent('Hello world.');
-        expect(props.setSentencesLength).toHaveBeenCalledWith(3);
+        expect(props.setCurrentSnippetIndex).toHaveBeenCalledWith(0);
     });
 
     it('updates text as time progresses', () => {
@@ -125,13 +124,13 @@ describe('TextOutput', () => {
         const props = defaultProps();
         render(<TextOutput {...props} currentAudioMessage={null} />);
         expect(screen.getByTestId('subtitle-text')).toHaveTextContent('');
-        expect(props.setSentencesLength).toHaveBeenCalledWith(0);
+        expect(props.setCurrentSnippetIndex).toHaveBeenCalledWith(0);
     });
 
     it('handles empty sentences array gracefully', () => {
         const props = defaultProps();
         render(<TextOutput {...props} currentAudioMessage={{ sentences: [] }} />);
         expect(screen.getByTestId('subtitle-text')).toHaveTextContent('');
-        expect(props.setSentencesLength).toHaveBeenCalledWith(0);
+        expect(props.setCurrentSnippetIndex).toHaveBeenCalledWith(0);
     });
 });

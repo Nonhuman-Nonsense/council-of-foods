@@ -16,11 +16,10 @@ import { usePushToTalkStore } from "@stores/usePushToTalkStore";
 import { getPushToTalk } from "@/settings/councilSettings";
 import { buildGuidePrompt } from "./guidePrompt";
 import { createGuideToolHandlers, createGuideTools } from "./guideTools";
+import { getVoiceGuideBundle } from "./voiceGuideBundle";
 import { useHoldToSpeakHint } from "./useHoldToSpeakHint";
 import { computePttLedMode } from "./pttLedMode";
 import { useVoiceGuide } from "./useVoiceGuide";
-import voiceGuidePromptEn from "@shared/prompts/voice_guide_en.json";
-import voiceGuidePromptSv from "@shared/prompts/voice_guide_sv.json";
 
 type MeetingVoiceGuideProps = {
   phase: MeetingSetupPhase;
@@ -46,12 +45,13 @@ export default function MeetingVoiceGuide({
   const {
     selectedTopic,
     customTopic,
+    visitorName,
   } = useMeetingSetupStore();
 
   const topicsBundle = useMemo(() => getTopicsBundle(i18n.language), [i18n.language]);
   const characterSetupBundle = useMemo(() => getCharacterSetupBundle(i18n.language), [i18n.language]);
   const guideLanguage = i18n.language.toLowerCase().startsWith("sv") ? "sv" : "en";
-  const promptBundle = guideLanguage === "sv" ? voiceGuidePromptSv : voiceGuidePromptEn;
+  const promptBundle = useMemo(() => getVoiceGuideBundle(guideLanguage), [guideLanguage]);
 
   const guideTopics = useMemo(() => {
     return [
@@ -83,8 +83,9 @@ export default function MeetingVoiceGuide({
       characters: guideCharacters,
       phase,
       pushToTalkMode,
+      visitorName,
     });
-  }, [guideCharacters, guideTopics, phase, promptBundle, pushToTalkMode]);
+  }, [guideCharacters, guideTopics, phase, promptBundle, pushToTalkMode, visitorName]);
 
   const voice = useVoiceGuide({
     language: guideLanguage,

@@ -47,7 +47,7 @@ export default function NewMeeting() {
 
   function handleTopicContinue(selectedTopic: Topic) {
     setTopicSelection(selectedTopic);
-    setStep("foods");
+    setStep("characters");
   }
 
   return (
@@ -60,7 +60,7 @@ export default function NewMeeting() {
           onContinueForward={handleTopicContinue}
         />
       )}
-      {step === "foods" && (
+      {step === "characters" && (
         <SelectCharacters
           topicTitle={topicSelection?.title ?? ""}
           onContinueForward={({ characters }) => onStartMeeting(characters)}

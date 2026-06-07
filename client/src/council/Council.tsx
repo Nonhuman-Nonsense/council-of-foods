@@ -56,6 +56,7 @@ function Council({
 
   const [participants, setParticipants] = useState<Character[]>([]);
   const [replayManifest, setReplayManifest] = useState<Meeting | null>(null);
+  const [initialHumanName, setInitialHumanName] = useState<string | undefined>(undefined);
 
   // Abort in-flight GET when deps change or on unmount (StrictMode-safe); same pattern as TanStack Query/SWR cancellation.
   useEffect(() => {
@@ -64,6 +65,7 @@ function Council({
       return;
     }
 
+    setInitialHumanName(undefined);
     const ac = new AbortController();
     void (async () => {
       try {
@@ -78,6 +80,8 @@ function Council({
         }
         setTopic(meeting.topic);
         setParticipants(meeting.characters);
+        const storedName = meeting.state?.humanName?.trim();
+        setInitialHumanName(storedName && storedName.length > 0 ? storedName : undefined);
       } catch (error) {
         if (ac.signal.aborted) return;
         console.error(error);
@@ -97,6 +101,7 @@ function Council({
     replayManifest: liveKey ? null : replayManifest,
     topic,
     participants,
+    initialHumanName,
     audioContext,
     setUnrecoverableError,
     setConnectionError,
@@ -120,7 +125,6 @@ function Council({
     canGoForward,
     canRaiseHand,
     currentSnippetIndex,
-    sentencesLength,
     isMuted,
     canExtendMeeting,
   } = state;
@@ -138,7 +142,6 @@ function Council({
     handleOnRaiseHand,
     cancelOverlay,
     setCurrentSnippetIndex,
-    setSentencesLength,
     toggleMute
   } = actions;
 
@@ -199,8 +202,8 @@ function Council({
         councilState={councilState}
         playingNowIndex={playingNowIndex}
         textMessages={textMessages}
+        audioMessages={audioMessages}
         currentSnippetIndex={currentSnippetIndex}
-        sentencesLength={sentencesLength}
         isPaused={isPaused}
       />
       {councilState === 'loading' && <Loading />}
@@ -219,7 +222,6 @@ function Council({
           setCurrentSnippetIndex={setCurrentSnippetIndex}
           audioContext={audioContext}
           handleOnFinishedPlaying={handleOnFinishedPlaying}
-          setSentencesLength={setSentencesLength}
         />
         {showControls && (
           <ConversationControls

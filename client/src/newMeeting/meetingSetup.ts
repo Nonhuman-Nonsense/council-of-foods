@@ -8,7 +8,7 @@ export type MeetingCharactersI18n = {
   twoHumansSuffix: string;
 };
 
-export type MeetingSetupPhase = "landing" | "topic" | "foods";
+export type MeetingSetupPhase = "landing" | "topic" | "characters";
 
 export type MeetingSetupUserEvent =
   | {
@@ -36,7 +36,7 @@ export function buildMeetingSetupSyncMessage(event: MeetingSetupUserEvent): stri
   return `(STATE SYNC: ${JSON.stringify({
     source: "user",
     type: "topic_committed",
-    step: "foods",
+    step: "characters",
     topicId: event.topicId,
     topicTitle: event.topicTitle,
   })})`;
@@ -66,7 +66,7 @@ export function buildTopicFromSelection(params: {
 }
 
 /**
- * Validates foods-step state and builds the meeting `characters` payload,
+ * Validates character-selection state and builds the meeting `characters` payload,
  * including chair `[CHARACTERS]` / `[HUMANS]` prompt injection.
  */
 export function buildMeetingCharactersPayload(params: {
@@ -81,18 +81,18 @@ export function buildMeetingCharactersPayload(params: {
   const baseCharacters = characterSetupData.characters;
   const characters = [...baseCharacters, ...humans.slice(0, numberOfHumans)];
 
-  const minFoods = 2 + 1;
-  const maxFoods = 6 + 1;
+  const minMembers = 2 + 1;
+  const maxMembers = 6 + 1;
 
-  if (selectedCharacters.filter((id) => !id.startsWith("panelist")).length < minFoods) {
+  if (selectedCharacters.filter((id) => !id.startsWith("panelist")).length < minMembers) {
     return {
       ok: false,
       error:
-        "Select at least two foods besides the chair (three non-human participants minimum), then try again.",
+        "Select at least two council members besides the chair (three non-human participants minimum), then try again.",
     };
   }
-  if (selectedCharacters.length > maxFoods) {
-    return { ok: false, error: "Too many participants (at most six foods plus the chair)." };
+  if (selectedCharacters.length > maxMembers) {
+    return { ok: false, error: "Too many participants (at most six members plus the chair)." };
   }
 
   const selectedHumans = selectedCharacters.filter((id) => id.startsWith("panelist"));

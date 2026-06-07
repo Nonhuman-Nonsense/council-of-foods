@@ -1,4 +1,5 @@
 import type { Character, Message } from "@shared/ModelTypes";
+import type { DecodedAudioMessage } from "@shared/SocketTypes";
 import React, { useMemo } from "react";
 import FoodItem from "./FoodItem";
 import { mapFoodIndex } from "@/utils";
@@ -11,8 +12,8 @@ interface FoodsCouncilSceneProps {
   councilState: CouncilState;
   playingNowIndex: number;
   textMessages: Message[];
+  audioMessages: DecodedAudioMessage[];
   currentSnippetIndex: number;
-  sentencesLength: number;
   isPaused: boolean;
 }
 
@@ -22,10 +23,16 @@ export default function FoodsCouncilScene({
   councilState,
   playingNowIndex,
   textMessages,
+  audioMessages,
   currentSnippetIndex,
-  sentencesLength,
   isPaused,
 }: FoodsCouncilSceneProps) {
+  const sentencesLength = useMemo(() => {
+    const textMessage = textMessages[playingNowIndex];
+    if (!textMessage) return 0;
+    return audioMessages.find((a) => a.id === textMessage.id)?.sentences?.length ?? 0;
+  }, [audioMessages, textMessages, playingNowIndex]);
+
   const zoomIn = useMemo(() => {
     if (
       councilState === "loading" ||
