@@ -24,6 +24,10 @@ export interface MeetingSetupState {
   numberOfHumans: number;
   setNumberOfHumans: (count: number | ((prev: number) => number)) => void;
 
+  // Visitor name (voice guide audience member, not a council panelist)
+  visitorName: string;
+  setVisitorName: (name: string) => void;
+
   // Utilities
   resetStore: () => void;
 }
@@ -70,6 +74,9 @@ export const useMeetingSetupStore = create<MeetingSetupState>((set, get) => ({
     numberOfHumans: typeof count === 'function' ? count(state.numberOfHumans) : count
   })),
 
+  visitorName: '',
+  setVisitorName: (name) => set({ visitorName: name }),
+
   resetStore: () => {
     set({
       selectedTopic: '',
@@ -78,6 +85,7 @@ export const useMeetingSetupStore = create<MeetingSetupState>((set, get) => ({
       hoveredCharacter: null,
       humans: createDefaultHumans(),
       numberOfHumans: 0,
+      visitorName: '',
     });
   }
 }));

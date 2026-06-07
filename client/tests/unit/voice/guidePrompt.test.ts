@@ -42,4 +42,29 @@ describe('buildGuidePrompt', () => {
     expect(prompt).toContain('- Welcome the visitor.');
     expect(prompt).not.toContain('- Help pick foods.');
   });
+
+  it('includes known visitor name context when provided', () => {
+    const prompt = buildGuidePrompt({
+      bundle: baseBundle,
+      topics: [],
+      characters: [],
+      phase: 'landing',
+      visitorName: 'Leo',
+    });
+
+    expect(prompt).toContain('You already know this visitor as Leo.');
+  });
+
+  it('includes unknown visitor guidance when name is missing', () => {
+    const prompt = buildGuidePrompt({
+      bundle: baseBundle,
+      topics: [],
+      characters: [],
+      phase: 'topic',
+    });
+
+    expect(prompt).toContain("You do not know the visitor's name yet.");
+    expect(prompt).toContain('remember_visitor_name');
+    expect(prompt).toContain('start_meeting');
+  });
 });

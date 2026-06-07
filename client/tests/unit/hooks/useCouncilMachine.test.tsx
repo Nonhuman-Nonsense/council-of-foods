@@ -561,5 +561,32 @@ describe('useCouncilMachine', () => {
 
         vi.useRealTimers();
     });
+
+    describe('raise hand name overlay', () => {
+        it('shows name overlay when humanName is unknown', () => {
+            const { result } = renderHook(() => useCouncilMachine(defaultProps as any));
+
+            act(() => {
+                result.current.actions.handleOnRaiseHand();
+            });
+
+            expect(result.current.state.activeOverlay).toBe('name');
+            expect(result.current.state.isRaisedHand).toBe(false);
+        });
+
+        it('skips name overlay when initialHumanName is provided', () => {
+            const { result } = renderHook(() =>
+                useCouncilMachine({ ...defaultProps, initialHumanName: 'Leo' } as any)
+            );
+
+            act(() => {
+                result.current.actions.handleOnRaiseHand();
+            });
+
+            expect(result.current.state.activeOverlay).not.toBe('name');
+            expect(result.current.state.humanName).toBe('Leo');
+            expect(result.current.state.isRaisedHand).toBe(true);
+        });
+    });
 });
 

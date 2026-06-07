@@ -1,6 +1,23 @@
 import { createGuideToolHandlers, GuideToolContext } from '@voice/guideTools';
 import { useMeetingSetupStore } from '@stores/useMeetingSetupStore';
 
+vi.mock('@newMeeting/meetingSetup', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@newMeeting/meetingSetup')>();
+  return {
+    ...actual,
+    buildMeetingCharactersPayload: vi.fn(() => ({
+      ok: true as const,
+      characters: [{
+        id: 'speaker1',
+        name: 'Speaker 1',
+        description: 'Test speaker',
+        prompt: 'Speak',
+        voice: 'alloy',
+      }],
+    })),
+  };
+});
+
 describe('guideTools', () => {
   let ctx: GuideToolContext;
 
@@ -143,6 +160,63 @@ describe('guideTools', () => {
       const handlers = createGuideToolHandlers(ctx);
       const res = await handlers.select_character({ characterId: 'food2' });
       expect(res).toEqual({ ok: false, error: 'Maximum number of characters (6 plus the chair) already selected.' });
+    });
+  });
+
+  describe('remember_visitor_name', () => {
+    it('stores a normalized visitor name', async () => {
+      const handlers = createGuideToolHandlers(ctx);
+      const res = await handlers.remember_visitor_name({ name: '  leo  ' });
+      expect(res).toEqual({ ok: true, data: { name: 'Leo' } });
+      expect(useMeetingSetupStore.getState().visitorName).toBe('Leo');
+    });
+
+    it('rejects empty names', async () => {
+      const handlers = createGuideToolHandlers(ctx);
+      const res = await handlers.remember_visitor_name({ name: '   ' });
+      expect(res).toEqual({ ok: false, error: 'Name cannot be empty.' });
+    });
+
+    it('rejects names that collide with council participants', async () => {
+      const handlers = createGuideToolHandlers(ctx);
+      const res = await handlers.remember_visitor_name({ name: 'Food One' });
+      expect(res.ok).toBe(false);
+      expect(res).toEqual({
+        ok: false,
+        error: 'That name is already used by a council participant. Ask for a different name.',
+      });
+    });
+  });
+
+  describe('start_meeting', () => {
+    beforeEach(() => {
+      ctx.meetingStep = 'characters';
+      useMeetingSetupStore.getState().setSelectedCharacters(['food1', 'food2', 'food3']);
+    });
+
+    it('refuses to start without a visitor name', async () => {
+      const handlers = createGuideToolHandlers(ctx);
+      const res = await handlers.start_meeting({});
+      expect(res).toEqual({
+        ok: false,
+        error:
+          "Learn the visitor's name first and call remember_visitor_name before start_meeting. Ask casually until they tell you.",
+      });
+      expect(ctx.startMeeting).not.toHaveBeenCalled();
+    });
+
+    it('starts when the visitor name is known', async () => {
+      useMeetingSetupStore.getState().setVisitorName('Leo');
+      const handlers = createGuideToolHandlers(ctx);
+      const res = await handlers.start_meeting({});
+      expect(res).toEqual({
+        ok: true,
+        data: {
+          started: true,
+          visitorName: 'Leo',
+        },
+      });
+      expect(ctx.startMeeting).toHaveBeenCalledTimes(1);
     });
   });
 });

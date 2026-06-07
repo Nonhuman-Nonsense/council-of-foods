@@ -63,6 +63,23 @@ describe('HTTP meetings API (integration)', () => {
         expect(data.liveKey).toMatch(/^[0-9a-f-]{36}$/i);
     });
 
+    it('POST /api/meetings stores optional humanName on meeting state', async () => {
+        const res = await fetch(`${base()}/api/meetings`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ...validCreateBody(), humanName: 'Leo' }),
+        });
+        expect(res.status).toBe(201);
+        const { meetingId, liveKey } = await res.json();
+
+        const getRes = await fetch(`${base()}/api/meetings/${meetingId}`, {
+            headers: { Authorization: `Bearer ${liveKey}` },
+        });
+        expect(getRes.status).toBe(200);
+        const meeting = await getRes.json();
+        expect(meeting.state.humanName).toBe('Leo');
+    });
+
     it('POST /api/meetings returns 400 on invalid payload', async () => {
         const res = await fetch(`${base()}/api/meetings`, {
             method: 'POST',
