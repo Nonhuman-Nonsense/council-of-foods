@@ -194,22 +194,18 @@ describe('guideTools', () => {
       useMeetingSetupStore.getState().setSelectedCharacters(['food1', 'food2', 'food3']);
     });
 
-    it('starts without a visitor name and reports the soft gate note', async () => {
+    it('refuses to start without a visitor name', async () => {
       const handlers = createGuideToolHandlers(ctx);
       const res = await handlers.start_meeting({});
-      expect(res.ok).toBe(true);
-      expect(res).toMatchObject({
-        ok: true,
-        data: {
-          started: true,
-          visitorNameKnown: false,
-          note: expect.stringContaining('raise their hand'),
-        },
+      expect(res).toEqual({
+        ok: false,
+        error:
+          "Learn the visitor's name first and call remember_visitor_name before start_meeting. Ask casually until they tell you.",
       });
-      expect(ctx.startMeeting).toHaveBeenCalledTimes(1);
+      expect(ctx.startMeeting).not.toHaveBeenCalled();
     });
 
-    it('starts with a known visitor name', async () => {
+    it('starts when the visitor name is known', async () => {
       useMeetingSetupStore.getState().setVisitorName('Leo');
       const handlers = createGuideToolHandlers(ctx);
       const res = await handlers.start_meeting({});
@@ -217,10 +213,10 @@ describe('guideTools', () => {
         ok: true,
         data: {
           started: true,
-          visitorNameKnown: true,
           visitorName: 'Leo',
         },
       });
+      expect(ctx.startMeeting).toHaveBeenCalledTimes(1);
     });
   });
 });

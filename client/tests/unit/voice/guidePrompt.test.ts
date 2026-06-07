@@ -65,5 +65,6 @@ describe('buildGuidePrompt', () => {
 
     expect(prompt).toContain("You do not know the visitor's name yet.");
     expect(prompt).toContain('remember_visitor_name');
+    expect(prompt).toContain('start_meeting');
   });
 });

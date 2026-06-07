@@ -345,6 +345,13 @@ export function createGuideToolHandlers(ctx: GuideToolContext): Record<string, T
         };
       }
       const { selectedCharacters, humans, numberOfHumans, visitorName } = useMeetingSetupStore.getState();
+      if (!visitorName.trim()) {
+        return {
+          ok: false,
+          error:
+            "Learn the visitor's name first and call remember_visitor_name before start_meeting. Ask casually until they tell you.",
+        };
+      }
       const built = buildMeetingCharactersPayload({
         language: ctx.voiceGuideLanguage,
         selectedCharacters,
@@ -354,19 +361,7 @@ export function createGuideToolHandlers(ctx: GuideToolContext): Record<string, T
       });
       if (!built.ok) return built;
       await Promise.resolve(ctx.startMeeting(built.characters));
-      const visitorNameKnown = visitorName.trim().length > 0;
-      return {
-        ok: true,
-        data: {
-          started: true,
-          visitorNameKnown,
-          ...(visitorNameKnown
-            ? { visitorName }
-            : {
-                note: "Meeting started without the visitor's name. They will be asked when they raise their hand to speak.",
-              }),
-        },
-      };
+      return { ok: true, data: { started: true, visitorName } };
     },
     remember_visitor_name: (raw) => {
       const obj = asObject(raw);

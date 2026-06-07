@@ -44,7 +44,7 @@ function buildVisitorContext(visitorName: string | undefined): string {
   if (trimmed.length > 0) {
     return `Visitor name:\nYou already know this visitor as ${trimmed}. Use their name naturally; do not ask again unless they correct you.`;
   }
-  return "Visitor name:\nYou do not know the visitor's name yet. Learn it casually during the conversation and call remember_visitor_name when they tell you. Try to learn it before start_meeting when possible.";
+  return "Visitor name:\nYou do not know the visitor's name yet. Learn it casually during the conversation and call remember_visitor_name when they tell you. You must store their name before calling start_meeting; that tool will fail without it.";
 }
 
 /**
