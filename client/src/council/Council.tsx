@@ -120,7 +120,6 @@ function Council({
     canGoForward,
     canRaiseHand,
     currentSnippetIndex,
-    sentencesLength,
     isMuted,
     canExtendMeeting,
   } = state;
@@ -138,7 +137,6 @@ function Council({
     handleOnRaiseHand,
     cancelOverlay,
     setCurrentSnippetIndex,
-    setSentencesLength,
     toggleMute
   } = actions;
 
@@ -199,8 +197,8 @@ function Council({
         councilState={councilState}
         playingNowIndex={playingNowIndex}
         textMessages={textMessages}
+        audioMessages={audioMessages}
         currentSnippetIndex={currentSnippetIndex}
-        sentencesLength={sentencesLength}
         isPaused={isPaused}
       />
       {councilState === 'loading' && <Loading />}
@@ -219,7 +217,6 @@ function Council({
           setCurrentSnippetIndex={setCurrentSnippetIndex}
           audioContext={audioContext}
           handleOnFinishedPlaying={handleOnFinishedPlaying}
-          setSentencesLength={setSentencesLength}
         />
         {showControls && (
           <ConversationControls

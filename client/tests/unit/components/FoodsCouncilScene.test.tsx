@@ -33,7 +33,18 @@ describe("FoodsCouncilScene", () => {
           { type: "message", id: "m1", speaker: "tomato", text: "Hello" },
         ]}
         currentSnippetIndex={0}
-        sentencesLength={4}
+        audioMessages={[
+          {
+            id: "m1",
+            audio: {} as AudioBuffer,
+            sentences: [
+              { text: "One.", start: 0, end: 1 },
+              { text: "Two.", start: 1, end: 2 },
+              { text: "Three.", start: 2, end: 3 },
+              { text: "Four.", start: 3, end: 4 },
+            ],
+          },
+        ]}
         isPaused={false}
       />
     );

@@ -15,7 +15,6 @@ interface TextOutputProps {
   playbackStartInfo: PlaybackStartInfo | null;
   isPaused: boolean;
   setCurrentSnippetIndex: (index: number) => void;
-  setSentencesLength: (length: number) => void;
   style?: React.CSSProperties;
 }
 
@@ -36,7 +35,6 @@ function TextOutput({
   playbackStartInfo,
   isPaused,
   setCurrentSnippetIndex, // Parent state setter
-  setSentencesLength,
   style
 }: TextOutputProps): React.ReactElement {
   // --- LOCAL STATE ---
@@ -79,7 +77,6 @@ function TextOutput({
     lastDisplayedTextRef.current = "";
 
     const sentences = currentAudioMessage?.sentences || [];
-    setSentencesLength(sentences.length);
 
     // 4. Initialize with the first sentence if available
     if (sentences.length > 0) {
@@ -88,7 +85,7 @@ function TextOutput({
       lastDisplayedTextRef.current = firstText;
 
     }
-  }, [currentAudioMessage, setSentencesLength, setCurrentSnippetIndex]);
+  }, [currentAudioMessage, setCurrentSnippetIndex]);
 
 
   // ---------------------------------------------------------------------------
