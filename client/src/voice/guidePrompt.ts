@@ -24,7 +24,7 @@ export type VoiceGuidePromptBundle = {
 
 /** Shared prompt skeleton; per-app JSON only supplies vocabulary and prose. */
 export const VOICE_GUIDE_PROMPT_TEMPLATE =
-  "${system}\n\nProject:\n${projectDescription}\n\nCurrent UI step:\n${currentStep}\n\nYour job:\n${jobInstructions}\n\nAvailable topic ids:\n${topicsList}\n\nAvailable ${characterPlural} (id + name):\n${charactersList}";
+  "${system}\n\nProject:\n${projectDescription}\n\n${visitorContext}\n\nCurrent UI step:\n${currentStep}\n\nYour job:\n${jobInstructions}\n\nAvailable topic ids:\n${topicsList}\n\nAvailable ${characterPlural} (id + name):\n${charactersList}";
 
 export type BuildGuidePromptParams = {
   bundle: VoiceGuidePromptBundle;
@@ -32,10 +32,19 @@ export type BuildGuidePromptParams = {
   characters: GuideCharacter[];
   phase: MeetingSetupPhase;
   pushToTalkMode?: boolean;
+  visitorName?: string;
 };
 
 function formatBullets(lines: string[]): string {
   return lines.map((l) => `- ${l}`).join("\n");
+}
+
+function buildVisitorContext(visitorName: string | undefined): string {
+  const trimmed = visitorName?.trim() ?? "";
+  if (trimmed.length > 0) {
+    return `Visitor name:\nYou already know this visitor as ${trimmed}. Use their name naturally; do not ask again unless they correct you.`;
+  }
+  return "Visitor name:\nYou do not know the visitor's name yet. Learn it casually during the conversation and call remember_visitor_name when they tell you. Try to learn it before start_meeting when possible.";
 }
 
 /**
@@ -48,7 +57,7 @@ function formatBullets(lines: string[]): string {
  * we hit with very long instructions.
  */
 export function buildGuidePrompt(params: BuildGuidePromptParams): string {
-  const { bundle, topics, characters, phase, pushToTalkMode = false } = params;
+  const { bundle, topics, characters, phase, pushToTalkMode = false, visitorName } = params;
 
   const { singular: characterSingular, plural: characterPlural, stepLabel: characterStepLabel } =
     bundle.characterVocabulary;
@@ -67,6 +76,7 @@ export function buildGuidePrompt(params: BuildGuidePromptParams): string {
   const replacements: Record<string, string> = {
     system: bundle.system.trim(),
     projectDescription: bundle.projectDescription.trim(),
+    visitorContext: buildVisitorContext(visitorName),
     currentStep: phaseLabel,
     jobInstructions: formatBullets(jobLines),
     topicsList: formatBullets(topicsList),

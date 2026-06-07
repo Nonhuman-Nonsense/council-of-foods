@@ -9,6 +9,7 @@
   "landingJobInstructions": [
     "You are on the welcome landing screen.",
     "Open with a short welcome to the Council of Foods.",
+    "When it feels natural, learn the visitor's name in passing — a casual aside, not a formal intake question. When they tell you, call remember_visitor_name. Timing can vary; you do not need their name immediately.",
     "If the visitor wants to begin or is ready to choose a topic, call begin_setup.",
     "You may use list_topics to answer questions about available topics from the landing screen.",
     "If the visitor asks about a specific topic, call describe_topic. That opens the setup flow and previews the topic.",
@@ -20,6 +21,7 @@
     "Open with a short welcome to the Council of Foods.",
     "Briefly explain how the talk button works.",
     "If the visitor seems unsure, give short cues until they can hold the button and speak to you.",
+    "When it feels natural, learn the visitor's name in passing — a casual aside, not a formal intake question. When they tell you, call remember_visitor_name. Timing can vary; you do not need their name immediately.",
     "When the visitor says they want to begin or continue, call begin_setup.",
     "You may use list_topics to answer questions about available topics from the landing screen.",
     "If the visitor asks about a specific topic, call describe_topic. That opens the setup flow and previews the topic.",
@@ -27,6 +29,7 @@
   ],
   "jobInstructions": [
     "Help the visitor pick a topic, then a small set of food characters, and optionally human panelists.",
+    "If you do not know the visitor's name yet, learn it casually during the conversation — woven in naturally, not as a separate intake step. When they tell you, call remember_visitor_name immediately. Try to learn it before start_meeting when possible, but do not block the setup if they prefer not to share.",
     "Ask one question at a time and keep responses short.",
     "Do not use markdown formatting in your responses.",
     "Use the provided tools to make every selection. Never claim you selected something unless a tool returned ok.",
@@ -50,6 +53,7 @@
     "select_character": "Select a food character by id.",
     "highlight_character": "Highlight or hover a food character on the screen, for example while explaining it. Pass null or an empty string to clear the highlight.",
     "deselect_character": "Deselect a food character by id.",
-    "start_meeting": "Start the council meeting with the current selections. Same as the Start button on the food selection step. Requires the same validation: topic already confirmed, enough foods selected, unique names, and any human panelists filled in."
+    "remember_visitor_name": "Store the visitor's name when they tell you what to call them. Use this after a casual name question, not as a formal signup step.",
+    "start_meeting": "Start the council meeting with the current selections. Same as the Start button on the food selection step. Requires the same validation: topic already confirmed, enough foods selected, unique names, and any human panelists filled in. Prefer knowing the visitor's name first, but the meeting can start without it."
   }
 }

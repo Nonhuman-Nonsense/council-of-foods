@@ -45,6 +45,7 @@ export default function MeetingVoiceGuide({
   const {
     selectedTopic,
     customTopic,
+    visitorName,
   } = useMeetingSetupStore();
 
   const topicsBundle = useMemo(() => getTopicsBundle(i18n.language), [i18n.language]);
@@ -82,8 +83,9 @@ export default function MeetingVoiceGuide({
       characters: guideCharacters,
       phase,
       pushToTalkMode,
+      visitorName,
     });
-  }, [guideCharacters, guideTopics, phase, promptBundle, pushToTalkMode]);
+  }, [guideCharacters, guideTopics, phase, promptBundle, pushToTalkMode, visitorName]);
 
   const voice = useVoiceGuide({
     language: guideLanguage,

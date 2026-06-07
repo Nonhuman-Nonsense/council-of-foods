@@ -34,6 +34,8 @@ export interface CreateMeetingBody {
     topic: Topic;
     characters: Character[];
     language: string;
+    /** Audience member name learned during voice setup (optional). */
+    humanName?: string;
 }
 
 export interface ResumeMeetingResponse {
