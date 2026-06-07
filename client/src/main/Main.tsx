@@ -4,6 +4,7 @@ import { getTopicsBundle } from "./topicsBundle";
 import {
   Routes,
   Route,
+  Navigate,
   useLocation,
   useNavigate
 } from "react-router";
@@ -222,6 +223,7 @@ export default function Main(props: MainProps) {
                 />
               }
             />
+            <Route path="*" element={<Navigate to={rootPath} replace />} />
           </Routes>
           {!isIphone && <FullscreenButton />}
           <MainOverlays

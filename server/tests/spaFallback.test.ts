@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isBlockedScannerPath, shouldServeSpaShell } from "@utils/spaFallback.js";
+import { getSpaRedirectTarget, isBlockedScannerPath, shouldServeSpaShell } from "@utils/spaFallback.js";
 import { AVAILABLE_LANGUAGES } from "@shared/AvailableLanguages.js";
 
 describe("spaFallback", () => {
@@ -77,6 +77,23 @@ describe("spaFallback", () => {
             expect(shouldServeSpaShell("/new")).toBe(false);
             expect(shouldServeSpaShell("/de/new")).toBe(false);
             expect(shouldServeSpaShell("/sv/unknown")).toBe(false);
+        });
+    });
+
+    describe("getSpaRedirectTarget", () => {
+        it("redirects to / in single-language mode", () => {
+            expect(getSpaRedirectTarget("/hello", ENGLISH_ONLY)).toBe("/");
+            expect(getSpaRedirectTarget("/meeting/not-a-number", ENGLISH_ONLY)).toBe("/");
+            expect(getSpaRedirectTarget("/en/new", ENGLISH_ONLY)).toBe("/");
+        });
+
+        it("redirects to the matching language root in multi-language mode", () => {
+            expect(getSpaRedirectTarget("/hello", ENGLISH_AND_SWEDISH)).toBe("/en/");
+            expect(getSpaRedirectTarget("/sv/hello", ENGLISH_AND_SWEDISH)).toBe("/sv/");
+            expect(getSpaRedirectTarget("/en/foo", ENGLISH_AND_SWEDISH)).toBe("/en/");
+            expect(getSpaRedirectTarget("/de/hello", ENGLISH_AND_SWEDISH)).toBe("/en/");
+            expect(getSpaRedirectTarget("/new", ENGLISH_AND_SWEDISH)).toBe("/en/");
+            expect(getSpaRedirectTarget("/meeting/9", ENGLISH_AND_SWEDISH)).toBe("/en/");
         });
     });
 });
