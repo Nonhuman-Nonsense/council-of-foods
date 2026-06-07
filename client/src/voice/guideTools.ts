@@ -44,8 +44,15 @@ export type GuideToolContext = {
   meetingCharactersLabels: MeetingCharactersI18n;
 };
 
-function requiresFoodsStep(step: MeetingSetupPhase): boolean {
-  return step === "foods";
+function requiresCharacterStep(step: MeetingSetupPhase): boolean {
+  return step === "characters";
+}
+
+function characterStepRequiredError(): ToolResult {
+  return {
+    ok: false,
+    error: "Choose a topic first; character tools are only available on the character selection step.",
+  };
 }
 
 function asObject(args: unknown): Record<string, unknown> | null {
@@ -115,52 +122,52 @@ export function createGuideTools(params: {
     },
     {
       type: "function",
-      name: "list_foods",
-      description: copy.list_foods,
+      name: "list_characters",
+      description: copy.list_characters,
       parameters: { type: "object", properties: {}, additionalProperties: false },
     },
     {
       type: "function",
-      name: "describe_food",
-      description: copy.describe_food,
+      name: "describe_character",
+      description: copy.describe_character,
       parameters: {
         type: "object",
         additionalProperties: false,
-        properties: { foodId: { type: "string" } },
-        required: ["foodId"],
+        properties: { characterId: { type: "string" } },
+        required: ["characterId"],
       },
     },
     {
       type: "function",
-      name: "select_food",
-      description: copy.select_food,
+      name: "select_character",
+      description: copy.select_character,
       parameters: {
         type: "object",
         additionalProperties: false,
-        properties: { foodId: { type: "string" } },
-        required: ["foodId"],
+        properties: { characterId: { type: "string" } },
+        required: ["characterId"],
       },
     },
     {
       type: "function",
-      name: "highlight_food",
-      description: copy.highlight_food,
+      name: "highlight_character",
+      description: copy.highlight_character,
       parameters: {
         type: "object",
         additionalProperties: false,
-        properties: { foodId: { type: "string" } },
-        required: ["foodId"],
+        properties: { characterId: { type: "string" } },
+        required: ["characterId"],
       },
     },
     {
       type: "function",
-      name: "deselect_food",
-      description: copy.deselect_food,
+      name: "deselect_character",
+      description: copy.deselect_character,
       parameters: {
         type: "object",
         additionalProperties: false,
-        properties: { foodId: { type: "string" } },
-        required: ["foodId"],
+        properties: { characterId: { type: "string" } },
+        required: ["characterId"],
       },
     },
     {
@@ -232,77 +239,77 @@ export function createGuideToolHandlers(ctx: GuideToolContext): Record<string, T
       ctx.goToTopicStep();
       return { ok: true };
     },
-    list_foods: () => {
-      if (!requiresFoodsStep(ctx.meetingStep)) {
-        return { ok: false, error: "Choose a topic first; food tools are only available on the foods step." };
+    list_characters: () => {
+      if (!requiresCharacterStep(ctx.meetingStep)) {
+        return characterStepRequiredError();
       }
       return {
         ok: true,
         data: ctx.characters.map((character) => ({ id: character.id, name: character.name })),
       };
     },
-    describe_food: (raw) => {
-      if (!requiresFoodsStep(ctx.meetingStep)) {
-        return { ok: false, error: "Choose a topic first; food tools are only available on the foods step." };
+    describe_character: (raw) => {
+      if (!requiresCharacterStep(ctx.meetingStep)) {
+        return characterStepRequiredError();
       }
       const obj = asObject(raw);
-      const foodId = asString(obj?.foodId);
-      if (!foodId) return { ok: false, error: "Missing foodId" };
-      const found = ctx.characters.find((character) => character.id === foodId);
-      if (!found) return { ok: false, error: `Unknown foodId: ${foodId}` };
+      const characterId = asString(obj?.characterId);
+      if (!characterId) return { ok: false, error: "Missing characterId" };
+      const found = ctx.characters.find((character) => character.id === characterId);
+      if (!found) return { ok: false, error: `Unknown characterId: ${characterId}` };
       return { ok: true, data: found };
     },
-    select_food: (raw) => {
-      if (!requiresFoodsStep(ctx.meetingStep)) {
-        return { ok: false, error: "Choose a topic first; food tools are only available on the foods step." };
+    select_character: (raw) => {
+      if (!requiresCharacterStep(ctx.meetingStep)) {
+        return characterStepRequiredError();
       }
       const obj = asObject(raw);
-      const foodId = asString(obj?.foodId);
-      if (!foodId) return { ok: false, error: "Missing foodId" };
-      if (!ctx.characters.some((character) => character.id === foodId) && !foodId.startsWith("panelist")) {
-        return { ok: false, error: `Unknown foodId: ${foodId}` };
+      const characterId = asString(obj?.characterId);
+      if (!characterId) return { ok: false, error: "Missing characterId" };
+      if (!ctx.characters.some((character) => character.id === characterId) && !characterId.startsWith("panelist")) {
+        return { ok: false, error: `Unknown characterId: ${characterId}` };
       }
-      const success = useMeetingSetupStore.getState().handleSelectCharacterId(foodId);
+      const success = useMeetingSetupStore.getState().handleSelectCharacterId(characterId);
       if (!success) {
         return { ok: false, error: "Maximum number of characters (6 plus the chair) already selected." };
       }
       return { ok: true };
     },
-    highlight_food: (raw) => {
-      if (!requiresFoodsStep(ctx.meetingStep)) {
-        return { ok: false, error: "Choose a topic first; food tools are only available on the foods step." };
+    highlight_character: (raw) => {
+      if (!requiresCharacterStep(ctx.meetingStep)) {
+        return characterStepRequiredError();
       }
       const obj = asObject(raw);
-      const foodId = asString(obj?.foodId);
-      if (!foodId) {
+      const characterId = asString(obj?.characterId);
+      if (!characterId) {
         useMeetingSetupStore.getState().setHoveredCharacter(null);
         return { ok: true };
       }
       if (
-        !ctx.characters.some((character) => character.id === foodId) &&
-        !foodId.startsWith("panelist") &&
-        foodId !== "addhuman"
+        !ctx.characters.some((character) => character.id === characterId) &&
+        !characterId.startsWith("panelist") &&
+        characterId !== "addhuman"
       ) {
-        return { ok: false, error: `Unknown foodId: ${foodId}` };
+        return { ok: false, error: `Unknown characterId: ${characterId}` };
       }
-      useMeetingSetupStore.getState().setHoveredCharacter(foodId);
+      useMeetingSetupStore.getState().setHoveredCharacter(characterId);
       return { ok: true };
     },
-    deselect_food: (raw) => {
-      if (!requiresFoodsStep(ctx.meetingStep)) {
-        return { ok: false, error: "Choose a topic first; food tools are only available on the foods step." };
+    deselect_character: (raw) => {
+      if (!requiresCharacterStep(ctx.meetingStep)) {
+        return characterStepRequiredError();
       }
       const obj = asObject(raw);
-      const foodId = asString(obj?.foodId);
-      if (!foodId) return { ok: false, error: "Missing foodId" };
-      useMeetingSetupStore.getState().handleDeselectCharacterId(foodId);
+      const characterId = asString(obj?.characterId);
+      if (!characterId) return { ok: false, error: "Missing characterId" };
+      useMeetingSetupStore.getState().handleDeselectCharacterId(characterId);
       return { ok: true };
     },
     start_meeting: async () => {
-      if (!requiresFoodsStep(ctx.meetingStep)) {
+      if (!requiresCharacterStep(ctx.meetingStep)) {
         return {
           ok: false,
-          error: "Choose a topic first; start_meeting only works on the foods step after select_topic.",
+          error: "Choose a topic first; start_meeting only works on the character selection step after select_topic.",
         };
       }
       const { selectedCharacters, humans, numberOfHumans } = useMeetingSetupStore.getState();
@@ -319,4 +326,3 @@ export function createGuideToolHandlers(ctx: GuideToolContext): Record<string, T
     },
   };
 }
-
