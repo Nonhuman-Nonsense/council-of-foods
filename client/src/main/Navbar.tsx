@@ -122,9 +122,8 @@ function Navbar({ topicTitle: topic, hamburgerOpen, setHamburgerOpen }: NavbarPr
     textUnderlineOffset: "4px",
   };
 
-  const navItems: string[] = ["settings", "about", "contact"];
-
   const showMenu: boolean = (!isMobile || hamburgerOpen);
+  const onMeeting = location.pathname.includes(routes.meeting);
 
   /* -------------------------------------------------------------------------- */
   /*                                   Render                                   */
@@ -168,15 +167,26 @@ function Navbar({ topicTitle: topic, hamburgerOpen, setHamburgerOpen }: NavbarPr
         style={{ display: "flex", flexDirection: "column", alignItems: "end" }}
       >
         <div style={{ display: "flex" }}>
-          {navItems.map((item) => (
+          {onMeeting && (
             <NavItem
-              key={item}
-              name={item}
-              show={showMenu && (item !== 'settings' || location.pathname.includes(routes.meeting))}
-              isActive={activeMenuItem === `#${item}`} // Determine active state
+              name="settings"
+              show={showMenu}
+              isActive={activeMenuItem === "#settings"}
               onNavigate={handleOnNavigate}
             />
-          ))}
+          )}
+          <NavItem
+            name="about"
+            show={showMenu}
+            isActive={activeMenuItem === "#about"}
+            onNavigate={handleOnNavigate}
+          />
+          <NavItem
+            name="contact"
+            show={showMenu}
+            isActive={activeMenuItem === "#contact"}
+            onNavigate={handleOnNavigate}
+          />
           {AVAILABLE_LANGUAGES.length > 1 && (
             <h3 style={{
               margin: "0",

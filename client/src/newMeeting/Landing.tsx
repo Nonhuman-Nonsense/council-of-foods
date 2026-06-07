@@ -3,6 +3,7 @@ import { useMediaQuery } from 'react-responsive'
 import { Link } from "react-router";
 import { useMobile } from "@/utils";
 import { useTranslation } from 'react-i18next';
+import { useRouting } from "@/routing";
 
 /**
  * Landing Component
@@ -13,12 +14,8 @@ import { useTranslation } from 'react-i18next';
  * - **Device Orientation**: Forces landscape on mobile/tablet via `RotateDevice`.
  * - **Welcome Message**: Displays logo and welcome text.
  */
-interface LandingProps {
-  newMeetingPath: string;
-}
-
-const Landing: React.FC<LandingProps> = ({ newMeetingPath }) => {
-
+const Landing: React.FC = () => {
+  const { newMeetingPath } = useRouting();
   const isPortrait = useMediaQuery({ query: '(orientation: portrait)' })
   const isMobile = useMobile();
   const { t } = useTranslation();
@@ -35,9 +32,10 @@ const Landing: React.FC<LandingProps> = ({ newMeetingPath }) => {
   const welcomeStyle: React.CSSProperties = {
     display: "flex",
     flexDirection: "column",
-    height: "85%",
+    height: "80%",
     alignItems: "center",
     justifyContent: "space-between",
+    paddingBottom: "5%"
   };
 
   return (

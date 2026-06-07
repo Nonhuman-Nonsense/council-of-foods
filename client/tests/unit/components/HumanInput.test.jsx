@@ -40,6 +40,13 @@ vi.mock('@council/ConversationControlIcon', () => ({
     )
 }));
 
+function createMockMicStream() {
+    return {
+        id: 'mock-stream',
+        getAudioTracks: () => [{ enabled: true }],
+    };
+}
+
 describe('HumanInput Component', () => {
     let mockOnSubmit;
 
@@ -64,7 +71,7 @@ describe('HumanInput Component', () => {
         createRealtimeConnection.mockResolvedValue({
             pc: {},
             dc: {},
-            micStream: { id: 'mock-stream' },
+            micStream: createMockMicStream(),
             close: vi.fn(),
         });
     });
@@ -180,7 +187,7 @@ describe('HumanInput Component', () => {
         const send = vi.fn();
         createRealtimeConnection.mockImplementation(async (opts) => {
             if (opts.onOpen) opts.onOpen({ dc: { send } });
-            return { pc: {}, dc: { send }, micStream: {}, close: vi.fn() };
+            return { pc: {}, dc: { send }, micStream: createMockMicStream(), close: vi.fn() };
         });
 
         render(
@@ -288,7 +295,7 @@ describe('HumanInput Component', () => {
 
         fireEvent.focus(screen.getByPlaceholderText('human.1'));
 
-        pending.resolve({ pc: {}, dc: {}, micStream: {}, close });
+        pending.resolve({ pc: {}, dc: {}, micStream: createMockMicStream(), close });
 
         await waitFor(() => {
             expect(close).toHaveBeenCalled();
@@ -390,14 +397,14 @@ describe('HumanInput Component', () => {
     it('should enforce max input length', () => {
         render(
             <HumanInput
-                isPanelist={false} // max 700
+                isPanelist={false}
                 currentSpeakerName=""
                 onSubmitHumanMessage={mockOnSubmit}
                 liveKey="test-key"
             />
         );
         const textarea = screen.getByPlaceholderText('human.1');
-        expect(textarea).toHaveAttribute('maxLength', '700');
+        expect(textarea).toHaveAttribute('maxLength', '10000');
     });
 
     it('should close the active connection when unmounting after recording starts', async () => {
@@ -405,7 +412,7 @@ describe('HumanInput Component', () => {
         createRealtimeConnection.mockResolvedValue({
             pc: {},
             dc: {},
-            micStream: { id: 'mock-stream' },
+            micStream: createMockMicStream(),
             close,
         });
 

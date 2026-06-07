@@ -5,30 +5,43 @@ import VoiceGuideOverlay from "./VoiceGuideOverlay";
 import { getTopicsBundle } from "@main/topicsBundle";
 import { getCharacterSetupBundle } from "@newMeeting/CharacterSetup";
 import type { Character } from "@shared/ModelTypes";
-import { buildMeetingSetupSyncMessage, buildTopicFromSelection, type MeetingSetupUserEvent } from "@newMeeting/meetingSetup";
+import {
+  buildMeetingSetupSyncMessage,
+  buildTopicFromSelection,
+  type MeetingSetupPhase,
+  type MeetingSetupUserEvent,
+} from "@newMeeting/meetingSetup";
 import { useMeetingSetupStore } from "@stores/useMeetingSetupStore";
+import { usePushToTalkStore } from "@stores/usePushToTalkStore";
+import { getPushToTalk } from "@/settings/councilSettings";
 import { buildGuidePrompt } from "./guidePrompt";
 import { createGuideToolHandlers, createGuideTools } from "./guideTools";
+import { getVoiceGuideBundle } from "./voiceGuideBundle";
+import { useHoldToSpeakHint } from "./useHoldToSpeakHint";
+import { computePttLedMode } from "./pttLedMode";
 import { useVoiceGuide } from "./useVoiceGuide";
-import voiceGuidePromptEn from "@shared/prompts/voice_guide_en.json";
-import voiceGuidePromptSv from "@shared/prompts/voice_guide_sv.json";
 
 type MeetingVoiceGuideProps = {
-  step: "topic" | "foods";
+  phase: MeetingSetupPhase;
   lastUserEvent: MeetingSetupUserEvent | null;
+  onBeginSetup: () => void;
   onGoToTopicStep: () => void;
   onSelectTopic: (topic: Topic) => void;
   onStartMeeting: (characters: Character[]) => Promise<void> | void;
 };
 
 export default function MeetingVoiceGuide({
-  step,
+  phase,
   lastUserEvent,
+  onBeginSetup,
   onGoToTopicStep,
   onSelectTopic,
   onStartMeeting,
 }: MeetingVoiceGuideProps) {
   const { i18n, t } = useTranslation();
+  const pushToTalkMode = getPushToTalk();
+  const pressed = usePushToTalkStore((state) => state.pressed);
+  const setLedMode = usePushToTalkStore((state) => state.setLedMode);
   const {
     selectedTopic,
     customTopic,
@@ -37,7 +50,7 @@ export default function MeetingVoiceGuide({
   const topicsBundle = useMemo(() => getTopicsBundle(i18n.language), [i18n.language]);
   const characterSetupBundle = useMemo(() => getCharacterSetupBundle(i18n.language), [i18n.language]);
   const guideLanguage = i18n.language.toLowerCase().startsWith("sv") ? "sv" : "en";
-  const promptBundle = guideLanguage === "sv" ? voiceGuidePromptSv : voiceGuidePromptEn;
+  const promptBundle = useMemo(() => getVoiceGuideBundle(guideLanguage), [guideLanguage]);
 
   const guideTopics = useMemo(() => {
     return [
@@ -67,8 +80,10 @@ export default function MeetingVoiceGuide({
       bundle: promptBundle,
       topics: guideTopics,
       characters: guideCharacters,
+      phase,
+      pushToTalkMode,
     });
-  }, [guideCharacters, guideTopics, promptBundle]);
+  }, [guideCharacters, guideTopics, phase, promptBundle, pushToTalkMode]);
 
   const voice = useVoiceGuide({
     language: guideLanguage,
@@ -77,6 +92,7 @@ export default function MeetingVoiceGuide({
     toolHandlers: createGuideToolHandlers({
       topics: guideTopics,
       characters: guideCharacters,
+      beginSetup: onBeginSetup,
       goToTopicStep: onGoToTopicStep,
       buildSelectedTopic: () =>
         buildTopicFromSelection({
@@ -86,15 +102,44 @@ export default function MeetingVoiceGuide({
         }),
       selectTopic: onSelectTopic,
       startMeeting: onStartMeeting,
-      meetingStep: step,
+      meetingStep: phase,
       voiceGuideLanguage: i18n.language,
       meetingCharactersLabels: {
         oneHuman: t("selectfoods.human"),
         twoHumansSuffix: t("selectfoods.twohumans"),
       },
     }),
+    pushToTalkMode,
+    micOpen: pressed,
   });
-  const { sendUserMessage } = voice;
+  const { sendUserMessage, muted } = voice;
+
+  const showHoldToSpeakHint = useHoldToSpeakHint({
+    pushToTalkMode,
+    sessionActive: !muted,
+    isConnecting: voice.isConnecting,
+    micOpen: pressed,
+    lastUserTranscript: voice.lastUserTranscript,
+    lastCaption: voice.lastCaption,
+  });
+
+  const ledMode = computePttLedMode({
+    pushToTalkMode,
+    muted,
+    isConnecting: voice.isConnecting,
+    voiceError: voice.error,
+    pressed,
+  });
+
+  useEffect(() => {
+    void setLedMode(ledMode);
+  }, [ledMode, setLedMode]);
+
+  useEffect(() => {
+    return () => {
+      void setLedMode("off");
+    };
+  }, [setLedMode]);
 
   useEffect(() => {
     if (!lastUserEvent) {
@@ -115,6 +160,8 @@ export default function MeetingVoiceGuide({
       lastCaption={voice.lastCaption}
       lastUserTranscript={voice.lastUserTranscript}
       muted={voice.muted}
+      pushToTalkMode={pushToTalkMode}
+      showHoldToSpeakHint={showHoldToSpeakHint}
       onStart={voice.start}
       onStop={voice.stop}
     />

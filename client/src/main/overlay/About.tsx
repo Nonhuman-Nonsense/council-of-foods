@@ -22,7 +22,8 @@ function About(): React.ReactElement {
   return (
     <div style={wrapper}>
       <p style={{ whiteSpace: 'pre-wrap' }}>{t('aboutText.about')}</p>
-      <p>{t('aboutText.link')}<br /><Link to={{ hash: "contact" }}>Nonhuman Nonsense</Link></p>
+      <p>{t('aboutText.link')}<Link to={{ hash: "contact" }}>Nonhuman Nonsense</Link><br/>
+      {t('aboutText.collaborator')}<Link to={{ hash: "contact" }}>{t('biosphere')}</Link></p>
     </div>
   );
 }

@@ -19,6 +19,9 @@ vi.mock('@main/overlay/MainOverlays', () => ({
 vi.mock('@newMeeting/Landing', () => ({
     default: () => <div data-testid="landing">Landing</div>
 }));
+vi.mock('@voice/MeetingVoiceGuide', () => ({
+    default: () => null,
+}));
 vi.mock('@newMeeting/SelectTopic', () => ({
     default: () => <div data-testid="select-topic">SelectTopic</div>
 }));

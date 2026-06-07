@@ -6,6 +6,7 @@ import OverlayWrapper from './OverlayWrapper';
 import Overlay from "./Overlay";
 import About from "./About";
 import Contact from "./Contact";
+import Setup from "./Setup";
 import ResetWarning from "./ResetWarning";
 import SelectTopic from "@newMeeting/SelectTopic";
 import type { Topic } from "@shared/ModelTypes";
@@ -21,7 +22,7 @@ interface MainOverlaysProps {
  * MainOverlays Component
  * 
  * Manages the top-level application overlays that are triggered via URL hash.
- * Examples: #about, #contact, #settings, #reset.
+ * Examples: #about, #contact, #setup, #settings, #reset.
  * 
  * Core Logic:
  * - **Hash Routing**: Listens to `location.hash` to determine which overlay to show.
@@ -39,7 +40,7 @@ function MainOverlays({ topic, onReset, onCloseOverlay }: MainOverlaysProps): Re
   useEffect(() => {
     const hash = location.hash;
     if (hash) {
-      if (!["#about", "#contact", "#reset", "#settings", '#warning'].includes(hash)) {
+      if (!["#about", "#contact", "#setup", "#reset", "#settings", '#warning'].includes(hash)) {
         cancelOverlay();
       } else if (!isMeetingPath(location.pathname) && ["#settings"].includes(hash)) {
         cancelOverlay();
@@ -62,6 +63,8 @@ function MainOverlays({ topic, onReset, onCloseOverlay }: MainOverlaysProps): Re
         return <About />;
       case "#contact":
         return <Contact />;
+      case "#setup":
+        return <Setup />;
       case "#settings":
         return (
           <SelectTopic

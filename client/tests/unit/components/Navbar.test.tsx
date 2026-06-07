@@ -61,9 +61,9 @@ describe('Navbar', () => {
         vi.mocked(responsive.useMediaQuery).mockReturnValue(true); // showIconinMeny
     });
 
-    const renderNavbar = (props = defaultProps) => {
+    const renderNavbar = (props = defaultProps, initialEntries: string[] = ['/en/meeting/123']) => {
         return render(
-            <MemoryRouter initialEntries={['/en/meeting/123']}>
+            <MemoryRouter initialEntries={initialEntries}>
                 <Navbar {...props} />
             </MemoryRouter>
         );
@@ -76,6 +76,7 @@ describe('Navbar', () => {
         expect(screen.getByText('SETTINGS')).toBeVisible();
         expect(screen.getByText('ABOUT')).toBeVisible();
         expect(screen.getByText('CONTACT')).toBeVisible();
+        expect(screen.queryByText('SETUP')).not.toBeInTheDocument();
         expect(screen.queryByTestId('lottie-player')).not.toBeInTheDocument();
     });
 

@@ -2,10 +2,15 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { MemoryRouter, Routes, Route } from "react-router";
 import NewMeeting from "@newMeeting/NewMeeting";
+import MeetingSetupShell from "@newMeeting/MeetingSetupShell";
 import { createMeeting } from "@api/createMeeting";
 import routes from "@/routes.json";
 import type { Character } from "@newMeeting/SelectCharacters";
 import { MockFactory } from "../factories/MockFactory";
+
+vi.mock("@voice/MeetingVoiceGuide", () => ({
+    default: () => null,
+}));
 
 vi.mock("react-i18next", () => ({
     useTranslation: () => ({ t: (key: string) => key, i18n: { language: "en" } }),
@@ -17,6 +22,7 @@ vi.mock("@/routing", () => ({
         meetingPath: (id: number) => `/${routes.meeting}/${id}`,
         meetingRoutesBase: `/${routes.meeting}`,
     }),
+    isRootPath: (pathname: string) => pathname === "/" || pathname === "",
 }));
 
 vi.mock("@api/createMeeting", () => ({
@@ -97,9 +103,8 @@ describe("NewMeeting — live key handoff", () => {
             <MemoryRouter initialEntries={[`/${routes.newMeeting}`]}>
                 <Routes>
                     <Route
-                        path={`/${routes.newMeeting}`}
                         element={
-                            <NewMeeting
+                            <MeetingSetupShell
                                 setUnrecoverableError={setUnrecoverableError}
                                 topicSelection={MockFactory.createTopic({
                                     id: "test-topic",
@@ -111,7 +116,9 @@ describe("NewMeeting — live key handoff", () => {
                                 setMeetingliveKey={setMeetingliveKey}
                             />
                         }
-                    />
+                    >
+                        <Route path={`/${routes.newMeeting}`} element={<NewMeeting />} />
+                    </Route>
                     <Route
                         path={`/${routes.meeting}/:meetingId`}
                         element={<div data-testid="meeting-screen">Meeting</div>}

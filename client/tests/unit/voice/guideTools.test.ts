@@ -17,6 +17,7 @@ describe('guideTools', () => {
         { id: 'panelist0', name: 'Alice', description: 'Human' }
       ],
       goToTopicStep: vi.fn(),
+      beginSetup: vi.fn(),
       buildSelectedTopic: vi.fn(),
       selectTopic: vi.fn(),
       startMeeting: vi.fn(),
@@ -79,46 +80,68 @@ describe('guideTools', () => {
       expect(res).toEqual({ ok: true });
       expect(ctx.goToTopicStep).toHaveBeenCalledTimes(1);
     });
+
+    it('should call beginSetup from landing', async () => {
+      ctx.meetingStep = 'landing';
+      const handlers = createGuideToolHandlers(ctx);
+      const res = await handlers.go_to_topic_step({});
+      expect(res).toEqual({ ok: true });
+      expect(ctx.beginSetup).toHaveBeenCalledTimes(1);
+      expect(ctx.goToTopicStep).not.toHaveBeenCalled();
+    });
   });
 
-  describe('highlight_food', () => {
-    it('should set hovered food if valid', async () => {
+  describe('begin_setup', () => {
+    it('should open setup from landing', async () => {
+      ctx.meetingStep = 'landing';
       const handlers = createGuideToolHandlers(ctx);
-      const res = await handlers.highlight_food({ foodId: 'food1' });
+      const res = await handlers.begin_setup({});
+      expect(res).toEqual({ ok: true });
+      expect(ctx.beginSetup).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('highlight_character', () => {
+    beforeEach(() => {
+      ctx.meetingStep = 'characters';
+    });
+
+    it('should set hovered character if valid', async () => {
+      const handlers = createGuideToolHandlers(ctx);
+      const res = await handlers.highlight_character({ characterId: 'food1' });
       expect(res).toEqual({ ok: true });
       expect(useMeetingSetupStore.getState().hoveredCharacter).toBe('food1');
     });
 
-    it('should set hovered food to null if missing or empty', async () => {
+    it('should set hovered character to null if missing or empty', async () => {
       const handlers = createGuideToolHandlers(ctx);
-      const res = await handlers.highlight_food({});
+      const res = await handlers.highlight_character({});
       expect(res).toEqual({ ok: true });
       expect(useMeetingSetupStore.getState().hoveredCharacter).toBe(null);
     });
 
-    it('should return error if invalid foodId', async () => {
+    it('should return error if invalid characterId', async () => {
       const handlers = createGuideToolHandlers(ctx);
-      const res = await handlers.highlight_food({ foodId: 'invalid' });
-      expect(res).toEqual({ ok: false, error: 'Unknown foodId: invalid' });
+      const res = await handlers.highlight_character({ characterId: 'invalid' });
+      expect(res).toEqual({ ok: false, error: 'Unknown characterId: invalid' });
       expect(useMeetingSetupStore.getState().hoveredCharacter).toBe(null);
     });
   });
 
-  describe('select_food', () => {
-    it('should select food if valid and under max limits', async () => {
-      ctx.meetingStep = 'foods';
+  describe('select_character', () => {
+    it('should select character if valid and under max limits', async () => {
+      ctx.meetingStep = 'characters';
       const handlers = createGuideToolHandlers(ctx);
-      const res = await handlers.select_food({ foodId: 'food1' });
+      const res = await handlers.select_character({ characterId: 'food1' });
       expect(res).toEqual({ ok: true });
       expect(useMeetingSetupStore.getState().selectedCharacters).toContain('food1');
     });
 
-    it('should return error if handleSelectCharacterId fails (max foods limit)', async () => {
-      ctx.meetingStep = 'foods';
-      // Set 7 foods to reach limit
+    it('should return error if handleSelectCharacterId fails (max characters limit)', async () => {
+      ctx.meetingStep = 'characters';
       useMeetingSetupStore.getState().setSelectedCharacters(['f1', 'f2', 'f3', 'f4', 'f5', 'f6', 'f7']);
       const handlers = createGuideToolHandlers(ctx);
-      const res = await handlers.select_food({ foodId: 'food2' });
+      const res = await handlers.select_character({ characterId: 'food2' });
       expect(res).toEqual({ ok: false, error: 'Maximum number of characters (6 plus the chair) already selected.' });
     });
   });
