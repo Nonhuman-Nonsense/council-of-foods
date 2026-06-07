@@ -5,9 +5,12 @@ import {
   SerialPushToTalkTransport,
   type SerialTransportStatus,
 } from "@/serial/transport";
+import { isPttInputEnabled, type PttLedMode } from "@/voice/pttLedMode";
 
 type PushToTalkStore = {
   pressed: boolean;
+  ledMode: PttLedMode;
+  pttInputEnabled: boolean;
   serialStatus: SerialTransportStatus;
   serialError: string | null;
   lastSerialLine: string | null;
@@ -19,7 +22,7 @@ type PushToTalkStore = {
   requestSerialPort: () => Promise<void>;
   connectGrantedPorts: () => Promise<void>;
   disconnectSerial: () => Promise<void>;
-  setLed: (on: boolean) => Promise<void>;
+  setLedMode: (mode: PttLedMode) => Promise<void>;
 
   init: () => void;
   dispose: () => void;
@@ -47,18 +50,25 @@ function getSerialTransport(
         };
         if (status === "disconnected" || status === "error") {
           updates.pressed = false;
+          updates.ledMode = "off";
+          updates.pttInputEnabled = false;
         }
         set(updates);
       },
       onLine: (event) => {
+        if (event.type === "pong") {
+          set({ lastSerialLine: "PONG" });
+          return;
+        }
+        if (!get().pttInputEnabled) {
+          return;
+        }
         if (event.type === "ptt_down") {
           get().setPressed(true, "serial");
           set({ lastSerialLine: "PTT_DOWN" });
         } else if (event.type === "ptt_up") {
           get().setPressed(false, "serial");
           set({ lastSerialLine: "PTT_UP" });
-        } else if (event.type === "pong") {
-          set({ lastSerialLine: "PONG" });
         }
       },
       onRawLine: (line) => {
@@ -75,6 +85,7 @@ function bindKeyboard(set: (partial: Partial<PushToTalkStore>) => void, get: () 
 
   const onKeyDown = (event: KeyboardEvent) => {
     if (!getPushToTalk()) return;
+    if (!get().pttInputEnabled) return;
     if (event.code !== "Space" || event.repeat) return;
     if (isTypingTarget(event.target)) return;
     event.preventDefault();
@@ -83,6 +94,7 @@ function bindKeyboard(set: (partial: Partial<PushToTalkStore>) => void, get: () 
 
   const onKeyUp = (event: KeyboardEvent) => {
     if (!getPushToTalk()) return;
+    if (!get().pttInputEnabled) return;
     if (event.code !== "Space") return;
     if (isTypingTarget(event.target)) return;
     event.preventDefault();
@@ -95,6 +107,8 @@ function bindKeyboard(set: (partial: Partial<PushToTalkStore>) => void, get: () 
 
 export const usePushToTalkStore = create<PushToTalkStore>((set, get) => ({
   pressed: false,
+  ledMode: "off",
+  pttInputEnabled: false,
   serialStatus: "disconnected",
   serialError: null,
   lastSerialLine: null,
@@ -102,6 +116,9 @@ export const usePushToTalkStore = create<PushToTalkStore>((set, get) => ({
   serialSupported: isWebSerialSupported(),
 
   setPressed: (pressed, source) => {
+    if (!get().pttInputEnabled) {
+      return;
+    }
     set({
       pressed,
       keyboardActive: source === "keyboard" ? pressed : get().keyboardActive,
@@ -120,9 +137,21 @@ export const usePushToTalkStore = create<PushToTalkStore>((set, get) => ({
     await getSerialTransport(set, get).disconnect();
   },
 
-  setLed: async (on) => {
-    if (get().serialStatus !== "connected") return;
-    await getSerialTransport(set, get).setLed(on);
+  setLedMode: async (mode) => {
+    const inputEnabled = isPttInputEnabled(mode);
+    const updates: Partial<PushToTalkStore> = {
+      ledMode: mode,
+      pttInputEnabled: inputEnabled,
+    };
+    if (!inputEnabled) {
+      updates.pressed = false;
+    }
+    set(updates);
+
+    if (get().serialStatus !== "connected") {
+      return;
+    }
+    await getSerialTransport(set, get).setLedMode(mode);
   },
 
   init: () => {
@@ -134,6 +163,6 @@ export const usePushToTalkStore = create<PushToTalkStore>((set, get) => ({
 
   dispose: () => {
     void getSerialTransport(set, get).disconnect();
-    set({ pressed: false });
+    set({ pressed: false, ledMode: "off", pttInputEnabled: false });
   },
 }));

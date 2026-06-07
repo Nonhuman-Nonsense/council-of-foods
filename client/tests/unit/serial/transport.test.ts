@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { LED_OFF, LED_ON, PING, PONG, PTT_DOWN, PTT_UP } from "@/serial/protocol";
+import { LED_OFF, LED_ON, LED_PULSE, PING, PONG, PTT_DOWN, PTT_UP } from "@/serial/protocol";
 import {
   SerialPushToTalkTransport,
   type SerialTransportStatus,
@@ -101,7 +101,7 @@ describe("SerialPushToTalkTransport", () => {
     expect(statuses).toContain("connecting");
     expect(statuses).toContain("connected");
     expect(transport.getStatus()).toBe("connected");
-    expect(fake.getWrittenText()).toBe(`${PING}\n`);
+    expect(fake.getWrittenText()).toBe(`${PING}\n${LED_OFF}\n`);
 
     fake.pushBytes(`${PTT_DOWN}\n`);
     await flushMicrotasks();
@@ -126,16 +126,19 @@ describe("SerialPushToTalkTransport", () => {
     expect(lines).toContainEqual({ type: "ptt_down" });
   });
 
-  it("writes LED commands when connected", async () => {
+  it("writes LED mode commands when connected", async () => {
     const transport = new SerialPushToTalkTransport();
 
     await transport.connectGrantedPorts();
     await flushMicrotasks();
 
-    await transport.setLed(true);
-    await transport.setLed(false);
+    await transport.setLedMode("pulse");
+    await transport.setLedMode("on");
+    await transport.setLedMode("off");
 
-    expect(fake.getWrittenText()).toBe(`${PING}\n${LED_ON}\n${LED_OFF}\n`);
+    expect(fake.getWrittenText()).toBe(
+      `${PING}\n${LED_OFF}\n${LED_PULSE}\n${LED_ON}\n${LED_OFF}\n`,
+    );
   });
 
   it("forwards unknown lines to onRawLine and onLine", async () => {

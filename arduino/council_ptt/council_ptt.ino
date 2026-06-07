@@ -7,15 +7,18 @@
  *
  * Serial protocol (115200 baud, newline-terminated):
  *   Device → host: PTT_DOWN, PTT_UP, PONG
- *   Host → device: LED_ON, LED_OFF, PING
+ *   Host → device: LED_OFF, LED_PULSE, LED_ON, PING
  *
- * Multiple buttons are merged: any press sends PTT_DOWN, all released sends
- * PTT_UP. LED commands from the host apply to every button LED together.
+ * LED modes (from host):
+ *   LED_OFF   — LEDs off; button presses are ignored
+ *   LED_PULSE — breathing LEDs; button presses activate PTT
+ *   LED_ON    — LEDs fully on; mic active
  *
  * When no host has opened the USB serial port, buttons still work and the
  * LEDs cycle one-at-a-time (connecting indicator).
  */
 
+#include <math.h>
 #include "Adafruit_seesaw.h"
 
 #define DEFAULT_I2C_ADDR 0x3A
@@ -35,6 +38,12 @@ const uint8_t PWM_PINS[BUTTON_COUNT] = { PWM1, PWM2, PWM3 };
 #define LED_BRIGHTNESS 255
 #define DEBOUNCE_MS 35
 #define CONNECTING_ANIM_STEP_MS 1000
+#define PULSE_CYCLE_MS 2400
+#define PULSE_MIN_BRIGHTNESS 18
+
+#define LED_MODE_OFF 0
+#define LED_MODE_PULSE 1
+#define LED_MODE_ON 2
 
 Adafruit_seesaw ss;
 
@@ -43,6 +52,9 @@ bool lastStableMergedPressed = false;
 unsigned long lastDebounceTime = 0;
 
 bool hostConnected = false;
+uint8_t hostLedMode = LED_MODE_OFF;
+unsigned long pulseAnimStartMs = 0;
+
 uint8_t connectingAnimIndex = 0;
 unsigned long connectingAnimLastStep = 0;
 
@@ -50,17 +62,9 @@ void sendLine(const __FlashStringHelper *line) {
   Serial.println(line);
 }
 
-void setLedAt(uint8_t index, bool on) {
-  if (index >= BUTTON_COUNT) {
-    return;
-  }
-  uint8_t level = on ? LED_BRIGHTNESS : 0;
-  ss.analogWrite(PWM_PINS[index], level);
-}
-
-void setAllLeds(bool on) {
+void applyAllLeds(uint8_t level) {
   for (uint8_t i = 0; i < BUTTON_COUNT; i++) {
-    setLedAt(i, on);
+    ss.analogWrite(PWM_PINS[i], level);
   }
 }
 
@@ -73,6 +77,66 @@ bool readAnyButtonPressed() {
   return false;
 }
 
+bool pttInputEnabled() {
+  return hostConnected && (hostLedMode == LED_MODE_PULSE || hostLedMode == LED_MODE_ON);
+}
+
+void syncPttBaseline() {
+  bool reading = readAnyButtonPressed();
+  mergedPressed = reading;
+  lastStableMergedPressed = reading;
+  lastDebounceTime = millis();
+}
+
+float pulseEase(float t) {
+  return t * t * (3.0f - 2.0f * t);
+}
+
+void setHostLedMode(uint8_t mode) {
+  hostLedMode = mode;
+
+  if (mode == LED_MODE_PULSE) {
+    pulseAnimStartMs = millis();
+  }
+
+  if (mode == LED_MODE_OFF) {
+    applyAllLeds(0);
+  } else if (mode == LED_MODE_ON) {
+    applyAllLeds(LED_BRIGHTNESS);
+  }
+
+  syncPttBaseline();
+}
+
+void runPulseAnimation() {
+  unsigned long elapsed = millis() - pulseAnimStartMs;
+  float phase = fmod((float)elapsed / (float)PULSE_CYCLE_MS, 1.0f);
+  float triangle = phase < 0.5f ? phase * 2.0f : (1.0f - phase) * 2.0f;
+  float eased = pulseEase(triangle);
+  uint8_t level =
+    PULSE_MIN_BRIGHTNESS +
+    (uint8_t)(eased * (float)(LED_BRIGHTNESS - PULSE_MIN_BRIGHTNESS));
+  applyAllLeds(level);
+}
+
+void updateHostLedOutput() {
+  if (!hostConnected) {
+    return;
+  }
+
+  switch (hostLedMode) {
+    case LED_MODE_OFF:
+      applyAllLeds(0);
+      break;
+    case LED_MODE_PULSE:
+      runPulseAnimation();
+      break;
+    case LED_MODE_ON:
+      applyAllLeds(LED_BRIGHTNESS);
+      break;
+  }
+}
+
 void updateHostConnection() {
   bool nowConnected = (bool)Serial;
   if (nowConnected == hostConnected) {
@@ -80,11 +144,15 @@ void updateHostConnection() {
   }
 
   hostConnected = nowConnected;
-  setAllLeds(false);
+  applyAllLeds(0);
 
-  if (!hostConnected) {
+  if (hostConnected) {
+    setHostLedMode(LED_MODE_OFF);
+  } else {
+    hostLedMode = LED_MODE_OFF;
     connectingAnimIndex = 0;
     connectingAnimLastStep = 0;
+    syncPttBaseline();
   }
 }
 
@@ -95,8 +163,10 @@ void runConnectingAnimation() {
 
   unsigned long now = millis();
   if (connectingAnimLastStep == 0 || (now - connectingAnimLastStep) >= CONNECTING_ANIM_STEP_MS) {
-    setAllLeds(false);
-    setLedAt(connectingAnimIndex, true);
+    applyAllLeds(0);
+    if (connectingAnimIndex < BUTTON_COUNT) {
+      ss.analogWrite(PWM_PINS[connectingAnimIndex], LED_BRIGHTNESS);
+    }
     connectingAnimIndex = (connectingAnimIndex + 1) % BUTTON_COUNT;
     connectingAnimLastStep = now;
   }
@@ -110,10 +180,12 @@ void handleSerialInput() {
   String line = Serial.readStringUntil('\n');
   line.trim();
 
-  if (line == F("LED_ON")) {
-    setAllLeds(true);
-  } else if (line == F("LED_OFF")) {
-    setAllLeds(false);
+  if (line == F("LED_OFF")) {
+    setHostLedMode(LED_MODE_OFF);
+  } else if (line == F("LED_PULSE")) {
+    setHostLedMode(LED_MODE_PULSE);
+  } else if (line == F("LED_ON")) {
+    setHostLedMode(LED_MODE_ON);
   } else if (line == F("PING")) {
     sendLine(F("PONG"));
   }
@@ -143,11 +215,14 @@ void setup() {
   for (uint8_t i = 0; i < BUTTON_COUNT; i++) {
     ss.pinMode(SWITCH_PINS[i], INPUT_PULLUP);
   }
-  setAllLeds(false);
+  applyAllLeds(0);
 
   hostConnected = (bool)Serial;
+  hostLedMode = LED_MODE_OFF;
   connectingAnimIndex = 0;
   connectingAnimLastStep = 0;
+  pulseAnimStartMs = millis();
+  syncPttBaseline();
 
   Serial.println(F("READY council-ptt"));
 }
@@ -157,6 +232,7 @@ void loop() {
 
   if (hostConnected) {
     handleSerialInput();
+    updateHostLedOutput();
   } else {
     runConnectingAnimation();
   }
@@ -170,10 +246,12 @@ void loop() {
   if ((millis() - lastDebounceTime) > DEBOUNCE_MS) {
     if (reading != lastStableMergedPressed) {
       lastStableMergedPressed = reading;
-      if (lastStableMergedPressed) {
-        sendLine(F("PTT_DOWN"));
-      } else {
-        sendLine(F("PTT_UP"));
+      if (pttInputEnabled()) {
+        if (lastStableMergedPressed) {
+          sendLine(F("PTT_DOWN"));
+        } else {
+          sendLine(F("PTT_UP"));
+        }
       }
     }
   }

@@ -2,11 +2,13 @@ import {
   formatSerialCommand,
   LED_OFF,
   LED_ON,
+  LED_PULSE,
   parseSerialChunk,
   PING,
   PTT_BAUD_RATE,
   type ParsedSerialLine,
 } from "@/serial/protocol";
+import type { PttLedMode } from "@/voice/pttLedMode";
 
 export type SerialTransportStatus = "disconnected" | "connecting" | "connected" | "error";
 
@@ -92,6 +94,7 @@ export class SerialPushToTalkTransport {
     this.setStatus("connected");
     void this.readLoop();
     await this.sendCommand(PING);
+    await this.sendCommand(LED_OFF);
   }
 
   async disconnect(): Promise<void> {
@@ -134,8 +137,10 @@ export class SerialPushToTalkTransport {
     await this.writer.write(new TextEncoder().encode(payload));
   }
 
-  async setLed(on: boolean): Promise<void> {
-    await this.sendCommand(on ? LED_ON : LED_OFF);
+  async setLedMode(mode: PttLedMode): Promise<void> {
+    const command =
+      mode === "on" ? LED_ON : mode === "pulse" ? LED_PULSE : LED_OFF;
+    await this.sendCommand(command);
   }
 
   private async readLoop(): Promise<void> {

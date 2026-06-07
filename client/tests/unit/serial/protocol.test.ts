@@ -6,6 +6,7 @@ import {
   PTT_DOWN,
   PTT_UP,
   LED_ON,
+  LED_PULSE,
 } from "@/serial/protocol";
 
 describe("serial protocol", () => {
@@ -28,6 +29,7 @@ describe("serial protocol", () => {
   it("formats commands with newline", () => {
     expect(formatSerialCommand(PTT_DOWN)).toBe(`${PTT_DOWN}\n`);
     expect(formatSerialCommand(LED_ON)).toBe(`${LED_ON}\n`);
+    expect(formatSerialCommand(LED_PULSE)).toBe(`${LED_PULSE}\n`);
   });
 
   it("trims whitespace and ignores empty lines", () => {

@@ -17,6 +17,7 @@ import { getPushToTalk } from "@/settings/councilSettings";
 import { buildGuidePrompt } from "./guidePrompt";
 import { createGuideToolHandlers, createGuideTools } from "./guideTools";
 import { useHoldToSpeakHint } from "./useHoldToSpeakHint";
+import { computePttLedMode } from "./pttLedMode";
 import { useVoiceGuide } from "./useVoiceGuide";
 import voiceGuidePromptEn from "@shared/prompts/voice_guide_en.json";
 import voiceGuidePromptSv from "@shared/prompts/voice_guide_sv.json";
@@ -41,7 +42,7 @@ export default function MeetingVoiceGuide({
   const { i18n, t } = useTranslation();
   const pushToTalkMode = getPushToTalk();
   const pressed = usePushToTalkStore((state) => state.pressed);
-  const setLed = usePushToTalkStore((state) => state.setLed);
+  const setLedMode = usePushToTalkStore((state) => state.setLedMode);
   const {
     selectedTopic,
     customTopic,
@@ -123,13 +124,23 @@ export default function MeetingVoiceGuide({
     lastCaption: voice.lastCaption,
   });
 
+  const ledMode = computePttLedMode({
+    pushToTalkMode,
+    muted,
+    isConnecting: voice.isConnecting,
+    voiceError: voice.error,
+    pressed,
+  });
+
   useEffect(() => {
-    if (!pushToTalkMode || muted) {
-      void setLed(false);
-      return;
-    }
-    void setLed(pressed);
-  }, [pushToTalkMode, muted, pressed, setLed]);
+    void setLedMode(ledMode);
+  }, [ledMode, setLedMode]);
+
+  useEffect(() => {
+    return () => {
+      void setLedMode("off");
+    };
+  }, [setLedMode]);
 
   useEffect(() => {
     if (!lastUserEvent) {

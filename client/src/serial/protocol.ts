@@ -4,6 +4,7 @@ export const PTT_DOWN = "PTT_DOWN";
 export const PTT_UP = "PTT_UP";
 export const LED_ON = "LED_ON";
 export const LED_OFF = "LED_OFF";
+export const LED_PULSE = "LED_PULSE";
 export const PING = "PING";
 export const PONG = "PONG";
 
