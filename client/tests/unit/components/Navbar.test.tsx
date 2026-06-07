@@ -61,9 +61,9 @@ describe('Navbar', () => {
         vi.mocked(responsive.useMediaQuery).mockReturnValue(true); // showIconinMeny
     });
 
-    const renderNavbar = (props = defaultProps) => {
+    const renderNavbar = (props = defaultProps, initialEntries: string[] = ['/meeting/123']) => {
         return render(
-            <MemoryRouter initialEntries={['/meeting/123']}>
+            <MemoryRouter initialEntries={initialEntries}>
                 <Navbar {...props} />
             </MemoryRouter>
         );
@@ -76,7 +76,19 @@ describe('Navbar', () => {
         expect(screen.getByText('SETTINGS')).toBeVisible();
         expect(screen.getByText('ABOUT')).toBeVisible();
         expect(screen.getByText('CONTACT')).toBeVisible();
+        expect(screen.queryByText('SETUP')).not.toBeInTheDocument();
         expect(screen.queryByTestId('lottie-player')).not.toBeInTheDocument();
+    });
+
+    it('shows setup link on root path only', () => {
+        renderNavbar(defaultProps, ['/']);
+        expect(screen.getByText('SETUP')).toBeVisible();
+        expect(window.getComputedStyle(screen.getByText('SETUP').closest('span')!).opacity).toBe('1');
+    });
+
+    it('hides setup link off root path', () => {
+        renderNavbar(defaultProps, ['/meeting/123']);
+        expect(screen.queryByText('SETUP')).not.toBeInTheDocument();
     });
 
     it('renders mobile navbar with hamburger', () => {

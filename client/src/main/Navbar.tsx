@@ -3,7 +3,7 @@ import { useLocation, useNavigate, NavigateFunction, Location, Link } from "reac
 import { useMediaQuery } from 'react-responsive'
 import { useTranslation } from 'react-i18next';
 import { capitalizeFirstLetter, useMobile, useMobileXs, usePortrait } from "@/utils";
-import { getMeetingIdFromPathname, stripLanguagePrefix } from "@/routing";
+import { getMeetingIdFromPathname, isRootPath, stripLanguagePrefix } from "@/routing";
 import Lottie from "react-lottie-player";
 import type { ComponentRef } from "react";
 import hamburger from "@assets/animations/hamburger.json";
@@ -46,7 +46,7 @@ function Navbar({ topicTitle: topic, hamburgerOpen, setHamburgerOpen }: NavbarPr
   /* -------------------------------------------------------------------------- */
 
   useEffect(() => {
-    if (['#about', '#contact', '#settings'].includes(location.hash)) {
+    if (['#about', '#contact', '#setup', '#settings'].includes(location.hash)) {
       setActiveMenuItem(location.hash);
     } else {
       setActiveMenuItem('');
@@ -123,9 +123,9 @@ function Navbar({ topicTitle: topic, hamburgerOpen, setHamburgerOpen }: NavbarPr
     textUnderlineOffset: "4px",
   };
 
-  const navItems: string[] = ["settings", "about", "contact"];
-
   const showMenu: boolean = (!isMobile || hamburgerOpen);
+  const onMeeting = location.pathname.includes(routes.meeting);
+  const onRoot = isRootPath(location.pathname);
 
   /* -------------------------------------------------------------------------- */
   /*                                   Render                                   */
@@ -170,15 +170,34 @@ function Navbar({ topicTitle: topic, hamburgerOpen, setHamburgerOpen }: NavbarPr
         style={{ display: "flex", flexDirection: "column", alignItems: "end" }}
       >
         <div style={{ display: "flex" }}>
-          {navItems.map((item) => (
+          {onRoot && (
             <NavItem
-              key={item}
-              name={item}
-              show={showMenu && (item !== 'settings' || location.pathname.includes(routes.meeting))}
-              isActive={activeMenuItem === `#${item}`} // Determine active state
+              name="setup"
+              show={showMenu}
+              isActive={activeMenuItem === "#setup"}
               onNavigate={handleOnNavigate}
             />
-          ))}
+          )}
+          {onMeeting && (
+            <NavItem
+              name="settings"
+              show={showMenu}
+              isActive={activeMenuItem === "#settings"}
+              onNavigate={handleOnNavigate}
+            />
+          )}
+          <NavItem
+            name="about"
+            show={showMenu}
+            isActive={activeMenuItem === "#about"}
+            onNavigate={handleOnNavigate}
+          />
+          <NavItem
+            name="contact"
+            show={showMenu}
+            isActive={activeMenuItem === "#contact"}
+            onNavigate={handleOnNavigate}
+          />
           {AVAILABLE_LANGUAGES.length > 1 && (
             <h3 style={{
               margin: "0",
