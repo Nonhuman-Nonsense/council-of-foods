@@ -8,6 +8,8 @@ export type VoiceGuidePromptBundle = {
   system: string;
   projectDescription: string;
   promptTemplate: string;
+  /** Human-readable label for the character-selection wizard step (internal phase is still "foods"). */
+  characterStepLabel?: string;
   landingJobInstructions: string[];
   landingJobInstructionsPushToTalk: string[];
   jobInstructions: string[];
@@ -29,9 +31,9 @@ function formatBullets(lines: string[]): string {
 /**
  * Builds the system prompt for the voice guide.
  *
- * The prompt is intentionally short. We DO NOT inline topic/food descriptions
+ * The prompt is intentionally short. We DO NOT inline topic/character descriptions
  * here; the model gets only id+title/name lists and is told to call the
- * `describe_topic` / `describe_food` tools when it needs detail. This keeps
+ * `describe_topic` / character tools when it needs detail. This keeps
  * the prompt under Inworld's tolerance and avoids the `server_error` failures
  * we hit with very long instructions.
  */
@@ -40,7 +42,12 @@ export function buildGuidePrompt(params: BuildGuidePromptParams): string {
 
   const topicsList = topics.map((t) => `${t.id}: ${t.title}`);
   const charactersList = characters.map((character) => `${character.id}: ${character.name}`);
-  const phaseLabel = phase === "landing" ? "welcome landing" : phase;
+  const phaseLabel =
+    phase === "landing"
+      ? "welcome landing"
+      : phase === "foods"
+        ? (bundle.characterStepLabel ?? "foods")
+        : phase;
   const jobLines =
     phase === "landing"
       ? (pushToTalkMode ? bundle.landingJobInstructionsPushToTalk : bundle.landingJobInstructions)
@@ -51,6 +58,7 @@ export function buildGuidePrompt(params: BuildGuidePromptParams): string {
     currentStep: phaseLabel,
     jobInstructions: formatBullets(jobLines),
     topicsList: formatBullets(topicsList),
+    charactersList: formatBullets(charactersList),
     foodsList: formatBullets(charactersList),
   };
 
