@@ -22,6 +22,7 @@ import FullscreenButton from "./FullscreenButton";
 import { usePortrait, dvh } from "@/utils";
 import CouncilError from "./overlay/CouncilError";
 import Reconnecting from "./overlay/Reconnecting";
+import { usePushToTalkStore } from "@stores/usePushToTalkStore";
 
 import routes from "@/routes.json";
 import { backgroundImageUrls } from "@assets/backgrounds/index";
@@ -117,6 +118,13 @@ export default function Main(props: MainProps) {
       setMeetingliveKey(null);
     }
   }, [location.pathname]);
+
+  useEffect(() => {
+    usePushToTalkStore.getState().init();
+    return () => {
+      usePushToTalkStore.getState().dispose();
+    };
+  }, []);
 
   // Centralize Web Audio suspension here so Council and future scene components can share one
   // AudioContext without each feature trying to suspend/resume it independently.

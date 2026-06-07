@@ -85,12 +85,12 @@ describe('MainOverlays', () => {
         expect(mockNavigate).not.toHaveBeenCalled();
     });
 
-    it('removes setup overlay on non-root paths', () => {
+    it('keeps setup overlay on non-root paths', () => {
         mockLocation.hash = '#setup';
         mockLocation.pathname = `/${routes.newMeeting}`;
         render(<MainOverlays topic={topic} onReset={mockOnReset} onCloseOverlay={mockOnCloseOverlay} />);
-        expect(mockNavigate).toHaveBeenCalledWith({ hash: "" });
-        expect(mockOnCloseOverlay).toHaveBeenCalled();
+        expect(screen.getByTestId('setup-overlay')).toBeInTheDocument();
+        expect(mockNavigate).not.toHaveBeenCalled();
     });
 
     it('renders Settings overlay when hash is #settings and path is meeting', () => {

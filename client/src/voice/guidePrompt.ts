@@ -9,6 +9,7 @@ export type VoiceGuidePromptBundle = {
   projectDescription: string;
   promptTemplate: string;
   landingJobInstructions: string[];
+  landingJobInstructionsPushToTalk: string[];
   jobInstructions: string[];
   toolDescriptions: Record<string, string>;
 };
@@ -18,6 +19,7 @@ export type BuildGuidePromptParams = {
   topics: GuideTopic[];
   characters: GuideCharacter[];
   phase: MeetingSetupPhase;
+  pushToTalkMode?: boolean;
 };
 
 function formatBullets(lines: string[]): string {
@@ -34,13 +36,15 @@ function formatBullets(lines: string[]): string {
  * we hit with very long instructions.
  */
 export function buildGuidePrompt(params: BuildGuidePromptParams): string {
-  const { bundle, topics, characters, phase } = params;
+  const { bundle, topics, characters, phase, pushToTalkMode = false } = params;
 
   const topicsList = topics.map((t) => `${t.id}: ${t.title}`);
   const charactersList = characters.map((character) => `${character.id}: ${character.name}`);
   const phaseLabel = phase === "landing" ? "welcome landing" : phase;
   const jobLines =
-    phase === "landing" ? bundle.landingJobInstructions : bundle.jobInstructions;
+    phase === "landing"
+      ? (pushToTalkMode ? bundle.landingJobInstructionsPushToTalk : bundle.landingJobInstructions)
+      : bundle.jobInstructions;
   const replacements: Record<string, string> = {
     system: bundle.system.trim(),
     projectDescription: bundle.projectDescription.trim(),

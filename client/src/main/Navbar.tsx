@@ -3,7 +3,7 @@ import { useLocation, useNavigate, NavigateFunction, Location, Link } from "reac
 import { useMediaQuery } from 'react-responsive'
 import { useTranslation } from 'react-i18next';
 import { capitalizeFirstLetter, useMobile, useMobileXs, usePortrait } from "@/utils";
-import { getMeetingIdFromPathname, isRootPath, stripLanguagePrefix } from "@/routing";
+import { getMeetingIdFromPathname, stripLanguagePrefix } from "@/routing";
 import Lottie from "react-lottie-player";
 import type { ComponentRef } from "react";
 import hamburger from "@assets/animations/hamburger.json";
@@ -46,7 +46,7 @@ function Navbar({ topicTitle: topic, hamburgerOpen, setHamburgerOpen }: NavbarPr
   /* -------------------------------------------------------------------------- */
 
   useEffect(() => {
-    if (['#about', '#contact', '#setup', '#settings'].includes(location.hash)) {
+    if (['#about', '#contact', '#settings'].includes(location.hash)) {
       setActiveMenuItem(location.hash);
     } else {
       setActiveMenuItem('');
@@ -125,7 +125,6 @@ function Navbar({ topicTitle: topic, hamburgerOpen, setHamburgerOpen }: NavbarPr
 
   const showMenu: boolean = (!isMobile || hamburgerOpen);
   const onMeeting = location.pathname.includes(routes.meeting);
-  const onRoot = isRootPath(location.pathname);
 
   /* -------------------------------------------------------------------------- */
   /*                                   Render                                   */
@@ -170,14 +169,6 @@ function Navbar({ topicTitle: topic, hamburgerOpen, setHamburgerOpen }: NavbarPr
         style={{ display: "flex", flexDirection: "column", alignItems: "end" }}
       >
         <div style={{ display: "flex" }}>
-          {onRoot && (
-            <NavItem
-              name="setup"
-              show={showMenu}
-              isActive={activeMenuItem === "#setup"}
-              onNavigate={handleOnNavigate}
-            />
-          )}
           {onMeeting && (
             <NavItem
               name="settings"

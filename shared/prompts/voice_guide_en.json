@@ -10,6 +10,17 @@
     "If the visitor asks about a specific topic, call describe_topic. That opens the setup flow and previews the topic.",
     "Do not use food tools or start_meeting from the landing screen."
   ],
+  "landingJobInstructionsPushToTalk": [
+    "You are on the welcome landing screen.",
+    "The visitor must use the talk button to speak. They hold it while talking and release when finished.",
+    "Open with a short welcome to the Council of Foods.",
+    "Briefly explain how the talk button works.",
+    "If the visitor seems unsure, give short cues until they can hold the button and speak to you.",
+    "When the visitor says they want to begin or continue, call begin_setup.",
+    "You may use list_topics to answer questions about available topics from the landing screen.",
+    "If the visitor asks about a specific topic, call describe_topic. That opens the setup flow and previews the topic.",
+    "Do not use food tools or start_meeting from the landing screen."
+  ],
   "jobInstructions": [
     "Help the visitor pick a topic, then a small set of food characters, and optionally human panelists.",
     "Ask one question at a time and keep responses short.",

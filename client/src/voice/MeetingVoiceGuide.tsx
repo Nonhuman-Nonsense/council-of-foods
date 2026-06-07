@@ -12,6 +12,8 @@ import {
   type MeetingSetupUserEvent,
 } from "@newMeeting/meetingSetup";
 import { useMeetingSetupStore } from "@stores/useMeetingSetupStore";
+import { usePushToTalkStore } from "@stores/usePushToTalkStore";
+import { getPushToTalk } from "@/settings/councilSettings";
 import { buildGuidePrompt } from "./guidePrompt";
 import { createGuideToolHandlers, createGuideTools } from "./guideTools";
 import { useVoiceGuide } from "./useVoiceGuide";
@@ -36,6 +38,9 @@ export default function MeetingVoiceGuide({
   onStartMeeting,
 }: MeetingVoiceGuideProps) {
   const { i18n, t } = useTranslation();
+  const pushToTalkMode = getPushToTalk();
+  const pressed = usePushToTalkStore((state) => state.pressed);
+  const setLed = usePushToTalkStore((state) => state.setLed);
   const {
     selectedTopic,
     customTopic,
@@ -75,8 +80,9 @@ export default function MeetingVoiceGuide({
       topics: guideTopics,
       characters: guideCharacters,
       phase,
+      pushToTalkMode,
     });
-  }, [guideCharacters, guideTopics, phase, promptBundle]);
+  }, [guideCharacters, guideTopics, phase, promptBundle, pushToTalkMode]);
 
   const voice = useVoiceGuide({
     language: guideLanguage,
@@ -102,8 +108,18 @@ export default function MeetingVoiceGuide({
         twoHumansSuffix: t("selectfoods.twohumans"),
       },
     }),
+    pushToTalkMode,
+    micOpen: pressed,
   });
-  const { sendUserMessage } = voice;
+  const { sendUserMessage, muted } = voice;
+
+  useEffect(() => {
+    if (!pushToTalkMode || muted) {
+      void setLed(false);
+      return;
+    }
+    void setLed(pressed);
+  }, [pushToTalkMode, muted, pressed, setLed]);
 
   useEffect(() => {
     if (!lastUserEvent) {
@@ -124,6 +140,8 @@ export default function MeetingVoiceGuide({
       lastCaption={voice.lastCaption}
       lastUserTranscript={voice.lastUserTranscript}
       muted={voice.muted}
+      pushToTalkMode={pushToTalkMode}
+      micOpen={pressed}
       onStart={voice.start}
       onStop={voice.stop}
     />

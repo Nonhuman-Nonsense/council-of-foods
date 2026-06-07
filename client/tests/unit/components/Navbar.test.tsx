@@ -80,17 +80,6 @@ describe('Navbar', () => {
         expect(screen.queryByTestId('lottie-player')).not.toBeInTheDocument();
     });
 
-    it('shows setup link on root path only', () => {
-        renderNavbar(defaultProps, ['/']);
-        expect(screen.getByText('SETUP')).toBeVisible();
-        expect(window.getComputedStyle(screen.getByText('SETUP').closest('span')!).opacity).toBe('1');
-    });
-
-    it('hides setup link off root path', () => {
-        renderNavbar(defaultProps, ['/meeting/123']);
-        expect(screen.queryByText('SETUP')).not.toBeInTheDocument();
-    });
-
     it('renders mobile navbar with hamburger', () => {
         vi.mocked(utils.useMobile).mockReturnValue(true);
         renderNavbar();

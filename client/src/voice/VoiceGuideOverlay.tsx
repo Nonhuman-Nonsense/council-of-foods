@@ -3,6 +3,7 @@ import Lottie from "react-lottie-player";
 import loadingAnimation from "@assets/animations/loading.json";
 import ConversationControlIcon from "@council/ConversationControlIcon";
 import { useMobile } from "@/utils";
+import { useTranslation } from "react-i18next";
 
 type VoiceGuideOverlayProps = {
   isConnecting: boolean;
@@ -10,6 +11,8 @@ type VoiceGuideOverlayProps = {
   lastCaption: string | null;
   lastUserTranscript: string | null;
   muted: boolean;
+  pushToTalkMode?: boolean;
+  micOpen?: boolean;
   onStart: () => void;
   onStop: () => void;
 };
@@ -19,10 +22,22 @@ type VoiceGuideOverlayProps = {
  * toggle button at the bottom. Stopping the guide tears down WebRTC.
  */
 export default function VoiceGuideOverlay(props: VoiceGuideOverlayProps): ReactElement {
-  const { isConnecting, error, lastCaption, lastUserTranscript, muted, onStart, onStop } = props;
+  const {
+    isConnecting,
+    error,
+    lastCaption,
+    lastUserTranscript,
+    muted,
+    pushToTalkMode = false,
+    micOpen = false,
+    onStart,
+    onStop,
+  } = props;
   const isMobile = useMobile();
+  const { t } = useTranslation();
 
-  const recordingState: "idle" | "loading" | "recording" = muted
+  const sessionActive = !muted;
+  const recordingState: "idle" | "loading" | "recording" = !sessionActive
     ? "idle"
     : isConnecting
       ? "loading"
@@ -84,6 +99,7 @@ export default function VoiceGuideOverlay(props: VoiceGuideOverlayProps): ReactE
   };
 
   const hasText = Boolean(lastUserTranscript || lastCaption);
+  const showHoldToSpeak = pushToTalkMode && sessionActive && !isConnecting && !micOpen;
 
   return (
     <>
@@ -92,6 +108,12 @@ export default function VoiceGuideOverlay(props: VoiceGuideOverlayProps): ReactE
           {error ? (
             <p style={{ ...paragraphStyle, color: "#ffb4b4", margin: 0 }} role="alert">
               {error}
+            </p>
+          ) : null}
+
+          {showHoldToSpeak ? (
+            <p style={{ ...secondaryStyle, margin: 0 }} data-testid="voice-guide-hold-to-speak">
+              {t("setup.holdToSpeak")}
             </p>
           ) : null}
 

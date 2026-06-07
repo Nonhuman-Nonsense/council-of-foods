@@ -22,10 +22,10 @@ describe('Setup overlay', () => {
 
   it('renders title and voice guide options', () => {
     render(<Setup />);
-    expect(screen.getByText('setupTitle')).toBeInTheDocument();
-    expect(screen.getByText('voiceGuide')).toBeInTheDocument();
-    expect(screen.getByText('alwaysOn')).toBeInTheDocument();
-    expect(screen.getByText('pushToTalk')).toBeInTheDocument();
+    expect(screen.getByText('setup.title')).toBeInTheDocument();
+    expect(screen.getByText('setup.voiceGuide')).toBeInTheDocument();
+    expect(screen.getByText('setup.alwaysOn')).toBeInTheDocument();
+    expect(screen.getByText('setup.pushToTalk')).toBeInTheDocument();
   });
 
   it('selects always on by default and persists push to talk choice', () => {

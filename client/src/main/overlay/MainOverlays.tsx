@@ -44,8 +44,6 @@ function MainOverlays({ topic, onReset, onCloseOverlay }: MainOverlaysProps): Re
         cancelOverlay();
       } else if (!isMeetingPath(location.pathname) && ["#settings"].includes(hash)) {
         cancelOverlay();
-      } else if (!isRootPath(location.pathname) && ["#setup"].includes(hash)) {
-        cancelOverlay();
       } else if (isRootPath(location.pathname) && ["#reset", '#warning'].includes(hash)) {
         cancelOverlay();
       }
