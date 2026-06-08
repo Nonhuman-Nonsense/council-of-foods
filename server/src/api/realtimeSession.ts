@@ -1,6 +1,7 @@
 import type { Express, Request, Response as ExpressResponse } from "express";
 import { meetingsCollection } from "@services/DbService.js";
 import { Logger } from "@utils/Logger.js";
+import { CouncilError } from "@models/Errors.js";
 import {
     createRealtimeCall,
     getHumanInputRealtimeBootstrap,
@@ -73,7 +74,7 @@ export function registerRealtimeRoutes(app: Express): void {
             res.status(200).json(data);
         } catch (e) {
             await Logger.error("api", "POST /api/realtime/bootstrap failed", e);
-            res.status(500).json({ message: "Realtime bootstrap unavailable" });
+            res.status(500).json(CouncilError.fromUnexpected(e, "Realtime bootstrap unavailable").toApiBody("api POST /api/realtime/bootstrap"));
         }
     });
 
@@ -112,7 +113,7 @@ export function registerRealtimeRoutes(app: Express): void {
             res.status(200).json(data);
         } catch (e) {
             await Logger.error("api", "POST /api/realtime/call failed", e);
-            res.status(500).json({ message: "Realtime call unavailable" });
+            res.status(500).json(CouncilError.fromUnexpected(e, "Realtime call unavailable").toApiBody("api POST /api/realtime/call"));
         }
     });
 }

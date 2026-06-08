@@ -242,6 +242,24 @@ describe('Async Error Propagation (Comprehensive)', () => {
         }
     });
 
+    it('should omit debug payloads in test environment', async () => {
+        const error = new Error('Simulated Crash');
+        mockHumanInputHandler.handleSubmitHumanMessage.mockRejectedValue(error);
+
+        const startHandler = socketHandlers['start_conversation'];
+        mockMeetingLifecycleHandler.handleStartConversation.mockResolvedValueOnce();
+        await startHandler({ meetingId: 1, liveKey: 'test-live-key' });
+
+        await socketHandlers['submit_human_message']({ text: 'Hello' });
+
+        const emitted = mockSocket.emit.mock.calls.find((call) => call[0] === 'conversation_error')?.[1];
+        expect(emitted).toEqual(expect.objectContaining({
+            message: 'Internal Server Error',
+            code: 500,
+        }));
+        expect(emitted?.debug).toBeUndefined();
+    });
+
     it('should catch Zod validation errors and broadcast 400', async () => {
         const error = new ZodError([]);
         const method = 'handleSubmitHumanMessage';

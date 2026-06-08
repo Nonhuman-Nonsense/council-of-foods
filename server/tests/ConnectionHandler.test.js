@@ -87,7 +87,9 @@ describe('ConnectionHandler', () => {
             const ok = await handler.handleReconnection({ meetingId: 999, liveKey: 'any' });
 
             expect(ok).toBe(false);
-            expect(mockBroadcaster.broadcastError).toHaveBeenCalledWith('Meeting not found', 404);
+            expect(mockBroadcaster.broadcastError).toHaveBeenCalledWith(
+                expect.objectContaining({ clientMessage: 'Meeting not found', statusCode: 404 }),
+            );
             expect(mockContext.meeting).toBeNull();
         });
 
@@ -103,7 +105,9 @@ describe('ConnectionHandler', () => {
             const ok = await handler.handleReconnection({ meetingId: 123, liveKey: 'wrong-key' });
 
             expect(ok).toBe(false);
-            expect(mockBroadcaster.broadcastError).toHaveBeenCalledWith('Forbidden', 403);
+            expect(mockBroadcaster.broadcastError).toHaveBeenCalledWith(
+                expect.objectContaining({ clientMessage: 'Forbidden', statusCode: 403 }),
+            );
             expect(mockContext.meeting).toBeNull();
         });
 
