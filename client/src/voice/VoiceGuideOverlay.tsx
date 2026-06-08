@@ -16,6 +16,7 @@ type VoiceGuideOverlayProps = {
   lastCaption: string | null;
   lastUserTranscript: string | null;
   muted: boolean;
+  isMuseumMode?: boolean;
   pushToTalkMode?: boolean;
   showHoldToSpeakHint?: boolean;
   onStart: () => void;
@@ -33,6 +34,7 @@ export default function VoiceGuideOverlay(props: VoiceGuideOverlayProps): ReactE
     lastCaption,
     lastUserTranscript,
     muted,
+    isMuseumMode = false,
     pushToTalkMode = false,
     showHoldToSpeakHint = false,
     onStart,
@@ -154,26 +156,28 @@ export default function VoiceGuideOverlay(props: VoiceGuideOverlayProps): ReactE
         </div>
       ) : null}
 
-      <div style={controlContainerStyle}>
-        <div style={controlSlotStyle}>
-          {recordingState === "loading" ? (
-            <Lottie
-              play
-              loop
-              animationData={loadingAnimation}
-              style={{ height: isMobile ? 35 : 40 }}
-            />
-          ) : (
-            <ConversationControlIcon
-              icon={recordingState === "recording" ? "ai_filled" : "ai"}
-              hoverIcon={recordingState === "recording" ? "ai" : "ai_filled"}
-              tooltip={recordingState === "recording" ? "Stop voice guide" : "Start voice guide"}
-              onClick={recordingState === "recording" ? onStop : onStart}
-              size={isMobile ? 30 : 40}
-            />
-          )}
+      {!isMuseumMode ? (
+        <div style={controlContainerStyle}>
+          <div style={controlSlotStyle}>
+            {recordingState === "loading" ? (
+              <Lottie
+                play
+                loop
+                animationData={loadingAnimation}
+                style={{ height: isMobile ? 35 : 40 }}
+              />
+            ) : (
+              <ConversationControlIcon
+                icon={recordingState === "recording" ? "ai_filled" : "ai"}
+                hoverIcon={recordingState === "recording" ? "ai" : "ai_filled"}
+                tooltip={recordingState === "recording" ? "Stop voice guide" : "Start voice guide"}
+                onClick={recordingState === "recording" ? onStop : onStart}
+                size={isMobile ? 30 : 40}
+              />
+            )}
+          </div>
         </div>
-      </div>
+      ) : null}
     </>
   );
 }

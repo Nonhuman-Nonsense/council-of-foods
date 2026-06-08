@@ -13,6 +13,7 @@ import {
 } from "@newMeeting/meetingSetup";
 import { useMeetingSetupStore } from "@stores/useMeetingSetupStore";
 import { usePushToTalkStore } from "@stores/usePushToTalkStore";
+import { useAppMode } from "@/museum/useAppMode";
 import { getPushToTalk } from "@/settings/councilSettings";
 import { buildGuidePrompt } from "./guidePrompt";
 import { createGuideToolHandlers, createGuideTools } from "./guideTools";
@@ -39,6 +40,7 @@ export default function MeetingVoiceGuide({
   onStartMeeting,
 }: MeetingVoiceGuideProps) {
   const { i18n, t } = useTranslation();
+  const { isMuseumMode } = useAppMode();
   const pushToTalkMode = getPushToTalk();
   const pressed = usePushToTalkStore((state) => state.pressed);
   const setLedMode = usePushToTalkStore((state) => state.setLedMode);
@@ -162,6 +164,7 @@ export default function MeetingVoiceGuide({
       lastCaption={voice.lastCaption}
       lastUserTranscript={voice.lastUserTranscript}
       muted={voice.muted}
+      isMuseumMode={isMuseumMode}
       pushToTalkMode={pushToTalkMode}
       showHoldToSpeakHint={showHoldToSpeakHint}
       onStart={voice.start}

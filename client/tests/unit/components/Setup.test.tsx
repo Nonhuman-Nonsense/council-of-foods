@@ -20,12 +20,34 @@ describe('Setup overlay', () => {
     localStorage.clear();
   });
 
-  it('renders title and voice guide options', () => {
+  it('renders title, mode, and voice guide options', () => {
     render(<Setup />);
     expect(screen.getByText('setup.title')).toBeInTheDocument();
+    expect(screen.getByText('setup.mode')).toBeInTheDocument();
+    expect(screen.getByText('setup.web')).toBeInTheDocument();
+    expect(screen.getByText('setup.museum')).toBeInTheDocument();
     expect(screen.getByText('setup.voiceGuide')).toBeInTheDocument();
     expect(screen.getByText('setup.alwaysOn')).toBeInTheDocument();
     expect(screen.getByText('setup.pushToTalk')).toBeInTheDocument();
+  });
+
+  it('selects web by default and persists app mode choice', () => {
+    render(<Setup />);
+
+    const web = screen.getByTestId('app-mode-web');
+    const museum = screen.getByTestId('app-mode-museum');
+
+    expect(web).toHaveClass('selected');
+    expect(museum).not.toHaveClass('selected');
+
+    fireEvent.click(museum);
+    expect(localStorage.getItem('councilAppMode')).toBe('museum');
+    expect(museum).toHaveClass('selected');
+    expect(web).not.toHaveClass('selected');
+
+    fireEvent.click(web);
+    expect(localStorage.getItem('councilAppMode')).toBe('web');
+    expect(web).toHaveClass('selected');
   });
 
   it('selects always on by default and persists push to talk choice', () => {

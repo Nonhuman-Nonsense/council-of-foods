@@ -121,9 +121,9 @@ Mode
 
 ### 1.4 Phase 1 exit criteria
 
-- [ ] Mode persists across reload
-- [ ] `#setup` can switch web ↔ museum
-- [ ] `useAppMode` is the single reactive API for mode
+- [x] Mode persists across reload
+- [x] `#setup` can switch web ↔ museum
+- [x] `useAppMode` is the single reactive API for mode
 
 ---
 
@@ -166,10 +166,10 @@ Renders only when `isMuseumMode`.
 
 ### 2.4 Phase 2 exit criteria
 
-- [ ] Museum: no navbar, no fullscreen button, no AI toggle
-- [ ] Web: all three present (subject to existing `isIphone` fullscreen rule)
-- [ ] Escape hatch mid-meeting restores navbar + controls without losing meeting state
-- [ ] `RouterLogic` / `Main` tests updated for conditional chrome
+- [x] Museum: no navbar, no fullscreen button, no AI toggle
+- [x] Web: all three present (subject to existing `isIphone` fullscreen rule)
+- [x] Escape hatch mid-meeting restores navbar + controls without losing meeting state
+- [x] `RouterLogic` / `Main` tests updated for conditional chrome
 
 ---
 
@@ -305,3 +305,4 @@ flowchart TD
 | Date | Change |
 |------|--------|
 | 2026-06-08 | Initial plan: `src/museum` folder, live escape (no reload), no PTT auto-select, no JS fullscreen, single-click escape hatch |
+| 2026-06-08 | Phase 1–2 implemented: `appMode`, `useAppMode`, Setup selector, conditional chrome, escape hatch, tests |
