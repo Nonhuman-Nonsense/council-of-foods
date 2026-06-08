@@ -69,10 +69,24 @@ export interface PublicAudioClipResponse {
     audioBase64: string;
 }
 
+/** Extra detail for internal clients (prototype / development only; omitted in production). */
+export interface ClientErrorDebug {
+    name?: string;
+    stack?: string;
+    cause?: unknown;
+    context?: string;
+    zodIssues?: unknown;
+    raw?: unknown;
+}
+
 export interface ErrorPayload {
     message: string;
     code: number;
+    debug?: ClientErrorDebug;
 }
+
+/** HTTP error JSON body (`message` + optional `debug`; status code is on the response). */
+export type ApiErrorBody = Pick<ErrorPayload, "message" | "debug">;
 
 export interface ClientKeyResponse {
     value: string;

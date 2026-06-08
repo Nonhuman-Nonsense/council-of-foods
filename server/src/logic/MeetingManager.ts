@@ -329,8 +329,8 @@ export class MeetingManager implements IMeetingManager {
             return { type: 'END_CONVERSATION' };
         }
 
-        // 2b. Live playback: do not get more than `PLAYBACK_AHEAD_BUFFER` messages ahead of what the client has played
-        if (meeting.maximumPlayedIndex != null) {
+        // 2b. Live playback: do not get more than `PLAYBACK_AHEAD_BUFFER` messages ahead of what the client has played (not in prototype)
+        if (this.environment !== 'prototype' && meeting.maximumPlayedIndex != null) {
             if (meeting.conversation.length > meeting.maximumPlayedIndex + PLAYBACK_AHEAD_BUFFER) {
                 return { type: 'IDLE' };
             }

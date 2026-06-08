@@ -1,7 +1,7 @@
 
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { Logger } from '@utils/Logger.js';
-import { InternalServerError } from '@models/Errors.js';
+import { CouncilError } from '@models/Errors.js';
 
 // Mock config to prevent actual error reporting (if errorbot attempts it)
 vi.mock('@root/src/config.js', () => ({
@@ -34,16 +34,17 @@ describe('Logger Reporting', () => {
     it('should broadcast 500 error if broadcaster is provided', () => {
         const mockBroadcaster = {
             broadcastError: vi.fn(),
-            broadcastWarning: vi.fn()
         };
 
         const error = new Error("Broadcast Me");
         Logger.reportAndCrashClient("TestContext", "Client Message", error, mockBroadcaster);
 
         expect(mockBroadcaster.broadcastError).toHaveBeenCalledWith(
-            new InternalServerError().clientMessage,
-            500,
+            expect.any(CouncilError),
+            "TestContext",
         );
+        expect(mockBroadcaster.broadcastError.mock.calls[0][0].clientMessage).toBe("Internal Server Error");
+        expect(mockBroadcaster.broadcastError.mock.calls[0][0].debugCause).toBe(error);
         expect(consoleSpy.error).toHaveBeenCalled();
     });
 

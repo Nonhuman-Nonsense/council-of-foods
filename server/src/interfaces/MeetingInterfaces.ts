@@ -3,6 +3,7 @@ import type { Collection, InsertOneResult } from "mongodb";
 import type { OpenAI } from "openai";
 import type { Socket } from "socket.io";
 import type { StoredMeeting, StoredAudio } from "@models/DBModels.js";
+import type { CouncilError } from "@models/Errors.js";
 import type { ClientToServerEvents, ServerToClientEvents, AudioUpdatePayload } from "@shared/SocketTypes.js";
 import type { GlobalOptions } from "@logic/GlobalOptions.js";
 import type { AudioSystem } from "@logic/AudioSystem.js";
@@ -32,8 +33,17 @@ export interface IMeetingBroadcaster {
     broadcastConversationUpdate(conversation: Message[]): void;
     broadcastConversationEnd(): void;
     broadcastAudioUpdate(audio: AudioUpdatePayload): void;
-    broadcastError(message: string, code: number): void;
-    broadcastWarning(message: string, code: number, error?: Error): void;
+    /**
+     * Terminal / server failures the client should treat as a hard stop (500s, conflicts, etc.).
+     * Wire format: `conversation_error`. Kept separate from `broadcastWarning` so we can change
+     * delivery policy later (e.g. always notify) without touching validation paths.
+     */
+    broadcastError(error: CouncilError, context?: string): void;
+    /**
+     * Recoverable client issues (validation, 4xx). Same `conversation_error` event today — the split
+     * is intentional: future policy may log-only, downgrade, or skip broadcasting warnings.
+     */
+    broadcastWarning(error: CouncilError, context?: string): void;
 }
 
 /**

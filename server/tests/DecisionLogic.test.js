@@ -102,6 +102,25 @@ describe('MeetingManager - State Machine (decideNextAction)', () => {
             expected: { type: 'IDLE' }
         },
         {
+            name: 'should not apply playback buffer in prototype environment',
+            env: 'prototype',
+            setup: (mgr) => {
+                mgr.serverOptions.conversationMaxLength = 10;
+                mgr.meeting.maximumPlayedIndex = 0;
+                mgr.meeting.conversation = [
+                    { id: 'a', type: 'message', speaker: chairCharacter.id, text: '1' },
+                    { id: 'b', type: 'message', speaker: chairCharacter.id, text: '2' },
+                    { id: 'c', type: 'message', speaker: chairCharacter.id, text: '3' },
+                    { id: 'd', type: 'message', speaker: chairCharacter.id, text: '4' }
+                ];
+            },
+            nextSpeakerIndex: 1,
+            expected: {
+                type: 'GENERATE_AI_RESPONSE',
+                speaker: expect.objectContaining({ id: firstSpeaker.id })
+            }
+        },
+        {
             name: 'should not apply playback buffer when maximumPlayedIndex is unset',
             setup: (mgr) => {
                 mgr.serverOptions.conversationMaxLength = 10;
@@ -121,12 +140,18 @@ describe('MeetingManager - State Machine (decideNextAction)', () => {
         }
     ];
 
-    scenarios.forEach(({ name, setup, nextSpeakerIndex, expected }) => {
+    scenarios.forEach(({ name, setup, nextSpeakerIndex, expected, env }) => {
         it(name, () => {
-            setup(manager);
+            const activeManager = env
+                ? createTestManager(env).manager
+                : manager;
+            if (env) {
+                activeManager.meeting.characters.push({ id: 'panelist0', name: 'Alice', description: '', prompt: '', voice: 'alloy' });
+            }
+            setup(activeManager);
             vi.spyOn(SpeakerSelector, 'calculateNextSpeaker').mockReturnValue(nextSpeakerIndex);
 
-            const decision = manager.decideNextAction();
+            const decision = activeManager.decideNextAction();
             expect(decision).toEqual(expected);
         });
     });

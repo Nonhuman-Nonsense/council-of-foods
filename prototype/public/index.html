@@ -175,6 +175,7 @@
             <div style="margin-left: auto; display: flex; gap: 5px;">
               <!-- Conversation Controls -->
               <button v-if="status === 'IDLE'" class="primary" @click="startConversation">Start</button>
+              <span v-if="status === 'ERROR'" class="status-error" title="Reload the page to continue">ERROR</span>
               <button v-if="status === 'PAUSED'" class="primary" @click="resumeConversation">Resume</button>
               <button v-if="status === 'ACTIVE' || status === 'CONNECTING'" @click="pauseConversation">Pause</button>
               <button v-if="status === 'PAUSED' || status === 'ENDED'" @click="restartConversation">Restart</button>

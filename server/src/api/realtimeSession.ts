@@ -1,6 +1,7 @@
 import type { Express, Request, Response as ExpressResponse } from "express";
 import { meetingsCollection } from "@services/DbService.js";
 import { Logger } from "@utils/Logger.js";
+import { BadRequestError, CouncilError } from "@models/Errors.js";
 import {
     createRealtimeCall,
     getHumanInputRealtimeBootstrap,
@@ -32,7 +33,7 @@ export function registerRealtimeRoutes(app: Express): void {
         const feature: RealtimeFeature | undefined = body?.feature;
 
         if (feature !== "human-input" && feature !== "voice-guide") {
-            res.status(400).json({ message: "Invalid request" });
+            res.status(400).json(new BadRequestError().toApiBody("api POST /api/realtime/bootstrap"));
             return;
         }
 
@@ -40,7 +41,7 @@ export function registerRealtimeRoutes(app: Express): void {
             if (feature === "voice-guide") {
                 const { language } = body as VoiceGuideRealtimeBootstrapRequest;
                 if (typeof language !== "string" || language.trim().length === 0) {
-                    res.status(400).json({ message: "Invalid request" });
+                    res.status(400).json(new BadRequestError().toApiBody("api POST /api/realtime/bootstrap"));
                     return;
                 }
 
@@ -64,7 +65,7 @@ export function registerRealtimeRoutes(app: Express): void {
 
             const { language } = body as HumanInputRealtimeBootstrapRequest;
             if (typeof language !== "string" || language.trim().length === 0) {
-                res.status(400).json({ message: "Invalid request" });
+                res.status(400).json(new BadRequestError().toApiBody("api POST /api/realtime/bootstrap"));
                 return;
             }
 
@@ -73,7 +74,7 @@ export function registerRealtimeRoutes(app: Express): void {
             res.status(200).json(data);
         } catch (e) {
             await Logger.error("api", "POST /api/realtime/bootstrap failed", e);
-            res.status(500).json({ message: "Realtime bootstrap unavailable" });
+            res.status(500).json(CouncilError.fromUnexpected(e, "Realtime bootstrap unavailable").toApiBody("api POST /api/realtime/bootstrap"));
         }
     });
 
@@ -88,7 +89,7 @@ export function registerRealtimeRoutes(app: Express): void {
             !body.session ||
             typeof body.session !== "object"
         ) {
-            res.status(400).json({ message: "Invalid request" });
+            res.status(400).json(new BadRequestError().toApiBody("api POST /api/realtime/call"));
             return;
         }
 
@@ -112,7 +113,7 @@ export function registerRealtimeRoutes(app: Express): void {
             res.status(200).json(data);
         } catch (e) {
             await Logger.error("api", "POST /api/realtime/call failed", e);
-            res.status(500).json({ message: "Realtime call unavailable" });
+            res.status(500).json(CouncilError.fromUnexpected(e, "Realtime call unavailable").toApiBody("api POST /api/realtime/call"));
         }
     });
 }

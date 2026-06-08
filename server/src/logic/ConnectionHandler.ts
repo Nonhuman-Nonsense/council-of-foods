@@ -3,6 +3,7 @@ import type { Message } from "@shared/ModelTypes.js";
 import type { IMeetingManager } from "@interfaces/MeetingInterfaces.js";
 import type { StoredMeeting } from "@models/DBModels.js";
 import { splitSentences } from "@shared/textUtils.js";
+import { ForbiddenError, NotFoundError } from "@models/Errors.js";
 import { Logger } from "@utils/Logger.js";
 
 /**
@@ -46,13 +47,13 @@ export class ConnectionHandler {
             });
 
             if (!existingMeeting) {
-                manager.broadcaster.broadcastError("Meeting not found", 404);
+                manager.broadcaster.broadcastError(new NotFoundError());
                 Logger.warn(`meeting ${options.meetingId}`, `Meeting not found`);
                 return false;
             }
 
             if (existingMeeting.liveKey !== options.liveKey) {
-                manager.broadcaster.broadcastError("Forbidden", 403);
+                manager.broadcaster.broadcastError(new ForbiddenError());
                 Logger.warn(`meeting ${options.meetingId}`, "attempt_reconnection liveKey mismatch");
                 return false;
             }
