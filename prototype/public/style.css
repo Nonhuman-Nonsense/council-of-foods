@@ -261,6 +261,14 @@ button.primary:hover {
   background-color: var(--accent-hover);
 }
 
+.status-error {
+  color: #ef4444;
+  font-weight: 600;
+  font-size: 0.9em;
+  padding: 6px 10px;
+  user-select: none;
+}
+
 button.icon-btn {
   padding: 4px;
   background: transparent;
