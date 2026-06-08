@@ -231,6 +231,37 @@ createApp({
   },
 
   methods: {
+    formatClientError(errorPayload) {
+      if (!errorPayload || typeof errorPayload !== 'object') {
+        return String(errorPayload ?? 'Unknown error');
+      }
+
+      let text = errorPayload.message || 'Unknown error';
+      const debug = errorPayload.debug;
+      if (!debug) return text;
+
+      if (debug.context) {
+        text = `[${debug.context}] ${text}`;
+      }
+      if (debug.stack) {
+        text += `\n\n${debug.stack}`;
+      } else if (debug.zodIssues) {
+        text += `\n\n${JSON.stringify(debug.zodIssues, null, 2)}`;
+      } else if (debug.raw != null) {
+        text += `\n\n${JSON.stringify(debug.raw, null, 2)}`;
+      } else if (debug.name) {
+        text += `\n\n${debug.name}`;
+      }
+      return text;
+    },
+
+    formatApiErrorBody(body, status) {
+      if (body && typeof body === 'object' && body.message) {
+        return this.formatClientError({ message: body.message, code: status, debug: body.debug });
+      }
+      return typeof body === 'string' && body.trim() ? body : `Request failed (${status})`;
+    },
+
     log(category, message, data = null) {
       const styles = {
         'SOCKET_OUT': 'color: #10b981; font-weight: bold;', // Green
@@ -611,7 +642,7 @@ createApp({
       this.socket.on("conversation_error", (errorMessage) => {
         this.log('ERROR', 'Conversation Error', errorMessage);
         this.status = 'ERROR';
-        alert(errorMessage.message);
+        alert(this.formatClientError(errorMessage));
       });
     },
 
@@ -904,7 +935,13 @@ createApp({
         });
         if (!res.ok) {
           const errText = await res.text();
-          throw new Error(errText || `Create meeting failed (${res.status})`);
+          let errBody = errText;
+          try {
+            errBody = JSON.parse(errText);
+          } catch {
+            // keep raw text
+          }
+          throw new Error(this.formatApiErrorBody(errBody, res.status));
         }
         const { meetingId, liveKey } = await res.json();
         this.meetingId = Number(meetingId);
@@ -948,7 +985,13 @@ createApp({
         });
         if (!res.ok) {
           const errText = await res.text();
-          throw new Error(errText || `Create meeting failed (${res.status})`);
+          let errBody = errText;
+          try {
+            errBody = JSON.parse(errText);
+          } catch {
+            // keep raw text
+          }
+          throw new Error(this.formatApiErrorBody(errBody, res.status));
         }
         const { meetingId, liveKey } = await res.json();
         this.meetingId = Number(meetingId);

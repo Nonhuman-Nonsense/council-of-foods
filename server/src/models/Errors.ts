@@ -1,20 +1,82 @@
+import { ZodError } from "zod";
+import type { ApiErrorBody, ClientErrorDebug, ErrorPayload } from "@shared/SocketTypes.js";
+import { config } from "../config.js";
+
 type CouncilErrorOptions = {
     /** Safe to return in API JSON; wins over defaultClientMessage and internalMessage. */
     clientMessage?: string;
     /** Used when clientMessage is omitted (e.g. conflict wording). */
     defaultClientMessage?: string;
+    /** Underlying error serialized into `debug` for internal clients (prototype / development). */
+    debugCause?: unknown;
 };
+
+const VERBOSE_CLIENT_ERROR_ENVIRONMENTS = new Set(["prototype", "development"]);
+
+function isVerboseClientErrors(): boolean {
+    return VERBOSE_CLIENT_ERROR_ENVIRONMENTS.has(config.NODE_ENV);
+}
+
+function serializeErrorForClient(error: unknown): Omit<ClientErrorDebug, "context"> {
+    if (error instanceof ZodError) {
+        return {
+            name: error.name,
+            stack: error.stack,
+            zodIssues: error.issues,
+        };
+    }
+    if (error instanceof Error) {
+        return {
+            name: error.name,
+            stack: error.stack,
+            cause: (error as Error & { cause?: unknown }).cause,
+        };
+    }
+    return { raw: error };
+}
+
+function buildDebug(statusCode: number, error?: unknown, context?: string): ClientErrorDebug | undefined {
+    if (!isVerboseClientErrors() || (statusCode !== 400 && statusCode !== 500) || error == null) {
+        return undefined;
+    }
+    return {
+        ...serializeErrorForClient(error),
+        ...(context ? { context } : {}),
+    };
+}
 
 /** Base for domain errors that map to HTTP responses. */
 export class CouncilError extends Error {
     readonly statusCode: number;
     readonly clientMessage: string;
+    readonly debugCause?: unknown;
 
     constructor(statusCode: number, internalMessage: string, options?: CouncilErrorOptions) {
         super(internalMessage);
         this.statusCode = statusCode;
         this.clientMessage =
             options?.clientMessage ?? options?.defaultClientMessage ?? internalMessage;
+        this.debugCause = options?.debugCause;
+    }
+
+    toErrorPayload(context?: string): ErrorPayload {
+        const debug = buildDebug(this.statusCode, this.debugCause, context);
+        return debug
+            ? { message: this.clientMessage, code: this.statusCode, debug }
+            : { message: this.clientMessage, code: this.statusCode };
+    }
+
+    toApiBody(context?: string): ApiErrorBody {
+        const debug = buildDebug(this.statusCode, this.debugCause, context);
+        return debug ? { message: this.clientMessage, debug } : { message: this.clientMessage };
+    }
+
+    static fromZod(error: ZodError, clientMessage?: string): BadRequestError {
+        return new BadRequestError(clientMessage, { debugCause: error });
+    }
+
+    static fromUnexpected(error: unknown, clientMessage?: string): InternalServerError {
+        return new InternalServerError(clientMessage, { debugCause: error });
     }
 }
 
@@ -44,9 +106,15 @@ export class ForbiddenError extends CouncilError {
 
 /** Thrown when the request is invalid (maps to HTTP 400). */
 export class BadRequestError extends CouncilError {
+    static readonly clientErrorMessage = "Invalid request";
+
     override readonly name = "Bad request";
-    constructor(clientMessage?: string) {
-        super(400, "Bad request", clientMessage ? { clientMessage } : undefined);
+    constructor(clientMessage?: string, options?: Pick<CouncilErrorOptions, "debugCause">) {
+        super(400, "Bad request", {
+            clientMessage,
+            defaultClientMessage: BadRequestError.clientErrorMessage,
+            debugCause: options?.debugCause,
+        });
     }
 }
 
@@ -68,7 +136,11 @@ export class ConflictError extends CouncilError {
 /** Thrown when an internal server error occurs (maps to HTTP 500). */
 export class InternalServerError extends CouncilError {
     override readonly name = "Internal server error";
-    constructor(clientMessage?: string) {
-        super(500, "Internal server error", clientMessage ? { clientMessage } : undefined);
+    constructor(clientMessage?: string, options?: Pick<CouncilErrorOptions, "debugCause">) {
+        super(500, "Internal Server Error", {
+            clientMessage,
+            defaultClientMessage: "Internal Server Error",
+            debugCause: options?.debugCause,
+        });
     }
 }

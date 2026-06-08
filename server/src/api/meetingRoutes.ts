@@ -38,21 +38,22 @@ async function apiRouteWithErrorHandling(
     res: Response,
     handler: (req: Request, res: Response) => Promise<void>
 ): Promise<void> {
+    const context = `api ${method} ${path}`;
     try {
         await handler(req, res);
     } catch (e: unknown) {
         if (e instanceof ZodError) {
             await Logger.warn("api", `${method} ${path} failed, validation error`, e);
-            res.status(400).json({ message: "Invalid request" });
+            res.status(400).json(CouncilError.fromZod(e).toApiBody(context));
             return;
         }
         if (e instanceof CouncilError) {
             await Logger.warn("api", `${method} ${path} failed, ${e.name}`, e);
-            res.status(e.statusCode).json({ message: e.clientMessage });
+            res.status(e.statusCode).json(e.toApiBody(context));
             return;
         }
         await Logger.error("api", `${method} ${path} failed, internal server error`, e);
-        res.status(500).json({ message: "Internal Server Error" });
+        res.status(500).json(CouncilError.fromUnexpected(e).toApiBody(context));
     }
 }
 
