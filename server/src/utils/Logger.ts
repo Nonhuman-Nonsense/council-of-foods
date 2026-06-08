@@ -1,5 +1,5 @@
 import { cyan, yellow, red, gray } from "colorette";
-import { InternalServerError } from "@models/Errors.js";
+import { CouncilError } from "@models/Errors.js";
 import { sendReport } from "./errorbot.js";
 
 export class Logger {
@@ -53,13 +53,18 @@ export class Logger {
      * Centralized helper to log an error and broadcast a 500 status to the client.
      * "Crash" implies sending a terminal error to the client.
      */
-    static reportAndCrashClient(context: string, message: string, error: unknown, broadcaster?: { broadcastError: (msg: string, code: number) => void }): void {
+    static reportAndCrashClient(
+        context: string,
+        message: string,
+        error: unknown,
+        broadcaster?: { broadcastError: (error: CouncilError, context?: string) => void }
+    ): void {
         // Log it (which also reports to errorbot)
         this.error(context, message, error);
 
         // Tell the client
         if (broadcaster) {
-            broadcaster.broadcastError(new InternalServerError().clientMessage, 500);
+            broadcaster.broadcastError(CouncilError.fromUnexpected(error), context);
         }
     }
 }

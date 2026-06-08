@@ -11,7 +11,7 @@ import {
 } from "./liveSessionRegistry.js";
 
 import { SetupOptionsSchema, ReconnectionOptionsSchema } from "@models/ValidationSchemas.js";
-import { ConflictError } from "@models/Errors.js";
+import { ConflictError, CouncilError } from "@models/Errors.js";
 /**
  * SocketManager
  * 
@@ -115,13 +115,24 @@ export class SocketManager {
                     ? `meeting ${this.currentSession.meeting._id}`
                     : `socket ${this.socket.id}`;
 
+                // Route to broadcastWarning vs broadcastError by severity — same client payload today,
+                // but the method name is the policy hook (see IMeetingBroadcaster).
                 if (error instanceof ZodError) {
                     Logger.warn(context, `Validation error for ${event}; notifying client (400): ${error.message}`, error);
-                    this.socketBroadcaster.broadcastWarning("Invalid Input", 400, error);
+                    this.socketBroadcaster.broadcastWarning(CouncilError.fromZod(error), context);
+                } else if (error instanceof CouncilError) {
+                    if (error.statusCode >= 500) {
+                        const errMessage = error instanceof Error ? error.message : String(error);
+                        Logger.error(context, `Error handling event ${event}; notifying client (${error.statusCode}): ${errMessage}`, error);
+                        this.socketBroadcaster.broadcastError(error, context);
+                    } else {
+                        Logger.warn(context, `Error handling event ${event}; notifying client (${error.statusCode}): ${error.clientMessage}`, error);
+                        this.socketBroadcaster.broadcastWarning(error, context);
+                    }
                 } else {
                     const errMessage = error instanceof Error ? error.message : String(error);
                     Logger.error(context, `Error handling event ${event}; notifying client (500): ${errMessage}`, error);
-                    this.socketBroadcaster.broadcastError("Internal Server Error", 500);
+                    this.socketBroadcaster.broadcastError(CouncilError.fromUnexpected(error), context);
                 }
             }
         });
@@ -145,7 +156,7 @@ export class SocketManager {
 
         if (!tryAcquireLiveSession(data.meetingId, this.socket.id, data.liveKey)) {
             Logger.warn("socket",`Live session already held for meeting ${data.meetingId}; rejecting start_conversation on socket ${this.socket.id} (409)`);
-            this.socketBroadcaster.broadcastError(ConflictError.clientErrorMessage, ConflictError.statusCode);
+            this.socketBroadcaster.broadcastError(new ConflictError());
             return;
         }
 
@@ -181,7 +192,7 @@ export class SocketManager {
 
         if (!tryAcquireLiveSession(data.meetingId, this.socket.id, data.liveKey)) {
             Logger.warn("socket",`Live session already held for meeting ${data.meetingId}; rejecting attempt_reconnection on socket ${this.socket.id} (409)`);
-            this.socketBroadcaster.broadcastError(ConflictError.clientErrorMessage, ConflictError.statusCode);
+            this.socketBroadcaster.broadcastError(new ConflictError());
             return;
         }
 

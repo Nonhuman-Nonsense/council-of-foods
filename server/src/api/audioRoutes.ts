@@ -4,6 +4,7 @@ import type { StoredAudio } from "@models/DBModels.js";
 import { audioCollection } from "@services/DbService.js";
 import type { PublicAudioClipResponse } from "@shared/SocketTypes.js";
 import { Logger } from "@utils/Logger.js";
+import { BadRequestError, CouncilError } from "@models/Errors.js";
 import { CACHE_CONTROL_PUBLIC_AUDIO } from "@utils/httpCache.js";
 
 /** Same extraction rules as `AudioSystem.generateAudio` when reading legacy rows. */
@@ -35,7 +36,7 @@ export function registerAudioRoutes(app: Express): void {
     app.get("/api/audio/:audioId", async (req: Request, res: Response) => {
         const audioId = req.params.audioId;
         if (typeof audioId !== "string" || !isSafeAudioId(audioId)) {
-            res.status(400).json({ message: "Invalid audio id" });
+            res.status(400).json(new BadRequestError("Invalid audio id").toApiBody(`api GET /api/audio/${audioId}`));
             return;
         }
 
@@ -82,7 +83,7 @@ export function registerAudioRoutes(app: Express): void {
             res.status(200).type("application/json").json(body);
         } catch (e: unknown) {
             await Logger.error("api", `GET /api/audio/${audioId} failed`, e);
-            res.status(500).json({ message: "Internal Server Error" });
+            res.status(500).json(CouncilError.fromUnexpected(e).toApiBody(`api GET /api/audio/${audioId}`));
         }
     });
 }
