@@ -44,7 +44,7 @@ async function apiRouteWithErrorHandling(
     } catch (e: unknown) {
         if (e instanceof ZodError) {
             await Logger.warn("api", `${method} ${path} failed, validation error`, e);
-            res.status(400).json(CouncilError.fromZod(e, "Invalid request").toApiBody(context));
+            res.status(400).json(CouncilError.fromZod(e).toApiBody(context));
             return;
         }
         if (e instanceof CouncilError) {

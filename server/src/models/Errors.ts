@@ -71,7 +71,7 @@ export class CouncilError extends Error {
         return debug ? { message: this.clientMessage, debug } : { message: this.clientMessage };
     }
 
-    static fromZod(error: ZodError, clientMessage: string): BadRequestError {
+    static fromZod(error: ZodError, clientMessage?: string): BadRequestError {
         return new BadRequestError(clientMessage, { debugCause: error });
     }
 
@@ -106,9 +106,15 @@ export class ForbiddenError extends CouncilError {
 
 /** Thrown when the request is invalid (maps to HTTP 400). */
 export class BadRequestError extends CouncilError {
+    static readonly clientErrorMessage = "Invalid request";
+
     override readonly name = "Bad request";
     constructor(clientMessage?: string, options?: Pick<CouncilErrorOptions, "debugCause">) {
-        super(400, "Bad request", { clientMessage, debugCause: options?.debugCause });
+        super(400, "Bad request", {
+            clientMessage,
+            defaultClientMessage: BadRequestError.clientErrorMessage,
+            debugCause: options?.debugCause,
+        });
     }
 }
 

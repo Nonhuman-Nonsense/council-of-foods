@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { z } from 'zod';
 import {
+    BadRequestError,
     CouncilError,
     InternalServerError,
     NotFoundError,
@@ -17,6 +18,11 @@ describe('CouncilError client payloads', () => {
 
     beforeEach(() => {
         mockConfig.NODE_ENV = 'test';
+    });
+
+    it('uses a single default client message for BadRequestError', () => {
+        expect(new BadRequestError().clientMessage).toBe(BadRequestError.clientErrorMessage);
+        expect(BadRequestError.clientErrorMessage).toBe('Invalid request');
     });
 
     it('omits debug in test/production environments', () => {
@@ -43,7 +49,8 @@ describe('CouncilError client payloads', () => {
     it('includes zod issues for 400 in development', () => {
         mockConfig.NODE_ENV = 'development';
         const zodErr = z.object({ id: z.number() }).safeParse({ id: 'x' }).error;
-        const payload = CouncilError.fromZod(zodErr, 'Invalid Input').toErrorPayload('socket abc');
+        const payload = CouncilError.fromZod(zodErr).toErrorPayload('socket abc');
+        expect(payload.message).toBe('Invalid request');
         expect(payload.debug?.zodIssues).toBeDefined();
         expect(payload.debug?.context).toBe('socket abc');
     });

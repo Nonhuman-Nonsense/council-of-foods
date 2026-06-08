@@ -119,7 +119,7 @@ export class SocketManager {
                 // but the method name is the policy hook (see IMeetingBroadcaster).
                 if (error instanceof ZodError) {
                     Logger.warn(context, `Validation error for ${event}; notifying client (400): ${error.message}`, error);
-                    this.socketBroadcaster.broadcastWarning(CouncilError.fromZod(error, "Invalid Input"), context);
+                    this.socketBroadcaster.broadcastWarning(CouncilError.fromZod(error), context);
                 } else if (error instanceof CouncilError) {
                     if (error.statusCode >= 500) {
                         const errMessage = error instanceof Error ? error.message : String(error);

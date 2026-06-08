@@ -278,7 +278,7 @@ describe('Async Error Propagation (Comprehensive)', () => {
 
         // Assert
         expect(mockSocket.emit).toHaveBeenCalledWith("conversation_error", expect.objectContaining({
-            message: "Invalid Input",
+            message: "Invalid request",
             code: 400
         }));
 
@@ -301,7 +301,7 @@ describe('Async Error Propagation (Comprehensive)', () => {
         await handler(invalidPayload);
 
         expect(mockSocket.emit).toHaveBeenCalledWith("conversation_error", expect.objectContaining({
-            message: "Invalid Input",
+            message: "Invalid request",
             code: 400
         }));
 

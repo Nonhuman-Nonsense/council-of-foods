@@ -1,6 +1,6 @@
 import type { Express, Request, Response as ExpressResponse } from "express";
 import { Logger } from "@utils/Logger.js";
-import { CouncilError } from "@models/Errors.js";
+import { BadRequestError, CouncilError } from "@models/Errors.js";
 import {
     buildVoiceGuideRealtimeSessionFragment,
     createInworldCall,
@@ -43,7 +43,7 @@ export function registerVoiceGuideRoutes(app: Express): void {
     app.post("/api/voice-guide/call", async (req: Request, res: ExpressResponse) => {
         const body = req.body as { sdp?: unknown; session?: unknown } | undefined;
         if (!body || typeof body.sdp !== "string") {
-            res.status(400).json({ message: "Invalid request" });
+            res.status(400).json(new BadRequestError().toApiBody("api POST /api/voice-guide/call"));
             return;
         }
         try {
