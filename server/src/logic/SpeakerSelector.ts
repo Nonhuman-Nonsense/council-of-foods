@@ -39,6 +39,19 @@ export class SpeakerSelector {
             if (chairIndex !== -1 && shouldForceChair(conversation, characters, options.chairId)) {
                 return chairIndex;
             }
+
+            const latest = conversation[conversation.length - 1];
+            const latestHasDirectedTarget = "askParticular" in latest && Boolean(latest.askParticular);
+            if (!latestHasDirectedTarget) {
+                const openFloorIndex = pickLeastSpokenWithRoundRobinTiebreak(
+                    conversation,
+                    characters,
+                    options.chairId
+                );
+                if (openFloorIndex !== -1) {
+                    return openFloorIndex;
+                }
+            }
         }
 
         for (let i = conversation.length - 1; i >= 0; i--) {
@@ -110,6 +123,79 @@ export class SpeakerSelector {
 
         return 0;
     }
+}
+
+function countCharacterMessages(conversation: Message[], characters: Character[]): Map<string, number> {
+    const counts = new Map(characters.map((character) => [character.id, 0]));
+
+    for (const message of conversation) {
+        if (!("speaker" in message) || NON_SPEAKER_MESSAGE_TYPES.has(message.type)) continue;
+        const speakerId = message.speaker;
+        if (!speakerId || !counts.has(speakerId)) continue;
+        counts.set(speakerId, (counts.get(speakerId) ?? 0) + 1);
+    }
+
+    return counts;
+}
+
+function findLastSpeakerIndex(conversation: Message[], characters: Character[]): number {
+    for (let i = conversation.length - 1; i >= 0; i--) {
+        const message = conversation[i];
+        if (!("speaker" in message) || NON_SPEAKER_MESSAGE_TYPES.has(message.type)) continue;
+        const index = characters.findIndex((character) => character.id === message.speaker);
+        if (index !== -1) {
+            return index;
+        }
+    }
+    return -1;
+}
+
+function pickLeastSpokenWithRoundRobinTiebreak(
+    conversation: Message[],
+    characters: Character[],
+    chairId: string
+): number {
+    const counts = countCharacterMessages(conversation, characters);
+
+    let minCount = Infinity;
+    for (const character of characters) {
+        if (character.id === chairId) continue;
+        minCount = Math.min(minCount, counts.get(character.id) ?? 0);
+    }
+
+    if (!Number.isFinite(minCount)) {
+        return -1;
+    }
+
+    const tiedIndices: number[] = [];
+    for (let i = 0; i < characters.length; i++) {
+        const character = characters[i];
+        if (character.id === chairId) continue;
+        if ((counts.get(character.id) ?? 0) === minCount) {
+            tiedIndices.push(i);
+        }
+    }
+
+    if (tiedIndices.length === 0) {
+        return -1;
+    }
+
+    if (tiedIndices.length === 1) {
+        return tiedIndices[0];
+    }
+
+    const tiedSet = new Set(tiedIndices);
+    const lastSpeakerIndex = findLastSpeakerIndex(conversation, characters);
+    const startIndex = lastSpeakerIndex === -1 ? 0 : lastSpeakerIndex;
+
+    for (let offset = 1; offset <= characters.length; offset++) {
+        const candidateIndex = (startIndex + offset) % characters.length;
+        if (tiedSet.has(candidateIndex)) {
+            return candidateIndex;
+        }
+    }
+
+    return tiedIndices[0];
 }
 
 function shouldForceChair(conversation: Message[], characters: Character[], chairId: string): boolean {
