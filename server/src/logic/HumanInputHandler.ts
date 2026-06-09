@@ -131,6 +131,8 @@ export class HumanInputHandler {
             text: charName + (m.language === 'en' ? " said:\xa0" : " sa:\xa0") + payload.text,
         };
 
+        await manager.directedSpeakerRouter.annotateIfDirected(m, message, payload.speaker);
+
         m.conversation.push(message);
 
         await manager.services.meetingsCollection.updateOne(

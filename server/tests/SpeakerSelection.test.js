@@ -118,6 +118,53 @@ describe('MeetingManager - Speaker Selection', () => {
             });
         });
 
+        it('should route to askParticular on AI messages', () => {
+            manager.meeting.conversation = [
+                { speaker: manager.meeting.characters[0].id, type: 'message' },
+                { speaker: manager.meeting.characters[1].id, type: 'message', askParticular: manager.meeting.characters[2].id }
+            ];
+            expect(SpeakerSelector.calculateNextSpeaker(manager.meeting.conversation, manager.meeting.characters)).toBe(2);
+        });
+
+        it('should skip AI askParticular once the target has responded', () => {
+            manager.meeting.conversation = [
+                { speaker: manager.meeting.characters[0].id, type: 'message' },
+                { speaker: manager.meeting.characters[1].id, type: 'message', askParticular: manager.meeting.characters[2].id },
+                { speaker: manager.meeting.characters[2].id, type: 'message' }
+            ];
+            expect(SpeakerSelector.calculateNextSpeaker(manager.meeting.conversation, manager.meeting.characters)).toBe(0);
+        });
+
+        describe('Directed speaker routing chair cadence', () => {
+            it('should force the chair after every other participant has spoken since chair last spoke', () => {
+                const chairId = manager.meeting.characters[0].id;
+                manager.meeting.conversation = [
+                    { speaker: chairId, type: 'message' },
+                    { speaker: manager.meeting.characters[1].id, type: 'message' },
+                    { speaker: manager.meeting.characters[2].id, type: 'message', askParticular: manager.meeting.characters[1].id }
+                ];
+
+                expect(SpeakerSelector.calculateNextSpeaker(manager.meeting.conversation, manager.meeting.characters, {
+                    directedSpeakerRouting: true,
+                    chairId,
+                })).toBe(0);
+            });
+
+            it('should not force the chair when directed routing is disabled', () => {
+                const chairId = manager.meeting.characters[0].id;
+                manager.meeting.conversation = [
+                    { speaker: chairId, type: 'message' },
+                    { speaker: manager.meeting.characters[1].id, type: 'message' },
+                    { speaker: manager.meeting.characters[2].id, type: 'message', askParticular: manager.meeting.characters[1].id }
+                ];
+
+                expect(SpeakerSelector.calculateNextSpeaker(manager.meeting.conversation, manager.meeting.characters, {
+                    directedSpeakerRouting: false,
+                    chairId,
+                })).toBe(1);
+            });
+        });
+
         // --- Complex Interaction Tests ---
         describe('Complex Interactions', () => {
             beforeEach(() => {

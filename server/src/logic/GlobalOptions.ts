@@ -40,7 +40,8 @@ export const GlobalOptionsSchema = z.object({
     voiceGuideRealtimeModel: z.string(),
     voiceGuideOpenAIRealtimeModel: z.string(),
     voiceGuideRealtimeTranscriptionModel: z.string(),
-    humanTargetingModel: z.string()
+    humanTargetingModel: z.string(),
+    directedSpeakerRouting: z.boolean()
 });
 
 export type GlobalOptions = z.infer<typeof GlobalOptionsSchema>;

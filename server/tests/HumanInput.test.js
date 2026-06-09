@@ -43,7 +43,10 @@ describe('HumanInputHandler (Isolated)', () => {
             startLoop: vi.fn(),
             handRaised: false,
             isPaused: false,
-            dialogGenerator: {}
+            dialogGenerator: {},
+            directedSpeakerRouter: {
+                annotateIfDirected: vi.fn().mockResolvedValue(undefined)
+            }
         };
 
         handler = new HumanInputHandler(mockContext);

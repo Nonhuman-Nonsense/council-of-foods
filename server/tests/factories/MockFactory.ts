@@ -119,6 +119,7 @@ export const MockFactory = {
             voiceGuideRealtimeModel: "google-ai-studio/gemini-2.5-flash",
             voiceGuideRealtimeTranscriptionModel: "assemblyai/u3-rt-pro",
             humanTargetingModel: "google-ai-studio/gemini-2.5-flash",
+            directedSpeakerRouting: false,
             ...overrides,
         }) as GlobalOptions,
 
