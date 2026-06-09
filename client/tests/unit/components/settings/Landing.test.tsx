@@ -29,8 +29,13 @@ vi.mock('@main/overlay/RotateDevice', () => ({
     default: () => <div data-testid="rotate-device">Rotate Device</div>,
 }));
 
+vi.mock('@/museum/useAppMode', () => ({
+    useAppMode: vi.fn(() => ({ isMuseumMode: false })),
+}));
+
 import { useMediaQuery } from 'react-responsive';
 import { useMobile } from '@/utils';
+import { useAppMode } from '@/museum/useAppMode';
 
 describe('Landing', () => {
     beforeEach(() => {
@@ -38,6 +43,11 @@ describe('Landing', () => {
         // Default to landscape (not portrait) and not mobile for base case
         (useMediaQuery as ReturnType<typeof vi.fn>).mockReturnValue(false); // isPortrait = false
         (useMobile as ReturnType<typeof vi.fn>).mockReturnValue(false);
+        vi.mocked(useAppMode).mockReturnValue({
+            mode: 'web',
+            isMuseumMode: false,
+            setAppMode: vi.fn(),
+        });
     });
 
     afterEach(() => {
@@ -86,5 +96,22 @@ describe('Landing', () => {
         const link = screen.getByTestId('landing-go');
         expect(link).toHaveAttribute('href', '/en/new');
         fireEvent.click(link);
+    });
+
+    it('hides description and go button in museum mode', () => {
+        vi.mocked(useAppMode).mockReturnValue({
+            mode: 'museum',
+            isMuseumMode: true,
+            setAppMode: vi.fn(),
+        });
+
+        render(
+            <MemoryRouter>
+                <Landing />
+            </MemoryRouter>
+        );
+
+        expect(screen.queryByText('description')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('landing-go')).not.toBeInTheDocument();
     });
 });

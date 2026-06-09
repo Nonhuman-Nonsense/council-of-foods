@@ -4,6 +4,7 @@ import { Link } from "react-router";
 import { useMobile, dvh } from "@/utils";
 import { useTranslation } from 'react-i18next';
 import { useRouting } from "@/routing";
+import { useAppMode } from "@/museum/useAppMode";
 import councilLogo from "@assets/logos/council_logo_white.svg";
 
 /**
@@ -14,11 +15,13 @@ import councilLogo from "@assets/logos/council_logo_white.svg";
  * Core Logic:
  * - **Device Orientation**: Forces landscape on mobile/tablet via `RotateDevice`.
  * - **Welcome Message**: Displays logo and welcome text.
+ * - **Museum mode**: Hides description and go button (voice guide handles the flow).
  */
 const Landing: React.FC = () => {
   const { newMeetingPath } = useRouting();
   const isPortrait = useMediaQuery({ query: '(orientation: portrait)' })
   const isMobile = useMobile();
+  const { isMuseumMode } = useAppMode();
   const { t } = useTranslation();
 
   const wrapper: React.CSSProperties = {
@@ -52,14 +55,16 @@ const Landing: React.FC = () => {
         {isPortrait ?
           <RotateDevice />
           :
-          (<div style={{ maxWidth: "380px" }}>
-            <p style={{ marginBottom: "30px" }}>{t('description')}</p>
-            <div>
-              <Link to={newMeetingPath} className="button" data-testid="landing-go">
-                {t('go')}
-              </Link>
+          !isMuseumMode && (
+            <div style={{ maxWidth: "380px" }}>
+              <p style={{ marginBottom: "30px" }}>{t('description')}</p>
+              <div>
+                <Link to={newMeetingPath} className="button" data-testid="landing-go">
+                  {t('go')}
+                </Link>
+              </div>
             </div>
-          </div>)
+          )
         }
       </div>
     </div>

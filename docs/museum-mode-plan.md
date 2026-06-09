@@ -209,7 +209,9 @@ Pick items based on install requirements. None are required for Phase 1–2 ship
 
 ### 4.1 Setup presentation (optional)
 
-- Hide or de-emphasise redundant click targets in museum mode: Landing “Let’s go!”, `SelectTopic` Next, `SelectCharacters` Start (voice remains source of truth).
+- [x] Museum landing: hide “Let’s go!” and description; show existing `Loading` while voice guide connects (`MeetingVoiceGuide`).
+- [x] `SelectTopic`: hide Next in museum mode.
+- [x] `SelectCharacters`: hide Start/randomize row and add-human button in museum mode.
 - Keep screens as visual feedback mirroring voice-driven state.
 
 ### 4.2 Council passive mode (optional)

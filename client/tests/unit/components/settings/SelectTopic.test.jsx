@@ -5,6 +5,7 @@ import SelectTopic from '@newMeeting/SelectTopic';
 import { getTopicsBundle } from '@main/topicsBundle';
 import { useState } from 'react';
 import { useMeetingSetupStore } from '@stores/useMeetingSetupStore';
+import { useAppMode } from '@/museum/useAppMode';
 
 // Mocks
 vi.mock('react-i18next', () => ({
@@ -29,6 +30,10 @@ vi.mock('@main/overlay/ResetWarning', () => ({
 
 vi.mock('@main/topicsBundle', () => ({
     getTopicsBundle: vi.fn(),
+}));
+
+vi.mock('@/museum/useAppMode', () => ({
+    useAppMode: vi.fn(() => ({ isMuseumMode: false })),
 }));
 
 const mockTopics = [
@@ -63,6 +68,11 @@ describe('SelectTopic Component', () => {
         mockOnReset = vi.fn();
         mockOnCancel = vi.fn();
         vi.mocked(getTopicsBundle).mockReturnValue(defaultBundle);
+        vi.mocked(useAppMode).mockReturnValue({
+            mode: 'web',
+            isMuseumMode: false,
+            setAppMode: vi.fn(),
+        });
     });
 
     it('should render topics and allow selection', () => {
@@ -342,5 +352,25 @@ describe('SelectTopic Component', () => {
         // Leave Custom -> Hidden
         fireEvent.mouseLeave(customBtn);
         expect(textarea).not.toBeVisible();
+    });
+
+    it('hides next button in museum mode', () => {
+        vi.mocked(useAppMode).mockReturnValue({
+            mode: 'museum',
+            isMuseumMode: true,
+            setAppMode: vi.fn(),
+        });
+
+        render(
+            <ControlledSelectTopic
+                onContinueForward={mockOnContinue}
+                onReset={mockOnReset}
+                onCancel={mockOnCancel}
+                currentTopic={null}
+            />
+        );
+
+        fireEvent.click(screen.getByText('Topic One'));
+        expect(screen.queryByText('next')).not.toBeInTheDocument();
     });
 });
