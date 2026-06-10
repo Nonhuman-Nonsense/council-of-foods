@@ -72,10 +72,7 @@ export class NextSpeakerClassifier {
         latestMessage: Message,
         eligibleCharacters: Character[]
     ): Promise<{ rawOutput: string; parsedTarget?: string }> {
-        const allowedTargetIds = [
-            ...eligibleCharacters.map((character) => character.id),
-            CLASSIFIER_GENERAL_FLOW_KEYWORD,
-        ];
+        const allowedTargetIds = buildAllowedTargetIds(eligibleCharacters);
         const content = await requestSpeakerClassifierCompletion(
             this.serverOptions,
             this.buildMessages(meeting, latestMessage, eligibleCharacters, allowedTargetIds),
@@ -107,20 +104,11 @@ export class NextSpeakerClassifier {
         const conversationTranscript = buildConversationTranscript(meeting);
         const chair = meeting.characters.find((character) => character.id === this.serverOptions.chairId);
 
-        const latestSpeakerId = "speaker" in latestMessage ? latestMessage.speaker : undefined;
-        const latestSpeakerName =
-            latestSpeakerId === undefined
-                ? undefined
-                : meeting.characters.find((character) => character.id === latestSpeakerId)?.name || latestSpeakerId;
-
-        const systemPrompt = buildSystemPrompt(eligibleCharacters, CLASSIFIER_GENERAL_FLOW_KEYWORD);
+        const systemPrompt = buildSystemPrompt(CLASSIFIER_GENERAL_FLOW_KEYWORD);
         const userPrompt = buildUserPrompt({
-            topicTitle: meeting.topic.title,
-            topicDescription: meeting.topic.description,
             participantLines,
-            chairLine: chair ? `- id: ${chair.id} | name: ${chair.name} (chair — not an eligible target)` : undefined,
+            chairLine: chair ? `- id: ${chair.id} | name: ${chair.name} (not an eligible target)` : undefined,
             conversationLines: conversationTranscript,
-            latestSpeakerLine: latestSpeakerName ? `${latestSpeakerName} (id: ${latestSpeakerId})` : undefined,
             latestMessageLine: renderConversationLine(latestMessage, meeting),
             allowedTargetIds,
         });
@@ -132,83 +120,48 @@ export class NextSpeakerClassifier {
     }
 }
 
-function buildSystemPrompt(eligibleCharacters: Character[], generalFlowKeyword: string): string {
-    const first = eligibleCharacters[0];
-    const second = eligibleCharacters[1];
-    const firstLabel = first ? `${first.name} (id: ${first.id})` : "speaker1";
-    const secondLabel = second ? `${second.name} (id: ${second.id})` : "speaker2";
-    const firstId = first?.id ?? "speaker1";
-    const secondId = second?.id ?? "speaker2";
+function buildAllowedTargetIds(eligibleCharacters: Character[]): string[] {
+    const ids = eligibleCharacters.map((character) => character.id);
+    const names = eligibleCharacters.map((character) => character.name);
+    return [...ids, ...names, CLASSIFIER_GENERAL_FLOW_KEYWORD];
+}
 
+function buildSystemPrompt(generalFlowKeyword: string): string {
     return [
         "You are a classifier.",
-        "Your ONLY job is addressee detection: is the latest message handing the next turn to one specific eligible participant?",
-        "A handoff requires a direct question to them OR an explicit invitation for them to respond.",
-        "You are NOT choosing who should speak next in general.",
-        "You are NOT balancing turns, rotation, or who has spoken least.",
-        "Reply with exactly one value from the allowed target ids list and nothing else.",
-        "NEVER use JSON.",
-        "NEVER explain your choice.",
-        "NEVER include markdown, code fences, punctuation, or any extra words.",
-        "Return a participant id ONLY when BOTH are true:",
-        "1. The message clearly targets that one participant.",
-        "2. AND one of these:",
-        "- The message asks them a direct question (question mark, or phrases like 'what do you think', 'how would you', 'can you explain', 'let me ask you').",
-        "- The message explicitly invites only that participant to respond (e.g. 'I'd like to hear from you').",
-        `Return "${generalFlowKeyword}" in all other cases, including:`,
-        "- A rhetorical opener like 'Oh, {name},' or '{name}, darling' followed by statements, insults, praise, or arguments — that is NOT a handoff.",
-        "- Rebutting, disagreeing with, or talking about another participant's views without asking them a question.",
-        "- Speaking to the room ('folks', 'the world', 'millions', general claims) even if one person is named first.",
-        "- The latest speaker mentions someone they were just debating with — that is usually rhetoric, not a turn handoff.",
-        "- Monologues, speeches, or council-wide commentary.",
-        "- Multiple participants are mentioned without one clear person being asked to respond.",
-        "- Directed at the chair or anyone not in the allowed target ids list.",
-        "- Ambiguous cases. When in doubt, return the keyword.",
-        "- target ids is ALWAYS given in english, even if the dialogue is in another language",
-        "Examples that must return the keyword:",
-        `- "Oh, ${firstLabel}, you are so wrong. I am the greatest..." → ${generalFlowKeyword}`,
-        `- "${firstLabel}, you talk about efficiency but I invented it. That's me, folks..." → ${generalFlowKeyword}`,
-        "Examples that may return a specific id:",
-        `- "${firstLabel}, what do you think about pesticides?" → ${firstId}`,
-        `- "I'd like to hear from ${secondLabel} on this point." → ${secondId}`,
-        "Valid reply tokens:",
-        firstId,
-        secondId,
-        generalFlowKeyword,
+        "Does the latest message ask a direct question to one specific eligible participant?",
+        `Reply with exactly one token: that participant's id, or "${generalFlowKeyword}".`,
+        "No JSON. No explanation. No punctuation or extra words.",
+        "",
+        `Return a participant id when the message directly asks that person a question (by name or clear address).`,
+        `Return "${generalFlowKeyword}" when there is no direct question to one participant, the question is general, or you are unsure.`,
+        "",
+        "Examples:",
+        '- "Alice, what do you think?" → alice',
+        '- "Bob, how would you handle this?" → bob',
+        '- "Oh, Alice, you are completely wrong." → anyone',
+        '- "This affects all of us." → anyone',
     ].join("\n");
 }
 
 function buildUserPrompt(options: {
-    topicTitle: string;
-    topicDescription: string;
     participantLines: string[];
     chairLine?: string;
     conversationLines: string[];
-    latestSpeakerLine?: string;
     latestMessageLine: string;
     allowedTargetIds: string[];
 }): string {
     return [
-        `Topic: ${options.topicTitle}`,
-        `Topic description: ${options.topicDescription}`,
-        "",
-        "Meeting participants (for context):",
-        options.participantLines.join("\n\n"),
-        ...(options.chairLine ? ["", "Chair (may be mentioned, but is NOT an eligible target):", options.chairLine] : []),
+        "Eligible participants:",
+        options.participantLines.join("\n"),
+        ...(options.chairLine ? ["", "Chair (not an eligible target):", options.chairLine] : []),
         "",
         "Recent conversation:",
         options.conversationLines.length > 0 ? options.conversationLines.join("\n") : "(no prior conversation)",
         "",
-        ...(options.latestSpeakerLine
-            ? [
-                  "Latest speaker (who just spoke — mentions of others may be rhetorical rebuttal, not a handoff):",
-                  options.latestSpeakerLine,
-                  "",
-              ]
-            : []),
-        "Latest message (classify whether this message hands the next turn to one specific participant):",
+        "Latest message to classify:",
         options.latestMessageLine,
         "",
-        `Allowed target ids (return one of these, or "${CLASSIFIER_GENERAL_FLOW_KEYWORD}" only): ${options.allowedTargetIds.join(", ")}`,
+        `Allowed replies (participant id or "${CLASSIFIER_GENERAL_FLOW_KEYWORD}"): ${options.allowedTargetIds.join(", ")}`,
     ].join("\n");
 }
