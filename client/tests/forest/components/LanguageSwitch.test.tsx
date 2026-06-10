@@ -95,7 +95,7 @@ describe('Language Switching', () => {
         );
 
         await waitFor(() => {
-            expect(screen.getByText('Cumulative Pressure')).toBeInTheDocument();
+            expect(screen.getByText('Green Transition')).toBeInTheDocument();
         });
 
         fireEvent.click(screen.getByText('SV'));

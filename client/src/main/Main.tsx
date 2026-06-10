@@ -243,7 +243,7 @@ export default function Main(props: MainProps) {
           />
           {isPortrait && location.pathname !== "/" && <RotateOverlay />}
         </Overlay>
-      )}
+      }
       {unrecoverableErrorMessage != null && ( (
         <Overlay
           isActive={true}

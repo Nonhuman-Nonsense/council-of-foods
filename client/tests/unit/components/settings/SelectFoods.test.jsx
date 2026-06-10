@@ -83,9 +83,9 @@ describe('SelectCharacters Component', () => {
 
         // Check Chair's prompt injection
         // Using real text from the default character bundle.
-        // Expected replacement: "Briefly welcome the participants: Salmon, Pine."
+        // Expected replacement: "List todays participants (don't describe them): Salmon, Pine."
 
-        expect(passedCharacters[0].prompt).toContain("Briefly welcome the participants: Salmon, Pine.");
+        expect(passedCharacters[0].prompt).toContain("List todays participants (don't describe them): Salmon, Pine.");
     });
 
     it('should handle Human Panelists injection into prompt', async () => {
