@@ -149,10 +149,7 @@ describe('MeetingManager - State Machine (decideNextAction)', () => {
                 activeManager.meeting.characters.push({ id: 'panelist0', name: 'Alice', description: '', prompt: '', voice: 'alloy' });
             }
             setup(activeManager);
-            vi.spyOn(SpeakerSelector, 'calculateNextSpeakerWithMethod').mockReturnValue({
-                index: nextSpeakerIndex,
-                method: 'round_robin',
-            });
+            vi.spyOn(SpeakerSelector, 'calculateNextSpeaker').mockReturnValue(nextSpeakerIndex);
 
             const decision = activeManager.decideNextAction();
             expect(decision).toEqual(expected);
