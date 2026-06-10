@@ -19,6 +19,7 @@ const defaultOptions = {
   /** Absolute cap for extends (server `meetingVeryMaxLength`); reflected in `max_reached.canContinue`. */
   meetingVeryMaxLength: 30,
   skipAudio: false,
+  directedSpeakerRouting: false,
 
   injectPrompt: "",
   maxTokensInject: 800,
@@ -591,6 +592,7 @@ createApp({
         trimParagraph: this.options.trimParagraph,
         trimChairSemicolon: this.options.trimChairSemicolon,
         skipAudio: this.options.skipAudio,
+        directedSpeakerRouting: this.options.directedSpeakerRouting,
         conversationMaxLength: this.options.conversationMaxLength,
         extraMessageCount: this.options.extraMessageCount,
         meetingVeryMaxLength: this.options.meetingVeryMaxLength,

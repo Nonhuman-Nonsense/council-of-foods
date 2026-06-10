@@ -8,6 +8,7 @@ import type { ClientToServerEvents, ServerToClientEvents, AudioUpdatePayload } f
 import type { GlobalOptions } from "@logic/GlobalOptions.js";
 import type { AudioSystem } from "@logic/AudioSystem.js";
 import type { DialogGenerator } from "@logic/DialogGenerator.js";
+import type { DirectedSpeakerRouter } from "@logic/DirectedSpeakerRouter.js";
 import type { ConversationState } from "@shared/ModelTypes.js";
 import type { ConversationService } from "@services/ConversationService.js";
 
@@ -89,6 +90,7 @@ export interface IMeetingControl {
 export interface IMeetingLogicSubsystems {
     audioSystem: AudioSystem;
     dialogGenerator: DialogGenerator;
+    directedSpeakerRouter: DirectedSpeakerRouter;
 }
 
 /**

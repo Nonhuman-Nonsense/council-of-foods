@@ -13,12 +13,14 @@ import {
 } from "@newMeeting/meetingSetup";
 import { useMeetingSetupStore } from "@stores/useMeetingSetupStore";
 import { usePushToTalkStore } from "@stores/usePushToTalkStore";
+import { useAppMode } from "@/museum/useAppMode";
 import { getPushToTalk } from "@/settings/councilSettings";
 import { buildGuidePrompt } from "./guidePrompt";
 import { createGuideToolHandlers, createGuideTools } from "./guideTools";
 import { getVoiceGuideBundle } from "./voiceGuideBundle";
 import { useHoldToSpeakHint } from "./useHoldToSpeakHint";
 import { computePttLedMode } from "./pttLedMode";
+import Loading from "@main/Loading";
 import { useVoiceGuide } from "./useVoiceGuide";
 
 type MeetingVoiceGuideProps = {
@@ -39,6 +41,7 @@ export default function MeetingVoiceGuide({
   onStartMeeting,
 }: MeetingVoiceGuideProps) {
   const { i18n, t } = useTranslation();
+  const { isMuseumMode } = useAppMode();
   const pushToTalkMode = getPushToTalk();
   const pressed = usePushToTalkStore((state) => state.pressed);
   const setLedMode = usePushToTalkStore((state) => state.setLedMode);
@@ -116,6 +119,9 @@ export default function MeetingVoiceGuide({
   });
   const { sendUserMessage, muted } = voice;
 
+  const showMuseumLandingLoading =
+    isMuseumMode && phase === "landing" && !muted && voice.isConnecting;
+
   const showHoldToSpeakHint = useHoldToSpeakHint({
     pushToTalkMode,
     sessionActive: !muted,
@@ -156,16 +162,20 @@ export default function MeetingVoiceGuide({
   }, [lastUserEvent, sendUserMessage]);
 
   return (
+    <>
+      {showMuseumLandingLoading && <Loading />}
     <VoiceGuideOverlay
       isConnecting={voice.isConnecting}
       error={voice.error}
       lastCaption={voice.lastCaption}
       lastUserTranscript={voice.lastUserTranscript}
       muted={voice.muted}
+      isMuseumMode={isMuseumMode}
       pushToTalkMode={pushToTalkMode}
       showHoldToSpeakHint={showHoldToSpeakHint}
       onStart={voice.start}
       onStop={voice.stop}
     />
+    </>
   );
 }

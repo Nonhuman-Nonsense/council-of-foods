@@ -11,7 +11,8 @@ import { MockFactory } from './factories/MockFactory.ts';
 // }));
 vi.mock('@logic/SpeakerSelector.js', () => ({
     SpeakerSelector: {
-        calculateNextSpeaker: vi.fn().mockReturnValue(0)
+        calculateNextSpeaker: vi.fn().mockReturnValue(0),
+        calculateNextSpeakerWithMethod: vi.fn().mockReturnValue({ index: 0, method: 'round_robin' }),
     }
 }));
 
@@ -55,7 +56,7 @@ describe('MeetingManager - Conversation Flow', () => {
         protoManager.meeting._id = 1;
 
         // Spy on SpeakerSelector
-        vi.spyOn(SpeakerSelector, 'calculateNextSpeaker');
+        vi.spyOn(SpeakerSelector, 'calculateNextSpeakerWithMethod');
 
         // Trigger pause on the PROTO socket (via handleEvent)
         await protoManager.handleEvent('pause_conversation', null);
@@ -71,7 +72,7 @@ describe('MeetingManager - Conversation Flow', () => {
         // So safe to call processTurn directly for unit test if we want to check that specific guard.
         // But better to call runLoop or startLoop to test the flow.
         protoManager.startLoop();
-        expect(SpeakerSelector.calculateNextSpeaker).not.toHaveBeenCalled();
+        expect(SpeakerSelector.calculateNextSpeakerWithMethod).not.toHaveBeenCalled();
 
         // Resume
         // Mock generation to stop recursion
@@ -100,7 +101,7 @@ describe('MeetingManager - Conversation Flow', () => {
         manager.meeting.conversation = new Array(5).fill({ type: 'message' });
         manager.isLoopActive = true;
 
-        const spy = vi.spyOn(SpeakerSelector, 'calculateNextSpeaker');
+        const spy = vi.spyOn(SpeakerSelector, 'calculateNextSpeakerWithMethod');
 
         // Use runLoop to verify the loop condition
         await manager.runLoop();
@@ -158,7 +159,10 @@ describe('MeetingManager - Conversation Flow', () => {
         diManager.serverOptions.conversationMaxLength = 10;
         // Mock current speaker to Tomato (index 1 in default, 2 in extended? Default has Water, Tomato, Potato)
         // Water=0, Tomato=1.
-        vi.spyOn(SpeakerSelector, 'calculateNextSpeaker').mockReturnValue(1);
+        vi.spyOn(SpeakerSelector, 'calculateNextSpeakerWithMethod').mockReturnValue({
+            index: 1,
+            method: 'round_robin',
+        });
 
         // We DO NOT mock generateTextFromGPT. We test it!
 
@@ -187,7 +191,10 @@ describe('MeetingManager - Conversation Flow', () => {
         ];
         const panelistId = 1;
 
-        vi.spyOn(SpeakerSelector, 'calculateNextSpeaker').mockReturnValue(panelistId);
+        vi.spyOn(SpeakerSelector, 'calculateNextSpeakerWithMethod').mockReturnValue({
+            index: panelistId,
+            method: 'round_robin',
+        });
 
         const action = manager.decideNextAction();
         expect(action.type).toBe('REQUEST_PANELIST');
