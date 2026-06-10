@@ -54,6 +54,22 @@ describe("NextSpeakerClassifier", () => {
         });
     });
 
+    it("accepts participant name from the model and normalizes to id", async () => {
+        global.fetch = vi.fn().mockResolvedValue(mockJsonResponse({
+            choices: [{ message: { content: secondarySpeaker.name } }],
+        }));
+        const classifier = new NextSpeakerClassifier(MockFactory.createServerOptions({ chairId: CHAIR_ID }));
+        const latestMessage = MockFactory.createMessage({
+            speaker: chair.id,
+            text: `${secondarySpeaker.name}, what does this mean for you?`,
+        });
+
+        await expect(classifier.inferTarget(meeting, latestMessage)).resolves.toEqual({
+            rawOutput: secondarySpeaker.name,
+            targetId: secondarySpeaker.id,
+        });
+    });
+
     it("returns raw output without target when the model says anyone", async () => {
         global.fetch = vi.fn().mockResolvedValue(mockJsonResponse({
             choices: [{ message: { content: "anyone" } }],
@@ -86,16 +102,15 @@ describe("NextSpeakerClassifier", () => {
         const systemPrompt = body.messages[0].content;
         const prompt = body.messages[1].content;
 
-        expect(systemPrompt).toContain("handing the next turn");
-        expect(systemPrompt).toContain("rhetorical opener");
-        expect(systemPrompt).toContain("asks them a direct question");
-        expect(systemPrompt).toContain(`"Oh, ${primarySpeaker.name} (id: ${primarySpeaker.id}), you are so wrong`);
-        expect(prompt).toContain("Latest speaker (who just spoke");
-        expect(prompt).toContain("Chair (may be mentioned, but is NOT an eligible target):");
+        expect(systemPrompt).toContain("direct question");
+        expect(systemPrompt).not.toContain("rhetorical");
+        expect(prompt).toContain("Latest message to classify:");
+        expect(prompt).toContain("Chair (not an eligible target):");
         expect(prompt).toContain(`name: ${chair.name}`);
         expect(prompt).not.toContain("Turn counts");
+        expect(prompt).not.toContain("Topic:");
         expect(prompt).toContain(
-            `Allowed target ids (return one of these, or "anyone" only): ${primarySpeaker.id}, ${secondarySpeaker.id}, anyone`
+            `Allowed replies (participant id or "anyone"): ${primarySpeaker.id}, ${secondarySpeaker.id}, ${primarySpeaker.name}, ${secondarySpeaker.name}, anyone`
         );
         expect(prompt).not.toContain(`${chair.id}, anyone`);
     });
