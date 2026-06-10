@@ -107,16 +107,20 @@ export class NextSpeakerClassifier {
         const conversationTranscript = buildConversationTranscript(meeting);
         const chair = meeting.characters.find((character) => character.id === this.serverOptions.chairId);
 
-        const systemPrompt = buildSystemPrompt(
-            eligibleCharacters.map((character) => character.id),
-            CLASSIFIER_GENERAL_FLOW_KEYWORD
-        );
+        const latestSpeakerId = "speaker" in latestMessage ? latestMessage.speaker : undefined;
+        const latestSpeakerName =
+            latestSpeakerId === undefined
+                ? undefined
+                : meeting.characters.find((character) => character.id === latestSpeakerId)?.name || latestSpeakerId;
+
+        const systemPrompt = buildSystemPrompt(eligibleCharacters, CLASSIFIER_GENERAL_FLOW_KEYWORD);
         const userPrompt = buildUserPrompt({
             topicTitle: meeting.topic.title,
             topicDescription: meeting.topic.description,
             participantLines,
             chairLine: chair ? `- id: ${chair.id} | name: ${chair.name} (chair — not an eligible target)` : undefined,
             conversationLines: conversationTranscript,
+            latestSpeakerLine: latestSpeakerName ? `${latestSpeakerName} (id: ${latestSpeakerId})` : undefined,
             latestMessageLine: renderConversationLine(latestMessage, meeting),
             allowedTargetIds,
         });
@@ -128,32 +132,48 @@ export class NextSpeakerClassifier {
     }
 }
 
-function buildSystemPrompt(exampleTargetIds: string[], generalFlowKeyword: string): string {
-    const examples = [...new Set(exampleTargetIds.filter((id) => id.trim().length > 0))].slice(0, 2);
+function buildSystemPrompt(eligibleCharacters: Character[], generalFlowKeyword: string): string {
+    const first = eligibleCharacters[0];
+    const second = eligibleCharacters[1];
+    const firstLabel = first ? `${first.name} (id: ${first.id})` : "speaker1";
+    const secondLabel = second ? `${second.name} (id: ${second.id})` : "speaker2";
+    const firstId = first?.id ?? "speaker1";
+    const secondId = second?.id ?? "speaker2";
 
     return [
         "You are a classifier.",
-        "Your ONLY job is addressee detection: should one specific eligible participant be given the next turn because the latest message is directed at them?",
+        "Your ONLY job is addressee detection: is the latest message handing the next turn to one specific eligible participant?",
+        "A handoff requires a direct question to them OR an explicit invitation for them to respond.",
         "You are NOT choosing who should speak next in general.",
         "You are NOT balancing turns, rotation, or who has spoken least.",
         "Reply with exactly one value from the allowed target ids list and nothing else.",
         "NEVER use JSON.",
         "NEVER explain your choice.",
         "NEVER include markdown, code fences, punctuation, or any extra words.",
-        "Return a participant id ONLY when one of these is true:",
-        "- The message asks that participant a direct question.",
-        "- The message explicitly invites that specific participant to respond (e.g. 'I'd like to hear from you, Banana').",
-        "- The message is a direct reply in a sustained back-and-forth with that participant (they just spoke to the current speaker and the current speaker is answering them).",
+        "Return a participant id ONLY when BOTH are true:",
+        "1. The message clearly targets that one participant.",
+        "2. AND one of these:",
+        "- The message asks them a direct question (question mark, or phrases like 'what do you think', 'how would you', 'can you explain', 'let me ask you').",
+        "- The message explicitly invites only that participant to respond (e.g. 'I'd like to hear from you').",
         `Return "${generalFlowKeyword}" in all other cases, including:`,
-        "- The message only mentions someone by name at the start (e.g. 'Oh, Banana, you...') without asking them a direct question or inviting them to respond.",
-        "- The message is a monologue, general statement, or speech to the whole room.",
-        "- The message name-checks several participants without one clear addressee.",
-        "- The message is directed at the chair or anyone not in the allowed target ids list.",
-        "- The addressee is ambiguous or you would be guessing.",
-        "- When in doubt.",
+        "- A rhetorical opener like 'Oh, {name},' or '{name}, darling' followed by statements, insults, praise, or arguments — that is NOT a handoff.",
+        "- Rebutting, disagreeing with, or talking about another participant's views without asking them a question.",
+        "- Speaking to the room ('folks', 'the world', 'millions', general claims) even if one person is named first.",
+        "- The latest speaker mentions someone they were just debating with — that is usually rhetoric, not a turn handoff.",
+        "- Monologues, speeches, or council-wide commentary.",
+        "- Multiple participants are mentioned without one clear person being asked to respond.",
+        "- Directed at the chair or anyone not in the allowed target ids list.",
+        "- Ambiguous cases. When in doubt, return the keyword.",
         "- target ids is ALWAYS given in english, even if the dialogue is in another language",
-        "Valid reply examples:",
-        ...examples,
+        "Examples that must return the keyword:",
+        `- "Oh, ${firstLabel}, you are so wrong. I am the greatest..." → ${generalFlowKeyword}`,
+        `- "${firstLabel}, you talk about efficiency but I invented it. That's me, folks..." → ${generalFlowKeyword}`,
+        "Examples that may return a specific id:",
+        `- "${firstLabel}, what do you think about pesticides?" → ${firstId}`,
+        `- "I'd like to hear from ${secondLabel} on this point." → ${secondId}`,
+        "Valid reply tokens:",
+        firstId,
+        secondId,
         generalFlowKeyword,
     ].join("\n");
 }
@@ -164,6 +184,7 @@ function buildUserPrompt(options: {
     participantLines: string[];
     chairLine?: string;
     conversationLines: string[];
+    latestSpeakerLine?: string;
     latestMessageLine: string;
     allowedTargetIds: string[];
 }): string {
@@ -178,7 +199,14 @@ function buildUserPrompt(options: {
         "Recent conversation:",
         options.conversationLines.length > 0 ? options.conversationLines.join("\n") : "(no prior conversation)",
         "",
-        "Latest message (who should be given the next turn because this message is directed at them?):",
+        ...(options.latestSpeakerLine
+            ? [
+                  "Latest speaker (who just spoke — mentions of others may be rhetorical rebuttal, not a handoff):",
+                  options.latestSpeakerLine,
+                  "",
+              ]
+            : []),
+        "Latest message (classify whether this message hands the next turn to one specific participant):",
         options.latestMessageLine,
         "",
         `Allowed target ids (return one of these, or "${CLASSIFIER_GENERAL_FLOW_KEYWORD}" only): ${options.allowedTargetIds.join(", ")}`,

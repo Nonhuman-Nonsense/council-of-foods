@@ -86,9 +86,11 @@ describe("NextSpeakerClassifier", () => {
         const systemPrompt = body.messages[0].content;
         const prompt = body.messages[1].content;
 
-        expect(systemPrompt).toContain("addressee detection");
-        expect(systemPrompt).toContain("only mentions someone by name at the start");
-        expect(systemPrompt).toContain("asks that participant a direct question");
+        expect(systemPrompt).toContain("handing the next turn");
+        expect(systemPrompt).toContain("rhetorical opener");
+        expect(systemPrompt).toContain("asks them a direct question");
+        expect(systemPrompt).toContain(`"Oh, ${primarySpeaker.name} (id: ${primarySpeaker.id}), you are so wrong`);
+        expect(prompt).toContain("Latest speaker (who just spoke");
         expect(prompt).toContain("Chair (may be mentioned, but is NOT an eligible target):");
         expect(prompt).toContain(`name: ${chair.name}`);
         expect(prompt).not.toContain("Turn counts");
