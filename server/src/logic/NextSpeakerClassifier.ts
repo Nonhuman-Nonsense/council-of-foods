@@ -5,12 +5,10 @@ import type { ChatCompletionMessageParam } from "openai/resources/chat/completio
 
 import { Logger } from "@utils/Logger.js";
 import {
-    buildConversationTranscript,
     CLASSIFIER_GENERAL_FLOW_KEYWORD,
     CLASSIFIER_MAX_TOKENS,
     normalizeClassifierTargetId,
     parseClassifierOutput,
-    renderConversationLine,
     requestSpeakerClassifierCompletion,
 } from "@logic/SpeakerClassifierBase.js";
 
@@ -38,8 +36,7 @@ export class NextSpeakerClassifier {
 
         try {
             const { rawOutput, parsedTarget } = await this.classifyTarget(
-                meeting,
-                latestMessage,
+                latestText,
                 eligibleCharacters
             );
 
@@ -68,14 +65,14 @@ export class NextSpeakerClassifier {
     }
 
     private async classifyTarget(
-        meeting: StoredMeeting,
-        latestMessage: Message,
+        latestText: string,
         eligibleCharacters: Character[]
     ): Promise<{ rawOutput: string; parsedTarget?: string }> {
         const allowedTargetIds = buildAllowedTargetIds(eligibleCharacters);
+
         const content = await requestSpeakerClassifierCompletion(
             this.serverOptions,
-            this.buildMessages(meeting, latestMessage, eligibleCharacters, allowedTargetIds),
+            this.buildMessages(latestText, eligibleCharacters, allowedTargetIds),
             CLASSIFIER_MAX_TOKENS,
             "NextSpeakerClassifier"
         );
@@ -93,29 +90,24 @@ export class NextSpeakerClassifier {
     }
 
     private buildMessages(
-        meeting: StoredMeeting,
-        latestMessage: Message,
+        latestText: string,
         eligibleCharacters: Character[],
         allowedTargetIds: string[]
     ): ChatCompletionMessageParam[] {
-        const participantLines = meeting.characters.map(
-            (character) => `- id: ${character.id} | name: ${character.name} | description: ${character.description}`
+        const participantLines = eligibleCharacters.map(
+            (character) => `- ${character.id} | ${character.name}`
         );
-        const conversationTranscript = buildConversationTranscript(meeting);
-        const chair = meeting.characters.find((character) => character.id === this.serverOptions.chairId);
-
-        const systemPrompt = buildSystemPrompt(CLASSIFIER_GENERAL_FLOW_KEYWORD);
-        const userPrompt = buildUserPrompt({
-            participantLines,
-            chairLine: chair ? `- id: ${chair.id} | name: ${chair.name} (not an eligible target)` : undefined,
-            conversationLines: conversationTranscript,
-            latestMessageLine: renderConversationLine(latestMessage, meeting),
-            allowedTargetIds,
-        });
 
         return [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userPrompt },
+            { role: "system", content: buildSystemPrompt(eligibleCharacters, CLASSIFIER_GENERAL_FLOW_KEYWORD) },
+            {
+                role: "user",
+                content: buildUserPrompt({
+                    participantLines,
+                    latestText,
+                    allowedTargetIds,
+                }),
+            },
         ];
     }
 }
@@ -126,42 +118,41 @@ function buildAllowedTargetIds(eligibleCharacters: Character[]): string[] {
     return [...ids, ...names, CLASSIFIER_GENERAL_FLOW_KEYWORD];
 }
 
-function buildSystemPrompt(generalFlowKeyword: string): string {
+function buildSystemPrompt(eligibleCharacters: Character[], generalFlowKeyword: string): string {
+    const exampleTarget = eligibleCharacters[0];
+    const exampleId = exampleTarget?.id ?? "alice";
+    const exampleName = exampleTarget?.name ?? "Alice";
+
     return [
-        "You are a classifier.",
-        "Does the latest message ask a direct question to one specific eligible participant?",
-        `Reply with exactly one token: that participant's id, or "${generalFlowKeyword}".`,
-        "No JSON. No explanation. No punctuation or extra words.",
+        "You classify who is asked a direct question in a council message.",
+        `Always reply with exactly one token: a participant id, or "${generalFlowKeyword}".`,
+        "Never leave your reply blank. No JSON, explanation, or punctuation.",
         "",
-        `Return a participant id when the message directly asks that person a question (by name or clear address).`,
-        `Return "${generalFlowKeyword}" when there is no direct question to one participant, the question is general, or you are unsure.`,
+        "Rules:",
+        "- If the message asks one participant a direct question by name, return their id.",
+        "- Naming several participants earlier does not matter if the message ends by asking one person.",
+        "- If there is no direct question to one person, return the keyword.",
         "",
         "Examples:",
-        '- "Alice, what do you think?" → alice',
-        '- "Bob, how would you handle this?" → bob',
-        '- "Oh, Alice, you are completely wrong." → anyone',
-        '- "This affects all of us." → anyone',
+        `- "Welcome... we have ${exampleName} and others. ${exampleName}, what's your experience?" → ${exampleId}`,
+        `- "${exampleName}, what do you think?" → ${exampleId}`,
+        `- "Oh, ${exampleName}, you are completely wrong." → ${generalFlowKeyword}`,
+        `- "What should we all do next?" → ${generalFlowKeyword}`,
     ].join("\n");
 }
 
 function buildUserPrompt(options: {
     participantLines: string[];
-    chairLine?: string;
-    conversationLines: string[];
-    latestMessageLine: string;
+    latestText: string;
     allowedTargetIds: string[];
 }): string {
     return [
-        "Eligible participants:",
+        "Eligible participants (id | name):",
         options.participantLines.join("\n"),
-        ...(options.chairLine ? ["", "Chair (not an eligible target):", options.chairLine] : []),
         "",
-        "Recent conversation:",
-        options.conversationLines.length > 0 ? options.conversationLines.join("\n") : "(no prior conversation)",
+        "Latest message:",
+        options.latestText,
         "",
-        "Latest message to classify:",
-        options.latestMessageLine,
-        "",
-        `Allowed replies (participant id or "${CLASSIFIER_GENERAL_FLOW_KEYWORD}"): ${options.allowedTargetIds.join(", ")}`,
+        `Reply with one of: ${options.allowedTargetIds.join(", ")}`,
     ].join("\n");
 }

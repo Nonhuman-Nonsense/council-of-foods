@@ -102,15 +102,15 @@ describe("NextSpeakerClassifier", () => {
         const systemPrompt = body.messages[0].content;
         const prompt = body.messages[1].content;
 
-        expect(systemPrompt).toContain("direct question");
-        expect(systemPrompt).not.toContain("rhetorical");
-        expect(prompt).toContain("Latest message to classify:");
-        expect(prompt).toContain("Chair (not an eligible target):");
-        expect(prompt).toContain(`name: ${chair.name}`);
+        expect(systemPrompt).toContain("Naming several participants earlier");
+        expect(systemPrompt).toContain("Never leave your reply blank");
+        expect(prompt).toContain("Latest message:");
+        expect(prompt).toContain(`${primarySpeaker.id} | ${primarySpeaker.name}`);
+        expect(prompt).not.toContain("Recent conversation");
         expect(prompt).not.toContain("Turn counts");
         expect(prompt).not.toContain("Topic:");
         expect(prompt).toContain(
-            `Allowed replies (participant id or "anyone"): ${primarySpeaker.id}, ${secondarySpeaker.id}, ${primarySpeaker.name}, ${secondarySpeaker.name}, anyone`
+            `Reply with one of: ${primarySpeaker.id}, ${secondarySpeaker.id}, ${primarySpeaker.name}, ${secondarySpeaker.name}, anyone`
         );
         expect(prompt).not.toContain(`${chair.id}, anyone`);
     });
