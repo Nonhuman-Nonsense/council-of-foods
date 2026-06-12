@@ -1229,6 +1229,13 @@ createApp({
     toTitleCase(str) {
       if (!str) return "";
       return str.toLowerCase().split(" ").map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(" ");
+    },
+
+    formatSpeakerLabel(idOrName) {
+      if (!idOrName) return "—";
+      const chars = this.currentLanguageData?.characters || [];
+      const match = chars.find((c) => c.id === idOrName || c.name === idOrName);
+      return match?.name || match?.id || idOrName;
     }
   }
 })

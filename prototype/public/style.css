@@ -586,6 +586,12 @@ textarea + small{
   font-weight: 600;
 }
 
+.bubble-header .ask-particular {
+  font-weight: 500;
+  color: var(--accent-color);
+  opacity: 1;
+}
+
 /* Active Audio Highlight */
 .chat-bubble.playing {
   box-shadow: 0 0 0 1px var(--accent-color);

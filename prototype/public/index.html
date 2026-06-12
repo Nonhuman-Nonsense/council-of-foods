@@ -255,7 +255,12 @@
                 v-if="!options.skipAudio && turn.type !== 'skipped' && (!audioController || !audioController.hasItem(index))">
               </div>
 
-              <div class="bubble-header">{{ turn.speaker || '—' }}</div>
+              <div class="bubble-header">
+                {{ formatSpeakerLabel(turn.speaker) }}
+                <span v-if="turn.askParticular" class="ask-particular">
+                  asked {{ formatSpeakerLabel(turn.askParticular) }}
+                </span>
+              </div>
 
               <div v-if="localOptions.showTrimmed && turn.pretrimmed" class="trimmed"
                 style="color: var(--text-secondary); font-size: 0.9em; margin-bottom: 5px;"
