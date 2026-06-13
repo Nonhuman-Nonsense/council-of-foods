@@ -263,8 +263,85 @@ createApp({
       return typeof body === 'string' && body.trim() ? body : `Request failed (${status})`;
     },
 
+    /**
+     * Centralized fetch for /api/* routes — logs API_OUT before the request and API_IN after.
+     * @param {string} path - e.g. "/api/meetings"
+     * @param {{ method?: string, body?: unknown, headers?: Record<string, string>, context?: string }} [options]
+     * @returns {Promise<unknown>} Parsed JSON (or raw text) on success
+     */
+    async apiFetch(path, { method = 'GET', body, headers = {}, context } = {}) {
+      const logSuffix = context ? ` (${context})` : '';
+      this.log('API_OUT', `${method} ${path}${logSuffix}`, {
+        method,
+        path,
+        ...(body !== undefined ? { body } : {}),
+      });
+
+      const init = { method, headers: { ...headers } };
+      if (body !== undefined) {
+        init.body = typeof body === 'string' ? body : JSON.stringify(body);
+        if (!init.headers['Content-Type']) {
+          init.headers['Content-Type'] = 'application/json';
+        }
+      }
+
+      let status;
+      let ok;
+      let responseBody;
+      try {
+        const res = await fetch(path, init);
+        status = res.status;
+        ok = res.ok;
+        const text = await res.text();
+        if (text) {
+          try {
+            responseBody = JSON.parse(text);
+          } catch {
+            responseBody = text;
+          }
+        }
+      } catch (networkError) {
+        this.log('API_IN', `${method} ${path} → network error${logSuffix}`, {
+          error: networkError.message || String(networkError),
+        });
+        throw networkError;
+      }
+
+      this.log('API_IN', `${method} ${path} → ${status}${logSuffix}`, {
+        status,
+        ok,
+        body: responseBody ?? null,
+      });
+
+      if (!ok) {
+        throw new Error(this.formatApiErrorBody(responseBody, status));
+      }
+      return responseBody;
+    },
+
+    async createMeeting(context) {
+      return this.apiFetch('/api/meetings', {
+        method: 'POST',
+        body: this.getMeetingBody(),
+        context,
+      });
+    },
+
+    emitStartConversation(context) {
+      const setupPayload = {
+        meetingId: this.meetingId,
+        liveKey: this.liveKey,
+        serverOptions: this.getServerOptions(),
+      };
+      this.log('SOCKET_OUT', `start_conversation${context ? ` (${context})` : ''}`, setupPayload);
+      this.socket.emit('start_conversation', setupPayload);
+    },
+
     log(category, message, data = null) {
       const styles = {
+        'API_OUT': 'color: #f59e0b; font-weight: bold;',    // Amber
+        'API_IN': 'color: #d97706; font-weight: bold;',     // Dark amber
+        'FILE_IN': 'color: #0891b2; font-weight: bold;',    // Cyan
         'SOCKET_OUT': 'color: #10b981; font-weight: bold;', // Green
         'SOCKET_IN': 'color: #3b82f6; font-weight: bold;',  // Blue
         'AUDIO': 'color: #8b5cf6; font-weight: bold;',      // Purple
@@ -273,6 +350,9 @@ createApp({
       };
 
       const icon = {
+        'API_OUT': '🌐',
+        'API_IN': '📥',
+        'FILE_IN': '📄',
         'SOCKET_OUT': '⬆️',
         'SOCKET_IN': '⬇️',
         'AUDIO': '🎵',
@@ -462,9 +542,12 @@ createApp({
       // Initialize languages from server
       for (const lang of this.available_languages) {
         try {
+          const charactersPath = `./${CHARACTERS_FILE}_${lang}.json`;
+          const topicsPath = `./topics_${lang}.json`;
+
           const [charactersResp, topicsResp] = await Promise.all([
-            fetch(`./${CHARACTERS_FILE}_${lang}.json`),
-            fetch(`./topics_${lang}.json`)
+            fetch(charactersPath),
+            fetch(topicsPath)
           ]);
 
           if (!charactersResp.ok) throw new Error(`Failed to fetch ${CHARACTERS_FILE}_${lang}: ${charactersResp.status}`);
@@ -472,6 +555,9 @@ createApp({
 
           const charactersParams = await charactersResp.json();
           const topics = await topicsResp.json();
+
+          this.log('FILE_IN', `GET ${charactersPath} → ${charactersResp.status}`, charactersParams);
+          this.log('FILE_IN', `GET ${topicsPath} → ${topicsResp.status}`, topics);
 
           // Map Characters (Global)
           // charactersParams is { characters: [...] }
@@ -937,17 +1023,34 @@ createApp({
       let rawTopicsEn = { topics: [] };
 
       try {
-        this.log('SYSTEM', 'Fetching raw data for export...');
+        const charactersPath = `./${CHARACTERS_FILE}_${lang}.json`;
+        const topicsPath = `./topics_${lang}.json`;
+        const charactersEnPath = `./${CHARACTERS_FILE}_en.json`;
+        const topicsEnPath = './topics_en.json';
+
         const [charactersResp, topicsResp, charactersEnResp, topicsEnResp] = await Promise.all([
-          fetch(`./${CHARACTERS_FILE}_${lang}.json`),
-          fetch(`./topics_${lang}.json`),
-          fetch(`./${CHARACTERS_FILE}_en.json`),
-          fetch('./topics_en.json')
+          fetch(charactersPath),
+          fetch(topicsPath),
+          fetch(charactersEnPath),
+          fetch(topicsEnPath)
         ]);
-        if (charactersResp.ok) rawCharacters = await charactersResp.json();
-        if (topicsResp.ok) rawTopics = await topicsResp.json();
-        if (charactersEnResp.ok) rawCharactersEn = await charactersEnResp.json();
-        if (topicsEnResp.ok) rawTopicsEn = await topicsEnResp.json();
+
+        if (charactersResp.ok) {
+          rawCharacters = await charactersResp.json();
+          this.log('FILE_IN', `GET ${charactersPath} → ${charactersResp.status}`, rawCharacters);
+        }
+        if (topicsResp.ok) {
+          rawTopics = await topicsResp.json();
+          this.log('FILE_IN', `GET ${topicsPath} → ${topicsResp.status}`, rawTopics);
+        }
+        if (charactersEnResp.ok) {
+          rawCharactersEn = await charactersEnResp.json();
+          this.log('FILE_IN', `GET ${charactersEnPath} → ${charactersEnResp.status}`, rawCharactersEn);
+        }
+        if (topicsEnResp.ok) {
+          rawTopicsEn = await topicsEnResp.json();
+          this.log('FILE_IN', `GET ${topicsEnPath} → ${topicsEnResp.status}`, rawTopicsEn);
+        }
       } catch (e) {
         this.log('ERROR', "Failed to fetch raw data", e);
       }
@@ -1025,31 +1128,10 @@ createApp({
       this.audioController.reset();
 
       try {
-        const meetingBody = this.getMeetingBody();
-        this.log('SYSTEM', 'Creating meeting via API', meetingBody);
-
-        const res = await fetch("/api/meetings", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(meetingBody),
-        });
-        if (!res.ok) {
-          const errText = await res.text();
-          let errBody = errText;
-          try {
-            errBody = JSON.parse(errText);
-          } catch {
-            // keep raw text
-          }
-          throw new Error(this.formatApiErrorBody(errBody, res.status));
-        }
-        const { meetingId, liveKey } = await res.json();
+        const { meetingId, liveKey } = await this.createMeeting('start conversation');
         this.meetingId = Number(meetingId);
         this.liveKey = liveKey;
-
-        const setupPayload = { meetingId: this.meetingId, liveKey: this.liveKey, serverOptions: this.getServerOptions() };
-        this.log('SOCKET_OUT', 'Starting Conversation', setupPayload);
-        this.socket.emit("start_conversation", setupPayload);
+        this.emitStartConversation('start');
       } catch (e) {
         this.log('ERROR', 'Failed to create meeting', e);
         this.status = 'ERROR';
@@ -1075,31 +1157,10 @@ createApp({
       this.audioController.reset();
 
       try {
-        const meetingBody = this.getMeetingBody();
-        this.log('SYSTEM', 'Creating new meeting for restart', meetingBody);
-
-        const res = await fetch("/api/meetings", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(meetingBody),
-        });
-        if (!res.ok) {
-          const errText = await res.text();
-          let errBody = errText;
-          try {
-            errBody = JSON.parse(errText);
-          } catch {
-            // keep raw text
-          }
-          throw new Error(this.formatApiErrorBody(errBody, res.status));
-        }
-        const { meetingId, liveKey } = await res.json();
+        const { meetingId, liveKey } = await this.createMeeting('restart conversation');
         this.meetingId = Number(meetingId);
         this.liveKey = liveKey;
-
-        const setupPayload = { meetingId: this.meetingId, liveKey: this.liveKey, serverOptions: this.getServerOptions() };
-        this.log('SOCKET_OUT', 'Restarting Conversation', setupPayload);
-        this.socket.emit("start_conversation", setupPayload);
+        this.emitStartConversation('restart');
       } catch (e) {
         this.log('ERROR', 'Failed to create meeting for restart', e);
         this.status = 'ERROR';
