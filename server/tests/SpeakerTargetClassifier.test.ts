@@ -107,9 +107,8 @@ describe("SpeakerTargetClassifier", () => {
         expect(userPrompt).toContain(`${primarySpeaker.name}: Message 12`);
         expect(userPrompt).not.toMatch(/: Message 1\n/);
         expect(userPrompt).not.toMatch(/: Message 2\n/);
-        expect(userPrompt).toContain(
-            `Allowed target ids: ${chair.id}, ${primarySpeaker.id}, ${secondarySpeaker.id}, anyone`
-        );
+        expect(userPrompt).toContain(formatExpectedAllowedTargetIds([chair.id, primarySpeaker.id, secondarySpeaker.id, "anyone"]));
+        expect(userPrompt).toContain("Classify which meeting participant should directly answer the human question:");
     });
 
     describe("participantHandoff mode", () => {
@@ -142,14 +141,19 @@ describe("SpeakerTargetClassifier", () => {
             });
 
             const body = JSON.parse((global.fetch as ReturnType<typeof vi.fn>).mock.calls[0][1].body);
+            const systemPrompt = body.messages[0].content as string;
             const userPrompt = body.messages[1].content as string;
+            const expectedAllowedTargetIds = formatExpectedAllowedTargetIds([
+                primarySpeaker.id,
+                secondarySpeaker.id,
+                "anyone",
+            ]);
 
-            const allowedTargetLine = userPrompt
-                .split("\n")
-                .find((line) => line.startsWith("Allowed target ids:"));
-
-            expect(allowedTargetLine).toBe(
-                `Allowed target ids: ${primarySpeaker.id}, ${secondarySpeaker.id}, anyone`
+            expect(systemPrompt).toContain(expectedAllowedTargetIds);
+            expect(userPrompt).toContain(expectedAllowedTargetIds);
+            expect(userPrompt).not.toContain(`\n${chair.id}\n`);
+            expect(userPrompt).toContain(
+                "Classify which meeting participant should directly answer the latest council message:"
             );
         });
 
@@ -174,6 +178,10 @@ describe("SpeakerTargetClassifier", () => {
         });
     });
 });
+
+function formatExpectedAllowedTargetIds(ids: string[]): string {
+    return ["Allowed target ids:", ...ids].join("\n");
+}
 
 function mockJsonResponse(body: unknown): Response {
     return {
