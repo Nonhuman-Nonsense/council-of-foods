@@ -139,7 +139,7 @@
                   <character-card v-for="(character, index) in activeCharacters" :key="character._ui_id"
                     :character="character" :is-active="true"
                     :is-expanded="localOptions.expandedCharacters[character._ui_id]"
-                    :voice-lists="{ openai: audioVoices, gemini: audioVoicesGemini, inworld: audioVoicesInworld }"
+                    :voice-lists="{ openai: audioVoices, gemini: audioVoicesGemini }"
                     :is-sorting="isResizing" :is-pinned="isCharacterPinned(character)"
                     @toggle-expanded="toggleCharacterExpanded(character._ui_id)"
                     @toggle-active="toggleCharacterActive(character)" :data-id="character._ui_id"
@@ -152,7 +152,7 @@
                   <character-card v-for="(character, index) in inactiveCharacters" :key="character._ui_id"
                     :character="character" :is-active="false"
                     :is-expanded="localOptions.expandedCharacters[character._ui_id]"
-                    :voice-lists="{ openai: audioVoices, gemini: audioVoicesGemini, inworld: audioVoicesInworld }"
+                    :voice-lists="{ openai: audioVoices, gemini: audioVoicesGemini }"
                     :is-sorting="false" :is-pinned="isCharacterPinned(character)"
                     @toggle-expanded="toggleCharacterExpanded(character._ui_id)"
                     @toggle-active="toggleCharacterActive(character)">
@@ -491,6 +491,19 @@
           </label>
         </div>
 
+        <template v-if="character.voiceProvider === 'inworld'">
+          <label class="sub-label">Voice ID</label>
+          <input type="text" class="input-full" placeholder="Enter Inworld Voice ID..."
+            v-model="character.voice" style="padding: 8px;">
+
+          <label class="sub-label">Voice Language (optional)</label>
+          <input type="text" class="input-full" placeholder="e.g. sv-SE, en-GB"
+            v-model="character.voiceLocale" style="padding: 8px;">
+          <small>
+            BCP-47 locale. Leave empty for TTS 1.5; any value uses TTS-2.
+          </small>
+        </template>
+
         <label class="sub-label" v-if="character.voiceProvider === 'gemini'">Voice Accent</label>
         <div class="voice-selector" style="margin-bottom: 10px;" v-if="character.voiceProvider === 'gemini'">
           <label class="voice-chip" :class="{ active: character.voiceLocale === 'en-US' }">
@@ -507,33 +520,27 @@
           </label>
         </div>
 
-        <label class="sub-label">Voice Option</label>
-        <div class="voice-selector">
-          <template v-if="character.voiceProvider === 'gemini'">
-            <template v-for="voiceName in voiceLists.gemini" :key="voiceName">
-              <label class="voice-chip" :class="{ active: character.voice === voiceName }">
-                <input type="radio" :value="voiceName" v-model="character.voice" style="display: none;">
-                {{ voiceName }}
-              </label>
+        <template v-if="character.voiceProvider !== 'inworld'">
+          <label class="sub-label">Voice Option</label>
+          <div class="voice-selector">
+            <template v-if="character.voiceProvider === 'gemini'">
+              <template v-for="voiceName in voiceLists.gemini" :key="voiceName">
+                <label class="voice-chip" :class="{ active: character.voice === voiceName }">
+                  <input type="radio" :value="voiceName" v-model="character.voice" style="display: none;">
+                  {{ voiceName }}
+                </label>
+              </template>
             </template>
-          </template>
-          <template v-else-if="character.voiceProvider === 'inworld'">
-            <template v-for="voiceName in voiceLists.inworld" :key="voiceName">
-              <label class="voice-chip" :class="{ active: character.voice === voiceName }">
-                <input type="radio" :value="voiceName" v-model="character.voice" style="display: none;">
-                {{ voiceName }}
-              </label>
+            <template v-else>
+              <template v-for="voiceName in voiceLists.openai" :key="voiceName">
+                <label class="voice-chip" :class="{ active: character.voice === voiceName }">
+                  <input type="radio" :value="voiceName" v-model="character.voice" style="display: none;">
+                  {{ voiceName }}
+                </label>
+              </template>
             </template>
-          </template>
-          <template v-else>
-            <template v-for="voiceName in voiceLists.openai" :key="voiceName">
-              <label class="voice-chip" :class="{ active: character.voice === voiceName }">
-                <input type="radio" :value="voiceName" v-model="character.voice" style="display: none;">
-                {{ voiceName }}
-              </label>
-            </template>
-          </template>
-        </div>
+          </div>
+        </template>
 
         <label class="sub-label" style="display: flex; align-items: center; justify-content: space-between;">
           <span>Voice Speed ({{ character.voiceSpeed || 'Global' }})</span>
@@ -547,18 +554,19 @@
 
         <template v-if="character.voiceProvider === 'inworld'">
           <label class="sub-label">Voice Temperature ({{ character.voiceTemperature || 1.1 }})</label>
-          <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+          <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 5px;">
             <input type="range" class="styled-range" min="0.7" max="1.5" step="0.01"
               :value="character.voiceTemperature || 1.1"
-              @input="character.voiceTemperature = parseFloat($event.target.value)" style="flex: 1;">
+              :disabled="usesInworldTts2(character)"
+              @input="character.voiceTemperature = parseFloat($event.target.value)"
+              :style="{ flex: 1, filter: usesInworldTts2(character) ? 'grayscale(1) opacity(0.5)' : 'none' }">
           </div>
-
-          <label class="sub-label">Custom Voice ID</label>
-          <input type="text" class="input-full" placeholder="Enter Inworld Voice ID..."
-            :value="voiceLists.inworld.includes(character.voice) ? '' : character.voice"
-            @input="character.voice = $event.target.value" style="margin-top: 5px; height: 36px; padding: 8px;">
+          <small v-if="usesInworldTts2(character)"
+            style="display: block; margin-bottom: 10px; color: var(--text-secondary);">
+            Not available on TTS-2 (used when a language locale is set).
+          </small>
         </template>
-        <template v-else>
+        <template v-else-if="character.voiceProvider === 'openai' || character.voiceProvider === 'gemini' || !character.voiceProvider">
           <label class="sub-label">Voice Instruction</label>
           <textarea class="input-area" placeholder="e.g. 'Excited'" v-model="character.voiceInstruction" v-auto-resize
             rows="1" style="margin-top: 5px; min-height: 36px; height: 36px; padding: 8px;"></textarea>
@@ -569,7 +577,7 @@
 
   <script src="Sortable.min.js"></script>
   <script src="audio_controller.js"></script>
-  <script src="prototype_client.js?v=2.2"></script>
+  <script src="prototype_client.js?v=2.4"></script>
 </body>
 
 </html>
