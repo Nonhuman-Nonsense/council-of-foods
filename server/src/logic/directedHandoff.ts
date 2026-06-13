@@ -13,12 +13,15 @@ export async function annotateDirectedHandoff(
 ): Promise<void> {
     if (!serverOptions.directedSpeakerRouting) return;
     if (!DIRECTED_MESSAGE_TYPES.has(message.type)) return;
-    if (!("text" in message) || !("speaker" in message) || message.text.trim().length === 0) return;
+
+    const text = "text" in message ? message.text : undefined;
+    const speakerId = "speaker" in message ? message.speaker : undefined;
+    if (typeof text !== "string" || text.trim().length === 0 || typeof speakerId !== "string") return;
 
     const targetId = await classifier.inferTarget(meeting, {
         mode: "participantHandoff",
-        text: message.text,
-        speakerId: message.speaker,
+        text,
+        speakerId,
     });
 
     if (targetId) {
