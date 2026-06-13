@@ -18,9 +18,14 @@ export type SpeakerTargetMode = "humanQuestion" | "participantHandoff";
 export interface SpeakerTargetRequest {
     mode: SpeakerTargetMode;
     text: string;
-    /** Who spoke this utterance — required for participant handoff */
-    speakerId?: string;
+    /** Character id for participant handoff; human display name for human questions */
+    speakerId: string;
 }
+
+type ClassifierBuildOptions = SpeakerTargetRequest & {
+    eligibleCharacters: Character[];
+    allowedTargetIds: string[];
+};
 
 export class SpeakerTargetClassifier {
     private serverOptions: GlobalOptions;
@@ -47,13 +52,7 @@ export class SpeakerTargetClassifier {
         try {
             const content = await requestSpeakerClassifierCompletion(
                 this.serverOptions,
-                buildClassifierMessages(meeting, {
-                    mode: request.mode,
-                    text: request.text,
-                    speakerId: request.speakerId,
-                    eligibleCharacters,
-                    allowedTargetIds,
-                }),
+                buildClassifierMessages(meeting, { ...request, eligibleCharacters, allowedTargetIds }),
                 CLASSIFIER_MAX_TOKENS,
                 `SpeakerTargetClassifier:${request.mode}`
             );
@@ -67,7 +66,10 @@ export class SpeakerTargetClassifier {
                 return undefined;
             }
 
-            Logger.info(`meeting ${meeting._id}`, `directed to ${targetId}`);
+            Logger.info(
+                `meeting ${meeting._id}`,
+                `${request.speakerId} asked directly to ${targetId}`
+            );
             return targetId;
         } catch (error) {
             Logger.warn(
@@ -82,13 +84,7 @@ export class SpeakerTargetClassifier {
 
 function buildClassifierMessages(
     meeting: StoredMeeting,
-    options: {
-        mode: SpeakerTargetMode;
-        text: string;
-        speakerId?: string;
-        eligibleCharacters: Character[];
-        allowedTargetIds: string[];
-    }
+    options: ClassifierBuildOptions
 ): ChatCompletionMessageParam[] {
     if (options.mode === "participantHandoff") {
         return buildParticipantHandoffClassifierMessages(meeting, options);
@@ -99,10 +95,7 @@ function buildClassifierMessages(
 
 function buildHumanQuestionClassifierMessages(
     meeting: StoredMeeting,
-    options: {
-        text: string;
-        allowedTargetIds: string[];
-    }
+    options: Pick<ClassifierBuildOptions, "text" | "allowedTargetIds">
 ): ChatCompletionMessageParam[] {
     const conversationTranscript = buildConversationTranscript(meeting);
     const participantLines = meeting.characters.map(
@@ -135,19 +128,12 @@ function buildHumanQuestionClassifierMessages(
 
 function buildParticipantHandoffClassifierMessages(
     meeting: StoredMeeting,
-    options: {
-        text: string;
-        speakerId?: string;
-        allowedTargetIds: string[];
-    }
+    options: Pick<ClassifierBuildOptions, "text" | "speakerId" | "allowedTargetIds">
 ): ChatCompletionMessageParam[] {
-    const latestMessageLine =
-        options.speakerId
-            ? renderConversationLine(
-                  { speaker: options.speakerId, text: options.text, type: "message" } as Message,
-                  meeting
-              )
-            : options.text;
+    const latestMessageLine = renderConversationLine(
+        { speaker: options.speakerId, text: options.text, type: "message" } as Message,
+        meeting
+    );
 
     const userPrompt = [
         "Latest message:",
