@@ -1,10 +1,6 @@
 {
-    "conversationModel": "mistral/mistral-medium-latest",
-    "conversationReasoning": "none",
     "voiceModel": "gpt-4o-mini-tts",
     "inworldVoiceModel": "inworld-tts-1.5-mini",
-    "maxTokens": 150,
-    "chairMaxTokens": 150,
     "conversationMaxLength": 5,
     "defaultAudioSpeed": 1.25,
     "raiseHandInvitationLength": 100,
