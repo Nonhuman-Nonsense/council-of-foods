@@ -2,6 +2,9 @@ import { Logger } from "@utils/Logger.js";
 
 const DEFAULT_RETRIES = 3;
 
+/** Shared timeout for outbound HTTP calls to external APIs (OpenAI, Inworld, etc.). */
+export const OUTBOUND_HTTP_TIMEOUT_MS = 30_000;
+
 /**
  * Wrapper for network calls to handle specific low-level network errors
  * that might not be automatically retried by SDKs or fetch (e.g. 'terminated', 'ECONNRESET').
