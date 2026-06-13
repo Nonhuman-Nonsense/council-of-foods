@@ -148,7 +148,7 @@ export const MockFactory = {
 
     createMeeting: (overrides: Partial<Meeting> = {}): Meeting => {
         const storedMeeting = MockFactory.createStoredMeeting();
-        const { liveKey, ...meeting } = storedMeeting;
+        const { liveKey: _liveKey, ...meeting } = storedMeeting;
         return { ...meeting, ...overrides };
     },
 

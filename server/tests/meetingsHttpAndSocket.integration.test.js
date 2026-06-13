@@ -336,7 +336,7 @@ describe('HTTP + Socket full chain (integration)', () => {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(validCreateBody()),
         });
-        const { meetingId, liveKey } = await createRes.json();
+        const { meetingId } = await createRes.json();
 
         const socket = ioClient(`${base()}`, { transports: ['websocket'], autoConnect: false });
         socket.connect();
