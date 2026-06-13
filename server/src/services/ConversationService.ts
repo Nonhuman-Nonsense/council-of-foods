@@ -2,6 +2,7 @@ import OpenAI from "openai";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
 
 import { config } from "@root/src/config.js";
+import { OUTBOUND_HTTP_TIMEOUT_MS } from "@utils/NetworkUtils.js";
 
 const INWORLD_BASE_URL = "https://api.inworld.ai/v1";
 const OPENAI_DIRECT_PREFIX = "openai-direct/";
@@ -69,7 +70,7 @@ function getInworldClient(): OpenAI {
             baseURL: INWORLD_BASE_URL,
             apiKey: config.INWORLD_API_KEY,
             maxRetries: 3,
-            timeout: 30 * 1000,
+            timeout: OUTBOUND_HTTP_TIMEOUT_MS,
         });
     }
 

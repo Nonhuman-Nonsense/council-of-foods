@@ -22,7 +22,7 @@ export async function getMeeting(meetingId: number, bearer?: string): Promise<Me
         throw new ForbiddenError();
     }
     //Always unset the live key for GET requests
-    const { liveKey, ...meeting } = storedMeeting;
+    const { liveKey: _liveKey, ...meeting } = storedMeeting;
 
     return meeting;
 }

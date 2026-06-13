@@ -104,6 +104,7 @@ describe('HumanInputHandler (Isolated)', () => {
             expect(mockContext.speakerTargetClassifier.inferTarget).toHaveBeenCalledWith(mockContext.meeting, {
                 mode: "humanQuestion",
                 text: "What do you think?",
+                speakerId: "Frank",
             });
             expect(addedMsg.askParticular).toBe('panelist0');
             expect(addedMsg.text).toContain('Frank said:');

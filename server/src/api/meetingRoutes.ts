@@ -5,7 +5,7 @@ import { createMeeting } from "./createMeeting.js";
 import { getMeeting } from "./getMeeting.js";
 import { buildReplayMeetingManifest } from "./replayManifest.js";
 import { resumeMeeting } from "./resumeMeeting.js";
-import { BadRequestError, CouncilError, UnauthorizedError } from "@models/Errors.js";
+import { BadRequestError, CouncilError } from "@models/Errors.js";
 
 const BEARER = /^Bearer\s+(.+)$/i;
 
@@ -21,14 +21,6 @@ function parseOptionalBearerToken(req: Request): string | undefined {
     if (!h) return undefined;
     const m = h.match(BEARER);
     return m ? m[1].trim() : undefined;
-}
-
-function parseRequiredBearerToken(req: Request): string {
-    const bearer = parseOptionalBearerToken(req);
-    if (!bearer) {
-        throw new UnauthorizedError();
-    }
-    return bearer;
 }
 
 async function apiRouteWithErrorHandling(

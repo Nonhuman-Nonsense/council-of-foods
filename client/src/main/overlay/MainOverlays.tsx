@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useNavigate, useLocation } from "react-router";
 import { isMeetingPath, isRootPath } from "@/routing";
 

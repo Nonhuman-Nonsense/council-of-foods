@@ -5,12 +5,11 @@ import type { ChatCompletionMessageParam } from "openai/resources/chat/completio
 
 import { config } from "@root/src/config.js";
 import { buildInworldReasoningExtraBody } from "@services/ConversationService.js";
-import { withNetworkRetry } from "@utils/NetworkUtils.js";
+import { OUTBOUND_HTTP_TIMEOUT_MS, withNetworkRetry } from "@utils/NetworkUtils.js";
 
 export const CLASSIFIER_GENERAL_FLOW_KEYWORD = "anyone";
 export const CLASSIFIER_MAX_TOKENS = 32;
 export const CLASSIFIER_TEMPERATURE = 0.1;
-export const CLASSIFIER_TIMEOUT_MS = 4000;
 export const CLASSIFIER_MAX_CONTEXT_MESSAGES = 10;
 
 const INWORLD_CHAT_COMPLETIONS_URL = "https://api.inworld.ai/v1/chat/completions";
@@ -91,7 +90,7 @@ export async function requestSpeakerClassifierCompletion(
     logLabel: string
 ): Promise<string> {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), CLASSIFIER_TIMEOUT_MS);
+    const timeout = setTimeout(() => controller.abort(), OUTBOUND_HTTP_TIMEOUT_MS);
 
     try {
         const response = await withNetworkRetry(

@@ -30,6 +30,6 @@ export const verifyGoogleCredentials = async (config: EnvConfig) => {
         Logger.info("init", "Google Cloud Authentication successful.");
     } catch (error: unknown) {
         const message = error instanceof Error ? error.message : String(error);
-        throw new Error(`Google Cloud Authentication failed: ${message}`);
+        throw new Error(`Google Cloud Authentication failed: ${message}`, { cause: error });
     }
 };

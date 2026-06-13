@@ -2,9 +2,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import SelectCharacters from '@newMeeting/SelectCharacters';
-import { createDefaultHumans } from '@newMeeting/CharacterSetup';
 import { characterSetupEn } from '../../../characterSetupTestData';
-import { useState } from 'react';
 import { useMeetingSetupStore } from '@stores/useMeetingSetupStore';
 
 // Mock dependencies
