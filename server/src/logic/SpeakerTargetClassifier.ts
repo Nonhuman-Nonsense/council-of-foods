@@ -90,28 +90,24 @@ function buildClassifierMessages(
         allowedTargetIds: string[];
     }
 ): ChatCompletionMessageParam[] {
+    if (options.mode === "participantHandoff") {
+        return buildParticipantHandoffClassifierMessages(meeting, options);
+    }
+
+    return buildHumanQuestionClassifierMessages(meeting, options);
+}
+
+function buildHumanQuestionClassifierMessages(
+    meeting: StoredMeeting,
+    options: {
+        text: string;
+        allowedTargetIds: string[];
+    }
+): ChatCompletionMessageParam[] {
     const conversationTranscript = buildConversationTranscript(meeting);
     const participantLines = meeting.characters.map(
         (character) => `- id: ${character.id} | name: ${character.name} | description: ${character.description}`
     );
-    const latestMessageLine =
-        options.mode === "participantHandoff" && options.speakerId
-            ? renderConversationLine(
-                  { speaker: options.speakerId, text: options.text, type: "message" } as Message,
-                  meeting
-              )
-            : options.text;
-
-    const systemPrompt = buildClassifierSystemPrompt(
-        options.allowedTargetIds,
-        options.mode
-    );
-
-    const utteranceLabel = options.mode === "humanQuestion" ? "Human question:" : "Latest message:";
-    const classificationPrompt =
-        options.mode === "humanQuestion"
-            ? "Classify which meeting participant should directly answer the human question:"
-            : "Classify which meeting participant should directly answer the latest council message:";
 
     const userPrompt = [
         `Topic: ${meeting.topic.title}`,
@@ -123,16 +119,47 @@ function buildClassifierMessages(
         "Recent conversation:",
         conversationTranscript.length > 0 ? conversationTranscript.join("\n") : "(no prior conversation)",
         "",
-        utteranceLabel,
+        "Human question:",
+        options.text,
+        "",
+        formatAllowedTargetIdsBlock(options.allowedTargetIds),
+        "",
+        "Classify which meeting participant should directly answer the human question:",
+    ].join("\n");
+
+    return [
+        { role: "system", content: buildHumanQuestionClassifierSystemPrompt(options.allowedTargetIds) },
+        { role: "user", content: userPrompt },
+    ];
+}
+
+function buildParticipantHandoffClassifierMessages(
+    meeting: StoredMeeting,
+    options: {
+        text: string;
+        speakerId?: string;
+        allowedTargetIds: string[];
+    }
+): ChatCompletionMessageParam[] {
+    const latestMessageLine =
+        options.speakerId
+            ? renderConversationLine(
+                  { speaker: options.speakerId, text: options.text, type: "message" } as Message,
+                  meeting
+              )
+            : options.text;
+
+    const userPrompt = [
+        "Latest message:",
         latestMessageLine,
         "",
         formatAllowedTargetIdsBlock(options.allowedTargetIds),
         "",
-        classificationPrompt,
+        "If the latest message contains a direct question to one participant, reply with that participant's id. Otherwise reply with anyone:",
     ].join("\n");
 
     return [
-        { role: "system", content: systemPrompt },
+        { role: "system", content: buildParticipantHandoffClassifierSystemPrompt(options.allowedTargetIds) },
         { role: "user", content: userPrompt },
     ];
 }
@@ -141,14 +168,12 @@ function formatAllowedTargetIdsBlock(allowedTargetIds: string[]): string {
     return ["Allowed target ids:", ...allowedTargetIds].join("\n");
 }
 
-function buildClassifierSystemPrompt(allowedTargetIds: string[], mode: SpeakerTargetMode): string {
+function buildHumanQuestionClassifierSystemPrompt(allowedTargetIds: string[]): string {
     const generalFlowKeyword = CLASSIFIER_GENERAL_FLOW_KEYWORD;
-    const utterance =
-        mode === "humanQuestion" ? "latest human question" : "latest council message";
 
     return [
         "You are a classifier.",
-        `Your job is to choose which meeting participant should directly answer the ${utterance}.`,
+        "Your job is to choose which meeting participant should directly answer the latest human question.",
         "Reply with exactly one allowed target id and nothing else.",
         "NEVER use JSON.",
         "NEVER explain your choice.",
@@ -157,6 +182,26 @@ function buildClassifierSystemPrompt(allowedTargetIds: string[], mode: SpeakerTa
         `- Use the keyword "${generalFlowKeyword}" if the question is general, ambiguous, or should follow the normal meeting flow.`,
         "- Choose a participant if they are addressed by name or the recent context makes one participant the best direct responder.",
         `- If there is no clear best direct responder, choose the keyword "${generalFlowKeyword}".`,
+        "- target ids is ALWAYS given in english, even if the dialogue is in another language",
+        formatAllowedTargetIdsBlock(allowedTargetIds),
+    ].join("\n");
+}
+
+function buildParticipantHandoffClassifierSystemPrompt(allowedTargetIds: string[]): string {
+    const generalFlowKeyword = CLASSIFIER_GENERAL_FLOW_KEYWORD;
+
+    return [
+        "You are a classifier.",
+        "Your job is to detect whether the latest council message contains a direct question to one specific participant.",
+        "Reply with exactly one allowed target id and nothing else.",
+        "NEVER use JSON.",
+        "NEVER explain your choice.",
+        "NEVER include markdown, code fences, punctuation, or any extra words.",
+        "Rules:",
+        `- Use the keyword "${generalFlowKeyword}" unless the latest message directly asks one participant a clear question.`,
+        `- Use the keyword "${generalFlowKeyword}" for statements, reactions, agreement, disagreement, monologues, rhetorical questions, and questions to the group.`,
+        "- Choose a participant id only when the latest message clearly and directly asks that participant a question.",
+        `- If unsure, choose the keyword "${generalFlowKeyword}".`,
         "- target ids is ALWAYS given in english, even if the dialogue is in another language",
         formatAllowedTargetIdsBlock(allowedTargetIds),
     ].join("\n");
