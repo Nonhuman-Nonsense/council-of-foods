@@ -103,12 +103,15 @@ function buildClassifierMessages(
             : options.text;
 
     const systemPrompt = buildClassifierSystemPrompt(
-        options.eligibleCharacters.map((character) => character.id),
-        CLASSIFIER_GENERAL_FLOW_KEYWORD,
+        options.allowedTargetIds,
         options.mode
     );
 
     const utteranceLabel = options.mode === "humanQuestion" ? "Human question:" : "Latest message:";
+    const classificationPrompt =
+        options.mode === "humanQuestion"
+            ? "Classify which meeting participant should directly answer the human question:"
+            : "Classify which meeting participant should directly answer the latest council message:";
 
     const userPrompt = [
         `Topic: ${meeting.topic.title}`,
@@ -123,7 +126,9 @@ function buildClassifierMessages(
         utteranceLabel,
         latestMessageLine,
         "",
-        `Allowed target ids: ${options.allowedTargetIds.join(", ")}`,
+        formatAllowedTargetIdsBlock(options.allowedTargetIds),
+        "",
+        classificationPrompt,
     ].join("\n");
 
     return [
@@ -132,19 +137,19 @@ function buildClassifierMessages(
     ];
 }
 
-function buildClassifierSystemPrompt(
-    characterIds: string[],
-    generalFlowKeyword: string,
-    mode: SpeakerTargetMode
-): string {
-    const exampleTargetIds = [...new Set(characterIds.filter((id) => id.trim().length > 0))].slice(0, 2);
+function formatAllowedTargetIdsBlock(allowedTargetIds: string[]): string {
+    return ["Allowed target ids:", ...allowedTargetIds].join("\n");
+}
+
+function buildClassifierSystemPrompt(allowedTargetIds: string[], mode: SpeakerTargetMode): string {
+    const generalFlowKeyword = CLASSIFIER_GENERAL_FLOW_KEYWORD;
     const utterance =
         mode === "humanQuestion" ? "latest human question" : "latest council message";
 
     return [
         "You are a classifier.",
         `Your job is to choose which meeting participant should directly answer the ${utterance}.`,
-        "Reply with exactly one value from the allowed target ids list and nothing else.",
+        "Reply with exactly one allowed target id and nothing else.",
         "NEVER use JSON.",
         "NEVER explain your choice.",
         "NEVER include markdown, code fences, punctuation, or any extra words.",
@@ -153,8 +158,6 @@ function buildClassifierSystemPrompt(
         "- Choose a participant if they are addressed by name or the recent context makes one participant the best direct responder.",
         `- If there is no clear best direct responder, choose the keyword "${generalFlowKeyword}".`,
         "- target ids is ALWAYS given in english, even if the dialogue is in another language",
-        "Valid reply examples:",
-        ...exampleTargetIds,
-        generalFlowKeyword,
+        formatAllowedTargetIdsBlock(allowedTargetIds),
     ].join("\n");
 }
