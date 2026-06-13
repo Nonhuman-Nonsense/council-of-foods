@@ -44,15 +44,12 @@ describe('HumanInputHandler (Isolated)', () => {
             handRaised: false,
             isPaused: false,
             dialogGenerator: {},
-            directedSpeakerRouter: {
-                annotateIfDirected: vi.fn().mockResolvedValue(undefined)
+            speakerTargetClassifier: {
+                inferTarget: vi.fn().mockResolvedValue(undefined)
             }
         };
 
         handler = new HumanInputHandler(mockContext);
-        handler.targetClassifier = {
-            inferTarget: vi.fn().mockResolvedValue(undefined)
-        };
     });
 
     describe('handleSubmitHumanMessage', () => {
@@ -99,12 +96,15 @@ describe('HumanInputHandler (Isolated)', () => {
                 { type: 'message', text: 'prev', id: '1' },
                 ...TestFactory.createAwaitingQuestion('Frank')
             ];
-            handler.targetClassifier.inferTarget.mockResolvedValue('panelist0');
+            mockContext.speakerTargetClassifier.inferTarget.mockResolvedValue("panelist0");
 
             await handler.handleSubmitHumanMessage({ text: "What do you think?" });
 
             const addedMsg = mockContext.meeting.conversation[1];
-            expect(handler.targetClassifier.inferTarget).toHaveBeenCalledWith(mockContext.meeting, "What do you think?");
+            expect(mockContext.speakerTargetClassifier.inferTarget).toHaveBeenCalledWith(mockContext.meeting, {
+                mode: "humanQuestion",
+                text: "What do you think?",
+            });
             expect(addedMsg.askParticular).toBe('panelist0');
             expect(addedMsg.text).toContain('Frank said:');
             expect(addedMsg.text).not.toContain('asked Alice');

@@ -9,7 +9,8 @@ import { AudioSystem, Message as AudioMessage } from "@logic/AudioSystem.js";
 import { SpeakerSelector } from "@logic/SpeakerSelector.js";
 import { DialogGenerator } from "@logic/DialogGenerator.js";
 import { HumanInputHandler } from "@logic/HumanInputHandler.js";
-import { DirectedSpeakerRouter } from "@logic/DirectedSpeakerRouter.js";
+import { annotateDirectedHandoff } from "@logic/directedHandoff.js";
+import { SpeakerTargetClassifier } from "@logic/SpeakerTargetClassifier.js";
 import { HandRaisingHandler } from "@logic/HandRaisingHandler.js";
 import { MeetingLifecycleHandler } from "@logic/MeetingLifecycleHandler.js";
 import { ConnectionHandler } from "@logic/ConnectionHandler.js";
@@ -62,7 +63,7 @@ export class MeetingManager implements IMeetingManager {
     audioSystem: AudioSystem;
     dialogGenerator: DialogGenerator;
     humanInputHandler: HumanInputHandler;
-    directedSpeakerRouter: DirectedSpeakerRouter;
+    speakerTargetClassifier: SpeakerTargetClassifier;
     handRaisingHandler: HandRaisingHandler;
     meetingLifecycleHandler: MeetingLifecycleHandler;
     connectionHandler: ConnectionHandler;
@@ -99,8 +100,8 @@ export class MeetingManager implements IMeetingManager {
 
         this.audioSystem = new AudioSystem(this.broadcaster, this.services, this.serverOptions.audioConcurrency);
         this.dialogGenerator = new DialogGenerator(this.services, this.serverOptions);
+        this.speakerTargetClassifier = new SpeakerTargetClassifier(this.serverOptions);
         this.humanInputHandler = new HumanInputHandler(this);
-        this.directedSpeakerRouter = new DirectedSpeakerRouter(this.serverOptions);
         this.handRaisingHandler = new HandRaisingHandler(this);
         this.meetingLifecycleHandler = new MeetingLifecycleHandler(this);
         this.connectionHandler = new ConnectionHandler(this);
@@ -454,7 +455,7 @@ export class MeetingManager implements IMeetingManager {
         }
 
         if (message.type !== "skipped") {
-            await this.directedSpeakerRouter.annotateIfDirected(meeting, message, action.speaker.id);
+            await annotateDirectedHandoff(this.speakerTargetClassifier, this.serverOptions, meeting, message);
         }
 
         meeting.conversation.push(message);
