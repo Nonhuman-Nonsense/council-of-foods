@@ -62,6 +62,27 @@ export function parseClassifierOutput(content: string, allowedTargetIds: string[
     throw new Error(`Speaker classifier did not return an allowed target id: ${trimmed.slice(0, 160)}`);
 }
 
+export function resolveClassifierTarget(
+    content: string,
+    allowedTargetIds: string[],
+    characters: Character[]
+): string | undefined {
+    const rawOutput = content.trim();
+    if (rawOutput.length === 0) {
+        return undefined;
+    }
+
+    try {
+        const parsedTarget = parseClassifierOutput(content, allowedTargetIds);
+        if (!parsedTarget) {
+            return undefined;
+        }
+        return normalizeClassifierTargetId(parsedTarget, characters);
+    } catch {
+        return normalizeClassifierTargetId(rawOutput, characters);
+    }
+}
+
 export async function requestSpeakerClassifierCompletion(
     serverOptions: GlobalOptions,
     messages: ChatCompletionMessageParam[],
@@ -81,7 +102,7 @@ export async function requestSpeakerClassifierCompletion(
                         "Content-Type": "application/json",
                     },
                     body: JSON.stringify({
-                        model: serverOptions.humanTargetingModel,
+                        model: serverOptions.speakerClassifierModel,
                         temperature: CLASSIFIER_TEMPERATURE,
                         max_tokens: maxTokens,
                         messages,
@@ -122,23 +143,4 @@ export function buildConversationTranscript(meeting: StoredMeeting): string[] {
             return [renderConversationLine(message, meeting)];
         })
         .slice(-CLASSIFIER_MAX_CONTEXT_MESSAGES);
-}
-
-export function buildTurnCountLines(characters: Character[], conversation: Message[]): string[] {
-    const counts = new Map(characters.map((character) => [character.id, 0]));
-
-    for (const message of conversation) {
-        if (!("speaker" in message)) continue;
-        const speakerId = message.speaker;
-        if (!speakerId) continue;
-        if (SKIPPED_TRANSCRIPT_TYPES.has(message.type) || message.type === "invitation") continue;
-        if (message.type === "human") continue;
-
-        const current = counts.get(speakerId);
-        if (current !== undefined) {
-            counts.set(speakerId, current + 1);
-        }
-    }
-
-    return characters.map((character) => `- ${character.id}: ${counts.get(character.id) ?? 0}`);
 }
