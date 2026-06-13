@@ -1,8 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { useNavigate, useLocation } from "react-router";
+import { useLocation } from "react-router";
 import { useTranslation } from "react-i18next";
 import { useCouncilSocket } from "./useCouncilSocket";
-import { useRouting } from "@/routing";
 import type { Character, Message, Meeting, Topic } from "@shared/ModelTypes";
 import type { PublicAudioClipResponse, DecodedAudioMessage } from "@shared/SocketTypes";
 import { CouncilOverlayType } from "../overlays/CouncilOverlays";

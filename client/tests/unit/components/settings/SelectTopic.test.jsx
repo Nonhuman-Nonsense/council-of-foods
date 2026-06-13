@@ -3,7 +3,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import SelectTopic from '@newMeeting/SelectTopic';
 import { getTopicsBundle } from '@main/topicsBundle';
-import { useState } from 'react';
 import { useMeetingSetupStore } from '@stores/useMeetingSetupStore';
 import { useAppMode } from '@/museum/useAppMode';
 

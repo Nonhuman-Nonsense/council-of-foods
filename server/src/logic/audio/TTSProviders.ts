@@ -6,6 +6,8 @@ import { AudioSystemOptions, Speaker } from "./AudioTypes.js";
 import { getGoogleLanguageCode } from "./AudioUtils.js";
 import { InworldPronunciationUtils } from "@utils/InworldPronunciationUtils.js";
 
+const INWORLD_TTS_2_MODEL = "inworld-tts-2";
+
 interface GenerateParams {
     text: string;
     speaker: Speaker;
@@ -102,6 +104,25 @@ export async function generateInworldAudio(params: GenerateParams): Promise<Audi
     const { processedText, replacedWords } = InworldPronunciationUtils.processTextWithIPA(text);
 
     const url = 'https://api.inworld.ai/tts/v1/voice';
+    const locale = speaker.voiceLocale?.trim() || undefined;
+    const modelId = locale ? INWORLD_TTS_2_MODEL : options.inworldVoiceModel;
+
+    const payload: Record<string, unknown> = {
+        text: processedText,
+        voice_id: speaker.voice,
+        model_id: modelId,
+        timestampType: "WORD",
+        audio_config: {
+            audio_encoding: "OGG_OPUS",
+            speaking_rate: speaker.voiceSpeed ?? options.defaultAudioSpeed
+        },
+    };
+
+    if (locale) payload.language = locale;
+    // TTS-2 ignores temperature; deliveryMode is optional for later.
+    if (modelId !== INWORLD_TTS_2_MODEL) {
+        payload.temperature = speaker.voiceTemperature || 1.0;
+    }
 
     const response = await withNetworkRetry(() => fetch(url, {
         method: 'POST',
@@ -109,17 +130,7 @@ export async function generateInworldAudio(params: GenerateParams): Promise<Audi
             'Authorization': `Basic ${apiKey}`,
             'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-            text: processedText, // Use processed text
-            voice_id: speaker.voice,
-            model_id: options.inworldVoiceModel,
-            temperature: speaker.voiceTemperature || 1.0,
-            timestampType: "WORD",
-            audio_config: {
-                audio_encoding: "OGG_OPUS",
-                speaking_rate: speaker.voiceSpeed ?? options.defaultAudioSpeed
-            },
-        })
+        body: JSON.stringify(payload)
     }), "AudioSystemInworld");
 
     if (!response.ok) {

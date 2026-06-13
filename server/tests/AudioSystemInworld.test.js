@@ -360,4 +360,62 @@ describe('AudioSystem Inworld Integration', () => {
             })
         );
     });
+
+    it('should send language and TTS-2 model when voiceLocale is set', async () => {
+        const message = { id: 'msg-sv', text: 'Hej', sentences: ['Hej'] };
+        const speaker = {
+            id: 'char1',
+            voice: 'custom-sv-voice',
+            voiceProvider: 'inworld',
+            voiceLocale: 'sv-SE',
+        };
+
+        mockFetch.mockResolvedValue({
+            ok: true,
+            json: async () => ({ audioContent: Buffer.from('audio').toString('base64') }),
+        });
+
+        await audioSystem.generateAudio(
+            message,
+            speaker,
+            'sv',
+            serverOptions({ defaultAudioSpeed: 1.0, inworldVoiceModel: 'inworld-tts-1.5-max' }),
+            meeting(),
+            'production'
+        );
+
+        const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+        expect(body.model_id).toBe('inworld-tts-2');
+        expect(body.language).toBe('sv-SE');
+        expect(body.temperature).toBeUndefined();
+    });
+
+    it('should use TTS 1.5 without language when voiceLocale is unset', async () => {
+        const message = { id: 'msg-en', text: 'Hello', sentences: ['Hello'] };
+        const speaker = {
+            id: 'char1',
+            voice: 'Pippa',
+            voiceProvider: 'inworld',
+            voiceTemperature: 1.2,
+        };
+
+        mockFetch.mockResolvedValue({
+            ok: true,
+            json: async () => ({ audioContent: Buffer.from('audio').toString('base64') }),
+        });
+
+        await audioSystem.generateAudio(
+            message,
+            speaker,
+            'en',
+            serverOptions({ defaultAudioSpeed: 1.0, inworldVoiceModel: 'inworld-tts-1.5-max' }),
+            meeting(),
+            'production'
+        );
+
+        const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+        expect(body.model_id).toBe('inworld-tts-1.5-max');
+        expect(body.language).toBeUndefined();
+        expect(body.temperature).toBe(1.2);
+    });
 });

@@ -17,6 +17,8 @@ describe("SpeakerTargetClassifier", () => {
         name: "Speaker Two",
         description: "Knows farming",
     });
+    const humanSpeakerId = "Frank";
+
     const meeting = MockFactory.createStoredMeeting({
         _id: 42,
         topic: MockFactory.createTopic({
@@ -42,7 +44,9 @@ describe("SpeakerTargetClassifier", () => {
     it("returns undefined without calling the model when text is blank", async () => {
         const classifier = new SpeakerTargetClassifier(MockFactory.createServerOptions());
 
-        await expect(classifier.inferTarget(meeting, { mode: "humanQuestion", text: "  " })).resolves.toBeUndefined();
+        await expect(
+            classifier.inferTarget(meeting, { mode: "humanQuestion", text: "  ", speakerId: humanSpeakerId })
+        ).resolves.toBeUndefined();
         expect(global.fetch).not.toHaveBeenCalled();
     });
 
@@ -53,7 +57,11 @@ describe("SpeakerTargetClassifier", () => {
         const classifier = new SpeakerTargetClassifier(MockFactory.createServerOptions());
 
         await expect(
-            classifier.inferTarget(meeting, { mode: "humanQuestion", text: "What should the council do next?" })
+            classifier.inferTarget(meeting, {
+                mode: "humanQuestion",
+                text: "What should the council do next?",
+                speakerId: humanSpeakerId,
+            })
         ).resolves.toBeUndefined();
         expect(Logger.info).not.toHaveBeenCalled();
     });
@@ -65,9 +73,16 @@ describe("SpeakerTargetClassifier", () => {
         const classifier = new SpeakerTargetClassifier(MockFactory.createServerOptions());
 
         await expect(
-            classifier.inferTarget(meeting, { mode: "humanQuestion", text: "Speaker One, what do you think?" })
+            classifier.inferTarget(meeting, {
+                mode: "humanQuestion",
+                text: "Speaker One, what do you think?",
+                speakerId: humanSpeakerId,
+            })
         ).resolves.toBe(primarySpeaker.id);
-        expect(Logger.info).toHaveBeenCalledWith(`meeting ${meeting._id}`, `directed to ${primarySpeaker.id}`);
+        expect(Logger.info).toHaveBeenCalledWith(
+            `meeting ${meeting._id}`,
+            `Frank asked directly to ${primarySpeaker.id}`
+        );
     });
 
     it("returns undefined and warns when the Inworld request fails", async () => {
@@ -75,7 +90,11 @@ describe("SpeakerTargetClassifier", () => {
         const classifier = new SpeakerTargetClassifier(MockFactory.createServerOptions());
 
         await expect(
-            classifier.inferTarget(meeting, { mode: "humanQuestion", text: "Speaker One?" })
+            classifier.inferTarget(meeting, {
+                mode: "humanQuestion",
+                text: "Speaker One?",
+                speakerId: humanSpeakerId,
+            })
         ).resolves.toBeUndefined();
         expect(Logger.warn).toHaveBeenCalled();
     });
@@ -97,7 +116,11 @@ describe("SpeakerTargetClassifier", () => {
         }));
         const classifier = new SpeakerTargetClassifier(MockFactory.createServerOptions());
 
-        await classifier.inferTarget(longMeeting, { mode: "humanQuestion", text: longHumanText });
+        await classifier.inferTarget(longMeeting, {
+            mode: "humanQuestion",
+            text: longHumanText,
+            speakerId: humanSpeakerId,
+        });
 
         const body = JSON.parse((global.fetch as ReturnType<typeof vi.fn>).mock.calls[0][1].body);
         const userPrompt = body.messages[1].content as string;
@@ -117,7 +140,11 @@ describe("SpeakerTargetClassifier", () => {
         }));
         const classifier = new SpeakerTargetClassifier(MockFactory.createServerOptions());
 
-        await classifier.inferTarget(meeting, { mode: "humanQuestion", text: "Speaker One?" });
+        await classifier.inferTarget(meeting, {
+            mode: "humanQuestion",
+            text: "Speaker One?",
+            speakerId: humanSpeakerId,
+        });
 
         const body = JSON.parse((global.fetch as ReturnType<typeof vi.fn>).mock.calls[0][1].body);
         expect(body.extra_body).toEqual({

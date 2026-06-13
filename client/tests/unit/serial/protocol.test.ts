@@ -4,7 +4,6 @@ import {
   parseSerialLine,
   formatSerialCommand,
   PTT_DOWN,
-  PTT_UP,
   LED_ON,
   LED_PULSE,
 } from "@/serial/protocol";

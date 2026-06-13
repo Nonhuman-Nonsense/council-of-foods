@@ -52,6 +52,7 @@ export class HumanInputHandler {
         const askParticular = await this.manager.speakerTargetClassifier.inferTarget(m, {
             mode: "humanQuestion",
             text: payload.text,
+            speakerId: humanName,
         });
 
         const renderedText = humanName + (m.language === 'en' ? " said:\xa0" : " sa:\xa0") + payload.text;
