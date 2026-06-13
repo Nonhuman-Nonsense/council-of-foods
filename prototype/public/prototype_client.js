@@ -809,12 +809,24 @@ createApp({
       return charExport;
     },
 
-    buildCanonicalCharacterExport(editedCharacters, rawEnCharactersList) {
+    buildCanonicalCharacterExport(editedCharacters, rawEnCharactersList, rawLocaleCharactersList, useEnglishCanonicalIds) {
       const editedById = new Map();
       (editedCharacters || []).forEach((character) => {
         const id = character.id || this.deriveExportId(character.name, '');
         if (id) editedById.set(id, character);
       });
+
+      const findEditedCharacter = (canonical) => {
+        const byId = editedById.get(canonical.id);
+        if (byId) return byId;
+
+        const localeCharacter = (rawLocaleCharactersList || []).find((character) => character.id === canonical.id);
+        if (!localeCharacter) return null;
+
+        return (editedCharacters || []).find((character) =>
+          character.id === canonical.id || character.name === localeCharacter.name
+        ) || null;
+      };
 
       const consumedUiIds = new Set();
       const renamedCharacters = [];
@@ -822,12 +834,15 @@ createApp({
       const canonicalIds = new Set((rawEnCharactersList || []).map((character) => character.id));
 
       for (const canonical of rawEnCharactersList || []) {
-        const edited = editedById.get(canonical.id);
+        const edited = findEditedCharacter(canonical);
         if (!edited) continue;
 
         consumedUiIds.add(edited._ui_id);
-        const exportId = this.deriveExportId(edited.name, canonical.id);
-        if (exportId !== canonical.id) {
+        const exportId = useEnglishCanonicalIds
+          ? canonical.id
+          : this.deriveExportId(edited.name, canonical.id);
+
+        if (!useEnglishCanonicalIds && exportId !== canonical.id) {
           renamedCharacters.push({
             name: edited.name || canonical.name,
             fromId: canonical.id,
@@ -854,17 +869,25 @@ createApp({
       return { exportedCharacters, renamedCharacters };
     },
 
-    buildCanonicalTopicExport(editedTopics, rawTopicsList, rawTopicsEnList) {
+    buildCanonicalTopicExport(editedTopics, rawTopicsList, rawTopicsEnList, useEnglishCanonicalIds) {
       const consumedTopicIds = new Set();
       const exportedTopics = [];
       const canonicalTopicIds = new Set((rawTopicsEnList || []).map((topic) => topic.id));
 
       const findEditedTopic = (canonical) => {
+        const localeTopic = rawTopicsList.find((topic) => topic.id === canonical.id);
+
         return (editedTopics || []).find((topic) => {
           if (topic.id && !String(topic.id).startsWith('topic_') && topic.id === canonical.id) {
             return true;
           }
-          return topic.name === canonical.title;
+          if (localeTopic && topic.name === localeTopic.title) {
+            return true;
+          }
+          if (!useEnglishCanonicalIds && topic.name === canonical.title) {
+            return true;
+          }
+          return false;
         });
       };
 
@@ -930,8 +953,10 @@ createApp({
       }
 
       const rawEnCharactersList = rawCharactersEn.characters || [];
+      const rawLocaleCharactersList = rawCharacters.characters || [];
       const rawTopicsList = rawTopics.topics || [];
       const rawTopicsEnList = rawTopicsEn.topics || [];
+      const useEnglishCanonicalIds = lang !== 'en';
 
       // 1. Export Characters
       let charactersExport = JSON.parse(JSON.stringify(rawCharacters));
@@ -944,7 +969,9 @@ createApp({
 
       const { exportedCharacters, renamedCharacters } = this.buildCanonicalCharacterExport(
         this.currentLanguageData.characters,
-        rawEnCharactersList
+        rawEnCharactersList,
+        rawLocaleCharactersList,
+        useEnglishCanonicalIds
       );
       charactersExport.characters = exportedCharacters;
 
@@ -961,7 +988,8 @@ createApp({
       topicsExport.topics = this.buildCanonicalTopicExport(
         this.currentLanguageData.topics,
         rawTopicsList,
-        rawTopicsEnList
+        rawTopicsEnList,
+        useEnglishCanonicalIds
       );
 
       const download = (filename, data) => {
