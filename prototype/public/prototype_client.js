@@ -776,134 +776,194 @@ createApp({
 
 
 
+    deriveExportId(name, fallback = 'unknown') {
+      if (!name) return fallback;
+      return name.toLowerCase().replace(/\s+/g, '');
+    },
+
+    buildCharacterExportEntry(rest, exportId) {
+      const provider = rest.voiceProvider || 'openai';
+      const charExport = {
+        id: exportId,
+        name: rest.name,
+        voice: rest.voice,
+        voiceProvider: provider,
+        size: rest.size,
+        description: rest.description || "",
+        prompt: rest.prompt || ""
+      };
+
+      if (rest.voiceSpeed !== undefined) {
+        charExport.voiceSpeed = rest.voiceSpeed;
+      }
+
+      if (provider === 'gemini') {
+        charExport.voiceLocale = rest.voiceLocale || 'en-GB';
+        charExport.voiceInstruction = rest.voiceInstruction || "";
+      } else if (provider === 'openai') {
+        charExport.voiceInstruction = rest.voiceInstruction || "";
+      } else if (provider === 'inworld') {
+        charExport.voiceTemperature = rest.voiceTemperature || 1.1;
+      }
+
+      return charExport;
+    },
+
+    buildCanonicalCharacterExport(editedCharacters, rawEnCharactersList) {
+      const editedById = new Map();
+      (editedCharacters || []).forEach((character) => {
+        const id = character.id || this.deriveExportId(character.name, '');
+        if (id) editedById.set(id, character);
+      });
+
+      const consumedUiIds = new Set();
+      const renamedCharacters = [];
+      const exportedCharacters = [];
+      const canonicalIds = new Set((rawEnCharactersList || []).map((character) => character.id));
+
+      for (const canonical of rawEnCharactersList || []) {
+        const edited = editedById.get(canonical.id);
+        if (!edited) continue;
+
+        consumedUiIds.add(edited._ui_id);
+        const exportId = this.deriveExportId(edited.name, canonical.id);
+        if (exportId !== canonical.id) {
+          renamedCharacters.push({
+            name: edited.name || canonical.name,
+            fromId: canonical.id,
+            toId: exportId
+          });
+        }
+
+        const { _ui_id, ...rest } = edited;
+        exportedCharacters.push(this.buildCharacterExportEntry(rest, exportId));
+      }
+
+      for (const edited of editedCharacters || []) {
+        if (consumedUiIds.has(edited._ui_id)) continue;
+
+        const { _ui_id, ...rest } = edited;
+        const exportId =
+          (rest.id && !canonicalIds.has(rest.id) ? rest.id : null) ||
+          this.deriveExportId(rest.name, '') ||
+          `character_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+        exportedCharacters.push(this.buildCharacterExportEntry(rest, exportId));
+      }
+
+      return { exportedCharacters, renamedCharacters };
+    },
+
+    buildCanonicalTopicExport(editedTopics, rawTopicsList, rawTopicsEnList) {
+      const consumedTopicIds = new Set();
+      const exportedTopics = [];
+      const canonicalTopicIds = new Set((rawTopicsEnList || []).map((topic) => topic.id));
+
+      const findEditedTopic = (canonical) => {
+        return (editedTopics || []).find((topic) => {
+          if (topic.id && !String(topic.id).startsWith('topic_') && topic.id === canonical.id) {
+            return true;
+          }
+          return topic.name === canonical.title;
+        });
+      };
+
+      for (const canonical of rawTopicsEnList || []) {
+        const edited = findEditedTopic(canonical);
+        if (!edited) continue;
+
+        consumedTopicIds.add(edited.id);
+        const localeMatch = rawTopicsList.find((topic) => topic.id === canonical.id || topic.title === edited.name);
+
+        exportedTopics.push({
+          id: canonical.id,
+          title: edited.name,
+          description: edited.description || (localeMatch ? localeMatch.description : edited.prompt),
+          prompt: edited.prompt
+        });
+      }
+
+      for (const edited of editedTopics || []) {
+        if (consumedTopicIds.has(edited.id)) continue;
+
+        const exportId =
+          (edited.id && !String(edited.id).startsWith('topic_') && !canonicalTopicIds.has(edited.id) ? edited.id : null) ||
+          this.deriveExportId(edited.name, '') ||
+          `topic_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+        exportedTopics.push({
+          id: exportId,
+          title: edited.name,
+          description: edited.description || edited.prompt,
+          prompt: edited.prompt
+        });
+      }
+
+      return exportedTopics;
+    },
+
     async exportPrompts() {
       const now = new Date();
       const pad = (n) => String(n).padStart(2, '0');
       const timestamp = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
       const lang = this.options.language || 'en';
 
-      // Base export shape from the active locale JSON (parse each file independently so one failed fetch does not wipe the other)
       let rawCharacters = { characters: [] };
       let rawTopics = { topics: [] };
-      // English JSON: only fetched when exporting a non-English locale (canonical ids + topic slot fallback); when lang is en, reuse rawCharacters/rawTopics
-      let rawCharactersEn = null;
-      let rawTopicsEn = null;
+      let rawCharactersEn = { characters: [] };
+      let rawTopicsEn = { topics: [] };
 
       try {
         this.log('SYSTEM', 'Fetching raw data for export...');
-        const [charactersResp, topicsResp] = await Promise.all([
+        const [charactersResp, topicsResp, charactersEnResp, topicsEnResp] = await Promise.all([
           fetch(`./${CHARACTERS_FILE}_${lang}.json`),
-          fetch(`./topics_${lang}.json`)
+          fetch(`./topics_${lang}.json`),
+          fetch(`./${CHARACTERS_FILE}_en.json`),
+          fetch('./topics_en.json')
         ]);
-        if (charactersResp.ok) {
-          rawCharacters = await charactersResp.json();
-        }
-        if (topicsResp.ok) {
-          rawTopics = await topicsResp.json();
-        }
-
-        if (lang !== 'en') {
-          const [charactersEnResp, topicsEnResp] = await Promise.all([
-            fetch(`./${CHARACTERS_FILE}_en.json`),
-            fetch('./topics_en.json')
-          ]);
-          if (charactersEnResp.ok) rawCharactersEn = await charactersEnResp.json();
-          if (topicsEnResp.ok) rawTopicsEn = await topicsEnResp.json();
-        }
+        if (charactersResp.ok) rawCharacters = await charactersResp.json();
+        if (topicsResp.ok) rawTopics = await topicsResp.json();
+        if (charactersEnResp.ok) rawCharactersEn = await charactersEnResp.json();
+        if (topicsEnResp.ok) rawTopicsEn = await topicsEnResp.json();
       } catch (e) {
         this.log('ERROR', "Failed to fetch raw data", e);
       }
 
-      const enCharsForExport = (this.languageData.en && this.languageData.en.characters) || [];
-      const rawEnCharactersList = ((lang === 'en' ? rawCharacters : rawCharactersEn) || {}).characters || [];
+      const rawEnCharactersList = rawCharactersEn.characters || [];
+      const rawTopicsList = rawTopics.topics || [];
+      const rawTopicsEnList = rawTopicsEn.topics || [];
 
       // 1. Export Characters
-      // Clone raw structure to preserve static fields (addHuman, panelWithHumans, metadata etc)
       let charactersExport = JSON.parse(JSON.stringify(rawCharacters));
 
-      // Update timestamp if metadata exists
       if (charactersExport.metadata) {
         const dateStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
         const timeStr = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
         charactersExport.metadata.last_updated = `${dateStr} ${timeStr}`;
       }
 
-      // Update the "characters" array with current active characters
-      charactersExport.characters = (this.currentLanguageData.characters || []).map((c, idx) => {
-        // Exclude internal fields like _ui_id
-        const { _ui_id, ...rest } = c;
-        // Ensure structure matches schema
-        const provider = rest.voiceProvider || 'openai';
-        const canonicalFoodId =
-          (enCharsForExport[idx] && enCharsForExport[idx].id) ||
-          rawEnCharactersList[idx]?.id ||
-          rest.id ||
-          (rest.name ? rest.name.toLowerCase().replace(/\s+/g, '') : 'unknown');
-
-        let charExport = {
-          id: canonicalFoodId,
-          name: rest.name,
-          voice: rest.voice,
-          voiceProvider: provider,
-          size: rest.size,
-          description: rest.description || "",
-          prompt: rest.prompt || ""
-        };
-
-        if (rest.voiceSpeed !== undefined) {
-          charExport.voiceSpeed = rest.voiceSpeed;
-        }
-
-        if (provider === 'gemini') {
-          charExport.voiceLocale = rest.voiceLocale || 'en-GB';
-          charExport.voiceInstruction = rest.voiceInstruction || "";
-        } else if (provider === 'openai') {
-          charExport.voiceInstruction = rest.voiceInstruction || "";
-        } else if (provider === 'inworld') {
-          charExport.voiceTemperature = rest.voiceTemperature || 1.1;
-        }
-
-        return charExport;
-      });
+      const { exportedCharacters, renamedCharacters } = this.buildCanonicalCharacterExport(
+        this.currentLanguageData.characters,
+        rawEnCharactersList
+      );
+      charactersExport.characters = exportedCharacters;
 
       // 2. Export Topics
       let topicsExport = JSON.parse(JSON.stringify(rawTopics));
 
-      // Update timestamp if metadata exists
       if (topicsExport.metadata) {
         const dateStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
         const timeStr = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
         topicsExport.metadata.last_updated = `${dateStr} ${timeStr}`;
       }
 
-      // Update system prompt (editable)
       topicsExport.system = this.currentLanguageData.system;
+      topicsExport.topics = this.buildCanonicalTopicExport(
+        this.currentLanguageData.topics,
+        rawTopicsList,
+        rawTopicsEnList
+      );
 
-      // Reconcile with raw topics to preserve original IDs; prefer English topic ids when bilingual
-      const rawTopicsList = (rawTopics && rawTopics.topics) ? rawTopics.topics : [];
-      const rawTopicsEnList = ((lang === 'en' ? rawTopics : rawTopicsEn) || {}).topics || [];
-
-      topicsExport.topics = (this.currentLanguageData.topics || []).map((t, idx) => {
-        // Try to find matching original topic by title to restore ID and Description
-        const match = rawTopicsList.find(rt => rt.title === t.name);
-        // Prefer stable ids from English JSON (same as sv ids); avoid in-memory topic_* ids from factoryReset
-        const canonicalTopicId =
-          (match ? match.id : null) ||
-          rawTopicsEnList[idx]?.id ||
-          rawTopicsList[idx]?.id ||
-          t.id ||
-          (t.name ? t.name.toLowerCase().replace(/\s+/g, '') : 'unknown');
-
-        return {
-          id: canonicalTopicId,
-          title: t.name,
-          // Use current description if available (user edits), fallback to raw if needed, then prompt (legacy)
-          description: t.description || (match ? match.description : t.prompt),
-          prompt: t.prompt
-        };
-      });
-
-      // Helper to trigger download
       const download = (filename, data) => {
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
@@ -918,6 +978,16 @@ createApp({
 
       download(`${CHARACTERS_FILE}_${lang}_${timestamp}.json`, charactersExport);
       download(`topics_${lang}_${timestamp}.json`, topicsExport);
+
+      if (renamedCharacters.length > 0) {
+        const lines = renamedCharacters.map(({ name, fromId, toId }) =>
+          `- ${name}: "${fromId}" -> "${toId}"`
+        );
+        alert(
+          'Some characters were renamed and their IDs changed. You may need to migrate database/media references:\n\n' +
+          lines.join('\n')
+        );
+      }
 
       this.log('SYSTEM', 'Exported Prompts to JSON');
     },
