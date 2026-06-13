@@ -1,6 +1,10 @@
 const { createApp } = Vue;
 const CHARACTERS_FILE = "foods";
 
+function usesInworldTts2(character) {
+  return Boolean(character?.voiceLocale?.trim());
+}
+
 const defaultOptions = {
   conversationModel: "mistral/mistral-large-3",
   conversationReasoning: "none",
@@ -64,6 +68,9 @@ const CharacterCard = {
   props: ['character', 'isActive', 'isExpanded', 'voiceLists', 'isSorting', 'isPinned'],
   emits: ['toggle-active', 'toggle-expanded'],
   methods: {
+    usesInworldTts2(char) {
+      return usesInworldTts2(char);
+    },
     onProviderChange() {
       const char = this.character;
       if (char.voiceProvider === 'gemini') {
@@ -71,7 +78,7 @@ const CharacterCard = {
         if (!char.voiceLocale) char.voiceLocale = 'en-GB';
         if (char.voiceInstruction === undefined) char.voiceInstruction = "";
       } else if (char.voiceProvider === 'inworld') {
-        char.voice = this.voiceLists.inworld[0];
+        if (!char.voice) char.voice = "";
         if (char.voiceTemperature === undefined) char.voiceTemperature = 1.1;
       } else {
         char.voice = this.voiceLists.openai[0];
@@ -107,11 +114,6 @@ createApp({
         "Achernar", "Achird", "Algenib", "Algieba", "Alnilam", "Aoede", "Autonoe", "Callirrhoe", "Charon", "Despina",
         "Enceladus", "Erinome", "Fenrir", "Gacrux", "Iapetus", "Kore", "Laomedeia", "Leda", "Orus", "Pulcherrima",
         "Puck", "Rasalgethi", "Sadachbia", "Sadaltager", "Schedar", "Sulafat", "Umbriel", "Vindemiatrix", "Zephyr", "Zubenelgenubi"
-      ],
-      audioVoicesInworld: [
-        "Alex", "Ashley", "Blake", "Carter", "Clive", "Craig", "Deborah", "Dennis", "Dominus", "Edward",
-        "Elizabeth", "Hades", "Hana", "Julia", "Luna", "Mark", "Olivia", "Pixie", "Priya", "Ronald",
-        "Sarah", "Shaun", "Theodore", "Timothy", "Wendy"
       ],
       sortableInstance: null,
       isResizing: false,
@@ -407,11 +409,10 @@ createApp({
     },
 
     updateVoice(char) {
-      // Reset voice to first available when provider switches
       if (char.voiceProvider === 'gemini') {
         char.voice = this.audioVoicesGemini[0];
       } else if (char.voiceProvider === 'inworld') {
-        char.voice = this.audioVoicesInworld[0];
+        char.voice = "";
       } else {
         char.voice = this.audioVoices[0];
       }
@@ -634,7 +635,7 @@ createApp({
         if (!c.voiceProvider) c.voiceProvider = 'openai';
         if (!c.voice) {
           if (c.voiceProvider === 'gemini') c.voice = this.audioVoicesGemini[0];
-          else c.voice = this.audioVoices[0];
+          else if (c.voiceProvider !== 'inworld') c.voice = this.audioVoices[0];
         }
         delete c._ui_id;
       });
@@ -889,6 +890,7 @@ createApp({
       } else if (provider === 'openai') {
         charExport.voiceInstruction = rest.voiceInstruction || "";
       } else if (provider === 'inworld') {
+        if (rest.voiceLocale?.trim()) charExport.voiceLocale = rest.voiceLocale.trim();
         charExport.voiceTemperature = rest.voiceTemperature || 1.1;
       }
 
