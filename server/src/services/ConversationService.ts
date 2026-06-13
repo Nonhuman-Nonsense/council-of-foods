@@ -112,7 +112,7 @@ export function resolveConversationModel(model: string): ResolvedConversationMod
     };
 }
 
-function buildInworldReasoningExtraBody(reasoning: ConversationReasoning): {
+export function buildInworldReasoningExtraBody(reasoning: ConversationReasoning): {
     reasoning: {
         effort: ConversationReasoning;
         max_tokens?: number;

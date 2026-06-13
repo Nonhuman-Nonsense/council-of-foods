@@ -19,6 +19,7 @@ const defaultOptions = {
   /** Absolute cap for extends (server `meetingVeryMaxLength`); reflected in `max_reached.canContinue`. */
   meetingVeryMaxLength: 30,
   skipAudio: false,
+  directedSpeakerRouting: false,
 
   injectPrompt: "",
   maxTokensInject: 800,
@@ -262,8 +263,85 @@ createApp({
       return typeof body === 'string' && body.trim() ? body : `Request failed (${status})`;
     },
 
+    /**
+     * Centralized fetch for /api/* routes — logs API_OUT before the request and API_IN after.
+     * @param {string} path - e.g. "/api/meetings"
+     * @param {{ method?: string, body?: unknown, headers?: Record<string, string>, context?: string }} [options]
+     * @returns {Promise<unknown>} Parsed JSON (or raw text) on success
+     */
+    async apiFetch(path, { method = 'GET', body, headers = {}, context } = {}) {
+      const logSuffix = context ? ` (${context})` : '';
+      this.log('API_OUT', `${method} ${path}${logSuffix}`, {
+        method,
+        path,
+        ...(body !== undefined ? { body } : {}),
+      });
+
+      const init = { method, headers: { ...headers } };
+      if (body !== undefined) {
+        init.body = typeof body === 'string' ? body : JSON.stringify(body);
+        if (!init.headers['Content-Type']) {
+          init.headers['Content-Type'] = 'application/json';
+        }
+      }
+
+      let status;
+      let ok;
+      let responseBody;
+      try {
+        const res = await fetch(path, init);
+        status = res.status;
+        ok = res.ok;
+        const text = await res.text();
+        if (text) {
+          try {
+            responseBody = JSON.parse(text);
+          } catch {
+            responseBody = text;
+          }
+        }
+      } catch (networkError) {
+        this.log('API_IN', `${method} ${path} → network error${logSuffix}`, {
+          error: networkError.message || String(networkError),
+        });
+        throw networkError;
+      }
+
+      this.log('API_IN', `${method} ${path} → ${status}${logSuffix}`, {
+        status,
+        ok,
+        body: responseBody ?? null,
+      });
+
+      if (!ok) {
+        throw new Error(this.formatApiErrorBody(responseBody, status));
+      }
+      return responseBody;
+    },
+
+    async createMeeting(context) {
+      return this.apiFetch('/api/meetings', {
+        method: 'POST',
+        body: this.getMeetingBody(),
+        context,
+      });
+    },
+
+    emitStartConversation(context) {
+      const setupPayload = {
+        meetingId: this.meetingId,
+        liveKey: this.liveKey,
+        serverOptions: this.getServerOptions(),
+      };
+      this.log('SOCKET_OUT', `start_conversation${context ? ` (${context})` : ''}`, setupPayload);
+      this.socket.emit('start_conversation', setupPayload);
+    },
+
     log(category, message, data = null) {
       const styles = {
+        'API_OUT': 'color: #f59e0b; font-weight: bold;',    // Amber
+        'API_IN': 'color: #d97706; font-weight: bold;',     // Dark amber
+        'FILE_IN': 'color: #0891b2; font-weight: bold;',    // Cyan
         'SOCKET_OUT': 'color: #10b981; font-weight: bold;', // Green
         'SOCKET_IN': 'color: #3b82f6; font-weight: bold;',  // Blue
         'AUDIO': 'color: #8b5cf6; font-weight: bold;',      // Purple
@@ -272,6 +350,9 @@ createApp({
       };
 
       const icon = {
+        'API_OUT': '🌐',
+        'API_IN': '📥',
+        'FILE_IN': '📄',
         'SOCKET_OUT': '⬆️',
         'SOCKET_IN': '⬇️',
         'AUDIO': '🎵',
@@ -461,9 +542,12 @@ createApp({
       // Initialize languages from server
       for (const lang of this.available_languages) {
         try {
+          const charactersPath = `./${CHARACTERS_FILE}_${lang}.json`;
+          const topicsPath = `./topics_${lang}.json`;
+
           const [charactersResp, topicsResp] = await Promise.all([
-            fetch(`./${CHARACTERS_FILE}_${lang}.json`),
-            fetch(`./topics_${lang}.json`)
+            fetch(charactersPath),
+            fetch(topicsPath)
           ]);
 
           if (!charactersResp.ok) throw new Error(`Failed to fetch ${CHARACTERS_FILE}_${lang}: ${charactersResp.status}`);
@@ -471,6 +555,9 @@ createApp({
 
           const charactersParams = await charactersResp.json();
           const topics = await topicsResp.json();
+
+          this.log('FILE_IN', `GET ${charactersPath} → ${charactersResp.status}`, charactersParams);
+          this.log('FILE_IN', `GET ${topicsPath} → ${topicsResp.status}`, topics);
 
           // Map Characters (Global)
           // charactersParams is { characters: [...] }
@@ -591,6 +678,7 @@ createApp({
         trimParagraph: this.options.trimParagraph,
         trimChairSemicolon: this.options.trimChairSemicolon,
         skipAudio: this.options.skipAudio,
+        directedSpeakerRouting: this.options.directedSpeakerRouting,
         conversationMaxLength: this.options.conversationMaxLength,
         extraMessageCount: this.options.extraMessageCount,
         meetingVeryMaxLength: this.options.meetingVeryMaxLength,
@@ -774,134 +862,239 @@ createApp({
 
 
 
+    deriveExportId(name, fallback = 'unknown') {
+      if (!name) return fallback;
+      return name.toLowerCase().replace(/\s+/g, '');
+    },
+
+    buildCharacterExportEntry(rest, exportId) {
+      const provider = rest.voiceProvider || 'openai';
+      const charExport = {
+        id: exportId,
+        name: rest.name,
+        voice: rest.voice,
+        voiceProvider: provider,
+        size: rest.size,
+        description: rest.description || "",
+        prompt: rest.prompt || ""
+      };
+
+      if (rest.voiceSpeed !== undefined) {
+        charExport.voiceSpeed = rest.voiceSpeed;
+      }
+
+      if (provider === 'gemini') {
+        charExport.voiceLocale = rest.voiceLocale || 'en-GB';
+        charExport.voiceInstruction = rest.voiceInstruction || "";
+      } else if (provider === 'openai') {
+        charExport.voiceInstruction = rest.voiceInstruction || "";
+      } else if (provider === 'inworld') {
+        charExport.voiceTemperature = rest.voiceTemperature || 1.1;
+      }
+
+      return charExport;
+    },
+
+    buildCanonicalCharacterExport(editedCharacters, rawEnCharactersList, rawLocaleCharactersList, useEnglishCanonicalIds) {
+      const editedById = new Map();
+      (editedCharacters || []).forEach((character) => {
+        const id = character.id || this.deriveExportId(character.name, '');
+        if (id) editedById.set(id, character);
+      });
+
+      const findEditedCharacter = (canonical) => {
+        const byId = editedById.get(canonical.id);
+        if (byId) return byId;
+
+        const localeCharacter = (rawLocaleCharactersList || []).find((character) => character.id === canonical.id);
+        if (!localeCharacter) return null;
+
+        return (editedCharacters || []).find((character) =>
+          character.id === canonical.id || character.name === localeCharacter.name
+        ) || null;
+      };
+
+      const consumedUiIds = new Set();
+      const renamedCharacters = [];
+      const exportedCharacters = [];
+      const canonicalIds = new Set((rawEnCharactersList || []).map((character) => character.id));
+
+      for (const canonical of rawEnCharactersList || []) {
+        const edited = findEditedCharacter(canonical);
+        if (!edited) continue;
+
+        consumedUiIds.add(edited._ui_id);
+        const exportId = useEnglishCanonicalIds
+          ? canonical.id
+          : this.deriveExportId(edited.name, canonical.id);
+
+        if (!useEnglishCanonicalIds && exportId !== canonical.id) {
+          renamedCharacters.push({
+            name: edited.name || canonical.name,
+            fromId: canonical.id,
+            toId: exportId
+          });
+        }
+
+        const { _ui_id, ...rest } = edited;
+        exportedCharacters.push(this.buildCharacterExportEntry(rest, exportId));
+      }
+
+      for (const edited of editedCharacters || []) {
+        if (consumedUiIds.has(edited._ui_id)) continue;
+
+        const { _ui_id, ...rest } = edited;
+        const exportId =
+          (rest.id && !canonicalIds.has(rest.id) ? rest.id : null) ||
+          this.deriveExportId(rest.name, '') ||
+          `character_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+        exportedCharacters.push(this.buildCharacterExportEntry(rest, exportId));
+      }
+
+      return { exportedCharacters, renamedCharacters };
+    },
+
+    buildCanonicalTopicExport(editedTopics, rawTopicsList, rawTopicsEnList, useEnglishCanonicalIds) {
+      const consumedTopicIds = new Set();
+      const exportedTopics = [];
+      const canonicalTopicIds = new Set((rawTopicsEnList || []).map((topic) => topic.id));
+
+      const findEditedTopic = (canonical) => {
+        const localeTopic = rawTopicsList.find((topic) => topic.id === canonical.id);
+
+        return (editedTopics || []).find((topic) => {
+          if (topic.id && !String(topic.id).startsWith('topic_') && topic.id === canonical.id) {
+            return true;
+          }
+          if (localeTopic && topic.name === localeTopic.title) {
+            return true;
+          }
+          if (!useEnglishCanonicalIds && topic.name === canonical.title) {
+            return true;
+          }
+          return false;
+        });
+      };
+
+      for (const canonical of rawTopicsEnList || []) {
+        const edited = findEditedTopic(canonical);
+        if (!edited) continue;
+
+        consumedTopicIds.add(edited.id);
+        const localeMatch = rawTopicsList.find((topic) => topic.id === canonical.id || topic.title === edited.name);
+
+        exportedTopics.push({
+          id: canonical.id,
+          title: edited.name,
+          description: edited.description || (localeMatch ? localeMatch.description : edited.prompt),
+          prompt: edited.prompt
+        });
+      }
+
+      for (const edited of editedTopics || []) {
+        if (consumedTopicIds.has(edited.id)) continue;
+
+        const exportId =
+          (edited.id && !String(edited.id).startsWith('topic_') && !canonicalTopicIds.has(edited.id) ? edited.id : null) ||
+          this.deriveExportId(edited.name, '') ||
+          `topic_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+        exportedTopics.push({
+          id: exportId,
+          title: edited.name,
+          description: edited.description || edited.prompt,
+          prompt: edited.prompt
+        });
+      }
+
+      return exportedTopics;
+    },
+
     async exportPrompts() {
       const now = new Date();
       const pad = (n) => String(n).padStart(2, '0');
       const timestamp = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
       const lang = this.options.language || 'en';
 
-      // Base export shape from the active locale JSON (parse each file independently so one failed fetch does not wipe the other)
       let rawCharacters = { characters: [] };
       let rawTopics = { topics: [] };
-      // English JSON: only fetched when exporting a non-English locale (canonical ids + topic slot fallback); when lang is en, reuse rawCharacters/rawTopics
-      let rawCharactersEn = null;
-      let rawTopicsEn = null;
+      let rawCharactersEn = { characters: [] };
+      let rawTopicsEn = { topics: [] };
 
       try {
-        this.log('SYSTEM', 'Fetching raw data for export...');
-        const [charactersResp, topicsResp] = await Promise.all([
-          fetch(`./${CHARACTERS_FILE}_${lang}.json`),
-          fetch(`./topics_${lang}.json`)
+        const charactersPath = `./${CHARACTERS_FILE}_${lang}.json`;
+        const topicsPath = `./topics_${lang}.json`;
+        const charactersEnPath = `./${CHARACTERS_FILE}_en.json`;
+        const topicsEnPath = './topics_en.json';
+
+        const [charactersResp, topicsResp, charactersEnResp, topicsEnResp] = await Promise.all([
+          fetch(charactersPath),
+          fetch(topicsPath),
+          fetch(charactersEnPath),
+          fetch(topicsEnPath)
         ]);
+
         if (charactersResp.ok) {
           rawCharacters = await charactersResp.json();
+          this.log('FILE_IN', `GET ${charactersPath} → ${charactersResp.status}`, rawCharacters);
         }
         if (topicsResp.ok) {
           rawTopics = await topicsResp.json();
+          this.log('FILE_IN', `GET ${topicsPath} → ${topicsResp.status}`, rawTopics);
         }
-
-        if (lang !== 'en') {
-          const [charactersEnResp, topicsEnResp] = await Promise.all([
-            fetch(`./${CHARACTERS_FILE}_en.json`),
-            fetch('./topics_en.json')
-          ]);
-          if (charactersEnResp.ok) rawCharactersEn = await charactersEnResp.json();
-          if (topicsEnResp.ok) rawTopicsEn = await topicsEnResp.json();
+        if (charactersEnResp.ok) {
+          rawCharactersEn = await charactersEnResp.json();
+          this.log('FILE_IN', `GET ${charactersEnPath} → ${charactersEnResp.status}`, rawCharactersEn);
+        }
+        if (topicsEnResp.ok) {
+          rawTopicsEn = await topicsEnResp.json();
+          this.log('FILE_IN', `GET ${topicsEnPath} → ${topicsEnResp.status}`, rawTopicsEn);
         }
       } catch (e) {
         this.log('ERROR', "Failed to fetch raw data", e);
       }
 
-      const enCharsForExport = (this.languageData.en && this.languageData.en.characters) || [];
-      const rawEnCharactersList = ((lang === 'en' ? rawCharacters : rawCharactersEn) || {}).characters || [];
+      const rawEnCharactersList = rawCharactersEn.characters || [];
+      const rawLocaleCharactersList = rawCharacters.characters || [];
+      const rawTopicsList = rawTopics.topics || [];
+      const rawTopicsEnList = rawTopicsEn.topics || [];
+      const useEnglishCanonicalIds = lang !== 'en';
 
       // 1. Export Characters
-      // Clone raw structure to preserve static fields (addHuman, panelWithHumans, metadata etc)
       let charactersExport = JSON.parse(JSON.stringify(rawCharacters));
 
-      // Update timestamp if metadata exists
       if (charactersExport.metadata) {
         const dateStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
         const timeStr = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
         charactersExport.metadata.last_updated = `${dateStr} ${timeStr}`;
       }
 
-      // Update the "characters" array with current active characters
-      charactersExport.characters = (this.currentLanguageData.characters || []).map((c, idx) => {
-        // Exclude internal fields like _ui_id
-        const { _ui_id, ...rest } = c;
-        // Ensure structure matches schema
-        const provider = rest.voiceProvider || 'openai';
-        const canonicalFoodId =
-          (enCharsForExport[idx] && enCharsForExport[idx].id) ||
-          rawEnCharactersList[idx]?.id ||
-          rest.id ||
-          (rest.name ? rest.name.toLowerCase().replace(/\s+/g, '') : 'unknown');
-
-        let charExport = {
-          id: canonicalFoodId,
-          name: rest.name,
-          voice: rest.voice,
-          voiceProvider: provider,
-          size: rest.size,
-          description: rest.description || "",
-          prompt: rest.prompt || ""
-        };
-
-        if (rest.voiceSpeed !== undefined) {
-          charExport.voiceSpeed = rest.voiceSpeed;
-        }
-
-        if (provider === 'gemini') {
-          charExport.voiceLocale = rest.voiceLocale || 'en-GB';
-          charExport.voiceInstruction = rest.voiceInstruction || "";
-        } else if (provider === 'openai') {
-          charExport.voiceInstruction = rest.voiceInstruction || "";
-        } else if (provider === 'inworld') {
-          charExport.voiceTemperature = rest.voiceTemperature || 1.1;
-        }
-
-        return charExport;
-      });
+      const { exportedCharacters, renamedCharacters } = this.buildCanonicalCharacterExport(
+        this.currentLanguageData.characters,
+        rawEnCharactersList,
+        rawLocaleCharactersList,
+        useEnglishCanonicalIds
+      );
+      charactersExport.characters = exportedCharacters;
 
       // 2. Export Topics
       let topicsExport = JSON.parse(JSON.stringify(rawTopics));
 
-      // Update timestamp if metadata exists
       if (topicsExport.metadata) {
         const dateStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
         const timeStr = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
         topicsExport.metadata.last_updated = `${dateStr} ${timeStr}`;
       }
 
-      // Update system prompt (editable)
       topicsExport.system = this.currentLanguageData.system;
+      topicsExport.topics = this.buildCanonicalTopicExport(
+        this.currentLanguageData.topics,
+        rawTopicsList,
+        rawTopicsEnList,
+        useEnglishCanonicalIds
+      );
 
-      // Reconcile with raw topics to preserve original IDs; prefer English topic ids when bilingual
-      const rawTopicsList = (rawTopics && rawTopics.topics) ? rawTopics.topics : [];
-      const rawTopicsEnList = ((lang === 'en' ? rawTopics : rawTopicsEn) || {}).topics || [];
-
-      topicsExport.topics = (this.currentLanguageData.topics || []).map((t, idx) => {
-        // Try to find matching original topic by title to restore ID and Description
-        const match = rawTopicsList.find(rt => rt.title === t.name);
-        // Prefer stable ids from English JSON (same as sv ids); avoid in-memory topic_* ids from factoryReset
-        const canonicalTopicId =
-          (match ? match.id : null) ||
-          rawTopicsEnList[idx]?.id ||
-          rawTopicsList[idx]?.id ||
-          t.id ||
-          (t.name ? t.name.toLowerCase().replace(/\s+/g, '') : 'unknown');
-
-        return {
-          id: canonicalTopicId,
-          title: t.name,
-          // Use current description if available (user edits), fallback to raw if needed, then prompt (legacy)
-          description: t.description || (match ? match.description : t.prompt),
-          prompt: t.prompt
-        };
-      });
-
-      // Helper to trigger download
       const download = (filename, data) => {
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
@@ -917,6 +1110,16 @@ createApp({
       download(`${CHARACTERS_FILE}_${lang}_${timestamp}.json`, charactersExport);
       download(`topics_${lang}_${timestamp}.json`, topicsExport);
 
+      if (renamedCharacters.length > 0) {
+        const lines = renamedCharacters.map(({ name, fromId, toId }) =>
+          `- ${name}: "${fromId}" -> "${toId}"`
+        );
+        alert(
+          'Some characters were renamed and their IDs changed. You may need to migrate database/media references:\n\n' +
+          lines.join('\n')
+        );
+      }
+
       this.log('SYSTEM', 'Exported Prompts to JSON');
     },
 
@@ -925,31 +1128,10 @@ createApp({
       this.audioController.reset();
 
       try {
-        const meetingBody = this.getMeetingBody();
-        this.log('SYSTEM', 'Creating meeting via API', meetingBody);
-
-        const res = await fetch("/api/meetings", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(meetingBody),
-        });
-        if (!res.ok) {
-          const errText = await res.text();
-          let errBody = errText;
-          try {
-            errBody = JSON.parse(errText);
-          } catch {
-            // keep raw text
-          }
-          throw new Error(this.formatApiErrorBody(errBody, res.status));
-        }
-        const { meetingId, liveKey } = await res.json();
+        const { meetingId, liveKey } = await this.createMeeting('start conversation');
         this.meetingId = Number(meetingId);
         this.liveKey = liveKey;
-
-        const setupPayload = { meetingId: this.meetingId, liveKey: this.liveKey, serverOptions: this.getServerOptions() };
-        this.log('SOCKET_OUT', 'Starting Conversation', setupPayload);
-        this.socket.emit("start_conversation", setupPayload);
+        this.emitStartConversation('start');
       } catch (e) {
         this.log('ERROR', 'Failed to create meeting', e);
         this.status = 'ERROR';
@@ -975,31 +1157,10 @@ createApp({
       this.audioController.reset();
 
       try {
-        const meetingBody = this.getMeetingBody();
-        this.log('SYSTEM', 'Creating new meeting for restart', meetingBody);
-
-        const res = await fetch("/api/meetings", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(meetingBody),
-        });
-        if (!res.ok) {
-          const errText = await res.text();
-          let errBody = errText;
-          try {
-            errBody = JSON.parse(errText);
-          } catch {
-            // keep raw text
-          }
-          throw new Error(this.formatApiErrorBody(errBody, res.status));
-        }
-        const { meetingId, liveKey } = await res.json();
+        const { meetingId, liveKey } = await this.createMeeting('restart conversation');
         this.meetingId = Number(meetingId);
         this.liveKey = liveKey;
-
-        const setupPayload = { meetingId: this.meetingId, liveKey: this.liveKey, serverOptions: this.getServerOptions() };
-        this.log('SOCKET_OUT', 'Restarting Conversation', setupPayload);
-        this.socket.emit("start_conversation", setupPayload);
+        this.emitStartConversation('restart');
       } catch (e) {
         this.log('ERROR', 'Failed to create meeting for restart', e);
         this.status = 'ERROR';
@@ -1227,6 +1388,13 @@ createApp({
     toTitleCase(str) {
       if (!str) return "";
       return str.toLowerCase().split(" ").map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(" ");
+    },
+
+    formatSpeakerLabel(idOrName) {
+      if (!idOrName) return "—";
+      const chars = this.currentLanguageData?.characters || [];
+      const match = chars.find((c) => c.id === idOrName || c.name === idOrName);
+      return match?.name || match?.id || idOrName;
     }
   }
 })

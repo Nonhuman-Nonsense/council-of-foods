@@ -20,6 +20,8 @@ import Council from "@council/Council";
 import { isMeetingPath, isRootPath, stripLanguagePrefix, useRouting } from "@/routing";
 import RotateDevice from "./overlay/RotateDevice";
 import FullscreenButton from "./FullscreenButton";
+import MuseumModeEscapeHatch from "@/museum/MuseumModeEscapeHatch";
+import { useAppMode } from "@/museum/useAppMode";
 import { usePortrait, dvh } from "@/utils";
 import CouncilError from "./overlay/CouncilError";
 import Reconnecting from "./overlay/Reconnecting";
@@ -69,6 +71,7 @@ export default function Main(props: MainProps) {
   const navigate = useNavigate();
   const isIphone = useIsIphone();
   const isPortrait = usePortrait();
+  const { isMuseumMode } = useAppMode();
 
   if (audioContext.current === null) {
     type WindowWithWebkitAudio = Window & { webkitAudioContext?: typeof AudioContext };
@@ -175,14 +178,15 @@ export default function Main(props: MainProps) {
   return (
     <>
       <Background pathname={location.pathname} />
-      {!(unrecoverableErrorMessage != null || connectionError) &&
+      {!(unrecoverableErrorMessage != null || connectionError) && !isMuseumMode &&
         <Navbar
           topicTitle={topicSelection?.title || ""}
           hamburgerOpen={hamburgerOpen}
           setHamburgerOpen={setHamburgerOpen}
         />
       }
-      {hamburgerOpen && <div style={hamburgerCloserStyle} onClick={() => setHamburgerOpen(false)}></div>}
+      {hamburgerOpen && !isMuseumMode && <div style={hamburgerCloserStyle} onClick={() => setHamburgerOpen(false)}></div>}
+      {isMuseumMode && <MuseumModeEscapeHatch />}
       {unrecoverableErrorMessage == null &&
         <Overlay
           isActive={!isMeetingPath(location.pathname)}
@@ -225,7 +229,7 @@ export default function Main(props: MainProps) {
             />
             <Route path="*" element={<Navigate to={rootPath} replace />} />
           </Routes>
-          {!isIphone && <FullscreenButton />}
+          {!isIphone && !isMuseumMode && <FullscreenButton />}
           <MainOverlays
             topic={topicSelection}
             onReset={onReset}

@@ -5,6 +5,7 @@ import React from 'react';
 import { MemoryRouter, Routes, Route, useLocation } from 'react-router';
 import Main from '@main/Main';
 import Navbar from '@main/Navbar';
+import { APP_MODE_STORAGE_KEY } from '@/museum/appMode';
 import * as AvailableLanguagesModule from '@shared/AvailableLanguages';
 import routes from '@/routes.json';
 import { MockFactory } from '../factories/MockFactory';
@@ -42,6 +43,9 @@ vi.mock('@main/overlay/RotateDevice', () => ({
 }));
 vi.mock('@main/FullscreenButton', () => ({
     default: () => <div data-testid="fullscreen-btn">Fullscreen</div>
+}));
+vi.mock('@/museum/MuseumModeEscapeHatch', () => ({
+    default: () => <div data-testid="museum-escape">Escape</div>
 }));
 
 // Mock utils
@@ -95,6 +99,7 @@ describe('Router Logic', () => {
 
     describe('Single Language (en)', () => {
         beforeEach(() => {
+            localStorage.clear();
             vi.spyOn(AvailableLanguagesModule, 'AVAILABLE_LANGUAGES', 'get').mockReturnValue(['en']);
         });
 
@@ -111,6 +116,30 @@ describe('Router Logic', () => {
             );
             expect(screen.getByTestId('landing')).toBeInTheDocument();
             expect(screen.getByTestId('location-display')).toHaveTextContent('/');
+        });
+
+        it('hides navbar and fullscreen in museum mode', () => {
+            localStorage.setItem(APP_MODE_STORAGE_KEY, 'museum');
+            render(
+                <MemoryRouter initialEntries={['/']}>
+                    <Main lang="en" />
+                </MemoryRouter>
+            );
+            expect(screen.queryByRole('navigation')).not.toBeInTheDocument();
+            expect(screen.queryByTestId('fullscreen-btn')).not.toBeInTheDocument();
+            expect(screen.getByTestId('museum-escape')).toBeInTheDocument();
+        });
+
+        it('shows navbar and fullscreen in web mode', () => {
+            localStorage.setItem(APP_MODE_STORAGE_KEY, 'web');
+            render(
+                <MemoryRouter initialEntries={['/']}>
+                    <Main lang="en" />
+                </MemoryRouter>
+            );
+            expect(screen.getByRole('navigation')).toBeInTheDocument();
+            expect(screen.getByTestId('fullscreen-btn')).toBeInTheDocument();
+            expect(screen.queryByTestId('museum-escape')).not.toBeInTheDocument();
         });
 
         it('renders Council at /meeting/new', async () => {

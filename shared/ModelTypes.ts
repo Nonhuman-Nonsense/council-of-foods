@@ -126,7 +126,7 @@ type GeneratedTurnType =
 export interface GeneratedTurnMessage
     extends BaseMessage, SpeakerFields, TextFields, IdentifiedFields, SentenceFields, GeneratedDebugFields {
     type: GeneratedTurnType;
-    askParticular?: never;
+    askParticular?: string;
     canContinue?: never;
 }
 
@@ -140,7 +140,7 @@ export interface HumanMessage extends BaseMessage, SpeakerFields, TextFields, Id
 
 export interface PanelistMessage extends BaseMessage, SpeakerFields, TextFields, IdentifiedFields, SentenceFields {
     type: "panelist";
-    askParticular?: never;
+    askParticular?: string;
     trimmed?: never;
     pretrimmed?: never;
     canContinue?: never;

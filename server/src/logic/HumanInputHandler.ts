@@ -1,11 +1,11 @@
-import type { Character, HumanMessage, Message, PanelistMessage } from "@shared/ModelTypes.js";
+import type { HumanMessage, Message, PanelistMessage } from "@shared/ModelTypes.js";
 import type { SubmitHumanMessagePayload, SubmitHumanPanelistPayload } from "@shared/SocketTypes.js";
 import type { IHumanInputContext } from "@interfaces/MeetingInterfaces.js";
 import type { Message as AudioQueueMessage } from "@logic/audio/AudioTypes.js";
 import { Logger } from "@utils/Logger.js";
 import { v4 as uuidv4 } from "uuid";
 import { splitSentences } from "@shared/textUtils.js";
-import { HumanTargetClassifier } from "@logic/HumanTargetClassifier.js";
+import { annotateDirectedHandoff } from "@logic/directedHandoff.js";
 
 export interface InjectionMessage {
     text: string;
@@ -20,11 +20,9 @@ export interface InjectionMessage {
  */
 export class HumanInputHandler {
     manager: IHumanInputContext;
-    targetClassifier: HumanTargetClassifier;
 
     constructor(meetingManager: IHumanInputContext) {
         this.manager = meetingManager;
-        this.targetClassifier = new HumanTargetClassifier(meetingManager.serverOptions);
     }
 
     /**
@@ -51,14 +49,11 @@ export class HumanInputHandler {
         }
 
         const humanName = m.state.humanName || "Human";
-        const targetedCharacter = this.resolveTargetCharacter(
-            await this.targetClassifier.inferTarget(m, payload.text),
-            m.characters
-        );
+        const askParticular = await this.manager.speakerTargetClassifier.inferTarget(m, {
+            mode: "humanQuestion",
+            text: payload.text,
+        });
 
-        if (targetedCharacter) {
-            Logger.info(`meeting ${m._id}`, `specifically asked to ${targetedCharacter.id} `);
-        }
         const renderedText = humanName + (m.language === 'en' ? " said:\xa0" : " sa:\xa0") + payload.text;
 
         const msgId = "human-" + uuidv4();
@@ -67,7 +62,7 @@ export class HumanInputHandler {
             type: "human",
             speaker: humanName,
             text: renderedText,
-            askParticular: targetedCharacter?.id,
+            askParticular,
         };
 
         m.conversation.push(message);
@@ -100,12 +95,6 @@ export class HumanInputHandler {
         manager.startLoop();
     }
 
-    private resolveTargetCharacter(target: string | undefined, characters: Character[]): Character | undefined {
-        if (!target) return undefined;
-
-        return characters.find((character) => character.id === target || character.name === target);
-    }
-
     /**
      * Handles input from a 'human panelist' (a human participant acting as a character/expert).
      * Validates that the state is 'awaiting_human_panelist'.
@@ -130,6 +119,8 @@ export class HumanInputHandler {
             speaker: payload.speaker,
             text: charName + (m.language === 'en' ? " said:\xa0" : " sa:\xa0") + payload.text,
         };
+
+        await annotateDirectedHandoff(this.manager.speakerTargetClassifier, this.manager.serverOptions, m, message);
 
         m.conversation.push(message);
 

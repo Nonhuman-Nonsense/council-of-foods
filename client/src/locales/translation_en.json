@@ -9,6 +9,9 @@
   "contact": "Contact",
   "setup": {
     "title": "SETUP",
+    "mode": "Mode",
+    "web": "Web",
+    "museum": "Museum",
     "voiceGuide": "Voice Guide",
     "alwaysOn": "Always On",
     "pushToTalk": "Push to Talk",

@@ -7,6 +7,7 @@ import { globalClientOptions } from "@/globalClientOptions";
 import { characterIconWebpUrl } from "@assets/characters/characterData";
 import { useMeetingSetupStore } from "@stores/useMeetingSetupStore";
 import { buildMeetingCharactersPayload } from "./meetingSetup";
+import { useAppMode } from "@/museum/useAppMode";
 import { getCharacterSetupBundle } from "./CharacterSetup";
 
 import Lottie from "react-lottie-player";
@@ -71,6 +72,7 @@ function SelectCharacters({
 
   const isMobile = useMobile();
   const isMobileXs = useMobileXs();
+  const { isMuseumMode } = useAppMode();
   const { t, i18n } = useTranslation();
 
   const characterSetupData = useMemo(() => {
@@ -328,7 +330,7 @@ function SelectCharacters({
               selectLimitReached={selectedCharacters.length >= maxCharacters}
             />
           ))}
-          {numberOfHumans < MAXHUMANS && (
+          {!isMuseumMode && numberOfHumans < MAXHUMANS && (
             <AddHumanButton
               onMouseEnter={() => setHoveredCharacter("addhuman")}
               onMouseLeave={() => setHoveredCharacter(null)}
@@ -338,9 +340,11 @@ function SelectCharacters({
             />
           )}
         </div>
-        <div style={{ display: "flex", justifyContent: "center", marginTop: isMobileXs ? "2px" : "5px" }}>
-          {buttonOrInfo()}
-        </div>
+        {!isMuseumMode ? (
+          <div style={{ display: "flex", justifyContent: "center", marginTop: isMobileXs ? "2px" : "5px" }}>
+            {buttonOrInfo()}
+          </div>
+        ) : null}
       </div>
       <VideoPreloader
         foodIds={selectedCharacters.filter(
