@@ -146,7 +146,7 @@ describe("SpeakerTargetClassifier", () => {
             expect(Logger.info).not.toHaveBeenCalled();
         });
 
-        it("excludes the chair from allowed target ids", async () => {
+        it("excludes the chair from allowed target ids and omits meeting context", async () => {
             global.fetch = vi.fn().mockResolvedValue(mockJsonResponse({
                 choices: [{ message: { content: secondarySpeaker.id } }],
             }));
@@ -154,12 +154,13 @@ describe("SpeakerTargetClassifier", () => {
 
             await classifier.inferTarget(meeting, {
                 mode: "participantHandoff",
-                text: `${primarySpeaker.name} said: Speaker Two?`,
+                text: `${primarySpeaker.name} said: Speaker Two, what do you think?`,
                 speakerId: primarySpeaker.id,
             });
 
             const body = JSON.parse((global.fetch as ReturnType<typeof vi.fn>).mock.calls[0][1].body);
             const userPrompt = body.messages[1].content as string;
+            const systemPrompt = body.messages[0].content as string;
             const expectedAllowedTargetIds = formatExpectedAllowedTargetIds([
                 primarySpeaker.id,
                 secondarySpeaker.id,
@@ -168,8 +169,13 @@ describe("SpeakerTargetClassifier", () => {
 
             expect(userPrompt).toContain(expectedAllowedTargetIds);
             expect(userPrompt).toContain(
-                "Classify which meeting participant should directly answer the latest council message:"
+                "If the latest message contains a direct question to one participant, reply with that participant's id. Otherwise reply with anyone:"
             );
+            expect(userPrompt).not.toContain("Topic:");
+            expect(userPrompt).not.toContain("Recent conversation:");
+            expect(userPrompt).not.toContain("Participants:");
+            expect(systemPrompt).toContain("direct question to one specific participant");
+            expect(systemPrompt).not.toContain("recent context");
         });
 
         it("includes the rendered latest message line", async () => {
