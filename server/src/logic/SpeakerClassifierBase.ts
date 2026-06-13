@@ -4,10 +4,11 @@ import type { GlobalOptions } from "@logic/GlobalOptions.js";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
 
 import { config } from "@root/src/config.js";
+import { buildInworldReasoningExtraBody } from "@services/ConversationService.js";
 import { withNetworkRetry } from "@utils/NetworkUtils.js";
 
 export const CLASSIFIER_GENERAL_FLOW_KEYWORD = "anyone";
-export const CLASSIFIER_MAX_TOKENS = 20;
+export const CLASSIFIER_MAX_TOKENS = 32;
 export const CLASSIFIER_TEMPERATURE = 0.1;
 export const CLASSIFIER_TIMEOUT_MS = 4000;
 export const CLASSIFIER_MAX_CONTEXT_MESSAGES = 10;
@@ -106,6 +107,7 @@ export async function requestSpeakerClassifierCompletion(
                         temperature: CLASSIFIER_TEMPERATURE,
                         max_tokens: maxTokens,
                         messages,
+                        extra_body: buildInworldReasoningExtraBody("none"),
                     }),
                     signal: controller.signal,
                 }),

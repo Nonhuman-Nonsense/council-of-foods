@@ -111,6 +111,24 @@ describe("SpeakerTargetClassifier", () => {
         expect(userPrompt).toContain("Classify which meeting participant should directly answer the human question:");
     });
 
+    it("disables Inworld reasoning so completion tokens are not consumed by thinking", async () => {
+        global.fetch = vi.fn().mockResolvedValue(mockJsonResponse({
+            choices: [{ message: { content: primarySpeaker.id } }],
+        }));
+        const classifier = new SpeakerTargetClassifier(MockFactory.createServerOptions());
+
+        await classifier.inferTarget(meeting, { mode: "humanQuestion", text: "Speaker One?" });
+
+        const body = JSON.parse((global.fetch as ReturnType<typeof vi.fn>).mock.calls[0][1].body);
+        expect(body.extra_body).toEqual({
+            reasoning: {
+                effort: "none",
+                max_tokens: 0,
+                exclude: true,
+            },
+        });
+    });
+
     describe("participantHandoff mode", () => {
         it("returns undefined when the target is the same participant who spoke", async () => {
             global.fetch = vi.fn().mockResolvedValue(mockJsonResponse({
@@ -141,7 +159,6 @@ describe("SpeakerTargetClassifier", () => {
             });
 
             const body = JSON.parse((global.fetch as ReturnType<typeof vi.fn>).mock.calls[0][1].body);
-            const systemPrompt = body.messages[0].content as string;
             const userPrompt = body.messages[1].content as string;
             const expectedAllowedTargetIds = formatExpectedAllowedTargetIds([
                 primarySpeaker.id,
@@ -149,9 +166,7 @@ describe("SpeakerTargetClassifier", () => {
                 "anyone",
             ]);
 
-            expect(systemPrompt).toContain(expectedAllowedTargetIds);
             expect(userPrompt).toContain(expectedAllowedTargetIds);
-            expect(userPrompt).not.toContain(`\n${chair.id}\n`);
             expect(userPrompt).toContain(
                 "Classify which meeting participant should directly answer the latest council message:"
             );

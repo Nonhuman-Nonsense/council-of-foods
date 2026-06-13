@@ -112,7 +112,7 @@ export function resolveConversationModel(model: string): ResolvedConversationMod
     };
 }
 
-function buildInworldReasoningExtraBody(reasoning: ConversationReasoning): {
+export function buildInworldReasoningExtraBody(reasoning: ConversationReasoning): {
     reasoning: {
         effort: ConversationReasoning;
         max_tokens?: number;
@@ -150,7 +150,7 @@ async function requestChatCompletion(
         stop: params.stop,
     };
 
-    if (provider === "inworld" && params.reasoning !== "none") {
+    if (provider === "inworld") {
         requestParams.extra_body = buildInworldReasoningExtraBody(params.reasoning);
     } else if (params.reasoning !== "none") {
         requestParams.reasoning_effort = params.reasoning;
