@@ -94,8 +94,25 @@ describe("ConversationService", () => {
             temperature: 0.7,
             stop: ["\n---"],
         }));
-        expect(inworld.create.mock.calls[0]?.[0]).not.toHaveProperty("extra_body");
+        expect(inworld.create.mock.calls[0][0]).not.toHaveProperty("extra_body");
         expect(direct.create).not.toHaveBeenCalled();
+    });
+
+    it("omits reasoning params when conversation reasoning is none", async () => {
+        const direct = createMockClient({ content: "direct-response" });
+        const inworld = createMockClient({ id: "inworld-id", content: "inworld-response" });
+
+        const service = createConversationService(
+            () => direct.client as never,
+            () => inworld.client,
+        );
+
+        await service.createChatCompletion(createParams("mistral/mistral-large-3"));
+
+        expect(inworld.create).toHaveBeenCalledWith(expect.objectContaining({
+            model: "mistral/mistral-large-3",
+        }));
+        expect(inworld.create.mock.calls[0][0]).not.toHaveProperty("extra_body");
     });
 
     it("converts an all-system first-turn stack into a valid routed request", async () => {
@@ -125,7 +142,7 @@ describe("ConversationService", () => {
                 { role: "user", content: "Water: " },
             ],
         }));
-        expect(inworld.create.mock.calls[0]?.[0]).not.toHaveProperty("extra_body");
+        expect(inworld.create.mock.calls[0][0]).not.toHaveProperty("extra_body");
         expect(direct.create).not.toHaveBeenCalled();
     });
 
@@ -160,12 +177,12 @@ describe("ConversationService", () => {
         );
 
         await service.createChatCompletion({
-            ...createParams("mistral/mistral-small-3-2"),
+            ...createParams("google-ai-studio/gemini-2.5-flash"),
             reasoning: "low",
         });
 
         expect(inworld.create).toHaveBeenCalledWith(expect.objectContaining({
-            model: "mistral/mistral-small-3-2",
+            model: "google-ai-studio/gemini-2.5-flash",
             extra_body: {
                 reasoning: {
                     effort: "low",

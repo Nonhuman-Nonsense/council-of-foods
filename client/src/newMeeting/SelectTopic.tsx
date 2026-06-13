@@ -3,6 +3,7 @@ import ResetWarning from "@main/overlay/ResetWarning";
 import { capitalizeFirstLetter, toTitleCase, useMobile, useMobileXs } from "@/utils";
 import { useTranslation } from "react-i18next";
 import type { Topic } from "@shared/ModelTypes";
+import { useAppMode } from "@/museum/useAppMode";
 import { useMeetingSetupStore } from "@stores/useMeetingSetupStore";
 
 import { getTopicsBundle } from "@main/topicsBundle";
@@ -44,6 +45,7 @@ function SelectTopic({
     customTopic, setCustomTopic,
   } = useMeetingSetupStore();
   const { t, i18n } = useTranslation();
+  const { isMuseumMode } = useAppMode();
   const isMobile = useMobile();
   const isMobileXs = useMobileXs();
   const topicTextareaRef = useRef<HTMLTextAreaElement>(null);
@@ -281,12 +283,14 @@ function SelectTopic({
             style={textBoxStyle}
           />
 
-          <button
-            onClick={proceedForward}
-            style={{ visibility: shouldShowNextButton ? undefined : "hidden" }}
-          >
-            {t('next')}
-          </button>
+          {!isMuseumMode ? (
+            <button
+              onClick={proceedForward}
+              style={{ visibility: shouldShowNextButton ? undefined : "hidden" }}
+            >
+              {t('next')}
+            </button>
+          ) : null}
         </div>
       )}
     </>

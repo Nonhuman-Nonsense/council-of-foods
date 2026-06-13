@@ -11,7 +11,7 @@ import { MockFactory } from './factories/MockFactory.ts';
 // }));
 vi.mock('@logic/SpeakerSelector.js', () => ({
     SpeakerSelector: {
-        calculateNextSpeaker: vi.fn().mockReturnValue(0)
+        calculateNextSpeaker: vi.fn().mockReturnValue(0),
     }
 }));
 

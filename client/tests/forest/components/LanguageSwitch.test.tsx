@@ -5,12 +5,62 @@ import Main from '@main/Main';
 import SelectCharacters from '@newMeeting/SelectCharacters';
 import i18n from '@/i18n';
 import { useMeetingSetupStore } from '@stores/useMeetingSetupStore';
+import { getTopicsBundle } from '@main/topicsBundle';
+import { getCharacterSetupBundle } from '@newMeeting/CharacterSetup';
+import { MockFactory } from '../../unit/factories/MockFactory';
+
+const EN_TOPIC_TITLE = 'Test English Topic';
+const SV_TOPIC_TITLE = 'Test Swedish Topic';
+
+const mockEnTopicsBundle = {
+    metadata: { version: 'test', last_updated: 'test' },
+    system: 'System [TOPIC]',
+    custom_topic: MockFactory.createTopic({ id: 'customtopic', title: 'Custom Topic' }),
+    topics: [
+        MockFactory.createTopic({ id: 'greentransition', title: EN_TOPIC_TITLE }),
+    ],
+};
+
+const mockSvTopicsBundle = {
+    metadata: { version: 'test', last_updated: 'test' },
+    system: 'System [TOPIC]',
+    custom_topic: MockFactory.createTopic({ id: 'customtopic', title: 'Eget Ämne' }),
+    topics: [
+        MockFactory.createTopic({ id: 'greentransition', title: SV_TOPIC_TITLE }),
+    ],
+};
+
+const mockEnCharacterBundle = MockFactory.createCharacterSetupBundle({
+    characters: [
+        MockFactory.createCharacter({ id: 'river', name: 'The River' }),
+        MockFactory.createCharacter({ id: 'salmon', name: 'The Salmon' }),
+        MockFactory.createCharacter({ id: 'pine', name: 'The Pine' }),
+    ],
+});
+
+const mockSvCharacterBundle = MockFactory.createCharacterSetupBundle({
+    characters: [
+        MockFactory.createCharacter({ id: 'river', name: 'Älven' }),
+        MockFactory.createCharacter({ id: 'salmon', name: 'Laxen' }),
+        MockFactory.createCharacter({ id: 'pine', name: 'Tallen' }),
+    ],
+});
 
 vi.mock('@forest/Forest', () => ({
     default: () => <div data-testid="mock-forest">Forest Component</div>
 }));
 vi.mock('@voice/MeetingVoiceGuide', () => ({
     default: () => null,
+}));
+
+vi.mock('@main/topicsBundle', () => ({
+    getTopicsBundle: vi.fn(),
+}));
+
+vi.mock('@newMeeting/CharacterSetup', () => ({
+    getCharacterSetupBundle: vi.fn(),
+    createDefaultHumans: vi.fn(() => []),
+    createHuman: vi.fn(),
 }));
 
 vi.mock('@/utils', async (importOriginal) => {
@@ -34,6 +84,13 @@ describe('Language Switching', () => {
     beforeEach(() => {
         useMeetingSetupStore.getState().resetStore();
         void i18n.changeLanguage('en');
+
+        vi.mocked(getTopicsBundle).mockImplementation((lang) =>
+            lang === 'sv' ? mockSvTopicsBundle : mockEnTopicsBundle
+        );
+        vi.mocked(getCharacterSetupBundle).mockImplementation((lang) =>
+            lang === 'sv' ? mockSvCharacterBundle : mockEnCharacterBundle
+        );
 
         window.AudioContext = class {
             constructor() {
@@ -67,6 +124,9 @@ describe('Language Switching', () => {
             resume() { }
         } as unknown as typeof AudioContext;
         (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext = window.AudioContext;
+
+        window.HTMLMediaElement.prototype.play = vi.fn(() => Promise.resolve());
+        window.HTMLMediaElement.prototype.pause = vi.fn();
     });
 
     it('loads Swedish topics when Main is mounted with lang sv', async () => {
@@ -79,10 +139,9 @@ describe('Language Switching', () => {
         );
 
         await waitFor(() => {
-            expect(
-                screen.getByText('Den Gröna Omställningen Och Kumulativa Effekter.')
-            ).toBeInTheDocument();
+            expect(screen.getByText(SV_TOPIC_TITLE)).toBeInTheDocument();
         });
+        expect(getTopicsBundle).toHaveBeenCalledWith('sv');
     });
 
     it('switches topic language when clicking the SV link in the navbar', async () => {
@@ -95,16 +154,16 @@ describe('Language Switching', () => {
         );
 
         await waitFor(() => {
-            expect(screen.getByText('Cumulative Pressure')).toBeInTheDocument();
+            expect(screen.getByText(EN_TOPIC_TITLE)).toBeInTheDocument();
         });
+        expect(getTopicsBundle).toHaveBeenCalledWith('en');
 
         fireEvent.click(screen.getByText('SV'));
 
         await waitFor(() => {
-            expect(
-                screen.getByText('Den Gröna Omställningen Och Kumulativa Effekter.')
-            ).toBeInTheDocument();
+            expect(screen.getByText(SV_TOPIC_TITLE)).toBeInTheDocument();
         });
+        expect(getTopicsBundle).toHaveBeenCalledWith('sv');
     });
 
     it('shows Swedish food names on SelectCharacters when language is sv', async () => {
@@ -120,6 +179,7 @@ describe('Language Switching', () => {
         await waitFor(() => {
             expect(screen.getByAltText('Laxen')).toBeInTheDocument();
         });
+        expect(getCharacterSetupBundle).toHaveBeenCalledWith('sv');
 
         const tall = screen.getByAltText('Tallen');
         fireEvent.click(screen.getByAltText('Laxen'));

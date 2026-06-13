@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useMobile, useMobileXs } from "@/utils";
 import { useTranslation } from "react-i18next";
 import { getPushToTalk, setPushToTalk } from "@/settings/councilSettings";
+import { useAppMode } from "@/museum/useAppMode";
 import { usePushToTalkStore } from "@stores/usePushToTalkStore";
 
 function serialStatusLabel(
@@ -29,6 +30,7 @@ function Setup(): React.ReactElement {
   const isMobile = useMobile();
   const isMobileXs = useMobileXs();
   const { t } = useTranslation();
+  const { mode: appMode, setAppMode } = useAppMode();
   const [pushToTalk, setPushToTalkState] = useState(getPushToTalk);
   const serialStatus = usePushToTalkStore((state) => state.serialStatus);
   const serialError = usePushToTalkStore((state) => state.serialError);
@@ -87,6 +89,31 @@ function Setup(): React.ReactElement {
       <h1 style={{ marginBottom: isMobile ? (isMobileXs ? "0px" : "5px") : undefined }}>
         {t("setup.title")}
       </h1>
+
+      <div style={sectionStyle}>
+        <h3 style={{ marginTop: 0 }}>{t("setup.mode")}</h3>
+
+        <div style={gridContainerStyle}>
+          <button
+            type="button"
+            data-testid="app-mode-web"
+            className={appMode === "web" ? "selected " : ""}
+            onClick={() => setAppMode("web")}
+            style={selectButtonStyle}
+          >
+            {t("setup.web")}
+          </button>
+          <button
+            type="button"
+            data-testid="app-mode-museum"
+            className={appMode === "museum" ? "selected " : ""}
+            onClick={() => setAppMode("museum")}
+            style={selectButtonStyle}
+          >
+            {t("setup.museum")}
+          </button>
+        </div>
+      </div>
 
       <div style={sectionStyle}>
         <h3 style={{ marginTop: 0 }}>{t("setup.voiceGuide")}</h3>

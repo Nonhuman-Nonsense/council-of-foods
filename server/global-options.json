@@ -36,5 +36,6 @@
   "voiceGuideRealtimeModel": "google-ai-studio/gemini-2.5-flash",
   "voiceGuideOpenAIRealtimeModel": "gpt-realtime",
   "voiceGuideRealtimeTranscriptionModel": "assemblyai/u3-rt-pro",
-  "humanTargetingModel": "google-ai-studio/gemini-2.5-flash"
+  "speakerClassifierModel": "google-ai-studio/gemini-2.5-flash",
+  "directedSpeakerRouting": false
 }

@@ -9,6 +9,8 @@ import { AudioSystem, Message as AudioMessage } from "@logic/AudioSystem.js";
 import { SpeakerSelector } from "@logic/SpeakerSelector.js";
 import { DialogGenerator } from "@logic/DialogGenerator.js";
 import { HumanInputHandler } from "@logic/HumanInputHandler.js";
+import { annotateDirectedHandoff } from "@logic/directedHandoff.js";
+import { SpeakerTargetClassifier } from "@logic/SpeakerTargetClassifier.js";
 import { HandRaisingHandler } from "@logic/HandRaisingHandler.js";
 import { MeetingLifecycleHandler } from "@logic/MeetingLifecycleHandler.js";
 import { ConnectionHandler } from "@logic/ConnectionHandler.js";
@@ -61,6 +63,7 @@ export class MeetingManager implements IMeetingManager {
     audioSystem: AudioSystem;
     dialogGenerator: DialogGenerator;
     humanInputHandler: HumanInputHandler;
+    speakerTargetClassifier: SpeakerTargetClassifier;
     handRaisingHandler: HandRaisingHandler;
     meetingLifecycleHandler: MeetingLifecycleHandler;
     connectionHandler: ConnectionHandler;
@@ -97,6 +100,7 @@ export class MeetingManager implements IMeetingManager {
 
         this.audioSystem = new AudioSystem(this.broadcaster, this.services, this.serverOptions.audioConcurrency);
         this.dialogGenerator = new DialogGenerator(this.services, this.serverOptions);
+        this.speakerTargetClassifier = new SpeakerTargetClassifier(this.serverOptions);
         this.humanInputHandler = new HumanInputHandler(this);
         this.handRaisingHandler = new HandRaisingHandler(this);
         this.meetingLifecycleHandler = new MeetingLifecycleHandler(this);
@@ -345,7 +349,10 @@ export class MeetingManager implements IMeetingManager {
         }
 
         // 4. Determine Speaker
-        const nextSpeakerIndex = SpeakerSelector.calculateNextSpeaker(meeting.conversation, meeting.characters);
+        const nextSpeakerIndex = SpeakerSelector.calculateNextSpeaker(meeting.conversation, meeting.characters, {
+            directedSpeakerRouting: this.serverOptions.directedSpeakerRouting,
+            chairId: this.serverOptions.chairId,
+        });
         const nextSpeaker = meeting.characters[nextSpeakerIndex];
 
         // 5. Panelist Turn
@@ -437,13 +444,18 @@ export class MeetingManager implements IMeetingManager {
             type: "message" // Default
         };
 
-        if (meeting.conversation.length > 1 && meeting.conversation[meeting.conversation.length - 1].type === "human" && meeting.conversation[meeting.conversation.length - 1].askParticular === message.speaker) {
+        const previousMessage = meeting.conversation[meeting.conversation.length - 1];
+        if (previousMessage?.askParticular === message.speaker) {
             message.type = "response";
         }
 
         if (message.text === "") {
             message.type = "skipped";
             Logger.warn(`meeting ${meeting._id}`, `failed to make a message. Skipping speaker ${action.speaker.id}`);
+        }
+
+        if (message.type !== "skipped") {
+            await annotateDirectedHandoff(this.speakerTargetClassifier, this.serverOptions, meeting, message);
         }
 
         meeting.conversation.push(message);
