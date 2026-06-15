@@ -116,6 +116,7 @@ describe("usePushToTalkStore", () => {
     expect(usePushToTalkStore.getState().pttInputEnabled).toBe(true);
     expect(mockTransport.setLedMode).toHaveBeenCalledWith("pulse");
   });
+
   it("tracks serial connection status and errors", async () => {
     await initTransport();
 

@@ -103,7 +103,7 @@ describe("SerialPushToTalkTransport", () => {
     expect(statuses).toContain("connecting");
     expect(statuses).toContain("connected");
     expect(transport.getStatus()).toBe("connected");
-    expect(fake.getWrittenText()).toBe(`${PING}\n${LED_OFF}\n`);
+    expect(fake.getWrittenText()).toBe(`${PING}\n`);
 
     fake.pushBytes(`${PTT_DOWN}\n`);
     await flushMicrotasks();
@@ -128,6 +128,21 @@ describe("SerialPushToTalkTransport", () => {
     expect(lines).toContainEqual({ type: "ptt_down" });
   });
 
+  it("does not force LED off after the connected callback restores LED mode", async () => {
+    const transport = new SerialPushToTalkTransport({
+      onStatus: (status) => {
+        if (status === "connected") {
+          void transport.setLedMode("pulse");
+        }
+      },
+    });
+
+    await transport.connectGrantedPorts();
+    await flushMicrotasks();
+
+    expect(fake.getWrittenText()).toBe(`${PING}\n${LED_PULSE}\n`);
+  });
+
   it("writes LED mode commands when connected", async () => {
     const transport = new SerialPushToTalkTransport();
 
@@ -139,7 +154,7 @@ describe("SerialPushToTalkTransport", () => {
     await transport.setLedMode("off");
 
     expect(fake.getWrittenText()).toBe(
-      `${PING}\n${LED_OFF}\n${LED_PULSE}\n${LED_ON}\n${LED_OFF}\n`,
+      `${PING}\n${LED_PULSE}\n${LED_ON}\n${LED_OFF}\n`,
     );
   });
 
