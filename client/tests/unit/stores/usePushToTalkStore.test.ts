@@ -193,21 +193,21 @@ describe("usePushToTalkStore", () => {
     document.body.removeChild(input);
   });
 
-  it("auto-connects granted ports on init when push-to-talk is enabled", () => {
+  it("does not auto-connect serial from store init", () => {
     getPushToTalkMock.mockReturnValue(true);
     usePushToTalkStore.getState().init();
 
-    expect(mockTransport.connectGrantedPorts).toHaveBeenCalled();
+    expect(mockTransport.connectGrantedPorts).not.toHaveBeenCalled();
   });
 
-  it("disconnects serial and clears pressed on dispose", async () => {
+  it("clears pressed state on dispose without disconnecting serial", async () => {
     await initTransport();
     await usePushToTalkStore.getState().setLedMode("on");
     usePushToTalkStore.getState().setPressed(true, "keyboard");
 
     usePushToTalkStore.getState().dispose();
 
-    expect(mockTransport.disconnect).toHaveBeenCalled();
+    expect(mockTransport.disconnect).not.toHaveBeenCalled();
     expect(usePushToTalkStore.getState().pressed).toBe(false);
     expect(usePushToTalkStore.getState().ledMode).toBe("off");
   });

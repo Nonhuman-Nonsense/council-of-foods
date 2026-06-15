@@ -70,6 +70,11 @@ export class SerialPushToTalkTransport {
     return this.status;
   }
 
+  enableAutoReconnect(): void {
+    this.autoReconnect = true;
+    this.ensureMonitoring();
+  }
+
   private setStatus(status: SerialTransportStatus, error: string | null = null): void {
     this.status = status;
     this.callbacks.onStatus?.(status, error);
@@ -135,10 +140,13 @@ export class SerialPushToTalkTransport {
     }
     this.ensureMonitoring();
     this.autoReconnect = true;
-    this.cancelReconnect();
-    if (this.status === "connected" || this.status === "connecting") {
-      return this.status === "connected";
+    if (this.status === "connected") {
+      return true;
     }
+    if (this.status === "connecting") {
+      return false;
+    }
+    this.cancelReconnect();
     const ports = await serial.getPorts();
     const port = ports.find((candidate) => candidate.connected) ?? ports[0];
     if (!port) {
