@@ -1101,6 +1101,33 @@ createApp({
       return exportedTopics;
     },
 
+    buildTopicsExportPayload(rawTopics, rawTopicsEn, system, editedTopics, rawTopicsList, rawTopicsEnList, useEnglishCanonicalIds, now, pad) {
+      const dateStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+      const timeStr = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+
+      const metadataSource = rawTopicsEn.metadata || rawTopics.metadata;
+      const metadata = metadataSource
+        ? { ...metadataSource, last_updated: `${dateStr} ${timeStr}` }
+        : { version: '1.0.0', last_updated: `${dateStr} ${timeStr}` };
+
+      const customTopic = rawTopicsEn.custom_topic || rawTopics.custom_topic || {
+        id: 'customtopic',
+        title: 'Custom Topic',
+      };
+
+      return {
+        metadata,
+        system,
+        custom_topic: customTopic,
+        topics: this.buildCanonicalTopicExport(
+          editedTopics,
+          rawTopicsList,
+          rawTopicsEnList,
+          useEnglishCanonicalIds
+        ),
+      };
+    },
+
     async exportPrompts() {
       const now = new Date();
       const pad = (n) => String(n).padStart(2, '0');
@@ -1168,21 +1195,17 @@ createApp({
       );
       charactersExport.characters = exportedCharacters;
 
-      // 2. Export Topics
-      let topicsExport = JSON.parse(JSON.stringify(rawTopics));
-
-      if (topicsExport.metadata) {
-        const dateStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
-        const timeStr = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
-        topicsExport.metadata.last_updated = `${dateStr} ${timeStr}`;
-      }
-
-      topicsExport.system = this.currentLanguageData.system;
-      topicsExport.topics = this.buildCanonicalTopicExport(
+      // 2. Export Topics — always emit metadata, system, custom_topic, topics (in that order).
+      const topicsExport = this.buildTopicsExportPayload(
+        rawTopics,
+        rawTopicsEn,
+        this.currentLanguageData.system,
         this.currentLanguageData.topics,
         rawTopicsList,
         rawTopicsEnList,
-        useEnglishCanonicalIds
+        useEnglishCanonicalIds,
+        now,
+        pad
       );
 
       const download = (filename, data) => {
