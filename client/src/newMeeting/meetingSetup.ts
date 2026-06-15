@@ -1,4 +1,6 @@
 import type { Character, Topic } from "@shared/ModelTypes";
+import { injectRandomAgendaPoint } from "@shared/agendaPointInjection";
+import { buildMeetingSystemPrompt } from "@shared/topicPrompt";
 import { toTitleCase } from "@/utils";
 import type { TopicsData } from "@main/topicsBundle";
 import { getCharacterSetupBundle } from "./CharacterSetup";
@@ -60,14 +62,15 @@ export function buildTopicFromSelection(params: {
   if (built.id === topicsBundle.custom_topic.id) {
     built.prompt = customTopic;
     built.description = customTopic;
+    built.agendaPoints = undefined;
   }
-  built.prompt = topicsBundle.system.replace("[TOPIC]", built.prompt);
+  built.prompt = buildMeetingSystemPrompt(topicsBundle.system, built.prompt, built.agendaPoints);
   return built;
 }
 
 /**
  * Validates character-selection state and builds the meeting `characters` payload,
- * including chair `[CHARACTERS]` / `[HUMANS]` prompt injection.
+ * including chair `[CHARACTERS]`, `[HUMANS]`, and `[RANDOM_AGENDA_POINT]` prompt injection.
  */
 export function buildMeetingCharactersPayload(params: {
   language: string;
@@ -75,8 +78,9 @@ export function buildMeetingCharactersPayload(params: {
   humans: Character[];
   numberOfHumans: number;
   labels: MeetingCharactersI18n;
+  agendaPoints?: string[];
 }): { ok: true; characters: Character[] } | { ok: false; error: string } {
-  const { language, selectedCharacters, humans, numberOfHumans, labels } = params;
+  const { language, selectedCharacters, humans, numberOfHumans, labels, agendaPoints } = params;
   const characterSetupData = getCharacterSetupBundle(language);
   const baseCharacters = characterSetupData.characters;
   const characters = [...baseCharacters, ...humans.slice(0, numberOfHumans)];
@@ -163,6 +167,7 @@ export function buildMeetingCharactersPayload(params: {
 
   if (replacedCharacters.length > 0 && replacedCharacters[0].prompt) {
     replacedCharacters[0].prompt = replacedCharacters[0].prompt.replace("[HUMANS]", humanPresentation);
+    replacedCharacters[0].prompt = injectRandomAgendaPoint(replacedCharacters[0].prompt, agendaPoints);
   }
 
   return { ok: true, characters: replacedCharacters };

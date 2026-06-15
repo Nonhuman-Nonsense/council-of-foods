@@ -18,6 +18,7 @@ export { getCharacterSetupBundle, createDefaultHumans, createHuman } from "./Cha
 
 export interface SelectCharactersProps {
   topicTitle: string;
+  agendaPoints?: string[];
   onContinueForward: (data: { characters: Character[] }) => void | Promise<void>;
   loading?: boolean;
 }
@@ -47,6 +48,7 @@ function panelistIndexFromId(id: string): number | null {
  */
 function SelectCharacters({
   topicTitle,
+  agendaPoints,
   onContinueForward,
   loading = false,
 }: SelectCharactersProps): React.ReactElement {
@@ -109,6 +111,7 @@ function SelectCharacters({
         oneHuman: t("selectfoods.human"),
         twoHumansSuffix: t("selectfoods.twohumans"),
       },
+      agendaPoints,
     });
     if (built.ok) {
       onContinueForward({ characters: built.characters });
