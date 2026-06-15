@@ -676,7 +676,7 @@ createApp({
       }
 
       const numbered = points.map((point, index) => `${index + 1}. ${point}`).join('\n\n');
-      return `Today's Agenda Points:\n\n${numbered}`;
+      return `\nToday's Agenda Points:\n\n${numbered}`;
     },
 
     removeAgendaPointsPlaceholder(system) {

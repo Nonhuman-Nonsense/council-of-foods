@@ -15,7 +15,7 @@ describe("topicPrompt", () => {
 
   it("builds agenda text with numbered items", () => {
     expect(buildAgendaPointsText(["First item", "Second item"])).toBe(
-      `${AGENDA_SECTION_HEADER}\n\n1. First item\n\n2. Second item`,
+      `\n${AGENDA_SECTION_HEADER}\n\n1. First item\n\n2. Second item`,
     );
     expect(buildAgendaPointsText([])).toBe("");
   });
@@ -31,7 +31,7 @@ describe("topicPrompt", () => {
 
   it("inserts numbered agenda points at [AGENDA_POINTS]", () => {
     const result = buildMeetingSystemPrompt(systemTemplate, "Topic body.", ["One", "Two"]);
-    expect(result).toContain("Topic body.");
+    expect(result).toContain("Topic body.\n\nToday's Agenda Points:");
     expect(result).toContain("1. One");
     expect(result).toContain("2. Two");
     expect(result).not.toContain(AGENDA_POINTS_PLACEHOLDER);
