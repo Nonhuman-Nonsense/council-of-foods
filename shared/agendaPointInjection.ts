@@ -1,4 +1,4 @@
-import { agendaPointCountFromAgendaPoints } from "./topicPrompt";
+import { agendaPointCountFromAgendaPoints } from "./topicPrompt.js";
 
 export const RANDOM_AGENDA_POINT_PLACEHOLDER = "[RANDOM_AGENDA_POINT]";
 
