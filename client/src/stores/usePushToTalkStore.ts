@@ -23,6 +23,7 @@ type PushToTalkStore = {
   connectGrantedPorts: () => Promise<void>;
   disconnectSerial: () => Promise<void>;
   setLedMode: (mode: PttLedMode) => Promise<void>;
+  resyncSerialLed: () => Promise<void>;
 
   init: () => void;
   dispose: () => void;
@@ -60,10 +61,7 @@ function getSerialTransport(
         set(updates);
 
         if (status === "connected") {
-          const { ledMode } = get();
-          if (ledMode !== "off") {
-            void getSerialTransport(set, get).setLedMode(ledMode);
-          }
+          void get().resyncSerialLed();
         }
       },
       onLine: (event) => {
@@ -173,6 +171,19 @@ export const usePushToTalkStore = create<PushToTalkStore>((set, get) => ({
       return;
     }
     await getSerialTransport(set, get).setLedMode(mode);
+  },
+
+  resyncSerialLed: async () => {
+    if (get().serialStatus !== "connected") {
+      return;
+    }
+    const { ledMode } = get();
+    if (ledMode === "off") {
+      return;
+    }
+    const inputEnabled = isPttInputEnabled(ledMode);
+    set({ pttInputEnabled: inputEnabled });
+    await getSerialTransport(set, get).setLedMode(ledMode);
   },
 
   init: () => {

@@ -46,6 +46,8 @@ export class SerialPushToTalkTransport {
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private reconnectAttempt = 0;
   private monitoring = false;
+  private openInProgress = false;
+  private writeChain: Promise<void> = Promise.resolve();
   private readonly onSerialConnect = (event: Event): void => {
     if (!this.autoReconnect || this.status === "connected" || this.status === "connecting") {
       return;
@@ -157,18 +159,23 @@ export class SerialPushToTalkTransport {
   }
 
   private async openPort(port: SerialPort): Promise<void> {
-    if (!port.connected) {
-      throw new Error("Serial port is not connected");
+    if (this.openInProgress) return;
+    this.openInProgress = true;
+    try {
+      if (!port.connected) {
+        throw new Error("Serial port is not connected");
+      }
+      await port.open({ baudRate: PTT_BAUD_RATE });
+      this.port = port;
+      this.writer = port.writable?.getWriter() ?? null;
+      this.reader = port.readable?.getReader() ?? null;
+      this.reconnectAttempt = 0;
+      void this.readLoop();
+      await this.sendCommand(PING);
+      this.setStatus("connected");
+    } finally {
+      this.openInProgress = false;
     }
-    await port.open({ baudRate: PTT_BAUD_RATE });
-    this.port = port;
-    this.writer = port.writable?.getWriter() ?? null;
-    this.reader = port.readable?.getReader() ?? null;
-    this.reconnectAttempt = 0;
-    this.setStatus("connected");
-    void this.readLoop();
-    await this.sendCommand(PING);
-    await this.sendCommand(LED_OFF);
   }
 
   async disconnect(): Promise<void> {
@@ -224,9 +231,17 @@ export class SerialPushToTalkTransport {
   }
 
   async sendCommand(command: string): Promise<void> {
-    if (!this.writer) return;
-    const payload = formatSerialCommand(command);
-    await this.writer.write(new TextEncoder().encode(payload));
+    await this.enqueueWrite(async () => {
+      if (!this.writer) return;
+      const payload = formatSerialCommand(command);
+      await this.writer.write(new TextEncoder().encode(payload));
+    });
+  }
+
+  private enqueueWrite(task: () => Promise<void>): Promise<void> {
+    const next = this.writeChain.then(task);
+    this.writeChain = next.catch(() => {});
+    return next;
   }
 
   async setLedMode(mode: PttLedMode): Promise<void> {

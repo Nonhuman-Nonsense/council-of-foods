@@ -39,11 +39,17 @@ function Setup(): React.ReactElement {
   const requestSerialPort = usePushToTalkStore((state) => state.requestSerialPort);
   const connectGrantedPorts = usePushToTalkStore((state) => state.connectGrantedPorts);
   const disconnectSerial = usePushToTalkStore((state) => state.disconnectSerial);
+  const setLedMode = usePushToTalkStore((state) => state.setLedMode);
 
   useEffect(() => {
     if (!pushToTalk || !serialSupported) return;
     void connectGrantedPorts();
   }, [pushToTalk, serialSupported, connectGrantedPorts]);
+
+  useEffect(() => {
+    if (!pushToTalk || serialStatus !== "connected") return;
+    void setLedMode("pulse");
+  }, [pushToTalk, serialStatus, setLedMode]);
 
   const containerStyle: React.CSSProperties = {
     width: "96vw",
@@ -81,6 +87,7 @@ function Setup(): React.ReactElement {
   function selectAlwaysOn(): void {
     setPushToTalkState(false);
     setPushToTalk(false);
+    void setLedMode("off");
   }
 
   function selectPushToTalk(): void {
