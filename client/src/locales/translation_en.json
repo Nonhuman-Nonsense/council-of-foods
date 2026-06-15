@@ -25,6 +25,9 @@
       "unsupported": "Web Serial is not available in this browser",
       "connected": "Connected",
       "connecting": "Connecting…",
+      "reconnecting": "Reconnecting…",
+      "reconnectingHint": "Waiting for the talk button. This should happen automatically after unplugging the cable.",
+      "reconnectHint": "Plug in the talk button — it will connect automatically.",
       "disconnected": "Disconnected",
       "error": "Error"
     }

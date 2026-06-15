@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMobile, useMobileXs } from "@/utils";
 import { useTranslation } from "react-i18next";
 import { getPushToTalk, setPushToTalk } from "@/settings/councilSettings";
@@ -39,6 +39,11 @@ function Setup(): React.ReactElement {
   const requestSerialPort = usePushToTalkStore((state) => state.requestSerialPort);
   const connectGrantedPorts = usePushToTalkStore((state) => state.connectGrantedPorts);
   const disconnectSerial = usePushToTalkStore((state) => state.disconnectSerial);
+
+  useEffect(() => {
+    if (!pushToTalk || !serialSupported) return;
+    void connectGrantedPorts();
+  }, [pushToTalk, serialSupported, connectGrantedPorts]);
 
   const containerStyle: React.CSSProperties = {
     width: "96vw",
@@ -151,6 +156,24 @@ function Setup(): React.ReactElement {
                 {t("setup.serial.status")}: {serialStatusLabel(serialStatus, t)}
                 {serialError ? ` — ${serialError}` : ""}
               </p>
+              {serialStatus === "connecting" ? (
+                <p
+                  data-testid="setup-serial-reconnecting"
+                  style={{ marginTop: 0, fontStyle: "italic", opacity: 0.85, textAlign: "center" }}
+                >
+                  {t("setup.serial.reconnecting")}
+                  <br />
+                  {t("setup.serial.reconnectingHint")}
+                </p>
+              ) : null}
+              {serialStatus === "disconnected" ? (
+                <p
+                  data-testid="setup-serial-reconnect-hint"
+                  style={{ marginTop: 0, fontStyle: "italic", opacity: 0.75, textAlign: "center" }}
+                >
+                  {t("setup.serial.reconnectHint")}
+                </p>
+              ) : null}
               {lastSerialLine ? (
                 <p style={{ marginTop: 0 }}>
                   {t("setup.serial.lastEvent")}: {lastSerialLine}

@@ -29,12 +29,13 @@ function createFakeSerialPort(): FakeSerialPort {
     },
   });
 
-  const port: SerialPort = {
+  const port = Object.assign(new EventTarget(), {
     readable,
     writable,
+    connected: true,
     open: vi.fn(async () => {}),
     close: vi.fn(async () => {}),
-  };
+  }) as SerialPort;
 
   return {
     port,
@@ -64,12 +65,13 @@ function flushMicrotasks(): Promise<void> {
 }
 
 function stubNavigatorSerial(fake: FakeSerialPort): void {
+  const serial = Object.assign(new EventTarget(), {
+    getPorts: vi.fn().mockResolvedValue([fake.port]),
+    requestPort: vi.fn().mockResolvedValue(fake.port),
+  }) as Serial;
   vi.stubGlobal("navigator", {
     ...globalThis.navigator,
-    serial: {
-      getPorts: vi.fn().mockResolvedValue([fake.port]),
-      requestPort: vi.fn().mockResolvedValue(fake.port),
-    },
+    serial,
   });
 }
 
@@ -184,7 +186,7 @@ describe("SerialPushToTalkTransport", () => {
     expect(lines).toHaveLength(0);
   });
 
-  it("reports read failures as transport errors", async () => {
+  it("reports read failures and schedules reconnect", async () => {
     const statuses: Array<{ status: SerialTransportStatus; error: string | null }> = [];
 
     const transport = new SerialPushToTalkTransport({
@@ -197,7 +199,26 @@ describe("SerialPushToTalkTransport", () => {
     fake.failReadable();
     await flushMicrotasks();
 
-    expect(statuses).toContainEqual({ status: "error", error: "Serial read failed" });
+    expect(statuses).toContainEqual({ status: "disconnected", error: "Serial read failed" });
+  });
+
+  it("auto-reconnects when the serial connect event fires", async () => {
+    const statuses: SerialTransportStatus[] = [];
+    const transport = new SerialPushToTalkTransport({
+      onStatus: (status) => statuses.push(status),
+    });
+
+    await transport.connectGrantedPorts();
+    await flushMicrotasks();
+    fake.failReadable();
+    await flushMicrotasks();
+
+    expect(statuses).toContain("disconnected");
+
+    fake.port.dispatchEvent(new Event("connect", { bubbles: true }));
+    await flushMicrotasks();
+
+    expect(statuses).toContain("connected");
   });
 
   it("marks disconnected when the readable stream ends", async () => {

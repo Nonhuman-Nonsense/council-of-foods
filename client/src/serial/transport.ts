@@ -18,12 +18,20 @@ export type SerialTransportCallbacks = {
   onRawLine?: (line: string) => void;
 };
 
+const RECONNECT_BASE_MS = 500;
+const RECONNECT_MAX_MS = 10_000;
+
 function getSerialApi(): Serial | null {
   return typeof navigator !== "undefined" ? navigator.serial ?? null : null;
 }
 
 export function isWebSerialSupported(): boolean {
   return getSerialApi() != null;
+}
+
+function getEventPort(event: Event): SerialPort | null {
+  const legacy = event as Event & { port?: SerialPort };
+  return legacy.port ?? (event.target instanceof EventTarget ? (event.target as SerialPort) : null);
 }
 
 export class SerialPushToTalkTransport {
@@ -34,6 +42,23 @@ export class SerialPushToTalkTransport {
   private readLoopActive = false;
   private callbacks: SerialTransportCallbacks;
   private status: SerialTransportStatus = "disconnected";
+  private autoReconnect = false;
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private reconnectAttempt = 0;
+  private monitoring = false;
+  private readonly onSerialConnect = (event: Event): void => {
+    if (!this.autoReconnect || this.status === "connected" || this.status === "connecting") {
+      return;
+    }
+    const port = getEventPort(event);
+    if (!port) return;
+    void this.openPort(port);
+  };
+  private readonly onSerialDisconnect = (event: Event): void => {
+    const port = getEventPort(event);
+    if (!port || port !== this.port) return;
+    void this.handlePortLost("USB disconnected");
+  };
 
   constructor(callbacks: SerialTransportCallbacks = {}) {
     this.callbacks = callbacks;
@@ -48,12 +73,48 @@ export class SerialPushToTalkTransport {
     this.callbacks.onStatus?.(status, error);
   }
 
+  private ensureMonitoring(): void {
+    if (this.monitoring) return;
+    const serial = getSerialApi();
+    if (!serial) return;
+    this.monitoring = true;
+    serial.addEventListener("connect", this.onSerialConnect);
+    serial.addEventListener("disconnect", this.onSerialDisconnect);
+  }
+
+  private cancelReconnect(): void {
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+  }
+
+  private scheduleReconnect(): void {
+    if (!this.autoReconnect || this.reconnectTimer) return;
+    const delay = Math.min(RECONNECT_BASE_MS * 2 ** this.reconnectAttempt, RECONNECT_MAX_MS);
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = null;
+      void this.attemptReconnect();
+    }, delay);
+  }
+
+  private async attemptReconnect(): Promise<void> {
+    if (!this.autoReconnect || this.status === "connected" || this.status === "connecting") {
+      return;
+    }
+    this.reconnectAttempt += 1;
+    await this.connectGrantedPorts();
+  }
+
   async requestPort(): Promise<void> {
     const serial = getSerialApi();
     if (!serial) {
       throw new Error("Web Serial is not supported in this browser");
     }
-    await this.disconnect();
+    this.ensureMonitoring();
+    this.autoReconnect = true;
+    this.cancelReconnect();
+    await this.cleanupPort();
     this.setStatus("connecting");
     try {
       const port = await serial.requestPort();
@@ -70,27 +131,40 @@ export class SerialPushToTalkTransport {
     if (!serial) {
       return false;
     }
+    this.ensureMonitoring();
+    this.autoReconnect = true;
+    this.cancelReconnect();
+    if (this.status === "connected" || this.status === "connecting") {
+      return this.status === "connected";
+    }
     const ports = await serial.getPorts();
-    if (ports.length === 0) {
+    const port = ports.find((candidate) => candidate.connected) ?? ports[0];
+    if (!port) {
+      this.scheduleReconnect();
       return false;
     }
-    await this.disconnect();
+    await this.cleanupPort();
     this.setStatus("connecting");
     try {
-      await this.openPort(ports[0]!);
+      await this.openPort(port);
       return true;
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Failed to open serial port";
       this.setStatus("error", msg);
+      this.scheduleReconnect();
       return false;
     }
   }
 
   private async openPort(port: SerialPort): Promise<void> {
+    if (!port.connected) {
+      throw new Error("Serial port is not connected");
+    }
     await port.open({ baudRate: PTT_BAUD_RATE });
     this.port = port;
     this.writer = port.writable?.getWriter() ?? null;
     this.reader = port.readable?.getReader() ?? null;
+    this.reconnectAttempt = 0;
     this.setStatus("connected");
     void this.readLoop();
     await this.sendCommand(PING);
@@ -98,6 +172,14 @@ export class SerialPushToTalkTransport {
   }
 
   async disconnect(): Promise<void> {
+    this.autoReconnect = false;
+    this.cancelReconnect();
+    this.reconnectAttempt = 0;
+    await this.cleanupPort();
+    this.setStatus("disconnected");
+  }
+
+  private async cleanupPort(): Promise<void> {
     this.readLoopActive = false;
     try {
       await this.reader?.cancel();
@@ -128,7 +210,17 @@ export class SerialPushToTalkTransport {
     this.writer = null;
     this.port = null;
     this.readBuffer = "";
-    this.setStatus("disconnected");
+  }
+
+  private async handlePortLost(reason: string): Promise<void> {
+    if (this.status === "disconnected" && !this.port) {
+      return;
+    }
+    await this.cleanupPort();
+    this.setStatus("disconnected", reason);
+    if (this.autoReconnect) {
+      this.scheduleReconnect();
+    }
   }
 
   async sendCommand(command: string): Promise<void> {
@@ -149,7 +241,12 @@ export class SerialPushToTalkTransport {
     while (this.readLoopActive && this.reader) {
       try {
         const { value, done } = await this.reader.read();
-        if (done) break;
+        if (done) {
+          if (this.readLoopActive) {
+            await this.handlePortLost("Port closed");
+          }
+          break;
+        }
         if (!value) continue;
         this.readBuffer += new TextDecoder().decode(value);
         const { events, rest } = parseSerialChunk(this.readBuffer);
@@ -162,13 +259,10 @@ export class SerialPushToTalkTransport {
         }
       } catch {
         if (this.readLoopActive) {
-          this.setStatus("error", "Serial read failed");
+          await this.handlePortLost("Serial read failed");
         }
         break;
       }
-    }
-    if (this.readLoopActive) {
-      this.setStatus("disconnected");
     }
   }
 }

@@ -102,6 +102,20 @@ describe("usePushToTalkStore", () => {
     expect(usePushToTalkStore.getState().lastSerialLine).toBe("DEBUG");
   });
 
+  it("restores PTT input and LED mode when serial reconnects", async () => {
+    await initTransport();
+    emitStatus("connected");
+    await usePushToTalkStore.getState().setLedMode("pulse");
+    expect(usePushToTalkStore.getState().pttInputEnabled).toBe(true);
+
+    emitStatus("disconnected", "USB disconnected");
+    expect(usePushToTalkStore.getState().pttInputEnabled).toBe(false);
+    expect(usePushToTalkStore.getState().ledMode).toBe("pulse");
+
+    emitStatus("connected");
+    expect(usePushToTalkStore.getState().pttInputEnabled).toBe(true);
+    expect(mockTransport.setLedMode).toHaveBeenCalledWith("pulse");
+  });
   it("tracks serial connection status and errors", async () => {
     await initTransport();
 
@@ -144,9 +158,9 @@ describe("usePushToTalkStore", () => {
     await usePushToTalkStore.getState().setLedMode("on");
     await usePushToTalkStore.getState().setLedMode("off");
 
-    expect(mockTransport.setLedMode).toHaveBeenNthCalledWith(1, "pulse");
-    expect(mockTransport.setLedMode).toHaveBeenNthCalledWith(2, "on");
-    expect(mockTransport.setLedMode).toHaveBeenNthCalledWith(3, "off");
+    expect(mockTransport.setLedMode).toHaveBeenCalledWith("pulse");
+    expect(mockTransport.setLedMode).toHaveBeenCalledWith("on");
+    expect(mockTransport.setLedMode).toHaveBeenCalledWith("off");
   });
 
   it("uses space as keyboard push-to-talk only when input is enabled", async () => {
