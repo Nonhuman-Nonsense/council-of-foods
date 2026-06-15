@@ -18,7 +18,7 @@ export function buildAgendaPointsText(agendaPoints?: string[]): string {
   }
 
   const numbered = points.map((point, index) => `${index + 1}. ${point}`).join("\n\n");
-  return `${AGENDA_SECTION_HEADER}\n\n${numbered}`;
+  return `\n${AGENDA_SECTION_HEADER}\n\n${numbered}`;
 }
 
 function removeAgendaPointsPlaceholder(system: string): string {
