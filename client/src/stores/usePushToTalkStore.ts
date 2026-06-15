@@ -22,6 +22,7 @@ type PushToTalkStore = {
   requestSerialPort: () => Promise<void>;
   connectGrantedPorts: () => Promise<void>;
   disconnectSerial: () => Promise<void>;
+  enableSerialAutoReconnect: () => void;
   setLedMode: (mode: PttLedMode) => Promise<void>;
   resyncSerialLed: () => Promise<void>;
 
@@ -31,7 +32,6 @@ type PushToTalkStore = {
 
 let serialTransport: SerialPushToTalkTransport | null = null;
 let keyboardInitialized = false;
-let visibilityListenerInitialized = false;
 
 function isTypingTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
@@ -114,16 +114,6 @@ function bindKeyboard(set: (partial: Partial<PushToTalkStore>) => void, get: () 
   window.addEventListener("keyup", onKeyUp);
 }
 
-function bindVisibilityReconnect(get: () => PushToTalkStore): void {
-  if (visibilityListenerInitialized || typeof document === "undefined") return;
-  visibilityListenerInitialized = true;
-
-  document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState !== "visible" || !getPushToTalk()) return;
-    void get().connectGrantedPorts();
-  });
-}
-
 export const usePushToTalkStore = create<PushToTalkStore>((set, get) => ({
   pressed: false,
   ledMode: "off",
@@ -154,6 +144,10 @@ export const usePushToTalkStore = create<PushToTalkStore>((set, get) => ({
 
   disconnectSerial: async () => {
     await getSerialTransport(set, get).disconnect();
+  },
+
+  enableSerialAutoReconnect: () => {
+    getSerialTransport(set, get).enableAutoReconnect();
   },
 
   setLedMode: async (mode) => {
@@ -188,14 +182,9 @@ export const usePushToTalkStore = create<PushToTalkStore>((set, get) => ({
 
   init: () => {
     bindKeyboard(set, get);
-    bindVisibilityReconnect(get);
-    if (getPushToTalk()) {
-      void get().connectGrantedPorts();
-    }
   },
 
   dispose: () => {
-    void getSerialTransport(set, get).disconnect();
     set({ pressed: false, ledMode: "off", pttInputEnabled: false });
   },
 }));

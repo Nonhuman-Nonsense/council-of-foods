@@ -27,7 +27,7 @@ import { useAppMode } from "@/museum/useAppMode";
 import { usePortrait, dvh } from "@/utils";
 import CouncilError from "./overlay/CouncilError";
 import Reconnecting from "./overlay/Reconnecting";
-import { usePushToTalkStore } from "@stores/usePushToTalkStore";
+import { useTalkButtonService } from "@/museum/talkButton/useTalkButtonService";
 
 import routes from "@/routes.json";
 
@@ -125,12 +125,7 @@ export default function Main(props: MainProps) {
     }
   }, [location.pathname]);
 
-  useEffect(() => {
-    usePushToTalkStore.getState().init();
-    return () => {
-      usePushToTalkStore.getState().dispose();
-    };
-  }, []);
+  useTalkButtonService();
 
   useEffect(() => {
     usePushToTalkStore.getState().init();

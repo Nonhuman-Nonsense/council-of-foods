@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { getPushToTalk, setPushToTalk } from "@/settings/councilSettings";
 import { useAppMode } from "@/museum/useAppMode";
 import { usePushToTalkStore } from "@stores/usePushToTalkStore";
+import { talkButtonService } from "@/museum/talkButton/talkButtonService";
 
 function serialStatusLabel(
   status: ReturnType<typeof usePushToTalkStore.getState>["serialStatus"],
@@ -37,14 +38,7 @@ function Setup(): React.ReactElement {
   const lastSerialLine = usePushToTalkStore((state) => state.lastSerialLine);
   const serialSupported = usePushToTalkStore((state) => state.serialSupported);
   const requestSerialPort = usePushToTalkStore((state) => state.requestSerialPort);
-  const connectGrantedPorts = usePushToTalkStore((state) => state.connectGrantedPorts);
-  const disconnectSerial = usePushToTalkStore((state) => state.disconnectSerial);
   const setLedMode = usePushToTalkStore((state) => state.setLedMode);
-
-  useEffect(() => {
-    if (!pushToTalk || !serialSupported) return;
-    void connectGrantedPorts();
-  }, [pushToTalk, serialSupported, connectGrantedPorts]);
 
   useEffect(() => {
     if (!pushToTalk || serialStatus !== "connected") return;
@@ -93,7 +87,15 @@ function Setup(): React.ReactElement {
   function selectPushToTalk(): void {
     setPushToTalkState(true);
     setPushToTalk(true);
-    void connectGrantedPorts();
+  }
+
+  async function connectTalkButton(): Promise<void> {
+    talkButtonService.resume();
+    await requestSerialPort();
+  }
+
+  function disconnectTalkButton(): void {
+    talkButtonService.pause();
   }
 
   return (
@@ -187,10 +189,10 @@ function Setup(): React.ReactElement {
                 </p>
               ) : null}
               <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", justifyContent: "center" }}>
-                <button type="button" data-testid="setup-serial-connect" onClick={() => void requestSerialPort()}>
+                <button type="button" data-testid="setup-serial-connect" onClick={() => void connectTalkButton()}>
                   {t("setup.serial.connect")}
                 </button>
-                <button type="button" data-testid="setup-serial-disconnect" onClick={() => void disconnectSerial()}>
+                <button type="button" data-testid="setup-serial-disconnect" onClick={() => void disconnectTalkButton()}>
                   {t("setup.serial.disconnect")}
                 </button>
               </div>
