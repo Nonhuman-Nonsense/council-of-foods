@@ -30,6 +30,7 @@ type PushToTalkStore = {
 
 let serialTransport: SerialPushToTalkTransport | null = null;
 let keyboardInitialized = false;
+let visibilityListenerInitialized = false;
 
 function isTypingTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
@@ -50,10 +51,20 @@ function getSerialTransport(
         };
         if (status === "disconnected" || status === "error") {
           updates.pressed = false;
-          updates.ledMode = "off";
           updates.pttInputEnabled = false;
         }
+        if (status === "connected") {
+          const { ledMode } = get();
+          updates.pttInputEnabled = isPttInputEnabled(ledMode);
+        }
         set(updates);
+
+        if (status === "connected") {
+          const { ledMode } = get();
+          if (ledMode !== "off") {
+            void getSerialTransport(set, get).setLedMode(ledMode);
+          }
+        }
       },
       onLine: (event) => {
         if (event.type === "pong") {
@@ -103,6 +114,16 @@ function bindKeyboard(set: (partial: Partial<PushToTalkStore>) => void, get: () 
 
   window.addEventListener("keydown", onKeyDown);
   window.addEventListener("keyup", onKeyUp);
+}
+
+function bindVisibilityReconnect(get: () => PushToTalkStore): void {
+  if (visibilityListenerInitialized || typeof document === "undefined") return;
+  visibilityListenerInitialized = true;
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState !== "visible" || !getPushToTalk()) return;
+    void get().connectGrantedPorts();
+  });
 }
 
 export const usePushToTalkStore = create<PushToTalkStore>((set, get) => ({
@@ -156,6 +177,7 @@ export const usePushToTalkStore = create<PushToTalkStore>((set, get) => ({
 
   init: () => {
     bindKeyboard(set, get);
+    bindVisibilityReconnect(get);
     if (getPushToTalk()) {
       void get().connectGrantedPorts();
     }

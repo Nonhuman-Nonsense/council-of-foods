@@ -1,6 +1,7 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import Setup from '@main/overlay/Setup';
+import { usePushToTalkStore } from '@stores/usePushToTalkStore';
 import '@testing-library/jest-dom';
 
 vi.mock('react-i18next', () => ({
@@ -18,6 +19,20 @@ vi.mock('@/utils', () => ({
 describe('Setup overlay', () => {
   beforeEach(() => {
     localStorage.clear();
+    usePushToTalkStore.setState({
+      serialStatus: 'disconnected',
+      serialError: null,
+      lastSerialLine: null,
+      serialSupported: true,
+    });
+  });
+
+  afterEach(() => {
+    usePushToTalkStore.setState({
+      serialStatus: 'disconnected',
+      serialError: null,
+      lastSerialLine: null,
+    });
   });
 
   it('renders title, mode, and voice guide options', () => {
@@ -67,5 +82,26 @@ describe('Setup overlay', () => {
     fireEvent.click(alwaysOn);
     expect(localStorage.getItem('councilPushToTalk')).toBe('false');
     expect(alwaysOn).toHaveClass('selected');
+  });
+
+  it('shows reconnecting message when serial is connecting', () => {
+    localStorage.setItem('councilPushToTalk', 'true');
+    usePushToTalkStore.setState({ serialStatus: 'connecting' });
+
+    render(<Setup />);
+
+    expect(screen.getByTestId('setup-serial-reconnecting')).toBeInTheDocument();
+    expect(screen.getByTestId('setup-serial-reconnecting')).toHaveTextContent('setup.serial.reconnecting');
+    expect(screen.getByTestId('setup-serial-reconnecting')).toHaveTextContent('setup.serial.reconnectingHint');
+  });
+
+  it('shows reconnect hint when serial is disconnected', () => {
+    localStorage.setItem('councilPushToTalk', 'true');
+    usePushToTalkStore.setState({ serialStatus: 'disconnected' });
+
+    render(<Setup />);
+
+    expect(screen.getByTestId('setup-serial-reconnect-hint')).toBeInTheDocument();
+    expect(screen.getByText('setup.serial.reconnectHint')).toBeInTheDocument();
   });
 });
