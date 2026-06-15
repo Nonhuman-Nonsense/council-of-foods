@@ -10,6 +10,7 @@ interface Topic {
     title: string;
     description?: string;
     prompt?: string;
+    agendaPoints?: string[];
 }
 
 interface TopicsData {
@@ -51,6 +52,8 @@ describe('Validate Topics Data JSONs', () => {
             // 4. Validate System Prompt
             expect(typeof data.system).toBe('string');
             expect(data.system.length).toBeGreaterThan(0);
+            expect(data.system).toContain('[TOPIC]');
+            expect(data.system).toContain('[AGENDA_POINTS]');
 
             // 5. Validate Custom Topic
             expect(data.custom_topic).toHaveProperty('id');
@@ -62,6 +65,14 @@ describe('Validate Topics Data JSONs', () => {
                 expect(topic).toHaveProperty('title');
                 expect(topic).toHaveProperty('description');
                 expect(topic).toHaveProperty('prompt');
+                if (topic.agendaPoints != null) {
+                    expect(Array.isArray(topic.agendaPoints)).toBe(true);
+                    expect(topic.agendaPoints.length).toBeGreaterThan(0);
+                    topic.agendaPoints.forEach((point) => {
+                        expect(typeof point).toBe('string');
+                        expect(point.trim().length).toBeGreaterThan(0);
+                    });
+                }
             });
         });
     });

@@ -20,6 +20,8 @@ export interface Topic {
     title: string;
     description: string;
     prompt: string;
+    /** Optional agenda items; rendered via [AGENDA_POINTS] in the system prompt at meeting setup. */
+    agendaPoints?: string[];
 }
 
 export interface BaseMeeting {

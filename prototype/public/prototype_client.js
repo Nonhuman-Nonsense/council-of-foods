@@ -572,7 +572,8 @@ createApp({
             id: 'topic_' + Date.now() + Math.random(),
             name: t.title,
             description: t.description || "",
-            prompt: t.prompt
+            prompt: t.prompt,
+            agendaPoints: Array.isArray(t.agendaPoints) ? [...t.agendaPoints] : [],
           }));
 
           this.languageData[lang] = {
@@ -649,9 +650,69 @@ createApp({
         replacedCharacters[0].prompt = replacedCharacters[0].prompt
           .replace("[CHARACTERS]", participants)
           .replace('[HUMANS]', '');
+
+        const chairPrompt = replacedCharacters[0].prompt;
+        if (chairPrompt.includes('[RANDOM_AGENDA_POINT]')) {
+          replacedCharacters[0].prompt = this.injectRandomAgendaPoint(
+            chairPrompt,
+            this.currentTopic.agendaPoints,
+          );
+        }
       }
 
       return replacedCharacters;
+    },
+
+    nonEmptyAgendaPoints(agendaPoints) {
+      return (agendaPoints || [])
+        .map((point) => (point || '').trim())
+        .filter((point) => point.length > 0);
+    },
+
+    buildAgendaPointsText(agendaPoints) {
+      const points = this.nonEmptyAgendaPoints(agendaPoints);
+      if (points.length === 0) {
+        return '';
+      }
+
+      const numbered = points.map((point, index) => `${index + 1}. ${point}`).join('\n\n');
+      return `Today's Agenda Points:\n\n${numbered}`;
+    },
+
+    removeAgendaPointsPlaceholder(system) {
+      return (system || '')
+        .replace(/\r\n/g, '\n')
+        .replace(/\n?\[AGENDA_POINTS\]\n?/g, '\n')
+        .replace(/\[AGENDA_POINTS\]/g, '')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+    },
+
+    buildMeetingSystemPrompt(system, topicPrompt, agendaPoints) {
+      const agendaText = this.buildAgendaPointsText(agendaPoints);
+      let result = (system || '').replace('[TOPIC]', (topicPrompt || '').trim());
+
+      if (agendaText) {
+        result = result.replace('[AGENDA_POINTS]', agendaText);
+      } else {
+        result = this.removeAgendaPointsPlaceholder(result);
+      }
+
+      return result;
+    },
+
+    injectRandomAgendaPoint(chairPrompt, agendaPoints) {
+      if (!chairPrompt.includes('[RANDOM_AGENDA_POINT]')) {
+        return chairPrompt;
+      }
+
+      const count = this.nonEmptyAgendaPoints(agendaPoints).length;
+      const replacement =
+        count > 0
+          ? String(Math.floor(Math.random() * count) + 1)
+          : "Choose ONE point from todays agenda in RANDOM order, just because it is at the top of the list doesn't mean it always comes first.";
+
+      return chairPrompt.replaceAll('[RANDOM_AGENDA_POINT]', replacement);
     },
 
     getMeetingBody() {
@@ -660,7 +721,11 @@ createApp({
           id: this.currentTopic.id,
           title: this.currentTopic.name,
           description: this.currentTopic.description,
-          prompt: this.currentSystemPrompt.replace("[TOPIC]", this.currentTopic.prompt),
+          prompt: this.buildMeetingSystemPrompt(
+            this.currentSystemPrompt,
+            this.currentTopic.prompt,
+            this.currentTopic.agendaPoints
+          ),
         },
         characters: this.buildCharacters(),
         language: this.options.language,
@@ -744,6 +809,7 @@ createApp({
         name: "New Topic",
         description: "",
         prompt: "",
+        agendaPoints: [],
       };
       this.currentLanguageData.topics.push(newTopic);
       this.log('SYSTEM', 'Topic Added', newTopic);
@@ -763,6 +829,22 @@ createApp({
 
       // Switch to new topic
       this.localOptions.currentTopicIndex = this.currentLanguageData.topics.length - 1;
+    },
+
+    addAgendaPoint() {
+      if (!this.currentTopic) return;
+      if (!Array.isArray(this.currentTopic.agendaPoints)) {
+        this.currentTopic.agendaPoints = [];
+      }
+      this.currentTopic.agendaPoints.push("");
+      this.save();
+    },
+
+    removeAgendaPoint() {
+      if (!this.currentTopic || !Array.isArray(this.currentTopic.agendaPoints)) return;
+      if (this.currentTopic.agendaPoints.length === 0) return;
+      this.currentTopic.agendaPoints.pop();
+      this.save();
     },
 
     removeTopic() {
@@ -990,7 +1072,10 @@ createApp({
           id: canonical.id,
           title: edited.name,
           description: edited.description || (localeMatch ? localeMatch.description : edited.prompt),
-          prompt: edited.prompt
+          prompt: edited.prompt,
+          ...(this.nonEmptyAgendaPoints(edited.agendaPoints).length > 0
+            ? { agendaPoints: this.nonEmptyAgendaPoints(edited.agendaPoints) }
+            : {}),
         });
       }
 
@@ -1006,7 +1091,10 @@ createApp({
           id: exportId,
           title: edited.name,
           description: edited.description || edited.prompt,
-          prompt: edited.prompt
+          prompt: edited.prompt,
+          ...(this.nonEmptyAgendaPoints(edited.agendaPoints).length > 0
+            ? { agendaPoints: this.nonEmptyAgendaPoints(edited.agendaPoints) }
+            : {}),
         });
       }
 
@@ -1349,6 +1437,13 @@ createApp({
             // Only derive id from display name when missing (preserve canonical ids from JSON / en fork)
             if (!c.id && c.name) {
               c.id = c.name.toLowerCase().replace(/\s+/g, '');
+            }
+          });
+        }
+        if (lang.topics) {
+          lang.topics.forEach((topic) => {
+            if (!Array.isArray(topic.agendaPoints)) {
+              topic.agendaPoints = [];
             }
           });
         }
