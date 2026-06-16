@@ -1524,20 +1524,6 @@ createApp({
       if (!this.languageData) return;
 
       Object.values(this.languageData).forEach((lang) => {
-        if (!lang.customTopic) {
-          lang.customTopic = { id: PROTOTYPE_CUSTOM_TOPIC_ID, name: "Custom Topic", prompt: PROTOTYPE_CUSTOM_TOPIC_TOKEN };
-        } else {
-          lang.customTopic.id = lang.customTopic.id || PROTOTYPE_CUSTOM_TOPIC_ID;
-          lang.customTopic.name = lang.customTopic.name || "Custom Topic";
-          lang.customTopic.prompt = lang.customTopic.prompt || PROTOTYPE_CUSTOM_TOPIC_TOKEN;
-        }
-        if (!this.localOptions.topicStates) this.localOptions.topicStates = {};
-        if (!this.localOptions.topicStates[lang.customTopic.id] && lang.characters?.length > 0) {
-          this.localOptions.topicStates[lang.customTopic.id] = {
-            activeCharacterIds: { [lang.characters[0]._ui_id]: true },
-          };
-        }
-
         if (lang.characters) {
           lang.characters.forEach(c => {
             if (!c._ui_id) c._ui_id = Date.now() + Math.random();
@@ -1546,6 +1532,31 @@ createApp({
             }
           });
         }
+
+        if (!lang.customTopic) {
+          lang.customTopic = { id: PROTOTYPE_CUSTOM_TOPIC_ID, name: "Custom Topic", prompt: PROTOTYPE_CUSTOM_TOPIC_TOKEN };
+        } else {
+          lang.customTopic.id = lang.customTopic.id || PROTOTYPE_CUSTOM_TOPIC_ID;
+          lang.customTopic.name = lang.customTopic.name || "Custom Topic";
+          lang.customTopic.prompt = lang.customTopic.prompt || PROTOTYPE_CUSTOM_TOPIC_TOKEN;
+        }
+        if (!this.localOptions.topicStates) this.localOptions.topicStates = {};
+
+        // Ensure every topic (including custom) has a topicState with the chair active.
+        const chairId = lang.characters?.[0]?._ui_id;
+        const allTopicIds = [
+          ...(lang.topics || []).map(t => t.id),
+          lang.customTopic.id,
+        ];
+        allTopicIds.forEach(topicId => {
+          if (!this.localOptions.topicStates[topicId]) {
+            this.localOptions.topicStates[topicId] = { activeCharacterIds: {} };
+          }
+          if (chairId) {
+            this.localOptions.topicStates[topicId].activeCharacterIds[chairId] = true;
+          }
+        });
+
         if (lang.topics) {
           lang.topics.forEach((topic) => {
             if (!Array.isArray(topic.agendaPoints)) {
