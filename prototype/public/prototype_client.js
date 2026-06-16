@@ -1,6 +1,9 @@
 const { createApp } = Vue;
 const CHARACTERS_FILE = "beings";
 
+const PROTOTYPE_CUSTOM_TOPIC_ID = "customtopic";
+const PROTOTYPE_CUSTOM_TOPIC_TOKEN = "[VISITOR_INPUT]";
+
 function usesInworldTts2(character) {
   return Boolean(character?.voiceLocale?.trim());
 }
@@ -57,9 +60,10 @@ const defaultLocalOptions = {
   configCardExpanded: true,
   expandedCharacters: {},
   topicStates: {},
-  currentTopicIndex: 0,
+  selectedTopicId: null,
   editorWidthPercent: 50,
-  isInjectionDrawerOpen: false
+  isInjectionDrawerOpen: false,
+  customTopicVisitorInput: "",
 };
 
 
@@ -128,6 +132,7 @@ createApp({
       // Audio State
       audioController: null,
       nextOrBackClicked: false,
+      customTopicId: PROTOTYPE_CUSTOM_TOPIC_ID,
     }
   },
 
@@ -140,11 +145,33 @@ createApp({
     },
 
     currentTopic() {
-      const topics = this.currentLanguageData.topics;
-      if (!topics || topics.length === 0) return null;
-      // Use persisted index, fallback to 0
-      const idx = this.localOptions.currentTopicIndex || 0;
-      return topics[idx] || topics[0];
+      const lang = this.currentLanguageData;
+      if (this.isCustomTopicSelected) {
+        return lang.customTopic || null;
+      }
+
+      const topics = lang.topics;
+      if (!topics || topics.length === 0) {
+        return lang.customTopic || null;
+      }
+
+      const selectedId = this.localOptions.selectedTopicId;
+      if (selectedId) {
+        const found = topics.find((topic) => topic.id === selectedId);
+        if (found) return found;
+      }
+
+      return topics[0];
+    },
+
+    isCustomTopicSelected() {
+      return this.localOptions.selectedTopicId === PROTOTYPE_CUSTOM_TOPIC_ID;
+    },
+
+    resolvedCustomTopicPrompt() {
+      const template = this.currentLanguageData.customTopic?.prompt || PROTOTYPE_CUSTOM_TOPIC_TOKEN;
+      const visitor = String(this.localOptions.customTopicVisitorInput || "").trim();
+      return template.replaceAll(PROTOTYPE_CUSTOM_TOPIC_TOKEN, visitor || "(no visitor input yet)");
     },
 
     currentSystemPrompt: {
@@ -155,6 +182,7 @@ createApp({
         this.currentLanguageData.system = val;
       }
     },
+
     // Split lists for UI
     activeCharacters() {
       return (this.currentLanguageData.characters || []).filter(c => this.isCharacterActive(c));
@@ -496,23 +524,31 @@ createApp({
             // Ensure characters array
             if (!data.characters) data.characters = [];
 
-            // Ensure activeCharacterIds logic persists or migrates? 
-            // Since we renamed key, old roomStates are lost unless migrated.
-            // Simplified: User accepted reset. We focus on new structure.
-
             // Ensure Topics
             if (data.topics) {
               data.topics.forEach(topic => {
                 if (!topic.id) topic.id = 'topic_' + Date.now() + Math.random();
               });
             } else if (data.rooms) {
-              // Migration path if needed, but likely better to just encourage reset for clean state
               data.topics = data.rooms.map(r => ({ ...r, prompt: r.topic }));
               delete data.rooms;
             }
+
           });
 
           this.languageData = stored.language;
+
+          // Migrate legacy index-based selection to topic id.
+          if (!this.localOptions.selectedTopicId) {
+            const lang = this.options.language || 'en';
+            const data = this.languageData[lang];
+            const legacyIndex = this.localOptions.currentTopicIndex;
+            if (data?.topics?.length && typeof legacyIndex === 'number' && legacyIndex >= 0 && legacyIndex < data.topics.length) {
+              this.localOptions.selectedTopicId = data.topics[legacyIndex].id;
+            } else if (data?.topics?.[0]?.id) {
+              this.localOptions.selectedTopicId = data.topics[0].id;
+            }
+          }
 
           if (this.localOptions.theme) {
             this.setTheme(this.localOptions.theme);
@@ -569,33 +605,42 @@ createApp({
 
           // Map Topics
           const topicsList = topics.topics.map(t => ({
-            id: 'topic_' + Date.now() + Math.random(),
+            id: t.id || ('topic_' + Date.now() + Math.random()),
             name: t.title,
             description: t.description || "",
             prompt: t.prompt,
             agendaPoints: Array.isArray(t.agendaPoints) ? [...t.agendaPoints] : [],
           }));
 
+          const customTopicSource = topics.custom_topic || {};
+          const customTopic = {
+            id: customTopicSource.id || PROTOTYPE_CUSTOM_TOPIC_ID,
+            name: customTopicSource.title || "Custom Topic",
+            prompt: customTopicSource.prompt || PROTOTYPE_CUSTOM_TOPIC_TOKEN,
+          };
+
           this.languageData[lang] = {
             system: topics.system,
             characters: characters,
-            topics: topicsList
+            topics: topicsList,
+            customTopic,
           };
 
-          // Explicitly set default active state: Only Pinned (Index 0) is active
+          // Default active state per topic: chair only.
           if (characters.length > 0) {
             const pinnedChar = characters[0];
+            if (!this.localOptions.topicStates) this.localOptions.topicStates = {};
 
-            topicsList.forEach((topic, rIndex) => {
-              // Ensure topicStates object exists
-              if (!this.localOptions.topicStates) this.localOptions.topicStates = {};
-
-              this.localOptions.topicStates[topic.id] = {
-                activeCharacterIds: {
-                  [pinnedChar._ui_id]: true
-                }
-              };
+            const initTopicState = () => ({
+              activeCharacterIds: {
+                [pinnedChar._ui_id]: true,
+              },
             });
+
+            topicsList.forEach((topic) => {
+              this.localOptions.topicStates[topic.id] = initTopicState();
+            });
+            this.localOptions.topicStates[customTopic.id] = initTopicState();
           }
 
         } catch (err) {
@@ -606,13 +651,16 @@ createApp({
       }
 
       this.options.language = 'en';
+      if (!this.localOptions.selectedTopicId) {
+        const firstTopic = this.languageData.en?.topics?.[0];
+        this.localOptions.selectedTopicId = firstTopic?.id || PROTOTYPE_CUSTOM_TOPIC_ID;
+      }
       this.sanitizeData();
 
       this.save();
     },
 
     save() {
-      // Always sanitize before saving to ensure consistency
       this.sanitizeData();
 
       const data = {
@@ -661,6 +709,10 @@ createApp({
       }
 
       return replacedCharacters;
+    },
+
+    selectTopic(topicId) {
+      this.localOptions.selectedTopicId = topicId;
     },
 
     nonEmptyAgendaPoints(agendaPoints) {
@@ -716,16 +768,30 @@ createApp({
     },
 
     getMeetingBody() {
+      const isCustom = this.isCustomTopicSelected;
+      const topic = this.currentTopic;
+      if (!topic) {
+        throw new Error("No topic selected");
+      }
+
       return {
         topic: {
-          id: this.currentTopic.id,
-          title: this.currentTopic.name,
-          description: this.currentTopic.description,
-          prompt: this.buildMeetingSystemPrompt(
-            this.currentSystemPrompt,
-            this.currentTopic.prompt,
-            this.currentTopic.agendaPoints
-          ),
+          id: topic.id,
+          title: topic.name,
+          description: isCustom
+            ? String(this.localOptions.customTopicVisitorInput || "").trim()
+            : (topic.description || ""),
+          prompt: isCustom
+            ? this.buildMeetingSystemPrompt(
+                this.currentSystemPrompt,
+                this.resolvedCustomTopicPrompt,
+                [],
+              )
+            : this.buildMeetingSystemPrompt(
+                this.currentSystemPrompt,
+                topic.prompt,
+                topic.agendaPoints,
+              ),
         },
         characters: this.buildCharacters(),
         language: this.options.language,
@@ -814,8 +880,6 @@ createApp({
       this.currentLanguageData.topics.push(newTopic);
       this.log('SYSTEM', 'Topic Added', newTopic);
 
-      // Initialize state for new topic with Pinned Character (Chair) Active
-      // Logic mirrors factoryReset initialization
       if (this.currentLanguageData.characters && this.currentLanguageData.characters.length > 0) {
         const pinnedChar = this.currentLanguageData.characters[0];
         if (!this.localOptions.topicStates) this.localOptions.topicStates = {};
@@ -827,8 +891,7 @@ createApp({
         };
       }
 
-      // Switch to new topic
-      this.localOptions.currentTopicIndex = this.currentLanguageData.topics.length - 1;
+      this.localOptions.selectedTopicId = newTopic.id;
     },
 
     addAgendaPoint() {
@@ -848,15 +911,23 @@ createApp({
     },
 
     removeTopic() {
-      if (this.currentLanguageData.topics.length > 1) {
-        const removed = this.currentLanguageData.topics[this.localOptions.currentTopicIndex];
-        this.log('SYSTEM', 'Topic Removed', removed);
+      if (this.isCustomTopicSelected) return;
+      if (this.currentLanguageData.topics.length <= 1) return;
 
-        this.currentLanguageData.topics.splice(this.localOptions.currentTopicIndex, 1);
-        if (this.localOptions.currentTopicIndex >= this.currentLanguageData.topics.length) {
-          this.localOptions.currentTopicIndex = this.currentLanguageData.topics.length - 1;
-        }
+      const selectedId = this.localOptions.selectedTopicId;
+      const removeIndex = this.currentLanguageData.topics.findIndex((topic) => topic.id === selectedId);
+      if (removeIndex === -1) return;
+
+      const removed = this.currentLanguageData.topics[removeIndex];
+      this.log('SYSTEM', 'Topic Removed', removed);
+
+      this.currentLanguageData.topics.splice(removeIndex, 1);
+      if (this.localOptions.topicStates?.[removed.id]) {
+        delete this.localOptions.topicStates[removed.id];
       }
+
+      const nextTopic = this.currentLanguageData.topics[Math.min(removeIndex, this.currentLanguageData.topics.length - 1)];
+      this.localOptions.selectedTopicId = nextTopic?.id || PROTOTYPE_CUSTOM_TOPIC_ID;
     },
 
     addCharacter() {
@@ -1101,7 +1172,7 @@ createApp({
       return exportedTopics;
     },
 
-    buildTopicsExportPayload(rawTopics, rawTopicsEn, system, editedTopics, rawTopicsList, rawTopicsEnList, useEnglishCanonicalIds, now, pad) {
+    buildTopicsExportPayload(rawTopics, rawTopicsEn, system, editedTopics, editedCustomTopic, rawTopicsList, rawTopicsEnList, useEnglishCanonicalIds, now, pad) {
       const dateStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
       const timeStr = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
 
@@ -1110,9 +1181,16 @@ createApp({
         ? { ...metadataSource, last_updated: `${dateStr} ${timeStr}` }
         : { version: '1.0.0', last_updated: `${dateStr} ${timeStr}` };
 
-      const customTopic = rawTopicsEn.custom_topic || rawTopics.custom_topic || {
-        id: 'customtopic',
+      const fallbackCustom = rawTopicsEn.custom_topic || rawTopics.custom_topic || {
+        id: PROTOTYPE_CUSTOM_TOPIC_ID,
         title: 'Custom Topic',
+      };
+      const customTopic = {
+        id: editedCustomTopic?.id || fallbackCustom.id || PROTOTYPE_CUSTOM_TOPIC_ID,
+        title: editedCustomTopic?.name || fallbackCustom.title || 'Custom Topic',
+        ...(editedCustomTopic?.prompt
+          ? { prompt: editedCustomTopic.prompt }
+          : (fallbackCustom.prompt ? { prompt: fallbackCustom.prompt } : {})),
       };
 
       return {
@@ -1201,6 +1279,7 @@ createApp({
         rawTopicsEn,
         this.currentLanguageData.system,
         this.currentLanguageData.topics,
+        this.currentLanguageData.customTopic,
         rawTopicsList,
         rawTopicsEnList,
         useEnglishCanonicalIds,
@@ -1442,22 +1521,26 @@ createApp({
     //   UTILS
     // ===========================
     sanitizeData() {
-      // Ensure all characters across all languages and rooms have a unique UI ID
-      // This is critical for Vue + SortableJS stability
       if (!this.languageData) return;
 
-      Object.values(this.languageData).forEach(lang => {
-        if (!lang.topics) return;
-        lang.topics.forEach(topic => {
-          if (!topic.characters) return; // characters are global now, so this check might be legacy, but safe to keep or remove.
-          // Actually, characters are global. This loop was probably checking old structure.
-          // But if we have global characters, we iterate them:
-        });
-        // Correct global character ID check:
+      Object.values(this.languageData).forEach((lang) => {
+        if (!lang.customTopic) {
+          lang.customTopic = { id: PROTOTYPE_CUSTOM_TOPIC_ID, name: "Custom Topic", prompt: PROTOTYPE_CUSTOM_TOPIC_TOKEN };
+        } else {
+          lang.customTopic.id = lang.customTopic.id || PROTOTYPE_CUSTOM_TOPIC_ID;
+          lang.customTopic.name = lang.customTopic.name || "Custom Topic";
+          lang.customTopic.prompt = lang.customTopic.prompt || PROTOTYPE_CUSTOM_TOPIC_TOKEN;
+        }
+        if (!this.localOptions.topicStates) this.localOptions.topicStates = {};
+        if (!this.localOptions.topicStates[lang.customTopic.id] && lang.characters?.length > 0) {
+          this.localOptions.topicStates[lang.customTopic.id] = {
+            activeCharacterIds: { [lang.characters[0]._ui_id]: true },
+          };
+        }
+
         if (lang.characters) {
           lang.characters.forEach(c => {
             if (!c._ui_id) c._ui_id = Date.now() + Math.random();
-            // Only derive id from display name when missing (preserve canonical ids from JSON / en fork)
             if (!c.id && c.name) {
               c.id = c.name.toLowerCase().replace(/\s+/g, '');
             }
