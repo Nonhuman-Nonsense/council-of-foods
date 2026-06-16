@@ -127,13 +127,6 @@ export default function Main(props: MainProps) {
 
   useTalkButtonService();
 
-  useEffect(() => {
-    usePushToTalkStore.getState().init();
-    return () => {
-      usePushToTalkStore.getState().dispose();
-    };
-  }, []);
-
   // Centralize Web Audio suspension here so Council and future scene components can share one
   // AudioContext without each feature trying to suspend/resume it independently.
   useEffect(() => {
