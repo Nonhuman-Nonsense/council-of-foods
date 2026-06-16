@@ -53,7 +53,7 @@ function countPlayableMessages(conversation) {
 }
 
 const defaultLocalOptions = {
-  theme: '',
+  theme: 'lime',
   showTrimmed: true,
   leftSidebarOpen: true,
   rightSidebarOpen: true,
