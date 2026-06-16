@@ -12,13 +12,13 @@ const defaultOptions = {
   conversationModel: "mistral/mistral-large-3",
   conversationReasoning: "none",
   temperature: 1,
-  maxTokens: 200,
-  chairMaxTokens: 250,
-  defaultAudioSpeed: 1.15,
+  maxTokens: 600,
+  chairMaxTokens: 600,
+  defaultAudioSpeed: 1.1,
 
   trimSentance: false,
-  trimParagraph: true,
-  trimChairSemicolon: true,
+  trimParagraph: false,
+  trimChairSemicolon: false,
 
   conversationMaxLength: 10,
   /** Increment applied server-side on "Keep Going" (matches server `extraMessageCount`). */
@@ -26,7 +26,7 @@ const defaultOptions = {
   /** Absolute cap for extends (server `meetingVeryMaxLength`); reflected in `max_reached.canContinue`. */
   meetingVeryMaxLength: 30,
   skipAudio: false,
-  directedSpeakerRouting: false,
+  directedSpeakerRouting: true,
 
   injectPrompt: "",
   maxTokensInject: 800,
