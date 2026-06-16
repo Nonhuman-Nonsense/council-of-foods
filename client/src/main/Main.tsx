@@ -14,6 +14,7 @@ import MainOverlays from "./overlay/MainOverlays";
 import Landing from "@newMeeting/Landing";
 import Navbar from "./Navbar";
 import type { Topic } from "@shared/ModelTypes";
+import { buildTopicFromSelection } from "@newMeeting/meetingSetup";
 import MeetingSetupShell from "@newMeeting/MeetingSetupShell";
 import NewMeeting from "@newMeeting/NewMeeting";
 import Council from "@council/Council";
@@ -26,7 +27,7 @@ import { useAppMode } from "@/museum/useAppMode";
 import { usePortrait, dvh } from "@/utils";
 import CouncilError from "./overlay/CouncilError";
 import Reconnecting from "./overlay/Reconnecting";
-import { usePushToTalkStore } from "@stores/usePushToTalkStore";
+import { useTalkButtonService } from "@/museum/talkButton/useTalkButtonService";
 
 import routes from "@/routes.json";
 
@@ -89,17 +90,19 @@ export default function Main(props: MainProps) {
 
     if (topicSelection?.id) {
       const bundle = getTopicsBundle(props.lang);
-      if (topicSelection.id === 'customtopic') {
-        setTopicSelection(prev => prev
-          ? { ...prev, title: bundle.custom_topic.title }
-          : prev);
-      } else {
-        const found = bundle.topics.find((t: Topic) => t.id === topicSelection.id);
-        if (found) {
-          setTopicSelection(prev => prev
-            ? { ...prev, title: found.title, description: found.description, prompt: bundle.system.replace("[TOPIC]", found.prompt) }
-            : prev);
-        }
+      const isKnownTopic =
+        topicSelection.id === bundle.custom_topic.id ||
+        bundle.topics.some((topic) => topic.id === topicSelection.id);
+
+      if (isKnownTopic) {
+        setTopicSelection(
+          buildTopicFromSelection({
+            topicsBundle: bundle,
+            selectedTopicId: topicSelection.id,
+            customTopic:
+              topicSelection.id === bundle.custom_topic.id ? (topicSelection.description ?? "") : "",
+          }),
+        );
       }
     }
 
@@ -122,19 +125,7 @@ export default function Main(props: MainProps) {
     }
   }, [location.pathname]);
 
-  useEffect(() => {
-    usePushToTalkStore.getState().init();
-    return () => {
-      usePushToTalkStore.getState().dispose();
-    };
-  }, []);
-
-  useEffect(() => {
-    usePushToTalkStore.getState().init();
-    return () => {
-      usePushToTalkStore.getState().dispose();
-    };
-  }, []);
+  useTalkButtonService();
 
   // Centralize Web Audio suspension here so Council and future scene components can share one
   // AudioContext without each feature trying to suspend/resume it independently.

@@ -25,6 +25,9 @@
       "unsupported": "Web Serial is not available in this browser",
       "connected": "Connected",
       "connecting": "Connecting…",
+      "reconnecting": "Reconnecting…",
+      "reconnectingHint": "Waiting for the talk button. This should happen automatically after unplugging the cable.",
+      "reconnectHint": "Plug in the talk button — it will connect automatically.",
       "disconnected": "Disconnected",
       "error": "Error"
     }
@@ -45,7 +48,8 @@
     "5": " and is a continuation of the project ",
     "6": " which has received funding from the European\u00a0Union’s ",
     "7": " research and innovation programme under grant agreement",
-    "8": "Funded by the EU, as part of S+T+ARTS"
+    "8": "Funded by the EU, as part of S+T+ARTS",
+    "9": "Based on interviews with"
   },
   "reset": {
     "title": "Start over?",

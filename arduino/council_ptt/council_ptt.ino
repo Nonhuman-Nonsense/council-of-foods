@@ -14,11 +14,12 @@
  *   LED_PULSE — breathing LEDs; button presses activate PTT
  *   LED_ON    — LEDs fully on; mic active
  *
- * When no host has opened the USB serial port, buttons still work and the
- * LEDs cycle one-at-a-time (connecting indicator).
+ * When no host has opened the USB serial port, button presses are ignored and
+ * the LEDs cycle one-at-a-time as a connecting indicator.
  */
 
 #include <math.h>
+#include <string.h>
 #include "Adafruit_seesaw.h"
 
 #define DEFAULT_I2C_ADDR 0x3A
@@ -36,10 +37,11 @@ const uint8_t SWITCH_PINS[BUTTON_COUNT] = { SWITCH1, SWITCH2, SWITCH3 };
 const uint8_t PWM_PINS[BUTTON_COUNT] = { PWM1, PWM2, PWM3 };
 
 #define LED_BRIGHTNESS 255
-#define DEBOUNCE_MS 35
+#define DEBOUNCE_MS 50
 #define CONNECTING_ANIM_STEP_MS 1000
 #define PULSE_CYCLE_MS 2400
 #define PULSE_MIN_BRIGHTNESS 18
+#define SERIAL_LINE_MAX 32
 
 #define LED_MODE_OFF 0
 #define LED_MODE_PULSE 1
@@ -57,6 +59,9 @@ unsigned long pulseAnimStartMs = 0;
 
 uint8_t connectingAnimIndex = 0;
 unsigned long connectingAnimLastStep = 0;
+
+char serialLineBuffer[SERIAL_LINE_MAX + 1];
+uint8_t serialLineLength = 0;
 
 void sendLine(const __FlashStringHelper *line) {
   Serial.println(line);
@@ -144,6 +149,8 @@ void updateHostConnection() {
   }
 
   hostConnected = nowConnected;
+  serialLineLength = 0;
+  serialLineBuffer[0] = '\0';
   applyAllLeds(0);
 
   if (hostConnected) {
@@ -172,22 +179,38 @@ void runConnectingAnimation() {
   }
 }
 
-void handleSerialInput() {
-  if (!Serial.available()) {
-    return;
-  }
-
-  String line = Serial.readStringUntil('\n');
-  line.trim();
-
-  if (line == F("LED_OFF")) {
+void processSerialLine(const char *line) {
+  if (strcmp(line, "LED_OFF") == 0) {
     setHostLedMode(LED_MODE_OFF);
-  } else if (line == F("LED_PULSE")) {
+  } else if (strcmp(line, "LED_PULSE") == 0) {
     setHostLedMode(LED_MODE_PULSE);
-  } else if (line == F("LED_ON")) {
+  } else if (strcmp(line, "LED_ON") == 0) {
     setHostLedMode(LED_MODE_ON);
-  } else if (line == F("PING")) {
+  } else if (strcmp(line, "PING") == 0) {
     sendLine(F("PONG"));
+  }
+}
+
+void handleSerialInput() {
+  while (Serial.available()) {
+    char c = Serial.read();
+
+    if (c == '\r') {
+      continue;
+    }
+
+    if (c == '\n') {
+      if (serialLineLength > 0) {
+        serialLineBuffer[serialLineLength] = '\0';
+        processSerialLine(serialLineBuffer);
+      }
+      serialLineLength = 0;
+      continue;
+    }
+
+    if (serialLineLength < SERIAL_LINE_MAX) {
+      serialLineBuffer[serialLineLength++] = c;
+    }
   }
 }
 
@@ -222,6 +245,8 @@ void setup() {
   connectingAnimIndex = 0;
   connectingAnimLastStep = 0;
   pulseAnimStartMs = millis();
+  serialLineLength = 0;
+  serialLineBuffer[0] = '\0';
   syncPttBaseline();
 
   Serial.println(F("READY council-ptt"));

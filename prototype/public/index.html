@@ -112,13 +112,32 @@
 
                   <label class="sub-label">Topic Prompt</label>
                   <textarea class="input-area" v-model="currentTopic.prompt" placeholder="Describe the topic..."
-                    v-auto-resize></textarea>
+                    v-auto-resize style="margin-bottom: 15px;"></textarea>
+
+                  <div class="sidebar-section-header" style="margin-bottom: 8px;">
+                    <label class="sub-label" style="margin-bottom: 0;">Agenda Points (optional)</label>
+                    <div>
+                      <button class="icon-btn" type="button" @click="addAgendaPoint">+</button>
+                      <button class="icon-btn" type="button" @click="removeAgendaPoint">-</button>
+                    </div>
+                  </div>
+                  <div v-if="currentTopic.agendaPoints && currentTopic.agendaPoints.length > 0"
+                    style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px;">
+                    <div v-for="(point, agendaIndex) in currentTopic.agendaPoints" :key="agendaIndex">
+                      <label class="sub-label">Agenda Point {{ agendaIndex + 1 }}</label>
+                      <textarea class="input-area" v-model="currentTopic.agendaPoints[agendaIndex]"
+                        :placeholder="'Agenda point ' + (agendaIndex + 1) + '...'" v-auto-resize
+                        style="min-height: 60px; resize: none; overflow-y: hidden;"></textarea>
+                    </div>
+                  </div>
+                  <small v-else style="display: block; margin-bottom: 15px; opacity: 0.75;">
+                    No agenda points.
+                  </small>
 
                   <label class="sub-label">System Prompt (Shared)</label>
                   <textarea class="input-area" v-model="currentSystemPrompt" placeholder="System prompt..."
                     v-auto-resize></textarea>
-                  <small>[TOPIC] will be replaced
-                    by the topic above.</small>
+                  <small>[TOPIC] and [AGENDA_POINTS] are replaced from the topic configuration above.</small>
                 </div>
               </div>
 
@@ -470,6 +489,9 @@
         <label class="sub-label">Character Prompt</label>
         <textarea class="input-area" placeholder="Character prompt..." v-model="character.prompt"
           v-auto-resize></textarea>
+        <small v-if="isPinned">
+          Keywords: [CHARACTERS], [HUMANS], [RANDOM_AGENDA_POINT]
+        </small>
 
         <label class="sub-label">Voice Provider</label>
         <div class="voice-selector" style="margin-bottom: 10px;">

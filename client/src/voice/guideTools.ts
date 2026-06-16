@@ -358,6 +358,7 @@ export function createGuideToolHandlers(ctx: GuideToolContext): Record<string, T
         humans,
         numberOfHumans,
         labels: ctx.meetingCharactersLabels,
+        agendaPoints: ctx.buildSelectedTopic()?.agendaPoints,
       });
       if (!built.ok) return built;
       await Promise.resolve(ctx.startMeeting(built.characters));
