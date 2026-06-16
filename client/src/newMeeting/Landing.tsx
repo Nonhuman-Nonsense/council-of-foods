@@ -1,10 +1,12 @@
 import RotateDevice from "@main/overlay/RotateDevice";
 import { useMediaQuery } from 'react-responsive'
 import { Link } from "react-router";
-import { useMobile } from "@/utils";
+import { useMobile, dvh } from "@/utils";
 import { useTranslation } from 'react-i18next';
 import { useRouting } from "@/routing";
 import { useAppMode } from "@/museum/useAppMode";
+import nonhumanLogo from "@assets/logos/nonhuman_nonsense_logo.png";
+import biosphereLogo from "@assets/logos/logo_biosphere.svg?url";
 
 /**
  * Landing Component
@@ -41,13 +43,50 @@ const Landing: React.FC = () => {
     paddingBottom: "5%"
   };
 
+  const logosRowStyle: React.CSSProperties = {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  };
+
+  const logoStyle: React.CSSProperties = {
+    opacity: 0.9,
+  };
+
+  const nonhumanLogoStyle: React.CSSProperties = {
+    ...logoStyle,
+    maxWidth: isMobile ? "80px" : "120px",
+    height: isMobile ? "10" + dvh : "61px",
+    minHeight: "30px",
+    marginRight: "20px",
+  };
+
+  const biosphereLogoStyle: React.CSSProperties = {
+    ...logoStyle,
+    maxWidth: isMobile ? "80px" : "150px",
+    height: isMobile ? "10" + dvh : "100px",
+    minHeight: "30px",
+  };
+
   return (
     <div style={wrapper}>
       <div style={welcomeStyle}>
 
         <div>
-          <h2 style={{ marginBottom: "-10px", marginTop: isMobile ? "0" : "" }}>{t('welcome')}</h2>
-          <h1 style={{ margin: isMobile ? "5px 0 0 0" : "" }}>{t('council').toUpperCase()}</h1>
+          <div style={{ textAlign: "center" }}>
+            <h2 style={{ marginBottom: "-10px", marginTop: isMobile ? "0" : "" }}>{t('welcome')}</h2>
+            <h1 style={{ margin: isMobile ? "5px 0 0 0" : "" }}>{t('council').toUpperCase()}</h1>
+            <p>a project by</p>
+          </div>
+
+          <div style={logosRowStyle}>
+            <Link to={{ hash: "contact" }}>
+              <img alt="Nonhuman Nonsense" src={nonhumanLogo} style={nonhumanLogoStyle} />
+            </Link>
+            <Link to={{ hash: "contact" }}>
+              <img src={biosphereLogo} alt={t('biosphere')} style={biosphereLogoStyle} />
+            </Link>
+          </div>
         </div>
 
         {isPortrait ?
