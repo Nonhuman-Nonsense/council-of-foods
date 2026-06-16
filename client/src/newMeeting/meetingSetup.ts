@@ -1,6 +1,6 @@
 import type { Character, Topic } from "@shared/ModelTypes";
 import { injectRandomAgendaPoint } from "@shared/agendaPointInjection";
-import { buildMeetingSystemPrompt } from "@shared/topicPrompt";
+import { buildMeetingSystemPrompt, VISITOR_INPUT_PLACEHOLDER } from "@shared/topicPrompt";
 import { toTitleCase } from "@/utils";
 import type { TopicsData } from "@main/topicsBundle";
 import { getCharacterSetupBundle } from "./CharacterSetup";
@@ -60,7 +60,7 @@ export function buildTopicFromSelection(params: {
 
   const built = structuredClone(raw);
   if (built.id === topicsBundle.custom_topic.id) {
-    built.prompt = customTopic;
+    built.prompt = (built.prompt || "").replace(VISITOR_INPUT_PLACEHOLDER, customTopic.trim());
     built.description = customTopic;
     built.agendaPoints = undefined;
   }

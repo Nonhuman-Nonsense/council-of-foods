@@ -1,6 +1,7 @@
 export const TOPIC_PLACEHOLDER = "[TOPIC]";
 export const AGENDA_POINTS_PLACEHOLDER = "[AGENDA_POINTS]";
 export const AGENDA_SECTION_HEADER = "Today's Agenda Points:";
+export const VISITOR_INPUT_PLACEHOLDER = "[VISITOR_INPUT]";
 
 export function nonEmptyAgendaPoints(agendaPoints?: string[]): string[] {
   return (agendaPoints ?? []).map((point) => point.trim()).filter((point) => point.length > 0);
