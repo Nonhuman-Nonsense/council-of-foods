@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMobile, useMobileXs } from "@/utils";
 import { useTranslation } from "react-i18next";
 import { getPushToTalk, setPushToTalk } from "@/settings/councilSettings";
 import { useAppMode } from "@/museum/useAppMode";
 import { usePushToTalkStore } from "@stores/usePushToTalkStore";
+import { talkButtonService } from "@/museum/talkButton/talkButtonService";
 
 function serialStatusLabel(
   status: ReturnType<typeof usePushToTalkStore.getState>["serialStatus"],
@@ -37,8 +38,12 @@ function Setup(): React.ReactElement {
   const lastSerialLine = usePushToTalkStore((state) => state.lastSerialLine);
   const serialSupported = usePushToTalkStore((state) => state.serialSupported);
   const requestSerialPort = usePushToTalkStore((state) => state.requestSerialPort);
-  const connectGrantedPorts = usePushToTalkStore((state) => state.connectGrantedPorts);
-  const disconnectSerial = usePushToTalkStore((state) => state.disconnectSerial);
+  const setLedMode = usePushToTalkStore((state) => state.setLedMode);
+
+  useEffect(() => {
+    if (!pushToTalk || serialStatus !== "connected") return;
+    void setLedMode("pulse");
+  }, [pushToTalk, serialStatus, setLedMode]);
 
   const containerStyle: React.CSSProperties = {
     width: "96vw",
@@ -76,12 +81,21 @@ function Setup(): React.ReactElement {
   function selectAlwaysOn(): void {
     setPushToTalkState(false);
     setPushToTalk(false);
+    void setLedMode("off");
   }
 
   function selectPushToTalk(): void {
     setPushToTalkState(true);
     setPushToTalk(true);
-    void connectGrantedPorts();
+  }
+
+  async function connectTalkButton(): Promise<void> {
+    talkButtonService.resume();
+    await requestSerialPort();
+  }
+
+  function disconnectTalkButton(): void {
+    talkButtonService.pause();
   }
 
   return (
@@ -151,16 +165,34 @@ function Setup(): React.ReactElement {
                 {t("setup.serial.status")}: {serialStatusLabel(serialStatus, t)}
                 {serialError ? ` — ${serialError}` : ""}
               </p>
+              {serialStatus === "connecting" ? (
+                <p
+                  data-testid="setup-serial-reconnecting"
+                  style={{ marginTop: 0, fontStyle: "italic", opacity: 0.85, textAlign: "center" }}
+                >
+                  {t("setup.serial.reconnecting")}
+                  <br />
+                  {t("setup.serial.reconnectingHint")}
+                </p>
+              ) : null}
+              {serialStatus === "disconnected" ? (
+                <p
+                  data-testid="setup-serial-reconnect-hint"
+                  style={{ marginTop: 0, fontStyle: "italic", opacity: 0.75, textAlign: "center" }}
+                >
+                  {t("setup.serial.reconnectHint")}
+                </p>
+              ) : null}
               {lastSerialLine ? (
                 <p style={{ marginTop: 0 }}>
                   {t("setup.serial.lastEvent")}: {lastSerialLine}
                 </p>
               ) : null}
               <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", justifyContent: "center" }}>
-                <button type="button" data-testid="setup-serial-connect" onClick={() => void requestSerialPort()}>
+                <button type="button" data-testid="setup-serial-connect" onClick={() => void connectTalkButton()}>
                   {t("setup.serial.connect")}
                 </button>
-                <button type="button" data-testid="setup-serial-disconnect" onClick={() => void disconnectSerial()}>
+                <button type="button" data-testid="setup-serial-disconnect" onClick={() => void disconnectTalkButton()}>
                   {t("setup.serial.disconnect")}
                 </button>
               </div>

@@ -170,7 +170,7 @@ describe('MeetingManager - Speaker Selection', () => {
                 })).toBe(2); // Potato has 0 messages
             });
 
-            it('uses round-robin order to break ties among equally quiet participants', () => {
+            it('uses initial lineup order to break ties among equally quiet participants', () => {
                 const chairId = manager.meeting.characters[0].id;
                 const [chair, tomato, potato, banana, lollipop] = [
                     MockFactory.createCharacter(manager.meeting.characters[0]),
@@ -189,7 +189,26 @@ describe('MeetingManager - Speaker Selection', () => {
                 expect(SpeakerSelector.calculateNextSpeaker(manager.meeting.conversation, manager.meeting.characters, {
                     directedSpeakerRouting: true,
                     chairId,
-                })).toBe(4); // Potato and Lollipop are tied at 0; RR after Banana picks Lollipop
+                })).toBe(2); // Potato and Lollipop are tied at 0; lineup order picks Potato
+            });
+
+            it('picks the earliest-in-lineup quiet participant after a directed ask skips the natural turn', () => {
+                const chairId = 'river';
+                const characters = [
+                    MockFactory.createCharacter({ id: 'river', name: 'River' }),
+                    MockFactory.createCharacter({ id: 'bumblebee', name: 'Bumblebee' }),
+                    MockFactory.createCharacter({ id: 'reindeer', name: 'Reindeer' }),
+                    MockFactory.createCharacter({ id: 'salmon', name: 'Salmon' }),
+                ];
+                const conversation = [
+                    { speaker: 'river', type: 'message', askParticular: 'reindeer' },
+                    { speaker: 'reindeer', type: 'response' },
+                ];
+
+                expect(SpeakerSelector.calculateNextSpeaker(conversation, characters, {
+                    directedSpeakerRouting: true,
+                    chairId,
+                })).toBe(1); // Bumblebee and Salmon are tied at 0; lineup order picks Bumblebee
             });
 
             it('does not override a directed askParticular on the latest message', () => {

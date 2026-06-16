@@ -138,18 +138,6 @@ function countCharacterMessages(conversation: Message[], characters: Character[]
     return counts;
 }
 
-function findLastSpeakerIndex(conversation: Message[], characters: Character[]): number {
-    for (let i = conversation.length - 1; i >= 0; i--) {
-        const message = conversation[i];
-        if (!("speaker" in message) || NON_SPEAKER_MESSAGE_TYPES.has(message.type)) continue;
-        const index = characters.findIndex((character) => character.id === message.speaker);
-        if (index !== -1) {
-            return index;
-        }
-    }
-    return -1;
-}
-
 function pickLeastSpokenWithRoundRobinTiebreak(
     conversation: Message[],
     characters: Character[],
@@ -180,21 +168,7 @@ function pickLeastSpokenWithRoundRobinTiebreak(
         return -1;
     }
 
-    if (tiedIndices.length === 1) {
-        return tiedIndices[0];
-    }
-
-    const tiedSet = new Set(tiedIndices);
-    const lastSpeakerIndex = findLastSpeakerIndex(conversation, characters);
-    const startIndex = lastSpeakerIndex === -1 ? 0 : lastSpeakerIndex;
-
-    for (let offset = 1; offset <= characters.length; offset++) {
-        const candidateIndex = (startIndex + offset) % characters.length;
-        if (tiedSet.has(candidateIndex)) {
-            return candidateIndex;
-        }
-    }
-
+    // Among equally quiet participants, prefer whoever comes first in the initial lineup order.
     return tiedIndices[0];
 }
 

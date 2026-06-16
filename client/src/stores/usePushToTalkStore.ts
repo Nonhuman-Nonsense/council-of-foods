@@ -22,7 +22,9 @@ type PushToTalkStore = {
   requestSerialPort: () => Promise<void>;
   connectGrantedPorts: () => Promise<void>;
   disconnectSerial: () => Promise<void>;
+  enableSerialAutoReconnect: () => void;
   setLedMode: (mode: PttLedMode) => Promise<void>;
+  resyncSerialLed: () => Promise<void>;
 
   init: () => void;
   dispose: () => void;
@@ -50,10 +52,17 @@ function getSerialTransport(
         };
         if (status === "disconnected" || status === "error") {
           updates.pressed = false;
-          updates.ledMode = "off";
           updates.pttInputEnabled = false;
         }
+        if (status === "connected") {
+          const { ledMode } = get();
+          updates.pttInputEnabled = isPttInputEnabled(ledMode);
+        }
         set(updates);
+
+        if (status === "connected") {
+          void get().resyncSerialLed();
+        }
       },
       onLine: (event) => {
         if (event.type === "pong") {
@@ -137,6 +146,10 @@ export const usePushToTalkStore = create<PushToTalkStore>((set, get) => ({
     await getSerialTransport(set, get).disconnect();
   },
 
+  enableSerialAutoReconnect: () => {
+    getSerialTransport(set, get).enableAutoReconnect();
+  },
+
   setLedMode: async (mode) => {
     const inputEnabled = isPttInputEnabled(mode);
     const updates: Partial<PushToTalkStore> = {
@@ -154,15 +167,24 @@ export const usePushToTalkStore = create<PushToTalkStore>((set, get) => ({
     await getSerialTransport(set, get).setLedMode(mode);
   },
 
+  resyncSerialLed: async () => {
+    if (get().serialStatus !== "connected") {
+      return;
+    }
+    const { ledMode } = get();
+    if (ledMode === "off") {
+      return;
+    }
+    const inputEnabled = isPttInputEnabled(ledMode);
+    set({ pttInputEnabled: inputEnabled });
+    await getSerialTransport(set, get).setLedMode(ledMode);
+  },
+
   init: () => {
     bindKeyboard(set, get);
-    if (getPushToTalk()) {
-      void get().connectGrantedPorts();
-    }
   },
 
   dispose: () => {
-    void getSerialTransport(set, get).disconnect();
     set({ pressed: false, ledMode: "off", pttInputEnabled: false });
   },
 }));
