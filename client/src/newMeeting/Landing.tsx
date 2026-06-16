@@ -74,9 +74,9 @@ const Landing: React.FC = () => {
 
         <div>
           <div style={{ textAlign: "center" }}>
-            <h2 style={{ marginBottom: "-10px", marginTop: isMobile ? "0" : "" }}>{t('welcome')}</h2>
+            <h2 style={{ marginBottom: "-10px", marginTop: isMobile ? "0" : "" }}>{t('landing.welcome')}</h2>
             <h1 style={{ margin: isMobile ? "5px 0 0 0" : "" }}>{t('council').toUpperCase()}</h1>
-            <p>a project by</p>
+            <p>{t('landing.projectBy')}</p>
           </div>
 
           <div style={logosRowStyle}>
@@ -94,10 +94,10 @@ const Landing: React.FC = () => {
           :
           !isMuseumMode && (
             <div style={{ maxWidth: "380px" }}>
-              <p style={{ marginBottom: "30px" }}>{t('description')}</p>
+              <p style={{ marginBottom: "30px" }}>{t('landing.description')}</p>
               <div>
                 <Link to={newMeetingPath} className="button" data-testid="landing-go">
-                  {t('go')}
+                  {t('landing.go')}
                 </Link>
               </div>
             </div>
