@@ -45,12 +45,22 @@
             </div>
           </div>
           <div class="topic-list" style="display: flex; flex-direction: column; gap: 4px;">
-            <div v-for="(topic, index) in currentLanguageData.topics" :key="index" class="topic-item"
-              :class="{ active: localOptions.currentTopicIndex === index }"
-              @click="localOptions.currentTopicIndex = index">
+            <div v-for="topic in currentLanguageData.topics" :key="topic.id" class="topic-item"
+              :class="{ active: !isCustomTopicSelected && localOptions.selectedTopicId === topic.id }"
+              @click="selectTopic(topic.id)">
               <input type="text" class="styled-input" v-model="topic.name" style="display: none;">
               <div style="font-weight: 500; overflow: hidden; text-overflow: ellipsis;">
                 {{ topic.name || 'Untitled Topic' }}
+              </div>
+            </div>
+            <div
+              v-if="currentLanguageData.customTopic"
+              class="topic-item topic-item-custom"
+              :class="{ active: isCustomTopicSelected }"
+              @click="selectTopic(customTopicId)"
+            >
+              <div style="font-weight: 500; overflow: hidden; text-overflow: ellipsis;">
+                {{ currentLanguageData.customTopic.name || 'Custom Topic' }}
               </div>
             </div>
           </div>
@@ -104,40 +114,55 @@
                   <input type="text" class="input-full" v-model="currentTopic.name" placeholder="Topic Name"
                     style="margin-bottom: 15px;">
 
-                  <label class="sub-label">Topic Description</label>
-                  <textarea class="input-area" v-model="currentTopic.description"
-                    placeholder="Description of the topic..." v-auto-resize
-                    style="min-height: 60px; margin-bottom: 15px; resize: none; overflow-y: hidden;"></textarea>
-
+                  <template v-if="!isCustomTopicSelected">
+                    <label class="sub-label">Topic Description</label>
+                    <textarea class="input-area" v-model="currentTopic.description"
+                      placeholder="Description of the topic..." v-auto-resize
+                      style="min-height: 60px; margin-bottom: 15px; resize: none; overflow-y: hidden;"></textarea>
+                  </template>
+                  <template v-else>
+                    <label class="sub-label">Visitor Input</label>
+                    <textarea class="input-area" v-model="localOptions.customTopicVisitorInput"
+                      placeholder="What should the Council discuss? Replaced where [VISITOR_INPUT] appears in the topic prompt."
+                      v-auto-resize
+                      style="min-height: 60px; margin-bottom: 15px; resize: none; overflow-y: hidden;"></textarea>
+                    <small style="display: block; opacity: 0.8;">
+                      For experimenting with custom topics. Not exported.
+                    </small>
+                  </template>
 
                   <label class="sub-label">Topic Prompt</label>
-                  <textarea class="input-area" v-model="currentTopic.prompt" placeholder="Describe the topic..."
+                  <textarea class="input-area" v-model="currentTopic.prompt"
+                    :placeholder="isCustomTopicSelected ? 'Custom topic prompt template (use [VISITOR_INPUT])...' : 'Describe the topic...'"
                     v-auto-resize style="margin-bottom: 15px;"></textarea>
 
-                  <div class="sidebar-section-header" style="margin-bottom: 8px;">
-                    <label class="sub-label" style="margin-bottom: 0;">Agenda Points (optional)</label>
-                    <div>
-                      <button class="icon-btn" type="button" @click="addAgendaPoint">+</button>
-                      <button class="icon-btn" type="button" @click="removeAgendaPoint">-</button>
+                  <template v-if="!isCustomTopicSelected">
+                    <div class="sidebar-section-header" style="margin-bottom: 8px;">
+                      <label class="sub-label" style="margin-bottom: 0;">Agenda Points (optional)</label>
+                      <div>
+                        <button class="icon-btn" type="button" @click="addAgendaPoint">+</button>
+                        <button class="icon-btn" type="button" @click="removeAgendaPoint">-</button>
+                      </div>
                     </div>
-                  </div>
-                  <div v-if="currentTopic.agendaPoints && currentTopic.agendaPoints.length > 0"
-                    style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px;">
-                    <div v-for="(point, agendaIndex) in currentTopic.agendaPoints" :key="agendaIndex">
-                      <label class="sub-label">Agenda Point {{ agendaIndex + 1 }}</label>
-                      <textarea class="input-area" v-model="currentTopic.agendaPoints[agendaIndex]"
-                        :placeholder="'Agenda point ' + (agendaIndex + 1) + '...'" v-auto-resize
-                        style="min-height: 60px; resize: none; overflow-y: hidden;"></textarea>
+                    <div v-if="currentTopic.agendaPoints && currentTopic.agendaPoints.length > 0"
+                      style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px;">
+                      <div v-for="(point, agendaIndex) in currentTopic.agendaPoints" :key="agendaIndex">
+                        <label class="sub-label">Agenda Point {{ agendaIndex + 1 }}</label>
+                        <textarea class="input-area" v-model="currentTopic.agendaPoints[agendaIndex]"
+                          :placeholder="'Agenda point ' + (agendaIndex + 1) + '...'" v-auto-resize
+                          style="min-height: 60px; resize: none; overflow-y: hidden;"></textarea>
+                      </div>
                     </div>
-                  </div>
-                  <small v-else style="display: block; margin-bottom: 15px; opacity: 0.75;">
-                    No agenda points.
-                  </small>
+                    <small v-else style="display: block; margin-bottom: 15px; opacity: 0.75;">
+                      No agenda points.
+                    </small>
+                  </template>
 
                   <label class="sub-label">System Prompt (Shared)</label>
                   <textarea class="input-area" v-model="currentSystemPrompt" placeholder="System prompt..."
                     v-auto-resize></textarea>
-                  <small>[TOPIC] and [AGENDA_POINTS] are replaced from the topic configuration above.</small>
+                  <small v-if="!isCustomTopicSelected">[TOPIC] and [AGENDA_POINTS] are replaced from the topic configuration above.</small>
+                  <small v-else>[TOPIC] uses the resolved custom prompt above. Custom topics have no agenda points.</small>
                 </div>
               </div>
 

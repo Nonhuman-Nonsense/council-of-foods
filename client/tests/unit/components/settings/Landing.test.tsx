@@ -60,7 +60,7 @@ describe('Landing', () => {
                 <Landing />
             </MemoryRouter>
         );
-        expect(screen.getByText('welcome')).toBeInTheDocument();
+        expect(screen.getByText('landing.welcome')).toBeInTheDocument();
         expect(screen.getByText('COUNCIL')).toBeInTheDocument();
     });
 
@@ -71,8 +71,8 @@ describe('Landing', () => {
                 <Landing />
             </MemoryRouter>
         );
-        expect(screen.getByText('go')).toBeInTheDocument();
-        expect(screen.getByText('description')).toBeInTheDocument();
+        expect(screen.getByText('landing.go')).toBeInTheDocument();
+        expect(screen.getByText('landing.description')).toBeInTheDocument();
         expect(screen.queryByTestId('rotate-device')).not.toBeInTheDocument();
     });
 
@@ -84,7 +84,7 @@ describe('Landing', () => {
             </MemoryRouter>
         );
         expect(screen.getByTestId('rotate-device')).toBeInTheDocument();
-        expect(screen.queryByText('go')).not.toBeInTheDocument();
+        expect(screen.queryByText('landing.go')).not.toBeInTheDocument();
     });
 
     it('Go link points at newMeetingPath', () => {
@@ -111,7 +111,7 @@ describe('Landing', () => {
             </MemoryRouter>
         );
 
-        expect(screen.queryByText('description')).not.toBeInTheDocument();
+        expect(screen.queryByText('landing.description')).not.toBeInTheDocument();
         expect(screen.queryByTestId('landing-go')).not.toBeInTheDocument();
     });
 });
