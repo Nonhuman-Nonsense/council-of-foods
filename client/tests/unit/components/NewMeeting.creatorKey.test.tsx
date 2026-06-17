@@ -59,8 +59,8 @@ vi.mock("@newMeeting/SelectTopic", () => ({
 }));
 
 const twoCharacters: Character[] = [
-    MockFactory.createCharacter({ id: "water", name: "Water", description: "", prompt: "" }),
-    MockFactory.createCharacter({ id: "tomato", name: "Tomato", description: "", prompt: "" }),
+    MockFactory.createCharacter({ id: "chair", name: "Chair", description: "", prompt: "" }),
+    MockFactory.createCharacter({ id: "participant-a", name: "Participant A", description: "", prompt: "" }),
 ];
 
 vi.mock("@newMeeting/SelectCharacters", () => ({

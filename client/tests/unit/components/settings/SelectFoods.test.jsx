@@ -16,7 +16,20 @@ vi.mock('@/utils', () => ({
     toTitleCase: (str) => str,
     filename: (str) => str
 }));
-// Uses the real default character setup bundle through the shared test loader.
+
+const [chair, ...selectableCharacters] = characterSetupEn.characters;
+const [firstParticipant, secondParticipant] = selectableCharacters;
+const maxParticipantSelection = selectableCharacters.slice(0, 6);
+const overflowParticipant = selectableCharacters[6];
+
+function clickCharacter(name) {
+    fireEvent.click(screen.getByAltText(name));
+}
+
+function selectMinimumParticipants() {
+    clickCharacter(firstParticipant.name);
+    clickCharacter(secondParticipant.name);
+}
 
 describe('SelectCharacters Component', () => {
     let mockOnContinue;
@@ -38,9 +51,7 @@ describe('SelectCharacters Component', () => {
     it('should render correctly with default chair selected', () => {
         render(<ControlledSelectCharacters />);
 
-        // Real file default chair is Water
-        const waterBtn = screen.getByAltText('Water');
-        expect(waterBtn).toBeInTheDocument();
+        expect(screen.getByAltText(chair.name)).toBeInTheDocument();
     });
 
     it('should enforce min participants (2) before allowing Start', () => {
@@ -49,53 +60,40 @@ describe('SelectCharacters Component', () => {
         expect(screen.queryByText('start')).not.toBeInTheDocument();
         expect(screen.getByText('selectfoods.pleaseselect')).toBeInTheDocument();
 
-        // Select Tomato
-        const tomatoBtn = screen.getByAltText('Tomato');
-        fireEvent.click(tomatoBtn);
-
-        // Still not enough (2 < 3)
+        clickCharacter(firstParticipant.name);
         expect(screen.queryByText('start')).not.toBeInTheDocument();
 
-        // Select Potato
-        fireEvent.click(screen.getByAltText('Potato'));
-
-        // Now we have 3 (Water, Tomato, Potato). Expect Start button
-        const startBtn = screen.getByText('start');
-        expect(startBtn).toBeInTheDocument();
+        clickCharacter(secondParticipant.name);
+        expect(screen.getByText('start')).toBeInTheDocument();
     });
 
-    it('should construct the prompt correctly with participants', () => {
+    it('should pass selected characters to onContinueForward', () => {
         render(<ControlledSelectCharacters />);
 
-        // Select Tomato and Potato
-        fireEvent.click(screen.getByAltText('Tomato'));
-        fireEvent.click(screen.getByAltText('Potato'));
-
-        // Click Start
+        selectMinimumParticipants();
         fireEvent.click(screen.getByText('start'));
 
-        // Verify onContinueForward called
         expect(mockOnContinue).toHaveBeenCalledTimes(1);
-        const calledArg = mockOnContinue.mock.calls[0][0];
+        const passedCharacters = mockOnContinue.mock.calls[0][0].characters;
 
-        const passedCharacters = calledArg.characters;
-        expect(passedCharacters).toHaveLength(3); // Water, Tomato, Potato
-
-        // Check Chair's prompt injection
-        // Using real text from the default character bundle: "Todays participants are: [CHARACTERS].[HUMANS]"
-        // Expected replacement: "Todays participants are: Tomato, Potato."
-
-        expect(passedCharacters[0].prompt).toContain("Todays participants are: Tomato, Potato.");
+        expect(passedCharacters).toHaveLength(3);
+        expect(passedCharacters.map((character) => character.id)).toEqual([
+            chair.id,
+            firstParticipant.id,
+            secondParticipant.id,
+        ]);
+        expect(passedCharacters.map((character) => character.name)).toEqual([
+            chair.name,
+            firstParticipant.name,
+            secondParticipant.name,
+        ]);
     });
 
-    it('should handle Human Panelists injection into prompt', async () => {
+    it('should include human panelists in the selected characters', async () => {
         render(<ControlledSelectCharacters />);
 
-        // Select Tomato AND Potato to meet min requirements (3 foods)
-        fireEvent.click(screen.getByAltText('Tomato'));
-        fireEvent.click(screen.getByAltText('Potato'));
+        selectMinimumParticipants();
 
-        // Add Human
         const addBtn = screen.getByAltText('add human');
         fireEvent.click(addBtn);
 
@@ -105,136 +103,101 @@ describe('SelectCharacters Component', () => {
         fireEvent.change(nameInput, { target: { value: 'Alice' } });
         fireEvent.change(descInput, { target: { value: 'A thoughtful human' } });
 
-        // Check Start button
         const startBtn = await screen.findByText('start');
         fireEvent.click(startBtn);
 
         const passedCharacters = mockOnContinue.mock.calls[0][0].characters;
-        const chair = passedCharacters[0];
+        const humanPanelist = passedCharacters.find((character) => character.id.startsWith("panelist"));
 
-        // Verify [HUMANS] replacement
-        // Using real text for panelWithHumans: " As a special for today, on the panel are also [HUMANS]. Welcome them especially! "
-        // Logic: "selectfoods.human" + "Alice, A thoughtful human"
+        expect(passedCharacters.map((character) => character.id)).toEqual([
+            chair.id,
+            firstParticipant.id,
+            secondParticipant.id,
+            'panelist0',
+        ]);
+        expect(humanPanelist).toEqual(expect.objectContaining({
+            name: 'Alice',
+            description: 'A thoughtful human',
+        }));
 
-        expect(chair.prompt).toContain("on the panel are also selectfoods.humanAlice, A thoughtful human.");
-
-        // Verify that the Human Panelist has a voice assigned (Chair's voice)
-        // Find the human object in the passed array
-        const humanPanelist = passedCharacters.find(f => f.id.startsWith("panelist"));
-        expect(humanPanelist).toBeDefined();
-        // Since default chair is Water, voice should mirror the first character in the default character bundle.
-        expect(humanPanelist.voice).toBe(characterSetupEn.characters[0].voice);
-        expect(humanPanelist.voiceProvider).toBe(characterSetupEn.characters[0].voiceProvider);
-        expect(humanPanelist.voiceTemperature).toBe(characterSetupEn.characters[0].voiceTemperature);
-        expect(humanPanelist.voiceInstruction).toBe(characterSetupEn.characters[0].voiceInstruction);
-        expect(humanPanelist.voiceLocale).toBe(characterSetupEn.characters[0].voiceLocale);
+        expect(humanPanelist.voice).toBe(chair.voice);
+        expect(humanPanelist.voiceProvider).toBe(chair.voiceProvider);
+        expect(humanPanelist.voiceTemperature).toBe(chair.voiceTemperature);
+        expect(humanPanelist.voiceInstruction).toBe(chair.voiceInstruction);
+        expect(humanPanelist.voiceLocale).toBe(chair.voiceLocale);
     });
 
     it('should maintain focus on description when typing', async () => {
         render(<ControlledSelectCharacters />);
 
-        // Add Human
         const addBtn = screen.getByAltText('add human');
         fireEvent.click(addBtn);
 
         const nameInput = screen.getByPlaceholderText('selectfoods.humanname');
         const descInput = screen.getByPlaceholderText('selectfoods.humandesc');
 
-        // Focus name (default behavior)
         expect(document.activeElement).toBe(nameInput);
 
-        // Switch focus to description
         descInput.focus();
         expect(document.activeElement).toBe(descInput);
 
-        // Type in description - this updates state and re-renders
         fireEvent.change(descInput, { target: { value: 'A' } });
 
-        // If bug exists, focus jumps back to nameInput
         expect(document.activeElement).toBe(descInput);
     });
 
     it('should prevent selecting more than max participants (6)', () => {
+        expect(maxParticipantSelection).toHaveLength(6);
+        expect(overflowParticipant).toBeDefined();
+
         render(<ControlledSelectCharacters />);
 
-        // Select 6 items (Chair + 5 others) to reach max (6 + 1 chair = 7)
-
-        // Chair (Water) is already selected.
-        // We select 6 more: Tomato, Potato, Mushroom, Maize, Avocado, Banana.
-        // Total = 7.
-        const foods = ['Tomato', 'Potato', 'Mushroom', 'Maize', 'Avocado', 'Banana'];
-
-        foods.forEach(food => {
-            const btn = screen.getByAltText(food);
-            fireEvent.click(btn);
+        maxParticipantSelection.forEach((character) => {
+            clickCharacter(character.name);
         });
 
-        // Try to select one more (e.g. Bean)
-        const extraBtn = screen.getByAltText('Bean');
-        fireEvent.click(extraBtn);
+        clickCharacter(overflowParticipant.name);
 
-        const startBtn = screen.getByText('start');
-        fireEvent.click(startBtn);
+        fireEvent.click(screen.getByText('start'));
 
         const passedCharacters = mockOnContinue.mock.calls[0][0].characters;
-        // Should only be 7 items (Water + 6 selected) ??
-        // Wait, maxFoods = 7.
-        // If I selected 6 others + Water = 7.
-        // If I click Bean, it checks < 7. 7 < 7 is false.
-        // So Bean is NOT selected.
 
         expect(passedCharacters.length).toBeLessThanOrEqual(7);
-        expect(passedCharacters.map(f => f.name)).not.toContain('Bean');
+        expect(passedCharacters.map((character) => character.name)).not.toContain(overflowParticipant.name);
     });
 
     it('should deselect a food when clicked again', () => {
         render(<ControlledSelectCharacters />);
 
-        const tomatoBtn = screen.getByAltText('Tomato');
+        const participantBtn = screen.getByAltText(firstParticipant.name);
 
-        // Select
-        fireEvent.click(tomatoBtn);
-        // Check if selected (we can assume it is if we can deselect it)
+        fireEvent.click(participantBtn);
+        fireEvent.click(participantBtn);
 
-        // Deselect
-        fireEvent.click(tomatoBtn);
-
-        // We can't easily check internal state, but we can check if Start button is hidden (since only Chair is left = 1 food, need 2)
         expect(screen.queryByText('start')).not.toBeInTheDocument();
     });
 
     it('should show error when human panelists have duplicate names', async () => {
         render(<ControlledSelectCharacters />);
 
-        // Select Tomato and Potato to satisfy atLeastTwoFoods requirement
-        fireEvent.click(screen.getByAltText('Tomato'));
-        fireEvent.click(screen.getByAltText('Potato'));
+        selectMinimumParticipants();
 
-        // Add Human 1
         const addBtn = screen.getByAltText('add human');
         fireEvent.click(addBtn);
 
-        // Edit Human 1
         let nameInput = screen.getByPlaceholderText('selectfoods.humanname');
         let descInput = screen.getByPlaceholderText('selectfoods.humandesc');
         fireEvent.change(nameInput, { target: { value: 'Bob' } });
         fireEvent.change(descInput, { target: { value: 'Desc 1' } });
 
-        // Add Human 2 (this should auto-select Human 2)
         fireEvent.click(addBtn);
 
-        // Edit Human 2
         nameInput = screen.getByPlaceholderText('selectfoods.humanname');
         descInput = screen.getByPlaceholderText('selectfoods.humandesc');
-        // Ensure input is empty or fresh (though we just added it)
         fireEvent.change(nameInput, { target: { value: 'Bob' } });
         fireEvent.change(descInput, { target: { value: 'Desc 2' } });
 
-        // Now we have two Bobs.
-        // We need to look for the global error message, not inside the form.
         expect(await screen.findByText('selectfoods.unique')).toBeInTheDocument();
-
-        // Start button should be hidden
         expect(screen.queryByText('start')).not.toBeInTheDocument();
     });
 });

@@ -39,6 +39,7 @@
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:watch": "vitest",
+    "test:foods": "vitest run tests/foods",
     "e2e": "playwright test",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix"

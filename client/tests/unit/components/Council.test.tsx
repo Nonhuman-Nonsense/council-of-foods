@@ -8,8 +8,8 @@ import { MockFactory } from '../factories/MockFactory';
 
 // Mock Child Components
 vi.mock('@council/ConversationControls', () => ({
-    default: ({ onMuteUnmute, isMuted }: any) => (
-        <div data-testid="conversation-controls">
+    default: ({ onMuteUnmute, isMuted, hidden }: any) => (
+        <div data-testid="conversation-controls" aria-hidden={hidden}>
             <button
                 data-testid="mock-mute-button"
                 onClick={onMuteUnmute}
@@ -108,6 +108,12 @@ vi.mock('@council/hooks/useCouncilMachine', () => ({
     useCouncilMachine: (...args: any[]) => mockUseCouncilMachine(...args)
 }));
 
+const mockUseAppMode = vi.fn(() => ({ isMuseumMode: false, mode: 'web' as const, setAppMode: vi.fn() }));
+
+vi.mock('@/museum/useAppMode', () => ({
+    useAppMode: () => mockUseAppMode(),
+}));
+
 
 describe('Council Component', () => {
     const defaultProps = {
@@ -183,6 +189,14 @@ describe('Council Component', () => {
             setPaused: defaultProps.setPaused,
             setAudioPaused: defaultProps.setAudioPaused,
         }));
+    });
+
+    it('hides conversation controls in museum mode but keeps them in the layout', () => {
+        mockUseAppMode.mockReturnValue({ isMuseumMode: true, mode: 'museum', setAppMode: vi.fn() });
+
+        render(<Council {...defaultProps} />);
+
+        expect(screen.getByTestId('conversation-controls')).toHaveAttribute('aria-hidden', 'true');
     });
 
     it('surfaces an unrecoverable error if human_panelist has no awaiting marker', () => {

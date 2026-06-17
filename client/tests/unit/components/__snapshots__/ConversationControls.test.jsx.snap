@@ -3,7 +3,8 @@
 exports[`ConversationControls > renders all controls when active and not paused 1`] = `
 <DocumentFragment>
   <div
-    style="pointer-events: auto; z-index: 3; position: relative;"
+    aria-hidden="false"
+    style="pointer-events: auto; visibility: visible; z-index: 3; position: relative;"
   >
     <div
       style="display: flex; flex-direction: row;"

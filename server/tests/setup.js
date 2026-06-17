@@ -1,3 +1,4 @@
+import './classifierMock.setup.js';
 import { beforeAll, beforeEach, afterAll, vi } from 'vitest';
 import { initDb, closeDb, meetingsCollection, audioCollection, counters } from '@services/DbService.js';
 import { TEST_MODES } from '@interfaces/TestModes.js';

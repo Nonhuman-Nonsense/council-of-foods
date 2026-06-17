@@ -426,10 +426,11 @@ export function useCouncilMachine({
 
             if (socketRef.current) socketRef.current.emit("submit_human_panelist", { text: newTopic, speaker: pendingMessage.speaker });
 
-            //Slice off the waiting for panelist
-            setTextMessages((prevMessages) => {
-                return prevMessages.slice(0, playNextIndex);
-            });
+            const now = textMessages[playingNowIndex]?.type === 'invitation' ? playingNowIndex - 1 : playingNowIndex;
+            const next = textMessages[playingNowIndex]?.type === 'invitation' ? playNextIndex - 1 : playNextIndex;
+            setTextMessages((prevMessages) => prevMessages.slice(0, next));
+            setPlayingNowIndex(now);
+            setPlayNextIndex(next);
             calculateNextAction();
         } else {
             if (socketRef.current) socketRef.current.emit("submit_human_message", { text: newTopic });

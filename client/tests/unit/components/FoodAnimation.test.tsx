@@ -2,14 +2,27 @@ import { describe, it, expect, vi, beforeEach, afterEach, Mock } from 'vitest';
 import { render, screen, act } from '@testing-library/react';
 import FoodAnimation from '@council/FoodAnimation';
 import type { Character } from '@newMeeting/SelectCharacters';
+import { characterSetupEn } from '../../characterSetupTestData';
 
-// Mock video play/pause
+const [, sampleCharacter, otherCharacter] = characterSetupEn.characters;
+const otherSpeakerId = otherCharacter?.id ?? 'other-speaker';
+
 const originalPlay = window.HTMLMediaElement.prototype.play;
 const originalPause = window.HTMLMediaElement.prototype.pause;
 
 describe('FoodAnimation', () => {
     let playMock: Mock;
     let pauseMock: Mock;
+
+    const mockFood: Character = {
+        id: sampleCharacter.id,
+        size: 1,
+        name: sampleCharacter.name,
+        description: sampleCharacter.description,
+        prompt: sampleCharacter.prompt ?? '',
+        voice: 'alloy',
+    };
+    const mockStyles = { width: '100px' };
 
     beforeEach(() => {
         playMock = vi.fn().mockResolvedValue(undefined);
@@ -23,16 +36,6 @@ describe('FoodAnimation', () => {
         window.HTMLMediaElement.prototype.pause = originalPause;
         vi.clearAllMocks();
     });
-
-    const mockFood: Character = {
-        id: 'banana',
-        size: 1,
-        name: 'Banana',
-        description: 'A yellow fruit',
-        prompt: 'You are Banana.',
-        voice: 'alloy',
-    };
-    const mockStyles = { width: '100px' };
 
     it('renders video element with correct sources', () => {
         render(
@@ -50,8 +53,8 @@ describe('FoodAnimation', () => {
 
         const sources = video.querySelectorAll('source');
         expect(sources).toHaveLength(2);
-        expect(sources[0].getAttribute('src')).toContain('banana-hevc-safari');
-        expect(sources[1].getAttribute('src')).toContain('banana-vp9-chrome');
+        expect(sources[0].getAttribute('src')).toContain(`${sampleCharacter.id}-hevc-safari`);
+        expect(sources[1].getAttribute('src')).toContain(`${sampleCharacter.id}-vp9-chrome`);
     });
 
     it('pauses video initially after mount (safari fix)', async () => {
@@ -64,10 +67,7 @@ describe('FoodAnimation', () => {
             />
         );
 
-        // The component plays then immediately pauses on mount
-        await act(async () => {
-            // Wait for useEffect
-        });
+        await act(async () => {});
 
         expect(playMock).toHaveBeenCalled();
         expect(pauseMock).toHaveBeenCalled();
@@ -83,17 +83,15 @@ describe('FoodAnimation', () => {
             />
         );
 
-        // Wait for initial mount logic
         await act(async () => { });
         playMock.mockClear();
         pauseMock.mockClear();
 
-        // Update to be active speaker
         rerender(
             <FoodAnimation
                 food={mockFood}
                 styles={mockStyles}
-                currentSpeakerId="banana"
+                currentSpeakerId={sampleCharacter.id}
                 isPaused={false}
             />
         );
@@ -108,19 +106,18 @@ describe('FoodAnimation', () => {
             <FoodAnimation
                 food={mockFood}
                 styles={mockStyles}
-                currentSpeakerId="banana"
+                currentSpeakerId={sampleCharacter.id}
                 isPaused={false}
             />
         );
 
         await act(async () => { });
 
-        // Update to different speaker
         rerender(
             <FoodAnimation
                 food={mockFood}
                 styles={mockStyles}
-                currentSpeakerId="apple"
+                currentSpeakerId={otherSpeakerId}
                 isPaused={false}
             />
         );
@@ -134,7 +131,7 @@ describe('FoodAnimation', () => {
             <FoodAnimation
                 food={mockFood}
                 styles={mockStyles}
-                currentSpeakerId="banana"
+                currentSpeakerId={sampleCharacter.id}
                 isPaused={false}
             />
         );
@@ -145,7 +142,7 @@ describe('FoodAnimation', () => {
             <FoodAnimation
                 food={mockFood}
                 styles={mockStyles}
-                currentSpeakerId="banana"
+                currentSpeakerId={sampleCharacter.id}
                 isPaused={true}
             />
         );

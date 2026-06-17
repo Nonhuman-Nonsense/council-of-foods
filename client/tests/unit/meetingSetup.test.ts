@@ -3,7 +3,7 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import type { Character } from "@shared/ModelTypes";
 import { RANDOM_AGENDA_POINT_PLACEHOLDER, RANDOM_AGENDA_POINT_FALLBACK } from "@shared/agendaPointInjection";
 import { AGENDA_POINTS_PLACEHOLDER, TOPIC_PLACEHOLDER } from "@shared/topicPrompt";
-import { buildMeetingCharactersPayload, buildTopicFromSelection } from "@newMeeting/meetingSetup";
+import { buildMeetingCharactersPayload, buildTopicFromSelection, orderSelectedCharactersForMuseum } from "@newMeeting/meetingSetup";
 
 vi.mock("@newMeeting/CharacterSetup", () => ({
   getCharacterSetupBundle: () => ({
@@ -35,6 +35,7 @@ vi.mock("@newMeeting/CharacterSetup", () => ({
 }));
 
 const topicsBundle = {
+  language: "en",
   system: `System intro.\n\n${TOPIC_PLACEHOLDER}\n${AGENDA_POINTS_PLACEHOLDER}\n\nSystem outro.`,
   custom_topic: {
     id: "customtopic",
@@ -106,7 +107,45 @@ describe("buildMeetingCharactersPayload", () => {
     vi.restoreAllMocks();
   });
 
-  it("injects a numeric random agenda point when agenda points are provided", () => {
+    it("replaces [CHARACTERS] with non-chair participants", () => {
+        const result = buildCharactersPayload();
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+
+        const chair = result.characters[0] as Character;
+        expect(chair.prompt).not.toContain("[CHARACTERS]");
+        expect(chair.prompt).toContain("Food A");
+        expect(chair.prompt).toContain("Food B");
+        expect(chair.prompt).not.toContain("Chair");
+    });
+
+    it("replaces [HUMANS] with panelist presentation", () => {
+        const result = buildMeetingCharactersPayload({
+            language: "en",
+            selectedCharacters: ["chair", "food-a", "food-b", "panelist0"],
+            humans: [
+                {
+                    id: "panelist0",
+                    name: "Alice",
+                    description: "A thoughtful human",
+                    voice: "alloy",
+                    prompt: "",
+                },
+            ],
+            numberOfHumans: 1,
+            labels: { oneHuman: "Human: ", twoHumansSuffix: " humans: " },
+        });
+
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+
+        const chair = result.characters[0] as Character;
+        expect(chair.prompt).not.toContain("[HUMANS]");
+        expect(chair.prompt).toContain("Alice");
+        expect(chair.prompt).toContain("A thoughtful human");
+    });
+
+    it("injects a numeric random agenda point when agenda points are provided", () => {
     vi.spyOn(Math, "random").mockReturnValue(0.5);
     const result = buildCharactersPayload(["One", "Two", "Three", "Four"]);
     expect(result.ok).toBe(true);
@@ -125,5 +164,53 @@ describe("buildMeetingCharactersPayload", () => {
     const chair = result.characters[0] as Character;
     expect(chair.prompt).toContain(RANDOM_AGENDA_POINT_FALLBACK);
     expect(chair.prompt).not.toContain(RANDOM_AGENDA_POINT_PLACEHOLDER);
+  });
+
+  it("allows museum panelists without descriptions", () => {
+    const result = buildMeetingCharactersPayload({
+      language: "en",
+      selectedCharacters: ["chair", "food-a", "panelist0", "food-b"],
+      humans: [
+        {
+          id: "panelist0",
+          name: "Alex",
+          description: "",
+          voice: "alloy",
+          prompt: "",
+        },
+      ],
+      numberOfHumans: 1,
+      labels: { oneHuman: "Human: ", twoHumansSuffix: " humans: " },
+      isMuseumMode: true,
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    expect(result.characters.map((character) => character.id)).toEqual([
+      "chair",
+      "food-a",
+      "panelist0",
+      "food-b",
+    ]);
+    expect(result.characters[0].prompt).toContain("Alex");
+    expect(result.characters[0].prompt).not.toContain("Alex, ");
+  });
+});
+
+describe("orderSelectedCharactersForMuseum", () => {
+  it("places panelist second-to-last before the final food", () => {
+    expect(
+      orderSelectedCharactersForMuseum(["chair", "food-a", "food-b", "panelist0", "food-c"])
+    ).toEqual(["chair", "food-a", "food-b", "panelist0", "food-c"]);
+
+    expect(
+      orderSelectedCharactersForMuseum(["chair", "food-a", "panelist0", "food-b"])
+    ).toEqual(["chair", "food-a", "panelist0", "food-b"]);
+  });
+
+  it("returns unchanged when no panelists are selected", () => {
+    const input = ["chair", "food-a", "food-b"];
+    expect(orderSelectedCharactersForMuseum(input)).toEqual(input);
   });
 });

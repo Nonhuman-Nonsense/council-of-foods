@@ -34,7 +34,10 @@ export default defineConfig(async ({ command, mode }) => ({
       globals: true,
       environment: 'jsdom',
       setupFiles: './tests/unit/setupTests.js',
-      include: ['tests/unit/**/*.{test,spec}.{js,jsx,ts,tsx}'],
+      include: [
+        'tests/unit/**/*.{test,spec}.{js,jsx,ts,tsx}',
+        'tests/foods/**/*.{test,spec}.{js,jsx,ts,tsx}',
+      ],
       coverage: {
         provider: 'v8',
         reporter: ['text', 'json', 'html'],

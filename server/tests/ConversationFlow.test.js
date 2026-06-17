@@ -71,24 +71,22 @@ describe('MeetingManager - Conversation Flow', () => {
         // So safe to call processTurn directly for unit test if we want to check that specific guard.
         // But better to call runLoop or startLoop to test the flow.
         protoManager.startLoop();
+        await vi.waitFor(() => expect(protoManager.isLoopActive).toBe(false));
         expect(SpeakerSelector.calculateNextSpeaker).not.toHaveBeenCalled();
 
         // Resume
-        // Mock generation to stop recursion
-        vi.spyOn(protoManager.dialogGenerator, 'generateTextFromGPT').mockResolvedValue({
-            response: "Test", id: "1", sentences: []
+        vi.spyOn(protoManager.dialogGenerator, 'generateResponseWithRetry').mockResolvedValue({
+            response: "Test", id: "1", sentences: ["Test"]
         });
         vi.spyOn(protoManager.audioSystem, 'queueAudioGeneration').mockImplementation(() => { });
 
         await protoManager.handleEvent('resume_conversation', null);
 
-        // Wait for async loop to tick
-        await new Promise(resolve => setTimeout(resolve, 50));
+        await vi.waitFor(() => {
+            expect(protoManager.meeting.conversation.length).toBeGreaterThan(0);
+        });
 
         expect(protoManager.isPaused).toBe(false);
-        // It should have called startLoop -> runLoop -> processTurn and generated a message
-        // Since we mocked generateTextFromGPT to return "Test", conversation should increase
-        expect(protoManager.meeting.conversation.length).toBeGreaterThan(0);
 
         // Cleanup: Stop the loop to prevent leakage into other tests
         protoManager.isLoopActive = false;
@@ -192,11 +190,17 @@ describe('MeetingManager - Conversation Flow', () => {
         const action = manager.decideNextAction();
         expect(action.type).toBe('REQUEST_PANELIST');
         const speaker = manager.meeting.characters[panelistId];
+        const chairInterjectionSpy = vi.spyOn(manager.dialogGenerator, 'chairInterjection').mockResolvedValue({
+            response: 'Please welcome Alice.',
+            id: 'invite-1',
+        });
         await manager.processTurn({ type: action.type, speaker });
 
-        expect(manager.meeting.conversation).toHaveLength(1);
-        expect(manager.meeting.conversation[0].type).toBe('awaiting_human_panelist');
-        expect(manager.meeting.conversation[0].speaker).toBe('panelist0');
+        expect(chairInterjectionSpy).toHaveBeenCalled();
+        expect(manager.meeting.conversation).toHaveLength(2);
+        expect(manager.meeting.conversation[0].type).toBe('invitation');
+        expect(manager.meeting.conversation[1].type).toBe('awaiting_human_panelist');
+        expect(manager.meeting.conversation[1].speaker).toBe('panelist0');
         expect(manager.services.meetingsCollection.updateOne).toHaveBeenCalled();
 
         // Verify it returns early (does not call generateGPT/Audio/recurse)
