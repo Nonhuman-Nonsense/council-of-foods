@@ -5,13 +5,14 @@
   "geminiVoiceModel": "gemini-2.5-flash-tts",
   "inworldVoiceModel": "inworld-tts-1.5-max",
   "temperature": 1,
-  "maxTokens": 200,
-  "chairMaxTokens": 250,
+  "maxTokens": 400,
+  "chairMaxTokens": 400,
   "defaultAudioSpeed": 1.15,
   "subtitleTimingPriorities": ["inworld", "whisper", "estimated"],
-  "trimSentance": false,
-  "trimParagraph": true,
-  "trimChairSemicolon": true,
+  "directedSpeakerRouting": true,
+  "trimSentance": true,
+  "trimParagraph": false,
+  "trimChairSemicolon": false,
   "show_trimmed": true,
   "skipAudio": false,
   "conversationMaxLength": 10,
@@ -33,6 +34,5 @@
   "voiceGuideRealtimeModel": "google-ai-studio/gemini-2.5-flash",
   "voiceGuideOpenAIRealtimeModel": "gpt-realtime",
   "voiceGuideRealtimeTranscriptionModel": "assemblyai/u3-rt-pro",
-  "speakerClassifierModel": "google-ai-studio/gemini-2.5-flash",
-  "directedSpeakerRouting": false
+  "speakerClassifierModel": "google-ai-studio/gemini-2.5-flash"
 }
