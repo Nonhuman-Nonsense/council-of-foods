@@ -3,6 +3,7 @@ import { describe, it, expect } from "vitest";
 import {
   AGENDA_POINTS_PLACEHOLDER,
   AGENDA_SECTION_HEADER,
+  AGENDA_SECTION_HEADER_SV,
   TOPIC_PLACEHOLDER,
   agendaPointCountFromAgendaPoints,
   buildAgendaPointsText,
@@ -12,6 +13,7 @@ import {
 
 describe("topicPrompt", () => {
   const systemTemplate = `Welcome.\n\nToday's meeting is about:\n\n${TOPIC_PLACEHOLDER}\n${AGENDA_POINTS_PLACEHOLDER}\n\nEach participant speaks.`;
+  const swedishSystemTemplate = `Välkommen.\n\n${TOPIC_PLACEHOLDER}\n${AGENDA_POINTS_PLACEHOLDER}\n\nVarje deltagare talar.`;
 
   it("builds agenda text with numbered items", () => {
     expect(buildAgendaPointsText(["First item", "Second item"])).toBe(
@@ -31,10 +33,16 @@ describe("topicPrompt", () => {
 
   it("inserts numbered agenda points at [AGENDA_POINTS]", () => {
     const result = buildMeetingSystemPrompt(systemTemplate, "Topic body.", ["One", "Two"]);
-    expect(result).toContain("Topic body.\n\nToday's Agenda Points:");
+    expect(result).toContain(`Topic body.\n\n${AGENDA_SECTION_HEADER}`);
     expect(result).toContain("1. One");
     expect(result).toContain("2. Two");
     expect(result).not.toContain(AGENDA_POINTS_PLACEHOLDER);
+  });
+
+  it("uses the Swedish agenda header when language is sv", () => {
+    const result = buildMeetingSystemPrompt(swedishSystemTemplate, "Ämne.", ["Ett", "Två"], "sv");
+    expect(result).toContain(AGENDA_SECTION_HEADER_SV);
+    expect(result).toContain("1. Ett");
   });
 
   it("derives agenda point count from non-empty items only", () => {

@@ -35,6 +35,7 @@ vi.mock("@newMeeting/CharacterSetup", () => ({
 }));
 
 const topicsBundle = {
+  language: "en",
   system: `System intro.\n\n${TOPIC_PLACEHOLDER}\n${AGENDA_POINTS_PLACEHOLDER}\n\nSystem outro.`,
   custom_topic: {
     id: "customtopic",
