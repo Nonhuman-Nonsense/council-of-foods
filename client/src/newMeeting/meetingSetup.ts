@@ -93,7 +93,12 @@ export function buildTopicFromSelection(params: {
     built.description = customTopic;
     built.agendaPoints = undefined;
   }
-  built.prompt = buildMeetingSystemPrompt(topicsBundle.system, built.prompt, built.agendaPoints);
+  built.prompt = buildMeetingSystemPrompt(
+    topicsBundle.system,
+    built.prompt,
+    built.agendaPoints,
+    topicsBundle.language,
+  );
   return built;
 }
 
