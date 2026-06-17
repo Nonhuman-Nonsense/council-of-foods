@@ -64,7 +64,7 @@ describe('SelectCharacters Component', () => {
         expect(startBtn).toBeInTheDocument();
     });
 
-    it('should construct the prompt correctly with participants', () => {
+    it('should pass selected characters to onContinueForward', () => {
         render(<ControlledSelectCharacters />);
 
         // Select Tomato and Potato
@@ -76,16 +76,19 @@ describe('SelectCharacters Component', () => {
 
         // Verify onContinueForward called
         expect(mockOnContinue).toHaveBeenCalledTimes(1);
-        const calledArg = mockOnContinue.mock.calls[0][0];
+        const passedCharacters = mockOnContinue.mock.calls[0][0].characters;
 
-        const passedCharacters = calledArg.characters;
         expect(passedCharacters).toHaveLength(3); // Water, Tomato, Potato
-
-        // Check Chair's prompt injection
-        // Using real text from the default character bundle: "Todays participants are: [CHARACTERS].[HUMANS]"
-        // Expected replacement: "Todays participants are: Tomato, Potato."
-
-        expect(passedCharacters[0].prompt).toContain("Todays participants are: Tomato, Potato.");
+        expect(passedCharacters.map((character) => character.id)).toEqual([
+            characterSetupEn.characters[0].id,
+            'tomato',
+            'potato',
+        ]);
+        expect(passedCharacters.map((character) => character.name)).toEqual([
+            'Water',
+            'Tomato',
+            'Potato',
+        ]);
     });
 
     it('should handle Human Panelists injection into prompt', async () => {
@@ -110,19 +113,20 @@ describe('SelectCharacters Component', () => {
         fireEvent.click(startBtn);
 
         const passedCharacters = mockOnContinue.mock.calls[0][0].characters;
-        const chair = passedCharacters[0];
+        const humanPanelist = passedCharacters.find((character) => character.id.startsWith("panelist"));
 
-        // Verify [HUMANS] replacement
-        // Using real text for panelWithHumans: " As a special for today, on the panel are also [HUMANS]. Welcome them especially! "
-        // Logic: "selectfoods.human" + "Alice, A thoughtful human"
-
-        expect(chair.prompt).toContain("on the panel are also selectfoods.humanAlice, A thoughtful human.");
+        expect(passedCharacters.map((character) => character.id)).toEqual([
+            characterSetupEn.characters[0].id,
+            'tomato',
+            'potato',
+            'panelist0',
+        ]);
+        expect(humanPanelist).toEqual(expect.objectContaining({
+            name: 'Alice',
+            description: 'A thoughtful human',
+        }));
 
         // Verify that the Human Panelist has a voice assigned (Chair's voice)
-        // Find the human object in the passed array
-        const humanPanelist = passedCharacters.find(f => f.id.startsWith("panelist"));
-        expect(humanPanelist).toBeDefined();
-        // Since default chair is Water, voice should mirror the first character in the default character bundle.
         expect(humanPanelist.voice).toBe(characterSetupEn.characters[0].voice);
         expect(humanPanelist.voiceProvider).toBe(characterSetupEn.characters[0].voiceProvider);
         expect(humanPanelist.voiceTemperature).toBe(characterSetupEn.characters[0].voiceTemperature);

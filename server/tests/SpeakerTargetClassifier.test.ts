@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("@logic/SpeakerClassifierBase.js", async (importOriginal) => importOriginal());
+
 import { SpeakerTargetClassifier } from "@logic/SpeakerTargetClassifier.js";
 import { CHAIR_ID } from "@logic/GlobalOptions.js";
 import { Logger } from "@utils/Logger.js";

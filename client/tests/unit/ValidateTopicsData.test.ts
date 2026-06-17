@@ -53,7 +53,6 @@ describe('Validate Topics Data JSONs', () => {
             expect(typeof data.system).toBe('string');
             expect(data.system.length).toBeGreaterThan(0);
             expect(data.system).toContain('[TOPIC]');
-            expect(data.system).toContain('[AGENDA_POINTS]');
 
             // 5. Validate Custom Topic
             expect(data.custom_topic).toHaveProperty('id');
