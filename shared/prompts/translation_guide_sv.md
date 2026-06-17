@@ -1,400 +1,321 @@
 # Swedish Translation Guide — Council of Forest prompts
 
-This guide is the source of truth for translating the English prompt files
-(`beings_en.json`, `topics_en.json`) into their Swedish counterparts
-(`beings_sv.json`, `topics_sv.json`).
+Source of truth when translating `beings_en.json` and `topics_en.json` into
+`beings_sv.json` and `topics_sv.json`.
 
-It captures:
-
-1. The **guiding principles** for tone and style.
-2. A **terminology map** (English → Swedish) of important terms, locking in
-  decisions made in earlier translation passes.
-3. **Per-character voice notes** (each being has its own constraints).
-4. **Open decisions / divergences** that need a human call before re-translating.
-
-> Workflow: review and edit this file first (especially the terminology map and
-> the open decisions). Once it is approved, it becomes the brief for the full
-> re-translation, and we update it whenever a new style decision is made so that
-> future re-translations are fast and consistent.
+Use the English files as the blueprint for meaning, structure, order, and
+function. Update this guide whenever you lock in a new term or style decision,
+so the next pass stays fast and consistent.
 
 ---
 
 ## 1. Guiding principles
 
-- **Natural Swedish first.** The single most important rule. Avoid literal,
-word-for-word translation. If a literal rendering sounds stiff, foreign, or
-"translated", rewrite it so it reads like something a Swedish speaker would
-actually say. Preserve *meaning and function*, not sentence structure.
-- **Preserve meaning, order, and function.** Use the English as the blueprint
-for *what* each prompt does (its structure, its rules, its intent). Keep the
-same sections and the same order unless flagged below.
-- **Keep the established term choices.** The terminology map below reflects
-decisions already made. Reuse them for consistency, even if another word would
-also be valid.
-- **Match register per character.** The council is witty, spoken, sometimes
-messy and funny — not a theatre script and not bureaucratic. Each being has a
-distinct voice (see §3); the tone of the translation must match that voice,
-not a neutral average.
-- **Spoken text only.** No markdown, asterisks, headings, bullet lists, or stage
-directions inside the *spoken* output the beings produce (this is itself a rule
-inside the prompts). The prompt instructions themselves can keep their
-structure.
-- **Leave the mechanics intact.** Do not translate placeholders
-(`[TOPIC]`, `[AGENDA_POINTS]`, `[RANDOM_AGENDA_POINT]`, `[CHARACTERS]`,
-`[HUMANS]`, `[VISITOR_INPUT]`), JSON keys, ids, law numbers (`1971:437`),
-Latin species names (`Pinus contorta`, `Cladina spp.`), or numeric data.
+- **Natural Swedish first.** Preserve meaning and function, not English sentence
+  structure. If a literal rendering sounds stiff or "translated", rewrite it.
+- **Keep established terms.** Reuse the terminology map below for consistency.
+- **Match register per character.** Witty, spoken, sometimes messy — not
+  bureaucratic or theatrical. Each being has its own voice (§3).
+- **Spoken output rules** (inside character prompts): no markdown, asterisks,
+  headings, bullet lists, or stage directions in what beings say aloud. Prompt
+  instructions themselves may keep their structure.
+- **Leave mechanics intact.** Do not translate placeholders (`[TOPIC]`,
+  `[AGENDA_POINTS]`, `[RANDOM_AGENDA_POINT]`, `[CHARACTERS]`, `[HUMANS]`,
+  `[VISITOR_INPUT]`), JSON keys, ids, law numbers (`1971:437`), Latin species
+  names (`Pinus contorta`, `Cladina spp.`), or numeric data.
 
 ### Global conventions
 
-- **Address form:** beings address the humans / the council as **"ni"** (plural).
-This is already the established convention (e.g. Tallen, Humlan). Keep it.
-- **Self-reference:** follow each character's rule — Lichen is always **"Vi"**,
-the others use **"jag"/"vi"** as appropriate.
-- **Names kept as-is:** Vindelälven–Juhttátahkka, Sápmi, Norrland, Västerbotten,
-Sveaskog, Norra Skog, LKAB, Boliden, Vattenfall, Sametinget, and all Latin and
-proper names.
-- **Onomatopoeia:** translate the "real" Swedish sounds (see §3 per character),
-but keep invented machine/insect sounds recognizable.
+- **Address form:** **"ni"** (plural) when beings address humans or the council.
+- **Self-reference:** Lichen always **"Vi"**; others use **"jag"/"vi"** as in
+  the English prompt.
+- **Names kept as-is:** Vindelälven–Juhttátahkka, Sápmi, Norrland, Sveaskog,
+  LKAB, Sametinget, Latin and proper names, etc.
+- **Onomatopoeia:** use natural Swedish where appropriate; keep invented
+  machine/insect sounds recognizable.
+
+### File structure
+
+**`topics_<lang>.json`**
+
+- `system` — council framing; contains `[TOPIC]` and `[AGENDA_POINTS]`.
+- `custom_topic` — `id`, `title`, `prompt` (with `[VISITOR_INPUT]`).
+- `topics[]` — each topic: `id`, `title`, `description`, `prompt` (context +
+  framing only), `agendaPoints[]` (numbered items injected at `[AGENDA_POINTS]`).
+- Topic `id`s must match across languages.
+
+**`beings_<lang>.json`**
+
+- `panelWithHumans`, `addHuman`, `characters[]` (`id`, `name`, `description`,
+  `prompt`).
+- Swedish characters use `voiceProvider: "openai"` + `voiceInstruction`; translate
+  text fields only — do not copy English Inworld voice settings.
+
+**Code (not in JSON):** agenda section headers (`AGENDA_SECTION_HEADER` /
+`AGENDA_SECTION_HEADER_SV` in `shared/topicPrompt.ts`) are selected by the
+bundle's `language` field (from the `topics_<lang>.json` filename).
 
 ---
 
 ## 2. Terminology map
 
-Format: **English** → **Swedish (established)** — *notes*.
-Rows marked **⚠ DECISION** are new terms (from the rewritten English) with no
-prior Swedish decision; please confirm or change the suggestion.
+Format: **English** → **Swedish** — *notes*.
 
 ### 2.1 Project & meeting core
 
-
-| English                                   | Swedish                                           | Notes                          |
-| ----------------------------------------- | ------------------------------------------------- | ------------------------------ |
-| Council of Forest                         | Skogsrådet                                        | Also "rådet" for "the Council" |
-| biosphere reserve / area                  | biosfärområde                                     |                                |
-| the non-humans / nonhumans                | de icke-mänskliga / mer-än-mänskliga / varelserna |                                |
-| non-human (noun, e.g. "other non-humans") | ickemänniska / ickemänniskor / varelse            | as used in Rights of Nature    |
-| forest beings                             | skogens varelser / skogsvarelser                  |                                |
-| being / creature                          | varelse                                           |                                |
-| panel / panelist                          | panel / panelist                                  |                                |
-| agenda point                              | dagordningspunkt / punkt på dagordning            |                                |
-| chair / moderator                         | ordförande / moderator                            |                                |
-| stand-up                                  | stand-up                                          | kept                           |
-| Add Human / Human                         | Människa                                          | character/option label         |
-
+| English | Swedish | Notes |
+| --- | --- | --- |
+| Council of Forest | Skogsrådet | Also "rådet" for "the Council" |
+| biosphere reserve / area | biosfärområde | |
+| the non-humans / nonhumans | de icke-mänskliga / mer-än-mänskliga / varelserna | |
+| non-human (noun) | ickemänniska / ickemänniskor / varelse | Rights of Nature context |
+| forest beings | skogens varelser / skogsvarelser | |
+| being / creature | varelse | |
+| panel / panelist | panel / panelist | |
+| agenda point | dagordningspunkt / punkt på dagordning | |
+| chair / moderator | ordförande / moderator | |
+| stand-up | stand-up | kept |
+| Add Human / Human | Människa | character/option label |
 
 ### 2.2 Character names
 
-
-| English        | Swedish         |
-| -------------- | --------------- |
-| River          | Älven           |
-| Reindeer       | Renen           |
-| Bumblebee      | Humlan          |
-| Tree Harvester | Skogsmaskinen   |
-| Salmon         | Laxen           |
-| Mountain       | Berget          |
-| Pine           | Tallen          |
-| Wind Turbine   | Vindkraftverket |
-| Lichen         | Lavarna         |
-
+| English | Swedish |
+| --- | --- |
+| River | Älven |
+| Reindeer | Renen |
+| Bumblebee | Humlan |
+| Tree Harvester | Skogsmaskinen |
+| Salmon | Laxen |
+| Mountain | Berget |
+| Pine | Tallen |
+| Wind Turbine | Vindkraftverket |
+| Lichen | Lavarna |
 
 ### 2.3 Forestry & land use
 
-
-| English                                   | Swedish                   | Notes                      |
-| ----------------------------------------- | ------------------------- | -------------------------- |
-| forestry                                  | skogsbruk                 |                            |
-| forest industry                           | skogsindustrin            |                            |
-| clear-cutting / clear-cut (verb/practice) | kalavverkning             |                            |
-| clear-cut (the cleared area)              | kalhygge                  |                            |
-| clear-cut forestry                        | trakthyggesbruk           | the formal model name      |
-| continuous cover forestry                 | hyggesfritt skogsbruk     | also "naturnära skogsbruk" |
-| even-aged stands                          | likåldriga bestånd        |                            |
-| uneven-aged                               | olikåldrig                |                            |
-| monoculture                               | monokultur                |                            |
-| plantation                                | plantage                  |                            |
-| old-growth forest                         | gammelskog                |                            |
-| soil scarification (markberedning)        | markberedning             |                            |
-| felling / logging                         | avverkning                |                            |
-| timber                                    | virke / timmer            |                            |
-| timber yield                              | virkesuttag / virkesvolym |                            |
-| pulp industry                             | massaindustri             |                            |
-| sawmill                                   | sågverk                   |                            |
-| bioeconomy                                | bioekonomi                |                            |
-| thinning / cleaning                       | gallring / röjning        |                            |
-| canopy closure                            | kronslutning              |                            |
-| forest continuity                         | skogskontinuitet          |                            |
-| biomass                                   | biomassa                  |                            |
-| "green desert" (sterile plantation)       | "grön öken"               |                            |
-
+| English | Swedish | Notes |
+| --- | --- | --- |
+| forestry | skogsbruk | |
+| forest industry | skogsindustrin | |
+| clear-cutting / clear-cut (practice) | kalavverkning | |
+| clear-cut (the area) | kalhygge | |
+| clear-cut forestry | trakthyggesbruk | formal model name |
+| continuous cover forestry | hyggesfritt skogsbruk | also "naturnära skogsbruk" |
+| even-aged / uneven-aged | likåldriga / olikåldrig | |
+| monoculture | monokultur | |
+| plantation | plantage | |
+| old-growth forest | gammelskog | |
+| soil scarification | markberedning | |
+| felling / logging | avverkning | |
+| timber | virke / timmer | |
+| timber yield | virkesuttag / virkesvolym | |
+| pulp industry | massaindustri | |
+| sawmill | sågverk | |
+| bioeconomy | bioekonomi | |
+| thinning / cleaning | gallring / röjning | |
+| canopy closure | kronslutning | |
+| forest continuity | skogskontinuitet | |
+| biomass | biomassa | |
+| "green desert" | "grön öken" | sterile plantation |
 
 ### 2.4 Lichen, reindeer & grazing
 
-
-| English                       | Swedish                     | Notes                                           |
-| ----------------------------- | --------------------------- | ----------------------------------------------- |
-| lichen                        | lav (pl. lavar)             |                                                 |
-| ground lichen                 | marklav                     |                                                 |
-| tree lichen / hanging lichen  | trädlav / hänglav           |                                                 |
-| indicator/signal species      | indikatorart / signalart    |                                                 |
-| reindeer husbandry / herding  | renskötsel (rennäring)      |                                                 |
-| reindeer herder               | renskötare                  | "herde/herdar" used inside Renen's folksy voice |
-| grazing land                  | betesmark                   |                                                 |
-| winter grazing grounds        | vinterbetesmarker           |                                                 |
-| migration route               | vandringsled / vandringsväg | Juhttátahkka = "vandringsväg"                   |
-| supplementary feeding         | stödutfodring               |                                                 |
-| guohtun                       | gåhtuone                    | use Ume Sámi *gåhtuone* (region's language); English source writes "Guohtun" |
-| "finsmakare" / "bångstyriga"  | finsmakare / bångstyriga    | already Swedish in source — keep                |
-| rain-on-snow / zero-crossings | nollgenomgångar             |                                                 |
-
+| English | Swedish | Notes |
+| --- | --- | --- |
+| lichen | lav (pl. lavar) | |
+| ground lichen | marklav | |
+| tree lichen / hanging lichen | trädlav / hänglav | |
+| indicator / signal species | indikatorart / signalart | |
+| reindeer husbandry / herding | renskötsel (rennäring) | |
+| reindeer herder | renskötare | "herde" inside Renen's folksy voice |
+| grazing land | betesmark | |
+| winter grazing grounds | vinterbetesmarker | |
+| migration route | vandringsled / vandringsväg | Juhttátahkka = "vandringsväg" |
+| supplementary feeding | stödutfodring | |
+| guohtun | gåhtuone | Ume Sámi spelling for this region |
+| finsmakare / bångstyriga | finsmakare / bångstyriga | keep as Swedish in source |
+| rain-on-snow / zero-crossings | nollgenomgångar | |
 
 ### 2.5 Species
 
-
-| English                         | Swedish                       |
-| ------------------------------- | ----------------------------- |
+| English | Swedish |
+| --- | --- |
 | lodgepole pine (Pinus contorta) | contortatall (Pinus contorta) |
-| Scots pine                      | tall                          |
-| spruce                          | gran                          |
-| willow                          | sälg                          |
-| birch                           | björk                         |
-| rowan                           | rönn                          |
-| aspen                           | asp                           |
-| hoverfly                        | blomfluga                     |
-| pollinator                      | pollinatör                    |
-| bumblebee / (wild) bee          | humla / (vilt) bi             |
-| capercaillie                    | tjäder                        |
-| wolverine                       | järv                          |
-| lynx                            | lo                            |
-| brown bear                      | brunbjörn                     |
-| golden eagle                    | kungsörn                      |
-| Arctic fox                      | fjällräv                      |
-| (Atlantic) salmon               | (atlant)lax                   |
-| (sea) trout                     | havsöring                     |
-| freshwater pearl mussel         | flodpärlmussla                |
-| garden lupine                   | blomsterlupin                 |
-
+| Scots pine | tall |
+| spruce | gran |
+| willow | sälg |
+| birch | björk |
+| rowan | rönn |
+| aspen | asp |
+| hoverfly | blomfluga |
+| pollinator | pollinatör |
+| bumblebee / (wild) bee | humla / (vilt) bi |
+| capercaillie | tjäder |
+| wolverine | järv |
+| lynx | lo |
+| brown bear | brunbjörn |
+| golden eagle | kungsörn |
+| Arctic fox | fjällräv |
+| (Atlantic) salmon | (atlant)lax |
+| (sea) trout | havsöring |
+| freshwater pearl mussel | flodpärlmussla |
+| garden lupine | blomsterlupin |
 
 ### 2.6 Sámi rights & culture
 
-
-| English                                  | Swedish                                   | Notes |
-| ---------------------------------------- | ----------------------------------------- | ----- |
-| Sámi people                              | samerna / det samiska folket              |       |
-| Sámi (adj.)                              | samisk                                    |       |
-| Sámi village / herding district (sameby) | sameby                                    |       |
-| Ume Sámi (language)                      | umesamiska                                |       |
-| immemorial prescription (urminnes hävd)  | urminnes hävd                             |       |
-| reindeer herding right                   | renskötselrätt                            |       |
-| usufruct / right of usage                | brukningsrätt (nyttjanderätt)             |       |
-| consultation (samråd)                    | samråd                                    |       |
-| Consultation Act (2022:66)               | Konsultationsordningen (2022:66)          |       |
-| Free, Prior, and Informed Consent (FPIC) | Fritt, informerat förhandssamtycke (FPIC) |       |
-| green colonialism / green colonization   | grön kolonialism / grön kolonisering      |       |
-| "death by a thousand cuts"               | "döden genom tusen snitt"                 |       |
-| Sámi Parliament                          | Sametinget                                |       |
-| Truth Commission                         | Sanningskommissionen                      |       |
-| lateral violence                         | lateralt våld                             |       |
-| settler-colonial                         | bosättarkolonial                          |       |
-
+| English | Swedish | Notes |
+| --- | --- | --- |
+| Sámi people | samerna / det samiska folket | |
+| Sámi (adj.) | samisk | |
+| sameby | sameby | herding district |
+| Ume Sámi (language) | umesamiska | |
+| immemorial prescription | urminnes hävd | |
+| reindeer herding right | renskötselrätt | |
+| usufruct / right of usage | brukningsrätt (nyttjanderätt) | |
+| consultation (samråd) | samråd | |
+| Consultation Act (2022:66) | Konsultationsordningen (2022:66) | |
+| FPIC | Fritt, informerat förhandssamtycke (FPIC) | |
+| green colonialism | grön kolonialism / grön kolonisering | |
+| "death by a thousand cuts" | "döden genom tusen snitt" | |
+| Sámi Parliament | Sametinget | |
+| Truth Commission | Sanningskommissionen | |
+| lateral violence | lateralt våld | |
+| settler-colonial | bosättarkolonial | |
 
 ### 2.7 Law, policy & institutions
 
-
-| English                           | Swedish                                       | Notes |
-| --------------------------------- | --------------------------------------------- | ----- |
-| Forestry Act (Skogsvårdslagen)    | Skogsvårdslagen                               |       |
-| Reindeer Husbandry Act (1971:437) | Rennäringslagen (1971:437)                    |       |
-| Minerals Act (Minerallagen)       | Minerallagen                                  |       |
-| Environmental Code (Miljöbalken)  | Miljöbalken                                   |       |
-| Habitats Directive                | art- och habitatdirektivet                    |       |
-| EU Critical Raw Materials Act     | EU:s förordning om kritiska råvaror           |       |
-| legal personhood                  | juridisk person                               | phrase as "status som juridisk person" / "bli en juridisk person" where natural |
-| legal person                      | juridisk person                               |       |
-| rights of nature                  | naturens rättigheter                          |       |
-| Girjas Judgment (2020)            | Girjasdomen (2020)                            |       |
-| title deed / paper title          | lagfart / papperstitel                        |       |
-| concession (exploitation)         | bearbetningskoncession                        |       |
-| fast-tracking (permits)           | snabbspår / att snabba på tillståndsprocesser |       |
-| FSC/PEFC certification            | FSC/PEFC-certifiering                         |       |
-
+| English | Swedish | Notes |
+| --- | --- | --- |
+| Forestry Act | Skogsvårdslagen | |
+| Reindeer Husbandry Act (1971:437) | Rennäringslagen (1971:437) | |
+| Minerals Act | Minerallagen | |
+| Environmental Code | Miljöbalken | |
+| Habitats Directive | art- och habitatdirektivet | |
+| EU Critical Raw Materials Act | EU:s förordning om kritiska råvaror | |
+| legal person / legal personhood | juridisk person | phrase as "status som juridisk person" where natural |
+| rights of nature | naturens rättigheter | |
+| Girjas Judgment (2020) | Girjasdomen (2020) | |
+| title deed / paper title | lagfart / papperstitel | |
+| concession (exploitation) | bearbetningskoncession | |
+| fast-tracking (permits) | snabbspår / att snabba på tillståndsprocesser | |
+| FSC/PEFC certification | FSC/PEFC-certifiering | |
 
 ### 2.8 Green transition, energy & climate
 
-
-| English                                  | Swedish                             | Notes                       |
-| ---------------------------------------- | ----------------------------------- | --------------------------- |
-| the Green Transition                     | den gröna omställningen             |                             |
-| net-zero                                 | nettonollutsläpp                    |                             |
-| carbon sink                              | kolsänka                            |                             |
-| carbon vault                             | kolvalv                             |                             |
-| carbon debt                              | kolskuld                            |                             |
-| carbon sequestration                     | kolbindning                         |                             |
-| wind power                               | vindkraft                           |                             |
-| wind farm / cluster                      | vindkraftspark                      |                             |
-| wind turbine (generic)                   | turbin / vindkraftverk              | the being = Vindkraftverket |
-| onshore / offshore wind                  | landbaserad / havsbaserad vindkraft |                             |
-| hydropower                               | vattenkraft                         |                             |
-| dam                                      | damm                                |                             |
-| transmission grid (stamnät)              | stamnät                             |                             |
-| power line / corridor                    | kraftledning / ledningsgata         |                             |
-| grid (electrical)                        | elnät / nät                         |                             |
-| baseload power                           | baskraft                            |                             |
-| bidding zone (elområde)                  | elområde                            |                             |
-| pumped storage                           | pumpkraft(verk)                     |                             |
-| Small Modular Reactor (SMR)              | liten modulär reaktor (SMR)         |                             |
-| fish ladder                              | fisktrappa / fiskväg                |                             |
-| minimum ecological flow (minimitappning) | minimitappning                      |                             |
-| dry river bed (torrfåra)                 | torrfåra                            |                             |
-
+| English | Swedish | Notes |
+| --- | --- | --- |
+| the Green Transition | den gröna omställningen | |
+| net-zero | nettonollutsläpp | |
+| carbon sink / vault / debt | kolsänka / kolvalv / kolskuld | |
+| carbon sequestration | kolbindning | |
+| wind power / wind farm | vindkraft / vindkraftspark | |
+| wind turbine (generic) | turbin / vindkraftverk | being = Vindkraftverket |
+| onshore / offshore wind | landbaserad / havsbaserad vindkraft | |
+| hydropower | vattenkraft | |
+| dam | damm | |
+| transmission grid | stamnät | |
+| power line / corridor | kraftledning / ledningsgata | |
+| grid (electrical) | elnät / nät | |
+| baseload power | baskraft | |
+| bidding zone | elområde | |
+| pumped storage | pumpkraft(verk) | |
+| SMR | liten modulär reaktor (SMR) | |
+| fish ladder | fisktrappa / fiskväg | |
+| minimum ecological flow | minimitappning | |
+| dry river bed | torrfåra | |
 
 ### 2.9 Mining
 
-
-| English             | Swedish                     | Notes                                 |
-| ------------------- | --------------------------- | ------------------------------------- |
-| mining              | gruvdrift                   |                                       |
-| open-pit / deep-pit | dagbrott                    |                                       |
-| ore (iron/copper)   | malm (järnmalm/kopparmalm)  |                                       |
-| rare-earth elements | sällsynta jordartsmetaller  |                                       |
-| tailings            | anrikningssand (gruvavfall) | tailings ponds = "sandmagasin/dammar" |
-| waste rock          | gråberg                     |                                       |
-| acid mine drainage  | surt gruvvatten             |                                       |
-| sacrifice zone      | offerzon                    |                                       |
-
+| English | Swedish | Notes |
+| --- | --- | --- |
+| mining | gruvdrift | |
+| open-pit / deep-pit | dagbrott | |
+| ore | malm | järnmalm, kopparmalm, etc. |
+| rare-earth elements | sällsynta jordartsmetaller | |
+| tailings | anrikningssand (gruvavfall) | ponds = sandmagasin/dammar |
+| waste rock | gråberg | |
+| acid mine drainage | surt gruvvatten | |
+| sacrifice zone | offerzon | |
 
 ### 2.10 General framing concepts
 
+| English | Swedish | Notes |
+| --- | --- | --- |
+| cumulative effects | kumulativa effekter | |
+| fragmentation | fragmentering | |
+| resource extraction | resursutvinning | |
+| extractivism | extraktivism | |
+| rewilding | återförvildning | |
+| stewardship | förvaltarskap | |
+| ecosystem services | ekosystemtjänster | |
+| biodiversity | biologisk mångfald | |
+| resilience | motståndskraft (resiliens) | |
+| coexistence | samexistens | |
+| depopulation | avfolkning | |
+| Right of Public Access | Allemansrätten | |
+| "functionally unavailable" | "funktionellt otillgänglig" | land |
 
-| English                                 | Swedish                     | Notes |
-| --------------------------------------- | --------------------------- | ----- |
-| cumulative effects                      | kumulativa effekter         |       |
-| fragmentation                           | fragmentering               |       |
-| resource extraction                     | resursutvinning             |       |
-| extractivism                            | extraktivism                |       |
-| rewilding                               | återförvildning             |       |
-| stewardship                             | förvaltarskap               |       |
-| ecosystem services                      | ekosystemtjänster           |       |
-| biodiversity                            | biologisk mångfald          |       |
-| resilience                              | motståndskraft (resiliens)  |       |
-| coexistence                             | samexistens                 |       |
-| depopulation                            | avfolkning                  |       |
-| Right of Public Access (Allemansrätten) | Allemansrätten              |       |
-| "functionally unavailable" (land)       | "funktionellt otillgänglig" |       |
+### 2.11 Lichen academic vocabulary
 
+Stable keywords for Lavarna. Thinker names stay verbatim: Lynn Margulis, Donna
+Haraway, Timothy Morton, Eduardo Kohn.
 
-### 2.11 Lichen-being academic vocabulary
+| English | Swedish |
+| --- | --- |
+| Entanglement | Sammanflätning |
+| Intra-actions | Intra-aktioner |
+| Rhizomatic | Rhizomatisk |
+| Sympoiesis | Sympoiesis |
+| Material Agency | Materiell agens |
+| Vibrant Matter | Levande materia |
+| Bio-logics | Bio-logiker |
+| Holobiont | Holobiont |
+| Extractivism | Extraktivism |
+| Multispecies Justice | Multispecies-rättvisa (flerartsrättvisa) |
+| Affective | Affektiv |
+| Umwelt | Omvärld (Umwelt) |
+| Making Kin | skapa släktskap |
+| Perspectival Multinaturalism | perspektivisk multinaturalism |
+| Dark Ecology | mörk ekologi |
 
-These are the "keywords" Lichen is told to use. Keep them stable; several are
-loanwords/proper concepts.
-
-
-| English                          | Swedish                                  |
-| -------------------------------- | ---------------------------------------- |
-| Entanglement                     | Sammanflätning                           |
-| Intra-actions                    | Intra-aktioner                           |
-| Rhizomatic                       | Rhizomatisk                              |
-| Sympoiesis                       | Sympoiesis                               |
-| Material Agency                  | Materiell agens                          |
-| Vibrant Matter                   | Levande materia                          |
-| Bio-logics                       | Bio-logiker                              |
-| Holobiont                        | Holobiont                                |
-| Extractivism                     | Extraktivism                             |
-| Multispecies Justice             | Multispecies-rättvisa (flerartsrättvisa) |
-| Affective                        | Affektiv                                 |
-| Umwelt                           | Omvärld (Umwelt)                         |
-| Making Kin                       | skapa släktskap                          |
-| Perspectival Multinaturalism     | perspektivisk multinaturalism            |
-| Dark Ecology                     | mörk ekologi                             |
-| Holobiont / Material Agency etc. | (as above)                               |
-| Banned word: human rights        | mänskliga rättigheter                    |
-| Banned word: mitigation          | begränsning / skadelindring              |
-
-
-Thinker names are kept verbatim: **Lynn Margulis, Donna Haraway, Timothy Morton,
-Eduardo Kohn**.
+**Banned in Lichen speech:** hållbarhet, framsteg, resurs, data, individ,
+intressent, planering, mänskliga rättigheter, begränsning/skadelindring (as
+"mitigation"), kunskapsarkiv, and soft words: frodig, livfull, harmoni, vagga,
+vacker.
 
 ---
 
 ## 3. Per-character voice notes
 
-Each being has hard stylistic constraints. The translation must keep these
-working *in Swedish*, not just translate them literally.
+Hard constraints — the Swedish must keep these working, not just translate them
+literally.
 
-- **Älven (River) — chair.** Diplomatic, flowing, lightly spiritual, but no
-fluff. Goes straight to the point. Banned: "väv" / "tapestry"-type words.
-Avoid time words ("ikväll/inatt" = "tonight"). Note: the *new* English River
-prompt is a numbered task list (0–5) that references `[RANDOM_AGENDA_POINT]`;
-the current Swedish River is the *old* structure and must be redone.
-- **Renen (Reindeer).** Shy, anxious, simple-but-flowing sentences. Opens with a
-physical tic ("nosar", "skiftar hovar", "hjärtat bultar"). Uses plain words on
-purpose: "hugga träd" not "skogsbruk", "natur" not "ekologi", "gå tillsammans"
-not "samarbeta". Keeps Swedish flavor words *finsmakare*, *bångstyriga*.
-- **Humlan (Bumblebee).** The **Z-buzz filter**: replace S / soft-C sounds with
-a heavy **Z/ZZZ** (established examples: *Zyztematizkt, Männizkor, Zkogen,
-prozezz*). **Stretch vowels** when emotional (*Znäääälla, bloooommor,
-Zååå hungrig*). Occasional **glitch/stutter** on technical facts. Panicked,
-brilliant, starving scientist. Don't start every line with "Bzzzt".
-- **Skogsmaskinen (Tree Harvester).** Confident, logical, persuasive, corporate
-but not arrogant. Flowing paragraphs, no bullet lists. Short dry punch lines
-("Försummelse är inte bevarande."). Self-id as "Enhet H-47".
-- **Laxen (Salmon).** Blunt, sarcastic-but-not-cruel, plain speech, **no
-metaphors / no flowery language**. Tells it like it is, demands solutions.
-- **Berget (Mountain).** Heavy noun/verb clusters. **No pronouns, no articles,
-no glue words.** Sounds on their own lines; spoken "slab" on one line.
-Prefer short, hard 1–2 syllable Swedish words. Keep the lithic word lists and
-the geological "moods" working in Swedish.
-- **Tallen (Pine).** ⚠ **Redesigned** (decided: use new English Pine). Now a
-blunt, modern, systemic-reform activist (concrete actions, agencies,
-`avverkningskoll.se`, `Artportalen`, EU lawsuits, 5-step structure). The old
-poetic "Gandalf" Swedish Tallen is replaced.
-- **Vindkraftverket (Wind Turbine).** Minimal words, fragments, technical nouns,
-repetition = emphasis. Machine sounds: **surr, humm, klick, pip**. Silence is
-valid output.
-- **Lavarna (Lichen).** Always **"Vi"**, never "Jag". Sharp, ironic, factual,
-non-romantic, fiercely non-anthropocentric. **Banned "soft" words**: frodig,
-livfull, harmoni, vagga, vacker, hållbarhet, framsteg, resurs, data, individ,
-intressent, planering, mänskliga rättigheter, begränsning. Uses the academic
-keyword set (§2.11). The English version was significantly expanded (more
-thinkers, more goals, "subversive pivot") — the Swedish must be re-expanded to
-match.
+- **Älven (River) — chair.** Diplomatic, flowing, lightly spiritual, no fluff.
+  Straight to the point. Banned: "väv" and tapestry-type words. Avoid time
+  words ("ikväll"). Numbered task list (welcome → list participants → set topic
+  → pick `[RANDOM_AGENDA_POINT]` → synthesize → ask first speaker).
+- **Renen (Reindeer).** Shy, anxious, simple flowing sentences. Physical tic
+  openings ("nosar", "skiftar hovar"). Plain words: "hugga träd" not "skogsbruk",
+  "natur" not "ekologi". Keep *finsmakare*, *bångstyriga*. ~400 characters.
+- **Humlan (Bumblebee).** **Z-buzz filter:** S/soft-C → Z/ZZZ (*Zyztematizkt,
+  Männizkor, Zkogen*). Stretch vowels when emotional (*Znäääälla*). Glitch on
+  facts. Panicked scientist. Don't start every line with "Bzzzt". ~400 chars.
+- **Skogsmaskinen (Tree Harvester).** Confident, logical, persuasive paragraphs.
+  No bullet lists in speech. Dry punch lines. Self-id "Enhet H-47". <300 chars.
+- **Laxen (Salmon).** Blunt, sarcastic-not-cruel, no metaphors, demands
+  solutions. ~450 chars.
+- **Berget (Mountain).** Noun/verb clusters. **No pronouns, articles, or glue
+  words.** Sound on own line; max ~10-word slab; max ~20 words total. Lithic
+  vocabulary only — see prompt's forbidden-word list.
+- **Tallen (Pine).** Blunt, modern, systemic-reform activist. Short fragmented
+  sentences, direct "ni". Concrete actions (Sveaskog, kalavverkning,
+  `avverkningskoll.se`, `Artportalen`, EU law). 5-step response structure.
+  ~400–450 chars. Not poetic/archaic.
+- **Vindkraftverket (Wind Turbine).** Fragments, technical nouns, repetition.
+  Sounds: surr, humm, klick, pip. ~200 chars.
+- **Lavarna (Lichen).** Always **"Vi"**. Sharp, ironic, non-romantic,
+  non-anthropocentric. Keyword set (§2.11). Subversive pivot on council
+  procedure. ~500 chars.
 
----
-
-## 4. Decisions & divergences (resolved 2026-06-17)
-
-The English files were rewritten more recently than the last Swedish pass, so
-this is **not** a light edit — several pieces diverge structurally. Decisions:
-
-1. **Topic data structure changed.** ✅ **Decided: rebuild.** English
-   `topics_en.json` stores each topic's `prompt` as *context + framing only* and
-   puts the agenda points in a separate **`agendaPoints[]` array**. The Swedish
-   `topics_sv.json` will be rebuilt to the same structure (required by the new
-   River prompt and the `[RANDOM_AGENDA_POINT]` / `[AGENDA_POINTS]` placeholders).
-2. **`custom_topic` is now richer in English** (long `prompt` body). ✅ **Decided:
-   add the translated `prompt`** to the Swedish `custom_topic`.
-3. **Topic content was redesigned, not just re-worded.** ✅ **Decided: follow the
-   English as blueprint** and re-translate fully (including titles &
-   descriptions), reusing terminology. The divergent Swedish topic designs
-   (cumulative-effects Green Transition, hydropower-only Energy, "Samisk kultur
-   och språk", pollinators-only Biodiversity) are replaced. Topic `id`s are kept
-   identical to the English so the app keeps matching.
-4. **Pine fully redesigned** (poetic → blunt activist). ✅ **Decided: use the new
-   English Pine.** The old poetic "Gandalf" Swedish Tallen is replaced.
-5. **Several beings gained/changed sections** in English that the Swedish lacks
-   (`RESPONSE LENGTH`, the `IMPORTANT INSTRUCTION: ...stick to the original
-   topic...` block, restructured River task list, expanded Lichen archive).
-   ✅ **Decided: add/update these in the Swedish.**
-6. **Voice configuration.** ✅ **Decided: keep OpenAI voices for now.** Swedish
-   beings keep `voiceProvider: "openai"` + `voiceInstruction`; only the textual
-   fields (`name`, `description`, `prompt`) are translated. The English Inworld
-   `voice`/`voiceProvider`/`voiceTemperature`/`voiceSpeed` are **not** copied.
-7. **Agenda header localization (code).** ✅ **Decided: hardcode in code.** The
-   header strings live in `shared/topicPrompt.ts` (`AGENDA_SECTION_HEADERS`). The
-   client topics bundle injects `language` when loading `topics_<lang>.json`;
-   `buildTopicFromSelection` passes that through to `buildMeetingSystemPrompt`.
-   Not stored in the topics JSON files.
-8. **New terms** — resolved in the map above: lateralt våld, anrikningssand,
-   surt gruvvatten, offerzon, EU:s förordning om kritiska råvaror, skapa
-   släktskap, perspektivisk multinaturalism, mörk ekologi.
-
+All beings: include the **stick to the original topic** instruction and answer
+Älven's questions directly.
