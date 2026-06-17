@@ -192,11 +192,17 @@ describe('MeetingManager - Conversation Flow', () => {
         const action = manager.decideNextAction();
         expect(action.type).toBe('REQUEST_PANELIST');
         const speaker = manager.meeting.characters[panelistId];
+        const chairInterjectionSpy = vi.spyOn(manager.dialogGenerator, 'chairInterjection').mockResolvedValue({
+            response: 'Please welcome Alice.',
+            id: 'invite-1',
+        });
         await manager.processTurn({ type: action.type, speaker });
 
-        expect(manager.meeting.conversation).toHaveLength(1);
-        expect(manager.meeting.conversation[0].type).toBe('awaiting_human_panelist');
-        expect(manager.meeting.conversation[0].speaker).toBe('panelist0');
+        expect(chairInterjectionSpy).toHaveBeenCalled();
+        expect(manager.meeting.conversation).toHaveLength(2);
+        expect(manager.meeting.conversation[0].type).toBe('invitation');
+        expect(manager.meeting.conversation[1].type).toBe('awaiting_human_panelist');
+        expect(manager.meeting.conversation[1].speaker).toBe('panelist0');
         expect(manager.services.meetingsCollection.updateOne).toHaveBeenCalled();
 
         // Verify it returns early (does not call generateGPT/Audio/recurse)

@@ -113,6 +113,11 @@ export class HumanInputHandler {
         }
         m.conversation.pop();
 
+        if (m.conversation[m.conversation.length - 1].type === 'invitation') {
+            Logger.info(`meeting ${m._id}`, `popping panelist invitation down to index ${m.conversation.length - 1} `);
+            m.conversation.pop();
+        }
+
         const charName = m.characters.find(c => c.id === payload.speaker)?.name || "Unknown";
         const message: PanelistMessage = {
             id: payload.speaker + uuidv4(),

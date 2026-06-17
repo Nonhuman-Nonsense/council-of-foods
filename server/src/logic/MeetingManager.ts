@@ -18,6 +18,7 @@ import { GlobalOptions, getGlobalOptions } from "@logic/GlobalOptions.js";
 import { Socket } from "socket.io";
 import { SocketBroadcaster } from "@logic/SocketBroadcaster.js";
 import { Logger } from "@utils/Logger.js";
+import { splitSentences } from "@shared/textUtils.js";
 import type { StoredMeeting } from "@models/DBModels.js";
 import {
     SetupOptionsSchema,
@@ -389,9 +390,55 @@ export class MeetingManager implements IMeetingManager {
 
             case 'REQUEST_PANELIST':
                 if (action.speaker) {
+                    const panelistId = action.speaker.id;
+                    const isFirstPanelistTurn = !meeting.conversation.some(
+                        (msg) => msg.type === "panelist" && msg.speaker === panelistId
+                    );
+
+                    if (isFirstPanelistTurn) {
+                        const panelistName = action.speaker.name || "Human";
+                        const invitationIndex = meeting.conversation.length;
+                        const chairInterjection = await this.dialogGenerator.chairInterjection(
+                            this.serverOptions.panelistInvitationPrompt[meeting.language].replace(
+                                "[NAME]",
+                                panelistName
+                            ),
+                            invitationIndex,
+                            this.serverOptions.panelistInvitationLength,
+                            true,
+                            meeting,
+                            this.broadcaster
+                        );
+
+                        let response = chairInterjection.response;
+                        const firstNewLineIndex = response.indexOf("\n\n");
+                        if (firstNewLineIndex !== -1) {
+                            response = response.substring(0, firstNewLineIndex);
+                        }
+
+                        const invitation: Message = {
+                            id: chairInterjection.id as string,
+                            speaker: meeting.characters[0].id,
+                            text: response,
+                            type: "invitation",
+                            sentences: splitSentences(response),
+                        };
+
+                        meeting.conversation.push(invitation);
+                        Logger.info(`meeting ${meeting._id}`, `panelist invitation generated for ${panelistId} on index ${invitationIndex}`);
+
+                        this.audioSystem.queueAudioGeneration(
+                            { ...invitation, id: invitation.id as string, text: invitation.text as string, sentences: invitation.sentences! },
+                            meeting.characters[0],
+                            meeting,
+                            this.environment,
+                            this.serverOptions
+                        );
+                    }
+
                     meeting.conversation.push({
                         type: 'awaiting_human_panelist',
-                        speaker: action.speaker.id,
+                        speaker: panelistId,
                         text: "",
                     });
                     Logger.info(`meeting ${meeting._id}`, `awaiting human panelist on index ${meeting.conversation.length - 1}`);

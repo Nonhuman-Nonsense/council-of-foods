@@ -32,6 +32,8 @@ export const GlobalOptionsSchema = z.object({
     meetingVeryMaxLength: z.number(),
     raiseHandPrompt: z.record(z.string(), z.string()),
     raiseHandInvitationLength: z.number(),
+    panelistInvitationPrompt: z.record(z.string(), z.string()),
+    panelistInvitationLength: z.number(),
     finalizeMeetingPrompt: z.record(z.string(), z.string()),
     finalizeMeetingLength: z.number(),
     transcribeModel: z.string(),

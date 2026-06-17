@@ -1,7 +1,12 @@
 import type { Topic, Character } from "@shared/ModelTypes";
 import type { MeetingSetupPhase } from "@newMeeting/meetingSetup";
-import { buildMeetingCharactersPayload, type MeetingCharactersI18n } from "@newMeeting/meetingSetup";
+import {
+  buildMeetingCharactersPayload,
+  orderSelectedCharactersForMuseum,
+  type MeetingCharactersI18n,
+} from "@newMeeting/meetingSetup";
 import { useMeetingSetupStore } from "@stores/useMeetingSetupStore";
+import { getAppMode } from "@/museum/appMode";
 import { capitalizeFirstLetter } from "@/utils";
 import type { VoiceGuidePromptBundle } from "./guidePrompt";
 
@@ -211,6 +216,16 @@ export function createGuideTools(params: {
   ];
 }
 
+function syncMuseumPanelistOrder(): void {
+  if (getAppMode() !== "museum") return;
+  const store = useMeetingSetupStore.getState();
+  if (!store.selectedCharacters.some((id) => id.startsWith("panelist"))) return;
+  const sorted = orderSelectedCharactersForMuseum(store.selectedCharacters);
+  if (sorted.join(",") !== store.selectedCharacters.join(",")) {
+    store.setSelectedCharacters(sorted);
+  }
+}
+
 export function createGuideToolHandlers(ctx: GuideToolContext): Record<string, ToolHandler> {
   return {
     begin_setup: () => {
@@ -305,6 +320,7 @@ export function createGuideToolHandlers(ctx: GuideToolContext): Record<string, T
       if (!success) {
         return { ok: false, error: "Maximum number of characters (6 plus the chair) already selected." };
       }
+      syncMuseumPanelistOrder();
       return { ok: true };
     },
     highlight_character: (raw) => {
@@ -335,6 +351,7 @@ export function createGuideToolHandlers(ctx: GuideToolContext): Record<string, T
       const characterId = asString(obj?.characterId);
       if (!characterId) return { ok: false, error: "Missing characterId" };
       useMeetingSetupStore.getState().handleDeselectCharacterId(characterId);
+      syncMuseumPanelistOrder();
       return { ok: true };
     },
     start_meeting: async () => {
@@ -359,6 +376,7 @@ export function createGuideToolHandlers(ctx: GuideToolContext): Record<string, T
         numberOfHumans,
         labels: ctx.meetingCharactersLabels,
         agendaPoints: ctx.buildSelectedTopic()?.agendaPoints,
+        isMuseumMode: getAppMode() === "museum",
       });
       if (!built.ok) return built;
       await Promise.resolve(ctx.startMeeting(built.characters));
@@ -377,6 +395,30 @@ export function createGuideToolHandlers(ctx: GuideToolContext): Record<string, T
         };
       }
       useMeetingSetupStore.getState().setVisitorName(name);
+
+      if (getAppMode() === "museum") {
+        const store = useMeetingSetupStore.getState();
+        if (store.numberOfHumans === 0) {
+          store.setHumans((prev) => {
+            const next = [...prev];
+            if (next[0]) {
+              next[0] = { ...next[0], name };
+            }
+            return next;
+          });
+          store.setNumberOfHumans(1);
+          if (!store.selectedCharacters.includes("panelist0")) {
+            store.handleSelectCharacterId("panelist0");
+          }
+          const updated = useMeetingSetupStore.getState();
+          updated.setSelectedCharacters(
+            orderSelectedCharactersForMuseum(updated.selectedCharacters)
+          );
+        } else {
+          syncMuseumPanelistOrder();
+        }
+      }
+
       return { ok: true, data: { name } };
     },
   };
