@@ -42,6 +42,22 @@ describe('MeetingManager - State Machine (decideNextAction)', () => {
             expected: { type: 'IDLE' }
         },
         {
+            // Regression: the awaiting marker (plus its chair invitation) can push the
+            // conversation to the length cap. We must wait for the human, not END.
+            name: 'should wait (not end) when awaiting human panelist at the length cap',
+            setup: (mgr) => {
+                mgr.serverOptions.conversationMaxLength = 5;
+                mgr.meeting.conversationExtraSlots = 0;
+                mgr.meeting.conversation = [
+                    ...TestFactory.createConversation(3),
+                    { id: 'invite1', type: 'invitation', speaker: chairCharacter.id, text: 'Welcome Alice.' },
+                    ...TestFactory.createAwaitingPanelist('panelist0'),
+                ];
+            },
+            nextSpeakerIndex: 0,
+            expected: { type: 'IDLE' }
+        },
+        {
             name: 'should wait if conversation already ended with max_reached sentinel',
             setup: (mgr) => {
                 mgr.serverOptions.conversationMaxLength = 5;

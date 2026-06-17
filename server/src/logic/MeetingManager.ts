@@ -322,10 +322,18 @@ export class MeetingManager implements IMeetingManager {
         if (this.isPaused || this.handRaised) {
             return { type: 'IDLE' };
         }
-        // 1. Already ended at length cap or finalized with a summary.
+        // 1. Stop if the last message is terminal or we're awaiting human input.
+        //    This MUST run before the length-cap check below: a pending human turn
+        //    (awaiting_*) plus its chair invitation can push the conversation to the
+        //    cap, and we must never end the meeting while waiting for the human.
         if (meeting.conversation.length > 0) {
             const lastMsg = meeting.conversation[meeting.conversation.length - 1];
-            if (lastMsg.type === 'max_reached' || lastMsg.type === 'summary') {
+            if (
+                lastMsg.type === 'max_reached' ||
+                lastMsg.type === 'summary' ||
+                lastMsg.type === 'awaiting_human_panelist' ||
+                lastMsg.type === 'awaiting_human_question'
+            ) {
                 return { type: 'IDLE' };
             }
         }
@@ -341,27 +349,19 @@ export class MeetingManager implements IMeetingManager {
             }
         }
 
-        // 3. Check Awaiting States
-        if (meeting.conversation.length > 0) {
-            const lastMsg = meeting.conversation[meeting.conversation.length - 1];
-            if (lastMsg.type === 'awaiting_human_panelist' || lastMsg.type === 'awaiting_human_question') {
-                return { type: 'IDLE' };
-            }
-        }
-
-        // 4. Determine Speaker
+        // 3. Determine Speaker
         const nextSpeakerIndex = SpeakerSelector.calculateNextSpeaker(meeting.conversation, meeting.characters, {
             directedSpeakerRouting: this.serverOptions.directedSpeakerRouting,
             chairId: this.serverOptions.chairId,
         });
         const nextSpeaker = meeting.characters[nextSpeakerIndex];
 
-        // 5. Panelist Turn
+        // 4. Panelist Turn
         if (nextSpeaker.id.startsWith('panelist')) {
             return { type: 'REQUEST_PANELIST', speaker: nextSpeaker };
         }
 
-        // 6. AI Turn
+        // 5. AI Turn
         return { type: 'GENERATE_AI_RESPONSE', speaker: nextSpeaker };
     }
 
