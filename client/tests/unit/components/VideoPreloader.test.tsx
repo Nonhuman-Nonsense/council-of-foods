@@ -1,6 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render } from '@testing-library/react';
 import VideoPreloader from '@main/VideoPreloader';
+import { characterSetupEn } from '../../characterSetupTestData';
+
+const [, firstCharacter, secondCharacter] = characterSetupEn.characters;
 
 vi.mock('../../../src/utils', async (importOriginal) => {
     const actual = await importOriginal<typeof import('../../../src/utils')>();
@@ -24,8 +27,8 @@ describe('VideoPreloader', () => {
     });
 
     it('renders hidden video elements for provided food IDs', () => {
-        const foods = ['reindeer', 'lichen'];
-        const { container } = render(<VideoPreloader foodIds={foods} />);
+        const foodIds = [firstCharacter.id, secondCharacter.id];
+        const { container } = render(<VideoPreloader foodIds={foodIds} />);
 
         const div = container.firstChild as HTMLElement;
         expect(div).toHaveStyle({ display: 'none', width: '0', height: '0' });
@@ -33,11 +36,16 @@ describe('VideoPreloader', () => {
         const videos = div.querySelectorAll('video');
         expect(videos).toHaveLength(2);
 
-        const firstSources = videos[0].querySelectorAll('source');
-        expect(firstSources).toHaveLength(2);
-        expect(firstSources[0].getAttribute('src')).toContain('reindeer-hevc-safari');
-        expect(firstSources[0]).toHaveAttribute('type', 'video/mp4; codecs="hvc1"');
-        expect(firstSources[1].getAttribute('src')).toContain('reindeer-vp9-chrome');
-        expect(firstSources[1]).toHaveAttribute('type', 'video/webm');
+        const firstVideo = videos[0];
+        expect(firstVideo).toHaveAttribute('preload', 'auto');
+        expect(firstVideo).toHaveProperty('muted', true);
+        expect(firstVideo).toHaveProperty('playsInline', true);
+
+        const sources = firstVideo.querySelectorAll('source');
+        expect(sources).toHaveLength(2);
+        expect(sources[0].getAttribute('src')).toContain(`${firstCharacter.id}-hevc-safari`);
+        expect(sources[0]).toHaveAttribute('type', 'video/mp4; codecs="hvc1"');
+        expect(sources[1].getAttribute('src')).toContain(`${firstCharacter.id}-vp9-chrome`);
+        expect(sources[1]).toHaveAttribute('type', 'video/webm');
     });
 });
