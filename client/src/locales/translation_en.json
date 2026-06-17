@@ -1,9 +1,12 @@
 {
-  "welcome": "welcome to",
   "council": "Council of Forest",
   "meeting": "Meeting",
-  "description": "A political arena where the forest itself speaks, through the use of artificial intelligence. Join the forest’s inhabitants as they debate deforestation, rewilding, and the fate of their shared home.",
-  "go": "Let's go!",
+  "landing": {
+    "welcome": "welcome to",
+    "projectBy": "a project by",
+    "description": "A political arena where the forest itself speaks, through the use of artificial intelligence. Join the forest’s inhabitants as they debate deforestation, rewilding, and the fate of their shared home.",
+    "go": "Let's go!"
+  },
   "start": "Start",
   "about": "About",
   "contact": "Contact",

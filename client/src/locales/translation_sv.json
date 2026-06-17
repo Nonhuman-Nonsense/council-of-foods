@@ -1,9 +1,12 @@
 {
-  "welcome": "Välkommen till",
   "council": "Skogsrådet",
   "meeting": "Möte",
-  "description": "En politisk arena där skogen själv får tala, med hjälp av artificiell intelligens. Följ skogens invånare när de diskuterar avskogning, återvildning och ödet för deras gemensamma hem.",
-  "go": "Nu kör vi!",
+  "landing": {
+    "welcome": "Välkommen till",
+    "projectBy": "ett projekt av",
+    "description": "En politisk arena där skogen själv får tala, med hjälp av artificiell intelligens. Följ skogens invånare när de diskuterar avskogning, återvildning och ödet för deras gemensamma hem.",
+    "go": "Nu kör vi!"
+  },
   "start": "Starta",
   "about": "Info",
   "contact": "Kontakt",
