@@ -13,6 +13,7 @@ import { useTranslation } from "react-i18next";
 import { useCouncilMachine } from "./hooks/useCouncilMachine";
 import { getMeeting } from "@api/getMeeting.js";
 import ReplayModeBanner from "./ReplayModeBanner";
+import { useAppMode } from "@/museum/useAppMode";
 
 interface CouncilProps {
   liveKey: string | null;
@@ -47,6 +48,7 @@ function Council({
 }: CouncilProps) {
   const { meetingId } = useParams<{ meetingId: string }>();
   const { t } = useTranslation();
+  const { isMuseumMode } = useAppMode();
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -189,10 +191,12 @@ function Council({
     }
   }, [playingNowIndex, textMessages, setCurrentSpeakerId, councilState, playNextIndex]);
 
-  const showControls =
+  const isWaitingToInterject = isRaisedHand && councilState !== 'human_input';
+  const controlsVisible = (
     councilState === "playing" ||
     councilState === "waiting" ||
-    (councilState === "summary" && tryToFindTextAndAudio());
+    (councilState === "summary" && tryToFindTextAndAudio())
+  );
 
   const isDocumentVisible = useDocumentVisibility();
 
@@ -221,13 +225,14 @@ function Council({
           audioContext={audioContext}
           handleOnFinishedPlaying={handleOnFinishedPlaying}
         />
-        {showControls && (
+        {controlsVisible && (
           <ConversationControls
+            hidden={isMuseumMode}
             onSkipBackward={handleOnSkipBackward}
             onSkipForward={handleOnSkipForward}
             onRaiseHand={handleOnRaiseHand}
             isRaisedHand={isRaisedHand}
-            isWaitingToInterject={isRaisedHand}
+            isWaitingToInterject={isWaitingToInterject}
             isMuted={isMuted}
             onMuteUnmute={toggleMute}
             isPaused={isPaused}

@@ -37,13 +37,21 @@ export class HumanInputHandler {
 
         Logger.info(`meeting ${m._id}`, `human input on index ${m.conversation.length - 1} `);
 
-        if (m.conversation[m.conversation.length - 1].type !== 'awaiting_human_question') {
-            Logger.error(`meeting ${m._id}`, "Received a human question but was not expecting one!");
+        const lastMessage = m.conversation[m.conversation.length - 1];
+        if (lastMessage?.type !== 'awaiting_human_question') {
+            Logger.reportAndCrashClient(
+                `meeting ${m._id}`,
+                "Received a human question but was not expecting one!",
+                new Error(
+                    `Expected last message to be 'awaiting_human_question' but found '${lastMessage?.type ?? "none"}'`
+                ),
+                manager.broadcaster
+            );
             return;
         }
         m.conversation.pop();
 
-        if (m.conversation[m.conversation.length - 1].type === 'invitation') {
+        if (m.conversation[m.conversation.length - 1]?.type === 'invitation') {
             Logger.info(`meeting ${m._id}`, `popping invitation down to index ${m.conversation.length - 1} `);
             m.conversation.pop();
         }
@@ -107,11 +115,24 @@ export class HumanInputHandler {
 
         Logger.info(`meeting ${m._id}`, `human panelist ${payload.speaker} on index ${m.conversation.length - 1} `);
 
-        if (m.conversation[m.conversation.length - 1].type !== 'awaiting_human_panelist') {
-            Logger.error(`meeting ${m._id}`, "Received a human panelist but was not expecting one!");
+        const lastMessage = m.conversation[m.conversation.length - 1];
+        if (lastMessage?.type !== 'awaiting_human_panelist') {
+            Logger.reportAndCrashClient(
+                `meeting ${m._id}`,
+                "Received a human panelist but was not expecting one!",
+                new Error(
+                    `Expected last message to be 'awaiting_human_panelist' but found '${lastMessage?.type ?? "none"}'`
+                ),
+                manager.broadcaster
+            );
             return;
         }
         m.conversation.pop();
+
+        if (m.conversation[m.conversation.length - 1]?.type === 'invitation') {
+            Logger.info(`meeting ${m._id}`, `popping panelist invitation down to index ${m.conversation.length - 1} `);
+            m.conversation.pop();
+        }
 
         const charName = m.characters.find(c => c.id === payload.speaker)?.name || "Unknown";
         const message: PanelistMessage = {

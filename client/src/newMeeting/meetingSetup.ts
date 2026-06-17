@@ -12,6 +12,35 @@ export type MeetingCharactersI18n = {
 
 export type MeetingSetupPhase = "landing" | "topic" | "characters";
 
+function isPanelistId(id: string): boolean {
+  return id.startsWith("panelist");
+}
+
+/**
+ * In museum mode, place human panelist(s) second-to-last in the lineup
+ * (before the final food participant, after Water and the other foods).
+ */
+export function orderSelectedCharactersForMuseum(selectedCharacters: string[]): string[] {
+  const panelists = selectedCharacters.filter(isPanelistId);
+  const nonPanelists = selectedCharacters.filter((id) => !isPanelistId(id));
+
+  if (panelists.length === 0 || nonPanelists.length === 0) {
+    return selectedCharacters;
+  }
+
+  const chair = nonPanelists[0];
+  const foods = nonPanelists.slice(1);
+
+  if (foods.length === 0) {
+    return [chair, ...panelists];
+  }
+
+  const lastFood = foods[foods.length - 1];
+  const foodsBeforeLast = foods.slice(0, -1);
+
+  return [chair, ...foodsBeforeLast, ...panelists, lastFood];
+}
+
 export type MeetingSetupUserEvent =
   | {
       type: "topic_previewed";
@@ -64,7 +93,12 @@ export function buildTopicFromSelection(params: {
     built.description = customTopic;
     built.agendaPoints = undefined;
   }
-  built.prompt = buildMeetingSystemPrompt(topicsBundle.system, built.prompt, built.agendaPoints);
+  built.prompt = buildMeetingSystemPrompt(
+    topicsBundle.system,
+    built.prompt,
+    built.agendaPoints,
+    topicsBundle.language,
+  );
   return built;
 }
 
@@ -79,8 +113,14 @@ export function buildMeetingCharactersPayload(params: {
   numberOfHumans: number;
   labels: MeetingCharactersI18n;
   agendaPoints?: string[];
+  isMuseumMode?: boolean;
 }): { ok: true; characters: Character[] } | { ok: false; error: string } {
-  const { language, selectedCharacters, humans, numberOfHumans, labels, agendaPoints } = params;
+  const { language, humans, numberOfHumans, labels, agendaPoints, isMuseumMode = false } = params;
+  let { selectedCharacters } = params;
+
+  if (isMuseumMode) {
+    selectedCharacters = orderSelectedCharactersForMuseum(selectedCharacters);
+  }
   const characterSetupData = getCharacterSetupBundle(language);
   const baseCharacters = characterSetupData.characters;
   const characters = [...baseCharacters, ...humans.slice(0, numberOfHumans)];
@@ -103,7 +143,13 @@ export function buildMeetingCharactersPayload(params: {
   for (const humanId of selectedHumans) {
     const index = Number(humanId.slice(-1));
     const human = humans[index];
-    if (human && (human.name.length === 0 || (human.description?.length ?? 0) === 0)) {
+    if (!human || human.name.length === 0) {
+      return {
+        ok: false,
+        error: "Each human panelist needs a name before starting.",
+      };
+    }
+    if (!isMuseumMode && (human.description?.length ?? 0) === 0) {
       return {
         ok: false,
         error: "Each human panelist needs a name and description before starting.",
@@ -157,7 +203,12 @@ export function buildMeetingCharactersPayload(params: {
     for (const id of participatingHumans) {
       const human = characters.find((character) => character.id === id);
       if (human) {
-        humanPresentation += `${toTitleCase(human.name)}, ${human.description}. `;
+        const description = human.description?.trim();
+        if (description) {
+          humanPresentation += `${toTitleCase(human.name)}, ${description}. `;
+        } else {
+          humanPresentation += `${toTitleCase(human.name)}. `;
+        }
       }
     }
     humanPresentation = humanPresentation.substring(0, humanPresentation.length - 2);

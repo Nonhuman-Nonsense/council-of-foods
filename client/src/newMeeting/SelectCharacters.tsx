@@ -6,7 +6,7 @@ import VideoPreloader from "@main/VideoPreloader";
 import { globalClientOptions } from "@/globalClientOptions";
 import { characterIconWebpUrl } from "@assets/characters/characterData";
 import { useMeetingSetupStore } from "@stores/useMeetingSetupStore";
-import { buildMeetingCharactersPayload } from "./meetingSetup";
+import { buildMeetingCharactersPayload, orderSelectedCharactersForMuseum } from "./meetingSetup";
 import { useAppMode } from "@/museum/useAppMode";
 import { getCharacterSetupBundle } from "./CharacterSetup";
 
@@ -112,6 +112,7 @@ function SelectCharacters({
         twoHumansSuffix: t("selectfoods.twohumans"),
       },
       agendaPoints,
+      isMuseumMode,
     });
     if (built.ok) {
       onContinueForward({ characters: built.characters });
@@ -159,13 +160,24 @@ function SelectCharacters({
     for (const humanId of selectedHumans) {
       const index = panelistIndexFromId(humanId);
       if (index !== null && humans[index]) {
-        if (humans[index].name.length === 0 || humans[index].description.length === 0) {
+        const needsDescription = !isMuseumMode && humans[index].description.length === 0;
+        if (humans[index].name.length === 0 || needsDescription) {
           ready = false;
         }
       }
     }
     setHumansReady(ready);
-  }, [recheckHumansReady, selectedCharacters, humans]);
+  }, [recheckHumansReady, selectedCharacters, humans, isMuseumMode]);
+
+  useEffect(() => {
+    if (!isMuseumMode) return;
+    if (!selectedCharacters.some(isPanelistId)) return;
+
+    const sorted = orderSelectedCharactersForMuseum(selectedCharacters);
+    if (sorted.join(",") !== selectedCharacters.join(",")) {
+      setSelectedCharacters(sorted);
+    }
+  }, [isMuseumMode, selectedCharacters, setSelectedCharacters]);
 
   function infoToShow(): React.ReactNode {
     if (hoveredCharacter === "addhuman") {

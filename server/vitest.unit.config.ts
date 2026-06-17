@@ -8,6 +8,7 @@ export default defineConfig({
         environment: 'node',
         include: commonInclude,
         exclude: [...commonExclude, ...dbBackedTests],
+        setupFiles: ['tests/unitSetup.js'],
         coverage: {
             provider: 'v8',
             reporter: ['text', 'json', 'html'],

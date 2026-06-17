@@ -133,5 +133,19 @@ describe('HumanInputHandler (Isolated)', () => {
             expect(mockContext.broadcaster.broadcastConversationUpdate).toHaveBeenCalledWith(mockContext.meeting.conversation);
             expect(mockContext.startLoop).toHaveBeenCalled();
         });
+
+        it('should strip panelist invitation when submitting panelist response', async () => {
+            mockContext.meeting.conversation = [
+                { type: 'message', text: 'prev', id: '1' },
+                { type: 'invitation', text: 'Please welcome Alice.', id: 'invite-1', speaker: 'water' },
+                ...TestFactory.createAwaitingPanelist('alice')
+            ];
+
+            await handler.handleSubmitHumanPanelist({ text: "Hello council.", speaker: "alice" });
+
+            expect(mockContext.meeting.conversation).toHaveLength(2);
+            expect(mockContext.meeting.conversation[0].type).toBe('message');
+            expect(mockContext.meeting.conversation[1].type).toBe('panelist');
+        });
     });
 });

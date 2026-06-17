@@ -2,10 +2,10 @@ import type { Character, CharacterSetupData, Topic } from '@shared/ModelTypes';
 
 export const MockFactory = {
     createCharacter: (overrides: Partial<Character> = {}): Character => ({
-        id: 'potato',
-        name: 'Potato',
-        description: 'A starchy root vegetable',
-        prompt: 'Speak as Potato in the council.',
+        id: 'participant-a',
+        name: 'Participant A',
+        description: 'A council participant',
+        prompt: 'Speak as Participant A in the council.',
         voice: 'alloy',
         ...overrides,
     }),
@@ -34,7 +34,7 @@ export const MockFactory = {
         metadata: { version: 'test', last_updated: 'test' },
         panelWithHumans: '',
         addHuman: { id: 'addhuman', name: 'Add Human', description: '' },
-        characters: [MockFactory.createCharacter({ id: 'water', name: 'Water', description: '', prompt: '' })],
+        characters: [MockFactory.createCharacter({ id: 'chair', name: 'Chair', description: '', prompt: '' })],
         ...overrides,
     }),
 };
