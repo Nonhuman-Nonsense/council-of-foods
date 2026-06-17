@@ -5,6 +5,9 @@ import { MockFactory } from "../factories/MockFactory";
 
 const mockFoodItem = vi.fn(() => <div data-testid="food-item" />);
 
+const participantA = { id: "character-a", name: "Character A" };
+const participantB = { id: "character-b", name: "Character B" };
+
 vi.mock("@/utils", () => ({
   mapFoodIndex: vi.fn((total, index) => index),
 }));
@@ -21,16 +24,16 @@ describe("FoodsCouncilScene", () => {
     render(
       <FoodsCouncilScene
         participants={[
-          MockFactory.createCharacter({ id: "banana", name: "Banana", description: "", prompt: "" }),
+          MockFactory.createCharacter({ id: participantA.id, name: participantA.name, description: "", prompt: "" }),
           MockFactory.createPanelist(0, { name: "Sage" }),
-          MockFactory.createCharacter({ id: "tomato", name: "Tomato", description: "", prompt: "" }),
+          MockFactory.createCharacter({ id: participantB.id, name: participantB.name, description: "", prompt: "" }),
         ]}
-        currentSpeakerId="banana"
+        currentSpeakerId={participantA.id}
         councilState="playing"
         playingNowIndex={1}
         textMessages={[
-          { type: "message", id: "m0", speaker: "banana", text: "Hi" },
-          { type: "message", id: "m1", speaker: "tomato", text: "Hello" },
+          { type: "message", id: "m0", speaker: participantA.id, text: "Hi" },
+          { type: "message", id: "m1", speaker: participantB.id, text: "Hello" },
         ]}
         currentSnippetIndex={0}
         audioMessages={[
@@ -53,15 +56,15 @@ describe("FoodsCouncilScene", () => {
     expect(mockFoodItem).toHaveBeenCalledTimes(2);
     expect(mockFoodItem).toHaveBeenCalledWith(
       expect.objectContaining({
-        food: expect.objectContaining({ id: "banana" }),
-        currentSpeakerId: "banana",
+        food: expect.objectContaining({ id: participantA.id }),
+        currentSpeakerId: participantA.id,
         isPaused: false,
       })
     );
     expect(mockFoodItem).toHaveBeenCalledWith(
       expect.objectContaining({
-        food: expect.objectContaining({ id: "tomato" }),
-        currentSpeakerId: "banana",
+        food: expect.objectContaining({ id: participantB.id }),
+        currentSpeakerId: participantA.id,
         isPaused: false,
       })
     );
