@@ -2,6 +2,8 @@ import type { Topic } from "@shared/ModelTypes";
 import { AVAILABLE_LANGUAGES } from "@shared/AvailableLanguages";
 
 export interface TopicsData {
+  /** Set from the `topics_<lang>.json` filename when the bundle is loaded. */
+  language: string;
   metadata: {
     version: string;
     last_updated: string;
@@ -20,7 +22,7 @@ const topicModules = import.meta.glob<TopicsData>("@shared/prompts/topics_*.json
 const localTopicsData: Partial<Record<string, TopicsData>> = {};
 for (const lang of AVAILABLE_LANGUAGES) {
   const moduleKey = Object.keys(topicModules).find((path) => path.endsWith(`topics_${lang}.json`));
-  if (moduleKey) localTopicsData[lang] = topicModules[moduleKey];
+  if (moduleKey) localTopicsData[lang] = { ...topicModules[moduleKey], language: lang };
 }
 
 // Fail fast on startup instead of letting the UI render with missing data.

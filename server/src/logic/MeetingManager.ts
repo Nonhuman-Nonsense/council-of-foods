@@ -18,6 +18,7 @@ import { GlobalOptions, getGlobalOptions } from "@logic/GlobalOptions.js";
 import { Socket } from "socket.io";
 import { SocketBroadcaster } from "@logic/SocketBroadcaster.js";
 import { Logger } from "@utils/Logger.js";
+import { splitSentences } from "@shared/textUtils.js";
 import type { StoredMeeting } from "@models/DBModels.js";
 import {
     SetupOptionsSchema,
@@ -321,10 +322,18 @@ export class MeetingManager implements IMeetingManager {
         if (this.isPaused || this.handRaised) {
             return { type: 'IDLE' };
         }
-        // 1. Already ended at length cap or finalized with a summary.
+        // 1. Stop if the last message is terminal or we're awaiting human input.
+        //    This MUST run before the length-cap check below: a pending human turn
+        //    (awaiting_*) plus its chair invitation can push the conversation to the
+        //    cap, and we must never end the meeting while waiting for the human.
         if (meeting.conversation.length > 0) {
             const lastMsg = meeting.conversation[meeting.conversation.length - 1];
-            if (lastMsg.type === 'max_reached' || lastMsg.type === 'summary') {
+            if (
+                lastMsg.type === 'max_reached' ||
+                lastMsg.type === 'summary' ||
+                lastMsg.type === 'awaiting_human_panelist' ||
+                lastMsg.type === 'awaiting_human_question'
+            ) {
                 return { type: 'IDLE' };
             }
         }
@@ -340,27 +349,19 @@ export class MeetingManager implements IMeetingManager {
             }
         }
 
-        // 3. Check Awaiting States
-        if (meeting.conversation.length > 0) {
-            const lastMsg = meeting.conversation[meeting.conversation.length - 1];
-            if (lastMsg.type === 'awaiting_human_panelist' || lastMsg.type === 'awaiting_human_question') {
-                return { type: 'IDLE' };
-            }
-        }
-
-        // 4. Determine Speaker
+        // 3. Determine Speaker
         const nextSpeakerIndex = SpeakerSelector.calculateNextSpeaker(meeting.conversation, meeting.characters, {
             directedSpeakerRouting: this.serverOptions.directedSpeakerRouting,
             chairId: this.serverOptions.chairId,
         });
         const nextSpeaker = meeting.characters[nextSpeakerIndex];
 
-        // 5. Panelist Turn
+        // 4. Panelist Turn
         if (nextSpeaker.id.startsWith('panelist')) {
             return { type: 'REQUEST_PANELIST', speaker: nextSpeaker };
         }
 
-        // 6. AI Turn
+        // 5. AI Turn
         return { type: 'GENERATE_AI_RESPONSE', speaker: nextSpeaker };
     }
 
@@ -389,9 +390,55 @@ export class MeetingManager implements IMeetingManager {
 
             case 'REQUEST_PANELIST':
                 if (action.speaker) {
+                    const panelistId = action.speaker.id;
+                    const isFirstPanelistTurn = !meeting.conversation.some(
+                        (msg) => msg.type === "panelist" && msg.speaker === panelistId
+                    );
+
+                    if (isFirstPanelistTurn) {
+                        const panelistName = action.speaker.name || "Human";
+                        const invitationIndex = meeting.conversation.length;
+                        const chairInterjection = await this.dialogGenerator.chairInterjection(
+                            this.serverOptions.panelistInvitationPrompt[meeting.language].replace(
+                                "[NAME]",
+                                panelistName
+                            ),
+                            invitationIndex,
+                            this.serverOptions.panelistInvitationLength,
+                            true,
+                            meeting,
+                            this.broadcaster
+                        );
+
+                        let response = chairInterjection.response;
+                        const firstNewLineIndex = response.indexOf("\n\n");
+                        if (firstNewLineIndex !== -1) {
+                            response = response.substring(0, firstNewLineIndex);
+                        }
+
+                        const invitation: Message = {
+                            id: chairInterjection.id as string,
+                            speaker: meeting.characters[0].id,
+                            text: response,
+                            type: "invitation",
+                            sentences: splitSentences(response),
+                        };
+
+                        meeting.conversation.push(invitation);
+                        Logger.info(`meeting ${meeting._id}`, `panelist invitation generated for ${panelistId} on index ${invitationIndex}`);
+
+                        this.audioSystem.queueAudioGeneration(
+                            { ...invitation, id: invitation.id as string, text: invitation.text as string, sentences: invitation.sentences! },
+                            meeting.characters[0],
+                            meeting,
+                            this.environment,
+                            this.serverOptions
+                        );
+                    }
+
                     meeting.conversation.push({
                         type: 'awaiting_human_panelist',
-                        speaker: action.speaker.id,
+                        speaker: panelistId,
                         text: "",
                     });
                     Logger.info(`meeting ${meeting._id}`, `awaiting human panelist on index ${meeting.conversation.length - 1}`);

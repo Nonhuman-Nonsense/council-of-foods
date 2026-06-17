@@ -191,6 +191,7 @@ function Council({
     }
   }, [playingNowIndex, textMessages, setCurrentSpeakerId, councilState, playNextIndex]);
 
+  const isWaitingToInterject = isRaisedHand && councilState !== 'human_input';
   const controlsVisible = (
     councilState === "playing" ||
     councilState === "waiting" ||
@@ -231,7 +232,7 @@ function Council({
             onSkipForward={handleOnSkipForward}
             onRaiseHand={handleOnRaiseHand}
             isRaisedHand={isRaisedHand}
-            isWaitingToInterject={isRaisedHand}
+            isWaitingToInterject={isWaitingToInterject}
             isMuted={isMuted}
             onMuteUnmute={toggleMute}
             isPaused={isPaused}
