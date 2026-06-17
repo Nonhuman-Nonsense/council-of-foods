@@ -191,7 +191,7 @@ function Council({
     }
   }, [playingNowIndex, textMessages, setCurrentSpeakerId, councilState, playNextIndex]);
 
-  const showControls = !isMuseumMode && (
+  const controlsVisible = (
     councilState === "playing" ||
     councilState === "waiting" ||
     (councilState === "summary" && tryToFindTextAndAudio())
@@ -224,8 +224,9 @@ function Council({
           audioContext={audioContext}
           handleOnFinishedPlaying={handleOnFinishedPlaying}
         />
-        {showControls && (
+        {controlsVisible && (
           <ConversationControls
+            hidden={isMuseumMode}
             onSkipBackward={handleOnSkipBackward}
             onSkipForward={handleOnSkipForward}
             onRaiseHand={handleOnRaiseHand}
