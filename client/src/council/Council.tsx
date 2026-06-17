@@ -14,6 +14,7 @@ import { useTranslation } from "react-i18next";
 import { useCouncilMachine } from "./hooks/useCouncilMachine";
 import { getMeeting } from "@api/getMeeting.js";
 import ReplayModeBanner from "./ReplayModeBanner";
+import { useAppMode } from "@/museum/useAppMode";
 
 interface CouncilProps {
   liveKey: string | null;
@@ -49,6 +50,7 @@ function Council({
 
   const { meetingId } = useParams<{ meetingId: string }>();
   const { t } = useTranslation();
+  const { isMuseumMode } = useAppMode();
 
   const navigate = useNavigate();
 
@@ -176,11 +178,11 @@ function Council({
   }, [derivedCurrentSpeakerId, setCurrentSpeakerId]);
 
   // Derived UI State
-  const showControls = (
+  const showControls = !isMuseumMode && (
     councilState === 'playing' ||
     councilState === 'waiting' ||
     (councilState === 'summary' && tryToFindTextAndAudio())
-  ) ? true : false;
+  );
 
   // Placeholder removed as it comes from state now
   const location = useLocation();
