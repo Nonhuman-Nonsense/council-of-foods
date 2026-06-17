@@ -107,7 +107,45 @@ describe("buildMeetingCharactersPayload", () => {
     vi.restoreAllMocks();
   });
 
-  it("injects a numeric random agenda point when agenda points are provided", () => {
+    it("replaces [CHARACTERS] with non-chair participants", () => {
+        const result = buildCharactersPayload();
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+
+        const chair = result.characters[0] as Character;
+        expect(chair.prompt).not.toContain("[CHARACTERS]");
+        expect(chair.prompt).toContain("Food A");
+        expect(chair.prompt).toContain("Food B");
+        expect(chair.prompt).not.toContain("Chair");
+    });
+
+    it("replaces [HUMANS] with panelist presentation", () => {
+        const result = buildMeetingCharactersPayload({
+            language: "en",
+            selectedCharacters: ["chair", "food-a", "food-b", "panelist0"],
+            humans: [
+                {
+                    id: "panelist0",
+                    name: "Alice",
+                    description: "A thoughtful human",
+                    voice: "alloy",
+                    prompt: "",
+                },
+            ],
+            numberOfHumans: 1,
+            labels: { oneHuman: "Human: ", twoHumansSuffix: " humans: " },
+        });
+
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+
+        const chair = result.characters[0] as Character;
+        expect(chair.prompt).not.toContain("[HUMANS]");
+        expect(chair.prompt).toContain("Alice");
+        expect(chair.prompt).toContain("A thoughtful human");
+    });
+
+    it("injects a numeric random agenda point when agenda points are provided", () => {
     vi.spyOn(Math, "random").mockReturnValue(0.5);
     const result = buildCharactersPayload(["One", "Two", "Three", "Four"]);
     expect(result.ok).toBe(true);
