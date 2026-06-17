@@ -37,6 +37,7 @@ export default defineConfig(async ({ command, mode }) => ({
       include: [
         'tests/unit/**/*.{test,spec}.{js,jsx,ts,tsx}',
         'tests/forest/**/*.{test,spec}.{js,jsx,ts,tsx}',
+        'tests/foods/**/*.{test,spec}.{js,jsx,ts,tsx}',
       ],
       coverage: {
         provider: 'v8',
