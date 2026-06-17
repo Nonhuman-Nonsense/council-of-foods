@@ -107,6 +107,12 @@ vi.mock('@council/hooks/useCouncilMachine', () => ({
     useCouncilMachine: (...args: any[]) => mockUseCouncilMachine(...args)
 }));
 
+const mockUseAppMode = vi.fn(() => ({ isMuseumMode: false, mode: 'web' as const, setAppMode: vi.fn() }));
+
+vi.mock('@/museum/useAppMode', () => ({
+    useAppMode: () => mockUseAppMode(),
+}));
+
 
 describe('Council Component', () => {
     const defaultProps = {
@@ -182,6 +188,14 @@ describe('Council Component', () => {
             setPaused: defaultProps.setPaused,
             setAudioPaused: defaultProps.setAudioPaused,
         }));
+    });
+
+    it('hides conversation controls in museum mode', () => {
+        mockUseAppMode.mockReturnValue({ isMuseumMode: true, mode: 'museum', setAppMode: vi.fn() });
+
+        render(<Council {...defaultProps} />);
+
+        expect(screen.queryByTestId('conversation-controls')).not.toBeInTheDocument();
     });
 
     it('surfaces an unrecoverable error if human_panelist has no awaiting marker', () => {
