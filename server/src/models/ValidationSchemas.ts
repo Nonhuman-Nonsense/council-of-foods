@@ -30,6 +30,8 @@ const CharacterSchema: z.ZodType<Character> = z.object({
     voiceLocale: z.string().optional(),
     voiceInstruction: z.string().optional(),
     voiceTemperature: z.number().min(0.1).max(2.0).optional(),
+    voiceStability: z.number().min(0).max(1).optional(),
+    voiceStyle: z.number().min(0).max(1).optional(),
     voiceSpeed: z.number().min(0.8).max(1.5).optional(),
     size: z.number().optional(),
 }).superRefine((data, ctx) => {

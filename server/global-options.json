@@ -9,7 +9,7 @@
   "maxTokens": 400,
   "chairMaxTokens": 400,
   "defaultAudioSpeed": 1.15,
-  "subtitleTimingPriorities": ["inworld", "whisper", "estimated"],
+  "subtitleTimingPriorities": ["elevenlabs", "inworld", "whisper", "estimated"],
   "directedSpeakerRouting": true,
   "trimSentance": true,
   "trimParagraph": false,

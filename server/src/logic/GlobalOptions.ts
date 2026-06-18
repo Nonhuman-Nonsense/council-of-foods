@@ -8,7 +8,7 @@ import { z } from "zod";
 /** Same as `characters[0].id` in the default character-setup bundle (validated in prompt data tests). */
 export const CHAIR_ID = defaultCharacterSetupBundle.characters[0].id;
 export const ConversationReasoningSchema = z.enum(["none", "minimal", "low", "medium", "high", "xhigh"]);
-export const SubtitleTimingTypeSchema = z.enum(["inworld", "estimated", "whisper"]);
+export const SubtitleTimingTypeSchema = z.enum(["inworld", "elevenlabs", "estimated", "whisper"]);
 
 export const GlobalOptionsSchema = z.object({
     conversationModel: z.string(),

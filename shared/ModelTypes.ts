@@ -62,6 +62,8 @@ export interface Character {
     voiceLocale?: string;
     voiceInstruction?: string;
     voiceTemperature?: number;
+    voiceStability?: number;
+    voiceStyle?: number;
     voiceSpeed?: number;
     size?: number;
     // type?: string;

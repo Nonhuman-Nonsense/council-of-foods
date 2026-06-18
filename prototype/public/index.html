@@ -564,8 +564,27 @@
           <label class="sub-label">Voice Language (optional)</label>
           <input type="text" class="input-full" placeholder="e.g. en, sv"
             v-model="character.voiceLocale" style="padding: 8px;">
-          <small>
+          <small style="display: block; margin-bottom: 10px;">
             ISO 639-1 language code. Leave empty to let the model auto-detect.
+          </small>
+
+          <label class="sub-label">Voice Stability ({{ character.voiceStability ?? 0.5 }})</label>
+          <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+            <input type="range" class="styled-range" min="0" max="1" step="0.01"
+              :value="character.voiceStability ?? 0.5"
+              @input="character.voiceStability = parseFloat($event.target.value)"
+              style="flex: 1;">
+          </div>
+
+          <label class="sub-label">Voice Style ({{ character.voiceStyle ?? 0 }})</label>
+          <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+            <input type="range" class="styled-range" min="0" max="1" step="0.01"
+              :value="character.voiceStyle ?? 0"
+              @input="character.voiceStyle = parseFloat($event.target.value)"
+              style="flex: 1;">
+          </div>
+          <small style="display: block; margin-bottom: 10px; color: var(--text-secondary);">
+            Stability controls consistency; style exaggerates the speaker's delivery.
           </small>
         </template>
 
@@ -642,7 +661,7 @@
 
   <script src="Sortable.min.js"></script>
   <script src="audio_controller.js"></script>
-  <script src="prototype_client.js?v=2.5"></script>
+  <script src="prototype_client.js?v=2.6"></script>
 </body>
 
 </html>

@@ -94,6 +94,8 @@ const CharacterCard = {
         if (char.voiceTemperature === undefined) char.voiceTemperature = 1.1;
       } else if (char.voiceProvider === 'elevenlabs') {
         if (!char.voice) char.voice = "";
+        if (char.voiceStability === undefined) char.voiceStability = 0.5;
+        if (char.voiceStyle === undefined) char.voiceStyle = 0;
       } else {
         char.voice = this.voiceLists.openai[0];
         if (char.voiceInstruction === undefined) char.voiceInstruction = "";
@@ -1060,6 +1062,8 @@ createApp({
         charExport.voiceTemperature = rest.voiceTemperature || 1.1;
       } else if (provider === 'elevenlabs') {
         if (rest.voiceLocale?.trim()) charExport.voiceLocale = rest.voiceLocale.trim();
+        if (rest.voiceStability !== undefined) charExport.voiceStability = rest.voiceStability;
+        if (rest.voiceStyle !== undefined) charExport.voiceStyle = rest.voiceStyle;
       }
 
       return charExport;

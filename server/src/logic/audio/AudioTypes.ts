@@ -21,6 +21,8 @@ export interface Speaker {
     name?: string;
     voiceInstruction?: string;
     voiceTemperature?: number;
+    voiceStability?: number;
+    voiceStyle?: number;
     voiceSpeed?: number;
 }
 

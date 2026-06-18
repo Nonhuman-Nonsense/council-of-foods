@@ -100,7 +100,7 @@ export const MockFactory = {
             maxTokens: 100,
             chairMaxTokens: 50,
             defaultAudioSpeed: 1.25,
-            subtitleTimingPriorities: ["inworld", "estimated", "whisper"],
+            subtitleTimingPriorities: ["elevenlabs", "inworld", "estimated", "whisper"],
             trimSentance: false,
             trimParagraph: true,
             chairId: CHAIR_ID,
