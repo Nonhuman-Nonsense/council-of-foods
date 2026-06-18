@@ -16,11 +16,13 @@ export interface Services {
 export interface Speaker {
     id: string;
     voice: VoiceOption | string;
-    voiceProvider?: 'openai' | 'gemini' | 'inworld';
+    voiceProvider?: 'openai' | 'gemini' | 'inworld' | 'elevenlabs';
     voiceLocale?: string;
     name?: string;
     voiceInstruction?: string;
     voiceTemperature?: number;
+    voiceStability?: number;
+    voiceStyle?: number;
     voiceSpeed?: number;
 }
 
@@ -36,6 +38,7 @@ export interface AudioSystemOptions {
     voiceModel: string;
     geminiVoiceModel: string;
     inworldVoiceModel: string;
+    elevenlabsVoiceModel: string;
     defaultAudioSpeed: number;
     subtitleTimingPriorities: GlobalOptions["subtitleTimingPriorities"];
     language?: string;

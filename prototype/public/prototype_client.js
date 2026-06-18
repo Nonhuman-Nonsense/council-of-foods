@@ -4,6 +4,10 @@ const CHARACTERS_FILE = "beings";
 const PROTOTYPE_CUSTOM_TOPIC_ID = "customtopic";
 const PROTOTYPE_CUSTOM_TOPIC_TOKEN = "[VISITOR_INPUT]";
 
+function usesCustomVoiceId(character) {
+  return character?.voiceProvider === 'inworld' || character?.voiceProvider === 'elevenlabs';
+}
+
 function usesInworldTts2(character) {
   return Boolean(character?.voiceLocale?.trim());
 }
@@ -37,6 +41,7 @@ const defaultOptions = {
   voiceModel: "gpt-4o-mini-tts",
   geminiVoiceModel: "gemini-2.5-flash-tts",
   inworldVoiceModel: "inworld-tts-1.5-max",
+  elevenlabsVoiceModel: "eleven_flash_v2_5",
   skipMatchingSubtitles: true
 };
 
@@ -75,6 +80,9 @@ const CharacterCard = {
     usesInworldTts2(char) {
       return usesInworldTts2(char);
     },
+    usesCustomVoiceId(char) {
+      return usesCustomVoiceId(char);
+    },
     onProviderChange() {
       const char = this.character;
       if (char.voiceProvider === 'gemini') {
@@ -84,6 +92,10 @@ const CharacterCard = {
       } else if (char.voiceProvider === 'inworld') {
         if (!char.voice) char.voice = "";
         if (char.voiceTemperature === undefined) char.voiceTemperature = 1.1;
+      } else if (char.voiceProvider === 'elevenlabs') {
+        if (!char.voice) char.voice = "";
+        if (char.voiceStability === undefined) char.voiceStability = 0.5;
+        if (char.voiceStyle === undefined) char.voiceStyle = 0;
       } else {
         char.voice = this.voiceLists.openai[0];
         if (char.voiceInstruction === undefined) char.voiceInstruction = "";
@@ -441,6 +453,8 @@ createApp({
         char.voice = this.audioVoicesGemini[0];
       } else if (char.voiceProvider === 'inworld') {
         char.voice = "";
+      } else if (char.voiceProvider === 'elevenlabs') {
+        char.voice = "";
       } else {
         char.voice = this.audioVoices[0];
       }
@@ -684,7 +698,7 @@ createApp({
         if (!c.voiceProvider) c.voiceProvider = 'openai';
         if (!c.voice) {
           if (c.voiceProvider === 'gemini') c.voice = this.audioVoicesGemini[0];
-          else if (c.voiceProvider !== 'inworld') c.voice = this.audioVoices[0];
+          else if (c.voiceProvider !== 'inworld' && c.voiceProvider !== 'elevenlabs') c.voice = this.audioVoices[0];
         }
         delete c._ui_id;
       });
@@ -817,6 +831,7 @@ createApp({
         voiceModel: this.options.voiceModel,
         geminiVoiceModel: this.options.geminiVoiceModel,
         inworldVoiceModel: this.options.inworldVoiceModel,
+        elevenlabsVoiceModel: this.options.elevenlabsVoiceModel,
       };
     },
 
@@ -1045,6 +1060,10 @@ createApp({
       } else if (provider === 'inworld') {
         if (rest.voiceLocale?.trim()) charExport.voiceLocale = rest.voiceLocale.trim();
         charExport.voiceTemperature = rest.voiceTemperature || 1.1;
+      } else if (provider === 'elevenlabs') {
+        if (rest.voiceLocale?.trim()) charExport.voiceLocale = rest.voiceLocale.trim();
+        if (rest.voiceStability !== undefined) charExport.voiceStability = rest.voiceStability;
+        if (rest.voiceStyle !== undefined) charExport.voiceStyle = rest.voiceStyle;
       }
 
       return charExport;
