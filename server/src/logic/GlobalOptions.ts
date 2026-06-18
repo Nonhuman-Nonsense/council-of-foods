@@ -16,6 +16,7 @@ export const GlobalOptionsSchema = z.object({
     voiceModel: z.string(),
     geminiVoiceModel: z.string(),
     inworldVoiceModel: z.string(),
+    elevenlabsVoiceModel: z.string(),
     temperature: z.number(),
     maxTokens: z.number(),
     chairMaxTokens: z.number(),

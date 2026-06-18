@@ -8,6 +8,7 @@ import { parseBuffer } from 'music-metadata';
 import {
     generateGeminiAudio,
     generateInworldAudio,
+    generateElevenLabsAudio,
     generateOpenAIAudio,
     getWhisperWords,
     AudioResult
@@ -281,6 +282,8 @@ export class AudioSystem {
             return generateGeminiAudio({ ...baseParams, auth });
         } else if (speaker.voiceProvider === 'inworld') {
             return generateInworldAudio(baseParams);
+        } else if (speaker.voiceProvider === 'elevenlabs') {
+            return generateElevenLabsAudio(baseParams);
         } else {
             // OpenAI
             return generateOpenAIAudio({ ...baseParams, services: this.services });

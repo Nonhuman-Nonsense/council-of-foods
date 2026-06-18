@@ -536,6 +536,11 @@
               @change="onProviderChange">
             Inworld
           </label>
+          <label class="voice-chip" :class="{ active: character.voiceProvider === 'elevenlabs' }">
+            <input type="radio" value="elevenlabs" v-model="character.voiceProvider" style="display: none;"
+              @change="onProviderChange">
+            ElevenLabs
+          </label>
         </div>
 
         <template v-if="character.voiceProvider === 'inworld'">
@@ -548,6 +553,19 @@
             v-model="character.voiceLocale" style="padding: 8px;">
           <small>
             BCP-47 locale. Leave empty for TTS 1.5; any value uses TTS-2.
+          </small>
+        </template>
+
+        <template v-else-if="character.voiceProvider === 'elevenlabs'">
+          <label class="sub-label">Voice ID</label>
+          <input type="text" class="input-full" placeholder="Enter ElevenLabs Voice ID..."
+            v-model="character.voice" style="padding: 8px;">
+
+          <label class="sub-label">Voice Language (optional)</label>
+          <input type="text" class="input-full" placeholder="e.g. en, sv"
+            v-model="character.voiceLocale" style="padding: 8px;">
+          <small>
+            ISO 639-1 language code. Leave empty to let the model auto-detect.
           </small>
         </template>
 
@@ -567,7 +585,7 @@
           </label>
         </div>
 
-        <template v-if="character.voiceProvider !== 'inworld'">
+        <template v-if="!usesCustomVoiceId(character)">
           <label class="sub-label">Voice Option</label>
           <div class="voice-selector">
             <template v-if="character.voiceProvider === 'gemini'">
@@ -624,7 +642,7 @@
 
   <script src="Sortable.min.js"></script>
   <script src="audio_controller.js"></script>
-  <script src="prototype_client.js?v=2.4"></script>
+  <script src="prototype_client.js?v=2.5"></script>
 </body>
 
 </html>

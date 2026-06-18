@@ -96,6 +96,46 @@ export async function generateOpenAIAudio(params: GenerateParams): Promise<Audio
     return { audio: Buffer.from(await mp3.arrayBuffer()) };
 }
 
+export async function generateElevenLabsAudio(params: GenerateParams): Promise<AudioResult> {
+    const { text, speaker, options } = params;
+    const apiKey = process.env.ELEVENLABS_API_KEY;
+    if (!apiKey) throw new Error("ELEVENLABS_API_KEY required for ElevenLabs TTS");
+
+    const voiceId = speaker.voice;
+    const modelId = options.elevenlabsVoiceModel;
+    const speed = speaker.voiceSpeed ?? options.defaultAudioSpeed;
+
+    const url = new URL(`https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voiceId)}`);
+    url.searchParams.set("output_format", "opus_48000_128");
+
+    const body: Record<string, unknown> = {
+        text: text.substring(0, 4096),
+        model_id: modelId,
+        voice_settings: { speed },
+    };
+
+    const locale = speaker.voiceLocale?.trim();
+    if (locale) {
+        body.language_code = locale.split("-")[0];
+    }
+
+    const response = await withNetworkRetry(() => fetch(url.toString(), {
+        method: "POST",
+        headers: {
+            "xi-api-key": apiKey,
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+    }), "AudioSystemElevenLabs");
+
+    if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`ElevenLabs TTS API Error: ${response.status} ${errText}`);
+    }
+
+    return { audio: Buffer.from(await response.arrayBuffer()) };
+}
+
 export async function generateInworldAudio(params: GenerateParams): Promise<AudioResult> {
     const { text, speaker, options } = params;
     const apiKey = process.env.INWORLD_API_KEY;
@@ -186,7 +226,7 @@ export async function generateInworldAudio(params: GenerateParams): Promise<Audi
 
 export async function getWhisperWords(buffer: Buffer, services: { getOpenAI: () => OpenAI }): Promise<Word[]> {
     const openai = services.getOpenAI();
-    // All our providers (OpenAI, Gemini, Inworld) now return OGG/Opus.
+    // All our providers (OpenAI, Gemini, Inworld, ElevenLabs) return OGG/Opus.
     // FFmpeg (used by Whisper) performs content sniffing, but correct extension helps.
     const audioFile = new File([new Uint8Array(buffer)], "speech.ogg", { type: "audio/ogg" });
     const transcription = await withNetworkRetry(() => openai.audio.transcriptions.create({

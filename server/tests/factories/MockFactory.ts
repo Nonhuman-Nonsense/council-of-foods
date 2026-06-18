@@ -95,6 +95,7 @@ export const MockFactory = {
             voiceModel: "gpt-4o-mini-tts",
             geminiVoiceModel: "gemini-2.5-flash-tts",
             inworldVoiceModel: "inworld-tts-1.5-mini",
+            elevenlabsVoiceModel: "eleven_flash_v2_5",
             temperature: 1,
             maxTokens: 100,
             chairMaxTokens: 50,

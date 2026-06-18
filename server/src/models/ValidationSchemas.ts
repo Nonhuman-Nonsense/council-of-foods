@@ -26,7 +26,7 @@ const CharacterSchema: z.ZodType<Character> = z.object({
     description: z.string(),
     prompt: z.string(),
     voice: z.string(),
-    voiceProvider: z.enum(['openai', 'gemini', 'inworld']).optional().default('openai'),
+    voiceProvider: z.enum(['openai', 'gemini', 'inworld', 'elevenlabs']).optional().default('openai'),
     voiceLocale: z.string().optional(),
     voiceInstruction: z.string().optional(),
     voiceTemperature: z.number().min(0.1).max(2.0).optional(),
