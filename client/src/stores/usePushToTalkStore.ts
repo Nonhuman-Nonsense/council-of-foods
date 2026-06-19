@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { serialDebugLog } from "@/serial/debugLog";
 import { getPushToTalk } from "@/settings/councilSettings";
 import {
   isWebSerialSupported,

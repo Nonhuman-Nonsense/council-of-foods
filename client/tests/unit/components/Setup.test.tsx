@@ -104,4 +104,11 @@ describe('Setup overlay', () => {
     expect(screen.getByTestId('setup-serial-reconnect-hint')).toBeInTheDocument();
     expect(screen.getByText('setup.serial.reconnectHint')).toBeInTheDocument();
   });
+
+  it('shows serial debug panel when push to talk is enabled', () => {
+    localStorage.setItem('councilPushToTalk', 'true');
+    render(<Setup />);
+    expect(screen.getByTestId('setup-serial-debug')).toBeInTheDocument();
+    expect(screen.getByTestId('setup-serial-debug-copy')).toBeInTheDocument();
+  });
 });
