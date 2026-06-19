@@ -22,9 +22,9 @@ The browser drives three host modes over serial:
 
 | Command | LED behaviour | Button |
 |---|---|---|
-| `LED_OFF` | Off | Presses ignored |
-| `LED_PULSE` | Smooth breathing animation | Press to activate PTT |
-| `LED_ON` | Fully on | Mic active |
+| `LED_OFF` | Off | Presses reported (`PTT_DOWN` / `PTT_UP`); host decides whether to act |
+| `LED_PULSE` | Smooth breathing animation | Presses reported |
+| `LED_ON` | Fully on | Presses reported |
 
 ### No host connected
 
@@ -49,7 +49,7 @@ Close Serial Monitor before connecting from Chrome — only one program can use 
 
 | Direction | Message |
 |---|---|
-| Device → host | `PTT_DOWN` (any button pressed, only in pulse/on modes) |
+| Device → host | `PTT_DOWN` (any button pressed, whenever host serial is connected) |
 | Device → host | `PTT_UP` (all buttons released) |
 | Device → host | `PONG` (response to `PING`) |
 | Device → host | `READY council-ptt` (on boot) |
