@@ -78,6 +78,7 @@ function createTalkButtonService(): TalkButtonService {
       return;
     }
     if (serialStatus === "connected" || serialStatus === "connecting") {
+      void usePushToTalkStore.getState().reconnectIfStale();
       return;
     }
     await runSync("watchdog");

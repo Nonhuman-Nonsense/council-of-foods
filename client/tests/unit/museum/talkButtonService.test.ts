@@ -11,6 +11,7 @@ const storeState = vi.hoisted(() => ({
   enableSerialAutoReconnect: vi.fn(),
   connectGrantedPorts: vi.fn().mockResolvedValue(undefined),
   disconnectSerial: vi.fn().mockResolvedValue(undefined),
+  reconnectIfStale: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("@/museum/talkButton/talkButtonPolicy", () => policyMock);
@@ -58,6 +59,18 @@ describe("talkButtonService", () => {
 
     expect(storeState.enableSerialAutoReconnect).toHaveBeenCalled();
     expect(storeState.connectGrantedPorts).toHaveBeenCalled();
+  });
+
+  it("detects stale connected sessions during watchdog ticks", async () => {
+    storeState.serialStatus = "connected";
+    const { talkButtonService } = await loadService();
+    talkButtonService.start();
+    storeState.connectGrantedPorts.mockClear();
+
+    await vi.advanceTimersByTimeAsync(2_500);
+
+    expect(storeState.reconnectIfStale).toHaveBeenCalled();
+    expect(storeState.connectGrantedPorts).not.toHaveBeenCalled();
   });
 
   it("does not retry while already connecting", async () => {
