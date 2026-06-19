@@ -16,6 +16,7 @@ import { useCouncilMachine } from "./hooks/useCouncilMachine";
 import { getMeeting } from "@api/getMeeting.js";
 import ReplayModeBanner from "./ReplayModeBanner";
 import { useAppMode } from "@/museum/useAppMode";
+import { getPushToTalk } from "@/settings/councilSettings";
 
 interface CouncilProps {
   liveKey: string | null;
@@ -180,6 +181,10 @@ function Council({
 
   // Derived UI State
   const participationPhase = getParticipationPhase(councilState, textMessages, playingNowIndex);
+  const isPttMuseumMode = useMemo(
+    () => isMuseumMode && getPushToTalk(),
+    [isMuseumMode]
+  );
   const isWaitingToInterject = isRaisedHand && councilState !== 'human_input';
   const controlsVisible = (
     councilState === 'playing' ||
@@ -217,6 +222,7 @@ function Council({
           isPanelist={councilState === 'human_panelist'}
           currentSpeakerName={participants.find(p => p.id === currentSpeakerId)?.name || ""}
           onSubmitHumanMessage={handleOnSubmitHumanMessage}
+          isPttMuseumMode={isPttMuseumMode}
         />
       )}
       <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, display: "flex", flexDirection: "column", alignItems: "center", overflow: "visible" }}>

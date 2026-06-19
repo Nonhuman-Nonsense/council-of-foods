@@ -9,10 +9,13 @@
  *   Device → host: PTT_DOWN, PTT_UP, PONG
  *   Host → device: LED_OFF, LED_PULSE, LED_ON, PING
  *
- * LED modes (from host):
- *   LED_OFF   — LEDs off; button presses are ignored
- *   LED_PULSE — breathing LEDs; button presses activate PTT
- *   LED_ON    — LEDs fully on; mic active
+ * LED modes (from host — visual only; host decides what to do with presses):
+ *   LED_OFF   — LEDs off
+ *   LED_PULSE — breathing LEDs
+ *   LED_ON    — LEDs fully on
+ *
+ * While a host is connected, PTT_DOWN / PTT_UP are always sent on press/release.
+ * The browser gates whether those events activate mic / agent logic.
  *
  * When no host has opened the USB serial port, button presses are ignored and
  * the LEDs cycle one-at-a-time as a connecting indicator.
@@ -80,10 +83,6 @@ bool readAnyButtonPressed() {
     }
   }
   return false;
-}
-
-bool pttInputEnabled() {
-  return hostConnected && (hostLedMode == LED_MODE_PULSE || hostLedMode == LED_MODE_ON);
 }
 
 void syncPttBaseline() {
@@ -271,7 +270,7 @@ void loop() {
   if ((millis() - lastDebounceTime) > DEBOUNCE_MS) {
     if (reading != lastStableMergedPressed) {
       lastStableMergedPressed = reading;
-      if (pttInputEnabled()) {
+      if (hostConnected) {
         if (lastStableMergedPressed) {
           sendLine(F("PTT_DOWN"));
         } else {

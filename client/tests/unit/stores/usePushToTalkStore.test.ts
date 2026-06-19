@@ -48,6 +48,7 @@ describe("usePushToTalkStore", () => {
     usePushToTalkStore = mod.usePushToTalkStore;
     usePushToTalkStore.setState({
       pressed: false,
+      rawPressed: false,
       ledMode: "off",
       pttInputEnabled: false,
       serialStatus: "disconnected",
@@ -83,13 +84,31 @@ describe("usePushToTalkStore", () => {
     expect(usePushToTalkStore.getState().lastSerialLine).toBe("PTT_UP");
   });
 
-  it("ignores serial PTT events when LED mode is off", async () => {
+  it("tracks rawPressed from serial even when LED mode is off", async () => {
     await initTransport();
     emitStatus("connected");
     await usePushToTalkStore.getState().setLedMode("off");
 
     emitLine({ type: "ptt_down" });
+    expect(usePushToTalkStore.getState().rawPressed).toBe(true);
     expect(usePushToTalkStore.getState().pressed).toBe(false);
+
+    emitLine({ type: "ptt_up" });
+    expect(usePushToTalkStore.getState().rawPressed).toBe(false);
+    expect(usePushToTalkStore.getState().pressed).toBe(false);
+  });
+
+  it("promotes rawPressed to pressed when LED input becomes enabled", async () => {
+    await initTransport();
+    emitStatus("connected");
+    await usePushToTalkStore.getState().setLedMode("off");
+
+    emitLine({ type: "ptt_down" });
+    expect(usePushToTalkStore.getState().rawPressed).toBe(true);
+    expect(usePushToTalkStore.getState().pressed).toBe(false);
+
+    await usePushToTalkStore.getState().setLedMode("pulse");
+    expect(usePushToTalkStore.getState().pressed).toBe(true);
   });
 
   it("records PONG and unknown serial lines", async () => {
@@ -128,24 +147,27 @@ describe("usePushToTalkStore", () => {
     expect(usePushToTalkStore.getState().serialError).toBe("USB unplugged");
   });
 
-  it("clears pressed when serial disconnects or errors", async () => {
+  it("clears pressed and rawPressed when serial disconnects or errors", async () => {
     await initTransport();
 
     emitStatus("connected");
-    await usePushToTalkStore.getState().setLedMode("pulse");
+    await usePushToTalkStore.getState().setLedMode("off");
     emitLine({ type: "ptt_down" });
-    expect(usePushToTalkStore.getState().pressed).toBe(true);
+    expect(usePushToTalkStore.getState().rawPressed).toBe(true);
 
     emitStatus("disconnected");
     expect(usePushToTalkStore.getState().pressed).toBe(false);
+    expect(usePushToTalkStore.getState().rawPressed).toBe(false);
 
     emitStatus("connected");
     await usePushToTalkStore.getState().setLedMode("on");
     emitLine({ type: "ptt_down" });
     expect(usePushToTalkStore.getState().pressed).toBe(true);
+    expect(usePushToTalkStore.getState().rawPressed).toBe(true);
 
     emitStatus("error", "Serial read failed");
     expect(usePushToTalkStore.getState().pressed).toBe(false);
+    expect(usePushToTalkStore.getState().rawPressed).toBe(false);
   });
 
   it("sends LED mode commands only when serial is connected", async () => {
@@ -169,14 +191,18 @@ describe("usePushToTalkStore", () => {
     usePushToTalkStore.getState().init();
 
     window.dispatchEvent(new KeyboardEvent("keydown", { code: "Space", bubbles: true }));
+    expect(usePushToTalkStore.getState().rawPressed).toBe(true);
     expect(usePushToTalkStore.getState().pressed).toBe(false);
 
     await usePushToTalkStore.getState().setLedMode("pulse");
-    window.dispatchEvent(new KeyboardEvent("keydown", { code: "Space", bubbles: true }));
     expect(usePushToTalkStore.getState().pressed).toBe(true);
+
+    // Re-dispatch keydown so keyboard source is recorded (held from before pulse).
+    window.dispatchEvent(new KeyboardEvent("keydown", { code: "Space", bubbles: true }));
     expect(usePushToTalkStore.getState().keyboardActive).toBe(true);
 
     window.dispatchEvent(new KeyboardEvent("keyup", { code: "Space", bubbles: true }));
+    expect(usePushToTalkStore.getState().rawPressed).toBe(false);
     expect(usePushToTalkStore.getState().pressed).toBe(false);
     expect(usePushToTalkStore.getState().keyboardActive).toBe(false);
   });
@@ -209,6 +235,7 @@ describe("usePushToTalkStore", () => {
 
     expect(mockTransport.disconnect).not.toHaveBeenCalled();
     expect(usePushToTalkStore.getState().pressed).toBe(false);
+    expect(usePushToTalkStore.getState().rawPressed).toBe(false);
     expect(usePushToTalkStore.getState().ledMode).toBe("off");
   });
 });

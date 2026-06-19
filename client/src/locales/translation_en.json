@@ -73,7 +73,8 @@
   },
   "human": {
     "1": "Type your question or start recording...",
-    "panelist": "What does {{name}} have to say about this?"
+    "panelist": "What does {{name}} have to say about this?",
+    "ptt_museum": "Press and hold the button to talk, release to submit"
   },
   "completed": {
     "title": "Is that it?",

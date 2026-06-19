@@ -8,7 +8,19 @@ import {
 import { isPttInputEnabled, type PttLedMode } from "@/voice/pttLedMode";
 
 type PushToTalkStore = {
+  /**
+   * Logical press: true only when pttInputEnabled is also true.
+   * Guards accidental activation — use rawPressed when you need the
+   * physical state regardless of LED gating.
+   */
   pressed: boolean;
+  /**
+   * Physical button state, updated by every ptt_down / ptt_up or space key
+   * event before any pttInputEnabled check. Use this when you need to know
+   * whether the button is currently held even if the LED is off (e.g. to
+   * auto-start recording the moment a pre-warm connection becomes ready).
+   */
+  rawPressed: boolean;
   ledMode: PttLedMode;
   pttInputEnabled: boolean;
   serialStatus: SerialTransportStatus;
@@ -52,6 +64,7 @@ function getSerialTransport(
         };
         if (status === "disconnected" || status === "error") {
           updates.pressed = false;
+          updates.rawPressed = false;
           updates.pttInputEnabled = false;
         }
         if (status === "connected") {
@@ -68,6 +81,13 @@ function getSerialTransport(
         if (event.type === "pong") {
           set({ lastSerialLine: "PONG" });
           return;
+        }
+        // Track physical state before the pttInputEnabled gate so components
+        // can detect a held button even when the LED is off (e.g. pre-warm).
+        if (event.type === "ptt_down") {
+          set({ rawPressed: true });
+        } else if (event.type === "ptt_up") {
+          set({ rawPressed: false });
         }
         if (!get().pttInputEnabled) {
           return;
@@ -94,20 +114,24 @@ function bindKeyboard(set: (partial: Partial<PushToTalkStore>) => void, get: () 
 
   const onKeyDown = (event: KeyboardEvent) => {
     if (!getPushToTalk()) return;
-    if (!get().pttInputEnabled) return;
     if (event.code !== "Space" || event.repeat) return;
     if (isTypingTarget(event.target)) return;
     event.preventDefault();
-    get().setPressed(true, "keyboard");
+    set({ rawPressed: true });
+    if (get().pttInputEnabled) {
+      get().setPressed(true, "keyboard");
+    }
   };
 
   const onKeyUp = (event: KeyboardEvent) => {
     if (!getPushToTalk()) return;
-    if (!get().pttInputEnabled) return;
     if (event.code !== "Space") return;
     if (isTypingTarget(event.target)) return;
     event.preventDefault();
-    get().setPressed(false, "keyboard");
+    set({ rawPressed: false });
+    if (get().pttInputEnabled) {
+      get().setPressed(false, "keyboard");
+    }
   };
 
   window.addEventListener("keydown", onKeyDown);
@@ -116,6 +140,7 @@ function bindKeyboard(set: (partial: Partial<PushToTalkStore>) => void, get: () 
 
 export const usePushToTalkStore = create<PushToTalkStore>((set, get) => ({
   pressed: false,
+  rawPressed: false,
   ledMode: "off",
   pttInputEnabled: false,
   serialStatus: "disconnected",
@@ -158,6 +183,9 @@ export const usePushToTalkStore = create<PushToTalkStore>((set, get) => ({
     };
     if (!inputEnabled) {
       updates.pressed = false;
+    } else if (get().rawPressed) {
+      // Button may already be held while LED was off (e.g. pre-warm connecting).
+      updates.pressed = true;
     }
     set(updates);
 
@@ -185,6 +213,6 @@ export const usePushToTalkStore = create<PushToTalkStore>((set, get) => ({
   },
 
   dispose: () => {
-    set({ pressed: false, ledMode: "off", pttInputEnabled: false });
+    set({ pressed: false, rawPressed: false, ledMode: "off", pttInputEnabled: false });
   },
 }));

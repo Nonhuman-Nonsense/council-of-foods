@@ -15,6 +15,8 @@ import type { RealtimeProvider } from "@shared/RealtimeSessionTypes";
 import React from 'react';
 import micIcon from "@assets/mic.avif";
 import type { ParticipationPhase } from "./participationPhase";
+import { usePushToTalkStore } from "@stores/usePushToTalkStore";
+import { claimPtt } from "@/museum/talkButton/pttOwnership";
 
 const MAX_INPUT_LENGTH = 10000;
 const FINISHING_QUIET_MS = 2000;
@@ -129,6 +131,12 @@ interface HumanInputProps {
   currentSpeakerName: string;
   onSubmitHumanMessage: (text: string) => void;
   liveKey: string;
+  /**
+   * True when running in museum mode with push-to-talk enabled.
+   * Activates hardware button control, LED management, auto-submit on release,
+   * and hides mic/send UI (hardware button is the only interaction surface).
+   */
+  isPttMuseumMode?: boolean;
 }
 
 // Workaround for TextareaAutosize strict height type
@@ -150,7 +158,7 @@ type TextareaStyle = Omit<React.CSSProperties, 'height'> & { height?: number };
  * - **Lifecycle**: The component auto-connects on mount and auto-reconnects if the
  *   connection drops (state returns to "idle"). Cleanup on unmount closes everything.
  */
-function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessage, liveKey }: HumanInputProps): React.ReactElement | null {
+function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessage, liveKey, isPttMuseumMode = false }: HumanInputProps): React.ReactElement | null {
   const [connectionState, setConnectionState] = useState<ConnectionState>("idle");
   const [canContinue, setCanContinue] = useState<boolean>(false);
   const [inputValue, setInputValue] = useState<string>("");
@@ -173,6 +181,21 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
   const vizLeftHostRef = useRef<HTMLDivElement>(null);
   const vizRightHostRef = useRef<HTMLDivElement>(null);
 
+  // PTT store subscriptions — skip re-subscribing in non-PTT builds.
+  // rawPressed tracks the physical button state regardless of pttInputEnabled,
+  // which lets us detect a held button even while pre-warming (LED off).
+  const rawPressed = usePushToTalkStore(s => isPttMuseumMode ? s.rawPressed : false);
+  const setLedMode = usePushToTalkStore(s => s.setLedMode);
+
+  // Mirror rawPressed in a ref so the connectionState-change effect can read
+  // the current value without taking it as a dependency (avoids double-trigger).
+  const rawPressedRef = useRef(rawPressed);
+
+  // Set to true on PTT release so the state-change effect can auto-submit
+  const autoSubmitAfterFinish = useRef(false);
+  // Stable ref to the latest onSubmitHumanMessage callback (avoids stale effects)
+  const onSubmitRef = useRef(onSubmitHumanMessage);
+
   const { t, i18n } = useTranslation();
 
   const maxInputLength = MAX_INPUT_LENGTH;
@@ -180,6 +203,10 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
   useEffect(() => {
     connectionStateRef.current = connectionState;
   }, [connectionState]);
+
+  useEffect(() => {
+    rawPressedRef.current = rawPressed;
+  }, [rawPressed]);
 
   useEffect(() => {
     inputValueRef.current = inputValue;
@@ -209,6 +236,98 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
       setMicStream(null);
     };
   }, []);
+
+  // Keep the submit callback ref fresh so PTT auto-submit never goes stale.
+  useEffect(() => {
+    onSubmitRef.current = onSubmitHumanMessage;
+  }, [onSubmitHumanMessage]);
+
+  // ── PTT × LED management ────────────────────────────────────────────────────
+
+  // Claim PTT ownership for the lifetime of this mount; release on unmount.
+  // This lets a future meta-agent know when HumanInput is active and should
+  // back off. LED is set to "off" on unmount as part of the release.
+  useEffect(() => {
+    if (!isPttMuseumMode) return;
+    const release = claimPtt("human-input");
+    return () => {
+      void setLedMode("off");
+      release();
+    };
+  // setLedMode is stable (Zustand); isPttMuseumMode doesn't change during a meeting
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPttMuseumMode]);
+
+  // Drive LED mode from connection state.
+  // Pulse = "you can speak now" (active + ready only — warm phase cannot speak yet).
+  // On    = "recording now".
+  // Off   = transitional, warm, connecting, or finishing.
+  useEffect(() => {
+    if (!isPttMuseumMode) return;
+    if (phase === "active" && connectionState === "ready") {
+      void setLedMode("pulse");
+    } else if (phase === "active" && connectionState === "recording") {
+      void setLedMode("on");
+    } else {
+      void setLedMode("off");
+    }
+  }, [isPttMuseumMode, phase, connectionState, setLedMode]);
+
+  // PTT press → start recording (only when active; startRecording guards on "ready")
+  // Uses rawPressed so a press during connecting is captured and can be acted upon
+  // once the connection becomes ready (handled by the auto-start effect below).
+  useEffect(() => {
+    if (!isPttMuseumMode) return;
+    if (rawPressed && phase === "active") {
+      startRecording();
+    }
+  // startRecording uses refs; phase and rawPressed are the real triggers
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rawPressed, isPttMuseumMode, phase]);
+
+  // PTT release → finish session + schedule auto-submit.
+  // Uses rawPressed so a release is detected even if pressed was never set to
+  // true (which happens when the button was held during a pre-warm connection).
+  useEffect(() => {
+    if (!isPttMuseumMode) return;
+    if (!rawPressed && connectionStateRef.current === "recording") {
+      autoSubmitAfterFinish.current = true;
+      finishRealtimeSession();
+    }
+  // finishRealtimeSession uses refs; rawPressed is the real trigger
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rawPressed, isPttMuseumMode]);
+
+  // Auto-start: if the button is already physically held when the connection
+  // transitions from connecting → ready, begin recording immediately without
+  // requiring a release-and-repress cycle.
+  useEffect(() => {
+    if (!isPttMuseumMode) return;
+    if (connectionState === "ready" && phase === "active" && rawPressedRef.current) {
+      startRecording();
+    }
+  // rawPressedRef is intentionally read via ref to avoid double-triggering on
+  // normal presses (rawPressed changing is already handled by the effect above)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [connectionState, isPttMuseumMode, phase]);
+
+  // Auto-submit when finishing settles back to ready (after PTT release)
+  useEffect(() => {
+    if (!isPttMuseumMode) return;
+    if (connectionState === "ready" && autoSubmitAfterFinish.current) {
+      autoSubmitAfterFinish.current = false;
+      const text = inputValueRef.current.trim();
+      if (text.length > 0) {
+        onSubmitRef.current(inputValueRef.current.substring(0, maxInputLength));
+        setInputValue("");
+        setPreviousTranscript("");
+        setTranscriptSegments([]);
+        setCanContinue(false);
+      }
+    }
+  // Runs only when connectionState changes; all payload read via stable refs
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [connectionState, isPttMuseumMode]);
 
   function handleRealtimeEvent(event: HumanInputRealtimeEvent) {
     if (event.type === "conversation.item.input_audio_transcription.delta") {
@@ -497,7 +616,7 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
     // and the unmount cleanup closes everything.
   }
 
-  // During warm phase: return null — connected silently, no UI.
+  // During warm phase: connected silently, no UI.
   if (phase !== "active") return null;
 
   const wrapperStyle: React.CSSProperties = {
@@ -541,11 +660,18 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
     padding: "0",
   };
 
-  // idle is transient — the auto-connect effect fires immediately, so show a spinner
-  const isWaitingForRealtime =
-    connectionState === "idle" ||
-    connectionState === "connecting" ||
-    connectionState === "finishing";
+  // idle is transient — the auto-connect effect fires immediately, so show a spinner.
+  // In PTT museum mode only show a spinner while the pre-warm is in flight (connecting);
+  // once ready, the LED pulsing is the affordance — no on-screen spinner needed.
+  const isWaitingForRealtime = isPttMuseumMode
+    ? connectionState === "connecting" || connectionState === "finishing"
+    : connectionState === "idle" || connectionState === "connecting" || connectionState === "finishing";
+
+  const placeholder = isPttMuseumMode
+    ? t("human.ptt_museum")
+    : isPanelist
+      ? t("human.panelist", { name: currentSpeakerName })
+      : t("human.1");
 
   return (<>
     <div style={wrapperStyle}>
@@ -563,7 +689,7 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
           value={inputValue}
           cacheMeasurements={false}
           maxLength={maxInputLength}
-          placeholder={isPanelist ? t('human.panelist', { name: currentSpeakerName }) : t("human.1")}
+          placeholder={placeholder}
         />
       </div>
       <div style={{ display: "flex", flexDirection: "row", pointerEvents: "auto", justifyContent: "center" }}>
@@ -575,15 +701,18 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
           {isWaitingForRealtime &&
             <Lottie play loop animationData={loading} style={{ height: isMobile ? 45 : 56 }} />
           }
-          {!isWaitingForRealtime &&
+          {!isWaitingForRealtime && !isPttMuseumMode &&
             <ConversationControlIcon
               icon={(connectionState === 'recording' ? "record_voice_on" : "record_voice_off")}
               onClick={handleStartStopRecording}
             />
           }
+          {isPttMuseumMode && connectionState === 'recording' &&
+            <ConversationControlIcon icon="record_voice_on" onClick={() => undefined} />
+          }
         </div>
         <div style={divStyle} ref={vizRightHostRef}>
-          {canSubmitNow &&
+          {canSubmitNow && !isPttMuseumMode &&
             <ConversationControlIcon
               icon={"send_message"}
               tooltip={"Mute"}

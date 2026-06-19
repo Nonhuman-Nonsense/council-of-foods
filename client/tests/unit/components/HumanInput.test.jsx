@@ -5,6 +5,17 @@ import HumanInput from '@council/humanInput/HumanInput';
 import { useMobile } from '@/utils';
 import { bootstrapHumanInputRealtimeSession } from '@api/realtimeSession';
 import { createRealtimeConnection } from '@/realtime/realtimeConnection';
+import { getCurrentPttOwner, _resetPttOwnership } from '@/museum/talkButton/pttOwnership';
+
+// Mutable PTT store state — hoisted so the vi.mock factory can close over it.
+// rawPressed = physical button state (ungated); pressed = logical (gated by LED).
+// HumanInput subscribes to rawPressed, so tests set rawPressed to simulate button
+// presses. pressed is kept for completeness but not used by HumanInput directly.
+const mockPttState = vi.hoisted(() => ({
+    pressed: false,
+    rawPressed: false,
+    setLedMode: vi.fn().mockResolvedValue(undefined),
+}));
 
 // Mocks
 vi.mock('react-i18next', () => ({
@@ -37,6 +48,10 @@ vi.mock('@council/ConversationControlIcon', () => ({
     default: ({ icon, onClick }) => (
         <button data-testid={`icon-${icon}`} onClick={onClick}>{icon}</button>
     )
+}));
+
+vi.mock('@stores/usePushToTalkStore', () => ({
+    usePushToTalkStore: (selector) => selector(mockPttState),
 }));
 
 function createMockMicStream(tracks = null) {
@@ -459,5 +474,273 @@ describe('HumanInput Component', () => {
     it('should show panelist-specific placeholder when isPanelist is true', async () => {
         await renderAndWaitReady({ isPanelist: true, currentSpeakerName: 'Mr. Potato' });
         expect(screen.getByPlaceholderText('human.panelist')).toBeInTheDocument();
+    });
+});
+
+// ── PTT museum mode ────────────────────────────────────────────────────────────
+
+describe('HumanInput PTT museum mode', () => {
+    let mockOnSubmit;
+
+    beforeEach(() => {
+        mockOnSubmit = vi.fn();
+        useMobile.mockReturnValue(false);
+        _resetPttOwnership();
+        mockPttState.setLedMode.mockClear();
+        mockPttState.pressed = false;
+        mockPttState.rawPressed = false;
+        bootstrapHumanInputRealtimeSession.mockResolvedValue({
+            provider: 'inworld',
+            iceServers: [],
+            session: { type: 'realtime' },
+        });
+        createRealtimeConnection.mockResolvedValue({
+            pc: {},
+            dc: {},
+            micStream: createMockMicStream(),
+            close: vi.fn(),
+        });
+    });
+
+    afterEach(() => {
+        vi.clearAllMocks();
+        mockPttState.rawPressed = false;
+        _resetPttOwnership();
+    });
+
+    async function renderPttReady(extraProps = {}) {
+        const result = render(
+            <HumanInput
+                phase="active"
+                isPttMuseumMode={true}
+                isPanelist={false}
+                currentSpeakerName=""
+                onSubmitHumanMessage={mockOnSubmit}
+                liveKey="test-key"
+                {...extraProps}
+            />
+        );
+        // In PTT mode, loading spinner shows only during "connecting".
+        // Wait for it to disappear (ready state reached).
+        await waitFor(() => {
+            expect(screen.queryByTestId('lottie-loading')).not.toBeInTheDocument();
+        });
+        return result;
+    }
+
+    // ── UI ────────────────────────────────────────────────────────────────────
+
+    it('shows mic icon in PTT mode', async () => {
+        await renderPttReady();
+        expect(screen.getByAltText('Say something!')).toBeInTheDocument();
+    });
+
+    it('hides mic-off button in PTT mode (no clickable record trigger)', async () => {
+        await renderPttReady();
+        expect(screen.queryByTestId('icon-record_voice_off')).not.toBeInTheDocument();
+    });
+
+    it('shows record_voice_on indicator while recording in PTT mode', async () => {
+        const { rerender } = await renderPttReady();
+
+        mockPttState.rawPressed = true;
+        rerender(
+            <HumanInput phase="active" isPttMuseumMode={true} isPanelist={false}
+                currentSpeakerName="" onSubmitHumanMessage={mockOnSubmit} liveKey="test-key" />
+        );
+
+        await waitFor(() => {
+            expect(screen.getByTestId('icon-record_voice_on')).toBeInTheDocument();
+        });
+    });
+
+    it('hides send button in PTT mode', async () => {
+        await renderPttReady();
+        const textarea = screen.getByPlaceholderText('human.ptt_museum');
+        fireEvent.change(textarea, { target: { value: 'Hello' } });
+        expect(screen.queryByTestId('icon-send_message')).not.toBeInTheDocument();
+    });
+
+    it('shows PTT placeholder text', async () => {
+        await renderPttReady();
+        expect(screen.getByPlaceholderText('human.ptt_museum')).toBeInTheDocument();
+    });
+
+    it('shows loading spinner during connecting in PTT mode', async () => {
+        const pending = { resolve: null };
+        createRealtimeConnection.mockReturnValue(
+            new Promise(r => { pending.resolve = r; })
+        );
+
+        render(
+            <HumanInput
+                phase="active"
+                isPttMuseumMode={true}
+                isPanelist={false}
+                currentSpeakerName=""
+                onSubmitHumanMessage={mockOnSubmit}
+                liveKey="test-key"
+            />
+        );
+
+        expect(screen.getByTestId('lottie-loading')).toBeInTheDocument();
+
+        pending.resolve({ pc: {}, dc: {}, micStream: createMockMicStream(), close: vi.fn() });
+
+        await waitFor(() => {
+            expect(screen.queryByTestId('lottie-loading')).not.toBeInTheDocument();
+        });
+    });
+
+    // ── LED management ────────────────────────────────────────────────────────
+
+    it('claims PTT ownership on mount', async () => {
+        await renderPttReady();
+        expect(getCurrentPttOwner()).toBe('human-input');
+    });
+
+    it('sets ledMode to pulse when active+ready', async () => {
+        await renderPttReady();
+        expect(mockPttState.setLedMode).toHaveBeenCalledWith('pulse');
+    });
+
+    it('releases PTT ownership and sets LED off on unmount', async () => {
+        const { unmount } = await renderPttReady();
+        mockPttState.setLedMode.mockClear();
+        unmount();
+        expect(mockPttState.setLedMode).toHaveBeenCalledWith('off');
+        expect(getCurrentPttOwner()).toBeNull();
+    });
+
+    it('does not claim PTT ownership when isPttMuseumMode=false', async () => {
+        await renderAndWaitReady({ onSubmitHumanMessage: mockOnSubmit });
+        expect(getCurrentPttOwner()).toBeNull();
+    });
+
+    // ── Press → record, release → finish + auto-submit ────────────────────────
+
+    it('starts recording on PTT press', async () => {
+        const track = { enabled: false };
+        createRealtimeConnection.mockResolvedValue({
+            pc: {}, dc: {}, micStream: createMockMicStream([track]), close: vi.fn(),
+        });
+
+        const { rerender } = await renderPttReady();
+
+        // Simulate press
+        mockPttState.rawPressed = true;
+        rerender(
+            <HumanInput
+                phase="active"
+                isPttMuseumMode={true}
+                isPanelist={false}
+                currentSpeakerName=""
+                onSubmitHumanMessage={mockOnSubmit}
+                liveKey="test-key"
+            />
+        );
+
+        await waitFor(() => {
+            expect(track.enabled).toBe(true);
+        });
+    });
+
+    it('auto-starts recording if button is held while connection becomes ready', async () => {
+        // Simulate the user pressing the PTT button before the pre-warm finishes.
+        // rawPressed is set BEFORE we let the connection resolve.
+        const pending = { resolve: null };
+        const track = { enabled: false };
+        createRealtimeConnection.mockReturnValue(
+            new Promise(r => { pending.resolve = r; })
+        );
+
+        const { rerender } = render(
+            <HumanInput
+                phase="active"
+                isPttMuseumMode={true}
+                isPanelist={false}
+                currentSpeakerName=""
+                onSubmitHumanMessage={mockOnSubmit}
+                liveKey="test-key"
+            />
+        );
+
+        // Still connecting — button is held down by the user
+        expect(screen.getByTestId('lottie-loading')).toBeInTheDocument();
+        mockPttState.rawPressed = true;
+        rerender(
+            <HumanInput phase="active" isPttMuseumMode={true} isPanelist={false}
+                currentSpeakerName="" onSubmitHumanMessage={mockOnSubmit} liveKey="test-key" />
+        );
+
+        // Now the connection resolves (connecting → ready)
+        pending.resolve({ pc: {}, dc: {}, micStream: createMockMicStream([track]), close: vi.fn() });
+
+        // Should jump straight to recording without requiring a re-press
+        await waitFor(() => {
+            expect(track.enabled).toBe(true);
+        });
+
+        // The recording indicator should appear
+        await waitFor(() => {
+            expect(screen.getByTestId('icon-record_voice_on')).toBeInTheDocument();
+        });
+    });
+
+    it('auto-submits after PTT release once transcript settles', async () => {
+        const { rerender } = await renderPttReady();
+
+        // Type some text (simulating transcript arriving via recording)
+        const textarea = screen.getByPlaceholderText('human.ptt_museum');
+        fireEvent.change(textarea, { target: { value: 'Hello council' } });
+
+        // Simulate press then release cycle
+        mockPttState.rawPressed = true;
+        rerender(
+            <HumanInput phase="active" isPttMuseumMode={true} isPanelist={false}
+                currentSpeakerName="" onSubmitHumanMessage={mockOnSubmit} liveKey="test-key" />
+        );
+
+        mockPttState.rawPressed = false;
+        rerender(
+            <HumanInput phase="active" isPttMuseumMode={true} isPanelist={false}
+                currentSpeakerName="" onSubmitHumanMessage={mockOnSubmit} liveKey="test-key" />
+        );
+
+        // After finishing → ready, auto-submit fires
+        await waitFor(() => {
+            expect(mockOnSubmit).toHaveBeenCalledWith('Hello council');
+        });
+    });
+
+    it('does not auto-submit when textarea is empty after PTT release', async () => {
+        const { rerender } = await renderPttReady();
+
+        mockPttState.rawPressed = true;
+        rerender(
+            <HumanInput phase="active" isPttMuseumMode={true} isPanelist={false}
+                currentSpeakerName="" onSubmitHumanMessage={mockOnSubmit} liveKey="test-key" />
+        );
+        mockPttState.rawPressed = false;
+        rerender(
+            <HumanInput phase="active" isPttMuseumMode={true} isPanelist={false}
+                currentSpeakerName="" onSubmitHumanMessage={mockOnSubmit} liveKey="test-key" />
+        );
+
+        // Wait briefly to confirm no submit happened
+        await new Promise(r => setTimeout(r, 50));
+        expect(mockOnSubmit).not.toHaveBeenCalled();
+    });
+
+    // ── Non-PTT mode unchanged ────────────────────────────────────────────────
+
+    it('non-PTT mode: shows mic icon (always visible)', async () => {
+        await renderAndWaitReady({ onSubmitHumanMessage: mockOnSubmit });
+        expect(screen.getByAltText('Say something!')).toBeInTheDocument();
+    });
+
+    it('non-PTT mode: shows mic button', async () => {
+        await renderAndWaitReady({ onSubmitHumanMessage: mockOnSubmit });
+        expect(screen.getByTestId('icon-record_voice_off')).toBeInTheDocument();
     });
 });
