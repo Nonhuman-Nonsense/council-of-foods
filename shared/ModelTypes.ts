@@ -58,10 +58,12 @@ export interface Character {
     voice: VoiceOption | string;
     description: string;
     prompt: string;
-    voiceProvider?: 'openai' | 'gemini' | 'inworld';
+    voiceProvider?: 'openai' | 'gemini' | 'inworld' | 'elevenlabs';
     voiceLocale?: string;
     voiceInstruction?: string;
     voiceTemperature?: number;
+    voiceStability?: number;
+    voiceStyle?: number;
     voiceSpeed?: number;
     size?: number;
     // type?: string;

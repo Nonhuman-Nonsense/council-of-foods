@@ -30,6 +30,25 @@ describe('ValidationSchemas Custom Voice Logic (CreateMeeting)', () => {
         expect(result.success).toBe(true);
     });
 
+    it('should allow custom voice ID for ElevenLabs provider', () => {
+        const payload = MockFactory.createCreateMeetingBody({
+            topic,
+            characters: [
+                MockFactory.createCharacter({
+                    id: 'char1',
+                    name: 'Test Char',
+                    description: 'D',
+                    prompt: 'P',
+                    voice: 'JBFqnCBsd6RMkjVDRZzb',
+                    voiceProvider: 'elevenlabs' as const
+                })
+            ],
+        });
+
+        const result = CreateMeetingSchema.safeParse(payload);
+        expect(result.success).toBe(true);
+    });
+
     it('should validate standard OpenAI voices', () => {
         const payload = MockFactory.createCreateMeetingBody({
             topic,

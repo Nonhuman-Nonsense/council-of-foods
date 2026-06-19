@@ -8,6 +8,7 @@ import { parseBuffer } from 'music-metadata';
 import {
     generateGeminiAudio,
     generateInworldAudio,
+    generateElevenLabsAudio,
     generateOpenAIAudio,
     getWhisperWords,
     AudioResult
@@ -33,7 +34,7 @@ export * from "./audio/AudioUtils.js";
 
 // Limit for text-to-speech requests
 const MAX_AUDIO_CHUNK_LENGTH = 2000;
-const DEFAULT_SUBTITLE_TIMING_PRIORITIES: SubtitleTimingType[] = ['inworld', 'estimated', 'whisper'];
+const DEFAULT_SUBTITLE_TIMING_PRIORITIES: GlobalOptions["subtitleTimingPriorities"] = ['elevenlabs', 'inworld', 'estimated', 'whisper'];
 
 export class AudioSystem {
     broadcaster: IMeetingBroadcaster;
@@ -175,10 +176,19 @@ export class AudioSystem {
 
                 for (const timingType of subtitleTimingPriorities) {
                     if (timingType === 'inworld' && speaker.voiceProvider === 'inworld') {
-                        const nativeSentences = this.getInworldSentenceTimings(providerWords, buffers, durations, sentenceTexts);
+                        const nativeSentences = this.getProviderSentenceTimings(providerWords, buffers, durations, sentenceTexts);
                         if (this.areSentenceTimingsUsable(nativeSentences, durations, timingType, message.id)) {
                             sentencesWithTimings = nativeSentences;
                             subtitleTimingType = 'inworld';
+                            break;
+                        }
+                    }
+
+                    if (timingType === 'elevenlabs' && speaker.voiceProvider === 'elevenlabs') {
+                        const nativeSentences = this.getProviderSentenceTimings(providerWords, buffers, durations, sentenceTexts);
+                        if (this.areSentenceTimingsUsable(nativeSentences, durations, timingType, message.id)) {
+                            sentencesWithTimings = nativeSentences;
+                            subtitleTimingType = 'elevenlabs';
                             break;
                         }
                     }
@@ -281,6 +291,8 @@ export class AudioSystem {
             return generateGeminiAudio({ ...baseParams, auth });
         } else if (speaker.voiceProvider === 'inworld') {
             return generateInworldAudio(baseParams);
+        } else if (speaker.voiceProvider === 'elevenlabs') {
+            return generateElevenLabsAudio(baseParams);
         } else {
             // OpenAI
             return generateOpenAIAudio({ ...baseParams, services: this.services });
@@ -330,7 +342,7 @@ export class AudioSystem {
         return this.getAudioDuration(combinedBuffer);
     }
 
-    private getInworldSentenceTimings(
+    private getProviderSentenceTimings(
         providerWords: (Word[] | undefined)[],
         buffers: Buffer[],
         durations: number[],

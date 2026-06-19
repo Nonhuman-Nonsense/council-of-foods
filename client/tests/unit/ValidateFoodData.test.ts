@@ -18,7 +18,7 @@ interface CharacterDataEntry {
     type?: string;
     index?: number;
     voice: VoiceOption;
-    voiceProvider?: 'openai' | 'gemini' | 'inworld';
+    voiceProvider?: 'openai' | 'gemini' | 'inworld' | 'elevenlabs';
     voiceLocale?: string;
     size?: number;
     voiceInstruction?: string;
@@ -72,8 +72,8 @@ describe('Validate Food Data JSONs', () => {
                 // Validate Voice Option
                 if (character.voiceProvider === 'gemini') {
                     expect(AVAILABLE_VOICES_GEMINI).toContain(character.voice);
-                } else if (character.voiceProvider === 'inworld') {
-                    // Inworld allows custom voices as strings, so we just check it's a non-empty string
+                } else if (character.voiceProvider === 'inworld' || character.voiceProvider === 'elevenlabs') {
+                    // Custom voice providers allow arbitrary non-empty voice IDs
                     expect(typeof character.voice).toBe('string');
                     expect(character.voice.length).toBeGreaterThan(0);
                 } else {
