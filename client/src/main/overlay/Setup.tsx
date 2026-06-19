@@ -5,6 +5,7 @@ import { getPushToTalk, setPushToTalk } from "@/settings/councilSettings";
 import { useAppMode } from "@/museum/useAppMode";
 import { usePushToTalkStore } from "@stores/usePushToTalkStore";
 import { talkButtonService } from "@/museum/talkButton/talkButtonService";
+import SetupSerialDebug from "./SetupSerialDebug";
 
 function serialStatusLabel(
   status: ReturnType<typeof usePushToTalkStore.getState>["serialStatus"],
@@ -196,6 +197,7 @@ function Setup(): React.ReactElement {
                   {t("setup.serial.disconnect")}
                 </button>
               </div>
+              <SetupSerialDebug />
             </>
           )}
         </div>

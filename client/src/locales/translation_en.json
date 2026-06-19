@@ -31,7 +31,15 @@
       "reconnectingHint": "Waiting for the talk button. This should happen automatically after unplugging the cable.",
       "reconnectHint": "Plug in the talk button — it will connect automatically.",
       "disconnected": "Disconnected",
-      "error": "Error"
+      "error": "Error",
+      "debugTitle": "Connection log (for troubleshooting)",
+      "debugHint": "Reproduce the issue, then copy this log and send it to the developer. Filter the browser console by TalkButton.",
+      "debugCopy": "Copy log",
+      "debugCopied": "Copied!",
+      "debugCopyFailed": "Copy failed",
+      "debugClear": "Clear log",
+      "debugRetry": "Retry connect now",
+      "debugEmpty": "(no log entries yet)"
     }
   },
   "settings": "Settings",
