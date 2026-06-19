@@ -9,6 +9,7 @@ import Loading from "@main/Loading";
 import Output from "./output/Output";
 import ConversationControls from "./ConversationControls";
 import HumanInput from "./humanInput/HumanInput";
+import { getParticipationPhase } from "./humanInput/participationPhase";
 import { useDocumentVisibility } from "@/utils";
 import { useTranslation } from "react-i18next";
 import { useCouncilMachine } from "./hooks/useCouncilMachine";
@@ -178,6 +179,7 @@ function Council({
   }, [derivedCurrentSpeakerId, setCurrentSpeakerId]);
 
   // Derived UI State
+  const participationPhase = getParticipationPhase(councilState, textMessages, playingNowIndex);
   const isWaitingToInterject = isRaisedHand && councilState !== 'human_input';
   const controlsVisible = (
     councilState === 'playing' ||
@@ -208,8 +210,14 @@ function Council({
         isPaused={isPaused}
       />
       {councilState === 'loading' && <Loading />}
-      {liveKey && (councilState === 'human_input' || councilState === 'human_panelist') && (
-        <HumanInput liveKey={liveKey} isPanelist={(councilState === 'human_panelist')} currentSpeakerName={participants.find(p => p.id === currentSpeakerId)?.name || ""} onSubmitHumanMessage={handleOnSubmitHumanMessage} />
+      {liveKey && participationPhase !== "off" && (
+        <HumanInput
+          phase={participationPhase}
+          liveKey={liveKey}
+          isPanelist={councilState === 'human_panelist'}
+          currentSpeakerName={participants.find(p => p.id === currentSpeakerId)?.name || ""}
+          onSubmitHumanMessage={handleOnSubmitHumanMessage}
+        />
       )}
       <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, display: "flex", flexDirection: "column", alignItems: "center", overflow: "visible" }}>
         <Output

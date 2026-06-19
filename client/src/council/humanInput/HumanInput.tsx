@@ -14,6 +14,7 @@ import {
 import type { RealtimeProvider } from "@shared/RealtimeSessionTypes";
 import React from 'react';
 import micIcon from "@assets/mic.avif";
+import type { ParticipationPhase } from "./participationPhase";
 
 const MAX_INPUT_LENGTH = 10000;
 const FINISHING_QUIET_MS = 2000;
@@ -46,7 +47,19 @@ type HumanInputRealtimeEvent =
   | InputAudioBufferSpeechStoppedEvent
   | InputAudioBufferSpeechStartedEvent;
 
-type RecordingState = "idle" | "loading" | "recording" | "finishing";
+/**
+ * idle       — disconnected; auto-connect effect fires immediately
+ * connecting — bootstrap + WebRTC handshake in flight
+ * ready      — connected, mic track disabled (pre-warmed, zero STT cost)
+ * recording  — mic track enabled, live transcription active
+ * finishing  — mic disabled, waiting for final transcript events to settle
+ */
+type ConnectionState =
+  | "idle"
+  | "connecting"
+  | "ready"
+  | "recording"
+  | "finishing";
 
 export interface TranscriptSegment {
   itemId: string;
@@ -110,6 +123,8 @@ function isHumanInputRealtimeEvent(event: unknown): event is HumanInputRealtimeE
 }
 
 interface HumanInputProps {
+  /** "warm" = pre-connect silently; "active" = show UI */
+  phase: ParticipationPhase;
   isPanelist: boolean;
   currentSpeakerName: string;
   onSubmitHumanMessage: (text: string) => void;
@@ -121,18 +136,22 @@ type TextareaStyle = Omit<React.CSSProperties, 'height'> & { height?: number };
 
 /**
  * HumanInput Component
- * 
+ *
  * Manages the user interface for human participation, supporting both voice and text input.
- * 
+ *
  * Core Logic:
- * - **Voice Input**: Opens a server-proxied realtime WebRTC session and receives live transcript deltas/finals.
- *   For Inworld WebRTC, the session is mirrored with `session.update` on the data channel when it opens (per docs),
- *   in addition to the payload on `/api/realtime/call`.
+ * - **Pre-warm**: When mounted with phase="warm", the WebRTC session is established
+ *   immediately with the mic track disabled (zero STT cost). When phase flips to
+ *   "active", the connection is already ready and recording starts instantly on click.
+ * - **Voice Input**: Opens a server-proxied realtime WebRTC session and receives live
+ *   transcript deltas/finals. For Inworld WebRTC, the session is mirrored with
+ *   `session.update` on the data channel when it opens (per docs).
  * - **Text Input**: Provides a fallback manual text entry.
- * - **Routing**: The server infers whether the human is addressing a specific character.
+ * - **Lifecycle**: The component auto-connects on mount and auto-reconnects if the
+ *   connection drops (state returns to "idle"). Cleanup on unmount closes everything.
  */
-function HumanInput({ isPanelist, currentSpeakerName, onSubmitHumanMessage, liveKey }: HumanInputProps): React.ReactElement {
-  const [recordingState, setRecordingState] = useState<RecordingState>("idle");
+function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessage, liveKey }: HumanInputProps): React.ReactElement | null {
+  const [connectionState, setConnectionState] = useState<ConnectionState>("idle");
   const [canContinue, setCanContinue] = useState<boolean>(false);
   const [inputValue, setInputValue] = useState<string>("");
   const [transcriptSegments, setTranscriptSegments] = useState<TranscriptSegment[]>([]);
@@ -142,7 +161,7 @@ function HumanInput({ isPanelist, currentSpeakerName, onSubmitHumanMessage, live
   const inputValueRef = useRef<string>("");
   const isMobile = useMobile();
 
-  const recordingStateRef = useRef<RecordingState>("idle");
+  const connectionStateRef = useRef<ConnectionState>("idle");
   const inputAudioActiveRef = useRef<boolean>(false);
   const connectionRef = useRef<RealtimeConnection | null>(null);
   const startAbortRef = useRef<AbortController | null>(null);
@@ -159,8 +178,8 @@ function HumanInput({ isPanelist, currentSpeakerName, onSubmitHumanMessage, live
   const maxInputLength = MAX_INPUT_LENGTH;
 
   useEffect(() => {
-    recordingStateRef.current = recordingState;
-  }, [recordingState]);
+    connectionStateRef.current = connectionState;
+  }, [connectionState]);
 
   useEffect(() => {
     inputValueRef.current = inputValue;
@@ -171,22 +190,25 @@ function HumanInput({ isPanelist, currentSpeakerName, onSubmitHumanMessage, live
     scrollTextareaToBottom(inputArea.current);
   }, [inputValue]);
 
-  // Effect to manage speech recognition state
+  // Auto-connect: fires on mount (idle) and reconnects if connection drops.
   useEffect(() => {
-    if (recordingState === 'loading') {
-      clearFinishingTimers();
-      inputAudioActiveRef.current = false;
-      setTranscriptSegments([]);
-      void startRealtimeSession();
-    } else if (recordingState === 'idle') {
+    if (connectionState === "idle") {
+      void connect();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [connectionState]);
+
+  // Full cleanup on unmount — aborts any in-flight handshake and closes connection.
+  useEffect(() => {
+    return () => {
       clearFinishingTimers();
       startAbortRef.current?.abort();
       startAbortRef.current = null;
       connectionRef.current?.close();
       connectionRef.current = null;
       setMicStream(null);
-    }
-  }, [recordingState]);
+    };
+  }, []);
 
   function handleRealtimeEvent(event: HumanInputRealtimeEvent) {
     if (event.type === "conversation.item.input_audio_transcription.delta") {
@@ -240,60 +262,16 @@ function HumanInput({ isPanelist, currentSpeakerName, onSubmitHumanMessage, live
     setMicStream(null);
   }
 
-  function finishRealtimeSession() {
-    if (!connectionRef.current) {
-      setRecordingState("idle");
-      return;
-    }
-
-    recordingStateRef.current = "finishing";
-    setRecordingState("finishing");
-    connectionRef.current.micStream.getAudioTracks().forEach(track => {
-      track.enabled = false;
-    });
-    setMicStream(null);
-
-    if (!inputAudioActiveRef.current) {
-      closeRealtimeConnection();
-      setRecordingState("idle");
-      return;
-    }
-
-    finishingNoEventsTimerRef.current = window.setTimeout(() => {
-      closeRealtimeConnection();
-      setRecordingState("idle");
-    }, FINISHING_NO_EVENTS_TIMEOUT_MS);
-    finishingHardTimerRef.current = window.setTimeout(() => {
-      closeRealtimeConnection();
-      setRecordingState("idle");
-    }, FINISHING_HARD_TIMEOUT_MS);
-  }
-
-  function scheduleFinishingQuietClose() {
-    if (recordingStateRef.current !== "finishing") return;
-
-    if (finishingNoEventsTimerRef.current !== null) {
-      window.clearTimeout(finishingNoEventsTimerRef.current);
-      finishingNoEventsTimerRef.current = null;
-    }
-
-    if (finishingQuietTimerRef.current !== null) {
-      window.clearTimeout(finishingQuietTimerRef.current);
-    }
-
-    finishingQuietTimerRef.current = window.setTimeout(() => {
-      closeRealtimeConnection();
-      setRecordingState("idle");
-    }, FINISHING_QUIET_MS);
-  }
-
   /**
-   * Initiates a provider-backed realtime transcription session via the app server.
+   * Establishes the WebRTC session with the mic track disabled.
+   * Lands in "ready" — no audio is sent until startRecording() is called.
+   * Safe to call when state is "idle"; aborts any previous in-flight attempt.
    */
-  async function startRealtimeSession() {
+  async function connect() {
     const controller = new AbortController();
     startAbortRef.current?.abort();
     startAbortRef.current = controller;
+    setConnectionState("connecting");
 
     try {
       const bootstrap = await bootstrapHumanInputRealtimeSession(
@@ -335,8 +313,10 @@ function HumanInput({ isPanelist, currentSpeakerName, onSubmitHumanMessage, live
           }
         },
         onClose: () => {
+          // Unexpected close — go to idle so the auto-connect effect re-fires.
           if (!controller.signal.aborted) {
-            setRecordingState("idle");
+            closeRealtimeConnection();
+            setConnectionState("idle");
           }
         },
       });
@@ -346,15 +326,20 @@ function HumanInput({ isPanelist, currentSpeakerName, onSubmitHumanMessage, live
         return;
       }
 
+      // Gate the mic: track stays in the peer connection but sends no audio.
+      // STT only bills on real audio, so this warm connection is free.
+      connection.micStream.getAudioTracks().forEach(track => {
+        track.enabled = false;
+      });
+
       connectionRef.current = connection;
-      setMicStream(connection.micStream);
-      setRecordingState('recording');
+      setConnectionState("ready");
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") {
         return;
       }
       console.error("Failed to start realtime human input session", err);
-      setRecordingState("idle");
+      setConnectionState("idle");
     } finally {
       if (startAbortRef.current === controller) {
         startAbortRef.current = null;
@@ -362,35 +347,89 @@ function HumanInput({ isPanelist, currentSpeakerName, onSubmitHumanMessage, live
     }
   }
 
-  useEffect(() => {
-    return () => {
-      clearFinishingTimers();
-      startAbortRef.current?.abort();
-      startAbortRef.current = null;
-      connectionRef.current?.close();
-      connectionRef.current = null;
-      setMicStream(null);
-    };
-  }, []);
+  /**
+   * Opens the mic gate and begins transcription.
+   * Only callable from "ready" state.
+   * Exposed as a standalone function so PTT can call it directly.
+   */
+  function startRecording() {
+    if (connectionStateRef.current !== "ready" || !connectionRef.current) return;
+    clearFinishingTimers();
+    inputAudioActiveRef.current = false;
+    setTranscriptSegments([]);
+    setPreviousTranscript(inputValueRef.current);
+    connectionRef.current.micStream.getAudioTracks().forEach(track => {
+      track.enabled = true;
+    });
+    setMicStream(connectionRef.current.micStream);
+    connectionStateRef.current = "recording";
+    setConnectionState("recording");
+  }
+
+  /**
+   * Closes the mic gate and waits for the final transcript to settle before
+   * returning to "ready". The connection stays open for a potential re-record.
+   * Exposed as a standalone function so PTT can call it directly.
+   */
+  function finishRealtimeSession() {
+    if (!connectionRef.current) {
+      setConnectionState("idle");
+      return;
+    }
+
+    connectionStateRef.current = "finishing";
+    setConnectionState("finishing");
+    connectionRef.current.micStream.getAudioTracks().forEach(track => {
+      track.enabled = false;
+    });
+    setMicStream(null);
+
+    if (!inputAudioActiveRef.current) {
+      setConnectionState("ready");
+      return;
+    }
+
+    finishingNoEventsTimerRef.current = window.setTimeout(() => {
+      setConnectionState("ready");
+    }, FINISHING_NO_EVENTS_TIMEOUT_MS);
+    finishingHardTimerRef.current = window.setTimeout(() => {
+      closeRealtimeConnection();
+      setConnectionState("idle");
+    }, FINISHING_HARD_TIMEOUT_MS);
+  }
+
+  function scheduleFinishingQuietClose() {
+    if (connectionStateRef.current !== "finishing") return;
+
+    if (finishingNoEventsTimerRef.current !== null) {
+      window.clearTimeout(finishingNoEventsTimerRef.current);
+      finishingNoEventsTimerRef.current = null;
+    }
+
+    if (finishingQuietTimerRef.current !== null) {
+      window.clearTimeout(finishingQuietTimerRef.current);
+    }
+
+    finishingQuietTimerRef.current = window.setTimeout(() => {
+      setConnectionState("ready");
+    }, FINISHING_QUIET_MS);
+  }
 
   function handleStartStopRecording() {
-    if (recordingState === 'idle') {
+    if (connectionState === "ready") {
       if (inputValue.length >= maxInputLength) {
         setCanContinue(true);
         return;
       }
-      setRecordingState('loading'); // Toggle the recording state  
-    } else if (recordingState === 'recording') {
+      startRecording();
+    } else if (connectionState === "recording") {
       finishRealtimeSession();
-    } else if (recordingState === 'loading') {
-      setRecordingState('idle');
     }
+    // connecting / finishing: no-op — loading UI is shown instead of the button
   }
 
   useEffect(() => {
-    if (recordingState === 'loading') {
-      setPreviousTranscript(inputValueRef.current);
-    } else if (recordingState === 'recording') {
+    if (connectionState === "recording") {
       const nextValue = formatTranscriptInputValue({
         previousTranscript,
         transcriptSegments,
@@ -403,7 +442,7 @@ function HumanInput({ isPanelist, currentSpeakerName, onSubmitHumanMessage, live
       if (nextValue.length >= maxInputLength) {
         setPreviousTranscript(nextValue);
         setTranscriptSegments([]);
-        setRecordingState('idle');
+        finishRealtimeSession();
       }
     } else {
       const nextValue = formatTranscriptInputValue({
@@ -415,14 +454,15 @@ function HumanInput({ isPanelist, currentSpeakerName, onSubmitHumanMessage, live
       setInputValue(nextValue);
       updateCanContinue(nextValue);
     }
-  }, [transcriptSegments, recordingState, previousTranscript, maxInputLength]);
+  // finishRealtimeSession is stable (no deps), safe to omit
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [transcriptSegments, connectionState, previousTranscript, maxInputLength]);
 
   function inputFocused(_e: React.FocusEvent) {
-    if (recordingState === "recording") {
+    if (connectionState === "recording") {
       finishRealtimeSession();
-    } else if (recordingState === "loading") {
-      setRecordingState("idle");
     }
+    // Don't interrupt connecting/ready — user just wants to type
   }
 
   function updateCanContinue(value: string) {
@@ -435,23 +475,30 @@ function HumanInput({ isPanelist, currentSpeakerName, onSubmitHumanMessage, live
     updateCanContinue(nextValue);
   }
 
+  const canSubmitNow =
+    (connectionState === "idle" || connectionState === "ready") && canContinue;
+
   function checkEnter(e: React.KeyboardEvent) {
-    if (recordingState === "idle" && canContinue && !e.shiftKey && e.key === "Enter") {
+    if (canSubmitNow && !e.shiftKey && e.key === "Enter") {
       e.preventDefault();
       submitAndContinue();
     }
   }
 
   function submitAndContinue() {
-    if (recordingState !== "idle") return;
+    if (!canSubmitNow) return;
 
     onSubmitHumanMessage(inputValue.substring(0, maxInputLength));
     setInputValue("");
     setPreviousTranscript("");
     setTranscriptSegments([]);
-    setRecordingState("idle");
     setCanContinue(false);
+    // Connection stays open — component will unmount shortly as phase → off,
+    // and the unmount cleanup closes everything.
   }
+
+  // During warm phase: return null — connected silently, no UI.
+  if (phase !== "active") return null;
 
   const wrapperStyle: React.CSSProperties = {
     position: "absolute",
@@ -493,7 +540,12 @@ function HumanInput({ isPanelist, currentSpeakerName, onSubmitHumanMessage, live
     resize: "none",
     padding: "0",
   };
-  const isWaitingForRealtime = recordingState === 'loading' || recordingState === 'finishing';
+
+  // idle is transient — the auto-connect effect fires immediately, so show a spinner
+  const isWaitingForRealtime =
+    connectionState === "idle" ||
+    connectionState === "connecting" ||
+    connectionState === "finishing";
 
   return (<>
     <div style={wrapperStyle}>
@@ -525,13 +577,13 @@ function HumanInput({ isPanelist, currentSpeakerName, onSubmitHumanMessage, live
           }
           {!isWaitingForRealtime &&
             <ConversationControlIcon
-              icon={(recordingState === 'recording' ? "record_voice_on" : "record_voice_off")}
+              icon={(connectionState === 'recording' ? "record_voice_on" : "record_voice_off")}
               onClick={handleStartStopRecording}
             />
           }
         </div>
         <div style={divStyle} ref={vizRightHostRef}>
-          {recordingState === 'idle' && canContinue &&
+          {canSubmitNow &&
             <ConversationControlIcon
               icon={"send_message"}
               tooltip={"Mute"}
@@ -539,7 +591,7 @@ function HumanInput({ isPanelist, currentSpeakerName, onSubmitHumanMessage, live
             />
           }
         </div>
-        {recordingState === 'recording' && micStream && (
+        {connectionState === 'recording' && micStream && (
           <LiveAudioVisualizerPair
             stream={micStream}
             leftHostRef={vizLeftHostRef}
@@ -554,8 +606,7 @@ function HumanInput({ isPanelist, currentSpeakerName, onSubmitHumanMessage, live
         )}
       </div>
     </div>
-  </>
-  );
+  </>);
 }
 
 export default HumanInput;
