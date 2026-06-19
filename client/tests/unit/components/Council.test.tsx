@@ -209,4 +209,39 @@ describe('Council Component', () => {
             'Internal state mismatch: human_panelist state requires an awaiting_human_panelist message.'
         );
     });
+
+    it('mounts HumanInput during warm phase (upcoming awaiting marker)', () => {
+        mockCouncilStateMachine.state.councilState = 'playing';
+        mockCouncilStateMachine.state.playingNowIndex = 0;
+        mockCouncilStateMachine.state.textMessages = [
+            { id: 'm1', type: 'message', speaker: 's1', text: 'hello' },
+            { id: 'm2', type: 'awaiting_human_question', speaker: 'human', text: '' },
+        ];
+
+        render(<Council {...defaultProps} />);
+
+        expect(screen.getByText('Human Input')).toBeInTheDocument();
+    });
+
+    it('does not mount HumanInput when next message is a regular speaker', () => {
+        mockCouncilStateMachine.state.councilState = 'playing';
+        mockCouncilStateMachine.state.playingNowIndex = 0;
+        mockCouncilStateMachine.state.textMessages = [
+            { id: 'm1', type: 'message', speaker: 's1', text: 'hello' },
+            { id: 'm2', type: 'message', speaker: 's2', text: 'world' },
+        ];
+
+        render(<Council {...defaultProps} />);
+
+        expect(screen.queryByText('Human Input')).not.toBeInTheDocument();
+    });
+
+    it('mounts HumanInput for human_input state (active phase)', () => {
+        mockCouncilStateMachine.state.councilState = 'human_input';
+        mockCouncilStateMachine.state.textMessages = [];
+
+        render(<Council {...defaultProps} />);
+
+        expect(screen.getByText('Human Input')).toBeInTheDocument();
+    });
 });
