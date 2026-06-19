@@ -20,7 +20,7 @@ type TalkButtonService = {
   stop: () => void;
   pause: () => void;
   resume: () => void;
-  sync: () => Promise<void>;
+  sync: (reason?: string) => Promise<void>;
   getDebugState: () => TalkButtonServiceDebugState;
 };
 
