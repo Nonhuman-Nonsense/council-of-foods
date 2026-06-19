@@ -36,6 +36,7 @@ type PushToTalkStore = {
   connectGrantedPorts: () => Promise<void>;
   disconnectSerial: () => Promise<void>;
   enableSerialAutoReconnect: () => void;
+  reconnectIfStale: () => Promise<void>;
   setLedMode: (mode: PttLedMode) => Promise<void>;
   resyncSerialLed: () => Promise<void>;
 
@@ -174,6 +175,14 @@ export const usePushToTalkStore = create<PushToTalkStore>((set, get) => ({
 
   enableSerialAutoReconnect: () => {
     getSerialTransport(set, get).enableAutoReconnect();
+  },
+
+  reconnectIfStale: async () => {
+    const transport = getSerialTransport(set, get);
+    if (get().serialStatus === "connected" && !transport.isSessionHealthy()) {
+      serialDebugLog("store", "stale serial session — requesting reconnect");
+      await transport.connectGrantedPorts();
+    }
   },
 
   setLedMode: async (mode) => {

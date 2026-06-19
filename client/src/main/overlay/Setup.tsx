@@ -39,6 +39,7 @@ function Setup(): React.ReactElement {
   const lastSerialLine = usePushToTalkStore((state) => state.lastSerialLine);
   const serialSupported = usePushToTalkStore((state) => state.serialSupported);
   const requestSerialPort = usePushToTalkStore((state) => state.requestSerialPort);
+  const connectGrantedPorts = usePushToTalkStore((state) => state.connectGrantedPorts);
   const setLedMode = usePushToTalkStore((state) => state.setLedMode);
 
   useEffect(() => {
@@ -92,6 +93,14 @@ function Setup(): React.ReactElement {
 
   async function connectTalkButton(): Promise<void> {
     talkButtonService.resume();
+    const serial = navigator.serial;
+    const grantedPorts = serial ? await serial.getPorts() : [];
+    if (grantedPorts.length > 0) {
+      await connectGrantedPorts();
+      if (usePushToTalkStore.getState().serialStatus === "connected") {
+        return;
+      }
+    }
     await requestSerialPort();
   }
 

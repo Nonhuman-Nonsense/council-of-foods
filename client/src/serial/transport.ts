@@ -48,6 +48,7 @@ export class SerialPushToTalkTransport {
   private reconnectAttempt = 0;
   private monitoring = false;
   private openInProgress = false;
+  private portLostHandling = false;
   private writeChain: Promise<void> = Promise.resolve();
   private readonly onSerialConnect = (event: Event): void => {
     const port = getEventPort(event);
@@ -57,11 +58,15 @@ export class SerialPushToTalkTransport {
       hasPort: port != null,
       portConnected: port?.connected ?? null,
     });
-    if (!this.autoReconnect || this.status === "connected" || this.status === "connecting") {
-      serialDebugLog("transport", "USB connect event ignored", {
-        autoReconnect: this.autoReconnect,
-        status: this.status,
-      }, "warn");
+    if (!this.autoReconnect) {
+      return;
+    }
+    if (this.status === "connecting") {
+      serialDebugLog("transport", "USB connect event ignored (connect in progress)", undefined, "warn");
+      return;
+    }
+    if (this.status === "connected" && this.isSessionHealthy()) {
+      serialDebugLog("transport", "USB connect event ignored (healthy session)", undefined, "warn");
       return;
     }
     if (!port) return;
@@ -83,6 +88,16 @@ export class SerialPushToTalkTransport {
 
   getStatus(): SerialTransportStatus {
     return this.status;
+  }
+
+  isSessionHealthy(): boolean {
+    return (
+      this.status === "connected" &&
+      this.port != null &&
+      this.port.connected &&
+      this.reader != null &&
+      this.readLoopActive
+    );
   }
 
   enableAutoReconnect(): void {
@@ -173,8 +188,22 @@ export class SerialPushToTalkTransport {
     this.ensureMonitoring();
     this.autoReconnect = true;
     if (this.status === "connected") {
-      serialDebugLog("transport", "connectGrantedPorts: already connected");
-      return true;
+      if (this.isSessionHealthy()) {
+        serialDebugLog("transport", "connectGrantedPorts: already connected");
+        return true;
+      }
+      serialDebugLog(
+        "transport",
+        "connectGrantedPorts: stale connected state — reconnecting",
+        {
+          hasPort: this.port != null,
+          portConnected: this.port?.connected ?? null,
+          hasReader: this.reader != null,
+          readLoopActive: this.readLoopActive,
+        },
+        "warn",
+      );
+      this.setStatus("disconnected", "stale connection");
     }
     if (this.status === "connecting") {
       serialDebugLog("transport", "connectGrantedPorts: already connecting", undefined, "warn");
@@ -250,53 +279,88 @@ export class SerialPushToTalkTransport {
     this.autoReconnect = false;
     this.cancelReconnect();
     this.reconnectAttempt = 0;
-    await this.cleanupPort();
     this.setStatus("disconnected");
+    await this.cleanupPort();
+  }
+
+  private async releasePortResources(
+    reader: ReadableStreamDefaultReader<Uint8Array> | null,
+    writer: WritableStreamDefaultWriter<Uint8Array> | null,
+    port: SerialPort | null,
+  ): Promise<void> {
+    const cleanup = async (): Promise<void> => {
+      try {
+        await reader?.cancel();
+      } catch {
+        // ignore
+      }
+      try {
+        reader?.releaseLock();
+      } catch {
+        // ignore
+      }
+      try {
+        await writer?.close();
+      } catch {
+        // ignore
+      }
+      try {
+        writer?.releaseLock();
+      } catch {
+        // ignore
+      }
+      try {
+        await port?.close();
+      } catch {
+        // ignore
+      }
+    };
+
+    await Promise.race([
+      cleanup(),
+      new Promise<void>((resolve) => {
+        setTimeout(resolve, 750);
+      }),
+    ]);
   }
 
   private async cleanupPort(): Promise<void> {
     serialDebugLog("transport", "cleanupPort");
     this.readLoopActive = false;
-    try {
-      await this.reader?.cancel();
-    } catch {
-      // ignore
-    }
-    try {
-      this.reader?.releaseLock();
-    } catch {
-      // ignore
-    }
-    try {
-      await this.writer?.close();
-    } catch {
-      // ignore
-    }
-    try {
-      this.writer?.releaseLock();
-    } catch {
-      // ignore
-    }
-    try {
-      await this.port?.close();
-    } catch {
-      // ignore
-    }
+    const reader = this.reader;
+    const writer = this.writer;
+    const port = this.port;
     this.reader = null;
     this.writer = null;
     this.port = null;
     this.readBuffer = "";
+    await this.releasePortResources(reader, writer, port);
   }
 
   private async handlePortLost(reason: string, source = "unknown"): Promise<void> {
-    if (this.status === "disconnected" && !this.port) {
+    if (this.portLostHandling) {
+      serialDebugLog("transport", `handlePortLost skipped (${source}): already handling`, { reason }, "warn");
+      return;
+    }
+    if (this.status === "disconnected" && !this.port && !this.reader && !this.writer) {
       serialDebugLog("transport", `handlePortLost ignored (${source})`, { reason });
       return;
     }
+
+    this.portLostHandling = true;
     serialDebugLog("transport", `handlePortLost (${source})`, { reason, autoReconnect: this.autoReconnect }, "warn");
-    await this.cleanupPort();
+
+    const shouldReconnect = this.autoReconnect;
+    this.readLoopActive = false;
     this.setStatus("disconnected", reason);
-    if (this.autoReconnect) {
+
+    try {
+      await this.cleanupPort();
+    } finally {
+      this.portLostHandling = false;
+    }
+
+    if (shouldReconnect) {
       this.scheduleReconnect();
     } else {
       serialDebugLog("transport", "auto-reconnect disabled — not scheduling retry", undefined, "warn");
