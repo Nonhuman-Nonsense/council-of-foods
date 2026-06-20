@@ -11,7 +11,7 @@
   <key>ProgramArguments</key>
   <array>
     <string>/usr/local/bin/node</string>
-    <string>/usr/local/lib/council-ptt-bridge/dist/ptt-bridge/src/index.js</string>
+    <string>/usr/local/lib/council-ptt-bridge/dist/button/bridge/src/index.js</string>
   </array>
   <key>EnvironmentVariables</key>
   <dict>

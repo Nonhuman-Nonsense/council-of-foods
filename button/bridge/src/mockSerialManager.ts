@@ -1,5 +1,5 @@
 import { EventEmitter } from "node:events";
-import { PONG } from "../../shared/pttProtocol.js";
+import { PONG } from "../../../shared/pttProtocol.js";
 
 /**
  * Simulates an Arduino when no USB device is available.

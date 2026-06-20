@@ -25,7 +25,7 @@
       "connecting": "Connecting…",
       "waiting": "Waiting for button",
       "bridgeNotRunning": "Bridge not running",
-      "bridgeNotRunningHint": "Start ptt-bridge on this Mac (see ptt-bridge/README.md).",
+      "bridgeNotRunningHint": "Start the talk-button bridge on this Mac (see button/bridge/README.md).",
       "error": "Error",
       "unsupported": "WebSocket is not available in this browser"
     }

@@ -1,4 +1,4 @@
-import { PTT_BAUD_RATE } from "../../shared/pttProtocol.js";
+import { PTT_BAUD_RATE } from "../../../shared/pttProtocol.js";
 
 export type BridgeConfig = {
   host: string;

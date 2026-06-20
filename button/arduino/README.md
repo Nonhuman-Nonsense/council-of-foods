@@ -28,7 +28,7 @@ The browser drives three host modes over serial:
 
 ### No host connected
 
-When the **ptt-bridge** has not opened the USB serial port:
+When the **bridge** has not opened the USB serial port:
 
 - Button presses are **ignored** (no `PTT_DOWN` / `PTT_UP` is sent)
 - LEDs cycle one-at-a-time (1 s each) as a **connecting** indicator
@@ -43,7 +43,7 @@ After the bridge connects, the app sends `LED_PULSE` (ready) or `LED_ON` (mic ac
 3. Select your board and port, then upload
 4. Optional: open Serial Monitor at **115200 baud**, send `LED_PULSE`, then press a button to verify `PTT_DOWN` / `PTT_UP`
 
-Close Serial Monitor before starting ptt-bridge — only one program can use the port at a time.
+Close Serial Monitor before starting the bridge — only one program can use the port at a time.
 
 ## Serial protocol
 
@@ -65,7 +65,7 @@ All messages are newline-terminated ASCII. Incoming host lines longer than 32 ch
 ### First install (once per Mac)
 
 1. Upload this sketch
-2. Install the **ptt-bridge** daemon on the museum Mac (`ptt-bridge/install/macos/install.sh`)
+2. Install the bridge daemon on the museum Mac (`button/bridge/install/macos/install.sh`)
 3. Open the app, go to `/#setup`
 4. Enable **Push to Talk**
 

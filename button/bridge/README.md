@@ -3,13 +3,13 @@
 Local daemon that owns the museum talk-button USB port and exposes it to the browser over WebSocket.
 
 ```
-Arduino ──USB──► ptt-bridge ──ws://127.0.0.1:8765/v1/ptt──► Council app
+Arduino ──USB──► bridge ──ws://127.0.0.1:8765/v1/ptt──► Council app
 ```
 
 ## Quick start (development)
 
 ```bash
-cd ptt-bridge
+cd button/bridge
 npm install
 npm run dev          # real USB device
 npm run dev:mock     # no hardware — simulates PONG etc.
@@ -21,7 +21,7 @@ In another terminal:
 npm run smoke-test   # checks /health + WebSocket PING/PONG
 ```
 
-Then start the client (`cd ../client && npm run dev`), open `/#setup`, enable **Push to Talk**.
+Then start the client (`cd client && npm run dev`), open `/#setup`, enable **Push to Talk**.
 
 ## Hardware test checklist (for field tester)
 
@@ -30,7 +30,7 @@ Use this when you have the physical button plugged into a Mac.
 ### 1. Install bridge
 
 ```bash
-cd ptt-bridge
+cd button/bridge
 npm install
 npm run build
 npm run dev
@@ -92,13 +92,13 @@ curl http://127.0.0.1:8765/health
 ## Museum Mac install (persistent)
 
 ```bash
-sudo ptt-bridge/install/macos/install.sh
+sudo button/bridge/install/macos/install.sh
 ```
 
 Uninstall:
 
 ```bash
-sudo ptt-bridge/install/macos/uninstall.sh
+sudo button/bridge/install/macos/uninstall.sh
 ```
 
 Logs: `/var/log/council-ptt-bridge.log`
