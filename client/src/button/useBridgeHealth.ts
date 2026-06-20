@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { fetchBridgeHealth, type BridgeHealthState } from "@/ptt/bridgeHealth";
+import { fetchButtonBridgeHealth, type ButtonBridgeHealthState } from "@/button/health";
 
-export function useBridgeHealth(enabled: boolean): BridgeHealthState {
-  const [health, setHealth] = useState<BridgeHealthState>({ status: "checking" });
+export function useButtonBridgeHealth(enabled: boolean): ButtonBridgeHealthState {
+  const [health, setHealth] = useState<ButtonBridgeHealthState>({ status: "checking" });
 
   useEffect(() => {
     if (!enabled) {
@@ -13,7 +13,7 @@ export function useBridgeHealth(enabled: boolean): BridgeHealthState {
     let cancelled = false;
 
     async function poll(): Promise<void> {
-      const next = await fetchBridgeHealth();
+      const next = await fetchButtonBridgeHealth();
       if (!cancelled) {
         setHealth(next);
       }

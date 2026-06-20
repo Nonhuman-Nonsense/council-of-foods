@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
   <key>Label</key>
-  <string>com.council.ptt-bridge</string>
+  <string>com.council.button-bridge</string>
   <key>RunAtLoad</key>
   <true/>
   <key>KeepAlive</key>
@@ -11,18 +11,18 @@
   <key>ProgramArguments</key>
   <array>
     <string>/usr/local/bin/node</string>
-    <string>/usr/local/lib/council-ptt-bridge/dist/button/bridge/src/index.js</string>
+    <string>/usr/local/lib/council-button-bridge/dist/button/bridge/src/index.js</string>
   </array>
   <key>EnvironmentVariables</key>
   <dict>
-    <key>PTT_BRIDGE_HOST</key>
+    <key>BUTTON_BRIDGE_HOST</key>
     <string>127.0.0.1</string>
-    <key>PTT_BRIDGE_PORT</key>
+    <key>BUTTON_BRIDGE_PORT</key>
     <string>8765</string>
   </dict>
   <key>StandardOutPath</key>
-  <string>/var/log/council-ptt-bridge.log</string>
+  <string>/var/log/council-button-bridge.log</string>
   <key>StandardErrorPath</key>
-  <string>/var/log/council-ptt-bridge.err.log</string>
+  <string>/var/log/council-button-bridge.err.log</string>
 </dict>
 </plist>

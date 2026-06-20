@@ -3,16 +3,16 @@ import { useMobile, useMobileXs } from "@/utils";
 import { useTranslation } from "react-i18next";
 import { getPushToTalk, setPushToTalk } from "@/settings/councilSettings";
 import { useAppMode } from "@/museum/useAppMode";
-import { usePushToTalkStore } from "@stores/usePushToTalkStore";
-import { useBridgeHealth } from "@/ptt/useBridgeHealth";
+import { useButtonStore } from "@stores/useButtonStore";
+import { useButtonBridgeHealth } from "@/button/useBridgeHealth";
 
-type TalkButtonUiStatus = "unsupported" | "bridgeNotRunning" | "connecting" | "connected" | "waiting" | "error";
+type ButtonUiStatus = "unsupported" | "bridgeNotRunning" | "connecting" | "connected" | "waiting" | "error";
 
-function getTalkButtonUiStatus(
+function getButtonUiStatus(
   bridgeAvailable: boolean,
-  bridgeHealth: ReturnType<typeof useBridgeHealth>,
-  bridgeStatus: ReturnType<typeof usePushToTalkStore.getState>["bridgeStatus"],
-): TalkButtonUiStatus {
+  bridgeHealth: ReturnType<typeof useButtonBridgeHealth>,
+  bridgeStatus: ReturnType<typeof useButtonStore.getState>["bridgeStatus"],
+): ButtonUiStatus {
   if (!bridgeAvailable) return "unsupported";
   if (bridgeHealth.status === "not_running" || bridgeHealth.status === "error") {
     return "bridgeNotRunning";
@@ -24,20 +24,20 @@ function getTalkButtonUiStatus(
   return "connecting";
 }
 
-function talkButtonStatusLabel(status: TalkButtonUiStatus, t: (key: string) => string): string {
+function buttonStatusLabel(status: ButtonUiStatus, t: (key: string) => string): string {
   switch (status) {
     case "connected":
-      return t("setup.talkButton.connected");
+      return t("setup.button.connected");
     case "connecting":
-      return t("setup.talkButton.connecting");
+      return t("setup.button.connecting");
     case "bridgeNotRunning":
-      return t("setup.talkButton.bridgeNotRunning");
+      return t("setup.button.bridgeNotRunning");
     case "waiting":
-      return t("setup.talkButton.waiting");
+      return t("setup.button.waiting");
     case "error":
-      return t("setup.talkButton.error");
+      return t("setup.button.error");
     default:
-      return t("setup.talkButton.unsupported");
+      return t("setup.button.unsupported");
   }
 }
 
@@ -52,12 +52,12 @@ function Setup(): React.ReactElement {
   const { t } = useTranslation();
   const { mode: appMode, setAppMode } = useAppMode();
   const [pushToTalk, setPushToTalkState] = useState(getPushToTalk);
-  const bridgeStatus = usePushToTalkStore((state) => state.bridgeStatus);
-  const bridgeError = usePushToTalkStore((state) => state.bridgeError);
-  const bridgeAvailable = usePushToTalkStore((state) => state.bridgeAvailable);
-  const setLedMode = usePushToTalkStore((state) => state.setLedMode);
-  const bridgeHealth = useBridgeHealth(pushToTalk);
-  const talkButtonStatus = getTalkButtonUiStatus(bridgeAvailable, bridgeHealth, bridgeStatus);
+  const bridgeStatus = useButtonStore((state) => state.bridgeStatus);
+  const bridgeError = useButtonStore((state) => state.bridgeError);
+  const bridgeAvailable = useButtonStore((state) => state.bridgeAvailable);
+  const setLedMode = useButtonStore((state) => state.setLedMode);
+  const bridgeHealth = useButtonBridgeHealth(pushToTalk);
+  const buttonStatus = getButtonUiStatus(bridgeAvailable, bridgeHealth, bridgeStatus);
 
   useEffect(() => {
     if (!pushToTalk || bridgeStatus !== "connected") return;
@@ -166,17 +166,17 @@ function Setup(): React.ReactElement {
 
       {pushToTalk ? (
         <div style={sectionStyle}>
-          <h3 style={{ marginTop: 0 }}>{t("setup.talkButton.title")}</h3>
-          <p data-testid="setup-talk-button-status" style={{ marginTop: 0 }}>
-            {t("setup.talkButton.status")}: {talkButtonStatusLabel(talkButtonStatus, t)}
-            {talkButtonStatus === "error" && bridgeError ? ` — ${bridgeError}` : ""}
+          <h3 style={{ marginTop: 0 }}>{t("setup.button.title")}</h3>
+          <p data-testid="setup-button-status" style={{ marginTop: 0 }}>
+            {t("setup.button.status")}: {buttonStatusLabel(buttonStatus, t)}
+            {buttonStatus === "error" && bridgeError ? ` — ${bridgeError}` : ""}
           </p>
-          {talkButtonStatus === "bridgeNotRunning" ? (
+          {buttonStatus === "bridgeNotRunning" ? (
             <p
-              data-testid="setup-talk-button-hint"
+              data-testid="setup-button-hint"
               style={{ marginTop: 0, fontStyle: "italic", opacity: 0.8, textAlign: "center" }}
             >
-              {t("setup.talkButton.bridgeNotRunningHint")}
+              {t("setup.button.bridgeNotRunningHint")}
             </p>
           ) : null}
         </div>

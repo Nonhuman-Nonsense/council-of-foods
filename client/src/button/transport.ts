@@ -2,18 +2,18 @@ import {
   LED_OFF,
   LED_ON,
   LED_PULSE,
-  parseSerialLine,
+  parseButtonLine,
   PING,
-  type ParsedSerialLine,
-} from "@shared/pttProtocol";
-import { getBridgeWsUrl } from "@/ptt/bridgeConfig";
-import type { PttLedMode } from "@/voice/pttLedMode";
+  type ParsedButtonLine,
+} from "@shared/buttonProtocol";
+import { getButtonBridgeWsUrl } from "@/button/config";
+import type { ButtonLedMode } from "@/voice/buttonLedMode";
 
-export type PttTransportStatus = "disconnected" | "connecting" | "connected" | "error";
+export type ButtonTransportStatus = "disconnected" | "connecting" | "connected" | "error";
 
-export type PttTransportCallbacks = {
-  onStatus?: (status: PttTransportStatus, error?: string | null) => void;
-  onLine?: (event: ParsedSerialLine) => void;
+export type ButtonTransportCallbacks = {
+  onStatus?: (status: ButtonTransportStatus, error?: string | null) => void;
+  onLine?: (event: ParsedButtonLine) => void;
   onRawLine?: (line: string) => void;
 };
 
@@ -38,22 +38,22 @@ function parseServerMessage(raw: string): BridgeServerMessage | null {
   return null;
 }
 
-export class BridgePttTransport {
+export class ButtonTransport {
   private ws: WebSocket | null = null;
-  private callbacks: PttTransportCallbacks;
-  private status: PttTransportStatus = "disconnected";
+  private callbacks: ButtonTransportCallbacks;
+  private status: ButtonTransportStatus = "disconnected";
   private autoReconnect = false;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private reconnectAttempt = 0;
   private connectTimeout: ReturnType<typeof setTimeout> | null = null;
-  private serialReady = false;
+  private deviceReady = false;
   private writeChain: Promise<void> = Promise.resolve();
 
-  constructor(callbacks: PttTransportCallbacks = {}) {
+  constructor(callbacks: ButtonTransportCallbacks = {}) {
     this.callbacks = callbacks;
   }
 
-  getStatus(): PttTransportStatus {
+  getStatus(): ButtonTransportStatus {
     return this.status;
   }
 
@@ -61,7 +61,7 @@ export class BridgePttTransport {
     return (
       this.status === "connected" &&
       this.ws?.readyState === WebSocket.OPEN &&
-      this.serialReady
+      this.deviceReady
     );
   }
 
@@ -69,7 +69,7 @@ export class BridgePttTransport {
     this.autoReconnect = true;
   }
 
-  private setStatus(status: PttTransportStatus, error: string | null = null): void {
+  private setStatus(status: ButtonTransportStatus, error: string | null = null): void {
     this.status = status;
     this.callbacks.onStatus?.(status, error);
   }
@@ -122,20 +122,20 @@ export class BridgePttTransport {
     }
     if (message.type === "status") {
       if (message.state === "connected") {
-        this.serialReady = true;
+        this.deviceReady = true;
         if (this.status === "connecting") {
           void this.finishConnect();
         }
       } else {
-        this.serialReady = false;
+        this.deviceReady = false;
         if (this.status === "connected") {
-          this.setStatus("disconnected", message.error ?? "serial disconnected");
+          this.setStatus("disconnected", message.error ?? "button disconnected");
         }
       }
       return;
     }
 
-    const parsed = parseSerialLine(message.text);
+    const parsed = parseButtonLine(message.text);
     if (!parsed) return;
     if (parsed.type === "unknown") {
       this.callbacks.onRawLine?.(parsed.line);
@@ -167,7 +167,7 @@ export class BridgePttTransport {
 
     this.cancelReconnect();
     this.closeSocket();
-    this.serialReady = false;
+    this.deviceReady = false;
     this.setStatus("connecting");
 
     if (typeof WebSocket === "undefined") {
@@ -175,7 +175,7 @@ export class BridgePttTransport {
       return false;
     }
 
-    const url = getBridgeWsUrl();
+    const url = getButtonBridgeWsUrl();
 
     try {
       const socket = new WebSocket(url);
@@ -213,7 +213,7 @@ export class BridgePttTransport {
       });
 
       socket.onclose = (event) => {
-        this.serialReady = false;
+        this.deviceReady = false;
         const wasConnected = this.status === "connected";
         this.ws = null;
         this.setStatus("disconnected", event.reason || "bridge closed");
@@ -227,11 +227,11 @@ export class BridgePttTransport {
         // reconnect handled on close
       };
 
-      if (!this.serialReady) {
+      if (!this.deviceReady) {
         await new Promise<void>((resolve) => {
           const deadline = Date.now() + CONNECT_TIMEOUT_MS;
           const wait = (): void => {
-            if (this.serialReady || Date.now() >= deadline) {
+            if (this.deviceReady || Date.now() >= deadline) {
               resolve();
               return;
             }
@@ -241,7 +241,7 @@ export class BridgePttTransport {
         });
       }
 
-      if (this.serialReady) {
+      if (this.deviceReady) {
         await this.finishConnect();
         return true;
       }
@@ -261,7 +261,7 @@ export class BridgePttTransport {
     this.autoReconnect = false;
     this.cancelReconnect();
     this.reconnectAttempt = 0;
-    this.serialReady = false;
+    this.deviceReady = false;
     this.setStatus("disconnected");
     this.closeSocket();
   }
@@ -278,7 +278,7 @@ export class BridgePttTransport {
     return next;
   }
 
-  async setLedMode(mode: PttLedMode): Promise<void> {
+  async setLedMode(mode: ButtonLedMode): Promise<void> {
     const command = mode === "on" ? LED_ON : mode === "pulse" ? LED_PULSE : LED_OFF;
     await this.sendCommand(command);
   }

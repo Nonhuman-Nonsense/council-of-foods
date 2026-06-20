@@ -88,7 +88,7 @@ export class SerialManager extends EventEmitter {
       this.config.reconnectMaxMs,
     );
     this.reconnectAttempt += 1;
-    console.log(`[ptt-bridge/serial] scheduling reconnect in ${delay}ms (${reason})`);
+    console.log(`[button-bridge/serial] scheduling reconnect in ${delay}ms (${reason})`);
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;
       void this.connect();
@@ -101,13 +101,13 @@ export class SerialManager extends EventEmitter {
       const forced = ports.find((port) => port.path === this.config.serialPath);
       if (forced) return forced;
       console.warn(
-        `[ptt-bridge/serial] configured path not found: ${this.config.serialPath}`,
+        `[button-bridge/serial] configured path not found: ${this.config.serialPath}`,
       );
     }
 
     const matches = ports.filter((port) => matchesVendorId(port, this.config.serialVendorId));
     if (matches.length === 0) {
-      console.warn("[ptt-bridge/serial] no matching USB serial devices", {
+      console.warn("[button-bridge/serial] no matching USB serial devices", {
         vendorId: this.config.serialVendorId,
         ports: ports.map((port) => ({
           path: port.path,
@@ -118,7 +118,7 @@ export class SerialManager extends EventEmitter {
       return null;
     }
     if (matches.length > 1) {
-      console.warn("[ptt-bridge/serial] multiple matches — using first", {
+      console.warn("[button-bridge/serial] multiple matches — using first", {
         paths: matches.map((port) => port.path),
       });
     }
@@ -135,7 +135,7 @@ export class SerialManager extends EventEmitter {
       return;
     }
 
-    console.log(`[ptt-bridge/serial] opening ${target.path}`);
+    console.log(`[button-bridge/serial] opening ${target.path}`);
     const port = new SerialPort({
       path: target.path,
       baudRate: this.config.baudRate,
@@ -152,13 +152,13 @@ export class SerialManager extends EventEmitter {
 
     port.on("error", (error) => {
       const message = error instanceof Error ? error.message : String(error);
-      console.error("[ptt-bridge/serial] port error", message);
+      console.error("[button-bridge/serial] port error", message);
       this.emit("error", { message });
     });
 
     port.on("close", () => {
       const reason = "port closed";
-      console.warn(`[ptt-bridge/serial] ${reason}`);
+      console.warn(`[button-bridge/serial] ${reason}`);
       this.openPath = null;
       this.parser = null;
       this.port = null;
@@ -180,7 +180,7 @@ export class SerialManager extends EventEmitter {
     this.openPath = target.path;
     this.reconnectAttempt = 0;
     this.clearReconnect();
-    console.log(`[ptt-bridge/serial] connected ${target.path}`);
+    console.log(`[button-bridge/serial] connected ${target.path}`);
     this.emit("open", { path: target.path });
   }
 
@@ -198,7 +198,7 @@ export class SerialManager extends EventEmitter {
       }
       port.close((error) => {
         if (error) {
-          console.warn(`[ptt-bridge/serial] close error (${reason})`, error.message);
+          console.warn(`[button-bridge/serial] close error (${reason})`, error.message);
         }
         resolve();
       });

@@ -8,7 +8,7 @@ import { useMobile } from "@/utils";
 import { useTranslation } from "react-i18next";
 
 /** Short PTT copy needs many segments so the marquee fills the viewport. */
-const PTT_HINT_SEGMENT_COUNT = 14;
+const BUTTON_HINT_SEGMENT_COUNT = 14;
 
 type VoiceGuideOverlayProps = {
   isConnecting: boolean;
@@ -142,7 +142,7 @@ export default function VoiceGuideOverlay(props: VoiceGuideOverlayProps): ReactE
         <div className="bottom-ui-banner-anchor">
           <MarqueeRollingBanner
             visible={showHoldToSpeakHint}
-            segmentCount={PTT_HINT_SEGMENT_COUNT}
+            segmentCount={BUTTON_HINT_SEGMENT_COUNT}
             testId="voice-guide-hold-to-speak"
             renderSegment={(index) => (
               <>

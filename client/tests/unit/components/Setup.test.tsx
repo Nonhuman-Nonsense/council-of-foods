@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import Setup from '@main/overlay/Setup';
-import { usePushToTalkStore } from '@stores/usePushToTalkStore';
+import { useButtonStore } from '@stores/useButtonStore';
 import '@testing-library/jest-dom';
 
 vi.mock('react-i18next', () => ({
@@ -16,8 +16,8 @@ vi.mock('@/utils', () => ({
   useMobileXs: () => false,
 }));
 
-vi.mock('@/ptt/useBridgeHealth', () => ({
-  useBridgeHealth: () => ({
+vi.mock('@/button/useBridgeHealth', () => ({
+  useButtonBridgeHealth: () => ({
     status: 'running',
     serial: 'connected',
     path: '/dev/cu.usbmodem1',
@@ -28,7 +28,7 @@ vi.mock('@/ptt/useBridgeHealth', () => ({
 describe('Setup overlay', () => {
   beforeEach(() => {
     localStorage.clear();
-    usePushToTalkStore.setState({
+    useButtonStore.setState({
       bridgeStatus: 'disconnected',
       bridgeError: null,
       bridgeAvailable: true,
@@ -36,7 +36,7 @@ describe('Setup overlay', () => {
   });
 
   afterEach(() => {
-    usePushToTalkStore.setState({
+    useButtonStore.setState({
       bridgeStatus: 'disconnected',
       bridgeError: null,
     });
@@ -91,13 +91,13 @@ describe('Setup overlay', () => {
     expect(alwaysOn).toHaveClass('selected');
   });
 
-  it('shows talk button status when push to talk is enabled', () => {
+  it('shows button status when push to talk is enabled', () => {
     localStorage.setItem('councilPushToTalk', 'true');
-    usePushToTalkStore.setState({ bridgeStatus: 'connected' });
+    useButtonStore.setState({ bridgeStatus: 'connected' });
 
     render(<Setup />);
 
-    expect(screen.getByTestId('setup-talk-button-status')).toHaveTextContent('setup.talkButton.connected');
+    expect(screen.getByTestId('setup-button-status')).toHaveTextContent('setup.button.connected');
   });
 
   it('shows waiting status when bridge is up but button is not connected', () => {
@@ -105,6 +105,6 @@ describe('Setup overlay', () => {
 
     render(<Setup />);
 
-    expect(screen.getByTestId('setup-talk-button-status')).toHaveTextContent('setup.talkButton.waiting');
+    expect(screen.getByTestId('setup-button-status')).toHaveTextContent('setup.button.waiting');
   });
 });

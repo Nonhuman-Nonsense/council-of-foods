@@ -1,9 +1,9 @@
-# Council PTT Bridge
+# Council Button Bridge
 
-Local daemon that owns the museum talk-button USB port and exposes it to the browser over WebSocket.
+Local daemon that owns the museum button USB port and exposes it to the browser over WebSocket.
 
 ```
-Arduino ──USB──► bridge ──ws://127.0.0.1:8765/v1/ptt──► Council app
+Arduino ──USB──► bridge ──ws://127.0.0.1:8765/v1/button──► Council app
 ```
 
 ## Quick start (development)
@@ -39,8 +39,8 @@ npm run dev
 Leave that terminal open. You should see:
 
 ```
-[ptt-bridge] listening on http://127.0.0.1:8765 (ws path /v1/ptt)
-[ptt-bridge/serial] connected /dev/cu.usbmodem...
+[button-bridge] listening on http://127.0.0.1:8765 (ws path /v1/button)
+[button-bridge/serial] connected /dev/cu.usbmodem...
 ```
 
 If no device is found, check USB cable/port. List ports:
@@ -52,7 +52,7 @@ npx @serialport/list
 Force a specific port:
 
 ```bash
-PTT_SERIAL_PATH=/dev/cu.usbmodem14101 npm run dev
+BUTTON_SERIAL_PATH=/dev/cu.usbmodem14101 npm run dev
 ```
 
 ### 2. Smoke test (no browser)
@@ -101,24 +101,24 @@ Uninstall:
 sudo button/bridge/install/macos/uninstall.sh
 ```
 
-Logs: `/var/log/council-ptt-bridge.log`
+Logs: `/var/log/council-button-bridge.log`
 
 Restart:
 
 ```bash
-sudo launchctl kickstart -k system/com.council.ptt-bridge
+sudo launchctl kickstart -k system/com.council.button-bridge
 ```
 
 ## Environment variables
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `PTT_BRIDGE_HOST` | `127.0.0.1` | Bind address |
-| `PTT_BRIDGE_PORT` | `8765` | HTTP + WebSocket port |
-| `PTT_SERIAL_PATH` | auto | Force serial device path |
-| `PTT_SERIAL_VENDOR_ID` | `239a` | Adafruit USB vendor |
-| `PTT_MOCK_SERIAL` | `0` | `1` = mock device (no USB) |
-| `PTT_BAUD_RATE` | `115200` | Match Arduino firmware |
+| `BUTTON_BRIDGE_HOST` | `127.0.0.1` | Bind address |
+| `BUTTON_BRIDGE_PORT` | `8765` | HTTP + WebSocket port |
+| `BUTTON_SERIAL_PATH` | auto | Force serial device path |
+| `BUTTON_SERIAL_VENDOR_ID` | `239a` | Adafruit USB vendor |
+| `BUTTON_MOCK_SERIAL` | `0` | `1` = mock device (no USB) |
+| `BUTTON_BAUD_RATE` | `115200` | Match Arduino firmware |
 
 ## Wire protocol
 
@@ -126,7 +126,7 @@ sudo launchctl kickstart -k system/com.council.ptt-bridge
 
 ```json
 { "type": "status", "state": "connected", "path": "/dev/cu.usbmodem1" }
-{ "type": "line", "text": "PTT_DOWN" }
+{ "type": "line", "text": "BUTTON_DOWN" }
 ```
 
 **Browser → bridge**
@@ -140,7 +140,7 @@ sudo launchctl kickstart -k system/com.council.ptt-bridge
 | Symptom | Likely cause | Fix |
 |---|---|---|
 | Bridge: Not running | Daemon not started | `npm run dev` or `install.sh` |
-| Bridge running, Serial disconnected | USB unplugged or wrong port | Replug; set `PTT_SERIAL_PATH` |
+| Bridge running, Serial disconnected | USB unplugged or wrong port | Replug; set `BUTTON_SERIAL_PATH` |
 | LED cycles one-at-a-time | No serial host | Bridge not connected to device |
 | `smoke test failed` | Bridge down or serial not open | Check bridge logs |
 | Port busy | Arduino IDE Serial Monitor open | Close Serial Monitor |

@@ -1,47 +1,31 @@
 import { create } from "zustand";
-import { isBridgeTransportAvailable } from "@/ptt/bridgeConfig";
-import {
-  BridgePttTransport,
-  type PttTransportStatus,
-} from "@/ptt/bridgeTransport";
+import { isButtonBridgeAvailable } from "@/button/config";
+import { ButtonTransport, type ButtonTransportStatus } from "@/button/transport";
 import { getPushToTalk } from "@/settings/councilSettings";
-import { isPttInputEnabled, type PttLedMode } from "@/voice/pttLedMode";
+import { isButtonInputEnabled, type ButtonLedMode } from "@/voice/buttonLedMode";
 
-type PushToTalkStore = {
-  /**
-   * Logical press: true only when pttInputEnabled is also true.
-   * Guards accidental activation — use rawPressed when you need the
-   * physical state regardless of LED gating.
-   */
+type ButtonStore = {
   pressed: boolean;
-  /**
-   * Physical button state, updated by every ptt_down / ptt_up or space key
-   * event before any pttInputEnabled check. Use this when you need to know
-   * whether the button is currently held even if the LED is off (e.g. to
-   * auto-start recording the moment a pre-warm connection becomes ready).
-   */
   rawPressed: boolean;
-  ledMode: PttLedMode;
-  pttInputEnabled: boolean;
-  bridgeStatus: PttTransportStatus;
+  ledMode: ButtonLedMode;
+  buttonInputEnabled: boolean;
+  bridgeStatus: ButtonTransportStatus;
   bridgeError: string | null;
   keyboardActive: boolean;
   bridgeAvailable: boolean;
 
   setPressed: (pressed: boolean, source: "keyboard" | "button") => void;
-
-  connectTalkButton: () => Promise<void>;
-  disconnectTalkButton: () => Promise<void>;
-  enableTalkButtonAutoReconnect: () => void;
+  connect: () => Promise<void>;
+  disconnect: () => Promise<void>;
+  enableAutoReconnect: () => void;
   reconnectIfStale: () => Promise<void>;
-  setLedMode: (mode: PttLedMode) => Promise<void>;
-  resyncTalkButtonLed: () => Promise<void>;
-
+  setLedMode: (mode: ButtonLedMode) => Promise<void>;
+  resyncLed: () => Promise<void>;
   init: () => void;
   dispose: () => void;
 };
 
-let pttTransport: BridgePttTransport | null = null;
+let buttonTransport: ButtonTransport | null = null;
 let keyboardInitialized = false;
 
 function isTypingTarget(target: EventTarget | null): boolean {
@@ -50,56 +34,56 @@ function isTypingTarget(target: EventTarget | null): boolean {
   return tag === "INPUT" || tag === "TEXTAREA" || target.isContentEditable;
 }
 
-function getPttTransport(
-  set: (partial: Partial<PushToTalkStore>) => void,
-  get: () => PushToTalkStore
-): BridgePttTransport {
-  if (!pttTransport) {
-    pttTransport = new BridgePttTransport({
+function getTransport(
+  set: (partial: Partial<ButtonStore>) => void,
+  get: () => ButtonStore,
+): ButtonTransport {
+  if (!buttonTransport) {
+    buttonTransport = new ButtonTransport({
       onStatus: (status, error) => {
-        const updates: Partial<PushToTalkStore> = {
+        const updates: Partial<ButtonStore> = {
           bridgeStatus: status,
           bridgeError: error ?? null,
         };
         if (status === "disconnected" || status === "error") {
           updates.pressed = false;
           updates.rawPressed = false;
-          updates.pttInputEnabled = false;
+          updates.buttonInputEnabled = false;
         }
         if (status === "connected") {
           const { ledMode } = get();
-          updates.pttInputEnabled = isPttInputEnabled(ledMode);
+          updates.buttonInputEnabled = isButtonInputEnabled(ledMode);
         }
         set(updates);
 
         if (status === "connected") {
-          void get().resyncTalkButtonLed();
+          void get().resyncLed();
         }
       },
       onLine: (event) => {
         if (event.type === "pong") {
           return;
         }
-        if (event.type === "ptt_down") {
+        if (event.type === "button_down") {
           set({ rawPressed: true });
-        } else if (event.type === "ptt_up") {
+        } else if (event.type === "button_up") {
           set({ rawPressed: false });
         }
-        if (!get().pttInputEnabled) {
+        if (!get().buttonInputEnabled) {
           return;
         }
-        if (event.type === "ptt_down") {
+        if (event.type === "button_down") {
           get().setPressed(true, "button");
-        } else if (event.type === "ptt_up") {
+        } else if (event.type === "button_up") {
           get().setPressed(false, "button");
         }
       },
     });
   }
-  return pttTransport;
+  return buttonTransport;
 }
 
-function bindKeyboard(set: (partial: Partial<PushToTalkStore>) => void, get: () => PushToTalkStore): void {
+function bindKeyboard(set: (partial: Partial<ButtonStore>) => void, get: () => ButtonStore): void {
   if (keyboardInitialized || typeof window === "undefined") return;
   keyboardInitialized = true;
 
@@ -109,7 +93,7 @@ function bindKeyboard(set: (partial: Partial<PushToTalkStore>) => void, get: () 
     if (isTypingTarget(event.target)) return;
     event.preventDefault();
     set({ rawPressed: true });
-    if (get().pttInputEnabled) {
+    if (get().buttonInputEnabled) {
       get().setPressed(true, "keyboard");
     }
   };
@@ -120,7 +104,7 @@ function bindKeyboard(set: (partial: Partial<PushToTalkStore>) => void, get: () 
     if (isTypingTarget(event.target)) return;
     event.preventDefault();
     set({ rawPressed: false });
-    if (get().pttInputEnabled) {
+    if (get().buttonInputEnabled) {
       get().setPressed(false, "keyboard");
     }
   };
@@ -129,18 +113,18 @@ function bindKeyboard(set: (partial: Partial<PushToTalkStore>) => void, get: () 
   window.addEventListener("keyup", onKeyUp);
 }
 
-export const usePushToTalkStore = create<PushToTalkStore>((set, get) => ({
+export const useButtonStore = create<ButtonStore>((set, get) => ({
   pressed: false,
   rawPressed: false,
   ledMode: "off",
-  pttInputEnabled: false,
+  buttonInputEnabled: false,
   bridgeStatus: "disconnected",
   bridgeError: null,
   keyboardActive: false,
-  bridgeAvailable: isBridgeTransportAvailable(),
+  bridgeAvailable: isButtonBridgeAvailable(),
 
   setPressed: (pressed, source) => {
-    if (!get().pttInputEnabled) {
+    if (!get().buttonInputEnabled) {
       return;
     }
     set({
@@ -149,30 +133,30 @@ export const usePushToTalkStore = create<PushToTalkStore>((set, get) => ({
     });
   },
 
-  connectTalkButton: async () => {
-    await getPttTransport(set, get).connect();
+  connect: async () => {
+    await getTransport(set, get).connect();
   },
 
-  disconnectTalkButton: async () => {
-    await getPttTransport(set, get).disconnect();
+  disconnect: async () => {
+    await getTransport(set, get).disconnect();
   },
 
-  enableTalkButtonAutoReconnect: () => {
-    getPttTransport(set, get).enableAutoReconnect();
+  enableAutoReconnect: () => {
+    getTransport(set, get).enableAutoReconnect();
   },
 
   reconnectIfStale: async () => {
-    const transport = getPttTransport(set, get);
+    const transport = getTransport(set, get);
     if (get().bridgeStatus === "connected" && !transport.isSessionHealthy()) {
       await transport.connect();
     }
   },
 
   setLedMode: async (mode) => {
-    const inputEnabled = isPttInputEnabled(mode);
-    const updates: Partial<PushToTalkStore> = {
+    const inputEnabled = isButtonInputEnabled(mode);
+    const updates: Partial<ButtonStore> = {
       ledMode: mode,
-      pttInputEnabled: inputEnabled,
+      buttonInputEnabled: inputEnabled,
     };
     if (!inputEnabled) {
       updates.pressed = false;
@@ -184,10 +168,10 @@ export const usePushToTalkStore = create<PushToTalkStore>((set, get) => ({
     if (get().bridgeStatus !== "connected") {
       return;
     }
-    await getPttTransport(set, get).setLedMode(mode);
+    await getTransport(set, get).setLedMode(mode);
   },
 
-  resyncTalkButtonLed: async () => {
+  resyncLed: async () => {
     if (get().bridgeStatus !== "connected") {
       return;
     }
@@ -195,9 +179,9 @@ export const usePushToTalkStore = create<PushToTalkStore>((set, get) => ({
     if (ledMode === "off") {
       return;
     }
-    const inputEnabled = isPttInputEnabled(ledMode);
-    set({ pttInputEnabled: inputEnabled });
-    await getPttTransport(set, get).setLedMode(ledMode);
+    const inputEnabled = isButtonInputEnabled(ledMode);
+    set({ buttonInputEnabled: inputEnabled });
+    await getTransport(set, get).setLedMode(ledMode);
   },
 
   init: () => {
@@ -205,6 +189,6 @@ export const usePushToTalkStore = create<PushToTalkStore>((set, get) => ({
   },
 
   dispose: () => {
-    set({ pressed: false, rawPressed: false, ledMode: "off", pttInputEnabled: false });
+    set({ pressed: false, rawPressed: false, ledMode: "off", buttonInputEnabled: false });
   },
 }));

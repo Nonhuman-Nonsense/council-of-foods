@@ -32,17 +32,17 @@ export class WsServer {
       res.end();
     });
 
-    const wss = new WebSocketServer({ server: httpServer, path: "/v1/ptt" });
+    const wss = new WebSocketServer({ server: httpServer, path: "/v1/button" });
 
     wss.on("connection", (socket, request) => {
       const remote = request.socket.remoteAddress ?? "unknown";
       if (remote !== "127.0.0.1" && remote !== "::1" && remote !== "::ffff:127.0.0.1") {
-        console.warn(`[ptt-bridge/ws] rejected non-local connection from ${remote}`);
+        console.warn(`[button-bridge/ws] rejected non-local connection from ${remote}`);
         socket.close(1008, "local only");
         return;
       }
 
-      console.log("[ptt-bridge/ws] client connected");
+      console.log("[button-bridge/ws] client connected");
       this.send(socket, { type: "info", version: BRIDGE_VERSION });
       this.send(socket, this.currentStatusMessage());
 
@@ -50,23 +50,23 @@ export class WsServer {
         const raw = typeof data === "string" ? data : data.toString("utf8");
         const message = parseClientMessage(raw);
         if (!message) {
-          console.warn("[ptt-bridge/ws] invalid client message", raw);
+          console.warn("[button-bridge/ws] invalid client message", raw);
           return;
         }
         void this.serial.writeLine(message.line).catch((error: unknown) => {
           const msg = error instanceof Error ? error.message : String(error);
-          console.warn("[ptt-bridge/ws] serial write failed", msg);
+          console.warn("[button-bridge/ws] serial write failed", msg);
         });
       });
 
       socket.on("close", () => {
-        console.log("[ptt-bridge/ws] client disconnected");
+        console.log("[button-bridge/ws] client disconnected");
       });
     });
 
     httpServer.listen(this.config.port, this.config.host, () => {
       console.log(
-        `[ptt-bridge] listening on http://${this.config.host}:${this.config.port} (ws path /v1/ptt)`,
+        `[button-bridge] listening on http://${this.config.host}:${this.config.port} (ws path /v1/button)`,
       );
     });
 

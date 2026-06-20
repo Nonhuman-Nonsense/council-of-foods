@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 /**
- * Quick smoke test for a running ptt-bridge instance.
+ * Quick smoke test for a running button-bridge instance.
  * Usage: node scripts/smoke-test.mjs [host] [port]
  */
 const host = process.argv[2] ?? "127.0.0.1";
 const port = Number.parseInt(process.argv[3] ?? "8765", 10);
 const healthUrl = `http://${host}:${port}/health`;
-const wsUrl = `ws://${host}:${port}/v1/ptt`;
+const wsUrl = `ws://${host}:${port}/v1/button`;
 
 async function checkHealth() {
   const response = await fetch(healthUrl);

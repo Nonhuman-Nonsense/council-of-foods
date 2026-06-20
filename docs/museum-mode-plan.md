@@ -186,7 +186,7 @@ Use this section when prioritising later work. Phase 1–2 do **not** require co
 | Characters | select/deselect tools, `start_meeting` | `SelectCharacters` + Start |
 | Visitor name | `remember_visitor_name` | — |
 
-PTT talk button via local **button/bridge** (`#setup` shows status) supports hardware input when push-to-talk is enabled — independent of museum mode.
+Installation button via local **button/bridge** (`#setup` shows status) supports hardware input when push-to-talk is enabled — independent of museum mode.
 
 ### Still mouse-dependent (council / errors)
 

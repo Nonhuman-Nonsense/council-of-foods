@@ -6,7 +6,7 @@ import { WsServer } from "./wsServer.js";
 
 function createSerialManager(config: ReturnType<typeof loadConfig>): SerialManagerLike {
   if (config.mockSerial) {
-    console.log("[ptt-bridge] PTT_MOCK_SERIAL enabled — using mock device");
+    console.log("[button-bridge] BUTTON_MOCK_SERIAL enabled — using mock device");
     return new MockSerialManager();
   }
   return new SerialManager(config);
@@ -30,14 +30,14 @@ async function main(): Promise<void> {
   });
 
   serial.on("error", ({ message }) => {
-    console.error("[ptt-bridge/serial] error", message);
+    console.error("[button-bridge/serial] error", message);
   });
 
   serial.start();
   ws.start();
 
   const shutdown = async (signal: string): Promise<void> => {
-    console.log(`[ptt-bridge] ${signal} — shutting down`);
+    console.log(`[button-bridge] ${signal} — shutting down`);
     await serial.stop();
     await ws.stop();
     process.exit(0);
@@ -48,6 +48,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((error) => {
-  console.error("[ptt-bridge] fatal error", error);
+  console.error("[button-bridge] fatal error", error);
   process.exit(1);
 });

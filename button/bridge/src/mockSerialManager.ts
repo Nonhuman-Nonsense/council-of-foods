@@ -1,5 +1,5 @@
 import { EventEmitter } from "node:events";
-import { PONG } from "../../../shared/pttProtocol.js";
+import { PONG } from "../../../shared/buttonProtocol.js";
 
 /**
  * Simulates an Arduino when no USB device is available.
@@ -19,7 +19,7 @@ export class MockSerialManager extends EventEmitter {
 
   start(): void {
     this.stopped = false;
-    console.log("[ptt-bridge/mock] starting mock serial device");
+    console.log("[button-bridge/mock] starting mock serial device");
     this.openPath = "mock";
     this.emit("open", { path: "mock" });
   }
@@ -36,7 +36,7 @@ export class MockSerialManager extends EventEmitter {
     if (!this.isOpen()) {
       return Promise.reject(new Error("Mock serial is not open"));
     }
-    console.log(`[ptt-bridge/mock] ← ${line}`);
+    console.log(`[button-bridge/mock] ← ${line}`);
     if (line === "PING") {
       queueMicrotask(() => {
         if (!this.stopped && this.isOpen()) {

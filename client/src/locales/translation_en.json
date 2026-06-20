@@ -18,14 +18,14 @@
     "alwaysOn": "Always On",
     "pushToTalk": "Push to Talk",
     "holdToSpeak": "Push the button to speak",
-    "talkButton": {
-      "title": "Talk button",
+    "button": {
+      "title": "Button",
       "status": "Status",
       "connected": "Connected",
       "connecting": "Connecting…",
       "waiting": "Waiting for button",
       "bridgeNotRunning": "Bridge not running",
-      "bridgeNotRunningHint": "Start the talk-button bridge on this Mac (see button/bridge/README.md).",
+      "bridgeNotRunningHint": "Start the button bridge on this Mac (see button/bridge/README.md).",
       "error": "Error",
       "unsupported": "WebSocket is not available in this browser"
     }
@@ -70,7 +70,7 @@
   "human": {
     "1": "Type your question or start recording...",
     "panelist": "What does {{name}} have to say about this?",
-    "ptt_museum": "Press and hold the button to talk, release to submit"
+    "button_museum": "Press and hold the button to talk, release to submit"
   },
   "completed": {
     "title": "Is that it?",

@@ -1,12 +1,12 @@
-export type PttLedMode = "off" | "pulse" | "on";
+export type ButtonLedMode = "off" | "pulse" | "on";
 
-export function computePttLedMode(params: {
+export function computeButtonLedMode(params: {
   pushToTalkMode: boolean;
   muted: boolean;
   isConnecting: boolean;
   voiceError: string | null;
   pressed: boolean;
-}): PttLedMode {
+}): ButtonLedMode {
   if (!params.pushToTalkMode || params.muted || params.isConnecting || params.voiceError) {
     return "off";
   }
@@ -16,6 +16,6 @@ export function computePttLedMode(params: {
   return "pulse";
 }
 
-export function isPttInputEnabled(mode: PttLedMode): boolean {
+export function isButtonInputEnabled(mode: ButtonLedMode): boolean {
   return mode === "pulse" || mode === "on";
 }

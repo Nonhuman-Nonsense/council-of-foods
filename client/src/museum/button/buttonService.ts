@@ -2,12 +2,12 @@ import {
   PUSH_TO_TALK_CHANGE_EVENT,
   type PushToTalkChangeDetail,
 } from "@/settings/councilSettings";
-import { usePushToTalkStore } from "@stores/usePushToTalkStore";
-import { shouldAutoConnectTalkButton } from "./talkButtonPolicy";
+import { useButtonStore } from "@stores/useButtonStore";
+import { shouldAutoConnectButton } from "./buttonPolicy";
 
 const WATCHDOG_INTERVAL_MS = 2_500;
 
-type TalkButtonService = {
+type ButtonService = {
   start: () => void;
   stop: () => void;
   pause: () => void;
@@ -15,7 +15,7 @@ type TalkButtonService = {
   sync: (reason?: string) => Promise<void>;
 };
 
-function createTalkButtonService(): TalkButtonService {
+function createButtonService(): ButtonService {
   let running = false;
   let paused = false;
   let watchdogTimer: ReturnType<typeof setInterval> | null = null;
@@ -36,21 +36,21 @@ function createTalkButtonService(): TalkButtonService {
   }
 
   async function runSync(_reason: string): Promise<void> {
-    if (!running || paused || !shouldAutoConnectTalkButton()) {
+    if (!running || paused || !shouldAutoConnectButton()) {
       return;
     }
-    usePushToTalkStore.getState().enableTalkButtonAutoReconnect();
-    await usePushToTalkStore.getState().connectTalkButton();
+    useButtonStore.getState().enableAutoReconnect();
+    await useButtonStore.getState().connect();
   }
 
   async function tick(): Promise<void> {
-    const { bridgeStatus } = usePushToTalkStore.getState();
+    const { bridgeStatus } = useButtonStore.getState();
 
-    if (!running || paused || !shouldAutoConnectTalkButton()) {
+    if (!running || paused || !shouldAutoConnectButton()) {
       return;
     }
     if (bridgeStatus === "connected" || bridgeStatus === "connecting") {
-      void usePushToTalkStore.getState().reconnectIfStale();
+      void useButtonStore.getState().reconnectIfStale();
       return;
     }
     await runSync("watchdog");
@@ -58,7 +58,7 @@ function createTalkButtonService(): TalkButtonService {
 
   function pause(): void {
     paused = true;
-    void usePushToTalkStore.getState().disconnectTalkButton();
+    void useButtonStore.getState().disconnect();
   }
 
   function resume(): void {
@@ -100,7 +100,7 @@ function createTalkButtonService(): TalkButtonService {
       running = true;
       paused = false;
       bindListeners();
-      usePushToTalkStore.getState().init();
+      useButtonStore.getState().init();
       startWatchdog();
       void runSync("start");
     },
@@ -113,11 +113,9 @@ function createTalkButtonService(): TalkButtonService {
     },
 
     pause,
-
     resume,
-
     sync: (reason = "manual") => runSync(reason),
   };
 }
 
-export const talkButtonService = createTalkButtonService();
+export const buttonService = createButtonService();

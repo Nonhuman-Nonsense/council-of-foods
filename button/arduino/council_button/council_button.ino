@@ -1,12 +1,12 @@
 /*
- * Council of Foods — push-to-talk button firmware
+ * Council of Foods — installation button firmware
  *
  * Hardware: one Adafruit seesaw board (e.g. LED Arcade Button QT family) on
  * STEMMA QT / I2C, with up to four buttons on the same chip.
  * Guide: https://learn.adafruit.com/adafruit-led-arcade-button-qt/arduino
  *
  * Serial protocol (115200 baud, newline-terminated):
- *   Device → host: PTT_DOWN, PTT_UP, PONG
+ *   Device → host: BUTTON_DOWN, BUTTON_UP, PONG
  *   Host → device: LED_OFF, LED_PULSE, LED_ON, PING
  *
  * LED modes (from host — visual only; host decides what to do with presses):
@@ -14,7 +14,7 @@
  *   LED_PULSE — breathing LEDs
  *   LED_ON    — LEDs fully on
  *
- * While a host is connected, PTT_DOWN / PTT_UP are always sent on press/release.
+ * While a host is connected, BUTTON_DOWN / BUTTON_UP are always sent on press/release.
  * The browser gates whether those events activate mic / agent logic.
  *
  * When no host has opened the USB serial port, button presses are ignored and
@@ -85,7 +85,7 @@ bool readAnyButtonPressed() {
   return false;
 }
 
-void syncPttBaseline() {
+void syncButtonBaseline() {
   bool reading = readAnyButtonPressed();
   mergedPressed = reading;
   lastStableMergedPressed = reading;
@@ -109,7 +109,7 @@ void setHostLedMode(uint8_t mode) {
     applyAllLeds(LED_BRIGHTNESS);
   }
 
-  syncPttBaseline();
+  syncButtonBaseline();
 }
 
 void runPulseAnimation() {
@@ -158,7 +158,7 @@ void updateHostConnection() {
     hostLedMode = LED_MODE_OFF;
     connectingAnimIndex = 0;
     connectingAnimLastStep = 0;
-    syncPttBaseline();
+    syncButtonBaseline();
   }
 }
 
@@ -246,9 +246,9 @@ void setup() {
   pulseAnimStartMs = millis();
   serialLineLength = 0;
   serialLineBuffer[0] = '\0';
-  syncPttBaseline();
+  syncButtonBaseline();
 
-  Serial.println(F("READY council-ptt"));
+  Serial.println(F("READY council-button"));
 }
 
 void loop() {
@@ -272,9 +272,9 @@ void loop() {
       lastStableMergedPressed = reading;
       if (hostConnected) {
         if (lastStableMergedPressed) {
-          sendLine(F("PTT_DOWN"));
+          sendLine(F("BUTTON_DOWN"));
         } else {
-          sendLine(F("PTT_UP"));
+          sendLine(F("BUTTON_UP"));
         }
       }
     }

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { PONG } from "@shared/pttProtocol";
+import { PONG } from "@shared/buttonProtocol";
 
 type MessageHandler = (event: { data: string }) => void;
 type CloseHandler = (event: { code: number; reason: string }) => void;
@@ -51,7 +51,7 @@ class MockWebSocket {
   }
 }
 
-describe("BridgePttTransport", () => {
+describe("ButtonTransport", () => {
   beforeEach(() => {
     MockWebSocket.reset();
     vi.stubGlobal("WebSocket", MockWebSocket);
@@ -60,8 +60,8 @@ describe("BridgePttTransport", () => {
 
   it("connects and completes PING handshake", async () => {
     const statuses: string[] = [];
-    const { BridgePttTransport } = await import("@/ptt/bridgeTransport");
-    const transport = new BridgePttTransport({
+    const { ButtonTransport } = await import("@/button/transport");
+    const transport = new ButtonTransport({
       onStatus: (status) => statuses.push(status),
     });
 
@@ -74,21 +74,21 @@ describe("BridgePttTransport", () => {
     expect(MockWebSocket.instances[0]?.sent).toContain(JSON.stringify({ type: "write", line: "PING" }));
   });
 
-  it("forwards PTT lines to callbacks", async () => {
+  it("forwards button lines to callbacks", async () => {
     const lines: string[] = [];
-    const { BridgePttTransport } = await import("@/ptt/bridgeTransport");
-    const transport = new BridgePttTransport({
+    const { ButtonTransport } = await import("@/button/transport");
+    const transport = new ButtonTransport({
       onLine: (event) => {
-        if (event.type === "ptt_down" || event.type === "ptt_up") {
+        if (event.type === "button_down" || event.type === "button_up") {
           lines.push(event.type);
         }
       },
     });
 
     await transport.connect();
-    MockWebSocket.instances[0]?.emit({ type: "line", text: "PTT_DOWN" });
-    MockWebSocket.instances[0]?.emit({ type: "line", text: "PTT_UP" });
+    MockWebSocket.instances[0]?.emit({ type: "line", text: "BUTTON_DOWN" });
+    MockWebSocket.instances[0]?.emit({ type: "line", text: "BUTTON_UP" });
 
-    expect(lines).toEqual(["ptt_down", "ptt_up"]);
+    expect(lines).toEqual(["button_down", "button_up"]);
   });
 });
