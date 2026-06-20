@@ -208,3 +208,9 @@ export function _resetButtonStoreForTests(): void {
     bridgeAvailable: isButtonBridgeAvailable(),
   });
 }
+
+/** Dev/e2e hook — read button store state from Playwright. */
+if (import.meta.env.DEV && typeof window !== "undefined") {
+  (window as Window & { __councilButtonStore?: typeof useButtonStore }).__councilButtonStore =
+    useButtonStore;
+}

@@ -3,7 +3,12 @@ import { WebSocketServer, type WebSocket } from "ws";
 import type { BridgeConfig } from "./config.js";
 import { corsHeaders } from "./cors.js";
 import type { SerialManagerLike } from "./serialManagerLike.js";
+import { isMockSerialManager, readJsonBody } from "./testApi.js";
 import { BRIDGE_VERSION, parseClientMessage, serializeServerMessage, type ServerMessage } from "./types.js";
+
+function isLocalAddress(address: string | undefined): boolean {
+  return address === "127.0.0.1" || address === "::1" || address === "::ffff:127.0.0.1";
+}
 
 export class WsServer {
   private readonly config: BridgeConfig;
@@ -20,6 +25,7 @@ export class WsServer {
     const httpServer = http.createServer((req, res) => {
       const origin = typeof req.headers.origin === "string" ? req.headers.origin : undefined;
       const cors = corsHeaders(origin);
+      const remote = req.socket.remoteAddress;
 
       if (req.url === "/health" && req.method === "OPTIONS") {
         res.writeHead(204, cors);
@@ -38,6 +44,29 @@ export class WsServer {
         res.end(body);
         return;
       }
+
+      if (
+        this.config.mockSerial &&
+        req.url === "/v1/test/simulate-button" &&
+        (req.method === "OPTIONS" || req.method === "POST")
+      ) {
+        if (!isLocalAddress(remote)) {
+          res.writeHead(403);
+          res.end();
+          return;
+        }
+        if (req.method === "OPTIONS") {
+          res.writeHead(204, {
+            ...cors,
+            "Access-Control-Allow-Methods": "GET, OPTIONS, POST",
+          });
+          res.end();
+          return;
+        }
+        void this.handleSimulateButton(req, res, cors);
+        return;
+      }
+
       res.writeHead(404);
       res.end();
     });
@@ -46,7 +75,7 @@ export class WsServer {
 
     wss.on("connection", (socket, request) => {
       const remote = request.socket.remoteAddress ?? "unknown";
-      if (remote !== "127.0.0.1" && remote !== "::1" && remote !== "::ffff:127.0.0.1") {
+      if (!isLocalAddress(remote)) {
         console.warn(`[button-bridge/ws] rejected non-local connection from ${remote}`);
         socket.close(1008, "local only");
         return;
@@ -140,5 +169,31 @@ export class WsServer {
       };
     }
     return { type: "status", state: "disconnected" };
+  }
+
+  private async handleSimulateButton(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    cors: Record<string, string>,
+  ): Promise<void> {
+    try {
+      if (!isMockSerialManager(this.serial)) {
+        res.writeHead(503, { "Content-Type": "application/json", ...cors });
+        res.end(JSON.stringify({ ok: false, error: "mock serial required" }));
+        return;
+      }
+      const body = (await readJsonBody(req)) as { pressed?: unknown };
+      if (typeof body.pressed !== "boolean") {
+        res.writeHead(400, { "Content-Type": "application/json", ...cors });
+        res.end(JSON.stringify({ ok: false, error: "expected { pressed: boolean }" }));
+        return;
+      }
+      this.serial.simulateButton(body.pressed);
+      res.writeHead(200, { "Content-Type": "application/json", ...cors });
+      res.end(JSON.stringify({ ok: true }));
+    } catch {
+      res.writeHead(500, { "Content-Type": "application/json", ...cors });
+      res.end(JSON.stringify({ ok: false, error: "simulate failed" }));
+    }
   }
 }

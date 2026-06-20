@@ -1,5 +1,5 @@
 import { EventEmitter } from "node:events";
-import { PONG } from "../../../shared/buttonProtocol.js";
+import { BUTTON_DOWN, BUTTON_UP, PONG } from "../../../shared/buttonProtocol.js";
 
 /**
  * Simulates an Arduino when no USB device is available.
@@ -20,6 +20,12 @@ export class MockSerialManager extends EventEmitter {
 
   getWrittenLines(): string[] {
     return [...this.writtenLines];
+  }
+
+  /** Inject a physical button press/release (mock mode / tests only). */
+  simulateButton(pressed: boolean): void {
+    if (!this.isOpen()) return;
+    this.emit("line", { text: pressed ? BUTTON_DOWN : BUTTON_UP });
   }
 
   start(): void {

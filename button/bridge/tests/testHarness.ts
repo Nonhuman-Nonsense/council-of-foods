@@ -40,10 +40,11 @@ export type TestBridge = {
   host: string;
   healthUrl: string;
   wsUrl: string;
-  serial: MockSerialManager;
+  simulateButtonUrl: string;
   simulateButtonDown: () => void;
   simulateButtonUp: () => void;
   getWrittenLines: () => string[];
+  restart: () => Promise<void>;
   stop: () => Promise<void>;
 };
 
@@ -58,6 +59,12 @@ function createTestConfig(port: number): BridgeConfig {
     reconnectMaxMs: 10_000,
     mockSerial: true,
   };
+}
+
+function wireSerialToServer(serial: MockSerialManager, server: WsServer): void {
+  serial.on("line", ({ text }) => {
+    server.broadcast({ type: "line", text });
+  });
 }
 
 export async function waitForWrittenLine(bridge: TestBridge, line: string, timeoutMs = 5000): Promise<void> {
@@ -77,34 +84,66 @@ export async function waitForTicks(ticks = 2): Promise<void> {
   }
 }
 
+export async function waitForCondition(
+  predicate: () => boolean,
+  timeoutMs = 10_000,
+  intervalMs = 25,
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (predicate()) return;
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+  }
+  throw new Error("Timed out waiting for condition");
+}
+
 export async function startTestBridge(): Promise<TestBridge> {
   const port = await getFreePort();
   const host = "127.0.0.1";
-  const serial = new MockSerialManager();
-  const server = new WsServer(createTestConfig(port), serial);
-
-  serial.on("line", ({ text }) => {
-    server.broadcast({ type: "line", text });
-  });
-
-  serial.start();
-  server.start();
-
   const healthUrl = `http://${host}:${port}/health`;
-  await waitForHttpOk(healthUrl);
+  const wsUrl = `ws://${host}:${port}/v1/button`;
+  const simulateButtonUrl = `http://${host}:${port}/v1/test/simulate-button`;
+
+  const runtime = {
+    port,
+    host,
+    serial: new MockSerialManager(),
+    server: null as WsServer | null,
+  };
+
+  async function boot(): Promise<void> {
+    runtime.serial = new MockSerialManager();
+    runtime.server = new WsServer(createTestConfig(runtime.port), runtime.serial);
+    wireSerialToServer(runtime.serial, runtime.server);
+    runtime.serial.start();
+    runtime.server.start();
+    await waitForHttpOk(healthUrl);
+  }
+
+  await boot();
 
   return {
     port,
     host,
     healthUrl,
-    wsUrl: `ws://${host}:${port}/v1/button`,
-    serial,
-    simulateButtonDown: () => serial.emit("line", { text: "BUTTON_DOWN" }),
-    simulateButtonUp: () => serial.emit("line", { text: "BUTTON_UP" }),
-    getWrittenLines: () => serial.getWrittenLines(),
+    wsUrl,
+    simulateButtonUrl,
+    simulateButtonDown: () => runtime.serial.simulateButton(true),
+    simulateButtonUp: () => runtime.serial.simulateButton(false),
+    getWrittenLines: () => runtime.serial.getWrittenLines(),
+    restart: async () => {
+      if (runtime.server) {
+        await runtime.server.stop();
+      }
+      await runtime.serial.stop();
+      await boot();
+    },
     stop: async () => {
-      await server.stop();
-      await serial.stop();
+      if (runtime.server) {
+        await runtime.server.stop();
+        runtime.server = null;
+      }
+      await runtime.serial.stop();
     },
   };
 }
