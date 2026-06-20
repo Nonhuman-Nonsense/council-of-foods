@@ -5,6 +5,8 @@ import {
   clearSerialDebugLog,
   getSerialDebugLogText,
 } from "@/serial/debugLog";
+import { fetchBridgeHealth } from "@/serial/bridgeHealth";
+import { getBridgeWsUrl } from "@/serial/bridgeConfig";
 import { talkButtonService } from "@/museum/talkButton/talkButtonService";
 import { usePushToTalkStore } from "@stores/usePushToTalkStore";
 
@@ -29,10 +31,13 @@ function SetupSerialDebug(): React.ReactElement {
 
   async function copyLog(): Promise<void> {
     const serviceState = talkButtonService.getDebugState();
+    const bridgeHealth = await fetchBridgeHealth();
     const snapshot = [
       "=== Talk button debug snapshot ===",
       `serialStatus: ${serialStatus}`,
       `serialError: ${serialError ?? "(none)"}`,
+      `bridgeHealth: ${JSON.stringify(bridgeHealth)}`,
+      `bridgeUrl: ${getBridgeWsUrl()}`,
       `service: ${JSON.stringify(serviceState)}`,
       `url: ${window.location.href}`,
       `userAgent: ${navigator.userAgent}`,

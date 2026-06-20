@@ -6,6 +6,23 @@ import { useAppMode } from "@/museum/useAppMode";
 import { usePushToTalkStore } from "@stores/usePushToTalkStore";
 import { talkButtonService } from "@/museum/talkButton/talkButtonService";
 import SetupSerialDebug from "./SetupSerialDebug";
+import { useBridgeHealth } from "@/serial/useBridgeHealth";
+
+function bridgeHealthLabel(
+  health: ReturnType<typeof useBridgeHealth>,
+  t: (key: string) => string,
+): string {
+  switch (health.status) {
+    case "running":
+      return t("setup.serial.bridgeRunning");
+    case "checking":
+      return t("setup.serial.bridgeChecking");
+    case "error":
+      return t("setup.serial.bridgeError");
+    default:
+      return t("setup.serial.bridgeNotRunning");
+  }
+}
 
 function serialStatusLabel(
   status: ReturnType<typeof usePushToTalkStore.getState>["serialStatus"],
@@ -38,9 +55,9 @@ function Setup(): React.ReactElement {
   const serialError = usePushToTalkStore((state) => state.serialError);
   const lastSerialLine = usePushToTalkStore((state) => state.lastSerialLine);
   const serialSupported = usePushToTalkStore((state) => state.serialSupported);
-  const requestSerialPort = usePushToTalkStore((state) => state.requestSerialPort);
   const connectGrantedPorts = usePushToTalkStore((state) => state.connectGrantedPorts);
   const setLedMode = usePushToTalkStore((state) => state.setLedMode);
+  const bridgeHealth = useBridgeHealth(pushToTalk);
 
   useEffect(() => {
     if (!pushToTalk || serialStatus !== "connected") return;
@@ -93,15 +110,7 @@ function Setup(): React.ReactElement {
 
   async function connectTalkButton(): Promise<void> {
     talkButtonService.resume();
-    const serial = navigator.serial;
-    const grantedPorts = serial ? await serial.getPorts() : [];
-    if (grantedPorts.length > 0) {
-      await connectGrantedPorts();
-      if (usePushToTalkStore.getState().serialStatus === "connected") {
-        return;
-      }
-    }
-    await requestSerialPort();
+    await connectGrantedPorts();
   }
 
   function disconnectTalkButton(): void {
@@ -172,9 +181,23 @@ function Setup(): React.ReactElement {
           ) : (
             <>
               <p style={{ marginTop: 0 }}>
+                {t("setup.serial.bridgeStatus")}: {bridgeHealthLabel(bridgeHealth, t)}
+                {bridgeHealth.status === "running" && bridgeHealth.path
+                  ? ` (${bridgeHealth.path})`
+                  : ""}
+              </p>
+              <p style={{ marginTop: 0 }}>
                 {t("setup.serial.status")}: {serialStatusLabel(serialStatus, t)}
                 {serialError ? ` — ${serialError}` : ""}
               </p>
+              {bridgeHealth.status === "not_running" ? (
+                <p
+                  data-testid="setup-bridge-not-running"
+                  style={{ marginTop: 0, fontStyle: "italic", opacity: 0.85, textAlign: "center" }}
+                >
+                  {t("setup.serial.bridgeNotRunningHint")}
+                </p>
+              ) : null}
               {serialStatus === "connecting" ? (
                 <p
                   data-testid="setup-serial-reconnecting"

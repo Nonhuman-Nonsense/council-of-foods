@@ -62,16 +62,18 @@ All messages are newline-terminated ASCII. Incoming host lines longer than 32 ch
 
 ## Museum setup
 
-### First install (once per browser profile)
+### First install (once per Mac)
 
 1. Upload this sketch
-2. Open the app, go to `/#setup`
-3. Enable **Push to Talk**
-4. Click **Connect talk button** and grant the USB device when Chrome asks
+2. Install the **ptt-bridge** daemon on the museum Mac (`ptt-bridge/install/macos/install.sh`)
+3. Open the app, go to `/#setup`
+4. Enable **Push to Talk**
+
+The bridge owns the USB port. Chrome connects to `ws://127.0.0.1:8765` — no browser USB permission dialog.
 
 ### Day-to-day operation
 
-After the one-time grant, the web app **auto-connects in the background** whenever:
+With the bridge running, the web app **auto-connects in the background** whenever:
 
 - Push to Talk is enabled in `localStorage`, and
 - The page is open, and
@@ -79,11 +81,17 @@ After the one-time grant, the web app **auto-connects in the background** whenev
 
 You do **not** need to visit `/#setup` or press Connect again for normal unplug/replug or page reload.
 
-The button shows the rotating LED animation while waiting for Chrome, then pulses when the app sends `LED_PULSE`.
+The button shows the rotating LED animation while waiting for the bridge, then pulses when the app sends `LED_PULSE`.
 
 ### Staff disconnect
 
 **Disconnect** on the setup page pauses auto-reconnect until Connect is pressed again.
+
+### Troubleshooting
+
+- Bridge health: `curl http://127.0.0.1:8765/health`
+- Logs: `/var/log/council-ptt-bridge.log`
+- Restart bridge: `sudo launchctl kickstart -k system/com.council.ptt-bridge`
 
 ## Dev fallback
 

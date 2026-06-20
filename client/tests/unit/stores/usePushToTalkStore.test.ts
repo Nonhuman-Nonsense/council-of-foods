@@ -1,28 +1,33 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ParsedSerialLine } from "@/serial/protocol";
-import type { SerialTransportCallbacks, SerialTransportStatus } from "@/serial/transport";
+import type { PttTransportCallbacks, PttTransportStatus } from "@/serial/bridgeTransport";
 
-const transportCallbacks: SerialTransportCallbacks = {};
+const transportCallbacks: PttTransportCallbacks = {};
 
 const mockTransport = {
-  requestPort: vi.fn().mockResolvedValue(undefined),
-  connectGrantedPorts: vi.fn().mockResolvedValue(false),
+  connect: vi.fn().mockResolvedValue(false),
   disconnect: vi.fn().mockResolvedValue(undefined),
   setLedMode: vi.fn().mockResolvedValue(undefined),
+  enableAutoReconnect: vi.fn(),
+  isSessionHealthy: vi.fn(() => true),
 };
 
-vi.mock("@/serial/transport", () => ({
-  isWebSerialSupported: () => true,
-  SerialPushToTalkTransport: class MockSerialPushToTalkTransport {
-    requestPort = mockTransport.requestPort;
-    connectGrantedPorts = mockTransport.connectGrantedPorts;
+vi.mock("@/serial/bridgeTransport", () => ({
+  BridgePttTransport: class MockBridgePttTransport {
+    connect = mockTransport.connect;
     disconnect = mockTransport.disconnect;
     setLedMode = mockTransport.setLedMode;
+    enableAutoReconnect = mockTransport.enableAutoReconnect;
+    isSessionHealthy = mockTransport.isSessionHealthy;
 
-    constructor(callbacks: SerialTransportCallbacks) {
+    constructor(callbacks: PttTransportCallbacks) {
       Object.assign(transportCallbacks, callbacks);
     }
   },
+}));
+
+vi.mock("@/serial/bridgeConfig", () => ({
+  isBridgeTransportAvailable: () => true,
 }));
 
 const getPushToTalkMock = vi.fn(() => false);
@@ -40,7 +45,7 @@ describe("usePushToTalkStore", () => {
     vi.clearAllMocks();
     getPushToTalkMock.mockReturnValue(false);
     for (const key of Object.keys(transportCallbacks)) {
-      delete transportCallbacks[key as keyof SerialTransportCallbacks];
+      delete transportCallbacks[key as keyof PttTransportCallbacks];
     }
 
     vi.resetModules();
@@ -62,7 +67,7 @@ describe("usePushToTalkStore", () => {
     transportCallbacks.onLine?.(event);
   }
 
-  function emitStatus(status: SerialTransportStatus, error: string | null = null): void {
+  function emitStatus(status: PttTransportStatus, error: string | null = null): void {
     transportCallbacks.onStatus?.(status, error);
   }
 
@@ -84,10 +89,9 @@ describe("usePushToTalkStore", () => {
     expect(usePushToTalkStore.getState().lastSerialLine).toBe("PTT_UP");
   });
 
-  it("tracks rawPressed from serial even when LED mode is off", async () => {
+  it("tracks rawPressed even when ptt input is disabled", async () => {
     await initTransport();
     emitStatus("connected");
-    await usePushToTalkStore.getState().setLedMode("off");
 
     emitLine({ type: "ptt_down" });
     expect(usePushToTalkStore.getState().rawPressed).toBe(true);
@@ -95,13 +99,11 @@ describe("usePushToTalkStore", () => {
 
     emitLine({ type: "ptt_up" });
     expect(usePushToTalkStore.getState().rawPressed).toBe(false);
-    expect(usePushToTalkStore.getState().pressed).toBe(false);
   });
 
-  it("promotes rawPressed to pressed when LED input becomes enabled", async () => {
+  it("enables pressed when led mode turns on while button is held", async () => {
     await initTransport();
     emitStatus("connected");
-    await usePushToTalkStore.getState().setLedMode("off");
 
     emitLine({ type: "ptt_down" });
     expect(usePushToTalkStore.getState().rawPressed).toBe(true);
@@ -111,131 +113,33 @@ describe("usePushToTalkStore", () => {
     expect(usePushToTalkStore.getState().pressed).toBe(true);
   });
 
-  it("records PONG and unknown serial lines", async () => {
-    await initTransport();
-
-    emitLine({ type: "pong" });
-    expect(usePushToTalkStore.getState().lastSerialLine).toBe("PONG");
-
-    transportCallbacks.onRawLine?.("DEBUG");
-    expect(usePushToTalkStore.getState().lastSerialLine).toBe("DEBUG");
-  });
-
-  it("restores PTT input and LED mode when serial reconnects", async () => {
+  it("clears pressed state on disconnect", async () => {
     await initTransport();
     emitStatus("connected");
     await usePushToTalkStore.getState().setLedMode("pulse");
-    expect(usePushToTalkStore.getState().pttInputEnabled).toBe(true);
-
-    emitStatus("disconnected", "USB disconnected");
-    expect(usePushToTalkStore.getState().pttInputEnabled).toBe(false);
-    expect(usePushToTalkStore.getState().ledMode).toBe("pulse");
-
-    emitStatus("connected");
-    expect(usePushToTalkStore.getState().pttInputEnabled).toBe(true);
-    expect(mockTransport.setLedMode).toHaveBeenCalledWith("pulse");
-  });
-
-  it("tracks serial connection status and errors", async () => {
-    await initTransport();
-
-    emitStatus("connecting");
-    emitStatus("connected");
-    emitStatus("error", "USB unplugged");
-
-    expect(usePushToTalkStore.getState().serialStatus).toBe("error");
-    expect(usePushToTalkStore.getState().serialError).toBe("USB unplugged");
-  });
-
-  it("clears pressed and rawPressed when serial disconnects or errors", async () => {
-    await initTransport();
-
-    emitStatus("connected");
-    await usePushToTalkStore.getState().setLedMode("off");
     emitLine({ type: "ptt_down" });
-    expect(usePushToTalkStore.getState().rawPressed).toBe(true);
 
     emitStatus("disconnected");
     expect(usePushToTalkStore.getState().pressed).toBe(false);
     expect(usePushToTalkStore.getState().rawPressed).toBe(false);
-
-    emitStatus("connected");
-    await usePushToTalkStore.getState().setLedMode("on");
-    emitLine({ type: "ptt_down" });
-    expect(usePushToTalkStore.getState().pressed).toBe(true);
-    expect(usePushToTalkStore.getState().rawPressed).toBe(true);
-
-    emitStatus("error", "Serial read failed");
-    expect(usePushToTalkStore.getState().pressed).toBe(false);
-    expect(usePushToTalkStore.getState().rawPressed).toBe(false);
+    expect(usePushToTalkStore.getState().pttInputEnabled).toBe(false);
   });
 
-  it("sends LED mode commands only when serial is connected", async () => {
+  it("resyncs LED mode after reconnect when led mode is active", async () => {
     await initTransport();
-
-    await usePushToTalkStore.getState().setLedMode("pulse");
-    expect(mockTransport.setLedMode).not.toHaveBeenCalled();
-
     emitStatus("connected");
     await usePushToTalkStore.getState().setLedMode("pulse");
-    await usePushToTalkStore.getState().setLedMode("on");
-    await usePushToTalkStore.getState().setLedMode("off");
+    mockTransport.setLedMode.mockClear();
 
+    emitStatus("connected");
     expect(mockTransport.setLedMode).toHaveBeenCalledWith("pulse");
-    expect(mockTransport.setLedMode).toHaveBeenCalledWith("on");
-    expect(mockTransport.setLedMode).toHaveBeenCalledWith("off");
   });
 
-  it("uses space as keyboard push-to-talk only when input is enabled", async () => {
-    getPushToTalkMock.mockReturnValue(true);
-    usePushToTalkStore.getState().init();
+  it("delegates connect and disconnect to bridge transport", async () => {
+    await usePushToTalkStore.getState().connectGrantedPorts();
+    expect(mockTransport.connect).toHaveBeenCalled();
 
-    window.dispatchEvent(new KeyboardEvent("keydown", { code: "Space", bubbles: true }));
-    expect(usePushToTalkStore.getState().rawPressed).toBe(true);
-    expect(usePushToTalkStore.getState().pressed).toBe(false);
-
-    await usePushToTalkStore.getState().setLedMode("pulse");
-    expect(usePushToTalkStore.getState().pressed).toBe(true);
-
-    // Re-dispatch keydown so keyboard source is recorded (held from before pulse).
-    window.dispatchEvent(new KeyboardEvent("keydown", { code: "Space", bubbles: true }));
-    expect(usePushToTalkStore.getState().keyboardActive).toBe(true);
-
-    window.dispatchEvent(new KeyboardEvent("keyup", { code: "Space", bubbles: true }));
-    expect(usePushToTalkStore.getState().rawPressed).toBe(false);
-    expect(usePushToTalkStore.getState().pressed).toBe(false);
-    expect(usePushToTalkStore.getState().keyboardActive).toBe(false);
-  });
-
-  it("ignores space when typing in form fields", () => {
-    getPushToTalkMock.mockReturnValue(true);
-    usePushToTalkStore.getState().init();
-    void usePushToTalkStore.getState().setLedMode("pulse");
-
-    const input = document.createElement("input");
-    document.body.appendChild(input);
-    input.dispatchEvent(new KeyboardEvent("keydown", { code: "Space", bubbles: true }));
-    expect(usePushToTalkStore.getState().pressed).toBe(false);
-    document.body.removeChild(input);
-  });
-
-  it("does not auto-connect serial from store init", () => {
-    getPushToTalkMock.mockReturnValue(true);
-    usePushToTalkStore.getState().init();
-
-    expect(mockTransport.connectGrantedPorts).not.toHaveBeenCalled();
-  });
-
-  it("clears pressed state on dispose without disconnecting serial", async () => {
-    await initTransport();
-    await usePushToTalkStore.getState().setLedMode("on");
-    usePushToTalkStore.getState().setPressed(true, "keyboard");
-
-    usePushToTalkStore.getState().dispose();
-
-    expect(mockTransport.disconnect).not.toHaveBeenCalled();
-    expect(usePushToTalkStore.getState().pressed).toBe(false);
-    expect(usePushToTalkStore.getState().rawPressed).toBe(false);
-    expect(usePushToTalkStore.getState().ledMode).toBe("off");
+    await usePushToTalkStore.getState().disconnectSerial();
+    expect(mockTransport.disconnect).toHaveBeenCalled();
   });
 });

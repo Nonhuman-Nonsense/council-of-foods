@@ -1,11 +1,11 @@
 import { create } from "zustand";
 import { serialDebugLog } from "@/serial/debugLog";
-import { getPushToTalk } from "@/settings/councilSettings";
+import { isBridgeTransportAvailable } from "@/serial/bridgeConfig";
 import {
-  isWebSerialSupported,
-  SerialPushToTalkTransport,
-  type SerialTransportStatus,
-} from "@/serial/transport";
+  BridgePttTransport,
+  type PttTransportStatus,
+} from "@/serial/bridgeTransport";
+import { getPushToTalk } from "@/settings/councilSettings";
 import { isPttInputEnabled, type PttLedMode } from "@/voice/pttLedMode";
 
 type PushToTalkStore = {
@@ -24,7 +24,7 @@ type PushToTalkStore = {
   rawPressed: boolean;
   ledMode: PttLedMode;
   pttInputEnabled: boolean;
-  serialStatus: SerialTransportStatus;
+  serialStatus: PttTransportStatus;
   serialError: string | null;
   lastSerialLine: string | null;
   keyboardActive: boolean;
@@ -32,7 +32,6 @@ type PushToTalkStore = {
 
   setPressed: (pressed: boolean, source: "keyboard" | "serial") => void;
 
-  requestSerialPort: () => Promise<void>;
   connectGrantedPorts: () => Promise<void>;
   disconnectSerial: () => Promise<void>;
   enableSerialAutoReconnect: () => void;
@@ -44,7 +43,7 @@ type PushToTalkStore = {
   dispose: () => void;
 };
 
-let serialTransport: SerialPushToTalkTransport | null = null;
+let pttTransport: BridgePttTransport | null = null;
 let keyboardInitialized = false;
 
 function isTypingTarget(target: EventTarget | null): boolean {
@@ -53,12 +52,12 @@ function isTypingTarget(target: EventTarget | null): boolean {
   return tag === "INPUT" || tag === "TEXTAREA" || target.isContentEditable;
 }
 
-function getSerialTransport(
+function getPttTransport(
   set: (partial: Partial<PushToTalkStore>) => void,
   get: () => PushToTalkStore
-): SerialPushToTalkTransport {
-  if (!serialTransport) {
-    serialTransport = new SerialPushToTalkTransport({
+): BridgePttTransport {
+  if (!pttTransport) {
+    pttTransport = new BridgePttTransport({
       onStatus: (status, error) => {
         const updates: Partial<PushToTalkStore> = {
           serialStatus: status,
@@ -84,8 +83,6 @@ function getSerialTransport(
           set({ lastSerialLine: "PONG" });
           return;
         }
-        // Track physical state before the pttInputEnabled gate so components
-        // can detect a held button even when the LED is off (e.g. pre-warm).
         if (event.type === "ptt_down") {
           set({ rawPressed: true });
         } else if (event.type === "ptt_up") {
@@ -107,7 +104,7 @@ function getSerialTransport(
       },
     });
   }
-  return serialTransport;
+  return pttTransport;
 }
 
 function bindKeyboard(set: (partial: Partial<PushToTalkStore>) => void, get: () => PushToTalkStore): void {
@@ -149,7 +146,7 @@ export const usePushToTalkStore = create<PushToTalkStore>((set, get) => ({
   serialError: null,
   lastSerialLine: null,
   keyboardActive: false,
-  serialSupported: isWebSerialSupported(),
+  serialSupported: isBridgeTransportAvailable(),
 
   setPressed: (pressed, source) => {
     if (!get().pttInputEnabled) {
@@ -161,27 +158,23 @@ export const usePushToTalkStore = create<PushToTalkStore>((set, get) => ({
     });
   },
 
-  requestSerialPort: async () => {
-    await getSerialTransport(set, get).requestPort();
-  },
-
   connectGrantedPorts: async () => {
-    await getSerialTransport(set, get).connectGrantedPorts();
+    await getPttTransport(set, get).connect();
   },
 
   disconnectSerial: async () => {
-    await getSerialTransport(set, get).disconnect();
+    await getPttTransport(set, get).disconnect();
   },
 
   enableSerialAutoReconnect: () => {
-    getSerialTransport(set, get).enableAutoReconnect();
+    getPttTransport(set, get).enableAutoReconnect();
   },
 
   reconnectIfStale: async () => {
-    const transport = getSerialTransport(set, get);
+    const transport = getPttTransport(set, get);
     if (get().serialStatus === "connected" && !transport.isSessionHealthy()) {
-      serialDebugLog("store", "stale serial session — requesting reconnect");
-      await transport.connectGrantedPorts();
+      serialDebugLog("store", "stale bridge session — requesting reconnect");
+      await transport.connect();
     }
   },
 
@@ -194,7 +187,6 @@ export const usePushToTalkStore = create<PushToTalkStore>((set, get) => ({
     if (!inputEnabled) {
       updates.pressed = false;
     } else if (get().rawPressed) {
-      // Button may already be held while LED was off (e.g. pre-warm connecting).
       updates.pressed = true;
     }
     set(updates);
@@ -202,7 +194,7 @@ export const usePushToTalkStore = create<PushToTalkStore>((set, get) => ({
     if (get().serialStatus !== "connected") {
       return;
     }
-    await getSerialTransport(set, get).setLedMode(mode);
+    await getPttTransport(set, get).setLedMode(mode);
   },
 
   resyncSerialLed: async () => {
@@ -215,7 +207,7 @@ export const usePushToTalkStore = create<PushToTalkStore>((set, get) => ({
     }
     const inputEnabled = isPttInputEnabled(ledMode);
     set({ pttInputEnabled: inputEnabled });
-    await getSerialTransport(set, get).setLedMode(ledMode);
+    await getPttTransport(set, get).setLedMode(ledMode);
   },
 
   init: () => {

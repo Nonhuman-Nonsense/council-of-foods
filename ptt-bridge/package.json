@@ -1,0 +1,29 @@
+{
+  "name": "council-ptt-bridge",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Local USB serial to WebSocket bridge for Council push-to-talk buttons",
+  "main": "dist/ptt-bridge/src/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/ptt-bridge/src/index.js",
+    "dev": "tsx src/index.ts",
+    "dev:mock": "PTT_MOCK_SERIAL=1 tsx src/index.ts",
+    "type-check": "tsc --noEmit",
+    "test": "vitest run",
+    "smoke-test": "node scripts/smoke-test.mjs"
+  },
+  "dependencies": {
+    "@serialport/parser-readline": "^13.0.0",
+    "serialport": "^13.0.0",
+    "ws": "^8.19.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.3",
+    "@types/ws": "^8.18.1",
+    "tsx": "^4.22.4",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.8"
+  }
+}
