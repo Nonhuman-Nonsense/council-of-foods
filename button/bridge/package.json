@@ -13,7 +13,8 @@
     "stop": "node scripts/stop-dev.mjs",
     "restart:mock": "npm run stop && BUTTON_MOCK_SERIAL=1 tsx src/index.ts",
     "type-check": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:install-smoke": "install/macos/smoke-bundle.sh"
   },
   "dependencies": {
     "@serialport/parser-readline": "^13.0.0",

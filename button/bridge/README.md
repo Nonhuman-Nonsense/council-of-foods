@@ -102,11 +102,40 @@ curl http://127.0.0.1:8765/health
 
 ## Museum Mac install (persistent)
 
+Apple Silicon (arm64) only. Node 20+ must be installed once on the Mac.
+
+### From GitHub Release (recommended — no git clone)
+
+Install or update to the latest release:
+
 ```bash
-sudo button/bridge/install/macos/install.sh
+curl -fsSL https://raw.githubusercontent.com/Nonhuman-Nonsense/council-of-foods/main/button/bridge/install/macos/install-release.sh | sudo bash
 ```
 
-Uninstall:
+Pin a specific version:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Nonhuman-Nonsense/council-of-foods/main/button/bridge/install/macos/install-release.sh | sudo bash -s -- 1.0.0
+```
+
+### From this repo (developers)
+
+Build on the machine and install:
+
+```bash
+sudo button/bridge/install/macos/install.sh --rebuild
+```
+
+If install fails with `Bootstrap failed: 5`, run uninstall first, then install again:
+
+```bash
+sudo button/bridge/install/macos/uninstall.sh
+sudo button/bridge/install/macos/install.sh --rebuild
+```
+
+If `dist/` is already built, `install.sh` skips the build step.
+
+### Uninstall
 
 ```bash
 sudo button/bridge/install/macos/uninstall.sh
@@ -118,6 +147,28 @@ Restart:
 
 ```bash
 sudo launchctl kickstart -k system/com.council.button-bridge
+```
+
+## Publishing a release
+
+Releases live in this monorepo — no separate bridge repository.
+
+1. Tag and push (triggers GitHub Actions on `macos-14`):
+
+```bash
+git tag button-bridge-v1.0.0
+git push origin button-bridge-v1.0.0
+```
+
+2. Or use **Actions → Button Bridge Release → Run workflow** and enter a version (e.g. `1.0.1`).
+
+The workflow uploads `council-button-bridge-macos-arm64-<version>.tar.gz` to GitHub Releases.
+
+Local dry-run before tagging:
+
+```bash
+button/bridge/scripts/stage-release-bundle.sh 1.0.0
+button/bridge/install/macos/smoke-bundle.sh
 ```
 
 ## Environment variables

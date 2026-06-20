@@ -8,10 +8,11 @@
   <true/>
   <key>KeepAlive</key>
   <true/>
+  <key>WorkingDirectory</key>
+  <string>__INSTALL_DIR__</string>
   <key>ProgramArguments</key>
   <array>
-    <string>/usr/local/bin/node</string>
-    <string>/usr/local/lib/council-button-bridge/dist/button/bridge/src/index.js</string>
+    <string>__RUN_SCRIPT__</string>
   </array>
   <key>EnvironmentVariables</key>
   <dict>

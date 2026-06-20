@@ -38,5 +38,7 @@ playwright/.auth/
 # TypeScript
 *.tsbuildinfo
 
+release/
+
 server/google-credentials.json
 server/gen-lang-client-*.json
