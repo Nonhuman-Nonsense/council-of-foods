@@ -2,7 +2,7 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
     testDir: './tests/e2e/src',
-    fullyParallel: true,
+    fullyParallel: false,
     forbidOnly: !!process.env.CI,
     retries: process.env.CI ? 2 : 0,
     workers: process.env.CI ? 1 : undefined,
@@ -32,6 +32,11 @@ export default defineConfig({
             command: 'cd ../server && npm run e2e-server',
             url: 'http://localhost:3001/health',
             reuseExistingServer: !process.env.CI,
-        }
+        },
+        {
+            command: 'cd ../button/bridge && npm run dev:mock',
+            url: 'http://127.0.0.1:8765/health',
+            reuseExistingServer: !process.env.CI,
+        },
     ],
 });

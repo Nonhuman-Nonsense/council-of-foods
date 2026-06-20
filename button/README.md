@@ -7,7 +7,16 @@ Hardware and host software for the Council installation button.
 | [`arduino/`](arduino/) | Firmware for the Adafruit button board |
 | [`bridge/`](bridge/) | Mac daemon — owns USB serial, exposes WebSocket to the browser |
 
-Run `cd bridge && npm test` for unit tests plus full mock-button → bridge → client integration.
+## Testing
+
+| Command | What runs | What it proves |
+|---|---|---|
+| `cd bridge && npm test` | Vitest in Node | Mock button → real bridge → client **library code** (`ButtonTransport`, `useButtonStore`) |
+| `cd client && npm run e2e` | Playwright + Vite + mock bridge | Real **browser app** connects to bridge (CORS, WebSocket, Setup UI, `buttonService`) plus meeting flow |
+
+Bridge unit/integration tests import client modules directly — no browser or `npm run dev` needed. That is intentional: fast, deterministic protocol tests.
+
+Browser-level integration uses Playwright (`client/tests/e2e/src/button_setup.spec.ts`), which starts the client dev server and `npm run dev:mock` automatically.
 
 ## Quick start
 
