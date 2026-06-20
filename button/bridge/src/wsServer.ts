@@ -1,6 +1,7 @@
 import http from "node:http";
 import { WebSocketServer, type WebSocket } from "ws";
 import type { BridgeConfig } from "./config.js";
+import { corsHeaders } from "./cors.js";
 import type { SerialManagerLike } from "./serialManagerLike.js";
 import { BRIDGE_VERSION, parseClientMessage, serializeServerMessage, type ServerMessage } from "./types.js";
 
@@ -17,14 +18,23 @@ export class WsServer {
 
   start(): void {
     const httpServer = http.createServer((req, res) => {
-      if (req.url === "/health") {
+      const origin = typeof req.headers.origin === "string" ? req.headers.origin : undefined;
+      const cors = corsHeaders(origin);
+
+      if (req.url === "/health" && req.method === "OPTIONS") {
+        res.writeHead(204, cors);
+        res.end();
+        return;
+      }
+
+      if (req.url === "/health" && req.method === "GET") {
         const body = JSON.stringify({
           ok: true,
           version: BRIDGE_VERSION,
           serial: this.serial.isOpen() ? "connected" : "disconnected",
           path: this.serial.getOpenPath(),
         });
-        res.writeHead(200, { "Content-Type": "application/json" });
+        res.writeHead(200, { "Content-Type": "application/json", ...cors });
         res.end(body);
         return;
       }
@@ -62,6 +72,17 @@ export class WsServer {
       socket.on("close", () => {
         console.log("[button-bridge/ws] client disconnected");
       });
+    });
+
+    httpServer.on("error", (error: NodeJS.ErrnoException) => {
+      if (error.code === "EADDRINUSE") {
+        console.error(
+          `[button-bridge] port ${this.config.port} is already in use — another bridge is still running.`,
+        );
+        console.error("[button-bridge] stop it with: npm run stop");
+        process.exit(1);
+      }
+      throw error;
     });
 
     httpServer.listen(this.config.port, this.config.host, () => {

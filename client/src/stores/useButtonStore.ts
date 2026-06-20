@@ -192,3 +192,19 @@ export const useButtonStore = create<ButtonStore>((set, get) => ({
     set({ pressed: false, rawPressed: false, ledMode: "off", buttonInputEnabled: false });
   },
 }));
+
+/** Reset module singletons — for tests only. */
+export function _resetButtonStoreForTests(): void {
+  buttonTransport = null;
+  keyboardInitialized = false;
+  useButtonStore.setState({
+    pressed: false,
+    rawPressed: false,
+    ledMode: "off",
+    buttonInputEnabled: false,
+    bridgeStatus: "disconnected",
+    bridgeError: null,
+    keyboardActive: false,
+    bridgeAvailable: isButtonBridgeAvailable(),
+  });
+}

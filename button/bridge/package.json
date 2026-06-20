@@ -10,9 +10,10 @@
     "start": "node dist/button/bridge/src/index.js",
     "dev": "tsx src/index.ts",
     "dev:mock": "BUTTON_MOCK_SERIAL=1 tsx src/index.ts",
+    "stop": "node scripts/stop-dev.mjs",
+    "restart:mock": "npm run stop && BUTTON_MOCK_SERIAL=1 tsx src/index.ts",
     "type-check": "tsc --noEmit",
-    "test": "vitest run",
-    "smoke-test": "node scripts/smoke-test.mjs"
+    "test": "vitest run"
   },
   "dependencies": {
     "@serialport/parser-readline": "^13.0.0",

@@ -7,6 +7,8 @@ Hardware and host software for the Council installation button.
 | [`arduino/`](arduino/) | Firmware for the Adafruit button board |
 | [`bridge/`](bridge/) | Mac daemon — owns USB serial, exposes WebSocket to the browser |
 
+Run `cd bridge && npm test` for unit tests plus full mock-button → bridge → client integration.
+
 ## Quick start
 
 1. Upload firmware from `arduino/council_button/`

@@ -8,6 +8,7 @@ import { PONG } from "../../../shared/buttonProtocol.js";
 export class MockSerialManager extends EventEmitter {
   private openPath: string | null = null;
   private stopped = false;
+  private writtenLines: string[] = [];
 
   getOpenPath(): string | null {
     return this.openPath;
@@ -15,6 +16,10 @@ export class MockSerialManager extends EventEmitter {
 
   isOpen(): boolean {
     return this.openPath != null;
+  }
+
+  getWrittenLines(): string[] {
+    return [...this.writtenLines];
   }
 
   start(): void {
@@ -37,6 +42,7 @@ export class MockSerialManager extends EventEmitter {
       return Promise.reject(new Error("Mock serial is not open"));
     }
     console.log(`[button-bridge/mock] ← ${line}`);
+    this.writtenLines.push(line);
     if (line === "PING") {
       queueMicrotask(() => {
         if (!this.stopped && this.isOpen()) {

@@ -91,4 +91,34 @@ describe("ButtonTransport", () => {
 
     expect(lines).toEqual(["button_down", "button_up"]);
   });
+
+  it("sends LED commands when connected", async () => {
+    const { ButtonTransport } = await import("@/button/transport");
+    const transport = new ButtonTransport();
+    await transport.connect();
+
+    await transport.setLedMode("pulse");
+    await transport.setLedMode("on");
+    await transport.setLedMode("off");
+
+    const sent = MockWebSocket.instances[0]?.sent ?? [];
+    expect(sent).toContain(JSON.stringify({ type: "write", line: "LED_PULSE" }));
+    expect(sent).toContain(JSON.stringify({ type: "write", line: "LED_ON" }));
+    expect(sent).toContain(JSON.stringify({ type: "write", line: "LED_OFF" }));
+  });
+
+  it("disconnect stops auto-reconnect and clears status", async () => {
+    const statuses: string[] = [];
+    const { ButtonTransport } = await import("@/button/transport");
+    const transport = new ButtonTransport({
+      onStatus: (status) => statuses.push(status),
+    });
+
+    transport.enableAutoReconnect();
+    await transport.connect();
+    await transport.disconnect();
+
+    expect(transport.getStatus()).toBe("disconnected");
+    expect(statuses).toContain("disconnected");
+  });
 });
