@@ -5,14 +5,14 @@ vi.mock("@/settings/councilSettings", () => ({
   getPushToTalk: vi.fn(() => false),
 }));
 
-vi.mock("@/serial/bridgeConfig", () => ({
+vi.mock("@/ptt/bridgeConfig", () => ({
   isBridgeTransportAvailable: vi.fn(() => true),
 }));
 
 describe("shouldAutoConnectTalkButton", () => {
   it("requires push-to-talk and bridge transport support", async () => {
     const { getPushToTalk } = await import("@/settings/councilSettings");
-    const { isBridgeTransportAvailable } = await import("@/serial/bridgeConfig");
+    const { isBridgeTransportAvailable } = await import("@/ptt/bridgeConfig");
 
     vi.mocked(getPushToTalk).mockReturnValue(false);
     vi.mocked(isBridgeTransportAvailable).mockReturnValue(true);

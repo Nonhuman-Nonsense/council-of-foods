@@ -1,4 +1,4 @@
-import { DEFAULT_BRIDGE_HEALTH_URL } from "@/serial/bridgeConfig";
+import { DEFAULT_BRIDGE_HEALTH_URL } from "@/ptt/bridgeConfig";
 
 export type BridgeHealthState =
   | { status: "checking" }

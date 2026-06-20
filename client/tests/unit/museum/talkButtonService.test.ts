@@ -6,11 +6,11 @@ const policyMock = vi.hoisted(() => ({
 }));
 
 const storeState = vi.hoisted(() => ({
-  serialStatus: "disconnected" as "disconnected" | "connecting" | "connected" | "error",
+  bridgeStatus: "disconnected" as "disconnected" | "connecting" | "connected" | "error",
   init: vi.fn(),
-  enableSerialAutoReconnect: vi.fn(),
-  connectGrantedPorts: vi.fn().mockResolvedValue(undefined),
-  disconnectSerial: vi.fn().mockResolvedValue(undefined),
+  enableTalkButtonAutoReconnect: vi.fn(),
+  connectTalkButton: vi.fn().mockResolvedValue(undefined),
+  disconnectTalkButton: vi.fn().mockResolvedValue(undefined),
   reconnectIfStale: vi.fn().mockResolvedValue(undefined),
 }));
 
@@ -26,7 +26,7 @@ describe("talkButtonService", () => {
     vi.clearAllMocks();
     vi.useFakeTimers();
     policyMock.shouldAutoConnectTalkButton.mockReturnValue(true);
-    storeState.serialStatus = "disconnected";
+    storeState.bridgeStatus = "disconnected";
     vi.resetModules();
   });
 
@@ -46,42 +46,42 @@ describe("talkButtonService", () => {
     talkButtonService.start();
 
     expect(storeState.init).toHaveBeenCalled();
-    expect(storeState.enableSerialAutoReconnect).toHaveBeenCalled();
-    expect(storeState.connectGrantedPorts).toHaveBeenCalled();
+    expect(storeState.enableTalkButtonAutoReconnect).toHaveBeenCalled();
+    expect(storeState.connectTalkButton).toHaveBeenCalled();
   });
 
   it("retries from the watchdog when disconnected", async () => {
     const { talkButtonService } = await loadService();
     talkButtonService.start();
-    storeState.connectGrantedPorts.mockClear();
+    storeState.connectTalkButton.mockClear();
 
     await vi.advanceTimersByTimeAsync(2_500);
 
-    expect(storeState.enableSerialAutoReconnect).toHaveBeenCalled();
-    expect(storeState.connectGrantedPorts).toHaveBeenCalled();
+    expect(storeState.enableTalkButtonAutoReconnect).toHaveBeenCalled();
+    expect(storeState.connectTalkButton).toHaveBeenCalled();
   });
 
   it("detects stale connected sessions during watchdog ticks", async () => {
-    storeState.serialStatus = "connected";
+    storeState.bridgeStatus = "connected";
     const { talkButtonService } = await loadService();
     talkButtonService.start();
-    storeState.connectGrantedPorts.mockClear();
+    storeState.connectTalkButton.mockClear();
 
     await vi.advanceTimersByTimeAsync(2_500);
 
     expect(storeState.reconnectIfStale).toHaveBeenCalled();
-    expect(storeState.connectGrantedPorts).not.toHaveBeenCalled();
+    expect(storeState.connectTalkButton).not.toHaveBeenCalled();
   });
 
   it("does not retry while already connecting", async () => {
-    storeState.serialStatus = "connecting";
+    storeState.bridgeStatus = "connecting";
     const { talkButtonService } = await loadService();
     talkButtonService.start();
-    storeState.connectGrantedPorts.mockClear();
+    storeState.connectTalkButton.mockClear();
 
     await vi.advanceTimersByTimeAsync(2_500);
 
-    expect(storeState.connectGrantedPorts).not.toHaveBeenCalled();
+    expect(storeState.connectTalkButton).not.toHaveBeenCalled();
   });
 
   it("pauses auto-connect and disconnects on staff pause", async () => {
@@ -90,21 +90,21 @@ describe("talkButtonService", () => {
 
     talkButtonService.pause();
 
-    expect(storeState.disconnectSerial).toHaveBeenCalled();
-    storeState.connectGrantedPorts.mockClear();
+    expect(storeState.disconnectTalkButton).toHaveBeenCalled();
+    storeState.connectTalkButton.mockClear();
     await vi.advanceTimersByTimeAsync(2_500);
-    expect(storeState.connectGrantedPorts).not.toHaveBeenCalled();
+    expect(storeState.connectTalkButton).not.toHaveBeenCalled();
   });
 
   it("resumes auto-connect when push-to-talk is enabled again", async () => {
     const { talkButtonService } = await loadService();
     talkButtonService.start();
-    storeState.connectGrantedPorts.mockClear();
+    storeState.connectTalkButton.mockClear();
 
     window.dispatchEvent(new CustomEvent(PUSH_TO_TALK_CHANGE_EVENT, { detail: true }));
 
-    expect(storeState.enableSerialAutoReconnect).toHaveBeenCalled();
-    expect(storeState.connectGrantedPorts).toHaveBeenCalled();
+    expect(storeState.enableTalkButtonAutoReconnect).toHaveBeenCalled();
+    expect(storeState.connectTalkButton).toHaveBeenCalled();
   });
 
   it("pauses when push-to-talk is disabled", async () => {
@@ -113,6 +113,6 @@ describe("talkButtonService", () => {
 
     window.dispatchEvent(new CustomEvent(PUSH_TO_TALK_CHANGE_EVENT, { detail: false }));
 
-    expect(storeState.disconnectSerial).toHaveBeenCalled();
+    expect(storeState.disconnectTalkButton).toHaveBeenCalled();
   });
 });

@@ -69,12 +69,10 @@ Expected: `smoke test passed`
 2. Go to `/#setup`
 3. Enable **Push to Talk**
 4. Check:
-   - **Bridge:** Running
-   - **Serial status:** Connected
+   - **Status:** Connected
    - Button LED should **pulse** (not cycle one-at-a-time)
-5. Press and release the button
-   - **Last event** should show `PTT_DOWN` then `PTT_UP`
-6. Reload the page — should reconnect within a few seconds without pressing Connect
+5. Press and release the button — talk input should work in a meeting
+6. Reload the page — should reconnect within a few seconds
 
 ### 4. Unplug / replug test
 
@@ -85,13 +83,11 @@ Expected: `smoke test passed`
 
 ### 5. Report issues
 
-On `/#setup`, click **Copy log** and send the full snapshot to the developer.
+Send bridge terminal output and the result of:
 
-Include:
-
-- `curl http://127.0.0.1:8765/health`
-- Bridge terminal output
-- Whether LED cycles (no host) vs pulses (connected)
+```bash
+curl http://127.0.0.1:8765/health
+```
 
 ## Museum Mac install (persistent)
 

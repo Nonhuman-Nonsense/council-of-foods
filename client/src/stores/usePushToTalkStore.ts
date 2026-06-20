@@ -1,10 +1,9 @@
 import { create } from "zustand";
-import { serialDebugLog } from "@/serial/debugLog";
-import { isBridgeTransportAvailable } from "@/serial/bridgeConfig";
+import { isBridgeTransportAvailable } from "@/ptt/bridgeConfig";
 import {
   BridgePttTransport,
   type PttTransportStatus,
-} from "@/serial/bridgeTransport";
+} from "@/ptt/bridgeTransport";
 import { getPushToTalk } from "@/settings/councilSettings";
 import { isPttInputEnabled, type PttLedMode } from "@/voice/pttLedMode";
 
@@ -24,20 +23,19 @@ type PushToTalkStore = {
   rawPressed: boolean;
   ledMode: PttLedMode;
   pttInputEnabled: boolean;
-  serialStatus: PttTransportStatus;
-  serialError: string | null;
-  lastSerialLine: string | null;
+  bridgeStatus: PttTransportStatus;
+  bridgeError: string | null;
   keyboardActive: boolean;
-  serialSupported: boolean;
+  bridgeAvailable: boolean;
 
-  setPressed: (pressed: boolean, source: "keyboard" | "serial") => void;
+  setPressed: (pressed: boolean, source: "keyboard" | "button") => void;
 
-  connectGrantedPorts: () => Promise<void>;
-  disconnectSerial: () => Promise<void>;
-  enableSerialAutoReconnect: () => void;
+  connectTalkButton: () => Promise<void>;
+  disconnectTalkButton: () => Promise<void>;
+  enableTalkButtonAutoReconnect: () => void;
   reconnectIfStale: () => Promise<void>;
   setLedMode: (mode: PttLedMode) => Promise<void>;
-  resyncSerialLed: () => Promise<void>;
+  resyncTalkButtonLed: () => Promise<void>;
 
   init: () => void;
   dispose: () => void;
@@ -60,8 +58,8 @@ function getPttTransport(
     pttTransport = new BridgePttTransport({
       onStatus: (status, error) => {
         const updates: Partial<PushToTalkStore> = {
-          serialStatus: status,
-          serialError: error ?? null,
+          bridgeStatus: status,
+          bridgeError: error ?? null,
         };
         if (status === "disconnected" || status === "error") {
           updates.pressed = false;
@@ -75,12 +73,11 @@ function getPttTransport(
         set(updates);
 
         if (status === "connected") {
-          void get().resyncSerialLed();
+          void get().resyncTalkButtonLed();
         }
       },
       onLine: (event) => {
         if (event.type === "pong") {
-          set({ lastSerialLine: "PONG" });
           return;
         }
         if (event.type === "ptt_down") {
@@ -92,15 +89,10 @@ function getPttTransport(
           return;
         }
         if (event.type === "ptt_down") {
-          get().setPressed(true, "serial");
-          set({ lastSerialLine: "PTT_DOWN" });
+          get().setPressed(true, "button");
         } else if (event.type === "ptt_up") {
-          get().setPressed(false, "serial");
-          set({ lastSerialLine: "PTT_UP" });
+          get().setPressed(false, "button");
         }
-      },
-      onRawLine: (line) => {
-        set({ lastSerialLine: line });
       },
     });
   }
@@ -142,11 +134,10 @@ export const usePushToTalkStore = create<PushToTalkStore>((set, get) => ({
   rawPressed: false,
   ledMode: "off",
   pttInputEnabled: false,
-  serialStatus: "disconnected",
-  serialError: null,
-  lastSerialLine: null,
+  bridgeStatus: "disconnected",
+  bridgeError: null,
   keyboardActive: false,
-  serialSupported: isBridgeTransportAvailable(),
+  bridgeAvailable: isBridgeTransportAvailable(),
 
   setPressed: (pressed, source) => {
     if (!get().pttInputEnabled) {
@@ -158,22 +149,21 @@ export const usePushToTalkStore = create<PushToTalkStore>((set, get) => ({
     });
   },
 
-  connectGrantedPorts: async () => {
+  connectTalkButton: async () => {
     await getPttTransport(set, get).connect();
   },
 
-  disconnectSerial: async () => {
+  disconnectTalkButton: async () => {
     await getPttTransport(set, get).disconnect();
   },
 
-  enableSerialAutoReconnect: () => {
+  enableTalkButtonAutoReconnect: () => {
     getPttTransport(set, get).enableAutoReconnect();
   },
 
   reconnectIfStale: async () => {
     const transport = getPttTransport(set, get);
-    if (get().serialStatus === "connected" && !transport.isSessionHealthy()) {
-      serialDebugLog("store", "stale bridge session — requesting reconnect");
+    if (get().bridgeStatus === "connected" && !transport.isSessionHealthy()) {
       await transport.connect();
     }
   },
@@ -191,14 +181,14 @@ export const usePushToTalkStore = create<PushToTalkStore>((set, get) => ({
     }
     set(updates);
 
-    if (get().serialStatus !== "connected") {
+    if (get().bridgeStatus !== "connected") {
       return;
     }
     await getPttTransport(set, get).setLedMode(mode);
   },
 
-  resyncSerialLed: async () => {
-    if (get().serialStatus !== "connected") {
+  resyncTalkButtonLed: async () => {
+    if (get().bridgeStatus !== "connected") {
       return;
     }
     const { ledMode } = get();

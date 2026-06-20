@@ -4,39 +4,40 @@ import { useTranslation } from "react-i18next";
 import { getPushToTalk, setPushToTalk } from "@/settings/councilSettings";
 import { useAppMode } from "@/museum/useAppMode";
 import { usePushToTalkStore } from "@stores/usePushToTalkStore";
-import { talkButtonService } from "@/museum/talkButton/talkButtonService";
-import SetupSerialDebug from "./SetupSerialDebug";
-import { useBridgeHealth } from "@/serial/useBridgeHealth";
+import { useBridgeHealth } from "@/ptt/useBridgeHealth";
 
-function bridgeHealthLabel(
-  health: ReturnType<typeof useBridgeHealth>,
-  t: (key: string) => string,
-): string {
-  switch (health.status) {
-    case "running":
-      return t("setup.serial.bridgeRunning");
-    case "checking":
-      return t("setup.serial.bridgeChecking");
-    case "error":
-      return t("setup.serial.bridgeError");
-    default:
-      return t("setup.serial.bridgeNotRunning");
+type TalkButtonUiStatus = "unsupported" | "bridgeNotRunning" | "connecting" | "connected" | "waiting" | "error";
+
+function getTalkButtonUiStatus(
+  bridgeAvailable: boolean,
+  bridgeHealth: ReturnType<typeof useBridgeHealth>,
+  bridgeStatus: ReturnType<typeof usePushToTalkStore.getState>["bridgeStatus"],
+): TalkButtonUiStatus {
+  if (!bridgeAvailable) return "unsupported";
+  if (bridgeHealth.status === "not_running" || bridgeHealth.status === "error") {
+    return "bridgeNotRunning";
   }
+  if (bridgeStatus === "connected") return "connected";
+  if (bridgeStatus === "connecting") return "connecting";
+  if (bridgeStatus === "error") return "error";
+  if (bridgeHealth.status === "running") return "waiting";
+  return "connecting";
 }
 
-function serialStatusLabel(
-  status: ReturnType<typeof usePushToTalkStore.getState>["serialStatus"],
-  t: (key: string) => string
-): string {
+function talkButtonStatusLabel(status: TalkButtonUiStatus, t: (key: string) => string): string {
   switch (status) {
     case "connected":
-      return t("setup.serial.connected");
+      return t("setup.talkButton.connected");
     case "connecting":
-      return t("setup.serial.connecting");
+      return t("setup.talkButton.connecting");
+    case "bridgeNotRunning":
+      return t("setup.talkButton.bridgeNotRunning");
+    case "waiting":
+      return t("setup.talkButton.waiting");
     case "error":
-      return t("setup.serial.error");
+      return t("setup.talkButton.error");
     default:
-      return t("setup.serial.disconnected");
+      return t("setup.talkButton.unsupported");
   }
 }
 
@@ -51,18 +52,17 @@ function Setup(): React.ReactElement {
   const { t } = useTranslation();
   const { mode: appMode, setAppMode } = useAppMode();
   const [pushToTalk, setPushToTalkState] = useState(getPushToTalk);
-  const serialStatus = usePushToTalkStore((state) => state.serialStatus);
-  const serialError = usePushToTalkStore((state) => state.serialError);
-  const lastSerialLine = usePushToTalkStore((state) => state.lastSerialLine);
-  const serialSupported = usePushToTalkStore((state) => state.serialSupported);
-  const connectGrantedPorts = usePushToTalkStore((state) => state.connectGrantedPorts);
+  const bridgeStatus = usePushToTalkStore((state) => state.bridgeStatus);
+  const bridgeError = usePushToTalkStore((state) => state.bridgeError);
+  const bridgeAvailable = usePushToTalkStore((state) => state.bridgeAvailable);
   const setLedMode = usePushToTalkStore((state) => state.setLedMode);
   const bridgeHealth = useBridgeHealth(pushToTalk);
+  const talkButtonStatus = getTalkButtonUiStatus(bridgeAvailable, bridgeHealth, bridgeStatus);
 
   useEffect(() => {
-    if (!pushToTalk || serialStatus !== "connected") return;
+    if (!pushToTalk || bridgeStatus !== "connected") return;
     void setLedMode("pulse");
-  }, [pushToTalk, serialStatus, setLedMode]);
+  }, [pushToTalk, bridgeStatus, setLedMode]);
 
   const containerStyle: React.CSSProperties = {
     width: "96vw",
@@ -106,15 +106,6 @@ function Setup(): React.ReactElement {
   function selectPushToTalk(): void {
     setPushToTalkState(true);
     setPushToTalk(true);
-  }
-
-  async function connectTalkButton(): Promise<void> {
-    talkButtonService.resume();
-    await connectGrantedPorts();
-  }
-
-  function disconnectTalkButton(): void {
-    talkButtonService.pause();
   }
 
   return (
@@ -175,63 +166,19 @@ function Setup(): React.ReactElement {
 
       {pushToTalk ? (
         <div style={sectionStyle}>
-          <h3 style={{ marginTop: 0 }}>{t("setup.serial.title")}</h3>
-          {!serialSupported ? (
-            <p style={{ marginTop: 0 }}>{t("setup.serial.unsupported")}</p>
-          ) : (
-            <>
-              <p style={{ marginTop: 0 }}>
-                {t("setup.serial.bridgeStatus")}: {bridgeHealthLabel(bridgeHealth, t)}
-                {bridgeHealth.status === "running" && bridgeHealth.path
-                  ? ` (${bridgeHealth.path})`
-                  : ""}
-              </p>
-              <p style={{ marginTop: 0 }}>
-                {t("setup.serial.status")}: {serialStatusLabel(serialStatus, t)}
-                {serialError ? ` — ${serialError}` : ""}
-              </p>
-              {bridgeHealth.status === "not_running" ? (
-                <p
-                  data-testid="setup-bridge-not-running"
-                  style={{ marginTop: 0, fontStyle: "italic", opacity: 0.85, textAlign: "center" }}
-                >
-                  {t("setup.serial.bridgeNotRunningHint")}
-                </p>
-              ) : null}
-              {serialStatus === "connecting" ? (
-                <p
-                  data-testid="setup-serial-reconnecting"
-                  style={{ marginTop: 0, fontStyle: "italic", opacity: 0.85, textAlign: "center" }}
-                >
-                  {t("setup.serial.reconnecting")}
-                  <br />
-                  {t("setup.serial.reconnectingHint")}
-                </p>
-              ) : null}
-              {serialStatus === "disconnected" ? (
-                <p
-                  data-testid="setup-serial-reconnect-hint"
-                  style={{ marginTop: 0, fontStyle: "italic", opacity: 0.75, textAlign: "center" }}
-                >
-                  {t("setup.serial.reconnectHint")}
-                </p>
-              ) : null}
-              {lastSerialLine ? (
-                <p style={{ marginTop: 0 }}>
-                  {t("setup.serial.lastEvent")}: {lastSerialLine}
-                </p>
-              ) : null}
-              <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", justifyContent: "center" }}>
-                <button type="button" data-testid="setup-serial-connect" onClick={() => void connectTalkButton()}>
-                  {t("setup.serial.connect")}
-                </button>
-                <button type="button" data-testid="setup-serial-disconnect" onClick={() => void disconnectTalkButton()}>
-                  {t("setup.serial.disconnect")}
-                </button>
-              </div>
-              <SetupSerialDebug />
-            </>
-          )}
+          <h3 style={{ marginTop: 0 }}>{t("setup.talkButton.title")}</h3>
+          <p data-testid="setup-talk-button-status" style={{ marginTop: 0 }}>
+            {t("setup.talkButton.status")}: {talkButtonStatusLabel(talkButtonStatus, t)}
+            {talkButtonStatus === "error" && bridgeError ? ` — ${bridgeError}` : ""}
+          </p>
+          {talkButtonStatus === "bridgeNotRunning" ? (
+            <p
+              data-testid="setup-talk-button-hint"
+              style={{ marginTop: 0, fontStyle: "italic", opacity: 0.8, textAlign: "center" }}
+            >
+              {t("setup.talkButton.bridgeNotRunningHint")}
+            </p>
+          ) : null}
         </div>
       ) : null}
     </div>

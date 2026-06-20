@@ -1,5 +1,5 @@
 import { getPushToTalk } from "@/settings/councilSettings";
-import { isBridgeTransportAvailable } from "@/serial/bridgeConfig";
+import { isBridgeTransportAvailable } from "@/ptt/bridgeConfig";
 
 /**
  * Whether the museum talk button should stay connected in the background.

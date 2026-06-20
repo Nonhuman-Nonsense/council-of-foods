@@ -10,7 +10,7 @@ Firmware for the museum talk buttons using the [Adafruit LED Arcade Button QT](h
 
 ### Board choice
 
-Prefer **SAMD (M0) boards** for museum installs. They handle USB reconnect cleanly when Chrome opens and closes the serial port.
+Prefer **SAMD (M0) boards** for museum installs. They handle USB reconnect cleanly when the host opens and closes the serial port.
 
 Some **32u4 / Leonardo-style** boards reset when the host opens serial (DTR toggle). That still works, but you may see an extra boot (`READY council-ptt`) on each reconnect. If reconnect feels flaky on those boards, switch to a SAMD board or adjust the auto-reset circuit.
 
@@ -28,13 +28,13 @@ The browser drives three host modes over serial:
 
 ### No host connected
 
-When Chrome has **not** opened the USB serial port:
+When the **ptt-bridge** has not opened the USB serial port:
 
 - Button presses are **ignored** (no `PTT_DOWN` / `PTT_UP` is sent)
 - LEDs cycle one-at-a-time (1 s each) as a **connecting** indicator
 - The animation starts automatically whenever the USB link is lost
 
-After the browser connects, it sends `LED_PULSE` (ready) or `LED_ON` (mic active). Until then the device stays in `LED_OFF`.
+After the bridge connects, the app sends `LED_PULSE` (ready) or `LED_ON` (mic active). Until then the device stays in `LED_OFF`.
 
 ## Upload
 
@@ -43,7 +43,7 @@ After the browser connects, it sends `LED_PULSE` (ready) or `LED_ON` (mic active
 3. Select your board and port, then upload
 4. Optional: open Serial Monitor at **115200 baud**, send `LED_PULSE`, then press a button to verify `PTT_DOWN` / `PTT_UP`
 
-Close Serial Monitor before connecting from Chrome — only one program can use the port at a time.
+Close Serial Monitor before starting ptt-bridge — only one program can use the port at a time.
 
 ## Serial protocol
 
@@ -69,7 +69,7 @@ All messages are newline-terminated ASCII. Incoming host lines longer than 32 ch
 3. Open the app, go to `/#setup`
 4. Enable **Push to Talk**
 
-The bridge owns the USB port. Chrome connects to `ws://127.0.0.1:8765` — no browser USB permission dialog.
+The bridge owns the USB port. The app connects via `ws://127.0.0.1:8765`.
 
 ### Day-to-day operation
 
@@ -79,13 +79,9 @@ With the bridge running, the web app **auto-connects in the background** wheneve
 - The page is open, and
 - The button is plugged in
 
-You do **not** need to visit `/#setup` or press Connect again for normal unplug/replug or page reload.
+You do **not** need to visit `/#setup` again for normal unplug/replug or page reload.
 
 The button shows the rotating LED animation while waiting for the bridge, then pulses when the app sends `LED_PULSE`.
-
-### Staff disconnect
-
-**Disconnect** on the setup page pauses auto-reconnect until Connect is pressed again.
 
 ### Troubleshooting
 

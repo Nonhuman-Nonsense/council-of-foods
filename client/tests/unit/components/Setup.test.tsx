@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import Setup from '@main/overlay/Setup';
 import { usePushToTalkStore } from '@stores/usePushToTalkStore';
@@ -16,22 +16,29 @@ vi.mock('@/utils', () => ({
   useMobileXs: () => false,
 }));
 
+vi.mock('@/ptt/useBridgeHealth', () => ({
+  useBridgeHealth: () => ({
+    status: 'running',
+    serial: 'connected',
+    path: '/dev/cu.usbmodem1',
+    version: '1.0.0',
+  }),
+}));
+
 describe('Setup overlay', () => {
   beforeEach(() => {
     localStorage.clear();
     usePushToTalkStore.setState({
-      serialStatus: 'disconnected',
-      serialError: null,
-      lastSerialLine: null,
-      serialSupported: true,
+      bridgeStatus: 'disconnected',
+      bridgeError: null,
+      bridgeAvailable: true,
     });
   });
 
   afterEach(() => {
     usePushToTalkStore.setState({
-      serialStatus: 'disconnected',
-      serialError: null,
-      lastSerialLine: null,
+      bridgeStatus: 'disconnected',
+      bridgeError: null,
     });
   });
 
@@ -84,31 +91,20 @@ describe('Setup overlay', () => {
     expect(alwaysOn).toHaveClass('selected');
   });
 
-  it('shows reconnecting message when serial is connecting', () => {
+  it('shows talk button status when push to talk is enabled', () => {
     localStorage.setItem('councilPushToTalk', 'true');
-    usePushToTalkStore.setState({ serialStatus: 'connecting' });
+    usePushToTalkStore.setState({ bridgeStatus: 'connected' });
 
     render(<Setup />);
 
-    expect(screen.getByTestId('setup-serial-reconnecting')).toBeInTheDocument();
-    expect(screen.getByTestId('setup-serial-reconnecting')).toHaveTextContent('setup.serial.reconnecting');
-    expect(screen.getByTestId('setup-serial-reconnecting')).toHaveTextContent('setup.serial.reconnectingHint');
+    expect(screen.getByTestId('setup-talk-button-status')).toHaveTextContent('setup.talkButton.connected');
   });
 
-  it('shows reconnect hint when serial is disconnected', () => {
+  it('shows waiting status when bridge is up but button is not connected', () => {
     localStorage.setItem('councilPushToTalk', 'true');
-    usePushToTalkStore.setState({ serialStatus: 'disconnected' });
 
     render(<Setup />);
 
-    expect(screen.getByTestId('setup-serial-reconnect-hint')).toBeInTheDocument();
-    expect(screen.getByText('setup.serial.reconnectHint')).toBeInTheDocument();
-  });
-
-  it('shows serial debug panel when push to talk is enabled', () => {
-    localStorage.setItem('councilPushToTalk', 'true');
-    render(<Setup />);
-    expect(screen.getByTestId('setup-serial-debug')).toBeInTheDocument();
-    expect(screen.getByTestId('setup-serial-debug-copy')).toBeInTheDocument();
+    expect(screen.getByTestId('setup-talk-button-status')).toHaveTextContent('setup.talkButton.waiting');
   });
 });

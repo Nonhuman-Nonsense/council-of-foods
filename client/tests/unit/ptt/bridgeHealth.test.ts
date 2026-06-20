@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { fetchBridgeHealth } from "@/serial/bridgeHealth";
+import { fetchBridgeHealth } from "@/ptt/bridgeHealth";
 
 describe("fetchBridgeHealth", () => {
   it("returns running when health endpoint responds", async () => {

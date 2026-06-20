@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { fetchBridgeHealth, type BridgeHealthState } from "@/serial/bridgeHealth";
+import { fetchBridgeHealth, type BridgeHealthState } from "@/ptt/bridgeHealth";
 
 export function useBridgeHealth(enabled: boolean): BridgeHealthState {
   const [health, setHealth] = useState<BridgeHealthState>({ status: "checking" });

@@ -44,7 +44,7 @@ export default function MeetingVoiceGuide({
   const { isMuseumMode } = useAppMode();
   const pushToTalkMode = getPushToTalk();
   const pressed = usePushToTalkStore((state) => state.pressed);
-  const serialStatus = usePushToTalkStore((state) => state.serialStatus);
+  const bridgeStatus = usePushToTalkStore((state) => state.bridgeStatus);
   const setLedMode = usePushToTalkStore((state) => state.setLedMode);
   const {
     selectedTopic,
@@ -142,7 +142,7 @@ export default function MeetingVoiceGuide({
 
   useEffect(() => {
     void setLedMode(ledMode);
-  }, [ledMode, serialStatus, setLedMode]);
+  }, [ledMode, bridgeStatus, setLedMode]);
 
   useEffect(() => {
     return () => {

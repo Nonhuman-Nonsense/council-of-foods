@@ -1,14 +1,12 @@
 import {
-  formatSerialCommand,
   LED_OFF,
   LED_ON,
   LED_PULSE,
   parseSerialLine,
   PING,
-} from "@/serial/protocol";
-import { getBridgeWsUrl } from "@/serial/bridgeConfig";
-import { serialDebugLog, serialDebugLogError } from "@/serial/debugLog";
-import type { ParsedSerialLine } from "@/serial/protocol";
+  type ParsedSerialLine,
+} from "@shared/pttProtocol";
+import { getBridgeWsUrl } from "@/ptt/bridgeConfig";
 import type { PttLedMode } from "@/voice/pttLedMode";
 
 export type PttTransportStatus = "disconnected" | "connecting" | "connected" | "error";
@@ -69,16 +67,9 @@ export class BridgePttTransport {
 
   enableAutoReconnect(): void {
     this.autoReconnect = true;
-    serialDebugLog("bridge", "auto-reconnect enabled");
   }
 
   private setStatus(status: PttTransportStatus, error: string | null = null): void {
-    serialDebugLog(
-      "bridge",
-      `status → ${status}`,
-      { previous: this.status, error, autoReconnect: this.autoReconnect },
-      error ? "warn" : "info",
-    );
     this.status = status;
     this.callbacks.onStatus?.(status, error);
   }
@@ -100,10 +91,6 @@ export class BridgePttTransport {
   private scheduleReconnect(): void {
     if (!this.autoReconnect || this.reconnectTimer) return;
     const delay = Math.min(RECONNECT_BASE_MS * 2 ** this.reconnectAttempt, RECONNECT_MAX_MS);
-    serialDebugLog("bridge", "scheduling reconnect", {
-      delayMs: delay,
-      attempt: this.reconnectAttempt,
-    });
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;
       void this.connect();
@@ -131,11 +118,9 @@ export class BridgePttTransport {
 
   private handleServerMessage(message: BridgeServerMessage): void {
     if (message.type === "info") {
-      serialDebugLog("bridge", "bridge info", { version: message.version });
       return;
     }
     if (message.type === "status") {
-      serialDebugLog("bridge", "serial status", message);
       if (message.state === "connected") {
         this.serialReady = true;
         if (this.status === "connecting") {
@@ -152,11 +137,6 @@ export class BridgePttTransport {
 
     const parsed = parseSerialLine(message.text);
     if (!parsed) return;
-    serialDebugLog(
-      "bridge",
-      `line ← ${parsed.type}`,
-      parsed.type === "unknown" ? { line: parsed.line } : undefined,
-    );
     if (parsed.type === "unknown") {
       this.callbacks.onRawLine?.(parsed.line);
     }
@@ -166,11 +146,9 @@ export class BridgePttTransport {
   private async finishConnect(): Promise<void> {
     try {
       await this.sendCommand(PING);
-      serialDebugLog("bridge", "connect success");
       this.reconnectAttempt = 0;
       this.setStatus("connected");
     } catch (e) {
-      serialDebugLogError("bridge", "connect handshake failed", e);
       const msg = e instanceof Error ? e.message : "Bridge handshake failed";
       this.setStatus("error", msg);
       this.closeSocket();
@@ -179,15 +157,11 @@ export class BridgePttTransport {
   }
 
   async connect(): Promise<boolean> {
-    serialDebugLog("bridge", "connect", { status: this.status, url: getBridgeWsUrl() });
-
     if (this.isSessionHealthy()) {
-      serialDebugLog("bridge", "connect: already connected");
       return true;
     }
 
     if (this.status === "connecting" && this.ws?.readyState === WebSocket.CONNECTING) {
-      serialDebugLog("bridge", "connect: already connecting", undefined, "warn");
       return false;
     }
 
@@ -222,7 +196,6 @@ export class BridgePttTransport {
 
         socket.onopen = () => {
           this.clearConnectTimeout();
-          serialDebugLog("bridge", "websocket open");
           resolve();
         };
 
@@ -240,7 +213,6 @@ export class BridgePttTransport {
       });
 
       socket.onclose = (event) => {
-        serialDebugLog("bridge", "websocket closed", { code: event.code, reason: event.reason }, "warn");
         this.serialReady = false;
         const wasConnected = this.status === "connected";
         this.ws = null;
@@ -252,7 +224,7 @@ export class BridgePttTransport {
       };
 
       socket.onerror = () => {
-        serialDebugLog("bridge", "websocket error", undefined, "warn");
+        // reconnect handled on close
       };
 
       if (!this.serialReady) {
@@ -276,7 +248,6 @@ export class BridgePttTransport {
 
       return false;
     } catch (e) {
-      serialDebugLogError("bridge", "connect failed", e);
       const msg = e instanceof Error ? e.message : "Failed to connect to bridge";
       this.setStatus("error", msg);
       this.closeSocket();
@@ -287,7 +258,6 @@ export class BridgePttTransport {
   }
 
   async disconnect(): Promise<void> {
-    serialDebugLog("bridge", "disconnect (staff/manual)");
     this.autoReconnect = false;
     this.cancelReconnect();
     this.reconnectAttempt = 0;
@@ -309,7 +279,6 @@ export class BridgePttTransport {
   }
 
   async setLedMode(mode: PttLedMode): Promise<void> {
-    serialDebugLog("bridge", `setLedMode → ${mode}`);
     const command = mode === "on" ? LED_ON : mode === "pulse" ? LED_PULSE : LED_OFF;
     await this.sendCommand(command);
   }

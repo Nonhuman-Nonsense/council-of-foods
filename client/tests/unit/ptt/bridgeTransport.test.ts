@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { PONG } from "@/serial/protocol";
+import { PONG } from "@shared/pttProtocol";
 
 type MessageHandler = (event: { data: string }) => void;
 type CloseHandler = (event: { code: number; reason: string }) => void;
@@ -60,7 +60,7 @@ describe("BridgePttTransport", () => {
 
   it("connects and completes PING handshake", async () => {
     const statuses: string[] = [];
-    const { BridgePttTransport } = await import("@/serial/bridgeTransport");
+    const { BridgePttTransport } = await import("@/ptt/bridgeTransport");
     const transport = new BridgePttTransport({
       onStatus: (status) => statuses.push(status),
     });
@@ -76,7 +76,7 @@ describe("BridgePttTransport", () => {
 
   it("forwards PTT lines to callbacks", async () => {
     const lines: string[] = [];
-    const { BridgePttTransport } = await import("@/serial/bridgeTransport");
+    const { BridgePttTransport } = await import("@/ptt/bridgeTransport");
     const transport = new BridgePttTransport({
       onLine: (event) => {
         if (event.type === "ptt_down" || event.type === "ptt_up") {

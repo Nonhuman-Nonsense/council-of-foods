@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { ParsedSerialLine } from "@/serial/protocol";
-import type { PttTransportCallbacks, PttTransportStatus } from "@/serial/bridgeTransport";
+import type { ParsedSerialLine } from "@shared/pttProtocol";
+import type { PttTransportCallbacks, PttTransportStatus } from "@/ptt/bridgeTransport";
 
 const transportCallbacks: PttTransportCallbacks = {};
 
@@ -12,7 +12,7 @@ const mockTransport = {
   isSessionHealthy: vi.fn(() => true),
 };
 
-vi.mock("@/serial/bridgeTransport", () => ({
+vi.mock("@/ptt/bridgeTransport", () => ({
   BridgePttTransport: class MockBridgePttTransport {
     connect = mockTransport.connect;
     disconnect = mockTransport.disconnect;
@@ -26,7 +26,7 @@ vi.mock("@/serial/bridgeTransport", () => ({
   },
 }));
 
-vi.mock("@/serial/bridgeConfig", () => ({
+vi.mock("@/ptt/bridgeConfig", () => ({
   isBridgeTransportAvailable: () => true,
 }));
 
@@ -56,9 +56,8 @@ describe("usePushToTalkStore", () => {
       rawPressed: false,
       ledMode: "off",
       pttInputEnabled: false,
-      serialStatus: "disconnected",
-      serialError: null,
-      lastSerialLine: null,
+      bridgeStatus: "disconnected",
+      bridgeError: null,
       keyboardActive: false,
     });
   });
@@ -72,21 +71,19 @@ describe("usePushToTalkStore", () => {
   }
 
   async function initTransport(): Promise<void> {
-    await usePushToTalkStore.getState().connectGrantedPorts();
+    await usePushToTalkStore.getState().connectTalkButton();
   }
 
-  it("maps serial PTT events to pressed state when input is enabled", async () => {
+  it("maps PTT events to pressed state when input is enabled", async () => {
     await initTransport();
     emitStatus("connected");
     await usePushToTalkStore.getState().setLedMode("pulse");
 
     emitLine({ type: "ptt_down" });
     expect(usePushToTalkStore.getState().pressed).toBe(true);
-    expect(usePushToTalkStore.getState().lastSerialLine).toBe("PTT_DOWN");
 
     emitLine({ type: "ptt_up" });
     expect(usePushToTalkStore.getState().pressed).toBe(false);
-    expect(usePushToTalkStore.getState().lastSerialLine).toBe("PTT_UP");
   });
 
   it("tracks rawPressed even when ptt input is disabled", async () => {
@@ -136,10 +133,10 @@ describe("usePushToTalkStore", () => {
   });
 
   it("delegates connect and disconnect to bridge transport", async () => {
-    await usePushToTalkStore.getState().connectGrantedPorts();
+    await usePushToTalkStore.getState().connectTalkButton();
     expect(mockTransport.connect).toHaveBeenCalled();
 
-    await usePushToTalkStore.getState().disconnectSerial();
+    await usePushToTalkStore.getState().disconnectTalkButton();
     expect(mockTransport.disconnect).toHaveBeenCalled();
   });
 });

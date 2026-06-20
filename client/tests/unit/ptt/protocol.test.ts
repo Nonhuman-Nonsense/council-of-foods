@@ -6,9 +6,9 @@ import {
   PTT_DOWN,
   LED_ON,
   LED_PULSE,
-} from "@/serial/protocol";
+} from "@shared/pttProtocol";
 
-describe("serial protocol", () => {
+describe("ptt protocol", () => {
   it("parses known serial lines", () => {
     expect(parseSerialLine("PTT_DOWN")).toEqual({ type: "ptt_down" });
     expect(parseSerialLine("PTT_UP")).toEqual({ type: "ptt_up" });

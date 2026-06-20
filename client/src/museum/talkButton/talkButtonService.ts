@@ -2,18 +2,10 @@ import {
   PUSH_TO_TALK_CHANGE_EVENT,
   type PushToTalkChangeDetail,
 } from "@/settings/councilSettings";
-import { serialDebugLog } from "@/serial/debugLog";
 import { usePushToTalkStore } from "@stores/usePushToTalkStore";
 import { shouldAutoConnectTalkButton } from "./talkButtonPolicy";
 
 const WATCHDOG_INTERVAL_MS = 2_500;
-
-export type TalkButtonServiceDebugState = {
-  running: boolean;
-  paused: boolean;
-  watchdogActive: boolean;
-  shouldAutoConnect: boolean;
-};
 
 type TalkButtonService = {
   start: () => void;
@@ -21,7 +13,6 @@ type TalkButtonService = {
   pause: () => void;
   resume: () => void;
   sync: (reason?: string) => Promise<void>;
-  getDebugState: () => TalkButtonServiceDebugState;
 };
 
 function createTalkButtonService(): TalkButtonService {
@@ -30,20 +21,10 @@ function createTalkButtonService(): TalkButtonService {
   let watchdogTimer: ReturnType<typeof setInterval> | null = null;
   let listenersBound = false;
 
-  function getDebugState(): TalkButtonServiceDebugState {
-    return {
-      running,
-      paused,
-      watchdogActive: watchdogTimer != null,
-      shouldAutoConnect: shouldAutoConnectTalkButton(),
-    };
-  }
-
   function clearWatchdog(): void {
     if (watchdogTimer) {
       clearInterval(watchdogTimer);
       watchdogTimer = null;
-      serialDebugLog("service", "watchdog stopped");
     }
   }
 
@@ -52,32 +33,23 @@ function createTalkButtonService(): TalkButtonService {
     watchdogTimer = setInterval(() => {
       void tick();
     }, WATCHDOG_INTERVAL_MS);
-    serialDebugLog("service", "watchdog started", { intervalMs: WATCHDOG_INTERVAL_MS });
   }
 
-  async function runSync(reason: string): Promise<void> {
-    const debug = getDebugState();
-    serialDebugLog("service", `sync (${reason})`, debug);
-
+  async function runSync(_reason: string): Promise<void> {
     if (!running || paused || !shouldAutoConnectTalkButton()) {
-      serialDebugLog("service", `sync skipped (${reason})`, debug, "warn");
       return;
     }
-    usePushToTalkStore.getState().enableSerialAutoReconnect();
-    await usePushToTalkStore.getState().connectGrantedPorts();
+    usePushToTalkStore.getState().enableTalkButtonAutoReconnect();
+    await usePushToTalkStore.getState().connectTalkButton();
   }
 
   async function tick(): Promise<void> {
-    const { serialStatus } = usePushToTalkStore.getState();
-    serialDebugLog("service", "watchdog tick", {
-      ...getDebugState(),
-      serialStatus,
-    });
+    const { bridgeStatus } = usePushToTalkStore.getState();
 
     if (!running || paused || !shouldAutoConnectTalkButton()) {
       return;
     }
-    if (serialStatus === "connected" || serialStatus === "connecting") {
+    if (bridgeStatus === "connected" || bridgeStatus === "connecting") {
       void usePushToTalkStore.getState().reconnectIfStale();
       return;
     }
@@ -86,19 +58,16 @@ function createTalkButtonService(): TalkButtonService {
 
   function pause(): void {
     paused = true;
-    serialDebugLog("service", "paused (staff disconnect or PTT off)");
-    void usePushToTalkStore.getState().disconnectSerial();
+    void usePushToTalkStore.getState().disconnectTalkButton();
   }
 
   function resume(): void {
     paused = false;
-    serialDebugLog("service", "resumed");
     void runSync("resume");
   }
 
   function onPushToTalkChange(event: Event): void {
     const enabled = (event as CustomEvent<PushToTalkChangeDetail>).detail;
-    serialDebugLog("service", "push-to-talk setting changed", { enabled });
     if (enabled) {
       resume();
       return;
@@ -107,9 +76,6 @@ function createTalkButtonService(): TalkButtonService {
   }
 
   function onVisibilityChange(): void {
-    serialDebugLog("service", "visibility changed", {
-      visibilityState: document.visibilityState,
-    });
     if (document.visibilityState !== "visible") return;
     void runSync("visibility");
   }
@@ -119,7 +85,6 @@ function createTalkButtonService(): TalkButtonService {
     listenersBound = true;
     window.addEventListener(PUSH_TO_TALK_CHANGE_EVENT, onPushToTalkChange);
     document.addEventListener("visibilitychange", onVisibilityChange);
-    serialDebugLog("service", "event listeners bound");
   }
 
   function unbindListeners(): void {
@@ -127,21 +92,13 @@ function createTalkButtonService(): TalkButtonService {
     listenersBound = false;
     window.removeEventListener(PUSH_TO_TALK_CHANGE_EVENT, onPushToTalkChange);
     document.removeEventListener("visibilitychange", onVisibilityChange);
-    serialDebugLog("service", "event listeners unbound");
   }
 
   return {
     start() {
-      if (running) {
-        serialDebugLog("service", "start ignored (already running)", undefined, "warn");
-        return;
-      }
+      if (running) return;
       running = true;
       paused = false;
-      serialDebugLog("service", "started", {
-        pushToTalk: shouldAutoConnectTalkButton(),
-        href: typeof window !== "undefined" ? window.location.href : "",
-      });
       bindListeners();
       usePushToTalkStore.getState().init();
       startWatchdog();
@@ -149,7 +106,6 @@ function createTalkButtonService(): TalkButtonService {
     },
 
     stop() {
-      serialDebugLog("service", "stopped");
       running = false;
       paused = false;
       clearWatchdog();
@@ -161,8 +117,6 @@ function createTalkButtonService(): TalkButtonService {
     resume,
 
     sync: (reason = "manual") => runSync(reason),
-
-    getDebugState,
   };
 }
 
