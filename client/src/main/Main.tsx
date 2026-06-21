@@ -27,7 +27,9 @@ import { useAppMode } from "@/museum/useAppMode";
 import { usePortrait, dvh } from "@/utils";
 import CouncilError from "./overlay/CouncilError";
 import Reconnecting from "./overlay/Reconnecting";
-import { useButtonService } from "@/museum/button/useButtonService";
+import { lazy, Suspense } from "react";
+
+const MuseumButtonRuntime = lazy(() => import("@/museum/button/MuseumButtonRuntime"));
 
 import routes from "@/routes.json";
 
@@ -125,8 +127,6 @@ export default function Main(props: MainProps) {
     }
   }, [location.pathname]);
 
-  useButtonService();
-
   // Centralize Web Audio suspension here so Council and future scene components can share one
   // AudioContext without each feature trying to suspend/resume it independently.
   useEffect(() => {
@@ -173,6 +173,11 @@ export default function Main(props: MainProps) {
 
   return (
     <>
+      {isMuseumMode && (
+        <Suspense fallback={null}>
+          <MuseumButtonRuntime />
+        </Suspense>
+      )}
       <Forest currentSpeakerId={currentSpeakerId} isPaused={isPaused} audioContext={audioContext} />
       <div style={{ width: "100%", height: "7%", minHeight: 300 * 0.07 + "px", position: "absolute", bottom: 0, background: "linear-gradient(0deg, rgba(0, 0, 0, 0.95) 0%, rgba(0, 0, 0, 0) 100%)", zIndex: 1 }} />
       {!(unrecoverableErrorMessage != null || connectionError) && ( !isMuseumMode &&

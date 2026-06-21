@@ -17,7 +17,7 @@ vi.mock("@stores/useButtonStore", () => ({
 }));
 
 vi.mock("@/museum/button/buttonPolicy", () => ({
-  shouldAutoConnectButton: vi.fn(() => true),
+  isMuseumButtonBridgeActive: vi.fn(() => true),
 }));
 
 describe("buttonService", () => {

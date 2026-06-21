@@ -1,7 +1,17 @@
-import { getPushToTalk } from "@/settings/councilSettings";
 import { isButtonBridgeAvailable } from "@/button/config";
+import { getAppMode } from "@/museum/appMode";
+import { getPushToTalk } from "@/settings/councilSettings";
 
-/** Auto-connect the installation button when push-to-talk voice mode is enabled. */
+/** Museum Macs with push-to-talk: connect to the local USB bridge daemon. */
 export function shouldAutoConnectButton(): boolean {
-  return getPushToTalk() && isButtonBridgeAvailable();
+  return isMuseumButtonBridgeActive();
+}
+
+/** True when the app should talk to 127.0.0.1:8765 (health checks, WebSocket, LED). */
+export function isMuseumButtonBridgeActive(): boolean {
+  return (
+    getAppMode() === "museum" &&
+    getPushToTalk() &&
+    isButtonBridgeAvailable()
+  );
 }
