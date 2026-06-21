@@ -5,7 +5,13 @@ import {
   parseButtonLine,
   type ParsedButtonLine,
 } from "@shared/buttonProtocol";
-import { getButtonBridgeWsUrl } from "@/button/config";
+import {
+  BUTTON_CONNECT_TIMEOUT_MS,
+  BUTTON_RECONNECT_BASE_MS,
+  BUTTON_RECONNECT_MAX_MS,
+  BUTTON_WATCHDOG_INTERVAL_MS,
+  getButtonBridgeWsUrl,
+} from "@/button/config";
 import type { ButtonLedMode } from "@/voice/buttonLedMode";
 
 export type ButtonTransportStatus = "disconnected" | "connecting" | "connected" | "error";
@@ -21,10 +27,6 @@ type BridgeServerMessage =
   | { type: "info"; version: string }
   | { type: "status"; state: "connected" | "disconnected"; path?: string; error?: string }
   | { type: "line"; text: string };
-
-const RECONNECT_BASE_MS = 500;
-const RECONNECT_MAX_MS = 10_000;
-const CONNECT_TIMEOUT_MS = 5_000;
 
 function parseServerMessage(raw: string): BridgeServerMessage | null {
   try {
@@ -82,6 +84,7 @@ export class ButtonTransport {
   private writeChain: Promise<void> = Promise.resolve();
   private connectInFlight: Promise<boolean> | null = null;
   private statusWaiter: { socket: WebSocket; resolve: () => void } | null = null;
+  private watchdogTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor(callbacks: ButtonTransportCallbacks = {}) {
     this.callbacks = callbacks;
@@ -101,6 +104,27 @@ export class ButtonTransport {
 
   enableAutoReconnect(): void {
     this.autoReconnect = true;
+    this.startWatchdog();
+  }
+
+  private startWatchdog(): void {
+    if (this.watchdogTimer) return;
+    this.watchdogTimer = setInterval(() => {
+      void this.watchdogTick();
+    }, BUTTON_WATCHDOG_INTERVAL_MS);
+  }
+
+  private stopWatchdog(): void {
+    if (!this.watchdogTimer) return;
+    clearInterval(this.watchdogTimer);
+    this.watchdogTimer = null;
+  }
+
+  private async watchdogTick(): Promise<void> {
+    if (!this.autoReconnect || this.isSessionHealthy()) {
+      return;
+    }
+    await this.connect().catch(() => {});
   }
 
   private setStatus(status: ButtonTransportStatus, error: string | null = null): void {
@@ -117,7 +141,10 @@ export class ButtonTransport {
 
   private scheduleReconnect(): void {
     if (!this.autoReconnect || this.reconnectTimer) return;
-    const delay = Math.min(RECONNECT_BASE_MS * 2 ** this.reconnectAttempt, RECONNECT_MAX_MS);
+    const delay = Math.min(
+      BUTTON_RECONNECT_BASE_MS * 2 ** this.reconnectAttempt,
+      BUTTON_RECONNECT_MAX_MS,
+    );
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;
       if (this.isSessionHealthy()) return;
@@ -259,7 +286,7 @@ export class ButtonTransport {
     };
 
     try {
-      await waitForSocketOpen(socket, CONNECT_TIMEOUT_MS);
+      await waitForSocketOpen(socket, BUTTON_CONNECT_TIMEOUT_MS);
 
       if (this.ws !== socket || socket.readyState !== WebSocket.OPEN) {
         return this.failConnect(socket, "connection lost");
@@ -269,7 +296,10 @@ export class ButtonTransport {
         await Promise.race([
           statusWait,
           new Promise<void>((_, reject) => {
-            setTimeout(() => reject(new Error("Bridge status timed out")), CONNECT_TIMEOUT_MS);
+            setTimeout(
+              () => reject(new Error("Bridge status timed out")),
+              BUTTON_CONNECT_TIMEOUT_MS,
+            );
           }),
         ]);
       }
@@ -307,6 +337,7 @@ export class ButtonTransport {
 
   async disconnect(): Promise<void> {
     this.autoReconnect = false;
+    this.stopWatchdog();
     this.cancelReconnect();
     this.reconnectAttempt = 0;
     this.serialDeviceConnected = false;

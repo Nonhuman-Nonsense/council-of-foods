@@ -10,7 +10,6 @@ const transport = vi.hoisted(() => ({
   connect: vi.fn().mockResolvedValue(true),
   disconnect: vi.fn().mockResolvedValue(undefined),
   enableAutoReconnect: vi.fn(),
-  reconnectIfStale: vi.fn().mockResolvedValue(undefined),
   setLedMode: vi.fn().mockResolvedValue(undefined),
   getStatus: vi.fn().mockReturnValue("disconnected"),
   isSessionHealthy: vi.fn().mockReturnValue(false),
@@ -30,7 +29,6 @@ vi.mock("@/button/transport", () => ({
     connect = transport.connect;
     disconnect = transport.disconnect;
     enableAutoReconnect = transport.enableAutoReconnect;
-    reconnectIfStale = transport.reconnectIfStale;
     setLedMode = transport.setLedMode;
     getStatus = transport.getStatus;
     isSessionHealthy = transport.isSessionHealthy;

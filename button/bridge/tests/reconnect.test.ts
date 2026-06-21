@@ -82,7 +82,7 @@ describe.sequential("button reconnect resilience", () => {
     expect(events).toEqual(["button_down", "button_up"]);
   }, 20_000);
 
-  it("useButtonStore recovers through watchdog after bridge restart", async () => {
+  it("useButtonStore recovers through transport watchdog after bridge restart", async () => {
     localStorage.setItem("councilPushToTalk", "true");
     _resetButtonStoreForTests();
     installBridgeUrlOverride(bridge.wsUrl);
@@ -96,7 +96,6 @@ describe.sequential("button reconnect resilience", () => {
     expect(useButtonStore.getState().rawPressed).toBe(true);
 
     await bridge.restart();
-    await useButtonStore.getState().reconnectIfStale();
 
     await waitForCondition(
       () => useButtonStore.getState().bridgeStatus === "connected",

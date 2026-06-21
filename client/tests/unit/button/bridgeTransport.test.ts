@@ -275,4 +275,52 @@ describe("ButtonTransport", () => {
     expect(transport.getStatus()).toBe("disconnected");
     expect(statuses).toContain("disconnected");
   });
+
+  it("watchdog retries connect while auto-reconnect is enabled", async () => {
+    vi.useFakeTimers();
+    let connectAttempts = 0;
+
+    class FailingWebSocket {
+      static CONNECTING = 0;
+      static CLOSED = 3;
+
+      readyState = FailingWebSocket.CONNECTING;
+      onopen: (() => void) | null = null;
+      onmessage: MessageHandler | null = null;
+      onerror: (() => void) | null = null;
+      onclose: CloseHandler | null = null;
+      sent: string[] = [];
+
+      constructor(public url: string) {
+        connectAttempts += 1;
+        queueMicrotask(() => {
+          this.readyState = FailingWebSocket.CLOSED;
+          this.onerror?.();
+          this.onclose?.({ code: 1006, reason: "" });
+        });
+      }
+
+      send(data: string): void {
+        this.sent.push(data);
+      }
+
+      close(): void {
+        this.readyState = FailingWebSocket.CLOSED;
+      }
+    }
+
+    vi.stubGlobal("WebSocket", FailingWebSocket);
+
+    const { ButtonTransport } = await import("@/button/transport");
+    const transport = new ButtonTransport();
+    transport.enableAutoReconnect();
+
+    await transport.connect();
+    const afterManualConnect = connectAttempts;
+
+    await vi.advanceTimersByTimeAsync(2500);
+
+    expect(connectAttempts).toBeGreaterThan(afterManualConnect);
+    vi.useRealTimers();
+  });
 });

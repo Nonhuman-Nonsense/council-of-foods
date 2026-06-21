@@ -19,7 +19,6 @@ type ButtonStore = {
   connect: () => Promise<void>;
   disconnect: () => Promise<void>;
   enableAutoReconnect: () => void;
-  reconnectIfStale: () => Promise<void>;
   setLedMode: (mode: ButtonLedMode) => Promise<void>;
   resyncLed: () => Promise<void>;
   init: () => void;
@@ -154,17 +153,6 @@ export const useButtonStore = create<ButtonStore>((set, get) => ({
     getTransport(set, get).enableAutoReconnect();
   },
 
-  reconnectIfStale: async () => {
-    const transport = getTransport(set, get);
-    if (transport.isSessionHealthy()) {
-      return;
-    }
-    const { bridgeStatus } = get();
-    if (bridgeStatus === "connected" || bridgeStatus === "connecting") {
-      await transport.connect();
-    }
-  },
-
   setLedMode: async (mode) => {
     const inputEnabled = isButtonInputEnabled(mode);
     const updates: Partial<ButtonStore> = {
@@ -214,6 +202,7 @@ export const useButtonStore = create<ButtonStore>((set, get) => ({
 
 /** Reset module singletons — for tests only. */
 export function _resetButtonStoreForTests(): void {
+  void buttonTransport?.disconnect();
   buttonTransport = null;
   keyboardInitialized = false;
   useButtonStore.setState({
