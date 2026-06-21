@@ -22,22 +22,45 @@ export class MockSerialManager extends EventEmitter {
     return [...this.writtenLines];
   }
 
+  clearWrittenLines(): void {
+    this.writtenLines = [];
+  }
+
   /** Inject a physical button press/release (mock mode / tests only). */
   simulateButton(pressed: boolean): void {
     if (!this.isOpen()) return;
     this.emit("line", { text: pressed ? BUTTON_DOWN : BUTTON_UP });
   }
 
+  /** Simulate unplugging the USB device while the bridge keeps running. */
+  simulateUsbDisconnect(reason = "unplugged"): void {
+    if (!this.openPath) return;
+    this.openPath = null;
+    this.emit("close", { reason });
+  }
+
+  /**
+   * Simulate plugging the USB device back in.
+   * Emits BUTTON_DOWN or BUTTON_UP once, like production firmware on host connect.
+   */
+  simulateUsbReconnect(pressed = false): void {
+    if (this.stopped) return;
+    const wasOpen = this.openPath != null;
+    this.openPath = "mock";
+    if (!wasOpen) {
+      this.emit("open", { path: "mock" });
+    }
+    queueMicrotask(() => {
+      if (!this.stopped && this.isOpen()) {
+        this.emit("line", { text: pressed ? BUTTON_DOWN : BUTTON_UP });
+      }
+    });
+  }
+
   start(): void {
     this.stopped = false;
     console.log("[button-bridge/mock] starting mock serial device");
-    this.openPath = "mock";
-    this.emit("open", { path: "mock" });
-    queueMicrotask(() => {
-      if (!this.stopped && this.isOpen()) {
-        this.emit("line", { text: BUTTON_UP });
-      }
-    });
+    this.simulateUsbReconnect(false);
   }
 
   async stop(): Promise<void> {

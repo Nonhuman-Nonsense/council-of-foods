@@ -20,4 +20,28 @@ describe("MockSerialManager", () => {
     await serial.stop();
     expect(serial.isOpen()).toBe(false);
   });
+
+  it("usb disconnect and reconnect emit open/close and button sync line", async () => {
+    const serial = new MockSerialManager();
+    const events: string[] = [];
+    serial.on("open", () => events.push("open"));
+    serial.on("close", () => events.push("close"));
+    serial.on("line", ({ text }) => events.push(text));
+
+    serial.start();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(events).toContain("open");
+
+    serial.simulateUsbDisconnect("unplugged");
+    expect(serial.isOpen()).toBe(false);
+    expect(events).toContain("close");
+
+    events.length = 0;
+    serial.simulateUsbReconnect(true);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(serial.isOpen()).toBe(true);
+    expect(events).toEqual(["open", "BUTTON_DOWN"]);
+
+    await serial.stop();
+  });
 });

@@ -133,4 +133,30 @@ describe("useButtonStore", () => {
     expect(useButtonStore.getState().rawPressed).toBe(false);
     expect(useButtonStore.getState().serialDeviceConnected).toBe(false);
   });
+
+  it("applies button_up sync after reconnect when input was stale", () => {
+    useButtonStore.setState({
+      pressed: true,
+      rawPressed: true,
+      buttonInputEnabled: true,
+      bridgeStatus: "connected",
+      serialDeviceConnected: true,
+    });
+    transport.callbacks?.onSerialDeviceChange?.(false);
+    transport.callbacks?.onLine?.({ type: "button_up" });
+    expect(useButtonStore.getState().rawPressed).toBe(false);
+    expect(useButtonStore.getState().pressed).toBe(false);
+  });
+
+  it("tracks button_down sync after reconnect when button is held", () => {
+    useButtonStore.setState({
+      bridgeStatus: "connected",
+      serialDeviceConnected: true,
+      buttonInputEnabled: true,
+      ledMode: "pulse",
+    });
+    transport.callbacks?.onLine?.({ type: "button_down" });
+    expect(useButtonStore.getState().rawPressed).toBe(true);
+    expect(useButtonStore.getState().pressed).toBe(true);
+  });
 });
