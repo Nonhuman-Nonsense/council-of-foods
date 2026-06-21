@@ -1,13 +1,24 @@
 import { describe, expect, it, vi } from "vitest";
 import { fetchButtonBridgeHealth } from "@/button/health";
 
+const runningHealth = {
+  ok: true,
+  serial: "connected",
+  path: "/dev/mock",
+  version: "1.0.0",
+  serialDetail: "connected",
+  serialMessage: "Council button connected at /dev/mock",
+  expectedVendorId: "239a",
+  scannedPorts: [{ path: "/dev/mock", vendorId: "239a", productId: "8014" }],
+};
+
 describe("fetchButtonBridgeHealth", () => {
   it("returns running when health endpoint responds ok", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue({
         ok: true,
-        json: async () => ({ ok: true, serial: "connected", path: "/dev/mock", version: "1.0.0" }),
+        json: async () => runningHealth,
       }),
     );
 
@@ -16,6 +27,10 @@ describe("fetchButtonBridgeHealth", () => {
       serial: "connected",
       path: "/dev/mock",
       version: "1.0.0",
+      serialDetail: "connected",
+      serialMessage: "Council button connected at /dev/mock",
+      expectedVendorId: "239a",
+      scannedPorts: [{ path: "/dev/mock", vendorId: "239a", productId: "8014" }],
     });
   });
 

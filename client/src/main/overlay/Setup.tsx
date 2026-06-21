@@ -12,6 +12,8 @@ import {
 import {
   getBridgeAppStatus,
   getBridgeDaemonStatus,
+  getSetupBridgeDetailLines,
+  getSetupBridgeLogHint,
   getUsbButtonStatus,
 } from "@/museum/button/setupButtonStatus";
 import { useButtonBridgeHealth } from "@/button/useBridgeHealth";
@@ -37,6 +39,8 @@ function Setup(): React.ReactElement {
   const daemonStatus = getBridgeDaemonStatus(bridgeHealth);
   const appStatus = getBridgeAppStatus(bridgeAvailable, bridgeHealth, bridgeStatus);
   const usbStatus = getUsbButtonStatus(bridgeHealth);
+  const bridgeDetailLines =
+    bridgeHealth.status === "running" ? getSetupBridgeDetailLines(bridgeHealth) : [];
 
   useEffect(() => {
     if (!pushToTalk || bridgeStatus !== "connected") return;
@@ -162,13 +166,22 @@ function Setup(): React.ReactElement {
             <p data-testid="setup-button-usb-status" style={statusLineStyle}>
               {t("setup.button.usbLabel")}: {t(`setup.button.usb.${usbStatus}`)}
             </p>
+            {bridgeDetailLines.map((line) => (
+              <p
+                key={line}
+                data-testid="setup-bridge-detail-line"
+                style={{ ...statusLineStyle, fontSize: "0.92em", opacity: 0.88 }}
+              >
+                {line}
+              </p>
+            ))}
           </div>
           {daemonStatus === "notRunning" ? (
             <p
               data-testid="setup-button-hint"
               style={{ marginTop: 0, fontStyle: "italic", opacity: 0.8, textAlign: "center" }}
             >
-              {t("setup.button.bridgeNotRunningHint")}
+              {t("setup.button.bridgeNotRunningHint", { logPath: getSetupBridgeLogHint() })}
             </p>
           ) : null}
           {daemonStatus === "running" && usbStatus === "notDetected" ? (
@@ -177,6 +190,14 @@ function Setup(): React.ReactElement {
               style={{ marginTop: 0, fontStyle: "italic", opacity: 0.8, textAlign: "center" }}
             >
               {t("setup.button.usbNotDetectedHint")}
+            </p>
+          ) : null}
+          {daemonStatus === "running" && usbStatus === "wrongDevice" ? (
+            <p
+              data-testid="setup-button-wrong-device-hint"
+              style={{ marginTop: 0, fontStyle: "italic", opacity: 0.8, textAlign: "center" }}
+            >
+              {t("setup.button.usbWrongDeviceHint")}
             </p>
           ) : null}
         </div>

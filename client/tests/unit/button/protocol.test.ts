@@ -12,6 +12,7 @@ describe("button protocol", () => {
     expect(parseButtonLine("BUTTON_DOWN")).toEqual({ type: "button_down" });
     expect(parseButtonLine("BUTTON_UP")).toEqual({ type: "button_up" });
     expect(parseButtonLine("PONG")).toEqual({ type: "pong" });
+    expect(parseButtonLine("READY council-button")).toEqual({ type: "ready" });
   });
 
   it("parses chunked input", () => {

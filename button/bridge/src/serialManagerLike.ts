@@ -1,3 +1,5 @@
+import type { SerialDiagnostics } from "./serialDiagnostics.js";
+
 export type SerialManagerLike = {
   on(event: "open", listener: (payload: { path: string }) => void): void;
   on(event: "close", listener: (payload: { reason: string }) => void): void;
@@ -8,4 +10,5 @@ export type SerialManagerLike = {
   writeLine(line: string): Promise<void>;
   getOpenPath(): string | null;
   isOpen(): boolean;
+  getDiagnostics(): SerialDiagnostics;
 };

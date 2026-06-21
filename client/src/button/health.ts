@@ -1,8 +1,30 @@
 import { DEFAULT_BUTTON_BRIDGE_HEALTH_URL } from "@/button/config";
 
+export type UsbPortInfo = {
+  path: string;
+  vendorId?: string;
+  productId?: string;
+};
+
+export type SerialDetail =
+  | "connected"
+  | "no_device"
+  | "probe_failed"
+  | "probing"
+  | "shutdown";
+
 export type ButtonBridgeHealthState =
   | { status: "checking" }
-  | { status: "running"; serial: string; path: string | null; version: string }
+  | {
+      status: "running";
+      serial: "connected" | "disconnected" | "probing";
+      path: string | null;
+      version: string;
+      serialDetail: SerialDetail;
+      serialMessage: string;
+      expectedVendorId: string | null;
+      scannedPorts: UsbPortInfo[];
+    }
   | { status: "not_running" }
   | { status: "error"; message: string };
 
@@ -11,7 +33,18 @@ type ButtonBridgeHealthResponse = {
   serial?: string;
   path?: string | null;
   version?: string;
+  serialDetail?: SerialDetail;
+  serialMessage?: string;
+  expectedVendorId?: string | null;
+  scannedPorts?: UsbPortInfo[];
 };
+
+function normalizeSerialState(
+  value: string | undefined,
+): "connected" | "disconnected" | "probing" {
+  if (value === "connected" || value === "probing") return value;
+  return "disconnected";
+}
 
 export async function fetchButtonBridgeHealth(
   url = DEFAULT_BUTTON_BRIDGE_HEALTH_URL,
@@ -27,9 +60,13 @@ export async function fetchButtonBridgeHealth(
     }
     return {
       status: "running",
-      serial: body.serial ?? "unknown",
+      serial: normalizeSerialState(body.serial),
       path: body.path ?? null,
       version: body.version ?? "unknown",
+      serialDetail: body.serialDetail ?? "shutdown",
+      serialMessage: body.serialMessage ?? "",
+      expectedVendorId: body.expectedVendorId ?? null,
+      scannedPorts: body.scannedPorts ?? [],
     };
   } catch {
     return { status: "not_running" };

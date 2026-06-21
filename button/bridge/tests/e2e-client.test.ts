@@ -36,11 +36,12 @@ describe.sequential("button e2e (mock → bridge → client)", () => {
 
   it("client health check reaches the running bridge", async () => {
     const health = await fetchButtonBridgeHealth(bridge.healthUrl);
-    expect(health).toEqual({
-      status: "running",
+    expect(health.status).toBe("running");
+    expect(health).toMatchObject({
       serial: "connected",
       path: "mock",
       version: "1.0.0",
+      serialDetail: "connected",
     });
   });
 
@@ -56,7 +57,6 @@ describe.sequential("button e2e (mock → bridge → client)", () => {
     expect(transport.getStatus()).toBe("connected");
     expect(statuses).toContain("connecting");
     expect(statuses).toContain("connected");
-    await waitForWrittenLine(bridge, "PING");
 
     await transport.disconnect();
   });
@@ -105,6 +105,5 @@ describe.sequential("button e2e (mock → bridge → client)", () => {
     expect(useButtonStore.getState().pressed).toBe(false);
 
     expect(bridge.getWrittenLines()).toContain("LED_PULSE");
-    expect(bridge.getWrittenLines()).toContain("PING");
   });
 });

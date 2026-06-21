@@ -1,5 +1,16 @@
 import { EventEmitter } from "node:events";
-import { BUTTON_DOWN, BUTTON_UP, PONG } from "../../../shared/buttonProtocol.js";
+import {
+  BUTTON_DOWN,
+  BUTTON_UP,
+  HELLO_COUNCIL,
+  PONG,
+  READY_COUNCIL_BUTTON,
+} from "../../../shared/buttonProtocol.js";
+import type { SerialDiagnostics } from "./serialDiagnostics.js";
+import {
+  createConnectedDiagnostics,
+  createDisconnectedDiagnostics,
+} from "./serialDiagnostics.js";
 
 /**
  * Simulates an Arduino when no USB device is available.
@@ -16,6 +27,18 @@ export class MockSerialManager extends EventEmitter {
 
   isOpen(): boolean {
     return this.openPath != null;
+  }
+
+  getDiagnostics(): SerialDiagnostics {
+    if (this.isOpen()) {
+      return createConnectedDiagnostics("239a", [], this.openPath ?? "mock");
+    }
+    return createDisconnectedDiagnostics(
+      "239a",
+      [],
+      "no_device",
+      "No mock USB device connected",
+    );
   }
 
   getWrittenLines(): string[] {
@@ -77,6 +100,13 @@ export class MockSerialManager extends EventEmitter {
     }
     console.log(`[button-bridge/mock] ← ${line}`);
     this.writtenLines.push(line);
+    if (line === HELLO_COUNCIL) {
+      queueMicrotask(() => {
+        if (!this.stopped && this.isOpen()) {
+          this.emit("line", { text: READY_COUNCIL_BUTTON });
+        }
+      });
+    }
     if (line === "PING") {
       queueMicrotask(() => {
         if (!this.stopped && this.isOpen()) {

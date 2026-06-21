@@ -15,7 +15,16 @@ describe("useButtonBridgeHealth integration", () => {
       "fetch",
       vi.fn().mockResolvedValue({
         ok: true,
-        json: async () => ({ ok: true, serial: "connected", path: "mock", version: "1.0.0" }),
+        json: async () => ({
+          ok: true,
+          serial: "connected",
+          path: "mock",
+          version: "1.0.0",
+          serialDetail: "connected",
+          serialMessage: "Council button connected at mock",
+          expectedVendorId: "239a",
+          scannedPorts: [],
+        }),
       }),
     );
 
@@ -24,6 +33,10 @@ describe("useButtonBridgeHealth integration", () => {
       serial: "connected",
       path: "mock",
       version: "1.0.0",
+      serialDetail: "connected",
+      serialMessage: "Council button connected at mock",
+      expectedVendorId: "239a",
+      scannedPorts: [],
     });
   });
 

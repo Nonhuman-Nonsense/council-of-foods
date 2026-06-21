@@ -38,11 +38,14 @@
       },
       "usb": {
         "connected": "Connected",
+        "checking": "Checking…",
         "notDetected": "Not detected",
+        "wrongDevice": "Wrong device",
         "unavailable": "—"
       },
-      "bridgeNotRunningHint": "Start the button bridge on this Mac (see button/bridge/README.md).",
-      "usbNotDetectedHint": "Plug in the installation button via USB. The bridge will reconnect automatically."
+      "bridgeNotRunningHint": "Start the button bridge on this Mac, or check {{logPath}} for errors.",
+      "usbNotDetectedHint": "Plug in the Council button via USB. The bridge scans for Adafruit USB devices automatically.",
+      "usbWrongDeviceHint": "A USB serial device was found, but it is not running Council button firmware. Reflash the Arduino sketch or check the USB cable/port."
     }
   },
   "settings": "Settings",

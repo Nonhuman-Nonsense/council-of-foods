@@ -11,9 +11,13 @@ const museumButtonState = {
 
 const bridgeHealthState = {
   status: 'running' as const,
-  serial: 'connected' as string,
+  serial: 'connected' as const,
   path: '/dev/cu.usbmodem1',
   version: '1.0.0',
+  serialDetail: 'connected' as const,
+  serialMessage: 'Council button connected at /dev/cu.usbmodem1',
+  expectedVendorId: '239a',
+  scannedPorts: [] as Array<{ path: string; vendorId?: string; productId?: string }>,
 };
 
 vi.mock('react-i18next', () => ({

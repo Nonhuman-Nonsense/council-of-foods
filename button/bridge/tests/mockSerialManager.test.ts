@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { PONG } from "../../../shared/buttonProtocol.js";
+import {
+  HELLO_COUNCIL,
+  PONG,
+  READY_COUNCIL_BUTTON,
+} from "../../../shared/buttonProtocol.js";
 import { MockSerialManager } from "../src/mockSerialManager.js";
 
 describe("MockSerialManager", () => {
@@ -19,6 +23,19 @@ describe("MockSerialManager", () => {
     expect(lines).toContain(PONG);
     await serial.stop();
     expect(serial.isOpen()).toBe(false);
+  });
+
+  it("responds to HELLO_COUNCIL with READY council-button", async () => {
+    const serial = new MockSerialManager();
+    const lines: string[] = [];
+    serial.on("line", ({ text }) => lines.push(text));
+    serial.start();
+
+    await serial.writeLine(HELLO_COUNCIL);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(lines).toContain(READY_COUNCIL_BUTTON);
+    await serial.stop();
   });
 
   it("usb disconnect and reconnect emit open/close and button sync line", async () => {

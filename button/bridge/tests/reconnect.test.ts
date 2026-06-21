@@ -48,7 +48,7 @@ describe.sequential("button reconnect resilience", () => {
 
     await bridge.restart();
 
-    await waitForCondition(() => transport.getStatus() === "connected", 15_000);
+    await waitForCondition(() => transport.isSessionHealthy(), 15_000);
     expect(statuses).toContain("disconnected");
     expect(statuses.filter((s) => s === "connected").length).toBeGreaterThanOrEqual(2);
   }, 20_000);
@@ -75,7 +75,7 @@ describe.sequential("button reconnect resilience", () => {
     await bridge.restart();
     events.length = 0;
 
-    await waitForCondition(() => transport.getStatus() === "connected", 15_000);
+    await waitForCondition(() => transport.isSessionHealthy(), 15_000);
     bridge.simulateButtonDown();
     bridge.simulateButtonUp();
     await waitForTicks();
@@ -102,7 +102,7 @@ describe.sequential("button reconnect resilience", () => {
       () => useButtonStore.getState().bridgeStatus === "connected",
       15_000,
     );
-    await waitForWrittenLine(bridge, "PING");
+    await waitForWrittenLine(bridge, "LED_PULSE");
 
     bridge.simulateButtonDown();
     await waitForTicks();

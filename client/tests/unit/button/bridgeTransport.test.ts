@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { PONG } from "@shared/buttonProtocol";
 
 type MessageHandler = (event: { data: string }) => void;
 type CloseHandler = (event: { code: number; reason: string }) => void;
@@ -29,12 +28,6 @@ class MockWebSocket {
 
   send(data: string): void {
     this.sent.push(data);
-    const message = JSON.parse(data) as { type: string; line?: string };
-    if (message.type === "write" && message.line === "PING") {
-      queueMicrotask(() => {
-        this.emit({ type: "line", text: PONG });
-      });
-    }
   }
 
   close(): void {
@@ -58,7 +51,7 @@ describe("ButtonTransport", () => {
     vi.resetModules();
   });
 
-  it("connects and completes PING handshake", async () => {
+  it("connects when bridge reports verified usb serial", async () => {
     const statuses: string[] = [];
     const { ButtonTransport } = await import("@/button/transport");
     const transport = new ButtonTransport({
@@ -72,7 +65,9 @@ describe("ButtonTransport", () => {
     expect(transport.isSerialDeviceConnected()).toBe(true);
     expect(statuses).toContain("connecting");
     expect(statuses).toContain("connected");
-    expect(MockWebSocket.instances[0]?.sent).toContain(JSON.stringify({ type: "write", line: "PING" }));
+    expect(MockWebSocket.instances[0]?.sent).not.toContain(
+      JSON.stringify({ type: "write", line: "PING" }),
+    );
   });
 
   it("connects when bridge is up but usb serial is disconnected", async () => {

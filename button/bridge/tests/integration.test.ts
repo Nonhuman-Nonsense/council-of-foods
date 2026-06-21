@@ -18,12 +18,14 @@ describe("bridge integration", () => {
     const body = await response.json();
 
     expect(response.ok).toBe(true);
-    expect(body).toEqual({
-      ok: true,
-      version: "1.0.0",
-      serial: "connected",
-      path: "mock",
-    });
+    expect(body.ok).toBe(true);
+    expect(body.version).toBe("1.0.0");
+    expect(body.serial).toBe("connected");
+    expect(body.path).toBe("mock");
+    expect(body.serialDetail).toBe("connected");
+    expect(body.serialMessage).toContain("Council button connected");
+    expect(body.expectedVendorId).toBe("239a");
+    expect(body.scannedPorts).toEqual([]);
   });
 
   it("allows CORS from local dev origins", async () => {
