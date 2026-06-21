@@ -26,7 +26,9 @@ import { useAppMode } from "@/museum/useAppMode";
 import { usePortrait, dvh } from "@/utils";
 import CouncilError from "./overlay/CouncilError";
 import Reconnecting from "./overlay/Reconnecting";
-import { useButtonService } from "@/museum/button/useButtonService";
+import { lazy, Suspense } from "react";
+
+const MuseumButtonRuntime = lazy(() => import("@/museum/button/MuseumButtonRuntime"));
 
 import routes from "@/routes.json";
 import { backgroundImageUrls } from "@assets/backgrounds/index";
@@ -126,8 +128,6 @@ export default function Main(props: MainProps) {
     }
   }, [location.pathname]);
 
-  useButtonService();
-
   // Centralize Web Audio suspension here so Council and future scene components can share one
   // AudioContext without each feature trying to suspend/resume it independently.
   useEffect(() => {
@@ -175,6 +175,11 @@ export default function Main(props: MainProps) {
 
   return (
     <>
+      {isMuseumMode && (
+        <Suspense fallback={null}>
+          <MuseumButtonRuntime />
+        </Suspense>
+      )}
       <Background pathname={location.pathname} />
       {!(unrecoverableErrorMessage != null || connectionError) && !isMuseumMode &&
         <Navbar

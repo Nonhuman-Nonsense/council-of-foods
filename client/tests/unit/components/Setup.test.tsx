@@ -1,8 +1,13 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import Setup from '@main/overlay/Setup';
-import { useButtonStore } from '@stores/useButtonStore';
 import '@testing-library/jest-dom';
+
+const museumButtonState = {
+  bridgeStatus: 'disconnected' as 'disconnected' | 'connecting' | 'connected' | 'error',
+  bridgeError: null as string | null,
+  bridgeAvailable: true,
+};
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -25,21 +30,24 @@ vi.mock('@/button/useBridgeHealth', () => ({
   }),
 }));
 
+vi.mock('@/museum/button/useMuseumButtonStore', () => ({
+  useMuseumButtonBridgeStatus: () => museumButtonState.bridgeStatus,
+  useMuseumButtonBridgeError: () => museumButtonState.bridgeError,
+  useMuseumButtonBridgeAvailable: () => museumButtonState.bridgeAvailable,
+  useMuseumButtonSetLedMode: () => vi.fn(),
+}));
+
 describe('Setup overlay', () => {
   beforeEach(() => {
     localStorage.clear();
-    useButtonStore.setState({
-      bridgeStatus: 'disconnected',
-      bridgeError: null,
-      bridgeAvailable: true,
-    });
+    museumButtonState.bridgeStatus = 'disconnected';
+    museumButtonState.bridgeError = null;
+    museumButtonState.bridgeAvailable = true;
   });
 
   afterEach(() => {
-    useButtonStore.setState({
-      bridgeStatus: 'disconnected',
-      bridgeError: null,
-    });
+    museumButtonState.bridgeStatus = 'disconnected';
+    museumButtonState.bridgeError = null;
   });
 
   it('renders title, mode, and voice guide options', () => {
@@ -91,9 +99,10 @@ describe('Setup overlay', () => {
     expect(alwaysOn).toHaveClass('selected');
   });
 
-  it('shows button status when push to talk is enabled', () => {
+  it('shows button status when push to talk is enabled in museum mode', () => {
+    localStorage.setItem('councilAppMode', 'museum');
     localStorage.setItem('councilPushToTalk', 'true');
-    useButtonStore.setState({ bridgeStatus: 'connected' });
+    museumButtonState.bridgeStatus = 'connected';
 
     render(<Setup />);
 
@@ -101,6 +110,7 @@ describe('Setup overlay', () => {
   });
 
   it('shows waiting status when bridge is up but button is not connected', () => {
+    localStorage.setItem('councilAppMode', 'museum');
     localStorage.setItem('councilPushToTalk', 'true');
 
     render(<Setup />);

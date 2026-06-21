@@ -3,7 +3,13 @@ import { useMobile, useMobileXs } from "@/utils";
 import { useTranslation } from "react-i18next";
 import { getPushToTalk, setPushToTalk } from "@/settings/councilSettings";
 import { useAppMode } from "@/museum/useAppMode";
-import { useButtonStore } from "@stores/useButtonStore";
+import { isMuseumButtonBridgeActive } from "@/museum/button/buttonPolicy";
+import {
+  useMuseumButtonBridgeAvailable,
+  useMuseumButtonBridgeError,
+  useMuseumButtonBridgeStatus,
+  useMuseumButtonSetLedMode,
+} from "@/museum/button/useMuseumButtonStore";
 import { useButtonBridgeHealth } from "@/button/useBridgeHealth";
 
 type ButtonUiStatus = "unsupported" | "bridgeNotRunning" | "connecting" | "connected" | "waiting" | "error";
@@ -11,7 +17,7 @@ type ButtonUiStatus = "unsupported" | "bridgeNotRunning" | "connecting" | "conne
 function getButtonUiStatus(
   bridgeAvailable: boolean,
   bridgeHealth: ReturnType<typeof useButtonBridgeHealth>,
-  bridgeStatus: ReturnType<typeof useButtonStore.getState>["bridgeStatus"],
+  bridgeStatus: "disconnected" | "connecting" | "connected" | "error",
 ): ButtonUiStatus {
   if (!bridgeAvailable) return "unsupported";
   if (bridgeHealth.status === "not_running" || bridgeHealth.status === "error") {
@@ -52,11 +58,12 @@ function Setup(): React.ReactElement {
   const { t } = useTranslation();
   const { mode: appMode, setAppMode } = useAppMode();
   const [pushToTalk, setPushToTalkState] = useState(getPushToTalk);
-  const bridgeStatus = useButtonStore((state) => state.bridgeStatus);
-  const bridgeError = useButtonStore((state) => state.bridgeError);
-  const bridgeAvailable = useButtonStore((state) => state.bridgeAvailable);
-  const setLedMode = useButtonStore((state) => state.setLedMode);
-  const bridgeHealth = useButtonBridgeHealth(pushToTalk);
+  const bridgeButtonActive = appMode === "museum" && pushToTalk;
+  const bridgeStatus = useMuseumButtonBridgeStatus(bridgeButtonActive);
+  const bridgeError = useMuseumButtonBridgeError(bridgeButtonActive);
+  const bridgeAvailable = useMuseumButtonBridgeAvailable(bridgeButtonActive);
+  const setLedMode = useMuseumButtonSetLedMode(bridgeButtonActive);
+  const bridgeHealth = useButtonBridgeHealth(bridgeButtonActive);
   const buttonStatus = getButtonUiStatus(bridgeAvailable, bridgeHealth, bridgeStatus);
 
   useEffect(() => {
