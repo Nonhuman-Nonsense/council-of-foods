@@ -34,7 +34,7 @@ Council of Forest is funded by Vinnova ([ref. nr. 2025-00344](https://www.vinnov
 
 # Developer instructions
 
-The app has two parts, the client and the server.
+The app has three parts: the client, the server, and (for museum installs) the talk-button stack in [`button/`](button/).
 
 The client is built on React, and the server on Node.js. They communicate via a Socket.io websocket.
 

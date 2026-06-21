@@ -5,13 +5,13 @@ import HumanInput from '@council/humanInput/HumanInput';
 import { useMobile } from '@/utils';
 import { bootstrapHumanInputRealtimeSession } from '@api/realtimeSession';
 import { createRealtimeConnection } from '@/realtime/realtimeConnection';
-import { getCurrentPttOwner, _resetPttOwnership } from '@/museum/talkButton/pttOwnership';
+import { getCurrentButtonOwner, _resetButtonOwnership } from '@/museum/button/buttonOwnership';
 
 // Mutable PTT store state — hoisted so the vi.mock factory can close over it.
 // rawPressed = physical button state (ungated); pressed = logical (gated by LED).
 // HumanInput subscribes to rawPressed, so tests set rawPressed to simulate button
 // presses. pressed is kept for completeness but not used by HumanInput directly.
-const mockPttState = vi.hoisted(() => ({
+const mockButtonState = vi.hoisted(() => ({
     pressed: false,
     rawPressed: false,
     setLedMode: vi.fn().mockResolvedValue(undefined),
@@ -50,8 +50,8 @@ vi.mock('@council/ConversationControlIcon', () => ({
     )
 }));
 
-vi.mock('@stores/usePushToTalkStore', () => ({
-    usePushToTalkStore: (selector) => selector(mockPttState),
+vi.mock('@stores/useButtonStore', () => ({
+    useButtonStore: (selector) => selector(mockButtonState),
 }));
 
 function createMockMicStream(tracks = null) {
@@ -485,10 +485,10 @@ describe('HumanInput PTT museum mode', () => {
     beforeEach(() => {
         mockOnSubmit = vi.fn();
         useMobile.mockReturnValue(false);
-        _resetPttOwnership();
-        mockPttState.setLedMode.mockClear();
-        mockPttState.pressed = false;
-        mockPttState.rawPressed = false;
+        _resetButtonOwnership();
+        mockButtonState.setLedMode.mockClear();
+        mockButtonState.pressed = false;
+        mockButtonState.rawPressed = false;
         bootstrapHumanInputRealtimeSession.mockResolvedValue({
             provider: 'inworld',
             iceServers: [],
@@ -504,15 +504,15 @@ describe('HumanInput PTT museum mode', () => {
 
     afterEach(() => {
         vi.clearAllMocks();
-        mockPttState.rawPressed = false;
-        _resetPttOwnership();
+        mockButtonState.rawPressed = false;
+        _resetButtonOwnership();
     });
 
     async function renderPttReady(extraProps = {}) {
         const result = render(
             <HumanInput
                 phase="active"
-                isPttMuseumMode={true}
+                isButtonMuseumMode={true}
                 isPanelist={false}
                 currentSpeakerName=""
                 onSubmitHumanMessage={mockOnSubmit}
@@ -543,9 +543,9 @@ describe('HumanInput PTT museum mode', () => {
     it('shows record_voice_on indicator while recording in PTT mode', async () => {
         const { rerender } = await renderPttReady();
 
-        mockPttState.rawPressed = true;
+        mockButtonState.rawPressed = true;
         rerender(
-            <HumanInput phase="active" isPttMuseumMode={true} isPanelist={false}
+            <HumanInput phase="active" isButtonMuseumMode={true} isPanelist={false}
                 currentSpeakerName="" onSubmitHumanMessage={mockOnSubmit} liveKey="test-key" />
         );
 
@@ -556,14 +556,14 @@ describe('HumanInput PTT museum mode', () => {
 
     it('hides send button in PTT mode', async () => {
         await renderPttReady();
-        const textarea = screen.getByPlaceholderText('human.ptt_museum');
+        const textarea = screen.getByPlaceholderText('human.button_museum');
         fireEvent.change(textarea, { target: { value: 'Hello' } });
         expect(screen.queryByTestId('icon-send_message')).not.toBeInTheDocument();
     });
 
     it('shows PTT placeholder text', async () => {
         await renderPttReady();
-        expect(screen.getByPlaceholderText('human.ptt_museum')).toBeInTheDocument();
+        expect(screen.getByPlaceholderText('human.button_museum')).toBeInTheDocument();
     });
 
     it('shows loading spinner during connecting in PTT mode', async () => {
@@ -575,7 +575,7 @@ describe('HumanInput PTT museum mode', () => {
         render(
             <HumanInput
                 phase="active"
-                isPttMuseumMode={true}
+                isButtonMuseumMode={true}
                 isPanelist={false}
                 currentSpeakerName=""
                 onSubmitHumanMessage={mockOnSubmit}
@@ -596,25 +596,25 @@ describe('HumanInput PTT museum mode', () => {
 
     it('claims PTT ownership on mount', async () => {
         await renderPttReady();
-        expect(getCurrentPttOwner()).toBe('human-input');
+        expect(getCurrentButtonOwner()).toBe('human-input');
     });
 
     it('sets ledMode to pulse when active+ready', async () => {
         await renderPttReady();
-        expect(mockPttState.setLedMode).toHaveBeenCalledWith('pulse');
+        expect(mockButtonState.setLedMode).toHaveBeenCalledWith('pulse');
     });
 
     it('releases PTT ownership and sets LED off on unmount', async () => {
         const { unmount } = await renderPttReady();
-        mockPttState.setLedMode.mockClear();
+        mockButtonState.setLedMode.mockClear();
         unmount();
-        expect(mockPttState.setLedMode).toHaveBeenCalledWith('off');
-        expect(getCurrentPttOwner()).toBeNull();
+        expect(mockButtonState.setLedMode).toHaveBeenCalledWith('off');
+        expect(getCurrentButtonOwner()).toBeNull();
     });
 
-    it('does not claim PTT ownership when isPttMuseumMode=false', async () => {
+    it('does not claim button ownership when isButtonMuseumMode=false', async () => {
         await renderAndWaitReady({ onSubmitHumanMessage: mockOnSubmit });
-        expect(getCurrentPttOwner()).toBeNull();
+        expect(getCurrentButtonOwner()).toBeNull();
     });
 
     // ── Press → record, release → finish + auto-submit ────────────────────────
@@ -628,11 +628,11 @@ describe('HumanInput PTT museum mode', () => {
         const { rerender } = await renderPttReady();
 
         // Simulate press
-        mockPttState.rawPressed = true;
+        mockButtonState.rawPressed = true;
         rerender(
             <HumanInput
                 phase="active"
-                isPttMuseumMode={true}
+                isButtonMuseumMode={true}
                 isPanelist={false}
                 currentSpeakerName=""
                 onSubmitHumanMessage={mockOnSubmit}
@@ -657,7 +657,7 @@ describe('HumanInput PTT museum mode', () => {
         const { rerender } = render(
             <HumanInput
                 phase="active"
-                isPttMuseumMode={true}
+                isButtonMuseumMode={true}
                 isPanelist={false}
                 currentSpeakerName=""
                 onSubmitHumanMessage={mockOnSubmit}
@@ -667,9 +667,9 @@ describe('HumanInput PTT museum mode', () => {
 
         // Still connecting — button is held down by the user
         expect(screen.getByTestId('lottie-loading')).toBeInTheDocument();
-        mockPttState.rawPressed = true;
+        mockButtonState.rawPressed = true;
         rerender(
-            <HumanInput phase="active" isPttMuseumMode={true} isPanelist={false}
+            <HumanInput phase="active" isButtonMuseumMode={true} isPanelist={false}
                 currentSpeakerName="" onSubmitHumanMessage={mockOnSubmit} liveKey="test-key" />
         );
 
@@ -691,19 +691,19 @@ describe('HumanInput PTT museum mode', () => {
         const { rerender } = await renderPttReady();
 
         // Type some text (simulating transcript arriving via recording)
-        const textarea = screen.getByPlaceholderText('human.ptt_museum');
+        const textarea = screen.getByPlaceholderText('human.button_museum');
         fireEvent.change(textarea, { target: { value: 'Hello council' } });
 
         // Simulate press then release cycle
-        mockPttState.rawPressed = true;
+        mockButtonState.rawPressed = true;
         rerender(
-            <HumanInput phase="active" isPttMuseumMode={true} isPanelist={false}
+            <HumanInput phase="active" isButtonMuseumMode={true} isPanelist={false}
                 currentSpeakerName="" onSubmitHumanMessage={mockOnSubmit} liveKey="test-key" />
         );
 
-        mockPttState.rawPressed = false;
+        mockButtonState.rawPressed = false;
         rerender(
-            <HumanInput phase="active" isPttMuseumMode={true} isPanelist={false}
+            <HumanInput phase="active" isButtonMuseumMode={true} isPanelist={false}
                 currentSpeakerName="" onSubmitHumanMessage={mockOnSubmit} liveKey="test-key" />
         );
 
@@ -716,14 +716,14 @@ describe('HumanInput PTT museum mode', () => {
     it('does not auto-submit when textarea is empty after PTT release', async () => {
         const { rerender } = await renderPttReady();
 
-        mockPttState.rawPressed = true;
+        mockButtonState.rawPressed = true;
         rerender(
-            <HumanInput phase="active" isPttMuseumMode={true} isPanelist={false}
+            <HumanInput phase="active" isButtonMuseumMode={true} isPanelist={false}
                 currentSpeakerName="" onSubmitHumanMessage={mockOnSubmit} liveKey="test-key" />
         );
-        mockPttState.rawPressed = false;
+        mockButtonState.rawPressed = false;
         rerender(
-            <HumanInput phase="active" isPttMuseumMode={true} isPanelist={false}
+            <HumanInput phase="active" isButtonMuseumMode={true} isPanelist={false}
                 currentSpeakerName="" onSubmitHumanMessage={mockOnSubmit} liveKey="test-key" />
         );
 

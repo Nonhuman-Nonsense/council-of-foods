@@ -195,7 +195,7 @@ function Council({
 
   // Derived UI State
   const participationPhase = getParticipationPhase(councilState, textMessages, playingNowIndex);
-  const isPttMuseumMode = useMemo(
+  const isButtonMuseumMode = useMemo(
     () => isMuseumMode && getPushToTalk(),
     [isMuseumMode]
   );
@@ -224,7 +224,7 @@ function Council({
           isPanelist={councilState === 'human_panelist'}
           currentSpeakerName={participants.find(p => p.id === currentSpeakerId)?.name || ""}
           onSubmitHumanMessage={handleOnSubmitHumanMessage}
-          isPttMuseumMode={isPttMuseumMode}
+          isButtonMuseumMode={isButtonMuseumMode}
         />
       )}
       <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, display: "flex", flexDirection: "column", alignItems: "center", overflow: "visible" }}>
