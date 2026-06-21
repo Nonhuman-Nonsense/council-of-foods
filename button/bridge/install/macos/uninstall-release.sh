@@ -41,9 +41,8 @@ curl -fsSL "$BASE_URL/launchd-helpers.sh" -o "$TMP_DIR/launchd-helpers.sh"
 curl -fsSL "$BASE_URL/uninstall.sh" -o "$TMP_DIR/uninstall.sh"
 chmod +x "$TMP_DIR/uninstall.sh"
 
-ARGS=()
 if [[ $PURGE_LOGS -eq 1 ]]; then
-  ARGS+=(--purge-logs)
+  exec "$TMP_DIR/uninstall.sh" --purge-logs
 fi
 
-exec "$TMP_DIR/uninstall.sh" "${ARGS[@]}"
+exec "$TMP_DIR/uninstall.sh"
