@@ -137,8 +137,22 @@ If `dist/` is already built, `install.sh` skips the build step.
 
 ### Uninstall
 
+From a git checkout:
+
 ```bash
 sudo button/bridge/install/macos/uninstall.sh
+```
+
+After installing from a GitHub release (no git checkout):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Nonhuman-Nonsense/council-of-foods/main/button/bridge/install/macos/uninstall-release.sh | sudo bash
+```
+
+Add `--purge-logs` to remove log files too:
+
+```bash
+curl -fsSL .../uninstall-release.sh | sudo bash -s -- --purge-logs
 ```
 
 Logs: `/var/log/council-button-bridge.log`
