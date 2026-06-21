@@ -9,6 +9,13 @@ const museumButtonState = {
   bridgeAvailable: true,
 };
 
+const bridgeHealthState = {
+  status: 'running' as const,
+  serial: 'connected' as string,
+  path: '/dev/cu.usbmodem1',
+  version: '1.0.0',
+};
+
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
     t: (key: string) => key,
@@ -22,12 +29,7 @@ vi.mock('@/utils', () => ({
 }));
 
 vi.mock('@/button/useBridgeHealth', () => ({
-  useButtonBridgeHealth: () => ({
-    status: 'running',
-    serial: 'connected',
-    path: '/dev/cu.usbmodem1',
-    version: '1.0.0',
-  }),
+  useButtonBridgeHealth: () => bridgeHealthState,
 }));
 
 vi.mock('@/museum/button/useMuseumButtonStore', () => ({
@@ -43,6 +45,9 @@ describe('Setup overlay', () => {
     museumButtonState.bridgeStatus = 'disconnected';
     museumButtonState.bridgeError = null;
     museumButtonState.bridgeAvailable = true;
+    bridgeHealthState.status = 'running';
+    bridgeHealthState.serial = 'connected';
+    bridgeHealthState.path = '/dev/cu.usbmodem1';
   });
 
   afterEach(() => {
@@ -99,22 +104,42 @@ describe('Setup overlay', () => {
     expect(alwaysOn).toHaveClass('selected');
   });
 
-  it('shows button status when push to talk is enabled in museum mode', () => {
+  it('shows split status when push to talk is enabled in museum mode', () => {
     localStorage.setItem('councilAppMode', 'museum');
     localStorage.setItem('councilPushToTalk', 'true');
     museumButtonState.bridgeStatus = 'connected';
 
     render(<Setup />);
 
-    expect(screen.getByTestId('setup-button-status')).toHaveTextContent('setup.button.connected');
+    expect(screen.getByTestId('setup-bridge-daemon-status')).toHaveTextContent(
+      'setup.button.bridge.running',
+    );
+    expect(screen.getByTestId('setup-bridge-app-status')).toHaveTextContent(
+      'setup.button.app.connected',
+    );
+    expect(screen.getByTestId('setup-button-usb-status')).toHaveTextContent(
+      'setup.button.usb.connected',
+    );
   });
 
-  it('shows waiting status when bridge is up but button is not connected', () => {
+  it('shows bridge running and usb not detected when no hardware is plugged in', () => {
     localStorage.setItem('councilAppMode', 'museum');
     localStorage.setItem('councilPushToTalk', 'true');
+    museumButtonState.bridgeStatus = 'connecting';
+    bridgeHealthState.serial = 'disconnected';
+    bridgeHealthState.path = null;
 
     render(<Setup />);
 
-    expect(screen.getByTestId('setup-button-status')).toHaveTextContent('setup.button.waiting');
+    expect(screen.getByTestId('setup-bridge-daemon-status')).toHaveTextContent(
+      'setup.button.bridge.running',
+    );
+    expect(screen.getByTestId('setup-bridge-app-status')).toHaveTextContent(
+      'setup.button.app.connecting',
+    );
+    expect(screen.getByTestId('setup-button-usb-status')).toHaveTextContent(
+      'setup.button.usb.notDetected',
+    );
+    expect(screen.getByTestId('setup-button-usb-hint')).toBeInTheDocument();
   });
 });

@@ -69,9 +69,63 @@ describe("ButtonTransport", () => {
 
     expect(connected).toBe(true);
     expect(transport.getStatus()).toBe("connected");
+    expect(transport.isSerialDeviceConnected()).toBe(true);
     expect(statuses).toContain("connecting");
     expect(statuses).toContain("connected");
     expect(MockWebSocket.instances[0]?.sent).toContain(JSON.stringify({ type: "write", line: "PING" }));
+  });
+
+  it("connects when bridge is up but usb serial is disconnected", async () => {
+    class MockWebSocketNoSerial {
+      static instances: MockWebSocketNoSerial[] = [];
+      static OPEN = 1;
+      static CONNECTING = 0;
+
+      readyState = MockWebSocketNoSerial.CONNECTING;
+      onopen: (() => void) | null = null;
+      onmessage: MessageHandler | null = null;
+      onerror: (() => void) | null = null;
+      onclose: CloseHandler | null = null;
+      sent: string[] = [];
+
+      constructor(public url: string) {
+        MockWebSocketNoSerial.instances.push(this);
+        queueMicrotask(() => {
+          this.readyState = MockWebSocketNoSerial.OPEN;
+          this.onopen?.();
+          this.onmessage?.({ data: JSON.stringify({ type: "info", version: "test" }) });
+          this.onmessage?.({
+            data: JSON.stringify({ type: "status", state: "disconnected" }),
+          });
+        });
+      }
+
+      send(data: string): void {
+        this.sent.push(data);
+      }
+
+      close(): void {
+        this.readyState = 3;
+      }
+    }
+
+    vi.stubGlobal("WebSocket", MockWebSocketNoSerial);
+
+    const statuses: string[] = [];
+    const { ButtonTransport } = await import("@/button/transport");
+    const transport = new ButtonTransport({
+      onStatus: (status) => statuses.push(status),
+    });
+
+    const connected = await transport.connect();
+
+    expect(connected).toBe(true);
+    expect(transport.getStatus()).toBe("connected");
+    expect(transport.isSerialDeviceConnected()).toBe(false);
+    expect(statuses).toContain("connected");
+    expect(MockWebSocketNoSerial.instances[0]?.sent).not.toContain(
+      JSON.stringify({ type: "write", line: "PING" }),
+    );
   });
 
   it("forwards button lines to callbacks", async () => {

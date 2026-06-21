@@ -31,7 +31,7 @@ async function enablePushToTalkOnSetup(page: import("@playwright/test").Page): P
   await page.goto("/#setup");
   await page.getByTestId("voice-guide-push-to-talk").click();
   const status = page.getByTestId("setup-button-status");
-  await expect(status).toContainText(translations.setup.button.connected, { timeout: 15_000 });
+  await expect(status).toContainText(translations.setup.button.app.connected, { timeout: 15_000 });
 }
 
 test.describe("installation button (browser)", () => {
@@ -46,7 +46,7 @@ test.describe("installation button (browser)", () => {
     await page.getByTestId("voice-guide-push-to-talk").click();
 
     const status = page.getByTestId("setup-button-status");
-    await expect(status).toContainText(translations.setup.button.bridgeNotRunning, { timeout: 10_000 });
+    await expect(status).toContainText(translations.setup.button.bridge.notRunning, { timeout: 10_000 });
   });
 });
 
@@ -56,7 +56,7 @@ test.describe.serial("installation button resilience (browser)", () => {
     await page.reload();
 
     const status = page.getByTestId("setup-button-status");
-    await expect(status).toContainText(translations.setup.button.connected, { timeout: 15_000 });
+    await expect(status).toContainText(translations.setup.button.app.connected, { timeout: 15_000 });
   });
 
   test("mock button press reaches the client store", async ({ page }) => {

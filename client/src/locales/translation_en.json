@@ -20,14 +20,29 @@
     "holdToSpeak": "Push the button to speak",
     "button": {
       "title": "Button",
-      "status": "Status",
-      "connected": "Connected",
-      "connecting": "Connecting…",
-      "waiting": "Waiting for button",
-      "bridgeNotRunning": "Bridge not running",
+      "bridgeLabel": "Bridge",
+      "appLabel": "App",
+      "usbLabel": "USB button",
+      "bridge": {
+        "checking": "Checking…",
+        "running": "Running",
+        "notRunning": "Not running",
+        "error": "Error"
+      },
+      "app": {
+        "disconnected": "Disconnected",
+        "connecting": "Connecting…",
+        "connected": "Connected",
+        "error": "Error",
+        "unavailable": "—"
+      },
+      "usb": {
+        "connected": "Connected",
+        "notDetected": "Not detected",
+        "unavailable": "—"
+      },
       "bridgeNotRunningHint": "Start the button bridge on this Mac (see button/bridge/README.md).",
-      "error": "Error",
-      "unsupported": "WebSocket is not available in this browser"
+      "usbNotDetectedHint": "Plug in the installation button via USB. The bridge will reconnect automatically."
     }
   },
   "settings": "Settings",
