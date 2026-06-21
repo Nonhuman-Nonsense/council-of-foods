@@ -18,20 +18,16 @@
     "alwaysOn": "Always On",
     "pushToTalk": "Push to Talk",
     "holdToSpeak": "Push the button to speak",
-    "serial": {
-      "title": "Talk button",
-      "connect": "Connect talk button",
-      "disconnect": "Disconnect",
-      "status": "Serial status",
-      "lastEvent": "Last event",
-      "unsupported": "Web Serial is not available in this browser",
+    "button": {
+      "title": "Button",
+      "status": "Status",
       "connected": "Connected",
       "connecting": "Connecting…",
-      "reconnecting": "Reconnecting…",
-      "reconnectingHint": "Waiting for the talk button. This should happen automatically after unplugging the cable.",
-      "reconnectHint": "Plug in the talk button — it will connect automatically.",
-      "disconnected": "Disconnected",
-      "error": "Error"
+      "waiting": "Waiting for button",
+      "bridgeNotRunning": "Bridge not running",
+      "bridgeNotRunningHint": "Start the button bridge on this Mac (see button/bridge/README.md).",
+      "error": "Error",
+      "unsupported": "WebSocket is not available in this browser"
     }
   },
   "settings": "Settings",
@@ -74,7 +70,7 @@
   "human": {
     "1": "Type your question or start recording...",
     "panelist": "What does {{name}} have to say about this?",
-    "ptt_museum": "Press and hold the button to talk, release to submit"
+    "button_museum": "Press and hold the button to talk, release to submit"
   },
   "completed": {
     "title": "Is that it?",

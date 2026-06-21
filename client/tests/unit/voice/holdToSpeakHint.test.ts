@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   computeShowHoldToSpeakHint,
-  PTT_IDLE_REMIND_MS,
+  BUTTON_IDLE_REMIND_MS,
   shouldShowIdleRemind,
 } from "@voice/useHoldToSpeakHint";
 
@@ -45,11 +45,11 @@ describe("computeShowHoldToSpeakHint", () => {
 
 describe("shouldShowIdleRemind", () => {
   it("does not remind before the first PTT", () => {
-    expect(shouldShowIdleRemind(false, 0, PTT_IDLE_REMIND_MS)).toBe(false);
+    expect(shouldShowIdleRemind(false, 0, BUTTON_IDLE_REMIND_MS)).toBe(false);
   });
 
   it("reminds after the idle window", () => {
-    expect(shouldShowIdleRemind(true, 0, PTT_IDLE_REMIND_MS)).toBe(true);
-    expect(shouldShowIdleRemind(true, 0, PTT_IDLE_REMIND_MS - 1)).toBe(false);
+    expect(shouldShowIdleRemind(true, 0, BUTTON_IDLE_REMIND_MS)).toBe(true);
+    expect(shouldShowIdleRemind(true, 0, BUTTON_IDLE_REMIND_MS - 1)).toBe(false);
   });
 });

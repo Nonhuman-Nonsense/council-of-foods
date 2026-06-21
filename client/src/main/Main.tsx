@@ -26,7 +26,7 @@ import { useAppMode } from "@/museum/useAppMode";
 import { usePortrait, dvh } from "@/utils";
 import CouncilError from "./overlay/CouncilError";
 import Reconnecting from "./overlay/Reconnecting";
-import { useTalkButtonService } from "@/museum/talkButton/useTalkButtonService";
+import { useButtonService } from "@/museum/button/useButtonService";
 
 import routes from "@/routes.json";
 import { backgroundImageUrls } from "@assets/backgrounds/index";
@@ -126,7 +126,7 @@ export default function Main(props: MainProps) {
     }
   }, [location.pathname]);
 
-  useTalkButtonService();
+  useButtonService();
 
   // Centralize Web Audio suspension here so Council and future scene components can share one
   // AudioContext without each feature trying to suspend/resume it independently.

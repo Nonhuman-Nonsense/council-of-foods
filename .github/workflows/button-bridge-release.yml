@@ -1,0 +1,58 @@
+name: Button Bridge Release
+
+on:
+  push:
+    tags:
+      - "button-bridge-v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version (e.g. 1.0.1 — without button-bridge-v prefix)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build macOS arm64 tarball
+    runs-on: macos-14
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve version
+        id: meta
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            VERSION="${{ inputs.version }}"
+            TAG="button-bridge-v${VERSION}"
+          else
+            TAG="${GITHUB_REF#refs/tags/}"
+            VERSION="${TAG#button-bridge-v}"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: button/bridge/package-lock.json
+
+      - name: Stage release bundle
+        run: |
+          chmod +x button/bridge/scripts/stage-release-bundle.sh
+          OUTPUT_DIR="$GITHUB_WORKSPACE/release" \
+            button/bridge/scripts/stage-release-bundle.sh "${{ steps.meta.outputs.version }}"
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.meta.outputs.tag }}
+          name: Council Button Bridge ${{ steps.meta.outputs.version }} (macOS arm64)
+          generate_release_notes: true
+          files: |
+            release/council-button-bridge-macos-arm64-${{ steps.meta.outputs.version }}.tar.gz

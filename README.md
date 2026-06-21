@@ -29,7 +29,7 @@ Council of Foods is part of [The Hungry EcoCities project](https://starts.eu/hun
 
 # Developer instructions
 
-The app has two parts, the client and the server.
+The app has three parts: the client, the server, and (for museum installs) the talk-button stack in [`button/`](button/).
 
 The client is built on React, and the server on Node.js. They communicate via a Socket.io websocket.
 
