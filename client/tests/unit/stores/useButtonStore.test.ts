@@ -4,6 +4,7 @@ import { _resetButtonStoreForTests, useButtonStore } from "@stores/useButtonStor
 const transport = vi.hoisted(() => ({
   callbacks: null as {
     onStatus?: (status: string, error?: string | null) => void;
+    onSerialDeviceChange?: (connected: boolean) => void;
     onLine?: (event: { type: string }) => void;
   } | null,
   connect: vi.fn().mockResolvedValue(true),
@@ -13,12 +14,14 @@ const transport = vi.hoisted(() => ({
   setLedMode: vi.fn().mockResolvedValue(undefined),
   getStatus: vi.fn().mockReturnValue("disconnected"),
   isSessionHealthy: vi.fn().mockReturnValue(false),
+  isSerialDeviceConnected: vi.fn().mockReturnValue(true),
 }));
 
 vi.mock("@/button/transport", () => ({
   ButtonTransport: class MockButtonTransport {
     constructor(callbacks: {
       onStatus?: (status: string, error?: string | null) => void;
+      onSerialDeviceChange?: (connected: boolean) => void;
       onLine?: (event: { type: string }) => void;
     }) {
       transport.callbacks = callbacks;
@@ -31,6 +34,7 @@ vi.mock("@/button/transport", () => ({
     setLedMode = transport.setLedMode;
     getStatus = transport.getStatus;
     isSessionHealthy = transport.isSessionHealthy;
+    isSerialDeviceConnected = transport.isSerialDeviceConnected;
   },
 }));
 
@@ -91,5 +95,42 @@ describe("useButtonStore", () => {
   it("connects through transport", async () => {
     await useButtonStore.getState().connect();
     expect(transport.connect).toHaveBeenCalled();
+  });
+
+  it("does not send LED commands when usb serial is disconnected", async () => {
+    transport.isSerialDeviceConnected.mockReturnValue(false);
+    useButtonStore.setState({ bridgeStatus: "connected", serialDeviceConnected: false });
+    await useButtonStore.getState().setLedMode("pulse");
+    expect(useButtonStore.getState().ledMode).toBe("pulse");
+    expect(transport.setLedMode).not.toHaveBeenCalled();
+  });
+
+  it("resyncs LED when usb serial connects", async () => {
+    useButtonStore.setState({
+      bridgeStatus: "connected",
+      ledMode: "pulse",
+      serialDeviceConnected: false,
+    });
+    transport.isSerialDeviceConnected.mockReturnValue(true);
+    transport.setLedMode.mockClear();
+
+    transport.callbacks?.onSerialDeviceChange?.(true);
+
+    await Promise.resolve();
+    expect(useButtonStore.getState().serialDeviceConnected).toBe(true);
+    expect(transport.setLedMode).toHaveBeenCalledWith("pulse");
+  });
+
+  it("clears pressed state when usb serial disconnects", () => {
+    useButtonStore.setState({
+      pressed: true,
+      rawPressed: true,
+      bridgeStatus: "connected",
+      serialDeviceConnected: true,
+    });
+    transport.callbacks?.onSerialDeviceChange?.(false);
+    expect(useButtonStore.getState().pressed).toBe(false);
+    expect(useButtonStore.getState().rawPressed).toBe(false);
+    expect(useButtonStore.getState().serialDeviceConnected).toBe(false);
   });
 });

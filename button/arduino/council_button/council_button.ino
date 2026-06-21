@@ -7,6 +7,7 @@
  *
  * Serial protocol (115200 baud, newline-terminated):
  *   Device → host: BUTTON_DOWN, BUTTON_UP, PONG
+ *   On host serial connect: one BUTTON_DOWN or BUTTON_UP to sync physical state
  *   Host → device: LED_OFF, LED_PULSE, LED_ON, PING
  *
  * LED modes (from host — visual only; host decides what to do with presses):
@@ -154,6 +155,11 @@ void updateHostConnection() {
 
   if (hostConnected) {
     setHostLedMode(LED_MODE_OFF);
+    if (lastStableMergedPressed) {
+      sendLine(F("BUTTON_DOWN"));
+    } else {
+      sendLine(F("BUTTON_UP"));
+    }
   } else {
     hostLedMode = LED_MODE_OFF;
     connectingAnimIndex = 0;

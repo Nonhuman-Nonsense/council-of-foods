@@ -13,6 +13,7 @@ export type ButtonTransportStatus = "disconnected" | "connecting" | "connected" 
 
 export type ButtonTransportCallbacks = {
   onStatus?: (status: ButtonTransportStatus, error?: string | null) => void;
+  onSerialDeviceChange?: (connected: boolean) => void;
   onLine?: (event: ParsedButtonLine) => void;
   onRawLine?: (line: string) => void;
 };
@@ -49,6 +50,8 @@ export class ButtonTransport {
   private serialDeviceConnected = false;
   private completeConnectTask: Promise<boolean> | null = null;
   private writeChain: Promise<void> = Promise.resolve();
+  private resolveFirstStatus: (() => void) | null = null;
+  private firstStatusPromise: Promise<void> | null = null;
 
   constructor(callbacks: ButtonTransportCallbacks = {}) {
     this.callbacks = callbacks;
@@ -89,6 +92,23 @@ export class ButtonTransport {
     }
   }
 
+  private beginAwaitingFirstStatus(): void {
+    this.firstStatusPromise = new Promise((resolve) => {
+      this.resolveFirstStatus = resolve;
+    });
+  }
+
+  private notifyFirstStatus(): void {
+    this.resolveFirstStatus?.();
+    this.resolveFirstStatus = null;
+    this.firstStatusPromise = null;
+  }
+
+  private clearFirstStatusWait(): void {
+    this.resolveFirstStatus = null;
+    this.firstStatusPromise = null;
+  }
+
   private scheduleReconnect(): void {
     if (!this.autoReconnect || this.reconnectTimer) return;
     const delay = Math.min(RECONNECT_BASE_MS * 2 ** this.reconnectAttempt, RECONNECT_MAX_MS);
@@ -122,9 +142,11 @@ export class ButtonTransport {
       return;
     }
     if (message.type === "status") {
+      const wasSerialConnected = this.serialDeviceConnected;
       this.serialDeviceConnected = message.state === "connected";
-      if (this.status === "connecting") {
-        void this.completeBridgeConnect();
+      this.notifyFirstStatus();
+      if (this.serialDeviceConnected !== wasSerialConnected) {
+        this.callbacks.onSerialDeviceChange?.(this.serialDeviceConnected);
       }
       return;
     }
@@ -180,6 +202,8 @@ export class ButtonTransport {
     this.cancelReconnect();
     this.closeSocket();
     this.serialDeviceConnected = false;
+    this.clearFirstStatusWait();
+    this.beginAwaitingFirstStatus();
     this.setStatus("connecting");
 
     if (typeof WebSocket === "undefined") {
@@ -239,19 +263,28 @@ export class ButtonTransport {
         // reconnect handled on close
       };
 
-      const connected = await Promise.race<boolean>([
-        this.completeBridgeConnect(),
-        new Promise<boolean>((resolve) => {
-          setTimeout(() => resolve(false), CONNECT_TIMEOUT_MS);
-        }),
-      ]);
+      try {
+        await Promise.race([
+          this.firstStatusPromise ?? Promise.resolve(),
+          new Promise<void>((_, reject) => {
+            setTimeout(() => reject(new Error("Bridge status timed out")), CONNECT_TIMEOUT_MS);
+          }),
+        ]);
+      } catch {
+        this.setStatus("error", "Bridge status timed out");
+        this.closeSocket();
+        this.scheduleReconnect();
+        return false;
+      }
+
+      const connected = await this.completeBridgeConnect();
 
       if (connected) {
         return true;
       }
 
       if (this.status === "connecting") {
-        this.setStatus("error", "Bridge handshake timed out");
+        this.setStatus("error", "Bridge handshake failed");
         this.closeSocket();
         this.scheduleReconnect();
       }
@@ -272,11 +305,15 @@ export class ButtonTransport {
     this.cancelReconnect();
     this.reconnectAttempt = 0;
     this.serialDeviceConnected = false;
+    this.clearFirstStatusWait();
     this.setStatus("disconnected");
     this.closeSocket();
   }
 
   async sendCommand(command: string): Promise<void> {
+    if (!this.serialDeviceConnected) {
+      return;
+    }
     await this.enqueueWrite(async () => {
       this.sendJson({ type: "write", line: command });
     });

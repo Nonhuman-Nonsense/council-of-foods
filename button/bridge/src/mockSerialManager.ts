@@ -33,6 +33,11 @@ export class MockSerialManager extends EventEmitter {
     console.log("[button-bridge/mock] starting mock serial device");
     this.openPath = "mock";
     this.emit("open", { path: "mock" });
+    queueMicrotask(() => {
+      if (!this.stopped && this.isOpen()) {
+        this.emit("line", { text: BUTTON_UP });
+      }
+    });
   }
 
   async stop(): Promise<void> {

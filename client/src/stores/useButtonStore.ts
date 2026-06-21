@@ -11,6 +11,7 @@ type ButtonStore = {
   buttonInputEnabled: boolean;
   bridgeStatus: ButtonTransportStatus;
   bridgeError: string | null;
+  serialDeviceConnected: boolean;
   keyboardActive: boolean;
   bridgeAvailable: boolean;
 
@@ -57,6 +58,16 @@ function getTransport(
         set(updates);
 
         if (status === "connected") {
+          void get().resyncLed();
+        }
+      },
+      onSerialDeviceChange: (connected) => {
+        set({ serialDeviceConnected: connected });
+        if (!connected) {
+          set({ pressed: false, rawPressed: false });
+          return;
+        }
+        if (get().bridgeStatus === "connected") {
           void get().resyncLed();
         }
       },
@@ -120,6 +131,7 @@ export const useButtonStore = create<ButtonStore>((set, get) => ({
   buttonInputEnabled: false,
   bridgeStatus: "disconnected",
   bridgeError: null,
+  serialDeviceConnected: false,
   keyboardActive: false,
   bridgeAvailable: isButtonBridgeAvailable(),
 
@@ -168,11 +180,17 @@ export const useButtonStore = create<ButtonStore>((set, get) => ({
     if (get().bridgeStatus !== "connected") {
       return;
     }
+    if (!getTransport(set, get).isSerialDeviceConnected()) {
+      return;
+    }
     await getTransport(set, get).setLedMode(mode);
   },
 
   resyncLed: async () => {
     if (get().bridgeStatus !== "connected") {
+      return;
+    }
+    if (!getTransport(set, get).isSerialDeviceConnected()) {
       return;
     }
     const { ledMode } = get();
@@ -204,6 +222,7 @@ export function _resetButtonStoreForTests(): void {
     buttonInputEnabled: false,
     bridgeStatus: "disconnected",
     bridgeError: null,
+    serialDeviceConnected: false,
     keyboardActive: false,
     bridgeAvailable: isButtonBridgeAvailable(),
   });

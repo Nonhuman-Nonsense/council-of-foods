@@ -20,7 +20,7 @@ function installBridgeUrlOverride(wsUrl: string): void {
   });
 }
 
-describe("button e2e (mock → bridge → client)", () => {
+describe.sequential("button e2e (mock → bridge → client)", () => {
   let bridge: TestBridge;
 
   beforeEach(async () => {
@@ -56,7 +56,7 @@ describe("button e2e (mock → bridge → client)", () => {
     expect(transport.getStatus()).toBe("connected");
     expect(statuses).toContain("connecting");
     expect(statuses).toContain("connected");
-    expect(bridge.getWrittenLines()).toContain("PING");
+    await waitForWrittenLine(bridge, "PING");
 
     await transport.disconnect();
   });

@@ -161,6 +161,69 @@ describe("ButtonTransport", () => {
     expect(sent).toContain(JSON.stringify({ type: "write", line: "LED_OFF" }));
   });
 
+  it("does not send LED commands when usb serial is disconnected", async () => {
+    class MockWebSocketNoSerial {
+      static instances: MockWebSocketNoSerial[] = [];
+      static OPEN = 1;
+      static CONNECTING = 0;
+
+      readyState = MockWebSocketNoSerial.CONNECTING;
+      onopen: (() => void) | null = null;
+      onmessage: MessageHandler | null = null;
+      onerror: (() => void) | null = null;
+      onclose: CloseHandler | null = null;
+      sent: string[] = [];
+
+      constructor(public url: string) {
+        MockWebSocketNoSerial.instances.push(this);
+        queueMicrotask(() => {
+          this.readyState = MockWebSocketNoSerial.OPEN;
+          this.onopen?.();
+          this.onmessage?.({ data: JSON.stringify({ type: "info", version: "test" }) });
+          this.onmessage?.({
+            data: JSON.stringify({ type: "status", state: "disconnected" }),
+          });
+        });
+      }
+
+      send(data: string): void {
+        this.sent.push(data);
+      }
+
+      close(): void {
+        this.readyState = 3;
+      }
+    }
+
+    vi.stubGlobal("WebSocket", MockWebSocketNoSerial);
+
+    const { ButtonTransport } = await import("@/button/transport");
+    const transport = new ButtonTransport();
+    await transport.connect();
+
+    await transport.setLedMode("pulse");
+
+    expect(MockWebSocketNoSerial.instances[0]?.sent).not.toContain(
+      JSON.stringify({ type: "write", line: "LED_PULSE" }),
+    );
+  });
+
+  it("notifies when usb serial connects after websocket session is up", async () => {
+    const serialChanges: boolean[] = [];
+    const { ButtonTransport } = await import("@/button/transport");
+    const transport = new ButtonTransport({
+      onSerialDeviceChange: (connected) => serialChanges.push(connected),
+    });
+
+    await transport.connect();
+    expect(serialChanges).toEqual([true]);
+
+    MockWebSocket.instances[0]?.emit({ type: "status", state: "disconnected" });
+    MockWebSocket.instances[0]?.emit({ type: "status", state: "connected", path: "mock" });
+
+    expect(serialChanges).toEqual([true, false, true]);
+  });
+
   it("disconnect stops auto-reconnect and clears status", async () => {
     const statuses: string[] = [];
     const { ButtonTransport } = await import("@/button/transport");
