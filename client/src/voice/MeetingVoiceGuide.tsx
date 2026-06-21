@@ -12,7 +12,11 @@ import {
   type MeetingSetupUserEvent,
 } from "@newMeeting/meetingSetup";
 import { useMeetingSetupStore } from "@stores/useMeetingSetupStore";
-import { useButtonStore } from "@stores/useButtonStore";
+import {
+  useMuseumButtonBridgeStatus,
+  useMuseumButtonSelector,
+  useMuseumButtonSetLedMode,
+} from "@/museum/button/useMuseumButtonStore";
 import { useAppMode } from "@/museum/useAppMode";
 import { getPushToTalk } from "@/settings/councilSettings";
 import { buildGuidePrompt } from "./guidePrompt";
@@ -43,9 +47,10 @@ export default function MeetingVoiceGuide({
   const { i18n, t } = useTranslation();
   const { isMuseumMode } = useAppMode();
   const pushToTalkMode = getPushToTalk();
-  const pressed = useButtonStore((state) => state.pressed);
-  const bridgeStatus = useButtonStore((state) => state.bridgeStatus);
-  const setLedMode = useButtonStore((state) => state.setLedMode);
+  const museumButtonActive = isMuseumMode && pushToTalkMode;
+  const pressed = useMuseumButtonSelector(museumButtonActive, (state) => state.pressed, false);
+  const bridgeStatus = useMuseumButtonBridgeStatus(museumButtonActive);
+  const setLedMode = useMuseumButtonSetLedMode(museumButtonActive);
   const {
     selectedTopic,
     customTopic,

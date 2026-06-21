@@ -3,7 +3,7 @@ import {
   type PushToTalkChangeDetail,
 } from "@/settings/councilSettings";
 import { useButtonStore } from "@stores/useButtonStore";
-import { shouldAutoConnectButton } from "./buttonPolicy";
+import { isMuseumButtonBridgeActive } from "./buttonPolicy";
 
 const WATCHDOG_INTERVAL_MS = 2_500;
 
@@ -36,7 +36,7 @@ function createButtonService(): ButtonService {
   }
 
   async function runSync(_reason: string): Promise<void> {
-    if (!running || paused || !shouldAutoConnectButton()) {
+    if (!running || paused || !isMuseumButtonBridgeActive()) {
       return;
     }
     useButtonStore.getState().enableAutoReconnect();
@@ -46,7 +46,7 @@ function createButtonService(): ButtonService {
   async function tick(): Promise<void> {
     const { bridgeStatus } = useButtonStore.getState();
 
-    if (!running || paused || !shouldAutoConnectButton()) {
+    if (!running || paused || !isMuseumButtonBridgeActive()) {
       return;
     }
     if (bridgeStatus === "connected" || bridgeStatus === "connecting") {
