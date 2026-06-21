@@ -3,7 +3,6 @@ import {
   BUTTON_DOWN,
   BUTTON_UP,
   HELLO_COUNCIL,
-  PONG,
   READY_COUNCIL_BUTTON,
 } from "../../../shared/buttonProtocol.js";
 import type { SerialDiagnostics } from "./serialDiagnostics.js";
@@ -14,7 +13,7 @@ import {
 
 /**
  * Simulates an Arduino when no USB device is available.
- * Responds to PING with PONG and accepts LED commands silently.
+ * Responds to HELLO_COUNCIL and accepts LED commands silently.
  */
 export class MockSerialManager extends EventEmitter {
   private openPath: string | null = null;
@@ -104,13 +103,6 @@ export class MockSerialManager extends EventEmitter {
       queueMicrotask(() => {
         if (!this.stopped && this.isOpen()) {
           this.emit("line", { text: READY_COUNCIL_BUTTON });
-        }
-      });
-    }
-    if (line === "PING") {
-      queueMicrotask(() => {
-        if (!this.stopped && this.isOpen()) {
-          this.emit("line", { text: PONG });
         }
       });
     }

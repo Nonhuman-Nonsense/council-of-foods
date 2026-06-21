@@ -38,6 +38,39 @@ function parseServerMessage(raw: string): BridgeServerMessage | null {
   return null;
 }
 
+function waitForSocketOpen(socket: WebSocket, timeoutMs: number): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (socket.readyState === WebSocket.OPEN) {
+      resolve();
+      return;
+    }
+
+    let settled = false;
+    const finish = (next: () => void) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      next();
+    };
+
+    const timeout = setTimeout(() => {
+      finish(() => reject(new Error("Bridge connection timed out")));
+    }, timeoutMs);
+
+    const prevOpen = socket.onopen;
+    const prevError = socket.onerror;
+
+    socket.onopen = (event) => {
+      prevOpen?.call(socket, event);
+      finish(resolve);
+    };
+    socket.onerror = (event) => {
+      prevError?.call(socket, event);
+      finish(() => reject(new Error("Bridge WebSocket error")));
+    };
+  });
+}
+
 export class ButtonTransport {
   private ws: WebSocket | null = null;
   private callbacks: ButtonTransportCallbacks;
@@ -48,7 +81,7 @@ export class ButtonTransport {
   private serialDeviceConnected = false;
   private writeChain: Promise<void> = Promise.resolve();
   private connectInFlight: Promise<boolean> | null = null;
-  private pendingStatusAck: (() => void) | null = null;
+  private statusWaiter: { socket: WebSocket; resolve: () => void } | null = null;
 
   constructor(callbacks: ButtonTransportCallbacks = {}) {
     this.callbacks = callbacks;
@@ -88,18 +121,19 @@ export class ButtonTransport {
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;
       if (this.isSessionHealthy()) return;
-      void this.connect();
+      void this.connect().catch(() => {});
     }, delay);
   }
 
-  private clearPendingStatusAck(): void {
-    this.pendingStatusAck = null;
+  private clearStatusWaiter(): void {
+    this.statusWaiter = null;
   }
 
-  private acknowledgeBridgeStatus(): void {
-    const ack = this.pendingStatusAck;
-    this.pendingStatusAck = null;
-    ack?.();
+  private resolveStatusWaiter(socket: WebSocket): void {
+    if (this.statusWaiter?.socket !== socket) return;
+    const resolve = this.statusWaiter.resolve;
+    this.statusWaiter = null;
+    resolve();
   }
 
   private applySerialStatus(connected: boolean): void {
@@ -120,7 +154,9 @@ export class ButtonTransport {
   private closeSocket(): void {
     const socket = this.ws;
     this.ws = null;
-    this.clearPendingStatusAck();
+    if (this.statusWaiter?.socket === socket) {
+      this.clearStatusWaiter();
+    }
     if (!socket) return;
     this.detachSocket(socket);
     if (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING) {
@@ -128,41 +164,26 @@ export class ButtonTransport {
     }
   }
 
-  private handleSocketClose(reason: string): void {
-    if (this.status === "error") {
-      this.ws = null;
-      this.serialDeviceConnected = false;
-      this.clearPendingStatusAck();
-      return;
-    }
+  private handleEstablishedSocketClose(socket: WebSocket, reason: string): void {
+    if (this.ws !== socket || this.status !== "connected") return;
 
-    const wasConnected = this.status === "connected";
     this.serialDeviceConnected = false;
     this.ws = null;
-    this.clearPendingStatusAck();
-
-    if (wasConnected) {
-      this.setStatus("disconnected", reason);
-      if (this.autoReconnect) {
-        this.reconnectAttempt += 1;
-        this.scheduleReconnect();
-      }
-      return;
-    }
-
-    if (this.status !== "connecting") {
-      this.setStatus("disconnected", reason);
+    this.setStatus("disconnected", reason);
+    if (this.autoReconnect) {
+      this.reconnectAttempt += 1;
+      this.scheduleReconnect();
     }
   }
 
-  private handleServerMessage(message: BridgeServerMessage): void {
+  private handleServerMessage(socket: WebSocket, message: BridgeServerMessage): void {
     if (message.type === "info") {
       return;
     }
 
     if (message.type === "status") {
       this.applySerialStatus(message.state === "connected");
-      this.acknowledgeBridgeStatus();
+      this.resolveStatusWaiter(socket);
       return;
     }
 
@@ -179,6 +200,26 @@ export class ButtonTransport {
     this.ws.send(JSON.stringify(payload));
   }
 
+  private failConnect(socket: WebSocket, message: string): false {
+    this.detachSocket(socket);
+    if (this.ws === socket) {
+      this.ws = null;
+    }
+    if (this.statusWaiter?.socket === socket) {
+      this.clearStatusWaiter();
+    }
+    if (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING) {
+      socket.close();
+    }
+    this.serialDeviceConnected = false;
+    this.setStatus("disconnected", message);
+    this.reconnectAttempt += 1;
+    if (this.autoReconnect) {
+      this.scheduleReconnect();
+    }
+    return false;
+  }
+
   private async runConnect(): Promise<boolean> {
     this.cancelReconnect();
     this.closeSocket();
@@ -192,70 +233,58 @@ export class ButtonTransport {
 
     const socket = new WebSocket(getButtonBridgeWsUrl());
     this.ws = socket;
+    let bridgeStatusSeen = false;
+
+    const statusWait = new Promise<void>((resolve) => {
+      this.statusWaiter = {
+        socket,
+        resolve: () => {
+          bridgeStatusSeen = true;
+          resolve();
+        },
+      };
+    });
 
     socket.onmessage = (event) => {
       const raw = typeof event.data === "string" ? event.data : String(event.data);
       const message = parseServerMessage(raw);
       if (message) {
-        this.handleServerMessage(message);
+        this.handleServerMessage(socket, message);
       }
     };
 
     socket.onclose = (event) => {
       this.detachSocket(socket);
-      this.handleSocketClose(event.reason || "bridge closed");
+      this.handleEstablishedSocketClose(socket, event.reason || "bridge closed");
     };
-
-    socket.onerror = () => {
-      // close handler reports the failure
-    };
-
-    const statusPromise = new Promise<void>((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        if (this.pendingStatusAck) {
-          this.pendingStatusAck = null;
-          reject(new Error("Bridge status timed out"));
-        }
-      }, CONNECT_TIMEOUT_MS);
-      this.pendingStatusAck = () => {
-        clearTimeout(timeout);
-        resolve();
-      };
-    });
 
     try {
-      await Promise.race([
-        new Promise<void>((resolve, reject) => {
-          socket.onopen = () => resolve();
-          socket.onerror = () => reject(new Error("Bridge WebSocket error"));
-        }),
-        new Promise<void>((_, reject) => {
-          setTimeout(() => reject(new Error("Bridge connection timed out")), CONNECT_TIMEOUT_MS);
-        }),
-      ]);
-
-      await statusPromise;
+      await waitForSocketOpen(socket, CONNECT_TIMEOUT_MS);
 
       if (this.ws !== socket || socket.readyState !== WebSocket.OPEN) {
-        return false;
+        return this.failConnect(socket, "connection lost");
       }
 
+      if (!bridgeStatusSeen) {
+        await Promise.race([
+          statusWait,
+          new Promise<void>((_, reject) => {
+            setTimeout(() => reject(new Error("Bridge status timed out")), CONNECT_TIMEOUT_MS);
+          }),
+        ]);
+      }
+
+      if (this.ws !== socket || socket.readyState !== WebSocket.OPEN) {
+        return this.failConnect(socket, "connection lost");
+      }
+
+      this.clearStatusWaiter();
       this.reconnectAttempt = 0;
       this.setStatus("connected");
       return true;
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Failed to connect to bridge";
-      this.detachSocket(socket);
-      if (this.ws === socket) {
-        this.ws = null;
-      }
-      if (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING) {
-        socket.close();
-      }
-      this.setStatus("error", msg);
-      this.reconnectAttempt += 1;
-      this.scheduleReconnect();
-      return false;
+      return this.failConnect(socket, msg);
     }
   }
 

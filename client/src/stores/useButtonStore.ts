@@ -72,9 +72,6 @@ function getTransport(
         }
       },
       onLine: (event) => {
-        if (event.type === "pong") {
-          return;
-        }
         if (event.type === "button_down") {
           set({ rawPressed: true });
         } else if (event.type === "button_up") {
@@ -159,7 +156,11 @@ export const useButtonStore = create<ButtonStore>((set, get) => ({
 
   reconnectIfStale: async () => {
     const transport = getTransport(set, get);
-    if (get().bridgeStatus === "connected" && !transport.isSessionHealthy()) {
+    if (transport.isSessionHealthy()) {
+      return;
+    }
+    const { bridgeStatus } = get();
+    if (bridgeStatus === "connected" || bridgeStatus === "connecting") {
       await transport.connect();
     }
   },

@@ -65,9 +65,7 @@ describe("ButtonTransport", () => {
     expect(transport.isSerialDeviceConnected()).toBe(true);
     expect(statuses).toContain("connecting");
     expect(statuses).toContain("connected");
-    expect(MockWebSocket.instances[0]?.sent).not.toContain(
-      JSON.stringify({ type: "write", line: "PING" }),
-    );
+    expect(MockWebSocket.instances[0]?.sent).toHaveLength(0);
   });
 
   it("connects when bridge is up but usb serial is disconnected", async () => {
@@ -118,9 +116,7 @@ describe("ButtonTransport", () => {
     expect(transport.getStatus()).toBe("connected");
     expect(transport.isSerialDeviceConnected()).toBe(false);
     expect(statuses).toContain("connected");
-    expect(MockWebSocketNoSerial.instances[0]?.sent).not.toContain(
-      JSON.stringify({ type: "write", line: "PING" }),
-    );
+    expect(MockWebSocketNoSerial.instances[0]?.sent).toHaveLength(0);
   });
 
   it("forwards button lines to callbacks", async () => {
@@ -217,6 +213,52 @@ describe("ButtonTransport", () => {
     MockWebSocket.instances[0]?.emit({ type: "status", state: "connected", path: "mock" });
 
     expect(serialChanges).toEqual([true, false, true]);
+  });
+
+  it("recovers from failed connect without staying on connecting", async () => {
+    class FailingWebSocket {
+      static instances: FailingWebSocket[] = [];
+      static CONNECTING = 0;
+      static CLOSED = 3;
+
+      readyState = FailingWebSocket.CONNECTING;
+      onopen: (() => void) | null = null;
+      onmessage: MessageHandler | null = null;
+      onerror: (() => void) | null = null;
+      onclose: CloseHandler | null = null;
+      sent: string[] = [];
+
+      constructor(public url: string) {
+        FailingWebSocket.instances.push(this);
+        queueMicrotask(() => {
+          this.readyState = FailingWebSocket.CLOSED;
+          this.onerror?.();
+          this.onclose?.({ code: 1006, reason: "" });
+        });
+      }
+
+      send(data: string): void {
+        this.sent.push(data);
+      }
+
+      close(): void {
+        this.readyState = FailingWebSocket.CLOSED;
+      }
+    }
+
+    vi.stubGlobal("WebSocket", FailingWebSocket);
+
+    const statuses: string[] = [];
+    const { ButtonTransport } = await import("@/button/transport");
+    const transport = new ButtonTransport({
+      onStatus: (status) => statuses.push(status),
+    });
+
+    const connected = await transport.connect();
+    expect(connected).toBe(false);
+    expect(transport.getStatus()).toBe("disconnected");
+    expect(statuses).toContain("connecting");
+    expect(statuses).toContain("disconnected");
   });
 
   it("disconnect stops auto-reconnect and clears status", async () => {

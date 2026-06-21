@@ -12,7 +12,7 @@ Arduino ──USB──► bridge ──ws://127.0.0.1:8765/v1/button──► C
 cd button/bridge
 npm install
 npm run dev          # real USB device
-npm run dev:mock     # no hardware — simulates PONG etc.
+npm run dev:mock     # no hardware — simulates mock USB device
 ```
 
 Dev mode is **foreground only** — `Ctrl+C` stops it and frees the port. If you get `EADDRINUSE`, a previous instance is still running:

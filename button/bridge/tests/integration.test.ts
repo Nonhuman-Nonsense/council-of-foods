@@ -58,7 +58,7 @@ describe("bridge integration", () => {
     expect(response.ok).toBe(true);
   });
 
-  it("completes websocket PING/PONG handshake", async () => {
+  it("completes websocket HELLO_COUNCIL roundtrip", async () => {
     await new Promise<void>((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error("websocket handshake timed out")), 10_000);
       const socket = new WebSocket(bridge.wsUrl);
@@ -66,9 +66,9 @@ describe("bridge integration", () => {
       socket.on("message", (data) => {
         const message = JSON.parse(String(data));
         if (message.type === "status" && message.state === "connected") {
-          socket.send(JSON.stringify({ type: "write", line: "PING" }));
+          socket.send(JSON.stringify({ type: "write", line: "HELLO_COUNCIL" }));
         }
-        if (message.type === "line" && message.text === "PONG") {
+        if (message.type === "line" && message.text === "READY council-button") {
           clearTimeout(timeout);
           socket.close();
           resolve();
