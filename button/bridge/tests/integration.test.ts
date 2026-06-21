@@ -45,6 +45,17 @@ describe("bridge integration", () => {
     expect(response.headers.get("Access-Control-Allow-Origin")).toBe("http://localhost:5173");
   });
 
+  it("allows CORS from deployed museum origins", async () => {
+    const response = await fetch(bridge.healthUrl, {
+      headers: { Origin: "https://test.council-of-forest.com" },
+    });
+
+    expect(response.headers.get("Access-Control-Allow-Origin")).toBe(
+      "https://test.council-of-forest.com",
+    );
+    expect(response.ok).toBe(true);
+  });
+
   it("completes websocket PING/PONG handshake", async () => {
     await new Promise<void>((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error("websocket handshake timed out")), 10_000);
