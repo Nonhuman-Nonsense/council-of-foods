@@ -4,7 +4,7 @@ import { MemoryRouter, Route, Routes, useParams } from 'react-router';
 import Main from '@main/Main';
 import SelectCharacters from '@newMeeting/SelectCharacters';
 import i18n from '@/i18n';
-import { useMeetingSetupStore } from '@stores/useMeetingSetupStore';
+import { useMeetingSetupStore } from '@newMeeting/meetingSetupStore';
 import { getTopicsBundle } from '@main/topicsBundle';
 import { getCharacterSetupBundle } from '@newMeeting/CharacterSetup';
 import { MockFactory } from '../../unit/factories/MockFactory';
