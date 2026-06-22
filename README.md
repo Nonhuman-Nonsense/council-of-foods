@@ -14,7 +14,7 @@ The project (the code in this repo) is live on [council-of-foods.com](https://co
 
 ## Who made this?
 
-<a href="https://nonhuman-nonsense.com/"><img src="https://github.com/Nonhuman-Nonsense/council-of-foods/blob/main/nonhuman_nonsense_logo.gif?raw=true" width="120" /></a>
+<a href="https://nonhuman-nonsense.com/"><img src="https://github.com/Nonhuman-Nonsense/council-of-foods/blob/main/logo_nonhuman_nonsense.gif?raw=true" width="120" /></a>
 
 The project is an initiative by art & design collective [Nonhuman Nonsense](https://nonhuman-nonsense.com/) developed in collaboration with [Studio Other Spaces](https://studiootherspaces.net/), [In4Art](https://www.in4art.eu/), [Elliot Cost](https://elliott.computer/), [Albin Karlsson](https://www.polymorf.se/) and others.
 
