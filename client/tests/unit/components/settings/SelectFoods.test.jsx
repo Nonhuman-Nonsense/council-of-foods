@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import SelectCharacters from '@newMeeting/SelectCharacters';
 import { characterSetupEn } from '../../../characterSetupTestData';
-import { useMeetingSetupStore } from '@stores/useMeetingSetupStore';
+import { useMeetingSetupStore } from '@newMeeting/meetingSetupStore';
 
 // Mock dependencies
 vi.mock('react-i18next', () => ({

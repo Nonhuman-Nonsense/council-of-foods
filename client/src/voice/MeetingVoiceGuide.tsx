@@ -11,15 +11,15 @@ import {
   type MeetingSetupPhase,
   type MeetingSetupUserEvent,
 } from "@newMeeting/meetingSetup";
-import { useMeetingSetupStore } from "@stores/useMeetingSetupStore";
-import { usePushToTalkStore } from "@stores/usePushToTalkStore";
+import { useMeetingSetupStore } from "@newMeeting/meetingSetupStore";
+import { useButtonLed, useButtonPressed } from "@/museum/button/hooks";
 import { useAppMode } from "@/museum/useAppMode";
 import { getPushToTalk } from "@/settings/councilSettings";
 import { buildGuidePrompt } from "./guidePrompt";
 import { createGuideToolHandlers, createGuideTools } from "./guideTools";
 import { getVoiceGuideBundle } from "./voiceGuideBundle";
 import { useHoldToSpeakHint } from "./useHoldToSpeakHint";
-import { computePttLedMode } from "./pttLedMode";
+import { computeButtonLedMode } from "@/museum/button/ledMode";
 import Loading from "@main/Loading";
 import { useVoiceGuide } from "./useVoiceGuide";
 
@@ -43,9 +43,8 @@ export default function MeetingVoiceGuide({
   const { i18n, t } = useTranslation();
   const { isMuseumMode } = useAppMode();
   const pushToTalkMode = getPushToTalk();
-  const pressed = usePushToTalkStore((state) => state.pressed);
-  const serialStatus = usePushToTalkStore((state) => state.serialStatus);
-  const setLedMode = usePushToTalkStore((state) => state.setLedMode);
+  const museumButtonActive = isMuseumMode && pushToTalkMode;
+  const pressed = useButtonPressed(museumButtonActive);
   const {
     selectedTopic,
     customTopic,
@@ -132,7 +131,7 @@ export default function MeetingVoiceGuide({
     lastCaption: voice.lastCaption,
   });
 
-  const ledMode = computePttLedMode({
+  const ledMode = computeButtonLedMode({
     pushToTalkMode,
     muted,
     isConnecting: voice.isConnecting,
@@ -140,15 +139,7 @@ export default function MeetingVoiceGuide({
     pressed,
   });
 
-  useEffect(() => {
-    void setLedMode(ledMode);
-  }, [ledMode, serialStatus, setLedMode]);
-
-  useEffect(() => {
-    return () => {
-      void setLedMode("off");
-    };
-  }, [setLedMode]);
+  useButtonLed("voice-guide", ledMode, museumButtonActive);
 
   useEffect(() => {
     if (!lastUserEvent) {

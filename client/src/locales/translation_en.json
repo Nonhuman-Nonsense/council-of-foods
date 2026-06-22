@@ -19,20 +19,34 @@
     "alwaysOn": "Always On",
     "pushToTalk": "Push to Talk",
     "holdToSpeak": "Push the button to speak",
-    "serial": {
-      "title": "Talk button",
-      "connect": "Connect talk button",
-      "disconnect": "Disconnect",
-      "status": "Serial status",
-      "lastEvent": "Last event",
-      "unsupported": "Web Serial is not available in this browser",
-      "connected": "Connected",
-      "connecting": "Connecting…",
-      "reconnecting": "Reconnecting…",
-      "reconnectingHint": "Waiting for the talk button. This should happen automatically after unplugging the cable.",
-      "reconnectHint": "Plug in the talk button — it will connect automatically.",
-      "disconnected": "Disconnected",
-      "error": "Error"
+    "button": {
+      "title": "Button",
+      "bridgeLabel": "Bridge",
+      "appLabel": "App",
+      "usbLabel": "USB button",
+      "bridge": {
+        "checking": "Checking…",
+        "running": "Running",
+        "notRunning": "Not running",
+        "error": "Error"
+      },
+      "app": {
+        "disconnected": "Disconnected",
+        "connecting": "Connecting…",
+        "connected": "Connected",
+        "error": "Error",
+        "unavailable": "—"
+      },
+      "usb": {
+        "connected": "Connected",
+        "checking": "Checking…",
+        "notDetected": "Not detected",
+        "wrongDevice": "Wrong device",
+        "unavailable": "—"
+      },
+      "bridgeNotRunningHint": "Start the button bridge on this Mac, or check {{logPath}} for errors.",
+      "usbNotDetectedHint": "Plug in the Council button via USB. The bridge scans for Adafruit USB devices automatically.",
+      "usbWrongDeviceHint": "A USB serial device was found, but it is not running Council button firmware. Reflash the Arduino sketch or check the USB cable/port."
     }
   },
   "settings": "Settings",
@@ -77,7 +91,7 @@
   "human": {
     "1": "Type your question or start recording...",
     "panelist": "What does {{name}} have to say about this?",
-    "ptt_museum": "Press and hold the button to talk, release to submit"
+    "button_museum": "Press and hold the button to talk, release to submit"
   },
   "completed": {
     "title": "Is that it?",

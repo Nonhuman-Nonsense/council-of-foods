@@ -4,7 +4,7 @@ import { capitalizeFirstLetter, toTitleCase, useMobile, useMobileXs } from "@/ut
 import { useTranslation } from "react-i18next";
 import type { Topic } from "@shared/ModelTypes";
 import { useAppMode } from "@/museum/useAppMode";
-import { useMeetingSetupStore } from "@stores/useMeetingSetupStore";
+import { useMeetingSetupStore } from "@newMeeting/meetingSetupStore";
 
 import { getTopicsBundle } from "@main/topicsBundle";
 import { buildTopicFromSelection } from "./meetingSetup";

@@ -1,8 +1,24 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import Setup from '@main/overlay/Setup';
-import { usePushToTalkStore } from '@stores/usePushToTalkStore';
 import '@testing-library/jest-dom';
+
+const museumButtonState = {
+  bridgeStatus: 'disconnected' as 'disconnected' | 'connecting' | 'connected' | 'error',
+  bridgeError: null as string | null,
+  bridgeAvailable: true,
+};
+
+const bridgeHealthState = {
+  status: 'running' as const,
+  serial: 'connected' as const,
+  path: '/dev/cu.usbmodem1',
+  version: '1.0.0',
+  serialDetail: 'connected' as const,
+  serialMessage: 'Council button connected at /dev/cu.usbmodem1',
+  expectedVendorId: '239a',
+  scannedPorts: [] as Array<{ path: string; vendorId?: string; productId?: string }>,
+};
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -16,23 +32,34 @@ vi.mock('@/utils', () => ({
   useMobileXs: () => false,
 }));
 
+vi.mock('@/museum/button/useBridgeHealth', () => ({
+  useButtonBridgeHealth: () => bridgeHealthState,
+}));
+
+vi.mock('@/museum/button/hooks', () => ({
+  useButtonLed: vi.fn(),
+  useButtonConnection: () => ({
+    bridgeStatus: museumButtonState.bridgeStatus,
+    bridgeError: museumButtonState.bridgeError,
+    bridgeAvailable: museumButtonState.bridgeAvailable,
+    serialConnected: false,
+  }),
+}));
+
 describe('Setup overlay', () => {
   beforeEach(() => {
     localStorage.clear();
-    usePushToTalkStore.setState({
-      serialStatus: 'disconnected',
-      serialError: null,
-      lastSerialLine: null,
-      serialSupported: true,
-    });
+    museumButtonState.bridgeStatus = 'disconnected';
+    museumButtonState.bridgeError = null;
+    museumButtonState.bridgeAvailable = true;
+    bridgeHealthState.status = 'running';
+    bridgeHealthState.serial = 'connected';
+    bridgeHealthState.path = '/dev/cu.usbmodem1';
   });
 
   afterEach(() => {
-    usePushToTalkStore.setState({
-      serialStatus: 'disconnected',
-      serialError: null,
-      lastSerialLine: null,
-    });
+    museumButtonState.bridgeStatus = 'disconnected';
+    museumButtonState.bridgeError = null;
   });
 
   it('renders title, mode, and voice guide options', () => {
@@ -84,24 +111,42 @@ describe('Setup overlay', () => {
     expect(alwaysOn).toHaveClass('selected');
   });
 
-  it('shows reconnecting message when serial is connecting', () => {
+  it('shows split status when push to talk is enabled in museum mode', () => {
+    localStorage.setItem('councilAppMode', 'museum');
     localStorage.setItem('councilPushToTalk', 'true');
-    usePushToTalkStore.setState({ serialStatus: 'connecting' });
+    museumButtonState.bridgeStatus = 'connected';
 
     render(<Setup />);
 
-    expect(screen.getByTestId('setup-serial-reconnecting')).toBeInTheDocument();
-    expect(screen.getByTestId('setup-serial-reconnecting')).toHaveTextContent('setup.serial.reconnecting');
-    expect(screen.getByTestId('setup-serial-reconnecting')).toHaveTextContent('setup.serial.reconnectingHint');
+    expect(screen.getByTestId('setup-bridge-daemon-status')).toHaveTextContent(
+      'setup.button.bridge.running',
+    );
+    expect(screen.getByTestId('setup-bridge-app-status')).toHaveTextContent(
+      'setup.button.app.connected',
+    );
+    expect(screen.getByTestId('setup-button-usb-status')).toHaveTextContent(
+      'setup.button.usb.connected',
+    );
   });
 
-  it('shows reconnect hint when serial is disconnected', () => {
+  it('shows bridge running and usb not detected when no hardware is plugged in', () => {
+    localStorage.setItem('councilAppMode', 'museum');
     localStorage.setItem('councilPushToTalk', 'true');
-    usePushToTalkStore.setState({ serialStatus: 'disconnected' });
+    museumButtonState.bridgeStatus = 'connecting';
+    bridgeHealthState.serial = 'disconnected';
+    bridgeHealthState.path = null;
 
     render(<Setup />);
 
-    expect(screen.getByTestId('setup-serial-reconnect-hint')).toBeInTheDocument();
-    expect(screen.getByText('setup.serial.reconnectHint')).toBeInTheDocument();
+    expect(screen.getByTestId('setup-bridge-daemon-status')).toHaveTextContent(
+      'setup.button.bridge.running',
+    );
+    expect(screen.getByTestId('setup-bridge-app-status')).toHaveTextContent(
+      'setup.button.app.connecting',
+    );
+    expect(screen.getByTestId('setup-button-usb-status')).toHaveTextContent(
+      'setup.button.usb.notDetected',
+    );
+    expect(screen.getByTestId('setup-button-usb-hint')).toBeInTheDocument();
   });
 });

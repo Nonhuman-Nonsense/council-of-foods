@@ -4,7 +4,7 @@ import { useOutletContext } from "react-router";
 import SelectTopic from "./SelectTopic";
 import SelectCharacters from "./SelectCharacters";
 import type { MeetingSetupOutletContext } from "./MeetingSetupShell";
-import { useMeetingSetupStore } from "@stores/useMeetingSetupStore";
+import { useMeetingSetupStore } from "@newMeeting/meetingSetupStore";
 
 export default function NewMeeting() {
   const {

@@ -6,7 +6,7 @@ import { createMeeting } from "@api/createMeeting";
 import { isRootPath, useRouting } from "@/routing";
 import MeetingVoiceGuide from "@voice/MeetingVoiceGuide";
 import type { MeetingSetupPhase, MeetingSetupUserEvent } from "./meetingSetup";
-import { useMeetingSetupStore } from "@stores/useMeetingSetupStore";
+import { useMeetingSetupStore } from "@newMeeting/meetingSetupStore";
 
 export interface MeetingSetupShellProps {
   setUnrecoverableError: (message: string) => void;
