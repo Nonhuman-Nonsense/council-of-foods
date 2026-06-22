@@ -27,11 +27,21 @@ async function readButtonStore(page: import("@playwright/test").Page): Promise<B
   });
 }
 
-async function enablePushToTalkOnSetup(page: import("@playwright/test").Page): Promise<void> {
+async function openSetupWithMuseumPushToTalk(page: import("@playwright/test").Page): Promise<void> {
   await page.goto("/#setup");
+  await page.getByTestId("app-mode-museum").click();
   await page.getByTestId("voice-guide-push-to-talk").click();
-  const status = page.getByTestId("setup-button-status");
-  await expect(status).toContainText(translations.setup.button.app.connected, { timeout: 15_000 });
+}
+
+async function waitForAppBridgeConnected(page: import("@playwright/test").Page): Promise<void> {
+  const appStatus = page.getByTestId("setup-bridge-app-status");
+  const connectedLabel = `${translations.setup.button.appLabel}: ${translations.setup.button.app.connected}`;
+  await expect(appStatus).toContainText(connectedLabel, { timeout: 15_000 });
+}
+
+async function enablePushToTalkOnSetup(page: import("@playwright/test").Page): Promise<void> {
+  await openSetupWithMuseumPushToTalk(page);
+  await waitForAppBridgeConnected(page);
 }
 
 test.describe("installation button (browser)", () => {
@@ -42,10 +52,9 @@ test.describe("installation button (browser)", () => {
   test("setup reports bridge not running when health check fails", async ({ page }) => {
     await page.route("http://127.0.0.1:8765/health", (route) => route.abort());
 
-    await page.goto("/#setup");
-    await page.getByTestId("voice-guide-push-to-talk").click();
+    await openSetupWithMuseumPushToTalk(page);
 
-    const status = page.getByTestId("setup-button-status");
+    const status = page.getByTestId("setup-bridge-daemon-status");
     await expect(status).toContainText(translations.setup.button.bridge.notRunning, { timeout: 10_000 });
   });
 });
@@ -55,13 +64,13 @@ test.describe.serial("installation button resilience (browser)", () => {
     await enablePushToTalkOnSetup(page);
     await page.reload();
 
-    const status = page.getByTestId("setup-button-status");
-    await expect(status).toContainText(translations.setup.button.app.connected, { timeout: 15_000 });
+    await waitForAppBridgeConnected(page);
   });
 
   test("mock button press reaches the client store", async ({ page }) => {
     await enablePushToTalkOnSetup(page);
 
+    await expect.poll(async () => (await readButtonStore(page)).bridgeStatus).toBe("connected");
     await expect.poll(async () => (await readButtonStore(page)).buttonInputEnabled).toBe(true);
 
     const down = await page.request.post(BRIDGE_SIMULATE_URL, {
@@ -69,7 +78,9 @@ test.describe.serial("installation button resilience (browser)", () => {
     });
     expect(down.ok()).toBe(true);
 
-    await expect.poll(async () => (await readButtonStore(page)).rawPressed).toBe(true);
+    await expect.poll(async () => (await readButtonStore(page)).rawPressed).toBe(true, {
+      timeout: 10_000,
+    });
     await expect.poll(async () => (await readButtonStore(page)).pressed).toBe(true);
 
     const up = await page.request.post(BRIDGE_SIMULATE_URL, {
