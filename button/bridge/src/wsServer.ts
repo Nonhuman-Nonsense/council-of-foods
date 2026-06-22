@@ -1,7 +1,7 @@
 import http from "node:http";
 import { WebSocketServer, type WebSocket } from "ws";
 import type { BridgeConfig } from "./config.js";
-import { corsHeaders } from "./cors.js";
+import { corsHeaders, isAllowedOrigin } from "./cors.js";
 import type { SerialManagerLike } from "./serialManagerLike.js";
 import { isMockSerialManager, readJsonBody } from "./testApi.js";
 import { BRIDGE_VERSION, parseClientMessage, serializeServerMessage, type ServerMessage } from "./types.js";
@@ -34,11 +34,16 @@ export class WsServer {
       }
 
       if (req.url === "/health" && req.method === "GET") {
+        const diagnostics = this.serial.getDiagnostics();
         const body = JSON.stringify({
           ok: true,
           version: BRIDGE_VERSION,
-          serial: this.serial.isOpen() ? "connected" : "disconnected",
-          path: this.serial.getOpenPath(),
+          serial: diagnostics.state,
+          path: diagnostics.path,
+          serialDetail: diagnostics.detail,
+          serialMessage: diagnostics.message,
+          expectedVendorId: diagnostics.expectedVendorId,
+          scannedPorts: diagnostics.scannedPorts,
         });
         res.writeHead(200, { "Content-Type": "application/json", ...cors });
         res.end(body);
@@ -71,7 +76,25 @@ export class WsServer {
       res.end();
     });
 
-    const wss = new WebSocketServer({ server: httpServer, path: "/v1/button" });
+    const wss = new WebSocketServer({
+      server: httpServer,
+      path: "/v1/button",
+      verifyClient: (info, callback) => {
+        const remote = info.req.socket.remoteAddress;
+        const origin = info.origin;
+        // Non-browser clients (tests, CLI) connect locally without an Origin header.
+        if (!origin && isLocalAddress(remote)) {
+          callback(true);
+          return;
+        }
+        if (!isAllowedOrigin(origin)) {
+          console.warn(`[button-bridge/ws] rejected origin ${origin ?? "(none)"}`);
+          callback(false, 403, "Forbidden");
+          return;
+        }
+        callback(true);
+      },
+    });
 
     wss.on("connection", (socket, request) => {
       const remote = request.socket.remoteAddress ?? "unknown";

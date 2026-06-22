@@ -18,12 +18,14 @@ describe("bridge integration", () => {
     const body = await response.json();
 
     expect(response.ok).toBe(true);
-    expect(body).toEqual({
-      ok: true,
-      version: "1.0.0",
-      serial: "connected",
-      path: "mock",
-    });
+    expect(body.ok).toBe(true);
+    expect(body.version).toBe("1.0.0");
+    expect(body.serial).toBe("connected");
+    expect(body.path).toBe("mock");
+    expect(body.serialDetail).toBe("connected");
+    expect(body.serialMessage).toContain("Council button connected");
+    expect(body.expectedVendorId).toBe("239a");
+    expect(body.scannedPorts).toEqual([]);
   });
 
   it("allows CORS from local dev origins", async () => {
@@ -45,7 +47,18 @@ describe("bridge integration", () => {
     expect(response.headers.get("Access-Control-Allow-Origin")).toBe("http://localhost:5173");
   });
 
-  it("completes websocket PING/PONG handshake", async () => {
+  it("allows CORS from deployed museum origins", async () => {
+    const response = await fetch(bridge.healthUrl, {
+      headers: { Origin: "https://test.council-of-forest.com" },
+    });
+
+    expect(response.headers.get("Access-Control-Allow-Origin")).toBe(
+      "https://test.council-of-forest.com",
+    );
+    expect(response.ok).toBe(true);
+  });
+
+  it("completes websocket HELLO_COUNCIL roundtrip", async () => {
     await new Promise<void>((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error("websocket handshake timed out")), 10_000);
       const socket = new WebSocket(bridge.wsUrl);
@@ -53,9 +66,9 @@ describe("bridge integration", () => {
       socket.on("message", (data) => {
         const message = JSON.parse(String(data));
         if (message.type === "status" && message.state === "connected") {
-          socket.send(JSON.stringify({ type: "write", line: "PING" }));
+          socket.send(JSON.stringify({ type: "write", line: "HELLO_COUNCIL" }));
         }
-        if (message.type === "line" && message.text === "PONG") {
+        if (message.type === "line" && message.text === "READY council-button") {
           clearTimeout(timeout);
           socket.close();
           resolve();

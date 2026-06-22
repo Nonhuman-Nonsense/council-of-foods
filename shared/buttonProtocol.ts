@@ -5,13 +5,17 @@ export const BUTTON_UP = "BUTTON_UP";
 export const LED_ON = "LED_ON";
 export const LED_OFF = "LED_OFF";
 export const LED_PULSE = "LED_PULSE";
-export const PING = "PING";
-export const PONG = "PONG";
+export const HELLO_COUNCIL = "HELLO_COUNCIL";
+export const READY_COUNCIL_BUTTON = "READY council-button";
+
+export function isReadyCouncilButton(line: string): boolean {
+  return line.trim() === READY_COUNCIL_BUTTON;
+}
 
 export type ParsedButtonLine =
   | { type: "button_down" }
   | { type: "button_up" }
-  | { type: "pong" }
+  | { type: "ready" }
   | { type: "unknown"; line: string };
 
 export function formatButtonCommand(command: string): string {
@@ -26,9 +30,10 @@ export function parseButtonLine(raw: string): ParsedButtonLine | null {
       return { type: "button_down" };
     case BUTTON_UP:
       return { type: "button_up" };
-    case PONG:
-      return { type: "pong" };
     default:
+      if (isReadyCouncilButton(line)) {
+        return { type: "ready" };
+      }
       return { type: "unknown", line };
   }
 }

@@ -11,19 +11,15 @@ import {
   type MeetingSetupPhase,
   type MeetingSetupUserEvent,
 } from "@newMeeting/meetingSetup";
-import { useMeetingSetupStore } from "@stores/useMeetingSetupStore";
-import {
-  useMuseumButtonBridgeStatus,
-  useMuseumButtonSelector,
-  useMuseumButtonSetLedMode,
-} from "@/museum/button/useMuseumButtonStore";
+import { useMeetingSetupStore } from "@newMeeting/meetingSetupStore";
+import { useButtonLed, useButtonPressed } from "@/museum/button/hooks";
 import { useAppMode } from "@/museum/useAppMode";
 import { getPushToTalk } from "@/settings/councilSettings";
 import { buildGuidePrompt } from "./guidePrompt";
 import { createGuideToolHandlers, createGuideTools } from "./guideTools";
 import { getVoiceGuideBundle } from "./voiceGuideBundle";
 import { useHoldToSpeakHint } from "./useHoldToSpeakHint";
-import { computeButtonLedMode } from "./buttonLedMode";
+import { computeButtonLedMode } from "@/museum/button/ledMode";
 import Loading from "@main/Loading";
 import { useVoiceGuide } from "./useVoiceGuide";
 
@@ -48,9 +44,7 @@ export default function MeetingVoiceGuide({
   const { isMuseumMode } = useAppMode();
   const pushToTalkMode = getPushToTalk();
   const museumButtonActive = isMuseumMode && pushToTalkMode;
-  const pressed = useMuseumButtonSelector(museumButtonActive, (state) => state.pressed, false);
-  const bridgeStatus = useMuseumButtonBridgeStatus(museumButtonActive);
-  const setLedMode = useMuseumButtonSetLedMode(museumButtonActive);
+  const pressed = useButtonPressed(museumButtonActive);
   const {
     selectedTopic,
     customTopic,
@@ -145,15 +139,7 @@ export default function MeetingVoiceGuide({
     pressed,
   });
 
-  useEffect(() => {
-    void setLedMode(ledMode);
-  }, [ledMode, bridgeStatus, setLedMode]);
-
-  useEffect(() => {
-    return () => {
-      void setLedMode("off");
-    };
-  }, [setLedMode]);
+  useButtonLed("voice-guide", ledMode, museumButtonActive);
 
   useEffect(() => {
     if (!lastUserEvent) {

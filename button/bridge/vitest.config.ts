@@ -9,11 +9,11 @@ export default defineConfig({
   test: {
     environment: "node",
     testTimeout: 20_000,
+    fileParallelism: false,
   },
   resolve: {
     alias: {
       "@": clientSrc,
-      "@stores": path.join(clientSrc, "stores"),
       "@shared": path.resolve(root, "../../shared"),
     },
   },

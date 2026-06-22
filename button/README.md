@@ -12,7 +12,7 @@ Hardware and host software for the Council installation button.
 | Command | What runs | What it proves |
 |---|---|---|
 | `cd bridge && npm test` | Vitest in Node | Mock button → real bridge → client **library code** (`ButtonTransport`, `useButtonStore`) |
-| `cd client && npm run e2e` | Playwright + Vite + mock bridge | Real **browser app** connects to bridge (CORS, WebSocket, Setup UI, `buttonService`) plus meeting flow |
+| `cd client && npm run e2e` | Playwright + Vite + mock bridge | Real **browser app** connects to bridge (CORS, WebSocket, Setup UI, `MuseumButtonProvider`) plus meeting flow |
 
 Bridge unit/integration tests import client modules directly — no browser or `npm run dev` needed. That is intentional: fast, deterministic protocol tests.
 

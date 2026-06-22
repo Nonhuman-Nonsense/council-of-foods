@@ -43,9 +43,17 @@ export type TestBridge = {
   simulateButtonUrl: string;
   simulateButtonDown: () => void;
   simulateButtonUp: () => void;
+  simulateUsbDisconnect: () => void;
+  simulateUsbReconnect: (pressed?: boolean) => void;
   getWrittenLines: () => string[];
+  clearWrittenLines: () => void;
   restart: () => Promise<void>;
   stop: () => Promise<void>;
+};
+
+export type StartTestBridgeOptions = {
+  /** When false, bridge starts with no USB device until simulateUsbReconnect(). */
+  serialConnected?: boolean;
 };
 
 function createTestConfig(port: number): BridgeConfig {
@@ -64,6 +72,12 @@ function createTestConfig(port: number): BridgeConfig {
 function wireSerialToServer(serial: MockSerialManager, server: WsServer): void {
   serial.on("line", ({ text }) => {
     server.broadcast({ type: "line", text });
+  });
+  serial.on("open", ({ path }) => {
+    server.broadcast({ type: "status", state: "connected", path });
+  });
+  serial.on("close", ({ reason }) => {
+    server.broadcast({ type: "status", state: "disconnected", error: reason });
   });
 }
 
@@ -97,7 +111,10 @@ export async function waitForCondition(
   throw new Error("Timed out waiting for condition");
 }
 
-export async function startTestBridge(): Promise<TestBridge> {
+export async function startTestBridge(
+  options: StartTestBridgeOptions = {},
+): Promise<TestBridge> {
+  const serialConnected = options.serialConnected ?? true;
   const port = await getFreePort();
   const host = "127.0.0.1";
   const healthUrl = `http://${host}:${port}/health`;
@@ -111,11 +128,13 @@ export async function startTestBridge(): Promise<TestBridge> {
     server: null as WsServer | null,
   };
 
-  async function boot(): Promise<void> {
+  async function boot(connectSerial = serialConnected): Promise<void> {
     runtime.serial = new MockSerialManager();
     runtime.server = new WsServer(createTestConfig(runtime.port), runtime.serial);
     wireSerialToServer(runtime.serial, runtime.server);
-    runtime.serial.start();
+    if (connectSerial) {
+      runtime.serial.start();
+    }
     runtime.server.start();
     await waitForHttpOk(healthUrl);
   }
@@ -130,13 +149,16 @@ export async function startTestBridge(): Promise<TestBridge> {
     simulateButtonUrl,
     simulateButtonDown: () => runtime.serial.simulateButton(true),
     simulateButtonUp: () => runtime.serial.simulateButton(false),
+    simulateUsbDisconnect: () => runtime.serial.simulateUsbDisconnect(),
+    simulateUsbReconnect: (pressed = false) => runtime.serial.simulateUsbReconnect(pressed),
     getWrittenLines: () => runtime.serial.getWrittenLines(),
+    clearWrittenLines: () => runtime.serial.clearWrittenLines(),
     restart: async () => {
       if (runtime.server) {
         await runtime.server.stop();
       }
       await runtime.serial.stop();
-      await boot();
+      await boot(true);
     },
     stop: async () => {
       if (runtime.server) {

@@ -1,51 +1,17 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useMobile, useMobileXs } from "@/utils";
 import { useTranslation } from "react-i18next";
 import { getPushToTalk, setPushToTalk } from "@/settings/councilSettings";
 import { useAppMode } from "@/museum/useAppMode";
-import { isMuseumButtonBridgeActive } from "@/museum/button/buttonPolicy";
+import { useButtonConnection, useButtonLed } from "@/museum/button/hooks";
 import {
-  useMuseumButtonBridgeAvailable,
-  useMuseumButtonBridgeError,
-  useMuseumButtonBridgeStatus,
-  useMuseumButtonSetLedMode,
-} from "@/museum/button/useMuseumButtonStore";
-import { useButtonBridgeHealth } from "@/button/useBridgeHealth";
-
-type ButtonUiStatus = "unsupported" | "bridgeNotRunning" | "connecting" | "connected" | "waiting" | "error";
-
-function getButtonUiStatus(
-  bridgeAvailable: boolean,
-  bridgeHealth: ReturnType<typeof useButtonBridgeHealth>,
-  bridgeStatus: "disconnected" | "connecting" | "connected" | "error",
-): ButtonUiStatus {
-  if (!bridgeAvailable) return "unsupported";
-  if (bridgeHealth.status === "not_running" || bridgeHealth.status === "error") {
-    return "bridgeNotRunning";
-  }
-  if (bridgeStatus === "connected") return "connected";
-  if (bridgeStatus === "connecting") return "connecting";
-  if (bridgeStatus === "error") return "error";
-  if (bridgeHealth.status === "running") return "waiting";
-  return "connecting";
-}
-
-function buttonStatusLabel(status: ButtonUiStatus, t: (key: string) => string): string {
-  switch (status) {
-    case "connected":
-      return t("setup.button.connected");
-    case "connecting":
-      return t("setup.button.connecting");
-    case "bridgeNotRunning":
-      return t("setup.button.bridgeNotRunning");
-    case "waiting":
-      return t("setup.button.waiting");
-    case "error":
-      return t("setup.button.error");
-    default:
-      return t("setup.button.unsupported");
-  }
-}
+  getBridgeAppStatus,
+  getBridgeDaemonStatus,
+  getSetupBridgeDetailLines,
+  getSetupBridgeLogHint,
+  getUsbButtonStatus,
+} from "@/museum/button/setupButtonStatus";
+import { useButtonBridgeHealth } from "@/museum/button/useBridgeHealth";
 
 /**
  * Setup Overlay
@@ -59,17 +25,17 @@ function Setup(): React.ReactElement {
   const { mode: appMode, setAppMode } = useAppMode();
   const [pushToTalk, setPushToTalkState] = useState(getPushToTalk);
   const bridgeButtonActive = appMode === "museum" && pushToTalk;
-  const bridgeStatus = useMuseumButtonBridgeStatus(bridgeButtonActive);
-  const bridgeError = useMuseumButtonBridgeError(bridgeButtonActive);
-  const bridgeAvailable = useMuseumButtonBridgeAvailable(bridgeButtonActive);
-  const setLedMode = useMuseumButtonSetLedMode(bridgeButtonActive);
+  const { bridgeStatus, bridgeError, bridgeAvailable } =
+    useButtonConnection(bridgeButtonActive);
   const bridgeHealth = useButtonBridgeHealth(bridgeButtonActive);
-  const buttonStatus = getButtonUiStatus(bridgeAvailable, bridgeHealth, bridgeStatus);
 
-  useEffect(() => {
-    if (!pushToTalk || bridgeStatus !== "connected") return;
-    void setLedMode("pulse");
-  }, [pushToTalk, bridgeStatus, setLedMode]);
+  useButtonLed("setup", pushToTalk ? "pulse" : "off", bridgeButtonActive);
+
+  const daemonStatus = getBridgeDaemonStatus(bridgeHealth);
+  const appStatus = getBridgeAppStatus(bridgeAvailable, bridgeHealth, bridgeStatus);
+  const usbStatus = getUsbButtonStatus(bridgeHealth);
+  const bridgeDetailLines =
+    bridgeHealth.status === "running" ? getSetupBridgeDetailLines(bridgeHealth) : [];
 
   const containerStyle: React.CSSProperties = {
     width: "96vw",
@@ -104,10 +70,14 @@ function Setup(): React.ReactElement {
     marginTop: isMobile ? "20px" : "30px",
   };
 
+  const statusLineStyle: React.CSSProperties = {
+    margin: "0.15em 0",
+    textAlign: "center",
+  };
+
   function selectAlwaysOn(): void {
     setPushToTalkState(false);
     setPushToTalk(false);
-    void setLedMode("off");
   }
 
   function selectPushToTalk(): void {
@@ -171,19 +141,52 @@ function Setup(): React.ReactElement {
         </div>
       </div>
 
-      {pushToTalk ? (
+      {pushToTalk && appMode === "museum" ? (
         <div style={sectionStyle}>
           <h3 style={{ marginTop: 0 }}>{t("setup.button.title")}</h3>
-          <p data-testid="setup-button-status" style={{ marginTop: 0 }}>
-            {t("setup.button.status")}: {buttonStatusLabel(buttonStatus, t)}
-            {buttonStatus === "error" && bridgeError ? ` — ${bridgeError}` : ""}
-          </p>
-          {buttonStatus === "bridgeNotRunning" ? (
+          <div data-testid="setup-button-status">
+            <p data-testid="setup-bridge-daemon-status" style={statusLineStyle}>
+              {t("setup.button.bridgeLabel")}: {t(`setup.button.bridge.${daemonStatus}`)}
+            </p>
+            <p data-testid="setup-bridge-app-status" style={statusLineStyle}>
+              {t("setup.button.appLabel")}: {t(`setup.button.app.${appStatus}`)}
+              {appStatus === "error" && bridgeError ? ` — ${bridgeError}` : ""}
+            </p>
+            <p data-testid="setup-button-usb-status" style={statusLineStyle}>
+              {t("setup.button.usbLabel")}: {t(`setup.button.usb.${usbStatus}`)}
+            </p>
+            {bridgeDetailLines.map((line) => (
+              <p
+                key={line}
+                data-testid="setup-bridge-detail-line"
+                style={{ ...statusLineStyle, fontSize: "0.92em", opacity: 0.88 }}
+              >
+                {line}
+              </p>
+            ))}
+          </div>
+          {daemonStatus === "notRunning" ? (
             <p
               data-testid="setup-button-hint"
               style={{ marginTop: 0, fontStyle: "italic", opacity: 0.8, textAlign: "center" }}
             >
-              {t("setup.button.bridgeNotRunningHint")}
+              {t("setup.button.bridgeNotRunningHint", { logPath: getSetupBridgeLogHint() })}
+            </p>
+          ) : null}
+          {daemonStatus === "running" && usbStatus === "notDetected" ? (
+            <p
+              data-testid="setup-button-usb-hint"
+              style={{ marginTop: 0, fontStyle: "italic", opacity: 0.8, textAlign: "center" }}
+            >
+              {t("setup.button.usbNotDetectedHint")}
+            </p>
+          ) : null}
+          {daemonStatus === "running" && usbStatus === "wrongDevice" ? (
+            <p
+              data-testid="setup-button-wrong-device-hint"
+              style={{ marginTop: 0, fontStyle: "italic", opacity: 0.8, textAlign: "center" }}
+            >
+              {t("setup.button.usbWrongDeviceHint")}
             </p>
           ) : null}
         </div>

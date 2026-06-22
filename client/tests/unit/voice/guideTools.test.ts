@@ -1,5 +1,5 @@
 import { createGuideToolHandlers, GuideToolContext } from '@voice/guideTools';
-import { useMeetingSetupStore } from '@stores/useMeetingSetupStore';
+import { useMeetingSetupStore } from '@newMeeting/meetingSetupStore';
 
 vi.mock('@newMeeting/meetingSetup', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@newMeeting/meetingSetup')>();

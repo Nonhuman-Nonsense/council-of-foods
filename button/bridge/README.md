@@ -12,7 +12,7 @@ Arduino ──USB──► bridge ──ws://127.0.0.1:8765/v1/button──► C
 cd button/bridge
 npm install
 npm run dev          # real USB device
-npm run dev:mock     # no hardware — simulates PONG etc.
+npm run dev:mock     # no hardware — simulates mock USB device
 ```
 
 Dev mode is **foreground only** — `Ctrl+C` stops it and frees the port. If you get `EADDRINUSE`, a previous instance is still running:
@@ -32,7 +32,7 @@ npm test
 
 Then start the client (`cd client && npm run dev`), open `/#setup`, enable **Push to Talk**.
 
-The setup page polls `http://127.0.0.1:8765/health` from the browser. The bridge allows CORS from `localhost` / `127.0.0.1` dev servers so this works during local development.
+The setup page polls `http://127.0.0.1:8765/health` from the browser. The bridge allows CORS from local dev servers and HTTPS museum app origins (`*.council-of-forest.com`, `*.council-of-foods.com` by default).
 
 ## Hardware test checklist (for field tester)
 
@@ -191,6 +191,8 @@ button/bridge/install/macos/smoke-bundle.sh
 |---|---|---|
 | `BUTTON_BRIDGE_HOST` | `127.0.0.1` | Bind address |
 | `BUTTON_BRIDGE_PORT` | `8765` | HTTP + WebSocket port |
+| `BUTTON_BRIDGE_CORS_SUFFIXES` | `council-of-forest.com,council-of-foods.com` | HTTPS origins allowed to call `/health` and open `/v1/button` |
+| `BUTTON_BRIDGE_CORS_ORIGINS` | _(none)_ | Optional comma-separated exact origins (in addition to suffixes) |
 | `BUTTON_SERIAL_PATH` | auto | Force serial device path |
 | `BUTTON_SERIAL_VENDOR_ID` | `239a` | Adafruit USB vendor |
 | `BUTTON_MOCK_SERIAL` | `0` | `1` = mock device (no USB) |

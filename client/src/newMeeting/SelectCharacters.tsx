@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import VideoPreloader from "@main/VideoPreloader";
 import { globalClientOptions } from "@/globalClientOptions";
 import { characterIconWebpUrl } from "@assets/characters/characterData";
-import { useMeetingSetupStore } from "@stores/useMeetingSetupStore";
+import { useMeetingSetupStore } from "@newMeeting/meetingSetupStore";
 import { buildMeetingCharactersPayload, orderSelectedCharactersForMuseum } from "./meetingSetup";
 import { useAppMode } from "@/museum/useAppMode";
 import { getCharacterSetupBundle } from "./CharacterSetup";

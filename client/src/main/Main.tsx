@@ -29,7 +29,7 @@ import CouncilError from "./overlay/CouncilError";
 import Reconnecting from "./overlay/Reconnecting";
 import { lazy, Suspense } from "react";
 
-const MuseumButtonRuntime = lazy(() => import("@/museum/button/MuseumButtonRuntime"));
+const MuseumButtonProvider = lazy(() => import("@/museum/button/MuseumButtonProvider"));
 
 import routes from "@/routes.json";
 
@@ -175,7 +175,7 @@ export default function Main(props: MainProps) {
     <>
       {isMuseumMode && (
         <Suspense fallback={null}>
-          <MuseumButtonRuntime />
+          <MuseumButtonProvider />
         </Suspense>
       )}
       <Forest currentSpeakerId={currentSpeakerId} isPaused={isPaused} audioContext={audioContext} />

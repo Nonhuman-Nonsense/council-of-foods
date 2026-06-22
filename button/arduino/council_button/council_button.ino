@@ -6,8 +6,9 @@
  * Guide: https://learn.adafruit.com/adafruit-led-arcade-button-qt/arduino
  *
  * Serial protocol (115200 baud, newline-terminated):
- *   Device → host: BUTTON_DOWN, BUTTON_UP, PONG
- *   Host → device: LED_OFF, LED_PULSE, LED_ON, PING
+ *   Device → host: BUTTON_DOWN, BUTTON_UP
+ *   On host serial connect: one BUTTON_DOWN or BUTTON_UP to sync physical state
+ *   Host → device: LED_OFF, LED_PULSE, LED_ON, HELLO_COUNCIL
  *
  * LED modes (from host — visual only; host decides what to do with presses):
  *   LED_OFF   — LEDs off
@@ -154,6 +155,11 @@ void updateHostConnection() {
 
   if (hostConnected) {
     setHostLedMode(LED_MODE_OFF);
+    if (lastStableMergedPressed) {
+      sendLine(F("BUTTON_DOWN"));
+    } else {
+      sendLine(F("BUTTON_UP"));
+    }
   } else {
     hostLedMode = LED_MODE_OFF;
     connectingAnimIndex = 0;
@@ -185,8 +191,8 @@ void processSerialLine(const char *line) {
     setHostLedMode(LED_MODE_PULSE);
   } else if (strcmp(line, "LED_ON") == 0) {
     setHostLedMode(LED_MODE_ON);
-  } else if (strcmp(line, "PING") == 0) {
-    sendLine(F("PONG"));
+  } else if (strcmp(line, "HELLO_COUNCIL") == 0) {
+    sendLine(F("READY council-button"));
   }
 }
 

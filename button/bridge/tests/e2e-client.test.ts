@@ -2,9 +2,9 @@
  * End-to-end: mock button → bridge → client ButtonTransport / useButtonStore
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fetchButtonBridgeHealth } from "@/button/health";
-import { ButtonTransport } from "@/button/transport";
-import { _resetButtonStoreForTests, useButtonStore } from "@stores/useButtonStore";
+import { fetchButtonBridgeHealth } from "@/museum/button/health";
+import { ButtonTransport } from "@/museum/button/transport";
+import { _resetButtonStoreForTests, useButtonStore } from "@/museum/button/buttonStore";
 import { startTestBridge, waitForTicks, waitForWrittenLine, type TestBridge } from "./testHarness.js";
 
 const BRIDGE_URL_STORAGE_KEY = "councilButtonBridgeUrl";
@@ -20,7 +20,7 @@ function installBridgeUrlOverride(wsUrl: string): void {
   });
 }
 
-describe("button e2e (mock → bridge → client)", () => {
+describe.sequential("button e2e (mock → bridge → client)", () => {
   let bridge: TestBridge;
 
   beforeEach(async () => {
@@ -36,11 +36,12 @@ describe("button e2e (mock → bridge → client)", () => {
 
   it("client health check reaches the running bridge", async () => {
     const health = await fetchButtonBridgeHealth(bridge.healthUrl);
-    expect(health).toEqual({
-      status: "running",
+    expect(health.status).toBe("running");
+    expect(health).toMatchObject({
       serial: "connected",
       path: "mock",
       version: "1.0.0",
+      serialDetail: "connected",
     });
   });
 
@@ -56,7 +57,6 @@ describe("button e2e (mock → bridge → client)", () => {
     expect(transport.getStatus()).toBe("connected");
     expect(statuses).toContain("connecting");
     expect(statuses).toContain("connected");
-    expect(bridge.getWrittenLines()).toContain("PING");
 
     await transport.disconnect();
   });
@@ -91,7 +91,7 @@ describe("button e2e (mock → bridge → client)", () => {
     useButtonStore.getState().init();
 
     await useButtonStore.getState().connect();
-    await useButtonStore.getState().setLedMode("pulse");
+    await useButtonStore.getState().registerLedIntent("human-input", "pulse");
     await waitForWrittenLine(bridge, "LED_PULSE");
 
     bridge.simulateButtonDown();
@@ -105,6 +105,5 @@ describe("button e2e (mock → bridge → client)", () => {
     expect(useButtonStore.getState().pressed).toBe(false);
 
     expect(bridge.getWrittenLines()).toContain("LED_PULSE");
-    expect(bridge.getWrittenLines()).toContain("PING");
   });
 });

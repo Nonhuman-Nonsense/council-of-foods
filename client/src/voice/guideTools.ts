@@ -5,7 +5,7 @@ import {
   orderSelectedCharactersForMuseum,
   type MeetingCharactersI18n,
 } from "@newMeeting/meetingSetup";
-import { useMeetingSetupStore } from "@stores/useMeetingSetupStore";
+import { useMeetingSetupStore } from "@newMeeting/meetingSetupStore";
 import { getAppMode } from "@/museum/appMode";
 import { capitalizeFirstLetter } from "@/utils";
 import type { VoiceGuidePromptBundle } from "./guidePrompt";

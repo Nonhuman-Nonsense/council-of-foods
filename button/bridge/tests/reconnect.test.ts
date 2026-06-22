@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ButtonTransport } from "@/button/transport";
-import { _resetButtonStoreForTests, useButtonStore } from "@stores/useButtonStore";
+import { ButtonTransport } from "@/museum/button/transport";
+import { _resetButtonStoreForTests, useButtonStore } from "@/museum/button/buttonStore";
 import {
   startTestBridge,
   waitForCondition,
@@ -22,7 +22,7 @@ function installBridgeUrlOverride(wsUrl: string): void {
   });
 }
 
-describe("button reconnect resilience", () => {
+describe.sequential("button reconnect resilience", () => {
   let bridge: TestBridge;
 
   beforeEach(async () => {
@@ -48,7 +48,7 @@ describe("button reconnect resilience", () => {
 
     await bridge.restart();
 
-    await waitForCondition(() => transport.getStatus() === "connected", 15_000);
+    await waitForCondition(() => transport.isSessionHealthy(), 15_000);
     expect(statuses).toContain("disconnected");
     expect(statuses.filter((s) => s === "connected").length).toBeGreaterThanOrEqual(2);
   }, 20_000);
@@ -75,34 +75,33 @@ describe("button reconnect resilience", () => {
     await bridge.restart();
     events.length = 0;
 
-    await waitForCondition(() => transport.getStatus() === "connected", 15_000);
+    await waitForCondition(() => transport.isSessionHealthy(), 15_000);
     bridge.simulateButtonDown();
     bridge.simulateButtonUp();
     await waitForTicks();
     expect(events).toEqual(["button_down", "button_up"]);
   }, 20_000);
 
-  it("useButtonStore recovers through watchdog after bridge restart", async () => {
+  it("useButtonStore recovers through transport watchdog after bridge restart", async () => {
     localStorage.setItem("councilPushToTalk", "true");
     _resetButtonStoreForTests();
     installBridgeUrlOverride(bridge.wsUrl);
     useButtonStore.getState().init();
     useButtonStore.getState().enableAutoReconnect();
     await useButtonStore.getState().connect();
-    await useButtonStore.getState().setLedMode("pulse");
+    await useButtonStore.getState().registerLedIntent("human-input", "pulse");
 
     bridge.simulateButtonDown();
     await waitForTicks();
     expect(useButtonStore.getState().rawPressed).toBe(true);
 
     await bridge.restart();
-    await useButtonStore.getState().reconnectIfStale();
 
     await waitForCondition(
       () => useButtonStore.getState().bridgeStatus === "connected",
       15_000,
     );
-    await waitForWrittenLine(bridge, "PING");
+    await waitForWrittenLine(bridge, "LED_PULSE");
 
     bridge.simulateButtonDown();
     await waitForTicks();
