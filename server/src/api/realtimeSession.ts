@@ -5,11 +5,14 @@ import { BadRequestError, CouncilError } from "@models/Errors.js";
 import {
     createRealtimeCall,
     getHumanInputRealtimeBootstrap,
+    getMetaAgentRealtimeBootstrap,
     getVoiceGuideRealtimeBootstrap,
 } from "./realtimeProviders.js";
 import type {
     HumanInputRealtimeBootstrapRequest,
     HumanInputRealtimeCallRequest,
+    MetaAgentRealtimeBootstrapRequest,
+    MetaAgentRealtimeCallRequest,
     RealtimeFeature,
     VoiceGuideRealtimeBootstrapRequest,
     VoiceGuideRealtimeCallRequest,
@@ -29,10 +32,11 @@ export function registerRealtimeRoutes(app: Express): void {
     app.post("/api/realtime/bootstrap", async (req: Request, res: ExpressResponse) => {
         const body = (req.body ?? {}) as
             | HumanInputRealtimeBootstrapRequest
+            | MetaAgentRealtimeBootstrapRequest
             | VoiceGuideRealtimeBootstrapRequest;
         const feature: RealtimeFeature | undefined = body?.feature;
 
-        if (feature !== "human-input" && feature !== "voice-guide") {
+        if (feature !== "human-input" && feature !== "meta-agent" && feature !== "voice-guide") {
             res.status(400).json(new BadRequestError().toApiBody("api POST /api/realtime/bootstrap"));
             return;
         }
@@ -51,6 +55,7 @@ export function registerRealtimeRoutes(app: Express): void {
                 return;
             }
 
+            // Both meta-agent and human-input require a valid live-key bearer.
             const bearer = parseRequiredBearerToken(req);
             if (!bearer) {
                 res.status(401).json({ message: "Unauthorized" });
@@ -60,6 +65,19 @@ export function registerRealtimeRoutes(app: Express): void {
             const exists = await meetingsCollection.findOne({ liveKey: bearer }, { projection: { _id: 1 } });
             if (!exists) {
                 res.status(403).json({ message: "Forbidden" });
+                return;
+            }
+
+            if (feature === "meta-agent") {
+                const { language } = body as MetaAgentRealtimeBootstrapRequest;
+                if (typeof language !== "string" || language.trim().length === 0) {
+                    res.status(400).json(new BadRequestError().toApiBody("api POST /api/realtime/bootstrap"));
+                    return;
+                }
+
+                const data = await getMetaAgentRealtimeBootstrap(language);
+                await Logger.info("api", `POST /api/realtime/bootstrap successful (${feature}:${data.provider})`);
+                res.status(200).json(data);
                 return;
             }
 
@@ -79,11 +97,11 @@ export function registerRealtimeRoutes(app: Express): void {
     });
 
     app.post("/api/realtime/call", async (req: Request, res: ExpressResponse) => {
-        const body = (req.body ?? {}) as Partial<HumanInputRealtimeCallRequest | VoiceGuideRealtimeCallRequest>;
+        const body = (req.body ?? {}) as Partial<HumanInputRealtimeCallRequest | MetaAgentRealtimeCallRequest | VoiceGuideRealtimeCallRequest>;
         const feature: RealtimeFeature | undefined = body?.feature;
 
         if (
-            (feature !== "human-input" && feature !== "voice-guide") ||
+            (feature !== "human-input" && feature !== "meta-agent" && feature !== "voice-guide") ||
             (body.provider !== "inworld" && body.provider !== "openai") ||
             typeof body.sdp !== "string" ||
             !body.session ||
@@ -94,7 +112,7 @@ export function registerRealtimeRoutes(app: Express): void {
         }
 
         try {
-            if (feature === "human-input") {
+            if (feature === "human-input" || feature === "meta-agent") {
                 const bearer = parseRequiredBearerToken(req);
                 if (!bearer) {
                     res.status(401).json({ message: "Unauthorized" });

@@ -15,6 +15,8 @@ interface FoodsCouncilSceneProps {
   audioMessages: DecodedAudioMessage[];
   currentSnippetIndex: number;
   isPaused: boolean;
+  /** When true, force zoom to the chair (meta-agent is active). */
+  forceChairZoom?: boolean;
 }
 
 export default function FoodsCouncilScene({
@@ -26,6 +28,7 @@ export default function FoodsCouncilScene({
   audioMessages,
   currentSnippetIndex,
   isPaused,
+  forceChairZoom = false,
 }: FoodsCouncilSceneProps) {
   const sentencesLength = useMemo(() => {
     const textMessage = textMessages[playingNowIndex];
@@ -34,6 +37,7 @@ export default function FoodsCouncilScene({
   }, [audioMessages, textMessages, playingNowIndex]);
 
   const zoomIn = useMemo(() => {
+    if (forceChairZoom) return true;
     if (
       councilState === "loading" ||
       councilState === "waiting" ||
@@ -52,7 +56,7 @@ export default function FoodsCouncilScene({
     } else {
       return false;
     }
-  }, [councilState, playingNowIndex, textMessages, currentSnippetIndex, sentencesLength]);
+  }, [forceChairZoom, councilState, playingNowIndex, textMessages, currentSnippetIndex, sentencesLength]);
 
   const foods = useMemo(
     () => participants.filter((part) => !part.id.startsWith("panelist")),

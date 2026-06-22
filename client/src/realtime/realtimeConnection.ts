@@ -140,18 +140,22 @@ function parseRealtimeSessionServerDefaults(
 
 /**
  * One HTTP round-trip: shared app realtime bootstrap for a given feature.
+ *
+ * Pass `extraHeaders` to include additional headers such as `Authorization`
+ * for protected features like `meta-agent` and `human-input`.
  */
 export async function fetchRealtimeBootstrap(
   requestBody: Record<string, unknown>,
   log: ConnectionLogger = () => undefined,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  extraHeaders?: HeadersInit
 ): Promise<RealtimeBootstrapResponse & { session: RealtimeSessionServerDefaults }> {
   log("POST /api/realtime/bootstrap");
   const resp = await fetchWithTimeout(
     "/api/realtime/bootstrap",
     {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...(extraHeaders ?? {}) },
       body: JSON.stringify(requestBody),
     },
     FETCH_TIMEOUT_MS,

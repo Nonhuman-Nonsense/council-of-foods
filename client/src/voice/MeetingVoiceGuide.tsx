@@ -43,8 +43,7 @@ export default function MeetingVoiceGuide({
   const { i18n, t } = useTranslation();
   const { isMuseumMode } = useAppMode();
   const pushToTalkMode = getPushToTalk();
-  const museumButtonActive = isMuseumMode && pushToTalkMode;
-  const pressed = useButtonPressed(museumButtonActive);
+  const pressed = useButtonPressed(pushToTalkMode);
   const {
     selectedTopic,
     customTopic,
@@ -139,7 +138,7 @@ export default function MeetingVoiceGuide({
     pressed,
   });
 
-  useButtonLed("voice-guide", ledMode, museumButtonActive);
+  useButtonLed("voice-guide", ledMode, pushToTalkMode);
 
   useEffect(() => {
     if (!lastUserEvent) {

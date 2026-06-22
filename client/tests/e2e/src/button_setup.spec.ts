@@ -2,6 +2,8 @@ import { test, expect } from "@playwright/test";
 import translations from "../../../src/locales/translation_en.json" with { type: "json" };
 
 const BRIDGE_SIMULATE_URL = "http://127.0.0.1:8765/v1/test/simulate-button";
+/** Client BUTTON_CONNECT_TIMEOUT_MS (5s) plus health/status slack. */
+const BRIDGE_CONNECT_TIMEOUT_MS = 8_000;
 
 type ButtonStoreSnapshot = {
   bridgeStatus: string;
@@ -27,60 +29,61 @@ async function readButtonStore(page: import("@playwright/test").Page): Promise<B
   });
 }
 
+async function seedMuseumPushToTalk(page: import("@playwright/test").Page): Promise<void> {
+  await page.addInitScript(() => {
+    localStorage.setItem("councilAppMode", "museum");
+    localStorage.setItem("councilPushToTalk", "true");
+  });
+}
+
 async function openSetupWithMuseumPushToTalk(page: import("@playwright/test").Page): Promise<void> {
+  await seedMuseumPushToTalk(page);
   await page.goto("/#setup");
-  await page.getByTestId("app-mode-museum").click();
-  await page.getByTestId("voice-guide-push-to-talk").click();
 }
 
 async function waitForAppBridgeConnected(page: import("@playwright/test").Page): Promise<void> {
   const appStatus = page.getByTestId("setup-bridge-app-status");
   const connectedLabel = `${translations.setup.button.appLabel}: ${translations.setup.button.app.connected}`;
-  await expect(appStatus).toContainText(connectedLabel, { timeout: 15_000 });
+  await expect(appStatus).toContainText(connectedLabel, { timeout: BRIDGE_CONNECT_TIMEOUT_MS });
 }
 
-async function enablePushToTalkOnSetup(page: import("@playwright/test").Page): Promise<void> {
-  await openSetupWithMuseumPushToTalk(page);
-  await waitForAppBridgeConnected(page);
+async function waitForButtonStoreReady(page: import("@playwright/test").Page): Promise<void> {
+  await expect
+    .poll(
+      async () => {
+        const state = await readButtonStore(page);
+        return state.bridgeStatus === "connected" && state.buttonInputEnabled;
+      },
+      { timeout: BRIDGE_CONNECT_TIMEOUT_MS },
+    )
+    .toBe(true);
 }
 
 test.describe("installation button (browser)", () => {
-  test("setup connects to mock bridge when push-to-talk is enabled", async ({ page }) => {
-    await enablePushToTalkOnSetup(page);
-  });
-
   test("setup reports bridge not running when health check fails", async ({ page }) => {
     await page.route("http://127.0.0.1:8765/health", (route) => route.abort());
 
     await openSetupWithMuseumPushToTalk(page);
 
     const status = page.getByTestId("setup-bridge-daemon-status");
-    await expect(status).toContainText(translations.setup.button.bridge.notRunning, { timeout: 10_000 });
+    await expect(status).toContainText(translations.setup.button.bridge.notRunning);
   });
 });
 
-test.describe.serial("installation button resilience (browser)", () => {
-  test("reconnects after page reload", async ({ page }) => {
-    await enablePushToTalkOnSetup(page);
-    await page.reload();
-
+test.describe("installation button resilience (browser)", () => {
+  test("connects, reconnects after reload, and forwards mock button presses", async ({ page }) => {
+    await openSetupWithMuseumPushToTalk(page);
     await waitForAppBridgeConnected(page);
-  });
 
-  test("mock button press reaches the client store", async ({ page }) => {
-    await enablePushToTalkOnSetup(page);
-
-    await expect.poll(async () => (await readButtonStore(page)).bridgeStatus).toBe("connected");
-    await expect.poll(async () => (await readButtonStore(page)).buttonInputEnabled).toBe(true);
+    await page.reload();
+    await waitForButtonStoreReady(page);
 
     const down = await page.request.post(BRIDGE_SIMULATE_URL, {
       data: { pressed: true },
     });
     expect(down.ok()).toBe(true);
 
-    await expect.poll(async () => (await readButtonStore(page)).rawPressed).toBe(true, {
-      timeout: 10_000,
-    });
+    await expect.poll(async () => (await readButtonStore(page)).rawPressed).toBe(true);
     await expect.poll(async () => (await readButtonStore(page)).pressed).toBe(true);
 
     const up = await page.request.post(BRIDGE_SIMULATE_URL, {

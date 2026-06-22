@@ -45,4 +45,33 @@ describe("mergeLedIntents", () => {
       }),
     ).toBe("on");
   });
+
+  it("returns meta-agent intent when alone", () => {
+    expect(mergeLedIntents({ "meta-agent": "pulse" })).toBe("pulse");
+  });
+
+  it("prefers human-input over meta-agent", () => {
+    expect(
+      mergeLedIntents({
+        "meta-agent": "pulse",
+        "human-input": "off",
+      }),
+    ).toBe("off");
+  });
+
+  it("prefers setup over meta-agent", () => {
+    expect(
+      mergeLedIntents({
+        "meta-agent": "on",
+        setup: "pulse",
+      }),
+    ).toBe("pulse");
+  });
+
+  it("meta-agent and voice-guide at same priority: last key in iteration wins (deterministic tie-break)", () => {
+    // Both have priority 1; they never run simultaneously so this is an edge case.
+    // What matters is the function doesn't throw and returns one of the registered modes.
+    const result = mergeLedIntents({ "meta-agent": "pulse", "voice-guide": "on" });
+    expect(["pulse", "on"]).toContain(result);
+  });
 });

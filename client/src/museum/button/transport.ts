@@ -73,6 +73,27 @@ function waitForSocketOpen(socket: WebSocket, timeoutMs: number): Promise<void> 
   });
 }
 
+function waitForAbort(signal: AbortSignal): Promise<never> {
+  return new Promise((_, reject) => {
+    if (signal.aborted) {
+      reject(abortError(signal));
+      return;
+    }
+    signal.addEventListener("abort", () => reject(abortError(signal)), { once: true });
+  });
+}
+
+function abortError(signal: AbortSignal): Error {
+  const reason = signal.reason;
+  if (reason instanceof Error) {
+    return reason;
+  }
+  if (typeof reason === "string") {
+    return new Error(reason);
+  }
+  return new Error("connection aborted");
+}
+
 export class ButtonTransport {
   private ws: WebSocket | null = null;
   private callbacks: ButtonTransportCallbacks;
@@ -83,7 +104,11 @@ export class ButtonTransport {
   private serialDeviceConnected = false;
   private writeChain: Promise<void> = Promise.resolve();
   private connectInFlight: Promise<boolean> | null = null;
-  private statusWaiter: { socket: WebSocket; resolve: () => void } | null = null;
+  private statusWaiter: {
+    socket: WebSocket;
+    resolve: () => void;
+  } | null = null;
+  private handshakeController: AbortController | null = null;
   private watchdogTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor(callbacks: ButtonTransportCallbacks = {}) {
@@ -156,6 +181,24 @@ export class ButtonTransport {
     this.statusWaiter = null;
   }
 
+  private beginHandshake(): AbortSignal {
+    this.handshakeController?.abort();
+    this.handshakeController = new AbortController();
+    return this.handshakeController.signal;
+  }
+
+  private endHandshake(): void {
+    this.handshakeController = null;
+  }
+
+  /** Reject an in-flight open/status handshake when the socket is torn down early. */
+  private abortHandshake(socket: WebSocket, message: string): void {
+    if (this.statusWaiter?.socket === socket) {
+      this.statusWaiter = null;
+    }
+    this.handshakeController?.abort(new Error(message));
+  }
+
   private resolveStatusWaiter(socket: WebSocket): void {
     if (this.statusWaiter?.socket !== socket) return;
     const resolve = this.statusWaiter.resolve;
@@ -181,8 +224,8 @@ export class ButtonTransport {
   private closeSocket(): void {
     const socket = this.ws;
     this.ws = null;
-    if (this.statusWaiter?.socket === socket) {
-      this.clearStatusWaiter();
+    if (socket) {
+      this.abortHandshake(socket, "connection aborted");
     }
     if (!socket) return;
     this.detachSocket(socket);
@@ -232,9 +275,6 @@ export class ButtonTransport {
     if (this.ws === socket) {
       this.ws = null;
     }
-    if (this.statusWaiter?.socket === socket) {
-      this.clearStatusWaiter();
-    }
     if (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING) {
       socket.close();
     }
@@ -245,6 +285,11 @@ export class ButtonTransport {
       this.scheduleReconnect();
     }
     return false;
+  }
+
+  private abortConnect(socket: WebSocket, message: string): false {
+    this.abortHandshake(socket, message);
+    return this.failConnect(socket, message);
   }
 
   private async runConnect(): Promise<boolean> {
@@ -260,6 +305,7 @@ export class ButtonTransport {
 
     const socket = new WebSocket(getButtonBridgeWsUrl());
     this.ws = socket;
+    const signal = this.beginHandshake();
     let bridgeStatusSeen = false;
 
     const statusWait = new Promise<void>((resolve) => {
@@ -286,15 +332,19 @@ export class ButtonTransport {
     };
 
     try {
-      await waitForSocketOpen(socket, BUTTON_CONNECT_TIMEOUT_MS);
+      await Promise.race([
+        waitForSocketOpen(socket, BUTTON_CONNECT_TIMEOUT_MS),
+        waitForAbort(signal),
+      ]);
 
       if (this.ws !== socket || socket.readyState !== WebSocket.OPEN) {
-        return this.failConnect(socket, "connection lost");
+        return this.abortConnect(socket, "connection lost");
       }
 
       if (!bridgeStatusSeen) {
         await Promise.race([
           statusWait,
+          waitForAbort(signal),
           new Promise<void>((_, reject) => {
             setTimeout(
               () => reject(new Error("Bridge status timed out")),
@@ -305,7 +355,7 @@ export class ButtonTransport {
       }
 
       if (this.ws !== socket || socket.readyState !== WebSocket.OPEN) {
-        return this.failConnect(socket, "connection lost");
+        return this.abortConnect(socket, "connection lost");
       }
 
       this.clearStatusWaiter();
@@ -315,6 +365,9 @@ export class ButtonTransport {
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Failed to connect to bridge";
       return this.failConnect(socket, msg);
+    } finally {
+      this.endHandshake();
+      this.clearStatusWaiter();
     }
   }
 
@@ -327,11 +380,14 @@ export class ButtonTransport {
       return this.connectInFlight;
     }
 
-    this.connectInFlight = this.runConnect();
+    const attempt = this.runConnect();
+    this.connectInFlight = attempt;
     try {
-      return await this.connectInFlight;
+      return await attempt;
     } finally {
-      this.connectInFlight = null;
+      if (this.connectInFlight === attempt) {
+        this.connectInFlight = null;
+      }
     }
   }
 
@@ -342,6 +398,7 @@ export class ButtonTransport {
     this.reconnectAttempt = 0;
     this.serialDeviceConnected = false;
     this.setStatus("disconnected");
+    this.connectInFlight = null;
     this.closeSocket();
   }
 

@@ -66,7 +66,7 @@ export function getSetupBridgeDetailLines(
   lines.push(`Bridge version ${health.version}`);
 
   if (health.expectedVendorId) {
-    lines.push(`Looking for USB vendor ${health.expectedVendorId} (Adafruit boards)`);
+    lines.push(`Looking for USB vendor ${health.expectedVendorId} (Arduino USB)`);
   }
 
   if (health.serialMessage) {

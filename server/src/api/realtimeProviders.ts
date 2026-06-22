@@ -247,6 +247,11 @@ export async function getVoiceGuideRealtimeBootstrap(language: string): Promise<
     };
 }
 
+/** Meta-agent uses the same realtime session fragment as the voice guide (chair voice, semantic VAD). */
+export async function getMetaAgentRealtimeBootstrap(language: string): Promise<RealtimeBootstrapResponse> {
+    return getVoiceGuideRealtimeBootstrap(language);
+}
+
 export async function createRealtimeCall(
     provider: RealtimeProvider,
     req: { sdp: string; session?: unknown }

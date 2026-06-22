@@ -30,10 +30,10 @@ export class MockSerialManager extends EventEmitter {
 
   getDiagnostics(): SerialDiagnostics {
     if (this.isOpen()) {
-      return createConnectedDiagnostics("239a", [], this.openPath ?? "mock");
+      return createConnectedDiagnostics("2341", [], this.openPath ?? "mock");
     }
     return createDisconnectedDiagnostics(
-      "239a",
+      "2341",
       [],
       "no_device",
       "No mock USB device connected",
