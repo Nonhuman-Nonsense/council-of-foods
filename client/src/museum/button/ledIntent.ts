@@ -2,10 +2,11 @@ import type { ButtonLedMode } from "./ledMode";
 
 export type ButtonLedOwner = "setup" | "voice-guide" | "human-input";
 
+/** Setup is highest: staff diagnostics overlay mounted on top of the running app. */
 const LED_OWNER_PRIORITY: Record<ButtonLedOwner, number> = {
-  "human-input": 3,
-  "voice-guide": 2,
-  setup: 1,
+  setup: 3,
+  "human-input": 2,
+  "voice-guide": 1,
 };
 
 export function mergeLedIntents(
