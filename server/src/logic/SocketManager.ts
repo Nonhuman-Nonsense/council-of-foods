@@ -6,6 +6,7 @@ import { ClientToServerEvents, ReconnectionOptions, SetupOptions } from "@shared
 import { ZodError } from "zod";
 import { getGlobalOptions } from "./GlobalOptions.js";
 import {
+    getLiveSessionHolder,
     releaseLiveSession,
     tryAcquireLiveSession,
 } from "./liveSessionRegistry.js";
@@ -25,6 +26,8 @@ import { ConflictError, CouncilError } from "@models/Errors.js";
  * 3. Routes subsequent events to the active session.
  */
 export class SocketManager {
+    private static readonly activeManagers = new Map<string, SocketManager>();
+
     private socket: Socket;
     private environment: string;
     private currentSession: MeetingManager | null = null; // Using MeetingManager as the "Session" class
@@ -38,12 +41,23 @@ export class SocketManager {
         this.socket = socket;
         this.environment = environment;
         this.socketBroadcaster = new SocketBroadcaster(socket);
+        SocketManager.activeManagers.set(socket.id, this);
         this.setupListeners();
+    }
+
+    static lookup(socketId: string): SocketManager | undefined {
+        return SocketManager.activeManagers.get(socketId);
+    }
+
+    /** Test helper — vitest should reset manager registry between tests. */
+    static clearForTests(): void {
+        SocketManager.activeManagers.clear();
     }
 
     private setupListeners() {
         this.socket.on("disconnect", () => {
             Logger.info("socket", `[${this.socket.id}] session disconnected`);
+            SocketManager.activeManagers.delete(this.socket.id);
             void this.destroySession("drain");
         });
 
@@ -148,6 +162,36 @@ export class SocketManager {
         }
     }
 
+    /** Tear down an active meeting session without waiting for socket disconnect. */
+    async abandonLiveSession(audioStrategy: "drain" | "cancel" = "cancel"): Promise<void> {
+        await this.destroySession(audioStrategy);
+    }
+
+    /**
+     * Socket.IO reconnect assigns a new socket id before the old connection is torn down.
+     * When the client re-presents the same liveKey, preempt the stale holder instead of 409.
+     */
+    private async preemptStaleLiveSessionForReconnect(meetingId: number, liveKey: string): Promise<void> {
+        const holder = getLiveSessionHolder(meetingId);
+        if (!holder || holder.socketId === this.socket.id || holder.liveKey !== liveKey) {
+            return;
+        }
+
+        Logger.info(
+            "socket",
+            `Preempting stale live session on socket ${holder.socketId} for reconnect on ${this.socket.id}`,
+        );
+
+        const staleManager = SocketManager.lookup(holder.socketId);
+        if (staleManager) {
+            await staleManager.abandonLiveSession("cancel");
+            return;
+        }
+
+        releaseLiveSession(meetingId, holder.socketId);
+        this.socket.nsp.sockets.get(holder.socketId)?.disconnect(true);
+    }
+
     private async handleStart(payload: SetupOptions) {
         Logger.info("socket", "Starting new meeting session...");
         await this.destroySession("cancel");
@@ -186,9 +230,10 @@ export class SocketManager {
             return;
         }
 
-        await this.destroySession("cancel");
-
         const data = ReconnectionOptionsSchema.parse(payload);
+
+        await this.preemptStaleLiveSessionForReconnect(data.meetingId, data.liveKey);
+        await this.destroySession("cancel");
 
         if (!tryAcquireLiveSession(data.meetingId, this.socket.id, data.liveKey)) {
             Logger.warn("socket",`Live session already held for meeting ${data.meetingId}; rejecting attempt_reconnection on socket ${this.socket.id} (409)`);

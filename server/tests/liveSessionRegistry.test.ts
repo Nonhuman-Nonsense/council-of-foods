@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import {
     clearLiveSessionRegistryForTests,
+    getLiveSessionHolder,
     hasLiveSession,
     releaseLiveSession,
     socketHoldsLiveSession,
@@ -39,6 +40,12 @@ describe("liveSessionRegistry", () => {
         expect(socketHoldsLiveSession(9, "sock-a")).toBe(true);
         expect(socketHoldsLiveSession(9, "sock-b")).toBe(false);
         expect(socketHoldsLiveSession(99, "sock-a")).toBe(false);
+    });
+
+    it("getLiveSessionHolder returns the registered socket and key", () => {
+        tryAcquireLiveSession(7, "sock-a", "key-a");
+        expect(getLiveSessionHolder(7)).toEqual({ socketId: "sock-a", liveKey: "key-a" });
+        expect(getLiveSessionHolder(8)).toBeUndefined();
     });
 
     it("hasLiveSession reflects current lock state for any socket", () => {
