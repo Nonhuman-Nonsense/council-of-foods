@@ -1,7 +1,38 @@
 import { useEffect } from "react";
-import type { ButtonLedMode } from "@/voice/buttonLedMode";
+import type { ButtonTransportStatus } from "@/button/transport";
 import { useButtonStore } from "@stores/useButtonStore";
+import type { ButtonLedMode } from "@/voice/buttonLedMode";
 import type { ButtonLedOwner } from "./buttonLedIntent";
+
+export type ButtonConnectionState = {
+  bridgeStatus: ButtonTransportStatus;
+  bridgeError: string | null;
+  bridgeAvailable: boolean;
+  serialConnected: boolean;
+};
+
+export function useButtonConnection(active: boolean): ButtonConnectionState {
+  const bridgeStatus = useButtonStore((state) =>
+    active ? state.bridgeStatus : "disconnected",
+  );
+  const bridgeError = useButtonStore((state) => (active ? state.bridgeError : null));
+  const bridgeAvailable = useButtonStore((state) =>
+    active ? state.bridgeAvailable : false,
+  );
+  const serialConnected = useButtonStore((state) =>
+    active ? state.serialDeviceConnected : false,
+  );
+
+  return { bridgeStatus, bridgeError, bridgeAvailable, serialConnected };
+}
+
+export function useButtonPressed(active: boolean): boolean {
+  return useButtonStore((state) => (active ? state.pressed : false));
+}
+
+export function useRawPressed(active: boolean): boolean {
+  return useButtonStore((state) => (active ? state.rawPressed : false));
+}
 
 /** Declare desired LED mode for a screen; highest-priority active owner wins. */
 export function useButtonLed(owner: ButtonLedOwner, mode: ButtonLedMode, active = true): void {

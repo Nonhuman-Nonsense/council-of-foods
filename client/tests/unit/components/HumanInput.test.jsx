@@ -61,20 +61,17 @@ vi.mock('@stores/useButtonStore', () => ({
     useButtonStore: (selector) => selector(mockButtonState),
 }));
 
-vi.mock('@/museum/button/hooks', () => ({
-    useButtonLed: (...args) => mockUseButtonLed(...args),
-}));
-
-vi.mock('@/museum/button/useMuseumButtonStore', async () => {
+vi.mock('@/museum/button/hooks', async () => {
     const React = await import('react');
     return {
-        useMuseumButtonSelector: (active, selector, fallback) =>
+        useButtonLed: (...args) => mockUseButtonLed(...args),
+        useRawPressed: (active) =>
             React.useSyncExternalStore(
                 (onStoreChange) => {
                     mockButtonListeners.add(onStoreChange);
                     return () => mockButtonListeners.delete(onStoreChange);
                 },
-                () => (active ? selector(mockButtonState) : fallback),
+                () => (active ? mockButtonState.rawPressed : false),
             ),
     };
 });

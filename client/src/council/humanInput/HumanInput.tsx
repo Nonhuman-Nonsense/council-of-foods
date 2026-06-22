@@ -15,8 +15,7 @@ import type { RealtimeProvider } from "@shared/RealtimeSessionTypes";
 import React from 'react';
 import micIcon from "@assets/mic.avif";
 import type { ParticipationPhase } from "./participationPhase";
-import { useMuseumButtonSelector } from "@/museum/button/useMuseumButtonStore";
-import { useButtonLed } from "@/museum/button/hooks";
+import { useButtonLed, useRawPressed } from "@/museum/button/hooks";
 import type { ButtonLedMode } from "@/voice/buttonLedMode";
 
 const MAX_INPUT_LENGTH = 10000;
@@ -185,11 +184,7 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
   // PTT store subscriptions — skip re-subscribing in non-PTT builds.
   // rawPressed tracks the physical button state regardless of pttInputEnabled,
   // which lets us detect a held button even while pre-warming (LED off).
-  const rawPressed = useMuseumButtonSelector(
-    isButtonMuseumMode,
-    (state) => state.rawPressed,
-    false,
-  );
+  const rawPressed = useRawPressed(isButtonMuseumMode);
 
   const humanInputLedMode = useMemo((): ButtonLedMode => {
     if (!isButtonMuseumMode) return "off";
