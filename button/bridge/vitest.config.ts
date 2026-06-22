@@ -14,7 +14,6 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": clientSrc,
-      "@stores": path.join(clientSrc, "stores"),
       "@shared": path.resolve(root, "../../shared"),
     },
   },
