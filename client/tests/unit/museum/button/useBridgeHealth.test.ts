@@ -22,7 +22,7 @@ describe("useButtonBridgeHealth integration", () => {
           version: "1.0.0",
           serialDetail: "connected",
           serialMessage: "Council button connected at mock",
-          expectedVendorId: "239a",
+          expectedVendorId: "2341",
           scannedPorts: [],
         }),
       }),
@@ -35,7 +35,7 @@ describe("useButtonBridgeHealth integration", () => {
       version: "1.0.0",
       serialDetail: "connected",
       serialMessage: "Council button connected at mock",
-      expectedVendorId: "239a",
+      expectedVendorId: "2341",
       scannedPorts: [],
     });
   });

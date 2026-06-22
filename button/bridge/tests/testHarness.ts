@@ -62,7 +62,7 @@ function createTestConfig(port: number): BridgeConfig {
     port,
     baudRate: 115200,
     serialPath: null,
-    serialVendorId: "239a",
+    serialVendorId: "2341",
     reconnectBaseMs: 500,
     reconnectMaxMs: 10_000,
     mockSerial: true,

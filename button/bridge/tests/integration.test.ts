@@ -24,7 +24,7 @@ describe("bridge integration", () => {
     expect(body.path).toBe("mock");
     expect(body.serialDetail).toBe("connected");
     expect(body.serialMessage).toContain("Council button connected");
-    expect(body.expectedVendorId).toBe("239a");
+    expect(body.expectedVendorId).toBe("2341");
     expect(body.scannedPorts).toEqual([]);
   });
 

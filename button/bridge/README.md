@@ -194,7 +194,7 @@ button/bridge/install/macos/smoke-bundle.sh
 | `BUTTON_BRIDGE_CORS_SUFFIXES` | `council-of-forest.com,council-of-foods.com` | HTTPS origins allowed to call `/health` and open `/v1/button` |
 | `BUTTON_BRIDGE_CORS_ORIGINS` | _(none)_ | Optional comma-separated exact origins (in addition to suffixes) |
 | `BUTTON_SERIAL_PATH` | auto | Force serial device path |
-| `BUTTON_SERIAL_VENDOR_ID` | `239a` | Adafruit USB vendor |
+| `BUTTON_SERIAL_VENDOR_ID` | `2341` | Arduino USB vendor (Council button board) |
 | `BUTTON_MOCK_SERIAL` | `0` | `1` = mock device (no USB) |
 | `BUTTON_BAUD_RATE` | `115200` | Match Arduino firmware |
 

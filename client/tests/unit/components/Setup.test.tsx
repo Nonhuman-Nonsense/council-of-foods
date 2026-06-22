@@ -16,7 +16,7 @@ const bridgeHealthState = {
   version: '1.0.0',
   serialDetail: 'connected' as const,
   serialMessage: 'Council button connected at /dev/cu.usbmodem1',
-  expectedVendorId: '239a',
+  expectedVendorId: '2341',
   scannedPorts: [] as Array<{ path: string; vendorId?: string; productId?: string }>,
 };
 

@@ -12,9 +12,9 @@ const runningHealth = {
   path: null,
   version: "1.0.0",
   serialDetail: "no_device" as const,
-  serialMessage: "No USB serial device with vendor 239a found (1 other port(s) visible).",
-  expectedVendorId: "239a",
-  scannedPorts: [{ path: "/dev/cu.usbmodem1", vendorId: "2341", productId: "0043" }],
+  serialMessage: "No USB serial device with vendor 2341 found (1 other port(s) visible).",
+  expectedVendorId: "2341",
+  scannedPorts: [{ path: "/dev/cu.usbmodem1", vendorId: "239a", productId: "8014" }],
 };
 
 describe("setupButtonStatus", () => {
@@ -63,9 +63,9 @@ describe("setupButtonStatus", () => {
   it("builds setup detail lines for staff diagnostics", () => {
     expect(getSetupBridgeDetailLines(runningHealth)).toEqual([
       "Bridge version 1.0.0",
-      "Looking for USB vendor 239a (Adafruit boards)",
-      "No USB serial device with vendor 239a found (1 other port(s) visible).",
-      "Visible USB serial: 2341:0043 at /dev/cu.usbmodem1",
+      "Looking for USB vendor 2341 (Arduino USB)",
+      "No USB serial device with vendor 2341 found (1 other port(s) visible).",
+      "Visible USB serial: 239a:8014 at /dev/cu.usbmodem1",
     ]);
   });
 });
