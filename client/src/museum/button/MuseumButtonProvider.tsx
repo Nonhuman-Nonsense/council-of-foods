@@ -9,13 +9,13 @@ import {
 import { useButtonStore } from "./buttonStore";
 
 /**
- * Museum button connection lifecycle. Mount when app mode is museum so bridge
- * client code stays out of the default web bundle.
+ * Push-to-talk button lifecycle: keyboard (Space) when PTT is enabled in any
+ * app mode; hardware bridge only in museum mode when the bridge is available.
  */
 export default function MuseumButtonProvider(): null {
   const { isMuseumMode } = useAppMode();
   const [pushToTalk, setPushToTalk] = useState(getPushToTalk);
-  const active = isMuseumMode && pushToTalk && isButtonBridgeAvailable();
+  const bridgeActive = isMuseumMode && pushToTalk && isButtonBridgeAvailable();
 
   useEffect(() => {
     function onPushToTalkChange(event: Event): void {
@@ -26,14 +26,21 @@ export default function MuseumButtonProvider(): null {
     return () => window.removeEventListener(PUSH_TO_TALK_CHANGE_EVENT, onPushToTalkChange);
   }, []);
 
+  // Space-as-PTT works in web and museum whenever push-to-talk is on.
   useEffect(() => {
-    if (!active) {
+    if (!pushToTalk) {
+      return;
+    }
+    useButtonStore.getState().init();
+  }, [pushToTalk]);
+
+  useEffect(() => {
+    if (!bridgeActive) {
       void useButtonStore.getState().disconnect();
       return;
     }
 
     const store = useButtonStore.getState();
-    store.init();
     store.enableAutoReconnect();
     void store.connect();
 
@@ -48,7 +55,7 @@ export default function MuseumButtonProvider(): null {
       document.removeEventListener("visibilitychange", onVisibilityChange);
       void useButtonStore.getState().disconnect();
     };
-  }, [active]);
+  }, [bridgeActive]);
 
   return null;
 }

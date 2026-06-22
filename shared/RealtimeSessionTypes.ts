@@ -1,6 +1,6 @@
 export type RealtimeProvider = "inworld" | "openai";
 
-export type RealtimeFeature = "voice-guide" | "human-input";
+export type RealtimeFeature = "voice-guide" | "human-input" | "meta-agent";
 
 export interface IceServer {
     urls: string[] | string;
@@ -44,6 +44,18 @@ export interface VoiceGuideRealtimeBootstrapRequest {
 
 export interface VoiceGuideRealtimeCallRequest {
     feature: "voice-guide";
+    provider: RealtimeProvider;
+    sdp: string;
+    session: Record<string, unknown>;
+}
+
+export interface MetaAgentRealtimeBootstrapRequest {
+    feature: "meta-agent";
+    language: string;
+}
+
+export interface MetaAgentRealtimeCallRequest {
+    feature: "meta-agent";
     provider: RealtimeProvider;
     sdp: string;
     session: Record<string, unknown>;

@@ -7,11 +7,13 @@ import { cacheControlPrivateNoStoreApi } from "@utils/httpCache.js";
 import {
     createRealtimeCall,
     getHumanInputRealtimeBootstrap,
+    getMetaAgentRealtimeBootstrap,
     getVoiceGuideRealtimeBootstrap,
 } from "@api/realtimeProviders.js";
 
 vi.mock("@api/realtimeProviders.js", () => ({
     getHumanInputRealtimeBootstrap: vi.fn(),
+    getMetaAgentRealtimeBootstrap: vi.fn(),
     getVoiceGuideRealtimeBootstrap: vi.fn(),
     createRealtimeCall: vi.fn(),
 }));
@@ -54,12 +56,18 @@ describe("POST /api/realtime/* (integration)", () => {
 
     beforeEach(() => {
         vi.mocked(getHumanInputRealtimeBootstrap).mockReset();
+        vi.mocked(getMetaAgentRealtimeBootstrap).mockReset();
         vi.mocked(getVoiceGuideRealtimeBootstrap).mockReset();
         vi.mocked(createRealtimeCall).mockReset();
         vi.mocked(getHumanInputRealtimeBootstrap).mockResolvedValue({
             provider: "inworld",
             iceServers: [],
             session: { type: "realtime" },
+        });
+        vi.mocked(getMetaAgentRealtimeBootstrap).mockResolvedValue({
+            provider: "inworld",
+            iceServers: [{ urls: ["stun:meta.example.com"] }],
+            session: { type: "realtime", output_modalities: ["audio", "text"] },
         });
         vi.mocked(getVoiceGuideRealtimeBootstrap).mockResolvedValue({
             provider: "inworld",
@@ -197,6 +205,92 @@ describe("POST /api/realtime/* (integration)", () => {
         expect(res.status).toBe(200);
         expect(await res.json()).toEqual({ sdp: "mock-answer" });
         expect(vi.mocked(createRealtimeCall)).toHaveBeenCalledWith("openai", {
+            sdp: "offer",
+            session: { type: "realtime" },
+        });
+    });
+
+    // ── meta-agent ────────────────────────────────────────────────────────────
+
+    it("meta-agent bootstrap returns 401 without Authorization", async () => {
+        const res = await fetch(`${base()}/api/realtime/bootstrap`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ feature: "meta-agent", language: "en" }),
+        });
+        expect(res.status).toBe(401);
+        expect(vi.mocked(getMetaAgentRealtimeBootstrap)).not.toHaveBeenCalled();
+    });
+
+    it("meta-agent bootstrap returns 403 with wrong key", async () => {
+        const res = await fetch(`${base()}/api/realtime/bootstrap`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: "Bearer wrong-key",
+            },
+            body: JSON.stringify({ feature: "meta-agent", language: "en" }),
+        });
+        expect(res.status).toBe(403);
+        expect(vi.mocked(getMetaAgentRealtimeBootstrap)).not.toHaveBeenCalled();
+    });
+
+    it("meta-agent bootstrap returns 200 with valid key", async () => {
+        const liveKey = await createMeetingAndKey();
+
+        const res = await fetch(`${base()}/api/realtime/bootstrap`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${liveKey}`,
+            },
+            body: JSON.stringify({ feature: "meta-agent", language: "en" }),
+        });
+
+        expect(res.status).toBe(200);
+        expect(await res.json()).toEqual({
+            provider: "inworld",
+            iceServers: [{ urls: ["stun:meta.example.com"] }],
+            session: { type: "realtime", output_modalities: ["audio", "text"] },
+        });
+        expect(vi.mocked(getMetaAgentRealtimeBootstrap)).toHaveBeenCalledWith("en");
+    });
+
+    it("meta-agent call returns 401 without Authorization", async () => {
+        const res = await fetch(`${base()}/api/realtime/call`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                feature: "meta-agent",
+                provider: "inworld",
+                sdp: "offer",
+                session: { type: "realtime" },
+            }),
+        });
+        expect(res.status).toBe(401);
+        expect(vi.mocked(createRealtimeCall)).not.toHaveBeenCalled();
+    });
+
+    it("meta-agent call returns 200 with valid key", async () => {
+        const liveKey = await createMeetingAndKey();
+
+        const res = await fetch(`${base()}/api/realtime/call`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${liveKey}`,
+            },
+            body: JSON.stringify({
+                feature: "meta-agent",
+                provider: "inworld",
+                sdp: "offer",
+                session: { type: "realtime" },
+            }),
+        });
+
+        expect(res.status).toBe(200);
+        expect(await res.json()).toEqual({ sdp: "mock-answer" });
+        expect(vi.mocked(createRealtimeCall)).toHaveBeenCalledWith("inworld", {
             sdp: "offer",
             session: { type: "realtime" },
         });

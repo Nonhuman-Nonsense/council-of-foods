@@ -1,6 +1,6 @@
 
 import { render, screen } from '@testing-library/react';
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { MemoryRouter } from 'react-router';
 import Main from '@main/Main';
 import routes from '@/routes.json';
@@ -55,6 +55,9 @@ vi.mock('@main/overlay/RotateDevice', () => ({
 vi.mock('@voice/MeetingVoiceGuide', () => ({
     default: () => null,
 }));
+vi.mock('@/museum/button/MuseumButtonProvider', () => ({
+    default: () => <div data-testid="museum-button-provider">MuseumButtonProvider</div>,
+}));
 vi.mock('@main/FullscreenButton', () => ({
     default: () => <div data-testid="fullscreen-btn">Fullscreen</div>
 }));
@@ -96,6 +99,32 @@ window.AudioContext = class {
 };
 
 describe('Main Component', () => {
+    beforeEach(() => {
+        localStorage.clear();
+    });
+
+    it('does not mount MuseumButtonProvider when push-to-talk is off', () => {
+        render(
+            <MemoryRouter initialEntries={['/']}>
+                <Main lang="en" />
+            </MemoryRouter>
+        );
+
+        expect(screen.queryByTestId('museum-button-provider')).not.toBeInTheDocument();
+    });
+
+    it('mounts MuseumButtonProvider when push-to-talk is on', async () => {
+        localStorage.setItem('councilPushToTalk', 'true');
+
+        render(
+            <MemoryRouter initialEntries={['/']}>
+                <Main lang="en" />
+            </MemoryRouter>
+        );
+
+        expect(await screen.findByTestId('museum-button-provider')).toBeInTheDocument();
+    });
+
     it('renders Council on meeting route', () => {
         render(
             <MemoryRouter initialEntries={[`/${routes.meeting}/42`]}>
