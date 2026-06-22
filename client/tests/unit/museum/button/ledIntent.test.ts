@@ -10,30 +10,39 @@ describe("mergeLedIntents", () => {
     expect(mergeLedIntents({ setup: "pulse" })).toBe("pulse");
   });
 
-  it("prefers human-input over voice-guide and setup", () => {
+  it("prefers setup over human-input and voice-guide", () => {
     expect(
       mergeLedIntents({
         setup: "pulse",
         "voice-guide": "on",
         "human-input": "off",
       }),
+    ).toBe("pulse");
+  });
+
+  it("prefers human-input over voice-guide", () => {
+    expect(
+      mergeLedIntents({
+        "voice-guide": "on",
+        "human-input": "off",
+      }),
     ).toBe("off");
   });
 
-  it("prefers voice-guide over setup", () => {
+  it("prefers setup over voice-guide", () => {
     expect(
       mergeLedIntents({
         setup: "pulse",
         "voice-guide": "on",
       }),
-    ).toBe("on");
+    ).toBe("pulse");
   });
 
   it("keeps lower-priority intent when higher-priority owner unregisters", () => {
     expect(
       mergeLedIntents({
-        setup: "pulse",
+        "human-input": "on",
       }),
-    ).toBe("pulse");
+    ).toBe("on");
   });
 });

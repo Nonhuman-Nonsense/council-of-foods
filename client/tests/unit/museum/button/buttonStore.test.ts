@@ -78,23 +78,23 @@ describe("useButtonStore", () => {
     expect(transport.setLedMode).toHaveBeenCalledWith("pulse");
   });
 
-  it("human-input wins over setup when both register intents", async () => {
+  it("setup wins over human-input when both register intents", async () => {
     useButtonStore.setState({ bridgeStatus: "connected" });
-    useButtonStore.getState().registerLedIntent("setup", "pulse");
     useButtonStore.getState().registerLedIntent("human-input", "on");
-    await Promise.resolve();
-    expect(useButtonStore.getState().ledMode).toBe("on");
-    expect(transport.setLedMode).toHaveBeenLastCalledWith("on");
-  });
-
-  it("falls back to setup intent when human-input unregisters", async () => {
-    useButtonStore.setState({ bridgeStatus: "connected" });
     useButtonStore.getState().registerLedIntent("setup", "pulse");
-    useButtonStore.getState().registerLedIntent("human-input", "on");
-    useButtonStore.getState().registerLedIntent("human-input", null);
     await Promise.resolve();
     expect(useButtonStore.getState().ledMode).toBe("pulse");
     expect(transport.setLedMode).toHaveBeenLastCalledWith("pulse");
+  });
+
+  it("falls back to human-input intent when setup unregisters", async () => {
+    useButtonStore.setState({ bridgeStatus: "connected" });
+    useButtonStore.getState().registerLedIntent("human-input", "on");
+    useButtonStore.getState().registerLedIntent("setup", "pulse");
+    useButtonStore.getState().registerLedIntent("setup", null);
+    await Promise.resolve();
+    expect(useButtonStore.getState().ledMode).toBe("on");
+    expect(transport.setLedMode).toHaveBeenLastCalledWith("on");
   });
 
   it("clears pressed state when bridge disconnects", () => {
