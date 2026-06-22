@@ -36,11 +36,14 @@ vi.mock('@/button/useBridgeHealth', () => ({
   useButtonBridgeHealth: () => bridgeHealthState,
 }));
 
+vi.mock('@/museum/button/hooks', () => ({
+  useButtonLed: vi.fn(),
+}));
+
 vi.mock('@/museum/button/useMuseumButtonStore', () => ({
   useMuseumButtonBridgeStatus: () => museumButtonState.bridgeStatus,
   useMuseumButtonBridgeError: () => museumButtonState.bridgeError,
   useMuseumButtonBridgeAvailable: () => museumButtonState.bridgeAvailable,
-  useMuseumButtonSetLedMode: () => vi.fn(),
 }));
 
 describe('Setup overlay', () => {

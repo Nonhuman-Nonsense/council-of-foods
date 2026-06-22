@@ -1,4 +1,4 @@
-import { useState, useEffect, useLayoutEffect, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useRef, useMemo } from "react";
 import ConversationControlIcon from "../ConversationControlIcon";
 import TextareaAutosize from 'react-textarea-autosize';
 import { useMobile, dvh } from "@/utils";
@@ -15,11 +15,9 @@ import type { RealtimeProvider } from "@shared/RealtimeSessionTypes";
 import React from 'react';
 import micIcon from "@assets/mic.avif";
 import type { ParticipationPhase } from "./participationPhase";
-import {
-  useMuseumButtonSelector,
-  useMuseumButtonSetLedMode,
-} from "@/museum/button/useMuseumButtonStore";
-import { claimButton } from "@/museum/button/buttonOwnership";
+import { useMuseumButtonSelector } from "@/museum/button/useMuseumButtonStore";
+import { useButtonLed } from "@/museum/button/hooks";
+import type { ButtonLedMode } from "@/voice/buttonLedMode";
 
 const MAX_INPUT_LENGTH = 10000;
 const FINISHING_QUIET_MS = 2000;
@@ -192,7 +190,15 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
     (state) => state.rawPressed,
     false,
   );
-  const setLedMode = useMuseumButtonSetLedMode(isButtonMuseumMode);
+
+  const humanInputLedMode = useMemo((): ButtonLedMode => {
+    if (!isButtonMuseumMode) return "off";
+    if (phase === "active" && connectionState === "ready") return "pulse";
+    if (phase === "active" && connectionState === "recording") return "on";
+    return "off";
+  }, [isButtonMuseumMode, phase, connectionState]);
+
+  useButtonLed("human-input", humanInputLedMode, isButtonMuseumMode);
 
   // Mirror rawPressed in a ref so the connectionState-change effect can read
   // the current value without taking it as a dependency (avoids double-trigger).
@@ -249,36 +255,7 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
     onSubmitRef.current = onSubmitHumanMessage;
   }, [onSubmitHumanMessage]);
 
-  // ── PTT × LED management ────────────────────────────────────────────────────
-
-  // Claim PTT ownership for the lifetime of this mount; release on unmount.
-  // This lets a future meta-agent know when HumanInput is active and should
-  // back off. LED is set to "off" on unmount as part of the release.
-  useEffect(() => {
-    if (!isButtonMuseumMode) return;
-    const release = claimButton("human-input");
-    return () => {
-      void setLedMode("off");
-      release();
-    };
-  // setLedMode is stable (Zustand); isButtonMuseumMode doesn't change during a meeting
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isButtonMuseumMode]);
-
-  // Drive LED mode from connection state.
-  // Pulse = "you can speak now" (active + ready only — warm phase cannot speak yet).
-  // On    = "recording now".
-  // Off   = transitional, warm, connecting, or finishing.
-  useEffect(() => {
-    if (!isButtonMuseumMode) return;
-    if (phase === "active" && connectionState === "ready") {
-      void setLedMode("pulse");
-    } else if (phase === "active" && connectionState === "recording") {
-      void setLedMode("on");
-    } else {
-      void setLedMode("off");
-    }
-  }, [isButtonMuseumMode, phase, connectionState, setLedMode]);
+  // ── PTT input ───────────────────────────────────────────────────────────────
 
   // PTT press → start recording (only when active; startRecording guards on "ready")
   // Uses rawPressed so a press during connecting is captured and can be acted upon

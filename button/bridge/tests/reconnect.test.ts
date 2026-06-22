@@ -89,7 +89,7 @@ describe.sequential("button reconnect resilience", () => {
     useButtonStore.getState().init();
     useButtonStore.getState().enableAutoReconnect();
     await useButtonStore.getState().connect();
-    await useButtonStore.getState().setLedMode("pulse");
+    await useButtonStore.getState().registerLedIntent("human-input", "pulse");
 
     bridge.simulateButtonDown();
     await waitForTicks();

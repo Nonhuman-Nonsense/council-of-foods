@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useMobile, useMobileXs } from "@/utils";
 import { useTranslation } from "react-i18next";
 import { getPushToTalk, setPushToTalk } from "@/settings/councilSettings";
@@ -7,8 +7,8 @@ import {
   useMuseumButtonBridgeAvailable,
   useMuseumButtonBridgeError,
   useMuseumButtonBridgeStatus,
-  useMuseumButtonSetLedMode,
 } from "@/museum/button/useMuseumButtonStore";
+import { useButtonLed } from "@/museum/button/hooks";
 import {
   getBridgeAppStatus,
   getBridgeDaemonStatus,
@@ -33,19 +33,15 @@ function Setup(): React.ReactElement {
   const bridgeStatus = useMuseumButtonBridgeStatus(bridgeButtonActive);
   const bridgeError = useMuseumButtonBridgeError(bridgeButtonActive);
   const bridgeAvailable = useMuseumButtonBridgeAvailable(bridgeButtonActive);
-  const setLedMode = useMuseumButtonSetLedMode(bridgeButtonActive);
   const bridgeHealth = useButtonBridgeHealth(bridgeButtonActive);
+
+  useButtonLed("setup", pushToTalk ? "pulse" : "off", bridgeButtonActive);
 
   const daemonStatus = getBridgeDaemonStatus(bridgeHealth);
   const appStatus = getBridgeAppStatus(bridgeAvailable, bridgeHealth, bridgeStatus);
   const usbStatus = getUsbButtonStatus(bridgeHealth);
   const bridgeDetailLines =
     bridgeHealth.status === "running" ? getSetupBridgeDetailLines(bridgeHealth) : [];
-
-  useEffect(() => {
-    if (!pushToTalk || bridgeStatus !== "connected") return;
-    void setLedMode("pulse");
-  }, [pushToTalk, bridgeStatus, setLedMode]);
 
   const containerStyle: React.CSSProperties = {
     width: "96vw",
@@ -88,7 +84,6 @@ function Setup(): React.ReactElement {
   function selectAlwaysOn(): void {
     setPushToTalkState(false);
     setPushToTalk(false);
-    void setLedMode("off");
   }
 
   function selectPushToTalk(): void {

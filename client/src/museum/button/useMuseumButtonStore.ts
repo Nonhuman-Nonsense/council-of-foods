@@ -1,5 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import type { ButtonLedMode } from "@/voice/buttonLedMode";
+import { useEffect, useRef, useState } from "react";
 
 import type { ButtonTransportStatus } from "@/button/transport";
 
@@ -9,7 +8,6 @@ type ButtonState = {
   bridgeStatus: ButtonTransportStatus;
   bridgeError: string | null;
   bridgeAvailable: boolean;
-  setLedMode: (mode: ButtonLedMode) => Promise<void>;
 };
 
 type LazyButtonStore = {
@@ -54,17 +52,6 @@ export function useMuseumButtonSelector<T>(
   }, [active, fallback]);
 
   return active ? value : fallback;
-}
-
-export function useMuseumButtonSetLedMode(active: boolean) {
-  return useCallback(
-    async (mode: ButtonLedMode) => {
-      if (!active) return;
-      const useButtonStore = await loadButtonStore();
-      await useButtonStore.getState().setLedMode(mode);
-    },
-    [active],
-  );
 }
 
 export function useMuseumButtonBridgeStatus(active: boolean): ButtonState["bridgeStatus"] {

@@ -70,11 +70,31 @@ describe("useButtonStore", () => {
     expect(useButtonStore.getState().pressed).toBe(false);
   });
 
-  it("enables input and syncs LED when setLedMode is pulse", async () => {
+  it("enables input and syncs LED when registerLedIntent is pulse", async () => {
     useButtonStore.setState({ bridgeStatus: "connected" });
-    await useButtonStore.getState().setLedMode("pulse");
+    useButtonStore.getState().registerLedIntent("human-input", "pulse");
+    await Promise.resolve();
     expect(useButtonStore.getState().buttonInputEnabled).toBe(true);
     expect(transport.setLedMode).toHaveBeenCalledWith("pulse");
+  });
+
+  it("human-input wins over setup when both register intents", async () => {
+    useButtonStore.setState({ bridgeStatus: "connected" });
+    useButtonStore.getState().registerLedIntent("setup", "pulse");
+    useButtonStore.getState().registerLedIntent("human-input", "on");
+    await Promise.resolve();
+    expect(useButtonStore.getState().ledMode).toBe("on");
+    expect(transport.setLedMode).toHaveBeenLastCalledWith("on");
+  });
+
+  it("falls back to setup intent when human-input unregisters", async () => {
+    useButtonStore.setState({ bridgeStatus: "connected" });
+    useButtonStore.getState().registerLedIntent("setup", "pulse");
+    useButtonStore.getState().registerLedIntent("human-input", "on");
+    useButtonStore.getState().registerLedIntent("human-input", null);
+    await Promise.resolve();
+    expect(useButtonStore.getState().ledMode).toBe("pulse");
+    expect(transport.setLedMode).toHaveBeenLastCalledWith("pulse");
   });
 
   it("clears pressed state when bridge disconnects", () => {
@@ -98,7 +118,8 @@ describe("useButtonStore", () => {
   it("does not send LED commands when usb serial is disconnected", async () => {
     transport.isSerialDeviceConnected.mockReturnValue(false);
     useButtonStore.setState({ bridgeStatus: "connected", serialDeviceConnected: false });
-    await useButtonStore.getState().setLedMode("pulse");
+    useButtonStore.getState().registerLedIntent("human-input", "pulse");
+    await Promise.resolve();
     expect(useButtonStore.getState().ledMode).toBe("pulse");
     expect(transport.setLedMode).not.toHaveBeenCalled();
   });
