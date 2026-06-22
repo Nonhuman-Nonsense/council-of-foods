@@ -11,8 +11,8 @@ import {
   BUTTON_RECONNECT_MAX_MS,
   BUTTON_WATCHDOG_INTERVAL_MS,
   getButtonBridgeWsUrl,
-} from "@/button/config";
-import type { ButtonLedMode } from "@/voice/buttonLedMode";
+} from "./config";
+import type { ButtonLedMode } from "./ledMode";
 
 export type ButtonTransportStatus = "disconnected" | "connecting" | "connected" | "error";
 

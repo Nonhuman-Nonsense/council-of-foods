@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { _resetButtonStoreForTests, useButtonStore } from "@stores/useButtonStore";
+import { _resetButtonStoreForTests, useButtonStore } from "@/museum/button/buttonStore";
 
 const transport = vi.hoisted(() => ({
   callbacks: null as {
@@ -16,7 +16,7 @@ const transport = vi.hoisted(() => ({
   isSerialDeviceConnected: vi.fn().mockReturnValue(true),
 }));
 
-vi.mock("@/button/transport", () => ({
+vi.mock("@/museum/button/transport", () => ({
   ButtonTransport: class MockButtonTransport {
     constructor(callbacks: {
       onStatus?: (status: string, error?: string | null) => void;

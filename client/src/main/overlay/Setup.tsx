@@ -11,7 +11,7 @@ import {
   getSetupBridgeLogHint,
   getUsbButtonStatus,
 } from "@/museum/button/setupButtonStatus";
-import { useButtonBridgeHealth } from "@/button/useBridgeHealth";
+import { useButtonBridgeHealth } from "@/museum/button/useBridgeHealth";
 
 /**
  * Setup Overlay

@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
-import { isButtonBridgeAvailable } from "@/button/config";
+import { isButtonBridgeAvailable } from "./config";
 import { useAppMode } from "@/museum/useAppMode";
 import {
   getPushToTalk,
   PUSH_TO_TALK_CHANGE_EVENT,
   type PushToTalkChangeDetail,
 } from "@/settings/councilSettings";
-import { useButtonStore } from "@stores/useButtonStore";
+import { useButtonStore } from "./buttonStore";
 
 /**
  * Museum button connection lifecycle. Mount when app mode is museum so bridge

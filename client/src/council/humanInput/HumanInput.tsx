@@ -16,7 +16,7 @@ import React from 'react';
 import micIcon from "@assets/mic.avif";
 import type { ParticipationPhase } from "./participationPhase";
 import { useButtonLed, useRawPressed } from "@/museum/button/hooks";
-import type { ButtonLedMode } from "@/voice/buttonLedMode";
+import type { ButtonLedMode } from "@/museum/button/ledMode";
 
 const MAX_INPUT_LENGTH = 10000;
 const FINISHING_QUIET_MS = 2000;

@@ -1,8 +1,8 @@
 import { useEffect } from "react";
-import type { ButtonTransportStatus } from "@/button/transport";
-import { useButtonStore } from "@stores/useButtonStore";
-import type { ButtonLedMode } from "@/voice/buttonLedMode";
-import type { ButtonLedOwner } from "./buttonLedIntent";
+import type { ButtonTransportStatus } from "./transport";
+import { useButtonStore } from "./buttonStore";
+import type { ButtonLedMode } from "./ledMode";
+import type { ButtonLedOwner } from "./ledIntent";
 
 export type ButtonConnectionState = {
   bridgeStatus: ButtonTransportStatus;

@@ -57,7 +57,7 @@ vi.mock('@council/ConversationControlIcon', () => ({
     )
 }));
 
-vi.mock('@stores/useButtonStore', () => ({
+vi.mock('@/museum/button/buttonStore', () => ({
     useButtonStore: (selector) => selector(mockButtonState),
 }));
 

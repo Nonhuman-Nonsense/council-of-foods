@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mergeLedIntents } from "@/museum/button/buttonLedIntent";
+import { mergeLedIntents } from "@/museum/button/ledIntent";
 
 describe("mergeLedIntents", () => {
   it("returns off when no intents are registered", () => {

@@ -53,7 +53,7 @@ describe("ButtonTransport", () => {
 
   it("connects when bridge reports verified usb serial", async () => {
     const statuses: string[] = [];
-    const { ButtonTransport } = await import("@/button/transport");
+    const { ButtonTransport } = await import("@/museum/button/transport");
     const transport = new ButtonTransport({
       onStatus: (status) => statuses.push(status),
     });
@@ -105,7 +105,7 @@ describe("ButtonTransport", () => {
     vi.stubGlobal("WebSocket", MockWebSocketNoSerial);
 
     const statuses: string[] = [];
-    const { ButtonTransport } = await import("@/button/transport");
+    const { ButtonTransport } = await import("@/museum/button/transport");
     const transport = new ButtonTransport({
       onStatus: (status) => statuses.push(status),
     });
@@ -121,7 +121,7 @@ describe("ButtonTransport", () => {
 
   it("forwards button lines to callbacks", async () => {
     const lines: string[] = [];
-    const { ButtonTransport } = await import("@/button/transport");
+    const { ButtonTransport } = await import("@/museum/button/transport");
     const transport = new ButtonTransport({
       onLine: (event) => {
         if (event.type === "button_down" || event.type === "button_up") {
@@ -138,7 +138,7 @@ describe("ButtonTransport", () => {
   });
 
   it("sends LED commands when connected", async () => {
-    const { ButtonTransport } = await import("@/button/transport");
+    const { ButtonTransport } = await import("@/museum/button/transport");
     const transport = new ButtonTransport();
     await transport.connect();
 
@@ -188,7 +188,7 @@ describe("ButtonTransport", () => {
 
     vi.stubGlobal("WebSocket", MockWebSocketNoSerial);
 
-    const { ButtonTransport } = await import("@/button/transport");
+    const { ButtonTransport } = await import("@/museum/button/transport");
     const transport = new ButtonTransport();
     await transport.connect();
 
@@ -201,7 +201,7 @@ describe("ButtonTransport", () => {
 
   it("notifies when usb serial connects after websocket session is up", async () => {
     const serialChanges: boolean[] = [];
-    const { ButtonTransport } = await import("@/button/transport");
+    const { ButtonTransport } = await import("@/museum/button/transport");
     const transport = new ButtonTransport({
       onSerialDeviceChange: (connected) => serialChanges.push(connected),
     });
@@ -249,7 +249,7 @@ describe("ButtonTransport", () => {
     vi.stubGlobal("WebSocket", FailingWebSocket);
 
     const statuses: string[] = [];
-    const { ButtonTransport } = await import("@/button/transport");
+    const { ButtonTransport } = await import("@/museum/button/transport");
     const transport = new ButtonTransport({
       onStatus: (status) => statuses.push(status),
     });
@@ -263,7 +263,7 @@ describe("ButtonTransport", () => {
 
   it("disconnect stops auto-reconnect and clears status", async () => {
     const statuses: string[] = [];
-    const { ButtonTransport } = await import("@/button/transport");
+    const { ButtonTransport } = await import("@/museum/button/transport");
     const transport = new ButtonTransport({
       onStatus: (status) => statuses.push(status),
     });
@@ -311,7 +311,7 @@ describe("ButtonTransport", () => {
 
     vi.stubGlobal("WebSocket", FailingWebSocket);
 
-    const { ButtonTransport } = await import("@/button/transport");
+    const { ButtonTransport } = await import("@/museum/button/transport");
     const transport = new ButtonTransport();
     transport.enableAutoReconnect();
 

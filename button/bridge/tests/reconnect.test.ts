@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ButtonTransport } from "@/button/transport";
-import { _resetButtonStoreForTests, useButtonStore } from "@stores/useButtonStore";
+import { ButtonTransport } from "@/museum/button/transport";
+import { _resetButtonStoreForTests, useButtonStore } from "@/museum/button/buttonStore";
 import {
   startTestBridge,
   waitForCondition,

@@ -2,9 +2,9 @@
  * End-to-end: mock button → bridge → client ButtonTransport / useButtonStore
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fetchButtonBridgeHealth } from "@/button/health";
-import { ButtonTransport } from "@/button/transport";
-import { _resetButtonStoreForTests, useButtonStore } from "@stores/useButtonStore";
+import { fetchButtonBridgeHealth } from "@/museum/button/health";
+import { ButtonTransport } from "@/museum/button/transport";
+import { _resetButtonStoreForTests, useButtonStore } from "@/museum/button/buttonStore";
 import { startTestBridge, waitForTicks, waitForWrittenLine, type TestBridge } from "./testHarness.js";
 
 const BRIDGE_URL_STORAGE_KEY = "councilButtonBridgeUrl";

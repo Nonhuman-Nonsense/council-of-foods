@@ -32,7 +32,7 @@ vi.mock('@/utils', () => ({
   useMobileXs: () => false,
 }));
 
-vi.mock('@/button/useBridgeHealth', () => ({
+vi.mock('@/museum/button/useBridgeHealth', () => ({
   useButtonBridgeHealth: () => bridgeHealthState,
 }));
 

@@ -1,13 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { renderHook } from "@testing-library/react";
-import { _resetButtonStoreForTests, useButtonStore } from "@stores/useButtonStore";
+import { _resetButtonStoreForTests, useButtonStore } from "@/museum/button/buttonStore";
 
 const transport = vi.hoisted(() => ({
   setLedMode: vi.fn().mockResolvedValue(undefined),
   isSerialDeviceConnected: vi.fn().mockReturnValue(true),
 }));
 
-vi.mock("@/button/transport", () => ({
+vi.mock("@/museum/button/transport", () => ({
   ButtonTransport: class MockButtonTransport {
     setLedMode = transport.setLedMode;
     isSerialDeviceConnected = transport.isSerialDeviceConnected;

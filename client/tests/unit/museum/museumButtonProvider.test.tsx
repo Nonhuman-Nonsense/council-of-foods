@@ -9,7 +9,7 @@ const store = vi.hoisted(() => ({
   enableAutoReconnect: vi.fn(),
 }));
 
-vi.mock("@stores/useButtonStore", () => ({
+vi.mock("@/museum/button/buttonStore", () => ({
   useButtonStore: {
     getState: () => store,
   },
@@ -19,7 +19,7 @@ vi.mock("@/museum/useAppMode", () => ({
   useAppMode: vi.fn(() => ({ isMuseumMode: true, mode: "museum" as const, setAppMode: vi.fn() })),
 }));
 
-vi.mock("@/button/config", () => ({
+vi.mock("@/museum/button/config", () => ({
   isButtonBridgeAvailable: vi.fn(() => true),
 }));
 

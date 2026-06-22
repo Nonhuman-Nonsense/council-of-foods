@@ -1,12 +1,9 @@
 import { create } from "zustand";
-import { isButtonBridgeAvailable } from "@/button/config";
-import { ButtonTransport, type ButtonTransportStatus } from "@/button/transport";
-import {
-  mergeLedIntents,
-  type ButtonLedOwner,
-} from "@/museum/button/buttonLedIntent";
+import { isButtonBridgeAvailable } from "./config";
+import { ButtonTransport, type ButtonTransportStatus } from "./transport";
+import { mergeLedIntents, type ButtonLedOwner } from "./ledIntent";
 import { getPushToTalk } from "@/settings/councilSettings";
-import { isButtonInputEnabled, type ButtonLedMode } from "@/voice/buttonLedMode";
+import { isButtonInputEnabled, type ButtonLedMode } from "./ledMode";
 
 type ButtonStore = {
   pressed: boolean;

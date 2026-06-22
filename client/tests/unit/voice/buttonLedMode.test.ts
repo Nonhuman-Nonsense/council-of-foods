@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeButtonLedMode, isButtonInputEnabled } from "@/voice/buttonLedMode";
+import { computeButtonLedMode, isButtonInputEnabled } from "@/museum/button/ledMode";
 
 describe("buttonLedMode", () => {
   it("returns off when push-to-talk is disabled", () => {

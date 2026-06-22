@@ -1,4 +1,4 @@
-import type { ButtonLedMode } from "@/voice/buttonLedMode";
+import type { ButtonLedMode } from "./ledMode";
 
 export type ButtonLedOwner = "setup" | "voice-guide" | "human-input";
 

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { fetchButtonBridgeHealth } from "@/button/health";
+import { fetchButtonBridgeHealth } from "@/museum/button/health";
 
 const runningHealth = {
   ok: true,

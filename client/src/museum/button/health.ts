@@ -1,4 +1,4 @@
-import { DEFAULT_BUTTON_BRIDGE_HEALTH_URL } from "@/button/config";
+import { DEFAULT_BUTTON_BRIDGE_HEALTH_URL } from "./config";
 
 export type UsbPortInfo = {
   path: string;

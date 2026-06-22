@@ -19,7 +19,7 @@ import { buildGuidePrompt } from "./guidePrompt";
 import { createGuideToolHandlers, createGuideTools } from "./guideTools";
 import { getVoiceGuideBundle } from "./voiceGuideBundle";
 import { useHoldToSpeakHint } from "./useHoldToSpeakHint";
-import { computeButtonLedMode } from "./buttonLedMode";
+import { computeButtonLedMode } from "@/museum/button/ledMode";
 import Loading from "@main/Loading";
 import { useVoiceGuide } from "./useVoiceGuide";
 

@@ -43,9 +43,6 @@
             "@voice/*": [
                 "./src/voice/*"
             ],
-            "@button/*": [
-                "./src/button/*"
-            ],
             "@realtime/*": [
                 "./src/realtime/*"
             ],
