@@ -51,12 +51,11 @@ Close Serial Monitor before starting the bridge — only one program can use the
 |---|---|
 | Device → host | `BUTTON_DOWN` (any button pressed, whenever host serial is connected) |
 | Device → host | `BUTTON_UP` (all buttons released) |
-| Device → host | `PONG` (response to `PING`) |
-| Device → host | `READY council-button` (on boot) |
+| Device → host | `READY council-button` (response to `HELLO_COUNCIL`, and on boot) |
 | Host → device | `LED_OFF` |
 | Host → device | `LED_PULSE` |
 | Host → device | `LED_ON` |
-| Host → device | `PING` |
+| Host → device | `HELLO_COUNCIL` |
 
 All messages are newline-terminated ASCII. Incoming host lines longer than 32 characters are discarded.
 

@@ -34,11 +34,16 @@ export class WsServer {
       }
 
       if (req.url === "/health" && req.method === "GET") {
+        const diagnostics = this.serial.getDiagnostics();
         const body = JSON.stringify({
           ok: true,
           version: BRIDGE_VERSION,
-          serial: this.serial.isOpen() ? "connected" : "disconnected",
-          path: this.serial.getOpenPath(),
+          serial: diagnostics.state,
+          path: diagnostics.path,
+          serialDetail: diagnostics.detail,
+          serialMessage: diagnostics.message,
+          expectedVendorId: diagnostics.expectedVendorId,
+          scannedPorts: diagnostics.scannedPorts,
         });
         res.writeHead(200, { "Content-Type": "application/json", ...cors });
         res.end(body);

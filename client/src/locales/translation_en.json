@@ -20,14 +20,32 @@
     "holdToSpeak": "Push the button to speak",
     "button": {
       "title": "Button",
-      "status": "Status",
-      "connected": "Connected",
-      "connecting": "Connecting…",
-      "waiting": "Waiting for button",
-      "bridgeNotRunning": "Bridge not running",
-      "bridgeNotRunningHint": "Start the button bridge on this Mac (see button/bridge/README.md).",
-      "error": "Error",
-      "unsupported": "WebSocket is not available in this browser"
+      "bridgeLabel": "Bridge",
+      "appLabel": "App",
+      "usbLabel": "USB button",
+      "bridge": {
+        "checking": "Checking…",
+        "running": "Running",
+        "notRunning": "Not running",
+        "error": "Error"
+      },
+      "app": {
+        "disconnected": "Disconnected",
+        "connecting": "Connecting…",
+        "connected": "Connected",
+        "error": "Error",
+        "unavailable": "—"
+      },
+      "usb": {
+        "connected": "Connected",
+        "checking": "Checking…",
+        "notDetected": "Not detected",
+        "wrongDevice": "Wrong device",
+        "unavailable": "—"
+      },
+      "bridgeNotRunningHint": "Start the button bridge on this Mac, or check {{logPath}} for errors.",
+      "usbNotDetectedHint": "Plug in the Council button via USB. The bridge scans for Adafruit USB devices automatically.",
+      "usbWrongDeviceHint": "A USB serial device was found, but it is not running Council button firmware. Reflash the Arduino sketch or check the USB cable/port."
     }
   },
   "settings": "Settings",

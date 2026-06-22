@@ -5,16 +5,12 @@ import HumanInput from '@council/humanInput/HumanInput';
 import { useMobile } from '@/utils';
 import { bootstrapHumanInputRealtimeSession } from '@api/realtimeSession';
 import { createRealtimeConnection } from '@/realtime/realtimeConnection';
-import { getCurrentButtonOwner, _resetButtonOwnership } from '@/museum/button/buttonOwnership';
 
-// Mutable PTT store state — hoisted so the vi.mock factory can close over it.
-// rawPressed = physical button state (ungated); pressed = logical (gated by LED).
-// HumanInput subscribes to rawPressed, so tests set rawPressed to simulate button
-// presses. pressed is kept for completeness but not used by HumanInput directly.
+const mockUseButtonLed = vi.hoisted(() => vi.fn());
+
 const mockButtonState = vi.hoisted(() => ({
     pressed: false,
     rawPressed: false,
-    setLedMode: vi.fn().mockResolvedValue(undefined),
 }));
 
 const mockButtonListeners = vi.hoisted(() => new Set());
@@ -61,22 +57,22 @@ vi.mock('@council/ConversationControlIcon', () => ({
     )
 }));
 
-vi.mock('@stores/useButtonStore', () => ({
+vi.mock('@/museum/button/buttonStore', () => ({
     useButtonStore: (selector) => selector(mockButtonState),
 }));
 
-vi.mock('@/museum/button/useMuseumButtonStore', async () => {
+vi.mock('@/museum/button/hooks', async () => {
     const React = await import('react');
     return {
-        useMuseumButtonSelector: (active, selector, fallback) =>
+        useButtonLed: (...args) => mockUseButtonLed(...args),
+        useRawPressed: (active) =>
             React.useSyncExternalStore(
                 (onStoreChange) => {
                     mockButtonListeners.add(onStoreChange);
                     return () => mockButtonListeners.delete(onStoreChange);
                 },
-                () => (active ? selector(mockButtonState) : fallback),
+                () => (active ? mockButtonState.rawPressed : false),
             ),
-        useMuseumButtonSetLedMode: () => mockButtonState.setLedMode,
     };
 });
 
@@ -511,8 +507,7 @@ describe('HumanInput PTT museum mode', () => {
     beforeEach(() => {
         mockOnSubmit = vi.fn();
         useMobile.mockReturnValue(false);
-        _resetButtonOwnership();
-        mockButtonState.setLedMode.mockClear();
+        mockUseButtonLed.mockClear();
         mockButtonState.pressed = false;
         setMockRawPressed(false);
         bootstrapHumanInputRealtimeSession.mockResolvedValue({
@@ -531,7 +526,6 @@ describe('HumanInput PTT museum mode', () => {
     afterEach(() => {
         vi.clearAllMocks();
         setMockRawPressed(false);
-        _resetButtonOwnership();
     });
 
     async function renderPttReady(extraProps = {}) {
@@ -616,27 +610,14 @@ describe('HumanInput PTT museum mode', () => {
 
     // ── LED management ────────────────────────────────────────────────────────
 
-    it('claims PTT ownership on mount', async () => {
+    it('registers human-input pulse intent when active+ready', async () => {
         await renderPttReady();
-        expect(getCurrentButtonOwner()).toBe('human-input');
+        expect(mockUseButtonLed).toHaveBeenCalledWith('human-input', 'pulse', true);
     });
 
-    it('sets ledMode to pulse when active+ready', async () => {
-        await renderPttReady();
-        expect(mockButtonState.setLedMode).toHaveBeenCalledWith('pulse');
-    });
-
-    it('releases PTT ownership and sets LED off on unmount', async () => {
-        const { unmount } = await renderPttReady();
-        mockButtonState.setLedMode.mockClear();
-        unmount();
-        expect(mockButtonState.setLedMode).toHaveBeenCalledWith('off');
-        expect(getCurrentButtonOwner()).toBeNull();
-    });
-
-    it('does not claim button ownership when isButtonMuseumMode=false', async () => {
+    it('passes inactive flag when isButtonMuseumMode=false', async () => {
         await renderAndWaitReady({ onSubmitHumanMessage: mockOnSubmit });
-        expect(getCurrentButtonOwner()).toBeNull();
+        expect(mockUseButtonLed).toHaveBeenCalledWith('human-input', 'off', false);
     });
 
     // ── Press → record, release → finish + auto-submit ────────────────────────

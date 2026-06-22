@@ -37,14 +37,8 @@
             "@newMeeting/*": [
                 "./src/newMeeting/*"
             ],
-            "@stores/*": [
-                "./src/stores/*"
-            ],
             "@voice/*": [
                 "./src/voice/*"
-            ],
-            "@button/*": [
-                "./src/button/*"
             ],
             "@realtime/*": [
                 "./src/realtime/*"

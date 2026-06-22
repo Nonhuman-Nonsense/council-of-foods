@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { fetchButtonBridgeHealth, type ButtonBridgeHealthState } from "@/button/health";
+import { fetchButtonBridgeHealth, type ButtonBridgeHealthState } from "./health";
 
 export function useButtonBridgeHealth(enabled: boolean): ButtonBridgeHealthState {
   const [health, setHealth] = useState<ButtonBridgeHealthState>({ status: "checking" });
