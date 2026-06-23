@@ -53,6 +53,7 @@ vi.mock("@museum/button/hooks", async () => {
 
 const mockSetMicEnabled = vi.hoisted(() => vi.fn());
 const mockSendUserMessage = vi.hoisted(() => vi.fn());
+const mockSetAgentOutputMuted = vi.hoisted(() => vi.fn());
 
 vi.mock("@museum/metaAgent/useMetaAgent", () => ({
   useMetaAgent: () => ({
@@ -60,6 +61,7 @@ vi.mock("@museum/metaAgent/useMetaAgent", () => ({
     error: null,
     setMicEnabled: mockSetMicEnabled,
     sendUserMessage: mockSendUserMessage,
+    setAgentOutputMuted: mockSetAgentOutputMuted,
   }),
 }));
 
@@ -90,6 +92,7 @@ beforeEach(() => {
   mockButtonListeners.clear();
   mockSetMicEnabled.mockClear();
   mockSendUserMessage.mockClear();
+  mockSetAgentOutputMuted.mockClear();
   mockUseButtonLed.mockClear();
 });
 
@@ -133,6 +136,7 @@ describe("MeetingMetaAgent", () => {
 
     expect(setPaused).toHaveBeenCalledWith(true);
     expect(setMetaAgentActive).toHaveBeenCalledWith(true);
+    expect(mockSetAgentOutputMuted).toHaveBeenCalledWith(false);
     expect(mockSetMicEnabled).toHaveBeenCalledWith(true);
     expect(mockSendUserMessage).toHaveBeenCalledWith(
       expect.stringMatching(/STATE SYNC/),

@@ -10,6 +10,7 @@ function makeCtx(overrides: Partial<MetaAgentToolContext> = {}): MetaAgentToolCo
     setPaused: vi.fn(),
     setMetaAgentActive: vi.fn(),
     onRestartMeeting: vi.fn(),
+    silenceAgentOutput: vi.fn(),
     ...overrides,
   };
 }
@@ -27,22 +28,24 @@ describe("createMetaAgentTools", () => {
 
 describe("createMetaAgentToolHandlers", () => {
   describe("resume_meeting", () => {
-    it("unpauses the meeting and deactivates meta agent", () => {
+    it("unpauses the meeting, deactivates meta agent, silences output, and suppresses continuation", () => {
       const ctx = makeCtx();
       const handlers = createMetaAgentToolHandlers(ctx);
       const result = handlers.resume_meeting({});
-      expect(result).toEqual({ ok: true });
+      expect(result).toEqual({ ok: true, suppressContinuation: true });
+      expect(ctx.silenceAgentOutput).toHaveBeenCalled();
       expect(ctx.setPaused).toHaveBeenCalledWith(false);
       expect(ctx.setMetaAgentActive).toHaveBeenCalledWith(false);
     });
   });
 
   describe("restart_meeting", () => {
-    it("calls onRestartMeeting", () => {
+    it("calls onRestartMeeting, silences output, and suppresses continuation", () => {
       const ctx = makeCtx();
       const handlers = createMetaAgentToolHandlers(ctx);
       const result = handlers.restart_meeting({});
-      expect(result).toEqual({ ok: true });
+      expect(result).toEqual({ ok: true, suppressContinuation: true });
+      expect(ctx.silenceAgentOutput).toHaveBeenCalled();
       expect(ctx.onRestartMeeting).toHaveBeenCalled();
     });
   });

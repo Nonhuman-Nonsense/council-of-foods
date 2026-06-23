@@ -68,6 +68,8 @@ export type EventLoop = {
   configureSession: (session: RealtimeSessionConfig, options?: ConfigureSessionOptions) => void;
   /** Send a manual user message to the conversation transcript. */
   sendUserMessage: (text: string) => void;
+  /** Cancel any in-flight model response (sends response.cancel). */
+  cancelActiveResponse: () => void;
 };
 
 type FunctionCallMeta = { name?: string; call_id?: string };
@@ -117,6 +119,16 @@ export function createEventLoop(params: {
     }
     send({ type: "response.create" });
     return true;
+  };
+
+  const cancelActiveResponse = (): void => {
+    if (activeResponses > 0) {
+      send({ type: "response.cancel" });
+    }
+    captionScheduler?.cancel();
+    if (!captionScheduler) {
+      callbacks.onCaption(null);
+    }
   };
 
   const trySendJson = (payload: unknown) => {
@@ -256,7 +268,12 @@ export function createEventLoop(params: {
       // a response. With semantic_vad + create_response: true the server may
       // already be producing one for the next user turn; queueing another one
       // here is what caused the cancel-cascade in the old hook.
-      requestResponseIfIdle();
+      if (result.ok && result.suppressContinuation) {
+        cancelActiveResponse();
+        log("skip response.create: tool requested suppressContinuation");
+      } else {
+        requestResponseIfIdle();
+      }
       functionCallMeta.delete(itemId);
       return true;
     }
@@ -328,5 +345,12 @@ export function createEventLoop(params: {
     return false;
   };
 
-  return { handleEvent, requestResponseIfIdle, isResponseActive, configureSession, sendUserMessage };
+  return {
+    handleEvent,
+    requestResponseIfIdle,
+    isResponseActive,
+    configureSession,
+    sendUserMessage,
+    cancelActiveResponse,
+  };
 }

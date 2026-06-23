@@ -57,25 +57,35 @@ export default function MeetingMetaAgent({
     [],
   );
 
+  const tools = useMemo(() => createMetaAgentTools(), []);
+
+  const silenceRef = useRef<() => void>(() => undefined);
+
   const toolHandlers = useMemo(
     () =>
       createMetaAgentToolHandlers({
         setPaused,
         setMetaAgentActive,
         onRestartMeeting,
+        silenceAgentOutput: () => silenceRef.current(),
       }),
     [setPaused, setMetaAgentActive, onRestartMeeting],
   );
 
-  const tools = useMemo(() => createMetaAgentTools(), []);
-
-  const { setMicEnabled, sendUserMessage } = useMetaAgent({
+  const { setMicEnabled, sendUserMessage, setAgentOutputMuted } = useMetaAgent({
     language,
     liveKey,
     instructions,
     tools,
     toolHandlers,
   });
+
+  useEffect(() => {
+    silenceRef.current = () => {
+      setMicEnabled(false);
+      setAgentOutputMuted(true);
+    };
+  }, [setMicEnabled, setAgentOutputMuted]);
 
   const pressed = useButtonPressed("meta-agent");
   const pressOwner = useButtonPressOwner();
@@ -92,6 +102,7 @@ export default function MeetingMetaAgent({
 
     setPaused(true);
     setMetaAgentActive(true);
+    setAgentOutputMuted(false);
     setMicEnabled(true);
     sendUserMessage(
       buildMetaAgentStateSnapshot({
@@ -108,6 +119,7 @@ export default function MeetingMetaAgent({
     metaAgentActive,
     setPaused,
     setMetaAgentActive,
+    setAgentOutputMuted,
     setMicEnabled,
     sendUserMessage,
     councilState,

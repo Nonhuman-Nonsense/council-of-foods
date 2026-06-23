@@ -33,7 +33,8 @@ Be concise. Visitors are standing at a kiosk; speak in short, clear sentences. \
 Do not reference on-screen UI or buttons by name. ${pttNote}
 
 When the visitor is done, call resume_meeting to continue the council. \
-If they want to start over, call restart_meeting.
+If they want to start over, call restart_meeting. \
+After calling resume_meeting or restart_meeting, do not speak — the session ends immediately.
 
 When the visitor wants to speak to the council directly (raise a question or be a panelist), \
 tell them they will be invited by the chair when it is their turn — the button will guide them.

@@ -30,6 +30,8 @@ export type UseMetaAgentResult = {
   setMicEnabled: (open: boolean) => void;
   /** Inject a user message into the agent conversation (e.g. state snapshot). */
   sendUserMessage: (text: string) => void;
+  /** Mute or unmute remote agent audio (e.g. after terminal tools or on re-activate). */
+  setAgentOutputMuted: (muted: boolean) => void;
 };
 
 function getDebugLevel(): "off" | "basic" {
@@ -256,9 +258,19 @@ export function useMetaAgent(params: UseMetaAgentParams): UseMetaAgentResult {
     connectionRef.current?.micStream.getAudioTracks().forEach((t) => { t.enabled = open; });
   }, []);
 
+  const setAgentOutputMuted = useCallback((muted: boolean) => {
+    const el = remoteAudioRef.current;
+    if (!el) return;
+    el.muted = muted;
+    if (muted) {
+      onCaption?.(null);
+      eventLoopRef.current?.cancelActiveResponse();
+    }
+  }, [onCaption]);
+
   const sendUserMessage = useCallback((text: string) => {
     eventLoopRef.current?.sendUserMessage(text);
   }, []);
 
-  return { connectionState, error, setMicEnabled, sendUserMessage };
+  return { connectionState, error, setMicEnabled, sendUserMessage, setAgentOutputMuted };
 }

@@ -1,5 +1,9 @@
 # Meeting Meta Agent — implementation plan
 
+> **UI, captions, pause/freeze, and shared voice-session work** are planned in
+> [meta-agent-realtime-ux-plan.md](./meta-agent-realtime-ux-plan.md) (phased
+> implementation). This file keeps bootstrap, server, and early integration context.
+
 A museum-only voice agent that runs **during a live council meeting**. The visitor
 presses the hardware button at any time to pause the meeting and talk to the
 "chair" (the meta agent). The agent can answer questions, resume the meeting, or

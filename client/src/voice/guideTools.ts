@@ -27,7 +27,7 @@ export type RealtimeFunctionTool = {
 export type RealtimeTool = RealtimeFunctionTool;
 
 export type ToolResult =
-  | { ok: true; data?: unknown }
+  | { ok: true; data?: unknown; /** Skip response.create after this tool (e.g. meta-agent exit). */ suppressContinuation?: boolean }
   | { ok: false; error: string };
 
 export type ToolHandler = (args: unknown) => Promise<ToolResult> | ToolResult;

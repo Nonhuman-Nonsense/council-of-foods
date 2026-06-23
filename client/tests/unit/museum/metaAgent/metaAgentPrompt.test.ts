@@ -36,6 +36,11 @@ describe("buildMetaAgentPrompt", () => {
     expect(prompt).toContain("resume_meeting");
     expect(prompt).toContain("restart_meeting");
   });
+
+  it("instructs no speech after terminal tools", () => {
+    const prompt = buildMetaAgentPrompt({ pushToTalkMode: false });
+    expect(prompt).toContain("do not speak");
+  });
 });
 
 describe("buildMetaAgentStateSnapshot", () => {
