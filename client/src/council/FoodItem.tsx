@@ -21,6 +21,8 @@ interface FoodItemProps {
   index: number;
   total: number;
   currentSpeakerId: string;
+  /** Whether this food's video should play. Defaults to currentSpeakerId match. */
+  isPerforming?: boolean;
   isPaused: boolean;
   zoomIn: boolean;
 }
@@ -36,7 +38,7 @@ interface FoodItemProps {
  * - **Zooming**: Transitions the food to a large, central position when it becomes the `currentSpeakerId`.
  * - **Sizing**: Uses generated video ratios so rendered widths stay in sync with the source media.
  */
-function FoodItem({ food, index, total, currentSpeakerId, isPaused, zoomIn }: FoodItemProps): React.ReactElement {
+function FoodItem({ food, index, total, currentSpeakerId, isPerforming = currentSpeakerId === food.id, isPaused, zoomIn }: FoodItemProps): React.ReactElement {
 
   //Adjust these to adjust overall sizes
   const overviewSize = 12;
@@ -142,7 +144,7 @@ function FoodItem({ food, index, total, currentSpeakerId, isPaused, zoomIn }: Fo
       <FoodAnimation
         food={food}
         styles={responsiveStyle}
-        currentSpeakerId={currentSpeakerId}
+        isPerforming={isPerforming}
         isPaused={isPaused}
       />
     </div>

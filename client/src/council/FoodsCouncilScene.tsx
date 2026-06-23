@@ -16,8 +16,9 @@ interface FoodsCouncilSceneProps {
   audioMessages: DecodedAudioMessage[];
   currentSnippetIndex: number;
   isPaused: boolean;
-  /** Chair-conversation mode: camera stays on chair; performance follows currentSpeakerId. */
+  /** Chair-conversation mode: camera stays on chair; performance follows agentSpeaking. */
   metaAgentActive: boolean;
+  agentSpeaking: boolean;
 }
 
 export default function FoodsCouncilScene({
@@ -30,6 +31,7 @@ export default function FoodsCouncilScene({
   currentSnippetIndex,
   isPaused,
   metaAgentActive,
+  agentSpeaking,
 }: FoodsCouncilSceneProps) {
   const sentencesLength = useMemo(() => {
     const textMessage = textMessages[playingNowIndex];
@@ -64,17 +66,17 @@ export default function FoodsCouncilScene({
     [participants]
   );
 
-  const focusSpeakerId = metaAgentActive ? CHAIR_ID : currentSpeakerId;
+  const layoutSpeakerId = metaAgentActive ? CHAIR_ID : currentSpeakerId;
 
   const currentSpeakerIdx = useMemo(() => {
     let currentIndex: number | undefined;
     foods.forEach((food, index) => {
-      if (focusSpeakerId === food.id) {
+      if (layoutSpeakerId === food.id) {
         currentIndex = mapFoodIndex(foods.length, index);
       }
     });
     return currentIndex || 0;
-  }, [foods, focusSpeakerId]);
+  }, [foods, layoutSpeakerId]);
 
   return (
     <>
@@ -103,7 +105,12 @@ export default function FoodsCouncilScene({
             total={foods.length}
             isPaused={isPaused}
             zoomIn={zoomIn}
-            currentSpeakerId={currentSpeakerId}
+            currentSpeakerId={layoutSpeakerId}
+            isPerforming={
+              metaAgentActive
+                ? food.id === CHAIR_ID && agentSpeaking
+                : currentSpeakerId === food.id
+            }
           />
         ))}
       </div>

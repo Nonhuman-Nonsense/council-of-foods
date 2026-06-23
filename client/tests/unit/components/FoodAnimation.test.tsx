@@ -42,7 +42,7 @@ describe('FoodAnimation', () => {
             <FoodAnimation
                 food={mockFood}
                 styles={mockStyles}
-                currentSpeakerId=""
+                isPerforming={false}
                 isPaused={false}
             />
         );
@@ -62,7 +62,7 @@ describe('FoodAnimation', () => {
             <FoodAnimation
                 food={mockFood}
                 styles={mockStyles}
-                currentSpeakerId=""
+                isPerforming={false}
                 isPaused={false}
             />
         );
@@ -73,12 +73,12 @@ describe('FoodAnimation', () => {
         expect(pauseMock).toHaveBeenCalled();
     });
 
-    it('plays video when active speaker matches food id', async () => {
+    it('plays video when isPerforming is true', async () => {
         const { rerender } = render(
             <FoodAnimation
                 food={mockFood}
                 styles={mockStyles}
-                currentSpeakerId=""
+                isPerforming={false}
                 isPaused={false}
             />
         );
@@ -91,7 +91,7 @@ describe('FoodAnimation', () => {
             <FoodAnimation
                 food={mockFood}
                 styles={mockStyles}
-                currentSpeakerId={sampleCharacter.id}
+                isPerforming={true}
                 isPaused={false}
             />
         );
@@ -101,12 +101,12 @@ describe('FoodAnimation', () => {
         expect(pauseMock).not.toHaveBeenCalled();
     });
 
-    it('pauses video when active speaker changes to someone else', async () => {
+    it('pauses video when isPerforming becomes false', async () => {
         const { rerender } = render(
             <FoodAnimation
                 food={mockFood}
                 styles={mockStyles}
-                currentSpeakerId={sampleCharacter.id}
+                isPerforming={true}
                 isPaused={false}
             />
         );
@@ -117,7 +117,7 @@ describe('FoodAnimation', () => {
             <FoodAnimation
                 food={mockFood}
                 styles={mockStyles}
-                currentSpeakerId={otherSpeakerId}
+                isPerforming={false}
                 isPaused={false}
             />
         );
@@ -131,7 +131,7 @@ describe('FoodAnimation', () => {
             <FoodAnimation
                 food={mockFood}
                 styles={mockStyles}
-                currentSpeakerId={sampleCharacter.id}
+                isPerforming={true}
                 isPaused={false}
             />
         );
@@ -142,7 +142,7 @@ describe('FoodAnimation', () => {
             <FoodAnimation
                 food={mockFood}
                 styles={mockStyles}
-                currentSpeakerId={sampleCharacter.id}
+                isPerforming={true}
                 isPaused={true}
             />
         );
@@ -157,7 +157,7 @@ describe('FoodAnimation', () => {
             <FoodAnimation
                 food={noIdFood}
                 styles={mockStyles}
-                currentSpeakerId=""
+                isPerforming={false}
                 isPaused={false}
             />
         );

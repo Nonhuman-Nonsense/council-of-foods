@@ -226,6 +226,7 @@ function Council({
         currentSnippetIndex={currentSnippetIndex}
         isPaused={isPaused}
         metaAgentActive={metaAgentActive}
+        agentSpeaking={agentSpeaking}
       />
       {councilState === 'loading' && <Loading />}
       {pushToTalkMode && liveKey && (
