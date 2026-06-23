@@ -61,7 +61,7 @@ function Council({
 
   const [participants, setParticipants] = useState<Character[]>([]);
   const [replayManifest, setReplayManifest] = useState<Meeting | null>(null);
-  const [initialHumanName, setInitialHumanName] = useState<string | undefined>(undefined);
+  const [humanName, setHumanName] = useState("");
   const [metaAgentActive, setMetaAgentActive] = useState(false);
 
   // Abort in-flight GET when deps change or on unmount (StrictMode-safe); same pattern as TanStack Query/SWR cancellation.
@@ -71,7 +71,7 @@ function Council({
       return;
     }
 
-    setInitialHumanName(undefined);
+    setHumanName("");
     const ac = new AbortController();
     void (async () => {
       try {
@@ -87,7 +87,9 @@ function Council({
         setTopic(meeting.topic);
         setParticipants(meeting.characters);
         const storedName = meeting.state?.humanName?.trim();
-        setInitialHumanName(storedName && storedName.length > 0 ? storedName : undefined);
+        if (storedName && storedName.length > 0) {
+          setHumanName(storedName);
+        }
       } catch (error) {
         if (ac.signal.aborted) return;
         console.error(error);
@@ -107,7 +109,8 @@ function Council({
     replayManifest: liveKey ? null : replayManifest,
     topic,
     participants,
-    initialHumanName,
+    humanName,
+    setHumanName,
     audioContext,
     setUnrecoverableError,
     setConnectionError,
@@ -125,7 +128,6 @@ function Council({
     playNextIndex,
     activeOverlay,
     summary,
-    humanName,
     isRaisedHand,
     canGoBack,
     canGoForward,

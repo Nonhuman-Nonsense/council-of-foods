@@ -17,7 +17,8 @@ export interface UseCouncilMachineProps {
     replayManifest: Meeting | null;
     topic: Topic | null;
     participants: Character[] | null;
-    initialHumanName?: string;
+    humanName: string;
+    setHumanName: (name: string) => void;
     audioContext: React.RefObject<AudioContext | null>;
     setUnrecoverableError: (message: string) => void;
     setConnectionError: (error: boolean) => void;
@@ -44,7 +45,8 @@ export function useCouncilMachine({
     replayManifest,
     topic: _topic,
     participants: _participants,
-    initialHumanName,
+    humanName,
+    setHumanName,
     audioContext,
     setUnrecoverableError,
     setConnectionError,
@@ -70,14 +72,7 @@ export function useCouncilMachine({
     const [activeOverlay, setActiveOverlay] = useState<CouncilOverlayType | null>(null);
     const [summary, setSummary] = useState<Message | null>(null);
 
-    const [humanName, setHumanName] = useState(initialHumanName ?? "");
     const [isRaisedHand, setIsRaisedHand] = useState(false);
-
-    useEffect(() => {
-        if (initialHumanName && initialHumanName.trim().length > 0) {
-            setHumanName(initialHumanName.trim());
-        }
-    }, [initialHumanName]);
 
     // Connection variables
     const [attemptingReconnect, setAttemptingReconnect] = useState(false);
@@ -694,7 +689,6 @@ export function useCouncilMachine({
             playNextIndex,
             activeOverlay,
             summary,
-            humanName,
             isRaisedHand,
             currentMeetingId,
             canGoBack,
@@ -716,7 +710,6 @@ export function useCouncilMachine({
             handleHumanNameEntered,
             handleOnRaiseHand,
             cancelOverlay,
-            setHumanName,
             setIsRaisedHand,
             setCurrentSnippetIndex,
             toggleMute

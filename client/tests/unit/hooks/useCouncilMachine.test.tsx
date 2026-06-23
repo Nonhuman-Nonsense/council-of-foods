@@ -75,6 +75,8 @@ describe('useCouncilMachine', () => {
             replayManifest: null,
             topic: MockFactory.createTopic({ id: 't', title: 'T', description: 'D', prompt: 'Test Topic' }),
             participants: [],
+            humanName: '',
+            setHumanName: vi.fn(),
             audioContext: audioContextMock,
             setUnrecoverableError: vi.fn(),
             setConnectionError: vi.fn(),
@@ -574,9 +576,9 @@ describe('useCouncilMachine', () => {
             expect(result.current.state.isRaisedHand).toBe(false);
         });
 
-        it('skips name overlay when initialHumanName is provided', () => {
+        it('skips name overlay when humanName is provided', () => {
             const { result } = renderHook(() =>
-                useCouncilMachine({ ...defaultProps, initialHumanName: 'Leo' } as any)
+                useCouncilMachine({ ...defaultProps, humanName: 'Leo' } as any)
             );
 
             act(() => {
@@ -584,7 +586,6 @@ describe('useCouncilMachine', () => {
             });
 
             expect(result.current.state.activeOverlay).not.toBe('name');
-            expect(result.current.state.humanName).toBe('Leo');
             expect(result.current.state.isRaisedHand).toBe(true);
         });
     });

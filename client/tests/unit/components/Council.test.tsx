@@ -75,7 +75,6 @@ const mockCouncilStateMachine = {
         playNextIndex: 1,
         activeOverlay: null,
         summary: null,
-        humanName: '',
         isRaisedHand: false,
         currentMeetingId: 123,
         canGoBack: true,
@@ -96,7 +95,6 @@ const mockCouncilStateMachine = {
         handleHumanNameEntered: vi.fn(),
         handleOnRaiseHand: vi.fn(),
         cancelOverlay: vi.fn(),
-        setHumanName: vi.fn(),
         setIsRaisedHand: vi.fn(),
         setCurrentSnippetIndex: vi.fn(),
         toggleMute: mockToggleMute
@@ -184,6 +182,8 @@ describe('Council Component', () => {
         render(<Council {...defaultProps} />);
 
         expect(mockUseCouncilMachine).toHaveBeenCalledWith(expect.objectContaining({
+            humanName: '',
+            setHumanName: expect.any(Function),
             audioContext: defaultProps.audioContext,
             isPaused: defaultProps.isPaused,
             setPaused: defaultProps.setPaused,
