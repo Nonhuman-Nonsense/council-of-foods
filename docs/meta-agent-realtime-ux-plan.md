@@ -10,7 +10,7 @@ glue. Also covers meeting freeze/resume, chair animation, and silence after
 > context. Button intent routing is documented in code (`buttonIntent.ts`) and
 > [ptt-human-input-routing-plan.md](./ptt-human-input-routing-plan.md).
 
-**Status:** Phases **0–4** and **3b** complete on Foods; **3b** + **4** complete on Forest. **Phase 5a** landed on Foods. **Next:** Phase 5b (voice guide). Implement **one phase at a time**.
+**Status:** Phases **0–5a** complete on Foods; **3b** + **4** complete on Forest. **Phase 5b** landed on Foods. **Next:** merge 5a/5b to Forest; manual regression checklist. Implement **one phase at a time**.
 
 ---
 
@@ -319,20 +319,21 @@ Phase 0 ──► Phase 1 ──► Phase 2 ──► Phase 3 ──► Phase 4 
 
 ## Phase 5b — Migrate voice guide to shared hook
 
-**Status:** Next.
+**Status:** Done (Foods). Merge to Forest when convenient.
 
 **Scope:** `useVoiceGuide` → `useRealtimeVoiceSession`; remove duplication.
 
 **Changes:**
 
-- Migrate `useVoiceGuide.ts` to shared hook (preserve `micGainGate`, `initialMuted`, `pushToTalkMode`, greeting behavior)
+- Extended `useRealtimeVoiceSession` — `sessionActive`, `autoConnect`, `pushToTalkMode`/`micOpen`, `audioElement`, `hasReceivedAudioPart`, verbose debug
+- `useVoiceGuide.ts` — thin wrapper (`muted` ↔ `sessionActive`, `isConnecting` from first audio part)
 - `MeetingVoiceGuide.tsx` unchanged outwardly
 
 **Automated tests:**
 
-- Full voice guide test suite
-- `MeetingVoiceGuide.ptt.test.tsx`
-- Subtitle pacing / caption scheduler tests if present
+- `useVoiceGuide.test.ts` — wiring + `isConnecting`
+- `useRealtimeVoiceSession.test.ts` — sessionActive, audio part flag
+- `MeetingVoiceGuide.ptt.test.tsx` + voice guide suite
 
 **Manual test:**
 
@@ -391,3 +392,4 @@ Run after Phase 3+ before merging large PRs; abbreviated after smaller phases.
 | 2026-06-23 | Initial plan: unified realtime UX, phased for incremental testability |
 | 2026-06-23 | Phases 0–4 + 3b complete; Phase 4 `isPerforming` model; Forest river backdrop note |
 | 2026-06-23 | Phase 5a: `useRealtimeVoiceSession` + thin `useMetaAgent` on Foods |
+| 2026-06-23 | Phase 5b: `useVoiceGuide` migrated to shared hook on Foods |

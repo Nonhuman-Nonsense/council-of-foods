@@ -15,6 +15,7 @@ import { createCaptionScheduler } from "@voice/captionScheduler";
 import { createRemoteAudioAnchor, type RemoteAudioAnchor } from "@voice/remoteAudioAnchor";
 
 const AUDIO_ANCHOR_FALLBACK_DELAY_MS = 600;
+const noopLog = () => {};
 
 export type RealtimeVoiceFeature = "meta-agent" | "voice-guide";
 
@@ -30,12 +31,16 @@ export type UseRealtimeVoiceSessionParams = {
   triggerGreetingOnReady: boolean;
   /** Bearer auth for bootstrap + call (meta-agent live key). */
   authHeaders?: Record<string, string>;
-  /** Disable mic tracks until `setMicEnabled(true)` (meta-agent PTT). */
-  micStartsDisabled?: boolean;
+  /** Push-to-talk: mic track starts disabled; open via `setMicEnabled`. */
+  pttMic?: boolean;
   /** Expose `agentSpeaking` between response.created and response.done. */
   trackAgentSpeaking?: boolean;
-  logPrefix?: string;
-  debugLocalStorageKey?: string;
+  /** Voice-guide: optional remote audio sink (created on body if absent). */
+  audioElement?: HTMLAudioElement | null;
+  /** When false, tear down WebRTC (voice-guide muted). Default true. */
+  sessionActive?: boolean;
+  /** Connect when `sessionActive` (voice-guide `autoStart`). Default true. */
+  autoConnect?: boolean;
   defaultsNotLoadedError?: string;
   connectionLostMessage?: string;
   startFailedMessage?: string;
@@ -46,15 +51,37 @@ export type UseRealtimeVoiceSessionResult = {
   error: string | null;
   lastCaption: string | null;
   lastUserTranscript: string | null;
+  hasReceivedAudioPart: boolean;
   agentSpeaking: boolean;
   setMicEnabled: (open: boolean) => void;
   sendUserMessage: (text: string) => void;
   setAgentOutputMuted: (muted: boolean) => void;
 };
 
+function attachRemoteAudio(
+  track: MediaStreamTrack,
+  audioElement: HTMLAudioElement | null,
+): HTMLAudioElement {
+  const el = audioElement ?? document.createElement("audio");
+  el.autoplay = true;
+  el.setAttribute("playsinline", "true");
+  el.muted = false;
+  el.volume = 1.0;
+  el.srcObject = new MediaStream([track]);
+  el.style.display = "none";
+  if (!audioElement) {
+    document.body.appendChild(el);
+  }
+  void el.play().catch(() => {});
+  return el;
+}
+
+function setMicTracksEnabled(stream: MediaStream | null | undefined, open: boolean): void {
+  stream?.getAudioTracks().forEach((t) => { t.enabled = open; });
+}
+
 /**
  * Shared WebRTC + caption + event-loop glue for realtime voice features.
- * Phase 5a: meta-agent via `useMetaAgent`. Voice guide migrates in Phase 5b.
  */
 export function useRealtimeVoiceSession(
   params: UseRealtimeVoiceSessionParams,
@@ -67,24 +94,15 @@ export function useRealtimeVoiceSession(
     toolHandlers,
     triggerGreetingOnReady,
     authHeaders,
-    micStartsDisabled = false,
+    pttMic = false,
     trackAgentSpeaking = false,
-    logPrefix = "[realtime-voice]",
-    debugLocalStorageKey,
+    audioElement,
+    sessionActive = true,
+    autoConnect = true,
     defaultsNotLoadedError = "Realtime defaults not loaded",
     connectionLostMessage = "Realtime connection lost",
     startFailedMessage = "Realtime session failed to start",
   } = params;
-
-  const debugLog = useCallback((...args: unknown[]) => {
-    if (!debugLocalStorageKey) return;
-    try {
-      if (localStorage.getItem(debugLocalStorageKey) !== "1") return;
-    } catch {
-      return;
-    }
-    console.log(logPrefix, ...args);
-  }, [logPrefix, debugLocalStorageKey]);
 
   const authHeadersKey = authHeaders ? JSON.stringify(authHeaders) : "";
 
@@ -93,9 +111,11 @@ export function useRealtimeVoiceSession(
   const [error, setError] = useState<string | null>(null);
   const [lastCaption, setLastCaption] = useState<string | null>(null);
   const [lastUserTranscript, setLastUserTranscript] = useState<string | null>(null);
+  const [hasReceivedAudioPart, setHasReceivedAudioPart] = useState(false);
   const [agentSpeaking, setAgentSpeaking] = useState(false);
 
   const connectionRef = useRef<RealtimeConnection | null>(null);
+  const audioElementRef = useRef(audioElement);
   const serverDefaultsRef = useRef<RealtimeSessionServerDefaults | null>(null);
   const eventLoopRef = useRef<ReturnType<typeof createEventLoop> | null>(null);
   const captionSchedulerRef = useRef<ReturnType<typeof createCaptionScheduler> | null>(null);
@@ -112,6 +132,10 @@ export function useRealtimeVoiceSession(
     instructionsRef.current = instructions;
     toolsRef.current = tools;
   });
+
+  useEffect(() => {
+    audioElementRef.current = audioElement;
+  }, [audioElement]);
 
   const attemptRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
@@ -133,6 +157,14 @@ export function useRealtimeVoiceSession(
     }
   }, []);
 
+  const resetSessionUiState = useCallback(() => {
+    setError(null);
+    setLastCaption(null);
+    setLastUserTranscript(null);
+    setHasReceivedAudioPart(false);
+    setAgentSpeaking(false);
+  }, []);
+
   const cleanup = useCallback(() => {
     abortRef.current?.abort();
     abortRef.current = null;
@@ -150,13 +182,14 @@ export function useRealtimeVoiceSession(
     remoteAudioAnchorRef.current = null;
     connectionRef.current?.close();
     connectionRef.current = null;
-    if (remoteAudioRef.current) {
+    const ownedAudio = remoteAudioRef.current;
+    if (ownedAudio && ownedAudio !== audioElementRef.current) {
       try {
-        remoteAudioRef.current.srcObject = null;
-        remoteAudioRef.current.remove();
+        ownedAudio.srcObject = null;
+        ownedAudio.remove();
       } catch { /* ignore */ }
-      remoteAudioRef.current = null;
     }
+    remoteAudioRef.current = null;
   }, [clearAudioAnchorFallback]);
 
   const start = useCallback(async () => {
@@ -169,13 +202,14 @@ export function useRealtimeVoiceSession(
 
     setConnectionState("connecting");
     setError(null);
+    setHasReceivedAudioPart(false);
 
     let conn: RealtimeConnection | null = null;
     try {
       const [bootResult, micResult] = await Promise.allSettled([
         fetchRealtimeBootstrap(
           { feature, language },
-          debugLog,
+          noopLog,
           controller.signal,
           authHeaders,
         ),
@@ -196,10 +230,7 @@ export function useRealtimeVoiceSession(
 
       const { provider, session: defaults, iceServers } = bootResult.value;
       const micStream = micResult.value;
-
-      if (micStartsDisabled) {
-        micStream.getAudioTracks().forEach((t) => { t.enabled = false; });
-      }
+      setMicTracksEnabled(micStream, !pttMic);
 
       serverDefaultsRef.current = defaults;
 
@@ -251,14 +282,14 @@ export function useRealtimeVoiceSession(
             if (trackAgentSpeaking && !isStale()) setAgentSpeaking(false);
           },
           onAudioPartReady: () => {
+            if (!isStale()) setHasReceivedAudioPart(true);
             clearAudioAnchorFallback();
             audioAnchorFallbackTimerRef.current = setTimeout(() => {
               audioAnchorFallbackTimerRef.current = null;
               captionScheduler.setAudioAnchor(performance.now());
-              debugLog("caption audio anchor fallback fired");
             }, AUDIO_ANCHOR_FALLBACK_DELAY_MS);
           },
-          log: debugLog,
+          log: noopLog,
         },
       });
       eventLoopRef.current = loop;
@@ -267,23 +298,17 @@ export function useRealtimeVoiceSession(
         session: defaults,
         iceServers,
         callPath: "/api/realtime/call",
-        callHeaders: { "Content-Type": "application/json", ...authHeaders },
+        callHeaders: authHeaders
+          ? { "Content-Type": "application/json", ...authHeaders }
+          : undefined,
         callBodyExtras: { feature, provider },
         micStream,
-        log: debugLog,
+        log: noopLog,
         signal: controller.signal,
         onRemoteTrack: (track) => {
           if (isStale()) { try { track.stop(); } catch { /* ignore */ } return; }
-          const el = document.createElement("audio");
-          el.autoplay = true;
-          el.setAttribute("playsinline", "true");
-          el.muted = false;
-          el.volume = 1.0;
-          el.srcObject = new MediaStream([track]);
-          el.style.display = "none";
-          document.body.appendChild(el);
+          const el = attachRemoteAudio(track, audioElementRef.current ?? null);
           remoteAudioRef.current = el;
-          void el.play().catch((err) => debugLog("audio play blocked", err));
           try {
             remoteAudioAnchorRef.current?.dispose();
             remoteAudioAnchorRef.current = createRemoteAudioAnchor({
@@ -293,11 +318,9 @@ export function useRealtimeVoiceSession(
                 clearAudioAnchorFallback();
                 captionScheduler.setAudioAnchor(nowMs);
               },
-              log: debugLog,
+              log: noopLog,
             });
-          } catch (err) {
-            debugLog("remote audio anchor unavailable", err);
-          }
+          } catch { /* remote audio anchor optional */ }
           track.onended = () => {
             clearAudioAnchorFallback();
             remoteAudioAnchorRef.current?.dispose();
@@ -313,7 +336,6 @@ export function useRealtimeVoiceSession(
           loop.configureSession(buildSessionConfig(), { triggerGreetingOnReady });
         },
         onClose: (reason) => {
-          debugLog("connection closed", reason);
           if (isStale()) return;
           if (reason === "pc_failed" || reason === "dc_error") {
             setError(connectionLostMessage);
@@ -330,16 +352,13 @@ export function useRealtimeVoiceSession(
       activeConn = conn;
       connectionRef.current = conn;
       setConnectionState("ready");
-      debugLog("connected", { attempt: myAttempt });
     } catch (e) {
       const isAbort = e instanceof Error && e.name === "AbortError";
       if (isAbort || isStale()) {
-        debugLog("start aborted", { attempt: myAttempt });
         conn?.close();
         return;
       }
       const msg = e instanceof Error ? e.message : startFailedMessage;
-      debugLog("start failed", msg);
       conn?.close();
       setError(msg);
       setConnectionState("error");
@@ -350,27 +369,40 @@ export function useRealtimeVoiceSession(
     feature,
     language,
     authHeadersKey,
-    micStartsDisabled,
+    pttMic,
     trackAgentSpeaking,
     buildSessionConfig,
     clearAudioAnchorFallback,
     connectionLostMessage,
     startFailedMessage,
     triggerGreetingOnReady,
-    debugLog,
     authHeaders,
   ]);
 
   useEffect(() => {
+    return () => {
+      cleanup();
+      setConnectionState("idle");
+    };
+  }, [cleanup]);
+
+  useEffect(() => {
+    if (!sessionActive) {
+      cleanup();
+      setConnectionState("idle");
+      resetSessionUiState();
+      return;
+    }
+    if (!autoConnect) return;
     void start();
     return () => {
       cleanup();
       setConnectionState("idle");
     };
-  }, [start, cleanup]);
+  }, [sessionActive, autoConnect, start, cleanup, resetSessionUiState]);
 
   const setMicEnabled = useCallback((open: boolean) => {
-    connectionRef.current?.micStream.getAudioTracks().forEach((t) => { t.enabled = open; });
+    setMicTracksEnabled(connectionRef.current?.micStream, open);
   }, []);
 
   const setAgentOutputMuted = useCallback((muted: boolean) => {
@@ -400,6 +432,7 @@ export function useRealtimeVoiceSession(
     error,
     lastCaption,
     lastUserTranscript,
+    hasReceivedAudioPart,
     agentSpeaking,
     setMicEnabled,
     sendUserMessage,

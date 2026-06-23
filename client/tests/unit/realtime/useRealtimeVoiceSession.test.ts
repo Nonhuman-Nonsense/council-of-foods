@@ -66,7 +66,7 @@ const defaultParams = {
   toolHandlers: {},
   triggerGreetingOnReady: false,
   authHeaders: { Authorization: "Bearer live-key" },
-  micStartsDisabled: true,
+  pttMic: true,
   trackAgentSpeaking: true,
 };
 
@@ -170,6 +170,27 @@ describe("useRealtimeVoiceSession", () => {
       eventLoopCallbacks.onResponseStarted?.();
     });
     expect(result.current.agentSpeaking).toBe(false);
+  });
+
+  it("sets hasReceivedAudioPart on first agent audio", async () => {
+    const { result } = renderHook(() => useRealtimeVoiceSession(defaultParams));
+
+    await waitFor(() => {
+      expect(mockCreateEventLoop).toHaveBeenCalled();
+    });
+
+    act(() => {
+      eventLoopCallbacks.onAudioPartReady?.();
+    });
+    expect(result.current.hasReceivedAudioPart).toBe(true);
+  });
+
+  it("does not connect when sessionActive is false", async () => {
+    renderHook(() => useRealtimeVoiceSession({ ...defaultParams, sessionActive: false }));
+
+    await waitFor(() => {
+      expect(mockFetchRealtimeBootstrap).not.toHaveBeenCalled();
+    });
   });
 
   it("clears captions when agent output is muted", async () => {
