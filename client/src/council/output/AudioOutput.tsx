@@ -4,17 +4,17 @@ import AudioOutputMessage, { PlayableAudioMessage, type PlaybackStartInfo } from
 import React from 'react';
 
 interface AudioOutputProps {
-  audioContext: React.RefObject<AudioContext | null>;
+  meetingAudioContext: React.RefObject<AudioContext | null>;
   currentAudioMessage: PlayableAudioMessage | null;
   onFinishedPlaying: () => void;
   onPlaybackStarted?: (info: PlaybackStartInfo) => void;
   isMuted: boolean;
 }
 
-//Most of the audio processing should happen here, but the audioContext is owned higher up
+//Most of the audio processing should happen here, but the meetingAudioContext is owned higher up
 //Because incoming audio needs to be processed directly on arrival
 function AudioOutput({
-  audioContext,
+  meetingAudioContext,
   currentAudioMessage,
   onFinishedPlaying,
   onPlaybackStarted,
@@ -22,22 +22,22 @@ function AudioOutput({
 }: AudioOutputProps): React.ReactElement {
   const gainNode = useRef<GainNode | null>(null); //The general volume control node
 
-  if (audioContext.current && gainNode.current === null) {
-    gainNode.current = audioContext.current.createGain();
-    gainNode.current.connect(audioContext.current.destination);
+  if (meetingAudioContext.current && gainNode.current === null) {
+    gainNode.current = meetingAudioContext.current.createGain();
+    gainNode.current.connect(meetingAudioContext.current.destination);
   }
 
   useEffect(() => {
-    if (audioContext.current && gainNode.current) {
+    if (meetingAudioContext.current && gainNode.current) {
       if (isMuted) {
         gainNode.current.gain.setValueAtTime(
           0,
-          audioContext.current.currentTime
+          meetingAudioContext.current.currentTime
         );
       } else {
         gainNode.current.gain.setValueAtTime(
           1,
-          audioContext.current.currentTime
+          meetingAudioContext.current.currentTime
         );
       }
     }
@@ -46,7 +46,7 @@ function AudioOutput({
   return (
     <AudioOutputMessage
       currentAudioMessage={currentAudioMessage}
-      audioContext={audioContext}
+      meetingAudioContext={meetingAudioContext}
       gainNode={gainNode}
       onFinishedPlaying={onFinishedPlaying}
       onPlaybackStarted={onPlaybackStarted}

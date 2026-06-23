@@ -28,9 +28,10 @@ glue. Also covers meeting freeze/resume, chair animation, and silence after
 
 ### Two audio paths (keep separate)
 
-| Audio | Mechanism | Frozen by `AudioContext.suspend()`? |
+| Audio | Mechanism | Frozen by meeting playback pause? |
 |-------|-----------|-------------------------------------|
-| Council meeting | Shared `AudioContext` + `AudioOutputMessage` | Yes — pauses in place |
+| Council meeting | `meetingAudioContext` + `AudioOutputMessage` | Yes — pauses in place |
+| Forest scene bed | `sceneAudioContext` — ambient + BeingAudio (Forest only) | No |
 | Voice guide / meta agent | WebRTC → hidden `<audio>` element | No — independent |
 
 Meta agent activation must **not** rely on suspending the agent path. Freezing the
@@ -41,12 +42,12 @@ meeting uses `setAudioPaused(true)` only.
 | State | Meaning |
 |-------|---------|
 | `isPaused` | User pause (controls, tab visibility, overlays) |
-| `setAudioPaused` | Freeze **meeting** Web Audio + subtitle clock |
+| `setMeetingPlaybackPaused` | Freeze **meeting** Web Audio + subtitle clock |
 | `metaAgentActive` | Council mode: meta-agent session UI is shown |
 
-On meta agent activate: `setAudioPaused(true)` + `setMetaAgentActive(true)` — **not** `setPaused(true)`.
+On meta agent activate: `setMeetingPlaybackPaused(true)` + `setMetaAgentActive(true)` — **not** `setPaused(true)`.
 
-On `resume_meeting`: `setMetaAgentActive(false)` + `setAudioPaused(false)`.
+On `resume_meeting`: `setMetaAgentActive(false)` + `setMeetingPlaybackPaused(false)`.
 
 `playingNowIndex` is unchanged throughout — no seek logic.
 
@@ -219,7 +220,31 @@ Phase 0 ──► Phase 1 ──► Phase 2 ──► Phase 3 ──► Phase 4 
 3. **Pass:** pause button (if visible) does not show “paused” state unless user pressed it.
 4. **Pass:** meta agent audio audible throughout.
 
-**Risk:** Medium. Touches Main `audioPaused` + Council tree.
+**Risk:** Medium. Touches Main `meetingPlaybackPaused` + Council tree.
+
+---
+
+## Phase 3b — Meeting vs scene audio buses (Foods prep, Forest completion)
+
+**Status:** Foods prep landed — Forest completes the split.
+
+**Foods (this repo):**
+
+- `client/src/audio/meetingAudio.ts` — meeting bus create/suspend/resume + `useMeetingPlaybackSuspended`
+- `client/src/audio/sceneAudio.ts` — stub + `createSceneAudioContext()` for Forest merge (unused in Foods)
+- `Main`: `meetingAudioContext` + `meetingPlaybackPaused` (renamed from `audioContext` / `audioPaused`)
+- Council tree props: `meetingAudioContext`, `setMeetingPlaybackPaused`
+- Meta agent freeze only toggles **meeting** playback pause
+
+**Forest merge checklist:**
+
+1. Add `sceneAudioContext` in `Main` via `createSceneAudioContext()`; pass to `Forest.tsx`
+2. Rename Forest `audioContext` prop → `sceneAudioContext` on `Forest`, `AmbientAudio`, `BeingAudio`
+3. Pass `meetingAudioContext` to `Council` (from Foods rename)
+4. `useMeetingPlaybackSuspended(meetingAudioContext, meetingPlaybackPaused)` — do **not** suspend scene bus
+5. Lift `metaAgentActive` (+ later `agentSpeaking`) to Main for chair `currentSpeakerId` → river + `BeingAudio`
+
+**Risk:** Low on Foods; medium on Forest merge (mechanical renames + second context).
 
 ---
 
@@ -329,7 +354,8 @@ Run after Phase 3+ before merging large PRs; abbreviated after smaller phases.
 | 0 | `guideTools.ts`, `realtimeEventLoop.ts`, `metaAgentTools.ts`, `metaAgentPrompt.ts`, `useMetaAgent.ts` |
 | 1 | `realtime/RealtimeCaptionOverlay.tsx`, `voice/VoiceGuideOverlay.tsx` |
 | 2 | `useMetaAgent.ts`, `Council.tsx`, `locales/translation_en.json` |
-| 3 | `MeetingMetaAgent.tsx`, `Council.tsx`, `Main.tsx` (verify `audioPaused` only) |
+| 3 | `MeetingMetaAgent.tsx`, `Council.tsx`, `Main.tsx`, `audio/meetingAudio.ts` |
+| 3b | `audio/sceneAudio.ts` (Forest), `Forest.tsx` (Forest only) |
 | 4 | `useMetaAgent.ts`, `FoodsCouncilScene.tsx`, `FoodItem.tsx`, `FoodAnimation.tsx` |
 | 5a | `realtime/useRealtimeVoiceSession.ts`, `useMetaAgent.ts` |
 | 5b | `useVoiceGuide.ts`, `MeetingVoiceGuide.tsx` |

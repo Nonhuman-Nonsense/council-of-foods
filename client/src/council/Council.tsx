@@ -26,8 +26,8 @@ interface CouncilProps {
   setUnrecoverableError: (message: string) => void;
   setConnectionError: (error: boolean) => void;
   connectionError: boolean;
-  audioContext: React.RefObject<AudioContext | null>;
-  setAudioPaused: (paused: boolean) => void;
+  meetingAudioContext: React.RefObject<AudioContext | null>;
+  setMeetingPlaybackPaused: (paused: boolean) => void;
   currentSpeakerId: string;
   setCurrentSpeakerId: (id: string) => void;
   isPaused: boolean;
@@ -42,8 +42,8 @@ function Council({
   setUnrecoverableError,
   setConnectionError,
   connectionError,
-  audioContext,
-  setAudioPaused,
+  meetingAudioContext,
+  setMeetingPlaybackPaused,
   currentSpeakerId,
   setCurrentSpeakerId,
   isPaused,
@@ -110,13 +110,13 @@ function Council({
     participants,
     humanName,
     setHumanName,
-    audioContext,
+    meetingAudioContext,
     setUnrecoverableError,
     setConnectionError,
     connectionError,
     isPaused,
     setPaused,
-    setAudioPaused,
+    setMeetingPlaybackPaused,
     metaAgentActive,
   });
 
@@ -227,7 +227,7 @@ function Council({
           liveKey={liveKey}
           language={i18n.language}
           participationPhase={participationPhase}
-          setAudioPaused={setAudioPaused}
+          setMeetingPlaybackPaused={setMeetingPlaybackPaused}
           metaAgentActive={metaAgentActive}
           setMetaAgentActive={setMetaAgentActive}
           onRestartMeeting={() => navigate("/")}
@@ -259,7 +259,7 @@ function Council({
             isPaused={isPaused}
             currentSnippetIndex={currentSnippetIndex}
             setCurrentSnippetIndex={setCurrentSnippetIndex}
-            audioContext={audioContext}
+            meetingAudioContext={meetingAudioContext}
             handleOnFinishedPlaying={handleOnFinishedPlaying}
           />
         )}

@@ -15,7 +15,7 @@ export interface PlaybackStartInfo {
 
 interface AudioOutputMessageProps {
   currentAudioMessage: PlayableAudioMessage | null;
-  audioContext: React.RefObject<AudioContext | null>;
+  meetingAudioContext: React.RefObject<AudioContext | null>;
   gainNode: React.RefObject<GainNode | null>;
   onFinishedPlaying: () => void;
   onPlaybackStarted?: (info: PlaybackStartInfo) => void;
@@ -23,7 +23,7 @@ interface AudioOutputMessageProps {
 
 function AudioOutputMessage({
   currentAudioMessage,
-  audioContext,
+  meetingAudioContext,
   gainNode,
   onFinishedPlaying,
   onPlaybackStarted
@@ -49,12 +49,12 @@ function AudioOutputMessage({
         }
       }
 
-      if (audioContext.current && gainNode.current) {
-        sourceNode.current = audioContext.current.createBufferSource();
+      if (meetingAudioContext.current && gainNode.current) {
+        sourceNode.current = meetingAudioContext.current.createBufferSource();
         sourceNode.current.buffer = currentAudioMessage.audio;
 
         sourceNode.current.connect(gainNode.current);
-        const startedAtAudioContextTime = audioContext.current.currentTime;
+        const startedAtAudioContextTime = meetingAudioContext.current.currentTime;
         sourceNode.current.start();
         onPlaybackStartedRef.current?.({
           messageId: currentAudioMessage.id,
@@ -71,7 +71,7 @@ function AudioOutputMessage({
       // sourceNode.current?.close();
       // sourceNode.current = null;
     }
-  }, [currentAudioMessage, audioContext, gainNode]);
+  }, [currentAudioMessage, meetingAudioContext, gainNode]);
 
   return null; // This component does not render anything itself
 }

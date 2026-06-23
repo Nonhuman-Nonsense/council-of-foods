@@ -11,7 +11,7 @@ interface AudioMessage {
 
 interface TextOutputProps {
   currentAudioMessage: AudioMessage | null;
-  audioContext: React.RefObject<AudioContext | null>;
+  meetingAudioContext: React.RefObject<AudioContext | null>;
   playbackStartInfo: PlaybackStartInfo | null;
   isPaused: boolean;
   setCurrentSnippetIndex: (index: number) => void;
@@ -31,7 +31,7 @@ interface TextOutputProps {
  */
 function TextOutput({
   currentAudioMessage, // Data structure: { sentences: [{text, start, end}, ...] }
-  audioContext,
+  meetingAudioContext,
   playbackStartInfo,
   isPaused,
   setCurrentSnippetIndex, // Parent state setter
@@ -96,7 +96,7 @@ function TextOutput({
     const sentences = currentAudioMessage?.sentences || [];
     if (sentences.length === 0) return;
     if (!playbackStartInfo || playbackStartInfo.messageId !== currentAudioMessage?.id) return;
-    if (!audioContext.current) return;
+    if (!meetingAudioContext.current) return;
 
     // CASE A: PAUSED
     if (isPaused) {
@@ -109,7 +109,7 @@ function TextOutput({
       // -- THE ANIMATION FRAME FUNCTION --
       // This runs ~60 times per second while playing
       const animate = () => {
-        const context = audioContext.current;
+        const context = meetingAudioContext.current;
         if (!context) return;
 
         // 1. Calculate Absolute Audio Time (in Seconds)
@@ -178,7 +178,7 @@ function TextOutput({
     return () => {
       if (requestRef.current !== null) cancelAnimationFrame(requestRef.current);
     }
-  }, [isPaused, currentAudioMessage, audioContext, playbackStartInfo, setCurrentSnippetIndex]);
+  }, [isPaused, currentAudioMessage, meetingAudioContext, playbackStartInfo, setCurrentSnippetIndex]);
 
 
   // --- STYLING ---

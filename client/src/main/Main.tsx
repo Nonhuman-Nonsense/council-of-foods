@@ -23,6 +23,10 @@ import RotateDevice from "./overlay/RotateDevice";
 import FullscreenButton from "./FullscreenButton";
 import MuseumModeEscapeHatch from "@/museum/MuseumModeEscapeHatch";
 import { useCouncilSettings } from "@/settings/useCouncilSettings";
+import {
+  createMeetingAudioContext,
+  useMeetingPlaybackSuspended,
+} from "@/audio/meetingAudio";
 import { usePortrait, dvh } from "@/utils";
 import CouncilError from "./overlay/CouncilError";
 import Reconnecting from "./overlay/Reconnecting";
@@ -63,11 +67,17 @@ export default function Main(props: MainProps) {
   // Keep these at Main level even though Foods currently renders its scene inside Council.
   // Forest needs the same runtime state outside the routed Council tree, and matching that
   // ownership here reduces cross-app merge conflicts when background/audio behavior changes.
+  // Forest also keeps scene speaker state at Main; Foods only needs the meeting bus.
   const [currentSpeakerId, setCurrentSpeakerId] = useState("");
   const [isPaused, setPaused] = useState(false);
-  const audioContext = useRef<AudioContext | null>(null);
-  const [audioPaused, setAudioPaused] = useState(false);
+  const meetingAudioContext = useRef<AudioContext | null>(null);
+  const [meetingPlaybackPaused, setMeetingPlaybackPaused] = useState(false);
 
+  if (meetingAudioContext.current === null) {
+    meetingAudioContext.current = createMeetingAudioContext();
+  }
+
+  useMeetingPlaybackSuspended(meetingAudioContext, meetingPlaybackPaused);
   const { i18n } = useTranslation();
   const { rootPath, newMeetingPath } = useRouting();
   const location = useLocation();
@@ -75,16 +85,6 @@ export default function Main(props: MainProps) {
   const isIphone = useIsIphone();
   const isPortrait = usePortrait();
   const { isMuseumMode, pushToTalkMode } = useCouncilSettings();
-
-  if (audioContext.current === null) {
-    type WindowWithWebkitAudio = Window & { webkitAudioContext?: typeof AudioContext };
-    const AudioContextCtor =
-      window.AudioContext ?? (window as WindowWithWebkitAudio).webkitAudioContext;
-    if (!AudioContextCtor) {
-      throw new Error("Web Audio API is not available in this environment");
-    }
-    audioContext.current = new AudioContextCtor();
-  }
 
   useEffect(() => {
     if (i18n.language !== props.lang) {
@@ -127,18 +127,6 @@ export default function Main(props: MainProps) {
       setMeetingliveKey(null);
     }
   }, [location.pathname]);
-
-  // Centralize Web Audio suspension here so Council and future scene components can share one
-  // AudioContext without each feature trying to suspend/resume it independently.
-  useEffect(() => {
-    if (audioPaused) {
-      if (audioContext.current && audioContext.current.state !== "suspended") {
-        audioContext.current.suspend();
-      }
-    } else if (audioContext.current && audioContext.current.state === "suspended") {
-      audioContext.current.resume();
-    }
-  }, [audioPaused]);
 
   function onReset(resetTopic?: Topic) {
     //If resetting completely
@@ -225,8 +213,8 @@ export default function Main(props: MainProps) {
                   setCurrentSpeakerId={setCurrentSpeakerId}
                   isPaused={isPaused}
                   setPaused={setPaused}
-                  audioContext={audioContext}
-                  setAudioPaused={setAudioPaused}
+                  meetingAudioContext={meetingAudioContext}
+                  setMeetingPlaybackPaused={setMeetingPlaybackPaused}
                 />
               }
             />

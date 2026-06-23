@@ -77,13 +77,13 @@ describe('useCouncilMachine', () => {
             participants: [],
             humanName: '',
             setHumanName: vi.fn(),
-            audioContext: audioContextMock,
+            meetingAudioContext: audioContextMock,
             setUnrecoverableError: vi.fn(),
             setConnectionError: vi.fn(),
             connectionError: false,
             isPaused: false,
             setPaused: vi.fn(),
-            setAudioPaused: vi.fn(),
+            setMeetingPlaybackPaused: vi.fn(),
         };
     });
 
@@ -170,15 +170,15 @@ describe('useCouncilMachine', () => {
         const props = { ...defaultProps, isPaused: true };
         renderHook(() => useCouncilMachine(props as any));
 
-        // setAudioPaused should be called if provided
-        expect(defaultProps.setAudioPaused).toHaveBeenCalledWith(true);
+        // setMeetingPlaybackPaused should be called if provided
+        expect(defaultProps.setMeetingPlaybackPaused).toHaveBeenCalledWith(true);
     });
 
     it('freezes meeting audio when meta agent is active without user pause', () => {
         const props = { ...defaultProps, isPaused: false, metaAgentActive: true };
         renderHook(() => useCouncilMachine(props as any));
 
-        expect(defaultProps.setAudioPaused).toHaveBeenCalledWith(true);
+        expect(defaultProps.setMeetingPlaybackPaused).toHaveBeenCalledWith(true);
     });
 
     it('toggles mute state when toggleMute is called', () => {

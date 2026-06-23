@@ -26,7 +26,7 @@ interface OutputProps {
   isPaused: boolean;
   currentSnippetIndex: number;
   setCurrentSnippetIndex: (index: number) => void;
-  audioContext: React.RefObject<AudioContext | null>;
+  meetingAudioContext: React.RefObject<AudioContext | null>;
   handleOnFinishedPlaying: () => void;
   /** Hide council subtitles (e.g. while meta-agent captions are shown). */
   hideSubtitles?: boolean;
@@ -41,7 +41,7 @@ const Output: React.FC<OutputProps> = ({
   isPaused,
   currentSnippetIndex: _currentSnippetIndex,
   setCurrentSnippetIndex,
-  audioContext,
+  meetingAudioContext,
   handleOnFinishedPlaying,
   hideSubtitles = false,
 }) => {
@@ -78,7 +78,7 @@ const Output: React.FC<OutputProps> = ({
     <>
       <TextOutput
         currentAudioMessage={currentAudioMessage}
-        audioContext={audioContext}
+        meetingAudioContext={meetingAudioContext}
         playbackStartInfo={playbackStartInfo}
         isPaused={isPaused}
         style={showTextOutput || hideSubtitles ? hiddenStyle : undefined}
@@ -90,7 +90,7 @@ const Output: React.FC<OutputProps> = ({
           onFinishedPlaying={handleOnFinishedPlaying}
           onPlaybackStarted={setPlaybackStartInfo}
           isMuted={isMuted}
-          audioContext={audioContext}
+          meetingAudioContext={meetingAudioContext}
         />
       </div>
     </>

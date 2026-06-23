@@ -1,7 +1,7 @@
 import type { RealtimeFunctionTool, ToolHandler, ToolResult } from "@voice/guideTools";
 
 export type MetaAgentToolContext = {
-  setAudioPaused: (paused: boolean) => void;
+  setMeetingPlaybackPaused: (paused: boolean) => void;
   setMetaAgentActive: (active: boolean) => void;
   onRestartMeeting: () => void;
   /** Mute agent audio and clear captions when exiting via a terminal tool. */
@@ -48,7 +48,7 @@ export function createMetaAgentToolHandlers(ctx: MetaAgentToolContext): Record<s
     resume_meeting: () => {
       ctx.silenceAgentOutput();
       ctx.setMetaAgentActive(false);
-      ctx.setAudioPaused(false);
+      ctx.setMeetingPlaybackPaused(false);
       return { ok: true, suppressContinuation: true };
     },
 

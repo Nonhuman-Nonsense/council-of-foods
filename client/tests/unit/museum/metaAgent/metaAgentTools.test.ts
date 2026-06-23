@@ -7,7 +7,7 @@ import {
 
 function makeCtx(overrides: Partial<MetaAgentToolContext> = {}): MetaAgentToolContext {
   return {
-    setAudioPaused: vi.fn(),
+    setMeetingPlaybackPaused: vi.fn(),
     setMetaAgentActive: vi.fn(),
     onRestartMeeting: vi.fn(),
     silenceAgentOutput: vi.fn(),
@@ -34,7 +34,7 @@ describe("createMetaAgentToolHandlers", () => {
       const result = handlers.resume_meeting({});
       expect(result).toEqual({ ok: true, suppressContinuation: true });
       expect(ctx.silenceAgentOutput).toHaveBeenCalled();
-      expect(ctx.setAudioPaused).toHaveBeenCalledWith(false);
+      expect(ctx.setMeetingPlaybackPaused).toHaveBeenCalledWith(false);
       expect(ctx.setMetaAgentActive).toHaveBeenCalledWith(false);
     });
   });

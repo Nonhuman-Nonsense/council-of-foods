@@ -16,7 +16,7 @@ export interface MeetingMetaAgentProps {
   liveKey: string;
   language: string;
   participationPhase: ParticipationPhase;
-  setAudioPaused: (paused: boolean) => void;
+  setMeetingPlaybackPaused: (paused: boolean) => void;
   metaAgentActive: boolean;
   setMetaAgentActive: (active: boolean) => void;
   onRestartMeeting: () => void;
@@ -42,7 +42,7 @@ export default function MeetingMetaAgent({
   liveKey,
   language,
   participationPhase,
-  setAudioPaused,
+  setMeetingPlaybackPaused,
   metaAgentActive,
   setMetaAgentActive,
   onRestartMeeting,
@@ -64,12 +64,12 @@ export default function MeetingMetaAgent({
   const toolHandlers = useMemo(
     () =>
       createMetaAgentToolHandlers({
-        setAudioPaused,
+        setMeetingPlaybackPaused,
         setMetaAgentActive,
         onRestartMeeting,
         silenceAgentOutput: () => silenceRef.current(),
       }),
-    [setAudioPaused, setMetaAgentActive, onRestartMeeting],
+    [setMeetingPlaybackPaused, setMetaAgentActive, onRestartMeeting],
   );
 
   const {
@@ -117,7 +117,7 @@ export default function MeetingMetaAgent({
   useEffect(() => {
     if (!pressed || metaAgentActive) return;
 
-    setAudioPaused(true);
+    setMeetingPlaybackPaused(true);
     setMetaAgentActive(true);
     setAgentOutputMuted(false);
     setMicEnabled(true);
@@ -134,7 +134,7 @@ export default function MeetingMetaAgent({
   }, [
     pressed,
     metaAgentActive,
-    setAudioPaused,
+    setMeetingPlaybackPaused,
     setMetaAgentActive,
     setAgentOutputMuted,
     setMicEnabled,

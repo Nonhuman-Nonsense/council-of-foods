@@ -88,7 +88,7 @@ function makeProps(overrides: Partial<MeetingMetaAgentProps> = {}): MeetingMetaA
     liveKey: "live-key-123",
     language: "en",
     participationPhase: "off",
-    setAudioPaused: vi.fn(),
+    setMeetingPlaybackPaused: vi.fn(),
     metaAgentActive: false,
     setMetaAgentActive: vi.fn(),
     onRestartMeeting: vi.fn(),
@@ -143,13 +143,13 @@ describe("MeetingMetaAgent", () => {
   });
 
   it("freezes meeting audio, sets active, opens mic, sends snapshot on button press (standby)", () => {
-    const setAudioPaused = vi.fn();
+    const setMeetingPlaybackPaused = vi.fn();
     const setMetaAgentActive = vi.fn();
 
     render(
       <MeetingMetaAgent
         {...makeProps({
-          setAudioPaused,
+          setMeetingPlaybackPaused,
           setMetaAgentActive,
           metaAgentActive: false,
         })}
@@ -158,7 +158,7 @@ describe("MeetingMetaAgent", () => {
 
     act(() => setMockPressed(true));
 
-    expect(setAudioPaused).toHaveBeenCalledWith(true);
+    expect(setMeetingPlaybackPaused).toHaveBeenCalledWith(true);
     expect(setMetaAgentActive).toHaveBeenCalledWith(true);
     expect(mockSetAgentOutputMuted).toHaveBeenCalledWith(false);
     expect(mockSetMicEnabled).toHaveBeenCalledWith(true);
