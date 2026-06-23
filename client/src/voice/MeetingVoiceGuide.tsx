@@ -41,7 +41,7 @@ export default function MeetingVoiceGuide({
 }: MeetingVoiceGuideProps) {
   const { i18n, t } = useTranslation();
   const { isMuseumMode, pushToTalkMode } = useCouncilSettings();
-  const pressed = useButtonPressed(pushToTalkMode);
+  const pressed = useButtonPressed("voice-guide");
   const {
     selectedTopic,
     customTopic,

@@ -26,10 +26,16 @@ export function useButtonConnection(active: boolean): ButtonConnectionState {
   return { bridgeStatus, bridgeError, bridgeAvailable, serialConnected };
 }
 
-export function useButtonPressed(active: boolean): boolean {
-  return useButtonStore((state) => (active ? state.pressed : false));
+/** Routed press: true only when this owner won button intent arbitration. */
+export function useButtonPressed(owner: ButtonLedOwner): boolean {
+  return useButtonStore((state) => state.pressOwner === owner && state.pressed);
 }
 
+export function useButtonPressOwner(): ButtonLedOwner | null {
+  return useButtonStore((state) => state.pressOwner);
+}
+
+/** Physical button/keyboard state — below intent routing (e.g. HumanInput pre-warm). */
 export function useRawPressed(active: boolean): boolean {
   return useButtonStore((state) => (active ? state.rawPressed : false));
 }

@@ -26,7 +26,7 @@ function Setup(): React.ReactElement {
     useButtonConnection(bridgeButtonActive);
   const bridgeHealth = useButtonBridgeHealth(bridgeButtonActive);
 
-  useButtonLed("setup", pushToTalkMode ? "pulse" : "off", bridgeButtonActive);
+  useButtonLed("setup", "pulse", bridgeButtonActive);
 
   const daemonStatus = getBridgeDaemonStatus(bridgeHealth);
   const appStatus = getBridgeAppStatus(bridgeAvailable, bridgeHealth, bridgeStatus);

@@ -75,7 +75,19 @@ describe("useButtonStore", () => {
     useButtonStore.getState().registerLedIntent("human-input", "pulse");
     await Promise.resolve();
     expect(useButtonStore.getState().buttonInputEnabled).toBe(true);
+    expect(useButtonStore.getState().pressOwner).toBe("human-input");
     expect(transport.setLedMode).toHaveBeenCalledWith("pulse");
+  });
+
+  it("routes press only to the winning owner", () => {
+    useButtonStore.setState({ bridgeStatus: "connected", buttonInputEnabled: true });
+    useButtonStore.getState().registerLedIntent("meta-agent", "pulse");
+    useButtonStore.getState().registerLedIntent("human-input", "pulse");
+    expect(useButtonStore.getState().pressOwner).toBe("human-input");
+    transport.callbacks?.onLine?.({ type: "button_down" });
+    expect(useButtonStore.getState().pressed).toBe(true);
+    useButtonStore.getState().registerLedIntent("human-input", null);
+    expect(useButtonStore.getState().pressOwner).toBe("meta-agent");
   });
 
   it("setup wins over human-input when both register intents", async () => {

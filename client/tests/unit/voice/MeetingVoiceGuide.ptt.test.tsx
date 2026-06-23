@@ -35,7 +35,7 @@ vi.mock("@/settings/useCouncilSettings", () => ({
 
 vi.mock("@/museum/button/hooks", () => ({
   useButtonLed: (...args: unknown[]) => mockUseButtonLed(...args),
-  useButtonPressed: (active: boolean) => mockUseButtonPressed(active),
+  useButtonPressed: (owner: string) => mockUseButtonPressed(owner),
 }));
 
 vi.mock("@voice/useVoiceGuide", () => ({
@@ -111,13 +111,13 @@ describe("MeetingVoiceGuide PTT (regression)", () => {
       pushToTalkMode: true,
       setPushToTalkMode: vi.fn(),
     });
-    mockUseButtonPressed.mockImplementation((active: boolean) => active);
+    mockUseButtonPressed.mockImplementation(() => false);
   });
 
   it("enables button hooks in web mode when push-to-talk is on (not museum-only)", () => {
     render(<MeetingVoiceGuide {...defaultProps} />);
 
-    expect(mockUseButtonPressed).toHaveBeenCalledWith(true);
+    expect(mockUseButtonPressed).toHaveBeenCalledWith("voice-guide");
     expect(mockUseButtonLed).toHaveBeenCalledWith(
       "voice-guide",
       expect.any(String),
@@ -149,7 +149,7 @@ describe("MeetingVoiceGuide PTT (regression)", () => {
 
     render(<MeetingVoiceGuide {...defaultProps} />);
 
-    expect(mockUseButtonPressed).toHaveBeenCalledWith(true);
+    expect(mockUseButtonPressed).toHaveBeenCalledWith("voice-guide");
     expect(mockUseButtonLed).toHaveBeenCalledWith(
       "voice-guide",
       expect.any(String),
@@ -165,11 +165,11 @@ describe("MeetingVoiceGuide PTT (regression)", () => {
       pushToTalkMode: false,
       setPushToTalkMode: vi.fn(),
     });
-    mockUseButtonPressed.mockImplementation((active: boolean) => active);
+    mockUseButtonPressed.mockImplementation(() => false);
 
     render(<MeetingVoiceGuide {...defaultProps} />);
 
-    expect(mockUseButtonPressed).toHaveBeenCalledWith(false);
+    expect(mockUseButtonPressed).toHaveBeenCalledWith("voice-guide");
     expect(mockUseButtonLed).toHaveBeenCalledWith(
       "voice-guide",
       expect.any(String),

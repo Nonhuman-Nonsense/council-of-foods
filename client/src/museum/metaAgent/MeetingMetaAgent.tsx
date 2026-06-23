@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef } from "react";
-import { useButtonLed, useButtonPressed } from "@museum/button/hooks";
+import { useButtonLed, useButtonPressed, useButtonPressOwner } from "@museum/button/hooks";
 import { useMetaAgent } from "./useMetaAgent";
 import { buildMetaAgentPrompt, buildMetaAgentStateSnapshot } from "./metaAgentPrompt";
 import {
@@ -35,7 +35,7 @@ export interface MeetingMetaAgentProps {
  *
  * Mounting contract:
  *  - Only mount when `pushToTalkMode && liveKey` (live meeting + PTT).
- *  - Only active when `participationPhase === "off"` (HumanInput has priority).
+ *  - Button presses route via shared intent arbitration (human-input wins in active phase).
  */
 export default function MeetingMetaAgent({
   liveKey,
@@ -52,9 +52,6 @@ export default function MeetingMetaAgent({
   currentSpeakerName,
   humanName,
 }: MeetingMetaAgentProps) {
-  // The meta agent is only "on" when HumanInput is not using the button.
-  const buttonOwnerActive = participationPhase === "off";
-
   const instructions = useMemo(
     () => buildMetaAgentPrompt({ pushToTalkMode: true }),
     [],
@@ -80,8 +77,8 @@ export default function MeetingMetaAgent({
     toolHandlers,
   });
 
-  // Gated pressed: only triggers when buttonOwnerActive and pttInputEnabled.
-  const pressed = useButtonPressed(buttonOwnerActive);
+  const pressed = useButtonPressed("meta-agent");
+  const pressOwner = useButtonPressOwner();
 
   // Track whether we were active so we detect rising / falling edge.
   const wasActiveRef = useRef(metaAgentActive);
@@ -89,18 +86,13 @@ export default function MeetingMetaAgent({
     wasActiveRef.current = metaAgentActive;
   });
 
-  // Standby → Active: rising edge of pressed while not yet active.
+  // Standby → Active: rising edge of routed press while not yet active.
   useEffect(() => {
-    if (!buttonOwnerActive) return;
     if (!pressed || metaAgentActive) return;
 
-    // Pause the meeting.
     setPaused(true);
-    // Mark meta agent as active (triggers chair zoom in Council).
     setMetaAgentActive(true);
-    // Open the mic so the visitor's voice goes to the agent.
     setMicEnabled(true);
-    // Inject a one-shot state snapshot so the agent has meeting context.
     sendUserMessage(
       buildMetaAgentStateSnapshot({
         councilState,
@@ -114,7 +106,6 @@ export default function MeetingMetaAgent({
   }, [
     pressed,
     metaAgentActive,
-    buttonOwnerActive,
     setPaused,
     setMetaAgentActive,
     setMicEnabled,
@@ -127,26 +118,29 @@ export default function MeetingMetaAgent({
     participationPhase,
   ]);
 
-  // Active: rising/falling edge of pressed controls mic-open within a turn.
+  // Active: routed press controls mic-open within a turn.
   useEffect(() => {
-    if (!buttonOwnerActive || !metaAgentActive) return;
-    // Mic follows the button state inside active mode (multi-turn support).
+    if (!metaAgentActive) return;
     setMicEnabled(pressed);
-  }, [pressed, metaAgentActive, buttonOwnerActive, setMicEnabled]);
+  }, [pressed, metaAgentActive, setMicEnabled]);
 
-  // Ensure mic is closed whenever we leave active mode (tool called or phase changed).
+  // Yield when human-input (or higher priority) takes the button.
+  useEffect(() => {
+    if (metaAgentActive && pressOwner !== "meta-agent") {
+      setMetaAgentActive(false);
+      setMicEnabled(false);
+    }
+  }, [pressOwner, metaAgentActive, setMetaAgentActive, setMicEnabled]);
+
+  // Ensure mic is closed whenever we leave active mode.
   useEffect(() => {
     if (!metaAgentActive) {
       setMicEnabled(false);
     }
   }, [metaAgentActive, setMicEnabled]);
 
-  // LED: pulse in standby when button owner (invites visitor to press);
-  //       on while recording (active + pressed).
   const ledMode = metaAgentActive && pressed ? "on" : "pulse";
-  useButtonLed("meta-agent", ledMode, buttonOwnerActive);
+  useButtonLed("meta-agent", ledMode);
 
-  // Nothing to render — audio playback is via a hidden <audio> element created
-  // inside useMetaAgent, and the visual feedback is the LED + meeting zoom.
   return null;
 }

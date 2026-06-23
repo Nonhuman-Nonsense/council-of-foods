@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mergeLedIntents } from "@/museum/button/ledIntent";
+import { mergeButtonIntentOwner, mergeLedIntents, mergePressOwner } from "@/museum/button/ledIntent";
 
 describe("mergeLedIntents", () => {
   it("returns off when no intents are registered", () => {
@@ -20,13 +20,22 @@ describe("mergeLedIntents", () => {
     ).toBe("pulse");
   });
 
-  it("prefers human-input over voice-guide", () => {
+  it("ignores off intents so lower-priority pulse can win", () => {
     expect(
       mergeLedIntents({
         "voice-guide": "on",
         "human-input": "off",
       }),
-    ).toBe("off");
+    ).toBe("on");
+  });
+
+  it("prefers human-input pulse over voice-guide on", () => {
+    expect(
+      mergeLedIntents({
+        "voice-guide": "on",
+        "human-input": "pulse",
+      }),
+    ).toBe("pulse");
   });
 
   it("prefers setup over voice-guide", () => {
@@ -50,13 +59,22 @@ describe("mergeLedIntents", () => {
     expect(mergeLedIntents({ "meta-agent": "pulse" })).toBe("pulse");
   });
 
-  it("prefers human-input over meta-agent", () => {
+  it("prefers human-input over meta-agent when human-input is competing", () => {
+    expect(
+      mergeLedIntents({
+        "meta-agent": "pulse",
+        "human-input": "pulse",
+      }),
+    ).toBe("pulse");
+  });
+
+  it("lets meta-agent win when human-input is off during warm pre-connect", () => {
     expect(
       mergeLedIntents({
         "meta-agent": "pulse",
         "human-input": "off",
       }),
-    ).toBe("off");
+    ).toBe("pulse");
   });
 
   it("prefers setup over meta-agent", () => {
@@ -69,9 +87,22 @@ describe("mergeLedIntents", () => {
   });
 
   it("meta-agent and voice-guide at same priority: last key in iteration wins (deterministic tie-break)", () => {
-    // Both have priority 1; they never run simultaneously so this is an edge case.
-    // What matters is the function doesn't throw and returns one of the registered modes.
     const result = mergeLedIntents({ "meta-agent": "pulse", "voice-guide": "on" });
     expect(["pulse", "on"]).toContain(result);
+  });
+});
+
+describe("mergePressOwner", () => {
+  it("matches mergeButtonIntentOwner", () => {
+    const intents = {
+      "meta-agent": "pulse" as const,
+      "human-input": "off" as const,
+    };
+    expect(mergePressOwner(intents)).toBe("meta-agent");
+    expect(mergeButtonIntentOwner(intents)).toBe("meta-agent");
+  });
+
+  it("returns null when no owner is competing", () => {
+    expect(mergePressOwner({ "human-input": "off" })).toBeNull();
   });
 });

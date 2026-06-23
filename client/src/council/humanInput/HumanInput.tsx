@@ -186,14 +186,15 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
   // which lets us detect a held button even while pre-warming (LED off).
   const rawPressed = useRawPressed(isButtonMuseumMode);
 
-  const humanInputLedMode = useMemo((): ButtonLedMode => {
-    if (!isButtonMuseumMode) return "off";
-    if (phase === "active" && connectionState === "ready") return "pulse";
-    if (phase === "active" && connectionState === "recording") return "on";
-    return "off";
-  }, [isButtonMuseumMode, phase, connectionState]);
+  const humanInputOwnsButton = isButtonMuseumMode && phase === "active";
 
-  useButtonLed("human-input", humanInputLedMode, isButtonMuseumMode);
+  const humanInputLedMode = useMemo((): ButtonLedMode => {
+    if (!humanInputOwnsButton) return "off";
+    if (connectionState === "recording") return "on";
+    return "pulse";
+  }, [humanInputOwnsButton, connectionState]);
+
+  useButtonLed("human-input", humanInputLedMode, humanInputOwnsButton);
 
   // Mirror rawPressed in a ref so the connectionState-change effect can read
   // the current value without taking it as a dependency (avoids double-trigger).

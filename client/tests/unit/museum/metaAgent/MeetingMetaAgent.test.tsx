@@ -3,16 +3,23 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, act } from "@testing-library/react";
 import MeetingMetaAgent from "@museum/metaAgent/MeetingMetaAgent";
 import type { MeetingMetaAgentProps } from "@museum/metaAgent/MeetingMetaAgent";
-
-// ── button store / hooks mocks ────────────────────────────────────────────────
+import type { ButtonLedOwner } from "@museum/button/ledIntent";
 
 const mockUseButtonLed = vi.hoisted(() => vi.fn());
 
-const mockButtonState = vi.hoisted(() => ({ pressed: false }));
+const mockButtonState = vi.hoisted(() => ({
+  pressed: false,
+  pressOwner: "meta-agent" as ButtonLedOwner | null,
+}));
 const mockButtonListeners = vi.hoisted(() => new Set<() => void>());
 
 function setMockPressed(value: boolean) {
   mockButtonState.pressed = value;
+  mockButtonListeners.forEach((l) => l());
+}
+
+function setMockPressOwner(owner: ButtonLedOwner | null) {
+  mockButtonState.pressOwner = owner;
   mockButtonListeners.forEach((l) => l());
 }
 
@@ -25,18 +32,24 @@ vi.mock("@museum/button/hooks", async () => {
   const React = await import("react");
   return {
     useButtonLed: (...args: unknown[]) => mockUseButtonLed(...args),
-    useButtonPressed: (active: boolean) =>
+    useButtonPressed: (owner: ButtonLedOwner) =>
       React.useSyncExternalStore(
         (onStoreChange: () => void) => {
           mockButtonListeners.add(onStoreChange);
           return () => mockButtonListeners.delete(onStoreChange);
         },
-        () => (active ? mockButtonState.pressed : false),
+        () => mockButtonState.pressOwner === owner && mockButtonState.pressed,
+      ),
+    useButtonPressOwner: () =>
+      React.useSyncExternalStore(
+        (onStoreChange: () => void) => {
+          mockButtonListeners.add(onStoreChange);
+          return () => mockButtonListeners.delete(onStoreChange);
+        },
+        () => mockButtonState.pressOwner,
       ),
   };
 });
-
-// ── useMetaAgent mock ──────────────────────────────────────────────────────────
 
 const mockSetMicEnabled = vi.hoisted(() => vi.fn());
 const mockSendUserMessage = vi.hoisted(() => vi.fn());
@@ -49,8 +62,6 @@ vi.mock("@museum/metaAgent/useMetaAgent", () => ({
     sendUserMessage: mockSendUserMessage,
   }),
 }));
-
-// ── helpers ───────────────────────────────────────────────────────────────────
 
 function makeProps(overrides: Partial<MeetingMetaAgentProps> = {}): MeetingMetaAgentProps {
   return {
@@ -75,13 +86,12 @@ function makeProps(overrides: Partial<MeetingMetaAgentProps> = {}): MeetingMetaA
 
 beforeEach(() => {
   mockButtonState.pressed = false;
+  mockButtonState.pressOwner = "meta-agent";
   mockButtonListeners.clear();
   mockSetMicEnabled.mockClear();
   mockSendUserMessage.mockClear();
   mockUseButtonLed.mockClear();
 });
-
-// ── tests ─────────────────────────────────────────────────────────────────────
 
 describe("MeetingMetaAgent", () => {
   it("renders null (no DOM output)", () => {
@@ -91,21 +101,18 @@ describe("MeetingMetaAgent", () => {
 
   it("registers LED intent with meta-agent owner in standby", () => {
     render(<MeetingMetaAgent {...makeProps()} />);
-    expect(mockUseButtonLed).toHaveBeenCalledWith("meta-agent", "pulse", true);
+    expect(mockUseButtonLed).toHaveBeenCalledWith("meta-agent", "pulse");
   });
 
-  it("shows LED 'on' while active + pressed", () => {
-    render(
-      <MeetingMetaAgent {...makeProps({ metaAgentActive: true })} />,
-    );
+  it("shows LED on while active and pressed", () => {
+    render(<MeetingMetaAgent {...makeProps({ metaAgentActive: true })} />);
     act(() => setMockPressed(true));
-    expect(mockUseButtonLed).toHaveBeenCalledWith("meta-agent", "on", true);
+    expect(mockUseButtonLed).toHaveBeenCalledWith("meta-agent", "on");
   });
 
-  it("does not register LED intent when participationPhase is not off", () => {
-    render(<MeetingMetaAgent {...makeProps({ participationPhase: "active" })} />);
-    // active=false — owner unregisters itself
-    expect(mockUseButtonLed).toHaveBeenCalledWith("meta-agent", "pulse", false);
+  it("still registers LED intent during warm phase", () => {
+    render(<MeetingMetaAgent {...makeProps({ participationPhase: "warm" })} />);
+    expect(mockUseButtonLed).toHaveBeenCalledWith("meta-agent", "pulse");
   });
 
   it("pauses meeting, sets active, opens mic, sends snapshot on button press (standby)", () => {
@@ -132,26 +139,61 @@ describe("MeetingMetaAgent", () => {
     );
   });
 
-  it("does not pause or activate on press when participationPhase is not off", () => {
-    const setPaused = vi.fn();
+  it("activates on press during warm phase when meta-agent owns the button", () => {
     const setMetaAgentActive = vi.fn();
 
     render(
       <MeetingMetaAgent
         {...makeProps({
-          setPaused,
+          participationPhase: "warm",
           setMetaAgentActive,
-          participationPhase: "active",
-          metaAgentActive: false,
         })}
       />,
     );
 
     act(() => setMockPressed(true));
 
-    expect(setPaused).not.toHaveBeenCalled();
+    expect(setMetaAgentActive).toHaveBeenCalledWith(true);
+  });
+
+  it("does not activate on press when another owner has the button", () => {
+    const setMetaAgentActive = vi.fn();
+
+    render(
+      <MeetingMetaAgent
+        {...makeProps({
+          participationPhase: "active",
+          setMetaAgentActive,
+        })}
+      />,
+    );
+
+    act(() => {
+      setMockPressOwner("human-input");
+      setMockPressed(true);
+    });
+
     expect(setMetaAgentActive).not.toHaveBeenCalled();
-    expect(mockSetMicEnabled).not.toHaveBeenCalledWith(true);
+  });
+
+  it("deactivates when press ownership is lost", () => {
+    const setMetaAgentActive = vi.fn();
+
+    render(
+      <MeetingMetaAgent
+        {...makeProps({
+          metaAgentActive: true,
+          setMetaAgentActive,
+        })}
+      />,
+    );
+
+    mockSetMicEnabled.mockClear();
+
+    act(() => setMockPressOwner("human-input"));
+
+    expect(setMetaAgentActive).toHaveBeenCalledWith(false);
+    expect(mockSetMicEnabled).toHaveBeenCalledWith(false);
   });
 
   it("closes mic when metaAgentActive transitions to false", () => {
