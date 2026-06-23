@@ -6,7 +6,7 @@ import {
   type MeetingCharactersI18n,
 } from "@newMeeting/meetingSetup";
 import { useMeetingSetupStore } from "@newMeeting/meetingSetupStore";
-import { getAppMode } from "@/museum/appMode";
+import { getAppMode } from "@/settings/councilSettings";
 import { capitalizeFirstLetter } from "@/utils";
 import type { VoiceGuidePromptBundle } from "./guidePrompt";
 

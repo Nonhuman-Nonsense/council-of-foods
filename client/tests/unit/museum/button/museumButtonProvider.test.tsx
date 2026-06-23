@@ -15,10 +15,6 @@ vi.mock("@/museum/button/buttonStore", () => ({
   },
 }));
 
-vi.mock("@/museum/useAppMode", () => ({
-  useAppMode: vi.fn(() => ({ isMuseumMode: true, mode: "museum" as const, setAppMode: vi.fn() })),
-}));
-
 vi.mock("@/museum/button/config", () => ({
   isButtonBridgeAvailable: vi.fn(() => true),
 }));
@@ -26,6 +22,8 @@ vi.mock("@/museum/button/config", () => ({
 describe("MuseumButtonProvider", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    localStorage.clear();
+    localStorage.setItem("councilAppMode", "museum");
     localStorage.setItem("councilPushToTalk", "true");
   });
 
@@ -89,12 +87,7 @@ describe("MuseumButtonProvider", () => {
   });
 
   it("does not connect bridge when not in museum mode but still inits keyboard", async () => {
-    const { useAppMode } = await import("@/museum/useAppMode");
-    vi.mocked(useAppMode).mockReturnValue({
-      isMuseumMode: false,
-      mode: "web",
-      setAppMode: vi.fn(),
-    });
+    localStorage.setItem("councilAppMode", "web");
 
     await renderProvider();
 

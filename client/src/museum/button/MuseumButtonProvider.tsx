@@ -1,11 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { isButtonBridgeAvailable } from "./config";
-import { useAppMode } from "@/museum/useAppMode";
-import {
-  getPushToTalk,
-  PUSH_TO_TALK_CHANGE_EVENT,
-  type PushToTalkChangeDetail,
-} from "@/settings/councilSettings";
+import { useCouncilSettings } from "@/settings/useCouncilSettings";
 import { useButtonStore } from "./buttonStore";
 
 /**
@@ -13,26 +8,16 @@ import { useButtonStore } from "./buttonStore";
  * app mode; hardware bridge only in museum mode when the bridge is available.
  */
 export default function MuseumButtonProvider(): null {
-  const { isMuseumMode } = useAppMode();
-  const [pushToTalk, setPushToTalk] = useState(getPushToTalk);
-  const bridgeActive = isMuseumMode && pushToTalk && isButtonBridgeAvailable();
-
-  useEffect(() => {
-    function onPushToTalkChange(event: Event): void {
-      setPushToTalk((event as CustomEvent<PushToTalkChangeDetail>).detail);
-    }
-
-    window.addEventListener(PUSH_TO_TALK_CHANGE_EVENT, onPushToTalkChange);
-    return () => window.removeEventListener(PUSH_TO_TALK_CHANGE_EVENT, onPushToTalkChange);
-  }, []);
+  const { isMuseumMode, pushToTalkMode } = useCouncilSettings();
+  const bridgeActive = isMuseumMode && pushToTalkMode && isButtonBridgeAvailable();
 
   // Space-as-PTT works in web and museum whenever push-to-talk is on.
   useEffect(() => {
-    if (!pushToTalk) {
+    if (!pushToTalkMode) {
       return;
     }
     useButtonStore.getState().init();
-  }, [pushToTalk]);
+  }, [pushToTalkMode]);
 
   useEffect(() => {
     if (!bridgeActive) {

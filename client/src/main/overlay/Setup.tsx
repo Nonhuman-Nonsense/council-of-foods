@@ -1,8 +1,6 @@
-import { useState } from "react";
 import { useMobile, useMobileXs } from "@/utils";
 import { useTranslation } from "react-i18next";
-import { getPushToTalk, setPushToTalk } from "@/settings/councilSettings";
-import { useAppMode } from "@/museum/useAppMode";
+import { useCouncilSettings } from "@/settings/useCouncilSettings";
 import { useButtonConnection, useButtonLed } from "@/museum/button/hooks";
 import {
   getBridgeAppStatus,
@@ -22,14 +20,13 @@ function Setup(): React.ReactElement {
   const isMobile = useMobile();
   const isMobileXs = useMobileXs();
   const { t } = useTranslation();
-  const { mode: appMode, setAppMode } = useAppMode();
-  const [pushToTalk, setPushToTalkState] = useState(getPushToTalk);
-  const bridgeButtonActive = appMode === "museum" && pushToTalk;
+  const { mode: appMode, setAppMode, pushToTalkMode, setPushToTalkMode } = useCouncilSettings();
+  const bridgeButtonActive = appMode === "museum" && pushToTalkMode;
   const { bridgeStatus, bridgeError, bridgeAvailable } =
     useButtonConnection(bridgeButtonActive);
   const bridgeHealth = useButtonBridgeHealth(bridgeButtonActive);
 
-  useButtonLed("setup", pushToTalk ? "pulse" : "off", bridgeButtonActive);
+  useButtonLed("setup", pushToTalkMode ? "pulse" : "off", bridgeButtonActive);
 
   const daemonStatus = getBridgeDaemonStatus(bridgeHealth);
   const appStatus = getBridgeAppStatus(bridgeAvailable, bridgeHealth, bridgeStatus);
@@ -76,13 +73,11 @@ function Setup(): React.ReactElement {
   };
 
   function selectAlwaysOn(): void {
-    setPushToTalkState(false);
-    setPushToTalk(false);
+    setPushToTalkMode(false);
   }
 
   function selectPushToTalk(): void {
-    setPushToTalkState(true);
-    setPushToTalk(true);
+    setPushToTalkMode(true);
   }
 
   return (
@@ -123,7 +118,7 @@ function Setup(): React.ReactElement {
           <button
             type="button"
             data-testid="voice-guide-always-on"
-            className={!pushToTalk ? "selected " : ""}
+            className={!pushToTalkMode ? "selected " : ""}
             onClick={selectAlwaysOn}
             style={selectButtonStyle}
           >
@@ -132,7 +127,7 @@ function Setup(): React.ReactElement {
           <button
             type="button"
             data-testid="voice-guide-push-to-talk"
-            className={pushToTalk ? "selected " : ""}
+            className={pushToTalkMode ? "selected " : ""}
             onClick={selectPushToTalk}
             style={selectButtonStyle}
           >
@@ -141,7 +136,7 @@ function Setup(): React.ReactElement {
         </div>
       </div>
 
-      {pushToTalk && appMode === "museum" ? (
+      {pushToTalkMode && appMode === "museum" ? (
         <div style={sectionStyle}>
           <h3 style={{ marginTop: 0 }}>{t("setup.button.title")}</h3>
           <div data-testid="setup-button-status">

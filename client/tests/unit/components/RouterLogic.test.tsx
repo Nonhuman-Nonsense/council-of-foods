@@ -5,7 +5,7 @@ import React from 'react';
 import { MemoryRouter, Routes, Route, useLocation } from 'react-router';
 import Main from '@main/Main';
 import Navbar from '@main/Navbar';
-import { APP_MODE_STORAGE_KEY } from '@/museum/appMode';
+import { APP_MODE_STORAGE_KEY } from '@/settings/councilSettings';
 import * as AvailableLanguagesModule from '@shared/AvailableLanguages';
 import routes from '@/routes.json';
 import { MockFactory } from '../factories/MockFactory';

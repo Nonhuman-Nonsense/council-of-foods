@@ -15,20 +15,22 @@ const mockUseVoiceGuide = vi.hoisted(() => vi.fn(() => ({
   stop: vi.fn(),
   sendUserMessage: vi.fn(),
 })));
-const mockUseAppMode = vi.hoisted(() =>
-  vi.fn(() => ({ isMuseumMode: false, mode: "web" as const, setAppMode: vi.fn() })),
+const mockUseCouncilSettings = vi.hoisted(() =>
+  vi.fn(() => ({
+    isMuseumMode: false,
+    mode: "web" as const,
+    setAppMode: vi.fn(),
+    pushToTalkMode: true,
+    setPushToTalkMode: vi.fn(),
+  })),
 );
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key, i18n: { language: "en" } }),
 }));
 
-vi.mock("@/museum/useAppMode", () => ({
-  useAppMode: () => mockUseAppMode(),
-}));
-
-vi.mock("@/settings/councilSettings", () => ({
-  getPushToTalk: vi.fn(() => true),
+vi.mock("@/settings/useCouncilSettings", () => ({
+  useCouncilSettings: () => mockUseCouncilSettings(),
 }));
 
 vi.mock("@/museum/button/hooks", () => ({
@@ -102,10 +104,12 @@ const defaultProps = {
 describe("MeetingVoiceGuide PTT (regression)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockUseAppMode.mockReturnValue({
+    mockUseCouncilSettings.mockReturnValue({
       isMuseumMode: false,
       mode: "web",
       setAppMode: vi.fn(),
+      pushToTalkMode: true,
+      setPushToTalkMode: vi.fn(),
     });
     mockUseButtonPressed.mockImplementation((active: boolean) => active);
   });
@@ -135,10 +139,12 @@ describe("MeetingVoiceGuide PTT (regression)", () => {
   });
 
   it("still enables button hooks in museum mode with push-to-talk", () => {
-    mockUseAppMode.mockReturnValue({
+    mockUseCouncilSettings.mockReturnValue({
       isMuseumMode: true,
       mode: "museum",
       setAppMode: vi.fn(),
+      pushToTalkMode: true,
+      setPushToTalkMode: vi.fn(),
     });
 
     render(<MeetingVoiceGuide {...defaultProps} />);
@@ -151,9 +157,14 @@ describe("MeetingVoiceGuide PTT (regression)", () => {
     );
   });
 
-  it("disables button hooks when push-to-talk is off", async () => {
-    const { getPushToTalk } = await import("@/settings/councilSettings");
-    vi.mocked(getPushToTalk).mockReturnValue(false);
+  it("disables button hooks when push-to-talk is off", () => {
+    mockUseCouncilSettings.mockReturnValue({
+      isMuseumMode: false,
+      mode: "web",
+      setAppMode: vi.fn(),
+      pushToTalkMode: false,
+      setPushToTalkMode: vi.fn(),
+    });
     mockUseButtonPressed.mockImplementation((active: boolean) => active);
 
     render(<MeetingVoiceGuide {...defaultProps} />);

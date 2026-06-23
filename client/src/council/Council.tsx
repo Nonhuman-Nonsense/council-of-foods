@@ -15,8 +15,7 @@ import { useTranslation } from "react-i18next";
 import { useCouncilMachine } from "./hooks/useCouncilMachine";
 import { getMeeting } from "@api/getMeeting.js";
 import ReplayModeBanner from "./ReplayModeBanner";
-import { useAppMode } from "@/museum/useAppMode";
-import { getPushToTalk } from "@/settings/councilSettings";
+import { useCouncilSettings } from "@/settings/useCouncilSettings";
 import MeetingMetaAgent from "@museum/metaAgent/MeetingMetaAgent";
 
 interface CouncilProps {
@@ -53,7 +52,7 @@ function Council({
 
   const { meetingId } = useParams<{ meetingId: string }>();
   const { t, i18n } = useTranslation();
-  const { isMuseumMode } = useAppMode();
+  const { isMuseumMode, pushToTalkMode } = useCouncilSettings();
 
   const navigate = useNavigate();
 
@@ -188,8 +187,8 @@ function Council({
   // Derived UI State
   const participationPhase = getParticipationPhase(councilState, textMessages, playingNowIndex);
   const isButtonMuseumMode = useMemo(
-    () => isMuseumMode && getPushToTalk(),
-    [isMuseumMode]
+    () => isMuseumMode && pushToTalkMode,
+    [isMuseumMode, pushToTalkMode]
   );
   const isWaitingToInterject = isRaisedHand && councilState !== 'human_input';
   const controlsVisible = (
@@ -222,7 +221,7 @@ function Council({
         forceChairZoom={metaAgentActive}
       />
       {councilState === 'loading' && <Loading />}
-      {isButtonMuseumMode && liveKey && (
+      {pushToTalkMode && liveKey && (
         <MeetingMetaAgent
           liveKey={liveKey}
           language={i18n.language}

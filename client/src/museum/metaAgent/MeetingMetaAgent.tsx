@@ -34,7 +34,7 @@ export interface MeetingMetaAgentProps {
  * only resumes when the agent calls `resume_meeting`.
  *
  * Mounting contract:
- *  - Only mount when `isButtonMuseumMode && liveKey` (live meeting + PTT).
+ *  - Only mount when `pushToTalkMode && liveKey` (live meeting + PTT).
  *  - Only active when `participationPhase === "off"` (HumanInput has priority).
  */
 export default function MeetingMetaAgent({

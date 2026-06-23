@@ -29,13 +29,19 @@ vi.mock('@main/overlay/RotateDevice', () => ({
     default: () => <div data-testid="rotate-device">Rotate Device</div>,
 }));
 
-vi.mock('@/museum/useAppMode', () => ({
-    useAppMode: vi.fn(() => ({ isMuseumMode: false })),
+vi.mock('@/settings/useCouncilSettings', () => ({
+    useCouncilSettings: vi.fn(() => ({
+        isMuseumMode: false,
+        mode: 'web',
+        setAppMode: vi.fn(),
+        pushToTalkMode: false,
+        setPushToTalkMode: vi.fn(),
+    })),
 }));
 
 import { useMediaQuery } from 'react-responsive';
 import { useMobile } from '@/utils';
-import { useAppMode } from '@/museum/useAppMode';
+import { useCouncilSettings } from '@/settings/useCouncilSettings';
 
 describe('Landing', () => {
     beforeEach(() => {
@@ -43,10 +49,12 @@ describe('Landing', () => {
         // Default to landscape (not portrait) and not mobile for base case
         (useMediaQuery as ReturnType<typeof vi.fn>).mockReturnValue(false); // isPortrait = false
         (useMobile as ReturnType<typeof vi.fn>).mockReturnValue(false);
-        vi.mocked(useAppMode).mockReturnValue({
+        vi.mocked(useCouncilSettings).mockReturnValue({
             mode: 'web',
             isMuseumMode: false,
             setAppMode: vi.fn(),
+            pushToTalkMode: false,
+            setPushToTalkMode: vi.fn(),
         });
     });
 
@@ -99,10 +107,12 @@ describe('Landing', () => {
     });
 
     it('hides description and go button in museum mode', () => {
-        vi.mocked(useAppMode).mockReturnValue({
+        vi.mocked(useCouncilSettings).mockReturnValue({
             mode: 'museum',
             isMuseumMode: true,
             setAppMode: vi.fn(),
+            pushToTalkMode: false,
+            setPushToTalkMode: vi.fn(),
         });
 
         render(

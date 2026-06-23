@@ -7,7 +7,7 @@ import { globalClientOptions } from "@/globalClientOptions";
 import { characterIconWebpUrl } from "@assets/characters/characterData";
 import { useMeetingSetupStore } from "@newMeeting/meetingSetupStore";
 import { buildMeetingCharactersPayload, orderSelectedCharactersForMuseum } from "./meetingSetup";
-import { useAppMode } from "@/museum/useAppMode";
+import { useCouncilSettings } from "@/settings/useCouncilSettings";
 import { getCharacterSetupBundle } from "./CharacterSetup";
 
 import Lottie from "react-lottie-player";
@@ -74,7 +74,7 @@ function SelectCharacters({
 
   const isMobile = useMobile();
   const isMobileXs = useMobileXs();
-  const { isMuseumMode } = useAppMode();
+  const { isMuseumMode } = useCouncilSettings();
   const { t, i18n } = useTranslation();
 
   const characterSetupData = useMemo(() => {

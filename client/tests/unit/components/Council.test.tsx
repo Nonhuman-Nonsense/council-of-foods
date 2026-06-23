@@ -106,10 +106,16 @@ vi.mock('@council/hooks/useCouncilMachine', () => ({
     useCouncilMachine: (...args: any[]) => mockUseCouncilMachine(...args)
 }));
 
-const mockUseAppMode = vi.fn(() => ({ isMuseumMode: false, mode: 'web' as const, setAppMode: vi.fn() }));
+const mockUseCouncilSettings = vi.fn(() => ({
+  isMuseumMode: false,
+  mode: 'web' as const,
+  setAppMode: vi.fn(),
+  pushToTalkMode: false,
+  setPushToTalkMode: vi.fn(),
+}));
 
-vi.mock('@/museum/useAppMode', () => ({
-    useAppMode: () => mockUseAppMode(),
+vi.mock('@/settings/useCouncilSettings', () => ({
+    useCouncilSettings: () => mockUseCouncilSettings(),
 }));
 
 
@@ -192,7 +198,13 @@ describe('Council Component', () => {
     });
 
     it('hides conversation controls in museum mode but keeps them in the layout', () => {
-        mockUseAppMode.mockReturnValue({ isMuseumMode: true, mode: 'museum', setAppMode: vi.fn() });
+        mockUseCouncilSettings.mockReturnValue({
+          isMuseumMode: true,
+          mode: 'museum',
+          setAppMode: vi.fn(),
+          pushToTalkMode: false,
+          setPushToTalkMode: vi.fn(),
+        });
 
         render(<Council {...defaultProps} />);
 

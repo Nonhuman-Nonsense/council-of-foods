@@ -1,12 +1,12 @@
 import type { ReactElement } from "react";
-import { useAppMode } from "./useAppMode";
+import { useCouncilSettings } from "@/settings/useCouncilSettings";
 
 /**
  * Invisible top-left control for staff to exit museum mode without reloading.
  * Restores web chrome (navbar, fullscreen, voice guide toggle) in place.
  */
 export default function MuseumModeEscapeHatch(): ReactElement {
-  const { setAppMode } = useAppMode();
+  const { setAppMode } = useCouncilSettings();
 
   return (
     <button

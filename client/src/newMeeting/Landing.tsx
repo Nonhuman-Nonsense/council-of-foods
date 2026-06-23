@@ -4,7 +4,7 @@ import { Link } from "react-router";
 import { useMobile, dvh } from "@/utils";
 import { useTranslation } from 'react-i18next';
 import { useRouting } from "@/routing";
-import { useAppMode } from "@/museum/useAppMode";
+import { useCouncilSettings } from "@/settings/useCouncilSettings";
 import councilLogo from "@assets/logos/council_logo_white.svg";
 
 /**
@@ -21,7 +21,7 @@ const Landing: React.FC = () => {
   const { newMeetingPath } = useRouting();
   const isPortrait = useMediaQuery({ query: '(orientation: portrait)' })
   const isMobile = useMobile();
-  const { isMuseumMode } = useAppMode();
+  const { isMuseumMode } = useCouncilSettings();
   const { t } = useTranslation();
 
   const wrapper: React.CSSProperties = {

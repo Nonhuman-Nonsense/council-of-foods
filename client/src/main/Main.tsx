@@ -22,12 +22,7 @@ import { isMeetingPath, isRootPath, stripLanguagePrefix, useRouting } from "@/ro
 import RotateDevice from "./overlay/RotateDevice";
 import FullscreenButton from "./FullscreenButton";
 import MuseumModeEscapeHatch from "@/museum/MuseumModeEscapeHatch";
-import { useAppMode } from "@/museum/useAppMode";
-import {
-  getPushToTalk,
-  PUSH_TO_TALK_CHANGE_EVENT,
-  type PushToTalkChangeDetail,
-} from "@/settings/councilSettings";
+import { useCouncilSettings } from "@/settings/useCouncilSettings";
 import { usePortrait, dvh } from "@/utils";
 import CouncilError from "./overlay/CouncilError";
 import Reconnecting from "./overlay/Reconnecting";
@@ -79,17 +74,7 @@ export default function Main(props: MainProps) {
   const navigate = useNavigate();
   const isIphone = useIsIphone();
   const isPortrait = usePortrait();
-  const { isMuseumMode } = useAppMode();
-  const [pushToTalk, setPushToTalk] = useState(getPushToTalk);
-
-  useEffect(() => {
-    function onPushToTalkChange(event: Event): void {
-      setPushToTalk((event as CustomEvent<PushToTalkChangeDetail>).detail);
-    }
-
-    window.addEventListener(PUSH_TO_TALK_CHANGE_EVENT, onPushToTalkChange);
-    return () => window.removeEventListener(PUSH_TO_TALK_CHANGE_EVENT, onPushToTalkChange);
-  }, []);
+  const { isMuseumMode, pushToTalkMode } = useCouncilSettings();
 
   if (audioContext.current === null) {
     type WindowWithWebkitAudio = Window & { webkitAudioContext?: typeof AudioContext };
@@ -190,7 +175,7 @@ export default function Main(props: MainProps) {
 
   return (
     <>
-      {pushToTalk && (
+      {pushToTalkMode && (
         <Suspense fallback={null}>
           <MuseumButtonProvider />
         </Suspense>

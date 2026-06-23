@@ -4,7 +4,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import SelectTopic from '@newMeeting/SelectTopic';
 import { getTopicsBundle } from '@main/topicsBundle';
 import { useMeetingSetupStore } from '@newMeeting/meetingSetupStore';
-import { useAppMode } from '@/museum/useAppMode';
+import { useCouncilSettings } from '@/settings/useCouncilSettings';
 
 // Mocks
 vi.mock('react-i18next', () => ({
@@ -31,8 +31,14 @@ vi.mock('@main/topicsBundle', () => ({
     getTopicsBundle: vi.fn(),
 }));
 
-vi.mock('@/museum/useAppMode', () => ({
-    useAppMode: vi.fn(() => ({ isMuseumMode: false })),
+vi.mock('@/settings/useCouncilSettings', () => ({
+    useCouncilSettings: vi.fn(() => ({
+        isMuseumMode: false,
+        mode: 'web',
+        setAppMode: vi.fn(),
+        pushToTalkMode: false,
+        setPushToTalkMode: vi.fn(),
+    })),
 }));
 
 const mockTopics = [
@@ -67,10 +73,12 @@ describe('SelectTopic Component', () => {
         mockOnReset = vi.fn();
         mockOnCancel = vi.fn();
         vi.mocked(getTopicsBundle).mockReturnValue(defaultBundle);
-        vi.mocked(useAppMode).mockReturnValue({
+        vi.mocked(useCouncilSettings).mockReturnValue({
             mode: 'web',
             isMuseumMode: false,
             setAppMode: vi.fn(),
+            pushToTalkMode: false,
+            setPushToTalkMode: vi.fn(),
         });
     });
 
@@ -354,10 +362,12 @@ describe('SelectTopic Component', () => {
     });
 
     it('hides next button in museum mode', () => {
-        vi.mocked(useAppMode).mockReturnValue({
+        vi.mocked(useCouncilSettings).mockReturnValue({
             mode: 'museum',
             isMuseumMode: true,
             setAppMode: vi.fn(),
+            pushToTalkMode: false,
+            setPushToTalkMode: vi.fn(),
         });
 
         render(
