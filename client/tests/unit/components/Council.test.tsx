@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import Council from '@council/Council';
 import '@testing-library/jest-dom';
@@ -57,9 +57,28 @@ vi.mock('@council/FoodItem', () => ({ default: () => <div data-testid="food-item
 vi.mock('@main/overlay/Overlay', () => ({ default: ({ children }: any) => <div>{children}</div> }));
 vi.mock('@council/overlays/CouncilOverlays', () => ({ default: () => <div>Council Overlays</div> }));
 vi.mock('@main/Loading', () => ({ default: () => <div>Loading...</div> }));
-vi.mock('@council/output/Output', () => ({ default: () => <div>Output</div> }));
+vi.mock('@council/output/Output', () => ({
+    default: ({ hideSubtitles }: { hideSubtitles?: boolean }) => (
+        <div data-testid="output" data-hide-subtitles={hideSubtitles ? 'true' : 'false'}>Output</div>
+    ),
+}));
 vi.mock('@council/humanInput/HumanInput', () => ({ default: () => <div>Human Input</div> }));
 vi.mock('@council/FoodsCouncilScene', () => ({ default: () => <div data-testid="foods-scene">Foods Scene</div> }));
+
+let mockMetaAgentActivate = false;
+
+vi.mock('@museum/metaAgent/MeetingMetaAgent', async () => {
+    const React = await import('react');
+    return {
+        default: (props: { setMetaAgentActive: (active: boolean) => void }) => {
+            React.useEffect(() => {
+                if (!mockMetaAgentActivate) return;
+                props.setMetaAgentActive(true);
+            }, []);
+            return null;
+        },
+    };
+});
 
 
 // Mock useCouncilMachine Hook
@@ -139,6 +158,7 @@ describe('Council Component', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         mockNavigate.mockClear();
+        mockMetaAgentActivate = false;
         mockUseCouncilMachine.mockReturnValue(mockCouncilStateMachine);
         // Reset mock state defaults if needed
         mockCouncilStateMachine.state.councilState = 'playing';
@@ -256,5 +276,22 @@ describe('Council Component', () => {
         render(<Council {...defaultProps} />);
 
         expect(screen.getByText('Human Input')).toBeInTheDocument();
+    });
+
+    it('hides council subtitles when meta agent is active', async () => {
+        mockMetaAgentActivate = true;
+        mockUseCouncilSettings.mockReturnValue({
+          isMuseumMode: true,
+          mode: 'museum',
+          setAppMode: vi.fn(),
+          pushToTalkMode: true,
+          setPushToTalkMode: vi.fn(),
+        });
+
+        render(<Council {...defaultProps} />);
+
+        await waitFor(() => {
+            expect(screen.getByTestId('output')).toHaveAttribute('data-hide-subtitles', 'true');
+        });
     });
 });

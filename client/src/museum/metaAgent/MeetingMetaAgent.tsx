@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import { useButtonLed, useButtonPressed, useButtonPressOwner } from "@museum/button/hooks";
+import { useHoldToSpeakHint } from "@voice/useHoldToSpeakHint";
+import RealtimeCaptionOverlay from "@realtime/RealtimeCaptionOverlay";
 import { useMetaAgent } from "./useMetaAgent";
 import { buildMetaAgentPrompt, buildMetaAgentStateSnapshot } from "./metaAgentPrompt";
 import {
@@ -72,12 +74,32 @@ export default function MeetingMetaAgent({
     [setPaused, setMetaAgentActive, onRestartMeeting],
   );
 
-  const { setMicEnabled, sendUserMessage, setAgentOutputMuted } = useMetaAgent({
+  const {
+    connectionState,
+    error,
+    lastCaption,
+    lastUserTranscript,
+    setMicEnabled,
+    sendUserMessage,
+    setAgentOutputMuted,
+  } = useMetaAgent({
     language,
     liveKey,
     instructions,
     tools,
     toolHandlers,
+  });
+
+  const pressed = useButtonPressed("meta-agent");
+  const pressOwner = useButtonPressOwner();
+
+  const showHoldToSpeakHint = useHoldToSpeakHint({
+    pushToTalkMode: true,
+    sessionActive: metaAgentActive,
+    isConnecting: connectionState === "connecting",
+    micOpen: metaAgentActive && pressed,
+    lastUserTranscript,
+    lastCaption,
   });
 
   useEffect(() => {
@@ -86,9 +108,6 @@ export default function MeetingMetaAgent({
       setAgentOutputMuted(true);
     };
   }, [setMicEnabled, setAgentOutputMuted]);
-
-  const pressed = useButtonPressed("meta-agent");
-  const pressOwner = useButtonPressOwner();
 
   // Track whether we were active so we detect rising / falling edge.
   const wasActiveRef = useRef(metaAgentActive);
@@ -154,5 +173,16 @@ export default function MeetingMetaAgent({
   const ledMode = metaAgentActive && pressed ? "on" : "pulse";
   useButtonLed("meta-agent", ledMode);
 
-  return null;
+  if (!metaAgentActive) return null;
+
+  return (
+    <RealtimeCaptionOverlay
+      error={error}
+      lastCaption={lastCaption}
+      lastUserTranscript={lastUserTranscript}
+      pushToTalkMode
+      showHoldToSpeakHint={showHoldToSpeakHint}
+      holdToSpeakKey="metaAgent.holdToSpeak"
+    />
+  );
 }

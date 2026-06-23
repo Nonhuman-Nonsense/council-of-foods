@@ -28,6 +28,8 @@ interface OutputProps {
   setCurrentSnippetIndex: (index: number) => void;
   audioContext: React.RefObject<AudioContext | null>;
   handleOnFinishedPlaying: () => void;
+  /** Hide council subtitles (e.g. while meta-agent captions are shown). */
+  hideSubtitles?: boolean;
 }
 
 const Output: React.FC<OutputProps> = ({
@@ -41,6 +43,7 @@ const Output: React.FC<OutputProps> = ({
   setCurrentSnippetIndex,
   audioContext,
   handleOnFinishedPlaying,
+  hideSubtitles = false,
 }) => {
   const [currentAudioMessage, setCurrentAudioMessage] = useState<DecodedAudioMessage | null>(null);
   const [playbackStartInfo, setPlaybackStartInfo] = useState<PlaybackStartInfo | null>(null);
@@ -78,7 +81,7 @@ const Output: React.FC<OutputProps> = ({
         audioContext={audioContext}
         playbackStartInfo={playbackStartInfo}
         isPaused={isPaused}
-        style={showTextOutput ? hiddenStyle : undefined}
+        style={showTextOutput || hideSubtitles ? hiddenStyle : undefined}
         setCurrentSnippetIndex={setCurrentSnippetIndex}
       />
       <div data-testid="audio-indicator" data-playing={!!currentAudioMessage}>

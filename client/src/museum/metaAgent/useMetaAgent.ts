@@ -11,6 +11,10 @@ import {
   type RealtimeSessionServerDefaults,
 } from "@realtime/realtimeProtocol";
 import type { RealtimeTool, ToolHandler } from "@voice/guideTools";
+import { createCaptionScheduler } from "@voice/captionScheduler";
+import { createRemoteAudioAnchor, type RemoteAudioAnchor } from "@voice/remoteAudioAnchor";
+
+const AUDIO_ANCHOR_FALLBACK_DELAY_MS = 600;
 
 export type MetaAgentConnectionState = "idle" | "connecting" | "ready" | "error";
 
@@ -20,12 +24,13 @@ export type UseMetaAgentParams = {
   instructions: string;
   tools: RealtimeTool[];
   toolHandlers: Record<string, ToolHandler>;
-  onCaption?: (text: string | null) => void;
 };
 
 export type UseMetaAgentResult = {
   connectionState: MetaAgentConnectionState;
   error: string | null;
+  lastCaption: string | null;
+  lastUserTranscript: string | null;
   /** Open or close the mic track (track.enabled). No-op if not yet connected. */
   setMicEnabled: (open: boolean) => void;
   /** Inject a user message into the agent conversation (e.g. state snapshot). */
@@ -58,15 +63,21 @@ function debugLog(...args: unknown[]): void {
  *  - Connects on mount; tears down on unmount.
  */
 export function useMetaAgent(params: UseMetaAgentParams): UseMetaAgentResult {
-  const { language, liveKey, instructions, tools, toolHandlers, onCaption } = params;
+  const { language, liveKey, instructions, tools, toolHandlers } = params;
 
   const [connectionState, setConnectionState] = useState<MetaAgentConnectionState>("idle");
   const [error, setError] = useState<string | null>(null);
+  const [lastCaption, setLastCaption] = useState<string | null>(null);
+  const [lastUserTranscript, setLastUserTranscript] = useState<string | null>(null);
 
   const connectionRef = useRef<RealtimeConnection | null>(null);
   const serverDefaultsRef = useRef<RealtimeSessionServerDefaults | null>(null);
   const eventLoopRef = useRef<ReturnType<typeof createEventLoop> | null>(null);
+  const captionSchedulerRef = useRef<ReturnType<typeof createCaptionScheduler> | null>(null);
   const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
+  const remoteAudioAnchorRef = useRef<RemoteAudioAnchor | null>(null);
+  const audioAnchorFallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const userTranscriptTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Keep latest handlers/instructions/tools in refs so the event loop always
   // sees current closures without requiring a reconnect on every render.
@@ -93,12 +104,28 @@ export function useMetaAgent(params: UseMetaAgentParams): UseMetaAgentResult {
     );
   }, []);
 
+  const clearAudioAnchorFallback = useCallback(() => {
+    if (audioAnchorFallbackTimerRef.current != null) {
+      clearTimeout(audioAnchorFallbackTimerRef.current);
+      audioAnchorFallbackTimerRef.current = null;
+    }
+  }, []);
+
   const cleanup = useCallback(() => {
     abortRef.current?.abort();
     abortRef.current = null;
     attemptRef.current += 1;
     serverDefaultsRef.current = null;
+    clearAudioAnchorFallback();
+    if (userTranscriptTimerRef.current) {
+      clearTimeout(userTranscriptTimerRef.current);
+      userTranscriptTimerRef.current = null;
+    }
+    captionSchedulerRef.current?.cancel();
+    captionSchedulerRef.current = null;
     eventLoopRef.current = null;
+    remoteAudioAnchorRef.current?.dispose();
+    remoteAudioAnchorRef.current = null;
     connectionRef.current?.close();
     connectionRef.current = null;
     if (remoteAudioRef.current) {
@@ -108,7 +135,7 @@ export function useMetaAgent(params: UseMetaAgentParams): UseMetaAgentResult {
       } catch { /* ignore */ }
       remoteAudioRef.current = null;
     }
-  }, []);
+  }, [clearAudioAnchorFallback]);
 
   const start = useCallback(async () => {
     if (connectionRef.current || abortRef.current) return;
@@ -155,6 +182,14 @@ export function useMetaAgent(params: UseMetaAgentParams): UseMetaAgentResult {
 
       serverDefaultsRef.current = defaults;
 
+      const captionScheduler = createCaptionScheduler({
+        onCaption: (text) => {
+          if (!isStale()) setLastCaption(text);
+        },
+      });
+      captionScheduler.setSpeed(defaults.audio.output?.speed);
+      captionSchedulerRef.current = captionScheduler;
+
       let activeConn: RealtimeConnection | null = null;
       const sendOnDc = (payload: unknown) => {
         const dc = activeConn?.dc ?? connectionRef.current?.dc;
@@ -165,13 +200,38 @@ export function useMetaAgent(params: UseMetaAgentParams): UseMetaAgentResult {
       const loop = createEventLoop({
         send: sendOnDc,
         getCtx: () => ({ toolHandlers: handlersRef.current }),
+        captionScheduler,
         callbacks: {
-          onCaption: (text) => { if (!isStale()) onCaption?.(text); },
-          onUserTranscript: () => { /* not used */ },
+          onCaption: (text) => {
+            if (!isStale()) setLastCaption(text);
+          },
+          onUserTranscript: (text) => {
+            if (isStale()) return;
+            setLastUserTranscript(text);
+            if (userTranscriptTimerRef.current) {
+              clearTimeout(userTranscriptTimerRef.current);
+            }
+            userTranscriptTimerRef.current = setTimeout(() => {
+              if (!isStale()) setLastUserTranscript(null);
+              userTranscriptTimerRef.current = null;
+            }, 3000);
+          },
           onError: (message) => {
             if (isStale()) return;
             setError(message);
             setConnectionState("error");
+          },
+          onResponseStarted: () => {
+            clearAudioAnchorFallback();
+            remoteAudioAnchorRef.current?.arm();
+          },
+          onAudioPartReady: () => {
+            clearAudioAnchorFallback();
+            audioAnchorFallbackTimerRef.current = setTimeout(() => {
+              audioAnchorFallbackTimerRef.current = null;
+              captionScheduler.setAudioAnchor(performance.now());
+              debugLog("caption audio anchor fallback fired");
+            }, AUDIO_ANCHOR_FALLBACK_DELAY_MS);
           },
           log: debugLog,
         },
@@ -199,6 +259,25 @@ export function useMetaAgent(params: UseMetaAgentParams): UseMetaAgentResult {
           document.body.appendChild(el);
           remoteAudioRef.current = el;
           void el.play().catch((err) => debugLog("audio play blocked", err));
+          try {
+            remoteAudioAnchorRef.current?.dispose();
+            remoteAudioAnchorRef.current = createRemoteAudioAnchor({
+              track,
+              onAudioStart: (nowMs) => {
+                if (isStale()) return;
+                clearAudioAnchorFallback();
+                captionScheduler.setAudioAnchor(nowMs);
+              },
+              log: debugLog,
+            });
+          } catch (err) {
+            debugLog("remote audio anchor unavailable", err);
+          }
+          track.onended = () => {
+            clearAudioAnchorFallback();
+            remoteAudioAnchorRef.current?.dispose();
+            remoteAudioAnchorRef.current = null;
+          };
         },
         onEvent: (event) => {
           if (isStale()) return;
@@ -243,7 +322,7 @@ export function useMetaAgent(params: UseMetaAgentParams): UseMetaAgentResult {
     } finally {
       if (abortRef.current === controller) abortRef.current = null;
     }
-  }, [language, liveKey, buildSessionConfig, onCaption]);
+  }, [language, liveKey, buildSessionConfig, clearAudioAnchorFallback]);
 
   // Connect on mount; disconnect on unmount.
   useEffect(() => {
@@ -260,17 +339,32 @@ export function useMetaAgent(params: UseMetaAgentParams): UseMetaAgentResult {
 
   const setAgentOutputMuted = useCallback((muted: boolean) => {
     const el = remoteAudioRef.current;
-    if (!el) return;
-    el.muted = muted;
+    if (el) {
+      el.muted = muted;
+    }
     if (muted) {
-      onCaption?.(null);
+      captionSchedulerRef.current?.cancel();
+      setLastCaption(null);
+      setLastUserTranscript(null);
+      if (userTranscriptTimerRef.current) {
+        clearTimeout(userTranscriptTimerRef.current);
+        userTranscriptTimerRef.current = null;
+      }
       eventLoopRef.current?.cancelActiveResponse();
     }
-  }, [onCaption]);
+  }, []);
 
   const sendUserMessage = useCallback((text: string) => {
     eventLoopRef.current?.sendUserMessage(text);
   }, []);
 
-  return { connectionState, error, setMicEnabled, sendUserMessage, setAgentOutputMuted };
+  return {
+    connectionState,
+    error,
+    lastCaption,
+    lastUserTranscript,
+    setMicEnabled,
+    sendUserMessage,
+    setAgentOutputMuted,
+  };
 }

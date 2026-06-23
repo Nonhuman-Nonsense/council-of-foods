@@ -90,6 +90,9 @@
     "panelist": "What does {{name}} have to say about this?",
     "button_museum": "Press and hold the button to talk, release to submit"
   },
+  "metaAgent": {
+    "holdToSpeak": "Push the button to speak"
+  },
   "completed": {
     "title": "Is that it?",
     "1": "This meeting is starting to get long-winded,",

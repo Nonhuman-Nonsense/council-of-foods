@@ -1,6 +1,6 @@
 import React from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, act } from "@testing-library/react";
+import { render, act, screen } from "@testing-library/react";
 import MeetingMetaAgent from "@museum/metaAgent/MeetingMetaAgent";
 import type { MeetingMetaAgentProps } from "@museum/metaAgent/MeetingMetaAgent";
 import type { ButtonOwner } from "@museum/button/buttonIntent";
@@ -59,10 +59,28 @@ vi.mock("@museum/metaAgent/useMetaAgent", () => ({
   useMetaAgent: () => ({
     connectionState: "ready",
     error: null,
+    lastCaption: "Agent reply",
+    lastUserTranscript: "Visitor question",
     setMicEnabled: mockSetMicEnabled,
     sendUserMessage: mockSendUserMessage,
     setAgentOutputMuted: mockSetAgentOutputMuted,
   }),
+}));
+
+vi.mock("@realtime/RealtimeCaptionOverlay", () => ({
+  default: (props: {
+    lastCaption: string | null;
+    lastUserTranscript: string | null;
+  }) => (
+    <div data-testid="meta-agent-caption-overlay">
+      {props.lastUserTranscript ? (
+        <span data-testid="voice-guide-user">{props.lastUserTranscript}</span>
+      ) : null}
+      {props.lastCaption ? (
+        <span data-testid="voice-guide-caption">{props.lastCaption}</span>
+      ) : null}
+    </div>
+  ),
 }));
 
 function makeProps(overrides: Partial<MeetingMetaAgentProps> = {}): MeetingMetaAgentProps {
@@ -97,9 +115,16 @@ beforeEach(() => {
 });
 
 describe("MeetingMetaAgent", () => {
-  it("renders null (no DOM output)", () => {
+  it("renders nothing while in standby", () => {
     const { container } = render(<MeetingMetaAgent {...makeProps()} />);
     expect(container.firstChild).toBeNull();
+  });
+
+  it("renders caption overlay while active", () => {
+    render(<MeetingMetaAgent {...makeProps({ metaAgentActive: true })} />);
+    expect(screen.getByTestId("meta-agent-caption-overlay")).toBeInTheDocument();
+    expect(screen.getByTestId("voice-guide-user")).toHaveTextContent("Visitor question");
+    expect(screen.getByTestId("voice-guide-caption")).toHaveTextContent("Agent reply");
   });
 
   it("registers LED intent with meta-agent owner in standby", () => {

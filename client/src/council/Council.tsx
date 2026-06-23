@@ -260,6 +260,7 @@ function Council({
           setCurrentSnippetIndex={setCurrentSnippetIndex}
           audioContext={audioContext}
           handleOnFinishedPlaying={handleOnFinishedPlaying}
+          hideSubtitles={metaAgentActive}
         />
         {controlsVisible && (
           <ConversationControls
