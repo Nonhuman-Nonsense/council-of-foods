@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mergeButtonIntentOwner, mergeLedIntents, mergePressOwner } from "@/museum/button/ledIntent";
+import { mergeButtonIntentOwner, mergeLedIntents, mergePressOwner } from "@/museum/button/buttonIntent";
 
 describe("mergeLedIntents", () => {
   it("returns off when no intents are registered", () => {

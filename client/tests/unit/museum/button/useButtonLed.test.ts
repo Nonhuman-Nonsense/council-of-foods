@@ -34,12 +34,12 @@ describe("useButtonLed", () => {
 
     const { unmount } = renderHook(() => useButtonLed("human-input", "pulse"));
 
-    expect(useButtonStore.getState().ledIntents["human-input"]).toBe("pulse");
+    expect(useButtonStore.getState().buttonIntents["human-input"]).toBe("pulse");
     expect(useButtonStore.getState().ledMode).toBe("pulse");
 
     unmount();
 
-    expect(useButtonStore.getState().ledIntents["human-input"]).toBeUndefined();
+    expect(useButtonStore.getState().buttonIntents["human-input"]).toBeUndefined();
     expect(useButtonStore.getState().ledMode).toBe("off");
   });
 
@@ -48,6 +48,6 @@ describe("useButtonLed", () => {
 
     renderHook(() => useButtonLed("setup", "pulse", false));
 
-    expect(useButtonStore.getState().ledIntents).toEqual({});
+    expect(useButtonStore.getState().buttonIntents).toEqual({});
   });
 });

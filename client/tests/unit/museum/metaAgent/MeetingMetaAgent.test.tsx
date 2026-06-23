@@ -3,13 +3,13 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, act } from "@testing-library/react";
 import MeetingMetaAgent from "@museum/metaAgent/MeetingMetaAgent";
 import type { MeetingMetaAgentProps } from "@museum/metaAgent/MeetingMetaAgent";
-import type { ButtonLedOwner } from "@museum/button/ledIntent";
+import type { ButtonOwner } from "@museum/button/buttonIntent";
 
 const mockUseButtonLed = vi.hoisted(() => vi.fn());
 
 const mockButtonState = vi.hoisted(() => ({
   pressed: false,
-  pressOwner: "meta-agent" as ButtonLedOwner | null,
+  pressOwner: "meta-agent" as ButtonOwner | null,
 }));
 const mockButtonListeners = vi.hoisted(() => new Set<() => void>());
 
@@ -18,7 +18,7 @@ function setMockPressed(value: boolean) {
   mockButtonListeners.forEach((l) => l());
 }
 
-function setMockPressOwner(owner: ButtonLedOwner | null) {
+function setMockPressOwner(owner: ButtonOwner | null) {
   mockButtonState.pressOwner = owner;
   mockButtonListeners.forEach((l) => l());
 }
@@ -32,7 +32,7 @@ vi.mock("@museum/button/hooks", async () => {
   const React = await import("react");
   return {
     useButtonLed: (...args: unknown[]) => mockUseButtonLed(...args),
-    useButtonPressed: (owner: ButtonLedOwner) =>
+    useButtonPressed: (owner: ButtonOwner) =>
       React.useSyncExternalStore(
         (onStoreChange: () => void) => {
           mockButtonListeners.add(onStoreChange);
