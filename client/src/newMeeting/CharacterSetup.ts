@@ -5,13 +5,14 @@ import {
   type VoiceOption,
 } from "@shared/ModelTypes";
 import { AVAILABLE_LANGUAGES } from "@shared/AvailableLanguages";
-import { globalClientOptions } from "@/globalClientOptions";
 import {
   CHARACTERS_FILE,
   characterSetupBundleModules,
   defaultCharacterSetupBundle,
 } from "@/prompts/characterSetupBundles";
+import { CHAIR_CHARACTER_INDEX } from "@shared/prompts/characterSetupMetadata";
 export type { Character, CharacterSetupData } from "@shared/ModelTypes";
+export { CHAIR_ID } from "@/prompts/characterSetupBundles";
 
 const localCharacterSetupData: Record<string, CharacterSetupData> = {};
 
@@ -50,9 +51,9 @@ export function getCharacterSetupBundle(lang: string): CharacterSetupData {
 
 // Infer the default voice from the configuration to ensure blankHuman is valid.
 const defaultChair =
-  (localCharacterSetupData[AVAILABLE_LANGUAGES[0]] ?? defaultCharacterSetupBundle).characters.find(
-    (character) => character.id === globalClientOptions.chairId
-  );
+  (localCharacterSetupData[AVAILABLE_LANGUAGES[0]] ?? defaultCharacterSetupBundle).characters[
+    CHAIR_CHARACTER_INDEX
+  ];
 const defaultVoice: VoiceOption = (defaultChair?.voice as VoiceOption | undefined) ?? AVAILABLE_VOICES[0];
 
 const blankHuman: Character = {

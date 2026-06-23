@@ -88,17 +88,18 @@ client/src/museum/metaAgent/
 ### Scene API (end state)
 
 ```ts
-type SceneMode = "meeting" | "meta-agent";
+// Main (lifted — same on Foods and Forest)
+metaAgentActive: boolean;   // camera: chair close-up for whole meta-agent session
+currentSpeakerId: string;   // performer: council TTS or meta-agent speech only
 
-FoodsCouncilScene({
-  mode: metaAgentActive ? "meta-agent" : "meeting",
-  agentSpeaking,  // from realtime session; only used in meta-agent mode
-  // ...existing meeting props
-})
+// Chair id: `CHAIR_ID` from `@/prompts/characterSetupBundles` (client) or server `CHAIR_ID`
+// Camera index: metaAgentActive ? CHAIR_ID : currentSpeakerId
+// FoodAnimation / BeingAudio: currentSpeakerId only
 ```
 
-`FoodAnimation`: `forcePlay` when scene says chair should animate — no
-`metaAgentActive` inside food components.
+`FoodAnimation` plays when `currentSpeakerId === food.id && !isPaused`. Meta-agent
+meeting freeze uses `meetingPlaybackPaused`, not `isPaused`, so chair animation
+follows the same path as council speech.
 
 ---
 
@@ -250,27 +251,35 @@ Phase 0 ──► Phase 1 ──► Phase 2 ──► Phase 3 ──► Phase 4 
 
 ## Phase 4 — Chair animation (`agentSpeaking`)
 
-**Scope:** Scene mode + speaking flag; no shared hook extraction yet.
+**Status:** Implemented on Foods (natural model — no `forcePlay`).
+
+**Scope:** Performance via `currentSpeakerId`; camera via `metaAgentActive` at Main.
 
 **Changes:**
 
-- `useMetaAgent` (or event loop callbacks): `agentSpeaking` true on `response.created`, false on `response.done`
-- Lift `agentSpeaking` to Council → `FoodsCouncilScene` `mode` + `agentSpeaking`
-- `FoodAnimation`: `forcePlay` when scene requests it (chair in meta-agent mode + `agentSpeaking`)
-- Do **not** gate on `isPaused` when `forcePlay`
+- `realtimeEventLoop.ts`: `onResponseDone` on `response.done`
+- `useMetaAgent`: `agentSpeaking` between `response.created` / `response.done`
+- `Main`: lift `metaAgentActive` (Forest merge parity)
+- `Council`: `currentSpeakerId = chair` only when `metaAgentActive && agentSpeaking`
+- `shared/prompts/characterSetupMetadata.ts`: `chairIdFromCharacters`
+- `FoodsCouncilScene`: zoom from `metaAgentActive`; backdrop index `metaAgentActive ? chairId : currentSpeakerId`
+
+**Forest merge:** pass `metaAgentActive` to `Forest`; same ternary for zoom with `CHAIR_ID`;
+`BeingAudio` uses `currentSpeakerId`.
 
 **Automated tests:**
 
-- Hook or event loop: speaking flag toggles on created/done
-- `FoodAnimation` / scene: video play when `forcePlay` even if `isPaused`
+- `useMetaAgent`: speaking flag toggles
+- `characterSetupMetadata.test.ts`: chair id derivation
+- `FoodsCouncilScene`: meta-agent zoom + `currentSpeakerId` to items
 
 **Manual test:**
 
 1. Activate meta agent; ask a short question.
-2. **Pass:** Water/chair animates **during** agent reply; stops when agent finishes.
+2. **Pass:** Water animates **during** agent reply only; chair stays zoomed between phrases.
 3. **Pass:** silent gaps during one response may still animate (acceptable v1).
 
-**Risk:** Low–medium. Localized to scene + hook state.
+**Risk:** Low. Council derivation + Main lift.
 
 ---
 
@@ -356,7 +365,7 @@ Run after Phase 3+ before merging large PRs; abbreviated after smaller phases.
 | 2 | `useMetaAgent.ts`, `Council.tsx`, `locales/translation_en.json` |
 | 3 | `MeetingMetaAgent.tsx`, `Council.tsx`, `Main.tsx`, `audio/meetingAudio.ts` |
 | 3b | `audio/sceneAudio.ts` (Forest), `Forest.tsx` (Forest only) |
-| 4 | `useMetaAgent.ts`, `FoodsCouncilScene.tsx`, `FoodItem.tsx`, `FoodAnimation.tsx` |
+| 4 | `useMetaAgent.ts`, `characterSetupMetadata.ts`, `Main.tsx`, `Council.tsx`, `FoodsCouncilScene.tsx` |
 | 5a | `realtime/useRealtimeVoiceSession.ts`, `useMetaAgent.ts` |
 | 5b | `useVoiceGuide.ts`, `MeetingVoiceGuide.tsx` |
 

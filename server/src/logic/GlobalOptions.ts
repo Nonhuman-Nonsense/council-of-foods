@@ -1,12 +1,11 @@
 import { config } from '@root/src/config.js';
 import globalOptions from '@root/global-options.json' with { type: 'json' };
 import testOptions from '@root/test-options.json' with { type: 'json' };
-import { defaultCharacterSetupBundle } from './characterSetupBundle.js';
+import { CHAIR_ID } from './characterSetupBundle.js';
 
 import { z } from "zod";
 
-/** Same as `characters[0].id` in the default character-setup bundle (validated in prompt data tests). */
-export const CHAIR_ID = defaultCharacterSetupBundle.characters[0].id;
+export { CHAIR_ID } from './characterSetupBundle.js';
 export const ConversationReasoningSchema = z.enum(["none", "minimal", "low", "medium", "high", "xhigh"]);
 export const SubtitleTimingTypeSchema = z.enum(["inworld", "elevenlabs", "estimated", "whisper"]);
 

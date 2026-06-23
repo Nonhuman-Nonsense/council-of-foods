@@ -31,6 +31,8 @@ export type UseMetaAgentResult = {
   error: string | null;
   lastCaption: string | null;
   lastUserTranscript: string | null;
+  /** True between `response.created` and `response.done` for the meta-agent voice. */
+  agentSpeaking: boolean;
   /** Open or close the mic track (track.enabled). No-op if not yet connected. */
   setMicEnabled: (open: boolean) => void;
   /** Inject a user message into the agent conversation (e.g. state snapshot). */
@@ -69,6 +71,7 @@ export function useMetaAgent(params: UseMetaAgentParams): UseMetaAgentResult {
   const [error, setError] = useState<string | null>(null);
   const [lastCaption, setLastCaption] = useState<string | null>(null);
   const [lastUserTranscript, setLastUserTranscript] = useState<string | null>(null);
+  const [agentSpeaking, setAgentSpeaking] = useState(false);
 
   const connectionRef = useRef<RealtimeConnection | null>(null);
   const serverDefaultsRef = useRef<RealtimeSessionServerDefaults | null>(null);
@@ -222,8 +225,12 @@ export function useMetaAgent(params: UseMetaAgentParams): UseMetaAgentResult {
             setConnectionState("error");
           },
           onResponseStarted: () => {
+            if (!isStale()) setAgentSpeaking(true);
             clearAudioAnchorFallback();
             remoteAudioAnchorRef.current?.arm();
+          },
+          onResponseDone: () => {
+            if (!isStale()) setAgentSpeaking(false);
           },
           onAudioPartReady: () => {
             clearAudioAnchorFallback();
@@ -343,6 +350,7 @@ export function useMetaAgent(params: UseMetaAgentParams): UseMetaAgentResult {
       el.muted = muted;
     }
     if (muted) {
+      setAgentSpeaking(false);
       captionSchedulerRef.current?.cancel();
       setLastCaption(null);
       setLastUserTranscript(null);
@@ -363,6 +371,7 @@ export function useMetaAgent(params: UseMetaAgentParams): UseMetaAgentResult {
     error,
     lastCaption,
     lastUserTranscript,
+    agentSpeaking,
     setMicEnabled,
     sendUserMessage,
     setAgentOutputMuted,

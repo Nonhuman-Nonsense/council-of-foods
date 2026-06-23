@@ -11,6 +11,8 @@ let eventLoopCallbacks: {
   onCaption?: (text: string | null) => void;
   onUserTranscript?: (text: string) => void;
   onAudioPartReady?: () => void;
+  onResponseStarted?: () => void;
+  onResponseDone?: () => void;
 } = {};
 
 const schedulerMocks = vi.hoisted(() => ({
@@ -139,6 +141,43 @@ describe("useMetaAgent", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("toggles agentSpeaking on response created and done", async () => {
+    const { result } = renderHook(() => useMetaAgent(defaultParams));
+
+    await waitFor(() => {
+      expect(mockCreateEventLoop).toHaveBeenCalled();
+    });
+
+    act(() => {
+      eventLoopCallbacks.onResponseStarted?.();
+    });
+    expect(result.current.agentSpeaking).toBe(true);
+
+    act(() => {
+      eventLoopCallbacks.onResponseDone?.();
+    });
+    expect(result.current.agentSpeaking).toBe(false);
+  });
+
+  it("clears agentSpeaking when agent output is muted", async () => {
+    const { result } = renderHook(() => useMetaAgent(defaultParams));
+
+    await waitFor(() => {
+      expect(mockCreateEventLoop).toHaveBeenCalled();
+    });
+
+    act(() => {
+      eventLoopCallbacks.onResponseStarted?.();
+    });
+    expect(result.current.agentSpeaking).toBe(true);
+
+    act(() => {
+      result.current.setAgentOutputMuted(true);
+    });
+
+    expect(result.current.agentSpeaking).toBe(false);
   });
 
   it("clears captions when agent output is muted", async () => {

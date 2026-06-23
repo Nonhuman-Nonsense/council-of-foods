@@ -232,6 +232,7 @@ describe("realtimeEventLoop", () => {
         const onError = vi.fn();
         const onAudioPartReady = vi.fn();
         const onResponseStarted = vi.fn();
+        const onResponseDone = vi.fn();
         const captionScheduler = {
             beginResponse: vi.fn(),
             appendDelta: vi.fn(),
@@ -248,6 +249,7 @@ describe("realtimeEventLoop", () => {
                 onError,
                 onAudioPartReady,
                 onResponseStarted,
+                onResponseDone,
                 log: vi.fn(),
             },
             captionScheduler,
@@ -273,6 +275,7 @@ describe("realtimeEventLoop", () => {
         await loop.handleEvent({ type: "error", error: "just a string" });
 
         expect(onResponseStarted).toHaveBeenCalledOnce();
+        expect(onResponseDone).toHaveBeenCalledOnce();
         expect(captionScheduler.beginResponse).toHaveBeenCalledOnce();
         expect(onAudioPartReady).toHaveBeenCalledOnce();
         expect(captionScheduler.appendDelta).toHaveBeenCalledWith("hello");

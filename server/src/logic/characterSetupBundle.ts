@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { CHARACTERS_FILE } from "@shared/prompts/characterSetupMetadata.js";
+import { chairIdFromCharacters, CHARACTERS_FILE } from "@shared/prompts/characterSetupMetadata.js";
 
 type CharacterSetupDataFile = {
     characters: Array<{
@@ -24,6 +24,9 @@ function readCharacterSetupBundle(language: string): CharacterSetupDataFile {
 export const defaultCharacterSetupBundle = JSON.parse(
     fs.readFileSync(path.join(sharedPromptsDir, `${CHARACTERS_FILE}_en.json`), "utf-8"),
 ) as CharacterSetupDataFile;
+
+/** Chair id from the default character-setup bundle (same convention as client `CHAIR_ID`). */
+export const CHAIR_ID = chairIdFromCharacters(defaultCharacterSetupBundle.characters);
 
 export function getCharacterSetupBundle(language: string): CharacterSetupDataFile {
     return readCharacterSetupBundle(language);

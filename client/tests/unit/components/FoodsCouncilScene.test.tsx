@@ -69,4 +69,39 @@ describe("FoodsCouncilScene", () => {
       })
     );
   });
+
+  it("zooms on meta-agent while performance follows currentSpeakerId", () => {
+    render(
+      <FoodsCouncilScene
+        participants={[
+          MockFactory.createCharacter({ id: participantA.id, name: participantA.name, description: "", prompt: "" }),
+          MockFactory.createCharacter({ id: participantB.id, name: participantB.name, description: "", prompt: "" }),
+        ]}
+        currentSpeakerId={participantA.id}
+        councilState="playing"
+        playingNowIndex={1}
+        textMessages={[
+          { type: "message", id: "m0", speaker: participantA.id, text: "Hi" },
+          { type: "message", id: "m1", speaker: participantB.id, text: "Hello" },
+        ]}
+        currentSnippetIndex={0}
+        audioMessages={[]}
+        isPaused={true}
+        metaAgentActive={true}
+      />
+    );
+
+    expect(mockFoodItem).toHaveBeenCalledWith(
+      expect.objectContaining({
+        food: expect.objectContaining({ id: participantA.id }),
+        currentSpeakerId: participantA.id,
+      }),
+    );
+    expect(mockFoodItem).toHaveBeenCalledWith(
+      expect.objectContaining({
+        food: expect.objectContaining({ id: participantB.id }),
+        currentSpeakerId: participantA.id,
+      }),
+    );
+  });
 });

@@ -19,6 +19,7 @@ export interface MeetingMetaAgentProps {
   setMeetingPlaybackPaused: (paused: boolean) => void;
   metaAgentActive: boolean;
   setMetaAgentActive: (active: boolean) => void;
+  setAgentSpeaking: (speaking: boolean) => void;
   onRestartMeeting: () => void;
   // Context for state snapshot
   councilState: CouncilState;
@@ -45,6 +46,7 @@ export default function MeetingMetaAgent({
   setMeetingPlaybackPaused,
   metaAgentActive,
   setMetaAgentActive,
+  setAgentSpeaking,
   onRestartMeeting,
   councilState,
   topic,
@@ -77,6 +79,7 @@ export default function MeetingMetaAgent({
     error,
     lastCaption,
     lastUserTranscript,
+    agentSpeaking,
     setMicEnabled,
     sendUserMessage,
     setAgentOutputMuted,
@@ -99,6 +102,16 @@ export default function MeetingMetaAgent({
     lastUserTranscript,
     lastCaption,
   });
+
+  useEffect(() => {
+    setAgentSpeaking(agentSpeaking);
+  }, [agentSpeaking, setAgentSpeaking]);
+
+  useEffect(() => {
+    if (!metaAgentActive) {
+      setAgentSpeaking(false);
+    }
+  }, [metaAgentActive, setAgentSpeaking]);
 
   useEffect(() => {
     silenceRef.current = () => {

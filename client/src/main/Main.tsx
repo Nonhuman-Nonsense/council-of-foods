@@ -70,6 +70,7 @@ export default function Main(props: MainProps) {
   // Forest also keeps scene speaker state at Main; Foods only needs the meeting bus.
   const [currentSpeakerId, setCurrentSpeakerId] = useState("");
   const [isPaused, setPaused] = useState(false);
+  const [metaAgentActive, setMetaAgentActive] = useState(false);
   const meetingAudioContext = useRef<AudioContext | null>(null);
   const [meetingPlaybackPaused, setMeetingPlaybackPaused] = useState(false);
 
@@ -125,6 +126,9 @@ export default function Main(props: MainProps) {
     const withoutLang = stripLanguagePrefix(location.pathname);
     if (withoutLang === `/${routes.newMeeting}` || isRootPath(location.pathname)) {
       setMeetingliveKey(null);
+    }
+    if (!isMeetingPath(location.pathname)) {
+      setMetaAgentActive(false);
     }
   }, [location.pathname]);
 
@@ -213,6 +217,8 @@ export default function Main(props: MainProps) {
                   setCurrentSpeakerId={setCurrentSpeakerId}
                   isPaused={isPaused}
                   setPaused={setPaused}
+                  metaAgentActive={metaAgentActive}
+                  setMetaAgentActive={setMetaAgentActive}
                   meetingAudioContext={meetingAudioContext}
                   setMeetingPlaybackPaused={setMeetingPlaybackPaused}
                 />

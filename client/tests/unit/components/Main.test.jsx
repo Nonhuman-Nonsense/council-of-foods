@@ -140,6 +140,8 @@ describe('Main Component', () => {
             setMeetingPlaybackPaused: expect.any(Function),
             setCurrentSpeakerId: expect.any(Function),
             setPaused: expect.any(Function),
+            metaAgentActive: false,
+            setMetaAgentActive: expect.any(Function),
         }));
     });
 });

@@ -91,6 +91,7 @@ function makeProps(overrides: Partial<MeetingMetaAgentProps> = {}): MeetingMetaA
     setMeetingPlaybackPaused: vi.fn(),
     metaAgentActive: false,
     setMetaAgentActive: vi.fn(),
+    setAgentSpeaking: vi.fn(),
     onRestartMeeting: vi.fn(),
     councilState: "playing",
     topic: { id: "forests", title: "Forests", description: "", prompt: "" },

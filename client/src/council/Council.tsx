@@ -17,6 +17,7 @@ import { getMeeting } from "@api/getMeeting.js";
 import ReplayModeBanner from "./ReplayModeBanner";
 import { useCouncilSettings } from "@/settings/useCouncilSettings";
 import MeetingMetaAgent from "@museum/metaAgent/MeetingMetaAgent";
+import { CHAIR_ID } from "@/prompts/characterSetupBundles";
 
 interface CouncilProps {
   liveKey: string | null;
@@ -32,6 +33,8 @@ interface CouncilProps {
   setCurrentSpeakerId: (id: string) => void;
   isPaused: boolean;
   setPaused: (paused: boolean) => void;
+  metaAgentActive: boolean;
+  setMetaAgentActive: (active: boolean) => void;
 }
 
 function Council({
@@ -48,6 +51,8 @@ function Council({
   setCurrentSpeakerId,
   isPaused,
   setPaused,
+  metaAgentActive,
+  setMetaAgentActive,
 }: CouncilProps) {
 
   const { meetingId } = useParams<{ meetingId: string }>();
@@ -61,7 +66,7 @@ function Council({
   const [participants, setParticipants] = useState<Character[]>([]);
   const [replayManifest, setReplayManifest] = useState<Meeting | null>(null);
   const [humanName, setHumanName] = useState("");
-  const [metaAgentActive, setMetaAgentActive] = useState(false);
+  const [agentSpeaking, setAgentSpeaking] = useState(false);
 
   // Abort in-flight GET when deps change or on unmount (StrictMode-safe); same pattern as TanStack Query/SWR cancellation.
   useEffect(() => {
@@ -157,8 +162,9 @@ function Council({
   // The extra hop is intentional: it keeps the cross-app contract aligned with Forest, where
   // an always-mounted sibling scene needs this value outside the routed Council subtree.
   const derivedCurrentSpeakerId = useMemo(() => {
-    // While the meta-agent is active, zoom to the chair (first participant).
-    if (metaAgentActive) return participants[0]?.id ?? "";
+    if (metaAgentActive) {
+      return agentSpeaking ? CHAIR_ID : "";
+    }
     if (councilState === 'loading') return "";
     if (councilState === 'human_input') return humanName;
     if (councilState === 'human_panelist') {
@@ -168,7 +174,7 @@ function Council({
     const activeMessage = textMessages[playingNowIndex];
     if (activeMessage && isSpeakerMessage(activeMessage)) return activeMessage.speaker;
     return "";
-  }, [metaAgentActive, participants, councilState, playingNowIndex, textMessages, playNextIndex, humanName]);
+  }, [metaAgentActive, agentSpeaking, councilState, playingNowIndex, textMessages, playNextIndex, humanName]);
 
   useEffect(() => {
     if (councilState !== 'human_panelist') return;
@@ -219,7 +225,7 @@ function Council({
         audioMessages={audioMessages}
         currentSnippetIndex={currentSnippetIndex}
         isPaused={isPaused}
-        forceChairZoom={metaAgentActive}
+        metaAgentActive={metaAgentActive}
       />
       {councilState === 'loading' && <Loading />}
       {pushToTalkMode && liveKey && (
@@ -230,6 +236,7 @@ function Council({
           setMeetingPlaybackPaused={setMeetingPlaybackPaused}
           metaAgentActive={metaAgentActive}
           setMetaAgentActive={setMetaAgentActive}
+          setAgentSpeaking={setAgentSpeaking}
           onRestartMeeting={() => navigate("/")}
           councilState={councilState}
           topic={topic}

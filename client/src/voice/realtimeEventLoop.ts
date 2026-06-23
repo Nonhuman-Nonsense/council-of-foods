@@ -31,6 +31,8 @@ export type EventLoopCallbacks = {
   onSessionReady?: () => void;
   /** Fired when an assistant response begins, before audio is audible. */
   onResponseStarted?: () => void;
+  /** Fired when an assistant response completes (`response.done`). */
+  onResponseDone?: () => void;
   /** Fired when the data channel reports that the audio content part exists. */
   onAudioPartReady?: () => void;
   /** Optional debug hook. */
@@ -211,6 +213,7 @@ export function createEventLoop(params: {
       if (r?.status === "cancelled" || r?.status === "failed") {
         captionScheduler?.cancel();
       }
+      callbacks.onResponseDone?.();
       if (pendingDeferredResponse && sessionReady && activeResponses === 0) {
         pendingDeferredResponse = false;
         send({ type: "response.create" });

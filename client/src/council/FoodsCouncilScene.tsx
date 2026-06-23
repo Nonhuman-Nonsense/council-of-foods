@@ -5,6 +5,7 @@ import FoodItem from "./FoodItem";
 import { mapFoodIndex } from "@/utils";
 import { backgroundImageUrls } from "@assets/backgrounds/index";
 import type { CouncilState } from "./hooks/useCouncilMachine";
+import { CHAIR_ID } from "@/prompts/characterSetupBundles";
 
 interface FoodsCouncilSceneProps {
   participants: Character[];
@@ -15,8 +16,8 @@ interface FoodsCouncilSceneProps {
   audioMessages: DecodedAudioMessage[];
   currentSnippetIndex: number;
   isPaused: boolean;
-  /** When true, force zoom to the chair (meta-agent is active). */
-  forceChairZoom?: boolean;
+  /** Chair-conversation mode: camera stays on chair; performance follows currentSpeakerId. */
+  metaAgentActive: boolean;
 }
 
 export default function FoodsCouncilScene({
@@ -28,7 +29,7 @@ export default function FoodsCouncilScene({
   audioMessages,
   currentSnippetIndex,
   isPaused,
-  forceChairZoom = false,
+  metaAgentActive,
 }: FoodsCouncilSceneProps) {
   const sentencesLength = useMemo(() => {
     const textMessage = textMessages[playingNowIndex];
@@ -37,7 +38,7 @@ export default function FoodsCouncilScene({
   }, [audioMessages, textMessages, playingNowIndex]);
 
   const zoomIn = useMemo(() => {
-    if (forceChairZoom) return true;
+    if (metaAgentActive) return true;
     if (
       councilState === "loading" ||
       councilState === "waiting" ||
@@ -56,22 +57,24 @@ export default function FoodsCouncilScene({
     } else {
       return false;
     }
-  }, [forceChairZoom, councilState, playingNowIndex, textMessages, currentSnippetIndex, sentencesLength]);
+  }, [metaAgentActive, councilState, playingNowIndex, textMessages, currentSnippetIndex, sentencesLength]);
 
   const foods = useMemo(
     () => participants.filter((part) => !part.id.startsWith("panelist")),
     [participants]
   );
 
+  const focusSpeakerId = metaAgentActive ? CHAIR_ID : currentSpeakerId;
+
   const currentSpeakerIdx = useMemo(() => {
     let currentIndex: number | undefined;
     foods.forEach((food, index) => {
-      if (currentSpeakerId === food.id) {
+      if (focusSpeakerId === food.id) {
         currentIndex = mapFoodIndex(foods.length, index);
       }
     });
     return currentIndex || 0;
-  }, [foods, currentSpeakerId]);
+  }, [foods, focusSpeakerId]);
 
   return (
     <>
