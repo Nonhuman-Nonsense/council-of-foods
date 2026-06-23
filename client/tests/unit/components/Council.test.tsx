@@ -58,9 +58,7 @@ vi.mock('@main/overlay/Overlay', () => ({ default: ({ children }: any) => <div>{
 vi.mock('@council/overlays/CouncilOverlays', () => ({ default: () => <div>Council Overlays</div> }));
 vi.mock('@main/Loading', () => ({ default: () => <div>Loading...</div> }));
 vi.mock('@council/output/Output', () => ({
-    default: ({ hideSubtitles }: { hideSubtitles?: boolean }) => (
-        <div data-testid="output" data-hide-subtitles={hideSubtitles ? 'true' : 'false'}>Output</div>
-    ),
+    default: () => <div data-testid="output">Output</div>,
 }));
 vi.mock('@council/humanInput/HumanInput', () => ({ default: () => <div>Human Input</div> }));
 vi.mock('@council/FoodsCouncilScene', () => ({ default: () => <div data-testid="foods-scene">Foods Scene</div> }));
@@ -278,7 +276,7 @@ describe('Council Component', () => {
         expect(screen.getByText('Human Input')).toBeInTheDocument();
     });
 
-    it('hides council subtitles when meta agent is active', async () => {
+    it('unmounts meeting output when meta agent is active', async () => {
         mockMetaAgentActivate = true;
         mockUseCouncilSettings.mockReturnValue({
           isMuseumMode: true,
@@ -291,7 +289,7 @@ describe('Council Component', () => {
         render(<Council {...defaultProps} />);
 
         await waitFor(() => {
-            expect(screen.getByTestId('output')).toHaveAttribute('data-hide-subtitles', 'true');
+            expect(screen.queryByTestId('output')).not.toBeInTheDocument();
         });
     });
 });

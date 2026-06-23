@@ -26,6 +26,8 @@ export interface UseCouncilMachineProps {
     isPaused: boolean;
     setPaused: (paused: boolean) => void;
     setAudioPaused?: (paused: boolean) => void;
+    /** When true, meeting Web Audio is frozen without toggling user pause UI. */
+    metaAgentActive?: boolean;
 }
 
 export type CouncilState =
@@ -54,6 +56,7 @@ export function useCouncilMachine({
     isPaused,
     setPaused,
     setAudioPaused,
+    metaAgentActive = false,
 }: UseCouncilMachineProps) {
 
     const { t } = useTranslation();
@@ -641,8 +644,9 @@ export function useCouncilMachine({
             setPaused(true);
         }
 
-        // Audio Context Suspension
-        if (isPaused) {
+        // Audio Context Suspension — user pause OR meta-agent session (independent paths).
+        const freezeMeetingAudio = isPaused || metaAgentActive;
+        if (freezeMeetingAudio) {
             if (setAudioPaused) {
                 setAudioPaused(true);
             } else if (audioContext.current && audioContext.current.state !== "suspended") {
@@ -655,7 +659,7 @@ export function useCouncilMachine({
                 audioContext.current.resume();
             }
         }
-    }, [isPaused, activeOverlay, location, connectionError, setAudioPaused, councilState]);
+    }, [isPaused, metaAgentActive, activeOverlay, location, connectionError, setAudioPaused, councilState, audioContext, setPaused]);
 
     useEffect(() => {
         if (councilState === 'waiting') {

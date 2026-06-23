@@ -117,6 +117,7 @@ function Council({
     isPaused,
     setPaused,
     setAudioPaused,
+    metaAgentActive,
   });
 
   const {
@@ -202,10 +203,10 @@ function Council({
   const isDocumentVisible = useDocumentVisibility();
 
   useEffect(() => {
-    if (!isDocumentVisible && !isPaused) {
+    if (!isDocumentVisible && !isPaused && !metaAgentActive) {
       setPaused(true);
     }
-  }, [isDocumentVisible, isPaused]);
+  }, [isDocumentVisible, isPaused, metaAgentActive, setPaused]);
 
   return (
     <>
@@ -226,8 +227,7 @@ function Council({
           liveKey={liveKey}
           language={i18n.language}
           participationPhase={participationPhase}
-          isPaused={isPaused}
-          setPaused={setPaused}
+          setAudioPaused={setAudioPaused}
           metaAgentActive={metaAgentActive}
           setMetaAgentActive={setMetaAgentActive}
           onRestartMeeting={() => navigate("/")}
@@ -249,20 +249,21 @@ function Council({
         />
       )}
       <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, display: "flex", flexDirection: "column", alignItems: "center", overflow: "visible" }}>
-        <Output
-          textMessages={textMessages}
-          audioMessages={audioMessages}
-          playingNowIndex={playingNowIndex}
-          councilState={councilState}
-          isMuted={isMuted}
-          isPaused={isPaused}
-          currentSnippetIndex={currentSnippetIndex}
-          setCurrentSnippetIndex={setCurrentSnippetIndex}
-          audioContext={audioContext}
-          handleOnFinishedPlaying={handleOnFinishedPlaying}
-          hideSubtitles={metaAgentActive}
-        />
-        {controlsVisible && (
+        {!metaAgentActive && (
+          <Output
+            textMessages={textMessages}
+            audioMessages={audioMessages}
+            playingNowIndex={playingNowIndex}
+            councilState={councilState}
+            isMuted={isMuted}
+            isPaused={isPaused}
+            currentSnippetIndex={currentSnippetIndex}
+            setCurrentSnippetIndex={setCurrentSnippetIndex}
+            audioContext={audioContext}
+            handleOnFinishedPlaying={handleOnFinishedPlaying}
+          />
+        )}
+        {controlsVisible && !metaAgentActive && (
           <ConversationControls
             hidden={isMuseumMode}
             onSkipBackward={handleOnSkipBackward}

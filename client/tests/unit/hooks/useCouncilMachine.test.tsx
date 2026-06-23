@@ -174,6 +174,13 @@ describe('useCouncilMachine', () => {
         expect(defaultProps.setAudioPaused).toHaveBeenCalledWith(true);
     });
 
+    it('freezes meeting audio when meta agent is active without user pause', () => {
+        const props = { ...defaultProps, isPaused: false, metaAgentActive: true };
+        renderHook(() => useCouncilMachine(props as any));
+
+        expect(defaultProps.setAudioPaused).toHaveBeenCalledWith(true);
+    });
+
     it('toggles mute state when toggleMute is called', () => {
         const { result } = renderHook(() => useCouncilMachine(defaultProps as any));
 
