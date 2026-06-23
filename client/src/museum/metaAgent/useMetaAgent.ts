@@ -1,22 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useMemo } from "react";
 import {
-  createRealtimeConnection,
-  fetchRealtimeBootstrap,
-  type RealtimeConnection,
-} from "@realtime/realtimeConnection";
-import { createEventLoop } from "@voice/realtimeEventLoop";
-import {
-  mergeRealtimeSessionWithClientConfig,
-  type RealtimeSessionConfig,
-  type RealtimeSessionServerDefaults,
-} from "@realtime/realtimeProtocol";
+  useRealtimeVoiceSession,
+  type RealtimeVoiceSessionConnectionState,
+} from "@realtime/useRealtimeVoiceSession";
 import type { RealtimeTool, ToolHandler } from "@voice/guideTools";
-import { createCaptionScheduler } from "@voice/captionScheduler";
-import { createRemoteAudioAnchor, type RemoteAudioAnchor } from "@voice/remoteAudioAnchor";
 
-const AUDIO_ANCHOR_FALLBACK_DELAY_MS = 600;
-
-export type MetaAgentConnectionState = "idle" | "connecting" | "ready" | "error";
+export type MetaAgentConnectionState = RealtimeVoiceSessionConnectionState;
 
 export type UseMetaAgentParams = {
   language: string;
@@ -41,339 +30,35 @@ export type UseMetaAgentResult = {
   setAgentOutputMuted: (muted: boolean) => void;
 };
 
-function getDebugLevel(): "off" | "basic" {
-  try {
-    return localStorage.getItem("metaAgentDebug") === "1" ? "basic" : "off";
-  } catch {
-    return "off";
-  }
-}
-
-function debugLog(...args: unknown[]): void {
-  if (getDebugLevel() === "off") return;
-  console.log("[meta-agent]", ...args);
-}
-
 /**
- * WebRTC hook for the meeting meta-agent.
+ * Meeting meta-agent: thin wrapper around {@link useRealtimeVoiceSession}.
  *
- * Key differences from useVoiceGuide:
- *  - Bootstrap requires a liveKey bearer (museum mode + live meeting only).
- *  - Mic gating is done via `track.enabled` (not micGainGate). The connection
- *    is held open throughout the meeting but mic costs nothing in standby.
- *  - No opening greeting — the agent is silent until the visitor speaks.
- *  - Connects on mount; tears down on unmount.
+ * - Bootstrap requires a liveKey bearer (museum mode + live meeting only).
+ * - Mic gating via `track.enabled` (PTT holds the button).
+ * - No opening greeting — agent waits for the visitor.
+ * - Connects on mount; tears down on unmount.
  */
 export function useMetaAgent(params: UseMetaAgentParams): UseMetaAgentResult {
   const { language, liveKey, instructions, tools, toolHandlers } = params;
+  const authHeaders = useMemo(
+    () => ({ Authorization: `Bearer ${liveKey}` }),
+    [liveKey],
+  );
 
-  const [connectionState, setConnectionState] = useState<MetaAgentConnectionState>("idle");
-  const [error, setError] = useState<string | null>(null);
-  const [lastCaption, setLastCaption] = useState<string | null>(null);
-  const [lastUserTranscript, setLastUserTranscript] = useState<string | null>(null);
-  const [agentSpeaking, setAgentSpeaking] = useState(false);
-
-  const connectionRef = useRef<RealtimeConnection | null>(null);
-  const serverDefaultsRef = useRef<RealtimeSessionServerDefaults | null>(null);
-  const eventLoopRef = useRef<ReturnType<typeof createEventLoop> | null>(null);
-  const captionSchedulerRef = useRef<ReturnType<typeof createCaptionScheduler> | null>(null);
-  const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
-  const remoteAudioAnchorRef = useRef<RemoteAudioAnchor | null>(null);
-  const audioAnchorFallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const userTranscriptTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Keep latest handlers/instructions/tools in refs so the event loop always
-  // sees current closures without requiring a reconnect on every render.
-  const handlersRef = useRef(toolHandlers);
-  const instructionsRef = useRef(instructions);
-  const toolsRef = useRef(tools);
-  useEffect(() => {
-    handlersRef.current = toolHandlers;
-    instructionsRef.current = instructions;
-    toolsRef.current = tools;
+  return useRealtimeVoiceSession({
+    feature: "meta-agent",
+    language,
+    instructions,
+    tools,
+    toolHandlers,
+    triggerGreetingOnReady: false,
+    authHeaders,
+    micStartsDisabled: true,
+    trackAgentSpeaking: true,
+    logPrefix: "[meta-agent]",
+    debugLocalStorageKey: "metaAgentDebug",
+    defaultsNotLoadedError: "Meta-agent defaults not loaded",
+    connectionLostMessage: "Meta-agent connection lost",
+    startFailedMessage: "Meta-agent failed to start",
   });
-
-  // StrictMode-safe: each start() bumps this; stale in-flight attempts bail.
-  const attemptRef = useRef(0);
-  const abortRef = useRef<AbortController | null>(null);
-
-  const buildSessionConfig = useCallback((): RealtimeSessionConfig => {
-    const defaults = serverDefaultsRef.current;
-    if (!defaults) throw new Error("Meta-agent defaults not loaded");
-    return mergeRealtimeSessionWithClientConfig(
-      defaults,
-      instructionsRef.current,
-      toolsRef.current,
-    );
-  }, []);
-
-  const clearAudioAnchorFallback = useCallback(() => {
-    if (audioAnchorFallbackTimerRef.current != null) {
-      clearTimeout(audioAnchorFallbackTimerRef.current);
-      audioAnchorFallbackTimerRef.current = null;
-    }
-  }, []);
-
-  const cleanup = useCallback(() => {
-    abortRef.current?.abort();
-    abortRef.current = null;
-    attemptRef.current += 1;
-    serverDefaultsRef.current = null;
-    clearAudioAnchorFallback();
-    if (userTranscriptTimerRef.current) {
-      clearTimeout(userTranscriptTimerRef.current);
-      userTranscriptTimerRef.current = null;
-    }
-    captionSchedulerRef.current?.cancel();
-    captionSchedulerRef.current = null;
-    eventLoopRef.current = null;
-    remoteAudioAnchorRef.current?.dispose();
-    remoteAudioAnchorRef.current = null;
-    connectionRef.current?.close();
-    connectionRef.current = null;
-    if (remoteAudioRef.current) {
-      try {
-        remoteAudioRef.current.srcObject = null;
-        remoteAudioRef.current.remove();
-      } catch { /* ignore */ }
-      remoteAudioRef.current = null;
-    }
-  }, [clearAudioAnchorFallback]);
-
-  const start = useCallback(async () => {
-    if (connectionRef.current || abortRef.current) return;
-
-    const myAttempt = ++attemptRef.current;
-    const controller = new AbortController();
-    abortRef.current = controller;
-    const isStale = () => myAttempt !== attemptRef.current;
-
-    setConnectionState("connecting");
-    setError(null);
-
-    let conn: RealtimeConnection | null = null;
-    try {
-      const authHeaders = { Authorization: `Bearer ${liveKey}` };
-
-      const [bootResult, micResult] = await Promise.allSettled([
-        fetchRealtimeBootstrap(
-          { feature: "meta-agent", language },
-          debugLog,
-          controller.signal,
-          authHeaders,
-        ),
-        navigator.mediaDevices.getUserMedia({
-          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-        }),
-      ]);
-
-      if (bootResult.status === "rejected") {
-        if (micResult.status === "fulfilled") micResult.value.getTracks().forEach((t) => t.stop());
-        throw bootResult.reason;
-      }
-      if (micResult.status === "rejected") throw micResult.reason;
-      if (isStale()) {
-        micResult.value.getTracks().forEach((t) => t.stop());
-        return;
-      }
-
-      const { provider, session: defaults, iceServers } = bootResult.value;
-      const micStream = micResult.value;
-
-      // Mic starts disabled — enabled only when visitor holds the button.
-      micStream.getAudioTracks().forEach((t) => { t.enabled = false; });
-
-      serverDefaultsRef.current = defaults;
-
-      const captionScheduler = createCaptionScheduler({
-        onCaption: (text) => {
-          if (!isStale()) setLastCaption(text);
-        },
-      });
-      captionScheduler.setSpeed(defaults.audio.output?.speed);
-      captionSchedulerRef.current = captionScheduler;
-
-      let activeConn: RealtimeConnection | null = null;
-      const sendOnDc = (payload: unknown) => {
-        const dc = activeConn?.dc ?? connectionRef.current?.dc;
-        if (!dc || dc.readyState !== "open") return;
-        dc.send(JSON.stringify(payload));
-      };
-
-      const loop = createEventLoop({
-        send: sendOnDc,
-        getCtx: () => ({ toolHandlers: handlersRef.current }),
-        captionScheduler,
-        callbacks: {
-          onCaption: (text) => {
-            if (!isStale()) setLastCaption(text);
-          },
-          onUserTranscript: (text) => {
-            if (isStale()) return;
-            setLastUserTranscript(text);
-            if (userTranscriptTimerRef.current) {
-              clearTimeout(userTranscriptTimerRef.current);
-            }
-            userTranscriptTimerRef.current = setTimeout(() => {
-              if (!isStale()) setLastUserTranscript(null);
-              userTranscriptTimerRef.current = null;
-            }, 3000);
-          },
-          onError: (message) => {
-            if (isStale()) return;
-            setError(message);
-            setConnectionState("error");
-          },
-          onResponseStarted: () => {
-            if (!isStale()) setAgentSpeaking(true);
-            clearAudioAnchorFallback();
-            remoteAudioAnchorRef.current?.arm();
-          },
-          onResponseDone: () => {
-            if (!isStale()) setAgentSpeaking(false);
-          },
-          onAudioPartReady: () => {
-            clearAudioAnchorFallback();
-            audioAnchorFallbackTimerRef.current = setTimeout(() => {
-              audioAnchorFallbackTimerRef.current = null;
-              captionScheduler.setAudioAnchor(performance.now());
-              debugLog("caption audio anchor fallback fired");
-            }, AUDIO_ANCHOR_FALLBACK_DELAY_MS);
-          },
-          log: debugLog,
-        },
-      });
-      eventLoopRef.current = loop;
-
-      conn = await createRealtimeConnection({
-        session: defaults,
-        iceServers,
-        callPath: "/api/realtime/call",
-        callHeaders: { "Content-Type": "application/json", ...authHeaders },
-        callBodyExtras: { feature: "meta-agent", provider },
-        micStream,
-        log: debugLog,
-        signal: controller.signal,
-        onRemoteTrack: (track) => {
-          if (isStale()) { try { track.stop(); } catch { /* ignore */ } return; }
-          const el = document.createElement("audio");
-          el.autoplay = true;
-          el.setAttribute("playsinline", "true");
-          el.muted = false;
-          el.volume = 1.0;
-          el.srcObject = new MediaStream([track]);
-          el.style.display = "none";
-          document.body.appendChild(el);
-          remoteAudioRef.current = el;
-          void el.play().catch((err) => debugLog("audio play blocked", err));
-          try {
-            remoteAudioAnchorRef.current?.dispose();
-            remoteAudioAnchorRef.current = createRemoteAudioAnchor({
-              track,
-              onAudioStart: (nowMs) => {
-                if (isStale()) return;
-                clearAudioAnchorFallback();
-                captionScheduler.setAudioAnchor(nowMs);
-              },
-              log: debugLog,
-            });
-          } catch (err) {
-            debugLog("remote audio anchor unavailable", err);
-          }
-          track.onended = () => {
-            clearAudioAnchorFallback();
-            remoteAudioAnchorRef.current?.dispose();
-            remoteAudioAnchorRef.current = null;
-          };
-        },
-        onEvent: (event) => {
-          if (isStale()) return;
-          void loop.handleEvent(event);
-        },
-        onOpen: () => {
-          if (isStale()) return;
-          // Apply instructions + tools; no opening greeting — agent waits for visitor.
-          loop.configureSession(buildSessionConfig(), { triggerGreetingOnReady: false });
-        },
-        onClose: (reason) => {
-          debugLog("connection closed", reason);
-          if (isStale()) return;
-          if (reason === "pc_failed" || reason === "dc_error") {
-            setError("Meta-agent connection lost");
-            setConnectionState("error");
-          }
-        },
-      });
-
-      if (isStale()) {
-        conn.close();
-        return;
-      }
-
-      activeConn = conn;
-      connectionRef.current = conn;
-      setConnectionState("ready");
-      debugLog("connected", { attempt: myAttempt });
-    } catch (e) {
-      const isAbort = e instanceof Error && e.name === "AbortError";
-      if (isAbort || isStale()) {
-        debugLog("start aborted", { attempt: myAttempt });
-        conn?.close();
-        return;
-      }
-      const msg = e instanceof Error ? e.message : "Meta-agent failed to start";
-      debugLog("start failed", msg);
-      conn?.close();
-      setError(msg);
-      setConnectionState("error");
-    } finally {
-      if (abortRef.current === controller) abortRef.current = null;
-    }
-  }, [language, liveKey, buildSessionConfig, clearAudioAnchorFallback]);
-
-  // Connect on mount; disconnect on unmount.
-  useEffect(() => {
-    void start();
-    return () => {
-      cleanup();
-      setConnectionState("idle");
-    };
-  }, [start, cleanup]);
-
-  const setMicEnabled = useCallback((open: boolean) => {
-    connectionRef.current?.micStream.getAudioTracks().forEach((t) => { t.enabled = open; });
-  }, []);
-
-  const setAgentOutputMuted = useCallback((muted: boolean) => {
-    const el = remoteAudioRef.current;
-    if (el) {
-      el.muted = muted;
-    }
-    if (muted) {
-      setAgentSpeaking(false);
-      captionSchedulerRef.current?.cancel();
-      setLastCaption(null);
-      setLastUserTranscript(null);
-      if (userTranscriptTimerRef.current) {
-        clearTimeout(userTranscriptTimerRef.current);
-        userTranscriptTimerRef.current = null;
-      }
-      eventLoopRef.current?.cancelActiveResponse();
-    }
-  }, []);
-
-  const sendUserMessage = useCallback((text: string) => {
-    eventLoopRef.current?.sendUserMessage(text);
-  }, []);
-
-  return {
-    connectionState,
-    error,
-    lastCaption,
-    lastUserTranscript,
-    agentSpeaking,
-    setMicEnabled,
-    sendUserMessage,
-    setAgentOutputMuted,
-  };
 }

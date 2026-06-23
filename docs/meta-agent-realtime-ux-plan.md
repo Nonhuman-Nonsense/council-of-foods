@@ -10,7 +10,7 @@ glue. Also covers meeting freeze/resume, chair animation, and silence after
 > context. Button intent routing is documented in code (`buttonIntent.ts`) and
 > [ptt-human-input-routing-plan.md](./ptt-human-input-routing-plan.md).
 
-**Status:** Planning — implement **one phase at a time**. Do not batch phases.
+**Status:** Phases **0–4** and **3b** complete on Foods; **3b** + **4** complete on Forest. **Phase 5a** landed on Foods. **Next:** Phase 5b (voice guide). Implement **one phase at a time**.
 
 ---
 
@@ -97,9 +97,9 @@ currentSpeakerId: string;   // performer: council TTS or meta-agent speech only
 // FoodAnimation / BeingAudio: currentSpeakerId only
 ```
 
-`FoodAnimation` plays when `currentSpeakerId === food.id && !isPaused`. Meta-agent
-meeting freeze uses `meetingPlaybackPaused`, not `isPaused`, so chair animation
-follows the same path as council speech.
+`FoodAnimation` plays when `isPerforming` (scene composes this from `currentSpeakerId` +
+`agentSpeaking` during meta-agent). Meta-agent meeting freeze uses
+`meetingPlaybackPaused`, not `isPaused`.
 
 ---
 
@@ -117,6 +117,8 @@ Phase 0 ──► Phase 1 ──► Phase 2 ──► Phase 3 ──► Phase 4 
 ---
 
 ## Phase 0 — Silence after `resume_meeting`
+
+**Status:** Done (Foods + Forest).
 
 **Scope:** Stop the agent from speaking after terminal tools. No UI changes.
 
@@ -146,6 +148,8 @@ Phase 0 ──► Phase 1 ──► Phase 2 ──► Phase 3 ──► Phase 4 
 
 ## Phase 1 — Extract `RealtimeCaptionOverlay`
 
+**Status:** Done (Foods + Forest).
+
 **Scope:** UI-only refactor. Voice guide behavior unchanged.
 
 **Changes:**
@@ -169,6 +173,8 @@ Phase 0 ──► Phase 1 ──► Phase 2 ──► Phase 3 ──► Phase 4 
 ---
 
 ## Phase 2 — Meta agent captions + hide meeting subtitles
+
+**Status:** Done (Foods + Forest).
 
 **Scope:** Wire captions in meta agent; show shared overlay in Council; hide council `TextOutput` during meta agent.
 
@@ -200,6 +206,8 @@ Phase 0 ──► Phase 1 ──► Phase 2 ──► Phase 3 ──► Phase 4 
 
 ## Phase 3 — Meeting freeze without `isPaused`
 
+**Status:** Done (Foods + Forest).
+
 **Scope:** Correct pause semantics; unmount meeting playback UI during meta agent.
 
 **Changes:**
@@ -227,7 +235,7 @@ Phase 0 ──► Phase 1 ──► Phase 2 ──► Phase 3 ──► Phase 4 
 
 ## Phase 3b — Meeting vs scene audio buses (Foods prep, Forest completion)
 
-**Status:** Foods prep landed — Forest completes the split.
+**Status:** Done (Foods + Forest).
 
 **Foods (this repo):**
 
@@ -237,13 +245,14 @@ Phase 0 ──► Phase 1 ──► Phase 2 ──► Phase 3 ──► Phase 4 
 - Council tree props: `meetingAudioContext`, `setMeetingPlaybackPaused`
 - Meta agent freeze only toggles **meeting** playback pause
 
-**Forest merge checklist:**
+**Forest merge checklist:** (complete)
 
 1. Add `sceneAudioContext` in `Main` via `createSceneAudioContext()`; pass to `Forest.tsx`
 2. Rename Forest `audioContext` prop → `sceneAudioContext` on `Forest`, `AmbientAudio`, `BeingAudio`
 3. Pass `meetingAudioContext` to `Council` (from Foods rename)
 4. `useMeetingPlaybackSuspended(meetingAudioContext, meetingPlaybackPaused)` — do **not** suspend scene bus
-5. Lift `metaAgentActive` (+ later `agentSpeaking`) to Main for chair `currentSpeakerId` → river + `BeingAudio`
+5. Lift `metaAgentActive` to Main; pass to `Forest` for meta-agent mode
+6. **Forest camera:** meta-agent stays **zoomed out** on the river backdrop (`river` is chair in `beings_en.json` but not a `forest_characters` zoom target). Performance/audio still uses performing-only `currentSpeakerId` + `agentSpeaking`.
 
 **Risk:** Low on Foods; medium on Forest merge (mechanical renames + second context).
 
@@ -251,33 +260,33 @@ Phase 0 ──► Phase 1 ──► Phase 2 ──► Phase 3 ──► Phase 4 
 
 ## Phase 4 — Chair animation (`agentSpeaking`)
 
-**Status:** Implemented on Foods (natural model — no `forcePlay`).
+**Status:** Done (Foods + Forest).
 
-**Scope:** Performance via `currentSpeakerId`; camera via `metaAgentActive` at Main.
+**Scope:** Performance via performing `currentSpeakerId`; camera via `metaAgentActive` at scene/Main.
 
 **Changes:**
 
 - `realtimeEventLoop.ts`: `onResponseDone` on `response.done`
 - `useMetaAgent`: `agentSpeaking` between `response.created` / `response.done`
 - `Main`: lift `metaAgentActive` (Forest merge parity)
-- `Council`: `currentSpeakerId = chair` only when `metaAgentActive && agentSpeaking`
+- `Council`: publish performing-only `currentSpeakerId` (`chair` when `metaAgentActive && agentSpeaking`)
 - `shared/prompts/characterSetupMetadata.ts`: `chairIdFromCharacters`
-- `FoodsCouncilScene`: zoom from `metaAgentActive`; backdrop index `metaAgentActive ? chairId : currentSpeakerId`
+- **Foods** `FoodsCouncilScene`: layout `currentSpeakerId = chair` when `metaAgentActive`; per-item `isPerforming` for `FoodAnimation`
+- **Forest** `Forest.tsx`: meta-agent zoom stays wide; `Being`/`FoodAnimation` use `isPerforming` from performing `currentSpeakerId`; river `always_on`
 
-**Forest merge:** pass `metaAgentActive` to `Forest`; same ternary for zoom with `CHAIR_ID`;
-`BeingAudio` uses `currentSpeakerId`.
+**Forest note:** `CHAIR_ID` is `river` from `beings_en.json`. River is the always-on backdrop, not an entry in `forest_characters.json`, so meta-agent camera does not zoom to a forest character — it stays on the wide river shot.
 
 **Automated tests:**
 
 - `useMetaAgent`: speaking flag toggles
 - `characterSetupMetadata.test.ts`: chair id derivation
-- `FoodsCouncilScene`: meta-agent zoom + `currentSpeakerId` to items
+- `FoodsCouncilScene`: meta-agent layout + `isPerforming`
 
 **Manual test:**
 
 1. Activate meta agent; ask a short question.
-2. **Pass:** Water animates **during** agent reply only; chair stays zoomed between phrases.
-3. **Pass:** silent gaps during one response may still animate (acceptable v1).
+2. **Pass (Foods):** Water animates **during** agent reply only; chair stays zoomed between phrases.
+3. **Pass (Forest):** river visible throughout; being animates only when performing speaker matches.
 
 **Risk:** Low. Council derivation + Main lift.
 
@@ -285,18 +294,20 @@ Phase 0 ──► Phase 1 ──► Phase 2 ──► Phase 3 ──► Phase 4 
 
 ## Phase 5a — Extract `useRealtimeVoiceSession` (meta agent only)
 
+**Status:** Done (Foods). Merge to Forest when convenient.
+
 **Scope:** DRY realtime glue; migrate `useMetaAgent` first. Voice guide stays on current implementation.
 
 **Changes:**
 
-- New `useRealtimeVoiceSession.ts` with config for feature, auth, mic mode, greeting, tools
-- `useMetaAgent.ts` becomes thin wrapper
-- Delete duplicated connection/event-loop/caption code from old `useMetaAgent`
+- New `client/src/realtime/useRealtimeVoiceSession.ts` — feature, auth, greeting, mic mode, captions, `agentSpeaking`
+- `useMetaAgent.ts` — thin wrapper (liveKey bearer, `micStartsDisabled`, `trackAgentSpeaking`)
+- Removed duplicated connection/event-loop/caption code from `useMetaAgent`
 
 **Automated tests:**
 
-- Meta agent tests still pass (behavior unchanged)
-- New unit tests on shared hook with mocked connection
+- `useRealtimeVoiceSession.test.ts` — bootstrap, captions, `agentSpeaking`, mute
+- `useMetaAgent.test.ts` — still passes (behavior unchanged)
 
 **Manual test:**
 
@@ -307,6 +318,8 @@ Phase 0 ──► Phase 1 ──► Phase 2 ──► Phase 3 ──► Phase 4 
 ---
 
 ## Phase 5b — Migrate voice guide to shared hook
+
+**Status:** Next.
 
 **Scope:** `useVoiceGuide` → `useRealtimeVoiceSession`; remove duplication.
 
@@ -376,3 +389,5 @@ Run after Phase 3+ before merging large PRs; abbreviated after smaller phases.
 | Date | Note |
 |------|------|
 | 2026-06-23 | Initial plan: unified realtime UX, phased for incremental testability |
+| 2026-06-23 | Phases 0–4 + 3b complete; Phase 4 `isPerforming` model; Forest river backdrop note |
+| 2026-06-23 | Phase 5a: `useRealtimeVoiceSession` + thin `useMetaAgent` on Foods |
