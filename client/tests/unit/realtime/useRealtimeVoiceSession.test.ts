@@ -20,6 +20,15 @@ const schedulerMocks = vi.hoisted(() => ({
   finalize: vi.fn(),
 }));
 
+const eventLoopMocks = vi.hoisted(() => ({
+  configureSession: vi.fn(),
+  handleEvent: vi.fn(),
+  sendUserMessage: vi.fn(),
+  cancelActiveResponse: vi.fn(),
+  requestResponseIfIdle: vi.fn(),
+  isResponseActive: vi.fn(() => false),
+}));
+
 vi.mock("@voice/realtimeEventLoop", () => ({
   createEventLoop: (params: {
     callbacks: typeof eventLoopCallbacks;
@@ -27,14 +36,7 @@ vi.mock("@voice/realtimeEventLoop", () => ({
   }) => {
     eventLoopCallbacks = params.callbacks;
     mockCreateEventLoop(params);
-    return {
-      configureSession: vi.fn(),
-      handleEvent: vi.fn(),
-      sendUserMessage: vi.fn(),
-      cancelActiveResponse: vi.fn(),
-      requestResponseIfIdle: vi.fn(),
-      isResponseActive: vi.fn(() => false),
-    };
+    return eventLoopMocks;
   },
 }));
 
@@ -211,5 +213,19 @@ describe("useRealtimeVoiceSession", () => {
 
     expect(result.current.lastCaption).toBeNull();
     expect(result.current.lastUserTranscript).toBeNull();
+  });
+
+  it("requestAgentResponse delegates to the event loop", async () => {
+    const { result } = renderHook(() => useRealtimeVoiceSession(defaultParams));
+
+    await waitFor(() => {
+      expect(mockCreateEventLoop).toHaveBeenCalled();
+    });
+
+    act(() => {
+      result.current.requestAgentResponse();
+    });
+
+    expect(eventLoopMocks.requestResponseIfIdle).toHaveBeenCalled();
   });
 });

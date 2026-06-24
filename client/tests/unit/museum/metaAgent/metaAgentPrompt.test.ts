@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  buildMetaAgentActivationTurn,
   buildMetaAgentPrompt,
   buildMetaAgentStateSnapshot,
   type MetaAgentStateSnapshot,
@@ -40,6 +41,21 @@ describe("buildMetaAgentPrompt", () => {
   it("instructs no speech after terminal tools", () => {
     const prompt = buildMetaAgentPrompt({ pushToTalkMode: false });
     expect(prompt).toContain("do not speak");
+  });
+
+  it("instructs an activation greeting on meta_agent_activate", () => {
+    const prompt = buildMetaAgentPrompt({ pushToTalkMode: false });
+    expect(prompt).toContain("meta_agent_activate");
+    expect(prompt).toContain("speak first");
+    expect(prompt).toContain("interrupted");
+  });
+});
+
+describe("buildMetaAgentActivationTurn", () => {
+  it("asks the agent to greet using the STATE SYNC context", () => {
+    const turn = buildMetaAgentActivationTurn();
+    expect(turn).toContain("activated you");
+    expect(turn).toContain("STATE SYNC");
   });
 });
 

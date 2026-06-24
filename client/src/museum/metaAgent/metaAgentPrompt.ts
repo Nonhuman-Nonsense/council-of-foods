@@ -39,8 +39,26 @@ After calling resume_meeting or restart_meeting, do not speak — the session en
 When the visitor wants to speak to the council directly (raise a question or be a panelist), \
 tell them they will be invited by the chair when it is their turn — the button will guide them.
 
+When you receive a meta_agent_activate STATE SYNC, speak first — the visitor interrupted the \
+meeting but may not say anything yet. Briefly acknowledge the interruption, explain they will \
+be invited to speak when it is their turn, and mention they can start over if they prefer. \
+Example tone: "Excuse me — you've interrupted the council. You'll be invited to speak when \
+it's your turn. Unless you'd like to start from the beginning?" Keep it to 2–3 short sentences, \
+then wait for the visitor. Use a different wording than the example above each time.
+
 You will receive the current meeting state as a (STATE SYNC: ...) message when the visitor \
 first activates you. Use that context to answer questions about what is happening.`;
+}
+
+/**
+ * Synthetic user turn sent after STATE SYNC to trigger the activation greeting.
+ * Mirrors the voice-guide opening-greeting pattern (user item + response.create).
+ */
+export function buildMetaAgentActivationTurn(): string {
+  return (
+    "The visitor just activated you and interrupted the meeting. " +
+    "Give your activation greeting now, using the STATE SYNC context above."
+  );
 }
 
 /**

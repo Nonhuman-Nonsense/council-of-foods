@@ -55,6 +55,8 @@ export type UseRealtimeVoiceSessionResult = {
   agentSpeaking: boolean;
   setMicEnabled: (open: boolean) => void;
   sendUserMessage: (text: string) => void;
+  /** Ask the model to respond when no response is in flight. */
+  requestAgentResponse: () => void;
   setAgentOutputMuted: (muted: boolean) => void;
 };
 
@@ -427,6 +429,10 @@ export function useRealtimeVoiceSession(
     eventLoopRef.current?.sendUserMessage(text);
   }, []);
 
+  const requestAgentResponse = useCallback(() => {
+    eventLoopRef.current?.requestResponseIfIdle();
+  }, []);
+
   return {
     connectionState,
     error,
@@ -436,6 +442,7 @@ export function useRealtimeVoiceSession(
     agentSpeaking,
     setMicEnabled,
     sendUserMessage,
+    requestAgentResponse,
     setAgentOutputMuted,
   };
 }

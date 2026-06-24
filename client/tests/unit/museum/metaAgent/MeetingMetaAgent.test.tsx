@@ -73,6 +73,7 @@ vi.mock("@museum/button/useButton", async () => {
 
 const mockSetMicEnabled = vi.hoisted(() => vi.fn());
 const mockSendUserMessage = vi.hoisted(() => vi.fn());
+const mockRequestAgentResponse = vi.hoisted(() => vi.fn());
 const mockSetAgentOutputMuted = vi.hoisted(() => vi.fn());
 
 const mockMetaAgentState = vi.hoisted(() => ({
@@ -91,6 +92,7 @@ vi.mock("@museum/metaAgent/useMetaAgent", () => ({
     agentSpeaking: mockMetaAgentState.agentSpeaking,
     setMicEnabled: mockSetMicEnabled,
     sendUserMessage: mockSendUserMessage,
+    requestAgentResponse: mockRequestAgentResponse,
     setAgentOutputMuted: mockSetAgentOutputMuted,
   }),
 }));
@@ -142,6 +144,7 @@ beforeEach(() => {
   mockMetaAgentState.lastUserTranscript = "Visitor question";
   mockSetMicEnabled.mockClear();
   mockSendUserMessage.mockClear();
+  mockRequestAgentResponse.mockClear();
   mockSetAgentOutputMuted.mockClear();
   mockClaim.mockClear();
   mockRelease.mockClear();
@@ -199,6 +202,10 @@ describe("MeetingMetaAgent", () => {
     expect(mockSendUserMessage).toHaveBeenCalledWith(
       expect.stringMatching(/STATE SYNC/),
     );
+    expect(mockSendUserMessage).toHaveBeenCalledWith(
+      expect.stringMatching(/activation greeting/i),
+    );
+    expect(mockRequestAgentResponse).toHaveBeenCalled();
   });
 
   it("activates on press during warm phase when meta-agent owns the button", () => {

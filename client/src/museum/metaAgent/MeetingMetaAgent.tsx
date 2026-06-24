@@ -3,7 +3,7 @@ import { useButton, type ButtonLedMode } from "@museum/button/useButton";
 import { BUTTON_IDLE_REMIND_MS, useHoldToSpeakHint } from "@voice/useHoldToSpeakHint";
 import RealtimeCaptionOverlay from "@realtime/RealtimeCaptionOverlay";
 import { useMetaAgent } from "./useMetaAgent";
-import { buildMetaAgentPrompt, buildMetaAgentStateSnapshot } from "./metaAgentPrompt";
+import { buildMetaAgentPrompt, buildMetaAgentActivationTurn, buildMetaAgentStateSnapshot } from "./metaAgentPrompt";
 import {
   createMetaAgentTools,
   createMetaAgentToolHandlers,
@@ -84,6 +84,7 @@ export default function MeetingMetaAgent({
     agentSpeaking,
     setMicEnabled,
     sendUserMessage,
+    requestAgentResponse,
     setAgentOutputMuted,
   } = useMetaAgent({
     language,
@@ -151,6 +152,8 @@ export default function MeetingMetaAgent({
         participationPhase,
       }),
     );
+    sendUserMessage(buildMetaAgentActivationTurn());
+    requestAgentResponse();
   }, [
     pressed,
     metaAgentActive,
@@ -159,6 +162,7 @@ export default function MeetingMetaAgent({
     setAgentOutputMuted,
     setMicEnabled,
     sendUserMessage,
+    requestAgentResponse,
     councilState,
     topic,
     participants,

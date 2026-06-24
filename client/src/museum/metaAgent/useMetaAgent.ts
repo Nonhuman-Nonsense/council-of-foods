@@ -31,6 +31,8 @@ export type UseMetaAgentResult = {
   setMicEnabled: (open: boolean) => void;
   /** Inject a user message into the agent conversation (e.g. state snapshot). */
   sendUserMessage: (text: string) => void;
+  /** Ask the model to respond when no response is in flight. */
+  requestAgentResponse: () => void;
   /** Mute or unmute remote agent audio (e.g. after terminal tools or on re-activate). */
   setAgentOutputMuted: (muted: boolean) => void;
 };
@@ -40,7 +42,7 @@ export type UseMetaAgentResult = {
  *
  * - Bootstrap requires a liveKey bearer (museum mode + live meeting only).
  * - Mic gating via `track.enabled` (PTT holds the button).
- * - No opening greeting — agent waits for the visitor.
+ * - No opening greeting on connect — agent greets when the visitor activates.
  * - Connects on mount; tears down on unmount.
  */
 export function useMetaAgent(params: UseMetaAgentParams): UseMetaAgentResult {
