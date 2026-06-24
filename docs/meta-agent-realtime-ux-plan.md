@@ -64,8 +64,9 @@ Council
 └── MeetingMetaAgent           (mounted when pushToTalkMode && liveKey; WebRTC always warm)
 ```
 
-`HumanInput` stays mounted per existing participation rules; button intent
-arbitration (`buttonIntent.ts`) handles priority vs meta agent.
+`HumanInput` stays mounted per existing participation rules (including **`warm`**
+pre-connect). Button routing uses **priority claims** — see
+[Button routing (PTT claim model)](#button-routing-ptt-claim-model) below.
 
 ### Shared realtime modules (end state)
 
@@ -344,6 +345,61 @@ Phase 0 ──► Phase 1 ──► Phase 2 ──► Phase 3 ──► Phase 4 
 
 ---
 
+## Button routing (PTT claim model)
+
+**Status:** Implemented — `useButton(owner)` handle with separate `claim` / `setLed` / `release`.
+
+### Mental model
+
+Two layers:
+
+1. **Council** — `metaAgentActive` freezes meeting progression; human floor can't open during a session; session ends via `resume_meeting` / `restart_meeting` / unmount.
+2. **Button** — claim + priority picks `buttonOwner`; routed `pressed` only for the winner.
+
+| Concept | Meaning |
+|---------|---------|
+| **Claim** | “I want button control (routed press).” Independent of LED. |
+| **setLed** | This owner's LED preference. Hardware shows the **buttonOwner**'s mode (can be `off` while claimed). |
+| **buttonOwner** | Highest-priority active claim — drives routed press. |
+| **pressed** | On handle: `buttonOwner === owner && physical press`. |
+| **rawPressed** | Physical press below routing (human-input warm race only). |
+
+Priority: `setup (3) > human-input (2) > voice-guide / meta-agent (1)`.
+
+| Owner | Claim lifetime | LED |
+|-------|----------------|-----|
+| `meta-agent` | Mount → unmount | `setLed` when mode changes |
+| `human-input` | `phase === "active"` only | `setLed` when mode changes |
+| `setup` / `voice-guide` | Gated by overlay / PTT setting | `setLed` when mode changes |
+
+**No session teardown on ownership loss.** Setup stealing the button during an active meta-agent session only stops routed press (mic closes); session persists until `resume_meeting`.
+
+### Public API
+
+```ts
+const button = useButton("meta-agent");
+
+useEffect(() => {
+  button.claim();
+  return () => button.release();
+}, [claim, release]);
+
+useEffect(() => {
+  button.setLed(ledMode);
+}, [setLed, ledMode]);
+
+// button.pressed — routed; false when not buttonOwner
+// button.rawPressed — physical
+```
+
+Store: `claims`, `ledModes`, `buttonOwner`, `claimButton`, `releaseButton`, `setButtonLed`.
+
+### Regression
+
+Manual checklist #3, #7; meta-agent active + setup overlay (session persists).
+
+---
+
 ## Next / TODO
 
 | Priority | Task | Notes |
@@ -358,7 +414,7 @@ Phase 0 ──► Phase 1 ──► Phase 2 ──► Phase 3 ──► Phase 4 
 
 - **Realtime bootstrap resilience** — retry `UND_ERR_CONNECT_TIMEOUT` / connect flakes; richer server logs; client retry UX for meta-agent and voice guide (see TODO table above)
 - RMS / `remoteAudioAnchor` for tighter speak-sync and caption audio anchor on meta agent
-- `useButtonLed` rename / `MuseumButtonProvider` rename
+- `MuseumButtonProvider` rename (optional; lower priority than claim API rename)
 - Merging `MeetingMetaAgent` and `MeetingVoiceGuide` into one component
 - Always-on meta agent (non-PTT)
 - Lazy meta-agent WebRTC connect (bootstrap only when `metaAgentActive`) — trade warm latency for fewer spurious errors on meeting load
@@ -406,3 +462,4 @@ Run after Phase 3+ before merging large PRs; abbreviated after smaller phases.
 | 2026-06-23 | Phase 5a: `useRealtimeVoiceSession` + thin `useMetaAgent` on Foods |
 | 2026-06-23 | Phase 5b: `useVoiceGuide` migrated to shared hook on Foods |
 | 2026-06-23 | Meta-agent bootstrap timeout observed (`ConnectTimeoutError` on Inworld ICE fetch); retry/error UX deferred; merge 5a/5b to Forest next |
+| 2026-06-23 | Button routing: `useButton(owner)` with separate claim/setLed/release; `buttonOwner`; no session teardown on ownership loss |

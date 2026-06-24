@@ -6,11 +6,15 @@ import { useMobile } from '@/utils';
 import { bootstrapHumanInputRealtimeSession } from '@api/realtimeSession';
 import { createRealtimeConnection } from '@/realtime/realtimeConnection';
 
-const mockUseButtonLed = vi.hoisted(() => vi.fn());
+const mockClaim = vi.hoisted(() => vi.fn());
+const mockRelease = vi.hoisted(() => vi.fn());
+const mockSetLed = vi.hoisted(() => vi.fn());
+const mockPushToTalkMode = vi.hoisted(() => ({ value: false }));
 
 const mockButtonState = vi.hoisted(() => ({
     pressed: false,
     rawPressed: false,
+    buttonOwner: null,
 }));
 
 const mockButtonListeners = vi.hoisted(() => new Set());
@@ -33,6 +37,16 @@ vi.mock('@/utils', () => ({
     useMobile: vi.fn(),
     dvh: "vh",
     mapFoodIndex: (l, i) => i
+}));
+
+vi.mock('@/settings/useCouncilSettings', () => ({
+    useCouncilSettings: () => ({
+        pushToTalkMode: mockPushToTalkMode.value,
+        isMuseumMode: false,
+        mode: 'web',
+        setAppMode: vi.fn(),
+        setPushToTalkMode: vi.fn(),
+    }),
 }));
 
 vi.mock('@api/realtimeSession', () => ({
@@ -64,15 +78,30 @@ vi.mock('@/museum/button/buttonStore', () => ({
 vi.mock('@/museum/button/hooks', async () => {
     const React = await import('react');
     return {
-        useButtonLed: (...args) => mockUseButtonLed(...args),
-        useRawPressed: (active) =>
-            React.useSyncExternalStore(
+        useButton: (owner) => {
+            const pressed = React.useSyncExternalStore(
                 (onStoreChange) => {
                     mockButtonListeners.add(onStoreChange);
                     return () => mockButtonListeners.delete(onStoreChange);
                 },
-                () => (active ? mockButtonState.rawPressed : false),
-            ),
+                () => mockButtonState.buttonOwner === owner && mockButtonState.pressed,
+            );
+            const rawPressed = React.useSyncExternalStore(
+                (onStoreChange) => {
+                    mockButtonListeners.add(onStoreChange);
+                    return () => mockButtonListeners.delete(onStoreChange);
+                },
+                () => mockButtonState.rawPressed,
+            );
+            return {
+                claim: mockClaim,
+                release: mockRelease,
+                setLed: mockSetLed,
+                pressed,
+                rawPressed,
+                isOwner: mockButtonState.buttonOwner === owner,
+            };
+        },
     };
 });
 
@@ -506,8 +535,11 @@ describe('HumanInput PTT museum mode', () => {
 
     beforeEach(() => {
         mockOnSubmit = vi.fn();
+        mockPushToTalkMode.value = true;
         useMobile.mockReturnValue(false);
-        mockUseButtonLed.mockClear();
+        mockClaim.mockClear();
+        mockRelease.mockClear();
+        mockSetLed.mockClear();
         mockButtonState.pressed = false;
         setMockRawPressed(false);
         bootstrapHumanInputRealtimeSession.mockResolvedValue({
@@ -525,6 +557,7 @@ describe('HumanInput PTT museum mode', () => {
 
     afterEach(() => {
         vi.clearAllMocks();
+        mockPushToTalkMode.value = false;
         setMockRawPressed(false);
     });
 
@@ -610,14 +643,17 @@ describe('HumanInput PTT museum mode', () => {
 
     // ── LED management ────────────────────────────────────────────────────────
 
-    it('registers human-input pulse intent when active+ready', async () => {
-        await renderPttReady();
-        expect(mockUseButtonLed).toHaveBeenCalledWith('human-input', 'pulse', true);
+    it('does not claim the button when pushToTalkMode=false', async () => {
+        mockPushToTalkMode.value = false;
+        mockClaim.mockClear();
+        await renderAndWaitReady({ onSubmitHumanMessage: mockOnSubmit });
+        expect(mockClaim).not.toHaveBeenCalled();
     });
 
-    it('passes inactive flag when isButtonMuseumMode=false', async () => {
-        await renderAndWaitReady({ onSubmitHumanMessage: mockOnSubmit });
-        expect(mockUseButtonLed).toHaveBeenCalledWith('human-input', 'off', false);
+    it('claims human-input and sets pulse LED when active with pushToTalkMode', async () => {
+        await renderPttReady();
+        expect(mockClaim).toHaveBeenCalled();
+        expect(mockSetLed).toHaveBeenCalledWith('pulse');
     });
 
     // ── Press → record, release → finish + auto-submit ────────────────────────

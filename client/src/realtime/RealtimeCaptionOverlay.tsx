@@ -50,7 +50,7 @@ export default function RealtimeCaptionOverlay(props: RealtimeCaptionOverlayProp
     left: "50%",
     bottom: isMobile ? "0px" : "20px",
     transform: "translateX(-50%)",
-    zIndex: 9999,
+    zIndex: 4,
     pointerEvents: "none",
     maxWidth: isMobile ? "92%" : "70%",
     width: "100%",

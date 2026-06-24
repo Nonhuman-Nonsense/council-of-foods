@@ -1,108 +1,72 @@
 import { describe, expect, it } from "vitest";
-import { mergeButtonIntentOwner, mergeLedIntents, mergePressOwner } from "@/museum/button/buttonIntent";
+import {
+  mergeButtonOwner,
+  resolveAppliedLedMode,
+  type ButtonClaims,
+  type ButtonLedModes,
+} from "@/museum/button/buttonIntent";
 
-describe("mergeLedIntents", () => {
-  it("returns off when no intents are registered", () => {
-    expect(mergeLedIntents({})).toBe("off");
+describe("mergeButtonOwner", () => {
+  it("returns null when no claims are registered", () => {
+    expect(mergeButtonOwner({})).toBeNull();
   });
 
-  it("returns the only registered intent", () => {
-    expect(mergeLedIntents({ setup: "pulse" })).toBe("pulse");
+  it("returns the only claimant", () => {
+    expect(mergeButtonOwner({ "meta-agent": true })).toBe("meta-agent");
   });
 
-  it("prefers setup over human-input and voice-guide", () => {
+  it("prefers human-input over meta-agent", () => {
     expect(
-      mergeLedIntents({
-        setup: "pulse",
-        "voice-guide": "on",
-        "human-input": "off",
+      mergeButtonOwner({
+        "meta-agent": true,
+        "human-input": true,
       }),
-    ).toBe("pulse");
+    ).toBe("human-input");
   });
 
-  it("ignores off intents so lower-priority pulse can win", () => {
+  it("prefers setup over human-input", () => {
     expect(
-      mergeLedIntents({
-        "voice-guide": "on",
-        "human-input": "off",
+      mergeButtonOwner({
+        setup: true,
+        "human-input": true,
       }),
-    ).toBe("on");
+    ).toBe("setup");
   });
 
-  it("prefers human-input pulse over voice-guide on", () => {
-    expect(
-      mergeLedIntents({
-        "voice-guide": "on",
-        "human-input": "pulse",
-      }),
-    ).toBe("pulse");
+  it("lets meta-agent win when human-input has not claimed", () => {
+    expect(mergeButtonOwner({ "meta-agent": true })).toBe("meta-agent");
   });
 
-  it("prefers setup over voice-guide", () => {
-    expect(
-      mergeLedIntents({
-        setup: "pulse",
-        "voice-guide": "on",
-      }),
-    ).toBe("pulse");
-  });
-
-  it("keeps lower-priority intent when higher-priority owner unregisters", () => {
-    expect(
-      mergeLedIntents({
-        "human-input": "on",
-      }),
-    ).toBe("on");
-  });
-
-  it("returns meta-agent intent when alone", () => {
-    expect(mergeLedIntents({ "meta-agent": "pulse" })).toBe("pulse");
-  });
-
-  it("prefers human-input over meta-agent when human-input is competing", () => {
-    expect(
-      mergeLedIntents({
-        "meta-agent": "pulse",
-        "human-input": "pulse",
-      }),
-    ).toBe("pulse");
-  });
-
-  it("lets meta-agent win when human-input is off during warm pre-connect", () => {
-    expect(
-      mergeLedIntents({
-        "meta-agent": "pulse",
-        "human-input": "off",
-      }),
-    ).toBe("pulse");
-  });
-
-  it("prefers setup over meta-agent", () => {
-    expect(
-      mergeLedIntents({
-        "meta-agent": "on",
-        setup: "pulse",
-      }),
-    ).toBe("pulse");
-  });
-
-  it("meta-agent and voice-guide at same priority: last key in iteration wins (deterministic tie-break)", () => {
-    const result = mergeLedIntents({ "meta-agent": "pulse", "voice-guide": "on" });
-    expect(["pulse", "on"]).toContain(result);
+  it("competes with off LED — claim alone determines ownership", () => {
+    const claims: ButtonClaims = { "meta-agent": true, "human-input": true };
+    expect(mergeButtonOwner(claims)).toBe("human-input");
   });
 });
 
-describe("mergePressOwner", () => {
-  it("matches mergeButtonIntentOwner", () => {
-    const intents = {
-      "meta-agent": "pulse" as const,
-      "human-input": "off" as const,
-    };
-    expect(mergePressOwner(intents)).toBe("meta-agent");
-    expect(mergeButtonIntentOwner(intents)).toBe("meta-agent");
+describe("resolveAppliedLedMode", () => {
+  it("returns off when there is no buttonOwner", () => {
+    expect(resolveAppliedLedMode({}, null)).toBe("off");
   });
 
-  it("returns null when no owner is competing", () => {
-    expect(mergePressOwner({ "human-input": "off" })).toBeNull();
+  it("returns the buttonOwner LED preference", () => {
+    const ledModes: ButtonLedModes = { "human-input": "pulse" };
+    expect(resolveAppliedLedMode(ledModes, "human-input")).toBe("pulse");
+  });
+
+  it("returns off when buttonOwner has no LED preference yet", () => {
+    expect(resolveAppliedLedMode({}, "meta-agent")).toBe("off");
+  });
+
+  it("uses winner LED when setup displaces human-input", () => {
+    const ledModes: ButtonLedModes = {
+      "human-input": "on",
+      setup: "pulse",
+    };
+    expect(resolveAppliedLedMode(ledModes, "setup")).toBe("pulse");
+  });
+
+  it("allows buttonOwner with off LED preference", () => {
+    const ledModes: ButtonLedModes = { "meta-agent": "off" };
+    expect(resolveAppliedLedMode(ledModes, "meta-agent")).toBe("off");
   });
 });

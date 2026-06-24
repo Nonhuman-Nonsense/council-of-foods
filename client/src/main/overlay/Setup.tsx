@@ -1,7 +1,8 @@
+import { useEffect } from "react";
 import { useMobile, useMobileXs } from "@/utils";
 import { useTranslation } from "react-i18next";
 import { useCouncilSettings } from "@/settings/useCouncilSettings";
-import { useButtonConnection, useButtonLed } from "@/museum/button/hooks";
+import { useButton, useButtonConnection } from "@/museum/button/hooks";
 import {
   getBridgeAppStatus,
   getBridgeDaemonStatus,
@@ -26,7 +27,18 @@ function Setup(): React.ReactElement {
     useButtonConnection(bridgeButtonActive);
   const bridgeHealth = useButtonBridgeHealth(bridgeButtonActive);
 
-  useButtonLed("setup", "pulse", bridgeButtonActive);
+  const button = useButton("setup");
+  const { claim, release, setLed, pressed } = button;
+
+  // Staff debug page: always hold the button claim; pulse normally, on while pressed.
+  useEffect(() => {
+    claim();
+    return () => release();
+  }, [claim, release]);
+
+  useEffect(() => {
+    setLed(pressed ? "on" : "pulse");
+  }, [setLed, pressed]);
 
   const daemonStatus = getBridgeDaemonStatus(bridgeHealth);
   const appStatus = getBridgeAppStatus(bridgeAvailable, bridgeHealth, bridgeStatus);

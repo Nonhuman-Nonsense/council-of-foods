@@ -1,16 +1,23 @@
 import { create } from "zustand";
 import { isButtonBridgeAvailable } from "./config";
 import { ButtonTransport, type ButtonTransportStatus } from "./transport";
-import { mergeLedIntents, mergePressOwner, type ButtonOwner } from "./buttonIntent";
+import {
+  mergeButtonOwner,
+  resolveAppliedLedMode,
+  type ButtonClaims,
+  type ButtonLedModes,
+  type ButtonOwner,
+} from "./buttonIntent";
 import { getPushToTalk } from "@/settings/councilSettings";
-import { isButtonInputEnabled, type ButtonLedMode } from "./ledMode";
+import type { ButtonLedMode } from "./ledMode";
 
 type ButtonStore = {
   pressed: boolean;
   rawPressed: boolean;
   ledMode: ButtonLedMode;
-  buttonIntents: Partial<Record<ButtonOwner, ButtonLedMode>>;
-  pressOwner: ButtonOwner | null;
+  claims: ButtonClaims;
+  ledModes: ButtonLedModes;
+  buttonOwner: ButtonOwner | null;
   buttonInputEnabled: boolean;
   bridgeStatus: ButtonTransportStatus;
   bridgeError: string | null;
@@ -22,7 +29,9 @@ type ButtonStore = {
   connect: () => Promise<void>;
   disconnect: () => Promise<void>;
   enableAutoReconnect: () => void;
-  registerButtonIntent: (owner: ButtonOwner, mode: ButtonLedMode | null) => void;
+  claimButton: (owner: ButtonOwner) => void;
+  releaseButton: (owner: ButtonOwner) => void;
+  setButtonLed: (owner: ButtonOwner, mode: ButtonLedMode) => void;
   resyncLed: () => Promise<void>;
   init: () => void;
   dispose: () => void;
@@ -54,8 +63,7 @@ function getTransport(
           updates.buttonInputEnabled = false;
         }
         if (status === "connected") {
-          const { ledMode } = get();
-          updates.buttonInputEnabled = isButtonInputEnabled(ledMode);
+          updates.buttonInputEnabled = get().buttonOwner !== null;
         }
         set(updates);
 
@@ -128,12 +136,12 @@ async function applyLedMode(
   get: () => ButtonStore,
   mode: ButtonLedMode,
 ): Promise<void> {
-  const inputEnabled = isButtonInputEnabled(mode);
+  const buttonInputEnabled = get().buttonOwner !== null;
   const updates: Partial<ButtonStore> = {
     ledMode: mode,
-    buttonInputEnabled: inputEnabled,
+    buttonInputEnabled,
   };
-  if (!inputEnabled) {
+  if (!buttonInputEnabled) {
     updates.pressed = false;
   } else if (get().rawPressed) {
     updates.pressed = true;
@@ -149,12 +157,25 @@ async function applyLedMode(
   await getTransport(set, get).setLedMode(mode);
 }
 
+function recomputeButtonRouting(
+  set: (partial: Partial<ButtonStore>) => void,
+  get: () => ButtonStore,
+  claims: ButtonClaims,
+  ledModes: ButtonLedModes,
+): void {
+  const buttonOwner = mergeButtonOwner(claims);
+  const ledMode = resolveAppliedLedMode(ledModes, buttonOwner);
+  set({ claims, ledModes, buttonOwner });
+  void applyLedMode(set, get, ledMode);
+}
+
 export const useButtonStore = create<ButtonStore>((set, get) => ({
   pressed: false,
   rawPressed: false,
   ledMode: "off",
-  buttonIntents: {},
-  pressOwner: null,
+  claims: {},
+  ledModes: {},
+  buttonOwner: null,
   buttonInputEnabled: false,
   bridgeStatus: "disconnected",
   bridgeError: null,
@@ -184,17 +205,26 @@ export const useButtonStore = create<ButtonStore>((set, get) => ({
     getTransport(set, get).enableAutoReconnect();
   },
 
-  registerButtonIntent: (owner, mode) => {
-    const nextIntents = { ...get().buttonIntents };
-    if (mode === null) {
-      delete nextIntents[owner];
-    } else {
-      nextIntents[owner] = mode;
+  claimButton: (owner) => {
+    const claims = { ...get().claims, [owner]: true as const };
+    recomputeButtonRouting(set, get, claims, get().ledModes);
+  },
+
+  releaseButton: (owner) => {
+    const claims = { ...get().claims };
+    delete claims[owner];
+    const ledModes = { ...get().ledModes };
+    delete ledModes[owner];
+    recomputeButtonRouting(set, get, claims, ledModes);
+  },
+
+  setButtonLed: (owner, mode) => {
+    const ledModes = { ...get().ledModes, [owner]: mode };
+    if (get().buttonOwner === owner) {
+      recomputeButtonRouting(set, get, get().claims, ledModes);
+      return;
     }
-    const ledMode = mergeLedIntents(nextIntents);
-    const pressOwner = mergePressOwner(nextIntents);
-    set({ buttonIntents: nextIntents, pressOwner });
-    void applyLedMode(set, get, ledMode);
+    set({ ledModes });
   },
 
   resyncLed: async () => {
@@ -204,12 +234,8 @@ export const useButtonStore = create<ButtonStore>((set, get) => ({
     if (!getTransport(set, get).isSerialDeviceConnected()) {
       return;
     }
-    const { ledMode } = get();
-    if (ledMode === "off") {
-      return;
-    }
-    const inputEnabled = isButtonInputEnabled(ledMode);
-    set({ buttonInputEnabled: inputEnabled });
+    const { ledMode, buttonOwner } = get();
+    set({ buttonInputEnabled: buttonOwner !== null });
     await getTransport(set, get).setLedMode(ledMode);
   },
 
@@ -222,8 +248,9 @@ export const useButtonStore = create<ButtonStore>((set, get) => ({
       pressed: false,
       rawPressed: false,
       ledMode: "off",
-      buttonIntents: {},
-      pressOwner: null,
+      claims: {},
+      ledModes: {},
+      buttonOwner: null,
       buttonInputEnabled: false,
     });
   },
@@ -238,8 +265,9 @@ export function _resetButtonStoreForTests(): void {
     pressed: false,
     rawPressed: false,
     ledMode: "off",
-    buttonIntents: {},
-    pressOwner: null,
+    claims: {},
+    ledModes: {},
+    buttonOwner: null,
     buttonInputEnabled: false,
     bridgeStatus: "disconnected",
     bridgeError: null,

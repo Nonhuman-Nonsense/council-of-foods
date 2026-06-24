@@ -36,8 +36,19 @@ vi.mock('@/museum/button/useBridgeHealth', () => ({
   useButtonBridgeHealth: () => bridgeHealthState,
 }));
 
+const mockClaim = vi.fn();
+const mockRelease = vi.fn();
+const mockSetLed = vi.fn();
+
 vi.mock('@/museum/button/hooks', () => ({
-  useButtonLed: vi.fn(),
+  useButton: () => ({
+    claim: mockClaim,
+    release: mockRelease,
+    setLed: mockSetLed,
+    pressed: false,
+    rawPressed: false,
+    isOwner: false,
+  }),
   useButtonConnection: () => ({
     bridgeStatus: museumButtonState.bridgeStatus,
     bridgeError: museumButtonState.bridgeError,
@@ -127,6 +138,20 @@ describe('Setup overlay', () => {
     expect(screen.getByTestId('setup-button-usb-status')).toHaveTextContent(
       'setup.button.usb.connected',
     );
+  });
+
+  it('claims the button on mount for hardware debugging', () => {
+    mockClaim.mockClear();
+    const { unmount } = render(<Setup />);
+    expect(mockClaim).toHaveBeenCalled();
+    unmount();
+    expect(mockRelease).toHaveBeenCalled();
+  });
+
+  it('sets pulse LED by default and on while pressed', () => {
+    mockSetLed.mockClear();
+    render(<Setup />);
+    expect(mockSetLed).toHaveBeenCalledWith('pulse');
   });
 
   it('shows bridge running and usb not detected when no hardware is plugged in', () => {

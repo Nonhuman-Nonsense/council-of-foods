@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useCallback, useMemo } from "react";
 import type { ButtonTransportStatus } from "./transport";
 import { useButtonStore } from "./buttonStore";
 import type { ButtonLedMode } from "./ledMode";
@@ -9,6 +9,18 @@ export type ButtonConnectionState = {
   bridgeError: string | null;
   bridgeAvailable: boolean;
   serialConnected: boolean;
+};
+
+export type ButtonHandle = {
+  claim: () => void;
+  release: () => void;
+  setLed: (mode: ButtonLedMode) => void;
+  /** Routed press — true only when this owner is buttonOwner and physical press is down. */
+  pressed: boolean;
+  /** Physical press below routing. */
+  rawPressed: boolean;
+  /** Whether this owner won the priority merge right now. */
+  isOwner: boolean;
 };
 
 export function useButtonConnection(active: boolean): ButtonConnectionState {
@@ -26,30 +38,28 @@ export function useButtonConnection(active: boolean): ButtonConnectionState {
   return { bridgeStatus, bridgeError, bridgeAvailable, serialConnected };
 }
 
-/** Routed press: true only when this owner won button intent arbitration. */
-export function useButtonPressed(owner: ButtonOwner): boolean {
-  return useButtonStore((state) => state.pressOwner === owner && state.pressed);
-}
+export function useButton(owner: ButtonOwner): ButtonHandle {
+  const pressed = useButtonStore((state) => state.buttonOwner === owner && state.pressed);
+  const rawPressed = useButtonStore((state) => state.rawPressed);
+  const isOwner = useButtonStore((state) => state.buttonOwner === owner);
 
-export function useButtonPressOwner(): ButtonOwner | null {
-  return useButtonStore((state) => state.pressOwner);
-}
+  const claim = useCallback(() => {
+    useButtonStore.getState().claimButton(owner);
+  }, [owner]);
 
-/** Physical button/keyboard state — below intent routing (e.g. HumanInput pre-warm). */
-export function useRawPressed(active: boolean): boolean {
-  return useButtonStore((state) => (active ? state.rawPressed : false));
-}
+  const release = useCallback(() => {
+    useButtonStore.getState().releaseButton(owner);
+  }, [owner]);
 
-/** Declare desired LED mode for a screen; highest-priority active owner wins. */
-export function useButtonLed(owner: ButtonOwner, mode: ButtonLedMode, active = true): void {
-  useEffect(() => {
-    if (!active) {
-      return;
-    }
+  const setLed = useCallback(
+    (mode: ButtonLedMode) => {
+      useButtonStore.getState().setButtonLed(owner, mode);
+    },
+    [owner],
+  );
 
-    useButtonStore.getState().registerButtonIntent(owner, mode);
-    return () => {
-      useButtonStore.getState().registerButtonIntent(owner, null);
-    };
-  }, [owner, mode, active]);
+  return useMemo(
+    () => ({ claim, release, setLed, pressed, rawPressed, isOwner }),
+    [claim, release, setLed, pressed, rawPressed, isOwner],
+  );
 }

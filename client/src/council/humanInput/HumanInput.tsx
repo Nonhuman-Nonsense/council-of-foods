@@ -15,8 +15,9 @@ import type { RealtimeProvider } from "@shared/RealtimeSessionTypes";
 import React from 'react';
 import micIcon from "@assets/mic.avif";
 import type { ParticipationPhase } from "./participationPhase";
-import { useButtonLed, useRawPressed } from "@/museum/button/hooks";
+import { useButton } from "@/museum/button/hooks";
 import type { ButtonLedMode } from "@/museum/button/ledMode";
+import { useCouncilSettings } from "@/settings/useCouncilSettings";
 
 const MAX_INPUT_LENGTH = 10000;
 const FINISHING_QUIET_MS = 2000;
@@ -159,6 +160,7 @@ type TextareaStyle = Omit<React.CSSProperties, 'height'> & { height?: number };
  *   connection drops (state returns to "idle"). Cleanup on unmount closes everything.
  */
 function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessage, liveKey, isButtonMuseumMode = false }: HumanInputProps): React.ReactElement | null {
+  const { pushToTalkMode } = useCouncilSettings();
   const [connectionState, setConnectionState] = useState<ConnectionState>("idle");
   const [canContinue, setCanContinue] = useState<boolean>(false);
   const [inputValue, setInputValue] = useState<string>("");
@@ -181,20 +183,25 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
   const vizLeftHostRef = useRef<HTMLDivElement>(null);
   const vizRightHostRef = useRef<HTMLDivElement>(null);
 
-  // PTT store subscriptions — skip re-subscribing in non-PTT builds.
-  // rawPressed tracks the physical button state regardless of pttInputEnabled,
-  // which lets us detect a held button even while pre-warming (LED off).
-  const rawPressed = useRawPressed(isButtonMuseumMode);
-
-  const humanInputOwnsButton = isButtonMuseumMode && phase === "active";
+  const button = useButton("human-input");
+  const { claim, release, setLed, rawPressed: buttonRawPressed, pressed: humanInputPress } = button;
+  const rawPressed = pushToTalkMode ? buttonRawPressed : false;
 
   const humanInputLedMode = useMemo((): ButtonLedMode => {
-    if (!humanInputOwnsButton) return "off";
     if (connectionState === "recording") return "on";
     return "pulse";
-  }, [humanInputOwnsButton, connectionState]);
+  }, [connectionState]);
 
-  useButtonLed("human-input", humanInputLedMode, humanInputOwnsButton);
+  useEffect(() => {
+    if (phase !== "active" || !pushToTalkMode) return;
+    claim();
+    return () => release();
+  }, [claim, release, phase, pushToTalkMode]);
+
+  useEffect(() => {
+    if (phase !== "active") return;
+    setLed(humanInputLedMode);
+  }, [setLed, phase, humanInputLedMode]);
 
   // Mirror rawPressed in a ref so the connectionState-change effect can read
   // the current value without taking it as a dependency (avoids double-trigger).
@@ -254,46 +261,45 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
   // ── PTT input ───────────────────────────────────────────────────────────────
 
   // PTT press → start recording (only when active; startRecording guards on "ready")
-  // Uses rawPressed so a press during connecting is captured and can be acted upon
-  // once the connection becomes ready (handled by the auto-start effect below).
+  // rawPressed: held during pre-warm before routed owner is assigned.
+  // humanInputPress: routed press once human-input owns arbitration.
   useEffect(() => {
-    if (!isButtonMuseumMode) return;
-    if (rawPressed && phase === "active") {
+    if (!pushToTalkMode) return;
+    if (phase !== "active") return;
+    if (rawPressed || humanInputPress) {
       startRecording();
     }
-  // startRecording uses refs; phase and rawPressed are the real triggers
+  // startRecording uses refs; phase and press signals are the real triggers
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rawPressed, isButtonMuseumMode, phase]);
+  }, [rawPressed, humanInputPress, pushToTalkMode, phase]);
 
   // PTT release → finish session + schedule auto-submit.
-  // Uses rawPressed so a release is detected even if pressed was never set to
-  // true (which happens when the button was held during a pre-warm connection).
   useEffect(() => {
-    if (!isButtonMuseumMode) return;
-    if (!rawPressed && connectionStateRef.current === "recording") {
+    if (!pushToTalkMode) return;
+    if (!rawPressed && !humanInputPress && connectionStateRef.current === "recording") {
       autoSubmitAfterFinish.current = true;
       finishRealtimeSession();
     }
-  // finishRealtimeSession uses refs; rawPressed is the real trigger
+  // finishRealtimeSession uses refs; press signals are the real trigger
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rawPressed, isButtonMuseumMode]);
+  }, [rawPressed, humanInputPress, pushToTalkMode]);
 
   // Auto-start: if the button is already physically held when the connection
   // transitions from connecting → ready, begin recording immediately without
   // requiring a release-and-repress cycle.
   useEffect(() => {
-    if (!isButtonMuseumMode) return;
+    if (!pushToTalkMode) return;
     if (connectionState === "ready" && phase === "active" && rawPressedRef.current) {
       startRecording();
     }
   // rawPressedRef is intentionally read via ref to avoid double-triggering on
   // normal presses (rawPressed changing is already handled by the effect above)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [connectionState, isButtonMuseumMode, phase]);
+  }, [connectionState, pushToTalkMode, phase]);
 
   // Auto-submit when finishing settles back to ready (after PTT release)
   useEffect(() => {
-    if (!isButtonMuseumMode) return;
+    if (!pushToTalkMode) return;
     if (connectionState === "ready" && autoSubmitAfterFinish.current) {
       autoSubmitAfterFinish.current = false;
       const text = inputValueRef.current.trim();
@@ -307,7 +313,7 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
     }
   // Runs only when connectionState changes; all payload read via stable refs
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [connectionState, isButtonMuseumMode]);
+  }, [connectionState, pushToTalkMode]);
 
   function handleRealtimeEvent(event: HumanInputRealtimeEvent) {
     if (event.type === "conversation.item.input_audio_transcription.delta") {
