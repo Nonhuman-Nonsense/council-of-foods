@@ -1,5 +1,4 @@
-import type { ButtonBridgeHealthState, UsbPortInfo } from "./health";
-import type { ButtonTransportStatus } from "./transport";
+import type { ButtonBridgeHealthState, ButtonTransportStatus, UsbPortInfo } from "@/museum/button/buttonBridge";
 
 export type BridgeDaemonStatus = "checking" | "running" | "notRunning" | "error";
 export type BridgeAppStatus =

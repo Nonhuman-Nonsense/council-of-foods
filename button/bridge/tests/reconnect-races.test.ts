@@ -2,7 +2,7 @@
  * Race-condition coverage: WS vs USB ordering, USB flap while WS stays up, resync timing.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ButtonTransport } from "@/museum/button/transport";
+import { ButtonTransport } from "@/museum/button/buttonBridge";
 import { _resetButtonStoreForTests, useButtonStore } from "@/museum/button/buttonStore";
 import {
   startTestBridge,

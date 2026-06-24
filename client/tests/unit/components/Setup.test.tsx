@@ -32,24 +32,21 @@ vi.mock('@/utils', () => ({
   useMobileXs: () => false,
 }));
 
-vi.mock('@/museum/button/useBridgeHealth', () => ({
-  useButtonBridgeHealth: () => bridgeHealthState,
-}));
-
 const mockClaim = vi.fn();
 const mockRelease = vi.fn();
 const mockSetLed = vi.fn();
 const mockSetLedDebugOverlay = vi.fn();
 const ledDebugState = { enabled: false };
 
-vi.mock('@/museum/button/useButtonLedDebugOverlay', () => ({
+vi.mock('@/museum/button/buttonDebug', () => ({
   useButtonLedDebugOverlay: () => ({
     ledDebugOverlay: ledDebugState.enabled,
     setLedDebugOverlay: mockSetLedDebugOverlay,
   }),
 }));
 
-vi.mock('@/museum/button/hooks', () => ({
+vi.mock('@/museum/button/useButton', () => ({
+  useButtonBridgeHealth: () => bridgeHealthState,
   useButton: () => ({
     claim: mockClaim,
     release: mockRelease,

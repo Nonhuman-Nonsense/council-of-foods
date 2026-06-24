@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, act, screen } from "@testing-library/react";
 import MeetingMetaAgent from "@museum/metaAgent/MeetingMetaAgent";
 import type { MeetingMetaAgentProps } from "@museum/metaAgent/MeetingMetaAgent";
-import type { ButtonOwner } from "@museum/button/buttonIntent";
+import type { ButtonOwner } from "@museum/button/useButton";
 
 const mockClaim = vi.hoisted(() => vi.fn());
 const mockRelease = vi.hoisted(() => vi.fn());
@@ -25,7 +25,7 @@ function setMockButtonOwner(owner: ButtonOwner | null) {
   mockButtonListeners.forEach((l) => l());
 }
 
-vi.mock("@museum/button/hooks", async () => {
+vi.mock("@museum/button/useButton", async () => {
   const React = await import("react");
   return {
     useButton: (owner: ButtonOwner) => {

@@ -15,8 +15,7 @@ import type { RealtimeProvider } from "@shared/RealtimeSessionTypes";
 import React from 'react';
 import micIcon from "@assets/mic.avif";
 import type { ParticipationPhase } from "./participationPhase";
-import { useButton } from "@/museum/button/hooks";
-import type { ButtonLedMode } from "@/museum/button/ledMode";
+import { useButton, type ButtonLedMode } from "@/museum/button/useButton";
 import { useCouncilSettings } from "@/settings/useCouncilSettings";
 
 const MAX_INPUT_LENGTH = 10000;

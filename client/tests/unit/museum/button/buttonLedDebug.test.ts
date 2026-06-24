@@ -4,7 +4,7 @@ import {
   BUTTON_LED_DEBUG_STORAGE_KEY,
   getButtonLedDebugOverlay,
   setButtonLedDebugOverlay,
-} from "@/museum/button/buttonLedDebug";
+} from "@/museum/button/buttonDebug";
 
 describe("buttonLedDebug", () => {
   beforeEach(() => {

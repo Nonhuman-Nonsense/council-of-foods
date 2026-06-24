@@ -35,7 +35,7 @@ vi.mock("@/settings/useCouncilSettings", () => ({
   useCouncilSettings: () => mockUseCouncilSettings(),
 }));
 
-vi.mock("@/museum/button/hooks", () => ({
+vi.mock("@/museum/button/useButton", () => ({
   useButton: () => ({
     claim: mockClaim,
     release: mockRelease,
@@ -121,6 +121,34 @@ describe("MeetingVoiceGuide PTT (regression)", () => {
 
     expect(mockClaim).toHaveBeenCalled();
     expect(mockSetLed).toHaveBeenCalledWith(expect.any(String));
+  });
+
+  it("sets LED pulse when ready and not pressed", () => {
+    render(<MeetingVoiceGuide {...defaultProps} />);
+    expect(mockSetLed).toHaveBeenCalledWith("pulse");
+  });
+
+  it("sets LED on while pressed", () => {
+    mockPressed.value = true;
+    render(<MeetingVoiceGuide {...defaultProps} />);
+    expect(mockSetLed).toHaveBeenCalledWith("on");
+  });
+
+  it("sets LED off when voice is connecting", () => {
+    mockUseVoiceGuide.mockReturnValue({
+      isConnecting: true,
+      error: null,
+      lastCaption: null,
+      lastUserTranscript: null,
+      muted: false,
+      setMuted: vi.fn(),
+      start: vi.fn(),
+      stop: vi.fn(),
+      sendUserMessage: vi.fn(),
+    });
+
+    render(<MeetingVoiceGuide {...defaultProps} />);
+    expect(mockSetLed).toHaveBeenCalledWith("off");
   });
 
   it("does not claim the button when push-to-talk is off", () => {

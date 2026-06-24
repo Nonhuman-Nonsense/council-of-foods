@@ -1,9 +1,8 @@
 import { useEffect } from "react";
-import { isButtonBridgeAvailable } from "./config";
+import { isButtonBridgeAvailable } from "./buttonBridge";
 import { useCouncilSettings } from "@/settings/useCouncilSettings";
 import { useButtonStore } from "./buttonStore";
-import { useButtonLedDebugOverlay } from "./useButtonLedDebugOverlay";
-import ButtonLedDebugOverlay from "./ButtonLedDebugOverlay";
+import ButtonLedDebugOverlay, { useButtonLedDebugOverlay } from "./buttonDebug";
 
 /**
  * Push-to-talk button lifecycle: keyboard (Space) when PTT is enabled in any

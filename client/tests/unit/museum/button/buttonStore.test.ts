@@ -16,7 +16,8 @@ const transport = vi.hoisted(() => ({
   isSerialDeviceConnected: vi.fn().mockReturnValue(true),
 }));
 
-vi.mock("@/museum/button/transport", () => ({
+vi.mock("@/museum/button/buttonBridge", () => ({
+  isButtonBridgeAvailable: () => true,
   ButtonTransport: class MockButtonTransport {
     constructor(callbacks: {
       onStatus?: (status: string, error?: string | null) => void;

@@ -1,8 +1,16 @@
-import { useCallback, useMemo } from "react";
-import type { ButtonTransportStatus } from "./transport";
-import { useButtonStore } from "./buttonStore";
-import type { ButtonLedMode } from "./ledMode";
-import type { ButtonOwner } from "./buttonIntent";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  fetchButtonBridgeHealth,
+  type ButtonBridgeHealthState,
+  type ButtonTransportStatus,
+} from "./buttonBridge";
+import {
+  useButtonStore,
+  type ButtonLedMode,
+  type ButtonOwner,
+} from "./buttonStore";
+
+export type { ButtonLedMode, ButtonOwner };
 
 export type ButtonConnectionState = {
   bridgeStatus: ButtonTransportStatus;
@@ -36,6 +44,38 @@ export function useButtonConnection(active: boolean): ButtonConnectionState {
   );
 
   return { bridgeStatus, bridgeError, bridgeAvailable, serialConnected };
+}
+
+export function useButtonBridgeHealth(enabled: boolean): ButtonBridgeHealthState {
+  const [health, setHealth] = useState<ButtonBridgeHealthState>({ status: "checking" });
+
+  useEffect(() => {
+    if (!enabled) {
+      setHealth({ status: "not_running" });
+      return;
+    }
+
+    let cancelled = false;
+
+    async function poll(): Promise<void> {
+      const next = await fetchButtonBridgeHealth();
+      if (!cancelled) {
+        setHealth(next);
+      }
+    }
+
+    void poll();
+    const timer = window.setInterval(() => {
+      void poll();
+    }, 3000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [enabled]);
+
+  return health;
 }
 
 export function useButton(owner: ButtonOwner): ButtonHandle {

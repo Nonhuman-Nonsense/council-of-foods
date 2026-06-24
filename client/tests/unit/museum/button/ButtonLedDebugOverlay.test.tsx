@@ -1,6 +1,6 @@
 import { describe, expect, it, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
-import ButtonLedDebugOverlay from "@/museum/button/ButtonLedDebugOverlay";
+import ButtonLedDebugOverlay from "@/museum/button/buttonDebug";
 import { _resetButtonStoreForTests, useButtonStore } from "@/museum/button/buttonStore";
 import "@testing-library/jest-dom";
 

@@ -16,21 +16,18 @@ vi.mock("@/museum/button/buttonStore", () => ({
   },
 }));
 
-vi.mock("@/museum/button/config", () => ({
+vi.mock("@/museum/button/buttonBridge", () => ({
   isButtonBridgeAvailable: vi.fn(() => true),
 }));
 
 const ledDebugState = vi.hoisted(() => ({ enabled: false }));
 
-vi.mock("@/museum/button/useButtonLedDebugOverlay", () => ({
+vi.mock("@/museum/button/buttonDebug", () => ({
+  default: () => <div data-testid="button-led-debug-overlay" />,
   useButtonLedDebugOverlay: () => ({
     ledDebugOverlay: ledDebugState.enabled,
     setLedDebugOverlay: vi.fn(),
   }),
-}));
-
-vi.mock("@/museum/button/ButtonLedDebugOverlay", () => ({
-  default: () => <div data-testid="button-led-debug-overlay" />,
 }));
 
 describe("MuseumButtonProvider", () => {

@@ -7,7 +7,8 @@ const transport = vi.hoisted(() => ({
   isSerialDeviceConnected: vi.fn().mockReturnValue(true),
 }));
 
-vi.mock("@/museum/button/transport", () => ({
+vi.mock("@/museum/button/buttonBridge", () => ({
+  isButtonBridgeAvailable: () => true,
   ButtonTransport: class MockButtonTransport {
     setLedMode = transport.setLedMode;
     isSerialDeviceConnected = transport.isSerialDeviceConnected;
@@ -30,7 +31,7 @@ describe("useButton", () => {
   });
 
   it("claim registers owner and release clears on unmount", async () => {
-    const { useButton } = await import("@/museum/button/hooks");
+    const { useButton } = await import("@/museum/button/useButton");
 
     const { result, unmount } = renderHook(() => useButton("human-input"));
 
@@ -50,7 +51,7 @@ describe("useButton", () => {
   });
 
   it("routes pressed only to the winning owner", async () => {
-    const { useButton } = await import("@/museum/button/hooks");
+    const { useButton } = await import("@/museum/button/useButton");
 
     const { result: meta } = renderHook(() => useButton("meta-agent"));
     const { result: human } = renderHook(() => useButton("human-input"));
@@ -67,7 +68,7 @@ describe("useButton", () => {
   });
 
   it("enables routing when owner claims with off LED", async () => {
-    const { useButton } = await import("@/museum/button/hooks");
+    const { useButton } = await import("@/museum/button/useButton");
 
     const { result } = renderHook(() => useButton("meta-agent"));
     result.current.claim();

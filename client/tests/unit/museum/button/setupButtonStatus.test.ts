@@ -4,7 +4,7 @@ import {
   getBridgeDaemonStatus,
   getSetupBridgeDetailLines,
   getUsbButtonStatus,
-} from "@/museum/button/setupButtonStatus";
+} from "@/main/overlay/setupButtonStatus";
 
 const runningHealth = {
   status: "running" as const,

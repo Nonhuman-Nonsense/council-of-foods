@@ -2,16 +2,19 @@ import { useEffect } from "react";
 import { useMobile, useMobileXs } from "@/utils";
 import { useTranslation } from "react-i18next";
 import { useCouncilSettings } from "@/settings/useCouncilSettings";
-import { useButton, useButtonConnection } from "@/museum/button/hooks";
+import {
+  useButton,
+  useButtonConnection,
+  useButtonBridgeHealth,
+} from "@/museum/button/useButton";
 import {
   getBridgeAppStatus,
   getBridgeDaemonStatus,
   getSetupBridgeDetailLines,
   getSetupBridgeLogHint,
   getUsbButtonStatus,
-} from "@/museum/button/setupButtonStatus";
-import { useButtonBridgeHealth } from "@/museum/button/useBridgeHealth";
-import { useButtonLedDebugOverlay } from "@/museum/button/useButtonLedDebugOverlay";
+} from "@/main/overlay/setupButtonStatus";
+import { useButtonLedDebugOverlay } from "@/museum/button/buttonDebug";
 
 /**
  * Setup Overlay

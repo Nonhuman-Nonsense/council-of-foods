@@ -75,7 +75,7 @@ vi.mock('@/museum/button/buttonStore', () => ({
     useButtonStore: (selector) => selector(mockButtonState),
 }));
 
-vi.mock('@/museum/button/hooks', async () => {
+vi.mock('@/museum/button/useButton', async () => {
     const React = await import('react');
     return {
         useButton: (owner) => {

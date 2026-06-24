@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
-import { fetchButtonBridgeHealth } from "@/museum/button/health";
+import { fetchButtonBridgeHealth } from "@/museum/button/buttonBridge";
 
 describe("useButtonBridgeHealth integration", () => {
   beforeEach(() => {

@@ -5,14 +5,112 @@ import {
   parseButtonLine,
   type ParsedButtonLine,
 } from "@shared/buttonProtocol";
-import {
-  BUTTON_CONNECT_TIMEOUT_MS,
-  BUTTON_RECONNECT_BASE_MS,
-  BUTTON_RECONNECT_MAX_MS,
-  BUTTON_WATCHDOG_INTERVAL_MS,
-  getButtonBridgeWsUrl,
-} from "./config";
-import type { ButtonLedMode } from "./ledMode";
+
+// --- config ---
+
+export const DEFAULT_BUTTON_BRIDGE_WS_URL = "ws://127.0.0.1:8765/v1/button";
+export const DEFAULT_BUTTON_BRIDGE_HEALTH_URL = "http://127.0.0.1:8765/health";
+
+/** Mirrors bridge env BUTTON_RECONNECT_BASE_MS / BUTTON_RECONNECT_MAX_MS defaults. */
+export const BUTTON_RECONNECT_BASE_MS = 500;
+export const BUTTON_RECONNECT_MAX_MS = 10_000;
+export const BUTTON_CONNECT_TIMEOUT_MS = 5_000;
+export const BUTTON_WATCHDOG_INTERVAL_MS = 2_500;
+
+const BRIDGE_URL_STORAGE_KEY = "councilButtonBridgeUrl";
+
+export function getButtonBridgeWsUrl(): string {
+  try {
+    const override = localStorage.getItem(BRIDGE_URL_STORAGE_KEY);
+    if (override?.trim()) {
+      return override.trim();
+    }
+  } catch {
+    // ignore
+  }
+  return DEFAULT_BUTTON_BRIDGE_WS_URL;
+}
+
+export function isButtonBridgeAvailable(): boolean {
+  return typeof WebSocket !== "undefined";
+}
+
+// --- health ---
+
+export type UsbPortInfo = {
+  path: string;
+  vendorId?: string;
+  productId?: string;
+};
+
+export type SerialDetail =
+  | "connected"
+  | "no_device"
+  | "probe_failed"
+  | "probing"
+  | "shutdown";
+
+export type ButtonBridgeHealthState =
+  | { status: "checking" }
+  | {
+      status: "running";
+      serial: "connected" | "disconnected" | "probing";
+      path: string | null;
+      version: string;
+      serialDetail: SerialDetail;
+      serialMessage: string;
+      expectedVendorId: string | null;
+      scannedPorts: UsbPortInfo[];
+    }
+  | { status: "not_running" }
+  | { status: "error"; message: string };
+
+type ButtonBridgeHealthResponse = {
+  ok?: boolean;
+  serial?: string;
+  path?: string | null;
+  version?: string;
+  serialDetail?: SerialDetail;
+  serialMessage?: string;
+  expectedVendorId?: string | null;
+  scannedPorts?: UsbPortInfo[];
+};
+
+function normalizeSerialState(
+  value: string | undefined,
+): "connected" | "disconnected" | "probing" {
+  if (value === "connected" || value === "probing") return value;
+  return "disconnected";
+}
+
+export async function fetchButtonBridgeHealth(
+  url = DEFAULT_BUTTON_BRIDGE_HEALTH_URL,
+): Promise<ButtonBridgeHealthState> {
+  try {
+    const response = await fetch(url, { signal: AbortSignal.timeout(2000) });
+    if (!response.ok) {
+      return { status: "error", message: `HTTP ${response.status}` };
+    }
+    const body = (await response.json()) as ButtonBridgeHealthResponse;
+    if (!body.ok) {
+      return { status: "error", message: "Bridge health not ok" };
+    }
+    return {
+      status: "running",
+      serial: normalizeSerialState(body.serial),
+      path: body.path ?? null,
+      version: body.version ?? "unknown",
+      serialDetail: body.serialDetail ?? "shutdown",
+      serialMessage: body.serialMessage ?? "",
+      expectedVendorId: body.expectedVendorId ?? null,
+      scannedPorts: body.scannedPorts ?? [],
+    };
+  } catch {
+    return { status: "not_running" };
+  }
+}
+
+// --- transport ---
 
 export type ButtonTransportStatus = "disconnected" | "connecting" | "connected" | "error";
 
@@ -27,6 +125,8 @@ type BridgeServerMessage =
   | { type: "info"; version: string }
   | { type: "status"; state: "connected" | "disconnected"; path?: string; error?: string }
   | { type: "line"; text: string };
+
+type ButtonLedWireMode = "off" | "pulse" | "on";
 
 function parseServerMessage(raw: string): BridgeServerMessage | null {
   try {
@@ -417,7 +517,7 @@ export class ButtonTransport {
     return next;
   }
 
-  async setLedMode(mode: ButtonLedMode): Promise<void> {
+  async setLedMode(mode: ButtonLedWireMode): Promise<void> {
     const command = mode === "on" ? LED_ON : mode === "pulse" ? LED_PULSE : LED_OFF;
     await this.sendCommand(command);
   }

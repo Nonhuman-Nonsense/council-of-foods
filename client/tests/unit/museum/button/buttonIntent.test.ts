@@ -4,7 +4,7 @@ import {
   resolveAppliedLedMode,
   type ButtonClaims,
   type ButtonLedModes,
-} from "@/museum/button/buttonIntent";
+} from "@/museum/button/buttonStore";
 
 describe("mergeButtonOwner", () => {
   it("returns null when no claims are registered", () => {

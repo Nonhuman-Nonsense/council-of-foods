@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef } from "react";
-import { useButton } from "@museum/button/hooks";
+import { useButton, type ButtonLedMode } from "@museum/button/useButton";
 import { useHoldToSpeakHint } from "@voice/useHoldToSpeakHint";
 import RealtimeCaptionOverlay from "@realtime/RealtimeCaptionOverlay";
 import { useMetaAgent } from "./useMetaAgent";
@@ -11,7 +11,6 @@ import {
 import type { ParticipationPhase } from "@council/humanInput/participationPhase";
 import type { CouncilState } from "@council/hooks/useCouncilMachine";
 import type { Character, Topic } from "@shared/ModelTypes";
-import type { ButtonLedMode } from "@museum/button/ledMode";
 
 export interface MeetingMetaAgentProps {
   liveKey: string;

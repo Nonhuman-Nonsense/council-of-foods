@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, render } from "@testing-library/react";
 import { useEffect } from "react";
-import { useButton } from "@/museum/button/hooks";
+import { useButton } from "@/museum/button/useButton";
 import { _resetButtonStoreForTests, useButtonStore } from "@/museum/button/buttonStore";
 
 const transport = vi.hoisted(() => ({
@@ -9,7 +9,8 @@ const transport = vi.hoisted(() => ({
   isSerialDeviceConnected: vi.fn().mockReturnValue(true),
 }));
 
-vi.mock("@/museum/button/transport", () => ({
+vi.mock("@/museum/button/buttonBridge", () => ({
+  isButtonBridgeAvailable: () => true,
   ButtonTransport: class MockButtonTransport {
     setLedMode = transport.setLedMode;
     isSerialDeviceConnected = transport.isSerialDeviceConnected;
