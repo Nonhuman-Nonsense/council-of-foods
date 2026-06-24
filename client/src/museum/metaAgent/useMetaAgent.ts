@@ -20,7 +20,12 @@ export type UseMetaAgentResult = {
   error: string | null;
   lastCaption: string | null;
   lastUserTranscript: string | null;
-  /** True between `response.created` and `response.done` for the meta-agent voice. */
+  /**
+   * True while the meta-agent is producing a voice response.
+   * TODO: Today this follows response.created → response.done (generation end), not
+   * remote playback end. Refine here (e.g. remote audio analyser) when idle/resume
+   * timing needs to track speaker output precisely.
+   */
   agentSpeaking: boolean;
   /** Open or close the mic track (track.enabled). No-op if not yet connected. */
   setMicEnabled: (open: boolean) => void;

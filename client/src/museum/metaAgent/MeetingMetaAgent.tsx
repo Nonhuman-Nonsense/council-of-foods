@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef } from "react";
 import { useButton, type ButtonLedMode } from "@museum/button/useButton";
-import { useHoldToSpeakHint } from "@voice/useHoldToSpeakHint";
+import { BUTTON_IDLE_REMIND_MS, useHoldToSpeakHint } from "@voice/useHoldToSpeakHint";
 import RealtimeCaptionOverlay from "@realtime/RealtimeCaptionOverlay";
 import { useMetaAgent } from "./useMetaAgent";
 import { buildMetaAgentPrompt, buildMetaAgentStateSnapshot } from "./metaAgentPrompt";
@@ -107,7 +107,7 @@ export default function MeetingMetaAgent({
     setLed(ledMode);
   }, [setLed, ledMode]);
 
-  const showHoldToSpeakHint = useHoldToSpeakHint({
+  const { showHoldToSpeakHint, idleRemindVisible } = useHoldToSpeakHint({
     pushToTalkMode: true,
     sessionActive: metaAgentActive,
     isConnecting: connectionState === "connecting",
@@ -179,6 +179,43 @@ export default function MeetingMetaAgent({
       setMicEnabled(false);
     }
   }, [metaAgentActive, setMicEnabled]);
+
+  const idleResumeFiredRef = useRef(false);
+
+  useEffect(() => {
+    if (metaAgentActive) return;
+    idleResumeFiredRef.current = false;
+  }, [metaAgentActive]);
+
+  useEffect(() => {
+    if (!idleRemindVisible) {
+      idleResumeFiredRef.current = false;
+    }
+  }, [idleRemindVisible]);
+
+  // Auto-resume 10s after the idle PTT reminder appears (not while agent or visitor is active).
+  useEffect(() => {
+    if (!metaAgentActive || connectionState !== "ready") return;
+    if (!idleRemindVisible) return;
+    if (idleResumeFiredRef.current) return;
+    if (agentSpeaking || pressed) return;
+
+    const timerId = window.setTimeout(() => {
+      if (idleResumeFiredRef.current) return;
+      if (agentSpeaking || pressed) return;
+      idleResumeFiredRef.current = true;
+      toolHandlers.resume_meeting({});
+    }, BUTTON_IDLE_REMIND_MS);
+
+    return () => window.clearTimeout(timerId);
+  }, [
+    metaAgentActive,
+    connectionState,
+    idleRemindVisible,
+    agentSpeaking,
+    pressed,
+    toolHandlers,
+  ]);
 
   if (!metaAgentActive) return null;
 

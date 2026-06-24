@@ -119,7 +119,7 @@ export default function MeetingVoiceGuide({
   const showMuseumLandingLoading =
     isMuseumMode && phase === "landing" && !muted && voice.isConnecting;
 
-  const showHoldToSpeakHint = useHoldToSpeakHint({
+  const { showHoldToSpeakHint } = useHoldToSpeakHint({
     pushToTalkMode,
     sessionActive: !muted,
     isConnecting: voice.isConnecting,

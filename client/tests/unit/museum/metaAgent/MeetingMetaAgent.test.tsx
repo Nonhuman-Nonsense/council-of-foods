@@ -1,9 +1,25 @@
 import React from "react";
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, act, screen } from "@testing-library/react";
 import MeetingMetaAgent from "@museum/metaAgent/MeetingMetaAgent";
 import type { MeetingMetaAgentProps } from "@museum/metaAgent/MeetingMetaAgent";
 import type { ButtonOwner } from "@museum/button/useButton";
+import { BUTTON_IDLE_REMIND_MS } from "@voice/useHoldToSpeakHint";
+
+const mockHoldToSpeakHint = vi.hoisted(() => ({
+  showHoldToSpeakHint: false,
+  idleRemindVisible: false,
+}));
+
+vi.mock("@voice/useHoldToSpeakHint", async () => {
+  const actual = await vi.importActual<typeof import("@voice/useHoldToSpeakHint")>(
+    "@voice/useHoldToSpeakHint",
+  );
+  return {
+    ...actual,
+    useHoldToSpeakHint: () => mockHoldToSpeakHint,
+  };
+});
 
 const mockClaim = vi.hoisted(() => vi.fn());
 const mockRelease = vi.hoisted(() => vi.fn());
@@ -59,12 +75,20 @@ const mockSetMicEnabled = vi.hoisted(() => vi.fn());
 const mockSendUserMessage = vi.hoisted(() => vi.fn());
 const mockSetAgentOutputMuted = vi.hoisted(() => vi.fn());
 
+const mockMetaAgentState = vi.hoisted(() => ({
+  connectionState: "ready" as "idle" | "connecting" | "ready" | "error",
+  agentSpeaking: false,
+  lastCaption: "Agent reply" as string | null,
+  lastUserTranscript: "Visitor question" as string | null,
+}));
+
 vi.mock("@museum/metaAgent/useMetaAgent", () => ({
   useMetaAgent: () => ({
-    connectionState: "ready",
+    connectionState: mockMetaAgentState.connectionState,
     error: null,
-    lastCaption: "Agent reply",
-    lastUserTranscript: "Visitor question",
+    lastCaption: mockMetaAgentState.lastCaption,
+    lastUserTranscript: mockMetaAgentState.lastUserTranscript,
+    agentSpeaking: mockMetaAgentState.agentSpeaking,
     setMicEnabled: mockSetMicEnabled,
     sendUserMessage: mockSendUserMessage,
     setAgentOutputMuted: mockSetAgentOutputMuted,
@@ -112,12 +136,18 @@ beforeEach(() => {
   mockButtonState.pressed = false;
   mockButtonState.buttonOwner = "meta-agent";
   mockButtonListeners.clear();
+  mockMetaAgentState.connectionState = "ready";
+  mockMetaAgentState.agentSpeaking = false;
+  mockMetaAgentState.lastCaption = "Agent reply";
+  mockMetaAgentState.lastUserTranscript = "Visitor question";
   mockSetMicEnabled.mockClear();
   mockSendUserMessage.mockClear();
   mockSetAgentOutputMuted.mockClear();
   mockClaim.mockClear();
   mockRelease.mockClear();
   mockSetLed.mockClear();
+  mockHoldToSpeakHint.showHoldToSpeakHint = false;
+  mockHoldToSpeakHint.idleRemindVisible = false;
 });
 
 describe("MeetingMetaAgent", () => {
@@ -250,5 +280,175 @@ describe("MeetingMetaAgent", () => {
 
     act(() => setMockPressed(false));
     expect(mockSetMicEnabled).toHaveBeenCalledWith(false);
+  });
+
+  describe("idle auto-resume", () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("resumes the meeting 10s after the idle PTT reminder is shown", () => {
+      const setMeetingPlaybackPaused = vi.fn();
+      const setMetaAgentActive = vi.fn();
+      mockHoldToSpeakHint.idleRemindVisible = true;
+
+      render(
+        <MeetingMetaAgent
+          {...makeProps({
+            metaAgentActive: true,
+            setMeetingPlaybackPaused,
+            setMetaAgentActive,
+          })}
+        />,
+      );
+
+      act(() => {
+        vi.advanceTimersByTime(BUTTON_IDLE_REMIND_MS - 1);
+      });
+      expect(setMetaAgentActive).not.toHaveBeenCalled();
+
+      act(() => {
+        vi.advanceTimersByTime(1);
+      });
+
+      expect(setMetaAgentActive).toHaveBeenCalledWith(false);
+      expect(setMeetingPlaybackPaused).toHaveBeenCalledWith(false);
+      expect(mockSetAgentOutputMuted).toHaveBeenCalledWith(true);
+    });
+
+    it("does not resume before the idle PTT reminder appears", () => {
+      const setMetaAgentActive = vi.fn();
+      mockHoldToSpeakHint.idleRemindVisible = false;
+
+      render(
+        <MeetingMetaAgent
+          {...makeProps({
+            metaAgentActive: true,
+            setMetaAgentActive,
+          })}
+        />,
+      );
+
+      act(() => {
+        vi.advanceTimersByTime(BUTTON_IDLE_REMIND_MS * 2);
+      });
+
+      expect(setMetaAgentActive).not.toHaveBeenCalled();
+    });
+
+    it("does not resume while the agent is speaking", () => {
+      const setMetaAgentActive = vi.fn();
+      mockMetaAgentState.agentSpeaking = true;
+      mockHoldToSpeakHint.idleRemindVisible = true;
+
+      render(
+        <MeetingMetaAgent
+          {...makeProps({
+            metaAgentActive: true,
+            setMetaAgentActive,
+          })}
+        />,
+      );
+
+      act(() => {
+        vi.advanceTimersByTime(BUTTON_IDLE_REMIND_MS + 300);
+      });
+
+      expect(setMetaAgentActive).not.toHaveBeenCalled();
+    });
+
+    it("cancels resume when the idle reminder is dismissed before timeout", () => {
+      const setMetaAgentActive = vi.fn();
+      mockHoldToSpeakHint.idleRemindVisible = true;
+
+      const { rerender } = render(
+        <MeetingMetaAgent
+          {...makeProps({
+            metaAgentActive: true,
+            setMetaAgentActive,
+          })}
+        />,
+      );
+
+      act(() => {
+        vi.advanceTimersByTime(5_000);
+      });
+
+      mockHoldToSpeakHint.idleRemindVisible = false;
+      rerender(
+        <MeetingMetaAgent
+          {...makeProps({
+            metaAgentActive: true,
+            setMetaAgentActive,
+          })}
+        />,
+      );
+
+      act(() => {
+        vi.advanceTimersByTime(BUTTON_IDLE_REMIND_MS);
+      });
+
+      expect(setMetaAgentActive).not.toHaveBeenCalled();
+    });
+
+    it("does not resume while the visitor holds the button", () => {
+      const setMetaAgentActive = vi.fn();
+      mockHoldToSpeakHint.idleRemindVisible = true;
+
+      render(
+        <MeetingMetaAgent
+          {...makeProps({
+            metaAgentActive: true,
+            setMetaAgentActive,
+          })}
+        />,
+      );
+
+      act(() => setMockPressed(true));
+
+      act(() => {
+        vi.advanceTimersByTime(BUTTON_IDLE_REMIND_MS + 300);
+      });
+
+      expect(setMetaAgentActive).not.toHaveBeenCalled();
+    });
+
+    it("does not resume after deactivating before the timeout", () => {
+      const setMetaAgentActive = vi.fn();
+      mockHoldToSpeakHint.idleRemindVisible = true;
+
+      const { rerender } = render(
+        <MeetingMetaAgent
+          {...makeProps({
+            metaAgentActive: true,
+            setMetaAgentActive,
+          })}
+        />,
+      );
+
+      act(() => {
+        vi.advanceTimersByTime(5_000);
+      });
+
+      mockHoldToSpeakHint.idleRemindVisible = false;
+      rerender(
+        <MeetingMetaAgent
+          {...makeProps({
+            metaAgentActive: false,
+            setMetaAgentActive,
+          })}
+        />,
+      );
+
+      act(() => {
+        vi.advanceTimersByTime(BUTTON_IDLE_REMIND_MS);
+      });
+
+      expect(setMetaAgentActive).not.toHaveBeenCalled();
+    });
   });
 });
