@@ -10,7 +10,7 @@ glue. Also covers meeting freeze/resume, chair animation, and silence after
 > context. Button intent routing is documented in code (`buttonIntent.ts`) and
 > [ptt-human-input-routing-plan.md](./ptt-human-input-routing-plan.md).
 
-**Status:** Phases **0–5a** complete on Foods; **3b** + **4** complete on Forest. **Phase 5b** landed on Foods. **Next:** merge 5a/5b to Forest; manual regression checklist. Implement **one phase at a time**.
+**Status:** Phases **0–5b** complete on Foods; **3b** + **4** complete on Forest. **Next:** merge 5a/5b to Forest, then manual regression checklist. Implement **one phase at a time**.
 
 ---
 
@@ -344,12 +344,24 @@ Phase 0 ──► Phase 1 ──► Phase 2 ──► Phase 3 ──► Phase 4 
 
 ---
 
+## Next / TODO
+
+| Priority | Task | Notes |
+|----------|------|-------|
+| Now | **Merge 5a/5b to Forest** | Shared `useRealtimeVoiceSession`, thin `useMetaAgent` / `useVoiceGuide`, mic via `track.enabled` |
+| After merge | **Manual regression** | Full checklist below (voice guide + meta agent + freeze/resume + chair animation) |
+| Later | **Bootstrap retry + clearer errors** | Meta-agent bootstrap failed with `UND_ERR_CONNECT_TIMEOUT` (server → Inworld ICE fetch). Likely flaky network, not a client regression. Improve `withNetworkRetry` (include connect timeout), server logging (log target URL + `error.cause`), and optional client-side retry/backoff on bootstrap failure |
+
+---
+
 ## Deferred (not v1)
 
+- **Realtime bootstrap resilience** — retry `UND_ERR_CONNECT_TIMEOUT` / connect flakes; richer server logs; client retry UX for meta-agent and voice guide (see TODO table above)
 - RMS / `remoteAudioAnchor` for tighter speak-sync and caption audio anchor on meta agent
 - `useButtonLed` rename / `MuseumButtonProvider` rename
 - Merging `MeetingMetaAgent` and `MeetingVoiceGuide` into one component
 - Always-on meta agent (non-PTT)
+- Lazy meta-agent WebRTC connect (bootstrap only when `metaAgentActive`) — trade warm latency for fewer spurious errors on meeting load
 
 ---
 
@@ -393,3 +405,4 @@ Run after Phase 3+ before merging large PRs; abbreviated after smaller phases.
 | 2026-06-23 | Phases 0–4 + 3b complete; Phase 4 `isPerforming` model; Forest river backdrop note |
 | 2026-06-23 | Phase 5a: `useRealtimeVoiceSession` + thin `useMetaAgent` on Foods |
 | 2026-06-23 | Phase 5b: `useVoiceGuide` migrated to shared hook on Foods |
+| 2026-06-23 | Meta-agent bootstrap timeout observed (`ConnectTimeoutError` on Inworld ICE fetch); retry/error UX deferred; merge 5a/5b to Forest next |
