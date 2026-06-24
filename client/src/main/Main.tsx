@@ -33,7 +33,7 @@ import CouncilError from "./overlay/CouncilError";
 import Reconnecting from "./overlay/Reconnecting";
 import { lazy, Suspense } from "react";
 
-const MuseumButtonProvider = lazy(() => import("@/museum/button/MuseumButtonProvider"));
+const MuseumButton = lazy(() => import("@/museum/button/MuseumButton"));
 
 import routes from "@/routes.json";
 import { backgroundImageUrls } from "@assets/backgrounds/index";
@@ -172,7 +172,7 @@ export default function Main(props: MainProps) {
     <>
       {pushToTalkMode && (
         <Suspense fallback={null}>
-          <MuseumButtonProvider />
+          <MuseumButton />
         </Suspense>
       )}
       <Background pathname={location.pathname} />

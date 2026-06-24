@@ -8,7 +8,7 @@ import ButtonLedDebugOverlay, { useButtonLedDebugOverlay } from "./buttonDebug";
  * Push-to-talk button lifecycle: keyboard (Space) when PTT is enabled in any
  * app mode; hardware bridge only in museum mode when the bridge is available.
  */
-export default function MuseumButtonProvider(): React.ReactElement | null {
+export default function MuseumButton(): React.ReactElement | null {
   const { isMuseumMode, pushToTalkMode } = useCouncilSettings();
   const { ledDebugOverlay } = useButtonLedDebugOverlay();
   const bridgeActive = isMuseumMode && pushToTalkMode && isButtonBridgeAvailable();

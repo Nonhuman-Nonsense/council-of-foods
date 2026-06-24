@@ -30,7 +30,7 @@ vi.mock("@/museum/button/buttonDebug", () => ({
   }),
 }));
 
-describe("MuseumButtonProvider", () => {
+describe("MuseumButton", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
@@ -44,8 +44,8 @@ describe("MuseumButtonProvider", () => {
   });
 
   async function renderProvider(): Promise<void> {
-    const { default: MuseumButtonProvider } = await import("@/museum/button/MuseumButtonProvider");
-    render(<MuseumButtonProvider />);
+    const { default: MuseumButton } = await import("@/museum/button/MuseumButton");
+    render(<MuseumButton />);
   }
 
   it("initializes keyboard and connects when museum push-to-talk is active", async () => {
@@ -89,8 +89,8 @@ describe("MuseumButtonProvider", () => {
   });
 
   it("disconnects on unmount", async () => {
-    const { default: MuseumButtonProvider } = await import("@/museum/button/MuseumButtonProvider");
-    const { unmount } = render(<MuseumButtonProvider />);
+    const { default: MuseumButton } = await import("@/museum/button/MuseumButton");
+    const { unmount } = render(<MuseumButton />);
     vi.clearAllMocks();
 
     unmount();
@@ -120,8 +120,8 @@ describe("MuseumButtonProvider", () => {
   it("renders LED debug overlay when flag is enabled", async () => {
     ledDebugState.enabled = true;
 
-    const { default: MuseumButtonProvider } = await import("@/museum/button/MuseumButtonProvider");
-    const { getByTestId } = render(<MuseumButtonProvider />);
+    const { default: MuseumButton } = await import("@/museum/button/MuseumButton");
+    const { getByTestId } = render(<MuseumButton />);
 
     expect(getByTestId("button-led-debug-overlay")).toBeInTheDocument();
   });
