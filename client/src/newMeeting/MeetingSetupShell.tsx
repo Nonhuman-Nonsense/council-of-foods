@@ -50,7 +50,7 @@ export default function MeetingSetupShell({
     if (isRootPath(location.pathname)) {
       setStep("topic");
       setLastUserEvent(null);
-      useMeetingSetupStore.getState().setVisitorName("");
+      useMeetingSetupStore.getState().resetStore();
     }
   }, [location.pathname]);
 

@@ -15,6 +15,7 @@ import Landing from "@newMeeting/Landing";
 import Navbar from "./Navbar";
 import type { Topic } from "@shared/ModelTypes";
 import { buildTopicFromSelection } from "@newMeeting/meetingSetup";
+import { useMeetingSetupStore } from "@newMeeting/meetingSetupStore";
 import MeetingSetupShell from "@newMeeting/MeetingSetupShell";
 import NewMeeting from "@newMeeting/NewMeeting";
 import Council from "@council/Council";
@@ -135,11 +136,13 @@ export default function Main(props: MainProps) {
   function onReset(resetTopic?: Topic) {
     //If resetting completely
     if (!resetTopic) {
+      useMeetingSetupStore.getState().resetStore();
       window.location.href = rootPath;
       return;
     }
 
     //If resetting to a specific topic
+    useMeetingSetupStore.getState().resetStore();
     setTopicSelection(resetTopic);
 
     navigate({

@@ -129,18 +129,23 @@ describe("MeetingMetaAgent", () => {
 
   it("registers LED intent with meta-agent owner in standby", () => {
     render(<MeetingMetaAgent {...makeProps()} />);
-    expect(mockUseButtonLed).toHaveBeenCalledWith("meta-agent", "pulse");
+    expect(mockUseButtonLed).toHaveBeenCalledWith("meta-agent", "pulse", true);
+  });
+
+  it("does not register LED intent during human-input active phase", () => {
+    render(<MeetingMetaAgent {...makeProps({ participationPhase: "active" })} />);
+    expect(mockUseButtonLed).toHaveBeenCalledWith("meta-agent", "pulse", false);
   });
 
   it("shows LED on while active and pressed", () => {
     render(<MeetingMetaAgent {...makeProps({ metaAgentActive: true })} />);
     act(() => setMockPressed(true));
-    expect(mockUseButtonLed).toHaveBeenCalledWith("meta-agent", "on");
+    expect(mockUseButtonLed).toHaveBeenCalledWith("meta-agent", "on", true);
   });
 
   it("still registers LED intent during warm phase", () => {
     render(<MeetingMetaAgent {...makeProps({ participationPhase: "warm" })} />);
-    expect(mockUseButtonLed).toHaveBeenCalledWith("meta-agent", "pulse");
+    expect(mockUseButtonLed).toHaveBeenCalledWith("meta-agent", "pulse", true);
   });
 
   it("freezes meeting audio, sets active, opens mic, sends snapshot on button press (standby)", () => {
@@ -203,6 +208,56 @@ describe("MeetingMetaAgent", () => {
     });
 
     expect(setMetaAgentActive).not.toHaveBeenCalled();
+  });
+
+  it("does not activate on press during human-input active phase even if meta-agent owns routing", () => {
+    const setMetaAgentActive = vi.fn();
+
+    render(
+      <MeetingMetaAgent
+        {...makeProps({
+          participationPhase: "active",
+          setMetaAgentActive,
+        })}
+      />,
+    );
+
+    act(() => setMockPressed(true));
+
+    expect(setMetaAgentActive).not.toHaveBeenCalled();
+  });
+
+  it("stands down when human-input active phase begins", () => {
+    const setMetaAgentActive = vi.fn();
+    const setMeetingPlaybackPaused = vi.fn();
+
+    const { rerender } = render(
+      <MeetingMetaAgent
+        {...makeProps({
+          participationPhase: "warm",
+          metaAgentActive: true,
+          setMetaAgentActive,
+          setMeetingPlaybackPaused,
+        })}
+      />,
+    );
+
+    mockSetMicEnabled.mockClear();
+
+    rerender(
+      <MeetingMetaAgent
+        {...makeProps({
+          participationPhase: "active",
+          metaAgentActive: true,
+          setMetaAgentActive,
+          setMeetingPlaybackPaused,
+        })}
+      />,
+    );
+
+    expect(setMetaAgentActive).toHaveBeenCalledWith(false);
+    expect(mockSetMicEnabled).toHaveBeenCalledWith(false);
+    expect(setMeetingPlaybackPaused).toHaveBeenCalledWith(false);
   });
 
   it("deactivates when press ownership is lost", () => {
