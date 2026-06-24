@@ -176,7 +176,6 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
   const [previousTranscript, setPreviousTranscript] = useState<string>("");
 
   const inputArea = useRef<HTMLTextAreaElement>(null);
-  const inputValueRef = useRef<string>("");
   const isMobile = useMobile();
 
   const connectionStateRef = useRef<ConnectionState>("idle");
@@ -215,14 +214,8 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
     setLed(humanInputLedMode);
   }, [setLed, phase, humanInputLedMode]);
 
-  // Mirror rawPressed in a ref so the connectionState-change effect can read
-  // the current value without taking it as a dependency (avoids double-trigger).
-  const rawPressedRef = useRef(rawPressed);
-
   // Set on PTT release; cleared on submit or empty release.
   const pendingPttAutoSubmitRef = useRef(false);
-  // Stable ref to the latest onSubmitHumanMessage callback (avoids stale effects)
-  const onSubmitRef = useRef(onSubmitHumanMessage);
 
   const { t, i18n } = useTranslation();
 
@@ -231,14 +224,6 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
   useEffect(() => {
     connectionStateRef.current = connectionState;
   }, [connectionState]);
-
-  useEffect(() => {
-    rawPressedRef.current = rawPressed;
-  }, [rawPressed]);
-
-  useEffect(() => {
-    inputValueRef.current = inputValue;
-  }, [inputValue]);
 
   useLayoutEffect(() => {
     if (!inputArea.current) return;
@@ -265,49 +250,25 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
     };
   }, []);
 
-  // Keep the submit callback ref fresh so PTT auto-submit never goes stale.
-  useEffect(() => {
-    onSubmitRef.current = onSubmitHumanMessage;
-  }, [onSubmitHumanMessage]);
-
   // ── PTT input ───────────────────────────────────────────────────────────────
 
-  // PTT press → start recording (only when active; startRecording guards on "ready")
-  // rawPressed: held during pre-warm before routed owner is assigned.
-  // humanInputPress: routed press once human-input owns arbitration.
+  // PTT press → start recording when ready (also covers button held during pre-warm).
   useEffect(() => {
-    if (!pushToTalkMode) return;
-    if (phase !== "active") return;
-    if (rawPressed || humanInputPress) {
-      startRecording();
-    }
-  // startRecording uses refs; phase and press signals are the real triggers
+    if (!pushToTalkMode || phase !== "active") return;
+    if (!(rawPressed || humanInputPress)) return;
+    startRecording();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rawPressed, humanInputPress, pushToTalkMode, phase]);
+  }, [rawPressed, humanInputPress, pushToTalkMode, phase, connectionState, inputValue]);
 
   // PTT release → finish session and queue an auto-submit attempt.
   useEffect(() => {
     if (!pushToTalkMode) return;
-    if (!rawPressed && !humanInputPress && connectionStateRef.current === "recording") {
+    if (!rawPressed && !humanInputPress && connectionState === "recording") {
       pendingPttAutoSubmitRef.current = true;
       finishRealtimeSession();
     }
-  // finishRealtimeSession uses refs; press signals are the real trigger
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rawPressed, humanInputPress, pushToTalkMode]);
-
-  // Auto-start: if the button is already physically held when the connection
-  // transitions from connecting → ready, begin recording immediately without
-  // requiring a release-and-repress cycle.
-  useEffect(() => {
-    if (!pushToTalkMode) return;
-    if (connectionState === "ready" && phase === "active" && rawPressedRef.current) {
-      startRecording();
-    }
-  // rawPressedRef is intentionally read via ref to avoid double-triggering on
-  // normal presses (rawPressed changing is already handled by the effect above)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [connectionState, pushToTalkMode, phase]);
+  }, [rawPressed, humanInputPress, pushToTalkMode, connectionState]);
 
   // PTT auto-submit: attempt on every release once ready, and again when the
   // transcript catches up (segments can update after connectionState is "ready").
@@ -329,12 +290,12 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
     if (words < MIN_PTT_SUBMIT_WORDS) return;
 
     pendingPttAutoSubmitRef.current = false;
-    onSubmitRef.current(text.substring(0, maxInputLength));
+    onSubmitHumanMessage(text.substring(0, maxInputLength));
     setInputValue("");
     setPreviousTranscript("");
     setTranscriptSegments([]);
     setCanContinue(false);
-  }, [connectionState, transcriptSegments, previousTranscript, pushToTalkMode, maxInputLength]);
+  }, [connectionState, transcriptSegments, previousTranscript, pushToTalkMode, maxInputLength, onSubmitHumanMessage]);
 
   function handleRealtimeEvent(event: HumanInputRealtimeEvent) {
     if (event.type === "conversation.item.input_audio_transcription.delta") {
@@ -479,17 +440,16 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
    * Exposed as a standalone function so PTT can call it directly.
    */
   function startRecording() {
-    if (connectionStateRef.current !== "ready" || !connectionRef.current) return;
+    if (connectionState !== "ready" || !connectionRef.current) return;
     clearFinishingTimers();
     pendingPttAutoSubmitRef.current = false;
     inputAudioActiveRef.current = false;
     setTranscriptSegments([]);
-    setPreviousTranscript(inputValueRef.current);
+    setPreviousTranscript(inputValue);
     connectionRef.current.micStream.getAudioTracks().forEach(track => {
       track.enabled = true;
     });
     setMicStream(connectionRef.current.micStream);
-    connectionStateRef.current = "recording";
     setConnectionState("recording");
   }
 
