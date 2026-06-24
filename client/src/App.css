@@ -457,6 +457,20 @@ nav.blur::before {
   }
 }
 
+@keyframes button-led-debug-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.9);
+    box-shadow: none;
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+    box-shadow: 0 0 14px rgba(239, 68, 68, 0.95);
+  }
+}
+
 /* Shared rolling marquee banner (replay mode, push-to-talk hint, etc.) */
 .bottom-ui-banner-anchor {
   position: fixed;

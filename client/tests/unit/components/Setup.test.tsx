@@ -39,6 +39,15 @@ vi.mock('@/museum/button/useBridgeHealth', () => ({
 const mockClaim = vi.fn();
 const mockRelease = vi.fn();
 const mockSetLed = vi.fn();
+const mockSetLedDebugOverlay = vi.fn();
+const ledDebugState = { enabled: false };
+
+vi.mock('@/museum/button/useButtonLedDebugOverlay', () => ({
+  useButtonLedDebugOverlay: () => ({
+    ledDebugOverlay: ledDebugState.enabled,
+    setLedDebugOverlay: mockSetLedDebugOverlay,
+  }),
+}));
 
 vi.mock('@/museum/button/hooks', () => ({
   useButton: () => ({
@@ -60,6 +69,8 @@ vi.mock('@/museum/button/hooks', () => ({
 describe('Setup overlay', () => {
   beforeEach(() => {
     localStorage.clear();
+    ledDebugState.enabled = false;
+    mockSetLedDebugOverlay.mockClear();
     museumButtonState.bridgeStatus = 'disconnected';
     museumButtonState.bridgeError = null;
     museumButtonState.bridgeAvailable = true;
@@ -152,6 +163,22 @@ describe('Setup overlay', () => {
     mockSetLed.mockClear();
     render(<Setup />);
     expect(mockSetLed).toHaveBeenCalledWith('pulse');
+  });
+
+  it('toggles LED debug overlay from setup', () => {
+    render(<Setup />);
+
+    const toggle = screen.getByTestId('setup-led-debug-toggle');
+    expect(toggle).not.toHaveClass('selected');
+
+    fireEvent.click(toggle);
+    expect(mockSetLedDebugOverlay).toHaveBeenCalledWith(true);
+  });
+
+  it('shows LED debug toggle as selected when flag is enabled', () => {
+    ledDebugState.enabled = true;
+    render(<Setup />);
+    expect(screen.getByTestId('setup-led-debug-toggle')).toHaveClass('selected');
   });
 
   it('shows bridge running and usb not detected when no hardware is plugged in', () => {

@@ -11,6 +11,7 @@ import {
   getUsbButtonStatus,
 } from "@/museum/button/setupButtonStatus";
 import { useButtonBridgeHealth } from "@/museum/button/useBridgeHealth";
+import { useButtonLedDebugOverlay } from "@/museum/button/useButtonLedDebugOverlay";
 
 /**
  * Setup Overlay
@@ -26,6 +27,7 @@ function Setup(): React.ReactElement {
   const { bridgeStatus, bridgeError, bridgeAvailable } =
     useButtonConnection(bridgeButtonActive);
   const bridgeHealth = useButtonBridgeHealth(bridgeButtonActive);
+  const { ledDebugOverlay, setLedDebugOverlay } = useButtonLedDebugOverlay();
 
   const button = useButton("setup");
   const { claim, release, setLed, pressed } = button;
@@ -48,7 +50,7 @@ function Setup(): React.ReactElement {
 
   const containerStyle: React.CSSProperties = {
     width: "96vw",
-    height: "70%",
+    minHeight: "70%",
     maxWidth: "850px",
     display: "flex",
     flexDirection: "column",
@@ -198,6 +200,19 @@ function Setup(): React.ReactElement {
           ) : null}
         </div>
       ) : null}
+
+      <div style={sectionStyle}>
+        <h3 style={{ marginTop: 0 }}>{t("setup.button.debugTitle")}</h3>
+        <button
+          type="button"
+          data-testid="setup-led-debug-toggle"
+          className={ledDebugOverlay ? "selected " : ""}
+          onClick={() => setLedDebugOverlay(!ledDebugOverlay)}
+          style={{ ...selectButtonStyle, maxWidth: 360 }}
+        >
+          {t("setup.button.ledDebugOverlay")}
+        </button>
+      </div>
     </div>
   );
 }
