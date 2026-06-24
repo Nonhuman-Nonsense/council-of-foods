@@ -23,6 +23,14 @@ const MAX_INPUT_LENGTH = 10000;
 const FINISHING_QUIET_MS = 2000;
 const FINISHING_NO_EVENTS_TIMEOUT_MS = 4500;
 const FINISHING_HARD_TIMEOUT_MS = 12000;
+/** PTT auto-submit requires at least this many words (accidental short utterances). */
+const MIN_PTT_SUBMIT_WORDS = 3;
+
+export function countTranscriptWords(text: string): number {
+  const trimmed = text.trim();
+  if (!trimmed) return 0;
+  return trimmed.split(/\s+/).length;
+}
 
 interface InputAudioTranscriptionDeltaEvent {
   type: "conversation.item.input_audio_transcription.delta";
@@ -189,6 +197,10 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
 
   const humanInputLedMode = useMemo((): ButtonLedMode => {
     if (connectionState === "recording") return "on";
+    // Finishing: waiting for final transcript — cannot start another take.
+    // Connecting: not ready to record yet. Empty/no-speech releases skip finishing
+    // straight back to ready (pulse) so the visitor can try again.
+    if (connectionState === "finishing" || connectionState === "connecting") return "off";
     return "pulse";
   }, [connectionState]);
 
@@ -207,8 +219,8 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
   // the current value without taking it as a dependency (avoids double-trigger).
   const rawPressedRef = useRef(rawPressed);
 
-  // Set to true on PTT release so the state-change effect can auto-submit
-  const autoSubmitAfterFinish = useRef(false);
+  // Set on PTT release; cleared on submit or empty release.
+  const pendingPttAutoSubmitRef = useRef(false);
   // Stable ref to the latest onSubmitHumanMessage callback (avoids stale effects)
   const onSubmitRef = useRef(onSubmitHumanMessage);
 
@@ -273,11 +285,11 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rawPressed, humanInputPress, pushToTalkMode, phase]);
 
-  // PTT release → finish session + schedule auto-submit.
+  // PTT release → finish session and queue an auto-submit attempt.
   useEffect(() => {
     if (!pushToTalkMode) return;
     if (!rawPressed && !humanInputPress && connectionStateRef.current === "recording") {
-      autoSubmitAfterFinish.current = true;
+      pendingPttAutoSubmitRef.current = true;
       finishRealtimeSession();
     }
   // finishRealtimeSession uses refs; press signals are the real trigger
@@ -297,23 +309,32 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [connectionState, pushToTalkMode, phase]);
 
-  // Auto-submit when finishing settles back to ready (after PTT release)
+  // PTT auto-submit: attempt on every release once ready, and again when the
+  // transcript catches up (segments can update after connectionState is "ready").
   useEffect(() => {
-    if (!pushToTalkMode) return;
-    if (connectionState === "ready" && autoSubmitAfterFinish.current) {
-      autoSubmitAfterFinish.current = false;
-      const text = inputValueRef.current.trim();
-      if (text.length > 0) {
-        onSubmitRef.current(inputValueRef.current.substring(0, maxInputLength));
-        setInputValue("");
-        setPreviousTranscript("");
-        setTranscriptSegments([]);
-        setCanContinue(false);
-      }
+    if (!pushToTalkMode || !pendingPttAutoSubmitRef.current || connectionState !== "ready") return;
+
+    const text = formatTranscriptInputValue({
+      previousTranscript,
+      transcriptSegments,
+      isRecording: false,
+      maxLength: maxInputLength,
+    }).trim();
+
+    const words = countTranscriptWords(text);
+    if (words === 0) {
+      pendingPttAutoSubmitRef.current = false;
+      return;
     }
-  // Runs only when connectionState changes; all payload read via stable refs
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [connectionState, pushToTalkMode]);
+    if (words < MIN_PTT_SUBMIT_WORDS) return;
+
+    pendingPttAutoSubmitRef.current = false;
+    onSubmitRef.current(text.substring(0, maxInputLength));
+    setInputValue("");
+    setPreviousTranscript("");
+    setTranscriptSegments([]);
+    setCanContinue(false);
+  }, [connectionState, transcriptSegments, previousTranscript, pushToTalkMode, maxInputLength]);
 
   function handleRealtimeEvent(event: HumanInputRealtimeEvent) {
     if (event.type === "conversation.item.input_audio_transcription.delta") {
@@ -460,6 +481,7 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
   function startRecording() {
     if (connectionStateRef.current !== "ready" || !connectionRef.current) return;
     clearFinishingTimers();
+    pendingPttAutoSubmitRef.current = false;
     inputAudioActiveRef.current = false;
     setTranscriptSegments([]);
     setPreviousTranscript(inputValueRef.current);
