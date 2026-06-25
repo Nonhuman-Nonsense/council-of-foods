@@ -131,7 +131,7 @@ const mockUseCouncilSettings = vi.fn(() => ({
   setPushToTalkMode: vi.fn(),
 }));
 
-vi.mock('@/settings/useCouncilSettings', () => ({
+vi.mock('@/settings/councilSettings', () => ({
     useCouncilSettings: () => mockUseCouncilSettings(),
 }));
 

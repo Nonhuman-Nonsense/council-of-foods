@@ -29,7 +29,7 @@ vi.mock('@main/overlay/RotateDevice', () => ({
     default: () => <div data-testid="rotate-device">Rotate Device</div>,
 }));
 
-vi.mock('@/settings/useCouncilSettings', () => ({
+vi.mock('@/settings/councilSettings', () => ({
     useCouncilSettings: vi.fn(() => ({
         isMuseumMode: false,
         mode: 'web',
@@ -41,7 +41,7 @@ vi.mock('@/settings/useCouncilSettings', () => ({
 
 import { useMediaQuery } from 'react-responsive';
 import { useMobile } from '@/utils';
-import { useCouncilSettings } from '@/settings/useCouncilSettings';
+import { useCouncilSettings } from '@/settings/councilSettings';
 
 describe('Landing', () => {
     beforeEach(() => {

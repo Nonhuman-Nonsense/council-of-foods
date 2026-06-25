@@ -1,5 +1,5 @@
 import type { ReactElement } from "react";
-import { useCouncilSettings } from "@/settings/useCouncilSettings";
+import { useCouncilSettings } from "@/settings/councilSettings";
 
 /**
  * Invisible top-left control for staff to exit museum mode without reloading.

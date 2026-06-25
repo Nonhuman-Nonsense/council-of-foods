@@ -39,7 +39,7 @@ vi.mock('@/utils', () => ({
     mapFoodIndex: (l, i) => i
 }));
 
-vi.mock('@/settings/useCouncilSettings', () => ({
+vi.mock('@/settings/councilSettings', () => ({
     useCouncilSettings: () => ({
         pushToTalkMode: mockPushToTalkMode.value,
         isMuseumMode: false,

@@ -3,7 +3,7 @@ import ResetWarning from "@main/overlay/ResetWarning";
 import { capitalizeFirstLetter, toTitleCase, useMobile, useMobileXs } from "@/utils";
 import { useTranslation } from "react-i18next";
 import type { Topic } from "@shared/ModelTypes";
-import { useCouncilSettings } from "@/settings/useCouncilSettings";
+import { useCouncilSettings } from "@/settings/councilSettings";
 import { useMeetingSetupStore } from "@newMeeting/meetingSetupStore";
 
 import { getTopicsBundle } from "@main/topicsBundle";

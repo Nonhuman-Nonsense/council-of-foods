@@ -4,7 +4,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import SelectTopic from '@newMeeting/SelectTopic';
 import { getTopicsBundle } from '@main/topicsBundle';
 import { useMeetingSetupStore } from '@newMeeting/meetingSetupStore';
-import { useCouncilSettings } from '@/settings/useCouncilSettings';
+import { useCouncilSettings } from '@/settings/councilSettings';
 
 // Mocks
 vi.mock('react-i18next', () => ({
@@ -31,7 +31,7 @@ vi.mock('@main/topicsBundle', () => ({
     getTopicsBundle: vi.fn(),
 }));
 
-vi.mock('@/settings/useCouncilSettings', () => ({
+vi.mock('@/settings/councilSettings', () => ({
     useCouncilSettings: vi.fn(() => ({
         isMuseumMode: false,
         mode: 'web',

@@ -7,7 +7,7 @@ import { CHAIR_ID } from "@/prompts/characterSetupBundles";
 import { characterIconWebpUrl } from "@assets/characters/characterData";
 import { useMeetingSetupStore } from "@newMeeting/meetingSetupStore";
 import { buildMeetingCharactersPayload, orderSelectedCharactersForMuseum } from "./meetingSetup";
-import { useCouncilSettings } from "@/settings/useCouncilSettings";
+import { useCouncilSettings } from "@/settings/councilSettings";
 import { getCharacterSetupBundle } from "./CharacterSetup";
 
 import Lottie from "react-lottie-player";

@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import errorIcon from "@assets/error.png";
 import AutoButton from "@/AutoButton";
 import { useRouting } from "@/routing";
-import { useCouncilSettings } from "@/settings/useCouncilSettings";
+import { useCouncilSettings } from "@/settings/councilSettings";
 
 const MUSEUM_AUTO_RESTART_SECONDS = 10;
 

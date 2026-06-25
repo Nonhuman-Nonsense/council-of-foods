@@ -23,7 +23,7 @@ import { isMeetingPath, isRootPath, stripLanguagePrefix, useRouting } from "@/ro
 import RotateDevice from "./overlay/RotateDevice";
 import FullscreenButton from "./FullscreenButton";
 import MuseumModeEscapeHatch from "@/museum/MuseumModeEscapeHatch";
-import { useCouncilSettings } from "@/settings/useCouncilSettings";
+import { useCouncilSettings } from "@/settings/councilSettings";
 import {
   createMeetingAudioContext,
   useMeetingPlaybackSuspended,

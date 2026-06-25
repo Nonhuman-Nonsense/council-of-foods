@@ -16,7 +16,7 @@ import React from 'react';
 import micIcon from "@assets/mic.avif";
 import type { ParticipationPhase } from "./participationPhase";
 import { useButton, type ButtonLedMode } from "@/museum/button/useButton";
-import { useCouncilSettings } from "@/settings/useCouncilSettings";
+import { useCouncilSettings } from "@/settings/councilSettings";
 
 const MAX_INPUT_LENGTH = 10000;
 const FINISHING_QUIET_MS = 2000;

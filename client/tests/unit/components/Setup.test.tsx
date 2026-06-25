@@ -74,6 +74,11 @@ describe('Setup overlay', () => {
     bridgeHealthState.status = 'running';
     bridgeHealthState.serial = 'connected';
     bridgeHealthState.path = '/dev/cu.usbmodem1';
+    bridgeHealthState.version = '1.0.0';
+    bridgeHealthState.serialDetail = 'connected';
+    bridgeHealthState.serialMessage = 'Council button connected at /dev/cu.usbmodem1';
+    bridgeHealthState.expectedVendorId = '2341';
+    bridgeHealthState.scannedPorts = [];
   });
 
   afterEach(() => {
@@ -98,17 +103,17 @@ describe('Setup overlay', () => {
     const web = screen.getByTestId('app-mode-web');
     const museum = screen.getByTestId('app-mode-museum');
 
-    expect(web).toHaveClass('selected');
-    expect(museum).not.toHaveClass('selected');
+    expect(web).toHaveAttribute('data-selected', 'true');
+    expect(museum).toHaveAttribute('data-selected', 'false');
 
     fireEvent.click(museum);
     expect(localStorage.getItem('councilAppMode')).toBe('museum');
-    expect(museum).toHaveClass('selected');
-    expect(web).not.toHaveClass('selected');
+    expect(museum).toHaveAttribute('data-selected', 'true');
+    expect(web).toHaveAttribute('data-selected', 'false');
 
     fireEvent.click(web);
     expect(localStorage.getItem('councilAppMode')).toBe('web');
-    expect(web).toHaveClass('selected');
+    expect(web).toHaveAttribute('data-selected', 'true');
   });
 
   it('selects always on by default and persists push to talk choice', () => {
@@ -117,17 +122,17 @@ describe('Setup overlay', () => {
     const alwaysOn = screen.getByTestId('voice-guide-always-on');
     const pushToTalk = screen.getByTestId('voice-guide-push-to-talk');
 
-    expect(alwaysOn).toHaveClass('selected');
-    expect(pushToTalk).not.toHaveClass('selected');
+    expect(alwaysOn).toHaveAttribute('data-selected', 'true');
+    expect(pushToTalk).toHaveAttribute('data-selected', 'false');
 
     fireEvent.click(pushToTalk);
     expect(localStorage.getItem('councilPushToTalk')).toBe('true');
-    expect(pushToTalk).toHaveClass('selected');
-    expect(alwaysOn).not.toHaveClass('selected');
+    expect(pushToTalk).toHaveAttribute('data-selected', 'true');
+    expect(alwaysOn).toHaveAttribute('data-selected', 'false');
 
     fireEvent.click(alwaysOn);
     expect(localStorage.getItem('councilPushToTalk')).toBe('false');
-    expect(alwaysOn).toHaveClass('selected');
+    expect(alwaysOn).toHaveAttribute('data-selected', 'true');
   });
 
   it('shows split status when push to talk is enabled in museum mode', () => {
@@ -146,6 +151,51 @@ describe('Setup overlay', () => {
     expect(screen.getByTestId('setup-button-usb-status')).toHaveTextContent(
       'setup.button.usb.connected',
     );
+  });
+
+  it('maps bridge daemon health to status chips', () => {
+    localStorage.setItem('councilAppMode', 'museum');
+    localStorage.setItem('councilPushToTalk', 'true');
+    bridgeHealthState.status = 'checking';
+    museumButtonState.bridgeStatus = 'connecting';
+
+    render(<Setup />);
+    expect(screen.getByTestId('setup-bridge-daemon-status')).toHaveTextContent(
+      'setup.button.bridge.checking',
+    );
+  });
+
+  it('maps app websocket status independently of usb', () => {
+    localStorage.setItem('councilAppMode', 'museum');
+    localStorage.setItem('councilPushToTalk', 'true');
+    bridgeHealthState.serial = 'disconnected';
+    bridgeHealthState.path = null;
+    museumButtonState.bridgeStatus = 'connecting';
+
+    render(<Setup />);
+    expect(screen.getByTestId('setup-bridge-app-status')).toHaveTextContent(
+      'setup.button.app.connecting',
+    );
+  });
+
+  it('shows staff bridge detail lines when hardware is missing', () => {
+    localStorage.setItem('councilAppMode', 'museum');
+    localStorage.setItem('councilPushToTalk', 'true');
+    museumButtonState.bridgeStatus = 'connecting';
+    bridgeHealthState.serial = 'disconnected';
+    bridgeHealthState.path = null;
+    bridgeHealthState.serialMessage =
+      'No USB serial device with vendor 2341 found (1 other port(s) visible).';
+    bridgeHealthState.scannedPorts = [
+      { path: '/dev/cu.usbmodem1', vendorId: '239a', productId: '8014' },
+    ];
+
+    render(<Setup />);
+    fireEvent.click(screen.getByText('setup.panels.details'));
+
+    expect(screen.getByText('Bridge version 1.0.0')).toBeInTheDocument();
+    expect(screen.getByText('Looking for USB vendor 2341 (Arduino USB)')).toBeInTheDocument();
+    expect(screen.getByText(/Visible USB serial: 239a:8014/)).toBeInTheDocument();
   });
 
   it('claims the button on mount for hardware debugging', () => {

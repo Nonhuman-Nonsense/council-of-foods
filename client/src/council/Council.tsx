@@ -15,7 +15,7 @@ import { useTranslation } from "react-i18next";
 import { useCouncilMachine } from "./hooks/useCouncilMachine";
 import { getMeeting } from "@api/getMeeting.js";
 import ReplayModeBanner from "./ReplayModeBanner";
-import { useCouncilSettings } from "@/settings/useCouncilSettings";
+import { useCouncilSettings } from "@/settings/councilSettings";
 import MeetingMetaAgent from "@museum/metaAgent/MeetingMetaAgent";
 import { CHAIR_ID } from "@/prompts/characterSetupBundles";
 

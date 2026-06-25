@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { isButtonBridgeAvailable } from "./buttonBridge";
-import { useCouncilSettings } from "@/settings/useCouncilSettings";
+import { useCouncilSettings } from "@/settings/councilSettings";
 import { useButtonStore } from "./buttonStore";
 import ButtonLedDebugOverlay, { useButtonLedDebugOverlay } from "./buttonDebug";
 

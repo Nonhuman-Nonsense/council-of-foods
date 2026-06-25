@@ -2,10 +2,19 @@ import {
   getDevLogEnabled,
   isDevLogCategoryEnabled,
 } from "@/settings/councilSettings";
-import type { LogCategory } from "./loggerTypes";
 
-export type { LogCategory } from "./loggerTypes";
-export { DEV_LOG_CATEGORIES } from "./loggerTypes";
+export const DEV_LOG_CATEGORIES = [
+  "API",
+  "SOCKET",
+  "AGENT",
+  "REALTIME",
+  "BUTTON",
+  "META",
+  "SYSTEM",
+  "ERROR",
+] as const;
+
+export type LogCategory = (typeof DEV_LOG_CATEGORIES)[number];
 
 const CATEGORY_STYLE: Record<LogCategory, string> = {
   API: "color: #d97706; font-weight: bold;",

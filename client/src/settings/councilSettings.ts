@@ -1,7 +1,7 @@
-import {
-  DEV_LOG_CATEGORIES,
-  type LogCategory,
-} from "@/loggerTypes";
+import { useCallback, useEffect, useState } from "react";
+import { DEV_LOG_CATEGORIES, type LogCategory } from "@/logger";
+
+export { DEV_LOG_CATEGORIES, type LogCategory };
 
 export const APP_MODE_STORAGE_KEY = "councilAppMode";
 
@@ -20,8 +20,6 @@ export const DEV_LOG_ENABLED_KEY = "councilDevLogEnabled";
 export const DEV_LOG_DISABLED_CATEGORIES_KEY = "councilDevLogDisabledCategories";
 
 export const DEV_LOG_CHANGE_EVENT = "council-dev-log-change";
-
-export { DEV_LOG_CATEGORIES, type LogCategory };
 
 export function getAppMode(): AppMode {
   try {
@@ -129,4 +127,108 @@ export function setDevLogCategoryEnabled(category: LogCategory, enabled: boolean
 
 export function setAllDevLogCategories(enabled: boolean): void {
   writeDisabledDevLogCategories(enabled ? [] : [...DEV_LOG_CATEGORIES]);
+}
+
+export function useCouncilSettings(): {
+  mode: AppMode;
+  isMuseumMode: boolean;
+  setAppMode: (mode: AppMode) => void;
+  pushToTalkMode: boolean;
+  setPushToTalkMode: (enabled: boolean) => void;
+  devLogEnabled: boolean;
+  setDevLogEnabled: (enabled: boolean) => void;
+  devLogCategories: Record<LogCategory, boolean>;
+  setDevLogCategoryEnabled: (category: LogCategory, enabled: boolean) => void;
+  setAllDevLogCategories: (enabled: boolean) => void;
+} {
+  const [mode, setMode] = useState<AppMode>(getAppMode);
+  const [pushToTalkMode, setPushToTalkModeState] = useState(getPushToTalk);
+  const [devLogEnabled, setDevLogEnabledState] = useState(getDevLogEnabled);
+  const [devLogCategories, setDevLogCategoriesState] = useState(getDevLogCategoryStates);
+
+  const refreshDevLogSettings = useCallback(() => {
+    setDevLogEnabledState(getDevLogEnabled());
+    setDevLogCategoriesState(getDevLogCategoryStates());
+  }, []);
+
+  useEffect(() => {
+    function onAppModeChange(event: Event): void {
+      const next = (event as CustomEvent<AppMode>).detail;
+      setMode(next);
+    }
+
+    function onPushToTalkChange(event: Event): void {
+      const next = (event as CustomEvent<boolean>).detail;
+      setPushToTalkModeState(next);
+    }
+
+    function onStorage(event: StorageEvent): void {
+      if (event.key === APP_MODE_STORAGE_KEY) {
+        setMode(getAppMode());
+      }
+      if (event.key === PUSH_TO_TALK_STORAGE_KEY) {
+        setPushToTalkModeState(getPushToTalk());
+      }
+      if (
+        event.key === DEV_LOG_ENABLED_KEY ||
+        event.key === DEV_LOG_DISABLED_CATEGORIES_KEY
+      ) {
+        refreshDevLogSettings();
+      }
+    }
+
+    function onDevLogChange(): void {
+      refreshDevLogSettings();
+    }
+
+    window.addEventListener(APP_MODE_CHANGE_EVENT, onAppModeChange);
+    window.addEventListener(PUSH_TO_TALK_CHANGE_EVENT, onPushToTalkChange);
+    window.addEventListener(DEV_LOG_CHANGE_EVENT, onDevLogChange);
+    window.addEventListener("storage", onStorage);
+    return () => {
+      window.removeEventListener(APP_MODE_CHANGE_EVENT, onAppModeChange);
+      window.removeEventListener(PUSH_TO_TALK_CHANGE_EVENT, onPushToTalkChange);
+      window.removeEventListener(DEV_LOG_CHANGE_EVENT, onDevLogChange);
+      window.removeEventListener("storage", onStorage);
+    };
+  }, [refreshDevLogSettings]);
+
+  const setAppModeFromHook = useCallback((next: AppMode) => {
+    setAppMode(next);
+    setMode(next);
+  }, []);
+
+  const setPushToTalkMode = useCallback((enabled: boolean) => {
+    setPushToTalk(enabled);
+    setPushToTalkModeState(enabled);
+  }, []);
+
+  const setDevLogEnabledFromHook = useCallback((enabled: boolean) => {
+    setDevLogEnabled(enabled);
+    setDevLogEnabledState(enabled);
+    setDevLogCategoriesState(getDevLogCategoryStates());
+  }, []);
+
+  const setDevLogCategory = useCallback((category: LogCategory, enabled: boolean) => {
+    setDevLogCategoryEnabled(category, enabled);
+    refreshDevLogSettings();
+  }, [refreshDevLogSettings]);
+
+  const setAllCategories = useCallback((enabled: boolean) => {
+    setAllDevLogCategories(enabled);
+    refreshDevLogSettings();
+  }, [refreshDevLogSettings]);
+
+  return {
+    mode,
+    isMuseumMode: mode === "museum",
+    setAppMode: setAppModeFromHook,
+    pushToTalkMode,
+    setPushToTalkMode,
+    devLogEnabled,
+    setDevLogEnabled: setDevLogEnabledFromHook,
+    devLogCategories,
+    setDevLogCategoryEnabled: setDevLogCategory,
+    setAllDevLogCategories: setAllCategories,
+  };
 }

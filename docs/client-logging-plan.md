@@ -35,10 +35,11 @@ that module. Name reflects purpose (app HTTP), not environment.
 
 ```text
 client/src/
-  logger.ts              # real impl (dev)
+  logger.ts              # categories, types, real impl (dev)
   logger.noop.ts         # no-op (production + vitest)
   api/http.ts            # councilFetch (Phase 3)
-  settings/councilSettings.ts
+  settings/councilSettings.ts   # localStorage + useCouncilSettings()
+  main/overlay/Setup.tsx        # staff setup UI (inline styles, no subfolder)
 ```
 
 **Vite alias** (`vite.config.ts`):
@@ -98,7 +99,7 @@ Developer panel on `#setup` is rendered only when `import.meta.env.DEV`.
 **Problem:** stacked sections and long status paragraphs feel crowded as settings grow.
 
 **Target:** prototype right-sidebar **density** (grouped panels, compact labels, checkbox grids)
-with council overlay styling (`.selected` toggles, council fonts/colors).
+with council overlay styling (`data-selected` toggles, council fonts/colors).
 
 ```text
 ┌──────────────────────────────────────────────────────────┐
@@ -119,8 +120,8 @@ with council overlay styling (`.selected` toggles, council fonts/colors).
 └──────────────────────────────────────────────────────────┘
 ```
 
-**Components:** `SetupPanel`, `SetupSegmented`, `SetupStatusChip`, `SetupCollapsible` under
-`client/src/main/overlay/setup/`, styles in `setupControlPanel.css`.
+**Implementation:** private panel helpers and button-status mappers live in `Setup.tsx`
+with inline styles (no separate CSS or `setup/` subfolder).
 
 ---
 
@@ -151,7 +152,7 @@ with council overlay styling (`.selected` toggles, council fonts/colors).
 
 ### Phase 1 — Settings + runtime filtering ✅
 
-- `councilSettings.ts` + `useCouncilSettings.ts`
+- `councilSettings.ts` (storage getters/setters + `useCouncilSettings` hook)
 - Logger reads settings on each call
 
 ### Phase 2 — `#setup` redesign + dev log UI ✅
@@ -198,3 +199,4 @@ with council overlay styling (`.selected` toggles, council fonts/colors).
 |------|--------|
 | 2026-06-24 | Initial plan: `councilFetch`, `@/logger` alias, setup control panel, phased rollout |
 | 2026-06-24 | Phases 0–2 implemented: logger, settings, `#setup` control panel redesign |
+| 2026-06-24 | Consolidated files: logger types in `logger.ts`, settings hook in `councilSettings.ts`, setup UI in one `Setup.tsx` |
