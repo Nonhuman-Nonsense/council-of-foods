@@ -81,13 +81,13 @@ describe('Setup overlay', () => {
     museumButtonState.bridgeError = null;
   });
 
-  it('renders title, mode, and voice guide options', () => {
+  it('renders title, installation, and voice guide panels', () => {
     render(<Setup />);
     expect(screen.getByText('setup.title')).toBeInTheDocument();
-    expect(screen.getByText('setup.mode')).toBeInTheDocument();
+    expect(screen.getByText('setup.panels.installation')).toBeInTheDocument();
+    expect(screen.getByText('setup.panels.voiceGuide')).toBeInTheDocument();
     expect(screen.getByText('setup.web')).toBeInTheDocument();
     expect(screen.getByText('setup.museum')).toBeInTheDocument();
-    expect(screen.getByText('setup.voiceGuide')).toBeInTheDocument();
     expect(screen.getByText('setup.alwaysOn')).toBeInTheDocument();
     expect(screen.getByText('setup.pushToTalk')).toBeInTheDocument();
   });
@@ -162,23 +162,39 @@ describe('Setup overlay', () => {
     expect(mockSetLed).toHaveBeenCalledWith('pulse');
   });
 
-  it('toggles LED debug overlay from setup', () => {
+  it('toggles LED debug overlay from developer panel', () => {
     render(<Setup />);
 
     const toggle = screen.getByTestId('setup-led-debug-toggle');
-    expect(toggle).not.toHaveClass('selected');
+    expect(toggle).not.toBeChecked();
 
     fireEvent.click(toggle);
     expect(mockSetLedDebugOverlay).toHaveBeenCalledWith(true);
   });
 
-  it('shows LED debug toggle as selected when flag is enabled', () => {
+  it('shows LED debug checkbox as checked when flag is enabled', () => {
     ledDebugState.enabled = true;
     render(<Setup />);
-    expect(screen.getByTestId('setup-led-debug-toggle')).toHaveClass('selected');
+    expect(screen.getByTestId('setup-led-debug-toggle')).toBeChecked();
   });
 
-  it('shows bridge running and usb not detected when no hardware is plugged in', () => {
+  it('persists dev log master switch', () => {
+    render(<Setup />);
+    const master = screen.getByTestId('setup-dev-log-enabled');
+    expect(master).toBeChecked();
+    fireEvent.click(master);
+    expect(localStorage.getItem('councilDevLogEnabled')).toBe('false');
+  });
+
+  it('toggles a dev log category', () => {
+    render(<Setup />);
+    const api = screen.getByTestId('setup-dev-log-category-API');
+    expect(api).toBeChecked();
+    fireEvent.click(api);
+    expect(localStorage.getItem('councilDevLogDisabledCategories')).toContain('API');
+  });
+
+  it('shows usb not detected hint inside details when hardware is missing', () => {
     localStorage.setItem('councilAppMode', 'museum');
     localStorage.setItem('councilPushToTalk', 'true');
     museumButtonState.bridgeStatus = 'connecting';
@@ -187,15 +203,7 @@ describe('Setup overlay', () => {
 
     render(<Setup />);
 
-    expect(screen.getByTestId('setup-bridge-daemon-status')).toHaveTextContent(
-      'setup.button.bridge.running',
-    );
-    expect(screen.getByTestId('setup-bridge-app-status')).toHaveTextContent(
-      'setup.button.app.connecting',
-    );
-    expect(screen.getByTestId('setup-button-usb-status')).toHaveTextContent(
-      'setup.button.usb.notDetected',
-    );
+    fireEvent.click(screen.getByText('setup.panels.details'));
     expect(screen.getByTestId('setup-button-usb-hint')).toBeInTheDocument();
   });
 });

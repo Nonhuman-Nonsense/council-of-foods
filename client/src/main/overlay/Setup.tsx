@@ -1,7 +1,10 @@
-import { useEffect } from "react";
-import { useMobile, useMobileXs } from "@/utils";
+import { useEffect, type CSSProperties } from "react";
+import { useMobile } from "@/utils";
 import { useTranslation } from "react-i18next";
-import { useCouncilSettings } from "@/settings/useCouncilSettings";
+import {
+  DEV_LOG_CATEGORIES,
+  useCouncilSettings,
+} from "@/settings/useCouncilSettings";
 import {
   useButton,
   useButtonConnection,
@@ -15,17 +18,40 @@ import {
   getUsbButtonStatus,
 } from "@/main/overlay/setupButtonStatus";
 import { useButtonLedDebugOverlay } from "@/museum/button/buttonDebug";
+import {
+  SetupCollapsible,
+  SetupPanel,
+  SetupSegmented,
+  SetupStatusChip,
+} from "@/main/overlay/setup/SetupPanels";
+import "./setup/setupControlPanel.css";
+
+function statusTone(
+  key: string,
+): "ok" | "warn" | "error" | "idle" {
+  if (key === "running" || key === "connected") return "ok";
+  if (key === "checking" || key === "connecting") return "warn";
+  if (key === "error" || key === "wrongDevice") return "error";
+  return "idle";
+}
 
 /**
- * Setup Overlay
- *
  * Staff-only global council options at #setup.
  */
 function Setup(): React.ReactElement {
   const isMobile = useMobile();
-  const isMobileXs = useMobileXs();
   const { t } = useTranslation();
-  const { mode: appMode, setAppMode, pushToTalkMode, setPushToTalkMode } = useCouncilSettings();
+  const {
+    mode: appMode,
+    setAppMode,
+    pushToTalkMode,
+    setPushToTalkMode,
+    devLogEnabled,
+    setDevLogEnabled,
+    devLogCategories,
+    setDevLogCategoryEnabled,
+    setAllDevLogCategories,
+  } = useCouncilSettings();
   const bridgeButtonActive = appMode === "museum" && pushToTalkMode;
   const { bridgeStatus, bridgeError, bridgeAvailable } =
     useButtonConnection(bridgeButtonActive);
@@ -35,7 +61,6 @@ function Setup(): React.ReactElement {
   const button = useButton("setup");
   const { claim, release, setLed, pressed } = button;
 
-  // Staff debug page: always hold the button claim; pulse normally, on while pressed.
   useEffect(() => {
     claim();
     return () => release();
@@ -51,170 +76,190 @@ function Setup(): React.ReactElement {
   const bridgeDetailLines =
     bridgeHealth.status === "running" ? getSetupBridgeDetailLines(bridgeHealth) : [];
 
-  const containerStyle: React.CSSProperties = {
-    width: "96vw",
-    minHeight: "70%",
-    maxWidth: "850px",
-    display: "flex",
-    flexDirection: "column",
-    justifyContent: "flex-start",
-    alignItems: "center",
-  };
-
-  const gridContainerStyle: React.CSSProperties = {
-    display: "grid",
-    gridTemplateColumns: "1fr 1fr",
-    width: "100%",
-    columnGap: "14px",
-    rowGap: isMobile ? "3px" : "15px",
-    justifyItems: "center",
-  };
-
-  const selectButtonStyle: React.CSSProperties = {
+  const selectButtonStyle: CSSProperties = {
     padding: isMobile ? "3px 0" : "6px 0",
     width: "100%",
   };
 
-  const sectionStyle: React.CSSProperties = {
-    display: "flex",
-    flexDirection: "column",
-    justifyContent: "flex-start",
-    alignItems: "center",
-    width: "100%",
-    marginTop: isMobile ? "20px" : "30px",
-  };
-
-  const statusLineStyle: React.CSSProperties = {
-    margin: "0.15em 0",
-    textAlign: "center",
-  };
-
-  function selectAlwaysOn(): void {
-    setPushToTalkMode(false);
-  }
-
-  function selectPushToTalk(): void {
-    setPushToTalkMode(true);
-  }
+  const showButtonPanel = pushToTalkMode && appMode === "museum";
+  const showDevPanel = import.meta.env.DEV;
+  const showButtonDetails =
+    showButtonPanel &&
+    (bridgeDetailLines.length > 0 ||
+      daemonStatus === "notRunning" ||
+      (daemonStatus === "running" &&
+        (usbStatus === "notDetected" || usbStatus === "wrongDevice")));
 
   return (
-    <div style={containerStyle}>
-      <h1 style={{ marginBottom: isMobile ? (isMobileXs ? "0px" : "5px") : undefined }}>
-        {t("setup.title")}
-      </h1>
+    <div className="setup-control-panel">
+      <h1 className="setup-control-panel__title">{t("setup.title")}</h1>
 
-      <div style={sectionStyle}>
-        <h3 style={{ marginTop: 0 }}>{t("setup.mode")}</h3>
+      <div className="setup-control-panel__grid">
+        <SetupPanel title={t("setup.panels.installation")}>
+          <SetupSegmented>
+            <button
+              type="button"
+              data-testid="app-mode-web"
+              className={appMode === "web" ? "selected " : ""}
+              onClick={() => setAppMode("web")}
+              style={selectButtonStyle}
+            >
+              {t("setup.web")}
+            </button>
+            <button
+              type="button"
+              data-testid="app-mode-museum"
+              className={appMode === "museum" ? "selected " : ""}
+              onClick={() => setAppMode("museum")}
+              style={selectButtonStyle}
+            >
+              {t("setup.museum")}
+            </button>
+          </SetupSegmented>
+        </SetupPanel>
 
-        <div style={gridContainerStyle}>
-          <button
-            type="button"
-            data-testid="app-mode-web"
-            className={appMode === "web" ? "selected " : ""}
-            onClick={() => setAppMode("web")}
-            style={selectButtonStyle}
-          >
-            {t("setup.web")}
-          </button>
-          <button
-            type="button"
-            data-testid="app-mode-museum"
-            className={appMode === "museum" ? "selected " : ""}
-            onClick={() => setAppMode("museum")}
-            style={selectButtonStyle}
-          >
-            {t("setup.museum")}
-          </button>
-        </div>
-      </div>
+        <SetupPanel title={t("setup.panels.voiceGuide")}>
+          <SetupSegmented>
+            <button
+              type="button"
+              data-testid="voice-guide-always-on"
+              className={!pushToTalkMode ? "selected " : ""}
+              onClick={() => setPushToTalkMode(false)}
+              style={selectButtonStyle}
+            >
+              {t("setup.alwaysOn")}
+            </button>
+            <button
+              type="button"
+              data-testid="voice-guide-push-to-talk"
+              className={pushToTalkMode ? "selected " : ""}
+              onClick={() => setPushToTalkMode(true)}
+              style={selectButtonStyle}
+            >
+              {t("setup.pushToTalk")}
+            </button>
+          </SetupSegmented>
+        </SetupPanel>
 
-      <div style={sectionStyle}>
-        <h3 style={{ marginTop: 0 }}>{t("setup.voiceGuide")}</h3>
+        {showButtonPanel ? (
+          <SetupPanel title={t("setup.button.title")} fullWidth testId="setup-button-status">
+            <div className="setup-status-row">
+              <SetupStatusChip
+                label={t("setup.button.bridgeLabel")}
+                value={t(`setup.button.bridge.${daemonStatus}`)}
+                tone={statusTone(daemonStatus)}
+                testId="setup-bridge-daemon-status"
+              />
+              <SetupStatusChip
+                label={t("setup.button.appLabel")}
+                value={
+                  appStatus === "error" && bridgeError
+                    ? `${t(`setup.button.app.${appStatus}`)} — ${bridgeError}`
+                    : t(`setup.button.app.${appStatus}`)
+                }
+                tone={statusTone(appStatus)}
+                testId="setup-bridge-app-status"
+              />
+              <SetupStatusChip
+                label={t("setup.button.usbLabel")}
+                value={t(`setup.button.usb.${usbStatus}`)}
+                tone={statusTone(usbStatus)}
+                testId="setup-button-usb-status"
+              />
+            </div>
 
-        <div style={gridContainerStyle}>
-          <button
-            type="button"
-            data-testid="voice-guide-always-on"
-            className={!pushToTalkMode ? "selected " : ""}
-            onClick={selectAlwaysOn}
-            style={selectButtonStyle}
-          >
-            {t("setup.alwaysOn")}
-          </button>
-          <button
-            type="button"
-            data-testid="voice-guide-push-to-talk"
-            className={pushToTalkMode ? "selected " : ""}
-            onClick={selectPushToTalk}
-            style={selectButtonStyle}
-          >
-            {t("setup.pushToTalk")}
-          </button>
-        </div>
-      </div>
-
-      {pushToTalkMode && appMode === "museum" ? (
-        <div style={sectionStyle}>
-          <h3 style={{ marginTop: 0 }}>{t("setup.button.title")}</h3>
-          <div data-testid="setup-button-status">
-            <p data-testid="setup-bridge-daemon-status" style={statusLineStyle}>
-              {t("setup.button.bridgeLabel")}: {t(`setup.button.bridge.${daemonStatus}`)}
-            </p>
-            <p data-testid="setup-bridge-app-status" style={statusLineStyle}>
-              {t("setup.button.appLabel")}: {t(`setup.button.app.${appStatus}`)}
-              {appStatus === "error" && bridgeError ? ` — ${bridgeError}` : ""}
-            </p>
-            <p data-testid="setup-button-usb-status" style={statusLineStyle}>
-              {t("setup.button.usbLabel")}: {t(`setup.button.usb.${usbStatus}`)}
-            </p>
-            {bridgeDetailLines.map((line) => (
-              <p
-                key={line}
-                data-testid="setup-bridge-detail-line"
-                style={{ ...statusLineStyle, fontSize: "0.92em", opacity: 0.88 }}
+            {showButtonDetails ? (
+              <SetupCollapsible
+                label={t("setup.panels.details")}
+                testId="setup-button-details"
               >
-                {line}
-              </p>
-            ))}
-          </div>
-          {daemonStatus === "notRunning" ? (
-            <p
-              data-testid="setup-button-hint"
-              style={{ marginTop: 0, fontStyle: "italic", opacity: 0.8, textAlign: "center" }}
-            >
-              {t("setup.button.bridgeNotRunningHint", { logPath: getSetupBridgeLogHint() })}
-            </p>
-          ) : null}
-          {daemonStatus === "running" && usbStatus === "notDetected" ? (
-            <p
-              data-testid="setup-button-usb-hint"
-              style={{ marginTop: 0, fontStyle: "italic", opacity: 0.8, textAlign: "center" }}
-            >
-              {t("setup.button.usbNotDetectedHint")}
-            </p>
-          ) : null}
-          {daemonStatus === "running" && usbStatus === "wrongDevice" ? (
-            <p
-              data-testid="setup-button-wrong-device-hint"
-              style={{ marginTop: 0, fontStyle: "italic", opacity: 0.8, textAlign: "center" }}
-            >
-              {t("setup.button.usbWrongDeviceHint")}
-            </p>
-          ) : null}
-        </div>
-      ) : null}
+                {bridgeDetailLines.map((line) => (
+                  <p key={line} data-testid="setup-bridge-detail-line">
+                    {line}
+                  </p>
+                ))}
+                {daemonStatus === "notRunning" ? (
+                  <p data-testid="setup-button-hint" style={{ fontStyle: "italic" }}>
+                    {t("setup.button.bridgeNotRunningHint", {
+                      logPath: getSetupBridgeLogHint(),
+                    })}
+                  </p>
+                ) : null}
+                {daemonStatus === "running" && usbStatus === "notDetected" ? (
+                  <p data-testid="setup-button-usb-hint" style={{ fontStyle: "italic" }}>
+                    {t("setup.button.usbNotDetectedHint")}
+                  </p>
+                ) : null}
+                {daemonStatus === "running" && usbStatus === "wrongDevice" ? (
+                  <p
+                    data-testid="setup-button-wrong-device-hint"
+                    style={{ fontStyle: "italic" }}
+                  >
+                    {t("setup.button.usbWrongDeviceHint")}
+                  </p>
+                ) : null}
+              </SetupCollapsible>
+            ) : null}
+          </SetupPanel>
+        ) : null}
 
-      <div style={sectionStyle}>
-        <h3 style={{ marginTop: 0 }}>{t("setup.button.debugTitle")}</h3>
-        <button
-          type="button"
-          data-testid="setup-led-debug-toggle"
-          className={ledDebugOverlay ? "selected " : ""}
-          onClick={() => setLedDebugOverlay(!ledDebugOverlay)}
-          style={{ ...selectButtonStyle, maxWidth: 360 }}
-        >
-          {t("setup.button.ledDebugOverlay")}
-        </button>
+        {showDevPanel ? (
+          <SetupPanel title={t("setup.panels.developer")} fullWidth testId="setup-developer-panel">
+            <label className="setup-dev-log-master">
+              <input
+                type="checkbox"
+                data-testid="setup-dev-log-enabled"
+                checked={devLogEnabled}
+                onChange={(event) => setDevLogEnabled(event.target.checked)}
+              />
+              {t("setup.devLog.enabled")}
+            </label>
+
+            <div className="setup-dev-log-actions">
+              <button
+                type="button"
+                data-testid="setup-dev-log-all"
+                onClick={() => setAllDevLogCategories(true)}
+              >
+                {t("setup.devLog.all")}
+              </button>
+              <button
+                type="button"
+                data-testid="setup-dev-log-none"
+                onClick={() => setAllDevLogCategories(false)}
+              >
+                {t("setup.devLog.none")}
+              </button>
+            </div>
+
+            <div className="setup-dev-log-categories">
+              {DEV_LOG_CATEGORIES.map((category) => (
+                <label key={category}>
+                  <input
+                    type="checkbox"
+                    data-testid={`setup-dev-log-category-${category}`}
+                    checked={devLogCategories[category]}
+                    disabled={!devLogEnabled}
+                    onChange={(event) =>
+                      setDevLogCategoryEnabled(category, event.target.checked)
+                    }
+                  />
+                  {t(`setup.devLog.categories.${category}`)}
+                </label>
+              ))}
+            </div>
+
+            <label className="setup-dev-log-master">
+              <input
+                type="checkbox"
+                data-testid="setup-led-debug-toggle"
+                checked={ledDebugOverlay}
+                onChange={(event) => setLedDebugOverlay(event.target.checked)}
+              />
+              {t("setup.button.ledDebugOverlay")}
+            </label>
+          </SetupPanel>
+        ) : null}
       </div>
     </div>
   );

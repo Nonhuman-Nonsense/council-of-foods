@@ -11,6 +11,27 @@
   "contact": "Contact",
   "setup": {
     "title": "SETUP",
+    "panels": {
+      "installation": "Installation",
+      "voiceGuide": "Voice guide",
+      "details": "Details & hints",
+      "developer": "Developer"
+    },
+    "devLog": {
+      "enabled": "Client console logging",
+      "all": "All categories",
+      "none": "No categories",
+      "categories": {
+        "API": "API",
+        "SOCKET": "Socket",
+        "AGENT": "Agent tools",
+        "REALTIME": "Realtime",
+        "BUTTON": "Button",
+        "META": "Meta agent",
+        "SYSTEM": "System",
+        "ERROR": "Errors"
+      }
+    },
     "mode": "Mode",
     "web": "Web",
     "museum": "Museum",

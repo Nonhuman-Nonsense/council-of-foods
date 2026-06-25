@@ -1,82 +1,48 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from "vitest";
 import {
-  APP_MODE_CHANGE_EVENT,
-  APP_MODE_STORAGE_KEY,
-  PUSH_TO_TALK_CHANGE_EVENT,
-  PUSH_TO_TALK_STORAGE_KEY,
-  getAppMode,
-  getPushToTalk,
-  setAppMode,
-  setPushToTalk,
-} from '@/settings/councilSettings';
+  DEV_LOG_DISABLED_CATEGORIES_KEY,
+  DEV_LOG_ENABLED_KEY,
+  getDevLogCategoryStates,
+  getDevLogEnabled,
+  isDevLogCategoryEnabled,
+  setAllDevLogCategories,
+  setDevLogCategoryEnabled,
+  setDevLogEnabled,
+} from "@/settings/councilSettings";
 
-describe('councilSettings', () => {
+describe("councilSettings dev log", () => {
   beforeEach(() => {
     localStorage.clear();
   });
 
-  describe('app mode', () => {
-    it('defaults to web', () => {
-      expect(getAppMode()).toBe('web');
-    });
-
-    it('persists app mode in localStorage', () => {
-      setAppMode('museum');
-      expect(localStorage.getItem(APP_MODE_STORAGE_KEY)).toBe('museum');
-      expect(getAppMode()).toBe('museum');
-
-      setAppMode('web');
-      expect(localStorage.getItem(APP_MODE_STORAGE_KEY)).toBe('web');
-      expect(getAppMode()).toBe('web');
-    });
-
-    it('falls back to web when storage is unavailable', () => {
-      const getItem = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
-        throw new Error('blocked');
-      });
-
-      expect(getAppMode()).toBe('web');
-      getItem.mockRestore();
-    });
-
-    it('dispatches a change event when app mode is updated', () => {
-      const handler = vi.fn();
-      window.addEventListener(APP_MODE_CHANGE_EVENT, handler);
-
-      setAppMode('museum');
-      expect(handler).toHaveBeenCalledWith(
-        expect.objectContaining({ detail: 'museum' }),
-      );
-
-      window.removeEventListener(APP_MODE_CHANGE_EVENT, handler);
-    });
+  it("defaults dev log to enabled in vitest/dev", () => {
+    expect(getDevLogEnabled()).toBe(true);
   });
 
-  describe('push to talk', () => {
-    it('defaults push to talk to false', () => {
-      expect(getPushToTalk()).toBe(false);
-    });
+  it("persists master dev log switch", () => {
+    setDevLogEnabled(false);
+    expect(localStorage.getItem(DEV_LOG_ENABLED_KEY)).toBe("false");
+    expect(getDevLogEnabled()).toBe(false);
+  });
 
-    it('persists push to talk in localStorage', () => {
-      setPushToTalk(true);
-      expect(localStorage.getItem(PUSH_TO_TALK_STORAGE_KEY)).toBe('true');
-      expect(getPushToTalk()).toBe(true);
+  it("disables individual categories", () => {
+    setDevLogCategoryEnabled("API", false);
+    expect(isDevLogCategoryEnabled("API")).toBe(false);
+    expect(isDevLogCategoryEnabled("SOCKET")).toBe(true);
+    expect(getDevLogCategoryStates().API).toBe(false);
+  });
 
-      setPushToTalk(false);
-      expect(localStorage.getItem(PUSH_TO_TALK_STORAGE_KEY)).toBe('false');
-      expect(getPushToTalk()).toBe(false);
-    });
+  it("setAllDevLogCategories disables every category", () => {
+    setAllDevLogCategories(false);
+    expect(getDevLogCategoryStates().API).toBe(false);
+    expect(getDevLogCategoryStates().ERROR).toBe(false);
+    expect(localStorage.getItem(DEV_LOG_DISABLED_CATEGORIES_KEY)).toContain("API");
+  });
 
-    it('dispatches a change event when push to talk is updated', () => {
-      const handler = vi.fn();
-      window.addEventListener(PUSH_TO_TALK_CHANGE_EVENT, handler);
-
-      setPushToTalk(true);
-      expect(handler).toHaveBeenCalledWith(
-        expect.objectContaining({ detail: true }),
-      );
-
-      window.removeEventListener(PUSH_TO_TALK_CHANGE_EVENT, handler);
-    });
+  it("setAllDevLogCategories true clears disabled list", () => {
+    setAllDevLogCategories(false);
+    setAllDevLogCategories(true);
+    expect(isDevLogCategoryEnabled("API")).toBe(true);
+    expect(localStorage.getItem(DEV_LOG_DISABLED_CATEGORIES_KEY)).toBe("[]");
   });
 });
