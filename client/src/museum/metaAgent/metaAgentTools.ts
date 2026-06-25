@@ -1,4 +1,5 @@
 import type { RealtimeFunctionTool, ToolHandler, ToolResult } from "@voice/guideTools";
+import { log } from "@/logger";
 
 export type MetaAgentToolContext = {
   setMeetingPlaybackPaused: (paused: boolean) => void;
@@ -30,15 +31,19 @@ export function createMetaAgentTools(): RealtimeFunctionTool[] {
 export function createMetaAgentToolHandlers(ctx: MetaAgentToolContext): Record<string, ToolHandler> {
   return {
     continue_meeting: (): ToolResult => {
+      log.event("META", "continue_meeting handler");
       ctx.silenceAgentOutput();
       ctx.setMetaAgentActive(false);
       ctx.setMeetingPlaybackPaused(false);
+      log.event("META", "continue_meeting done", { ok: true, suppressContinuation: true });
       return { ok: true, suppressContinuation: true };
     },
 
     restart_meeting: (): ToolResult => {
+      log.event("META", "restart_meeting handler");
       ctx.silenceAgentOutput();
       ctx.onRestartMeeting();
+      log.event("META", "restart_meeting done", { ok: true, suppressContinuation: true });
       return { ok: true, suppressContinuation: true };
     },
   };

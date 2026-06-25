@@ -14,6 +14,7 @@
 import type { RealtimeSessionConfig } from "@realtime/realtimeProtocol";
 import type { ToolHandler, ToolResult } from "./guideTools";
 import type { CaptionScheduler } from "./captionScheduler";
+import { log as devLog } from "@/logger";
 
 export type RealtimeEventCtx = {
   /** Tool name -> handler. May change per render. */
@@ -152,11 +153,17 @@ export function createEventLoop(params: {
     } else {
       pendingOpeningGreeting = null;
     }
+    devLog.event("REALTIME", "OUT session.update", {
+      model: session.model,
+      toolCount: session.tools?.length ?? 0,
+      triggerGreetingOnReady: options?.triggerGreetingOnReady ?? false,
+    });
     log("send session.update", session);
     trySendJson({ type: "session.update", session });
   };
   
   const sendUserMessage = (text: string): void => {
+    devLog.event("REALTIME", "OUT user message", { length: text.length });
     log("send user message", text);
     trySendJson({
       type: "conversation.item.create",
@@ -177,6 +184,7 @@ export function createEventLoop(params: {
 
     if (type === "session.updated") {
       sessionReady = true;
+      devLog.event("REALTIME", "IN session.updated");
       callbacks.onSessionReady?.();
       if (pendingOpeningGreeting != null) {
         const userText = pendingOpeningGreeting;
@@ -201,6 +209,7 @@ export function createEventLoop(params: {
 
     if (type === "response.created") {
       activeResponses += 1;
+      devLog.event("REALTIME", "IN response.created", { activeResponses });
       captionScheduler?.beginResponse();
       callbacks.onResponseStarted?.();
       return true;
@@ -209,7 +218,14 @@ export function createEventLoop(params: {
     if (type === "response.done") {
       activeResponses = Math.max(0, activeResponses - 1);
       const r = obj.response as { status?: string; status_details?: unknown } | undefined;
-      if (r?.status === "failed") log("response.failed", r.status_details);
+      if (r?.status === "failed") {
+        devLog.event("ERROR", "response.failed", r.status_details);
+        log("response.failed", r.status_details);
+      }
+      if (r?.status === "cancelled") {
+        devLog.event("REALTIME", "IN response.cancelled");
+      }
+      devLog.event("REALTIME", "IN response.done", { status: r?.status, activeResponses });
       if (r?.status === "cancelled" || r?.status === "failed") {
         captionScheduler?.cancel();
       }
@@ -254,9 +270,11 @@ export function createEventLoop(params: {
       }
 
       const handler = getCtx().toolHandlers[name];
+      devLog.event("AGENT", `tool ${name}`, { args: parsedArgs });
       const result: ToolResult = handler
         ? await Promise.resolve(handler(parsedArgs))
         : { ok: false, error: `No handler for tool: ${name}` };
+      devLog.event("AGENT", `tool ${name} result`, result);
 
       trySendJson({
         type: "conversation.item.create",
@@ -313,6 +331,7 @@ export function createEventLoop(params: {
     }
 
     if (type === "error") {
+      devLog.event("ERROR", "realtime event error", obj);
       log("event error raw", obj);
       const errRaw = obj.error;
       let message = "Voice guide error";

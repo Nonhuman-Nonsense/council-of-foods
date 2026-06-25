@@ -5,6 +5,7 @@ import {
   type ButtonTransportStatus,
 } from "./buttonBridge";
 import { getPushToTalk } from "@/settings/councilSettings";
+import { log } from "@/logger";
 
 export type ButtonLedMode = "off" | "pulse" | "on";
 export type ButtonOwner = "setup" | "voice-guide" | "human-input" | "meta-agent";
@@ -199,8 +200,12 @@ function recomputeButtonRouting(
   claims: ButtonClaims,
   ledModes: ButtonLedModes,
 ): void {
+  const prevOwner = get().buttonOwner;
   const buttonOwner = mergeButtonOwner(claims);
   const ledMode = resolveAppliedLedMode(ledModes, buttonOwner);
+  if (prevOwner !== buttonOwner) {
+    log.event("BUTTON", "owner change", { from: prevOwner, to: buttonOwner });
+  }
   set({ claims, ledModes, buttonOwner });
   void applyLedMode(set, get, ledMode);
 }
@@ -223,6 +228,13 @@ export const useButtonStore = create<ButtonStore>((set, get) => ({
     if (!get().buttonInputEnabled) {
       return;
     }
+    const prev = get().pressed;
+    if (prev !== pressed) {
+      log.event("BUTTON", pressed ? "press" : "release", {
+        source,
+        owner: get().buttonOwner,
+      });
+    }
     set({
       pressed,
       keyboardActive: source === "keyboard" ? pressed : get().keyboardActive,
@@ -242,11 +254,13 @@ export const useButtonStore = create<ButtonStore>((set, get) => ({
   },
 
   claimButton: (owner) => {
+    log.event("BUTTON", "claim", { owner });
     const claims = { ...get().claims, [owner]: true as const };
     recomputeButtonRouting(set, get, claims, get().ledModes);
   },
 
   releaseButton: (owner) => {
+    log.event("BUTTON", "release claim", { owner });
     const claims = { ...get().claims };
     delete claims[owner];
     const ledModes = { ...get().ledModes };

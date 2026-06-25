@@ -4,7 +4,7 @@ Structured console logging for the council client in development — similar in 
 to `server/src/utils/Logger.ts` (context + severity) and
 `prototype/public/prototype_client.js` (categories, collapsed groups, payloads).
 
-**Status:** Phases **0–2** complete. Phases **3–6** planned.
+**Status:** Phases **0–6** complete.
 
 ---
 
@@ -162,23 +162,28 @@ with inline styles (no separate CSS or `setup/` subfolder).
 - LED debug moved into Developer panel
 - i18n + tests
 
-### Phase 3 — HTTP boundary
+### Phase 3 — HTTP boundary ✅
 
 - `client/src/api/http.ts` → `councilFetch`
-- Migrate `api/*.ts` + `realtimeConnection`
+- Migrated `api/*.ts` + `realtimeConnection`
 
-### Phase 4 — Socket + button
+### Phase 4 — Socket + button ✅
 
 - `useCouncilSocket.ts`, `buttonStore.ts`
 
-### Phase 5 — Realtime + meta-agent
+### Phase 5 — Realtime + meta-agent ✅
 
-- `realtimeEventLoop.ts`, `metaAgentTools.ts`, `MeetingMetaAgent.tsx`
+- `realtimeEventLoop.ts`, `useRealtimeVoiceSession.ts`, `metaAgentTools.ts`, `MeetingMetaAgent.tsx`
 
-### Phase 6 — Polish (optional)
+### Phase 6 — Polish ✅
 
-- `window.__councilLogger` for Playwright
-- E2e helpers
+- `window.__councilLogger` (dev)
+- Playwright helpers: `tests/e2e/src/councilDevHelpers.ts`
+
+**Dev window hooks (dev serve only):**
+
+- `window.__councilLogger` — same API as `log` from `@/logger`
+- `window.__councilButtonStore` — Zustand store for button/bridge state
 
 ---
 
@@ -200,3 +205,4 @@ with inline styles (no separate CSS or `setup/` subfolder).
 | 2026-06-24 | Initial plan: `councilFetch`, `@/logger` alias, setup control panel, phased rollout |
 | 2026-06-24 | Phases 0–2 implemented: logger, settings, `#setup` control panel redesign |
 | 2026-06-24 | Consolidated files: logger types in `logger.ts`, settings hook in `councilSettings.ts`, setup UI in one `Setup.tsx` |
+| 2026-06-24 | Phases 3–6: `councilFetch`, socket/button/realtime/meta instrumentation, Playwright dev helpers |

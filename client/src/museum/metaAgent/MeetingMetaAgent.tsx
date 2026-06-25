@@ -13,6 +13,7 @@ import {
   createMetaAgentTools,
   createMetaAgentToolHandlers,
 } from "./metaAgentTools";
+import { log } from "@/logger";
 import type { ParticipationPhase } from "@council/humanInput/participationPhase";
 import type { CouncilState } from "@council/hooks/useCouncilMachine";
 import type { Character, Topic } from "@shared/ModelTypes";
@@ -151,6 +152,11 @@ export default function MeetingMetaAgent({
     setMetaAgentActive(true);
     setAgentOutputMuted(false);
     setMicEnabled(true);
+    log.event("META", "activate", {
+      councilState,
+      participationPhase,
+      currentSpeakerName,
+    });
     sendUserMessage(
       buildMetaAgentStateSnapshot({
         councilState,
@@ -217,6 +223,7 @@ export default function MeetingMetaAgent({
       if (idleResumeFiredRef.current) return;
       if (agentSpeaking || pressed) return;
       idleResumeFiredRef.current = true;
+      log.event("META", "idle auto-resume continue_meeting");
       toolHandlers.continue_meeting({});
     }, BUTTON_IDLE_REMIND_MS);
 

@@ -203,7 +203,7 @@ describe("MeetingMetaAgent", () => {
       expect.stringMatching(/STATE SYNC/),
     );
     expect(mockSendUserMessage).toHaveBeenCalledWith(
-      expect.stringMatching(/activation greeting/i),
+      expect.stringMatching(/interruption greeting/i),
     );
     expect(mockRequestAgentResponse).toHaveBeenCalled();
   });

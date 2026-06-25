@@ -6,6 +6,7 @@ import type {
   RealtimeBootstrapResponse,
   RealtimeCallResponse,
 } from "@shared/RealtimeSessionTypes";
+import { councilFetch } from "./http";
 
 function authHeaders(liveKey: string): HeadersInit {
   return {
@@ -19,7 +20,7 @@ export async function bootstrapHumanInputRealtimeSession(
   liveKey: string,
   signal?: AbortSignal
 ): Promise<RealtimeBootstrapResponse> {
-  const res = await fetch("/api/realtime/bootstrap", {
+  const res = await councilFetch("/api/realtime/bootstrap", {
     method: "POST",
     headers: authHeaders(liveKey),
     body: JSON.stringify(body),
@@ -37,7 +38,7 @@ export async function createHumanInputRealtimeCall(
   liveKey: string,
   signal?: AbortSignal
 ): Promise<RealtimeCallResponse> {
-  const res = await fetch("/api/realtime/call", {
+  const res = await councilFetch("/api/realtime/call", {
     method: "POST",
     headers: authHeaders(liveKey),
     body: JSON.stringify(body),
@@ -55,7 +56,7 @@ export async function bootstrapMetaAgentRealtimeSession(
   liveKey: string,
   signal?: AbortSignal
 ): Promise<RealtimeBootstrapResponse> {
-  const res = await fetch("/api/realtime/bootstrap", {
+  const res = await councilFetch("/api/realtime/bootstrap", {
     method: "POST",
     headers: authHeaders(liveKey),
     body: JSON.stringify(body),
@@ -73,7 +74,7 @@ export async function createMetaAgentRealtimeCall(
   liveKey: string,
   signal?: AbortSignal
 ): Promise<RealtimeCallResponse> {
-  const res = await fetch("/api/realtime/call", {
+  const res = await councilFetch("/api/realtime/call", {
     method: "POST",
     headers: authHeaders(liveKey),
     body: JSON.stringify(body),
