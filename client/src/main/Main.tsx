@@ -23,6 +23,7 @@ import { isMeetingPath, isRootPath, stripLanguagePrefix, useRouting } from "@/ro
 import RotateDevice from "./overlay/RotateDevice";
 import FullscreenButton from "./FullscreenButton";
 import MuseumModeEscapeHatch from "@/museum/MuseumModeEscapeHatch";
+import { useButtonLedDebugOverlay } from "@/museum/button/buttonDebug";
 import { useCouncilSettings } from "@/settings/councilSettings";
 import {
   createMeetingAudioContext,
@@ -87,6 +88,7 @@ export default function Main(props: MainProps) {
   const isIphone = useIsIphone();
   const isPortrait = usePortrait();
   const { isMuseumMode, pushToTalkMode } = useCouncilSettings();
+  const { ledDebugOverlay } = useButtonLedDebugOverlay();
 
   useEffect(() => {
     if (i18n.language !== props.lang) {
@@ -229,7 +231,7 @@ export default function Main(props: MainProps) {
             />
             <Route path="*" element={<Navigate to={rootPath} replace />} />
           </Routes>
-          {!isIphone && !isMuseumMode && <FullscreenButton />}
+          {!isIphone && !isMuseumMode && !(pushToTalkMode && ledDebugOverlay) && <FullscreenButton />}
           <MainOverlays
             topic={topicSelection}
             onReset={onReset}

@@ -70,7 +70,14 @@
       "usbNotDetectedHint": "Plug in the Council button via USB. The bridge scans for Arduino USB devices automatically.",
       "usbWrongDeviceHint": "A USB serial device was found, but it is not running Council button firmware. Reflash the Arduino sketch or check the USB cable/port.",
       "debugTitle": "Button debug",
-      "ledDebugOverlay": "LED preview overlay"
+      "ledDebugOverlay": "LED preview overlay",
+      "owners": {
+        "none": "—",
+        "setup": "Setup",
+        "voice-guide": "Voice guide",
+        "human-input": "Human input",
+        "meta-agent": "Meta agent"
+      }
     }
   },
   "settings": "Settings",

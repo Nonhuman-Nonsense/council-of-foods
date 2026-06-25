@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type CSSProperties, type ReactElement } from "react";
+import { useTranslation } from "react-i18next";
 import { useButtonStore } from "./buttonStore";
-import type { ButtonLedMode } from "./buttonStore";
+import type { ButtonLedMode, ButtonOwner } from "./buttonStore";
 
 export const BUTTON_LED_DEBUG_STORAGE_KEY = "councilButtonLedDebug";
 
@@ -60,6 +61,35 @@ export function useButtonLedDebugOverlay(): {
   return { ledDebugOverlay, setLedDebugOverlay };
 }
 
+const overlayStyle: CSSProperties = {
+  position: "fixed",
+  bottom: 8,
+  right: 5,
+  zIndex: 10002,
+  pointerEvents: "none",
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  gap: 6,
+};
+
+const labelBlockStyle: CSSProperties = {
+  width: 75,
+  fontSize: 10,
+  fontFamily: "monospace",
+  color: "rgba(255,255,255,0.75)",
+  textShadow: "0 1px 2px rgba(0,0,0,0.8)",
+  textAlign: "center",
+  lineHeight: 1.25,
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
+};
+
+function ownerLabelKey(owner: ButtonOwner | null): string {
+  return owner ? `setup.button.owners.${owner}` : "setup.button.owners.none";
+}
+
 const indicatorBaseStyle: CSSProperties = {
   width: 28,
   height: 28,
@@ -88,42 +118,26 @@ const modeStyles: Record<ButtonLedMode, CSSProperties> = {
  * Enabled via localStorage (`councilButtonLedDebug`) or Setup toggle.
  */
 export default function ButtonLedDebugOverlay(): ReactElement {
+  const { t } = useTranslation();
   const ledMode = useButtonStore((state) => state.ledMode);
   const buttonOwner = useButtonStore((state) => state.buttonOwner);
 
-  const label = buttonOwner ? `LED ${ledMode} (${buttonOwner})` : `LED ${ledMode}`;
+  const ownerLabel = t(ownerLabelKey(buttonOwner));
 
   return (
     <div
       data-testid="button-led-debug-overlay"
-      style={{
-        position: "fixed",
-        top: 10,
-        right: 10,
-        zIndex: 10002,
-        pointerEvents: "none",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        gap: 6,
-      }}
+      style={overlayStyle}
       aria-hidden
     >
       <div
         data-testid="button-led-debug-indicator"
         data-led-mode={ledMode}
-        title={label}
+        title={ownerLabel}
         style={{ ...indicatorBaseStyle, ...modeStyles[ledMode] }}
       />
-      <span
-        style={{
-          fontSize: 10,
-          fontFamily: "monospace",
-          color: "rgba(255,255,255,0.75)",
-          textShadow: "0 1px 2px rgba(0,0,0,0.8)",
-        }}
-      >
-        {label}
+      <span data-testid="button-led-debug-owner" style={labelBlockStyle}>
+        {ownerLabel}
       </span>
     </div>
   );

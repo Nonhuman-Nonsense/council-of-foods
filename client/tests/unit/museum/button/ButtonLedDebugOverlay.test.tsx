@@ -9,13 +9,14 @@ describe("ButtonLedDebugOverlay", () => {
     _resetButtonStoreForTests();
   });
 
-  it("renders off state", () => {
+  it("renders off state with no owner", () => {
     useButtonStore.setState({ ledMode: "off", buttonOwner: null });
     render(<ButtonLedDebugOverlay />);
 
     const indicator = screen.getByTestId("button-led-debug-indicator");
     expect(indicator).toHaveAttribute("data-led-mode", "off");
-    expect(screen.getByText("LED off")).toBeInTheDocument();
+    expect(screen.getByTestId("button-led-debug-owner")).toHaveTextContent("—");
+    expect(screen.queryByTestId("button-led-debug-state")).not.toBeInTheDocument();
   });
 
   it("renders on state with owner label", () => {
@@ -24,7 +25,7 @@ describe("ButtonLedDebugOverlay", () => {
 
     const indicator = screen.getByTestId("button-led-debug-indicator");
     expect(indicator).toHaveAttribute("data-led-mode", "on");
-    expect(screen.getByText("LED on (meta-agent)")).toBeInTheDocument();
+    expect(screen.getByTestId("button-led-debug-owner")).toHaveTextContent("Meta agent");
   });
 
   it("renders pulse state", () => {
@@ -35,5 +36,18 @@ describe("ButtonLedDebugOverlay", () => {
       "data-led-mode",
       "pulse",
     );
+    expect(screen.getByTestId("button-led-debug-owner")).toHaveTextContent("Setup");
+  });
+
+  it("is fixed to the bottom-right corner", () => {
+    useButtonStore.setState({ ledMode: "off", buttonOwner: null });
+    render(<ButtonLedDebugOverlay />);
+
+    const overlay = screen.getByTestId("button-led-debug-overlay");
+    expect(overlay).toHaveStyle({
+      position: "fixed",
+      bottom: "8px",
+      right: "15px",
+    });
   });
 });
