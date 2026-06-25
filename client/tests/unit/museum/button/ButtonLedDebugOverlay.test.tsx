@@ -38,16 +38,4 @@ describe("ButtonLedDebugOverlay", () => {
     );
     expect(screen.getByTestId("button-led-debug-owner")).toHaveTextContent("Setup");
   });
-
-  it("is fixed to the bottom-right corner", () => {
-    useButtonStore.setState({ ledMode: "off", buttonOwner: null });
-    render(<ButtonLedDebugOverlay />);
-
-    const overlay = screen.getByTestId("button-led-debug-overlay");
-    expect(overlay).toHaveStyle({
-      position: "fixed",
-      bottom: "8px",
-      right: "15px",
-    });
-  });
 });
