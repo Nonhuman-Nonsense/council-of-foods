@@ -25,6 +25,7 @@ import { getSpaRedirectTarget, isBlockedScannerPath, shouldServeSpaShell } from 
 import { registerMeetingRoutes } from '@api/meetingRoutes.js';
 import { registerRealtimeRoutes } from '@api/realtimeSession.js';
 import { registerAudioRoutes } from '@api/audioRoutes.js';
+import { registerDevErrorbotRoutes } from '@api/devErrorbotRoutes.js';
 import { z } from 'zod';
 
 const environment: string = config.NODE_ENV;
@@ -58,6 +59,7 @@ app.use('/api', cacheControlPrivateNoStoreApi);
 registerMeetingRoutes(app, environment);
 registerRealtimeRoutes(app);
 registerAudioRoutes(app);
+registerDevErrorbotRoutes(app, environment);
 
 const ClientReportBody = z.object({
   message: z.string().min(1).max(2000),
