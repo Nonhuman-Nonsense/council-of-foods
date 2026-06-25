@@ -1,4 +1,5 @@
 import type { RealtimeFunctionTool, ToolHandler, ToolResult } from "@voice/guideTools";
+import type { MetaAgentPromptBundle } from "./metaAgentPrompt";
 import { log } from "@/logger";
 
 export type MetaAgentToolContext = {
@@ -9,20 +10,21 @@ export type MetaAgentToolContext = {
   silenceAgentOutput: () => void;
 };
 
-export function createMetaAgentTools(): RealtimeFunctionTool[] {
+export function createMetaAgentTools(params: {
+  promptBundle: MetaAgentPromptBundle;
+}): RealtimeFunctionTool[] {
+  const copy = params.promptBundle.toolDescriptions;
   return [
     {
       type: "function",
       name: "continue_meeting",
-      description:
-        "Return to the council meeting after a visitor interaction. Call when the visitor is done, says goodbye, or wants to keep watching. Do not speak after calling this.",
+      description: copy.continue_meeting,
       parameters: { type: "object", properties: {}, additionalProperties: false },
     },
     {
       type: "function",
       name: "restart_meeting",
-      description:
-        "Restart the entire meeting from the beginning, returning to the setup screen. Use when the visitor wants to start over. Do not speak after calling this.",
+      description: copy.restart_meeting,
       parameters: { type: "object", properties: {}, additionalProperties: false },
     },
   ];

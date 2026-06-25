@@ -19,8 +19,14 @@ const testBundle: MetaAgentPromptBundle = {
   },
   jobInstructions: [
     "Handle interruptions during a live council meeting.",
-    "Call continue_meeting when the visitor is done.",
+    "When the exchange feels complete, call continue_meeting.",
   ],
+  toolDescriptions: {
+    continue_meeting:
+      "Return to the live council meeting when the visitor seems done with this interruption.",
+    restart_meeting:
+      "Restart the entire meeting from the beginning, returning to the setup screen.",
+  },
   activationGreetingExample:
     "Excuse me — you've interrupted the council. You'll be invited to speak when it's your turn. Unless you'd like to start from the beginning?",
 };
@@ -76,6 +82,21 @@ describe("buildMetaAgentPrompt", () => {
     const prompt = buildMetaAgentPrompt({ bundle: testBundle });
     expect(prompt).toContain("continue_meeting");
     expect(prompt).toContain("restart_meeting");
+    expect(prompt).toContain(testBundle.toolDescriptions.continue_meeting);
+  });
+
+  it("instructs the agent to judge when to resume and call continue_meeting", () => {
+    const prompt = buildMetaAgentPrompt({ bundle: testBundle });
+    expect(prompt).toContain("You decide when the interruption is over");
+    expect(prompt).toContain("call continue_meeting in that same turn");
+    expect(prompt).toContain("Do not end a turn with only a spoken goodbye");
+  });
+
+  it("loads continue guidance from the shipped foods bundle", () => {
+    const bundle = getMetaAgentBundle("en");
+    const prompt = buildMetaAgentPrompt({ bundle });
+    expect(bundle.jobInstructions.join(" ")).toContain("Err on resuming");
+    expect(prompt).toContain(bundle.toolDescriptions.continue_meeting);
   });
 
   it("instructs staying quiet until STATE SYNC and acknowledging the interruption", () => {

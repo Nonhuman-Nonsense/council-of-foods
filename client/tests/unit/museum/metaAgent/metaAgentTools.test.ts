@@ -4,6 +4,7 @@ import {
   createMetaAgentToolHandlers,
   type MetaAgentToolContext,
 } from "@/museum/metaAgent/metaAgentTools";
+import { getMetaAgentBundle } from "@/museum/metaAgent/metaAgentPrompt";
 
 function makeCtx(overrides: Partial<MetaAgentToolContext> = {}): MetaAgentToolContext {
   return {
@@ -17,8 +18,15 @@ function makeCtx(overrides: Partial<MetaAgentToolContext> = {}): MetaAgentToolCo
 
 describe("createMetaAgentTools", () => {
   it("returns only continue_meeting and restart_meeting", () => {
-    const tools = createMetaAgentTools();
+    const tools = createMetaAgentTools({ promptBundle: getMetaAgentBundle("en") });
     expect(tools.map((t) => t.name)).toEqual(["continue_meeting", "restart_meeting"]);
+  });
+
+  it("uses tool descriptions from the prompt bundle", () => {
+    const bundle = getMetaAgentBundle("en");
+    const tools = createMetaAgentTools({ promptBundle: bundle });
+    expect(tools[0]?.description).toBe(bundle.toolDescriptions.continue_meeting);
+    expect(tools[1]?.description).toBe(bundle.toolDescriptions.restart_meeting);
   });
 });
 

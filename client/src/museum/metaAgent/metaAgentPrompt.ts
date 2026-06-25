@@ -17,9 +17,12 @@ export type MetaAgentPromptBundle = {
   projectDescription: string;
   councilVocabulary: CouncilVocabulary;
   jobInstructions: string[];
+  toolDescriptions: Record<"continue_meeting" | "restart_meeting", string>;
   /** Example interruption greeting — agent should match tone, not repeat verbatim. */
   activationGreetingExample: string;
 };
+
+const META_AGENT_TOOL_ORDER = ["continue_meeting", "restart_meeting"] as const;
 
 export type MetaAgentStateSnapshot = {
   councilState: CouncilState;
@@ -71,13 +74,14 @@ export function getMetaAgentBundle(lang: string): MetaAgentPromptBundle {
 export const META_AGENT_PROMPT_TEMPLATE =
   "${chairIdentity}\n${chairVoice}\n\nProject:\n${projectDescription}\n\nYour role:\n${roleDescription}\n\nYour job:\n${jobInstructions}\n\nTools:\n${toolsList}\n\nRules:\n${rulesList}";
 
-const TOOL_LINES = [
-  "continue_meeting — return to the live council when the visitor is done",
-  "restart_meeting — start the entire council over from the beginning",
-];
-
 function formatBullets(lines: string[]): string {
   return lines.map((line) => `- ${line}`).join("\n");
+}
+
+function buildToolsList(toolDescriptions: MetaAgentPromptBundle["toolDescriptions"]): string {
+  return formatBullets(
+    META_AGENT_TOOL_ORDER.map((name) => `${name}: ${toolDescriptions[name]}`),
+  );
 }
 
 function buildPttRule(pushToTalkMode: boolean): string {
@@ -125,6 +129,8 @@ export function buildMetaAgentPrompt(params: {
     "If the visitor has not spoken yet, open by acknowledging the interruption — they paused the council; they will be invited to speak when it is their turn; they may restart if they wish. About 2–3 short sentences.",
     `Example tone (vary the words each time — do not repeat verbatim): "${bundle.activationGreetingExample.trim()}"`,
     "Do not open with 'How can I help you?' or other generic guide phrases.",
+    "You decide when the interruption is over — short replies like 'ok' or no further question after your answer are enough. Then call continue_meeting in that same turn.",
+    "Do not end a turn with only a spoken goodbye or farewell; always call continue_meeting to resume the council.",
     "Be concise. Visitors stand at a kiosk. Do not reference on-screen UI.",
     buildPttRule(pushToTalkMode),
     "Use the visitor's name from STATE SYNC when you know it.",
@@ -136,7 +142,7 @@ export function buildMetaAgentPrompt(params: {
     projectDescription: bundle.projectDescription.trim(),
     roleDescription,
     jobInstructions: formatBullets(bundle.jobInstructions),
-    toolsList: formatBullets(TOOL_LINES),
+    toolsList: buildToolsList(bundle.toolDescriptions),
     rulesList: formatBullets(rules),
     councilName,
     characterPlural: plural,

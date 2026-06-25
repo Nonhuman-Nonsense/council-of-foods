@@ -62,16 +62,21 @@ export default function MeetingMetaAgent({
 }: MeetingMetaAgentProps) {
   const button = useButton("meta-agent");
 
+  const promptBundle = useMemo(() => getMetaAgentBundle(language), [language]);
+
   const instructions = useMemo(
     () =>
       buildMetaAgentPrompt({
-        bundle: getMetaAgentBundle(language),
+        bundle: promptBundle,
         pushToTalkMode: true,
       }),
-    [language],
+    [promptBundle],
   );
 
-  const tools = useMemo(() => createMetaAgentTools(), []);
+  const tools = useMemo(
+    () => createMetaAgentTools({ promptBundle }),
+    [promptBundle],
+  );
 
   const silenceRef = useRef<() => void>(() => undefined);
 
