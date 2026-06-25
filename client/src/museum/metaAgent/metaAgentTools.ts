@@ -8,17 +8,13 @@ export type MetaAgentToolContext = {
   silenceAgentOutput: () => void;
 };
 
-function notAvailableYet(): ToolResult {
-  return { ok: false, error: "Not available yet" };
-}
-
 export function createMetaAgentTools(): RealtimeFunctionTool[] {
   return [
     {
       type: "function",
-      name: "resume_meeting",
+      name: "continue_meeting",
       description:
-        "Resume the council meeting after a visitor interaction. Call when the visitor is done and wants to continue watching. Do not speak after calling this.",
+        "Return to the council meeting after a visitor interaction. Call when the visitor is done, says goodbye, or wants to keep watching. Do not speak after calling this.",
       parameters: { type: "object", properties: {}, additionalProperties: false },
     },
     {
@@ -28,38 +24,22 @@ export function createMetaAgentTools(): RealtimeFunctionTool[] {
         "Restart the entire meeting from the beginning, returning to the setup screen. Use when the visitor wants to start over. Do not speak after calling this.",
       parameters: { type: "object", properties: {}, additionalProperties: false },
     },
-    {
-      type: "function",
-      name: "continue_meeting",
-      description: "Continue the meeting past the end-of-meeting prompt.",
-      parameters: { type: "object", properties: {}, additionalProperties: false },
-    },
-    {
-      type: "function",
-      name: "wrap_up_meeting",
-      description: "Wrap up and generate a summary of the meeting.",
-      parameters: { type: "object", properties: {}, additionalProperties: false },
-    },
   ];
 }
 
 export function createMetaAgentToolHandlers(ctx: MetaAgentToolContext): Record<string, ToolHandler> {
   return {
-    resume_meeting: () => {
+    continue_meeting: (): ToolResult => {
       ctx.silenceAgentOutput();
       ctx.setMetaAgentActive(false);
       ctx.setMeetingPlaybackPaused(false);
       return { ok: true, suppressContinuation: true };
     },
 
-    restart_meeting: () => {
+    restart_meeting: (): ToolResult => {
       ctx.silenceAgentOutput();
       ctx.onRestartMeeting();
       return { ok: true, suppressContinuation: true };
     },
-
-    continue_meeting: () => notAvailableYet(),
-
-    wrap_up_meeting: () => notAvailableYet(),
   };
 }

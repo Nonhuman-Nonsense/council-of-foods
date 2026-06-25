@@ -3,7 +3,12 @@ import { useButton, type ButtonLedMode } from "@museum/button/useButton";
 import { BUTTON_IDLE_REMIND_MS, useHoldToSpeakHint } from "@voice/useHoldToSpeakHint";
 import RealtimeCaptionOverlay from "@realtime/RealtimeCaptionOverlay";
 import { useMetaAgent } from "./useMetaAgent";
-import { buildMetaAgentPrompt, buildMetaAgentActivationTurn, buildMetaAgentStateSnapshot } from "./metaAgentPrompt";
+import {
+  buildMetaAgentPrompt,
+  buildMetaAgentActivationTurn,
+  buildMetaAgentStateSnapshot,
+  getMetaAgentBundle,
+} from "./metaAgentPrompt";
 import {
   createMetaAgentTools,
   createMetaAgentToolHandlers,
@@ -33,7 +38,7 @@ export interface MeetingMetaAgentProps {
  * Museum meta-agent: a persistent WebRTC voice agent that sits on top of the
  * council meeting.  The visitor can press the PTT button at any time to talk
  * to the chair (meta-agent).  Meeting Web Audio freezes while the meta agent is
- * active and only resumes when the agent calls `resume_meeting`.
+ * active and only resumes when the agent calls `continue_meeting`.
  *
  * Mounting contract:
  *  - Only mount when `pushToTalkMode && liveKey` (live meeting + PTT).
@@ -57,8 +62,12 @@ export default function MeetingMetaAgent({
   const button = useButton("meta-agent");
 
   const instructions = useMemo(
-    () => buildMetaAgentPrompt({ pushToTalkMode: true }),
-    [],
+    () =>
+      buildMetaAgentPrompt({
+        bundle: getMetaAgentBundle(language),
+        pushToTalkMode: true,
+      }),
+    [language],
   );
 
   const tools = useMemo(() => createMetaAgentTools(), []);
@@ -208,7 +217,7 @@ export default function MeetingMetaAgent({
       if (idleResumeFiredRef.current) return;
       if (agentSpeaking || pressed) return;
       idleResumeFiredRef.current = true;
-      toolHandlers.resume_meeting({});
+      toolHandlers.continue_meeting({});
     }, BUTTON_IDLE_REMIND_MS);
 
     return () => window.clearTimeout(timerId);

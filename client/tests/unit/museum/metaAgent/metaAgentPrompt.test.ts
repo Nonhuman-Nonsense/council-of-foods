@@ -3,13 +3,37 @@ import {
   buildMetaAgentActivationTurn,
   buildMetaAgentPrompt,
   buildMetaAgentStateSnapshot,
+  getMetaAgentBundle,
+  type MetaAgentPromptBundle,
   type MetaAgentStateSnapshot,
 } from "@/museum/metaAgent/metaAgentPrompt";
+
+const testBundle: MetaAgentPromptBundle = {
+  chairIdentity: "You are Water, the chair and moderator of the Council of Foods.",
+  chairVoice: "Your voice is diplomatic and clear.",
+  projectDescription: "Council of Foods is a live political council where foods debate the food system.",
+  councilVocabulary: {
+    singular: "food",
+    plural: "foods",
+    councilName: "Council of Foods",
+  },
+  jobInstructions: [
+    "Handle interruptions during a live council meeting.",
+    "Call continue_meeting when the visitor is done.",
+  ],
+  activationGreetingExample:
+    "Excuse me — you've interrupted the council. You'll be invited to speak when it's your turn. Unless you'd like to start from the beginning?",
+};
 
 function makeSnapshot(overrides: Partial<MetaAgentStateSnapshot> = {}): MetaAgentStateSnapshot {
   return {
     councilState: "playing",
-    topic: { id: "forests", title: "Forest Protection", description: "", prompt: "" },
+    topic: {
+      id: "forests",
+      title: "Forest Protection",
+      description: "Ancient forests are under pressure from logging and climate change.",
+      prompt: "",
+    },
     participants: [
       { id: "water", name: "Water", description: "", prompt: "", voice: "" },
       { id: "oak", name: "Oak", description: "", prompt: "", voice: "" },
@@ -21,40 +45,81 @@ function makeSnapshot(overrides: Partial<MetaAgentStateSnapshot> = {}): MetaAgen
   };
 }
 
+describe("getMetaAgentBundle", () => {
+  it("loads the foods meta-agent bundle for English", () => {
+    const bundle = getMetaAgentBundle("en");
+    expect(bundle.chairIdentity).toContain("Water");
+    expect(bundle.councilVocabulary.councilName).toBe("Council of Foods");
+    expect(bundle.jobInstructions.length).toBeGreaterThan(0);
+  });
+});
+
 describe("buildMetaAgentPrompt", () => {
+  it("includes chair identity, project, and council vocabulary", () => {
+    const prompt = buildMetaAgentPrompt({ bundle: testBundle, pushToTalkMode: true });
+    expect(prompt).toContain("You are Water");
+    expect(prompt).toContain("Council of Foods");
+    expect(prompt).toContain("foods debate");
+  });
+
   it("includes ptt note when push-to-talk mode is on", () => {
-    const prompt = buildMetaAgentPrompt({ pushToTalkMode: true });
+    const prompt = buildMetaAgentPrompt({ bundle: testBundle, pushToTalkMode: true });
     expect(prompt).toContain("hold to talk");
   });
 
   it("omits ptt note when push-to-talk mode is off", () => {
-    const prompt = buildMetaAgentPrompt({ pushToTalkMode: false });
+    const prompt = buildMetaAgentPrompt({ bundle: testBundle, pushToTalkMode: false });
     expect(prompt).not.toContain("hold to talk");
   });
 
-  it("mentions resume_meeting and restart_meeting tools", () => {
-    const prompt = buildMetaAgentPrompt({ pushToTalkMode: false });
-    expect(prompt).toContain("resume_meeting");
+  it("mentions continue_meeting and restart_meeting tools", () => {
+    const prompt = buildMetaAgentPrompt({ bundle: testBundle });
+    expect(prompt).toContain("continue_meeting");
     expect(prompt).toContain("restart_meeting");
   });
 
-  it("instructs no speech after terminal tools", () => {
-    const prompt = buildMetaAgentPrompt({ pushToTalkMode: false });
-    expect(prompt).toContain("do not speak");
+  it("instructs staying quiet until STATE SYNC and acknowledging the interruption", () => {
+    const prompt = buildMetaAgentPrompt({ bundle: testBundle });
+    expect(prompt).toContain("Stay quiet until you receive (STATE SYNC:");
+    expect(prompt).toContain("acknowledging the interruption");
+    expect(prompt).toContain("Do not open with 'How can I help you?'");
   });
 
-  it("instructs an activation greeting on meta_agent_activate", () => {
-    const prompt = buildMetaAgentPrompt({ pushToTalkMode: false });
-    expect(prompt).toContain("meta_agent_activate");
-    expect(prompt).toContain("speak first");
-    expect(prompt).toContain("interrupted");
+  it("includes an example interruption greeting with vary instruction", () => {
+    const prompt = buildMetaAgentPrompt({ bundle: testBundle });
+    expect(prompt).toContain("Example tone (vary the words each time");
+    expect(prompt).toContain("Excuse me — you've interrupted the council");
+    expect(prompt).toContain("do not repeat verbatim");
+  });
+
+  it("loads activationGreetingExample from the shipped foods bundle", () => {
+    const bundle = getMetaAgentBundle("en");
+    const prompt = buildMetaAgentPrompt({ bundle });
+    expect(bundle.activationGreetingExample).toContain("interrupted");
+    expect(prompt).toContain(bundle.activationGreetingExample);
+  });
+
+  it("frames the role as interruption handler, not a guide", () => {
+    const prompt = buildMetaAgentPrompt({ bundle: testBundle });
+    expect(prompt).toContain("not a kiosk helper");
+    expect(prompt).toContain("address the interruption");
+  });
+
+  it("uses the shipped foods bundle without errors", () => {
+    const prompt = buildMetaAgentPrompt({
+      bundle: getMetaAgentBundle("en"),
+      pushToTalkMode: true,
+    });
+    expect(prompt.length).toBeGreaterThan(100);
+    expect(prompt.length).toBeLessThan(4000);
   });
 });
 
 describe("buildMetaAgentActivationTurn", () => {
-  it("asks the agent to greet using the STATE SYNC context", () => {
+  it("asks for an interruption greeting, not a generic welcome", () => {
     const turn = buildMetaAgentActivationTurn();
-    expect(turn).toContain("activated you");
+    expect(turn).toContain("interrupted");
+    expect(turn).toContain("interruption greeting");
     expect(turn).toContain("STATE SYNC");
   });
 });
@@ -65,14 +130,43 @@ describe("buildMetaAgentStateSnapshot", () => {
     expect(snap).toMatch(/^\(STATE SYNC: \{/);
   });
 
-  it("includes council state, topic, speaker, and visitor name", () => {
+  it("includes topic description, council members, speaker, and visitor name", () => {
     const snap = buildMetaAgentStateSnapshot(makeSnapshot());
     const payload = JSON.parse(snap.replace(/^\(STATE SYNC: /, "").replace(/\)$/, ""));
     expect(payload.councilState).toBe("playing");
     expect(payload.topic.title).toBe("Forest Protection");
+    expect(payload.topic.description).toContain("Ancient forests");
+    expect(payload.councilMembers).toEqual(["Oak"]);
     expect(payload.currentSpeaker).toBe("Oak");
     expect(payload.visitorName).toBe("Alice");
-    expect(payload.participants).toBe("Water, Oak");
+  });
+
+  it("excludes the chair from councilMembers", () => {
+    const snap = buildMetaAgentStateSnapshot(makeSnapshot());
+    const payload = JSON.parse(snap.replace(/^\(STATE SYNC: /, "").replace(/\)$/, ""));
+    expect(payload.councilMembers).not.toContain("Water");
+  });
+
+  it("includes human panelists when present", () => {
+    const snap = buildMetaAgentStateSnapshot(
+      makeSnapshot({
+        participants: [
+          { id: "water", name: "Water", description: "", prompt: "", voice: "" },
+          { id: "oak", name: "Oak", description: "", prompt: "", voice: "" },
+          {
+            id: "panelist0",
+            name: "Dr. Lee",
+            description: "Nutrition researcher",
+            prompt: "",
+            voice: "",
+          },
+        ],
+      }),
+    );
+    const payload = JSON.parse(snap.replace(/^\(STATE SYNC: /, "").replace(/\)$/, ""));
+    expect(payload.humanPanelists).toEqual([
+      { name: "Dr. Lee", description: "Nutrition researcher" },
+    ]);
   });
 
   it("handles null topic gracefully", () => {

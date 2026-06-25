@@ -1,6 +1,25 @@
+import { AVAILABLE_LANGUAGES } from "@shared/AvailableLanguages";
 import type { Character, Topic } from "@shared/ModelTypes";
+import { CHARACTERS_FILE } from "@shared/prompts/characterSetupMetadata";
 import type { CouncilState } from "@council/hooks/useCouncilMachine";
 import type { ParticipationPhase } from "@council/humanInput/participationPhase";
+import { CHAIR_ID } from "@/prompts/characterSetupBundles";
+
+export type CouncilVocabulary = {
+  singular: string;
+  plural: string;
+  councilName: string;
+};
+
+export type MetaAgentPromptBundle = {
+  chairIdentity: string;
+  chairVoice: string;
+  projectDescription: string;
+  councilVocabulary: CouncilVocabulary;
+  jobInstructions: string[];
+  /** Example interruption greeting — agent should match tone, not repeat verbatim. */
+  activationGreetingExample: string;
+};
 
 export type MetaAgentStateSnapshot = {
   councilState: CouncilState;
@@ -11,43 +30,122 @@ export type MetaAgentStateSnapshot = {
   participationPhase: ParticipationPhase;
 };
 
+const metaAgentModules = import.meta.glob<MetaAgentPromptBundle>(
+  "@shared/prompts/meta_agent_*.json",
+  { eager: true, import: "default" },
+);
+
+function resolveMetaAgentModulePath(lang: string): string | undefined {
+  const suffix = `meta_agent_${CHARACTERS_FILE}_${lang}.json`;
+  return Object.keys(metaAgentModules).find((path) => path.endsWith(suffix));
+}
+
+const metaAgentByLanguage: Partial<Record<string, MetaAgentPromptBundle>> = {};
+for (const lang of AVAILABLE_LANGUAGES) {
+  const moduleKey = resolveMetaAgentModulePath(lang);
+  if (moduleKey) {
+    metaAgentByLanguage[lang] = metaAgentModules[moduleKey];
+  }
+}
+
+const fallbackLanguage = AVAILABLE_LANGUAGES[0];
+if (!metaAgentByLanguage[fallbackLanguage]) {
+  const available = Object.keys(metaAgentByLanguage).sort().join(", ") || "(none)";
+  throw new Error(
+    `[metaAgentPrompt] Missing meta-agent bundle for ${CHARACTERS_FILE}/${fallbackLanguage}. ` +
+      `Available: ${available}. Expected shared/prompts/meta_agent_${CHARACTERS_FILE}_*.json`,
+  );
+}
+
+/** Frozen meta-agent copy for one UI language (meeting interruption chair). */
+export function getMetaAgentBundle(lang: string): MetaAgentPromptBundle {
+  const normalized = (AVAILABLE_LANGUAGES as readonly string[]).includes(lang)
+    ? lang
+    : lang.toLowerCase().startsWith("sv")
+      ? "sv"
+      : fallbackLanguage;
+  return metaAgentByLanguage[normalized] ?? metaAgentByLanguage[fallbackLanguage]!;
+}
+
+/** Shared prompt skeleton; per-app JSON supplies chair identity and vocabulary. */
+export const META_AGENT_PROMPT_TEMPLATE =
+  "${chairIdentity}\n${chairVoice}\n\nProject:\n${projectDescription}\n\nYour role:\n${roleDescription}\n\nYour job:\n${jobInstructions}\n\nTools:\n${toolsList}\n\nRules:\n${rulesList}";
+
+const TOOL_LINES = [
+  "continue_meeting — return to the live council when the visitor is done",
+  "restart_meeting — start the entire council over from the beginning",
+];
+
+function formatBullets(lines: string[]): string {
+  return lines.map((line) => `- ${line}`).join("\n");
+}
+
+function buildPttRule(pushToTalkMode: boolean): string {
+  if (!pushToTalkMode) return "";
+  return "The visitor uses a physical talk button: hold to talk, release to send.";
+}
+
+function truncateDescription(text: string, maxLen = 400): string {
+  const trimmed = text.trim();
+  if (trimmed.length <= maxLen) return trimmed;
+  return `${trimmed.slice(0, maxLen - 1)}…`;
+}
+
+function isPanelistId(id: string): boolean {
+  return id.startsWith("panelist");
+}
+
+function partitionParticipants(participants: Character[]) {
+  const humanPanelists = participants.filter((p) => isPanelistId(p.id));
+  const councilMembers = participants.filter(
+    (p) => !isPanelistId(p.id) && p.id !== CHAIR_ID,
+  );
+  return { humanPanelists, councilMembers };
+}
+
 /**
  * Builds the system prompt for the meta-agent.
  *
- * Keep it short — long prompts cause provider errors. The agent learns current
- * meeting state from the snapshot injected at activate time, not from the prompt.
+ * Keep it short — long prompts cause provider errors. Live meeting context
+ * (topic, participants, visitor name) arrives via STATE SYNC on activation.
  */
 export function buildMetaAgentPrompt(params: {
-  pushToTalkMode: boolean;
+  bundle: MetaAgentPromptBundle;
+  pushToTalkMode?: boolean;
 }): string {
-  const pttNote = params.pushToTalkMode
-    ? "The visitor uses a physical button: hold to talk, release to send."
-    : "";
+  const { bundle, pushToTalkMode = false } = params;
+  const { councilName, plural } = bundle.councilVocabulary;
 
-  return `You are the host and chair of a live council meeting at a museum installation. \
-The council is a group of nature beings (animals, plants, rivers) discussing an environmental topic. \
-Your role during the meeting is to assist the visitor — answer questions about what is happening, \
-help them navigate the experience, and act on their requests.
+  const roleDescription =
+    `During ${councilName}, the talk button stays on. When pressed, the council pauses and you — ` +
+    `the chair — address the interruption. You are not a kiosk helper or setup guide.`;
 
-Be concise. Visitors are standing at a kiosk; speak in short, clear sentences. \
-Do not reference on-screen UI or buttons by name. ${pttNote}
+  const rules = [
+    "Stay quiet until you receive (STATE SYNC: ...) — then respond.",
+    "If the visitor has not spoken yet, open by acknowledging the interruption — they paused the council; they will be invited to speak when it is their turn; they may restart if they wish. About 2–3 short sentences.",
+    `Example tone (vary the words each time — do not repeat verbatim): "${bundle.activationGreetingExample.trim()}"`,
+    "Do not open with 'How can I help you?' or other generic guide phrases.",
+    "Be concise. Visitors stand at a kiosk. Do not reference on-screen UI.",
+    buildPttRule(pushToTalkMode),
+    "Use the visitor's name from STATE SYNC when you know it.",
+  ].filter(Boolean);
 
-When the visitor is done, call resume_meeting to continue the council. \
-If they want to start over, call restart_meeting. \
-After calling resume_meeting or restart_meeting, do not speak — the session ends immediately.
+  const replacements: Record<string, string> = {
+    chairIdentity: bundle.chairIdentity.trim(),
+    chairVoice: bundle.chairVoice.trim(),
+    projectDescription: bundle.projectDescription.trim(),
+    roleDescription,
+    jobInstructions: formatBullets(bundle.jobInstructions),
+    toolsList: formatBullets(TOOL_LINES),
+    rulesList: formatBullets(rules),
+    councilName,
+    characterPlural: plural,
+  };
 
-When the visitor wants to speak to the council directly (raise a question or be a panelist), \
-tell them they will be invited by the chair when it is their turn — the button will guide them.
-
-When you receive a meta_agent_activate STATE SYNC, speak first — the visitor interrupted the \
-meeting but may not say anything yet. Briefly acknowledge the interruption, explain they will \
-be invited to speak when it is their turn, and mention they can start over if they prefer. \
-Example tone: "Excuse me — you've interrupted the council. You'll be invited to speak when \
-it's your turn. Unless you'd like to start from the beginning?" Keep it to 2–3 short sentences, \
-then wait for the visitor. Use a different wording than the example above each time.
-
-You will receive the current meeting state as a (STATE SYNC: ...) message when the visitor \
-first activates you. Use that context to answer questions about what is happening.`;
+  return META_AGENT_PROMPT_TEMPLATE.replace(
+    /\$\{(\w+)\}/g,
+    (_match, key: string) => replacements[key] ?? "",
+  );
 }
 
 /**
@@ -56,27 +154,40 @@ first activates you. Use that context to answer questions about what is happenin
  */
 export function buildMetaAgentActivationTurn(): string {
   return (
-    "The visitor just activated you and interrupted the meeting. " +
-    "Give your activation greeting now, using the STATE SYNC context above."
+    "The visitor just interrupted the council meeting. " +
+    "Give your interruption greeting now — acknowledge the pause, not a generic welcome. " +
+    "Use the STATE SYNC context above."
   );
 }
 
 /**
  * One-shot snapshot injected into the conversation when the visitor first
- * presses the button (standby → active). Gives the agent enough context to
- * answer "what's happening?" without needing a live data feed.
+ * presses the button (standby → active).
  */
 export function buildMetaAgentStateSnapshot(snapshot: MetaAgentStateSnapshot): string {
-  const speakerList = snapshot.participants.map((p) => p.name).join(", ");
+  const { humanPanelists, councilMembers } = partitionParticipants(snapshot.participants);
+  const visitorName = snapshot.humanName.trim() || null;
+
   const payload = {
     source: "system",
     type: "meta_agent_activate",
     councilState: snapshot.councilState,
-    topic: snapshot.topic ? { id: snapshot.topic.id, title: snapshot.topic.title } : null,
-    participants: speakerList || null,
+    topic: snapshot.topic
+      ? {
+          id: snapshot.topic.id,
+          title: snapshot.topic.title,
+          description: truncateDescription(snapshot.topic.description),
+        }
+      : null,
+    councilMembers: councilMembers.map((p) => p.name),
+    humanPanelists: humanPanelists.map((p) => ({
+      name: p.name,
+      description: p.description ? truncateDescription(p.description, 200) : null,
+    })),
     currentSpeaker: snapshot.currentSpeakerName || null,
-    visitorName: snapshot.humanName || null,
+    visitorName,
     participationPhase: snapshot.participationPhase,
   };
+
   return `(STATE SYNC: ${JSON.stringify(payload)})`;
 }

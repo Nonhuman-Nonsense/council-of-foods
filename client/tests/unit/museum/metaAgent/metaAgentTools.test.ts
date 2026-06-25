@@ -16,22 +16,18 @@ function makeCtx(overrides: Partial<MetaAgentToolContext> = {}): MetaAgentToolCo
 }
 
 describe("createMetaAgentTools", () => {
-  it("returns all expected tool names", () => {
+  it("returns only continue_meeting and restart_meeting", () => {
     const tools = createMetaAgentTools();
-    const names = tools.map((t) => t.name);
-    expect(names).toContain("resume_meeting");
-    expect(names).toContain("restart_meeting");
-    expect(names).toContain("continue_meeting");
-    expect(names).toContain("wrap_up_meeting");
+    expect(tools.map((t) => t.name)).toEqual(["continue_meeting", "restart_meeting"]);
   });
 });
 
 describe("createMetaAgentToolHandlers", () => {
-  describe("resume_meeting", () => {
+  describe("continue_meeting", () => {
     it("unfreezes meeting audio, deactivates meta agent, silences output, and suppresses continuation", () => {
       const ctx = makeCtx();
       const handlers = createMetaAgentToolHandlers(ctx);
-      const result = handlers.resume_meeting({});
+      const result = handlers.continue_meeting({});
       expect(result).toEqual({ ok: true, suppressContinuation: true });
       expect(ctx.silenceAgentOutput).toHaveBeenCalled();
       expect(ctx.setMeetingPlaybackPaused).toHaveBeenCalledWith(false);
@@ -47,22 +43,6 @@ describe("createMetaAgentToolHandlers", () => {
       expect(result).toEqual({ ok: true, suppressContinuation: true });
       expect(ctx.silenceAgentOutput).toHaveBeenCalled();
       expect(ctx.onRestartMeeting).toHaveBeenCalled();
-    });
-  });
-
-  describe("placeholder tools", () => {
-    it("continue_meeting returns not-available error", () => {
-      const ctx = makeCtx();
-      const handlers = createMetaAgentToolHandlers(ctx);
-      const result = handlers.continue_meeting({});
-      expect(result).toMatchObject({ ok: false });
-    });
-
-    it("wrap_up_meeting returns not-available error", () => {
-      const ctx = makeCtx();
-      const handlers = createMetaAgentToolHandlers(ctx);
-      const result = handlers.wrap_up_meeting({});
-      expect(result).toMatchObject({ ok: false });
     });
   });
 });
