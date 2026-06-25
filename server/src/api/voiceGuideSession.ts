@@ -31,7 +31,7 @@ export function registerVoiceGuideRoutes(app: Express): void {
         try {
             const [ice, session] = await Promise.all([
                 getInworldIceServers(),
-                Promise.resolve(buildVoiceGuideRealtimeSessionFragment("en", "inworld")),
+                Promise.resolve(buildVoiceGuideRealtimeSessionFragment("en")),
             ]);
             res.status(200).json({ provider: "inworld", iceServers: ice.iceServers, session });
         } catch (e) {

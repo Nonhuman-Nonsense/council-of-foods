@@ -2,8 +2,10 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
     createOpenAICall,
     getHumanInputRealtimeBootstrap,
+    getMetaAgentRealtimeBootstrap,
     getVoiceGuideRealtimeBootstrap,
     pickHumanInputRealtimeProvider,
+    pickMetaAgentRealtimeProvider,
     pickVoiceGuideRealtimeProvider,
 } from "@api/realtimeProviders.js";
 import { getCharacterSetupBundle } from "@logic/characterSetupBundle.js";
@@ -31,15 +33,21 @@ describe("realtimeProviders", () => {
         vi.restoreAllMocks();
     });
 
+    it("routes meta-agent sessions to Inworld for all languages", () => {
+        expect(pickMetaAgentRealtimeProvider("sv")).toBe("inworld");
+        expect(pickMetaAgentRealtimeProvider("sv-SE")).toBe("inworld");
+        expect(pickMetaAgentRealtimeProvider("en")).toBe("inworld");
+    });
+
     it("routes Swedish human-input transcription to OpenAI", () => {
         expect(pickHumanInputRealtimeProvider("sv")).toBe("openai");
         expect(pickHumanInputRealtimeProvider("sv-SE")).toBe("openai");
         expect(pickHumanInputRealtimeProvider("en")).toBe("inworld");
     });
 
-    it("routes Swedish voice-guide sessions to OpenAI", () => {
-        expect(pickVoiceGuideRealtimeProvider("sv")).toBe("openai");
-        expect(pickVoiceGuideRealtimeProvider("sv-SE")).toBe("openai");
+    it("routes Swedish voice-guide sessions to Inworld", () => {
+        expect(pickVoiceGuideRealtimeProvider("sv")).toBe("inworld");
+        expect(pickVoiceGuideRealtimeProvider("sv-SE")).toBe("inworld");
         expect(pickVoiceGuideRealtimeProvider("en")).toBe("inworld");
     });
 
@@ -78,23 +86,36 @@ describe("realtimeProviders", () => {
         });
     });
 
-    it("builds an OpenAI voice-guide bootstrap for Swedish", async () => {
+    it("builds an Inworld voice-guide bootstrap for Swedish with TTS-2", async () => {
+        vi.mocked(global.fetch).mockResolvedValue(
+            new Response(JSON.stringify({ ice_servers: [{ urls: ["stun:guide-sv.example.com"] }] }), {
+                status: 200,
+                headers: { "Content-Type": "application/json" },
+            })
+        );
+
         const result = await getVoiceGuideRealtimeBootstrap("sv");
 
-        expect(result.provider).toBe("openai");
-        expect(result.iceServers).toEqual([]);
+        expect(result.provider).toBe("inworld");
+        expect(result.iceServers).toEqual([{ urls: ["stun:guide-sv.example.com"] }]);
         expect(result.session).toMatchObject({
             type: "realtime",
-            model: "gpt-realtime",
-            output_modalities: ["audio"],
+            output_modalities: ["audio", "text"],
             audio: {
                 input: {
                     transcription: {
+                        model: "soniox/stt-rt-v4",
                         language: "sv",
                     },
                 },
                 output: {
                     voice: swedishGuideChair.voice,
+                    model: "inworld-tts-2",
+                },
+            },
+            providerData: {
+                tts: {
+                    language: "sv",
                 },
             },
         });
@@ -121,6 +142,65 @@ describe("realtimeProviders", () => {
                 },
             },
         });
+    });
+
+    it("builds an Inworld meta-agent bootstrap for Swedish with TTS-2", async () => {
+        vi.mocked(global.fetch).mockResolvedValue(
+            new Response(JSON.stringify({ ice_servers: [{ urls: ["stun:meta-sv.example.com"] }] }), {
+                status: 200,
+                headers: { "Content-Type": "application/json" },
+            })
+        );
+
+        const result = await getMetaAgentRealtimeBootstrap("sv");
+
+        expect(result.provider).toBe("inworld");
+        expect(result.iceServers).toEqual([{ urls: ["stun:meta-sv.example.com"] }]);
+        expect(result.session).toMatchObject({
+            type: "realtime",
+            output_modalities: ["audio", "text"],
+            audio: {
+                input: {
+                    transcription: {
+                        model: "soniox/stt-rt-v4",
+                        language: "sv",
+                    },
+                },
+                output: {
+                    voice: swedishGuideChair.voice,
+                    model: "inworld-tts-2",
+                },
+            },
+            providerData: {
+                tts: {
+                    language: "sv",
+                    steering_handling: "emit_once",
+                    segmenter_strategy: "sentence",
+                },
+            },
+        });
+    });
+
+    it("builds an Inworld meta-agent bootstrap for English", async () => {
+        vi.mocked(global.fetch).mockResolvedValue(
+            new Response(JSON.stringify({ ice_servers: [{ urls: ["stun:meta-en.example.com"] }] }), {
+                status: 200,
+                headers: { "Content-Type": "application/json" },
+            })
+        );
+
+        const result = await getMetaAgentRealtimeBootstrap("en");
+
+        expect(result.provider).toBe("inworld");
+        expect(result.session).toMatchObject({
+            audio: {
+                output: {
+                    voice: englishGuideChair.voice,
+                    model: "inworld-tts-1.5-max",
+                },
+            },
+        });
+        expect(result.session).not.toHaveProperty("providerData");
     });
 
     it("POSTs OpenAI calls with server-side auth and FormData", async () => {

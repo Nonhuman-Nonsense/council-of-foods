@@ -62,7 +62,10 @@ export type RealtimeSessionConfig = {
 };
 
 /** Subset built on the server from realtime bootstrap defaults. */
-export type RealtimeSessionServerDefaults = Pick<RealtimeSessionConfig, "type" | "model" | "output_modalities" | "audio">;
+export type RealtimeSessionServerDefaults = Pick<
+  RealtimeSessionConfig,
+  "type" | "model" | "output_modalities" | "audio" | "providerData"
+>;
 
 export function mergeRealtimeSessionWithClientConfig(
   defaults: RealtimeSessionServerDefaults,

@@ -32,4 +32,15 @@ describe("mergeRealtimeSessionWithClientConfig", () => {
     expect(merged.tools).toBe(tools);
     expect(merged.audio.output?.voice).toBe("v1");
   });
+
+  it("preserves providerData from server defaults", () => {
+    const withProviderData: RealtimeSessionServerDefaults = {
+      ...defaults,
+      providerData: {
+        tts: { language: "sv" },
+      },
+    };
+    const merged = mergeRealtimeSessionWithClientConfig(withProviderData, "sys", []);
+    expect(merged.providerData).toEqual({ tts: { language: "sv" } });
+  });
 });

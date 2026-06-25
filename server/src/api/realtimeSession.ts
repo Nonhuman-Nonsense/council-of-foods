@@ -7,6 +7,7 @@ import {
     getHumanInputRealtimeBootstrap,
     getMetaAgentRealtimeBootstrap,
     getVoiceGuideRealtimeBootstrap,
+    resolveChairRealtimeCallProvider,
 } from "./realtimeProviders.js";
 import type {
     HumanInputRealtimeBootstrapRequest,
@@ -14,6 +15,7 @@ import type {
     MetaAgentRealtimeBootstrapRequest,
     MetaAgentRealtimeCallRequest,
     RealtimeFeature,
+    RealtimeProvider,
     VoiceGuideRealtimeBootstrapRequest,
     VoiceGuideRealtimeCallRequest,
 } from "@shared/RealtimeSessionTypes.js";
@@ -26,6 +28,10 @@ function parseRequiredBearerToken(req: Request): string | null {
     if (!header) return null;
     const match = header.match(BEARER);
     return match ? match[1].trim() : null;
+}
+
+function parseCallLanguage(body: Record<string, unknown>): string | undefined {
+    return typeof body.language === "string" ? body.language : undefined;
 }
 
 export function registerRealtimeRoutes(app: Express): void {
@@ -99,6 +105,7 @@ export function registerRealtimeRoutes(app: Express): void {
     app.post("/api/realtime/call", async (req: Request, res: ExpressResponse) => {
         const body = (req.body ?? {}) as Partial<HumanInputRealtimeCallRequest | MetaAgentRealtimeCallRequest | VoiceGuideRealtimeCallRequest>;
         const feature: RealtimeFeature | undefined = body?.feature;
+        const language = parseCallLanguage(body as Record<string, unknown>);
 
         if (
             (feature !== "human-input" && feature !== "meta-agent" && feature !== "voice-guide") ||
@@ -107,6 +114,11 @@ export function registerRealtimeRoutes(app: Express): void {
             !body.session ||
             typeof body.session !== "object"
         ) {
+            res.status(400).json(new BadRequestError().toApiBody("api POST /api/realtime/call"));
+            return;
+        }
+
+        if ((feature === "meta-agent" || feature === "voice-guide") && (!language || language.trim().length === 0)) {
             res.status(400).json(new BadRequestError().toApiBody("api POST /api/realtime/call"));
             return;
         }
@@ -126,8 +138,9 @@ export function registerRealtimeRoutes(app: Express): void {
                 }
             }
 
-            const data = await createRealtimeCall(body.provider, { sdp: body.sdp, session: body.session });
-            await Logger.info("api", `POST /api/realtime/call successful (${feature}:${body.provider})`);
+            const provider: RealtimeProvider = resolveChairRealtimeCallProvider(feature, language, body.provider);
+            const data = await createRealtimeCall(provider, { sdp: body.sdp, session: body.session });
+            await Logger.info("api", `POST /api/realtime/call successful (${feature}:${provider})`);
             res.status(200).json(data);
         } catch (e) {
             await Logger.error("api", "POST /api/realtime/call failed", e);

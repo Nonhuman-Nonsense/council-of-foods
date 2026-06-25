@@ -316,7 +316,7 @@ export function useRealtimeVoiceSession(
         callHeaders: authHeaders
           ? { "Content-Type": "application/json", ...authHeaders }
           : undefined,
-        callBodyExtras: { feature, provider },
+        callBodyExtras: { feature, provider, language },
         micStream,
         log: realtimeDebugLog,
         signal: controller.signal,
