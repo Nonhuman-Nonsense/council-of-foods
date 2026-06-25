@@ -70,6 +70,15 @@ log.event(category, message, data?: unknown): void
 
 Default in dev: master **on**, all categories **on**.
 
+**Additive model:** category toggles control styled council groups only. They do **not**
+replace native console output for failures:
+
+- **`ERROR` category off** (or master off): `log.event('ERROR', …)` still writes plain
+  `console.error('[Council] …')`.
+- **`ERROR` category on**: styled collapsed `console.error` group (no duplicate plain line).
+- **HTTP 4xx/5xx** with **API** category off: `console.warn` with summarized response body.
+- Unhandled exceptions and existing `console.error` call sites are unchanged.
+
 **Output:** `console.groupCollapsed` with category color (prototype-style). No `console.trace`
 on routine events; optional stack detail for `ERROR` only.
 
@@ -98,26 +107,20 @@ Developer panel on `#setup` is rendered only when `import.meta.env.DEV`.
 
 **Problem:** stacked sections and long status paragraphs feel crowded as settings grow.
 
-**Target:** prototype right-sidebar **density** (grouped panels, compact labels, checkbox grids)
-with council overlay styling (`data-selected` toggles, council fonts/colors).
+**Target:** grouped panels with segmented toggles and **category pills** (logging), plus an LED preview pill under Voice guide when museum + PTT.
 
 ```text
-┌──────────────────────────────────────────────────────────┐
-│  SETUP                                                   │
-├─────────────────────────┬────────────────────────────────┤
-│  Installation           │  Voice guide                   │
-│  [ Web ] [ Museum ]     │  [ Always on ] [ Push to talk ]│
-├─────────────────────────┴────────────────────────────────┤
-│  Physical button                    (museum + PTT only)  │
-│  Bridge ● …   App ● …   USB ● …                          │
-│  ▸ Details & hints (collapsible)                         │
-├──────────────────────────────────────────────────────────┤
-│  Developer                          (dev build only)     │
-│  ☑ Client console logging                                │
-│  Categories: [All] [None]                                │
-│  ☑ API ☑ Socket ☑ Agent ☑ Realtime ☑ Button ☑ Meta …   │
-│  ☑ LED preview overlay                                   │
-└──────────────────────────────────────────────────────────┘
+┌─────────────────────────┬─────────────────────────┐
+│  Installation           │  Voice guide            │
+│  [ Web ] [ Museum ]     │  [ Always on ][ PTT ]   │
+│                         │  (dev) LED preview pill │
+├─────────────────────────┴─────────────────────────┤
+│  Button (full width, museum + PTT)                │
+├─────────────────────────┬─────────────────────────┤
+│  Logging (dev, half)    │                         │
+│  [ On | Off ]  All None │                         │
+│  API Socket Agent …     │  ← toggle pills         │
+└─────────────────────────┴─────────────────────────┘
 ```
 
 **Implementation:** private panel helpers and button-status mappers live in `Setup.tsx`
@@ -129,15 +132,17 @@ with inline styles (no separate CSS or `setup/` subfolder).
 
 | Category | Location | Events |
 |----------|----------|--------|
-| **API** | `api/http.ts` `councilFetch` | method, path, status, label |
+| **API** | `api/http.ts` `councilFetch` | method, path, status, summarized request/response JSON |
 | **SOCKET** | `useCouncilSocket.ts` | emit/in, summarized payloads |
 | **AGENT** | `realtimeEventLoop.ts` | tool name, args, handler result |
 | **REALTIME** | event loop + session hook | connect, response created/done |
-| **BUTTON** | `buttonStore.ts` | press edges, owner changes |
+| **BUTTON** | `buttonStore.ts`, `buttonBridge.ts` | press edges, owner changes, transport lifecycle, health **state changes** (not every poll) |
 | **META** | `metaAgentTools.ts`, `MeetingMetaAgent.tsx` | activate, idle resume, handlers |
-| **ERROR** | failures across the above | |
+| **ERROR** | failures across the above | Structured groups when enabled; always `console.error` when off |
 
 **Not logged initially:** caption deltas, every DC event, full conversation arrays.
+
+**HTTP non-ok without API category:** native `console.warn` with summarized body.
 
 ---
 
@@ -158,8 +163,8 @@ with inline styles (no separate CSS or `setup/` subfolder).
 ### Phase 2 — `#setup` redesign + dev log UI ✅
 
 - Panel layout, status chips, collapsible button block
-- Developer panel with logging toggles
-- LED debug moved into Developer panel
+- Logging panel (half width) with On/Off segmented control and category pills
+- LED preview pill under Voice guide (dev + museum + PTT)
 - i18n + tests
 
 ### Phase 3 — HTTP boundary ✅
@@ -206,3 +211,6 @@ with inline styles (no separate CSS or `setup/` subfolder).
 | 2026-06-24 | Phases 0–2 implemented: logger, settings, `#setup` control panel redesign |
 | 2026-06-24 | Consolidated files: logger types in `logger.ts`, settings hook in `councilSettings.ts`, setup UI in one `Setup.tsx` |
 | 2026-06-24 | Phases 3–6: `councilFetch`, socket/button/realtime/meta instrumentation, Playwright dev helpers |
+| 2026-06-24 | Replay audio via `getReplayAudio`; bridge BUTTON logging (state changes + transport); setup Logging pills + LED preview relocation |
+| 2026-06-24 | Richer log payloads via `summarizeLogPayload`; API logs request/response bodies; replay audio inlined in `useCouncilMachine` |
+| 2026-06-24 | Additive errors: ERROR always mirrors to `console.error`; HTTP non-ok warns when API logging off |

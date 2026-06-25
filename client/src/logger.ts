@@ -16,6 +16,56 @@ export const DEV_LOG_CATEGORIES = [
 
 export type LogCategory = (typeof DEV_LOG_CATEGORIES)[number];
 
+const LOG_STRING_MAX = 240;
+const LOG_ARRAY_MAX = 12;
+const LOG_DEPTH_MAX = 5;
+
+const BLOB_FIELD_NAMES = new Set([
+  "audioBase64",
+  "audio",
+  "sdp",
+  "instructions",
+]);
+
+function truncateString(value: string, max = LOG_STRING_MAX): string {
+  if (value.length <= max) return value;
+  return `${value.slice(0, max)}… (${value.length} chars)`;
+}
+
+/** Shrink large payloads for dev console groups without dumping megabytes. */
+export function summarizeLogPayload(value: unknown, depth = 0): unknown {
+  if (value === null || value === undefined) return value;
+  if (typeof value === "string") return truncateString(value);
+  if (typeof value === "number" || typeof value === "boolean") return value;
+  if (depth >= LOG_DEPTH_MAX) return "[…]";
+  if (Array.isArray(value)) {
+    if (value.length === 0) return [];
+    const head = value
+      .slice(0, LOG_ARRAY_MAX)
+      .map((item) => summarizeLogPayload(item, depth + 1));
+    if (value.length > LOG_ARRAY_MAX) {
+      return [...head, `…+${value.length - LOG_ARRAY_MAX} more`];
+    }
+    return head;
+  }
+  if (typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [key, nested] of Object.entries(value as Record<string, unknown>)) {
+      if (
+        BLOB_FIELD_NAMES.has(key) &&
+        typeof nested === "string" &&
+        nested.length > LOG_STRING_MAX
+      ) {
+        out[key] = `[${key} ${nested.length} chars]`;
+        continue;
+      }
+      out[key] = summarizeLogPayload(nested, depth + 1);
+    }
+    return out;
+  }
+  return String(value);
+}
+
 const CATEGORY_STYLE: Record<LogCategory, string> = {
   API: "color: #d97706; font-weight: bold;",
   SOCKET: "color: #3b82f6; font-weight: bold;",
@@ -44,24 +94,54 @@ function shouldLog(category: LogCategory): boolean {
   return isDevLogCategoryEnabled(category);
 }
 
-/**
- * Dev-only structured console log. Production builds alias to `logger.noop.ts`.
- */
-export function logEvent(category: LogCategory, message: string, data?: unknown): void {
-  if (!shouldLog(category)) return;
+function mirrorErrorToConsole(message: string, data?: unknown): void {
+  const prefix = `[Council] ${message}`;
+  if (data instanceof Error) {
+    console.error(prefix, data);
+    return;
+  }
+  if (data !== undefined) {
+    console.error(prefix, data);
+    return;
+  }
+  console.error(prefix);
+}
 
+function emitStructuredLog(category: LogCategory, message: string, data?: unknown): void {
   const style = CATEGORY_STYLE[category] ?? "font-weight: bold;";
   const icon = CATEGORY_ICON[category] ?? "🔹";
   const label = `${icon} [${category}] ${message}`;
+  const write = category === "ERROR" ? console.error.bind(console) : console.log.bind(console);
 
   if (data === undefined) {
-    console.log(`%c${label}`, style);
+    write(`%c${label}`, style);
     return;
   }
 
   console.groupCollapsed(`%c${label}`, style);
-  console.log(data);
+  write(data);
   console.groupEnd();
+}
+
+/**
+ * Dev-only structured console log. Production builds alias to `logger.noop.ts`.
+ *
+ * ERROR is additive: failures always reach native `console.error` when structured
+ * ERROR logging is off. Other categories are optional styled groups only.
+ */
+export function logEvent(category: LogCategory, message: string, data?: unknown): void {
+  if (category === "ERROR") {
+    if (!import.meta.env.DEV) return;
+    if (shouldLog("ERROR")) {
+      emitStructuredLog("ERROR", message, data);
+    } else {
+      mirrorErrorToConsole(message, data);
+    }
+    return;
+  }
+
+  if (!shouldLog(category)) return;
+  emitStructuredLog(category, message, data);
 }
 
 export const log = {

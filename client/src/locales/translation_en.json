@@ -15,12 +15,14 @@
       "installation": "Installation",
       "voiceGuide": "Voice guide",
       "details": "Details & hints",
-      "developer": "Developer"
+      "logging": "Logging"
     },
-    "devLog": {
-      "enabled": "Client console logging",
-      "all": "All categories",
-      "none": "No categories",
+    "logging": {
+      "on": "On",
+      "off": "Off",
+      "all": "All",
+      "none": "None",
+      "categoriesLabel": "Log categories",
       "categories": {
         "API": "API",
         "SOCKET": "Socket",
@@ -29,7 +31,7 @@
         "BUTTON": "Button",
         "META": "Meta agent",
         "SYSTEM": "System",
-        "ERROR": "Errors"
+        "ERROR": "Error detail"
       }
     },
     "mode": "Mode",

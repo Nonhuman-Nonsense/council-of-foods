@@ -5,6 +5,7 @@ import {
   parseButtonLine,
   type ParsedButtonLine,
 } from "@shared/buttonProtocol";
+import { log } from "@/logger";
 
 // --- config ---
 
@@ -75,6 +76,40 @@ type ButtonBridgeHealthResponse = {
   expectedVendorId?: string | null;
   scannedPorts?: UsbPortInfo[];
 };
+
+/** Stable summary for health state-change logging (not per-poll HTTP). */
+export function summarizeBridgeHealth(state: ButtonBridgeHealthState): Record<string, unknown> {
+  if (state.status === "running") {
+    return {
+      status: state.status,
+      serial: state.serial,
+      serialDetail: state.serialDetail,
+      path: state.path,
+      version: state.version,
+    };
+  }
+  if (state.status === "error") {
+    return { status: state.status, message: state.message };
+  }
+  return { status: state.status };
+}
+
+function healthSummaryKey(state: ButtonBridgeHealthState): string {
+  return JSON.stringify(summarizeBridgeHealth(state));
+}
+
+export function logBridgeHealthChangeIfNeeded(
+  previous: ButtonBridgeHealthState | null,
+  next: ButtonBridgeHealthState,
+): void {
+  if (previous && healthSummaryKey(previous) === healthSummaryKey(next)) {
+    return;
+  }
+  log.event("BUTTON", "bridge health change", {
+    from: previous ? summarizeBridgeHealth(previous) : null,
+    to: summarizeBridgeHealth(next),
+  });
+}
 
 function normalizeSerialState(
   value: string | undefined,
@@ -198,6 +233,7 @@ export class ButtonTransport {
   private ws: WebSocket | null = null;
   private callbacks: ButtonTransportCallbacks;
   private status: ButtonTransportStatus = "disconnected";
+  private lastReportedError: string | null = null;
   private autoReconnect = false;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private reconnectAttempt = 0;
@@ -253,6 +289,10 @@ export class ButtonTransport {
   }
 
   private setStatus(status: ButtonTransportStatus, error: string | null = null): void {
+    if (this.status !== status || (error ?? null) !== (this.lastReportedError ?? null)) {
+      log.event("BUTTON", "bridge transport status", { status, error });
+    }
+    this.lastReportedError = error;
     this.status = status;
     this.callbacks.onStatus?.(status, error);
   }
@@ -270,6 +310,10 @@ export class ButtonTransport {
       BUTTON_RECONNECT_BASE_MS * 2 ** this.reconnectAttempt,
       BUTTON_RECONNECT_MAX_MS,
     );
+    log.event("BUTTON", "bridge reconnect scheduled", {
+      attempt: this.reconnectAttempt,
+      delayMs: delay,
+    });
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;
       if (this.isSessionHealthy()) return;
@@ -310,6 +354,7 @@ export class ButtonTransport {
     const wasSerialConnected = this.serialDeviceConnected;
     this.serialDeviceConnected = connected;
     if (connected !== wasSerialConnected) {
+      log.event("BUTTON", "bridge serial device", { connected });
       this.callbacks.onSerialDeviceChange?.(connected);
     }
   }
@@ -337,6 +382,7 @@ export class ButtonTransport {
   private handleEstablishedSocketClose(socket: WebSocket, reason: string): void {
     if (this.ws !== socket || this.status !== "connected") return;
 
+    log.event("BUTTON", "bridge disconnected", { reason });
     this.serialDeviceConnected = false;
     this.ws = null;
     this.setStatus("disconnected", reason);
@@ -397,6 +443,7 @@ export class ButtonTransport {
     this.closeSocket();
     this.serialDeviceConnected = false;
     this.setStatus("connecting");
+    log.event("BUTTON", "bridge connect start", { url: getButtonBridgeWsUrl() });
 
     if (typeof WebSocket === "undefined") {
       this.setStatus("error", "WebSocket is not available");
@@ -461,9 +508,11 @@ export class ButtonTransport {
       this.clearStatusWaiter();
       this.reconnectAttempt = 0;
       this.setStatus("connected");
+      log.event("BUTTON", "bridge connect ok");
       return true;
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Failed to connect to bridge";
+      log.event("BUTTON", "bridge connect failed", { message: msg });
       return this.failConnect(socket, msg);
     } finally {
       this.endHandshake();
@@ -519,6 +568,7 @@ export class ButtonTransport {
 
   async setLedMode(mode: ButtonLedWireMode): Promise<void> {
     const command = mode === "on" ? LED_ON : mode === "pulse" ? LED_PULSE : LED_OFF;
+    log.event("BUTTON", "bridge LED command", { mode });
     await this.sendCommand(command);
   }
 }

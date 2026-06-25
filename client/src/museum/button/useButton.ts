@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   fetchButtonBridgeHealth,
+  logBridgeHealthChangeIfNeeded,
   type ButtonBridgeHealthState,
   type ButtonTransportStatus,
 } from "./buttonBridge";
@@ -48,10 +49,14 @@ export function useButtonConnection(active: boolean): ButtonConnectionState {
 
 export function useButtonBridgeHealth(enabled: boolean): ButtonBridgeHealthState {
   const [health, setHealth] = useState<ButtonBridgeHealthState>({ status: "checking" });
+  const previousHealthRef = useRef<ButtonBridgeHealthState | null>(null);
 
   useEffect(() => {
     if (!enabled) {
-      setHealth({ status: "not_running" });
+      const next = { status: "not_running" as const };
+      logBridgeHealthChangeIfNeeded(previousHealthRef.current, next);
+      previousHealthRef.current = next;
+      setHealth(next);
       return;
     }
 
@@ -60,6 +65,8 @@ export function useButtonBridgeHealth(enabled: boolean): ButtonBridgeHealthState
     async function poll(): Promise<void> {
       const next = await fetchButtonBridgeHealth();
       if (!cancelled) {
+        logBridgeHealthChangeIfNeeded(previousHealthRef.current, next);
+        previousHealthRef.current = next;
         setHealth(next);
       }
     }

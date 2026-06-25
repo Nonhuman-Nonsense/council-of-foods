@@ -5,6 +5,7 @@ import {
   DEV_LOG_CATEGORIES,
   useCouncilSettings,
 } from "@/settings/councilSettings";
+import type { LogCategory } from "@/logger";
 import {
   useButton,
   useButtonConnection,
@@ -38,6 +39,17 @@ const CHIP_DOT_COLOR: Record<StatusTone, string> = {
   warn: "#fbbf24",
   error: "#f87171",
   idle: "rgba(255, 255, 255, 0.35)",
+};
+
+const LOG_CATEGORY_COLOR: Record<LogCategory, string> = {
+  API: "#d97706",
+  SOCKET: "#3b82f6",
+  AGENT: "#8b5cf6",
+  REALTIME: "#0891b2",
+  BUTTON: "#10b981",
+  META: "#ec4899",
+  SYSTEM: "#6b7280",
+  ERROR: "#ef4444",
 };
 
 const panelStyle: CSSProperties = {
@@ -141,12 +153,47 @@ function statusTone(key: string): StatusTone {
   return "idle";
 }
 
-function segmentButtonStyle(selected: boolean, isMobile: boolean): CSSProperties {
+function setupSegmentButton(isMobile: boolean): CSSProperties {
   return {
-    padding: isMobile ? "3px 0" : "6px 0",
     width: "100%",
-    fontWeight: selected ? 600 : 400,
-    opacity: selected ? 1 : 0.75,
+    fontSize: isMobile ? "17px" : "19px",
+    padding: isMobile ? "2px 8px" : "4px 12px",
+  };
+}
+
+const setupCompactButton: CSSProperties = {
+  fontSize: "18px",
+  padding: "2px 12px",
+};
+
+function ledPreviewToggleStyle(active: boolean): CSSProperties {
+  if (!active) {
+    return setupCompactButton;
+  }
+  return {
+    ...setupCompactButton,
+    backgroundColor: "#ef4444",
+    borderColor: "#fca5a5",
+    color: "white",
+    boxShadow:
+      "0 0 10px 2px rgba(239, 68, 68, 0.55), 0 0 22px 6px rgba(239, 68, 68, 0.28)",
+  };
+}
+
+function logCategoryPillStyle(
+  category: LogCategory,
+  selected: boolean,
+  masterEnabled: boolean,
+): CSSProperties {
+  const accent = LOG_CATEGORY_COLOR[category];
+  return {
+    fontSize: "16px",
+    padding: "2px 12px",
+    border: `1.5px solid ${selected ? accent : "white"}`,
+    backgroundColor: selected ? accent : "transparent",
+    color: selected ? "rgba(0, 0, 0, 0.9)" : "white",
+    opacity: masterEnabled ? 1 : 0.4,
+    cursor: masterEnabled ? "pointer" : "not-allowed",
   };
 }
 
@@ -304,7 +351,8 @@ function Setup(): ReactElement {
     bridgeHealth.status === "running" ? getSetupBridgeDetailLines(bridgeHealth) : [];
 
   const showButtonPanel = pushToTalkMode && appMode === "museum";
-  const showDevPanel = import.meta.env.DEV;
+  const showLoggingPanel = import.meta.env.DEV;
+  const showLedPreviewPill = import.meta.env.DEV && pushToTalkMode;
   const showButtonDetails =
     showButtonPanel &&
     (bridgeDetailLines.length > 0 ||
@@ -336,18 +384,18 @@ function Setup(): ReactElement {
             <button
               type="button"
               data-testid="app-mode-web"
-              data-selected={appMode === "web"}
+              className={appMode === "web" ? "selected" : ""}
               onClick={() => setAppMode("web")}
-              style={segmentButtonStyle(appMode === "web", isMobile)}
+              style={setupSegmentButton(isMobile)}
             >
               {t("setup.web")}
             </button>
             <button
               type="button"
               data-testid="app-mode-museum"
-              data-selected={appMode === "museum"}
+              className={appMode === "museum" ? "selected" : ""}
               onClick={() => setAppMode("museum")}
-              style={segmentButtonStyle(appMode === "museum", isMobile)}
+              style={setupSegmentButton(isMobile)}
             >
               {t("setup.museum")}
             </button>
@@ -359,22 +407,34 @@ function Setup(): ReactElement {
             <button
               type="button"
               data-testid="voice-guide-always-on"
-              data-selected={!pushToTalkMode}
+              className={!pushToTalkMode ? "selected" : ""}
               onClick={() => setPushToTalkMode(false)}
-              style={segmentButtonStyle(!pushToTalkMode, isMobile)}
+              style={setupSegmentButton(isMobile)}
             >
               {t("setup.alwaysOn")}
             </button>
             <button
               type="button"
               data-testid="voice-guide-push-to-talk"
-              data-selected={pushToTalkMode}
+              className={pushToTalkMode ? "selected" : ""}
               onClick={() => setPushToTalkMode(true)}
-              style={segmentButtonStyle(pushToTalkMode, isMobile)}
+              style={setupSegmentButton(isMobile)}
             >
               {t("setup.pushToTalk")}
             </button>
           </SetupSegmented>
+          {showLedPreviewPill ? (
+            <button
+              type="button"
+              data-testid="setup-led-debug-toggle"
+              className={ledDebugOverlay ? "control" : ""}
+              aria-pressed={ledDebugOverlay}
+              onClick={() => setLedDebugOverlay(!ledDebugOverlay)}
+              style={ledPreviewToggleStyle(ledDebugOverlay)}
+            >
+              {t("setup.button.ledDebugOverlay")}
+            </button>
+          ) : null}
         </SetupPanel>
 
         {showButtonPanel ? (
@@ -446,97 +506,87 @@ function Setup(): ReactElement {
           </SetupPanel>
         ) : null}
 
-        {showDevPanel ? (
-          <SetupPanel title={t("setup.panels.developer")} fullWidth testId="setup-developer-panel">
-            <label
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                fontSize: "0.95rem",
-                cursor: "pointer",
-              }}
-            >
-              <input
-                type="checkbox"
-                data-testid="setup-dev-log-enabled"
-                checked={devLogEnabled}
-                onChange={(event) => setDevLogEnabled(event.target.checked)}
-                style={{ margin: 0, width: "auto" }}
-              />
-              {t("setup.devLog.enabled")}
-            </label>
+        {showLoggingPanel ? (
+          <SetupPanel title={t("setup.panels.logging")} testId="setup-logging-panel">
+            <SetupSegmented testId="setup-logging-master">
+              <button
+                type="button"
+                data-testid="setup-dev-log-on"
+                className={devLogEnabled ? "selected" : ""}
+                aria-pressed={devLogEnabled}
+                onClick={() => setDevLogEnabled(true)}
+                style={setupSegmentButton(isMobile)}
+              >
+                {t("setup.logging.on")}
+              </button>
+              <button
+                type="button"
+                data-testid="setup-dev-log-off"
+                className={!devLogEnabled ? "selected" : ""}
+                aria-pressed={!devLogEnabled}
+                onClick={() => setDevLogEnabled(false)}
+                style={setupSegmentButton(isMobile)}
+              >
+                {t("setup.logging.off")}
+              </button>
+            </SetupSegmented>
 
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               <button
                 type="button"
                 data-testid="setup-dev-log-all"
+                disabled={!devLogEnabled}
                 onClick={() => setAllDevLogCategories(true)}
-                style={{ padding: "4px 10px", fontSize: "0.85rem" }}
+                style={{
+                  ...setupCompactButton,
+                  opacity: devLogEnabled ? 1 : 0.4,
+                }}
               >
-                {t("setup.devLog.all")}
+                {t("setup.logging.all")}
               </button>
               <button
                 type="button"
                 data-testid="setup-dev-log-none"
+                disabled={!devLogEnabled}
                 onClick={() => setAllDevLogCategories(false)}
-                style={{ padding: "4px 10px", fontSize: "0.85rem" }}
+                style={{
+                  ...setupCompactButton,
+                  opacity: devLogEnabled ? 1 : 0.4,
+                }}
               >
-                {t("setup.devLog.none")}
+                {t("setup.logging.none")}
               </button>
             </div>
 
             <div
+              role="group"
+              aria-label={t("setup.logging.categoriesLabel")}
               style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fill, minmax(108px, 1fr))",
-                gap: "6px 10px",
+                display: "flex",
+                flexWrap: "wrap",
+                gap: 6,
               }}
             >
               {DEV_LOG_CATEGORIES.map((category) => (
-                <label
+                <button
                   key={category}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
-                    fontSize: "0.9rem",
-                    cursor: "pointer",
-                  }}
+                  type="button"
+                  data-testid={`setup-dev-log-category-${category}`}
+                  aria-pressed={devLogCategories[category]}
+                  disabled={!devLogEnabled}
+                  onClick={() =>
+                    setDevLogCategoryEnabled(category, !devLogCategories[category])
+                  }
+                  style={logCategoryPillStyle(
+                    category,
+                    devLogCategories[category],
+                    devLogEnabled,
+                  )}
                 >
-                  <input
-                    type="checkbox"
-                    data-testid={`setup-dev-log-category-${category}`}
-                    checked={devLogCategories[category]}
-                    disabled={!devLogEnabled}
-                    onChange={(event) =>
-                      setDevLogCategoryEnabled(category, event.target.checked)
-                    }
-                    style={{ margin: 0, width: "auto" }}
-                  />
-                  {t(`setup.devLog.categories.${category}`)}
-                </label>
+                  {t(`setup.logging.categories.${category}`)}
+                </button>
               ))}
             </div>
-
-            <label
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                fontSize: "0.95rem",
-                cursor: "pointer",
-              }}
-            >
-              <input
-                type="checkbox"
-                data-testid="setup-led-debug-toggle"
-                checked={ledDebugOverlay}
-                onChange={(event) => setLedDebugOverlay(event.target.checked)}
-                style={{ margin: 0, width: "auto" }}
-              />
-              {t("setup.button.ledDebugOverlay")}
-            </label>
           </SetupPanel>
         ) : null}
       </div>

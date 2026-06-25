@@ -103,17 +103,17 @@ describe('Setup overlay', () => {
     const web = screen.getByTestId('app-mode-web');
     const museum = screen.getByTestId('app-mode-museum');
 
-    expect(web).toHaveAttribute('data-selected', 'true');
-    expect(museum).toHaveAttribute('data-selected', 'false');
+    expect(web).toHaveClass('selected');
+    expect(museum).not.toHaveClass('selected');
 
     fireEvent.click(museum);
     expect(localStorage.getItem('councilAppMode')).toBe('museum');
-    expect(museum).toHaveAttribute('data-selected', 'true');
-    expect(web).toHaveAttribute('data-selected', 'false');
+    expect(museum).toHaveClass('selected');
+    expect(web).not.toHaveClass('selected');
 
     fireEvent.click(web);
     expect(localStorage.getItem('councilAppMode')).toBe('web');
-    expect(web).toHaveAttribute('data-selected', 'true');
+    expect(web).toHaveClass('selected');
   });
 
   it('selects always on by default and persists push to talk choice', () => {
@@ -122,17 +122,17 @@ describe('Setup overlay', () => {
     const alwaysOn = screen.getByTestId('voice-guide-always-on');
     const pushToTalk = screen.getByTestId('voice-guide-push-to-talk');
 
-    expect(alwaysOn).toHaveAttribute('data-selected', 'true');
-    expect(pushToTalk).toHaveAttribute('data-selected', 'false');
+    expect(alwaysOn).toHaveClass('selected');
+    expect(pushToTalk).not.toHaveClass('selected');
 
     fireEvent.click(pushToTalk);
     expect(localStorage.getItem('councilPushToTalk')).toBe('true');
-    expect(pushToTalk).toHaveAttribute('data-selected', 'true');
-    expect(alwaysOn).toHaveAttribute('data-selected', 'false');
+    expect(pushToTalk).toHaveClass('selected');
+    expect(alwaysOn).not.toHaveClass('selected');
 
     fireEvent.click(alwaysOn);
     expect(localStorage.getItem('councilPushToTalk')).toBe('false');
-    expect(alwaysOn).toHaveAttribute('data-selected', 'true');
+    expect(alwaysOn).toHaveClass('selected');
   });
 
   it('shows split status when push to talk is enabled in museum mode', () => {
@@ -212,34 +212,43 @@ describe('Setup overlay', () => {
     expect(mockSetLed).toHaveBeenCalledWith('pulse');
   });
 
-  it('toggles LED debug overlay from developer panel', () => {
+  it('toggles LED debug overlay when push to talk is enabled', () => {
+    localStorage.setItem('councilPushToTalk', 'true');
+
     render(<Setup />);
 
     const toggle = screen.getByTestId('setup-led-debug-toggle');
-    expect(toggle).not.toBeChecked();
+    expect(toggle).toHaveAttribute('aria-pressed', 'false');
 
     fireEvent.click(toggle);
     expect(mockSetLedDebugOverlay).toHaveBeenCalledWith(true);
   });
 
-  it('shows LED debug checkbox as checked when flag is enabled', () => {
+  it('hides LED preview toggle unless push to talk is enabled', () => {
+    render(<Setup />);
+    expect(screen.queryByTestId('setup-led-debug-toggle')).not.toBeInTheDocument();
+  });
+
+  it('shows LED preview toggle as active when flag is enabled', () => {
+    localStorage.setItem('councilPushToTalk', 'true');
     ledDebugState.enabled = true;
     render(<Setup />);
-    expect(screen.getByTestId('setup-led-debug-toggle')).toBeChecked();
+    const toggle = screen.getByTestId('setup-led-debug-toggle');
+    expect(toggle).toHaveAttribute('aria-pressed', 'true');
+    expect(toggle).toHaveStyle({ backgroundColor: 'rgb(239, 68, 68)' });
   });
 
   it('persists dev log master switch', () => {
     render(<Setup />);
-    const master = screen.getByTestId('setup-dev-log-enabled');
-    expect(master).toBeChecked();
-    fireEvent.click(master);
+    expect(screen.getByTestId('setup-dev-log-on')).toHaveClass('selected');
+    fireEvent.click(screen.getByTestId('setup-dev-log-off'));
     expect(localStorage.getItem('councilDevLogEnabled')).toBe('false');
   });
 
-  it('toggles a dev log category', () => {
+  it('toggles a dev log category pill', () => {
     render(<Setup />);
     const api = screen.getByTestId('setup-dev-log-category-API');
-    expect(api).toBeChecked();
+    expect(api).toHaveAttribute('aria-pressed', 'true');
     fireEvent.click(api);
     expect(localStorage.getItem('councilDevLogDisabledCategories')).toContain('API');
   });

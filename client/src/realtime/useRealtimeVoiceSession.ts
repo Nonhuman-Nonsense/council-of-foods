@@ -13,7 +13,7 @@ import {
 import type { RealtimeTool, ToolHandler } from "@voice/guideTools";
 import { createCaptionScheduler } from "@voice/captionScheduler";
 import { createRemoteAudioAnchor, type RemoteAudioAnchor } from "@voice/remoteAudioAnchor";
-import { log } from "@/logger";
+import { log, summarizeLogPayload } from "@/logger";
 
 const AUDIO_ANCHOR_FALLBACK_DELAY_MS = 600;
 
@@ -26,7 +26,7 @@ function realtimeDebugLog(...args: unknown[]): void {
       return String(arg);
     }
   }).join(" ");
-  log.event("REALTIME", message, args.length > 1 ? { detail: args.slice(1) } : undefined);
+  log.event("REALTIME", message, args.length > 1 ? summarizeLogPayload({ detail: args.slice(1) }) : undefined);
 }
 
 export type RealtimeVoiceFeature = "meta-agent" | "voice-guide";

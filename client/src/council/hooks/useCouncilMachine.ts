@@ -3,9 +3,11 @@ import { useLocation } from "react-router";
 import { useTranslation } from "react-i18next";
 import { useCouncilSocket } from "./useCouncilSocket";
 import type { Character, Message, Meeting, Topic } from "@shared/ModelTypes";
-import type { PublicAudioClipResponse, DecodedAudioMessage } from "@shared/SocketTypes";
+import type { DecodedAudioMessage } from "@shared/SocketTypes";
 import { CouncilOverlayType } from "../overlays/CouncilOverlays";
 import { resumeMeeting, ResumeMeetingError } from "@api/resumeMeeting";
+import { councilFetch } from "@api/http";
+import { httpErrorMessage } from "@api/httpErrorMessage";
 import { setMeetingPlaybackSuspended } from "@/audio/meetingAudio";
 
 /** Keep the loading UI visible this long on first paint so the Loading animation can run. */
@@ -168,15 +170,16 @@ export function useCouncilMachine({
 
     const decodeReplayClip = useCallback(
         async (audioId: string, signal: AbortSignal): Promise<DecodedAudioMessage> => {
-            const res = await fetch(`/api/audio/${encodeURIComponent(audioId)}`, {
+            const res = await councilFetch(`/api/audio/${encodeURIComponent(audioId)}`, {
                 method: "GET",
                 headers: { Accept: "application/json" },
                 signal,
             });
             if (!res.ok) {
-                throw new Error(`Replay audio fetch failed (${res.status})`);
+                const message = await httpErrorMessage(res, `Replay audio fetch failed (${res.status})`);
+                throw new Error(message);
             }
-            const clip = (await res.json()) as PublicAudioClipResponse;
+            const clip = await res.json();
             const ctx = meetingAudioContext.current;
             if (!ctx) {
                 throw new Error("AudioContext not available");

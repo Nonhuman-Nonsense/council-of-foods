@@ -35,7 +35,6 @@ export function createMetaAgentToolHandlers(ctx: MetaAgentToolContext): Record<s
       ctx.silenceAgentOutput();
       ctx.setMetaAgentActive(false);
       ctx.setMeetingPlaybackPaused(false);
-      log.event("META", "continue_meeting done", { ok: true, suppressContinuation: true });
       return { ok: true, suppressContinuation: true };
     },
 
@@ -43,7 +42,6 @@ export function createMetaAgentToolHandlers(ctx: MetaAgentToolContext): Record<s
       log.event("META", "restart_meeting handler");
       ctx.silenceAgentOutput();
       ctx.onRestartMeeting();
-      log.event("META", "restart_meeting done", { ok: true, suppressContinuation: true });
       return { ok: true, suppressContinuation: true };
     },
   };

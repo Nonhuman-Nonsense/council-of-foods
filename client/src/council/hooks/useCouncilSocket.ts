@@ -7,7 +7,7 @@ import {
     AudioUpdatePayload,
     ErrorPayload
 } from '@shared/SocketTypes';
-import { log } from '@/logger';
+import { log, summarizeLogPayload } from '@/logger';
 
 export interface UseCouncilSocketProps {
     meetingId: number;
@@ -23,20 +23,23 @@ export interface UseCouncilSocketProps {
 function summarizeSocketIn(event: string, payload: unknown): unknown {
     if (event === 'audio_update' && payload && typeof payload === 'object') {
         const audio = payload as AudioUpdatePayload;
-        return {
+        return summarizeLogPayload({
             id: audio.id,
             type: audio.type,
             sentenceCount: audio.sentences?.length ?? 0,
-        };
+            sentences: audio.sentences?.map((s) => s.text),
+        });
     }
     if (event === 'conversation_update' && Array.isArray(payload)) {
-        return { messageCount: payload.length };
+        return summarizeLogPayload({
+            messageCount: payload.length,
+            messages: payload,
+        });
     }
     if (event === 'conversation_error' && payload && typeof payload === 'object') {
-        const err = payload as ErrorPayload;
-        return { message: err.message, code: err.code };
+        return summarizeLogPayload(payload);
     }
-    return payload;
+    return summarizeLogPayload(payload);
 }
 
 /**
@@ -72,8 +75,7 @@ export const useCouncilSocket = ({
         });
 
         socket.on('connect_error', (err: Error) => {
-            log.event('ERROR', 'socket connect_error', { meetingId, message: err.message });
-            console.error(err);
+            log.event('ERROR', 'socket connect_error', err);
             if (onConnectionError) onConnectionError(err);
         });
 

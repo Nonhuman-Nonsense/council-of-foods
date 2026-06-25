@@ -14,7 +14,7 @@
 import type { RealtimeSessionConfig } from "@realtime/realtimeProtocol";
 import type { ToolHandler, ToolResult } from "./guideTools";
 import type { CaptionScheduler } from "./captionScheduler";
-import { log as devLog } from "@/logger";
+import { log as devLog, summarizeLogPayload } from "@/logger";
 
 export type RealtimeEventCtx = {
   /** Tool name -> handler. May change per render. */
@@ -153,17 +153,19 @@ export function createEventLoop(params: {
     } else {
       pendingOpeningGreeting = null;
     }
-    devLog.event("REALTIME", "OUT session.update", {
+    devLog.event("REALTIME", "OUT session.update", summarizeLogPayload({
       model: session.model,
       toolCount: session.tools?.length ?? 0,
+      toolNames: session.tools?.map((tool) => tool.name),
+      instructionsPreview: session.instructions,
       triggerGreetingOnReady: options?.triggerGreetingOnReady ?? false,
-    });
+    }));
     log("send session.update", session);
     trySendJson({ type: "session.update", session });
   };
   
   const sendUserMessage = (text: string): void => {
-    devLog.event("REALTIME", "OUT user message", { length: text.length });
+    devLog.event("REALTIME", "OUT user message", summarizeLogPayload({ text }));
     log("send user message", text);
     trySendJson({
       type: "conversation.item.create",
@@ -270,11 +272,11 @@ export function createEventLoop(params: {
       }
 
       const handler = getCtx().toolHandlers[name];
-      devLog.event("AGENT", `tool ${name}`, { args: parsedArgs });
+      devLog.event("AGENT", `tool ${name}`, summarizeLogPayload({ args: parsedArgs }));
       const result: ToolResult = handler
         ? await Promise.resolve(handler(parsedArgs))
         : { ok: false, error: `No handler for tool: ${name}` };
-      devLog.event("AGENT", `tool ${name} result`, result);
+      devLog.event("AGENT", `tool ${name} result`, summarizeLogPayload(result));
 
       trySendJson({
         type: "conversation.item.create",
@@ -331,7 +333,7 @@ export function createEventLoop(params: {
     }
 
     if (type === "error") {
-      devLog.event("ERROR", "realtime event error", obj);
+      devLog.event("ERROR", "realtime event error", summarizeLogPayload(obj));
       log("event error raw", obj);
       const errRaw = obj.error;
       let message = "Voice guide error";
