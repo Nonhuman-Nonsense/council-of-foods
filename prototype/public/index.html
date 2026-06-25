@@ -374,25 +374,15 @@
       </div>
       <div class="sidebar-content">
         <div class="section-group">
-          <label>Model</label>
-          <input
-            type="text"
-            class="input-full"
-            v-model="options.conversationModel"
-            placeholder="mistral/mistral-medium-latest">
-          <small>Use any Inworld-supported model id</small>
-        </div>
-        <div class="section-group">
-          <label>Reasoning</label>
-          <select v-model="options.conversationReasoning" class="styled-select">
-            <option value="none">none</option>
-            <option value="minimal">minimal</option>
-            <option value="low">low</option>
-            <option value="medium">medium</option>
-            <option value="high">high</option>
-            <option value="xhigh">xhigh</option>
-          </select>
-          <small>Uses more tokens, but might be better</small>
+          <label>Models ({{ options.language }})</label>
+          <textarea
+            class="input-area"
+            v-model="languageModelsText"
+            spellcheck="false"
+            style="font-family: monospace; font-size: 11px; height: 100px; overflow-y: auto; resize: none;"></textarea>
+          <small v-if="localOptions.languageModelsError" style="color: var(--danger-color); display: block; margin-top: 6px;">
+            Invalid JSON: {{ localOptions.languageModelsError }}
+          </small>
         </div>
         <hr>
         <div class="section-group">
@@ -661,7 +651,7 @@
 
   <script src="Sortable.min.js"></script>
   <script src="audio_controller.js"></script>
-  <script src="prototype_client.js?v=2.6"></script>
+  <script src="prototype_client.js?v=3.0"></script>
 </body>
 
 </html>

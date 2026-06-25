@@ -12,9 +12,31 @@ function usesInworldTts2(character) {
   return Boolean(character?.voiceLocale?.trim());
 }
 
-const defaultOptions = {
+const LANGUAGE_MODEL_KEYS = [
+  'conversationModel',
+  'conversationReasoning',
+  'voiceModel',
+  'geminiVoiceModel',
+  'inworldVoiceModel',
+  'elevenlabsVoiceModel',
+];
+
+const defaultLanguageModelProfile = {
   conversationModel: "mistral/mistral-large-3",
   conversationReasoning: "none",
+  voiceModel: "gpt-4o-mini-tts",
+  geminiVoiceModel: "gemini-2.5-flash-tts",
+  inworldVoiceModel: "inworld-tts-1.5-max",
+  elevenlabsVoiceModel: "eleven_flash_v2_5",
+};
+
+const defaultLanguageModels = {
+  en: { ...defaultLanguageModelProfile },
+  sv: { ...defaultLanguageModelProfile },
+};
+
+const defaultOptions = {
+  languageModels: JSON.parse(JSON.stringify(defaultLanguageModels)),
   temperature: 1,
   maxTokens: 200,
   chairMaxTokens: 250,
@@ -37,11 +59,6 @@ const defaultOptions = {
 
   language: 'en',
 
-  // Hardcoded
-  voiceModel: "gpt-4o-mini-tts",
-  geminiVoiceModel: "gemini-2.5-flash-tts",
-  inworldVoiceModel: "inworld-tts-1.5-max",
-  elevenlabsVoiceModel: "eleven_flash_v2_5",
   skipMatchingSubtitles: true
 };
 
@@ -69,7 +86,29 @@ const defaultLocalOptions = {
   editorWidthPercent: 50,
   isInjectionDrawerOpen: false,
   customTopicVisitorInput: "",
+  languageModelsText: JSON.stringify(defaultLanguageModels.en, null, 2),
+  languageModelsError: "",
 };
+
+function normalizeLanguageModelProfile(profile, fallback = defaultLanguageModelProfile) {
+  const base = { ...fallback, ...(profile || {}) };
+  for (const key of LANGUAGE_MODEL_KEYS) {
+    if (typeof base[key] !== 'string' || !base[key].trim()) {
+      base[key] = fallback[key];
+    }
+  }
+  return base;
+}
+
+function normalizeLanguageModels(models) {
+  const normalized = JSON.parse(JSON.stringify(defaultLanguageModels));
+  if (!models || typeof models !== 'object') return normalized;
+  for (const lang of Object.keys(models)) {
+    normalized[lang] = normalizeLanguageModelProfile(models[lang], defaultLanguageModels[lang] || defaultLanguageModelProfile);
+  }
+  return normalized;
+}
+
 
 
 const CharacterCard = {
@@ -220,10 +259,28 @@ createApp({
       const last = this.conversation[this.conversation.length - 1];
       if (last && last.type === 'max_reached' && last.canContinue === false) return false;
       return true;
-    }
+    },
+
+    languageModelsText: {
+      get() {
+        return this.localOptions.languageModelsText;
+      },
+      set(value) {
+        this.localOptions.languageModelsText = value;
+        this.applyLanguageModelsText(value, this.options.language || 'en');
+      },
+    },
   },
 
   watch: {
+    'options.language'(newLang, oldLang) {
+      if (oldLang && newLang !== oldLang) {
+        this.applyLanguageModelsText(this.localOptions.languageModelsText, oldLang);
+        this.localOptions.languageModelsError = '';
+      }
+      this.syncLanguageModelsText();
+    },
+
     currentTopic: {
       handler(val) {
         if (val) {
@@ -523,6 +580,9 @@ createApp({
           this.options = { ...defaultOptions, ...(stored.options || {}) };
           this.localOptions = { ...JSON.parse(JSON.stringify(defaultLocalOptions)), ...stored.localOptions };
 
+          this.options.languageModels = normalizeLanguageModels(this.options.languageModels);
+          this.syncLanguageModelsText();
+
           this.log('SYSTEM', 'State Loaded from LocalStorage');
 
           // Backwards compatibility: if theme was in options
@@ -585,9 +645,13 @@ createApp({
     async factoryReset() {
       // Reset options to defaults
       this.log('SYSTEM', 'Factory Reset Executed');
-      this.options = { ...defaultOptions };
+      this.options = {
+        ...defaultOptions,
+        languageModels: JSON.parse(JSON.stringify(defaultLanguageModels)),
+      };
       // Deep copy defaults to ensure clean slate
       this.localOptions = { ...JSON.parse(JSON.stringify(defaultLocalOptions)) };
+      this.syncLanguageModelsText();
       this.setTheme(this.localOptions.theme);
 
       // Initialize languages from server
@@ -672,17 +736,6 @@ createApp({
       this.sanitizeData();
 
       this.save();
-    },
-
-    save() {
-      this.sanitizeData();
-
-      const data = {
-        options: this.options,
-        localOptions: this.localOptions,
-        language: this.languageData
-      };
-      localStorage.setItem("PromptsAndOptions", JSON.stringify(data));
     },
 
     buildCharacters() {
@@ -812,10 +865,43 @@ createApp({
       };
     },
 
+    parseLanguageModelProfileText(text, lang) {
+      const parsed = JSON.parse(text);
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        throw new Error('Expected a JSON object of model settings.');
+      }
+      if (!('conversationModel' in parsed) && (parsed.en || parsed.sv)) {
+        throw new Error('Paste only this language\'s settings object, not the full en/sv map.');
+      }
+      return normalizeLanguageModelProfile(
+        parsed,
+        defaultLanguageModels[lang] || defaultLanguageModelProfile,
+      );
+    },
+
+    applyLanguageModelsText(text, lang) {
+      try {
+        const normalized = this.parseLanguageModelProfileText(text, lang);
+        this.options.languageModels = { ...this.options.languageModels, [lang]: normalized };
+        this.localOptions.languageModelsError = '';
+      } catch (error) {
+        this.localOptions.languageModelsError = error.message || String(error);
+      }
+    },
+
+    syncLanguageModelsText() {
+      const lang = this.options.language || 'en';
+      const profile = this.options.languageModels[lang] || defaultLanguageModelProfile;
+      this.localOptions.languageModelsText = JSON.stringify(profile, null, 2);
+      this.localOptions.languageModelsError = '';
+    },
+
     getServerOptions() {
+      const lang = this.options.language || 'en';
+      const languageModels = this.options.languageModels[lang] || this.options.languageModels.en || defaultLanguageModelProfile;
       return {
-        conversationModel: this.options.conversationModel,
-        conversationReasoning: this.options.conversationReasoning,
+        conversationModel: languageModels.conversationModel,
+        conversationReasoning: languageModels.conversationReasoning,
         temperature: this.options.temperature,
         maxTokens: this.options.maxTokens,
         chairMaxTokens: this.options.chairMaxTokens,
@@ -828,10 +914,10 @@ createApp({
         conversationMaxLength: this.options.conversationMaxLength,
         extraMessageCount: this.options.extraMessageCount,
         meetingVeryMaxLength: this.options.meetingVeryMaxLength,
-        voiceModel: this.options.voiceModel,
-        geminiVoiceModel: this.options.geminiVoiceModel,
-        inworldVoiceModel: this.options.inworldVoiceModel,
-        elevenlabsVoiceModel: this.options.elevenlabsVoiceModel,
+        voiceModel: languageModels.voiceModel,
+        geminiVoiceModel: languageModels.geminiVoiceModel,
+        inworldVoiceModel: languageModels.inworldVoiceModel,
+        elevenlabsVoiceModel: languageModels.elevenlabsVoiceModel,
       };
     },
 
@@ -1335,6 +1421,11 @@ createApp({
     },
 
     async startConversation() {
+      if (this.localOptions.languageModelsError) {
+        alert(`Fix model JSON before starting:\n\n${this.localOptions.languageModelsError}`);
+        return;
+      }
+
       this.status = 'CONNECTING';
       this.audioController.reset();
 
@@ -1363,6 +1454,11 @@ createApp({
     },
 
     async restartConversation() {
+      if (this.localOptions.languageModelsError) {
+        alert(`Fix model JSON before restarting:\n\n${this.localOptions.languageModelsError}`);
+        return;
+      }
+
       this.status = 'CONNECTING';
       this.conversation = [];
       this.audioController.reset();
@@ -1607,15 +1703,12 @@ createApp({
 
 
     save() {
-      // Always sanitize before saving to ensure consistency
       this.sanitizeData();
-
-      const data = {
+      localStorage.setItem("PromptsAndOptions", JSON.stringify({
         options: this.options,
         localOptions: this.localOptions,
-        language: this.languageData
-      };
-      localStorage.setItem("PromptsAndOptions", JSON.stringify(data));
+        language: this.languageData,
+      }));
     },
 
     toTitleCase(str) {
