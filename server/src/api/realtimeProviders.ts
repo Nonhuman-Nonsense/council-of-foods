@@ -2,6 +2,7 @@ import { config } from "../config.js";
 import {
     getChairAgentVoice,
     getChairRealtimeLanguageConfig,
+    getHumanInputRealtimeLanguageConfig,
     normalizeSetupLanguage,
     type ChairVoiceProfile,
 } from "@logic/characterSetupBundle.js";
@@ -236,15 +237,17 @@ export async function createOpenAICall(req: { sdp: string; session?: unknown }):
 }
 
 export function pickHumanInputRealtimeProvider(language: string): RealtimeProvider {
-    return normalizeSetupLanguage(language) === "sv" ? "openai" : "inworld";
+    return getHumanInputRealtimeLanguageConfig(normalizeSetupLanguage(language)).provider;
 }
 
 export async function getHumanInputRealtimeBootstrap(language: string): Promise<RealtimeBootstrapResponse> {
-    const provider = pickHumanInputRealtimeProvider(language);
+    const normalizedLanguage = normalizeSetupLanguage(language);
+    const languageConfig = getHumanInputRealtimeLanguageConfig(normalizedLanguage);
+    const options = getGlobalOptions();
 
-    if (provider === "openai") {
+    if (languageConfig.provider === "openai") {
         return {
-            provider,
+            provider: "openai",
             iceServers: [],
             session: {
                 type: "transcription",
@@ -253,9 +256,12 @@ export async function getHumanInputRealtimeBootstrap(language: string): Promise<
                         format: { type: "audio/pcm", rate: 24000 },
                         noise_reduction: { type: "near_field" },
                         transcription: {
-                            model: opts.transcribeModel,
-                            prompt: opts.transcribePrompt[language] ?? opts.transcribePrompt.en ?? "",
-                            language,
+                            model: options.transcribeModel,
+                            prompt:
+                                options.transcribePrompt[normalizedLanguage] ??
+                                options.transcribePrompt.en ??
+                                "",
+                            language: normalizedLanguage,
                         },
                         turn_detection: {
                             type: "server_vad",
@@ -271,17 +277,17 @@ export async function getHumanInputRealtimeBootstrap(language: string): Promise<
 
     const ice = await getInworldIceServers();
     return {
-        provider,
+        provider: "inworld",
         iceServers: ice.iceServers,
         session: {
             type: "realtime" as const,
-            model: opts.voiceGuideRealtimeModel,
+            model: languageConfig.llmModel!,
             output_modalities: ["text"] as const,
             audio: {
                 input: {
                     transcription: {
-                        model: opts.voiceGuideRealtimeTranscriptionModel,
-                        language,
+                        model: languageConfig.transcriptionModel!,
+                        language: normalizedLanguage,
                     },
                     turn_detection: {
                         type: "semantic_vad" as const,

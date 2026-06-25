@@ -1,7 +1,7 @@
 import { config } from '@root/src/config.js';
 import globalOptions from '@root/global-options.json' with { type: 'json' };
 import testOptions from '@root/test-options.json' with { type: 'json' };
-import { CHAIR_ID, validateChairRealtimeConfig } from './characterSetupBundle.js';
+import { CHAIR_ID, validateChairRealtimeConfig, validateHumanInputRealtimeConfig } from './characterSetupBundle.js';
 
 import { z } from "zod";
 
@@ -31,6 +31,16 @@ export const ChairRealtimeLanguageConfigSchema = z.object({
 export const ChairRealtimeSchema = z.object({
     strategy: z.enum(["unified", "split"]),
     languages: z.record(z.string(), ChairRealtimeLanguageConfigSchema),
+});
+
+export const HumanInputRealtimeLanguageConfigSchema = z.object({
+    provider: z.enum(["inworld", "openai"]),
+    llmModel: z.string().optional(),
+    transcriptionModel: z.string().optional(),
+});
+
+export const HumanInputRealtimeSchema = z.object({
+    languages: z.record(z.string(), HumanInputRealtimeLanguageConfigSchema),
 });
 
 export const GlobalOptionsSchema = z.object({
@@ -67,6 +77,7 @@ export const GlobalOptionsSchema = z.object({
     voiceGuideOpenAIRealtimeModel: z.string(),
     voiceGuideRealtimeTranscriptionModel: z.string(),
     chairRealtime: ChairRealtimeSchema,
+    humanInputRealtime: HumanInputRealtimeSchema,
     speakerClassifierModel: z.string(),
     directedSpeakerRouting: z.boolean()
 });
@@ -90,5 +101,6 @@ export const getGlobalOptions = (): GlobalOptions => {
 
     const parsed = GlobalOptionsSchema.parse(options) as GlobalOptions;
     validateChairRealtimeConfig(parsed);
+    validateHumanInputRealtimeConfig(parsed);
     return parsed;
 };

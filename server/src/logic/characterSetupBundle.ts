@@ -19,6 +19,7 @@ export type ChairVoiceProfile = {
 };
 
 export type ChairRealtimeLanguageConfig = GlobalOptions["chairRealtime"]["languages"][string];
+export type HumanInputRealtimeLanguageConfig = GlobalOptions["humanInputRealtime"]["languages"][string];
 
 type CharacterSetupCharacter = {
     id: string;
@@ -129,6 +130,34 @@ export function getChairAgentVoice(language: string, options: GlobalOptions = ge
     const profile = languageConfig.agentVoice;
     assertRealtimeAgentVoice(normalized, profile);
     return profile;
+}
+
+export function getHumanInputRealtimeLanguageConfig(
+    language: string,
+    options: GlobalOptions = getGlobalOptions()
+): HumanInputRealtimeLanguageConfig {
+    const normalized = normalizeSetupLanguage(language);
+    const config =
+        options.humanInputRealtime.languages[normalized] ?? options.humanInputRealtime.languages.en;
+    if (!config) {
+        throw new Error(`humanInputRealtime.languages is missing entries for "${normalized}" and "en"`);
+    }
+    return config;
+}
+
+export function validateHumanInputRealtimeConfig(options: GlobalOptions): void {
+    for (const [lang, languageConfig] of Object.entries(options.humanInputRealtime.languages)) {
+        if (languageConfig.provider === "inworld") {
+            if (!languageConfig.llmModel?.trim()) {
+                throw new Error(`humanInputRealtime.languages.${lang}.llmModel is required for inworld`);
+            }
+            if (!languageConfig.transcriptionModel?.trim()) {
+                throw new Error(
+                    `humanInputRealtime.languages.${lang}.transcriptionModel is required for inworld`
+                );
+            }
+        }
+    }
 }
 
 export function validateChairRealtimeConfig(options: GlobalOptions): void {

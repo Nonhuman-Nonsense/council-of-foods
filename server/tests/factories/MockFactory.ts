@@ -139,6 +139,20 @@ export const MockFactory = {
                     },
                 },
             },
+            humanInputRealtime: {
+                languages: {
+                    en: {
+                        provider: "inworld",
+                        llmModel: "google-ai-studio/gemini-2.5-flash",
+                        transcriptionModel: "assemblyai/u3-rt-pro",
+                    },
+                    sv: {
+                        provider: "inworld",
+                        llmModel: "google-ai-studio/gemini-2.5-flash",
+                        transcriptionModel: "soniox/stt-rt-v4",
+                    },
+                },
+            },
             speakerClassifierModel: "google-ai-studio/gemini-2.5-flash",
             directedSpeakerRouting: false,
             ...overrides,

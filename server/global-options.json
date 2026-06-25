@@ -39,6 +39,20 @@
   "voiceGuideRealtimeModel": "google-ai-studio/gemini-2.5-flash",
   "voiceGuideOpenAIRealtimeModel": "gpt-realtime",
   "voiceGuideRealtimeTranscriptionModel": "assemblyai/u3-rt-pro",
+  "humanInputRealtime": {
+    "languages": {
+      "en": {
+        "provider": "inworld",
+        "llmModel": "google-ai-studio/gemini-2.5-flash",
+        "transcriptionModel": "assemblyai/u3-rt-pro"
+      },
+      "sv": {
+        "provider": "inworld",
+        "llmModel": "google-ai-studio/gemini-2.5-flash",
+        "transcriptionModel": "soniox/stt-rt-v4"
+      }
+    }
+  },
   "chairRealtime": {
     "strategy": "unified",
     "languages": {

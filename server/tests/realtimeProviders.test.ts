@@ -39,9 +39,9 @@ describe("realtimeProviders", () => {
         expect(pickMetaAgentRealtimeProvider("en")).toBe("inworld");
     });
 
-    it("routes Swedish human-input transcription to OpenAI", () => {
-        expect(pickHumanInputRealtimeProvider("sv")).toBe("openai");
-        expect(pickHumanInputRealtimeProvider("sv-SE")).toBe("openai");
+    it("routes human-input transcription from config", () => {
+        expect(pickHumanInputRealtimeProvider("sv")).toBe("inworld");
+        expect(pickHumanInputRealtimeProvider("sv-SE")).toBe("inworld");
         expect(pickHumanInputRealtimeProvider("en")).toBe("inworld");
     });
 
@@ -51,16 +51,25 @@ describe("realtimeProviders", () => {
         expect(pickVoiceGuideRealtimeProvider("en")).toBe("inworld");
     });
 
-    it("builds an OpenAI transcription bootstrap for Swedish", async () => {
+    it("builds an Inworld transcription bootstrap for Swedish with Soniox", async () => {
+        vi.mocked(global.fetch).mockResolvedValue(
+            new Response(JSON.stringify({ ice_servers: [{ urls: ["stun:human-sv.example.com"] }] }), {
+                status: 200,
+                headers: { "Content-Type": "application/json" },
+            })
+        );
+
         const result = await getHumanInputRealtimeBootstrap("sv");
 
-        expect(result.provider).toBe("openai");
-        expect(result.iceServers).toEqual([]);
+        expect(result.provider).toBe("inworld");
+        expect(result.iceServers).toEqual([{ urls: ["stun:human-sv.example.com"] }]);
         expect(result.session).toMatchObject({
-            type: "transcription",
+            type: "realtime",
+            output_modalities: ["text"],
             audio: {
                 input: {
                     transcription: {
+                        model: "soniox/stt-rt-v4",
                         language: "sv",
                     },
                 },
@@ -83,6 +92,14 @@ describe("realtimeProviders", () => {
         expect(result.session).toMatchObject({
             type: "realtime",
             output_modalities: ["text"],
+            audio: {
+                input: {
+                    transcription: {
+                        model: "assemblyai/u3-rt-pro",
+                        language: "en",
+                    },
+                },
+            },
         });
     });
 

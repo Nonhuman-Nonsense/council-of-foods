@@ -3,8 +3,10 @@ import {
     getChairAgentVoice,
     getChairMeetingVoice,
     getChairRealtimeLanguageConfig,
+    getHumanInputRealtimeLanguageConfig,
     normalizeSetupLanguage,
     validateChairRealtimeConfig,
+    validateHumanInputRealtimeConfig,
     type ChairVoiceProfile,
 } from "@logic/characterSetupBundle.js";
 import type { GlobalOptions } from "@logic/GlobalOptions.js";
@@ -103,5 +105,41 @@ describe("characterSetupBundle chair voice", () => {
         const options = optionsWithChairRealtime();
         expect(getChairRealtimeLanguageConfig("sv", options).ttsModel).toBe("inworld-tts-2");
         expect(getChairRealtimeLanguageConfig("en", options).ttsModel).toBe("inworld-tts-1.5-max");
+    });
+
+    it("requires inworld llm and transcription models for human input", () => {
+        const options = optionsWithChairRealtime();
+        expect(() => validateHumanInputRealtimeConfig(options)).not.toThrow();
+    });
+
+    it("allows OpenAI human-input provider without inworld models", () => {
+        const options = optionsWithChairRealtime();
+        const withOpenAiSv: GlobalOptions = {
+            ...options,
+            humanInputRealtime: {
+                languages: {
+                    ...options.humanInputRealtime.languages,
+                    sv: { provider: "openai" },
+                },
+            },
+        };
+        expect(() => validateHumanInputRealtimeConfig(withOpenAiSv)).not.toThrow();
+        expect(getHumanInputRealtimeLanguageConfig("sv", withOpenAiSv).provider).toBe("openai");
+    });
+
+    it("rejects inworld human-input config without transcription model", () => {
+        const options = optionsWithChairRealtime();
+        const invalid: GlobalOptions = {
+            ...options,
+            humanInputRealtime: {
+                languages: {
+                    sv: {
+                        provider: "inworld",
+                        llmModel: "google-ai-studio/gemini-2.5-flash",
+                    },
+                },
+            },
+        };
+        expect(() => validateHumanInputRealtimeConfig(invalid)).toThrow(/transcriptionModel is required/);
     });
 });
