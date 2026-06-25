@@ -193,7 +193,8 @@ describe('Async Error Propagation (Comprehensive)', () => {
             expect(Logger.error).toHaveBeenCalledWith(
                 expect.stringMatching(/^(meeting \d+|socket mock-socket)$/),
                 expect.stringContaining(`Error handling event ${event}; notifying client (500):`),
-                expect.any(Error)
+                expect.any(Error),
+                { clientImpact: 'terminal' },
             );
             Logger.error.mockClear();
         });
@@ -234,7 +235,8 @@ describe('Async Error Propagation (Comprehensive)', () => {
             expect(Logger.error).toHaveBeenCalledWith(
                 expect.stringMatching(/^(meeting \d+|socket mock-socket)$/),
                 expect.stringContaining(`Error handling event ${event}; notifying client (500):`),
-                expect.any(Error)
+                expect.any(Error),
+                { clientImpact: 'terminal' },
             );
             Logger.error.mockClear();
 
@@ -287,7 +289,8 @@ describe('Async Error Propagation (Comprehensive)', () => {
         expect(Logger.warn).toHaveBeenCalledWith(
             expect.stringMatching(/^(meeting \d+|socket mock-socket)$/),
             expect.stringContaining(`Validation error for ${event}; notifying client (400):`),
-            expect.any(ZodError)
+            expect.any(ZodError),
+            { clientImpact: 'notified' },
         );
     });
 
@@ -308,7 +311,8 @@ describe('Async Error Propagation (Comprehensive)', () => {
         expect(Logger.warn).toHaveBeenCalledWith(
             expect.stringMatching(/^(meeting \d+|socket mock-socket)$/),
             expect.stringContaining(`Validation error for ${event}; notifying client (400):`),
-            expect.any(ZodError)
+            expect.any(ZodError),
+            { clientImpact: 'notified' },
         );
     });
 

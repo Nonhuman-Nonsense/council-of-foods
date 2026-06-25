@@ -50,8 +50,8 @@ export default defineConfig(async ({ command, mode }) => ({
         '@/logger': path.resolve(
           __dirname,
           mode === 'production' || process.env.VITEST === 'true'
-            ? 'src/logger.noop.ts'
-            : 'src/logger.ts',
+            ? 'src/logger.prod.ts'
+            : 'src/logger.dev.ts',
         ),
         'lottie-web': 'lottie-web/build/player/lottie_light',
       },

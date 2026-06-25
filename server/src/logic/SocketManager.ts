@@ -132,20 +132,40 @@ export class SocketManager {
                 // Route to broadcastWarning vs broadcastError by severity — same client payload today,
                 // but the method name is the policy hook (see IMeetingBroadcaster).
                 if (error instanceof ZodError) {
-                    Logger.warn(context, `Validation error for ${event}; notifying client (400): ${error.message}`, error);
+                    Logger.warn(
+                        context,
+                        `Validation error for ${event}; notifying client (400): ${error.message}`,
+                        error,
+                        { clientImpact: 'notified' },
+                    );
                     this.socketBroadcaster.broadcastWarning(CouncilError.fromZod(error), context);
                 } else if (error instanceof CouncilError) {
                     if (error.statusCode >= 500) {
                         const errMessage = error instanceof Error ? error.message : String(error);
-                        Logger.error(context, `Error handling event ${event}; notifying client (${error.statusCode}): ${errMessage}`, error);
+                        Logger.error(
+                            context,
+                            `Error handling event ${event}; notifying client (${error.statusCode}): ${errMessage}`,
+                            error,
+                            { clientImpact: 'terminal' },
+                        );
                         this.socketBroadcaster.broadcastError(error, context);
                     } else {
-                        Logger.warn(context, `Error handling event ${event}; notifying client (${error.statusCode}): ${error.clientMessage}`, error);
+                        Logger.warn(
+                            context,
+                            `Error handling event ${event}; notifying client (${error.statusCode}): ${error.clientMessage}`,
+                            error,
+                            { clientImpact: 'notified' },
+                        );
                         this.socketBroadcaster.broadcastWarning(error, context);
                     }
                 } else {
                     const errMessage = error instanceof Error ? error.message : String(error);
-                    Logger.error(context, `Error handling event ${event}; notifying client (500): ${errMessage}`, error);
+                    Logger.error(
+                        context,
+                        `Error handling event ${event}; notifying client (500): ${errMessage}`,
+                        error,
+                        { clientImpact: 'terminal' },
+                    );
                     this.socketBroadcaster.broadcastError(CouncilError.fromUnexpected(error), context);
                 }
             }

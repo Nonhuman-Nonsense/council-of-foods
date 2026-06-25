@@ -103,7 +103,9 @@ export const useCouncilSocket = ({
         });
 
         socket.on("conversation_error", (error) => {
-            log.event('SOCKET', 'IN conversation_error', summarizeSocketIn('conversation_error', error));
+            const summary = summarizeSocketIn('conversation_error', error);
+            log.event('SOCKET', 'IN conversation_error', summary);
+            log.event('ERROR', 'conversation_error', summary);
             if (onError) onError(error);
         });
 

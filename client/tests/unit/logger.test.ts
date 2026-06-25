@@ -9,7 +9,7 @@ vi.mock("@/settings/councilSettings", () => ({
   isDevLogCategoryEnabled: (category: string) => mockIsDevLogCategoryEnabled(category),
 }));
 
-describe("logger (noop in vitest)", () => {
+describe("logger (prod alias in vitest)", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
   });
@@ -36,13 +36,13 @@ describe("summarizeLogPayload", () => {
 });
 
 describe("logEvent (real logger)", () => {
-  let logEvent: typeof import("../../src/logger").logEvent;
+  let logEvent: typeof import("../../src/logger.dev").logEvent;
 
   beforeEach(async () => {
     vi.resetModules();
     mockGetDevLogEnabled.mockReturnValue(true);
     mockIsDevLogCategoryEnabled.mockReturnValue(true);
-    const mod = await import("../../src/logger");
+    const mod = await import("../../src/logger.dev");
     logEvent = mod.logEvent;
   });
 
@@ -82,5 +82,15 @@ describe("logEvent (real logger)", () => {
     logEvent("API", "GET /api/meetings");
 
     expect(logSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe("reportTerminalError (prod alias in vitest)", () => {
+  it("does not POST client reports under vitest", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(null, { status: 204 }));
+    const { reportTerminalError } = await import("@/logger");
+    reportTerminalError("test.source", "boom", new Error("cause"));
+    expect(fetchSpy).not.toHaveBeenCalled();
+    fetchSpy.mockRestore();
   });
 });

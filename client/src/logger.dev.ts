@@ -2,69 +2,13 @@ import {
   getDevLogEnabled,
   isDevLogCategoryEnabled,
 } from "@/settings/councilSettings";
+import {
+  type LogCategory,
+  DEV_LOG_CATEGORIES,
+  summarizeLogPayload,
+} from "./logger.prod";
 
-export const DEV_LOG_CATEGORIES = [
-  "API",
-  "SOCKET",
-  "AGENT",
-  "REALTIME",
-  "BUTTON",
-  "META",
-  "SYSTEM",
-  "ERROR",
-] as const;
-
-export type LogCategory = (typeof DEV_LOG_CATEGORIES)[number];
-
-const LOG_STRING_MAX = 240;
-const LOG_ARRAY_MAX = 12;
-const LOG_DEPTH_MAX = 5;
-
-const BLOB_FIELD_NAMES = new Set([
-  "audioBase64",
-  "audio",
-  "sdp",
-  "instructions",
-]);
-
-function truncateString(value: string, max = LOG_STRING_MAX): string {
-  if (value.length <= max) return value;
-  return `${value.slice(0, max)}… (${value.length} chars)`;
-}
-
-/** Shrink large payloads for dev console groups without dumping megabytes. */
-export function summarizeLogPayload(value: unknown, depth = 0): unknown {
-  if (value === null || value === undefined) return value;
-  if (typeof value === "string") return truncateString(value);
-  if (typeof value === "number" || typeof value === "boolean") return value;
-  if (depth >= LOG_DEPTH_MAX) return "[…]";
-  if (Array.isArray(value)) {
-    if (value.length === 0) return [];
-    const head = value
-      .slice(0, LOG_ARRAY_MAX)
-      .map((item) => summarizeLogPayload(item, depth + 1));
-    if (value.length > LOG_ARRAY_MAX) {
-      return [...head, `…+${value.length - LOG_ARRAY_MAX} more`];
-    }
-    return head;
-  }
-  if (typeof value === "object") {
-    const out: Record<string, unknown> = {};
-    for (const [key, nested] of Object.entries(value as Record<string, unknown>)) {
-      if (
-        BLOB_FIELD_NAMES.has(key) &&
-        typeof nested === "string" &&
-        nested.length > LOG_STRING_MAX
-      ) {
-        out[key] = `[${key} ${nested.length} chars]`;
-        continue;
-      }
-      out[key] = summarizeLogPayload(nested, depth + 1);
-    }
-    return out;
-  }
-  return String(value);
-}
+export { DEV_LOG_CATEGORIES, summarizeLogPayload, type LogCategory };
 
 const CATEGORY_STYLE: Record<LogCategory, string> = {
   API: "color: #d97706; font-weight: bold;",
@@ -124,7 +68,7 @@ function emitStructuredLog(category: LogCategory, message: string, data?: unknow
 }
 
 /**
- * Dev-only structured console log. Production builds alias to `logger.noop.ts`.
+ * Dev structured console log. Import via `@/logger`; Vite aliases to this file in dev serve.
  *
  * ERROR is additive: failures always reach native `console.error` when structured
  * ERROR logging is off. Other categories are optional styled groups only.
@@ -147,6 +91,16 @@ export function logEvent(category: LogCategory, message: string, data?: unknown)
 export const log = {
   event: logEvent,
 };
+
+/** Dev console logging for terminal client failures (reporting is centralized in useUnrecoverableError). */
+export function reportTerminalError(
+  source: string,
+  message: string,
+  cause?: unknown,
+  meta?: { meetingId?: number },
+): void {
+  logEvent("ERROR", source, { message, cause, ...meta });
+}
 
 if (import.meta.env.DEV && typeof window !== "undefined") {
   (window as Window & { __councilLogger?: typeof log }).__councilLogger = log;

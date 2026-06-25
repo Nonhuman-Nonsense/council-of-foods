@@ -18,13 +18,14 @@ import ReplayModeBanner from "./ReplayModeBanner";
 import { useCouncilSettings } from "@/settings/councilSettings";
 import MeetingMetaAgent from "@museum/metaAgent/MeetingMetaAgent";
 import { CHAIR_ID } from "@/prompts/characterSetupBundles";
+import type { SetUnrecoverableError } from "@main/overlay/CouncilError";
 
 interface CouncilProps {
   liveKey: string | null;
   setliveKey: (key: string) => void;
   topic: Topic | null;
   setTopic: (topic: Topic) => void;
-  setUnrecoverableError: (message: string) => void;
+  setUnrecoverableError: SetUnrecoverableError;
   setConnectionError: (error: boolean) => void;
   connectionError: boolean;
   meetingAudioContext: React.RefObject<AudioContext | null>;
@@ -99,7 +100,12 @@ function Council({
         console.error(error);
         const msg =
           error instanceof Error && error.message.trim().length > 0 ? error.message : t("error.1");
-        setUnrecoverableError(msg);
+        setUnrecoverableError({
+          message: msg,
+          source: "Council.loadMeeting",
+          cause: error,
+          meetingId: currentMeetingId,
+        });
       }
     })();
     return () => ac.abort();
@@ -181,9 +187,12 @@ function Council({
 
     const pendingMessage = textMessages[playNextIndex];
     if (pendingMessage?.type !== 'awaiting_human_panelist') {
-      setUnrecoverableError(
-        "Internal state mismatch: human_panelist state requires an awaiting_human_panelist message."
-      );
+      const detail = "Internal state mismatch: human_panelist state requires an awaiting_human_panelist message.";
+      setUnrecoverableError({
+        message: detail,
+        source: "Council.human_panelist_state",
+        meetingId: currentMeetingId,
+      });
     }
   }, [councilState, textMessages, playNextIndex, setUnrecoverableError]);
 

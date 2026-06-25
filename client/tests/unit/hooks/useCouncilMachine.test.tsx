@@ -364,7 +364,10 @@ describe('useCouncilMachine', () => {
             expect.anything()
         );
         expect(setUnrecoverableError).toHaveBeenCalledWith(
-            'Internal state mismatch: expected awaiting_human_panelist before submitting panelist response.'
+            expect.objectContaining({
+                message: 'Internal state mismatch: expected awaiting_human_panelist before submitting panelist response.',
+                source: 'useCouncilMachine.submit_panelist',
+            }),
         );
     });
 
@@ -520,7 +523,12 @@ describe('useCouncilMachine', () => {
             });
 
             expect(setliveKey).not.toHaveBeenCalled();
-            expect(setUnrecoverableError).toHaveBeenCalledWith('anything');
+            expect(setUnrecoverableError).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    message: 'anything',
+                    source: 'useCouncilMachine.resume',
+                }),
+            );
         });
     });
 

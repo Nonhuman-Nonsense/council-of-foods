@@ -239,7 +239,10 @@ describe('Council Component', () => {
         render(<Council {...defaultProps} />);
 
         expect(defaultProps.setUnrecoverableError).toHaveBeenCalledWith(
-            'Internal state mismatch: human_panelist state requires an awaiting_human_panelist message.'
+            expect.objectContaining({
+                message: 'Internal state mismatch: human_panelist state requires an awaiting_human_panelist message.',
+                source: 'Council.human_panelist_state',
+            }),
         );
     });
 
