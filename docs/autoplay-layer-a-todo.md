@@ -21,7 +21,7 @@ Layer B ([`autoplay-plan.md`](./autoplay-plan.md)) handles leaving interactive m
 |------|--------|
 | Human input / panelist abandonment | **Done** |
 | `Completed` overlay auto-wrap | **Open** — next up |
-| `Reconnecting` overlay 2 min restart | **Open** — simple fallback |
+| `Reconnecting` overlay 2 min restart | **Done** — museum-only reload to `rootPath` |
 | Meta-agent long idle | **Done** — auto-continue after idle remind |
 | Voice guide stuck mid-setup | **N/A** — covered by `AutoplayCoordinator` (Layer B) |
 | `Name` overlay | **N/A** — never shown in museum (name known before council) |
@@ -44,19 +44,15 @@ Layer B ([`autoplay-plan.md`](./autoplay-plan.md)) handles leaving interactive m
 
 ---
 
+## Done
+
 ### `Reconnecting` overlay
 
-**When:** Connection error persists, museum mode — overlay shows while the client keeps retrying.
+After **2 minutes** on the reconnecting overlay in museum mode, `window.location.href = rootPath` (full page reload to landing). Non-museum keeps indefinite retry.
 
-**Current behaviour:** Reconnects indefinitely (acceptable).
-
-**Desired addition:** After **2 minutes** on the reconnecting overlay, hard-restart the kiosk: `window.location.reload()` (full page reload, fresh start). Simple fallback if the socket never recovers.
-
-**Likely files:** `client/src/main/overlay/Reconnecting.tsx`, `Main.tsx` (museum gate).
+**File:** `client/src/main/overlay/Reconnecting.tsx`.
 
 ---
-
-## Done
 
 ### Human input / panelist abandonment
 
