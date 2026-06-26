@@ -94,7 +94,7 @@ export default function RealtimeCaptionOverlay(props: RealtimeCaptionOverlayProp
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
-    justifyContent: "center",
+    justifyContent: "flex-end",
     textAlign: "center",
     minHeight: isMobile ? "56px" : "64px",
     pointerEvents: "none",
