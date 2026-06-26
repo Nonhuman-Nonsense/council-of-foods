@@ -59,15 +59,16 @@ function buildInworldChairRealtimeSession(params: {
         },
     };
 
+    const ttsProviderData: Record<string, unknown> = {
+        timestamp_type: "WORD",
+        timestamp_transport_strategy: "SYNC",
+    };
     if (ttsLanguage) {
-        session.providerData = {
-            tts: {
-                language: ttsLanguage,
-                steering_handling: "emit_once",
-                segmenter_strategy: "sentence",
-            },
-        };
+        ttsProviderData.language = ttsLanguage;
+        ttsProviderData.steering_handling = "emit_once";
+        ttsProviderData.segmenter_strategy = "sentence";
     }
+    session.providerData = { tts: ttsProviderData };
 
     return session;
 }

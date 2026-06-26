@@ -36,6 +36,14 @@ export type EventLoopCallbacks = {
   onResponseDone?: () => void;
   /** Fired when the data channel reports that the audio content part exists. */
   onAudioPartReady?: () => void;
+  /**
+   * Fired for every `response.output_audio.delta` that carries word alignment.
+   * Words are in arrival order; an empty array signals end-of-sentence.
+   */
+  onWordAlignment?: (
+    contentIndex: number,
+    words: ReadonlyArray<{ w: string; s: number; e: number }>
+  ) => void;
   /** Optional debug hook. */
   log?: (...args: unknown[]) => void;
 };
@@ -301,6 +309,35 @@ export function createEventLoop(params: {
       return true;
     }
 
+    if (type === "response.output_audio.delta") {
+      const contentIndex = (obj as Record<string, unknown>).content_index;
+      const timestampInfo = asObj((obj as Record<string, unknown>).timestamp_info);
+      const wordAlignment = asObj(timestampInfo?.word_alignment);
+      if (wordAlignment) {
+        const words = Array.isArray(wordAlignment.words) ? (wordAlignment.words as string[]) : [];
+        const starts = Array.isArray(wordAlignment.word_start_time_seconds)
+          ? (wordAlignment.word_start_time_seconds as number[])
+          : [];
+        const ends = Array.isArray(wordAlignment.word_end_time_seconds)
+          ? (wordAlignment.word_end_time_seconds as number[])
+          : [];
+        const phoneticDetails = Array.isArray(wordAlignment.phonetic_details)
+          ? (wordAlignment.phonetic_details as Array<{ is_partial?: boolean }>)
+          : [];
+        callbacks.log?.(`[ALIGN] ${JSON.stringify({
+          ci: contentIndex,
+          words: words.map((w, i) => ({ w, s: starts[i], e: ends[i], p: phoneticDetails[i]?.is_partial })),
+        })}`);
+        callbacks.onWordAlignment?.(
+          typeof contentIndex === "number" ? contentIndex : 0,
+          words.map((w, i) => ({ w, s: starts[i] ?? 0, e: ends[i] ?? 0 }))
+        );
+      } else {
+        callbacks.log?.(`[ALIGN] no word_alignment ${JSON.stringify({ ci: contentIndex, keys: Object.keys(obj) })}`);
+      }
+      return true;
+    }
+
     if (type === "response.output_audio_transcript.delta") {
       const delta = asStr(obj.delta);
       if (delta) captionScheduler?.appendDelta(delta);
@@ -312,7 +349,9 @@ export function createEventLoop(params: {
       if (transcript && transcript.trim().length > 0) {
         if (captionScheduler) {
           captionScheduler.finalize(transcript);
-        } else {
+        } else if (!callbacks.onWordAlignment) {
+          // Only fall back to full-transcript caption when word alignment is not
+          // driving captions (e.g. OpenAI provider with no alignment data).
           callbacks.onCaption(transcript);
         }
       }
