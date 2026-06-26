@@ -133,6 +133,8 @@ describe("realtimeProviders", () => {
             providerData: {
                 tts: {
                     language: "sv",
+                    timestamp_type: "WORD",
+                    timestamp_transport_strategy: "SYNC",
                 },
             },
         });
@@ -156,6 +158,12 @@ describe("realtimeProviders", () => {
             audio: {
                 output: {
                     voice: englishAgentChair.voice,
+                },
+            },
+            providerData: {
+                tts: {
+                    timestamp_type: "WORD",
+                    timestamp_transport_strategy: "SYNC",
                 },
             },
         });
@@ -193,6 +201,8 @@ describe("realtimeProviders", () => {
                     language: "sv",
                     steering_handling: "emit_once",
                     segmenter_strategy: "sentence",
+                    timestamp_type: "WORD",
+                    timestamp_transport_strategy: "SYNC",
                 },
             },
         });
@@ -216,8 +226,13 @@ describe("realtimeProviders", () => {
                     model: "inworld-tts-1.5-max",
                 },
             },
+            providerData: {
+                tts: {
+                    timestamp_type: "WORD",
+                    timestamp_transport_strategy: "SYNC",
+                },
+            },
         });
-        expect(result.session).not.toHaveProperty("providerData");
     });
 
     it("POSTs OpenAI calls with server-side auth and FormData", async () => {
