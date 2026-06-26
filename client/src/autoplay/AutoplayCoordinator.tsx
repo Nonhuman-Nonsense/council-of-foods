@@ -18,7 +18,6 @@ const SUMMARY_IDLE_MS = 60_000;
 const LOOP_IDLE_MS = 35_000;
 const IDLE_POLL_MS = 1_000;
 const FETCH_RETRY_MS = 5_000;
-const AUTOPLAY_WARNING_Z_INDEX = 20;
 
 export interface AutoplayCoordinatorProps {
   meetingliveKey: string | null;
@@ -337,7 +336,7 @@ export default function AutoplayCoordinator({
   return (
     <>
       {phase === "warning" && (
-        <Overlay isActive={true} isBlurred={true} zIndex={AUTOPLAY_WARNING_Z_INDEX}>
+        <Overlay isActive={true} isBlurred={true} layer="system">
           <AutoplayWarning
             onConfirm={() => {
               log.event("AUTOPLAY", "warning confirmed", { via: "ui_button_or_timeout" });

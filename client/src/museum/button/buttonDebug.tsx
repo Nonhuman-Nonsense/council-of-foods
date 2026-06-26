@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type CSSProperties, type ReactElement } from "react";
 import { useTranslation } from "react-i18next";
+import { z } from "@/zIndexLayers";
 import { useButtonStore } from "./buttonStore";
 import type { ButtonLedMode, ButtonOwner } from "./buttonStore";
 
@@ -65,7 +66,7 @@ const overlayStyle: CSSProperties = {
   position: "fixed",
   bottom: 8,
   right: 5,
-  zIndex: 10002,
+  zIndex: z.buttonDebug,
   pointerEvents: "none",
   display: "flex",
   flexDirection: "column",

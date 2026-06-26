@@ -1,6 +1,7 @@
 import React from 'react';
 import ConversationControlIcon from "./ConversationControlIcon";
 import { useMobile } from "@/utils";
+import { z } from "@/zIndexLayers";
 import { useTranslation } from "react-i18next";
 
 interface ConversationControlsProps {
@@ -65,7 +66,7 @@ function ConversationControls({
         style={{
           pointerEvents: hidden ? "none" : "auto",
           visibility: hidden ? "hidden" : "visible",
-          zIndex: onTopOfOverlay ? "10" : "3",
+          zIndex: onTopOfOverlay ? z.councilControlsRaised : z.councilControls,
           position: "relative",
         }}
       >

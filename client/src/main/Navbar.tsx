@@ -10,6 +10,7 @@ import hamburger from "@assets/animations/hamburger.json";
 import councilLogo from "@assets/logos/council_logo_white.svg";
 import { AVAILABLE_LANGUAGES } from "@shared/AvailableLanguages";
 import routes from "@/routes.json";
+import { z } from "@/zIndexLayers";
 
 interface NavbarProps {
   topicTitle: string;
@@ -95,7 +96,7 @@ function Navbar({ topicTitle: topic, hamburgerOpen, setHamburgerOpen }: NavbarPr
     margin: "0 auto",
     width: "100%",
     boxSizing: "border-box",
-    zIndex: 10,
+    zIndex: z.navbar,
     height: isMobile && isMobileXs ? "45px" : "60px",
     pointerEvents: "none"
   };

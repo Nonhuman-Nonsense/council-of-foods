@@ -3,6 +3,7 @@ import MarqueeRollingBanner from "@council/MarqueeRollingBanner";
 import { LiveAudioVisualizerPair } from "@council/humanInput/LiveAudioVisualizer";
 import { Icons } from "@assets/icons";
 import { useMobile } from "@/utils";
+import { z } from "@/zIndexLayers";
 import { useTranslation } from "react-i18next";
 import ConversationControlIcon from "@/council/ConversationControlIcon";
 
@@ -75,7 +76,7 @@ export default function RealtimeCaptionOverlay(props: RealtimeCaptionOverlayProp
     left: "50%",
     bottom: 0,
     transform: "translateX(-50%)",
-    zIndex: 4,
+    zIndex: z.realtimeCaption,
     pointerEvents: "none",
     maxWidth: isMobile ? "92%" : "70%",
     width: "100%",

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useMobile } from "@/utils";
+import { z } from "@/zIndexLayers";
 import { Sentence } from "@shared/ModelTypes";
 import React from 'react';
 import type { PlaybackStartInfo } from "./AudioOutputMessage";
@@ -190,7 +191,7 @@ function TextOutput({
 
   const textStyle: React.CSSProperties = {
     maxWidth: isMobile ? "85%" : "70%",
-    zIndex: "3",
+    zIndex: z.councilControls,
     pointerEvents: 'auto'
   };
 

@@ -33,6 +33,7 @@ import Reconnecting from "./overlay/Reconnecting";
 const MuseumButton = lazy(() => import("@/museum/button/MuseumButton"));
 const AutoplayCoordinator = lazy(() => import("@/autoplay/AutoplayCoordinator"));
 
+import { z } from "@/zIndexLayers";
 import routes from "@/routes.json";
 import { backgroundImageUrls } from "@assets/backgrounds/index";
 
@@ -159,8 +160,8 @@ export default function Main(props: MainProps) {
     height: "100%",
     left: "0",
     top: "0",
-    pointerEvents: 'auto',
-    zIndex: "9"
+    pointerEvents: "auto",
+    zIndex: z.hamburgerBlocker,
   };
 
   return (
@@ -241,7 +242,7 @@ export default function Main(props: MainProps) {
         </Overlay>
       }
       {unrecoverableError != null && (
-        <Overlay isActive={true} isBlurred={true}>
+        <Overlay isActive={true} isBlurred={true} layer="system">
           <CouncilError error={unrecoverableError} />
         </Overlay>
       )}
@@ -249,6 +250,7 @@ export default function Main(props: MainProps) {
         <Overlay
           isActive={true}
           isBlurred={true}
+          layer="system"
         >
           <Reconnecting />
         </Overlay>
@@ -266,12 +268,13 @@ function RotateOverlay() {
         left: "0",
         width: "100%",
         height: "100%",
-        zIndex: "100",
+        zIndex: z.rotatePrompt,
       }}
     >
       <Overlay
         isActive={true}
         isBlurred={true}
+        layer="system"
       >
         <RotateDevice />
       </Overlay>
@@ -293,7 +296,7 @@ function Background({ pathname }: { pathname: string }) {
     ...sharedStyle,
     backgroundPositionY: "50%",
     backgroundImage: `url(${backgroundImageUrls.zoomedOut})`,
-    zIndex: "-2",
+    zIndex: z.backgroundZoomedOut,
     opacity: isMeetingPath(pathname) ? "0" : "1",
   };
 
@@ -301,7 +304,7 @@ function Background({ pathname }: { pathname: string }) {
     ...sharedStyle,
     backgroundPositionY: `calc(50% + max(12${dvh},36px))`,// 50% is picture height, 12vh is from view, 36 is 12% of 300px which is minimum view
     backgroundImage: `url(${backgroundImageUrls.zoomedIn})`,
-    zIndex: "-1",
+    zIndex: z.backgroundZoomedIn,
     opacity: isMeetingPath(pathname) ? "1" : "0.01",
   };
 

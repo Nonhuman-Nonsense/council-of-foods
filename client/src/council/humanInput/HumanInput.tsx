@@ -2,6 +2,7 @@ import { useState, useEffect, useLayoutEffect, useRef, useMemo } from "react";
 import ConversationControlIcon from "../ConversationControlIcon";
 import TextareaAutosize from 'react-textarea-autosize';
 import { useMobile, dvh } from "@/utils";
+import { z } from "@/zIndexLayers";
 import { useTranslation } from "react-i18next";
 import { LiveAudioVisualizerPair } from "./LiveAudioVisualizer";
 import Lottie from 'react-lottie-player';
@@ -597,7 +598,7 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
     bottom: `-${2}${dvh}`,
     height: `${45}${dvh}`,
     minHeight: "135px",
-    zIndex: "0",
+    zIndex: z.councilMic,
     animation: "4s micAppearing",
     animationFillMode: "both",
   };
@@ -605,7 +606,7 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
   const divStyle: React.CSSProperties = {
     width: isMobile ? "45px" : "56px",
     height: isMobile ? "45px" : "56px",
-    zIndex: "3",
+    zIndex: z.councilControls,
     display: "flex",
     alignItems: "center"
   };
@@ -641,7 +642,7 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
   return (<>
     <div style={wrapperStyle}>
       <img alt="Say something!" src={micIcon} style={micStyle} />
-      <div style={{ zIndex: "4", position: "relative", pointerEvents: "auto" }}>
+      <div style={{ zIndex: z.humanInputField, position: "relative", pointerEvents: "auto" }}>
         <TextareaAutosize
           ref={inputArea}
           style={textStyle}

@@ -1,7 +1,9 @@
+import { overlayZIndex, type OverlayLayer } from "@/zIndexLayers";
+
 interface OverlayProps {
   isActive: boolean;
   isBlurred?: boolean; // JSDoc says boolean but code checks !== false. optional?
-  zIndex?: number | string;
+  layer?: OverlayLayer;
   children: React.ReactNode;
 }
 
@@ -20,7 +22,7 @@ interface OverlayProps {
  * @param {boolean} props.isBlurred - Whether to apply a blur effect to the background.
  * @param {React.ReactNode} props.children - The content to display inside the overlay.
  */
-function Overlay({ isActive, isBlurred, zIndex, children }: OverlayProps) {
+function Overlay({ isActive, isBlurred, layer = "route", children }: OverlayProps) {
 
   const overlayStyle: React.CSSProperties = {
     position: "absolute",
@@ -29,7 +31,7 @@ function Overlay({ isActive, isBlurred, zIndex, children }: OverlayProps) {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    zIndex: zIndex ?? "5",
+    zIndex: overlayZIndex(layer),
     backgroundColor: isActive ? "rgba(0, 0, 0, 0.5)" : undefined,
     pointerEvents: isActive ? "auto" : "none",
   };

@@ -2,6 +2,9 @@ import '@testing-library/jest-dom';
 import { vi } from 'vitest';
 import React from 'react';
 import '@/i18n';
+import { applyZIndexCssVariables } from '@/zIndexLayers';
+
+applyZIndexCssVariables();
 
 // Mock .svg?react imports
 // Mock .svg?react imports

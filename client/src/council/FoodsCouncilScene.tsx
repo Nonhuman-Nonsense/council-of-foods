@@ -4,6 +4,7 @@ import React, { useMemo } from "react";
 import FoodItem from "./FoodItem";
 import { mapFoodIndex } from "@/utils";
 import { backgroundImageUrls } from "@assets/backgrounds/index";
+import { z } from "@/zIndexLayers";
 import type { CouncilState } from "./hooks/useCouncilMachine";
 import { CHAIR_ID } from "@/prompts/characterSetupBundles";
 
@@ -155,7 +156,7 @@ export function Background({ zoomIn, currentSpeakerIndex, totalSpeakers }: Backg
     position: "absolute",
     bottom: "0",
     background: "linear-gradient(0, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0) 100%)",
-    zIndex: "1",
+    zIndex: z.councilSceneShade,
   };
 
   const topShade: React.CSSProperties = {
@@ -164,7 +165,7 @@ export function Background({ zoomIn, currentSpeakerIndex, totalSpeakers }: Backg
     position: "absolute",
     top: "0",
     background: "linear-gradient(180deg, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0) 100%)",
-    zIndex: "1",
+    zIndex: z.councilSceneShade,
   };
 
   return (

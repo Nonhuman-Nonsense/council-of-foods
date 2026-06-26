@@ -6,6 +6,7 @@ import RealtimeCaptionOverlay, {
   type RealtimeSubtitleLayout,
 } from "@realtime/RealtimeCaptionOverlay";
 import { useMobile } from "@/utils";
+import { z } from "@/zIndexLayers";
 
 type VoiceGuideOverlayProps = {
   isConnecting: boolean;
@@ -59,7 +60,7 @@ export default function VoiceGuideOverlay(props: VoiceGuideOverlayProps): ReactE
     bottom: "6px",
     left: "5px",
     opacity: 0.7,
-    zIndex: 10000,
+    zIndex: z.voiceGuide,
     pointerEvents: "auto",
   };
 
