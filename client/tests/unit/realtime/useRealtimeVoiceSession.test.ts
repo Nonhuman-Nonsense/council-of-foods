@@ -89,6 +89,7 @@ beforeEach(() => {
     return {
       close: vi.fn(),
       micStream: {
+        getTracks: () => [{ stop: vi.fn() }],
         getAudioTracks: () => [{ enabled: false }],
       },
       dc: { readyState: "open", send: vi.fn() },
@@ -227,5 +228,25 @@ describe("useRealtimeVoiceSession", () => {
     });
 
     expect(eventLoopMocks.requestResponseIfIdle).toHaveBeenCalled();
+  });
+
+  it("exposes micStream when setMicEnabled opens the mic", async () => {
+    const { result } = renderHook(() => useRealtimeVoiceSession(defaultParams));
+
+    await waitFor(() => {
+      expect(result.current.connectionState).toBe("ready");
+    });
+
+    expect(result.current.micStream).toBeNull();
+
+    act(() => {
+      result.current.setMicEnabled(true);
+    });
+    expect(result.current.micStream).not.toBeNull();
+
+    act(() => {
+      result.current.setMicEnabled(false);
+    });
+    expect(result.current.micStream).toBeNull();
   });
 });

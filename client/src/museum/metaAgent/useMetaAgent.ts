@@ -20,6 +20,7 @@ export type UseMetaAgentResult = {
   error: string | null;
   lastCaption: string | null;
   lastUserTranscript: string | null;
+  micStream: MediaStream | null;
   /**
    * True while the meta-agent is producing a voice response.
    * TODO: Today this follows response.created → response.done (generation end), not

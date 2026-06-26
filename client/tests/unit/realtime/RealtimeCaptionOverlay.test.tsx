@@ -13,6 +13,10 @@ vi.mock("react-i18next", () => ({
   }),
 }));
 
+vi.mock("@council/humanInput/LiveAudioVisualizer", () => ({
+  LiveAudioVisualizerPair: () => <div data-testid="live-audio-viz" />,
+}));
+
 describe("RealtimeCaptionOverlay", () => {
   it("renders user transcript above agent caption", () => {
     render(
@@ -82,5 +86,65 @@ describe("RealtimeCaptionOverlay", () => {
     );
 
     expect(screen.queryByTestId("voice-guide-hold-to-speak")).not.toBeInTheDocument();
+  });
+
+  it("reserves PTT viz row when showPttVisualizer is true", () => {
+    render(
+      <RealtimeCaptionOverlay
+        error={null}
+        lastCaption={null}
+        lastUserTranscript={null}
+        showPttVisualizer
+        micActive={false}
+      />,
+    );
+
+    expect(screen.getByTestId("realtime-ptt-viz-row")).toBeInTheDocument();
+    expect(screen.queryByTestId("live-audio-viz")).not.toBeInTheDocument();
+  });
+
+  it("shows visualizer when PTT mic is active and stream is present", () => {
+    render(
+      <RealtimeCaptionOverlay
+        error={null}
+        lastCaption={null}
+        lastUserTranscript={null}
+        showPttVisualizer
+        micActive
+        micStream={{ id: "mock" } as MediaStream}
+      />,
+    );
+
+    expect(screen.getByTestId("live-audio-viz")).toBeInTheDocument();
+  });
+
+  it("uses council subtitle layout marker", () => {
+    const { container } = render(
+      <RealtimeCaptionOverlay
+        error={null}
+        lastCaption="Council size caption"
+        lastUserTranscript={null}
+        subtitleLayout="council"
+      />,
+    );
+
+    expect(container.querySelector('[data-subtitle-layout="council"]')).toBeInTheDocument();
+    expect(screen.getByTestId("voice-guide-caption")).toHaveStyle({ fontSize: "25px" });
+  });
+
+  it("uses compact subtitle layout marker and bumped positioning", () => {
+    const { container } = render(
+      <RealtimeCaptionOverlay
+        error={null}
+        lastCaption="Compact caption"
+        lastUserTranscript={null}
+        subtitleLayout="compact"
+      />,
+    );
+
+    const root = container.querySelector('[data-subtitle-layout="compact"]') as HTMLElement;
+    expect(root).toBeInTheDocument();
+    expect(root).toHaveStyle({ bottom: "64px" });
+    expect(screen.getByTestId("voice-guide-caption")).toHaveStyle({ fontSize: "20px" });
   });
 });

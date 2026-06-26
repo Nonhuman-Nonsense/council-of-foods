@@ -65,6 +65,7 @@ export type UseRealtimeVoiceSessionResult = {
   lastUserTranscript: string | null;
   hasReceivedAudioPart: boolean;
   agentSpeaking: boolean;
+  micStream: MediaStream | null;
   setMicEnabled: (open: boolean) => void;
   sendUserMessage: (text: string) => void;
   /** Ask the model to respond when no response is in flight. */
@@ -127,6 +128,7 @@ export function useRealtimeVoiceSession(
   const [lastUserTranscript, setLastUserTranscript] = useState<string | null>(null);
   const [hasReceivedAudioPart, setHasReceivedAudioPart] = useState(false);
   const [agentSpeaking, setAgentSpeaking] = useState(false);
+  const [micStream, setMicStream] = useState<MediaStream | null>(null);
 
   const connectionRef = useRef<RealtimeConnection | null>(null);
   const audioElementRef = useRef(audioElement);
@@ -177,6 +179,7 @@ export function useRealtimeVoiceSession(
     setLastUserTranscript(null);
     setHasReceivedAudioPart(false);
     setAgentSpeaking(false);
+    setMicStream(null);
   }, []);
 
   const cleanup = useCallback(() => {
@@ -204,6 +207,7 @@ export function useRealtimeVoiceSession(
       } catch { /* ignore */ }
     }
     remoteAudioRef.current = null;
+    setMicStream(null);
   }, [clearAudioAnchorFallback]);
 
   const start = useCallback(async () => {
@@ -421,7 +425,9 @@ export function useRealtimeVoiceSession(
   }, [sessionActive, autoConnect, start, cleanup, resetSessionUiState]);
 
   const setMicEnabled = useCallback((open: boolean) => {
-    setMicTracksEnabled(connectionRef.current?.micStream, open);
+    const stream = connectionRef.current?.micStream ?? null;
+    setMicTracksEnabled(stream, open);
+    setMicStream(open ? stream : null);
   }, []);
 
   const setAgentOutputMuted = useCallback((muted: boolean) => {
@@ -457,6 +463,7 @@ export function useRealtimeVoiceSession(
     lastUserTranscript,
     hasReceivedAudioPart,
     agentSpeaking,
+    micStream,
     setMicEnabled,
     sendUserMessage,
     requestAgentResponse,

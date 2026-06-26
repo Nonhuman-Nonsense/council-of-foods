@@ -97,6 +97,7 @@ export default function MeetingMetaAgent({
     lastCaption,
     lastUserTranscript,
     agentSpeaking,
+    micStream,
     setMicEnabled,
     sendUserMessage,
     requestAgentResponse,
@@ -250,6 +251,10 @@ export default function MeetingMetaAgent({
       pushToTalkMode
       showHoldToSpeakHint={showHoldToSpeakHint}
       holdToSpeakKey="metaAgent.holdToSpeak"
+      subtitleLayout="council"
+      showPttVisualizer
+      micStream={micStream}
+      micActive={button.pressed}
     />
   );
 }

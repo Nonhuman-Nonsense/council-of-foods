@@ -100,8 +100,16 @@ vi.mock("@realtime/RealtimeCaptionOverlay", () => ({
   default: (props: {
     lastCaption: string | null;
     lastUserTranscript: string | null;
+    subtitleLayout?: string;
+    showPttVisualizer?: boolean;
+    micActive?: boolean;
   }) => (
-    <div data-testid="meta-agent-caption-overlay">
+    <div
+      data-testid="meta-agent-caption-overlay"
+      data-subtitle-layout={props.subtitleLayout}
+      data-show-ptt-viz={String(props.showPttVisualizer)}
+      data-mic-active={String(props.micActive)}
+    >
       {props.lastUserTranscript ? (
         <span data-testid="voice-guide-user">{props.lastUserTranscript}</span>
       ) : null}
@@ -163,6 +171,14 @@ describe("MeetingMetaAgent", () => {
     expect(screen.getByTestId("meta-agent-caption-overlay")).toBeInTheDocument();
     expect(screen.getByTestId("voice-guide-user")).toHaveTextContent("Visitor question");
     expect(screen.getByTestId("voice-guide-caption")).toHaveTextContent("Agent reply");
+  });
+
+  it("uses council subtitle layout and PTT viz row even when button is not pressed", () => {
+    render(<MeetingMetaAgent {...makeProps({ metaAgentActive: true })} />);
+    const overlay = screen.getByTestId("meta-agent-caption-overlay");
+    expect(overlay).toHaveAttribute("data-subtitle-layout", "council");
+    expect(overlay).toHaveAttribute("data-show-ptt-viz", "true");
+    expect(overlay).toHaveAttribute("data-mic-active", "false");
   });
 
   it("claims the button on mount and releases on unmount", () => {

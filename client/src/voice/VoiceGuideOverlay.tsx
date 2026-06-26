@@ -2,7 +2,9 @@ import { type CSSProperties, type ReactElement } from "react";
 import Lottie from "react-lottie-player";
 import loadingAnimation from "@assets/animations/loading.json";
 import ConversationControlIcon from "@council/ConversationControlIcon";
-import RealtimeCaptionOverlay from "@realtime/RealtimeCaptionOverlay";
+import RealtimeCaptionOverlay, {
+  type RealtimeSubtitleLayout,
+} from "@realtime/RealtimeCaptionOverlay";
 import { useMobile } from "@/utils";
 
 type VoiceGuideOverlayProps = {
@@ -14,6 +16,10 @@ type VoiceGuideOverlayProps = {
   isMuseumMode?: boolean;
   pushToTalkMode?: boolean;
   showHoldToSpeakHint?: boolean;
+  subtitleLayout?: RealtimeSubtitleLayout;
+  showPttVisualizer?: boolean;
+  micStream?: MediaStream | null;
+  micActive?: boolean;
   onStart: () => void;
   onStop: () => void;
 };
@@ -32,6 +38,10 @@ export default function VoiceGuideOverlay(props: VoiceGuideOverlayProps): ReactE
     isMuseumMode = false,
     pushToTalkMode = false,
     showHoldToSpeakHint = false,
+    subtitleLayout = "compact",
+    showPttVisualizer = false,
+    micStream = null,
+    micActive = false,
     onStart,
     onStop,
   } = props;
@@ -68,6 +78,10 @@ export default function VoiceGuideOverlay(props: VoiceGuideOverlayProps): ReactE
         lastUserTranscript={lastUserTranscript}
         pushToTalkMode={pushToTalkMode}
         showHoldToSpeakHint={showHoldToSpeakHint}
+        subtitleLayout={subtitleLayout}
+        showPttVisualizer={showPttVisualizer}
+        micStream={micStream}
+        micActive={micActive}
       />
 
       {!isMuseumMode ? (

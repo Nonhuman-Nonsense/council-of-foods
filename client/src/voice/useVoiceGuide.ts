@@ -19,6 +19,7 @@ export type VoiceGuideState = {
   error: string | null;
   lastCaption: string | null;
   lastUserTranscript: string | null;
+  micStream: MediaStream | null;
   muted: boolean;
   setMuted: (muted: boolean) => void;
   start: () => Promise<void>;
@@ -76,6 +77,7 @@ export function useVoiceGuide(params: UseVoiceGuideParams): VoiceGuideState {
     error: session.error,
     lastCaption: session.lastCaption,
     lastUserTranscript: session.lastUserTranscript,
+    micStream: session.micStream,
     muted,
     setMuted,
     start: async () => {

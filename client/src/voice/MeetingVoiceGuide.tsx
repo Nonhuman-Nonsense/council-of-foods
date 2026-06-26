@@ -168,6 +168,10 @@ export default function MeetingVoiceGuide({
       isMuseumMode={isMuseumMode}
       pushToTalkMode={pushToTalkMode}
       showHoldToSpeakHint={showHoldToSpeakHint}
+      subtitleLayout={isMuseumMode ? "council" : "compact"}
+      showPttVisualizer={pushToTalkMode}
+      micStream={voice.micStream}
+      micActive={pushToTalkMode && !muted && button.pressed}
       onStart={voice.start}
       onStop={voice.stop}
     />
