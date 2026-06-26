@@ -155,6 +155,54 @@ describe('AudioSystem ElevenLabs Integration', () => {
         expect(body.language_code).toBe('sv');
     });
 
+    it('should apply alias spell-outs but not IPA for ElevenLabs', async () => {
+        const message = { id: 'msgCO2', text: 'We emit CO₂ and tomato.', sentences: ['We emit CO₂ and tomato.'] };
+        const speaker = {
+            id: 'char1',
+            voice: 'JBFqnCBsd6RMkjVDRZzb',
+            voiceProvider: 'elevenlabs',
+        };
+
+        mockFetch.mockResolvedValue(mockElevenLabsResponse('We emit see oh two and tomato.'));
+
+        await audioSystem.generateAudio(
+            message,
+            speaker,
+            'en',
+            serverOptions({ elevenlabsVoiceModel: 'eleven_flash_v2_5' }),
+            meeting(),
+            'prototype'
+        );
+
+        const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+        expect(body.text).toBe('We emit see oh two and tomato.');
+        expect(body.text).not.toContain('/təˈmɑːtoʊ/');
+    });
+
+    it('should apply Swedish alias spell-outs for ElevenLabs', async () => {
+        const message = { id: 'msgCO2sv', text: 'Vi släpper ut CO₂.', sentences: ['Vi släpper ut CO₂.'] };
+        const speaker = {
+            id: 'char1',
+            voice: 'JBFqnCBsd6RMkjVDRZzb',
+            voiceProvider: 'elevenlabs',
+            voiceLocale: 'sv-SE',
+        };
+
+        mockFetch.mockResolvedValue(mockElevenLabsResponse('Vi släpper ut cee oh två.'));
+
+        await audioSystem.generateAudio(
+            message,
+            speaker,
+            'sv',
+            serverOptions({ elevenlabsVoiceModel: 'eleven_flash_v2_5' }),
+            meeting(),
+            'prototype'
+        );
+
+        const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+        expect(body.text).toBe('Vi släpper ut cee oh två.');
+    });
+
     it('should use native ElevenLabs timings in production', async () => {
         const message = { id: 'msg4', text: 'Hello world', sentences: ['Hello world'] };
         const speaker = { id: 'char1', voice: 'voice-id', voiceProvider: 'elevenlabs' };
