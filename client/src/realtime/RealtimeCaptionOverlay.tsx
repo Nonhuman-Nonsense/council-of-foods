@@ -70,10 +70,6 @@ export default function RealtimeCaptionOverlay(props: RealtimeCaptionOverlayProp
     opacity: 0.85,
   };
 
-  const bottomOffset = subtitleLayout === "council"
-    ? (isMobile ? "0px" : "20px")
-    : `${isMobile ? VIZ_SLOT_HEIGHT_PX : 0}px`;
-
   const captionContainerStyle: CSSProperties = {
     position: "fixed",
     left: "50%",
