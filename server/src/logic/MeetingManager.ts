@@ -523,6 +523,9 @@ export class MeetingManager implements IMeetingManager {
 
         this.broadcaster.broadcastConversationUpdate(meeting.conversation);
         Logger.info(`meeting ${meeting._id}`, `message generated, index ${message_index}, speaker ${message.speaker}`);
+        if (message.askParticular) {
+            Logger.info(`meeting ${meeting._id}`, `${message.speaker} asked directly to ${message.askParticular}`);
+        }
 
         // Queue audio generation
         this.audioSystem.queueAudioGeneration(

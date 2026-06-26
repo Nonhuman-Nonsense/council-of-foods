@@ -76,6 +76,10 @@ export class HumanInputHandler {
 
         m.conversation.push(message);
 
+        if (askParticular) {
+            Logger.info(`meeting ${m._id}`, `${humanName} asked directly to ${askParticular}`);
+        }
+
         await manager.services.meetingsCollection.updateOne(
             { _id: m._id },
             { $set: { conversation: m.conversation } }
@@ -145,6 +149,10 @@ export class HumanInputHandler {
         await annotateDirectedHandoff(this.manager.speakerTargetClassifier, this.manager.serverOptions, m, message);
 
         m.conversation.push(message);
+
+        if (message.askParticular) {
+            Logger.info(`meeting ${m._id}`, `${payload.speaker} asked directly to ${message.askParticular}`);
+        }
 
         await manager.services.meetingsCollection.updateOne(
             { _id: m._id },

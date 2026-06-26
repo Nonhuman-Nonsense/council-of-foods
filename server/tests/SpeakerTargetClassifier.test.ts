@@ -68,7 +68,7 @@ describe("SpeakerTargetClassifier", () => {
         expect(Logger.info).not.toHaveBeenCalled();
     });
 
-    it("returns a normalized participant id and logs when a target is found", async () => {
+    it("returns a normalized participant id when a target is found", async () => {
         global.fetch = vi.fn().mockResolvedValue(mockJsonResponse({
             choices: [{ message: { content: primarySpeaker.id } }],
         }));
@@ -81,10 +81,6 @@ describe("SpeakerTargetClassifier", () => {
                 speakerId: humanSpeakerId,
             })
         ).resolves.toBe(primarySpeaker.id);
-        expect(Logger.info).toHaveBeenCalledWith(
-            `meeting ${meeting._id}`,
-            `Frank asked directly to ${primarySpeaker.id}`
-        );
     });
 
     it("returns undefined and warns when the Inworld request fails", async () => {
