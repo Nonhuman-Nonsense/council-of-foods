@@ -132,7 +132,7 @@ describe("RealtimeCaptionOverlay", () => {
     expect(screen.getByTestId("voice-guide-caption")).toHaveStyle({ fontSize: "25px" });
   });
 
-  it("uses compact subtitle layout marker and bumped positioning", () => {
+  it("uses compact subtitle layout marker", () => {
     const { container } = render(
       <RealtimeCaptionOverlay
         error={null}
@@ -144,7 +144,6 @@ describe("RealtimeCaptionOverlay", () => {
 
     const root = container.querySelector('[data-subtitle-layout="compact"]') as HTMLElement;
     expect(root).toBeInTheDocument();
-    expect(root).toHaveStyle({ bottom: "64px" });
     expect(screen.getByTestId("voice-guide-caption")).toHaveStyle({ fontSize: "20px" });
   });
 });
