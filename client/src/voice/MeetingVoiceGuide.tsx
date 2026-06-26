@@ -20,6 +20,7 @@ import { getVoiceGuideBundle } from "./voiceGuideBundle";
 import { useHoldToSpeakHint } from "./useHoldToSpeakHint";
 import Loading from "@main/Loading";
 import { useVoiceGuide } from "./useVoiceGuide";
+import { bumpAutoplayActivity } from "@/autoplay/autoplayActivity";
 
 type MeetingVoiceGuideProps = {
   phase: MeetingSetupPhase;
@@ -155,6 +156,18 @@ export default function MeetingVoiceGuide({
 
     return () => clearTimeout(timer);
   }, [lastUserEvent, sendUserMessage]);
+
+  useEffect(() => {
+    if (!isMuseumMode) {
+      return;
+    }
+    if (voice.lastCaption) {
+      bumpAutoplayActivity("voice-guide:caption");
+    }
+    if (voice.lastUserTranscript) {
+      bumpAutoplayActivity("voice-guide:transcript");
+    }
+  }, [isMuseumMode, voice.lastCaption, voice.lastUserTranscript]);
 
   return (
     <>

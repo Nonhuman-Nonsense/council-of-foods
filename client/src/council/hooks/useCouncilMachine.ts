@@ -28,6 +28,7 @@ export interface UseCouncilMachineProps {
     connectionError: boolean;
     isPaused: boolean;
     setPaused: (paused: boolean) => void;
+    onAutoplaySummaryPlaybackEnd?: () => void;
 }
 
 export type CouncilState =
@@ -55,6 +56,7 @@ export function useCouncilMachine({
     connectionError,
     isPaused,
     setPaused,
+    onAutoplaySummaryPlaybackEnd,
 }: UseCouncilMachineProps) {
 
     const { t } = useTranslation();
@@ -402,6 +404,10 @@ export function useCouncilMachine({
     /* -------------------------------------------------------------------------- */
 
     function handleOnFinishedPlaying() {
+        const activeMessage = textMessages[playingNowIndex];
+        if (councilState === "summary" && activeMessage?.type === "summary") {
+            onAutoplaySummaryPlaybackEnd?.();
+        }
         calculateNextAction(true);
     }
 

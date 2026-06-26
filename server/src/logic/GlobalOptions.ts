@@ -79,7 +79,8 @@ export const GlobalOptionsSchema = z.object({
     chairRealtime: ChairRealtimeSchema,
     humanInputRealtime: HumanInputRealtimeSchema,
     speakerClassifierModel: z.string(),
-    directedSpeakerRouting: z.boolean()
+    directedSpeakerRouting: z.boolean(),
+    autoplayEarliestMeetingDate: z.string(),
 });
 
 export type GlobalOptions = z.infer<typeof GlobalOptionsSchema>;

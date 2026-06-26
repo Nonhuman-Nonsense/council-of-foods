@@ -48,6 +48,7 @@ const LOG_CATEGORY_COLOR: Record<LogCategory, string> = {
   REALTIME: "#0891b2",
   BUTTON: "#10b981",
   META: "#ec4899",
+  AUTOPLAY: "#f59e0b",
   SYSTEM: "#6b7280",
   ERROR: "#ef4444",
 };

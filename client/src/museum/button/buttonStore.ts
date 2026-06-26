@@ -8,14 +8,15 @@ import { getPushToTalk } from "@/settings/councilSettings";
 import { log } from "@/logger";
 
 export type ButtonLedMode = "off" | "pulse" | "on";
-export type ButtonOwner = "setup" | "voice-guide" | "human-input" | "meta-agent";
+export type ButtonOwner = "setup" | "autoplay" | "voice-guide" | "human-input" | "meta-agent";
 
 export type ButtonClaims = Partial<Record<ButtonOwner, true>>;
 export type ButtonLedModes = Partial<Record<ButtonOwner, ButtonLedMode>>;
 
 /** Setup is highest: staff diagnostics overlay mounted on top of the running app. */
 const BUTTON_OWNER_PRIORITY: Record<ButtonOwner, number> = {
-  setup: 3,
+  setup: 4,
+  autoplay: 3,
   "human-input": 2,
   "voice-guide": 1,
   "meta-agent": 1,

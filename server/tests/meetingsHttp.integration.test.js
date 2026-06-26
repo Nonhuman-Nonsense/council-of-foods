@@ -135,6 +135,40 @@ describe('HTTP meetings API (integration)', () => {
         expect(full.liveKey).toBeUndefined();
     });
 
+    it('GET /api/autoplay returns a random completed meeting id', async () => {
+        const createRes = await fetch(`${base()}/api/meetings`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(validCreateBody()),
+        });
+        const { meetingId } = await createRes.json();
+
+        await meetingsCollection.updateOne(
+            { _id: Number(meetingId) },
+            {
+                $set: {
+                    conversation: [
+                        { id: 'ap-m1', type: 'message', speaker: 'speaker1', text: 'Hello' },
+                        { id: 'ap-sum', type: 'summary', speaker: 'speaker1', text: 'Summary' },
+                    ],
+                    audio: ['ap-m1', 'ap-sum'],
+                    summary: { id: 'ap-sum', type: 'summary', speaker: 'speaker1', text: 'Summary' },
+                    maximumPlayedIndex: 1,
+                },
+            }
+        );
+
+        const res = await fetch(`${base()}/api/autoplay?language=en`);
+        expect(res.status).toBe(200);
+        const data = await res.json();
+        expect(data.meetingId).toBe(Number(meetingId));
+    });
+
+    it('GET /api/autoplay returns 400 on invalid language', async () => {
+        const res = await fetch(`${base()}/api/autoplay?language=english`);
+        expect(res.status).toBe(400);
+    });
+
     it('GET /api/meetings/:id returns 403 when Bearer does not match liveKey', async () => {
         const createRes = await fetch(`${base()}/api/meetings`, {
             method: 'POST',

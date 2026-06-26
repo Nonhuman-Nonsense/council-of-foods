@@ -35,6 +35,9 @@ interface CouncilProps {
   setPaused: (paused: boolean) => void;
   metaAgentActive: boolean;
   setMetaAgentActive: (active: boolean) => void;
+  autoplayActive?: boolean;
+  onAutoplaySummaryChange?: (active: boolean) => void;
+  onAutoplayMeetingEnd?: () => void;
 }
 
 function Council({
@@ -52,6 +55,9 @@ function Council({
   setPaused,
   metaAgentActive,
   setMetaAgentActive,
+  autoplayActive = false,
+  onAutoplaySummaryChange,
+  onAutoplayMeetingEnd,
 }: CouncilProps) {
 
   const { meetingId } = useParams<{ meetingId: string }>();
@@ -125,6 +131,7 @@ function Council({
     connectionError,
     isPaused,
     setPaused,
+    onAutoplaySummaryPlaybackEnd: autoplayActive ? onAutoplayMeetingEnd : undefined,
   });
 
   const {
@@ -195,6 +202,10 @@ function Council({
   useEffect(() => {
     setCurrentSpeakerId(derivedCurrentSpeakerId);
   }, [derivedCurrentSpeakerId, setCurrentSpeakerId]);
+
+  useEffect(() => {
+    onAutoplaySummaryChange?.(councilState === "summary");
+  }, [councilState, onAutoplaySummaryChange]);
 
   // Derived UI State
   const participationPhase = getParticipationPhase(councilState, textMessages, playingNowIndex);
@@ -294,7 +305,7 @@ function Council({
             humanName={humanName}
           />
         )}
-        {replayManifest && (
+        {replayManifest && !autoplayActive && (
           <ReplayModeBanner
             meeting={replayManifest}
             isPaused={isPaused}

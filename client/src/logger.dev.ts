@@ -17,6 +17,7 @@ const CATEGORY_STYLE: Record<LogCategory, string> = {
   REALTIME: "color: #0891b2; font-weight: bold;",
   BUTTON: "color: #10b981; font-weight: bold;",
   META: "color: #ec4899; font-weight: bold;",
+  AUTOPLAY: "color: #f59e0b; font-weight: bold;",
   SYSTEM: "color: #6b7280; font-weight: bold;",
   ERROR: "color: #ef4444; font-weight: bold;",
 };
@@ -28,6 +29,7 @@ const CATEGORY_ICON: Record<LogCategory, string> = {
   REALTIME: "🎙️",
   BUTTON: "🔘",
   META: "🪑",
+  AUTOPLAY: "🔁",
   SYSTEM: "⚙️",
   ERROR: "❌",
 };

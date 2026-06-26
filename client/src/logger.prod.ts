@@ -5,6 +5,7 @@ export const DEV_LOG_CATEGORIES = [
   "REALTIME",
   "BUTTON",
   "META",
+  "AUTOPLAY",
   "SYSTEM",
   "ERROR",
 ] as const;

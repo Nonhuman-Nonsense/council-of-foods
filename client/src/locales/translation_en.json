@@ -30,6 +30,7 @@
         "REALTIME": "Realtime",
         "BUTTON": "Button",
         "META": "Meta agent",
+        "AUTOPLAY": "Autoplay",
         "SYSTEM": "System",
         "ERROR": "Error detail"
       }
@@ -74,6 +75,7 @@
       "owners": {
         "none": "—",
         "setup": "Setup",
+        "autoplay": "Autoplay",
         "voice-guide": "Voice guide",
         "human-input": "Human input",
         "meta-agent": "Meta agent"
@@ -104,6 +106,12 @@
     "lang": "It is not possible to change language in the middle of an ongoing meeting.\nDo you want to start over from the beginning?"
   },
   "restart": "Restart",
+  "autoplayWarning": {
+    "title": "Still there?",
+    "body": "This meeting has been inactive for a while, should we watch an old meeting instead?",
+    "buttonHint": "Press the button if you need more time!",
+    "confirm": "Watch an old meeting"
+  },
   "name": {
     "title": "SAY SOMETHING",
     "1": "Do you want to adress the Council of Foods?",
