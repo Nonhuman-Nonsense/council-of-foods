@@ -53,7 +53,7 @@ describe.sequential("button reconnect race conditions", () => {
     await waitForWrittenLine(bridge, "LED_PULSE");
 
     expect(useButtonStore.getState().serialDeviceConnected).toBe(true);
-    expect(useButtonStore.getState().rawPressed).toBe(false);
+    expect(useButtonStore.getState().hardwareDown).toBe(false);
   }, 20_000);
 
   it("does not send led commands while usb is unplugged but resyncs after replug", async () => {
@@ -127,13 +127,13 @@ describe.sequential("button reconnect race conditions", () => {
 
     bridge.simulateUsbDisconnect();
     await waitForCondition(() => !useButtonStore.getState().serialDeviceConnected);
-    expect(useButtonStore.getState().rawPressed).toBe(false);
+    expect(useButtonStore.getState().hardwareDown).toBe(false);
 
     bridge.simulateUsbReconnect(true);
     await waitForCondition(() => useButtonStore.getState().serialDeviceConnected);
     await waitForTicks();
 
-    expect(useButtonStore.getState().rawPressed).toBe(true);
+    expect(useButtonStore.getState().hardwareDown).toBe(true);
     expect(useButtonStore.getState().pressed).toBe(true);
   }, 20_000);
 

@@ -52,7 +52,6 @@ vi.mock('@/museum/button/useButton', () => ({
     release: mockRelease,
     setLed: mockSetLed,
     pressed: false,
-    rawPressed: false,
     isOwner: false,
   }),
   useButtonConnection: () => ({

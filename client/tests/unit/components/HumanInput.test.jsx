@@ -13,7 +13,6 @@ const mockPushToTalkMode = vi.hoisted(() => ({ value: false }));
 
 const mockButtonState = vi.hoisted(() => ({
     pressed: false,
-    rawPressed: false,
     buttonOwner: null,
 }));
 
@@ -23,8 +22,11 @@ function notifyMockButtonListeners() {
     mockButtonListeners.forEach((listener) => listener());
 }
 
-function setMockRawPressed(value) {
-    mockButtonState.rawPressed = value;
+function setMockPressed(value) {
+    mockButtonState.pressed = value;
+    if (value) {
+        mockButtonState.buttonOwner = 'human-input';
+    }
     notifyMockButtonListeners();
 }
 
@@ -86,19 +88,11 @@ vi.mock('@/museum/button/useButton', async () => {
                 },
                 () => mockButtonState.buttonOwner === owner && mockButtonState.pressed,
             );
-            const rawPressed = React.useSyncExternalStore(
-                (onStoreChange) => {
-                    mockButtonListeners.add(onStoreChange);
-                    return () => mockButtonListeners.delete(onStoreChange);
-                },
-                () => mockButtonState.rawPressed,
-            );
             return {
                 claim: mockClaim,
                 release: mockRelease,
                 setLed: mockSetLed,
                 pressed,
-                rawPressed,
                 isOwner: mockButtonState.buttonOwner === owner,
             };
         },
@@ -541,7 +535,7 @@ describe('HumanInput PTT museum mode', () => {
         mockRelease.mockClear();
         mockSetLed.mockClear();
         mockButtonState.pressed = false;
-        setMockRawPressed(false);
+        setMockPressed(false);
         bootstrapHumanInputRealtimeSession.mockResolvedValue({
             provider: 'inworld',
             iceServers: [],
@@ -558,7 +552,7 @@ describe('HumanInput PTT museum mode', () => {
     afterEach(() => {
         vi.clearAllMocks();
         mockPushToTalkMode.value = false;
-        setMockRawPressed(false);
+        setMockPressed(false);
     });
 
     async function renderPttReady(extraProps = {}) {
@@ -596,7 +590,7 @@ describe('HumanInput PTT museum mode', () => {
     it('shows record_voice_on indicator while recording in PTT mode', async () => {
         await renderPttReady();
 
-        setMockRawPressed(true);
+        setMockPressed(true);
 
         await waitFor(() => {
             expect(screen.getByTestId('icon-record_voice_on')).toBeInTheDocument();
@@ -667,7 +661,7 @@ describe('HumanInput PTT museum mode', () => {
         await renderPttReady();
 
         // Simulate press
-        setMockRawPressed(true);
+        setMockPressed(true);
 
         await waitFor(() => {
             expect(track.enabled).toBe(true);
@@ -676,7 +670,8 @@ describe('HumanInput PTT museum mode', () => {
 
     it('auto-starts recording if button is held while connection becomes ready', async () => {
         // Simulate the user pressing the PTT button before the pre-warm finishes.
-        // rawPressed is set BEFORE we let the connection resolve.
+        // Simulate held PTT when connection becomes ready (LED pulse + keyboard held).
+        // keyboardDown is set BEFORE we let the connection resolve.
         const pending = { resolve: null };
         const track = { enabled: false };
         createRealtimeConnection.mockReturnValue(
@@ -696,7 +691,7 @@ describe('HumanInput PTT museum mode', () => {
 
         // Still connecting — button is held down by the user
         expect(screen.getByTestId('lottie-loading')).toBeInTheDocument();
-        setMockRawPressed(true);
+        setMockPressed(true);
 
         // Now the connection resolves (connecting → ready)
         pending.resolve({ pc: {}, dc: {}, micStream: createMockMicStream([track]), close: vi.fn() });
@@ -719,12 +714,12 @@ describe('HumanInput PTT museum mode', () => {
         const textarea = screen.getByPlaceholderText('human.button_museum');
         fireEvent.change(textarea, { target: { value: 'Hello dear council' } });
 
-        setMockRawPressed(true);
+        setMockPressed(true);
         await waitFor(() => {
             expect(screen.getByTestId('icon-record_voice_on')).toBeInTheDocument();
         });
 
-        setMockRawPressed(false);
+        setMockPressed(false);
 
         await waitFor(() => {
             expect(mockOnSubmit).toHaveBeenCalledWith('Hello dear council');
@@ -737,12 +732,12 @@ describe('HumanInput PTT museum mode', () => {
         const textarea = screen.getByPlaceholderText('human.button_museum');
         fireEvent.change(textarea, { target: { value: 'Hello council' } });
 
-        setMockRawPressed(true);
+        setMockPressed(true);
         await waitFor(() => {
             expect(screen.getByTestId('icon-record_voice_on')).toBeInTheDocument();
         });
 
-        setMockRawPressed(false);
+        setMockPressed(false);
 
         await new Promise(r => setTimeout(r, 50));
         expect(mockOnSubmit).not.toHaveBeenCalled();
@@ -759,7 +754,7 @@ describe('HumanInput PTT museum mode', () => {
 
         await renderPttReady();
 
-        setMockRawPressed(true);
+        setMockPressed(true);
         await waitFor(() => {
             expect(screen.getByTestId('icon-record_voice_on')).toBeInTheDocument();
         });
@@ -775,7 +770,7 @@ describe('HumanInput PTT museum mode', () => {
             item_id: 'item_1',
             delta: ' dear',
         });
-        setMockRawPressed(false);
+        setMockPressed(false);
 
         await vi.advanceTimersByTimeAsync(2000);
         expect(mockOnSubmit).not.toHaveBeenCalled();
@@ -805,13 +800,13 @@ describe('HumanInput PTT museum mode', () => {
 
         await renderPttReady();
 
-        setMockRawPressed(true);
+        setMockPressed(true);
         await waitFor(() => {
             expect(screen.getByTestId('icon-record_voice_on')).toBeInTheDocument();
         });
 
         onEvent({ type: 'input_audio_buffer.speech_started' });
-        setMockRawPressed(false);
+        setMockPressed(false);
 
         await waitFor(() => {
             expect(screen.queryByTestId('icon-record_voice_on')).not.toBeInTheDocument();
@@ -835,12 +830,12 @@ describe('HumanInput PTT museum mode', () => {
     it('does not auto-submit when textarea is empty after PTT release', async () => {
         await renderPttReady();
 
-        setMockRawPressed(true);
+        setMockPressed(true);
         await waitFor(() => {
             expect(screen.getByTestId('icon-record_voice_on')).toBeInTheDocument();
         });
 
-        setMockRawPressed(false);
+        setMockPressed(false);
 
         // Wait briefly to confirm no submit happened
         await new Promise(r => setTimeout(r, 50));

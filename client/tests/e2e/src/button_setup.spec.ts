@@ -7,9 +7,9 @@ const BRIDGE_CONNECT_TIMEOUT_MS = 8_000;
 
 type ButtonStoreSnapshot = {
   bridgeStatus: string;
-  rawPressed: boolean;
+  ledMode: string;
   pressed: boolean;
-  buttonInputEnabled: boolean;
+  hardwareDown: boolean;
 };
 
 async function readButtonStore(page: import("@playwright/test").Page): Promise<ButtonStoreSnapshot> {
@@ -22,9 +22,9 @@ async function readButtonStore(page: import("@playwright/test").Page): Promise<B
     const state = store.getState();
     return {
       bridgeStatus: state.bridgeStatus,
-      rawPressed: state.rawPressed,
+      ledMode: state.ledMode,
       pressed: state.pressed,
-      buttonInputEnabled: state.buttonInputEnabled,
+      hardwareDown: state.hardwareDown,
     };
   });
 }
@@ -52,7 +52,7 @@ async function waitForButtonStoreReady(page: import("@playwright/test").Page): P
     .poll(
       async () => {
         const state = await readButtonStore(page);
-        return state.bridgeStatus === "connected" && state.buttonInputEnabled;
+        return state.bridgeStatus === "connected" && state.ledMode !== "off";
       },
       { timeout: BRIDGE_CONNECT_TIMEOUT_MS },
     )
@@ -83,7 +83,7 @@ test.describe("installation button resilience (browser)", () => {
     });
     expect(down.ok()).toBe(true);
 
-    await expect.poll(async () => (await readButtonStore(page)).rawPressed).toBe(true);
+    await expect.poll(async () => (await readButtonStore(page)).hardwareDown).toBe(true);
     await expect.poll(async () => (await readButtonStore(page)).pressed).toBe(true);
 
     const up = await page.request.post(BRIDGE_SIMULATE_URL, {
@@ -91,7 +91,7 @@ test.describe("installation button resilience (browser)", () => {
     });
     expect(up.ok()).toBe(true);
 
-    await expect.poll(async () => (await readButtonStore(page)).rawPressed).toBe(false);
+    await expect.poll(async () => (await readButtonStore(page)).hardwareDown).toBe(false);
     await expect.poll(async () => (await readButtonStore(page)).pressed).toBe(false);
   });
 });

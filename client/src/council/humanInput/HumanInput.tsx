@@ -190,8 +190,7 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
   const vizRightHostRef = useRef<HTMLDivElement>(null);
 
   const button = useButton("human-input");
-  const { claim, release, setLed, rawPressed: buttonRawPressed, pressed: humanInputPress } = button;
-  const rawPressed = pushToTalkMode ? buttonRawPressed : false;
+  const { claim, release, setLed, pressed: humanInputPress } = button;
 
   const humanInputLedMode = useMemo((): ButtonLedMode => {
     if (connectionState === "recording") return "on";
@@ -254,20 +253,20 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
   // PTT press → start recording when ready (also covers button held during pre-warm).
   useEffect(() => {
     if (!pushToTalkMode || phase !== "active") return;
-    if (!(rawPressed || humanInputPress)) return;
+    if (!humanInputPress) return;
     startRecording();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rawPressed, humanInputPress, pushToTalkMode, phase, connectionState, inputValue]);
+  }, [humanInputPress, pushToTalkMode, phase, connectionState, inputValue]);
 
   // PTT release → finish session and queue an auto-submit attempt.
   useEffect(() => {
     if (!pushToTalkMode) return;
-    if (!rawPressed && !humanInputPress && connectionState === "recording") {
+    if (!humanInputPress && connectionState === "recording") {
       pendingPttAutoSubmitRef.current = true;
       finishRealtimeSession();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rawPressed, humanInputPress, pushToTalkMode, connectionState]);
+  }, [humanInputPress, pushToTalkMode, connectionState]);
 
   // PTT auto-submit: attempt on every release once ready, and again when the
   // transcript catches up (segments can update after connectionState is "ready").

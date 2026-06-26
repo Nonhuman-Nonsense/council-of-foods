@@ -24,10 +24,8 @@ export type ButtonHandle = {
   claim: () => void;
   release: () => void;
   setLed: (mode: ButtonLedMode) => void;
-  /** Routed press — true only when this owner is buttonOwner and physical press is down. */
+  /** Routed press — true only when this owner is buttonOwner and PTT is active. */
   pressed: boolean;
-  /** Physical press below routing. */
-  rawPressed: boolean;
   /** Whether this owner won the priority merge right now. */
   isOwner: boolean;
 };
@@ -87,7 +85,6 @@ export function useButtonBridgeHealth(enabled: boolean): ButtonBridgeHealthState
 
 export function useButton(owner: ButtonOwner): ButtonHandle {
   const pressed = useButtonStore((state) => state.buttonOwner === owner && state.pressed);
-  const rawPressed = useButtonStore((state) => state.rawPressed);
   const isOwner = useButtonStore((state) => state.buttonOwner === owner);
 
   const claim = useCallback(() => {
@@ -106,7 +103,7 @@ export function useButton(owner: ButtonOwner): ButtonHandle {
   );
 
   return useMemo(
-    () => ({ claim, release, setLed, pressed, rawPressed, isOwner }),
-    [claim, release, setLed, pressed, rawPressed, isOwner],
+    () => ({ claim, release, setLed, pressed, isOwner }),
+    [claim, release, setLed, pressed, isOwner],
   );
 }

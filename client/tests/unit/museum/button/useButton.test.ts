@@ -59,7 +59,7 @@ describe("useButton", () => {
     act(() => {
       meta.current.claim();
       human.current.claim();
-      useButtonStore.setState({ pressed: true, buttonInputEnabled: true });
+      useButtonStore.setState({ pressed: true, ledMode: "pulse" });
     });
 
     expect(human.current.pressed).toBe(true);
@@ -67,7 +67,7 @@ describe("useButton", () => {
     expect(human.current.isOwner).toBe(true);
   });
 
-  it("enables routing when owner claims with off LED", async () => {
+  it("keeps owner when claimed with off LED", async () => {
     const { useButton } = await import("@/museum/button/useButton");
 
     const { result } = renderHook(() => useButton("meta-agent"));
@@ -76,7 +76,6 @@ describe("useButton", () => {
     await Promise.resolve();
 
     expect(useButtonStore.getState().buttonOwner).toBe("meta-agent");
-    expect(useButtonStore.getState().buttonInputEnabled).toBe(true);
     expect(useButtonStore.getState().ledMode).toBe("off");
   });
 });

@@ -94,7 +94,7 @@ describe.sequential("button reconnect resilience", () => {
 
     bridge.simulateButtonDown();
     await waitForTicks();
-    expect(useButtonStore.getState().rawPressed).toBe(true);
+    expect(useButtonStore.getState().hardwareDown).toBe(true);
 
     await bridge.restart();
 

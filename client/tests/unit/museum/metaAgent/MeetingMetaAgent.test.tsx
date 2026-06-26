@@ -64,7 +64,6 @@ vi.mock("@museum/button/useButton", async () => {
         release: mockRelease,
         setLed: mockSetLed,
         pressed,
-        rawPressed: mockButtonState.pressed,
         isOwner,
       };
     },

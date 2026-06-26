@@ -50,25 +50,34 @@ describe("useButtonStore", () => {
     _resetButtonStoreForTests();
   });
 
-  it("gates pressed state on buttonInputEnabled", () => {
-    useButtonStore.setState({ buttonInputEnabled: false });
-    useButtonStore.getState().setPressed(true, "button");
-    expect(useButtonStore.getState().pressed).toBe(false);
-  });
-
-  it("tracks rawPressed from button lines even when input is disabled", () => {
-    useButtonStore.setState({ buttonInputEnabled: false, bridgeStatus: "connected" });
+  it("gates pressed when LED is off", () => {
+    useButtonStore.setState({ ledMode: "off", bridgeStatus: "connected" });
     transport.callbacks?.onLine?.({ type: "button_down" });
-    expect(useButtonStore.getState().rawPressed).toBe(true);
+    expect(useButtonStore.getState().hardwareDown).toBe(true);
     expect(useButtonStore.getState().pressed).toBe(false);
   });
 
-  it("sets pressed when input is enabled and button goes down", () => {
-    useButtonStore.setState({ buttonInputEnabled: true, bridgeStatus: "connected" });
+  it("sets pressed when LED accepts input and button goes down", () => {
+    useButtonStore.setState({ ledMode: "pulse", bridgeStatus: "connected" });
     transport.callbacks?.onLine?.({ type: "button_down" });
     expect(useButtonStore.getState().pressed).toBe(true);
     transport.callbacks?.onLine?.({ type: "button_up" });
     expect(useButtonStore.getState().pressed).toBe(false);
+  });
+
+  it("activates pressed when LED transitions off to pulse while space is held", async () => {
+    useButtonStore.setState({
+      keyboardDown: true,
+      bridgeStatus: "connected",
+    });
+    useButtonStore.getState().claimButton("human-input");
+    useButtonStore.getState().setButtonLed("human-input", "off");
+    await Promise.resolve();
+    expect(useButtonStore.getState().pressed).toBe(false);
+
+    useButtonStore.getState().setButtonLed("human-input", "pulse");
+    await Promise.resolve();
+    expect(useButtonStore.getState().pressed).toBe(true);
   });
 
   it("enables routing and syncs LED when claim + setButtonLed pulse", async () => {
@@ -76,15 +85,18 @@ describe("useButtonStore", () => {
     useButtonStore.getState().claimButton("human-input");
     useButtonStore.getState().setButtonLed("human-input", "pulse");
     await Promise.resolve();
-    expect(useButtonStore.getState().buttonInputEnabled).toBe(true);
     expect(useButtonStore.getState().buttonOwner).toBe("human-input");
+    expect(useButtonStore.getState().ledMode).toBe("pulse");
     expect(transport.setLedMode).toHaveBeenCalledWith("pulse");
   });
 
-  it("routes press to the winning owner", () => {
-    useButtonStore.setState({ bridgeStatus: "connected", buttonInputEnabled: true });
+  it("routes press to the winning owner", async () => {
+    useButtonStore.setState({ bridgeStatus: "connected" });
     useButtonStore.getState().claimButton("meta-agent");
+    useButtonStore.getState().setButtonLed("meta-agent", "pulse");
     useButtonStore.getState().claimButton("human-input");
+    useButtonStore.getState().setButtonLed("human-input", "pulse");
+    await Promise.resolve();
     expect(useButtonStore.getState().buttonOwner).toBe("human-input");
     transport.callbacks?.onLine?.({ type: "button_down" });
     expect(useButtonStore.getState().pressed).toBe(true);
@@ -92,13 +104,12 @@ describe("useButtonStore", () => {
     expect(useButtonStore.getState().buttonOwner).toBe("meta-agent");
   });
 
-  it("enables routing when owner claims with off LED", async () => {
+  it("keeps owner when claimed with off LED", async () => {
     useButtonStore.setState({ bridgeStatus: "connected" });
     useButtonStore.getState().claimButton("meta-agent");
     useButtonStore.getState().setButtonLed("meta-agent", "off");
     await Promise.resolve();
     expect(useButtonStore.getState().buttonOwner).toBe("meta-agent");
-    expect(useButtonStore.getState().buttonInputEnabled).toBe(true);
     expect(useButtonStore.getState().ledMode).toBe("off");
   });
 
@@ -127,17 +138,31 @@ describe("useButtonStore", () => {
     expect(transport.setLedMode).toHaveBeenLastCalledWith("on");
   });
 
-  it("clears pressed state when bridge disconnects", () => {
+  it("clears hardware press when bridge disconnects but keeps keyboard press", () => {
     useButtonStore.setState({
       pressed: true,
-      rawPressed: true,
-      buttonInputEnabled: true,
+      keyboardDown: true,
+      hardwareDown: true,
+      ledMode: "pulse",
+      bridgeStatus: "connected",
+    });
+    transport.callbacks?.onStatus?.("disconnected");
+    expect(useButtonStore.getState().hardwareDown).toBe(false);
+    expect(useButtonStore.getState().keyboardDown).toBe(true);
+    expect(useButtonStore.getState().pressed).toBe(true);
+  });
+
+  it("clears hardware-only press when bridge disconnects", () => {
+    useButtonStore.setState({
+      pressed: true,
+      hardwareDown: true,
+      keyboardDown: false,
+      ledMode: "pulse",
       bridgeStatus: "connected",
     });
     transport.callbacks?.onStatus?.("disconnected");
     expect(useButtonStore.getState().pressed).toBe(false);
-    expect(useButtonStore.getState().rawPressed).toBe(false);
-    expect(useButtonStore.getState().buttonInputEnabled).toBe(false);
+    expect(useButtonStore.getState().hardwareDown).toBe(false);
   });
 
   it("connects through transport", async () => {
@@ -171,30 +196,32 @@ describe("useButtonStore", () => {
     expect(transport.setLedMode).toHaveBeenCalledWith("pulse");
   });
 
-  it("clears pressed state when usb serial disconnects", () => {
+  it("clears hardware press when usb serial disconnects", () => {
     useButtonStore.setState({
       pressed: true,
-      rawPressed: true,
+      hardwareDown: true,
+      keyboardDown: false,
+      ledMode: "pulse",
       bridgeStatus: "connected",
       serialDeviceConnected: true,
     });
     transport.callbacks?.onSerialDeviceChange?.(false);
     expect(useButtonStore.getState().pressed).toBe(false);
-    expect(useButtonStore.getState().rawPressed).toBe(false);
+    expect(useButtonStore.getState().hardwareDown).toBe(false);
     expect(useButtonStore.getState().serialDeviceConnected).toBe(false);
   });
 
   it("applies button_up sync after reconnect when input was stale", () => {
     useButtonStore.setState({
       pressed: true,
-      rawPressed: true,
-      buttonInputEnabled: true,
+      hardwareDown: true,
+      ledMode: "pulse",
       bridgeStatus: "connected",
       serialDeviceConnected: true,
     });
     transport.callbacks?.onSerialDeviceChange?.(false);
     transport.callbacks?.onLine?.({ type: "button_up" });
-    expect(useButtonStore.getState().rawPressed).toBe(false);
+    expect(useButtonStore.getState().hardwareDown).toBe(false);
     expect(useButtonStore.getState().pressed).toBe(false);
   });
 
@@ -202,12 +229,11 @@ describe("useButtonStore", () => {
     useButtonStore.setState({
       bridgeStatus: "connected",
       serialDeviceConnected: true,
-      buttonInputEnabled: true,
       buttonOwner: "human-input",
       ledMode: "pulse",
     });
     transport.callbacks?.onLine?.({ type: "button_down" });
-    expect(useButtonStore.getState().rawPressed).toBe(true);
+    expect(useButtonStore.getState().hardwareDown).toBe(true);
     expect(useButtonStore.getState().pressed).toBe(true);
   });
 });

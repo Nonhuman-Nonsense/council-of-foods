@@ -68,7 +68,8 @@ describe("button claim integration (Council order)", () => {
     expect(useButtonStore.getState().buttonOwner).toBe("human-input");
 
     act(() => {
-      useButtonStore.getState().setPressed(true, "button");
+      useButtonStore.setState({ hardwareDown: true, ledMode: "pulse" });
+      useButtonStore.getState().syncPressed("button");
     });
 
     expect(useButtonStore.getState().buttonOwner).toBe("human-input");
@@ -93,8 +94,8 @@ describe("button claim integration (Council order)", () => {
     const { rerender } = render(<CouncilButtonClaims phase="warm" />);
 
     act(() => {
-      useButtonStore.setState({ buttonInputEnabled: true });
-      useButtonStore.getState().setPressed(true, "button");
+      useButtonStore.setState({ hardwareDown: true, ledMode: "pulse" });
+      useButtonStore.getState().syncPressed("button");
     });
     expect(useButtonStore.getState().buttonOwner).toBe("meta-agent");
 

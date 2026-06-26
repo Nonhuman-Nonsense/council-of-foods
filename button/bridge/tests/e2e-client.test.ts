@@ -97,12 +97,12 @@ describe.sequential("button e2e (mock → bridge → client)", () => {
 
     bridge.simulateButtonDown();
     await waitForTicks();
-    expect(useButtonStore.getState().rawPressed).toBe(true);
+    expect(useButtonStore.getState().hardwareDown).toBe(true);
     expect(useButtonStore.getState().pressed).toBe(true);
 
     bridge.simulateButtonUp();
     await waitForTicks();
-    expect(useButtonStore.getState().rawPressed).toBe(false);
+    expect(useButtonStore.getState().hardwareDown).toBe(false);
     expect(useButtonStore.getState().pressed).toBe(false);
 
     expect(bridge.getWrittenLines()).toContain("LED_PULSE");
