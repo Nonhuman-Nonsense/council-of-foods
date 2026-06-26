@@ -333,16 +333,15 @@ function Setup(): ReactElement {
   const { ledDebugOverlay, setLedDebugOverlay } = useButtonLedDebugOverlay();
 
   const button = useButton("setup");
-  const { claim, release, setLed, pressed } = button;
 
   useEffect(() => {
-    claim();
-    return () => release();
-  }, [claim, release]);
+    button.claim();
+    return () => button.release();
+  }, [button.claim, button.release]);
 
   useEffect(() => {
-    setLed(pressed ? "on" : "pulse");
-  }, [setLed, pressed]);
+    button.setLed(button.pressed ? "on" : "pulse");
+  }, [button.setLed, button.pressed]);
 
   const daemonStatus = getBridgeDaemonStatus(bridgeHealth);
   const appStatus = getBridgeAppStatus(bridgeAvailable, bridgeHealth, bridgeStatus);

@@ -109,25 +109,23 @@ export default function MeetingMetaAgent({
     toolHandlers,
   });
 
-  const { claim, release, setLed, pressed } = button;
-
   useEffect(() => {
-    claim();
-    return () => release();
-  }, [claim, release]);
+    button.claim();
+    return () => button.release();
+  }, [button.claim, button.release]);
 
   const ledMode: ButtonLedMode =
-    connectionState !== "ready" ? "off" : metaAgentActive && pressed ? "on" : "pulse";
+    connectionState !== "ready" ? "off" : metaAgentActive && button.pressed ? "on" : "pulse";
 
   useEffect(() => {
-    setLed(ledMode);
-  }, [setLed, ledMode]);
+    button.setLed(ledMode);
+  }, [button.setLed, ledMode]);
 
   const { showHoldToSpeakHint, idleRemindVisible } = useHoldToSpeakHint({
     pushToTalkMode: true,
     sessionActive: metaAgentActive,
     isConnecting: connectionState === "connecting",
-    micOpen: metaAgentActive && pressed,
+    micOpen: metaAgentActive && button.pressed,
     lastUserTranscript,
     lastCaption,
   });
@@ -151,7 +149,7 @@ export default function MeetingMetaAgent({
 
   // Standby → Active: rising edge of routed press while not yet active.
   useEffect(() => {
-    if (!pressed || metaAgentActive) return;
+    if (!button.pressed || metaAgentActive) return;
 
     setMeetingPlaybackPaused(true);
     setMetaAgentActive(true);
@@ -175,7 +173,7 @@ export default function MeetingMetaAgent({
     sendUserMessage(buildMetaAgentActivationTurn());
     requestAgentResponse();
   }, [
-    pressed,
+    button.pressed,
     metaAgentActive,
     setMeetingPlaybackPaused,
     setMetaAgentActive,
@@ -194,8 +192,8 @@ export default function MeetingMetaAgent({
   // Active: routed press controls mic-open within a turn.
   useEffect(() => {
     if (!metaAgentActive) return;
-    setMicEnabled(pressed);
-  }, [pressed, metaAgentActive, setMicEnabled]);
+    setMicEnabled(button.pressed);
+  }, [button.pressed, metaAgentActive, setMicEnabled]);
 
   // Ensure mic is closed whenever we leave active mode.
   useEffect(() => {
@@ -222,11 +220,11 @@ export default function MeetingMetaAgent({
     if (!metaAgentActive || connectionState !== "ready") return;
     if (!idleRemindVisible) return;
     if (idleResumeFiredRef.current) return;
-    if (agentSpeaking || pressed) return;
+    if (agentSpeaking || button.pressed) return;
 
     const timerId = window.setTimeout(() => {
       if (idleResumeFiredRef.current) return;
-      if (agentSpeaking || pressed) return;
+      if (agentSpeaking || button.pressed) return;
       idleResumeFiredRef.current = true;
       log.event("META", "idle auto-resume continue_meeting");
       toolHandlers.continue_meeting({});
@@ -238,7 +236,7 @@ export default function MeetingMetaAgent({
     connectionState,
     idleRemindVisible,
     agentSpeaking,
-    pressed,
+    button.pressed,
     toolHandlers,
   ]);
 

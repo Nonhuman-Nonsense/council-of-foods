@@ -41,7 +41,6 @@ export default function MeetingVoiceGuide({
   const { i18n, t } = useTranslation();
   const { isMuseumMode, pushToTalkMode } = useCouncilSettings();
   const button = useButton("voice-guide");
-  const { claim, release, setLed, pressed } = button;
   const {
     selectedTopic,
     customTopic,
@@ -112,7 +111,7 @@ export default function MeetingVoiceGuide({
       },
     }),
     pushToTalkMode,
-    micOpen: pressed,
+    micOpen: button.pressed,
   });
   const { sendUserMessage, muted } = voice;
 
@@ -123,27 +122,27 @@ export default function MeetingVoiceGuide({
     pushToTalkMode,
     sessionActive: !muted,
     isConnecting: voice.isConnecting,
-    micOpen: pressed,
+    micOpen: button.pressed,
     lastUserTranscript: voice.lastUserTranscript,
     lastCaption: voice.lastCaption,
   });
 
   const ledMode = useMemo((): ButtonLedMode => {
     if (!pushToTalkMode || muted || voice.isConnecting || voice.error) return "off";
-    if (pressed) return "on";
+    if (button.pressed) return "on";
     return "pulse";
-  }, [pushToTalkMode, muted, voice.isConnecting, voice.error, pressed]);
+  }, [pushToTalkMode, muted, voice.isConnecting, voice.error, button.pressed]);
 
   useEffect(() => {
     if (!pushToTalkMode) return;
-    claim();
-    return () => release();
-  }, [claim, release, pushToTalkMode]);
+    button.claim();
+    return () => button.release();
+  }, [button.claim, button.release, pushToTalkMode]);
 
   useEffect(() => {
     if (!pushToTalkMode) return;
-    setLed(ledMode);
-  }, [setLed, pushToTalkMode, ledMode]);
+    button.setLed(ledMode);
+  }, [button.setLed, pushToTalkMode, ledMode]);
 
   useEffect(() => {
     if (!lastUserEvent) {
