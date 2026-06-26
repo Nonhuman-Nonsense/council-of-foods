@@ -125,7 +125,6 @@ function makeProps(overrides: Partial<MeetingMetaAgentProps> = {}): MeetingMetaA
     liveKey: "live-key-123",
     language: "en",
     participationPhase: "off",
-    setMeetingPlaybackPaused: vi.fn(),
     metaAgentActive: false,
     setMetaAgentActive: vi.fn(),
     setAgentSpeaking: vi.fn(),
@@ -194,14 +193,12 @@ describe("MeetingMetaAgent", () => {
     expect(mockSetLed).toHaveBeenCalledWith("on");
   });
 
-  it("freezes meeting audio, sets active, opens mic, sends snapshot on button press (standby)", () => {
-    const setMeetingPlaybackPaused = vi.fn();
+  it("sets active, opens mic, sends snapshot on button press (standby)", () => {
     const setMetaAgentActive = vi.fn();
 
     render(
       <MeetingMetaAgent
         {...makeProps({
-          setMeetingPlaybackPaused,
           setMetaAgentActive,
           metaAgentActive: false,
         })}
@@ -210,7 +207,6 @@ describe("MeetingMetaAgent", () => {
 
     act(() => setMockPressed(true));
 
-    expect(setMeetingPlaybackPaused).toHaveBeenCalledWith(true);
     expect(setMetaAgentActive).toHaveBeenCalledWith(true);
     expect(mockSetAgentOutputMuted).toHaveBeenCalledWith(false);
     expect(mockSetMicEnabled).toHaveBeenCalledWith(true);
@@ -262,14 +258,12 @@ describe("MeetingMetaAgent", () => {
 
   it("keeps session active when button ownership is lost (e.g. setup)", () => {
     const setMetaAgentActive = vi.fn();
-    const setMeetingPlaybackPaused = vi.fn();
 
     render(
       <MeetingMetaAgent
         {...makeProps({
           metaAgentActive: true,
           setMetaAgentActive,
-          setMeetingPlaybackPaused,
         })}
       />,
     );
@@ -279,7 +273,6 @@ describe("MeetingMetaAgent", () => {
     act(() => setMockButtonOwner("setup"));
 
     expect(setMetaAgentActive).not.toHaveBeenCalled();
-    expect(setMeetingPlaybackPaused).not.toHaveBeenCalled();
   });
 
   it("closes mic when metaAgentActive transitions to false", () => {
@@ -314,7 +307,6 @@ describe("MeetingMetaAgent", () => {
     });
 
     it("resumes the meeting 10s after the idle PTT reminder is shown", () => {
-      const setMeetingPlaybackPaused = vi.fn();
       const setMetaAgentActive = vi.fn();
       mockHoldToSpeakHint.idleRemindVisible = true;
 
@@ -322,7 +314,6 @@ describe("MeetingMetaAgent", () => {
         <MeetingMetaAgent
           {...makeProps({
             metaAgentActive: true,
-            setMeetingPlaybackPaused,
             setMetaAgentActive,
           })}
         />,
@@ -338,7 +329,6 @@ describe("MeetingMetaAgent", () => {
       });
 
       expect(setMetaAgentActive).toHaveBeenCalledWith(false);
-      expect(setMeetingPlaybackPaused).toHaveBeenCalledWith(false);
       expect(mockSetAgentOutputMuted).toHaveBeenCalledWith(true);
     });
 

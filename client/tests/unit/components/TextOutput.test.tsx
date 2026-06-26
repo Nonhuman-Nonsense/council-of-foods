@@ -30,7 +30,7 @@ describe('TextOutput', () => {
 
     const defaultProps = () => ({
         currentAudioMessage: mockAudioMessage,
-        meetingAudioContext: { current: mockAudioContext } as any,
+        audioContext: { current: mockAudioContext } as any,
         playbackStartInfo: { messageId: 'msg1', startedAtAudioContextTime: 0 },
         isPaused: false,
         setCurrentSnippetIndex: vi.fn(),

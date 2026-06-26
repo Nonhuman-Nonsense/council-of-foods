@@ -3,7 +3,6 @@ import type { MetaAgentPromptBundle } from "./metaAgentPrompt";
 import { log } from "@/logger";
 
 export type MetaAgentToolContext = {
-  setMeetingPlaybackPaused: (paused: boolean) => void;
   setMetaAgentActive: (active: boolean) => void;
   onRestartMeeting: () => void;
   /** Mute agent audio and clear captions when exiting via a terminal tool. */
@@ -36,7 +35,6 @@ export function createMetaAgentToolHandlers(ctx: MetaAgentToolContext): Record<s
       log.event("META", "continue_meeting handler");
       ctx.silenceAgentOutput();
       ctx.setMetaAgentActive(false);
-      ctx.setMeetingPlaybackPaused(false);
       return { ok: true, suppressContinuation: true };
     },
 

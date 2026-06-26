@@ -25,10 +25,7 @@ import FullscreenButton from "./FullscreenButton";
 import MuseumModeEscapeHatch from "@/museum/MuseumModeEscapeHatch";
 import { useButtonLedDebugOverlay } from "@/museum/button/buttonDebug";
 import { useCouncilSettings } from "@/settings/councilSettings";
-import {
-  createMeetingAudioContext,
-  useMeetingPlaybackSuspended,
-} from "@/audio/meetingAudio";
+import { createAudioContext, useAudioSuspended } from "@/audio/audioContext";
 import { usePortrait, dvh } from "@/utils";
 import CouncilError, { useUnrecoverableError } from "./overlay/CouncilError";
 import Reconnecting from "./overlay/Reconnecting";
@@ -66,21 +63,17 @@ export default function Main(props: MainProps) {
   //Had to lift up navbar state to this level to be able to close it from main overlay
   const [hamburgerOpen, setHamburgerOpen] = useState(false);
 
-  // Keep these at Main level even though Foods currently renders its scene inside Council.
-  // Forest needs the same runtime state outside the routed Council tree, and matching that
-  // ownership here reduces cross-app merge conflicts when background/audio behavior changes.
-  // Forest also keeps scene speaker state at Main; Foods only needs the meeting bus.
+  // Lifted for Forest (always-mounted scene outside Council); Foods uses the same audio bus in Council.
   const [currentSpeakerId, setCurrentSpeakerId] = useState("");
   const [isPaused, setPaused] = useState(false);
   const [metaAgentActive, setMetaAgentActive] = useState(false);
-  const meetingAudioContext = useRef<AudioContext | null>(null);
-  const [meetingPlaybackPaused, setMeetingPlaybackPaused] = useState(false);
+  const audioContext = useRef<AudioContext | null>(null);
 
-  if (meetingAudioContext.current === null) {
-    meetingAudioContext.current = createMeetingAudioContext();
+  if (audioContext.current === null) {
+    audioContext.current = createAudioContext();
   }
 
-  useMeetingPlaybackSuspended(meetingAudioContext, meetingPlaybackPaused);
+  useAudioSuspended(audioContext, isPaused);
   const { i18n } = useTranslation();
   const { rootPath, newMeetingPath } = useRouting();
   const location = useLocation();
@@ -224,8 +217,7 @@ export default function Main(props: MainProps) {
                   setPaused={setPaused}
                   metaAgentActive={metaAgentActive}
                   setMetaAgentActive={setMetaAgentActive}
-                  meetingAudioContext={meetingAudioContext}
-                  setMeetingPlaybackPaused={setMeetingPlaybackPaused}
+                  audioContext={audioContext}
                 />
               }
             />

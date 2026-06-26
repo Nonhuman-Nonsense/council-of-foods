@@ -22,17 +22,17 @@ const mockAudioContext = {
 };
 
 describe('AudioOutput', () => {
-    let meetingAudioContextRef: React.RefObject<any>;
+    let audioContextRef: React.RefObject<any>;
 
     beforeEach(() => {
         vi.clearAllMocks();
-        meetingAudioContextRef = { current: mockAudioContext };
+        audioContextRef = { current: mockAudioContext };
     });
 
     it('initializes output gain node on mount', () => {
         render(
             <AudioOutput
-                meetingAudioContext={meetingAudioContextRef}
+                audioContext={audioContextRef}
                 currentAudioMessage={null}
                 onFinishedPlaying={vi.fn()}
                 isMuted={false}
@@ -46,7 +46,7 @@ describe('AudioOutput', () => {
     it('sets gain to 0 when muted', () => {
         render(
             <AudioOutput
-                meetingAudioContext={meetingAudioContextRef}
+                audioContext={audioContextRef}
                 currentAudioMessage={null}
                 onFinishedPlaying={vi.fn()}
                 isMuted={true}
@@ -60,7 +60,7 @@ describe('AudioOutput', () => {
     it('sets gain to 1 when unmuted', () => {
         render(
             <AudioOutput
-                meetingAudioContext={meetingAudioContextRef}
+                audioContext={audioContextRef}
                 currentAudioMessage={null}
                 onFinishedPlaying={vi.fn()}
                 isMuted={false}
@@ -74,7 +74,7 @@ describe('AudioOutput', () => {
     it('updates gain when mute state changes', () => {
         const { rerender } = render(
             <AudioOutput
-                meetingAudioContext={meetingAudioContextRef}
+                audioContext={audioContextRef}
                 currentAudioMessage={null}
                 onFinishedPlaying={vi.fn()}
                 isMuted={false}
@@ -88,7 +88,7 @@ describe('AudioOutput', () => {
         // Re-render muted
         rerender(
             <AudioOutput
-                meetingAudioContext={meetingAudioContextRef}
+                audioContext={audioContextRef}
                 currentAudioMessage={null}
                 onFinishedPlaying={vi.fn()}
                 isMuted={true}

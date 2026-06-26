@@ -30,12 +30,12 @@ const mockAudioContext = {
 const mockGainNode = {};
 
 describe('AudioOutputMessage', () => {
-    let meetingAudioContextRef: React.RefObject<any>;
+    let audioContextRef: React.RefObject<any>;
     let gainNodeRef: React.RefObject<any>;
 
     beforeEach(() => {
         vi.clearAllMocks();
-        meetingAudioContextRef = { current: mockAudioContext };
+        audioContextRef = { current: mockAudioContext };
         gainNodeRef = { current: mockGainNode };
         mockSourceNode.buffer = null; // Reset buffer
     });
@@ -48,7 +48,7 @@ describe('AudioOutputMessage', () => {
         render(
             <AudioOutputMessage
                 currentAudioMessage={message}
-                meetingAudioContext={meetingAudioContextRef}
+                audioContext={audioContextRef}
                 gainNode={gainNodeRef}
                 onFinishedPlaying={vi.fn()}
             />
@@ -68,7 +68,7 @@ describe('AudioOutputMessage', () => {
         render(
             <AudioOutputMessage
                 currentAudioMessage={message}
-                meetingAudioContext={meetingAudioContextRef}
+                audioContext={audioContextRef}
                 gainNode={gainNodeRef}
                 onFinishedPlaying={vi.fn()}
                 onPlaybackStarted={onPlaybackStarted}
@@ -85,7 +85,7 @@ describe('AudioOutputMessage', () => {
         render(
             <AudioOutputMessage
                 currentAudioMessage={{ id: 'msg2', audio: undefined }}
-                meetingAudioContext={meetingAudioContextRef}
+                audioContext={audioContextRef}
                 gainNode={gainNodeRef}
                 onFinishedPlaying={vi.fn()}
             />
@@ -95,7 +95,7 @@ describe('AudioOutputMessage', () => {
         render(
             <AudioOutputMessage
                 currentAudioMessage={{ id: 'msg3', audio: { length: 0 } as any }}
-                meetingAudioContext={meetingAudioContextRef}
+                audioContext={audioContextRef}
                 gainNode={gainNodeRef}
                 onFinishedPlaying={vi.fn()}
             />
@@ -109,7 +109,7 @@ describe('AudioOutputMessage', () => {
         const { unmount } = render(
             <AudioOutputMessage
                 currentAudioMessage={message}
-                meetingAudioContext={meetingAudioContextRef}
+                audioContext={audioContextRef}
                 gainNode={gainNodeRef}
                 onFinishedPlaying={vi.fn()}
             />
@@ -128,7 +128,7 @@ describe('AudioOutputMessage', () => {
         render(
             <AudioOutputMessage
                 currentAudioMessage={message}
-                meetingAudioContext={meetingAudioContextRef}
+                audioContext={audioContextRef}
                 gainNode={gainNodeRef}
                 onFinishedPlaying={onFinishedPlaying}
             />

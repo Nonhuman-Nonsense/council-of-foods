@@ -8,7 +8,6 @@ import { CouncilOverlayType } from "../overlays/CouncilOverlays";
 import { resumeMeeting, ResumeMeetingError } from "@api/resumeMeeting";
 import { councilFetch } from "@api/http";
 import { httpErrorMessage } from "@api/httpErrorMessage";
-import { setMeetingPlaybackSuspended } from "@/audio/meetingAudio";
 import type { SetUnrecoverableError } from "@main/overlay/CouncilError";
 
 /** Keep the loading UI visible this long on first paint so the Loading animation can run. */
@@ -23,15 +22,12 @@ export interface UseCouncilMachineProps {
     participants: Character[] | null;
     humanName: string;
     setHumanName: (name: string) => void;
-    meetingAudioContext: React.RefObject<AudioContext | null>;
+    audioContext: React.RefObject<AudioContext | null>;
     setUnrecoverableError: SetUnrecoverableError;
     setConnectionError: (error: boolean) => void;
     connectionError: boolean;
     isPaused: boolean;
     setPaused: (paused: boolean) => void;
-    setMeetingPlaybackPaused?: (paused: boolean) => void;
-    /** When true, meeting Web Audio is frozen without toggling user pause UI. */
-    metaAgentActive?: boolean;
 }
 
 export type CouncilState =
@@ -53,14 +49,12 @@ export function useCouncilMachine({
     participants: _participants,
     humanName,
     setHumanName,
-    meetingAudioContext,
+    audioContext,
     setUnrecoverableError,
     setConnectionError,
     connectionError,
     isPaused,
     setPaused,
-    setMeetingPlaybackPaused,
-    metaAgentActive = false,
 }: UseCouncilMachineProps) {
 
     const { t } = useTranslation();
@@ -121,9 +115,9 @@ export function useCouncilMachine({
         liveKey,
         onAudioUpdate: (audioMessage) => {
             (async () => {
-                if (audioMessage.audio && meetingAudioContext.current) {
+                if (audioMessage.audio && audioContext.current) {
                     try {
-                        const buffer = await meetingAudioContext.current.decodeAudioData(
+                        const buffer = await audioContext.current.decodeAudioData(
                             audioMessage.audio as unknown as ArrayBuffer
                         );
                         const decodedMessage: DecodedAudioMessage = { ...audioMessage, audio: buffer };
@@ -186,7 +180,7 @@ export function useCouncilMachine({
                 throw new Error(message);
             }
             const clip = await res.json();
-            const ctx = meetingAudioContext.current;
+            const ctx = audioContext.current;
             if (!ctx) {
                 throw new Error("AudioContext not available");
             }
@@ -200,7 +194,7 @@ export function useCouncilMachine({
             );
             return { id: clip.id, type: clip.type, sentences: clip.sentences, audio: buffer };
         },
-        [meetingAudioContext],
+        [audioContext],
     );
 
     // Download first audio, then batch download the rest
@@ -668,23 +662,7 @@ export function useCouncilMachine({
         } else if (connectionError) {
             setPaused(true);
         }
-
-        // Audio Context Suspension — user pause OR meta-agent session (independent paths).
-        const freezeMeetingAudio = isPaused || metaAgentActive;
-        if (freezeMeetingAudio) {
-            if (setMeetingPlaybackPaused) {
-                setMeetingPlaybackPaused(true);
-            } else {
-                setMeetingPlaybackSuspended(meetingAudioContext, true);
-            }
-        } else {
-            if (setMeetingPlaybackPaused) {
-                setMeetingPlaybackPaused(false);
-            } else {
-                setMeetingPlaybackSuspended(meetingAudioContext, false);
-            }
-        }
-    }, [isPaused, metaAgentActive, activeOverlay, location, connectionError, setMeetingPlaybackPaused, councilState, meetingAudioContext, setPaused]);
+    }, [isPaused, activeOverlay, location, connectionError, setPaused]);
 
     useEffect(() => {
         if (councilState === 'waiting') {

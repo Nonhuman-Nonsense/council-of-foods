@@ -136,8 +136,7 @@ describe('Main Component', () => {
         expect(mockCouncil).toHaveBeenCalledWith(expect.objectContaining({
             currentSpeakerId: '',
             isPaused: false,
-            meetingAudioContext: expect.objectContaining({ current: expect.any(window.AudioContext) }),
-            setMeetingPlaybackPaused: expect.any(Function),
+            audioContext: expect.objectContaining({ current: expect.any(window.AudioContext) }),
             setCurrentSpeakerId: expect.any(Function),
             setPaused: expect.any(Function),
             metaAgentActive: false,

@@ -22,7 +22,6 @@ export interface MeetingMetaAgentProps {
   liveKey: string;
   language: string;
   participationPhase: ParticipationPhase;
-  setMeetingPlaybackPaused: (paused: boolean) => void;
   metaAgentActive: boolean;
   setMetaAgentActive: (active: boolean) => void;
   setAgentSpeaking: (speaking: boolean) => void;
@@ -38,8 +37,9 @@ export interface MeetingMetaAgentProps {
 /**
  * Museum meta-agent: a persistent WebRTC voice agent that sits on top of the
  * council meeting.  The visitor can press the PTT button at any time to talk
- * to the chair (meta-agent).  Meeting Web Audio freezes while the meta agent is
- * active and only resumes when the agent calls `continue_meeting`.
+ * to the chair (meta-agent).  Council output unmounts while the meta agent is
+ * active; meeting speech restarts from the beginning when the agent calls
+ * `continue_meeting`.
  *
  * Mounting contract:
  *  - Only mount when `pushToTalkMode && liveKey` (live meeting + PTT).
@@ -49,7 +49,6 @@ export default function MeetingMetaAgent({
   liveKey,
   language,
   participationPhase,
-  setMeetingPlaybackPaused,
   metaAgentActive,
   setMetaAgentActive,
   setAgentSpeaking,
@@ -83,12 +82,11 @@ export default function MeetingMetaAgent({
   const toolHandlers = useMemo(
     () =>
       createMetaAgentToolHandlers({
-        setMeetingPlaybackPaused,
         setMetaAgentActive,
         onRestartMeeting,
         silenceAgentOutput: () => silenceRef.current(),
       }),
-    [setMeetingPlaybackPaused, setMetaAgentActive, onRestartMeeting],
+    [setMetaAgentActive, onRestartMeeting],
   );
 
   const {
@@ -152,7 +150,6 @@ export default function MeetingMetaAgent({
   useEffect(() => {
     if (!button.pressed || metaAgentActive) return;
 
-    setMeetingPlaybackPaused(true);
     setMetaAgentActive(true);
     setAgentOutputMuted(false);
     setMicEnabled(true);
@@ -176,7 +173,6 @@ export default function MeetingMetaAgent({
   }, [
     button.pressed,
     metaAgentActive,
-    setMeetingPlaybackPaused,
     setMetaAgentActive,
     setAgentOutputMuted,
     setMicEnabled,

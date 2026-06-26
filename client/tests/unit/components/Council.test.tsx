@@ -145,8 +145,7 @@ describe('Council Component', () => {
         setUnrecoverableError: vi.fn(),
         setConnectionError: vi.fn(),
         connectionError: false,
-        meetingAudioContext: { current: null },
-        setMeetingPlaybackPaused: vi.fn(),
+        audioContext: { current: null },
         currentSpeakerId: '',
         setCurrentSpeakerId: vi.fn(),
         isPaused: false,
@@ -210,10 +209,9 @@ describe('Council Component', () => {
         expect(mockUseCouncilMachine).toHaveBeenCalledWith(expect.objectContaining({
             humanName: '',
             setHumanName: expect.any(Function),
-            meetingAudioContext: defaultProps.meetingAudioContext,
+            audioContext: defaultProps.audioContext,
             isPaused: defaultProps.isPaused,
             setPaused: defaultProps.setPaused,
-            setMeetingPlaybackPaused: defaultProps.setMeetingPlaybackPaused,
         }));
     });
 
