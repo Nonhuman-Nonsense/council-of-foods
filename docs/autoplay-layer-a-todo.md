@@ -9,7 +9,7 @@ Layer B ([`autoplay-plan.md`](./autoplay-plan.md)) handles leaving interactive m
 ## Principles
 
 - Do **not** trigger autoplay from these cases — only unstick the current live meeting.
-- Prefer existing actions (`handleOnSubmitHumanMessage`, `handleOnGenerateSummary`, `handleHumanNameEntered`) over new server APIs where possible.
+- Prefer existing actions (`handleOnSubmitHumanMessage`, `handleOnGenerateSummary`, `handleHumanNameEntered`) over new server APIs where possible — **exception:** human abandonment uses `skip_human_turn` (see below).
 - Museum-only gates (`isMuseumMode`) unless noted otherwise.
 - Timings can be hardcoded next to the component that owns the behaviour (no `global-options` unless we later want install tuning).
 
@@ -19,17 +19,112 @@ Layer B ([`autoplay-plan.md`](./autoplay-plan.md)) handles leaving interactive m
 
 ### Human input / panelist abandonment
 
-**When:** `councilState` is `human_input` or `human_panelist`, participation phase is `active`, no PTT activity for ~60–90s.
+**Status:** Implemented.
 
-**Desired behaviour:** Auto-continue the meeting — skip the visitor's turn and resume council playback.
+**When:** `HumanInput` is mounted with `phase === "active"` (council in `human_input` or `human_panelist`), museum + PTT mode, visitor never completes a turn within **60s** of abandoned idle (see timer rules below).
 
-**Notes:**
+**Desired behaviour:** Skip the visitor's turn and resume live council playback. **Does not** enter Layer B autoplay.
 
-- `HumanInput` already has finishing timers for PTT release; this is the *no press at all* case.
-- Options: museum auto-submit with a skip phrase, or a small `skip_human_turn` socket event if we want clean transcripts.
-- **Does not** enter autoplay.
+---
 
-**Likely files:** `client/src/council/humanInput/HumanInput.tsx`, possibly `useCouncilMachine.ts` or server `HumanInputHandler.ts` if new socket event.
+#### Server: `skip_human_turn`
+
+New socket event (no payload, or optional `{ reason: "idle" }` for logs).
+
+**Handler** (`HumanInputHandler.handleSkipHumanTurn`, wired via `MeetingManager` → `SocketManager`):
+
+1. Validate last conversation message is `awaiting_human_question` or `awaiting_human_panelist`. If not → `reportAndCrashClient` (same strictness as submit handlers).
+2. Pop `awaiting_*`.
+3. Pop preceding `invitation` if present (mirror submit).
+4. Push `skipped` marker:
+   - `type: "skipped"`
+   - `speaker`: human name (question path) or panelist id (panelist path)
+   - `text: ""`, generated `id` as needed
+5. Clear **`handRaised`** (server) for both paths.
+6. Persist, `broadcastConversationUpdate`, `startLoop()` (no human/panelist TTS).
+
+**Replay:** `skipped` is not special-cased in replay UX — playback advances to the next speaker like any other skip (existing client logic).
+
+**Tests:** `server/tests/HumanInput.test.js` (+ integration case), mirror submit/panelist cases.
+
+---
+
+#### Client: mirror successful submit wiring
+
+Follow the same split as `handleOnSubmitHumanMessage`:
+
+| Concern | Owner |
+|--------|--------|
+| Idle timer (museum PTT) | `HumanInput.tsx` |
+| Socket emit + index sync + `isRaisedHand` | `useCouncilMachine.ts` via callback |
+| Mount / phase | `Council.tsx` (unchanged gate: `liveKey && participationPhase !== "off"`) |
+
+**`HumanInput` abandonment timer** (museum + `phase === "active"` only):
+
+- **Start:** when `phase` becomes `"active"` (entering human turn UI).
+- **Stop:** on any button **press** edge (holding button indefinitely pauses the timer).
+- **Restart:** on button **release** only (abandoned = released without a successful submit; auto-submit on release with ≥3 words already handles engaged visitors).
+- **Destroy:** on unmount / `phase` leaves `"active"`.
+- **Duration:** `60_000` ms (hardcoded in `HumanInput`).
+
+On timer fire: call `onAbandonHumanTurn()` prop (name TBD) — do **not** emit socket from `HumanInput` directly.
+
+**`useCouncilMachine.handleOnAbandonHumanTurn`** (parallel to submit):
+
+1. `socket.emit("skip_human_turn")`.
+2. Optimistic local conversation trim + index adjustment (same rules as submit where applicable).
+3. `setIsRaisedHand(false)`.
+4. `calculateNextAction()` → `loading`.
+
+**Index sync after skip** (example):
+
+```
+Before (active, invitation already played):
+  [0] speaker   playingNowIndex = 1
+  [1] invitation
+  [2] awaiting_*   playNextIndex = 2
+
+After server + client align:
+  [0] speaker
+  [1] skipped      ← replaces invitation + awaiting
+  [2] next AI turn (from startLoop)
+```
+
+`playNextIndex` may already be **2** (was pointing at `awaiting_*`); after update index 2 is the new council message — **may not need to change `playNextIndex`**. Validate against submit's `now`/`next` math during implementation; use existing `skipped` auto-advance at `playNextIndex` if the cursor lands on the marker.
+
+**Invitation audio:** Timer only runs in `phase === "active"`. Invitation always finishes during `warm` / before active — skip will not fire mid-invitation.
+
+**Meta-agent:** Keep `HumanInput` mounted whenever `participationPhase !== "off"` (including `warm` during prior speaker / invitation), even if `metaAgentActive`. Human-input button owner priority already blocks meta-agent during active human turn. Do **not** unmount `HumanInput` on `metaAgentActive`.
+
+---
+
+#### Shared / types
+
+- `shared/SocketTypes.ts` — `skip_human_turn` on `ClientToServerEvents`
+- `server/src/models/ValidationSchemas.ts` — empty or minimal payload schema
+- `server/src/logic/SocketManager.ts` — register event
+
+---
+
+#### Client tests
+
+- `HumanInput`: timer starts on active, pauses on press, restarts on release, fires callback at 60s, cleared on unmount
+- `useCouncilMachine`: skip emit + `isRaisedHand` clear + index behaviour (panelist + raise-hand paths)
+- Museum gate: no timer when not `isButtonMuseumMode`
+
+---
+
+#### Files
+
+| File | Change |
+|------|--------|
+| `server/src/logic/HumanInputHandler.ts` | `handleSkipHumanTurn` |
+| `server/src/logic/MeetingManager.ts` | route event |
+| `server/src/logic/SocketManager.ts` | listen |
+| `shared/SocketTypes.ts` | event type |
+| `client/src/council/humanInput/HumanInput.tsx` | 60s timer + `onAbandonHumanTurn` prop |
+| `client/src/council/hooks/useCouncilMachine.ts` | `handleOnAbandonHumanTurn` |
+| `client/src/council/Council.tsx` | wire callback |
 
 ---
 

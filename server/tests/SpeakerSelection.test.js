@@ -91,6 +91,40 @@ describe('MeetingManager - Speaker Selection', () => {
             expect(SpeakerSelector.calculateNextSpeaker(manager.meeting.conversation, manager.meeting.characters)).toBe(2); // Potato
         });
 
+        it('should count skipped panelist turns in least-spoken routing', () => {
+            const chairId = manager.meeting.characters[0].id;
+            const [chair, firstSpeaker, thirdSpeaker] = DEFAULT_TEST_CHARACTERS;
+            manager.meeting.characters = [
+                MockFactory.createCharacter(chair),
+                MockFactory.createCharacter(firstSpeaker),
+                { id: 'panelist0', name: 'Alice', description: '', prompt: '', voice: 'alloy' },
+                MockFactory.createCharacter(thirdSpeaker),
+            ];
+            manager.meeting.conversation = [
+                { speaker: chairId, type: 'message' },
+                { speaker: 'panelist0', type: 'skipped' },
+            ];
+
+            expect(SpeakerSelector.calculateNextSpeaker(manager.meeting.conversation, manager.meeting.characters, {
+                directedSpeakerRouting: true,
+                chairId,
+            })).toBe(1); // Tomato has 0 messages; panelist0 already took a turn via skip
+        });
+
+        it('should count skipped turns toward chair cadence', () => {
+            const chairId = manager.meeting.characters[0].id;
+            manager.meeting.conversation = [
+                { speaker: chairId, type: 'message' },
+                { speaker: manager.meeting.characters[1].id, type: 'skipped' },
+                { speaker: manager.meeting.characters[2].id, type: 'message' },
+            ];
+
+            expect(SpeakerSelector.calculateNextSpeaker(manager.meeting.conversation, manager.meeting.characters, {
+                directedSpeakerRouting: true,
+                chairId,
+            })).toBe(0); // chair forced after other participants have taken turns (skipped counts)
+        });
+
         // --- Panelist Tests ---
         describe('Panelist Logic', () => {
             beforeEach(() => {
@@ -113,6 +147,14 @@ describe('MeetingManager - Speaker Selection', () => {
             it('should move from panelist to next food', () => {
                 manager.meeting.conversation = [
                     { speaker: 'panelist0', type: 'message' }
+                ];
+                expect(SpeakerSelector.calculateNextSpeaker(manager.meeting.conversation, manager.meeting.characters)).toBe(3);
+            });
+
+            it('should move from skipped human panelist to next character in rotation', () => {
+                manager.meeting.conversation = [
+                    { speaker: manager.meeting.characters[1].id, type: 'message' },
+                    { speaker: 'panelist0', type: 'skipped', text: '' },
                 ];
                 expect(SpeakerSelector.calculateNextSpeaker(manager.meeting.conversation, manager.meeting.characters)).toBe(3);
             });

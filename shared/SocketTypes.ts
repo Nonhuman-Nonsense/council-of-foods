@@ -118,6 +118,7 @@ export interface ClientToServerEvents {
     disconnect: () => void;
     submit_human_message: (msg: SubmitHumanMessagePayload) => void;
     submit_human_panelist: (msg: SubmitHumanPanelistPayload) => void;
+    skip_human_turn: () => void;
     raise_hand: (opts: HandRaisedOptions) => void;
     wrap_up_meeting: (msg: WrapUpMessage) => void;
     attempt_reconnection: (opts: ReconnectionOptions) => void;

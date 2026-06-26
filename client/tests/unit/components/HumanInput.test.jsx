@@ -1,6 +1,6 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import HumanInput from '@council/humanInput/HumanInput';
 import { useMobile } from '@/utils';
 import { bootstrapHumanInputRealtimeSession } from '@api/realtimeSession';
@@ -852,5 +852,156 @@ describe('HumanInput PTT museum mode', () => {
     it('non-PTT mode: shows mic button', async () => {
         await renderAndWaitReady({ onSubmitHumanMessage: mockOnSubmit });
         expect(screen.getByTestId('icon-record_voice_off')).toBeInTheDocument();
+    });
+});
+
+// ── Museum abandonment timer ───────────────────────────────────────────────────
+
+describe('HumanInput museum abandonment timer', () => {
+    let mockOnAbandon;
+
+    beforeEach(() => {
+        vi.useFakeTimers({ shouldAdvanceTime: true });
+        mockOnAbandon = vi.fn();
+        mockPushToTalkMode.value = true;
+        useMobile.mockReturnValue(false);
+        mockClaim.mockClear();
+        mockRelease.mockClear();
+        mockSetLed.mockClear();
+        mockButtonState.pressed = false;
+        setMockPressed(false);
+        bootstrapHumanInputRealtimeSession.mockResolvedValue({
+            provider: 'inworld',
+            iceServers: [],
+            session: { type: 'realtime' },
+        });
+        createRealtimeConnection.mockResolvedValue({
+            pc: {},
+            dc: {},
+            micStream: createMockMicStream(),
+            close: vi.fn(),
+        });
+    });
+
+    afterEach(() => {
+        vi.useRealTimers();
+        vi.clearAllMocks();
+        mockPushToTalkMode.value = false;
+        setMockPressed(false);
+    });
+
+    async function flushConnectionReady() {
+        await act(async () => {
+            await Promise.resolve();
+        });
+    }
+
+    async function renderAbandonReady(extraProps = {}) {
+        render(
+            <HumanInput
+                phase="active"
+                isButtonMuseumMode={true}
+                isPanelist={false}
+                currentSpeakerName=""
+                onSubmitHumanMessage={vi.fn()}
+                onAbandonHumanTurn={mockOnAbandon}
+                liveKey="test-key"
+                {...extraProps}
+            />
+        );
+        await flushConnectionReady();
+    }
+
+    it('fires onAbandonHumanTurn after 60s idle in museum active phase', async () => {
+        await renderAbandonReady();
+
+        await act(async () => {
+            await vi.advanceTimersByTimeAsync(60_000);
+        });
+
+        expect(mockOnAbandon).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not fire while button is held', async () => {
+        await renderAbandonReady();
+
+        act(() => {
+            setMockPressed(true);
+        });
+        await act(async () => {
+            await vi.advanceTimersByTimeAsync(60_000);
+        });
+
+        expect(mockOnAbandon).not.toHaveBeenCalled();
+    });
+
+    it('restarts timer on button release', async () => {
+        await renderAbandonReady();
+
+        act(() => {
+            setMockPressed(true);
+        });
+        await act(async () => {
+            await vi.advanceTimersByTimeAsync(30_000);
+        });
+        act(() => {
+            setMockPressed(false);
+        });
+        await act(async () => {
+            await vi.advanceTimersByTimeAsync(30_000);
+        });
+
+        expect(mockOnAbandon).not.toHaveBeenCalled();
+
+        await act(async () => {
+            await vi.advanceTimersByTimeAsync(30_000);
+        });
+
+        expect(mockOnAbandon).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not run in warm phase', async () => {
+        render(
+            <HumanInput
+                phase="warm"
+                isButtonMuseumMode={true}
+                isPanelist={false}
+                currentSpeakerName=""
+                onSubmitHumanMessage={vi.fn()}
+                onAbandonHumanTurn={mockOnAbandon}
+                liveKey="test-key"
+            />
+        );
+        await flushConnectionReady();
+
+        await act(async () => {
+            await vi.advanceTimersByTimeAsync(60_000);
+        });
+
+        expect(mockOnAbandon).not.toHaveBeenCalled();
+    });
+
+    it('does not run without isButtonMuseumMode', async () => {
+        vi.useRealTimers();
+
+        render(
+            <HumanInput
+                phase="active"
+                isButtonMuseumMode={false}
+                isPanelist={false}
+                currentSpeakerName=""
+                onSubmitHumanMessage={vi.fn()}
+                onAbandonHumanTurn={mockOnAbandon}
+                liveKey="test-key"
+            />
+        );
+
+        await waitFor(() => {
+            expect(screen.getByTestId('icon-record_voice_off')).toBeInTheDocument();
+        });
+
+        await new Promise((r) => setTimeout(r, 100));
+
+        expect(mockOnAbandon).not.toHaveBeenCalled();
     });
 });

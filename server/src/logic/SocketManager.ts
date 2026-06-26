@@ -72,6 +72,7 @@ export class SocketManager {
         const proxyEvents: (keyof ClientToServerEvents)[] = [
             "submit_human_message",
             "submit_human_panelist",
+            "skip_human_turn",
             "raise_hand",
             "wrap_up_meeting",
             "report_maximum_played_index",

@@ -208,6 +208,32 @@ describe('MeetingManager - Conversation Flow', () => {
         const gptSpy = vi.spyOn(manager.dialogGenerator, 'generateTextFromGPT');
         expect(gptSpy).not.toHaveBeenCalled();
     });
+
+    it('should not replay panelist invitation after a skipped panelist turn', async () => {
+        manager.meeting.characters = [
+            MockFactory.createChair(),
+            { id: 'panelist0', name: 'Alice', description: '', prompt: '', voice: 'alloy' }
+        ];
+        manager.meeting.conversation = [
+            { speaker: 'panelist0', type: 'skipped', text: '', id: 'skip-1' },
+        ];
+        const panelistIndex = 1;
+
+        vi.spyOn(SpeakerSelector, 'calculateNextSpeaker').mockReturnValue(panelistIndex);
+
+        const action = manager.decideNextAction();
+        expect(action.type).toBe('REQUEST_PANELIST');
+
+        const chairInterjectionSpy = vi.spyOn(manager.dialogGenerator, 'chairInterjection');
+        await manager.processTurn({ type: action.type, speaker: manager.meeting.characters[panelistIndex] });
+
+        expect(chairInterjectionSpy).not.toHaveBeenCalled();
+        expect(manager.meeting.conversation).toHaveLength(2);
+        expect(manager.meeting.conversation[0].type).toBe('skipped');
+        expect(manager.meeting.conversation[1].type).toBe('awaiting_human_panelist');
+        expect(manager.meeting.conversation[1].speaker).toBe('panelist0');
+    });
+
     it('should successfully wrap up meeting without ReferenceError (Regression Test)', async () => {
         // Setup mock OpenAI with audio capability
         const mockOpenAI = {

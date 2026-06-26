@@ -25,6 +25,8 @@ const FINISHING_NO_EVENTS_TIMEOUT_MS = 4500;
 const FINISHING_HARD_TIMEOUT_MS = 12000;
 /** PTT auto-submit requires at least this many words (accidental short utterances). */
 const MIN_PTT_SUBMIT_WORDS = 3;
+/** Museum PTT: abandon human turn after this idle duration (button released). */
+const HUMAN_ABANDON_IDLE_MS = 60_000;
 
 export function countTranscriptWords(text: string): number {
   const trimmed = text.trim();
@@ -139,6 +141,8 @@ interface HumanInputProps {
   isPanelist: boolean;
   currentSpeakerName: string;
   onSubmitHumanMessage: (text: string) => void;
+  /** Museum idle timeout: visitor released the button without submitting. */
+  onAbandonHumanTurn: () => void;
   liveKey: string;
   /**
    * True when running in museum mode with push-to-talk enabled.
@@ -167,7 +171,7 @@ type TextareaStyle = Omit<React.CSSProperties, 'height'> & { height?: number };
  * - **Lifecycle**: The component auto-connects on mount and auto-reconnects if the
  *   connection drops (state returns to "idle"). Cleanup on unmount closes everything.
  */
-function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessage, liveKey, isButtonMuseumMode = false }: HumanInputProps): React.ReactElement | null {
+function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessage, onAbandonHumanTurn, liveKey, isButtonMuseumMode = false }: HumanInputProps): React.ReactElement | null {
   const { pushToTalkMode } = useCouncilSettings();
   const [connectionState, setConnectionState] = useState<ConnectionState>("idle");
   const [canContinue, setCanContinue] = useState<boolean>(false);
@@ -294,6 +298,46 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
     setTranscriptSegments([]);
     setCanContinue(false);
   }, [connectionState, transcriptSegments, previousTranscript, pushToTalkMode, maxInputLength, onSubmitHumanMessage]);
+
+  // ── Museum abandonment timer (idle after button release) ────────────────────
+
+  const abandonTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearAbandonTimer = () => {
+    if (abandonTimerRef.current !== null) {
+      clearTimeout(abandonTimerRef.current);
+      abandonTimerRef.current = null;
+    }
+  };
+
+  const scheduleAbandonTimer = () => {
+    clearAbandonTimer();
+    if (!isButtonMuseumMode || phase !== "active" || !onAbandonHumanTurn) return;
+    if (button.pressed) return;
+    abandonTimerRef.current = setTimeout(() => {
+      onAbandonHumanTurn();
+    }, HUMAN_ABANDON_IDLE_MS);
+  };
+
+  useEffect(() => {
+    if (!isButtonMuseumMode || phase !== "active") {
+      clearAbandonTimer();
+      return;
+    }
+    scheduleAbandonTimer();
+    return clearAbandonTimer;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, isButtonMuseumMode, onAbandonHumanTurn]);
+
+  useEffect(() => {
+    if (!isButtonMuseumMode || phase !== "active") return;
+    if (button.pressed) {
+      clearAbandonTimer();
+    } else {
+      scheduleAbandonTimer();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [button.pressed, phase, isButtonMuseumMode, onAbandonHumanTurn]);
 
   function handleRealtimeEvent(event: HumanInputRealtimeEvent) {
     if (event.type === "conversation.item.input_audio_transcription.delta") {

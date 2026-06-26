@@ -324,6 +324,79 @@ describe('useCouncilMachine', () => {
         expect(result.current.state.councilState).toBe('loading');
     });
 
+    it('skips human panelist turn on abandon', () => {
+        const { result } = renderHook(() => useCouncilMachine(defaultProps as any));
+
+        const panelistMsg = {
+            id: 'msg_panelist',
+            text: '...',
+            speaker: 'human-panelist-1',
+            type: 'awaiting_human_panelist'
+        };
+
+        act(() => {
+            socketHandlers.onConversationUpdate?.([panelistMsg]);
+        });
+        expect(result.current.state.councilState).toBe('human_panelist');
+
+        act(() => {
+            result.current.actions.handleOnAbandonHumanTurn();
+        });
+
+        expect(mockSocketEmit).toHaveBeenCalledWith('skip_human_turn');
+        expect(result.current.state.textMessages).toEqual([
+            expect.objectContaining({ type: 'skipped', speaker: 'human-panelist-1', text: '' }),
+        ]);
+        expect(result.current.state.councilState).toBe('loading');
+    });
+
+    it('skips human question turn on abandon', () => {
+        const { result } = renderHook(() =>
+            useCouncilMachine({ ...defaultProps, humanName: 'Frank' } as any)
+        );
+
+        const questionMsg = {
+            id: 'msg_question',
+            text: '...',
+            speaker: 'Frank',
+            type: 'awaiting_human_question'
+        };
+
+        act(() => {
+            socketHandlers.onConversationUpdate?.([questionMsg]);
+        });
+        expect(result.current.state.councilState).toBe('human_input');
+
+        act(() => {
+            result.current.actions.handleOnAbandonHumanTurn();
+        });
+
+        expect(mockSocketEmit).toHaveBeenCalledWith('skip_human_turn');
+        expect(result.current.state.textMessages).toEqual([
+            expect.objectContaining({ type: 'skipped', speaker: 'Frank', text: '' }),
+        ]);
+        expect(result.current.state.councilState).toBe('loading');
+    });
+
+    it('surfaces an unrecoverable error if abandon is called without awaiting message', () => {
+        const setUnrecoverableError = vi.fn();
+        const { result } = renderHook(() =>
+            useCouncilMachine({ ...defaultProps, setUnrecoverableError } as any)
+        );
+
+        act(() => {
+            result.current.actions.handleOnAbandonHumanTurn();
+        });
+
+        expect(mockSocketEmit).not.toHaveBeenCalledWith('skip_human_turn');
+        expect(setUnrecoverableError).toHaveBeenCalledWith(
+            expect.objectContaining({
+                message: expect.stringContaining('awaiting_human_question'),
+                source: 'useCouncilMachine.skip_human_turn',
+            }),
+        );
+    });
+
     it('surfaces an unrecoverable error if human_panelist submit loses its awaiting message', () => {
         const setUnrecoverableError = vi.fn();
         const { result } = renderHook(() =>

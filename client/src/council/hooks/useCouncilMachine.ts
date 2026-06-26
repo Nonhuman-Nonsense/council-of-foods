@@ -465,6 +465,47 @@ export function useCouncilMachine({
         }
     }
 
+    function handleOnAbandonHumanTurn() {
+        const expectedType =
+            councilState === "human_panelist" ? "awaiting_human_panelist" : "awaiting_human_question";
+        const awaitingMsg = textMessages[playNextIndex];
+        if (awaitingMsg?.type !== expectedType) {
+            const detail = `Internal state mismatch: expected ${expectedType} before abandoning human turn.`;
+            console.error(detail);
+            setUnrecoverableError({
+                message: detail,
+                source: "useCouncilMachine.skip_human_turn",
+                meetingId: currentMeetingId,
+            });
+            return;
+        }
+
+        if (socketRef.current) socketRef.current.emit("skip_human_turn");
+
+        const speaker =
+            awaitingMsg.type === "awaiting_human_panelist" ? awaitingMsg.speaker : humanName;
+
+        const now =
+            textMessages[playingNowIndex]?.type === "invitation" ? playingNowIndex - 1 : playingNowIndex;
+        const next =
+            textMessages[playingNowIndex]?.type === "invitation" ? playNextIndex - 1 : playNextIndex;
+
+        setTextMessages((prevMessages) => {
+            const base = prevMessages.slice(0, next);
+            base.push({
+                type: "skipped",
+                speaker,
+                text: "",
+                id: `skip-local-${Date.now()}`,
+            });
+            return base;
+        });
+        setPlayingNowIndex(now);
+        setPlayNextIndex(next);
+        setIsRaisedHand(false);
+        calculateNextAction();
+    }
+
     function cancelOverlay() {
         setActiveOverlay(null);
 
@@ -716,6 +757,7 @@ export function useCouncilMachine({
             handleOnSkipBackward,
             handleOnSkipForward,
             handleOnSubmitHumanMessage,
+            handleOnAbandonHumanTurn,
             handleOnContinueMeetingLonger,
             handleOnAttemptResume,
             handleOnGenerateSummary,

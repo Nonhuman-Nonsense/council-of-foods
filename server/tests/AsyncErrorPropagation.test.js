@@ -18,7 +18,7 @@ vi.mock('@utils/Logger.js', () => ({
 
 // Mock logic modules
 // We need to return mock instances so we can control their methods
-const mockHumanInputHandler = { handleSubmitHumanMessage: vi.fn(), handleSubmitHumanPanelist: vi.fn(), handleSubmitInjection: vi.fn() };
+const mockHumanInputHandler = { handleSubmitHumanMessage: vi.fn(), handleSubmitHumanPanelist: vi.fn(), handleSubmitInjection: vi.fn(), handleSkipHumanTurn: vi.fn() };
 const mockHandRaisingHandler = { handleRaiseHand: vi.fn() };
 const mockMeetingLifecycleHandler = {
     handleWrapUpMeeting: vi.fn(),
@@ -98,6 +98,12 @@ describe('Async Error Propagation (Comprehensive)', () => {
             mockObj: mockHumanInputHandler,
             method: 'handleSubmitHumanPanelist',
             payload: { text: 'Answer', speaker: 'Expert', type: 'panelist' }
+        },
+        {
+            event: 'skip_human_turn',
+            mockObj: mockHumanInputHandler,
+            method: 'handleSkipHumanTurn',
+            payload: undefined
         },
         {
             event: 'submit_injection',
