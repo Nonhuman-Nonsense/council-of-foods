@@ -108,9 +108,8 @@
   "restart": "Restart",
   "autoplayWarning": {
     "title": "Still there?",
-    "body": "This meeting has been inactive for a while, should we watch an old meeting instead?",
-    "buttonHint": "Press the button if you need more time!",
-    "confirm": "Watch an old meeting"
+    "body": "You have been inactive for a while,\npress the button if you are still there.",
+    "confirm": "I'm still here!"
   },
   "name": {
     "title": "SAY SOMETHING",
