@@ -1,5 +1,5 @@
 import "@/App.css";
-import React, { useState, useEffect, useRef, lazy, Suspense, useCallback } from "react";
+import React, { useState, useEffect, useRef, lazy, Suspense } from "react";
 import { getTopicsBundle } from "./topicsBundle";
 import {
   Routes,
@@ -32,8 +32,6 @@ import Reconnecting from "./overlay/Reconnecting";
 
 const MuseumButton = lazy(() => import("@/museum/button/MuseumButton"));
 const AutoplayCoordinator = lazy(() => import("@/autoplay/AutoplayCoordinator"));
-
-import type { AutoplayPhase } from "@/autoplay/AutoplayCoordinator";
 
 import routes from "@/routes.json";
 import { backgroundImageUrls } from "@assets/backgrounds/index";
@@ -69,12 +67,6 @@ export default function Main(props: MainProps) {
   const [currentSpeakerId, setCurrentSpeakerId] = useState("");
   const [isPaused, setPaused] = useState(false);
   const [metaAgentActive, setMetaAgentActive] = useState(false);
-  const [autoplayPhase, setAutoplayPhase] = useState<AutoplayPhase>("off");
-  const [councilSummaryActive, setCouncilSummaryActive] = useState(false);
-  const autoplayMeetingEndRef = useRef<(() => void) | null>(null);
-  const registerAutoplayMeetingEnd = useCallback((handler: (() => void) | null) => {
-    autoplayMeetingEndRef.current = handler;
-  }, []);
   const audioContext = useRef<AudioContext | null>(null);
 
   if (audioContext.current === null) {
@@ -176,12 +168,8 @@ export default function Main(props: MainProps) {
       {isMuseumMode && (
         <Suspense fallback={null}>
           <AutoplayCoordinator
-            autoplayPhase={autoplayPhase}
-            setAutoplayPhase={setAutoplayPhase}
             meetingliveKey={meetingliveKey}
             setMeetingliveKey={setMeetingliveKey}
-            councilSummaryActive={councilSummaryActive}
-            onRegisterMeetingEnd={registerAutoplayMeetingEnd}
           />
         </Suspense>
       )}
@@ -238,9 +226,6 @@ export default function Main(props: MainProps) {
                   metaAgentActive={metaAgentActive}
                   setMetaAgentActive={setMetaAgentActive}
                   audioContext={audioContext}
-                  autoplayActive={autoplayPhase === "active"}
-                  onAutoplaySummaryChange={setCouncilSummaryActive}
-                  onAutoplayMeetingEnd={() => autoplayMeetingEndRef.current?.()}
                 />
               }
             />

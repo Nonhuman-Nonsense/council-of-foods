@@ -4,6 +4,7 @@ import { Icons } from "@assets/icons";
 import { useRouting } from "@/routing";
 import { Link } from "react-router";
 import MarqueeRollingBanner from "./MarqueeRollingBanner";
+import { useAutoplay } from "@/autoplay/autoplayStore";
 
 interface ReplayModeBannerProps {
   meeting: Meeting;
@@ -18,6 +19,7 @@ export default function ReplayModeBanner({
 }: ReplayModeBannerProps) {
   const { t, i18n } = useTranslation();
   const { rootPath } = useRouting();
+  const { replayBannerVariant } = useAutoplay();
 
   const meetingDate = new Date(meeting.date).toLocaleDateString(i18n.language, {
     dateStyle: "long",
@@ -28,26 +30,35 @@ export default function ReplayModeBanner({
     meetingTitle: meeting.topic.title,
     meetingDate,
   });
-  const clickText = t("replayModeBanner.click");
+  const callToAction =
+    replayBannerVariant === "autoplay"
+      ? t("replayModeBanner.pressButton")
+      : t("replayModeBanner.click");
   const segmentCount = 3;
+
+  const content = (
+    <>
+      <Icons.tomato className="marquee-rolling-banner__tomato" />
+      {preamble}
+      {callToAction}
+    </>
+  );
 
   return (
     <MarqueeRollingBanner
       visible={visible}
       isPaused={isPaused}
       segmentCount={segmentCount}
-      wrapContent={(content) => (
-        <Link to={rootPath} style={{ pointerEvents: "auto" }}>
-          {content}
-        </Link>
-      )}
-      renderSegment={() => (
-        <>
-          <Icons.tomato className="marquee-rolling-banner__tomato" />
-          {preamble}
-          {clickText}
-        </>
-      )}
+      wrapContent={
+        replayBannerVariant === "autoplay"
+          ? (segment) => <span>{segment}</span>
+          : (segment) => (
+              <Link to={rootPath} style={{ pointerEvents: "auto" }}>
+                {segment}
+              </Link>
+            )
+      }
+      renderSegment={() => content}
     />
   );
 }

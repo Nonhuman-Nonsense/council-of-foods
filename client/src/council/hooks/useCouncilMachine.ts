@@ -9,6 +9,7 @@ import { resumeMeeting, ResumeMeetingError } from "@api/resumeMeeting";
 import { councilFetch } from "@api/http";
 import { httpErrorMessage } from "@api/httpErrorMessage";
 import type { SetUnrecoverableError } from "@main/overlay/CouncilError";
+import { notifyAutoplay } from "@/autoplay/autoplayStore";
 
 /** Keep the loading UI visible this long on first paint so the Loading animation can run. */
 const MIN_INITIAL_LOADING_DISPLAY_MS = import.meta.env.VITEST ? 0 : 2000;
@@ -28,7 +29,6 @@ export interface UseCouncilMachineProps {
     connectionError: boolean;
     isPaused: boolean;
     setPaused: (paused: boolean) => void;
-    onAutoplaySummaryPlaybackEnd?: () => void;
 }
 
 export type CouncilState =
@@ -56,7 +56,6 @@ export function useCouncilMachine({
     connectionError,
     isPaused,
     setPaused,
-    onAutoplaySummaryPlaybackEnd,
 }: UseCouncilMachineProps) {
 
     const { t } = useTranslation();
@@ -406,7 +405,7 @@ export function useCouncilMachine({
     function handleOnFinishedPlaying() {
         const activeMessage = textMessages[playingNowIndex];
         if (councilState === "summary" && activeMessage?.type === "summary") {
-            onAutoplaySummaryPlaybackEnd?.();
+            notifyAutoplay({ type: "summary-playback-finished" });
         }
         calculateNextAction(true);
     }

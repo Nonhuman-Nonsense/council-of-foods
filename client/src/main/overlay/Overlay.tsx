@@ -1,6 +1,7 @@
 interface OverlayProps {
   isActive: boolean;
   isBlurred?: boolean; // JSDoc says boolean but code checks !== false. optional?
+  zIndex?: number | string;
   children: React.ReactNode;
 }
 
@@ -19,7 +20,7 @@ interface OverlayProps {
  * @param {boolean} props.isBlurred - Whether to apply a blur effect to the background.
  * @param {React.ReactNode} props.children - The content to display inside the overlay.
  */
-function Overlay({ isActive, isBlurred, children }: OverlayProps) {
+function Overlay({ isActive, isBlurred, zIndex, children }: OverlayProps) {
 
   const overlayStyle: React.CSSProperties = {
     position: "absolute",
@@ -28,7 +29,7 @@ function Overlay({ isActive, isBlurred, children }: OverlayProps) {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    zIndex: "5",
+    zIndex: zIndex ?? "5",
     backgroundColor: isActive ? "rgba(0, 0, 0, 0.5)" : undefined,
     pointerEvents: isActive ? "auto" : "none",
   };

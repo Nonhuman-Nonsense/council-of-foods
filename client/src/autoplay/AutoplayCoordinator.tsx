@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import Overlay from "@main/overlay/Overlay";
@@ -10,24 +10,19 @@ import { useCouncilSettings } from "@/settings/councilSettings";
 import { useMeetingSetupStore } from "@newMeeting/meetingSetupStore";
 import { isMeetingPath, isRootPath, stripLanguagePrefix, useRouting } from "@/routing";
 import routes from "@/routes.json";
-import { bumpAutoplayActivity, getAutoplayLastActivityMs } from "./autoplayActivity";
+import { bumpAutoplayActivity, useAutoplayStore } from "./autoplayStore";
 import { log } from "@/logger";
 
-export type AutoplayPhase = "off" | "warning" | "active";
-
-const LANDING_SETUP_IDLE_MS = 9000;
+const LANDING_SETUP_IDLE_MS = 90_000;
 const SUMMARY_IDLE_MS = 60_000;
 const LOOP_IDLE_MS = 35_000;
 const IDLE_POLL_MS = 1_000;
 const FETCH_RETRY_MS = 5_000;
+const AUTOPLAY_WARNING_Z_INDEX = 20;
 
 export interface AutoplayCoordinatorProps {
-  autoplayPhase: AutoplayPhase;
-  setAutoplayPhase: Dispatch<SetStateAction<AutoplayPhase>>;
   meetingliveKey: string | null;
   setMeetingliveKey: (key: string | null) => void;
-  councilSummaryActive: boolean;
-  onRegisterMeetingEnd: (handler: (() => void) | null) => void;
 }
 
 type IdleInactiveReason =
@@ -39,12 +34,8 @@ type IdleInactiveReason =
   | "no_idle_context";
 
 export default function AutoplayCoordinator({
-  autoplayPhase,
-  setAutoplayPhase,
   meetingliveKey,
   setMeetingliveKey,
-  councilSummaryActive,
-  onRegisterMeetingEnd,
 }: AutoplayCoordinatorProps): React.ReactElement | null {
   const { isMuseumMode } = useCouncilSettings();
   const location = useLocation();
@@ -52,6 +43,11 @@ export default function AutoplayCoordinator({
   const { i18n } = useTranslation();
   const { rootPath, meetingPath } = useRouting();
   const button = useButton("autoplay");
+
+  const phase = useAutoplayStore((state) => state.phase);
+  const councilOnSummary = useAutoplayStore((state) => state.councilOnSummary);
+  const summaryFinishedTick = useAutoplayStore((state) => state.summaryFinishedTick);
+  const setPhase = useAutoplayStore((state) => state.setPhase);
 
   const awaitingLoopRef = useRef(false);
   const [awaitingLoop, setAwaitingLoop] = useState(false);
@@ -75,18 +71,11 @@ export default function AutoplayCoordinator({
       return;
     }
     log.event("AUTOPLAY", "coordinator active", {
-      phase: autoplayPhase,
+      phase,
       pathname: location.pathname,
       thresholdMs: LANDING_SETUP_IDLE_MS,
     });
   }, [isMuseumMode]);
-
-  useEffect(() => {
-    if (!isMuseumMode) {
-      return;
-    }
-    log.event("AUTOPLAY", "phase change", { phase: autoplayPhase });
-  }, [autoplayPhase, isMuseumMode]);
 
   const enterAutoplay = useCallback(async () => {
     if (enterInFlightRef.current) {
@@ -95,7 +84,7 @@ export default function AutoplayCoordinator({
     }
     enterInFlightRef.current = true;
     log.event("AUTOPLAY", "enter started");
-    setAutoplayPhase("active");
+    setPhase("active");
     awaitingLoopRef.current = false;
     setAwaitingLoop(false);
     setMeetingliveKey(null);
@@ -109,7 +98,7 @@ export default function AutoplayCoordinator({
       log.event("AUTOPLAY", "enter navigated", { meetingId, language });
     } catch (error) {
       log.event("ERROR", "autoplay enter failed", error);
-      setAutoplayPhase("off");
+      setPhase("off");
       window.setTimeout(() => {
         enterInFlightRef.current = false;
       }, FETCH_RETRY_MS);
@@ -117,40 +106,38 @@ export default function AutoplayCoordinator({
     }
 
     enterInFlightRef.current = false;
-  }, [i18n.language, meetingPath, navigate, setAutoplayPhase, setMeetingliveKey]);
+  }, [i18n.language, meetingPath, navigate, setMeetingliveKey, setPhase]);
 
   const dismissWarning = useCallback(() => {
     log.event("AUTOPLAY", "warning dismissed", { via: "hardware_button" });
-    setAutoplayPhase("off");
+    setPhase("off");
     bumpAutoplayActivity("warning-dismissed");
-  }, [setAutoplayPhase]);
+  }, [setPhase]);
 
   const exitAutoplay = useCallback(() => {
     log.event("AUTOPLAY", "exit to landing", { via: "hardware_button" });
-    setAutoplayPhase("off");
+    setPhase("off");
     awaitingLoopRef.current = false;
     setAwaitingLoop(false);
     useMeetingSetupStore.getState().resetStore();
     window.location.href = rootPath;
-  }, [rootPath, setAutoplayPhase]);
+  }, [rootPath, setPhase]);
 
   const showWarning = useCallback(() => {
-    setAutoplayPhase((phase: AutoplayPhase) => {
-      if (phase !== "off") {
-        return phase;
-      }
-      log.event("AUTOPLAY", "warning shown");
-      bumpAutoplayActivity("warning-shown");
-      return "warning";
-    });
-  }, [setAutoplayPhase]);
+    if (useAutoplayStore.getState().phase !== "off") {
+      return;
+    }
+    log.event("AUTOPLAY", "warning shown");
+    bumpAutoplayActivity("warning-shown");
+    setPhase("warning");
+  }, [setPhase]);
 
   useEffect(() => {
     meetingEndHandledRef.current = false;
   }, [location.pathname]);
 
   const handleMeetingEnd = useCallback(() => {
-    if (autoplayPhase !== "active" || meetingEndHandledRef.current) {
+    if (phase !== "active" || meetingEndHandledRef.current) {
       return;
     }
     meetingEndHandledRef.current = true;
@@ -158,18 +145,20 @@ export default function AutoplayCoordinator({
     setAwaitingLoop(true);
     bumpAutoplayActivity("meeting-end");
     log.event("AUTOPLAY", "meeting end — loop idle started", { loopIdleMs: LOOP_IDLE_MS });
-  }, [autoplayPhase]);
+  }, [phase]);
 
   useEffect(() => {
-    onRegisterMeetingEnd(handleMeetingEnd);
-    return () => onRegisterMeetingEnd(null);
-  }, [handleMeetingEnd, onRegisterMeetingEnd]);
+    if (phase !== "active" || summaryFinishedTick === 0) {
+      return;
+    }
+    handleMeetingEnd();
+  }, [handleMeetingEnd, summaryFinishedTick, phase]);
 
   useEffect(() => {
     if (!isMuseumMode) {
       return;
     }
-    bumpAutoplayActivity("pathname-change");
+    bumpAutoplayActivity("pathname");
   }, [isMuseumMode, location.pathname]);
 
   useEffect(() => {
@@ -178,13 +167,13 @@ export default function AutoplayCoordinator({
     }
     return useButtonStore.subscribe((state, prevState) => {
       if (state.pressed && !prevState.pressed) {
-        bumpAutoplayActivity("hardware-button");
+        bumpAutoplayActivity("button-press");
       }
     });
   }, [isMuseumMode]);
 
   useEffect(() => {
-    if (!isMuseumMode || autoplayPhase === "off") {
+    if (!isMuseumMode || phase === "off") {
       return;
     }
 
@@ -194,7 +183,7 @@ export default function AutoplayCoordinator({
     return () => {
       button.release();
     };
-  }, [autoplayPhase, button.claim, button.release, button.setLed, isMuseumMode]);
+  }, [phase, button.claim, button.release, button.setLed, isMuseumMode]);
 
   useEffect(() => {
     if (!isMuseumMode) {
@@ -209,23 +198,23 @@ export default function AutoplayCoordinator({
       return;
     }
 
-    if (autoplayPhase === "warning") {
+    if (phase === "warning") {
       dismissWarning();
       return;
     }
 
-    if (autoplayPhase === "active") {
+    if (phase === "active") {
       exitAutoplay();
     }
-  }, [autoplayPhase, button.pressed, dismissWarning, exitAutoplay, isMuseumMode]);
+  }, [phase, button.pressed, dismissWarning, exitAutoplay, isMuseumMode]);
 
   useEffect(() => {
     if (!isMuseumMode) {
       logIdleInactive("not_museum");
       return;
     }
-    if (autoplayPhase !== "off") {
-      logIdleInactive("phase_not_off", { phase: autoplayPhase });
+    if (phase !== "off") {
+      logIdleInactive("phase_not_off", { phase });
       return;
     }
 
@@ -234,9 +223,9 @@ export default function AutoplayCoordinator({
     const onLanding = isRootPath(location.pathname);
     const onSummary =
       isMeetingPath(location.pathname) &&
-      councilSummaryActive &&
-      (!meetingliveKey || councilSummaryActive);
-    const liveMeetingPlaying = Boolean(meetingliveKey) && !councilSummaryActive;
+      councilOnSummary &&
+      (!meetingliveKey || councilOnSummary);
+    const liveMeetingPlaying = Boolean(meetingliveKey) && !councilOnSummary;
 
     if (location.hash === "#setup") {
       logIdleInactive("setup_hash");
@@ -270,7 +259,7 @@ export default function AutoplayCoordinator({
     }
 
     const timerId = window.setInterval(() => {
-      const elapsedMs = Date.now() - getAutoplayLastActivityMs();
+      const elapsedMs = Date.now() - useAutoplayStore.getState().lastActivityMs;
       const remainingMs = thresholdMs - elapsedMs;
       if (remainingMs <= 0) {
         log.event("AUTOPLAY", "idle threshold reached", {
@@ -292,19 +281,19 @@ export default function AutoplayCoordinator({
 
     return () => window.clearInterval(timerId);
   }, [
-    autoplayPhase,
-    councilSummaryActive,
+    councilOnSummary,
     isMuseumMode,
     location.hash,
     location.pathname,
     logIdleInactive,
     meetingliveKey,
+    phase,
     setupClaimed,
     showWarning,
   ]);
 
   useEffect(() => {
-    if (!isMuseumMode || autoplayPhase !== "active" || !awaitingLoop) {
+    if (!isMuseumMode || phase !== "active" || !awaitingLoop) {
       return;
     }
 
@@ -314,7 +303,7 @@ export default function AutoplayCoordinator({
       if (!awaitingLoopRef.current) {
         return;
       }
-      const elapsedMs = Date.now() - getAutoplayLastActivityMs();
+      const elapsedMs = Date.now() - useAutoplayStore.getState().lastActivityMs;
       if (elapsedMs < LOOP_IDLE_MS) {
         return;
       }
@@ -339,7 +328,7 @@ export default function AutoplayCoordinator({
     }, IDLE_POLL_MS);
 
     return () => window.clearInterval(timerId);
-  }, [autoplayPhase, awaitingLoop, i18n.language, isMuseumMode, meetingPath, navigate]);
+  }, [awaitingLoop, i18n.language, isMuseumMode, meetingPath, navigate, phase]);
 
   if (!isMuseumMode) {
     return null;
@@ -347,11 +336,12 @@ export default function AutoplayCoordinator({
 
   return (
     <>
-      {autoplayPhase === "warning" && (
-        <Overlay isActive={true} isBlurred={true}>
+      {phase === "warning" && (
+        <Overlay isActive={true} isBlurred={true} zIndex={AUTOPLAY_WARNING_Z_INDEX}>
           <AutoplayWarning
             onConfirm={() => {
               log.event("AUTOPLAY", "warning confirmed", { via: "ui_button_or_timeout" });
+              bumpAutoplayActivity("warning-confirm");
               void enterAutoplay();
             }}
           />
