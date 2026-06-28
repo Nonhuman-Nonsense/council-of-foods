@@ -16,11 +16,11 @@ vi.mock('@council/overlays/Name', () => ({
     )
 }));
 vi.mock('@council/overlays/QueryExtension', () => ({
-    default: ({ onContinue, onWrapItUp }: { onContinue: () => void; onWrapItUp: () => void }) => (
+    default: ({ onExtendMeeting, onConcludeMeeting }: { onExtendMeeting: () => void; onConcludeMeeting: () => void }) => (
         <div data-testid="query-extension-overlay">
             Query Extension Overlay
-            <button onClick={() => onContinue()}>Continue</button>
-            <button onClick={() => onWrapItUp()}>Wrap Up</button>
+            <button onClick={() => onExtendMeeting()}>Extend</button>
+            <button onClick={() => onConcludeMeeting()}>Conclude</button>
         </div>
     )
 }));
@@ -34,9 +34,9 @@ vi.mock('@main/overlay/OverlayWrapper', () => ({
 }));
 
 describe('CouncilOverlays', () => {
-    const mockOnContinue = vi.fn();
+    const mockOnExtendMeeting = vi.fn();
     const mockOnAttemptResume = vi.fn();
-    const mockOnWrapItUp = vi.fn();
+    const mockOnConcludeMeeting = vi.fn();
     const mockProceedWithHumanName = vi.fn();
     const mockcancelOverlay = vi.fn();
     const mockSummary = { text: 'Test Summary Content' };
@@ -51,9 +51,9 @@ describe('CouncilOverlays', () => {
 
     const defaultProps = {
         activeOverlay: null as CouncilOverlayType,
-        onContinue: mockOnContinue,
         onAttemptResume: mockOnAttemptResume,
-        onWrapItUp: mockOnWrapItUp,
+        onExtendMeeting: mockOnExtendMeeting,
+        onConcludeMeeting: mockOnConcludeMeeting,
         proceedWithHumanName: mockProceedWithHumanName,
         cancelOverlay: mockcancelOverlay,
         summary: mockSummary,
@@ -67,12 +67,7 @@ describe('CouncilOverlays', () => {
 
     it('renders nothing when activeOverlay is null', () => {
         render(<CouncilOverlays {...defaultProps} activeOverlay={null} />);
-        expect(screen.queryByTestId('overlay-wrapper')).toBeInTheDocument(); // Wrapper always renders if parent calls it, but content is null?
-        // Wait, current logic: OverlayWrapper wraps the content.
-        // If content is null, OverlayWrapper still renders children=null.
-        // Let's check implementation: 
-        // return <OverlayWrapper>{renderOverlayContent()}</OverlayWrapper>
-        // So yes, wrapper is rendered.
+        expect(screen.queryByTestId('overlay-wrapper')).toBeInTheDocument();
         expect(screen.queryByTestId('name-overlay')).not.toBeInTheDocument();
         expect(screen.queryByTestId('query-extension-overlay')).not.toBeInTheDocument();
         expect(screen.queryByTestId('summary-overlay')).not.toBeInTheDocument();
@@ -101,10 +96,10 @@ describe('CouncilOverlays', () => {
 
     it('passes callbacks correctly to QueryExtension overlay', () => {
         render(<CouncilOverlays {...defaultProps} activeOverlay="query_extension" />);
-        screen.getByText('Continue').click();
-        expect(mockOnContinue).toHaveBeenCalled();
+        screen.getByText('Extend').click();
+        expect(mockOnExtendMeeting).toHaveBeenCalled();
 
-        screen.getByText('Wrap Up').click();
-        expect(mockOnWrapItUp).toHaveBeenCalled();
+        screen.getByText('Conclude').click();
+        expect(mockOnConcludeMeeting).toHaveBeenCalled();
     });
 });

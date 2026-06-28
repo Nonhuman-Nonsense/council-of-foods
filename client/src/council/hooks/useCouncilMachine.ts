@@ -538,21 +538,21 @@ export function useCouncilMachine({
         }
     }
 
-    function handleOnContinueMeetingLonger() {
+    function handleOnExtendMeeting() {
         const queryExtensionIndex = textMessages.findIndex((m) => m.type === 'query_extension');
         setTextMessages(prevMessages => prevMessages.slice(0, queryExtensionIndex));
         setActiveOverlay(null);
         setPaused(false);
-        if (socketRef.current) socketRef.current.emit("continue_conversation");
+        if (socketRef.current) socketRef.current.emit("extend_meeting");
         setCouncilState('loading');
     }
 
-    function handleOnGenerateSummary() {
+    function handleOnConcludeMeeting() {
         const queryExtensionIndex = textMessages.findIndex((m) => m.type === 'query_extension');
         setTextMessages(prevMessages => prevMessages.slice(0, queryExtensionIndex));
         setActiveOverlay(null);
         const browserDate = new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
-        if (socketRef.current) socketRef.current.emit("wrap_up_meeting", { date: browserDate });
+        if (socketRef.current) socketRef.current.emit("conclude_meeting", { date: browserDate });
         setCouncilState('loading');
     }
 
@@ -752,9 +752,9 @@ export function useCouncilMachine({
             handleOnSkipForward,
             handleOnSubmitHumanMessage,
             handleOnAbandonHumanTurn,
-            handleOnContinueMeetingLonger,
+            handleOnExtendMeeting,
             handleOnAttemptResume,
-            handleOnGenerateSummary,
+            handleOnConcludeMeeting,
             handleHumanNameEntered,
             handleOnRaiseHand,
             cancelOverlay,

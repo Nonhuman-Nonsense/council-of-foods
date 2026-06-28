@@ -43,8 +43,8 @@ Initial names (PR 3); renamed in **PR 2**:
 
 | PR 3 name | PR 2 name | Client handler today |
 |-----------|-----------|----------------------|
-| `extend_meeting` | `continue_more` (TBD exact slug) | `handleOnContinueMeetingLonger` → `continue_conversation` |
-| `conclude_meeting` | `wrap_up` / `wrap_up_meeting` (TBD) | `handleOnGenerateSummary` → `wrap_up_meeting` |
+| `extend_meeting` | `extend_meeting` | `handleOnExtendMeeting` → `extend_meeting` |
+| `conclude_meeting` | `conclude_meeting` | `handleOnConcludeMeeting` → `conclude_meeting` |
 
 Conclude mode exposes **only these two** tools (no `continue_meeting`, no `restart_meeting`). Interruption mode keeps today’s `continue_meeting` + `restart_meeting`.
 
@@ -123,7 +123,7 @@ if (conversation.length >= veryMax || conversation.length >= currentCap) {
 | Decision | Behaviour |
 |----------|-----------|
 | `QUERY_EXTENSION` | Push `{ type: 'query_extension' }`, persist, `broadcastConversationUpdate`, `broadcastConversationEnd`, loop stops |
-| `CONCLUDE_MEETING` | Server date → `handleWrapUpMeeting({ date })`, no `query_extension`, no `conversation_end`, loop stops |
+| `CONCLUDE_MEETING` | Server date → `handleConcludeMeeting({ date })`, no `query_extension`, no `conversation_end`, loop stops |
 
 **`runLoop()`:** treat `QUERY_EXTENSION` and `CONCLUDE_MEETING` like today's `END_CONVERSATION` (set `isLoopActive = false` before/after `processTurn`, then return).
 
@@ -135,7 +135,7 @@ if (conversation.length >= veryMax || conversation.length >= currentCap) {
 
 **2. `MeetingManager.processTurn`** — two cases instead of one branched `END_CONVERSATION`.
 
-**3. `MeetingLifecycleHandler.handleWrapUpMeeting`** — relax `query_extension` requirement (see below).
+**3. `MeetingLifecycleHandler.handleConcludeMeeting`** — relax `query_extension` requirement (see below).
 
 
 Today it **throws** if no `query_extension` sentinel (lines 61–64). Change to:
@@ -148,10 +148,10 @@ if (mr !== -1) {
   // hard-cap auto path: conversation already ends on last real turn
   log optional: "wrap up without query_extension sentinel (hard cap)"
 }
-// then existing summary generation (finalizeMeetingPrompt, chairInterjection, push summary, TTS)
+// then existing summary generation (summarizeMeetingPrompt, chairInterjection, push summary, TTS)
 ```
 
-Socket-initiated `wrap_up_meeting` from the Completed overlay still works: client trims locally, emits wrap-up; server still finds `query_extension` if present, strips it, appends summary.
+Socket-initiated `conclude_meeting` from the Completed overlay still works: client trims locally, emits wrap-up; server still finds `query_extension` if present, strips it, appends summary.
 
 **3. No new socket events or GlobalOptions** for PR 0 (PR 1 adds chair closing line later).
 
@@ -194,7 +194,7 @@ Mock `dialogGenerator.chairInterjection` in the hard-cap integration test (same 
 #### Risk notes
 
 - **Date in summary prompt:** auto path uses server UTC date; manual path uses client browser date. Acceptable for PR 0; document if installs care about local date.
-- **Wrap-up duration:** summary generation runs inside `processTurn` while loop is already marked inactive — same as socket `wrap_up_meeting`; no `startLoop` after.
+- **Wrap-up duration:** summary generation runs inside `processTurn` while loop is already marked inactive — same as socket `conclude_meeting`; no `startLoop` after.
 - **Reconnection:** if client reconnects mid-summary-generation, existing reconnection + conversation replay should show partial conversation then summary when broadcast arrives.
 
 **No meta-agent changes.**
@@ -209,8 +209,8 @@ Mock `dialogGenerator.chairInterjection` in the hard-cap integration test (same 
 
 **Server:**
 
-- New prompt in `server/global-options.json` (e.g. `concludeMeetingPrompt` + `concludeMeetingLength`), distinct from `finalizeMeetingPrompt`.
-- `handleWrapUpMeeting`: after stripping `query_extension`, generate chair **closing statement** (`type: 'message'` or dedicated type if needed), push + TTS, **then** generate summary as today.
+- New prompt in `server/global-options.json` (e.g. `concludeMeetingPrompt` + `concludeMeetingLength`), distinct from `summarizeMeetingPrompt`.
+- `handleConcludeMeeting`: after stripping `query_extension`, generate chair **closing statement** (`type: 'message'` or dedicated type if needed), push + TTS, **then** generate summary as today.
 
 **Client:** Playback flows through closing statement → summary (existing state machine).
 
@@ -220,16 +220,17 @@ Mock `dialogGenerator.chairInterjection` in the hard-cap integration test (same 
 
 ---
 
-### PR 2 — Rename conclude/extend vocabulary
+### PR 2 — Rename extend/conclude vocabulary
+
+**Status:** Implemented.
 
 **Goal:** Clearer names for humans and for a future agent.
 
-| Old | New (direction) |
-|-----|-----------------|
-| `extend_meeting` / `handleOnContinueMeetingLonger` | `continue_more` (tool + logs; socket stays `continue_conversation`) |
-| `conclude_meeting` / `handleOnGenerateSummary` | `wrap_up` / `wrap_up_meeting` (tool; socket stays `wrap_up_meeting`) |
-
-Rename client actions, meta-agent tool slugs (when added), prompts, and tests. Socket API unchanged.
+| Area | Standard |
+|------|----------|
+| Extend | `extend_meeting` socket, `handleExtendMeeting`, `handleOnExtendMeeting` |
+| Conclude | `conclude_meeting` socket, `handleConcludeMeeting`, `handleOnConcludeMeeting` |
+| Summarize | `summarizeMeetingPrompt` / `summarizeMeetingLength`, private `summarizeMeeting()` |
 
 ---
 
@@ -283,7 +284,7 @@ Soft cap hit (canContinue: true)
                 → chair speaks first
   Visitor PTT dialogue
                 → extend_meeting OR conclude_meeting
-  extend → trim query_extension, continue_conversation, meta agent off, council resumes
+  extend → trim query_extension, extend_meeting, meta agent off, council resumes
   conclude → wrap_up path (PR 1: chair line + summary)
 
 Hard cap (canContinue: false) — PR 0
@@ -298,7 +299,7 @@ Hard cap (canContinue: false) — PR 0
 | # | Question | Default recommendation |
 |---|----------|------------------------|
 | 1 | Conclude idle timeout duration | Same as interruption remind + 10s auto-action (`BUTTON_IDLE_REMIND_MS` + 10s) |
-| 2 | Exact PR 2 tool slugs | `continue_more`, `wrap_up_meeting` |
+| 2 | Exact PR 2 tool slugs | `continue_more`, `conclude_meeting` |
 | 3 | After `extend_meeting`, reset `metaAgentMode` to `interruption` + `reconfigureSession` immediately | Yes |
 | 4 | `notifyAutoplay` on conclude activate | Yes — treat as visitor activity |
 | 5 | Separate JSON file for conclude prompt vs section in `meta_agent_*.json` | Section first; split if prompt grows |

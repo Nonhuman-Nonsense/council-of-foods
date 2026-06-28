@@ -25,8 +25,8 @@ describe('Summary Markdown Handling', () => {
             serverOptions: MockFactory.createServerOptions({
                 concludeMeetingPrompt: { en: 'Closing' },
                 concludeMeetingLength: 50,
-                finalizeMeetingPrompt: { en: 'Prompt [DATE]' },
-                finalizeMeetingLength: 100
+                summarizeMeetingPrompt: { en: 'Prompt [DATE]' },
+                summarizeMeetingLength: 100
             }),
             broadcaster: {
                 broadcastConversationUpdate: vi.fn()
@@ -53,7 +53,7 @@ describe('Summary Markdown Handling', () => {
 
         const handler = new MeetingLifecycleHandler(mockManager as any);
 
-        await handler.handleWrapUpMeeting({ date: '2023-01-01' } as any);
+        await handler.handleConcludeMeeting({ date: '2023-01-01' } as any);
 
         expect(mockManager.meeting.conversation.length).toBe(3);
         expect(mockManager.meeting.conversation[0].text).toBe('prior');

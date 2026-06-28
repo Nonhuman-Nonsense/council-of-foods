@@ -23,8 +23,8 @@ describe('MeetingLifecycleHandler', () => {
             extraMessageCount: 5,
             concludeMeetingPrompt: { en: 'Closing [DATE]' },
             concludeMeetingLength: 10,
-            finalizeMeetingPrompt: { en: 'Summary [DATE]' },
-            finalizeMeetingLength: 10,
+            summarizeMeetingPrompt: { en: 'Summary [DATE]' },
+            summarizeMeetingLength: 10,
             conversationMaxLength: 10
         });
 
@@ -113,7 +113,7 @@ describe('MeetingLifecycleHandler', () => {
         });
     });
 
-    describe('handleWrapUpMeeting', () => {
+    describe('handleConcludeMeeting', () => {
         it('should update DB after summary', async () => {
             mockContext.meeting = storedMeeting({
                 conversation: [
@@ -122,7 +122,7 @@ describe('MeetingLifecycleHandler', () => {
                 ],
             });
 
-            await handler.handleWrapUpMeeting({ date: '2025-01-01' });
+            await handler.handleConcludeMeeting({ date: '2025-01-01' });
 
             expect(mockMeetingsCollection.updateOne).toHaveBeenCalled();
         });
@@ -135,7 +135,7 @@ describe('MeetingLifecycleHandler', () => {
                 ]
             });
 
-            await handler.handleWrapUpMeeting({ date: '2025-01-01' });
+            await handler.handleConcludeMeeting({ date: '2025-01-01' });
 
             expect(mockContext.meeting.conversation.map((m) => m.type)).toEqual(['message', 'message', 'summary']);
             expect(mockContext.meeting.conversation[1].text).toBe('Thank you all for a rich discussion.');
@@ -152,14 +152,14 @@ describe('MeetingLifecycleHandler', () => {
                 conversation: [{ id: '1', text: 'hi', type: 'message', speaker: chair.id }],
             });
 
-            const wrapUp = handler.handleWrapUpMeeting({ date: '2025-01-01' });
+            const concludeMeeting = handler.handleConcludeMeeting({ date: '2025-01-01' });
             await Promise.resolve();
 
             expect(mockContext.meeting.conversation.map((m) => m.type)).toEqual(['message', 'message']);
             expect(mockBroadcaster.broadcastConversationUpdate).toHaveBeenCalledTimes(1);
 
             finishSummary();
-            await wrapUp;
+            await concludeMeeting;
 
             expect(mockContext.meeting.conversation.map((m) => m.type)).toEqual(['message', 'message', 'summary']);
             expect(mockBroadcaster.broadcastConversationUpdate).toHaveBeenCalledTimes(2);
@@ -170,17 +170,17 @@ describe('MeetingLifecycleHandler', () => {
                 conversation: [{ id: '1', text: 'hi', type: 'message', speaker: chair.id }],
             });
 
-            await handler.handleWrapUpMeeting({ date: '2025-01-01' });
+            await handler.handleConcludeMeeting({ date: '2025-01-01' });
 
             expect(mockContext.meeting.conversation.map((m) => m.type)).toEqual(['message', 'message', 'summary']);
         });
 
-        it('calls chairInterjection with conclude then finalize prompts', async () => {
+        it('calls chairInterjection with conclude then summarize prompts', async () => {
             mockContext.meeting = storedMeeting({
                 conversation: [{ id: '1', text: 'hi', type: 'message', speaker: chair.id }],
             });
 
-            await handler.handleWrapUpMeeting({ date: '2025-01-01' });
+            await handler.handleConcludeMeeting({ date: '2025-01-01' });
 
             expect(mockContext.dialogGenerator.chairInterjection).toHaveBeenCalledTimes(2);
             expect(mockContext.dialogGenerator.chairInterjection.mock.calls[0][0]).toBe('Closing [DATE]');
@@ -190,7 +190,7 @@ describe('MeetingLifecycleHandler', () => {
         });
     });
 
-    describe('handleContinueConversation', () => {
+    describe('handleExtendMeeting', () => {
         it('should resume loop when meeting is at query_extension', async () => {
             mockContext.meeting = storedMeeting({
                 conversation: [
@@ -198,7 +198,7 @@ describe('MeetingLifecycleHandler', () => {
                     { type: 'query_extension' },
                 ],
             });
-            await handler.handleContinueConversation();
+            await handler.handleExtendMeeting();
             expect(mockContext.startLoop).toHaveBeenCalled();
         });
 
@@ -206,8 +206,8 @@ describe('MeetingLifecycleHandler', () => {
             mockContext.meeting = storedMeeting({
                 conversation: [{ id: 'a', type: 'message', text: 'x', speaker: chair.id }],
             });
-            await expect(handler.handleContinueConversation()).rejects.toThrow(
-                'Attempted to continue meeting but not at query_extension sentinel',
+            await expect(handler.handleExtendMeeting()).rejects.toThrow(
+                'Attempted to extend meeting but not at query_extension sentinel',
             );
         });
 
@@ -220,7 +220,7 @@ describe('MeetingLifecycleHandler', () => {
             });
             mockMeetingsCollection.updateOne.mockResolvedValue({ matchedCount: 1, modifiedCount: 1 });
 
-            await handler.handleContinueConversation();
+            await handler.handleExtendMeeting();
 
             expect(mockContext.meeting.conversation.map((m) => m.type)).toEqual(['message']);
             expect(mockContext.meeting.conversationExtraSlots).toBe(5);

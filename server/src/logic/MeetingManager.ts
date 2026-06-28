@@ -28,7 +28,7 @@ import {
     HandRaisedOptionsSchema,
     ReconnectionOptionsSchema,
     ReportMaximumPlayedIndexSchema,
-    WrapUpMessageSchema
+    ConcludeMeetingMessageSchema
 } from "@models/ValidationSchemas.js";
 import { socketHoldsLiveSession } from "@logic/liveSessionRegistry.js";
 
@@ -159,14 +159,14 @@ export class MeetingManager implements IMeetingManager {
                     this.handRaisingHandler.handleRaiseHand(HandRaisedOptionsSchema.parse(payload))
                 );
                 break;
-            case "wrap_up_meeting":
+            case "conclude_meeting":
                 await this.withConversationTransition(() =>
-                    this.meetingLifecycleHandler.handleWrapUpMeeting(WrapUpMessageSchema.parse(payload))
+                    this.meetingLifecycleHandler.handleConcludeMeeting(ConcludeMeetingMessageSchema.parse(payload))
                 );
                 break;
-            case "continue_conversation":
+            case "extend_meeting":
                 await this.withConversationTransition(() =>
-                    this.meetingLifecycleHandler.handleContinueConversation()
+                    this.meetingLifecycleHandler.handleExtendMeeting()
                 );
                 break;
             case "report_maximum_played_index":
@@ -288,7 +288,7 @@ export class MeetingManager implements IMeetingManager {
             // If we waited until after processTurn, startLoop() would think the loop is 
             // still running and return early, failing to restart the conversation.
             //
-            // We still proceed to processTurn below so cap handlers can broadcast or wrap up.
+            // We still proceed to processTurn below so cap handlers can broadcast or conclude.
             if (stopsConversationLoop(action)) {
                 this.isLoopActive = false;
             }
@@ -401,9 +401,9 @@ export class MeetingManager implements IMeetingManager {
             }
 
             case 'CONCLUDE_MEETING': {
-                Logger.info(`meeting ${meeting._id}`, 'hard cap reached, auto wrap up');
+                Logger.info(`meeting ${meeting._id}`, 'hard cap reached, auto conclude meeting');
                 const date = new Date().toISOString().slice(0, 10);
-                await this.meetingLifecycleHandler.handleWrapUpMeeting({ date });
+                await this.meetingLifecycleHandler.handleConcludeMeeting({ date });
                 return;
             }
 

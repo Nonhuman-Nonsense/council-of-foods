@@ -136,8 +136,8 @@
     "title": "Is that it?",
     "1": "This meeting is starting to get long-winded,",
     "2": "is it time to come to a conclusion?",
-    "3": "Yes, let's wrap it up!",
-    "4": "No, continue a bit more."
+    "3": "Yes, let's conclude the meeting!",
+    "4": "No, extend the meeting a bit more."
   },
   "incomplete": {
     "title": "Meeting Unfinished",

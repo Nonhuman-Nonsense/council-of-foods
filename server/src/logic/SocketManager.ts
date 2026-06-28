@@ -74,9 +74,9 @@ export class SocketManager {
             "submit_human_panelist",
             "skip_human_turn",
             "raise_hand",
-            "wrap_up_meeting",
+            "conclude_meeting",
             "report_maximum_played_index",
-            "continue_conversation"
+            "extend_meeting"
         ];
 
         if (this.environment === "prototype" || this.environment === "test") {

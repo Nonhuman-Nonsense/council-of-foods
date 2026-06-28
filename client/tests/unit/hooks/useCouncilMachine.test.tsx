@@ -208,7 +208,7 @@ describe('useCouncilMachine', () => {
         expect(result.current.state.activeOverlay).toBe('query_extension');
     });
 
-    it('handleOnContinueMeetingLonger drops query_extension locally and emits continue_conversation', () => {
+    it('handleOnExtendMeeting drops query_extension locally and emits extend_meeting', () => {
         const { result } = renderHook(() => useCouncilMachine(defaultProps as any));
         mockSocketEmit.mockClear();
         act(() => {
@@ -220,14 +220,14 @@ describe('useCouncilMachine', () => {
             }
         });
         act(() => {
-            result.current.actions.handleOnContinueMeetingLonger();
+            result.current.actions.handleOnExtendMeeting();
         });
         expect(result.current.state.textMessages.map((m) => m.type)).toEqual(['message']);
-        expect(mockSocketEmit).toHaveBeenCalledWith('continue_conversation');
+        expect(mockSocketEmit).toHaveBeenCalledWith('extend_meeting');
         expect(result.current.state.councilState).toBe('loading');
     });
 
-    it('handleOnGenerateSummary drops query_extension locally and emits wrap_up_meeting', () => {
+    it('handleOnConcludeMeeting drops query_extension locally and emits conclude_meeting', () => {
         const { result } = renderHook(() => useCouncilMachine(defaultProps as any));
         mockSocketEmit.mockClear();
         act(() => {
@@ -239,11 +239,11 @@ describe('useCouncilMachine', () => {
             }
         });
         act(() => {
-            result.current.actions.handleOnGenerateSummary();
+            result.current.actions.handleOnConcludeMeeting();
         });
         expect(result.current.state.textMessages.map((m) => m.type)).toEqual(['message']);
         expect(mockSocketEmit).toHaveBeenCalledWith(
-            'wrap_up_meeting',
+            'conclude_meeting',
             expect.objectContaining({ date: expect.any(String) }),
         );
         expect(result.current.state.councilState).toBe('loading');

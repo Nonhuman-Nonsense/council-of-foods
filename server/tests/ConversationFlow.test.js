@@ -242,7 +242,7 @@ describe('MeetingManager - Conversation Flow', () => {
         expect(manager.meeting.conversation[1].speaker).toBe('panelist0');
     });
 
-    it('should successfully wrap up meeting without ReferenceError (Regression Test)', async () => {
+    it('should successfully conclude meeting without ReferenceError (Regression Test)', async () => {
         // Setup mock OpenAI with audio capability
         const mockOpenAI = {
             chat: {
@@ -277,7 +277,7 @@ describe('MeetingManager - Conversation Flow', () => {
             { type: 'query_extension' },
         ];
 
-        await diManager.meetingLifecycleHandler.handleWrapUpMeeting({ date: "2024-01-01" });
+        await diManager.meetingLifecycleHandler.handleConcludeMeeting({ date: "2024-01-01" });
 
         // Verify audio generation was attempted regardless of the chair's current voice provider.
         if (!diManager.serverOptions.skipAudio) {
@@ -286,7 +286,7 @@ describe('MeetingManager - Conversation Flow', () => {
         }
     });
 
-    it('should extend meeting on continue_conversation', async () => {
+    it('should extend meeting on extend_meeting', async () => {
         const { manager } = createTestManager('test', { ...setupTestOptions(), extraMessageCount: 5 });
         manager.serverOptions.conversationMaxLength = 5;
         manager.meeting.conversationExtraSlots = 0;
@@ -296,7 +296,7 @@ describe('MeetingManager - Conversation Flow', () => {
         const loopSpy = vi.spyOn(manager, 'startLoop');
 
         // Trigger continue
-        await manager.handleEvent('continue_conversation', null);
+        await manager.handleEvent('extend_meeting', null);
 
         expect(manager.meeting.conversationExtraSlots).toBe(5);
         expect(manager.meeting.conversation.map((m) => m.type)).toEqual([

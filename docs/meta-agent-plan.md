@@ -234,7 +234,7 @@ Same `RealtimeTool` / `ToolHandler` / `ToolResult` shapes as `guideTools.ts`.
 | `resume_meeting` | implement | `setMicEnabled(false)`; `setPaused(false)`; `setMetaAgentActive(false)` → `{ ok: true }` |
 | `restart_meeting` | implement | navigate to `rootPath` (`/`) → `{ ok: true }` |
 | `continue_meeting` | placeholder | `{ ok: false, error: "Not available yet" }` |
-| `wrap_up_meeting` | placeholder | `{ ok: false, error: "Not available yet" }` |
+| `conclude_meeting` | placeholder | `{ ok: false, error: "Not available yet" }` |
 
 `explain_whats_happening` is prompt-only (the agent uses the activate snapshot).
 No `pause_meeting` (pause is implicit on press), `dismiss_overlay`,

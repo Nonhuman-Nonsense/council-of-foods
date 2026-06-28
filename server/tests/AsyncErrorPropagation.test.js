@@ -21,9 +21,9 @@ vi.mock('@utils/Logger.js', () => ({
 const mockHumanInputHandler = { handleSubmitHumanMessage: vi.fn(), handleSubmitHumanPanelist: vi.fn(), handleSubmitInjection: vi.fn(), handleSkipHumanTurn: vi.fn() };
 const mockHandRaisingHandler = { handleRaiseHand: vi.fn() };
 const mockMeetingLifecycleHandler = {
-    handleWrapUpMeeting: vi.fn(),
+    handleConcludeMeeting: vi.fn(),
     handleStartConversation: vi.fn(),
-    handleContinueConversation: vi.fn(),
+    handleExtendMeeting: vi.fn(),
     handlePauseConversation: vi.fn(),
     handleResumeConversation: vi.fn(),
     handleRemoveLastMessage: vi.fn()
@@ -118,9 +118,9 @@ describe('Async Error Propagation (Comprehensive)', () => {
             payload: { index: 0, humanName: 'Tester' }
         },
         {
-            event: 'wrap_up_meeting',
+            event: 'conclude_meeting',
             mockObj: mockMeetingLifecycleHandler,
-            method: 'handleWrapUpMeeting',
+            method: 'handleConcludeMeeting',
             payload: { date: '2023-10-27' }
         },
         {
@@ -141,9 +141,9 @@ describe('Async Error Propagation (Comprehensive)', () => {
         // Skipping disconnect test for 500 broadcast.
 
         {
-            event: 'continue_conversation',
+            event: 'extend_meeting',
             mockObj: mockMeetingLifecycleHandler,
-            method: 'handleContinueConversation',
+            method: 'handleExtendMeeting',
             payload: null
         }
     ];

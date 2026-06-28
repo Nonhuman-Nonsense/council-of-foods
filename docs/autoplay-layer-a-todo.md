@@ -11,7 +11,7 @@ Layer B ([`autoplay-plan.md`](./autoplay-plan.md)) handles leaving interactive m
 ## Principles
 
 - Do **not** trigger autoplay from these cases — only unstick the current live meeting.
-- Prefer existing actions (`handleOnSubmitHumanMessage`, `handleOnGenerateSummary`, `handleHumanNameEntered`) over new server APIs where possible — **exception:** human abandonment uses `skip_human_turn`.
+- Prefer existing actions (`handleOnSubmitHumanMessage`, `handleOnConcludeMeeting`, `handleHumanNameEntered`) over new server APIs where possible — **exception:** human abandonment uses `skip_human_turn`.
 - Museum-only gates (`isMuseumMode`) unless noted otherwise.
 - Timings can be hardcoded next to the component that owns the behaviour (no `global-options` unless we later want install tuning).
 
@@ -42,7 +42,7 @@ Phased on **`foods-leo`**:
 |----|------|
 | **0** | Server auto-wrap when hard cap — no `query_extension`, no overlay |
 | **1** | Chair closing statement before summary (`global-options` prompt) |
-| **2** | Rename extend/conclude vocabulary (`continue_more`, `wrap_up_meeting`, …) |
+| **2** | Rename extend/conclude vocabulary — **done** (`extend_meeting`, `conclude_meeting`, `summarizeMeeting*`) |
 | **3** | Meta-agent `conclude` mode: `reconfigureSession`, two tools, museum fork at `query_extension` |
 
 Full spec: [`meeting-conclude-plan.md`](./meeting-conclude-plan.md).

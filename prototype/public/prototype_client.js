@@ -254,7 +254,7 @@ createApp({
       return n > 0 ? n - 1 : -1;
     },
 
-    /** Conversation ended at soft cap — `continue_conversation` is available. */
+    /** Conversation ended at soft cap — `extend_meeting` is available. */
     hasQueryExtension() {
       const last = this.conversation[this.conversation.length - 1];
       return !!(last && last.type === 'query_extension');
@@ -1485,7 +1485,7 @@ createApp({
         }
       }
       this.log('SOCKET_OUT', 'Continuing Conversation');
-      this.socket.emit("continue_conversation");
+      this.socket.emit("extend_meeting");
     },
 
     removeLastMessage() {
