@@ -22,15 +22,17 @@ Layer B ([`autoplay-plan.md`](./autoplay-plan.md)) handles leaving interactive m
 | Item | Status |
 |------|--------|
 | Human input / panelist abandonment | **Done** |
-| Meeting conclude PR 0 (`CONCLUDE_MEETING`) | **Done** — see [meeting-conclude-plan.md](./meeting-conclude-plan.md) |
-| Meeting conclude PR 1–3 (chair line, rename, meta-agent) | **Planned** |
+| Meeting conclude PR 0 (`CONCLUDE_MEETING`) | **Done** |
+| Meeting conclude PR 1 (chair closing line) | **Done** |
+| Meeting conclude PR 2 (vocabulary rename) | **Done** — merged to forest-leo |
+| Meeting conclude PR 3 (meta-agent conclude) | **Next** — foods-leo |
 | `Reconnecting` overlay 2 min restart | **Done** |
-| Meta-agent interruption idle | **Done** — auto-`continue_meeting` after remind |
+| Meta-agent interruption idle | **Done** — auto-`resume_meeting` after remind |
 | Voice guide stuck mid-setup | **N/A** — `AutoplayCoordinator` (Layer B) |
 | `Name` overlay | **N/A** — never shown in museum |
 | `Incomplete` overlay | **N/A** — autoplay only plays completed meetings |
 | Hash overlays | **N/A** — hidden in museum |
-| `Completed` overlay 45s auto-wrap | **Superseded** — conclude agent + PR 0 auto-wrap |
+| `QueryExtension` overlay 45s auto-conclude | **Superseded** — PR 0 hard cap + PR 3 museum agent |
 
 ---
 
@@ -38,12 +40,12 @@ Layer B ([`autoplay-plan.md`](./autoplay-plan.md)) handles leaving interactive m
 
 Phased on **`foods-leo`**:
 
-| PR | What |
-|----|------|
-| **0** | Server auto-wrap when hard cap — no `query_extension`, no overlay |
-| **1** | Chair closing statement before summary (`global-options` prompt) |
-| **2** | Rename extend/conclude vocabulary — **done** (`extend_meeting`, `conclude_meeting`, `summarizeMeeting*`) |
-| **3** | Meta-agent `conclude` mode: `reconfigureSession`, two tools, museum fork at `query_extension` |
+| PR | What | Status |
+|----|------|--------|
+| **0** | Server auto-conclude when hard cap — no `query_extension`, no overlay | **Done** |
+| **1** | Chair closing statement before summary (`concludeMeetingPrompt`) | **Done** |
+| **2** | Rename extend/conclude/summarize vocabulary | **Done** (forest merged) |
+| **3** | Meta-agent `conclude` mode: `reconfigureSession`, two tools, museum fork at `query_extension` | **Next** |
 
 Full spec: [`meeting-conclude-plan.md`](./meeting-conclude-plan.md).
 
@@ -61,7 +63,7 @@ After **2 minutes** in museum mode, `window.location.href = rootPath`. **File:**
 
 ### Meta-agent interruption idle
 
-Auto-`continue_meeting` ~10s after idle remind. **Done.**
+Auto-`resume_meeting` ~10s after idle remind. **Done.**
 
 ---
 
