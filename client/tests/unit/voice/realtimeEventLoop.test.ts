@@ -238,6 +238,8 @@ describe("realtimeEventLoop", () => {
             appendDelta: vi.fn(),
             finalize: vi.fn(),
             cancel: vi.fn(),
+            setAudioAnchor: vi.fn(),
+            setSpeed: vi.fn(),
         };
 
         const loop = createEventLoop({
