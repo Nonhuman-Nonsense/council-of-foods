@@ -12,6 +12,8 @@ describe('MeetingManager conversation transitions', () => {
         const { manager } = createTestManager('test');
         tryAcquireLiveSession(manager.meeting._id, manager.socket.id, manager.meeting.liveKey);
         manager.serverOptions.conversationMaxLength = 3;
+        manager.serverOptions.concludeMeetingPrompt = { en: 'Closing' };
+        manager.serverOptions.concludeMeetingLength = 10;
         manager.serverOptions.finalizeMeetingPrompt = { en: 'Summary [DATE]' };
         manager.serverOptions.finalizeMeetingLength = 10;
         manager.meeting.conversationExtraSlots = 0;
@@ -20,18 +22,22 @@ describe('MeetingManager conversation transitions', () => {
             ...TestFactory.createConversation(3),
             { type: 'query_extension' },
         ];
-        manager.dialogGenerator.chairInterjection = vi.fn().mockReturnValue(
-            new Promise((resolve) => {
+        manager.dialogGenerator.chairInterjection = vi.fn()
+            .mockResolvedValueOnce({ response: 'Closing line', id: 'close1' })
+            .mockReturnValueOnce(new Promise((resolve) => {
                 finishSummary = () => resolve({ response: 'Summary', id: 'sum1' });
-            })
-        );
+            }));
         manager.audioSystem.generateAudio = vi.fn().mockResolvedValue();
+        manager.audioSystem.queueAudioGeneration = vi.fn();
         const runLoop = vi.spyOn(manager, 'runLoop').mockImplementation(() => {});
 
         const wrapEvent = manager.handleEvent('wrap_up_meeting', { date: '2025-01-01' });
-        await Promise.resolve();
 
-        expect(manager.meeting.conversation.map((message) => message.type)).toEqual(['message', 'message', 'message']);
+        await vi.waitFor(() => {
+            expect(manager.meeting.conversation.map((message) => message.type)).toEqual([
+                'message', 'message', 'message', 'message',
+            ]);
+        });
 
         const progressEvent = manager.handleEvent('report_maximum_played_index', { index: 2 });
         await progressEvent;
@@ -41,7 +47,7 @@ describe('MeetingManager conversation transitions', () => {
         finishSummary();
         await wrapEvent;
 
-        expect(manager.meeting.conversation.map((message) => message.type)).toEqual(['message', 'message', 'message', 'summary']);
+        expect(manager.meeting.conversation.map((message) => message.type)).toEqual(['message', 'message', 'message', 'message', 'summary']);
         expect(runLoop).toHaveBeenCalledTimes(1);
     });
 

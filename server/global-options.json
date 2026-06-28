@@ -27,6 +27,10 @@
     "en": "We are now joined by a special guest speaker, [NAME]. Please welcome them to the debate and invite them to share their perspective."
   },
   "panelistInvitationLength": 150,
+  "concludeMeetingPrompt": {
+    "en": "The meeting is coming to a close. As chair, say one brief in-character closing line to the council and the visitor — thank them, reflect lightly on the discussion, and do not summarise or write a protocol yet."
+  },
+  "concludeMeetingLength": 150,
   "finalizeMeetingPrompt": {
     "en": "Please summarise the meeting, held on [DATE], making a document that could work as a meeting protocol and a policy recommendation, that could be sent to a official political department like the European Commission."
   },

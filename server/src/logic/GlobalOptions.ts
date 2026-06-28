@@ -68,6 +68,8 @@ export const GlobalOptionsSchema = z.object({
     raiseHandInvitationLength: z.number(),
     panelistInvitationPrompt: z.record(z.string(), z.string()),
     panelistInvitationLength: z.number(),
+    concludeMeetingPrompt: z.record(z.string(), z.string()),
+    concludeMeetingLength: z.number(),
     finalizeMeetingPrompt: z.record(z.string(), z.string()),
     finalizeMeetingLength: z.number(),
     transcribeModel: z.string(),

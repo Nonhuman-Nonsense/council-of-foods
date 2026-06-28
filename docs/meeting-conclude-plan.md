@@ -203,6 +203,8 @@ Mock `dialogGenerator.chairInterjection` in the hard-cap integration test (same 
 
 ### PR 1 — Chair closing statement before summary
 
+**Status:** Implemented.
+
 **Goal:** When conclude/wrap-up runs, chair speaks one final in-character line **before** the summary message (orthogonal to agent).
 
 **Server:**

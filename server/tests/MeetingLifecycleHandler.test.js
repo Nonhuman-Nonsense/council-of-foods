@@ -21,6 +21,8 @@ describe('MeetingLifecycleHandler', () => {
     const sessionServerOptions = () =>
         MockFactory.createServerOptions({
             extraMessageCount: 5,
+            concludeMeetingPrompt: { en: 'Closing [DATE]' },
+            concludeMeetingLength: 10,
             finalizeMeetingPrompt: { en: 'Summary [DATE]' },
             finalizeMeetingLength: 10,
             conversationMaxLength: 10
@@ -67,9 +69,11 @@ describe('MeetingLifecycleHandler', () => {
             },
             startLoop: vi.fn(),
             dialogGenerator: {
-                chairInterjection: vi.fn().mockResolvedValue({ response: 'Summary', id: 'sum1' })
+                chairInterjection: vi.fn()
+                    .mockResolvedValueOnce({ response: 'Thank you all for a rich discussion.', id: 'close1' })
+                    .mockResolvedValue({ response: 'Summary', id: 'sum1' })
             },
-            audioSystem: { generateAudio: vi.fn() }
+            audioSystem: { generateAudio: vi.fn(), queueAudioGeneration: vi.fn() }
         };
 
         handler = new MeetingLifecycleHandler(mockContext);
@@ -123,7 +127,7 @@ describe('MeetingLifecycleHandler', () => {
             expect(mockMeetingsCollection.updateOne).toHaveBeenCalled();
         });
 
-        it('should strip query_extension before appending summary', async () => {
+        it('should strip query_extension before appending closing and summary', async () => {
             mockContext.meeting = storedMeeting({
                 conversation: [
                     { id: '1', text: 'hi', type: 'message', speaker: chair.id },
@@ -133,17 +137,56 @@ describe('MeetingLifecycleHandler', () => {
 
             await handler.handleWrapUpMeeting({ date: '2025-01-01' });
 
-            expect(mockContext.meeting.conversation.map((m) => m.type)).toEqual(['message', 'summary']);
+            expect(mockContext.meeting.conversation.map((m) => m.type)).toEqual(['message', 'message', 'summary']);
+            expect(mockContext.meeting.conversation[1].text).toBe('Thank you all for a rich discussion.');
         });
 
-        it('appends summary without query_extension sentinel at hard cap auto conclude', async () => {
+        it('broadcasts closing before summary is generated', async () => {
+            let finishSummary;
+            mockContext.dialogGenerator.chairInterjection = vi.fn()
+                .mockResolvedValueOnce({ response: 'Closing line', id: 'close1' })
+                .mockReturnValueOnce(new Promise((resolve) => {
+                    finishSummary = () => resolve({ response: 'Summary', id: 'sum1' });
+                }));
+            mockContext.meeting = storedMeeting({
+                conversation: [{ id: '1', text: 'hi', type: 'message', speaker: chair.id }],
+            });
+
+            const wrapUp = handler.handleWrapUpMeeting({ date: '2025-01-01' });
+            await Promise.resolve();
+
+            expect(mockContext.meeting.conversation.map((m) => m.type)).toEqual(['message', 'message']);
+            expect(mockBroadcaster.broadcastConversationUpdate).toHaveBeenCalledTimes(1);
+
+            finishSummary();
+            await wrapUp;
+
+            expect(mockContext.meeting.conversation.map((m) => m.type)).toEqual(['message', 'message', 'summary']);
+            expect(mockBroadcaster.broadcastConversationUpdate).toHaveBeenCalledTimes(2);
+        });
+
+        it('appends closing and summary without query_extension sentinel at hard cap auto conclude', async () => {
             mockContext.meeting = storedMeeting({
                 conversation: [{ id: '1', text: 'hi', type: 'message', speaker: chair.id }],
             });
 
             await handler.handleWrapUpMeeting({ date: '2025-01-01' });
 
-            expect(mockContext.meeting.conversation.map((m) => m.type)).toEqual(['message', 'summary']);
+            expect(mockContext.meeting.conversation.map((m) => m.type)).toEqual(['message', 'message', 'summary']);
+        });
+
+        it('calls chairInterjection with conclude then finalize prompts', async () => {
+            mockContext.meeting = storedMeeting({
+                conversation: [{ id: '1', text: 'hi', type: 'message', speaker: chair.id }],
+            });
+
+            await handler.handleWrapUpMeeting({ date: '2025-01-01' });
+
+            expect(mockContext.dialogGenerator.chairInterjection).toHaveBeenCalledTimes(2);
+            expect(mockContext.dialogGenerator.chairInterjection.mock.calls[0][0]).toBe('Closing [DATE]');
+            expect(mockContext.dialogGenerator.chairInterjection.mock.calls[1][0]).toBe('Summary 2025-01-01');
+            expect(mockContext.audioSystem.queueAudioGeneration).toHaveBeenCalledTimes(1);
+            expect(mockContext.audioSystem.generateAudio).toHaveBeenCalledTimes(1);
         });
     });
 

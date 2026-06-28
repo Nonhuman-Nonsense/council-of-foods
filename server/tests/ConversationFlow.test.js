@@ -125,6 +125,7 @@ describe('MeetingManager - Conversation Flow', () => {
         await manager.runLoop();
 
         expect(manager.meeting.conversation.at(-1)?.type).toBe('summary');
+        expect(manager.meeting.conversation.at(-2)?.type).toBe('message');
         expect(manager.meeting.conversation.some((m) => m.type === 'query_extension')).toBe(false);
         expect(endSpy).not.toHaveBeenCalled();
         expect(manager.services.meetingsCollection.updateOne).toHaveBeenCalled();

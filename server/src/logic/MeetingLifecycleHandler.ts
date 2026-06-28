@@ -47,8 +47,8 @@ export class MeetingLifecycleHandler {
     }
 
     /**
-     * Ends the meeting by generating a final summary from the Chair.
-     * Persists the summary to DB and emits update.
+     * Ends the meeting by generating a chair closing line, then a final summary.
+     * Broadcasts the closing line immediately so clients can play it while summary generates.
      */
     async handleWrapUpMeeting(message: WrapUpMessage): Promise<void> {
         const { manager } = this;
@@ -57,7 +57,6 @@ export class MeetingLifecycleHandler {
 
         Logger.info(`meeting ${m._id}`, "attempting to wrap up");
 
-        //remove the max reached message
         const queryExtensionIndex = m.conversation.findIndex((m) => m.type === "query_extension");
         if (queryExtensionIndex !== -1) {
             m.conversation = m.conversation.slice(0, queryExtensionIndex);
@@ -65,10 +64,51 @@ export class MeetingLifecycleHandler {
             Logger.info(`meeting ${m._id}`, 'wrap up without query_extension sentinel (hard cap auto conclude)');
         }
 
-        //generate the summary
-        const summaryPrompt = manager.serverOptions.finalizeMeetingPrompt[m.language].replace("[DATE]", message.date);
+        const chair = m.characters[0];
+        const closingIndex = m.conversation.length;
+        const closingPrompt = manager.serverOptions.concludeMeetingPrompt[m.language];
+        const { response: closingResponse, id: closingId } = await manager.dialogGenerator.chairInterjection(
+            closingPrompt,
+            closingIndex,
+            manager.serverOptions.concludeMeetingLength,
+            true,
+            m,
+            manager.broadcaster
+        );
 
-        // Note: chairInterjection is on manager (delegated to DialogGenerator)
+        const firstNewLineIndex = closingResponse.indexOf("\n\n");
+        const closingText = firstNewLineIndex !== -1
+            ? closingResponse.substring(0, firstNewLineIndex)
+            : closingResponse;
+        const closingMessage: Message = {
+            id: closingId || "",
+            speaker: chair.id,
+            text: closingText,
+            type: "message",
+            sentences: splitSentences(closingText),
+        };
+
+        m.conversation.push(closingMessage);
+        Logger.info(`meeting ${m._id}`, `closing statement generated on index ${closingIndex}`);
+
+        manager.broadcaster.broadcastConversationUpdate(m.conversation);
+
+        if (m._id !== null) {
+            await manager.services.meetingsCollection.updateOne(
+                { _id: m._id },
+                { $set: { conversation: m.conversation } }
+            );
+
+            manager.audioSystem.queueAudioGeneration(
+                { ...closingMessage, id: closingMessage.id as string, text: closingMessage.text as string, sentences: closingMessage.sentences! },
+                chair,
+                m,
+                manager.environment,
+                manager.serverOptions
+            );
+        }
+
+        const summaryPrompt = manager.serverOptions.finalizeMeetingPrompt[m.language].replace("[DATE]", message.date);
         const { response, id } = await manager.dialogGenerator.chairInterjection(
             summaryPrompt,
             m.conversation.length,
@@ -83,8 +123,8 @@ export class MeetingLifecycleHandler {
 
         const summary: Message = {
             id: id || "",
-            speaker: m.characters[0].id,
-            text: response, // Keep markdown for display
+            speaker: chair.id,
+            text: response,
             type: "summary",
             sentences: []
         };
@@ -115,7 +155,7 @@ export class MeetingLifecycleHandler {
         if (m._id !== null) {
             void manager.audioSystem.generateAudio(
                 audioMessage as AudioMessage,
-                m.characters[0],
+                chair,
                 m.language,
                 manager.serverOptions,
                 m,
