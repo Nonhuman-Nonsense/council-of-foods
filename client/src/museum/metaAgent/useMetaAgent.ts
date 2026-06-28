@@ -6,7 +6,7 @@ import {
 import type { ConfigureSessionOptions } from "@voice/realtimeEventLoop";
 import type { RealtimeTool, ToolHandler } from "@voice/guideTools";
 
-/** Meta-agent lifecycle phase. Extension activation lands in PR 3b. */
+/** Meta-agent lifecycle phase. */
 export type MetaAgentPhase = "inactive" | "interruption" | "extension";
 
 export type MetaAgentConnectionState = RealtimeVoiceSessionConnectionState;

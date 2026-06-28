@@ -10,6 +10,7 @@ import { councilFetch } from "@api/http";
 import { httpErrorMessage } from "@api/httpErrorMessage";
 import type { SetUnrecoverableError } from "@main/overlay/CouncilError";
 import { notifyAutoplay } from "@/autoplay/autoplayStore";
+import type { MetaAgentPhase } from "@museum/metaAgent/useMetaAgent";
 
 /** Keep the loading UI visible this long on first paint so the Loading animation can run. */
 const MIN_INITIAL_LOADING_DISPLAY_MS = import.meta.env.VITEST ? 0 : 2000;
@@ -29,6 +30,8 @@ export interface UseCouncilMachineProps {
     connectionError: boolean;
     isPaused: boolean;
     setPaused: (paused: boolean) => void;
+    isMuseumMode: boolean;
+    setMetaAgentPhase: React.Dispatch<React.SetStateAction<MetaAgentPhase>>;
 }
 
 export type CouncilState =
@@ -56,6 +59,8 @@ export function useCouncilMachine({
     connectionError,
     isPaused,
     setPaused,
+    isMuseumMode,
+    setMetaAgentPhase,
 }: UseCouncilMachineProps) {
 
     const { t } = useTranslation();
@@ -385,7 +390,9 @@ export function useCouncilMachine({
                 }
                 break;
             case 'query_extension':
-                if (activeOverlay !== "query_extension") {
+                if (isMuseumMode) {
+                    setMetaAgentPhase("extension");
+                } else if (activeOverlay !== "query_extension") {
                     setActiveOverlay("query_extension");
                 }
                 if (textMessages[playNextIndex]?.type !== 'query_extension') {
@@ -396,7 +403,7 @@ export function useCouncilMachine({
             default:
                 break;
         }
-    }, [councilState, textMessages, audioMessages, playingNowIndex, playNextIndex, activeOverlay, liveKey, summary, initialLoadingMinElapsed]);
+    }, [councilState, textMessages, audioMessages, playingNowIndex, playNextIndex, activeOverlay, liveKey, summary, initialLoadingMinElapsed, isMuseumMode, setMetaAgentPhase]);
 
     /* -------------------------------------------------------------------------- */
     /*                                 Actions                                    */

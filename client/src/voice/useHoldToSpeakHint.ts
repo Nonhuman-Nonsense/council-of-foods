@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 /** How long to wait after activity before nudging again with the hint. */
 export const BUTTON_IDLE_REMIND_MS = 10_000;
@@ -42,6 +42,8 @@ export type HoldToSpeakHintState = {
   showHoldToSpeakHint: boolean;
   /** True after the post-PTT idle window — the re-nudge, not the initial hint. */
   idleRemindVisible: boolean;
+  /** Reset the idle clock and hide the pre-PTT banner (caller invokes on segment start). */
+  bumpActivity: () => void;
 };
 
 /**
@@ -62,6 +64,12 @@ export function useHoldToSpeakHint(params: UseHoldToSpeakHintParams): HoldToSpea
   const [idleRemindVisible, setIdleRemindVisible] = useState(false);
   const lastActivityRef = useRef(Date.now());
   const hasUsedPttRef = useRef(false);
+
+  const bumpActivity = useCallback(() => {
+    lastActivityRef.current = Date.now();
+    setIdleRemindVisible(false);
+    setDismissedAfterFirstPtt(true);
+  }, []);
 
   useEffect(() => {
     if (sessionActive) {
@@ -126,5 +134,5 @@ export function useHoldToSpeakHint(params: UseHoldToSpeakHintParams): HoldToSpea
     idleRemindVisible,
   });
 
-  return { showHoldToSpeakHint, idleRemindVisible };
+  return { showHoldToSpeakHint, idleRemindVisible, bumpActivity };
 }

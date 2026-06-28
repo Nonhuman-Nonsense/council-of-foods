@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
 import {
+  buildExtensionActivationTurn,
+  buildExtensionAgentPrompt,
+  buildExtensionStateSnapshot,
   buildMetaAgentActivationTurn,
   buildMetaAgentPrompt,
   buildMetaAgentStateSnapshot,
@@ -29,6 +32,16 @@ const testBundle: MetaAgentPromptBundle = {
   },
   activationGreetingExample:
     "Excuse me — you've interrupted the council. You'll be invited to speak when it's your turn. Unless you'd like to start from the beginning?",
+  extensionJobInstructions: [
+    "Explain the meeting is getting long and ask extend or conclude.",
+    "Call extend_meeting or conclude_meeting when the choice is clear.",
+  ],
+  extensionToolDescriptions: {
+    extend_meeting: "Continue the council meeting for longer.",
+    conclude_meeting: "End the meeting and move to the summary.",
+  },
+  extensionActivationGreetingExample:
+    "We've been at this a while — extend a bit, or bring it to a conclusion?",
 };
 
 function makeSnapshot(overrides: Partial<MetaAgentStateSnapshot> = {}): MetaAgentStateSnapshot {
@@ -203,5 +216,49 @@ describe("buildMetaAgentStateSnapshot", () => {
     const payload = JSON.parse(snap.replace(/^\(STATE SYNC: /, "").replace(/\)$/, ""));
     expect(payload.currentSpeaker).toBeNull();
     expect(payload.visitorName).toBeNull();
+  });
+});
+
+describe("buildExtensionAgentPrompt", () => {
+  it("includes extend_meeting and conclude_meeting tools", () => {
+    const prompt = buildExtensionAgentPrompt({ bundle: testBundle });
+    expect(prompt).toContain("extend_meeting");
+    expect(prompt).toContain("conclude_meeting");
+    expect(prompt).toContain(testBundle.extensionToolDescriptions.extend_meeting);
+  });
+
+  it("requires calling exactly one terminal tool", () => {
+    const prompt = buildExtensionAgentPrompt({ bundle: testBundle });
+    expect(prompt).toContain("exactly one tool");
+    expect(prompt).toContain("extend_meeting or conclude_meeting");
+  });
+
+  it("includes extension greeting example", () => {
+    const prompt = buildExtensionAgentPrompt({ bundle: testBundle });
+    expect(prompt).toContain(testBundle.extensionActivationGreetingExample);
+  });
+
+  it("loads extension copy from the shipped foods bundle", () => {
+    const bundle = getMetaAgentBundle("en");
+    const prompt = buildExtensionAgentPrompt({ bundle });
+    expect(bundle.extensionJobInstructions.length).toBeGreaterThan(0);
+    expect(prompt).toContain(bundle.extensionToolDescriptions.conclude_meeting);
+  });
+});
+
+describe("buildExtensionActivationTurn", () => {
+  it("asks the chair to speak first about extend vs conclude", () => {
+    const turn = buildExtensionActivationTurn();
+    expect(turn).toContain("extend or conclude");
+    expect(turn).toContain("STATE SYNC");
+  });
+});
+
+describe("buildExtensionStateSnapshot", () => {
+  it("marks type meta_agent_extension and councilState query_extension", () => {
+    const snap = buildExtensionStateSnapshot(makeSnapshot());
+    const payload = JSON.parse(snap.replace(/^\(STATE SYNC: /, "").replace(/\)$/, ""));
+    expect(payload.type).toBe("meta_agent_extension");
+    expect(payload.councilState).toBe("query_extension");
   });
 });

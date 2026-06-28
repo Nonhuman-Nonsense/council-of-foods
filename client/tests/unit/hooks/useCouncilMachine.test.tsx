@@ -83,6 +83,8 @@ describe('useCouncilMachine', () => {
             connectionError: false,
             isPaused: false,
             setPaused: vi.fn(),
+            isMuseumMode: false,
+            setMetaAgentPhase: vi.fn(),
         };
     });
 
@@ -206,6 +208,49 @@ describe('useCouncilMachine', () => {
 
         expect(result.current.state.councilState).toBe('query_extension');
         expect(result.current.state.activeOverlay).toBe('query_extension');
+        expect(defaultProps.setMetaAgentPhase).not.toHaveBeenCalled();
+    });
+
+    it('museum mode activates meta-agent extension instead of query_extension overlay', () => {
+        const setMetaAgentPhase = vi.fn();
+
+        const { result } = renderHook(() =>
+            useCouncilMachine({
+                ...defaultProps,
+                isMuseumMode: true,
+                setMetaAgentPhase,
+            } as any),
+        );
+
+        act(() => {
+            if (socketHandlers.onConversationUpdate) {
+                socketHandlers.onConversationUpdate([{ type: 'query_extension' }]);
+            }
+        });
+
+        expect(result.current.state.councilState).toBe('query_extension');
+        expect(result.current.state.activeOverlay).toBeNull();
+        expect(setMetaAgentPhase).toHaveBeenCalledWith('extension');
+    });
+
+    it('museum mode transitions interruption to extension at soft cap', () => {
+        const setMetaAgentPhase = vi.fn();
+
+        renderHook(() =>
+            useCouncilMachine({
+                ...defaultProps,
+                isMuseumMode: true,
+                setMetaAgentPhase,
+            } as any),
+        );
+
+        act(() => {
+            if (socketHandlers.onConversationUpdate) {
+                socketHandlers.onConversationUpdate([{ type: 'query_extension' }]);
+            }
+        });
+
+        expect(setMetaAgentPhase).toHaveBeenCalledWith('extension');
     });
 
     it('handleOnExtendMeeting drops query_extension locally and emits extend_meeting', () => {

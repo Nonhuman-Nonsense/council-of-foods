@@ -1,15 +1,21 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useButton, type ButtonLedMode } from "@museum/button/useButton";
 import { BUTTON_IDLE_REMIND_MS, useHoldToSpeakHint } from "@voice/useHoldToSpeakHint";
 import RealtimeCaptionOverlay from "@realtime/RealtimeCaptionOverlay";
+import Loading from "@main/Loading";
 import { useMetaAgent, type MetaAgentPhase } from "./useMetaAgent";
 import {
+  buildExtensionActivationTurn,
+  buildExtensionAgentPrompt,
+  buildExtensionStateSnapshot,
   buildMetaAgentPrompt,
   buildMetaAgentActivationTurn,
   buildMetaAgentStateSnapshot,
   getMetaAgentBundle,
 } from "./metaAgentPrompt";
 import {
+  createExtensionAgentToolHandlers,
+  createExtensionAgentTools,
   createMetaAgentTools,
   createMetaAgentToolHandlers,
 } from "./metaAgentTools";
@@ -28,7 +34,8 @@ export interface MeetingMetaAgentProps {
   setMetaAgentPhase: (phase: MetaAgentPhase) => void;
   setAgentSpeaking: (speaking: boolean) => void;
   onRestartMeeting: () => void;
-  // Context for state snapshot
+  onExtendMeeting: () => void;
+  onConcludeMeeting: () => void;
   councilState: CouncilState;
   topic: Topic | null;
   participants: Character[];
@@ -36,17 +43,6 @@ export interface MeetingMetaAgentProps {
   humanName: string;
 }
 
-/**
- * Museum meta-agent: a persistent WebRTC voice agent that sits on top of the
- * council meeting.  The visitor can press the PTT button at any time to talk
- * to the chair (meta-agent).  Council output unmounts while the meta agent is
- * active; meeting speech restarts from the beginning when the agent calls
- * `resume_meeting`.
- *
- * Mounting contract:
- *  - Only mount when `isMuseumMode && liveKey` (live museum meeting).
- *  - Button presses route via shared claim arbitration (human-input wins in active phase).
- */
 export default function MeetingMetaAgent({
   liveKey,
   language,
@@ -55,6 +51,8 @@ export default function MeetingMetaAgent({
   setMetaAgentPhase,
   setAgentSpeaking,
   onRestartMeeting,
+  onExtendMeeting,
+  onConcludeMeeting,
   councilState,
   topic,
   participants,
@@ -65,31 +63,58 @@ export default function MeetingMetaAgent({
 
   const promptBundle = useMemo(() => getMetaAgentBundle(language), [language]);
 
-  const instructions = useMemo(
-    () =>
-      buildMetaAgentPrompt({
-        bundle: promptBundle,
-        pushToTalkMode: true,
-      }),
-    [promptBundle],
-  );
+  const instructions = useMemo(() => {
+    if (metaAgentPhase === "extension") {
+      return buildExtensionAgentPrompt({ bundle: promptBundle, pushToTalkMode: true });
+    }
+    return buildMetaAgentPrompt({ bundle: promptBundle, pushToTalkMode: true });
+  }, [metaAgentPhase, promptBundle]);
 
-  const tools = useMemo(
-    () => createMetaAgentTools({ promptBundle }),
-    [promptBundle],
-  );
+  const tools = useMemo(() => {
+    if (metaAgentPhase === "extension") {
+      return createExtensionAgentTools({ promptBundle });
+    }
+    return createMetaAgentTools({ promptBundle });
+  }, [metaAgentPhase, promptBundle]);
 
   const silenceRef = useRef<() => void>(() => undefined);
+  const reconfigureRef = useRef<() => void>(() => undefined);
+  const pendingSessionActivationRef = useRef<MetaAgentPhase | null>(null);
+  const [awaitingExtensionReply, setAwaitingExtensionReply] = useState(false);
+  const prevPhaseRef = useRef<MetaAgentPhase>("inactive");
 
-  const toolHandlers = useMemo(
-    () =>
-      createMetaAgentToolHandlers({
-        setMetaAgentPhase,
-        onRestartMeeting,
-        silenceAgentOutput: () => silenceRef.current(),
-      }),
-    [setMetaAgentPhase, onRestartMeeting],
+  const snapshotContext = useMemo(
+    () => ({
+      councilState,
+      topic,
+      participants,
+      currentSpeakerName,
+      humanName,
+      participationPhase,
+    }),
+    [councilState, topic, participants, currentSpeakerName, humanName, participationPhase],
   );
+
+  const toolHandlers = useMemo(() => {
+    const shared = {
+      setMetaAgentPhase,
+      silenceAgentOutput: () => silenceRef.current(),
+      reconfigureSession: () => reconfigureRef.current(),
+    };
+    if (metaAgentPhase === "extension") {
+      return createExtensionAgentToolHandlers({
+        ...shared,
+        onExtendMeeting,
+        onConcludeMeeting,
+      });
+    }
+    return createMetaAgentToolHandlers({
+      ...shared,
+      onRestartMeeting,
+    });
+  }, [metaAgentPhase, setMetaAgentPhase, onRestartMeeting, onExtendMeeting, onConcludeMeeting]);
+
+  const onSessionReadyRef = useRef<(() => void) | undefined>(undefined);
 
   const {
     connectionState,
@@ -102,14 +127,55 @@ export default function MeetingMetaAgent({
     sendUserMessage,
     requestAgentResponse,
     setAgentOutputMuted,
+    reconfigureSession,
   } = useMetaAgent({
     language,
     liveKey,
     instructions,
     tools,
     toolHandlers,
-    onSessionReady: undefined,
+    onSessionReady: () => onSessionReadyRef.current?.(),
   });
+
+  const activateExtensionSession = useCallback(() => {
+    setAgentOutputMuted(false);
+    setMicEnabled(false);
+    log.event("META", "activate", {
+      metaAgentPhase: "extension",
+      councilState,
+      participationPhase,
+      currentSpeakerName,
+    });
+    sendUserMessage(buildExtensionStateSnapshot(snapshotContext));
+    sendUserMessage(buildExtensionActivationTurn());
+    requestAgentResponse();
+  }, [
+    setAgentOutputMuted,
+    setMicEnabled,
+    sendUserMessage,
+    requestAgentResponse,
+    councilState,
+    participationPhase,
+    currentSpeakerName,
+    snapshotContext,
+  ]);
+
+  useEffect(() => {
+    onSessionReadyRef.current = () => {
+      if (pendingSessionActivationRef.current === "extension") {
+        pendingSessionActivationRef.current = null;
+        activateExtensionSession();
+      }
+    };
+  }, [activateExtensionSession]);
+
+  useEffect(() => {
+    silenceRef.current = () => {
+      setMicEnabled(false);
+      setAgentOutputMuted(true);
+    };
+    reconfigureRef.current = () => reconfigureSession();
+  }, [setMicEnabled, setAgentOutputMuted, reconfigureSession]);
 
   useEffect(() => {
     button.claim();
@@ -123,7 +189,7 @@ export default function MeetingMetaAgent({
     button.setLed(ledMode);
   }, [button.setLed, ledMode]);
 
-  const { showHoldToSpeakHint, idleRemindVisible } = useHoldToSpeakHint({
+  const { showHoldToSpeakHint, idleRemindVisible, bumpActivity } = useHoldToSpeakHint({
     pushToTalkMode: true,
     sessionActive: metaAgentPhase !== "inactive",
     isConnecting: connectionState === "connecting",
@@ -143,13 +209,42 @@ export default function MeetingMetaAgent({
   }, [metaAgentPhase, setAgentSpeaking]);
 
   useEffect(() => {
-    silenceRef.current = () => {
-      setMicEnabled(false);
-      setAgentOutputMuted(true);
-    };
-  }, [setMicEnabled, setAgentOutputMuted]);
+    const enteredExtension =
+      metaAgentPhase === "extension" && prevPhaseRef.current !== "extension";
+    prevPhaseRef.current = metaAgentPhase;
 
-  // Standby → interruption: rising edge of routed press while inactive.
+    if (metaAgentPhase !== "extension") {
+      setAwaitingExtensionReply(false);
+      return;
+    }
+    if (enteredExtension) {
+      bumpActivity();
+      setAwaitingExtensionReply(true);
+    }
+  }, [metaAgentPhase, bumpActivity]);
+
+  useEffect(() => {
+    if (!awaitingExtensionReply || metaAgentPhase !== "extension") return;
+    if (agentSpeaking) {
+      setAwaitingExtensionReply(false);
+    }
+  }, [awaitingExtensionReply, metaAgentPhase, agentSpeaking]);
+
+  useEffect(() => {
+    if (connectionState !== "ready") return;
+
+    if (metaAgentPhase === "inactive") {
+      pendingSessionActivationRef.current = null;
+      reconfigureSession();
+      return;
+    }
+
+    if (metaAgentPhase === "extension") {
+      pendingSessionActivationRef.current = "extension";
+      reconfigureSession();
+    }
+  }, [metaAgentPhase, connectionState, reconfigureSession]);
+
   useEffect(() => {
     if (!button.pressed || metaAgentPhase !== "inactive") return;
 
@@ -162,16 +257,7 @@ export default function MeetingMetaAgent({
       participationPhase,
       currentSpeakerName,
     });
-    sendUserMessage(
-      buildMetaAgentStateSnapshot({
-        councilState,
-        topic,
-        participants,
-        currentSpeakerName,
-        humanName,
-        participationPhase,
-      }),
-    );
+    sendUserMessage(buildMetaAgentStateSnapshot(snapshotContext));
     sendUserMessage(buildMetaAgentActivationTurn());
     requestAgentResponse();
   }, [
@@ -183,53 +269,58 @@ export default function MeetingMetaAgent({
     sendUserMessage,
     requestAgentResponse,
     councilState,
-    topic,
-    participants,
-    currentSpeakerName,
-    humanName,
     participationPhase,
+    currentSpeakerName,
+    snapshotContext,
   ]);
 
-  // Active: routed press controls mic-open within a turn.
   useEffect(() => {
     if (metaAgentPhase === "inactive") return;
     setMicEnabled(button.pressed);
   }, [button.pressed, metaAgentPhase, setMicEnabled]);
 
-  // Ensure mic is closed whenever we leave active mode.
   useEffect(() => {
     if (metaAgentPhase === "inactive") {
       setMicEnabled(false);
     }
   }, [metaAgentPhase, setMicEnabled]);
 
-  const idleResumeFiredRef = useRef(false);
+  const idleTerminalFiredRef = useRef(false);
 
   useEffect(() => {
-    if (metaAgentPhase !== "inactive") return;
-    idleResumeFiredRef.current = false;
+    if (metaAgentPhase === "inactive") {
+      idleTerminalFiredRef.current = false;
+    }
   }, [metaAgentPhase]);
 
   useEffect(() => {
     if (!idleRemindVisible) {
-      idleResumeFiredRef.current = false;
+      idleTerminalFiredRef.current = false;
     }
   }, [idleRemindVisible]);
 
-  // Auto-resume 10s after the idle PTT reminder appears (not while agent or visitor is active).
   useEffect(() => {
-    if (metaAgentPhase !== "interruption") return;
+    if (metaAgentPhase !== "interruption" && metaAgentPhase !== "extension") return;
     if (connectionState !== "ready") return;
     if (!idleRemindVisible) return;
-    if (idleResumeFiredRef.current) return;
+    if (idleTerminalFiredRef.current) return;
     if (agentSpeaking || button.pressed) return;
 
+    const terminalTool =
+      metaAgentPhase === "extension"
+        ? toolHandlers.conclude_meeting
+        : toolHandlers.resume_meeting;
+    const eventName =
+      metaAgentPhase === "extension"
+        ? "idle auto-conclude conclude_meeting"
+        : "idle auto-resume resume_meeting";
+
     const timerId = window.setTimeout(() => {
-      if (idleResumeFiredRef.current) return;
+      if (idleTerminalFiredRef.current) return;
       if (agentSpeaking || button.pressed) return;
-      idleResumeFiredRef.current = true;
-      log.event("META", "idle auto-resume resume_meeting");
-      toolHandlers.resume_meeting({});
+      idleTerminalFiredRef.current = true;
+      log.event("META", eventName);
+      terminalTool?.({});
     }, BUTTON_IDLE_REMIND_MS);
 
     return () => window.clearTimeout(timerId);
@@ -244,8 +335,14 @@ export default function MeetingMetaAgent({
 
   if (metaAgentPhase === "inactive") return null;
 
+  const showExtensionLoader =
+    metaAgentPhase === "extension" &&
+    (awaitingExtensionReply || connectionState !== "ready");
+
   return (
-    <RealtimeCaptionOverlay
+    <>
+      {showExtensionLoader && <Loading />}
+      <RealtimeCaptionOverlay
       error={error}
       lastCaption={lastCaption}
       lastUserTranscript={lastUserTranscript}
@@ -257,5 +354,6 @@ export default function MeetingMetaAgent({
       micStream={micStream}
       micActive={button.pressed}
     />
+    </>
   );
 }

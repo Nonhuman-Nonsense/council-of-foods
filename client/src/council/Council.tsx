@@ -126,6 +126,8 @@ function Council({
     connectionError,
     isPaused,
     setPaused,
+    isMuseumMode,
+    setMetaAgentPhase,
   });
 
   const {
@@ -249,6 +251,8 @@ function Council({
           setMetaAgentPhase={setMetaAgentPhase}
           setAgentSpeaking={setAgentSpeaking}
           onRestartMeeting={() => navigate("/")}
+          onExtendMeeting={handleOnExtendMeeting}
+          onConcludeMeeting={handleOnConcludeMeeting}
           councilState={councilState}
           topic={topic}
           participants={participants}

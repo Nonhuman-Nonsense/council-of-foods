@@ -17,7 +17,10 @@ vi.mock("@voice/useHoldToSpeakHint", async () => {
   );
   return {
     ...actual,
-    useHoldToSpeakHint: () => mockHoldToSpeakHint,
+    useHoldToSpeakHint: () => ({
+      ...mockHoldToSpeakHint,
+      bumpActivity: vi.fn(),
+    }),
   };
 });
 
@@ -74,6 +77,11 @@ const mockSetMicEnabled = vi.hoisted(() => vi.fn());
 const mockSendUserMessage = vi.hoisted(() => vi.fn());
 const mockRequestAgentResponse = vi.hoisted(() => vi.fn());
 const mockSetAgentOutputMuted = vi.hoisted(() => vi.fn());
+const mockReconfigureSession = vi.hoisted(() => vi.fn());
+
+const sessionCallbacks = vi.hoisted(() => ({
+  onSessionReady: undefined as (() => void) | undefined,
+}));
 
 const mockMetaAgentState = vi.hoisted(() => ({
   connectionState: "ready" as "idle" | "connecting" | "ready" | "error",
@@ -83,18 +91,25 @@ const mockMetaAgentState = vi.hoisted(() => ({
 }));
 
 vi.mock("@museum/metaAgent/useMetaAgent", () => ({
-  useMetaAgent: () => ({
-    connectionState: mockMetaAgentState.connectionState,
-    error: null,
-    lastCaption: mockMetaAgentState.lastCaption,
-    lastUserTranscript: mockMetaAgentState.lastUserTranscript,
+  useMetaAgent: (params: { onSessionReady?: () => void }) => {
+    sessionCallbacks.onSessionReady = params.onSessionReady;
+    return {
+      connectionState: mockMetaAgentState.connectionState,
+      error: null,
+      lastCaption: mockMetaAgentState.lastCaption,
+      lastUserTranscript: mockMetaAgentState.lastUserTranscript,
     agentSpeaking: mockMetaAgentState.agentSpeaking,
     setMicEnabled: mockSetMicEnabled,
-    sendUserMessage: mockSendUserMessage,
-    requestAgentResponse: mockRequestAgentResponse,
-    setAgentOutputMuted: mockSetAgentOutputMuted,
-    reconfigureSession: vi.fn(),
-  }),
+      sendUserMessage: mockSendUserMessage,
+      requestAgentResponse: mockRequestAgentResponse,
+      setAgentOutputMuted: mockSetAgentOutputMuted,
+      reconfigureSession: mockReconfigureSession,
+    };
+  },
+}));
+
+vi.mock("@main/Loading", () => ({
+  default: () => <div data-testid="meta-agent-loading">Loading</div>,
 }));
 
 vi.mock("@realtime/RealtimeCaptionOverlay", () => ({
@@ -130,6 +145,8 @@ function makeProps(overrides: Partial<MeetingMetaAgentProps> = {}): MeetingMetaA
     setMetaAgentPhase: vi.fn(),
     setAgentSpeaking: vi.fn(),
     onRestartMeeting: vi.fn(),
+    onExtendMeeting: vi.fn(),
+    onConcludeMeeting: vi.fn(),
     councilState: "playing",
     topic: { id: "forests", title: "Forests", description: "", prompt: "" },
     participants: [
@@ -153,6 +170,8 @@ beforeEach(() => {
   mockSendUserMessage.mockClear();
   mockRequestAgentResponse.mockClear();
   mockSetAgentOutputMuted.mockClear();
+  mockReconfigureSession.mockClear();
+  sessionCallbacks.onSessionReady = undefined;
   mockClaim.mockClear();
   mockRelease.mockClear();
   mockSetLed.mockClear();
@@ -296,6 +315,102 @@ describe("MeetingMetaAgent", () => {
 
     act(() => setMockPressed(false));
     expect(mockSetMicEnabled).toHaveBeenCalledWith(false);
+  });
+
+  describe("extension phase", () => {
+    it("renders caption overlay while in extension", () => {
+      render(<MeetingMetaAgent {...makeProps({ metaAgentPhase: "extension" })} />);
+      expect(screen.getByTestId("meta-agent-caption-overlay")).toBeInTheDocument();
+    });
+
+    it("does not enter interruption on PTT while in extension", () => {
+      const setMetaAgentPhase = vi.fn();
+      render(
+        <MeetingMetaAgent
+          {...makeProps({
+            metaAgentPhase: "extension",
+            setMetaAgentPhase,
+          })}
+        />,
+      );
+
+      mockSendUserMessage.mockClear();
+      act(() => setMockPressed(true));
+
+      expect(setMetaAgentPhase).not.toHaveBeenCalledWith("interruption");
+      expect(mockSendUserMessage).not.toHaveBeenCalledWith(
+        expect.stringMatching(/interruption greeting/i),
+      );
+    });
+
+    it("reconfigures session when entering extension", () => {
+      render(<MeetingMetaAgent {...makeProps({ metaAgentPhase: "extension" })} />);
+      expect(mockReconfigureSession).toHaveBeenCalled();
+    });
+
+    it("shows loader until the extension agent starts speaking", () => {
+      const { rerender } = render(
+        <MeetingMetaAgent {...makeProps({ metaAgentPhase: "extension" })} />,
+      );
+      expect(screen.getByTestId("meta-agent-loading")).toBeInTheDocument();
+
+      mockMetaAgentState.agentSpeaking = true;
+      rerender(<MeetingMetaAgent {...makeProps({ metaAgentPhase: "extension" })} />);
+      expect(screen.queryByTestId("meta-agent-loading")).not.toBeInTheDocument();
+    });
+
+    it("activates extension via onSessionReady with snapshot and chair turn", () => {
+      render(
+        <MeetingMetaAgent
+          {...makeProps({
+            metaAgentPhase: "extension",
+            councilState: "query_extension",
+          })}
+        />,
+      );
+
+      mockSendUserMessage.mockClear();
+      mockRequestAgentResponse.mockClear();
+
+      act(() => {
+        sessionCallbacks.onSessionReady?.();
+      });
+
+      expect(mockSendUserMessage).toHaveBeenCalledWith(
+        expect.stringMatching(/meta_agent_extension/),
+      );
+      expect(mockSendUserMessage).toHaveBeenCalledWith(
+        expect.stringMatching(/extend or conclude/i),
+      );
+      expect(mockRequestAgentResponse).toHaveBeenCalled();
+      expect(mockSetAgentOutputMuted).toHaveBeenCalledWith(false);
+    });
+
+    it("concludes the meeting 10s after idle remind in extension phase", () => {
+      vi.useFakeTimers();
+      const setMetaAgentPhase = vi.fn();
+      const onConcludeMeeting = vi.fn();
+      mockHoldToSpeakHint.idleRemindVisible = true;
+
+      render(
+        <MeetingMetaAgent
+          {...makeProps({
+            metaAgentPhase: "extension",
+            setMetaAgentPhase,
+            onConcludeMeeting,
+          })}
+        />,
+      );
+
+      act(() => {
+        vi.advanceTimersByTime(BUTTON_IDLE_REMIND_MS);
+      });
+
+      expect(onConcludeMeeting).toHaveBeenCalled();
+      expect(setMetaAgentPhase).toHaveBeenCalledWith("inactive");
+      expect(mockSetAgentOutputMuted).toHaveBeenCalledWith(true);
+      vi.useRealTimers();
+    });
   });
 
   describe("idle auto-resume", () => {
