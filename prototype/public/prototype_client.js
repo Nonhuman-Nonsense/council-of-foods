@@ -47,7 +47,7 @@ const defaultOptions = {
   trimChairSemicolon: true,
 
   conversationMaxLength: 10,
-  /** Increment applied server-side on "Keep Going" (matches server `extraMessageCount`). */
+  /** Increment applied server-side on "Extend" (matches server `extraMessageCount`). */
   extraMessageCount: 5,
   /** Absolute cap for extends (server `meetingVeryMaxLength`); hard cap skips `query_extension` and concludes directly. */
   meetingVeryMaxLength: 30,
@@ -254,8 +254,8 @@ createApp({
       return n > 0 ? n - 1 : -1;
     },
 
-    /** Server allows `continue_conversation` when conversation ends with `query_extension`. */
-    canContinueMeeting() {
+    /** Conversation ended at soft cap — `continue_conversation` is available. */
+    hasQueryExtension() {
       const last = this.conversation[this.conversation.length - 1];
       return !!(last && last.type === 'query_extension');
     },
@@ -1477,9 +1477,9 @@ createApp({
     continueConversation() {
       this.status = 'CONNECTING';
       // Match web client: drop synthetic tail locally so UI matches server after strip.
-      const mr = this.conversation.findIndex((m) => m.type === 'query_extension');
-      if (mr !== -1) {
-        this.conversation = this.conversation.slice(0, mr);
+      const queryExtensionIndex = this.conversation.findIndex((m) => m.type === 'query_extension');
+      if (queryExtensionIndex !== -1) {
+        this.conversation = this.conversation.slice(0, queryExtensionIndex);
         if (this.audioController) {
           this.audioController.setExpectedLength(countPlayableMessages(this.conversation));
         }

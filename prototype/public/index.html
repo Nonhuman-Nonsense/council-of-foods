@@ -223,7 +223,7 @@
               <button v-if="status === 'PAUSED'" class="primary" @click="resumeConversation">Resume</button>
               <button v-if="status === 'ACTIVE' || status === 'CONNECTING'" @click="pauseConversation">Pause</button>
               <button v-if="status === 'PAUSED' || status === 'ENDED'" @click="restartConversation">Restart</button>
-              <button v-if="status === 'ENDED' && canContinueMeeting" class="primary" @click="continueConversation">Keep Going</button>
+              <button v-if="status === 'ENDED' && hasQueryExtension" class="primary" @click="continueConversation">Extend</button>
 
               <div style="border-left: 1px solid var(--border-color); margin: 0 5px;"></div>
 
