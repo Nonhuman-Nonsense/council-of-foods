@@ -4,6 +4,8 @@ Layer A keeps a **live** meeting flowing when the visitor walks away mid-interac
 
 Layer B ([`autoplay-plan.md`](./autoplay-plan.md)) handles leaving interactive mode entirely and looping replays.
 
+**Meeting conclude (wrap-up vs extend):** see [`meeting-conclude-plan.md`](./meeting-conclude-plan.md) — replaces the old “45s auto-wrap on Completed overlay” idea.
+
 ---
 
 ## Principles
@@ -20,27 +22,29 @@ Layer B ([`autoplay-plan.md`](./autoplay-plan.md)) handles leaving interactive m
 | Item | Status |
 |------|--------|
 | Human input / panelist abandonment | **Done** |
-| `Completed` overlay auto-wrap | **Open** — next up |
-| `Reconnecting` overlay 2 min restart | **Done** — museum-only reload to `rootPath` |
-| Meta-agent long idle | **Done** — auto-continue after idle remind |
-| Voice guide stuck mid-setup | **N/A** — covered by `AutoplayCoordinator` (Layer B) |
-| `Name` overlay | **N/A** — never shown in museum (name known before council) |
+| Meeting conclude (museum meta-agent) | **Planned** — [meeting-conclude-plan.md](./meeting-conclude-plan.md) |
+| `Reconnecting` overlay 2 min restart | **Done** |
+| Meta-agent interruption idle | **Done** — auto-`continue_meeting` after remind |
+| Voice guide stuck mid-setup | **N/A** — `AutoplayCoordinator` (Layer B) |
+| `Name` overlay | **N/A** — never shown in museum |
 | `Incomplete` overlay | **N/A** — autoplay only plays completed meetings |
-| Hash overlays (`#about`, `#contact`) | **N/A** — hidden in museum mode |
+| Hash overlays | **N/A** — hidden in museum |
+| `Completed` overlay 45s auto-wrap | **Superseded** — conclude agent + PR 0 auto-wrap |
 
 ---
 
-## Open items
+## Meeting conclude (summary)
 
-### `Completed` overlay (`max_reached`)
+Phased on **`foods-leo`**:
 
-**When:** `activeOverlay === "completed"`, museum mode, no user choice for ~45s.
+| PR | What |
+|----|------|
+| **0** | Server auto-wrap when hard cap (`canContinue: false`) — no `max_reached`, no overlay |
+| **1** | Chair closing statement before summary (`global-options` prompt) |
+| **2** | Rename extend/conclude vocabulary (`continue_more`, `wrap_up_meeting`, …) |
+| **3** | Meta-agent `conclude` mode: `reconfigureSession`, two tools, museum fork at `max_reached` |
 
-**Desired behaviour:** Auto-call `handleOnGenerateSummary` / “Wrap it up” so the meeting proceeds to summary without a click.
-
-**Notes:** Listed in museum-mode-plan Phase 4.2. Visitor may still listen through summary; Layer B idle on summary handles autoplay afterward.
-
-**Likely files:** `client/src/council/overlays/Completed.tsx` or `CouncilOverlays.tsx`, or museum wrapper in `Council.tsx`.
+Full spec: [`meeting-conclude-plan.md`](./meeting-conclude-plan.md).
 
 ---
 
@@ -48,47 +52,25 @@ Layer B ([`autoplay-plan.md`](./autoplay-plan.md)) handles leaving interactive m
 
 ### `Reconnecting` overlay
 
-After **2 minutes** on the reconnecting overlay in museum mode, `window.location.href = rootPath` (full page reload to landing). Non-museum keeps indefinite retry.
-
-**File:** `client/src/main/overlay/Reconnecting.tsx`.
-
----
+After **2 minutes** in museum mode, `window.location.href = rootPath`. **File:** `Reconnecting.tsx`.
 
 ### Human input / panelist abandonment
 
-Museum PTT idle (**60s** after button release, active phase only) → `onAbandonHumanTurn` → `skip_human_turn` → server pushes `skipped`, clears `handRaised`, `startLoop()`. Skipped turns count in speaker rotation and panelist invitation logic.
+60s museum PTT idle → `skip_human_turn` → `skipped` + `startLoop()`. **Done.**
 
-**Key files:** `HumanInput.tsx`, `useCouncilMachine.ts`, `HumanInputHandler.ts`, `SocketTypes.ts`.
+### Meta-agent interruption idle
 
----
-
-### Meta-agent long idle
-
-`MeetingMetaAgent` auto-`continue_meeting` ~10s after `BUTTON_IDLE_REMIND_MS` idle remind. No further Layer A work.
+Auto-`continue_meeting` ~10s after idle remind. **Done.**
 
 ---
 
 ## Not needed (museum)
 
-### `Name` overlay
-
-Visitor name is always known before council in museum mode; the name overlay does not surface. No auto-forward timer required.
-
-### `Incomplete` overlay
-
-Layer B autoplay only samples **completed** meetings, so the incomplete replay prompt cannot appear on museum kiosks.
-
-### Hash overlays (`#about`, `#contact`)
-
-About/contact entry points are hidden in museum mode. No auto-close timer required.
-
-### Voice guide stuck mid-setup
-
-Layer B `AutoplayCoordinator` idle → warning → replay already tears down a stuck setup session. No separate Layer A handler.
+`Name`, `Incomplete`, hash overlays, voice-guide stuck — see prior notes in git history or meeting-conclude plan.
 
 ---
 
 ## Out of scope for Layer A
 
-- Idle detection during **live council playback** — intentional omission; meeting should play through to summary, then Layer B applies.
-- Autoplay loop, random meeting API, button reset to landing — Layer B.
+- Idle detection during **live council playback**
+- Autoplay loop, random meeting API, button reset to landing — Layer B
