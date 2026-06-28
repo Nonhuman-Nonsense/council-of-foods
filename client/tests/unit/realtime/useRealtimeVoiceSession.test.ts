@@ -10,6 +10,7 @@ const mockCreateRealtimeConnection = vi.hoisted(() => vi.fn());
 let eventLoopCallbacks: {
   onCaption?: (text: string | null) => void;
   onUserTranscript?: (text: string) => void;
+  onWordAlignment?: (contentIndex: number, words: ReadonlyArray<{ w: string; s: number; e: number }>) => void;
   onAudioPartReady?: () => void;
   onResponseStarted?: () => void;
   onResponseDone?: () => void;
@@ -121,15 +122,20 @@ describe("useRealtimeVoiceSession", () => {
     });
   });
 
-  it("wires caption scheduler and user transcript callbacks", async () => {
+  it("wires inworld subtitle track and user transcript callbacks", async () => {
     const { result } = renderHook(() => useRealtimeVoiceSession(defaultParams));
 
     await waitFor(() => {
-      expect(mockCreateCaptionScheduler).toHaveBeenCalled();
       expect(mockCreateEventLoop).toHaveBeenCalledWith(
-        expect.objectContaining({ captionScheduler: expect.any(Object) }),
+        expect.objectContaining({
+          captionScheduler: undefined,
+          callbacks: expect.objectContaining({
+            onWordAlignment: expect.any(Function),
+          }),
+        }),
       );
     });
+    expect(mockCreateCaptionScheduler).not.toHaveBeenCalled();
 
     act(() => {
       eventLoopCallbacks.onUserTranscript?.("What is happening?");
@@ -140,6 +146,23 @@ describe("useRealtimeVoiceSession", () => {
       eventLoopCallbacks.onCaption?.("The council is discussing forests.");
     });
     expect(result.current.lastCaption).toBe("The council is discussing forests.");
+  });
+
+  it("uses caption scheduler for non-inworld providers", async () => {
+    mockFetchRealtimeBootstrap.mockResolvedValue({
+      provider: "openai",
+      session: { audio: { output: { speed: 1 } } },
+      iceServers: [],
+    });
+
+    renderHook(() => useRealtimeVoiceSession(defaultParams));
+
+    await waitFor(() => {
+      expect(mockCreateCaptionScheduler).toHaveBeenCalled();
+      expect(mockCreateEventLoop).toHaveBeenCalledWith(
+        expect.objectContaining({ captionScheduler: expect.any(Object) }),
+      );
+    });
   });
 
   it("toggles agentSpeaking when trackAgentSpeaking is enabled", async () => {
