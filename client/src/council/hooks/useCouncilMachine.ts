@@ -385,8 +385,8 @@ export function useCouncilMachine({
                 }
                 break;
             case 'query_extension':
-                if (activeOverlay !== "completed") {
-                    setActiveOverlay("completed");
+                if (activeOverlay !== "query_extension") {
+                    setActiveOverlay("query_extension");
                 }
                 if (textMessages[playNextIndex]?.type !== 'query_extension') {
                     cancelOverlay();
@@ -728,10 +728,6 @@ export function useCouncilMachine({
         setIsMuted(!isMuted);
     }
 
-    // TODO, make this nicer somehow?
-    const canExtendMeeting = liveKey !== undefined && textMessages.some((m) => m.type === "query_extension");
-
-
     return {
         state: {
             councilState,
@@ -748,7 +744,6 @@ export function useCouncilMachine({
             canRaiseHand,
             currentSnippetIndex,
             isMuted,
-            canExtendMeeting,
         },
         actions: {
             tryToFindTextAndAudio,

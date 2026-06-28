@@ -205,22 +205,7 @@ describe('useCouncilMachine', () => {
         });
 
         expect(result.current.state.councilState).toBe('query_extension');
-        expect(result.current.state.activeOverlay).toBe('completed');
-        expect(result.current.state.canExtendMeeting).toBe(true);
-    });
-
-    it('canExtendMeeting is false without query_extension sentinel', () => {
-        const { result } = renderHook(() => useCouncilMachine(defaultProps as any));
-
-        act(() => {
-            if (socketHandlers.onConversationUpdate) {
-                socketHandlers.onConversationUpdate([
-                    { id: 'm0', type: 'message', text: 'x', speaker: 'water' },
-                ]);
-            }
-        });
-
-        expect(result.current.state.canExtendMeeting).toBe(false);
+        expect(result.current.state.activeOverlay).toBe('query_extension');
     });
 
     it('handleOnContinueMeetingLonger drops query_extension locally and emits continue_conversation', () => {

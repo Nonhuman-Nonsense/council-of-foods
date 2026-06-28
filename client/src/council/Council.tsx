@@ -142,7 +142,6 @@ function Council({
     canRaiseHand,
     currentSnippetIndex,
     isMuted,
-    canExtendMeeting,
   } = state;
 
   const {
@@ -317,7 +316,6 @@ function Council({
             onAttemptResume={handleOnAttemptResume}
             onWrapItUp={handleOnGenerateSummary}
             proceedWithHumanName={handleHumanNameEntered}
-            canExtendMeeting={canExtendMeeting}
             cancelOverlay={cancelOverlay}
             summary={{ text: summary?.text || "" }}
             meetingId={currentMeetingId}

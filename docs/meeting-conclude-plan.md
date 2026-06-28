@@ -1,6 +1,6 @@
 # Meeting conclude flow — implementation plan
 
-Museum installs should not use the `Completed` overlay for wrap-up vs extend. When the soft cap is hit and extension is still allowed, the **meta-agent** (chair voice) asks the visitor; the agent calls one of two tools. When extension is not allowed, the server skips the choice entirely.
+Museum installs should not use the `QueryExtension` overlay for wrap-up vs extend. When the soft cap is hit, the **meta-agent** (chair voice) asks the visitor; the agent calls one of two tools. When extension is not allowed (hard cap), the server skips the choice entirely.
 
 **Branch:** `foods-leo` first.
 
@@ -23,8 +23,7 @@ Museum installs should not use the `Completed` overlay for wrap-up vs extend. Wh
 | Condition | Action |
 |-----------|--------|
 | Web (not museum) | `setActiveOverlay('completed')` — unchanged |
-| Museum + `canExtendMeeting` | Do **not** set overlay; Council sets `metaAgentMode = 'conclude'` + `metaAgentActive = true` |
-| Museum + `!canExtendMeeting` | Should not happen after **PR 0** (server auto-concludes) |
+| Museum + live soft cap | Do **not** set `query_extension` overlay; Council sets `metaAgentMode = 'conclude'` + `metaAgentActive = true` |
 
 Do **not** infer conclude mode from `query_extension && metaAgentActive` alone — explicit `metaAgentMode` keeps interruption vs conclude separate and extensible.
 
@@ -49,7 +48,7 @@ Initial names (PR 3); renamed in **PR 2**:
 
 Conclude mode exposes **only these two** tools (no `continue_meeting`, no `restart_meeting`). Interruption mode keeps today’s `continue_meeting` + `restart_meeting`.
 
-When `canExtendMeeting === false`, conclude agent is never shown (PR 0).
+Hard cap auto-conclude (PR 0) means the conclude agent is never needed for the absolute limit case.
 
 ### Idle timeout (conclude mode only)
 
@@ -234,7 +233,7 @@ Rename client actions, meta-agent tool slugs (when added), prompts, and tests. S
 
 ### PR 3 — Meta-agent conclude mode (museum)
 
-**Goal:** Museum + soft cap + `canExtendMeeting` → meta-agent conclude dialogue instead of Completed overlay.
+**Goal:** Museum + soft cap → meta-agent conclude dialogue instead of `QueryExtension` overlay.
 
 #### 3a — `reconfigureSession`
 
@@ -246,21 +245,21 @@ Rename client actions, meta-agent tool slugs (when added), prompts, and tests. S
 - `metaAgentMode: 'interruption' | 'conclude'` in Council (lifted state or callback bundle).
 - `metaAgentPrompt.ts`:
   - `buildConcludeAgentPrompt()` — short; chair explains meeting length; ask wrap up vs continue; must call one tool; no generic kiosk helper tone.
-  - `buildConcludeStateSnapshot({ canExtendMeeting, topic, humanName, … })`.
+  - `buildConcludeStateSnapshot({ topic, humanName, … })`.
   - `buildConcludeActivationTurn()` — triggers first spoken turn.
 - `shared/prompts/meta_agent_*_json` — conclude copy + tool descriptions (or separate `meta_agent_conclude_*.json`).
 
 #### 3c — Tools + handlers
 
-- `createConcludeAgentTools({ canExtendMeeting, promptBundle })` — `extend_meeting` + `conclude_meeting` only; omit extend tool when `!canExtendMeeting` (defensive; PR 0 should prevent this case).
+- `createConcludeAgentTools({ promptBundle })` — `extend_meeting` + `conclude_meeting` (soft cap always offers both).
 - Handlers call Council callbacks → existing socket emits; then `silenceAgentOutput`, `setMetaAgentActive(false)`, `setMetaAgentMode('interruption')`, `reconfigureSession()` back to interruption defaults.
 
 #### 3d — Wiring
 
 | File | Change |
 |------|--------|
-| `useCouncilMachine.ts` | Museum `query_extension`: skip `completed` overlay; expose `canExtendMeeting` (already exists) |
-| `Council.tsx` | `metaAgentMode`, `setMetaAgentMode`, pass conclude callbacks + `councilState` / `canExtendMeeting` |
+| `useCouncilMachine.ts` | Museum `query_extension`: skip `query_extension` overlay; activate conclude meta-agent |
+| `Council.tsx` | `metaAgentMode`, `setMetaAgentMode`, pass conclude callbacks + `councilState` |
 | `MeetingMetaAgent.tsx` | Mode prop; `useEffect` on mode → `reconfigureSession` + conclude activation; conclude idle → `conclude_meeting`; disable interruption auto-resume in conclude mode |
 | `Main.tsx` | Thread `metaAgentMode` if lifted |
 

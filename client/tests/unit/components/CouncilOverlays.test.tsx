@@ -15,10 +15,10 @@ vi.mock('@council/overlays/Name', () => ({
         </div>
     )
 }));
-vi.mock('@council/overlays/Completed', () => ({
-    default: ({ onContinue, onWrapItUp, canExtendMeeting: _canExtendMeeting }: { onContinue: () => void; onWrapItUp: () => void; canExtendMeeting?: boolean }) => (
-        <div data-testid="completed-overlay">
-            Completed Overlay
+vi.mock('@council/overlays/QueryExtension', () => ({
+    default: ({ onContinue, onWrapItUp }: { onContinue: () => void; onWrapItUp: () => void }) => (
+        <div data-testid="query-extension-overlay">
+            Query Extension Overlay
             <button onClick={() => onContinue()}>Continue</button>
             <button onClick={() => onWrapItUp()}>Wrap Up</button>
         </div>
@@ -55,7 +55,6 @@ describe('CouncilOverlays', () => {
         onAttemptResume: mockOnAttemptResume,
         onWrapItUp: mockOnWrapItUp,
         proceedWithHumanName: mockProceedWithHumanName,
-        canExtendMeeting: true,
         cancelOverlay: mockcancelOverlay,
         summary: mockSummary,
         meetingId: 123,
@@ -75,7 +74,7 @@ describe('CouncilOverlays', () => {
         // return <OverlayWrapper>{renderOverlayContent()}</OverlayWrapper>
         // So yes, wrapper is rendered.
         expect(screen.queryByTestId('name-overlay')).not.toBeInTheDocument();
-        expect(screen.queryByTestId('completed-overlay')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('query-extension-overlay')).not.toBeInTheDocument();
         expect(screen.queryByTestId('summary-overlay')).not.toBeInTheDocument();
     });
 
@@ -84,9 +83,9 @@ describe('CouncilOverlays', () => {
         expect(screen.getByTestId('name-overlay')).toBeInTheDocument();
     });
 
-    it('renders Completed overlay when activeOverlay is "completed"', () => {
-        render(<CouncilOverlays {...defaultProps} activeOverlay="completed" />);
-        expect(screen.getByTestId('completed-overlay')).toBeInTheDocument();
+    it('renders QueryExtension overlay when activeOverlay is "query_extension"', () => {
+        render(<CouncilOverlays {...defaultProps} activeOverlay="query_extension" />);
+        expect(screen.getByTestId('query-extension-overlay')).toBeInTheDocument();
     });
 
     it('renders Summary overlay when activeOverlay is "summary"', () => {
@@ -100,8 +99,8 @@ describe('CouncilOverlays', () => {
         expect(mockProceedWithHumanName).toHaveBeenCalledWith({ humanName: 'Leo' });
     });
 
-    it('passes callbacks correctly to Completed overlay', () => {
-        render(<CouncilOverlays {...defaultProps} activeOverlay="completed" />);
+    it('passes callbacks correctly to QueryExtension overlay', () => {
+        render(<CouncilOverlays {...defaultProps} activeOverlay="query_extension" />);
         screen.getByText('Continue').click();
         expect(mockOnContinue).toHaveBeenCalled();
 

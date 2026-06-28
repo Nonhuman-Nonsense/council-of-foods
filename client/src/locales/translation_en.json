@@ -132,7 +132,7 @@
   "metaAgent": {
     "holdToSpeak": "Push the button to speak"
   },
-  "completed": {
+  "queryExtension": {
     "title": "Is that it?",
     "1": "This meeting is starting to get long-winded,",
     "2": "is it time to come to a conclusion?",

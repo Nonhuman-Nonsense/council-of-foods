@@ -1,12 +1,12 @@
 import type { Character } from "@shared/ModelTypes";
-import Completed from "./Completed";
+import QueryExtension from "./QueryExtension";
 import Incomplete from "./Incomplete";
 import Summary, { SummaryData } from "./Summary";
 import Name from "./Name";
 import OverlayWrapper from "@main/overlay/OverlayWrapper";
 import type { Topic } from "@shared/ModelTypes";
 
-export type CouncilOverlayType = "name" | "completed" | "summary" | "incomplete" | null;
+export type CouncilOverlayType = "name" | "query_extension" | "summary" | "incomplete" | null;
 
 interface CouncilOverlaysProps {
   activeOverlay: CouncilOverlayType;
@@ -14,7 +14,6 @@ interface CouncilOverlaysProps {
   onAttemptResume: () => void;
   onWrapItUp: () => void;
   proceedWithHumanName: (data: { humanName: string }) => void;
-  canExtendMeeting: boolean;
   cancelOverlay: () => void;
   summary: SummaryData | null;
   meetingId: number;
@@ -29,7 +28,7 @@ interface CouncilOverlaysProps {
  * 
  * Supported Overlays:
  * - `name`: Human Participant name input.
- * - `completed`: Meeting finished options.
+ * - `query_extension`: Soft cap — visitor may extend or wrap up.
  * - `summary`: Final protocol and PDF download.
  */
 function CouncilOverlays({
@@ -38,7 +37,6 @@ function CouncilOverlays({
   onAttemptResume,
   onWrapItUp,
   proceedWithHumanName,
-  canExtendMeeting,
   cancelOverlay,
   summary,
   meetingId,
@@ -59,12 +57,11 @@ function CouncilOverlays({
             onNevermind={cancelOverlay}
           />
         );
-      case "completed":
+      case "query_extension":
         return (
-          <Completed
+          <QueryExtension
             onContinue={onContinue}
             onWrapItUp={onWrapItUp}
-            canExtendMeeting={canExtendMeeting}
           />
         );
       case "summary":
