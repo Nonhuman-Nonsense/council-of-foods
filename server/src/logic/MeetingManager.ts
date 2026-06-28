@@ -36,8 +36,14 @@ import { socketHoldsLiveSession } from "@logic/liveSessionRegistry.js";
 const PLAYBACK_AHEAD_BUFFER = 3;
 
 interface Decision {
-    type: 'END_CONVERSATION' | 'IDLE' | 'REQUEST_PANELIST' | 'GENERATE_AI_RESPONSE';
+    type: 'QUERY_EXTENSION' | 'CONCLUDE_MEETING' | 'IDLE' | 'REQUEST_PANELIST' | 'GENERATE_AI_RESPONSE';
     speaker?: Character;
+}
+
+function stopsConversationLoop(action: Decision): boolean {
+    return action.type === 'IDLE'
+        || action.type === 'QUERY_EXTENSION'
+        || action.type === 'CONCLUDE_MEETING';
 }
 
 /**
@@ -282,9 +288,8 @@ export class MeetingManager implements IMeetingManager {
             // If we waited until after processTurn, startLoop() would think the loop is 
             // still running and return early, failing to restart the conversation.
             //
-            // We still proceed to processTurn below because 'END_CONVERSATION' needs 
-            // to broadcast the end event to clients.
-            if (action.type === 'IDLE' || action.type === 'END_CONVERSATION') {
+            // We still proceed to processTurn below so cap handlers can broadcast or wrap up.
+            if (stopsConversationLoop(action)) {
                 this.isLoopActive = false;
             }
 
@@ -296,7 +301,7 @@ export class MeetingManager implements IMeetingManager {
                 return;
             }
 
-            if (action.type === 'IDLE' || action.type === 'END_CONVERSATION') {
+            if (stopsConversationLoop(action)) {
                 return;
             }
         }
@@ -334,7 +339,7 @@ export class MeetingManager implements IMeetingManager {
         if (meeting.conversation.length > 0) {
             const lastMsg = meeting.conversation[meeting.conversation.length - 1];
             if (
-                lastMsg.type === 'max_reached' ||
+                lastMsg.type === 'query_extension' ||
                 lastMsg.type === 'summary' ||
                 lastMsg.type === 'awaiting_human_panelist' ||
                 lastMsg.type === 'awaiting_human_question'
@@ -344,7 +349,9 @@ export class MeetingManager implements IMeetingManager {
         }
         // 2. Check Limits
         if (meeting.conversation.length >= this.serverOptions.meetingVeryMaxLength || meeting.conversation.length >= this.serverOptions.conversationMaxLength + meeting.conversationExtraSlots) {
-            return { type: 'END_CONVERSATION' };
+            const currentCap = this.serverOptions.conversationMaxLength + meeting.conversationExtraSlots;
+            const hasRoomToExtend = currentCap < this.serverOptions.meetingVeryMaxLength;
+            return { type: hasRoomToExtend ? 'QUERY_EXTENSION' : 'CONCLUDE_MEETING' };
         }
 
         // 2b. Live playback: do not get more than `PLAYBACK_AHEAD_BUFFER` messages ahead of what the client has played (not in prototype)
@@ -381,15 +388,22 @@ export class MeetingManager implements IMeetingManager {
             case 'IDLE':
                 return; // Do nothing.
 
-            case 'END_CONVERSATION': {
-                const currentCap = this.serverOptions.conversationMaxLength + meeting.conversationExtraSlots;
-                meeting.conversation.push({ type: 'max_reached', canContinue: currentCap < this.serverOptions.meetingVeryMaxLength, });
+            case 'QUERY_EXTENSION': {
+                Logger.info(`meeting ${meeting._id}`, 'conversation soft cap reached, awaiting visitor choice');
+                meeting.conversation.push({ type: 'query_extension' });
                 await this.services.meetingsCollection.updateOne(
                     { _id: meeting._id },
-                    {$set: {conversation: meeting.conversation}}
+                    { $set: { conversation: meeting.conversation } }
                 );
                 this.broadcaster.broadcastConversationUpdate(meeting.conversation);
                 this.broadcaster.broadcastConversationEnd();
+                return;
+            }
+
+            case 'CONCLUDE_MEETING': {
+                Logger.info(`meeting ${meeting._id}`, 'hard cap reached, auto wrap up');
+                const date = new Date().toISOString().slice(0, 10);
+                await this.meetingLifecycleHandler.handleWrapUpMeeting({ date });
                 return;
             }
 

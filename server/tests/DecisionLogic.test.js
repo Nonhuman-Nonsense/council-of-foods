@@ -16,14 +16,25 @@ describe('MeetingManager - State Machine (decideNextAction)', () => {
 
     const scenarios = [
         {
-            name: 'should end conversation if max length reached',
+            name: 'should query extension if soft cap reached',
             setup: (mgr) => {
                 mgr.serverOptions.conversationMaxLength = 5;
                 mgr.meeting.conversationExtraSlots = 0;
                 mgr.meeting.conversation = TestFactory.createConversation(5);
             },
             nextSpeakerIndex: 0,
-            expected: { type: 'END_CONVERSATION' }
+            expected: { type: 'QUERY_EXTENSION' }
+        },
+        {
+            name: 'should conclude meeting at hard cap when extension is not possible',
+            setup: (mgr) => {
+                mgr.serverOptions.conversationMaxLength = 5;
+                mgr.serverOptions.meetingVeryMaxLength = 5;
+                mgr.meeting.conversationExtraSlots = 0;
+                mgr.meeting.conversation = TestFactory.createConversation(5);
+            },
+            nextSpeakerIndex: 0,
+            expected: { type: 'CONCLUDE_MEETING' }
         },
         {
             name: 'should wait if awaiting human panelist',
@@ -58,11 +69,11 @@ describe('MeetingManager - State Machine (decideNextAction)', () => {
             expected: { type: 'IDLE' }
         },
         {
-            name: 'should wait if conversation already ended with max_reached sentinel',
+            name: 'should wait if conversation already ended with query_extension sentinel',
             setup: (mgr) => {
                 mgr.serverOptions.conversationMaxLength = 5;
                 mgr.meeting.conversationExtraSlots = 0;
-                mgr.meeting.conversation = [...TestFactory.createConversation(5), { type: 'max_reached' }];
+                mgr.meeting.conversation = [...TestFactory.createConversation(5), { type: 'query_extension' }];
             },
             nextSpeakerIndex: 0,
             expected: { type: 'IDLE' }

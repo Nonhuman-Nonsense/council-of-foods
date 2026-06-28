@@ -14,11 +14,11 @@ Museum installs should not use the `Completed` overlay for wrap-up vs extend. Wh
 
 | State | Role |
 |-------|------|
-| `councilState === 'max_reached'` | Playback cursor is on the `max_reached` sentinel; meeting is at soft cap. **Unchanged** — do not add a new council state. |
+| `councilState === 'query_extension'` | Playback cursor is on the `query_extension` sentinel; meeting is at soft cap. **Unchanged** — do not add a new council state. |
 | `metaAgentMode` | Orthogonal meta-agent job: `'interruption'` (default) \| `'conclude'`. Lives next to `metaAgentActive` (Council / `MeetingMetaAgent`). |
 | `metaAgentActive` | UI + WebRTC session visible; meeting output hidden; chair zoom. Same as today. |
 
-**Fork point** — `useCouncilMachine` `case 'max_reached':` (~387–395):
+**Fork point** — `useCouncilMachine` `case 'query_extension':` (~387–395):
 
 | Condition | Action |
 |-----------|--------|
@@ -26,7 +26,7 @@ Museum installs should not use the `Completed` overlay for wrap-up vs extend. Wh
 | Museum + `canExtendMeeting` | Do **not** set overlay; Council sets `metaAgentMode = 'conclude'` + `metaAgentActive = true` |
 | Museum + `!canExtendMeeting` | Should not happen after **PR 0** (server auto-concludes) |
 
-Do **not** infer conclude mode from `max_reached && metaAgentActive` alone — explicit `metaAgentMode` keeps interruption vs conclude separate and extensible.
+Do **not** infer conclude mode from `query_extension && metaAgentActive` alone — explicit `metaAgentMode` keeps interruption vs conclude separate and extensible.
 
 ### `reconfigureSession` on mode change
 
@@ -70,17 +70,133 @@ Bump autoplay activity when conclude agent activates so wrap-up dialogue does no
 
 ### PR 0 — Auto-conclude when extension impossible (no agent)
 
-**Goal:** If the meeting hits the hard cap (`canContinue === false`), skip `max_reached` UX entirely — server goes straight to wrap-up.
+**Status:** Implemented.
 
-**Server** (`MeetingManager` `END_CONVERSATION` or lifecycle):
+**Goal:** When the meeting hits the **hard cap** (no room to extend), skip `query_extension` entirely and go straight to wrap-up (summary generation). No Completed overlay, no museum agent, no client choice.
 
-- When `conversationMaxLength + conversationExtraSlots >= meetingVeryMaxLength`, do **not** push `{ type: 'max_reached', canContinue: false }`.
-- Instead invoke wrap-up path directly (`handleWrapUpMeeting` with server-side date, or shared internal helper).
-- Client receives `conversation_update` with summary (or loading → summary) — no Completed overlay, no museum agent.
+**Branch:** `foods-leo`.
 
-**Client:** Optional guard — if `max_reached` arrives with `canContinue: false` in museum, auto-call `handleOnGenerateSummary` as belt-and-suspenders.
+#### When does this fire?
 
-**Tests:** `ConversationFlow.test.js`, `MeetingLifecycleHandler.test.js` — at absolute cap, no `max_reached` sentinel; summary appended.
+In `decideNextAction()` the loop already returns `END_CONVERSATION` when:
+
+```text
+conversation.length >= conversationMaxLength + conversationExtraSlots
+   OR
+conversation.length >= meetingVeryMaxLength
+```
+
+PR 0 splits that branch via `QUERY_EXTENSION` vs `CONCLUDE_MEETING`:
+
+| Decision | Server behaviour |
+|----------|----------------|
+| `QUERY_EXTENSION` (soft cap, room to extend) | Push `{ type: 'query_extension' }`, persist, `broadcastConversationUpdate` + `broadcastConversationEnd`, loop stops |
+| `CONCLUDE_MEETING` (at `meetingVeryMaxLength`) | Do **not** push `query_extension`; call wrap-up directly; do **not** emit `conversation_end` |
+
+`hasRoomToExtend = currentCap < meetingVeryMaxLength` where `currentCap = conversationMaxLength + conversationExtraSlots`.
+
+#### Decision type split (recommended)
+
+Instead of branching inside `processTurn(END_CONVERSATION)`, split at **`decideNextAction()`** so cap handling is explicit in the decision enum:
+
+```ts
+interface Decision {
+  type:
+    | "IDLE"
+    | "GENERATE_AI_RESPONSE"
+    | "REQUEST_PANELIST"
+    | "QUERY_EXTENSION"    // soft cap — visitor may extend or conclude
+    | "CONCLUDE_MEETING";  // hard cap — auto wrap-up, no choice
+}
+```
+
+**`decideNextAction()`** (replace single `END_CONVERSATION` return):
+
+```ts
+if (conversation.length >= veryMax || conversation.length >= currentCap) {
+  const hasRoomToExtend = currentCap < meetingVeryMaxLength;
+  return { type: hasRoomToExtend ? "QUERY_EXTENSION" : "CONCLUDE_MEETING" };
+}
+```
+
+**`processTurn()`:**
+
+| Decision | Behaviour |
+|----------|-----------|
+| `QUERY_EXTENSION` | Push `{ type: 'query_extension' }`, persist, `broadcastConversationUpdate`, `broadcastConversationEnd`, loop stops |
+| `CONCLUDE_MEETING` | Server date → `handleWrapUpMeeting({ date })`, no `query_extension`, no `conversation_end`, loop stops |
+
+**`runLoop()`:** treat `QUERY_EXTENSION` and `CONCLUDE_MEETING` like today's `END_CONVERSATION` (set `isLoopActive = false` before/after `processTurn`, then return).
+
+**Naming:** `QUERY_EXTENSION` reads well next to future museum conclude-agent; `CONCLUDE_MEETING` is unambiguous for hard-cap auto summary. Drop `END_CONVERSATION` (no callers outside tests).
+
+#### Server changes
+
+**1. `MeetingManager.decideNextAction` + `Decision` type** — split as above.
+
+**2. `MeetingManager.processTurn`** — two cases instead of one branched `END_CONVERSATION`.
+
+**3. `MeetingLifecycleHandler.handleWrapUpMeeting`** — relax `query_extension` requirement (see below).
+
+
+Today it **throws** if no `query_extension` sentinel (lines 61–64). Change to:
+
+```text
+mr = findIndex query_extension
+if (mr !== -1) {
+  conversation = slice(0, mr)   // manual / soft-cap path (client clicked wrap up)
+} else {
+  // hard-cap auto path: conversation already ends on last real turn
+  log optional: "wrap up without query_extension sentinel (hard cap)"
+}
+// then existing summary generation (finalizeMeetingPrompt, chairInterjection, push summary, TTS)
+```
+
+Socket-initiated `wrap_up_meeting` from the Completed overlay still works: client trims locally, emits wrap-up; server still finds `query_extension` if present, strips it, appends summary.
+
+**3. No new socket events or GlobalOptions** for PR 0 (PR 1 adds chair closing line later).
+
+**4. No client changes required** — client never receives `query_extension` with `canContinue: false`. Playback advances until `summary` appears in `conversation_update`; existing `councilState → summary` logic applies.
+
+Optional belt-and-suspenders (not required for PR 0): museum client auto-`handleOnGenerateSummary` if an old server still sends `query_extension` + `canContinue: false`.
+
+#### What we deliberately do not do in PR 0
+
+- Meta-agent / `reconfigureSession` / `metaAgentMode`
+- Chair closing statement before summary (PR 1)
+- Tool renames (PR 2)
+- Change soft-cap behaviour (`canContinue: true` still gets `query_extension`)
+
+#### Logging
+
+Add clear server logs to distinguish paths:
+
+- `[meeting N] conversation soft cap reached, awaiting visitor choice` (query_extension pushed)
+- `[meeting N] hard cap reached, auto wrap up` (summary generation started)
+
+#### Tests to update / add
+
+| File | Change |
+|------|--------|
+| `ConversationFlow.test.js` | **`sets canContinue false on query_extension when at meetingVeryMaxLength`** → rewrite: after `runLoop()`, conversation ends with **`summary`**, no `query_extension`; `broadcastConversationEnd` **not** called; `chairInterjection` / summary path invoked |
+| `ConversationFlow.test.js` | Keep soft-cap test: still ends with `query_extension`, `canContinue: true` |
+| `MeetingLifecycleHandler.test.js` | **`throws when wrap-up without query_extension`** → change to **succeeds**: conversation `[message]` → `[message, summary]` |
+| `MeetingLifecycleHandler.test.js` | Keep strip-`query_extension` test for soft-cap manual wrap-up |
+| `DecisionLogic.test.js` | Soft-cap scenarios expect `QUERY_EXTENSION`; hard-cap expects `CONCLUDE_MEETING` (replace `END_CONVERSATION`) |
+
+Mock `dialogGenerator.chairInterjection` in the hard-cap integration test (same as existing wrap-up tests).
+
+#### Manual test plan
+
+1. Set low `conversationMaxLength` and `meetingVeryMaxLength` equal (e.g. 5) in prototype or test env.
+2. Run meeting to cap → server should generate summary **without** Completed overlay / `query_extension` in conversation.
+3. Soft cap (`meetingVeryMaxLength` > `conversationMaxLength`) → still get `query_extension` with extend option (web overlay / future museum agent).
+
+#### Risk notes
+
+- **Date in summary prompt:** auto path uses server UTC date; manual path uses client browser date. Acceptable for PR 0; document if installs care about local date.
+- **Wrap-up duration:** summary generation runs inside `processTurn` while loop is already marked inactive — same as socket `wrap_up_meeting`; no `startLoop` after.
+- **Reconnection:** if client reconnects mid-summary-generation, existing reconnection + conversation replay should show partial conversation then summary when broadcast arrives.
 
 **No meta-agent changes.**
 
@@ -93,7 +209,7 @@ Bump autoplay activity when conclude agent activates so wrap-up dialogue does no
 **Server:**
 
 - New prompt in `server/global-options.json` (e.g. `concludeMeetingPrompt` + `concludeMeetingLength`), distinct from `finalizeMeetingPrompt`.
-- `handleWrapUpMeeting`: after stripping `max_reached`, generate chair **closing statement** (`type: 'message'` or dedicated type if needed), push + TTS, **then** generate summary as today.
+- `handleWrapUpMeeting`: after stripping `query_extension`, generate chair **closing statement** (`type: 'message'` or dedicated type if needed), push + TTS, **then** generate summary as today.
 
 **Client:** Playback flows through closing statement → summary (existing state machine).
 
@@ -143,14 +259,14 @@ Rename client actions, meta-agent tool slugs (when added), prompts, and tests. S
 
 | File | Change |
 |------|--------|
-| `useCouncilMachine.ts` | Museum `max_reached`: skip `completed` overlay; expose `canExtendMeeting` (already exists) |
+| `useCouncilMachine.ts` | Museum `query_extension`: skip `completed` overlay; expose `canExtendMeeting` (already exists) |
 | `Council.tsx` | `metaAgentMode`, `setMetaAgentMode`, pass conclude callbacks + `councilState` / `canExtendMeeting` |
 | `MeetingMetaAgent.tsx` | Mode prop; `useEffect` on mode → `reconfigureSession` + conclude activation; conclude idle → `conclude_meeting`; disable interruption auto-resume in conclude mode |
 | `Main.tsx` | Thread `metaAgentMode` if lifted |
 
 #### 3e — Tests
 
-- `MeetingMetaAgent.test.tsx` — conclude activation on `max_reached` + museum; tools; idle conclude; no interruption auto-resume.
+- `MeetingMetaAgent.test.tsx` — conclude activation on `query_extension` + museum; tools; idle conclude; no interruption auto-resume.
 - `useCouncilMachine.test.tsx` — museum does not set `completed` overlay.
 - `metaAgentTools.test.ts` — conclude handlers.
 
@@ -160,17 +276,17 @@ Rename client actions, meta-agent tool slugs (when added), prompts, and tests. S
 
 ```text
 Soft cap hit (canContinue: true)
-  Server → pushes max_reached
+  Server → pushes query_extension
   Museum client → metaAgentMode=conclude, metaAgentActive=true
                 → reconfigureSession(conclude prompt + 2 tools)
                 → chair speaks first
   Visitor PTT dialogue
                 → extend_meeting OR conclude_meeting
-  extend → trim max_reached, continue_conversation, meta agent off, council resumes
+  extend → trim query_extension, continue_conversation, meta agent off, council resumes
   conclude → wrap_up path (PR 1: chair line + summary)
 
 Hard cap (canContinue: false) — PR 0
-  Server → skip max_reached, wrap_up directly (PR 1: chair line + summary)
+  Server → skip query_extension, wrap_up directly (PR 1: chair line + summary)
   No overlay, no agent
 ```
 

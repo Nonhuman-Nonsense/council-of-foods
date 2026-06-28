@@ -18,7 +18,7 @@ describe('MeetingManager conversation transitions', () => {
         manager.meeting.maximumPlayedIndex = 2;
         manager.meeting.conversation = [
             ...TestFactory.createConversation(3),
-            { type: 'max_reached', canContinue: true },
+            { type: 'query_extension' },
         ];
         manager.dialogGenerator.chairInterjection = vi.fn().mockReturnValue(
             new Promise((resolve) => {
@@ -65,7 +65,7 @@ describe('MeetingManager conversation transitions', () => {
         manager.meeting.maximumPlayedIndex = 2;
         manager.meeting.conversation = [
             ...TestFactory.createConversation(3),
-            { type: 'max_reached', canContinue: true },
+            { type: 'query_extension' },
         ];
         const runLoop = vi.spyOn(manager, 'runLoop').mockImplementation(() => {});
 

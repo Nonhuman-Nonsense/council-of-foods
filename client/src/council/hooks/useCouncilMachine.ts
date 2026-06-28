@@ -39,7 +39,7 @@ export type CouncilState =
     | "human_panelist"
     | "summary"
     | "meeting_incomplete"
-    | "max_reached";
+    | "query_extension";
 
 export function useCouncilMachine({
     currentMeetingId,
@@ -310,8 +310,8 @@ export function useCouncilMachine({
         }
 
         // Conversation length cap (server-sent synthetic)
-        if (councilState !== 'max_reached' && textMessages[playNextIndex]?.type === 'max_reached') {
-            setCouncilState('max_reached');
+        if (councilState !== 'query_extension' && textMessages[playNextIndex]?.type === 'query_extension') {
+            setCouncilState('query_extension');
             return;
         }
 
@@ -384,11 +384,11 @@ export function useCouncilMachine({
                     }, 1000);
                 }
                 break;
-            case 'max_reached':
+            case 'query_extension':
                 if (activeOverlay !== "completed") {
                     setActiveOverlay("completed");
                 }
-                if (textMessages[playNextIndex]?.type !== 'max_reached') {
+                if (textMessages[playNextIndex]?.type !== 'query_extension') {
                     cancelOverlay();
                     return;
                 }
@@ -516,10 +516,10 @@ export function useCouncilMachine({
 
         //TODO rewrite this to be more DRY, shouldnt be as a side effect here in cancelOverlay?
         //TODO if reaching a synthetic message from the end of the previous one, going back should reset the audio but it doesnt at the moment
-        if (councilState === 'max_reached') {
-            // Reliably set the play state to the last content before the synthetic max_reached message
-            const mr = textMessages.findIndex((m) => m.type === 'max_reached');
-            const lastContent = mr >= 0 ? mr - 1 : textMessages.length - 1;
+        if (councilState === 'query_extension') {
+            // Reliably set the play state to the last content before the synthetic query_extension message
+            const queryExtensionIndex = textMessages.findIndex((m) => m.type === 'query_extension');
+            const lastContent = queryExtensionIndex >= 0 ? queryExtensionIndex - 1 : textMessages.length - 1;
             setPlayNextIndex(Math.max(0, lastContent));
             setCouncilState('playing');
         } else if (councilState === 'summary') {
@@ -539,8 +539,8 @@ export function useCouncilMachine({
     }
 
     function handleOnContinueMeetingLonger() {
-        const mr = textMessages.findIndex((m) => m.type === 'max_reached');
-        setTextMessages(prevMessages => prevMessages.slice(0, mr));
+        const queryExtensionIndex = textMessages.findIndex((m) => m.type === 'query_extension');
+        setTextMessages(prevMessages => prevMessages.slice(0, queryExtensionIndex));
         setActiveOverlay(null);
         setPaused(false);
         if (socketRef.current) socketRef.current.emit("continue_conversation");
@@ -548,8 +548,8 @@ export function useCouncilMachine({
     }
 
     function handleOnGenerateSummary() {
-        const mr = textMessages.findIndex((m) => m.type === 'max_reached');
-        setTextMessages(prevMessages => prevMessages.slice(0, mr));
+        const queryExtensionIndex = textMessages.findIndex((m) => m.type === 'query_extension');
+        setTextMessages(prevMessages => prevMessages.slice(0, queryExtensionIndex));
         setActiveOverlay(null);
         const browserDate = new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
         if (socketRef.current) socketRef.current.emit("wrap_up_meeting", { date: browserDate });
@@ -729,8 +729,7 @@ export function useCouncilMachine({
     }
 
     // TODO, make this nicer somehow?
-    const maxReachedMessage = textMessages.find((m) => m.type === "max_reached");
-    const canExtendMeeting = liveKey !== undefined && (maxReachedMessage?.canContinue ?? false);
+    const canExtendMeeting = liveKey !== undefined && textMessages.some((m) => m.type === "query_extension");
 
 
     return {

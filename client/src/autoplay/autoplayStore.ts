@@ -13,7 +13,7 @@ export type AutoplayCouncilState =
   | "human_panelist"
   | "summary"
   | "meeting_incomplete"
-  | "max_reached";
+  | "query_extension";
 
 /** Fixed list of events app code may send to autoplay. */
 export type AutoplayConsumerEvent =

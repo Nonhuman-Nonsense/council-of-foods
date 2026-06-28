@@ -45,7 +45,7 @@ export default function FoodsCouncilScene({
     if (
       councilState === "loading" ||
       councilState === "waiting" ||
-      councilState === "max_reached" ||
+      councilState === "query_extension" ||
       councilState === "meeting_incomplete" ||
       councilState === "summary" ||
       councilState === "human_input" ||

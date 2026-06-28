@@ -58,11 +58,12 @@ export class MeetingLifecycleHandler {
         Logger.info(`meeting ${m._id}`, "attempting to wrap up");
 
         //remove the max reached message
-        const mr = m.conversation.findIndex((m) => m.type === "max_reached");
-        if(mr === -1) {
-            throw new Error("Attempted to wrap up meeting but not at max reached");
+        const queryExtensionIndex = m.conversation.findIndex((m) => m.type === "query_extension");
+        if (queryExtensionIndex !== -1) {
+            m.conversation = m.conversation.slice(0, queryExtensionIndex);
+        } else {
+            Logger.info(`meeting ${m._id}`, 'wrap up without query_extension sentinel (hard cap auto conclude)');
         }
-        m.conversation = m.conversation.slice(0, mr);
 
         //generate the summary
         const summaryPrompt = manager.serverOptions.finalizeMeetingPrompt[m.language].replace("[DATE]", message.date);
@@ -135,11 +136,11 @@ export class MeetingLifecycleHandler {
         Logger.info(`meeting ${m._id}`, "continuing conversation");
 
         //remove the max reached message
-        const mr = m.conversation.findIndex((m) => m.type === "max_reached");
-        if(mr === -1) {
-            throw new Error("Attempted to continue meeting but not at max reached");
+        const queryExtensionIndex = m.conversation.findIndex((m) => m.type === "query_extension");
+        if (queryExtensionIndex === -1) {
+            throw new Error("Attempted to continue meeting but not at query_extension sentinel");
         }
-        m.conversation = m.conversation.slice(0, mr);
+        m.conversation = m.conversation.slice(0, queryExtensionIndex);
 
         //if the conversation extra slots is undefined, set it to 0, could happen if the meeting is legacy
         //TODO: Could we have a problem here if we view an old meeting that is already past the max reached?

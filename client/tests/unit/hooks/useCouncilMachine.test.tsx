@@ -195,28 +195,27 @@ describe('useCouncilMachine', () => {
 
     // --- Human Panelist Tests ---
 
-    it('enters max_reached when conversation ends with max_reached sentinel', () => {
+    it('enters query_extension when conversation ends with query_extension sentinel', () => {
         const { result } = renderHook(() => useCouncilMachine(defaultProps as any));
 
         act(() => {
             if (socketHandlers.onConversationUpdate) {
-                socketHandlers.onConversationUpdate([{ type: 'max_reached', canContinue: true }]);
+                socketHandlers.onConversationUpdate([{ type: 'query_extension' }]);
             }
         });
 
-        expect(result.current.state.councilState).toBe('max_reached');
+        expect(result.current.state.councilState).toBe('query_extension');
         expect(result.current.state.activeOverlay).toBe('completed');
         expect(result.current.state.canExtendMeeting).toBe(true);
     });
 
-    it('canExtendMeeting respects canContinue false on max_reached', () => {
+    it('canExtendMeeting is false without query_extension sentinel', () => {
         const { result } = renderHook(() => useCouncilMachine(defaultProps as any));
 
         act(() => {
             if (socketHandlers.onConversationUpdate) {
                 socketHandlers.onConversationUpdate([
                     { id: 'm0', type: 'message', text: 'x', speaker: 'water' },
-                    { type: 'max_reached', canContinue: false },
                 ]);
             }
         });
@@ -224,14 +223,14 @@ describe('useCouncilMachine', () => {
         expect(result.current.state.canExtendMeeting).toBe(false);
     });
 
-    it('handleOnContinueMeetingLonger drops max_reached locally and emits continue_conversation', () => {
+    it('handleOnContinueMeetingLonger drops query_extension locally and emits continue_conversation', () => {
         const { result } = renderHook(() => useCouncilMachine(defaultProps as any));
         mockSocketEmit.mockClear();
         act(() => {
             if (socketHandlers.onConversationUpdate) {
                 socketHandlers.onConversationUpdate([
                     { id: 'm0', type: 'message', text: 'x', speaker: 'water' },
-                    { type: 'max_reached', canContinue: true },
+                    { type: 'query_extension' },
                 ]);
             }
         });
@@ -243,14 +242,14 @@ describe('useCouncilMachine', () => {
         expect(result.current.state.councilState).toBe('loading');
     });
 
-    it('handleOnGenerateSummary drops max_reached locally and emits wrap_up_meeting', () => {
+    it('handleOnGenerateSummary drops query_extension locally and emits wrap_up_meeting', () => {
         const { result } = renderHook(() => useCouncilMachine(defaultProps as any));
         mockSocketEmit.mockClear();
         act(() => {
             if (socketHandlers.onConversationUpdate) {
                 socketHandlers.onConversationUpdate([
                     { id: 'm0', type: 'message', text: 'x', speaker: 'water' },
-                    { type: 'max_reached', canContinue: false },
+                    { type: 'query_extension' },
                 ]);
             }
         });

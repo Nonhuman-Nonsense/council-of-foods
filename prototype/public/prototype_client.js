@@ -49,7 +49,7 @@ const defaultOptions = {
   conversationMaxLength: 10,
   /** Increment applied server-side on "Keep Going" (matches server `extraMessageCount`). */
   extraMessageCount: 5,
-  /** Absolute cap for extends (server `meetingVeryMaxLength`); reflected in `max_reached.canContinue`. */
+  /** Absolute cap for extends (server `meetingVeryMaxLength`); hard cap skips `query_extension` and concludes directly. */
   meetingVeryMaxLength: 30,
   skipAudio: false,
   directedSpeakerRouting: false,
@@ -63,12 +63,12 @@ const defaultOptions = {
 };
 
 /**
- * Rows that participate in TTS (excludes trailing `max_reached` synthetic with no audio).
+ * Rows that participate in TTS (excludes trailing `query_extension` synthetic with no audio).
  */
 function countPlayableMessages(conversation) {
   if (!conversation || conversation.length === 0) return 0;
   const last = conversation[conversation.length - 1];
-  if (last && last.type === 'max_reached') {
+  if (last && last.type === 'query_extension') {
     return conversation.length - 1;
   }
   return conversation.length;
@@ -243,7 +243,7 @@ createApp({
       return (this.currentLanguageData.characters || []).filter(c => !this.isCharacterActive(c));
     },
 
-    /** Number of rows that have TTS (excludes trailing `max_reached`). */
+    /** Number of rows that have TTS (excludes trailing `query_extension`). */
     playableCount() {
       return countPlayableMessages(this.conversation);
     },
@@ -254,11 +254,10 @@ createApp({
       return n > 0 ? n - 1 : -1;
     },
 
-    /** Server allows `continue_conversation` when `canContinue === true`; hide Keep Going when false. */
+    /** Server allows `continue_conversation` when conversation ends with `query_extension`. */
     canContinueMeeting() {
       const last = this.conversation[this.conversation.length - 1];
-      if (last && last.type === 'max_reached' && last.canContinue === false) return false;
-      return true;
+      return !!(last && last.type === 'query_extension');
     },
 
     languageModelsText: {
@@ -955,7 +954,7 @@ createApp({
       });
 
       this.socket.on("conversation_end", () => {
-        this.log('SOCKET_IN', 'Conversation End (length cap — see max_reached in conversation)');
+        this.log('SOCKET_IN', 'Conversation End (length cap — see query_extension in conversation)');
         this.status = 'ENDED';
         if (this.audioController) this.audioController.markComplete();
       });
@@ -1478,7 +1477,7 @@ createApp({
     continueConversation() {
       this.status = 'CONNECTING';
       // Match web client: drop synthetic tail locally so UI matches server after strip.
-      const mr = this.conversation.findIndex((m) => m.type === 'max_reached');
+      const mr = this.conversation.findIndex((m) => m.type === 'query_extension');
       if (mr !== -1) {
         this.conversation = this.conversation.slice(0, mr);
         if (this.audioController) {

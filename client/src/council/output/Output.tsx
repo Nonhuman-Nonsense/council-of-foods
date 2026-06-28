@@ -58,7 +58,7 @@ const Output: React.FC<OutputProps> = ({
       const matchingAudioMessage = audioMessages.find((a) => a.id === textMessage.id);
       setCurrentAudioMessage(() => matchingAudioMessage || null);
       setPlaybackStartInfo((current) => current?.messageId === matchingAudioMessage?.id ? current : null);
-    } else if (councilState === 'loading' || councilState === 'max_reached' || councilState === 'human_input' || councilState === 'human_panelist') {
+    } else if (councilState === 'loading' || councilState === 'query_extension' || councilState === 'human_input' || councilState === 'human_panelist') {
       setCurrentAudioMessage(null);
       setPlaybackStartInfo(null);
     } else if (councilState === 'summary') {

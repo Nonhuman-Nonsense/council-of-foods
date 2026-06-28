@@ -114,7 +114,7 @@ describe('MeetingLifecycleHandler', () => {
             mockContext.meeting = storedMeeting({
                 conversation: [
                     { id: '1', text: 'hi', type: 'message', speaker: chair.id },
-                    { type: 'max_reached' },
+                    { type: 'query_extension' },
                 ],
             });
 
@@ -123,11 +123,11 @@ describe('MeetingLifecycleHandler', () => {
             expect(mockMeetingsCollection.updateOne).toHaveBeenCalled();
         });
 
-        it('should strip max_reached before appending summary', async () => {
+        it('should strip query_extension before appending summary', async () => {
             mockContext.meeting = storedMeeting({
                 conversation: [
                     { id: '1', text: 'hi', type: 'message', speaker: chair.id },
-                    { type: 'max_reached' }
+                    { type: 'query_extension' }
                 ]
             });
 
@@ -136,42 +136,43 @@ describe('MeetingLifecycleHandler', () => {
             expect(mockContext.meeting.conversation.map((m) => m.type)).toEqual(['message', 'summary']);
         });
 
-        it('throws when wrap-up is requested without max_reached sentinel', async () => {
+        it('appends summary without query_extension sentinel at hard cap auto conclude', async () => {
             mockContext.meeting = storedMeeting({
                 conversation: [{ id: '1', text: 'hi', type: 'message', speaker: chair.id }],
             });
-            await expect(handler.handleWrapUpMeeting({ date: '2025-01-01' })).rejects.toThrow(
-                'Attempted to wrap up meeting but not at max reached',
-            );
+
+            await handler.handleWrapUpMeeting({ date: '2025-01-01' });
+
+            expect(mockContext.meeting.conversation.map((m) => m.type)).toEqual(['message', 'summary']);
         });
     });
 
     describe('handleContinueConversation', () => {
-        it('should resume loop when meeting is at max_reached', async () => {
+        it('should resume loop when meeting is at query_extension', async () => {
             mockContext.meeting = storedMeeting({
                 conversation: [
                     { id: 'a', type: 'message', text: 'x', speaker: chair.id },
-                    { type: 'max_reached' },
+                    { type: 'query_extension' },
                 ],
             });
             await handler.handleContinueConversation();
             expect(mockContext.startLoop).toHaveBeenCalled();
         });
 
-        it('throws when continue is requested without max_reached sentinel', async () => {
+        it('throws when continue is requested without query_extension sentinel', async () => {
             mockContext.meeting = storedMeeting({
                 conversation: [{ id: 'a', type: 'message', text: 'x', speaker: chair.id }],
             });
             await expect(handler.handleContinueConversation()).rejects.toThrow(
-                'Attempted to continue meeting but not at max reached',
+                'Attempted to continue meeting but not at query_extension sentinel',
             );
         });
 
-        it('should strip max_reached, persist slots, then resume', async () => {
+        it('should strip query_extension, persist slots, then resume', async () => {
             mockContext.meeting = storedMeeting({
                 conversation: [
                     { id: 'a', type: 'message', text: 'x', speaker: chair.id },
-                    { type: 'max_reached' },
+                    { type: 'query_extension' },
                 ],
             });
             mockMeetingsCollection.updateOne.mockResolvedValue({ matchedCount: 1, modifiedCount: 1 });

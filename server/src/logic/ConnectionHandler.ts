@@ -71,7 +71,7 @@ export class ConnectionHandler {
             for (let i = 0; i < existingMeeting.conversation.length; i++) {
                 if (existingMeeting.conversation[i].type === 'awaiting_human_panelist') continue;
                 if (existingMeeting.conversation[i].type === 'awaiting_human_question') continue;
-                if (existingMeeting.conversation[i].type === 'max_reached') continue;
+                if (existingMeeting.conversation[i].type === 'query_extension') continue;
                 const msgId = existingMeeting.conversation[i].id;
                 if (msgId && existingMeeting.audio.indexOf(msgId) === -1) {
                     missingAudio.push(existingMeeting.conversation[i]);

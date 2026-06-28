@@ -270,15 +270,14 @@
                         'user': false, 
                         'chair': turn.speaker === 'Chair', 
                         'character': turn.speaker !== 'Chair',
-                        'system': turn.type === 'max_reached',
+                        'system': turn.type === 'query_extension',
                         'playing': audioController && audioController.currentIndex === index
                       }" style="margin-bottom: 10px; position: relative;"
               v-show="localOptions.showTrimmed || turn.type !== 'skipped'">
 
-              <template v-if="turn.type === 'max_reached'">
+              <template v-if="turn.type === 'query_extension'">
                 <div style="color: var(--text-secondary); font-size: 0.95em;">
-                  Conversation reached the current length limit.
-                  <span v-if="turn.canContinue === false"> Absolute cap reached — continue is not available.</span>
+                  Conversation reached the current length limit — extend or wrap up.
                 </div>
               </template>
 
@@ -294,7 +293,7 @@
                 </svg>
               </button>
 
-              <!-- Loading Spinner (no audio for synthetic rows like max_reached — handled above) -->
+              <!-- Loading Spinner (no audio for synthetic rows like query_extension — handled above) -->
               <div class="spinner"
                 v-if="!options.skipAudio && turn.type !== 'skipped' && (!audioController || !audioController.hasItem(index))">
               </div>
