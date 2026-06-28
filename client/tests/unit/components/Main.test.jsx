@@ -139,8 +139,6 @@ describe('Main Component', () => {
             audioContext: expect.objectContaining({ current: expect.any(window.AudioContext) }),
             setCurrentSpeakerId: expect.any(Function),
             setPaused: expect.any(Function),
-            metaAgentActive: false,
-            setMetaAgentActive: expect.any(Function),
         }));
     });
 });

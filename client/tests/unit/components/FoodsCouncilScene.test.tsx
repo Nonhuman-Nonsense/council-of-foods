@@ -49,6 +49,7 @@ describe("FoodsCouncilScene", () => {
           },
         ]}
         isPaused={false}
+        metaAgentPhase="inactive"
         agentSpeaking={false}
       />
     );
@@ -88,7 +89,7 @@ describe("FoodsCouncilScene", () => {
         currentSnippetIndex={0}
         audioMessages={[]}
         isPaused={true}
-        metaAgentActive={true}
+        metaAgentPhase="interruption"
         agentSpeaking={false}
       />
     );

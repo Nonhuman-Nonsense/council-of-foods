@@ -4,6 +4,7 @@ import {
   fetchRealtimeBootstrap,
   type RealtimeConnection,
 } from "@realtime/realtimeConnection";
+import type { ConfigureSessionOptions } from "@voice/realtimeEventLoop";
 import { createEventLoop } from "@voice/realtimeEventLoop";
 import {
   mergeRealtimeSessionWithClientConfig,
@@ -58,6 +59,8 @@ export type UseRealtimeVoiceSessionParams = {
   sessionActive?: boolean;
   /** Connect when `sessionActive` (voice-guide `autoStart`). Default true. */
   autoConnect?: boolean;
+  /** Fired after the provider acks `session.updated` (safe point for activation). */
+  onSessionReady?: () => void;
   defaultsNotLoadedError?: string;
   connectionLostMessage?: string;
   startFailedMessage?: string;
@@ -76,6 +79,8 @@ export type UseRealtimeVoiceSessionResult = {
   /** Ask the model to respond when no response is in flight. */
   requestAgentResponse: () => void;
   setAgentOutputMuted: (muted: boolean) => void;
+  /** Push updated instructions/tools on the live data channel. */
+  reconfigureSession: (options?: ConfigureSessionOptions) => void;
 };
 
 function attachRemoteAudio(
@@ -119,6 +124,7 @@ export function useRealtimeVoiceSession(
     audioElement,
     sessionActive = true,
     autoConnect = true,
+    onSessionReady,
     defaultsNotLoadedError = "Realtime defaults not loaded",
     connectionLostMessage = "Realtime connection lost",
     startFailedMessage = "Realtime session failed to start",
@@ -152,10 +158,12 @@ export function useRealtimeVoiceSession(
   const handlersRef = useRef(toolHandlers);
   const instructionsRef = useRef(instructions);
   const toolsRef = useRef(tools);
+  const onSessionReadyRef = useRef(onSessionReady);
   useEffect(() => {
     handlersRef.current = toolHandlers;
     instructionsRef.current = instructions;
     toolsRef.current = tools;
+    onSessionReadyRef.current = onSessionReady;
   });
 
   useEffect(() => {
@@ -362,6 +370,9 @@ export function useRealtimeVoiceSession(
             setError(message);
             setConnectionState("error");
           },
+          onSessionReady: () => {
+            if (!isStale()) onSessionReadyRef.current?.();
+          },
           onWordAlignment: (contentIndex, words) => {
             if (!isStale()) subtitleTrack.applyChunk(contentIndex, words);
           },
@@ -543,6 +554,12 @@ export function useRealtimeVoiceSession(
     eventLoopRef.current?.requestResponseIfIdle();
   }, []);
 
+  const reconfigureSession = useCallback((options?: ConfigureSessionOptions) => {
+    const loop = eventLoopRef.current;
+    if (!loop) return;
+    loop.configureSession(buildSessionConfig(), options);
+  }, [buildSessionConfig]);
+
   return {
     connectionState,
     error,
@@ -555,5 +572,6 @@ export function useRealtimeVoiceSession(
     sendUserMessage,
     requestAgentResponse,
     setAgentOutputMuted,
+    reconfigureSession,
   };
 }

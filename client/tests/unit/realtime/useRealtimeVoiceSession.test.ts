@@ -14,6 +14,7 @@ let eventLoopCallbacks: {
   onAudioPartReady?: () => void;
   onResponseStarted?: () => void;
   onResponseDone?: () => void;
+  onSessionReady?: () => void;
 } = {};
 
 const schedulerMocks = vi.hoisted(() => ({
@@ -271,5 +272,39 @@ describe("useRealtimeVoiceSession", () => {
       result.current.setMicEnabled(false);
     });
     expect(result.current.micStream).toBeNull();
+  });
+
+  it("forwards onSessionReady from the event loop", async () => {
+    const onSessionReady = vi.fn();
+    renderHook(() => useRealtimeVoiceSession({ ...defaultParams, onSessionReady }));
+
+    await waitFor(() => {
+      expect(mockCreateEventLoop).toHaveBeenCalled();
+    });
+
+    act(() => {
+      eventLoopCallbacks.onSessionReady?.();
+    });
+
+    expect(onSessionReady).toHaveBeenCalledOnce();
+  });
+
+  it("reconfigureSession delegates to the event loop with current config", async () => {
+    const { result } = renderHook(() => useRealtimeVoiceSession(defaultParams));
+
+    await waitFor(() => {
+      expect(result.current.connectionState).toBe("ready");
+    });
+
+    eventLoopMocks.configureSession.mockClear();
+
+    act(() => {
+      result.current.reconfigureSession({ triggerGreetingOnReady: false });
+    });
+
+    expect(eventLoopMocks.configureSession).toHaveBeenCalledWith(
+      expect.any(Object),
+      { triggerGreetingOnReady: false },
+    );
   });
 });

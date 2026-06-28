@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef } from "react";
 import { useButton, type ButtonLedMode } from "@museum/button/useButton";
 import { BUTTON_IDLE_REMIND_MS, useHoldToSpeakHint } from "@voice/useHoldToSpeakHint";
 import RealtimeCaptionOverlay from "@realtime/RealtimeCaptionOverlay";
-import { useMetaAgent } from "./useMetaAgent";
+import { useMetaAgent, type MetaAgentPhase } from "./useMetaAgent";
 import {
   buildMetaAgentPrompt,
   buildMetaAgentActivationTurn,
@@ -18,12 +18,14 @@ import type { ParticipationPhase } from "@council/humanInput/participationPhase"
 import type { CouncilState } from "@council/hooks/useCouncilMachine";
 import type { Character, Topic } from "@shared/ModelTypes";
 
+export type { MetaAgentPhase } from "./useMetaAgent";
+
 export interface MeetingMetaAgentProps {
   liveKey: string;
   language: string;
   participationPhase: ParticipationPhase;
-  metaAgentActive: boolean;
-  setMetaAgentActive: (active: boolean) => void;
+  metaAgentPhase: MetaAgentPhase;
+  setMetaAgentPhase: (phase: MetaAgentPhase) => void;
   setAgentSpeaking: (speaking: boolean) => void;
   onRestartMeeting: () => void;
   // Context for state snapshot
@@ -42,15 +44,15 @@ export interface MeetingMetaAgentProps {
  * `resume_meeting`.
  *
  * Mounting contract:
- *  - Only mount when `pushToTalkMode && liveKey` (live meeting + PTT).
+ *  - Only mount when `isMuseumMode && liveKey` (live museum meeting).
  *  - Button presses route via shared claim arbitration (human-input wins in active phase).
  */
 export default function MeetingMetaAgent({
   liveKey,
   language,
   participationPhase,
-  metaAgentActive,
-  setMetaAgentActive,
+  metaAgentPhase,
+  setMetaAgentPhase,
   setAgentSpeaking,
   onRestartMeeting,
   councilState,
@@ -82,11 +84,11 @@ export default function MeetingMetaAgent({
   const toolHandlers = useMemo(
     () =>
       createMetaAgentToolHandlers({
-        setMetaAgentActive,
+        setMetaAgentPhase,
         onRestartMeeting,
         silenceAgentOutput: () => silenceRef.current(),
       }),
-    [setMetaAgentActive, onRestartMeeting],
+    [setMetaAgentPhase, onRestartMeeting],
   );
 
   const {
@@ -106,6 +108,7 @@ export default function MeetingMetaAgent({
     instructions,
     tools,
     toolHandlers,
+    onSessionReady: undefined,
   });
 
   useEffect(() => {
@@ -114,7 +117,7 @@ export default function MeetingMetaAgent({
   }, [button.claim, button.release]);
 
   const ledMode: ButtonLedMode =
-    connectionState !== "ready" ? "off" : metaAgentActive && button.pressed ? "on" : "pulse";
+    connectionState !== "ready" ? "off" : metaAgentPhase !== "inactive" && button.pressed ? "on" : "pulse";
 
   useEffect(() => {
     button.setLed(ledMode);
@@ -122,9 +125,9 @@ export default function MeetingMetaAgent({
 
   const { showHoldToSpeakHint, idleRemindVisible } = useHoldToSpeakHint({
     pushToTalkMode: true,
-    sessionActive: metaAgentActive,
+    sessionActive: metaAgentPhase !== "inactive",
     isConnecting: connectionState === "connecting",
-    micOpen: metaAgentActive && button.pressed,
+    micOpen: metaAgentPhase !== "inactive" && button.pressed,
     lastUserTranscript,
     lastCaption,
   });
@@ -134,10 +137,10 @@ export default function MeetingMetaAgent({
   }, [agentSpeaking, setAgentSpeaking]);
 
   useEffect(() => {
-    if (!metaAgentActive) {
+    if (metaAgentPhase === "inactive") {
       setAgentSpeaking(false);
     }
-  }, [metaAgentActive, setAgentSpeaking]);
+  }, [metaAgentPhase, setAgentSpeaking]);
 
   useEffect(() => {
     silenceRef.current = () => {
@@ -146,14 +149,15 @@ export default function MeetingMetaAgent({
     };
   }, [setMicEnabled, setAgentOutputMuted]);
 
-  // Standby → Active: rising edge of routed press while not yet active.
+  // Standby → interruption: rising edge of routed press while inactive.
   useEffect(() => {
-    if (!button.pressed || metaAgentActive) return;
+    if (!button.pressed || metaAgentPhase !== "inactive") return;
 
-    setMetaAgentActive(true);
+    setMetaAgentPhase("interruption");
     setAgentOutputMuted(false);
     setMicEnabled(true);
     log.event("META", "activate", {
+      metaAgentPhase: "interruption",
       councilState,
       participationPhase,
       currentSpeakerName,
@@ -172,8 +176,8 @@ export default function MeetingMetaAgent({
     requestAgentResponse();
   }, [
     button.pressed,
-    metaAgentActive,
-    setMetaAgentActive,
+    metaAgentPhase,
+    setMetaAgentPhase,
     setAgentOutputMuted,
     setMicEnabled,
     sendUserMessage,
@@ -188,23 +192,23 @@ export default function MeetingMetaAgent({
 
   // Active: routed press controls mic-open within a turn.
   useEffect(() => {
-    if (!metaAgentActive) return;
+    if (metaAgentPhase === "inactive") return;
     setMicEnabled(button.pressed);
-  }, [button.pressed, metaAgentActive, setMicEnabled]);
+  }, [button.pressed, metaAgentPhase, setMicEnabled]);
 
   // Ensure mic is closed whenever we leave active mode.
   useEffect(() => {
-    if (!metaAgentActive) {
+    if (metaAgentPhase === "inactive") {
       setMicEnabled(false);
     }
-  }, [metaAgentActive, setMicEnabled]);
+  }, [metaAgentPhase, setMicEnabled]);
 
   const idleResumeFiredRef = useRef(false);
 
   useEffect(() => {
-    if (metaAgentActive) return;
+    if (metaAgentPhase !== "inactive") return;
     idleResumeFiredRef.current = false;
-  }, [metaAgentActive]);
+  }, [metaAgentPhase]);
 
   useEffect(() => {
     if (!idleRemindVisible) {
@@ -214,7 +218,8 @@ export default function MeetingMetaAgent({
 
   // Auto-resume 10s after the idle PTT reminder appears (not while agent or visitor is active).
   useEffect(() => {
-    if (!metaAgentActive || connectionState !== "ready") return;
+    if (metaAgentPhase !== "interruption") return;
+    if (connectionState !== "ready") return;
     if (!idleRemindVisible) return;
     if (idleResumeFiredRef.current) return;
     if (agentSpeaking || button.pressed) return;
@@ -229,7 +234,7 @@ export default function MeetingMetaAgent({
 
     return () => window.clearTimeout(timerId);
   }, [
-    metaAgentActive,
+    metaAgentPhase,
     connectionState,
     idleRemindVisible,
     agentSpeaking,
@@ -237,7 +242,7 @@ export default function MeetingMetaAgent({
     toolHandlers,
   ]);
 
-  if (!metaAgentActive) return null;
+  if (metaAgentPhase === "inactive") return null;
 
   return (
     <RealtimeCaptionOverlay

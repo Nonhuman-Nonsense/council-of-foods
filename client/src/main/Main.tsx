@@ -64,10 +64,12 @@ export default function Main(props: MainProps) {
   //Had to lift up navbar state to this level to be able to close it from main overlay
   const [hamburgerOpen, setHamburgerOpen] = useState(false);
 
-  // Lifted for Forest (always-mounted scene outside Council); Foods uses the same audio bus in Council.
+  // Meeting runtime lifted to Main for Forest: `Forest` mounts as a sibling outside the
+  // routed Council tree and needs the same speaker + pause + audio bus while a meeting plays.
+  // Foods reads these only via Council props today; do not lift meta-agent state here —
+  // `metaAgentPhase` lives in Council (FoodsCouncilScene zoom + MeetingMetaAgent).
   const [currentSpeakerId, setCurrentSpeakerId] = useState("");
   const [isPaused, setPaused] = useState(false);
-  const [metaAgentActive, setMetaAgentActive] = useState(false);
   const audioContext = useRef<AudioContext | null>(null);
 
   if (audioContext.current === null) {
@@ -123,9 +125,6 @@ export default function Main(props: MainProps) {
     const withoutLang = stripLanguagePrefix(location.pathname);
     if (withoutLang === `/${routes.newMeeting}` || isRootPath(location.pathname)) {
       setMeetingliveKey(null);
-    }
-    if (!isMeetingPath(location.pathname)) {
-      setMetaAgentActive(false);
     }
   }, [location.pathname]);
 
@@ -224,8 +223,6 @@ export default function Main(props: MainProps) {
                   setCurrentSpeakerId={setCurrentSpeakerId}
                   isPaused={isPaused}
                   setPaused={setPaused}
-                  metaAgentActive={metaAgentActive}
-                  setMetaAgentActive={setMetaAgentActive}
                   audioContext={audioContext}
                 />
               }

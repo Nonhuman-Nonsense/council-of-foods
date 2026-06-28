@@ -68,10 +68,10 @@ let mockMetaAgentActivate = false;
 vi.mock('@museum/metaAgent/MeetingMetaAgent', async () => {
     const React = await import('react');
     return {
-        default: (props: { setMetaAgentActive: (active: boolean) => void }) => {
+        default: (props: { setMetaAgentPhase: (phase: "interruption") => void }) => {
             React.useEffect(() => {
                 if (!mockMetaAgentActivate) return;
-                props.setMetaAgentActive(true);
+                props.setMetaAgentPhase("interruption");
             }, []);
             return null;
         },
@@ -149,8 +149,6 @@ describe('Council Component', () => {
         setCurrentSpeakerId: vi.fn(),
         isPaused: false,
         setPaused: vi.fn(),
-        metaAgentActive: false,
-        setMetaAgentActive: vi.fn(),
     };
 
     beforeEach(() => {
@@ -288,7 +286,7 @@ describe('Council Component', () => {
           setPushToTalkMode: vi.fn(),
         });
 
-        render(<Council {...defaultProps} metaAgentActive={true} />);
+        render(<Council {...defaultProps} />);
 
         await waitFor(() => {
             expect(screen.queryByTestId('output')).not.toBeInTheDocument();

@@ -15,7 +15,7 @@ Museum installs should not use the `QueryExtension` overlay for conclude vs exte
 | **0** | Hard cap auto-conclude (`CONCLUDE_MEETING`) | **Done** | foods-leo → forest-leo |
 | **1** | Chair closing line before summary | **Done** | foods-leo → forest-leo |
 | **2** | Rename extend / conclude / summarize vocabulary | **Done** | foods-leo → forest-leo |
-| **3** | Museum meta-agent `conclude` mode | **Next** | foods-leo |
+| **3** | Museum meta-agent `extension` phase | **In progress** (3a done) | foods-leo |
 
 **Next up:** PR 3 on `foods-leo`. PRs 0–2 are implemented and merged to forest.
 
@@ -23,56 +23,109 @@ Museum installs should not use the `QueryExtension` overlay for conclude vs exte
 
 ## Architecture decisions (locked)
 
-### Keep `councilState`; add `metaAgentMode`
+### Keep `councilState`; add `metaAgentPhase` (unified)
 
 | State | Role |
 |-------|------|
 | `councilState === 'query_extension'` | Playback cursor is on the `query_extension` sentinel; meeting is at soft cap. **Unchanged** — do not add a new council state. |
-| `metaAgentMode` | Orthogonal meta-agent job: `'interruption'` (default) \| `'conclude'`. Lives next to `metaAgentActive` (Council / `MeetingMetaAgent`). |
-| `metaAgentActive` | UI + WebRTC session visible; meeting output hidden; chair zoom. Same as today. |
+| `metaAgentPhase` | Single enum for meta-agent lifecycle: `'inactive'` \| `'interruption'` \| `'extension'`. Replaces the old `metaAgentActive` boolean + separate mode flag. |
 
-**Fork point** — `useCouncilMachine` `case 'query_extension':` (~387–395):
+**Why one enum instead of `metaAgentActive` + `metaAgentMode`:**
 
-| Condition | Action |
-|-----------|--------|
-| Web (not museum) | `setActiveOverlay('query_extension')` — `QueryExtension` overlay (unchanged) |
-| Museum + live soft cap | Do **not** set `query_extension` overlay; Council sets `metaAgentMode = 'conclude'` + `metaAgentActive = true` |
+- `inactive` — meta-agent UI hidden, council output visible, chair zoom off. WebRTC session may still be warm (see below).
+- `interruption` — visitor invoked the chair mid-meeting (PTT or future always-on mic). Tools: `resume_meeting`, `restart_meeting`.
+- `extension` — soft cap reached in museum; chair handles extend vs conclude. Tools: `extend_meeting`, `conclude_meeting`.
 
-Do **not** infer conclude mode from `query_extension && metaAgentActive` alone — explicit `metaAgentMode` keeps interruption vs conclude separate and extensible.
+One field answers both “is the agent UI up?” and “which job is it doing?” — easier to reason about than two booleans that can disagree during transitions.
 
-### `reconfigureSession` on mode change
+`metaAgentActive` becomes a derived convenience: `metaAgentPhase !== 'inactive'` (remove the lifted boolean once migrated).
 
-When `metaAgentMode` changes while the WebRTC session is connected:
+**Naming:** `extension` (not `conclude`) for the agent phase — coherent with `query_extension` council state and `extend_meeting` socket. Server “conclude meeting” / `conclude_meeting` remain the vocabulary for ending the meeting; the agent phase is about the **extension decision point**.
 
-1. `instructions` + `tools` update via `useMemo` (mode-specific prompt bundle).
-2. `useEffect([metaAgentMode])` → `reconfigureSession()` (`session.update` on the existing data channel).
-3. On `session.updated` (event loop already handles this), run mode-specific activation (STATE SYNC + synthetic user turn + `response.create`).
+### Soft-cap fork — inside `useCouncilMachine` (no separate Council effect)
 
-**Conclude activation:** chair speaks **first** without a button press (programmatic path, separate from PTT rising-edge interruption activation).
+**Fork point** — `useCouncilMachine` `case 'query_extension':` (~387–395). All transition logic stays in the council state machine:
 
-### Conclude-mode tools (agent must call exactly one)
+```ts
+case 'query_extension':
+  if (isMuseumMode) {
+    setMetaAgentPhase('extension');
+    // do not set overlay
+  } else {
+    setActiveOverlay('query_extension');
+  }
+  // playback cursor guards unchanged
+  break;
+```
+
+Pass `isMuseumMode` and `setMetaAgentPhase` into `useCouncilMachine` from `Main` / `Council`. **No** `skipQueryExtensionOverlay` flag. **No** parallel `useEffect` in `Council.tsx` for this fork.
+
+`notifyAutoplay` visitor-activity bump can live in the same `query_extension` branch when `isMuseumMode`.
+
+### Museum gate — `isMuseumMode` only (not `museum + PTT`)
+
+Soft-cap agent activation and meta-agent mounting use **`isMuseumMode`** alone:
+
+- Today: PTT still controls mic within `interruption` / `extension` phases.
+- Future: always-on mic in museum still hits the same `extension` fork at soft cap.
+
+Update mount contract: `MeetingMetaAgent` mounts when `isMuseumMode && liveKey` (drop `pushToTalkMode` from the gate).
+
+### `reconfigureSession` + `onSessionReady` activation
+
+When `metaAgentPhase` changes while the WebRTC session is connected:
+
+1. `instructions` + `tools` update via `useMemo` (phase-specific prompt bundle).
+2. `reconfigureSession()` → `session.update` on the **existing** data channel (no new WebRTC handshake).
+3. Provider acks with `session.updated`. The event loop already handles this; expose an **`onSessionReady`** callback that runs **after** ack.
+4. `onSessionReady` runs phase-specific activation: STATE SYNC + synthetic user turn + `response.create`.
+
+**Why `onSessionReady` instead of firing activation immediately after `reconfigureSession()`?**
+
+`session.update` is async. Sending user items / `response.create` before the provider has applied new instructions/tools can race and leave the agent on the old prompt or tool list. Chaining activation to `session.updated` is the same pattern as the voice-guide opening greeting — one clean hook, no arbitrary delays.
+
+**Extension activation:** chair speaks **first** without a button press (programmatic path via `onSessionReady`, separate from PTT rising-edge interruption activation).
+
+**Interruption activation:** unchanged — PTT rising edge while `phase === 'inactive'` → `setMetaAgentPhase('interruption')` → `onSessionReady` or existing activate path.
+
+### How fast is `reconfigureSession`?
+
+| Factor | Expectation |
+|--------|-------------|
+| Transport | Existing WebRTC data channel — **no** new ICE/SDP negotiation |
+| Work | One `session.update` JSON message + provider `session.updated` ack |
+| Typical latency | ~**100–500 ms** on a museum LAN install; can spike on slow uplink |
+| Session warmth | Meta-agent WebRTC connects when `isMuseumMode && liveKey` (component mounted for the whole live meeting), so at `query_extension` the channel is usually **already open** |
+
+**Can we reconfigure directly when we react to `query_extension`?** Yes — that is the right moment. In `useCouncilMachine`, `setMetaAgentPhase('extension')` triggers `MeetingMetaAgent` to call `reconfigureSession()`; chair speech starts after `session.updated` (~sub-second). Visitors see council output hide immediately (phase ≠ inactive); a brief beat before the chair speaks is acceptable and matches “connection thinking” UX. No need to pre-configure extension tools earlier.
+
+If latency proves noticeable in install testing, optional optimisation: keep interruption config until soft cap (today’s behaviour) and only pay reconfigure cost once — still triggered at `query_extension`.
+
+### Extension-phase tools (agent must call exactly one)
 
 | Tool | Client handler | Socket emit |
 |------|----------------|-------------|
 | `extend_meeting` | `handleOnExtendMeeting` | `extend_meeting` |
 | `conclude_meeting` | `handleOnConcludeMeeting` | `conclude_meeting` |
 
-Conclude mode exposes **only these two** tools (no `resume_meeting`, no `restart_meeting`). Interruption mode keeps `resume_meeting` + `restart_meeting` (renamed from `continue_meeting` in PR 2).
+Extension phase exposes **only these two** tools (no `resume_meeting`, no `restart_meeting`). Interruption phase keeps `resume_meeting` + `restart_meeting`.
 
-Hard cap auto-conclude (PR 0) means the conclude agent is never needed for the absolute limit case.
+Terminal tool handlers (`extend_meeting`, `conclude_meeting`, `resume_meeting`, `restart_meeting`) all set `metaAgentPhase` → `'inactive'` and call `reconfigureSession()` back to interruption defaults (ready for the next PTT press).
 
-### Idle timeout (conclude mode only)
+Hard cap auto-conclude (PR 0) means the extension agent is never needed for the absolute limit case.
+
+### Idle timeout (extension phase only)
 
 Mirror interruption idle remind pattern (`MeetingMetaAgent` ~10s after `BUTTON_IDLE_REMIND_MS`), but:
 
 - **Do not** auto-call `resume_meeting`.
 - If visitor never engages after remind → auto-call **`conclude_meeting`** handler (same as conclude button on web).
 
-Disable interruption auto-resume while `metaAgentMode === 'conclude'`.
+Disable interruption auto-resume while `metaAgentPhase === 'extension'`.
 
 ### Layer B / autoplay
 
-Bump autoplay activity when conclude agent activates so conclude dialogue does not trigger idle replay. (Detail in implementation.)
+Bump autoplay activity when extension agent activates (`notifyAutoplay` in the museum `query_extension` branch).
 
 ---
 
@@ -278,62 +331,79 @@ Server lifecycle tests, `SocketTypes`, client machine tests, meta-agent tool tes
 
 ---
 
-### PR 3 — Meta-agent conclude mode (museum) — **NEXT**
+### PR 3 — Meta-agent extension phase (museum)
 
-**Status:** Not started.
+Split into sub-PRs:
 
-**Goal:** Museum + soft cap → meta-agent conclude dialogue instead of `QueryExtension` overlay.
+| Sub-PR | Scope | Status |
+|--------|-------|--------|
+| **3a** | `reconfigureSession` + `onSessionReady`; `metaAgentPhase` in `Council`; mount on `isMuseumMode` | **Done** (foods-leo) |
+| **3b** | Extension prompts, tools, `MeetingMetaAgent` phase switching | Next |
+| **3c** | Museum fork in `useCouncilMachine` at `query_extension` | After 3b |
+
+**Goal:** Museum + soft cap → meta-agent **extension** dialogue instead of `QueryExtension` overlay.
 
 **Prerequisites (done):** PR 0–2 — server `handleConcludeMeeting` / `handleExtendMeeting`, client handlers, `resume_meeting` interruption tools, chair closing + summarize split.
 
-**Current code gaps (foods-leo):**
+**Current code gaps (foods-leo, after 3a):**
 
-- `useCouncilMachine` still sets `query_extension` overlay for **all** clients (no museum fork).
-- `metaAgentMode` does not exist; `MeetingMetaAgent` is interruption-only (`resume_meeting` + `restart_meeting`).
-- `realtimeEventLoop.configureSession` exists but is **not** exposed via `useRealtimeVoiceSession` / `useMetaAgent` as `reconfigureSession` for mid-session mode switches.
+- `useCouncilMachine` still sets `query_extension` overlay for all clients — museum fork in **3c**.
+- `MeetingMetaAgent` is interruption-only — extension prompts/tools in **3b**.
 
-#### 3a — `reconfigureSession`
+#### 3a — `reconfigureSession` + `onSessionReady`
 
-- `useRealtimeVoiceSession`: expose `reconfigureSession()` → `eventLoop.configureSession(buildSessionConfig(), { triggerGreetingOnReady: false })`.
+- `realtimeEventLoop`: expose `onSessionReady` callback invocation on `session.updated` (already partially there via `callbacks.onSessionReady`).
+- `useRealtimeVoiceSession`: expose `reconfigureSession()` + register phase activation on `onSessionReady`.
 - `useMetaAgent` / `MeetingMetaAgent`: pass through.
 
-#### 3b — `metaAgentMode` + prompts
+#### 3b — `metaAgentPhase` + prompts
 
-- `metaAgentMode: 'interruption' | 'conclude'` in Council (lifted state or callback bundle).
+- `metaAgentPhase: 'inactive' | 'interruption' | 'extension'` in **`Council.tsx`** (resets on unmount). Pass `setMetaAgentPhase` into `useCouncilMachine` (3c) and `MeetingMetaAgent`.
+- Forest merge: drop `metaAgentActive` from `Main` / `Forest` — zoom uses `currentSpeakerId` only (`""` or chair id during meta-agent).
 - `metaAgentPrompt.ts`:
-  - `buildConcludeAgentPrompt()` — short; chair explains meeting length; ask conclude vs extend; must call one tool; no generic kiosk helper tone.
-  - `buildConcludeStateSnapshot({ topic, humanName, … })`.
-  - `buildConcludeActivationTurn()` — triggers first spoken turn (chair speaks **without** PTT press).
-- `shared/prompts/meta_agent_*_json` — conclude copy + `extend_meeting` / `conclude_meeting` tool descriptions (section in existing bundle, or `meta_agent_conclude_*.json` if it grows).
+  - `buildExtensionAgentPrompt()` — short; chair explains meeting length; ask extend vs conclude; must call one tool.
+  - `buildExtensionStateSnapshot()` — STATE SYNC with `type: "meta_agent_extension"`, `councilState: "query_extension"`.
+  - `buildExtensionActivationTurn()` — synthetic user turn for first spoken line (chair, no PTT).
+- `shared/prompts/meta_agent_*_json` — `extensionJobInstructions`, `extensionToolDescriptions` sections (foods en first).
 
 #### 3c — Tools + handlers
 
-- `createConcludeAgentTools({ promptBundle })` — `extend_meeting` + `conclude_meeting` only.
-- Handlers call Council callbacks → existing `handleOnExtendMeeting` / `handleOnConcludeMeeting` socket emits; then `silenceAgentOutput`, `setMetaAgentActive(false)`, `setMetaAgentMode('interruption')`, `reconfigureSession()` back to interruption defaults.
+- `createExtensionAgentTools({ promptBundle })` — `extend_meeting` + `conclude_meeting` only.
+- Handlers call Council callbacks → existing `handleOnExtendMeeting` / `handleOnConcludeMeeting`; then `silenceAgentOutput`, `setMetaAgentPhase('inactive')`, `reconfigureSession()` (interruption defaults for next PTT).
 
 #### 3d — Wiring
 
 | File | Change |
 |------|--------|
-| `useCouncilMachine.ts` | Museum `query_extension`: skip overlay; signal Council to activate conclude meta-agent |
-| `Council.tsx` | `metaAgentMode`, `setMetaAgentMode`, pass conclude callbacks + `councilState` |
-| `MeetingMetaAgent.tsx` | Mode prop; `useEffect` on mode → `reconfigureSession` + conclude activation; conclude idle → `conclude_meeting`; disable interruption auto-resume in conclude mode |
-| `Main.tsx` | Thread `metaAgentMode` if lifted |
+| `useCouncilMachine.ts` | Accept `isMuseumMode`, `setMetaAgentPhase`. In `case 'query_extension'`: museum → `setMetaAgentPhase('extension')`; else → overlay. |
+| `Council.tsx` | Owns `metaAgentPhase` state; pass to scene + meta-agent. |
+| `MeetingMetaAgent.tsx` | Phase prop; `useEffect` on phase → `reconfigureSession`; `onSessionReady` → phase activation; extension idle → `conclude_meeting`; block interruption PTT path when `phase === 'extension'`. |
 
-#### 3e — Tests
+#### 3e — Phase transition summary
 
-- `MeetingMetaAgent.test.tsx` — conclude activation on `query_extension` + museum; tools; idle conclude; no interruption auto-resume.
-- `useCouncilMachine.test.tsx` — museum does not set `query_extension` overlay.
-- `metaAgentTools.test.ts` — conclude tool handlers.
+| Event | `metaAgentPhase` |
+|-------|------------------|
+| PTT press while `inactive` | → `interruption` |
+| `query_extension` + museum | → `extension` |
+| `query_extension` + web | stays `inactive` (overlay instead) |
+| `resume_meeting` / terminal tools | → `inactive` |
+| Leave meeting route | → `inactive` |
+| Soft cap while already `interruption` | → `extension` (+ `reconfigureSession`) |
+
+#### 3f — Tests
+
+- `MeetingMetaAgent.test.tsx` — extension activation via `onSessionReady`; tools; idle → `conclude_meeting`; no `resume_meeting` in extension phase.
+- `useCouncilMachine.test.tsx` — museum sets `extension` phase, no overlay; web sets overlay, phase stays `inactive`.
+- `metaAgentTools.test.ts` — extension tool handlers.
 
 #### Suggested PR 3 implementation order
 
-1. Expose `reconfigureSession` + unit test on event loop / session hook.
-2. Add `metaAgentMode` state + conclude prompt bundle (foods en first).
-3. `createConcludeAgentTools` + handlers wired to existing socket callbacks.
-4. Museum fork in `useCouncilMachine` + Council wiring.
-5. Conclude activation + idle timeout → auto `conclude_meeting`.
-6. Merge to forest with sv conclude prompt copy if needed.
+1. `reconfigureSession` + `onSessionReady` plumbing + unit tests.
+2. `metaAgentPhase` state (replace `metaAgentActive`) + extension prompt bundle.
+3. `createExtensionAgentTools` + handlers wired to existing socket callbacks.
+4. Museum fork in `useCouncilMachine` `query_extension` case.
+5. `MeetingMetaAgent` phase switching + extension activation + idle timeout.
+6. Merge to forest with sv extension copy in `meta_agent_beings_*.json`.
 
 ---
 
@@ -343,13 +413,13 @@ Server lifecycle tests, `SocketTypes`, client machine tests, meta-agent tool tes
 Soft cap hit
   Server → pushes query_extension
   Web client → QueryExtension overlay (extend / conclude buttons)
-  Museum client → metaAgentMode=conclude, metaAgentActive=true
-                → reconfigureSession(conclude prompt + 2 tools)
-                → chair speaks first (no PTT)
-  Visitor PTT dialogue
+  Museum client → useCouncilMachine: setMetaAgentPhase('extension')
+                → reconfigureSession (extension prompt + 2 tools)
+                → onSessionReady → chair speaks first (no PTT)
+  Visitor dialogue (PTT today; always-on mic future)
                 → extend_meeting OR conclude_meeting
-  extend → trim query_extension, extend_meeting socket, meta agent off, council resumes
-  conclude → handleConcludeMeeting (PR 1: chair closing line + summary)
+  extend → trim query_extension, extend_meeting socket, phase → inactive, council resumes
+  conclude → handleOnConcludeMeeting (PR 1: chair closing line + summary)
 
 Hard cap — PR 0
   Server → skip query_extension, handleConcludeMeeting directly (PR 1: closing + summary)
@@ -360,14 +430,19 @@ Hard cap — PR 0
 
 ## Open decisions (resolve during PR 3)
 
-| # | Question | Default recommendation | Status |
-|---|----------|------------------------|--------|
-| 1 | Conclude idle timeout duration | Same as interruption remind + 10s auto-action (`BUTTON_IDLE_REMIND_MS` + 10s) | Open |
-| 2 | Conclude-mode tool slugs | `extend_meeting`, `conclude_meeting` | **Resolved** (PR 2) |
-| 3 | Interruption resume tool slug | `resume_meeting` (not `continue_meeting`) | **Resolved** (PR 2) |
-| 4 | After `extend_meeting`, reset `metaAgentMode` to `interruption` + `reconfigureSession` immediately | Yes | Open |
-| 5 | `notifyAutoplay` on conclude activate | Yes — treat as visitor activity | Open |
-| 6 | Separate JSON file for conclude prompt vs section in `meta_agent_*.json` | Section first; split if prompt grows | Open |
+| # | Question | Decision | Status |
+|---|----------|----------|--------|
+| 1 | Extension idle timeout duration | Same as interruption remind + 10s auto-action (`BUTTON_IDLE_REMIND_MS` + 10s) | **Default** |
+| 2 | Extension-phase tool slugs | `extend_meeting`, `conclude_meeting` | **Resolved** (PR 2) |
+| 3 | Interruption resume tool slug | `resume_meeting` | **Resolved** (PR 2) |
+| 4 | Agent phase enum | `'inactive' \| 'interruption' \| 'extension'` (replaces `metaAgentActive` + mode) | **Resolved** |
+| 5 | Agent phase name at soft cap | `extension` (aligned with `query_extension`) | **Resolved** |
+| 6 | Museum gate | `isMuseumMode` only (not `museum + PTT`) | **Resolved** |
+| 7 | Soft-cap fork location | `useCouncilMachine` `query_extension` case (no Council `useEffect`) | **Resolved** |
+| 8 | Activation timing | `onSessionReady` after `reconfigureSession` | **Resolved** |
+| 9 | After `extend_meeting`, reset phase to `inactive` + `reconfigureSession` | Yes | **Resolved** |
+| 10 | `notifyAutoplay` on extension activate | Yes — in museum `query_extension` branch | **Resolved** |
+| 11 | Extension prompt JSON | Section in `meta_agent_*.json` first | **Default** |
 
 ---
 

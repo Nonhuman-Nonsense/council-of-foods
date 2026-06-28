@@ -1,9 +1,10 @@
 import type { RealtimeFunctionTool, ToolHandler, ToolResult } from "@voice/guideTools";
 import type { MetaAgentPromptBundle } from "./metaAgentPrompt";
+import type { MetaAgentPhase } from "./useMetaAgent";
 import { log } from "@/logger";
 
 export type MetaAgentToolContext = {
-  setMetaAgentActive: (active: boolean) => void;
+  setMetaAgentPhase: (phase: MetaAgentPhase) => void;
   onRestartMeeting: () => void;
   /** Mute agent audio and clear captions when exiting via a terminal tool. */
   silenceAgentOutput: () => void;
@@ -34,7 +35,7 @@ export function createMetaAgentToolHandlers(ctx: MetaAgentToolContext): Record<s
     resume_meeting: (): ToolResult => {
       log.event("META", "resume_meeting handler");
       ctx.silenceAgentOutput();
-      ctx.setMetaAgentActive(false);
+      ctx.setMetaAgentPhase("inactive");
       return { ok: true, suppressContinuation: true };
     },
 

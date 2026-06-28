@@ -93,6 +93,7 @@ vi.mock("@museum/metaAgent/useMetaAgent", () => ({
     sendUserMessage: mockSendUserMessage,
     requestAgentResponse: mockRequestAgentResponse,
     setAgentOutputMuted: mockSetAgentOutputMuted,
+    reconfigureSession: vi.fn(),
   }),
 }));
 
@@ -125,8 +126,8 @@ function makeProps(overrides: Partial<MeetingMetaAgentProps> = {}): MeetingMetaA
     liveKey: "live-key-123",
     language: "en",
     participationPhase: "off",
-    metaAgentActive: false,
-    setMetaAgentActive: vi.fn(),
+    metaAgentPhase: "inactive",
+    setMetaAgentPhase: vi.fn(),
     setAgentSpeaking: vi.fn(),
     onRestartMeeting: vi.fn(),
     councilState: "playing",
@@ -166,14 +167,14 @@ describe("MeetingMetaAgent", () => {
   });
 
   it("renders caption overlay while active", () => {
-    render(<MeetingMetaAgent {...makeProps({ metaAgentActive: true })} />);
+    render(<MeetingMetaAgent {...makeProps({ metaAgentPhase: "interruption" })} />);
     expect(screen.getByTestId("meta-agent-caption-overlay")).toBeInTheDocument();
     expect(screen.getByTestId("voice-guide-user")).toHaveTextContent("Visitor question");
     expect(screen.getByTestId("voice-guide-caption")).toHaveTextContent("Agent reply");
   });
 
   it("uses council subtitle layout and PTT viz row even when button is not pressed", () => {
-    render(<MeetingMetaAgent {...makeProps({ metaAgentActive: true })} />);
+    render(<MeetingMetaAgent {...makeProps({ metaAgentPhase: "interruption" })} />);
     const overlay = screen.getByTestId("meta-agent-caption-overlay");
     expect(overlay).toHaveAttribute("data-subtitle-layout", "council");
     expect(overlay).toHaveAttribute("data-show-ptt-viz", "true");
@@ -188,26 +189,26 @@ describe("MeetingMetaAgent", () => {
   });
 
   it("sets LED pulse in standby and on while active and pressed", () => {
-    render(<MeetingMetaAgent {...makeProps({ metaAgentActive: true })} />);
+    render(<MeetingMetaAgent {...makeProps({ metaAgentPhase: "interruption" })} />);
     act(() => setMockPressed(true));
     expect(mockSetLed).toHaveBeenCalledWith("on");
   });
 
   it("sets active, opens mic, sends snapshot on button press (standby)", () => {
-    const setMetaAgentActive = vi.fn();
+    const setMetaAgentPhase = vi.fn();
 
     render(
       <MeetingMetaAgent
         {...makeProps({
-          setMetaAgentActive,
-          metaAgentActive: false,
+          setMetaAgentPhase,
+          metaAgentPhase: "inactive",
         })}
       />,
     );
 
     act(() => setMockPressed(true));
 
-    expect(setMetaAgentActive).toHaveBeenCalledWith(true);
+    expect(setMetaAgentPhase).toHaveBeenCalledWith("interruption");
     expect(mockSetAgentOutputMuted).toHaveBeenCalledWith(false);
     expect(mockSetMicEnabled).toHaveBeenCalledWith(true);
     expect(mockSendUserMessage).toHaveBeenCalledWith(
@@ -220,30 +221,30 @@ describe("MeetingMetaAgent", () => {
   });
 
   it("activates on press during warm phase when meta-agent owns the button", () => {
-    const setMetaAgentActive = vi.fn();
+    const setMetaAgentPhase = vi.fn();
 
     render(
       <MeetingMetaAgent
         {...makeProps({
           participationPhase: "warm",
-          setMetaAgentActive,
+          setMetaAgentPhase,
         })}
       />,
     );
 
     act(() => setMockPressed(true));
 
-    expect(setMetaAgentActive).toHaveBeenCalledWith(true);
+    expect(setMetaAgentPhase).toHaveBeenCalledWith("interruption");
   });
 
   it("does not activate on press when another owner has the button", () => {
-    const setMetaAgentActive = vi.fn();
+    const setMetaAgentPhase = vi.fn();
 
     render(
       <MeetingMetaAgent
         {...makeProps({
           participationPhase: "active",
-          setMetaAgentActive,
+          setMetaAgentPhase,
         })}
       />,
     );
@@ -253,17 +254,17 @@ describe("MeetingMetaAgent", () => {
       setMockPressed(true);
     });
 
-    expect(setMetaAgentActive).not.toHaveBeenCalled();
+    expect(setMetaAgentPhase).not.toHaveBeenCalled();
   });
 
   it("keeps session active when button ownership is lost (e.g. setup)", () => {
-    const setMetaAgentActive = vi.fn();
+    const setMetaAgentPhase = vi.fn();
 
     render(
       <MeetingMetaAgent
         {...makeProps({
-          metaAgentActive: true,
-          setMetaAgentActive,
+          metaAgentPhase: "interruption",
+          setMetaAgentPhase,
         })}
       />,
     );
@@ -272,22 +273,22 @@ describe("MeetingMetaAgent", () => {
 
     act(() => setMockButtonOwner("setup"));
 
-    expect(setMetaAgentActive).not.toHaveBeenCalled();
+    expect(setMetaAgentPhase).not.toHaveBeenCalled();
   });
 
-  it("closes mic when metaAgentActive transitions to false", () => {
+  it("closes mic when metaAgentPhase transitions to inactive", () => {
     const { rerender } = render(
-      <MeetingMetaAgent {...makeProps({ metaAgentActive: true })} />,
+      <MeetingMetaAgent {...makeProps({ metaAgentPhase: "interruption" })} />,
     );
 
     mockSetMicEnabled.mockClear();
 
-    rerender(<MeetingMetaAgent {...makeProps({ metaAgentActive: false })} />);
+    rerender(<MeetingMetaAgent {...makeProps({ metaAgentPhase: "inactive" })} />);
     expect(mockSetMicEnabled).toHaveBeenCalledWith(false);
   });
 
   it("mic follows pressed state inside active mode", () => {
-    render(<MeetingMetaAgent {...makeProps({ metaAgentActive: true })} />);
+    render(<MeetingMetaAgent {...makeProps({ metaAgentPhase: "interruption" })} />);
     mockSetMicEnabled.mockClear();
 
     act(() => setMockPressed(true));
@@ -307,14 +308,14 @@ describe("MeetingMetaAgent", () => {
     });
 
     it("resumes the meeting 10s after the idle PTT reminder is shown", () => {
-      const setMetaAgentActive = vi.fn();
+      const setMetaAgentPhase = vi.fn();
       mockHoldToSpeakHint.idleRemindVisible = true;
 
       render(
         <MeetingMetaAgent
           {...makeProps({
-            metaAgentActive: true,
-            setMetaAgentActive,
+            metaAgentPhase: "interruption",
+            setMetaAgentPhase,
           })}
         />,
       );
@@ -322,25 +323,25 @@ describe("MeetingMetaAgent", () => {
       act(() => {
         vi.advanceTimersByTime(BUTTON_IDLE_REMIND_MS - 1);
       });
-      expect(setMetaAgentActive).not.toHaveBeenCalled();
+      expect(setMetaAgentPhase).not.toHaveBeenCalled();
 
       act(() => {
         vi.advanceTimersByTime(1);
       });
 
-      expect(setMetaAgentActive).toHaveBeenCalledWith(false);
+      expect(setMetaAgentPhase).toHaveBeenCalledWith("inactive");
       expect(mockSetAgentOutputMuted).toHaveBeenCalledWith(true);
     });
 
     it("does not resume before the idle PTT reminder appears", () => {
-      const setMetaAgentActive = vi.fn();
+      const setMetaAgentPhase = vi.fn();
       mockHoldToSpeakHint.idleRemindVisible = false;
 
       render(
         <MeetingMetaAgent
           {...makeProps({
-            metaAgentActive: true,
-            setMetaAgentActive,
+            metaAgentPhase: "interruption",
+            setMetaAgentPhase,
           })}
         />,
       );
@@ -349,19 +350,19 @@ describe("MeetingMetaAgent", () => {
         vi.advanceTimersByTime(BUTTON_IDLE_REMIND_MS * 2);
       });
 
-      expect(setMetaAgentActive).not.toHaveBeenCalled();
+      expect(setMetaAgentPhase).not.toHaveBeenCalled();
     });
 
     it("does not resume while the agent is speaking", () => {
-      const setMetaAgentActive = vi.fn();
+      const setMetaAgentPhase = vi.fn();
       mockMetaAgentState.agentSpeaking = true;
       mockHoldToSpeakHint.idleRemindVisible = true;
 
       render(
         <MeetingMetaAgent
           {...makeProps({
-            metaAgentActive: true,
-            setMetaAgentActive,
+            metaAgentPhase: "interruption",
+            setMetaAgentPhase,
           })}
         />,
       );
@@ -370,18 +371,18 @@ describe("MeetingMetaAgent", () => {
         vi.advanceTimersByTime(BUTTON_IDLE_REMIND_MS + 300);
       });
 
-      expect(setMetaAgentActive).not.toHaveBeenCalled();
+      expect(setMetaAgentPhase).not.toHaveBeenCalled();
     });
 
     it("cancels resume when the idle reminder is dismissed before timeout", () => {
-      const setMetaAgentActive = vi.fn();
+      const setMetaAgentPhase = vi.fn();
       mockHoldToSpeakHint.idleRemindVisible = true;
 
       const { rerender } = render(
         <MeetingMetaAgent
           {...makeProps({
-            metaAgentActive: true,
-            setMetaAgentActive,
+            metaAgentPhase: "interruption",
+            setMetaAgentPhase,
           })}
         />,
       );
@@ -394,8 +395,8 @@ describe("MeetingMetaAgent", () => {
       rerender(
         <MeetingMetaAgent
           {...makeProps({
-            metaAgentActive: true,
-            setMetaAgentActive,
+            metaAgentPhase: "interruption",
+            setMetaAgentPhase,
           })}
         />,
       );
@@ -404,18 +405,18 @@ describe("MeetingMetaAgent", () => {
         vi.advanceTimersByTime(BUTTON_IDLE_REMIND_MS);
       });
 
-      expect(setMetaAgentActive).not.toHaveBeenCalled();
+      expect(setMetaAgentPhase).not.toHaveBeenCalled();
     });
 
     it("does not resume while the visitor holds the button", () => {
-      const setMetaAgentActive = vi.fn();
+      const setMetaAgentPhase = vi.fn();
       mockHoldToSpeakHint.idleRemindVisible = true;
 
       render(
         <MeetingMetaAgent
           {...makeProps({
-            metaAgentActive: true,
-            setMetaAgentActive,
+            metaAgentPhase: "interruption",
+            setMetaAgentPhase,
           })}
         />,
       );
@@ -426,18 +427,18 @@ describe("MeetingMetaAgent", () => {
         vi.advanceTimersByTime(BUTTON_IDLE_REMIND_MS + 300);
       });
 
-      expect(setMetaAgentActive).not.toHaveBeenCalled();
+      expect(setMetaAgentPhase).not.toHaveBeenCalled();
     });
 
     it("does not resume after deactivating before the timeout", () => {
-      const setMetaAgentActive = vi.fn();
+      const setMetaAgentPhase = vi.fn();
       mockHoldToSpeakHint.idleRemindVisible = true;
 
       const { rerender } = render(
         <MeetingMetaAgent
           {...makeProps({
-            metaAgentActive: true,
-            setMetaAgentActive,
+            metaAgentPhase: "interruption",
+            setMetaAgentPhase,
           })}
         />,
       );
@@ -450,8 +451,8 @@ describe("MeetingMetaAgent", () => {
       rerender(
         <MeetingMetaAgent
           {...makeProps({
-            metaAgentActive: false,
-            setMetaAgentActive,
+            metaAgentPhase: "inactive",
+            setMetaAgentPhase,
           })}
         />,
       );
@@ -460,7 +461,7 @@ describe("MeetingMetaAgent", () => {
         vi.advanceTimersByTime(BUTTON_IDLE_REMIND_MS);
       });
 
-      expect(setMetaAgentActive).not.toHaveBeenCalled();
+      expect(setMetaAgentPhase).not.toHaveBeenCalled();
     });
   });
 });

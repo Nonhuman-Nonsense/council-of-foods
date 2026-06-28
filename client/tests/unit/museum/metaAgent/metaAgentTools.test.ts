@@ -8,7 +8,7 @@ import { getMetaAgentBundle } from "@/museum/metaAgent/metaAgentPrompt";
 
 function makeCtx(overrides: Partial<MetaAgentToolContext> = {}): MetaAgentToolContext {
   return {
-    setMetaAgentActive: vi.fn(),
+    setMetaAgentPhase: vi.fn(),
     onRestartMeeting: vi.fn(),
     silenceAgentOutput: vi.fn(),
     ...overrides,
@@ -37,7 +37,7 @@ describe("createMetaAgentToolHandlers", () => {
       const result = handlers.resume_meeting({});
       expect(result).toEqual({ ok: true, suppressContinuation: true });
       expect(ctx.silenceAgentOutput).toHaveBeenCalled();
-      expect(ctx.setMetaAgentActive).toHaveBeenCalledWith(false);
+      expect(ctx.setMetaAgentPhase).toHaveBeenCalledWith("inactive");
     });
   });
 

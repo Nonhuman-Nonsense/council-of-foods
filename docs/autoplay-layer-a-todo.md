@@ -25,7 +25,7 @@ Layer B ([`autoplay-plan.md`](./autoplay-plan.md)) handles leaving interactive m
 | Meeting conclude PR 0 (`CONCLUDE_MEETING`) | **Done** |
 | Meeting conclude PR 1 (chair closing line) | **Done** |
 | Meeting conclude PR 2 (vocabulary rename) | **Done** — merged to forest-leo |
-| Meeting conclude PR 3 (meta-agent conclude) | **Next** — foods-leo |
+| Meeting conclude PR 3 (meta-agent extension phase) | **Next** — foods-leo |
 | `Reconnecting` overlay 2 min restart | **Done** |
 | Meta-agent interruption idle | **Done** — auto-`resume_meeting` after remind |
 | Voice guide stuck mid-setup | **N/A** — `AutoplayCoordinator` (Layer B) |
@@ -45,7 +45,7 @@ Phased on **`foods-leo`**:
 | **0** | Server auto-conclude when hard cap — no `query_extension`, no overlay | **Done** |
 | **1** | Chair closing statement before summary (`concludeMeetingPrompt`) | **Done** |
 | **2** | Rename extend/conclude/summarize vocabulary | **Done** (forest merged) |
-| **3** | Meta-agent `conclude` mode: `reconfigureSession`, two tools, museum fork at `query_extension` | **Next** |
+| **3** | Meta-agent `extension` phase: `reconfigureSession`, two tools, museum fork in state machine | **Next** |
 
 Full spec: [`meeting-conclude-plan.md`](./meeting-conclude-plan.md).
 
