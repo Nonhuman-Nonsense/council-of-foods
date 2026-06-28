@@ -9,6 +9,7 @@
 
 import type { RealtimeSessionServerDefaults } from "./realtimeProtocol";
 import type { IceServer, RealtimeBootstrapResponse } from "@shared/RealtimeSessionTypes";
+import { councilFetch } from "@/api/http";
 
 export type ConnectionLogger = (...args: unknown[]) => void;
 
@@ -72,7 +73,7 @@ async function fetchWithTimeout(
   externalSignal?.addEventListener("abort", onExternalAbort);
   try {
     if (externalSignal?.aborted) controller.abort();
-    return await fetch(input, { ...init, signal: controller.signal });
+    return await councilFetch(input, { ...init, signal: controller.signal });
   } finally {
     window.clearTimeout(timeout);
     externalSignal?.removeEventListener("abort", onExternalAbort);

@@ -148,4 +148,67 @@ describe('HumanInputHandler (Isolated)', () => {
             expect(mockContext.meeting.conversation[1].type).toBe('panelist');
         });
     });
+
+    describe('handleSkipHumanTurn', () => {
+        it('should skip human question when awaiting question', async () => {
+            mockContext.meeting.conversation = [
+                { type: 'message', text: 'prev', id: '1' },
+                ...TestFactory.createAwaitingQuestion('Frank')
+            ];
+            mockContext.handRaised = true;
+            mockContext.isPaused = true;
+
+            await handler.handleSkipHumanTurn();
+
+            expect(mockContext.meeting.conversation).toHaveLength(2);
+            const skipped = mockContext.meeting.conversation[1];
+            expect(skipped.type).toBe('skipped');
+            expect(skipped.speaker).toBe('Frank');
+            expect(skipped.text).toBe('');
+
+            expect(mockContext.audioSystem.queueAudioGeneration).not.toHaveBeenCalled();
+            expect(mockContext.broadcaster.broadcastConversationUpdate).toHaveBeenCalledWith(mockContext.meeting.conversation);
+            expect(mockContext.services.meetingsCollection.updateOne).toHaveBeenCalled();
+            expect(mockContext.handRaised).toBe(false);
+            expect(mockContext.startLoop).toHaveBeenCalled();
+        });
+
+        it('should skip human panelist when awaiting panelist', async () => {
+            mockContext.meeting.conversation = [
+                { type: 'message', text: 'prev', id: '1' },
+                ...TestFactory.createAwaitingPanelist('alice')
+            ];
+
+            await handler.handleSkipHumanTurn();
+
+            expect(mockContext.meeting.conversation).toHaveLength(2);
+            const skipped = mockContext.meeting.conversation[1];
+            expect(skipped.type).toBe('skipped');
+            expect(skipped.speaker).toBe('alice');
+            expect(mockContext.startLoop).toHaveBeenCalled();
+        });
+
+        it('should strip invitation when skipping panelist turn', async () => {
+            mockContext.meeting.conversation = [
+                { type: 'message', text: 'prev', id: '1' },
+                { type: 'invitation', text: 'Please welcome Alice.', id: 'invite-1', speaker: 'water' },
+                ...TestFactory.createAwaitingPanelist('alice')
+            ];
+
+            await handler.handleSkipHumanTurn();
+
+            expect(mockContext.meeting.conversation).toHaveLength(2);
+            expect(mockContext.meeting.conversation[0].type).toBe('message');
+            expect(mockContext.meeting.conversation[1].type).toBe('skipped');
+        });
+
+        it('should ignore if not awaiting human input', async () => {
+            mockContext.meeting.conversation = TestFactory.createConversation(2);
+
+            await handler.handleSkipHumanTurn();
+
+            expect(mockContext.meeting.conversation).toHaveLength(2);
+            expect(mockContext.startLoop).not.toHaveBeenCalled();
+        });
+    });
 });

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ButtonTransport } from "@/museum/button/transport";
+import { ButtonTransport } from "@/museum/button/buttonBridge";
 import { _resetButtonStoreForTests, useButtonStore } from "@/museum/button/buttonStore";
 import {
   startTestBridge,
@@ -89,11 +89,12 @@ describe.sequential("button reconnect resilience", () => {
     useButtonStore.getState().init();
     useButtonStore.getState().enableAutoReconnect();
     await useButtonStore.getState().connect();
-    await useButtonStore.getState().registerLedIntent("human-input", "pulse");
+    await useButtonStore.getState().claimButton("human-input");
+    await useButtonStore.getState().setButtonLed("human-input", "pulse");
 
     bridge.simulateButtonDown();
     await waitForTicks();
-    expect(useButtonStore.getState().rawPressed).toBe(true);
+    expect(useButtonStore.getState().hardwareDown).toBe(true);
 
     await bridge.restart();
 

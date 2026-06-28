@@ -27,10 +27,14 @@
     "en": "We are now joined by a special guest speaker, [NAME]. Please welcome them to the debate and invite them to share their perspective."
   },
   "panelistInvitationLength": 150,
-  "finalizeMeetingPrompt": {
+  "concludeMeetingPrompt": {
+    "en": "The meeting is coming to a close. As chair, say one brief in-character closing line to the council and the visitor — thank them, reflect lightly on the discussion, and do not summarise or write a protocol yet."
+  },
+  "concludeMeetingLength": 150,
+  "summarizeMeetingPrompt": {
     "en": "Please summarise the meeting, held on [DATE], making a document that could work as a meeting protocol and a policy recommendation, that could be sent to a official political department like the European Commission."
   },
-  "finalizeMeetingLength": 800,
+  "summarizeMeetingLength": 800,
   "transcribeModel": "gpt-4o-transcribe",
   "transcribePrompt": {
     "en": "Expect english input."
@@ -39,5 +43,39 @@
   "voiceGuideRealtimeModel": "google-ai-studio/gemini-2.5-flash",
   "voiceGuideOpenAIRealtimeModel": "gpt-realtime",
   "voiceGuideRealtimeTranscriptionModel": "assemblyai/u3-rt-pro",
-  "speakerClassifierModel": "google-ai-studio/gemini-2.5-flash"
+  "humanInputRealtime": {
+    "languages": {
+      "en": {
+        "provider": "inworld",
+        "llmModel": "google-ai-studio/gemini-2.5-flash",
+        "transcriptionModel": "assemblyai/u3-rt-pro"
+      },
+      "sv": {
+        "provider": "inworld",
+        "llmModel": "google-ai-studio/gemini-2.5-flash",
+        "transcriptionModel": "soniox/stt-rt-v4"
+      }
+    }
+  },
+  "chairRealtime": {
+    "strategy": "unified",
+    "languages": {
+      "en": {
+        "provider": "inworld",
+        "llmModel": "google-ai-studio/gemini-2.5-flash",
+        "ttsModel": "inworld-tts-1.5-max",
+        "transcriptionModel": "assemblyai/u3-rt-pro",
+        "agentVoice": null
+      },
+      "sv": {
+        "provider": "inworld",
+        "llmModel": "google-ai-studio/gemini-2.5-flash",
+        "ttsModel": "inworld-tts-2",
+        "transcriptionModel": "soniox/stt-rt-v4",
+        "agentVoice": null
+      }
+    }
+  },
+  "speakerClassifierModel": "google-ai-studio/gemini-2.5-flash",
+  "autoplayEarliestMeetingDate": "2025-01-01T00:00:00.000Z"
 }

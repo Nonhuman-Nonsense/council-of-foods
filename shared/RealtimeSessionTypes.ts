@@ -45,6 +45,7 @@ export interface VoiceGuideRealtimeBootstrapRequest {
 export interface VoiceGuideRealtimeCallRequest {
     feature: "voice-guide";
     provider: RealtimeProvider;
+    language: string;
     sdp: string;
     session: Record<string, unknown>;
 }
@@ -57,6 +58,7 @@ export interface MetaAgentRealtimeBootstrapRequest {
 export interface MetaAgentRealtimeCallRequest {
     feature: "meta-agent";
     provider: RealtimeProvider;
+    language: string;
     sdp: string;
     session: Record<string, unknown>;
 }

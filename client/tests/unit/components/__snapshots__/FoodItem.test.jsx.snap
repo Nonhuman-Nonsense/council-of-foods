@@ -104,3 +104,18 @@ exports[`FoodItem > should handle food with missing id gracefully 1`] = `
   </div>
 </DocumentFragment>
 `;
+
+exports[`FoodItem > stays zoomed and visible when focused but not performing (meta-agent idle) 1`] = `
+<DocumentFragment>
+  <div
+    style="position: relative; width: 55vh; height: 55vh; display: flex; justify-content: center; align-items: flex-end; top: calc(-19vh);"
+  >
+    <div
+      data-testid="food-animation-water"
+      style="width: 74.25vh; height: 55vh; animation: 2s foodAppearing; animation-delay: 0s; animation-fill-mode: both;"
+    >
+      Video for water (Idle)
+    </div>
+  </div>
+</DocumentFragment>
+`;

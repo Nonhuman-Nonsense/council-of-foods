@@ -15,12 +15,12 @@ vi.mock('@council/overlays/Name', () => ({
         </div>
     )
 }));
-vi.mock('@council/overlays/Completed', () => ({
-    default: ({ onContinue, onWrapItUp, canExtendMeeting: _canExtendMeeting }: { onContinue: () => void; onWrapItUp: () => void; canExtendMeeting?: boolean }) => (
-        <div data-testid="completed-overlay">
-            Completed Overlay
-            <button onClick={() => onContinue()}>Continue</button>
-            <button onClick={() => onWrapItUp()}>Wrap Up</button>
+vi.mock('@council/overlays/QueryExtension', () => ({
+    default: ({ onExtendMeeting, onConcludeMeeting }: { onExtendMeeting: () => void; onConcludeMeeting: () => void }) => (
+        <div data-testid="query-extension-overlay">
+            Query Extension Overlay
+            <button onClick={() => onExtendMeeting()}>Extend</button>
+            <button onClick={() => onConcludeMeeting()}>Conclude</button>
         </div>
     )
 }));
@@ -34,9 +34,9 @@ vi.mock('@main/overlay/OverlayWrapper', () => ({
 }));
 
 describe('CouncilOverlays', () => {
-    const mockOnContinue = vi.fn();
+    const mockOnExtendMeeting = vi.fn();
     const mockOnAttemptResume = vi.fn();
-    const mockOnWrapItUp = vi.fn();
+    const mockOnConcludeMeeting = vi.fn();
     const mockProceedWithHumanName = vi.fn();
     const mockcancelOverlay = vi.fn();
     const mockSummary = { text: 'Test Summary Content' };
@@ -51,11 +51,10 @@ describe('CouncilOverlays', () => {
 
     const defaultProps = {
         activeOverlay: null as CouncilOverlayType,
-        onContinue: mockOnContinue,
         onAttemptResume: mockOnAttemptResume,
-        onWrapItUp: mockOnWrapItUp,
+        onExtendMeeting: mockOnExtendMeeting,
+        onConcludeMeeting: mockOnConcludeMeeting,
         proceedWithHumanName: mockProceedWithHumanName,
-        canExtendMeeting: true,
         cancelOverlay: mockcancelOverlay,
         summary: mockSummary,
         meetingId: 123,
@@ -68,14 +67,9 @@ describe('CouncilOverlays', () => {
 
     it('renders nothing when activeOverlay is null', () => {
         render(<CouncilOverlays {...defaultProps} activeOverlay={null} />);
-        expect(screen.queryByTestId('overlay-wrapper')).toBeInTheDocument(); // Wrapper always renders if parent calls it, but content is null?
-        // Wait, current logic: OverlayWrapper wraps the content.
-        // If content is null, OverlayWrapper still renders children=null.
-        // Let's check implementation: 
-        // return <OverlayWrapper>{renderOverlayContent()}</OverlayWrapper>
-        // So yes, wrapper is rendered.
+        expect(screen.queryByTestId('overlay-wrapper')).toBeInTheDocument();
         expect(screen.queryByTestId('name-overlay')).not.toBeInTheDocument();
-        expect(screen.queryByTestId('completed-overlay')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('query-extension-overlay')).not.toBeInTheDocument();
         expect(screen.queryByTestId('summary-overlay')).not.toBeInTheDocument();
     });
 
@@ -84,9 +78,9 @@ describe('CouncilOverlays', () => {
         expect(screen.getByTestId('name-overlay')).toBeInTheDocument();
     });
 
-    it('renders Completed overlay when activeOverlay is "completed"', () => {
-        render(<CouncilOverlays {...defaultProps} activeOverlay="completed" />);
-        expect(screen.getByTestId('completed-overlay')).toBeInTheDocument();
+    it('renders QueryExtension overlay when activeOverlay is "query_extension"', () => {
+        render(<CouncilOverlays {...defaultProps} activeOverlay="query_extension" />);
+        expect(screen.getByTestId('query-extension-overlay')).toBeInTheDocument();
     });
 
     it('renders Summary overlay when activeOverlay is "summary"', () => {
@@ -100,12 +94,12 @@ describe('CouncilOverlays', () => {
         expect(mockProceedWithHumanName).toHaveBeenCalledWith({ humanName: 'Leo' });
     });
 
-    it('passes callbacks correctly to Completed overlay', () => {
-        render(<CouncilOverlays {...defaultProps} activeOverlay="completed" />);
-        screen.getByText('Continue').click();
-        expect(mockOnContinue).toHaveBeenCalled();
+    it('passes callbacks correctly to QueryExtension overlay', () => {
+        render(<CouncilOverlays {...defaultProps} activeOverlay="query_extension" />);
+        screen.getByText('Extend').click();
+        expect(mockOnExtendMeeting).toHaveBeenCalled();
 
-        screen.getByText('Wrap Up').click();
-        expect(mockOnWrapItUp).toHaveBeenCalled();
+        screen.getByText('Conclude').click();
+        expect(mockOnConcludeMeeting).toHaveBeenCalled();
     });
 });

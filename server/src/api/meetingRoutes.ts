@@ -5,6 +5,7 @@ import { createMeeting } from "./createMeeting.js";
 import { getMeeting } from "./getMeeting.js";
 import { buildReplayMeetingManifest } from "./replayManifest.js";
 import { resumeMeeting } from "./resumeMeeting.js";
+import { getAutoplayMeeting, parseAutoplayLanguageQuery } from "./getAutoplayMeeting.js";
 import { BadRequestError, CouncilError } from "@models/Errors.js";
 
 const BEARER = /^Bearer\s+(.+)$/i;
@@ -53,6 +54,15 @@ async function apiRouteWithErrorHandling(
  * REST endpoints for meeting lifecycle: create (POST) and fetch for the SPA (GET, creator-authenticated).
  */
 export function registerMeetingRoutes(app: Express, environment: string): void {
+
+    app.get("/api/autoplay", async (req: Request, res: Response) => {
+        await apiRouteWithErrorHandling("GET", "/api/autoplay", req, res, async (_req: Request, res: Response) => {
+            const language = parseAutoplayLanguageQuery(req.query.language);
+            const { meetingId } = await getAutoplayMeeting(language);
+            await Logger.info("api", `GET /api/autoplay → meeting ${meetingId}`);
+            res.status(200).json({ meetingId });
+        });
+    });
 
     app.post("/api/meetings", async (req: Request, res: Response) => {
         await apiRouteWithErrorHandling("POST", "/api/meetings", req, res, async (req: Request, res: Response) => {

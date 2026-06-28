@@ -1,5 +1,5 @@
 import "@/App.css";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, lazy, Suspense } from "react";
 import { getTopicsBundle } from "./topicsBundle";
 import {
   Routes,
@@ -15,6 +15,7 @@ import Landing from "@newMeeting/Landing";
 import Navbar from "./Navbar";
 import type { Topic } from "@shared/ModelTypes";
 import { buildTopicFromSelection } from "@newMeeting/meetingSetup";
+import { useMeetingSetupStore } from "@newMeeting/meetingSetupStore";
 import MeetingSetupShell from "@newMeeting/MeetingSetupShell";
 import NewMeeting from "@newMeeting/NewMeeting";
 import Council from "@council/Council";
@@ -22,19 +23,17 @@ import { isMeetingPath, isRootPath, stripLanguagePrefix, useRouting } from "@/ro
 import RotateDevice from "./overlay/RotateDevice";
 import FullscreenButton from "./FullscreenButton";
 import MuseumModeEscapeHatch from "@/museum/MuseumModeEscapeHatch";
-import { useAppMode } from "@/museum/useAppMode";
-import {
-  getPushToTalk,
-  PUSH_TO_TALK_CHANGE_EVENT,
-  type PushToTalkChangeDetail,
-} from "@/settings/councilSettings";
+import { useButtonLedDebugOverlay } from "@/museum/button/buttonDebug";
+import { useCouncilSettings } from "@/settings/councilSettings";
+import { createAudioContext, useAudioSuspended } from "@/audio/audioContext";
 import { usePortrait, dvh } from "@/utils";
-import CouncilError from "./overlay/CouncilError";
+import CouncilError, { useUnrecoverableError } from "./overlay/CouncilError";
 import Reconnecting from "./overlay/Reconnecting";
-import { lazy, Suspense } from "react";
 
-const MuseumButtonProvider = lazy(() => import("@/museum/button/MuseumButtonProvider"));
+const MuseumButton = lazy(() => import("@/museum/button/MuseumButton"));
+const AutoplayCoordinator = lazy(() => import("@/autoplay/AutoplayCoordinator"));
 
+import { z } from "@/zIndexLayers";
 import routes from "@/routes.json";
 import { backgroundImageUrls } from "@assets/backgrounds/index";
 
@@ -58,48 +57,32 @@ interface MainProps {
 export default function Main(props: MainProps) {
   const [topicSelection, setTopicSelection] = useState<Topic | null>(null);
   
-  const [unrecoverableErrorMessage, setUnrecoverableErrorMessage] = useState<string | null>(null);
+  const { unrecoverableError, setUnrecoverableError } = useUnrecoverableError();
   const [connectionError, setConnectionError] = useState(false);
   const [meetingliveKey, setMeetingliveKey] = useState<string | null>(null);
 
   //Had to lift up navbar state to this level to be able to close it from main overlay
   const [hamburgerOpen, setHamburgerOpen] = useState(false);
 
-  // Keep these at Main level even though Foods currently renders its scene inside Council.
-  // Forest needs the same runtime state outside the routed Council tree, and matching that
-  // ownership here reduces cross-app merge conflicts when background/audio behavior changes.
+  // Lifted for Forest (always-mounted scene outside Council); Foods uses the same audio bus in Council.
   const [currentSpeakerId, setCurrentSpeakerId] = useState("");
   const [isPaused, setPaused] = useState(false);
+  const [metaAgentActive, setMetaAgentActive] = useState(false);
   const audioContext = useRef<AudioContext | null>(null);
-  const [audioPaused, setAudioPaused] = useState(false);
 
+  if (audioContext.current === null) {
+    audioContext.current = createAudioContext();
+  }
+
+  useAudioSuspended(audioContext, isPaused);
   const { i18n } = useTranslation();
   const { rootPath, newMeetingPath } = useRouting();
   const location = useLocation();
   const navigate = useNavigate();
   const isIphone = useIsIphone();
   const isPortrait = usePortrait();
-  const { isMuseumMode } = useAppMode();
-  const [pushToTalk, setPushToTalk] = useState(getPushToTalk);
-
-  useEffect(() => {
-    function onPushToTalkChange(event: Event): void {
-      setPushToTalk((event as CustomEvent<PushToTalkChangeDetail>).detail);
-    }
-
-    window.addEventListener(PUSH_TO_TALK_CHANGE_EVENT, onPushToTalkChange);
-    return () => window.removeEventListener(PUSH_TO_TALK_CHANGE_EVENT, onPushToTalkChange);
-  }, []);
-
-  if (audioContext.current === null) {
-    type WindowWithWebkitAudio = Window & { webkitAudioContext?: typeof AudioContext };
-    const AudioContextCtor =
-      window.AudioContext ?? (window as WindowWithWebkitAudio).webkitAudioContext;
-    if (!AudioContextCtor) {
-      throw new Error("Web Audio API is not available in this environment");
-    }
-    audioContext.current = new AudioContextCtor();
-  }
+  const { isMuseumMode, pushToTalkMode } = useCouncilSettings();
+  const { ledDebugOverlay } = useButtonLedDebugOverlay();
 
   useEffect(() => {
     if (i18n.language !== props.lang) {
@@ -141,28 +124,21 @@ export default function Main(props: MainProps) {
     if (withoutLang === `/${routes.newMeeting}` || isRootPath(location.pathname)) {
       setMeetingliveKey(null);
     }
-  }, [location.pathname]);
-
-  // Centralize Web Audio suspension here so Council and future scene components can share one
-  // AudioContext without each feature trying to suspend/resume it independently.
-  useEffect(() => {
-    if (audioPaused) {
-      if (audioContext.current && audioContext.current.state !== "suspended") {
-        audioContext.current.suspend();
-      }
-    } else if (audioContext.current && audioContext.current.state === "suspended") {
-      audioContext.current.resume();
+    if (!isMeetingPath(location.pathname)) {
+      setMetaAgentActive(false);
     }
-  }, [audioPaused]);
+  }, [location.pathname]);
 
   function onReset(resetTopic?: Topic) {
     //If resetting completely
     if (!resetTopic) {
+      useMeetingSetupStore.getState().resetStore();
       window.location.href = rootPath;
       return;
     }
 
     //If resetting to a specific topic
+    useMeetingSetupStore.getState().resetStore();
     setTopicSelection(resetTopic);
 
     navigate({
@@ -184,19 +160,27 @@ export default function Main(props: MainProps) {
     height: "100%",
     left: "0",
     top: "0",
-    pointerEvents: 'auto',
-    zIndex: "9"
+    pointerEvents: "auto",
+    zIndex: z.hamburgerBlocker,
   };
 
   return (
     <>
-      {pushToTalk && (
+      {isMuseumMode && (
         <Suspense fallback={null}>
-          <MuseumButtonProvider />
+          <AutoplayCoordinator
+            meetingliveKey={meetingliveKey}
+            setMeetingliveKey={setMeetingliveKey}
+          />
+        </Suspense>
+      )}
+      {pushToTalkMode && (
+        <Suspense fallback={null}>
+          <MuseumButton />
         </Suspense>
       )}
       <Background pathname={location.pathname} />
-      {!(unrecoverableErrorMessage != null || connectionError) && !isMuseumMode &&
+      {!(unrecoverableError != null || connectionError) && !isMuseumMode &&
         <Navbar
           topicTitle={topicSelection?.title || ""}
           hamburgerOpen={hamburgerOpen}
@@ -205,7 +189,7 @@ export default function Main(props: MainProps) {
       }
       {hamburgerOpen && !isMuseumMode && <div style={hamburgerCloserStyle} onClick={() => setHamburgerOpen(false)}></div>}
       {isMuseumMode && <MuseumModeEscapeHatch />}
-      {unrecoverableErrorMessage == null &&
+      {unrecoverableError == null &&
         <Overlay
           isActive={!isMeetingPath(location.pathname)}
           isBlurred={!isRootPath(location.pathname)}
@@ -214,7 +198,7 @@ export default function Main(props: MainProps) {
             <Route
               element={
                 <MeetingSetupShell
-                  setUnrecoverableError={setUnrecoverableErrorMessage}
+                  setUnrecoverableError={setUnrecoverableError}
                   topicSelection={topicSelection}
                   setTopicSelection={setTopicSelection}
                   setMeetingliveKey={setMeetingliveKey}
@@ -233,21 +217,22 @@ export default function Main(props: MainProps) {
                   setTopic={setTopicSelection}
                   liveKey={meetingliveKey}
                   setliveKey={setMeetingliveKey}
-                  setUnrecoverableError={setUnrecoverableErrorMessage}
+                  setUnrecoverableError={setUnrecoverableError}
                   connectionError={connectionError}
                   setConnectionError={setConnectionError}
                   currentSpeakerId={currentSpeakerId}
                   setCurrentSpeakerId={setCurrentSpeakerId}
                   isPaused={isPaused}
                   setPaused={setPaused}
+                  metaAgentActive={metaAgentActive}
+                  setMetaAgentActive={setMetaAgentActive}
                   audioContext={audioContext}
-                  setAudioPaused={setAudioPaused}
                 />
               }
             />
             <Route path="*" element={<Navigate to={rootPath} replace />} />
           </Routes>
-          {!isIphone && !isMuseumMode && <FullscreenButton />}
+          {!isIphone && !isMuseumMode && !(pushToTalkMode && ledDebugOverlay) && <FullscreenButton />}
           <MainOverlays
             topic={topicSelection}
             onReset={onReset}
@@ -256,15 +241,16 @@ export default function Main(props: MainProps) {
           {isPortrait && location.pathname !== "/" && <RotateOverlay />}
         </Overlay>
       }
-      {unrecoverableErrorMessage != null && (
-        <Overlay isActive={true} isBlurred={true}>
-          <CouncilError detailMessage={unrecoverableErrorMessage} />
+      {unrecoverableError != null && (
+        <Overlay isActive={true} isBlurred={true} layer="system">
+          <CouncilError error={unrecoverableError} />
         </Overlay>
       )}
-      {connectionError && unrecoverableErrorMessage == null && (
+      {connectionError && unrecoverableError == null && (
         <Overlay
           isActive={true}
           isBlurred={true}
+          layer="system"
         >
           <Reconnecting />
         </Overlay>
@@ -282,12 +268,13 @@ function RotateOverlay() {
         left: "0",
         width: "100%",
         height: "100%",
-        zIndex: "100",
+        zIndex: z.rotatePrompt,
       }}
     >
       <Overlay
         isActive={true}
         isBlurred={true}
+        layer="system"
       >
         <RotateDevice />
       </Overlay>
@@ -309,7 +296,7 @@ function Background({ pathname }: { pathname: string }) {
     ...sharedStyle,
     backgroundPositionY: "50%",
     backgroundImage: `url(${backgroundImageUrls.zoomedOut})`,
-    zIndex: "-2",
+    zIndex: z.backgroundZoomedOut,
     opacity: isMeetingPath(pathname) ? "0" : "1",
   };
 
@@ -317,7 +304,7 @@ function Background({ pathname }: { pathname: string }) {
     ...sharedStyle,
     backgroundPositionY: `calc(50% + max(12${dvh},36px))`,// 50% is picture height, 12vh is from view, 36 is 12% of 300px which is minimum view
     backgroundImage: `url(${backgroundImageUrls.zoomedIn})`,
-    zIndex: "-1",
+    zIndex: z.backgroundZoomedIn,
     opacity: isMeetingPath(pathname) ? "1" : "0.01",
   };
 

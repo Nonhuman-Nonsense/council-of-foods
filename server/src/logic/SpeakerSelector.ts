@@ -9,7 +9,7 @@ const NON_SPEAKER_MESSAGE_TYPES = new Set([
     "invitation",
     "awaiting_human_question",
     "awaiting_human_panelist",
-    "max_reached",
+    "query_extension",
     "meeting_incomplete",
     "summary",
 ]);

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Icons } from "@assets/icons";
+import { z } from "@/zIndexLayers";
 
 /**
  * FullscreenButton Component
@@ -96,7 +97,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     bottom: "6px",
     right: "10px",
     opacity: 0.7,
-    zIndex: 10,
+    zIndex: z.fullscreenButton,
     pointerEvents: "auto",
   },
   icon: { width: "35px", height: "35px", cursor: "pointer" },

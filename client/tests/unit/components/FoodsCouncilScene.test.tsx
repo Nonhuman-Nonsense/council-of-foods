@@ -5,7 +5,7 @@ import { MockFactory } from "../factories/MockFactory";
 
 const mockFoodItem = vi.fn(() => <div data-testid="food-item" />);
 
-const participantA = { id: "character-a", name: "Character A" };
+const participantA = { id: "water", name: "Water" };
 const participantB = { id: "character-b", name: "Character B" };
 
 vi.mock("@/utils", () => ({
@@ -49,6 +49,7 @@ describe("FoodsCouncilScene", () => {
           },
         ]}
         isPaused={false}
+        agentSpeaking={false}
       />
     );
 
@@ -67,6 +68,44 @@ describe("FoodsCouncilScene", () => {
         currentSpeakerId: participantA.id,
         isPaused: false,
       })
+    );
+  });
+
+  it("zooms on meta-agent while performance follows agentSpeaking", () => {
+    render(
+      <FoodsCouncilScene
+        participants={[
+          MockFactory.createCharacter({ id: participantA.id, name: participantA.name, description: "", prompt: "" }),
+          MockFactory.createCharacter({ id: participantB.id, name: participantB.name, description: "", prompt: "" }),
+        ]}
+        currentSpeakerId=""
+        councilState="playing"
+        playingNowIndex={1}
+        textMessages={[
+          { type: "message", id: "m0", speaker: participantA.id, text: "Hi" },
+          { type: "message", id: "m1", speaker: participantB.id, text: "Hello" },
+        ]}
+        currentSnippetIndex={0}
+        audioMessages={[]}
+        isPaused={true}
+        metaAgentActive={true}
+        agentSpeaking={false}
+      />
+    );
+
+    expect(mockFoodItem).toHaveBeenCalledWith(
+      expect.objectContaining({
+        food: expect.objectContaining({ id: participantA.id }),
+        currentSpeakerId: participantA.id,
+        isPerforming: false,
+      }),
+    );
+    expect(mockFoodItem).toHaveBeenCalledWith(
+      expect.objectContaining({
+        food: expect.objectContaining({ id: participantB.id }),
+        currentSpeakerId: participantA.id,
+        isPerforming: false,
+      }),
     );
   });
 });

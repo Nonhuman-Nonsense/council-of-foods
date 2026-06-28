@@ -4,7 +4,7 @@ import { withNetworkRetry } from "@utils/NetworkUtils.js";
 import { Word } from "@shared/textUtils.js";
 import { AudioSystemOptions, Speaker } from "./AudioTypes.js";
 import { getGoogleLanguageCode } from "./AudioUtils.js";
-import { InworldPronunciationUtils } from "@utils/InworldPronunciationUtils.js";
+import { PronunciationUtils } from "@utils/PronunciationUtils.js";
 import { characterAlignmentToWords, type CharacterAlignment } from "@utils/ElevenLabsAlignmentUtils.js";
 
 const INWORLD_TTS_2_MODEL = "inworld-tts-2";
@@ -106,13 +106,16 @@ export async function generateElevenLabsAudio(params: GenerateParams): Promise<A
     const apiKey = process.env.ELEVENLABS_API_KEY;
     if (!apiKey) throw new Error("ELEVENLABS_API_KEY required for ElevenLabs TTS");
 
+    const language = options.language ?? 'en';
+    const { processedText } = PronunciationUtils.processText(text, language, { includeIpa: false });
+
     const voiceId = speaker.voice;
     const modelId = options.elevenlabsVoiceModel;
     const url = new URL(`https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voiceId)}/with-timestamps`);
     url.searchParams.set("output_format", ELEVENLABS_OPUS_OUTPUT_FORMAT);
 
     const body: Record<string, unknown> = {
-        text: text.substring(0, 4096),
+        text: processedText.substring(0, 4096),
         model_id: modelId,
         voice_settings: {
             speed: speaker.voiceSpeed ?? options.defaultAudioSpeed,
@@ -167,8 +170,8 @@ export async function generateInworldAudio(params: GenerateParams): Promise<Audi
     const { text, speaker, options } = params;
     const apiKey = process.env.INWORLD_API_KEY;
 
-    // 1. Process text for IPA substitutions
-    const { processedText, replacedWords } = InworldPronunciationUtils.processTextWithIPA(text);
+    const language = options.language ?? 'en';
+    const { processedText, replacedWords } = PronunciationUtils.processText(text, language, { includeIpa: true });
 
     const url = 'https://api.inworld.ai/tts/v1/voice';
     const locale = speaker.voiceLocale?.trim() || undefined;

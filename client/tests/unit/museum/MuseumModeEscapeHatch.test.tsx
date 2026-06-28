@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import MuseumModeEscapeHatch from '@/museum/MuseumModeEscapeHatch';
-import { APP_MODE_STORAGE_KEY } from '@/museum/appMode';
+import { APP_MODE_STORAGE_KEY } from '@/settings/councilSettings';
 import '@testing-library/jest-dom';
 
 describe('MuseumModeEscapeHatch', () => {

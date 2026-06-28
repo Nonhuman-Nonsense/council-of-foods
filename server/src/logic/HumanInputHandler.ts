@@ -76,6 +76,10 @@ export class HumanInputHandler {
 
         m.conversation.push(message);
 
+        if (askParticular) {
+            Logger.info(`meeting ${m._id}`, `${humanName} asked directly to ${askParticular}`);
+        }
+
         await manager.services.meetingsCollection.updateOne(
             { _id: m._id },
             { $set: { conversation: m.conversation } }
@@ -146,6 +150,10 @@ export class HumanInputHandler {
 
         m.conversation.push(message);
 
+        if (message.askParticular) {
+            Logger.info(`meeting ${m._id}`, `${payload.speaker} asked directly to ${message.askParticular}`);
+        }
+
         await manager.services.meetingsCollection.updateOne(
             { _id: m._id },
             { $set: { conversation: m.conversation } }
@@ -167,6 +175,68 @@ export class HumanInputHandler {
             manager.environment,
             manager.serverOptions
         );
+
+        manager.isPaused = false;
+        manager.handRaised = false;
+        manager.startLoop();
+    }
+
+    /**
+     * Skips the visitor's turn when they abandon input (e.g. museum idle timeout).
+     * Validates awaiting state, replaces invitation+awaiting with a skipped marker, resumes the loop.
+     */
+    async handleSkipHumanTurn(): Promise<void> {
+        const { manager } = this;
+        const m = manager.meeting;
+        if (!m) return;
+
+        const lastMessage = m.conversation[m.conversation.length - 1];
+        if (lastMessage?.type !== "awaiting_human_question" && lastMessage?.type !== "awaiting_human_panelist") {
+            Logger.reportAndCrashClient(
+                `meeting ${m._id}`,
+                "Received skip_human_turn but was not awaiting human input!",
+                new Error(
+                    `Expected last message to be awaiting human input but found '${lastMessage?.type ?? "none"}'`
+                ),
+                manager.broadcaster
+            );
+            return;
+        }
+
+        const speaker =
+            lastMessage.type === "awaiting_human_panelist"
+                ? lastMessage.speaker
+                : (m.state.humanName || "Human");
+
+        m.conversation.pop();
+
+        if (m.conversation[m.conversation.length - 1]?.type === "invitation") {
+            Logger.info(`meeting ${m._id}`, `popping invitation on skip down to index ${m.conversation.length - 1}`);
+            m.conversation.pop();
+        }
+
+        const skipped: Message = {
+            id: `skipped-${uuidv4()}`,
+            type: "skipped",
+            speaker,
+            text: "",
+        };
+
+        m.conversation.push(skipped);
+
+        const skippedIndex = m.conversation.length - 1;
+        if (lastMessage.type === "awaiting_human_panelist") {
+            Logger.info(`meeting ${m._id}`, `human panelist ${speaker} skipped on index ${skippedIndex}`);
+        } else {
+            Logger.info(`meeting ${m._id}`, `human question skipped for ${speaker} on index ${skippedIndex}`);
+        }
+
+        await manager.services.meetingsCollection.updateOne(
+            { _id: m._id },
+            { $set: { conversation: m.conversation } }
+        );
+
+        manager.broadcaster.broadcastConversationUpdate(m.conversation);
 
         manager.isPaused = false;
         manager.handRaised = false;

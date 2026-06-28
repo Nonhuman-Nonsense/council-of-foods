@@ -11,6 +11,30 @@
   "contact": "Contact",
   "setup": {
     "title": "SETUP",
+    "panels": {
+      "installation": "Installation",
+      "voiceGuide": "Voice guide",
+      "details": "Details & hints",
+      "logging": "Logging"
+    },
+    "logging": {
+      "on": "On",
+      "off": "Off",
+      "all": "All",
+      "none": "None",
+      "categoriesLabel": "Log categories",
+      "categories": {
+        "API": "API",
+        "SOCKET": "Socket",
+        "AGENT": "Agent tools",
+        "REALTIME": "Realtime",
+        "BUTTON": "Button",
+        "META": "Meta agent",
+        "AUTOPLAY": "Autoplay",
+        "SYSTEM": "System",
+        "ERROR": "Error detail"
+      }
+    },
     "mode": "Mode",
     "web": "Web",
     "museum": "Museum",
@@ -45,7 +69,17 @@
       },
       "bridgeNotRunningHint": "Start the button bridge on this Mac, or check {{logPath}} for errors.",
       "usbNotDetectedHint": "Plug in the Council button via USB. The bridge scans for Arduino USB devices automatically.",
-      "usbWrongDeviceHint": "A USB serial device was found, but it is not running Council button firmware. Reflash the Arduino sketch or check the USB cable/port."
+      "usbWrongDeviceHint": "A USB serial device was found, but it is not running Council button firmware. Reflash the Arduino sketch or check the USB cable/port.",
+      "debugTitle": "Button debug",
+      "ledDebugOverlay": "LED preview overlay",
+      "owners": {
+        "none": "—",
+        "setup": "Setup",
+        "autoplay": "Autoplay",
+        "voice-guide": "Voice guide",
+        "human-input": "Human input",
+        "meta-agent": "Meta agent"
+      }
     }
   },
   "settings": "Settings",
@@ -72,6 +106,11 @@
     "lang": "It is not possible to change language in the middle of an ongoing meeting.\nDo you want to start over from the beginning?"
   },
   "restart": "Restart",
+  "autoplayWarning": {
+    "title": "Still there?",
+    "body": "You have been inactive for a while,\npress the button if you are still there.",
+    "confirm": "I'm still here!"
+  },
   "name": {
     "title": "SAY SOMETHING",
     "1": "Do you want to adress the Council of Foods?",
@@ -90,12 +129,15 @@
     "panelist": "What does {{name}} have to say about this?",
     "button_museum": "Press and hold the button to talk, release to submit"
   },
-  "completed": {
+  "metaAgent": {
+    "holdToSpeak": "Push the button to speak"
+  },
+  "queryExtension": {
     "title": "Is that it?",
     "1": "This meeting is starting to get long-winded,",
     "2": "is it time to come to a conclusion?",
-    "3": "Yes, let's wrap it up!",
-    "4": "No, continue a bit more."
+    "3": "Yes, let's conclude the meeting!",
+    "4": "No, extend the meeting a bit more."
   },
   "incomplete": {
     "title": "Meeting Unfinished",
@@ -141,7 +183,8 @@
   },
   "replayModeBanner": {
     "preamble": "This is a replay of the meeting #{{meetingId}}: {{meetingTitle}} on {{meetingDate}}. ",
-    "click": "Click here to start a new meeting."
+    "click": "Click here to start a new meeting.",
+    "pressButton": "Press the button to start a new meeting."
   },
   "selectissue": "please select an issue for the discussion",
   "writetopic": "Write a topic here...",

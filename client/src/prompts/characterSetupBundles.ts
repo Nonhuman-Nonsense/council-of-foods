@@ -1,6 +1,6 @@
 import type { CharacterSetupData } from "@shared/ModelTypes";
 export { CHARACTERS_FILE } from "@shared/prompts/characterSetupMetadata";
-import { CHARACTERS_FILE } from "@shared/prompts/characterSetupMetadata";
+import { chairIdFromCharacters, CHARACTERS_FILE } from "@shared/prompts/characterSetupMetadata";
 
 // Keep Foods-specific bundle filenames behind an app-local module so shared setup
 // code can use character-oriented naming that mirrors the Forest app.
@@ -27,3 +27,6 @@ if (!defaultCharacterSetupModuleKey) {
 }
 
 export const defaultCharacterSetupBundle = characterSetupBundleModules[defaultCharacterSetupModuleKey];
+
+/** Chair id from the default character-setup bundle (same convention as server `CHAIR_ID`). */
+export const CHAIR_ID = chairIdFromCharacters(defaultCharacterSetupBundle.characters);

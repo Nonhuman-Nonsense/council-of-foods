@@ -1,5 +1,11 @@
 import { config } from "../config.js";
-import { getCharacterSetupBundle } from "@logic/characterSetupBundle.js";
+import {
+    getChairAgentVoice,
+    getChairRealtimeLanguageConfig,
+    getHumanInputRealtimeLanguageConfig,
+    normalizeSetupLanguage,
+    type ChairVoiceProfile,
+} from "@logic/characterSetupBundle.js";
 import { getGlobalOptions } from "@logic/GlobalOptions.js";
 import { getOpenAI } from "@services/OpenAIService.js";
 import { withNetworkRetry } from "@utils/NetworkUtils.js";
@@ -7,6 +13,7 @@ import type {
     IceServer,
     RealtimeBootstrapResponse,
     RealtimeCallResponse,
+    RealtimeFeature,
     RealtimeProvider,
 } from "@shared/RealtimeSessionTypes.js";
 
@@ -14,12 +21,135 @@ const opts = getGlobalOptions();
 const INWORLD_BASE = "https://api.inworld.ai";
 const OPENAI_CALLS_URL = "https://api.openai.com/v1/realtime/calls";
 
-function normalizeLanguage(language: string): string {
-    return language.toLowerCase().startsWith("sv") ? "sv" : "en";
+const SEMANTIC_VAD_TURN_DETECTION = {
+    type: "semantic_vad" as const,
+    eagerness: "medium" as const,
+    create_response: true,
+    interrupt_response: true,
+};
+
+function buildInworldChairRealtimeSession(params: {
+    language: string;
+    voice: ChairVoiceProfile;
+    llmModel: string;
+    ttsModel: string;
+    transcriptionModel: string;
+}): Record<string, unknown> {
+    const { language, voice, llmModel, ttsModel, transcriptionModel } = params;
+    const normalizedLanguage = normalizeSetupLanguage(language);
+    const ttsLanguage = voice.voiceLocale?.trim() || (normalizedLanguage !== "en" ? normalizedLanguage : undefined);
+
+    const session: Record<string, unknown> = {
+        type: "realtime" as const,
+        model: llmModel,
+        output_modalities: ["audio", "text"] as const,
+        audio: {
+            input: {
+                transcription: {
+                    model: transcriptionModel,
+                    language: ttsLanguage ?? normalizedLanguage,
+                },
+                turn_detection: SEMANTIC_VAD_TURN_DETECTION,
+            },
+            output: {
+                voice: voice.voice,
+                model: ttsModel,
+                speed: voice.voiceSpeed ?? opts.defaultAudioSpeed,
+            },
+        },
+    };
+
+    const ttsProviderData: Record<string, unknown> = {
+        timestamp_type: "WORD",
+        timestamp_transport_strategy: "SYNC",
+    };
+    if (ttsLanguage) {
+        ttsProviderData.language = ttsLanguage;
+        ttsProviderData.steering_handling = "emit_once";
+        ttsProviderData.segmenter_strategy = "sentence";
+    }
+    session.providerData = { tts: ttsProviderData };
+
+    return session;
 }
 
-function getGuideChair(language: string) {
-    return getCharacterSetupBundle(normalizeLanguage(language)).characters[0];
+function buildOpenAIChairRealtimeSession(params: {
+    language: string;
+    voice: ChairVoiceProfile;
+    llmModel: string;
+    transcriptionModel: string;
+}): Record<string, unknown> {
+    const { language, voice, llmModel, transcriptionModel } = params;
+    const normalizedLanguage = normalizeSetupLanguage(language);
+
+    return {
+        type: "realtime" as const,
+        model: llmModel,
+        output_modalities: ["audio"] as const,
+        audio: {
+            input: {
+                transcription: {
+                    model: transcriptionModel,
+                    language: normalizedLanguage,
+                },
+                turn_detection: SEMANTIC_VAD_TURN_DETECTION,
+            },
+            output: {
+                voice: voice.voice,
+                speed: voice.voiceSpeed ?? opts.defaultAudioSpeed,
+            },
+        },
+    };
+}
+
+export function buildChairRealtimeSessionFragment(language: string): Record<string, unknown> {
+    const normalizedLanguage = normalizeSetupLanguage(language);
+    const languageConfig = getChairRealtimeLanguageConfig(normalizedLanguage);
+    const voice = getChairAgentVoice(normalizedLanguage);
+
+    if (languageConfig.provider === "openai") {
+        return buildOpenAIChairRealtimeSession({
+            language: normalizedLanguage,
+            voice,
+            llmModel: languageConfig.llmModel,
+            transcriptionModel: languageConfig.transcriptionModel,
+        });
+    }
+
+    const ttsModel = languageConfig.ttsModel ?? opts.inworldVoiceModel;
+    return buildInworldChairRealtimeSession({
+        language: normalizedLanguage,
+        voice,
+        llmModel: languageConfig.llmModel,
+        ttsModel,
+        transcriptionModel: languageConfig.transcriptionModel,
+    });
+}
+
+export function pickChairRealtimeProvider(language: string): RealtimeProvider {
+    return getChairRealtimeLanguageConfig(normalizeSetupLanguage(language)).provider;
+}
+
+export function pickMetaAgentRealtimeProvider(language: string): RealtimeProvider {
+    return pickChairRealtimeProvider(language);
+}
+
+export function pickVoiceGuideRealtimeProvider(language: string): RealtimeProvider {
+    return pickChairRealtimeProvider(language);
+}
+
+export function resolveChairRealtimeCallProvider(
+    feature: RealtimeFeature,
+    language: string | undefined,
+    clientProvider: RealtimeProvider
+): RealtimeProvider {
+    if (feature !== "meta-agent" && feature !== "voice-guide") {
+        return clientProvider;
+    }
+    if (typeof language !== "string" || language.trim().length === 0) {
+        throw new Error(`${feature} realtime call requires language`);
+    }
+    return pickChairRealtimeProvider(language);
 }
 
 async function inworldFetch(path: string, init: RequestInit, context: string): Promise<Response> {
@@ -107,76 +237,18 @@ export async function createOpenAICall(req: { sdp: string; session?: unknown }):
     };
 }
 
-export function buildVoiceGuideRealtimeSessionFragment(
-    language: string,
-    provider: RealtimeProvider
-): Record<string, unknown> {
-    const normalizedLanguage = normalizeLanguage(language);
-    const chair = getGuideChair(normalizedLanguage);
-
-    if (provider === "openai") {
-        return {
-            type: "realtime" as const,
-            model: opts.voiceGuideOpenAIRealtimeModel,
-            output_modalities: ["audio"] as const,
-            audio: {
-                input: {
-                    transcription: {
-                        model: opts.transcribeModel,
-                        language: normalizedLanguage,
-                    },
-                    turn_detection: {
-                        type: "semantic_vad" as const,
-                        eagerness: "medium" as const,
-                        create_response: true,
-                        interrupt_response: true,
-                    },
-                },
-                output: {
-                    voice: chair.voice,
-                    speed: chair.voiceSpeed ?? opts.defaultAudioSpeed,
-                },
-            },
-        };
-    }
-
-    return {
-        type: "realtime" as const,
-        model: opts.voiceGuideRealtimeModel,
-        output_modalities: ["audio", "text"] as const,
-        audio: {
-            input: {
-                transcription: { model: opts.voiceGuideRealtimeTranscriptionModel },
-                turn_detection: {
-                    type: "semantic_vad" as const,
-                    eagerness: "medium" as const,
-                    create_response: true,
-                    interrupt_response: true,
-                },
-            },
-            output: {
-                voice: chair.voice,
-                model: opts.inworldVoiceModel,
-                speed: chair.voiceSpeed ?? opts.defaultAudioSpeed,
-            },
-        },
-    };
-}
-
 export function pickHumanInputRealtimeProvider(language: string): RealtimeProvider {
-    return normalizeLanguage(language) === "sv" ? "openai" : "inworld";
-}
-
-export function pickVoiceGuideRealtimeProvider(language: string): RealtimeProvider {
-    return normalizeLanguage(language) === "sv" ? "openai" : "inworld";
+    return getHumanInputRealtimeLanguageConfig(normalizeSetupLanguage(language)).provider;
 }
 
 export async function getHumanInputRealtimeBootstrap(language: string): Promise<RealtimeBootstrapResponse> {
-    const provider = pickHumanInputRealtimeProvider(language);
+    const normalizedLanguage = normalizeSetupLanguage(language);
+    const languageConfig = getHumanInputRealtimeLanguageConfig(normalizedLanguage);
+    const options = getGlobalOptions();
 
-    if (provider === "openai") {
+    if (languageConfig.provider === "openai") {
         return {
-            provider,
+            provider: "openai",
             iceServers: [],
             session: {
                 type: "transcription",
@@ -185,9 +257,12 @@ export async function getHumanInputRealtimeBootstrap(language: string): Promise<
                         format: { type: "audio/pcm", rate: 24000 },
                         noise_reduction: { type: "near_field" },
                         transcription: {
-                            model: opts.transcribeModel,
-                            prompt: opts.transcribePrompt[language] ?? opts.transcribePrompt.en ?? "",
-                            language,
+                            model: options.transcribeModel,
+                            prompt:
+                                options.transcribePrompt[normalizedLanguage] ??
+                                options.transcribePrompt.en ??
+                                "",
+                            language: normalizedLanguage,
                         },
                         turn_detection: {
                             type: "server_vad",
@@ -203,17 +278,17 @@ export async function getHumanInputRealtimeBootstrap(language: string): Promise<
 
     const ice = await getInworldIceServers();
     return {
-        provider,
+        provider: "inworld",
         iceServers: ice.iceServers,
         session: {
             type: "realtime" as const,
-            model: opts.voiceGuideRealtimeModel,
+            model: languageConfig.llmModel!,
             output_modalities: ["text"] as const,
             audio: {
                 input: {
                     transcription: {
-                        model: opts.voiceGuideRealtimeTranscriptionModel,
-                        language,
+                        model: languageConfig.transcriptionModel!,
+                        language: normalizedLanguage,
                     },
                     turn_detection: {
                         type: "semantic_vad" as const,
@@ -227,9 +302,9 @@ export async function getHumanInputRealtimeBootstrap(language: string): Promise<
     };
 }
 
-export async function getVoiceGuideRealtimeBootstrap(language: string): Promise<RealtimeBootstrapResponse> {
-    const provider = pickVoiceGuideRealtimeProvider(language);
-    const session = buildVoiceGuideRealtimeSessionFragment(language, provider);
+async function getChairRealtimeBootstrap(language: string): Promise<RealtimeBootstrapResponse> {
+    const provider = pickChairRealtimeProvider(language);
+    const session = buildChairRealtimeSessionFragment(language);
 
     if (provider === "openai") {
         return {
@@ -247,9 +322,12 @@ export async function getVoiceGuideRealtimeBootstrap(language: string): Promise<
     };
 }
 
-/** Meta-agent uses the same realtime session fragment as the voice guide (chair voice, semantic VAD). */
+export async function getVoiceGuideRealtimeBootstrap(language: string): Promise<RealtimeBootstrapResponse> {
+    return getChairRealtimeBootstrap(language);
+}
+
 export async function getMetaAgentRealtimeBootstrap(language: string): Promise<RealtimeBootstrapResponse> {
-    return getVoiceGuideRealtimeBootstrap(language);
+    return getChairRealtimeBootstrap(language);
 }
 
 export async function createRealtimeCall(
@@ -258,3 +336,7 @@ export async function createRealtimeCall(
 ): Promise<RealtimeCallResponse> {
     return provider === "openai" ? createOpenAICall(req) : createInworldCall(req);
 }
+
+// Back-compat for tests that referenced the old export name.
+export const buildVoiceGuideRealtimeSessionFragment = buildChairRealtimeSessionFragment;
+export const buildMetaAgentRealtimeSessionFragment = buildChairRealtimeSessionFragment;

@@ -6,7 +6,7 @@ import type {
     HandRaisedOptions,
     ReconnectionOptions,
     ReportMaximumPlayedIndexPayload,
-    WrapUpMessage,
+    ConcludeMeetingMessage,
     SetupOptions,
     CreateMeetingBody,
     SubmitHumanMessagePayload,
@@ -120,7 +120,7 @@ export const InjectionMessageSchema: z.ZodType<InjectionMessage> = z.object({
     length: z.number(),
 });
 
-// 6. wrap_up_meeting
-export const WrapUpMessageSchema: z.ZodType<WrapUpMessage> = z.object({
+// 6. conclude_meeting
+export const ConcludeMeetingMessageSchema: z.ZodType<ConcludeMeetingMessage> = z.object({
     date: z.string(),
 });

@@ -29,11 +29,11 @@ vi.mock('@root/src/logic/GlobalOptions.js', async () => {
 const mockFetch = vi.fn();
 global.fetch = mockFetch;
 
-// Mock InworldPronunciationUtils
-vi.mock('@root/src/utils/InworldPronunciationUtils.js', () => ({
-    InworldPronunciationUtils: {
-        processTextWithIPA: vi.fn((text) => {
-            if (text.includes('tomato')) {
+// Mock PronunciationUtils
+vi.mock('@root/src/utils/PronunciationUtils.js', () => ({
+    PronunciationUtils: {
+        processText: vi.fn((text, _language, options) => {
+            if (options.includeIpa && text.includes('tomato')) {
                 const map = new Map();
                 map.set('/təˈmɑːtoʊ/', 'tomato');
                 return {
@@ -300,7 +300,7 @@ describe('AudioSystem Inworld Integration', () => {
         );
     });
 
-    it('should integrate InworldPronunciationUtils to process IPA words', async () => {
+    it('should integrate PronunciationUtils to process IPA words', async () => {
         const message = { id: 'msgIPA', text: 'Say tomato please', sentences: ['Say tomato please'] };
         const speaker = { id: 'char1', voice: 'Dennis', voiceProvider: 'inworld' };
 

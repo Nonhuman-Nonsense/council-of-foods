@@ -12,17 +12,14 @@ import {
   type MeetingSetupUserEvent,
 } from "@newMeeting/meetingSetup";
 import { useMeetingSetupStore } from "@newMeeting/meetingSetupStore";
-import { useButtonLed, useButtonPressed } from "@/museum/button/hooks";
-import { useAppMode } from "@/museum/useAppMode";
-import { getPushToTalk } from "@/settings/councilSettings";
+import { useButton, type ButtonLedMode } from "@/museum/button/useButton";
+import { useCouncilSettings } from "@/settings/councilSettings";
 import { buildGuidePrompt } from "./guidePrompt";
 import { createGuideToolHandlers, createGuideTools } from "./guideTools";
 import { getVoiceGuideBundle } from "./voiceGuideBundle";
 import { useHoldToSpeakHint } from "./useHoldToSpeakHint";
-import { computeButtonLedMode } from "@/museum/button/ledMode";
 import Loading from "@main/Loading";
 import { useVoiceGuide } from "./useVoiceGuide";
-
 type MeetingVoiceGuideProps = {
   phase: MeetingSetupPhase;
   lastUserEvent: MeetingSetupUserEvent | null;
@@ -41,9 +38,8 @@ export default function MeetingVoiceGuide({
   onStartMeeting,
 }: MeetingVoiceGuideProps) {
   const { i18n, t } = useTranslation();
-  const { isMuseumMode } = useAppMode();
-  const pushToTalkMode = getPushToTalk();
-  const pressed = useButtonPressed(pushToTalkMode);
+  const { isMuseumMode, pushToTalkMode } = useCouncilSettings();
+  const button = useButton("voice-guide");
   const {
     selectedTopic,
     customTopic,
@@ -114,31 +110,38 @@ export default function MeetingVoiceGuide({
       },
     }),
     pushToTalkMode,
-    micOpen: pressed,
+    micOpen: button.pressed,
   });
   const { sendUserMessage, muted } = voice;
 
   const showMuseumLandingLoading =
     isMuseumMode && phase === "landing" && !muted && voice.isConnecting;
 
-  const showHoldToSpeakHint = useHoldToSpeakHint({
+  const { showHoldToSpeakHint } = useHoldToSpeakHint({
     pushToTalkMode,
     sessionActive: !muted,
     isConnecting: voice.isConnecting,
-    micOpen: pressed,
+    micOpen: button.pressed,
     lastUserTranscript: voice.lastUserTranscript,
     lastCaption: voice.lastCaption,
   });
 
-  const ledMode = computeButtonLedMode({
-    pushToTalkMode,
-    muted,
-    isConnecting: voice.isConnecting,
-    voiceError: voice.error,
-    pressed,
-  });
+  const ledMode = useMemo((): ButtonLedMode => {
+    if (!pushToTalkMode || muted || voice.isConnecting || voice.error) return "off";
+    if (button.pressed) return "on";
+    return "pulse";
+  }, [pushToTalkMode, muted, voice.isConnecting, voice.error, button.pressed]);
 
-  useButtonLed("voice-guide", ledMode, pushToTalkMode);
+  useEffect(() => {
+    if (!pushToTalkMode) return;
+    button.claim();
+    return () => button.release();
+  }, [button.claim, button.release, pushToTalkMode]);
+
+  useEffect(() => {
+    if (!pushToTalkMode) return;
+    button.setLed(ledMode);
+  }, [button.setLed, pushToTalkMode, ledMode]);
 
   useEffect(() => {
     if (!lastUserEvent) {
@@ -164,6 +167,10 @@ export default function MeetingVoiceGuide({
       isMuseumMode={isMuseumMode}
       pushToTalkMode={pushToTalkMode}
       showHoldToSpeakHint={showHoldToSpeakHint}
+      subtitleLayout={isMuseumMode ? "council" : "compact"}
+      showPttVisualizer={pushToTalkMode}
+      micStream={voice.micStream}
+      micActive={pushToTalkMode && !muted && button.pressed}
       onStart={voice.start}
       onStop={voice.stop}
     />

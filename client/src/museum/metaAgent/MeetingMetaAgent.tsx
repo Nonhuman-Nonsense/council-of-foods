@@ -1,11 +1,19 @@
 import { useEffect, useMemo, useRef } from "react";
-import { useButtonLed, useButtonPressed } from "@museum/button/hooks";
+import { useButton, type ButtonLedMode } from "@museum/button/useButton";
+import { BUTTON_IDLE_REMIND_MS, useHoldToSpeakHint } from "@voice/useHoldToSpeakHint";
+import RealtimeCaptionOverlay from "@realtime/RealtimeCaptionOverlay";
 import { useMetaAgent } from "./useMetaAgent";
-import { buildMetaAgentPrompt, buildMetaAgentStateSnapshot } from "./metaAgentPrompt";
+import {
+  buildMetaAgentPrompt,
+  buildMetaAgentActivationTurn,
+  buildMetaAgentStateSnapshot,
+  getMetaAgentBundle,
+} from "./metaAgentPrompt";
 import {
   createMetaAgentTools,
   createMetaAgentToolHandlers,
 } from "./metaAgentTools";
+import { log } from "@/logger";
 import type { ParticipationPhase } from "@council/humanInput/participationPhase";
 import type { CouncilState } from "@council/hooks/useCouncilMachine";
 import type { Character, Topic } from "@shared/ModelTypes";
@@ -14,10 +22,9 @@ export interface MeetingMetaAgentProps {
   liveKey: string;
   language: string;
   participationPhase: ParticipationPhase;
-  isPaused: boolean;
-  setPaused: (paused: boolean) => void;
   metaAgentActive: boolean;
   setMetaAgentActive: (active: boolean) => void;
+  setAgentSpeaking: (speaking: boolean) => void;
   onRestartMeeting: () => void;
   // Context for state snapshot
   councilState: CouncilState;
@@ -30,21 +37,21 @@ export interface MeetingMetaAgentProps {
 /**
  * Museum meta-agent: a persistent WebRTC voice agent that sits on top of the
  * council meeting.  The visitor can press the PTT button at any time to talk
- * to the chair (meta-agent).  The meeting pauses while the visitor speaks and
- * only resumes when the agent calls `resume_meeting`.
+ * to the chair (meta-agent).  Council output unmounts while the meta agent is
+ * active; meeting speech restarts from the beginning when the agent calls
+ * `resume_meeting`.
  *
  * Mounting contract:
- *  - Only mount when `isButtonMuseumMode && liveKey` (live meeting + PTT).
- *  - Only active when `participationPhase === "off"` (HumanInput has priority).
+ *  - Only mount when `pushToTalkMode && liveKey` (live meeting + PTT).
+ *  - Button presses route via shared claim arbitration (human-input wins in active phase).
  */
 export default function MeetingMetaAgent({
   liveKey,
   language,
   participationPhase,
-  isPaused: _isPaused,
-  setPaused,
   metaAgentActive,
   setMetaAgentActive,
+  setAgentSpeaking,
   onRestartMeeting,
   councilState,
   topic,
@@ -52,27 +59,48 @@ export default function MeetingMetaAgent({
   currentSpeakerName,
   humanName,
 }: MeetingMetaAgentProps) {
-  // The meta agent is only "on" when HumanInput is not using the button.
-  const buttonOwnerActive = participationPhase === "off";
+  const button = useButton("meta-agent");
+
+  const promptBundle = useMemo(() => getMetaAgentBundle(language), [language]);
 
   const instructions = useMemo(
-    () => buildMetaAgentPrompt({ pushToTalkMode: true }),
-    [],
+    () =>
+      buildMetaAgentPrompt({
+        bundle: promptBundle,
+        pushToTalkMode: true,
+      }),
+    [promptBundle],
   );
+
+  const tools = useMemo(
+    () => createMetaAgentTools({ promptBundle }),
+    [promptBundle],
+  );
+
+  const silenceRef = useRef<() => void>(() => undefined);
 
   const toolHandlers = useMemo(
     () =>
       createMetaAgentToolHandlers({
-        setPaused,
         setMetaAgentActive,
         onRestartMeeting,
+        silenceAgentOutput: () => silenceRef.current(),
       }),
-    [setPaused, setMetaAgentActive, onRestartMeeting],
+    [setMetaAgentActive, onRestartMeeting],
   );
 
-  const tools = useMemo(() => createMetaAgentTools(), []);
-
-  const { setMicEnabled, sendUserMessage } = useMetaAgent({
+  const {
+    connectionState,
+    error,
+    lastCaption,
+    lastUserTranscript,
+    agentSpeaking,
+    micStream,
+    setMicEnabled,
+    sendUserMessage,
+    requestAgentResponse,
+    setAgentOutputMuted,
+  } = useMetaAgent({
     language,
     liveKey,
     instructions,
@@ -80,27 +108,56 @@ export default function MeetingMetaAgent({
     toolHandlers,
   });
 
-  // Gated pressed: only triggers when buttonOwnerActive and pttInputEnabled.
-  const pressed = useButtonPressed(buttonOwnerActive);
-
-  // Track whether we were active so we detect rising / falling edge.
-  const wasActiveRef = useRef(metaAgentActive);
   useEffect(() => {
-    wasActiveRef.current = metaAgentActive;
+    button.claim();
+    return () => button.release();
+  }, [button.claim, button.release]);
+
+  const ledMode: ButtonLedMode =
+    connectionState !== "ready" ? "off" : metaAgentActive && button.pressed ? "on" : "pulse";
+
+  useEffect(() => {
+    button.setLed(ledMode);
+  }, [button.setLed, ledMode]);
+
+  const { showHoldToSpeakHint, idleRemindVisible } = useHoldToSpeakHint({
+    pushToTalkMode: true,
+    sessionActive: metaAgentActive,
+    isConnecting: connectionState === "connecting",
+    micOpen: metaAgentActive && button.pressed,
+    lastUserTranscript,
+    lastCaption,
   });
 
-  // Standby → Active: rising edge of pressed while not yet active.
   useEffect(() => {
-    if (!buttonOwnerActive) return;
-    if (!pressed || metaAgentActive) return;
+    setAgentSpeaking(agentSpeaking);
+  }, [agentSpeaking, setAgentSpeaking]);
 
-    // Pause the meeting.
-    setPaused(true);
-    // Mark meta agent as active (triggers chair zoom in Council).
+  useEffect(() => {
+    if (!metaAgentActive) {
+      setAgentSpeaking(false);
+    }
+  }, [metaAgentActive, setAgentSpeaking]);
+
+  useEffect(() => {
+    silenceRef.current = () => {
+      setMicEnabled(false);
+      setAgentOutputMuted(true);
+    };
+  }, [setMicEnabled, setAgentOutputMuted]);
+
+  // Standby → Active: rising edge of routed press while not yet active.
+  useEffect(() => {
+    if (!button.pressed || metaAgentActive) return;
+
     setMetaAgentActive(true);
-    // Open the mic so the visitor's voice goes to the agent.
+    setAgentOutputMuted(false);
     setMicEnabled(true);
-    // Inject a one-shot state snapshot so the agent has meeting context.
+    log.event("META", "activate", {
+      councilState,
+      participationPhase,
+      currentSpeakerName,
+    });
     sendUserMessage(
       buildMetaAgentStateSnapshot({
         councilState,
@@ -111,14 +168,16 @@ export default function MeetingMetaAgent({
         participationPhase,
       }),
     );
+    sendUserMessage(buildMetaAgentActivationTurn());
+    requestAgentResponse();
   }, [
-    pressed,
+    button.pressed,
     metaAgentActive,
-    buttonOwnerActive,
-    setPaused,
     setMetaAgentActive,
+    setAgentOutputMuted,
     setMicEnabled,
     sendUserMessage,
+    requestAgentResponse,
     councilState,
     topic,
     participants,
@@ -127,26 +186,71 @@ export default function MeetingMetaAgent({
     participationPhase,
   ]);
 
-  // Active: rising/falling edge of pressed controls mic-open within a turn.
+  // Active: routed press controls mic-open within a turn.
   useEffect(() => {
-    if (!buttonOwnerActive || !metaAgentActive) return;
-    // Mic follows the button state inside active mode (multi-turn support).
-    setMicEnabled(pressed);
-  }, [pressed, metaAgentActive, buttonOwnerActive, setMicEnabled]);
+    if (!metaAgentActive) return;
+    setMicEnabled(button.pressed);
+  }, [button.pressed, metaAgentActive, setMicEnabled]);
 
-  // Ensure mic is closed whenever we leave active mode (tool called or phase changed).
+  // Ensure mic is closed whenever we leave active mode.
   useEffect(() => {
     if (!metaAgentActive) {
       setMicEnabled(false);
     }
   }, [metaAgentActive, setMicEnabled]);
 
-  // LED: pulse in standby when button owner (invites visitor to press);
-  //       on while recording (active + pressed).
-  const ledMode = metaAgentActive && pressed ? "on" : "pulse";
-  useButtonLed("meta-agent", ledMode, buttonOwnerActive);
+  const idleResumeFiredRef = useRef(false);
 
-  // Nothing to render — audio playback is via a hidden <audio> element created
-  // inside useMetaAgent, and the visual feedback is the LED + meeting zoom.
-  return null;
+  useEffect(() => {
+    if (metaAgentActive) return;
+    idleResumeFiredRef.current = false;
+  }, [metaAgentActive]);
+
+  useEffect(() => {
+    if (!idleRemindVisible) {
+      idleResumeFiredRef.current = false;
+    }
+  }, [idleRemindVisible]);
+
+  // Auto-resume 10s after the idle PTT reminder appears (not while agent or visitor is active).
+  useEffect(() => {
+    if (!metaAgentActive || connectionState !== "ready") return;
+    if (!idleRemindVisible) return;
+    if (idleResumeFiredRef.current) return;
+    if (agentSpeaking || button.pressed) return;
+
+    const timerId = window.setTimeout(() => {
+      if (idleResumeFiredRef.current) return;
+      if (agentSpeaking || button.pressed) return;
+      idleResumeFiredRef.current = true;
+      log.event("META", "idle auto-resume resume_meeting");
+      toolHandlers.resume_meeting({});
+    }, BUTTON_IDLE_REMIND_MS);
+
+    return () => window.clearTimeout(timerId);
+  }, [
+    metaAgentActive,
+    connectionState,
+    idleRemindVisible,
+    agentSpeaking,
+    button.pressed,
+    toolHandlers,
+  ]);
+
+  if (!metaAgentActive) return null;
+
+  return (
+    <RealtimeCaptionOverlay
+      error={error}
+      lastCaption={lastCaption}
+      lastUserTranscript={lastUserTranscript}
+      pushToTalkMode
+      showHoldToSpeakHint={showHoldToSpeakHint}
+      holdToSpeakKey="metaAgent.holdToSpeak"
+      subtitleLayout="council"
+      showPttVisualizer
+      micStream={micStream}
+      micActive={button.pressed}
+    />
+  );
 }

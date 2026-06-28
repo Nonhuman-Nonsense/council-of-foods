@@ -1,5 +1,9 @@
 # Meeting Meta Agent — implementation plan
 
+> **UI, captions, pause/freeze, and shared voice-session work** are planned in
+> [meta-agent-realtime-ux-plan.md](./meta-agent-realtime-ux-plan.md) (phased
+> implementation). This file keeps bootstrap, server, and early integration context.
+
 A museum-only voice agent that runs **during a live council meeting**. The visitor
 presses the hardware button at any time to pause the meeting and talk to the
 "chair" (the meta agent). The agent can answer questions, resume the meeting, or
@@ -34,7 +38,7 @@ cleaning up the voice guide's `micGainGate`.
 | Gate | `isButtonMuseumMode && liveKey` |
 | Connection | Its **own** WebRTC session (separate from HumanInput + voice guide) |
 | Mic gating | **`track.enabled = false/true`** (not `micGainGate`) |
-| Button signal | Gated **`pressed`** (via `useButtonPressed`), not `rawPressed` |
+| Button signal | Gated **`pressed`** via `useButton(owner).pressed`, not `rawPressed` |
 | LED owner | Add **`"meta-agent"`** to `ButtonLedOwner`, priority `1` |
 | Button routing | Meta agent only reacts when `participationPhase === "off"` |
 | Resume policy | Meeting resumes **only** via the `resume_meeting` tool (no auto-resume) |
@@ -48,10 +52,11 @@ cleaning up the voice guide's `micGainGate`.
 
 ## Why these match the current code
 
-- The old `pttOwnership` LIFO stack is gone. LED arbitration is now priority-based
-  in `client/src/museum/button/ledIntent.ts` via `useButtonLed(owner, mode, active)`.
-  Adding `"meta-agent"` at priority `1` means **`human-input` (2)** and **`setup`
-  (3)** always win when they register an intent — no race to solve.
+- The old `pttOwnership` LIFO stack is gone. Button routing lives in
+  `client/src/museum/button/` (`buttonStore.ts`, `buttonIntent.ts`, `useButton`).
+  Consumers use `useButton(owner)` with separate `claim()` / `setLed()` / `release()`.
+  Meta-agent claims for the full meeting; human-input claims when `phase === "active"`;
+  priority picks `buttonOwner`. See [meta-agent-realtime-ux-plan.md § Button routing](./meta-agent-realtime-ux-plan.md#button-routing-ptt-claim-model).
 - `voice-guide` and `meta-agent` never run at the same time (voice guide lives in
   `MeetingSetupShell` and unmounts when the meeting starts). They could share a
   single `"agent"` owner, but we keep `"meta-agent"` separate for now and rename
@@ -136,23 +141,24 @@ Transitions:
 
 ## Button + LED wiring (in `MeetingMetaAgent`)
 
+Meta-agent **always claims** while mounted. Human-input wins via priority when its
+floor is `active`. No session teardown when ownership is lost (e.g. setup overlay).
+
 ```ts
-const buttonActive = isButtonMuseumMode && participationPhase === "off";
+const { claim, release, setLed, pressed } = useButton("meta-agent");
 
-// Gated press; only meaningful while we own the button (phase == off).
-const pressed = useButtonPressed(buttonActive);
+useEffect(() => {
+  claim();
+  return () => release();
+}, [claim, release]);
 
-// LED: on while talking, pulse otherwise. Cleared automatically on unmount
-// or when buttonActive flips false (human floor / overlay-free handoff).
-const ledMode: ButtonLedMode =
-  connectionState !== "ready" ? "off" : pressed ? "on" : "pulse";
-useButtonLed("meta-agent", ledMode, buttonActive);
+useEffect(() => {
+  setLed(ledMode);
+}, [setLed, ledMode]);
 ```
 
-When `participationPhase !== "off"`, `useButtonLed(..., active=false)` unregisters
-the meta-agent intent, so `HumanInput` (priority 2) drives the LED and the meta
-agent ignores presses. When the human floor closes, `participationPhase` returns
-to `"off"`, the meta agent re-registers `pulse`, and standby resumes.
+`participationPhase` is passed only for the activate **state snapshot**, not for
+button gating.
 
 Press handling (effect on `pressed`):
 
@@ -212,8 +218,7 @@ Thin orchestration over the shared realtime primitives (same pattern as
 - Exposes: `connectionState` (`"idle" | "connecting" | "ready" | "error"`),
   `setMicEnabled(open: boolean)` (toggles `track.enabled`),
   `sendUserMessage(text)`, and `error`.
-- On unmount: close connection, stop tracks. (LED is released by `useButtonLed`'s
-  own cleanup in the component.)
+- On unmount: close connection, stop tracks. Button claim is released in effect cleanup.
 
 No `micGainGate`. No remote-audio caption UI beyond a hidden autoplay `<audio>` for
 the agent's voice.
@@ -229,7 +234,7 @@ Same `RealtimeTool` / `ToolHandler` / `ToolResult` shapes as `guideTools.ts`.
 | `resume_meeting` | implement | `setMicEnabled(false)`; `setPaused(false)`; `setMetaAgentActive(false)` → `{ ok: true }` |
 | `restart_meeting` | implement | navigate to `rootPath` (`/`) → `{ ok: true }` |
 | `continue_meeting` | placeholder | `{ ok: false, error: "Not available yet" }` |
-| `wrap_up_meeting` | placeholder | `{ ok: false, error: "Not available yet" }` |
+| `conclude_meeting` | placeholder | `{ ok: false, error: "Not available yet" }` |
 
 `explain_whats_happening` is prompt-only (the agent uses the activate snapshot).
 No `pause_meeting` (pause is implicit on press), `dismiss_overlay`,

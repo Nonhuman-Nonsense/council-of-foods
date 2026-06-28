@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import type { Character } from '@shared/ModelTypes';
 import { createDefaultHumans } from '@newMeeting/CharacterSetup';
-import { globalClientOptions } from '@/globalClientOptions';
+import { CHAIR_ID } from '@/prompts/characterSetupBundles';
 
 export interface MeetingSetupState {
   // Topic State
@@ -39,7 +39,7 @@ export const useMeetingSetupStore = create<MeetingSetupState>((set, get) => ({
   customTopic: '',
   setCustomTopic: (topic) => set({ customTopic: topic }),
 
-  selectedCharacters: [globalClientOptions.chairId],
+  selectedCharacters: [CHAIR_ID],
   setSelectedCharacters: (characters) => set({ selectedCharacters: characters }),
   hoveredCharacter: null,
   setHoveredCharacter: (characterId) => set({ hoveredCharacter: characterId }),
@@ -81,7 +81,7 @@ export const useMeetingSetupStore = create<MeetingSetupState>((set, get) => ({
     set({
       selectedTopic: '',
       customTopic: '',
-      selectedCharacters: [globalClientOptions.chairId],
+      selectedCharacters: [CHAIR_ID],
       hoveredCharacter: null,
       humans: createDefaultHumans(),
       numberOfHumans: 0,

@@ -66,10 +66,6 @@ export class SpeakerTargetClassifier {
                 return undefined;
             }
 
-            Logger.info(
-                `meeting ${meeting._id}`,
-                `${request.speakerId} asked directly to ${targetId}`
-            );
             return targetId;
         } catch (error) {
             Logger.warn(

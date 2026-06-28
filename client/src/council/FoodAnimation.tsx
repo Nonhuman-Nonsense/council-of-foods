@@ -9,7 +9,7 @@ interface AnimationFood {
 interface FoodAnimationProps {
   food: AnimationFood;
   styles: React.CSSProperties;
-  currentSpeakerId: string;
+  isPerforming: boolean;
   isPaused: boolean;
 }
 
@@ -22,9 +22,9 @@ interface FoodAnimationProps {
  * Core Logic:
  * - **Safari Fix**: Forces a brief play/pause to unlock video rendering on iOS/Safari.
  * - **Codec Support**: Provides both HEVC (Safari) and VP9 (Chrome/Firefox) sources.
- * - **Sync**: Observes `currentSpeakerId` to play video only when the food is speaking.
+ * - **Sync**: Plays video only while `isPerforming` is true.
  */
-function FoodAnimation({ food, styles, currentSpeakerId, isPaused }: FoodAnimationProps): React.ReactElement {
+function FoodAnimation({ food, styles, isPerforming, isPaused }: FoodAnimationProps): React.ReactElement {
 
   const video = useRef<HTMLVideoElement>(null);
   const [vidLoaded, setVidLoaded] = useState<boolean>(false);
@@ -54,13 +54,13 @@ function FoodAnimation({ food, styles, currentSpeakerId, isPaused }: FoodAnimati
 
   useEffect(() => {
     if (vidLoaded && video.current) {
-      if (!isPaused && currentSpeakerId === food.id) {
+      if (!isPaused && isPerforming) {
         video.current.play().catch(e => console.log(e));//log for now but prob safe to fail silently
       } else {
         video.current.pause();
       }
     }
-  }, [currentSpeakerId, isPaused, vidLoaded, food.id]);
+  }, [isPerforming, isPaused, vidLoaded]);
 
   /* -------------------------------------------------------------------------- */
   /*                                   Render                                   */

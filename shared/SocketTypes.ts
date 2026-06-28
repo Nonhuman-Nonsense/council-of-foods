@@ -15,7 +15,7 @@ export interface HandRaisedOptions {
     humanName: string;
 }
 
-export interface WrapUpMessage {
+export interface ConcludeMeetingMessage {
     date: string;
 }
 
@@ -118,11 +118,12 @@ export interface ClientToServerEvents {
     disconnect: () => void;
     submit_human_message: (msg: SubmitHumanMessagePayload) => void;
     submit_human_panelist: (msg: SubmitHumanPanelistPayload) => void;
+    skip_human_turn: () => void;
     raise_hand: (opts: HandRaisedOptions) => void;
-    wrap_up_meeting: (msg: WrapUpMessage) => void;
+    conclude_meeting: (msg: ConcludeMeetingMessage) => void;
     attempt_reconnection: (opts: ReconnectionOptions) => void;
     report_maximum_played_index: (payload: ReportMaximumPlayedIndexPayload) => void;
-    continue_conversation: () => void;
+    extend_meeting: () => void;
 
     // Prototype only
     pause_conversation: (msg: any) => void;

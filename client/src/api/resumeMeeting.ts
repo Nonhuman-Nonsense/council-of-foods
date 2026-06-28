@@ -1,4 +1,5 @@
 import type { ResumeMeetingResponse } from "@shared/SocketTypes";
+import { councilFetch } from "./http";
 
 /** Typed error for `PUT /api/meetings/:id` so callers can branch on status code. */
 export class ResumeMeetingError extends Error {
@@ -15,7 +16,7 @@ export async function resumeMeeting({
 }: {
   meetingId: number;
 }): Promise<ResumeMeetingResponse> {
-  const res = await fetch(`/api/meetings/${meetingId}`, {
+  const res = await councilFetch(`/api/meetings/${meetingId}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
   });

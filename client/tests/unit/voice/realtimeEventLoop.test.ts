@@ -146,6 +146,41 @@ describe("realtimeEventLoop", () => {
         expect(JSON.parse(outputArg.item.output)).toEqual({ ok: true });
     });
 
+    it("skips response.create when a tool returns suppressContinuation", async () => {
+        const send = vi.fn();
+        const handler = vi.fn<ToolHandler>(() => ({ ok: true, suppressContinuation: true }));
+        const loop = createEventLoop({
+            send,
+            getCtx: () => ({ toolHandlers: { resume_meeting: handler } }),
+            callbacks: {
+                onCaption: vi.fn(),
+                onUserTranscript: vi.fn(),
+                onError: vi.fn(),
+                log: vi.fn(),
+            },
+        });
+
+        loop.configureSession(makeSession(), { triggerGreetingOnReady: false });
+        await loop.handleEvent({ type: "session.updated" });
+        await loop.handleEvent({ type: "response.created" });
+
+        send.mockClear();
+
+        await loop.handleEvent({
+            type: "response.output_item.added",
+            item: { type: "function_call", id: "item-term", call_id: "call-term", name: "resume_meeting" },
+        });
+        await loop.handleEvent({
+            type: "response.function_call_arguments.done",
+            item_id: "item-term",
+            arguments: "{}",
+        });
+
+        const sentTypes = send.mock.calls.map((c) => (c[0] as { type: string }).type);
+        expect(sentTypes).not.toContain("response.create");
+        expect(sentTypes).toContain("response.cancel");
+    });
+
     it("supports deferred response creation, manual messages, and ignores unknown events", async () => {
         const send = vi.fn();
         const log = vi.fn();
@@ -197,11 +232,14 @@ describe("realtimeEventLoop", () => {
         const onError = vi.fn();
         const onAudioPartReady = vi.fn();
         const onResponseStarted = vi.fn();
+        const onResponseDone = vi.fn();
         const captionScheduler = {
             beginResponse: vi.fn(),
             appendDelta: vi.fn(),
             finalize: vi.fn(),
             cancel: vi.fn(),
+            setAudioAnchor: vi.fn(),
+            setSpeed: vi.fn(),
         };
 
         const loop = createEventLoop({
@@ -213,6 +251,7 @@ describe("realtimeEventLoop", () => {
                 onError,
                 onAudioPartReady,
                 onResponseStarted,
+                onResponseDone,
                 log: vi.fn(),
             },
             captionScheduler,
@@ -238,6 +277,7 @@ describe("realtimeEventLoop", () => {
         await loop.handleEvent({ type: "error", error: "just a string" });
 
         expect(onResponseStarted).toHaveBeenCalledOnce();
+        expect(onResponseDone).toHaveBeenCalledOnce();
         expect(captionScheduler.beginResponse).toHaveBeenCalledOnce();
         expect(onAudioPartReady).toHaveBeenCalledOnce();
         expect(captionScheduler.appendDelta).toHaveBeenCalledWith("hello");

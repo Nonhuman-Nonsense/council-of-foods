@@ -6,7 +6,7 @@ import {
   type MeetingCharactersI18n,
 } from "@newMeeting/meetingSetup";
 import { useMeetingSetupStore } from "@newMeeting/meetingSetupStore";
-import { getAppMode } from "@/museum/appMode";
+import { getAppMode } from "@/settings/councilSettings";
 import { capitalizeFirstLetter } from "@/utils";
 import type { VoiceGuidePromptBundle } from "./guidePrompt";
 
@@ -27,7 +27,7 @@ export type RealtimeFunctionTool = {
 export type RealtimeTool = RealtimeFunctionTool;
 
 export type ToolResult =
-  | { ok: true; data?: unknown }
+  | { ok: true; data?: unknown; /** Skip response.create after this tool (e.g. meta-agent exit). */ suppressContinuation?: boolean }
   | { ok: false; error: string };
 
 export type ToolHandler = (args: unknown) => Promise<ToolResult> | ToolResult;

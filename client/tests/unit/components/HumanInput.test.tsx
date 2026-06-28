@@ -1,10 +1,21 @@
 import { describe, expect, it } from "vitest";
 import {
+  countTranscriptWords,
   formatTranscriptInputValue,
   scrollTextareaToBottom,
   upsertTranscriptSegment,
   type TranscriptSegment,
 } from "@council/humanInput/HumanInput";
+
+describe("countTranscriptWords", () => {
+  it("counts whitespace-separated words in trimmed text", () => {
+    expect(countTranscriptWords("")).toBe(0);
+    expect(countTranscriptWords("   ")).toBe(0);
+    expect(countTranscriptWords("Hello")).toBe(1);
+    expect(countTranscriptWords("Hello council")).toBe(2);
+    expect(countTranscriptWords("  one   two   three  ")).toBe(3);
+  });
+});
 
 describe("upsertTranscriptSegment", () => {
   it("keeps transcript segments in first-seen order", () => {

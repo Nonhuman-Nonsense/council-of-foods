@@ -39,7 +39,7 @@ export async function resumeMeeting(meetingId: number): Promise<ResumeMeetingRes
     
     const newliveKey = uuidv4();
 
-    // Optimistic filter: if a `summary` has since been written (race with wrap-up), abort.
+    // Optimistic filter: if a `summary` has since been written (race with conclude meeting), abort.
     const updateResult = await meetingsCollection.updateOne(
         { _id: meetingId, summary: { $exists: false } },
         {

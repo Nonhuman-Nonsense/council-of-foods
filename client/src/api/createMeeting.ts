@@ -1,8 +1,9 @@
 import type { CreateMeetingBody } from "@shared/SocketTypes.js";
+import { councilFetch } from "./http";
 import { httpErrorMessage } from "./httpErrorMessage";
 
 export async function createMeeting(body: CreateMeetingBody): Promise<{ meetingId: number, liveKey: string }> {
-  const res = await fetch("/api/meetings", {
+  const res = await councilFetch("/api/meetings", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),

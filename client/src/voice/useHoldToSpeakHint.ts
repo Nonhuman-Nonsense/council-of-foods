@@ -38,11 +38,17 @@ export type UseHoldToSpeakHintParams = {
   lastCaption: string | null;
 };
 
+export type HoldToSpeakHintState = {
+  showHoldToSpeakHint: boolean;
+  /** True after the post-PTT idle window — the re-nudge, not the initial hint. */
+  idleRemindVisible: boolean;
+};
+
 /**
  * PTT hint visibility: show while the button is up until the first press,
  * then hide until a long idle period (no PTT, captions, or transcripts).
  */
-export function useHoldToSpeakHint(params: UseHoldToSpeakHintParams): boolean {
+export function useHoldToSpeakHint(params: UseHoldToSpeakHintParams): HoldToSpeakHintState {
   const {
     pushToTalkMode,
     sessionActive,
@@ -111,7 +117,7 @@ export function useHoldToSpeakHint(params: UseHoldToSpeakHintParams): boolean {
     return () => clearInterval(interval);
   }, [pushToTalkMode, sessionActive, dismissedAfterFirstPtt, micOpen, isConnecting]);
 
-  return computeShowHoldToSpeakHint({
+  const showHoldToSpeakHint = computeShowHoldToSpeakHint({
     pushToTalkMode,
     sessionActive,
     isConnecting,
@@ -119,4 +125,6 @@ export function useHoldToSpeakHint(params: UseHoldToSpeakHintParams): boolean {
     dismissedAfterFirstPtt,
     idleRemindVisible,
   });
+
+  return { showHoldToSpeakHint, idleRemindVisible };
 }

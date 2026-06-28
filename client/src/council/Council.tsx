@@ -15,24 +15,27 @@ import { useTranslation } from "react-i18next";
 import { useCouncilMachine } from "./hooks/useCouncilMachine";
 import { getMeeting } from "@api/getMeeting.js";
 import ReplayModeBanner from "./ReplayModeBanner";
-import { useAppMode } from "@/museum/useAppMode";
-import { getPushToTalk } from "@/settings/councilSettings";
+import { useCouncilSettings } from "@/settings/councilSettings";
 import MeetingMetaAgent from "@museum/metaAgent/MeetingMetaAgent";
+import { CHAIR_ID } from "@/prompts/characterSetupBundles";
+import type { SetUnrecoverableError } from "@main/overlay/CouncilError";
+import { notifyAutoplay } from "@/autoplay/autoplayStore";
 
 interface CouncilProps {
   liveKey: string | null;
   setliveKey: (key: string) => void;
   topic: Topic | null;
   setTopic: (topic: Topic) => void;
-  setUnrecoverableError: (message: string) => void;
+  setUnrecoverableError: SetUnrecoverableError;
   setConnectionError: (error: boolean) => void;
   connectionError: boolean;
   audioContext: React.RefObject<AudioContext | null>;
-  setAudioPaused: (paused: boolean) => void;
   currentSpeakerId: string;
   setCurrentSpeakerId: (id: string) => void;
   isPaused: boolean;
   setPaused: (paused: boolean) => void;
+  metaAgentActive: boolean;
+  setMetaAgentActive: (active: boolean) => void;
 }
 
 function Council({
@@ -44,16 +47,17 @@ function Council({
   setConnectionError,
   connectionError,
   audioContext,
-  setAudioPaused,
   currentSpeakerId,
   setCurrentSpeakerId,
   isPaused,
   setPaused,
+  metaAgentActive,
+  setMetaAgentActive,
 }: CouncilProps) {
 
   const { meetingId } = useParams<{ meetingId: string }>();
   const { t, i18n } = useTranslation();
-  const { isMuseumMode } = useAppMode();
+  const { isMuseumMode, pushToTalkMode } = useCouncilSettings();
 
   const navigate = useNavigate();
 
@@ -61,8 +65,8 @@ function Council({
 
   const [participants, setParticipants] = useState<Character[]>([]);
   const [replayManifest, setReplayManifest] = useState<Meeting | null>(null);
-  const [initialHumanName, setInitialHumanName] = useState<string | undefined>(undefined);
-  const [metaAgentActive, setMetaAgentActive] = useState(false);
+  const [humanName, setHumanName] = useState("");
+  const [agentSpeaking, setAgentSpeaking] = useState(false);
 
   // Abort in-flight GET when deps change or on unmount (StrictMode-safe); same pattern as TanStack Query/SWR cancellation.
   useEffect(() => {
@@ -71,7 +75,7 @@ function Council({
       return;
     }
 
-    setInitialHumanName(undefined);
+    setHumanName("");
     const ac = new AbortController();
     void (async () => {
       try {
@@ -87,13 +91,20 @@ function Council({
         setTopic(meeting.topic);
         setParticipants(meeting.characters);
         const storedName = meeting.state?.humanName?.trim();
-        setInitialHumanName(storedName && storedName.length > 0 ? storedName : undefined);
+        if (storedName && storedName.length > 0) {
+          setHumanName(storedName);
+        }
       } catch (error) {
         if (ac.signal.aborted) return;
         console.error(error);
         const msg =
           error instanceof Error && error.message.trim().length > 0 ? error.message : t("error.1");
-        setUnrecoverableError(msg);
+        setUnrecoverableError({
+          message: msg,
+          source: "Council.loadMeeting",
+          cause: error,
+          meetingId: currentMeetingId,
+        });
       }
     })();
     return () => ac.abort();
@@ -107,14 +118,14 @@ function Council({
     replayManifest: liveKey ? null : replayManifest,
     topic,
     participants,
-    initialHumanName,
+    humanName,
+    setHumanName,
     audioContext,
     setUnrecoverableError,
     setConnectionError,
     connectionError,
     isPaused,
     setPaused,
-    setAudioPaused,
   });
 
   const {
@@ -125,14 +136,12 @@ function Council({
     playNextIndex,
     activeOverlay,
     summary,
-    humanName,
     isRaisedHand,
     canGoBack,
     canGoForward,
     canRaiseHand,
     currentSnippetIndex,
     isMuted,
-    canExtendMeeting,
   } = state;
 
   const {
@@ -141,9 +150,10 @@ function Council({
     handleOnSkipBackward,
     handleOnSkipForward,
     handleOnSubmitHumanMessage,
-    handleOnContinueMeetingLonger,
+    handleOnAbandonHumanTurn,
+    handleOnExtendMeeting,
     handleOnAttemptResume,
-    handleOnGenerateSummary,
+    handleOnConcludeMeeting,
     handleHumanNameEntered,
     handleOnRaiseHand,
     cancelOverlay,
@@ -155,8 +165,9 @@ function Council({
   // The extra hop is intentional: it keeps the cross-app contract aligned with Forest, where
   // an always-mounted sibling scene needs this value outside the routed Council subtree.
   const derivedCurrentSpeakerId = useMemo(() => {
-    // While the meta-agent is active, zoom to the chair (first participant).
-    if (metaAgentActive) return participants[0]?.id ?? "";
+    if (metaAgentActive) {
+      return agentSpeaking ? CHAIR_ID : "";
+    }
     if (councilState === 'loading') return "";
     if (councilState === 'human_input') return humanName;
     if (councilState === 'human_panelist') {
@@ -166,16 +177,19 @@ function Council({
     const activeMessage = textMessages[playingNowIndex];
     if (activeMessage && isSpeakerMessage(activeMessage)) return activeMessage.speaker;
     return "";
-  }, [metaAgentActive, participants, councilState, playingNowIndex, textMessages, playNextIndex, humanName]);
+  }, [metaAgentActive, agentSpeaking, councilState, playingNowIndex, textMessages, playNextIndex, humanName]);
 
   useEffect(() => {
     if (councilState !== 'human_panelist') return;
 
     const pendingMessage = textMessages[playNextIndex];
     if (pendingMessage?.type !== 'awaiting_human_panelist') {
-      setUnrecoverableError(
-        "Internal state mismatch: human_panelist state requires an awaiting_human_panelist message."
-      );
+      const detail = "Internal state mismatch: human_panelist state requires an awaiting_human_panelist message.";
+      setUnrecoverableError({
+        message: detail,
+        source: "Council.human_panelist_state",
+        meetingId: currentMeetingId,
+      });
     }
   }, [councilState, textMessages, playNextIndex, setUnrecoverableError]);
 
@@ -183,11 +197,15 @@ function Council({
     setCurrentSpeakerId(derivedCurrentSpeakerId);
   }, [derivedCurrentSpeakerId, setCurrentSpeakerId]);
 
+  useEffect(() => {
+    notifyAutoplay({ type: "council-state", state: councilState });
+  }, [councilState]);
+
   // Derived UI State
   const participationPhase = getParticipationPhase(councilState, textMessages, playingNowIndex);
   const isButtonMuseumMode = useMemo(
-    () => isMuseumMode && getPushToTalk(),
-    [isMuseumMode]
+    () => isMuseumMode && pushToTalkMode,
+    [isMuseumMode, pushToTalkMode]
   );
   const isWaitingToInterject = isRaisedHand && councilState !== 'human_input';
   const controlsVisible = (
@@ -201,10 +219,10 @@ function Council({
   const isDocumentVisible = useDocumentVisibility();
 
   useEffect(() => {
-    if (!isDocumentVisible && !isPaused) {
+    if (!isDocumentVisible && !isPaused && !metaAgentActive) {
       setPaused(true);
     }
-  }, [isDocumentVisible, isPaused]);
+  }, [isDocumentVisible, isPaused, metaAgentActive, setPaused]);
 
   return (
     <>
@@ -217,18 +235,18 @@ function Council({
         audioMessages={audioMessages}
         currentSnippetIndex={currentSnippetIndex}
         isPaused={isPaused}
-        forceChairZoom={metaAgentActive}
+        metaAgentActive={metaAgentActive}
+        agentSpeaking={agentSpeaking}
       />
       {councilState === 'loading' && <Loading />}
-      {isButtonMuseumMode && liveKey && (
+      {pushToTalkMode && liveKey && (
         <MeetingMetaAgent
           liveKey={liveKey}
           language={i18n.language}
           participationPhase={participationPhase}
-          isPaused={isPaused}
-          setPaused={setPaused}
           metaAgentActive={metaAgentActive}
           setMetaAgentActive={setMetaAgentActive}
+          setAgentSpeaking={setAgentSpeaking}
           onRestartMeeting={() => navigate("/")}
           councilState={councilState}
           topic={topic}
@@ -244,23 +262,26 @@ function Council({
           isPanelist={councilState === 'human_panelist'}
           currentSpeakerName={participants.find(p => p.id === currentSpeakerId)?.name || ""}
           onSubmitHumanMessage={handleOnSubmitHumanMessage}
+          onAbandonHumanTurn={handleOnAbandonHumanTurn}
           isButtonMuseumMode={isButtonMuseumMode}
         />
       )}
       <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, display: "flex", flexDirection: "column", alignItems: "center", overflow: "visible" }}>
-        <Output
-          textMessages={textMessages}
-          audioMessages={audioMessages}
-          playingNowIndex={playingNowIndex}
-          councilState={councilState}
-          isMuted={isMuted}
-          isPaused={isPaused}
-          currentSnippetIndex={currentSnippetIndex}
-          setCurrentSnippetIndex={setCurrentSnippetIndex}
-          audioContext={audioContext}
-          handleOnFinishedPlaying={handleOnFinishedPlaying}
-        />
-        {controlsVisible && (
+        {!metaAgentActive && (
+          <Output
+            textMessages={textMessages}
+            audioMessages={audioMessages}
+            playingNowIndex={playingNowIndex}
+            councilState={councilState}
+            isMuted={isMuted}
+            isPaused={isPaused}
+            currentSnippetIndex={currentSnippetIndex}
+            setCurrentSnippetIndex={setCurrentSnippetIndex}
+            audioContext={audioContext}
+            handleOnFinishedPlaying={handleOnFinishedPlaying}
+          />
+        )}
+        {controlsVisible && !metaAgentActive && (
           <ConversationControls
             hidden={isMuseumMode}
             onSkipBackward={handleOnSkipBackward}
@@ -291,11 +312,10 @@ function Council({
         {activeOverlay !== null && (
           <CouncilOverlays
             activeOverlay={activeOverlay}
-            onContinue={handleOnContinueMeetingLonger}
+            onExtendMeeting={handleOnExtendMeeting}
             onAttemptResume={handleOnAttemptResume}
-            onWrapItUp={handleOnGenerateSummary}
+            onConcludeMeeting={handleOnConcludeMeeting}
             proceedWithHumanName={handleHumanNameEntered}
-            canExtendMeeting={canExtendMeeting}
             cancelOverlay={cancelOverlay}
             summary={{ text: summary?.text || "" }}
             meetingId={currentMeetingId}

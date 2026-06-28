@@ -4,7 +4,9 @@ import React, { useMemo } from "react";
 import FoodItem from "./FoodItem";
 import { mapFoodIndex } from "@/utils";
 import { backgroundImageUrls } from "@assets/backgrounds/index";
+import { z } from "@/zIndexLayers";
 import type { CouncilState } from "./hooks/useCouncilMachine";
+import { CHAIR_ID } from "@/prompts/characterSetupBundles";
 
 interface FoodsCouncilSceneProps {
   participants: Character[];
@@ -15,8 +17,9 @@ interface FoodsCouncilSceneProps {
   audioMessages: DecodedAudioMessage[];
   currentSnippetIndex: number;
   isPaused: boolean;
-  /** When true, force zoom to the chair (meta-agent is active). */
-  forceChairZoom?: boolean;
+  /** Chair-conversation mode: camera stays on chair; performance follows agentSpeaking. */
+  metaAgentActive: boolean;
+  agentSpeaking: boolean;
 }
 
 export default function FoodsCouncilScene({
@@ -28,7 +31,8 @@ export default function FoodsCouncilScene({
   audioMessages,
   currentSnippetIndex,
   isPaused,
-  forceChairZoom = false,
+  metaAgentActive,
+  agentSpeaking,
 }: FoodsCouncilSceneProps) {
   const sentencesLength = useMemo(() => {
     const textMessage = textMessages[playingNowIndex];
@@ -37,11 +41,11 @@ export default function FoodsCouncilScene({
   }, [audioMessages, textMessages, playingNowIndex]);
 
   const zoomIn = useMemo(() => {
-    if (forceChairZoom) return true;
+    if (metaAgentActive) return true;
     if (
       councilState === "loading" ||
       councilState === "waiting" ||
-      councilState === "max_reached" ||
+      councilState === "query_extension" ||
       councilState === "meeting_incomplete" ||
       councilState === "summary" ||
       councilState === "human_input" ||
@@ -56,22 +60,24 @@ export default function FoodsCouncilScene({
     } else {
       return false;
     }
-  }, [forceChairZoom, councilState, playingNowIndex, textMessages, currentSnippetIndex, sentencesLength]);
+  }, [metaAgentActive, councilState, playingNowIndex, textMessages, currentSnippetIndex, sentencesLength]);
 
   const foods = useMemo(
     () => participants.filter((part) => !part.id.startsWith("panelist")),
     [participants]
   );
 
+  const layoutSpeakerId = metaAgentActive ? CHAIR_ID : currentSpeakerId;
+
   const currentSpeakerIdx = useMemo(() => {
     let currentIndex: number | undefined;
     foods.forEach((food, index) => {
-      if (currentSpeakerId === food.id) {
+      if (layoutSpeakerId === food.id) {
         currentIndex = mapFoodIndex(foods.length, index);
       }
     });
     return currentIndex || 0;
-  }, [foods, currentSpeakerId]);
+  }, [foods, layoutSpeakerId]);
 
   return (
     <>
@@ -100,7 +106,12 @@ export default function FoodsCouncilScene({
             total={foods.length}
             isPaused={isPaused}
             zoomIn={zoomIn}
-            currentSpeakerId={currentSpeakerId}
+            currentSpeakerId={layoutSpeakerId}
+            isPerforming={
+              metaAgentActive
+                ? food.id === CHAIR_ID && agentSpeaking
+                : currentSpeakerId === food.id
+            }
           />
         ))}
       </div>
@@ -145,7 +156,7 @@ export function Background({ zoomIn, currentSpeakerIndex, totalSpeakers }: Backg
     position: "absolute",
     bottom: "0",
     background: "linear-gradient(0, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0) 100%)",
-    zIndex: "1",
+    zIndex: z.councilSceneShade,
   };
 
   const topShade: React.CSSProperties = {
@@ -154,7 +165,7 @@ export function Background({ zoomIn, currentSpeakerIndex, totalSpeakers }: Backg
     position: "absolute",
     top: "0",
     background: "linear-gradient(180deg, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0) 100%)",
-    zIndex: "1",
+    zIndex: z.councilSceneShade,
   };
 
   return (

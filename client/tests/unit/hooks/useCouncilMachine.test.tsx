@@ -75,13 +75,14 @@ describe('useCouncilMachine', () => {
             replayManifest: null,
             topic: MockFactory.createTopic({ id: 't', title: 'T', description: 'D', prompt: 'Test Topic' }),
             participants: [],
+            humanName: '',
+            setHumanName: vi.fn(),
             audioContext: audioContextMock,
             setUnrecoverableError: vi.fn(),
             setConnectionError: vi.fn(),
             connectionError: false,
             isPaused: false,
             setPaused: vi.fn(),
-            setAudioPaused: vi.fn(),
         };
     });
 
@@ -164,12 +165,13 @@ describe('useCouncilMachine', () => {
         expect(mockNavigate).not.toHaveBeenCalled();
     });
 
-    it('pauses audio context when isPaused becomes true', () => {
-        const props = { ...defaultProps, isPaused: true };
-        renderHook(() => useCouncilMachine(props as any));
+    it('auto-pauses when location hash is set', () => {
+        const setPaused = vi.fn();
+        mockUseLocation.mockReturnValue({ hash: '#about', pathname: '/meeting/1' });
 
-        // setAudioPaused should be called if provided
-        expect(defaultProps.setAudioPaused).toHaveBeenCalledWith(true);
+        renderHook(() => useCouncilMachine({ ...defaultProps, isPaused: false, setPaused }));
+
+        expect(setPaused).toHaveBeenCalledWith(true);
     });
 
     it('toggles mute state when toggleMute is called', () => {
@@ -193,71 +195,55 @@ describe('useCouncilMachine', () => {
 
     // --- Human Panelist Tests ---
 
-    it('enters max_reached when conversation ends with max_reached sentinel', () => {
+    it('enters query_extension when conversation ends with query_extension sentinel', () => {
         const { result } = renderHook(() => useCouncilMachine(defaultProps as any));
 
         act(() => {
             if (socketHandlers.onConversationUpdate) {
-                socketHandlers.onConversationUpdate([{ type: 'max_reached', canContinue: true }]);
+                socketHandlers.onConversationUpdate([{ type: 'query_extension' }]);
             }
         });
 
-        expect(result.current.state.councilState).toBe('max_reached');
-        expect(result.current.state.activeOverlay).toBe('completed');
-        expect(result.current.state.canExtendMeeting).toBe(true);
+        expect(result.current.state.councilState).toBe('query_extension');
+        expect(result.current.state.activeOverlay).toBe('query_extension');
     });
 
-    it('canExtendMeeting respects canContinue false on max_reached', () => {
-        const { result } = renderHook(() => useCouncilMachine(defaultProps as any));
-
-        act(() => {
-            if (socketHandlers.onConversationUpdate) {
-                socketHandlers.onConversationUpdate([
-                    { id: 'm0', type: 'message', text: 'x', speaker: 'water' },
-                    { type: 'max_reached', canContinue: false },
-                ]);
-            }
-        });
-
-        expect(result.current.state.canExtendMeeting).toBe(false);
-    });
-
-    it('handleOnContinueMeetingLonger drops max_reached locally and emits continue_conversation', () => {
+    it('handleOnExtendMeeting drops query_extension locally and emits extend_meeting', () => {
         const { result } = renderHook(() => useCouncilMachine(defaultProps as any));
         mockSocketEmit.mockClear();
         act(() => {
             if (socketHandlers.onConversationUpdate) {
                 socketHandlers.onConversationUpdate([
                     { id: 'm0', type: 'message', text: 'x', speaker: 'water' },
-                    { type: 'max_reached', canContinue: true },
+                    { type: 'query_extension' },
                 ]);
             }
         });
         act(() => {
-            result.current.actions.handleOnContinueMeetingLonger();
+            result.current.actions.handleOnExtendMeeting();
         });
         expect(result.current.state.textMessages.map((m) => m.type)).toEqual(['message']);
-        expect(mockSocketEmit).toHaveBeenCalledWith('continue_conversation');
+        expect(mockSocketEmit).toHaveBeenCalledWith('extend_meeting');
         expect(result.current.state.councilState).toBe('loading');
     });
 
-    it('handleOnGenerateSummary drops max_reached locally and emits wrap_up_meeting', () => {
+    it('handleOnConcludeMeeting drops query_extension locally and emits conclude_meeting', () => {
         const { result } = renderHook(() => useCouncilMachine(defaultProps as any));
         mockSocketEmit.mockClear();
         act(() => {
             if (socketHandlers.onConversationUpdate) {
                 socketHandlers.onConversationUpdate([
                     { id: 'm0', type: 'message', text: 'x', speaker: 'water' },
-                    { type: 'max_reached', canContinue: false },
+                    { type: 'query_extension' },
                 ]);
             }
         });
         act(() => {
-            result.current.actions.handleOnGenerateSummary();
+            result.current.actions.handleOnConcludeMeeting();
         });
         expect(result.current.state.textMessages.map((m) => m.type)).toEqual(['message']);
         expect(mockSocketEmit).toHaveBeenCalledWith(
-            'wrap_up_meeting',
+            'conclude_meeting',
             expect.objectContaining({ date: expect.any(String) }),
         );
         expect(result.current.state.councilState).toBe('loading');
@@ -322,6 +308,79 @@ describe('useCouncilMachine', () => {
         expect(result.current.state.councilState).toBe('loading');
     });
 
+    it('skips human panelist turn on abandon', () => {
+        const { result } = renderHook(() => useCouncilMachine(defaultProps as any));
+
+        const panelistMsg = {
+            id: 'msg_panelist',
+            text: '...',
+            speaker: 'human-panelist-1',
+            type: 'awaiting_human_panelist'
+        };
+
+        act(() => {
+            socketHandlers.onConversationUpdate?.([panelistMsg]);
+        });
+        expect(result.current.state.councilState).toBe('human_panelist');
+
+        act(() => {
+            result.current.actions.handleOnAbandonHumanTurn();
+        });
+
+        expect(mockSocketEmit).toHaveBeenCalledWith('skip_human_turn');
+        expect(result.current.state.textMessages).toEqual([
+            expect.objectContaining({ type: 'skipped', speaker: 'human-panelist-1', text: '' }),
+        ]);
+        expect(result.current.state.councilState).toBe('loading');
+    });
+
+    it('skips human question turn on abandon', () => {
+        const { result } = renderHook(() =>
+            useCouncilMachine({ ...defaultProps, humanName: 'Frank' } as any)
+        );
+
+        const questionMsg = {
+            id: 'msg_question',
+            text: '...',
+            speaker: 'Frank',
+            type: 'awaiting_human_question'
+        };
+
+        act(() => {
+            socketHandlers.onConversationUpdate?.([questionMsg]);
+        });
+        expect(result.current.state.councilState).toBe('human_input');
+
+        act(() => {
+            result.current.actions.handleOnAbandonHumanTurn();
+        });
+
+        expect(mockSocketEmit).toHaveBeenCalledWith('skip_human_turn');
+        expect(result.current.state.textMessages).toEqual([
+            expect.objectContaining({ type: 'skipped', speaker: 'Frank', text: '' }),
+        ]);
+        expect(result.current.state.councilState).toBe('loading');
+    });
+
+    it('surfaces an unrecoverable error if abandon is called without awaiting message', () => {
+        const setUnrecoverableError = vi.fn();
+        const { result } = renderHook(() =>
+            useCouncilMachine({ ...defaultProps, setUnrecoverableError } as any)
+        );
+
+        act(() => {
+            result.current.actions.handleOnAbandonHumanTurn();
+        });
+
+        expect(mockSocketEmit).not.toHaveBeenCalledWith('skip_human_turn');
+        expect(setUnrecoverableError).toHaveBeenCalledWith(
+            expect.objectContaining({
+                message: expect.stringContaining('awaiting_human_question'),
+                source: 'useCouncilMachine.skip_human_turn',
+            }),
+        );
+    });
+
     it('surfaces an unrecoverable error if human_panelist submit loses its awaiting message', () => {
         const setUnrecoverableError = vi.fn();
         const { result } = renderHook(() =>
@@ -355,7 +414,10 @@ describe('useCouncilMachine', () => {
             expect.anything()
         );
         expect(setUnrecoverableError).toHaveBeenCalledWith(
-            'Internal state mismatch: expected awaiting_human_panelist before submitting panelist response.'
+            expect.objectContaining({
+                message: 'Internal state mismatch: expected awaiting_human_panelist before submitting panelist response.',
+                source: 'useCouncilMachine.submit_panelist',
+            }),
         );
     });
 
@@ -511,7 +573,12 @@ describe('useCouncilMachine', () => {
             });
 
             expect(setliveKey).not.toHaveBeenCalled();
-            expect(setUnrecoverableError).toHaveBeenCalledWith('anything');
+            expect(setUnrecoverableError).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    message: 'anything',
+                    source: 'useCouncilMachine.resume',
+                }),
+            );
         });
     });
 
@@ -574,9 +641,9 @@ describe('useCouncilMachine', () => {
             expect(result.current.state.isRaisedHand).toBe(false);
         });
 
-        it('skips name overlay when initialHumanName is provided', () => {
+        it('skips name overlay when humanName is provided', () => {
             const { result } = renderHook(() =>
-                useCouncilMachine({ ...defaultProps, initialHumanName: 'Leo' } as any)
+                useCouncilMachine({ ...defaultProps, humanName: 'Leo' } as any)
             );
 
             act(() => {
@@ -584,7 +651,6 @@ describe('useCouncilMachine', () => {
             });
 
             expect(result.current.state.activeOverlay).not.toBe('name');
-            expect(result.current.state.humanName).toBe('Leo');
             expect(result.current.state.isRaisedHand).toBe(true);
         });
     });

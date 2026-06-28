@@ -3,18 +3,18 @@ import type { Character } from "@shared/ModelTypes";
 import { toTitleCase, useMobile, useMobileXs } from "@/utils";
 import { useTranslation } from "react-i18next";
 import VideoPreloader from "@main/VideoPreloader";
-import { globalClientOptions } from "@/globalClientOptions";
+import { CHAIR_ID } from "@/prompts/characterSetupBundles";
 import { characterIconWebpUrl } from "@assets/characters/characterData";
 import { useMeetingSetupStore } from "@newMeeting/meetingSetupStore";
 import { buildMeetingCharactersPayload, orderSelectedCharactersForMuseum } from "./meetingSetup";
-import { useAppMode } from "@/museum/useAppMode";
+import { useCouncilSettings } from "@/settings/councilSettings";
 import { getCharacterSetupBundle } from "./CharacterSetup";
 
 import Lottie from "react-lottie-player";
 import loadingAnimation from "@assets/animations/loading.json";
 
 export type { Character, CharacterSetupData } from "./CharacterSetup";
-export { getCharacterSetupBundle, createDefaultHumans, createHuman } from "./CharacterSetup";
+export { getCharacterSetupBundle, createDefaultHumans, createHuman, CHAIR_ID } from "./CharacterSetup";
 
 export interface SelectCharactersProps {
   topicTitle: string;
@@ -74,7 +74,7 @@ function SelectCharacters({
 
   const isMobile = useMobile();
   const isMobileXs = useMobileXs();
-  const { isMuseumMode } = useAppMode();
+  const { isMuseumMode } = useCouncilSettings();
   const { t, i18n } = useTranslation();
 
   const characterSetupData = useMemo(() => {
@@ -338,7 +338,7 @@ function SelectCharacters({
               onMouseEnter={() => setHoveredCharacter(character.id)}
               onMouseLeave={() => setHoveredCharacter(null)}
               onSelectCharacter={
-                character.id === globalClientOptions.chairId ? undefined : selectCharacter
+                character.id === CHAIR_ID ? undefined : selectCharacter
               }
               onDeselectCharacter={deselectCharacter}
               isSelected={selectedCharacters.includes(character.id)}

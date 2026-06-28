@@ -1,0 +1,109 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  fetchButtonBridgeHealth,
+  logBridgeHealthChangeIfNeeded,
+  type ButtonBridgeHealthState,
+  type ButtonTransportStatus,
+} from "./buttonBridge";
+import {
+  useButtonStore,
+  type ButtonLedMode,
+  type ButtonOwner,
+} from "./buttonStore";
+
+export type { ButtonLedMode, ButtonOwner };
+
+export type ButtonConnectionState = {
+  bridgeStatus: ButtonTransportStatus;
+  bridgeError: string | null;
+  bridgeAvailable: boolean;
+  serialConnected: boolean;
+};
+
+export type ButtonHandle = {
+  claim: () => void;
+  release: () => void;
+  setLed: (mode: ButtonLedMode) => void;
+  /** Routed press — true only when this owner is buttonOwner and PTT is active. */
+  pressed: boolean;
+  /** Whether this owner won the priority merge right now. */
+  isOwner: boolean;
+};
+
+export function useButtonConnection(active: boolean): ButtonConnectionState {
+  const bridgeStatus = useButtonStore((state) =>
+    active ? state.bridgeStatus : "disconnected",
+  );
+  const bridgeError = useButtonStore((state) => (active ? state.bridgeError : null));
+  const bridgeAvailable = useButtonStore((state) =>
+    active ? state.bridgeAvailable : false,
+  );
+  const serialConnected = useButtonStore((state) =>
+    active ? state.serialDeviceConnected : false,
+  );
+
+  return { bridgeStatus, bridgeError, bridgeAvailable, serialConnected };
+}
+
+export function useButtonBridgeHealth(enabled: boolean): ButtonBridgeHealthState {
+  const [health, setHealth] = useState<ButtonBridgeHealthState>({ status: "checking" });
+  const previousHealthRef = useRef<ButtonBridgeHealthState | null>(null);
+
+  useEffect(() => {
+    if (!enabled) {
+      const next = { status: "not_running" as const };
+      logBridgeHealthChangeIfNeeded(previousHealthRef.current, next);
+      previousHealthRef.current = next;
+      setHealth(next);
+      return;
+    }
+
+    let cancelled = false;
+
+    async function poll(): Promise<void> {
+      const next = await fetchButtonBridgeHealth();
+      if (!cancelled) {
+        logBridgeHealthChangeIfNeeded(previousHealthRef.current, next);
+        previousHealthRef.current = next;
+        setHealth(next);
+      }
+    }
+
+    void poll();
+    const timer = window.setInterval(() => {
+      void poll();
+    }, 3000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [enabled]);
+
+  return health;
+}
+
+export function useButton(owner: ButtonOwner): ButtonHandle {
+  const pressed = useButtonStore((state) => state.buttonOwner === owner && state.pressed);
+  const isOwner = useButtonStore((state) => state.buttonOwner === owner);
+
+  const claim = useCallback(() => {
+    useButtonStore.getState().claimButton(owner);
+  }, [owner]);
+
+  const release = useCallback(() => {
+    useButtonStore.getState().releaseButton(owner);
+  }, [owner]);
+
+  const setLed = useCallback(
+    (mode: ButtonLedMode) => {
+      useButtonStore.getState().setButtonLed(owner, mode);
+    },
+    [owner],
+  );
+
+  return useMemo(
+    () => ({ claim, release, setLed, pressed, isOwner }),
+    [claim, release, setLed, pressed, isOwner],
+  );
+}

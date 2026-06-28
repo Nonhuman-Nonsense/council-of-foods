@@ -2,8 +2,10 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render } from "@testing-library/react";
 import MeetingVoiceGuide from "@voice/MeetingVoiceGuide";
 
-const mockUseButtonLed = vi.hoisted(() => vi.fn());
-const mockUseButtonPressed = vi.hoisted(() => vi.fn(() => false));
+const mockClaim = vi.hoisted(() => vi.fn());
+const mockRelease = vi.hoisted(() => vi.fn());
+const mockSetLed = vi.hoisted(() => vi.fn());
+const mockPressed = vi.hoisted(() => ({ value: false }));
 const mockUseVoiceGuide = vi.hoisted(() => vi.fn(() => ({
   isConnecting: false,
   error: null,
@@ -15,25 +17,32 @@ const mockUseVoiceGuide = vi.hoisted(() => vi.fn(() => ({
   stop: vi.fn(),
   sendUserMessage: vi.fn(),
 })));
-const mockUseAppMode = vi.hoisted(() =>
-  vi.fn(() => ({ isMuseumMode: false, mode: "web" as const, setAppMode: vi.fn() })),
+const mockUseCouncilSettings = vi.hoisted(() =>
+  vi.fn(() => ({
+    isMuseumMode: false,
+    mode: "web" as const,
+    setAppMode: vi.fn(),
+    pushToTalkMode: true,
+    setPushToTalkMode: vi.fn(),
+  })),
 );
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key, i18n: { language: "en" } }),
 }));
 
-vi.mock("@/museum/useAppMode", () => ({
-  useAppMode: () => mockUseAppMode(),
-}));
-
 vi.mock("@/settings/councilSettings", () => ({
-  getPushToTalk: vi.fn(() => true),
+  useCouncilSettings: () => mockUseCouncilSettings(),
 }));
 
-vi.mock("@/museum/button/hooks", () => ({
-  useButtonLed: (...args: unknown[]) => mockUseButtonLed(...args),
-  useButtonPressed: (active: boolean) => mockUseButtonPressed(active),
+vi.mock("@/museum/button/useButton", () => ({
+  useButton: () => ({
+    claim: mockClaim,
+    release: mockRelease,
+    setLed: mockSetLed,
+    pressed: mockPressed.value,
+    isOwner: true,
+  }),
 }));
 
 vi.mock("@voice/useVoiceGuide", () => ({
@@ -56,42 +65,8 @@ vi.mock("@newMeeting/meetingSetupStore", () => ({
   }),
 }));
 
-vi.mock("@main/topicsBundle", () => ({
-  getTopicsBundle: () => ({
-    topics: [{ id: "forests", title: "Forests", description: "D", prompt: "P" }],
-    custom_topic: { id: "custom", title: "Custom", description: "", prompt: "" },
-  }),
-}));
-
-vi.mock("@newMeeting/CharacterSetup", () => ({
-  getCharacterSetupBundle: () => ({
-    characters: [{ id: "water", name: "Water", description: "", prompt: "", voice: "" }],
-  }),
-}));
-
-vi.mock("@voice/guidePrompt", () => ({
-  buildGuidePrompt: () => "mock instructions",
-}));
-
-vi.mock("@voice/guideTools", () => ({
-  createGuideTools: () => [],
-  createGuideToolHandlers: () => ({}),
-}));
-
-vi.mock("@voice/voiceGuideBundle", () => ({
-  getVoiceGuideBundle: () => ({
-    system: "test",
-    projectDescription: "test",
-    characterVocabulary: { singular: "food", plural: "foods", stepLabel: "foods" },
-    landingJobInstructions: [],
-    landingJobInstructionsPushToTalk: [],
-    jobInstructions: [],
-    toolDescriptions: {},
-  }),
-}));
-
 const defaultProps = {
-  phase: "landing" as const,
+  phase: "topic" as const,
   lastUserEvent: null,
   onBeginSetup: vi.fn(),
   onGoToTopicStep: vi.fn(),
@@ -102,27 +77,25 @@ const defaultProps = {
 describe("MeetingVoiceGuide PTT (regression)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockUseAppMode.mockReturnValue({
+    mockPressed.value = false;
+    mockUseCouncilSettings.mockReturnValue({
       isMuseumMode: false,
       mode: "web",
       setAppMode: vi.fn(),
+      pushToTalkMode: true,
+      setPushToTalkMode: vi.fn(),
     });
-    mockUseButtonPressed.mockImplementation((active: boolean) => active);
   });
 
-  it("enables button hooks in web mode when push-to-talk is on (not museum-only)", () => {
+  it("claims the button in web mode when push-to-talk is on (not museum-only)", () => {
     render(<MeetingVoiceGuide {...defaultProps} />);
 
-    expect(mockUseButtonPressed).toHaveBeenCalledWith(true);
-    expect(mockUseButtonLed).toHaveBeenCalledWith(
-      "voice-guide",
-      expect.any(String),
-      true,
-    );
+    expect(mockClaim).toHaveBeenCalled();
+    expect(mockSetLed).toHaveBeenCalledWith(expect.any(String));
   });
 
   it("passes pressed state to useVoiceGuide micOpen in web mode", () => {
-    mockUseButtonPressed.mockReturnValue(true);
+    mockPressed.value = true;
 
     render(<MeetingVoiceGuide {...defaultProps} />);
 
@@ -134,35 +107,61 @@ describe("MeetingVoiceGuide PTT (regression)", () => {
     );
   });
 
-  it("still enables button hooks in museum mode with push-to-talk", () => {
-    mockUseAppMode.mockReturnValue({
+  it("still claims the button in museum mode with push-to-talk", () => {
+    mockUseCouncilSettings.mockReturnValue({
       isMuseumMode: true,
       mode: "museum",
       setAppMode: vi.fn(),
+      pushToTalkMode: true,
+      setPushToTalkMode: vi.fn(),
     });
 
     render(<MeetingVoiceGuide {...defaultProps} />);
 
-    expect(mockUseButtonPressed).toHaveBeenCalledWith(true);
-    expect(mockUseButtonLed).toHaveBeenCalledWith(
-      "voice-guide",
-      expect.any(String),
-      true,
-    );
+    expect(mockClaim).toHaveBeenCalled();
+    expect(mockSetLed).toHaveBeenCalledWith(expect.any(String));
   });
 
-  it("disables button hooks when push-to-talk is off", async () => {
-    const { getPushToTalk } = await import("@/settings/councilSettings");
-    vi.mocked(getPushToTalk).mockReturnValue(false);
-    mockUseButtonPressed.mockImplementation((active: boolean) => active);
+  it("sets LED pulse when ready and not pressed", () => {
+    render(<MeetingVoiceGuide {...defaultProps} />);
+    expect(mockSetLed).toHaveBeenCalledWith("pulse");
+  });
+
+  it("sets LED on while pressed", () => {
+    mockPressed.value = true;
+    render(<MeetingVoiceGuide {...defaultProps} />);
+    expect(mockSetLed).toHaveBeenCalledWith("on");
+  });
+
+  it("sets LED off when voice is connecting", () => {
+    mockUseVoiceGuide.mockReturnValue({
+      isConnecting: true,
+      error: null,
+      lastCaption: null,
+      lastUserTranscript: null,
+      muted: false,
+      setMuted: vi.fn(),
+      start: vi.fn(),
+      stop: vi.fn(),
+      sendUserMessage: vi.fn(),
+    });
+
+    render(<MeetingVoiceGuide {...defaultProps} />);
+    expect(mockSetLed).toHaveBeenCalledWith("off");
+  });
+
+  it("does not claim the button when push-to-talk is off", () => {
+    mockUseCouncilSettings.mockReturnValue({
+      isMuseumMode: false,
+      mode: "web",
+      setAppMode: vi.fn(),
+      pushToTalkMode: false,
+      setPushToTalkMode: vi.fn(),
+    });
 
     render(<MeetingVoiceGuide {...defaultProps} />);
 
-    expect(mockUseButtonPressed).toHaveBeenCalledWith(false);
-    expect(mockUseButtonLed).toHaveBeenCalledWith(
-      "voice-guide",
-      expect.any(String),
-      false,
-    );
+    expect(mockClaim).not.toHaveBeenCalled();
+    expect(mockSetLed).not.toHaveBeenCalled();
   });
 });

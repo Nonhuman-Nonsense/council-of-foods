@@ -1,5 +1,6 @@
 import { useMobile, useMobileXs, usePortrait } from "@/utils";
 import { Icons } from "@assets/icons";
+import { z } from "@/zIndexLayers";
 
 /**
  * OverlayWrapper Component
@@ -44,7 +45,7 @@ const OverlayWrapper: React.FC<OverlayWrapperProps> = ({
     height: "35px",
     top: isPortait ? "20px" : isMobile ? isMobileXs ? "40px" : "60px" : "100px",
     right: isPortait ? "20px" : isMobile ? isMobileXs ? "6px" : "15px" : "100px",
-    zIndex: "20",
+    zIndex: z.overlayCloseButton,
   };
 
   const clickerStyle: React.CSSProperties = {
@@ -63,7 +64,7 @@ const OverlayWrapper: React.FC<OverlayWrapperProps> = ({
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    zIndex: "5",
+    zIndex: z.overlayWrapper,
   };
 
   const closeInnerStyle: React.CSSProperties = {

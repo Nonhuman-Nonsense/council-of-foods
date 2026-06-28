@@ -18,13 +18,15 @@ describe('Summary Markdown Handling', () => {
                 _id: 123,
                 conversation: [
                     { id: 'm1', type: 'message', text: 'prior', speaker: chair.id },
-                    { type: 'max_reached', canContinue: false },
+                    { type: 'query_extension' },
                 ],
                 characters: [chair]
             }),
             serverOptions: MockFactory.createServerOptions({
-                finalizeMeetingPrompt: { en: 'Prompt [DATE]' },
-                finalizeMeetingLength: 100
+                concludeMeetingPrompt: { en: 'Closing' },
+                concludeMeetingLength: 50,
+                summarizeMeetingPrompt: { en: 'Prompt [DATE]' },
+                summarizeMeetingLength: 100
             }),
             broadcaster: {
                 broadcastConversationUpdate: vi.fn()
@@ -35,25 +37,30 @@ describe('Summary Markdown Handling', () => {
                 }
             },
             dialogGenerator: {
-                chairInterjection: vi.fn().mockResolvedValue({
-                    response: 'This is **bold** and *italic*.',
-                    id: 'summary-1'
-                })
+                chairInterjection: vi.fn()
+                    .mockResolvedValueOnce({ response: 'Thank you.', id: 'close1' })
+                    .mockResolvedValueOnce({
+                        response: 'This is **bold** and *italic*.',
+                        id: 'summary-1'
+                    })
             },
             audioSystem: {
-                generateAudio: vi.fn()
+                generateAudio: vi.fn(),
+                queueAudioGeneration: vi.fn()
             },
             environment: 'test'
         };
 
         const handler = new MeetingLifecycleHandler(mockManager as any);
 
-        await handler.handleWrapUpMeeting({ date: '2023-01-01' } as any);
+        await handler.handleConcludeMeeting({ date: '2023-01-01' } as any);
 
-        expect(mockManager.meeting.conversation.length).toBe(2);
+        expect(mockManager.meeting.conversation.length).toBe(3);
         expect(mockManager.meeting.conversation[0].text).toBe('prior');
-        expect(mockManager.meeting.conversation[1].type).toBe('summary');
-        expect(mockManager.meeting.conversation[1].text).toBe('This is **bold** and *italic*.');
+        expect(mockManager.meeting.conversation[1].type).toBe('message');
+        expect(mockManager.meeting.conversation[1].text).toBe('Thank you.');
+        expect(mockManager.meeting.conversation[2].type).toBe('summary');
+        expect(mockManager.meeting.conversation[2].text).toBe('This is **bold** and *italic*.');
 
         expect(mockManager.audioSystem.generateAudio).toHaveBeenCalledTimes(1);
         const audioCallArgs = (mockManager.audioSystem.generateAudio as any).mock.calls[0];
