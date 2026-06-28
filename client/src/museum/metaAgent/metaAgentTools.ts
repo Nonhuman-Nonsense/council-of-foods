@@ -16,8 +16,8 @@ export function createMetaAgentTools(params: {
   return [
     {
       type: "function",
-      name: "continue_meeting",
-      description: copy.continue_meeting,
+      name: "resume_meeting",
+      description: copy.resume_meeting,
       parameters: { type: "object", properties: {}, additionalProperties: false },
     },
     {
@@ -31,8 +31,8 @@ export function createMetaAgentTools(params: {
 
 export function createMetaAgentToolHandlers(ctx: MetaAgentToolContext): Record<string, ToolHandler> {
   return {
-    continue_meeting: (): ToolResult => {
-      log.event("META", "continue_meeting handler");
+    resume_meeting: (): ToolResult => {
+      log.event("META", "resume_meeting handler");
       ctx.silenceAgentOutput();
       ctx.setMetaAgentActive(false);
       return { ok: true, suppressContinuation: true };

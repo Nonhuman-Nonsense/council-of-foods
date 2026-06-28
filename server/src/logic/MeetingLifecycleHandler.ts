@@ -182,7 +182,7 @@ export class MeetingLifecycleHandler {
 
         Logger.info(`meeting ${m._id}`, "extending meeting");
 
-        //remove the max reached message
+        // Strip query_extension sentinel before extending.
         const queryExtensionIndex = m.conversation.findIndex((m) => m.type === "query_extension");
         if (queryExtensionIndex === -1) {
             throw new Error("Attempted to extend meeting but not at query_extension sentinel");

@@ -16,25 +16,25 @@ function makeCtx(overrides: Partial<MetaAgentToolContext> = {}): MetaAgentToolCo
 }
 
 describe("createMetaAgentTools", () => {
-  it("returns only continue_meeting and restart_meeting", () => {
+  it("returns only resume_meeting and restart_meeting", () => {
     const tools = createMetaAgentTools({ promptBundle: getMetaAgentBundle("en") });
-    expect(tools.map((t) => t.name)).toEqual(["continue_meeting", "restart_meeting"]);
+    expect(tools.map((t) => t.name)).toEqual(["resume_meeting", "restart_meeting"]);
   });
 
   it("uses tool descriptions from the prompt bundle", () => {
     const bundle = getMetaAgentBundle("en");
     const tools = createMetaAgentTools({ promptBundle: bundle });
-    expect(tools[0]?.description).toBe(bundle.toolDescriptions.continue_meeting);
+    expect(tools[0]?.description).toBe(bundle.toolDescriptions.resume_meeting);
     expect(tools[1]?.description).toBe(bundle.toolDescriptions.restart_meeting);
   });
 });
 
 describe("createMetaAgentToolHandlers", () => {
-  describe("continue_meeting", () => {
+  describe("resume_meeting", () => {
     it("deactivates meta agent, silences output, and suppresses continuation", () => {
       const ctx = makeCtx();
       const handlers = createMetaAgentToolHandlers(ctx);
-      const result = handlers.continue_meeting({});
+      const result = handlers.resume_meeting({});
       expect(result).toEqual({ ok: true, suppressContinuation: true });
       expect(ctx.silenceAgentOutput).toHaveBeenCalled();
       expect(ctx.setMetaAgentActive).toHaveBeenCalledWith(false);

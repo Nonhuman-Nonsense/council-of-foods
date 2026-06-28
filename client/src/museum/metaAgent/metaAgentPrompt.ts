@@ -17,12 +17,12 @@ export type MetaAgentPromptBundle = {
   projectDescription: string;
   councilVocabulary: CouncilVocabulary;
   jobInstructions: string[];
-  toolDescriptions: Record<"continue_meeting" | "restart_meeting", string>;
+  toolDescriptions: Record<"resume_meeting" | "restart_meeting", string>;
   /** Example interruption greeting — agent should match tone, not repeat verbatim. */
   activationGreetingExample: string;
 };
 
-const META_AGENT_TOOL_ORDER = ["continue_meeting", "restart_meeting"] as const;
+const META_AGENT_TOOL_ORDER = ["resume_meeting", "restart_meeting"] as const;
 
 export type MetaAgentStateSnapshot = {
   councilState: CouncilState;
@@ -129,8 +129,8 @@ export function buildMetaAgentPrompt(params: {
     "If the visitor has not spoken yet, open by acknowledging the interruption — they paused the council; they will be invited to speak when it is their turn; they may restart if they wish. About 2–3 short sentences.",
     `Example tone (vary the words each time — do not repeat verbatim): "${bundle.activationGreetingExample.trim()}"`,
     "Do not open with 'How can I help you?' or other generic guide phrases.",
-    "You decide when the interruption is over — short replies like 'ok' or no further question after your answer are enough. Then call continue_meeting in that same turn.",
-    "Do not end a turn with only a spoken goodbye or farewell; always call continue_meeting to resume the council.",
+    "You decide when the interruption is over — short replies like 'ok' or no further question after your answer are enough. Then call resume_meeting in that same turn.",
+    "Do not end a turn with only a spoken goodbye or farewell; always call resume_meeting to resume the council.",
     "Be concise. Visitors stand at a kiosk. Do not reference on-screen UI.",
     buildPttRule(pushToTalkMode),
     "Use the visitor's name from STATE SYNC when you know it.",

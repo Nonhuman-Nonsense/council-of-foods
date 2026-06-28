@@ -39,7 +39,7 @@ export interface MeetingMetaAgentProps {
  * council meeting.  The visitor can press the PTT button at any time to talk
  * to the chair (meta-agent).  Council output unmounts while the meta agent is
  * active; meeting speech restarts from the beginning when the agent calls
- * `continue_meeting`.
+ * `resume_meeting`.
  *
  * Mounting contract:
  *  - Only mount when `pushToTalkMode && liveKey` (live meeting + PTT).
@@ -223,8 +223,8 @@ export default function MeetingMetaAgent({
       if (idleResumeFiredRef.current) return;
       if (agentSpeaking || button.pressed) return;
       idleResumeFiredRef.current = true;
-      log.event("META", "idle auto-resume continue_meeting");
-      toolHandlers.continue_meeting({});
+      log.event("META", "idle auto-resume resume_meeting");
+      toolHandlers.resume_meeting({});
     }, BUTTON_IDLE_REMIND_MS);
 
     return () => window.clearTimeout(timerId);
