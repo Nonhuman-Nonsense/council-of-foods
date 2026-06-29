@@ -371,3 +371,116 @@ describe('DialogGenerator - Chair Interjection Post-Processing', () => {
         expect(result.response).toBe('Visitor, what would you like to ask?');
     });
 });
+
+describe('DialogGenerator - Document Generation', () => {
+    let manager;
+    let dialogGenerator;
+    let mockCreate;
+
+    const mockDocumentResponse = (content, finish_reason = 'stop') => {
+        mockCreate = vi.fn().mockResolvedValue({
+            id: 'document-id',
+            choices: [{
+                message: { content },
+                finish_reason,
+            }],
+        });
+        vi.spyOn(manager.services, 'getOpenAI').mockReturnValue({
+            chat: { completions: { create: mockCreate } },
+        });
+    };
+
+    beforeEach(() => {
+        const setup = createTestManager();
+        manager = setup.manager;
+        dialogGenerator = manager.dialogGenerator;
+    });
+
+    it('should preserve markdown horizontal rules and bold text', async () => {
+        const content = 'PROTOKOLL\n\n---\n\n## Section\nBody with **bold**.';
+        mockDocumentResponse(content);
+
+        const result = await dialogGenerator.generateDocument(
+            'Write the protocol.',
+            manager.meeting,
+            800,
+        );
+
+        expect(result.response).toBe(content);
+    });
+
+    it('should strip markdown code fences from the model output', async () => {
+        const inner = '# Protocol\n\n---\n\n## Section\nBody with **bold**.';
+        mockDocumentResponse(`\`\`\`markdown\n${inner}\n\`\`\``);
+
+        const result = await dialogGenerator.generateDocument(
+            'Write the protocol.',
+            manager.meeting,
+            800,
+        );
+
+        expect(result.response).toBe(inner);
+    });
+
+    it('should strip an unclosed markdown code fence opener', async () => {
+        const inner = '# Protocol\n\nBody text.';
+        mockDocumentResponse(`\`\`\`markdown\n${inner}`);
+
+        const result = await dialogGenerator.generateDocument(
+            'Write the protocol.',
+            manager.meeting,
+            800,
+        );
+
+        expect(result.response).toBe(inner);
+    });
+
+    it('should trim overflow after the last sentence when finish reason is length', async () => {
+        manager.serverOptions.trimSentance = true;
+        mockDocumentResponse('First section complete.\n\n## More\nIncomplete tail', 'length');
+
+        const result = await dialogGenerator.generateDocument(
+            'Write the protocol.',
+            manager.meeting,
+            800,
+        );
+
+        expect(result.response).toBe('First section complete.');
+        expect(result.trimmed).toBe('\n\n## More\nIncomplete tail');
+    });
+
+    it('should keep full document when finish reason is stop even with trimSentance enabled', async () => {
+        manager.serverOptions.trimSentance = true;
+        const content = 'Done.\n\n## More\nStill included.';
+        mockDocumentResponse(content, 'stop');
+
+        const result = await dialogGenerator.generateDocument(
+            'Write the protocol.',
+            manager.meeting,
+            800,
+        );
+
+        expect(result.response).toBe(content);
+        expect(result.trimmed).toBeUndefined();
+    });
+
+    it('should not send conversation stop or chair completion primer', async () => {
+        mockDocumentResponse('## Summary\nDone.');
+
+        await dialogGenerator.generateDocument(
+            'Write the protocol.',
+            manager.meeting,
+            800,
+        );
+
+        const callArgs = mockCreate.mock.calls[0][0];
+        expect(callArgs.stop).toBeUndefined();
+
+        const sentMessages = callArgs.messages;
+        const lastMessage = sentMessages[sentMessages.length - 1];
+
+        expect(lastMessage.role).toBe('system');
+        expect(lastMessage.content).toBe('Write the protocol.');
+        expect(sentMessages.some((message) => message.content === `${manager.meeting.characters[0].name}: `)).toBe(false);
+    });
+});

@@ -7,7 +7,7 @@ import type { StoredMeeting } from "@models/DBModels.js";
 import { splitSentences } from "@shared/textUtils.js";
 import { Logger } from "@utils/Logger.js";
 import { GlobalOptions } from "./GlobalOptions.js";
-import type { ConversationService } from "@services/ConversationService.js";
+import type { ConversationCompletionResult, ConversationService } from "@services/ConversationService.js";
 import { withNetworkRetry } from "@utils/NetworkUtils.js";
 
 export interface Services {
@@ -21,6 +21,12 @@ export interface GPTResponse {
     sentences?: string[];
     trimmed?: string;
     pretrimmed?: string;
+}
+
+export interface DocumentResponse {
+    id: string | null;
+    response: string;
+    trimmed?: string;
 }
 
 type PostProcessedResponse = Omit<GPTResponse, "id">;
@@ -189,6 +195,58 @@ export class DialogGenerator {
         };
     }
 
+    private stripMarkdownCodeFence(rawContent: string): string {
+        let text = rawContent.trim();
+
+        const completeFence = /^```(?:markdown|md)?\s*\n([\s\S]*?)\n```\s*$/i.exec(text);
+        if (completeFence) {
+            return completeFence[1].trim();
+        }
+
+        if (/^```(?:markdown|md)?\s*\n?/i.test(text)) {
+            text = text.replace(/^```(?:markdown|md)?\s*\n?/i, "");
+            text = text.replace(/\n?```\s*$/i, "");
+        }
+
+        return text.trim();
+    }
+
+    private postProcessDocumentResponse(
+        rawContent: string,
+        finishReason: string | null,
+    ): Pick<DocumentResponse, "response" | "trimmed"> {
+        let response = this.stripMarkdownCodeFence(rawContent);
+        let trimmedContent: string | undefined;
+
+        if (finishReason !== "stop" && this.serverOptions.trimSentance) {
+            const lastPeriodIndex = response.lastIndexOf(".");
+            if (lastPeriodIndex !== -1) {
+                trimmedContent = response.substring(lastPeriodIndex + 1);
+                response = response.substring(0, lastPeriodIndex + 1);
+            }
+        }
+
+        return {
+            response,
+            trimmed: trimmedContent,
+        };
+    }
+
+    private async requestChatCompletion(
+        messages: ChatCompletionMessageParam[],
+        maxCompletionTokens: number,
+        stop?: string[],
+    ): Promise<ConversationCompletionResult> {
+        return withNetworkRetry(() => this.services.conversationService.createChatCompletion({
+            model: this.serverOptions.conversationModel,
+            maxCompletionTokens,
+            temperature: this.serverOptions.temperature,
+            reasoning: this.serverOptions.conversationReasoning,
+            stop,
+            messages,
+        }), "DialogGenerator");
+    }
+
     /**
      * Generates a conversational response for a specific character (food or chair).
      */
@@ -196,17 +254,13 @@ export class DialogGenerator {
         try {
             const messages = this.buildMessageStack(speaker, meeting.conversation, meeting);
 
-            const completion = await withNetworkRetry(() => this.services.conversationService.createChatCompletion({
-                model: this.serverOptions.conversationModel,
-                maxCompletionTokens:
-                    speaker.id === this.serverOptions.chairId
-                        ? this.serverOptions.chairMaxTokens
-                        : this.serverOptions.maxTokens,
-                temperature: this.serverOptions.temperature,
-                reasoning: this.serverOptions.conversationReasoning,
-                stop: ["\n---"],
+            const completion = await this.requestChatCompletion(
                 messages,
-            }), "DialogGenerator");
+                speaker.id === this.serverOptions.chairId
+                    ? this.serverOptions.chairMaxTokens
+                    : this.serverOptions.maxTokens,
+                ["\n---"],
+            );
 
             if (!completion.content) {
                 throw new Error("No content received from GPT");
@@ -250,14 +304,7 @@ export class DialogGenerator {
                 content: chair.name + ": ",
             });
 
-            const completion = await withNetworkRetry(() => this.services.conversationService.createChatCompletion({
-                model: this.serverOptions.conversationModel,
-                maxCompletionTokens: length,
-                temperature: this.serverOptions.temperature,
-                reasoning: this.serverOptions.conversationReasoning,
-                stop: ["\n---"],
-                messages,
-            }), "DialogGenerator");
+            const completion = await this.requestChatCompletion(messages, length, ["\n---"]);
 
             if (!completion.content) {
                 throw new Error("No content received from GPT");
@@ -283,9 +330,59 @@ export class DialogGenerator {
     }
 
     /**
+     * Generates a written markdown document (e.g. meeting summary).
+     * Unlike chair interjections, allows markdown horizontal rules and does not use conversation stop sequences.
+     */
+    async generateDocument(
+        documentPrompt: string,
+        meeting: StoredMeeting,
+        maxTokens: number,
+    ): Promise<DocumentResponse> {
+        try {
+            const chair = meeting.characters[0];
+            const messages = this.buildMessageStack(chair, meeting.conversation, meeting, undefined, false);
+
+            messages.push({
+                role: "system",
+                content: documentPrompt,
+            });
+
+            const completion = await this.requestChatCompletion(messages, maxTokens);
+
+            if (!completion.content) {
+                throw new Error("No content received from GPT");
+            }
+
+            const processed = this.postProcessDocumentResponse(
+                completion.content,
+                completion.finishReason,
+            );
+
+            Logger.info(
+                `meeting ${meeting._id}`,
+                `document generated (${processed.response.length} chars, finish_reason: ${completion.finishReason ?? "unknown"})`,
+            );
+
+            return {
+                id: completion.id,
+                ...processed,
+            };
+        } catch (error) {
+            Logger.error("DialogGenerator", "Error during document generation", error);
+            throw error;
+        }
+    }
+
+    /**
      * Constructs the array of message objects (system, user, assistant) for the GPT API.
      */
-    buildMessageStack(speaker: Character, conversation: Message[], meeting: StoredMeeting, upToIndex?: number): ChatCompletionMessageParam[] {
+    buildMessageStack(
+        speaker: Character,
+        conversation: Message[],
+        meeting: StoredMeeting,
+        upToIndex?: number,
+        includeCompletionPrimer = true,
+    ): ChatCompletionMessageParam[] {
         const messages: ChatCompletionMessageParam[] = [];
 
         messages.push({
@@ -308,10 +405,12 @@ export class DialogGenerator {
             return messages.slice(0, 1 + upToIndex);
         }
 
-        messages.push({
-            role: "system",
-            content: speaker.name + ": ",
-        });
+        if (includeCompletionPrimer) {
+            messages.push({
+                role: "system",
+                content: speaker.name + ": ",
+            });
+        }
 
         return messages;
     }

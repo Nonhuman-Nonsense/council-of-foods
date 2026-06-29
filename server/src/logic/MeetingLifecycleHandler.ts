@@ -119,19 +119,13 @@ export class MeetingLifecycleHandler {
         if (!m) return;
 
         const chair = m.characters[0];
-        const summaryPrompt = manager.serverOptions.summarizeMeetingPrompt[m.language].replace("[DATE]", date);
-        const {
-            response,
-            id,
-            trimmed,
-            pretrimmed,
-            sentences: summarySentences,
-        } = await manager.dialogGenerator.chairInterjection(
+        const summaryPrompt = manager.serverOptions.summarizeMeetingPrompt[m.language]
+            .replace("[DATE]", date)
+            .replace("[MEETING_ID]", String(m._id));
+        const { response, id, trimmed } = await manager.dialogGenerator.generateDocument(
             summaryPrompt,
-            m.conversation.length,
-            manager.serverOptions.summarizeMeetingLength,
             m,
-            manager.broadcaster
+            manager.serverOptions.summarizeMeetingLength,
         );
 
         // Strip markdown formatting for TTS (prevents reading "**banana**" as "asterisk banana asterisk")
@@ -142,9 +136,9 @@ export class MeetingLifecycleHandler {
             speaker: chair.id,
             text: response,
             type: "summary",
-            sentences: summarySentences || [],
+            sentences: [],
             trimmed,
-            pretrimmed,
+            pretrimmed: undefined,
         };
 
         m.conversation.push(summary);
@@ -164,11 +158,8 @@ export class MeetingLifecycleHandler {
         const audioMessage = {
             ...summary,
             text: textForAudio,
-            sentences: splitSentences(textForAudio)
+            sentences: [],
         };
-
-        // Also update the main summary object's sentences for consistency, though they won't have timings yet
-        summary.sentences = splitSentences(response);
 
         if (m._id !== null) {
             void manager.audioSystem.generateAudio(

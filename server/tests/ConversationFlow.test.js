@@ -110,6 +110,10 @@ describe('MeetingManager - Conversation Flow', () => {
 
     it('concludes directly at hard cap without query_extension sentinel', async () => {
         vi.spyOn(manager.dialogGenerator, 'chairInterjection').mockResolvedValue({
+            response: 'Closing line',
+            id: 'close1',
+        });
+        vi.spyOn(manager.dialogGenerator, 'generateDocument').mockResolvedValue({
             response: 'Summary text',
             id: 'sum1',
         });
