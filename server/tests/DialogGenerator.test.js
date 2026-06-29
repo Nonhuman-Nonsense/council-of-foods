@@ -120,9 +120,12 @@ describe('DialogGenerator - Prompt Construction', () => {
         const callArgs = mockCreate.mock.calls[0][0];
         const sentMessages = callArgs.messages;
         const lastMessage = sentMessages[sentMessages.length - 1];
+        const interjectionMessage = sentMessages[sentMessages.length - 2];
 
+        expect(interjectionMessage.role).toBe("system");
+        expect(interjectionMessage.content).toBe(interjection);
         expect(lastMessage.role).toBe("system");
-        expect(lastMessage.content).toBe(interjection);
+        expect(lastMessage.content).toBe(`${manager.meeting.characters[0].name}: `);
     });
 });
 
@@ -244,5 +247,106 @@ describe('DialogGenerator - Text Cleaning & Post-Processing', () => {
         expect(result.response).toContain("1. First.");
         expect(result.response).toContain("2. Second.");
         expect(result.response).not.toContain("3. Thi");
+    });
+});
+
+describe('DialogGenerator - Chair Interjection Post-Processing', () => {
+    let manager;
+    let dialogGenerator;
+
+    const mockChairInterjectionResponse = (content, finish_reason = "stop") => {
+        const mockCreate = vi.fn().mockResolvedValue({
+            id: 'interjection-id',
+            choices: [{
+                message: { content },
+                finish_reason
+            }]
+        });
+        vi.spyOn(manager.services, 'getOpenAI').mockReturnValue({
+            chat: { completions: { create: mockCreate } }
+        });
+    };
+
+    const mockBroadcaster = {
+        broadcastConversationUpdate: vi.fn(),
+        broadcastConversationEnd: vi.fn(),
+        broadcastAudioUpdate: vi.fn(),
+        broadcastError: vi.fn(),
+        broadcastWarning: vi.fn()
+    };
+
+    beforeEach(() => {
+        const setup = createTestManager();
+        manager = setup.manager;
+        dialogGenerator = manager.dialogGenerator;
+    });
+
+    it('should remove chair name prefix and expose pretrimmed', async () => {
+        const chair = manager.meeting.characters[0];
+        mockChairInterjectionResponse(`${chair.name}: Welcome to the council.`);
+
+        const result = await dialogGenerator.chairInterjection(
+            'Invite the human.',
+            0,
+            100,
+            true,
+            manager.meeting,
+            mockBroadcaster
+        );
+
+        expect(result.response).toBe('Welcome to the council.');
+        expect(result.pretrimmed).toBe(`${chair.name}:`);
+    });
+
+    it('should trim overflow sentences when trimSentance is enabled and finish reason is length', async () => {
+        manager.serverOptions.trimSentance = true;
+        mockChairInterjectionResponse('Thank you all. And one more thing', 'length');
+
+        const result = await dialogGenerator.chairInterjection(
+            'Close the meeting.',
+            0,
+            100,
+            true,
+            manager.meeting,
+            mockBroadcaster
+        );
+
+        expect(result.response).toBe('Thank you all.');
+        expect(result.trimmed).toBe(' And one more thing');
+    });
+
+    it('should trim overflow paragraphs when trimParagraph is enabled and finish reason is length', async () => {
+        manager.serverOptions.trimParagraph = true;
+        mockChairInterjectionResponse('First paragraph.\n\nSecond paragraph.', 'length');
+
+        const result = await dialogGenerator.chairInterjection(
+            'Close the meeting.',
+            0,
+            100,
+            true,
+            manager.meeting,
+            mockBroadcaster
+        );
+
+        expect(result.response).toBe('First paragraph.');
+        expect(result.trimmed).toBe('\n\nSecond paragraph.');
+    });
+
+    it('should keep full response when finish reason is stop even with trim flags enabled', async () => {
+        manager.serverOptions.trimParagraph = true;
+        manager.serverOptions.trimSentance = true;
+        mockChairInterjectionResponse('First paragraph.\n\nSecond paragraph.', 'stop');
+
+        const result = await dialogGenerator.chairInterjection(
+            'Close the meeting.',
+            0,
+            100,
+            true,
+            manager.meeting,
+            mockBroadcaster
+        );
+
+        expect(result.response).toBe('First paragraph.\n\nSecond paragraph.');
+        expect(result.trimmed).toBeUndefined();
     });
 });

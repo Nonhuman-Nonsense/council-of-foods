@@ -431,18 +431,22 @@ export class MeetingManager implements IMeetingManager {
                             this.broadcaster
                         );
 
-                        let response = chairInterjection.response;
-                        const firstNewLineIndex = response.indexOf("\n\n");
-                        if (firstNewLineIndex !== -1) {
-                            response = response.substring(0, firstNewLineIndex);
-                        }
+                        const {
+                            response,
+                            id,
+                            trimmed,
+                            pretrimmed,
+                            sentences,
+                        } = chairInterjection;
 
                         const invitation: Message = {
-                            id: chairInterjection.id as string,
+                            id: id as string,
                             speaker: meeting.characters[0].id,
                             text: response,
                             type: "invitation",
-                            sentences: splitSentences(response),
+                            sentences: sentences || splitSentences(response),
+                            trimmed,
+                            pretrimmed,
                         };
 
                         meeting.conversation.push(invitation);

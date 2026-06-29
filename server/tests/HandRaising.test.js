@@ -73,6 +73,8 @@ describe('HandRaisingHandler', () => {
         const invitation = mockContext.meeting.conversation[2];
         expect(invitation.type).toBe('invitation');
         expect(invitation.text).toBe('Speak now.');
+        expect(invitation.trimmed).toBeUndefined();
+        expect(invitation.pretrimmed).toBeUndefined();
 
         const awaiting = mockContext.meeting.conversation[3];
         expect(awaiting.type).toBe('awaiting_human_question');

@@ -253,7 +253,13 @@ export class HumanInputHandler {
         const m = manager.meeting;
         if (!m) return;
 
-        const { response, id } = await manager.dialogGenerator.chairInterjection(
+        const {
+            response,
+            id,
+            trimmed,
+            pretrimmed,
+            sentences,
+        } = await manager.dialogGenerator.chairInterjection(
             message.text.replace("[DATE]", message.date),
             message.index,
             message.length,
@@ -267,7 +273,9 @@ export class HumanInputHandler {
             speaker: m.characters[0].id,
             text: response,
             type: "interjection",
-            sentences: []
+            sentences: sentences || [],
+            trimmed,
+            pretrimmed,
         };
 
         m.conversation.push(summary);
@@ -275,7 +283,9 @@ export class HumanInputHandler {
         manager.broadcaster.broadcastConversationUpdate(m.conversation);
         Logger.info(`meeting ${m._id}`, `interjection generated on index ${m.conversation.length - 1} `);
 
-        summary.sentences = splitSentences(response);
+        if (!summary.sentences || summary.sentences.length === 0) {
+            summary.sentences = splitSentences(response);
+        }
 
         manager.audioSystem.queueAudioGeneration(
             summary as AudioQueueMessage,

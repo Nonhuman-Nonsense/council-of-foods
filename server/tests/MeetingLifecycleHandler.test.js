@@ -175,6 +175,23 @@ describe('MeetingLifecycleHandler', () => {
             expect(mockContext.meeting.conversation.map((m) => m.type)).toEqual(['message', 'message', 'summary']);
         });
 
+        it('passes trimmed content through on closing message when chair interjection overflows', async () => {
+            mockContext.dialogGenerator.chairInterjection = vi.fn()
+                .mockResolvedValueOnce({
+                    response: 'Thank you all.',
+                    trimmed: '\n\nExtra closing thoughts.',
+                    id: 'close1',
+                })
+                .mockResolvedValueOnce({ response: 'Summary', id: 'sum1' });
+            mockContext.meeting = storedMeeting({
+                conversation: [{ id: '1', text: 'hi', type: 'message', speaker: chair.id }],
+            });
+
+            await handler.handleConcludeMeeting({ date: '2025-01-01' });
+
+            expect(mockContext.meeting.conversation[1].trimmed).toBe('\n\nExtra closing thoughts.');
+        });
+
         it('calls chairInterjection with conclude then summarize prompts', async () => {
             mockContext.meeting = storedMeeting({
                 conversation: [{ id: '1', text: 'hi', type: 'message', speaker: chair.id }],

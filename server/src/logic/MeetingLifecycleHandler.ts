@@ -62,7 +62,13 @@ export class MeetingLifecycleHandler {
         const chair = m.characters[0];
         const closingIndex = m.conversation.length;
         const closingPrompt = manager.serverOptions.concludeMeetingPrompt[m.language];
-        const { response: closingResponse, id: closingId } = await manager.dialogGenerator.chairInterjection(
+        const {
+            response: closingText,
+            id: closingId,
+            trimmed: closingTrimmed,
+            pretrimmed: closingPretrimmed,
+            sentences: closingSentences,
+        } = await manager.dialogGenerator.chairInterjection(
             closingPrompt,
             closingIndex,
             manager.serverOptions.concludeMeetingLength,
@@ -71,16 +77,14 @@ export class MeetingLifecycleHandler {
             manager.broadcaster
         );
 
-        const firstNewLineIndex = closingResponse.indexOf("\n\n");
-        const closingText = firstNewLineIndex !== -1
-            ? closingResponse.substring(0, firstNewLineIndex)
-            : closingResponse;
         const closingMessage: Message = {
             id: closingId || "",
             speaker: chair.id,
             text: closingText,
             type: "message",
-            sentences: splitSentences(closingText),
+            sentences: closingSentences || splitSentences(closingText),
+            trimmed: closingTrimmed,
+            pretrimmed: closingPretrimmed,
         };
 
         m.conversation.push(closingMessage);
@@ -116,7 +120,13 @@ export class MeetingLifecycleHandler {
 
         const chair = m.characters[0];
         const summaryPrompt = manager.serverOptions.summarizeMeetingPrompt[m.language].replace("[DATE]", date);
-        const { response, id } = await manager.dialogGenerator.chairInterjection(
+        const {
+            response,
+            id,
+            trimmed,
+            pretrimmed,
+            sentences: summarySentences,
+        } = await manager.dialogGenerator.chairInterjection(
             summaryPrompt,
             m.conversation.length,
             manager.serverOptions.summarizeMeetingLength,
@@ -133,7 +143,9 @@ export class MeetingLifecycleHandler {
             speaker: chair.id,
             text: response,
             type: "summary",
-            sentences: []
+            sentences: summarySentences || [],
+            trimmed,
+            pretrimmed,
         };
 
         m.conversation.push(summary);
