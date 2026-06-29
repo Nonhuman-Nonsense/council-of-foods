@@ -18,7 +18,7 @@ vi.mock('@utils/Logger.js', () => ({
 
 // Mock logic modules
 // We need to return mock instances so we can control their methods
-const mockHumanInputHandler = { handleSubmitHumanMessage: vi.fn(), handleSubmitHumanPanelist: vi.fn(), handleSubmitInjection: vi.fn(), handleSkipHumanTurn: vi.fn() };
+const mockHumanInputHandler = { handleSubmitHumanMessage: vi.fn(), handleSubmitHumanPanelist: vi.fn(), handleSkipHumanTurn: vi.fn() };
 const mockHandRaisingHandler = { handleRaiseHand: vi.fn() };
 const mockMeetingLifecycleHandler = {
     handleConcludeMeeting: vi.fn(),
@@ -26,7 +26,6 @@ const mockMeetingLifecycleHandler = {
     handleExtendMeeting: vi.fn(),
     handlePauseConversation: vi.fn(),
     handleResumeConversation: vi.fn(),
-    handleRemoveLastMessage: vi.fn()
 };
 const mockConnectionHandler = { handleReconnection: vi.fn(), handleDisconnect: vi.fn() };
 const mockAudioSystem = { queueAudioGeneration: vi.fn() };
@@ -104,12 +103,6 @@ describe('Async Error Propagation (Comprehensive)', () => {
             mockObj: mockHumanInputHandler,
             method: 'handleSkipHumanTurn',
             payload: undefined
-        },
-        {
-            event: 'submit_injection',
-            mockObj: mockHumanInputHandler,
-            method: 'handleSubmitInjection',
-            payload: { text: 'Event', date: '2023-10-27', index: 0, length: 1 }
         },
         {
             event: 'raise_hand',
@@ -219,7 +212,6 @@ describe('Async Error Propagation (Comprehensive)', () => {
         const protoTestCases = [
             { event: 'pause_conversation', method: 'handlePauseConversation' },
             { event: 'resume_conversation', method: 'handleResumeConversation' },
-            { event: 'remove_last_message', method: 'handleRemoveLastMessage' }
         ];
 
         for (const { event, method } of protoTestCases) {

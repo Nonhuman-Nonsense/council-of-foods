@@ -242,17 +242,4 @@ export class MeetingLifecycleHandler {
         manager.isPaused = false;
         manager.startLoop();
     }
-
-    /**
-     * Removes the last message from the conversation (prototype functionality).
-     */
-    handleRemoveLastMessage(): void {
-        const { manager } = this;
-        const m = manager.meeting;
-        if (!m) return;
-
-        Logger.info(`meeting ${m._id}`, "popping last message");
-        m.conversation.pop();
-        manager.broadcaster.broadcastConversationUpdate(m.conversation);
-    }
 }

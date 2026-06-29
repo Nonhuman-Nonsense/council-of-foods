@@ -2,7 +2,6 @@ import { GlobalOptionsSchema } from "@logic/GlobalOptions.js";
 import { z } from "zod";
 import { type Character, AVAILABLE_VOICES, AVAILABLE_VOICES_GEMINI } from "@shared/ModelTypes.js";
 import type {
-    InjectionMessage,
     HandRaisedOptions,
     ReconnectionOptions,
     ReportMaximumPlayedIndexPayload,
@@ -112,15 +111,7 @@ export const ReportMaximumPlayedIndexSchema: z.ZodType<ReportMaximumPlayedIndexP
     index: z.number().int(),
 });
 
-// 5. submit_injection
-export const InjectionMessageSchema: z.ZodType<InjectionMessage> = z.object({
-    text: z.string(),
-    date: z.string(),
-    index: z.number(),
-    length: z.number(),
-});
-
-// 6. conclude_meeting
+// 5. conclude_meeting
 export const ConcludeMeetingMessageSchema: z.ZodType<ConcludeMeetingMessage> = z.object({
     date: z.string(),
 });

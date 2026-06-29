@@ -26,7 +26,7 @@ const defaultLanguageModelProfile = {
   conversationReasoning: "none",
   voiceModel: "gpt-4o-mini-tts",
   geminiVoiceModel: "gemini-2.5-flash-tts",
-  inworldVoiceModel: "inworld-tts-1.5-max",
+  inworldVoiceModel: "inworld-tts-1.5-mini",
   elevenlabsVoiceModel: "eleven_flash_v2_5",
 };
 
@@ -53,9 +53,6 @@ const defaultOptions = {
   meetingVeryMaxLength: 30,
   skipAudio: false,
   directedSpeakerRouting: false,
-
-  injectPrompt: "",
-  maxTokensInject: 800,
 
   language: 'en',
 
@@ -84,7 +81,6 @@ const defaultLocalOptions = {
   topicStates: {},
   selectedTopicId: null,
   editorWidthPercent: 50,
-  isInjectionDrawerOpen: false,
   customTopicVisitorInput: "",
   languageModelsText: JSON.stringify(defaultLanguageModels.en, null, 2),
   languageModelsError: "",
@@ -151,7 +147,6 @@ createApp({
 
       // UI State
       status: 'IDLE', // IDLE, CONNECTING, ACTIVE, PAUSED, ENDED, ERROR
-      injectionStatus: '',
 
       // Data Model
       options: { ...defaultOptions },
@@ -944,7 +939,6 @@ createApp({
           this.status = 'ACTIVE';
         }
 
-        this.injectionStatus = ""; // Clear status on response
         this.scrollToBottom();
       });
 
@@ -1486,25 +1480,6 @@ createApp({
       }
       this.log('SOCKET_OUT', 'Continuing Conversation');
       this.socket.emit("extend_meeting");
-    },
-
-    removeLastMessage() {
-      this.socket.emit("remove_last_message");
-    },
-
-    submitInjection() {
-      const message = {
-        text: this.options.injectPrompt,
-        length: this.options.maxTokensInject,
-        index: this.conversation.length,
-        // Use local browser date
-        date: new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10)
-      };
-
-      this.injectionStatus = "Instruction injected, just wait...";
-
-      this.log('SOCKET_OUT', 'Submit Injection', message);
-      this.socket.emit("submit_injection", message);
     },
 
     // ===========================

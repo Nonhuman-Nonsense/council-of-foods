@@ -7,16 +7,9 @@ import { v4 as uuidv4 } from "uuid";
 import { splitSentences } from "@shared/textUtils.js";
 import { annotateDirectedHandoff } from "@logic/directedHandoff.js";
 
-export interface InjectionMessage {
-    text: string;
-    date: string;
-    index: number;
-    length: number;
-}
-
 /**
- * Manages input from humans, including the primary user (questioner),
- * special panelists (via admin panel usually), and prototype scenarios.
+ * Manages input from humans, including the primary user (questioner)
+ * and special panelists (via admin panel usually).
  */
 export class HumanInputHandler {
     manager: IHumanInputContext;
@@ -241,58 +234,5 @@ export class HumanInputHandler {
         manager.isPaused = false;
         manager.handRaised = false;
         manager.startLoop();
-    }
-
-    /**
-     * Handles injection of "Interjection" events, only on prototype
-     */
-    async handleSubmitInjection(message: InjectionMessage): Promise<void> {
-        const { manager } = this;
-        if (manager.environment !== "prototype") return;
-
-        const m = manager.meeting;
-        if (!m) return;
-
-        const {
-            response,
-            id,
-            trimmed,
-            pretrimmed,
-            sentences,
-        } = await manager.dialogGenerator.chairInterjection(
-            message.text.replace("[DATE]", message.date),
-            message.index,
-            message.length,
-            true,
-            m,
-            manager.broadcaster
-        );
-
-        const summary: Message = {
-            id: id || "",
-            speaker: m.characters[0].id,
-            text: response,
-            type: "interjection",
-            sentences: sentences || [],
-            trimmed,
-            pretrimmed,
-        };
-
-        m.conversation.push(summary);
-
-        manager.broadcaster.broadcastConversationUpdate(m.conversation);
-        Logger.info(`meeting ${m._id}`, `interjection generated on index ${m.conversation.length - 1} `);
-
-        if (!summary.sentences || summary.sentences.length === 0) {
-            summary.sentences = splitSentences(response);
-        }
-
-        manager.audioSystem.queueAudioGeneration(
-            summary as AudioQueueMessage,
-            m.characters[0],
-            m,
-            manager.environment,
-            manager.serverOptions
-        );
     }
 }
