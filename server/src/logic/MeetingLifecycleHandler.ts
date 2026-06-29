@@ -73,7 +73,6 @@ export class MeetingLifecycleHandler {
             closingPrompt,
             closingIndex,
             manager.serverOptions.concludeMeetingLength,
-            true,
             m,
             manager.broadcaster
         );
@@ -131,7 +130,6 @@ export class MeetingLifecycleHandler {
             summaryPrompt,
             m.conversation.length,
             manager.serverOptions.summarizeMeetingLength,
-            true,
             m,
             manager.broadcaster
         );

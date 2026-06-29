@@ -413,7 +413,6 @@ export class MeetingManager implements IMeetingManager {
                             ),
                             invitationIndex,
                             this.serverOptions.panelistInvitationLength,
-                            true,
                             meeting,
                             this.broadcaster
                         );

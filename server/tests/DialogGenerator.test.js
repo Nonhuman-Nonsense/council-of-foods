@@ -112,7 +112,6 @@ describe('DialogGenerator - Prompt Construction', () => {
             interjection,
             0,
             100,
-            false,
             manager.meeting,
             mockBroadcaster
         );
@@ -248,6 +247,18 @@ describe('DialogGenerator - Text Cleaning & Post-Processing', () => {
         expect(result.response).toContain("2. Second.");
         expect(result.response).not.toContain("3. Thi");
     });
+
+    it('should strip trailing conversation delimiter from normal turns', async () => {
+        const speaker = manager.meeting.characters[1];
+        mockGPTResponse('Hello council.\n\n---');
+
+        const m = { ...manager.meeting, conversation: [] };
+        const result = await dialogGenerator.generateTextFromGPT(
+            speaker, m, 1
+        );
+
+        expect(result.response).toBe('Hello council.');
+    });
 });
 
 describe('DialogGenerator - Chair Interjection Post-Processing', () => {
@@ -289,7 +300,6 @@ describe('DialogGenerator - Chair Interjection Post-Processing', () => {
             'Invite the human.',
             0,
             100,
-            true,
             manager.meeting,
             mockBroadcaster
         );
@@ -306,7 +316,6 @@ describe('DialogGenerator - Chair Interjection Post-Processing', () => {
             'Close the meeting.',
             0,
             100,
-            true,
             manager.meeting,
             mockBroadcaster
         );
@@ -323,7 +332,6 @@ describe('DialogGenerator - Chair Interjection Post-Processing', () => {
             'Close the meeting.',
             0,
             100,
-            true,
             manager.meeting,
             mockBroadcaster
         );
@@ -341,12 +349,25 @@ describe('DialogGenerator - Chair Interjection Post-Processing', () => {
             'Close the meeting.',
             0,
             100,
-            true,
             manager.meeting,
             mockBroadcaster
         );
 
         expect(result.response).toBe('First paragraph.\n\nSecond paragraph.');
         expect(result.trimmed).toBeUndefined();
+    });
+
+    it('should strip trailing conversation delimiter from chair interjection', async () => {
+        mockChairInterjectionResponse('Visitor, what would you like to ask?\n\n---');
+
+        const result = await dialogGenerator.chairInterjection(
+            'Invite the human.',
+            0,
+            100,
+            manager.meeting,
+            mockBroadcaster
+        );
+
+        expect(result.response).toBe('Visitor, what would you like to ask?');
     });
 });

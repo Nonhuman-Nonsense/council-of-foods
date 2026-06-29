@@ -53,7 +53,6 @@ export class HandRaisingHandler {
                 ),
                 handRaisedOptions.index,
                 manager.serverOptions.raiseHandInvitationLength,
-                true,
                 m,
                 manager.broadcaster
             );
