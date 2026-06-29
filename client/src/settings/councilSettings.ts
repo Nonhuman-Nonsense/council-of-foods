@@ -9,11 +9,13 @@ export const APP_MODE_CHANGE_EVENT = "council-app-mode-change";
 
 export type AppMode = "web" | "museum";
 
-export const PUSH_TO_TALK_STORAGE_KEY = "councilPushToTalk";
+export const AGENT_MODE_STORAGE_KEY = "councilAgentMode";
 
-export const PUSH_TO_TALK_CHANGE_EVENT = "council-push-to-talk-change";
+export const AGENT_MODE_CHANGE_EVENT = "council-agent-mode-change";
 
-export type PushToTalkChangeDetail = boolean;
+export type AgentMode = "off" | "always-on" | "ptt";
+
+const AGENT_MODES: readonly AgentMode[] = ["off", "always-on", "ptt"];
 
 export const DEV_LOG_ENABLED_KEY = "councilDevLogEnabled";
 
@@ -36,27 +38,33 @@ export function setAppMode(mode: AppMode): void {
     // ignore storage errors (private mode, quota, etc.)
   }
 
+  if (mode === "museum" && getAgentMode() === "off") {
+    setAgentMode("always-on");
+  }
+
   window.dispatchEvent(new CustomEvent<AppMode>(APP_MODE_CHANGE_EVENT, { detail: mode }));
 }
 
-export function getPushToTalk(): boolean {
+export function getAgentMode(): AgentMode {
   try {
-    return localStorage.getItem(PUSH_TO_TALK_STORAGE_KEY) === "true";
+    const stored = localStorage.getItem(AGENT_MODE_STORAGE_KEY);
+    if (stored && AGENT_MODES.includes(stored as AgentMode)) {
+      return stored as AgentMode;
+    }
   } catch {
-    return false;
+    // ignore storage errors
   }
+  return "off";
 }
 
-export function setPushToTalk(value: boolean): void {
+export function setAgentMode(mode: AgentMode): void {
   try {
-    localStorage.setItem(PUSH_TO_TALK_STORAGE_KEY, value ? "true" : "false");
+    localStorage.setItem(AGENT_MODE_STORAGE_KEY, mode);
   } catch {
     // ignore storage errors (private mode, quota, etc.)
   }
 
-  window.dispatchEvent(
-    new CustomEvent<PushToTalkChangeDetail>(PUSH_TO_TALK_CHANGE_EVENT, { detail: value }),
-  );
+  window.dispatchEvent(new CustomEvent<AgentMode>(AGENT_MODE_CHANGE_EVENT, { detail: mode }));
 }
 
 function readDisabledDevLogCategories(): LogCategory[] {
@@ -133,8 +141,8 @@ export function useCouncilSettings(): {
   mode: AppMode;
   isMuseumMode: boolean;
   setAppMode: (mode: AppMode) => void;
-  pushToTalkMode: boolean;
-  setPushToTalkMode: (enabled: boolean) => void;
+  agentMode: AgentMode;
+  setAgentMode: (mode: AgentMode) => void;
   devLogEnabled: boolean;
   setDevLogEnabled: (enabled: boolean) => void;
   devLogCategories: Record<LogCategory, boolean>;
@@ -142,7 +150,7 @@ export function useCouncilSettings(): {
   setAllDevLogCategories: (enabled: boolean) => void;
 } {
   const [mode, setMode] = useState<AppMode>(getAppMode);
-  const [pushToTalkMode, setPushToTalkModeState] = useState(getPushToTalk);
+  const [agentMode, setAgentModeState] = useState(getAgentMode);
   const [devLogEnabled, setDevLogEnabledState] = useState(getDevLogEnabled);
   const [devLogCategories, setDevLogCategoriesState] = useState(getDevLogCategoryStates);
 
@@ -157,17 +165,17 @@ export function useCouncilSettings(): {
       setMode(next);
     }
 
-    function onPushToTalkChange(event: Event): void {
-      const next = (event as CustomEvent<boolean>).detail;
-      setPushToTalkModeState(next);
+    function onAgentModeChange(event: Event): void {
+      const next = (event as CustomEvent<AgentMode>).detail;
+      setAgentModeState(next);
     }
 
     function onStorage(event: StorageEvent): void {
       if (event.key === APP_MODE_STORAGE_KEY) {
         setMode(getAppMode());
       }
-      if (event.key === PUSH_TO_TALK_STORAGE_KEY) {
-        setPushToTalkModeState(getPushToTalk());
+      if (event.key === AGENT_MODE_STORAGE_KEY) {
+        setAgentModeState(getAgentMode());
       }
       if (
         event.key === DEV_LOG_ENABLED_KEY ||
@@ -182,12 +190,12 @@ export function useCouncilSettings(): {
     }
 
     window.addEventListener(APP_MODE_CHANGE_EVENT, onAppModeChange);
-    window.addEventListener(PUSH_TO_TALK_CHANGE_EVENT, onPushToTalkChange);
+    window.addEventListener(AGENT_MODE_CHANGE_EVENT, onAgentModeChange);
     window.addEventListener(DEV_LOG_CHANGE_EVENT, onDevLogChange);
     window.addEventListener("storage", onStorage);
     return () => {
       window.removeEventListener(APP_MODE_CHANGE_EVENT, onAppModeChange);
-      window.removeEventListener(PUSH_TO_TALK_CHANGE_EVENT, onPushToTalkChange);
+      window.removeEventListener(AGENT_MODE_CHANGE_EVENT, onAgentModeChange);
       window.removeEventListener(DEV_LOG_CHANGE_EVENT, onDevLogChange);
       window.removeEventListener("storage", onStorage);
     };
@@ -196,11 +204,15 @@ export function useCouncilSettings(): {
   const setAppModeFromHook = useCallback((next: AppMode) => {
     setAppMode(next);
     setMode(next);
+    if (next === "museum" && getAgentMode() === "off") {
+      setAgentMode("always-on");
+      setAgentModeState("always-on");
+    }
   }, []);
 
-  const setPushToTalkMode = useCallback((enabled: boolean) => {
-    setPushToTalk(enabled);
-    setPushToTalkModeState(enabled);
+  const setAgentModeFromHook = useCallback((next: AgentMode) => {
+    setAgentMode(next);
+    setAgentModeState(next);
   }, []);
 
   const setDevLogEnabledFromHook = useCallback((enabled: boolean) => {
@@ -223,8 +235,8 @@ export function useCouncilSettings(): {
     mode,
     isMuseumMode: mode === "museum",
     setAppMode: setAppModeFromHook,
-    pushToTalkMode,
-    setPushToTalkMode,
+    agentMode,
+    setAgentMode: setAgentModeFromHook,
     devLogEnabled,
     setDevLogEnabled: setDevLogEnabledFromHook,
     devLogCategories,

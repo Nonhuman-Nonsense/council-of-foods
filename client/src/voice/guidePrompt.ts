@@ -1,5 +1,6 @@
 import type { Topic, Character } from "@shared/ModelTypes";
 import type { MeetingSetupPhase } from "@newMeeting/meetingSetup";
+import type { AgentMode } from "@/settings/councilSettings";
 
 export type GuideTopic = Pick<Topic, "id" | "title" | "description">;
 export type GuideCharacter = Pick<Character, "id" | "name"> & { description?: string };
@@ -31,7 +32,7 @@ export type BuildGuidePromptParams = {
   topics: GuideTopic[];
   characters: GuideCharacter[];
   phase: MeetingSetupPhase;
-  pushToTalkMode?: boolean;
+  agentMode?: AgentMode;
   visitorName?: string;
 };
 
@@ -57,7 +58,7 @@ function buildVisitorContext(visitorName: string | undefined): string {
  * we hit with very long instructions.
  */
 export function buildGuidePrompt(params: BuildGuidePromptParams): string {
-  const { bundle, topics, characters, phase, pushToTalkMode = false, visitorName } = params;
+  const { bundle, topics, characters, phase, agentMode = "always-on", visitorName } = params;
 
   const { singular: characterSingular, plural: characterPlural, stepLabel: characterStepLabel } =
     bundle.characterVocabulary;
@@ -71,7 +72,7 @@ export function buildGuidePrompt(params: BuildGuidePromptParams): string {
         : phase;
   const jobLines =
     phase === "landing"
-      ? (pushToTalkMode ? bundle.landingJobInstructionsPushToTalk : bundle.landingJobInstructions)
+      ? (agentMode === "ptt" ? bundle.landingJobInstructionsPushToTalk : bundle.landingJobInstructions)
       : bundle.jobInstructions;
   const replacements: Record<string, string> = {
     system: bundle.system.trim(),

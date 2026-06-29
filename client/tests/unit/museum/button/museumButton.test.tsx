@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render } from "@testing-library/react";
-import { PUSH_TO_TALK_CHANGE_EVENT } from "@/settings/councilSettings";
+import { AGENT_MODE_CHANGE_EVENT } from "@/settings/councilSettings";
 import React from "react";
 
 const store = vi.hoisted(() => ({
@@ -35,7 +35,7 @@ describe("MuseumButton", () => {
     vi.clearAllMocks();
     localStorage.clear();
     localStorage.setItem("councilAppMode", "museum");
-    localStorage.setItem("councilPushToTalk", "true");
+    localStorage.setItem("councilAgentMode", "ptt");
     ledDebugState.enabled = false;
   });
 
@@ -61,7 +61,7 @@ describe("MuseumButton", () => {
     vi.clearAllMocks();
 
     window.dispatchEvent(
-      new CustomEvent(PUSH_TO_TALK_CHANGE_EVENT, { detail: false }),
+      new CustomEvent(AGENT_MODE_CHANGE_EVENT, { detail: "always-on" }),
     );
 
     await vi.waitFor(() => {
@@ -73,13 +73,13 @@ describe("MuseumButton", () => {
     await renderProvider();
 
     window.dispatchEvent(
-      new CustomEvent(PUSH_TO_TALK_CHANGE_EVENT, { detail: false }),
+      new CustomEvent(AGENT_MODE_CHANGE_EVENT, { detail: "always-on" }),
     );
     await vi.waitFor(() => expect(store.disconnect).toHaveBeenCalled());
 
     vi.clearAllMocks();
     window.dispatchEvent(
-      new CustomEvent(PUSH_TO_TALK_CHANGE_EVENT, { detail: true }),
+      new CustomEvent(AGENT_MODE_CHANGE_EVENT, { detail: "ptt" }),
     );
 
     await vi.waitFor(() => {
@@ -109,7 +109,7 @@ describe("MuseumButton", () => {
   });
 
   it("does not init keyboard when push-to-talk is off", async () => {
-    localStorage.setItem("councilPushToTalk", "false");
+    localStorage.setItem("councilAgentMode", "always-on");
 
     await renderProvider();
 

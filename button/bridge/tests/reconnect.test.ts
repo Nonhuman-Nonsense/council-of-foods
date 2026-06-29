@@ -83,7 +83,7 @@ describe.sequential("button reconnect resilience", () => {
   }, 20_000);
 
   it("useButtonStore recovers through transport watchdog after bridge restart", async () => {
-    localStorage.setItem("councilPushToTalk", "true");
+    localStorage.setItem("councilAgentMode", "ptt");
     _resetButtonStoreForTests();
     installBridgeUrlOverride(bridge.wsUrl);
     useButtonStore.getState().init();

@@ -6,6 +6,7 @@ import RealtimeCaptionOverlay, {
   type RealtimeSubtitleLayout,
 } from "@realtime/RealtimeCaptionOverlay";
 import { useMobile } from "@/utils";
+import type { AgentMode } from "@/settings/councilSettings";
 import { z } from "@/zIndexLayers";
 
 type VoiceGuideOverlayProps = {
@@ -15,10 +16,9 @@ type VoiceGuideOverlayProps = {
   lastUserTranscript: string | null;
   muted: boolean;
   isMuseumMode?: boolean;
-  pushToTalkMode?: boolean;
+  agentMode?: AgentMode;
   showHoldToSpeakHint?: boolean;
   subtitleLayout?: RealtimeSubtitleLayout;
-  showPttVisualizer?: boolean;
   micStream?: MediaStream | null;
   micActive?: boolean;
   onStart: () => void;
@@ -37,10 +37,9 @@ export default function VoiceGuideOverlay(props: VoiceGuideOverlayProps): ReactE
     lastUserTranscript,
     muted,
     isMuseumMode = false,
-    pushToTalkMode = false,
+    agentMode = "always-on",
     showHoldToSpeakHint = false,
     subtitleLayout = "compact",
-    showPttVisualizer = false,
     micStream = null,
     micActive = false,
     onStart,
@@ -77,10 +76,10 @@ export default function VoiceGuideOverlay(props: VoiceGuideOverlayProps): ReactE
         error={error}
         lastCaption={lastCaption}
         lastUserTranscript={lastUserTranscript}
-        pushToTalkMode={pushToTalkMode}
+        agentMode={agentMode}
         showHoldToSpeakHint={showHoldToSpeakHint}
         subtitleLayout={subtitleLayout}
-        showPttVisualizer={showPttVisualizer}
+        showPttVisualizer={agentMode === "ptt"}
         micStream={micStream}
         micActive={micActive}
       />

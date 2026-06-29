@@ -65,9 +65,9 @@ export default function MeetingMetaAgent({
 
   const instructions = useMemo(() => {
     if (metaAgentPhase === "extension") {
-      return buildExtensionAgentPrompt({ bundle: promptBundle, pushToTalkMode: true });
+      return buildExtensionAgentPrompt({ bundle: promptBundle, agentMode: "ptt" });
     }
-    return buildMetaAgentPrompt({ bundle: promptBundle, pushToTalkMode: true });
+    return buildMetaAgentPrompt({ bundle: promptBundle, agentMode: "ptt" });
   }, [metaAgentPhase, promptBundle]);
 
   const tools = useMemo(() => {
@@ -190,7 +190,7 @@ export default function MeetingMetaAgent({
   }, [button.setLed, ledMode]);
 
   const { showHoldToSpeakHint, idleRemindVisible, bumpActivity } = useHoldToSpeakHint({
-    pushToTalkMode: true,
+    agentMode: "ptt",
     sessionActive: metaAgentPhase !== "inactive",
     isConnecting: connectionState === "connecting",
     micOpen: metaAgentPhase !== "inactive" && button.pressed,
@@ -346,7 +346,7 @@ export default function MeetingMetaAgent({
       error={error}
       lastCaption={lastCaption}
       lastUserTranscript={lastUserTranscript}
-      pushToTalkMode
+      agentMode="ptt"
       showHoldToSpeakHint={showHoldToSpeakHint}
       holdToSpeakKey="metaAgent.holdToSpeak"
       subtitleLayout="council"

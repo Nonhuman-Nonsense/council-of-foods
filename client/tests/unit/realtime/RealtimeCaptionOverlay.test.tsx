@@ -67,7 +67,7 @@ describe("RealtimeCaptionOverlay", () => {
         error={null}
         lastCaption={null}
         lastUserTranscript={null}
-        pushToTalkMode
+        agentMode="ptt"
         showHoldToSpeakHint
       />,
     );

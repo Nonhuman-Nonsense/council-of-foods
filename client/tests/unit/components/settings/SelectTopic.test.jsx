@@ -36,8 +36,8 @@ vi.mock('@/settings/councilSettings', () => ({
         isMuseumMode: false,
         mode: 'web',
         setAppMode: vi.fn(),
-        pushToTalkMode: false,
-        setPushToTalkMode: vi.fn(),
+        agentMode: "off",
+        setAgentMode: vi.fn(),
     })),
 }));
 
@@ -77,8 +77,8 @@ describe('SelectTopic Component', () => {
             mode: 'web',
             isMuseumMode: false,
             setAppMode: vi.fn(),
-            pushToTalkMode: false,
-            setPushToTalkMode: vi.fn(),
+            agentMode: "off",
+            setAgentMode: vi.fn(),
         });
     });
 
@@ -366,8 +366,8 @@ describe('SelectTopic Component', () => {
             mode: 'museum',
             isMuseumMode: true,
             setAppMode: vi.fn(),
-            pushToTalkMode: false,
-            setPushToTalkMode: vi.fn(),
+            agentMode: "off",
+            setAgentMode: vi.fn(),
         });
 
         render(

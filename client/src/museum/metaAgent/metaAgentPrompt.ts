@@ -3,6 +3,7 @@ import type { Character, Topic } from "@shared/ModelTypes";
 import { CHARACTERS_FILE } from "@shared/prompts/characterSetupMetadata";
 import type { CouncilState } from "@council/hooks/useCouncilMachine";
 import type { ParticipationPhase } from "@council/humanInput/participationPhase";
+import type { AgentMode } from "@/settings/councilSettings";
 import { CHAIR_ID } from "@/prompts/characterSetupBundles";
 
 export type CouncilVocabulary = {
@@ -100,8 +101,8 @@ function buildExtensionToolsList(
   return buildToolsList(EXTENSION_TOOL_ORDER, toolDescriptions);
 }
 
-function buildPttRule(pushToTalkMode: boolean): string {
-  if (!pushToTalkMode) return "";
+function buildPttRule(agentMode: AgentMode): string {
+  if (agentMode !== "ptt") return "";
   return "The visitor uses a physical talk button: hold to talk, release to send.";
 }
 
@@ -131,9 +132,9 @@ function partitionParticipants(participants: Character[]) {
  */
 export function buildMetaAgentPrompt(params: {
   bundle: MetaAgentPromptBundle;
-  pushToTalkMode?: boolean;
+  agentMode?: AgentMode;
 }): string {
-  const { bundle, pushToTalkMode = false } = params;
+  const { bundle, agentMode = "ptt" } = params;
   const { councilName, plural } = bundle.councilVocabulary;
 
   const roleDescription =
@@ -148,7 +149,7 @@ export function buildMetaAgentPrompt(params: {
     "You decide when the interruption is over — short replies like 'ok' or no further question after your answer are enough. Then call resume_meeting in that same turn.",
     "Do not end a turn with only a spoken goodbye or farewell; always call resume_meeting to resume the council.",
     "Be concise. Visitors stand at a kiosk. Do not reference on-screen UI.",
-    buildPttRule(pushToTalkMode),
+    buildPttRule(agentMode),
     "Use the visitor's name from STATE SYNC when you know it.",
   ].filter(Boolean);
 
@@ -219,9 +220,9 @@ export function buildMetaAgentStateSnapshot(snapshot: MetaAgentStateSnapshot): s
  */
 export function buildExtensionAgentPrompt(params: {
   bundle: MetaAgentPromptBundle;
-  pushToTalkMode?: boolean;
+  agentMode?: AgentMode;
 }): string {
-  const { bundle, pushToTalkMode = false } = params;
+  const { bundle, agentMode = "ptt" } = params;
   const { councilName } = bundle.councilVocabulary;
 
   const roleDescription =
@@ -236,7 +237,7 @@ export function buildExtensionAgentPrompt(params: {
     "You must call exactly one tool — extend_meeting or conclude_meeting — before ending your turn.",
     "Do not end a turn with only a spoken preference; always call the matching tool in that same turn.",
     "Be concise. Visitors stand at a kiosk. Do not reference on-screen UI.",
-    buildPttRule(pushToTalkMode),
+    buildPttRule(agentMode),
     "Use the visitor's name from STATE SYNC when you know it.",
   ].filter(Boolean);
 

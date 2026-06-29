@@ -54,7 +54,7 @@ function Council({
 
   const { meetingId } = useParams<{ meetingId: string }>();
   const { t, i18n } = useTranslation();
-  const { isMuseumMode, pushToTalkMode } = useCouncilSettings();
+  const { isMuseumMode, agentMode } = useCouncilSettings();
 
   const navigate = useNavigate();
 
@@ -127,6 +127,7 @@ function Council({
     isPaused,
     setPaused,
     isMuseumMode,
+    agentMode,
     setMetaAgentPhase,
   });
 
@@ -207,8 +208,8 @@ function Council({
   // Derived UI State
   const participationPhase = getParticipationPhase(councilState, textMessages, playingNowIndex);
   const isButtonMuseumMode = useMemo(
-    () => isMuseumMode && pushToTalkMode,
-    [isMuseumMode, pushToTalkMode]
+    () => isMuseumMode && agentMode === "ptt",
+    [isMuseumMode, agentMode]
   );
   const isWaitingToInterject = isRaisedHand && councilState !== 'human_input';
   const controlsVisible = (
@@ -242,7 +243,7 @@ function Council({
         agentSpeaking={agentSpeaking}
       />
       {councilState === 'loading' && <Loading />}
-      {isMuseumMode && liveKey && (
+      {isMuseumMode && liveKey && agentMode === "ptt" && (
         <MeetingMetaAgent
           liveKey={liveKey}
           language={i18n.language}

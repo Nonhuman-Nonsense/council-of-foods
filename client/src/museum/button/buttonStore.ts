@@ -4,7 +4,7 @@ import {
   isButtonBridgeAvailable,
   type ButtonTransportStatus,
 } from "./buttonBridge";
-import { getPushToTalk } from "@/settings/councilSettings";
+import { getAgentMode } from "@/settings/councilSettings";
 import { log } from "@/logger";
 
 export type ButtonLedMode = "off" | "pulse" | "on";
@@ -160,7 +160,7 @@ function bindKeyboard(
   keyboardInitialized = true;
 
   const onKeyDown = (event: KeyboardEvent) => {
-    if (!getPushToTalk()) return;
+    if (getAgentMode() !== "ptt") return;
     if (event.code !== "Space" || event.repeat) return;
     if (isTypingTarget(event.target)) return;
     event.preventDefault();
@@ -169,7 +169,7 @@ function bindKeyboard(
   };
 
   const onKeyUp = (event: KeyboardEvent) => {
-    if (!getPushToTalk()) return;
+    if (getAgentMode() !== "ptt") return;
     if (event.code !== "Space") return;
     if (isTypingTarget(event.target)) return;
     event.preventDefault();

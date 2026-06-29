@@ -7,7 +7,7 @@ import {
 
 describe("computeShowHoldToSpeakHint", () => {
   const base = {
-    pushToTalkMode: true,
+    agentMode: "ptt",
     sessionActive: true,
     isConnecting: false,
     micOpen: false,

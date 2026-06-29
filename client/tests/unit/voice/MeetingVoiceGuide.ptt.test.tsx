@@ -22,8 +22,8 @@ const mockUseCouncilSettings = vi.hoisted(() =>
     isMuseumMode: false,
     mode: "web" as const,
     setAppMode: vi.fn(),
-    pushToTalkMode: true,
-    setPushToTalkMode: vi.fn(),
+    agentMode: "ptt" as const,
+    setAgentMode: vi.fn(),
   })),
 );
 
@@ -82,12 +82,12 @@ describe("MeetingVoiceGuide PTT (regression)", () => {
       isMuseumMode: false,
       mode: "web",
       setAppMode: vi.fn(),
-      pushToTalkMode: true,
-      setPushToTalkMode: vi.fn(),
+      agentMode: "ptt",
+      setAgentMode: vi.fn(),
     });
   });
 
-  it("claims the button in web mode when push-to-talk is on (not museum-only)", () => {
+  it("claims the button in web mode when agent mode is ptt (not museum-only)", () => {
     render(<MeetingVoiceGuide {...defaultProps} />);
 
     expect(mockClaim).toHaveBeenCalled();
@@ -101,19 +101,19 @@ describe("MeetingVoiceGuide PTT (regression)", () => {
 
     expect(mockUseVoiceGuide).toHaveBeenCalledWith(
       expect.objectContaining({
-        pushToTalkMode: true,
+        agentMode: "ptt",
         micOpen: true,
       }),
     );
   });
 
-  it("still claims the button in museum mode with push-to-talk", () => {
+  it("still claims the button in museum mode with ptt", () => {
     mockUseCouncilSettings.mockReturnValue({
       isMuseumMode: true,
       mode: "museum",
       setAppMode: vi.fn(),
-      pushToTalkMode: true,
-      setPushToTalkMode: vi.fn(),
+      agentMode: "ptt",
+      setAgentMode: vi.fn(),
     });
 
     render(<MeetingVoiceGuide {...defaultProps} />);
@@ -150,13 +150,13 @@ describe("MeetingVoiceGuide PTT (regression)", () => {
     expect(mockSetLed).toHaveBeenCalledWith("off");
   });
 
-  it("does not claim the button when push-to-talk is off", () => {
+  it("does not claim the button when agent mode is always-on", () => {
     mockUseCouncilSettings.mockReturnValue({
       isMuseumMode: false,
       mode: "web",
       setAppMode: vi.fn(),
-      pushToTalkMode: false,
-      setPushToTalkMode: vi.fn(),
+      agentMode: "always-on",
+      setAgentMode: vi.fn(),
     });
 
     render(<MeetingVoiceGuide {...defaultProps} />);

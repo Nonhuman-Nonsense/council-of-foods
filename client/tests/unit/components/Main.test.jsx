@@ -114,7 +114,7 @@ describe('Main Component', () => {
     });
 
     it('mounts MuseumButton when push-to-talk is on', async () => {
-        localStorage.setItem('councilPushToTalk', 'true');
+        localStorage.setItem('councilAgentMode', 'ptt');
 
         render(
             <MemoryRouter initialEntries={['/']}>

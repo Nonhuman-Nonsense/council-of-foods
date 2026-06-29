@@ -1,9 +1,10 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { render, screen, fireEvent, act, waitFor } from "@testing-library/react";
 import {
+  AGENT_MODE_STORAGE_KEY,
   APP_MODE_STORAGE_KEY,
+  setAgentMode,
   setAppMode,
-  setPushToTalk,
   useCouncilSettings,
   DEV_LOG_DISABLED_CATEGORIES_KEY,
   DEV_LOG_ENABLED_KEY,
@@ -13,6 +14,7 @@ import {
   setAllDevLogCategories,
   setDevLogCategoryEnabled,
   setDevLogEnabled,
+  getAgentMode,
 } from "@/settings/councilSettings";
 
 function SettingsProbe() {
@@ -20,19 +22,19 @@ function SettingsProbe() {
     mode,
     isMuseumMode,
     setAppMode: updateAppMode,
-    pushToTalkMode,
-    setPushToTalkMode,
+    agentMode,
+    setAgentMode: updateAgentMode,
   } = useCouncilSettings();
   return (
     <div>
       <span data-testid="mode">{mode}</span>
       <span data-testid="museum">{String(isMuseumMode)}</span>
-      <span data-testid="ptt">{String(pushToTalkMode)}</span>
+      <span data-testid="agent-mode">{agentMode}</span>
       <button type="button" onClick={() => updateAppMode("web")}>
         to-web
       </button>
-      <button type="button" onClick={() => setPushToTalkMode(true)}>
-        enable-ptt
+      <button type="button" onClick={() => updateAgentMode("ptt")}>
+        to-ptt
       </button>
     </div>
   );
@@ -41,6 +43,25 @@ function SettingsProbe() {
 describe("councilSettings", () => {
   beforeEach(() => {
     localStorage.clear();
+  });
+
+  describe("agent mode storage", () => {
+    it("defaults to off when unset without writing storage", () => {
+      expect(getAgentMode()).toBe("off");
+      expect(localStorage.getItem(AGENT_MODE_STORAGE_KEY)).toBeNull();
+    });
+
+    it("persists explicit agent mode", () => {
+      setAgentMode("ptt");
+      expect(localStorage.getItem(AGENT_MODE_STORAGE_KEY)).toBe("ptt");
+      expect(getAgentMode()).toBe("ptt");
+    });
+
+    it("coerces off to always-on when switching to museum", () => {
+      setAppMode("museum");
+      expect(getAgentMode()).toBe("always-on");
+      expect(localStorage.getItem(AGENT_MODE_STORAGE_KEY)).toBe("always-on");
+    });
   });
 
   describe("dev log storage", () => {
@@ -100,7 +121,7 @@ describe("councilSettings", () => {
       expect(screen.getAllByTestId("museum")[0]).toHaveTextContent("true");
     });
 
-    it("syncs push to talk across hook instances via custom event", async () => {
+    it("syncs agent mode across hook instances via custom event", async () => {
       render(
         <>
           <SettingsProbe />
@@ -108,17 +129,17 @@ describe("councilSettings", () => {
         </>,
       );
 
-      const pttFlags = screen.getAllByTestId("ptt");
-      expect(pttFlags[0]).toHaveTextContent("false");
-      expect(pttFlags[1]).toHaveTextContent("false");
+      const agentModes = screen.getAllByTestId("agent-mode");
+      expect(agentModes[0]).toHaveTextContent("off");
+      expect(agentModes[1]).toHaveTextContent("off");
 
       act(() => {
-        setPushToTalk(true);
+        setAgentMode("ptt");
       });
 
       await waitFor(() => {
-        expect(pttFlags[0]).toHaveTextContent("true");
-        expect(pttFlags[1]).toHaveTextContent("true");
+        expect(agentModes[0]).toHaveTextContent("ptt");
+        expect(agentModes[1]).toHaveTextContent("ptt");
       });
     });
 
@@ -132,12 +153,12 @@ describe("councilSettings", () => {
       expect(localStorage.getItem(APP_MODE_STORAGE_KEY)).toBe("web");
     });
 
-    it("updates push to talk when setPushToTalkMode is called from a hook", () => {
+    it("updates agent mode when setAgentMode is called from a hook", () => {
       render(<SettingsProbe />);
 
-      expect(screen.getByTestId("ptt")).toHaveTextContent("false");
-      fireEvent.click(screen.getByRole("button", { name: "enable-ptt" }));
-      expect(screen.getByTestId("ptt")).toHaveTextContent("true");
+      expect(screen.getByTestId("agent-mode")).toHaveTextContent("off");
+      fireEvent.click(screen.getByRole("button", { name: "to-ptt" }));
+      expect(screen.getByTestId("agent-mode")).toHaveTextContent("ptt");
     });
   });
 });

@@ -11,6 +11,7 @@ import { httpErrorMessage } from "@api/httpErrorMessage";
 import type { SetUnrecoverableError } from "@main/overlay/CouncilError";
 import { notifyAutoplay } from "@/autoplay/autoplayStore";
 import type { MetaAgentPhase } from "@museum/metaAgent/useMetaAgent";
+import type { AgentMode } from "@/settings/councilSettings";
 
 /** Keep the loading UI visible this long on first paint so the Loading animation can run. */
 const MIN_INITIAL_LOADING_DISPLAY_MS = import.meta.env.VITEST ? 0 : 2000;
@@ -31,6 +32,7 @@ export interface UseCouncilMachineProps {
     isPaused: boolean;
     setPaused: (paused: boolean) => void;
     isMuseumMode: boolean;
+    agentMode: AgentMode;
     setMetaAgentPhase: React.Dispatch<React.SetStateAction<MetaAgentPhase>>;
 }
 
@@ -60,6 +62,7 @@ export function useCouncilMachine({
     isPaused,
     setPaused,
     isMuseumMode,
+    agentMode,
     setMetaAgentPhase,
 }: UseCouncilMachineProps) {
 
@@ -390,7 +393,7 @@ export function useCouncilMachine({
                 }
                 break;
             case 'query_extension':
-                if (isMuseumMode) {
+                if (isMuseumMode && agentMode === "ptt") {
                     setMetaAgentPhase("extension");
                 } else if (activeOverlay !== "query_extension") {
                     setActiveOverlay("query_extension");
@@ -403,7 +406,7 @@ export function useCouncilMachine({
             default:
                 break;
         }
-    }, [councilState, textMessages, audioMessages, playingNowIndex, playNextIndex, activeOverlay, liveKey, summary, initialLoadingMinElapsed, isMuseumMode, setMetaAgentPhase]);
+    }, [councilState, textMessages, audioMessages, playingNowIndex, playNextIndex, activeOverlay, liveKey, summary, initialLoadingMinElapsed, isMuseumMode, agentMode, setMetaAgentPhase]);
 
     /* -------------------------------------------------------------------------- */
     /*                                 Actions                                    */

@@ -84,6 +84,7 @@ describe('useCouncilMachine', () => {
             isPaused: false,
             setPaused: vi.fn(),
             isMuseumMode: false,
+            agentMode: "off",
             setMetaAgentPhase: vi.fn(),
         };
     });
@@ -211,13 +212,14 @@ describe('useCouncilMachine', () => {
         expect(defaultProps.setMetaAgentPhase).not.toHaveBeenCalled();
     });
 
-    it('museum mode activates meta-agent extension instead of query_extension overlay', () => {
+    it('museum mode with ptt activates meta-agent extension instead of query_extension overlay', () => {
         const setMetaAgentPhase = vi.fn();
 
         const { result } = renderHook(() =>
             useCouncilMachine({
                 ...defaultProps,
                 isMuseumMode: true,
+                agentMode: "ptt",
                 setMetaAgentPhase,
             } as any),
         );
@@ -233,6 +235,29 @@ describe('useCouncilMachine', () => {
         expect(setMetaAgentPhase).toHaveBeenCalledWith('extension');
     });
 
+    it('museum mode without ptt uses query_extension overlay', () => {
+        const setMetaAgentPhase = vi.fn();
+
+        const { result } = renderHook(() =>
+            useCouncilMachine({
+                ...defaultProps,
+                isMuseumMode: true,
+                agentMode: "always-on",
+                setMetaAgentPhase,
+            } as any),
+        );
+
+        act(() => {
+            if (socketHandlers.onConversationUpdate) {
+                socketHandlers.onConversationUpdate([{ type: 'query_extension' }]);
+            }
+        });
+
+        expect(result.current.state.councilState).toBe('query_extension');
+        expect(result.current.state.activeOverlay).toBe('query_extension');
+        expect(setMetaAgentPhase).not.toHaveBeenCalled();
+    });
+
     it('museum mode transitions interruption to extension at soft cap', () => {
         const setMetaAgentPhase = vi.fn();
 
@@ -240,6 +265,7 @@ describe('useCouncilMachine', () => {
             useCouncilMachine({
                 ...defaultProps,
                 isMuseumMode: true,
+                agentMode: "ptt",
                 setMetaAgentPhase,
             } as any),
         );

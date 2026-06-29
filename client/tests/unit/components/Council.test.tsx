@@ -126,8 +126,8 @@ const mockUseCouncilSettings = vi.fn(() => ({
   isMuseumMode: false,
   mode: 'web' as const,
   setAppMode: vi.fn(),
-  pushToTalkMode: false,
-  setPushToTalkMode: vi.fn(),
+  agentMode: "off",
+  setAgentMode: vi.fn(),
 }));
 
 vi.mock('@/settings/councilSettings', () => ({
@@ -217,8 +217,8 @@ describe('Council Component', () => {
           isMuseumMode: true,
           mode: 'museum',
           setAppMode: vi.fn(),
-          pushToTalkMode: false,
-          setPushToTalkMode: vi.fn(),
+          agentMode: "off",
+          setAgentMode: vi.fn(),
         });
 
         render(<Council {...defaultProps} />);
@@ -282,8 +282,8 @@ describe('Council Component', () => {
           isMuseumMode: true,
           mode: 'museum',
           setAppMode: vi.fn(),
-          pushToTalkMode: true,
-          setPushToTalkMode: vi.fn(),
+          agentMode: "ptt",
+          setAgentMode: vi.fn(),
         });
 
         render(<Council {...defaultProps} />);

@@ -27,7 +27,7 @@ describe("useHoldToSpeakHint bumpActivity", () => {
   });
 
   const baseParams = {
-    pushToTalkMode: true,
+    agentMode: "ptt",
     sessionActive: true,
     isConnecting: false,
     micOpen: false,

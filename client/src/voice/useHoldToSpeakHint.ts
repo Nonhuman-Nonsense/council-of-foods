@@ -1,17 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { AgentMode } from "@/settings/councilSettings";
 
 /** How long to wait after activity before nudging again with the hint. */
 export const BUTTON_IDLE_REMIND_MS = 10_000;
 
 export function computeShowHoldToSpeakHint(params: {
-  pushToTalkMode: boolean;
+  agentMode: AgentMode;
   sessionActive: boolean;
   isConnecting: boolean;
   micOpen: boolean;
   dismissedAfterFirstPtt: boolean;
   idleRemindVisible: boolean;
 }): boolean {
-  if (!params.pushToTalkMode || !params.sessionActive || params.isConnecting || params.micOpen) {
+  if (params.agentMode !== "ptt" || !params.sessionActive || params.isConnecting || params.micOpen) {
     return false;
   }
   return !params.dismissedAfterFirstPtt || params.idleRemindVisible;
@@ -30,7 +31,7 @@ export function shouldShowIdleRemind(
 }
 
 export type UseHoldToSpeakHintParams = {
-  pushToTalkMode: boolean;
+  agentMode: AgentMode;
   sessionActive: boolean;
   isConnecting: boolean;
   micOpen: boolean;
@@ -52,7 +53,7 @@ export type HoldToSpeakHintState = {
  */
 export function useHoldToSpeakHint(params: UseHoldToSpeakHintParams): HoldToSpeakHintState {
   const {
-    pushToTalkMode,
+    agentMode,
     sessionActive,
     isConnecting,
     micOpen,
@@ -82,7 +83,7 @@ export function useHoldToSpeakHint(params: UseHoldToSpeakHintParams): HoldToSpea
   }, [sessionActive]);
 
   useEffect(() => {
-    if (!pushToTalkMode || !sessionActive || !micOpen) {
+    if (agentMode !== "ptt" || !sessionActive || !micOpen) {
       return;
     }
     if (!hasUsedPttRef.current) {
@@ -91,7 +92,7 @@ export function useHoldToSpeakHint(params: UseHoldToSpeakHintParams): HoldToSpea
     }
     lastActivityRef.current = Date.now();
     setIdleRemindVisible(false);
-  }, [micOpen, pushToTalkMode, sessionActive]);
+  }, [micOpen, agentMode, sessionActive]);
 
   useEffect(() => {
     if (!lastUserTranscript) {
@@ -110,7 +111,7 @@ export function useHoldToSpeakHint(params: UseHoldToSpeakHintParams): HoldToSpea
   }, [lastCaption]);
 
   useEffect(() => {
-    if (!pushToTalkMode || !sessionActive || !dismissedAfterFirstPtt || micOpen || isConnecting) {
+    if (agentMode !== "ptt" || !sessionActive || !dismissedAfterFirstPtt || micOpen || isConnecting) {
       return;
     }
 
@@ -123,10 +124,10 @@ export function useHoldToSpeakHint(params: UseHoldToSpeakHintParams): HoldToSpea
     tick();
     const interval = setInterval(tick, 1000);
     return () => clearInterval(interval);
-  }, [pushToTalkMode, sessionActive, dismissedAfterFirstPtt, micOpen, isConnecting]);
+  }, [agentMode, sessionActive, dismissedAfterFirstPtt, micOpen, isConnecting]);
 
   const showHoldToSpeakHint = computeShowHoldToSpeakHint({
-    pushToTalkMode,
+    agentMode,
     sessionActive,
     isConnecting,
     micOpen,
