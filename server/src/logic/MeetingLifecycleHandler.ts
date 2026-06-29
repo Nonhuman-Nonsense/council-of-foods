@@ -61,7 +61,8 @@ export class MeetingLifecycleHandler {
 
         const chair = m.characters[0];
         const closingIndex = m.conversation.length;
-        const closingPrompt = manager.serverOptions.concludeMeetingPrompt[m.language];
+        const closingPrompt = manager.serverOptions.concludeMeetingPrompt[m.language]
+            .replaceAll("[MEETING_ID]", String(m._id));
         const {
             response: closingText,
             id: closingId,
