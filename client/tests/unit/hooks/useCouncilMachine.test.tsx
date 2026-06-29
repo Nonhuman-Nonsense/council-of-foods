@@ -163,14 +163,14 @@ describe('useCouncilMachine', () => {
         // Note: The hook state update happens after await decodeAudioData.
     });
 
-    it('cancelOverlay does not navigate (routing handled elsewhere)', () => {
+    it('declineOverlay does not navigate (routing handled elsewhere)', () => {
         const { result } = renderHook(() =>
             useCouncilMachine({ ...defaultProps, currentMeetingId: 42 } as any)
         );
         mockNavigate.mockClear();
 
         act(() => {
-            result.current.actions.cancelOverlay();
+            result.current.actions.declineOverlay();
         });
 
         expect(mockNavigate).not.toHaveBeenCalled();
@@ -247,7 +247,7 @@ describe('useCouncilMachine', () => {
                 result.current.actions.handleOnRaiseHand();
             });
 
-            expect(result.current.state.activeOverlay).toBe('name');
+            expect(result.current.state.visibleOverlay).toBe('name');
             expect(setPaused).toHaveBeenCalledWith(true);
         });
 
@@ -291,7 +291,7 @@ describe('useCouncilMachine', () => {
             });
 
             expect(result.current.state.councilState).toBe('summary');
-            expect(result.current.state.activeOverlay).toBe('summary');
+            expect(result.current.state.visibleOverlay).toBe('summary');
             expect(setPaused).not.toHaveBeenCalled();
 
             vi.useRealTimers();
@@ -606,7 +606,7 @@ describe('useCouncilMachine', () => {
             });
 
             act(() => {
-                result.current.actions.cancelOverlay();
+                result.current.actions.declineOverlay();
             });
 
             setPaused.mockClear();
@@ -640,7 +640,7 @@ describe('useCouncilMachine', () => {
             });
 
             act(() => {
-                result.current.actions.cancelOverlay();
+                result.current.actions.declineOverlay();
             });
 
             setPaused.mockClear();
@@ -743,7 +743,7 @@ describe('useCouncilMachine', () => {
 
     // --- Human Panelist Tests ---
 
-    it('enters query_extension when conversation ends with query_extension sentinel', () => {
+    it('enters query_extension overlay state when conversation ends with synthetic query_extension message', () => {
         const { result } = renderHook(() => useCouncilMachine(defaultProps as any));
 
         act(() => {
@@ -753,7 +753,7 @@ describe('useCouncilMachine', () => {
         });
 
         expect(result.current.state.councilState).toBe('query_extension');
-        expect(result.current.state.activeOverlay).toBe('query_extension');
+        expect(result.current.state.visibleOverlay).toBe('query_extension');
         expect(defaultProps.setMetaAgentPhase).not.toHaveBeenCalled();
     });
 
@@ -776,7 +776,7 @@ describe('useCouncilMachine', () => {
         });
 
         expect(result.current.state.councilState).toBe('query_extension');
-        expect(result.current.state.activeOverlay).toBeNull();
+        expect(result.current.state.visibleOverlay).toBeNull();
         expect(setMetaAgentPhase).toHaveBeenCalledWith('extension');
     });
 
@@ -799,7 +799,7 @@ describe('useCouncilMachine', () => {
         });
 
         expect(result.current.state.councilState).toBe('query_extension');
-        expect(result.current.state.activeOverlay).toBe('query_extension');
+        expect(result.current.state.visibleOverlay).toBe('query_extension');
         expect(setMetaAgentPhase).not.toHaveBeenCalled();
     });
 
@@ -1078,7 +1078,7 @@ describe('useCouncilMachine', () => {
     // --- Resume flow ---
     //
     // The resume path is a one-shot handoff: strip the synthetic `meeting_incomplete`
-    // sentinel, PUT `/api/meetings/:id`, replace `textMessages` with the server's
+    // message, PUT `/api/meetings/:id`, replace `textMessages` with the server's
     // sanitized conversation, kick off any missing audio in the background, and lift
     // the rotated `liveKey` via `setliveKey` so the socket effect flips us live.
     // Errors fall through to `setUnrecoverableError(message)` — there is no
@@ -1103,8 +1103,8 @@ describe('useCouncilMachine', () => {
             vi.unstubAllGlobals();
         });
 
-        // Seed a replay buffer that ends with the synthetic `meeting_incomplete` sentinel,
-        // as if the replay FSM had driven the hook into the `meeting_incomplete` state.
+        // Seed a replay buffer that ends with the synthetic `meeting_incomplete` message,
+        // as if the replay FSM had driven the hook into the `meeting_incomplete` overlay state.
         function seedReplayAtIncomplete() {
             act(() => {
                 if (socketHandlers.onConversationUpdate) {
@@ -1117,7 +1117,7 @@ describe('useCouncilMachine', () => {
             });
         }
 
-        it('flips to live by calling setliveKey on success and drops the meeting_incomplete sentinel', async () => {
+        it('flips to live by calling setliveKey on success and drops the synthetic meeting_incomplete message', async () => {
             const setliveKey = vi.fn();
             const { result } = renderHook(() =>
                 useCouncilMachine({ ...defaultProps, liveKey: undefined, setliveKey, currentMeetingId: 77 } as any)
@@ -1261,7 +1261,7 @@ describe('useCouncilMachine', () => {
                 result.current.actions.handleOnRaiseHand();
             });
 
-            expect(result.current.state.activeOverlay).toBe('name');
+            expect(result.current.state.visibleOverlay).toBe('name');
             expect(result.current.state.isRaisedHand).toBe(false);
         });
 
@@ -1274,7 +1274,7 @@ describe('useCouncilMachine', () => {
                 result.current.actions.handleOnRaiseHand();
             });
 
-            expect(result.current.state.activeOverlay).not.toBe('name');
+            expect(result.current.state.visibleOverlay).not.toBe('name');
             expect(result.current.state.isRaisedHand).toBe(true);
         });
     });

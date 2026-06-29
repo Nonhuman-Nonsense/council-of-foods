@@ -90,7 +90,8 @@ const mockCouncilStateMachine = {
         audioMessages: [],
         playingNowIndex: 0,
         playNextIndex: 1,
-        activeOverlay: null,
+        visibleOverlay: null,
+        nameOverlayOpen: false,
         summary: null,
         isRaisedHand: false,
         currentMeetingId: 123,
@@ -110,7 +111,7 @@ const mockCouncilStateMachine = {
         handleOnConcludeMeeting: vi.fn(),
         handleHumanNameEntered: vi.fn(),
         handleOnRaiseHand: vi.fn(),
-        cancelOverlay: vi.fn(),
+        declineOverlay: vi.fn(),
         setIsRaisedHand: vi.fn(),
         setCurrentSnippetIndex: vi.fn(),
         toggleMute: mockToggleMute

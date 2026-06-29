@@ -4,16 +4,20 @@ import Incomplete from "./Incomplete";
 import Summary, { SummaryData } from "./Summary";
 import Name from "./Name";
 import OverlayWrapper from "@main/overlay/OverlayWrapper";
+import type { CouncilOverlayType } from "@council/hooks/useCouncilMachine";
 
-export type CouncilOverlayType = "name" | "query_extension" | "summary" | "incomplete" | null;
+export type { CouncilOverlayType, OverlayCouncilState } from "@council/hooks/useCouncilMachine";
+
+/** Non-null overlay passed when `CouncilOverlays` is mounted. */
+export type ActiveCouncilOverlay = Exclude<CouncilOverlayType, null>;
 
 interface CouncilOverlaysProps {
-  activeOverlay: CouncilOverlayType;
+  overlay: ActiveCouncilOverlay;
   onAttemptResume: () => void;
   onExtendMeeting: () => void;
   onConcludeMeeting: () => void;
   proceedWithHumanName: (data: { humanName: string }) => void;
-  cancelOverlay: () => void;
+  onDismiss: () => void;
   summary: SummaryData | null;
   meetingId: number;
   participants: Character[];
@@ -21,39 +25,33 @@ interface CouncilOverlaysProps {
 
 /**
  * CouncilOverlays Component
- * 
- * Manages modal overlays specific to the active meeting flow.
- * Unlike MainOverlays (which are hash-based), these are controlled by internal meeting state.
- * 
- * Supported Overlays:
- * - `name`: Human Participant name input.
- * - `query_extension`: Soft cap — visitor may extend or conclude the meeting.
- * - `summary`: Final protocol and PDF download.
+ *
+ * Modal overlays for the active meeting flow. Overlay council states use the same
+ * names as `councilState`; visibility is resolved in `useCouncilMachine`.
  */
 function CouncilOverlays({
-  activeOverlay,
+  overlay,
   onAttemptResume,
   onExtendMeeting,
   onConcludeMeeting,
   proceedWithHumanName,
-  cancelOverlay,
+  onDismiss,
   summary,
   meetingId,
   participants,
 }: CouncilOverlaysProps): React.ReactElement {
 
-  // Conditional rendering of overlay content based on activeOverlay state
   const renderOverlayContent = (): React.ReactElement | null => {
-    switch (activeOverlay) {
+    switch (overlay) {
       case "name":
         return (
           <Name participants={participants} onContinueForward={proceedWithHumanName} />
         );
-      case "incomplete":
+      case "meeting_incomplete":
         return (
           <Incomplete
             onAttemptResume={onAttemptResume}
-            onNevermind={cancelOverlay}
+            onNevermind={onDismiss}
           />
         );
       case "query_extension":
@@ -71,12 +69,12 @@ function CouncilOverlays({
           /> : null
         );
       default:
-        return null; // No overlay content if no section is active
+        return null;
     }
   };
 
   return (
-    <OverlayWrapper showX={true} cancelOverlay={cancelOverlay}>
+    <OverlayWrapper showX={true} cancelOverlay={onDismiss}>
       {renderOverlayContent()}
     </OverlayWrapper>
   );
