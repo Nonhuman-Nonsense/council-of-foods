@@ -66,4 +66,38 @@ describe('Logger Reporting', () => {
 
         expect(consoleSpy.error).toHaveBeenCalled();
     });
+
+    it('should log error.cause when present', async () => {
+        const cause = Object.assign(new Error('connect ECONNREFUSED'), { code: 'ECONNREFUSED' });
+        const error = Object.assign(new TypeError('fetch failed'), { cause });
+
+        await Logger.error('AudioSystem', 'Error generating audio', error);
+
+        const detailCalls = consoleSpy.error.mock.calls
+            .map((call) => call[0])
+            .filter((line) => typeof line === 'string' && line.includes('Caused by:'));
+
+        expect(detailCalls.length).toBeGreaterThan(0);
+        expect(detailCalls.some((line) => line.includes('ECONNREFUSED'))).toBe(true);
+    });
+
+    it('should still broadcast and report when error has a cause', () => {
+        const cause = { code: 'ECONNREFUSED', message: 'connect ECONNREFUSED' };
+        const error = Object.assign(new TypeError('fetch failed'), { cause });
+        const mockBroadcaster = { broadcastError: vi.fn() };
+
+        Logger.reportAndCrashClient('AudioSystem', 'Error generating audio', error, mockBroadcaster);
+
+        expect(mockBroadcaster.broadcastError).toHaveBeenCalledWith(
+            expect.any(CouncilError),
+            'AudioSystem',
+        );
+        expect(sendReportMock).toHaveBeenCalledWith({
+            context: 'AudioSystem',
+            severity: 'critical',
+            message: '[CLIENT TERMINAL] Error generating audio',
+            error,
+            clientImpact: 'terminal',
+        });
+    });
 });
