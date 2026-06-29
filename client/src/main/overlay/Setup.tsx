@@ -1,5 +1,4 @@
 import { useEffect, type CSSProperties, type ReactElement, type ReactNode } from "react";
-import { useMobile } from "@/utils";
 import { useTranslation } from "react-i18next";
 import {
   DEV_LOG_CATEGORIES,
@@ -154,13 +153,11 @@ function statusTone(key: string): StatusTone {
   return "idle";
 }
 
-function setupSegmentButton(isMobile: boolean): CSSProperties {
-  return {
-    width: "100%",
-    fontSize: isMobile ? "17px" : "19px",
-    padding: isMobile ? "2px 8px" : "4px 12px",
-  };
-}
+const setupSegmentButton: CSSProperties = {
+  width: "100%",
+  fontSize: "19px",
+  padding: "4px 12px",
+};
 
 const setupCompactButton: CSSProperties = {
   fontSize: "18px",
@@ -219,18 +216,23 @@ function SetupPanel(props: {
   );
 }
 
-function SetupSegmented(props: { children: ReactNode; testId?: string }): ReactElement {
+function SetupSegmented(props: {
+  children: ReactNode;
+  testId?: string;
+  columns?: 2 | 3;
+}): ReactElement {
+  const { children, testId, columns = 2 } = props;
   return (
     <div
       style={{
         display: "grid",
-        gridTemplateColumns: "1fr 1fr",
+        gridTemplateColumns: `repeat(${columns}, 1fr)`,
         gap: 8,
         width: "100%",
       }}
-      data-testid={props.testId}
+      data-testid={testId}
     >
-      {props.children}
+      {children}
     </div>
   );
 }
@@ -314,20 +316,19 @@ function SetupCollapsible(props: {
  * Staff-only global council options at #setup.
  */
 function Setup(): ReactElement {
-  const isMobile = useMobile();
   const { t } = useTranslation();
   const {
     mode: appMode,
     setAppMode,
-    pushToTalkMode,
-    setPushToTalkMode,
+    agentMode,
+    setAgentMode,
     devLogEnabled,
     setDevLogEnabled,
     devLogCategories,
     setDevLogCategoryEnabled,
     setAllDevLogCategories,
   } = useCouncilSettings();
-  const bridgeButtonActive = appMode === "museum" && pushToTalkMode;
+  const bridgeButtonActive = appMode === "museum" && agentMode === "ptt";
   const { bridgeStatus, bridgeError, bridgeAvailable } =
     useButtonConnection(bridgeButtonActive);
   const bridgeHealth = useButtonBridgeHealth(bridgeButtonActive);
@@ -350,9 +351,8 @@ function Setup(): ReactElement {
   const bridgeDetailLines =
     bridgeHealth.status === "running" ? getSetupBridgeDetailLines(bridgeHealth) : [];
 
-  const showButtonPanel = pushToTalkMode && appMode === "museum";
-  const showLoggingPanel = import.meta.env.DEV;
-  const showLedPreviewPill = import.meta.env.DEV && pushToTalkMode;
+  const showButtonPanel = agentMode === "ptt" && appMode === "museum";
+  const showLedPreviewPill = import.meta.env.DEV && agentMode === "ptt";
   const showButtonDetails =
     showButtonPanel &&
     (bridgeDetailLines.length > 0 ||
@@ -374,7 +374,7 @@ function Setup(): ReactElement {
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
+          gridTemplateColumns: "1fr 1fr",
           gap: 12,
           width: "100%",
         }}
@@ -386,7 +386,7 @@ function Setup(): ReactElement {
               data-testid="app-mode-web"
               className={appMode === "web" ? "selected" : ""}
               onClick={() => setAppMode("web")}
-              style={setupSegmentButton(isMobile)}
+              style={setupSegmentButton}
             >
               {t("setup.web")}
             </button>
@@ -395,30 +395,41 @@ function Setup(): ReactElement {
               data-testid="app-mode-museum"
               className={appMode === "museum" ? "selected" : ""}
               onClick={() => setAppMode("museum")}
-              style={setupSegmentButton(isMobile)}
+              style={setupSegmentButton}
             >
               {t("setup.museum")}
             </button>
           </SetupSegmented>
         </SetupPanel>
 
-        <SetupPanel title={t("setup.panels.voiceGuide")}>
-          <SetupSegmented>
+        <SetupPanel title={t("setup.panels.agentMode")}>
+          <SetupSegmented columns={appMode === "web" ? 3 : 2}>
+            {appMode === "web" ? (
+              <button
+                type="button"
+                data-testid="agent-mode-off"
+                className={agentMode === "off" ? "selected" : ""}
+                onClick={() => setAgentMode("off")}
+                style={setupSegmentButton}
+              >
+                {t("setup.logging.off")}
+              </button>
+            ) : null}
             <button
               type="button"
-              data-testid="voice-guide-always-on"
-              className={!pushToTalkMode ? "selected" : ""}
-              onClick={() => setPushToTalkMode(false)}
-              style={setupSegmentButton(isMobile)}
+              data-testid="agent-mode-always-on"
+              className={agentMode === "always-on" ? "selected" : ""}
+              onClick={() => setAgentMode("always-on")}
+              style={setupSegmentButton}
             >
               {t("setup.alwaysOn")}
             </button>
             <button
               type="button"
-              data-testid="voice-guide-push-to-talk"
-              className={pushToTalkMode ? "selected" : ""}
-              onClick={() => setPushToTalkMode(true)}
-              style={setupSegmentButton(isMobile)}
+              data-testid="agent-mode-ptt"
+              className={agentMode === "ptt" ? "selected" : ""}
+              onClick={() => setAgentMode("ptt")}
+              style={setupSegmentButton}
             >
               {t("setup.pushToTalk")}
             </button>
@@ -506,8 +517,7 @@ function Setup(): ReactElement {
           </SetupPanel>
         ) : null}
 
-        {showLoggingPanel ? (
-          <SetupPanel title={t("setup.panels.logging")} testId="setup-logging-panel">
+        <SetupPanel title={t("setup.panels.logging")} testId="setup-logging-panel">
             <SetupSegmented testId="setup-logging-master">
               <button
                 type="button"
@@ -515,7 +525,7 @@ function Setup(): ReactElement {
                 className={devLogEnabled ? "selected" : ""}
                 aria-pressed={devLogEnabled}
                 onClick={() => setDevLogEnabled(true)}
-                style={setupSegmentButton(isMobile)}
+                style={setupSegmentButton}
               >
                 {t("setup.logging.on")}
               </button>
@@ -525,7 +535,7 @@ function Setup(): ReactElement {
                 className={!devLogEnabled ? "selected" : ""}
                 aria-pressed={!devLogEnabled}
                 onClick={() => setDevLogEnabled(false)}
-                style={setupSegmentButton(isMobile)}
+                style={setupSegmentButton}
               >
                 {t("setup.logging.off")}
               </button>
@@ -588,7 +598,6 @@ function Setup(): ReactElement {
               ))}
             </div>
           </SetupPanel>
-        ) : null}
       </div>
     </div>
   );

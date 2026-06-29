@@ -20,6 +20,22 @@ vi.mock('@assets/icons', () => {
     };
 });
 
+// Prevent lottie-web module load (starts a document-polling interval that races jsdom teardown).
+vi.mock('react-lottie-player', async () => {
+    const React = await import('react');
+    const { vi } = await import('vitest');
+    return {
+        default: React.forwardRef((props, ref) => {
+            React.useImperativeHandle(ref, () => ({
+                play: vi.fn(),
+                setDirection: vi.fn(),
+                stop: vi.fn(),
+            }));
+            return React.createElement('div', { 'data-testid': 'lottie-player', ...props });
+        }),
+    };
+});
+
 // Mock CSS.supports if it doesn't exist (needed for JSDOM)
 if (typeof CSS === 'undefined') {
     global.CSS = {};

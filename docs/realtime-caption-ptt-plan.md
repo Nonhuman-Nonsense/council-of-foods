@@ -314,7 +314,7 @@ subtitleLayout?: "council" | "compact";
 
 | File | Changes |
 |------|---------|
-| `MeetingMetaAgent.tsx` | Pass `micStream`, `micActive={metaAgentActive && pressed}`, `subtitleLayout="council"`. Still only `pressed` from `useButton`. |
+| `MeetingMetaAgent.tsx` | Pass `micStream`, `micActive={button.pressed}`, `subtitleLayout="council"`. Still only `pressed` from `useButton`. |
 | `VoiceGuideOverlay.tsx` | Accept `micStream`, `micActive`; pass `subtitleLayout={isMuseumMode ? "council" : "compact"}`. |
 | `MeetingVoiceGuide.tsx` | Pass `micStream` and `micActive={pressed && pushToTalkMode && !muted}` from voice session to overlay. |
 

@@ -9,17 +9,17 @@ import ButtonLedDebugOverlay, { useButtonLedDebugOverlay } from "./buttonDebug";
  * app mode; hardware bridge only in museum mode when the bridge is available.
  */
 export default function MuseumButton(): React.ReactElement | null {
-  const { isMuseumMode, pushToTalkMode } = useCouncilSettings();
+  const { isMuseumMode, agentMode } = useCouncilSettings();
   const { ledDebugOverlay } = useButtonLedDebugOverlay();
-  const bridgeActive = isMuseumMode && pushToTalkMode && isButtonBridgeAvailable();
+  const bridgeActive = isMuseumMode && agentMode === "ptt" && isButtonBridgeAvailable();
 
-  // Space-as-PTT works in web and museum whenever push-to-talk is on.
+  // Space-as-PTT works in web and museum whenever agent mode is ptt.
   useEffect(() => {
-    if (!pushToTalkMode) {
+    if (agentMode !== "ptt") {
       return;
     }
     useButtonStore.getState().init();
-  }, [pushToTalkMode]);
+  }, [agentMode]);
 
   useEffect(() => {
     if (!bridgeActive) {

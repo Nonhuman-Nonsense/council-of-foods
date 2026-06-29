@@ -47,12 +47,6 @@ export default defineConfig(async ({ command, mode }) => ({
       tsconfigPaths: true,
       alias: {
         '@shared': path.resolve(__dirname, '../shared'),
-        '@/logger': path.resolve(
-          __dirname,
-          mode === 'production' || process.env.VITEST === 'true'
-            ? 'src/logger.prod.ts'
-            : 'src/logger.dev.ts',
-        ),
         'lottie-web': 'lottie-web/build/player/lottie_light',
       },
     },

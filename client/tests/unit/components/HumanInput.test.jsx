@@ -9,7 +9,7 @@ import { createRealtimeConnection } from '@/realtime/realtimeConnection';
 const mockClaim = vi.hoisted(() => vi.fn());
 const mockRelease = vi.hoisted(() => vi.fn());
 const mockSetLed = vi.hoisted(() => vi.fn());
-const mockPushToTalkMode = vi.hoisted(() => ({ value: false }));
+const mockAgentMode = vi.hoisted(() => ({ value: "always-on" }));
 
 const mockButtonState = vi.hoisted(() => ({
     pressed: false,
@@ -43,11 +43,11 @@ vi.mock('@/utils', () => ({
 
 vi.mock('@/settings/councilSettings', () => ({
     useCouncilSettings: () => ({
-        pushToTalkMode: mockPushToTalkMode.value,
+        agentMode: mockAgentMode.value,
         isMuseumMode: false,
         mode: 'web',
         setAppMode: vi.fn(),
-        setPushToTalkMode: vi.fn(),
+        setAgentMode: vi.fn(),
     }),
 }));
 
@@ -61,10 +61,6 @@ vi.mock('@/realtime/realtimeConnection', () => ({
 
 vi.mock('@council/humanInput/LiveAudioVisualizer', () => ({
     LiveAudioVisualizerPair: () => <div data-testid="visualizer" />
-}));
-
-vi.mock('react-lottie-player', () => ({
-    default: () => <div data-testid="lottie-loading" />
 }));
 
 vi.mock('@council/ConversationControlIcon', () => ({
@@ -200,7 +196,7 @@ describe('HumanInput Component', () => {
         );
 
         // Should be in connecting state (lottie shown, no mic button)
-        expect(screen.getByTestId('lottie-loading')).toBeInTheDocument();
+        expect(screen.getByTestId('lottie-player')).toBeInTheDocument();
         expect(screen.queryByTestId('icon-record_voice_off')).not.toBeInTheDocument();
 
         // Resolve the connection
@@ -411,7 +407,7 @@ describe('HumanInput Component', () => {
 
         expect(consoleError).not.toHaveBeenCalled();
         // Stays in loading (idle loop) — lottie is visible
-        expect(screen.getByTestId('lottie-loading')).toBeInTheDocument();
+        expect(screen.getByTestId('lottie-player')).toBeInTheDocument();
     });
 
     it('should surface non-abort startup failures and auto-retry', async () => {
@@ -529,7 +525,7 @@ describe('HumanInput PTT museum mode', () => {
 
     beforeEach(() => {
         mockOnSubmit = vi.fn();
-        mockPushToTalkMode.value = true;
+        mockAgentMode.value = "ptt";
         useMobile.mockReturnValue(false);
         mockClaim.mockClear();
         mockRelease.mockClear();
@@ -551,7 +547,7 @@ describe('HumanInput PTT museum mode', () => {
 
     afterEach(() => {
         vi.clearAllMocks();
-        mockPushToTalkMode.value = false;
+        mockAgentMode.value = "always-on";
         setMockPressed(false);
     });
 
@@ -570,7 +566,7 @@ describe('HumanInput PTT museum mode', () => {
         // In PTT mode, loading spinner shows only during "connecting".
         // Wait for it to disappear (ready state reached).
         await waitFor(() => {
-            expect(screen.queryByTestId('lottie-loading')).not.toBeInTheDocument();
+            expect(screen.queryByTestId('lottie-player')).not.toBeInTheDocument();
         });
         return result;
     }
@@ -626,25 +622,25 @@ describe('HumanInput PTT museum mode', () => {
             />
         );
 
-        expect(screen.getByTestId('lottie-loading')).toBeInTheDocument();
+        expect(screen.getByTestId('lottie-player')).toBeInTheDocument();
 
         pending.resolve({ pc: {}, dc: {}, micStream: createMockMicStream(), close: vi.fn() });
 
         await waitFor(() => {
-            expect(screen.queryByTestId('lottie-loading')).not.toBeInTheDocument();
+            expect(screen.queryByTestId('lottie-player')).not.toBeInTheDocument();
         });
     });
 
     // ── LED management ────────────────────────────────────────────────────────
 
-    it('does not claim the button when pushToTalkMode=false', async () => {
-        mockPushToTalkMode.value = false;
+    it('does not claim the button when agentMode is not ptt', async () => {
+        mockAgentMode.value = "always-on";
         mockClaim.mockClear();
         await renderAndWaitReady({ onSubmitHumanMessage: mockOnSubmit });
         expect(mockClaim).not.toHaveBeenCalled();
     });
 
-    it('claims human-input and sets pulse LED when active with pushToTalkMode', async () => {
+    it('claims human-input and sets pulse LED when active with agentMode ptt', async () => {
         await renderPttReady();
         expect(mockClaim).toHaveBeenCalled();
         expect(mockSetLed).toHaveBeenCalledWith('pulse');
@@ -690,7 +686,7 @@ describe('HumanInput PTT museum mode', () => {
         );
 
         // Still connecting — button is held down by the user
-        expect(screen.getByTestId('lottie-loading')).toBeInTheDocument();
+        expect(screen.getByTestId('lottie-player')).toBeInTheDocument();
         setMockPressed(true);
 
         // Now the connection resolves (connecting → ready)
@@ -863,7 +859,7 @@ describe('HumanInput museum abandonment timer', () => {
     beforeEach(() => {
         vi.useFakeTimers({ shouldAdvanceTime: true });
         mockOnAbandon = vi.fn();
-        mockPushToTalkMode.value = true;
+        mockAgentMode.value = "ptt";
         useMobile.mockReturnValue(false);
         mockClaim.mockClear();
         mockRelease.mockClear();
@@ -886,7 +882,7 @@ describe('HumanInput museum abandonment timer', () => {
     afterEach(() => {
         vi.useRealTimers();
         vi.clearAllMocks();
-        mockPushToTalkMode.value = false;
+        mockAgentMode.value = "always-on";
         setMockPressed(false);
     });
 

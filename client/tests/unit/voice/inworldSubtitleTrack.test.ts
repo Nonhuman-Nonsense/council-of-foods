@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  computeInworldAgentSpeaking,
   createInworldSubtitleTrack,
   findActiveSentenceAtTime,
   type InworldWordToken,
@@ -142,6 +143,35 @@ describe("createInworldSubtitleTrack", () => {
       expect(track.getSentences()).toHaveLength(1);
     });
   });
+
+  describe("getPlaybackEndSec", () => {
+    it("returns null when the track is empty", () => {
+      const track = createInworldSubtitleTrack();
+      expect(track.getPlaybackEndSec()).toBeNull();
+    });
+
+    it("returns pending estimate before the sentence is flushed", () => {
+      const track = createInworldSubtitleTrack();
+      track.applyChunk(1, [tok("", 0, 0.1), tok("Hello", 0.1, 0.5)]);
+      expect(track.getPlaybackEndSec()).toBeCloseTo(0.5);
+    });
+
+    it("returns flushed sentence end and grows with pending data", () => {
+      const track = createInworldSubtitleTrack();
+      track.applyChunk(1, [tok("", 0, 0.1), tok("First", 0.1, 0.5)]);
+      track.applyChunk(1, EMPTY);
+      track.applyChunk(1, [tok("", 0, 0.1), tok("Second", 0.1, 0.8)]);
+
+      expect(track.getPlaybackEndSec()).toBeCloseTo(Math.max(0.5, 0.5 + 0.8));
+    });
+
+    it("returns the last flushed end when the buffer is empty", () => {
+      const track = createInworldSubtitleTrack();
+      track.applyChunk(1, [tok("Hi", 0.1, 0.4)]);
+      track.applyChunk(1, EMPTY);
+      expect(track.getPlaybackEndSec()).toBeCloseTo(0.4);
+    });
+  });
 });
 
 describe("findActiveSentenceAtTime", () => {
@@ -170,5 +200,52 @@ describe("findActiveSentenceAtTime", () => {
 
   it("returns null for empty sentences array", () => {
     expect(findActiveSentenceAtTime([], 5)).toBeNull();
+  });
+});
+
+describe("computeInworldAgentSpeaking", () => {
+  it("is false when the anchor is not set", () => {
+    expect(computeInworldAgentSpeaking({
+      anchorSet: false,
+      playbackSec: 1,
+      endSec: 5,
+      responseCancelled: false,
+    })).toBe(false);
+  });
+
+  it("is true when the anchor is set but endSec is unknown", () => {
+    expect(computeInworldAgentSpeaking({
+      anchorSet: true,
+      playbackSec: 0,
+      endSec: null,
+      responseCancelled: false,
+    })).toBe(true);
+  });
+
+  it("is true while playback is before endSec", () => {
+    expect(computeInworldAgentSpeaking({
+      anchorSet: true,
+      playbackSec: 2,
+      endSec: 5,
+      responseCancelled: false,
+    })).toBe(true);
+  });
+
+  it("is false once playback reaches endSec", () => {
+    expect(computeInworldAgentSpeaking({
+      anchorSet: true,
+      playbackSec: 5,
+      endSec: 5,
+      responseCancelled: false,
+    })).toBe(false);
+  });
+
+  it("is false when the response was cancelled", () => {
+    expect(computeInworldAgentSpeaking({
+      anchorSet: true,
+      playbackSec: 1,
+      endSec: null,
+      responseCancelled: true,
+    })).toBe(false);
   });
 });

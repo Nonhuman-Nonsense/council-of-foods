@@ -5,7 +5,7 @@
     "inworldVoiceModel": "inworld-tts-1.5-mini",
     "maxTokens": 70,
     "chairMaxTokens": 70,
-    "conversationMaxLength": 5,
+    "conversationMaxLength": 2,
     "defaultAudioSpeed": 1.25,
     "raiseHandInvitationLength": 100,
     "panelistInvitationLength": 60,

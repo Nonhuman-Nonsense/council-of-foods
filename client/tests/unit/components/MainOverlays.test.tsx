@@ -77,19 +77,19 @@ describe('MainOverlays', () => {
         expect(screen.getByTestId('contact-overlay')).toBeInTheDocument();
     });
 
-    it('renders Setup overlay when hash is #setup on root', () => {
+    it('renders Setup overlay when hash is #setup on root', async () => {
         mockLocation.hash = '#setup';
         mockLocation.pathname = '/';
         render(<MainOverlays topic={topic} onReset={mockOnReset} onCloseOverlay={mockOnCloseOverlay} />);
-        expect(screen.getByTestId('setup-overlay')).toBeInTheDocument();
+        expect(await screen.findByTestId('setup-overlay')).toBeInTheDocument();
         expect(mockNavigate).not.toHaveBeenCalled();
     });
 
-    it('keeps setup overlay on non-root paths', () => {
+    it('keeps setup overlay on non-root paths', async () => {
         mockLocation.hash = '#setup';
         mockLocation.pathname = `/${routes.newMeeting}`;
         render(<MainOverlays topic={topic} onReset={mockOnReset} onCloseOverlay={mockOnCloseOverlay} />);
-        expect(screen.getByTestId('setup-overlay')).toBeInTheDocument();
+        expect(await screen.findByTestId('setup-overlay')).toBeInTheDocument();
         expect(mockNavigate).not.toHaveBeenCalled();
     });
 

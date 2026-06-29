@@ -172,7 +172,7 @@ type TextareaStyle = Omit<React.CSSProperties, 'height'> & { height?: number };
  *   connection drops (state returns to "idle"). Cleanup on unmount closes everything.
  */
 function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessage, onAbandonHumanTurn, liveKey, isButtonMuseumMode = false }: HumanInputProps): React.ReactElement | null {
-  const { pushToTalkMode } = useCouncilSettings();
+  const { agentMode } = useCouncilSettings();
   const [connectionState, setConnectionState] = useState<ConnectionState>("idle");
   const [canContinue, setCanContinue] = useState<boolean>(false);
   const [inputValue, setInputValue] = useState<string>("");
@@ -206,10 +206,10 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
   }, [connectionState]);
 
   useEffect(() => {
-    if (phase !== "active" || !pushToTalkMode) return;
+    if (phase !== "active" || agentMode !== "ptt") return;
     button.claim();
     return () => button.release();
-  }, [button.claim, button.release, phase, pushToTalkMode]);
+  }, [button.claim, button.release, phase, agentMode]);
 
   useEffect(() => {
     if (phase !== "active") return;
@@ -256,26 +256,26 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
 
   // PTT press → start recording when ready (also covers button held during pre-warm).
   useEffect(() => {
-    if (!pushToTalkMode || phase !== "active") return;
+    if (agentMode !== "ptt" || phase !== "active") return;
     if (!button.pressed) return;
     startRecording();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [button.pressed, pushToTalkMode, phase, connectionState, inputValue]);
+  }, [button.pressed, agentMode, phase, connectionState, inputValue]);
 
   // PTT release → finish session and queue an auto-submit attempt.
   useEffect(() => {
-    if (!pushToTalkMode) return;
+    if (agentMode !== "ptt") return;
     if (!button.pressed && connectionState === "recording") {
       pendingPttAutoSubmitRef.current = true;
       finishRealtimeSession();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [button.pressed, pushToTalkMode, connectionState]);
+  }, [button.pressed, agentMode, connectionState]);
 
   // PTT auto-submit: attempt on every release once ready, and again when the
   // transcript catches up (segments can update after connectionState is "ready").
   useEffect(() => {
-    if (!pushToTalkMode || !pendingPttAutoSubmitRef.current || connectionState !== "ready") return;
+    if (agentMode !== "ptt" || !pendingPttAutoSubmitRef.current || connectionState !== "ready") return;
 
     const text = formatTranscriptInputValue({
       previousTranscript,
@@ -297,7 +297,7 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
     setPreviousTranscript("");
     setTranscriptSegments([]);
     setCanContinue(false);
-  }, [connectionState, transcriptSegments, previousTranscript, pushToTalkMode, maxInputLength, onSubmitHumanMessage]);
+  }, [connectionState, transcriptSegments, previousTranscript, agentMode, maxInputLength, onSubmitHumanMessage]);
 
   // ── Museum abandonment timer (idle after button release) ────────────────────
 

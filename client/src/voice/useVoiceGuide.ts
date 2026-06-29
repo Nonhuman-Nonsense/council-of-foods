@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRealtimeVoiceSession } from "@realtime/useRealtimeVoiceSession";
+import type { AgentMode } from "@/settings/councilSettings";
 import type { RealtimeTool, ToolHandler } from "./guideTools";
 
 export type UseVoiceGuideParams = {
@@ -10,7 +11,7 @@ export type UseVoiceGuideParams = {
   audioElement?: HTMLAudioElement | null;
   autoStart?: boolean;
   initialMuted?: boolean;
-  pushToTalkMode?: boolean;
+  agentMode?: AgentMode;
   micOpen?: boolean;
 };
 
@@ -39,11 +40,12 @@ export function useVoiceGuide(params: UseVoiceGuideParams): VoiceGuideState {
     audioElement,
     autoStart = true,
     initialMuted = false,
-    pushToTalkMode = false,
+    agentMode = "always-on",
     micOpen = false,
   } = params;
 
   const [muted, setMuted] = useState(initialMuted);
+  const pttMic = agentMode === "ptt";
 
   const session = useRealtimeVoiceSession({
     feature: "voice-guide",
@@ -52,7 +54,7 @@ export function useVoiceGuide(params: UseVoiceGuideParams): VoiceGuideState {
     tools,
     toolHandlers,
     triggerGreetingOnReady: true,
-    pttMic: pushToTalkMode,
+    pttMic,
     audioElement,
     sessionActive: !muted,
     autoConnect: autoStart,
@@ -62,9 +64,9 @@ export function useVoiceGuide(params: UseVoiceGuideParams): VoiceGuideState {
   });
 
   useEffect(() => {
-    if (!pushToTalkMode || muted) return;
+    if (agentMode !== "ptt" || muted) return;
     session.setMicEnabled(micOpen);
-  }, [pushToTalkMode, micOpen, muted, session.setMicEnabled]);
+  }, [agentMode, micOpen, muted, session.setMicEnabled]);
 
   const stop = useCallback(() => {
     setMuted(true);

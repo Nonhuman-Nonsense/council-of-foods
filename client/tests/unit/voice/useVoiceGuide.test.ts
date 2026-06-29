@@ -90,7 +90,7 @@ describe("useVoiceGuide", () => {
       ({ micOpen }) =>
         useVoiceGuide({
           ...defaultParams,
-          pushToTalkMode: true,
+          agentMode: "ptt",
           micOpen,
         }),
       { initialProps: { micOpen: false } },

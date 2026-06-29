@@ -27,11 +27,6 @@ vi.mock('react-i18next', () => ({
   }),
 }));
 
-vi.mock('@/utils', () => ({
-  useMobile: () => false,
-  useMobileXs: () => false,
-}));
-
 const mockClaim = vi.fn();
 const mockRelease = vi.fn();
 const mockSetLed = vi.fn();
@@ -85,13 +80,14 @@ describe('Setup overlay', () => {
     museumButtonState.bridgeError = null;
   });
 
-  it('renders title, installation, and voice guide panels', () => {
+  it('renders title, installation, and agent mode panels', () => {
     render(<Setup />);
     expect(screen.getByText('setup.title')).toBeInTheDocument();
     expect(screen.getByText('setup.panels.installation')).toBeInTheDocument();
-    expect(screen.getByText('setup.panels.voiceGuide')).toBeInTheDocument();
+    expect(screen.getByText('setup.panels.agentMode')).toBeInTheDocument();
     expect(screen.getByText('setup.web')).toBeInTheDocument();
     expect(screen.getByText('setup.museum')).toBeInTheDocument();
+    expect(screen.getByTestId('agent-mode-off')).toBeInTheDocument();
     expect(screen.getByText('setup.alwaysOn')).toBeInTheDocument();
     expect(screen.getByText('setup.pushToTalk')).toBeInTheDocument();
   });
@@ -115,28 +111,44 @@ describe('Setup overlay', () => {
     expect(web).toHaveClass('selected');
   });
 
-  it('selects always on by default and persists push to talk choice', () => {
+  it('selects off by default without persisting agent mode', () => {
     render(<Setup />);
 
-    const alwaysOn = screen.getByTestId('voice-guide-always-on');
-    const pushToTalk = screen.getByTestId('voice-guide-push-to-talk');
+    const off = screen.getByTestId('agent-mode-off');
+    const alwaysOn = screen.getByTestId('agent-mode-always-on');
+    const pushToTalk = screen.getByTestId('agent-mode-ptt');
 
-    expect(alwaysOn).toHaveClass('selected');
+    expect(off).toHaveClass('selected');
+    expect(alwaysOn).not.toHaveClass('selected');
     expect(pushToTalk).not.toHaveClass('selected');
+    expect(localStorage.getItem('councilAgentMode')).toBeNull();
 
     fireEvent.click(pushToTalk);
-    expect(localStorage.getItem('councilPushToTalk')).toBe('true');
+    expect(localStorage.getItem('councilAgentMode')).toBe('ptt');
     expect(pushToTalk).toHaveClass('selected');
-    expect(alwaysOn).not.toHaveClass('selected');
 
     fireEvent.click(alwaysOn);
-    expect(localStorage.getItem('councilPushToTalk')).toBe('false');
+    expect(localStorage.getItem('councilAgentMode')).toBe('always-on');
     expect(alwaysOn).toHaveClass('selected');
+
+    fireEvent.click(off);
+    expect(localStorage.getItem('councilAgentMode')).toBe('off');
+    expect(off).toHaveClass('selected');
+  });
+
+  it('hides off in museum mode and coerces to always-on when entering museum', () => {
+    render(<Setup />);
+
+    fireEvent.click(screen.getByTestId('app-mode-museum'));
+
+    expect(screen.queryByTestId('agent-mode-off')).not.toBeInTheDocument();
+    expect(screen.getByTestId('agent-mode-always-on')).toHaveClass('selected');
+    expect(localStorage.getItem('councilAgentMode')).toBe('always-on');
   });
 
   it('shows split status when push to talk is enabled in museum mode', () => {
     localStorage.setItem('councilAppMode', 'museum');
-    localStorage.setItem('councilPushToTalk', 'true');
+    localStorage.setItem('councilAgentMode', 'ptt');
     museumButtonState.bridgeStatus = 'connected';
 
     render(<Setup />);
@@ -154,7 +166,7 @@ describe('Setup overlay', () => {
 
   it('maps bridge daemon health to status chips', () => {
     localStorage.setItem('councilAppMode', 'museum');
-    localStorage.setItem('councilPushToTalk', 'true');
+    localStorage.setItem('councilAgentMode', 'ptt');
     bridgeHealthState.status = 'checking';
     museumButtonState.bridgeStatus = 'connecting';
 
@@ -166,7 +178,7 @@ describe('Setup overlay', () => {
 
   it('maps app websocket status independently of usb', () => {
     localStorage.setItem('councilAppMode', 'museum');
-    localStorage.setItem('councilPushToTalk', 'true');
+    localStorage.setItem('councilAgentMode', 'ptt');
     bridgeHealthState.serial = 'disconnected';
     bridgeHealthState.path = null;
     museumButtonState.bridgeStatus = 'connecting';
@@ -179,7 +191,7 @@ describe('Setup overlay', () => {
 
   it('shows staff bridge detail lines when hardware is missing', () => {
     localStorage.setItem('councilAppMode', 'museum');
-    localStorage.setItem('councilPushToTalk', 'true');
+    localStorage.setItem('councilAgentMode', 'ptt');
     museumButtonState.bridgeStatus = 'connecting';
     bridgeHealthState.serial = 'disconnected';
     bridgeHealthState.path = null;
@@ -212,7 +224,7 @@ describe('Setup overlay', () => {
   });
 
   it('toggles LED debug overlay when push to talk is enabled', () => {
-    localStorage.setItem('councilPushToTalk', 'true');
+    localStorage.setItem('councilAgentMode', 'ptt');
 
     render(<Setup />);
 
@@ -229,7 +241,7 @@ describe('Setup overlay', () => {
   });
 
   it('shows LED preview toggle as active when flag is enabled', () => {
-    localStorage.setItem('councilPushToTalk', 'true');
+    localStorage.setItem('councilAgentMode', 'ptt');
     ledDebugState.enabled = true;
     render(<Setup />);
     const toggle = screen.getByTestId('setup-led-debug-toggle');
@@ -254,7 +266,7 @@ describe('Setup overlay', () => {
 
   it('shows usb not detected hint inside details when hardware is missing', () => {
     localStorage.setItem('councilAppMode', 'museum');
-    localStorage.setItem('councilPushToTalk', 'true');
+    localStorage.setItem('councilAgentMode', 'ptt');
     museumButtonState.bridgeStatus = 'connecting';
     bridgeHealthState.serial = 'disconnected';
     bridgeHealthState.path = null;

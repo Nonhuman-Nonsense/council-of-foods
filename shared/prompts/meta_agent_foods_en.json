@@ -19,5 +19,18 @@
     "resume_meeting": "Return to the live council meeting. Call when the visitor seems done with this interruption — they may say little (e.g. 'ok', 'thanks') or say nothing more after your answer. You judge when the exchange is complete; do not wait for an explicit goodbye. A brief farewell in the same turn is fine. Do not speak after calling this.",
     "restart_meeting": "Restart the entire meeting from the beginning, returning to the setup screen. Use when the visitor wants to start over. Do not speak after calling this."
   },
-  "activationGreetingExample": "Excuse me — you've interrupted the council. You'll be invited to speak when it's your turn. Unless you'd like to start from the beginning?"
+  "activationGreetingExample": "Excuse me — you've interrupted the council. You'll be invited to speak when it's your turn. Unless you'd like to start from the beginning?",
+  "extensionJobInstructions": [
+    "The council meeting has reached its planned length. Explain briefly that the discussion is getting long-winded.",
+    "Ask whether the visitor wants to extend the meeting a bit more or bring it to a conclusion.",
+    "Listen if they speak; you judge when their preference is clear.",
+    "When they want more discussion, call extend_meeting. When they want to wrap up, call conclude_meeting.",
+    "You must call exactly one of these tools — do not leave the turn open without a tool call.",
+    "After calling extend_meeting or conclude_meeting, do not speak."
+  ],
+  "extensionToolDescriptions": {
+    "extend_meeting": "Continue the council meeting for a while longer. Use when the visitor wants more discussion. Do not speak after calling this.",
+    "conclude_meeting": "End the meeting and move to the summary. Use when the visitor is ready to conclude. Do not speak after calling this."
+  },
+  "extensionActivationGreetingExample": "We've been at this a while — would you like to extend the meeting a bit, or shall we bring it to a conclusion?"
 }

@@ -3,7 +3,11 @@ import {
   useRealtimeVoiceSession,
   type RealtimeVoiceSessionConnectionState,
 } from "@realtime/useRealtimeVoiceSession";
+import type { ConfigureSessionOptions } from "@voice/realtimeEventLoop";
 import type { RealtimeTool, ToolHandler } from "@voice/guideTools";
+
+/** Meta-agent lifecycle phase. */
+export type MetaAgentPhase = "inactive" | "interruption" | "extension";
 
 export type MetaAgentConnectionState = RealtimeVoiceSessionConnectionState;
 
@@ -13,6 +17,7 @@ export type UseMetaAgentParams = {
   instructions: string;
   tools: RealtimeTool[];
   toolHandlers: Record<string, ToolHandler>;
+  onSessionReady?: () => void;
 };
 
 export type UseMetaAgentResult = {
@@ -22,10 +27,7 @@ export type UseMetaAgentResult = {
   lastUserTranscript: string | null;
   micStream: MediaStream | null;
   /**
-   * True while the meta-agent is producing a voice response.
-   * TODO: Today this follows response.created → response.done (generation end), not
-   * remote playback end. Refine here (e.g. remote audio analyser) when idle/resume
-   * timing needs to track speaker output precisely.
+   * True while the meta-agent is audibly speaking (playback-based via subtitle timings).
    */
   agentSpeaking: boolean;
   /** Open or close the mic track (track.enabled). No-op if not yet connected. */
@@ -36,6 +38,8 @@ export type UseMetaAgentResult = {
   requestAgentResponse: () => void;
   /** Mute or unmute remote agent audio (e.g. after terminal tools or on re-activate). */
   setAgentOutputMuted: (muted: boolean) => void;
+  /** Push updated instructions/tools on the live data channel. */
+  reconfigureSession: (options?: ConfigureSessionOptions) => void;
 };
 
 /**
@@ -47,7 +51,7 @@ export type UseMetaAgentResult = {
  * - Connects on mount; tears down on unmount.
  */
 export function useMetaAgent(params: UseMetaAgentParams): UseMetaAgentResult {
-  const { language, liveKey, instructions, tools, toolHandlers } = params;
+  const { language, liveKey, instructions, tools, toolHandlers, onSessionReady } = params;
   const authHeaders = useMemo(
     () => ({ Authorization: `Bearer ${liveKey}` }),
     [liveKey],
@@ -63,6 +67,7 @@ export function useMetaAgent(params: UseMetaAgentParams): UseMetaAgentResult {
     authHeaders,
     pttMic: true,
     trackAgentSpeaking: true,
+    onSessionReady,
     defaultsNotLoadedError: "Meta-agent defaults not loaded",
     connectionLostMessage: "Meta-agent connection lost",
     startFailedMessage: "Meta-agent failed to start",

@@ -32,7 +32,7 @@ async function readButtonStore(page: import("@playwright/test").Page): Promise<B
 async function seedMuseumPushToTalk(page: import("@playwright/test").Page): Promise<void> {
   await page.addInitScript(() => {
     localStorage.setItem("councilAppMode", "museum");
-    localStorage.setItem("councilPushToTalk", "true");
+    localStorage.setItem("councilAgentMode", "ptt");
   });
 }
 

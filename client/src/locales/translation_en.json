@@ -14,6 +14,7 @@
     "panels": {
       "installation": "Installation",
       "voiceGuide": "Voice guide",
+      "agentMode": "Agent mode",
       "details": "Details & hints",
       "logging": "Logging"
     },
@@ -136,8 +137,8 @@
     "title": "Is that it?",
     "1": "This meeting is starting to get long-winded,",
     "2": "is it time to come to a conclusion?",
-    "3": "Yes, let's conclude the meeting!",
-    "4": "No, extend the meeting a bit more."
+    "3": "Yes, let's conclude!",
+    "4": "No, continue a bit more."
   },
   "incomplete": {
     "title": "Meeting Unfinished",
@@ -188,5 +189,6 @@
   },
   "selectissue": "please select an issue for the discussion",
   "writetopic": "Write a topic here...",
+ 
   "rotate": "rotate your device"
 }

@@ -9,15 +9,17 @@ glue. Also covers meeting freeze/resume, chair animation, and silence after
 > captions, button routing). That doc remains useful for history and server/bootstrap
 > context. Button intent routing is documented in code (`buttonIntent.ts`) and
 > [ptt-human-input-routing-plan.md](./ptt-human-input-routing-plan.md).
+>
+> **Meeting extension phase** (soft cap, museum): see [meeting-conclude-plan.md](./meeting-conclude-plan.md) PR 3 — uses `metaAgentPhase` (`'interruption'` \| `'extension'`) instead of the old `metaAgentActive` boolean.
 
-**Status:** Phases **0–5b** complete on Foods; **3b** + **4** complete on Forest. **Next:** merge 5a/5b to Forest, then manual regression checklist. Implement **one phase at a time**.
+**Status:** Phases **0–5b** complete on Foods and Forest. **Meeting conclude PR 3** (extension phase) complete on both installs. **Next:** manual regression checklist; bootstrap retry UX (deferred).
 
 ---
 
 ## Goals
 
 1. **Same UX** for voice guide and meta agent (captions, PTT hint, timing).
-2. **Council orchestrates modes** — leaf components mount/unmount; minimal `metaAgentActive` conditionals inside them.
+2. **Council orchestrates modes** — leaf components mount/unmount; minimal phase conditionals inside them (`metaAgentPhase` — see [meeting-conclude-plan.md](./meeting-conclude-plan.md)).
 3. **Meeting freezes** when the meta agent is active; **resumes from the same place** after `resume_meeting`.
 4. **Chair animates** while the agent is speaking (`response.created` → `response.done`, v1).
 5. **No agent speech** after `resume_meeting` (prompt + event-loop + hard mute).
@@ -38,6 +40,8 @@ Meta agent activation must **not** rely on suspending the agent path. Freezing t
 meeting uses `setAudioPaused(true)` only.
 
 ### Do not overload `isPaused`
+
+> **Historical note:** This section describes the original `metaAgentActive` model. Current code uses `metaAgentPhase` (`'inactive' | 'interruption' | 'extension'`) in `Council.tsx`. Forest zoom uses `currentSpeakerId` only; Foods uses `metaAgentPhase` on `FoodsCouncilScene`.
 
 | State | Meaning |
 |-------|---------|
@@ -404,9 +408,9 @@ Manual checklist #3, #7; meta-agent active + setup overlay (session persists).
 
 | Priority | Task | Notes |
 |----------|------|-------|
-| Now | **Merge 5a/5b to Forest** | Shared `useRealtimeVoiceSession`, thin `useMetaAgent` / `useVoiceGuide`, mic via `track.enabled` |
-| After merge | **Manual regression** | Full checklist below (voice guide + meta agent + freeze/resume + chair animation) |
+| Now | **Manual regression** | Full checklist below (voice guide + meta agent + freeze/resume + chair animation + extension phase on museum) |
 | Later | **Bootstrap retry + clearer errors** | Meta-agent bootstrap failed with `UND_ERR_CONNECT_TIMEOUT` (server → Inworld ICE fetch). Likely flaky network, not a client regression. Improve `withNetworkRetry` (include connect timeout), server logging (log target URL + `error.cause`), and optional client-side retry/backoff on bootstrap failure |
+| Later | **`agentSpeaking` vs playback** | Extension loader + idle timers use `response.created` → `response.done`; align with subtitle/playback timing when refined (`useMetaAgent` TODO) |
 
 ---
 
@@ -417,7 +421,7 @@ Manual checklist #3, #7; meta-agent active + setup overlay (session persists).
 - `MuseumButtonProvider` rename (optional; lower priority than claim API rename)
 - Merging `MeetingMetaAgent` and `MeetingVoiceGuide` into one component
 - Always-on meta agent (non-PTT)
-- Lazy meta-agent WebRTC connect (bootstrap only when `metaAgentActive`) — trade warm latency for fewer spurious errors on meeting load
+- Lazy meta-agent WebRTC connect (bootstrap only when meta-agent session active) — trade warm latency for fewer spurious errors on meeting load
 
 ---
 
@@ -435,6 +439,7 @@ Run after Phase 3+ before merging large PRs; abbreviated after smaller phases.
 | 6 | `restart_meeting` | Navigate home; no agent follow-up |
 | 7 | Human input `active` | Takes button; meta agent yields |
 | 8 | Chair animation | Animates during agent speech (Phase 4+) |
+| 9 | Museum soft cap | Extension agent activates; `extend_meeting` / `conclude_meeting`; no `QueryExtension` overlay |
 
 ---
 
@@ -461,5 +466,6 @@ Run after Phase 3+ before merging large PRs; abbreviated after smaller phases.
 | 2026-06-23 | Phases 0–4 + 3b complete; Phase 4 `isPerforming` model; Forest river backdrop note |
 | 2026-06-23 | Phase 5a: `useRealtimeVoiceSession` + thin `useMetaAgent` on Foods |
 | 2026-06-23 | Phase 5b: `useVoiceGuide` migrated to shared hook on Foods |
-| 2026-06-23 | Meta-agent bootstrap timeout observed (`ConnectTimeoutError` on Inworld ICE fetch); retry/error UX deferred; merge 5a/5b to Forest next |
+| 2026-06-23 | Meta-agent bootstrap timeout observed (`ConnectTimeoutError` on Inworld ICE fetch); retry/error UX deferred |
 | 2026-06-23 | Button routing: `useButton(owner)` with separate claim/setLed/release; `buttonOwner`; no session teardown on ownership loss |
+| 2026-06-26 | Phases 5a/5b merged to Forest; `metaAgentActive` replaced by `metaAgentPhase`; meeting extension phase complete — see [meeting-conclude-plan.md](./meeting-conclude-plan.md) |

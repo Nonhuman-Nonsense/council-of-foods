@@ -6,6 +6,7 @@ import { mapFoodIndex } from "@/utils";
 import { backgroundImageUrls } from "@assets/backgrounds/index";
 import { z } from "@/zIndexLayers";
 import type { CouncilState } from "./hooks/useCouncilMachine";
+import type { MetaAgentPhase } from "@museum/metaAgent/useMetaAgent";
 import { CHAIR_ID } from "@/prompts/characterSetupBundles";
 
 interface FoodsCouncilSceneProps {
@@ -18,7 +19,7 @@ interface FoodsCouncilSceneProps {
   currentSnippetIndex: number;
   isPaused: boolean;
   /** Chair-conversation mode: camera stays on chair; performance follows agentSpeaking. */
-  metaAgentActive: boolean;
+  metaAgentPhase: MetaAgentPhase;
   agentSpeaking: boolean;
 }
 
@@ -31,7 +32,7 @@ export default function FoodsCouncilScene({
   audioMessages,
   currentSnippetIndex,
   isPaused,
-  metaAgentActive,
+  metaAgentPhase,
   agentSpeaking,
 }: FoodsCouncilSceneProps) {
   const sentencesLength = useMemo(() => {
@@ -41,7 +42,7 @@ export default function FoodsCouncilScene({
   }, [audioMessages, textMessages, playingNowIndex]);
 
   const zoomIn = useMemo(() => {
-    if (metaAgentActive) return true;
+    if (metaAgentPhase !== "inactive") return true;
     if (
       councilState === "loading" ||
       councilState === "waiting" ||
@@ -60,14 +61,14 @@ export default function FoodsCouncilScene({
     } else {
       return false;
     }
-  }, [metaAgentActive, councilState, playingNowIndex, textMessages, currentSnippetIndex, sentencesLength]);
+  }, [metaAgentPhase, councilState, playingNowIndex, textMessages, currentSnippetIndex, sentencesLength]);
 
   const foods = useMemo(
     () => participants.filter((part) => !part.id.startsWith("panelist")),
     [participants]
   );
 
-  const layoutSpeakerId = metaAgentActive ? CHAIR_ID : currentSpeakerId;
+  const layoutSpeakerId = metaAgentPhase !== "inactive" ? CHAIR_ID : currentSpeakerId;
 
   const currentSpeakerIdx = useMemo(() => {
     let currentIndex: number | undefined;
@@ -108,7 +109,7 @@ export default function FoodsCouncilScene({
             zoomIn={zoomIn}
             currentSpeakerId={layoutSpeakerId}
             isPerforming={
-              metaAgentActive
+              metaAgentPhase !== "inactive"
                 ? food.id === CHAIR_ID && agentSpeaking
                 : currentSpeakerId === food.id
             }

@@ -12,8 +12,8 @@ to `server/src/utils/Logger.ts` (context + severity) and
 
 1. **One logger** for main cross-cutting events (API, socket, agent tools, button, meta-agent).
 2. **Readable** — collapsed groups, category colors, summarized payloads.
-3. **Dev-only implementation** — production bundle uses `logger.noop.ts` via Vite alias.
-4. **Runtime control** — master switch + per-category filters on `#setup`, persisted in `localStorage`.
+3. **Single `logger.ts`** — same implementation in dev and production; gated at runtime via `#setup` toggles (`getDevLogEnabled()`). Default on in dev, off in production when unset.
+4. **Runtime control** — master switch + per-category filters on lazy-loaded `#setup`, persisted in `localStorage`.
 5. **Debug meta-agent tools** — trace `continue_meeting` and related handler paths (Phase 5).
 
 ---
@@ -35,23 +35,14 @@ that module. Name reflects purpose (app HTTP), not environment.
 
 ```text
 client/src/
-  logger.ts              # categories, types, real impl (dev)
-  logger.noop.ts         # no-op (production + vitest)
+  logger.ts              # categories, summarizeLogPayload, log.event, reportTerminalError
   api/http.ts            # councilFetch (Phase 3)
   settings/councilSettings.ts   # localStorage + useCouncilSettings()
-  main/overlay/Setup.tsx        # staff setup UI (inline styles, no subfolder)
+  main/overlay/Setup.tsx        # staff setup UI (lazy-loaded via MainOverlays)
+  main/overlay/MainOverlays.tsx # lazy(() => import("./Setup")) for #setup
 ```
 
-**Vite alias** (`vite.config.ts`):
-
-```ts
-'@/logger': src/logger.noop.ts   // production + vitest
-'@/logger': src/logger.ts         // dev serve
-```
-
-Imports: `import { log } from '@/logger'`.
-
-TypeScript resolves types from `logger.ts`; production swaps implementation at build time.
+**Vite:** `#setup` UI is code-split via `lazy(() => import("./Setup"))` in `MainOverlays` (automatic chunk naming). `@/logger` is a normal import (small runtime no-op when logging is off).
 
 ### Logger API
 
@@ -99,7 +90,9 @@ Exposed via `useCouncilSettings()`:
 - `setDevLogCategoryEnabled(category, enabled)`
 - `setAllDevLogCategories(enabled)`
 
-Developer panel on `#setup` is rendered only when `import.meta.env.DEV`.
+Developer panel on `#setup` is lazy-loaded in all builds (staff secret URL).
+
+Default when unset: **on** in dev (`import.meta.env.DEV`), **off** in production.
 
 ---
 

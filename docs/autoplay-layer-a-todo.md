@@ -25,9 +25,10 @@ Layer B ([`autoplay-plan.md`](./autoplay-plan.md)) handles leaving interactive m
 | Meeting conclude PR 0 (`CONCLUDE_MEETING`) | **Done** |
 | Meeting conclude PR 1 (chair closing line) | **Done** |
 | Meeting conclude PR 2 (vocabulary rename) | **Done** — merged to forest-leo |
-| Meeting conclude PR 3 (meta-agent conclude) | **Next** — foods-leo |
+| Meeting conclude PR 3 (meta-agent extension phase) | **Done** — foods-leo → forest-leo |
 | `Reconnecting` overlay 2 min restart | **Done** |
 | Meta-agent interruption idle | **Done** — auto-`resume_meeting` after remind |
+| Meta-agent extension idle | **Done** — auto-`conclude_meeting` after remind |
 | Voice guide stuck mid-setup | **N/A** — `AutoplayCoordinator` (Layer B) |
 | `Name` overlay | **N/A** — never shown in museum |
 | `Incomplete` overlay | **N/A** — autoplay only plays completed meetings |
@@ -38,14 +39,14 @@ Layer B ([`autoplay-plan.md`](./autoplay-plan.md)) handles leaving interactive m
 
 ## Meeting conclude (summary)
 
-Phased on **`foods-leo`**:
+Phased on **`foods-leo`** → merged to **`forest-leo`**:
 
 | PR | What | Status |
 |----|------|--------|
 | **0** | Server auto-conclude when hard cap — no `query_extension`, no overlay | **Done** |
 | **1** | Chair closing statement before summary (`concludeMeetingPrompt`) | **Done** |
-| **2** | Rename extend/conclude/summarize vocabulary | **Done** (forest merged) |
-| **3** | Meta-agent `conclude` mode: `reconfigureSession`, two tools, museum fork at `query_extension` | **Next** |
+| **2** | Rename extend/conclude/summarize vocabulary | **Done** |
+| **3** | Meta-agent `extension` phase: `reconfigureSession`, two tools, museum fork in state machine | **Done** |
 
 Full spec: [`meeting-conclude-plan.md`](./meeting-conclude-plan.md).
 
@@ -64,6 +65,10 @@ After **2 minutes** in museum mode, `window.location.href = rootPath`. **File:**
 ### Meta-agent interruption idle
 
 Auto-`resume_meeting` ~10s after idle remind. **Done.**
+
+### Meta-agent extension idle
+
+Auto-`conclude_meeting` ~10s after idle remind (extension phase only). `bumpActivity()` on extension enter resets PTT idle clock. **Done.**
 
 ---
 

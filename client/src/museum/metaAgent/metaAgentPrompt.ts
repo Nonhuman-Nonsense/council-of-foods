@@ -3,6 +3,7 @@ import type { Character, Topic } from "@shared/ModelTypes";
 import { CHARACTERS_FILE } from "@shared/prompts/characterSetupMetadata";
 import type { CouncilState } from "@council/hooks/useCouncilMachine";
 import type { ParticipationPhase } from "@council/humanInput/participationPhase";
+import type { AgentMode } from "@/settings/councilSettings";
 import { CHAIR_ID } from "@/prompts/characterSetupBundles";
 
 export type CouncilVocabulary = {
@@ -20,9 +21,14 @@ export type MetaAgentPromptBundle = {
   toolDescriptions: Record<"resume_meeting" | "restart_meeting", string>;
   /** Example interruption greeting — agent should match tone, not repeat verbatim. */
   activationGreetingExample: string;
+  extensionJobInstructions: string[];
+  extensionToolDescriptions: Record<"extend_meeting" | "conclude_meeting", string>;
+  /** Example soft-cap greeting — agent should match tone, not repeat verbatim. */
+  extensionActivationGreetingExample: string;
 };
 
 const META_AGENT_TOOL_ORDER = ["resume_meeting", "restart_meeting"] as const;
+const EXTENSION_TOOL_ORDER = ["extend_meeting", "conclude_meeting"] as const;
 
 export type MetaAgentStateSnapshot = {
   councilState: CouncilState;
@@ -78,14 +84,25 @@ function formatBullets(lines: string[]): string {
   return lines.map((line) => `- ${line}`).join("\n");
 }
 
-function buildToolsList(toolDescriptions: MetaAgentPromptBundle["toolDescriptions"]): string {
-  return formatBullets(
-    META_AGENT_TOOL_ORDER.map((name) => `${name}: ${toolDescriptions[name]}`),
-  );
+function buildToolsList(
+  toolOrder: readonly string[],
+  toolDescriptions: Record<string, string>,
+): string {
+  return formatBullets(toolOrder.map((name) => `${name}: ${toolDescriptions[name]}`));
 }
 
-function buildPttRule(pushToTalkMode: boolean): string {
-  if (!pushToTalkMode) return "";
+function buildInterruptionToolsList(toolDescriptions: MetaAgentPromptBundle["toolDescriptions"]): string {
+  return buildToolsList(META_AGENT_TOOL_ORDER, toolDescriptions);
+}
+
+function buildExtensionToolsList(
+  toolDescriptions: MetaAgentPromptBundle["extensionToolDescriptions"],
+): string {
+  return buildToolsList(EXTENSION_TOOL_ORDER, toolDescriptions);
+}
+
+function buildPttRule(agentMode: AgentMode): string {
+  if (agentMode !== "ptt") return "";
   return "The visitor uses a physical talk button: hold to talk, release to send.";
 }
 
@@ -115,9 +132,9 @@ function partitionParticipants(participants: Character[]) {
  */
 export function buildMetaAgentPrompt(params: {
   bundle: MetaAgentPromptBundle;
-  pushToTalkMode?: boolean;
+  agentMode?: AgentMode;
 }): string {
-  const { bundle, pushToTalkMode = false } = params;
+  const { bundle, agentMode = "ptt" } = params;
   const { councilName, plural } = bundle.councilVocabulary;
 
   const roleDescription =
@@ -132,7 +149,7 @@ export function buildMetaAgentPrompt(params: {
     "You decide when the interruption is over — short replies like 'ok' or no further question after your answer are enough. Then call resume_meeting in that same turn.",
     "Do not end a turn with only a spoken goodbye or farewell; always call resume_meeting to resume the council.",
     "Be concise. Visitors stand at a kiosk. Do not reference on-screen UI.",
-    buildPttRule(pushToTalkMode),
+    buildPttRule(agentMode),
     "Use the visitor's name from STATE SYNC when you know it.",
   ].filter(Boolean);
 
@@ -142,7 +159,7 @@ export function buildMetaAgentPrompt(params: {
     projectDescription: bundle.projectDescription.trim(),
     roleDescription,
     jobInstructions: formatBullets(bundle.jobInstructions),
-    toolsList: buildToolsList(bundle.toolDescriptions),
+    toolsList: buildInterruptionToolsList(bundle.toolDescriptions),
     rulesList: formatBullets(rules),
     councilName,
     characterPlural: plural,
@@ -178,6 +195,90 @@ export function buildMetaAgentStateSnapshot(snapshot: MetaAgentStateSnapshot): s
     source: "system",
     type: "meta_agent_activate",
     councilState: snapshot.councilState,
+    topic: snapshot.topic
+      ? {
+          id: snapshot.topic.id,
+          title: snapshot.topic.title,
+          description: truncateDescription(snapshot.topic.description),
+        }
+      : null,
+    councilMembers: councilMembers.map((p) => p.name),
+    humanPanelists: humanPanelists.map((p) => ({
+      name: p.name,
+      description: p.description ? truncateDescription(p.description, 200) : null,
+    })),
+    currentSpeaker: snapshot.currentSpeakerName || null,
+    visitorName,
+    participationPhase: snapshot.participationPhase,
+  };
+
+  return `(STATE SYNC: ${JSON.stringify(payload)})`;
+}
+
+/**
+ * System prompt for the soft-cap extension phase — chair asks extend vs conclude.
+ */
+export function buildExtensionAgentPrompt(params: {
+  bundle: MetaAgentPromptBundle;
+  agentMode?: AgentMode;
+}): string {
+  const { bundle, agentMode = "ptt" } = params;
+  const { councilName } = bundle.councilVocabulary;
+
+  const roleDescription =
+    `The ${councilName} has reached its planned length. You — the chair — ask the visitor ` +
+    `whether to extend the discussion or bring the meeting to a conclusion.`;
+
+  const rules = [
+    "Stay quiet until you receive (STATE SYNC: ...) — then respond.",
+    "Open by explaining that the meeting is getting long, then ask extend or conclude — about 2–3 short sentences.",
+    `Example tone (vary the words each time — do not repeat verbatim): "${bundle.extensionActivationGreetingExample.trim()}"`,
+    "Listen if the visitor speaks; you judge when their preference is clear.",
+    "You must call exactly one tool — extend_meeting or conclude_meeting — before ending your turn.",
+    "Do not end a turn with only a spoken preference; always call the matching tool in that same turn.",
+    "Be concise. Visitors stand at a kiosk. Do not reference on-screen UI.",
+    buildPttRule(agentMode),
+    "Use the visitor's name from STATE SYNC when you know it.",
+  ].filter(Boolean);
+
+  const replacements: Record<string, string> = {
+    chairIdentity: bundle.chairIdentity.trim(),
+    chairVoice: bundle.chairVoice.trim(),
+    projectDescription: bundle.projectDescription.trim(),
+    roleDescription,
+    jobInstructions: formatBullets(bundle.extensionJobInstructions),
+    toolsList: buildExtensionToolsList(bundle.extensionToolDescriptions),
+    rulesList: formatBullets(rules),
+    councilName,
+    characterPlural: bundle.councilVocabulary.plural,
+  };
+
+  return META_AGENT_PROMPT_TEMPLATE.replace(
+    /\$\{(\w+)\}/g,
+    (_match, key: string) => replacements[key] ?? "",
+  );
+}
+
+/** Synthetic user turn after extension STATE SYNC — chair speaks first (no PTT). */
+export function buildExtensionActivationTurn(): string {
+  return (
+    "The meeting has reached its planned length. " +
+    "Explain briefly and ask whether to extend or conclude. " +
+    "Use the STATE SYNC context above. Speak now as the chair."
+  );
+}
+
+/**
+ * Snapshot for soft-cap extension — council is paused at query_extension.
+ */
+export function buildExtensionStateSnapshot(snapshot: MetaAgentStateSnapshot): string {
+  const { humanPanelists, councilMembers } = partitionParticipants(snapshot.participants);
+  const visitorName = snapshot.humanName.trim() || null;
+
+  const payload = {
+    source: "system",
+    type: "meta_agent_extension",
+    councilState: "query_extension",
     topic: snapshot.topic
       ? {
           id: snapshot.topic.id,

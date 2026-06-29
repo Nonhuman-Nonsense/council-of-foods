@@ -3,6 +3,7 @@ import MarqueeRollingBanner from "@council/MarqueeRollingBanner";
 import { LiveAudioVisualizerPair } from "@council/humanInput/LiveAudioVisualizer";
 import { Icons } from "@assets/icons";
 import { useMobile } from "@/utils";
+import type { AgentMode } from "@/settings/councilSettings";
 import { z } from "@/zIndexLayers";
 import { useTranslation } from "react-i18next";
 import ConversationControlIcon from "@/council/ConversationControlIcon";
@@ -19,7 +20,7 @@ export type RealtimeCaptionOverlayProps = {
   error: string | null;
   lastCaption: string | null;
   lastUserTranscript: string | null;
-  pushToTalkMode?: boolean;
+  agentMode?: AgentMode;
   showHoldToSpeakHint?: boolean;
   /** i18n key for the hold-to-speak banner (default: setup.holdToSpeak). */
   holdToSpeakKey?: string;
@@ -39,7 +40,7 @@ export default function RealtimeCaptionOverlay(props: RealtimeCaptionOverlayProp
     error,
     lastCaption,
     lastUserTranscript,
-    pushToTalkMode = false,
+    agentMode = "off",
     showHoldToSpeakHint = false,
     holdToSpeakKey = "setup.holdToSpeak",
     subtitleLayout = "compact",
@@ -178,7 +179,7 @@ export default function RealtimeCaptionOverlay(props: RealtimeCaptionOverlayProp
       </div >
 
       {
-        pushToTalkMode ? (
+        agentMode === "ptt" ? (
           <div className="bottom-ui-banner-anchor" >
             <MarqueeRollingBanner
               visible={showHoldToSpeakHint}
