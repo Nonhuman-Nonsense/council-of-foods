@@ -4,6 +4,17 @@ const CHARACTERS_FILE = "foods";
 const PROTOTYPE_CUSTOM_TOPIC_ID = "customtopic";
 const PROTOTYPE_CUSTOM_TOPIC_TOKEN = "[VISITOR_INPUT]";
 
+const NON_PLAYABLE_TURN_TYPES = new Set([
+  'query_extension',
+  'awaiting_human_question',
+  'awaiting_human_panelist',
+  'meeting_incomplete',
+]);
+
+function isSyntheticTurn(turn) {
+  return Boolean(turn && NON_PLAYABLE_TURN_TYPES.has(turn.type));
+}
+
 function usesCustomVoiceId(character) {
   return character?.voiceProvider === 'inworld' || character?.voiceProvider === 'elevenlabs';
 }
@@ -64,11 +75,11 @@ const defaultOptions = {
  */
 function countPlayableMessages(conversation) {
   if (!conversation || conversation.length === 0) return 0;
-  const last = conversation[conversation.length - 1];
-  if (last && last.type === 'query_extension') {
-    return conversation.length - 1;
+  let count = conversation.length;
+  while (count > 0 && isSyntheticTurn(conversation[count - 1])) {
+    count--;
   }
-  return conversation.length;
+  return count;
 }
 
 const defaultLocalOptions = {
@@ -253,6 +264,12 @@ createApp({
     hasQueryExtension() {
       const last = this.conversation[this.conversation.length - 1];
       return !!(last && last.type === 'query_extension');
+    },
+
+    canRaiseHand() {
+      if (!this.socket || this.conversation.length === 0) return false;
+      if (this.status !== 'ACTIVE' && this.status !== 'PAUSED') return false;
+      return !this.conversation.some((turn) => turn.type === 'awaiting_human_question');
     },
 
     languageModelsText: {
@@ -1482,6 +1499,17 @@ createApp({
       this.socket.emit("extend_meeting");
     },
 
+    raiseHand() {
+      if (!this.canRaiseHand) return;
+
+      const index = this.conversation.length;
+      const humanName = 'Visitor';
+
+      this.status = 'CONNECTING';
+      this.log('SOCKET_OUT', 'Raise Hand', { index, humanName });
+      this.socket.emit('raise_hand', { index, humanName });
+    },
+
     // ===========================
     //   AUDIO HANDLING
     // ===========================
@@ -1695,7 +1723,19 @@ createApp({
       const chars = this.currentLanguageData?.characters || [];
       const match = chars.find((c) => c.id === idOrName || c.name === idOrName);
       return match?.name || match?.id || idOrName;
-    }
+    },
+
+    formatInvitationGuest(index) {
+      const next = this.conversation[index + 1];
+      if (next?.type === 'awaiting_human_question' || next?.type === 'awaiting_human_panelist') {
+        return this.formatSpeakerLabel(next.speaker);
+      }
+      return 'Visitor';
+    },
+
+    isSyntheticTurnType(type) {
+      return NON_PLAYABLE_TURN_TYPES.has(type);
+    },
   }
 })
   .directive('auto-resize', {
