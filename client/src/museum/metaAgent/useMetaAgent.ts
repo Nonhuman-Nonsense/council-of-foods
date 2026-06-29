@@ -27,10 +27,7 @@ export type UseMetaAgentResult = {
   lastUserTranscript: string | null;
   micStream: MediaStream | null;
   /**
-   * True while the meta-agent is producing a voice response.
-   * TODO: Today this follows response.created → response.done (generation end), not
-   * remote playback end. Refine here (e.g. remote audio analyser) when idle/resume
-   * timing needs to track speaker output precisely.
+   * True while the meta-agent is audibly speaking (playback-based via subtitle timings).
    */
   agentSpeaking: boolean;
   /** Open or close the mic track (track.enabled). No-op if not yet connected. */

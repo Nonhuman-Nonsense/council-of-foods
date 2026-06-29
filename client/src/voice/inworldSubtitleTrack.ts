@@ -47,6 +47,11 @@ export type InworldSubtitleTrack = {
    * is still streaming in.
    */
   isPendingComplete: () => boolean;
+  /**
+   * Best-known end of audible playback in seconds from the audio anchor.
+   * Grows monotonically as alignment chunks arrive; null when nothing is known yet.
+   */
+  getPlaybackEndSec: () => number | null;
   /** Reset for a new response (response.created or cancel). */
   reset: () => void;
 };
@@ -81,6 +86,11 @@ function flushBuffer(
 
   // Next sentence's offset starts at this sentence's end.
   return end;
+}
+
+function pendingEndSec(buffer: InworldWordToken[], offset: number): number | null {
+  if (buffer.length === 0) return null;
+  return offset + (buffer[buffer.length - 1]?.e ?? 0);
 }
 
 export function createInworldSubtitleTrack(
@@ -127,6 +137,12 @@ export function createInworldSubtitleTrack(
       }
       return false;
     },
+    getPlaybackEndSec: () => {
+      const flushedEnd = sentences.length > 0 ? sentences[sentences.length - 1]!.end : null;
+      const pendingEnd = pendingEndSec(currentBuffer, segmentOffset);
+      if (flushedEnd != null && pendingEnd != null) return Math.max(flushedEnd, pendingEnd);
+      return pendingEnd ?? flushedEnd;
+    },
     reset: () => {
       sentences = [];
       currentBuffer = [];
@@ -153,4 +169,21 @@ export function findActiveSentenceAtTime(
     }
   }
   return active;
+}
+
+/**
+ * Whether the agent should be considered audibly speaking for an Inworld turn.
+ * Anchor set with unknown end (option A) → true until playback passes endSec.
+ */
+export function computeInworldAgentSpeaking(params: {
+  anchorSet: boolean;
+  playbackSec: number | null;
+  endSec: number | null;
+  responseCancelled: boolean;
+}): boolean {
+  if (params.responseCancelled) return false;
+  if (!params.anchorSet) return false;
+  if (params.endSec == null) return true;
+  if (params.playbackSec == null) return true;
+  return params.playbackSec < params.endSec;
 }

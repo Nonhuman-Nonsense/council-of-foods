@@ -15,6 +15,7 @@ import type { RealtimeTool, ToolHandler } from "@voice/guideTools";
 import { createCaptionScheduler } from "@voice/captionScheduler";
 import { createRemoteAudioAnchor, type RemoteAudioAnchor } from "@voice/remoteAudioAnchor";
 import {
+  computeInworldAgentSpeaking,
   createInworldSubtitleTrack,
   findActiveSentenceAtTime,
   type InworldSubtitleTrack,
@@ -51,7 +52,7 @@ export type UseRealtimeVoiceSessionParams = {
   authHeaders?: Record<string, string>;
   /** Push-to-talk: mic track starts disabled; open via `setMicEnabled`. */
   pttMic?: boolean;
-  /** Expose `agentSpeaking` between response.created and response.done. */
+  /** Expose `agentSpeaking` while agent audio is playing (Inworld: subtitle clock; else: response lifecycle). */
   trackAgentSpeaking?: boolean;
   /** Voice-guide: optional remote audio sink (created on body if absent). */
   audioElement?: HTMLAudioElement | null;
@@ -296,6 +297,10 @@ export function useRealtimeVoiceSession(
       subtitleTrackRef.current = subtitleTrack;
       responseAudioAnchorCtxSecRef.current = null;
 
+      const usePlaybackSpeaking = provider === "inworld" && trackAgentSpeaking;
+      let lastAgentSpeaking = false;
+      let responseCancelled = false;
+
       // RAF loop: drive caption from alignment + AudioContext clock.
       // AudioContext.currentTime advances at the hardware sample rate and never
       // freezes during WebRTC DTX silence, unlike HTMLAudioElement.currentTime.
@@ -332,6 +337,21 @@ export function useRealtimeVoiceSession(
               lastDisplayedText = text;
               setLastCaption(text);
               realtimeDebugLog(`[SUBS] DISPLAY ${text ? `"${text.slice(0, 60)}"` : "null"} playbackSec=${playbackSec.toFixed(3)} ctxTime=${anchor.getCtxTime().toFixed(3)}`);
+            }
+
+            if (usePlaybackSpeaking) {
+              const endSec = subtitleTrack.getPlaybackEndSec();
+              const shouldSpeak = computeInworldAgentSpeaking({
+                anchorSet: true,
+                playbackSec,
+                endSec,
+                responseCancelled,
+              });
+              if (shouldSpeak !== lastAgentSpeaking) {
+                lastAgentSpeaking = shouldSpeak;
+                setAgentSpeaking(shouldSpeak);
+                realtimeDebugLog(`[SUBS] SPEAKING ${shouldSpeak} playbackSec=${playbackSec.toFixed(3)} endSec=${endSec?.toFixed(3) ?? "null"}`);
+              }
             }
           }
         }
@@ -377,7 +397,14 @@ export function useRealtimeVoiceSession(
             if (!isStale()) subtitleTrack.applyChunk(contentIndex, words);
           },
           onResponseStarted: () => {
-            if (trackAgentSpeaking && !isStale()) setAgentSpeaking(true);
+            if (trackAgentSpeaking && provider !== "inworld" && !isStale()) {
+              setAgentSpeaking(true);
+            }
+            if (usePlaybackSpeaking && !isStale()) {
+              lastAgentSpeaking = false;
+              responseCancelled = false;
+              setAgentSpeaking(false);
+            }
             clearAudioAnchorFallback();
             remoteAudioAnchorRef.current?.arm(true);
             subtitleTrack.reset();
@@ -385,8 +412,22 @@ export function useRealtimeVoiceSession(
             if (!isStale()) setLastCaption(null);
             realtimeDebugLog(`[SUBS] RESET (response.created) ctxTime=${remoteAudioAnchorRef.current?.getCtxTime().toFixed(3) ?? "n/a"}`);
           },
-          onResponseDone: () => {
-            if (trackAgentSpeaking && !isStale()) setAgentSpeaking(false);
+          onResponseDone: (info) => {
+            if (trackAgentSpeaking && provider !== "inworld" && !isStale()) {
+              setAgentSpeaking(false);
+            }
+            if (usePlaybackSpeaking && !isStale()) {
+              const cancelled = info?.status === "cancelled" || info?.status === "failed";
+              if (cancelled) {
+                responseCancelled = true;
+                lastAgentSpeaking = false;
+                setAgentSpeaking(false);
+              } else if (subtitleTrack.getPlaybackEndSec() == null) {
+                // Safety: response finished but no alignment ever arrived.
+                lastAgentSpeaking = false;
+                setAgentSpeaking(false);
+              }
+            }
             if (responseAudioAnchorCtxSecRef.current == null) {
               realtimeDebugLog("[SUBS] WARN: response.done but anchor was never set — no captions shown");
             }
