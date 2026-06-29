@@ -63,10 +63,6 @@ vi.mock('@council/humanInput/LiveAudioVisualizer', () => ({
     LiveAudioVisualizerPair: () => <div data-testid="visualizer" />
 }));
 
-vi.mock('react-lottie-player', () => ({
-    default: () => <div data-testid="lottie-loading" />
-}));
-
 vi.mock('@council/ConversationControlIcon', () => ({
     default: ({ icon, onClick }) => (
         <button data-testid={`icon-${icon}`} onClick={onClick}>{icon}</button>
@@ -200,7 +196,7 @@ describe('HumanInput Component', () => {
         );
 
         // Should be in connecting state (lottie shown, no mic button)
-        expect(screen.getByTestId('lottie-loading')).toBeInTheDocument();
+        expect(screen.getByTestId('lottie-player')).toBeInTheDocument();
         expect(screen.queryByTestId('icon-record_voice_off')).not.toBeInTheDocument();
 
         // Resolve the connection
@@ -411,7 +407,7 @@ describe('HumanInput Component', () => {
 
         expect(consoleError).not.toHaveBeenCalled();
         // Stays in loading (idle loop) — lottie is visible
-        expect(screen.getByTestId('lottie-loading')).toBeInTheDocument();
+        expect(screen.getByTestId('lottie-player')).toBeInTheDocument();
     });
 
     it('should surface non-abort startup failures and auto-retry', async () => {
@@ -570,7 +566,7 @@ describe('HumanInput PTT museum mode', () => {
         // In PTT mode, loading spinner shows only during "connecting".
         // Wait for it to disappear (ready state reached).
         await waitFor(() => {
-            expect(screen.queryByTestId('lottie-loading')).not.toBeInTheDocument();
+            expect(screen.queryByTestId('lottie-player')).not.toBeInTheDocument();
         });
         return result;
     }
@@ -626,12 +622,12 @@ describe('HumanInput PTT museum mode', () => {
             />
         );
 
-        expect(screen.getByTestId('lottie-loading')).toBeInTheDocument();
+        expect(screen.getByTestId('lottie-player')).toBeInTheDocument();
 
         pending.resolve({ pc: {}, dc: {}, micStream: createMockMicStream(), close: vi.fn() });
 
         await waitFor(() => {
-            expect(screen.queryByTestId('lottie-loading')).not.toBeInTheDocument();
+            expect(screen.queryByTestId('lottie-player')).not.toBeInTheDocument();
         });
     });
 
@@ -690,7 +686,7 @@ describe('HumanInput PTT museum mode', () => {
         );
 
         // Still connecting — button is held down by the user
-        expect(screen.getByTestId('lottie-loading')).toBeInTheDocument();
+        expect(screen.getByTestId('lottie-player')).toBeInTheDocument();
         setMockPressed(true);
 
         // Now the connection resolves (connecting → ready)
