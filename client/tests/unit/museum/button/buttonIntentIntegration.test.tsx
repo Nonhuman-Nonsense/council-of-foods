@@ -90,7 +90,7 @@ describe("button claim integration (Council order)", () => {
     expect(useButtonStore.getState().buttonOwner).toBe("human-input");
   });
 
-  it("keeps human-input as button owner when warm → active while button is held", () => {
+  it("does not carry press to human-input when warm → active while button is held", () => {
     const { rerender } = render(<CouncilButtonClaims phase="warm" />);
 
     act(() => {
@@ -98,8 +98,32 @@ describe("button claim integration (Council order)", () => {
       useButtonStore.getState().syncPressed("button");
     });
     expect(useButtonStore.getState().buttonOwner).toBe("meta-agent");
+    expect(useButtonStore.getState().pressed).toBe(true);
 
     rerender(<CouncilButtonClaims phase="active" />);
+
+    expect(useButtonStore.getState().buttonOwner).toBe("human-input");
+    expect(useButtonStore.getState().pressed).toBe(false);
+    expect(useButtonStore.getState().ignoreDownUntilRelease).toBe(true);
+  });
+
+  it("routes a fresh press to human-input after warm → active handoff", () => {
+    const { rerender } = render(<CouncilButtonClaims phase="warm" />);
+
+    act(() => {
+      useButtonStore.setState({ hardwareDown: true, ledMode: "pulse" });
+      useButtonStore.getState().syncPressed("button");
+    });
+
+    rerender(<CouncilButtonClaims phase="active" />);
+    expect(useButtonStore.getState().pressed).toBe(false);
+
+    act(() => {
+      useButtonStore.setState({ hardwareDown: false });
+      useButtonStore.getState().syncPressed("button");
+      useButtonStore.setState({ hardwareDown: true });
+      useButtonStore.getState().syncPressed("button");
+    });
 
     expect(useButtonStore.getState().buttonOwner).toBe("human-input");
     expect(useButtonStore.getState().pressed).toBe(true);

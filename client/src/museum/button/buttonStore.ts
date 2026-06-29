@@ -51,6 +51,8 @@ export function resolveAppliedLedMode(
 
 type ButtonStore = {
   pressed: boolean;
+  /** When true, held input is ignored until all keys/buttons release (owner handoff). */
+  ignoreDownUntilRelease: boolean;
   keyboardDown: boolean;
   hardwareDown: boolean;
   ledMode: ButtonLedMode;
@@ -89,8 +91,16 @@ function recomputePressed(
   get: () => ButtonStore,
   source?: "keyboard" | "button",
 ): void {
-  const { ledMode, keyboardDown, hardwareDown, pressed: prevPressed } = get();
-  const pressed = ledMode !== "off" && (keyboardDown || hardwareDown);
+  const {
+    ledMode,
+    keyboardDown,
+    hardwareDown,
+    pressed: prevPressed,
+    ignoreDownUntilRelease,
+  } = get();
+  const inputDown = keyboardDown || hardwareDown;
+  const ignore = inputDown ? ignoreDownUntilRelease : false;
+  const pressed = !ignore && ledMode !== "off" && inputDown;
 
   if (prevPressed !== pressed && source) {
     log.event("BUTTON", pressed ? "press" : "release", {
@@ -99,7 +109,7 @@ function recomputePressed(
     });
   }
 
-  const updates: Partial<ButtonStore> = { pressed };
+  const updates: Partial<ButtonStore> = { pressed, ignoreDownUntilRelease: ignore };
   if (source === "keyboard") {
     updates.keyboardActive = pressed && keyboardDown;
   }
@@ -207,15 +217,25 @@ function recomputeButtonRouting(
   const prevOwner = get().buttonOwner;
   const buttonOwner = mergeButtonOwner(claims);
   const ledMode = resolveAppliedLedMode(ledModes, buttonOwner);
+  const { keyboardDown, hardwareDown } = get();
+  const inputDown = keyboardDown || hardwareDown;
+  let ignoreDownUntilRelease = get().ignoreDownUntilRelease;
   if (prevOwner !== buttonOwner) {
     log.event("BUTTON", "owner change", { from: prevOwner, to: buttonOwner });
+    if (prevOwner != null && inputDown) {
+      ignoreDownUntilRelease = true;
+      log.event("BUTTON", "suppress carryover", { from: prevOwner, to: buttonOwner });
+    } else if (!inputDown) {
+      ignoreDownUntilRelease = false;
+    }
   }
-  set({ claims, ledModes, buttonOwner });
+  set({ claims, ledModes, buttonOwner, ignoreDownUntilRelease });
   void applyLedMode(set, get, ledMode);
 }
 
 export const useButtonStore = create<ButtonStore>((set, get) => ({
   pressed: false,
+  ignoreDownUntilRelease: false,
   keyboardDown: false,
   hardwareDown: false,
   ledMode: "off",
@@ -286,6 +306,7 @@ export const useButtonStore = create<ButtonStore>((set, get) => ({
   dispose: () => {
     set({
       pressed: false,
+      ignoreDownUntilRelease: false,
       keyboardDown: false,
       hardwareDown: false,
       ledMode: "off",
@@ -303,6 +324,7 @@ export function _resetButtonStoreForTests(): void {
   keyboardInitialized = false;
   useButtonStore.setState({
     pressed: false,
+    ignoreDownUntilRelease: false,
     keyboardDown: false,
     hardwareDown: false,
     ledMode: "off",
