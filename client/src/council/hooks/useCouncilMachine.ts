@@ -12,6 +12,7 @@ import type { SetUnrecoverableError } from "@main/overlay/CouncilError";
 import { notifyAutoplay } from "@/autoplay/autoplayStore";
 import type { MetaAgentPhase } from "@museum/metaAgent/useMetaAgent";
 import type { AgentMode } from "@/settings/councilSettings";
+import { useDocumentVisibility } from "@/utils";
 
 /** Keep the loading UI visible this long on first paint so the Loading animation can run. */
 const MIN_INITIAL_LOADING_DISPLAY_MS = import.meta.env.VITEST ? 0 : 2000;
@@ -34,6 +35,7 @@ export interface UseCouncilMachineProps {
     isMuseumMode: boolean;
     agentMode: AgentMode;
     setMetaAgentPhase: React.Dispatch<React.SetStateAction<MetaAgentPhase>>;
+    metaAgentPhase: MetaAgentPhase;
 }
 
 export type CouncilState =
@@ -64,9 +66,11 @@ export function useCouncilMachine({
     isMuseumMode,
     agentMode,
     setMetaAgentPhase,
+    metaAgentPhase,
 }: UseCouncilMachineProps) {
 
     const { t } = useTranslation();
+    const isDocumentVisible = useDocumentVisibility();
 
     /* -------------------------------------------------------------------------- */
     /*                             Main State Variables                           */
@@ -561,6 +565,7 @@ export function useCouncilMachine({
         const queryExtensionIndex = textMessages.findIndex((m) => m.type === 'query_extension');
         setTextMessages(prevMessages => prevMessages.slice(0, queryExtensionIndex));
         setActiveOverlay(null);
+        setPaused(false);
         const browserDate = new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
         if (socketRef.current) socketRef.current.emit("conclude_meeting", { date: browserDate });
         setCouncilState('loading');
@@ -709,16 +714,68 @@ export function useCouncilMachine({
         }
     }, [isRaisedHand]);
 
-    // Pause Logic
+    // Auto-pause / auto-resume for meeting playback (split into three effects).
+    //
+    // Council overlays (name, incomplete, query_extension) pause on show; dismissing them
+    // without acting should stay paused — resume only via their action handlers.
+    //
+    // Environmental interrupts (hash overlays, tab hidden, socket drop) also pause automatically.
+    // Resume rules:
+    // - Web: reconnect only (play button handles hash dismiss etc.).
+    // - Museum: resume when all environmental interrupts are gone (controls are hidden).
+
     useEffect(() => {
-        if (activeOverlay !== null && activeOverlay !== "summary" && !isPaused) {
-            setPaused(true);
-        } else if (location.hash && !isPaused) {
-            setPaused(true);
-        } else if (connectionError) {
+        const overlayPause = activeOverlay !== null && activeOverlay !== "summary";
+        const hashPause = Boolean(location.hash);
+        const connectionPause = connectionError;
+        const visibilityPause = !isDocumentVisible && metaAgentPhase === "inactive";
+
+        if ((overlayPause || hashPause || connectionPause || visibilityPause) && !isPaused) {
             setPaused(true);
         }
-    }, [isPaused, activeOverlay, location, connectionError, setPaused]);
+    }, [
+        isPaused,
+        activeOverlay,
+        location.hash,
+        connectionError,
+        isDocumentVisible,
+        metaAgentPhase,
+        setPaused,
+    ]);
+
+    // Museum resume: only environmental deps — activeOverlay omitted so overlay dismiss (X)
+    // does not trigger auto-resume. Stacked interrupts (e.g. #setup + hidden tab) resume only
+    // when hash, connection, and visibility are all clear again.
+    useEffect(() => {
+        if (!isMuseumMode || !isPaused) {
+            return;
+        }
+
+        const hashPause = Boolean(location.hash);
+        const connectionPause = connectionError;
+        const visibilityPause = !isDocumentVisible && metaAgentPhase === "inactive";
+        if (hashPause || connectionPause || visibilityPause) {
+            return;
+        }
+
+        setPaused(false);
+    }, [
+        location.hash,
+        connectionError,
+        isDocumentVisible,
+        metaAgentPhase,
+        isMuseumMode,
+        isPaused,
+        setPaused,
+    ]);
+
+    // Web reconnect resume: only connectionError in deps so manual pause does not re-trigger this.
+    useEffect(() => {
+        if (isPaused && !connectionError) {
+            setPaused(false);
+        }
+        // isPaused intentionally omitted — only resume when connectionError transitions.
+    }, [connectionError, setPaused]);
 
     useEffect(() => {
         if (councilState === 'waiting') {

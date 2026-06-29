@@ -19,6 +19,11 @@ vi.mock('react-i18next', () => ({
     useTranslation: () => ({ i18n: { language: 'en' }, t: (key: string) => key }),
 }));
 
+const mockUseDocumentVisibility = vi.fn().mockReturnValue(true);
+vi.mock('@/utils', () => ({
+    useDocumentVisibility: () => mockUseDocumentVisibility(),
+}));
+
 vi.mock('@/routing', () => ({
     useRouting: () => ({
         newMeetingPath: '/new',
@@ -86,7 +91,10 @@ describe('useCouncilMachine', () => {
             isMuseumMode: false,
             agentMode: "off",
             setMetaAgentPhase: vi.fn(),
+            metaAgentPhase: "inactive",
         };
+        mockUseLocation.mockReturnValue({ hash: '', pathname: '/meeting/1' });
+        mockUseDocumentVisibility.mockReturnValue(true);
     });
 
     it('initializes with loading state', () => {
@@ -168,13 +176,550 @@ describe('useCouncilMachine', () => {
         expect(mockNavigate).not.toHaveBeenCalled();
     });
 
-    it('auto-pauses when location hash is set', () => {
-        const setPaused = vi.fn();
-        mockUseLocation.mockReturnValue({ hash: '#about', pathname: '/meeting/1' });
+    describe('auto-pause / auto-resume', () => {
+        it('auto-pauses when location hash is set', () => {
+            const setPaused = vi.fn();
+            mockUseLocation.mockReturnValue({ hash: '#about', pathname: '/meeting/1' });
 
-        renderHook(() => useCouncilMachine({ ...defaultProps, isPaused: false, setPaused }));
+            renderHook(() => useCouncilMachine({ ...defaultProps, isPaused: false, setPaused }));
 
-        expect(setPaused).toHaveBeenCalledWith(true);
+            expect(setPaused).toHaveBeenCalledWith(true);
+        });
+
+        it('auto-pauses when connection error is set', () => {
+            const setPaused = vi.fn();
+
+            renderHook(() =>
+                useCouncilMachine({
+                    ...defaultProps,
+                    isPaused: false,
+                    connectionError: true,
+                    setPaused,
+                }),
+            );
+
+            expect(setPaused).toHaveBeenCalledWith(true);
+        });
+
+        it('auto-pauses when tab is hidden and meta-agent is inactive', () => {
+            const setPaused = vi.fn();
+            mockUseDocumentVisibility.mockReturnValue(false);
+
+            renderHook(() => useCouncilMachine({ ...defaultProps, isPaused: false, setPaused }));
+
+            expect(setPaused).toHaveBeenCalledWith(true);
+        });
+
+        it('does not auto-pause when tab is hidden but meta-agent is active', () => {
+            const setPaused = vi.fn();
+            mockUseDocumentVisibility.mockReturnValue(false);
+
+            renderHook(() =>
+                useCouncilMachine({
+                    ...defaultProps,
+                    isPaused: false,
+                    metaAgentPhase: 'extension',
+                    setPaused,
+                }),
+            );
+
+            expect(setPaused).not.toHaveBeenCalled();
+        });
+
+        it('auto-pauses when a council overlay opens', () => {
+            const setPaused = vi.fn();
+            renderHook(() => useCouncilMachine({ ...defaultProps, isPaused: false, setPaused }));
+
+            act(() => {
+                socketHandlers.onConversationUpdate?.([{ type: 'query_extension' }]);
+            });
+
+            expect(setPaused).toHaveBeenCalledWith(true);
+        });
+
+        it('auto-pauses when name overlay opens', () => {
+            const setPaused = vi.fn();
+            const { result } = renderHook(() =>
+                useCouncilMachine({ ...defaultProps, isPaused: false, setPaused }),
+            );
+
+            act(() => {
+                result.current.actions.handleOnRaiseHand();
+            });
+
+            expect(result.current.state.activeOverlay).toBe('name');
+            expect(setPaused).toHaveBeenCalledWith(true);
+        });
+
+        it('does not auto-pause for summary overlay', async () => {
+            vi.useFakeTimers();
+            const setPaused = vi.fn();
+            const { result } = renderHook(() =>
+                useCouncilMachine({
+                    ...defaultProps,
+                    currentMeetingId: 100,
+                    isPaused: false,
+                    setPaused,
+                } as any),
+            );
+
+            audioContextMock.current.decodeAudioData.mockResolvedValue('fake-buffer');
+            await act(async () => {
+                socketHandlers.onConversationUpdate?.([
+                    { id: '1', text: 'Hello', speaker: 'banana', type: 'message' },
+                ]);
+                socketHandlers.onAudioUpdate?.({ id: '1', audio: new ArrayBuffer(8) });
+            });
+
+            act(() => {
+                socketHandlers.onConversationUpdate?.([
+                    { id: '1', text: 'Hello', speaker: 'banana', type: 'message' },
+                    { id: 'sum1', text: 'Summary', speaker: 'water', type: 'summary' },
+                ]);
+            });
+
+            act(() => {
+                vi.advanceTimersByTime(400);
+            });
+            setPaused.mockClear();
+
+            act(() => {
+                result.current.actions.handleOnFinishedPlaying();
+            });
+            act(() => {
+                vi.advanceTimersByTime(400);
+            });
+
+            expect(result.current.state.councilState).toBe('summary');
+            expect(result.current.state.activeOverlay).toBe('summary');
+            expect(setPaused).not.toHaveBeenCalled();
+
+            vi.useRealTimers();
+        });
+
+        it('resumes in museum mode when hash overlay is dismissed', () => {
+            const setPaused = vi.fn();
+            mockUseLocation.mockReturnValue({ hash: '#setup', pathname: '/meeting/1' });
+
+            const { rerender } = renderHook(
+                (props) => useCouncilMachine(props),
+                {
+                    initialProps: {
+                        ...defaultProps,
+                        isPaused: true,
+                        isMuseumMode: true,
+                        setPaused,
+                    },
+                },
+            );
+
+            setPaused.mockClear();
+            mockUseLocation.mockReturnValue({ hash: '', pathname: '/meeting/1' });
+            rerender({
+                ...defaultProps,
+                isPaused: true,
+                isMuseumMode: true,
+                setPaused,
+            });
+
+            expect(setPaused).toHaveBeenCalledWith(false);
+        });
+
+        it('resumes in museum mode when a manual hash overlay is dismissed', () => {
+            const setPaused = vi.fn();
+            mockUseLocation.mockReturnValue({ hash: '#about', pathname: '/meeting/1' });
+
+            const { rerender } = renderHook(
+                (props) => useCouncilMachine(props),
+                {
+                    initialProps: {
+                        ...defaultProps,
+                        isPaused: true,
+                        isMuseumMode: true,
+                        setPaused,
+                    },
+                },
+            );
+
+            setPaused.mockClear();
+            mockUseLocation.mockReturnValue({ hash: '', pathname: '/meeting/1' });
+            rerender({
+                ...defaultProps,
+                isPaused: true,
+                isMuseumMode: true,
+                setPaused,
+            });
+
+            expect(setPaused).toHaveBeenCalledWith(false);
+        });
+
+        it('stays paused in web mode when hash overlay is dismissed', () => {
+            const setPaused = vi.fn();
+            mockUseLocation.mockReturnValue({ hash: '#about', pathname: '/meeting/1' });
+
+            const { rerender } = renderHook(
+                (props) => useCouncilMachine(props),
+                {
+                    initialProps: {
+                        ...defaultProps,
+                        isPaused: true,
+                        setPaused,
+                    },
+                },
+            );
+
+            setPaused.mockClear();
+            mockUseLocation.mockReturnValue({ hash: '', pathname: '/meeting/1' });
+            rerender({
+                ...defaultProps,
+                isPaused: true,
+                setPaused,
+            });
+
+            expect(setPaused).not.toHaveBeenCalledWith(false);
+        });
+
+        it('resumes in web and museum when connection error clears', () => {
+            const setPaused = vi.fn();
+
+            const { rerender } = renderHook(
+                (props) => useCouncilMachine(props),
+                {
+                    initialProps: {
+                        ...defaultProps,
+                        isPaused: true,
+                        connectionError: true,
+                        setPaused,
+                    },
+                },
+            );
+
+            setPaused.mockClear();
+            rerender({
+                ...defaultProps,
+                isPaused: true,
+                connectionError: false,
+                setPaused,
+            });
+
+            expect(setPaused).toHaveBeenCalledWith(false);
+        });
+
+        it('resumes in museum mode when connection error clears', () => {
+            const setPaused = vi.fn();
+
+            const { rerender } = renderHook(
+                (props) => useCouncilMachine(props),
+                {
+                    initialProps: {
+                        ...defaultProps,
+                        isPaused: true,
+                        isMuseumMode: true,
+                        connectionError: true,
+                        setPaused,
+                    },
+                },
+            );
+
+            setPaused.mockClear();
+            rerender({
+                ...defaultProps,
+                isPaused: true,
+                isMuseumMode: true,
+                connectionError: false,
+                setPaused,
+            });
+
+            expect(setPaused).toHaveBeenCalledWith(false);
+        });
+
+        it('resumes in museum mode when tab becomes visible again', () => {
+            const setPaused = vi.fn();
+            mockUseDocumentVisibility.mockReturnValue(false);
+
+            const { rerender } = renderHook(
+                (props) => useCouncilMachine(props),
+                {
+                    initialProps: {
+                        ...defaultProps,
+                        isPaused: true,
+                        isMuseumMode: true,
+                        setPaused,
+                    },
+                },
+            );
+
+            setPaused.mockClear();
+            mockUseDocumentVisibility.mockReturnValue(true);
+            rerender({
+                ...defaultProps,
+                isPaused: true,
+                isMuseumMode: true,
+                setPaused,
+            });
+
+            expect(setPaused).toHaveBeenCalledWith(false);
+        });
+
+        it('stays paused in web mode when tab becomes visible again', () => {
+            const setPaused = vi.fn();
+            mockUseDocumentVisibility.mockReturnValue(false);
+
+            const { rerender } = renderHook(
+                (props) => useCouncilMachine(props),
+                {
+                    initialProps: {
+                        ...defaultProps,
+                        isPaused: true,
+                        setPaused,
+                    },
+                },
+            );
+
+            setPaused.mockClear();
+            mockUseDocumentVisibility.mockReturnValue(true);
+            rerender({
+                ...defaultProps,
+                isPaused: true,
+                setPaused,
+            });
+
+            expect(setPaused).not.toHaveBeenCalledWith(false);
+        });
+
+        it('stays paused in museum when hash clears but tab is still hidden', () => {
+            const setPaused = vi.fn();
+            mockUseLocation.mockReturnValue({ hash: '#setup', pathname: '/meeting/1' });
+            mockUseDocumentVisibility.mockReturnValue(false);
+
+            const { rerender } = renderHook(
+                (props) => useCouncilMachine(props),
+                {
+                    initialProps: {
+                        ...defaultProps,
+                        isPaused: true,
+                        isMuseumMode: true,
+                        setPaused,
+                    },
+                },
+            );
+
+            setPaused.mockClear();
+            mockUseLocation.mockReturnValue({ hash: '', pathname: '/meeting/1' });
+            rerender({
+                ...defaultProps,
+                isPaused: true,
+                isMuseumMode: true,
+                setPaused,
+            });
+
+            expect(setPaused).not.toHaveBeenCalledWith(false);
+        });
+
+        it('stays paused in museum when tab refocuses but hash overlay is still open', () => {
+            const setPaused = vi.fn();
+            mockUseLocation.mockReturnValue({ hash: '#setup', pathname: '/meeting/1' });
+            mockUseDocumentVisibility.mockReturnValue(false);
+
+            const { rerender } = renderHook(
+                (props) => useCouncilMachine(props),
+                {
+                    initialProps: {
+                        ...defaultProps,
+                        isPaused: true,
+                        isMuseumMode: true,
+                        setPaused,
+                    },
+                },
+            );
+
+            setPaused.mockClear();
+            mockUseDocumentVisibility.mockReturnValue(true);
+            rerender({
+                ...defaultProps,
+                isPaused: true,
+                isMuseumMode: true,
+                setPaused,
+            });
+
+            expect(setPaused).not.toHaveBeenCalledWith(false);
+        });
+
+        it('resumes in museum when the last stacked environmental interrupt clears', () => {
+            const setPaused = vi.fn();
+            mockUseLocation.mockReturnValue({ hash: '#setup', pathname: '/meeting/1' });
+            mockUseDocumentVisibility.mockReturnValue(false);
+
+            const { rerender } = renderHook(
+                (props) => useCouncilMachine(props),
+                {
+                    initialProps: {
+                        ...defaultProps,
+                        isPaused: true,
+                        isMuseumMode: true,
+                        setPaused,
+                    },
+                },
+            );
+
+            setPaused.mockClear();
+            mockUseDocumentVisibility.mockReturnValue(true);
+            rerender({
+                ...defaultProps,
+                isPaused: true,
+                isMuseumMode: true,
+                setPaused,
+            });
+            expect(setPaused).not.toHaveBeenCalledWith(false);
+
+            setPaused.mockClear();
+            mockUseLocation.mockReturnValue({ hash: '', pathname: '/meeting/1' });
+            rerender({
+                ...defaultProps,
+                isPaused: true,
+                isMuseumMode: true,
+                setPaused,
+            });
+            expect(setPaused).toHaveBeenCalledWith(false);
+        });
+
+        it('stays paused when a council overlay is dismissed without acting', () => {
+            const setPaused = vi.fn();
+            const { result, rerender } = renderHook(
+                (props) => useCouncilMachine(props),
+                {
+                    initialProps: {
+                        ...defaultProps,
+                        isPaused: true,
+                        setPaused,
+                    },
+                },
+            );
+
+            act(() => {
+                if (socketHandlers.onConversationUpdate) {
+                    socketHandlers.onConversationUpdate([
+                        { id: 'm0', type: 'message', text: 'x', speaker: 'water' },
+                        { type: 'query_extension' },
+                    ]);
+                }
+            });
+
+            act(() => {
+                result.current.actions.cancelOverlay();
+            });
+
+            setPaused.mockClear();
+            rerender({
+                ...defaultProps,
+                isPaused: true,
+                setPaused,
+            });
+
+            expect(setPaused).not.toHaveBeenCalledWith(false);
+        });
+
+        it('stays paused when incomplete overlay is dismissed via nevermind', () => {
+            const setPaused = vi.fn();
+            const { result, rerender } = renderHook(
+                (props) => useCouncilMachine(props),
+                {
+                    initialProps: {
+                        ...defaultProps,
+                        isPaused: true,
+                        setPaused,
+                    },
+                },
+            );
+
+            act(() => {
+                socketHandlers.onConversationUpdate?.([
+                    { id: 'm0', type: 'message', text: 'x', speaker: 'water' },
+                    { type: 'meeting_incomplete' },
+                ]);
+            });
+
+            act(() => {
+                result.current.actions.cancelOverlay();
+            });
+
+            setPaused.mockClear();
+            rerender({
+                ...defaultProps,
+                isPaused: true,
+                setPaused,
+            });
+
+            expect(setPaused).not.toHaveBeenCalledWith(false);
+        });
+
+        describe('overlay action handlers resume playback', () => {
+            it('handleOnExtendMeeting resumes playback', () => {
+                const setPaused = vi.fn();
+                const { result } = renderHook(() =>
+                    useCouncilMachine({ ...defaultProps, setPaused } as any),
+                );
+
+                act(() => {
+                    socketHandlers.onConversationUpdate?.([
+                        { id: 'm0', type: 'message', text: 'x', speaker: 'water' },
+                        { type: 'query_extension' },
+                    ]);
+                });
+
+                setPaused.mockClear();
+                act(() => {
+                    result.current.actions.handleOnExtendMeeting();
+                });
+
+                expect(setPaused).toHaveBeenCalledWith(false);
+            });
+
+            it('handleHumanNameEntered resumes playback', () => {
+                const setPaused = vi.fn();
+                const { result } = renderHook(() =>
+                    useCouncilMachine({ ...defaultProps, setPaused } as any),
+                );
+
+                act(() => {
+                    result.current.actions.handleOnRaiseHand();
+                });
+
+                setPaused.mockClear();
+                act(() => {
+                    result.current.actions.handleHumanNameEntered({ humanName: 'Alex' });
+                });
+
+                expect(setPaused).toHaveBeenCalledWith(false);
+            });
+
+            it('handleOnAttemptResume resumes playback before the API call', async () => {
+                const setPaused = vi.fn();
+                mockResumeMeeting.mockRejectedValueOnce(new Error('network'));
+                const { result } = renderHook(() =>
+                    useCouncilMachine({
+                        ...defaultProps,
+                        liveKey: undefined,
+                        currentMeetingId: 77,
+                        setPaused,
+                    } as any),
+                );
+
+                act(() => {
+                    socketHandlers.onConversationUpdate?.([
+                        { id: 'a', text: 'Hi', speaker: 'banana', type: 'message' },
+                        { type: 'meeting_incomplete' },
+                    ]);
+                });
+
+                setPaused.mockClear();
+                await act(async () => {
+                    await result.current.actions.handleOnAttemptResume();
+                });
+
+                expect(setPaused).toHaveBeenCalledWith(false);
+            });
+        });
     });
 
     it('toggles mute state when toggleMute is called', () => {
@@ -280,7 +825,10 @@ describe('useCouncilMachine', () => {
     });
 
     it('handleOnExtendMeeting drops query_extension locally and emits extend_meeting', () => {
-        const { result } = renderHook(() => useCouncilMachine(defaultProps as any));
+        const setPaused = vi.fn();
+        const { result } = renderHook(() =>
+            useCouncilMachine({ ...defaultProps, setPaused } as any),
+        );
         mockSocketEmit.mockClear();
         act(() => {
             if (socketHandlers.onConversationUpdate) {
@@ -296,10 +844,14 @@ describe('useCouncilMachine', () => {
         expect(result.current.state.textMessages.map((m) => m.type)).toEqual(['message']);
         expect(mockSocketEmit).toHaveBeenCalledWith('extend_meeting');
         expect(result.current.state.councilState).toBe('loading');
+        expect(setPaused).toHaveBeenCalledWith(false);
     });
 
     it('handleOnConcludeMeeting drops query_extension locally and emits conclude_meeting', () => {
-        const { result } = renderHook(() => useCouncilMachine(defaultProps as any));
+        const setPaused = vi.fn();
+        const { result } = renderHook(() =>
+            useCouncilMachine({ ...defaultProps, setPaused } as any),
+        );
         mockSocketEmit.mockClear();
         act(() => {
             if (socketHandlers.onConversationUpdate) {
@@ -318,6 +870,7 @@ describe('useCouncilMachine', () => {
             expect.objectContaining({ date: expect.any(String) }),
         );
         expect(result.current.state.councilState).toBe('loading');
+        expect(setPaused).toHaveBeenCalledWith(false);
     });
 
     it('transitions to human_panelist state when awaiting_human_panelist message is next', () => {
