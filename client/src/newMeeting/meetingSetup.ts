@@ -17,8 +17,8 @@ function isPanelistId(id: string): boolean {
 }
 
 /**
- * In museum mode, place human panelist(s) second-to-last in the lineup
- * (before the final food participant, after Water and the other foods).
+ * In museum mode, place human panelist(s) near the middle of the lineup.
+ * When the food count is odd, lean toward the later side (more foods before than after).
  */
 export function orderSelectedCharactersForMuseum(selectedCharacters: string[]): string[] {
   const panelists = selectedCharacters.filter(isPanelistId);
@@ -35,10 +35,8 @@ export function orderSelectedCharactersForMuseum(selectedCharacters: string[]): 
     return [chair, ...panelists];
   }
 
-  const lastFood = foods[foods.length - 1];
-  const foodsBeforeLast = foods.slice(0, -1);
-
-  return [chair, ...foodsBeforeLast, ...panelists, lastFood];
+  const insertAt = Math.ceil(foods.length / 2);
+  return [chair, ...foods.slice(0, insertAt), ...panelists, ...foods.slice(insertAt)];
 }
 
 export type MeetingSetupUserEvent =

@@ -199,14 +199,25 @@ describe("buildMeetingCharactersPayload", () => {
 });
 
 describe("orderSelectedCharactersForMuseum", () => {
-  it("places panelist second-to-last before the final food", () => {
+  it("places panelist near the middle, leaning later when food count is odd", () => {
+    expect(
+      orderSelectedCharactersForMuseum(["chair", "food-a", "panelist0", "food-b"])
+    ).toEqual(["chair", "food-a", "panelist0", "food-b"]);
+
     expect(
       orderSelectedCharactersForMuseum(["chair", "food-a", "food-b", "panelist0", "food-c"])
     ).toEqual(["chair", "food-a", "food-b", "panelist0", "food-c"]);
 
     expect(
-      orderSelectedCharactersForMuseum(["chair", "food-a", "panelist0", "food-b"])
-    ).toEqual(["chair", "food-a", "panelist0", "food-b"]);
+      orderSelectedCharactersForMuseum([
+        "chair",
+        "food-a",
+        "food-b",
+        "panelist0",
+        "food-c",
+        "food-d",
+      ])
+    ).toEqual(["chair", "food-a", "food-b", "panelist0", "food-c", "food-d"]);
   });
 
   it("returns unchanged when no panelists are selected", () => {
