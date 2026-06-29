@@ -256,4 +256,56 @@ describe("useButtonStore", () => {
     expect(useButtonStore.getState().hardwareDown).toBe(true);
     expect(useButtonStore.getState().pressed).toBe(true);
   });
+
+  it("does not carry pressed state to the next owner while input is held", async () => {
+    useButtonStore.setState({ bridgeStatus: "connected" });
+    useButtonStore.getState().claimButton("autoplay");
+    useButtonStore.getState().setButtonLed("autoplay", "pulse");
+    useButtonStore.getState().claimButton("meta-agent");
+    useButtonStore.getState().setButtonLed("meta-agent", "pulse");
+    await Promise.resolve();
+
+    transport.callbacks?.onLine?.({ type: "button_down" });
+    expect(useButtonStore.getState().buttonOwner).toBe("autoplay");
+    expect(useButtonStore.getState().pressed).toBe(true);
+
+    useButtonStore.getState().releaseButton("autoplay");
+    await Promise.resolve();
+
+    expect(useButtonStore.getState().buttonOwner).toBe("meta-agent");
+    expect(useButtonStore.getState().hardwareDown).toBe(true);
+    expect(useButtonStore.getState().pressed).toBe(false);
+    expect(useButtonStore.getState().ignoreDownUntilRelease).toBe(true);
+  });
+
+  it("accepts a fresh press from the new owner after release", async () => {
+    useButtonStore.setState({ bridgeStatus: "connected" });
+    useButtonStore.getState().claimButton("autoplay");
+    useButtonStore.getState().setButtonLed("autoplay", "pulse");
+    useButtonStore.getState().claimButton("meta-agent");
+    useButtonStore.getState().setButtonLed("meta-agent", "pulse");
+    await Promise.resolve();
+
+    transport.callbacks?.onLine?.({ type: "button_down" });
+    useButtonStore.getState().releaseButton("autoplay");
+    await Promise.resolve();
+    expect(useButtonStore.getState().pressed).toBe(false);
+
+    transport.callbacks?.onLine?.({ type: "button_up" });
+    expect(useButtonStore.getState().ignoreDownUntilRelease).toBe(false);
+
+    transport.callbacks?.onLine?.({ type: "button_down" });
+    expect(useButtonStore.getState().buttonOwner).toBe("meta-agent");
+    expect(useButtonStore.getState().pressed).toBe(true);
+  });
+
+  it("autoplay wins over meta-agent when both claim", async () => {
+    useButtonStore.setState({ bridgeStatus: "connected" });
+    useButtonStore.getState().claimButton("meta-agent");
+    useButtonStore.getState().setButtonLed("meta-agent", "pulse");
+    useButtonStore.getState().claimButton("autoplay");
+    useButtonStore.getState().setButtonLed("autoplay", "pulse");
+    await Promise.resolve();
+    expect(useButtonStore.getState().buttonOwner).toBe("autoplay");
+  });
 });
