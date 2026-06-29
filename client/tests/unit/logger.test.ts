@@ -9,15 +9,17 @@ vi.mock("@/settings/councilSettings", () => ({
   isDevLogCategoryEnabled: (category: string) => mockIsDevLogCategoryEnabled(category),
 }));
 
-describe("logger (prod alias in vitest)", () => {
+describe("logger", () => {
   beforeEach(() => {
-    vi.restoreAllMocks();
+    mockGetDevLogEnabled.mockReturnValue(false);
+    mockIsDevLogCategoryEnabled.mockReturnValue(false);
   });
 
-  it("log.event is a no-op under vitest alias", () => {
-    const groupSpy = vi.spyOn(console, "groupCollapsed");
+  it("log.event is a no-op when master logging is off", () => {
+    const groupSpy = vi.spyOn(console, "groupCollapsed").mockImplementation(() => undefined);
     log.event("API", "GET /api/meetings");
     expect(groupSpy).not.toHaveBeenCalled();
+    groupSpy.mockRestore();
   });
 });
 
@@ -35,14 +37,14 @@ describe("summarizeLogPayload", () => {
   });
 });
 
-describe("logEvent (real logger)", () => {
-  let logEvent: typeof import("../../src/logger.dev").logEvent;
+describe("logEvent", () => {
+  let logEvent: typeof import("../../src/logger").logEvent;
 
   beforeEach(async () => {
     vi.resetModules();
     mockGetDevLogEnabled.mockReturnValue(true);
     mockIsDevLogCategoryEnabled.mockReturnValue(true);
-    const mod = await import("../../src/logger.dev");
+    const mod = await import("../../src/logger");
     logEvent = mod.logEvent;
   });
 
@@ -85,8 +87,8 @@ describe("logEvent (real logger)", () => {
   });
 });
 
-describe("reportTerminalError (prod alias in vitest)", () => {
-  it("does not POST client reports under vitest", async () => {
+describe("reportTerminalError", () => {
+  it("does not POST client reports outside production", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(null, { status: 204 }));
     const { reportTerminalError } = await import("@/logger");
     reportTerminalError("test.source", "boom", new Error("cause"));

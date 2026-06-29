@@ -5,11 +5,7 @@ import {
 } from "@/settings/councilSettings";
 
 function shouldLogApi(): boolean {
-  return (
-    import.meta.env.DEV &&
-    getDevLogEnabled() &&
-    isDevLogCategoryEnabled("API")
-  );
+  return getDevLogEnabled() && isDevLogCategoryEnabled("API");
 }
 
 function requestPath(input: RequestInfo | URL): string {
@@ -84,7 +80,7 @@ export async function councilFetch(
       ok: res.ok,
       body,
     });
-    if (!res.ok && import.meta.env.DEV && !shouldLogApi()) {
+    if (!res.ok && !shouldLogApi()) {
       console.warn(`[Council] HTTP ${method} ${path} ${res.status}`, body);
     }
     return res;

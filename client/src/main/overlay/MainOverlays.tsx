@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router";
 import { isMeetingPath, isRootPath } from "@/routing";
 
@@ -6,11 +6,12 @@ import OverlayWrapper from './OverlayWrapper';
 import Overlay from "./Overlay";
 import About from "./About";
 import Contact from "./Contact";
-import Setup from "./Setup";
 import ResetWarning from "./ResetWarning";
 import SelectTopic from "@newMeeting/SelectTopic";
 import type { Topic } from "@shared/ModelTypes";
 import { useTranslation } from "react-i18next";
+
+const Setup = lazy(() => import("./Setup"));
 
 interface MainOverlaysProps {
   topic: Topic | null;
@@ -64,7 +65,11 @@ function MainOverlays({ topic, onReset, onCloseOverlay }: MainOverlaysProps): Re
       case "#contact":
         return <Contact />;
       case "#setup":
-        return <Setup />;
+        return (
+          <Suspense fallback={null}>
+            <Setup />
+          </Suspense>
+        );
       case "#settings":
         return (
           <SelectTopic

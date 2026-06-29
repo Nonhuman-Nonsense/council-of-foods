@@ -16,9 +16,6 @@
         "noEmit": true,
         "jsx": "react-jsx",
         "paths": {
-            "@/logger": [
-                "./src/logger.prod.ts"
-            ],
             "@/*": [
                 "./src/*"
             ],

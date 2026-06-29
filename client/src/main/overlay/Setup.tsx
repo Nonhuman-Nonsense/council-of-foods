@@ -352,7 +352,6 @@ function Setup(): ReactElement {
     bridgeHealth.status === "running" ? getSetupBridgeDetailLines(bridgeHealth) : [];
 
   const showButtonPanel = agentMode === "ptt" && appMode === "museum";
-  const showLoggingPanel = import.meta.env.DEV;
   const showLedPreviewPill = import.meta.env.DEV && agentMode === "ptt";
   const showButtonDetails =
     showButtonPanel &&
@@ -518,8 +517,7 @@ function Setup(): ReactElement {
           </SetupPanel>
         ) : null}
 
-        {showLoggingPanel ? (
-          <SetupPanel title={t("setup.panels.logging")} testId="setup-logging-panel">
+        <SetupPanel title={t("setup.panels.logging")} testId="setup-logging-panel">
             <SetupSegmented testId="setup-logging-master">
               <button
                 type="button"
@@ -600,7 +598,6 @@ function Setup(): ReactElement {
               ))}
             </div>
           </SetupPanel>
-        ) : null}
       </div>
     </div>
   );

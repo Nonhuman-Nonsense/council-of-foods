@@ -132,6 +132,8 @@ const mockUseCouncilSettings = vi.fn(() => ({
 
 vi.mock('@/settings/councilSettings', () => ({
     useCouncilSettings: () => mockUseCouncilSettings(),
+    getDevLogEnabled: () => false,
+    isDevLogCategoryEnabled: () => false,
 }));
 
 
