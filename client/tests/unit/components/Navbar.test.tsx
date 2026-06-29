@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import type { Ref } from 'react';
 import Navbar from '@main/Navbar';
 import { MemoryRouter } from 'react-router';
 import '@testing-library/jest-dom';
@@ -9,21 +8,6 @@ import '@testing-library/jest-dom';
 vi.mock('react-i18next', () => ({
     useTranslation: () => ({ t: (key: string) => key, i18n: { language: 'en' } }),
 }));
-
-vi.mock('react-lottie-player', async () => {
-    const React = await import('react');
-    const { vi } = await import('vitest');
-    return {
-        default: React.forwardRef((props: Record<string, unknown>, ref: Ref<unknown>) => {
-            React.useImperativeHandle(ref, () => ({
-                play: vi.fn(),
-                setDirection: vi.fn(),
-                stop: vi.fn(),
-            }));
-            return <div data-testid="lottie-player" {...props} />;
-        })
-    };
-});
 
 // Mock Utils (Responsive Hooks)
 vi.mock('@/utils', () => ({
