@@ -3,6 +3,9 @@
 > **UI, captions, pause/freeze, and shared voice-session work** are planned in
 > [meta-agent-realtime-ux-plan.md](./meta-agent-realtime-ux-plan.md) (phased
 > implementation). This file keeps bootstrap, server, and early integration context.
+>
+> **Superseded (2026-06):** `metaAgentActive` → `metaAgentPhase` (`'inactive' | 'interruption' | 'extension'`).
+> Soft-cap museum extension: [meeting-conclude-plan.md](./meeting-conclude-plan.md) PR 3. Treat `metaAgentActive` references below as historical.
 
 A museum-only voice agent that runs **during a live council meeting**. The visitor
 presses the hardware button at any time to pause the meeting and talk to the
