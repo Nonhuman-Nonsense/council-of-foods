@@ -38,13 +38,13 @@ const defaultLanguageModels = {
 const defaultOptions = {
   languageModels: JSON.parse(JSON.stringify(defaultLanguageModels)),
   temperature: 1,
-  maxTokens: 200,
-  chairMaxTokens: 250,
+  maxTokens: 400,
+  chairMaxTokens: 400,
   defaultAudioSpeed: 1.15,
 
-  trimSentance: false,
-  trimParagraph: true,
-  trimChairSemicolon: true,
+  trimSentance: true,
+  trimParagraph: false,
+  trimChairSemicolon: false,
 
   conversationMaxLength: 10,
   /** Increment applied server-side on "Extend" (matches server `extraMessageCount`). */
@@ -52,7 +52,7 @@ const defaultOptions = {
   /** Absolute cap for extends (server `meetingVeryMaxLength`); hard cap skips `query_extension` and concludes directly. */
   meetingVeryMaxLength: 30,
   skipAudio: false,
-  directedSpeakerRouting: false,
+  directedSpeakerRouting: true,
 
   language: 'en',
 
