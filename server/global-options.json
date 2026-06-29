@@ -28,7 +28,7 @@
   },
   "panelistInvitationLength": 150,
   "concludeMeetingPrompt": {
-    "en": "The meeting is coming to a close. As chair, say one brief closing line to the council and the visitor — thank them, reflect lightly on the discussion. Say something actually meaningfull, not just empty words. Think about something that would inspire people to take action. End with the words: This concludes Council of Foods meeting #[MEETING_ID]"
+    "en": "The meeting is coming to a close. As chair, say one brief closing line to the council and the visitor — thank them, reflect lightly on the discussion. Say something actually meaningfull, not just empty words. Think about something that would inspire people to take action. End with the words: This concludes Council of Foods meeting #[MEETING_ID]."
   },
   "concludeMeetingLength": 150,
   "summarizeMeetingPrompt": {
