@@ -5,6 +5,7 @@ import HumanInput from '@council/humanInput/HumanInput';
 import { useMobile } from '@/utils';
 import { bootstrapHumanInputRealtimeSession } from '@api/realtimeSession';
 import { createRealtimeConnection } from '@/realtime/realtimeConnection';
+import { BUTTON_BANNER_IDLE_MS } from '@museum/button/useButtonBanner';
 
 const mockClaim = vi.hoisted(() => vi.fn());
 const mockRelease = vi.hoisted(() => vi.fn());
@@ -70,7 +71,14 @@ vi.mock('@council/ConversationControlIcon', () => ({
 }));
 
 vi.mock('@/museum/button/buttonStore', () => ({
-    useButtonStore: (selector) => selector(mockButtonState),
+    useButtonStore: Object.assign(
+        (selector) => selector(mockButtonState),
+        {
+            getState: () => ({
+                setButtonBannerVisible: vi.fn(),
+            }),
+        },
+    ),
 }));
 
 vi.mock('@/museum/button/useButton', async () => {
@@ -851,9 +859,9 @@ describe('HumanInput PTT museum mode', () => {
     });
 });
 
-// ── Museum abandonment timer ───────────────────────────────────────────────────
+// ── PTT abandonment (useButtonBanner) ────────────────────────────────────────
 
-describe('HumanInput museum abandonment timer', () => {
+describe('HumanInput PTT abandonment', () => {
     let mockOnAbandon;
 
     beforeEach(() => {
@@ -908,11 +916,14 @@ describe('HumanInput museum abandonment timer', () => {
         await flushConnectionReady();
     }
 
-    it('fires onAbandonHumanTurn after 60s idle in museum active phase', async () => {
+    it('fires onAbandonHumanTurn after 20s idle in PTT active phase', async () => {
         await renderAbandonReady();
 
         await act(async () => {
-            await vi.advanceTimersByTimeAsync(60_000);
+            await vi.advanceTimersByTimeAsync(BUTTON_BANNER_IDLE_MS);
+        });
+        await act(async () => {
+            await vi.advanceTimersByTimeAsync(BUTTON_BANNER_IDLE_MS);
         });
 
         expect(mockOnAbandon).toHaveBeenCalledTimes(1);
@@ -925,7 +936,7 @@ describe('HumanInput museum abandonment timer', () => {
             setMockPressed(true);
         });
         await act(async () => {
-            await vi.advanceTimersByTimeAsync(60_000);
+            await vi.advanceTimersByTimeAsync(BUTTON_BANNER_IDLE_MS * 2);
         });
 
         expect(mockOnAbandon).not.toHaveBeenCalled();
@@ -938,19 +949,23 @@ describe('HumanInput museum abandonment timer', () => {
             setMockPressed(true);
         });
         await act(async () => {
-            await vi.advanceTimersByTimeAsync(30_000);
+            await vi.advanceTimersByTimeAsync(1_000);
         });
         act(() => {
             setMockPressed(false);
         });
+        // Wait for finishing → ready, then full idle + terminal windows from release.
         await act(async () => {
-            await vi.advanceTimersByTimeAsync(30_000);
+            await vi.advanceTimersByTimeAsync(3_000);
+        });
+        await act(async () => {
+            await vi.advanceTimersByTimeAsync(BUTTON_BANNER_IDLE_MS - 1);
         });
 
         expect(mockOnAbandon).not.toHaveBeenCalled();
 
         await act(async () => {
-            await vi.advanceTimersByTimeAsync(30_000);
+            await vi.advanceTimersByTimeAsync(1 + BUTTON_BANNER_IDLE_MS);
         });
 
         expect(mockOnAbandon).toHaveBeenCalledTimes(1);
@@ -971,13 +986,27 @@ describe('HumanInput museum abandonment timer', () => {
         await flushConnectionReady();
 
         await act(async () => {
-            await vi.advanceTimersByTimeAsync(60_000);
+            await vi.advanceTimersByTimeAsync(BUTTON_BANNER_IDLE_MS * 2);
         });
 
         expect(mockOnAbandon).not.toHaveBeenCalled();
     });
 
-    it('does not run without isButtonMuseumMode', async () => {
+    it('fires in web PTT mode without isButtonMuseumMode', async () => {
+        await renderAbandonReady({ isButtonMuseumMode: false });
+
+        await act(async () => {
+            await vi.advanceTimersByTimeAsync(BUTTON_BANNER_IDLE_MS);
+        });
+        await act(async () => {
+            await vi.advanceTimersByTimeAsync(BUTTON_BANNER_IDLE_MS);
+        });
+
+        expect(mockOnAbandon).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not run when agent mode is not ptt', async () => {
+        mockAgentMode.value = "always-on";
         vi.useRealTimers();
 
         render(

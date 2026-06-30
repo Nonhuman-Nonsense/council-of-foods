@@ -60,7 +60,7 @@ After **2 minutes** in museum mode, `window.location.href = rootPath`. **File:**
 
 ### Human input / panelist abandonment
 
-60s museum PTT idle → `skip_human_turn` → `skipped` + `startLoop()`. **Done.**
+60s museum PTT idle → `skip_human_turn` → `skipped` + `startLoop()`. **Superseded** by [`button-banner-plan.md`](./button-banner-plan.md) PR1: 10s banner + 10s auto skip (20s total), `agentMode === "ptt"`.
 
 ### Meta-agent interruption idle
 

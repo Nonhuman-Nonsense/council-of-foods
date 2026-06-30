@@ -1,5 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { _resetButtonStoreForTests, useButtonStore } from "@/museum/button/buttonStore";
+import {
+  _resetButtonStoreForTests,
+  resolveActiveButtonBanner,
+  useButtonStore,
+} from "@/museum/button/buttonStore";
 
 const transport = vi.hoisted(() => ({
   callbacks: null as {
@@ -307,5 +311,43 @@ describe("useButtonStore", () => {
     useButtonStore.getState().setButtonLed("autoplay", "pulse");
     await Promise.resolve();
     expect(useButtonStore.getState().buttonOwner).toBe("autoplay");
+  });
+
+  describe("ButtonBanner visibility", () => {
+    it("shows banner only for the routed owner", () => {
+      useButtonStore.getState().claimButton("meta-agent");
+      useButtonStore.getState().claimButton("human-input");
+      useButtonStore.getState().setButtonBannerVisible("meta-agent", true);
+      useButtonStore.getState().setButtonBannerVisible("human-input", false);
+
+      expect(useButtonStore.getState().activeButtonBanner).toBe(false);
+
+      useButtonStore.getState().setButtonBannerVisible("human-input", true);
+      expect(useButtonStore.getState().activeButtonBanner).toBe(true);
+    });
+
+    it("prefers human-input banner over meta-agent when human-input owns the button", () => {
+      useButtonStore.getState().claimButton("meta-agent");
+      useButtonStore.getState().claimButton("human-input");
+      useButtonStore.getState().setButtonBannerVisible("meta-agent", true);
+      useButtonStore.getState().setButtonBannerVisible("human-input", true);
+
+      expect(useButtonStore.getState().buttonOwner).toBe("human-input");
+      expect(useButtonStore.getState().activeButtonBanner).toBe(true);
+    });
+
+    it("clears banner visibility when the owner releases the button claim", () => {
+      useButtonStore.getState().claimButton("human-input");
+      useButtonStore.getState().setButtonBannerVisible("human-input", true);
+      expect(useButtonStore.getState().activeButtonBanner).toBe(true);
+
+      useButtonStore.getState().releaseButton("human-input");
+      expect(useButtonStore.getState().bannerVisible["human-input"]).toBeUndefined();
+      expect(useButtonStore.getState().activeButtonBanner).toBe(false);
+    });
+
+    it("resolveActiveButtonBanner returns false without an owner", () => {
+      expect(resolveActiveButtonBanner(null, { "human-input": true })).toBe(false);
+    });
   });
 });

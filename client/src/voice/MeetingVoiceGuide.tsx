@@ -17,7 +17,7 @@ import { useCouncilSettings } from "@/settings/councilSettings";
 import { buildGuidePrompt } from "./guidePrompt";
 import { createGuideToolHandlers, createGuideTools } from "./guideTools";
 import { getVoiceGuideBundle } from "./voiceGuideBundle";
-import { useHoldToSpeakHint } from "./useHoldToSpeakHint";
+import { useButtonBanner } from "@/museum/button/useButtonBanner";
 import Loading from "@main/Loading";
 import { useVoiceGuide } from "./useVoiceGuide";
 type MeetingVoiceGuideProps = {
@@ -117,13 +117,12 @@ export default function MeetingVoiceGuide({
   const showMuseumLandingLoading =
     isMuseumMode && phase === "landing" && !muted && voice.isConnecting;
 
-  const { showHoldToSpeakHint } = useHoldToSpeakHint({
-    agentMode,
-    sessionActive: !muted,
+  useButtonBanner({
+    owner: "voice-guide",
+    sessionActive: agentMode === "ptt" && !muted,
     isConnecting: voice.isConnecting,
     micOpen: button.pressed,
-    lastUserTranscript: voice.lastUserTranscript,
-    lastCaption: voice.lastCaption,
+    activityDeps: [voice.lastUserTranscript, voice.lastCaption],
   });
 
   const ledMode = useMemo((): ButtonLedMode => {
@@ -166,7 +165,6 @@ export default function MeetingVoiceGuide({
       muted={voice.muted}
       isMuseumMode={isMuseumMode}
       agentMode={agentMode}
-      showHoldToSpeakHint={showHoldToSpeakHint}
       subtitleLayout={isMuseumMode ? "council" : "compact"}
       micStream={voice.micStream}
       micActive={agentMode === "ptt" && !muted && button.pressed}
