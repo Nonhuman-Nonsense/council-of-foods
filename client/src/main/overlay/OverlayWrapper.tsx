@@ -22,12 +22,19 @@ interface OverlayWrapperProps {
   showX?: boolean;
   cancelOverlay: () => void;
   children: React.ReactNode;
+  /**
+   * When true, the content column stretches to fill the full available height
+   * rather than being vertically centered. Use for overlays like Summary that
+   * need to expand their scroll area to fill the main region.
+   */
+  fillHeight?: boolean;
 }
 
 const OverlayWrapper: React.FC<OverlayWrapperProps> = ({
   showX,
   cancelOverlay,
-  children
+  children,
+  fillHeight = false,
 }) => {
   const isMobile = useMobile();
   const isMobileXs = useMobileXs();
@@ -55,7 +62,16 @@ const OverlayWrapper: React.FC<OverlayWrapperProps> = ({
   const middleColumn: React.CSSProperties = {
     display: "flex",
     flexDirection: "column",
-    overflow: isMobile ? "auto" : undefined,
+    // In fillHeight mode:
+    //   - alignSelf "stretch" is already the default in a flex-row container, so
+    //     the column fills the container height without any extra property.
+    //   - We do NOT add flex:1 here — that would split horizontal space equally
+    //     with the left/right clickers and crush the 800px content width.
+    //   - minHeight:0 + overflow:hidden let children use flex-grow correctly.
+    // In default mode the centering clickers inside create vertical centering.
+    ...(fillHeight
+      ? { minHeight: 0, overflow: "hidden" }
+      : { overflow: isMobile ? "auto" : undefined }),
   };
 
   const closeWrapperStyle: React.CSSProperties = {
@@ -88,15 +104,13 @@ const OverlayWrapper: React.FC<OverlayWrapperProps> = ({
             onClick={cancelOverlay}
           />
           <div style={middleColumn}>
-            <div
-              style={clickerStyle}
-              onClick={cancelOverlay}
-            />
+            {!fillHeight && (
+              <div style={clickerStyle} onClick={cancelOverlay} />
+            )}
             {children}
-            <div
-              style={clickerStyle}
-              onClick={cancelOverlay}
-            />
+            {!fillHeight && (
+              <div style={clickerStyle} onClick={cancelOverlay} />
+            )}
           </div>
           <div
             style={clickerStyle}

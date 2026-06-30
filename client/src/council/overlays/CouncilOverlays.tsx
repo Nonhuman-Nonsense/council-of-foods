@@ -82,8 +82,17 @@ function CouncilOverlays({
     }
   };
 
+  // Summary in web mode fills the full main region height (scroll + download at
+  // bottom). Museum summary breaks out with position:fixed anyway, so fillHeight
+  // has no effect there but we keep the condition explicit.
+  const fillHeight = overlay === "summary" && !isMuseumMode;
+
   return (
-    <OverlayWrapper showX={!(overlay === "summary" && isMuseumMode)} cancelOverlay={onDismiss}>
+    <OverlayWrapper
+      showX={!(overlay === "summary" && isMuseumMode)}
+      cancelOverlay={onDismiss}
+      fillHeight={fillHeight}
+    >
       {renderOverlayContent()}
     </OverlayWrapper>
   );

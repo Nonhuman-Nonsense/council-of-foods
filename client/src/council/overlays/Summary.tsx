@@ -179,13 +179,20 @@ function Summary({
 
   const downloadRowHeight = isMobile ? 30 : 40;
 
-  const summaryWrapper: React.CSSProperties = {
-    height: showDownload
-      ? `calc(100% - ${downloadRowHeight}px)`
-      : "100%",
-    overflowY: "auto",
-    mask: "linear-gradient(to bottom, rgb(0, 0, 0) 0, rgb(0,0,0) 93%, rgba(0,0,0, 0) 100% ) repeat-x",
-  };
+  // Web: flex-fill column — scroll area grows, download row sticks to bottom.
+  // Museum: position:fixed full-viewport (unchanged).
+  const summaryWrapper: React.CSSProperties = isMuseumMode
+    ? {
+      height: "100%",
+      overflowY: "auto",
+      mask: "linear-gradient(to bottom, rgb(0, 0, 0) 0, rgb(0,0,0) 93%, rgba(0,0,0, 0) 100% ) repeat-x",
+    }
+    : {
+      flex: 1,
+      minHeight: 0,
+      overflowY: "auto",
+      mask: "linear-gradient(to bottom, rgb(0, 0, 0) 0, rgb(0,0,0) 93%, rgba(0,0,0, 0) 100% ) repeat-x",
+    };
 
   const wrapper: React.CSSProperties = isMuseumMode
     ? {
@@ -199,18 +206,19 @@ function Summary({
       minHeight: 0,
     }
     : {
-      // maxHeight accounts for: OverlayWrapper top offset (60px desktop / 0 mobile),
-      // summary's own top margin, and the download row that sits inside the wrapper.
-      // Controls now live in the footer outside the overlay, so no controlsClearance needed.
-      maxHeight: isMobile
-        ? `calc(100${dvh} - 45px - 10px - ${downloadRowHeight}px)`
-        : `calc(100${dvh} - 60px - 56px - 20px - ${downloadRowHeight}px)`,
-      minHeight: "255px",
+      // Fills the OverlayWrapper middle column (which is flex-stretched when
+      // fillHeight is true). Scroll area grows via flex:1, download row is pinned
+      // at the bottom. Small top margin matches the OverlayWrapper's top inset.
+      flex: 1,
+      minHeight: 0,
+      display: "flex",
+      flexDirection: "column",
       marginTop: isMobile ? "10px" : "20px",
       width: isMobile ? "600px" : "800px",
     };
 
   const buttonsWrapper: React.CSSProperties = {
+    flexShrink: 0,
     height: isMobile ? "30px" : "40px",
     display: 'flex',
     flexDirection: 'row',
