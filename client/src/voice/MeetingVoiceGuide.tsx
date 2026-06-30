@@ -105,8 +105,7 @@ export default function MeetingVoiceGuide({
       meetingStep: phase,
       voiceGuideLanguage: i18n.language,
       meetingCharactersLabels: {
-        oneHuman: t("meeting.characters.human"),
-        twoHumansSuffix: t("meeting.characters.twohumans"),
+        formatHumanCount: (count) => t("meeting.characters.humanCount", { count }),
       },
     }),
     agentMode,

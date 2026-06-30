@@ -27,8 +27,8 @@
       "random": "Randomize",
       "humanname": "Human Name",
       "humandesc": "Enter a description for the human...",
-      "human": "1 human: ",
-      "twohumans": " humans: "
+      "humanCount_one": "1 human: ",
+      "humanCount_other": "{{count}} humans: "
     }
   },
   "human": {
@@ -58,7 +58,7 @@
   "about": {
     "label": "About",
     "body": "What would a biologically grown potato think about pesticides? How would a mass-produced banana respond? And what would you add to the discussion? Can AI identify as a rare mushroom? Could it help give a voice to the \"voiceless\" in decision-making?\n\nWelcome to the Council of Foods! A political arena where the foods themselves discuss the broken food system - through artificial intelligence.\n\nIn the Council of Foods, AI language models are prompted to speak as a diversity of foods, embodying distinct values and ethical positions shaped in collaboration with food system experts. Each discussion is unique and not limited to the food system alone—broader societal issues emerge through the voices of industrially farmed, genetically modified, and wild-foraged foods. You, dear human, are invited to engage, challenge assumptions, and influence the conversation, which culminates in a policy recommendation document.",
-    "creditLine": "a project by<br/><0>Nonhuman Nonsense</0>"
+    "creditLine": "a project by\n<0>Nonhuman Nonsense</0>"
   },
   "contact": {
     "label": "Contact",
@@ -145,12 +145,11 @@
   },
   "name": {
     "title": "SAY SOMETHING",
-    "1": "Do you want to adress the Council of Foods?",
-    "2": "Please enter your name to raise a request to speak,",
-    "21": "and then wait until you are given the floor by Water, the moderator.",
-    "3": "please type your name",
-    "4": "enter your name to proceed",
-    "5": "your name",
+    "prompt": "Do you want to adress the Council of Foods?",
+    "instructions": "Please enter your name to raise a request to speak,\nand then wait until you are given the floor by Water, the moderator.",
+    "typeNameLabel": "please type your name",
+    "enterToProceed": "enter your name to proceed",
+    "placeholder": "your name",
     "unique": "name must be unique in the council"
   },
   "controls": {
@@ -158,17 +157,15 @@
   },
   "queryExtension": {
     "title": "Is that it?",
-    "1": "This meeting is starting to get long-winded,",
-    "2": "is it time to come to a conclusion?",
-    "3": "Yes, let's conclude!",
-    "4": "No, continue a bit more."
+    "body": "This meeting is starting to get long-winded,\nis it time to come to a conclusion?",
+    "conclude": "Yes, let's conclude!",
+    "continue": "No, continue a bit more."
   },
   "incomplete": {
     "title": "Meeting Unfinished",
-    "1": "Oh, it looks like this meeting was never finished.",
-    "2": "Would you like to resume the meeting now?",
-    "3": "Yes, let's continue!",
-    "4": "No, never mind."
+    "body": "Oh, it looks like this meeting was never finished.\nWould you like to resume the meeting now?",
+    "resume": "Yes, let's continue!",
+    "nevermind": "No, never mind."
   },
   "summary": {
     "download": "Download PDF"
@@ -185,7 +182,7 @@
   },
   "error": {
     "title": "ERROR",
-    "1": "Something went wrong...",
+    "message": "Something went wrong...",
     "audioLoad": "Could not load meeting audio.",
     "connection": "Connection Lost",
     "reconnecting": "Attempting to reconnect..."

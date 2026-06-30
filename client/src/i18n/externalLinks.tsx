@@ -1,5 +1,7 @@
 import type { ReactElement } from "react";
 
+const CORDIS_GRANT_URL = "https://cordis.europa.eu/project/id/101069990";
+
 /** External anchors for <Trans components={externalLinks} /> — hrefs stay in code. */
 export const externalLinks = {
   nhn: <a href="https://nonhuman-nonsense.com" />,
@@ -9,6 +11,6 @@ export const externalLinks = {
   albin: <a href="https://www.polymorf.se/" />,
   hec: <a href="https://starts.eu/hungryecocities/" />,
   starts: <a href="https://starts.eu/" />,
-  horizon: <a href="https://cordis.europa.eu/project/id/101069990" />,
-  grant: <a href="https://cordis.europa.eu/project/id/101069990" />,
+  horizon: <a href={CORDIS_GRANT_URL} />,
+  grant: <a href={CORDIS_GRANT_URL} />,
 } as const satisfies Record<string, ReactElement>;

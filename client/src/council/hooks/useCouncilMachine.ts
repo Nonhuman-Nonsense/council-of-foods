@@ -213,7 +213,7 @@ export function useCouncilMachine({
         },
         onError: (error) => {
             console.error(error);
-            const msg = error.message?.trim() ? error.message : t("error.1");
+            const msg = error.message?.trim() ? error.message : t("error.message");
             setUnrecoverableError({
                 message: msg,
                 source: "useCouncilMachine.conversation_error",
@@ -652,7 +652,7 @@ export function useCouncilMachine({
                     ? err.message
                     : err instanceof Error && err.message.trim().length > 0
                       ? err.message
-                      : t("error.1");
+                      : t("error.message");
             setUnrecoverableError({
                 message: msg,
                 source: "useCouncilMachine.resume",

@@ -25,7 +25,7 @@ function About(): React.ReactElement {
   return (
     <div style={wrapper}>
       <p style={{ whiteSpace: "pre-wrap" }}>{t("about.body")}</p>
-      <p>
+      <p style={{ whiteSpace: "pre-wrap" }}>
         <Trans
           i18nKey="about.creditLine"
           components={[<AboutContactLink />]}

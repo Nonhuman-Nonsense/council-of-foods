@@ -5,7 +5,7 @@ supports, and when to use each pattern.
 
 > **Related:** [i18n-reorganization-plan.md](./i18n-reorganization-plan.md) (namespace cleanup — done).
 
-**Status:** Phase 1 complete — Contact, About, Summary disclaimer use `<Trans>`.
+**Status:** Phases 1–4 complete (EN only). Swedish locale deferred to downstream fork.
 
 ---
 
@@ -341,4 +341,5 @@ semantic renames when convenient.
 
 | Date | Change |
 |------|--------|
+| 2026-06-30 | Phases 2–4: semantic keys, plurals, typed i18n, ESLint |
 | 2026-06-30 | Phase 1 implemented |

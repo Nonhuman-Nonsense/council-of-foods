@@ -23,13 +23,13 @@ describe('Incomplete overlay', () => {
 
     it('invokes onAttemptResume when the resume button is clicked', () => {
         render(<Incomplete {...defaultProps} />);
-        fireEvent.click(screen.getByText('incomplete.3'));
+        fireEvent.click(screen.getByText('incomplete.resume'));
         expect(defaultProps.onAttemptResume).toHaveBeenCalledTimes(1);
     });
 
     it('invokes onNevermind when the nevermind button is clicked', () => {
         render(<Incomplete {...defaultProps} />);
-        fireEvent.click(screen.getByText('incomplete.4'));
+        fireEvent.click(screen.getByText('incomplete.nevermind'));
         expect(defaultProps.onNevermind).toHaveBeenCalledTimes(1);
     });
 });

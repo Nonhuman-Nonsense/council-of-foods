@@ -108,8 +108,7 @@ function SelectCharacters({
       humans,
       numberOfHumans,
       labels: {
-        oneHuman: t("meeting.characters.human"),
-        twoHumansSuffix: t("meeting.characters.twohumans"),
+        formatHumanCount: (count) => t("meeting.characters.humanCount", { count }),
       },
       agendaPoints,
       isMuseumMode,
