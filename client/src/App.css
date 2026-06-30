@@ -342,6 +342,14 @@ nav.blur::before {
   border: none;
 }
 
+.scroll--hide-scrollbar {
+  scrollbar-width: none;
+}
+
+.scroll--hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 @media only screen and (max-height: 600px) {
   body {
     -webkit-text-size-adjust: 100%;

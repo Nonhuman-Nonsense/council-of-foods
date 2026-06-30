@@ -77,10 +77,10 @@ Post-landing idle/autoplay is **out of scope** — `AutoplayCoordinator` handles
 | File | PR | Role |
 |------|-----|------|
 | `client/src/council/overlays/Summary.tsx` | 1–3 | Museum layout; button + banner (PR 2); scroll wiring (PR 3) |
-| `client/src/council/overlays/CouncilOverlays.tsx` | 1 | Conditional `showX` via `useCouncilSettings()` |
-| `client/src/council/Council.tsx` | 3 | Pass audio-sync props for teleprompter scroll |
+| `client/src/council/overlays/CouncilOverlays.tsx` | 1, 3 | Conditional `showX`; pass `audioContext` + playback |
+| `client/src/council/Council.tsx` | 3 | `summaryPlayback` state from `Output` callback |
 | `client/src/museum/button/buttonStore.ts` | 2 | `"summary"` owner + priority |
-| `client/src/hooks/useAudioSyncedScroll.ts` | 3 | Teleprompter scroll hook (new) |
+| `client/src/council/summaryScrollSync.ts` | 3 | Teleprompter scroll hook + types |
 | `client/src/locales/translation_en.json` | 2 | Banner string only |
 | Tests | each PR | See PR sections |
 
@@ -143,13 +143,14 @@ Summary mounted (banner visible, LED pulse)
 
 ### Changes
 
-- **`useAudioSyncedScroll.ts`:** New hook (~60–80 lines).
-- **`Summary.tsx`:** Padding on scroll container; hook + `scrollRef`.
-- **`Council.tsx`:** Pass `playbackStartInfo`, duration, `isPaused`, `audioContext` from `Output` playback path.
+- **`summaryScrollSync.ts`:** `computeTeleprompterScrollTop`, `useAudioSyncedScroll`, `SummaryPlaybackState` type.
+- **`Output.tsx`:** `onSummaryPlaybackChange` callback when summary audio is active.
+- **`Council.tsx`:** `summaryPlayback` state; passes `audioContext` + playback to overlays.
+- **`Summary.tsx`:** Teleprompter padding, `scrollRef`, `useAudioSyncedScroll` (museum only).
 
 ### Tests
 
-- Hook: progress → `scrollTop`, overflow guard, paused.
+- `summaryScrollSync.test.ts`: scroll math, paused, no playback, active scroll.
 
 ---
 
@@ -170,4 +171,4 @@ Summary mounted (banner visible, LED pulse)
 |----|--------|
 | PR 1 — Layout | Done |
 | PR 2 — Button + restart | Done |
-| PR 3 — Teleprompter scroll | Not started |
+| PR 3 — Teleprompter scroll | Done |

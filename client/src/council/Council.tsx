@@ -20,6 +20,7 @@ import type { MetaAgentPhase } from "@museum/metaAgent/useMetaAgent";
 import { CHAIR_ID } from "@/prompts/characterSetupBundles";
 import type { SetUnrecoverableError } from "@main/overlay/CouncilError";
 import { notifyAutoplay } from "@/autoplay/autoplayStore";
+import type { SummaryPlaybackState } from "@council/summaryScrollSync";
 
 interface CouncilProps {
   liveKey: string | null;
@@ -66,6 +67,7 @@ function Council({
   // Meta-agent lifecycle (inactive | interruption | extension). Stays in Council so it
   // resets on unmount; FoodsCouncilScene and MeetingMetaAgent are the only consumers.
   const [metaAgentPhase, setMetaAgentPhase] = useState<MetaAgentPhase>("inactive");
+  const [summaryPlayback, setSummaryPlayback] = useState<SummaryPlaybackState>(null);
 
   // Abort in-flight GET when deps change or on unmount (StrictMode-safe); same pattern as TanStack Query/SWR cancellation.
   useEffect(() => {
@@ -205,6 +207,12 @@ function Council({
     notifyAutoplay({ type: "council-state", state: councilState });
   }, [councilState]);
 
+  useEffect(() => {
+    if (visibleOverlay !== "summary") {
+      setSummaryPlayback(null);
+    }
+  }, [visibleOverlay]);
+
   // Derived UI State
   const participationPhase = getParticipationPhase(councilState, textMessages, playingNowIndex);
   const isButtonMuseumMode = useMemo(
@@ -278,6 +286,7 @@ function Council({
             setCurrentSnippetIndex={setCurrentSnippetIndex}
             audioContext={audioContext}
             handleOnFinishedPlaying={handleOnFinishedPlaying}
+            onSummaryPlaybackChange={setSummaryPlayback}
           />
         )}
         {controlsVisible && metaAgentPhase === "inactive" && (
@@ -319,6 +328,8 @@ function Council({
             summary={{ text: summary?.text || "" }}
             meetingId={currentMeetingId}
             participants={participants}
+            audioContext={audioContext}
+            summaryPlayback={summaryPlayback}
           />
         )}
       </Overlay>

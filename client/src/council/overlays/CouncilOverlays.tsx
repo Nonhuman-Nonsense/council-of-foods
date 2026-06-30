@@ -6,6 +6,7 @@ import Name from "./Name";
 import OverlayWrapper from "@main/overlay/OverlayWrapper";
 import { useCouncilSettings } from "@/settings/councilSettings";
 import type { CouncilOverlayType } from "@council/hooks/useCouncilMachine";
+import type { SummaryPlaybackState } from "@council/summaryScrollSync";
 
 export type { CouncilOverlayType, OverlayCouncilState } from "@council/hooks/useCouncilMachine";
 
@@ -22,6 +23,8 @@ interface CouncilOverlaysProps {
   summary: SummaryData | null;
   meetingId: number;
   participants: Character[];
+  audioContext?: React.RefObject<AudioContext | null>;
+  summaryPlayback?: SummaryPlaybackState;
 }
 
 /**
@@ -40,6 +43,8 @@ function CouncilOverlays({
   summary,
   meetingId,
   participants,
+  audioContext,
+  summaryPlayback = null,
 }: CouncilOverlaysProps): React.ReactElement {
   const { isMuseumMode } = useCouncilSettings();
 
@@ -68,6 +73,8 @@ function CouncilOverlays({
           <Summary
             summary={summary}
             meetingId={meetingId}
+            audioContext={audioContext}
+            summaryPlayback={summaryPlayback}
           /> : null
         );
       default:

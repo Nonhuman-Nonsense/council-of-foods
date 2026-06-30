@@ -94,6 +94,24 @@ vi.mock('@/routing', () => ({
     useRouting: () => ({ rootPath: '/en/' }),
 }));
 
+class ResizeObserverMock {
+    private readonly callback: ResizeObserverCallback;
+
+    constructor(callback: ResizeObserverCallback) {
+        this.callback = callback;
+    }
+
+    observe(target: Element): void {
+        this.callback([{ target } as ResizeObserverEntry], this as unknown as ResizeObserver);
+    }
+
+    disconnect(): void {
+        // no-op
+    }
+}
+
+vi.stubGlobal('ResizeObserver', ResizeObserverMock);
+
 // Mock dynamic import for Tinos.js
 // Intercepting dynamic import in component logic
 
@@ -212,11 +230,29 @@ describe('Summary Overlay', () => {
             setAgentMode: vi.fn(),
         });
 
+        Object.defineProperty(HTMLElement.prototype, 'clientHeight', {
+            configurable: true,
+            get() {
+                return 400;
+            },
+        });
+
         render(<Summary summary={mockSummary} meetingId={mockMeetingId} />);
 
         expect(screen.queryByTestId('summary-download')).not.toBeInTheDocument();
         expect(document.querySelector('#printed-style')).not.toBeInTheDocument();
         expect(screen.getByTestId('summary-protocol')).toBeInTheDocument();
+        expect(screen.getByTestId('summary-protocol')).toHaveClass('scroll--hide-scrollbar');
+
+        const wrapper = screen.getByTestId('summary-wrapper');
+        expect(wrapper).toHaveStyle({
+            position: 'fixed',
+            top: '0px',
+            height: '100vh',
+        });
+
+        const teleprompter = screen.getByTestId('summary-teleprompter-content');
+        expect(teleprompter).toHaveStyle({ paddingBottom: '140px', paddingTop: '80px' });
     });
 
     it('claims the button and shows the summary banner in museum PTT mode', () => {
