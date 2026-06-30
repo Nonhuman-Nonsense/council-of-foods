@@ -48,6 +48,10 @@ export type GuideToolContext = {
   meetingStep: MeetingSetupPhase;
   voiceGuideLanguage: string;
   meetingCharactersLabels: MeetingCharactersI18n;
+
+  /** Navigate to a different language. Empty array on single-language deploys. */
+  otherLanguages: string[];
+  switchLanguage: (lang: string) => void;
 };
 
 function requiresCharacterStep(step: MeetingSetupPhase): boolean {
@@ -92,9 +96,11 @@ function isDuplicateParticipantName(name: string, ctx: GuideToolContext): boolea
 
 export function createGuideTools(params: {
   promptBundle: VoiceGuidePromptBundle;
+  otherLanguages: string[];
 }): RealtimeTool[] {
-  const copy = params.promptBundle.toolDescriptions;
-  return [
+  const { promptBundle, otherLanguages } = params;
+  const copy = promptBundle.toolDescriptions;
+  const tools: RealtimeTool[] = [
     {
       type: "function",
       name: "begin_setup",
@@ -214,6 +220,22 @@ export function createGuideTools(params: {
       parameters: { type: "object", properties: {}, additionalProperties: false },
     },
   ];
+
+  if (otherLanguages.length > 0) {
+    tools.push({
+      type: "function",
+      name: "switch_language",
+      description: copy.switch_language,
+      parameters: {
+        type: "object",
+        additionalProperties: false,
+        properties: { language: { type: "string", enum: otherLanguages } },
+        required: ["language"],
+      },
+    });
+  }
+
+  return tools;
 }
 
 function syncMuseumPanelistOrder(): void {
@@ -381,6 +403,16 @@ export function createGuideToolHandlers(ctx: GuideToolContext): Record<string, T
       if (!built.ok) return built;
       await Promise.resolve(ctx.startMeeting(built.characters));
       return { ok: true, data: { started: true, visitorName } };
+    },
+    switch_language: (raw) => {
+      const obj = asObject(raw);
+      const lang = asString(obj?.language);
+      if (!lang) return { ok: false, error: "Missing language" };
+      if (!ctx.otherLanguages.includes(lang)) {
+        return { ok: false, error: `Language not available: ${lang}` };
+      }
+      ctx.switchLanguage(lang);
+      return { ok: true, suppressContinuation: true };
     },
     remember_visitor_name: (raw) => {
       const obj = asObject(raw);
