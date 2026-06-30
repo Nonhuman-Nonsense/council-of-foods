@@ -115,15 +115,29 @@ function extractLanguagePrefix(
     return null;
 }
 
-/** Landing path for invalid user-facing SPA routes (not scanner probes). */
+/** Landing path for invalid user-facing SPA routes (not scanner probes).
+ *
+ * @param preferredLang - caller-supplied language hint (e.g. derived from
+ *   the CF-IPCountry header). Only used when the pathname carries no
+ *   existing language prefix; ignored if not in the languages list.
+ */
 export function getSpaRedirectTarget(
     pathname: string,
     languages: readonly string[] = AVAILABLE_LANGUAGES,
+    preferredLang?: string,
 ): string {
     if (languages.length <= 1) {
         return "/";
     }
 
     const lang = extractLanguagePrefix(pathname, languages);
-    return lang ? `/${lang}/` : `/${languages[0]}/`;
+    if (lang) {
+        return `/${lang}/`;
+    }
+
+    const defaultLang =
+        preferredLang && (languages as readonly string[]).includes(preferredLang)
+            ? preferredLang
+            : languages[0];
+    return `/${defaultLang}/`;
 }

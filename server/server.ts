@@ -10,7 +10,7 @@ import { initReporting, sendReport } from '@utils/errorbot.js';
 import { initDb } from '@services/DbService.js';
 import { initOpenAI } from '@services/OpenAIService.js';
 import { SocketManager } from '@logic/SocketManager.js';
-import { AVAILABLE_LANGUAGES } from '@shared/AvailableLanguages.js';
+import { AVAILABLE_LANGUAGES, resolvePreferredLanguageFromCountry } from '@shared/AvailableLanguages.js';
 import { CHARACTERS_FILE } from '@shared/prompts/characterSetupMetadata.js';
 
 import { verifyGoogleCredentials } from '@utils/StartupChecks.js';
@@ -133,7 +133,11 @@ if (environment === "prototype") {
 
     if (!shouldServeSpaShell(req.path)) {
       res.setHeader('Cache-Control', CACHE_CONTROL_NO_STORE);
-      res.redirect(302, getSpaRedirectTarget(req.path));
+      const cfCountry = req.headers['cf-ipcountry'];
+      const preferredLang = typeof cfCountry === 'string'
+        ? resolvePreferredLanguageFromCountry(cfCountry)
+        : undefined;
+      res.redirect(302, getSpaRedirectTarget(req.path, AVAILABLE_LANGUAGES, preferredLang));
       return;
     }
 
