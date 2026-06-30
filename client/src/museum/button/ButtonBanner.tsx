@@ -15,13 +15,17 @@ const BUTTON_BANNER_SEGMENT_COUNT = 14;
 export default function ButtonBanner(): ReactElement | null {
   const { agentMode } = useCouncilSettings();
   const activeButtonBanner = useButtonStore((state) => state.activeButtonBanner);
+  const buttonOwner = useButtonStore((state) => state.buttonOwner);
+  const bannerMessageKey = useButtonStore((state) =>
+    buttonOwner ? state.bannerMessageKeys[buttonOwner] : undefined,
+  );
   const { t } = useTranslation();
 
   if (agentMode !== "ptt") {
     return null;
   }
 
-  const message = t("ptt.holdToSpeak");
+  const message = t(bannerMessageKey ?? "ptt.holdToSpeak");
 
   return (
     <div className="bottom-ui-banner-anchor">

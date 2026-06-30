@@ -168,7 +168,10 @@
     "nevermind": "No, never mind."
   },
   "summary": {
-    "download": "Download PDF"
+    "download": "Download PDF",
+    "banner": {
+      "pressToRestart": "Press the button to start a new meeting."
+    }
   },
   "disclaimer": {
     "intro": "This document was created by the Council of Foods, a political arena where the foods themselves discuss the broken food system, through the use of artificial intelligence. While every effort has been made to generate meaningful content, please note the following:",

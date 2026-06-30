@@ -24,6 +24,15 @@ describe("mergeButtonOwner", () => {
     ).toBe("human-input");
   });
 
+  it("prefers summary over meta-agent", () => {
+    expect(
+      mergeButtonOwner({
+        "meta-agent": true,
+        summary: true,
+      }),
+    ).toBe("summary");
+  });
+
   it("prefers setup over human-input", () => {
     expect(
       mergeButtonOwner({

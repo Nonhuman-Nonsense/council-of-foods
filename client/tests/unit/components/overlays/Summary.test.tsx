@@ -63,6 +63,37 @@ vi.mock('@/settings/councilSettings', () => ({
     useCouncilSettings: () => mockUseCouncilSettings(),
 }));
 
+const mockClaim = vi.fn();
+const mockRelease = vi.fn();
+const mockSetLed = vi.fn();
+let mockPressed = false;
+
+vi.mock('@museum/button/useButton', () => ({
+    useButton: () => ({
+        claim: mockClaim,
+        release: mockRelease,
+        setLed: mockSetLed,
+        get pressed() {
+            return mockPressed;
+        },
+        isOwner: true,
+    }),
+}));
+
+const mockUseButtonBanner = vi.fn();
+vi.mock('@museum/button/useButtonBanner', () => ({
+    useButtonBanner: (...args: unknown[]) => mockUseButtonBanner(...args),
+}));
+
+const mockNavigate = vi.fn();
+vi.mock('react-router', () => ({
+    useNavigate: () => mockNavigate,
+}));
+
+vi.mock('@/routing', () => ({
+    useRouting: () => ({ rootPath: '/en/' }),
+}));
+
 // Mock dynamic import for Tinos.js
 // Intercepting dynamic import in component logic
 
@@ -74,6 +105,7 @@ describe('Summary Overlay', () => {
 
     beforeEach(() => {
         vi.clearAllMocks();
+        mockPressed = false;
         mockUseMobile.mockReturnValue(false); // Default to desktop
         mockUseCouncilSettings.mockReturnValue({
             isMuseumMode: false,
@@ -185,5 +217,54 @@ describe('Summary Overlay', () => {
         expect(screen.queryByTestId('summary-download')).not.toBeInTheDocument();
         expect(document.querySelector('#printed-style')).not.toBeInTheDocument();
         expect(screen.getByTestId('summary-protocol')).toBeInTheDocument();
+    });
+
+    it('claims the button and shows the summary banner in museum PTT mode', () => {
+        mockUseCouncilSettings.mockReturnValue({
+            isMuseumMode: true,
+            mode: 'museum',
+            setAppMode: vi.fn(),
+            agentMode: 'ptt',
+            setAgentMode: vi.fn(),
+        });
+
+        render(<Summary summary={mockSummary} meetingId={mockMeetingId} />);
+
+        expect(mockClaim).toHaveBeenCalled();
+        expect(mockSetLed).toHaveBeenCalledWith('pulse');
+        expect(mockUseButtonBanner).toHaveBeenCalledWith(
+            expect.objectContaining({
+                owner: 'summary',
+                sessionActive: true,
+                bannerImmediate: true,
+                messageKey: 'summary.banner.pressToRestart',
+            }),
+        );
+    });
+
+    it('navigates to landing on button press in museum PTT mode', () => {
+        mockUseCouncilSettings.mockReturnValue({
+            isMuseumMode: true,
+            mode: 'museum',
+            setAppMode: vi.fn(),
+            agentMode: 'ptt',
+            setAgentMode: vi.fn(),
+        });
+
+        const { rerender } = render(<Summary summary={mockSummary} meetingId={mockMeetingId} />);
+
+        mockPressed = true;
+        rerender(<Summary summary={mockSummary} meetingId={mockMeetingId} />);
+
+        expect(mockNavigate).toHaveBeenCalledWith('/en/');
+    });
+
+    it('does not claim the button in web mode', () => {
+        render(<Summary summary={mockSummary} meetingId={mockMeetingId} />);
+
+        expect(mockClaim).not.toHaveBeenCalled();
+        expect(mockUseButtonBanner).toHaveBeenCalledWith(
+            expect.objectContaining({ sessionActive: false }),
+        );
     });
 });

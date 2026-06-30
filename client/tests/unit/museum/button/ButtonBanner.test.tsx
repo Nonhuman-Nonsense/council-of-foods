@@ -52,4 +52,15 @@ describe("ButtonBanner", () => {
     render(<ButtonBanner />);
     expect(screen.queryByTestId("button-banner")).not.toBeInTheDocument();
   });
+
+  it("uses the routed owner banner message key when set", () => {
+    useButtonStore.setState({
+      activeButtonBanner: true,
+      buttonOwner: "summary",
+      bannerMessageKeys: { summary: "summary.banner.pressToRestart" },
+    });
+
+    render(<ButtonBanner />);
+    expect(screen.getAllByText("summary.banner.pressToRestart").length).toBeGreaterThan(0);
+  });
 });

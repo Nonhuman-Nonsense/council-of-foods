@@ -8,17 +8,19 @@ import { getAgentMode } from "@/settings/councilSettings";
 import { log } from "@/logger";
 
 export type ButtonLedMode = "off" | "pulse" | "on";
-export type ButtonOwner = "setup" | "autoplay" | "voice-guide" | "human-input" | "meta-agent";
+export type ButtonOwner = "setup" | "autoplay" | "voice-guide" | "human-input" | "meta-agent" | "summary";
 
 export type ButtonClaims = Partial<Record<ButtonOwner, true>>;
 export type ButtonLedModes = Partial<Record<ButtonOwner, ButtonLedMode>>;
 export type ButtonBannerVisible = Partial<Record<ButtonOwner, boolean>>;
+export type ButtonBannerMessageKeys = Partial<Record<ButtonOwner, string>>;
 
 /** Setup is highest: staff diagnostics overlay mounted on top of the running app. */
 const BUTTON_OWNER_PRIORITY: Record<ButtonOwner, number> = {
   setup: 4,
   autoplay: 3,
   "human-input": 2,
+  summary: 2,
   "voice-guide": 1,
   "meta-agent": 1,
 };
@@ -72,6 +74,7 @@ type ButtonStore = {
   ledModes: ButtonLedModes;
   buttonOwner: ButtonOwner | null;
   bannerVisible: ButtonBannerVisible;
+  bannerMessageKeys: ButtonBannerMessageKeys;
   activeButtonBanner: boolean;
   bridgeStatus: ButtonTransportStatus;
   bridgeError: string | null;
@@ -87,6 +90,7 @@ type ButtonStore = {
   releaseButton: (owner: ButtonOwner) => void;
   setButtonLed: (owner: ButtonOwner, mode: ButtonLedMode) => void;
   setButtonBannerVisible: (owner: ButtonOwner, visible: boolean) => void;
+  setButtonBannerMessageKey: (owner: ButtonOwner, messageKey: string | undefined) => void;
   resyncLed: () => Promise<void>;
   init: () => void;
   dispose: () => void;
@@ -254,6 +258,21 @@ function recomputeButtonRouting(
   });
 }
 
+function setBannerMessageKeyForOwner(
+  set: (partial: Partial<ButtonStore> | ((state: ButtonStore) => Partial<ButtonStore>)) => void,
+  get: () => ButtonStore,
+  owner: ButtonOwner,
+  messageKey: string | undefined,
+): void {
+  const bannerMessageKeys = { ...get().bannerMessageKeys };
+  if (messageKey) {
+    bannerMessageKeys[owner] = messageKey;
+  } else {
+    delete bannerMessageKeys[owner];
+  }
+  set({ bannerMessageKeys });
+}
+
 function setBannerVisibleForOwner(
   set: (partial: Partial<ButtonStore> | ((state: ButtonStore) => Partial<ButtonStore>)) => void,
   get: () => ButtonStore,
@@ -282,6 +301,7 @@ export const useButtonStore = create<ButtonStore>((set, get) => ({
   ledModes: {},
   buttonOwner: null,
   bannerVisible: {},
+  bannerMessageKeys: {},
   activeButtonBanner: false,
   bridgeStatus: "disconnected",
   bridgeError: null,
@@ -319,12 +339,18 @@ export const useButtonStore = create<ButtonStore>((set, get) => ({
     delete ledModes[owner];
     const bannerVisible = { ...get().bannerVisible };
     delete bannerVisible[owner];
-    set({ bannerVisible });
+    const bannerMessageKeys = { ...get().bannerMessageKeys };
+    delete bannerMessageKeys[owner];
+    set({ bannerVisible, bannerMessageKeys });
     recomputeButtonRouting(set, get, claims, ledModes);
   },
 
   setButtonBannerVisible: (owner, visible) => {
     setBannerVisibleForOwner(set, get, owner, visible);
+  },
+
+  setButtonBannerMessageKey: (owner, messageKey) => {
+    setBannerMessageKeyForOwner(set, get, owner, messageKey);
   },
 
   setButtonLed: (owner, mode) => {
@@ -362,6 +388,7 @@ export const useButtonStore = create<ButtonStore>((set, get) => ({
       ledModes: {},
       buttonOwner: null,
       bannerVisible: {},
+      bannerMessageKeys: {},
       activeButtonBanner: false,
     });
   },
@@ -382,6 +409,7 @@ export function _resetButtonStoreForTests(): void {
     ledModes: {},
     buttonOwner: null,
     bannerVisible: {},
+    bannerMessageKeys: {},
     activeButtonBanner: false,
     bridgeStatus: "disconnected",
     bridgeError: null,

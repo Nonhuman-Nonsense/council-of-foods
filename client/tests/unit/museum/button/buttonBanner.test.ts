@@ -85,6 +85,10 @@ describe("computeBannerVisible", () => {
       computeBannerVisible({ ...base, idleRemindActive: true, isConnecting: true }),
     ).toBe(false);
   });
+
+  it("shows immediately when bannerImmediate is set", () => {
+    expect(computeBannerVisible({ ...base, bannerImmediate: true })).toBe(true);
+  });
 });
 
 describe("shouldActivateIdleRemind", () => {

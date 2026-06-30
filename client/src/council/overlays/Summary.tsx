@@ -1,10 +1,14 @@
-import React, { useRef } from "react";
+import React, { useEffect, useRef } from "react";
+import { useNavigate } from "react-router";
 import { useMobile, dvh } from "@/utils";
 import parse from 'html-react-parser';
 import { marked } from "marked";
 import { jsPDF } from "jspdf";
 import { useTranslation, Trans } from "react-i18next";
 import { useCouncilSettings } from "@/settings/councilSettings";
+import { useRouting } from "@/routing";
+import { useButton } from "@/museum/button/useButton";
+import { useButtonBanner } from "@/museum/button/useButtonBanner";
 import { externalLinks } from "@/i18n/externalLinks";
 import { QRCodeCanvas } from 'qrcode.react';
 import councilLogoWhite from "@assets/logos/council_logo_white.svg";
@@ -32,9 +36,52 @@ interface SummaryProps {
 function Summary({ summary, meetingId }: SummaryProps): React.ReactElement {
   const isMobile = useMobile();
   const protocolRef = useRef<HTMLDivElement>(null);
+  const prevPressedRef = useRef(false);
+  const navigate = useNavigate();
+  const { rootPath } = useRouting();
   const { t } = useTranslation();
-  const { isMuseumMode } = useCouncilSettings();
+  const { isMuseumMode, agentMode } = useCouncilSettings();
+  const isButtonSummaryMode = isMuseumMode && agentMode === "ptt";
+  const button = useButton("summary");
   const showDownload = !isMuseumMode;
+
+  useEffect(() => {
+    if (!isButtonSummaryMode) {
+      return;
+    }
+    button.claim();
+    return () => button.release();
+  }, [isButtonSummaryMode, button.claim, button.release]);
+
+  useEffect(() => {
+    if (!isButtonSummaryMode) {
+      return;
+    }
+    button.setLed("pulse");
+  }, [isButtonSummaryMode, button.setLed]);
+
+  useButtonBanner({
+    owner: "summary",
+    sessionActive: isButtonSummaryMode,
+    micOpen: false,
+    isConnecting: false,
+    bannerImmediate: true,
+    messageKey: "summary.banner.pressToRestart",
+  });
+
+  useEffect(() => {
+    if (!isButtonSummaryMode) {
+      return;
+    }
+
+    const pressed = button.pressed;
+    const wasPressed = prevPressedRef.current;
+    prevPressedRef.current = pressed;
+
+    if (pressed && !wasPressed) {
+      navigate(rootPath);
+    }
+  }, [button.pressed, isButtonSummaryMode, navigate, rootPath]);
 
   const handleCreatePdf = (): void => {
     import("../../Tinos.js").then(() => {

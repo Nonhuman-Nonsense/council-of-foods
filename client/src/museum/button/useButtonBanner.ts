@@ -9,9 +9,13 @@ export function computeBannerVisible(params: {
   isConnecting: boolean;
   micOpen: boolean;
   idleRemindActive: boolean;
+  bannerImmediate?: boolean;
 }): boolean {
   if (!params.sessionActive || params.isConnecting || params.micOpen) {
     return false;
+  }
+  if (params.bannerImmediate) {
+    return true;
   }
   return params.idleRemindActive;
 }
@@ -41,6 +45,10 @@ export type UseButtonBannerParams = {
   canIdleTerminal?: () => boolean;
   /** Re-arm the idle terminal timer when these change (e.g. agent stopped speaking). */
   terminalDeps?: readonly unknown[];
+  /** i18n key for the global ButtonBanner while this owner is active. */
+  messageKey?: string;
+  /** Show the banner as soon as the session is active (skip idle delay). */
+  bannerImmediate?: boolean;
 };
 
 export type ButtonBannerHandle = {
@@ -63,6 +71,8 @@ export function useButtonBanner(params: UseButtonBannerParams): ButtonBannerHand
     onIdleTerminal,
     canIdleTerminal,
     terminalDeps = [],
+    messageKey,
+    bannerImmediate = false,
   } = params;
 
   const [idleClockStarted, setIdleClockStarted] = useState(false);
@@ -167,7 +177,19 @@ export function useButtonBanner(params: UseButtonBannerParams): ButtonBannerHand
     isConnecting,
     micOpen,
     idleRemindActive,
+    bannerImmediate,
   });
+
+  useEffect(() => {
+    if (!sessionActive || !messageKey) {
+      useButtonStore.getState().setButtonBannerMessageKey(owner, undefined);
+      return;
+    }
+    useButtonStore.getState().setButtonBannerMessageKey(owner, messageKey);
+    return () => {
+      useButtonStore.getState().setButtonBannerMessageKey(owner, undefined);
+    };
+  }, [owner, sessionActive, messageKey]);
 
   useEffect(() => {
     if (!sessionActive) {
