@@ -4,6 +4,8 @@ Fix stacked / duplicated partial transcript text in the HumanInput textarea duri
 
 **Status:** Plan only.
 
+**PR1 status:** Done.
+
 **Scope principle:** Small, local changes. No new modules. Logic stays in files that already own human input (`HumanInput.tsx` for the client fix; `realtimeProviders.ts` only if we later tune the Inworld session).
 
 ---
@@ -111,6 +113,8 @@ No new files. No shared utility module. If we need a testable pure function late
 
 - Pass `transcription.prompt` from existing `transcribePrompt` config on the Inworld branch (today only wired for OpenAI).
 - Optionally add `providerData.stt.language_hints` for Swedish Soniox.
+
+**Status:** Done.
 
 ---
 
