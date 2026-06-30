@@ -123,8 +123,8 @@ export default function MeetingVoiceGuide({
   });
   const { sendUserMessage, muted } = voice;
 
-  const showMuseumLandingLoading =
-    isMuseumMode && phase === "landing" && !muted && voice.isConnecting;
+  const showMuseumReconnecting =
+    isMuseumMode && !muted && voice.isConnecting;
 
   useButtonBanner({
     owner: "voice-guide",
@@ -165,7 +165,7 @@ export default function MeetingVoiceGuide({
 
   return (
     <>
-      {showMuseumLandingLoading && <Loading />}
+      {showMuseumReconnecting && <Loading />}
     <VoiceGuideOverlay
       isConnecting={voice.isConnecting}
       error={voice.error}

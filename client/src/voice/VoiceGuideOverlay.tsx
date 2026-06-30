@@ -74,6 +74,7 @@ export default function VoiceGuideOverlay(props: VoiceGuideOverlayProps): ReactE
         error={error}
         lastCaption={lastCaption}
         lastUserTranscript={lastUserTranscript}
+        hideCaptions={isConnecting}
         agentMode={agentMode}
         subtitleLayout={subtitleLayout}
         showPttVisualizer={agentMode === "ptt"}

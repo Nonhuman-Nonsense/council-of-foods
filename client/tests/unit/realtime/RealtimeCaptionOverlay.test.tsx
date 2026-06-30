@@ -49,6 +49,34 @@ describe("RealtimeCaptionOverlay", () => {
     );
   });
 
+  it("hides captions when hideCaptions is true", () => {
+    render(
+      <RealtimeCaptionOverlay
+        error={null}
+        lastUserTranscript="Old user line"
+        lastCaption="Old agent line"
+        hideCaptions
+      />,
+    );
+
+    expect(screen.queryByTestId("voice-guide-user")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("voice-guide-caption")).not.toBeInTheDocument();
+  });
+
+  it("still shows error when hideCaptions is true", () => {
+    render(
+      <RealtimeCaptionOverlay
+        error="Connection lost"
+        lastCaption="Stale caption"
+        lastUserTranscript="Stale user"
+        hideCaptions
+      />,
+    );
+
+    expect(screen.getByRole("alert")).toHaveTextContent("Connection lost");
+    expect(screen.queryByTestId("voice-guide-caption")).not.toBeInTheDocument();
+  });
+
   it("shows error alert when error is set", () => {
     render(
       <RealtimeCaptionOverlay

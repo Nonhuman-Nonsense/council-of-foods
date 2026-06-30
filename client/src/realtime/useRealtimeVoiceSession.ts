@@ -242,6 +242,7 @@ export function useRealtimeVoiceSession(
     abortRef.current = controller;
     const isStale = () => myAttempt !== attemptRef.current;
 
+    resetSessionUiState();
     setConnectionState("connecting");
     setError(null);
     setHasReceivedAudioPart(false);
@@ -539,6 +540,7 @@ export function useRealtimeVoiceSession(
     startFailedMessage,
     triggerGreetingOnReady,
     authHeaders,
+    resetSessionUiState,
   ]);
 
   useEffect(() => {
@@ -559,6 +561,7 @@ export function useRealtimeVoiceSession(
     void start();
     return () => {
       cleanup();
+      resetSessionUiState();
       setConnectionState("idle");
     };
   }, [sessionActive, autoConnect, start, cleanup, resetSessionUiState]);

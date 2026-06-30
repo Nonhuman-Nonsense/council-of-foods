@@ -20,6 +20,8 @@ export type RealtimeCaptionOverlayProps = {
   showPttVisualizer?: boolean;
   micStream?: MediaStream | null;
   micActive?: boolean;
+  /** Hide caption text while reconnecting (e.g. language switch). Errors still show. */
+  hideCaptions?: boolean;
 };
 
 /**
@@ -35,6 +37,7 @@ export default function RealtimeCaptionOverlay(props: RealtimeCaptionOverlayProp
     showPttVisualizer = false,
     micStream = null,
     micActive = false,
+    hideCaptions = false,
   } = props;
   const isMobile = useMobile();
 
@@ -105,7 +108,7 @@ export default function RealtimeCaptionOverlay(props: RealtimeCaptionOverlayProp
     pointerEvents: "none",
   };
 
-  const hasText = Boolean(lastUserTranscript || lastCaption);
+  const hasText = !hideCaptions && Boolean(lastUserTranscript || lastCaption);
   const showVisualizer = micActive && micStream != null;
 
   return (

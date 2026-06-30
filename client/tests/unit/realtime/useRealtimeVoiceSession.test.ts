@@ -392,6 +392,31 @@ describe("useRealtimeVoiceSession", () => {
     expect(onSessionReady).toHaveBeenCalledOnce();
   });
 
+  it("clears captions when reconnecting after language change", async () => {
+    const { result, rerender } = renderHook(
+      ({ language }) => useRealtimeVoiceSession({ ...defaultParams, language }),
+      { initialProps: { language: "en" } },
+    );
+
+    await waitFor(() => {
+      expect(result.current.connectionState).toBe("ready");
+    });
+
+    act(() => {
+      eventLoopCallbacks.onUserTranscript?.("Hello");
+      eventLoopCallbacks.onCaption?.("Hi there");
+    });
+    expect(result.current.lastCaption).toBe("Hi there");
+    expect(result.current.lastUserTranscript).toBe("Hello");
+
+    rerender({ language: "sv" });
+
+    await waitFor(() => {
+      expect(result.current.lastCaption).toBeNull();
+      expect(result.current.lastUserTranscript).toBeNull();
+    });
+  });
+
   it("reconfigureSession delegates to the event loop with current config", async () => {
     const { result } = renderHook(() => useRealtimeVoiceSession(defaultParams));
 
