@@ -3,7 +3,7 @@ import { useLocation, useNavigate, NavigateFunction, Location, Link } from "reac
 import { useMediaQuery } from 'react-responsive'
 import { useTranslation } from 'react-i18next';
 import { capitalizeFirstLetter, useMobile, useMobileXs, usePortrait } from "@/utils";
-import { getMeetingIdFromPathname, stripLanguagePrefix } from "@/routing";
+import { buildLanguagePath, getMeetingIdFromPathname } from "@/routing";
 import Lottie from "react-lottie-player";
 import type { ComponentRef } from "react";
 import hamburger from "@assets/animations/hamburger.json";
@@ -202,7 +202,7 @@ function Navbar({ topicTitle: topic, hamburgerOpen, setHamburgerOpen }: NavbarPr
                 <span key={l}>
                   <Link
                     style={{ ...languageStyle, textDecoration: i18n.language === l ? "underline" : "none", pointerEvents: showMenu ? "auto" : "none" }}
-                    to={`/${l}/${stripLanguagePrefix(location.pathname).replace(/^\//, '')}${location.hash}`}
+                    to={buildLanguagePath(l, location.pathname, location.hash)}
                     onClick={() => { if (isMobile) { setHamburgerOpen(false); } }}
                   >
                     {t(l).toUpperCase()}
