@@ -29,9 +29,21 @@ describe("autoplayStore", () => {
     useAutoplayStore.getState().setPhase("off");
     notifyAutoplay({ type: "council-state", state: "summary" });
     expect(useAutoplayStore.getState().councilOnSummary).toBe(true);
+    expect(useAutoplayStore.getState().summaryFinishedTickAtEntry).toBe(0);
 
     notifyAutoplay({ type: "council-state", state: "playing" });
     expect(useAutoplayStore.getState().councilOnSummary).toBe(false);
+  });
+
+  it("resets idle clock when summary-playback-finished fires", () => {
+    const stale = Date.now() - 120_000;
+    _setAutoplayLastActivityMsForTests(stale);
+    notifyAutoplay({ type: "council-state", state: "summary" });
+    notifyAutoplay({ type: "summary-playback-finished" });
+
+    const state = useAutoplayStore.getState();
+    expect(state.summaryFinishedTick).toBe(1);
+    expect(state.lastActivityMs).toBeGreaterThan(stale);
   });
 
   it("records summary-playback-finished regardless of phase", () => {

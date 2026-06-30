@@ -44,6 +44,8 @@ type AutoplayStore = {
   lastActivityMs: number;
   bumpActivity: (source: AutoplayActivitySource) => void;
   councilOnSummary: boolean;
+  /** `summaryFinishedTick` when the current summary session started. */
+  summaryFinishedTickAtEntry: number;
   summaryFinishedTick: number;
   notify: (event: AutoplayConsumerEvent) => void;
   resetForTests: () => void;
@@ -63,16 +65,25 @@ export const useAutoplayStore = create<AutoplayStore>((set) => ({
   },
 
   councilOnSummary: false,
+  summaryFinishedTickAtEntry: 0,
   summaryFinishedTick: 0,
 
   notify: (event) => {
     switch (event.type) {
       case "council-state":
-        set({ councilOnSummary: event.state === "summary" });
+        set((state) => ({
+          councilOnSummary: event.state === "summary",
+          ...(event.state === "summary"
+            ? { summaryFinishedTickAtEntry: state.summaryFinishedTick }
+            : {}),
+        }));
         log.event("AUTOPLAY", "council-state", { state: event.state });
         break;
       case "summary-playback-finished":
-        set((state) => ({ summaryFinishedTick: state.summaryFinishedTick + 1 }));
+        set((state) => ({
+          summaryFinishedTick: state.summaryFinishedTick + 1,
+          lastActivityMs: Date.now(),
+        }));
         log.event("AUTOPLAY", "summary-playback-finished");
         break;
     }
@@ -83,6 +94,7 @@ export const useAutoplayStore = create<AutoplayStore>((set) => ({
       phase: "off",
       lastActivityMs: Date.now(),
       councilOnSummary: false,
+      summaryFinishedTickAtEntry: 0,
       summaryFinishedTick: 0,
     });
   },

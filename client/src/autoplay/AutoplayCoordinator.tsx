@@ -14,7 +14,7 @@ import { bumpAutoplayActivity, useAutoplayStore } from "./autoplayStore";
 import { log } from "@/logger";
 
 const LANDING_SETUP_IDLE_MS = 90_000;
-const SUMMARY_IDLE_MS = 60_000;
+const SUMMARY_IDLE_MS = 20_000;
 const LOOP_IDLE_MS = 35_000;
 const IDLE_POLL_MS = 1_000;
 const FETCH_RETRY_MS = 5_000;
@@ -30,6 +30,7 @@ type IdleInactiveReason =
   | "setup_hash"
   | "setup_button_claim"
   | "live_meeting_playing"
+  | "summary_reading"
   | "no_idle_context";
 
 export default function AutoplayCoordinator({
@@ -46,6 +47,7 @@ export default function AutoplayCoordinator({
   const phase = useAutoplayStore((state) => state.phase);
   const councilOnSummary = useAutoplayStore((state) => state.councilOnSummary);
   const summaryFinishedTick = useAutoplayStore((state) => state.summaryFinishedTick);
+  const summaryFinishedTickAtEntry = useAutoplayStore((state) => state.summaryFinishedTickAtEntry);
   const setPhase = useAutoplayStore((state) => state.setPhase);
 
   const awaitingLoopRef = useRef(false);
@@ -238,6 +240,10 @@ export default function AutoplayCoordinator({
       logIdleInactive("live_meeting_playing");
       return;
     }
+    if (onSummary && summaryFinishedTick <= summaryFinishedTickAtEntry) {
+      logIdleInactive("summary_reading");
+      return;
+    }
 
     const thresholdMs = onSummary ? SUMMARY_IDLE_MS : LANDING_SETUP_IDLE_MS;
     const idleContext = onSummary ? "summary" : onLanding || onSetupRoute ? "setup" : null;
@@ -281,6 +287,8 @@ export default function AutoplayCoordinator({
     return () => window.clearInterval(timerId);
   }, [
     councilOnSummary,
+    summaryFinishedTick,
+    summaryFinishedTickAtEntry,
     isMuseumMode,
     location.hash,
     location.pathname,
