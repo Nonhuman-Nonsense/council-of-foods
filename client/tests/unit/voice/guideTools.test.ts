@@ -40,7 +40,7 @@ describe('guideTools', () => {
       startMeeting: vi.fn(),
       meetingStep: 'topic',
       voiceGuideLanguage: 'en',
-      meetingCharactersLabels: { oneHuman: 'Human', twoHumansSuffix: ' Humans' }
+      meetingCharactersLabels: { formatHumanCount: (count) => (count === 1 ? "Human" : `${count} Humans`) },
     };
   });
 

@@ -76,7 +76,7 @@ function CouncilError({ error }: CouncilErrorProps): React.ReactElement {
       <img alt="error" src={errorIcon} style={{ height: "80px", opacity: "0.7" }} />
       <h2>{t("error.title")}</h2>
       {showGenericOnly ? (
-        <p>{t("error.1")}</p>
+        <p>{t("error.message")}</p>
       ) : (
         <p role="status" style={{ marginTop: "4px" }}>
           {detail}
@@ -88,12 +88,12 @@ function CouncilError({ error }: CouncilErrorProps): React.ReactElement {
           action={restart}
           style={{ marginTop: "10px" }}
         >
-          {t("restart")}
+          {t("app.restart")}
         </AutoButton>
       ) : (
         <a href={rootPath}>
           <button type="button" style={{ marginTop: "10px" }}>
-            {t("restart")}
+            {t("app.restart")}
           </button>
         </a>
       )}

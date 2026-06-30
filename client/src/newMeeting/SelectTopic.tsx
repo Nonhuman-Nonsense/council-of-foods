@@ -114,7 +114,7 @@ function SelectTopic({
     } else if (selectedTopic) {
       return topicsBundle.topics.find((t: Topic) => t.id === selectedTopic)?.description;
     } else {
-      return t("selectissue");
+      return t("meeting.selectIssue");
     }
   }
 
@@ -215,7 +215,7 @@ function SelectTopic({
       ) : (
         <div style={containerStyle}>
           <h1 style={{ marginBottom: isMobile ? (isMobileXs ? "0px" : "5px") : undefined }}>
-            {t('theissue')}
+            {t('meeting.issueHeading')}
           </h1>
 
           <div
@@ -278,7 +278,7 @@ function SelectTopic({
             className="unfocused topic-textarea"
             rows={3}
             value={customTopic}
-            placeholder={t('writetopic')}
+            placeholder={t('meeting.customTopicPlaceholder')}
             onChange={handleInputTopic}
             style={textBoxStyle}
           />
@@ -288,7 +288,7 @@ function SelectTopic({
               onClick={proceedForward}
               style={{ visibility: shouldShowNextButton ? undefined : "hidden" }}
             >
-              {t('next')}
+              {t('app.next')}
             </button>
           ) : null}
         </div>

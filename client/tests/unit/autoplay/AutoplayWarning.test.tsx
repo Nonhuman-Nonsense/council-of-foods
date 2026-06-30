@@ -30,7 +30,7 @@ describe("AutoplayWarning", () => {
     const onConfirm = vi.fn();
     render(<AutoplayWarning onConfirm={onConfirm} />);
 
-    expect(screen.getByText("autoplayWarning.title")).toBeTruthy();
+    expect(screen.getByText("autoplay.stillThere.title")).toBeTruthy();
     expect(onConfirm).not.toHaveBeenCalled();
 
     vi.advanceTimersByTime(AUTOPLAY_WARNING_TIMEOUT_SECONDS * 1000);
@@ -41,7 +41,7 @@ describe("AutoplayWarning", () => {
     const onConfirm = vi.fn();
     render(<AutoplayWarning onConfirm={onConfirm} />);
 
-    screen.getByText("autoplayWarning.confirm").click();
+    screen.getByText("autoplay.stillThere.confirm").click();
     expect(onConfirm).toHaveBeenCalledTimes(1);
   });
 });

@@ -25,15 +25,15 @@ export default function ReplayModeBanner({
     dateStyle: "long",
   });
 
-  const preamble = t("replayModeBanner.preamble", {
+  const preamble = t("replay.preamble", {
     meetingId: meeting._id,
     meetingTitle: meeting.topic.title,
     meetingDate,
   });
   const callToAction =
     replayBannerVariant === "autoplay"
-      ? t("replayModeBanner.pressButton")
-      : t("replayModeBanner.click");
+      ? t("replay.pressButton")
+      : t("replay.click");
   const segmentCount = 3;
 
   const content = (

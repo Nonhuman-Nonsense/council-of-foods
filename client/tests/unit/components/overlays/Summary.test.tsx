@@ -3,13 +3,6 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import Summary from '@council/overlays/Summary';
 
-// Mock dependencies
-vi.mock('react-i18next', () => ({
-    useTranslation: () => ({
-        t: (key: string) => key,
-    }),
-}));
-
 vi.mock('qrcode.react', () => ({
     QRCodeCanvas: () => <div data-testid="qrcode">QRCode</div>
 }));
@@ -77,10 +70,10 @@ describe('Summary Overlay', () => {
 
         // Check for header elements (mocked translation keys)
         // We have duplicates because of the PDF print view
-        const councilEls = screen.getAllByText('COUNCIL');
+        const councilEls = screen.getAllByText('COUNCIL OF FOODS');
         expect(councilEls.length).toBeGreaterThan(0);
 
-        const meetingEls = screen.getAllByText('meeting #12345');
+        const meetingEls = screen.getAllByText(/Meeting #12345/);
         expect(meetingEls.length).toBeGreaterThan(0);
 
         // Check for markdown content
@@ -99,7 +92,7 @@ describe('Summary Overlay', () => {
         // We verified visual styles by checking if the structure renders without error
         // and specific mobile-only classes or styles are applied if checked (though styles are inline here)
         // Asserting basic presence is sufficient to catch crashes
-        expect(screen.getAllByText('COUNCIL').length).toBeGreaterThan(0);
+        expect(screen.getAllByText('COUNCIL OF FOODS').length).toBeGreaterThan(0);
     });
 
     it('displays the QR code with correct link', () => {
@@ -117,10 +110,15 @@ describe('Summary Overlay', () => {
     it('includes the disclaimer', () => {
         render(<Summary summary={mockSummary} meetingId={mockMeetingId} />);
 
-        // Check for disclaimer translation keys
-        expect(screen.getAllByText(/disclaimer.1/).length).toBeGreaterThan(0);
-        // disclaimer.5 might be split or adjacent to links, verify via content or partial match
-        expect(screen.getAllByText(/disclaimer.5/).length).toBeGreaterThan(0);
+        expect(
+            screen.getAllByText(/This document was created by the Council of Foods/).length,
+        ).toBeGreaterThan(0);
+        expect(
+            screen.getAllByRole('link', { name: 'Nonhuman Nonsense' }).length,
+        ).toBeGreaterThan(0);
+        expect(
+            screen.getAllByRole('link', { name: 'grant agreement 101069990' }).length,
+        ).toBeGreaterThan(0);
     });
 
     it('renders the hidden PDF template', () => {
@@ -143,7 +141,7 @@ describe('Summary Overlay', () => {
     it('triggers PDF download when button is clicked', async () => {
         render(<Summary summary={mockSummary} meetingId={mockMeetingId} />);
 
-        const downloadBtn = screen.getByText('summary.download');
+        const downloadBtn = screen.getByText('Download PDF');
         fireEvent.click(downloadBtn);
 
         // Wait for dynamic import and execution

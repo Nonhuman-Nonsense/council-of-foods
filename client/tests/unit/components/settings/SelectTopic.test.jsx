@@ -101,7 +101,7 @@ describe('SelectTopic Component', () => {
         fireEvent.click(btn);
 
         // Check Next button appears
-        const nextBtn = screen.getByText('next');
+        const nextBtn = screen.getByText('app.next');
         expect(nextBtn).toBeVisible();
 
         // Click Next
@@ -126,7 +126,7 @@ describe('SelectTopic Component', () => {
         fireEvent.click(screen.getByText('Write your own'));
 
         // Check that textarea exists and has correct class for strict font styling
-        const textarea = screen.getByPlaceholderText('writetopic');
+        const textarea = screen.getByPlaceholderText('meeting.customTopicPlaceholder');
         expect(textarea).toBeInTheDocument();
         expect(textarea).toHaveClass('topic-textarea');
 
@@ -135,7 +135,7 @@ describe('SelectTopic Component', () => {
         expect(textarea).toHaveValue('My Custom Topic');
 
         // Click Next
-        fireEvent.click(screen.getByText('next'));
+        fireEvent.click(screen.getByText('app.next'));
 
         expect(mockOnContinue).toHaveBeenCalledWith(
             expect.objectContaining({ id: 'customtopic', description: 'My Custom Topic' })
@@ -224,7 +224,7 @@ describe('SelectTopic Component', () => {
             />
         );
 
-        const nextBtn = screen.getByText('next');
+        const nextBtn = screen.getByText('app.next');
         await waitFor(() => expect(nextBtn).toBeVisible());
         fireEvent.click(nextBtn);
 
@@ -247,7 +247,7 @@ describe('SelectTopic Component', () => {
 
         // Should auto-select topic1 (useEffect)
         // Check Next button is visible
-        const nextBtn = screen.getByText('next');
+        const nextBtn = screen.getByText('app.next');
         expect(nextBtn).toBeVisible();
 
         // Change selection to Topic Two
@@ -277,8 +277,8 @@ describe('SelectTopic Component', () => {
             />
         );
 
-        // Default: "The Issue" instruction (mocked as key 'selectissue')
-        expect(screen.getByText('selectissue')).toBeInTheDocument();
+        // Default: "The Issue" instruction (mocked as key 'meeting.selectIssue')
+        expect(screen.getByText('meeting.selectIssue')).toBeInTheDocument();
 
         // Hover Topic One -> Shows "Desc One"
         fireEvent.mouseEnter(screen.getByText('Topic One'));
@@ -286,7 +286,7 @@ describe('SelectTopic Component', () => {
 
         // Leave -> Returns to Default
         fireEvent.mouseLeave(screen.getByText('Topic One'));
-        expect(screen.getByText('selectissue')).toBeInTheDocument();
+        expect(screen.getByText('meeting.selectIssue')).toBeInTheDocument();
 
         // Select Topic Two -> Shows "Desc Two"
         fireEvent.click(screen.getByText('Topic Two'));
@@ -311,7 +311,7 @@ describe('SelectTopic Component', () => {
             />
         );
 
-        const nextBtn = screen.getByText('next');
+        const nextBtn = screen.getByText('app.next');
 
         // Initially hidden (no selection)
         expect(nextBtn).not.toBeVisible();
@@ -325,7 +325,7 @@ describe('SelectTopic Component', () => {
         expect(nextBtn).not.toBeVisible();
 
         // Type in custom topic -> Visible
-        const textarea = screen.getByPlaceholderText('writetopic');
+        const textarea = screen.getByPlaceholderText('meeting.customTopicPlaceholder');
         fireEvent.change(textarea, { target: { value: 'Something' } });
         expect(nextBtn).toBeVisible();
 
@@ -344,7 +344,7 @@ describe('SelectTopic Component', () => {
             />
         );
 
-        const textarea = screen.getByPlaceholderText('writetopic');
+        const textarea = screen.getByPlaceholderText('meeting.customTopicPlaceholder');
         const customBtn = screen.getByText('Write your own');
 
         // Initially hidden
@@ -380,6 +380,6 @@ describe('SelectTopic Component', () => {
         );
 
         fireEvent.click(screen.getByText('Topic One'));
-        expect(screen.queryByText('next')).not.toBeInTheDocument();
+        expect(screen.queryByText('app.next')).not.toBeInTheDocument();
     });
 });

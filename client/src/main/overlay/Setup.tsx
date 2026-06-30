@@ -422,7 +422,7 @@ function Setup(): ReactElement {
               onClick={() => setAgentMode("always-on")}
               style={setupSegmentButton}
             >
-              {t("setup.alwaysOn")}
+              {t("agentMode.alwaysOn")}
             </button>
             <button
               type="button"
@@ -431,7 +431,7 @@ function Setup(): ReactElement {
               onClick={() => setAgentMode("ptt")}
               style={setupSegmentButton}
             >
-              {t("setup.pushToTalk")}
+              {t("agentMode.pushToTalk")}
             </button>
           </SetupSegmented>
           {showLedPreviewPill ? (

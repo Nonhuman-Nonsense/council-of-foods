@@ -31,6 +31,7 @@ import CouncilError, { useUnrecoverableError } from "./overlay/CouncilError";
 import Reconnecting from "./overlay/Reconnecting";
 
 const MuseumButton = lazy(() => import("@/museum/button/MuseumButton"));
+const ButtonBanner = lazy(() => import("@/museum/button/ButtonBanner"));
 const AutoplayCoordinator = lazy(() => import("@/autoplay/AutoplayCoordinator"));
 
 import { z } from "@/zIndexLayers";
@@ -176,6 +177,7 @@ export default function Main(props: MainProps) {
       {agentMode === "ptt" && (
         <Suspense fallback={null}>
           <MuseumButton />
+          <ButtonBanner />
         </Suspense>
       )}
       <Background pathname={location.pathname} />

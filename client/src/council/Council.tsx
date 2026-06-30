@@ -97,7 +97,7 @@ function Council({
         if (ac.signal.aborted) return;
         console.error(error);
         const msg =
-          error instanceof Error && error.message.trim().length > 0 ? error.message : t("error.1");
+          error instanceof Error && error.message.trim().length > 0 ? error.message : t("error.message");
         setUnrecoverableError({
           message: msg,
           source: "Council.loadMeeting",

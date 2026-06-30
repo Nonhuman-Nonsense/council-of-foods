@@ -161,7 +161,7 @@ function Navbar({ topicTitle: topic, hamburgerOpen, setHamburgerOpen }: NavbarPr
                 visibility: showIconinMeny ? "visible" : "hidden",
               }}
               onClick={() => handleOnNavigate("reset")}
-            >{t('council').toUpperCase()}</h3>
+            >{t('app.council').toUpperCase()}</h3>
             <h4 style={{ marginTop: "5px", visibility: showIconinMeny ? "visible" : "hidden" }}>{`${meetingId ? "#" + meetingId + ": " : ""}${capitalizeFirstLetter(topic)}`}</h4>
           </div>
         </>}
@@ -245,6 +245,8 @@ interface NavItemProps {
 function NavItem({ name, isActive, show, onNavigate }: NavItemProps): React.ReactElement {
   const { t } = useTranslation();
 
+  const labelKey = name === "about" || name === "contact" ? `${name}.label` : name;
+
   const navItemStyle: React.CSSProperties = {
     marginLeft: "19px",
     cursor: "pointer",
@@ -264,7 +266,7 @@ function NavItem({ name, isActive, show, onNavigate }: NavItemProps): React.Reac
         }
       }}
     >
-      <span style={navItemStyle}>{t(name).toUpperCase()}</span>
+      <span style={navItemStyle}>{t(labelKey).toUpperCase()}</span>
     </h3>
   );
 }

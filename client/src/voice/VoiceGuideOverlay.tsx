@@ -17,7 +17,6 @@ type VoiceGuideOverlayProps = {
   muted: boolean;
   isMuseumMode?: boolean;
   agentMode?: AgentMode;
-  showHoldToSpeakHint?: boolean;
   subtitleLayout?: RealtimeSubtitleLayout;
   micStream?: MediaStream | null;
   micActive?: boolean;
@@ -38,7 +37,6 @@ export default function VoiceGuideOverlay(props: VoiceGuideOverlayProps): ReactE
     muted,
     isMuseumMode = false,
     agentMode = "always-on",
-    showHoldToSpeakHint = false,
     subtitleLayout = "compact",
     micStream = null,
     micActive = false,
@@ -77,7 +75,6 @@ export default function VoiceGuideOverlay(props: VoiceGuideOverlayProps): ReactE
         lastCaption={lastCaption}
         lastUserTranscript={lastUserTranscript}
         agentMode={agentMode}
-        showHoldToSpeakHint={showHoldToSpeakHint}
         subtitleLayout={subtitleLayout}
         showPttVisualizer={agentMode === "ptt"}
         micStream={micStream}

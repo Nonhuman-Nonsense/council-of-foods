@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useButton, type ButtonLedMode } from "@museum/button/useButton";
-import { BUTTON_IDLE_REMIND_MS, useHoldToSpeakHint } from "@voice/useHoldToSpeakHint";
+import { useButtonBanner } from "@museum/button/useButtonBanner";
 import RealtimeCaptionOverlay from "@realtime/RealtimeCaptionOverlay";
 import Loading from "@main/Loading";
 import { useMetaAgent, type MetaAgentPhase } from "./useMetaAgent";
@@ -189,13 +189,30 @@ export default function MeetingMetaAgent({
     button.setLed(ledMode);
   }, [button.setLed, ledMode]);
 
-  const { showHoldToSpeakHint, idleRemindVisible, bumpActivity } = useHoldToSpeakHint({
-    agentMode: "ptt",
+  const { bumpBannerActivity } = useButtonBanner({
+    owner: "meta-agent",
     sessionActive: metaAgentPhase !== "inactive",
     isConnecting: connectionState === "connecting",
     micOpen: metaAgentPhase !== "inactive" && button.pressed,
-    lastUserTranscript,
-    lastCaption,
+    activityDeps: [lastUserTranscript, lastCaption],
+    onIdleTerminal: () => {
+      const terminalTool =
+        metaAgentPhase === "extension"
+          ? toolHandlers.conclude_meeting
+          : toolHandlers.resume_meeting;
+      const eventName =
+        metaAgentPhase === "extension"
+          ? "idle auto-conclude conclude_meeting"
+          : "idle auto-resume resume_meeting";
+      log.event("META", eventName);
+      terminalTool?.({});
+    },
+    canIdleTerminal: () =>
+      (metaAgentPhase === "interruption" || metaAgentPhase === "extension") &&
+      connectionState === "ready" &&
+      !agentSpeaking &&
+      !button.pressed,
+    terminalDeps: [metaAgentPhase, connectionState, agentSpeaking, button.pressed],
   });
 
   useEffect(() => {
@@ -218,10 +235,10 @@ export default function MeetingMetaAgent({
       return;
     }
     if (enteredExtension) {
-      bumpActivity();
+      bumpBannerActivity();
       setAwaitingExtensionReply(true);
     }
-  }, [metaAgentPhase, bumpActivity]);
+  }, [metaAgentPhase, bumpBannerActivity]);
 
   useEffect(() => {
     if (!awaitingExtensionReply || metaAgentPhase !== "extension") return;
@@ -285,54 +302,6 @@ export default function MeetingMetaAgent({
     }
   }, [metaAgentPhase, setMicEnabled]);
 
-  const idleTerminalFiredRef = useRef(false);
-
-  useEffect(() => {
-    if (metaAgentPhase === "inactive") {
-      idleTerminalFiredRef.current = false;
-    }
-  }, [metaAgentPhase]);
-
-  useEffect(() => {
-    if (!idleRemindVisible) {
-      idleTerminalFiredRef.current = false;
-    }
-  }, [idleRemindVisible]);
-
-  useEffect(() => {
-    if (metaAgentPhase !== "interruption" && metaAgentPhase !== "extension") return;
-    if (connectionState !== "ready") return;
-    if (!idleRemindVisible) return;
-    if (idleTerminalFiredRef.current) return;
-    if (agentSpeaking || button.pressed) return;
-
-    const terminalTool =
-      metaAgentPhase === "extension"
-        ? toolHandlers.conclude_meeting
-        : toolHandlers.resume_meeting;
-    const eventName =
-      metaAgentPhase === "extension"
-        ? "idle auto-conclude conclude_meeting"
-        : "idle auto-resume resume_meeting";
-
-    const timerId = window.setTimeout(() => {
-      if (idleTerminalFiredRef.current) return;
-      if (agentSpeaking || button.pressed) return;
-      idleTerminalFiredRef.current = true;
-      log.event("META", eventName);
-      terminalTool?.({});
-    }, BUTTON_IDLE_REMIND_MS);
-
-    return () => window.clearTimeout(timerId);
-  }, [
-    metaAgentPhase,
-    connectionState,
-    idleRemindVisible,
-    agentSpeaking,
-    button.pressed,
-    toolHandlers,
-  ]);
-
   if (metaAgentPhase === "inactive") return null;
 
   const showExtensionLoader =
@@ -347,8 +316,6 @@ export default function MeetingMetaAgent({
       lastCaption={lastCaption}
       lastUserTranscript={lastUserTranscript}
       agentMode="ptt"
-      showHoldToSpeakHint={showHoldToSpeakHint}
-      holdToSpeakKey="metaAgent.holdToSpeak"
       subtitleLayout="council"
       showPttVisualizer
       micStream={micStream}

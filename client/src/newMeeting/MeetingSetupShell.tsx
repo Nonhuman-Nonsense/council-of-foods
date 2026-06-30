@@ -109,7 +109,7 @@ export default function MeetingSetupShell({
       navigate(meetingPath(Number(meetingId)));
     } catch (e) {
       console.error(e);
-      const msg = e instanceof Error && e.message.trim().length > 0 ? e.message : t("error.1");
+      const msg = e instanceof Error && e.message.trim().length > 0 ? e.message : t("error.message");
       setUnrecoverableError({
         message: msg,
         source: "MeetingSetupShell.createMeeting",

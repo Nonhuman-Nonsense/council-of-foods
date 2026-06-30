@@ -3,7 +3,8 @@ import { useMobile, dvh } from "@/utils";
 import parse from 'html-react-parser';
 import { marked } from "marked";
 import { jsPDF } from "jspdf";
-import { useTranslation } from "react-i18next";
+import { useTranslation, Trans } from "react-i18next";
+import { externalLinks } from "@/i18n/externalLinks";
 import { QRCodeCanvas } from 'qrcode.react';
 import councilLogoWhite from "@assets/logos/council_logo_white.svg";
 import councilLogo from "@assets/logos/council_logo.png";
@@ -89,8 +90,8 @@ function Summary({ summary, meetingId }: SummaryProps): React.ReactElement {
               <img style={{ width: isMobile ? '80px' : '110px', paddingRight: "10px" }} src={councilLogoWhite} alt="council of foods logo" />
             </div>
             <div style={{ display: "flex", flexDirection: "column", textAlign: "left", flex: "1", paddingLeft: "15px" }}>
-              <h2 style={{ margin: 0 }}>{t('council').toUpperCase()}</h2>
-              <h3 style={{ margin: 0 }}>{t('meeting')} #{meetingId}</h3>
+              <h2 style={{ margin: 0 }}>{t('app.council').toUpperCase()}</h2>
+              <h3 style={{ margin: 0 }}>{t('app.meeting')} #{meetingId}</h3>
             </div>
             <div>
               <a href={window.location.href}><QRCodeCanvas value={window.location.href} bgColor="rgba(0,0,0,0)" fgColor="#ffffff" style={{ height: isMobile ? '50px' : "70px", width: isMobile ? '50px' : "70px", marginRight: "20px" }} /></a>
@@ -127,8 +128,8 @@ function Summary({ summary, meetingId }: SummaryProps): React.ReactElement {
             <hr />
             <div style={{ height: "52px", position: 'relative' }}>
               <img style={{ width: '70px' }} src={councilLogo} alt="council of foods logo" />
-              <h2 style={{ fontSize: '24px', margin: '0', position: 'absolute', left: "80px", top: '2px' }}>{t('council').toUpperCase()}</h2>
-              <h3 style={{ fontSize: '15px', margin: '0', position: 'absolute', left: "80px", top: "28px" }}>{t('meeting')} #{meetingId}</h3>
+              <h2 style={{ fontSize: '24px', margin: '0', position: 'absolute', left: "80px", top: '2px' }}>{t('app.council').toUpperCase()}</h2>
+              <h3 style={{ fontSize: '15px', margin: '0', position: 'absolute', left: "80px", top: "28px" }}>{t('app.meeting')} #{meetingId}</h3>
               <QRCodeCanvas value={window.location.href} style={{ position: 'absolute', right: "10px", top: "2.5px", width: "45px", height: "45px" }} />
             </div>
             <hr />
@@ -146,20 +147,23 @@ function Summary({ summary, meetingId }: SummaryProps): React.ReactElement {
 }
 
 function Disclaimer() {
-
   const { t } = useTranslation();
 
   return (
     <div>
-      <p>{t('disclaimer.1')}</p><br />
-      <ol>
-        <li>{t('disclaimer.2')}</li>
-        <li>{t('disclaimer.3')}</li>
-        <li>{t('disclaimer.4')}</li>
-      </ol><br />
-      <p>{t('disclaimer.5')} <a href="https://nonhuman-nonsense.com/">Nonhuman&nbsp;Nonsense</a>{t('disclaimer.6')}<a href="https://cordis.europa.eu/project/id/101069990">grant agreement 101069990</a>.</p>
+      <p>{t("disclaimer.intro")}</p>
       <br />
-      <p>{t('disclaimer.7')}</p>
+      <ol>
+        <li>{t("disclaimer.items.misinformation")}</li>
+        <li>{t("disclaimer.items.notResearch")}</li>
+        <li>{t("disclaimer.items.takeAction")}</li>
+      </ol>
+      <br />
+      <p>
+        <Trans i18nKey="disclaimer.attribution" components={externalLinks} />
+      </p>
+      <br />
+      <p>{t("disclaimer.moreInfo")}</p>
       <br />
     </div>
   );

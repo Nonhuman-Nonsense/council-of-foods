@@ -1,108 +1,82 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
-import Name from '@council/overlays/Name';
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { render, screen, fireEvent } from "@testing-library/react";
+import "@testing-library/jest-dom";
+import Name from "@council/overlays/Name";
 
-// Mock dependencies
-vi.mock('react-i18next', () => ({
-    useTranslation: () => ({
-        t: (key) => key,
-    }),
-}));
-
-// Mock utils - defaulting to desktop (false)
 const mockUseMobile = vi.fn();
-vi.mock('@/utils', () => ({
-    useMobile: () => mockUseMobile(),
-    capitalizeFirstLetter: (str) => str.charAt(0).toUpperCase() + str.slice(1)
+vi.mock("@/utils", () => ({
+  useMobile: () => mockUseMobile(),
+  capitalizeFirstLetter: (str) => str.charAt(0).toUpperCase() + str.slice(1),
 }));
 
-describe('Name Overlay', () => {
-    const mockOnContinueForward = vi.fn();
-    const mockParticipants = [
-        { name: 'Banana' },
-        { name: 'Apple' }
-    ];
+describe("Name Overlay", () => {
+  const mockOnContinueForward = vi.fn();
+  const mockParticipants = [{ name: "Banana" }, { name: "Apple" }];
 
-    beforeEach(() => {
-        vi.clearAllMocks();
-        mockUseMobile.mockReturnValue(false); // Default to desktop
-    });
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockUseMobile.mockReturnValue(false);
+  });
 
-    it('renders correctly', () => {
-        render(<Name participants={mockParticipants} onContinueForward={mockOnContinueForward} />);
+  it("renders correctly", () => {
+    render(<Name participants={mockParticipants} onContinueForward={mockOnContinueForward} />);
 
-        expect(screen.getByText('name.title')).toBeInTheDocument();
-        expect(screen.getByPlaceholderText('name.5')).toBeInTheDocument();
-        // Check initial focus for desktop
-        const input = screen.getByPlaceholderText('name.5');
-        expect(input).toHaveFocus();
-    });
+    expect(screen.getByText("SAY SOMETHING")).toBeInTheDocument();
+    const input = screen.getByPlaceholderText("your name");
+    expect(input).toHaveFocus();
+  });
 
-    it('does not auto-focus on mobile', () => {
-        mockUseMobile.mockReturnValue(true);
-        render(<Name participants={mockParticipants} onContinueForward={mockOnContinueForward} />);
+  it("does not auto-focus on mobile", () => {
+    mockUseMobile.mockReturnValue(true);
+    render(<Name participants={mockParticipants} onContinueForward={mockOnContinueForward} />);
 
-        const input = screen.getByPlaceholderText('name.5');
-        expect(input).not.toHaveFocus();
-    });
+    expect(screen.getByPlaceholderText("your name")).not.toHaveFocus();
+  });
 
-    it('validates empty input', () => {
-        render(<Name participants={mockParticipants} onContinueForward={mockOnContinueForward} />);
+  it("validates empty input", () => {
+    render(<Name participants={mockParticipants} onContinueForward={mockOnContinueForward} />);
 
-        const nextButton = screen.getByLabelText('continue');
-        fireEvent.click(nextButton);
+    fireEvent.click(screen.getByLabelText("continue"));
 
-        // Should show error (visiblity check)
-        // The component logic sets isHumanNameMissing=true
-        // The error message translates to 'name.4'
-        expect(screen.getByText('name.4')).toBeVisible();
-        expect(mockOnContinueForward).not.toHaveBeenCalled();
-    });
+    expect(screen.getByText("enter your name to proceed")).toBeVisible();
+    expect(mockOnContinueForward).not.toHaveBeenCalled();
+  });
 
-    it('validates duplicate name', () => {
-        render(<Name participants={mockParticipants} onContinueForward={mockOnContinueForward} />);
+  it("validates duplicate name", () => {
+    render(<Name participants={mockParticipants} onContinueForward={mockOnContinueForward} />);
 
-        const input = screen.getByPlaceholderText('name.5');
-        fireEvent.change(input, { target: { value: 'Banana' } });
+    fireEvent.change(screen.getByPlaceholderText("your name"), { target: { value: "Banana" } });
+    fireEvent.click(screen.getByLabelText("continue"));
 
-        const nextButton = screen.getByLabelText('continue');
-        fireEvent.click(nextButton);
+    expect(screen.getByText("name must be unique in the council")).toBeVisible();
+    expect(mockOnContinueForward).not.toHaveBeenCalled();
+  });
 
-        // Should show duplicate error ('name.unique')
-        expect(screen.getByText('name.unique')).toBeVisible();
-        expect(mockOnContinueForward).not.toHaveBeenCalled();
-    });
+  it("submits valid name", () => {
+    render(<Name participants={mockParticipants} onContinueForward={mockOnContinueForward} />);
 
-    it('submits valid name', () => {
-        render(<Name participants={mockParticipants} onContinueForward={mockOnContinueForward} />);
+    fireEvent.change(screen.getByPlaceholderText("your name"), { target: { value: "Cherry" } });
+    fireEvent.click(screen.getByLabelText("continue"));
 
-        const input = screen.getByPlaceholderText('name.5');
-        fireEvent.change(input, { target: { value: 'Cherry' } });
+    expect(mockOnContinueForward).toHaveBeenCalledWith({ humanName: "Cherry" });
+  });
 
-        const nextButton = screen.getByLabelText('continue');
-        fireEvent.click(nextButton);
+  it("submits on Enter key", () => {
+    render(<Name participants={mockParticipants} onContinueForward={mockOnContinueForward} />);
 
-        expect(mockOnContinueForward).toHaveBeenCalledWith({ humanName: 'Cherry' });
-    });
+    const input = screen.getByPlaceholderText("your name");
+    fireEvent.change(input, { target: { value: "Date" } });
+    fireEvent.keyDown(input, { key: "Enter", code: "Enter", charCode: 13 });
 
-    it('submits on Enter key', () => {
-        render(<Name participants={mockParticipants} onContinueForward={mockOnContinueForward} />);
+    expect(mockOnContinueForward).toHaveBeenCalledWith({ humanName: "Date" });
+  });
 
-        const input = screen.getByPlaceholderText('name.5');
-        fireEvent.change(input, { target: { value: 'Date' } });
-        fireEvent.keyDown(input, { key: 'Enter', code: 'Enter', charCode: 13 });
+  it("capitalizes first letter", () => {
+    render(<Name participants={mockParticipants} onContinueForward={mockOnContinueForward} />);
 
-        expect(mockOnContinueForward).toHaveBeenCalledWith({ humanName: 'Date' });
-    });
+    const input = screen.getByPlaceholderText("your name");
+    fireEvent.change(input, { target: { value: "elderberry" } });
 
-    it('capitalizes first letter', () => {
-        render(<Name participants={mockParticipants} onContinueForward={mockOnContinueForward} />);
-
-        const input = screen.getByPlaceholderText('name.5');
-        // Simulate typing lowercase
-        fireEvent.change(input, { target: { value: 'elderberry' } });
-
-        // Component state should update to capitalized
-        expect(input.value).toBe('Elderberry');
-    });
+    expect(input).toHaveValue("Elderberry");
+  });
 });

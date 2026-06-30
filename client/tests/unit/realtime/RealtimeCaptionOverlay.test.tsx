@@ -61,33 +61,6 @@ describe("RealtimeCaptionOverlay", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("Connection lost");
   });
 
-  it("shows hold-to-speak banner in PTT mode when hint is visible", () => {
-    render(
-      <RealtimeCaptionOverlay
-        error={null}
-        lastCaption={null}
-        lastUserTranscript={null}
-        agentMode="ptt"
-        showHoldToSpeakHint
-      />,
-    );
-
-    expect(screen.getByTestId("voice-guide-hold-to-speak")).toBeInTheDocument();
-  });
-
-  it("hides hold-to-speak banner when not in PTT mode", () => {
-    render(
-      <RealtimeCaptionOverlay
-        error={null}
-        lastCaption={null}
-        lastUserTranscript={null}
-        showHoldToSpeakHint
-      />,
-    );
-
-    expect(screen.queryByTestId("voice-guide-hold-to-speak")).not.toBeInTheDocument();
-  });
-
   it("reserves PTT viz row when showPttVisualizer is true", () => {
     render(
       <RealtimeCaptionOverlay
