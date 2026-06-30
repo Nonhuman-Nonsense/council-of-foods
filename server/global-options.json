@@ -32,7 +32,7 @@
   },
   "concludeMeetingLength": 150,
   "summarizeMeetingPrompt": {
-    "en": "Please summarise the meeting held on [DATE] as a meeting protocol and policy recommendation suitable for an official body such as the European Commission. Meeting #[MEETING_ID]. Maximum 1500 characters, DO NOT EXCEED THIS LIMIT. Use markdown headings and horizontal rules as needed. Output raw markdown only — do not wrap the document in code fences. Do not continue the debate."
+    "en": "Please summarise the meeting held on [DATE] as a meeting protocol and policy recommendation suitable for an official body such as the European Commission. Maximum 1500 characters, DO NOT EXCEED THIS LIMIT. Do not continue the debate."
   },
   "summarizeMeetingLength": 500,
   "transcribeModel": "gpt-4o-transcribe",
