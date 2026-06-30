@@ -10,6 +10,10 @@ import { GlobalOptions } from "./GlobalOptions.js";
 import type { ConversationCompletionResult, ConversationService } from "@services/ConversationService.js";
 import { withNetworkRetry } from "@utils/NetworkUtils.js";
 
+/** Overflow trimming for summary documents — independent of global turn settings. */
+const DOCUMENT_TRIM_SENTENCE = false;
+const DOCUMENT_TRIM_PARAGRAPH = true;
+
 export interface Services {
     conversationService: ConversationService;
     meetingsCollection: Collection<StoredMeeting>;
@@ -217,12 +221,23 @@ export class DialogGenerator {
     ): Pick<DocumentResponse, "response" | "trimmed"> {
         let response = this.stripMarkdownCodeFence(rawContent);
         let trimmedContent: string | undefined;
+        const originalResponse = response;
 
-        if (finishReason !== "stop" && this.serverOptions.trimSentance) {
-            const lastPeriodIndex = response.lastIndexOf(".");
-            if (lastPeriodIndex !== -1) {
-                trimmedContent = response.substring(lastPeriodIndex + 1);
-                response = response.substring(0, lastPeriodIndex + 1);
+        if (finishReason !== "stop") {
+            if (DOCUMENT_TRIM_SENTENCE) {
+                const lastPeriodIndex = response.lastIndexOf(".");
+                if (lastPeriodIndex !== -1) {
+                    trimmedContent = originalResponse.substring(lastPeriodIndex + 1);
+                    response = response.substring(0, lastPeriodIndex + 1);
+                }
+            }
+
+            if (DOCUMENT_TRIM_PARAGRAPH) {
+                const lastNewLineIndex = response.lastIndexOf("\n\n");
+                if (lastNewLineIndex !== -1) {
+                    trimmedContent = originalResponse.substring(lastNewLineIndex);
+                    response = response.substring(0, lastNewLineIndex);
+                }
             }
         }
 
@@ -358,9 +373,12 @@ export class DialogGenerator {
                 completion.finishReason,
             );
 
+            const trimmedNote = processed.trimmed
+                ? `, trimmed: ${processed.trimmed.length} chars`
+                : "";
             Logger.info(
                 `meeting ${meeting._id}`,
-                `document generated (${processed.response.length} chars, finish_reason: ${completion.finishReason ?? "unknown"})`,
+                `document generated (${processed.response.length} chars, finish_reason: ${completion.finishReason ?? "unknown"}${trimmedNote})`,
             );
 
             return {

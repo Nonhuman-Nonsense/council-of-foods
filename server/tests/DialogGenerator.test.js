@@ -436,7 +436,6 @@ describe('DialogGenerator - Document Generation', () => {
     });
 
     it('should trim overflow after the last sentence when finish reason is length', async () => {
-        manager.serverOptions.trimSentance = true;
         mockDocumentResponse('First section complete.\n\n## More\nIncomplete tail', 'length');
 
         const result = await dialogGenerator.generateDocument(
@@ -449,8 +448,48 @@ describe('DialogGenerator - Document Generation', () => {
         expect(result.trimmed).toBe('\n\n## More\nIncomplete tail');
     });
 
-    it('should keep full document when finish reason is stop even with trimSentance enabled', async () => {
-        manager.serverOptions.trimSentance = true;
+    it('should trim overflow after the last paragraph when finish reason is length', async () => {
+        mockDocumentResponse('## Section\n\nPartial section without period', 'length');
+
+        const result = await dialogGenerator.generateDocument(
+            'Write the protocol.',
+            manager.meeting,
+            800,
+        );
+
+        expect(result.response).toBe('## Section');
+        expect(result.trimmed).toBe('\n\nPartial section without period');
+    });
+
+    it('should apply paragraph trim after sentence trim when both apply', async () => {
+        mockDocumentResponse('Intro.\n\nMiddle block.\n\nPartial tail', 'length');
+
+        const result = await dialogGenerator.generateDocument(
+            'Write the protocol.',
+            manager.meeting,
+            800,
+        );
+
+        expect(result.response).toBe('Intro.');
+        expect(result.trimmed).toBe('\n\nMiddle block.\n\nPartial tail');
+    });
+
+    it('should trim documents even when global trimSentance is disabled', async () => {
+        manager.serverOptions.trimSentance = false;
+        manager.serverOptions.trimParagraph = false;
+        mockDocumentResponse('Done.\n\nOverflow', 'length');
+
+        const result = await dialogGenerator.generateDocument(
+            'Write the protocol.',
+            manager.meeting,
+            800,
+        );
+
+        expect(result.response).toBe('Done.');
+        expect(result.trimmed).toBe('\n\nOverflow');
+    });
+
+    it('should keep full document when finish reason is stop', async () => {
         const content = 'Done.\n\n## More\nStill included.';
         mockDocumentResponse(content, 'stop');
 
