@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
-import { capitalizeFirstLetter, useMobile } from "@/utils";
 import { useTranslation } from "react-i18next";
+import { capitalizeFirstLetter, useMobile } from "@/utils";
 import { Character } from "@shared/ModelTypes";
 import { Icons } from "@assets/icons";
 
@@ -11,7 +11,7 @@ interface NameProps {
 
 /**
  * Name Overlay
- * 
+ *
  * Allows a human participant to enter their name before joining the council.
  * 
  * Core Logic:
@@ -19,21 +19,20 @@ interface NameProps {
  * - Checks for duplicate names against existing `participants`.
  */
 function Name({ participants, onContinueForward }: NameProps): React.ReactElement {
-
   const { t } = useTranslation();
 
   const wrapper: React.CSSProperties = {
     maxWidth: "500px",
     display: "flex",
-    flexDirection: "column"
+    flexDirection: "column",
   };
 
   return (
     <div style={wrapper}>
-      <h1>{t('name.title')}</h1>
+      <h1>{t("name.title")}</h1>
       <div>
-        <p>{t('name.1')}</p>
-        <p>{t('name.2')}<br />{t('name.21')}</p>
+        <p>{t("name.prompt")}</p>
+        <p style={{ whiteSpace: "pre-wrap" }}>{t("name.instructions")}</p>
       </div>
       <HumanNameInput participants={participants} onContinueForward={onContinueForward} />
     </div>
@@ -100,7 +99,6 @@ function HumanNameInput({ participants, onContinueForward }: HumanNameInputProps
   }
 
   function continueForward(): void {
-
     if (humanName && !isDuplicateName(humanName)) {
       onContinueForward({ humanName: humanName });
     } else if (isDuplicateName(humanName)) {
@@ -122,7 +120,7 @@ function HumanNameInput({ participants, onContinueForward }: HumanNameInputProps
     const names = participants.map(p => p.name);
     //Because each value in the Set has to be unique, the value equality will be checked.
     names.push(check);
-    return (new Set(names).size !== names.length);
+    return new Set(names).size !== names.length;
   }
 
   /* -------------------------------------------------------------------------- */
@@ -148,7 +146,7 @@ function HumanNameInput({ participants, onContinueForward }: HumanNameInputProps
   const inputIconWrapper: React.CSSProperties = {
     position: "relative",
     display: "inline-flex",
-    alignItems: "center"
+    alignItems: "center",
   };
 
   /* -------------------------------------------------------------------------- */
@@ -157,7 +155,7 @@ function HumanNameInput({ participants, onContinueForward }: HumanNameInputProps
 
   return (
     <div>
-      <h3>{t('name.3')}:</h3>
+      <h3>{t("name.typeNameLabel")}:</h3>
       <div style={inputIconWrapper}>
         {/* Adding an empty form, so that mobile keyboards will show the "go" button */}
         <form action="">
@@ -166,11 +164,11 @@ function HumanNameInput({ participants, onContinueForward }: HumanNameInputProps
             style={inputStyle}
             type="text"
             value={humanName}
-            placeholder={t('name.5')}
+            placeholder={t("name.placeholder")}
             onChange={handleChange}
             onKeyDown={handleKeyDown}
           />
-          <input type="submit" style={{ position: "absolute", left: '-9999px' }} />
+          <input type="submit" style={{ position: "absolute", left: "-9999px" }} />
         </form>
         <Icons.send_message_filled
           style={imageStyle}
@@ -178,8 +176,8 @@ function HumanNameInput({ participants, onContinueForward }: HumanNameInputProps
           onClick={continueForward}
         />
       </div>
-      <h3 style={{ visibility: (isHumanNameMissing || duplicateName) ? "visible" : "hidden" }}>
-        {duplicateName ? t('name.unique') : t('name.4')}
+      <h3 style={{ visibility: isHumanNameMissing || duplicateName ? "visible" : "hidden" }}>
+        {duplicateName ? t("name.unique") : t("name.enterToProceed")}
       </h3>
     </div>
   );

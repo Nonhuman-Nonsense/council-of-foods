@@ -7,8 +7,12 @@ import type { DecodedAudioMessage } from "@shared/SocketTypes";
 import { resumeMeeting, ResumeMeetingError } from "@api/resumeMeeting";
 import { councilFetch } from "@api/http";
 import { httpErrorMessage } from "@api/httpErrorMessage";
-import type { SetUnrecoverableError } from "@main/overlay/CouncilError";
 import { notifyAutoplay } from "@/autoplay/autoplayStore";
+import {
+    useErrorStore,
+    setConnectionError,
+    setUnrecoverableError,
+} from "@main/overlay/errorStore";
 import type { MetaAgentPhase } from "@museum/metaAgent/useMetaAgent";
 import type { AgentMode } from "@/settings/councilSettings";
 import { useDocumentVisibility } from "@/utils";
@@ -26,9 +30,6 @@ export interface UseCouncilMachineProps {
     humanName: string;
     setHumanName: (name: string) => void;
     audioContext: React.RefObject<AudioContext | null>;
-    setUnrecoverableError: SetUnrecoverableError;
-    setConnectionError: (error: boolean) => void;
-    connectionError: boolean;
     isPaused: boolean;
     setPaused: (paused: boolean) => void;
     isMuseumMode: boolean;
@@ -112,9 +113,6 @@ export function useCouncilMachine({
     humanName,
     setHumanName,
     audioContext,
-    setUnrecoverableError,
-    setConnectionError,
-    connectionError,
     isPaused,
     setPaused,
     isMuseumMode,
@@ -122,6 +120,7 @@ export function useCouncilMachine({
     setMetaAgentPhase,
     metaAgentPhase,
 }: UseCouncilMachineProps) {
+    const connectionError = useErrorStore((s) => s.connectionError);
 
     const { t } = useTranslation();
     const isDocumentVisible = useDocumentVisibility();
@@ -213,7 +212,7 @@ export function useCouncilMachine({
         },
         onError: (error) => {
             console.error(error);
-            const msg = error.message?.trim() ? error.message : t("error.1");
+            const msg = error.message?.trim() ? error.message : t("error.message");
             setUnrecoverableError({
                 message: msg,
                 source: "useCouncilMachine.conversation_error",
@@ -223,7 +222,10 @@ export function useCouncilMachine({
         },
         onConnectionError: (err) => {
             console.error(err);
-            setConnectionError(true);
+            setConnectionError("socket", true);
+        },
+        onConnect: () => {
+            setConnectionError("socket", false);
         },
         onReconnect: () => {
             setAttemptingReconnect(true);
@@ -238,7 +240,6 @@ export function useCouncilMachine({
                 liveKey,
                 handRaised: isRaisedHand,
             });
-            setConnectionError(false);
             setAttemptingReconnect(false);
         } else if (attemptingReconnect) {
             setAttemptingReconnect(false);
@@ -652,7 +653,7 @@ export function useCouncilMachine({
                     ? err.message
                     : err instanceof Error && err.message.trim().length > 0
                       ? err.message
-                      : t("error.1");
+                      : t("error.message");
             setUnrecoverableError({
                 message: msg,
                 source: "useCouncilMachine.resume",

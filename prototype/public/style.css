@@ -607,6 +607,40 @@ textarea + small{
   transition: all 0.3s ease;
 }
 
+.prototype-debug-bar {
+  border-top: 1px solid var(--border-color);
+  background: var(--bg-panel);
+  padding: 6px 12px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+button.raise-hand-btn {
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.85em;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  opacity: 0.72;
+}
+
+button.raise-hand-btn:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  opacity: 1;
+}
+
+button.raise-hand-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
 /* Scrollbars */
 ::-webkit-scrollbar {
   width: 8px;

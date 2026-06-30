@@ -110,6 +110,10 @@ describe('MeetingManager - Conversation Flow', () => {
 
     it('concludes directly at hard cap without query_extension sentinel', async () => {
         vi.spyOn(manager.dialogGenerator, 'chairInterjection').mockResolvedValue({
+            response: 'Closing line',
+            id: 'close1',
+        });
+        vi.spyOn(manager.dialogGenerator, 'generateDocument').mockResolvedValue({
             response: 'Summary text',
             id: 'sum1',
         });
@@ -215,6 +219,28 @@ describe('MeetingManager - Conversation Flow', () => {
         // calculateCurrentSpeaker WAS called, but generateTextFromGPT should NOT be.
         const gptSpy = vi.spyOn(manager.dialogGenerator, 'generateTextFromGPT');
         expect(gptSpy).not.toHaveBeenCalled();
+    });
+
+    it('should pass trimmed content through on panelist invitation', async () => {
+        manager.meeting.characters = [
+            MockFactory.createChair(),
+            { id: 'panelist0', name: 'Alice', description: '', prompt: '', voice: 'alloy' }
+        ];
+        const panelistId = 1;
+
+        vi.spyOn(SpeakerSelector, 'calculateNextSpeaker').mockReturnValue(panelistId);
+
+        const action = manager.decideNextAction();
+        expect(action.type).toBe('REQUEST_PANELIST');
+        const speaker = manager.meeting.characters[panelistId];
+        vi.spyOn(manager.dialogGenerator, 'chairInterjection').mockResolvedValue({
+            response: 'Please welcome Alice.',
+            trimmed: '\n\nShe will share her perspective.',
+            id: 'invite-1',
+        });
+        await manager.processTurn({ type: action.type, speaker });
+
+        expect(manager.meeting.conversation[0].trimmed).toBe('\n\nShe will share her perspective.');
     });
 
     it('should not replay panelist invitation after a skipped panelist turn', async () => {

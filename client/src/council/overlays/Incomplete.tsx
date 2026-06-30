@@ -15,22 +15,19 @@ interface IncompleteProps {
 }
 
 function Incomplete({ onAttemptResume, onNevermind }: IncompleteProps): React.ReactElement {
-
   const { t } = useTranslation();
 
   return (
     <div>
-      <h2>{t('incomplete.title')}</h2>
+      <h2>{t("incomplete.title")}</h2>
       <div>
-        <p>{t('incomplete.1')}<br />{t('incomplete.2')}<br /><br /></p>
-        <button
-          onClick={onAttemptResume}
-          style={{ marginRight: "9px" }}
-        >{t('incomplete.3')}</button>
-        <button
-          onClick={onNevermind}
-          style={{ marginLeft: "9px" }}
-        >{t('incomplete.4')}</button>
+        <p style={{ whiteSpace: "pre-wrap" }}>{t("incomplete.body")}</p>
+        <button onClick={onAttemptResume} style={{ marginRight: "9px" }}>
+          {t("incomplete.resume")}
+        </button>
+        <button onClick={onNevermind} style={{ marginLeft: "9px" }}>
+          {t("incomplete.nevermind")}
+        </button>
         <div style={{ height: "60px" }} />
       </div>
     </div>

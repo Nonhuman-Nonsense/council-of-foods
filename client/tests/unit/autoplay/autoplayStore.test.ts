@@ -25,21 +25,21 @@ describe("autoplayStore", () => {
     expect(useAutoplayStore.getState().phase).toBe("active");
   });
 
-  it("records council-state without checking phase", () => {
-    useAutoplayStore.getState().setPhase("off");
+  it("resets summaryProtocolFinished when entering summary", () => {
+    notifyAutoplay({ type: "summary-playback-finished" });
+    expect(useAutoplayStore.getState().summaryProtocolFinished).toBe(true);
+
     notifyAutoplay({ type: "council-state", state: "summary" });
     expect(useAutoplayStore.getState().councilOnSummary).toBe(true);
+    expect(useAutoplayStore.getState().summaryProtocolFinished).toBe(false);
 
     notifyAutoplay({ type: "council-state", state: "playing" });
     expect(useAutoplayStore.getState().councilOnSummary).toBe(false);
   });
 
-  it("records summary-playback-finished regardless of phase", () => {
-    useAutoplayStore.getState().setPhase("off");
-    expect(useAutoplayStore.getState().summaryFinishedTick).toBe(0);
+  it("marks summary protocol finished on summary-playback-finished", () => {
+    notifyAutoplay({ type: "council-state", state: "summary" });
     notifyAutoplay({ type: "summary-playback-finished" });
-    expect(useAutoplayStore.getState().summaryFinishedTick).toBe(1);
-    notifyAutoplay({ type: "summary-playback-finished" });
-    expect(useAutoplayStore.getState().summaryFinishedTick).toBe(2);
+    expect(useAutoplayStore.getState().summaryProtocolFinished).toBe(true);
   });
 });

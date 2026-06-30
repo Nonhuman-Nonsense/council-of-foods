@@ -95,5 +95,14 @@ describe("spaFallback", () => {
             expect(getSpaRedirectTarget("/new", ENGLISH_AND_SWEDISH)).toBe("/en/");
             expect(getSpaRedirectTarget("/meeting/9", ENGLISH_AND_SWEDISH)).toBe("/en/");
         });
+
+        it("uses preferredLang when no language prefix is present", () => {
+            expect(getSpaRedirectTarget("/hello", ENGLISH_AND_SWEDISH, "sv")).toBe("/sv/");
+            expect(getSpaRedirectTarget("/hello", ENGLISH_AND_SWEDISH, "de")).toBe("/en/");
+        });
+
+        it("ignores preferredLang in single-language mode", () => {
+            expect(getSpaRedirectTarget("/hello", ENGLISH_ONLY, "sv")).toBe("/");
+        });
     });
 });

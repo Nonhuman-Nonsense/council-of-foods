@@ -27,11 +27,16 @@ export type AutoplayActivitySource =
   | "warning-shown"
   | "warning-dismissed"
   | "enter-autoplay"
-  | "meeting-end"
   | "loop-next-meeting"
   | "loop-retry";
 
 export type ReplayBannerVariant = "default" | "autoplay";
+
+/** Museum summary: return to landing after protocol reading (non-autoplay visits). */
+export const SUMMARY_RETURN_TO_ROOT_MS = 20_000;
+
+/** Autoplay exhibition loop: next meeting after protocol reading. */
+export const AUTOPLAY_NEXT_MEETING_MS = 5_000;
 
 export type AutoplayHandle = {
   notify: (event: AutoplayConsumerEvent) => void;
@@ -44,7 +49,7 @@ type AutoplayStore = {
   lastActivityMs: number;
   bumpActivity: (source: AutoplayActivitySource) => void;
   councilOnSummary: boolean;
-  summaryFinishedTick: number;
+  summaryProtocolFinished: boolean;
   notify: (event: AutoplayConsumerEvent) => void;
   resetForTests: () => void;
 };
@@ -63,16 +68,19 @@ export const useAutoplayStore = create<AutoplayStore>((set) => ({
   },
 
   councilOnSummary: false,
-  summaryFinishedTick: 0,
+  summaryProtocolFinished: false,
 
   notify: (event) => {
     switch (event.type) {
       case "council-state":
-        set({ councilOnSummary: event.state === "summary" });
+        set({
+          councilOnSummary: event.state === "summary",
+          ...(event.state === "summary" ? { summaryProtocolFinished: false } : {}),
+        });
         log.event("AUTOPLAY", "council-state", { state: event.state });
         break;
       case "summary-playback-finished":
-        set((state) => ({ summaryFinishedTick: state.summaryFinishedTick + 1 }));
+        set({ summaryProtocolFinished: true });
         log.event("AUTOPLAY", "summary-playback-finished");
         break;
     }
@@ -83,7 +91,7 @@ export const useAutoplayStore = create<AutoplayStore>((set) => ({
       phase: "off",
       lastActivityMs: Date.now(),
       councilOnSummary: false,
-      summaryFinishedTick: 0,
+      summaryProtocolFinished: false,
     });
   },
 }));

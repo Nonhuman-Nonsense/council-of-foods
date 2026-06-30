@@ -5,6 +5,7 @@ import AudioOutput from "./AudioOutput";
 import { Message } from "@shared/ModelTypes";
 import type { DecodedAudioMessage } from "@shared/SocketTypes";
 import type { PlaybackStartInfo } from "./AudioOutputMessage";
+import type { SummaryPlaybackState } from "@council/summaryScrollSync";
 
 /**
  * Output Component
@@ -28,6 +29,8 @@ interface OutputProps {
   setCurrentSnippetIndex: (index: number) => void;
   audioContext: React.RefObject<AudioContext | null>;
   handleOnFinishedPlaying: () => void;
+  /** Museum summary teleprompter — playback snapshot while `councilState === "summary"`. */
+  onSummaryPlaybackChange?: (state: SummaryPlaybackState) => void;
   /** Hide council subtitles (e.g. while meta-agent captions are shown). */
   hideSubtitles?: boolean;
 }
@@ -43,6 +46,7 @@ const Output: React.FC<OutputProps> = ({
   setCurrentSnippetIndex,
   audioContext,
   handleOnFinishedPlaying,
+  onSummaryPlaybackChange,
   hideSubtitles = false,
 }) => {
   const [currentAudioMessage, setCurrentAudioMessage] = useState<DecodedAudioMessage | null>(null);
@@ -73,6 +77,48 @@ const Output: React.FC<OutputProps> = ({
       }
     }
   }, [playingNowIndex, councilState, textMessages, audioMessages]); // Added textMessages and audioMessages to dependency array
+
+  useEffect(() => {
+    if (!onSummaryPlaybackChange) {
+      return;
+    }
+
+    if (councilState !== "summary") {
+      onSummaryPlaybackChange(null);
+      return;
+    }
+
+    const textMessage = textMessages[playingNowIndex];
+    if (!textMessage || textMessage.type !== "summary") {
+      onSummaryPlaybackChange(null);
+      return;
+    }
+
+    const matchingAudio = audioMessages.find((audio) => audio.id === textMessage.id);
+    const duration = matchingAudio?.audio?.duration ?? 0;
+    if (
+      !playbackStartInfo ||
+      playbackStartInfo.messageId !== textMessage.id ||
+      duration <= 0
+    ) {
+      onSummaryPlaybackChange(null);
+      return;
+    }
+
+    onSummaryPlaybackChange({
+      playbackStartInfo,
+      duration,
+      isPaused,
+    });
+  }, [
+    councilState,
+    playingNowIndex,
+    textMessages,
+    audioMessages,
+    playbackStartInfo,
+    isPaused,
+    onSummaryPlaybackChange,
+  ]);
 
   return (
     <>

@@ -6,8 +6,7 @@ import type { TopicsData } from "@main/topicsBundle";
 import { getCharacterSetupBundle } from "./CharacterSetup";
 
 export type MeetingCharactersI18n = {
-  oneHuman: string;
-  twoHumansSuffix: string;
+  formatHumanCount: (count: number) => string;
 };
 
 export type MeetingSetupPhase = "landing" | "topic" | "characters";
@@ -192,11 +191,7 @@ export function buildMeetingCharactersPayload(params: {
 
   let humanPresentation = "";
   if (participatingHumans.length > 0) {
-    if (participatingHumans.length === 1) {
-      humanPresentation += labels.oneHuman;
-    } else {
-      humanPresentation += participatingHumans.length + labels.twoHumansSuffix;
-    }
+    humanPresentation += labels.formatHumanCount(participatingHumans.length);
 
     for (const id of participatingHumans) {
       const human = characters.find((character) => character.id === id);

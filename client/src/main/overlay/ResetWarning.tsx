@@ -31,11 +31,11 @@ function ResetWarning({ message, onReset, onCancel }: ResetWarningProps): React.
         <button
           onClick={onReset}
           style={{ marginRight: "9px" }}
-        >{t('restart')}</button>
+        >{t('app.restart')}</button>
         <button
           onClick={onCancel}
           style={{ marginLeft: "9px" }}
-        >{t('cancel')}</button>
+        >{t('app.cancel')}</button>
       </div>
     </div>
   );

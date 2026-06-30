@@ -4,6 +4,17 @@ const CHARACTERS_FILE = "foods";
 const PROTOTYPE_CUSTOM_TOPIC_ID = "customtopic";
 const PROTOTYPE_CUSTOM_TOPIC_TOKEN = "[VISITOR_INPUT]";
 
+const NON_PLAYABLE_TURN_TYPES = new Set([
+  'query_extension',
+  'awaiting_human_question',
+  'awaiting_human_panelist',
+  'meeting_incomplete',
+]);
+
+function isSyntheticTurn(turn) {
+  return Boolean(turn && NON_PLAYABLE_TURN_TYPES.has(turn.type));
+}
+
 function usesCustomVoiceId(character) {
   return character?.voiceProvider === 'inworld' || character?.voiceProvider === 'elevenlabs';
 }
@@ -26,7 +37,7 @@ const defaultLanguageModelProfile = {
   conversationReasoning: "none",
   voiceModel: "gpt-4o-mini-tts",
   geminiVoiceModel: "gemini-2.5-flash-tts",
-  inworldVoiceModel: "inworld-tts-1.5-max",
+  inworldVoiceModel: "inworld-tts-1.5-mini",
   elevenlabsVoiceModel: "eleven_flash_v2_5",
 };
 
@@ -38,13 +49,13 @@ const defaultLanguageModels = {
 const defaultOptions = {
   languageModels: JSON.parse(JSON.stringify(defaultLanguageModels)),
   temperature: 1,
-  maxTokens: 200,
-  chairMaxTokens: 250,
+  maxTokens: 400,
+  chairMaxTokens: 400,
   defaultAudioSpeed: 1.15,
 
-  trimSentance: false,
-  trimParagraph: true,
-  trimChairSemicolon: true,
+  trimSentance: true,
+  trimParagraph: false,
+  trimChairSemicolon: false,
 
   conversationMaxLength: 10,
   /** Increment applied server-side on "Extend" (matches server `extraMessageCount`). */
@@ -52,10 +63,7 @@ const defaultOptions = {
   /** Absolute cap for extends (server `meetingVeryMaxLength`); hard cap skips `query_extension` and concludes directly. */
   meetingVeryMaxLength: 30,
   skipAudio: false,
-  directedSpeakerRouting: false,
-
-  injectPrompt: "",
-  maxTokensInject: 800,
+  directedSpeakerRouting: true,
 
   language: 'en',
 
@@ -67,11 +75,11 @@ const defaultOptions = {
  */
 function countPlayableMessages(conversation) {
   if (!conversation || conversation.length === 0) return 0;
-  const last = conversation[conversation.length - 1];
-  if (last && last.type === 'query_extension') {
-    return conversation.length - 1;
+  let count = conversation.length;
+  while (count > 0 && isSyntheticTurn(conversation[count - 1])) {
+    count--;
   }
-  return conversation.length;
+  return count;
 }
 
 const defaultLocalOptions = {
@@ -84,7 +92,6 @@ const defaultLocalOptions = {
   topicStates: {},
   selectedTopicId: null,
   editorWidthPercent: 50,
-  isInjectionDrawerOpen: false,
   customTopicVisitorInput: "",
   languageModelsText: JSON.stringify(defaultLanguageModels.en, null, 2),
   languageModelsError: "",
@@ -151,7 +158,6 @@ createApp({
 
       // UI State
       status: 'IDLE', // IDLE, CONNECTING, ACTIVE, PAUSED, ENDED, ERROR
-      injectionStatus: '',
 
       // Data Model
       options: { ...defaultOptions },
@@ -258,6 +264,12 @@ createApp({
     hasQueryExtension() {
       const last = this.conversation[this.conversation.length - 1];
       return !!(last && last.type === 'query_extension');
+    },
+
+    canRaiseHand() {
+      if (!this.socket || this.conversation.length === 0) return false;
+      if (this.status !== 'ACTIVE' && this.status !== 'PAUSED') return false;
+      return !this.conversation.some((turn) => turn.type === 'awaiting_human_question');
     },
 
     languageModelsText: {
@@ -944,7 +956,6 @@ createApp({
           this.status = 'ACTIVE';
         }
 
-        this.injectionStatus = ""; // Clear status on response
         this.scrollToBottom();
       });
 
@@ -1488,23 +1499,15 @@ createApp({
       this.socket.emit("extend_meeting");
     },
 
-    removeLastMessage() {
-      this.socket.emit("remove_last_message");
-    },
+    raiseHand() {
+      if (!this.canRaiseHand) return;
 
-    submitInjection() {
-      const message = {
-        text: this.options.injectPrompt,
-        length: this.options.maxTokensInject,
-        index: this.conversation.length,
-        // Use local browser date
-        date: new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10)
-      };
+      const index = this.conversation.length;
+      const humanName = 'Visitor';
 
-      this.injectionStatus = "Instruction injected, just wait...";
-
-      this.log('SOCKET_OUT', 'Submit Injection', message);
-      this.socket.emit("submit_injection", message);
+      this.status = 'CONNECTING';
+      this.log('SOCKET_OUT', 'Raise Hand', { index, humanName });
+      this.socket.emit('raise_hand', { index, humanName });
     },
 
     // ===========================
@@ -1720,7 +1723,19 @@ createApp({
       const chars = this.currentLanguageData?.characters || [];
       const match = chars.find((c) => c.id === idOrName || c.name === idOrName);
       return match?.name || match?.id || idOrName;
-    }
+    },
+
+    formatInvitationGuest(index) {
+      const next = this.conversation[index + 1];
+      if (next?.type === 'awaiting_human_question' || next?.type === 'awaiting_human_panelist') {
+        return this.formatSpeakerLabel(next.speaker);
+      }
+      return 'Visitor';
+    },
+
+    isSyntheticTurnType(type) {
+      return NON_PLAYABLE_TURN_TYPES.has(type);
+    },
   }
 })
   .directive('auto-resize', {

@@ -80,10 +80,8 @@ export class SocketManager {
         ];
 
         if (this.environment === "prototype" || this.environment === "test") {
-            proxyEvents.push("submit_injection");
             proxyEvents.push("pause_conversation");
             proxyEvents.push("resume_conversation");
-            proxyEvents.push("remove_last_message");
         }
 
         for (const event of proxyEvents) {

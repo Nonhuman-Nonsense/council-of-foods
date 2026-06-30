@@ -3,7 +3,6 @@ import { isSpeakerMessage } from "@shared/ModelTypes";
 import React, { useMemo, useEffect, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router";
 import FoodsCouncilScene from "./FoodsCouncilScene";
-import Overlay from "@main/overlay/Overlay";
 import CouncilOverlays from "./overlays/CouncilOverlays";
 import Loading from "@main/Loading";
 import Output from "./output/Output";
@@ -13,22 +12,22 @@ import { getParticipationPhase } from "./humanInput/participationPhase";
 import { useTranslation } from "react-i18next";
 import { useCouncilMachine } from "./hooks/useCouncilMachine";
 import { getMeeting } from "@api/getMeeting.js";
-import ReplayModeBanner from "./ReplayModeBanner";
 import { useCouncilSettings } from "@/settings/councilSettings";
+import { z } from "@/zIndexLayers";
+import CouncilReplaySession from "./CouncilReplaySession";
+import ButtonBanner from "@/museum/button/ButtonBanner";
 import MeetingMetaAgent from "@museum/metaAgent/MeetingMetaAgent";
 import type { MetaAgentPhase } from "@museum/metaAgent/useMetaAgent";
 import { CHAIR_ID } from "@/prompts/characterSetupBundles";
-import type { SetUnrecoverableError } from "@main/overlay/CouncilError";
 import { notifyAutoplay } from "@/autoplay/autoplayStore";
+import type { SummaryPlaybackState } from "@council/summaryScrollSync";
+import { useErrorStore, setUnrecoverableError } from "@main/overlay/errorStore";
 
 interface CouncilProps {
   liveKey: string | null;
   setliveKey: (key: string) => void;
   topic: Topic | null;
   setTopic: (topic: Topic) => void;
-  setUnrecoverableError: SetUnrecoverableError;
-  setConnectionError: (error: boolean) => void;
-  connectionError: boolean;
   audioContext: React.RefObject<AudioContext | null>;
   currentSpeakerId: string;
   setCurrentSpeakerId: (id: string) => void;
@@ -41,9 +40,6 @@ function Council({
   setliveKey,
   topic,
   setTopic,
-  setUnrecoverableError,
-  setConnectionError,
-  connectionError,
   audioContext,
   currentSpeakerId,
   setCurrentSpeakerId,
@@ -54,6 +50,7 @@ function Council({
   const { meetingId } = useParams<{ meetingId: string }>();
   const { t, i18n } = useTranslation();
   const { isMuseumMode, agentMode } = useCouncilSettings();
+  const connectionError = useErrorStore((s) => s.connectionError);
 
   const navigate = useNavigate();
 
@@ -66,6 +63,7 @@ function Council({
   // Meta-agent lifecycle (inactive | interruption | extension). Stays in Council so it
   // resets on unmount; FoodsCouncilScene and MeetingMetaAgent are the only consumers.
   const [metaAgentPhase, setMetaAgentPhase] = useState<MetaAgentPhase>("inactive");
+  const [summaryPlayback, setSummaryPlayback] = useState<SummaryPlaybackState>(null);
 
   // Abort in-flight GET when deps change or on unmount (StrictMode-safe); same pattern as TanStack Query/SWR cancellation.
   useEffect(() => {
@@ -97,7 +95,7 @@ function Council({
         if (ac.signal.aborted) return;
         console.error(error);
         const msg =
-          error instanceof Error && error.message.trim().length > 0 ? error.message : t("error.1");
+          error instanceof Error && error.message.trim().length > 0 ? error.message : t("error.message");
         setUnrecoverableError({
           message: msg,
           source: "Council.loadMeeting",
@@ -107,7 +105,7 @@ function Council({
       }
     })();
     return () => ac.abort();
-  }, [liveKey, meetingId, currentMeetingId, setUnrecoverableError]);
+  }, [liveKey, meetingId, currentMeetingId]);
 
   // Hook Logic
   const { state, actions } = useCouncilMachine({
@@ -120,9 +118,6 @@ function Council({
     humanName,
     setHumanName,
     audioContext,
-    setUnrecoverableError,
-    setConnectionError,
-    connectionError,
     isPaused,
     setPaused,
     isMuseumMode,
@@ -195,7 +190,7 @@ function Council({
         meetingId: currentMeetingId,
       });
     }
-  }, [councilState, textMessages, playNextIndex, setUnrecoverableError]);
+  }, [councilState, textMessages, playNextIndex, currentMeetingId]);
 
   useEffect(() => {
     setCurrentSpeakerId(derivedCurrentSpeakerId);
@@ -204,6 +199,12 @@ function Council({
   useEffect(() => {
     notifyAutoplay({ type: "council-state", state: councilState });
   }, [councilState]);
+
+  useEffect(() => {
+    if (visibleOverlay !== "summary") {
+      setSummaryPlayback(null);
+    }
+  }, [visibleOverlay]);
 
   // Derived UI State
   const participationPhase = getParticipationPhase(councilState, textMessages, playingNowIndex);
@@ -223,6 +224,12 @@ function Council({
 
   return (
     <>
+      <CouncilReplaySession
+        meeting={replayManifest}
+        liveKey={liveKey}
+        isPaused={isPaused}
+        language={i18n.language}
+      />
       <FoodsCouncilScene
         participants={participants}
         currentSpeakerId={currentSpeakerId}
@@ -235,7 +242,7 @@ function Council({
         metaAgentPhase={metaAgentPhase}
         agentSpeaking={agentSpeaking}
       />
-      {councilState === 'loading' && <Loading />}
+      {councilState === 'loading' && !connectionError && <Loading />}
       {isMuseumMode && liveKey && agentMode === "ptt" && (
         <MeetingMetaAgent
           liveKey={liveKey}
@@ -265,63 +272,79 @@ function Council({
           isButtonMuseumMode={isButtonMuseumMode}
         />
       )}
-      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, display: "flex", flexDirection: "column", alignItems: "center", overflow: "visible" }}>
-        {metaAgentPhase === "inactive" && (
-          <Output
-            textMessages={textMessages}
-            audioMessages={audioMessages}
-            playingNowIndex={playingNowIndex}
-            councilState={councilState}
-            isMuted={isMuted}
-            isPaused={isPaused}
-            currentSnippetIndex={currentSnippetIndex}
-            setCurrentSnippetIndex={setCurrentSnippetIndex}
-            audioContext={audioContext}
-            handleOnFinishedPlaying={handleOnFinishedPlaying}
-          />
-        )}
-        {controlsVisible && metaAgentPhase === "inactive" && (
-          <ConversationControls
-            hidden={isMuseumMode}
-            onSkipBackward={handleOnSkipBackward}
-            onSkipForward={handleOnSkipForward}
-            onRaiseHand={handleOnRaiseHand}
-            isRaisedHand={isRaisedHand}
-            isWaitingToInterject={isWaitingToInterject}
-            isMuted={isMuted}
-            onMuteUnmute={toggleMute}
-            isPaused={isPaused}
-            onPausePlay={() => setPaused(!isPaused)}
-            canGoBack={canGoBack}
-            canGoForward={canGoForward}
-            canRaiseHand={canRaiseHand}
-            onTopOfOverlay={visibleOverlay === "summary" && location.hash === ""}
-            humanName={humanName}
-          />
-        )}
-        {replayManifest && (
-          <ReplayModeBanner
-            meeting={replayManifest}
-            isPaused={isPaused}
-            visible={!liveKey}
-          />
-        )}
-      </div>
-      <Overlay isActive={visibleOverlay !== null}>
+      {/* council-shell: flex column owning the overlay content region + footer.
+          Scene / Loading / MeetingMetaAgent / HumanInput stay as full-viewport
+          siblings above this shell and are unaffected. */}
+      <div className="council-shell" style={{ zIndex: z.routeOverlay }}>
+        {/* Dedicated dim backdrop — covers the whole background when a council
+            overlay is open. The blur class adds a backdrop-filter blur (same
+            technique as Overlay.tsx). Sits below footer and content layers so
+            controls and replay banner remain fully visible above it. */}
         {visibleOverlay !== null && (
-          <CouncilOverlays
-            overlay={visibleOverlay}
-            onExtendMeeting={handleOnExtendMeeting}
-            onAttemptResume={handleOnAttemptResume}
-            onConcludeMeeting={handleOnConcludeMeeting}
-            proceedWithHumanName={handleHumanNameEntered}
-            onDismiss={declineOverlay}
-            summary={{ text: summary?.text || "" }}
-            meetingId={currentMeetingId}
-            participants={participants}
-          />
+          <div className="council-shell__backdrop blur" />
         )}
-      </Overlay>
+
+        {/* Main overlay-content region — fills all space above the footer. */}
+        <div
+          className="council-shell__main"
+          style={visibleOverlay !== null ? { pointerEvents: "auto" } : undefined}
+        >
+          {visibleOverlay !== null && (
+            <CouncilOverlays
+              overlay={visibleOverlay}
+              onExtendMeeting={handleOnExtendMeeting}
+              onAttemptResume={handleOnAttemptResume}
+              onConcludeMeeting={handleOnConcludeMeeting}
+              proceedWithHumanName={handleHumanNameEntered}
+              onDismiss={declineOverlay}
+              summary={{ text: summary?.text || "" }}
+              meetingId={currentMeetingId}
+              participants={participants}
+              audioContext={audioContext}
+              summaryPlayback={summaryPlayback}
+            />
+          )}
+        </div>
+
+        {/* Footer — Output, controls, and banner in the bottom flex column. */}
+        <div className="council-shell__footer" style={{ pointerEvents: "auto" }}>
+          {metaAgentPhase === "inactive" && (
+            <Output
+              textMessages={textMessages}
+              audioMessages={audioMessages}
+              playingNowIndex={playingNowIndex}
+              councilState={councilState}
+              isMuted={isMuted}
+              isPaused={isPaused}
+              currentSnippetIndex={currentSnippetIndex}
+              setCurrentSnippetIndex={setCurrentSnippetIndex}
+              audioContext={audioContext}
+              handleOnFinishedPlaying={handleOnFinishedPlaying}
+              onSummaryPlaybackChange={setSummaryPlayback}
+            />
+          )}
+          {controlsVisible && metaAgentPhase === "inactive" && (
+            <ConversationControls
+              hidden={isMuseumMode}
+              onSkipBackward={handleOnSkipBackward}
+              onSkipForward={handleOnSkipForward}
+              onRaiseHand={handleOnRaiseHand}
+              isRaisedHand={isRaisedHand}
+              isWaitingToInterject={isWaitingToInterject}
+              isMuted={isMuted}
+              onMuteUnmute={toggleMute}
+              isPaused={isPaused}
+              onPausePlay={() => setPaused(!isPaused)}
+              canGoBack={canGoBack}
+              canGoForward={canGoForward}
+              canRaiseHand={canRaiseHand}
+              onTopOfOverlay={visibleOverlay === "summary" && location.hash === ""}
+              humanName={humanName}
+            />
+          )}
+          <ButtonBanner inline />
+        </div>
+      </div>
     </>
   );
 }

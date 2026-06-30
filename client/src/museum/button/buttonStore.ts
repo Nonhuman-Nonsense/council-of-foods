@@ -6,18 +6,36 @@ import {
 } from "./buttonBridge";
 import { getAgentMode } from "@/settings/councilSettings";
 import { log } from "@/logger";
+import type { ReplayBannerVariant } from "@/autoplay/autoplayStore";
 
 export type ButtonLedMode = "off" | "pulse" | "on";
-export type ButtonOwner = "setup" | "autoplay" | "voice-guide" | "human-input" | "meta-agent";
+export type ButtonOwner = "setup" | "autoplay" | "voice-guide" | "human-input" | "meta-agent" | "summary" | "replay";
 
 export type ButtonClaims = Partial<Record<ButtonOwner, true>>;
 export type ButtonLedModes = Partial<Record<ButtonOwner, ButtonLedMode>>;
+export type ButtonBannerVisible = Partial<Record<ButtonOwner, boolean>>;
+export type ButtonBannerMessageKeys = Partial<Record<ButtonOwner, string>>;
+
+export type BannerContent =
+  | { kind: "message"; messageKey: string }
+  | {
+      kind: "replay";
+      meetingId: number;
+      meetingTitle: string;
+      meetingDate: string;
+      variant: ReplayBannerVariant;
+      isPaused: boolean;
+    };
+
+export type ButtonBannerContent = Partial<Record<ButtonOwner, BannerContent>>;
 
 /** Setup is highest: staff diagnostics overlay mounted on top of the running app. */
 const BUTTON_OWNER_PRIORITY: Record<ButtonOwner, number> = {
   setup: 4,
   autoplay: 3,
   "human-input": 2,
+  summary: 2,
+  replay: 1,
   "voice-guide": 1,
   "meta-agent": 1,
 };
@@ -49,6 +67,17 @@ export function resolveAppliedLedMode(
   return buttonOwner ? (ledModes[buttonOwner] ?? "off") : "off";
 }
 
+/** Global ButtonBanner follows the routed owner's visibility flag. */
+export function resolveActiveButtonBanner(
+  buttonOwner: ButtonOwner | null,
+  bannerVisible: ButtonBannerVisible,
+): boolean {
+  if (!buttonOwner) {
+    return false;
+  }
+  return bannerVisible[buttonOwner] === true;
+}
+
 type ButtonStore = {
   pressed: boolean;
   /** When true, held input is ignored until all keys/buttons release (owner handoff). */
@@ -59,6 +88,10 @@ type ButtonStore = {
   claims: ButtonClaims;
   ledModes: ButtonLedModes;
   buttonOwner: ButtonOwner | null;
+  bannerVisible: ButtonBannerVisible;
+  bannerMessageKeys: ButtonBannerMessageKeys;
+  bannerContent: ButtonBannerContent;
+  activeButtonBanner: boolean;
   bridgeStatus: ButtonTransportStatus;
   bridgeError: string | null;
   serialDeviceConnected: boolean;
@@ -72,6 +105,9 @@ type ButtonStore = {
   claimButton: (owner: ButtonOwner) => void;
   releaseButton: (owner: ButtonOwner) => void;
   setButtonLed: (owner: ButtonOwner, mode: ButtonLedMode) => void;
+  setButtonBannerVisible: (owner: ButtonOwner, visible: boolean) => void;
+  setButtonBannerMessageKey: (owner: ButtonOwner, messageKey: string | undefined) => void;
+  setButtonBannerContent: (owner: ButtonOwner, content: BannerContent | undefined) => void;
   resyncLed: () => Promise<void>;
   init: () => void;
   dispose: () => void;
@@ -170,7 +206,8 @@ function bindKeyboard(
   keyboardInitialized = true;
 
   const onKeyDown = (event: KeyboardEvent) => {
-    if (getAgentMode() !== "ptt") return;
+    const { buttonOwner } = get();
+    if (getAgentMode() !== "ptt" && buttonOwner !== "replay") return;
     if (event.code !== "Space" || event.repeat) return;
     if (isTypingTarget(event.target)) return;
     event.preventDefault();
@@ -179,7 +216,8 @@ function bindKeyboard(
   };
 
   const onKeyUp = (event: KeyboardEvent) => {
-    if (getAgentMode() !== "ptt") return;
+    const { buttonOwner } = get();
+    if (getAgentMode() !== "ptt" && buttonOwner !== "replay") return;
     if (event.code !== "Space") return;
     if (isTypingTarget(event.target)) return;
     event.preventDefault();
@@ -231,6 +269,60 @@ function recomputeButtonRouting(
   }
   set({ claims, ledModes, buttonOwner, ignoreDownUntilRelease });
   void applyLedMode(set, get, ledMode);
+  set({
+    activeButtonBanner: resolveActiveButtonBanner(
+      buttonOwner,
+      get().bannerVisible,
+    ),
+  });
+}
+
+function setBannerContentForOwner(
+  set: (partial: Partial<ButtonStore> | ((state: ButtonStore) => Partial<ButtonStore>)) => void,
+  get: () => ButtonStore,
+  owner: ButtonOwner,
+  content: BannerContent | undefined,
+): void {
+  const bannerContent = { ...get().bannerContent };
+  if (content) {
+    bannerContent[owner] = content;
+  } else {
+    delete bannerContent[owner];
+  }
+  set({ bannerContent });
+}
+
+function setBannerMessageKeyForOwner(
+  set: (partial: Partial<ButtonStore> | ((state: ButtonStore) => Partial<ButtonStore>)) => void,
+  get: () => ButtonStore,
+  owner: ButtonOwner,
+  messageKey: string | undefined,
+): void {
+  const bannerMessageKeys = { ...get().bannerMessageKeys };
+  if (messageKey) {
+    bannerMessageKeys[owner] = messageKey;
+  } else {
+    delete bannerMessageKeys[owner];
+  }
+  set({ bannerMessageKeys });
+}
+
+function setBannerVisibleForOwner(
+  set: (partial: Partial<ButtonStore> | ((state: ButtonStore) => Partial<ButtonStore>)) => void,
+  get: () => ButtonStore,
+  owner: ButtonOwner,
+  visible: boolean,
+): void {
+  const bannerVisible = { ...get().bannerVisible };
+  if (visible) {
+    bannerVisible[owner] = true;
+  } else {
+    delete bannerVisible[owner];
+  }
+  set({
+    bannerVisible,
+    activeButtonBanner: resolveActiveButtonBanner(get().buttonOwner, bannerVisible),
+  });
 }
 
 export const useButtonStore = create<ButtonStore>((set, get) => ({
@@ -242,6 +334,10 @@ export const useButtonStore = create<ButtonStore>((set, get) => ({
   claims: {},
   ledModes: {},
   buttonOwner: null,
+  bannerVisible: {},
+  bannerMessageKeys: {},
+  bannerContent: {},
+  activeButtonBanner: false,
   bridgeStatus: "disconnected",
   bridgeError: null,
   serialDeviceConnected: false,
@@ -276,7 +372,26 @@ export const useButtonStore = create<ButtonStore>((set, get) => ({
     delete claims[owner];
     const ledModes = { ...get().ledModes };
     delete ledModes[owner];
+    const bannerVisible = { ...get().bannerVisible };
+    delete bannerVisible[owner];
+    const bannerMessageKeys = { ...get().bannerMessageKeys };
+    delete bannerMessageKeys[owner];
+    const bannerContent = { ...get().bannerContent };
+    delete bannerContent[owner];
+    set({ bannerVisible, bannerMessageKeys, bannerContent });
     recomputeButtonRouting(set, get, claims, ledModes);
+  },
+
+  setButtonBannerVisible: (owner, visible) => {
+    setBannerVisibleForOwner(set, get, owner, visible);
+  },
+
+  setButtonBannerMessageKey: (owner, messageKey) => {
+    setBannerMessageKeyForOwner(set, get, owner, messageKey);
+  },
+
+  setButtonBannerContent: (owner, content) => {
+    setBannerContentForOwner(set, get, owner, content);
   },
 
   setButtonLed: (owner, mode) => {
@@ -313,6 +428,10 @@ export const useButtonStore = create<ButtonStore>((set, get) => ({
       claims: {},
       ledModes: {},
       buttonOwner: null,
+      bannerVisible: {},
+      bannerMessageKeys: {},
+      bannerContent: {},
+      activeButtonBanner: false,
     });
   },
 }));
@@ -331,6 +450,10 @@ export function _resetButtonStoreForTests(): void {
     claims: {},
     ledModes: {},
     buttonOwner: null,
+    bannerVisible: {},
+    bannerMessageKeys: {},
+    bannerContent: {},
+    activeButtonBanner: false,
     bridgeStatus: "disconnected",
     bridgeError: null,
     serialDeviceConnected: false,

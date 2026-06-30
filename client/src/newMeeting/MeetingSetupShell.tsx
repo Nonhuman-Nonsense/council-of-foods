@@ -8,10 +8,9 @@ import MeetingVoiceGuide from "@voice/MeetingVoiceGuide";
 import { useCouncilSettings } from "@/settings/councilSettings";
 import type { MeetingSetupPhase, MeetingSetupUserEvent } from "./meetingSetup";
 import { useMeetingSetupStore } from "@newMeeting/meetingSetupStore";
-import type { SetUnrecoverableError } from "@main/overlay/CouncilError";
+import { setUnrecoverableError } from "@main/overlay/errorStore";
 
 export interface MeetingSetupShellProps {
-  setUnrecoverableError: SetUnrecoverableError;
   topicSelection: Topic | null;
   setTopicSelection: (topic: Topic) => void;
   setMeetingliveKey: (key: string) => void;
@@ -28,7 +27,6 @@ export type MeetingSetupOutletContext = {
 };
 
 export default function MeetingSetupShell({
-  setUnrecoverableError,
   topicSelection,
   setTopicSelection,
   setMeetingliveKey,
@@ -109,7 +107,7 @@ export default function MeetingSetupShell({
       navigate(meetingPath(Number(meetingId)));
     } catch (e) {
       console.error(e);
-      const msg = e instanceof Error && e.message.trim().length > 0 ? e.message : t("error.1");
+      const msg = e instanceof Error && e.message.trim().length > 0 ? e.message : t("error.message");
       setUnrecoverableError({
         message: msg,
         source: "MeetingSetupShell.createMeeting",

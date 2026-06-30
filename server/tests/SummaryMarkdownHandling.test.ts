@@ -38,11 +38,12 @@ describe('Summary Markdown Handling', () => {
             },
             dialogGenerator: {
                 chairInterjection: vi.fn()
-                    .mockResolvedValueOnce({ response: 'Thank you.', id: 'close1' })
+                    .mockResolvedValueOnce({ response: 'Thank you.', id: 'close1' }),
+                generateDocument: vi.fn()
                     .mockResolvedValueOnce({
                         response: 'This is **bold** and *italic*.',
-                        id: 'summary-1'
-                    })
+                        id: 'summary-1',
+                    }),
             },
             audioSystem: {
                 generateAudio: vi.fn(),

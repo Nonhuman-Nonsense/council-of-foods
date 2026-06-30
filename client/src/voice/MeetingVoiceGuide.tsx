@@ -1,5 +1,6 @@
 import type { Topic } from "@shared/ModelTypes";
 import { useEffect, useMemo } from "react";
+import { useSwitchLanguage } from "@/routing";
 import { useTranslation } from "react-i18next";
 import VoiceGuideOverlay from "./VoiceGuideOverlay";
 import { getTopicsBundle } from "@main/topicsBundle";
@@ -17,9 +18,11 @@ import { useCouncilSettings } from "@/settings/councilSettings";
 import { buildGuidePrompt } from "./guidePrompt";
 import { createGuideToolHandlers, createGuideTools } from "./guideTools";
 import { getVoiceGuideBundle } from "./voiceGuideBundle";
-import { useHoldToSpeakHint } from "./useHoldToSpeakHint";
+import { useButtonBanner } from "@/museum/button/useButtonBanner";
 import Loading from "@main/Loading";
 import { useVoiceGuide } from "./useVoiceGuide";
+import { useErrorStore } from "@main/overlay/errorStore";
+
 type MeetingVoiceGuideProps = {
   phase: MeetingSetupPhase;
   lastUserEvent: MeetingSetupUserEvent | null;
@@ -39,7 +42,9 @@ export default function MeetingVoiceGuide({
 }: MeetingVoiceGuideProps) {
   const { i18n, t } = useTranslation();
   const { isMuseumMode, agentMode } = useCouncilSettings();
+  const { switchLanguage, otherLanguages } = useSwitchLanguage();
   const button = useButton("voice-guide");
+  const connectionError = useErrorStore((s) => s.connectionError);
   const {
     selectedTopic,
     customTopic,
@@ -50,6 +55,7 @@ export default function MeetingVoiceGuide({
   const characterSetupBundle = useMemo(() => getCharacterSetupBundle(i18n.language), [i18n.language]);
   const guideLanguage = i18n.language.toLowerCase().startsWith("sv") ? "sv" : "en";
   const promptBundle = useMemo(() => getVoiceGuideBundle(guideLanguage), [guideLanguage]);
+  const englishPromptBundle = useMemo(() => getVoiceGuideBundle("en"), []);
 
   const guideTopics = useMemo(() => {
     return [
@@ -74,6 +80,11 @@ export default function MeetingVoiceGuide({
     }));
   }, [characterSetupBundle]);
 
+  const otherLanguageNames = useMemo(
+    () => otherLanguages.map((lang) => englishPromptBundle.languageNames?.[lang] ?? lang),
+    [otherLanguages, englishPromptBundle],
+  );
+
   const instructions = useMemo(() => {
     return buildGuidePrompt({
       bundle: promptBundle,
@@ -82,13 +93,15 @@ export default function MeetingVoiceGuide({
       phase,
       agentMode,
       visitorName,
+      otherLanguageNames,
     });
-  }, [guideCharacters, guideTopics, phase, promptBundle, agentMode, visitorName]);
+  }, [guideCharacters, guideTopics, phase, promptBundle, agentMode, visitorName, otherLanguageNames]);
 
   const voice = useVoiceGuide({
     language: guideLanguage,
     instructions,
-    tools: createGuideTools({ promptBundle }),
+    isMuseumMode,
+    tools: createGuideTools({ promptBundle, otherLanguages }),
     toolHandlers: createGuideToolHandlers({
       topics: guideTopics,
       characters: guideCharacters,
@@ -105,32 +118,32 @@ export default function MeetingVoiceGuide({
       meetingStep: phase,
       voiceGuideLanguage: i18n.language,
       meetingCharactersLabels: {
-        oneHuman: t("selectfoods.human"),
-        twoHumansSuffix: t("selectfoods.twohumans"),
+        formatHumanCount: (count) => t("meeting.characters.humanCount", { count }),
       },
+      otherLanguages,
+      switchLanguage,
     }),
     agentMode,
     micOpen: button.pressed,
   });
   const { sendUserMessage, muted } = voice;
 
-  const showMuseumLandingLoading =
-    isMuseumMode && phase === "landing" && !muted && voice.isConnecting;
+  const showMuseumReconnecting =
+    isMuseumMode && !muted && voice.isConnecting && !connectionError;
 
-  const { showHoldToSpeakHint } = useHoldToSpeakHint({
-    agentMode,
-    sessionActive: !muted,
+  useButtonBanner({
+    owner: "voice-guide",
+    sessionActive: agentMode === "ptt" && !muted,
     isConnecting: voice.isConnecting,
     micOpen: button.pressed,
-    lastUserTranscript: voice.lastUserTranscript,
-    lastCaption: voice.lastCaption,
+    activityDeps: [voice.lastUserTranscript, voice.lastCaption],
   });
 
   const ledMode = useMemo((): ButtonLedMode => {
-    if (agentMode !== "ptt" || muted || voice.isConnecting || voice.error) return "off";
+    if (agentMode !== "ptt" || muted || voice.isConnecting) return "off";
     if (button.pressed) return "on";
     return "pulse";
-  }, [agentMode, muted, voice.isConnecting, voice.error, button.pressed]);
+  }, [agentMode, muted, voice.isConnecting, button.pressed]);
 
   useEffect(() => {
     if (agentMode !== "ptt") return;
@@ -157,16 +170,14 @@ export default function MeetingVoiceGuide({
 
   return (
     <>
-      {showMuseumLandingLoading && <Loading />}
+      {showMuseumReconnecting && <Loading />}
     <VoiceGuideOverlay
       isConnecting={voice.isConnecting}
-      error={voice.error}
       lastCaption={voice.lastCaption}
       lastUserTranscript={voice.lastUserTranscript}
       muted={voice.muted}
       isMuseumMode={isMuseumMode}
       agentMode={agentMode}
-      showHoldToSpeakHint={showHoldToSpeakHint}
       subtitleLayout={isMuseumMode ? "council" : "compact"}
       micStream={voice.micStream}
       micActive={agentMode === "ptt" && !muted && button.pressed}

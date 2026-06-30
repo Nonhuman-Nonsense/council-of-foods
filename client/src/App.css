@@ -342,6 +342,14 @@ nav.blur::before {
   border: none;
 }
 
+.scroll--hide-scrollbar {
+  scrollbar-width: none;
+}
+
+.scroll--hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 @media only screen and (max-height: 600px) {
   body {
     -webkit-text-size-adjust: 100%;
@@ -563,4 +571,59 @@ nav.blur::before {
   .marquee-rolling-banner__paragraph {
     font-size: 15px;
   }
+}
+
+/* Council layout shell — flex column that owns the overlay content + bottom
+   footer (Output / controls / replay banner). Scene, loading, meta-agent, and
+   human-input remain full-viewport siblings outside this shell. */
+.council-shell {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  pointer-events: none;
+  z-index: var(--z-routeOverlay);
+}
+
+/* Dim backdrop: covers the whole background when a council overlay is open.
+   Uses the same blur pseudo-element approach as .blur so nested blurring
+   works in Chrome. Rendered only when visibleOverlay !== null. */
+.council-shell__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: var(--z-councilShellBackdrop);
+  pointer-events: none;
+}
+
+/* Main content region — stretches to fill all space above the footer. Overlay
+   content (Summary, Name, etc.) is rendered here, above the backdrop. */
+.council-shell__main {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  z-index: var(--z-councilShellContent);
+}
+
+/* Footer band — Output subtitles, controls, replay banner. Always above the
+   backdrop so they remain visible while a council overlay is open. */
+.council-shell__footer {
+  position: relative;
+  flex: 0 0 auto;
+  z-index: var(--z-councilShellFooter);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow: visible;
+}
+
+/* Banner slot inside the council footer flex — below controls, not fixed. */
+.council-shell__banner {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow: visible;
+  pointer-events: none;
+  flex-shrink: 0;
 }

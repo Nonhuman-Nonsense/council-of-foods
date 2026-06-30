@@ -10,17 +10,15 @@ function QueryExtension({ onExtendMeeting, onConcludeMeeting }: QueryExtensionPr
 
   return (
     <div>
-      <h2>{t('queryExtension.title')}</h2>
+      <h2>{t("queryExtension.title")}</h2>
       <div>
-        <p>{t('queryExtension.1')}<br />{t('queryExtension.2')}<br /><br /></p>
-        <button
-          onClick={onConcludeMeeting}
-          style={{ marginRight: "9px" }}
-        >{t('queryExtension.3')}</button>
-        <button
-          onClick={onExtendMeeting}
-          style={{ marginLeft: "9px" }}
-        >{t('queryExtension.4')}</button>
+        <p style={{ whiteSpace: "pre-wrap" }}>{t("queryExtension.body")}</p>
+        <button onClick={onConcludeMeeting} style={{ marginRight: "9px" }}>
+          {t("queryExtension.conclude")}
+        </button>
+        <button onClick={onExtendMeeting} style={{ marginLeft: "9px" }}>
+          {t("queryExtension.continue")}
+        </button>
         <div style={{ height: "60px" }} />
       </div>
     </div>

@@ -69,7 +69,7 @@ describe('Landing', () => {
             </MemoryRouter>
         );
         expect(screen.getByText('landing.welcome')).toBeInTheDocument();
-        expect(screen.getByText('COUNCIL')).toBeInTheDocument();
+        expect(screen.getByText('APP.COUNCIL')).toBeInTheDocument();
     });
 
     it('renders "Go" button in landscape mode', () => {

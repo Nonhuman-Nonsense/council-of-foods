@@ -49,7 +49,7 @@ const Landing: React.FC = () => {
         <div>
           <img style={{ width: `min(95px, 18${dvh})` }} src={councilLogo} alt="Council of Foods logo" />
           <h2 style={{ marginBottom: "-10px", marginTop: isMobile ? "0" : "" }}>{t('landing.welcome')}</h2>
-          <h1 style={{ margin: isMobile ? "5px 0 0 0" : "" }}>{t('council').toUpperCase()}</h1>
+          <h1 style={{ margin: isMobile ? "5px 0 0 0" : "" }}>{t('app.council').toUpperCase()}</h1>
         </div>
 
         {isPortrait ?

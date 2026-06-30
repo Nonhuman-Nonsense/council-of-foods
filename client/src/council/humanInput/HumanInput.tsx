@@ -8,6 +8,7 @@ import { LiveAudioVisualizerPair } from "./LiveAudioVisualizer";
 import Lottie from 'react-lottie-player';
 import loading from "@assets/animations/loading.json";
 import { bootstrapHumanInputRealtimeSession } from "@api/realtimeSession";
+import { log } from "@/logger";
 import {
   createRealtimeConnection,
   type RealtimeConnection,
@@ -17,6 +18,7 @@ import React from 'react';
 import micIcon from "@assets/mic.avif";
 import type { ParticipationPhase } from "./participationPhase";
 import { useButton, type ButtonLedMode } from "@/museum/button/useButton";
+import { useButtonBanner } from "@/museum/button/useButtonBanner";
 import { useCouncilSettings } from "@/settings/councilSettings";
 
 const MAX_INPUT_LENGTH = 10000;
@@ -25,8 +27,6 @@ const FINISHING_NO_EVENTS_TIMEOUT_MS = 4500;
 const FINISHING_HARD_TIMEOUT_MS = 12000;
 /** PTT auto-submit requires at least this many words (accidental short utterances). */
 const MIN_PTT_SUBMIT_WORDS = 3;
-/** Museum PTT: abandon human turn after this idle duration (button released). */
-const HUMAN_ABANDON_IDLE_MS = 60_000;
 
 export function countTranscriptWords(text: string): number {
   const trimmed = text.trim();
@@ -37,12 +37,14 @@ export function countTranscriptWords(text: string): number {
 interface InputAudioTranscriptionDeltaEvent {
   type: "conversation.item.input_audio_transcription.delta";
   item_id: string;
+  content_index?: number;
   delta: string;
 }
 
 interface InputAudioTranscriptionCompletedEvent {
   type: "conversation.item.input_audio_transcription.completed";
   item_id: string;
+  content_index?: number;
   transcript: string;
 }
 
@@ -79,6 +81,65 @@ export interface TranscriptSegment {
   text: string;
 }
 
+export type TranscriptionDeltaMergeMode = "append" | "replace" | "adaptive";
+
+export function transcriptSegmentKey(itemId: string, contentIndex = 0): string {
+  return contentIndex === 0 ? itemId : `${itemId}:${contentIndex}`;
+}
+
+/** Soniox via Inworld mixes suffix chunks and full interim snapshots. */
+export function transcriptionDeltaMergeModeForModel(model: string): TranscriptionDeltaMergeMode {
+  return model.includes("soniox") ? "adaptive" : "replace";
+}
+
+function deltaWordCount(delta: string): number {
+  const trimmed = delta.trim();
+  if (!trimmed) return 0;
+  return trimmed.split(/\s+/).length;
+}
+
+/**
+ * append — OpenAI incremental suffixes
+ * replace — AssemblyAI cumulative snapshots
+ * adaptive — Soniox via Inworld: suffix append or full-restatement replace
+ *
+ * Soniox streams two kinds of delta without any wire tag to distinguish them:
+ *   - Suffix chunk (1–2 short tokens): continuation of the provisional hypothesis
+ *   - Full snapshot (3+ words): complete re-statement of the utterance from the start,
+ *     possibly revising earlier words (non-final token correction)
+ *
+ * Word count is the robust discriminator. Prefix/first-token matching breaks when the
+ * model revises the first word of the utterance (e.g. "ånden"→"hunden"). Length alone
+ * is also fragile (a 2-word suffix can be 12+ chars). The `completed` event always
+ * overwrites with the authoritative final transcript, so any transient misclassification
+ * of a 1–2 word snapshot is cosmetic and self-correcting.
+ */
+export function mergeTranscriptionDelta(
+  mode: TranscriptionDeltaMergeMode,
+  existing: string,
+  delta: string,
+): string {
+  if (!delta) return existing;
+  if (mode === "replace") return delta;
+  if (mode === "append") return existing + delta;
+
+  // Exact containment shortcuts — content-independent, always safe.
+  if (!existing) return delta;
+  if (delta.startsWith(existing)) return delta;
+  if (existing.endsWith(delta)) return existing;
+
+  const trimmedDelta = delta.trimStart();
+
+  // Delta is a forward extension of existing → replace with extended form.
+  if (trimmedDelta.startsWith(existing.trim())) return trimmedDelta;
+
+  // Multi-word delta = full Soniox interim snapshot → replace, regardless of first word.
+  if (deltaWordCount(delta) >= 3) return trimmedDelta;
+
+  // Short delta (1–2 tokens) = suffix chunk → append.
+  return existing + delta;
+}
+
 export function upsertTranscriptSegment(
   segments: TranscriptSegment[],
   itemId: string,
@@ -98,12 +159,10 @@ export function upsertTranscriptSegment(
 export function formatTranscriptInputValue({
   previousTranscript,
   transcriptSegments,
-  isRecording,
   maxLength,
 }: {
   previousTranscript: string;
   transcriptSegments: TranscriptSegment[];
-  isRecording: boolean;
   maxLength: number;
 }): string {
   const transcriptText = transcriptSegments
@@ -113,14 +172,85 @@ export function formatTranscriptInputValue({
     .trim();
   const baseText = previousTranscript.trim();
   const combined = [baseText, transcriptText].filter(Boolean).join(" ");
-  const hasEllipsisRoom = combined.length + 3 <= maxLength;
-  const liveSuffix = isRecording && transcriptText && hasEllipsisRoom ? "..." : "";
 
-  return `${combined}${liveSuffix}`.slice(0, maxLength);
+  return combined.slice(0, maxLength);
 }
 
 export function scrollTextareaToBottom(textarea: HTMLTextAreaElement) {
   textarea.scrollTop = textarea.scrollHeight;
+}
+
+function readTranscriptionModel(session: Record<string, unknown>): string {
+  const audio = session.audio;
+  if (!audio || typeof audio !== "object") return "";
+  const input = (audio as { input?: unknown }).input;
+  if (!input || typeof input !== "object") return "";
+  const transcription = (input as { transcription?: unknown }).transcription;
+  if (!transcription || typeof transcription !== "object") return "";
+  const model = (transcription as { model?: unknown }).model;
+  return typeof model === "string" ? model : "";
+}
+
+function readBootstrapSessionSummary(session: Record<string, unknown>): Record<string, unknown> {
+  const model = readTranscriptionModel(session);
+  let transcriptionLanguage = "";
+  let transcriptionPrompt = "";
+
+  const audio = session.audio;
+  if (audio && typeof audio === "object") {
+    const input = (audio as { input?: unknown }).input;
+    if (input && typeof input === "object") {
+      const transcription = (input as { transcription?: unknown }).transcription;
+      if (transcription && typeof transcription === "object") {
+        const language = (transcription as { language?: unknown }).language;
+        const prompt = (transcription as { prompt?: unknown }).prompt;
+        if (typeof language === "string") transcriptionLanguage = language;
+        if (typeof prompt === "string") transcriptionPrompt = prompt;
+      }
+    }
+  }
+
+  let languageHints: string[] | undefined;
+  const providerData = session.providerData;
+  if (providerData && typeof providerData === "object") {
+    const stt = (providerData as { stt?: unknown }).stt;
+    if (stt && typeof stt === "object") {
+      const hints = (stt as { language_hints?: unknown }).language_hints;
+      if (Array.isArray(hints)) {
+        languageHints = hints.filter((hint): hint is string => typeof hint === "string");
+      }
+    }
+  }
+
+  return {
+    transcriptionModel: model,
+    transcriptionLanguage,
+    transcriptionPrompt,
+    languageHints,
+    mergeMode: transcriptionDeltaMergeModeForModel(model),
+  };
+}
+
+/** Flat REALTIME lines prefixed for human-input debugging. */
+function hiLog(step: string, data?: Record<string, unknown>): void {
+  log.flat("REALTIME", `human-input | ${step}`, data);
+}
+
+function dcEventType(event: unknown): string {
+  if (event && typeof event === "object" && "type" in event) {
+    return typeof (event as { type: unknown }).type === "string"
+      ? (event as { type: string }).type
+      : "unknown";
+  }
+  return "unknown";
+}
+
+function dcEventError(event: unknown): Record<string, unknown> | undefined {
+  if (!event || typeof event !== "object") return undefined;
+  const err = (event as Record<string, unknown>).error;
+  if (!err || typeof err !== "object") return undefined;
+  const e = err as Record<string, unknown>;
+  return { type: e.type, code: e.code, message: e.message, param: e.param };
 }
 
 function isHumanInputRealtimeEvent(event: unknown): event is HumanInputRealtimeEvent {
@@ -184,6 +314,9 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
 
   const connectionStateRef = useRef<ConnectionState>("idle");
   const inputAudioActiveRef = useRef<boolean>(false);
+  const realtimeProviderRef = useRef<RealtimeProvider>("inworld");
+  const transcriptionModelRef = useRef<string>("");
+  const completedTranscriptKeysRef = useRef<Set<string>>(new Set());
   const connectionRef = useRef<RealtimeConnection | null>(null);
   const startAbortRef = useRef<AbortController | null>(null);
   const finishingQuietTimerRef = useRef<number | null>(null);
@@ -226,6 +359,7 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
   useEffect(() => {
     connectionStateRef.current = connectionState;
   }, [connectionState]);
+
 
   useLayoutEffect(() => {
     if (!inputArea.current) return;
@@ -280,7 +414,6 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
     const text = formatTranscriptInputValue({
       previousTranscript,
       transcriptSegments,
-      isRecording: false,
       maxLength: maxInputLength,
     }).trim();
 
@@ -289,83 +422,99 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
       pendingPttAutoSubmitRef.current = false;
       return;
     }
-    if (words < MIN_PTT_SUBMIT_WORDS) return;
+    if (words < MIN_PTT_SUBMIT_WORDS) {
+      hiLog("auto-submit-skip-short", { words, minWords: MIN_PTT_SUBMIT_WORDS, text });
+      return;
+    }
 
+    hiLog("auto-submit", { words, text });
     pendingPttAutoSubmitRef.current = false;
     onSubmitHumanMessage(text.substring(0, maxInputLength));
     setInputValue("");
     setPreviousTranscript("");
     setTranscriptSegments([]);
+    completedTranscriptKeysRef.current.clear();
     setCanContinue(false);
   }, [connectionState, transcriptSegments, previousTranscript, agentMode, maxInputLength, onSubmitHumanMessage]);
 
-  // ── Museum abandonment timer (idle after button release) ────────────────────
+  const pttSessionActive = agentMode === "ptt" && phase === "active";
 
-  const abandonTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useButtonBanner({
+    owner: "human-input",
+    sessionActive: pttSessionActive,
+    micOpen: button.pressed,
+    isConnecting: connectionState === "connecting" || connectionState === "finishing",
+    activityDeps: [inputValue, transcriptSegments],
+    onIdleTerminal: onAbandonHumanTurn,
+    canIdleTerminal: () =>
+      pttSessionActive &&
+      !button.pressed &&
+      connectionState !== "recording" &&
+      connectionState !== "finishing",
+    terminalDeps: [connectionState, button.pressed],
+  });
 
-  const clearAbandonTimer = () => {
-    if (abandonTimerRef.current !== null) {
-      clearTimeout(abandonTimerRef.current);
-      abandonTimerRef.current = null;
-    }
-  };
-
-  const scheduleAbandonTimer = () => {
-    clearAbandonTimer();
-    if (!isButtonMuseumMode || phase !== "active" || !onAbandonHumanTurn) return;
-    if (button.pressed) return;
-    abandonTimerRef.current = setTimeout(() => {
-      onAbandonHumanTurn();
-    }, HUMAN_ABANDON_IDLE_MS);
-  };
-
-  useEffect(() => {
-    if (!isButtonMuseumMode || phase !== "active") {
-      clearAbandonTimer();
-      return;
-    }
-    scheduleAbandonTimer();
-    return clearAbandonTimer;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, isButtonMuseumMode, onAbandonHumanTurn]);
-
-  useEffect(() => {
-    if (!isButtonMuseumMode || phase !== "active") return;
-    if (button.pressed) {
-      clearAbandonTimer();
-    } else {
-      scheduleAbandonTimer();
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [button.pressed, phase, isButtonMuseumMode, onAbandonHumanTurn]);
+  function transcriptionDeltaMergeMode(): TranscriptionDeltaMergeMode {
+    if (realtimeProviderRef.current === "openai") return "append";
+    return transcriptionDeltaMergeModeForModel(transcriptionModelRef.current);
+  }
 
   function handleRealtimeEvent(event: HumanInputRealtimeEvent) {
     if (event.type === "conversation.item.input_audio_transcription.delta") {
+      const segmentKey = transcriptSegmentKey(event.item_id, event.content_index ?? 0);
+      if (completedTranscriptKeysRef.current.has(segmentKey)) {
+        hiLog("delta-blocked-completed", {
+          segmentKey,
+          delta: event.delta,
+          mergeMode: transcriptionDeltaMergeMode(),
+        });
+        return;
+      }
+
       inputAudioActiveRef.current = true;
-      setTranscriptSegments(prev => upsertTranscriptSegment(
-        prev,
-        event.item_id,
-        `${prev.find(segment => segment.itemId === event.item_id)?.text ?? ""}${event.delta}`
-      ));
+      const mergeMode = transcriptionDeltaMergeMode();
+      setTranscriptSegments(prev => {
+        const existing = prev.find(segment => segment.itemId === segmentKey)?.text ?? "";
+        const next = mergeTranscriptionDelta(mergeMode, existing, event.delta);
+        hiLog("delta-applied", {
+          segmentKey,
+          mergeMode,
+          existing,
+          delta: event.delta,
+          next,
+        });
+        return upsertTranscriptSegment(prev, segmentKey, next);
+      });
       scheduleFinishingQuietClose();
       return;
     }
 
     if (event.type === "conversation.item.input_audio_transcription.completed") {
+      const segmentKey = transcriptSegmentKey(event.item_id, event.content_index ?? 0);
+      if (event.transcript.trim()) {
+        completedTranscriptKeysRef.current.add(segmentKey);
+      }
       inputAudioActiveRef.current = false;
-      setTranscriptSegments(prev => upsertTranscriptSegment(prev, event.item_id, event.transcript));
+      setTranscriptSegments(prev => upsertTranscriptSegment(prev, segmentKey, event.transcript));
+      hiLog("completed-applied", {
+        segmentKey,
+        transcript: event.transcript,
+        locksSegment: event.transcript.trim().length > 0,
+      });
       scheduleFinishingQuietClose();
       return;
     }
 
     if (event.type === "input_audio_buffer.speech_stopped") {
       inputAudioActiveRef.current = false;
+      hiLog("speech-stopped", { connectionState: connectionStateRef.current });
       scheduleFinishingQuietClose();
       return;
     }
 
     if (event.type === "input_audio_buffer.speech_started") {
       inputAudioActiveRef.current = true;
+      hiLog("speech-started", { connectionState: connectionStateRef.current });
     }
   }
 
@@ -401,6 +550,7 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
     startAbortRef.current?.abort();
     startAbortRef.current = controller;
     setConnectionState("connecting");
+    hiLog("connect-start", { language: i18n.language, phase });
 
     try {
       const bootstrap = await bootstrapHumanInputRealtimeSession(
@@ -411,6 +561,13 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
 
       const sessionForDc = bootstrap.session;
       const providerForDc: RealtimeProvider = bootstrap.provider;
+      realtimeProviderRef.current = bootstrap.provider;
+      transcriptionModelRef.current = readTranscriptionModel(bootstrap.session);
+      hiLog("bootstrap-ok", {
+        provider: bootstrap.provider,
+        language: i18n.language,
+        ...readBootstrapSessionSummary(bootstrap.session),
+      });
 
       const connection = await createRealtimeConnection({
         session: bootstrap.session,
@@ -430,18 +587,31 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
                 if (controller.signal.aborted) return;
                 try {
                   dc.send(JSON.stringify({ type: "session.update", session: sessionForDc }));
-                } catch {
-                  /* closed before send; ignore */
+                  hiLog("session-update-sent", readBootstrapSessionSummary(sessionForDc));
+                } catch (err) {
+                  hiLog("session-update-failed", {
+                    error: err instanceof Error ? err.message : String(err),
+                  });
                 }
               }
             : undefined,
         onRemoteTrack: () => undefined,
         onEvent: (event) => {
-          if (isHumanInputRealtimeEvent(event)) {
-            handleRealtimeEvent(event);
+          if (!isHumanInputRealtimeEvent(event)) {
+            const type = dcEventType(event);
+            const error = dcEventError(event);
+            if (error) {
+              hiLog("dc-error", { type, error });
+            } else if (type !== "session.created" && type !== "session.updated") {
+              hiLog("dc-unhandled-type", { type });
+            }
+            return;
           }
+
+          handleRealtimeEvent(event);
         },
-        onClose: () => {
+        onClose: (reason) => {
+          hiLog("connection-closed", { reason, aborted: controller.signal.aborted });
           // Unexpected close — go to idle so the auto-connect effect re-fires.
           if (!controller.signal.aborted) {
             closeRealtimeConnection();
@@ -451,22 +621,43 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
       });
 
       if (controller.signal.aborted) {
+        hiLog("connect-aborted", { language: i18n.language });
         connection.close();
         return;
       }
 
       // Gate the mic: track stays in the peer connection but sends no audio.
       // STT only bills on real audio, so this warm connection is free.
-      connection.micStream.getAudioTracks().forEach(track => {
+      const tracks = connection.micStream.getAudioTracks();
+      tracks.forEach(track => {
         track.enabled = false;
       });
 
       connectionRef.current = connection;
+      hiLog("connect-ready", {
+        language: i18n.language,
+        transcriptionModel: transcriptionModelRef.current,
+        mergeMode: transcriptionDeltaMergeMode(),
+        micTracks: tracks.map(track => ({
+          enabled: track.enabled,
+          muted: track.muted,
+          readyState: track.readyState,
+          label: track.label,
+        })),
+        pcState: connection.pc.connectionState,
+        dcState: connection.dc.readyState,
+      });
       setConnectionState("ready");
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") {
+        hiLog("connect-aborted", { language: i18n.language });
         return;
       }
+      hiLog("connect-error", {
+        language: i18n.language,
+        message: err instanceof Error ? err.message : String(err),
+        name: err instanceof Error ? err.name : undefined,
+      });
       console.error("Failed to start realtime human input session", err);
       setConnectionState("idle");
     } finally {
@@ -482,16 +673,43 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
    * Exposed as a standalone function so PTT can call it directly.
    */
   function startRecording() {
-    if (connectionState !== "ready" || !connectionRef.current) return;
+    if (connectionState !== "ready" || !connectionRef.current) {
+      hiLog("record-skip", {
+        reason: connectionState !== "ready" ? "not-ready" : "no-connection",
+        connectionState,
+        hasConnection: Boolean(connectionRef.current),
+        buttonPressed: button.pressed,
+        phase,
+      });
+      return;
+    }
+
     clearFinishingTimers();
     pendingPttAutoSubmitRef.current = false;
     inputAudioActiveRef.current = false;
+    completedTranscriptKeysRef.current.clear();
     setTranscriptSegments([]);
     setPreviousTranscript(inputValue);
-    connectionRef.current.micStream.getAudioTracks().forEach(track => {
+    const tracks = connectionRef.current.micStream.getAudioTracks();
+    tracks.forEach(track => {
       track.enabled = true;
     });
     setMicStream(connectionRef.current.micStream);
+    hiLog("record-start", {
+      language: i18n.language,
+      provider: realtimeProviderRef.current,
+      transcriptionModel: transcriptionModelRef.current,
+      mergeMode: transcriptionDeltaMergeMode(),
+      previousTranscript: inputValue,
+      micTracks: tracks.map(track => ({
+        enabled: track.enabled,
+        muted: track.muted,
+        readyState: track.readyState,
+        label: track.label,
+      })),
+      pcState: connectionRef.current.pc.connectionState,
+      dcState: connectionRef.current.dc.readyState,
+    });
     setConnectionState("recording");
   }
 
@@ -502,6 +720,7 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
    */
   function finishRealtimeSession() {
     if (!connectionRef.current) {
+      hiLog("finish-skip-no-connection", { connectionState: connectionStateRef.current });
       setConnectionState("idle");
       return;
     }
@@ -513,15 +732,41 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
     });
     setMicStream(null);
 
-    if (!inputAudioActiveRef.current) {
+    const hadSpeech = inputAudioActiveRef.current;
+    const segmentSnapshot = transcriptSegments.map(segment => ({
+      itemId: segment.itemId,
+      text: segment.text,
+    }));
+    hiLog("record-finish", {
+      hadSpeech,
+      segmentCount: segmentSnapshot.length,
+      segments: segmentSnapshot,
+      displayText: formatTranscriptInputValue({
+        previousTranscript,
+        transcriptSegments,
+        maxLength: maxInputLength,
+      }),
+    });
+
+    if (!hadSpeech) {
+      hiLog("finish-no-speech-immediate-ready", {
+        hint: "No speech_started/delta/completed before release — check VAD, mic, or STT backend",
+      });
       setConnectionState("ready");
       return;
     }
 
+    hiLog("finish-wait-for-transcript", {
+      quietMs: FINISHING_QUIET_MS,
+      noEventsTimeoutMs: FINISHING_NO_EVENTS_TIMEOUT_MS,
+      hardTimeoutMs: FINISHING_HARD_TIMEOUT_MS,
+    });
     finishingNoEventsTimerRef.current = window.setTimeout(() => {
+      hiLog("finish-timeout-no-events", { waitedMs: FINISHING_NO_EVENTS_TIMEOUT_MS });
       setConnectionState("ready");
     }, FINISHING_NO_EVENTS_TIMEOUT_MS);
     finishingHardTimerRef.current = window.setTimeout(() => {
+      hiLog("finish-hard-timeout-reconnect", { waitedMs: FINISHING_HARD_TIMEOUT_MS });
       closeRealtimeConnection();
       setConnectionState("idle");
     }, FINISHING_HARD_TIMEOUT_MS);
@@ -540,6 +785,7 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
     }
 
     finishingQuietTimerRef.current = window.setTimeout(() => {
+      hiLog("finish-quiet-close", { waitedMs: FINISHING_QUIET_MS });
       setConnectionState("ready");
     }, FINISHING_QUIET_MS);
   }
@@ -562,7 +808,6 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
       const nextValue = formatTranscriptInputValue({
         previousTranscript,
         transcriptSegments,
-        isRecording: true,
         maxLength: maxInputLength,
       });
       setInputValue(nextValue);
@@ -577,7 +822,6 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
       const nextValue = formatTranscriptInputValue({
         previousTranscript,
         transcriptSegments,
-        isRecording: false,
         maxLength: maxInputLength,
       });
       setInputValue(nextValue);
@@ -621,6 +865,7 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
     setInputValue("");
     setPreviousTranscript("");
     setTranscriptSegments([]);
+    completedTranscriptKeysRef.current.clear();
     setCanContinue(false);
     // Connection stays open — component will unmount shortly as phase → off,
     // and the unmount cleanup closes everything.
@@ -678,10 +923,10 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
     : connectionState === "idle" || connectionState === "connecting" || connectionState === "finishing";
 
   const placeholder = isButtonMuseumMode
-    ? t("human.button_museum")
+    ? t("ptt.humanPlaceholder")
     : isPanelist
       ? t("human.panelist", { name: currentSpeakerName })
-      : t("human.1");
+      : t("human.placeholder");
 
   return (<>
     <div style={wrapperStyle}>

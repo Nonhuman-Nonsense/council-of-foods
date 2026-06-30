@@ -21,6 +21,9 @@ function isSwedish(language: string): boolean {
     return language.toLowerCase().startsWith('sv');
 }
 
+/** #1020 → "number 1020" / "nummer 1020" for TTS (meeting IDs). */
+const MEETING_NUMBER_PATTERN = /#(\d+)/g;
+
 export class PronunciationUtils {
     private static regexCache = new Map<string, RegexEntry[]>();
 
@@ -76,6 +79,19 @@ export class PronunciationUtils {
         }
     }
 
+    private static applyMeetingNumberAliases(
+        text: string,
+        language: string,
+        replacedWords: Map<string, string>
+    ): string {
+        const prefix = isSwedish(language) ? 'nummer' : 'number';
+        return text.replace(MEETING_NUMBER_PATTERN, (match, digits: string) => {
+            const replacement = `${prefix} ${digits}`;
+            replacedWords.set(replacement, match);
+            return replacement;
+        });
+    }
+
     /**
      * Replaces known words with alias spell-outs and optionally IPA.
      * Returns:
@@ -97,6 +113,12 @@ export class PronunciationUtils {
                 return entry.replacement;
             });
         }
+
+        processedText = PronunciationUtils.applyMeetingNumberAliases(
+            processedText,
+            language,
+            replacedWords
+        );
 
         return { processedText, replacedWords };
     }

@@ -1,5 +1,35 @@
-import { createGuideToolHandlers, GuideToolContext } from '@voice/guideTools';
+import { createGuideToolHandlers, createGuideTools, GuideToolContext } from '@voice/guideTools';
+import type { VoiceGuidePromptBundle } from '@voice/guidePrompt';
 import { useMeetingSetupStore } from '@newMeeting/meetingSetupStore';
+
+const minimalBundle: VoiceGuidePromptBundle = {
+  system: '',
+  projectDescription: '',
+  characterVocabulary: { singular: 'being', plural: 'beings', stepLabel: 'characters' },
+  landingJobInstructions: [],
+  landingJobInstructionsPushToTalk: [],
+  jobInstructions: [],
+  toolDescriptions: {
+    begin_setup: '', list_topics: '', describe_topic: '', select_topic: '',
+    set_custom_topic: '', go_to_topic_step: '', list_characters: '', describe_character: '',
+    select_character: '', highlight_character: '', deselect_character: '',
+    remember_visitor_name: '', start_meeting: '', switch_language: 'Switch language.',
+  },
+};
+
+describe('createGuideTools', () => {
+  it('omits switch_language when otherLanguages is empty', () => {
+    const tools = createGuideTools({ promptBundle: minimalBundle, otherLanguages: [] });
+    expect(tools.find((t) => t.name === 'switch_language')).toBeUndefined();
+  });
+
+  it('includes switch_language with enum when otherLanguages is non-empty', () => {
+    const tools = createGuideTools({ promptBundle: minimalBundle, otherLanguages: ['sv'] });
+    const tool = tools.find((t) => t.name === 'switch_language');
+    expect(tool).toBeDefined();
+    expect(tool?.parameters?.properties?.language).toMatchObject({ type: 'string', enum: ['sv'] });
+  });
+});
 
 vi.mock('@newMeeting/meetingSetup', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@newMeeting/meetingSetup')>();
@@ -40,7 +70,9 @@ describe('guideTools', () => {
       startMeeting: vi.fn(),
       meetingStep: 'topic',
       voiceGuideLanguage: 'en',
-      meetingCharactersLabels: { oneHuman: 'Human', twoHumansSuffix: ' Humans' }
+      meetingCharactersLabels: { formatHumanCount: (count) => (count === 1 ? "Human" : `${count} Humans`) },
+      otherLanguages: ['sv'],
+      switchLanguage: vi.fn(),
     };
   });
 
@@ -185,6 +217,28 @@ describe('guideTools', () => {
         ok: false,
         error: 'That name is already used by a council participant. Ask for a different name.',
       });
+    });
+  });
+
+  describe('switch_language', () => {
+    it('calls switchLanguage and suppresses continuation', async () => {
+      const handlers = createGuideToolHandlers(ctx);
+      const res = await handlers.switch_language({ language: 'sv' });
+      expect(res).toEqual({ ok: true, suppressContinuation: true });
+      expect(ctx.switchLanguage).toHaveBeenCalledWith('sv');
+    });
+
+    it('rejects a language not in otherLanguages', async () => {
+      const handlers = createGuideToolHandlers(ctx);
+      const res = await handlers.switch_language({ language: 'de' });
+      expect(res).toEqual({ ok: false, error: 'Language not available: de' });
+      expect(ctx.switchLanguage).not.toHaveBeenCalled();
+    });
+
+    it('rejects when language arg is missing', async () => {
+      const handlers = createGuideToolHandlers(ctx);
+      const res = await handlers.switch_language({});
+      expect(res).toEqual({ ok: false, error: 'Missing language' });
     });
   });
 

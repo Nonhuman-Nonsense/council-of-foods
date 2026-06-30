@@ -3,6 +3,7 @@ import { renderHook, act } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { useCouncilMachine } from '@council/hooks/useCouncilMachine';
 import { MockFactory } from '../factories/MockFactory';
+import { useErrorStore } from '@main/overlay/errorStore';
 // import { useCouncilSocket } from "@council/hooks/useCouncilSocket"; // doing manual mock
 
 // --- Mocks ---
@@ -83,9 +84,6 @@ describe('useCouncilMachine', () => {
             humanName: '',
             setHumanName: vi.fn(),
             audioContext: audioContextMock,
-            setUnrecoverableError: vi.fn(),
-            setConnectionError: vi.fn(),
-            connectionError: false,
             isPaused: false,
             setPaused: vi.fn(),
             isMuseumMode: false,
@@ -93,6 +91,7 @@ describe('useCouncilMachine', () => {
             setMetaAgentPhase: vi.fn(),
             metaAgentPhase: "inactive",
         };
+        useErrorStore.getState().resetForTests();
         mockUseLocation.mockReturnValue({ hash: '', pathname: '/meeting/1' });
         mockUseDocumentVisibility.mockReturnValue(true);
     });
@@ -188,12 +187,12 @@ describe('useCouncilMachine', () => {
 
         it('auto-pauses when connection error is set', () => {
             const setPaused = vi.fn();
+            act(() => useErrorStore.getState().setConnectionError("socket", true));
 
             renderHook(() =>
                 useCouncilMachine({
                     ...defaultProps,
                     isPaused: false,
-                    connectionError: true,
                     setPaused,
                 }),
             );
@@ -381,54 +380,37 @@ describe('useCouncilMachine', () => {
 
         it('resumes in web and museum when connection error clears', () => {
             const setPaused = vi.fn();
+            act(() => useErrorStore.getState().setConnectionError("socket", true));
 
-            const { rerender } = renderHook(
-                (props) => useCouncilMachine(props),
-                {
-                    initialProps: {
-                        ...defaultProps,
-                        isPaused: true,
-                        connectionError: true,
-                        setPaused,
-                    },
-                },
+            renderHook(() =>
+                useCouncilMachine({
+                    ...defaultProps,
+                    isPaused: true,
+                    setPaused,
+                }),
             );
 
             setPaused.mockClear();
-            rerender({
-                ...defaultProps,
-                isPaused: true,
-                connectionError: false,
-                setPaused,
-            });
+            act(() => useErrorStore.getState().setConnectionError("socket", false));
 
             expect(setPaused).toHaveBeenCalledWith(false);
         });
 
         it('resumes in museum mode when connection error clears', () => {
             const setPaused = vi.fn();
+            act(() => useErrorStore.getState().setConnectionError("socket", true));
 
-            const { rerender } = renderHook(
-                (props) => useCouncilMachine(props),
-                {
-                    initialProps: {
-                        ...defaultProps,
-                        isPaused: true,
-                        isMuseumMode: true,
-                        connectionError: true,
-                        setPaused,
-                    },
-                },
+            renderHook(() =>
+                useCouncilMachine({
+                    ...defaultProps,
+                    isPaused: true,
+                    isMuseumMode: true,
+                    setPaused,
+                }),
             );
 
             setPaused.mockClear();
-            rerender({
-                ...defaultProps,
-                isPaused: true,
-                isMuseumMode: true,
-                connectionError: false,
-                setPaused,
-            });
+            act(() => useErrorStore.getState().setConnectionError("socket", false));
 
             expect(setPaused).toHaveBeenCalledWith(false);
         });
@@ -987,9 +969,8 @@ describe('useCouncilMachine', () => {
     });
 
     it('surfaces an unrecoverable error if abandon is called without awaiting message', () => {
-        const setUnrecoverableError = vi.fn();
         const { result } = renderHook(() =>
-            useCouncilMachine({ ...defaultProps, setUnrecoverableError } as any)
+            useCouncilMachine(defaultProps as any)
         );
 
         act(() => {
@@ -997,18 +978,15 @@ describe('useCouncilMachine', () => {
         });
 
         expect(mockSocketEmit).not.toHaveBeenCalledWith('skip_human_turn');
-        expect(setUnrecoverableError).toHaveBeenCalledWith(
-            expect.objectContaining({
-                message: expect.stringContaining('awaiting_human_question'),
-                source: 'useCouncilMachine.skip_human_turn',
-            }),
-        );
+        expect(useErrorStore.getState().unrecoverableError).toMatchObject({
+            message: expect.stringContaining('awaiting_human_question'),
+            source: 'useCouncilMachine.skip_human_turn',
+        });
     });
 
     it('surfaces an unrecoverable error if human_panelist submit loses its awaiting message', () => {
-        const setUnrecoverableError = vi.fn();
         const { result } = renderHook(() =>
-            useCouncilMachine({ ...defaultProps, setUnrecoverableError } as any)
+            useCouncilMachine(defaultProps as any)
         );
 
         const panelistMsg = {
@@ -1037,12 +1015,10 @@ describe('useCouncilMachine', () => {
             'submit_human_panelist',
             expect.anything()
         );
-        expect(setUnrecoverableError).toHaveBeenCalledWith(
-            expect.objectContaining({
-                message: 'Internal state mismatch: expected awaiting_human_panelist before submitting panelist response.',
-                source: 'useCouncilMachine.submit_panelist',
-            }),
-        );
+        expect(useErrorStore.getState().unrecoverableError).toMatchObject({
+            message: 'Internal state mismatch: expected awaiting_human_panelist before submitting panelist response.',
+            source: 'useCouncilMachine.submit_panelist',
+        });
     });
 
 
@@ -1178,13 +1154,11 @@ describe('useCouncilMachine', () => {
 
         it('on API failure does not flip to live and surfaces an unrecoverable error', async () => {
             const setliveKey = vi.fn();
-            const setUnrecoverableError = vi.fn();
             const { result } = renderHook(() =>
                 useCouncilMachine({
                     ...defaultProps,
                     liveKey: undefined,
                     setliveKey,
-                    setUnrecoverableError,
                     currentMeetingId: 5,
                 } as any)
             );
@@ -1197,12 +1171,10 @@ describe('useCouncilMachine', () => {
             });
 
             expect(setliveKey).not.toHaveBeenCalled();
-            expect(setUnrecoverableError).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    message: 'anything',
-                    source: 'useCouncilMachine.resume',
-                }),
-            );
+            expect(useErrorStore.getState().unrecoverableError).toMatchObject({
+                message: 'anything',
+                source: 'useCouncilMachine.resume',
+            });
         });
     });
 

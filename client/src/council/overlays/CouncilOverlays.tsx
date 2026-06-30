@@ -4,7 +4,9 @@ import Incomplete from "./Incomplete";
 import Summary, { SummaryData } from "./Summary";
 import Name from "./Name";
 import OverlayWrapper from "@main/overlay/OverlayWrapper";
+import { useCouncilSettings } from "@/settings/councilSettings";
 import type { CouncilOverlayType } from "@council/hooks/useCouncilMachine";
+import type { SummaryPlaybackState } from "@council/summaryScrollSync";
 
 export type { CouncilOverlayType, OverlayCouncilState } from "@council/hooks/useCouncilMachine";
 
@@ -21,6 +23,8 @@ interface CouncilOverlaysProps {
   summary: SummaryData | null;
   meetingId: number;
   participants: Character[];
+  audioContext?: React.RefObject<AudioContext | null>;
+  summaryPlayback?: SummaryPlaybackState;
 }
 
 /**
@@ -39,7 +43,10 @@ function CouncilOverlays({
   summary,
   meetingId,
   participants,
+  audioContext,
+  summaryPlayback = null,
 }: CouncilOverlaysProps): React.ReactElement {
+  const { isMuseumMode } = useCouncilSettings();
 
   const renderOverlayContent = (): React.ReactElement | null => {
     switch (overlay) {
@@ -66,6 +73,8 @@ function CouncilOverlays({
           <Summary
             summary={summary}
             meetingId={meetingId}
+            audioContext={audioContext}
+            summaryPlayback={summaryPlayback}
           /> : null
         );
       default:
@@ -73,8 +82,17 @@ function CouncilOverlays({
     }
   };
 
+  // Summary in web mode fills the full main region height (scroll + download at
+  // bottom). Museum summary breaks out with position:fixed anyway, so fillHeight
+  // has no effect there but we keep the condition explicit.
+  const fillHeight = overlay === "summary" && !isMuseumMode;
+
   return (
-    <OverlayWrapper showX={true} cancelOverlay={onDismiss}>
+    <OverlayWrapper
+      showX={!(overlay === "summary" && isMuseumMode)}
+      cancelOverlay={onDismiss}
+      fillHeight={fillHeight}
+    >
       {renderOverlayContent()}
     </OverlayWrapper>
   );

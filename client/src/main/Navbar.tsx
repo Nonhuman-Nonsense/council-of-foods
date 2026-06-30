@@ -3,7 +3,7 @@ import { useLocation, useNavigate, NavigateFunction, Location, Link } from "reac
 import { useMediaQuery } from 'react-responsive'
 import { useTranslation } from 'react-i18next';
 import { capitalizeFirstLetter, useMobile, useMobileXs, usePortrait } from "@/utils";
-import { getMeetingIdFromPathname, stripLanguagePrefix } from "@/routing";
+import { buildLanguagePath, getMeetingIdFromPathname } from "@/routing";
 import Lottie from "react-lottie-player";
 import type { ComponentRef } from "react";
 import hamburger from "@assets/animations/hamburger.json";
@@ -161,7 +161,7 @@ function Navbar({ topicTitle: topic, hamburgerOpen, setHamburgerOpen }: NavbarPr
                 visibility: showIconinMeny ? "visible" : "hidden",
               }}
               onClick={() => handleOnNavigate("reset")}
-            >{t('council').toUpperCase()}</h3>
+            >{t('app.council').toUpperCase()}</h3>
             <h4 style={{ marginTop: "5px", visibility: showIconinMeny ? "visible" : "hidden" }}>{`${meetingId ? "#" + meetingId + ": " : ""}${capitalizeFirstLetter(topic)}`}</h4>
           </div>
         </>}
@@ -202,7 +202,7 @@ function Navbar({ topicTitle: topic, hamburgerOpen, setHamburgerOpen }: NavbarPr
                 <span key={l}>
                   <Link
                     style={{ ...languageStyle, textDecoration: i18n.language === l ? "underline" : "none", pointerEvents: showMenu ? "auto" : "none" }}
-                    to={`/${l}/${stripLanguagePrefix(location.pathname).replace(/^\//, '')}${location.hash}`}
+                    to={buildLanguagePath(l, location.pathname, location.hash)}
                     onClick={() => { if (isMobile) { setHamburgerOpen(false); } }}
                   >
                     {t(l).toUpperCase()}
@@ -245,6 +245,8 @@ interface NavItemProps {
 function NavItem({ name, isActive, show, onNavigate }: NavItemProps): React.ReactElement {
   const { t } = useTranslation();
 
+  const labelKey = name === "about" || name === "contact" ? `${name}.label` : name;
+
   const navItemStyle: React.CSSProperties = {
     marginLeft: "19px",
     cursor: "pointer",
@@ -264,7 +266,7 @@ function NavItem({ name, isActive, show, onNavigate }: NavItemProps): React.Reac
         }
       }}
     >
-      <span style={navItemStyle}>{t(name).toUpperCase()}</span>
+      <span style={navItemStyle}>{t(labelKey).toUpperCase()}</span>
     </h3>
   );
 }

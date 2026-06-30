@@ -38,7 +38,21 @@ vi.mock('@council/overlays/Summary', () => ({
 }));
 
 vi.mock('@main/overlay/OverlayWrapper', () => ({
-    default: ({ children }: { children?: ReactNode }) => <div data-testid="overlay-wrapper">{children}</div>
+    default: ({ children, showX }: { children?: ReactNode; showX?: boolean }) => (
+        <div data-testid="overlay-wrapper" data-show-x={String(showX)}>{children}</div>
+    ),
+}));
+
+const mockUseCouncilSettings = vi.fn(() => ({
+    isMuseumMode: false,
+    mode: 'web' as const,
+    setAppMode: vi.fn(),
+    agentMode: 'off' as const,
+    setAgentMode: vi.fn(),
+}));
+
+vi.mock('@/settings/councilSettings', () => ({
+    useCouncilSettings: () => mockUseCouncilSettings(),
 }));
 
 describe('CouncilOverlays', () => {
@@ -71,6 +85,13 @@ describe('CouncilOverlays', () => {
 
     beforeEach(() => {
         vi.clearAllMocks();
+        mockUseCouncilSettings.mockReturnValue({
+            isMuseumMode: false,
+            mode: 'web',
+            setAppMode: vi.fn(),
+            agentMode: 'off',
+            setAgentMode: vi.fn(),
+        });
     });
 
     it('renders Name overlay when overlay is "name"', () => {
@@ -91,6 +112,24 @@ describe('CouncilOverlays', () => {
     it('renders Summary overlay when overlay is "summary"', () => {
         render(<CouncilOverlays {...defaultProps} overlay="summary" />);
         expect(screen.getByTestId('summary-overlay')).toBeInTheDocument();
+    });
+
+    it('hides the overlay close button for museum summary', () => {
+        mockUseCouncilSettings.mockReturnValue({
+            isMuseumMode: true,
+            mode: 'museum',
+            setAppMode: vi.fn(),
+            agentMode: 'ptt',
+            setAgentMode: vi.fn(),
+        });
+
+        render(<CouncilOverlays {...defaultProps} overlay="summary" />);
+        expect(screen.getByTestId('overlay-wrapper')).toHaveAttribute('data-show-x', 'false');
+    });
+
+    it('shows the overlay close button for web summary', () => {
+        render(<CouncilOverlays {...defaultProps} overlay="summary" />);
+        expect(screen.getByTestId('overlay-wrapper')).toHaveAttribute('data-show-x', 'true');
     });
 
     it('passes callbacks correctly to Name overlay', () => {

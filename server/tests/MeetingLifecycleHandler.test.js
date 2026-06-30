@@ -21,7 +21,7 @@ describe('MeetingLifecycleHandler', () => {
     const sessionServerOptions = () =>
         MockFactory.createServerOptions({
             extraMessageCount: 5,
-            concludeMeetingPrompt: { en: 'Closing [DATE]' },
+            concludeMeetingPrompt: { en: 'Closing meeting #[MEETING_ID]' },
             concludeMeetingLength: 10,
             summarizeMeetingPrompt: { en: 'Summary [DATE]' },
             summarizeMeetingLength: 10,
@@ -70,8 +70,9 @@ describe('MeetingLifecycleHandler', () => {
             startLoop: vi.fn(),
             dialogGenerator: {
                 chairInterjection: vi.fn()
-                    .mockResolvedValueOnce({ response: 'Thank you all for a rich discussion.', id: 'close1' })
-                    .mockResolvedValue({ response: 'Summary', id: 'sum1' })
+                    .mockResolvedValueOnce({ response: 'Thank you all for a rich discussion.', id: 'close1' }),
+                generateDocument: vi.fn()
+                    .mockResolvedValue({ response: 'Summary', id: 'sum1' }),
             },
             audioSystem: { generateAudio: vi.fn(), queueAudioGeneration: vi.fn() }
         };
@@ -144,8 +145,9 @@ describe('MeetingLifecycleHandler', () => {
         it('broadcasts closing before summary is generated', async () => {
             let finishSummary;
             mockContext.dialogGenerator.chairInterjection = vi.fn()
-                .mockResolvedValueOnce({ response: 'Closing line', id: 'close1' })
-                .mockReturnValueOnce(new Promise((resolve) => {
+                .mockResolvedValueOnce({ response: 'Closing line', id: 'close1' });
+            mockContext.dialogGenerator.generateDocument = vi.fn()
+                .mockReturnValue(new Promise((resolve) => {
                     finishSummary = () => resolve({ response: 'Summary', id: 'sum1' });
                 }));
             mockContext.meeting = storedMeeting({
@@ -175,16 +177,35 @@ describe('MeetingLifecycleHandler', () => {
             expect(mockContext.meeting.conversation.map((m) => m.type)).toEqual(['message', 'message', 'summary']);
         });
 
-        it('calls chairInterjection with conclude then summarize prompts', async () => {
+        it('passes trimmed content through on closing message when chair interjection overflows', async () => {
+            mockContext.dialogGenerator.chairInterjection = vi.fn()
+                .mockResolvedValueOnce({
+                    response: 'Thank you all.',
+                    trimmed: '\n\nExtra closing thoughts.',
+                    id: 'close1',
+                });
+            mockContext.dialogGenerator.generateDocument = vi.fn()
+                .mockResolvedValueOnce({ response: 'Summary', id: 'sum1' });
             mockContext.meeting = storedMeeting({
                 conversation: [{ id: '1', text: 'hi', type: 'message', speaker: chair.id }],
             });
 
             await handler.handleConcludeMeeting({ date: '2025-01-01' });
 
-            expect(mockContext.dialogGenerator.chairInterjection).toHaveBeenCalledTimes(2);
-            expect(mockContext.dialogGenerator.chairInterjection.mock.calls[0][0]).toBe('Closing [DATE]');
-            expect(mockContext.dialogGenerator.chairInterjection.mock.calls[1][0]).toBe('Summary 2025-01-01');
+            expect(mockContext.meeting.conversation[1].trimmed).toBe('\n\nExtra closing thoughts.');
+        });
+
+        it('calls chairInterjection for closing then generateDocument for summary', async () => {
+            mockContext.meeting = storedMeeting({
+                conversation: [{ id: '1', text: 'hi', type: 'message', speaker: chair.id }],
+            });
+
+            await handler.handleConcludeMeeting({ date: '2025-01-01' });
+
+            expect(mockContext.dialogGenerator.chairInterjection).toHaveBeenCalledTimes(1);
+            expect(mockContext.dialogGenerator.chairInterjection.mock.calls[0][0]).toBe('Closing meeting #101');
+            expect(mockContext.dialogGenerator.generateDocument).toHaveBeenCalledTimes(1);
+            expect(mockContext.dialogGenerator.generateDocument.mock.calls[0][0]).toBe('Summary 2025-01-01');
             expect(mockContext.audioSystem.queueAudioGeneration).toHaveBeenCalledTimes(1);
             expect(mockContext.audioSystem.generateAudio).toHaveBeenCalledTimes(1);
         });

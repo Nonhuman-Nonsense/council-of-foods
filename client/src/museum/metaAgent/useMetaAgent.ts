@@ -1,10 +1,12 @@
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import {
+  getRealtimeRetryPolicy,
   useRealtimeVoiceSession,
   type RealtimeVoiceSessionConnectionState,
 } from "@realtime/useRealtimeVoiceSession";
 import type { ConfigureSessionOptions } from "@voice/realtimeEventLoop";
 import type { RealtimeTool, ToolHandler } from "@voice/guideTools";
+import { setUnrecoverableError } from "@main/overlay/errorStore";
 
 /** Meta-agent lifecycle phase. */
 export type MetaAgentPhase = "inactive" | "interruption" | "extension";
@@ -18,11 +20,12 @@ export type UseMetaAgentParams = {
   tools: RealtimeTool[];
   toolHandlers: Record<string, ToolHandler>;
   onSessionReady?: () => void;
+  onConnectionLost?: () => void;
+  onConnectionRestored?: () => void;
 };
 
 export type UseMetaAgentResult = {
   connectionState: MetaAgentConnectionState;
-  error: string | null;
   lastCaption: string | null;
   lastUserTranscript: string | null;
   micStream: MediaStream | null;
@@ -49,15 +52,34 @@ export type UseMetaAgentResult = {
  * - Mic gating via `track.enabled` (PTT holds the button).
  * - No opening greeting on connect — agent greets when the visitor activates.
  * - Connects on mount; tears down on unmount.
+ * - Always treated as critical (infinite retry). The component decides when to
+ *   surface a connection error to the user via `onConnectionLost`.
  */
 export function useMetaAgent(params: UseMetaAgentParams): UseMetaAgentResult {
-  const { language, liveKey, instructions, tools, toolHandlers, onSessionReady } = params;
+  const {
+    language,
+    liveKey,
+    instructions,
+    tools,
+    toolHandlers,
+    onSessionReady,
+    onConnectionLost,
+    onConnectionRestored,
+  } = params;
+
   const authHeaders = useMemo(
     () => ({ Authorization: `Bearer ${liveKey}` }),
     [liveKey],
   );
 
-  return useRealtimeVoiceSession({
+  const onFatalError = useCallback(
+    (e: { message: string; source: string; cause?: unknown }) => {
+      setUnrecoverableError(e);
+    },
+    [],
+  );
+
+  const session = useRealtimeVoiceSession({
     feature: "meta-agent",
     language,
     instructions,
@@ -68,8 +90,23 @@ export function useMetaAgent(params: UseMetaAgentParams): UseMetaAgentResult {
     pttMic: true,
     trackAgentSpeaking: true,
     onSessionReady,
-    defaultsNotLoadedError: "Meta-agent defaults not loaded",
-    connectionLostMessage: "Meta-agent connection lost",
-    startFailedMessage: "Meta-agent failed to start",
+    isMuseumMode: true,
+    retryPolicy: getRealtimeRetryPolicy(true),
+    onFatalError,
+    onConnectionLost,
+    onConnectionRestored,
   });
+
+  return {
+    connectionState: session.connectionState,
+    lastCaption: session.lastCaption,
+    lastUserTranscript: session.lastUserTranscript,
+    micStream: session.micStream,
+    agentSpeaking: session.agentSpeaking,
+    setMicEnabled: session.setMicEnabled,
+    sendUserMessage: session.sendUserMessage,
+    requestAgentResponse: session.requestAgentResponse,
+    setAgentOutputMuted: session.setAgentOutputMuted,
+    reconfigureSession: session.reconfigureSession,
+  };
 }

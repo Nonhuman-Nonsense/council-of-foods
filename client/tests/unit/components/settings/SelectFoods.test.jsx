@@ -57,21 +57,21 @@ describe('SelectCharacters Component', () => {
     it('should enforce min participants (2) before allowing Start', () => {
         render(<ControlledSelectCharacters />);
 
-        expect(screen.queryByText('start')).not.toBeInTheDocument();
-        expect(screen.getByText('selectfoods.pleaseselect')).toBeInTheDocument();
+        expect(screen.queryByText('app.start')).not.toBeInTheDocument();
+        expect(screen.getByText('meeting.characters.pleaseselect')).toBeInTheDocument();
 
         clickCharacter(firstParticipant.name);
-        expect(screen.queryByText('start')).not.toBeInTheDocument();
+        expect(screen.queryByText('app.start')).not.toBeInTheDocument();
 
         clickCharacter(secondParticipant.name);
-        expect(screen.getByText('start')).toBeInTheDocument();
+        expect(screen.getByText('app.start')).toBeInTheDocument();
     });
 
     it('should pass selected characters to onContinueForward', () => {
         render(<ControlledSelectCharacters />);
 
         selectMinimumParticipants();
-        fireEvent.click(screen.getByText('start'));
+        fireEvent.click(screen.getByText('app.start'));
 
         expect(mockOnContinue).toHaveBeenCalledTimes(1);
         const passedCharacters = mockOnContinue.mock.calls[0][0].characters;
@@ -97,13 +97,13 @@ describe('SelectCharacters Component', () => {
         const addBtn = screen.getByAltText('add human');
         fireEvent.click(addBtn);
 
-        const nameInput = screen.getByPlaceholderText('selectfoods.humanname');
-        const descInput = screen.getByPlaceholderText('selectfoods.humandesc');
+        const nameInput = screen.getByPlaceholderText('meeting.characters.humanname');
+        const descInput = screen.getByPlaceholderText('meeting.characters.humandesc');
 
         fireEvent.change(nameInput, { target: { value: 'Alice' } });
         fireEvent.change(descInput, { target: { value: 'A thoughtful human' } });
 
-        const startBtn = await screen.findByText('start');
+        const startBtn = await screen.findByText('app.start');
         fireEvent.click(startBtn);
 
         const passedCharacters = mockOnContinue.mock.calls[0][0].characters;
@@ -133,8 +133,8 @@ describe('SelectCharacters Component', () => {
         const addBtn = screen.getByAltText('add human');
         fireEvent.click(addBtn);
 
-        const nameInput = screen.getByPlaceholderText('selectfoods.humanname');
-        const descInput = screen.getByPlaceholderText('selectfoods.humandesc');
+        const nameInput = screen.getByPlaceholderText('meeting.characters.humanname');
+        const descInput = screen.getByPlaceholderText('meeting.characters.humandesc');
 
         expect(document.activeElement).toBe(nameInput);
 
@@ -158,7 +158,7 @@ describe('SelectCharacters Component', () => {
 
         clickCharacter(overflowParticipant.name);
 
-        fireEvent.click(screen.getByText('start'));
+        fireEvent.click(screen.getByText('app.start'));
 
         const passedCharacters = mockOnContinue.mock.calls[0][0].characters;
 
@@ -174,7 +174,7 @@ describe('SelectCharacters Component', () => {
         fireEvent.click(participantBtn);
         fireEvent.click(participantBtn);
 
-        expect(screen.queryByText('start')).not.toBeInTheDocument();
+        expect(screen.queryByText('app.start')).not.toBeInTheDocument();
     });
 
     it('should show error when human panelists have duplicate names', async () => {
@@ -185,19 +185,19 @@ describe('SelectCharacters Component', () => {
         const addBtn = screen.getByAltText('add human');
         fireEvent.click(addBtn);
 
-        let nameInput = screen.getByPlaceholderText('selectfoods.humanname');
-        let descInput = screen.getByPlaceholderText('selectfoods.humandesc');
+        let nameInput = screen.getByPlaceholderText('meeting.characters.humanname');
+        let descInput = screen.getByPlaceholderText('meeting.characters.humandesc');
         fireEvent.change(nameInput, { target: { value: 'Bob' } });
         fireEvent.change(descInput, { target: { value: 'Desc 1' } });
 
         fireEvent.click(addBtn);
 
-        nameInput = screen.getByPlaceholderText('selectfoods.humanname');
-        descInput = screen.getByPlaceholderText('selectfoods.humandesc');
+        nameInput = screen.getByPlaceholderText('meeting.characters.humanname');
+        descInput = screen.getByPlaceholderText('meeting.characters.humandesc');
         fireEvent.change(nameInput, { target: { value: 'Bob' } });
         fireEvent.change(descInput, { target: { value: 'Desc 2' } });
 
-        expect(await screen.findByText('selectfoods.unique')).toBeInTheDocument();
-        expect(screen.queryByText('start')).not.toBeInTheDocument();
+        expect(await screen.findByText('meeting.characters.unique')).toBeInTheDocument();
+        expect(screen.queryByText('app.start')).not.toBeInTheDocument();
     });
 });

@@ -61,26 +61,30 @@ export class MeetingLifecycleHandler {
 
         const chair = m.characters[0];
         const closingIndex = m.conversation.length;
-        const closingPrompt = manager.serverOptions.concludeMeetingPrompt[m.language];
-        const { response: closingResponse, id: closingId } = await manager.dialogGenerator.chairInterjection(
+        const closingPrompt = manager.serverOptions.concludeMeetingPrompt[m.language]
+            .replaceAll("[MEETING_ID]", String(m._id));
+        const {
+            response: closingText,
+            id: closingId,
+            trimmed: closingTrimmed,
+            pretrimmed: closingPretrimmed,
+            sentences: closingSentences,
+        } = await manager.dialogGenerator.chairInterjection(
             closingPrompt,
             closingIndex,
             manager.serverOptions.concludeMeetingLength,
-            true,
             m,
             manager.broadcaster
         );
 
-        const firstNewLineIndex = closingResponse.indexOf("\n\n");
-        const closingText = firstNewLineIndex !== -1
-            ? closingResponse.substring(0, firstNewLineIndex)
-            : closingResponse;
         const closingMessage: Message = {
             id: closingId || "",
             speaker: chair.id,
             text: closingText,
             type: "message",
-            sentences: splitSentences(closingText),
+            sentences: closingSentences || splitSentences(closingText),
+            trimmed: closingTrimmed,
+            pretrimmed: closingPretrimmed,
         };
 
         m.conversation.push(closingMessage);
@@ -115,14 +119,13 @@ export class MeetingLifecycleHandler {
         if (!m) return;
 
         const chair = m.characters[0];
-        const summaryPrompt = manager.serverOptions.summarizeMeetingPrompt[m.language].replace("[DATE]", date);
-        const { response, id } = await manager.dialogGenerator.chairInterjection(
+        const summaryPrompt = manager.serverOptions.summarizeMeetingPrompt[m.language]
+            .replace("[DATE]", date)
+            .replace("[MEETING_ID]", String(m._id));
+        const { response, id, trimmed } = await manager.dialogGenerator.generateDocument(
             summaryPrompt,
-            m.conversation.length,
-            manager.serverOptions.summarizeMeetingLength,
-            true,
             m,
-            manager.broadcaster
+            manager.serverOptions.summarizeMeetingLength,
         );
 
         // Strip markdown formatting for TTS (prevents reading "**banana**" as "asterisk banana asterisk")
@@ -133,7 +136,9 @@ export class MeetingLifecycleHandler {
             speaker: chair.id,
             text: response,
             type: "summary",
-            sentences: []
+            sentences: [],
+            trimmed,
+            pretrimmed: undefined,
         };
 
         m.conversation.push(summary);
@@ -153,11 +158,8 @@ export class MeetingLifecycleHandler {
         const audioMessage = {
             ...summary,
             text: textForAudio,
-            sentences: splitSentences(textForAudio)
+            sentences: [],
         };
-
-        // Also update the main summary object's sentences for consistency, though they won't have timings yet
-        summary.sentences = splitSentences(response);
 
         if (m._id !== null) {
             void manager.audioSystem.generateAudio(
@@ -228,18 +230,5 @@ export class MeetingLifecycleHandler {
         Logger.info(`meeting ${m._id}`, "resumed");
         manager.isPaused = false;
         manager.startLoop();
-    }
-
-    /**
-     * Removes the last message from the conversation (prototype functionality).
-     */
-    handleRemoveLastMessage(): void {
-        const { manager } = this;
-        const m = manager.meeting;
-        if (!m) return;
-
-        Logger.info(`meeting ${m._id}`, "popping last message");
-        m.conversation.pop();
-        manager.broadcaster.broadcastConversationUpdate(m.conversation);
     }
 }

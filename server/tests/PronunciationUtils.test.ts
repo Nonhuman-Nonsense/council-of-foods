@@ -139,4 +139,48 @@ describe('PronunciationUtils', () => {
         expect(cache.has("en:true")).toBe(true);
         expect(cache.get("en:true")!.length).toBeGreaterThan(0);
     });
+
+    it('should spell out meeting numbers for English TTS', () => {
+        const result = PronunciationUtils.processText(
+            'This concludes Council of Foods meeting #1020.',
+            'en',
+            { includeIpa: false },
+        );
+        expect(result.processedText).toBe(
+            'This concludes Council of Foods meeting number 1020.',
+        );
+        expect(result.replacedWords.get('number 1020')).toBe('#1020');
+    });
+
+    it('should spell out meeting numbers for Swedish TTS', () => {
+        const result = PronunciationUtils.processText(
+            'Detta avslutar mötet #1020.',
+            'sv',
+            { includeIpa: false },
+        );
+        expect(result.processedText).toBe(
+            'Detta avslutar mötet nummer 1020.',
+        );
+        expect(result.replacedWords.get('nummer 1020')).toBe('#1020');
+    });
+
+    it('should replace multiple meeting numbers in one string', () => {
+        const result = PronunciationUtils.processText(
+            'Replay of #42 and #1020.',
+            'en',
+            { includeIpa: false },
+        );
+        expect(result.processedText).toBe('Replay of number 42 and number 1020.');
+        expect(result.replacedWords.get('number 42')).toBe('#42');
+        expect(result.replacedWords.get('number 1020')).toBe('#1020');
+    });
+
+    it('should not replace hash tags without digits', () => {
+        const result = PronunciationUtils.processText(
+            'Join #climate action today.',
+            'en',
+            { includeIpa: false },
+        );
+        expect(result.processedText).toBe('Join #climate action today.');
+    });
 });

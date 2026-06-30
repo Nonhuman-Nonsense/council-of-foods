@@ -1,15 +1,9 @@
 import { type CSSProperties, type ReactElement, useRef } from "react";
-import MarqueeRollingBanner from "@council/MarqueeRollingBanner";
 import { LiveAudioVisualizerPair } from "@council/humanInput/LiveAudioVisualizer";
-import { Icons } from "@assets/icons";
 import { useMobile } from "@/utils";
-import type { AgentMode } from "@/settings/councilSettings";
-import { z } from "@/zIndexLayers";
-import { useTranslation } from "react-i18next";
-import ConversationControlIcon from "@/council/ConversationControlIcon";
 
-/** Short PTT copy needs many segments so the marquee fills the viewport. */
-const BUTTON_HINT_SEGMENT_COUNT = 14;
+import { z } from "@/zIndexLayers";
+import ConversationControlIcon from "@/council/ConversationControlIcon";
 
 /** Matches HumanInput center viz slot height (desktop). */
 const VIZ_SLOT_HEIGHT_PX = 56;
@@ -17,39 +11,32 @@ const VIZ_SLOT_HEIGHT_PX = 56;
 export type RealtimeSubtitleLayout = "council" | "compact";
 
 export type RealtimeCaptionOverlayProps = {
-  error: string | null;
   lastCaption: string | null;
   lastUserTranscript: string | null;
-  agentMode?: AgentMode;
-  showHoldToSpeakHint?: boolean;
-  /** i18n key for the hold-to-speak banner (default: setup.holdToSpeak). */
-  holdToSpeakKey?: string;
   subtitleLayout?: RealtimeSubtitleLayout;
   /** Reserve bottom viz row (PTT sessions). */
   showPttVisualizer?: boolean;
   micStream?: MediaStream | null;
   micActive?: boolean;
+  /** Hide caption text while reconnecting (e.g. language switch). Errors still show. */
+  hideCaptions?: boolean;
 };
 
 /**
- * Shared caption + PTT hint UI for realtime voice sessions (voice guide, meta agent).
- * Presentation only — no WebRTC or session controls.
+ * Shared caption UI for realtime voice sessions (voice guide, meta agent).
+ * PTT hint banner is rendered globally via ButtonBanner.
  */
 export default function RealtimeCaptionOverlay(props: RealtimeCaptionOverlayProps): ReactElement {
   const {
-    error,
     lastCaption,
     lastUserTranscript,
-    agentMode = "off",
-    showHoldToSpeakHint = false,
-    holdToSpeakKey = "setup.holdToSpeak",
     subtitleLayout = "compact",
     showPttVisualizer = false,
     micStream = null,
     micActive = false,
+    hideCaptions = false,
   } = props;
   const isMobile = useMobile();
-  const { t } = useTranslation();
 
   const vizLeftHostRef = useRef<HTMLDivElement>(null);
   const vizRightHostRef = useRef<HTMLDivElement>(null);
@@ -118,85 +105,56 @@ export default function RealtimeCaptionOverlay(props: RealtimeCaptionOverlayProp
     pointerEvents: "none",
   };
 
-  const hasText = Boolean(lastUserTranscript || lastCaption);
-  const holdToSpeakMessage = t(holdToSpeakKey);
+  const hasText = !hideCaptions && Boolean(lastUserTranscript || lastCaption);
   const showVisualizer = micActive && micStream != null;
 
   return (
-    <>
-      <div style={captionContainerStyle} data-subtitle-layout={subtitleLayout}>
-        <div style={textBlockStyle} aria-live="polite">
-          {error ? (
-            <p style={{ ...paragraphStyle, color: "#ffb4b4", margin: 0 }} role="alert">
-              {error}
-            </p>
-          ) : null}
+    <div style={captionContainerStyle} data-subtitle-layout={subtitleLayout}>
+      <div style={textBlockStyle} aria-live="polite">
+        {hasText ? (
+          <>
+            {lastUserTranscript ? (
+              <p style={{ ...secondaryStyle, margin: 0 }} data-testid="voice-guide-user">
+                {lastUserTranscript}
+              </p>
+            ) : null}
+            {lastCaption ? (
+              <p
+                style={{ ...paragraphStyle, margin: lastUserTranscript ? "8px 0 0" : 0 }}
+                data-testid="voice-guide-caption"
+              >
+                {lastCaption}
+              </p>
+            ) : null}
+          </>
+        ) : null}
+      </div>
 
-          {hasText ? (
-            <>
-              {lastUserTranscript ? (
-                <p style={{ ...secondaryStyle, margin: 0 }} data-testid="voice-guide-user">
-                  {lastUserTranscript}
-                </p>
-              ) : null}
-              {lastCaption ? (
-                <p
-                  style={{ ...paragraphStyle, margin: lastUserTranscript ? "8px 0 0" : 0 }}
-                  data-testid="voice-guide-caption"
-                >
-                  {lastCaption}
-                </p>
-              ) : null}
-            </>
+      {showPttVisualizer ? (
+        <div style={vizRowStyle} data-testid="realtime-ptt-viz-row">
+          <div
+            ref={vizLeftHostRef}
+            style={{ ...vizHostStyle, width: "100px", transform: "scale(-1, -1)" }}
+          />
+          <div style={{...vizHostStyle, width: vizSlotSize}} aria-hidden>
+            <ConversationControlIcon icon="record_voice_on" onClick={() => undefined} />
+          </div>
+          <div style={{...vizHostStyle, width: "100px"}} ref={vizRightHostRef} />
+          {showVisualizer ? (
+            <LiveAudioVisualizerPair
+              stream={micStream}
+              leftHostRef={vizLeftHostRef}
+              rightHostRef={vizRightHostRef}
+              width={100}
+              height={40}
+              barWidth={3}
+              gap={2}
+              barColor="#ffffff"
+              smoothingTimeConstant={0.85}
+            />
           ) : null}
         </div>
-
-        {showPttVisualizer ? (
-          <div style={vizRowStyle} data-testid="realtime-ptt-viz-row">
-            <div
-              ref={vizLeftHostRef}
-              style={{ ...vizHostStyle, width: "100px", transform: "scale(-1, -1)" }}
-            />
-            <div style={{...vizHostStyle, width: vizSlotSize}} aria-hidden>
-              <ConversationControlIcon icon="record_voice_on" onClick={() => undefined} />
-            </div>
-            <div style={{...vizHostStyle, width: "100px"}} ref={vizRightHostRef} />
-            {showVisualizer ? (
-              <LiveAudioVisualizerPair
-                stream={micStream}
-                leftHostRef={vizLeftHostRef}
-                rightHostRef={vizRightHostRef}
-                width={100}
-                height={40}
-                barWidth={3}
-                gap={2}
-                barColor="#ffffff"
-                smoothingTimeConstant={0.85}
-              />
-            ) : null}
-          </div>
-        ) : null}
-      </div >
-
-      {
-        agentMode === "ptt" ? (
-          <div className="bottom-ui-banner-anchor" >
-            <MarqueeRollingBanner
-              visible={showHoldToSpeakHint}
-              segmentCount={BUTTON_HINT_SEGMENT_COUNT}
-              testId="voice-guide-hold-to-speak"
-              renderSegment={(index) => (
-                <>
-                  <Icons.tomato className="marquee-rolling-banner__tomato" aria-hidden={index !== 0} />
-                  <span aria-hidden={index !== 0}>{holdToSpeakMessage}</span>
-                  <Icons.tomato className="marquee-rolling-banner__tomato" aria-hidden />
-                  <span aria-hidden={index !== 0}>{holdToSpeakMessage}</span>
-                </>
-              )}
-            />
-          </div>
-        ) : null
-      }
-    </>
+      ) : null}
+    </div>
   );
 }

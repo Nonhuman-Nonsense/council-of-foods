@@ -10,6 +10,41 @@ function withClientTerminalPrefix(message: string): string {
     return `${CLIENT_TERMINAL_PREFIX} ${message}`;
 }
 
+function formatCauseLine(cause: unknown): string {
+    if (cause instanceof Error) {
+        const code = (cause as { code?: string }).code;
+        const detail = cause.stack || cause.message;
+        return code ? `Caused by: ${detail} [${code}]` : `Caused by: ${detail}`;
+    }
+
+    if (cause && typeof cause === "object") {
+        const node = cause as { code?: string; message?: string };
+        const detail = node.code || node.message || JSON.stringify(cause);
+        return `Caused by: ${detail}`;
+    }
+
+    return `Caused by: ${String(cause)}`;
+}
+
+function formatErrorDetails(error: unknown): string[] {
+    if (error instanceof Error) {
+        const lines: string[] = [];
+        if (error.stack) {
+            lines.push(error.stack);
+        } else if (error.message) {
+            lines.push(error.message);
+        }
+
+        if (error.cause !== undefined) {
+            lines.push(formatCauseLine(error.cause));
+        }
+
+        return lines;
+    }
+
+    return [JSON.stringify(error, null, 2)];
+}
+
 export class Logger {
 
     private static formatContext(context: string): string {
@@ -25,12 +60,9 @@ export class Logger {
     static async warn(context: string, message: string, error?: unknown, opts?: ReportOptions): Promise<void> {
         console.warn(`${cyan(this.formatContext(context))} ${yellow(message)}`);
 
-        // Log error details if provided
         if (error) {
-            if (error instanceof Error) {
-                console.warn(gray(error.stack || error.message));
-            } else {
-                console.warn(gray(JSON.stringify(error, null, 2)));
+            for (const line of formatErrorDetails(error)) {
+                console.warn(gray(line));
             }
         }
 
@@ -51,12 +83,9 @@ export class Logger {
         // Log the primary message in red
         console.error(`${red(this.formatContext(context))} ${red(message)}`);
 
-        // Log error details if provided
         if (error) {
-            if (error instanceof Error) {
-                console.error(gray(error.stack || error.message));
-            } else {
-                console.error(gray(JSON.stringify(error, null, 2)));
+            for (const line of formatErrorDetails(error)) {
+                console.error(gray(line));
             }
         }
 

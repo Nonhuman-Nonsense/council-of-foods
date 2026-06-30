@@ -24,6 +24,15 @@ describe("mergeButtonOwner", () => {
     ).toBe("human-input");
   });
 
+  it("prefers summary over meta-agent", () => {
+    expect(
+      mergeButtonOwner({
+        "meta-agent": true,
+        summary: true,
+      }),
+    ).toBe("summary");
+  });
+
   it("prefers setup over human-input", () => {
     expect(
       mergeButtonOwner({
@@ -31,6 +40,15 @@ describe("mergeButtonOwner", () => {
         "human-input": true,
       }),
     ).toBe("setup");
+  });
+
+  it("prefers summary over replay", () => {
+    expect(
+      mergeButtonOwner({
+        replay: true,
+        summary: true,
+      }),
+    ).toBe("summary");
   });
 
   it("lets meta-agent win when human-input has not claimed", () => {

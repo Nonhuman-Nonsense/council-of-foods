@@ -53,7 +53,9 @@ npm i
 npm run dev
 ```
 
-you should then have a localhost copy running on port 3000.
+you should then have the app at [http://localhost:5173](http://localhost:5173) (Vite), proxied to the server on port 3001.
+
+Set `PORT` in `server/.env` to run multiple checkouts side by side (e.g. `PORT=3002` → server 3002, Vite 5174). Docker/production still use port 3001 unless overridden at deploy time.
 
 
 ## Build docker image

@@ -5,6 +5,7 @@ import HumanInput from '@council/humanInput/HumanInput';
 import { useMobile } from '@/utils';
 import { bootstrapHumanInputRealtimeSession } from '@api/realtimeSession';
 import { createRealtimeConnection } from '@/realtime/realtimeConnection';
+import { BUTTON_BANNER_IDLE_MS } from '@museum/button/useButtonBanner';
 
 const mockClaim = vi.hoisted(() => vi.fn());
 const mockRelease = vi.hoisted(() => vi.fn());
@@ -49,6 +50,8 @@ vi.mock('@/settings/councilSettings', () => ({
         setAppMode: vi.fn(),
         setAgentMode: vi.fn(),
     }),
+    getDevLogEnabled: () => false,
+    isDevLogCategoryEnabled: () => false,
 }));
 
 vi.mock('@api/realtimeSession', () => ({
@@ -70,7 +73,16 @@ vi.mock('@council/ConversationControlIcon', () => ({
 }));
 
 vi.mock('@/museum/button/buttonStore', () => ({
-    useButtonStore: (selector) => selector(mockButtonState),
+    useButtonStore: Object.assign(
+        (selector) => selector(mockButtonState),
+        {
+            getState: () => ({
+                setButtonBannerVisible: vi.fn(),
+                setButtonBannerMessageKey: vi.fn(),
+                setButtonBannerContent: vi.fn(),
+            }),
+        },
+    ),
 }));
 
 vi.mock('@/museum/button/useButton', async () => {
@@ -168,7 +180,7 @@ describe('HumanInput Component', () => {
         );
 
         // No visible UI
-        expect(screen.queryByPlaceholderText('human.1')).not.toBeInTheDocument();
+        expect(screen.queryByPlaceholderText('human.placeholder')).not.toBeInTheDocument();
 
         // But the connection still started
         await waitFor(() => {
@@ -244,7 +256,7 @@ describe('HumanInput Component', () => {
     it('should handle text input and submission', async () => {
         await renderAndWaitReady({ onSubmitHumanMessage: mockOnSubmit });
 
-        const textarea = screen.getByPlaceholderText('human.1');
+        const textarea = screen.getByPlaceholderText('human.placeholder');
         fireEvent.change(textarea, { target: { value: 'Hello World' } });
         expect(textarea.value).toBe('Hello World');
 
@@ -258,7 +270,7 @@ describe('HumanInput Component', () => {
     it('should submit text without manual character targeting', async () => {
         await renderAndWaitReady({ onSubmitHumanMessage: mockOnSubmit });
 
-        const textarea = screen.getByPlaceholderText('human.1');
+        const textarea = screen.getByPlaceholderText('human.placeholder');
         fireEvent.change(textarea, { target: { value: 'Question for the council' } });
         fireEvent.click(screen.getByTestId('icon-send_message'));
 
@@ -268,7 +280,7 @@ describe('HumanInput Component', () => {
     it('should submit on Enter but not on Shift+Enter', async () => {
         await renderAndWaitReady({ onSubmitHumanMessage: mockOnSubmit });
 
-        const textarea = screen.getByPlaceholderText('human.1');
+        const textarea = screen.getByPlaceholderText('human.placeholder');
         fireEvent.change(textarea, { target: { value: 'Line 1' } });
 
         fireEvent.keyDown(textarea, { key: 'Enter', shiftKey: true });
@@ -280,7 +292,7 @@ describe('HumanInput Component', () => {
 
     it('should enforce max input length', async () => {
         await renderAndWaitReady();
-        const textarea = screen.getByPlaceholderText('human.1');
+        const textarea = screen.getByPlaceholderText('human.placeholder');
         expect(textarea).toHaveAttribute('maxLength', '10000');
     });
 
@@ -346,7 +358,7 @@ describe('HumanInput Component', () => {
             expect(screen.getByTestId('icon-record_voice_on')).toBeInTheDocument();
         });
 
-        fireEvent.focus(screen.getByPlaceholderText('human.1'));
+        fireEvent.focus(screen.getByPlaceholderText('human.placeholder'));
 
         expect(screen.getByTestId('icon-record_voice_off')).toBeInTheDocument();
     });
@@ -595,14 +607,14 @@ describe('HumanInput PTT museum mode', () => {
 
     it('hides send button in PTT mode', async () => {
         await renderPttReady();
-        const textarea = screen.getByPlaceholderText('human.button_museum');
+        const textarea = screen.getByPlaceholderText('ptt.humanPlaceholder');
         fireEvent.change(textarea, { target: { value: 'Hello' } });
         expect(screen.queryByTestId('icon-send_message')).not.toBeInTheDocument();
     });
 
     it('shows PTT placeholder text', async () => {
         await renderPttReady();
-        expect(screen.getByPlaceholderText('human.button_museum')).toBeInTheDocument();
+        expect(screen.getByPlaceholderText('ptt.humanPlaceholder')).toBeInTheDocument();
     });
 
     it('shows loading spinner during connecting in PTT mode', async () => {
@@ -707,7 +719,7 @@ describe('HumanInput PTT museum mode', () => {
         await renderPttReady();
 
         // Type some text (simulating transcript arriving via recording)
-        const textarea = screen.getByPlaceholderText('human.button_museum');
+        const textarea = screen.getByPlaceholderText('ptt.humanPlaceholder');
         fireEvent.change(textarea, { target: { value: 'Hello dear council' } });
 
         setMockPressed(true);
@@ -725,7 +737,7 @@ describe('HumanInput PTT museum mode', () => {
     it('does not auto-submit when transcript has fewer than three words', async () => {
         await renderPttReady();
 
-        const textarea = screen.getByPlaceholderText('human.button_museum');
+        const textarea = screen.getByPlaceholderText('ptt.humanPlaceholder');
         fireEvent.change(textarea, { target: { value: 'Hello council' } });
 
         setMockPressed(true);
@@ -742,6 +754,11 @@ describe('HumanInput PTT museum mode', () => {
 
     it('waits for incremental transcript before auto-submitting', async () => {
         vi.useFakeTimers({ shouldAdvanceTime: true });
+        bootstrapHumanInputRealtimeSession.mockResolvedValue({
+            provider: 'openai',
+            iceServers: [],
+            session: { type: 'transcription', audio: {} },
+        });
         let onEvent;
         createRealtimeConnection.mockImplementation(async (opts) => {
             onEvent = opts.onEvent;
@@ -781,6 +798,220 @@ describe('HumanInput PTT museum mode', () => {
 
         await waitFor(() => {
             expect(mockOnSubmit).toHaveBeenCalledWith('Hello dear council');
+        });
+
+        vi.useRealTimers();
+    });
+
+    it('builds incremental Soniox transcript partials on Inworld sessions', async () => {
+        vi.useFakeTimers({ shouldAdvanceTime: true });
+        bootstrapHumanInputRealtimeSession.mockResolvedValue({
+            provider: 'inworld',
+            iceServers: [],
+            session: {
+                type: 'realtime',
+                audio: { input: { transcription: { model: 'test/soniox-stt' } } },
+            },
+        });
+        let onEvent;
+        createRealtimeConnection.mockImplementation(async (opts) => {
+            onEvent = opts.onEvent;
+            return { pc: {}, dc: {}, micStream: createMockMicStream(), close: vi.fn() };
+        });
+
+        await renderPttReady();
+
+        setMockPressed(true);
+        await waitFor(() => {
+            expect(screen.getByTestId('icon-record_voice_on')).toBeInTheDocument();
+        });
+
+        const textarea = screen.getByPlaceholderText('ptt.humanPlaceholder');
+
+        onEvent({ type: 'input_audio_buffer.speech_started' });
+        onEvent({
+            type: 'conversation.item.input_audio_transcription.delta',
+            item_id: 'item_1',
+            delta: 'Hej',
+        });
+        onEvent({
+            type: 'conversation.item.input_audio_transcription.delta',
+            item_id: 'item_1',
+            delta: ' där',
+        });
+
+        await waitFor(() => {
+            expect(textarea).toHaveValue('Hej där');
+        });
+
+        vi.useRealTimers();
+    });
+
+    it('handles mixed Soniox suffix and cumulative partials without stacking', async () => {
+        vi.useFakeTimers({ shouldAdvanceTime: true });
+        bootstrapHumanInputRealtimeSession.mockResolvedValue({
+            provider: 'inworld',
+            iceServers: [],
+            session: {
+                type: 'realtime',
+                audio: { input: { transcription: { model: 'test/soniox-stt' } } },
+            },
+        });
+        let onEvent;
+        createRealtimeConnection.mockImplementation(async (opts) => {
+            onEvent = opts.onEvent;
+            return { pc: {}, dc: {}, micStream: createMockMicStream(), close: vi.fn() };
+        });
+
+        await renderPttReady();
+
+        setMockPressed(true);
+        await waitFor(() => {
+            expect(screen.getByTestId('icon-record_voice_on')).toBeInTheDocument();
+        });
+
+        const textarea = screen.getByPlaceholderText('ptt.humanPlaceholder');
+
+        onEvent({ type: 'input_audio_buffer.speech_started' });
+        onEvent({
+            type: 'conversation.item.input_audio_transcription.delta',
+            item_id: 'item_1',
+            delta: 'Och',
+        });
+        onEvent({
+            type: 'conversation.item.input_audio_transcription.delta',
+            item_id: 'item_1',
+            delta: ' nu',
+        });
+        onEvent({
+            type: 'conversation.item.input_audio_transcription.delta',
+            item_id: 'item_1',
+            delta: ' ska vi se en tredje gång.',
+        });
+        onEvent({
+            type: 'conversation.item.input_audio_transcription.delta',
+            item_id: 'item_1',
+            delta: 'Och nu ska vi se en tredje gång, ska',
+        });
+        onEvent({
+            type: 'conversation.item.input_audio_transcription.delta',
+            item_id: 'item_1',
+            delta: ' vi',
+        });
+
+        await waitFor(() => {
+            expect(textarea).toHaveValue('Och nu ska vi se en tredje gång, ska vi');
+        });
+
+        vi.useRealTimers();
+    });
+
+    it('builds cumulative transcript partials without stacking duplicated prefixes', async () => {
+        vi.useFakeTimers({ shouldAdvanceTime: true });
+        bootstrapHumanInputRealtimeSession.mockResolvedValue({
+            provider: 'inworld',
+            iceServers: [],
+            session: {
+                type: 'realtime',
+                audio: { input: { transcription: { model: 'test/assemblyai-stt' } } },
+            },
+        });
+        let onEvent;
+        createRealtimeConnection.mockImplementation(async (opts) => {
+            onEvent = opts.onEvent;
+            return { pc: {}, dc: {}, micStream: createMockMicStream(), close: vi.fn() };
+        });
+
+        await renderPttReady();
+
+        setMockPressed(true);
+        await waitFor(() => {
+            expect(screen.getByTestId('icon-record_voice_on')).toBeInTheDocument();
+        });
+
+        const textarea = screen.getByPlaceholderText('ptt.humanPlaceholder');
+
+        onEvent({ type: 'input_audio_buffer.speech_started' });
+        onEvent({
+            type: 'conversation.item.input_audio_transcription.delta',
+            item_id: 'item_1',
+            delta: 'I am say',
+        });
+        onEvent({
+            type: 'conversation.item.input_audio_transcription.delta',
+            item_id: 'item_1',
+            delta: 'I am saying something',
+        });
+        onEvent({
+            type: 'conversation.item.input_audio_transcription.delta',
+            item_id: 'item_1',
+            delta: 'I am saying something longer',
+        });
+
+        await waitFor(() => {
+            expect(textarea).toHaveValue('I am saying something longer');
+        });
+
+        setMockPressed(false);
+        onEvent({ type: 'input_audio_buffer.speech_stopped' });
+        await vi.advanceTimersByTimeAsync(2000);
+
+        await waitFor(() => {
+            expect(mockOnSubmit).toHaveBeenCalledWith('I am saying something longer');
+        });
+
+        vi.useRealTimers();
+    });
+
+    it('ignores late deltas after completed for the same segment', async () => {
+        vi.useFakeTimers({ shouldAdvanceTime: true });
+        let onEvent;
+        createRealtimeConnection.mockImplementation(async (opts) => {
+            onEvent = opts.onEvent;
+            return { pc: {}, dc: {}, micStream: createMockMicStream(), close: vi.fn() };
+        });
+
+        await renderPttReady();
+
+        setMockPressed(true);
+        await waitFor(() => {
+            expect(screen.getByTestId('icon-record_voice_on')).toBeInTheDocument();
+        });
+
+        const textarea = screen.getByPlaceholderText('ptt.humanPlaceholder');
+
+        onEvent({ type: 'input_audio_buffer.speech_started' });
+        onEvent({
+            type: 'conversation.item.input_audio_transcription.completed',
+            item_id: 'item_1',
+            transcript: '',
+        });
+        onEvent({
+            type: 'conversation.item.input_audio_transcription.delta',
+            item_id: 'item_1',
+            delta: 'one two three',
+        });
+        onEvent({
+            type: 'conversation.item.input_audio_transcription.completed',
+            item_id: 'item_1',
+            transcript: 'one two three',
+        });
+        onEvent({
+            type: 'conversation.item.input_audio_transcription.delta',
+            item_id: 'item_1',
+            delta: 'one two three corrupted',
+        });
+
+        await waitFor(() => {
+            expect(textarea).toHaveValue('one two three');
+        });
+
+        setMockPressed(false);
+        onEvent({ type: 'input_audio_buffer.speech_stopped' });
+        await vi.advanceTimersByTimeAsync(2000);
+
+        await waitFor(() => {
+            expect(mockOnSubmit).toHaveBeenCalledWith('one two three');
         });
 
         vi.useRealTimers();
@@ -851,9 +1082,9 @@ describe('HumanInput PTT museum mode', () => {
     });
 });
 
-// ── Museum abandonment timer ───────────────────────────────────────────────────
+// ── PTT abandonment (useButtonBanner) ────────────────────────────────────────
 
-describe('HumanInput museum abandonment timer', () => {
+describe('HumanInput PTT abandonment', () => {
     let mockOnAbandon;
 
     beforeEach(() => {
@@ -908,11 +1139,14 @@ describe('HumanInput museum abandonment timer', () => {
         await flushConnectionReady();
     }
 
-    it('fires onAbandonHumanTurn after 60s idle in museum active phase', async () => {
+    it('fires onAbandonHumanTurn after 20s idle in PTT active phase', async () => {
         await renderAbandonReady();
 
         await act(async () => {
-            await vi.advanceTimersByTimeAsync(60_000);
+            await vi.advanceTimersByTimeAsync(BUTTON_BANNER_IDLE_MS);
+        });
+        await act(async () => {
+            await vi.advanceTimersByTimeAsync(BUTTON_BANNER_IDLE_MS);
         });
 
         expect(mockOnAbandon).toHaveBeenCalledTimes(1);
@@ -925,7 +1159,7 @@ describe('HumanInput museum abandonment timer', () => {
             setMockPressed(true);
         });
         await act(async () => {
-            await vi.advanceTimersByTimeAsync(60_000);
+            await vi.advanceTimersByTimeAsync(BUTTON_BANNER_IDLE_MS * 2);
         });
 
         expect(mockOnAbandon).not.toHaveBeenCalled();
@@ -938,19 +1172,23 @@ describe('HumanInput museum abandonment timer', () => {
             setMockPressed(true);
         });
         await act(async () => {
-            await vi.advanceTimersByTimeAsync(30_000);
+            await vi.advanceTimersByTimeAsync(1_000);
         });
         act(() => {
             setMockPressed(false);
         });
+        // Wait for finishing → ready, then full idle + terminal windows from release.
         await act(async () => {
-            await vi.advanceTimersByTimeAsync(30_000);
+            await vi.advanceTimersByTimeAsync(3_000);
+        });
+        await act(async () => {
+            await vi.advanceTimersByTimeAsync(BUTTON_BANNER_IDLE_MS - 1);
         });
 
         expect(mockOnAbandon).not.toHaveBeenCalled();
 
         await act(async () => {
-            await vi.advanceTimersByTimeAsync(30_000);
+            await vi.advanceTimersByTimeAsync(1 + BUTTON_BANNER_IDLE_MS);
         });
 
         expect(mockOnAbandon).toHaveBeenCalledTimes(1);
@@ -971,13 +1209,27 @@ describe('HumanInput museum abandonment timer', () => {
         await flushConnectionReady();
 
         await act(async () => {
-            await vi.advanceTimersByTimeAsync(60_000);
+            await vi.advanceTimersByTimeAsync(BUTTON_BANNER_IDLE_MS * 2);
         });
 
         expect(mockOnAbandon).not.toHaveBeenCalled();
     });
 
-    it('does not run without isButtonMuseumMode', async () => {
+    it('fires in web PTT mode without isButtonMuseumMode', async () => {
+        await renderAbandonReady({ isButtonMuseumMode: false });
+
+        await act(async () => {
+            await vi.advanceTimersByTimeAsync(BUTTON_BANNER_IDLE_MS);
+        });
+        await act(async () => {
+            await vi.advanceTimersByTimeAsync(BUTTON_BANNER_IDLE_MS);
+        });
+
+        expect(mockOnAbandon).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not run when agent mode is not ptt', async () => {
+        mockAgentMode.value = "always-on";
         vi.useRealTimers();
 
         render(

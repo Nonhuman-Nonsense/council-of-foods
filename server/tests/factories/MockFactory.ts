@@ -1,8 +1,8 @@
 import { v4 as uuidv4 } from "uuid";
 import type { Character, Message, Topic, Audio, Meeting } from "@shared/ModelTypes.js";
 import type { StoredMeeting } from "@models/DBModels.js";
-import { CHAIR_ID, type GlobalOptions } from "@logic/GlobalOptions.js";
-import { defaultCharacterSetupBundle } from "@logic/characterSetupBundle.js";
+import { CHAIR_ID, defaultCharacterSetupBundle } from "@logic/characterSetupBundle.js";
+import type { GlobalOptions } from "@logic/GlobalOptions.js";
 
 function cloneCharacter(character: Character): Character {
     return {
@@ -131,14 +131,14 @@ export const MockFactory = {
                         provider: "inworld",
                         llmModel: "google-ai-studio/gemini-2.5-flash",
                         ttsModel: "inworld-tts-1.5-max",
-                        transcriptionModel: "assemblyai/u3-rt-pro",
+                        transcriptionModel: "test/stt-chair",
                         agentVoice: null,
                     },
                     sv: {
                         provider: "inworld",
                         llmModel: "google-ai-studio/gemini-2.5-flash",
                         ttsModel: "inworld-tts-2",
-                        transcriptionModel: "soniox/stt-rt-v4",
+                        transcriptionModel: "test/stt-chair",
                         agentVoice: null,
                     },
                 },
@@ -148,12 +148,12 @@ export const MockFactory = {
                     en: {
                         provider: "inworld",
                         llmModel: "google-ai-studio/gemini-2.5-flash",
-                        transcriptionModel: "assemblyai/u3-rt-pro",
+                        transcriptionModel: "test/stt-human-input",
                     },
                     sv: {
                         provider: "inworld",
                         llmModel: "google-ai-studio/gemini-2.5-flash",
-                        transcriptionModel: "soniox/stt-rt-v4",
+                        transcriptionModel: "test/stt-human-input",
                     },
                 },
             },

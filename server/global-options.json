@@ -20,7 +20,7 @@
   "extraMessageCount": 5,
   "meetingVeryMaxLength": 30,
   "raiseHandPrompt": {
-    "en": "We have a question or comment from the audience, please invite a human speaker called [NAME] to the debate. After listening to the human, answer and engage deeper with their thoughts."
+    "en": "We have a question or comment from the audience, please invite a human speaker called [NAME] to the debate. Use at most 2 sentences."
   },
   "raiseHandInvitationLength": 150,
   "panelistInvitationPrompt": {
@@ -28,16 +28,17 @@
   },
   "panelistInvitationLength": 150,
   "concludeMeetingPrompt": {
-    "en": "The meeting is coming to a close. As chair, say one brief in-character closing line to the council and the visitor — thank them, reflect lightly on the discussion, and do not summarise or write a protocol yet."
+    "en": "The meeting is coming to a close. As chair, say one brief closing line to the council and the visitor — thank them, reflect lightly on the discussion. IMPORTANT: Use at most 3 sentneces. Say something actually meaningful, not just empty words. Think about something that would inspire people to take action. End with the words: This concludes Council of Forest meeting #[MEETING_ID]."
   },
   "concludeMeetingLength": 150,
   "summarizeMeetingPrompt": {
-    "en": "Please summarise the meeting, held on [DATE], making a document that could work as a meeting protocol and a policy recommendation, that could be sent to a official political department like the European Commission."
+    "en": "Please summarise the meeting held on [DATE] as a meeting protocol and policy recommendation suitable for an official body such as the European Commission. Maximum 1500 characters, DO NOT EXCEED THIS LIMIT. Do not continue the debate."
   },
-  "summarizeMeetingLength": 800,
+  "summarizeMeetingLength": 500,
   "transcribeModel": "gpt-4o-transcribe",
   "transcribePrompt": {
-    "en": "Expect english input."
+    "en": "Expect english input.",
+    "sv": "Förvänta dig svenskt tal."
   },
   "audioConcurrency": 10,
   "voiceGuideRealtimeModel": "google-ai-studio/gemini-2.5-flash",
@@ -48,7 +49,7 @@
       "en": {
         "provider": "inworld",
         "llmModel": "google-ai-studio/gemini-2.5-flash",
-        "transcriptionModel": "assemblyai/u3-rt-pro"
+        "transcriptionModel": "soniox/stt-rt-v4"
       },
       "sv": {
         "provider": "inworld",
@@ -64,7 +65,7 @@
         "provider": "inworld",
         "llmModel": "google-ai-studio/gemini-2.5-flash",
         "ttsModel": "inworld-tts-1.5-max",
-        "transcriptionModel": "assemblyai/u3-rt-pro",
+        "transcriptionModel": "soniox/stt-rt-v4",
         "agentVoice": null
       },
       "sv": {

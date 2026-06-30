@@ -23,7 +23,8 @@ describe('MeetingManager conversation transitions', () => {
             { type: 'query_extension' },
         ];
         manager.dialogGenerator.chairInterjection = vi.fn()
-            .mockResolvedValueOnce({ response: 'Closing line', id: 'close1' })
+            .mockResolvedValueOnce({ response: 'Closing line', id: 'close1' });
+        manager.dialogGenerator.generateDocument = vi.fn()
             .mockReturnValueOnce(new Promise((resolve) => {
                 finishSummary = () => resolve({ response: 'Summary', id: 'sum1' });
             }));

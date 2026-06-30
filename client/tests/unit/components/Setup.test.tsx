@@ -88,8 +88,8 @@ describe('Setup overlay', () => {
     expect(screen.getByText('setup.web')).toBeInTheDocument();
     expect(screen.getByText('setup.museum')).toBeInTheDocument();
     expect(screen.getByTestId('agent-mode-off')).toBeInTheDocument();
-    expect(screen.getByText('setup.alwaysOn')).toBeInTheDocument();
-    expect(screen.getByText('setup.pushToTalk')).toBeInTheDocument();
+    expect(screen.getByText('agentMode.alwaysOn')).toBeInTheDocument();
+    expect(screen.getByText('agentMode.pushToTalk')).toBeInTheDocument();
   });
 
   it('selects web by default and persists app mode choice', () => {

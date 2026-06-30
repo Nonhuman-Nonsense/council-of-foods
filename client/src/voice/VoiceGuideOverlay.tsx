@@ -11,13 +11,11 @@ import { z } from "@/zIndexLayers";
 
 type VoiceGuideOverlayProps = {
   isConnecting: boolean;
-  error: string | null;
   lastCaption: string | null;
   lastUserTranscript: string | null;
   muted: boolean;
   isMuseumMode?: boolean;
   agentMode?: AgentMode;
-  showHoldToSpeakHint?: boolean;
   subtitleLayout?: RealtimeSubtitleLayout;
   micStream?: MediaStream | null;
   micActive?: boolean;
@@ -32,13 +30,11 @@ type VoiceGuideOverlayProps = {
 export default function VoiceGuideOverlay(props: VoiceGuideOverlayProps): ReactElement {
   const {
     isConnecting,
-    error,
     lastCaption,
     lastUserTranscript,
     muted,
     isMuseumMode = false,
     agentMode = "always-on",
-    showHoldToSpeakHint = false,
     subtitleLayout = "compact",
     micStream = null,
     micActive = false,
@@ -73,11 +69,9 @@ export default function VoiceGuideOverlay(props: VoiceGuideOverlayProps): ReactE
   return (
     <>
       <RealtimeCaptionOverlay
-        error={error}
         lastCaption={lastCaption}
         lastUserTranscript={lastUserTranscript}
-        agentMode={agentMode}
-        showHoldToSpeakHint={showHoldToSpeakHint}
+        hideCaptions={isConnecting}
         subtitleLayout={subtitleLayout}
         showPttVisualizer={agentMode === "ptt"}
         micStream={micStream}

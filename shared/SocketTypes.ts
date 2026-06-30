@@ -3,13 +3,6 @@ import type { Character, Sentence, Topic, Message, Meeting } from "./ModelTypes.
 
 // Re-defining or importing types that are passed over the socket
 
-export interface InjectionMessage {
-    text: string;
-    date: string;
-    index: number;
-    length: number;
-}
-
 export interface HandRaisedOptions {
     index: number;
     humanName: string;
@@ -128,6 +121,4 @@ export interface ClientToServerEvents {
     // Prototype only
     pause_conversation: (msg: any) => void;
     resume_conversation: (msg: any) => void;
-    remove_last_message: () => void;
-    submit_injection: (msg: InjectionMessage) => void;
 }

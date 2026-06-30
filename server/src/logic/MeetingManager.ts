@@ -24,7 +24,6 @@ import {
     SetupOptionsSchema,
     SubmitHumanMessageSchema,
     SubmitHumanPanelistSchema,
-    InjectionMessageSchema,
     HandRaisedOptionsSchema,
     ReconnectionOptionsSchema,
     ReportMaximumPlayedIndexSchema,
@@ -149,11 +148,6 @@ export class MeetingManager implements IMeetingManager {
                     this.humanInputHandler.handleSkipHumanTurn()
                 );
                 break;
-            case "submit_injection":
-                await this.withConversationTransition(() =>
-                    this.humanInputHandler.handleSubmitInjection(InjectionMessageSchema.parse(payload))
-                );
-                break;
             case "raise_hand":
                 await this.withConversationTransition(() =>
                     this.handRaisingHandler.handleRaiseHand(HandRaisedOptionsSchema.parse(payload))
@@ -178,13 +172,6 @@ export class MeetingManager implements IMeetingManager {
                 break;
             case "resume_conversation":
                 if (this.environment === 'prototype') await this.meetingLifecycleHandler.handleResumeConversation();
-                break;
-            case "remove_last_message":
-                if (this.environment === 'prototype') {
-                    await this.withConversationTransition(() =>
-                        Promise.resolve(this.meetingLifecycleHandler.handleRemoveLastMessage())
-                    );
-                }
                 break;
             default:
                 Logger.warn("MeetingManager", `Unhandled event: ${event}`);
@@ -426,23 +413,26 @@ export class MeetingManager implements IMeetingManager {
                             ),
                             invitationIndex,
                             this.serverOptions.panelistInvitationLength,
-                            true,
                             meeting,
                             this.broadcaster
                         );
 
-                        let response = chairInterjection.response;
-                        const firstNewLineIndex = response.indexOf("\n\n");
-                        if (firstNewLineIndex !== -1) {
-                            response = response.substring(0, firstNewLineIndex);
-                        }
+                        const {
+                            response,
+                            id,
+                            trimmed,
+                            pretrimmed,
+                            sentences,
+                        } = chairInterjection;
 
                         const invitation: Message = {
-                            id: chairInterjection.id as string,
+                            id: id as string,
                             speaker: meeting.characters[0].id,
                             text: response,
                             type: "invitation",
-                            sentences: splitSentences(response),
+                            sentences: sentences || splitSentences(response),
+                            trimmed,
+                            pretrimmed,
                         };
 
                         meeting.conversation.push(invitation);

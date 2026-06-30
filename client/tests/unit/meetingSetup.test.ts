@@ -60,7 +60,7 @@ function buildCharactersPayload(agendaPoints?: string[]) {
     selectedCharacters: ["chair", "food-a", "food-b"],
     humans: [],
     numberOfHumans: 0,
-    labels: { oneHuman: "Human: ", twoHumansSuffix: " humans: " },
+    labels: { formatHumanCount: (count) => (count === 1 ? "1 human: " : `${count} humans: `) },
     agendaPoints,
   });
 }
@@ -133,7 +133,7 @@ describe("buildMeetingCharactersPayload", () => {
                 },
             ],
             numberOfHumans: 1,
-            labels: { oneHuman: "Human: ", twoHumansSuffix: " humans: " },
+            labels: { formatHumanCount: (count) => (count === 1 ? "1 human: " : `${count} humans: `) },
         });
 
         expect(result.ok).toBe(true);
@@ -180,7 +180,7 @@ describe("buildMeetingCharactersPayload", () => {
         },
       ],
       numberOfHumans: 1,
-      labels: { oneHuman: "Human: ", twoHumansSuffix: " humans: " },
+      labels: { formatHumanCount: (count) => (count === 1 ? "1 human: " : `${count} humans: `) },
       isMuseumMode: true,
     });
 
@@ -195,6 +195,26 @@ describe("buildMeetingCharactersPayload", () => {
     ]);
     expect(result.characters[0].prompt).toContain("Alex");
     expect(result.characters[0].prompt).not.toContain("Alex, ");
+  });
+
+  it("uses plural human count label for multiple panelists", () => {
+    const result = buildMeetingCharactersPayload({
+      language: "en",
+      selectedCharacters: ["chair", "food-a", "panelist0", "panelist1", "food-b"],
+      humans: [
+        { id: "panelist0", name: "Alice", description: "One", voice: "alloy", prompt: "" },
+        { id: "panelist1", name: "Bob", description: "Two", voice: "alloy", prompt: "" },
+      ],
+      numberOfHumans: 2,
+      labels: { formatHumanCount: (count) => (count === 1 ? "1 human: " : `${count} humans: `) },
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    expect(result.characters[0].prompt).toContain("2 humans: ");
+    expect(result.characters[0].prompt).toContain("Alice");
+    expect(result.characters[0].prompt).toContain("Bob");
   });
 });
 

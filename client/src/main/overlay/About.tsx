@@ -1,15 +1,18 @@
 import { Link } from "react-router";
+import { Trans, useTranslation } from "react-i18next";
 import { useMobile, usePortrait } from "@/utils";
-import { useTranslation } from 'react-i18next';
+
+function AboutContactLink({ children }: { children?: React.ReactNode }) {
+  return <Link to={{ hash: "contact" }}>{children}</Link>;
+}
 
 /**
  * About Overlay
- * 
+ *
  * Displays the project description ("What is this?").
  * Contains a link to switching to the "Contact" overlay via URL hash.
  */
 function About(): React.ReactElement {
-
   const isMobile = useMobile();
   const isPortait = usePortrait();
   const { t } = useTranslation();
@@ -21,8 +24,13 @@ function About(): React.ReactElement {
 
   return (
     <div style={wrapper}>
-      <p style={{ whiteSpace: 'pre-wrap' }}>{t('aboutText.about')}</p>
-      <p>{t('aboutText.link')}<br /><Link to={{ hash: "contact" }}>Nonhuman Nonsense</Link></p>
+      <p style={{ whiteSpace: "pre-wrap" }}>{t("about.body")}</p>
+      <p style={{ whiteSpace: "pre-wrap" }}>
+        <Trans
+          i18nKey="about.creditLine"
+          components={[<AboutContactLink />]}
+        />
+      </p>
     </div>
   );
 }

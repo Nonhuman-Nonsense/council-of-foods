@@ -5,6 +5,8 @@ import { useRouting } from "@/routing";
 import { useCouncilSettings } from "@/settings/councilSettings";
 import Loading from "../Loading";
 
+export type { ConnectionErrorSource, SetConnectionError } from "./errorStore";
+
 /** Museum kiosks: hard-restart if reconnect never succeeds. */
 const MUSEUM_RECONNECTING_RESTART_MS = 2 * 60 * 1000;
 
@@ -13,7 +15,7 @@ const MUSEUM_RECONNECTING_RESTART_MS = 2 * 60 * 1000;
  *
  * Displayed when the socket connection is lost.
  * Shows a loading spinner and a standardized error message.
- * Automatically disappears when connection is restored (handled by parent logic).
+ * Automatically disappears when connection is restored (handled by errorStore).
  * In museum mode, reloads to root after prolonged failure.
  */
 function Reconnecting(): React.ReactElement {
