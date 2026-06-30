@@ -824,7 +824,7 @@ describe('HumanInput PTT museum mode', () => {
             expect(screen.getByTestId('icon-record_voice_on')).toBeInTheDocument();
         });
 
-        const textarea = screen.getByPlaceholderText('human.button_museum');
+        const textarea = screen.getByPlaceholderText('ptt.humanPlaceholder');
 
         onEvent({ type: 'input_audio_buffer.speech_started' });
         onEvent({
@@ -927,7 +927,7 @@ describe('HumanInput PTT museum mode', () => {
             expect(screen.getByTestId('icon-record_voice_on')).toBeInTheDocument();
         });
 
-        const textarea = screen.getByPlaceholderText('human.button_museum');
+        const textarea = screen.getByPlaceholderText('ptt.humanPlaceholder');
 
         onEvent({ type: 'input_audio_buffer.speech_started' });
         onEvent({
@@ -976,7 +976,7 @@ describe('HumanInput PTT museum mode', () => {
             expect(screen.getByTestId('icon-record_voice_on')).toBeInTheDocument();
         });
 
-        const textarea = screen.getByPlaceholderText('human.button_museum');
+        const textarea = screen.getByPlaceholderText('ptt.humanPlaceholder');
 
         onEvent({ type: 'input_audio_buffer.speech_started' });
         onEvent({
