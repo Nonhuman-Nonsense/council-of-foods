@@ -3,6 +3,12 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import svgr from 'vite-plugin-svgr'
 import path from 'path'
+import dotenv from 'dotenv'
+import { readServerPort, resolveDevPorts } from '../shared/devPorts'
+
+dotenv.config({ path: path.resolve(__dirname, '../server/.env') })
+const devPorts = resolveDevPorts(readServerPort(process.env))
+const apiTarget = `http://localhost:${devPorts.server}`
 
 /** Checker is dev-only (vite-plugin-checker is a devDependency); production/docker runs `tsc` before `vite build`. */
 async function devPlugins(command: string) {
@@ -23,13 +29,14 @@ export default defineConfig(async ({ command, mode }) => ({
       svgr(),
       ...(await devPlugins(command)),
     ],
-    server: {
-      // mirrors your old CRA proxy setting
+    server: command === 'serve' ? {
+      port: devPorts.clientDev,
+      strictPort: true,
       proxy: {
-        '/socket.io': 'http://localhost:3001',
-        '/api': 'http://localhost:3001'
+        '/socket.io': apiTarget,
+        '/api': apiTarget,
       },
-    },
+    } : undefined,
     test: {
       globals: true,
       environment: 'jsdom',

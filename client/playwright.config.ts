@@ -1,4 +1,12 @@
 import { defineConfig, devices } from '@playwright/test';
+import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { readServerPort, resolveDevPorts } from '../shared/devPorts';
+
+const rootDir = path.dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: path.resolve(rootDir, '../server/.env') });
+const ports = resolveDevPorts(readServerPort(process.env));
 
 export default defineConfig({
     testDir: './tests/e2e/src',
@@ -9,7 +17,7 @@ export default defineConfig({
     reporter: [['html', { outputFolder: 'tests/e2e/playwright-report' }]],
     outputDir: 'tests/e2e/test-results',
     use: {
-        baseURL: 'http://localhost:5173',
+        baseURL: `http://localhost:${ports.clientDev}`,
         trace: 'on-first-retry',
     },
 
@@ -20,17 +28,15 @@ export default defineConfig({
         },
     ],
 
-    /* Run your local dev server before starting the tests */
-    /* Run your local dev server before starting the tests */
     webServer: [
         {
             command: 'npm run dev',
-            url: 'http://localhost:5173',
+            url: `http://localhost:${ports.clientDev}`,
             reuseExistingServer: !process.env.CI,
         },
         {
             command: 'cd ../server && npm run e2e-server',
-            url: 'http://localhost:3001/health',
+            url: `http://localhost:${ports.server}/health`,
             reuseExistingServer: !process.env.CI,
         },
         {
