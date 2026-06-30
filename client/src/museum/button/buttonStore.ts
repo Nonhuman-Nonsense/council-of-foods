@@ -6,14 +6,28 @@ import {
 } from "./buttonBridge";
 import { getAgentMode } from "@/settings/councilSettings";
 import { log } from "@/logger";
+import type { ReplayBannerVariant } from "@/autoplay/autoplayStore";
 
 export type ButtonLedMode = "off" | "pulse" | "on";
-export type ButtonOwner = "setup" | "autoplay" | "voice-guide" | "human-input" | "meta-agent" | "summary";
+export type ButtonOwner = "setup" | "autoplay" | "voice-guide" | "human-input" | "meta-agent" | "summary" | "replay";
 
 export type ButtonClaims = Partial<Record<ButtonOwner, true>>;
 export type ButtonLedModes = Partial<Record<ButtonOwner, ButtonLedMode>>;
 export type ButtonBannerVisible = Partial<Record<ButtonOwner, boolean>>;
 export type ButtonBannerMessageKeys = Partial<Record<ButtonOwner, string>>;
+
+export type BannerContent =
+  | { kind: "message"; messageKey: string }
+  | {
+      kind: "replay";
+      meetingId: number;
+      meetingTitle: string;
+      meetingDate: string;
+      variant: ReplayBannerVariant;
+      isPaused: boolean;
+    };
+
+export type ButtonBannerContent = Partial<Record<ButtonOwner, BannerContent>>;
 
 /** Setup is highest: staff diagnostics overlay mounted on top of the running app. */
 const BUTTON_OWNER_PRIORITY: Record<ButtonOwner, number> = {
@@ -21,6 +35,7 @@ const BUTTON_OWNER_PRIORITY: Record<ButtonOwner, number> = {
   autoplay: 3,
   "human-input": 2,
   summary: 2,
+  replay: 1,
   "voice-guide": 1,
   "meta-agent": 1,
 };
@@ -75,6 +90,7 @@ type ButtonStore = {
   buttonOwner: ButtonOwner | null;
   bannerVisible: ButtonBannerVisible;
   bannerMessageKeys: ButtonBannerMessageKeys;
+  bannerContent: ButtonBannerContent;
   activeButtonBanner: boolean;
   bridgeStatus: ButtonTransportStatus;
   bridgeError: string | null;
@@ -91,6 +107,7 @@ type ButtonStore = {
   setButtonLed: (owner: ButtonOwner, mode: ButtonLedMode) => void;
   setButtonBannerVisible: (owner: ButtonOwner, visible: boolean) => void;
   setButtonBannerMessageKey: (owner: ButtonOwner, messageKey: string | undefined) => void;
+  setButtonBannerContent: (owner: ButtonOwner, content: BannerContent | undefined) => void;
   resyncLed: () => Promise<void>;
   init: () => void;
   dispose: () => void;
@@ -189,7 +206,8 @@ function bindKeyboard(
   keyboardInitialized = true;
 
   const onKeyDown = (event: KeyboardEvent) => {
-    if (getAgentMode() !== "ptt") return;
+    const { buttonOwner } = get();
+    if (getAgentMode() !== "ptt" && buttonOwner !== "replay") return;
     if (event.code !== "Space" || event.repeat) return;
     if (isTypingTarget(event.target)) return;
     event.preventDefault();
@@ -198,7 +216,8 @@ function bindKeyboard(
   };
 
   const onKeyUp = (event: KeyboardEvent) => {
-    if (getAgentMode() !== "ptt") return;
+    const { buttonOwner } = get();
+    if (getAgentMode() !== "ptt" && buttonOwner !== "replay") return;
     if (event.code !== "Space") return;
     if (isTypingTarget(event.target)) return;
     event.preventDefault();
@@ -258,6 +277,21 @@ function recomputeButtonRouting(
   });
 }
 
+function setBannerContentForOwner(
+  set: (partial: Partial<ButtonStore> | ((state: ButtonStore) => Partial<ButtonStore>)) => void,
+  get: () => ButtonStore,
+  owner: ButtonOwner,
+  content: BannerContent | undefined,
+): void {
+  const bannerContent = { ...get().bannerContent };
+  if (content) {
+    bannerContent[owner] = content;
+  } else {
+    delete bannerContent[owner];
+  }
+  set({ bannerContent });
+}
+
 function setBannerMessageKeyForOwner(
   set: (partial: Partial<ButtonStore> | ((state: ButtonStore) => Partial<ButtonStore>)) => void,
   get: () => ButtonStore,
@@ -302,6 +336,7 @@ export const useButtonStore = create<ButtonStore>((set, get) => ({
   buttonOwner: null,
   bannerVisible: {},
   bannerMessageKeys: {},
+  bannerContent: {},
   activeButtonBanner: false,
   bridgeStatus: "disconnected",
   bridgeError: null,
@@ -341,7 +376,9 @@ export const useButtonStore = create<ButtonStore>((set, get) => ({
     delete bannerVisible[owner];
     const bannerMessageKeys = { ...get().bannerMessageKeys };
     delete bannerMessageKeys[owner];
-    set({ bannerVisible, bannerMessageKeys });
+    const bannerContent = { ...get().bannerContent };
+    delete bannerContent[owner];
+    set({ bannerVisible, bannerMessageKeys, bannerContent });
     recomputeButtonRouting(set, get, claims, ledModes);
   },
 
@@ -351,6 +388,10 @@ export const useButtonStore = create<ButtonStore>((set, get) => ({
 
   setButtonBannerMessageKey: (owner, messageKey) => {
     setBannerMessageKeyForOwner(set, get, owner, messageKey);
+  },
+
+  setButtonBannerContent: (owner, content) => {
+    setBannerContentForOwner(set, get, owner, content);
   },
 
   setButtonLed: (owner, mode) => {
@@ -389,6 +430,7 @@ export const useButtonStore = create<ButtonStore>((set, get) => ({
       buttonOwner: null,
       bannerVisible: {},
       bannerMessageKeys: {},
+      bannerContent: {},
       activeButtonBanner: false,
     });
   },
@@ -410,6 +452,7 @@ export function _resetButtonStoreForTests(): void {
     buttonOwner: null,
     bannerVisible: {},
     bannerMessageKeys: {},
+    bannerContent: {},
     activeButtonBanner: false,
     bridgeStatus: "disconnected",
     bridgeError: null,

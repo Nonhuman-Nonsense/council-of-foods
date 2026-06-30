@@ -56,6 +56,30 @@ describe("useButtonBanner store sync", () => {
     unmount();
     expect(useButtonStore.getState().activeButtonBanner).toBe(false);
   });
+
+  it("publishes banner content to buttonStore", () => {
+    const bannerContent = {
+      kind: "replay" as const,
+      meetingId: 1,
+      meetingTitle: "Topic",
+      meetingDate: "Jan 1",
+      variant: "default" as const,
+      isPaused: false,
+    };
+
+    renderHook(() =>
+      useButtonBanner({
+        owner: "replay",
+        sessionActive: true,
+        isConnecting: false,
+        micOpen: false,
+        bannerImmediate: true,
+        bannerContent,
+      }),
+    );
+
+    expect(useButtonStore.getState().bannerContent.replay).toEqual(bannerContent);
+  });
 });
 
 describe("computeBannerVisible", () => {

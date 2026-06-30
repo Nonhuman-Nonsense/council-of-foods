@@ -616,3 +616,14 @@ nav.blur::before {
   align-items: center;
   overflow: visible;
 }
+
+/* Banner slot inside the council footer flex — below controls, not fixed. */
+.council-shell__banner {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow: visible;
+  pointer-events: none;
+  flex-shrink: 0;
+}

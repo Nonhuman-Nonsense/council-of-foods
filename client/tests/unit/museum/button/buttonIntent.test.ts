@@ -42,6 +42,15 @@ describe("mergeButtonOwner", () => {
     ).toBe("setup");
   });
 
+  it("prefers summary over replay", () => {
+    expect(
+      mergeButtonOwner({
+        replay: true,
+        summary: true,
+      }),
+    ).toBe("summary");
+  });
+
   it("lets meta-agent win when human-input has not claimed", () => {
     expect(mergeButtonOwner({ "meta-agent": true })).toBe("meta-agent");
   });

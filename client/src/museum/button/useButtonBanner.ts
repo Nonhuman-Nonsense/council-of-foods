@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useButtonStore, type ButtonOwner } from "./buttonStore";
+import { useButtonStore, type BannerContent, type ButtonOwner } from "./buttonStore";
 
 /** Idle window before the banner appears, and again before onIdleTerminal fires. */
 export const BUTTON_BANNER_IDLE_MS = 10_000;
@@ -47,6 +47,8 @@ export type UseButtonBannerParams = {
   terminalDeps?: readonly unknown[];
   /** i18n key for the global ButtonBanner while this owner is active. */
   messageKey?: string;
+  /** Rich banner payload (e.g. replay preamble). Takes precedence over messageKey in ButtonBanner. */
+  bannerContent?: BannerContent;
   /** Show the banner as soon as the session is active (skip idle delay). */
   bannerImmediate?: boolean;
 };
@@ -72,6 +74,7 @@ export function useButtonBanner(params: UseButtonBannerParams): ButtonBannerHand
     canIdleTerminal,
     terminalDeps = [],
     messageKey,
+    bannerContent,
     bannerImmediate = false,
   } = params;
 
@@ -190,6 +193,17 @@ export function useButtonBanner(params: UseButtonBannerParams): ButtonBannerHand
       useButtonStore.getState().setButtonBannerMessageKey(owner, undefined);
     };
   }, [owner, sessionActive, messageKey]);
+
+  useEffect(() => {
+    if (!sessionActive || !bannerContent) {
+      useButtonStore.getState().setButtonBannerContent(owner, undefined);
+      return;
+    }
+    useButtonStore.getState().setButtonBannerContent(owner, bannerContent);
+    return () => {
+      useButtonStore.getState().setButtonBannerContent(owner, undefined);
+    };
+  }, [owner, sessionActive, bannerContent]);
 
   useEffect(() => {
     if (!sessionActive) {

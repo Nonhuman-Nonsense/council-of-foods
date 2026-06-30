@@ -12,9 +12,10 @@ import { getParticipationPhase } from "./humanInput/participationPhase";
 import { useTranslation } from "react-i18next";
 import { useCouncilMachine } from "./hooks/useCouncilMachine";
 import { getMeeting } from "@api/getMeeting.js";
-import ReplayModeBanner from "./ReplayModeBanner";
 import { useCouncilSettings } from "@/settings/councilSettings";
 import { z } from "@/zIndexLayers";
+import CouncilReplaySession from "./CouncilReplaySession";
+import ButtonBanner from "@/museum/button/ButtonBanner";
 import MeetingMetaAgent from "@museum/metaAgent/MeetingMetaAgent";
 import type { MetaAgentPhase } from "@museum/metaAgent/useMetaAgent";
 import { CHAIR_ID } from "@/prompts/characterSetupBundles";
@@ -231,6 +232,12 @@ function Council({
 
   return (
     <>
+      <CouncilReplaySession
+        meeting={replayManifest}
+        liveKey={liveKey}
+        isPaused={isPaused}
+        language={i18n.language}
+      />
       <FoodsCouncilScene
         participants={participants}
         currentSpeakerId={currentSpeakerId}
@@ -307,8 +314,7 @@ function Council({
           )}
         </div>
 
-        {/* Footer — Output subtitles, controls, replay banner. Always rendered
-            above the dim backdrop via councilShellFooter z-index. */}
+        {/* Footer — Output, controls, and banner in the bottom flex column. */}
         <div className="council-shell__footer" style={{ pointerEvents: "auto" }}>
           {metaAgentPhase === "inactive" && (
             <Output
@@ -344,13 +350,7 @@ function Council({
               humanName={humanName}
             />
           )}
-          {replayManifest && (
-            <ReplayModeBanner
-              meeting={replayManifest}
-              isPaused={isPaused}
-              visible={!liveKey}
-            />
-          )}
+          <ButtonBanner inline />
         </div>
       </div>
     </>
