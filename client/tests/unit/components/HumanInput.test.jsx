@@ -839,7 +839,7 @@ describe('HumanInput PTT museum mode', () => {
         });
 
         await waitFor(() => {
-            expect(textarea).toHaveValue('Hej där...');
+            expect(textarea).toHaveValue('Hej där');
         });
 
         vi.useRealTimers();
@@ -898,7 +898,7 @@ describe('HumanInput PTT museum mode', () => {
         });
 
         await waitFor(() => {
-            expect(textarea).toHaveValue('Och nu ska vi se en tredje gång, ska vi...');
+            expect(textarea).toHaveValue('Och nu ska vi se en tredje gång, ska vi');
         });
 
         vi.useRealTimers();
@@ -947,7 +947,7 @@ describe('HumanInput PTT museum mode', () => {
         });
 
         await waitFor(() => {
-            expect(textarea).toHaveValue('I am saying something longer...');
+            expect(textarea).toHaveValue('I am saying something longer');
         });
 
         setMockPressed(false);
@@ -1001,7 +1001,7 @@ describe('HumanInput PTT museum mode', () => {
         });
 
         await waitFor(() => {
-            expect(textarea).toHaveValue('one two three...');
+            expect(textarea).toHaveValue('one two three');
         });
 
         setMockPressed(false);

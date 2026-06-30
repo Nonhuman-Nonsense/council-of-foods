@@ -4,7 +4,6 @@ import {
   formatTranscriptInputValue,
   mergeTranscriptionDelta,
   scrollTextareaToBottom,
-  stripRecordingEllipsis,
   transcriptionDeltaMergeModeForModel,
   transcriptSegmentKey,
   upsertTranscriptSegment,
@@ -135,13 +134,6 @@ describe("transcriptionDeltaMergeModeForModel", () => {
   });
 });
 
-describe("stripRecordingEllipsis", () => {
-  it("removes the live recording suffix before persisting max-length text", () => {
-    expect(stripRecordingEllipsis("hello world...")).toBe("hello world");
-    expect(stripRecordingEllipsis("hello world")).toBe("hello world");
-  });
-});
-
 describe("formatTranscriptInputValue", () => {
   it("renders transcript segments without sorting provider item IDs", () => {
     const value = formatTranscriptInputValue({
@@ -150,18 +142,16 @@ describe("formatTranscriptInputValue", () => {
         { itemId: "item_z", text: "first live sentence" },
         { itemId: "item_a", text: "second live sentence" },
       ],
-      isRecording: true,
       maxLength: 200,
     });
 
-    expect(value).toBe("existing text first live sentence second live sentence...");
+    expect(value).toBe("existing text first live sentence second live sentence");
   });
 
   it("never writes past the textarea max length", () => {
     const value = formatTranscriptInputValue({
       previousTranscript: "1234567890",
       transcriptSegments: [{ itemId: "item_1", text: "abcdef" }],
-      isRecording: true,
       maxLength: 12,
     });
 

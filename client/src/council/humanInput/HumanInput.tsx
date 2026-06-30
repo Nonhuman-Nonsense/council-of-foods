@@ -140,10 +140,6 @@ export function mergeTranscriptionDelta(
   return existing + delta;
 }
 
-export function stripRecordingEllipsis(value: string): string {
-  return value.endsWith("...") ? value.slice(0, -3) : value;
-}
-
 export function upsertTranscriptSegment(
   segments: TranscriptSegment[],
   itemId: string,
@@ -163,12 +159,10 @@ export function upsertTranscriptSegment(
 export function formatTranscriptInputValue({
   previousTranscript,
   transcriptSegments,
-  isRecording,
   maxLength,
 }: {
   previousTranscript: string;
   transcriptSegments: TranscriptSegment[];
-  isRecording: boolean;
   maxLength: number;
 }): string {
   const transcriptText = transcriptSegments
@@ -178,10 +172,8 @@ export function formatTranscriptInputValue({
     .trim();
   const baseText = previousTranscript.trim();
   const combined = [baseText, transcriptText].filter(Boolean).join(" ");
-  const hasEllipsisRoom = combined.length + 3 <= maxLength;
-  const liveSuffix = isRecording && transcriptText && hasEllipsisRoom ? "..." : "";
 
-  return `${combined}${liveSuffix}`.slice(0, maxLength);
+  return combined.slice(0, maxLength);
 }
 
 export function scrollTextareaToBottom(textarea: HTMLTextAreaElement) {
@@ -422,7 +414,6 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
     const text = formatTranscriptInputValue({
       previousTranscript,
       transcriptSegments,
-      isRecording: false,
       maxLength: maxInputLength,
     }).trim();
 
@@ -753,7 +744,6 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
       displayText: formatTranscriptInputValue({
         previousTranscript,
         transcriptSegments,
-        isRecording: false,
         maxLength: maxInputLength,
       }),
     });
@@ -818,14 +808,13 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
       const nextValue = formatTranscriptInputValue({
         previousTranscript,
         transcriptSegments,
-        isRecording: true,
         maxLength: maxInputLength,
       });
       setInputValue(nextValue);
       updateCanContinue(nextValue);
 
       if (nextValue.length >= maxInputLength) {
-        setPreviousTranscript(stripRecordingEllipsis(nextValue));
+        setPreviousTranscript(nextValue);
         setTranscriptSegments([]);
         finishRealtimeSession();
       }
@@ -833,7 +822,6 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
       const nextValue = formatTranscriptInputValue({
         previousTranscript,
         transcriptSegments,
-        isRecording: false,
         maxLength: maxInputLength,
       });
       setInputValue(nextValue);
