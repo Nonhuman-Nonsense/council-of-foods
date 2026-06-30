@@ -178,7 +178,6 @@ function Summary({
   };
 
   const downloadRowHeight = isMobile ? 30 : 40;
-  const controlsClearance = isMobile ? 45 : 56;
 
   const summaryWrapper: React.CSSProperties = {
     height: showDownload
@@ -200,13 +199,14 @@ function Summary({
       minHeight: 0,
     }
     : {
+      // maxHeight accounts for: OverlayWrapper top offset (60px desktop / 0 mobile),
+      // summary's own top margin, and the download row that sits inside the wrapper.
+      // Controls now live in the footer outside the overlay, so no controlsClearance needed.
       maxHeight: isMobile
         ? `calc(100${dvh} - 45px - 10px - ${downloadRowHeight}px)`
         : `calc(100${dvh} - 60px - 56px - 20px - ${downloadRowHeight}px)`,
       minHeight: "255px",
-      marginBottom: isMobile ? "45px" : "56px",
       marginTop: isMobile ? "10px" : "20px",
-      paddingBottom: controlsClearance,
       width: isMobile ? "600px" : "800px",
     };
 

@@ -3,7 +3,6 @@ import { isSpeakerMessage } from "@shared/ModelTypes";
 import React, { useMemo, useEffect, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router";
 import FoodsCouncilScene from "./FoodsCouncilScene";
-import Overlay from "@main/overlay/Overlay";
 import CouncilOverlays from "./overlays/CouncilOverlays";
 import Loading from "@main/Loading";
 import Output from "./output/Output";
@@ -15,6 +14,7 @@ import { useCouncilMachine } from "./hooks/useCouncilMachine";
 import { getMeeting } from "@api/getMeeting.js";
 import ReplayModeBanner from "./ReplayModeBanner";
 import { useCouncilSettings } from "@/settings/councilSettings";
+import { z } from "@/zIndexLayers";
 import MeetingMetaAgent from "@museum/metaAgent/MeetingMetaAgent";
 import type { MetaAgentPhase } from "@museum/metaAgent/useMetaAgent";
 import { CHAIR_ID } from "@/prompts/characterSetupBundles";
@@ -273,66 +273,86 @@ function Council({
           isButtonMuseumMode={isButtonMuseumMode}
         />
       )}
-      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, display: "flex", flexDirection: "column", alignItems: "center", overflow: "visible" }}>
-        {metaAgentPhase === "inactive" && (
-          <Output
-            textMessages={textMessages}
-            audioMessages={audioMessages}
-            playingNowIndex={playingNowIndex}
-            councilState={councilState}
-            isMuted={isMuted}
-            isPaused={isPaused}
-            currentSnippetIndex={currentSnippetIndex}
-            setCurrentSnippetIndex={setCurrentSnippetIndex}
-            audioContext={audioContext}
-            handleOnFinishedPlaying={handleOnFinishedPlaying}
-            onSummaryPlaybackChange={setSummaryPlayback}
-          />
-        )}
-        {controlsVisible && metaAgentPhase === "inactive" && (
-          <ConversationControls
-            hidden={isMuseumMode}
-            onSkipBackward={handleOnSkipBackward}
-            onSkipForward={handleOnSkipForward}
-            onRaiseHand={handleOnRaiseHand}
-            isRaisedHand={isRaisedHand}
-            isWaitingToInterject={isWaitingToInterject}
-            isMuted={isMuted}
-            onMuteUnmute={toggleMute}
-            isPaused={isPaused}
-            onPausePlay={() => setPaused(!isPaused)}
-            canGoBack={canGoBack}
-            canGoForward={canGoForward}
-            canRaiseHand={canRaiseHand}
-            onTopOfOverlay={visibleOverlay === "summary" && location.hash === ""}
-            humanName={humanName}
-          />
-        )}
-        {replayManifest && (
-          <ReplayModeBanner
-            meeting={replayManifest}
-            isPaused={isPaused}
-            visible={!liveKey}
-          />
-        )}
-      </div>
-      <Overlay isActive={visibleOverlay !== null}>
+      {/* council-shell: flex column owning the overlay content region + footer.
+          Scene / Loading / MeetingMetaAgent / HumanInput stay as full-viewport
+          siblings above this shell and are unaffected. */}
+      <div className="council-shell" style={{ zIndex: z.routeOverlay }}>
+        {/* Dedicated dim backdrop — covers the whole background when a council
+            overlay is open. The blur class adds a backdrop-filter blur (same
+            technique as Overlay.tsx). Sits below footer and content layers so
+            controls and replay banner remain fully visible above it. */}
         {visibleOverlay !== null && (
-          <CouncilOverlays
-            overlay={visibleOverlay}
-            onExtendMeeting={handleOnExtendMeeting}
-            onAttemptResume={handleOnAttemptResume}
-            onConcludeMeeting={handleOnConcludeMeeting}
-            proceedWithHumanName={handleHumanNameEntered}
-            onDismiss={declineOverlay}
-            summary={{ text: summary?.text || "" }}
-            meetingId={currentMeetingId}
-            participants={participants}
-            audioContext={audioContext}
-            summaryPlayback={summaryPlayback}
-          />
+          <div className="council-shell__backdrop blur" />
         )}
-      </Overlay>
+
+        {/* Main overlay-content region — fills all space above the footer. */}
+        <div
+          className="council-shell__main"
+          style={visibleOverlay !== null ? { pointerEvents: "auto" } : undefined}
+        >
+          {visibleOverlay !== null && (
+            <CouncilOverlays
+              overlay={visibleOverlay}
+              onExtendMeeting={handleOnExtendMeeting}
+              onAttemptResume={handleOnAttemptResume}
+              onConcludeMeeting={handleOnConcludeMeeting}
+              proceedWithHumanName={handleHumanNameEntered}
+              onDismiss={declineOverlay}
+              summary={{ text: summary?.text || "" }}
+              meetingId={currentMeetingId}
+              participants={participants}
+              audioContext={audioContext}
+              summaryPlayback={summaryPlayback}
+            />
+          )}
+        </div>
+
+        {/* Footer — Output subtitles, controls, replay banner. Always rendered
+            above the dim backdrop via councilShellFooter z-index. */}
+        <div className="council-shell__footer" style={{ pointerEvents: "auto" }}>
+          {metaAgentPhase === "inactive" && (
+            <Output
+              textMessages={textMessages}
+              audioMessages={audioMessages}
+              playingNowIndex={playingNowIndex}
+              councilState={councilState}
+              isMuted={isMuted}
+              isPaused={isPaused}
+              currentSnippetIndex={currentSnippetIndex}
+              setCurrentSnippetIndex={setCurrentSnippetIndex}
+              audioContext={audioContext}
+              handleOnFinishedPlaying={handleOnFinishedPlaying}
+              onSummaryPlaybackChange={setSummaryPlayback}
+            />
+          )}
+          {controlsVisible && metaAgentPhase === "inactive" && (
+            <ConversationControls
+              hidden={isMuseumMode}
+              onSkipBackward={handleOnSkipBackward}
+              onSkipForward={handleOnSkipForward}
+              onRaiseHand={handleOnRaiseHand}
+              isRaisedHand={isRaisedHand}
+              isWaitingToInterject={isWaitingToInterject}
+              isMuted={isMuted}
+              onMuteUnmute={toggleMute}
+              isPaused={isPaused}
+              onPausePlay={() => setPaused(!isPaused)}
+              canGoBack={canGoBack}
+              canGoForward={canGoForward}
+              canRaiseHand={canRaiseHand}
+              onTopOfOverlay={visibleOverlay === "summary" && location.hash === ""}
+              humanName={humanName}
+            />
+          )}
+          {replayManifest && (
+            <ReplayModeBanner
+              meeting={replayManifest}
+              isPaused={isPaused}
+              visible={!liveKey}
+            />
+          )}
+        </div>
+      </div>
     </>
   );
 }

@@ -15,6 +15,10 @@ export const z = {
   councilMic: 0,
   gradientFooter: 1,
   councilSceneShade: 1,
+  /** Council shell internal stacking — only meaningful within the council-shell stacking context (z routeOverlay). */
+  councilShellBackdrop: 1,
+  councilShellFooter: 2,
+  councilShellContent: 3,
   marqueeBanner: 2,
   councilControls: 3,
   humanInputField: 4,
