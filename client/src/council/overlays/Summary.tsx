@@ -105,6 +105,7 @@ function Summary({
     enabled: isMuseumMode,
     playback: summaryPlayback,
     audioContext: audioContext ?? fallbackAudioContext,
+    bottomPadding: teleprompterBottomPad,
   });
 
   useLayoutEffect(() => {
@@ -149,9 +150,12 @@ function Summary({
     });
   };
 
+  const downloadRowHeight = isMobile ? 30 : 40;
+  const controlsClearance = isMobile ? 45 : 56;
+
   const summaryWrapper: React.CSSProperties = {
     height: showDownload
-      ? (isMobile ? "calc(100% - 30px)" : "calc(100% - 40px)")
+      ? `calc(100% - ${downloadRowHeight}px)`
       : "100%",
     overflowY: "auto",
     mask: "linear-gradient(to bottom, rgb(0, 0, 0) 0, rgb(0,0,0) 93%, rgba(0,0,0, 0) 100% ) repeat-x",
@@ -169,12 +173,13 @@ function Summary({
       minHeight: 0,
     }
     : {
-      height: isMobile
-        ? `calc(100${dvh} - 45px - 10px)`
-        : `calc(100${dvh} - 60px - 56px - 20px)`,
+      maxHeight: isMobile
+        ? `calc(100${dvh} - 45px - 10px - ${downloadRowHeight}px)`
+        : `calc(100${dvh} - 60px - 56px - 20px - ${downloadRowHeight}px)`,
       minHeight: "255px",
       marginBottom: isMobile ? "45px" : "56px",
       marginTop: isMobile ? "10px" : "20px",
+      paddingBottom: controlsClearance,
       width: isMobile ? "600px" : "800px",
     };
 

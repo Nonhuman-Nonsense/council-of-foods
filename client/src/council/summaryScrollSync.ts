@@ -11,6 +11,9 @@ export type SummaryPlaybackState = {
 /** Bottom runway as a fraction of the scroll viewport height. */
 export const TELEPROMPTER_PADDING_RATIO = 0.35;
 
+/** Gap from viewport bottom at end of scroll (matches conversation controls height). */
+export const TELEPROMPTER_BOTTOM_INSET = 56;
+
 /** Overlay top inset (OverlayWrapper 60px + Summary marginTop 20px on desktop). */
 export const TELEPROMPTER_TOP_PADDING_DESKTOP = 80;
 export const TELEPROMPTER_TOP_PADDING_MOBILE = 10;
@@ -26,18 +29,45 @@ export function computeTeleprompterBottomPadding(viewportHeight: number): number
   return Math.round(viewportHeight * TELEPROMPTER_PADDING_RATIO);
 }
 
+export function easeInOutCubic(progress: number): number {
+  const t = Math.min(1, Math.max(0, progress));
+  return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+}
+
+export function computeTeleprompterEndScrollTop(params: {
+  scrollHeight: number;
+  clientHeight: number;
+  bottomPadding: number;
+  bottomInset?: number;
+}): number {
+  const maxScroll = params.scrollHeight - params.clientHeight;
+  if (maxScroll <= 0) {
+    return 0;
+  }
+  const bottomInset = params.bottomInset ?? TELEPROMPTER_BOTTOM_INSET;
+  const endScrollTop = maxScroll - params.bottomPadding + bottomInset;
+  return Math.max(0, Math.min(maxScroll, Math.round(endScrollTop)));
+}
+
 export function computeTeleprompterScrollTop(params: {
   scrollHeight: number;
   clientHeight: number;
   elapsedSeconds: number;
   duration: number;
+  bottomPadding?: number;
+  bottomInset?: number;
 }): number {
-  const maxScroll = params.scrollHeight - params.clientHeight;
-  if (maxScroll <= 0 || params.duration <= 0) {
+  const endScrollTop = computeTeleprompterEndScrollTop({
+    scrollHeight: params.scrollHeight,
+    clientHeight: params.clientHeight,
+    bottomPadding: params.bottomPadding ?? 0,
+    bottomInset: params.bottomInset,
+  });
+  if (endScrollTop <= 0 || params.duration <= 0) {
     return 0;
   }
   const progress = Math.min(1, Math.max(0, params.elapsedSeconds / params.duration));
-  return progress * maxScroll;
+  return easeInOutCubic(progress) * endScrollTop;
 }
 
 export type UseAudioSyncedScrollParams = {
@@ -45,10 +75,11 @@ export type UseAudioSyncedScrollParams = {
   enabled: boolean;
   playback: SummaryPlaybackState;
   audioContext: RefObject<AudioContext | null>;
+  bottomPadding?: number;
 };
 
 /**
- * Linear teleprompter scroll synced to the Web Audio clock.
+ * Eased teleprompter scroll synced to the Web Audio clock.
  * Expects top/bottom padding on the scroll content so the protocol can scroll off the viewport edges.
  */
 export function useAudioSyncedScroll({
@@ -56,6 +87,7 @@ export function useAudioSyncedScroll({
   enabled,
   playback,
   audioContext,
+  bottomPadding = 0,
 }: UseAudioSyncedScrollParams): void {
   const pausedScrollTopRef = useRef(0);
 
@@ -95,6 +127,7 @@ export function useAudioSyncedScroll({
         clientHeight: el.clientHeight,
         elapsedSeconds,
         duration,
+        bottomPadding,
       });
       el.scrollTop = scrollTop;
 
@@ -143,5 +176,6 @@ export function useAudioSyncedScroll({
     playback?.duration,
     playback?.isPaused,
     audioContext,
+    bottomPadding,
   ]);
 }

@@ -4,7 +4,9 @@ import { useRef } from "react";
 import {
   computeTeleprompterBottomPadding,
   computeTeleprompterTopPadding,
+  computeTeleprompterEndScrollTop,
   computeTeleprompterScrollTop,
+  easeInOutCubic,
   useAudioSyncedScroll,
   type SummaryPlaybackState,
 } from "@council/summaryScrollSync";
@@ -24,6 +26,29 @@ describe("computeTeleprompterBottomPadding", () => {
 
   it("returns a bottom runway based on viewport height", () => {
     expect(computeTeleprompterBottomPadding(400)).toBe(140);
+  });
+});
+
+describe("easeInOutCubic", () => {
+  it("returns 0 and 1 at the ends", () => {
+    expect(easeInOutCubic(0)).toBe(0);
+    expect(easeInOutCubic(1)).toBe(1);
+  });
+
+  it("matches linear progress at the midpoint", () => {
+    expect(easeInOutCubic(0.5)).toBe(0.5);
+  });
+});
+
+describe("computeTeleprompterEndScrollTop", () => {
+  it("stops before the bottom runway with a 56px inset", () => {
+    expect(
+      computeTeleprompterEndScrollTop({
+        scrollHeight: 500,
+        clientHeight: 100,
+        bottomPadding: 140,
+      }),
+    ).toBe(316);
   });
 });
 
@@ -50,26 +75,28 @@ describe("computeTeleprompterScrollTop", () => {
     ).toBe(0);
   });
 
-  it("maps elapsed time linearly to scroll range", () => {
+  it("maps elapsed time with ease-in-out to the capped end scroll", () => {
     expect(
       computeTeleprompterScrollTop({
         scrollHeight: 500,
         clientHeight: 100,
         elapsedSeconds: 5,
         duration: 10,
+        bottomPadding: 140,
       }),
-    ).toBe(200);
+    ).toBe(158);
   });
 
-  it("clamps progress to the end of the scroll range", () => {
+  it("clamps progress to the end scroll position", () => {
     expect(
       computeTeleprompterScrollTop({
         scrollHeight: 500,
         clientHeight: 100,
         elapsedSeconds: 20,
         duration: 10,
+        bottomPadding: 140,
       }),
-    ).toBe(400);
+    ).toBe(316);
   });
 });
 
