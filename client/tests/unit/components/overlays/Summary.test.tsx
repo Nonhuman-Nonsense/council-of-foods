@@ -77,10 +77,10 @@ describe('Summary Overlay', () => {
 
         // Check for header elements (mocked translation keys)
         // We have duplicates because of the PDF print view
-        const councilEls = screen.getAllByText('COUNCIL');
+        const councilEls = screen.getAllByText('APP.COUNCIL');
         expect(councilEls.length).toBeGreaterThan(0);
 
-        const meetingEls = screen.getAllByText('meeting #12345');
+        const meetingEls = screen.getAllByText(/app\.meeting #12345/);
         expect(meetingEls.length).toBeGreaterThan(0);
 
         // Check for markdown content
@@ -99,7 +99,7 @@ describe('Summary Overlay', () => {
         // We verified visual styles by checking if the structure renders without error
         // and specific mobile-only classes or styles are applied if checked (though styles are inline here)
         // Asserting basic presence is sufficient to catch crashes
-        expect(screen.getAllByText('COUNCIL').length).toBeGreaterThan(0);
+        expect(screen.getAllByText('APP.COUNCIL').length).toBeGreaterThan(0);
     });
 
     it('displays the QR code with correct link', () => {

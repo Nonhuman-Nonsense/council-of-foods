@@ -271,57 +271,24 @@ client/tests/unit/voice/useHoldToSpeakHint.test.ts → same
 
 ### PR 3 — i18n reorganization
 
-**Goal:** Copy in the right namespaces. Unrelated to idle logic — safe to land anytime after PR2.
+**Goal:** Shallow, sensible namespaces — not a deep tree.
 
-#### `museum.ptt` — visitor PTT copy
+**Full spec:** [i18n-reorganization-plan.md](./i18n-reorganization-plan.md)
 
-| Current | New |
-|---------|-----|
-| `setup.holdToSpeak` | `museum.ptt.holdToSpeak` |
-| `metaAgent.holdToSpeak` | *(remove — duplicate)* |
-| `human.button_museum` | `museum.ptt.humanInputPlaceholder` |
+| Group | Purpose |
+|-------|---------|
+| `ptt.*` | ButtonBanner + museum human placeholder (**all PTT mode**, not museum-only) |
+| `replay.*` | Replay marquee — **web + museum**; museum uses `replay.pressButton` CTA |
+| `autoplay.stillThere.*` | Museum idle warning |
+| `agentMode.*` | Toggle labels (from `setup`) |
+| `setup.*` | Staff overlay + button diagnostics (keep, trim moved keys) |
+| `app.*`, `meeting.*`, `human.placeholder` | Optional light grouping |
 
-#### `museum.autoplay` — idle warning overlay
+**Not under `museum.*`:** replay and PTT are shared surfaces with museum **variants**, not museum-only features.
 
-| Current | New |
-|---------|-----|
-| `autoplayWarning.title` | `museum.autoplay.idleWarning.title` |
-| `autoplayWarning.body` | `museum.autoplay.idleWarning.body` |
-| `autoplayWarning.confirm` | `museum.autoplay.idleWarning.confirm` |
+Leave flat: `name.*`, `error.*`, `reset.*`, etc.
 
-#### `museum.replay` — replay banner
-
-| Current | New |
-|---------|-----|
-| `replayModeBanner.preamble` | `museum.replay.banner.preamble` |
-| `replayModeBanner.click` | `museum.replay.banner.clickWeb` |
-| `replayModeBanner.pressButton` | `museum.replay.banner.pressButton` |
-
-#### `museum.setup` — staff installation diagnostics
-
-| Current | New |
-|---------|-----|
-| `setup.museum` | `museum.setup.modeLabel` |
-| `setup.button.*` | `museum.setup.button.*` |
-
-#### Top-level agent mode (used outside museum)
-
-| Current | New |
-|---------|-----|
-| `setup.pushToTalk` | `agentMode.pushToTalk` |
-| `setup.alwaysOn` | `agentMode.alwaysOn` |
-
-#### Remove
-
-- `metaAgent` section (empty after move).
-
-#### Leave as-is
-
-- `human.1`, `human.panelist` — web-mode human input placeholders
-- `setup.title`, `setup.panels.*`, `setup.logging.*` — generic setup chrome
-- `setup.web` — mode toggle (not museum-specific)
-
-Update all `t()` call sites, tests, and doc cross-references. Hard cut (single locale file).
+Hard cut — one PR. **Done.**
 
 ---
 

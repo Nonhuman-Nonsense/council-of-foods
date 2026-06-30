@@ -654,10 +654,10 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
     : connectionState === "idle" || connectionState === "connecting" || connectionState === "finishing";
 
   const placeholder = isButtonMuseumMode
-    ? t("human.button_museum")
+    ? t("ptt.humanPlaceholder")
     : isPanelist
       ? t("human.panelist", { name: currentSpeakerName })
-      : t("human.1");
+      : t("human.placeholder");
 
   return (<>
     <div style={wrapperStyle}>

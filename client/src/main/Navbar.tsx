@@ -161,7 +161,7 @@ function Navbar({ topicTitle: topic, hamburgerOpen, setHamburgerOpen }: NavbarPr
                 visibility: showIconinMeny ? "visible" : "hidden",
               }}
               onClick={() => handleOnNavigate("reset")}
-            >{t('council').toUpperCase()}</h3>
+            >{t('app.council').toUpperCase()}</h3>
             <h4 style={{ marginTop: "5px", visibility: showIconinMeny ? "visible" : "hidden" }}>{`${meetingId ? "#" + meetingId + ": " : ""}${capitalizeFirstLetter(topic)}`}</h4>
           </div>
         </>}

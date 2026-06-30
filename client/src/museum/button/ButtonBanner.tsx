@@ -21,7 +21,7 @@ export default function ButtonBanner(): ReactElement | null {
     return null;
   }
 
-  const message = t("setup.holdToSpeak");
+  const message = t("ptt.holdToSpeak");
 
   return (
     <div className="bottom-ui-banner-anchor">

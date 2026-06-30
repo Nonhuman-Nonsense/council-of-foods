@@ -88,12 +88,12 @@ function CouncilError({ error }: CouncilErrorProps): React.ReactElement {
           action={restart}
           style={{ marginTop: "10px" }}
         >
-          {t("restart")}
+          {t("app.restart")}
         </AutoButton>
       ) : (
         <a href={rootPath}>
           <button type="button" style={{ marginTop: "10px" }}>
-            {t("restart")}
+            {t("app.restart")}
           </button>
         </a>
       )}

@@ -1,19 +1,66 @@
 {
-  "council": "Council of Foods",
-  "meeting": "Meeting",
+  "app": {
+    "council": "Council of Foods",
+    "meeting": "Meeting",
+    "start": "Start",
+    "next": "Next",
+    "cancel": "Cancel",
+    "restart": "Restart",
+    "rotate": "rotate your device"
+  },
   "landing": {
     "welcome": "welcome to",
     "description": "A political arena where the foods themselves discuss the broken food system, through the use of artificial intelligence. Join the discussion on what actions need to be taken to form a locally and globally sustainable food system!",
     "go": "Let's go!"
   },
-  "start": "Start",
+  "meeting": {
+    "selectIssue": "please select an issue for the discussion",
+    "issueHeading": "THE ISSUE",
+    "customTopicPlaceholder": "Write a topic here...",
+    "characters": {
+      "title": "THE FOODS",
+      "meetingon": "Council of Foods meeting on",
+      "wewilllisten": "we will listen to",
+      "pleaseselect": "please select 2-6 foods for the discussion",
+      "unique": "no two participants can have the same name, it becomes so confusing...",
+      "requirename": "all participating humans must have name and description",
+      "random": "Randomize",
+      "humanname": "Human Name",
+      "humandesc": "Enter a description for the human...",
+      "human": "1 human: ",
+      "twohumans": " humans: "
+    }
+  },
+  "human": {
+    "placeholder": "Type your question or start recording...",
+    "panelist": "What does {{name}} have to say about this?"
+  },
+  "agentMode": {
+    "alwaysOn": "Always On",
+    "pushToTalk": "Push to Talk"
+  },
+  "ptt": {
+    "holdToSpeak": "Push the button to speak",
+    "humanPlaceholder": "Press and hold the button to talk, release to submit"
+  },
+  "replay": {
+    "preamble": "This is a replay of the meeting #{{meetingId}}: {{meetingTitle}} on {{meetingDate}}. ",
+    "click": "Click here to start a new meeting.",
+    "pressButton": "Press the button to start a new meeting."
+  },
+  "autoplay": {
+    "stillThere": {
+      "title": "Still there?",
+      "body": "You have been inactive for a while,\npress the button if you are still there.",
+      "confirm": "I'm still here!"
+    }
+  },
   "about": "About",
   "contact": "Contact",
   "setup": {
     "title": "SETUP",
     "panels": {
       "installation": "Installation",
-      "voiceGuide": "Voice guide",
       "agentMode": "Agent mode",
       "details": "Details & hints",
       "logging": "Logging"
@@ -36,13 +83,8 @@
         "ERROR": "Error detail"
       }
     },
-    "mode": "Mode",
     "web": "Web",
     "museum": "Museum",
-    "voiceGuide": "Voice Guide",
-    "alwaysOn": "Always On",
-    "pushToTalk": "Push to Talk",
-    "holdToSpeak": "Push the button to speak",
     "button": {
       "title": "Button",
       "bridgeLabel": "Bridge",
@@ -106,12 +148,6 @@
     "changeTopic": "Changing topic will start everything from the beginning.",
     "lang": "It is not possible to change language in the middle of an ongoing meeting.\nDo you want to start over from the beginning?"
   },
-  "restart": "Restart",
-  "autoplayWarning": {
-    "title": "Still there?",
-    "body": "You have been inactive for a while,\npress the button if you are still there.",
-    "confirm": "I'm still here!"
-  },
   "name": {
     "title": "SAY SOMETHING",
     "1": "Do you want to adress the Council of Foods?",
@@ -124,14 +160,6 @@
   },
   "controls": {
     "wait": "wait for your turn to speak"
-  },
-  "human": {
-    "1": "Type your question or start recording...",
-    "panelist": "What does {{name}} have to say about this?",
-    "button_museum": "Press and hold the button to talk, release to submit"
-  },
-  "metaAgent": {
-    "holdToSpeak": "Push the button to speak"
   },
   "queryExtension": {
     "title": "Is that it?",
@@ -165,30 +193,5 @@
     "audioLoad": "Could not load meeting audio.",
     "connection": "Connection Lost",
     "reconnecting": "Attempting to reconnect..."
-  },
-  "cancel": "Cancel",
-  "theissue": "THE ISSUE",
-  "next": "Next",
-  "selectfoods": {
-    "title": "THE FOODS",
-    "meetingon": "Council of Foods meeting on",
-    "wewilllisten": "we will listen to",
-    "pleaseselect": "please select 2-6 foods for the discussion",
-    "unique": "no two participants can have the same name, it becomes so confusing...",
-    "requirename": "all participating humans must have name and description",
-    "random": "Randomize",
-    "humanname": "Human Name",
-    "humandesc": "Enter a description for the human...",
-    "human": "1 human: ",
-    "twohumans": " humans: "
-  },
-  "replayModeBanner": {
-    "preamble": "This is a replay of the meeting #{{meetingId}}: {{meetingTitle}} on {{meetingDate}}. ",
-    "click": "Click here to start a new meeting.",
-    "pressButton": "Press the button to start a new meeting."
-  },
-  "selectissue": "please select an issue for the discussion",
-  "writetopic": "Write a topic here...",
- 
-  "rotate": "rotate your device"
+  }
 }

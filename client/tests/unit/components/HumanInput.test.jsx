@@ -176,7 +176,7 @@ describe('HumanInput Component', () => {
         );
 
         // No visible UI
-        expect(screen.queryByPlaceholderText('human.1')).not.toBeInTheDocument();
+        expect(screen.queryByPlaceholderText('human.placeholder')).not.toBeInTheDocument();
 
         // But the connection still started
         await waitFor(() => {
@@ -252,7 +252,7 @@ describe('HumanInput Component', () => {
     it('should handle text input and submission', async () => {
         await renderAndWaitReady({ onSubmitHumanMessage: mockOnSubmit });
 
-        const textarea = screen.getByPlaceholderText('human.1');
+        const textarea = screen.getByPlaceholderText('human.placeholder');
         fireEvent.change(textarea, { target: { value: 'Hello World' } });
         expect(textarea.value).toBe('Hello World');
 
@@ -266,7 +266,7 @@ describe('HumanInput Component', () => {
     it('should submit text without manual character targeting', async () => {
         await renderAndWaitReady({ onSubmitHumanMessage: mockOnSubmit });
 
-        const textarea = screen.getByPlaceholderText('human.1');
+        const textarea = screen.getByPlaceholderText('human.placeholder');
         fireEvent.change(textarea, { target: { value: 'Question for the council' } });
         fireEvent.click(screen.getByTestId('icon-send_message'));
 
@@ -276,7 +276,7 @@ describe('HumanInput Component', () => {
     it('should submit on Enter but not on Shift+Enter', async () => {
         await renderAndWaitReady({ onSubmitHumanMessage: mockOnSubmit });
 
-        const textarea = screen.getByPlaceholderText('human.1');
+        const textarea = screen.getByPlaceholderText('human.placeholder');
         fireEvent.change(textarea, { target: { value: 'Line 1' } });
 
         fireEvent.keyDown(textarea, { key: 'Enter', shiftKey: true });
@@ -288,7 +288,7 @@ describe('HumanInput Component', () => {
 
     it('should enforce max input length', async () => {
         await renderAndWaitReady();
-        const textarea = screen.getByPlaceholderText('human.1');
+        const textarea = screen.getByPlaceholderText('human.placeholder');
         expect(textarea).toHaveAttribute('maxLength', '10000');
     });
 
@@ -354,7 +354,7 @@ describe('HumanInput Component', () => {
             expect(screen.getByTestId('icon-record_voice_on')).toBeInTheDocument();
         });
 
-        fireEvent.focus(screen.getByPlaceholderText('human.1'));
+        fireEvent.focus(screen.getByPlaceholderText('human.placeholder'));
 
         expect(screen.getByTestId('icon-record_voice_off')).toBeInTheDocument();
     });
@@ -603,14 +603,14 @@ describe('HumanInput PTT museum mode', () => {
 
     it('hides send button in PTT mode', async () => {
         await renderPttReady();
-        const textarea = screen.getByPlaceholderText('human.button_museum');
+        const textarea = screen.getByPlaceholderText('ptt.humanPlaceholder');
         fireEvent.change(textarea, { target: { value: 'Hello' } });
         expect(screen.queryByTestId('icon-send_message')).not.toBeInTheDocument();
     });
 
     it('shows PTT placeholder text', async () => {
         await renderPttReady();
-        expect(screen.getByPlaceholderText('human.button_museum')).toBeInTheDocument();
+        expect(screen.getByPlaceholderText('ptt.humanPlaceholder')).toBeInTheDocument();
     });
 
     it('shows loading spinner during connecting in PTT mode', async () => {
@@ -715,7 +715,7 @@ describe('HumanInput PTT museum mode', () => {
         await renderPttReady();
 
         // Type some text (simulating transcript arriving via recording)
-        const textarea = screen.getByPlaceholderText('human.button_museum');
+        const textarea = screen.getByPlaceholderText('ptt.humanPlaceholder');
         fireEvent.change(textarea, { target: { value: 'Hello dear council' } });
 
         setMockPressed(true);
@@ -733,7 +733,7 @@ describe('HumanInput PTT museum mode', () => {
     it('does not auto-submit when transcript has fewer than three words', async () => {
         await renderPttReady();
 
-        const textarea = screen.getByPlaceholderText('human.button_museum');
+        const textarea = screen.getByPlaceholderText('ptt.humanPlaceholder');
         fireEvent.change(textarea, { target: { value: 'Hello council' } });
 
         setMockPressed(true);

@@ -9,24 +9,24 @@ test.describe("new meeting flow", () => {
     expect(validFoods.length).toBeGreaterThanOrEqual(3);
 
     await page.goto("/");
-    await expect(page).toHaveTitle(new RegExp(translations.council, "i"));
+    await expect(page).toHaveTitle(new RegExp(translations.app.council, "i"));
 
     await page.getByTestId("landing-go").click();
 
     await expect(page).toHaveURL(new RegExp(`/${routes.newMeeting}$`));
-    await expect(page.getByText(new RegExp(translations.theissue, "i"))).toBeVisible();
+    await expect(page.getByText(new RegExp(translations.meeting.issueHeading, "i"))).toBeVisible();
 
     await page.getByTestId("topic-button").first().click();
-    await page.getByRole("button", { name: new RegExp(translations.next, "i") }).click();
+    await page.getByRole("button", { name: new RegExp(translations.app.next, "i") }).click();
 
     await expect(page).toHaveURL(new RegExp(`/${routes.newMeeting}$`));
-    await expect(page.getByText(new RegExp(translations.selectfoods.title, "i"))).toBeVisible();
+    await expect(page.getByText(new RegExp(translations.meeting.characters.title, "i"))).toBeVisible();
 
     for (const food of validFoods) {
       await page.getByAltText(new RegExp(food.name, "i")).first().click();
     }
 
-    const startButton = page.getByRole("button", { name: new RegExp(translations.start, "i") });
+    const startButton = page.getByRole("button", { name: new RegExp(translations.app.start, "i") });
     await expect(startButton).toBeVisible();
     await startButton.click();
 

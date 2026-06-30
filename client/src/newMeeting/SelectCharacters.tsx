@@ -108,8 +108,8 @@ function SelectCharacters({
       humans,
       numberOfHumans,
       labels: {
-        oneHuman: t("selectfoods.human"),
-        twoHumansSuffix: t("selectfoods.twohumans"),
+        oneHuman: t("meeting.characters.human"),
+        twoHumansSuffix: t("meeting.characters.twohumans"),
       },
       agendaPoints,
       isMuseumMode,
@@ -211,14 +211,14 @@ function SelectCharacters({
     } else {
       return (
         <div className="fadein">
-          <p style={{ margin: 0 }}>{t("selectfoods.meetingon")}</p>
+          <p style={{ margin: 0 }}>{t("meeting.characters.meetingon")}</p>
           <h3>{topicTitle && toTitleCase(topicTitle)}</h3>
           <div>
             {!atLeastTwoCharacters() ? (
-              <p>{t("selectfoods.pleaseselect")}</p>
+              <p>{t("meeting.characters.pleaseselect")}</p>
             ) : (
               <>
-                <p>{t("selectfoods.wewilllisten")}:</p>
+                <p>{t("meeting.characters.wewilllisten")}:</p>
                 <div>
                   {selectedCharacters.map((id) => {
                     const character = characters.find((item) => item.id === id);
@@ -269,7 +269,7 @@ function SelectCharacters({
           onClick={continueForward}
           style={{ margin: isMobileXs ? "0" : "8px 0" }}
         >
-          {t("start")}
+          {t("app.start")}
         </button>
       );
     } else if (
@@ -277,19 +277,19 @@ function SelectCharacters({
       selectedCharacters.length <= maxCharacters &&
       !humansReady
     ) {
-      return <h4 style={subInfoStyle}>{t("selectfoods.requirename")}</h4>;
+      return <h4 style={subInfoStyle}>{t("meeting.characters.requirename")}</h4>;
     } else if (
       atLeastTwoCharacters() &&
       selectedCharacters.length <= maxCharacters &&
       humansReady &&
       !ensureUniqueNames()
     ) {
-      return <h4 style={subInfoStyle}>{t("selectfoods.unique")}</h4>;
+      return <h4 style={subInfoStyle}>{t("meeting.characters.unique")}</h4>;
     } else if (
       hoveredCharacter !== null ||
       (selectedCharacters.length > 1 && !atLeastTwoCharacters())
     ) {
-      return <h4 style={subInfoStyle}>{t("selectfoods.pleaseselect")}</h4>;
+      return <h4 style={subInfoStyle}>{t("meeting.characters.pleaseselect")}</h4>;
     } else if (selectedCharacters.length < 2) {
       return (
         <button
@@ -297,7 +297,7 @@ function SelectCharacters({
           className="fadein"
           style={{ margin: isMobileXs ? "0" : "8px 0", position: "absolute" }}
         >
-          {t("selectfoods.random")}
+          {t("meeting.characters.random")}
         </button>
       );
     }
@@ -315,7 +315,7 @@ function SelectCharacters({
       }}
     >
       <div style={{ height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
-        <h1 style={{ margin: isMobile ? "0" : undefined }}>{t("selectfoods.title")}</h1>
+        <h1 style={{ margin: isMobile ? "0" : undefined }}>{t("meeting.characters.title")}</h1>
         <div
           style={{
             position: "relative",
@@ -530,7 +530,7 @@ function HumanInfo({
         onChange={nameChanged}
         className="unfocused"
         maxLength={25}
-        placeholder={t("selectfoods.humanname")}
+        placeholder={t("meeting.characters.humanname")}
         defaultValue={human.name}
       />
       <textarea
@@ -540,7 +540,7 @@ function HumanInfo({
         className="unfocused"
         maxLength={900}
         defaultValue={human.description}
-        placeholder={t("selectfoods.humandesc")}
+        placeholder={t("meeting.characters.humandesc")}
       />
     </div>
   );

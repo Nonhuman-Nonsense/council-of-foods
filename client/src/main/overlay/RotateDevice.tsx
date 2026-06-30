@@ -25,7 +25,7 @@ function RotateDevice(): React.ReactElement {
   return (
     <div style={wrapper}>
       <Lottie play loop animationData={rotate} style={styles} />
-      <h3>{t('rotate')}</h3>
+      <h3>{t('app.rotate')}</h3>
     </div>);
 }
 
