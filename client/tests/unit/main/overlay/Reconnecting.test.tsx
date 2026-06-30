@@ -1,51 +1,51 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import { act } from "@testing-library/react";
-import { useErrorStore } from "@main/overlay/errorStore";
+import { describe, it, expect, vi } from "vitest";
+import { render, screen } from "@testing-library/react";
+import Reconnecting from "@main/overlay/Reconnecting";
 
-describe("errorStore — connection error tracking", () => {
-  beforeEach(() => {
-    useErrorStore.getState().resetForTests();
+vi.mock("react-i18next", () => ({
+  useTranslation: () => ({ t: (k: string) => k }),
+}));
+vi.mock("@/utils", () => ({ useMobile: () => false }));
+vi.mock("@/routing", () => ({ useRouting: () => ({ rootPath: "/" }) }));
+vi.mock("@/settings/councilSettings", () => ({
+  useCouncilSettings: () => ({ isMuseumMode: false }),
+}));
+vi.mock("@main/Loading", () => ({
+  default: () => <div data-testid="loading-spinner" />,
+}));
+
+describe("Reconnecting overlay", () => {
+  it("renders the connection-error heading", () => {
+    render(<Reconnecting />);
+    expect(screen.getByText("error.connection")).toBeInTheDocument();
   });
 
-  it("starts with no error", () => {
-    expect(useErrorStore.getState().connectionError).toBe(false);
+  it("renders the reconnecting sub-text", () => {
+    render(<Reconnecting />);
+    expect(screen.getByText("error.reconnecting")).toBeInTheDocument();
   });
 
-  it("reports error when a source is activated", () => {
-    act(() => useErrorStore.getState().setConnectionError("socket", true));
-    expect(useErrorStore.getState().connectionError).toBe(true);
+  it("renders the loading spinner", () => {
+    render(<Reconnecting />);
+    expect(screen.getByTestId("loading-spinner")).toBeInTheDocument();
   });
 
-  it("clears error when the source is deactivated", () => {
-    act(() => useErrorStore.getState().setConnectionError("socket", true));
-    act(() => useErrorStore.getState().setConnectionError("socket", false));
-    expect(useErrorStore.getState().connectionError).toBe(false);
-  });
+  it("does not start a reload timer in web mode", () => {
+    vi.useFakeTimers();
+    const hrefSetter = vi.fn();
+    Object.defineProperty(window, "location", {
+      value: { ...window.location },
+      writable: true,
+    });
+    Object.defineProperty(window.location, "href", {
+      set: hrefSetter,
+      configurable: true,
+    });
 
-  it("remains in error if any source is still active", () => {
-    act(() => useErrorStore.getState().setConnectionError("socket", true));
-    act(() => useErrorStore.getState().setConnectionError("voice-guide", true));
-    act(() => useErrorStore.getState().setConnectionError("socket", false));
-    expect(useErrorStore.getState().connectionError).toBe(true);
-  });
+    render(<Reconnecting />);
+    vi.advanceTimersByTime(5 * 60 * 1000);
+    expect(hrefSetter).not.toHaveBeenCalled();
 
-  it("clears when all sources are deactivated", () => {
-    act(() => useErrorStore.getState().setConnectionError("socket", true));
-    act(() => useErrorStore.getState().setConnectionError("meta-agent", true));
-    act(() => useErrorStore.getState().setConnectionError("socket", false));
-    act(() => useErrorStore.getState().setConnectionError("meta-agent", false));
-    expect(useErrorStore.getState().connectionError).toBe(false);
-  });
-
-  it("deactivating an already-inactive source is a no-op", () => {
-    act(() => useErrorStore.getState().setConnectionError("socket", false));
-    expect(useErrorStore.getState().connectionError).toBe(false);
-  });
-
-  it("activating the same source twice does not require two deactivations", () => {
-    act(() => useErrorStore.getState().setConnectionError("socket", true));
-    act(() => useErrorStore.getState().setConnectionError("socket", true));
-    act(() => useErrorStore.getState().setConnectionError("socket", false));
-    expect(useErrorStore.getState().connectionError).toBe(false);
+    vi.useRealTimers();
   });
 });

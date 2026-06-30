@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import {
   getRealtimeRetryPolicy,
   useRealtimeVoiceSession,
@@ -6,6 +6,7 @@ import {
 } from "@realtime/useRealtimeVoiceSession";
 import type { ConfigureSessionOptions } from "@voice/realtimeEventLoop";
 import type { RealtimeTool, ToolHandler } from "@voice/guideTools";
+import { setUnrecoverableError } from "@main/overlay/errorStore";
 
 /** Meta-agent lifecycle phase. */
 export type MetaAgentPhase = "inactive" | "interruption" | "extension";
@@ -19,7 +20,6 @@ export type UseMetaAgentParams = {
   tools: RealtimeTool[];
   toolHandlers: Record<string, ToolHandler>;
   onSessionReady?: () => void;
-  onFatalError?: (e: { message: string; source: string; cause?: unknown }) => void;
   onConnectionLost?: () => void;
   onConnectionRestored?: () => void;
 };
@@ -63,7 +63,6 @@ export function useMetaAgent(params: UseMetaAgentParams): UseMetaAgentResult {
     tools,
     toolHandlers,
     onSessionReady,
-    onFatalError,
     onConnectionLost,
     onConnectionRestored,
   } = params;
@@ -71,6 +70,13 @@ export function useMetaAgent(params: UseMetaAgentParams): UseMetaAgentResult {
   const authHeaders = useMemo(
     () => ({ Authorization: `Bearer ${liveKey}` }),
     [liveKey],
+  );
+
+  const onFatalError = useCallback(
+    (e: { message: string; source: string; cause?: unknown }) => {
+      setUnrecoverableError(e);
+    },
+    [],
   );
 
   const session = useRealtimeVoiceSession({

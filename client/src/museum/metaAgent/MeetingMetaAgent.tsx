@@ -4,7 +4,7 @@ import { useButtonBanner } from "@museum/button/useButtonBanner";
 import RealtimeCaptionOverlay from "@realtime/RealtimeCaptionOverlay";
 import Loading from "@main/Loading";
 import { useMetaAgent, type MetaAgentPhase } from "./useMetaAgent";
-import { useErrorStore, setConnectionError, setUnrecoverableError } from "@main/overlay/errorStore";
+import { useErrorStore, setConnectionError } from "@main/overlay/errorStore";
 import {
   buildExtensionActivationTurn,
   buildExtensionAgentPrompt,
@@ -75,10 +75,6 @@ export default function MeetingMetaAgent({
   const onConnectionRestored = useCallback(() => {
     agentDownRef.current = false;
     setConnectionError("meta-agent", false);
-  }, []);
-
-  const onFatalError = useCallback((e: { message: string; source: string; cause?: unknown }) => {
-    setUnrecoverableError({ message: e.message, source: e.source, cause: e.cause });
   }, []);
 
   const promptBundle = useMemo(() => getMetaAgentBundle(language), [language]);
@@ -154,7 +150,6 @@ export default function MeetingMetaAgent({
     tools,
     toolHandlers,
     onSessionReady: () => onSessionReadyRef.current?.(),
-    onFatalError,
     onConnectionLost,
     onConnectionRestored,
   });

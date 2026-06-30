@@ -78,6 +78,8 @@ vi.mock('@/museum/button/buttonStore', () => ({
         {
             getState: () => ({
                 setButtonBannerVisible: vi.fn(),
+                setButtonBannerMessageKey: vi.fn(),
+                setButtonBannerContent: vi.fn(),
             }),
         },
     ),
