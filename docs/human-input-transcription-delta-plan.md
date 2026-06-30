@@ -2,9 +2,13 @@
 
 Fix stacked / duplicated partial transcript text in the HumanInput textarea during voice capture (e.g. `I am sayI am saying something…`).
 
-**Status:** Plan only.
+**Status:** PR1–PR3 done.
 
 **PR1 status:** Done.
+
+**PR2 status:** Done.
+
+**PR3 status:** Done.
 
 **Scope principle:** Small, local changes. No new modules. Logic stays in files that already own human input (`HumanInput.tsx` for the client fix; `realtimeProviders.ts` only if we later tune the Inworld session).
 
@@ -55,24 +59,24 @@ Inworld session shape for human input is otherwise aligned with their WebRTC gui
 - `semantic_vad` with `create_response: false` (STT-only, no agent reply)
 - `output_modalities: ["text"]` (no TTS output)
 
-Gaps vs Inworld recommendations are **optional follow-ups** (transcription prompt, Soniox `language_hints`, `eagerness` tuning) — not required to fix the display bug.
+Gaps vs Inworld recommendations are **optional follow-ups** (transcription prompt, Soniox `language_hints`, `eagerness` tuning) — not required to fix the display bug. After PR2, prompt and Soniox hints are wired; see **Remaining alignment** below.
 
 ---
 
-## Fix strategy (client only)
+## Fix strategy (client)
 
-Replace naive append with a few lines of merge logic **inline in `handleRealtimeEvent`** inside `client/src/council/humanInput/HumanInput.tsx`:
+**PR1 (shipped):** Prefix-heuristic merge (cumulative + incremental in one code path).
 
-1. Read `existing` for `event.item_id` from the functional `setTranscriptSegments` updater (unchanged).
-2. Compute `next`:
-   - If `delta` extends `existing` as a prefix (`delta.startsWith(existing)`) → **replace** with `delta` (cumulative / revision).
-   - Else if `existing` already contains `delta` as a prefix (`existing.startsWith(delta)`) → **keep** `existing` (stale partial).
-   - Else → **append** `existing + delta` (incremental, OpenAI-style).
-3. `upsertTranscriptSegment(prev, event.item_id, next)` as today.
+**PR3 (revised):** Replace heuristic with **provider-specific** merge — no guessing. Store `bootstrap.provider` in a ref at connect time.
 
-No new files. No shared utility module. If we need a testable pure function later, follow the existing pattern in the same file (`upsertTranscriptSegment`, `formatTranscriptInputValue` are already exported from `HumanInput.tsx` for unit tests) — but **PR1 should prefer inline logic** unless tests force a one-line extract in that file.
+| Provider | Doc semantics | Delta handling |
+|----------|---------------|----------------|
+| **`inworld`** | `delta` = *"Partial transcription text"* ([Inworld WebRTC API](https://docs.inworld.ai/api-reference/realtimeAPI/realtime/realtime-webrtc)) — the current interim transcript for that item/part | **Replace:** `next = delta` |
+| **`openai`** | `delta` = *"newly available transcript text"* ([OpenAI realtime transcription](https://developers.openai.com/api/docs/guides/realtime-transcription)) | **Append:** `next = existing + delta` |
 
-`conversation.item.input_audio_transcription.completed` already replaces the segment with `event.transcript` — leave as-is.
+`completed` still **replaces** with full `transcript` for both providers.
+
+Production is Inworld-only today; OpenAI path stays correct for future `provider: "openai"` config.
 
 ---
 
@@ -118,7 +122,147 @@ No new files. No shared utility module. If we need a testable pure function late
 
 ---
 
-### PR3 — Hardening (optional, later)
+### PR3 — Hardening + Swedish prompt (final)
+
+**Goal:** Close remaining practical gaps. Still small diffs, same files as before — no new modules.
+
+**Status:** Done.
+
+---
+
+## Final plan (PR3) — implemented
+
+### In scope
+
+| # | Change | File | Notes |
+|---|--------|------|-------|
+| 1 | **Provider-specific delta merge** | `HumanInput.tsx` | `realtimeProviderRef` from `bootstrap.provider`. Inworld → replace with `delta`; OpenAI → append. Removes PR1 `startsWith` heuristic. |
+| 2 | **Ignore late deltas after `completed`** | `HumanInput.tsx` | `useRef<Set<string>>` of completed segment keys. |
+| 3 | **Key segments by `item_id` + `content_index`** | `HumanInput.tsx` | Use `transcriptSegmentKey(item_id, content_index ?? 0)` — small helper, ~3 lines. Inworld sends the field; cheap to honour. |
+| 4 | **Strip `"..."` on max-length rollover** | `HumanInput.tsx` | + unit test |
+| 5 | **Swedish `transcribePrompt`** | `global-options.json` | `"sv": "Förvänta dig svenskt tal."` — sent as `audio.input.transcription.prompt` on Inworld bootstrap (already wired PR2); Soniox receives it via Inworld session, not a separate API. |
+| 6 | **Tests** | `HumanInput.test.tsx`, `HumanInput.test.jsx`, `realtimeProviders.test.ts` | Inworld cumulative test + OpenAI incremental test (mock `provider: 'openai'` on incremental test). |
+
+### Out of scope (defer unless product asks)
+
+| Item | Why defer |
+|------|-----------|
+| `eagerness: "high"` for museum PTT | Needs manual latency testing; changes turn-commit timing |
+| `turn_suggestion` events | New UI/timer behaviour; not required by Inworld |
+| `providerData.stt` threshold overrides | `eagerness: "medium"` defaults are fine for now |
+| Non-prefix STT corrections (`"colour"` → `"color"`) | Rare; `completed` fixes final text; overlap merge adds complexity |
+| `voice_profile` on transcription events | Not used for textarea display |
+
+---
+
+### Implementation detail (`HumanInput.tsx`)
+
+**Provider ref** — set in `connect()` from `bootstrap.provider`:
+
+```ts
+const realtimeProviderRef = useRef<RealtimeProvider>("inworld");
+// connect(): realtimeProviderRef.current = bootstrap.provider;
+```
+
+**Delta merge** (replaces PR1 heuristic):
+
+```ts
+const key = transcriptSegmentKey(event.item_id, event.content_index ?? 0);
+const existing = prev.find(s => s.itemId === key)?.text ?? "";
+const next =
+  realtimeProviderRef.current === "openai"
+    ? existing + (event.delta ?? "")
+    : (event.delta ?? existing);
+```
+
+**Segment key helper:**
+
+```ts
+function transcriptSegmentKey(itemId: string, contentIndex = 0): string {
+  return contentIndex === 0 ? itemId : `${itemId}:${contentIndex}`;
+}
+```
+
+**Completed-item guard**, **max-length ellipsis**, **`content_index` on event types** — unchanged from prior plan.
+
+---
+
+### Config change
+
+`server/global-options.json`:
+
+```json
+"transcribePrompt": {
+  "en": "Expect english input.",
+  "sv": "Förvänta dig svenskt tal."
+}
+```
+
+Copy is intentionally parallel to English. Adjust wording if product prefers domain vocabulary (council, forest, etc.).
+
+`realtimeProviders.ts` already resolves `transcribePrompt[language] ?? transcribePrompt.en` — no server code change needed beyond config.
+
+---
+
+### Test plan
+
+**Unit (`HumanInput.test.tsx`)**
+
+- `upsertTranscriptSegment` with composite keys (`item_a:1` vs `item_a:0`) keeps separate segments
+- Optional: `formatTranscriptInputValue` unchanged behaviour when one segment per item
+
+**Integration (`HumanInput.test.jsx`)**
+
+- **Inworld:** cumulative deltas (existing test) — `provider: 'inworld'`
+- **OpenAI:** incremental deltas (`"Hello"` + `" dear"` + `" council"`) — mock `provider: 'openai'` on that test only
+- Late `delta` after `completed` ignored
+- Max-length ellipsis (unit or integration)
+
+**Server (`realtimeProviders.test.ts`)**
+
+- Swedish bootstrap includes `transcription.prompt: "Förvänta dig svenskt tal."` once config is added
+- English bootstrap unchanged
+
+**Manual**
+
+1. SV meeting: confirm prompt doesn't say "english" in session (optional: log bootstrap session)
+2. Long utterance near 10k chars: no `"..."` baked into editable text after auto-stop
+3. Rapid release after speech: `completed` then stray delta doesn't corrupt textarea
+
+---
+
+### Open questions
+
+| Question | Status |
+|----------|--------|
+| Swedish prompt wording | `"Förvänta dig svenskt tal."` — confirmed |
+| Provider-specific vs heuristic | **Provider-specific** — PR3 replaces PR1 heuristic |
+| `content_index` | **Include** — low effort, schema-complete |
+| Max-length test | **Include** |
+
+**Verdict:** Ready to implement PR3.
+
+---
+
+### Deferred: non-prefix STT revisions
+
+OpenAI docs mention partials that **revise** earlier text (e.g. `"colour is nice"` → `"color is nice"` without a shared append prefix). Neither provider-specific replace nor append handles that cleanly; `completed` still fixes the submitted text. Not worth extra merge logic unless we see it in production.
+
+---
+
+### PR checklist (definition of done)
+
+- [x] Provider-specific delta merge (replaces PR1 heuristic)
+- [x] Late deltas after `completed` ignored
+- [x] Segments keyed by `item_id` + `content_index`
+- [x] Max-length rollover strips `"..."`
+- [x] `transcribePrompt.sv` in `global-options.json`
+- [x] Tests green (client HumanInput + server realtimeProviders)
+- [x] Plan doc PR3 marked Done
+
+---
+
+### PR3 — Hardening (optional, later) — superseded by **Final plan (PR3)** above
 
 **File:** `client/src/council/humanInput/HumanInput.tsx` only.
 
@@ -128,29 +272,19 @@ No new files. No shared utility module. If we need a testable pure function late
 
 ---
 
-## PR1 summary (what to implement first)
+## PR1 summary (shipped)
 
-One focused change in the delta handler:
+Prefix-heuristic merge — superseded in PR3 by provider-specific replace/append.
 
-```ts
-// Inside handleRealtimeEvent, delta branch — pseudocode
-const existing = prev.find(s => s.itemId === event.item_id)?.text ?? "";
-const { delta } = event;
-let next: string;
-if (!delta) {
-  next = existing;
-} else if (!existing) {
-  next = delta;
-} else if (delta.startsWith(existing)) {
-  next = delta;
-} else if (existing.startsWith(delta)) {
-  next = existing;
-} else {
-  next = existing + delta;
-}
-setTranscriptSegments(prev => upsertTranscriptSegment(prev, event.item_id, next));
-```
+---
 
-Plus one integration test with cumulative deltas in `HumanInput.test.jsx`.
+## Remaining alignment (after PR1–PR2)
 
-That is the full PR1 scope: fix the bug, keep the diff small, stay inside existing files.
+| Area | Status |
+|------|--------|
+| WebRTC / session / STT-only Inworld setup | Done |
+| Cumulative delta display | Done — provider-specific replace (Inworld) / append (OpenAI) |
+| `transcription.prompt` + Soniox `language_hints` | Done (PR2) |
+| PR3 hardening + `transcribePrompt.sv` | Done |
+| `eagerness` / `turn_suggestion` / STT threshold tuning | Deferred |
+| Non-prefix transcript revisions | Deferred — see below |

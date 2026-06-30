@@ -37,12 +37,14 @@ export function countTranscriptWords(text: string): number {
 interface InputAudioTranscriptionDeltaEvent {
   type: "conversation.item.input_audio_transcription.delta";
   item_id: string;
+  content_index?: number;
   delta: string;
 }
 
 interface InputAudioTranscriptionCompletedEvent {
   type: "conversation.item.input_audio_transcription.completed";
   item_id: string;
+  content_index?: number;
   transcript: string;
 }
 
@@ -77,6 +79,24 @@ type ConnectionState =
 export interface TranscriptSegment {
   itemId: string;
   text: string;
+}
+
+export function transcriptSegmentKey(itemId: string, contentIndex = 0): string {
+  return contentIndex === 0 ? itemId : `${itemId}:${contentIndex}`;
+}
+
+/** OpenAI: append incremental deltas. Inworld: replace with current partial transcript. */
+export function mergeTranscriptionDelta(
+  provider: RealtimeProvider,
+  existing: string,
+  delta: string,
+): string {
+  if (!delta) return existing;
+  return provider === "openai" ? existing + delta : delta;
+}
+
+export function stripRecordingEllipsis(value: string): string {
+  return value.endsWith("...") ? value.slice(0, -3) : value;
 }
 
 export function upsertTranscriptSegment(
@@ -184,6 +204,8 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
 
   const connectionStateRef = useRef<ConnectionState>("idle");
   const inputAudioActiveRef = useRef<boolean>(false);
+  const realtimeProviderRef = useRef<RealtimeProvider>("inworld");
+  const completedTranscriptKeysRef = useRef<Set<string>>(new Set());
   const connectionRef = useRef<RealtimeConnection | null>(null);
   const startAbortRef = useRef<AbortController | null>(null);
   const finishingQuietTimerRef = useRef<number | null>(null);
@@ -296,6 +318,7 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
     setInputValue("");
     setPreviousTranscript("");
     setTranscriptSegments([]);
+    completedTranscriptKeysRef.current.clear();
     setCanContinue(false);
   }, [connectionState, transcriptSegments, previousTranscript, agentMode, maxInputLength, onSubmitHumanMessage]);
 
@@ -341,29 +364,28 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
 
   function handleRealtimeEvent(event: HumanInputRealtimeEvent) {
     if (event.type === "conversation.item.input_audio_transcription.delta") {
+      const segmentKey = transcriptSegmentKey(event.item_id, event.content_index ?? 0);
+      if (completedTranscriptKeysRef.current.has(segmentKey)) return;
+
       inputAudioActiveRef.current = true;
       setTranscriptSegments(prev => {
-        const existing = prev.find(segment => segment.itemId === event.item_id)?.text ?? "";
-        const { delta } = event;
-        let next = existing;
-        if (delta) {
-          if (!existing) {
-            next = delta;
-          } else if (delta.startsWith(existing)) {
-            next = delta;
-          } else if (!existing.startsWith(delta)) {
-            next = existing + delta;
-          }
-        }
-        return upsertTranscriptSegment(prev, event.item_id, next);
+        const existing = prev.find(segment => segment.itemId === segmentKey)?.text ?? "";
+        const next = mergeTranscriptionDelta(
+          realtimeProviderRef.current,
+          existing,
+          event.delta,
+        );
+        return upsertTranscriptSegment(prev, segmentKey, next);
       });
       scheduleFinishingQuietClose();
       return;
     }
 
     if (event.type === "conversation.item.input_audio_transcription.completed") {
+      const segmentKey = transcriptSegmentKey(event.item_id, event.content_index ?? 0);
+      completedTranscriptKeysRef.current.add(segmentKey);
       inputAudioActiveRef.current = false;
-      setTranscriptSegments(prev => upsertTranscriptSegment(prev, event.item_id, event.transcript));
+      setTranscriptSegments(prev => upsertTranscriptSegment(prev, segmentKey, event.transcript));
       scheduleFinishingQuietClose();
       return;
     }
@@ -421,6 +443,7 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
 
       const sessionForDc = bootstrap.session;
       const providerForDc: RealtimeProvider = bootstrap.provider;
+      realtimeProviderRef.current = bootstrap.provider;
 
       const connection = await createRealtimeConnection({
         session: bootstrap.session,
@@ -496,6 +519,7 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
     clearFinishingTimers();
     pendingPttAutoSubmitRef.current = false;
     inputAudioActiveRef.current = false;
+    completedTranscriptKeysRef.current.clear();
     setTranscriptSegments([]);
     setPreviousTranscript(inputValue);
     connectionRef.current.micStream.getAudioTracks().forEach(track => {
@@ -579,7 +603,7 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
       updateCanContinue(nextValue);
 
       if (nextValue.length >= maxInputLength) {
-        setPreviousTranscript(nextValue);
+        setPreviousTranscript(stripRecordingEllipsis(nextValue));
         setTranscriptSegments([]);
         finishRealtimeSession();
       }
@@ -631,6 +655,7 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
     setInputValue("");
     setPreviousTranscript("");
     setTranscriptSegments([]);
+    completedTranscriptKeysRef.current.clear();
     setCanContinue(false);
     // Connection stays open — component will unmount shortly as phase → off,
     // and the unmount cleanup closes everything.

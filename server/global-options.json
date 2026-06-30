@@ -37,7 +37,8 @@
   "summarizeMeetingLength": 500,
   "transcribeModel": "gpt-4o-transcribe",
   "transcribePrompt": {
-    "en": "Expect english input."
+    "en": "Expect english input.",
+    "sv": "Förvänta dig svenskt tal."
   },
   "audioConcurrency": 10,
   "voiceGuideRealtimeModel": "google-ai-studio/gemini-2.5-flash",

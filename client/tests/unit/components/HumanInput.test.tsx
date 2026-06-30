@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   countTranscriptWords,
   formatTranscriptInputValue,
+  mergeTranscriptionDelta,
   scrollTextareaToBottom,
+  stripRecordingEllipsis,
+  transcriptSegmentKey,
   upsertTranscriptSegment,
   type TranscriptSegment,
 } from "@council/humanInput/HumanInput";
@@ -29,6 +32,48 @@ describe("upsertTranscriptSegment", () => {
       { itemId: "item_z", text: "second sentence final" },
       { itemId: "item_a", text: "first sentence" },
     ]);
+  });
+
+  it("keeps separate segments for different content indices on the same item", () => {
+    let segments: TranscriptSegment[] = [];
+
+    segments = upsertTranscriptSegment(segments, transcriptSegmentKey("item_1", 0), "first part");
+    segments = upsertTranscriptSegment(segments, transcriptSegmentKey("item_1", 1), "second part");
+
+    expect(segments).toEqual([
+      { itemId: "item_1", text: "first part" },
+      { itemId: "item_1:1", text: "second part" },
+    ]);
+  });
+});
+
+describe("transcriptSegmentKey", () => {
+  it("uses item id alone for the first content index", () => {
+    expect(transcriptSegmentKey("item_1")).toBe("item_1");
+    expect(transcriptSegmentKey("item_1", 0)).toBe("item_1");
+  });
+
+  it("suffixes non-zero content indices", () => {
+    expect(transcriptSegmentKey("item_1", 1)).toBe("item_1:1");
+  });
+});
+
+describe("mergeTranscriptionDelta", () => {
+  it("appends incremental deltas for OpenAI", () => {
+    expect(mergeTranscriptionDelta("openai", "Hello", " dear")).toBe("Hello dear");
+  });
+
+  it("replaces with the current partial for Inworld", () => {
+    expect(mergeTranscriptionDelta("inworld", "I am say", "I am saying something")).toBe(
+      "I am saying something",
+    );
+  });
+});
+
+describe("stripRecordingEllipsis", () => {
+  it("removes the live recording suffix before persisting max-length text", () => {
+    expect(stripRecordingEllipsis("hello world...")).toBe("hello world");
+    expect(stripRecordingEllipsis("hello world")).toBe("hello world");
   });
 });
 

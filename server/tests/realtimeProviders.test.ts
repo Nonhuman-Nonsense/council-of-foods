@@ -71,6 +71,7 @@ describe("realtimeProviders", () => {
                     transcription: {
                         model: "soniox/stt-rt-v4",
                         language: "sv",
+                        prompt: "Förvänta dig svenskt tal.",
                     },
                 },
             },
