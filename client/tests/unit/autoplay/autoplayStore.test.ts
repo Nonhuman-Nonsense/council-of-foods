@@ -35,15 +35,9 @@ describe("autoplayStore", () => {
     expect(useAutoplayStore.getState().councilOnSummary).toBe(false);
   });
 
-  it("resets idle clock when summary-playback-finished fires", () => {
-    const stale = Date.now() - 120_000;
-    _setAutoplayLastActivityMsForTests(stale);
-    notifyAutoplay({ type: "council-state", state: "summary" });
+  it("increments summaryFinishedTick on summary-playback-finished", () => {
     notifyAutoplay({ type: "summary-playback-finished" });
-
-    const state = useAutoplayStore.getState();
-    expect(state.summaryFinishedTick).toBe(1);
-    expect(state.lastActivityMs).toBeGreaterThan(stale);
+    expect(useAutoplayStore.getState().summaryFinishedTick).toBe(1);
   });
 
   it("records summary-playback-finished regardless of phase", () => {

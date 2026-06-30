@@ -27,11 +27,16 @@ export type AutoplayActivitySource =
   | "warning-shown"
   | "warning-dismissed"
   | "enter-autoplay"
-  | "meeting-end"
   | "loop-next-meeting"
   | "loop-retry";
 
 export type ReplayBannerVariant = "default" | "autoplay";
+
+/** Museum summary: return to landing after protocol reading (non-autoplay visits). */
+export const SUMMARY_RETURN_TO_ROOT_MS = 20_000;
+
+/** Autoplay exhibition loop: next meeting after protocol reading. */
+export const AUTOPLAY_NEXT_MEETING_MS = 5_000;
 
 export type AutoplayHandle = {
   notify: (event: AutoplayConsumerEvent) => void;
@@ -82,7 +87,6 @@ export const useAutoplayStore = create<AutoplayStore>((set) => ({
       case "summary-playback-finished":
         set((state) => ({
           summaryFinishedTick: state.summaryFinishedTick + 1,
-          lastActivityMs: Date.now(),
         }));
         log.event("AUTOPLAY", "summary-playback-finished");
         break;

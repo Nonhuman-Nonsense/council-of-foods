@@ -94,6 +94,18 @@ vi.mock('@/routing', () => ({
     useRouting: () => ({ rootPath: '/en/' }),
 }));
 
+const mockAutoplayState = {
+    phase: 'off' as 'off' | 'warning' | 'active',
+    summaryFinishedTick: 0,
+    summaryFinishedTickAtEntry: 0,
+};
+
+vi.mock('@/autoplay/autoplayStore', () => ({
+    useAutoplayStore: (selector: (state: typeof mockAutoplayState) => unknown) =>
+        selector(mockAutoplayState),
+    SUMMARY_RETURN_TO_ROOT_MS: 20_000,
+}));
+
 class ResizeObserverMock {
     private readonly callback: ResizeObserverCallback;
 
@@ -125,6 +137,9 @@ describe('Summary Overlay', () => {
         vi.clearAllMocks();
         mockPressed = false;
         mockUseMobile.mockReturnValue(false); // Default to desktop
+        mockAutoplayState.phase = 'off';
+        mockAutoplayState.summaryFinishedTick = 0;
+        mockAutoplayState.summaryFinishedTickAtEntry = 0;
         mockUseCouncilSettings.mockReturnValue({
             isMuseumMode: false,
             mode: 'web',
@@ -293,6 +308,47 @@ describe('Summary Overlay', () => {
         rerender(<Summary summary={mockSummary} meetingId={mockMeetingId} />);
 
         expect(mockNavigate).toHaveBeenCalledWith('/en/');
+    });
+
+    it('returns to landing 20s after protocol reading when not in autoplay', () => {
+        vi.useFakeTimers();
+        mockUseCouncilSettings.mockReturnValue({
+            isMuseumMode: true,
+            mode: 'museum',
+            setAppMode: vi.fn(),
+            agentMode: 'ptt',
+            setAgentMode: vi.fn(),
+        });
+        mockAutoplayState.phase = 'off';
+        mockAutoplayState.summaryFinishedTick = 1;
+        mockAutoplayState.summaryFinishedTickAtEntry = 0;
+
+        render(<Summary summary={mockSummary} meetingId={mockMeetingId} />);
+
+        expect(mockNavigate).not.toHaveBeenCalled();
+        vi.advanceTimersByTime(20_000);
+        expect(mockNavigate).toHaveBeenCalledWith('/en/');
+        vi.useRealTimers();
+    });
+
+    it('does not auto-return to landing during an active autoplay loop', () => {
+        vi.useFakeTimers();
+        mockUseCouncilSettings.mockReturnValue({
+            isMuseumMode: true,
+            mode: 'museum',
+            setAppMode: vi.fn(),
+            agentMode: 'ptt',
+            setAgentMode: vi.fn(),
+        });
+        mockAutoplayState.phase = 'active';
+        mockAutoplayState.summaryFinishedTick = 1;
+        mockAutoplayState.summaryFinishedTickAtEntry = 0;
+
+        render(<Summary summary={mockSummary} meetingId={mockMeetingId} />);
+
+        vi.advanceTimersByTime(20_000);
+        expect(mockNavigate).not.toHaveBeenCalled();
+        vi.useRealTimers();
     });
 
     it('does not claim the button in web mode', () => {

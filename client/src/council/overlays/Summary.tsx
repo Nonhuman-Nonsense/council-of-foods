@@ -10,6 +10,10 @@ import { useRouting } from "@/routing";
 import { useButton } from "@/museum/button/useButton";
 import { useButtonBanner } from "@/museum/button/useButtonBanner";
 import {
+  SUMMARY_RETURN_TO_ROOT_MS,
+  useAutoplayStore,
+} from "@/autoplay/autoplayStore";
+import {
   computeTeleprompterBottomPadding,
   computeTeleprompterTopPadding,
   useAudioSyncedScroll,
@@ -59,6 +63,9 @@ function Summary({
   const { isMuseumMode, agentMode } = useCouncilSettings();
   const isButtonSummaryMode = isMuseumMode && agentMode === "ptt";
   const teleprompterTopPad = isMuseumMode ? computeTeleprompterTopPadding(isMobile) : 0;
+  const autoplayPhase = useAutoplayStore((state) => state.phase);
+  const summaryFinishedTick = useAutoplayStore((state) => state.summaryFinishedTick);
+  const summaryFinishedTickAtEntry = useAutoplayStore((state) => state.summaryFinishedTickAtEntry);
   const button = useButton("summary");
   const showDownload = !isMuseumMode;
 
@@ -99,6 +106,28 @@ function Summary({
       navigate(rootPath);
     }
   }, [button.pressed, isButtonSummaryMode, navigate, rootPath]);
+
+  useEffect(() => {
+    if (!isButtonSummaryMode || autoplayPhase === "active") {
+      return;
+    }
+    if (summaryFinishedTick <= summaryFinishedTickAtEntry) {
+      return;
+    }
+
+    const timerId = window.setTimeout(() => {
+      navigate(rootPath);
+    }, SUMMARY_RETURN_TO_ROOT_MS);
+
+    return () => window.clearTimeout(timerId);
+  }, [
+    autoplayPhase,
+    isButtonSummaryMode,
+    navigate,
+    rootPath,
+    summaryFinishedTick,
+    summaryFinishedTickAtEntry,
+  ]);
 
   useAudioSyncedScroll({
     scrollRef,
