@@ -96,8 +96,7 @@ vi.mock('@/routing', () => ({
 
 const mockAutoplayState = {
     phase: 'off' as 'off' | 'warning' | 'active',
-    summaryFinishedTick: 0,
-    summaryFinishedTickAtEntry: 0,
+    summaryProtocolFinished: false,
 };
 
 vi.mock('@/autoplay/autoplayStore', () => ({
@@ -138,8 +137,7 @@ describe('Summary Overlay', () => {
         mockPressed = false;
         mockUseMobile.mockReturnValue(false); // Default to desktop
         mockAutoplayState.phase = 'off';
-        mockAutoplayState.summaryFinishedTick = 0;
-        mockAutoplayState.summaryFinishedTickAtEntry = 0;
+        mockAutoplayState.summaryProtocolFinished = false;
         mockUseCouncilSettings.mockReturnValue({
             isMuseumMode: false,
             mode: 'web',
@@ -320,8 +318,7 @@ describe('Summary Overlay', () => {
             setAgentMode: vi.fn(),
         });
         mockAutoplayState.phase = 'off';
-        mockAutoplayState.summaryFinishedTick = 1;
-        mockAutoplayState.summaryFinishedTickAtEntry = 0;
+        mockAutoplayState.summaryProtocolFinished = true;
 
         render(<Summary summary={mockSummary} meetingId={mockMeetingId} />);
 
@@ -341,8 +338,7 @@ describe('Summary Overlay', () => {
             setAgentMode: vi.fn(),
         });
         mockAutoplayState.phase = 'active';
-        mockAutoplayState.summaryFinishedTick = 1;
-        mockAutoplayState.summaryFinishedTickAtEntry = 0;
+        mockAutoplayState.summaryProtocolFinished = true;
 
         render(<Summary summary={mockSummary} meetingId={mockMeetingId} />);
 

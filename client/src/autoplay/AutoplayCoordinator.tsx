@@ -47,8 +47,7 @@ export default function AutoplayCoordinator({
 
   const phase = useAutoplayStore((state) => state.phase);
   const councilOnSummary = useAutoplayStore((state) => state.councilOnSummary);
-  const summaryFinishedTick = useAutoplayStore((state) => state.summaryFinishedTick);
-  const summaryFinishedTickAtEntry = useAutoplayStore((state) => state.summaryFinishedTickAtEntry);
+  const summaryProtocolFinished = useAutoplayStore((state) => state.summaryProtocolFinished);
   const setPhase = useAutoplayStore((state) => state.setPhase);
 
   const enterInFlightRef = useRef(false);
@@ -188,7 +187,7 @@ export default function AutoplayCoordinator({
     if (!councilOnSummary) {
       return;
     }
-    if (summaryFinishedTick <= summaryFinishedTickAtEntry) {
+    if (!summaryProtocolFinished) {
       return;
     }
 
@@ -219,8 +218,7 @@ export default function AutoplayCoordinator({
     meetingPath,
     navigate,
     phase,
-    summaryFinishedTick,
-    summaryFinishedTickAtEntry,
+    summaryProtocolFinished,
   ]);
 
   useEffect(() => {

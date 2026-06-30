@@ -64,8 +64,7 @@ function Summary({
   const isButtonSummaryMode = isMuseumMode && agentMode === "ptt";
   const teleprompterTopPad = isMuseumMode ? computeTeleprompterTopPadding(isMobile) : 0;
   const autoplayPhase = useAutoplayStore((state) => state.phase);
-  const summaryFinishedTick = useAutoplayStore((state) => state.summaryFinishedTick);
-  const summaryFinishedTickAtEntry = useAutoplayStore((state) => state.summaryFinishedTickAtEntry);
+  const summaryProtocolFinished = useAutoplayStore((state) => state.summaryProtocolFinished);
   const button = useButton("summary");
   const showDownload = !isMuseumMode;
 
@@ -111,7 +110,7 @@ function Summary({
     if (!isButtonSummaryMode || autoplayPhase === "active") {
       return;
     }
-    if (summaryFinishedTick <= summaryFinishedTickAtEntry) {
+    if (!summaryProtocolFinished) {
       return;
     }
 
@@ -125,8 +124,7 @@ function Summary({
     isButtonSummaryMode,
     navigate,
     rootPath,
-    summaryFinishedTick,
-    summaryFinishedTickAtEntry,
+    summaryProtocolFinished,
   ]);
 
   useAudioSyncedScroll({
