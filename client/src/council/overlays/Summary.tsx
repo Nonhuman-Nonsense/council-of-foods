@@ -3,7 +3,8 @@ import { useMobile, dvh } from "@/utils";
 import parse from 'html-react-parser';
 import { marked } from "marked";
 import { jsPDF } from "jspdf";
-import { useTranslation } from "react-i18next";
+import { useTranslation, Trans } from "react-i18next";
+import { externalLinks } from "@/i18n/externalLinks";
 import { QRCodeCanvas } from 'qrcode.react';
 import councilLogoWhite from "@assets/logos/council_logo_white.svg";
 import councilLogo from "@assets/logos/council_logo.png";
@@ -146,20 +147,23 @@ function Summary({ summary, meetingId }: SummaryProps): React.ReactElement {
 }
 
 function Disclaimer() {
-
   const { t } = useTranslation();
 
   return (
     <div>
-      <p>{t('disclaimer.1')}</p><br />
-      <ol>
-        <li>{t('disclaimer.2')}</li>
-        <li>{t('disclaimer.3')}</li>
-        <li>{t('disclaimer.4')}</li>
-      </ol><br />
-      <p>{t('disclaimer.5')} <a href="https://nonhuman-nonsense.com/">Nonhuman&nbsp;Nonsense</a>{t('disclaimer.6')}<a href="https://cordis.europa.eu/project/id/101069990">grant agreement 101069990</a>.</p>
+      <p>{t("disclaimer.intro")}</p>
       <br />
-      <p>{t('disclaimer.7')}</p>
+      <ol>
+        <li>{t("disclaimer.items.misinformation")}</li>
+        <li>{t("disclaimer.items.notResearch")}</li>
+        <li>{t("disclaimer.items.takeAction")}</li>
+      </ol>
+      <br />
+      <p>
+        <Trans i18nKey="disclaimer.attribution" components={externalLinks} />
+      </p>
+      <br />
+      <p>{t("disclaimer.moreInfo")}</p>
       <br />
     </div>
   );

@@ -58,8 +58,8 @@ describe('Navbar', () => {
         expect(screen.getByText('APP.COUNCIL')).toBeVisible();
         expect(screen.getByText('#123: Test topic')).toBeVisible();
         expect(screen.getByText('SETTINGS')).toBeVisible();
-        expect(screen.getByText('ABOUT')).toBeVisible();
-        expect(screen.getByText('CONTACT')).toBeVisible();
+        expect(screen.getByText('ABOUT.LABEL')).toBeVisible();
+        expect(screen.getByText('CONTACT.LABEL')).toBeVisible();
         expect(screen.queryByText('SETUP')).not.toBeInTheDocument();
         expect(screen.queryByTestId('lottie-player')).not.toBeInTheDocument();
     });
@@ -92,7 +92,7 @@ describe('Navbar', () => {
         const props = { ...defaultProps, hamburgerOpen: true };
         renderNavbar(props);
 
-        const aboutLink = screen.getByText('ABOUT');
+        const aboutLink = screen.getByText('ABOUT.LABEL');
         fireEvent.click(aboutLink);
 
         // Should close menu
