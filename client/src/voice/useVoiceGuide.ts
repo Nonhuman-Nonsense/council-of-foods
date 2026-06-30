@@ -73,6 +73,7 @@ export function useVoiceGuide(params: UseVoiceGuideParams): VoiceGuideState {
     onFatalError: (e) => setUnrecoverableError({ message: e.message, source: e.source, cause: e.cause }),
     onConnectionLost,
     onConnectionRestored,
+    onExhausted: () => setMuted(true),
   });
 
   useEffect(() => {

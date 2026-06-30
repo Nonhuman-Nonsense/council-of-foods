@@ -119,6 +119,11 @@ export type UseRealtimeVoiceSessionParams = {
   onConnectionLost?: () => void;
   /** Called when connection is re-established after having been lost. */
   onConnectionRestored?: () => void;
+  /**
+   * Called when retries are exhausted and `giveUpSilently` is true (web mode).
+   * Lets the caller return to a clean idle state so the user can manually retry.
+   */
+  onExhausted?: () => void;
 };
 
 export type UseRealtimeVoiceSessionResult = {
@@ -186,6 +191,7 @@ export function useRealtimeVoiceSession(
     onFatalError,
     onConnectionLost,
     onConnectionRestored,
+    onExhausted,
   } = params;
 
   const authHeadersKey = authHeaders ? JSON.stringify(authHeaders) : "";
@@ -227,6 +233,7 @@ export function useRealtimeVoiceSession(
   const onFatalErrorRef = useRef(onFatalError);
   const onConnectionLostRef = useRef(onConnectionLost);
   const onConnectionRestoredRef = useRef(onConnectionRestored);
+  const onExhaustedRef = useRef(onExhausted);
   const isMuseumModeRef = useRef(isMuseumMode);
   useEffect(() => {
     handlersRef.current = toolHandlers;
@@ -237,6 +244,7 @@ export function useRealtimeVoiceSession(
     onFatalErrorRef.current = onFatalError;
     onConnectionLostRef.current = onConnectionLost;
     onConnectionRestoredRef.current = onConnectionRestored;
+    onExhaustedRef.current = onExhausted;
     isMuseumModeRef.current = isMuseumMode;
   });
 
@@ -334,7 +342,12 @@ export function useRealtimeVoiceSession(
     // Without a policy, fall through to error state.
     if (!policy || (policy.maxRetries !== Infinity && attempt >= policy.maxRetries)) {
       log.event("REALTIME", "retry exhausted", { feature, attempt });
-      setConnectionState(policy?.giveUpSilently ? "idle" : "error");
+      if (policy?.giveUpSilently) {
+        setConnectionState("idle");
+        onExhaustedRef.current?.();
+      } else {
+        setConnectionState("error");
+      }
       return;
     }
 
@@ -683,6 +696,9 @@ export function useRealtimeVoiceSession(
       cleanup();
       setConnectionState("idle");
       resetSessionUiState();
+      // Reset retry budget so the next manual start gets a full retry cycle.
+      retryAttemptsRef.current = 0;
+      hasNotifiedLostRef.current = false;
       return;
     }
     if (!autoConnect) return;
