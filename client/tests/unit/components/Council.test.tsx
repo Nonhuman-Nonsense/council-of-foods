@@ -159,11 +159,19 @@ describe('Council Component', () => {
         mockNavigate.mockClear();
         mockMetaAgentActivate = false;
         mockUseCouncilMachine.mockReturnValue(mockCouncilStateMachine);
+        mockUseCouncilSettings.mockReturnValue({
+          isMuseumMode: false,
+          mode: 'web' as const,
+          setAppMode: vi.fn(),
+          agentMode: "off",
+          setAgentMode: vi.fn(),
+        });
         // Reset mock state defaults if needed
         mockCouncilStateMachine.state.councilState = 'playing';
         mockCouncilStateMachine.state.textMessages = [];
         mockCouncilStateMachine.state.playNextIndex = 1;
         mockCouncilStateMachine.state.isMuted = false;
+        mockCouncilStateMachine.state.visibleOverlay = null;
     });
 
     it('passes toggleMute to ConversationControls and handles mute click', () => {

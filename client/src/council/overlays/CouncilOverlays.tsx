@@ -4,6 +4,7 @@ import Incomplete from "./Incomplete";
 import Summary, { SummaryData } from "./Summary";
 import Name from "./Name";
 import OverlayWrapper from "@main/overlay/OverlayWrapper";
+import { useCouncilSettings } from "@/settings/councilSettings";
 import type { CouncilOverlayType } from "@council/hooks/useCouncilMachine";
 
 export type { CouncilOverlayType, OverlayCouncilState } from "@council/hooks/useCouncilMachine";
@@ -40,6 +41,7 @@ function CouncilOverlays({
   meetingId,
   participants,
 }: CouncilOverlaysProps): React.ReactElement {
+  const { isMuseumMode } = useCouncilSettings();
 
   const renderOverlayContent = (): React.ReactElement | null => {
     switch (overlay) {
@@ -74,7 +76,7 @@ function CouncilOverlays({
   };
 
   return (
-    <OverlayWrapper showX={true} cancelOverlay={onDismiss}>
+    <OverlayWrapper showX={!(overlay === "summary" && isMuseumMode)} cancelOverlay={onDismiss}>
       {renderOverlayContent()}
     </OverlayWrapper>
   );

@@ -51,6 +51,18 @@ vi.mock('@/utils', () => ({
     dvh: 'vh' // Mock dvh constant
 }));
 
+const mockUseCouncilSettings = vi.fn(() => ({
+    isMuseumMode: false,
+    mode: 'web' as const,
+    setAppMode: vi.fn(),
+    agentMode: 'off' as const,
+    setAgentMode: vi.fn(),
+}));
+
+vi.mock('@/settings/councilSettings', () => ({
+    useCouncilSettings: () => mockUseCouncilSettings(),
+}));
+
 // Mock dynamic import for Tinos.js
 // Intercepting dynamic import in component logic
 
@@ -63,6 +75,13 @@ describe('Summary Overlay', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         mockUseMobile.mockReturnValue(false); // Default to desktop
+        mockUseCouncilSettings.mockReturnValue({
+            isMuseumMode: false,
+            mode: 'web',
+            setAppMode: vi.fn(),
+            agentMode: 'off',
+            setAgentMode: vi.fn(),
+        });
     });
 
     it('renders summary content correctly', () => {
@@ -141,7 +160,7 @@ describe('Summary Overlay', () => {
     it('triggers PDF download when button is clicked', async () => {
         render(<Summary summary={mockSummary} meetingId={mockMeetingId} />);
 
-        const downloadBtn = screen.getByText('Download PDF');
+        const downloadBtn = screen.getByTestId('summary-download');
         fireEvent.click(downloadBtn);
 
         // Wait for dynamic import and execution
@@ -150,5 +169,21 @@ describe('Summary Overlay', () => {
             // Since jsPDF is mocked to return an object with save
             expect(mockSave).toHaveBeenCalledWith('Council of Foods Meeting Summary #12345.pdf');
         });
+    });
+
+    it('hides PDF download and template in museum mode', () => {
+        mockUseCouncilSettings.mockReturnValue({
+            isMuseumMode: true,
+            mode: 'museum',
+            setAppMode: vi.fn(),
+            agentMode: 'ptt',
+            setAgentMode: vi.fn(),
+        });
+
+        render(<Summary summary={mockSummary} meetingId={mockMeetingId} />);
+
+        expect(screen.queryByTestId('summary-download')).not.toBeInTheDocument();
+        expect(document.querySelector('#printed-style')).not.toBeInTheDocument();
+        expect(screen.getByTestId('summary-protocol')).toBeInTheDocument();
     });
 });

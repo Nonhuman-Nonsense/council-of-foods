@@ -4,6 +4,7 @@ import parse from 'html-react-parser';
 import { marked } from "marked";
 import { jsPDF } from "jspdf";
 import { useTranslation, Trans } from "react-i18next";
+import { useCouncilSettings } from "@/settings/councilSettings";
 import { externalLinks } from "@/i18n/externalLinks";
 import { QRCodeCanvas } from 'qrcode.react';
 import councilLogoWhite from "@assets/logos/council_logo_white.svg";
@@ -32,6 +33,8 @@ function Summary({ summary, meetingId }: SummaryProps): React.ReactElement {
   const isMobile = useMobile();
   const protocolRef = useRef<HTMLDivElement>(null);
   const { t } = useTranslation();
+  const { isMuseumMode } = useCouncilSettings();
+  const showDownload = !isMuseumMode;
 
   const handleCreatePdf = (): void => {
     import("../../Tinos.js").then(() => {
@@ -50,19 +53,21 @@ function Summary({ summary, meetingId }: SummaryProps): React.ReactElement {
   };
 
   const summaryWrapper: React.CSSProperties = {
-    height: isMobile ?
-      'calc(100% - 30px)'
-      : 'calc(100% - 40px)',
+    height: showDownload
+      ? (isMobile ? "calc(100% - 30px)" : "calc(100% - 40px)")
+      : "100%",
     overflowY: "auto",
     mask: "linear-gradient(to bottom, rgb(0, 0, 0) 0, rgb(0,0,0) 93%, rgba(0,0,0, 0) 100% ) repeat-x",
   };
 
   const wrapper: React.CSSProperties = {
-    height: isMobile
-      ? `calc(100${dvh} - 45px - 10px)`
-      : `calc(100${dvh} - 60px - 56px - 20px)`,
+    height: isMuseumMode
+      ? (isMobile ? `calc(100${dvh} - 10px)` : `calc(100${dvh} - 60px - 20px)`)
+      : (isMobile
+        ? `calc(100${dvh} - 45px - 10px)`
+        : `calc(100${dvh} - 60px - 56px - 20px)`),
     minHeight: "255px",
-    marginBottom: isMobile ? "45px" : "56px",
+    marginBottom: isMuseumMode ? 0 : (isMobile ? "45px" : "56px"),
     marginTop: isMobile ? "10px" : "20px",
     width: isMobile ? "600px" : "800px"
   };
@@ -83,7 +88,7 @@ function Summary({ summary, meetingId }: SummaryProps): React.ReactElement {
   return (
     <>
       <div style={wrapper}>
-        <div style={summaryWrapper} className="scroll">
+        <div style={summaryWrapper} className="scroll" data-testid="summary-protocol">
           <hr />
           <div style={{ display: "flex", flexDirection: "row", margin: "20px 0", justifyContent: "space-between" }}>
             <div>
@@ -105,13 +110,17 @@ function Summary({ summary, meetingId }: SummaryProps): React.ReactElement {
             <Disclaimer />
           </div>
         </div>
-        <div style={buttonsWrapper}>
-          <button onClick={handleCreatePdf}>{t('summary.download')}</button>
-        </div>
+        {showDownload && (
+          <div style={buttonsWrapper}>
+            <button type="button" data-testid="summary-download" onClick={handleCreatePdf}>
+              {t('summary.download')}
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Hidden PDF Template */}
-      <div style={{ position: 'absolute', top: '0', display: 'none' }}>
+      {showDownload && <div style={{ position: 'absolute', top: '0', display: 'none' }}>
         <div ref={protocolRef} style={{
           position: 'absolute',
           top: '0',
@@ -141,7 +150,7 @@ function Summary({ summary, meetingId }: SummaryProps): React.ReactElement {
             </div>
           </div>
         </div>
-      </div>
+      </div>}
     </>
   );
 }
