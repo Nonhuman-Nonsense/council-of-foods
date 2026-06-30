@@ -21,6 +21,9 @@ import { getVoiceGuideBundle } from "./voiceGuideBundle";
 import { useButtonBanner } from "@/museum/button/useButtonBanner";
 import Loading from "@main/Loading";
 import { useVoiceGuide } from "./useVoiceGuide";
+import type { SetUnrecoverableError } from "@main/overlay/CouncilError";
+import type { SetConnectionError } from "@main/overlay/Reconnecting";
+
 type MeetingVoiceGuideProps = {
   phase: MeetingSetupPhase;
   lastUserEvent: MeetingSetupUserEvent | null;
@@ -28,6 +31,8 @@ type MeetingVoiceGuideProps = {
   onGoToTopicStep: () => void;
   onSelectTopic: (topic: Topic) => void;
   onStartMeeting: (characters: Character[]) => Promise<void> | void;
+  setUnrecoverableError?: SetUnrecoverableError;
+  setConnectionError?: SetConnectionError;
 };
 
 export default function MeetingVoiceGuide({
@@ -37,6 +42,8 @@ export default function MeetingVoiceGuide({
   onGoToTopicStep,
   onSelectTopic,
   onStartMeeting,
+  setUnrecoverableError,
+  setConnectionError,
 }: MeetingVoiceGuideProps) {
   const { i18n, t } = useTranslation();
   const { isMuseumMode, agentMode } = useCouncilSettings();
@@ -96,6 +103,9 @@ export default function MeetingVoiceGuide({
   const voice = useVoiceGuide({
     language: guideLanguage,
     instructions,
+    isMuseumMode,
+    setUnrecoverableError,
+    setConnectionError,
     tools: createGuideTools({ promptBundle, otherLanguages }),
     toolHandlers: createGuideToolHandlers({
       topics: guideTopics,
@@ -135,10 +145,10 @@ export default function MeetingVoiceGuide({
   });
 
   const ledMode = useMemo((): ButtonLedMode => {
-    if (agentMode !== "ptt" || muted || voice.isConnecting || voice.error) return "off";
+    if (agentMode !== "ptt" || muted || voice.isConnecting) return "off";
     if (button.pressed) return "on";
     return "pulse";
-  }, [agentMode, muted, voice.isConnecting, voice.error, button.pressed]);
+  }, [agentMode, muted, voice.isConnecting, button.pressed]);
 
   useEffect(() => {
     if (agentMode !== "ptt") return;
@@ -168,7 +178,6 @@ export default function MeetingVoiceGuide({
       {showMuseumLandingLoading && <Loading />}
     <VoiceGuideOverlay
       isConnecting={voice.isConnecting}
-      error={voice.error}
       lastCaption={voice.lastCaption}
       lastUserTranscript={voice.lastUserTranscript}
       muted={voice.muted}

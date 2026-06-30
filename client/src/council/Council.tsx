@@ -29,7 +29,7 @@ interface CouncilProps {
   topic: Topic | null;
   setTopic: (topic: Topic) => void;
   setUnrecoverableError: SetUnrecoverableError;
-  setConnectionError: (error: boolean) => void;
+  setConnectionError: (source: "socket" | "meta-agent", active: boolean) => void;
   connectionError: boolean;
   audioContext: React.RefObject<AudioContext | null>;
   currentSpeakerId: string;
@@ -267,6 +267,8 @@ function Council({
           participants={participants}
           currentSpeakerName={participants.find((p) => p.id === currentSpeakerId)?.name ?? ""}
           humanName={humanName}
+          setUnrecoverableError={setUnrecoverableError}
+          setConnectionError={(active) => setConnectionError("meta-agent", active)}
         />
       )}
       {liveKey && participationPhase !== "off" && (

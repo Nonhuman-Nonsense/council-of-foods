@@ -11,7 +11,6 @@ import { z } from "@/zIndexLayers";
 
 type VoiceGuideOverlayProps = {
   isConnecting: boolean;
-  error: string | null;
   lastCaption: string | null;
   lastUserTranscript: string | null;
   muted: boolean;
@@ -31,7 +30,6 @@ type VoiceGuideOverlayProps = {
 export default function VoiceGuideOverlay(props: VoiceGuideOverlayProps): ReactElement {
   const {
     isConnecting,
-    error,
     lastCaption,
     lastUserTranscript,
     muted,
@@ -71,10 +69,8 @@ export default function VoiceGuideOverlay(props: VoiceGuideOverlayProps): ReactE
   return (
     <>
       <RealtimeCaptionOverlay
-        error={error}
         lastCaption={lastCaption}
         lastUserTranscript={lastUserTranscript}
-        agentMode={agentMode}
         subtitleLayout={subtitleLayout}
         showPttVisualizer={agentMode === "ptt"}
         micStream={micStream}

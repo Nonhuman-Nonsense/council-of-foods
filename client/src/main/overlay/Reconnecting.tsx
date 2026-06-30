@@ -1,9 +1,46 @@
-import { useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useMobile } from '@/utils';
 import { useRouting } from "@/routing";
 import { useCouncilSettings } from "@/settings/councilSettings";
 import Loading from "../Loading";
+
+// ---------------------------------------------------------------------------
+// Source-tracked connection error state
+// ---------------------------------------------------------------------------
+
+export type ConnectionErrorSource = "socket" | "voice-guide" | "meta-agent";
+export type SetConnectionError = (source: ConnectionErrorSource, active: boolean) => void;
+
+/**
+ * App-level connection error state, tracked by source so multiple subsystems
+ * (socket, voice guide, meta agent) can independently raise and clear the
+ * error without accidentally clearing each other's state.
+ *
+ * Mirrors the shape of `useUnrecoverableError` in `CouncilError.tsx`.
+ */
+export function useConnectionError(): {
+  connectionError: boolean;
+  setConnectionError: SetConnectionError;
+} {
+  const [activeSources, setActiveSources] = useState<ReadonlySet<ConnectionErrorSource>>(
+    () => new Set(),
+  );
+
+  const setConnectionError = useCallback<SetConnectionError>((source, active) => {
+    setActiveSources((prev) => {
+      const next = new Set(prev);
+      if (active) {
+        next.add(source);
+      } else {
+        next.delete(source);
+      }
+      return next;
+    });
+  }, []);
+
+  return { connectionError: activeSources.size > 0, setConnectionError };
+}
 
 /** Museum kiosks: hard-restart if reconnect never succeeds. */
 const MUSEUM_RECONNECTING_RESTART_MS = 2 * 60 * 1000;

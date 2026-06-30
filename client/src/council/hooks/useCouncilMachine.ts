@@ -27,7 +27,7 @@ export interface UseCouncilMachineProps {
     setHumanName: (name: string) => void;
     audioContext: React.RefObject<AudioContext | null>;
     setUnrecoverableError: SetUnrecoverableError;
-    setConnectionError: (error: boolean) => void;
+    setConnectionError: (source: "socket", active: boolean) => void;
     connectionError: boolean;
     isPaused: boolean;
     setPaused: (paused: boolean) => void;
@@ -223,7 +223,7 @@ export function useCouncilMachine({
         },
         onConnectionError: (err) => {
             console.error(err);
-            setConnectionError(true);
+            setConnectionError("socket", true);
         },
         onReconnect: () => {
             setAttemptingReconnect(true);
@@ -238,7 +238,7 @@ export function useCouncilMachine({
                 liveKey,
                 handRaised: isRaisedHand,
             });
-            setConnectionError(false);
+            setConnectionError("socket", false);
             setAttemptingReconnect(false);
         } else if (attemptingReconnect) {
             setAttemptingReconnect(false);

@@ -77,7 +77,6 @@ vi.mock("@museum/metaAgent/useMetaAgent", () => ({
     sessionCallbacks.onSessionReady = params.onSessionReady;
     return {
       connectionState: mockMetaAgentState.connectionState,
-      error: null,
       lastCaption: mockMetaAgentState.lastCaption,
       lastUserTranscript: mockMetaAgentState.lastUserTranscript,
     agentSpeaking: mockMetaAgentState.agentSpeaking,

@@ -3,6 +3,11 @@ import {
   createRealtimeConnection,
   fetchRealtimeBootstrap,
   fetchRealtimeSessionDefaults,
+  RealtimeHttpError,
+  classifyRealtimeError,
+  computeRealtimeRetryDelay,
+  REALTIME_RETRY_BASE_MS,
+  REALTIME_RETRY_MAX_MS,
 } from "@realtime/realtimeConnection";
 
 class MockTrack {
@@ -199,13 +204,16 @@ describe("realtimeConnection", () => {
     });
   });
 
-  it("throws when bootstrap fails or returns an invalid session", async () => {
+  it("throws RealtimeHttpError when bootstrap returns a non-ok status", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(new Response("denied", { status: 403 })));
 
-    await expect(fetchRealtimeBootstrap({ feature: "voice-guide", language: "en" })).rejects.toThrow(
-      "Realtime bootstrap failed (403): denied"
-    );
+    const err = await fetchRealtimeBootstrap({ feature: "voice-guide", language: "en" }).catch((e) => e);
+    expect(err).toBeInstanceOf(RealtimeHttpError);
+    expect((err as RealtimeHttpError).status).toBe(403);
+    expect(err.message).toBe("Realtime bootstrap failed (403): denied");
+  });
 
+  it("throws a plain error when bootstrap returns an invalid session shape", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValueOnce(
@@ -388,5 +396,67 @@ describe("realtimeConnection", () => {
     ).rejects.toMatchObject({ name: "AbortError" });
 
     expect(MockPeerConnection.instances).toHaveLength(0);
+  });
+});
+
+describe("classifyRealtimeError", () => {
+  it("marks 4xx HTTP errors as fatal", () => {
+    expect(classifyRealtimeError(new RealtimeHttpError(400, "bad"))).toBe("fatal");
+    expect(classifyRealtimeError(new RealtimeHttpError(401, "unauth"))).toBe("fatal");
+    expect(classifyRealtimeError(new RealtimeHttpError(403, "forbidden"))).toBe("fatal");
+    expect(classifyRealtimeError(new RealtimeHttpError(404, "not found"))).toBe("fatal");
+    expect(classifyRealtimeError(new RealtimeHttpError(422, "unprocessable"))).toBe("fatal");
+  });
+
+  it("marks 5xx HTTP errors as retryable", () => {
+    expect(classifyRealtimeError(new RealtimeHttpError(500, "server error"))).toBe("retryable");
+    expect(classifyRealtimeError(new RealtimeHttpError(503, "unavailable"))).toBe("retryable");
+  });
+
+  it("marks invalid bootstrap shape as fatal", () => {
+    expect(classifyRealtimeError(new Error("Realtime bootstrap: response invalid"))).toBe("fatal");
+  });
+
+  it("marks mic NotAllowedError as fatal on web, retryable in museum", () => {
+    const err = Object.assign(new Error("Permission denied"), { name: "NotAllowedError" });
+    expect(classifyRealtimeError(err)).toBe("fatal");
+    expect(classifyRealtimeError(err, { isMuseumMode: false })).toBe("fatal");
+    expect(classifyRealtimeError(err, { isMuseumMode: true })).toBe("retryable");
+  });
+
+  it("marks network and ICE errors as retryable", () => {
+    expect(classifyRealtimeError(new Error("Failed to fetch"))).toBe("retryable");
+    expect(classifyRealtimeError(new TypeError("Network request failed"))).toBe("retryable");
+    expect(classifyRealtimeError(new Error("pc_failed"))).toBe("retryable");
+  });
+
+  it("marks unknown errors as retryable", () => {
+    expect(classifyRealtimeError("something weird")).toBe("retryable");
+    expect(classifyRealtimeError(null)).toBe("retryable");
+    expect(classifyRealtimeError(undefined)).toBe("retryable");
+  });
+});
+
+describe("computeRealtimeRetryDelay", () => {
+  it("returns a value in [0, BASE] for attempt 0", () => {
+    for (let i = 0; i < 20; i++) {
+      const d = computeRealtimeRetryDelay(0);
+      expect(d).toBeGreaterThanOrEqual(0);
+      expect(d).toBeLessThanOrEqual(REALTIME_RETRY_BASE_MS);
+    }
+  });
+
+  it("caps at REALTIME_RETRY_MAX_MS for large attempt numbers", () => {
+    for (let i = 0; i < 20; i++) {
+      const d = computeRealtimeRetryDelay(100);
+      expect(d).toBeLessThanOrEqual(REALTIME_RETRY_MAX_MS);
+    }
+  });
+
+  it("grows with attempt number on average", () => {
+    const samples = 200;
+    const avg = (attempt: number) =>
+      Array.from({ length: samples }, () => computeRealtimeRetryDelay(attempt)).reduce((a, b) => a + b, 0) / samples;
+    expect(avg(2)).toBeGreaterThan(avg(0));
   });
 });

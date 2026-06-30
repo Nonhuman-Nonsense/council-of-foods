@@ -106,6 +106,7 @@ describe("NewMeeting — live key handoff", () => {
                         element={
                             <MeetingSetupShell
                                 setUnrecoverableError={setUnrecoverableError}
+                                setConnectionError={vi.fn()}
                                 topicSelection={MockFactory.createTopic({
                                     id: "test-topic",
                                     title: "Test Topic",

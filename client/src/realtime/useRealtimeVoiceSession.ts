@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  classifyRealtimeError,
+  computeRealtimeRetryDelay,
   createRealtimeConnection,
   fetchRealtimeBootstrap,
   type RealtimeConnection,
@@ -40,6 +42,48 @@ export type RealtimeVoiceFeature = "meta-agent" | "voice-guide";
 
 export type RealtimeVoiceSessionConnectionState = "idle" | "connecting" | "ready" | "error";
 
+// ---------------------------------------------------------------------------
+// Retry policy
+// ---------------------------------------------------------------------------
+
+export type RealtimeRetryPolicy = {
+  /** Maximum number of retry attempts. Use `Infinity` for indefinite retries (museum). */
+  maxRetries: number;
+  /**
+   * When true and attempts are exhausted, return to `"idle"` state instead of
+   * `"error"` — the agent is a bonus feature and the app continues normally.
+   */
+  giveUpSilently: boolean;
+};
+
+/**
+ * Returns the appropriate retry policy for the agent's criticality.
+ * - Critical (museum): infinite retries, never give up silently.
+ * - Non-critical (web): 3 retries, then silently return to idle.
+ */
+export function getRealtimeRetryPolicy(critical: boolean): RealtimeRetryPolicy {
+  return critical
+    ? { maxRetries: Infinity, giveUpSilently: false }
+    : { maxRetries: 3, giveUpSilently: true };
+}
+
+// Per-feature fatal message strings (internal — not part of the public API).
+const FEATURE_MESSAGES: Record<
+  RealtimeVoiceFeature,
+  { defaultsNotLoaded: string; startFailed: string; connectionLost: string }
+> = {
+  "voice-guide": {
+    defaultsNotLoaded: "Voice guide defaults not loaded",
+    startFailed: "Voice guide failed to start",
+    connectionLost: "Voice guide connection lost",
+  },
+  "meta-agent": {
+    defaultsNotLoaded: "Meta-agent defaults not loaded",
+    startFailed: "Meta-agent failed to start",
+    connectionLost: "Meta-agent connection lost",
+  },
+};
+
 export type UseRealtimeVoiceSessionParams = {
   feature: RealtimeVoiceFeature;
   language: string;
@@ -62,13 +106,24 @@ export type UseRealtimeVoiceSessionParams = {
   autoConnect?: boolean;
   /** Fired after the provider acks `session.updated` (safe point for activation). */
   onSessionReady?: () => void;
-  defaultsNotLoadedError?: string;
-  connectionLostMessage?: string;
-  startFailedMessage?: string;
+  /**
+   * Whether to treat this agent as museum-mode (affects mic permission classification
+   * and is used by policy helpers via `getRealtimeRetryPolicy`).
+   */
+  isMuseumMode?: boolean;
+  /** Retry behaviour. Omit to disable automatic retries (error state only). */
+  retryPolicy?: RealtimeRetryPolicy;
+  /** Called when a fatal, non-recoverable error occurs. Goes through the main error pipeline. */
+  onFatalError?: (e: { message: string; source: string; cause?: unknown }) => void;
+  /** Called on the first retryable failure (connection is now down). */
+  onConnectionLost?: () => void;
+  /** Called when connection is re-established after having been lost. */
+  onConnectionRestored?: () => void;
 };
 
 export type UseRealtimeVoiceSessionResult = {
   connectionState: RealtimeVoiceSessionConnectionState;
+  /** @deprecated Use `onFatalError` callback instead. Will be removed. */
   error: string | null;
   lastCaption: string | null;
   lastUserTranscript: string | null;
@@ -126,9 +181,11 @@ export function useRealtimeVoiceSession(
     sessionActive = true,
     autoConnect = true,
     onSessionReady,
-    defaultsNotLoadedError = "Realtime defaults not loaded",
-    connectionLostMessage = "Realtime connection lost",
-    startFailedMessage = "Realtime session failed to start",
+    isMuseumMode = false,
+    retryPolicy,
+    onFatalError,
+    onConnectionLost,
+    onConnectionRestored,
   } = params;
 
   const authHeadersKey = authHeaders ? JSON.stringify(authHeaders) : "";
@@ -156,15 +213,31 @@ export function useRealtimeVoiceSession(
   const audioAnchorFallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const userTranscriptTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Retry state
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const retryAttemptsRef = useRef(0);
+  /** True once onConnectionLost has been called and onConnectionRestored not yet. */
+  const hasNotifiedLostRef = useRef(false);
+
   const handlersRef = useRef(toolHandlers);
   const instructionsRef = useRef(instructions);
   const toolsRef = useRef(tools);
   const onSessionReadyRef = useRef(onSessionReady);
+  const retryPolicyRef = useRef(retryPolicy);
+  const onFatalErrorRef = useRef(onFatalError);
+  const onConnectionLostRef = useRef(onConnectionLost);
+  const onConnectionRestoredRef = useRef(onConnectionRestored);
+  const isMuseumModeRef = useRef(isMuseumMode);
   useEffect(() => {
     handlersRef.current = toolHandlers;
     instructionsRef.current = instructions;
     toolsRef.current = tools;
     onSessionReadyRef.current = onSessionReady;
+    retryPolicyRef.current = retryPolicy;
+    onFatalErrorRef.current = onFatalError;
+    onConnectionLostRef.current = onConnectionLost;
+    onConnectionRestoredRef.current = onConnectionRestored;
+    isMuseumModeRef.current = isMuseumMode;
   });
 
   useEffect(() => {
@@ -174,15 +247,18 @@ export function useRealtimeVoiceSession(
   const attemptRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
 
+  // startRef lets the retry timer call the latest start() without a dep cycle.
+  const startRef = useRef<() => void>(() => {});
+
   const buildSessionConfig = useCallback((): RealtimeSessionConfig => {
     const defaults = serverDefaultsRef.current;
-    if (!defaults) throw new Error(defaultsNotLoadedError);
+    if (!defaults) throw new Error(FEATURE_MESSAGES[feature].defaultsNotLoaded);
     return mergeRealtimeSessionWithClientConfig(
       defaults,
       instructionsRef.current,
       toolsRef.current,
     );
-  }, [defaultsNotLoadedError]);
+  }, [feature]);
 
   const clearAudioAnchorFallback = useCallback(() => {
     if (audioAnchorFallbackTimerRef.current != null) {
@@ -205,6 +281,11 @@ export function useRealtimeVoiceSession(
     abortRef.current = null;
     attemptRef.current += 1;
     serverDefaultsRef.current = null;
+    // Cancel any pending retry timer
+    if (retryTimerRef.current != null) {
+      clearTimeout(retryTimerRef.current);
+      retryTimerRef.current = null;
+    }
     clearAudioAnchorFallback();
     if (userTranscriptTimerRef.current) {
       clearTimeout(userTranscriptTimerRef.current);
@@ -233,6 +314,40 @@ export function useRealtimeVoiceSession(
     remoteAudioRef.current = null;
     setMicStream(null);
   }, [clearAudioAnchorFallback]);
+
+  /**
+   * Schedule a retry attempt with jittered exponential backoff.
+   * Notifies onConnectionLost on the first failure, tracks exhaustion.
+   */
+  const scheduleRetry = useCallback((resetAttempts = false) => {
+    if (resetAttempts) retryAttemptsRef.current = 0;
+
+    const attempt = retryAttemptsRef.current++;
+    const policy = retryPolicyRef.current;
+
+    // Notify once that the connection is down.
+    if (!hasNotifiedLostRef.current) {
+      hasNotifiedLostRef.current = true;
+      onConnectionLostRef.current?.();
+    }
+
+    // Without a policy, fall through to error state.
+    if (!policy || (policy.maxRetries !== Infinity && attempt >= policy.maxRetries)) {
+      log.event("REALTIME", "retry exhausted", { feature, attempt });
+      setConnectionState(policy?.giveUpSilently ? "idle" : "error");
+      return;
+    }
+
+    const delay = computeRealtimeRetryDelay(attempt);
+    log.event("REALTIME", "retry scheduled", { feature, attempt, delayMs: Math.round(delay) });
+
+    // Keep spinning while retrying.
+    setConnectionState("connecting");
+    retryTimerRef.current = setTimeout(() => {
+      retryTimerRef.current = null;
+      startRef.current();
+    }, delay);
+  }, [feature]);
 
   const start = useCallback(async () => {
     if (connectionRef.current || abortRef.current) return;
@@ -272,8 +387,8 @@ export function useRealtimeVoiceSession(
       }
 
       const { provider, session: defaults, iceServers } = bootResult.value;
-      const micStream = micResult.value;
-      setMicTracksEnabled(micStream, !pttMic);
+      const micStreamValue = micResult.value;
+      setMicTracksEnabled(micStreamValue, !pttMic);
 
       serverDefaultsRef.current = defaults;
 
@@ -302,16 +417,13 @@ export function useRealtimeVoiceSession(
       let responseCancelled = false;
 
       // RAF loop: drive caption from alignment + AudioContext clock.
-      // AudioContext.currentTime advances at the hardware sample rate and never
-      // freezes during WebRTC DTX silence, unlike HTMLAudioElement.currentTime.
-      let lastDisplayedText: string | null | undefined = undefined; // undefined = never set
+      let lastDisplayedText: string | null | undefined = undefined;
       let lastTickLogMs = 0;
       const tickAlignment = () => {
         if (!isStale()) {
           const anchor = remoteAudioAnchorRef.current;
           const anchorCtxSec = responseAudioAnchorCtxSecRef.current;
           const nowMs = performance.now();
-          // Heartbeat: log internal RAF state once per second to catch silent failures.
           if (nowMs - lastTickLogMs >= 1000) {
             lastTickLogMs = nowMs;
             const sentences = subtitleTrack.getSentences();
@@ -324,11 +436,6 @@ export function useRealtimeVoiceSession(
             const sentences = subtitleTrack.getSentences();
             const playbackSec = anchor.getCtxTime() - anchorCtxSec;
             const active = findActiveSentenceAtTime(sentences, playbackSec);
-            // Fall back to the in-progress buffer text only when the pending sentence
-            // is already complete (ends with sentence-ending punctuation). This avoids
-            // the word-by-word buildup that occurs while the sentence is still streaming
-            // in, while still showing the full text immediately when all data arrived
-            // before the audio started (e.g. long pre-loaded responses).
             const pendingText = subtitleTrack.isPendingComplete()
               ? subtitleTrack.getPendingText()
               : null;
@@ -387,8 +494,9 @@ export function useRealtimeVoiceSession(
           },
           onError: (message) => {
             if (isStale()) return;
-            setError(message);
-            setConnectionState("error");
+            log.event("ERROR", "realtime provider error", { feature, message });
+            cleanup();
+            scheduleRetry();
           },
           onSessionReady: () => {
             if (!isStale()) onSessionReadyRef.current?.();
@@ -423,7 +531,6 @@ export function useRealtimeVoiceSession(
                 lastAgentSpeaking = false;
                 setAgentSpeaking(false);
               } else if (subtitleTrack.getPlaybackEndSec() == null) {
-                // Safety: response finished but no alignment ever arrived.
                 lastAgentSpeaking = false;
                 setAgentSpeaking(false);
               }
@@ -453,7 +560,7 @@ export function useRealtimeVoiceSession(
           ? { "Content-Type": "application/json", ...authHeaders }
           : undefined,
         callBodyExtras: { feature, provider, language },
-        micStream,
+        micStream: micStreamValue,
         log: realtimeDebugLog,
         signal: controller.signal,
         onRemoteTrack: (track) => {
@@ -468,9 +575,6 @@ export function useRealtimeVoiceSession(
                 if (isStale()) return;
                 clearAudioAnchorFallback();
                 captionScheduler?.setAudioAnchor(nowMs);
-                // Record AudioContext.currentTime as the subtitle clock origin.
-                // ctx.currentTime advances at the hardware sample rate and never
-                // freezes during DTX silence, unlike HTMLAudioElement.currentTime.
                 if (responseAudioAnchorCtxSecRef.current == null) {
                   responseAudioAnchorCtxSecRef.current = ctxTime;
                   realtimeDebugLog(`[SUBS] ANCHOR set: anchorCtxSec=${ctxTime.toFixed(3)}`);
@@ -498,8 +602,10 @@ export function useRealtimeVoiceSession(
           log.event("REALTIME", "connection closed", { feature, reason });
           if (reason === "pc_failed" || reason === "dc_error") {
             log.event("ERROR", "realtime connection lost", { feature, reason });
-            setError(connectionLostMessage);
-            setConnectionState("error");
+            // Mid-session drop: reset attempt counter (was connected successfully)
+            // then tear down and retry.
+            cleanup();
+            scheduleRetry(true);
           }
         },
       });
@@ -512,6 +618,14 @@ export function useRealtimeVoiceSession(
       activeConn = conn;
       connectionRef.current = conn;
       log.event("REALTIME", "ready", { feature, provider });
+
+      // Successful connection — notify restoration if previously lost.
+      if (hasNotifiedLostRef.current) {
+        hasNotifiedLostRef.current = false;
+        onConnectionRestoredRef.current?.();
+      }
+      retryAttemptsRef.current = 0;
+
       setConnectionState("ready");
     } catch (e) {
       const isAbort = e instanceof Error && e.name === "AbortError";
@@ -519,11 +633,20 @@ export function useRealtimeVoiceSession(
         conn?.close();
         return;
       }
-      const msg = e instanceof Error ? e.message : startFailedMessage;
-      log.event("ERROR", "realtime session start failed", { feature, message: msg });
+
       conn?.close();
-      setError(msg);
-      setConnectionState("error");
+
+      const kind = classifyRealtimeError(e, { isMuseumMode: isMuseumModeRef.current });
+      const msg = e instanceof Error ? e.message : FEATURE_MESSAGES[feature].startFailed;
+      log.event("ERROR", "realtime session start failed", { feature, kind, message: msg });
+
+      if (kind === "fatal") {
+        setError(msg);
+        setConnectionState("error");
+        onFatalErrorRef.current?.({ message: msg, source: `realtime.${feature}`, cause: e });
+      } else {
+        scheduleRetry();
+      }
     } finally {
       if (abortRef.current === controller) abortRef.current = null;
     }
@@ -535,11 +658,16 @@ export function useRealtimeVoiceSession(
     trackAgentSpeaking,
     buildSessionConfig,
     clearAudioAnchorFallback,
-    connectionLostMessage,
-    startFailedMessage,
     triggerGreetingOnReady,
     authHeaders,
+    cleanup,
+    scheduleRetry,
   ]);
+
+  // Keep startRef current so retry timers always call the latest start.
+  useEffect(() => {
+    startRef.current = () => { void start(); };
+  }, [start]);
 
   useEffect(() => {
     return () => {

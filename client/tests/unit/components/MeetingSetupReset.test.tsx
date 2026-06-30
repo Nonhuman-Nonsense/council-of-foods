@@ -115,6 +115,7 @@ function MeetingSetupShellHarness({ topicSelection = null }: { topicSelection?: 
   return (
     <MeetingSetupShell
       setUnrecoverableError={() => {}}
+      setConnectionError={() => {}}
       topicSelection={topicSelection}
       setTopicSelection={() => {}}
       setMeetingliveKey={() => {}}

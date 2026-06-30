@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
-import { useRealtimeVoiceSession } from "@realtime/useRealtimeVoiceSession";
+import { getRealtimeRetryPolicy, useRealtimeVoiceSession } from "@realtime/useRealtimeVoiceSession";
 import type { AgentMode } from "@/settings/councilSettings";
 import type { RealtimeTool, ToolHandler } from "./guideTools";
+import type { SetUnrecoverableError } from "@main/overlay/CouncilError";
+import type { SetConnectionError } from "@main/overlay/Reconnecting";
 
 export type UseVoiceGuideParams = {
   language: string;
@@ -13,11 +15,13 @@ export type UseVoiceGuideParams = {
   initialMuted?: boolean;
   agentMode?: AgentMode;
   micOpen?: boolean;
+  isMuseumMode?: boolean;
+  setUnrecoverableError?: SetUnrecoverableError;
+  setConnectionError?: SetConnectionError;
 };
 
 export type VoiceGuideState = {
   isConnecting: boolean;
-  error: string | null;
   lastCaption: string | null;
   lastUserTranscript: string | null;
   micStream: MediaStream | null;
@@ -42,10 +46,21 @@ export function useVoiceGuide(params: UseVoiceGuideParams): VoiceGuideState {
     initialMuted = false,
     agentMode = "always-on",
     micOpen = false,
+    isMuseumMode = false,
+    setUnrecoverableError,
+    setConnectionError,
   } = params;
 
   const [muted, setMuted] = useState(initialMuted);
   const pttMic = agentMode === "ptt";
+
+  const onConnectionLost = useCallback(() => {
+    if (isMuseumMode) setConnectionError?.("voice-guide", true);
+  }, [isMuseumMode, setConnectionError]);
+
+  const onConnectionRestored = useCallback(() => {
+    if (isMuseumMode) setConnectionError?.("voice-guide", false);
+  }, [isMuseumMode, setConnectionError]);
 
   const session = useRealtimeVoiceSession({
     feature: "voice-guide",
@@ -58,9 +73,11 @@ export function useVoiceGuide(params: UseVoiceGuideParams): VoiceGuideState {
     audioElement,
     sessionActive: !muted,
     autoConnect: autoStart,
-    defaultsNotLoadedError: "Voice guide realtime defaults not loaded",
-    connectionLostMessage: "Voice guide connection lost",
-    startFailedMessage: "Voice guide failed to start",
+    isMuseumMode,
+    retryPolicy: getRealtimeRetryPolicy(isMuseumMode),
+    onFatalError: (e) => setUnrecoverableError?.({ message: e.message, source: e.source, cause: e.cause }),
+    onConnectionLost,
+    onConnectionRestored,
   });
 
   useEffect(() => {
@@ -76,7 +93,6 @@ export function useVoiceGuide(params: UseVoiceGuideParams): VoiceGuideState {
     isConnecting:
       session.connectionState === "connecting" ||
       (session.connectionState === "ready" && !session.hasReceivedAudioPart),
-    error: session.error,
     lastCaption: session.lastCaption,
     lastUserTranscript: session.lastUserTranscript,
     micStream: session.micStream,

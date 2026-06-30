@@ -6,11 +6,14 @@ const mockUseRealtimeVoiceSession = vi.hoisted(() => vi.fn());
 
 vi.mock("@realtime/useRealtimeVoiceSession", () => ({
   useRealtimeVoiceSession: (params: unknown) => mockUseRealtimeVoiceSession(params),
+  getRealtimeRetryPolicy: (critical: boolean) => ({
+    maxRetries: critical ? Infinity : 3,
+    giveUpSilently: !critical,
+  }),
 }));
 
 const baseSession = {
   connectionState: "idle" as const,
-  error: null,
   lastCaption: null,
   lastUserTranscript: null,
   hasReceivedAudioPart: false,

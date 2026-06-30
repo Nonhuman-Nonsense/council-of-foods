@@ -8,9 +8,9 @@ const mockSetLed = vi.hoisted(() => vi.fn());
 const mockPressed = vi.hoisted(() => ({ value: false }));
 const mockUseVoiceGuide = vi.hoisted(() => vi.fn(() => ({
   isConnecting: false,
-  error: null,
   lastCaption: null,
   lastUserTranscript: null,
+  micStream: null,
   muted: false,
   setMuted: vi.fn(),
   start: vi.fn(),
@@ -136,9 +136,9 @@ describe("MeetingVoiceGuide PTT (regression)", () => {
   it("sets LED off when voice is connecting", () => {
     mockUseVoiceGuide.mockReturnValue({
       isConnecting: true,
-      error: null,
       lastCaption: null,
       lastUserTranscript: null,
+      micStream: null,
       muted: false,
       setMuted: vi.fn(),
       start: vi.fn(),
