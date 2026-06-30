@@ -8,6 +8,7 @@ import { LiveAudioVisualizerPair } from "./LiveAudioVisualizer";
 import Lottie from 'react-lottie-player';
 import loading from "@assets/animations/loading.json";
 import { bootstrapHumanInputRealtimeSession } from "@api/realtimeSession";
+import { log } from "@/logger";
 import {
   createRealtimeConnection,
   type RealtimeConnection,
@@ -81,18 +82,25 @@ export interface TranscriptSegment {
   text: string;
 }
 
+export type TranscriptionDeltaMergeMode = "append" | "replace";
+
 export function transcriptSegmentKey(itemId: string, contentIndex = 0): string {
   return contentIndex === 0 ? itemId : `${itemId}:${contentIndex}`;
 }
 
-/** OpenAI: append incremental deltas. Inworld: replace with current partial transcript. */
+/** Soniox emits incremental chunks; AssemblyAI partials are cumulative snapshots. */
+export function transcriptionDeltaMergeModeForModel(model: string): TranscriptionDeltaMergeMode {
+  return model.includes("soniox") ? "append" : "replace";
+}
+
+/** OpenAI transcription: append. Inworld STT: append or replace per backend model. */
 export function mergeTranscriptionDelta(
-  provider: RealtimeProvider,
+  mode: TranscriptionDeltaMergeMode,
   existing: string,
   delta: string,
 ): string {
   if (!delta) return existing;
-  return provider === "openai" ? existing + delta : delta;
+  return mode === "append" ? existing + delta : delta;
 }
 
 export function stripRecordingEllipsis(value: string): string {
@@ -141,6 +149,17 @@ export function formatTranscriptInputValue({
 
 export function scrollTextareaToBottom(textarea: HTMLTextAreaElement) {
   textarea.scrollTop = textarea.scrollHeight;
+}
+
+function readTranscriptionModel(session: Record<string, unknown>): string {
+  const audio = session.audio;
+  if (!audio || typeof audio !== "object") return "";
+  const input = (audio as { input?: unknown }).input;
+  if (!input || typeof input !== "object") return "";
+  const transcription = (input as { transcription?: unknown }).transcription;
+  if (!transcription || typeof transcription !== "object") return "";
+  const model = (transcription as { model?: unknown }).model;
+  return typeof model === "string" ? model : "";
 }
 
 function isHumanInputRealtimeEvent(event: unknown): event is HumanInputRealtimeEvent {
@@ -205,6 +224,7 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
   const connectionStateRef = useRef<ConnectionState>("idle");
   const inputAudioActiveRef = useRef<boolean>(false);
   const realtimeProviderRef = useRef<RealtimeProvider>("inworld");
+  const transcriptionModelRef = useRef<string>("");
   const completedTranscriptKeysRef = useRef<Set<string>>(new Set());
   const connectionRef = useRef<RealtimeConnection | null>(null);
   const startAbortRef = useRef<AbortController | null>(null);
@@ -362,6 +382,11 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [button.pressed, phase, isButtonMuseumMode, onAbandonHumanTurn]);
 
+  function transcriptionDeltaMergeMode(): TranscriptionDeltaMergeMode {
+    if (realtimeProviderRef.current === "openai") return "append";
+    return transcriptionDeltaMergeModeForModel(transcriptionModelRef.current);
+  }
+
   function handleRealtimeEvent(event: HumanInputRealtimeEvent) {
     if (event.type === "conversation.item.input_audio_transcription.delta") {
       const segmentKey = transcriptSegmentKey(event.item_id, event.content_index ?? 0);
@@ -371,11 +396,17 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
       setTranscriptSegments(prev => {
         const existing = prev.find(segment => segment.itemId === segmentKey)?.text ?? "";
         const next = mergeTranscriptionDelta(
-          realtimeProviderRef.current,
+          transcriptionDeltaMergeMode(),
           existing,
           event.delta,
         );
         return upsertTranscriptSegment(prev, segmentKey, next);
+      });
+      log.event("REALTIME", "human-input transcription delta", {
+        itemId: event.item_id,
+        contentIndex: event.content_index ?? 0,
+        mergeMode: transcriptionDeltaMergeMode(),
+        delta: event.delta,
       });
       scheduleFinishingQuietClose();
       return;
@@ -383,9 +414,16 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
 
     if (event.type === "conversation.item.input_audio_transcription.completed") {
       const segmentKey = transcriptSegmentKey(event.item_id, event.content_index ?? 0);
-      completedTranscriptKeysRef.current.add(segmentKey);
+      if (event.transcript.trim()) {
+        completedTranscriptKeysRef.current.add(segmentKey);
+      }
       inputAudioActiveRef.current = false;
       setTranscriptSegments(prev => upsertTranscriptSegment(prev, segmentKey, event.transcript));
+      log.event("REALTIME", "human-input transcription completed", {
+        itemId: event.item_id,
+        contentIndex: event.content_index ?? 0,
+        transcript: event.transcript,
+      });
       scheduleFinishingQuietClose();
       return;
     }
@@ -444,6 +482,7 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
       const sessionForDc = bootstrap.session;
       const providerForDc: RealtimeProvider = bootstrap.provider;
       realtimeProviderRef.current = bootstrap.provider;
+      transcriptionModelRef.current = readTranscriptionModel(bootstrap.session);
 
       const connection = await createRealtimeConnection({
         session: bootstrap.session,

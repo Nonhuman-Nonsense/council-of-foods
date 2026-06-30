@@ -5,6 +5,7 @@ import {
   mergeTranscriptionDelta,
   scrollTextareaToBottom,
   stripRecordingEllipsis,
+  transcriptionDeltaMergeModeForModel,
   transcriptSegmentKey,
   upsertTranscriptSegment,
   type TranscriptSegment,
@@ -59,14 +60,21 @@ describe("transcriptSegmentKey", () => {
 });
 
 describe("mergeTranscriptionDelta", () => {
-  it("appends incremental deltas for OpenAI", () => {
-    expect(mergeTranscriptionDelta("openai", "Hello", " dear")).toBe("Hello dear");
+  it("appends incremental deltas in append mode", () => {
+    expect(mergeTranscriptionDelta("append", "Hello", " dear")).toBe("Hello dear");
   });
 
-  it("replaces with the current partial for Inworld", () => {
-    expect(mergeTranscriptionDelta("inworld", "I am say", "I am saying something")).toBe(
+  it("replaces with the current partial in replace mode", () => {
+    expect(mergeTranscriptionDelta("replace", "I am say", "I am saying something")).toBe(
       "I am saying something",
     );
+  });
+});
+
+describe("transcriptionDeltaMergeModeForModel", () => {
+  it("appends for Soniox and replaces for AssemblyAI", () => {
+    expect(transcriptionDeltaMergeModeForModel("soniox/stt-rt-v4")).toBe("append");
+    expect(transcriptionDeltaMergeModeForModel("assemblyai/u3-rt-pro")).toBe("replace");
   });
 });
 

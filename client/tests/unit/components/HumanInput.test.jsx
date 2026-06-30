@@ -49,6 +49,8 @@ vi.mock('@/settings/councilSettings', () => ({
         setAppMode: vi.fn(),
         setAgentMode: vi.fn(),
     }),
+    getDevLogEnabled: () => false,
+    isDevLogCategoryEnabled: () => false,
 }));
 
 vi.mock('@api/realtimeSession', () => ({
@@ -791,8 +793,60 @@ describe('HumanInput PTT museum mode', () => {
         vi.useRealTimers();
     });
 
+    it('builds incremental Soniox transcript partials on Inworld sessions', async () => {
+        vi.useFakeTimers({ shouldAdvanceTime: true });
+        bootstrapHumanInputRealtimeSession.mockResolvedValue({
+            provider: 'inworld',
+            iceServers: [],
+            session: {
+                type: 'realtime',
+                audio: { input: { transcription: { model: 'soniox/stt-rt-v4' } } },
+            },
+        });
+        let onEvent;
+        createRealtimeConnection.mockImplementation(async (opts) => {
+            onEvent = opts.onEvent;
+            return { pc: {}, dc: {}, micStream: createMockMicStream(), close: vi.fn() };
+        });
+
+        await renderPttReady();
+
+        setMockPressed(true);
+        await waitFor(() => {
+            expect(screen.getByTestId('icon-record_voice_on')).toBeInTheDocument();
+        });
+
+        const textarea = screen.getByPlaceholderText('human.button_museum');
+
+        onEvent({ type: 'input_audio_buffer.speech_started' });
+        onEvent({
+            type: 'conversation.item.input_audio_transcription.delta',
+            item_id: 'item_1',
+            delta: 'Hej',
+        });
+        onEvent({
+            type: 'conversation.item.input_audio_transcription.delta',
+            item_id: 'item_1',
+            delta: ' där',
+        });
+
+        await waitFor(() => {
+            expect(textarea).toHaveValue('Hej där...');
+        });
+
+        vi.useRealTimers();
+    });
+
     it('builds cumulative transcript partials without stacking duplicated prefixes', async () => {
         vi.useFakeTimers({ shouldAdvanceTime: true });
+        bootstrapHumanInputRealtimeSession.mockResolvedValue({
+            provider: 'inworld',
+            iceServers: [],
+            session: {
+                type: 'realtime',
+                audio: { input: { transcription: { model: 'assemblyai/u3-rt-pro' } } },
+            },
+        });
         let onEvent;
         createRealtimeConnection.mockImplementation(async (opts) => {
             onEvent = opts.onEvent;
@@ -858,6 +912,11 @@ describe('HumanInput PTT museum mode', () => {
         const textarea = screen.getByPlaceholderText('human.button_museum');
 
         onEvent({ type: 'input_audio_buffer.speech_started' });
+        onEvent({
+            type: 'conversation.item.input_audio_transcription.completed',
+            item_id: 'item_1',
+            transcript: '',
+        });
         onEvent({
             type: 'conversation.item.input_audio_transcription.delta',
             item_id: 'item_1',
