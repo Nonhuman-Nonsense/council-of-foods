@@ -102,9 +102,15 @@ describe("characterSetupBundle chair voice", () => {
     });
 
     it("reads per-language realtime config with en fallback", () => {
-        const options = optionsWithChairRealtime();
-        expect(getChairRealtimeLanguageConfig("sv", options).ttsModel).toBe("inworld-tts-2");
-        expect(getChairRealtimeLanguageConfig("en", options).ttsModel).toBe("inworld-tts-1.5-max");
+        const base = optionsWithChairRealtime();
+        const options = optionsWithChairRealtime({
+            languages: {
+                en: { ...base.chairRealtime.languages.en!, ttsModel: "fixture/tts-en" },
+                sv: { ...base.chairRealtime.languages.sv!, ttsModel: "fixture/tts-sv" },
+            },
+        });
+        expect(getChairRealtimeLanguageConfig("sv", options).ttsModel).toBe("fixture/tts-sv");
+        expect(getChairRealtimeLanguageConfig("en", options).ttsModel).toBe("fixture/tts-en");
     });
 
     it("requires inworld llm and transcription models for human input", () => {
@@ -141,5 +147,39 @@ describe("characterSetupBundle chair voice", () => {
             },
         };
         expect(() => validateHumanInputRealtimeConfig(invalid)).toThrow(/transcriptionModel is required/);
+    });
+
+    it("returns configured transcription models from options", () => {
+        const base = optionsWithChairRealtime();
+        const options: GlobalOptions = {
+            ...base,
+            humanInputRealtime: {
+                languages: {
+                    ...base.humanInputRealtime.languages,
+                    sv: {
+                        provider: "inworld",
+                        llmModel: "test/llm",
+                        transcriptionModel: "fixture/human-stt",
+                    },
+                },
+            },
+            chairRealtime: {
+                ...base.chairRealtime,
+                languages: {
+                    ...base.chairRealtime.languages,
+                    sv: {
+                        ...base.chairRealtime.languages.sv!,
+                        transcriptionModel: "fixture/chair-stt",
+                    },
+                },
+            },
+        };
+
+        expect(getHumanInputRealtimeLanguageConfig("sv", options).transcriptionModel).toBe(
+            "fixture/human-stt",
+        );
+        expect(getChairRealtimeLanguageConfig("sv", options).transcriptionModel).toBe(
+            "fixture/chair-stt",
+        );
     });
 });

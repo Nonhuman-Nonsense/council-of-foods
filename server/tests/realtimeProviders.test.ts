@@ -1,14 +1,67 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import {
-    createOpenAICall,
-    getHumanInputRealtimeBootstrap,
-    getMetaAgentRealtimeBootstrap,
-    getVoiceGuideRealtimeBootstrap,
-    pickHumanInputRealtimeProvider,
-    pickMetaAgentRealtimeProvider,
-    pickVoiceGuideRealtimeProvider,
-} from "@api/realtimeProviders.js";
-import { getChairAgentVoice } from "@logic/characterSetupBundle.js";
+
+/** Fixture STT model ids — not tied to production global-options.json */
+export const HUMAN_INPUT_STT_MODEL = "test/stt-human-input";
+export const CHAIR_STT_MODEL = "test/stt-chair";
+
+const { realtimeOptions } = vi.hoisted(() => {
+    const HUMAN_INPUT_STT_MODEL = "test/stt-human-input";
+    const CHAIR_STT_MODEL = "test/stt-chair";
+
+    const realtimeOptions = {
+        defaultAudioSpeed: 1.25,
+        inworldVoiceModel: "inworld-tts-1.5-mini",
+        transcribeModel: "whisper-1",
+        transcribePrompt: { en: "Transcribe", sv: "Transkribera" },
+        humanInputRealtime: {
+            languages: {
+                en: {
+                    provider: "inworld" as const,
+                    llmModel: "test/llm",
+                    transcriptionModel: HUMAN_INPUT_STT_MODEL,
+                },
+                sv: {
+                    provider: "inworld" as const,
+                    llmModel: "test/llm",
+                    transcriptionModel: HUMAN_INPUT_STT_MODEL,
+                },
+            },
+        },
+        chairRealtime: {
+            strategy: "split" as const,
+            languages: {
+                en: {
+                    provider: "inworld" as const,
+                    llmModel: "test/llm",
+                    ttsModel: "test/tts-en",
+                    transcriptionModel: CHAIR_STT_MODEL,
+                    agentVoice: { voice: "AgentEn", voiceProvider: "inworld" as const },
+                },
+                sv: {
+                    provider: "inworld" as const,
+                    llmModel: "test/llm",
+                    ttsModel: "test/tts-sv",
+                    transcriptionModel: CHAIR_STT_MODEL,
+                    agentVoice: {
+                        voice: "AgentSv",
+                        voiceProvider: "inworld" as const,
+                        voiceLocale: "sv",
+                    },
+                },
+            },
+        },
+    };
+
+    return { realtimeOptions };
+});
+
+vi.mock("@logic/GlobalOptions.js", async (importOriginal) => {
+    const actual = await importOriginal<typeof import("@logic/GlobalOptions.js")>();
+    return {
+        ...actual,
+        getGlobalOptions: vi.fn(() => realtimeOptions),
+    };
+});
 
 vi.mock("@services/OpenAIService.js", () => ({
     getOpenAI: () => ({ apiKey: "test-openai-api-key" }),
@@ -20,9 +73,21 @@ vi.mock("../src/config.js", () => ({
     },
 }));
 
+import {
+    createOpenAICall,
+    getHumanInputRealtimeBootstrap,
+    getMetaAgentRealtimeBootstrap,
+    getVoiceGuideRealtimeBootstrap,
+    pickHumanInputRealtimeProvider,
+    pickMetaAgentRealtimeProvider,
+    pickVoiceGuideRealtimeProvider,
+} from "@api/realtimeProviders.js";
+
 const SDP_OFFER = "v=0\r\no=- 1 2 IN IP4 127.0.0.1\r\nm=audio 9 UDP/TLS/RTP/SAVPF 111\r\n";
-const swedishAgentChair = getChairAgentVoice("sv");
-const englishAgentChair = getChairAgentVoice("en");
+const svChairConfig = realtimeOptions.chairRealtime.languages.sv!;
+const enChairConfig = realtimeOptions.chairRealtime.languages.en!;
+const swedishAgentChair = svChairConfig.agentVoice!;
+const englishAgentChair = enChairConfig.agentVoice!;
 
 describe("realtimeProviders", () => {
     beforeEach(() => {
@@ -51,67 +116,40 @@ describe("realtimeProviders", () => {
         expect(pickVoiceGuideRealtimeProvider("en")).toBe("inworld");
     });
 
-    it("builds an Inworld transcription bootstrap for Swedish with Soniox", async () => {
-        vi.mocked(global.fetch).mockResolvedValue(
-            new Response(JSON.stringify({ ice_servers: [{ urls: ["stun:human-sv.example.com"] }] }), {
-                status: 200,
-                headers: { "Content-Type": "application/json" },
-            })
-        );
+    it.each([
+        { language: "sv", iceUrl: "stun:human-sv.example.com" },
+        { language: "en", iceUrl: "stun:stun.example.com" },
+    ])(
+        "passes human-input STT model and language into Inworld bootstrap ($language)",
+        async ({ language, iceUrl }) => {
+            vi.mocked(global.fetch).mockResolvedValue(
+                new Response(JSON.stringify({ ice_servers: [{ urls: [iceUrl] }] }), {
+                    status: 200,
+                    headers: { "Content-Type": "application/json" },
+                })
+            );
 
-        const result = await getHumanInputRealtimeBootstrap("sv");
+            const result = await getHumanInputRealtimeBootstrap(language);
 
-        expect(result.provider).toBe("inworld");
-        expect(result.iceServers).toEqual([{ urls: ["stun:human-sv.example.com"] }]);
-        expect(result.session).toMatchObject({
-            type: "realtime",
-            output_modalities: ["text"],
-            audio: {
-                input: {
-                    transcription: {
-                        model: "soniox/stt-rt-v4",
-                        language: "sv",
-                        prompt: "Förvänta dig svenskt tal.",
+            expect(result.provider).toBe("inworld");
+            expect(result.iceServers).toEqual([{ urls: [iceUrl] }]);
+            expect(result.session).toMatchObject({
+                type: "realtime",
+                output_modalities: ["text"],
+                audio: {
+                    input: {
+                        transcription: {
+                            model: HUMAN_INPUT_STT_MODEL,
+                            language,
+                        },
                     },
                 },
-            },
-            providerData: {
-                stt: {
-                    language_hints: ["sv-SE"],
-                },
-            },
-        });
-    });
+            });
+            expect(result.session).not.toHaveProperty("providerData");
+        }
+    );
 
-    it("builds an Inworld realtime bootstrap for English", async () => {
-        vi.mocked(global.fetch).mockResolvedValue(
-            new Response(JSON.stringify({ ice_servers: [{ urls: ["stun:stun.example.com"] }] }), {
-                status: 200,
-                headers: { "Content-Type": "application/json" },
-            })
-        );
-
-        const result = await getHumanInputRealtimeBootstrap("en");
-
-        expect(result.provider).toBe("inworld");
-        expect(result.iceServers).toEqual([{ urls: ["stun:stun.example.com"] }]);
-        expect(result.session).toMatchObject({
-            type: "realtime",
-            output_modalities: ["text"],
-            audio: {
-                input: {
-                    transcription: {
-                        model: "assemblyai/u3-rt-pro",
-                        language: "en",
-                        prompt: "Expect english input.",
-                    },
-                },
-            },
-        });
-        expect(result.session).not.toHaveProperty("providerData");
-    });
-
-    it("builds an Inworld voice-guide bootstrap for Swedish with TTS-2", async () => {
+    it("passes chair STT, TTS, and agent voice into Swedish voice-guide bootstrap", async () => {
         vi.mocked(global.fetch).mockResolvedValue(
             new Response(JSON.stringify({ ice_servers: [{ urls: ["stun:guide-sv.example.com"] }] }), {
                 status: 200,
@@ -129,13 +167,13 @@ describe("realtimeProviders", () => {
             audio: {
                 input: {
                     transcription: {
-                        model: "soniox/stt-rt-v4",
+                        model: CHAIR_STT_MODEL,
                         language: "sv",
                     },
                 },
                 output: {
                     voice: swedishAgentChair.voice,
-                    model: "inworld-tts-2",
+                    model: svChairConfig.ttsModel,
                 },
             },
             providerData: {
@@ -148,7 +186,7 @@ describe("realtimeProviders", () => {
         });
     });
 
-    it("builds an Inworld voice-guide bootstrap for English", async () => {
+    it("passes chair agent voice into English voice-guide bootstrap", async () => {
         vi.mocked(global.fetch).mockResolvedValue(
             new Response(JSON.stringify({ ice_servers: [{ urls: ["stun:guide.example.com"] }] }), {
                 status: 200,
@@ -164,8 +202,15 @@ describe("realtimeProviders", () => {
             type: "realtime",
             output_modalities: ["audio", "text"],
             audio: {
+                input: {
+                    transcription: {
+                        model: CHAIR_STT_MODEL,
+                        language: "en",
+                    },
+                },
                 output: {
                     voice: englishAgentChair.voice,
+                    model: enChairConfig.ttsModel,
                 },
             },
             providerData: {
@@ -177,7 +222,7 @@ describe("realtimeProviders", () => {
         });
     });
 
-    it("builds an Inworld meta-agent bootstrap for Swedish with TTS-2", async () => {
+    it("passes chair STT and meta-agent TTS settings into Swedish bootstrap", async () => {
         vi.mocked(global.fetch).mockResolvedValue(
             new Response(JSON.stringify({ ice_servers: [{ urls: ["stun:meta-sv.example.com"] }] }), {
                 status: 200,
@@ -195,13 +240,13 @@ describe("realtimeProviders", () => {
             audio: {
                 input: {
                     transcription: {
-                        model: "soniox/stt-rt-v4",
+                        model: CHAIR_STT_MODEL,
                         language: "sv",
                     },
                 },
                 output: {
                     voice: swedishAgentChair.voice,
-                    model: "inworld-tts-2",
+                    model: svChairConfig.ttsModel,
                 },
             },
             providerData: {
@@ -216,7 +261,7 @@ describe("realtimeProviders", () => {
         });
     });
 
-    it("builds an Inworld meta-agent bootstrap for English", async () => {
+    it("passes chair agent voice and TTS model into English meta-agent bootstrap", async () => {
         vi.mocked(global.fetch).mockResolvedValue(
             new Response(JSON.stringify({ ice_servers: [{ urls: ["stun:meta-en.example.com"] }] }), {
                 status: 200,
@@ -229,9 +274,15 @@ describe("realtimeProviders", () => {
         expect(result.provider).toBe("inworld");
         expect(result.session).toMatchObject({
             audio: {
+                input: {
+                    transcription: {
+                        model: CHAIR_STT_MODEL,
+                        language: "en",
+                    },
+                },
                 output: {
                     voice: englishAgentChair.voice,
-                    model: "inworld-tts-1.5-max",
+                    model: enChairConfig.ttsModel,
                 },
             },
             providerData: {

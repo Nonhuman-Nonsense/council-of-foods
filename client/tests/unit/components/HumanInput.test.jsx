@@ -808,7 +808,7 @@ describe('HumanInput PTT museum mode', () => {
             iceServers: [],
             session: {
                 type: 'realtime',
-                audio: { input: { transcription: { model: 'soniox/stt-rt-v4' } } },
+                audio: { input: { transcription: { model: 'test/soniox-stt' } } },
             },
         });
         let onEvent;
@@ -824,7 +824,7 @@ describe('HumanInput PTT museum mode', () => {
             expect(screen.getByTestId('icon-record_voice_on')).toBeInTheDocument();
         });
 
-        const textarea = screen.getByPlaceholderText('human.button_museum');
+        const textarea = screen.getByPlaceholderText('ptt.humanPlaceholder');
 
         onEvent({ type: 'input_audio_buffer.speech_started' });
         onEvent({
@@ -839,20 +839,20 @@ describe('HumanInput PTT museum mode', () => {
         });
 
         await waitFor(() => {
-            expect(textarea).toHaveValue('Hej där...');
+            expect(textarea).toHaveValue('Hej där');
         });
 
         vi.useRealTimers();
     });
 
-    it('builds cumulative transcript partials without stacking duplicated prefixes', async () => {
+    it('handles mixed Soniox suffix and cumulative partials without stacking', async () => {
         vi.useFakeTimers({ shouldAdvanceTime: true });
         bootstrapHumanInputRealtimeSession.mockResolvedValue({
             provider: 'inworld',
             iceServers: [],
             session: {
                 type: 'realtime',
-                audio: { input: { transcription: { model: 'assemblyai/u3-rt-pro' } } },
+                audio: { input: { transcription: { model: 'test/soniox-stt' } } },
             },
         });
         let onEvent;
@@ -868,7 +868,66 @@ describe('HumanInput PTT museum mode', () => {
             expect(screen.getByTestId('icon-record_voice_on')).toBeInTheDocument();
         });
 
-        const textarea = screen.getByPlaceholderText('human.button_museum');
+        const textarea = screen.getByPlaceholderText('ptt.humanPlaceholder');
+
+        onEvent({ type: 'input_audio_buffer.speech_started' });
+        onEvent({
+            type: 'conversation.item.input_audio_transcription.delta',
+            item_id: 'item_1',
+            delta: 'Och',
+        });
+        onEvent({
+            type: 'conversation.item.input_audio_transcription.delta',
+            item_id: 'item_1',
+            delta: ' nu',
+        });
+        onEvent({
+            type: 'conversation.item.input_audio_transcription.delta',
+            item_id: 'item_1',
+            delta: ' ska vi se en tredje gång.',
+        });
+        onEvent({
+            type: 'conversation.item.input_audio_transcription.delta',
+            item_id: 'item_1',
+            delta: 'Och nu ska vi se en tredje gång, ska',
+        });
+        onEvent({
+            type: 'conversation.item.input_audio_transcription.delta',
+            item_id: 'item_1',
+            delta: ' vi',
+        });
+
+        await waitFor(() => {
+            expect(textarea).toHaveValue('Och nu ska vi se en tredje gång, ska vi');
+        });
+
+        vi.useRealTimers();
+    });
+
+    it('builds cumulative transcript partials without stacking duplicated prefixes', async () => {
+        vi.useFakeTimers({ shouldAdvanceTime: true });
+        bootstrapHumanInputRealtimeSession.mockResolvedValue({
+            provider: 'inworld',
+            iceServers: [],
+            session: {
+                type: 'realtime',
+                audio: { input: { transcription: { model: 'test/assemblyai-stt' } } },
+            },
+        });
+        let onEvent;
+        createRealtimeConnection.mockImplementation(async (opts) => {
+            onEvent = opts.onEvent;
+            return { pc: {}, dc: {}, micStream: createMockMicStream(), close: vi.fn() };
+        });
+
+        await renderPttReady();
+
+        setMockPressed(true);
+        await waitFor(() => {
+            expect(screen.getByTestId('icon-record_voice_on')).toBeInTheDocument();
+        });
+
+        const textarea = screen.getByPlaceholderText('ptt.humanPlaceholder');
 
         onEvent({ type: 'input_audio_buffer.speech_started' });
         onEvent({
@@ -888,7 +947,7 @@ describe('HumanInput PTT museum mode', () => {
         });
 
         await waitFor(() => {
-            expect(textarea).toHaveValue('I am saying something longer...');
+            expect(textarea).toHaveValue('I am saying something longer');
         });
 
         setMockPressed(false);
@@ -917,7 +976,7 @@ describe('HumanInput PTT museum mode', () => {
             expect(screen.getByTestId('icon-record_voice_on')).toBeInTheDocument();
         });
 
-        const textarea = screen.getByPlaceholderText('human.button_museum');
+        const textarea = screen.getByPlaceholderText('ptt.humanPlaceholder');
 
         onEvent({ type: 'input_audio_buffer.speech_started' });
         onEvent({
@@ -942,7 +1001,7 @@ describe('HumanInput PTT museum mode', () => {
         });
 
         await waitFor(() => {
-            expect(textarea).toHaveValue('one two three...');
+            expect(textarea).toHaveValue('one two three');
         });
 
         setMockPressed(false);

@@ -277,50 +277,28 @@ export async function getHumanInputRealtimeBootstrap(language: string): Promise<
     }
 
     const ice = await getInworldIceServers();
-    const transcriptionPrompt =
-        options.transcribePrompt[normalizedLanguage] ??
-        options.transcribePrompt.en ??
-        "";
-    const transcription: Record<string, unknown> = {
-        model: languageConfig.transcriptionModel!,
-        language: normalizedLanguage,
-    };
-    if (transcriptionPrompt) {
-        transcription.prompt = transcriptionPrompt;
-    }
-
-    const session: Record<string, unknown> = {
-        type: "realtime" as const,
-        model: languageConfig.llmModel!,
-        output_modalities: ["text"] as const,
-        audio: {
-            input: {
-                transcription,
-                turn_detection: {
-                    type: "semantic_vad" as const,
-                    eagerness: "medium" as const,
-                    create_response: false,
-                    interrupt_response: false,
-                },
-            },
-        },
-    };
-
-    if (
-        normalizedLanguage === "sv" &&
-        languageConfig.transcriptionModel?.includes("soniox")
-    ) {
-        session.providerData = {
-            stt: {
-                language_hints: ["sv-SE"],
-            },
-        };
-    }
-
     return {
         provider: "inworld",
         iceServers: ice.iceServers,
-        session,
+        session: {
+            type: "realtime" as const,
+            model: languageConfig.llmModel!,
+            output_modalities: ["text"] as const,
+            audio: {
+                input: {
+                    transcription: {
+                        model: languageConfig.transcriptionModel!,
+                        language: normalizedLanguage,
+                    },
+                    turn_detection: {
+                        type: "semantic_vad" as const,
+                        eagerness: "medium" as const,
+                        create_response: false,
+                        interrupt_response: false,
+                    },
+                },
+            },
+        },
     };
 }
 

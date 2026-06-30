@@ -49,7 +49,7 @@
       "en": {
         "provider": "inworld",
         "llmModel": "google-ai-studio/gemini-2.5-flash",
-        "transcriptionModel": "assemblyai/u3-rt-pro"
+        "transcriptionModel": "soniox/stt-rt-v4"
       },
       "sv": {
         "provider": "inworld",
@@ -65,7 +65,7 @@
         "provider": "inworld",
         "llmModel": "google-ai-studio/gemini-2.5-flash",
         "ttsModel": "inworld-tts-1.5-max",
-        "transcriptionModel": "assemblyai/u3-rt-pro",
+        "transcriptionModel": "soniox/stt-rt-v4",
         "agentVoice": null
       },
       "sv": {
