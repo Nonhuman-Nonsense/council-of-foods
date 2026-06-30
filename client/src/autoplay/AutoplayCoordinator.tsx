@@ -16,6 +16,7 @@ import {
   useAutoplayStore,
 } from "./autoplayStore";
 import { log } from "@/logger";
+import { useErrorStore } from "@main/overlay/errorStore";
 
 const LANDING_SETUP_IDLE_MS = 90_000;
 const IDLE_POLL_MS = 1_000;
@@ -32,12 +33,14 @@ type IdleInactiveReason =
   | "setup_hash"
   | "setup_button_claim"
   | "live_meeting_playing"
+  | "connection_error"
   | "no_idle_context";
 
 export default function AutoplayCoordinator({
   meetingliveKey,
   setMeetingliveKey,
 }: AutoplayCoordinatorProps): React.ReactElement | null {
+  const connectionError = useErrorStore((s) => s.connectionError);
   const { isMuseumMode } = useCouncilSettings();
   const location = useLocation();
   const navigate = useNavigate();
@@ -184,6 +187,9 @@ export default function AutoplayCoordinator({
     if (!isMuseumMode || phase !== "active") {
       return;
     }
+    if (connectionError) {
+      return;
+    }
     if (!councilOnSummary) {
       return;
     }
@@ -212,6 +218,7 @@ export default function AutoplayCoordinator({
 
     return () => window.clearTimeout(timerId);
   }, [
+    connectionError,
     councilOnSummary,
     i18n.language,
     isMuseumMode,
@@ -224,6 +231,10 @@ export default function AutoplayCoordinator({
   useEffect(() => {
     if (!isMuseumMode) {
       logIdleInactive("not_museum");
+      return;
+    }
+    if (connectionError) {
+      logIdleInactive("connection_error");
       return;
     }
     if (phase !== "off") {
@@ -289,6 +300,7 @@ export default function AutoplayCoordinator({
 
     return () => window.clearInterval(timerId);
   }, [
+    connectionError,
     councilOnSummary,
     isMuseumMode,
     location.hash,

@@ -17,6 +17,8 @@ export interface UseCouncilSocketProps {
     onConversationUpdate?: (data: Message[]) => void;
     onError?: (error: ErrorPayload) => void;
     onConnectionError?: (error: Error) => void;
+    /** Fires on every successful socket connect (including first connect after connect_error retries). */
+    onConnect?: () => void;
     onReconnect?: () => void;
 }
 
@@ -56,6 +58,7 @@ export const useCouncilSocket = ({
     onConversationUpdate,
     onError,
     onConnectionError,
+    onConnect,
     onReconnect
 }: UseCouncilSocketProps): RefObject<Socket<ServerToClientEvents, ClientToServerEvents> | null> => {
     const socketRef = useRef<Socket<ServerToClientEvents, ClientToServerEvents> | null>(null);
@@ -72,6 +75,7 @@ export const useCouncilSocket = ({
 
         socket.on('connect', () => {
             log.event('SOCKET', 'connected', { meetingId, socketId: socket.id });
+            if (onConnect) onConnect();
         });
 
         socket.on('connect_error', (err: Error) => {

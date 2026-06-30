@@ -21,6 +21,8 @@ import { getVoiceGuideBundle } from "./voiceGuideBundle";
 import { useButtonBanner } from "@/museum/button/useButtonBanner";
 import Loading from "@main/Loading";
 import { useVoiceGuide } from "./useVoiceGuide";
+import { useErrorStore } from "@main/overlay/errorStore";
+
 type MeetingVoiceGuideProps = {
   phase: MeetingSetupPhase;
   lastUserEvent: MeetingSetupUserEvent | null;
@@ -42,6 +44,7 @@ export default function MeetingVoiceGuide({
   const { isMuseumMode, agentMode } = useCouncilSettings();
   const { switchLanguage, otherLanguages } = useSwitchLanguage();
   const button = useButton("voice-guide");
+  const connectionError = useErrorStore((s) => s.connectionError);
   const {
     selectedTopic,
     customTopic,
@@ -97,6 +100,7 @@ export default function MeetingVoiceGuide({
   const voice = useVoiceGuide({
     language: guideLanguage,
     instructions,
+    isMuseumMode,
     tools: createGuideTools({ promptBundle, otherLanguages }),
     toolHandlers: createGuideToolHandlers({
       topics: guideTopics,
@@ -125,7 +129,7 @@ export default function MeetingVoiceGuide({
   const { sendUserMessage, muted } = voice;
 
   const showMuseumReconnecting =
-    isMuseumMode && !muted && voice.isConnecting;
+    isMuseumMode && !muted && voice.isConnecting && !connectionError;
 
   useButtonBanner({
     owner: "voice-guide",
@@ -136,10 +140,10 @@ export default function MeetingVoiceGuide({
   });
 
   const ledMode = useMemo((): ButtonLedMode => {
-    if (agentMode !== "ptt" || muted || voice.isConnecting || voice.error) return "off";
+    if (agentMode !== "ptt" || muted || voice.isConnecting) return "off";
     if (button.pressed) return "on";
     return "pulse";
-  }, [agentMode, muted, voice.isConnecting, voice.error, button.pressed]);
+  }, [agentMode, muted, voice.isConnecting, button.pressed]);
 
   useEffect(() => {
     if (agentMode !== "ptt") return;
@@ -169,7 +173,6 @@ export default function MeetingVoiceGuide({
       {showMuseumReconnecting && <Loading />}
     <VoiceGuideOverlay
       isConnecting={voice.isConnecting}
-      error={voice.error}
       lastCaption={voice.lastCaption}
       lastUserTranscript={voice.lastUserTranscript}
       muted={voice.muted}

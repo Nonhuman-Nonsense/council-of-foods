@@ -6,6 +6,10 @@ const mockUseRealtimeVoiceSession = vi.hoisted(() => vi.fn());
 
 vi.mock("@realtime/useRealtimeVoiceSession", () => ({
   useRealtimeVoiceSession: (...args: unknown[]) => mockUseRealtimeVoiceSession(...args),
+  getRealtimeRetryPolicy: (critical: boolean) => ({
+    maxRetries: critical ? Infinity : 3,
+    giveUpSilently: !critical,
+  }),
 }));
 
 const defaultParams = {
@@ -18,7 +22,6 @@ const defaultParams = {
 
 const sessionResult = {
   connectionState: "ready" as const,
-  error: null,
   lastCaption: null,
   lastUserTranscript: null,
   micStream: null,
@@ -27,6 +30,9 @@ const sessionResult = {
   sendUserMessage: vi.fn(),
   requestAgentResponse: vi.fn(),
   setAgentOutputMuted: vi.fn(),
+  reconfigureSession: vi.fn(),
+  hasReceivedAudioPart: false,
+  error: null,
 };
 
 beforeEach(() => {

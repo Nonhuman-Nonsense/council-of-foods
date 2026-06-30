@@ -7,6 +7,7 @@ import { createMeeting } from "@api/createMeeting";
 import routes from "@/routes.json";
 import type { Character } from "@newMeeting/SelectCharacters";
 import { MockFactory } from "../factories/MockFactory";
+import { useErrorStore } from "@main/overlay/errorStore";
 
 vi.mock("@voice/MeetingVoiceGuide", () => ({
     default: () => null,
@@ -87,11 +88,11 @@ vi.mock("@newMeeting/SelectCharacters", () => ({
 
 describe("NewMeeting — live key handoff", () => {
     const setMeetingliveKey = vi.fn();
-    const setUnrecoverableError = vi.fn();
     const setTopicSelection = vi.fn();
 
     beforeEach(() => {
         vi.clearAllMocks();
+        useErrorStore.getState().resetForTests();
         vi.mocked(createMeeting).mockResolvedValue({
             meetingId: 42,
             liveKey: "returned-live-key",
@@ -105,7 +106,6 @@ describe("NewMeeting — live key handoff", () => {
                     <Route
                         element={
                             <MeetingSetupShell
-                                setUnrecoverableError={setUnrecoverableError}
                                 topicSelection={MockFactory.createTopic({
                                     id: "test-topic",
                                     title: "Test Topic",
@@ -140,6 +140,6 @@ describe("NewMeeting — live key handoff", () => {
             expect(screen.getByTestId("meeting-screen")).toBeInTheDocument();
         });
 
-        expect(setUnrecoverableError).not.toHaveBeenCalled();
+        expect(useErrorStore.getState().unrecoverableError).toBeNull();
     });
 });

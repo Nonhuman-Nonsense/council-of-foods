@@ -4,6 +4,7 @@ import { useButtonBanner } from "@museum/button/useButtonBanner";
 import RealtimeCaptionOverlay from "@realtime/RealtimeCaptionOverlay";
 import Loading from "@main/Loading";
 import { useMetaAgent, type MetaAgentPhase } from "./useMetaAgent";
+import { useErrorStore, setConnectionError } from "@main/overlay/errorStore";
 import {
   buildExtensionActivationTurn,
   buildExtensionAgentPrompt,
@@ -59,7 +60,22 @@ export default function MeetingMetaAgent({
   currentSpeakerName,
   humanName,
 }: MeetingMetaAgentProps) {
+  const connectionError = useErrorStore((s) => s.connectionError);
   const button = useButton("meta-agent");
+
+  // Track whether the agent is currently unreachable so we can defer showing
+  // the connection error until the visitor actually tries to use the agent.
+  const agentDownRef = useRef(false);
+
+  const onConnectionLost = useCallback(() => {
+    agentDownRef.current = true;
+    // Don't surface the error yet — meeting may be playing fine without the agent.
+  }, []);
+
+  const onConnectionRestored = useCallback(() => {
+    agentDownRef.current = false;
+    setConnectionError("meta-agent", false);
+  }, []);
 
   const promptBundle = useMemo(() => getMetaAgentBundle(language), [language]);
 
@@ -118,7 +134,6 @@ export default function MeetingMetaAgent({
 
   const {
     connectionState,
-    error,
     lastCaption,
     lastUserTranscript,
     agentSpeaking,
@@ -135,7 +150,16 @@ export default function MeetingMetaAgent({
     tools,
     toolHandlers,
     onSessionReady: () => onSessionReadyRef.current?.(),
+    onConnectionLost,
+    onConnectionRestored,
   });
+
+  useEffect(() => {
+    if (connectionState === "ready") {
+      agentDownRef.current = false;
+      setConnectionError("meta-agent", false);
+    }
+  }, [connectionState]);
 
   const activateExtensionSession = useCallback(() => {
     setAgentOutputMuted(false);
@@ -265,6 +289,13 @@ export default function MeetingMetaAgent({
   useEffect(() => {
     if (!button.pressed || metaAgentPhase !== "inactive") return;
 
+    // If the agent is down when the visitor presses the button, surface the
+    // connection error now — this is when the drop actually affects the UX.
+    if (agentDownRef.current || connectionState !== "ready") {
+      setConnectionError("meta-agent", true);
+      return;
+    }
+
     setMetaAgentPhase("interruption");
     setAgentOutputMuted(false);
     setMicEnabled(true);
@@ -305,6 +336,7 @@ export default function MeetingMetaAgent({
   if (metaAgentPhase === "inactive") return null;
 
   const showExtensionLoader =
+    !connectionError &&
     metaAgentPhase === "extension" &&
     (awaitingExtensionReply || connectionState !== "ready");
 
@@ -312,15 +344,13 @@ export default function MeetingMetaAgent({
     <>
       {showExtensionLoader && <Loading />}
       <RealtimeCaptionOverlay
-      error={error}
-      lastCaption={lastCaption}
-      lastUserTranscript={lastUserTranscript}
-      agentMode="ptt"
-      subtitleLayout="council"
-      showPttVisualizer
-      micStream={micStream}
-      micActive={button.pressed}
-    />
+        lastCaption={lastCaption}
+        lastUserTranscript={lastUserTranscript}
+        subtitleLayout="council"
+        showPttVisualizer
+        micStream={micStream}
+        micActive={button.pressed}
+      />
     </>
   );
 }

@@ -11,6 +11,70 @@ import type { RealtimeSessionServerDefaults } from "./realtimeProtocol";
 import type { IceServer, RealtimeBootstrapResponse } from "@shared/RealtimeSessionTypes";
 import { councilFetch } from "@/api/http";
 
+// ---------------------------------------------------------------------------
+// Error types
+// ---------------------------------------------------------------------------
+
+/** Thrown when bootstrap or SDP exchange returns a non-OK HTTP response. */
+export class RealtimeHttpError extends Error {
+  constructor(
+    readonly status: number,
+    message: string,
+  ) {
+    super(message);
+    this.name = "RealtimeHttpError";
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Error classifier
+// ---------------------------------------------------------------------------
+
+export type RealtimeErrorKind = "fatal" | "retryable";
+
+/**
+ * Classify a realtime connection error as fatal (won't recover with retries)
+ * or retryable (transient — worth attempting again).
+ *
+ * `isMuseumMode` affects mic-permission handling: kiosks should always have a
+ * mic, so `NotAllowedError` is treated as a transient OS hiccup there.
+ */
+export function classifyRealtimeError(
+  err: unknown,
+  opts?: { isMuseumMode?: boolean },
+): RealtimeErrorKind {
+  if (err instanceof RealtimeHttpError) {
+    // 4xx = configuration/auth error — retrying won't help
+    if (err.status >= 400 && err.status < 500) return "fatal";
+    // 5xx = server/provider blip — worth retrying
+    return "retryable";
+  }
+  // Invalid bootstrap shape — a structural/config problem
+  if (err instanceof Error && err.message.includes("response invalid")) return "fatal";
+  // Mic permission denied: fatal on web (user choice), retryable in museum (OS hiccup)
+  if (err instanceof Error && err.name === "NotAllowedError") {
+    return opts?.isMuseumMode ? "retryable" : "fatal";
+  }
+  // Everything else (network, ICE timeout, pc_failed, dc_error, etc.) = retryable
+  return "retryable";
+}
+
+// ---------------------------------------------------------------------------
+// Backoff
+// ---------------------------------------------------------------------------
+
+export const REALTIME_RETRY_BASE_MS = 1_000;
+export const REALTIME_RETRY_MAX_MS = 15_000;
+
+/**
+ * Full-jitter exponential backoff delay for a given attempt index (0-based).
+ * Returns a random value in [0, min(MAX, BASE * 2^attempt)].
+ */
+export function computeRealtimeRetryDelay(attempt: number): number {
+  const cap = Math.min(REALTIME_RETRY_MAX_MS, REALTIME_RETRY_BASE_MS * 2 ** attempt);
+  return Math.random() * cap;
+}
+
 export type ConnectionLogger = (...args: unknown[]) => void;
 
 export type RealtimeConnection = {
@@ -164,7 +228,7 @@ export async function fetchRealtimeBootstrap(
   );
   if (!resp.ok) {
     const text = await resp.text().catch(() => "");
-    throw new Error(`Realtime bootstrap failed (${resp.status}): ${text}`);
+    throw new RealtimeHttpError(resp.status, `Realtime bootstrap failed (${resp.status}): ${text}`);
   }
   const data = (await resp.json()) as RealtimeBootstrapResponse;
   const session = parseRealtimeSessionServerDefaults(data?.session, "Realtime bootstrap");
@@ -205,7 +269,7 @@ async function exchangeSdp(
   );
   if (!resp.ok) {
     const text = await resp.text().catch(() => "");
-    throw new Error(`Call create failed (${resp.status}): ${text}`);
+    throw new RealtimeHttpError(resp.status, `Call create failed (${resp.status}): ${text}`);
   }
   const data = (await resp.json()) as { sdp?: unknown };
   const sdp = typeof data.sdp === "string" ? data.sdp : null;

@@ -21,7 +21,6 @@ describe("RealtimeCaptionOverlay", () => {
   it("renders user transcript above agent caption", () => {
     render(
       <RealtimeCaptionOverlay
-        error={null}
         lastUserTranscript="What topics are available?"
         lastCaption="We can discuss forests or oceans."
       />,
@@ -37,7 +36,6 @@ describe("RealtimeCaptionOverlay", () => {
   it("renders agent caption without user line", () => {
     render(
       <RealtimeCaptionOverlay
-        error={null}
         lastUserTranscript={null}
         lastCaption="Hello, welcome to the council."
       />,
@@ -52,7 +50,6 @@ describe("RealtimeCaptionOverlay", () => {
   it("hides captions when hideCaptions is true", () => {
     render(
       <RealtimeCaptionOverlay
-        error={null}
         lastUserTranscript="Old user line"
         lastCaption="Old agent line"
         hideCaptions
@@ -63,36 +60,10 @@ describe("RealtimeCaptionOverlay", () => {
     expect(screen.queryByTestId("voice-guide-caption")).not.toBeInTheDocument();
   });
 
-  it("still shows error when hideCaptions is true", () => {
-    render(
-      <RealtimeCaptionOverlay
-        error="Connection lost"
-        lastCaption="Stale caption"
-        lastUserTranscript="Stale user"
-        hideCaptions
-      />,
-    );
-
-    expect(screen.getByRole("alert")).toHaveTextContent("Connection lost");
-    expect(screen.queryByTestId("voice-guide-caption")).not.toBeInTheDocument();
-  });
-
-  it("shows error alert when error is set", () => {
-    render(
-      <RealtimeCaptionOverlay
-        error="Connection lost"
-        lastCaption={null}
-        lastUserTranscript={null}
-      />,
-    );
-
-    expect(screen.getByRole("alert")).toHaveTextContent("Connection lost");
-  });
 
   it("reserves PTT viz row when showPttVisualizer is true", () => {
     render(
       <RealtimeCaptionOverlay
-        error={null}
         lastCaption={null}
         lastUserTranscript={null}
         showPttVisualizer
@@ -107,7 +78,6 @@ describe("RealtimeCaptionOverlay", () => {
   it("shows visualizer when PTT mic is active and stream is present", () => {
     render(
       <RealtimeCaptionOverlay
-        error={null}
         lastCaption={null}
         lastUserTranscript={null}
         showPttVisualizer
@@ -122,7 +92,6 @@ describe("RealtimeCaptionOverlay", () => {
   it("uses council subtitle layout marker", () => {
     const { container } = render(
       <RealtimeCaptionOverlay
-        error={null}
         lastCaption="Council size caption"
         lastUserTranscript={null}
         subtitleLayout="council"
@@ -136,7 +105,6 @@ describe("RealtimeCaptionOverlay", () => {
   it("uses compact subtitle layout marker", () => {
     const { container } = render(
       <RealtimeCaptionOverlay
-        error={null}
         lastCaption="Compact caption"
         lastUserTranscript={null}
         subtitleLayout="compact"

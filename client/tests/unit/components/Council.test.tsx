@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import Council from '@council/Council';
 import '@testing-library/jest-dom';
 import { MockFactory } from '../factories/MockFactory';
+import { useErrorStore } from '@main/overlay/errorStore';
 
 // --- Mocks ---
 
@@ -144,9 +145,6 @@ describe('Council Component', () => {
         setliveKey: vi.fn(),
         topic: MockFactory.createTopic({ id: 't', title: 'T', description: 'D', prompt: 'p' }),
         setTopic: vi.fn(),
-        setUnrecoverableError: vi.fn(),
-        setConnectionError: vi.fn(),
-        connectionError: false,
         audioContext: { current: null },
         currentSpeakerId: '',
         setCurrentSpeakerId: vi.fn(),
@@ -156,6 +154,7 @@ describe('Council Component', () => {
 
     beforeEach(() => {
         vi.clearAllMocks();
+        useErrorStore.getState().resetForTests();
         mockNavigate.mockClear();
         mockMetaAgentActivate = false;
         mockUseCouncilMachine.mockReturnValue(mockCouncilStateMachine);
@@ -244,12 +243,10 @@ describe('Council Component', () => {
 
         render(<Council {...defaultProps} />);
 
-        expect(defaultProps.setUnrecoverableError).toHaveBeenCalledWith(
-            expect.objectContaining({
-                message: 'Internal state mismatch: human_panelist state requires an awaiting_human_panelist message.',
-                source: 'Council.human_panelist_state',
-            }),
-        );
+        expect(useErrorStore.getState().unrecoverableError).toMatchObject({
+            message: 'Internal state mismatch: human_panelist state requires an awaiting_human_panelist message.',
+            source: 'Council.human_panelist_state',
+        });
     });
 
     it('mounts HumanInput during warm phase (upcoming awaiting marker)', () => {

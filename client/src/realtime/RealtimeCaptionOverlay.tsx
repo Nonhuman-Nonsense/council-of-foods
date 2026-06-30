@@ -1,7 +1,7 @@
 import { type CSSProperties, type ReactElement, useRef } from "react";
 import { LiveAudioVisualizerPair } from "@council/humanInput/LiveAudioVisualizer";
 import { useMobile } from "@/utils";
-import type { AgentMode } from "@/settings/councilSettings";
+
 import { z } from "@/zIndexLayers";
 import ConversationControlIcon from "@/council/ConversationControlIcon";
 
@@ -11,10 +11,8 @@ const VIZ_SLOT_HEIGHT_PX = 56;
 export type RealtimeSubtitleLayout = "council" | "compact";
 
 export type RealtimeCaptionOverlayProps = {
-  error: string | null;
   lastCaption: string | null;
   lastUserTranscript: string | null;
-  agentMode?: AgentMode;
   subtitleLayout?: RealtimeSubtitleLayout;
   /** Reserve bottom viz row (PTT sessions). */
   showPttVisualizer?: boolean;
@@ -30,7 +28,6 @@ export type RealtimeCaptionOverlayProps = {
  */
 export default function RealtimeCaptionOverlay(props: RealtimeCaptionOverlayProps): ReactElement {
   const {
-    error,
     lastCaption,
     lastUserTranscript,
     subtitleLayout = "compact",
@@ -114,12 +111,6 @@ export default function RealtimeCaptionOverlay(props: RealtimeCaptionOverlayProp
   return (
     <div style={captionContainerStyle} data-subtitle-layout={subtitleLayout}>
       <div style={textBlockStyle} aria-live="polite">
-        {error ? (
-          <p style={{ ...paragraphStyle, color: "#ffb4b4", margin: 0 }} role="alert">
-            {error}
-          </p>
-        ) : null}
-
         {hasText ? (
           <>
             {lastUserTranscript ? (

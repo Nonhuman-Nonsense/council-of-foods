@@ -8,9 +8,9 @@ const mockSetLed = vi.hoisted(() => vi.fn());
 const mockPressed = vi.hoisted(() => ({ value: false }));
 const mockUseVoiceGuide = vi.hoisted(() => vi.fn(() => ({
   isConnecting: false,
-  error: null,
   lastCaption: null,
   lastUserTranscript: null,
+  micStream: null,
   muted: false,
   setMuted: vi.fn(),
   start: vi.fn(),
@@ -29,6 +29,10 @@ const mockUseCouncilSettings = vi.hoisted(() =>
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key, i18n: { language: "en" } }),
+}));
+
+vi.mock("@/routing", () => ({
+  useSwitchLanguage: () => ({ switchLanguage: vi.fn(), otherLanguages: [] }),
 }));
 
 vi.mock("@/settings/councilSettings", () => ({
@@ -136,9 +140,9 @@ describe("MeetingVoiceGuide PTT (regression)", () => {
   it("sets LED off when voice is connecting", () => {
     mockUseVoiceGuide.mockReturnValue({
       isConnecting: true,
-      error: null,
       lastCaption: null,
       lastUserTranscript: null,
+      micStream: null,
       muted: false,
       setMuted: vi.fn(),
       start: vi.fn(),
