@@ -786,6 +786,55 @@ describe('HumanInput PTT museum mode', () => {
         vi.useRealTimers();
     });
 
+    it('builds cumulative transcript partials without stacking duplicated prefixes', async () => {
+        vi.useFakeTimers({ shouldAdvanceTime: true });
+        let onEvent;
+        createRealtimeConnection.mockImplementation(async (opts) => {
+            onEvent = opts.onEvent;
+            return { pc: {}, dc: {}, micStream: createMockMicStream(), close: vi.fn() };
+        });
+
+        await renderPttReady();
+
+        setMockPressed(true);
+        await waitFor(() => {
+            expect(screen.getByTestId('icon-record_voice_on')).toBeInTheDocument();
+        });
+
+        const textarea = screen.getByPlaceholderText('human.button_museum');
+
+        onEvent({ type: 'input_audio_buffer.speech_started' });
+        onEvent({
+            type: 'conversation.item.input_audio_transcription.delta',
+            item_id: 'item_1',
+            delta: 'I am say',
+        });
+        onEvent({
+            type: 'conversation.item.input_audio_transcription.delta',
+            item_id: 'item_1',
+            delta: 'I am saying something',
+        });
+        onEvent({
+            type: 'conversation.item.input_audio_transcription.delta',
+            item_id: 'item_1',
+            delta: 'I am saying something longer',
+        });
+
+        await waitFor(() => {
+            expect(textarea).toHaveValue('I am saying something longer...');
+        });
+
+        setMockPressed(false);
+        onEvent({ type: 'input_audio_buffer.speech_stopped' });
+        await vi.advanceTimersByTimeAsync(2000);
+
+        await waitFor(() => {
+            expect(mockOnSubmit).toHaveBeenCalledWith('I am saying something longer');
+        });
+
+        vi.useRealTimers();
+    });
+
     it('auto-submits when transcript arrives after release while already ready', async () => {
         vi.useFakeTimers({ shouldAdvanceTime: true });
         let onEvent;

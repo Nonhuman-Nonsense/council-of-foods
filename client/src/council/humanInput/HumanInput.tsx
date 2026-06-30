@@ -342,11 +342,21 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
   function handleRealtimeEvent(event: HumanInputRealtimeEvent) {
     if (event.type === "conversation.item.input_audio_transcription.delta") {
       inputAudioActiveRef.current = true;
-      setTranscriptSegments(prev => upsertTranscriptSegment(
-        prev,
-        event.item_id,
-        `${prev.find(segment => segment.itemId === event.item_id)?.text ?? ""}${event.delta}`
-      ));
+      setTranscriptSegments(prev => {
+        const existing = prev.find(segment => segment.itemId === event.item_id)?.text ?? "";
+        const { delta } = event;
+        let next = existing;
+        if (delta) {
+          if (!existing) {
+            next = delta;
+          } else if (delta.startsWith(existing)) {
+            next = delta;
+          } else if (!existing.startsWith(delta)) {
+            next = existing + delta;
+          }
+        }
+        return upsertTranscriptSegment(prev, event.item_id, next);
+      });
       scheduleFinishingQuietClose();
       return;
     }
