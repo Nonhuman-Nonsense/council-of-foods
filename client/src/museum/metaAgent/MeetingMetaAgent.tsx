@@ -4,7 +4,7 @@ import { useButtonBanner } from "@museum/button/useButtonBanner";
 import RealtimeCaptionOverlay from "@realtime/RealtimeCaptionOverlay";
 import Loading from "@main/Loading";
 import { useMetaAgent, type MetaAgentPhase } from "./useMetaAgent";
-import type { SetUnrecoverableError } from "@main/overlay/CouncilError";
+import { useErrorStore, setConnectionError, setUnrecoverableError } from "@main/overlay/errorStore";
 import {
   buildExtensionActivationTurn,
   buildExtensionAgentPrompt,
@@ -42,9 +42,6 @@ export interface MeetingMetaAgentProps {
   participants: Character[];
   currentSpeakerName: string;
   humanName: string;
-  setUnrecoverableError?: SetUnrecoverableError;
-  /** Called with true when a connection error should be surfaced, false to clear it. */
-  setConnectionError?: (active: boolean) => void;
 }
 
 export default function MeetingMetaAgent({
@@ -62,16 +59,13 @@ export default function MeetingMetaAgent({
   participants,
   currentSpeakerName,
   humanName,
-  setUnrecoverableError,
-  setConnectionError,
 }: MeetingMetaAgentProps) {
+  const connectionError = useErrorStore((s) => s.connectionError);
   const button = useButton("meta-agent");
 
   // Track whether the agent is currently unreachable so we can defer showing
   // the connection error until the visitor actually tries to use the agent.
   const agentDownRef = useRef(false);
-  const setConnectionErrorRef = useRef(setConnectionError);
-  useEffect(() => { setConnectionErrorRef.current = setConnectionError; });
 
   const onConnectionLost = useCallback(() => {
     agentDownRef.current = true;
@@ -80,12 +74,12 @@ export default function MeetingMetaAgent({
 
   const onConnectionRestored = useCallback(() => {
     agentDownRef.current = false;
-    setConnectionErrorRef.current?.(false);
+    setConnectionError("meta-agent", false);
   }, []);
 
   const onFatalError = useCallback((e: { message: string; source: string; cause?: unknown }) => {
-    setUnrecoverableError?.({ message: e.message, source: e.source, cause: e.cause });
-  }, [setUnrecoverableError]);
+    setUnrecoverableError({ message: e.message, source: e.source, cause: e.cause });
+  }, []);
 
   const promptBundle = useMemo(() => getMetaAgentBundle(language), [language]);
 
@@ -164,6 +158,13 @@ export default function MeetingMetaAgent({
     onConnectionLost,
     onConnectionRestored,
   });
+
+  useEffect(() => {
+    if (connectionState === "ready") {
+      agentDownRef.current = false;
+      setConnectionError("meta-agent", false);
+    }
+  }, [connectionState]);
 
   const activateExtensionSession = useCallback(() => {
     setAgentOutputMuted(false);
@@ -296,7 +297,7 @@ export default function MeetingMetaAgent({
     // If the agent is down when the visitor presses the button, surface the
     // connection error now — this is when the drop actually affects the UX.
     if (agentDownRef.current || connectionState !== "ready") {
-      setConnectionErrorRef.current?.(true);
+      setConnectionError("meta-agent", true);
       return;
     }
 
@@ -340,6 +341,7 @@ export default function MeetingMetaAgent({
   if (metaAgentPhase === "inactive") return null;
 
   const showExtensionLoader =
+    !connectionError &&
     metaAgentPhase === "extension" &&
     (awaitingExtensionReply || connectionState !== "ready");
 

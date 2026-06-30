@@ -5,6 +5,7 @@ import MeetingMetaAgent from "@museum/metaAgent/MeetingMetaAgent";
 import type { MeetingMetaAgentProps } from "@museum/metaAgent/MeetingMetaAgent";
 import type { ButtonOwner } from "@museum/button/useButton";
 import { BUTTON_BANNER_IDLE_MS, useButtonBanner } from "@museum/button/useButtonBanner";
+import { useErrorStore } from "@main/overlay/errorStore";
 
 const mockClaim = vi.hoisted(() => vi.fn());
 const mockRelease = vi.hoisted(() => vi.fn());
@@ -140,6 +141,7 @@ function makeProps(overrides: Partial<MeetingMetaAgentProps> = {}): MeetingMetaA
 }
 
 beforeEach(() => {
+  useErrorStore.getState().resetForTests();
   mockButtonState.pressed = false;
   mockButtonState.buttonOwner = "meta-agent";
   mockButtonListeners.clear();

@@ -2,8 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { getRealtimeRetryPolicy, useRealtimeVoiceSession } from "@realtime/useRealtimeVoiceSession";
 import type { AgentMode } from "@/settings/councilSettings";
 import type { RealtimeTool, ToolHandler } from "./guideTools";
-import type { SetUnrecoverableError } from "@main/overlay/CouncilError";
-import type { SetConnectionError } from "@main/overlay/Reconnecting";
+import { setConnectionError, setUnrecoverableError } from "@main/overlay/errorStore";
 
 export type UseVoiceGuideParams = {
   language: string;
@@ -16,8 +15,6 @@ export type UseVoiceGuideParams = {
   agentMode?: AgentMode;
   micOpen?: boolean;
   isMuseumMode?: boolean;
-  setUnrecoverableError?: SetUnrecoverableError;
-  setConnectionError?: SetConnectionError;
 };
 
 export type VoiceGuideState = {
@@ -47,20 +44,18 @@ export function useVoiceGuide(params: UseVoiceGuideParams): VoiceGuideState {
     agentMode = "always-on",
     micOpen = false,
     isMuseumMode = false,
-    setUnrecoverableError,
-    setConnectionError,
   } = params;
 
   const [muted, setMuted] = useState(initialMuted);
   const pttMic = agentMode === "ptt";
 
   const onConnectionLost = useCallback(() => {
-    if (isMuseumMode) setConnectionError?.("voice-guide", true);
-  }, [isMuseumMode, setConnectionError]);
+    if (isMuseumMode) setConnectionError("voice-guide", true);
+  }, [isMuseumMode]);
 
   const onConnectionRestored = useCallback(() => {
-    if (isMuseumMode) setConnectionError?.("voice-guide", false);
-  }, [isMuseumMode, setConnectionError]);
+    if (isMuseumMode) setConnectionError("voice-guide", false);
+  }, [isMuseumMode]);
 
   const session = useRealtimeVoiceSession({
     feature: "voice-guide",
@@ -75,7 +70,7 @@ export function useVoiceGuide(params: UseVoiceGuideParams): VoiceGuideState {
     autoConnect: autoStart,
     isMuseumMode,
     retryPolicy: getRealtimeRetryPolicy(isMuseumMode),
-    onFatalError: (e) => setUnrecoverableError?.({ message: e.message, source: e.source, cause: e.cause }),
+    onFatalError: (e) => setUnrecoverableError({ message: e.message, source: e.source, cause: e.cause }),
     onConnectionLost,
     onConnectionRestored,
   });

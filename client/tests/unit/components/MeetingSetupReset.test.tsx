@@ -114,8 +114,6 @@ vi.mock("@shared/prompts/topics_en.json", () => ({
 function MeetingSetupShellHarness({ topicSelection = null }: { topicSelection?: Topic | null }) {
   return (
     <MeetingSetupShell
-      setUnrecoverableError={() => {}}
-      setConnectionError={() => {}}
       topicSelection={topicSelection}
       setTopicSelection={() => {}}
       setMeetingliveKey={() => {}}

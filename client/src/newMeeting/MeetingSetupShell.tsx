@@ -8,12 +8,9 @@ import MeetingVoiceGuide from "@voice/MeetingVoiceGuide";
 import { useCouncilSettings } from "@/settings/councilSettings";
 import type { MeetingSetupPhase, MeetingSetupUserEvent } from "./meetingSetup";
 import { useMeetingSetupStore } from "@newMeeting/meetingSetupStore";
-import type { SetUnrecoverableError } from "@main/overlay/CouncilError";
-import type { SetConnectionError } from "@main/overlay/Reconnecting";
+import { setUnrecoverableError } from "@main/overlay/errorStore";
 
 export interface MeetingSetupShellProps {
-  setUnrecoverableError: SetUnrecoverableError;
-  setConnectionError: SetConnectionError;
   topicSelection: Topic | null;
   setTopicSelection: (topic: Topic) => void;
   setMeetingliveKey: (key: string) => void;
@@ -30,8 +27,6 @@ export type MeetingSetupOutletContext = {
 };
 
 export default function MeetingSetupShell({
-  setUnrecoverableError,
-  setConnectionError,
   topicSelection,
   setTopicSelection,
   setMeetingliveKey,
@@ -144,8 +139,6 @@ export default function MeetingSetupShell({
           onGoToTopicStep={handleGoToTopicStep}
           onSelectTopic={handleSelectTopic}
           onStartMeeting={handleStartMeeting}
-          setUnrecoverableError={setUnrecoverableError}
-          setConnectionError={setConnectionError}
         />
       ) : null}
     </>

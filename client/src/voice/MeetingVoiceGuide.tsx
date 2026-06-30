@@ -21,8 +21,7 @@ import { getVoiceGuideBundle } from "./voiceGuideBundle";
 import { useButtonBanner } from "@/museum/button/useButtonBanner";
 import Loading from "@main/Loading";
 import { useVoiceGuide } from "./useVoiceGuide";
-import type { SetUnrecoverableError } from "@main/overlay/CouncilError";
-import type { SetConnectionError } from "@main/overlay/Reconnecting";
+import { useErrorStore } from "@main/overlay/errorStore";
 
 type MeetingVoiceGuideProps = {
   phase: MeetingSetupPhase;
@@ -31,8 +30,6 @@ type MeetingVoiceGuideProps = {
   onGoToTopicStep: () => void;
   onSelectTopic: (topic: Topic) => void;
   onStartMeeting: (characters: Character[]) => Promise<void> | void;
-  setUnrecoverableError?: SetUnrecoverableError;
-  setConnectionError?: SetConnectionError;
 };
 
 export default function MeetingVoiceGuide({
@@ -42,13 +39,12 @@ export default function MeetingVoiceGuide({
   onGoToTopicStep,
   onSelectTopic,
   onStartMeeting,
-  setUnrecoverableError,
-  setConnectionError,
 }: MeetingVoiceGuideProps) {
   const { i18n, t } = useTranslation();
   const { isMuseumMode, agentMode } = useCouncilSettings();
   const { switchLanguage, otherLanguages } = useSwitchLanguage();
   const button = useButton("voice-guide");
+  const connectionError = useErrorStore((s) => s.connectionError);
   const {
     selectedTopic,
     customTopic,
@@ -104,8 +100,6 @@ export default function MeetingVoiceGuide({
     language: guideLanguage,
     instructions,
     isMuseumMode,
-    setUnrecoverableError,
-    setConnectionError,
     tools: createGuideTools({ promptBundle, otherLanguages }),
     toolHandlers: createGuideToolHandlers({
       topics: guideTopics,
@@ -134,7 +128,7 @@ export default function MeetingVoiceGuide({
   const { sendUserMessage, muted } = voice;
 
   const showMuseumLandingLoading =
-    isMuseumMode && phase === "landing" && !muted && voice.isConnecting;
+    isMuseumMode && phase === "landing" && !muted && voice.isConnecting && !connectionError;
 
   useButtonBanner({
     owner: "voice-guide",

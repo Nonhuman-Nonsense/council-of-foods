@@ -19,18 +19,15 @@ import ButtonBanner from "@/museum/button/ButtonBanner";
 import MeetingMetaAgent from "@museum/metaAgent/MeetingMetaAgent";
 import type { MetaAgentPhase } from "@museum/metaAgent/useMetaAgent";
 import { CHAIR_ID } from "@/prompts/characterSetupBundles";
-import type { SetUnrecoverableError } from "@main/overlay/CouncilError";
 import { notifyAutoplay } from "@/autoplay/autoplayStore";
 import type { SummaryPlaybackState } from "@council/summaryScrollSync";
+import { useErrorStore, setUnrecoverableError } from "@main/overlay/errorStore";
 
 interface CouncilProps {
   liveKey: string | null;
   setliveKey: (key: string) => void;
   topic: Topic | null;
   setTopic: (topic: Topic) => void;
-  setUnrecoverableError: SetUnrecoverableError;
-  setConnectionError: (source: "socket" | "meta-agent", active: boolean) => void;
-  connectionError: boolean;
   audioContext: React.RefObject<AudioContext | null>;
   currentSpeakerId: string;
   setCurrentSpeakerId: (id: string) => void;
@@ -43,9 +40,6 @@ function Council({
   setliveKey,
   topic,
   setTopic,
-  setUnrecoverableError,
-  setConnectionError,
-  connectionError,
   audioContext,
   currentSpeakerId,
   setCurrentSpeakerId,
@@ -56,6 +50,7 @@ function Council({
   const { meetingId } = useParams<{ meetingId: string }>();
   const { t, i18n } = useTranslation();
   const { isMuseumMode, agentMode } = useCouncilSettings();
+  const connectionError = useErrorStore((s) => s.connectionError);
 
   const navigate = useNavigate();
 
@@ -110,7 +105,7 @@ function Council({
       }
     })();
     return () => ac.abort();
-  }, [liveKey, meetingId, currentMeetingId, setUnrecoverableError]);
+  }, [liveKey, meetingId, currentMeetingId]);
 
   // Hook Logic
   const { state, actions } = useCouncilMachine({
@@ -123,9 +118,6 @@ function Council({
     humanName,
     setHumanName,
     audioContext,
-    setUnrecoverableError,
-    setConnectionError,
-    connectionError,
     isPaused,
     setPaused,
     isMuseumMode,
@@ -198,7 +190,7 @@ function Council({
         meetingId: currentMeetingId,
       });
     }
-  }, [councilState, textMessages, playNextIndex, setUnrecoverableError]);
+  }, [councilState, textMessages, playNextIndex, currentMeetingId]);
 
   useEffect(() => {
     setCurrentSpeakerId(derivedCurrentSpeakerId);
@@ -250,7 +242,7 @@ function Council({
         metaAgentPhase={metaAgentPhase}
         agentSpeaking={agentSpeaking}
       />
-      {councilState === 'loading' && <Loading />}
+      {councilState === 'loading' && !connectionError && <Loading />}
       {isMuseumMode && liveKey && agentMode === "ptt" && (
         <MeetingMetaAgent
           liveKey={liveKey}
@@ -267,8 +259,6 @@ function Council({
           participants={participants}
           currentSpeakerName={participants.find((p) => p.id === currentSpeakerId)?.name ?? ""}
           humanName={humanName}
-          setUnrecoverableError={setUnrecoverableError}
-          setConnectionError={(active) => setConnectionError("meta-agent", active)}
         />
       )}
       {liveKey && participationPhase !== "off" && (
