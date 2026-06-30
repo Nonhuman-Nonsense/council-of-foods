@@ -808,7 +808,7 @@ describe('HumanInput PTT museum mode', () => {
             iceServers: [],
             session: {
                 type: 'realtime',
-                audio: { input: { transcription: { model: 'soniox/stt-rt-v4' } } },
+                audio: { input: { transcription: { model: 'test/soniox-stt' } } },
             },
         });
         let onEvent;
@@ -852,7 +852,7 @@ describe('HumanInput PTT museum mode', () => {
             iceServers: [],
             session: {
                 type: 'realtime',
-                audio: { input: { transcription: { model: 'soniox/stt-rt-v4' } } },
+                audio: { input: { transcription: { model: 'test/soniox-stt' } } },
             },
         });
         let onEvent;
@@ -911,7 +911,7 @@ describe('HumanInput PTT museum mode', () => {
             iceServers: [],
             session: {
                 type: 'realtime',
-                audio: { input: { transcription: { model: 'assemblyai/u3-rt-pro' } } },
+                audio: { input: { transcription: { model: 'test/assemblyai-stt' } } },
             },
         });
         let onEvent;

@@ -129,8 +129,9 @@ describe("mergeTranscriptionDelta", () => {
 
 describe("transcriptionDeltaMergeModeForModel", () => {
   it("uses adaptive merge for Soniox and replace for AssemblyAI", () => {
-    expect(transcriptionDeltaMergeModeForModel("soniox/stt-rt-v4")).toBe("adaptive");
-    expect(transcriptionDeltaMergeModeForModel("assemblyai/u3-rt-pro")).toBe("replace");
+    expect(transcriptionDeltaMergeModeForModel("test/soniox-stt")).toBe("adaptive");
+    expect(transcriptionDeltaMergeModeForModel("provider/soniox/model")).toBe("adaptive");
+    expect(transcriptionDeltaMergeModeForModel("test/assemblyai-stt")).toBe("replace");
   });
 });
 
