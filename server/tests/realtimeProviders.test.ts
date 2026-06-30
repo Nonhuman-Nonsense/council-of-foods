@@ -71,16 +71,11 @@ describe("realtimeProviders", () => {
                     transcription: {
                         model: "soniox/stt-rt-v4",
                         language: "sv",
-                        prompt: "Förvänta dig svenskt tal.",
                     },
                 },
             },
-            providerData: {
-                stt: {
-                    language_hints: ["sv-SE"],
-                },
-            },
         });
+        expect(result.session).not.toHaveProperty("providerData");
     });
 
     it("builds an Inworld realtime bootstrap for English", async () => {
@@ -103,7 +98,6 @@ describe("realtimeProviders", () => {
                     transcription: {
                         model: "assemblyai/u3-rt-pro",
                         language: "en",
-                        prompt: "Expect english input.",
                     },
                 },
             },

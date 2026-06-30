@@ -85,6 +85,22 @@ describe("logEvent", () => {
 
     expect(logSpy).not.toHaveBeenCalled();
   });
+
+  it("emits flat single-line logs when category is enabled", async () => {
+    mockGetDevLogEnabled.mockReturnValue(true);
+    mockIsDevLogCategoryEnabled.mockImplementation((category) => category === "REALTIME");
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => undefined);
+    const groupSpy = vi.spyOn(console, "groupCollapsed").mockImplementation(() => undefined);
+    const { logEventFlat } = await import("../../src/logger");
+
+    logEventFlat("REALTIME", "human-input | connect-ready", { language: "sv" });
+
+    expect(logSpy).toHaveBeenCalled();
+    expect(groupSpy).not.toHaveBeenCalled();
+    const line = String(logSpy.mock.calls[0]?.[0]);
+    expect(line).toContain("[REALTIME]");
+    expect(line).toContain("human-input | connect-ready");
+  });
 });
 
 describe("reportTerminalError", () => {

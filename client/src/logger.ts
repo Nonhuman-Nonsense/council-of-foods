@@ -145,8 +145,32 @@ export function logEvent(category: LogCategory, message: string, data?: unknown)
   emitStructuredLog(category, message, data);
 }
 
+/** Single-line log for easy copy/paste (no collapsed groups). */
+export function logEventFlat(category: LogCategory, message: string, data?: unknown): void {
+  if (category === "ERROR") {
+    if (shouldLog("ERROR")) {
+      const style = CATEGORY_STYLE.ERROR;
+      const icon = CATEGORY_ICON.ERROR;
+      const payload =
+        data === undefined ? "" : ` ${JSON.stringify(summarizeLogPayload(data))}`;
+      console.error(`%c${icon} [${category}] ${message}${payload}`, style);
+    } else if (import.meta.env.DEV) {
+      mirrorErrorToConsole(message, data);
+    }
+    return;
+  }
+
+  if (!shouldLog(category)) return;
+
+  const style = CATEGORY_STYLE[category] ?? "font-weight: bold;";
+  const icon = CATEGORY_ICON[category] ?? "🔹";
+  const payload = data === undefined ? "" : ` ${JSON.stringify(summarizeLogPayload(data))}`;
+  console.log(`%c${icon} [${category}] ${message}${payload}`, style);
+}
+
 export const log = {
   event: logEvent,
+  flat: logEventFlat,
 };
 
 function serializeClientCause(cause: unknown): unknown {
