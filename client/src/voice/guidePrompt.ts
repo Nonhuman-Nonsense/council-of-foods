@@ -36,7 +36,7 @@ export type BuildGuidePromptParams = {
   phase: MeetingSetupPhase;
   agentMode?: AgentMode;
   visitorName?: string;
-  /** Spoken names of other available languages, e.g. ["Swedish"]. Empty or absent on single-language deploys. */
+  /** English display names for other languages, used in the spoken English aside (e.g. "Swedish", not "svenska"). */
   otherLanguageNames?: string[];
 };
 
@@ -95,7 +95,7 @@ export function buildGuidePrompt(params: BuildGuidePromptParams): string {
 
   if (phase === "landing" && otherLanguageNames && otherLanguageNames.length > 0) {
     const names = otherLanguageNames.join(" or ");
-    prompt += `\n\nLanguage options:\nIn your opening welcome, mention once — as a brief aside, not a question you wait for — that the visitor can continue in ${names} if they prefer (e.g. "If you prefer ${names}, let me know."). Then continue immediately with your main job. Do not pause for an answer. If they later ask to switch, call switch_language with the target language code.`;
+    prompt += `\n\nLanguage options:\nIn your opening welcome, mention once — as a brief aside, not a question you wait for — that the visitor can continue in ${names} if they prefer. Say this aside in English regardless of your current language, so visitors who only speak ${names} can understand it (e.g. "If you prefer ${names}, just let me know."). Then continue immediately with your main job in your current language. Do not pause for an answer. If they later ask to switch, call switch_language with the target language code.`;
   }
 
   return prompt;

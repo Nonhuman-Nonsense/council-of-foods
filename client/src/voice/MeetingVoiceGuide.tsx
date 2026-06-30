@@ -52,6 +52,7 @@ export default function MeetingVoiceGuide({
   const characterSetupBundle = useMemo(() => getCharacterSetupBundle(i18n.language), [i18n.language]);
   const guideLanguage = i18n.language.toLowerCase().startsWith("sv") ? "sv" : "en";
   const promptBundle = useMemo(() => getVoiceGuideBundle(guideLanguage), [guideLanguage]);
+  const englishPromptBundle = useMemo(() => getVoiceGuideBundle("en"), []);
 
   const guideTopics = useMemo(() => {
     return [
@@ -77,8 +78,8 @@ export default function MeetingVoiceGuide({
   }, [characterSetupBundle]);
 
   const otherLanguageNames = useMemo(
-    () => otherLanguages.map((lang) => promptBundle.languageNames?.[lang] ?? lang),
-    [otherLanguages, promptBundle],
+    () => otherLanguages.map((lang) => englishPromptBundle.languageNames?.[lang] ?? lang),
+    [otherLanguages, englishPromptBundle],
   );
 
   const instructions = useMemo(() => {

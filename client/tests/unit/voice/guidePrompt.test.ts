@@ -79,7 +79,8 @@ describe('buildGuidePrompt', () => {
 
     expect(prompt).toContain('Language options:');
     expect(prompt).toContain('mention once');
-    expect(prompt).toContain('If you prefer Swedish, let me know');
+    expect(prompt).toContain('Say this aside in English regardless of your current language');
+    expect(prompt).toContain('If you prefer Swedish, just let me know.');
     expect(prompt).toContain('Do not pause for an answer');
     expect(prompt).toContain('switch_language');
   });
