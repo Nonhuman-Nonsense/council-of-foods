@@ -67,4 +67,44 @@ describe('buildGuidePrompt', () => {
     expect(prompt).toContain('remember_visitor_name');
     expect(prompt).toContain('start_meeting');
   });
+
+  it('mentions other languages once on landing without waiting for an answer', () => {
+    const prompt = buildGuidePrompt({
+      bundle: baseBundle,
+      topics: [],
+      characters: [],
+      phase: 'landing',
+      otherLanguageNames: ['Swedish'],
+    });
+
+    expect(prompt).toContain('Language options:');
+    expect(prompt).toContain('mention once');
+    expect(prompt).toContain('If you prefer Swedish, let me know');
+    expect(prompt).toContain('Do not pause for an answer');
+    expect(prompt).toContain('switch_language');
+  });
+
+  it('omits language options on non-landing phases', () => {
+    const prompt = buildGuidePrompt({
+      bundle: baseBundle,
+      topics: [],
+      characters: [],
+      phase: 'topic',
+      otherLanguageNames: ['Swedish'],
+    });
+
+    expect(prompt).not.toContain('Language options:');
+  });
+
+  it('omits language options when no other languages are available', () => {
+    const prompt = buildGuidePrompt({
+      bundle: baseBundle,
+      topics: [],
+      characters: [],
+      phase: 'landing',
+      otherLanguageNames: [],
+    });
+
+    expect(prompt).not.toContain('Language options:');
+  });
 });

@@ -21,6 +21,8 @@ export type VoiceGuidePromptBundle = {
   landingJobInstructionsPushToTalk: string[];
   jobInstructions: string[];
   toolDescriptions: Record<string, string>;
+  /** Spoken display names for each language code, e.g. { en: "English", sv: "Swedish" }. Only present on multi-language bundles. */
+  languageNames?: Record<string, string>;
 };
 
 /** Shared prompt skeleton; per-app JSON only supplies vocabulary and prose. */
@@ -34,6 +36,8 @@ export type BuildGuidePromptParams = {
   phase: MeetingSetupPhase;
   agentMode?: AgentMode;
   visitorName?: string;
+  /** Spoken names of other available languages, e.g. ["Swedish"]. Empty or absent on single-language deploys. */
+  otherLanguageNames?: string[];
 };
 
 function formatBullets(lines: string[]): string {
@@ -58,7 +62,7 @@ function buildVisitorContext(visitorName: string | undefined): string {
  * we hit with very long instructions.
  */
 export function buildGuidePrompt(params: BuildGuidePromptParams): string {
-  const { bundle, topics, characters, phase, agentMode = "always-on", visitorName } = params;
+  const { bundle, topics, characters, phase, agentMode = "always-on", visitorName, otherLanguageNames } = params;
 
   const { singular: characterSingular, plural: characterPlural, stepLabel: characterStepLabel } =
     bundle.characterVocabulary;
@@ -87,5 +91,12 @@ export function buildGuidePrompt(params: BuildGuidePromptParams): string {
     characterStepLabel,
   };
 
-  return VOICE_GUIDE_PROMPT_TEMPLATE.replace(/\$\{(\w+)\}/g, (_match, key: string) => replacements[key] ?? "");
+  let prompt = VOICE_GUIDE_PROMPT_TEMPLATE.replace(/\$\{(\w+)\}/g, (_match, key: string) => replacements[key] ?? "");
+
+  if (phase === "landing" && otherLanguageNames && otherLanguageNames.length > 0) {
+    const names = otherLanguageNames.join(" or ");
+    prompt += `\n\nLanguage options:\nIn your opening welcome, mention once — as a brief aside, not a question you wait for — that the visitor can continue in ${names} if they prefer (e.g. "If you prefer ${names}, let me know."). Then continue immediately with your main job. Do not pause for an answer. If they later ask to switch, call switch_language with the target language code.`;
+  }
+
+  return prompt;
 }

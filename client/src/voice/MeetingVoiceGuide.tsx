@@ -1,5 +1,6 @@
 import type { Topic } from "@shared/ModelTypes";
 import { useEffect, useMemo } from "react";
+import { useSwitchLanguage } from "@/routing";
 import { useTranslation } from "react-i18next";
 import VoiceGuideOverlay from "./VoiceGuideOverlay";
 import { getTopicsBundle } from "@main/topicsBundle";
@@ -39,6 +40,7 @@ export default function MeetingVoiceGuide({
 }: MeetingVoiceGuideProps) {
   const { i18n, t } = useTranslation();
   const { isMuseumMode, agentMode } = useCouncilSettings();
+  const { switchLanguage, otherLanguages } = useSwitchLanguage();
   const button = useButton("voice-guide");
   const {
     selectedTopic,
@@ -74,6 +76,11 @@ export default function MeetingVoiceGuide({
     }));
   }, [characterSetupBundle]);
 
+  const otherLanguageNames = useMemo(
+    () => otherLanguages.map((lang) => promptBundle.languageNames?.[lang] ?? lang),
+    [otherLanguages, promptBundle],
+  );
+
   const instructions = useMemo(() => {
     return buildGuidePrompt({
       bundle: promptBundle,
@@ -82,13 +89,14 @@ export default function MeetingVoiceGuide({
       phase,
       agentMode,
       visitorName,
+      otherLanguageNames,
     });
-  }, [guideCharacters, guideTopics, phase, promptBundle, agentMode, visitorName]);
+  }, [guideCharacters, guideTopics, phase, promptBundle, agentMode, visitorName, otherLanguageNames]);
 
   const voice = useVoiceGuide({
     language: guideLanguage,
     instructions,
-    tools: createGuideTools({ promptBundle }),
+    tools: createGuideTools({ promptBundle, otherLanguages }),
     toolHandlers: createGuideToolHandlers({
       topics: guideTopics,
       characters: guideCharacters,
@@ -107,6 +115,8 @@ export default function MeetingVoiceGuide({
       meetingCharactersLabels: {
         formatHumanCount: (count) => t("meeting.characters.humanCount", { count }),
       },
+      otherLanguages,
+      switchLanguage,
     }),
     agentMode,
     micOpen: button.pressed,
