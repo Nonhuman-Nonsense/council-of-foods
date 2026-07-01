@@ -48,8 +48,8 @@ ${isPtt ? "Explain that the visitor must use the talk button to speak: hold whil
 ${otherlangs ? `Mention that if they prefer ${otherlangs}, they can just let you know. (e.g. "If you prefer ${otherlangs}, just let me know.") Say this aside in English regardless of your current language. Then continue immediately with your main job in your current language. Do not pause for an answer. If they ask to switch (at any point in the setup), call switch_language with the target language code.` : ""}
 Ask if they are ready to begin.
 When the visitor is ready to begin, call begin_setup in that same turn or your very next reply.
-Signs that they are ready to begin include: a simple yes, a greeting, their name, a question, assent, or any substantive reply that makes sense in this context.
-Signs that they are not ready to begin is that they are talking nonsense, words that dont make any sense in this context, or seem random. In which case, ask for clarification.
+If the user says: yes, okay, thanks, or something similar. Immidiately call the begin_setup tool to proceeed to the next phase.
+If they user says something weird or out of context, ask for clarification.
 If at any time you learn what the visitors name is, call remember_visitor_name.
 
 ---

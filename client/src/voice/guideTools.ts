@@ -116,7 +116,7 @@ export function createGuideTools({
       type: "function",
       name: "begin_setup",
       description:
-        `Leave the welcome screen and open the topic selection step. Call this tool immidiately when the user is ready.`,
+        `Proceed onwards from the welcome screen and open the topic selection step. Call this tool immidiately when the user is ready.`,
       parameters: { type: "object", properties: {}, additionalProperties: false },
     },
     {
