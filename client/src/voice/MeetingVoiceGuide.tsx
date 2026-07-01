@@ -17,6 +17,7 @@ import { useButton, type ButtonLedMode } from "@/museum/button/useButton";
 import { useCouncilSettings } from "@/settings/councilSettings";
 import { buildGuidePrompt } from "./guidePrompt";
 import { createGuideToolHandlers, createGuideTools } from "./guideTools";
+import { useInactivityNudge } from "./useInactivityNudge";
 import { useButtonBanner } from "@/museum/button/useButtonBanner";
 import Loading from "@main/Loading";
 import { useVoiceGuide } from "./useVoiceGuide";
@@ -125,6 +126,19 @@ export default function MeetingVoiceGuide({
     micOpen: button.pressed,
   });
   const { sendUserMessage, muted } = voice;
+
+  useInactivityNudge({
+    lastCaption: voice.lastCaption,
+    lastUserTranscript: voice.lastUserTranscript,
+    sendMessage: sendUserMessage,
+    requestResponse: voice.requestAgentResponse,
+    delayMs: 10_000,
+    enabled: !voice.isConnecting && !muted,
+    message:
+      phase === "landing"
+        ? "The visitor is quiet. Gently prompt them to respond to you."
+        : "The visitor has been quiet for a while. Check in with them — ask if they need help or have a question.",
+  });
 
   const showMuseumReconnecting =
     isMuseumMode && !muted && voice.isConnecting && !connectionError;

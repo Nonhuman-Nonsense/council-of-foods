@@ -27,6 +27,7 @@ export type VoiceGuideState = {
   start: () => Promise<void>;
   stop: () => void;
   sendUserMessage: (text: string) => void;
+  requestAgentResponse: () => void;
 };
 
 /**
@@ -99,5 +100,6 @@ export function useVoiceGuide(params: UseVoiceGuideParams): VoiceGuideState {
     },
     stop,
     sendUserMessage: session.sendUserMessage,
+    requestAgentResponse: session.requestAgentResponse,
   };
 }
