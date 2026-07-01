@@ -126,21 +126,43 @@ export function createEventLoop(params: {
    */
   const MAX_EMPTY_RESPONSE_RETRIES = 1;
 
+  // --- TEMP INSTRUMENTATION (empty-response root-cause hunt) -----------------
+  // Plain console.log so it survives with the app logger disabled.
+  // Tags every response.create with WHY it was sent, and prints the
+  // discriminating data at each turn: transcript text, create reason,
+  // whether the response produced output, and final status.
+  const dbg = (...args: unknown[]) => console.log("🐛 NUDGE-DEBUG", ...args);
+  /** Reason for the response.create we just sent; consumed by response.created. */
+  let pendingCreateReason: string | null = null;
+  /** Reason the in-flight response was created ("server-auto" if we didn't send it). */
+  let currentResponseReason = "server-auto";
+  /** Most recent user transcript text (for correlating in logs). */
+  let lastUserTranscript = "";
+
+  const sendResponseCreate = (reason: string): void => {
+    pendingCreateReason = reason;
+    dbg("OUT response.create", { reason, lastUserTranscript });
+    send({ type: "response.create" });
+  };
+  // --------------------------------------------------------------------------
+
   const isResponseActive = () => activeResponses > 0;
 
-  const requestResponseIfIdle = (): boolean => {
+  const requestResponseIfIdle = (reason = "idle-request"): boolean => {
     if (activeResponses > 0) {
       log("skip response.create: already active", { activeResponses });
+      dbg("skip response.create: already active", { reason, activeResponses });
       return false;
     }
     if (!sessionReady) {
       // Don't fire before the session is configured: the model would run with
       // default instructions/tools and produce server_error (observed).
       log("skip response.create: session not yet ready");
+      dbg("skip response.create: session not ready", { reason });
       pendingDeferredResponse = true;
       return false;
     }
-    send({ type: "response.create" });
+    sendResponseCreate(reason);
     return true;
   };
 
@@ -220,11 +242,11 @@ export function createEventLoop(params: {
               content: [{ type: "input_text", text: userText }],
             },
           });
-          send({ type: "response.create" });
+          sendResponseCreate("greeting");
         }
       } else if (pendingDeferredResponse && activeResponses === 0) {
         pendingDeferredResponse = false;
-        send({ type: "response.create" });
+        sendResponseCreate("deferred-on-session-updated");
       }
       return true;
     }
@@ -232,7 +254,13 @@ export function createEventLoop(params: {
     if (type === "response.created") {
       activeResponses += 1;
       sawOutputThisResponse = false;
+      currentResponseReason = pendingCreateReason ?? "server-auto";
+      pendingCreateReason = null;
       devLog.event("REALTIME", "IN response.created", { activeResponses });
+      dbg("IN response.created", {
+        reason: currentResponseReason,
+        forUserTranscript: lastUserTranscript,
+      });
       captionScheduler?.beginResponse();
       callbacks.onResponseStarted?.();
       return true;
@@ -249,13 +277,19 @@ export function createEventLoop(params: {
         devLog.event("REALTIME", "IN response.cancelled");
       }
       devLog.event("REALTIME", "IN response.done", { status: r?.status, activeResponses });
+      dbg("IN response.done", {
+        reason: currentResponseReason,
+        status: r?.status,
+        sawOutput: sawOutputThisResponse,
+        forUserTranscript: lastUserTranscript,
+      });
       if (r?.status === "cancelled" || r?.status === "failed") {
         captionScheduler?.cancel();
       }
       callbacks.onResponseDone?.({ status: r?.status });
       if (pendingDeferredResponse && sessionReady && activeResponses === 0) {
         pendingDeferredResponse = false;
-        send({ type: "response.create" });
+        sendResponseCreate("deferred-on-response-done");
         return true;
       }
 
@@ -275,12 +309,19 @@ export function createEventLoop(params: {
             status: r?.status,
             emptyResponseRetries,
           });
-          send({ type: "response.create" });
+          dbg("EMPTY RESPONSE — sending bare retry (same context, no new message)", {
+            createdBy: currentResponseReason,
+            status: r?.status,
+            emptyResponseRetries,
+          });
+          sendResponseCreate("empty-retry");
         } else {
-          devLog.event("REALTIME", "empty response — no retry", {
+          dbg("EMPTY RESPONSE — no retry (cap/guards)", {
+            createdBy: currentResponseReason,
             status: r?.status,
             emptyResponseRetries,
             activeResponses,
+            sessionReady,
           });
         }
       } else {
@@ -315,6 +356,7 @@ export function createEventLoop(params: {
       const meta = functionCallMeta.get(itemId);
       const name = meta?.name;
       const callId = meta?.call_id ?? itemId;
+      dbg("tool call emitted", { name, createdBy: currentResponseReason });
       if (!name) return true;
 
       let parsedArgs: unknown = {};
@@ -348,7 +390,7 @@ export function createEventLoop(params: {
         cancelActiveResponse();
         log("skip response.create: tool requested suppressContinuation");
       } else {
-        requestResponseIfIdle();
+        requestResponseIfIdle("tool-continuation");
       }
       functionCallMeta.delete(itemId);
       return true;
@@ -409,6 +451,12 @@ export function createEventLoop(params: {
       // New user turn — reset the empty-response retry budget.
       emptyResponseRetries = 0;
       const transcript = asStr(obj.transcript);
+      lastUserTranscript = transcript ?? "";
+      dbg("IN transcription.completed", {
+        transcript: transcript ?? "(null)",
+        length: transcript?.length ?? 0,
+        blank: !transcript || transcript.trim().length === 0,
+      });
       if (transcript && transcript.trim().length > 0) {
         callbacks.onUserTranscript(transcript);
         if (captionScheduler) {
