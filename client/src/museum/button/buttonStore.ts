@@ -7,17 +7,19 @@ import {
 import { getAgentMode } from "@/settings/councilSettings";
 import { log } from "@/logger";
 import type { ReplayBannerVariant } from "@/autoplay/autoplayStore";
+import type { TranslationKey } from "@/i18n";
 
 export type ButtonLedMode = "off" | "pulse" | "on";
+
 export type ButtonOwner = "setup" | "autoplay" | "voice-guide" | "human-input" | "meta-agent" | "summary" | "replay";
 
 export type ButtonClaims = Partial<Record<ButtonOwner, true>>;
 export type ButtonLedModes = Partial<Record<ButtonOwner, ButtonLedMode>>;
 export type ButtonBannerVisible = Partial<Record<ButtonOwner, boolean>>;
-export type ButtonBannerMessageKeys = Partial<Record<ButtonOwner, string>>;
+export type ButtonBannerMessageKeys = Partial<Record<ButtonOwner, TranslationKey>>;
 
 export type BannerContent =
-  | { kind: "message"; messageKey: string }
+  | { kind: "message"; messageKey: TranslationKey }
   | {
       kind: "replay";
       meetingId: number;
@@ -106,7 +108,7 @@ type ButtonStore = {
   releaseButton: (owner: ButtonOwner) => void;
   setButtonLed: (owner: ButtonOwner, mode: ButtonLedMode) => void;
   setButtonBannerVisible: (owner: ButtonOwner, visible: boolean) => void;
-  setButtonBannerMessageKey: (owner: ButtonOwner, messageKey: string | undefined) => void;
+  setButtonBannerMessageKey: (owner: ButtonOwner, messageKey: TranslationKey | undefined) => void;
   setButtonBannerContent: (owner: ButtonOwner, content: BannerContent | undefined) => void;
   resyncLed: () => Promise<void>;
   init: () => void;
@@ -296,7 +298,7 @@ function setBannerMessageKeyForOwner(
   set: (partial: Partial<ButtonStore> | ((state: ButtonStore) => Partial<ButtonStore>)) => void,
   get: () => ButtonStore,
   owner: ButtonOwner,
-  messageKey: string | undefined,
+  messageKey: TranslationKey | undefined,
 ): void {
   const bannerMessageKeys = { ...get().bannerMessageKeys };
   if (messageKey) {

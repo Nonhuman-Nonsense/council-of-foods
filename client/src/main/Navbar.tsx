@@ -235,8 +235,16 @@ function Navbar({ topicTitle: topic, hamburgerOpen, setHamburgerOpen }: NavbarPr
   );
 }
 
+type NavItemName = "settings" | "about" | "contact";
+
+function navItemLabelKey(name: NavItemName): "settings" | "about.label" | "contact.label" {
+  if (name === "about") return "about.label";
+  if (name === "contact") return "contact.label";
+  return "settings";
+}
+
 interface NavItemProps {
-  name: string;
+  name: NavItemName;
   isActive: boolean;
   show: boolean;
   onNavigate: (to: string) => void;
@@ -245,7 +253,7 @@ interface NavItemProps {
 function NavItem({ name, isActive, show, onNavigate }: NavItemProps): React.ReactElement {
   const { t } = useTranslation();
 
-  const labelKey = name === "about" || name === "contact" ? `${name}.label` : name;
+  const labelKey = navItemLabelKey(name);
 
   const navItemStyle: React.CSSProperties = {
     marginLeft: "19px",

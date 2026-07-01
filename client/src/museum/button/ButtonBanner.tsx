@@ -1,6 +1,7 @@
 import type { ReactElement } from "react";
 import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
+import type { TranslationKey } from "@/i18n";
 import MarqueeRollingBanner from "@council/MarqueeRollingBanner";
 import { Icons } from "@assets/icons";
 import { useButtonStore } from "./buttonStore";
@@ -78,7 +79,8 @@ export default function ButtonBanner({ inline = false }: ButtonBannerProps): Rea
     );
   }
 
-  const message = t(bannerMessageKey ?? "ptt.holdToSpeak");
+  const messageKey: TranslationKey = bannerMessageKey ?? "ptt.holdToSpeak";
+  const message = t(messageKey);
 
   return (
     <div className={wrapperClass}>

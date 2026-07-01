@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { TranslationKey } from "@/i18n";
 import { useButtonStore, type BannerContent, type ButtonOwner } from "./buttonStore";
 
 /** Idle window before the banner appears, and again before onIdleTerminal fires. */
@@ -46,7 +47,7 @@ export type UseButtonBannerParams = {
   /** Re-arm the idle terminal timer when these change (e.g. agent stopped speaking). */
   terminalDeps?: readonly unknown[];
   /** i18n key for the global ButtonBanner while this owner is active. */
-  messageKey?: string;
+  messageKey?: TranslationKey;
   /** Rich banner payload (e.g. replay preamble). Takes precedence over messageKey in ButtonBanner. */
   bannerContent?: BannerContent;
   /** Show the banner as soon as the session is active (skip idle delay). */
