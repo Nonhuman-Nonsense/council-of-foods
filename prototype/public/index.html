@@ -45,12 +45,22 @@
             </div>
           </div>
           <div class="topic-list" style="display: flex; flex-direction: column; gap: 4px;">
-            <div v-for="(topic, index) in currentLanguageData.topics" :key="index" class="topic-item"
-              :class="{ active: localOptions.currentTopicIndex === index }"
-              @click="localOptions.currentTopicIndex = index">
+            <div v-for="topic in currentLanguageData.topics" :key="topic.id" class="topic-item"
+              :class="{ active: !isCustomTopicSelected && localOptions.selectedTopicId === topic.id }"
+              @click="selectTopic(topic.id)">
               <input type="text" class="styled-input" v-model="topic.name" style="display: none;">
               <div style="font-weight: 500; overflow: hidden; text-overflow: ellipsis;">
                 {{ topic.name || 'Untitled Topic' }}
+              </div>
+            </div>
+            <div
+              v-if="currentLanguageData.customTopic"
+              class="topic-item topic-item-custom"
+              :class="{ active: isCustomTopicSelected }"
+              @click="selectTopic(customTopicId)"
+            >
+              <div style="font-weight: 500; overflow: hidden; text-overflow: ellipsis;">
+                {{ currentLanguageData.customTopic.name || 'Custom Topic' }}
               </div>
             </div>
           </div>
@@ -104,21 +114,55 @@
                   <input type="text" class="input-full" v-model="currentTopic.name" placeholder="Topic Name"
                     style="margin-bottom: 15px;">
 
-                  <label class="sub-label">Topic Description</label>
-                  <textarea class="input-area" v-model="currentTopic.description"
-                    placeholder="Description of the topic..." v-auto-resize
-                    style="min-height: 60px; margin-bottom: 15px; resize: none; overflow-y: hidden;"></textarea>
-
+                  <template v-if="!isCustomTopicSelected">
+                    <label class="sub-label">Topic Description</label>
+                    <textarea class="input-area" v-model="currentTopic.description"
+                      placeholder="Description of the topic..." v-auto-resize
+                      style="min-height: 60px; margin-bottom: 15px; resize: none; overflow-y: hidden;"></textarea>
+                  </template>
+                  <template v-else>
+                    <label class="sub-label">Visitor Input</label>
+                    <textarea class="input-area" v-model="localOptions.customTopicVisitorInput"
+                      placeholder="What should the Council discuss? Replaced where [VISITOR_INPUT] appears in the topic prompt."
+                      v-auto-resize
+                      style="min-height: 60px; margin-bottom: 15px; resize: none; overflow-y: hidden;"></textarea>
+                    <small style="display: block; opacity: 0.8;">
+                      For experimenting with custom topics. Not exported.
+                    </small>
+                  </template>
 
                   <label class="sub-label">Topic Prompt</label>
-                  <textarea class="input-area" v-model="currentTopic.prompt" placeholder="Describe the topic..."
-                    v-auto-resize></textarea>
+                  <textarea class="input-area" v-model="currentTopic.prompt"
+                    :placeholder="isCustomTopicSelected ? 'Custom topic prompt template (use [VISITOR_INPUT])...' : 'Describe the topic...'"
+                    v-auto-resize style="margin-bottom: 15px;"></textarea>
+
+                  <template v-if="!isCustomTopicSelected">
+                    <div class="sidebar-section-header" style="margin-bottom: 8px;">
+                      <label class="sub-label" style="margin-bottom: 0;">Agenda Points (optional)</label>
+                      <div>
+                        <button class="icon-btn" type="button" @click="addAgendaPoint">+</button>
+                        <button class="icon-btn" type="button" @click="removeAgendaPoint">-</button>
+                      </div>
+                    </div>
+                    <div v-if="currentTopic.agendaPoints && currentTopic.agendaPoints.length > 0"
+                      style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px;">
+                      <div v-for="(point, agendaIndex) in currentTopic.agendaPoints" :key="agendaIndex">
+                        <label class="sub-label">Agenda Point {{ agendaIndex + 1 }}</label>
+                        <textarea class="input-area" v-model="currentTopic.agendaPoints[agendaIndex]"
+                          :placeholder="'Agenda point ' + (agendaIndex + 1) + '...'" v-auto-resize
+                          style="min-height: 60px; resize: none; overflow-y: hidden;"></textarea>
+                      </div>
+                    </div>
+                    <small v-else style="display: block; margin-bottom: 15px; opacity: 0.75;">
+                      No agenda points.
+                    </small>
+                  </template>
 
                   <label class="sub-label">System Prompt (Shared)</label>
                   <textarea class="input-area" v-model="currentSystemPrompt" placeholder="System prompt..."
                     v-auto-resize></textarea>
-                  <small style="color: var(--text-secondary); display: block; margin-top: 5px;">[TOPIC] will be replaced
-                    by the topic above.</small>
+                  <small v-if="!isCustomTopicSelected">[TOPIC] and [AGENDA_POINTS] are replaced from the topic configuration above.</small>
+                  <small v-else>[TOPIC] uses the resolved custom prompt above. Custom topics have no agenda points.</small>
                 </div>
               </div>
 
@@ -139,7 +183,7 @@
                   <character-card v-for="(character, index) in activeCharacters" :key="character._ui_id"
                     :character="character" :is-active="true"
                     :is-expanded="localOptions.expandedCharacters[character._ui_id]"
-                    :voice-lists="{ openai: audioVoices, gemini: audioVoicesGemini, inworld: audioVoicesInworld }"
+                    :voice-lists="{ openai: audioVoices }"
                     :is-sorting="isResizing" :is-pinned="isCharacterPinned(character)"
                     @toggle-expanded="toggleCharacterExpanded(character._ui_id)"
                     @toggle-active="toggleCharacterActive(character)" :data-id="character._ui_id"
@@ -152,7 +196,7 @@
                   <character-card v-for="(character, index) in inactiveCharacters" :key="character._ui_id"
                     :character="character" :is-active="false"
                     :is-expanded="localOptions.expandedCharacters[character._ui_id]"
-                    :voice-lists="{ openai: audioVoices, gemini: audioVoicesGemini, inworld: audioVoicesInworld }"
+                    :voice-lists="{ openai: audioVoices }"
                     :is-sorting="false" :is-pinned="isCharacterPinned(character)"
                     @toggle-expanded="toggleCharacterExpanded(character._ui_id)"
                     @toggle-active="toggleCharacterActive(character)">
@@ -175,10 +219,11 @@
             <div style="margin-left: auto; display: flex; gap: 5px;">
               <!-- Conversation Controls -->
               <button v-if="status === 'IDLE'" class="primary" @click="startConversation">Start</button>
+              <span v-if="status === 'ERROR'" class="status-error" title="Reload the page to continue">ERROR</span>
               <button v-if="status === 'PAUSED'" class="primary" @click="resumeConversation">Resume</button>
               <button v-if="status === 'ACTIVE' || status === 'CONNECTING'" @click="pauseConversation">Pause</button>
               <button v-if="status === 'PAUSED' || status === 'ENDED'" @click="restartConversation">Restart</button>
-              <button v-if="status === 'ENDED' && canContinueMeeting" class="primary" @click="continueConversation">Keep Going</button>
+              <button v-if="status === 'ENDED' && hasQueryExtension" class="primary" @click="continueConversation">Extend</button>
 
               <div style="border-left: 1px solid var(--border-color); margin: 0 5px;"></div>
 
@@ -225,15 +270,26 @@
                         'user': false, 
                         'chair': turn.speaker === 'Chair', 
                         'character': turn.speaker !== 'Chair',
-                        'system': turn.type === 'max_reached',
+                        'system': isSyntheticTurnType(turn.type),
                         'playing': audioController && audioController.currentIndex === index
                       }" style="margin-bottom: 10px; position: relative;"
               v-show="localOptions.showTrimmed || turn.type !== 'skipped'">
 
-              <template v-if="turn.type === 'max_reached'">
+              <template v-if="turn.type === 'query_extension'">
                 <div style="color: var(--text-secondary); font-size: 0.95em;">
-                  Conversation reached the current length limit.
-                  <span v-if="turn.canContinue === false"> Absolute cap reached — continue is not available.</span>
+                  Conversation reached the current length limit — extend or wrap up.
+                </div>
+              </template>
+
+              <template v-else-if="turn.type === 'awaiting_human_question'">
+                <div style="color: var(--text-secondary); font-size: 0.95em;">
+                  Awaiting question from {{ formatSpeakerLabel(turn.speaker) }}.
+                </div>
+              </template>
+
+              <template v-else-if="turn.type === 'awaiting_human_panelist'">
+                <div style="color: var(--text-secondary); font-size: 0.95em;">
+                  Awaiting panelist {{ formatSpeakerLabel(turn.speaker) }}.
                 </div>
               </template>
 
@@ -249,12 +305,20 @@
                 </svg>
               </button>
 
-              <!-- Loading Spinner (no audio for synthetic rows like max_reached — handled above) -->
+              <!-- Loading Spinner (no audio for synthetic rows like query_extension — handled above) -->
               <div class="spinner"
                 v-if="!options.skipAudio && turn.type !== 'skipped' && (!audioController || !audioController.hasItem(index))">
               </div>
 
-              <div class="bubble-header">{{ turn.speaker || '—' }}</div>
+              <div class="bubble-header">
+                {{ formatSpeakerLabel(turn.speaker) }}
+                <span v-if="turn.askParticular" class="ask-particular">
+                  asked {{ formatSpeakerLabel(turn.askParticular) }}
+                </span>
+                <span v-else-if="turn.type === 'invitation'" class="ask-particular">
+                  invited {{ formatInvitationGuest(index) }}
+                </span>
+              </div>
 
               <div v-if="localOptions.showTrimmed && turn.pretrimmed" class="trimmed"
                 style="color: var(--text-secondary); font-size: 0.9em; margin-bottom: 5px;"
@@ -270,47 +334,20 @@
 
             <div v-if="status === 'CONNECTING'" class="loader" style="text-align: center; padding: 20px;">Thinking...
             </div>
-            <div v-if="injectionStatus"
-              style="text-align: center; padding: 10px; font-style: italic; color: var(--accent-color);">
-              {{ injectionStatus }}
-            </div>
           </div>
 
-          <!-- Injection Bar (Collapsible Drawer) -->
-          <div style="border-top: 1px solid var(--border-color); background: var(--bg-panel);">
-
-            <!-- Drawer Header / Toggle -->
-            <div @click="localOptions.isInjectionDrawerOpen = !localOptions.isInjectionDrawerOpen"
-              style="padding: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; color: var(--text-secondary); font-size: 0.9em; user-select: none; transition: background 0.2s;">
-              <span v-if="!localOptions.isInjectionDrawerOpen">Inject Instruction</span>
-              <span v-else>Hide Injection</span>
-              <span style="font-size: 1.2em;">{{ localOptions.isInjectionDrawerOpen ? '↓' : '↑' }}</span>
-            </div>
-
-            <!-- Drawer Content -->
-            <div v-if="localOptions.isInjectionDrawerOpen"
-              style="padding: 10px; border-top: 1px solid var(--border-color-light);">
-              <div style="display: flex; gap: 5px; align-items: flex-end;">
-                <textarea v-model="options.injectPrompt"
-                  placeholder="Inject instruction (e.g. 'Ask specifically about apples')..." rows="1" v-auto-resize
-                  style="flex: 1; margin: 0; min-height: 36px; height: 36px; padding: 8px; font-family: monospace; line-height: 1.4; font-size: 0.9em; resize: none; overflow-y: hidden;"></textarea>
-                <button @click="submitInjection" :disabled="!!injectionStatus" class="primary"
-                  style="height: 36px;">Send</button>
-              </div>
-              <div
-                style="display: flex; justify-content: space-between; align-items: center; margin-top: 5px; font-size: 11px; color: var(--text-secondary);">
-                <!-- Length Slider -->
-                <div style="display: flex; align-items: center; gap: 8px; flex: 1; margin-right: 15px;">
-                  <span style="white-space: nowrap;">Length: {{ options.maxTokensInject }}</span>
-                  <input type="range" min="100" max="2000" step="50" v-model.number="options.maxTokensInject"
-                    style="flex: 1; height: 4px;">
-                </div>
-
-                <button class="icon-btn" @click="removeLastMessage" title="Remove last message"
-                  style="font-size: 11px; padding: 2px 5px;">↩ Undo Last</button>
-              </div>
-            </div>
+          <div class="prototype-debug-bar" v-if="status === 'ACTIVE' || status === 'PAUSED'">
+            <button
+              type="button"
+              class="raise-hand-btn"
+              @click="raiseHand"
+              :disabled="!canRaiseHand"
+              title="Raise hand — chair invites Visitor to speak"
+            >
+              Raise hand
+            </button>
           </div>
+
         </div>
 
       </div>
@@ -324,9 +361,15 @@
       </div>
       <div class="sidebar-content">
         <div class="section-group">
-          <label>Model</label>
-          <input type="text" class="input-full" v-model="options.gptModel">
-          <small style="color: var(--text-secondary);">See OpenAI docs for models</small>
+          <label>Models ({{ options.language }})</label>
+          <textarea
+            class="input-area"
+            v-model="languageModelsText"
+            spellcheck="false"
+            style="font-family: monospace; font-size: 11px; height: 100px; overflow-y: auto; resize: none;"></textarea>
+          <small v-if="localOptions.languageModelsError" style="color: var(--danger-color); display: block; margin-top: 6px;">
+            Invalid JSON: {{ localOptions.languageModelsError }}
+          </small>
         </div>
         <hr>
         <div class="section-group">
@@ -340,14 +383,6 @@
         <div class="section-group">
           <label>Chair Max Tokens: {{ options.chairMaxTokens }}</label>
           <input type="range" min="10" max="600" step="10" v-model.number="options.chairMaxTokens">
-        </div>
-        <div class="section-group">
-          <label>Freq Penalty: {{ options.frequencyPenalty }}</label>
-          <input type="range" min="0" max="2.0" step="0.01" v-model.number="options.frequencyPenalty">
-        </div>
-        <div class="section-group">
-          <label>Pres Penalty: {{ options.presencePenalty }}</label>
-          <input type="range" min="0" max="2.0" step="0.01" v-model.number="options.presencePenalty">
         </div>
         <hr>
         <div class="section-group" style="display: flex; gap: 10px;">
@@ -366,12 +401,20 @@
         </div>
         <hr>
         <div class="section-group">
-          <label>Audio Speed: {{ options.audio_speed }}</label>
-          <input type="range" min="0.5" max="1.5" step="0.01" v-model.number="options.audio_speed">
+          <label>Audio Speed: {{ options.defaultAudioSpeed }}</label>
+          <input type="range" min="0.5" max="1.5" step="0.01" v-model.number="options.defaultAudioSpeed">
         </div>
         <div class="section-group">
           <label style="display: flex; align-items: center; gap: 5px;">
             <input type="checkbox" v-model="options.skipAudio" style="width: auto; margin: 0;"> Skip Generating Audio
+          </label>
+        </div>
+        <hr>
+        <h3>Speaker Routing</h3>
+        <div class="section-group">
+          <label style="display: flex; align-items: center; gap: 5px;">
+            <input type="checkbox" v-model="options.directedSpeakerRouting" style="width: auto; margin: 0;">
+            Directed speaker routing
           </label>
         </div>
         <hr>
@@ -448,6 +491,9 @@
         <label class="sub-label">Character Prompt</label>
         <textarea class="input-area" placeholder="Character prompt..." v-model="character.prompt"
           v-auto-resize></textarea>
+        <small v-if="isPinned">
+          Keywords: [CHARACTERS], [HUMANS], [RANDOM_AGENDA_POINT]
+        </small>
 
         <label class="sub-label">Voice Provider</label>
         <div class="voice-selector" style="margin-bottom: 10px;">
@@ -457,61 +503,74 @@
               @change="onProviderChange">
             OpenAI
           </label>
-          <label class="voice-chip" :class="{ active: character.voiceProvider === 'gemini' }">
-            <input type="radio" value="gemini" v-model="character.voiceProvider" style="display: none;"
-              @change="onProviderChange">
-            Gemini
-          </label>
           <label class="voice-chip" :class="{ active: character.voiceProvider === 'inworld' }">
             <input type="radio" value="inworld" v-model="character.voiceProvider" style="display: none;"
               @change="onProviderChange">
             Inworld
           </label>
-        </div>
-
-        <label class="sub-label" v-if="character.voiceProvider === 'gemini'">Voice Accent</label>
-        <div class="voice-selector" style="margin-bottom: 10px;" v-if="character.voiceProvider === 'gemini'">
-          <label class="voice-chip" :class="{ active: character.voiceLocale === 'en-US' }">
-            <input type="radio" value="en-US" v-model="character.voiceLocale" style="display: none;"> 🇺🇸
-          </label>
-          <label class="voice-chip" :class="{ active: character.voiceLocale === 'en-GB' || (!character.voiceLocale) }">
-            <input type="radio" value="en-GB" v-model="character.voiceLocale" style="display: none;"> 🇬🇧
-          </label>
-          <label class="voice-chip" :class="{ active: character.voiceLocale === 'en-AU' }">
-            <input type="radio" value="en-AU" v-model="character.voiceLocale" style="display: none;"> 🇦🇺
-          </label>
-          <label class="voice-chip" :class="{ active: character.voiceLocale === 'en-IN' }">
-            <input type="radio" value="en-IN" v-model="character.voiceLocale" style="display: none;"> 🇮🇳
+          <label class="voice-chip" :class="{ active: character.voiceProvider === 'elevenlabs' }">
+            <input type="radio" value="elevenlabs" v-model="character.voiceProvider" style="display: none;"
+              @change="onProviderChange">
+            ElevenLabs
           </label>
         </div>
 
-        <label class="sub-label">Voice Option</label>
-        <div class="voice-selector">
-          <template v-if="character.voiceProvider === 'gemini'">
-            <template v-for="voiceName in voiceLists.gemini" :key="voiceName">
-              <label class="voice-chip" :class="{ active: character.voice === voiceName }">
-                <input type="radio" :value="voiceName" v-model="character.voice" style="display: none;">
-                {{ voiceName }}
-              </label>
-            </template>
-          </template>
-          <template v-else-if="character.voiceProvider === 'inworld'">
-            <template v-for="voiceName in voiceLists.inworld" :key="voiceName">
-              <label class="voice-chip" :class="{ active: character.voice === voiceName }">
-                <input type="radio" :value="voiceName" v-model="character.voice" style="display: none;">
-                {{ voiceName }}
-              </label>
-            </template>
-          </template>
-          <template v-else>
+        <template v-if="character.voiceProvider === 'inworld'">
+          <label class="sub-label">Voice ID</label>
+          <input type="text" class="input-full" placeholder="Enter Inworld Voice ID..."
+            v-model="character.voice" style="padding: 8px;">
+
+          <label class="sub-label">Voice Language (optional)</label>
+          <input type="text" class="input-full" placeholder="e.g. sv-SE, en-GB"
+            v-model="character.voiceLocale" style="padding: 8px;">
+          <small>
+            BCP-47 locale. Leave empty for TTS 1.5; any value uses TTS-2.
+          </small>
+        </template>
+
+        <template v-else-if="character.voiceProvider === 'elevenlabs'">
+          <label class="sub-label">Voice ID</label>
+          <input type="text" class="input-full" placeholder="Enter ElevenLabs Voice ID..."
+            v-model="character.voice" style="padding: 8px;">
+
+          <label class="sub-label">Voice Language (optional)</label>
+          <input type="text" class="input-full" placeholder="e.g. en, sv"
+            v-model="character.voiceLocale" style="padding: 8px;">
+          <small style="display: block; margin-bottom: 10px;">
+            ISO 639-1 language code. Leave empty to let the model auto-detect.
+          </small>
+
+          <label class="sub-label">Voice Stability ({{ character.voiceStability ?? 0.5 }})</label>
+          <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+            <input type="range" class="styled-range" min="0" max="1" step="0.01"
+              :value="character.voiceStability ?? 0.5"
+              @input="character.voiceStability = parseFloat($event.target.value)"
+              style="flex: 1;">
+          </div>
+
+          <label class="sub-label">Voice Style ({{ character.voiceStyle ?? 0 }})</label>
+          <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+            <input type="range" class="styled-range" min="0" max="1" step="0.01"
+              :value="character.voiceStyle ?? 0"
+              @input="character.voiceStyle = parseFloat($event.target.value)"
+              style="flex: 1;">
+          </div>
+          <small style="display: block; margin-bottom: 10px; color: var(--text-secondary);">
+            Stability controls consistency; style exaggerates the speaker's delivery.
+          </small>
+        </template>
+
+        <template v-if="!usesCustomVoiceId(character)">
+          <label class="sub-label">Voice Option</label>
+          <div class="voice-selector">
             <template v-for="voiceName in voiceLists.openai" :key="voiceName">
               <label class="voice-chip" :class="{ active: character.voice === voiceName }">
                 <input type="radio" :value="voiceName" v-model="character.voice" style="display: none;">
                 {{ voiceName }}
               </label>
             </template>
-          </template>
-        </div>
+          </div>
+        </template>
 
         <label class="sub-label" style="display: flex; align-items: center; justify-content: space-between;">
           <span>Voice Speed ({{ character.voiceSpeed || 'Global' }})</span>
@@ -525,18 +584,19 @@
 
         <template v-if="character.voiceProvider === 'inworld'">
           <label class="sub-label">Voice Temperature ({{ character.voiceTemperature || 1.1 }})</label>
-          <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+          <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 5px;">
             <input type="range" class="styled-range" min="0.7" max="1.5" step="0.01"
               :value="character.voiceTemperature || 1.1"
-              @input="character.voiceTemperature = parseFloat($event.target.value)" style="flex: 1;">
+              :disabled="usesInworldTts2(character)"
+              @input="character.voiceTemperature = parseFloat($event.target.value)"
+              :style="{ flex: 1, filter: usesInworldTts2(character) ? 'grayscale(1) opacity(0.5)' : 'none' }">
           </div>
-
-          <label class="sub-label">Custom Voice ID</label>
-          <input type="text" class="input-full" placeholder="Enter Inworld Voice ID..."
-            :value="voiceLists.inworld.includes(character.voice) ? '' : character.voice"
-            @input="character.voice = $event.target.value" style="margin-top: 5px; height: 36px; padding: 8px;">
+          <small v-if="usesInworldTts2(character)"
+            style="display: block; margin-bottom: 10px; color: var(--text-secondary);">
+            Not available on TTS-2 (used when a language locale is set).
+          </small>
         </template>
-        <template v-else>
+        <template v-else-if="character.voiceProvider === 'openai' || !character.voiceProvider">
           <label class="sub-label">Voice Instruction</label>
           <textarea class="input-area" placeholder="e.g. 'Excited'" v-model="character.voiceInstruction" v-auto-resize
             rows="1" style="margin-top: 5px; min-height: 36px; height: 36px; padding: 8px;"></textarea>
@@ -547,7 +607,7 @@
 
   <script src="Sortable.min.js"></script>
   <script src="audio_controller.js"></script>
-  <script src="prototype_client.js?v=2.2"></script>
+  <script src="prototype_client.js?v=3.0"></script>
 </body>
 
 </html>

@@ -6,12 +6,13 @@ import { ClientToServerEvents, ReconnectionOptions, SetupOptions } from "@shared
 import { ZodError } from "zod";
 import { getGlobalOptions } from "./GlobalOptions.js";
 import {
+    getLiveSessionHolder,
     releaseLiveSession,
     tryAcquireLiveSession,
 } from "./liveSessionRegistry.js";
 
 import { SetupOptionsSchema, ReconnectionOptionsSchema } from "@models/ValidationSchemas.js";
-import { ConflictError } from "@models/Errors.js";
+import { ConflictError, CouncilError } from "@models/Errors.js";
 /**
  * SocketManager
  * 
@@ -25,6 +26,8 @@ import { ConflictError } from "@models/Errors.js";
  * 3. Routes subsequent events to the active session.
  */
 export class SocketManager {
+    private static readonly activeManagers = new Map<string, SocketManager>();
+
     private socket: Socket;
     private environment: string;
     private currentSession: MeetingManager | null = null; // Using MeetingManager as the "Session" class
@@ -38,13 +41,24 @@ export class SocketManager {
         this.socket = socket;
         this.environment = environment;
         this.socketBroadcaster = new SocketBroadcaster(socket);
+        SocketManager.activeManagers.set(socket.id, this);
         this.setupListeners();
+    }
+
+    static lookup(socketId: string): SocketManager | undefined {
+        return SocketManager.activeManagers.get(socketId);
+    }
+
+    /** Test helper — vitest should reset manager registry between tests. */
+    static clearForTests(): void {
+        SocketManager.activeManagers.clear();
     }
 
     private setupListeners() {
         this.socket.on("disconnect", () => {
             Logger.info("socket", `[${this.socket.id}] session disconnected`);
-            this.destroySession();
+            SocketManager.activeManagers.delete(this.socket.id);
+            void this.destroySession("drain");
         });
 
         // Lifecycle Events
@@ -58,17 +72,16 @@ export class SocketManager {
         const proxyEvents: (keyof ClientToServerEvents)[] = [
             "submit_human_message",
             "submit_human_panelist",
+            "skip_human_turn",
             "raise_hand",
-            "wrap_up_meeting",
+            "conclude_meeting",
             "report_maximum_played_index",
-            "continue_conversation"
+            "extend_meeting"
         ];
 
         if (this.environment === "prototype" || this.environment === "test") {
-            proxyEvents.push("submit_injection");
             proxyEvents.push("pause_conversation");
             proxyEvents.push("resume_conversation");
-            proxyEvents.push("remove_last_message");
         }
 
         for (const event of proxyEvents) {
@@ -115,37 +128,98 @@ export class SocketManager {
                     ? `meeting ${this.currentSession.meeting._id}`
                     : `socket ${this.socket.id}`;
 
+                // Route to broadcastWarning vs broadcastError by severity — same client payload today,
+                // but the method name is the policy hook (see IMeetingBroadcaster).
                 if (error instanceof ZodError) {
-                    Logger.warn(context, `Validation error for ${event}; notifying client (400): ${error.message}`, error);
-                    this.socketBroadcaster.broadcastWarning("Invalid Input", 400, error);
+                    Logger.warn(
+                        context,
+                        `Validation error for ${event}; notifying client (400): ${error.message}`,
+                        error,
+                        { clientImpact: 'notified' },
+                    );
+                    this.socketBroadcaster.broadcastWarning(CouncilError.fromZod(error), context);
+                } else if (error instanceof CouncilError) {
+                    if (error.statusCode >= 500) {
+                        const errMessage = error instanceof Error ? error.message : String(error);
+                        Logger.error(
+                            context,
+                            `Error handling event ${event}; notifying client (${error.statusCode}): ${errMessage}`,
+                            error,
+                            { clientImpact: 'terminal' },
+                        );
+                        this.socketBroadcaster.broadcastError(error, context);
+                    } else {
+                        Logger.warn(
+                            context,
+                            `Error handling event ${event}; notifying client (${error.statusCode}): ${error.clientMessage}`,
+                            error,
+                            { clientImpact: 'notified' },
+                        );
+                        this.socketBroadcaster.broadcastWarning(error, context);
+                    }
                 } else {
                     const errMessage = error instanceof Error ? error.message : String(error);
-                    Logger.error(context, `Error handling event ${event}; notifying client (500): ${errMessage}`, error);
-                    this.socketBroadcaster.broadcastError("Internal Server Error", 500);
+                    Logger.error(
+                        context,
+                        `Error handling event ${event}; notifying client (500): ${errMessage}`,
+                        error,
+                        { clientImpact: 'terminal' },
+                    );
+                    this.socketBroadcaster.broadcastError(CouncilError.fromUnexpected(error), context);
                 }
             }
         });
     }
 
-    private destroySession() {
+    private async destroySession(audioStrategy: "drain" | "cancel" = "drain") {
         if (this.currentSession?.meeting) {
             releaseLiveSession(this.currentSession.meeting._id, this.socket.id);
         }
         if (this.currentSession) {
-            this.currentSession.destroy();
+            await this.currentSession.destroy(audioStrategy);
             this.currentSession = null;
         }
     }
 
+    /** Tear down an active meeting session without waiting for socket disconnect. */
+    async abandonLiveSession(audioStrategy: "drain" | "cancel" = "cancel"): Promise<void> {
+        await this.destroySession(audioStrategy);
+    }
+
+    /**
+     * Socket.IO reconnect assigns a new socket id before the old connection is torn down.
+     * When the client re-presents the same liveKey, preempt the stale holder instead of 409.
+     */
+    private async preemptStaleLiveSessionForReconnect(meetingId: number, liveKey: string): Promise<void> {
+        const holder = getLiveSessionHolder(meetingId);
+        if (!holder || holder.socketId === this.socket.id || holder.liveKey !== liveKey) {
+            return;
+        }
+
+        Logger.info(
+            "socket",
+            `Preempting stale live session on socket ${holder.socketId} for reconnect on ${this.socket.id}`,
+        );
+
+        const staleManager = SocketManager.lookup(holder.socketId);
+        if (staleManager) {
+            await staleManager.abandonLiveSession("cancel");
+            return;
+        }
+
+        releaseLiveSession(meetingId, holder.socketId);
+        this.socket.nsp.sockets.get(holder.socketId)?.disconnect(true);
+    }
+
     private async handleStart(payload: SetupOptions) {
         Logger.info("socket", "Starting new meeting session...");
-        this.destroySession();
+        await this.destroySession("cancel");
 
         const data = SetupOptionsSchema.parse(payload);
 
         if (!tryAcquireLiveSession(data.meetingId, this.socket.id, data.liveKey)) {
             Logger.warn("socket",`Live session already held for meeting ${data.meetingId}; rejecting start_conversation on socket ${this.socket.id} (409)`);
-            this.socketBroadcaster.broadcastError(ConflictError.clientErrorMessage, ConflictError.statusCode);
+            this.socketBroadcaster.broadcastError(new ConflictError());
             return;
         }
 
@@ -175,13 +249,14 @@ export class SocketManager {
             return;
         }
 
-        this.destroySession();
-
         const data = ReconnectionOptionsSchema.parse(payload);
+
+        await this.preemptStaleLiveSessionForReconnect(data.meetingId, data.liveKey);
+        await this.destroySession("cancel");
 
         if (!tryAcquireLiveSession(data.meetingId, this.socket.id, data.liveKey)) {
             Logger.warn("socket",`Live session already held for meeting ${data.meetingId}; rejecting attempt_reconnection on socket ${this.socket.id} (409)`);
-            this.socketBroadcaster.broadcastError(ConflictError.clientErrorMessage, ConflictError.statusCode);
+            this.socketBroadcaster.broadcastError(new ConflictError());
             return;
         }
 

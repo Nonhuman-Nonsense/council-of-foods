@@ -1,18 +1,22 @@
 import { describe, it, expect } from "vitest";
+import { CHARACTERS_FILE } from "@shared/prompts/characterSetupMetadata";
 
-const foodsModules = import.meta.glob<{ foods: { id: string }[] }>("/src/prompts/foods_*.json", {
+const promptModules = import.meta.glob<{ characters: { id: string }[] }>("@shared/prompts/*.json", {
     eager: true,
     import: "default",
 });
+const characterModules = Object.fromEntries(
+    Object.entries(promptModules).filter(([path]) => new RegExp(`/${CHARACTERS_FILE}_[^/]+\\.json$`).test(path)),
+) as Record<string, { characters: { id: string }[] }>;
 
-const hevcVideos = import.meta.glob("/src/assets/foods/videos/*-hevc-safari.mp4");
-const vp9Videos = import.meta.glob("/src/assets/foods/videos/*-vp9-chrome.webm");
+const hevcVideos = import.meta.glob("/src/assets/characters/videos/*-hevc-safari.mp4");
+const vp9Videos = import.meta.glob("/src/assets/characters/videos/*-vp9-chrome.webm");
 
-function collectFoodIds(): Set<string> {
+function collectCharacterIds(): Set<string> {
     const ids = new Set<string>();
-    for (const data of Object.values(foodsModules)) {
-        for (const food of data.foods ?? []) {
-            if (food?.id) ids.add(food.id);
+    for (const data of Object.values(characterModules)) {
+        for (const character of data.characters ?? []) {
+            if (character?.id) ids.add(character.id);
         }
     }
     return ids;
@@ -31,7 +35,7 @@ function idsFromGlobKeys(keys: string[], suffix: string): Set<string> {
 
 describe("Food video integrity", () => {
     it("has a matching HEVC + VP9 pair for every food in prompts", () => {
-        const foodIds = collectFoodIds();
+        const foodIds = collectCharacterIds();
         const hevcIds = idsFromGlobKeys(Object.keys(hevcVideos), "-hevc-safari.mp4");
         const vp9Ids = idsFromGlobKeys(Object.keys(vp9Videos), "-vp9-chrome.webm");
 

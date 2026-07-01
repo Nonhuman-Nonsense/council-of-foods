@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import type { Ref } from 'react';
-import Navbar from '@components/Navbar';
+import Navbar from '@main/Navbar';
 import { MemoryRouter } from 'react-router';
 import '@testing-library/jest-dom';
 
@@ -9,21 +8,6 @@ import '@testing-library/jest-dom';
 vi.mock('react-i18next', () => ({
     useTranslation: () => ({ t: (key: string) => key, i18n: { language: 'en' } }),
 }));
-
-vi.mock('react-lottie-player', async () => {
-    const React = await import('react');
-    const { vi } = await import('vitest');
-    return {
-        default: React.forwardRef((props: Record<string, unknown>, ref: Ref<unknown>) => {
-            React.useImperativeHandle(ref, () => ({
-                play: vi.fn(),
-                setDirection: vi.fn(),
-                stop: vi.fn(),
-            }));
-            return <div data-testid="lottie-player" {...props} />;
-        })
-    };
-});
 
 // Mock Utils (Responsive Hooks)
 vi.mock('@/utils', () => ({
@@ -39,7 +23,7 @@ vi.mock('react-responsive', () => ({
 }));
 
 // Mock Assets
-vi.mock('@/animations/hamburger.json', () => ({ default: {} }));
+vi.mock('@assets/animations/hamburger.json', () => ({ default: {} }));
 
 import * as utils from '@/utils';
 import * as responsive from 'react-responsive';
@@ -61,9 +45,9 @@ describe('Navbar', () => {
         vi.mocked(responsive.useMediaQuery).mockReturnValue(true); // showIconinMeny
     });
 
-    const renderNavbar = (props = defaultProps) => {
+    const renderNavbar = (props = defaultProps, initialEntries: string[] = ['/meeting/123']) => {
         return render(
-            <MemoryRouter initialEntries={['/meeting/123']}>
+            <MemoryRouter initialEntries={initialEntries}>
                 <Navbar {...props} />
             </MemoryRouter>
         );
@@ -71,11 +55,12 @@ describe('Navbar', () => {
 
     it('renders desktop navbar correctly', () => {
         renderNavbar();
-        expect(screen.getByText('COUNCIL')).toBeVisible();
+        expect(screen.getByText('APP.COUNCIL')).toBeVisible();
         expect(screen.getByText('#123: Test topic')).toBeVisible();
         expect(screen.getByText('SETTINGS')).toBeVisible();
-        expect(screen.getByText('ABOUT')).toBeVisible();
-        expect(screen.getByText('CONTACT')).toBeVisible();
+        expect(screen.getByText('ABOUT.LABEL')).toBeVisible();
+        expect(screen.getByText('CONTACT.LABEL')).toBeVisible();
+        expect(screen.queryByText('SETUP')).not.toBeInTheDocument();
         expect(screen.queryByTestId('lottie-player')).not.toBeInTheDocument();
     });
 
@@ -107,7 +92,7 @@ describe('Navbar', () => {
         const props = { ...defaultProps, hamburgerOpen: true };
         renderNavbar(props);
 
-        const aboutLink = screen.getByText('ABOUT');
+        const aboutLink = screen.getByText('ABOUT.LABEL');
         fireEvent.click(aboutLink);
 
         // Should close menu

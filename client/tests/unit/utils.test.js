@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { capitalizeFirstLetter, toTitleCase, filename, mapFoodIndex } from '../../src/utils';
+import { capitalizeFirstLetter, toTitleCase, filename, mapFoodIndex } from '@/utils';
 
 describe('Utils', () => {
     describe('capitalizeFirstLetter', () => {

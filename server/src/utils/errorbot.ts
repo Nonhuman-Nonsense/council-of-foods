@@ -4,6 +4,26 @@ import { cyan, yellow, red } from "colorette";
 // Avoid circular dependency by not importing Logger here.
 // Instead, we use console directly for internal logging of the errorbot itself.
 
+export type ReportSeverity = 'warning' | 'error' | 'critical';
+export type ClientImpact = 'none' | 'notified' | 'terminal' | 'process_exit';
+export type ReportSource = 'server' | 'client';
+
+export type ErrorReport = {
+    context: string;
+    severity: ReportSeverity;
+    message: string;
+    error?: unknown;
+    clientImpact?: ClientImpact;
+    source?: ReportSource;
+};
+
+/** Optional overrides for Logger.warn / Logger.error default severity. */
+export type ReportOptions = {
+    severity?: ReportSeverity;
+    clientImpact?: ClientImpact;
+    source?: ReportSource;
+};
+
 //We wrap this in a function to make sure that it runs after .env is loaded
 export function initReporting(): void {
     if (config.COUNCIL_ERRORBOT) {
@@ -33,22 +53,21 @@ function serializeError(err: unknown): unknown {
  * Sends a report to the configured external error service.
  * Designed to be called by Logger.ts.
  */
-export async function sendReport(context: string, level: string, message: string, err?: unknown): Promise<void> {
+export async function sendReport(report: ErrorReport): Promise<void> {
 
-    // 2. Don't send if not configured
     if (!config.COUNCIL_ERRORBOT) {
-        // Reduced verbosity here to avoid log spam loops if Logger calls this
-        // console.warn(`${cyan("[config]")} ${yellow("COUNCIL_ERRORBOT not set, will not report to external error service.")}`);
         return;
     }
 
     const payload = {
         service: config.COUNCIL_DB_PREFIX,
-        level: level,
-        context: context,
-        message: message,
+        severity: report.severity,
+        clientImpact: report.clientImpact ?? 'none',
+        source: report.source ?? 'server',
+        context: report.context,
+        message: report.message,
         time: new Date().toISOString(),
-        error: serializeError(err)
+        error: serializeError(report.error),
     };
 
     const sendStr = JSON.stringify(payload);
@@ -68,11 +87,14 @@ export async function sendReport(context: string, level: string, message: string
     });
 }
 
-//For all unrecoverable errors, post the message to error bot, and then crash
 process.on('uncaughtException', async (err) => {
-    // Log locally
     console.error(`${red("[process]")} Uncaught Exception`, err);
-    // Send report
-    await sendReport("process", "ERROR", "Uncaught Exception", err);
+    await sendReport({
+        context: 'process',
+        severity: 'critical',
+        message: '[PROCESS EXIT] Uncaught Exception',
+        error: err,
+        clientImpact: 'process_exit',
+    });
     process.exit(1);
 });

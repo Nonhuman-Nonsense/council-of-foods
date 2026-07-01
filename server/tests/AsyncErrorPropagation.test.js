@@ -18,15 +18,14 @@ vi.mock('@utils/Logger.js', () => ({
 
 // Mock logic modules
 // We need to return mock instances so we can control their methods
-const mockHumanInputHandler = { handleSubmitHumanMessage: vi.fn(), handleSubmitHumanPanelist: vi.fn(), handleSubmitInjection: vi.fn() };
+const mockHumanInputHandler = { handleSubmitHumanMessage: vi.fn(), handleSubmitHumanPanelist: vi.fn(), handleSkipHumanTurn: vi.fn() };
 const mockHandRaisingHandler = { handleRaiseHand: vi.fn() };
 const mockMeetingLifecycleHandler = {
-    handleWrapUpMeeting: vi.fn(),
+    handleConcludeMeeting: vi.fn(),
     handleStartConversation: vi.fn(),
-    handleContinueConversation: vi.fn(),
+    handleExtendMeeting: vi.fn(),
     handlePauseConversation: vi.fn(),
     handleResumeConversation: vi.fn(),
-    handleRemoveLastMessage: vi.fn()
 };
 const mockConnectionHandler = { handleReconnection: vi.fn(), handleDisconnect: vi.fn() };
 const mockAudioSystem = { queueAudioGeneration: vi.fn() };
@@ -100,10 +99,10 @@ describe('Async Error Propagation (Comprehensive)', () => {
             payload: { text: 'Answer', speaker: 'Expert', type: 'panelist' }
         },
         {
-            event: 'submit_injection',
+            event: 'skip_human_turn',
             mockObj: mockHumanInputHandler,
-            method: 'handleSubmitInjection',
-            payload: { text: 'Event', date: '2023-10-27', index: 0, length: 1 }
+            method: 'handleSkipHumanTurn',
+            payload: undefined
         },
         {
             event: 'raise_hand',
@@ -112,9 +111,9 @@ describe('Async Error Propagation (Comprehensive)', () => {
             payload: { index: 0, humanName: 'Tester' }
         },
         {
-            event: 'wrap_up_meeting',
+            event: 'conclude_meeting',
             mockObj: mockMeetingLifecycleHandler,
-            method: 'handleWrapUpMeeting',
+            method: 'handleConcludeMeeting',
             payload: { date: '2023-10-27' }
         },
         {
@@ -135,9 +134,9 @@ describe('Async Error Propagation (Comprehensive)', () => {
         // Skipping disconnect test for 500 broadcast.
 
         {
-            event: 'continue_conversation',
+            event: 'extend_meeting',
             mockObj: mockMeetingLifecycleHandler,
-            method: 'handleContinueConversation',
+            method: 'handleExtendMeeting',
             payload: null
         }
     ];
@@ -193,7 +192,8 @@ describe('Async Error Propagation (Comprehensive)', () => {
             expect(Logger.error).toHaveBeenCalledWith(
                 expect.stringMatching(/^(meeting \d+|socket mock-socket)$/),
                 expect.stringContaining(`Error handling event ${event}; notifying client (500):`),
-                expect.any(Error)
+                expect.any(Error),
+                { clientImpact: 'terminal' },
             );
             Logger.error.mockClear();
         });
@@ -212,7 +212,6 @@ describe('Async Error Propagation (Comprehensive)', () => {
         const protoTestCases = [
             { event: 'pause_conversation', method: 'handlePauseConversation' },
             { event: 'resume_conversation', method: 'handleResumeConversation' },
-            { event: 'remove_last_message', method: 'handleRemoveLastMessage' }
         ];
 
         for (const { event, method } of protoTestCases) {
@@ -234,12 +233,31 @@ describe('Async Error Propagation (Comprehensive)', () => {
             expect(Logger.error).toHaveBeenCalledWith(
                 expect.stringMatching(/^(meeting \d+|socket mock-socket)$/),
                 expect.stringContaining(`Error handling event ${event}; notifying client (500):`),
-                expect.any(Error)
+                expect.any(Error),
+                { clientImpact: 'terminal' },
             );
             Logger.error.mockClear();
 
             mockSocket.emit.mockClear();
         }
+    });
+
+    it('should omit debug payloads in test environment', async () => {
+        const error = new Error('Simulated Crash');
+        mockHumanInputHandler.handleSubmitHumanMessage.mockRejectedValue(error);
+
+        const startHandler = socketHandlers['start_conversation'];
+        mockMeetingLifecycleHandler.handleStartConversation.mockResolvedValueOnce();
+        await startHandler({ meetingId: 1, liveKey: 'test-live-key' });
+
+        await socketHandlers['submit_human_message']({ text: 'Hello' });
+
+        const emitted = mockSocket.emit.mock.calls.find((call) => call[0] === 'conversation_error')?.[1];
+        expect(emitted).toEqual(expect.objectContaining({
+            message: 'Internal Server Error',
+            code: 500,
+        }));
+        expect(emitted?.debug).toBeUndefined();
     });
 
     it('should catch Zod validation errors and broadcast 400', async () => {
@@ -260,7 +278,7 @@ describe('Async Error Propagation (Comprehensive)', () => {
 
         // Assert
         expect(mockSocket.emit).toHaveBeenCalledWith("conversation_error", expect.objectContaining({
-            message: "Invalid Input",
+            message: "Invalid request",
             code: 400
         }));
 
@@ -269,7 +287,8 @@ describe('Async Error Propagation (Comprehensive)', () => {
         expect(Logger.warn).toHaveBeenCalledWith(
             expect.stringMatching(/^(meeting \d+|socket mock-socket)$/),
             expect.stringContaining(`Validation error for ${event}; notifying client (400):`),
-            expect.any(ZodError)
+            expect.any(ZodError),
+            { clientImpact: 'notified' },
         );
     });
 
@@ -283,14 +302,15 @@ describe('Async Error Propagation (Comprehensive)', () => {
         await handler(invalidPayload);
 
         expect(mockSocket.emit).toHaveBeenCalledWith("conversation_error", expect.objectContaining({
-            message: "Invalid Input",
+            message: "Invalid request",
             code: 400
         }));
 
         expect(Logger.warn).toHaveBeenCalledWith(
             expect.stringMatching(/^(meeting \d+|socket mock-socket)$/),
             expect.stringContaining(`Validation error for ${event}; notifying client (400):`),
-            expect.any(ZodError)
+            expect.any(ZodError),
+            { clientImpact: 'notified' },
         );
     });
 

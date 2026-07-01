@@ -4,7 +4,6 @@ import { promises as fs } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { Logger } from "@utils/Logger.js";
-import { GOOGLE_LANGUAGE_MAP } from "@shared/AvailableLanguages.js";
 
 export type AudioTask = () => Promise<void>;
 
@@ -12,16 +11,23 @@ export class AudioQueue {
     queue: AudioTask[];
     activeCount: number;
     concurrency: number;
+    private idleResolvers: Array<() => void>;
 
     constructor(concurrency: number = 3) {
         this.queue = [];
         this.activeCount = 0;
         this.concurrency = concurrency;
+        this.idleResolvers = [];
     }
 
     add(task: AudioTask): void {
         this.queue.push(task);
         this.processNext();
+    }
+
+    clearPending(): void {
+        this.queue = [];
+        this.resolveIdleIfNeeded();
     }
 
     async processNext(): Promise<void> {
@@ -52,7 +58,29 @@ export class AudioQueue {
             Logger.error("AudioSystem", "Audio Task Error", error);
         } finally {
             this.activeCount--;
+            this.resolveIdleIfNeeded();
             this.processNext();
+        }
+    }
+
+    async onIdle(): Promise<void> {
+        if (this.activeCount === 0 && this.queue.length === 0) {
+            return;
+        }
+
+        await new Promise<void>((resolve) => {
+            this.idleResolvers.push(resolve);
+        });
+    }
+
+    private resolveIdleIfNeeded(): void {
+        if (this.activeCount !== 0 || this.queue.length !== 0) {
+            return;
+        }
+
+        const resolvers = this.idleResolvers.splice(0);
+        for (const resolve of resolvers) {
+            resolve();
         }
     }
 }
@@ -140,11 +168,6 @@ export async function mergeAudioBuffers(buffers: Buffer[]): Promise<Buffer> {
             }))
         );
     }
-}
-
-export function getGoogleLanguageCode(appLang?: string): string {
-    if (!appLang) return 'en-GB';
-    return GOOGLE_LANGUAGE_MAP[appLang] || 'en-GB';
 }
 
 export function splitText(text: string, limit: number): string[] {

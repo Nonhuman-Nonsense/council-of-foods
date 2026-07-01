@@ -1,9 +1,9 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { meetingsCollection } from '@services/DbService.js';
 import { createTestManager } from './commonSetup.js';
 import { setupTestOptions } from './testUtils.js';
 import { SpeakerSelector } from '@logic/SpeakerSelector.js';
+import { MockFactory } from './factories/MockFactory.ts';
 
 // Mock dependencies
 // vi.mock('@services/OpenAIService.js', () => ({
@@ -11,7 +11,7 @@ import { SpeakerSelector } from '@logic/SpeakerSelector.js';
 // }));
 vi.mock('@logic/SpeakerSelector.js', () => ({
     SpeakerSelector: {
-        calculateNextSpeaker: vi.fn().mockReturnValue(0)
+        calculateNextSpeaker: vi.fn().mockReturnValue(0),
     }
 }));
 
@@ -24,7 +24,7 @@ describe('MeetingManager - Conversation Flow', () => {
         manager.meeting._id = 1;
 
         // Spy on DB methods
-        vi.spyOn(meetingsCollection, 'updateOne');
+        vi.spyOn(manager.services.meetingsCollection, 'updateOne');
         vi.clearAllMocks();
     });
 
@@ -71,24 +71,22 @@ describe('MeetingManager - Conversation Flow', () => {
         // So safe to call processTurn directly for unit test if we want to check that specific guard.
         // But better to call runLoop or startLoop to test the flow.
         protoManager.startLoop();
+        await vi.waitFor(() => expect(protoManager.isLoopActive).toBe(false));
         expect(SpeakerSelector.calculateNextSpeaker).not.toHaveBeenCalled();
 
         // Resume
-        // Mock generation to stop recursion
-        vi.spyOn(protoManager.dialogGenerator, 'generateTextFromGPT').mockResolvedValue({
-            response: "Test", id: "1", sentences: []
+        vi.spyOn(protoManager.dialogGenerator, 'generateResponseWithRetry').mockResolvedValue({
+            response: "Test", id: "1", sentences: ["Test"]
         });
         vi.spyOn(protoManager.audioSystem, 'queueAudioGeneration').mockImplementation(() => { });
 
         await protoManager.handleEvent('resume_conversation', null);
 
-        // Wait for async loop to tick
-        await new Promise(resolve => setTimeout(resolve, 50));
+        await vi.waitFor(() => {
+            expect(protoManager.meeting.conversation.length).toBeGreaterThan(0);
+        });
 
         expect(protoManager.isPaused).toBe(false);
-        // It should have called startLoop -> runLoop -> processTurn and generated a message
-        // Since we mocked generateTextFromGPT to return "Test", conversation should increase
-        expect(protoManager.meeting.conversation.length).toBeGreaterThan(0);
 
         // Cleanup: Stop the loop to prevent leakage into other tests
         protoManager.isLoopActive = false;
@@ -106,12 +104,22 @@ describe('MeetingManager - Conversation Flow', () => {
         await manager.runLoop();
 
         expect(spy).not.toHaveBeenCalled();
-        expect(manager.meeting.conversation.at(-1)?.type).toBe('max_reached');
-        expect(manager.meeting.conversation.at(-1)?.canContinue).toBe(true);
-        expect(meetingsCollection.updateOne).toHaveBeenCalled();
+        expect(manager.meeting.conversation.at(-1)?.type).toBe('query_extension');
+        expect(manager.services.meetingsCollection.updateOne).toHaveBeenCalled();
     });
 
-    it('sets canContinue false on max_reached when at meetingVeryMaxLength', async () => {
+    it('concludes directly at hard cap without query_extension sentinel', async () => {
+        vi.spyOn(manager.dialogGenerator, 'chairInterjection').mockResolvedValue({
+            response: 'Closing line',
+            id: 'close1',
+        });
+        vi.spyOn(manager.dialogGenerator, 'generateDocument').mockResolvedValue({
+            response: 'Summary text',
+            id: 'sum1',
+        });
+        vi.spyOn(manager.audioSystem, 'generateAudio').mockResolvedValue(undefined);
+        const endSpy = vi.spyOn(manager.broadcaster, 'broadcastConversationEnd');
+
         manager.serverOptions.conversationMaxLength = 5;
         manager.serverOptions.meetingVeryMaxLength = 5;
         manager.meeting.conversationExtraSlots = 0;
@@ -120,9 +128,11 @@ describe('MeetingManager - Conversation Flow', () => {
 
         await manager.runLoop();
 
-        expect(manager.meeting.conversation.at(-1)).toEqual(
-            expect.objectContaining({ type: 'max_reached', canContinue: false }),
-        );
+        expect(manager.meeting.conversation.at(-1)?.type).toBe('summary');
+        expect(manager.meeting.conversation.at(-2)?.type).toBe('message');
+        expect(manager.meeting.conversation.some((m) => m.type === 'query_extension')).toBe(false);
+        expect(endSpy).not.toHaveBeenCalled();
+        expect(manager.services.meetingsCollection.updateOne).toHaveBeenCalled();
     });
 
     it('should handle conversation turns (single turn verification) using DI', async () => {
@@ -177,15 +187,13 @@ describe('MeetingManager - Conversation Flow', () => {
         expect(diSocket.emit).toHaveBeenCalledWith('conversation_update', expect.any(Array));
 
         // Verify DB logic (still uses global mock unless we inject that too, but global mock is fine for now)
-        expect(meetingsCollection.updateOne).toHaveBeenCalled();
+        expect(diManager.services.meetingsCollection.updateOne).toHaveBeenCalled();
     });
 
     it('should set awaiting_human_panelist state when current speaker is a panelist', async () => {
-        // Setup: Next speaker is Alice (Panelist)
-        // Alice is index 2 in default setup (Water, Tomato, Potato) -> wait, need to add Alice.
         manager.meeting.characters = [
-            { id: 'water', name: 'Water', type: 'food', voice: 'alloy' },
-            { id: 'alice', name: 'Alice', type: 'panelist', voice: 'alloy' }
+            MockFactory.createChair(),
+            { id: 'panelist0', name: 'Alice', description: '', prompt: '', voice: 'alloy' }
         ];
         const panelistId = 1;
 
@@ -194,19 +202,73 @@ describe('MeetingManager - Conversation Flow', () => {
         const action = manager.decideNextAction();
         expect(action.type).toBe('REQUEST_PANELIST');
         const speaker = manager.meeting.characters[panelistId];
+        const chairInterjectionSpy = vi.spyOn(manager.dialogGenerator, 'chairInterjection').mockResolvedValue({
+            response: 'Please welcome Alice.',
+            id: 'invite-1',
+        });
         await manager.processTurn({ type: action.type, speaker });
 
-        expect(manager.meeting.conversation).toHaveLength(1);
-        expect(manager.meeting.conversation[0].type).toBe('awaiting_human_panelist');
-        expect(manager.meeting.conversation[0].speaker).toBe('alice');
-        expect(meetingsCollection.updateOne).toHaveBeenCalled();
+        expect(chairInterjectionSpy).toHaveBeenCalled();
+        expect(manager.meeting.conversation).toHaveLength(2);
+        expect(manager.meeting.conversation[0].type).toBe('invitation');
+        expect(manager.meeting.conversation[1].type).toBe('awaiting_human_panelist');
+        expect(manager.meeting.conversation[1].speaker).toBe('panelist0');
+        expect(manager.services.meetingsCollection.updateOne).toHaveBeenCalled();
 
         // Verify it returns early (does not call generateGPT/Audio/recurse)
         // calculateCurrentSpeaker WAS called, but generateTextFromGPT should NOT be.
         const gptSpy = vi.spyOn(manager.dialogGenerator, 'generateTextFromGPT');
         expect(gptSpy).not.toHaveBeenCalled();
     });
-    it('should successfully wrap up meeting without ReferenceError (Regression Test)', async () => {
+
+    it('should pass trimmed content through on panelist invitation', async () => {
+        manager.meeting.characters = [
+            MockFactory.createChair(),
+            { id: 'panelist0', name: 'Alice', description: '', prompt: '', voice: 'alloy' }
+        ];
+        const panelistId = 1;
+
+        vi.spyOn(SpeakerSelector, 'calculateNextSpeaker').mockReturnValue(panelistId);
+
+        const action = manager.decideNextAction();
+        expect(action.type).toBe('REQUEST_PANELIST');
+        const speaker = manager.meeting.characters[panelistId];
+        vi.spyOn(manager.dialogGenerator, 'chairInterjection').mockResolvedValue({
+            response: 'Please welcome Alice.',
+            trimmed: '\n\nShe will share her perspective.',
+            id: 'invite-1',
+        });
+        await manager.processTurn({ type: action.type, speaker });
+
+        expect(manager.meeting.conversation[0].trimmed).toBe('\n\nShe will share her perspective.');
+    });
+
+    it('should not replay panelist invitation after a skipped panelist turn', async () => {
+        manager.meeting.characters = [
+            MockFactory.createChair(),
+            { id: 'panelist0', name: 'Alice', description: '', prompt: '', voice: 'alloy' }
+        ];
+        manager.meeting.conversation = [
+            { speaker: 'panelist0', type: 'skipped', text: '', id: 'skip-1' },
+        ];
+        const panelistIndex = 1;
+
+        vi.spyOn(SpeakerSelector, 'calculateNextSpeaker').mockReturnValue(panelistIndex);
+
+        const action = manager.decideNextAction();
+        expect(action.type).toBe('REQUEST_PANELIST');
+
+        const chairInterjectionSpy = vi.spyOn(manager.dialogGenerator, 'chairInterjection');
+        await manager.processTurn({ type: action.type, speaker: manager.meeting.characters[panelistIndex] });
+
+        expect(chairInterjectionSpy).not.toHaveBeenCalled();
+        expect(manager.meeting.conversation).toHaveLength(2);
+        expect(manager.meeting.conversation[0].type).toBe('skipped');
+        expect(manager.meeting.conversation[1].type).toBe('awaiting_human_panelist');
+        expect(manager.meeting.conversation[1].speaker).toBe('panelist0');
+    });
+
+    it('should successfully conclude meeting without ReferenceError (Regression Test)', async () => {
         // Setup mock OpenAI with audio capability
         const mockOpenAI = {
             chat: {
@@ -230,6 +292,7 @@ describe('MeetingManager - Conversation Flow', () => {
         const mockGetOpenAI = () => mockOpenAI;
         const { manager: diManager } = createTestManager('test', null, { getOpenAI: mockGetOpenAI });
         diManager.meeting._id = 1;
+        const generateAudioSpy = vi.spyOn(diManager.audioSystem, 'generateAudio').mockResolvedValue();
 
         if (!diManager.meeting.characters[0].voice) {
             diManager.meeting.characters[0].voice = 'alloy';
@@ -237,33 +300,29 @@ describe('MeetingManager - Conversation Flow', () => {
 
         diManager.meeting.conversation = [
             { id: 'pre', type: 'message', text: 'before', speaker: diManager.meeting.characters[0].id },
-            { type: 'max_reached' },
+            { type: 'query_extension' },
         ];
 
-        await diManager.meetingLifecycleHandler.handleWrapUpMeeting({ date: "2024-01-01" });
+        await diManager.meetingLifecycleHandler.handleConcludeMeeting({ date: "2024-01-01" });
 
-        // Verify audio generation was attempted (which uses the 'speaker' variable)
+        // Verify audio generation was attempted regardless of the chair's current voice provider.
         if (!diManager.serverOptions.skipAudio) {
-            expect(mockOpenAI.audio.speech.create).toHaveBeenCalled();
-
-            // Verify socket emit
-            expect(diManager.socket.emit).toHaveBeenCalledWith("audio_update", expect.objectContaining({
-                id: 'gpt_id'
-            }));
+            expect(generateAudioSpy).toHaveBeenCalled();
+            expect(generateAudioSpy.mock.calls[0][0]).toEqual(expect.objectContaining({ id: 'gpt_id' }));
         }
     });
 
-    it('should extend meeting on continue_conversation', async () => {
+    it('should extend meeting on extend_meeting', async () => {
         const { manager } = createTestManager('test', { ...setupTestOptions(), extraMessageCount: 5 });
         manager.serverOptions.conversationMaxLength = 5;
         manager.meeting.conversationExtraSlots = 0;
-        manager.meeting.conversation = [...new Array(5).fill({ type: 'message' }), { type: 'max_reached' }];
+        manager.meeting.conversation = [...new Array(5).fill({ type: 'message' }), { type: 'query_extension' }];
 
         // Spy on startLoop/runLoop to verify resumption
         const loopSpy = vi.spyOn(manager, 'startLoop');
 
         // Trigger continue
-        await manager.handleEvent('continue_conversation', null);
+        await manager.handleEvent('extend_meeting', null);
 
         expect(manager.meeting.conversationExtraSlots).toBe(5);
         expect(manager.meeting.conversation.map((m) => m.type)).toEqual([

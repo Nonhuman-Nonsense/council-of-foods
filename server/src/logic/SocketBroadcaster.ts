@@ -1,5 +1,6 @@
 import type { Socket } from "socket.io";
 import type { IMeetingBroadcaster } from "@interfaces/MeetingInterfaces.js";
+import type { CouncilError } from "@models/Errors.js";
 import type { Message } from "@shared/ModelTypes.js";
 import type { AudioUpdatePayload } from "@shared/SocketTypes.js";
 
@@ -26,11 +27,13 @@ export class SocketBroadcaster implements IMeetingBroadcaster {
         this.socket.emit("audio_update", audio);
     }
 
-    broadcastError(message: string, code: number): void {
-        this.socket.emit("conversation_error", { message, code });
+    // Both methods emit the same event for now. Do not merge them — call sites express intent
+    // (terminal error vs recoverable warning) for future policy differences.
+    broadcastError(error: CouncilError, context?: string): void {
+        this.socket.emit("conversation_error", error.toErrorPayload(context));
     }
 
-    broadcastWarning(message: string, code: number, _error?: Error): void {
-        this.socket.emit("conversation_error", { message, code });
+    broadcastWarning(error: CouncilError, context?: string): void {
+        this.socket.emit("conversation_error", error.toErrorPayload(context));
     }
 }

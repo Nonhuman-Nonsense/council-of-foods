@@ -1,11 +1,14 @@
 import '@testing-library/jest-dom';
 import { vi } from 'vitest';
 import React from 'react';
-import '../../src/i18n';
+import '@/i18n';
+import { applyZIndexCssVariables } from '@/zIndexLayers';
+
+applyZIndexCssVariables();
 
 // Mock .svg?react imports
 // Mock .svg?react imports
-vi.mock('../../src/assets/icons/index', () => {
+vi.mock('@assets/icons', () => {
     return {
         Icons: new Proxy({}, {
             get: (target, prop) => {
@@ -14,6 +17,22 @@ vi.mock('../../src/assets/icons/index', () => {
                 return MockIcon;
             }
         })
+    };
+});
+
+// Prevent lottie-web module load (starts a document-polling interval that races jsdom teardown).
+vi.mock('react-lottie-player', async () => {
+    const React = await import('react');
+    const { vi } = await import('vitest');
+    return {
+        default: React.forwardRef((props, ref) => {
+            React.useImperativeHandle(ref, () => ({
+                play: vi.fn(),
+                setDirection: vi.fn(),
+                stop: vi.fn(),
+            }));
+            return React.createElement('div', { 'data-testid': 'lottie-player', ...props });
+        }),
     };
 });
 

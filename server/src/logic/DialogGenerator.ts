@@ -4,14 +4,18 @@ import type { ChatCompletionMessageParam } from "openai/resources/chat/completio
 import type { Collection } from "mongodb";
 import type { StoredMeeting } from "@models/DBModels.js";
 
-import { splitSentences } from "@utils/textUtils.js";
+import { splitSentences } from "@shared/textUtils.js";
 import { Logger } from "@utils/Logger.js";
 import { GlobalOptions } from "./GlobalOptions.js";
-import { OpenAI } from "openai";
+import type { ConversationCompletionResult, ConversationService } from "@services/ConversationService.js";
 import { withNetworkRetry } from "@utils/NetworkUtils.js";
 
+/** Overflow trimming for summary documents — independent of global turn settings. */
+const DOCUMENT_TRIM_SENTENCE = false;
+const DOCUMENT_TRIM_PARAGRAPH = true;
+
 export interface Services {
-    getOpenAI: () => OpenAI;
+    conversationService: ConversationService;
     meetingsCollection: Collection<StoredMeeting>;
 }
 
@@ -23,8 +27,16 @@ export interface GPTResponse {
     pretrimmed?: string;
 }
 
+export interface DocumentResponse {
+    id: string | null;
+    response: string;
+    trimmed?: string;
+}
+
+type PostProcessedResponse = Omit<GPTResponse, "id">;
+
 /**
- * Handles all interactions with the OpenAI API for text generation.
+ * Handles all interactions with the configured conversation completion provider.
  * Responsible for building prompt messages, calling the API, and parsing/post-processing the response.
  */
 export class DialogGenerator {
@@ -32,7 +44,7 @@ export class DialogGenerator {
     serverOptions: GlobalOptions;
 
     /**
-     * @param {object} services - Abstracted service container (must provide getOpenAI)
+     * @param {object} services - Abstracted service container (must provide conversationService)
      * @param {object} serverOptions - Global configuration options
      */
     constructor(services: Services, serverOptions: GlobalOptions) {
@@ -84,121 +96,202 @@ export class DialogGenerator {
     }
 
     /**
+     * Strips speaker prefixes and applies flag-driven trimming for overflow content.
+     */
+    private postProcessResponse(
+        rawContent: string,
+        speaker: Character,
+        meeting: StoredMeeting,
+        currentSpeakerIndex: number,
+        finishReason: string | null
+    ): PostProcessedResponse {
+        let response = rawContent
+            .trim()
+            .replaceAll("**", "")
+            .replace(/\n+---\s*$/u, "");
+
+        let pretrimmedContent: string | undefined;
+        if (response.startsWith(speaker.name + ":")) {
+            pretrimmedContent = response.substring(0, speaker.name.length + 1);
+            response = response.substring(speaker.name.length + 1).trim();
+        }
+
+        let trimmedContent: string | undefined;
+        const originalResponse = response;
+
+        if (finishReason !== "stop") {
+            if (this.serverOptions.trimSentance) {
+                const lastPeriodIndex = response.lastIndexOf(".");
+                if (lastPeriodIndex !== -1) {
+                    trimmedContent = originalResponse.substring(lastPeriodIndex + 1);
+                    response = response.substring(0, lastPeriodIndex + 1);
+                }
+            }
+
+            if (this.serverOptions.trimParagraph) {
+                const lastNewLineIndex = response.lastIndexOf("\n\n");
+                if (lastNewLineIndex !== -1) {
+                    trimmedContent = originalResponse.substring(lastNewLineIndex);
+                    response = response.substring(0, lastNewLineIndex);
+                }
+            }
+        }
+
+        // Check others speaking
+        for (let i = 0; i < meeting.characters.length; i++) {
+            if (i === currentSpeakerIndex) continue;
+            const nameIndex = response.indexOf(meeting.characters[i].name + ":");
+            if (nameIndex != -1 && nameIndex < 20) {
+                response = response.substring(0, nameIndex).trim();
+                trimmedContent = originalResponse.substring(nameIndex);
+            }
+        }
+
+        let sentences = splitSentences(response);
+
+        if (finishReason !== "stop") {
+            // Check if we can re-add some messages from the end, to put back some of the list of questions that chair often produces
+            if (this.serverOptions.trimChairSemicolon) {
+                if (speaker.id === this.serverOptions.chairId) {
+                    const trimmedSentences = splitSentences(trimmedContent?.trim() || "").filter((sentence) => sentence.length > 0 && sentence !== ".");
+
+                    if (
+                        trimmedSentences &&
+                        sentences &&
+                        (sentences[sentences.length - 1]?.slice(-1) === ":" ||
+                            trimmedSentences[0]?.slice(-1) === ":")
+                    ) {
+                        if (
+                            trimmedSentences.length > 2 &&
+                            trimmedSentences[0]?.slice(0, 1) === "1" &&
+                            trimmedSentences[1]?.slice(0, 1) === "2"
+                        ) {
+                            trimmedContent = trimmedSentences[trimmedSentences.length - 1];
+                            sentences = sentences.concat(trimmedSentences.slice(0, trimmedSentences.length - 1));
+                            response = sentences.join("\n");
+                        } else if (
+                            trimmedSentences.length > 3 &&
+                            trimmedSentences[0]?.slice(-1) === ":" &&
+                            trimmedSentences[1]?.slice(0, 1) === "1" &&
+                            trimmedSentences[2]?.slice(0, 1) === "2"
+                        ) {
+                            trimmedContent = trimmedSentences[trimmedSentences.length - 1];
+                            sentences = sentences.concat(trimmedSentences.slice(0, trimmedSentences.length - 1));
+                            response = sentences.join("\n");
+                        } else {
+                            //otherwise remove also the last presentation of the list of topics
+                            trimmedContent = trimmedContent
+                                ? sentences[sentences.length - 1] + "\n" + trimmedContent
+                                : sentences[sentences.length - 1];
+                            sentences = sentences.slice(0, sentences.length - 1);
+                            response = sentences.join("\n");
+                        }
+                    }
+                }
+            }
+        }
+
+        return {
+            response,
+            sentences,
+            trimmed: trimmedContent,
+            pretrimmed: pretrimmedContent,
+        };
+    }
+
+    private stripMarkdownCodeFence(rawContent: string): string {
+        let text = rawContent.trim();
+
+        const completeFence = /^```(?:markdown|md)?\s*\n([\s\S]*?)\n```\s*$/i.exec(text);
+        if (completeFence) {
+            return completeFence[1].trim();
+        }
+
+        if (/^```(?:markdown|md)?\s*\n?/i.test(text)) {
+            text = text.replace(/^```(?:markdown|md)?\s*\n?/i, "");
+            text = text.replace(/\n?```\s*$/i, "");
+        }
+
+        return text.trim();
+    }
+
+    private postProcessDocumentResponse(
+        rawContent: string,
+        finishReason: string | null,
+    ): Pick<DocumentResponse, "response" | "trimmed"> {
+        let response = this.stripMarkdownCodeFence(rawContent);
+        let trimmedContent: string | undefined;
+        const originalResponse = response;
+
+        if (finishReason !== "stop") {
+            if (DOCUMENT_TRIM_SENTENCE) {
+                const lastPeriodIndex = response.lastIndexOf(".");
+                if (lastPeriodIndex !== -1) {
+                    trimmedContent = originalResponse.substring(lastPeriodIndex + 1);
+                    response = response.substring(0, lastPeriodIndex + 1);
+                }
+            }
+
+            if (DOCUMENT_TRIM_PARAGRAPH) {
+                const lastNewLineIndex = response.lastIndexOf("\n\n");
+                if (lastNewLineIndex !== -1) {
+                    trimmedContent = originalResponse.substring(lastNewLineIndex);
+                    response = response.substring(0, lastNewLineIndex);
+                }
+            }
+        }
+
+        return {
+            response,
+            trimmed: trimmedContent,
+        };
+    }
+
+    private async requestChatCompletion(
+        messages: ChatCompletionMessageParam[],
+        maxCompletionTokens: number,
+        stop?: string[],
+    ): Promise<ConversationCompletionResult> {
+        return withNetworkRetry(() => this.services.conversationService.createChatCompletion({
+            model: this.serverOptions.conversationModel,
+            maxCompletionTokens,
+            temperature: this.serverOptions.temperature,
+            reasoning: this.serverOptions.conversationReasoning,
+            stop,
+            messages,
+        }), "DialogGenerator");
+    }
+
+    /**
      * Generates a conversational response for a specific character (food or chair).
      */
     async generateTextFromGPT(speaker: Character, meeting: StoredMeeting, currentSpeakerIndex: number): Promise<GPTResponse> {
         try {
             const messages = this.buildMessageStack(speaker, meeting.conversation, meeting);
-            const openai = this.services.getOpenAI();
 
-            const completion = await withNetworkRetry(() => openai.chat.completions.create({
-                model: this.serverOptions.gptModel,
-                max_completion_tokens:
-                    speaker.id === this.serverOptions.chairId
-                        ? this.serverOptions.chairMaxTokens
-                        : this.serverOptions.maxTokens,
-                temperature: this.serverOptions.temperature,
-                frequency_penalty: this.serverOptions.frequencyPenalty,
-                presence_penalty: this.serverOptions.presencePenalty,
-                stop: "\n---",
-                messages: messages,
-            }), "DialogGenerator");
+            const completion = await this.requestChatCompletion(
+                messages,
+                speaker.id === this.serverOptions.chairId
+                    ? this.serverOptions.chairMaxTokens
+                    : this.serverOptions.maxTokens,
+                ["\n---"],
+            );
 
-            if (!completion.choices[0].message.content) {
+            if (!completion.content) {
                 throw new Error("No content received from GPT");
             }
 
-            let response = completion.choices[0].message.content
-                .trim()
-                .replaceAll("**", "");
-
-            let pretrimmedContent: string | undefined;
-            if (response.startsWith(speaker.name + ":")) {
-                pretrimmedContent = response.substring(0, speaker.name.length + 1);
-                response = response.substring(speaker.name.length + 1).trim();
-            }
-
-            let trimmedContent: string | undefined;
-            const originalResponse = response;
-
-            if (completion.choices[0].finish_reason != "stop") {
-                if (this.serverOptions.trimSentance) {
-                    const lastPeriodIndex = response.lastIndexOf(".");
-                    if (lastPeriodIndex !== -1) {
-                        trimmedContent = originalResponse.substring(lastPeriodIndex + 1);
-                        response = response.substring(0, lastPeriodIndex + 1);
-                    }
-                }
-
-                if (this.serverOptions.trimParagraph) {
-                    const lastNewLineIndex = response.lastIndexOf("\n\n");
-                    if (lastNewLineIndex !== -1) {
-                        trimmedContent = originalResponse.substring(lastNewLineIndex);
-                        response = response.substring(0, lastNewLineIndex);
-                    }
-                }
-            }
-
-            // Check others speaking
-            for (let i = 0; i < meeting.characters.length; i++) {
-                if (i === currentSpeakerIndex) continue;
-                const nameIndex = response.indexOf(meeting.characters[i].name + ":");
-                if (nameIndex != -1 && nameIndex < 20) {
-                    response = response.substring(0, nameIndex).trim();
-                    trimmedContent = originalResponse.substring(nameIndex);
-                }
-            }
-
-            let sentences = splitSentences(response);
-
-            if (completion.choices[0].finish_reason != "stop") {
-                // Check if we can re-add some messages from the end, to put back some of the list of questions that chair often produces
-                if (this.serverOptions.trimChairSemicolon) {
-                    if (speaker.id === this.serverOptions.chairId) {
-                        const trimmedSentences = splitSentences(trimmedContent?.trim() || "").filter((sentence) => sentence.length > 0 && sentence !== ".");
-
-                        if (
-                            trimmedSentences &&
-                            sentences &&
-                            (sentences[sentences.length - 1]?.slice(-1) === ":" ||
-                                trimmedSentences[0]?.slice(-1) === ":")
-                        ) {
-                            if (
-                                trimmedSentences.length > 2 &&
-                                trimmedSentences[0]?.slice(0, 1) === "1" &&
-                                trimmedSentences[1]?.slice(0, 1) === "2"
-                            ) {
-                                trimmedContent = trimmedSentences[trimmedSentences.length - 1];
-                                sentences = sentences.concat(trimmedSentences.slice(0, trimmedSentences.length - 1));
-                                response = sentences.join("\n");
-                            } else if (
-                                trimmedSentences.length > 3 &&
-                                trimmedSentences[0]?.slice(-1) === ":" &&
-                                trimmedSentences[1]?.slice(0, 1) === "1" &&
-                                trimmedSentences[2]?.slice(0, 1) === "2"
-                            ) {
-                                trimmedContent = trimmedSentences[trimmedSentences.length - 1];
-                                sentences = sentences.concat(trimmedSentences.slice(0, trimmedSentences.length - 1));
-                                response = sentences.join("\n");
-                            } else {
-                                //otherwise remove also the last presentation of the list of topics
-                                trimmedContent = trimmedContent
-                                    ? sentences[sentences.length - 1] + "\n" + trimmedContent
-                                    : sentences[sentences.length - 1];
-                                sentences = sentences.slice(0, sentences.length - 1);
-                                response = sentences.join("\n");
-                            }
-                        }
-                    }
-                }
-            }
+            const processed = this.postProcessResponse(
+                completion.content,
+                speaker,
+                meeting,
+                currentSpeakerIndex,
+                completion.finishReason
+            );
 
             return {
                 id: completion.id,
-                response: response,
-                sentences: sentences,
-                trimmed: trimmedContent,
-                pretrimmed: pretrimmedContent,
+                ...processed,
             };
         } catch (error) {
             //Just log and rethrow
@@ -211,7 +304,7 @@ export class DialogGenerator {
      * Generates a specific interjection or system message (e.g., Chair inviting human).
      * Uses a temporary system prompt injected at the end of the history.
      */
-    async chairInterjection(interjectionPrompt: string, index: number, length: number, dontStop: boolean, meeting: StoredMeeting, _broadcaster: IMeetingBroadcaster): Promise<GPTResponse> {
+    async chairInterjection(interjectionPrompt: string, index: number, length: number, meeting: StoredMeeting, _broadcaster: IMeetingBroadcaster): Promise<GPTResponse> {
         try {
             const chair = meeting.characters[0];
             const messages = this.buildMessageStack(chair, meeting.conversation, meeting, index);
@@ -221,30 +314,29 @@ export class DialogGenerator {
                 content: interjectionPrompt,
             });
 
-            const openai = this.services.getOpenAI();
-            const completion = await withNetworkRetry(() => openai.chat.completions.create({
-                model: this.serverOptions.gptModel,
-                max_completion_tokens: length,
-                temperature: this.serverOptions.temperature,
-                frequency_penalty: this.serverOptions.frequencyPenalty,
-                presence_penalty: this.serverOptions.presencePenalty,
-                stop: dontStop ? undefined : "\n---",
-                messages: messages,
-            }), "DialogGenerator");
+            messages.push({
+                role: "system",
+                content: chair.name + ": ",
+            });
 
-            if (!completion.choices[0].message.content) {
-                return { response: "", id: completion.id };
+            const completion = await this.requestChatCompletion(messages, length, ["\n---"]);
+
+            if (!completion.content) {
+                throw new Error("No content received from GPT");
             }
 
-            let response = completion.choices[0].message.content.trim();
+            const processed = this.postProcessResponse(
+                completion.content,
+                chair,
+                meeting,
+                0,
+                completion.finishReason
+            );
 
-            if (response.startsWith(chair.name + ":")) {
-                response = response.substring(chair.name.length + 1).trim();
-            } else if (response.startsWith("**" + chair.name + "**:")) {
-                response = response.substring(chair.name.length + 5).trim();
-            }
-
-            return { response, id: completion.id };
+            return {
+                id: completion.id,
+                ...processed,
+            };
         } catch (error) {
             //Just log and rethrow
             Logger.error("DialogGenerator", "Error during chair interjection", error);
@@ -253,9 +345,62 @@ export class DialogGenerator {
     }
 
     /**
+     * Generates a written markdown document (e.g. meeting summary).
+     * Unlike chair interjections, allows markdown horizontal rules and does not use conversation stop sequences.
+     */
+    async generateDocument(
+        documentPrompt: string,
+        meeting: StoredMeeting,
+        maxTokens: number,
+    ): Promise<DocumentResponse> {
+        try {
+            const chair = meeting.characters[0];
+            const messages = this.buildMessageStack(chair, meeting.conversation, meeting, undefined, false);
+
+            messages.push({
+                role: "system",
+                content: documentPrompt,
+            });
+
+            const completion = await this.requestChatCompletion(messages, maxTokens);
+
+            if (!completion.content) {
+                throw new Error("No content received from GPT");
+            }
+
+            const processed = this.postProcessDocumentResponse(
+                completion.content,
+                completion.finishReason,
+            );
+
+            const trimmedNote = processed.trimmed
+                ? `, trimmed: ${processed.trimmed.length} chars`
+                : "";
+            Logger.info(
+                `meeting ${meeting._id}`,
+                `document generated (${processed.response.length} chars, finish_reason: ${completion.finishReason ?? "unknown"}${trimmedNote})`,
+            );
+
+            return {
+                id: completion.id,
+                ...processed,
+            };
+        } catch (error) {
+            Logger.error("DialogGenerator", "Error during document generation", error);
+            throw error;
+        }
+    }
+
+    /**
      * Constructs the array of message objects (system, user, assistant) for the GPT API.
      */
-    buildMessageStack(speaker: Character, conversation: Message[], meeting: StoredMeeting, upToIndex?: number): ChatCompletionMessageParam[] {
+    buildMessageStack(
+        speaker: Character,
+        conversation: Message[],
+        meeting: StoredMeeting,
+        upToIndex?: number,
+        includeCompletionPrimer = true,
+    ): ChatCompletionMessageParam[] {
         const messages: ChatCompletionMessageParam[] = [];
 
         messages.push({
@@ -278,10 +423,12 @@ export class DialogGenerator {
             return messages.slice(0, 1 + upToIndex);
         }
 
-        messages.push({
-            role: "system",
-            content: speaker.name + ": ",
-        });
+        if (includeCompletionPrimer) {
+            messages.push({
+                role: "system",
+                content: speaker.name + ": ",
+            });
+        }
 
         return messages;
     }

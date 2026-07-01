@@ -4,18 +4,20 @@ import type { Resource, ResourceKey } from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import { AVAILABLE_LANGUAGES } from "@shared/AvailableLanguages";
 
-// Eagerly import all translation files to bundle them
-const locales = import.meta.glob('/src/locales/*/*.json', { eager: true, import: 'default' });
+// Flat locale files: src/locales/translation_{lang}.json → namespace "translation"
+const locales = import.meta.glob('/src/locales/translation_*.json', {
+  eager: true,
+  import: 'default',
+});
 
-// Construct the resources object dynamically (JSON from glob → i18next Resource)
 const resources: Resource = {};
 
 for (const path in locales) {
-  // Path format: /src/locales/{lang}/{ns}.json
-  // Example: /src/locales/en/translation.json
-  const parts = path.split('/');
-  const lang = parts[parts.length - 2];
-  const ns = parts[parts.length - 1].replace('.json', '');
+  const match = path.match(/\/locales\/translation_([^/]+)\.json$/);
+  if (!match) continue;
+
+  const lang = match[1];
+  const ns = 'translation';
 
   if (!resources[lang]) {
     resources[lang] = {};
@@ -26,29 +28,45 @@ for (const path in locales) {
 
 for (const lang of AVAILABLE_LANGUAGES) {
   if (!resources[lang]) {
-    throw new Error(`Missing translations for language: ${lang}. Make sure client/src/locales/${lang} exists and contains json files.`);
+    throw new Error(
+      `Missing translations for language: ${lang}. Expected client/src/locales/translation_${lang}.json`,
+    );
   }
+}
+
+function resolveInitialLanguage(): string {
+  const fallbackLanguage = AVAILABLE_LANGUAGES[0];
+  if (typeof window === "undefined") {
+    return fallbackLanguage;
+  }
+
+  const pathname = window.location.pathname;
+  const matchedLanguage = (AVAILABLE_LANGUAGES as readonly string[]).find((lang) =>
+    pathname === `/${lang}` || pathname.startsWith(`/${lang}/`)
+  );
+
+  return matchedLanguage ?? fallbackLanguage;
 }
 
 /**
  * i18n Configuration
- * 
+ *
  * Sets up internationalization using i18next.
  * Translations are now BUNDLED (no HttpBackend) via import.meta.glob.
  */
 i18n
-  .use(initReactI18next) // pass i18n to react-i18next
+  .use(initReactI18next) // pass the instance to react-i18next
   .init({
-    resources, // bundled resources
-    lng: AVAILABLE_LANGUAGES[0], // force initial language (optional, but good for single-lang start)
-    fallbackLng: AVAILABLE_LANGUAGES[0], // fallback language
-    debug: import.meta.env.DEV, // show logs
+    resources,
+    lng: resolveInitialLanguage(),
+    fallbackLng: AVAILABLE_LANGUAGES[0],
+    debug: import.meta.env.DEV,
     interpolation: {
-      escapeValue: false, // React already escapes
+      escapeValue: false,
     },
     react: {
-      useSuspense: false
-    }
+      useSuspense: false,
+    },
   });
 
 export default i18n;

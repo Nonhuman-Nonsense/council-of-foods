@@ -4,4 +4,3 @@ client/node_modules
 server/node_modules
 server/.env
 npm-debug.log
-server/google-credentials.json

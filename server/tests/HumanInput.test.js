@@ -6,13 +6,14 @@ import { MockFactory } from './factories/MockFactory.ts';
 describe('HumanInputHandler (Isolated)', () => {
     let handler;
     let mockContext;
+    const chair = MockFactory.createChair();
 
     beforeEach(() => {
         const meeting = MockFactory.createStoredMeeting({
             _id: 42,
             characters: [
-                { id: 'chair', name: 'Chair', voice: 'alloy' },
-                { id: 'alice', name: 'Alice', type: 'panelist', voice: 'alloy' }
+                chair,
+                { id: 'panelist0', name: 'Alice', description: '', prompt: '', voice: 'alloy' }
             ],
             state: { humanName: 'Frank' },
             conversation: []
@@ -42,7 +43,10 @@ describe('HumanInputHandler (Isolated)', () => {
             startLoop: vi.fn(),
             handRaised: false,
             isPaused: false,
-            dialogGenerator: {}
+            dialogGenerator: {},
+            speakerTargetClassifier: {
+                inferTarget: vi.fn().mockResolvedValue(undefined)
+            }
         };
 
         handler = new HumanInputHandler(mockContext);
@@ -67,7 +71,7 @@ describe('HumanInputHandler (Isolated)', () => {
 
             expect(mockContext.audioSystem.queueAudioGeneration).toHaveBeenCalledWith(
                 expect.objectContaining({ type: 'human' }),
-                expect.objectContaining({ id: 'chair' }),
+                expect.objectContaining({ id: chair.id }),
                 mockContext.meeting,
                 "test",
                 mockContext.serverOptions
@@ -85,6 +89,26 @@ describe('HumanInputHandler (Isolated)', () => {
 
             expect(mockContext.meeting.conversation).toHaveLength(2);
             expect(mockContext.startLoop).not.toHaveBeenCalled();
+        });
+
+        it('should persist inferred target ids while rendering the character name', async () => {
+            mockContext.meeting.conversation = [
+                { type: 'message', text: 'prev', id: '1' },
+                ...TestFactory.createAwaitingQuestion('Frank')
+            ];
+            mockContext.speakerTargetClassifier.inferTarget.mockResolvedValue("panelist0");
+
+            await handler.handleSubmitHumanMessage({ text: "What do you think?" });
+
+            const addedMsg = mockContext.meeting.conversation[1];
+            expect(mockContext.speakerTargetClassifier.inferTarget).toHaveBeenCalledWith(mockContext.meeting, {
+                mode: "humanQuestion",
+                text: "What do you think?",
+                speakerId: "Frank",
+            });
+            expect(addedMsg.askParticular).toBe('panelist0');
+            expect(addedMsg.text).toContain('Frank said:');
+            expect(addedMsg.text).not.toContain('asked Alice');
         });
     });
 
@@ -108,6 +132,83 @@ describe('HumanInputHandler (Isolated)', () => {
             expect(mockContext.services.meetingsCollection.updateOne).toHaveBeenCalled();
             expect(mockContext.broadcaster.broadcastConversationUpdate).toHaveBeenCalledWith(mockContext.meeting.conversation);
             expect(mockContext.startLoop).toHaveBeenCalled();
+        });
+
+        it('should strip panelist invitation when submitting panelist response', async () => {
+            mockContext.meeting.conversation = [
+                { type: 'message', text: 'prev', id: '1' },
+                { type: 'invitation', text: 'Please welcome Alice.', id: 'invite-1', speaker: 'water' },
+                ...TestFactory.createAwaitingPanelist('alice')
+            ];
+
+            await handler.handleSubmitHumanPanelist({ text: "Hello council.", speaker: "alice" });
+
+            expect(mockContext.meeting.conversation).toHaveLength(2);
+            expect(mockContext.meeting.conversation[0].type).toBe('message');
+            expect(mockContext.meeting.conversation[1].type).toBe('panelist');
+        });
+    });
+
+    describe('handleSkipHumanTurn', () => {
+        it('should skip human question when awaiting question', async () => {
+            mockContext.meeting.conversation = [
+                { type: 'message', text: 'prev', id: '1' },
+                ...TestFactory.createAwaitingQuestion('Frank')
+            ];
+            mockContext.handRaised = true;
+            mockContext.isPaused = true;
+
+            await handler.handleSkipHumanTurn();
+
+            expect(mockContext.meeting.conversation).toHaveLength(2);
+            const skipped = mockContext.meeting.conversation[1];
+            expect(skipped.type).toBe('skipped');
+            expect(skipped.speaker).toBe('Frank');
+            expect(skipped.text).toBe('');
+
+            expect(mockContext.audioSystem.queueAudioGeneration).not.toHaveBeenCalled();
+            expect(mockContext.broadcaster.broadcastConversationUpdate).toHaveBeenCalledWith(mockContext.meeting.conversation);
+            expect(mockContext.services.meetingsCollection.updateOne).toHaveBeenCalled();
+            expect(mockContext.handRaised).toBe(false);
+            expect(mockContext.startLoop).toHaveBeenCalled();
+        });
+
+        it('should skip human panelist when awaiting panelist', async () => {
+            mockContext.meeting.conversation = [
+                { type: 'message', text: 'prev', id: '1' },
+                ...TestFactory.createAwaitingPanelist('alice')
+            ];
+
+            await handler.handleSkipHumanTurn();
+
+            expect(mockContext.meeting.conversation).toHaveLength(2);
+            const skipped = mockContext.meeting.conversation[1];
+            expect(skipped.type).toBe('skipped');
+            expect(skipped.speaker).toBe('alice');
+            expect(mockContext.startLoop).toHaveBeenCalled();
+        });
+
+        it('should strip invitation when skipping panelist turn', async () => {
+            mockContext.meeting.conversation = [
+                { type: 'message', text: 'prev', id: '1' },
+                { type: 'invitation', text: 'Please welcome Alice.', id: 'invite-1', speaker: 'water' },
+                ...TestFactory.createAwaitingPanelist('alice')
+            ];
+
+            await handler.handleSkipHumanTurn();
+
+            expect(mockContext.meeting.conversation).toHaveLength(2);
+            expect(mockContext.meeting.conversation[0].type).toBe('message');
+            expect(mockContext.meeting.conversation[1].type).toBe('skipped');
+        });
+
+        it('should ignore if not awaiting human input', async () => {
+            mockContext.meeting.conversation = TestFactory.createConversation(2);
+
+            await handler.handleSkipHumanTurn();
+
+            expect(mockContext.meeting.conversation).toHaveLength(2);
+            expect(mockContext.startLoop).not.toHaveBeenCalled();
         });
     });
 });

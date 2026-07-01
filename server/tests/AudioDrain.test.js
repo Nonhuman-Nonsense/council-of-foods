@@ -19,8 +19,8 @@ describe('Audio Queue Draining', () => {
                 liveKey: DRAIN_LIVE_KEY,
                 topic: MockFactory.createTopic({ title: 'Drain Test' }),
                 characters: [
-                    MockFactory.createCharacter({ id: 'water', name: 'Water', type: 'food' }),
-                    MockFactory.createCharacter({ id: 'tomato', name: 'Tomato', type: 'food' }),
+                    MockFactory.createCharacter({ id: 'speaker1', name: 'Speaker 1' }),
+                    MockFactory.createCharacter({ id: 'speaker2', name: 'Speaker 2' }),
                 ],
                 conversation: [],
             })
@@ -60,25 +60,10 @@ describe('Audio Queue Draining', () => {
             serverOptions: { conversationMaxLength: 10 },
         });
 
-        // 3. Trigger a few turns
-        // We manually inject message to skip the "wait" state if needed,
-        // or just rely on the loop.
-        // Let's rely on the loop.
-        p1.manager.startLoop();
-
-        // Let the loop run enough to queue a few items
-        // The loop is async. DialogGenerator is fast (mocked).
-        // Audio is slow (50ms).
-        // So the loop should race ahead and fill the audio queue.
-
-        // Wait 10ms - enough for loop to cycle at least once or twice?
-        // DialogGenerator is awaited in handleAITurn.
-        // handleAITurn calls queueAudioGeneration (sync add to queue).
-        // then it updates DB and broadcasts (await).
-        // So loop speed depends on DB mocks.
-
-        // We need to wait enough for a few items to be queued.
-        await new Promise(r => setTimeout(r, 10));
+        // Let the loop queue at least one message and audio task before destroy.
+        await vi.waitFor(() => {
+            expect(p1.manager.meeting.conversation.length).toBeGreaterThan(0);
+        });
 
         // 4. DESTROY
         p1.manager.destroy();
@@ -92,23 +77,9 @@ describe('Audio Queue Draining', () => {
         const _completionsAtDestroy = [...audioCompletions];
 
         // C: Wait for the "slow" audio tasks to finish
-        await new Promise(r => setTimeout(r, 200));
-
-        // D: Verify that more audio tasks finished AFTER destroy
-        // If the queue was abruptly cleared, this would be equal.
-        // If the queue drained, this should be higher (assuming we queued >1).
-
-        // Note: verifying exact count is tricky with timing, but we can verify that
-        // the method `generateAudio` WAS called for messages generated before destroy.
-
-        // Let's inspect the conversation to see how many messages were generated.
-        const _conversationCount = p1.manager.meeting.conversation.length;
-
-        // We expect audio generation to eventually match the conversation count
-        // (excluding system messages if any, though audio queue handles that).
-        // Our mock generates responses.
-
-        expect(audioCompletions.length).toBeGreaterThan(0);
+        await vi.waitFor(() => {
+            expect(audioCompletions.length).toBeGreaterThan(0);
+        });
 
         // Ideally, we want to prove that `generateAudio` kept running.
         // If we only managed to queue 1 item in 10ms, then completionsAtDestroy might be 0.

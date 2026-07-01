@@ -1,12 +1,18 @@
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import Landing from '@components/settings/Landing';
+import Landing from '@newMeeting/Landing';
 import { MemoryRouter } from 'react-router';
 
 // Mock dependencies
 vi.mock('react-i18next', () => ({
     useTranslation: () => ({
         t: (key: string) => key,
+    }),
+}));
+
+vi.mock('@/routing', () => ({
+    useRouting: () => ({
+        newMeetingPath: '/en/new',
     }),
 }));
 
@@ -19,12 +25,23 @@ vi.mock('@/utils', () => ({
     dvh: 'vh',
 }));
 
-vi.mock('@components/RotateDevice', () => ({
+vi.mock('@main/overlay/RotateDevice', () => ({
     default: () => <div data-testid="rotate-device">Rotate Device</div>,
+}));
+
+vi.mock('@/settings/councilSettings', () => ({
+    useCouncilSettings: vi.fn(() => ({
+        isMuseumMode: false,
+        mode: 'web',
+        setAppMode: vi.fn(),
+        agentMode: "off",
+        setAgentMode: vi.fn(),
+    })),
 }));
 
 import { useMediaQuery } from 'react-responsive';
 import { useMobile } from '@/utils';
+import { useCouncilSettings } from '@/settings/councilSettings';
 
 describe('Landing', () => {
     beforeEach(() => {
@@ -32,6 +49,13 @@ describe('Landing', () => {
         // Default to landscape (not portrait) and not mobile for base case
         (useMediaQuery as ReturnType<typeof vi.fn>).mockReturnValue(false); // isPortrait = false
         (useMobile as ReturnType<typeof vi.fn>).mockReturnValue(false);
+        vi.mocked(useCouncilSettings).mockReturnValue({
+            mode: 'web',
+            isMuseumMode: false,
+            setAppMode: vi.fn(),
+            agentMode: "off",
+            setAgentMode: vi.fn(),
+        });
     });
 
     afterEach(() => {
@@ -41,22 +65,22 @@ describe('Landing', () => {
     it('renders welcome message', () => {
         render(
             <MemoryRouter>
-                <Landing newMeetingPath="/en/new" />
+                <Landing />
             </MemoryRouter>
         );
-        expect(screen.getByText('welcome')).toBeInTheDocument();
-        expect(screen.getByText('COUNCIL')).toBeInTheDocument();
+        expect(screen.getByText('landing.welcome')).toBeInTheDocument();
+        expect(screen.getByText('APP.COUNCIL')).toBeInTheDocument();
     });
 
     it('renders "Go" button in landscape mode', () => {
         (useMediaQuery as ReturnType<typeof vi.fn>).mockReturnValue(false); // Portrait false
         render(
             <MemoryRouter>
-                <Landing newMeetingPath="/en/new" />
+                <Landing />
             </MemoryRouter>
         );
-        expect(screen.getByText('go')).toBeInTheDocument();
-        expect(screen.getByText('description')).toBeInTheDocument();
+        expect(screen.getByText('landing.go')).toBeInTheDocument();
+        expect(screen.getByText('landing.description')).toBeInTheDocument();
         expect(screen.queryByTestId('rotate-device')).not.toBeInTheDocument();
     });
 
@@ -64,21 +88,40 @@ describe('Landing', () => {
         (useMediaQuery as ReturnType<typeof vi.fn>).mockReturnValue(true); // Portrait true
         render(
             <MemoryRouter>
-                <Landing newMeetingPath="/en/new" />
+                <Landing />
             </MemoryRouter>
         );
         expect(screen.getByTestId('rotate-device')).toBeInTheDocument();
-        expect(screen.queryByText('go')).not.toBeInTheDocument();
+        expect(screen.queryByText('landing.go')).not.toBeInTheDocument();
     });
 
     it('Go link points at newMeetingPath', () => {
         render(
             <MemoryRouter>
-                <Landing newMeetingPath="/en/new" />
+                <Landing />
             </MemoryRouter>
         );
         const link = screen.getByTestId('landing-go');
         expect(link).toHaveAttribute('href', '/en/new');
         fireEvent.click(link);
+    });
+
+    it('hides description and go button in museum mode', () => {
+        vi.mocked(useCouncilSettings).mockReturnValue({
+            mode: 'museum',
+            isMuseumMode: true,
+            setAppMode: vi.fn(),
+            agentMode: "off",
+            setAgentMode: vi.fn(),
+        });
+
+        render(
+            <MemoryRouter>
+                <Landing />
+            </MemoryRouter>
+        );
+
+        expect(screen.queryByText('landing.description')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('landing-go')).not.toBeInTheDocument();
     });
 });

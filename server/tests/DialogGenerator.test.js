@@ -31,10 +31,11 @@ describe('DialogGenerator - Prompt Construction', () => {
     });
 
     it('should correctly format conversation history', () => {
-        const speaker = manager.meeting.characters[1]; // Tomato
+        const chair = manager.meeting.characters[0];
+        const speaker = manager.meeting.characters[1];
         const conversation = [
-            MockFactory.createMessage({ speaker: 'water', text: 'Hello' }), // Water (Chair)
-            MockFactory.createMessage({ speaker: 'tomato', text: 'Hi there' }) // Tomato (Self)
+            MockFactory.createMessage({ speaker: chair.id, text: 'Hello' }),
+            MockFactory.createMessage({ speaker: speaker.id, text: 'Hi there' })
         ];
 
         const messages = dialogGenerator.buildMessageStack(speaker, conversation, manager.meeting);
@@ -44,28 +45,27 @@ describe('DialogGenerator - Prompt Construction', () => {
 
         // Message 1 (Water)
         expect(messages[1].role).toBe("user");
-        expect(messages[1].content).toContain("Water: Hello");
+        expect(messages[1].content).toContain(`${chair.name}: Hello`);
 
         // Message 2 (Tomato/Self)
         expect(messages[2].role).toBe("assistant");
-        expect(messages[2].content).toContain("Tomato: Hi there");
+        expect(messages[2].content).toContain(`${speaker.name}: Hi there`);
 
         // Final message (Prompt for completion)
         expect(messages[3].role).toBe("system");
-        expect(messages[3].content).toBe("Tomato: ");
+        expect(messages[3].content).toBe(`${speaker.name}: `);
     });
 
     it('should correctly format a Human Panelist in history', () => {
         const speaker = manager.meeting.characters[1]; // Tomato
         const conversation = [
-            MockFactory.createMessage({ speaker: 'alice', text: 'I agree' })
+            MockFactory.createMessage({ speaker: 'panelist0', text: 'I agree' })
         ];
 
         manager.meeting.characters.push(
             MockFactory.createCharacter({
-                id: 'alice',
+                id: 'panelist0',
                 name: 'Alice',
-                type: 'panelist'
             })
         );
 
@@ -112,7 +112,6 @@ describe('DialogGenerator - Prompt Construction', () => {
             interjection,
             0,
             100,
-            false,
             manager.meeting,
             mockBroadcaster
         );
@@ -120,9 +119,12 @@ describe('DialogGenerator - Prompt Construction', () => {
         const callArgs = mockCreate.mock.calls[0][0];
         const sentMessages = callArgs.messages;
         const lastMessage = sentMessages[sentMessages.length - 1];
+        const interjectionMessage = sentMessages[sentMessages.length - 2];
 
+        expect(interjectionMessage.role).toBe("system");
+        expect(interjectionMessage.content).toBe(interjection);
         expect(lastMessage.role).toBe("system");
-        expect(lastMessage.content).toBe(interjection);
+        expect(lastMessage.content).toBe(`${manager.meeting.characters[0].name}: `);
     });
 });
 
@@ -151,8 +153,8 @@ describe('DialogGenerator - Text Cleaning & Post-Processing', () => {
     });
 
     it('should remove speaker name prefix from response', async () => {
-        const speaker = manager.meeting.characters[1]; // Tomato
-        mockGPTResponse("Tomato: Hello world");
+        const speaker = manager.meeting.characters[1];
+        mockGPTResponse(`${speaker.name}: Hello world`);
 
         const m = { ...manager.meeting, conversation: [] };
         const result = await dialogGenerator.generateTextFromGPT(
@@ -160,12 +162,12 @@ describe('DialogGenerator - Text Cleaning & Post-Processing', () => {
         );
 
         expect(result.response).toBe("Hello world");
-        expect(result.pretrimmed).toBe("Tomato:");
+        expect(result.pretrimmed).toBe(`${speaker.name}:`);
     });
 
     it('should remove markdown bold speaker name prefix', async () => {
-        const speaker = manager.meeting.characters[1]; // Tomato
-        mockGPTResponse("**Tomato**: Hello bold world");
+        const speaker = manager.meeting.characters[1];
+        mockGPTResponse(`**${speaker.name}**: Hello bold world`);
 
         const m = { ...manager.meeting, conversation: [] };
         const result = await dialogGenerator.generateTextFromGPT(
@@ -206,9 +208,10 @@ describe('DialogGenerator - Text Cleaning & Post-Processing', () => {
     });
 
     it('should cut off text if another character starts speaking', async () => {
-        const speaker = manager.meeting.characters[1]; // Tomato
+        const chair = manager.meeting.characters[0];
+        const speaker = manager.meeting.characters[1];
 
-        mockGPTResponse("I am talking. Water: Hey stop!");
+        mockGPTResponse(`I am talking. ${chair.name}: Hey stop!`);
 
         const m = { ...manager.meeting, conversation: [] };
         const result = await dialogGenerator.generateTextFromGPT(
@@ -216,7 +219,7 @@ describe('DialogGenerator - Text Cleaning & Post-Processing', () => {
         );
 
         expect(result.response).toBe("I am talking.");
-        expect(result.trimmed).toBe("Water: Hey stop!");
+        expect(result.trimmed).toBe(`${chair.name}: Hey stop!`);
     });
 
     it('should handle complex Chair List logic (Semicolon trimming)', async () => {
@@ -243,5 +246,267 @@ describe('DialogGenerator - Text Cleaning & Post-Processing', () => {
         expect(result.response).toContain("1. First.");
         expect(result.response).toContain("2. Second.");
         expect(result.response).not.toContain("3. Thi");
+    });
+
+    it('should strip trailing conversation delimiter from normal turns', async () => {
+        const speaker = manager.meeting.characters[1];
+        mockGPTResponse('Hello council.\n\n---');
+
+        const m = { ...manager.meeting, conversation: [] };
+        const result = await dialogGenerator.generateTextFromGPT(
+            speaker, m, 1
+        );
+
+        expect(result.response).toBe('Hello council.');
+    });
+});
+
+describe('DialogGenerator - Chair Interjection Post-Processing', () => {
+    let manager;
+    let dialogGenerator;
+
+    const mockChairInterjectionResponse = (content, finish_reason = "stop") => {
+        const mockCreate = vi.fn().mockResolvedValue({
+            id: 'interjection-id',
+            choices: [{
+                message: { content },
+                finish_reason
+            }]
+        });
+        vi.spyOn(manager.services, 'getOpenAI').mockReturnValue({
+            chat: { completions: { create: mockCreate } }
+        });
+    };
+
+    const mockBroadcaster = {
+        broadcastConversationUpdate: vi.fn(),
+        broadcastConversationEnd: vi.fn(),
+        broadcastAudioUpdate: vi.fn(),
+        broadcastError: vi.fn(),
+        broadcastWarning: vi.fn()
+    };
+
+    beforeEach(() => {
+        const setup = createTestManager();
+        manager = setup.manager;
+        dialogGenerator = manager.dialogGenerator;
+    });
+
+    it('should remove chair name prefix and expose pretrimmed', async () => {
+        const chair = manager.meeting.characters[0];
+        mockChairInterjectionResponse(`${chair.name}: Welcome to the council.`);
+
+        const result = await dialogGenerator.chairInterjection(
+            'Invite the human.',
+            0,
+            100,
+            manager.meeting,
+            mockBroadcaster
+        );
+
+        expect(result.response).toBe('Welcome to the council.');
+        expect(result.pretrimmed).toBe(`${chair.name}:`);
+    });
+
+    it('should trim overflow sentences when trimSentance is enabled and finish reason is length', async () => {
+        manager.serverOptions.trimSentance = true;
+        mockChairInterjectionResponse('Thank you all. And one more thing', 'length');
+
+        const result = await dialogGenerator.chairInterjection(
+            'Close the meeting.',
+            0,
+            100,
+            manager.meeting,
+            mockBroadcaster
+        );
+
+        expect(result.response).toBe('Thank you all.');
+        expect(result.trimmed).toBe(' And one more thing');
+    });
+
+    it('should trim overflow paragraphs when trimParagraph is enabled and finish reason is length', async () => {
+        manager.serverOptions.trimParagraph = true;
+        mockChairInterjectionResponse('First paragraph.\n\nSecond paragraph.', 'length');
+
+        const result = await dialogGenerator.chairInterjection(
+            'Close the meeting.',
+            0,
+            100,
+            manager.meeting,
+            mockBroadcaster
+        );
+
+        expect(result.response).toBe('First paragraph.');
+        expect(result.trimmed).toBe('\n\nSecond paragraph.');
+    });
+
+    it('should keep full response when finish reason is stop even with trim flags enabled', async () => {
+        manager.serverOptions.trimParagraph = true;
+        manager.serverOptions.trimSentance = true;
+        mockChairInterjectionResponse('First paragraph.\n\nSecond paragraph.', 'stop');
+
+        const result = await dialogGenerator.chairInterjection(
+            'Close the meeting.',
+            0,
+            100,
+            manager.meeting,
+            mockBroadcaster
+        );
+
+        expect(result.response).toBe('First paragraph.\n\nSecond paragraph.');
+        expect(result.trimmed).toBeUndefined();
+    });
+
+    it('should strip trailing conversation delimiter from chair interjection', async () => {
+        mockChairInterjectionResponse('Visitor, what would you like to ask?\n\n---');
+
+        const result = await dialogGenerator.chairInterjection(
+            'Invite the human.',
+            0,
+            100,
+            manager.meeting,
+            mockBroadcaster
+        );
+
+        expect(result.response).toBe('Visitor, what would you like to ask?');
+    });
+});
+
+describe('DialogGenerator - Document Generation', () => {
+    let manager;
+    let dialogGenerator;
+    let mockCreate;
+
+    const mockDocumentResponse = (content, finish_reason = 'stop') => {
+        mockCreate = vi.fn().mockResolvedValue({
+            id: 'document-id',
+            choices: [{
+                message: { content },
+                finish_reason,
+            }],
+        });
+        vi.spyOn(manager.services, 'getOpenAI').mockReturnValue({
+            chat: { completions: { create: mockCreate } },
+        });
+    };
+
+    beforeEach(() => {
+        const setup = createTestManager();
+        manager = setup.manager;
+        dialogGenerator = manager.dialogGenerator;
+    });
+
+    it('should preserve markdown horizontal rules and bold text', async () => {
+        const content = 'PROTOKOLL\n\n---\n\n## Section\nBody with **bold**.';
+        mockDocumentResponse(content);
+
+        const result = await dialogGenerator.generateDocument(
+            'Write the protocol.',
+            manager.meeting,
+            800,
+        );
+
+        expect(result.response).toBe(content);
+    });
+
+    it('should strip markdown code fences from the model output', async () => {
+        const inner = '# Protocol\n\n---\n\n## Section\nBody with **bold**.';
+        mockDocumentResponse(`\`\`\`markdown\n${inner}\n\`\`\``);
+
+        const result = await dialogGenerator.generateDocument(
+            'Write the protocol.',
+            manager.meeting,
+            800,
+        );
+
+        expect(result.response).toBe(inner);
+    });
+
+    it('should strip an unclosed markdown code fence opener', async () => {
+        const inner = '# Protocol\n\nBody text.';
+        mockDocumentResponse(`\`\`\`markdown\n${inner}`);
+
+        const result = await dialogGenerator.generateDocument(
+            'Write the protocol.',
+            manager.meeting,
+            800,
+        );
+
+        expect(result.response).toBe(inner);
+    });
+
+    it('should trim overflow after the last sentence when finish reason is length', async () => {
+        mockDocumentResponse('First section complete.\n\n## More\nIncomplete tail', 'length');
+
+        const result = await dialogGenerator.generateDocument(
+            'Write the protocol.',
+            manager.meeting,
+            800,
+        );
+
+        expect(result.response).toBe('First section complete.');
+        expect(result.trimmed).toBe('\n\n## More\nIncomplete tail');
+    });
+
+    it('should trim overflow after the last paragraph when finish reason is length', async () => {
+        mockDocumentResponse('## Section\n\nPartial section without period', 'length');
+
+        const result = await dialogGenerator.generateDocument(
+            'Write the protocol.',
+            manager.meeting,
+            800,
+        );
+
+        expect(result.response).toBe('## Section');
+        expect(result.trimmed).toBe('\n\nPartial section without period');
+    });
+
+    it('should trim documents even when global trimSentance is disabled', async () => {
+        manager.serverOptions.trimSentance = false;
+        manager.serverOptions.trimParagraph = false;
+        mockDocumentResponse('Done.\n\nOverflow', 'length');
+
+        const result = await dialogGenerator.generateDocument(
+            'Write the protocol.',
+            manager.meeting,
+            800,
+        );
+
+        expect(result.response).toBe('Done.');
+        expect(result.trimmed).toBe('\n\nOverflow');
+    });
+
+    it('should keep full document when finish reason is stop', async () => {
+        const content = 'Done.\n\n## More\nStill included.';
+        mockDocumentResponse(content, 'stop');
+
+        const result = await dialogGenerator.generateDocument(
+            'Write the protocol.',
+            manager.meeting,
+            800,
+        );
+
+        expect(result.response).toBe(content);
+        expect(result.trimmed).toBeUndefined();
+    });
+
+    it('should not send conversation stop or chair completion primer', async () => {
+        mockDocumentResponse('## Summary\nDone.');
+
+        await dialogGenerator.generateDocument(
+            'Write the protocol.',
+            manager.meeting,
+            800,
+        );
+
+        const callArgs = mockCreate.mock.calls[0][0];
+        expect(callArgs.stop).toBeUndefined();
+
+        const sentMessages = callArgs.messages;
+        const lastMessage = sentMessages[sentMessages.length - 1];
+
+        expect(lastMessage.role).toBe('system');
+        expect(lastMessage.content).toBe('Write the protocol.');
+        expect(sentMessages.some((message) => message.content === `${manager.meeting.characters[0].name}: `)).toBe(false);
     });
 });

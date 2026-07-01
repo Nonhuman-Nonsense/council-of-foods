@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.council.button-bridge</string>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>WorkingDirectory</key>
+  <string>__INSTALL_DIR__</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>__RUN_SCRIPT__</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>BUTTON_BRIDGE_HOST</key>
+    <string>127.0.0.1</string>
+    <key>BUTTON_BRIDGE_PORT</key>
+    <string>8765</string>
+  </dict>
+  <key>StandardOutPath</key>
+  <string>/var/log/council-button-bridge.log</string>
+  <key>StandardErrorPath</key>
+  <string>/var/log/council-button-bridge.err.log</string>
+</dict>
+</plist>

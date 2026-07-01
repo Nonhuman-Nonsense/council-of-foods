@@ -7,8 +7,8 @@ describe('MeetingManager - Concurrency & Isolation', () => {
     let p1, p2;
 
     const characters = [
-        MockFactory.createCharacter({ id: 'water', name: 'Water', type: 'food' }),
-        MockFactory.createCharacter({ id: 'tomato', name: 'Tomato', type: 'food' }),
+        MockFactory.createCharacter({ id: 'speaker1', name: 'Speaker 1' }),
+        MockFactory.createCharacter({ id: 'speaker2', name: 'Speaker 2' }),
     ];
 
     beforeEach(() => {
@@ -136,9 +136,9 @@ describe('MeetingManager - Concurrency & Isolation', () => {
         // However, processTurn relies on SpeakerSelector.
         // Let's force handleAITurn to ensure we hit the generator.
 
-        const tomato = characters[1];
-        const p1Promise = p1.manager.handleAITurn({ speaker: tomato });
-        const p2Promise = p2.manager.handleAITurn({ speaker: tomato });
+        const speaker = characters[1];
+        const p1Promise = p1.manager.handleAITurn({ speaker });
+        const p2Promise = p2.manager.handleAITurn({ speaker });
 
         await p2Promise;
         expect(p2.manager.meeting.conversation).toHaveLength(1);

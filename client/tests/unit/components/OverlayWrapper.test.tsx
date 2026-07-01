@@ -1,9 +1,9 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
-import OverlayWrapper from '../../../src/components/OverlayWrapper';
+import OverlayWrapper from '@main/overlay/OverlayWrapper';
 
 // Mock utils
-vi.mock('../../../src/utils', () => ({
+vi.mock('@/utils', () => ({
     useMobile: vi.fn(() => false),
     useMobileXs: vi.fn(() => false),
     usePortrait: vi.fn(() => false),

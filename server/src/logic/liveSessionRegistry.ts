@@ -5,6 +5,10 @@
 
 const liveSessions = new Map<number, { socketId: string; liveKey: string }>();
 
+export function getLiveSessionHolder(meetingId: number): { socketId: string; liveKey: string } | undefined {
+    return liveSessions.get(meetingId);
+}
+
 export function tryAcquireLiveSession(meetingId: number, socketId: string, liveKey: string): boolean {
     const cur = liveSessions.get(meetingId);
     if (!cur) {

@@ -6,13 +6,13 @@ import { Server, Socket } from "socket.io";
 import path from 'path';
 
 import { Logger } from '@utils/Logger.js';
-import { initReporting } from '@utils/errorbot.js';
+import { initReporting, sendReport } from '@utils/errorbot.js';
 import { initDb } from '@services/DbService.js';
 import { initOpenAI } from '@services/OpenAIService.js';
 import { SocketManager } from '@logic/SocketManager.js';
-import { AVAILABLE_LANGUAGES } from '@shared/AvailableLanguages.js';
+import { AVAILABLE_LANGUAGES, COUNTRY_DEFAULT_LANGUAGE } from '@shared/AvailableLanguages.js';
+import { CHARACTERS_FILE } from '@shared/prompts/characterSetupMetadata.js';
 
-import { verifyGoogleCredentials } from '@utils/StartupChecks.js';
 import {
   CACHE_CONTROL_DIST_ASSET_IMMUTABLE,
   CACHE_CONTROL_DIST_PUBLIC_ROOT,
@@ -20,8 +20,12 @@ import {
   CACHE_CONTROL_NO_STORE,
   cacheControlPrivateNoStoreApi,
 } from '@utils/httpCache.js';
+import { getSpaRedirectTarget, isBlockedScannerPath, shouldServeSpaShell } from '@utils/spaFallback.js';
 import { registerMeetingRoutes } from '@api/meetingRoutes.js';
+import { registerRealtimeRoutes } from '@api/realtimeSession.js';
 import { registerAudioRoutes } from '@api/audioRoutes.js';
+import { registerDevErrorbotRoutes } from '@api/devErrorbotRoutes.js';
+import { z } from 'zod';
 
 const environment: string = config.NODE_ENV;
 
@@ -34,7 +38,6 @@ const io = new Server(httpServer);
 try {
   initReporting();
   await initDb();
-  await verifyGoogleCredentials(config); // Strict Startup Check
   initOpenAI();
 } catch (e) {
   await Logger.error("init", "Startup failed.", e);
@@ -52,7 +55,40 @@ app.get('/health', (_req: Request, res: Response) => {
 // Api routes run before static files (audio GET overwrites Cache-Control on success)
 app.use('/api', cacheControlPrivateNoStoreApi);
 registerMeetingRoutes(app, environment);
+registerRealtimeRoutes(app);
 registerAudioRoutes(app);
+registerDevErrorbotRoutes(app, environment);
+
+const ClientReportBody = z.object({
+  message: z.string().min(1).max(2000),
+  source: z.string().min(1).max(200),
+  meetingId: z.number().int().positive().optional(),
+  url: z.string().max(500).optional(),
+  cause: z.unknown().optional(),
+});
+
+app.post('/api/client-report', async (req: Request, res: Response) => {
+  const parsed = ClientReportBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ message: 'Invalid client report' });
+    return;
+  }
+
+  const { message, source, meetingId, url, cause } = parsed.data;
+  const context = meetingId != null ? `client meeting ${meetingId}` : `client ${source}`;
+  const detail = url ? `${message} (${url})` : message;
+
+  res.status(204).end();
+
+  await sendReport({
+    context,
+    severity: 'critical',
+    message: `[CLIENT TERMINAL] ${detail}`,
+    error: cause,
+    clientImpact: 'terminal',
+    source: 'client',
+  });
+});
 
 if (environment === "prototype") {
   app.use(express.static(path.join(process.cwd(), "../prototype/", "public"), {
@@ -62,10 +98,10 @@ if (environment === "prototype") {
   }));
   //Enable prototype to reset to default settings for each language
   for (const lang of AVAILABLE_LANGUAGES) {
-    for (const promptfile of ['foods', 'topics']) {
+    for (const promptfile of [CHARACTERS_FILE, 'topics']) {
       app.get(`/${promptfile}_${lang}.json`, function (_req: Request, res: Response) {
         res.setHeader('Cache-Control', CACHE_CONTROL_NO_STORE);
-        res.sendFile(path.join(process.cwd(), "../client/src/prompts", `${promptfile}_${lang}.json`));
+        res.sendFile(path.join(process.cwd(), "../shared/prompts", `${promptfile}_${lang}.json`));
       });
     }
   }
@@ -86,7 +122,23 @@ if (environment === "prototype") {
       }
     },
   }));
-  app.get("/{*splat}", function (_req: Request, res: Response) {
+  app.get("/{*splat}", function (req: Request, res: Response) {
+    if (isBlockedScannerPath(req.path)) {
+      res.setHeader('Cache-Control', CACHE_CONTROL_NO_STORE);
+      res.sendStatus(404);
+      return;
+    }
+
+    if (!shouldServeSpaShell(req.path)) {
+      res.setHeader('Cache-Control', CACHE_CONTROL_NO_STORE);
+      const cfCountry = req.headers['cf-ipcountry'];
+      const preferredLang = typeof cfCountry === 'string'
+        ? COUNTRY_DEFAULT_LANGUAGE[cfCountry.toUpperCase()]
+        : undefined;
+      res.redirect(302, getSpaRedirectTarget(req.path, AVAILABLE_LANGUAGES, preferredLang));
+      return;
+    }
+
     res.setHeader('Cache-Control', CACHE_CONTROL_HTML_SHELL);
     res.sendFile(path.join(clientDistPath, "index.html"));
   });

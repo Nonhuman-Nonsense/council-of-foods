@@ -87,7 +87,9 @@ describe('ConnectionHandler', () => {
             const ok = await handler.handleReconnection({ meetingId: 999, liveKey: 'any' });
 
             expect(ok).toBe(false);
-            expect(mockBroadcaster.broadcastError).toHaveBeenCalledWith('Meeting not found', 404);
+            expect(mockBroadcaster.broadcastError).toHaveBeenCalledWith(
+                expect.objectContaining({ clientMessage: 'Meeting not found', statusCode: 404 }),
+            );
             expect(mockContext.meeting).toBeNull();
         });
 
@@ -103,7 +105,9 @@ describe('ConnectionHandler', () => {
             const ok = await handler.handleReconnection({ meetingId: 123, liveKey: 'wrong-key' });
 
             expect(ok).toBe(false);
-            expect(mockBroadcaster.broadcastError).toHaveBeenCalledWith('Forbidden', 403);
+            expect(mockBroadcaster.broadcastError).toHaveBeenCalledWith(
+                expect.objectContaining({ clientMessage: 'Forbidden', statusCode: 403 }),
+            );
             expect(mockContext.meeting).toBeNull();
         });
 
@@ -111,12 +115,12 @@ describe('ConnectionHandler', () => {
             const savedMeeting = MockFactory.createStoredMeeting({
                 _id: 123,
                 conversation: [
-                    { id: 'msg1', text: 'Has Audio', sentences: [], speaker: 'water' },
-                    { id: 'msg2', text: 'Missing Audio', sentences: [], speaker: 'potato' }
+                    { id: 'msg1', text: 'Has Audio', sentences: [], speaker: 'speaker1' },
+                    { id: 'msg2', text: 'Missing Audio', sentences: [], speaker: 'speaker2' }
                 ],
                 characters: [
-                    { id: 'water', name: 'Water', voice: 'alloy' },
-                    { id: 'potato', name: 'Potato', voice: 'alloy' }
+                    { id: 'speaker1', name: 'Speaker 1', description: '', prompt: '', voice: 'alloy' },
+                    { id: 'speaker2', name: 'Speaker 2', description: '', prompt: '', voice: 'alloy' }
                 ],
                 audio: ['msg1']
             });

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render } from '@testing-library/react';
-import AudioOutput from '../../../src/components/AudioOutput';
+import AudioOutput from '@council/output/AudioOutput';
 import React from 'react';
 
 // Specialized Mocks for Web Audio API
@@ -22,7 +22,7 @@ const mockAudioContext = {
 };
 
 describe('AudioOutput', () => {
-    let audioContextRef: React.MutableRefObject<any>;
+    let audioContextRef: React.RefObject<any>;
 
     beforeEach(() => {
         vi.clearAllMocks();
