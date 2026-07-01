@@ -231,7 +231,7 @@ describe("realtimeEventLoop", () => {
      * no output. A fresh response.create against the same context works, so we
      * retry once per user turn.
      */
-    it("re-requests once when a completed response produced no output", async () => {
+    it("recovers an empty response by injecting a user text message then response.create", async () => {
         const send = vi.fn();
         const loop = createEventLoop({
             send,
@@ -241,19 +241,34 @@ describe("realtimeEventLoop", () => {
 
         loop.configureSession(makeSession());
         await loop.handleEvent({ type: "session.updated" });
+        // A real user turn so the recovery message echoes the transcript.
+        await loop.handleEvent({
+            type: "conversation.item.input_audio_transcription.completed",
+            transcript: "Ja.",
+        });
         send.mockClear();
 
         await loop.handleEvent({ type: "response.created" });
         await loop.handleEvent({ type: "response.done", response: { status: "completed" } });
 
-        const createCount = () =>
-            send.mock.calls.filter((c) => (c[0] as { type: string }).type === "response.create").length;
-        expect(createCount()).toBe(1);
+        // Recovery = inject a user text item, then response.create (mirrors the
+        // mechanism proven to work; a bare response.create does not).
+        const sentTypes = send.mock.calls.map((c) => (c[0] as { type: string }).type);
+        expect(sentTypes).toEqual(["conversation.item.create", "response.create"]);
+
+        const injected = send.mock.calls[0][0] as {
+            item: { role: string; content: Array<{ text: string }> };
+        };
+        expect(injected.item.role).toBe("user");
+        expect(injected.item.content[0].text).toContain("Ja.");
 
         // A second empty response in the same turn must not retry again.
         await loop.handleEvent({ type: "response.created" });
         await loop.handleEvent({ type: "response.done", response: { status: "completed" } });
-        expect(createCount()).toBe(1);
+        const createCount = send.mock.calls.filter(
+            (c) => (c[0] as { type: string }).type === "response.create"
+        ).length;
+        expect(createCount).toBe(1);
     });
 
     it("does not re-request when the completed response produced output", async () => {

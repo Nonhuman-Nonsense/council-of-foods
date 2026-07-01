@@ -305,15 +305,23 @@ export function createEventLoop(params: {
           emptyResponseRetries < MAX_EMPTY_RESPONSE_RETRIES
         ) {
           emptyResponseRetries += 1;
+          // A bare response.create against the same context also comes back
+          // empty (confirmed via logs): the model won't act on a conversation
+          // whose last turn is the committed *audio* turn. Injecting a *text*
+          // user item makes it respond, so we echo the visitor's transcript.
+          const recoveryText = lastUserTranscript.trim()
+            ? `The visitor said: "${lastUserTranscript.trim()}". Respond now and continue.`
+            : "The visitor responded. Respond now and continue.";
           devLog.event("REALTIME", "empty response recovery — re-requesting", {
             status: r?.status,
             emptyResponseRetries,
           });
-          dbg("EMPTY RESPONSE — sending bare retry (same context, no new message)", {
+          dbg("EMPTY RESPONSE — recovering via injected user text + response.create", {
             createdBy: currentResponseReason,
             status: r?.status,
-            emptyResponseRetries,
+            recoveryText,
           });
+          sendUserMessage(recoveryText);
           sendResponseCreate("empty-retry");
         } else {
           dbg("EMPTY RESPONSE — no retry (cap/guards)", {
