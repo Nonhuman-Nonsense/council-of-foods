@@ -16,12 +16,15 @@ describe('MeetingLifecycleHandler', () => {
     let mockBroadcaster;
     let mockMeetingsCollection;
     let mockAudioCollection;
+    const chair = MockFactory.createChair();
 
     const sessionServerOptions = () =>
         MockFactory.createServerOptions({
             extraMessageCount: 5,
-            finalizeMeetingPrompt: { en: 'Summary [DATE]' },
-            finalizeMeetingLength: 10,
+            concludeMeetingPrompt: { en: 'Closing meeting #[MEETING_ID]' },
+            concludeMeetingLength: 10,
+            summarizeMeetingPrompt: { en: 'Summary [DATE]' },
+            summarizeMeetingLength: 10,
             conversationMaxLength: 10
         });
 
@@ -30,7 +33,7 @@ describe('MeetingLifecycleHandler', () => {
             _id: 101,
             liveKey: 'test-live-key',
             conversation: [],
-            characters: [MockFactory.createCharacter({ id: 'chair', name: 'Chair' })],
+            characters: [MockFactory.createChair()],
             ...overrides
         });
 
@@ -66,9 +69,12 @@ describe('MeetingLifecycleHandler', () => {
             },
             startLoop: vi.fn(),
             dialogGenerator: {
-                chairInterjection: vi.fn().mockResolvedValue({ response: 'Summary', id: 'sum1' })
+                chairInterjection: vi.fn()
+                    .mockResolvedValueOnce({ response: 'Thank you all for a rich discussion.', id: 'close1' }),
+                generateDocument: vi.fn()
+                    .mockResolvedValue({ response: 'Summary', id: 'sum1' }),
             },
-            audioSystem: { generateAudio: vi.fn() }
+            audioSystem: { generateAudio: vi.fn(), queueAudioGeneration: vi.fn() }
         };
 
         handler = new MeetingLifecycleHandler(mockContext);
@@ -108,74 +114,134 @@ describe('MeetingLifecycleHandler', () => {
         });
     });
 
-    describe('handleWrapUpMeeting', () => {
+    describe('handleConcludeMeeting', () => {
         it('should update DB after summary', async () => {
             mockContext.meeting = storedMeeting({
                 conversation: [
-                    { id: '1', text: 'hi', type: 'message', speaker: 'chair' },
-                    { type: 'max_reached' },
+                    { id: '1', text: 'hi', type: 'message', speaker: chair.id },
+                    { type: 'query_extension' },
                 ],
             });
 
-            await handler.handleWrapUpMeeting({ date: '2025-01-01' });
+            await handler.handleConcludeMeeting({ date: '2025-01-01' });
 
             expect(mockMeetingsCollection.updateOne).toHaveBeenCalled();
         });
 
-        it('should strip max_reached before appending summary', async () => {
+        it('should strip query_extension before appending closing and summary', async () => {
             mockContext.meeting = storedMeeting({
                 conversation: [
-                    { id: '1', text: 'hi', type: 'message', speaker: 'chair' },
-                    { type: 'max_reached' }
+                    { id: '1', text: 'hi', type: 'message', speaker: chair.id },
+                    { type: 'query_extension' }
                 ]
             });
 
-            await handler.handleWrapUpMeeting({ date: '2025-01-01' });
+            await handler.handleConcludeMeeting({ date: '2025-01-01' });
 
-            expect(mockContext.meeting.conversation.map((m) => m.type)).toEqual(['message', 'summary']);
+            expect(mockContext.meeting.conversation.map((m) => m.type)).toEqual(['message', 'message', 'summary']);
+            expect(mockContext.meeting.conversation[1].text).toBe('Thank you all for a rich discussion.');
         });
 
-        it('throws when wrap-up is requested without max_reached sentinel', async () => {
+        it('broadcasts closing before summary is generated', async () => {
+            let finishSummary;
+            mockContext.dialogGenerator.chairInterjection = vi.fn()
+                .mockResolvedValueOnce({ response: 'Closing line', id: 'close1' });
+            mockContext.dialogGenerator.generateDocument = vi.fn()
+                .mockReturnValue(new Promise((resolve) => {
+                    finishSummary = () => resolve({ response: 'Summary', id: 'sum1' });
+                }));
             mockContext.meeting = storedMeeting({
-                conversation: [{ id: '1', text: 'hi', type: 'message', speaker: 'chair' }],
+                conversation: [{ id: '1', text: 'hi', type: 'message', speaker: chair.id }],
             });
-            await expect(handler.handleWrapUpMeeting({ date: '2025-01-01' })).rejects.toThrow(
-                'Attempted to wrap up meeting but not at max reached',
-            );
+
+            const concludeMeeting = handler.handleConcludeMeeting({ date: '2025-01-01' });
+            await Promise.resolve();
+
+            expect(mockContext.meeting.conversation.map((m) => m.type)).toEqual(['message', 'message']);
+            expect(mockBroadcaster.broadcastConversationUpdate).toHaveBeenCalledTimes(1);
+
+            finishSummary();
+            await concludeMeeting;
+
+            expect(mockContext.meeting.conversation.map((m) => m.type)).toEqual(['message', 'message', 'summary']);
+            expect(mockBroadcaster.broadcastConversationUpdate).toHaveBeenCalledTimes(2);
+        });
+
+        it('appends closing and summary without query_extension sentinel at hard cap auto conclude', async () => {
+            mockContext.meeting = storedMeeting({
+                conversation: [{ id: '1', text: 'hi', type: 'message', speaker: chair.id }],
+            });
+
+            await handler.handleConcludeMeeting({ date: '2025-01-01' });
+
+            expect(mockContext.meeting.conversation.map((m) => m.type)).toEqual(['message', 'message', 'summary']);
+        });
+
+        it('passes trimmed content through on closing message when chair interjection overflows', async () => {
+            mockContext.dialogGenerator.chairInterjection = vi.fn()
+                .mockResolvedValueOnce({
+                    response: 'Thank you all.',
+                    trimmed: '\n\nExtra closing thoughts.',
+                    id: 'close1',
+                });
+            mockContext.dialogGenerator.generateDocument = vi.fn()
+                .mockResolvedValueOnce({ response: 'Summary', id: 'sum1' });
+            mockContext.meeting = storedMeeting({
+                conversation: [{ id: '1', text: 'hi', type: 'message', speaker: chair.id }],
+            });
+
+            await handler.handleConcludeMeeting({ date: '2025-01-01' });
+
+            expect(mockContext.meeting.conversation[1].trimmed).toBe('\n\nExtra closing thoughts.');
+        });
+
+        it('calls chairInterjection for closing then generateDocument for summary', async () => {
+            mockContext.meeting = storedMeeting({
+                conversation: [{ id: '1', text: 'hi', type: 'message', speaker: chair.id }],
+            });
+
+            await handler.handleConcludeMeeting({ date: '2025-01-01' });
+
+            expect(mockContext.dialogGenerator.chairInterjection).toHaveBeenCalledTimes(1);
+            expect(mockContext.dialogGenerator.chairInterjection.mock.calls[0][0]).toBe('Closing meeting #101');
+            expect(mockContext.dialogGenerator.generateDocument).toHaveBeenCalledTimes(1);
+            expect(mockContext.dialogGenerator.generateDocument.mock.calls[0][0]).toBe('Summary 2025-01-01');
+            expect(mockContext.audioSystem.queueAudioGeneration).toHaveBeenCalledTimes(1);
+            expect(mockContext.audioSystem.generateAudio).toHaveBeenCalledTimes(1);
         });
     });
 
-    describe('handleContinueConversation', () => {
-        it('should resume loop when meeting is at max_reached', async () => {
+    describe('handleExtendMeeting', () => {
+        it('should resume loop when meeting is at query_extension', async () => {
             mockContext.meeting = storedMeeting({
                 conversation: [
-                    { id: 'a', type: 'message', text: 'x', speaker: 'chair' },
-                    { type: 'max_reached' },
+                    { id: 'a', type: 'message', text: 'x', speaker: chair.id },
+                    { type: 'query_extension' },
                 ],
             });
-            await handler.handleContinueConversation();
+            await handler.handleExtendMeeting();
             expect(mockContext.startLoop).toHaveBeenCalled();
         });
 
-        it('throws when continue is requested without max_reached sentinel', async () => {
+        it('throws when continue is requested without query_extension sentinel', async () => {
             mockContext.meeting = storedMeeting({
-                conversation: [{ id: 'a', type: 'message', text: 'x', speaker: 'chair' }],
+                conversation: [{ id: 'a', type: 'message', text: 'x', speaker: chair.id }],
             });
-            await expect(handler.handleContinueConversation()).rejects.toThrow(
-                'Attempted to continue meeting but not at max reached',
+            await expect(handler.handleExtendMeeting()).rejects.toThrow(
+                'Attempted to extend meeting but not at query_extension sentinel',
             );
         });
 
-        it('should strip max_reached, persist slots, then resume', async () => {
+        it('should strip query_extension, persist slots, then resume', async () => {
             mockContext.meeting = storedMeeting({
                 conversation: [
-                    { id: 'a', type: 'message', text: 'x', speaker: 'chair' },
-                    { type: 'max_reached' },
+                    { id: 'a', type: 'message', text: 'x', speaker: chair.id },
+                    { type: 'query_extension' },
                 ],
             });
             mockMeetingsCollection.updateOne.mockResolvedValue({ matchedCount: 1, modifiedCount: 1 });
 
-            await handler.handleContinueConversation();
+            await handler.handleExtendMeeting();
 
             expect(mockContext.meeting.conversation.map((m) => m.type)).toEqual(['message']);
             expect(mockContext.meeting.conversationExtraSlots).toBe(5);

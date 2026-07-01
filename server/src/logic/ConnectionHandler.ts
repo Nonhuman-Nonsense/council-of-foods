@@ -2,7 +2,8 @@ import type { ReconnectionOptions } from "@shared/SocketTypes.js";
 import type { Message } from "@shared/ModelTypes.js";
 import type { IMeetingManager } from "@interfaces/MeetingInterfaces.js";
 import type { StoredMeeting } from "@models/DBModels.js";
-import { splitSentences } from "@utils/textUtils.js";
+import { splitSentences } from "@shared/textUtils.js";
+import { ForbiddenError, NotFoundError } from "@models/Errors.js";
 import { Logger } from "@utils/Logger.js";
 
 /**
@@ -46,13 +47,13 @@ export class ConnectionHandler {
             });
 
             if (!existingMeeting) {
-                manager.broadcaster.broadcastError("Meeting not found", 404);
+                manager.broadcaster.broadcastError(new NotFoundError());
                 Logger.warn(`meeting ${options.meetingId}`, `Meeting not found`);
                 return false;
             }
 
             if (existingMeeting.liveKey !== options.liveKey) {
-                manager.broadcaster.broadcastError("Forbidden", 403);
+                manager.broadcaster.broadcastError(new ForbiddenError());
                 Logger.warn(`meeting ${options.meetingId}`, "attempt_reconnection liveKey mismatch");
                 return false;
             }
@@ -70,7 +71,7 @@ export class ConnectionHandler {
             for (let i = 0; i < existingMeeting.conversation.length; i++) {
                 if (existingMeeting.conversation[i].type === 'awaiting_human_panelist') continue;
                 if (existingMeeting.conversation[i].type === 'awaiting_human_question') continue;
-                if (existingMeeting.conversation[i].type === 'max_reached') continue;
+                if (existingMeeting.conversation[i].type === 'query_extension') continue;
                 const msgId = existingMeeting.conversation[i].id;
                 if (msgId && existingMeeting.audio.indexOf(msgId) === -1) {
                     missingAudio.push(existingMeeting.conversation[i]);

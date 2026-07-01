@@ -165,6 +165,12 @@ body {
   font-weight: 600;
 }
 
+.topic-item-custom {
+  margin-top: 8px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border-color);
+}
+
 .sidebar.collapsed .sidebar-content {
   display: none;
 }
@@ -261,6 +267,14 @@ button.primary:hover {
   background-color: var(--accent-hover);
 }
 
+.status-error {
+  color: #ef4444;
+  font-weight: 600;
+  font-size: 0.9em;
+  padding: 6px 10px;
+  user-select: none;
+}
+
 button.icon-btn {
   padding: 4px;
   background: transparent;
@@ -300,6 +314,15 @@ input[type="range"],
 input[type="checkbox"] {
   accent-color: var(--accent-color);
   cursor: pointer;
+}
+
+input + small,
+select + small,
+textarea + small{
+  display:block;
+  margin-top: calc(var(--spacing-sm) * -1);
+  margin-bottom: var(--spacing-md);
+  color: var(--text-secondary);
 }
 
 /* Styled Select */
@@ -569,6 +592,12 @@ input[type="checkbox"] {
   font-weight: 600;
 }
 
+.bubble-header .ask-particular {
+  font-weight: 500;
+  color: var(--accent-color);
+  opacity: 1;
+}
+
 /* Active Audio Highlight */
 .chat-bubble.playing {
   box-shadow: 0 0 0 1px var(--accent-color);
@@ -576,6 +605,40 @@ input[type="checkbox"] {
   /* slightly lighter/different if needed, but border is good */
   transform: scale(1.01);
   transition: all 0.3s ease;
+}
+
+.prototype-debug-bar {
+  border-top: 1px solid var(--border-color);
+  background: var(--bg-panel);
+  padding: 6px 12px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+button.raise-hand-btn {
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.85em;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  opacity: 0.72;
+}
+
+button.raise-hand-btn:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  opacity: 1;
+}
+
+button.raise-hand-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
 }
 
 /* Scrollbars */

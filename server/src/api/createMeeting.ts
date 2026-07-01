@@ -25,7 +25,7 @@ export async function createMeeting(rawBody: unknown, _environment: string): Pro
         date: new Date().toISOString(),
         state: {
             alreadyInvited: false,
-            humanName: null,
+            humanName: setup.humanName ?? null,
         },
         maximumPlayedIndex: 0,
         conversationExtraSlots: 0,

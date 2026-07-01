@@ -3,12 +3,14 @@ import { describe, it, expect } from 'vitest';
 import { AVAILABLE_LANGUAGES } from '@shared/AvailableLanguages';
 import fs from 'fs';
 import path from 'path';
+import { SHARED_PROMPTS_DIR } from '../sharedPromptsDir';
 
 interface Topic {
     id: string;
     title: string;
     description?: string;
     prompt?: string;
+    agendaPoints?: string[];
 }
 
 interface TopicsData {
@@ -22,14 +24,14 @@ interface TopicsData {
 }
 
 function loadTopicsData(lang: string): TopicsData {
-    const filePath = path.resolve(__dirname, `../../src/prompts/topics_${lang}.json`);
+    const filePath = path.join(SHARED_PROMPTS_DIR, `topics_${lang}.json`);
     return JSON.parse(fs.readFileSync(filePath, 'utf-8')) as TopicsData;
 }
 
 describe('Validate Topics Data JSONs', () => {
     it('should have a valid JSON file for every available language', () => {
         AVAILABLE_LANGUAGES.forEach((lang) => {
-            const filePath = path.resolve(__dirname, `../../src/prompts/topics_${lang}.json`);
+            const filePath = path.join(SHARED_PROMPTS_DIR, `topics_${lang}.json`);
 
             // 1. Check file existence
             expect(fs.existsSync(filePath), `Missing topics data file for language: ${lang}`).toBe(true);
@@ -50,6 +52,7 @@ describe('Validate Topics Data JSONs', () => {
             // 4. Validate System Prompt
             expect(typeof data.system).toBe('string');
             expect(data.system.length).toBeGreaterThan(0);
+            expect(data.system).toContain('[TOPIC]');
 
             // 5. Validate Custom Topic
             expect(data.custom_topic).toHaveProperty('id');
@@ -61,6 +64,14 @@ describe('Validate Topics Data JSONs', () => {
                 expect(topic).toHaveProperty('title');
                 expect(topic).toHaveProperty('description');
                 expect(topic).toHaveProperty('prompt');
+                if (topic.agendaPoints != null) {
+                    expect(Array.isArray(topic.agendaPoints)).toBe(true);
+                    expect(topic.agendaPoints.length).toBeGreaterThan(0);
+                    topic.agendaPoints.forEach((point) => {
+                        expect(typeof point).toBe('string');
+                        expect(point.trim().length).toBeGreaterThan(0);
+                    });
+                }
             });
         });
     });

@@ -13,23 +13,27 @@ vi.mock('@root/src/utils/Logger.js', () => ({
     }
 }));
 
-vi.mock('@root/src/logic/GlobalOptions.js', () => ({
-    GlobalOptionsSchema: {},
-    getGlobalOptions: vi.fn(() => ({
-        inworldVoiceModel: 'inworld-tts-1',
-        audio_speed: 1.0
-    }))
-}));
+vi.mock('@root/src/logic/GlobalOptions.js', async () => {
+    const actual = await vi.importActual('@root/src/logic/GlobalOptions.js');
+    return {
+        ...actual,
+        getGlobalOptions: vi.fn(() => ({
+            inworldVoiceModel: 'inworld-tts-1',
+            defaultAudioSpeed: 1.0,
+            chairId: actual.CHAIR_ID
+        }))
+    };
+});
 
 // Mock fetch globally
 const mockFetch = vi.fn();
 global.fetch = mockFetch;
 
-// Mock InworldPronunciationUtils
-vi.mock('@root/src/utils/InworldPronunciationUtils.js', () => ({
-    InworldPronunciationUtils: {
-        processTextWithIPA: vi.fn((text) => {
-            if (text.includes('tomato')) {
+// Mock PronunciationUtils
+vi.mock('@root/src/utils/PronunciationUtils.js', () => ({
+    PronunciationUtils: {
+        processText: vi.fn((text, _language, options) => {
+            if (options.includeIpa && text.includes('tomato')) {
                 const map = new Map();
                 map.set('/təˈmɑːtoʊ/', 'tomato');
                 return {
@@ -104,7 +108,7 @@ describe('AudioSystem Inworld Integration', () => {
             message,
             speaker,
             'en',
-            serverOptions({ audio_speed: 1.2, inworldVoiceModel: 'inworld-tts-1' }),
+            serverOptions({ defaultAudioSpeed: 1.2, inworldVoiceModel: 'inworld-tts-1' }),
             meeting(),
             environment
         );
@@ -141,7 +145,7 @@ describe('AudioSystem Inworld Integration', () => {
             message,
             speaker,
             'en',
-            serverOptions({ audio_speed: 1.0, inworldVoiceModel: 'inworld-tts-1' }),
+            serverOptions({ defaultAudioSpeed: 1.0, inworldVoiceModel: 'inworld-tts-1' }),
             meeting(),
             'production'
         );
@@ -197,12 +201,76 @@ describe('AudioSystem Inworld Integration', () => {
             message,
             speaker,
             'en',
-            serverOptions({ audio_speed: 1.0, inworldVoiceModel: 'inworld-tts-1.5' }),
+            serverOptions({ defaultAudioSpeed: 1.0, inworldVoiceModel: 'inworld-tts-1.5' }),
             meeting(),
             'production'
         );
 
         expect(openai.audio.transcriptions.create).not.toHaveBeenCalled();
+    });
+
+    it('should ignore Inworld punctuation and space alignment tokens when mapping sentence timings', async () => {
+        const firstWords = [
+            'One', 'two', 'three', 'four', 'five',
+            'six', 'seven', 'eight', 'nine', 'ten',
+            'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen',
+            'sixteen', 'seventeen', 'eighteen', 'nineteen', 'twenty'
+        ];
+        const secondWords = ['Final', 'word'];
+        const firstSentence = `${firstWords.join(' ')}.`;
+        const secondSentence = `${secondWords.join(' ')}.`;
+        const spokenWords = [...firstWords, ...secondWords];
+        const words = [];
+        const starts = [];
+        const ends = [];
+
+        spokenWords.forEach((word, index) => {
+            const start = index * 0.4;
+            words.push(word, index === firstWords.length - 1 || index === spokenWords.length - 1 ? '. ' : ' ');
+            starts.push(start, start + 0.35);
+            ends.push(start + 0.35, start + 0.4);
+        });
+
+        mockFetch.mockResolvedValue({
+            ok: true,
+            json: async () => ({
+                audioContent: Buffer.from('audio').toString('base64'),
+                timestampInfo: {
+                    wordAlignment: {
+                        words,
+                        wordStartTimeSeconds: starts,
+                        wordEndTimeSeconds: ends
+                    }
+                }
+            }),
+            text: async () => ''
+        });
+
+        await audioSystem.generateAudio(
+            { id: 'msg-punctuation', text: `${firstSentence} ${secondSentence}`, sentences: [firstSentence, secondSentence] },
+            { id: 'char1', voice: 'Dennis', voiceProvider: 'inworld' },
+            'en',
+            serverOptions({ defaultAudioSpeed: 1.0, inworldVoiceModel: 'inworld-tts-1.5' }),
+            meeting(),
+            'production'
+        );
+
+        expect(mockBroadcaster.broadcastAudioUpdate).toHaveBeenCalledWith(
+            expect.objectContaining({
+                sentences: [
+                    expect.objectContaining({
+                        text: firstSentence,
+                        start: 0,
+                        end: 7.95
+                    }),
+                    expect.objectContaining({
+                        text: secondSentence,
+                        start: 8,
+                        end: 8.75
+                    })
+                ]
+            })
+        );
     });
 
     it('should report error on non-ok Inworld API response', async () => {
@@ -219,7 +287,7 @@ describe('AudioSystem Inworld Integration', () => {
             message,
             speaker,
             'en',
-            serverOptions({ audio_speed: 1.0, inworldVoiceModel: 'inworld-tts-1' }),
+            serverOptions({ defaultAudioSpeed: 1.0, inworldVoiceModel: 'inworld-tts-1' }),
             meeting(),
             'production'
         );
@@ -232,7 +300,7 @@ describe('AudioSystem Inworld Integration', () => {
         );
     });
 
-    it('should integrate InworldPronunciationUtils to process IPA words', async () => {
+    it('should integrate PronunciationUtils to process IPA words', async () => {
         const message = { id: 'msgIPA', text: 'Say tomato please', sentences: ['Say tomato please'] };
         const speaker = { id: 'char1', voice: 'Dennis', voiceProvider: 'inworld' };
 
@@ -255,7 +323,7 @@ describe('AudioSystem Inworld Integration', () => {
             message,
             speaker,
             'en',
-            serverOptions({ audio_speed: 1.0, inworldVoiceModel: 'inworld-tts-1' }),
+            serverOptions({ defaultAudioSpeed: 1.0, inworldVoiceModel: 'inworld-tts-1' }),
             meeting(),
             'production'
         );
@@ -291,5 +359,63 @@ describe('AudioSystem Inworld Integration', () => {
                 ])
             })
         );
+    });
+
+    it('should send language and TTS-2 model when voiceLocale is set', async () => {
+        const message = { id: 'msg-sv', text: 'Hej', sentences: ['Hej'] };
+        const speaker = {
+            id: 'char1',
+            voice: 'custom-sv-voice',
+            voiceProvider: 'inworld',
+            voiceLocale: 'sv-SE',
+        };
+
+        mockFetch.mockResolvedValue({
+            ok: true,
+            json: async () => ({ audioContent: Buffer.from('audio').toString('base64') }),
+        });
+
+        await audioSystem.generateAudio(
+            message,
+            speaker,
+            'sv',
+            serverOptions({ defaultAudioSpeed: 1.0, inworldVoiceModel: 'inworld-tts-1.5-max' }),
+            meeting(),
+            'production'
+        );
+
+        const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+        expect(body.model_id).toBe('inworld-tts-2');
+        expect(body.language).toBe('sv-SE');
+        expect(body.temperature).toBeUndefined();
+    });
+
+    it('should use TTS 1.5 without language when voiceLocale is unset', async () => {
+        const message = { id: 'msg-en', text: 'Hello', sentences: ['Hello'] };
+        const speaker = {
+            id: 'char1',
+            voice: 'Pippa',
+            voiceProvider: 'inworld',
+            voiceTemperature: 1.2,
+        };
+
+        mockFetch.mockResolvedValue({
+            ok: true,
+            json: async () => ({ audioContent: Buffer.from('audio').toString('base64') }),
+        });
+
+        await audioSystem.generateAudio(
+            message,
+            speaker,
+            'en',
+            serverOptions({ defaultAudioSpeed: 1.0, inworldVoiceModel: 'inworld-tts-1.5-max' }),
+            meeting(),
+            'production'
+        );
+
+        const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+        expect(body.model_id).toBe('inworld-tts-1.5-max');
+        expect(body.language).toBeUndefined();
+        expect(body.temperature).toBe(1.2);
     });
 });

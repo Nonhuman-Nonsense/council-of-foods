@@ -1,6 +1,6 @@
 import type { Message } from "@shared/ModelTypes.js";
 import type { IHandRaisingContext } from "@interfaces/MeetingInterfaces.js";
-import { splitSentences } from "@utils/textUtils.js";
+import { splitSentences } from "@shared/textUtils.js";
 import { Logger } from "@utils/Logger.js";
 
 
@@ -53,28 +53,22 @@ export class HandRaisingHandler {
                 ),
                 handRaisedOptions.index,
                 manager.serverOptions.raiseHandInvitationLength,
-                true,
                 m,
                 manager.broadcaster
             );
-            let response = chairInterjection.response;
-            const { id } = chairInterjection;
-
-            const firstNewLineIndex = response.indexOf("\n\n");
-            if (firstNewLineIndex !== -1) {
-                response = response.substring(0, firstNewLineIndex);
-            }
+            const { response, id, trimmed, pretrimmed, sentences } = chairInterjection;
 
             const message: Message = {
                 id: id as string,
                 speaker: m.characters[0].id,
                 text: response,
                 type: "invitation",
-                sentences: [] // Will be populated
-            }
+                sentences: sentences || splitSentences(response),
+                trimmed,
+                pretrimmed,
+            };
 
             m.conversation.push(message);
-            message.sentences = splitSentences(message.text as string);
 
             m.state.alreadyInvited = true;
             Logger.info(`meeting ${m._id}`, `invitation generated, on index ${handRaisedOptions.index}`);

@@ -1,4 +1,5 @@
 import type { Meeting } from "@shared/ModelTypes";
+import { councilFetch } from "./http";
 import { httpErrorMessage } from "./httpErrorMessage";
 
 export async function getMeeting({
@@ -14,7 +15,7 @@ export async function getMeeting({
   if (liveKey) {
     headers["Authorization"] = `Bearer ${liveKey}`;
   }
-  const res = await fetch(`/api/meetings/${meetingId}`, {
+  const res = await councilFetch(`/api/meetings/${meetingId}`, {
     method: "GET",
     headers,
     signal,

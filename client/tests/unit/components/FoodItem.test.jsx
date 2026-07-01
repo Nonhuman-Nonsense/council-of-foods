@@ -1,16 +1,16 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import FoodItem from '../../../src/components/FoodItem';
+import FoodItem from '@council/FoodItem';
 
 // Mock the child component FoodAnimation to isolate FoodItem testing
 // But actually FoodAnimation is simple enough we might want to test the composition.
 // However, FoodAnimation uses video APIs which are not fully implemented in JSDOM.
 // Let's mock it to avoid video.play() errors and focus on FoodItem logic.
-vi.mock('../../../src/components/FoodAnimation', () => ({
-    default: ({ food, styles, currentSpeakerId }) => (
+vi.mock('@council/FoodAnimation', () => ({
+    default: ({ food, styles, isPerforming }) => (
         <div data-testid={`food-animation-${food.id}`} style={styles}>
             Video for {food.id}
-            {currentSpeakerId === food.id ? ' (Breathing)' : ' (Idle)'}
+            {isPerforming ? ' (Breathing)' : ' (Idle)'}
         </div>
     )
 }));
@@ -68,13 +68,28 @@ describe('FoodItem', () => {
             />
         );
 
-        // Should be invisible or hidden based on implementation?
-        // In code: opacity: (zoomIn ? "0" : "1") if it falls through to overViewFoodItemStyle
-        // Logic: if (zoomIn && currentSpeakerId === food.id) -> special style
-        // else -> overViewFoodItemStyle -> checks zoomIn -> opacity 0
-
         const container = screen.getByTestId('food-animation-banana').parentElement;
         expect(container).toHaveStyle({ opacity: '0' });
+        expect(asFragment()).toMatchSnapshot();
+    });
+
+    it('stays zoomed and visible when focused but not performing (meta-agent idle)', () => {
+        const waterFood = { id: 'water', size: 1 };
+        const { asFragment } = render(
+            <FoodItem
+                food={waterFood}
+                index={0}
+                total={3}
+                currentSpeakerId="water"
+                isPerforming={false}
+                isPaused={false}
+                zoomIn={true}
+            />
+        );
+
+        expect(screen.getByText('Video for water (Idle)')).toBeInTheDocument();
+        const container = screen.getByTestId('food-animation-water').parentElement;
+        expect(container).not.toHaveStyle({ opacity: '0' });
         expect(asFragment()).toMatchSnapshot();
     });
 

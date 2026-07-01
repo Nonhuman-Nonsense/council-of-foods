@@ -1,14 +1,12 @@
 
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { Logger } from '@utils/Logger.js';
-import { InternalServerError } from '@models/Errors.js';
+import { CouncilError } from '@models/Errors.js';
 
-// Mock config to prevent actual error reporting (if errorbot attempts it)
-vi.mock('@root/src/config.js', () => ({
-    config: {
-        error_reporting_url: 'http://localhost:0000', // Dummy
-        NODE_ENV: 'test'
-    }
+const sendReportMock = vi.fn().mockResolvedValue(undefined);
+
+vi.mock('@utils/errorbot.js', () => ({
+    sendReport: (...args) => sendReportMock(...args),
 }));
 
 // Mock console methods to avoid noise
@@ -28,32 +26,78 @@ describe('Logger Reporting', () => {
         Logger.reportAndCrashClient("TestContext", "An error occurred", error);
 
         expect(consoleSpy.error).toHaveBeenCalled();
-        // The logger adds colors, so matching exact string is hard, but we know it calls console.error
     });
 
     it('should broadcast 500 error if broadcaster is provided', () => {
         const mockBroadcaster = {
             broadcastError: vi.fn(),
-            broadcastWarning: vi.fn()
         };
 
         const error = new Error("Broadcast Me");
         Logger.reportAndCrashClient("TestContext", "Client Message", error, mockBroadcaster);
 
         expect(mockBroadcaster.broadcastError).toHaveBeenCalledWith(
-            new InternalServerError().clientMessage,
-            500,
+            expect.any(CouncilError),
+            "TestContext",
         );
+        expect(mockBroadcaster.broadcastError.mock.calls[0][0].clientMessage).toBe("Internal Server Error");
+        expect(mockBroadcaster.broadcastError.mock.calls[0][0].debugCause).toBe(error);
         expect(consoleSpy.error).toHaveBeenCalled();
+    });
+
+    it('should report critical terminal severity to errorbot', () => {
+        const error = new Error("Broadcast Me");
+        Logger.reportAndCrashClient("AudioSystem", "Error generating audio", error);
+
+        expect(sendReportMock).toHaveBeenCalledWith({
+            context: "AudioSystem",
+            severity: 'critical',
+            message: "[CLIENT TERMINAL] Error generating audio",
+            error,
+            clientImpact: 'terminal',
+        });
     });
 
     it('should not throw if broadcaster is undefined', () => {
         const error = new Error("No Broadcaster");
-        // Should not throw
         expect(() => {
             Logger.reportAndCrashClient("TestContext", "Silent failure", error);
         }).not.toThrow();
 
         expect(consoleSpy.error).toHaveBeenCalled();
+    });
+
+    it('should log error.cause when present', async () => {
+        const cause = Object.assign(new Error('connect ECONNREFUSED'), { code: 'ECONNREFUSED' });
+        const error = Object.assign(new TypeError('fetch failed'), { cause });
+
+        await Logger.error('AudioSystem', 'Error generating audio', error);
+
+        const detailCalls = consoleSpy.error.mock.calls
+            .map((call) => call[0])
+            .filter((line) => typeof line === 'string' && line.includes('Caused by:'));
+
+        expect(detailCalls.length).toBeGreaterThan(0);
+        expect(detailCalls.some((line) => line.includes('ECONNREFUSED'))).toBe(true);
+    });
+
+    it('should still broadcast and report when error has a cause', () => {
+        const cause = { code: 'ECONNREFUSED', message: 'connect ECONNREFUSED' };
+        const error = Object.assign(new TypeError('fetch failed'), { cause });
+        const mockBroadcaster = { broadcastError: vi.fn() };
+
+        Logger.reportAndCrashClient('AudioSystem', 'Error generating audio', error, mockBroadcaster);
+
+        expect(mockBroadcaster.broadcastError).toHaveBeenCalledWith(
+            expect.any(CouncilError),
+            'AudioSystem',
+        );
+        expect(sendReportMock).toHaveBeenCalledWith({
+            context: 'AudioSystem',
+            severity: 'critical',
+            message: '[CLIENT TERMINAL] Error generating audio',
+            error,
+            clientImpact: 'terminal',
+        });
     });
 });

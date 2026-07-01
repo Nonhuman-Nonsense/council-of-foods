@@ -4,6 +4,8 @@ import { clearLiveSessionRegistryForTests, tryAcquireLiveSession } from "@logic/
 import { createTestManager } from "./commonSetup.js";
 import { MockFactory } from "./factories/MockFactory.js";
 
+const SPEAKER_ID = "speaker1";
+
 describe("report_maximum_played_index (MeetingManager)", () => {
     beforeEach(() => {
         clearLiveSessionRegistryForTests();
@@ -18,19 +20,22 @@ describe("report_maximum_played_index (MeetingManager)", () => {
         const meeting = MockFactory.createStoredMeeting({
             _id: 501,
             conversation: [
-                { id: "a", type: "message", speaker: "water", text: "1" },
-                { id: "b", type: "message", speaker: "water", text: "2" },
-                { id: "c", type: "message", speaker: "water", text: "3" },
+                { id: "a", type: "message", speaker: SPEAKER_ID, text: "1" },
+                { id: "b", type: "message", speaker: SPEAKER_ID, text: "2" },
+                { id: "c", type: "message", speaker: SPEAKER_ID, text: "3" },
             ],
         });
         manager.meeting = meeting;
 
         expect(tryAcquireLiveSession(501, "holder-socket", meeting.liveKey)).toBe(true);
 
+        const startSpy = vi.spyOn(manager, "startLoop").mockImplementation(() => {});
+
         await manager.handleEvent("report_maximum_played_index", { index: 2 });
 
         expect(updateSpy).toHaveBeenCalledWith({ _id: 501 }, { $max: { maximumPlayedIndex: 2 } });
         expect(meeting.maximumPlayedIndex).toBe(2);
+        expect(startSpy).toHaveBeenCalledTimes(1);
     });
 
     it("does not update when socket is not the live session holder", async () => {
@@ -40,16 +45,19 @@ describe("report_maximum_played_index (MeetingManager)", () => {
         mockSocket.id = "intruder-socket";
         const meeting = MockFactory.createStoredMeeting({
             _id: 502,
-            conversation: [{ id: "a", type: "message", speaker: "water", text: "1" }],
+            conversation: [{ id: "a", type: "message", speaker: SPEAKER_ID, text: "1" }],
         });
         manager.meeting = meeting;
 
         tryAcquireLiveSession(502, "real-holder", meeting.liveKey);
 
+        const startSpy = vi.spyOn(manager, "startLoop");
+
         await manager.handleEvent("report_maximum_played_index", { index: 0 });
 
         expect(updateSpy).not.toHaveBeenCalled();
         expect(meeting.maximumPlayedIndex).toBeUndefined();
+        expect(startSpy).not.toHaveBeenCalled();
     });
 
     it("does not update when index is out of range", async () => {
@@ -59,14 +67,17 @@ describe("report_maximum_played_index (MeetingManager)", () => {
         mockSocket.id = "holder-socket";
         const meeting = MockFactory.createStoredMeeting({
             _id: 503,
-            conversation: [{ id: "a", type: "message", speaker: "water", text: "1" }],
+            conversation: [{ id: "a", type: "message", speaker: SPEAKER_ID, text: "1" }],
         });
         manager.meeting = meeting;
         tryAcquireLiveSession(503, "holder-socket", meeting.liveKey);
 
+        const startSpy = vi.spyOn(manager, "startLoop");
+
         await manager.handleEvent("report_maximum_played_index", { index: 99 });
 
         expect(updateSpy).not.toHaveBeenCalled();
+        expect(startSpy).not.toHaveBeenCalled();
     });
 
     it("keeps in-memory maximumPlayedIndex at local max when client sends a lower index", async () => {
@@ -77,16 +88,19 @@ describe("report_maximum_played_index (MeetingManager)", () => {
         const meeting = MockFactory.createStoredMeeting({
             _id: 504,
             conversation: [
-                { id: "a", type: "message", speaker: "water", text: "1" },
-                { id: "b", type: "message", speaker: "water", text: "2" },
+                { id: "a", type: "message", speaker: SPEAKER_ID, text: "1" },
+                { id: "b", type: "message", speaker: SPEAKER_ID, text: "2" },
             ],
             maximumPlayedIndex: 1,
         });
         manager.meeting = meeting;
         tryAcquireLiveSession(504, "holder-socket", meeting.liveKey);
 
+        const startSpy = vi.spyOn(manager, "startLoop").mockImplementation(() => {});
+
         await manager.handleEvent("report_maximum_played_index", { index: 0 });
 
         expect(meeting.maximumPlayedIndex).toBe(1);
+        expect(startSpy).toHaveBeenCalledTimes(1);
     });
 });

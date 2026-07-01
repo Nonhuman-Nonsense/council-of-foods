@@ -30,6 +30,10 @@ RUN npm ci --only=production
 COPY --from=server-builder /usr/src/server/dist ./dist
 # Copy built client code
 COPY --from=client-builder /usr/src/client/dist /usr/src/client/dist
+WORKDIR /usr/src
+# Prompt JSON is loaded from ../shared/prompts relative to /usr/src/server
+COPY shared/prompts/ ./shared/prompts
+WORKDIR /usr/src/server
 
 # Expose the port
 EXPOSE 3001

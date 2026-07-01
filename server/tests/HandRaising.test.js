@@ -9,6 +9,7 @@ describe('HandRaisingHandler', () => {
     let mockDialogGenerator;
     let mockAudioSystem;
     let mockMeetingsCollection;
+    const chair = MockFactory.createChair();
 
     beforeEach(() => {
         mockBroadcaster = {
@@ -33,7 +34,7 @@ describe('HandRaisingHandler', () => {
 
         const meeting = MockFactory.createStoredMeeting({
             _id: 123,
-            characters: [{ id: 'chair', name: 'Chair', voice: 'alloy' }],
+            characters: [chair],
             state: {},
             conversation: []
         });
@@ -72,6 +73,8 @@ describe('HandRaisingHandler', () => {
         const invitation = mockContext.meeting.conversation[2];
         expect(invitation.type).toBe('invitation');
         expect(invitation.text).toBe('Speak now.');
+        expect(invitation.trimmed).toBeUndefined();
+        expect(invitation.pretrimmed).toBeUndefined();
 
         const awaiting = mockContext.meeting.conversation[3];
         expect(awaiting.type).toBe('awaiting_human_question');

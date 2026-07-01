@@ -1,0 +1,74 @@
+import RotateDevice from "@main/overlay/RotateDevice";
+import { useMediaQuery } from 'react-responsive'
+import { Link } from "react-router";
+import { useMobile, dvh } from "@/utils";
+import { useTranslation } from 'react-i18next';
+import { useRouting } from "@/routing";
+import { useCouncilSettings } from "@/settings/councilSettings";
+import councilLogo from "@assets/logos/council_logo_white.svg";
+
+/**
+ * Landing Component
+ * 
+ * The initial entry screen.
+ * 
+ * Core Logic:
+ * - **Device Orientation**: Forces landscape on mobile/tablet via `RotateDevice`.
+ * - **Welcome Message**: Displays logo and welcome text.
+ * - **Museum mode**: Hides description and go button (voice guide handles the flow).
+ */
+const Landing: React.FC = () => {
+  const { newMeetingPath } = useRouting();
+  const isPortrait = useMediaQuery({ query: '(orientation: portrait)' })
+  const isMobile = useMobile();
+  const { isMuseumMode } = useCouncilSettings();
+  const { t } = useTranslation();
+
+  const wrapper: React.CSSProperties = {
+    position: "absolute",
+    width: "100%",
+    height: "100%",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center"
+  };
+
+  const welcomeStyle: React.CSSProperties = {
+    display: "flex",
+    flexDirection: "column",
+    height: "77%",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingBottom: "7%"
+  };
+
+  return (
+    <div style={wrapper}>
+      <div style={welcomeStyle}>
+
+        <div>
+          <img style={{ width: `min(95px, 18${dvh})` }} src={councilLogo} alt="Council of Foods logo" />
+          <h2 style={{ marginBottom: "-10px", marginTop: isMobile ? "0" : "" }}>{t('landing.welcome')}</h2>
+          <h1 style={{ margin: isMobile ? "5px 0 0 0" : "" }}>{t('app.council').toUpperCase()}</h1>
+        </div>
+
+        {isPortrait ?
+          <RotateDevice />
+          :
+          !isMuseumMode && (
+            <div style={{ maxWidth: "380px" }}>
+              <p style={{ marginBottom: "30px" }}>{t('landing.description')}</p>
+              <div>
+                <Link to={newMeetingPath} className="button" data-testid="landing-go">
+                  {t('landing.go')}
+                </Link>
+              </div>
+            </div>
+          )
+        }
+      </div>
+    </div>
+  );
+}
+
+export default Landing;

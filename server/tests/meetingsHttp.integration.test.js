@@ -10,9 +10,10 @@ function validCreateBody() {
         topic: { id: 't-int', title: 'Integration Topic', description: 'D', prompt: 'Prompt' },
         characters: [
             {
-                id: 'water',
-                name: 'Water',
-                type: 'food',
+                id: 'speaker1',
+                name: 'Speaker 1',
+                description: 'Generic integration-test speaker.',
+                prompt: 'Speak as Speaker 1 in the council.',
                 voice: 'alloy',
             },
         ],
@@ -62,6 +63,23 @@ describe('HTTP meetings API (integration)', () => {
         expect(data.liveKey).toMatch(/^[0-9a-f-]{36}$/i);
     });
 
+    it('POST /api/meetings stores optional humanName on meeting state', async () => {
+        const res = await fetch(`${base()}/api/meetings`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ...validCreateBody(), humanName: 'Leo' }),
+        });
+        expect(res.status).toBe(201);
+        const { meetingId, liveKey } = await res.json();
+
+        const getRes = await fetch(`${base()}/api/meetings/${meetingId}`, {
+            headers: { Authorization: `Bearer ${liveKey}` },
+        });
+        expect(getRes.status).toBe(200);
+        const meeting = await getRes.json();
+        expect(meeting.state.humanName).toBe('Leo');
+    });
+
     it('POST /api/meetings returns 400 on invalid payload', async () => {
         const res = await fetch(`${base()}/api/meetings`, {
             method: 'POST',
@@ -89,11 +107,11 @@ describe('HTTP meetings API (integration)', () => {
             {
                 $set: {
                     conversation: [
-                        { id: 'pub-m1', type: 'message', speaker: 'water', text: 'Hello' },
-                        { id: 'sum1', type: 'summary', speaker: 'water', text: 'Summary' },
+                        { id: 'pub-m1', type: 'message', speaker: 'speaker1', text: 'Hello' },
+                        { id: 'sum1', type: 'summary', speaker: 'speaker1', text: 'Summary' },
                     ],
                     audio: ['pub-m1', 'sum1'],
-                    summary: { id: 'sum1', type: 'summary', speaker: 'water', text: 'Summary' },
+                    summary: { id: 'sum1', type: 'summary', speaker: 'speaker1', text: 'Summary' },
                     maximumPlayedIndex: 1,
                 },
             }
@@ -115,6 +133,40 @@ describe('HTTP meetings API (integration)', () => {
         const full = await authRes.json();
         expect(full.conversation).toEqual(meeting.conversation);
         expect(full.liveKey).toBeUndefined();
+    });
+
+    it('GET /api/autoplay returns a random completed meeting id', async () => {
+        const createRes = await fetch(`${base()}/api/meetings`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(validCreateBody()),
+        });
+        const { meetingId } = await createRes.json();
+
+        await meetingsCollection.updateOne(
+            { _id: Number(meetingId) },
+            {
+                $set: {
+                    conversation: [
+                        { id: 'ap-m1', type: 'message', speaker: 'speaker1', text: 'Hello' },
+                        { id: 'ap-sum', type: 'summary', speaker: 'speaker1', text: 'Summary' },
+                    ],
+                    audio: ['ap-m1', 'ap-sum'],
+                    summary: { id: 'ap-sum', type: 'summary', speaker: 'speaker1', text: 'Summary' },
+                    maximumPlayedIndex: 1,
+                },
+            }
+        );
+
+        const res = await fetch(`${base()}/api/autoplay?language=en`);
+        expect(res.status).toBe(200);
+        const data = await res.json();
+        expect(data.meetingId).toBe(Number(meetingId));
+    });
+
+    it('GET /api/autoplay returns 400 on invalid language', async () => {
+        const res = await fetch(`${base()}/api/autoplay?language=english`);
+        expect(res.status).toBe(400);
     });
 
     it('GET /api/meetings/:id returns 403 when Bearer does not match liveKey', async () => {

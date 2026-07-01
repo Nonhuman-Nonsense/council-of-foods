@@ -7,6 +7,7 @@ vi.mock('music-metadata', () => ({
 }));
 
 import { AudioSystem } from '../src/logic/AudioSystem.js'; // Adjust path if needed, assuming processed by ts-node/vitest
+import { MockFactory } from './factories/MockFactory.js';
 import fs from 'fs';
 import path from 'path';
 
@@ -101,13 +102,12 @@ describe('Inworld TTS Summary Generation Limit', () => {
             voiceProvider: 'inworld'
         };
 
-        const context = {
-            options: {
-                inworldVoiceModel: globalOptions.inworldVoiceModel,
-                audio_speed: 1.0,
-                skipMatchingSubtitles: true // Summaries don't need subtitle timings
-            }
+        const serverOptions = {
+            ...globalOptions,
+            defaultAudioSpeed: 1.0,
+            skipMatchingSubtitles: true,
         };
+        const meeting = MockFactory.createStoredMeeting({ _id: 123, language: 'en' });
 
         // 2. Mock Inworld API to return our real fixtures
         let callCount = 0;
@@ -133,7 +133,15 @@ describe('Inworld TTS Summary Generation Limit', () => {
         global.fetch = mockFetch;
 
         // 3. Run generateAudio
-        await audioSystem.generateAudio(message, speaker, context, 12, 'production');
+        await audioSystem.generateAudio(
+            message,
+            speaker,
+            'en',
+            serverOptions,
+            meeting,
+            'production',
+            true,
+        );
 
         // 4. Verify the flow
         // Multiple chunks were generated (text was split)

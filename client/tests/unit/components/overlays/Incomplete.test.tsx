@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import Incomplete from '@components/overlays/Incomplete';
+import Incomplete from '@council/overlays/Incomplete';
 import '@testing-library/jest-dom';
 
 vi.mock('react-i18next', () => ({
@@ -23,13 +23,13 @@ describe('Incomplete overlay', () => {
 
     it('invokes onAttemptResume when the resume button is clicked', () => {
         render(<Incomplete {...defaultProps} />);
-        fireEvent.click(screen.getByText('incomplete.3'));
+        fireEvent.click(screen.getByText('incomplete.resume'));
         expect(defaultProps.onAttemptResume).toHaveBeenCalledTimes(1);
     });
 
     it('invokes onNevermind when the nevermind button is clicked', () => {
         render(<Incomplete {...defaultProps} />);
-        fireEvent.click(screen.getByText('incomplete.4'));
+        fireEvent.click(screen.getByText('incomplete.nevermind'));
         expect(defaultProps.onNevermind).toHaveBeenCalledTimes(1);
     });
 });

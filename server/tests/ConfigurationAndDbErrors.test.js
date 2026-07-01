@@ -1,18 +1,14 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { EnvSchema } from '@models/EnvValidation.js';
-import { insertMeeting, counters, initDb } from '@services/DbService.js';
-import { MongoMemoryServer } from 'mongodb-memory-server';
+import { insertMeeting, counters } from '@services/DbService.js';
 import { Logger } from '@utils/Logger.js';
 
 describe('Configuration & DB Error Handling', () => {
-    let mongod;
-
     beforeEach(() => {
         vi.clearAllMocks();
     });
 
     afterEach(async () => {
-        if (mongod) await mongod.stop();
         vi.restoreAllMocks();
     });
 
@@ -44,7 +40,6 @@ describe('Configuration & DB Error Handling', () => {
                 COUNCIL_DB_URL: 'mongodb://localhost:27017',
                 COUNCIL_DB_PREFIX: 'TestDB',
                 COUNCIL_OPENAI_API_KEY: 'sk-test',
-                GOOGLE_APPLICATION_CREDENTIALS: './google-credentials.json',
                 INWORLD_API_KEY: 'test'
             });
             expect(result.success).toBe(true);
@@ -52,13 +47,6 @@ describe('Configuration & DB Error Handling', () => {
     });
 
     describe('DbService Error Reporting', () => {
-        // Setup mini in-memory DB for this specific test file
-        beforeEach(async () => {
-            mongod = await MongoMemoryServer.create();
-            // Use distinct db name to avoid collisions
-            await initDb(mongod.getUri(), "error_test_db_3");
-        });
-
         it('should report error to errorbot if insertMeeting fails', async () => {
             // Spy on Logger.error to verify reporting
             const loggerSpy = vi.spyOn(Logger, 'error');

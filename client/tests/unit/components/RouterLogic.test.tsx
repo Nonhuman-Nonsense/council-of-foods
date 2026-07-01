@@ -3,42 +3,53 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { MemoryRouter, Routes, Route, useLocation } from 'react-router';
-import Main from '../../../src/components/Main';
-import Navbar from '../../../src/components/Navbar';
+import Main from '@main/Main';
+import Navbar from '@main/Navbar';
+import { APP_MODE_STORAGE_KEY } from '@/settings/councilSettings';
 import * as AvailableLanguagesModule from '@shared/AvailableLanguages';
-import routes from '../../../src/routes.json';
+import routes from '@/routes.json';
+import { MockFactory } from '../factories/MockFactory';
 
 // Mock child components to focus on routing logic
-vi.mock('../../../src/components/Overlay', () => ({
+vi.mock('@main/overlay/Overlay', () => ({
     default: ({ children }: { children: React.ReactNode }) => <div data-testid="overlay">{children}</div>
 }));
-vi.mock('../../../src/components/MainOverlays', () => ({
+vi.mock('@main/overlay/MainOverlays', () => ({
     default: () => <div data-testid="main-overlays">MainOverlays</div>
 }));
-vi.mock('../../../src/components/settings/Landing', () => ({
+vi.mock('@newMeeting/Landing', () => ({
     default: () => <div data-testid="landing">Landing</div>
 }));
-vi.mock('../../../src/components/settings/SelectTopic', () => ({
+vi.mock('@voice/MeetingVoiceGuide', () => ({
+    default: () => null,
+}));
+vi.mock('@newMeeting/SelectTopic', () => ({
     default: () => <div data-testid="select-topic">SelectTopic</div>
 }));
-vi.mock('../../../src/components/settings/SelectFoods', () => ({
-    default: () => <div data-testid="select-foods">SelectFoods</div>
+vi.mock('@newMeeting/SelectCharacters', () => ({
+    default: () => <div data-testid="select-foods">SelectFoods</div>,
+    createDefaultHumans: () => ([
+        MockFactory.createPanelist(0),
+        MockFactory.createPanelist(1),
+        MockFactory.createPanelist(2),
+    ]),
+    getFoodsBundle: () => MockFactory.createCharacterSetupBundle(),
 }));
-vi.mock('../../../src/components/Council', () => ({
+vi.mock('@council/Council', () => ({
     default: () => <div data-testid="council">Council</div>
 }));
-vi.mock('../../../src/components/RotateDevice', () => ({
+vi.mock('@main/overlay/RotateDevice', () => ({
     default: () => <div data-testid="rotate-device">RotateDevice</div>
 }));
-vi.mock('../../../src/components/FullscreenButton', () => ({
+vi.mock('@main/FullscreenButton', () => ({
     default: () => <div data-testid="fullscreen-btn">Fullscreen</div>
 }));
-vi.mock('../../../src/components/Forest', () => ({
-    default: () => <div data-testid="forest">Forest</div>
+vi.mock('@/museum/MuseumModeEscapeHatch', () => ({
+    default: () => <div data-testid="museum-escape">Escape</div>
 }));
 
 // Mock utils
-vi.mock('../../../src/utils', () => ({
+vi.mock('@/utils', () => ({
     usePortrait: () => false,
     useMobile: () => false,
     useMobileXs: () => false,
@@ -62,14 +73,14 @@ vi.mock('react-responsive', () => ({
 }));
 
 // Mock topics data to avoid loading real files
-vi.mock('../../../src/prompts/topics_en.json', () => ({
+vi.mock('@shared/prompts/topics_en.json', () => ({
     default: {
         topics: [{ id: "test-topic", title: "Test Topic" }],
         custom_topic: { id: "custom" },
         system: "System Prompt"
     }
 }));
-vi.mock('../../../src/prompts/topics_sv.json', () => ({
+vi.mock('@shared/prompts/topics_sv.json', () => ({
     default: {
         topics: [{ id: "test-topic-sv", title: "Test Topic SV" }],
         custom_topic: { id: "custom" },
@@ -88,6 +99,7 @@ describe('Router Logic', () => {
 
     describe('Single Language (en)', () => {
         beforeEach(() => {
+            localStorage.clear();
             vi.spyOn(AvailableLanguagesModule, 'AVAILABLE_LANGUAGES', 'get').mockReturnValue(['en']);
         });
 
@@ -104,6 +116,30 @@ describe('Router Logic', () => {
             );
             expect(screen.getByTestId('landing')).toBeInTheDocument();
             expect(screen.getByTestId('location-display')).toHaveTextContent('/');
+        });
+
+        it('hides navbar and fullscreen in museum mode', () => {
+            localStorage.setItem(APP_MODE_STORAGE_KEY, 'museum');
+            render(
+                <MemoryRouter initialEntries={['/']}>
+                    <Main lang="en" />
+                </MemoryRouter>
+            );
+            expect(screen.queryByRole('navigation')).not.toBeInTheDocument();
+            expect(screen.queryByTestId('fullscreen-btn')).not.toBeInTheDocument();
+            expect(screen.getByTestId('museum-escape')).toBeInTheDocument();
+        });
+
+        it('shows navbar and fullscreen in web mode', () => {
+            localStorage.setItem(APP_MODE_STORAGE_KEY, 'web');
+            render(
+                <MemoryRouter initialEntries={['/']}>
+                    <Main lang="en" />
+                </MemoryRouter>
+            );
+            expect(screen.getByRole('navigation')).toBeInTheDocument();
+            expect(screen.getByTestId('fullscreen-btn')).toBeInTheDocument();
+            expect(screen.queryByTestId('museum-escape')).not.toBeInTheDocument();
         });
 
         it('renders Council at /meeting/new', async () => {

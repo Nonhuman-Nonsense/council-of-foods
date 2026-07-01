@@ -1,47 +1,83 @@
 const { createApp } = Vue;
+const CHARACTERS_FILE = "foods";
+
+const PROTOTYPE_CUSTOM_TOPIC_ID = "customtopic";
+const PROTOTYPE_CUSTOM_TOPIC_TOKEN = "[VISITOR_INPUT]";
+
+const NON_PLAYABLE_TURN_TYPES = new Set([
+  'query_extension',
+  'awaiting_human_question',
+  'awaiting_human_panelist',
+  'meeting_incomplete',
+]);
+
+function isSyntheticTurn(turn) {
+  return Boolean(turn && NON_PLAYABLE_TURN_TYPES.has(turn.type));
+}
+
+function usesCustomVoiceId(character) {
+  return character?.voiceProvider === 'inworld' || character?.voiceProvider === 'elevenlabs';
+}
+
+function usesInworldTts2(character) {
+  return Boolean(character?.voiceLocale?.trim());
+}
+
+const LANGUAGE_MODEL_KEYS = [
+  'conversationModel',
+  'conversationReasoning',
+  'voiceModel',
+  'inworldVoiceModel',
+  'elevenlabsVoiceModel',
+];
+
+const defaultLanguageModelProfile = {
+  conversationModel: "mistral/mistral-large-3",
+  conversationReasoning: "none",
+  voiceModel: "gpt-4o-mini-tts",
+  inworldVoiceModel: "inworld-tts-1.5-mini",
+  elevenlabsVoiceModel: "eleven_flash_v2_5",
+};
+
+const defaultLanguageModels = {
+  en: { ...defaultLanguageModelProfile },
+  sv: { ...defaultLanguageModelProfile },
+};
 
 const defaultOptions = {
-  gptModel: "gpt-4o-mini",
+  languageModels: JSON.parse(JSON.stringify(defaultLanguageModels)),
   temperature: 1,
-  maxTokens: 200,
-  chairMaxTokens: 250,
-  frequencyPenalty: 0,
-  presencePenalty: 0,
-  audio_speed: 1.15,
+  maxTokens: 400,
+  chairMaxTokens: 400,
+  defaultAudioSpeed: 1.15,
 
-  trimSentance: false,
-  trimParagraph: true,
-  trimChairSemicolon: true,
+  trimSentance: true,
+  trimParagraph: false,
+  trimChairSemicolon: false,
 
   conversationMaxLength: 10,
-  /** Increment applied server-side on "Keep Going" (matches server `extraMessageCount`). */
+  /** Increment applied server-side on "Extend" (matches server `extraMessageCount`). */
   extraMessageCount: 5,
-  /** Absolute cap for extends (server `meetingVeryMaxLength`); reflected in `max_reached.canContinue`. */
+  /** Absolute cap for extends (server `meetingVeryMaxLength`); hard cap skips `query_extension` and concludes directly. */
   meetingVeryMaxLength: 30,
   skipAudio: false,
-
-  injectPrompt: "",
-  maxTokensInject: 800,
+  directedSpeakerRouting: true,
 
   language: 'en',
 
-  // Hardcoded
-  voiceModel: "gpt-4o-mini-tts",
-  geminiVoiceModel: "gemini-2.5-flash-tts",
-  inworldVoiceModel: "inworld-tts-1.5-max",
   skipMatchingSubtitles: true
 };
 
 /**
- * Rows that participate in TTS (excludes trailing `max_reached` synthetic with no audio).
+ * Rows that participate in TTS (excludes trailing `query_extension` synthetic with no audio).
  */
 function countPlayableMessages(conversation) {
   if (!conversation || conversation.length === 0) return 0;
-  const last = conversation[conversation.length - 1];
-  if (last && last.type === 'max_reached') {
-    return conversation.length - 1;
+  let count = conversation.length;
+  while (count > 0 && isSyntheticTurn(conversation[count - 1])) {
+    count--;
   }
-  return conversation.length;
+  return count;
 }
 
 const defaultLocalOptions = {
@@ -52,10 +88,32 @@ const defaultLocalOptions = {
   configCardExpanded: true,
   expandedCharacters: {},
   topicStates: {},
-  currentTopicIndex: 0,
+  selectedTopicId: null,
   editorWidthPercent: 50,
-  isInjectionDrawerOpen: false
+  customTopicVisitorInput: "",
+  languageModelsText: JSON.stringify(defaultLanguageModels.en, null, 2),
+  languageModelsError: "",
 };
+
+function normalizeLanguageModelProfile(profile, fallback = defaultLanguageModelProfile) {
+  const base = { ...fallback, ...(profile || {}) };
+  for (const key of LANGUAGE_MODEL_KEYS) {
+    if (typeof base[key] !== 'string' || !base[key].trim()) {
+      base[key] = fallback[key];
+    }
+  }
+  return base;
+}
+
+function normalizeLanguageModels(models) {
+  const normalized = JSON.parse(JSON.stringify(defaultLanguageModels));
+  if (!models || typeof models !== 'object') return normalized;
+  for (const lang of Object.keys(models)) {
+    normalized[lang] = normalizeLanguageModelProfile(models[lang], defaultLanguageModels[lang] || defaultLanguageModelProfile);
+  }
+  return normalized;
+}
+
 
 
 const CharacterCard = {
@@ -63,15 +121,21 @@ const CharacterCard = {
   props: ['character', 'isActive', 'isExpanded', 'voiceLists', 'isSorting', 'isPinned'],
   emits: ['toggle-active', 'toggle-expanded'],
   methods: {
+    usesInworldTts2(char) {
+      return usesInworldTts2(char);
+    },
+    usesCustomVoiceId(char) {
+      return usesCustomVoiceId(char);
+    },
     onProviderChange() {
       const char = this.character;
-      if (char.voiceProvider === 'gemini') {
-        char.voice = this.voiceLists.gemini[0];
-        if (!char.voiceLocale) char.voiceLocale = 'en-GB';
-        if (char.voiceInstruction === undefined) char.voiceInstruction = "";
-      } else if (char.voiceProvider === 'inworld') {
-        char.voice = this.voiceLists.inworld[0];
+      if (char.voiceProvider === 'inworld') {
+        if (!char.voice) char.voice = "";
         if (char.voiceTemperature === undefined) char.voiceTemperature = 1.1;
+      } else if (char.voiceProvider === 'elevenlabs') {
+        if (!char.voice) char.voice = "";
+        if (char.voiceStability === undefined) char.voiceStability = 0.5;
+        if (char.voiceStyle === undefined) char.voiceStyle = 0;
       } else {
         char.voice = this.voiceLists.openai[0];
         if (char.voiceInstruction === undefined) char.voiceInstruction = "";
@@ -88,7 +152,6 @@ createApp({
 
       // UI State
       status: 'IDLE', // IDLE, CONNECTING, ACTIVE, PAUSED, ENDED, ERROR
-      injectionStatus: '',
 
       // Data Model
       options: { ...defaultOptions },
@@ -102,16 +165,6 @@ createApp({
 
       // Runtime
       audioVoices: ["alloy", "ash", "ballad", "coral", "echo", "fable", "onyx", "nova", "sage", "shimmer", "verse"],
-      audioVoicesGemini: [
-        "Achernar", "Achird", "Algenib", "Algieba", "Alnilam", "Aoede", "Autonoe", "Callirrhoe", "Charon", "Despina",
-        "Enceladus", "Erinome", "Fenrir", "Gacrux", "Iapetus", "Kore", "Laomedeia", "Leda", "Orus", "Pulcherrima",
-        "Puck", "Rasalgethi", "Sadachbia", "Sadaltager", "Schedar", "Sulafat", "Umbriel", "Vindemiatrix", "Zephyr", "Zubenelgenubi"
-      ],
-      audioVoicesInworld: [
-        "Alex", "Ashley", "Blake", "Carter", "Clive", "Craig", "Deborah", "Dennis", "Dominus", "Edward",
-        "Elizabeth", "Hades", "Hana", "Julia", "Luna", "Mark", "Olivia", "Pixie", "Priya", "Ronald",
-        "Sarah", "Shaun", "Theodore", "Timothy", "Wendy"
-      ],
       sortableInstance: null,
       isResizing: false,
 
@@ -125,6 +178,7 @@ createApp({
       // Audio State
       audioController: null,
       nextOrBackClicked: false,
+      customTopicId: PROTOTYPE_CUSTOM_TOPIC_ID,
     }
   },
 
@@ -137,11 +191,33 @@ createApp({
     },
 
     currentTopic() {
-      const topics = this.currentLanguageData.topics;
-      if (!topics || topics.length === 0) return null;
-      // Use persisted index, fallback to 0
-      const idx = this.localOptions.currentTopicIndex || 0;
-      return topics[idx] || topics[0];
+      const lang = this.currentLanguageData;
+      if (this.isCustomTopicSelected) {
+        return lang.customTopic || null;
+      }
+
+      const topics = lang.topics;
+      if (!topics || topics.length === 0) {
+        return lang.customTopic || null;
+      }
+
+      const selectedId = this.localOptions.selectedTopicId;
+      if (selectedId) {
+        const found = topics.find((topic) => topic.id === selectedId);
+        if (found) return found;
+      }
+
+      return topics[0];
+    },
+
+    isCustomTopicSelected() {
+      return this.localOptions.selectedTopicId === PROTOTYPE_CUSTOM_TOPIC_ID;
+    },
+
+    resolvedCustomTopicPrompt() {
+      const template = this.currentLanguageData.customTopic?.prompt || PROTOTYPE_CUSTOM_TOPIC_TOKEN;
+      const visitor = String(this.localOptions.customTopicVisitorInput || "").trim();
+      return template.replaceAll(PROTOTYPE_CUSTOM_TOPIC_TOKEN, visitor || "(no visitor input yet)");
     },
 
     currentSystemPrompt: {
@@ -152,6 +228,7 @@ createApp({
         this.currentLanguageData.system = val;
       }
     },
+
     // Split lists for UI
     activeCharacters() {
       return (this.currentLanguageData.characters || []).filter(c => this.isCharacterActive(c));
@@ -161,7 +238,7 @@ createApp({
       return (this.currentLanguageData.characters || []).filter(c => !this.isCharacterActive(c));
     },
 
-    /** Number of rows that have TTS (excludes trailing `max_reached`). */
+    /** Number of rows that have TTS (excludes trailing `query_extension`). */
     playableCount() {
       return countPlayableMessages(this.conversation);
     },
@@ -172,15 +249,38 @@ createApp({
       return n > 0 ? n - 1 : -1;
     },
 
-    /** Server allows `continue_conversation` when `canContinue === true`; hide Keep Going when false. */
-    canContinueMeeting() {
+    /** Conversation ended at soft cap — `extend_meeting` is available. */
+    hasQueryExtension() {
       const last = this.conversation[this.conversation.length - 1];
-      if (last && last.type === 'max_reached' && last.canContinue === false) return false;
-      return true;
-    }
+      return !!(last && last.type === 'query_extension');
+    },
+
+    canRaiseHand() {
+      if (!this.socket || this.conversation.length === 0) return false;
+      if (this.status !== 'ACTIVE' && this.status !== 'PAUSED') return false;
+      return !this.conversation.some((turn) => turn.type === 'awaiting_human_question');
+    },
+
+    languageModelsText: {
+      get() {
+        return this.localOptions.languageModelsText;
+      },
+      set(value) {
+        this.localOptions.languageModelsText = value;
+        this.applyLanguageModelsText(value, this.options.language || 'en');
+      },
+    },
   },
 
   watch: {
+    'options.language'(newLang, oldLang) {
+      if (oldLang && newLang !== oldLang) {
+        this.applyLanguageModelsText(this.localOptions.languageModelsText, oldLang);
+        this.localOptions.languageModelsError = '';
+      }
+      this.syncLanguageModelsText();
+    },
+
     currentTopic: {
       handler(val) {
         if (val) {
@@ -231,8 +331,116 @@ createApp({
   },
 
   methods: {
+    formatClientError(errorPayload) {
+      if (!errorPayload || typeof errorPayload !== 'object') {
+        return String(errorPayload ?? 'Unknown error');
+      }
+
+      let text = errorPayload.message || 'Unknown error';
+      const debug = errorPayload.debug;
+      if (!debug) return text;
+
+      if (debug.context) {
+        text = `[${debug.context}] ${text}`;
+      }
+      if (debug.stack) {
+        text += `\n\n${debug.stack}`;
+      } else if (debug.zodIssues) {
+        text += `\n\n${JSON.stringify(debug.zodIssues, null, 2)}`;
+      } else if (debug.raw != null) {
+        text += `\n\n${JSON.stringify(debug.raw, null, 2)}`;
+      } else if (debug.name) {
+        text += `\n\n${debug.name}`;
+      }
+      return text;
+    },
+
+    formatApiErrorBody(body, status) {
+      if (body && typeof body === 'object' && body.message) {
+        return this.formatClientError({ message: body.message, code: status, debug: body.debug });
+      }
+      return typeof body === 'string' && body.trim() ? body : `Request failed (${status})`;
+    },
+
+    /**
+     * Centralized fetch for /api/* routes — logs API_OUT before the request and API_IN after.
+     * @param {string} path - e.g. "/api/meetings"
+     * @param {{ method?: string, body?: unknown, headers?: Record<string, string>, context?: string }} [options]
+     * @returns {Promise<unknown>} Parsed JSON (or raw text) on success
+     */
+    async apiFetch(path, { method = 'GET', body, headers = {}, context } = {}) {
+      const logSuffix = context ? ` (${context})` : '';
+      this.log('API_OUT', `${method} ${path}${logSuffix}`, {
+        method,
+        path,
+        ...(body !== undefined ? { body } : {}),
+      });
+
+      const init = { method, headers: { ...headers } };
+      if (body !== undefined) {
+        init.body = typeof body === 'string' ? body : JSON.stringify(body);
+        if (!init.headers['Content-Type']) {
+          init.headers['Content-Type'] = 'application/json';
+        }
+      }
+
+      let status;
+      let ok;
+      let responseBody;
+      try {
+        const res = await fetch(path, init);
+        status = res.status;
+        ok = res.ok;
+        const text = await res.text();
+        if (text) {
+          try {
+            responseBody = JSON.parse(text);
+          } catch {
+            responseBody = text;
+          }
+        }
+      } catch (networkError) {
+        this.log('API_IN', `${method} ${path} → network error${logSuffix}`, {
+          error: networkError.message || String(networkError),
+        });
+        throw networkError;
+      }
+
+      this.log('API_IN', `${method} ${path} → ${status}${logSuffix}`, {
+        status,
+        ok,
+        body: responseBody ?? null,
+      });
+
+      if (!ok) {
+        throw new Error(this.formatApiErrorBody(responseBody, status));
+      }
+      return responseBody;
+    },
+
+    async createMeeting(context) {
+      return this.apiFetch('/api/meetings', {
+        method: 'POST',
+        body: this.getMeetingBody(),
+        context,
+      });
+    },
+
+    emitStartConversation(context) {
+      const setupPayload = {
+        meetingId: this.meetingId,
+        liveKey: this.liveKey,
+        serverOptions: this.getServerOptions(),
+      };
+      this.log('SOCKET_OUT', `start_conversation${context ? ` (${context})` : ''}`, setupPayload);
+      this.socket.emit('start_conversation', setupPayload);
+    },
+
     log(category, message, data = null) {
       const styles = {
+        'API_OUT': 'color: #f59e0b; font-weight: bold;',    // Amber
+        'API_IN': 'color: #d97706; font-weight: bold;',     // Dark amber
+        'FILE_IN': 'color: #0891b2; font-weight: bold;',    // Cyan
         'SOCKET_OUT': 'color: #10b981; font-weight: bold;', // Green
         'SOCKET_IN': 'color: #3b82f6; font-weight: bold;',  // Blue
         'AUDIO': 'color: #8b5cf6; font-weight: bold;',      // Purple
@@ -241,6 +449,9 @@ createApp({
       };
 
       const icon = {
+        'API_OUT': '🌐',
+        'API_IN': '📥',
+        'FILE_IN': '📄',
         'SOCKET_OUT': '⬆️',
         'SOCKET_IN': '⬇️',
         'AUDIO': '🎵',
@@ -295,11 +506,10 @@ createApp({
     },
 
     updateVoice(char) {
-      // Reset voice to first available when provider switches
-      if (char.voiceProvider === 'gemini') {
-        char.voice = this.audioVoicesGemini[0];
-      } else if (char.voiceProvider === 'inworld') {
-        char.voice = this.audioVoicesInworld[0];
+      if (char.voiceProvider === 'inworld') {
+        char.voice = "";
+      } else if (char.voiceProvider === 'elevenlabs') {
+        char.voice = "";
       } else {
         char.voice = this.audioVoices[0];
       }
@@ -357,7 +567,7 @@ createApp({
      * 
      * 1. Hydrates state from LocalStorage (`PromptsAndOptions`).
      * 2. Migrates legacy data if needed.
-     * 3. Loads default prompts from `foods_en.json` if startup fails or is fresh.
+     * 3. Loads default prompts from the app-specific character bundle if startup fails or is fresh.
      * 4. Ensures character sorting (Pinned > Active > Inactive).
      */
     async startup() {
@@ -365,8 +575,11 @@ createApp({
         const stored = JSON.parse(localStorage.getItem("PromptsAndOptions"));
         if (stored) {
           // Merge stored options to handle new fields gracefully
-          this.options = { ...defaultOptions, ...stored.options };
+          this.options = { ...defaultOptions, ...(stored.options || {}) };
           this.localOptions = { ...JSON.parse(JSON.stringify(defaultLocalOptions)), ...stored.localOptions };
+
+          this.options.languageModels = normalizeLanguageModels(this.options.languageModels);
+          this.syncLanguageModelsText();
 
           this.log('SYSTEM', 'State Loaded from LocalStorage');
 
@@ -383,23 +596,31 @@ createApp({
             // Ensure characters array
             if (!data.characters) data.characters = [];
 
-            // Ensure activeCharacterIds logic persists or migrates? 
-            // Since we renamed key, old roomStates are lost unless migrated.
-            // Simplified: User accepted reset. We focus on new structure.
-
             // Ensure Topics
             if (data.topics) {
               data.topics.forEach(topic => {
                 if (!topic.id) topic.id = 'topic_' + Date.now() + Math.random();
               });
             } else if (data.rooms) {
-              // Migration path if needed, but likely better to just encourage reset for clean state
               data.topics = data.rooms.map(r => ({ ...r, prompt: r.topic }));
               delete data.rooms;
             }
+
           });
 
           this.languageData = stored.language;
+
+          // Migrate legacy index-based selection to topic id.
+          if (!this.localOptions.selectedTopicId) {
+            const lang = this.options.language || 'en';
+            const data = this.languageData[lang];
+            const legacyIndex = this.localOptions.currentTopicIndex;
+            if (data?.topics?.length && typeof legacyIndex === 'number' && legacyIndex >= 0 && legacyIndex < data.topics.length) {
+              this.localOptions.selectedTopicId = data.topics[legacyIndex].id;
+            } else if (data?.topics?.[0]?.id) {
+              this.localOptions.selectedTopicId = data.topics[0].id;
+            }
+          }
 
           if (this.localOptions.theme) {
             this.setTheme(this.localOptions.theme);
@@ -422,60 +643,80 @@ createApp({
     async factoryReset() {
       // Reset options to defaults
       this.log('SYSTEM', 'Factory Reset Executed');
-      this.options = { ...defaultOptions };
+      this.options = {
+        ...defaultOptions,
+        languageModels: JSON.parse(JSON.stringify(defaultLanguageModels)),
+      };
       // Deep copy defaults to ensure clean slate
       this.localOptions = { ...JSON.parse(JSON.stringify(defaultLocalOptions)) };
+      this.syncLanguageModelsText();
       this.setTheme(this.localOptions.theme);
 
       // Initialize languages from server
       for (const lang of this.available_languages) {
         try {
-          const [foodsResp, topicsResp] = await Promise.all([
-            fetch(`./foods_${lang}.json`),
-            fetch(`./topics_${lang}.json`)
+          const charactersPath = `./${CHARACTERS_FILE}_${lang}.json`;
+          const topicsPath = `./topics_${lang}.json`;
+
+          const [charactersResp, topicsResp] = await Promise.all([
+            fetch(charactersPath),
+            fetch(topicsPath)
           ]);
 
-          if (!foodsResp.ok) throw new Error(`Failed to fetch foods_${lang}: ${foodsResp.status}`);
+          if (!charactersResp.ok) throw new Error(`Failed to fetch ${CHARACTERS_FILE}_${lang}: ${charactersResp.status}`);
           if (!topicsResp.ok) throw new Error(`Failed to fetch topics_${lang}: ${topicsResp.status}`);
 
-          const foodsParams = await foodsResp.json();
+          const charactersParams = await charactersResp.json();
           const topics = await topicsResp.json();
 
+          this.log('FILE_IN', `GET ${charactersPath} → ${charactersResp.status}`, charactersParams);
+          this.log('FILE_IN', `GET ${topicsPath} → ${topicsResp.status}`, topics);
+
           // Map Characters (Global)
-          // foodsParams is { foods: [...] }
-          const characters = foodsParams.foods.map(f => ({
+          // charactersParams is { characters: [...] }
+          const characters = charactersParams.characters.map(f => ({
             ...f,
             _ui_id: Date.now() + Math.random() // Ensure unique ID
           }));
 
           // Map Topics
           const topicsList = topics.topics.map(t => ({
-            id: 'topic_' + Date.now() + Math.random(),
+            id: t.id || ('topic_' + Date.now() + Math.random()),
             name: t.title,
             description: t.description || "",
-            prompt: t.prompt
+            prompt: t.prompt,
+            agendaPoints: Array.isArray(t.agendaPoints) ? [...t.agendaPoints] : [],
           }));
+
+          const customTopicSource = topics.custom_topic || {};
+          const customTopic = {
+            id: customTopicSource.id || PROTOTYPE_CUSTOM_TOPIC_ID,
+            name: customTopicSource.title || "Custom Topic",
+            prompt: customTopicSource.prompt || PROTOTYPE_CUSTOM_TOPIC_TOKEN,
+          };
 
           this.languageData[lang] = {
             system: topics.system,
             characters: characters,
-            topics: topicsList
+            topics: topicsList,
+            customTopic,
           };
 
-          // Explicitly set default active state: Only Pinned (Index 0) is active
+          // Default active state per topic: chair only.
           if (characters.length > 0) {
             const pinnedChar = characters[0];
+            if (!this.localOptions.topicStates) this.localOptions.topicStates = {};
 
-            topicsList.forEach((topic, rIndex) => {
-              // Ensure topicStates object exists
-              if (!this.localOptions.topicStates) this.localOptions.topicStates = {};
-
-              this.localOptions.topicStates[topic.id] = {
-                activeCharacterIds: {
-                  [pinnedChar._ui_id]: true
-                }
-              };
+            const initTopicState = () => ({
+              activeCharacterIds: {
+                [pinnedChar._ui_id]: true,
+              },
             });
+
+            topicsList.forEach((topic) => {
+              this.localOptions.topicStates[topic.id] = initTopicState();
+            });
+            this.localOptions.topicStates[customTopic.id] = initTopicState();
           }
 
         } catch (err) {
@@ -486,21 +727,13 @@ createApp({
       }
 
       this.options.language = 'en';
+      if (!this.localOptions.selectedTopicId) {
+        const firstTopic = this.languageData.en?.topics?.[0];
+        this.localOptions.selectedTopicId = firstTopic?.id || PROTOTYPE_CUSTOM_TOPIC_ID;
+      }
       this.sanitizeData();
 
       this.save();
-    },
-
-    save() {
-      // Always sanitize before saving to ensure consistency
-      this.sanitizeData();
-
-      const data = {
-        options: this.options,
-        localOptions: this.localOptions,
-        language: this.languageData
-      };
-      localStorage.setItem("PromptsAndOptions", JSON.stringify(data));
     },
 
     buildCharacters() {
@@ -515,8 +748,7 @@ createApp({
         if (!c.id && c.name) c.id = c.name;
         if (!c.voiceProvider) c.voiceProvider = 'openai';
         if (!c.voice) {
-          if (c.voiceProvider === 'gemini') c.voice = this.audioVoicesGemini[0];
-          else c.voice = this.audioVoices[0];
+          if (c.voiceProvider !== 'inworld' && c.voiceProvider !== 'elevenlabs') c.voice = this.audioVoices[0];
         }
         delete c._ui_id;
       });
@@ -528,45 +760,160 @@ createApp({
           .join(", ");
 
         replacedCharacters[0].prompt = replacedCharacters[0].prompt
-          .replace("[FOODS]", participants)
+          .replace("[CHARACTERS]", participants)
           .replace('[HUMANS]', '');
+
+        const chairPrompt = replacedCharacters[0].prompt;
+        if (chairPrompt.includes('[RANDOM_AGENDA_POINT]')) {
+          replacedCharacters[0].prompt = this.injectRandomAgendaPoint(
+            chairPrompt,
+            this.currentTopic.agendaPoints,
+          );
+        }
       }
 
       return replacedCharacters;
     },
 
+    selectTopic(topicId) {
+      this.localOptions.selectedTopicId = topicId;
+    },
+
+    nonEmptyAgendaPoints(agendaPoints) {
+      return (agendaPoints || [])
+        .map((point) => (point || '').trim())
+        .filter((point) => point.length > 0);
+    },
+
+    buildAgendaPointsText(agendaPoints) {
+      const points = this.nonEmptyAgendaPoints(agendaPoints);
+      if (points.length === 0) {
+        return '';
+      }
+
+      const numbered = points.map((point, index) => `${index + 1}. ${point}`).join('\n\n');
+      return `\nToday's Agenda Points:\n\n${numbered}`;
+    },
+
+    removeAgendaPointsPlaceholder(system) {
+      return (system || '')
+        .replace(/\r\n/g, '\n')
+        .replace(/\n?\[AGENDA_POINTS\]\n?/g, '\n')
+        .replace(/\[AGENDA_POINTS\]/g, '')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+    },
+
+    buildMeetingSystemPrompt(system, topicPrompt, agendaPoints) {
+      const agendaText = this.buildAgendaPointsText(agendaPoints);
+      let result = (system || '').replace('[TOPIC]', (topicPrompt || '').trim());
+
+      if (agendaText) {
+        result = result.replace('[AGENDA_POINTS]', agendaText);
+      } else {
+        result = this.removeAgendaPointsPlaceholder(result);
+      }
+
+      return result;
+    },
+
+    injectRandomAgendaPoint(chairPrompt, agendaPoints) {
+      if (!chairPrompt.includes('[RANDOM_AGENDA_POINT]')) {
+        return chairPrompt;
+      }
+
+      const count = this.nonEmptyAgendaPoints(agendaPoints).length;
+      const replacement =
+        count > 0
+          ? String(Math.floor(Math.random() * count) + 1)
+          : "Choose ONE point from todays agenda in RANDOM order, just because it is at the top of the list doesn't mean it always comes first.";
+
+      return chairPrompt.replaceAll('[RANDOM_AGENDA_POINT]', replacement);
+    },
+
     getMeetingBody() {
+      const isCustom = this.isCustomTopicSelected;
+      const topic = this.currentTopic;
+      if (!topic) {
+        throw new Error("No topic selected");
+      }
+
       return {
         topic: {
-          id: this.currentTopic.id,
-          title: this.currentTopic.name,
-          description: this.currentTopic.description,
-          prompt: this.currentSystemPrompt.replace("[TOPIC]", this.currentTopic.prompt),
+          id: topic.id,
+          title: topic.name,
+          description: isCustom
+            ? String(this.localOptions.customTopicVisitorInput || "").trim()
+            : (topic.description || ""),
+          prompt: isCustom
+            ? this.buildMeetingSystemPrompt(
+                this.currentSystemPrompt,
+                this.resolvedCustomTopicPrompt,
+                [],
+              )
+            : this.buildMeetingSystemPrompt(
+                this.currentSystemPrompt,
+                topic.prompt,
+                topic.agendaPoints,
+              ),
         },
         characters: this.buildCharacters(),
         language: this.options.language,
       };
     },
 
+    parseLanguageModelProfileText(text, lang) {
+      const parsed = JSON.parse(text);
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        throw new Error('Expected a JSON object of model settings.');
+      }
+      if (!('conversationModel' in parsed) && (parsed.en || parsed.sv)) {
+        throw new Error('Paste only this language\'s settings object, not the full en/sv map.');
+      }
+      return normalizeLanguageModelProfile(
+        parsed,
+        defaultLanguageModels[lang] || defaultLanguageModelProfile,
+      );
+    },
+
+    applyLanguageModelsText(text, lang) {
+      try {
+        const normalized = this.parseLanguageModelProfileText(text, lang);
+        this.options.languageModels = { ...this.options.languageModels, [lang]: normalized };
+        this.localOptions.languageModelsError = '';
+      } catch (error) {
+        this.localOptions.languageModelsError = error.message || String(error);
+      }
+    },
+
+    syncLanguageModelsText() {
+      const lang = this.options.language || 'en';
+      const profile = this.options.languageModels[lang] || defaultLanguageModelProfile;
+      this.localOptions.languageModelsText = JSON.stringify(profile, null, 2);
+      this.localOptions.languageModelsError = '';
+    },
+
     getServerOptions() {
+      const lang = this.options.language || 'en';
+      const languageModels = this.options.languageModels[lang] || this.options.languageModels.en || defaultLanguageModelProfile;
       return {
-        gptModel: this.options.gptModel,
+        conversationModel: languageModels.conversationModel,
+        conversationReasoning: languageModels.conversationReasoning,
         temperature: this.options.temperature,
         maxTokens: this.options.maxTokens,
         chairMaxTokens: this.options.chairMaxTokens,
-        frequencyPenalty: this.options.frequencyPenalty,
-        presencePenalty: this.options.presencePenalty,
-        audio_speed: this.options.audio_speed,
+        defaultAudioSpeed: this.options.defaultAudioSpeed,
         trimSentance: this.options.trimSentance,
         trimParagraph: this.options.trimParagraph,
         trimChairSemicolon: this.options.trimChairSemicolon,
         skipAudio: this.options.skipAudio,
+        directedSpeakerRouting: this.options.directedSpeakerRouting,
         conversationMaxLength: this.options.conversationMaxLength,
         extraMessageCount: this.options.extraMessageCount,
         meetingVeryMaxLength: this.options.meetingVeryMaxLength,
-        voiceModel: this.options.voiceModel,
-        geminiVoiceModel: this.options.geminiVoiceModel,
-        inworldVoiceModel: this.options.inworldVoiceModel,
+        voiceModel: languageModels.voiceModel,
+        inworldVoiceModel: languageModels.inworldVoiceModel,
+        elevenlabsVoiceModel: languageModels.elevenlabsVoiceModel,
       };
     },
 
@@ -594,7 +941,6 @@ createApp({
           this.status = 'ACTIVE';
         }
 
-        this.injectionStatus = ""; // Clear status on response
         this.scrollToBottom();
       });
 
@@ -604,7 +950,7 @@ createApp({
       });
 
       this.socket.on("conversation_end", () => {
-        this.log('SOCKET_IN', 'Conversation End (length cap — see max_reached in conversation)');
+        this.log('SOCKET_IN', 'Conversation End (length cap — see query_extension in conversation)');
         this.status = 'ENDED';
         if (this.audioController) this.audioController.markComplete();
       });
@@ -612,7 +958,7 @@ createApp({
       this.socket.on("conversation_error", (errorMessage) => {
         this.log('ERROR', 'Conversation Error', errorMessage);
         this.status = 'ERROR';
-        alert(errorMessage.message);
+        alert(this.formatClientError(errorMessage));
       });
     },
 
@@ -625,12 +971,11 @@ createApp({
         name: "New Topic",
         description: "",
         prompt: "",
+        agendaPoints: [],
       };
       this.currentLanguageData.topics.push(newTopic);
       this.log('SYSTEM', 'Topic Added', newTopic);
 
-      // Initialize state for new topic with Pinned Character (Chair) Active
-      // Logic mirrors factoryReset initialization
       if (this.currentLanguageData.characters && this.currentLanguageData.characters.length > 0) {
         const pinnedChar = this.currentLanguageData.characters[0];
         if (!this.localOptions.topicStates) this.localOptions.topicStates = {};
@@ -642,20 +987,43 @@ createApp({
         };
       }
 
-      // Switch to new topic
-      this.localOptions.currentTopicIndex = this.currentLanguageData.topics.length - 1;
+      this.localOptions.selectedTopicId = newTopic.id;
+    },
+
+    addAgendaPoint() {
+      if (!this.currentTopic) return;
+      if (!Array.isArray(this.currentTopic.agendaPoints)) {
+        this.currentTopic.agendaPoints = [];
+      }
+      this.currentTopic.agendaPoints.push("");
+      this.save();
+    },
+
+    removeAgendaPoint() {
+      if (!this.currentTopic || !Array.isArray(this.currentTopic.agendaPoints)) return;
+      if (this.currentTopic.agendaPoints.length === 0) return;
+      this.currentTopic.agendaPoints.pop();
+      this.save();
     },
 
     removeTopic() {
-      if (this.currentLanguageData.topics.length > 1) {
-        const removed = this.currentLanguageData.topics[this.localOptions.currentTopicIndex];
-        this.log('SYSTEM', 'Topic Removed', removed);
+      if (this.isCustomTopicSelected) return;
+      if (this.currentLanguageData.topics.length <= 1) return;
 
-        this.currentLanguageData.topics.splice(this.localOptions.currentTopicIndex, 1);
-        if (this.localOptions.currentTopicIndex >= this.currentLanguageData.topics.length) {
-          this.localOptions.currentTopicIndex = this.currentLanguageData.topics.length - 1;
-        }
+      const selectedId = this.localOptions.selectedTopicId;
+      const removeIndex = this.currentLanguageData.topics.findIndex((topic) => topic.id === selectedId);
+      if (removeIndex === -1) return;
+
+      const removed = this.currentLanguageData.topics[removeIndex];
+      this.log('SYSTEM', 'Topic Removed', removed);
+
+      this.currentLanguageData.topics.splice(removeIndex, 1);
+      if (this.localOptions.topicStates?.[removed.id]) {
+        delete this.localOptions.topicStates[removed.id];
       }
+
+      const nextTopic = this.currentLanguageData.topics[Math.min(removeIndex, this.currentLanguageData.topics.length - 1)];
+      this.localOptions.selectedTopicId = nextTopic?.id || PROTOTYPE_CUSTOM_TOPIC_ID;
     },
 
     addCharacter() {
@@ -744,134 +1112,278 @@ createApp({
 
 
 
+    deriveExportId(name, fallback = 'unknown') {
+      if (!name) return fallback;
+      return name.toLowerCase().replace(/\s+/g, '');
+    },
+
+    buildCharacterExportEntry(rest, exportId) {
+      const provider = rest.voiceProvider || 'openai';
+      const charExport = {
+        id: exportId,
+        name: rest.name,
+        voice: rest.voice,
+        voiceProvider: provider,
+        size: rest.size,
+        description: rest.description || "",
+        prompt: rest.prompt || ""
+      };
+
+      if (rest.voiceSpeed !== undefined) {
+        charExport.voiceSpeed = rest.voiceSpeed;
+      }
+
+      if (provider === 'openai') {
+        charExport.voiceInstruction = rest.voiceInstruction || "";
+      } else if (provider === 'inworld') {
+        if (rest.voiceLocale?.trim()) charExport.voiceLocale = rest.voiceLocale.trim();
+        charExport.voiceTemperature = rest.voiceTemperature || 1.1;
+      } else if (provider === 'elevenlabs') {
+        if (rest.voiceLocale?.trim()) charExport.voiceLocale = rest.voiceLocale.trim();
+        if (rest.voiceStability !== undefined) charExport.voiceStability = rest.voiceStability;
+        if (rest.voiceStyle !== undefined) charExport.voiceStyle = rest.voiceStyle;
+      }
+
+      return charExport;
+    },
+
+    buildCanonicalCharacterExport(editedCharacters, rawEnCharactersList, rawLocaleCharactersList, useEnglishCanonicalIds) {
+      const editedById = new Map();
+      (editedCharacters || []).forEach((character) => {
+        const id = character.id || this.deriveExportId(character.name, '');
+        if (id) editedById.set(id, character);
+      });
+
+      const findEditedCharacter = (canonical) => {
+        const byId = editedById.get(canonical.id);
+        if (byId) return byId;
+
+        const localeCharacter = (rawLocaleCharactersList || []).find((character) => character.id === canonical.id);
+        if (!localeCharacter) return null;
+
+        return (editedCharacters || []).find((character) =>
+          character.id === canonical.id || character.name === localeCharacter.name
+        ) || null;
+      };
+
+      const consumedUiIds = new Set();
+      const renamedCharacters = [];
+      const exportedCharacters = [];
+      const canonicalIds = new Set((rawEnCharactersList || []).map((character) => character.id));
+
+      for (const canonical of rawEnCharactersList || []) {
+        const edited = findEditedCharacter(canonical);
+        if (!edited) continue;
+
+        consumedUiIds.add(edited._ui_id);
+        const exportId = useEnglishCanonicalIds
+          ? canonical.id
+          : this.deriveExportId(edited.name, canonical.id);
+
+        if (!useEnglishCanonicalIds && exportId !== canonical.id) {
+          renamedCharacters.push({
+            name: edited.name || canonical.name,
+            fromId: canonical.id,
+            toId: exportId
+          });
+        }
+
+        const { _ui_id, ...rest } = edited;
+        exportedCharacters.push(this.buildCharacterExportEntry(rest, exportId));
+      }
+
+      for (const edited of editedCharacters || []) {
+        if (consumedUiIds.has(edited._ui_id)) continue;
+
+        const { _ui_id, ...rest } = edited;
+        const exportId =
+          (rest.id && !canonicalIds.has(rest.id) ? rest.id : null) ||
+          this.deriveExportId(rest.name, '') ||
+          `character_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+        exportedCharacters.push(this.buildCharacterExportEntry(rest, exportId));
+      }
+
+      return { exportedCharacters, renamedCharacters };
+    },
+
+    buildCanonicalTopicExport(editedTopics, rawTopicsList, rawTopicsEnList, useEnglishCanonicalIds) {
+      const consumedTopicIds = new Set();
+      const exportedTopics = [];
+      const canonicalTopicIds = new Set((rawTopicsEnList || []).map((topic) => topic.id));
+
+      const findEditedTopic = (canonical) => {
+        const localeTopic = rawTopicsList.find((topic) => topic.id === canonical.id);
+
+        return (editedTopics || []).find((topic) => {
+          if (topic.id && !String(topic.id).startsWith('topic_') && topic.id === canonical.id) {
+            return true;
+          }
+          if (localeTopic && topic.name === localeTopic.title) {
+            return true;
+          }
+          if (!useEnglishCanonicalIds && topic.name === canonical.title) {
+            return true;
+          }
+          return false;
+        });
+      };
+
+      for (const canonical of rawTopicsEnList || []) {
+        const edited = findEditedTopic(canonical);
+        if (!edited) continue;
+
+        consumedTopicIds.add(edited.id);
+        const localeMatch = rawTopicsList.find((topic) => topic.id === canonical.id || topic.title === edited.name);
+
+        exportedTopics.push({
+          id: canonical.id,
+          title: edited.name,
+          description: edited.description || (localeMatch ? localeMatch.description : edited.prompt),
+          prompt: edited.prompt,
+          ...(this.nonEmptyAgendaPoints(edited.agendaPoints).length > 0
+            ? { agendaPoints: this.nonEmptyAgendaPoints(edited.agendaPoints) }
+            : {}),
+        });
+      }
+
+      for (const edited of editedTopics || []) {
+        if (consumedTopicIds.has(edited.id)) continue;
+
+        const exportId =
+          (edited.id && !String(edited.id).startsWith('topic_') && !canonicalTopicIds.has(edited.id) ? edited.id : null) ||
+          this.deriveExportId(edited.name, '') ||
+          `topic_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+        exportedTopics.push({
+          id: exportId,
+          title: edited.name,
+          description: edited.description || edited.prompt,
+          prompt: edited.prompt,
+          ...(this.nonEmptyAgendaPoints(edited.agendaPoints).length > 0
+            ? { agendaPoints: this.nonEmptyAgendaPoints(edited.agendaPoints) }
+            : {}),
+        });
+      }
+
+      return exportedTopics;
+    },
+
+    buildTopicsExportPayload(rawTopics, rawTopicsEn, system, editedTopics, editedCustomTopic, rawTopicsList, rawTopicsEnList, useEnglishCanonicalIds, now, pad) {
+      const dateStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+      const timeStr = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+
+      const metadataSource = rawTopicsEn.metadata || rawTopics.metadata;
+      const metadata = metadataSource
+        ? { ...metadataSource, last_updated: `${dateStr} ${timeStr}` }
+        : { version: '1.0.0', last_updated: `${dateStr} ${timeStr}` };
+
+      const fallbackCustom = rawTopicsEn.custom_topic || rawTopics.custom_topic || {
+        id: PROTOTYPE_CUSTOM_TOPIC_ID,
+        title: 'Custom Topic',
+      };
+      const customTopic = {
+        id: editedCustomTopic?.id || fallbackCustom.id || PROTOTYPE_CUSTOM_TOPIC_ID,
+        title: editedCustomTopic?.name || fallbackCustom.title || 'Custom Topic',
+        ...(editedCustomTopic?.prompt
+          ? { prompt: editedCustomTopic.prompt }
+          : (fallbackCustom.prompt ? { prompt: fallbackCustom.prompt } : {})),
+      };
+
+      return {
+        metadata,
+        system,
+        custom_topic: customTopic,
+        topics: this.buildCanonicalTopicExport(
+          editedTopics,
+          rawTopicsList,
+          rawTopicsEnList,
+          useEnglishCanonicalIds
+        ),
+      };
+    },
+
     async exportPrompts() {
       const now = new Date();
       const pad = (n) => String(n).padStart(2, '0');
       const timestamp = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
       const lang = this.options.language || 'en';
 
-      // Base export shape from the active locale JSON (parse each file independently so one failed fetch does not wipe the other)
-      let rawFoods = { foods: [] };
+      let rawCharacters = { characters: [] };
       let rawTopics = { topics: [] };
-      // English JSON: only fetched when exporting a non-English locale (canonical ids + topic slot fallback); when lang is en, reuse rawFoods/rawTopics
-      let rawFoodsEn = null;
-      let rawTopicsEn = null;
+      let rawCharactersEn = { characters: [] };
+      let rawTopicsEn = { topics: [] };
 
       try {
-        this.log('SYSTEM', 'Fetching raw data for export...');
-        const [foodsResp, topicsResp] = await Promise.all([
-          fetch(`./foods_${lang}.json`),
-          fetch(`./topics_${lang}.json`)
+        const charactersPath = `./${CHARACTERS_FILE}_${lang}.json`;
+        const topicsPath = `./topics_${lang}.json`;
+        const charactersEnPath = `./${CHARACTERS_FILE}_en.json`;
+        const topicsEnPath = './topics_en.json';
+
+        const [charactersResp, topicsResp, charactersEnResp, topicsEnResp] = await Promise.all([
+          fetch(charactersPath),
+          fetch(topicsPath),
+          fetch(charactersEnPath),
+          fetch(topicsEnPath)
         ]);
-        if (foodsResp.ok) {
-          rawFoods = await foodsResp.json();
+
+        if (charactersResp.ok) {
+          rawCharacters = await charactersResp.json();
+          this.log('FILE_IN', `GET ${charactersPath} → ${charactersResp.status}`, rawCharacters);
         }
         if (topicsResp.ok) {
           rawTopics = await topicsResp.json();
+          this.log('FILE_IN', `GET ${topicsPath} → ${topicsResp.status}`, rawTopics);
         }
-
-        if (lang !== 'en') {
-          const [foodsEnResp, topicsEnResp] = await Promise.all([
-            fetch('./foods_en.json'),
-            fetch('./topics_en.json')
-          ]);
-          if (foodsEnResp.ok) rawFoodsEn = await foodsEnResp.json();
-          if (topicsEnResp.ok) rawTopicsEn = await topicsEnResp.json();
+        if (charactersEnResp.ok) {
+          rawCharactersEn = await charactersEnResp.json();
+          this.log('FILE_IN', `GET ${charactersEnPath} → ${charactersEnResp.status}`, rawCharactersEn);
+        }
+        if (topicsEnResp.ok) {
+          rawTopicsEn = await topicsEnResp.json();
+          this.log('FILE_IN', `GET ${topicsEnPath} → ${topicsEnResp.status}`, rawTopicsEn);
         }
       } catch (e) {
         this.log('ERROR', "Failed to fetch raw data", e);
       }
 
-      const enCharsForExport = (this.languageData.en && this.languageData.en.characters) || [];
-      const rawEnFoodsList = ((lang === 'en' ? rawFoods : rawFoodsEn) || {}).foods || [];
+      const rawEnCharactersList = rawCharactersEn.characters || [];
+      const rawLocaleCharactersList = rawCharacters.characters || [];
+      const rawTopicsList = rawTopics.topics || [];
+      const rawTopicsEnList = rawTopicsEn.topics || [];
+      const useEnglishCanonicalIds = lang !== 'en';
 
-      // 1. Export Characters (Foods)
-      // Clone raw structure to preserve static fields (addHuman, panelWithHumans, metadata etc)
-      let foodsExport = JSON.parse(JSON.stringify(rawFoods));
+      // 1. Export Characters
+      let charactersExport = JSON.parse(JSON.stringify(rawCharacters));
 
-      // Update timestamp if metadata exists
-      if (foodsExport.metadata) {
+      if (charactersExport.metadata) {
         const dateStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
         const timeStr = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
-        foodsExport.metadata.last_updated = `${dateStr} ${timeStr}`;
+        charactersExport.metadata.last_updated = `${dateStr} ${timeStr}`;
       }
 
-      // Update the "foods" array with current active characters
-      foodsExport.foods = (this.currentLanguageData.characters || []).map((c, idx) => {
-        // Exclude internal fields like _ui_id
-        const { _ui_id, ...rest } = c;
-        // Ensure structure matches schema
-        const provider = rest.voiceProvider || 'openai';
-        const canonicalFoodId =
-          (enCharsForExport[idx] && enCharsForExport[idx].id) ||
-          rawEnFoodsList[idx]?.id ||
-          rest.id ||
-          (rest.name ? rest.name.toLowerCase().replace(/\s+/g, '') : 'unknown');
+      const { exportedCharacters, renamedCharacters } = this.buildCanonicalCharacterExport(
+        this.currentLanguageData.characters,
+        rawEnCharactersList,
+        rawLocaleCharactersList,
+        useEnglishCanonicalIds
+      );
+      charactersExport.characters = exportedCharacters;
 
-        let charExport = {
-          id: canonicalFoodId,
-          name: rest.name,
-          voice: rest.voice,
-          voiceProvider: provider,
-          size: rest.size,
-          description: rest.description || "",
-          prompt: rest.prompt || ""
-        };
+      // 2. Export Topics — always emit metadata, system, custom_topic, topics (in that order).
+      const topicsExport = this.buildTopicsExportPayload(
+        rawTopics,
+        rawTopicsEn,
+        this.currentLanguageData.system,
+        this.currentLanguageData.topics,
+        this.currentLanguageData.customTopic,
+        rawTopicsList,
+        rawTopicsEnList,
+        useEnglishCanonicalIds,
+        now,
+        pad
+      );
 
-        if (rest.voiceSpeed !== undefined) {
-          charExport.voiceSpeed = rest.voiceSpeed;
-        }
-
-        if (provider === 'gemini') {
-          charExport.voiceLocale = rest.voiceLocale || 'en-GB';
-          charExport.voiceInstruction = rest.voiceInstruction || "";
-        } else if (provider === 'openai') {
-          charExport.voiceInstruction = rest.voiceInstruction || "";
-        } else if (provider === 'inworld') {
-          charExport.voiceTemperature = rest.voiceTemperature || 1.1;
-        }
-
-        return charExport;
-      });
-
-      // 2. Export Topics
-      let topicsExport = JSON.parse(JSON.stringify(rawTopics));
-
-      // Update timestamp if metadata exists
-      if (topicsExport.metadata) {
-        const dateStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
-        const timeStr = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
-        topicsExport.metadata.last_updated = `${dateStr} ${timeStr}`;
-      }
-
-      // Update system prompt (editable)
-      topicsExport.system = this.currentLanguageData.system;
-
-      // Reconcile with raw topics to preserve original IDs; prefer English topic ids when bilingual
-      const rawTopicsList = (rawTopics && rawTopics.topics) ? rawTopics.topics : [];
-      const rawTopicsEnList = ((lang === 'en' ? rawTopics : rawTopicsEn) || {}).topics || [];
-
-      topicsExport.topics = (this.currentLanguageData.topics || []).map((t, idx) => {
-        // Try to find matching original topic by title to restore ID and Description
-        const match = rawTopicsList.find(rt => rt.title === t.name);
-        // Prefer stable ids from English JSON (same as sv ids); avoid in-memory topic_* ids from factoryReset
-        const canonicalTopicId =
-          (match ? match.id : null) ||
-          rawTopicsEnList[idx]?.id ||
-          rawTopicsList[idx]?.id ||
-          t.id ||
-          (t.name ? t.name.toLowerCase().replace(/\s+/g, '') : 'unknown');
-
-        return {
-          id: canonicalTopicId,
-          title: t.name,
-          // Use current description if available (user edits), fallback to raw if needed, then prompt (legacy)
-          description: t.description || (match ? match.description : t.prompt),
-          prompt: t.prompt
-        };
-      });
-
-      // Helper to trigger download
       const download = (filename, data) => {
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
@@ -884,36 +1396,36 @@ createApp({
         URL.revokeObjectURL(url);
       };
 
-      download(`foods_${lang}_${timestamp}.json`, foodsExport);
+      download(`${CHARACTERS_FILE}_${lang}_${timestamp}.json`, charactersExport);
       download(`topics_${lang}_${timestamp}.json`, topicsExport);
+
+      if (renamedCharacters.length > 0) {
+        const lines = renamedCharacters.map(({ name, fromId, toId }) =>
+          `- ${name}: "${fromId}" -> "${toId}"`
+        );
+        alert(
+          'Some characters were renamed and their IDs changed. You may need to migrate database/media references:\n\n' +
+          lines.join('\n')
+        );
+      }
 
       this.log('SYSTEM', 'Exported Prompts to JSON');
     },
 
     async startConversation() {
+      if (this.localOptions.languageModelsError) {
+        alert(`Fix model JSON before starting:\n\n${this.localOptions.languageModelsError}`);
+        return;
+      }
+
       this.status = 'CONNECTING';
       this.audioController.reset();
 
       try {
-        const meetingBody = this.getMeetingBody();
-        this.log('SYSTEM', 'Creating meeting via API', meetingBody);
-
-        const res = await fetch("/api/meetings", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(meetingBody),
-        });
-        if (!res.ok) {
-          const errText = await res.text();
-          throw new Error(errText || `Create meeting failed (${res.status})`);
-        }
-        const { meetingId, liveKey } = await res.json();
+        const { meetingId, liveKey } = await this.createMeeting('start conversation');
         this.meetingId = Number(meetingId);
         this.liveKey = liveKey;
-
-        const setupPayload = { meetingId: this.meetingId, liveKey: this.liveKey, serverOptions: this.getServerOptions() };
-        this.log('SOCKET_OUT', 'Starting Conversation', setupPayload);
-        this.socket.emit("start_conversation", setupPayload);
+        this.emitStartConversation('start');
       } catch (e) {
         this.log('ERROR', 'Failed to create meeting', e);
         this.status = 'ERROR';
@@ -934,30 +1446,20 @@ createApp({
     },
 
     async restartConversation() {
+      if (this.localOptions.languageModelsError) {
+        alert(`Fix model JSON before restarting:\n\n${this.localOptions.languageModelsError}`);
+        return;
+      }
+
       this.status = 'CONNECTING';
       this.conversation = [];
       this.audioController.reset();
 
       try {
-        const meetingBody = this.getMeetingBody();
-        this.log('SYSTEM', 'Creating new meeting for restart', meetingBody);
-
-        const res = await fetch("/api/meetings", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(meetingBody),
-        });
-        if (!res.ok) {
-          const errText = await res.text();
-          throw new Error(errText || `Create meeting failed (${res.status})`);
-        }
-        const { meetingId, liveKey } = await res.json();
+        const { meetingId, liveKey } = await this.createMeeting('restart conversation');
         this.meetingId = Number(meetingId);
         this.liveKey = liveKey;
-
-        const setupPayload = { meetingId: this.meetingId, liveKey: this.liveKey, serverOptions: this.getServerOptions() };
-        this.log('SOCKET_OUT', 'Restarting Conversation', setupPayload);
-        this.socket.emit("start_conversation", setupPayload);
+        this.emitStartConversation('restart');
       } catch (e) {
         this.log('ERROR', 'Failed to create meeting for restart', e);
         this.status = 'ERROR';
@@ -968,34 +1470,26 @@ createApp({
     continueConversation() {
       this.status = 'CONNECTING';
       // Match web client: drop synthetic tail locally so UI matches server after strip.
-      const mr = this.conversation.findIndex((m) => m.type === 'max_reached');
-      if (mr !== -1) {
-        this.conversation = this.conversation.slice(0, mr);
+      const queryExtensionIndex = this.conversation.findIndex((m) => m.type === 'query_extension');
+      if (queryExtensionIndex !== -1) {
+        this.conversation = this.conversation.slice(0, queryExtensionIndex);
         if (this.audioController) {
           this.audioController.setExpectedLength(countPlayableMessages(this.conversation));
         }
       }
       this.log('SOCKET_OUT', 'Continuing Conversation');
-      this.socket.emit("continue_conversation");
+      this.socket.emit("extend_meeting");
     },
 
-    removeLastMessage() {
-      this.socket.emit("remove_last_message");
-    },
+    raiseHand() {
+      if (!this.canRaiseHand) return;
 
-    submitInjection() {
-      const message = {
-        text: this.options.injectPrompt,
-        length: this.options.maxTokensInject,
-        index: this.conversation.length,
-        // Use local browser date
-        date: new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10)
-      };
+      const index = this.conversation.length;
+      const humanName = 'Visitor';
 
-      this.injectionStatus = "Instruction injected, just wait...";
-
-      this.log('SOCKET_OUT', 'Submit Injection', message);
-      this.socket.emit("submit_injection", message);
+      this.status = 'CONNECTING';
+      this.log('SOCKET_OUT', 'Raise Hand', { index, humanName });
+      this.socket.emit('raise_hand', { index, humanName });
     },
 
     // ===========================
@@ -1126,24 +1620,46 @@ createApp({
     //   UTILS
     // ===========================
     sanitizeData() {
-      // Ensure all characters across all languages and rooms have a unique UI ID
-      // This is critical for Vue + SortableJS stability
       if (!this.languageData) return;
 
-      Object.values(this.languageData).forEach(lang => {
-        if (!lang.topics) return;
-        lang.topics.forEach(topic => {
-          if (!topic.characters) return; // characters are global now, so this check might be legacy, but safe to keep or remove.
-          // Actually, characters are global. This loop was probably checking old structure.
-          // But if we have global characters, we iterate them:
-        });
-        // Correct global character ID check:
+      Object.values(this.languageData).forEach((lang) => {
         if (lang.characters) {
           lang.characters.forEach(c => {
             if (!c._ui_id) c._ui_id = Date.now() + Math.random();
-            // Only derive id from display name when missing (preserve canonical ids from JSON / en fork)
             if (!c.id && c.name) {
               c.id = c.name.toLowerCase().replace(/\s+/g, '');
+            }
+          });
+        }
+
+        if (!lang.customTopic) {
+          lang.customTopic = { id: PROTOTYPE_CUSTOM_TOPIC_ID, name: "Custom Topic", prompt: PROTOTYPE_CUSTOM_TOPIC_TOKEN };
+        } else {
+          lang.customTopic.id = lang.customTopic.id || PROTOTYPE_CUSTOM_TOPIC_ID;
+          lang.customTopic.name = lang.customTopic.name || "Custom Topic";
+          lang.customTopic.prompt = lang.customTopic.prompt || PROTOTYPE_CUSTOM_TOPIC_TOKEN;
+        }
+        if (!this.localOptions.topicStates) this.localOptions.topicStates = {};
+
+        // Ensure every topic (including custom) has a topicState with the chair active.
+        const chairId = lang.characters?.[0]?._ui_id;
+        const allTopicIds = [
+          ...(lang.topics || []).map(t => t.id),
+          lang.customTopic.id,
+        ];
+        allTopicIds.forEach(topicId => {
+          if (!this.localOptions.topicStates[topicId]) {
+            this.localOptions.topicStates[topicId] = { activeCharacterIds: {} };
+          }
+          if (chairId) {
+            this.localOptions.topicStates[topicId].activeCharacterIds[chairId] = true;
+          }
+        });
+
+        if (lang.topics) {
+          lang.topics.forEach((topic) => {
+            if (!Array.isArray(topic.agendaPoints)) {
+              topic.agendaPoints = [];
             }
           });
         }
@@ -1171,21 +1687,37 @@ createApp({
 
 
     save() {
-      // Always sanitize before saving to ensure consistency
       this.sanitizeData();
-
-      const data = {
+      localStorage.setItem("PromptsAndOptions", JSON.stringify({
         options: this.options,
         localOptions: this.localOptions,
-        language: this.languageData
-      };
-      localStorage.setItem("PromptsAndOptions", JSON.stringify(data));
+        language: this.languageData,
+      }));
     },
 
     toTitleCase(str) {
       if (!str) return "";
       return str.toLowerCase().split(" ").map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(" ");
-    }
+    },
+
+    formatSpeakerLabel(idOrName) {
+      if (!idOrName) return "—";
+      const chars = this.currentLanguageData?.characters || [];
+      const match = chars.find((c) => c.id === idOrName || c.name === idOrName);
+      return match?.name || match?.id || idOrName;
+    },
+
+    formatInvitationGuest(index) {
+      const next = this.conversation[index + 1];
+      if (next?.type === 'awaiting_human_question' || next?.type === 'awaiting_human_panelist') {
+        return this.formatSpeakerLabel(next.speaker);
+      }
+      return 'Visitor';
+    },
+
+    isSyntheticTurnType(type) {
+      return NON_PLAYABLE_TURN_TYPES.has(type);
+    },
   }
 })
   .directive('auto-resize', {

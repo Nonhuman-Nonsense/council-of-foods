@@ -1,15 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import MainOverlays from '../../../src/components/MainOverlays';
+import MainOverlays from '@main/overlay/MainOverlays';
 import type { ReactNode } from 'react';
 import '@testing-library/jest-dom';
-import routes from '../../../src/routes.json';
-import type { Topic } from '@shared/ModelTypes';
-
-const mockTopic = (partial: Pick<Topic, 'id' | 'title' | 'description'> & Partial<Topic>): Topic => ({
-    prompt: '',
-    ...partial,
-});
+import routes from '@/routes.json';
+import { MockFactory } from '../factories/MockFactory';
 
 // Mock dependencies
 vi.mock('react-i18next', () => ({
@@ -31,9 +26,10 @@ vi.mock('react-router', () => ({
 }));
 
 // Mock Child Components
-vi.mock('../../../src/components/overlays/About', () => ({ default: () => <div data-testid="about-overlay">About</div> }));
-vi.mock('../../../src/components/overlays/Contact', () => ({ default: () => <div data-testid="contact-overlay">Contact</div> }));
-vi.mock('../../../src/components/overlays/ResetWarning', () => ({
+vi.mock('@main/overlay/About', () => ({ default: () => <div data-testid="about-overlay">About</div> }));
+vi.mock('@main/overlay/Contact', () => ({ default: () => <div data-testid="contact-overlay">Contact</div> }));
+vi.mock('@main/overlay/Setup', () => ({ default: () => <div data-testid="setup-overlay">Setup</div> }));
+vi.mock('@main/overlay/ResetWarning', () => ({
     default: ({ onReset, onCancel }: { onReset: () => void; onCancel: () => void }) => (
         <div data-testid="reset-overlay">
             <button onClick={onReset}>Confirm Reset</button>
@@ -41,22 +37,22 @@ vi.mock('../../../src/components/overlays/ResetWarning', () => ({
         </div>
     )
 }));
-vi.mock('../../../src/components/settings/SelectTopic', () => ({
+vi.mock('@newMeeting/SelectTopic', () => ({
     default: () => <div data-testid="settings-overlay">Settings</div>
 }));
 
 // Mock Wrapper Components
-vi.mock('../../../src/components/Overlay', () => ({
+vi.mock('@main/overlay/Overlay', () => ({
     default: ({ children, isActive }: { children: ReactNode; isActive: boolean }) => isActive ? <div data-testid="overlay-container">{children}</div> : null
 }));
-vi.mock('../../../src/components/OverlayWrapper', () => ({
+vi.mock('@main/overlay/OverlayWrapper', () => ({
     default: ({ children }: { children: ReactNode }) => <div data-testid="overlay-wrapper">{children}</div>
 }));
 
 describe('MainOverlays', () => {
     const mockOnReset = vi.fn();
     const mockOnCloseOverlay = vi.fn();
-    const topic: Topic = mockTopic({ id: '1', title: 'Topic A', description: 'Desc A' });
+    const topic = MockFactory.createTopic({ id: '1', title: 'Topic A', description: 'Desc A', prompt: '' });
 
     beforeEach(() => {
         vi.clearAllMocks();
@@ -79,6 +75,22 @@ describe('MainOverlays', () => {
         mockLocation.hash = '#contact';
         render(<MainOverlays topic={topic} onReset={mockOnReset} onCloseOverlay={mockOnCloseOverlay} />);
         expect(screen.getByTestId('contact-overlay')).toBeInTheDocument();
+    });
+
+    it('renders Setup overlay when hash is #setup on root', async () => {
+        mockLocation.hash = '#setup';
+        mockLocation.pathname = '/';
+        render(<MainOverlays topic={topic} onReset={mockOnReset} onCloseOverlay={mockOnCloseOverlay} />);
+        expect(await screen.findByTestId('setup-overlay')).toBeInTheDocument();
+        expect(mockNavigate).not.toHaveBeenCalled();
+    });
+
+    it('keeps setup overlay on non-root paths', async () => {
+        mockLocation.hash = '#setup';
+        mockLocation.pathname = `/${routes.newMeeting}`;
+        render(<MainOverlays topic={topic} onReset={mockOnReset} onCloseOverlay={mockOnCloseOverlay} />);
+        expect(await screen.findByTestId('setup-overlay')).toBeInTheDocument();
+        expect(mockNavigate).not.toHaveBeenCalled();
     });
 
     it('renders Settings overlay when hash is #settings and path is meeting', () => {

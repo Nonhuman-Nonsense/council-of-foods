@@ -1,27 +1,40 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { createTestManager, TestFactory } from './commonSetup.js';
 import { SpeakerSelector } from '@logic/SpeakerSelector.js';
+import { DEFAULT_TEST_CHARACTERS } from './factories/MockFactory.ts';
 
 describe('MeetingManager - State Machine (decideNextAction)', () => {
     let manager;
+    const [chairCharacter, firstSpeaker] = DEFAULT_TEST_CHARACTERS;
 
     beforeEach(() => {
         const setup = createTestManager();
         manager = setup.manager;
-        // Add Alice (id: 'alice', type: 'panelist') to index 3
-        manager.meeting.characters.push({ id: 'alice', name: 'Alice', type: 'panelist' });
+        // Add a human panelist at index 3.
+        manager.meeting.characters.push({ id: 'panelist0', name: 'Alice', description: '', prompt: '', voice: 'alloy' });
     });
 
     const scenarios = [
         {
-            name: 'should end conversation if max length reached',
+            name: 'should query extension if soft cap reached',
             setup: (mgr) => {
                 mgr.serverOptions.conversationMaxLength = 5;
                 mgr.meeting.conversationExtraSlots = 0;
                 mgr.meeting.conversation = TestFactory.createConversation(5);
             },
             nextSpeakerIndex: 0,
-            expected: { type: 'END_CONVERSATION' }
+            expected: { type: 'QUERY_EXTENSION' }
+        },
+        {
+            name: 'should conclude meeting at hard cap when extension is not possible',
+            setup: (mgr) => {
+                mgr.serverOptions.conversationMaxLength = 5;
+                mgr.serverOptions.meetingVeryMaxLength = 5;
+                mgr.meeting.conversationExtraSlots = 0;
+                mgr.meeting.conversation = TestFactory.createConversation(5);
+            },
+            nextSpeakerIndex: 0,
+            expected: { type: 'CONCLUDE_MEETING' }
         },
         {
             name: 'should wait if awaiting human panelist',
@@ -29,7 +42,7 @@ describe('MeetingManager - State Machine (decideNextAction)', () => {
                 mgr.meeting.conversation = TestFactory.createAwaitingPanelist('alice');
             },
             nextSpeakerIndex: 0,
-            expected: { type: 'WAIT' }
+            expected: { type: 'IDLE' }
         },
         {
             name: 'should wait if awaiting human question',
@@ -37,17 +50,46 @@ describe('MeetingManager - State Machine (decideNextAction)', () => {
                 mgr.meeting.conversation = TestFactory.createAwaitingQuestion();
             },
             nextSpeakerIndex: 0,
-            expected: { type: 'WAIT' }
+            expected: { type: 'IDLE' }
         },
         {
-            name: 'should wait if conversation already ended with max_reached sentinel',
+            // Regression: the awaiting marker (plus its chair invitation) can push the
+            // conversation to the length cap. We must wait for the human, not END.
+            name: 'should wait (not end) when awaiting human panelist at the length cap',
             setup: (mgr) => {
                 mgr.serverOptions.conversationMaxLength = 5;
                 mgr.meeting.conversationExtraSlots = 0;
-                mgr.meeting.conversation = [...TestFactory.createConversation(5), { type: 'max_reached' }];
+                mgr.meeting.conversation = [
+                    ...TestFactory.createConversation(3),
+                    { id: 'invite1', type: 'invitation', speaker: chairCharacter.id, text: 'Welcome Alice.' },
+                    ...TestFactory.createAwaitingPanelist('panelist0'),
+                ];
             },
             nextSpeakerIndex: 0,
-            expected: { type: 'WAIT' }
+            expected: { type: 'IDLE' }
+        },
+        {
+            name: 'should wait if conversation already ended with query_extension sentinel',
+            setup: (mgr) => {
+                mgr.serverOptions.conversationMaxLength = 5;
+                mgr.meeting.conversationExtraSlots = 0;
+                mgr.meeting.conversation = [...TestFactory.createConversation(5), { type: 'query_extension' }];
+            },
+            nextSpeakerIndex: 0,
+            expected: { type: 'IDLE' }
+        },
+        {
+            name: 'should wait if conversation has already been finalized with a summary',
+            setup: (mgr) => {
+                mgr.serverOptions.conversationMaxLength = 5;
+                mgr.meeting.conversationExtraSlots = 0;
+                mgr.meeting.conversation = [
+                    ...TestFactory.createConversation(5),
+                    { id: 'sum1', type: 'summary', speaker: chairCharacter.id, text: 'Summary' },
+                ];
+            },
+            nextSpeakerIndex: 0,
+            expected: { type: 'IDLE' }
         },
         {
             name: 'should request panelist if next speaker is panelist',
@@ -57,7 +99,7 @@ describe('MeetingManager - State Machine (decideNextAction)', () => {
             nextSpeakerIndex: 3, // Alice
             expected: {
                 type: 'REQUEST_PANELIST',
-                speaker: expect.objectContaining({ id: 'alice', type: 'panelist' })
+                speaker: expect.objectContaining({ id: 'panelist0' })
             }
         },
         {
@@ -68,17 +110,75 @@ describe('MeetingManager - State Machine (decideNextAction)', () => {
             nextSpeakerIndex: 1, // Tomato
             expected: {
                 type: 'GENERATE_AI_RESPONSE',
-                speaker: expect.objectContaining({ id: 'tomato', type: 'food' })
+                speaker: expect.objectContaining({ id: firstSpeaker.id })
+            }
+        },
+        {
+            name: 'should wait if conversation is more than 3 messages ahead of maximumPlayedIndex',
+            setup: (mgr) => {
+                mgr.serverOptions.conversationMaxLength = 10;
+                mgr.meeting.maximumPlayedIndex = 0;
+                mgr.meeting.conversation = [
+                    { id: 'a', type: 'message', speaker: chairCharacter.id, text: '1' },
+                    { id: 'b', type: 'message', speaker: chairCharacter.id, text: '2' },
+                    { id: 'c', type: 'message', speaker: chairCharacter.id, text: '3' },
+                    { id: 'd', type: 'message', speaker: chairCharacter.id, text: '4' }
+                ];
+            },
+            nextSpeakerIndex: 1,
+            expected: { type: 'IDLE' }
+        },
+        {
+            name: 'should not apply playback buffer in prototype environment',
+            env: 'prototype',
+            setup: (mgr) => {
+                mgr.serverOptions.conversationMaxLength = 10;
+                mgr.meeting.maximumPlayedIndex = 0;
+                mgr.meeting.conversation = [
+                    { id: 'a', type: 'message', speaker: chairCharacter.id, text: '1' },
+                    { id: 'b', type: 'message', speaker: chairCharacter.id, text: '2' },
+                    { id: 'c', type: 'message', speaker: chairCharacter.id, text: '3' },
+                    { id: 'd', type: 'message', speaker: chairCharacter.id, text: '4' }
+                ];
+            },
+            nextSpeakerIndex: 1,
+            expected: {
+                type: 'GENERATE_AI_RESPONSE',
+                speaker: expect.objectContaining({ id: firstSpeaker.id })
+            }
+        },
+        {
+            name: 'should not apply playback buffer when maximumPlayedIndex is unset',
+            setup: (mgr) => {
+                mgr.serverOptions.conversationMaxLength = 10;
+                mgr.meeting.maximumPlayedIndex = undefined;
+                mgr.meeting.conversation = [
+                    { id: 'a', type: 'message', speaker: chairCharacter.id, text: '1' },
+                    { id: 'b', type: 'message', speaker: chairCharacter.id, text: '2' },
+                    { id: 'c', type: 'message', speaker: chairCharacter.id, text: '3' },
+                    { id: 'd', type: 'message', speaker: chairCharacter.id, text: '4' }
+                ];
+            },
+            nextSpeakerIndex: 1,
+            expected: {
+                type: 'GENERATE_AI_RESPONSE',
+                speaker: expect.objectContaining({ id: firstSpeaker.id })
             }
         }
     ];
 
-    scenarios.forEach(({ name, setup, nextSpeakerIndex, expected }) => {
+    scenarios.forEach(({ name, setup, nextSpeakerIndex, expected, env }) => {
         it(name, () => {
-            setup(manager);
+            const activeManager = env
+                ? createTestManager(env).manager
+                : manager;
+            if (env) {
+                activeManager.meeting.characters.push({ id: 'panelist0', name: 'Alice', description: '', prompt: '', voice: 'alloy' });
+            }
+            setup(activeManager);
             vi.spyOn(SpeakerSelector, 'calculateNextSpeaker').mockReturnValue(nextSpeakerIndex);
 
-            const decision = manager.decideNextAction();
+            const decision = activeManager.decideNextAction();
             expect(decision).toEqual(expected);
         });
     });

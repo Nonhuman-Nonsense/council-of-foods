@@ -43,9 +43,18 @@ const { integrationGetOpenAI } = vi.hoisted(() => {
     return { integrationGetOpenAI };
 });
 
-vi.mock('@services/OpenAIService.js', () => ({
-    getOpenAI: integrationGetOpenAI,
-}));
+vi.mock('@services/OpenAIService.js', async () => {
+    const actual = await vi.importActual('@services/OpenAIService.js');
+    const mode = process.env.TEST_MODE || 'mock';
+
+    if (mode === 'fast' || mode === 'full') {
+        return actual;
+    }
+
+    return {
+        getOpenAI: integrationGetOpenAI,
+    };
+});
 
 function validCreateBody() {
     return {
@@ -54,13 +63,15 @@ function validCreateBody() {
             {
                 id: 'water',
                 name: 'Water',
-                type: 'food',
+                description: 'Hydrating and clear-headed.',
+                prompt: 'Speak as Water in the council.',
                 voice: 'alloy',
             },
             {
                 id: 'tomato',
                 name: 'Tomato',
-                type: 'food',
+                description: 'Opinionated and juicy.',
+                prompt: 'Speak as Tomato in the council.',
                 voice: 'alloy',
             },
         ],
@@ -150,7 +161,7 @@ describe('HTTP + Socket full chain (integration)', () => {
             });
         });
 
-        const updatePromise = waitForSocketEvent(socket, 'conversation_update');
+        const updatePromise = waitForSocketEvent(socket, 'conversation_update', 12000);
 
         socket.emit('start_conversation', {
             meetingId: Number(meetingId),
@@ -162,7 +173,7 @@ describe('HTTP + Socket full chain (integration)', () => {
         expect(conversation.length).toBeGreaterThan(0);
 
         socket.close();
-    });
+    }, 15000);
 
     it('second socket start_conversation on same meeting gets conversation_error 409', async () => {
         const createRes = await fetch(`${base()}/api/meetings`, {
@@ -202,10 +213,10 @@ describe('HTTP + Socket full chain (integration)', () => {
             }),
         ]);
 
-        const errPromise = waitForSocketEvent(socket2, 'conversation_error', 5000);
         socket1.emit('start_conversation', { meetingId: Number(meetingId), liveKey });
-        await waitForSocketEvent(socket1, 'conversation_update', 8000);
+        await waitForSocketEvent(socket1, 'conversation_update', 12000);
 
+        const errPromise = waitForSocketEvent(socket2, 'conversation_error', 12000);
         socket2.emit('start_conversation', { meetingId: Number(meetingId), liveKey });
         const err = await errPromise;
         expect(err.code).toBe(409);
@@ -213,7 +224,7 @@ describe('HTTP + Socket full chain (integration)', () => {
 
         socket1.close();
         socket2.close();
-    });
+    }, 15000);
 
     describe('PUT /api/meetings/:meetingId (resume)', () => {
         async function seedIncompleteMeeting(meetingId) {
@@ -325,7 +336,7 @@ describe('HTTP + Socket full chain (integration)', () => {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(validCreateBody()),
         });
-        const { meetingId, liveKey } = await createRes.json();
+        const { meetingId } = await createRes.json();
 
         const socket = ioClient(`${base()}`, { transports: ['websocket'], autoConnect: false });
         socket.connect();
