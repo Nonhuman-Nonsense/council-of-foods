@@ -113,6 +113,18 @@ export function createEventLoop(params: {
   let pendingOpeningGreeting: string | null = null;
   /** Set when `requestResponseIfIdle` runs before `session.updated` (e.g. tool output); flush with bare `response.create`. */
   let pendingDeferredResponse = false;
+  /** True once the in-flight response has emitted any output (audio/text/tool). */
+  let sawOutputThisResponse = false;
+  /** Empty-response recovery attempts for the current user turn (reset per turn). */
+  let emptyResponseRetries = 0;
+  /**
+   * The server occasionally auto-creates a response (semantic_vad
+   * `create_response`) that completes with zero output — observed on the first
+   * turn after a (re)connect + greeting, on landing and after switch_language.
+   * A fresh `response.create` against the same context then works, so we retry
+   * once per turn. Capped to avoid an empty→retry→empty loop.
+   */
+  const MAX_EMPTY_RESPONSE_RETRIES = 1;
 
   const isResponseActive = () => activeResponses > 0;
 
@@ -219,6 +231,7 @@ export function createEventLoop(params: {
 
     if (type === "response.created") {
       activeResponses += 1;
+      sawOutputThisResponse = false;
       devLog.event("REALTIME", "IN response.created", { activeResponses });
       captionScheduler?.beginResponse();
       callbacks.onResponseStarted?.();
@@ -243,11 +256,41 @@ export function createEventLoop(params: {
       if (pendingDeferredResponse && sessionReady && activeResponses === 0) {
         pendingDeferredResponse = false;
         send({ type: "response.create" });
+        return true;
+      }
+
+      // Empty-response recovery: a completed response that produced no output.
+      const wasEmpty =
+        r?.status !== "cancelled" &&
+        r?.status !== "failed" &&
+        !sawOutputThisResponse;
+      if (wasEmpty) {
+        if (
+          sessionReady &&
+          activeResponses === 0 &&
+          emptyResponseRetries < MAX_EMPTY_RESPONSE_RETRIES
+        ) {
+          emptyResponseRetries += 1;
+          devLog.event("REALTIME", "empty response recovery — re-requesting", {
+            status: r?.status,
+            emptyResponseRetries,
+          });
+          send({ type: "response.create" });
+        } else {
+          devLog.event("REALTIME", "empty response — no retry", {
+            status: r?.status,
+            emptyResponseRetries,
+            activeResponses,
+          });
+        }
+      } else {
+        emptyResponseRetries = 0;
       }
       return true;
     }
 
     if (type === "response.output_item.added") {
+      sawOutputThisResponse = true;
       const item = (obj as { item?: { type?: string; id?: string; call_id?: string; name?: string } }).item;
       if (item?.type === "function_call" && item.id) {
         functionCallMeta.set(item.id, { call_id: item.call_id, name: item.name });
@@ -256,6 +299,7 @@ export function createEventLoop(params: {
     }
 
     if (type === "response.content_part.added") {
+      sawOutputThisResponse = true;
       const part = asObj(obj.part);
       if (asStr(part?.type) === "audio") {
         callbacks.onAudioPartReady?.();
@@ -267,6 +311,7 @@ export function createEventLoop(params: {
       const itemId = asStr(obj.item_id);
       const argsStr = asStr(obj.arguments);
       if (!itemId || argsStr == null) return true;
+      sawOutputThisResponse = true;
       const meta = functionCallMeta.get(itemId);
       const name = meta?.name;
       const callId = meta?.call_id ?? itemId;
@@ -310,6 +355,7 @@ export function createEventLoop(params: {
     }
 
     if (type === "response.output_audio.delta") {
+      sawOutputThisResponse = true;
       const contentIndex = (obj as Record<string, unknown>).content_index;
       const timestampInfo = asObj((obj as Record<string, unknown>).timestamp_info);
       const wordAlignment = asObj(timestampInfo?.word_alignment);
@@ -339,6 +385,7 @@ export function createEventLoop(params: {
     }
 
     if (type === "response.output_audio_transcript.delta") {
+      sawOutputThisResponse = true;
       const delta = asStr(obj.delta);
       if (delta) captionScheduler?.appendDelta(delta);
       return true;
@@ -359,6 +406,8 @@ export function createEventLoop(params: {
     }
 
     if (type === "conversation.item.input_audio_transcription.completed") {
+      // New user turn — reset the empty-response retry budget.
+      emptyResponseRetries = 0;
       const transcript = asStr(obj.transcript);
       if (transcript && transcript.trim().length > 0) {
         callbacks.onUserTranscript(transcript);
