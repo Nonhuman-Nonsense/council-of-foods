@@ -17,7 +17,6 @@ import { useButton, type ButtonLedMode } from "@/museum/button/useButton";
 import { useCouncilSettings } from "@/settings/councilSettings";
 import { buildGuidePrompt } from "./guidePrompt";
 import { createGuideToolHandlers, createGuideTools } from "./guideTools";
-import { getVoiceGuideBundle } from "./voiceGuideBundle";
 import { useButtonBanner } from "@/museum/button/useButtonBanner";
 import Loading from "@main/Loading";
 import { useVoiceGuide } from "./useVoiceGuide";
@@ -54,8 +53,6 @@ export default function MeetingVoiceGuide({
   const topicsBundle = useMemo(() => getTopicsBundle(i18n.language), [i18n.language]);
   const characterSetupBundle = useMemo(() => getCharacterSetupBundle(i18n.language), [i18n.language]);
   const guideLanguage = i18n.language.toLowerCase().startsWith("sv") ? "sv" : "en";
-  const promptBundle = useMemo(() => getVoiceGuideBundle(guideLanguage), [guideLanguage]);
-  const englishPromptBundle = useMemo(() => getVoiceGuideBundle("en"), []);
 
   const guideTopics = useMemo(() => {
     return [
@@ -80,14 +77,15 @@ export default function MeetingVoiceGuide({
     }));
   }, [characterSetupBundle]);
 
+  const LANGUAGE_DISPLAY_NAMES: Record<string, string> = { en: "English", sv: "Swedish" };
   const otherLanguageNames = useMemo(
-    () => otherLanguages.map((lang) => englishPromptBundle.languageNames?.[lang] ?? lang),
-    [otherLanguages, englishPromptBundle],
+    () => otherLanguages.map((lang) => LANGUAGE_DISPLAY_NAMES[lang] ?? lang),
+    [otherLanguages],
   );
 
   const instructions = useMemo(() => {
     return buildGuidePrompt({
-      bundle: promptBundle,
+      language: guideLanguage,
       topics: guideTopics,
       characters: guideCharacters,
       phase,
@@ -95,13 +93,13 @@ export default function MeetingVoiceGuide({
       visitorName,
       otherLanguageNames,
     });
-  }, [guideCharacters, guideTopics, phase, promptBundle, agentMode, visitorName, otherLanguageNames]);
+  }, [guideCharacters, guideTopics, phase, guideLanguage, agentMode, visitorName, otherLanguageNames]);
 
   const voice = useVoiceGuide({
     language: guideLanguage,
     instructions,
     isMuseumMode,
-    tools: createGuideTools({ promptBundle, otherLanguages }),
+    tools: createGuideTools({ otherLanguages }),
     toolHandlers: createGuideToolHandlers({
       topics: guideTopics,
       characters: guideCharacters,

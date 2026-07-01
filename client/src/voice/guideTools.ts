@@ -8,7 +8,9 @@ import {
 import { useMeetingSetupStore } from "@newMeeting/meetingSetupStore";
 import { getAppMode } from "@/settings/councilSettings";
 import { capitalizeFirstLetter } from "@/utils";
-import type { VoiceGuidePromptBundle } from "./guidePrompt";
+import type { GuideTopic, GuideCharacter } from "./guidePrompt";
+
+export type { GuideTopic, GuideCharacter };
 
 export type JsonSchemaObject = {
   type: "object";
@@ -31,9 +33,6 @@ export type ToolResult =
   | { ok: false; error: string };
 
 export type ToolHandler = (args: unknown) => Promise<ToolResult> | ToolResult;
-
-export type GuideTopic = Pick<Topic, "id" | "title" | "description">;
-export type GuideCharacter = Pick<Character, "id" | "name"> & { description?: string };
 
 export type GuideToolContext = {
   topics: GuideTopic[];
@@ -94,29 +93,24 @@ function isDuplicateParticipantName(name: string, ctx: GuideToolContext): boolea
   return new Set(names).size !== names.length;
 }
 
-export function createGuideTools(params: {
-  promptBundle: VoiceGuidePromptBundle;
-  otherLanguages: string[];
-}): RealtimeTool[] {
-  const { promptBundle, otherLanguages } = params;
-  const copy = promptBundle.toolDescriptions;
+export function createGuideTools({ otherLanguages }: { otherLanguages: string[] }): RealtimeTool[] {
   const tools: RealtimeTool[] = [
     {
       type: "function",
       name: "begin_setup",
-      description: copy.begin_setup,
+      description: "Leave the welcome screen and open the topic selection step. Call immediately after the visitor's first meaningful speech (always-on) or first successful push-to-talk turn with intelligible speech (PTT). Do not wait for an explicit request to start.",
       parameters: { type: "object", properties: {}, additionalProperties: false },
     },
     {
       type: "function",
       name: "list_topics",
-      description: copy.list_topics,
+      description: "List available topics (id + title).",
       parameters: { type: "object", properties: {}, additionalProperties: false },
     },
     {
       type: "function",
       name: "describe_topic",
-      description: copy.describe_topic,
+      description: "Preview a topic by id. This also selects it in the UI so the visitor can see which topic is being discussed, but it stays on the topic step.",
       parameters: {
         type: "object",
         additionalProperties: false,
@@ -127,7 +121,7 @@ export function createGuideTools(params: {
     {
       type: "function",
       name: "select_topic",
-      description: copy.select_topic,
+      description: "Choose a topic by id and continue to the food selection step. Use this when the visitor has decided to go with that topic.",
       parameters: {
         type: "object",
         additionalProperties: false,
@@ -138,7 +132,7 @@ export function createGuideTools(params: {
     {
       type: "function",
       name: "set_custom_topic",
-      description: copy.set_custom_topic,
+      description: "Select the custom topic and set the custom topic text.",
       parameters: {
         type: "object",
         additionalProperties: false,
@@ -149,19 +143,19 @@ export function createGuideTools(params: {
     {
       type: "function",
       name: "go_to_topic_step",
-      description: copy.go_to_topic_step,
+      description: "Go back to the topic step so the visitor can review or change the topic selection.",
       parameters: { type: "object", properties: {}, additionalProperties: false },
     },
     {
       type: "function",
       name: "list_characters",
-      description: copy.list_characters,
+      description: "List available foods (id + name).",
       parameters: { type: "object", properties: {}, additionalProperties: false },
     },
     {
       type: "function",
       name: "describe_character",
-      description: copy.describe_character,
+      description: "Describe a food character by id.",
       parameters: {
         type: "object",
         additionalProperties: false,
@@ -172,7 +166,7 @@ export function createGuideTools(params: {
     {
       type: "function",
       name: "select_character",
-      description: copy.select_character,
+      description: "Select a food character by id.",
       parameters: {
         type: "object",
         additionalProperties: false,
@@ -183,7 +177,7 @@ export function createGuideTools(params: {
     {
       type: "function",
       name: "highlight_character",
-      description: copy.highlight_character,
+      description: "Highlight or hover a food character on the screen, for example while explaining it. Pass null or an empty string to clear the highlight.",
       parameters: {
         type: "object",
         additionalProperties: false,
@@ -194,7 +188,7 @@ export function createGuideTools(params: {
     {
       type: "function",
       name: "deselect_character",
-      description: copy.deselect_character,
+      description: "Deselect a food character by id.",
       parameters: {
         type: "object",
         additionalProperties: false,
@@ -205,7 +199,7 @@ export function createGuideTools(params: {
     {
       type: "function",
       name: "remember_visitor_name",
-      description: copy.remember_visitor_name,
+      description: "Store the visitor's name when they tell you what to call them. Use this after a casual name question, not as a formal signup step.",
       parameters: {
         type: "object",
         additionalProperties: false,
@@ -216,7 +210,7 @@ export function createGuideTools(params: {
     {
       type: "function",
       name: "start_meeting",
-      description: copy.start_meeting,
+      description: "Start the council meeting with the current selections. Requires the visitor's name to be stored via remember_visitor_name first, plus the same validation as the Start button: topic confirmed, enough foods selected, unique names, and any human panelists filled in.",
       parameters: { type: "object", properties: {}, additionalProperties: false },
     },
   ];
@@ -225,7 +219,7 @@ export function createGuideTools(params: {
     tools.push({
       type: "function",
       name: "switch_language",
-      description: copy.switch_language,
+      description: "Switch the conversation to a different language.",
       parameters: {
         type: "object",
         additionalProperties: false,

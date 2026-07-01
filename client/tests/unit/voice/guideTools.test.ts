@@ -1,30 +1,14 @@
 import { createGuideToolHandlers, createGuideTools, GuideToolContext } from '@voice/guideTools';
-import type { VoiceGuidePromptBundle } from '@voice/guidePrompt';
 import { useMeetingSetupStore } from '@newMeeting/meetingSetupStore';
-
-const minimalBundle: VoiceGuidePromptBundle = {
-  system: '',
-  projectDescription: '',
-  characterVocabulary: { singular: 'being', plural: 'beings', stepLabel: 'characters' },
-  landingJobInstructions: [],
-  landingJobInstructionsPushToTalk: [],
-  jobInstructions: [],
-  toolDescriptions: {
-    begin_setup: '', list_topics: '', describe_topic: '', select_topic: '',
-    set_custom_topic: '', go_to_topic_step: '', list_characters: '', describe_character: '',
-    select_character: '', highlight_character: '', deselect_character: '',
-    remember_visitor_name: '', start_meeting: '', switch_language: 'Switch language.',
-  },
-};
 
 describe('createGuideTools', () => {
   it('omits switch_language when otherLanguages is empty', () => {
-    const tools = createGuideTools({ promptBundle: minimalBundle, otherLanguages: [] });
+    const tools = createGuideTools({ otherLanguages: [] });
     expect(tools.find((t) => t.name === 'switch_language')).toBeUndefined();
   });
 
   it('includes switch_language with enum when otherLanguages is non-empty', () => {
-    const tools = createGuideTools({ promptBundle: minimalBundle, otherLanguages: ['sv'] });
+    const tools = createGuideTools({ otherLanguages: ['sv'] });
     const tool = tools.find((t) => t.name === 'switch_language');
     expect(tool).toBeDefined();
     expect(tool?.parameters?.properties?.language).toMatchObject({ type: 'string', enum: ['sv'] });
