@@ -14,6 +14,9 @@ import {
   setAllDevLogCategories,
   setDevLogCategoryEnabled,
   setDevLogEnabled,
+  PTT_HARDWARE_ENABLED_KEY,
+  getPttHardwareEnabled,
+  setPttHardwareEnabled,
   getAgentMode,
 } from "@/settings/councilSettings";
 
@@ -24,17 +27,23 @@ function SettingsProbe() {
     setAppMode: updateAppMode,
     agentMode,
     setAgentMode: updateAgentMode,
+    pttHardwareEnabled,
+    setPttHardwareEnabled: updatePttHardware,
   } = useCouncilSettings();
   return (
     <div>
       <span data-testid="mode">{mode}</span>
       <span data-testid="museum">{String(isMuseumMode)}</span>
       <span data-testid="agent-mode">{agentMode}</span>
+      <span data-testid="ptt-hardware">{String(pttHardwareEnabled)}</span>
       <button type="button" onClick={() => updateAppMode("web")}>
         to-web
       </button>
       <button type="button" onClick={() => updateAgentMode("ptt")}>
         to-ptt
+      </button>
+      <button type="button" onClick={() => updatePttHardware(true)}>
+        hardware-on
       </button>
     </div>
   );
@@ -61,6 +70,27 @@ describe("councilSettings", () => {
       setAppMode("museum");
       expect(getAgentMode()).toBe("always-on");
       expect(localStorage.getItem(AGENT_MODE_STORAGE_KEY)).toBe("always-on");
+    });
+  });
+
+  describe("ptt hardware storage", () => {
+    it("defaults to disabled when unset", () => {
+      expect(getPttHardwareEnabled()).toBe(false);
+      expect(localStorage.getItem(PTT_HARDWARE_ENABLED_KEY)).toBeNull();
+    });
+
+    it("persists explicit hardware enablement", () => {
+      setPttHardwareEnabled(true);
+      expect(localStorage.getItem(PTT_HARDWARE_ENABLED_KEY)).toBe("true");
+      expect(getPttHardwareEnabled()).toBe(true);
+    });
+
+    it("clears hardware when leaving push-to-talk", () => {
+      setAgentMode("ptt");
+      setPttHardwareEnabled(true);
+      setAgentMode("always-on");
+      expect(getPttHardwareEnabled()).toBe(false);
+      expect(localStorage.getItem(PTT_HARDWARE_ENABLED_KEY)).toBeNull();
     });
   });
 
@@ -159,6 +189,37 @@ describe("councilSettings", () => {
       expect(screen.getByTestId("agent-mode")).toHaveTextContent("off");
       fireEvent.click(screen.getByRole("button", { name: "to-ptt" }));
       expect(screen.getByTestId("agent-mode")).toHaveTextContent("ptt");
+    });
+
+    it("syncs ptt hardware across hook instances via custom event", async () => {
+      render(
+        <>
+          <SettingsProbe />
+          <SettingsProbe />
+        </>,
+      );
+
+      const hardwareFlags = screen.getAllByTestId("ptt-hardware");
+      expect(hardwareFlags[0]).toHaveTextContent("false");
+      expect(hardwareFlags[1]).toHaveTextContent("false");
+
+      act(() => {
+        setPttHardwareEnabled(true);
+      });
+
+      await waitFor(() => {
+        expect(hardwareFlags[0]).toHaveTextContent("true");
+        expect(hardwareFlags[1]).toHaveTextContent("true");
+      });
+    });
+
+    it("updates ptt hardware when setPttHardwareEnabled is called from a hook", () => {
+      localStorage.setItem(AGENT_MODE_STORAGE_KEY, "ptt");
+      render(<SettingsProbe />);
+
+      fireEvent.click(screen.getByRole("button", { name: "hardware-on" }));
+      expect(screen.getByTestId("ptt-hardware")).toHaveTextContent("true");
+      expect(localStorage.getItem(PTT_HARDWARE_ENABLED_KEY)).toBe("true");
     });
   });
 });

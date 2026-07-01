@@ -149,6 +149,7 @@ describe('Setup overlay', () => {
   it('shows split status when push to talk is enabled in museum mode', () => {
     localStorage.setItem('councilAppMode', 'museum');
     localStorage.setItem('councilAgentMode', 'ptt');
+    localStorage.setItem('councilPttHardwareEnabled', 'true');
     museumButtonState.bridgeStatus = 'connected';
 
     render(<Setup />);
@@ -167,6 +168,7 @@ describe('Setup overlay', () => {
   it('maps bridge daemon health to status chips', () => {
     localStorage.setItem('councilAppMode', 'museum');
     localStorage.setItem('councilAgentMode', 'ptt');
+    localStorage.setItem('councilPttHardwareEnabled', 'true');
     bridgeHealthState.status = 'checking';
     museumButtonState.bridgeStatus = 'connecting';
 
@@ -179,6 +181,7 @@ describe('Setup overlay', () => {
   it('maps app websocket status independently of usb', () => {
     localStorage.setItem('councilAppMode', 'museum');
     localStorage.setItem('councilAgentMode', 'ptt');
+    localStorage.setItem('councilPttHardwareEnabled', 'true');
     bridgeHealthState.serial = 'disconnected';
     bridgeHealthState.path = null;
     museumButtonState.bridgeStatus = 'connecting';
@@ -192,6 +195,7 @@ describe('Setup overlay', () => {
   it('shows staff bridge detail lines when hardware is missing', () => {
     localStorage.setItem('councilAppMode', 'museum');
     localStorage.setItem('councilAgentMode', 'ptt');
+    localStorage.setItem('councilPttHardwareEnabled', 'true');
     museumButtonState.bridgeStatus = 'connecting';
     bridgeHealthState.serial = 'disconnected';
     bridgeHealthState.path = null;
@@ -235,8 +239,54 @@ describe('Setup overlay', () => {
     expect(mockSetLedDebugOverlay).toHaveBeenCalledWith(true);
   });
 
-  it('hides LED preview toggle unless push to talk is enabled', () => {
+  it('shows hardware toggle when push to talk is enabled', () => {
+    localStorage.setItem('councilAgentMode', 'ptt');
+
     render(<Setup />);
+
+    const toggle = screen.getByTestId('setup-ptt-hardware-toggle');
+    expect(toggle).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.queryByTestId('setup-button-status')).not.toBeInTheDocument();
+  });
+
+  it('persists hardware enablement and shows button status panel', () => {
+    localStorage.setItem('councilAgentMode', 'ptt');
+
+    render(<Setup />);
+
+    fireEvent.click(screen.getByTestId('setup-ptt-hardware-toggle'));
+    expect(localStorage.getItem('councilPttHardwareEnabled')).toBe('true');
+    expect(screen.getByTestId('setup-button-status')).toBeInTheDocument();
+  });
+
+  it('shows button status panel in web mode when hardware is enabled', () => {
+    localStorage.setItem('councilAppMode', 'web');
+    localStorage.setItem('councilAgentMode', 'ptt');
+    localStorage.setItem('councilPttHardwareEnabled', 'true');
+    museumButtonState.bridgeStatus = 'connected';
+
+    render(<Setup />);
+
+    expect(screen.getByTestId('setup-button-status')).toBeInTheDocument();
+    expect(screen.getByTestId('setup-bridge-app-status')).toHaveTextContent(
+      'setup.button.app.connected',
+    );
+  });
+
+  it('shows hardware toggle as active when enabled', () => {
+    localStorage.setItem('councilAgentMode', 'ptt');
+    localStorage.setItem('councilPttHardwareEnabled', 'true');
+
+    render(<Setup />);
+
+    const toggle = screen.getByTestId('setup-ptt-hardware-toggle');
+    expect(toggle).toHaveAttribute('aria-pressed', 'true');
+    expect(toggle).toHaveStyle({ backgroundColor: 'rgb(239, 68, 68)' });
+  });
+
+  it('hides hardware toggle unless push to talk is enabled', () => {
+    render(<Setup />);
+    expect(screen.queryByTestId('setup-ptt-hardware-toggle')).not.toBeInTheDocument();
     expect(screen.queryByTestId('setup-led-debug-toggle')).not.toBeInTheDocument();
   });
 
@@ -267,6 +317,7 @@ describe('Setup overlay', () => {
   it('shows usb not detected hint inside details when hardware is missing', () => {
     localStorage.setItem('councilAppMode', 'museum');
     localStorage.setItem('councilAgentMode', 'ptt');
+    localStorage.setItem('councilPttHardwareEnabled', 'true');
     museumButtonState.bridgeStatus = 'connecting';
     bridgeHealthState.serial = 'disconnected';
     bridgeHealthState.path = null;

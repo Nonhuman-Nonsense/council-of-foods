@@ -124,6 +124,7 @@
       "usbWrongDeviceHint": "A USB serial device was found, but it is not running Council button firmware. Reflash the Arduino sketch or check the USB cable/port.",
       "debugTitle": "Button debug",
       "ledDebugOverlay": "LED preview overlay",
+      "hardwareButton": "Hardware button",
       "owners": {
         "none": "—",
         "setup": "Setup",

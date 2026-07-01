@@ -40,7 +40,7 @@ if (get().buttonInputEnabled) {
 On every bridge `disconnected` / `error` event, the store forces `buttonInputEnabled = false`
 —even when a feature has already claimed the button (`voice-guide`, `meta-agent`, etc.).
 
-In **museum mode**, `MuseumButton` enables auto-reconnect to the hardware bridge. Each
+In **push-to-talk** with **Hardware button** enabled, `MuseumButton` enables auto-reconnect to the hardware bridge. Each
 failed or dropped connection clears `buttonInputEnabled`. If the bridge daemon is not
 running, this happens repeatedly and `pressed` never becomes true from the keyboard.
 
@@ -334,11 +334,11 @@ No changes to PTT mic gating logic beyond what Phase 1 fixes in the store.
 ### Manual regression
 
 - [ ] Web + PTT: Space → voice guide hears visitor; visualizer appears; compact subtitles shifted up.
-- [ ] Museum + PTT, no bridge: Space → voice guide and meta agent work.
-- [ ] Museum + PTT, bridge connected: hardware button still works; LED follows owner.
+- [ ] PTT, hardware off: Space → voice guide and meta agent work; no bridge connection.
+- [ ] PTT + hardware on, bridge connected: physical button works; LED follows owner (web or museum).
 - [ ] Council meeting: meta agent activate (Space or hardware) → council subtitles hidden; agent captions council-sized; user transcript smaller above.
 - [ ] Human input phase: button priority still routes to `human-input` over `meta-agent`.
-- [ ] Setup `#setup`: bridge status display still correct; LED preview on staff press.
+- [ ] Setup `#setup`: bridge status when hardware on; LED preview on staff press.
 
 ---
 

@@ -35,6 +35,7 @@ This document tracks the **intent**, **architecture**, and **implementation stat
 | AI (voice guide) toggle | Hidden in museum mode; guide keeps auto-starting via `useVoiceGuide` |
 | Escape hatch | Single click; top-left; lives in `client/src/museum/`; **no page reload** |
 | PTT | Independent of museum mode — do not auto-enable push-to-talk |
+| Hardware bridge | Independent of museum mode — `#setup` **Hardware button** toggle + push-to-talk; bridge connects in web or museum when enabled |
 | Mode reactivity | `useAppMode()` hook so toggling mode or escape hatch updates UI in place |
 
 ---
@@ -186,7 +187,7 @@ Use this section when prioritising later work. Phase 1–2 do **not** require co
 | Characters | select/deselect tools, `start_meeting` | `SelectCharacters` + Start |
 | Visitor name | `remember_visitor_name` | — |
 
-Installation button via local **button/bridge** (`#setup` shows status) supports hardware input when push-to-talk is enabled — independent of museum mode.
+Installation button via local **button/bridge** (`#setup` shows status when **Hardware button** is on) supports hardware input when push-to-talk is enabled — independent of museum vs web installation mode.
 
 ### Still mouse-dependent (council / errors)
 

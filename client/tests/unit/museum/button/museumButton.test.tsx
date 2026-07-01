@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render } from "@testing-library/react";
-import { AGENT_MODE_CHANGE_EVENT } from "@/settings/councilSettings";
+import { AGENT_MODE_CHANGE_EVENT, PTT_HARDWARE_CHANGE_EVENT } from "@/settings/councilSettings";
 import React from "react";
 
 const store = vi.hoisted(() => ({
@@ -36,6 +36,7 @@ describe("MuseumButton", () => {
     localStorage.clear();
     localStorage.setItem("councilAppMode", "museum");
     localStorage.setItem("councilAgentMode", "ptt");
+    localStorage.setItem("councilPttHardwareEnabled", "true");
     ledDebugState.enabled = false;
   });
 
@@ -48,12 +49,35 @@ describe("MuseumButton", () => {
     render(<MuseumButton />);
   }
 
-  it("initializes keyboard and connects when museum push-to-talk is active", async () => {
+  it("initializes keyboard and connects when museum push-to-talk hardware is enabled", async () => {
     await renderProvider();
 
     expect(store.init).toHaveBeenCalled();
     expect(store.enableAutoReconnect).toHaveBeenCalled();
     expect(store.connect).toHaveBeenCalled();
+  });
+
+  it("initializes keyboard but does not connect bridge when hardware is disabled", async () => {
+    localStorage.removeItem("councilPttHardwareEnabled");
+
+    await renderProvider();
+
+    expect(store.init).toHaveBeenCalled();
+    expect(store.connect).not.toHaveBeenCalled();
+    expect(store.disconnect).toHaveBeenCalled();
+  });
+
+  it("disconnects bridge when hardware is turned off", async () => {
+    await renderProvider();
+    vi.clearAllMocks();
+
+    window.dispatchEvent(
+      new CustomEvent(PTT_HARDWARE_CHANGE_EVENT, { detail: false }),
+    );
+
+    await vi.waitFor(() => {
+      expect(store.disconnect).toHaveBeenCalled();
+    });
   });
 
   it("disconnects when push-to-talk is turned off", async () => {
@@ -81,6 +105,9 @@ describe("MuseumButton", () => {
     window.dispatchEvent(
       new CustomEvent(AGENT_MODE_CHANGE_EVENT, { detail: "ptt" }),
     );
+    window.dispatchEvent(
+      new CustomEvent(PTT_HARDWARE_CHANGE_EVENT, { detail: true }),
+    );
 
     await vi.waitFor(() => {
       expect(store.enableAutoReconnect).toHaveBeenCalled();
@@ -98,14 +125,14 @@ describe("MuseumButton", () => {
     expect(store.disconnect).toHaveBeenCalled();
   });
 
-  it("does not connect bridge when not in museum mode but still inits keyboard", async () => {
+  it("connects bridge in web mode when push-to-talk hardware is enabled", async () => {
     localStorage.setItem("councilAppMode", "web");
 
     await renderProvider();
 
     expect(store.init).toHaveBeenCalled();
-    expect(store.connect).not.toHaveBeenCalled();
-    expect(store.disconnect).toHaveBeenCalled();
+    expect(store.enableAutoReconnect).toHaveBeenCalled();
+    expect(store.connect).toHaveBeenCalled();
   });
 
   it("does not init keyboard when push-to-talk is off", async () => {
