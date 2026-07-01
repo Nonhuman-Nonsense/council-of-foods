@@ -126,12 +126,6 @@ export function createEventLoop(params: {
    */
   const MAX_EMPTY_RESPONSE_RETRIES = 1;
 
-  // --- TEMP INSTRUMENTATION (empty-response root-cause hunt) -----------------
-  // Plain console.log so it survives with the app logger disabled.
-  // Tags every response.create with WHY it was sent, and prints the
-  // discriminating data at each turn: transcript text, create reason,
-  // whether the response produced output, and final status.
-  const dbg = (...args: unknown[]) => console.log("🐛 NUDGE-DEBUG", ...args);
   /** Reason for the response.create we just sent; consumed by response.created. */
   let pendingCreateReason: string | null = null;
   /** Reason the in-flight response was created ("server-auto" if we didn't send it). */
@@ -141,24 +135,23 @@ export function createEventLoop(params: {
 
   const sendResponseCreate = (reason: string): void => {
     pendingCreateReason = reason;
-    dbg("OUT response.create", { reason, lastUserTranscript });
+    devLog.flat("TURN", "OUT response.create", { reason, lastUserTranscript });
     send({ type: "response.create" });
   };
-  // --------------------------------------------------------------------------
 
   const isResponseActive = () => activeResponses > 0;
 
   const requestResponseIfIdle = (reason = "idle-request"): boolean => {
     if (activeResponses > 0) {
       log("skip response.create: already active", { activeResponses });
-      dbg("skip response.create: already active", { reason, activeResponses });
+      devLog.flat("TURN", "skip response.create: already active", { reason, activeResponses });
       return false;
     }
     if (!sessionReady) {
       // Don't fire before the session is configured: the model would run with
       // default instructions/tools and produce server_error (observed).
       log("skip response.create: session not yet ready");
-      dbg("skip response.create: session not ready", { reason });
+      devLog.flat("TURN", "skip response.create: session not ready", { reason });
       pendingDeferredResponse = true;
       return false;
     }
@@ -257,7 +250,7 @@ export function createEventLoop(params: {
       currentResponseReason = pendingCreateReason ?? "server-auto";
       pendingCreateReason = null;
       devLog.event("REALTIME", "IN response.created", { activeResponses });
-      dbg("IN response.created", {
+      devLog.flat("TURN", "IN response.created", {
         reason: currentResponseReason,
         forUserTranscript: lastUserTranscript,
       });
@@ -277,11 +270,16 @@ export function createEventLoop(params: {
         devLog.event("REALTIME", "IN response.cancelled");
       }
       devLog.event("REALTIME", "IN response.done", { status: r?.status, activeResponses });
-      dbg("IN response.done", {
+      const rFull = obj.response as
+        | { status?: string; usage?: unknown; output?: unknown[] }
+        | undefined;
+      devLog.flat("TURN", "IN response.done", {
         reason: currentResponseReason,
         status: r?.status,
         sawOutput: sawOutputThisResponse,
         forUserTranscript: lastUserTranscript,
+        usage: rFull?.usage ?? null,
+        outputLen: Array.isArray(rFull?.output) ? rFull.output.length : null,
       });
       if (r?.status === "cancelled" || r?.status === "failed") {
         captionScheduler?.cancel();
@@ -316,20 +314,17 @@ export function createEventLoop(params: {
             status: r?.status,
             emptyResponseRetries,
           });
-          dbg("EMPTY RESPONSE — recovering via injected user text + response.create", {
+          devLog.flat("TURN", "EMPTY RESPONSE — recovering via injected text", {
             createdBy: currentResponseReason,
-            status: r?.status,
             recoveryText,
           });
           sendUserMessage(recoveryText);
           sendResponseCreate("empty-retry");
         } else {
-          dbg("EMPTY RESPONSE — no retry (cap/guards)", {
+          devLog.flat("TURN", "EMPTY RESPONSE — no retry (cap/guards)", {
             createdBy: currentResponseReason,
             status: r?.status,
             emptyResponseRetries,
-            activeResponses,
-            sessionReady,
           });
         }
       } else {
@@ -364,7 +359,7 @@ export function createEventLoop(params: {
       const meta = functionCallMeta.get(itemId);
       const name = meta?.name;
       const callId = meta?.call_id ?? itemId;
-      dbg("tool call emitted", { name, createdBy: currentResponseReason });
+      devLog.flat("TURN", "tool call emitted", { name, createdBy: currentResponseReason });
       if (!name) return true;
 
       let parsedArgs: unknown = {};
@@ -460,7 +455,7 @@ export function createEventLoop(params: {
       emptyResponseRetries = 0;
       const transcript = asStr(obj.transcript);
       lastUserTranscript = transcript ?? "";
-      dbg("IN transcription.completed", {
+      devLog.flat("TURN", "IN transcription.completed", {
         transcript: transcript ?? "(null)",
         length: transcript?.length ?? 0,
         blank: !transcript || transcript.trim().length === 0,
