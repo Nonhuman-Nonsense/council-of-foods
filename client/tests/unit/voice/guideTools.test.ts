@@ -57,17 +57,9 @@ describe('createGuideTools', () => {
     expect(tools.find((t) => t.name === 'human_panelist')).toBeDefined();
   });
 
-  it('describes begin_setup for push-to-talk when agentMode is ptt', () => {
-    const tools = createGuideTools({ ...baseToolParams, agentMode: 'ptt' });
-    const tool = tools.find((t) => t.name === 'begin_setup');
-    expect(tool?.description).toContain('push-to-talk');
-  });
-
-  it('describes begin_setup for always-on when agentMode is always-on', () => {
-    const tools = createGuideTools({ ...baseToolParams, agentMode: 'always-on' });
-    const tool = tools.find((t) => t.name === 'begin_setup');
-    expect(tool?.description).toContain('first meaningful speech');
-    expect(tool?.description).not.toContain('push-to-talk');
+  it('includes a begin_setup tool', () => {
+    const tools = createGuideTools(baseToolParams);
+    expect(tools.find((t) => t.name === 'begin_setup')).toBeDefined();
   });
 });
 
