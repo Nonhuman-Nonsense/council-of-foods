@@ -5,15 +5,6 @@ import { initReactI18next } from "react-i18next";
 import { AVAILABLE_LANGUAGES } from "@shared/AvailableLanguages";
 import translation from "./locales/translation_en.json";
 
-declare module "i18next" {
-  interface CustomTypeOptions {
-    defaultNS: "translation";
-    resources: {
-      translation: typeof translation;
-    };
-  }
-}
-
 /** Valid `t()` / `i18nKey` paths derived from `translation_en.json`. */
 export type TranslationKey = ParseKeys<"translation">;
 
@@ -86,7 +77,7 @@ function resolveInitialLanguage(): string {
  *
  * Sets up internationalization using i18next.
  * Translations are bundled (no HttpBackend) via import.meta.glob.
- * Type-safe keys come from `translation_en.json` via module augmentation above.
+ * Type-safe keys come from `translation_en.json` via the `src/i18n.d.ts` augmentation.
  */
 i18n
   .use(initReactI18next)
