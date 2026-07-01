@@ -37,6 +37,7 @@ vi.mock("@/routing", () => ({
 
 vi.mock("@/settings/councilSettings", () => ({
   useCouncilSettings: () => mockUseCouncilSettings(),
+  getAppMode: () => "web",
 }));
 
 vi.mock("@/museum/button/useButton", () => ({

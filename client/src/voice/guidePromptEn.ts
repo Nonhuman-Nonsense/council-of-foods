@@ -99,7 +99,5 @@ Check what your task is on the ${phase} phase, and then proceed from there.
 `}
 `;
 
-console.log(prompt);
-
   return prompt;
 }

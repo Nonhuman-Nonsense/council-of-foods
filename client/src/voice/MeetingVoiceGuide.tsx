@@ -99,7 +99,7 @@ export default function MeetingVoiceGuide({
     language: guideLanguage,
     instructions,
     isMuseumMode,
-    tools: createGuideTools({ otherLanguages }),
+    tools: createGuideTools({ otherLanguages, topics: guideTopics, characters: guideCharacters, agentMode, isWebMode: !isMuseumMode }),
     toolHandlers: createGuideToolHandlers({
       topics: guideTopics,
       characters: guideCharacters,
