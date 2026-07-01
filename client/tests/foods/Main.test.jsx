@@ -9,8 +9,6 @@ const mockCouncil = vi.fn(() => <div data-testid="council">Council</div>);
 
 vi.mock('@shared/AvailableLanguages', () => ({
     AVAILABLE_LANGUAGES: ['en'],
-    GOOGLE_LANGUAGE_MAP: { en: 'en-GB' },
-    SUPPORTED_LOCALES: ['en-US', 'en-GB', 'en-AU', 'en-IN'],
 }));
 
 vi.mock('@api/createMeeting', () => ({

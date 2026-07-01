@@ -1,9 +1,7 @@
 import type OpenAI from "openai";
-import { GoogleAuth } from 'google-auth-library';
 import { withNetworkRetry } from "@utils/NetworkUtils.js";
 import { Word } from "@shared/textUtils.js";
 import { AudioSystemOptions, Speaker } from "./AudioTypes.js";
-import { getGoogleLanguageCode } from "./AudioUtils.js";
 import { PronunciationUtils } from "@utils/PronunciationUtils.js";
 import { characterAlignmentToWords, type CharacterAlignment } from "@utils/ElevenLabsAlignmentUtils.js";
 
@@ -17,7 +15,6 @@ interface GenerateParams {
     text: string;
     speaker: Speaker;
     options: AudioSystemOptions;
-    auth?: GoogleAuth; // Only needed for Gemini for now
     services?: { getOpenAI: () => OpenAI }; // For OpenAI
 }
 
@@ -28,61 +25,6 @@ export interface AudioResult {
 
 function hasSpokenToken(word: string): boolean {
     return word.toLowerCase().replace(/[^\w]|_/g, "").length > 0;
-}
-
-export async function generateGeminiAudio(params: GenerateParams): Promise<AudioResult> {
-    const { text, speaker, options, auth } = params;
-    if (!auth) throw new Error("GoogleAuth required for Gemini TTS");
-
-    const geminiModel = options.geminiVoiceModel;
-    const voiceName = speaker.voice;
-    let googleLangCode = getGoogleLanguageCode(options.language);
-    if (options.language === 'en' && speaker.voiceLocale) {
-        googleLangCode = speaker.voiceLocale;
-    }
-
-    const client = await auth.getClient();
-    const accessToken = await client.getAccessToken();
-    const token = accessToken.token || '';
-
-    const url = `https://texttospeech.googleapis.com/v1/text:synthesize`;
-
-    const input: { text: string; prompt?: string } = { text: text.substring(0, 4096) };
-    if (speaker.voiceInstruction) input.prompt = speaker.voiceInstruction;
-
-    const body = {
-        input,
-        voice: {
-            languageCode: googleLangCode,
-            name: voiceName,
-            model_name: geminiModel
-        },
-        audioConfig: {
-            audioEncoding: "OGG_OPUS",
-            speakingRate: speaker.voiceSpeed ?? options.defaultAudioSpeed
-        }
-    };
-
-    const response = await withNetworkRetry(() => fetch(url, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(body)
-    }), "AudioSystemGemini");
-
-    if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(`Google TTS API Error: ${response.status} ${errText}`);
-    }
-
-    const data = (await response.json()) as { audioContent?: string };
-    if (data.audioContent) {
-        return { audio: Buffer.from(data.audioContent, 'base64') };
-    } else {
-        throw new Error("No audio content returned from Google TTS");
-    }
 }
 
 export async function generateOpenAIAudio(params: GenerateParams): Promise<AudioResult> {
@@ -256,7 +198,7 @@ export async function generateInworldAudio(params: GenerateParams): Promise<Audi
 
 export async function getWhisperWords(buffer: Buffer, services: { getOpenAI: () => OpenAI }): Promise<Word[]> {
     const openai = services.getOpenAI();
-    // All our providers (OpenAI, Gemini, Inworld, ElevenLabs) return OGG/Opus.
+    // All our providers (OpenAI, Inworld, ElevenLabs) return OGG/Opus.
     // FFmpeg (used by Whisper) performs content sniffing, but correct extension helps.
     const audioFile = new File([new Uint8Array(buffer)], "speech.ogg", { type: "audio/ogg" });
     const transcription = await withNetworkRetry(() => openai.audio.transcriptions.create({

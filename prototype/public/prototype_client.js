@@ -27,7 +27,6 @@ const LANGUAGE_MODEL_KEYS = [
   'conversationModel',
   'conversationReasoning',
   'voiceModel',
-  'geminiVoiceModel',
   'inworldVoiceModel',
   'elevenlabsVoiceModel',
 ];
@@ -36,7 +35,6 @@ const defaultLanguageModelProfile = {
   conversationModel: "mistral/mistral-large-3",
   conversationReasoning: "none",
   voiceModel: "gpt-4o-mini-tts",
-  geminiVoiceModel: "gemini-2.5-flash-tts",
   inworldVoiceModel: "inworld-tts-1.5-mini",
   elevenlabsVoiceModel: "eleven_flash_v2_5",
 };
@@ -131,11 +129,7 @@ const CharacterCard = {
     },
     onProviderChange() {
       const char = this.character;
-      if (char.voiceProvider === 'gemini') {
-        char.voice = this.voiceLists.gemini[0];
-        if (!char.voiceLocale) char.voiceLocale = 'en-GB';
-        if (char.voiceInstruction === undefined) char.voiceInstruction = "";
-      } else if (char.voiceProvider === 'inworld') {
+      if (char.voiceProvider === 'inworld') {
         if (!char.voice) char.voice = "";
         if (char.voiceTemperature === undefined) char.voiceTemperature = 1.1;
       } else if (char.voiceProvider === 'elevenlabs') {
@@ -171,11 +165,6 @@ createApp({
 
       // Runtime
       audioVoices: ["alloy", "ash", "ballad", "coral", "echo", "fable", "onyx", "nova", "sage", "shimmer", "verse"],
-      audioVoicesGemini: [
-        "Achernar", "Achird", "Algenib", "Algieba", "Alnilam", "Aoede", "Autonoe", "Callirrhoe", "Charon", "Despina",
-        "Enceladus", "Erinome", "Fenrir", "Gacrux", "Iapetus", "Kore", "Laomedeia", "Leda", "Orus", "Pulcherrima",
-        "Puck", "Rasalgethi", "Sadachbia", "Sadaltager", "Schedar", "Sulafat", "Umbriel", "Vindemiatrix", "Zephyr", "Zubenelgenubi"
-      ],
       sortableInstance: null,
       isResizing: false,
 
@@ -517,9 +506,7 @@ createApp({
     },
 
     updateVoice(char) {
-      if (char.voiceProvider === 'gemini') {
-        char.voice = this.audioVoicesGemini[0];
-      } else if (char.voiceProvider === 'inworld') {
+      if (char.voiceProvider === 'inworld') {
         char.voice = "";
       } else if (char.voiceProvider === 'elevenlabs') {
         char.voice = "";
@@ -761,8 +748,7 @@ createApp({
         if (!c.id && c.name) c.id = c.name;
         if (!c.voiceProvider) c.voiceProvider = 'openai';
         if (!c.voice) {
-          if (c.voiceProvider === 'gemini') c.voice = this.audioVoicesGemini[0];
-          else if (c.voiceProvider !== 'inworld' && c.voiceProvider !== 'elevenlabs') c.voice = this.audioVoices[0];
+          if (c.voiceProvider !== 'inworld' && c.voiceProvider !== 'elevenlabs') c.voice = this.audioVoices[0];
         }
         delete c._ui_id;
       });
@@ -926,7 +912,6 @@ createApp({
         extraMessageCount: this.options.extraMessageCount,
         meetingVeryMaxLength: this.options.meetingVeryMaxLength,
         voiceModel: languageModels.voiceModel,
-        geminiVoiceModel: languageModels.geminiVoiceModel,
         inworldVoiceModel: languageModels.inworldVoiceModel,
         elevenlabsVoiceModel: languageModels.elevenlabsVoiceModel,
       };
@@ -1148,10 +1133,7 @@ createApp({
         charExport.voiceSpeed = rest.voiceSpeed;
       }
 
-      if (provider === 'gemini') {
-        charExport.voiceLocale = rest.voiceLocale || 'en-GB';
-        charExport.voiceInstruction = rest.voiceInstruction || "";
-      } else if (provider === 'openai') {
+      if (provider === 'openai') {
         charExport.voiceInstruction = rest.voiceInstruction || "";
       } else if (provider === 'inworld') {
         if (rest.voiceLocale?.trim()) charExport.voiceLocale = rest.voiceLocale.trim();

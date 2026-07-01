@@ -4,7 +4,6 @@ import { promises as fs } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { Logger } from "@utils/Logger.js";
-import { GOOGLE_LANGUAGE_MAP } from "@shared/AvailableLanguages.js";
 
 export type AudioTask = () => Promise<void>;
 
@@ -169,11 +168,6 @@ export async function mergeAudioBuffers(buffers: Buffer[]): Promise<Buffer> {
             }))
         );
     }
-}
-
-export function getGoogleLanguageCode(appLang?: string): string {
-    if (!appLang) return 'en-GB';
-    return GOOGLE_LANGUAGE_MAP[appLang] || 'en-GB';
 }
 
 export function splitText(text: string, limit: number): string[] {

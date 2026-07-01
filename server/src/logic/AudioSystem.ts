@@ -4,10 +4,8 @@ import { CHAIR_ID, getChairMeetingVoice } from "@logic/characterSetupBundle.js";
 import { Logger } from "@utils/Logger.js";
 import { mapSentencesToWords, splitSentences, Word, type MappedSentence } from "@shared/textUtils.js";
 import type { StoredMeeting, SubtitleTimingType } from "@models/DBModels.js";
-import { GoogleAuth } from 'google-auth-library';
 import { parseBuffer } from 'music-metadata';
 import {
-    generateGeminiAudio,
     generateInworldAudio,
     generateElevenLabsAudio,
     generateOpenAIAudio,
@@ -41,32 +39,12 @@ export class AudioSystem {
     broadcaster: IMeetingBroadcaster;
     services: Services;
     queue: AudioQueue;
-    private googleAuthClient: GoogleAuth | null = null;
     private generationToken = 0;
 
     constructor(broadcaster: IMeetingBroadcaster, services: Services, concurrency: number = 3) {
         this.broadcaster = broadcaster;
         this.services = services;
         this.queue = new AudioQueue(concurrency);
-    }
-
-    /**
-     * Lazily initializes and caches the GoogleAuth client.
-     * Reuses the client to leverage built-in token caching.
-     */
-    private async getGoogleAuthToken(): Promise<GoogleAuth> {
-        if (!this.googleAuthClient) {
-            try {
-                // Use standard Google Application Default Credentials (ADC) strategy
-                this.googleAuthClient = new GoogleAuth({
-                    scopes: ['https://www.googleapis.com/auth/cloud-platform']
-                });
-            } catch (e) {
-                Logger.error("AudioSystem", "Failed to load Google credentials", e);
-                throw e;
-            }
-        }
-        return this.googleAuthClient;
     }
 
     queueAudioGeneration(message: Message, speaker: Speaker, meeting: StoredMeeting, environment: string, serverOptions: GlobalOptions): void {
@@ -292,10 +270,7 @@ export class AudioSystem {
     private async generateProviderAudio(text: string, speaker: Speaker, options: AudioSystemOptions): Promise<AudioResult> {
         const baseParams = { text, speaker, options };
 
-        if (speaker.voiceProvider === 'gemini') {
-            const auth = await this.getGoogleAuthToken();
-            return generateGeminiAudio({ ...baseParams, auth });
-        } else if (speaker.voiceProvider === 'inworld') {
+        if (speaker.voiceProvider === 'inworld') {
             return generateInworldAudio(baseParams);
         } else if (speaker.voiceProvider === 'elevenlabs') {
             return generateElevenLabsAudio(baseParams);

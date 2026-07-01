@@ -16,7 +16,7 @@ export interface Services {
 export interface Speaker {
     id: string;
     voice: VoiceOption | string;
-    voiceProvider?: 'openai' | 'gemini' | 'inworld' | 'elevenlabs';
+    voiceProvider?: 'openai' | 'inworld' | 'elevenlabs';
     voiceLocale?: string;
     name?: string;
     voiceInstruction?: string;
@@ -36,7 +36,6 @@ export interface Message {
 // Redefine AudioSystemOptions to include language directly, merging concepts.
 export interface AudioSystemOptions {
     voiceModel: string;
-    geminiVoiceModel: string;
     inworldVoiceModel: string;
     elevenlabsVoiceModel: string;
     defaultAudioSpeed: number;
