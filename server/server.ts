@@ -10,7 +10,7 @@ import { initReporting, sendReport } from '@utils/errorbot.js';
 import { initDb } from '@services/DbService.js';
 import { initOpenAI } from '@services/OpenAIService.js';
 import { SocketManager } from '@logic/SocketManager.js';
-import { AVAILABLE_LANGUAGES, resolvePreferredLanguageFromCountry } from '@shared/AvailableLanguages.js';
+import { AVAILABLE_LANGUAGES, COUNTRY_DEFAULT_LANGUAGE } from '@shared/AvailableLanguages.js';
 import { CHARACTERS_FILE } from '@shared/prompts/characterSetupMetadata.js';
 
 import { verifyGoogleCredentials } from '@utils/StartupChecks.js';
@@ -21,7 +21,7 @@ import {
   CACHE_CONTROL_NO_STORE,
   cacheControlPrivateNoStoreApi,
 } from '@utils/httpCache.js';
-import { getSpaRedirectTarget, hasLanguagePrefix, isBlockedScannerPath, shouldServeSpaShell } from '@utils/spaFallback.js';
+import { getSpaRedirectTarget, isBlockedScannerPath, shouldServeSpaShell } from '@utils/spaFallback.js';
 import { registerMeetingRoutes } from '@api/meetingRoutes.js';
 import { registerRealtimeRoutes } from '@api/realtimeSession.js';
 import { registerAudioRoutes } from '@api/audioRoutes.js';
@@ -131,24 +131,13 @@ if (environment === "prototype") {
       return;
     }
 
-    const cfCountry = req.headers['cf-ipcountry'];
-    const preferredLang = typeof cfCountry === 'string'
-      ? resolvePreferredLanguageFromCountry(cfCountry)
-      : undefined;
-
     if (!shouldServeSpaShell(req.path)) {
       res.setHeader('Cache-Control', CACHE_CONTROL_NO_STORE);
+      const cfCountry = req.headers['cf-ipcountry'];
+      const preferredLang = typeof cfCountry === 'string'
+        ? COUNTRY_DEFAULT_LANGUAGE[cfCountry.toUpperCase()]
+        : undefined;
       res.redirect(302, getSpaRedirectTarget(req.path, AVAILABLE_LANGUAGES, preferredLang));
-      return;
-    }
-
-    // Geo-redirect before serving the shell: if the URL has no language prefix
-    // (e.g. bare "/") and the visitor's country maps to a non-default language,
-    // send them to the right language root instead of letting the React client
-    // always redirect to the default language.
-    if (preferredLang && !hasLanguagePrefix(req.path)) {
-      res.setHeader('Cache-Control', CACHE_CONTROL_NO_STORE);
-      res.redirect(302, `/${preferredLang}/`);
       return;
     }
 

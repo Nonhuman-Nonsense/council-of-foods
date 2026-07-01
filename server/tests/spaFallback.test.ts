@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getSpaRedirectTarget, hasLanguagePrefix, isBlockedScannerPath, shouldServeSpaShell } from "@utils/spaFallback.js";
+import { getSpaRedirectTarget, isBlockedScannerPath, shouldServeSpaShell } from "@utils/spaFallback.js";
 import { AVAILABLE_LANGUAGES } from "@shared/AvailableLanguages.js";
 
 describe("spaFallback", () => {
@@ -103,30 +103,6 @@ describe("spaFallback", () => {
 
         it("ignores preferredLang in single-language mode", () => {
             expect(getSpaRedirectTarget("/hello", ENGLISH_ONLY, "sv")).toBe("/");
-        });
-    });
-
-    describe("hasLanguagePrefix", () => {
-        it("returns false for paths with no language prefix", () => {
-            expect(hasLanguagePrefix("/", ENGLISH_AND_SWEDISH)).toBe(false);
-            expect(hasLanguagePrefix("/new", ENGLISH_AND_SWEDISH)).toBe(false);
-            expect(hasLanguagePrefix("/meeting/9", ENGLISH_AND_SWEDISH)).toBe(false);
-            expect(hasLanguagePrefix("/de/hello", ENGLISH_AND_SWEDISH)).toBe(false);
-        });
-
-        it("returns true for paths with a known language prefix", () => {
-            expect(hasLanguagePrefix("/en", ENGLISH_AND_SWEDISH)).toBe(true);
-            expect(hasLanguagePrefix("/sv", ENGLISH_AND_SWEDISH)).toBe(true);
-            expect(hasLanguagePrefix("/en/", ENGLISH_AND_SWEDISH)).toBe(true);
-            expect(hasLanguagePrefix("/sv/new", ENGLISH_AND_SWEDISH)).toBe(true);
-            expect(hasLanguagePrefix("/en/meeting/9", ENGLISH_AND_SWEDISH)).toBe(true);
-        });
-
-        it("detects the single language prefix even in single-language mode", () => {
-            expect(hasLanguagePrefix("/", ENGLISH_ONLY)).toBe(false);
-            expect(hasLanguagePrefix("/en", ENGLISH_ONLY)).toBe(true);
-            expect(hasLanguagePrefix("/en/new", ENGLISH_ONLY)).toBe(true);
-            expect(hasLanguagePrefix("/new", ENGLISH_ONLY)).toBe(false);
         });
     });
 });

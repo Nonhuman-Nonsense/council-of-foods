@@ -115,13 +115,6 @@ function extractLanguagePrefix(
     return null;
 }
 
-export function hasLanguagePrefix(
-    pathname: string,
-    languages: readonly string[] = AVAILABLE_LANGUAGES,
-): boolean {
-    return extractLanguagePrefix(pathname, languages) !== null;
-}
-
 /** Landing path for invalid user-facing SPA routes (not scanner probes).
  *
  * @param preferredLang - caller-supplied language hint (e.g. derived from
