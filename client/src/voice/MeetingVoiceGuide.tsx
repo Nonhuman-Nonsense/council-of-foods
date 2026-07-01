@@ -1,5 +1,5 @@
 import type { Topic } from "@shared/ModelTypes";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSwitchLanguage } from "@/routing";
 import { useTranslation } from "react-i18next";
 import VoiceGuideOverlay from "./VoiceGuideOverlay";
@@ -127,13 +127,16 @@ export default function MeetingVoiceGuide({
   });
   const { sendUserMessage, muted } = voice;
 
+  const [nudgeFired, setNudgeFired] = useState(false);
+
   useInactivityNudge({
-    lastCaption: voice.lastCaption,
+    agentSpeaking: voice.agentSpeaking,
     lastUserTranscript: voice.lastUserTranscript,
     sendMessage: sendUserMessage,
     requestResponse: voice.requestAgentResponse,
     delayMs: 10_000,
     enabled: !voice.isConnecting && !muted,
+    onNudgeFired: () => setNudgeFired(true),
     message:
       phase === "landing"
         ? "The visitor is quiet. Gently prompt them to respond to you."
@@ -143,13 +146,35 @@ export default function MeetingVoiceGuide({
   const showMuseumReconnecting =
     isMuseumMode && !muted && voice.isConnecting && !connectionError;
 
-  useButtonBanner({
+  const { bumpBannerActivity } = useButtonBanner({
     owner: "voice-guide",
     sessionActive: agentMode === "ptt" && !muted,
     isConnecting: voice.isConnecting,
     micOpen: button.pressed,
-    activityDeps: [voice.lastUserTranscript, voice.lastCaption],
+    agentSpeaking: voice.agentSpeaking && !nudgeFired,
   });
+
+  // Falling-edge only: bump the idle clock when the agent finishes speaking so
+  // the 10s countdown starts from that moment. Rising edge is suppressed by
+  // agentSpeaking prop above so the banner can't show while the agent talks.
+  // Nudge guard: skip the bump during a nudge response so the banner stays visible.
+  useEffect(() => {
+    if (voice.agentSpeaking || nudgeFired) return;
+    bumpBannerActivity();
+  }, [voice.agentSpeaking, nudgeFired, bumpBannerActivity]);
+
+  // Real user input clears the nudge override and bumps the idle clock.
+  useEffect(() => {
+    if (!voice.lastUserTranscript) return;
+    setNudgeFired(false);
+    bumpBannerActivity();
+  }, [voice.lastUserTranscript, bumpBannerActivity]);
+
+  useEffect(() => {
+    if (!button.pressed) return;
+    setNudgeFired(false);
+    bumpBannerActivity();
+  }, [button.pressed, bumpBannerActivity]);
 
   const ledMode = useMemo((): ButtonLedMode => {
     if (agentMode !== "ptt" || muted || voice.isConnecting) return "off";

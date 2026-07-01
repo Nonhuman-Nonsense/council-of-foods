@@ -1,64 +1,71 @@
 import { useEffect, useRef } from "react";
 
 type UseInactivityNudgeParams = {
-  lastCaption: string | null;
+  agentSpeaking: boolean;
   lastUserTranscript: string | null;
   sendMessage: (text: string) => void;
   requestResponse: () => void;
   message: string;
   delayMs: number;
   enabled: boolean;
+  onNudgeFired?: () => void;
 };
 
 /**
- * Fires a nudge + requests an agent response when there has been no caption
- * or user transcript activity for `delayMs` milliseconds.
+ * Fires a nudge after the agent finishes speaking and the visitor stays
+ * silent for `delayMs` milliseconds.
  *
- * Uses a debounce approach: any change to `lastCaption` or `lastUserTranscript`
- * resets the timer. This avoids relying on `lastCaption` going null (which can
- * get stuck on the last subtitle text after audio finishes).
+ * Timer starts when `agentSpeaking` is false (audio ended).
+ * Timer clears when `agentSpeaking` is true (agent speaking again).
+ * Timer resets when `lastUserTranscript` changes (visitor spoke).
  *
- * Does nothing until the agent has spoken at least once (guards against
- * nudging before the greeting fires).
+ * Does nothing until the agent has spoken at least once.
  */
 export function useInactivityNudge({
-  lastCaption,
+  agentSpeaking,
   lastUserTranscript,
   sendMessage,
   requestResponse,
   message,
   delayMs,
   enabled,
+  onNudgeFired,
 }: UseInactivityNudgeParams): void {
   const agentHasSpokenRef = useRef(false);
   const sendMessageRef = useRef(sendMessage);
   const requestResponseRef = useRef(requestResponse);
   const messageRef = useRef(message);
+  const onNudgeFiredRef = useRef(onNudgeFired);
 
   useEffect(() => {
     sendMessageRef.current = sendMessage;
     requestResponseRef.current = requestResponse;
     messageRef.current = message;
+    onNudgeFiredRef.current = onNudgeFired;
   });
 
   // Track whether the agent has ever spoken.
   useEffect(() => {
-    if (lastCaption !== null) agentHasSpokenRef.current = true;
-  }, [lastCaption]);
+    if (agentSpeaking) agentHasSpokenRef.current = true;
+  }, [agentSpeaking]);
 
-  // Reset agentHasSpoken when disabled (e.g. muted or reconnecting).
+  // Reset guard when disabled (e.g. muted or reconnecting).
   useEffect(() => {
     if (!enabled) agentHasSpokenRef.current = false;
   }, [enabled]);
 
-  // Debounce: reset timer on any caption or transcript activity.
-  // Fires only after the agent has spoken at least once.
+  // Core timer: starts when agent stops speaking, resets on any user speech.
+  // Re-runs (and resets the countdown) whenever agentSpeaking or
+  // lastUserTranscript changes.
   useEffect(() => {
-    if (!enabled || !agentHasSpokenRef.current) return;
+    if (!enabled || !agentHasSpokenRef.current || agentSpeaking) return;
+
     const id = setTimeout(() => {
+      onNudgeFiredRef.current?.();
       sendMessageRef.current(messageRef.current);
       requestResponseRef.current();
     }, delayMs);
     return () => clearTimeout(id);
-  }, [lastCaption, lastUserTranscript, enabled, delayMs]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [agentSpeaking, lastUserTranscript, enabled, delayMs]);
 }
