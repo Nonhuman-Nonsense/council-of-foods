@@ -226,11 +226,6 @@ export default function Main(props: MainProps) {
             <Route path="*" element={<Navigate to={rootPath} replace />} />
           </Routes>
           {!isIphone && !isMuseumMode && !(agentMode === "ptt" && ledDebugOverlay) && <FullscreenButton />}
-          <MainOverlays
-            topic={topicSelection}
-            onReset={onReset}
-            onCloseOverlay={onCloseOverlay}
-          />
           {isPortrait && location.pathname !== "/" && <RotateOverlay />}
         </Overlay>
       }
@@ -248,6 +243,11 @@ export default function Main(props: MainProps) {
           <Reconnecting />
         </Overlay>
       )}
+      <MainOverlays
+        topic={topicSelection}
+        onReset={onReset}
+        onCloseOverlay={onCloseOverlay}
+      />
     </>
   );
 }
