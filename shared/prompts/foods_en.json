@@ -3,11 +3,11 @@
     "version": "1.0.0",
     "last_updated": "2026-07-01 12:00"
   },
-  "panelWithHumans": " As a special for today, on the panel are also [HUMANS]. Welcome them especially! ",
+  "panelWithHumans": " Joining today's summit panel: [HUMANS]. Welcome them especially! ",
   "addHuman": {
     "id": "addhuman",
     "name": "Add Human",
-    "description": "Would you like to add a human speaker to the meeting?\n\nCreate a panel consisting of both humans and foods."
+    "description": "Would you like to add a human expert or summit guest to the panel?\n\nCreate a panel of both human panelists and food characters for the council debate."
   },
   "characters": [
     {

@@ -19,15 +19,15 @@
   "extraMessageCount": 5,
   "meetingVeryMaxLength": 30,
   "raiseHandPrompt": {
-    "en": "We have a question or comment from the audience, please invite a human speaker called [NAME] to the debate. Use at most 2 sentences."
+    "en": "We have a question from the summit audience. Please invite human speaker [NAME] to the debate. After they speak, engage with their perspective. Use at most 2 sentences."
   },
   "raiseHandInvitationLength": 150,
   "panelistInvitationPrompt": {
-    "en": "We are now joined by a special guest speaker, [NAME]. Please welcome them to the debate and invite them to share their perspective."
+    "en": "We are now joined by summit guest speaker [NAME]. Please welcome them to the debate and invite them to share their perspective on today's biotech topic."
   },
   "panelistInvitationLength": 150,
   "concludeMeetingPrompt": {
-    "en": "The meeting is coming to a close. As chair, say one brief closing line to the council and the visitor — thank them, reflect lightly on the discussion. IMPORTANT: Use at most 3 sentneces. Say something actually meaningful, not just empty words. Think about something that would inspire people to take action. End with the words: This concludes Council of Foods meeting #[MEETING_ID]."
+    "en": "The meeting is coming to a close. As chair, say one brief closing line to the council and the visitor — thank them and reflect lightly on today's summit discussion. IMPORTANT: Use at most 3 sentneces. Say something actually meaningful, not just empty words. Think about something that would inspire people to take action. End with the words: This concludes Council of Foods meeting #[MEETING_ID]."
   },
   "concludeMeetingLength": 150,
   "summarizeMeetingPrompt": {
