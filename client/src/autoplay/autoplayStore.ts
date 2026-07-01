@@ -1,4 +1,3 @@
-import { useMemo } from "react";
 import { create } from "zustand";
 import { log } from "@/logger";
 
@@ -30,8 +29,6 @@ export type AutoplayActivitySource =
   | "loop-next-meeting"
   | "loop-retry";
 
-export type ReplayBannerVariant = "default" | "autoplay";
-
 /** Museum summary: return to landing after protocol reading (non-autoplay visits). */
 export const SUMMARY_RETURN_TO_ROOT_MS = 20_000;
 
@@ -40,7 +37,6 @@ export const AUTOPLAY_NEXT_MEETING_MS = 5_000;
 
 export type AutoplayHandle = {
   notify: (event: AutoplayConsumerEvent) => void;
-  replayBannerVariant: ReplayBannerVariant;
 };
 
 type AutoplayStore = {
@@ -102,19 +98,11 @@ export function notifyAutoplay(event: AutoplayConsumerEvent): void {
 }
 
 export function useAutoplay(): AutoplayHandle {
-  const replayBannerVariant = useAutoplayStore((state) =>
-    state.phase === "active" ? "autoplay" : "default",
-  );
-
-  return useMemo(
-    () => ({
-      notify: (event: AutoplayConsumerEvent) => {
-        useAutoplayStore.getState().notify(event);
-      },
-      replayBannerVariant,
-    }),
-    [replayBannerVariant],
-  );
+  return {
+    notify: (event: AutoplayConsumerEvent) => {
+      useAutoplayStore.getState().notify(event);
+    },
+  };
 }
 
 /** Test helper — pin the idle clock. */

@@ -39,15 +39,13 @@ export default function ButtonBanner({ inline = false }: ButtonBannerProps): Rea
   }
 
   if (bannerContent?.kind === "replay") {
+    const isAutoplayOwner = buttonOwner === "autoplay";
     const preamble = t("replay.preamble", {
       meetingId: bannerContent.meetingId,
       meetingTitle: bannerContent.meetingTitle,
       meetingDate: bannerContent.meetingDate,
     });
-    const callToAction =
-      bannerContent.variant === "autoplay"
-        ? t("replay.pressButton")
-        : t("replay.click");
+    const callToAction = isAutoplayOwner ? t("replay.pressButton") : t("replay.click");
 
     const content = (
       <>
@@ -64,15 +62,11 @@ export default function ButtonBanner({ inline = false }: ButtonBannerProps): Rea
           isPaused={bannerContent.isPaused}
           segmentCount={REPLAY_BANNER_SEGMENT_COUNT}
           testId="button-banner"
-          wrapContent={
-            bannerContent.variant === "autoplay"
-              ? (segment) => <span>{segment}</span>
-              : (segment) => (
-                  <Link to={rootPath} style={{ pointerEvents: "auto" }}>
-                    {segment}
-                  </Link>
-                )
-          }
+          wrapContent={(segment) => (
+            <Link to={rootPath} style={{ pointerEvents: "auto" }}>
+              {segment}
+            </Link>
+          )}
           renderSegment={() => content}
         />
       </div>

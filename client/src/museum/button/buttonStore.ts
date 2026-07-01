@@ -6,7 +6,6 @@ import {
 } from "./buttonBridge";
 import { getAgentMode } from "@/settings/councilSettings";
 import { log } from "@/logger";
-import type { ReplayBannerVariant } from "@/autoplay/autoplayStore";
 import type { TranslationKey } from "@/i18n";
 
 export type ButtonLedMode = "off" | "pulse" | "on";
@@ -25,7 +24,6 @@ export type BannerContent =
       meetingId: number;
       meetingTitle: string;
       meetingDate: string;
-      variant: ReplayBannerVariant;
       isPaused: boolean;
     };
 
