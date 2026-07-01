@@ -116,7 +116,7 @@ export function createGuideTools({
       type: "function",
       name: "begin_setup",
       description:
-        `Leave the welcome screen and open the topic selection step. Call immediately after ${agentMode === 'ptt' ? `the first successful push-to-talk turn with intelligible speech` : `the visitor's first meaningful speech`}. Do not wait for an explicit request to start.`,
+        `Leave the welcome screen and open the topic selection step.`,
       parameters: { type: "object", properties: {}, additionalProperties: false },
     },
     {
