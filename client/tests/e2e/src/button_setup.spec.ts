@@ -33,6 +33,7 @@ async function seedMuseumPushToTalk(page: import("@playwright/test").Page): Prom
   await page.addInitScript(() => {
     localStorage.setItem("councilAppMode", "museum");
     localStorage.setItem("councilAgentMode", "ptt");
+    localStorage.setItem("councilPttHardwareEnabled", "true");
   });
 }
 

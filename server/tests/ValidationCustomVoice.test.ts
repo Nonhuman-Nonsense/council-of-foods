@@ -86,42 +86,4 @@ describe('ValidationSchemas Custom Voice Logic (CreateMeeting)', () => {
         const result = CreateMeetingSchema.safeParse(payload);
         expect(result.success).toBe(false);
     });
-
-    it('should validate standard Gemini voices', () => {
-        const payload = MockFactory.createCreateMeetingBody({
-            topic,
-            characters: [
-                MockFactory.createCharacter({
-                    id: 'char1',
-                    name: 'Test Char',
-                    description: 'D',
-                    prompt: 'P',
-                    voice: 'Puck',
-                    voiceProvider: 'gemini' as const
-                })
-            ],
-        });
-
-        const result = CreateMeetingSchema.safeParse(payload);
-        expect(result.success).toBe(true);
-    });
-
-    it('should reject invalid Gemini voices', () => {
-        const payload = MockFactory.createCreateMeetingBody({
-            topic,
-            characters: [
-                MockFactory.createCharacter({
-                    id: 'char1',
-                    name: 'Test Char',
-                    description: 'D',
-                    prompt: 'P',
-                    voice: 'alloy',
-                    voiceProvider: 'gemini' as const
-                })
-            ],
-        });
-
-        const result = CreateMeetingSchema.safeParse(payload);
-        expect(result.success).toBe(false);
-    });
 });

@@ -40,5 +40,4 @@ playwright/.auth/
 
 release/
 
-server/google-credentials.json
 server/gen-lang-client-*.json

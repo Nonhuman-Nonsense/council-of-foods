@@ -11,7 +11,7 @@ export const SubtitleTimingTypeSchema = z.enum(["inworld", "elevenlabs", "estima
 
 export const ChairVoiceProfileSchema = z.object({
     voice: z.string(),
-    voiceProvider: z.enum(["openai", "gemini", "inworld", "elevenlabs"]),
+    voiceProvider: z.enum(["openai", "inworld", "elevenlabs"]),
     voiceLocale: z.string().optional(),
     voiceInstruction: z.string().optional(),
     voiceTemperature: z.number().optional(),
@@ -47,7 +47,6 @@ export const GlobalOptionsSchema = z.object({
     conversationModel: z.string(),
     conversationReasoning: ConversationReasoningSchema,
     voiceModel: z.string(),
-    geminiVoiceModel: z.string(),
     inworldVoiceModel: z.string(),
     elevenlabsVoiceModel: z.string(),
     temperature: z.number(),

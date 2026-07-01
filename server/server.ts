@@ -10,10 +10,9 @@ import { initReporting, sendReport } from '@utils/errorbot.js';
 import { initDb } from '@services/DbService.js';
 import { initOpenAI } from '@services/OpenAIService.js';
 import { SocketManager } from '@logic/SocketManager.js';
-import { AVAILABLE_LANGUAGES, resolvePreferredLanguageFromCountry } from '@shared/AvailableLanguages.js';
+import { AVAILABLE_LANGUAGES, COUNTRY_DEFAULT_LANGUAGE } from '@shared/AvailableLanguages.js';
 import { CHARACTERS_FILE } from '@shared/prompts/characterSetupMetadata.js';
 
-import { verifyGoogleCredentials } from '@utils/StartupChecks.js';
 import {
   CACHE_CONTROL_DIST_ASSET_IMMUTABLE,
   CACHE_CONTROL_DIST_PUBLIC_ROOT,
@@ -39,7 +38,6 @@ const io = new Server(httpServer);
 try {
   initReporting();
   await initDb();
-  await verifyGoogleCredentials(config); // Strict Startup Check
   initOpenAI();
 } catch (e) {
   await Logger.error("init", "Startup failed.", e);
@@ -135,7 +133,7 @@ if (environment === "prototype") {
       res.setHeader('Cache-Control', CACHE_CONTROL_NO_STORE);
       const cfCountry = req.headers['cf-ipcountry'];
       const preferredLang = typeof cfCountry === 'string'
-        ? resolvePreferredLanguageFromCountry(cfCountry)
+        ? COUNTRY_DEFAULT_LANGUAGE[cfCountry.toUpperCase()]
         : undefined;
       res.redirect(302, getSpaRedirectTarget(req.path, AVAILABLE_LANGUAGES, preferredLang));
       return;

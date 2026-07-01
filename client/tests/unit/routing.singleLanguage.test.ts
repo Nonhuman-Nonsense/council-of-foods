@@ -6,8 +6,6 @@ const navigate = vi.fn();
 
 vi.mock("@shared/AvailableLanguages", () => ({
   AVAILABLE_LANGUAGES: ["en"],
-  GOOGLE_LANGUAGE_MAP: { en: "en-GB" },
-  SUPPORTED_LOCALES: ["en-US", "en-GB", "en-AU", "en-IN"],
 }));
 
 vi.mock("react-router", () => ({

@@ -322,13 +322,15 @@ function Setup(): ReactElement {
     setAppMode,
     agentMode,
     setAgentMode,
+    pttHardwareEnabled,
+    setPttHardwareEnabled,
     devLogEnabled,
     setDevLogEnabled,
     devLogCategories,
     setDevLogCategoryEnabled,
     setAllDevLogCategories,
   } = useCouncilSettings();
-  const bridgeButtonActive = appMode === "museum" && agentMode === "ptt";
+  const bridgeButtonActive = agentMode === "ptt" && pttHardwareEnabled;
   const { bridgeStatus, bridgeError, bridgeAvailable } =
     useButtonConnection(bridgeButtonActive);
   const bridgeHealth = useButtonBridgeHealth(bridgeButtonActive);
@@ -351,7 +353,8 @@ function Setup(): ReactElement {
   const bridgeDetailLines =
     bridgeHealth.status === "running" ? getSetupBridgeDetailLines(bridgeHealth) : [];
 
-  const showButtonPanel = agentMode === "ptt" && appMode === "museum";
+  const showButtonPanel = agentMode === "ptt" && pttHardwareEnabled;
+  const showPttOptionsRow = agentMode === "ptt";
   const showLedPreviewPill = import.meta.env.DEV && agentMode === "ptt";
   const showButtonDetails =
     showButtonPanel &&
@@ -434,17 +437,38 @@ function Setup(): ReactElement {
               {t("agentMode.pushToTalk")}
             </button>
           </SetupSegmented>
-          {showLedPreviewPill ? (
-            <button
-              type="button"
-              data-testid="setup-led-debug-toggle"
-              className={ledDebugOverlay ? "control" : ""}
-              aria-pressed={ledDebugOverlay}
-              onClick={() => setLedDebugOverlay(!ledDebugOverlay)}
-              style={ledPreviewToggleStyle(ledDebugOverlay)}
+          {showPttOptionsRow ? (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                flexWrap: "wrap",
+                gap: 8,
+              }}
             >
-              {t("setup.button.ledDebugOverlay")}
-            </button>
+              <button
+                type="button"
+                data-testid="setup-ptt-hardware-toggle"
+                className={pttHardwareEnabled ? "control" : ""}
+                aria-pressed={pttHardwareEnabled}
+                onClick={() => setPttHardwareEnabled(!pttHardwareEnabled)}
+                style={{...ledPreviewToggleStyle(pttHardwareEnabled), flex: 1}}
+              >
+                {t("setup.button.hardwareButton")}
+              </button>
+              {showLedPreviewPill ? (
+                <button
+                  type="button"
+                  data-testid="setup-led-debug-toggle"
+                  className={ledDebugOverlay ? "control" : ""}
+                  aria-pressed={ledDebugOverlay}
+                  onClick={() => setLedDebugOverlay(!ledDebugOverlay)}
+                  style={{...ledPreviewToggleStyle(ledDebugOverlay), flex: 1}}
+                >
+                  {t("setup.button.ledDebugOverlay")}
+                </button>
+              ) : null}
+            </div>
           ) : null}
         </SetupPanel>
 

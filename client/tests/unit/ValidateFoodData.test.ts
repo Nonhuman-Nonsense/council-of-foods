@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, it, expect } from 'vitest';
 import { AVAILABLE_LANGUAGES } from '@shared/AvailableLanguages';
-import { AVAILABLE_VOICES, AVAILABLE_VOICES_GEMINI, VoiceOption } from '@shared/ModelTypes';
+import { AVAILABLE_VOICES, VoiceOption } from '@shared/ModelTypes';
 import { CHARACTERS_FILE } from '@shared/prompts/characterSetupMetadata';
 import fs from 'fs';
 import path from 'path';
@@ -18,7 +18,7 @@ interface CharacterDataEntry {
     type?: string;
     index?: number;
     voice: VoiceOption;
-    voiceProvider?: 'openai' | 'gemini' | 'inworld' | 'elevenlabs';
+    voiceProvider?: 'openai' | 'inworld' | 'elevenlabs';
     voiceLocale?: string;
     size?: number;
     voiceInstruction?: string;
@@ -70,9 +70,7 @@ describe('Validate Food Data JSONs', () => {
                 expect(character).toHaveProperty('voice');
 
                 // Validate Voice Option
-                if (character.voiceProvider === 'gemini') {
-                    expect(AVAILABLE_VOICES_GEMINI).toContain(character.voice);
-                } else if (character.voiceProvider === 'inworld' || character.voiceProvider === 'elevenlabs') {
+                if (character.voiceProvider === 'inworld' || character.voiceProvider === 'elevenlabs') {
                     // Custom voice providers allow arbitrary non-empty voice IDs
                     expect(typeof character.voice).toBe('string');
                     expect(character.voice.length).toBeGreaterThan(0);

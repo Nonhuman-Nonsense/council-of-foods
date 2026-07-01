@@ -4,7 +4,7 @@ import { chairIdFromCharacters, CHARACTERS_FILE } from "@shared/prompts/characte
 import type { GlobalOptions } from "@logic/GlobalOptions.js";
 import { getGlobalOptions } from "@logic/GlobalOptions.js";
 
-export type ChairVoiceProvider = "openai" | "gemini" | "inworld" | "elevenlabs";
+export type ChairVoiceProvider = "openai" | "inworld" | "elevenlabs";
 
 /** Voice fields used for council TTS and/or live chair realtime sessions. */
 export type ChairVoiceProfile = {
@@ -68,7 +68,7 @@ function getChairCharacter(language: string): CharacterSetupCharacter {
 }
 
 function parseVoiceProvider(raw: string | undefined): ChairVoiceProvider {
-    if (raw === "inworld" || raw === "openai" || raw === "gemini" || raw === "elevenlabs") {
+    if (raw === "inworld" || raw === "openai" || raw === "elevenlabs") {
         return raw;
     }
     return "openai";

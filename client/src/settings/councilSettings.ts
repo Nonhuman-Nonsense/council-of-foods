@@ -23,6 +23,10 @@ export const DEV_LOG_DISABLED_CATEGORIES_KEY = "councilDevLogDisabledCategories"
 
 export const DEV_LOG_CHANGE_EVENT = "council-dev-log-change";
 
+export const PTT_HARDWARE_ENABLED_KEY = "councilPttHardwareEnabled";
+
+export const PTT_HARDWARE_CHANGE_EVENT = "council-ptt-hardware-change";
+
 export function getAppMode(): AppMode {
   try {
     return localStorage.getItem(APP_MODE_STORAGE_KEY) === "museum" ? "museum" : "web";
@@ -64,7 +68,34 @@ export function setAgentMode(mode: AgentMode): void {
     // ignore storage errors (private mode, quota, etc.)
   }
 
+  if (mode !== "ptt") {
+    setPttHardwareEnabled(false);
+  }
+
   window.dispatchEvent(new CustomEvent<AgentMode>(AGENT_MODE_CHANGE_EVENT, { detail: mode }));
+}
+
+/** USB hardware button via local bridge. Only applies when agent mode is push-to-talk. */
+export function getPttHardwareEnabled(): boolean {
+  try {
+    return localStorage.getItem(PTT_HARDWARE_ENABLED_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
+export function setPttHardwareEnabled(enabled: boolean): void {
+  try {
+    if (enabled) {
+      localStorage.setItem(PTT_HARDWARE_ENABLED_KEY, "true");
+    } else {
+      localStorage.removeItem(PTT_HARDWARE_ENABLED_KEY);
+    }
+  } catch {
+    // ignore storage errors (private mode, quota, etc.)
+  }
+
+  window.dispatchEvent(new CustomEvent<boolean>(PTT_HARDWARE_CHANGE_EVENT, { detail: enabled }));
 }
 
 function readDisabledDevLogCategories(): LogCategory[] {
@@ -143,6 +174,8 @@ export function useCouncilSettings(): {
   setAppMode: (mode: AppMode) => void;
   agentMode: AgentMode;
   setAgentMode: (mode: AgentMode) => void;
+  pttHardwareEnabled: boolean;
+  setPttHardwareEnabled: (enabled: boolean) => void;
   devLogEnabled: boolean;
   setDevLogEnabled: (enabled: boolean) => void;
   devLogCategories: Record<LogCategory, boolean>;
@@ -151,6 +184,7 @@ export function useCouncilSettings(): {
 } {
   const [mode, setMode] = useState<AppMode>(getAppMode);
   const [agentMode, setAgentModeState] = useState(getAgentMode);
+  const [pttHardwareEnabled, setPttHardwareEnabledState] = useState(getPttHardwareEnabled);
   const [devLogEnabled, setDevLogEnabledState] = useState(getDevLogEnabled);
   const [devLogCategories, setDevLogCategoriesState] = useState(getDevLogCategoryStates);
 
@@ -168,6 +202,14 @@ export function useCouncilSettings(): {
     function onAgentModeChange(event: Event): void {
       const next = (event as CustomEvent<AgentMode>).detail;
       setAgentModeState(next);
+      if (next !== "ptt") {
+        setPttHardwareEnabledState(false);
+      }
+    }
+
+    function onPttHardwareChange(event: Event): void {
+      const next = (event as CustomEvent<boolean>).detail;
+      setPttHardwareEnabledState(next);
     }
 
     function onStorage(event: StorageEvent): void {
@@ -176,6 +218,12 @@ export function useCouncilSettings(): {
       }
       if (event.key === AGENT_MODE_STORAGE_KEY) {
         setAgentModeState(getAgentMode());
+        if (getAgentMode() !== "ptt") {
+          setPttHardwareEnabledState(false);
+        }
+      }
+      if (event.key === PTT_HARDWARE_ENABLED_KEY) {
+        setPttHardwareEnabledState(getPttHardwareEnabled());
       }
       if (
         event.key === DEV_LOG_ENABLED_KEY ||
@@ -191,11 +239,13 @@ export function useCouncilSettings(): {
 
     window.addEventListener(APP_MODE_CHANGE_EVENT, onAppModeChange);
     window.addEventListener(AGENT_MODE_CHANGE_EVENT, onAgentModeChange);
+    window.addEventListener(PTT_HARDWARE_CHANGE_EVENT, onPttHardwareChange);
     window.addEventListener(DEV_LOG_CHANGE_EVENT, onDevLogChange);
     window.addEventListener("storage", onStorage);
     return () => {
       window.removeEventListener(APP_MODE_CHANGE_EVENT, onAppModeChange);
       window.removeEventListener(AGENT_MODE_CHANGE_EVENT, onAgentModeChange);
+      window.removeEventListener(PTT_HARDWARE_CHANGE_EVENT, onPttHardwareChange);
       window.removeEventListener(DEV_LOG_CHANGE_EVENT, onDevLogChange);
       window.removeEventListener("storage", onStorage);
     };
@@ -213,6 +263,14 @@ export function useCouncilSettings(): {
   const setAgentModeFromHook = useCallback((next: AgentMode) => {
     setAgentMode(next);
     setAgentModeState(next);
+    if (next !== "ptt") {
+      setPttHardwareEnabledState(false);
+    }
+  }, []);
+
+  const setPttHardwareEnabledFromHook = useCallback((enabled: boolean) => {
+    setPttHardwareEnabled(enabled);
+    setPttHardwareEnabledState(enabled);
   }, []);
 
   const setDevLogEnabledFromHook = useCallback((enabled: boolean) => {
@@ -237,6 +295,8 @@ export function useCouncilSettings(): {
     setAppMode: setAppModeFromHook,
     agentMode,
     setAgentMode: setAgentModeFromHook,
+    pttHardwareEnabled,
+    setPttHardwareEnabled: setPttHardwareEnabledFromHook,
     devLogEnabled,
     setDevLogEnabled: setDevLogEnabledFromHook,
     devLogCategories,
