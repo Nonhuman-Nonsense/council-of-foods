@@ -95,8 +95,10 @@ function MainOverlays({ topic, onReset, onCloseOverlay }: MainOverlaysProps): Re
     }
   };
 
+  const isSetup = location.hash === "#setup";
+
   return (
-    <Overlay isActive={showOverlay}>
+    <Overlay isActive={showOverlay} layer={isSetup ? "staff" : "route"}>
       {showOverlay &&
         <OverlayWrapper showX={true} cancelOverlay={cancelOverlay}>
           {renderOverlayContent()}
