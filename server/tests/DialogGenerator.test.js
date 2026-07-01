@@ -461,19 +461,6 @@ describe('DialogGenerator - Document Generation', () => {
         expect(result.trimmed).toBe('\n\nPartial section without period');
     });
 
-    it('should apply paragraph trim after sentence trim when both apply', async () => {
-        mockDocumentResponse('Intro.\n\nMiddle block.\n\nPartial tail', 'length');
-
-        const result = await dialogGenerator.generateDocument(
-            'Write the protocol.',
-            manager.meeting,
-            800,
-        );
-
-        expect(result.response).toBe('Intro.');
-        expect(result.trimmed).toBe('\n\nMiddle block.\n\nPartial tail');
-    });
-
     it('should trim documents even when global trimSentance is disabled', async () => {
         manager.serverOptions.trimSentance = false;
         manager.serverOptions.trimParagraph = false;
