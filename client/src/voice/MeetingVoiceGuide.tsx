@@ -1,5 +1,5 @@
 import type { Topic } from "@shared/ModelTypes";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSwitchLanguage } from "@/routing";
 import { useTranslation } from "react-i18next";
 import VoiceGuideOverlay from "./VoiceGuideOverlay";
@@ -22,6 +22,7 @@ import { useButtonBanner } from "@/museum/button/useButtonBanner";
 import Loading from "@main/Loading";
 import { useVoiceGuide } from "./useVoiceGuide";
 import { useErrorStore } from "@main/overlay/errorStore";
+import { useDocumentVisibility } from "@/utils";
 
 type MeetingVoiceGuideProps = {
   phase: MeetingSetupPhase;
@@ -126,22 +127,57 @@ export default function MeetingVoiceGuide({
     micOpen: button.pressed,
   });
   const { sendUserMessage, muted } = voice;
+  const isDocumentVisible = useDocumentVisibility();
 
   const [nudgeFired, setNudgeFired] = useState(false);
 
+  // Stop nudging while the tab is hidden.
   useInactivityNudge({
     agentSpeaking: voice.agentSpeaking,
     lastUserTranscript: voice.lastUserTranscript,
     sendMessage: sendUserMessage,
     requestResponse: voice.requestAgentResponse,
     delayMs: 10_000,
-    enabled: !voice.isConnecting && !muted,
+    enabled: !voice.isConnecting && !muted && isDocumentVisible,
     onNudgeFired: () => setNudgeFired(true),
     message:
       phase === "landing"
         ? "The visitor is quiet. Gently prompt them to respond to you."
         : "The visitor has been quiet for a while. Check in with them — ask if they need help or have a question.",
   });
+
+  // Handle tab visibility changes:
+  // - Hidden: start a grace timer; if still hidden after 60s, tear down the session.
+  // - Visible again after grace teardown: auto-resume (opening greeting plays automatically).
+  // - Visible again within grace period: send an immediate refocus message.
+  const HIDDEN_GRACE_MS = 60_000;
+  const hiddenByGraceRef = useRef(false);
+  const hasMountedRef = useRef(false);
+  useEffect(() => {
+    if (!hasMountedRef.current) { hasMountedRef.current = true; return; }
+
+    if (!isDocumentVisible) {
+      const id = setTimeout(() => {
+        hiddenByGraceRef.current = true;
+        voice.stop();
+      }, HIDDEN_GRACE_MS);
+      return () => clearTimeout(id);
+    }
+
+    if (hiddenByGraceRef.current) {
+      hiddenByGraceRef.current = false;
+      void voice.start();
+    } else if (!muted && !voice.isConnecting && !voice.agentSpeaking) {
+      sendUserMessage(
+        phase === "landing"
+          ? "The visitor has returned after a brief absence. Welcome them back and invite them to continue."
+          : "The visitor has returned after a brief absence. Check in warmly and help them pick up where they left off.",
+      );
+      voice.requestAgentResponse();
+      setNudgeFired(true);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isDocumentVisible]);
 
   const showMuseumReconnecting =
     isMuseumMode && !muted && voice.isConnecting && !connectionError;
