@@ -7,7 +7,6 @@ import { fetchAutoplayMeetingId } from "@api/fetchAutoplayMeeting";
 import { useButton } from "@/museum/button/useButton";
 import { useButtonStore } from "@/museum/button/buttonStore";
 import { useCouncilSettings } from "@/settings/councilSettings";
-import { useMeetingSetupStore } from "@newMeeting/meetingSetupStore";
 import { isRootPath, stripLanguagePrefix, useRouting } from "@/routing";
 import routes from "@/routes.json";
 import {
@@ -45,7 +44,7 @@ export default function AutoplayCoordinator({
   const location = useLocation();
   const navigate = useNavigate();
   const { i18n } = useTranslation();
-  const { rootPath, meetingPath } = useRouting();
+  const { meetingPath } = useRouting();
   const button = useButton("autoplay");
 
   const phase = useAutoplayStore((state) => state.phase);
@@ -116,9 +115,8 @@ export default function AutoplayCoordinator({
   const exitAutoplay = useCallback(() => {
     log.event("AUTOPLAY", "exit to landing", { via: "hardware_button" });
     setPhase("off");
-    useMeetingSetupStore.getState().resetStore();
-    window.location.href = rootPath;
-  }, [rootPath, setPhase]);
+    window.location.href = "/";
+  }, []);
 
   const showWarning = useCallback(() => {
     if (useAutoplayStore.getState().phase !== "off") {
