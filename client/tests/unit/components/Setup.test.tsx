@@ -111,6 +111,41 @@ describe('Setup overlay', () => {
     expect(web).toHaveClass('selected');
   });
 
+  it('shows escape hatch toggle below installation mode', () => {
+    render(<Setup />);
+
+    const toggle = screen.getByTestId('setup-escape-hatch-toggle');
+    expect(toggle).toHaveAttribute('aria-pressed', 'false');
+    expect(toggle).toHaveTextContent('setup.escapeHatch');
+  });
+
+  it('persists escape hatch enablement', () => {
+    render(<Setup />);
+
+    fireEvent.click(screen.getByTestId('setup-escape-hatch-toggle'));
+    expect(localStorage.getItem('councilEscapeHatchEnabled')).toBe('true');
+  });
+
+  it('clears escape hatch storage when toggled off', () => {
+    localStorage.setItem('councilEscapeHatchEnabled', 'true');
+
+    render(<Setup />);
+
+    fireEvent.click(screen.getByTestId('setup-escape-hatch-toggle'));
+    expect(localStorage.getItem('councilEscapeHatchEnabled')).toBeNull();
+  });
+
+  it('shows escape hatch toggle with red border glow when active', () => {
+    localStorage.setItem('councilEscapeHatchEnabled', 'true');
+
+    render(<Setup />);
+
+    const toggle = screen.getByTestId('setup-escape-hatch-toggle');
+    expect(toggle).toHaveAttribute('aria-pressed', 'true');
+    expect(toggle).toHaveStyle({ borderColor: 'rgb(252, 165, 165)' });
+    expect(toggle).not.toHaveStyle({ backgroundColor: 'rgb(239, 68, 68)' });
+  });
+
   it('selects off by default without persisting agent mode', () => {
     render(<Setup />);
 

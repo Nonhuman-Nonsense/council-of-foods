@@ -86,7 +86,7 @@ export default function Main(props: MainProps) {
   const navigate = useNavigate();
   const isIphone = useIsIphone();
   const isPortrait = usePortrait();
-  const { isMuseumMode, agentMode } = useCouncilSettings();
+  const { isMuseumMode, agentMode, escapeHatchEnabled } = useCouncilSettings();
   const { ledDebugOverlay } = useButtonLedDebugOverlay();
 
   useEffect(() => {
@@ -187,7 +187,7 @@ export default function Main(props: MainProps) {
         />
       }
       {hamburgerOpen && !isMuseumMode && <div style={hamburgerCloserStyle} onClick={() => setHamburgerOpen(false)}></div>}
-      {isMuseumMode && <MuseumModeEscapeHatch />}
+      {escapeHatchEnabled && <MuseumModeEscapeHatch />}
       {unrecoverableError == null &&
         <Overlay
           isActive={!isMeetingPath(location.pathname)}

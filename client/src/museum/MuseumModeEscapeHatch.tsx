@@ -1,33 +1,41 @@
 import type { ReactElement } from "react";
+import { useLocation } from "react-router";
 import { useCouncilSettings } from "@/settings/councilSettings";
+import { escapeHatchPreviewStyle } from "@/museum/escapeHatchStyle";
 import { z } from "@/zIndexLayers";
 
 /**
- * Invisible top-left control for staff to exit museum mode without reloading.
- * Restores web chrome (navbar, fullscreen, voice guide toggle) in place.
+ * Invisible top-left control for staff to toggle web/museum without reloading.
+ * On #setup, shows a red border preview of the hit area.
  */
 export default function MuseumModeEscapeHatch(): ReactElement {
-  const { setAppMode } = useCouncilSettings();
+  const { isMuseumMode, setAppMode } = useCouncilSettings();
+  const { hash } = useLocation();
+  const showPreview = hash === "#setup";
 
   return (
     <button
       type="button"
       data-testid="museum-mode-escape"
-      aria-label="Exit museum mode"
-      onClick={() => setAppMode("web")}
+      aria-label={isMuseumMode ? "Switch to web mode" : "Switch to museum mode"}
+      onClick={() => setAppMode(isMuseumMode ? "web" : "museum")}
       style={{
         position: "fixed",
         top: 0,
         left: 0,
         width: "48px",
         height: "48px",
-        opacity: 0,
         zIndex: z.museumEscape,
-        border: "none",
         padding: 0,
         margin: 0,
-        background: "transparent",
         cursor: "default",
+        ...(showPreview
+          ? escapeHatchPreviewStyle()
+          : {
+              opacity: 0,
+              border: "none",
+              background: "transparent",
+            }),
       }}
     />
   );

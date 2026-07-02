@@ -5,7 +5,7 @@ import React from 'react';
 import { MemoryRouter, Routes, Route, useLocation } from 'react-router';
 import Main from '@main/Main';
 import Navbar from '@main/Navbar';
-import { APP_MODE_STORAGE_KEY } from '@/settings/councilSettings';
+import { APP_MODE_STORAGE_KEY, ESCAPE_HATCH_ENABLED_KEY } from '@/settings/councilSettings';
 import * as AvailableLanguagesModule from '@shared/AvailableLanguages';
 import routes from '@/routes.json';
 import { MockFactory } from '../factories/MockFactory';
@@ -127,6 +127,26 @@ describe('Router Logic', () => {
             );
             expect(screen.queryByRole('navigation')).not.toBeInTheDocument();
             expect(screen.queryByTestId('fullscreen-btn')).not.toBeInTheDocument();
+            expect(screen.queryByTestId('museum-escape')).not.toBeInTheDocument();
+        });
+
+        it('shows escape hatch in web and museum when enabled', () => {
+            localStorage.setItem(ESCAPE_HATCH_ENABLED_KEY, 'true');
+            localStorage.setItem(APP_MODE_STORAGE_KEY, 'web');
+            const { unmount } = render(
+                <MemoryRouter initialEntries={['/']}>
+                    <Main lang="en" />
+                </MemoryRouter>
+            );
+            expect(screen.getByTestId('museum-escape')).toBeInTheDocument();
+            unmount();
+
+            localStorage.setItem(APP_MODE_STORAGE_KEY, 'museum');
+            render(
+                <MemoryRouter initialEntries={['/']}>
+                    <Main lang="en" />
+                </MemoryRouter>
+            );
             expect(screen.getByTestId('museum-escape')).toBeInTheDocument();
         });
 

@@ -16,6 +16,7 @@ import type {
   UsbPortInfo,
 } from "@/museum/button/buttonBridge";
 import { useButtonLedDebugOverlay } from "@/museum/button/buttonDebug";
+import { escapeHatchToggleStyle } from "@/museum/escapeHatchStyle";
 
 type StatusTone = "ok" | "warn" | "error" | "idle";
 
@@ -325,6 +326,8 @@ function Setup(): ReactElement {
     setAgentMode,
     pttHardwareEnabled,
     setPttHardwareEnabled,
+    escapeHatchEnabled,
+    setEscapeHatchEnabled,
     devLogEnabled,
     setDevLogEnabled,
     devLogCategories,
@@ -404,6 +407,19 @@ function Setup(): ReactElement {
               {t("setup.museum")}
             </button>
           </SetupSegmented>
+          <button
+            type="button"
+            data-testid="setup-escape-hatch-toggle"
+            className={escapeHatchEnabled ? "control" : ""}
+            aria-pressed={escapeHatchEnabled}
+            onClick={() => setEscapeHatchEnabled(!escapeHatchEnabled)}
+            style={escapeHatchToggleStyle(escapeHatchEnabled, {
+              ...setupCompactButton,
+              width: "100%",
+            })}
+          >
+            {t("setup.escapeHatch")}
+          </button>
         </SetupPanel>
 
         <SetupPanel title={t("setup.panels.agentMode")}>
