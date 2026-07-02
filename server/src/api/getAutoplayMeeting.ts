@@ -1,53 +1,41 @@
 import { meetingsCollection } from "@services/DbService.js";
-import { getGlobalOptions } from "@logic/GlobalOptions.js";
 import { getMeeting } from "./getMeeting.js";
 import { isCompleteReplayManifest } from "./replayManifest.js";
+import { buildAutoplaySamplePipeline } from "./autoplayMeetingQuery.js";
 import { BadRequestError, NotFoundError } from "@models/Errors.js";
 import type { StoredMeeting } from "@models/DBModels.js";
 
-const MAX_SAMPLE_ATTEMPTS = 8;
-
-function buildAutoplayMatchFilter(language?: string): Record<string, unknown> {
-    const { autoplayEarliestMeetingDate } = getGlobalOptions();
-    const filter: Record<string, unknown> = {
-        summary: { $exists: true, $ne: null },
-        date: { $gte: autoplayEarliestMeetingDate },
-        audio: { $exists: true, $not: { $size: 0 } },
-    };
-    if (language) {
-        filter.language = language;
-    }
-    return filter;
-}
-
 /**
  * Pick a random completed meeting suitable for kiosk autoplay replay.
+ *
+ * Selection uses a single aggregation `$match` + `$sample` (see autoplayMeetingQuery).
+ * `isCompleteReplayManifest` is the final gate for edge cases Mongo cannot express
+ * (e.g. missing audio on an earlier message). Long term: `meetingComplete` flag —
+ * docs/meeting-complete-flag-plan.md.
  */
 export async function getAutoplayMeeting(language?: string): Promise<{ meetingId: number }> {
-    const filter = buildAutoplayMatchFilter(language);
+    const pipeline = buildAutoplaySamplePipeline(language);
+    const sampled = await meetingsCollection
+        .aggregate<StoredMeeting>(pipeline)
+        .toArray();
 
-    for (let attempt = 0; attempt < MAX_SAMPLE_ATTEMPTS; attempt++) {
-        const sampled = await meetingsCollection
-            .aggregate<StoredMeeting>([{ $match: filter }, { $sample: { size: 1 } }])
-            .toArray();
-
-        const candidate = sampled[0];
-        if (!candidate) {
-            break;
-        }
-
-        try {
-            const meeting = await getMeeting(candidate._id);
-            if (!isCompleteReplayManifest(meeting)) {
-                continue;
-            }
-            return { meetingId: candidate._id };
-        } catch {
-            // Sample again when manifest rules reject this record.
-        }
+    const candidate = sampled[0];
+    if (!candidate) {
+        throw new NotFoundError();
     }
 
-    throw new NotFoundError();
+    try {
+        const meeting = await getMeeting(candidate._id);
+        if (!isCompleteReplayManifest(meeting)) {
+            throw new NotFoundError();
+        }
+        return { meetingId: candidate._id };
+    } catch (error) {
+        if (error instanceof NotFoundError) {
+            throw error;
+        }
+        throw new NotFoundError();
+    }
 }
 
 export function parseAutoplayLanguageQuery(value: unknown): string | undefined {
