@@ -56,7 +56,7 @@ export class MicrophoneUnavailableError extends Error {
 }
 
 const MIC_CONSTRAINTS: MediaStreamConstraints = {
-  audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+  audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: false },
 };
 
 /**
