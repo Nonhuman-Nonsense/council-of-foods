@@ -325,6 +325,18 @@ describe('Setup overlay', () => {
     expect(screen.queryByTestId('setup-led-debug-toggle')).not.toBeInTheDocument();
   });
 
+  it('shows LED preview toggle when push to talk is enabled in production', async () => {
+    vi.stubEnv('DEV', false);
+    vi.resetModules();
+    localStorage.setItem('councilAgentMode', 'ptt');
+
+    const { default: SetupProd } = await import('@main/overlay/Setup');
+    render(<SetupProd />);
+
+    expect(screen.getByTestId('setup-led-debug-toggle')).toBeInTheDocument();
+    vi.unstubAllEnvs();
+  });
+
   it('shows LED preview toggle as active when flag is enabled', () => {
     localStorage.setItem('councilAgentMode', 'ptt');
     ledDebugState.enabled = true;

@@ -359,7 +359,7 @@ function Setup(): ReactElement {
 
   const showButtonPanel = agentMode === "ptt" && pttHardwareEnabled;
   const showPttOptionsRow = agentMode === "ptt";
-  const showLedPreviewPill = import.meta.env.DEV && agentMode === "ptt";
+  const showLedPreviewPill = agentMode === "ptt";
   const showButtonDetails =
     showButtonPanel &&
     (bridgeDetailLines.length > 0 ||
