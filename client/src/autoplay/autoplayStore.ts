@@ -36,6 +36,9 @@ export const SUMMARY_RETURN_TO_ROOT_MS = 20_000;
 /** Autoplay exhibition loop: next meeting after protocol reading. */
 export const AUTOPLAY_NEXT_MEETING_MS = 5_000;
 
+/** Idle before autoplay warning on welcome (/) or in-progress setup (/new). */
+export const SETUP_IDLE_MS = 90_000;
+
 export type AutoplayHandle = {
   notify: (event: AutoplayConsumerEvent) => void;
 };

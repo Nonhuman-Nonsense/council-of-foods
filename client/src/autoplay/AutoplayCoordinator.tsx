@@ -12,14 +12,22 @@ import routes from "@/routes.json";
 import {
   AUTOPLAY_NEXT_MEETING_MS,
   bumpAutoplayActivity,
+  SETUP_IDLE_MS,
   useAutoplayStore,
 } from "./autoplayStore";
 import { log } from "@/logger";
 import { useErrorStore } from "@main/overlay/errorStore";
 
-const LANDING_SETUP_IDLE_MS = 90_000;
 const IDLE_POLL_MS = 1_000;
 const FETCH_RETRY_MS = 5_000;
+
+/** Setup-entry flow: welcome screen (/) and in-progress meeting setup (/new). */
+function isInSetupEntryFlow(pathname: string): boolean {
+  const onLanding = isRootPath(pathname);
+  const withoutLang = stripLanguagePrefix(pathname);
+  const onNewMeetingPath = withoutLang === `/${routes.newMeeting}`;
+  return onLanding || onNewMeetingPath;
+}
 
 export interface AutoplayCoordinatorProps {
   meetingliveKey: string | null;
@@ -29,8 +37,8 @@ export interface AutoplayCoordinatorProps {
 type IdleInactiveReason =
   | "not_museum"
   | "phase_not_off"
-  | "setup_hash"
-  | "setup_button_claim"
+  | "staff_setup_hash"
+  | "staff_setup_button_claim"
   | "live_meeting_playing"
   | "connection_error"
   | "no_idle_context";
@@ -73,7 +81,7 @@ export default function AutoplayCoordinator({
     log.event("AUTOPLAY", "coordinator active", {
       phase,
       pathname: location.pathname,
-      thresholdMs: LANDING_SETUP_IDLE_MS,
+      thresholdMs: SETUP_IDLE_MS,
     });
   }, [isMuseumMode]);
 
@@ -113,7 +121,7 @@ export default function AutoplayCoordinator({
   }, [setPhase]);
 
   const exitAutoplay = useCallback(() => {
-    log.event("AUTOPLAY", "exit to landing", { via: "hardware_button" });
+    log.event("AUTOPLAY", "exit to root", { via: "hardware_button" });
     setPhase("off");
     window.location.href = "/";
   }, []);
@@ -240,17 +248,14 @@ export default function AutoplayCoordinator({
       return;
     }
 
-    const withoutLang = stripLanguagePrefix(location.pathname);
-    const onSetupRoute = withoutLang === `/${routes.newMeeting}`;
-    const onLanding = isRootPath(location.pathname);
     const liveMeetingPlaying = Boolean(meetingliveKey) && !councilOnSummary;
 
     if (location.hash === "#setup") {
-      logIdleInactive("setup_hash");
+      logIdleInactive("staff_setup_hash");
       return;
     }
     if (setupClaimed) {
-      logIdleInactive("setup_button_claim");
+      logIdleInactive("staff_setup_button_claim");
       return;
     }
     if (liveMeetingPlaying) {
@@ -258,7 +263,7 @@ export default function AutoplayCoordinator({
       return;
     }
 
-    const idleContext = onLanding || onSetupRoute ? "setup" : null;
+    const idleContext = isInSetupEntryFlow(location.pathname) ? "setup" : null;
 
     if (!idleContext) {
       logIdleInactive("no_idle_context", { pathname: location.pathname });
@@ -269,7 +274,7 @@ export default function AutoplayCoordinator({
       lastIdleInactiveReasonRef.current = "watching";
       log.event("AUTOPLAY", "idle watch started", {
         idleContext,
-        thresholdMs: LANDING_SETUP_IDLE_MS,
+        thresholdMs: SETUP_IDLE_MS,
         pathname: location.pathname,
         pollMs: IDLE_POLL_MS,
       });
@@ -277,11 +282,11 @@ export default function AutoplayCoordinator({
 
     const timerId = window.setInterval(() => {
       const elapsedMs = Date.now() - useAutoplayStore.getState().lastActivityMs;
-      const remainingMs = LANDING_SETUP_IDLE_MS - elapsedMs;
+      const remainingMs = SETUP_IDLE_MS - elapsedMs;
       if (remainingMs <= 0) {
         log.event("AUTOPLAY", "idle threshold reached", {
           idleContext,
-          thresholdMs: LANDING_SETUP_IDLE_MS,
+          thresholdMs: SETUP_IDLE_MS,
           elapsedMs,
         });
         showWarning();

@@ -83,8 +83,7 @@ Gate with `isMuseumMode` inside the coordinator. The component name is mode-agno
 
 | Context | Condition | Idle before enter |
 |---------|-----------|-------------------|
-| Landing | `isRootPath` | ~90s |
-| Setup abandoned | `/new-meeting` | ~90s |
+| Setup entry (welcome `/` or abandoned `/new`) | `isInSetupEntryFlow` | ~90s |
 | Summary (replay) | meeting route, no `liveKey`, summary overlay / playback done | ~60s |
 
 **Explicitly no idle timer while:**
@@ -122,7 +121,7 @@ Before `enterAutoplay()` runs, the coordinator shows a confirmation overlay. Thi
 
 **When warning is skipped:**
 
-- Only when transitioning from interactive idle → autoplay (landing, setup, or post-live summary).
+- Only when transitioning from interactive idle → autoplay (setup entry flow or post-live summary).
 - **Not** between meetings in the autoplay loop (`autoplayPhase === "active"`) — once confirmed, the next replay starts after the short post-summary idle without re-prompting.
 
 **Flow:**
@@ -200,7 +199,7 @@ Hardcoded timing constants in `AutoplayCoordinator.tsx` / `AutoplayWarning.tsx`:
 
 | Constant | Value | Where |
 |----------|-------|-------|
-| Landing / setup idle | ~90s | Coordinator |
+| Setup-entry idle | ~90s | Coordinator |
 | Summary idle (interactive) | ~60s | Coordinator |
 | Warning countdown | 10s | `AutoplayWarning` (`AutoButton`) |
 | Post-summary loop idle | ~30–45s | Coordinator (active phase only) |
@@ -239,12 +238,12 @@ No server config for timings.
 
 **Manual (museum + PTT)**
 
-1. Landing, no input ~90s → warning overlay appears with countdown
-2. Press hardware button on warning → overlay closes, stays on landing, voice guide continues
+1. Welcome screen (`/`), no input ~90s → warning overlay appears with countdown
+2. Press hardware button on warning → overlay closes, stays on welcome screen, voice guide continues
 3. Wait 10s on warning (or click confirm) → replay starts, no voice-guide WebRTC in network tab
 4. Replay plays through → after summary idle, another meeting starts automatically (no second warning)
-5. Button during replay → landing, voice guide can start again
-6. Start setup, abandon ~90s → warning → autoplay
+5. Button during replay → welcome screen, voice guide can start again
+6. Start setup (`/new`), abandon ~90s → warning → autoplay
 7. Live meeting playing → no warning mid-playback; after summary finishes + idle → warning → autoplay
 
 ---
