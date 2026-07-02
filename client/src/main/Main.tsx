@@ -33,6 +33,7 @@ import { useErrorStore } from "./overlay/errorStore";
 
 import MuseumButton from "@/museum/button/MuseumButton";
 import ButtonBanner from "@/museum/button/ButtonBanner";
+import { useMuseumCursorHide } from "@/museum/useMuseumCursorHide";
 
 const AutoplayCoordinator = lazy(() => import("@/autoplay/AutoplayCoordinator"));
 
@@ -88,6 +89,7 @@ export default function Main(props: MainProps) {
   const isPortrait = usePortrait();
   const { isMuseumMode, agentMode, museumSwitchButtonEnabled } = useCouncilSettings();
   const { ledDebugOverlay } = useButtonLedDebugOverlay();
+  useMuseumCursorHide();
 
   useEffect(() => {
     if (i18n.language !== props.lang) {

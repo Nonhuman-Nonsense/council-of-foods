@@ -39,6 +39,11 @@ html,
   z-index: var(--z-navbar);
 }
 
+html.museum-cursor-hidden,
+html.museum-cursor-hidden * {
+  cursor: none !important;
+}
+
 .App {
   font-family: "Tinos", sans-serif;
   font-style: normal;
