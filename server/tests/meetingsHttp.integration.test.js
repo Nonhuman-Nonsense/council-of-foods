@@ -164,6 +164,64 @@ describe('HTTP meetings API (integration)', () => {
         expect(data.meetingId).toBe(Number(meetingId));
     });
 
+    it('GET /api/autoplay skips meetings whose replay manifest is incomplete', async () => {
+        const incompleteRes = await fetch(`${base()}/api/meetings`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(validCreateBody()),
+        });
+        const { meetingId: incompleteId } = await incompleteRes.json();
+
+        await meetingsCollection.updateOne(
+            { _id: Number(incompleteId) },
+            {
+                $set: {
+                    conversation: [
+                        { id: 'bad-m1', type: 'message', speaker: 'speaker1', text: 'Hello' },
+                        { id: 'bad-m2', type: 'message', speaker: 'speaker1', text: 'More' },
+                        { id: 'bad-sum', type: 'summary', speaker: 'speaker1', text: 'Summary' },
+                    ],
+                    audio: ['bad-m1', 'bad-m2', 'bad-sum'],
+                    summary: { id: 'bad-sum', type: 'summary', speaker: 'speaker1', text: 'Summary' },
+                    maximumPlayedIndex: 0,
+                },
+            },
+        );
+
+        const completeRes = await fetch(`${base()}/api/meetings`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(validCreateBody()),
+        });
+        const { meetingId: completeId } = await completeRes.json();
+
+        await meetingsCollection.updateOne(
+            { _id: Number(completeId) },
+            {
+                $set: {
+                    conversation: [
+                        { id: 'ok-m1', type: 'message', speaker: 'speaker1', text: 'Hello' },
+                        { id: 'ok-sum', type: 'summary', speaker: 'speaker1', text: 'Summary' },
+                    ],
+                    audio: ['ok-m1', 'ok-sum'],
+                    summary: { id: 'ok-sum', type: 'summary', speaker: 'speaker1', text: 'Summary' },
+                    maximumPlayedIndex: 1,
+                },
+            },
+        );
+
+        const res = await fetch(`${base()}/api/autoplay?language=en`);
+        expect(res.status).toBe(200);
+        const data = await res.json();
+        expect(data.meetingId).toBe(Number(completeId));
+        expect(data.meetingId).not.toBe(Number(incompleteId));
+
+        const manifestRes = await fetch(`${base()}/api/meetings/${data.meetingId}`);
+        expect(manifestRes.status).toBe(200);
+        const manifest = await manifestRes.json();
+        expect(manifest.conversation.at(-1)?.type).toBe('summary');
+    });
+
     it('GET /api/autoplay returns 400 on invalid language', async () => {
         const res = await fetch(`${base()}/api/autoplay?language=english`);
         expect(res.status).toBe(400);

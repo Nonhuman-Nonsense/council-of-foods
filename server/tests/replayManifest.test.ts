@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
     buildReplayMeetingManifest,
+    isCompleteReplayManifest,
     buildResumeConversation,
     orderedAudioIdsForConversation,
     stripAwaitingHumanTail,
@@ -131,6 +132,53 @@ describe("buildReplayMeetingManifest", () => {
         expect(m.conversation.map(c => c.type)).toEqual(["message", "summary"]);
         expect(m.summary).toBeDefined();
         // Since summary is the last message, it's considered complete.
+    });
+});
+
+describe("isCompleteReplayManifest", () => {
+    it("returns true when manifest ends with summary audio", () => {
+        const meeting = MockFactory.createMeeting({
+            conversation: [
+                { id: "m0", type: "message", speaker: SPEAKER_ID, text: "0" },
+                { id: "s", type: "summary", speaker: SPEAKER_ID, text: "x" },
+            ],
+            audio: ["m0", "s"],
+            summary: { id: "s", type: "summary", speaker: SPEAKER_ID, text: "x" },
+            maximumPlayedIndex: 1,
+        });
+        expect(isCompleteReplayManifest(meeting)).toBe(true);
+    });
+
+    it("returns false when maximumPlayedIndex caps before summary", () => {
+        const meeting = MockFactory.createMeeting({
+            maximumPlayedIndex: 1,
+            conversation: [
+                { id: "m0", type: "message", speaker: SPEAKER_ID, text: "0" },
+                { id: "m1", type: "message", speaker: SPEAKER_ID, text: "1" },
+                { id: "m2", type: "message", speaker: SPEAKER_ID, text: "2" },
+            ],
+            audio: ["m0", "m1", "m2", "s"],
+            summary: { id: "s", type: "summary", speaker: SPEAKER_ID, text: "x" },
+        });
+        expect(isCompleteReplayManifest(meeting)).toBe(false);
+    });
+
+    it("returns false when summary audio is missing", () => {
+        const meeting = MockFactory.createMeeting({
+            conversation: [
+                { id: "m0", type: "message", speaker: SPEAKER_ID, text: "0" },
+                { id: "s", type: "summary", speaker: SPEAKER_ID, text: "x" },
+            ],
+            audio: ["m0"],
+            summary: { id: "s", type: "summary", speaker: SPEAKER_ID, text: "x" },
+            maximumPlayedIndex: 1,
+        });
+        expect(isCompleteReplayManifest(meeting)).toBe(false);
+    });
+
+    it("returns false when conversation is empty", () => {
+        const meeting = MockFactory.createMeeting({ conversation: [] });
+        expect(isCompleteReplayManifest(meeting)).toBe(false);
     });
 });
 

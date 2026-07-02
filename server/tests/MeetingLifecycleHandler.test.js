@@ -209,6 +209,24 @@ describe('MeetingLifecycleHandler', () => {
             expect(mockContext.audioSystem.queueAudioGeneration).toHaveBeenCalledTimes(1);
             expect(mockContext.audioSystem.generateAudio).toHaveBeenCalledTimes(1);
         });
+
+        it('sets maximumPlayedIndex to the summary message index when persisting summary', async () => {
+            mockContext.meeting = storedMeeting({
+                conversation: [{ id: '1', text: 'hi', type: 'message', speaker: chair.id }],
+            });
+
+            await handler.handleConcludeMeeting({ date: '2025-01-01' });
+
+            const summaryIndex = mockContext.meeting.conversation.length - 1;
+            expect(mockContext.meeting.conversation[summaryIndex].type).toBe('summary');
+            expect(mockContext.meeting.maximumPlayedIndex).toBe(summaryIndex);
+
+            const summaryUpdate = mockMeetingsCollection.updateOne.mock.calls.find(
+                ([, update]) => update?.$set?.summary != null,
+            );
+            expect(summaryUpdate).toBeDefined();
+            expect(summaryUpdate[1].$set.maximumPlayedIndex).toBe(summaryIndex);
+        });
     });
 
     describe('handleExtendMeeting', () => {

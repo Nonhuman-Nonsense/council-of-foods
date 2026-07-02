@@ -1,7 +1,7 @@
 import { meetingsCollection } from "@services/DbService.js";
 import { getGlobalOptions } from "@logic/GlobalOptions.js";
 import { getMeeting } from "./getMeeting.js";
-import { buildReplayMeetingManifest } from "./replayManifest.js";
+import { isCompleteReplayManifest } from "./replayManifest.js";
 import { BadRequestError, NotFoundError } from "@models/Errors.js";
 import type { StoredMeeting } from "@models/DBModels.js";
 
@@ -38,7 +38,9 @@ export async function getAutoplayMeeting(language?: string): Promise<{ meetingId
 
         try {
             const meeting = await getMeeting(candidate._id);
-            buildReplayMeetingManifest(meeting);
+            if (!isCompleteReplayManifest(meeting)) {
+                continue;
+            }
             return { meetingId: candidate._id };
         } catch {
             // Sample again when manifest rules reject this record.

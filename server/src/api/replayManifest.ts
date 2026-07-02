@@ -119,3 +119,28 @@ export function buildReplayMeetingManifest(meeting: Meeting): Meeting {
 
     return { ...meeting, conversation, audio, summary: finalSummary };
 }
+
+/**
+ * True when the replay manifest ends with a summary message whose audio is listed.
+ * Used by kiosk autoplay to skip DB records that have `summary` but are not fully playable.
+ */
+export function isCompleteReplayManifest(meeting: Meeting): boolean {
+    let manifest: Meeting;
+    try {
+        manifest = buildReplayMeetingManifest(meeting);
+    } catch {
+        return false;
+    }
+
+    const last = manifest.conversation.at(-1);
+    if (last?.type !== "summary") {
+        return false;
+    }
+
+    const summaryId = last.id;
+    if (!summaryId) {
+        return false;
+    }
+
+    return (manifest.audio ?? []).includes(summaryId);
+}

@@ -142,14 +142,22 @@ export class MeetingLifecycleHandler {
         };
 
         m.conversation.push(summary);
+        const summaryIndex = m.conversation.length - 1;
+        m.maximumPlayedIndex = summaryIndex;
 
         manager.broadcaster.broadcastConversationUpdate(m.conversation);
-        Logger.info(`meeting ${m._id}`, `summary generated on index ${m.conversation.length - 1}`);
+        Logger.info(`meeting ${m._id}`, `summary generated on index ${summaryIndex}`);
 
         if (m._id !== null) {
             await manager.services.meetingsCollection.updateOne(
                 { _id: m._id },
-                { $set: { conversation: m.conversation, summary: summary } }
+                {
+                    $set: {
+                        conversation: m.conversation,
+                        summary,
+                        maximumPlayedIndex: summaryIndex,
+                    },
+                },
             );
         }
 
