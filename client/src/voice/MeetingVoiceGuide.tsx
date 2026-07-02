@@ -146,26 +146,29 @@ export default function MeetingVoiceGuide({
         : "The visitor has been quiet for a while. Check in with them — ask if they need help or have a question.",
   });
 
+  // Shared flag: set whenever we tear down the session due to the user being away
+  // (tab hidden for 60s, or no speech for 3 min). Cleared on resume.
+  const stoppedByBackgroundRef = useRef(false);
+
   // Handle tab visibility changes:
   // - Hidden: start a grace timer; if still hidden after 60s, tear down the session.
-  // - Visible again after grace teardown: auto-resume (opening greeting plays automatically).
+  // - Visible again after teardown: auto-resume (opening greeting plays automatically).
   // - Visible again within grace period: send an immediate refocus message.
   const HIDDEN_GRACE_MS = 60_000;
-  const hiddenByGraceRef = useRef(false);
   const hasMountedRef = useRef(false);
   useEffect(() => {
     if (!hasMountedRef.current) { hasMountedRef.current = true; return; }
 
     if (!isDocumentVisible) {
       const id = setTimeout(() => {
-        hiddenByGraceRef.current = true;
+        stoppedByBackgroundRef.current = true;
         voice.stop();
       }, HIDDEN_GRACE_MS);
       return () => clearTimeout(id);
     }
 
-    if (hiddenByGraceRef.current) {
-      hiddenByGraceRef.current = false;
+    if (stoppedByBackgroundRef.current) {
+      stoppedByBackgroundRef.current = false;
       void voice.start();
     } else if (!muted && !voice.isConnecting && !voice.agentSpeaking) {
       sendUserMessage(
@@ -178,6 +181,32 @@ export default function MeetingVoiceGuide({
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isDocumentVisible]);
+
+  // Absolute idle timer: if no user speech for 3 minutes, tear down the session.
+  // Covers the case where the tab stays visible but the user has switched to another app.
+  const IDLE_TIMEOUT_MS = 3 * 60_000;
+  useEffect(() => {
+    if (muted) return;
+    const id = setTimeout(() => {
+      stoppedByBackgroundRef.current = true;
+      voice.stop();
+    }, IDLE_TIMEOUT_MS);
+    return () => clearTimeout(id);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [voice.lastUserTranscript, muted]);
+
+  // Resume on window focus if the session was torn down by the background timer.
+  // This handles returning from another app without switching tabs.
+  useEffect(() => {
+    function onWindowFocus() {
+      if (!stoppedByBackgroundRef.current) return;
+      stoppedByBackgroundRef.current = false;
+      void voice.start();
+    }
+    window.addEventListener("focus", onWindowFocus);
+    return () => window.removeEventListener("focus", onWindowFocus);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const showMuseumReconnecting =
     isMuseumMode && !muted && voice.isConnecting && !connectionError;
