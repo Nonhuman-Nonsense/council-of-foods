@@ -4,6 +4,7 @@ import { promises as fs } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { Logger } from "@utils/Logger.js";
+import { PronunciationUtils } from "@utils/PronunciationUtils.js";
 
 export type AudioTask = () => Promise<void>;
 
@@ -170,83 +171,68 @@ export async function mergeAudioBuffers(buffers: Buffer[]): Promise<Buffer> {
     }
 }
 
-export function splitText(text: string, limit: number): string[] {
+/**
+ * Splits text into the minimum number of chunks each fitting within `limit`,
+ * preferring the latest natural boundary (paragraph > line > sentence > clause)
+ * over balanced sizes. This minimises the number of audible seams.
+ */
+export function splitTextForTts(text: string, limit: number): string[] {
     if (text.length <= limit) return [text];
 
     const chunks: string[] = [];
-    let currentText = text;
+    let remaining = text;
 
-    while (currentText.length > limit) {
-        // Calculate balanced target length
-        // e.g. 3000 chars / 2000 limit = 1.5 -> 2 chunks. Target = 1500.
-        const totalChunksNeeded = Math.ceil(currentText.length / limit);
-        const targetLength = Math.ceil(currentText.length / totalChunksNeeded);
-
-        let splitIndex = -1;
-        let bestScore = Infinity; // Lower is better (distance from target)
-
-        // Helper to update best split if better than current
-        const checkSplit = (idx: number) => {
-            if (idx === -1) return;
-            const distance = Math.abs(idx - targetLength);
-            // We prefer splits that are closer to target
-            // But strict constraint: idx <= limit
-            if (idx <= limit && distance < bestScore) {
-                bestScore = distance;
-                splitIndex = idx;
-            }
-        };
-
-        // Strategy:
-        // 1. Calculate an ideal "target length" (e.g., 1500 chars) to balance chunks.
-        // 2. Scan for logical separators (\n\n, \n, sentence endings) within the entire allowable range (up to limit).
-        // 3. Pick the separator that is closest to the target length to ensure chunks are evenly sized.
-
-        // Note: For typical text lengths (<5000 chars), scanning all separators is performant enough.
-
+    while (remaining.length > limit) {
         const separators = ['\n\n', '\n', '. ', ', '];
+        let splitIndex = -1;
 
         for (const sep of separators) {
-            let idx = currentText.indexOf(sep);
-            const candidates: number[] = [];
-            while (idx !== -1 && idx <= limit) {
-                candidates.push(idx + (sep === '. ' ? 1 : 0)); // Include period in previous chunk
-                idx = currentText.indexOf(sep, idx + 1);
-            }
-
-            if (candidates.length > 0) {
-                // Find candidate closest to target
-                let bestForSep = -1;
-                let bestDistForSep = Infinity;
-
-                for (const cand of candidates) {
-                    const dist = Math.abs(cand - targetLength);
-                    if (dist < bestDistForSep) {
-                        bestDistForSep = dist;
-                        bestForSep = cand;
-                    }
-                }
-
-                checkSplit(bestForSep);
-
-                if (splitIndex !== -1) {
-                    break; // Found a split with this high-priority separator
-                }
+            // Find the LAST occurrence at or before the limit.
+            const searchRegion = remaining.substring(0, limit + sep.length);
+            const idx = searchRegion.lastIndexOf(sep);
+            if (idx !== -1 && idx <= limit) {
+                // Keep the separator attached to the left chunk (include period, keep newlines).
+                splitIndex = idx + (sep === '. ' ? 2 : sep === ', ' ? 1 : sep.length);
+                break;
             }
         }
 
-        if (splitIndex === -1) {
-            // Fallback: Hard split at limit
+        if (splitIndex <= 0) {
+            // No natural boundary found — hard cut at limit.
             splitIndex = limit;
         }
 
-        chunks.push(currentText.substring(0, splitIndex).trim());
-        currentText = currentText.substring(splitIndex).trim();
+        chunks.push(remaining.substring(0, splitIndex).trimEnd());
+        remaining = remaining.substring(splitIndex).trimStart();
     }
 
-    if (currentText.length > 0) {
-        chunks.push(currentText);
+    if (remaining.length > 0) {
+        chunks.push(remaining);
     }
 
     return chunks;
 }
+
+/**
+ * Prepares Inworld TTS chunks for a message:
+ * 1. Runs pronunciation processing (aliases + IPA) on the *full* text so that
+ *    expansion is measured before splitting — preventing post-split overflows.
+ * 2. Splits the processed text using splitTextForTts.
+ *
+ * Returns the chunks ready to send to the API, plus the replacedWords map needed
+ * for subtitle restoration (built once from the full text).
+ */
+export function prepareInworldTtsChunks(
+    text: string,
+    language: string,
+    limit: number = 2000,
+): { chunks: string[]; replacedWords: Map<string, string> } {
+    const { processedText, replacedWords } = PronunciationUtils.processText(
+        text,
+        language,
+        { includeIpa: true },
+    );
+    const chunks = splitTextForTts(processedText, limit);
+    return { chunks, replacedWords };
+}
+
