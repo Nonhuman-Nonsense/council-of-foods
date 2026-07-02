@@ -27,9 +27,11 @@ export const PTT_HARDWARE_ENABLED_KEY = "councilPttHardwareEnabled";
 
 export const PTT_HARDWARE_CHANGE_EVENT = "council-ptt-hardware-change";
 
-export const ESCAPE_HATCH_ENABLED_KEY = "councilEscapeHatchEnabled";
+export const MUSEUM_SWITCH_BUTTON_ENABLED_KEY = "councilMuseumSwitchButtonEnabled";
 
-export const ESCAPE_HATCH_CHANGE_EVENT = "council-escape-hatch-change";
+export const MUSEUM_SWITCH_BUTTON_CHANGE_EVENT = "council-museum-switch-button-change";
+
+const LEGACY_ESCAPE_HATCH_ENABLED_KEY = "councilEscapeHatchEnabled";
 
 export function getAppMode(): AppMode {
   try {
@@ -103,26 +105,41 @@ export function setPttHardwareEnabled(enabled: boolean): void {
 }
 
 /** Top-left staff control to toggle web/museum without opening #setup. */
-export function getEscapeHatchEnabled(): boolean {
+export function getMuseumSwitchButtonEnabled(): boolean {
   try {
-    return localStorage.getItem(ESCAPE_HATCH_ENABLED_KEY) === "true";
+    const stored = localStorage.getItem(MUSEUM_SWITCH_BUTTON_ENABLED_KEY);
+    if (stored === "true") {
+      return true;
+    }
+
+    const legacy = localStorage.getItem(LEGACY_ESCAPE_HATCH_ENABLED_KEY);
+    if (legacy === "true") {
+      localStorage.setItem(MUSEUM_SWITCH_BUTTON_ENABLED_KEY, "true");
+      localStorage.removeItem(LEGACY_ESCAPE_HATCH_ENABLED_KEY);
+      return true;
+    }
+
+    return false;
   } catch {
     return false;
   }
 }
 
-export function setEscapeHatchEnabled(enabled: boolean): void {
+export function setMuseumSwitchButtonEnabled(enabled: boolean): void {
   try {
     if (enabled) {
-      localStorage.setItem(ESCAPE_HATCH_ENABLED_KEY, "true");
+      localStorage.setItem(MUSEUM_SWITCH_BUTTON_ENABLED_KEY, "true");
     } else {
-      localStorage.removeItem(ESCAPE_HATCH_ENABLED_KEY);
+      localStorage.removeItem(MUSEUM_SWITCH_BUTTON_ENABLED_KEY);
+      localStorage.removeItem(LEGACY_ESCAPE_HATCH_ENABLED_KEY);
     }
   } catch {
     // ignore storage errors (private mode, quota, etc.)
   }
 
-  window.dispatchEvent(new CustomEvent<boolean>(ESCAPE_HATCH_CHANGE_EVENT, { detail: enabled }));
+  window.dispatchEvent(
+    new CustomEvent<boolean>(MUSEUM_SWITCH_BUTTON_CHANGE_EVENT, { detail: enabled }),
+  );
 }
 
 function readDisabledDevLogCategories(): LogCategory[] {
@@ -203,8 +220,8 @@ export function useCouncilSettings(): {
   setAgentMode: (mode: AgentMode) => void;
   pttHardwareEnabled: boolean;
   setPttHardwareEnabled: (enabled: boolean) => void;
-  escapeHatchEnabled: boolean;
-  setEscapeHatchEnabled: (enabled: boolean) => void;
+  museumSwitchButtonEnabled: boolean;
+  setMuseumSwitchButtonEnabled: (enabled: boolean) => void;
   devLogEnabled: boolean;
   setDevLogEnabled: (enabled: boolean) => void;
   devLogCategories: Record<LogCategory, boolean>;
@@ -214,7 +231,8 @@ export function useCouncilSettings(): {
   const [mode, setMode] = useState<AppMode>(getAppMode);
   const [agentMode, setAgentModeState] = useState(getAgentMode);
   const [pttHardwareEnabled, setPttHardwareEnabledState] = useState(getPttHardwareEnabled);
-  const [escapeHatchEnabled, setEscapeHatchEnabledState] = useState(getEscapeHatchEnabled);
+  const [museumSwitchButtonEnabled, setMuseumSwitchButtonEnabledState] =
+    useState(getMuseumSwitchButtonEnabled);
   const [devLogEnabled, setDevLogEnabledState] = useState(getDevLogEnabled);
   const [devLogCategories, setDevLogCategoriesState] = useState(getDevLogCategoryStates);
 
@@ -242,9 +260,9 @@ export function useCouncilSettings(): {
       setPttHardwareEnabledState(next);
     }
 
-    function onEscapeHatchChange(event: Event): void {
+    function onMuseumSwitchButtonChange(event: Event): void {
       const next = (event as CustomEvent<boolean>).detail;
-      setEscapeHatchEnabledState(next);
+      setMuseumSwitchButtonEnabledState(next);
     }
 
     function onStorage(event: StorageEvent): void {
@@ -260,8 +278,8 @@ export function useCouncilSettings(): {
       if (event.key === PTT_HARDWARE_ENABLED_KEY) {
         setPttHardwareEnabledState(getPttHardwareEnabled());
       }
-      if (event.key === ESCAPE_HATCH_ENABLED_KEY) {
-        setEscapeHatchEnabledState(getEscapeHatchEnabled());
+      if (event.key === MUSEUM_SWITCH_BUTTON_ENABLED_KEY) {
+        setMuseumSwitchButtonEnabledState(getMuseumSwitchButtonEnabled());
       }
       if (
         event.key === DEV_LOG_ENABLED_KEY ||
@@ -278,14 +296,14 @@ export function useCouncilSettings(): {
     window.addEventListener(APP_MODE_CHANGE_EVENT, onAppModeChange);
     window.addEventListener(AGENT_MODE_CHANGE_EVENT, onAgentModeChange);
     window.addEventListener(PTT_HARDWARE_CHANGE_EVENT, onPttHardwareChange);
-    window.addEventListener(ESCAPE_HATCH_CHANGE_EVENT, onEscapeHatchChange);
+    window.addEventListener(MUSEUM_SWITCH_BUTTON_CHANGE_EVENT, onMuseumSwitchButtonChange);
     window.addEventListener(DEV_LOG_CHANGE_EVENT, onDevLogChange);
     window.addEventListener("storage", onStorage);
     return () => {
       window.removeEventListener(APP_MODE_CHANGE_EVENT, onAppModeChange);
       window.removeEventListener(AGENT_MODE_CHANGE_EVENT, onAgentModeChange);
       window.removeEventListener(PTT_HARDWARE_CHANGE_EVENT, onPttHardwareChange);
-      window.removeEventListener(ESCAPE_HATCH_CHANGE_EVENT, onEscapeHatchChange);
+      window.removeEventListener(MUSEUM_SWITCH_BUTTON_CHANGE_EVENT, onMuseumSwitchButtonChange);
       window.removeEventListener(DEV_LOG_CHANGE_EVENT, onDevLogChange);
       window.removeEventListener("storage", onStorage);
     };
@@ -313,9 +331,9 @@ export function useCouncilSettings(): {
     setPttHardwareEnabledState(enabled);
   }, []);
 
-  const setEscapeHatchEnabledFromHook = useCallback((enabled: boolean) => {
-    setEscapeHatchEnabled(enabled);
-    setEscapeHatchEnabledState(enabled);
+  const setMuseumSwitchButtonEnabledFromHook = useCallback((enabled: boolean) => {
+    setMuseumSwitchButtonEnabled(enabled);
+    setMuseumSwitchButtonEnabledState(enabled);
   }, []);
 
   const setDevLogEnabledFromHook = useCallback((enabled: boolean) => {
@@ -342,8 +360,8 @@ export function useCouncilSettings(): {
     setAgentMode: setAgentModeFromHook,
     pttHardwareEnabled,
     setPttHardwareEnabled: setPttHardwareEnabledFromHook,
-    escapeHatchEnabled,
-    setEscapeHatchEnabled: setEscapeHatchEnabledFromHook,
+    museumSwitchButtonEnabled,
+    setMuseumSwitchButtonEnabled: setMuseumSwitchButtonEnabledFromHook,
     devLogEnabled,
     setDevLogEnabled: setDevLogEnabledFromHook,
     devLogCategories,

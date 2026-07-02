@@ -39,7 +39,7 @@ export const z = {
   staffOverlay: 25,
   rotatePrompt: 100,
   voiceGuide: 10000,
-  museumEscape: 10001,
+  museumSwitchButton: 10001,
   buttonDebug: 10002,
 } as const;
 

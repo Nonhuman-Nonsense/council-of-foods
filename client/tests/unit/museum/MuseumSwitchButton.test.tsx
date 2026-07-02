@@ -1,11 +1,11 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
-import MuseumModeEscapeHatch from '@/museum/MuseumModeEscapeHatch';
+import MuseumSwitchButton from '@/museum/MuseumSwitchButton';
 import { APP_MODE_STORAGE_KEY } from '@/settings/councilSettings';
 import '@testing-library/jest-dom';
 
-describe('MuseumModeEscapeHatch', () => {
+describe('MuseumSwitchButton', () => {
   beforeEach(() => {
     localStorage.clear();
   });
@@ -14,10 +14,10 @@ describe('MuseumModeEscapeHatch', () => {
     localStorage.setItem(APP_MODE_STORAGE_KEY, 'museum');
     render(
       <MemoryRouter>
-        <MuseumModeEscapeHatch />
+        <MuseumSwitchButton />
       </MemoryRouter>,
     );
-    fireEvent.click(screen.getByTestId('museum-mode-escape'));
+    fireEvent.click(screen.getByTestId('museum-switch-button'));
     expect(localStorage.getItem(APP_MODE_STORAGE_KEY)).toBe('web');
   });
 
@@ -25,32 +25,32 @@ describe('MuseumModeEscapeHatch', () => {
     localStorage.setItem(APP_MODE_STORAGE_KEY, 'web');
     render(
       <MemoryRouter>
-        <MuseumModeEscapeHatch />
+        <MuseumSwitchButton />
       </MemoryRouter>,
     );
-    fireEvent.click(screen.getByTestId('museum-mode-escape'));
+    fireEvent.click(screen.getByTestId('museum-switch-button'));
     expect(localStorage.getItem(APP_MODE_STORAGE_KEY)).toBe('museum');
   });
 
   it('shows red border preview on #setup', () => {
     render(
       <MemoryRouter initialEntries={['/#setup']}>
-        <MuseumModeEscapeHatch />
+        <MuseumSwitchButton />
       </MemoryRouter>,
     );
-    const hatch = screen.getByTestId('museum-mode-escape');
-    expect(hatch).toHaveStyle({ border: '2px solid rgb(252, 165, 165)' });
-    expect(hatch).toHaveStyle({ opacity: '1' });
+    const button = screen.getByTestId('museum-switch-button');
+    expect(button).toHaveStyle({ border: '2px solid rgb(252, 165, 165)' });
+    expect(button).toHaveStyle({ opacity: '1' });
   });
 
   it('stays invisible outside #setup', () => {
     render(
       <MemoryRouter initialEntries={['/']}>
-        <MuseumModeEscapeHatch />
+        <MuseumSwitchButton />
       </MemoryRouter>,
     );
-    const hatch = screen.getByTestId('museum-mode-escape');
-    expect(hatch).toHaveStyle({ opacity: '0' });
-    expect(hatch.style.boxShadow).toBe('');
+    const button = screen.getByTestId('museum-switch-button');
+    expect(button).toHaveStyle({ opacity: '0' });
+    expect(button.style.boxShadow).toBe('');
   });
 });

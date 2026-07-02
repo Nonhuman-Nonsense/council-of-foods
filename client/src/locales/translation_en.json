@@ -95,7 +95,7 @@
     },
     "web": "Web",
     "museum": "Museum",
-    "escapeHatch": "Escape hatch",
+    "museumSwitchButton": "Museum switch button",
     "button": {
       "title": "Button",
       "bridgeLabel": "Bridge",

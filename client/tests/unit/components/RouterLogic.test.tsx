@@ -5,7 +5,7 @@ import React from 'react';
 import { MemoryRouter, Routes, Route, useLocation } from 'react-router';
 import Main from '@main/Main';
 import Navbar from '@main/Navbar';
-import { APP_MODE_STORAGE_KEY, ESCAPE_HATCH_ENABLED_KEY } from '@/settings/councilSettings';
+import { APP_MODE_STORAGE_KEY, MUSEUM_SWITCH_BUTTON_ENABLED_KEY } from '@/settings/councilSettings';
 import * as AvailableLanguagesModule from '@shared/AvailableLanguages';
 import routes from '@/routes.json';
 import { MockFactory } from '../factories/MockFactory';
@@ -44,8 +44,8 @@ vi.mock('@main/overlay/RotateDevice', () => ({
 vi.mock('@main/FullscreenButton', () => ({
     default: () => <div data-testid="fullscreen-btn">Fullscreen</div>
 }));
-vi.mock('@/museum/MuseumModeEscapeHatch', () => ({
-    default: () => <div data-testid="museum-escape">Escape</div>
+vi.mock('@/museum/MuseumSwitchButton', () => ({
+    default: () => <div data-testid="museum-switch-button">Museum switch</div>
 }));
 
 // Mock utils
@@ -127,18 +127,18 @@ describe('Router Logic', () => {
             );
             expect(screen.queryByRole('navigation')).not.toBeInTheDocument();
             expect(screen.queryByTestId('fullscreen-btn')).not.toBeInTheDocument();
-            expect(screen.queryByTestId('museum-escape')).not.toBeInTheDocument();
+            expect(screen.queryByTestId('museum-switch-button')).not.toBeInTheDocument();
         });
 
-        it('shows escape hatch in web and museum when enabled', () => {
-            localStorage.setItem(ESCAPE_HATCH_ENABLED_KEY, 'true');
+        it('shows museum switch button in web and museum when enabled', () => {
+            localStorage.setItem(MUSEUM_SWITCH_BUTTON_ENABLED_KEY, 'true');
             localStorage.setItem(APP_MODE_STORAGE_KEY, 'web');
             const { unmount } = render(
                 <MemoryRouter initialEntries={['/']}>
                     <Main lang="en" />
                 </MemoryRouter>
             );
-            expect(screen.getByTestId('museum-escape')).toBeInTheDocument();
+            expect(screen.getByTestId('museum-switch-button')).toBeInTheDocument();
             unmount();
 
             localStorage.setItem(APP_MODE_STORAGE_KEY, 'museum');
@@ -147,7 +147,7 @@ describe('Router Logic', () => {
                     <Main lang="en" />
                 </MemoryRouter>
             );
-            expect(screen.getByTestId('museum-escape')).toBeInTheDocument();
+            expect(screen.getByTestId('museum-switch-button')).toBeInTheDocument();
         });
 
         it('shows navbar and fullscreen in web mode', () => {
@@ -159,7 +159,7 @@ describe('Router Logic', () => {
             );
             expect(screen.getByRole('navigation')).toBeInTheDocument();
             expect(screen.getByTestId('fullscreen-btn')).toBeInTheDocument();
-            expect(screen.queryByTestId('museum-escape')).not.toBeInTheDocument();
+            expect(screen.queryByTestId('museum-switch-button')).not.toBeInTheDocument();
         });
 
         it('renders Council at /meeting/new', async () => {
