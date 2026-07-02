@@ -33,13 +33,13 @@ describe("mergeButtonOwner", () => {
     ).toBe("summary");
   });
 
-  it("prefers setup over human-input", () => {
+  it("prefers staff over human-input", () => {
     expect(
       mergeButtonOwner({
-        setup: true,
+        staff: true,
         "human-input": true,
       }),
-    ).toBe("setup");
+    ).toBe("staff");
   });
 
   it("prefers summary over replay", () => {
@@ -75,12 +75,12 @@ describe("resolveAppliedLedMode", () => {
     expect(resolveAppliedLedMode({}, "meta-agent")).toBe("off");
   });
 
-  it("uses winner LED when setup displaces human-input", () => {
+  it("uses winner LED when staff displaces human-input", () => {
     const ledModes: ButtonLedModes = {
       "human-input": "on",
-      setup: "pulse",
+      staff: "pulse",
     };
-    expect(resolveAppliedLedMode(ledModes, "setup")).toBe("pulse");
+    expect(resolveAppliedLedMode(ledModes, "staff")).toBe("pulse");
   });
 
   it("allows buttonOwner with off LED preference", () => {

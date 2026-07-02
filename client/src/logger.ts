@@ -129,7 +129,7 @@ function emitStructuredLog(category: LogCategory, message: string, data?: unknow
 }
 
 /**
- * Structured console log for staff debugging. Gated by `#setup` logging toggles.
+ * Structured console log for staff debugging. Gated by `#staff` logging toggles.
  *
  * ERROR is additive in dev: failures mirror to `console.error` when structured
  * ERROR logging is off. Other categories are optional styled groups only.

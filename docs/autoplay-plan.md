@@ -89,7 +89,7 @@ Gate with `isMuseumMode` inside the coordinator. The component name is mode-agno
 **Explicitly no idle timer while:**
 
 - Live council is playing (`meetingliveKey` set, council not on summary). Passive watchers may sit through the whole meeting; it ends at summary naturally, then the summary idle rule applies.
-- Staff `#setup` overlay is open (`setup` button claim active — coordinator should not enter warning or autoplay).
+- Staff `#staff` overlay is open (`staff` button claim active — coordinator should not enter warning or autoplay).
 - Already `autoplayPhase === "active"`.
 - Warning already showing (`autoplayPhase === "warning"` — idle timer paused until warning resolves).
 
@@ -168,7 +168,7 @@ During `warning`, the same claim handles the dismiss path (see above).
 Renumber to avoid ties:
 
 ```ts
-setup: 4
+staff: 4
 autoplay: 3
 human-input: 2
 voice-guide | meta-agent: 1
@@ -232,7 +232,7 @@ No server config for timings.
 **Automated**
 
 - `GET /api/autoplay` returns only completed meetings after baseline date; respects optional `language`; 404 when pool empty
-- `buttonStore`: `autoplay` wins over `voice-guide`, loses to `setup`
+- `buttonStore`: `autoplay` wins over `voice-guide`, loses to `staff`
 - Coordinator unit tests: idle opens warning (not active), activity resets, confirm enters active, loop calls API twice, button exits
 - `AutoplayWarning`: `AutoButton` fires `onConfirm` at 10s; hardware dismiss callback not fired on confirm
 

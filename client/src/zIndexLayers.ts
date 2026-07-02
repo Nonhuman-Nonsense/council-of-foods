@@ -35,7 +35,7 @@ export const z = {
   overlayCloseButton: 20,
   /** Blocking modals: autoplay warning, council error, reconnecting. */
   systemOverlay: 20,
-  /** Staff-only overlays (e.g. #setup) that must appear above system error overlays. */
+  /** Staff-only overlays (e.g. #staff) that must appear above system error overlays. */
   staffOverlay: 25,
   rotatePrompt: 100,
   voiceGuide: 10000,

@@ -37,8 +37,8 @@ export interface AutoplayCoordinatorProps {
 type IdleInactiveReason =
   | "not_museum"
   | "phase_not_off"
-  | "staff_setup_hash"
-  | "staff_setup_button_claim"
+  | "staff_hash"
+  | "staff_button_claim"
   | "live_meeting_playing"
   | "connection_error"
   | "no_idle_context";
@@ -63,7 +63,7 @@ export default function AutoplayCoordinator({
   const enterInFlightRef = useRef(false);
   const prevPressedRef = useRef(false);
   const lastIdleInactiveReasonRef = useRef<IdleInactiveReason | "watching" | null>(null);
-  const setupClaimed = useButtonStore((state) => state.claims.setup === true);
+  const staffClaimed = useButtonStore((state) => state.claims.staff === true);
 
   const logIdleInactive = useCallback((reason: IdleInactiveReason, extra?: Record<string, unknown>) => {
     if (lastIdleInactiveReasonRef.current === reason) {
@@ -250,12 +250,12 @@ export default function AutoplayCoordinator({
 
     const liveMeetingPlaying = Boolean(meetingliveKey) && !councilOnSummary;
 
-    if (location.hash === "#setup") {
-      logIdleInactive("staff_setup_hash");
+    if (location.hash === "#staff") {
+      logIdleInactive("staff_hash");
       return;
     }
-    if (setupClaimed) {
-      logIdleInactive("staff_setup_button_claim");
+    if (staffClaimed) {
+      logIdleInactive("staff_button_claim");
       return;
     }
     if (liveMeetingPlaying) {
@@ -311,7 +311,7 @@ export default function AutoplayCoordinator({
     logIdleInactive,
     meetingliveKey,
     phase,
-    setupClaimed,
+    staffClaimed,
     showWarning,
   ]);
 

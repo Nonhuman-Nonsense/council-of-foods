@@ -32,9 +32,9 @@ describe('MuseumSwitchButton', () => {
     expect(localStorage.getItem(APP_MODE_STORAGE_KEY)).toBe('museum');
   });
 
-  it('shows red border preview on #setup', () => {
+  it('shows red border preview on #staff', () => {
     render(
-      <MemoryRouter initialEntries={['/#setup']}>
+      <MemoryRouter initialEntries={['/#staff']}>
         <MuseumSwitchButton />
       </MemoryRouter>,
     );
@@ -43,7 +43,7 @@ describe('MuseumSwitchButton', () => {
     expect(button).toHaveStyle({ opacity: '1' });
   });
 
-  it('stays invisible outside #setup', () => {
+  it('stays invisible outside #staff', () => {
     render(
       <MemoryRouter initialEntries={['/']}>
         <MuseumSwitchButton />

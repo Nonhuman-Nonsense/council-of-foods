@@ -10,7 +10,7 @@ import type { TranslationKey } from "@/i18n";
 
 export type ButtonLedMode = "off" | "pulse" | "on";
 
-export type ButtonOwner = "setup" | "autoplay" | "voice-guide" | "human-input" | "meta-agent" | "summary" | "replay";
+export type ButtonOwner = "staff" | "autoplay" | "voice-guide" | "human-input" | "meta-agent" | "summary" | "replay";
 
 export type ButtonClaims = Partial<Record<ButtonOwner, true>>;
 export type ButtonLedModes = Partial<Record<ButtonOwner, ButtonLedMode>>;
@@ -29,9 +29,9 @@ export type BannerContent =
 
 export type ButtonBannerContent = Partial<Record<ButtonOwner, BannerContent>>;
 
-/** Setup is highest: staff diagnostics overlay mounted on top of the running app. */
+/** Staff is highest: staff diagnostics overlay mounted on top of the running app. */
 const BUTTON_OWNER_PRIORITY: Record<ButtonOwner, number> = {
-  setup: 4,
+  staff: 4,
   autoplay: 3,
   "human-input": 2,
   summary: 2,

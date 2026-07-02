@@ -37,21 +37,21 @@ export function loadLocaleKeySet(lang: string): Set<string> {
   return new Set(flattenTranslationKeys(loadLocale(lang)));
 }
 
-const SETUP_BRIDGE_STATUSES = ["checking", "running", "notRunning", "error"] as const;
-const SETUP_APP_STATUSES = ["disconnected", "connecting", "connected", "error", "unavailable"] as const;
-const SETUP_USB_STATUSES = ["connected", "checking", "notDetected", "wrongDevice", "unavailable"] as const;
-const SETUP_LOG_CATEGORIES = ["API", "SOCKET", "AGENT", "REALTIME", "BUTTON", "META", "AUTOPLAY", "SYSTEM", "ERROR"] as const;
-const SETUP_BUTTON_OWNERS = ["none", "setup", "autoplay", "voice-guide", "human-input", "meta-agent"] as const;
+const STAFF_BRIDGE_STATUSES = ["checking", "running", "notRunning", "error"] as const;
+const STAFF_APP_STATUSES = ["disconnected", "connecting", "connected", "error", "unavailable"] as const;
+const STAFF_USB_STATUSES = ["connected", "checking", "notDetected", "wrongDevice", "unavailable"] as const;
+const STAFF_LOG_CATEGORIES = ["API", "SOCKET", "AGENT", "REALTIME", "BUTTON", "META", "AUTOPLAY", "SYSTEM", "ERROR"] as const;
+const STAFF_BUTTON_OWNERS = ["none", "staff", "autoplay", "voice-guide", "human-input", "meta-agent"] as const;
 
 const STATIC_USED_KEYS = [
   "about.label",
   "contact.label",
   "settings",
-  ...SETUP_BRIDGE_STATUSES.map((status) => `setup.button.bridge.${status}`),
-  ...SETUP_APP_STATUSES.map((status) => `setup.button.app.${status}`),
-  ...SETUP_USB_STATUSES.map((status) => `setup.button.usb.${status}`),
-  ...SETUP_LOG_CATEGORIES.map((category) => `setup.logging.categories.${category}`),
-  ...SETUP_BUTTON_OWNERS.map((owner) => `setup.button.owners.${owner}`),
+  ...STAFF_BRIDGE_STATUSES.map((status) => `staff.button.bridge.${status}`),
+  ...STAFF_APP_STATUSES.map((status) => `staff.button.app.${status}`),
+  ...STAFF_USB_STATUSES.map((status) => `staff.button.usb.${status}`),
+  ...STAFF_LOG_CATEGORIES.map((category) => `staff.logging.categories.${category}`),
+  ...STAFF_BUTTON_OWNERS.map((owner) => `staff.button.owners.${owner}`),
 ] as const;
 
 function walkSourceFiles(dir: string, files: string[] = []): string[] {

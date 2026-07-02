@@ -22,6 +22,6 @@ Browser-level integration uses Playwright (`client/tests/e2e/src/button_setup.sp
 
 1. Upload firmware from `arduino/council_button/`
 2. Run the bridge: `cd bridge && npm install && npm run dev`
-3. In the app: enable **Push to Talk** at `/#setup`
+3. In the app: enable **Push to Talk** at `/#staff`
 
 See each folder's README for full setup and museum install instructions.

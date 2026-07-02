@@ -8,24 +8,24 @@ import translation from "./locales/translation_en.json";
 /** Valid `t()` / `i18nKey` paths derived from `translation_en.json`. */
 export type TranslationKey = ParseKeys<"translation">;
 
-const buttonOwnerLabels = translation.setup.button.owners;
+const buttonOwnerLabels = translation.staff.button.owners;
 
 type ButtonOwnerLabelSlug = keyof typeof buttonOwnerLabels;
 
 type ButtonOwnerLabelKey = {
-  [K in ButtonOwnerLabelSlug]: `setup.button.owners.${K & string}`;
+  [K in ButtonOwnerLabelSlug]: `staff.button.owners.${K & string}`;
 }[ButtonOwnerLabelSlug];
 
 function isButtonOwnerLabelSlug(value: string): value is ButtonOwnerLabelSlug {
   return Object.prototype.hasOwnProperty.call(buttonOwnerLabels, value);
 }
 
-/** Map a runtime button owner id to a typed `setup.button.owners.*` label key. */
+/** Map a runtime button owner id to a typed `staff.button.owners.*` label key. */
 export function buttonOwnerLabelKey(owner: string | null): ButtonOwnerLabelKey {
   if (owner !== null && isButtonOwnerLabelSlug(owner)) {
-    return `setup.button.owners.${owner}`;
+    return `staff.button.owners.${owner}`;
   }
-  return "setup.button.owners.none";
+  return "staff.button.owners.none";
 }
 
 // Flat locale files: src/locales/translation_{lang}.json → namespace "translation"

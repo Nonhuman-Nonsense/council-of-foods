@@ -39,12 +39,12 @@ function museumSwitchButtonPreviewStyle(): CSSProperties {
 
 /**
  * Invisible top-left control for staff to toggle web/museum without reloading.
- * On #setup, shows a red border preview of the hit area.
+ * On #staff, shows a red border preview of the hit area.
  */
 export default function MuseumSwitchButton(): ReactElement {
   const { isMuseumMode, setAppMode } = useCouncilSettings();
   const { hash } = useLocation();
-  const showPreview = hash === "#setup";
+  const showPreview = hash === "#staff";
 
   return (
     <button

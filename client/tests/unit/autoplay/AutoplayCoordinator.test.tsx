@@ -146,8 +146,8 @@ describe("AutoplayCoordinator setup-entry idle", () => {
     expect(useAutoplayStore.getState().phase).toBe("off");
   });
 
-  it("does not show warning while staff #setup overlay is open", async () => {
-    mockLocation.hash = "#setup";
+  it("does not show warning while staff #staff overlay is open", async () => {
+    mockLocation.hash = "#staff";
     renderCoordinator();
 
     await advanceIdlePastThreshold();
@@ -155,8 +155,8 @@ describe("AutoplayCoordinator setup-entry idle", () => {
     expect(useAutoplayStore.getState().phase).toBe("off");
   });
 
-  it("does not show warning while staff setup owns the button", async () => {
-    useButtonStore.setState({ claims: { setup: true } });
+  it("does not show warning while staff panel owns the button", async () => {
+    useButtonStore.setState({ claims: { staff: true } });
     renderCoordinator();
 
     await advanceIdlePastThreshold();

@@ -298,7 +298,7 @@ describe('useCouncilMachine', () => {
 
         it('resumes in museum mode when hash overlay is dismissed', () => {
             const setPaused = vi.fn();
-            mockUseLocation.mockReturnValue({ hash: '#setup', pathname: '/meeting/1' });
+            mockUseLocation.mockReturnValue({ hash: '#staff', pathname: '/meeting/1' });
 
             const { rerender } = renderHook(
                 (props) => useCouncilMachine(props),
@@ -471,7 +471,7 @@ describe('useCouncilMachine', () => {
 
         it('stays paused in museum when hash clears but tab is still hidden', () => {
             const setPaused = vi.fn();
-            mockUseLocation.mockReturnValue({ hash: '#setup', pathname: '/meeting/1' });
+            mockUseLocation.mockReturnValue({ hash: '#staff', pathname: '/meeting/1' });
             mockUseDocumentVisibility.mockReturnValue(false);
 
             const { rerender } = renderHook(
@@ -500,7 +500,7 @@ describe('useCouncilMachine', () => {
 
         it('stays paused in museum when tab refocuses but hash overlay is still open', () => {
             const setPaused = vi.fn();
-            mockUseLocation.mockReturnValue({ hash: '#setup', pathname: '/meeting/1' });
+            mockUseLocation.mockReturnValue({ hash: '#staff', pathname: '/meeting/1' });
             mockUseDocumentVisibility.mockReturnValue(false);
 
             const { rerender } = renderHook(
@@ -529,7 +529,7 @@ describe('useCouncilMachine', () => {
 
         it('resumes in museum when the last stacked environmental interrupt clears', () => {
             const setPaused = vi.fn();
-            mockUseLocation.mockReturnValue({ hash: '#setup', pathname: '/meeting/1' });
+            mockUseLocation.mockReturnValue({ hash: '#staff', pathname: '/meeting/1' });
             mockUseDocumentVisibility.mockReturnValue(false);
 
             const { rerender } = renderHook(

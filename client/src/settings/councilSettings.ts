@@ -104,7 +104,7 @@ export function setPttHardwareEnabled(enabled: boolean): void {
   window.dispatchEvent(new CustomEvent<boolean>(PTT_HARDWARE_CHANGE_EVENT, { detail: enabled }));
 }
 
-/** Top-left staff control to toggle web/museum without opening #setup. */
+/** Top-left staff control to toggle web/museum without opening #staff. */
 export function getMuseumSwitchButtonEnabled(): boolean {
   try {
     const stored = localStorage.getItem(MUSEUM_SWITCH_BUTTON_ENABLED_KEY);

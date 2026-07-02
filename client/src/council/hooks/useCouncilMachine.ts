@@ -781,7 +781,7 @@ export function useCouncilMachine({
     ]);
 
     // Museum resume: only environmental deps — visibleOverlay omitted so overlay dismiss (X)
-    // does not trigger auto-resume. Stacked interrupts (e.g. #setup + hidden tab) resume only
+    // does not trigger auto-resume. Stacked interrupts (e.g. #staff + hidden tab) resume only
     // when hash, connection, and visibility are all clear again.
     useEffect(() => {
         if (!isMuseumMode || !isPaused) {
