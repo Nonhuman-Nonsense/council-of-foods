@@ -108,6 +108,21 @@ if (environment === "prototype") {
 } else if (environment !== "development") {
   const clientDistPath = path.join(process.cwd(), "../client/dist");
   const ONE_YEAR_MS = 31536000000;
+
+  function preferredLangFromRequest(req: Request): string | undefined {
+    const cfCountry = req.headers['cf-ipcountry'];
+    return typeof cfCountry === 'string'
+      ? COUNTRY_DEFAULT_LANGUAGE[cfCountry.toUpperCase()]
+      : undefined;
+  }
+
+  if (AVAILABLE_LANGUAGES.length > 1) {
+    app.get("/", function (req: Request, res: Response) {
+      res.setHeader('Cache-Control', CACHE_CONTROL_NO_STORE);
+      res.redirect(302, getSpaRedirectTarget("/", AVAILABLE_LANGUAGES, preferredLangFromRequest(req)));
+    });
+  }
+
   app.use(express.static(clientDistPath, {
     maxAge: ONE_YEAR_MS,
     immutable: true,
@@ -131,11 +146,7 @@ if (environment === "prototype") {
 
     if (!shouldServeSpaShell(req.path)) {
       res.setHeader('Cache-Control', CACHE_CONTROL_NO_STORE);
-      const cfCountry = req.headers['cf-ipcountry'];
-      const preferredLang = typeof cfCountry === 'string'
-        ? COUNTRY_DEFAULT_LANGUAGE[cfCountry.toUpperCase()]
-        : undefined;
-      res.redirect(302, getSpaRedirectTarget(req.path, AVAILABLE_LANGUAGES, preferredLang));
+      res.redirect(302, getSpaRedirectTarget(req.path, AVAILABLE_LANGUAGES, preferredLangFromRequest(req)));
       return;
     }
 

@@ -25,6 +25,26 @@ const BLOCKED_EXACT_PATHS = new Set([
 const BLOCKED_EXTENSION_PATTERN = /\.(?:php\d*|phtml|phar|asp|aspx|jsp|cgi|pl|py|sh|lua|env|ini|log|bak|old|sql|conf|config|ya?ml|toml|zip|tar|gz|tgz|7z|rar)$/i;
 const NEW_MEETING_ROUTE_PATTERN = /^\/new\/?$/;
 const MEETING_ROUTE_PATTERN = /^\/meeting\/\d+\/?$/;
+const UNKNOWN_LANGUAGE_PREFIX_PATTERN = /^\/[a-z]{2}(?=\/|$)/i;
+
+function isValidSpaRoutePath(routePath: string): boolean {
+    return routePath === "/"
+        || NEW_MEETING_ROUTE_PATTERN.test(routePath)
+        || MEETING_ROUTE_PATTERN.test(routePath);
+}
+
+function buildLanguagePrefixedPath(lang: string, routePath: string): string {
+    if (routePath === "/" || routePath === "") {
+        return `/${lang}/`;
+    }
+
+    const normalizedRoute = routePath.replace(/\/$/, "") || "/";
+    if (normalizedRoute === "/") {
+        return `/${lang}/`;
+    }
+
+    return `/${lang}${normalizedRoute}`;
+}
 
 function normalizePathname(pathname: string): string {
     if (!pathname) {
@@ -95,9 +115,31 @@ export function shouldServeSpaShell(
         return false;
     }
 
-    return routePath === "/"
-        || NEW_MEETING_ROUTE_PATTERN.test(routePath)
-        || MEETING_ROUTE_PATTERN.test(routePath);
+    return isValidSpaRoutePath(routePath);
+}
+
+function extractRoutePathForRedirect(
+    pathname: string,
+    languages: readonly string[],
+): string | null {
+    const normalized = normalizePathname(pathname);
+    const allowedRoutePath = stripAllowedLanguagePrefix(normalized, languages);
+
+    if (allowedRoutePath != null) {
+        return allowedRoutePath;
+    }
+
+    if (isValidSpaRoutePath(normalized)) {
+        return normalized;
+    }
+
+    const withoutUnknownLang = normalized.replace(UNKNOWN_LANGUAGE_PREFIX_PATTERN, "");
+    const unknownLangRoutePath = withoutUnknownLang === "" ? "/" : withoutUnknownLang;
+    if (unknownLangRoutePath !== normalized && isValidSpaRoutePath(unknownLangRoutePath)) {
+        return unknownLangRoutePath;
+    }
+
+    return null;
 }
 
 function extractLanguagePrefix(
@@ -130,14 +172,25 @@ export function getSpaRedirectTarget(
         return "/";
     }
 
-    const lang = extractLanguagePrefix(pathname, languages);
-    if (lang) {
-        return `/${lang}/`;
-    }
-
+    const normalized = normalizePathname(pathname);
+    const existingLang = extractLanguagePrefix(normalized, languages);
     const defaultLang =
         preferredLang && (languages as readonly string[]).includes(preferredLang)
             ? preferredLang
             : languages[0];
+    const routePath = extractRoutePathForRedirect(normalized, languages);
+
+    if (existingLang) {
+        if (routePath != null && isValidSpaRoutePath(routePath)) {
+            return buildLanguagePrefixedPath(existingLang, routePath);
+        }
+
+        return `/${existingLang}/`;
+    }
+
+    if (routePath != null && isValidSpaRoutePath(routePath)) {
+        return buildLanguagePrefixedPath(defaultLang, routePath);
+    }
+
     return `/${defaultLang}/`;
 }

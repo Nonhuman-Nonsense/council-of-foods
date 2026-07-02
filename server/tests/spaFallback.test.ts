@@ -85,20 +85,42 @@ describe("spaFallback", () => {
             expect(getSpaRedirectTarget("/hello", ENGLISH_ONLY)).toBe("/");
             expect(getSpaRedirectTarget("/meeting/not-a-number", ENGLISH_ONLY)).toBe("/");
             expect(getSpaRedirectTarget("/en/new", ENGLISH_ONLY)).toBe("/");
+            expect(getSpaRedirectTarget("/new", ENGLISH_ONLY)).toBe("/");
+            expect(getSpaRedirectTarget("/meeting/9", ENGLISH_ONLY)).toBe("/");
+            expect(getSpaRedirectTarget("/", ENGLISH_ONLY)).toBe("/");
         });
 
-        it("redirects to the matching language root in multi-language mode", () => {
+        it("redirects invalid multi-language routes to the matching language root", () => {
             expect(getSpaRedirectTarget("/hello", ENGLISH_AND_SWEDISH)).toBe("/en/");
             expect(getSpaRedirectTarget("/sv/hello", ENGLISH_AND_SWEDISH)).toBe("/sv/");
             expect(getSpaRedirectTarget("/en/foo", ENGLISH_AND_SWEDISH)).toBe("/en/");
             expect(getSpaRedirectTarget("/de/hello", ENGLISH_AND_SWEDISH)).toBe("/en/");
-            expect(getSpaRedirectTarget("/new", ENGLISH_AND_SWEDISH)).toBe("/en/");
-            expect(getSpaRedirectTarget("/meeting/9", ENGLISH_AND_SWEDISH)).toBe("/en/");
+            expect(getSpaRedirectTarget("/meeting/not-a-number", ENGLISH_AND_SWEDISH)).toBe("/en/");
+        });
+
+        it("redirects the site root to a language root in multi-language mode", () => {
+            expect(getSpaRedirectTarget("/", ENGLISH_AND_SWEDISH)).toBe("/en/");
+            expect(getSpaRedirectTarget("/", ENGLISH_AND_SWEDISH, "sv")).toBe("/sv/");
+        });
+
+        it("preserves valid unprefixed SPA routes in multi-language mode", () => {
+            expect(getSpaRedirectTarget("/new", ENGLISH_AND_SWEDISH)).toBe("/en/new");
+            expect(getSpaRedirectTarget("/new/", ENGLISH_AND_SWEDISH)).toBe("/en/new");
+            expect(getSpaRedirectTarget("/meeting/9", ENGLISH_AND_SWEDISH)).toBe("/en/meeting/9");
+            expect(getSpaRedirectTarget("/meeting/215/", ENGLISH_AND_SWEDISH)).toBe("/en/meeting/215");
+        });
+
+        it("preserves valid routes behind an unknown language prefix", () => {
+            expect(getSpaRedirectTarget("/de/new", ENGLISH_AND_SWEDISH)).toBe("/en/new");
+            expect(getSpaRedirectTarget("/de/meeting/215", ENGLISH_AND_SWEDISH)).toBe("/en/meeting/215");
         });
 
         it("uses preferredLang when no language prefix is present", () => {
             expect(getSpaRedirectTarget("/hello", ENGLISH_AND_SWEDISH, "sv")).toBe("/sv/");
             expect(getSpaRedirectTarget("/hello", ENGLISH_AND_SWEDISH, "de")).toBe("/en/");
+            expect(getSpaRedirectTarget("/", ENGLISH_AND_SWEDISH, "sv")).toBe("/sv/");
+            expect(getSpaRedirectTarget("/new", ENGLISH_AND_SWEDISH, "sv")).toBe("/sv/new");
+            expect(getSpaRedirectTarget("/meeting/215", ENGLISH_AND_SWEDISH, "sv")).toBe("/sv/meeting/215");
         });
 
         it("ignores preferredLang in single-language mode", () => {
