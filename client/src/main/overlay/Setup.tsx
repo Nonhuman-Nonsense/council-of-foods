@@ -16,7 +16,7 @@ import type {
   UsbPortInfo,
 } from "@/museum/button/buttonBridge";
 import { useButtonLedDebugOverlay } from "@/museum/button/buttonDebug";
-import { museumSwitchButtonToggleStyle } from "@/museum/museumSwitchButtonStyle";
+import { museumSwitchButtonToggleStyle } from "@/museum/MuseumSwitchButton";
 
 type StatusTone = "ok" | "warn" | "error" | "idle";
 
