@@ -42,4 +42,16 @@ describe("autoplayStore", () => {
     notifyAutoplay({ type: "summary-playback-finished" });
     expect(useAutoplayStore.getState().summaryProtocolFinished).toBe(true);
   });
+
+  it("clears council-derived flags on council-unmounted without touching phase", () => {
+    useAutoplayStore.getState().setPhase("active");
+    notifyAutoplay({ type: "council-state", state: "summary" });
+    notifyAutoplay({ type: "summary-playback-finished" });
+
+    notifyAutoplay({ type: "council-unmounted" });
+
+    expect(useAutoplayStore.getState().phase).toBe("active");
+    expect(useAutoplayStore.getState().councilOnSummary).toBe(false);
+    expect(useAutoplayStore.getState().summaryProtocolFinished).toBe(false);
+  });
 });

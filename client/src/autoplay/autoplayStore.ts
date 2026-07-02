@@ -17,7 +17,8 @@ export type AutoplayCouncilState =
 /** Fixed list of events app code may send to autoplay. */
 export type AutoplayConsumerEvent =
   | { type: "council-state"; state: AutoplayCouncilState }
-  | { type: "summary-playback-finished" };
+  | { type: "summary-playback-finished" }
+  | { type: "council-unmounted" };
 
 export type AutoplayActivitySource =
   | "button-press"
@@ -78,6 +79,10 @@ export const useAutoplayStore = create<AutoplayStore>((set) => ({
       case "summary-playback-finished":
         set({ summaryProtocolFinished: true });
         log.event("AUTOPLAY", "summary-playback-finished");
+        break;
+      case "council-unmounted":
+        set({ councilOnSummary: false, summaryProtocolFinished: false });
+        log.event("AUTOPLAY", "council-unmounted");
         break;
     }
   },
