@@ -358,19 +358,19 @@ export function createGuideToolHandlers(ctx: GuideToolContext): Record<string, T
 
     current_characters: () => {
       const store = useMeetingSetupStore.getState();
-      const foodCharIds = new Set(
+      const councilCharIds = new Set(
         ctx.characters
           .filter((c) => !c.id.startsWith("panelist") && c.id !== "addhuman")
           .map((c) => c.id),
       );
-      const foods = store.selectedCharacters
-        .filter((id) => foodCharIds.has(id))
+      const characters = store.selectedCharacters
+        .filter((id) => councilCharIds.has(id))
         .map((id) => ctx.characters.find((c) => c.id === id)!.name);
       const humans = store.humans
         .slice(0, store.numberOfHumans)
         .map((h) => h.name)
         .filter(Boolean);
-      return { ok: true, data: { foods, humans } };
+      return { ok: true, data: { characters, humans } };
     },
 
     human_panelist: (raw) => {

@@ -307,15 +307,15 @@ describe('guideTools', () => {
       ctx.meetingStep = 'characters';
       const handlers = createGuideToolHandlers(ctx);
       const res = await handlers.current_characters({});
-      expect(res).toEqual({ ok: true, data: { foods: [], humans: [] } });
+      expect(res).toEqual({ ok: true, data: { characters: [], humans: [] } });
     });
 
-    it('returns selected food names (excluding chair and panelists)', async () => {
+    it('returns selected character names (excluding chair and panelists)', async () => {
       ctx.meetingStep = 'characters';
       useMeetingSetupStore.getState().setSelectedCharacters(['CHAIR_ID', 'food1', 'food2']);
       const handlers = createGuideToolHandlers(ctx);
       const res = await handlers.current_characters({});
-      expect(res).toEqual({ ok: true, data: { foods: ['Food One', 'Food Two'], humans: [] } });
+      expect(res).toEqual({ ok: true, data: { characters: ['Food One', 'Food Two'], humans: [] } });
     });
   });
 
