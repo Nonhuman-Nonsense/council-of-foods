@@ -1,22 +1,24 @@
 import { meetingsCollection } from "@services/DbService.js";
-import { getMeeting } from "./getMeeting.js";
-import { isCompleteReplayManifest } from "./replayManifest.js";
-import { buildAutoplaySamplePipeline } from "./autoplayMeetingQuery.js";
+import { getGlobalOptions } from "@logic/GlobalOptions.js";
 import { BadRequestError, NotFoundError } from "@models/Errors.js";
 import type { StoredMeeting } from "@models/DBModels.js";
 
 /**
  * Pick a random completed meeting suitable for kiosk autoplay replay.
- *
- * Selection uses a single aggregation `$match` + `$sample` (see autoplayMeetingQuery).
- * `isCompleteReplayManifest` is the final gate for edge cases Mongo cannot express
- * (e.g. missing audio on an earlier message). Long term: `meetingComplete` flag —
- * docs/meeting-complete-flag-plan.md.
  */
 export async function getAutoplayMeeting(language?: string): Promise<{ meetingId: number }> {
-    const pipeline = buildAutoplaySamplePipeline(language);
+    const { autoplayEarliestMeetingDate } = getGlobalOptions();
+    const filter: Record<string, unknown> = {
+        meetingComplete: true,
+        date: { $gte: autoplayEarliestMeetingDate },
+        audio: { $exists: true, $not: { $size: 0 } },
+    };
+    if (language) {
+        filter.language = language;
+    }
+
     const sampled = await meetingsCollection
-        .aggregate<StoredMeeting>(pipeline)
+        .aggregate<StoredMeeting>([{ $match: filter }, { $sample: { size: 1 } }])
         .toArray();
 
     const candidate = sampled[0];
@@ -24,18 +26,7 @@ export async function getAutoplayMeeting(language?: string): Promise<{ meetingId
         throw new NotFoundError();
     }
 
-    try {
-        const meeting = await getMeeting(candidate._id);
-        if (!isCompleteReplayManifest(meeting)) {
-            throw new NotFoundError();
-        }
-        return { meetingId: candidate._id };
-    } catch (error) {
-        if (error instanceof NotFoundError) {
-            throw error;
-        }
-        throw new NotFoundError();
-    }
+    return { meetingId: candidate._id };
 }
 
 export function parseAutoplayLanguageQuery(value: unknown): string | undefined {

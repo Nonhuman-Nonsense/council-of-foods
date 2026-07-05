@@ -57,13 +57,6 @@ describe('Summary Markdown Handling', () => {
                         audio: ['m1', 'close1', 'summary-1'],
                         conversationExtraSlots: 0,
                         meetingComplete: false,
-                        summary: {
-                            id: "summary-1",
-                            type: "summary",
-                            speaker: chair.id,
-                            text: "This is **bold** and *italic*.",
-                            sentences: [],
-                        },
                         maximumPlayedIndex: 2,
                     }),
                 }

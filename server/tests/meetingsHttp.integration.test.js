@@ -111,8 +111,8 @@ describe('HTTP meetings API (integration)', () => {
                         { id: 'sum1', type: 'summary', speaker: 'speaker1', text: 'Summary' },
                     ],
                     audio: ['pub-m1', 'sum1'],
-                    summary: { id: 'sum1', type: 'summary', speaker: 'speaker1', text: 'Summary' },
                     maximumPlayedIndex: 1,
+                    meetingComplete: true,
                 },
             }
         );
@@ -152,8 +152,8 @@ describe('HTTP meetings API (integration)', () => {
                         { id: 'ap-sum', type: 'summary', speaker: 'speaker1', text: 'Summary' },
                     ],
                     audio: ['ap-m1', 'ap-sum'],
-                    summary: { id: 'ap-sum', type: 'summary', speaker: 'speaker1', text: 'Summary' },
                     maximumPlayedIndex: 1,
+                    meetingComplete: true,
                 },
             }
         );
@@ -182,8 +182,8 @@ describe('HTTP meetings API (integration)', () => {
                         { id: 'bad-sum', type: 'summary', speaker: 'speaker1', text: 'Summary' },
                     ],
                     audio: ['bad-m1', 'bad-m2', 'bad-sum'],
-                    summary: { id: 'bad-sum', type: 'summary', speaker: 'speaker1', text: 'Summary' },
                     maximumPlayedIndex: 0,
+                    meetingComplete: false,
                 },
             },
         );
@@ -204,8 +204,8 @@ describe('HTTP meetings API (integration)', () => {
                         { id: 'ok-sum', type: 'summary', speaker: 'speaker1', text: 'Summary' },
                     ],
                     audio: ['ok-m1', 'ok-sum'],
-                    summary: { id: 'ok-sum', type: 'summary', speaker: 'speaker1', text: 'Summary' },
                     maximumPlayedIndex: 1,
+                    meetingComplete: true,
                 },
             },
         );

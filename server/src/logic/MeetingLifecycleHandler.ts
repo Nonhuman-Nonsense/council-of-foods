@@ -152,7 +152,6 @@ export class MeetingLifecycleHandler {
             {
                 $set: {
                     conversation: m.conversation,
-                    summary,
                     maximumPlayedIndex: summaryIndex,
                 },
             },

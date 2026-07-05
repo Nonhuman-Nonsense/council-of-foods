@@ -74,7 +74,11 @@ describe('MeetingLifecycleHandler', () => {
                 generateDocument: vi.fn()
                     .mockResolvedValue({ response: 'Summary', id: 'sum1' }),
             },
-            audioSystem: { generateAudio: vi.fn(), queueAudioGeneration: vi.fn() }
+            audioSystem: {
+                generateAudio: vi.fn().mockResolvedValue(undefined),
+                waitForIdle: vi.fn().mockResolvedValue(undefined),
+                queueAudioGeneration: vi.fn(),
+            }
         };
 
         handler = new MeetingLifecycleHandler(mockContext);
@@ -222,9 +226,10 @@ describe('MeetingLifecycleHandler', () => {
             expect(mockContext.meeting.maximumPlayedIndex).toBe(summaryIndex);
 
             const summaryUpdate = mockMeetingsCollection.updateOne.mock.calls.find(
-                ([, update]) => update?.$set?.summary != null,
+                ([, update]) => update?.$set?.maximumPlayedIndex != null && update?.$set?.conversation != null,
             );
             expect(summaryUpdate).toBeDefined();
+            expect(summaryUpdate[1].$set.summary).toBeUndefined();
             expect(summaryUpdate[1].$set.maximumPlayedIndex).toBe(summaryIndex);
         });
     });

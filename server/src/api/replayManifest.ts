@@ -104,12 +104,9 @@ export function buildReplayMeetingManifest(meeting: Meeting): Meeting {
         throw new BadRequestError("No messages available for replay.");
     }
 
-    // Consolidate summary: only include it if the summary message survived truncation
     const lastMessageObj = conversation.length > 0 ? conversation[conversation.length - 1] : null;
-    const hasSummaryInConversation = lastMessageObj?.type === "summary";
-    const finalSummary = hasSummaryInConversation ? meeting.summary : undefined;
+    const hasSummary = lastMessageObj?.type === "summary";
 
-    const hasSummary = finalSummary != null;
     if (!hasSummary) {
         conversation = [...conversation, { ...MEETING_INCOMPLETE_MESSAGE }];
     }
@@ -117,12 +114,12 @@ export function buildReplayMeetingManifest(meeting: Meeting): Meeting {
     const conversationForAudio = hasSummary ? conversation : conversation.slice(0, -1);
     const audio = orderedAudioIdsForConversation(conversationForAudio, meeting.audio);
 
-    return { ...meeting, conversation, audio, summary: finalSummary };
+    return { ...meeting, conversation, audio };
 }
 
 /**
  * True when the replay manifest ends with a summary message whose audio is listed.
- * Used by kiosk autoplay to skip DB records that have `summary` but are not fully playable.
+ * Used by kiosk autoplay checks, tests, and migration — prefer `meetingComplete` in production queries.
  */
 export function isCompleteReplayManifest(meeting: Meeting): boolean {
     let manifest: Meeting;

@@ -284,11 +284,11 @@ describe('HTTP + Socket full chain (integration)', () => {
             expect(stored.liveKey).toBe(originalliveKey);
         });
 
-        it('returns 400 when the meeting already has a summary', async () => {
+        it('returns 400 when the meeting is already complete', async () => {
             const { meetingId } = await seedIncompleteMeeting();
             await meetingsCollection.updateOne(
                 { _id: meetingId },
-                { $set: { summary: { id: 's', type: 'summary', text: 'done' } } }
+                { $set: { meetingComplete: true } }
             );
 
             const res = await fetch(`${base()}/api/meetings/${meetingId}`, { method: 'PUT' });

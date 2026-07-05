@@ -22,7 +22,6 @@ describe("buildReplayMeetingManifest", () => {
                 { id: "m2", type: "message", speaker: SPEAKER_ID, text: "2" },
             ],
             audio: ["m0", "m1", "m2", "s"],
-            summary: { id: "s", type: "summary", speaker: SPEAKER_ID, text: "x" },
         });
         const m = buildReplayMeetingManifest(meeting);
         expect(m.conversation.map((c) => c.id)).toEqual(["m0", "m1", undefined]);
@@ -37,7 +36,6 @@ describe("buildReplayMeetingManifest", () => {
                 { id: "s", type: "summary", speaker: SPEAKER_ID, text: "x" }
             ],
             audio: ["m0", "m1", "s"],
-            summary: { id: "s", type: "summary", speaker: SPEAKER_ID, text: "x" },
         });
         const m = buildReplayMeetingManifest(meeting);
         expect(m.conversation).toHaveLength(3);
@@ -54,7 +52,6 @@ describe("buildReplayMeetingManifest", () => {
         });
         const m = buildReplayMeetingManifest(meeting);
         expect(m.conversation.map((c) => c.type)).toEqual(["message", "meeting_incomplete"]);
-        expect(m.summary).toBeUndefined();
     });
 
     it("strips awaiting_human tail then appends meeting_incomplete when no summary", () => {
@@ -71,7 +68,6 @@ describe("buildReplayMeetingManifest", () => {
         });
         const m = buildReplayMeetingManifest(meeting);
         expect(m.conversation.map((c) => c.type)).toEqual(["message", "meeting_incomplete"]);
-        expect(m.summary).toBeUndefined();
     });
 
     it("orders audio ids by conversation order, not stored audio array order", () => {
@@ -81,7 +77,6 @@ describe("buildReplayMeetingManifest", () => {
                 { id: "sum1", type: "summary", speaker: SPEAKER_ID, text: "Summary" },
             ],
             audio: ["pub-m1", "sum1"],
-            summary: { id: "sum1", type: "summary", speaker: SPEAKER_ID, text: "Summary" },
             maximumPlayedIndex: 1,
         });
         const m = buildReplayMeetingManifest(meeting);
@@ -108,30 +103,23 @@ describe("buildReplayMeetingManifest", () => {
                 { id: "s", type: "summary", speaker: SPEAKER_ID, text: "x" },
             ],
             audio: ["m0"],
-            summary: { id: "s", type: "summary", speaker: SPEAKER_ID, text: "x" },
-            maximumPlayedIndex: 1, // Summary is reached by the index
+            maximumPlayedIndex: 1,
         });
         const m = buildReplayMeetingManifest(meeting);
-        // Summary 's' is removed because it's not in 'audio', leaving 'm0'.
-        // Then meeting_incomplete is added.
         expect(m.conversation.map(c => c.type)).toEqual(["message", "meeting_incomplete"]);
-        expect(m.summary).toBeUndefined();
     });
 
-    it("includes summary and hides incomplete marker when its audio is present", () => {
+    it("includes summary when its audio is present", () => {
         const meeting = MockFactory.createMeeting({
             conversation: [
                 { id: "m0", type: "message", speaker: SPEAKER_ID, text: "0" },
                 { id: "s", type: "summary", speaker: SPEAKER_ID, text: "x" },
             ],
             audio: ["m0", "s"],
-            summary: { id: "s", type: "summary", speaker: SPEAKER_ID, text: "x" },
             maximumPlayedIndex: 1,
         });
         const m = buildReplayMeetingManifest(meeting);
         expect(m.conversation.map(c => c.type)).toEqual(["message", "summary"]);
-        expect(m.summary).toBeDefined();
-        // Since summary is the last message, it's considered complete.
     });
 });
 
@@ -143,8 +131,8 @@ describe("isCompleteReplayManifest", () => {
                 { id: "s", type: "summary", speaker: SPEAKER_ID, text: "x" },
             ],
             audio: ["m0", "s"],
-            summary: { id: "s", type: "summary", speaker: SPEAKER_ID, text: "x" },
             maximumPlayedIndex: 1,
+            meetingComplete: true,
         });
         expect(isCompleteReplayManifest(meeting)).toBe(true);
     });
@@ -158,7 +146,7 @@ describe("isCompleteReplayManifest", () => {
                 { id: "m2", type: "message", speaker: SPEAKER_ID, text: "2" },
             ],
             audio: ["m0", "m1", "m2", "s"],
-            summary: { id: "s", type: "summary", speaker: SPEAKER_ID, text: "x" },
+            meetingComplete: false,
         });
         expect(isCompleteReplayManifest(meeting)).toBe(false);
     });
@@ -170,8 +158,8 @@ describe("isCompleteReplayManifest", () => {
                 { id: "s", type: "summary", speaker: SPEAKER_ID, text: "x" },
             ],
             audio: ["m0"],
-            summary: { id: "s", type: "summary", speaker: SPEAKER_ID, text: "x" },
             maximumPlayedIndex: 1,
+            meetingComplete: false,
         });
         expect(isCompleteReplayManifest(meeting)).toBe(false);
     });
