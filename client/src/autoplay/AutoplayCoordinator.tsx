@@ -16,10 +16,9 @@ import {
   useAutoplayStore,
 } from "./autoplayStore";
 import { log } from "@/logger";
-import { useErrorStore } from "@main/overlay/errorStore";
+import { setUnrecoverableError, useErrorStore } from "@main/overlay/errorStore";
 
 const IDLE_POLL_MS = 1_000;
-const FETCH_RETRY_MS = 5_000;
 
 /** Setup-entry flow: welcome screen (/) and in-progress meeting setup (/new). */
 function isInSetupEntryFlow(pathname: string): boolean {
@@ -86,9 +85,15 @@ export default function AutoplayCoordinator({
   }, [isMuseumMode]);
 
   const startAutoplayMeeting = useCallback(async () => {
-    const language = getPreferredLanguage();
-    await i18n.changeLanguage(language);
-    await navigateToAutoplayMeeting(navigate, language);
+    try {
+      const language = getPreferredLanguage();
+      await i18n.changeLanguage(language);
+      await navigateToAutoplayMeeting(navigate, language);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      log.event("ERROR", "autoplay failed", error);
+      setUnrecoverableError({ message, source: "autoplay", cause: error });
+    }
   }, [i18n, navigate, navigateToAutoplayMeeting]);
 
   const enterAutoplay = useCallback(async () => {
@@ -102,17 +107,7 @@ export default function AutoplayCoordinator({
     setMeetingliveKey(null);
     bumpAutoplayActivity("enter-autoplay");
 
-    try {
-      await startAutoplayMeeting();
-    } catch (error) {
-      log.event("ERROR", "autoplay enter failed", error);
-      setPhase("off");
-      window.setTimeout(() => {
-        enterInFlightRef.current = false;
-      }, FETCH_RETRY_MS);
-      return;
-    }
-
+    await startAutoplayMeeting();
     enterInFlightRef.current = false;
   }, [setMeetingliveKey, setPhase, startAutoplayMeeting]);
 
@@ -211,12 +206,9 @@ export default function AutoplayCoordinator({
 
     const timerId = window.setTimeout(() => {
       void (async () => {
-        try {
-          await startAutoplayMeeting();
+        await startAutoplayMeeting();
+        if (useErrorStore.getState().unrecoverableError == null) {
           bumpAutoplayActivity("loop-next-meeting");
-        } catch (error) {
-          log.event("ERROR", "autoplay loop failed", error);
-          bumpAutoplayActivity("loop-retry");
         }
       })();
     }, AUTOPLAY_NEXT_MEETING_MS);

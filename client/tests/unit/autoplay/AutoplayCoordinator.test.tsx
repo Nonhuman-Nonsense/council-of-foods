@@ -207,6 +207,22 @@ describe("AutoplayCoordinator setup-entry idle", () => {
     expect(useAutoplayStore.getState().meetingGeneration).toBe(1);
   });
 
+  it("surfaces autoplay fetch failure via unrecoverable error", async () => {
+    mockFetchAutoplayMeetingId.mockRejectedValueOnce(new Error("Autoplay meeting failed (404)"));
+    renderCoordinator();
+
+    await advanceIdlePastThreshold();
+    await act(async () => {
+      screen.getByText("autoplay.stillThere.confirm").click();
+    });
+
+    expect(useErrorStore.getState().unrecoverableError).toMatchObject({
+      message: "Autoplay meeting failed (404)",
+      source: "autoplay",
+    });
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
   it("increments meetingGeneration when loop fetches the same meeting id", async () => {
     mockLocation.pathname = "/meeting/99";
     mockFetchAutoplayMeetingId.mockResolvedValue(99);

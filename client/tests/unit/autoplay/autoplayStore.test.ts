@@ -13,6 +13,11 @@ vi.mock("@api/fetchAutoplayMeeting", () => ({
   fetchAutoplayMeetingId: mockFetchAutoplayMeetingId,
 }));
 
+vi.mock("@/logger", () => ({
+  log: { event: vi.fn() },
+  reportTerminalError: vi.fn(),
+}));
+
 describe("autoplayStore", () => {
   beforeEach(() => {
     vi.clearAllMocks();
