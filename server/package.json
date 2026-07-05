@@ -23,8 +23,8 @@
     "test:coverage": "npm run test -- --coverage",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "docker": "node ../scripts/docker.mjs",
-    "push": "node ../scripts/push.mjs"
+    "docker": "node scripts/docker.mjs",
+    "push": "node scripts/push.mjs"
   },
   "dependencies": {
     "colorette": "^2.0.20",
