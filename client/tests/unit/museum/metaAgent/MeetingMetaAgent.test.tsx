@@ -257,7 +257,7 @@ describe("MeetingMetaAgent", () => {
     expect(setMetaAgentPhase).not.toHaveBeenCalled();
   });
 
-  it("keeps session active when button ownership is lost (e.g. setup)", () => {
+  it("keeps session active when button ownership is lost (e.g. staff)", () => {
     const setMetaAgentPhase = vi.fn();
 
     render(
@@ -271,7 +271,7 @@ describe("MeetingMetaAgent", () => {
 
     mockSetMicEnabled.mockClear();
 
-    act(() => setMockButtonOwner("setup"));
+    act(() => setMockButtonOwner("staff"));
 
     expect(setMetaAgentPhase).not.toHaveBeenCalled();
   });

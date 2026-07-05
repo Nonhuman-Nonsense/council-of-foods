@@ -6,32 +6,32 @@ import {
 } from "./buttonBridge";
 import { getAgentMode } from "@/settings/councilSettings";
 import { log } from "@/logger";
-import type { ReplayBannerVariant } from "@/autoplay/autoplayStore";
+import type { TranslationKey } from "@/i18n";
 
 export type ButtonLedMode = "off" | "pulse" | "on";
-export type ButtonOwner = "setup" | "autoplay" | "voice-guide" | "human-input" | "meta-agent" | "summary" | "replay";
+
+export type ButtonOwner = "staff" | "autoplay" | "voice-guide" | "human-input" | "meta-agent" | "summary" | "replay";
 
 export type ButtonClaims = Partial<Record<ButtonOwner, true>>;
 export type ButtonLedModes = Partial<Record<ButtonOwner, ButtonLedMode>>;
 export type ButtonBannerVisible = Partial<Record<ButtonOwner, boolean>>;
-export type ButtonBannerMessageKeys = Partial<Record<ButtonOwner, string>>;
+export type ButtonBannerMessageKeys = Partial<Record<ButtonOwner, TranslationKey>>;
 
 export type BannerContent =
-  | { kind: "message"; messageKey: string }
+  | { kind: "message"; messageKey: TranslationKey }
   | {
       kind: "replay";
       meetingId: number;
       meetingTitle: string;
       meetingDate: string;
-      variant: ReplayBannerVariant;
       isPaused: boolean;
     };
 
 export type ButtonBannerContent = Partial<Record<ButtonOwner, BannerContent>>;
 
-/** Setup is highest: staff diagnostics overlay mounted on top of the running app. */
+/** Staff is highest: staff diagnostics overlay mounted on top of the running app. */
 const BUTTON_OWNER_PRIORITY: Record<ButtonOwner, number> = {
-  setup: 4,
+  staff: 4,
   autoplay: 3,
   "human-input": 2,
   summary: 2,
@@ -106,7 +106,7 @@ type ButtonStore = {
   releaseButton: (owner: ButtonOwner) => void;
   setButtonLed: (owner: ButtonOwner, mode: ButtonLedMode) => void;
   setButtonBannerVisible: (owner: ButtonOwner, visible: boolean) => void;
-  setButtonBannerMessageKey: (owner: ButtonOwner, messageKey: string | undefined) => void;
+  setButtonBannerMessageKey: (owner: ButtonOwner, messageKey: TranslationKey | undefined) => void;
   setButtonBannerContent: (owner: ButtonOwner, content: BannerContent | undefined) => void;
   resyncLed: () => Promise<void>;
   init: () => void;
@@ -296,7 +296,7 @@ function setBannerMessageKeyForOwner(
   set: (partial: Partial<ButtonStore> | ((state: ButtonStore) => Partial<ButtonStore>)) => void,
   get: () => ButtonStore,
   owner: ButtonOwner,
-  messageKey: string | undefined,
+  messageKey: TranslationKey | undefined,
 ): void {
   const bannerMessageKeys = { ...get().bannerMessageKeys };
   if (messageKey) {

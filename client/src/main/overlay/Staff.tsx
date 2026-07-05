@@ -16,6 +16,7 @@ import type {
   UsbPortInfo,
 } from "@/museum/button/buttonBridge";
 import { useButtonLedDebugOverlay } from "@/museum/button/buttonDebug";
+import { museumSwitchButtonToggleStyle } from "@/museum/MuseumSwitchButton";
 
 type StatusTone = "ok" | "warn" | "error" | "idle";
 
@@ -45,6 +46,7 @@ const LOG_CATEGORY_COLOR: Record<LogCategory, string> = {
   SOCKET: "#3b82f6",
   AGENT: "#8b5cf6",
   REALTIME: "#0891b2",
+  TURN: "#16a34a",
   BUTTON: "#10b981",
   META: "#ec4899",
   AUTOPLAY: "#f59e0b",
@@ -111,7 +113,7 @@ function formatPortLabel(port: UsbPortInfo): string {
   return `${vendor}:${product} at ${port.path}`;
 }
 
-function getSetupBridgeDetailLines(health: ButtonBridgeHealthState): string[] {
+function getStaffBridgeDetailLines(health: ButtonBridgeHealthState): string[] {
   if (health.status !== "running") {
     return [];
   }
@@ -142,7 +144,7 @@ function getSetupBridgeDetailLines(health: ButtonBridgeHealthState): string[] {
   return lines;
 }
 
-function getSetupBridgeLogHint(): string {
+function getStaffBridgeLogHint(): string {
   return "/var/log/council-button-bridge.log";
 }
 
@@ -153,23 +155,23 @@ function statusTone(key: string): StatusTone {
   return "idle";
 }
 
-const setupSegmentButton: CSSProperties = {
+const staffSegmentButton: CSSProperties = {
   width: "100%",
   fontSize: "19px",
   padding: "4px 12px",
 };
 
-const setupCompactButton: CSSProperties = {
+const staffCompactButton: CSSProperties = {
   fontSize: "18px",
   padding: "2px 12px",
 };
 
 function ledPreviewToggleStyle(active: boolean): CSSProperties {
   if (!active) {
-    return setupCompactButton;
+    return staffCompactButton;
   }
   return {
-    ...setupCompactButton,
+    ...staffCompactButton,
     backgroundColor: "#ef4444",
     borderColor: "#fca5a5",
     color: "white",
@@ -195,7 +197,7 @@ function logCategoryPillStyle(
   };
 }
 
-function SetupPanel(props: {
+function StaffPanel(props: {
   title: string;
   fullWidth?: boolean;
   children: ReactNode;
@@ -216,7 +218,7 @@ function SetupPanel(props: {
   );
 }
 
-function SetupSegmented(props: {
+function StaffSegmented(props: {
   children: ReactNode;
   testId?: string;
   columns?: 2 | 3;
@@ -237,7 +239,7 @@ function SetupSegmented(props: {
   );
 }
 
-function SetupStatusChip(props: {
+function StaffStatusChip(props: {
   label: string;
   value: string;
   tone?: StatusTone;
@@ -271,7 +273,7 @@ function SetupStatusChip(props: {
   );
 }
 
-function SetupCollapsible(props: {
+function StaffCollapsible(props: {
   label: string;
   children: ReactNode;
   defaultOpen?: boolean;
@@ -313,9 +315,9 @@ function SetupCollapsible(props: {
 }
 
 /**
- * Staff-only global council options at #setup.
+ * Staff-only global council options at #staff.
  */
-function Setup(): ReactElement {
+function Staff(): ReactElement {
   const { t } = useTranslation();
   const {
     mode: appMode,
@@ -324,6 +326,8 @@ function Setup(): ReactElement {
     setAgentMode,
     pttHardwareEnabled,
     setPttHardwareEnabled,
+    museumSwitchButtonEnabled,
+    setMuseumSwitchButtonEnabled,
     devLogEnabled,
     setDevLogEnabled,
     devLogCategories,
@@ -336,7 +340,7 @@ function Setup(): ReactElement {
   const bridgeHealth = useButtonBridgeHealth(bridgeButtonActive);
   const { ledDebugOverlay, setLedDebugOverlay } = useButtonLedDebugOverlay();
 
-  const button = useButton("setup");
+  const button = useButton("staff");
 
   useEffect(() => {
     button.claim();
@@ -351,11 +355,11 @@ function Setup(): ReactElement {
   const appStatus = getBridgeAppStatus(bridgeAvailable, bridgeHealth, bridgeStatus);
   const usbStatus = getUsbButtonStatus(bridgeHealth);
   const bridgeDetailLines =
-    bridgeHealth.status === "running" ? getSetupBridgeDetailLines(bridgeHealth) : [];
+    bridgeHealth.status === "running" ? getStaffBridgeDetailLines(bridgeHealth) : [];
 
   const showButtonPanel = agentMode === "ptt" && pttHardwareEnabled;
   const showPttOptionsRow = agentMode === "ptt";
-  const showLedPreviewPill = import.meta.env.DEV && agentMode === "ptt";
+  const showLedPreviewPill = agentMode === "ptt";
   const showButtonDetails =
     showButtonPanel &&
     (bridgeDetailLines.length > 0 ||
@@ -372,7 +376,7 @@ function Setup(): ReactElement {
         gap: 12,
       }}
     >
-      <h1 style={{ margin: "0 0 4px", textAlign: "center" }}>{t("setup.title")}</h1>
+      <h1 style={{ margin: "0 0 4px", textAlign: "center" }}>{t("staff.title")}</h1>
 
       <div
         style={{
@@ -382,40 +386,53 @@ function Setup(): ReactElement {
           width: "100%",
         }}
       >
-        <SetupPanel title={t("setup.panels.installation")}>
-          <SetupSegmented>
+        <StaffPanel title={t("staff.panels.installation")}>
+          <StaffSegmented>
             <button
               type="button"
               data-testid="app-mode-web"
               className={appMode === "web" ? "selected" : ""}
               onClick={() => setAppMode("web")}
-              style={setupSegmentButton}
+              style={staffSegmentButton}
             >
-              {t("setup.web")}
+              {t("staff.web")}
             </button>
             <button
               type="button"
               data-testid="app-mode-museum"
               className={appMode === "museum" ? "selected" : ""}
               onClick={() => setAppMode("museum")}
-              style={setupSegmentButton}
+              style={staffSegmentButton}
             >
-              {t("setup.museum")}
+              {t("staff.museum")}
             </button>
-          </SetupSegmented>
-        </SetupPanel>
+          </StaffSegmented>
+          <button
+            type="button"
+            data-testid="staff-museum-switch-button-toggle"
+            className={museumSwitchButtonEnabled ? "control" : ""}
+            aria-pressed={museumSwitchButtonEnabled}
+            onClick={() => setMuseumSwitchButtonEnabled(!museumSwitchButtonEnabled)}
+            style={museumSwitchButtonToggleStyle(museumSwitchButtonEnabled, {
+              ...staffCompactButton,
+              width: "100%",
+            })}
+          >
+            {t("staff.museumSwitchButton")}
+          </button>
+        </StaffPanel>
 
-        <SetupPanel title={t("setup.panels.agentMode")}>
-          <SetupSegmented columns={appMode === "web" ? 3 : 2}>
+        <StaffPanel title={t("staff.panels.agentMode")}>
+          <StaffSegmented columns={appMode === "web" ? 3 : 2}>
             {appMode === "web" ? (
               <button
                 type="button"
                 data-testid="agent-mode-off"
                 className={agentMode === "off" ? "selected" : ""}
                 onClick={() => setAgentMode("off")}
-                style={setupSegmentButton}
+                style={staffSegmentButton}
               >
-                {t("setup.logging.off")}
+                {t("staff.logging.off")}
               </button>
             ) : null}
             <button
@@ -423,7 +440,7 @@ function Setup(): ReactElement {
               data-testid="agent-mode-always-on"
               className={agentMode === "always-on" ? "selected" : ""}
               onClick={() => setAgentMode("always-on")}
-              style={setupSegmentButton}
+              style={staffSegmentButton}
             >
               {t("agentMode.alwaysOn")}
             </button>
@@ -432,11 +449,11 @@ function Setup(): ReactElement {
               data-testid="agent-mode-ptt"
               className={agentMode === "ptt" ? "selected" : ""}
               onClick={() => setAgentMode("ptt")}
-              style={setupSegmentButton}
+              style={staffSegmentButton}
             >
               {t("agentMode.pushToTalk")}
             </button>
-          </SetupSegmented>
+          </StaffSegmented>
           {showPttOptionsRow ? (
             <div
               style={{
@@ -448,32 +465,32 @@ function Setup(): ReactElement {
             >
               <button
                 type="button"
-                data-testid="setup-ptt-hardware-toggle"
+                data-testid="staff-ptt-hardware-toggle"
                 className={pttHardwareEnabled ? "control" : ""}
                 aria-pressed={pttHardwareEnabled}
                 onClick={() => setPttHardwareEnabled(!pttHardwareEnabled)}
                 style={{...ledPreviewToggleStyle(pttHardwareEnabled), flex: 1}}
               >
-                {t("setup.button.hardwareButton")}
+                {t("staff.button.hardwareButton")}
               </button>
               {showLedPreviewPill ? (
                 <button
                   type="button"
-                  data-testid="setup-led-debug-toggle"
+                  data-testid="staff-led-debug-toggle"
                   className={ledDebugOverlay ? "control" : ""}
                   aria-pressed={ledDebugOverlay}
                   onClick={() => setLedDebugOverlay(!ledDebugOverlay)}
                   style={{...ledPreviewToggleStyle(ledDebugOverlay), flex: 1}}
                 >
-                  {t("setup.button.ledDebugOverlay")}
+                  {t("staff.button.ledDebugOverlay")}
                 </button>
               ) : null}
             </div>
           ) : null}
-        </SetupPanel>
+        </StaffPanel>
 
         {showButtonPanel ? (
-          <SetupPanel title={t("setup.button.title")} fullWidth testId="setup-button-status">
+          <StaffPanel title={t("staff.button.title")} fullWidth testId="staff-button-status">
             <div
               style={{
                 display: "flex",
@@ -482,119 +499,119 @@ function Setup(): ReactElement {
                 justifyContent: "center",
               }}
             >
-              <SetupStatusChip
-                label={t("setup.button.bridgeLabel")}
-                value={t(`setup.button.bridge.${daemonStatus}`)}
+              <StaffStatusChip
+                label={t("staff.button.bridgeLabel")}
+                value={t(`staff.button.bridge.${daemonStatus}`)}
                 tone={statusTone(daemonStatus)}
-                testId="setup-bridge-daemon-status"
+                testId="staff-bridge-daemon-status"
               />
-              <SetupStatusChip
-                label={t("setup.button.appLabel")}
+              <StaffStatusChip
+                label={t("staff.button.appLabel")}
                 value={
                   appStatus === "error" && bridgeError
-                    ? `${t(`setup.button.app.${appStatus}`)} — ${bridgeError}`
-                    : t(`setup.button.app.${appStatus}`)
+                    ? `${t(`staff.button.app.${appStatus}`)} — ${bridgeError}`
+                    : t(`staff.button.app.${appStatus}`)
                 }
                 tone={statusTone(appStatus)}
-                testId="setup-bridge-app-status"
+                testId="staff-bridge-app-status"
               />
-              <SetupStatusChip
-                label={t("setup.button.usbLabel")}
-                value={t(`setup.button.usb.${usbStatus}`)}
+              <StaffStatusChip
+                label={t("staff.button.usbLabel")}
+                value={t(`staff.button.usb.${usbStatus}`)}
                 tone={statusTone(usbStatus)}
-                testId="setup-button-usb-status"
+                testId="staff-button-usb-status"
               />
             </div>
 
             {showButtonDetails ? (
-              <SetupCollapsible
-                label={t("setup.panels.details")}
-                testId="setup-button-details"
+              <StaffCollapsible
+                label={t("staff.panels.details")}
+                testId="staff-button-details"
               >
                 {bridgeDetailLines.map((line) => (
-                  <p key={line} data-testid="setup-bridge-detail-line" style={{ margin: 0, textAlign: "center" }}>
+                  <p key={line} data-testid="staff-bridge-detail-line" style={{ margin: 0, textAlign: "center" }}>
                     {line}
                   </p>
                 ))}
                 {daemonStatus === "notRunning" ? (
-                  <p data-testid="setup-button-hint" style={{ margin: 0, textAlign: "center", fontStyle: "italic" }}>
-                    {t("setup.button.bridgeNotRunningHint", {
-                      logPath: getSetupBridgeLogHint(),
+                  <p data-testid="staff-button-hint" style={{ margin: 0, textAlign: "center", fontStyle: "italic" }}>
+                    {t("staff.button.bridgeNotRunningHint", {
+                      logPath: getStaffBridgeLogHint(),
                     })}
                   </p>
                 ) : null}
                 {daemonStatus === "running" && usbStatus === "notDetected" ? (
-                  <p data-testid="setup-button-usb-hint" style={{ margin: 0, textAlign: "center", fontStyle: "italic" }}>
-                    {t("setup.button.usbNotDetectedHint")}
+                  <p data-testid="staff-button-usb-hint" style={{ margin: 0, textAlign: "center", fontStyle: "italic" }}>
+                    {t("staff.button.usbNotDetectedHint")}
                   </p>
                 ) : null}
                 {daemonStatus === "running" && usbStatus === "wrongDevice" ? (
                   <p
-                    data-testid="setup-button-wrong-device-hint"
+                    data-testid="staff-button-wrong-device-hint"
                     style={{ margin: 0, textAlign: "center", fontStyle: "italic" }}
                   >
-                    {t("setup.button.usbWrongDeviceHint")}
+                    {t("staff.button.usbWrongDeviceHint")}
                   </p>
                 ) : null}
-              </SetupCollapsible>
+              </StaffCollapsible>
             ) : null}
-          </SetupPanel>
+          </StaffPanel>
         ) : null}
 
-        <SetupPanel title={t("setup.panels.logging")} testId="setup-logging-panel">
-            <SetupSegmented testId="setup-logging-master">
+        <StaffPanel title={t("staff.panels.logging")} testId="staff-logging-panel">
+            <StaffSegmented testId="staff-logging-master">
               <button
                 type="button"
-                data-testid="setup-dev-log-on"
+                data-testid="staff-dev-log-on"
                 className={devLogEnabled ? "selected" : ""}
                 aria-pressed={devLogEnabled}
                 onClick={() => setDevLogEnabled(true)}
-                style={setupSegmentButton}
+                style={staffSegmentButton}
               >
-                {t("setup.logging.on")}
+                {t("staff.logging.on")}
               </button>
               <button
                 type="button"
-                data-testid="setup-dev-log-off"
+                data-testid="staff-dev-log-off"
                 className={!devLogEnabled ? "selected" : ""}
                 aria-pressed={!devLogEnabled}
                 onClick={() => setDevLogEnabled(false)}
-                style={setupSegmentButton}
+                style={staffSegmentButton}
               >
-                {t("setup.logging.off")}
+                {t("staff.logging.off")}
               </button>
-            </SetupSegmented>
+            </StaffSegmented>
 
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               <button
                 type="button"
-                data-testid="setup-dev-log-all"
+                data-testid="staff-dev-log-all"
                 disabled={!devLogEnabled}
                 onClick={() => setAllDevLogCategories(true)}
                 style={{
-                  ...setupCompactButton,
+                  ...staffCompactButton,
                   opacity: devLogEnabled ? 1 : 0.4,
                 }}
               >
-                {t("setup.logging.all")}
+                {t("staff.logging.all")}
               </button>
               <button
                 type="button"
-                data-testid="setup-dev-log-none"
+                data-testid="staff-dev-log-none"
                 disabled={!devLogEnabled}
                 onClick={() => setAllDevLogCategories(false)}
                 style={{
-                  ...setupCompactButton,
+                  ...staffCompactButton,
                   opacity: devLogEnabled ? 1 : 0.4,
                 }}
               >
-                {t("setup.logging.none")}
+                {t("staff.logging.none")}
               </button>
             </div>
 
             <div
               role="group"
-              aria-label={t("setup.logging.categoriesLabel")}
+              aria-label={t("staff.logging.categoriesLabel")}
               style={{
                 display: "flex",
                 flexWrap: "wrap",
@@ -605,7 +622,7 @@ function Setup(): ReactElement {
                 <button
                   key={category}
                   type="button"
-                  data-testid={`setup-dev-log-category-${category}`}
+                  data-testid={`staff-dev-log-category-${category}`}
                   aria-pressed={devLogCategories[category]}
                   disabled={!devLogEnabled}
                   onClick={() =>
@@ -617,14 +634,14 @@ function Setup(): ReactElement {
                     devLogEnabled,
                   )}
                 >
-                  {t(`setup.logging.categories.${category}`)}
+                  {t(`staff.logging.categories.${category}`)}
                 </button>
               ))}
             </div>
-          </SetupPanel>
+          </StaffPanel>
       </div>
     </div>
   );
 }
 
-export default Setup;
+export default Staff;

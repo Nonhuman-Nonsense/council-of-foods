@@ -3,24 +3,30 @@ import { useLocation, useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import Overlay from "@main/overlay/Overlay";
 import AutoplayWarning from "@main/overlay/AutoplayWarning";
-import { fetchAutoplayMeetingId } from "@api/fetchAutoplayMeeting";
 import { useButton } from "@/museum/button/useButton";
 import { useButtonStore } from "@/museum/button/buttonStore";
 import { useCouncilSettings } from "@/settings/councilSettings";
-import { useMeetingSetupStore } from "@newMeeting/meetingSetupStore";
-import { isRootPath, stripLanguagePrefix, useRouting } from "@/routing";
+import { isRootPath, stripLanguagePrefix } from "@/routing";
 import routes from "@/routes.json";
+import { getPreferredLanguage } from "@/i18n";
 import {
   AUTOPLAY_NEXT_MEETING_MS,
   bumpAutoplayActivity,
+  SETUP_IDLE_MS,
   useAutoplayStore,
 } from "./autoplayStore";
 import { log } from "@/logger";
-import { useErrorStore } from "@main/overlay/errorStore";
+import { setUnrecoverableError, useErrorStore } from "@main/overlay/errorStore";
 
-const LANDING_SETUP_IDLE_MS = 90_000;
 const IDLE_POLL_MS = 1_000;
-const FETCH_RETRY_MS = 5_000;
+
+/** Setup-entry flow: welcome screen (/) and in-progress meeting setup (/new). */
+function isInSetupEntryFlow(pathname: string): boolean {
+  const onLanding = isRootPath(pathname);
+  const withoutLang = stripLanguagePrefix(pathname);
+  const onNewMeetingPath = withoutLang === `/${routes.newMeeting}`;
+  return onLanding || onNewMeetingPath;
+}
 
 export interface AutoplayCoordinatorProps {
   meetingliveKey: string | null;
@@ -30,8 +36,8 @@ export interface AutoplayCoordinatorProps {
 type IdleInactiveReason =
   | "not_museum"
   | "phase_not_off"
-  | "setup_hash"
-  | "setup_button_claim"
+  | "staff_hash"
+  | "staff_button_claim"
   | "live_meeting_playing"
   | "connection_error"
   | "no_idle_context";
@@ -45,18 +51,18 @@ export default function AutoplayCoordinator({
   const location = useLocation();
   const navigate = useNavigate();
   const { i18n } = useTranslation();
-  const { rootPath, meetingPath } = useRouting();
   const button = useButton("autoplay");
 
   const phase = useAutoplayStore((state) => state.phase);
   const councilOnSummary = useAutoplayStore((state) => state.councilOnSummary);
   const summaryProtocolFinished = useAutoplayStore((state) => state.summaryProtocolFinished);
   const setPhase = useAutoplayStore((state) => state.setPhase);
+  const navigateToAutoplayMeeting = useAutoplayStore((state) => state.navigateToAutoplayMeeting);
 
   const enterInFlightRef = useRef(false);
   const prevPressedRef = useRef(false);
   const lastIdleInactiveReasonRef = useRef<IdleInactiveReason | "watching" | null>(null);
-  const setupClaimed = useButtonStore((state) => state.claims.setup === true);
+  const staffClaimed = useButtonStore((state) => state.claims.staff === true);
 
   const logIdleInactive = useCallback((reason: IdleInactiveReason, extra?: Record<string, unknown>) => {
     if (lastIdleInactiveReasonRef.current === reason) {
@@ -74,9 +80,21 @@ export default function AutoplayCoordinator({
     log.event("AUTOPLAY", "coordinator active", {
       phase,
       pathname: location.pathname,
-      thresholdMs: LANDING_SETUP_IDLE_MS,
+      thresholdMs: SETUP_IDLE_MS,
     });
   }, [isMuseumMode]);
+
+  const startAutoplayMeeting = useCallback(async () => {
+    try {
+      const language = getPreferredLanguage();
+      await i18n.changeLanguage(language);
+      await navigateToAutoplayMeeting(navigate, language);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      log.event("ERROR", "autoplay failed", error);
+      setUnrecoverableError({ message, source: "autoplay", cause: error });
+    }
+  }, [i18n, navigate, navigateToAutoplayMeeting]);
 
   const enterAutoplay = useCallback(async () => {
     if (enterInFlightRef.current) {
@@ -89,23 +107,9 @@ export default function AutoplayCoordinator({
     setMeetingliveKey(null);
     bumpAutoplayActivity("enter-autoplay");
 
-    const language = i18n.language.toLowerCase().startsWith("sv") ? "sv" : "en";
-
-    try {
-      const meetingId = await fetchAutoplayMeetingId(language);
-      navigate(meetingPath(meetingId), { replace: true });
-      log.event("AUTOPLAY", "enter navigated", { meetingId, language });
-    } catch (error) {
-      log.event("ERROR", "autoplay enter failed", error);
-      setPhase("off");
-      window.setTimeout(() => {
-        enterInFlightRef.current = false;
-      }, FETCH_RETRY_MS);
-      return;
-    }
-
+    await startAutoplayMeeting();
     enterInFlightRef.current = false;
-  }, [i18n.language, meetingPath, navigate, setMeetingliveKey, setPhase]);
+  }, [setMeetingliveKey, setPhase, startAutoplayMeeting]);
 
   const dismissWarning = useCallback(() => {
     log.event("AUTOPLAY", "warning dismissed", { via: "hardware_button" });
@@ -114,11 +118,10 @@ export default function AutoplayCoordinator({
   }, [setPhase]);
 
   const exitAutoplay = useCallback(() => {
-    log.event("AUTOPLAY", "exit to landing", { via: "hardware_button" });
+    log.event("AUTOPLAY", "exit to root", { via: "hardware_button" });
     setPhase("off");
-    useMeetingSetupStore.getState().resetStore();
-    window.location.href = rootPath;
-  }, [rootPath, setPhase]);
+    window.location.href = "/";
+  }, []);
 
   const showWarning = useCallback(() => {
     if (useAutoplayStore.getState().phase !== "off") {
@@ -203,15 +206,9 @@ export default function AutoplayCoordinator({
 
     const timerId = window.setTimeout(() => {
       void (async () => {
-        const language = i18n.language.toLowerCase().startsWith("sv") ? "sv" : "en";
-        try {
-          const meetingId = await fetchAutoplayMeetingId(language);
+        await startAutoplayMeeting();
+        if (useErrorStore.getState().unrecoverableError == null) {
           bumpAutoplayActivity("loop-next-meeting");
-          navigate(meetingPath(meetingId), { replace: true });
-          log.event("AUTOPLAY", "loop navigated", { meetingId, language });
-        } catch (error) {
-          log.event("ERROR", "autoplay loop failed", error);
-          bumpAutoplayActivity("loop-retry");
         }
       })();
     }, AUTOPLAY_NEXT_MEETING_MS);
@@ -220,10 +217,8 @@ export default function AutoplayCoordinator({
   }, [
     connectionError,
     councilOnSummary,
-    i18n.language,
     isMuseumMode,
-    meetingPath,
-    navigate,
+    startAutoplayMeeting,
     phase,
     summaryProtocolFinished,
   ]);
@@ -242,17 +237,14 @@ export default function AutoplayCoordinator({
       return;
     }
 
-    const withoutLang = stripLanguagePrefix(location.pathname);
-    const onSetupRoute = withoutLang === `/${routes.newMeeting}`;
-    const onLanding = isRootPath(location.pathname);
     const liveMeetingPlaying = Boolean(meetingliveKey) && !councilOnSummary;
 
-    if (location.hash === "#setup") {
-      logIdleInactive("setup_hash");
+    if (location.hash === "#staff") {
+      logIdleInactive("staff_hash");
       return;
     }
-    if (setupClaimed) {
-      logIdleInactive("setup_button_claim");
+    if (staffClaimed) {
+      logIdleInactive("staff_button_claim");
       return;
     }
     if (liveMeetingPlaying) {
@@ -260,7 +252,7 @@ export default function AutoplayCoordinator({
       return;
     }
 
-    const idleContext = onLanding || onSetupRoute ? "setup" : null;
+    const idleContext = isInSetupEntryFlow(location.pathname) ? "setup" : null;
 
     if (!idleContext) {
       logIdleInactive("no_idle_context", { pathname: location.pathname });
@@ -271,7 +263,7 @@ export default function AutoplayCoordinator({
       lastIdleInactiveReasonRef.current = "watching";
       log.event("AUTOPLAY", "idle watch started", {
         idleContext,
-        thresholdMs: LANDING_SETUP_IDLE_MS,
+        thresholdMs: SETUP_IDLE_MS,
         pathname: location.pathname,
         pollMs: IDLE_POLL_MS,
       });
@@ -279,11 +271,11 @@ export default function AutoplayCoordinator({
 
     const timerId = window.setInterval(() => {
       const elapsedMs = Date.now() - useAutoplayStore.getState().lastActivityMs;
-      const remainingMs = LANDING_SETUP_IDLE_MS - elapsedMs;
+      const remainingMs = SETUP_IDLE_MS - elapsedMs;
       if (remainingMs <= 0) {
         log.event("AUTOPLAY", "idle threshold reached", {
           idleContext,
-          thresholdMs: LANDING_SETUP_IDLE_MS,
+          thresholdMs: SETUP_IDLE_MS,
           elapsedMs,
         });
         showWarning();
@@ -308,7 +300,7 @@ export default function AutoplayCoordinator({
     logIdleInactive,
     meetingliveKey,
     phase,
-    setupClaimed,
+    staffClaimed,
     showWarning,
   ]);
 

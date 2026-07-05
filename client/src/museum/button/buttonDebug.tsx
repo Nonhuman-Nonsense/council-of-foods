@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState, type CSSProperties, type ReactElement } from "react";
 import { useTranslation } from "react-i18next";
+import { buttonOwnerLabelKey } from "@/i18n";
 import { z } from "@/zIndexLayers";
 import { useButtonStore } from "./buttonStore";
-import type { ButtonLedMode, ButtonOwner } from "./buttonStore";
+import type { ButtonLedMode } from "./buttonStore";
 
 export const BUTTON_LED_DEBUG_STORAGE_KEY = "councilButtonLedDebug";
 
@@ -87,10 +88,6 @@ const labelBlockStyle: CSSProperties = {
   whiteSpace: "nowrap",
 };
 
-function ownerLabelKey(owner: ButtonOwner | null): string {
-  return owner ? `setup.button.owners.${owner}` : "setup.button.owners.none";
-}
-
 const indicatorBaseStyle: CSSProperties = {
   width: 28,
   height: 28,
@@ -123,7 +120,7 @@ export default function ButtonLedDebugOverlay(): ReactElement {
   const ledMode = useButtonStore((state) => state.ledMode);
   const buttonOwner = useButtonStore((state) => state.buttonOwner);
 
-  const ownerLabel = t(ownerLabelKey(buttonOwner));
+  const ownerLabel = t(buttonOwnerLabelKey(buttonOwner));
 
   return (
     <div

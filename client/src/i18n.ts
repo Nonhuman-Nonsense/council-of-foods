@@ -1,13 +1,37 @@
 /// <reference types="vite/client" />
-import i18n from 'i18next';
-import type { Resource, ResourceKey } from 'i18next';
-import { initReactI18next } from 'react-i18next';
-import { AVAILABLE_LANGUAGES } from "@shared/AvailableLanguages";
+import i18n from "i18next";
+import type { ParseKeys, Resource, ResourceKey } from "i18next";
+import { initReactI18next } from "react-i18next";
+import { AVAILABLE_LANGUAGES, type AvailableLanguage } from "@shared/AvailableLanguages";
+import translation from "./locales/translation_en.json";
+
+/** Valid `t()` / `i18nKey` paths derived from `translation_en.json`. */
+export type TranslationKey = ParseKeys<"translation">;
+
+const buttonOwnerLabels = translation.staff.button.owners;
+
+type ButtonOwnerLabelSlug = keyof typeof buttonOwnerLabels;
+
+type ButtonOwnerLabelKey = {
+  [K in ButtonOwnerLabelSlug]: `staff.button.owners.${K & string}`;
+}[ButtonOwnerLabelSlug];
+
+function isButtonOwnerLabelSlug(value: string): value is ButtonOwnerLabelSlug {
+  return Object.prototype.hasOwnProperty.call(buttonOwnerLabels, value);
+}
+
+/** Map a runtime button owner id to a typed `staff.button.owners.*` label key. */
+export function buttonOwnerLabelKey(owner: string | null): ButtonOwnerLabelKey {
+  if (owner !== null && isButtonOwnerLabelSlug(owner)) {
+    return `staff.button.owners.${owner}`;
+  }
+  return "staff.button.owners.none";
+}
 
 // Flat locale files: src/locales/translation_{lang}.json → namespace "translation"
-const locales = import.meta.glob('/src/locales/translation_*.json', {
+const locales = import.meta.glob("/src/locales/translation_*.json", {
   eager: true,
-  import: 'default',
+  import: "default",
 });
 
 const resources: Resource = {};
@@ -17,7 +41,7 @@ for (const path in locales) {
   if (!match) continue;
 
   const lang = match[1];
-  const ns = 'translation';
+  const ns = "translation";
 
   if (!resources[lang]) {
     resources[lang] = {};
@@ -42,20 +66,30 @@ function resolveInitialLanguage(): string {
 
   const pathname = window.location.pathname;
   const matchedLanguage = (AVAILABLE_LANGUAGES as readonly string[]).find((lang) =>
-    pathname === `/${lang}` || pathname.startsWith(`/${lang}/`)
+    pathname === `/${lang}` || pathname.startsWith(`/${lang}/`),
   );
 
   return matchedLanguage ?? fallbackLanguage;
+}
+
+/** Server-injected IP default from `window.__COF_BOOTSTRAP__` (production shell). */
+export function getPreferredLanguage(): AvailableLanguage {
+  const preferredLang = window.__COF_BOOTSTRAP__?.preferredLang;
+  if (preferredLang && (AVAILABLE_LANGUAGES as readonly string[]).includes(preferredLang)) {
+    return preferredLang as AvailableLanguage;
+  }
+  return AVAILABLE_LANGUAGES[0];
 }
 
 /**
  * i18n Configuration
  *
  * Sets up internationalization using i18next.
- * Translations are now BUNDLED (no HttpBackend) via import.meta.glob.
+ * Translations are bundled (no HttpBackend) via import.meta.glob.
+ * Type-safe keys come from `translation_en.json` via the `src/i18n.d.ts` augmentation.
  */
 i18n
-  .use(initReactI18next) // pass the instance to react-i18next
+  .use(initReactI18next)
   .init({
     resources,
     lng: resolveInitialLanguage(),

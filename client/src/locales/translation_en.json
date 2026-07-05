@@ -67,8 +67,8 @@
     "funding": "Council of Foods is part of <hec>The Hungry EcoCities project</hec>, part of the <starts>S+T+ARTS</starts> programme, and has received funding from the European\u00a0Union's <horizon>Horizon Europe research and innovation programme under grant agreement 101069990</horizon>.",
     "euImageAlt": "Funded by the EU, as part of S+T+ARTS"
   },
-  "setup": {
-    "title": "SETUP",
+  "staff": {
+    "title": "STAFF",
     "panels": {
       "installation": "Installation",
       "agentMode": "Agent mode",
@@ -86,6 +86,7 @@
         "SOCKET": "Socket",
         "AGENT": "Agent tools",
         "REALTIME": "Realtime",
+        "TURN": "Turn pipeline",
         "BUTTON": "Button",
         "META": "Meta agent",
         "AUTOPLAY": "Autoplay",
@@ -95,6 +96,7 @@
     },
     "web": "Web",
     "museum": "Museum",
+    "museumSwitchButton": "Museum switch button",
     "button": {
       "title": "Button",
       "bridgeLabel": "Bridge",
@@ -128,7 +130,7 @@
       "hardwareButton": "Hardware button",
       "owners": {
         "none": "—",
-        "setup": "Setup",
+        "staff": "Staff",
         "autoplay": "Autoplay",
         "voice-guide": "Voice guide",
         "human-input": "Human input",

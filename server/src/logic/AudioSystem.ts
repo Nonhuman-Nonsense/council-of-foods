@@ -15,7 +15,8 @@ import {
 import {
     AudioQueue,
     mergeAudioBuffers,
-    splitText
+    splitTextForTts,
+    prepareInworldTtsChunks,
 } from "./audio/AudioUtils.js";
 import { buildEstimatedSentenceTimings } from "./audio/EstimatedSubtitles.js";
 import {
@@ -31,8 +32,11 @@ import type { AudioUpdatePayload } from "@shared/SocketTypes.js";
 export * from "./audio/AudioTypes.js";
 export * from "./audio/AudioUtils.js";
 
-// Limit for text-to-speech requests
-const MAX_AUDIO_CHUNK_LENGTH = 2000;
+// All providers are chunked at 2000 chars even though ElevenLabs (~40k) and OpenAI (~2k tokens)
+// allow larger inputs per request. Shorter chunks parallelise better and keep per-request
+// synthesis latency down — longer messages noticeably slow down in practice.
+const TTS_CHUNK_LIMIT = 2000;
+
 const DEFAULT_SUBTITLE_TIMING_PRIORITIES: GlobalOptions["subtitleTimingPriorities"] = ['elevenlabs', 'inworld', 'estimated', 'whisper'];
 
 export class AudioSystem {
@@ -124,8 +128,24 @@ export class AudioSystem {
 
 
         try {
-            const limit = MAX_AUDIO_CHUNK_LENGTH;
-            const textChunks = splitText(message.text, limit);
+            const provider = resolvedSpeaker.voiceProvider;
+            const chunkLimit = TTS_CHUNK_LIMIT;
+
+            // For Inworld, run pronunciation processing on the full text before splitting so that
+            // alias/IPA expansion is measured before chunk boundaries are chosen — preventing
+            // post-split overflows past the API limit.
+            // For other providers, split the raw text (no significant pre-send expansion).
+            const isInworld = provider === 'inworld';
+            let textChunks: string[];
+            let inworldReplacedWords: Map<string, string> | undefined;
+
+            if (isInworld) {
+                const prepared = prepareInworldTtsChunks(message.text, effectiveOptions.language ?? 'en', chunkLimit);
+                textChunks = prepared.chunks;
+                inworldReplacedWords = prepared.replacedWords;
+            } else {
+                textChunks = splitTextForTts(message.text, chunkLimit);
+            }
 
             if (textChunks.length > 1) {
                 Logger.info("AudioSystem", `Message ${message.id} split into ${textChunks.length} chunks for TTS.`);
@@ -136,7 +156,11 @@ export class AudioSystem {
             if (generateNew || buffers.length === 0) {
                 Logger.info("AudioSystem", `Generating new audio for message ${message.id} (${resolvedSpeaker.voiceProvider}/${resolvedSpeaker.voice})`);
                 // Generate audio for all chunks in parallel
-                const results = await Promise.all(textChunks.map(chunk => this.generateProviderAudio(chunk, resolvedSpeaker, effectiveOptions)));
+                const results = await Promise.all(textChunks.map(chunk =>
+                    isInworld
+                        ? this.generateProviderAudio(chunk, resolvedSpeaker, effectiveOptions, true, inworldReplacedWords)
+                        : this.generateProviderAudio(chunk, resolvedSpeaker, effectiveOptions)
+                ));
                 buffers = results.map(r => r.audio);
                 providerWords = results.map(r => r.words);
                 generateNew = true;
@@ -267,8 +291,14 @@ export class AudioSystem {
         }
     }
 
-    private async generateProviderAudio(text: string, speaker: Speaker, options: AudioSystemOptions): Promise<AudioResult> {
-        const baseParams = { text, speaker, options };
+    private async generateProviderAudio(
+        text: string,
+        speaker: Speaker,
+        options: AudioSystemOptions,
+        preprocessed?: boolean,
+        replacedWords?: Map<string, string>,
+    ): Promise<AudioResult> {
+        const baseParams = { text, speaker, options, preprocessed, replacedWords };
 
         if (speaker.voiceProvider === 'inworld') {
             return generateInworldAudio(baseParams);

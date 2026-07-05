@@ -36,9 +36,9 @@ export class PronunciationUtils {
         return keys.map(word => {
             const replacement = pronunciations[word];
             const escapedWord = PronunciationUtils.escapeRegExp(word);
-            const startBoundary = /^\w/.test(word) ? '\\b' : '';
-            const endBoundary = /\w$/.test(word) ? '\\b' : '';
-            const regex = new RegExp(`${startBoundary}${escapedWord}${endBoundary}`, 'gi');
+            const startBoundary = /^\w/.test(word) ? '(?<![\\p{L}\\p{N}_])' : '';
+            const endBoundary = /\w$/.test(word) ? '(?![\\p{L}\\p{N}_])' : '';
+            const regex = new RegExp(`${startBoundary}${escapedWord}${endBoundary}`, 'giu');
 
             return { regex, original: word, replacement };
         });

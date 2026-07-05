@@ -780,11 +780,17 @@ export function useCouncilMachine({
         setPaused,
     ]);
 
-    // Museum resume: only environmental deps — visibleOverlay omitted so overlay dismiss (X)
-    // does not trigger auto-resume. Stacked interrupts (e.g. #setup + hidden tab) resume only
-    // when hash, connection, and visibility are all clear again.
+    // Museum resume: environmental interrupts only. Overlay dismiss (X) must not
+    // auto-resume, but pausing overlays (incomplete, name, query_extension in web) must
+    // block resume — otherwise isPaused oscillates with the overlay-pause effect above.
     useEffect(() => {
         if (!isMuseumMode || !isPaused) {
+            return;
+        }
+
+        const overlayBlocksResume =
+            visibleOverlay !== null && visibleOverlay !== "summary";
+        if (overlayBlocksResume) {
             return;
         }
 
@@ -803,6 +809,7 @@ export function useCouncilMachine({
         metaAgentPhase,
         isMuseumMode,
         isPaused,
+        visibleOverlay,
         setPaused,
     ]);
 

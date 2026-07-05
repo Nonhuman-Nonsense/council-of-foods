@@ -1,7 +1,7 @@
 import type { Meeting } from "@shared/ModelTypes";
 import { useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router";
-import { useAutoplay } from "@/autoplay/autoplayStore";
+import { useAutoplayStore } from "@/autoplay/autoplayStore";
 import { useRouting } from "@/routing";
 import { useButton } from "@/museum/button/useButton";
 import { useButtonBanner } from "@/museum/button/useButtonBanner";
@@ -27,7 +27,7 @@ export default function CouncilReplaySession({
 }: CouncilReplaySessionProps): null {
   const navigate = useNavigate();
   const { rootPath } = useRouting();
-  const { replayBannerVariant } = useAutoplay();
+  const isAutoplayActive = useAutoplayStore((state) => state.phase === "active");
   const replayActive = meeting != null && !liveKey;
   const replayButton = useButton("replay");
   const prevPressedRef = useRef(false);
@@ -44,10 +44,9 @@ export default function CouncilReplaySession({
       meetingId: meeting._id,
       meetingTitle: meeting.topic.title,
       meetingDate,
-      variant: replayBannerVariant,
       isPaused,
     };
-  }, [replayActive, meeting, language, replayBannerVariant, isPaused]);
+  }, [replayActive, meeting, language, isPaused]);
 
   useEffect(() => {
     if (!replayActive) {
@@ -67,6 +66,19 @@ export default function CouncilReplaySession({
   useButtonBanner({
     owner: "replay",
     sessionActive: replayActive,
+    micOpen: false,
+    isConnecting: false,
+    bannerImmediate: true,
+    bannerContent: replayBannerContent,
+  });
+
+  // Supplies banner content for the "autoplay" owner when in museum exhibition
+  // mode. AutoplayCoordinator still holds the actual button claim at priority 3;
+  // this only populates the banner data since CouncilReplaySession is the sole
+  // holder of the meeting metadata needed to build the preamble.
+  useButtonBanner({
+    owner: "autoplay",
+    sessionActive: isAutoplayActive && replayActive,
     micOpen: false,
     isConnecting: false,
     bannerImmediate: true,

@@ -7,7 +7,7 @@ import { buildResumeConversation, orderedAudioIdsForConversation } from "./repla
 import { v4 as uuidv4 } from "uuid";
 
 /**
- * Re-open a half-finished meeting (no `summary` yet) for a new creator.
+ * Re-open a half-finished meeting for a new creator.
  *
  * Public endpoint (anyone with the id may try) but gated by the in-memory live-session
  * registry — refuses if a live session currently holds the meeting. On success it rotates
@@ -20,7 +20,7 @@ import { v4 as uuidv4 } from "uuid";
 export async function resumeMeeting(meetingId: number): Promise<ResumeMeetingResponse> {
     const stored = await getMeeting(meetingId);
 
-    if (stored.summary != null) {
+    if (stored.meetingComplete) {
         throw new BadRequestError("Meeting already complete");
     }
 
@@ -39,9 +39,9 @@ export async function resumeMeeting(meetingId: number): Promise<ResumeMeetingRes
     
     const newliveKey = uuidv4();
 
-    // Optimistic filter: if a `summary` has since been written (race with conclude meeting), abort.
+    // Optimistic filter: if conclude finished since replay GET (race), abort.
     const updateResult = await meetingsCollection.updateOne(
-        { _id: meetingId, summary: { $exists: false } },
+        { _id: meetingId, meetingComplete: { $ne: true } },
         {
             $set: {
                 liveKey: newliveKey,
