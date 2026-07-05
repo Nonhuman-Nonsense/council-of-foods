@@ -668,6 +668,45 @@ describe('useCouncilMachine', () => {
             expect(setPaused).not.toHaveBeenCalledWith(false);
         });
 
+        it('does not auto-resume in museum mode while meeting_incomplete overlay is open', () => {
+            const setPaused = vi.fn();
+            const { result, rerender } = renderHook(
+                (props) => useCouncilMachine(props),
+                {
+                    initialProps: {
+                        ...defaultProps,
+                        isPaused: false,
+                        isMuseumMode: true,
+                        setPaused,
+                    },
+                },
+            );
+
+            act(() => {
+                socketHandlers.onConversationUpdate?.([{ type: 'meeting_incomplete' }]);
+            });
+
+            expect(result.current.state.visibleOverlay).toBe('meeting_incomplete');
+            expect(setPaused).toHaveBeenCalledWith(true);
+            expect(setPaused).not.toHaveBeenCalledWith(false);
+
+            setPaused.mockClear();
+            rerender({
+                ...defaultProps,
+                isPaused: true,
+                isMuseumMode: true,
+                setPaused,
+            });
+            rerender({
+                ...defaultProps,
+                isPaused: true,
+                isMuseumMode: true,
+                setPaused,
+            });
+
+            expect(setPaused).not.toHaveBeenCalledWith(false);
+        });
+
         describe('overlay action handlers resume playback', () => {
             it('handleOnExtendMeeting resumes playback', () => {
                 const setPaused = vi.fn();
