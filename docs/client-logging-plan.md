@@ -12,8 +12,8 @@ to `server/src/utils/Logger.ts` (context + severity) and
 
 1. **One logger** for main cross-cutting events (API, socket, agent tools, button, meta-agent).
 2. **Readable** — collapsed groups, category colors, summarized payloads.
-3. **Single `logger.ts`** — same implementation in dev and production; gated at runtime via `#setup` toggles (`getDevLogEnabled()`). Default on in dev, off in production when unset.
-4. **Runtime control** — master switch + per-category filters on lazy-loaded `#setup`, persisted in `localStorage`.
+3. **Single `logger.ts`** — same implementation in dev and production; gated at runtime via `#staff` toggles (`getDevLogEnabled()`). Default on in dev, off in production when unset.
+4. **Runtime control** — master switch + per-category filters on lazy-loaded `#staff`, persisted in `localStorage`.
 5. **Debug meta-agent tools** — trace `continue_meeting` and related handler paths (Phase 5).
 
 ---
@@ -38,11 +38,11 @@ client/src/
   logger.ts              # categories, summarizeLogPayload, log.event, reportTerminalError
   api/http.ts            # councilFetch (Phase 3)
   settings/councilSettings.ts   # localStorage + useCouncilSettings()
-  main/overlay/Setup.tsx        # staff setup UI (lazy-loaded via MainOverlays)
-  main/overlay/MainOverlays.tsx # lazy(() => import("./Setup")) for #setup
+  main/overlay/Staff.tsx        # staff setup UI (lazy-loaded via MainOverlays)
+  main/overlay/MainOverlays.tsx # lazy(() => import("./Staff")) for #staff
 ```
 
-**Vite:** `#setup` UI is code-split via `lazy(() => import("./Setup"))` in `MainOverlays` (automatic chunk naming). `@/logger` is a normal import (small runtime no-op when logging is off).
+**Vite:** `#staff` UI is code-split via `lazy(() => import("./Staff"))` in `MainOverlays` (automatic chunk naming). `@/logger` is a normal import (small runtime no-op when logging is off).
 
 ### Logger API
 
@@ -90,13 +90,13 @@ Exposed via `useCouncilSettings()`:
 - `setDevLogCategoryEnabled(category, enabled)`
 - `setAllDevLogCategories(enabled)`
 
-Developer panel on `#setup` is lazy-loaded in all builds (staff secret URL).
+Developer panel on `#staff` is lazy-loaded in all builds (staff secret URL).
 
 Default when unset: **on** in dev (`import.meta.env.DEV`), **off** in production.
 
 ---
 
-## `#setup` control panel layout
+## `#staff` control panel layout
 
 **Problem:** stacked sections and long status paragraphs feel crowded as settings grow.
 
@@ -116,7 +116,7 @@ Default when unset: **on** in dev (`import.meta.env.DEV`), **off** in production
 └─────────────────────────┴─────────────────────────┘
 ```
 
-**Implementation:** private panel helpers and button-status mappers live in `Setup.tsx`
+**Implementation:** private panel helpers and button-status mappers live in `Staff.tsx`
 with inline styles (no separate CSS or `setup/` subfolder).
 
 ---
@@ -153,7 +153,7 @@ with inline styles (no separate CSS or `setup/` subfolder).
 - `councilSettings.ts` (storage getters/setters + `useCouncilSettings` hook)
 - Logger reads settings on each call
 
-### Phase 2 — `#setup` redesign + dev log UI ✅
+### Phase 2 — `#staff` redesign + dev log UI ✅
 
 - Panel layout, status chips, collapsible button block
 - Logging panel (half width) with On/Off segmented control and category pills
@@ -201,8 +201,8 @@ with inline styles (no separate CSS or `setup/` subfolder).
 | Date | Change |
 |------|--------|
 | 2026-06-24 | Initial plan: `councilFetch`, `@/logger` alias, setup control panel, phased rollout |
-| 2026-06-24 | Phases 0–2 implemented: logger, settings, `#setup` control panel redesign |
-| 2026-06-24 | Consolidated files: logger types in `logger.ts`, settings hook in `councilSettings.ts`, setup UI in one `Setup.tsx` |
+| 2026-06-24 | Phases 0–2 implemented: logger, settings, `#staff` control panel redesign |
+| 2026-06-24 | Consolidated files: logger types in `logger.ts`, settings hook in `councilSettings.ts`, staff UI in one `Staff.tsx` |
 | 2026-06-24 | Phases 3–6: `councilFetch`, socket/button/realtime/meta instrumentation, Playwright dev helpers |
 | 2026-06-24 | Replay audio via `getReplayAudio`; bridge BUTTON logging (state changes + transport); setup Logging pills + LED preview relocation |
 | 2026-06-24 | Richer log payloads via `summarizeLogPayload`; API logs request/response bodies; replay audio inlined in `useCouncilMachine` |

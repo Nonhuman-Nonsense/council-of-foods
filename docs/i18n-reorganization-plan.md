@@ -47,7 +47,7 @@ agentMode    Always-on / PTT labels
 ptt          PTT hint + museum human textarea placeholder
 replay       Replay marquee (web + museum variant CTAs)
 autoplay     Museum idle warning (“Still there?”)
-setup        Staff #setup overlay (logging, button diagnostics)
+setup        Staff #staff panel (logging, button diagnostics)
 ```
 
 **Leave as top-level flat trees** (already clear, low churn):
@@ -110,8 +110,8 @@ Only **remove** keys that moved (`holdToSpeak`, `alwaysOn`, `pushToTalk`).
 
 Dynamic paths unchanged except prefix stays `setup.`:
 
-- `setup.button.bridge.${status}`
-- `setup.button.owners.${owner}` (`buttonDebug.tsx`)
+- `staff.button.bridge.${status}`
+- `staff.button.owners.${owner}` (`buttonDebug.tsx`)
 
 ### `app` — optional light grouping
 
@@ -154,7 +154,7 @@ Skip `app.lang.en` / `settings` unless confirmed in use.
 | `metaAgent.holdToSpeak` | Duplicate of `ptt.holdToSpeak` |
 | `setup.mode` | Unused |
 | `setup.voiceGuide` | Unused |
-| `setup.panels.voiceGuide` | Unused |
+| `staff.panels.voiceGuide` | Unused |
 
 ---
 
@@ -224,7 +224,7 @@ Skip `app.lang.en` / `settings` unless confirmed in use.
     }
   },
 
-  "setup": {
+  "staff": {
     "title": "SETUP",
     "web": "Web",
     "museum": "Museum",
@@ -245,7 +245,7 @@ Skip `app.lang.en` / `settings` unless confirmed in use.
 
 1. Add new keys + update `translation_en.json` structure
 2. Update components (small batches: `ptt` → `replay` → `autoplay` → `agentMode` → `setup` trim → `app`/`meeting`/`human` if included)
-3. Update tests + e2e (`button_setup.spec.ts` JSON paths stay under `setup.button.*`)
+3. Update tests + e2e (`button_setup.spec.ts` JSON paths stay under `staff.button.*`)
 4. Grep for old prefixes — zero hits
 5. `npm test`
 
@@ -257,7 +257,7 @@ Skip `app.lang.en` / `settings` unless confirmed in use.
 
 | Priority | Files |
 |----------|-------|
-| Must | `translation_en.json`, `ButtonBanner.tsx`, `HumanInput.tsx`, `ReplayModeBanner.tsx`, `AutoplayWarning.tsx`, `Setup.tsx` |
+| Must | `translation_en.json`, `ButtonBanner.tsx`, `HumanInput.tsx`, `ReplayModeBanner.tsx`, `AutoplayWarning.tsx`, `Staff.tsx` |
 | Must | `Setup.test.tsx`, `HumanInput.test.jsx`, `AutoplayWarning.test.tsx` |
 | If `app`/`meeting`/`human` included | `Landing`, `SelectTopic`, `SelectCharacters`, `Navbar`, `Summary`, overlay components |
 | Docs | `button-banner-plan.md`, `autoplay-plan.md` |
@@ -268,7 +268,7 @@ Skip `app.lang.en` / `settings` unless confirmed in use.
 
 - Full client unit tests
 - Grep: `setup.holdToSpeak`, `metaAgent`, `replayModeBanner`, `autoplayWarning`, `human.button_museum`, `human.1` → none
-- E2e button setup spec still resolves `setup.button.*`
+- E2e button setup spec still resolves `staff.button.*`
 
 ---
 

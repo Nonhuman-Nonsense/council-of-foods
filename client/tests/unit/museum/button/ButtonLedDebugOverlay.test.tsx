@@ -29,13 +29,13 @@ describe("ButtonLedDebugOverlay", () => {
   });
 
   it("renders pulse state", () => {
-    useButtonStore.setState({ ledMode: "pulse", buttonOwner: "setup" });
+    useButtonStore.setState({ ledMode: "pulse", buttonOwner: "staff" });
     render(<ButtonLedDebugOverlay />);
 
     expect(screen.getByTestId("button-led-debug-indicator")).toHaveAttribute(
       "data-led-mode",
       "pulse",
     );
-    expect(screen.getByTestId("button-led-debug-owner")).toHaveTextContent("Setup");
+    expect(screen.getByTestId("button-led-debug-owner")).toHaveTextContent("Staff");
   });
 });

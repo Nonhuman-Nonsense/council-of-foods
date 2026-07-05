@@ -167,4 +167,52 @@ describe('Inworld TTS Summary Generation Limit', () => {
 
         console.log(`✓ Summary test: ${callCount} chunks merged into ${mergedAudio.length} bytes`);
     });
+
+    it('should NEVER exceed 2000 chars per Inworld request even with alias-heavy text (real PronunciationUtils)', async () => {
+        // This test does NOT mock PronunciationUtils — it exercises the real expansion path.
+        // CO₂ → "see oh two", kWh → "kilowatt hours", etc.
+        const aliasHeavySummary = 'CO₂ emissions amount to 50 Mt per year. kWh usage is tracked. IPCC reports show DNA analysis confirms CH₄ levels. '.repeat(20);
+        // Raw length ~2200+ chars; after alias expansion each "CO₂" becomes "see oh two" etc. — chunks
+        // that were previously cut at 2000 raw chars could overflow.
+
+        const path = await import('path');
+        const { fileURLToPath } = await import('url');
+        const __filename = fileURLToPath(import.meta.url);
+        const __dirname = path.dirname(__filename);
+        const fsPromises = await import('fs/promises');
+        const fixturesDir = path.join(__dirname, 'fixtures');
+        const fixture1 = await fsPromises.readFile(path.join(fixturesDir, 'test-chunk-1.ogg'));
+        const fixture2 = await fsPromises.readFile(path.join(fixturesDir, 'test-chunk-2.ogg'));
+
+        const message = {
+            id: 'alias-summary-msg',
+            text: aliasHeavySummary,
+            sentences: [],
+        };
+        const speaker = { id: 'char', voice: 'Wendy', voiceProvider: 'inworld' };
+        const serverOptions = { ...globalOptions, skipMatchingSubtitles: true };
+        const meeting = MockFactory.createStoredMeeting({ _id: 999, language: 'en' });
+
+        let callCount = 0;
+        const mockFetchReal = vi.fn().mockImplementation(async (url: string, init: RequestInit) => {
+            if (typeof url === 'string' && url.includes('inworld.ai')) {
+                const body = JSON.parse(init.body as string);
+                // The core assertion: every request body must be within Inworld's limit
+                expect(body.text.length).toBeLessThanOrEqual(2000);
+                callCount++;
+                const fixture = callCount % 2 === 1 ? fixture1 : fixture2;
+                return { ok: true, json: async () => ({ audioContent: fixture.toString('base64') }) };
+            }
+            return { ok: true };
+        });
+        global.fetch = mockFetchReal;
+
+        await audioSystem.generateAudio(message, speaker, 'en', serverOptions, meeting, 'production', true);
+
+        expect(callCount).toBeGreaterThan(0);
+        expect(Logger.reportAndCrashClient).not.toHaveBeenCalled();
+        expect(mockBroadcaster.broadcastAudioUpdate).toHaveBeenCalledTimes(1);
+
+        console.log(`✓ Alias-heavy test: ${callCount} chunks, all ≤ 2000 chars after expansion`);
+    });
 });

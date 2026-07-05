@@ -6,6 +6,7 @@ import { splitSentences } from "@shared/textUtils.js";
 import { Logger } from "@utils/Logger.js";
 import removeMd from 'remove-markdown';
 import type { StoredMeeting } from "@models/DBModels.js";
+import { isCompleteReplayManifest } from "../api/replayManifest.js";
 
 /**
  * Manages the high-level lifecycle of a meeting: Start, Conclude, Extend, and Summarize.
@@ -92,20 +93,18 @@ export class MeetingLifecycleHandler {
 
         manager.broadcaster.broadcastConversationUpdate(m.conversation);
 
-        if (m._id !== null) {
-            await manager.services.meetingsCollection.updateOne(
-                { _id: m._id },
-                { $set: { conversation: m.conversation } }
-            );
+        await manager.services.meetingsCollection.updateOne(
+            { _id: m._id },
+            { $set: { conversation: m.conversation } }
+        );
 
-            manager.audioSystem.queueAudioGeneration(
-                { ...closingMessage, id: closingMessage.id as string, text: closingMessage.text as string, sentences: closingMessage.sentences! },
-                chair,
-                m,
-                manager.environment,
-                manager.serverOptions
-            );
-        }
+        manager.audioSystem.queueAudioGeneration(
+            { ...closingMessage, id: closingMessage.id as string, text: closingMessage.text as string, sentences: closingMessage.sentences! },
+            chair,
+            m,
+            manager.environment,
+            manager.serverOptions
+        );
 
         await this.summarizeMeeting(message.date);
     }
@@ -142,35 +141,56 @@ export class MeetingLifecycleHandler {
         };
 
         m.conversation.push(summary);
+        const summaryIndex = m.conversation.length - 1;
+        m.maximumPlayedIndex = summaryIndex;
 
         manager.broadcaster.broadcastConversationUpdate(m.conversation);
-        Logger.info(`meeting ${m._id}`, `summary generated on index ${m.conversation.length - 1}`);
+        Logger.info(`meeting ${m._id}`, `summary generated on index ${summaryIndex}`);
 
-        if (m._id !== null) {
-            await manager.services.meetingsCollection.updateOne(
-                { _id: m._id },
-                { $set: { conversation: m.conversation, summary: summary } }
-            );
-        }
+        await manager.services.meetingsCollection.updateOne(
+            { _id: m._id },
+            {
+                $set: {
+                    conversation: m.conversation,
+                    maximumPlayedIndex: summaryIndex,
+                },
+            },
+        );
 
-        // Create a specific message payload for audio generation with stripped text
-        // We split sentences based on the *audio* text so alignment works accurately
         const audioMessage = {
             ...summary,
             text: textForAudio,
             sentences: [],
         };
 
-        if (m._id !== null) {
-            void manager.audioSystem.generateAudio(
-                audioMessage as AudioMessage,
-                chair,
-                m.language,
-                manager.serverOptions,
-                m,
-                manager.environment,
-                true
-            );
+        await manager.audioSystem.generateAudio(
+            audioMessage as AudioMessage,
+            chair,
+            m.language,
+            manager.serverOptions,
+            m,
+            manager.environment,
+            true
+        );
+        await manager.audioSystem.waitForIdle();
+
+        if (manager.environment !== "prototype") {
+            const stored = await manager.services.meetingsCollection.findOne({ _id: m._id });
+            if (stored) {
+                const { liveKey: _liveKey, ...meeting } = stored as StoredMeeting;
+                if (isCompleteReplayManifest(meeting)) {
+                    await manager.services.meetingsCollection.updateOne(
+                        { _id: m._id },
+                        { $set: { meetingComplete: true } },
+                    );
+                    m.meetingComplete = true;
+                } else {
+                    Logger.warn(
+                        `meeting ${m._id}`,
+                        "conclude audio barrier finished but replay manifest is incomplete; meetingComplete left false",
+                    );
+                }
+            }
         }
     }
 

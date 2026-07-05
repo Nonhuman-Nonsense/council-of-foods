@@ -4,6 +4,7 @@ import Council from '@council/Council';
 import '@testing-library/jest-dom';
 import { MockFactory } from '../factories/MockFactory';
 import { useErrorStore } from '@main/overlay/errorStore';
+import { notifyAutoplay, useAutoplayStore } from '@/autoplay/autoplayStore';
 
 // --- Mocks ---
 
@@ -155,6 +156,7 @@ describe('Council Component', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         useErrorStore.getState().resetForTests();
+        useAutoplayStore.getState().resetForTests();
         mockNavigate.mockClear();
         mockMetaAgentActivate = false;
         mockUseCouncilMachine.mockReturnValue(mockCouncilStateMachine);
@@ -299,5 +301,31 @@ describe('Council Component', () => {
         await waitFor(() => {
             expect(screen.queryByTestId('output')).not.toBeInTheDocument();
         });
+    });
+
+    it('clears lifted meeting runtime and autoplay council flags on unmount', () => {
+        const setCurrentSpeakerId = vi.fn();
+        const setPaused = vi.fn();
+
+        notifyAutoplay({ type: 'council-state', state: 'summary' });
+        notifyAutoplay({ type: 'summary-playback-finished' });
+
+        const { unmount } = render(
+            <Council
+                {...defaultProps}
+                setCurrentSpeakerId={setCurrentSpeakerId}
+                setPaused={setPaused}
+            />,
+        );
+
+        setCurrentSpeakerId.mockClear();
+        setPaused.mockClear();
+
+        unmount();
+
+        expect(setCurrentSpeakerId).toHaveBeenCalledWith('');
+        expect(setPaused).toHaveBeenCalledWith(false);
+        expect(useAutoplayStore.getState().councilOnSummary).toBe(false);
+        expect(useAutoplayStore.getState().summaryProtocolFinished).toBe(false);
     });
 });

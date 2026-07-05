@@ -35,18 +35,22 @@ export const z = {
   overlayCloseButton: 20,
   /** Blocking modals: autoplay warning, council error, reconnecting. */
   systemOverlay: 20,
+  /** Staff-only overlays (e.g. #staff) that must appear above system error overlays. */
+  staffOverlay: 25,
   rotatePrompt: 100,
   voiceGuide: 10000,
-  museumEscape: 10001,
+  museumSwitchButton: 10001,
   buttonDebug: 10002,
 } as const;
 
 export type ZIndexLayer = keyof typeof z;
 
-export type OverlayLayer = "route" | "system";
+export type OverlayLayer = "route" | "system" | "staff";
 
 export function overlayZIndex(layer: OverlayLayer = "route"): number {
-  return layer === "system" ? z.systemOverlay : z.routeOverlay;
+  if (layer === "system") return z.systemOverlay;
+  if (layer === "staff") return z.staffOverlay;
+  return z.routeOverlay;
 }
 
 /** Publish stacking layers as CSS custom properties on `:root`. */

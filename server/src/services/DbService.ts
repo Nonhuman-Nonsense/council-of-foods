@@ -3,6 +3,9 @@ import { MongoClient, Db, Collection, InsertOneResult } from "mongodb";
 import { Logger } from "@utils/Logger.js";
 import { config } from "../config.js";
 
+const AUTOPLAY_INDEX_SPEC = { meetingComplete: 1, date: 1, language: 1 } as const;
+const AUTOPLAY_INDEX_NAME = "autoplay_meetingComplete_date_language";
+
 let db: Db;
 let mongoClient: MongoClient | null = null;
 let activeConnectionKey: string | null = null;
@@ -36,7 +39,27 @@ export const initDb = async (dbUrl?: string, dbPrefix?: string): Promise<void> =
   activeConnectionKey = connectionKey;
 
   await initializeCounters();
+  await ensureMeetingIndexes();
   Logger.info("init", "Database ready.");
+};
+
+function indexSpecMatches(key: Record<string, unknown> | undefined): boolean {
+  if (!key) {
+    return false;
+  }
+  return key.meetingComplete === 1 && key.date === 1 && key.language === 1;
+}
+
+const ensureMeetingIndexes = async (): Promise<void> => {
+  // createIndex is idempotent; also creates the collection if missing (fresh DB / tests).
+  const existing = await meetingsCollection.listIndexes().toArray().catch(() => []);
+  const hasIndex = existing.some((idx) => indexSpecMatches(idx.key as Record<string, unknown>));
+  if (hasIndex) {
+    Logger.info("init", `Meetings autoplay index already present (${AUTOPLAY_INDEX_NAME})`);
+    return;
+  }
+  await meetingsCollection.createIndex(AUTOPLAY_INDEX_SPEC, { name: AUTOPLAY_INDEX_NAME });
+  Logger.info("init", `Created meetings autoplay index (${AUTOPLAY_INDEX_NAME})`);
 };
 
 export const closeDb = async (): Promise<void> => {

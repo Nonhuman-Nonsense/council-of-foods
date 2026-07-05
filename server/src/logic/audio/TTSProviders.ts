@@ -16,6 +16,10 @@ interface GenerateParams {
     speaker: Speaker;
     options: AudioSystemOptions;
     services?: { getOpenAI: () => OpenAI }; // For OpenAI
+    /** If true, `text` is already pronunciation-processed; skip PronunciationUtils. */
+    preprocessed?: boolean;
+    /** Pre-built replacement map when `preprocessed` is true, for subtitle restoration. */
+    replacedWords?: Map<string, string>;
 }
 
 export interface AudioResult {
@@ -36,7 +40,7 @@ export async function generateOpenAIAudio(params: GenerateParams): Promise<Audio
         model: options.voiceModel,
         voice: speaker.voice as OpenAI.Audio.SpeechCreateParams["voice"],
         speed: speaker.voiceSpeed ?? options.defaultAudioSpeed,
-        input: text.substring(0, 4096),
+        input: text,
         instructions: speaker.voiceInstruction,
         response_format: "opus"
     }));
@@ -57,7 +61,7 @@ export async function generateElevenLabsAudio(params: GenerateParams): Promise<A
     url.searchParams.set("output_format", ELEVENLABS_OPUS_OUTPUT_FORMAT);
 
     const body: Record<string, unknown> = {
-        text: processedText.substring(0, 4096),
+        text: processedText,
         model_id: modelId,
         voice_settings: {
             speed: speaker.voiceSpeed ?? options.defaultAudioSpeed,
@@ -109,11 +113,13 @@ export async function generateElevenLabsAudio(params: GenerateParams): Promise<A
 }
 
 export async function generateInworldAudio(params: GenerateParams): Promise<AudioResult> {
-    const { text, speaker, options } = params;
+    const { text, speaker, options, preprocessed, replacedWords: passedReplacedWords } = params;
     const apiKey = process.env.INWORLD_API_KEY;
 
     const language = options.language ?? 'en';
-    const { processedText, replacedWords } = PronunciationUtils.processText(text, language, { includeIpa: true });
+    const { processedText, replacedWords } = preprocessed
+        ? { processedText: text, replacedWords: passedReplacedWords ?? new Map<string, string>() }
+        : PronunciationUtils.processText(text, language, { includeIpa: true });
 
     const url = 'https://api.inworld.ai/tts/v1/voice';
     const locale = speaker.voiceLocale?.trim() || undefined;

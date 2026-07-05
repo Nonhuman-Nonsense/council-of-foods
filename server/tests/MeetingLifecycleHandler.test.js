@@ -74,7 +74,11 @@ describe('MeetingLifecycleHandler', () => {
                 generateDocument: vi.fn()
                     .mockResolvedValue({ response: 'Summary', id: 'sum1' }),
             },
-            audioSystem: { generateAudio: vi.fn(), queueAudioGeneration: vi.fn() }
+            audioSystem: {
+                generateAudio: vi.fn().mockResolvedValue(undefined),
+                waitForIdle: vi.fn().mockResolvedValue(undefined),
+                queueAudioGeneration: vi.fn(),
+            }
         };
 
         handler = new MeetingLifecycleHandler(mockContext);
@@ -208,6 +212,25 @@ describe('MeetingLifecycleHandler', () => {
             expect(mockContext.dialogGenerator.generateDocument.mock.calls[0][0]).toBe('Summary 2025-01-01');
             expect(mockContext.audioSystem.queueAudioGeneration).toHaveBeenCalledTimes(1);
             expect(mockContext.audioSystem.generateAudio).toHaveBeenCalledTimes(1);
+        });
+
+        it('sets maximumPlayedIndex to the summary message index when persisting summary', async () => {
+            mockContext.meeting = storedMeeting({
+                conversation: [{ id: '1', text: 'hi', type: 'message', speaker: chair.id }],
+            });
+
+            await handler.handleConcludeMeeting({ date: '2025-01-01' });
+
+            const summaryIndex = mockContext.meeting.conversation.length - 1;
+            expect(mockContext.meeting.conversation[summaryIndex].type).toBe('summary');
+            expect(mockContext.meeting.maximumPlayedIndex).toBe(summaryIndex);
+
+            const summaryUpdate = mockMeetingsCollection.updateOne.mock.calls.find(
+                ([, update]) => update?.$set?.maximumPlayedIndex != null && update?.$set?.conversation != null,
+            );
+            expect(summaryUpdate).toBeDefined();
+            expect(summaryUpdate[1].$set.summary).toBeUndefined();
+            expect(summaryUpdate[1].$set.maximumPlayedIndex).toBe(summaryIndex);
         });
     });
 

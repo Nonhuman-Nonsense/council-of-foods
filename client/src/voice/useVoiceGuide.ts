@@ -21,12 +21,14 @@ export type VoiceGuideState = {
   isConnecting: boolean;
   lastCaption: string | null;
   lastUserTranscript: string | null;
+  agentSpeaking: boolean;
   micStream: MediaStream | null;
   muted: boolean;
   setMuted: (muted: boolean) => void;
   start: () => Promise<void>;
   stop: () => void;
   sendUserMessage: (text: string) => void;
+  requestAgentResponse: () => void;
 };
 
 /**
@@ -65,6 +67,7 @@ export function useVoiceGuide(params: UseVoiceGuideParams): VoiceGuideState {
     toolHandlers,
     triggerGreetingOnReady: true,
     pttMic,
+    trackAgentSpeaking: true,
     audioElement,
     sessionActive: !muted,
     autoConnect: autoStart,
@@ -98,6 +101,8 @@ export function useVoiceGuide(params: UseVoiceGuideParams): VoiceGuideState {
       setMuted(false);
     },
     stop,
+    agentSpeaking: session.agentSpeaking,
     sendUserMessage: session.sendUserMessage,
+    requestAgentResponse: session.requestAgentResponse,
   };
 }

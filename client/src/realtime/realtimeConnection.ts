@@ -26,6 +26,100 @@ export class RealtimeHttpError extends Error {
   }
 }
 
+/** Why microphone acquisition failed. Drives error classification + messaging. */
+export type MicrophoneErrorReason =
+  | "insecure_context" // page not served over HTTPS/localhost — mediaDevices unavailable
+  | "unsupported" // browser has no getUserMedia at all
+  | "permission_denied" // user or policy blocked mic access
+  | "not_found" // no microphone hardware present
+  | "in_use" // mic held by another app / not readable
+  | "unknown";
+
+/**
+ * Thrown by {@link acquireMicrophone} when the mic can't be obtained. Carries a
+ * `reason` so callers can classify (some causes are permanent, some transient)
+ * and a human-readable `message` safe to surface in the UI.
+ */
+export class MicrophoneUnavailableError extends Error {
+  /** The underlying DOMException/error, when available. */
+  readonly originalError?: unknown;
+
+  constructor(
+    readonly reason: MicrophoneErrorReason,
+    message: string,
+    options?: { cause?: unknown },
+  ) {
+    super(message);
+    this.name = "MicrophoneUnavailableError";
+    this.originalError = options?.cause;
+  }
+}
+
+const MIC_CONSTRAINTS: MediaStreamConstraints = {
+  audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: false },
+};
+
+/**
+ * Acquire the microphone with an explicit guard + normalized errors.
+ *
+ * Unlike a bare `navigator.mediaDevices.getUserMedia(...)`, this:
+ *  - fails with a clear {@link MicrophoneUnavailableError} when `mediaDevices`
+ *    is missing (non-secure context / unsupported browser) instead of throwing
+ *    an opaque `TypeError` that gets misclassified as a retryable network blip;
+ *  - maps each DOMException name to a specific reason + user-facing message.
+ */
+export async function acquireMicrophone(): Promise<MediaStream> {
+  const mediaDevices =
+    typeof navigator !== "undefined" ? navigator.mediaDevices : undefined;
+
+  if (!mediaDevices || typeof mediaDevices.getUserMedia !== "function") {
+    const insecure =
+      typeof window !== "undefined" && window.isSecureContext === false;
+    throw new MicrophoneUnavailableError(
+      insecure ? "insecure_context" : "unsupported",
+      insecure
+        ? "Microphone access requires a secure (HTTPS) connection."
+        : "This browser does not support microphone access.",
+    );
+  }
+
+  try {
+    return await mediaDevices.getUserMedia(MIC_CONSTRAINTS);
+  } catch (err) {
+    const name = err instanceof Error ? err.name : "";
+    switch (name) {
+      case "NotAllowedError":
+      case "SecurityError":
+        throw new MicrophoneUnavailableError(
+          "permission_denied",
+          "Microphone access was blocked. Please allow microphone access and try again.",
+          { cause: err },
+        );
+      case "NotFoundError":
+      case "OverconstrainedError":
+        throw new MicrophoneUnavailableError(
+          "not_found",
+          "No microphone was found on this device.",
+          { cause: err },
+        );
+      case "NotReadableError":
+        throw new MicrophoneUnavailableError(
+          "in_use",
+          "The microphone is unavailable — it may be in use by another application.",
+          { cause: err },
+        );
+      default:
+        throw new MicrophoneUnavailableError(
+          "unknown",
+          err instanceof Error && err.message
+            ? err.message
+            : "The microphone could not be accessed.",
+          { cause: err },
+        );
+    }
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Error classifier
 // ---------------------------------------------------------------------------
@@ -51,7 +145,13 @@ export function classifyRealtimeError(
   }
   // Invalid bootstrap shape — a structural/config problem
   if (err instanceof Error && err.message.includes("response invalid")) return "fatal";
-  // Mic permission denied: fatal on web (user choice), retryable in museum (OS hiccup)
+  // Any microphone acquisition failure is fatal — retrying getUserMedia can
+  // never resolve a blocked permission, missing hardware, or a busy device.
+  // Surfacing the specific message immediately is always more useful than
+  // an endless reconnect loop.
+  if (err instanceof MicrophoneUnavailableError) return "fatal";
+  // Legacy path (should now be wrapped by MicrophoneUnavailableError): mic
+  // permission denied is fatal on web (user choice), retryable in museum.
   if (err instanceof Error && err.name === "NotAllowedError") {
     return opts?.isMuseumMode ? "retryable" : "fatal";
   }
@@ -327,13 +427,7 @@ export async function createRealtimeConnection(params: CreateConnectionParams): 
       micStream = micStreamParam;
     } else {
       log("getUserMedia");
-      micStream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-        },
-      });
+      micStream = await acquireMicrophone();
     }
     throwIfAborted(signal);
 

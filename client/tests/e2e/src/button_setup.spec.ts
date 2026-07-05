@@ -37,14 +37,14 @@ async function seedMuseumPushToTalk(page: import("@playwright/test").Page): Prom
   });
 }
 
-async function openSetupWithMuseumPushToTalk(page: import("@playwright/test").Page): Promise<void> {
+async function openStaffWithMuseumPushToTalk(page: import("@playwright/test").Page): Promise<void> {
   await seedMuseumPushToTalk(page);
-  await page.goto("/#setup");
+  await page.goto("/#staff");
 }
 
 async function waitForAppBridgeConnected(page: import("@playwright/test").Page): Promise<void> {
-  const appStatus = page.getByTestId("setup-bridge-app-status");
-  const connectedLabel = `${translations.setup.button.appLabel}: ${translations.setup.button.app.connected}`;
+  const appStatus = page.getByTestId("staff-bridge-app-status");
+  const connectedLabel = `${translations.staff.button.appLabel}: ${translations.staff.button.app.connected}`;
   await expect(appStatus).toContainText(connectedLabel, { timeout: BRIDGE_CONNECT_TIMEOUT_MS });
 }
 
@@ -61,19 +61,19 @@ async function waitForButtonStoreReady(page: import("@playwright/test").Page): P
 }
 
 test.describe("installation button (browser)", () => {
-  test("setup reports bridge not running when health check fails", async ({ page }) => {
+  test("staff panel reports bridge not running when health check fails", async ({ page }) => {
     await page.route("http://127.0.0.1:8765/health", (route) => route.abort());
 
-    await openSetupWithMuseumPushToTalk(page);
+    await openStaffWithMuseumPushToTalk(page);
 
-    const status = page.getByTestId("setup-bridge-daemon-status");
-    await expect(status).toContainText(translations.setup.button.bridge.notRunning);
+    const status = page.getByTestId("staff-bridge-daemon-status");
+    await expect(status).toContainText(translations.staff.button.bridge.notRunning);
   });
 });
 
 test.describe("installation button resilience (browser)", () => {
   test("connects, reconnects after reload, and forwards mock button presses", async ({ page }) => {
-    await openSetupWithMuseumPushToTalk(page);
+    await openStaffWithMuseumPushToTalk(page);
     await waitForAppBridgeConnected(page);
 
     await page.reload();

@@ -102,11 +102,11 @@ describe("resumeMeeting (server)", () => {
         expect(stored?.liveKey).toBe("original-key");
     });
 
-    it("rejects with BadRequestError when the meeting already has a summary", async () => {
+    it("rejects with BadRequestError when the meeting is already complete", async () => {
         await seedMeeting({
             conversation: [{ id: "m0", type: "message", speaker: SPEAKER_ID, text: "0" }],
             audio: ["m0"],
-            summary: { id: "s", type: "summary", speaker: SPEAKER_ID, text: "done" },
+            meetingComplete: true,
             maximumPlayedIndex: 0,
         });
 

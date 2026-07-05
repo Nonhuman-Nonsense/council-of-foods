@@ -21,7 +21,7 @@ banners on museum replay summary (or anywhere else).
 visibility:
 
 ```
-setup: 4
+staff: 4
 autoplay: 3
 human-input: 2
 summary: 2
@@ -91,7 +91,7 @@ Summary.tsx             ← unchanged; wins over replay at priority 2
 Add to `BUTTON_OWNER_PRIORITY` at **1** (same tier as voice-guide / meta-agent):
 
 ```
-setup: 4
+staff: 4
 autoplay: 3
 human-input: 2
 summary: 2

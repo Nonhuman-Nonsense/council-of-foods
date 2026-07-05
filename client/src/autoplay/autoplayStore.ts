@@ -1,5 +1,8 @@
-import { useMemo } from "react";
 import { create } from "zustand";
+import type { NavigateFunction } from "react-router";
+import { fetchAutoplayMeetingId } from "@api/fetchAutoplayMeeting";
+import { buildLanguagePath } from "@/routing";
+import routes from "@/routes.json";
 import { log } from "@/logger";
 
 export type AutoplayPhase = "off" | "warning" | "active";
@@ -18,7 +21,8 @@ export type AutoplayCouncilState =
 /** Fixed list of events app code may send to autoplay. */
 export type AutoplayConsumerEvent =
   | { type: "council-state"; state: AutoplayCouncilState }
-  | { type: "summary-playback-finished" };
+  | { type: "summary-playback-finished" }
+  | { type: "council-unmounted" };
 
 export type AutoplayActivitySource =
   | "button-press"
@@ -30,17 +34,17 @@ export type AutoplayActivitySource =
   | "loop-next-meeting"
   | "loop-retry";
 
-export type ReplayBannerVariant = "default" | "autoplay";
-
 /** Museum summary: return to landing after protocol reading (non-autoplay visits). */
 export const SUMMARY_RETURN_TO_ROOT_MS = 20_000;
 
 /** Autoplay exhibition loop: next meeting after protocol reading. */
 export const AUTOPLAY_NEXT_MEETING_MS = 5_000;
 
+/** Idle before autoplay warning on welcome (/) or in-progress setup (/new). */
+export const SETUP_IDLE_MS = 90_000;
+
 export type AutoplayHandle = {
   notify: (event: AutoplayConsumerEvent) => void;
-  replayBannerVariant: ReplayBannerVariant;
 };
 
 type AutoplayStore = {
@@ -48,6 +52,12 @@ type AutoplayStore = {
   setPhase: (phase: AutoplayPhase) => void;
   lastActivityMs: number;
   bumpActivity: (source: AutoplayActivitySource) => void;
+  /** Bumped on each autoplay navigation so Main can remount Council on same meeting id. */
+  meetingGeneration: number;
+  navigateToAutoplayMeeting: (
+    navigate: NavigateFunction,
+    language: string,
+  ) => Promise<number>;
   councilOnSummary: boolean;
   summaryProtocolFinished: boolean;
   notify: (event: AutoplayConsumerEvent) => void;
@@ -67,6 +77,15 @@ export const useAutoplayStore = create<AutoplayStore>((set) => ({
     log.event("AUTOPLAY", "activity bump", { source });
   },
 
+  meetingGeneration: 0,
+  navigateToAutoplayMeeting: async (navigate, language) => {
+    const meetingId = await fetchAutoplayMeetingId(language);
+    set((state) => ({ meetingGeneration: state.meetingGeneration + 1 }));
+    navigate(buildLanguagePath(language, `/${routes.meeting}/${meetingId}`), { replace: true });
+    log.event("AUTOPLAY", "navigated to meeting", { meetingId, language });
+    return meetingId;
+  },
+
   councilOnSummary: false,
   summaryProtocolFinished: false,
 
@@ -83,6 +102,10 @@ export const useAutoplayStore = create<AutoplayStore>((set) => ({
         set({ summaryProtocolFinished: true });
         log.event("AUTOPLAY", "summary-playback-finished");
         break;
+      case "council-unmounted":
+        set({ councilOnSummary: false, summaryProtocolFinished: false });
+        log.event("AUTOPLAY", "council-unmounted");
+        break;
     }
   },
 
@@ -90,6 +113,7 @@ export const useAutoplayStore = create<AutoplayStore>((set) => ({
     set({
       phase: "off",
       lastActivityMs: Date.now(),
+      meetingGeneration: 0,
       councilOnSummary: false,
       summaryProtocolFinished: false,
     });
@@ -102,19 +126,11 @@ export function notifyAutoplay(event: AutoplayConsumerEvent): void {
 }
 
 export function useAutoplay(): AutoplayHandle {
-  const replayBannerVariant = useAutoplayStore((state) =>
-    state.phase === "active" ? "autoplay" : "default",
-  );
-
-  return useMemo(
-    () => ({
-      notify: (event: AutoplayConsumerEvent) => {
-        useAutoplayStore.getState().notify(event);
-      },
-      replayBannerVariant,
-    }),
-    [replayBannerVariant],
-  );
+  return {
+    notify: (event: AutoplayConsumerEvent) => {
+      useAutoplayStore.getState().notify(event);
+    },
+  };
 }
 
 /** Test helper — pin the idle clock. */

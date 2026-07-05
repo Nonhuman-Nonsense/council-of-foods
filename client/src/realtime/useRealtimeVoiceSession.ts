@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  acquireMicrophone,
   classifyRealtimeError,
   computeRealtimeRetryDelay,
   createRealtimeConnection,
@@ -378,30 +379,44 @@ export function useRealtimeVoiceSession(
 
     let conn: RealtimeConnection | null = null;
     try {
-      const [bootResult, micResult] = await Promise.allSettled([
-        fetchRealtimeBootstrap(
-          { feature, language },
-          realtimeDebugLog,
-          controller.signal,
-          authHeaders,
-        ),
-        navigator.mediaDevices.getUserMedia({
-          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-        }),
-      ]);
+      // Start bootstrap and mic acquisition in parallel for minimum latency in
+      // the success path. But await mic first: a mic failure is always fatal and
+      // resolved instantly by the browser — there is no reason to block on the
+      // bootstrap network round-trip (up to 15 s) before surfacing the error.
+      const bootstrapPromise = fetchRealtimeBootstrap(
+        { feature, language },
+        realtimeDebugLog,
+        controller.signal,
+        authHeaders,
+      );
 
-      if (bootResult.status === "rejected") {
-        if (micResult.status === "fulfilled") micResult.value.getTracks().forEach((t) => t.stop());
-        throw bootResult.reason;
+      let micStreamValue: MediaStream;
+      try {
+        micStreamValue = await acquireMicrophone();
+      } catch (micErr) {
+        bootstrapPromise.catch(() => {}); // suppress unhandled rejection
+        throw micErr;
       }
-      if (micResult.status === "rejected") throw micResult.reason;
+
       if (isStale()) {
-        micResult.value.getTracks().forEach((t) => t.stop());
+        micStreamValue.getTracks().forEach((t) => t.stop());
         return;
       }
 
-      const { provider, session: defaults, iceServers } = bootResult.value;
-      const micStreamValue = micResult.value;
+      let bootstrapValue: Awaited<typeof bootstrapPromise>;
+      try {
+        bootstrapValue = await bootstrapPromise;
+      } catch (bootErr) {
+        micStreamValue.getTracks().forEach((t) => t.stop());
+        throw bootErr;
+      }
+
+      if (isStale()) {
+        micStreamValue.getTracks().forEach((t) => t.stop());
+        return;
+      }
+
+      const { provider, session: defaults, iceServers } = bootstrapValue;
       setMicTracksEnabled(micStreamValue, !pttMic);
 
       serverDefaultsRef.current = defaults;

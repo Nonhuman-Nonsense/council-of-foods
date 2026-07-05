@@ -8,7 +8,7 @@ This document tracks the **intent**, **architecture**, and **implementation stat
 
 ## Goals
 
-- **Two app modes:** `web` (default) and `museum`, chosen on `#setup` and persisted in `localStorage`.
+- **Two app modes:** `web` (default) and `museum`, chosen on `#staff` and persisted in `localStorage`.
 - **Museum chrome removal:** Hide staff/visitor UI chrome so the install looks like a passive, voice-guided experience.
 - **Live mode switching:** Exiting museum mode (escape hatch) restores all web controls **without reload**, so staff can recover mid-meeting during development or install tuning.
 - **Voice-first setup:** Pre-meeting flow is already driven by the voice guide (`MeetingVoiceGuide`); museum mode optimizes for that path.
@@ -17,7 +17,7 @@ This document tracks the **intent**, **architecture**, and **implementation stat
 ### Non-goals (for initial phases)
 
 - Lazy-loading or code-splitting navbar away from museum kiosks (conditional render is enough).
-- Auto-selecting push-to-talk when museum mode is enabled (PTT vs always-on stays a separate `#setup` choice).
+- Auto-selecting push-to-talk when museum mode is enabled (PTT vs always-on stays a separate `#staff` choice).
 - Programmatic browser fullscreen on museum mount.
 - A voice moderator during the live council meeting (unchanged from voice-guide migration plan).
 
@@ -35,7 +35,7 @@ This document tracks the **intent**, **architecture**, and **implementation stat
 | AI (voice guide) toggle | Hidden in museum mode; guide keeps auto-starting via `useVoiceGuide` |
 | Escape hatch | Single click; top-left; lives in `client/src/museum/`; **no page reload** |
 | PTT | Independent of museum mode — do not auto-enable push-to-talk |
-| Hardware bridge | Independent of museum mode — `#setup` **Hardware button** toggle + push-to-talk; bridge connects in web or museum when enabled |
+| Hardware bridge | Independent of museum mode — `#staff` **Hardware button** toggle + push-to-talk; bridge connects in web or museum when enabled |
 | Mode reactivity | `useAppMode()` hook so toggling mode or escape hatch updates UI in place |
 
 ---
@@ -52,8 +52,8 @@ flowchart LR
     Hook["useAppMode.ts"]
     Escape["MuseumModeEscapeHatch.tsx"]
   end
-  subgraph setup [#setup]
-    Setup["Setup.tsx mode selector"]
+  subgraph staff [#staff]
+    Staff["Staff.tsx mode selector"]
   end
   subgraph shell [App shell]
     Main["Main.tsx"]
@@ -102,7 +102,7 @@ Export `isMuseumMode` helper: `mode === "museum"`.
 
 ### 1.3 Setup page — Mode selector
 
-**File:** `client/src/main/overlay/Setup.tsx`
+**File:** `client/src/main/overlay/Staff.tsx`
 
 Add at the **top** of the overlay (above “Voice Guide”):
 
@@ -123,7 +123,7 @@ Mode
 ### 1.4 Phase 1 exit criteria
 
 - [x] Mode persists across reload
-- [x] `#setup` can switch web ↔ museum
+- [x] `#staff` can switch web ↔ museum
 - [x] `useAppMode` is the single reactive API for mode
 
 ---
@@ -187,7 +187,7 @@ Use this section when prioritising later work. Phase 1–2 do **not** require co
 | Characters | select/deselect tools, `start_meeting` | `SelectCharacters` + Start |
 | Visitor name | `remember_visitor_name` | — |
 
-Installation button via local **button/bridge** (`#setup` shows status when **Hardware button** is on) supports hardware input when push-to-talk is enabled — independent of museum vs web installation mode.
+Installation button via local **button/bridge** (`#staff` shows status when **Hardware button** is on) supports hardware input when push-to-talk is enabled — independent of museum vs web installation mode.
 
 ### Still mouse-dependent (council / errors)
 
@@ -228,11 +228,11 @@ Pick items based on install requirements. None are required for Phase 1–2 ship
 
 ### 4.4 Block incidental hash overlays (optional)
 
-In `MainOverlays`, if `isMuseumMode` and hash is `#about` | `#contact`, auto-close. Keep `#setup` for staff.
+In `MainOverlays`, if `isMuseumMode` and hash is `#about` | `#contact`, auto-close. Keep `#staff` for staff.
 
 ### 4.5 Install ops (documentation)
 
-- Set mode on `#setup` before opening to public.
+- Set mode on `#staff` before opening to public.
 - Chrome fullscreen / kiosk profile for the display machine.
 - Connect serial talk button when using push-to-talk.
 - Optional: `?mode=museum` on first load to seed `localStorage` (installer script) — not in scope unless requested.
@@ -250,7 +250,7 @@ Return to landing after inactivity — separate feature; coordinate with voice g
 | `client/src/museum/appMode.ts` | `getAppMode` / `setAppMode` |
 | `client/src/museum/useAppMode.ts` | Reactive hook for components |
 | `client/src/museum/MuseumModeEscapeHatch.tsx` | Single-click exit to web mode |
-| `client/src/main/overlay/Setup.tsx` | Mode selector at top |
+| `client/src/main/overlay/Staff.tsx` | Mode selector at top |
 | `client/src/main/Main.tsx` | Conditional navbar, fullscreen, escape hatch |
 | `client/src/voice/MeetingVoiceGuide.tsx` | Pass `isMuseumMode` to overlay |
 | `client/src/voice/VoiceGuideOverlay.tsx` | Hide AI control in museum |
@@ -286,9 +286,9 @@ flowchart TD
 
 ### Manual
 
-1. `#setup` → Museum → reload → chrome still hidden.
+1. `#staff` → Museum → reload → chrome still hidden.
 2. Start meeting in museum mode → click escape hatch → navbar, fullscreen, AI button appear; meeting continues.
-3. `#setup` → Web → full chrome restored.
+3. `#staff` → Web → full chrome restored.
 4. Museum + Always On voice guide → setup completable by voice only.
 5. Museum + Push to Talk + serial button → hold-to-speak flow unchanged.
 

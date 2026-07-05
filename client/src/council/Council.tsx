@@ -201,6 +201,14 @@ function Council({
   }, [councilState]);
 
   useEffect(() => {
+    return () => {
+      setCurrentSpeakerId("");
+      setPaused(false);
+      notifyAutoplay({ type: "council-unmounted" });
+    };
+  }, [setCurrentSpeakerId, setPaused]);
+
+  useEffect(() => {
     if (visibleOverlay !== "summary") {
       setSummaryPlayback(null);
     }
