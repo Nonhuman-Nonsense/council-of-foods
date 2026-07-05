@@ -29,6 +29,12 @@ describe('buildGuidePrompt', () => {
     expect(prompt).toContain('Apple');
   });
 
+  it('frames the setup as the Spirit of Asilomar summit', () => {
+    const prompt = buildGuidePrompt({ language: 'en', topics, characters, phase: 'landing' });
+    expect(prompt).toContain('Spirit of Asilomar summit');
+    expect(prompt).toContain('biotechnology, synthetic life');
+  });
+
   it('produces different output per phase', () => {
     const landing = buildGuidePrompt({ language: 'en', topics, characters, phase: 'landing' });
     const chars = buildGuidePrompt({ language: 'en', topics, characters, phase: 'characters' });
