@@ -23,12 +23,8 @@
     "test:coverage": "npm run test -- --coverage",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "docker": "docker build ../. -t nonhumannonsense/council-of-foods:latest --platform linux/amd64",
-    "docker:test": "docker build ../. -t nonhumannonsense/council-of-foods:test --platform linux/amd64",
-    "docker:proto": "docker build ../. -t nonhumannonsense/council-of-foods:proto -f ../prototype/Dockerfile --platform linux/amd64",
-    "push": "docker push nonhumannonsense/council-of-foods:latest",
-    "push:test": "docker push nonhumannonsense/council-of-foods:test",
-    "push:proto": "docker push nonhumannonsense/council-of-foods:proto"
+    "docker": "node ../scripts/docker.mjs",
+    "push": "node ../scripts/push.mjs"
   },
   "dependencies": {
     "colorette": "^2.0.20",
