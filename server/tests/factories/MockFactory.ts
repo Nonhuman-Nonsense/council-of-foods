@@ -180,6 +180,7 @@ export const MockFactory = {
             conversation: [],
             audio: [],
             conversationExtraSlots: 0,
+            meetingComplete: false,
         };
         return { ...defaults, ...restOverrides, topic };
     },

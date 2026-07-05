@@ -31,6 +31,8 @@ export interface BaseMeeting {
     summary?: Message; // To be defined strictly later
     maximumPlayedIndex?: number | null;
     conversationExtraSlots: number;
+    /** True once conclude audio barrier finished and replay is autoplay-eligible. */
+    meetingComplete: boolean;
 }
 
 export interface Meeting extends BaseMeeting {
