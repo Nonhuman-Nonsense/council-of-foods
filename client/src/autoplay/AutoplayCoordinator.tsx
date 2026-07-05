@@ -3,11 +3,10 @@ import { useLocation, useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import Overlay from "@main/overlay/Overlay";
 import AutoplayWarning from "@main/overlay/AutoplayWarning";
-import { fetchAutoplayMeetingId } from "@api/fetchAutoplayMeeting";
 import { useButton } from "@/museum/button/useButton";
 import { useButtonStore } from "@/museum/button/buttonStore";
 import { useCouncilSettings } from "@/settings/councilSettings";
-import { buildLanguagePath, isRootPath, stripLanguagePrefix } from "@/routing";
+import { isRootPath, stripLanguagePrefix } from "@/routing";
 import routes from "@/routes.json";
 import { getPreferredLanguage } from "@/i18n";
 import {
@@ -59,6 +58,7 @@ export default function AutoplayCoordinator({
   const councilOnSummary = useAutoplayStore((state) => state.councilOnSummary);
   const summaryProtocolFinished = useAutoplayStore((state) => state.summaryProtocolFinished);
   const setPhase = useAutoplayStore((state) => state.setPhase);
+  const navigateToAutoplayMeeting = useAutoplayStore((state) => state.navigateToAutoplayMeeting);
 
   const enterInFlightRef = useRef(false);
   const prevPressedRef = useRef(false);
@@ -85,13 +85,11 @@ export default function AutoplayCoordinator({
     });
   }, [isMuseumMode]);
 
-  const startAutoplayMeeting = useCallback(async (via: "enter" | "loop") => {
+  const startAutoplayMeeting = useCallback(async () => {
     const language = getPreferredLanguage();
     await i18n.changeLanguage(language);
-    const meetingId = await fetchAutoplayMeetingId(language);
-    navigate(buildLanguagePath(language, `/${routes.meeting}/${meetingId}`), { replace: true });
-    log.event("AUTOPLAY", via === "enter" ? "enter navigated" : "loop navigated", { meetingId, language });
-  }, [i18n, navigate]);
+    await navigateToAutoplayMeeting(navigate, language);
+  }, [i18n, navigate, navigateToAutoplayMeeting]);
 
   const enterAutoplay = useCallback(async () => {
     if (enterInFlightRef.current) {
@@ -105,7 +103,7 @@ export default function AutoplayCoordinator({
     bumpAutoplayActivity("enter-autoplay");
 
     try {
-      await startAutoplayMeeting("enter");
+      await startAutoplayMeeting();
     } catch (error) {
       log.event("ERROR", "autoplay enter failed", error);
       setPhase("off");
@@ -214,7 +212,7 @@ export default function AutoplayCoordinator({
     const timerId = window.setTimeout(() => {
       void (async () => {
         try {
-          await startAutoplayMeeting("loop");
+          await startAutoplayMeeting();
           bumpAutoplayActivity("loop-next-meeting");
         } catch (error) {
           log.event("ERROR", "autoplay loop failed", error);

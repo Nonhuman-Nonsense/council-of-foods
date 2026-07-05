@@ -36,6 +36,7 @@ import ButtonBanner from "@/museum/button/ButtonBanner";
 import { useMuseumCursorHide } from "@/museum/useMuseumCursorHide";
 
 const AutoplayCoordinator = lazy(() => import("@/autoplay/AutoplayCoordinator"));
+import { useAutoplayStore } from "@/autoplay/autoplayStore";
 
 import { z } from "@/zIndexLayers";
 import routes from "@/routes.json";
@@ -88,6 +89,7 @@ export default function Main(props: MainProps) {
   const isIphone = useIsIphone();
   const isPortrait = usePortrait();
   const { isMuseumMode, agentMode, museumSwitchButtonEnabled } = useCouncilSettings();
+  const meetingGeneration = useAutoplayStore((s) => s.meetingGeneration);
   const { ledDebugOverlay } = useButtonLedDebugOverlay();
   useMuseumCursorHide();
 
@@ -212,7 +214,7 @@ export default function Main(props: MainProps) {
               path={`${routes.meeting}/:meetingId`}
               element={
                 <Council
-                  key={stripLanguagePrefix(location.pathname)}
+                  key={`${stripLanguagePrefix(location.pathname)}@${meetingGeneration}`}
                   topic={topicSelection}
                   setTopic={setTopicSelection}
                   liveKey={meetingliveKey}

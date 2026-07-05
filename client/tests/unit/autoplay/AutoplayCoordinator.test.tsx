@@ -6,7 +6,9 @@ import { MemoryRouter } from "react-router";
 import AutoplayCoordinator from "@/autoplay/AutoplayCoordinator";
 import {
   _setAutoplayLastActivityMsForTests,
+  AUTOPLAY_NEXT_MEETING_MS,
   SETUP_IDLE_MS,
+  notifyAutoplay,
   useAutoplayStore,
 } from "@/autoplay/autoplayStore";
 import { _resetButtonStoreForTests, useButtonStore } from "@/museum/button/buttonStore";
@@ -202,5 +204,23 @@ describe("AutoplayCoordinator setup-entry idle", () => {
     expect(mockChangeLanguage).toHaveBeenCalledWith("en");
     expect(mockFetchAutoplayMeetingId).toHaveBeenCalledWith("en");
     expect(mockNavigate).toHaveBeenCalledWith("/meeting/99", { replace: true });
+    expect(useAutoplayStore.getState().meetingGeneration).toBe(1);
+  });
+
+  it("increments meetingGeneration when loop fetches the same meeting id", async () => {
+    mockLocation.pathname = "/meeting/99";
+    mockFetchAutoplayMeetingId.mockResolvedValue(99);
+    useAutoplayStore.getState().setPhase("active");
+    notifyAutoplay({ type: "council-state", state: "summary" });
+    notifyAutoplay({ type: "summary-playback-finished" });
+
+    renderCoordinator();
+
+    await act(async () => {
+      vi.advanceTimersByTime(AUTOPLAY_NEXT_MEETING_MS);
+    });
+
+    expect(mockNavigate).toHaveBeenCalledWith("/meeting/99", { replace: true });
+    expect(useAutoplayStore.getState().meetingGeneration).toBe(1);
   });
 });

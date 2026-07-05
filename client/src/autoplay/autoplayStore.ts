@@ -1,4 +1,8 @@
 import { create } from "zustand";
+import type { NavigateFunction } from "react-router";
+import { fetchAutoplayMeetingId } from "@api/fetchAutoplayMeeting";
+import { buildLanguagePath } from "@/routing";
+import routes from "@/routes.json";
 import { log } from "@/logger";
 
 export type AutoplayPhase = "off" | "warning" | "active";
@@ -48,6 +52,12 @@ type AutoplayStore = {
   setPhase: (phase: AutoplayPhase) => void;
   lastActivityMs: number;
   bumpActivity: (source: AutoplayActivitySource) => void;
+  /** Bumped on each autoplay navigation so Main can remount Council on same meeting id. */
+  meetingGeneration: number;
+  navigateToAutoplayMeeting: (
+    navigate: NavigateFunction,
+    language: string,
+  ) => Promise<number>;
   councilOnSummary: boolean;
   summaryProtocolFinished: boolean;
   notify: (event: AutoplayConsumerEvent) => void;
@@ -65,6 +75,15 @@ export const useAutoplayStore = create<AutoplayStore>((set) => ({
   bumpActivity: (source) => {
     set({ lastActivityMs: Date.now() });
     log.event("AUTOPLAY", "activity bump", { source });
+  },
+
+  meetingGeneration: 0,
+  navigateToAutoplayMeeting: async (navigate, language) => {
+    const meetingId = await fetchAutoplayMeetingId(language);
+    set((state) => ({ meetingGeneration: state.meetingGeneration + 1 }));
+    navigate(buildLanguagePath(language, `/${routes.meeting}/${meetingId}`), { replace: true });
+    log.event("AUTOPLAY", "navigated to meeting", { meetingId, language });
+    return meetingId;
   },
 
   councilOnSummary: false,
@@ -94,6 +113,7 @@ export const useAutoplayStore = create<AutoplayStore>((set) => ({
     set({
       phase: "off",
       lastActivityMs: Date.now(),
+      meetingGeneration: 0,
       councilOnSummary: false,
       summaryProtocolFinished: false,
     });
