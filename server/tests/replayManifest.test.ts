@@ -168,6 +168,18 @@ describe("isCompleteReplayManifest", () => {
         const meeting = MockFactory.createMeeting({ conversation: [] });
         expect(isCompleteReplayManifest(meeting)).toBe(false);
     });
+
+    it("returns false when meetingComplete is set but manifest is incomplete", () => {
+        const meeting = MockFactory.createMeeting({
+            meetingComplete: true,
+            maximumPlayedIndex: 0,
+            conversation: [
+                { id: "m0", type: "message", speaker: SPEAKER_ID, text: "0" },
+            ],
+            audio: ["m0"],
+        });
+        expect(isCompleteReplayManifest(meeting)).toBe(false);
+    });
 });
 
 describe("stripAwaitingHumanTail", () => {

@@ -88,7 +88,7 @@ export function buildResumeConversation(meeting: Meeting): Message[] {
 }
 
 /**
- * Build the public replay manifest from a meeting
+ * Build the public replay manifest from a meeting (complete or in-progress).
  */
 export function buildReplayMeetingManifest(meeting: Meeting): Meeting {
     let conversation = sliceConversation(meeting);
@@ -119,7 +119,7 @@ export function buildReplayMeetingManifest(meeting: Meeting): Meeting {
 
 /**
  * True when the replay manifest ends with a summary message whose audio is listed.
- * Used by kiosk autoplay checks, tests, and migration — prefer `meetingComplete` in production queries.
+ * Used at conclude promotion and in migration backfill — not for replay GET.
  */
 export function isCompleteReplayManifest(meeting: Meeting): boolean {
     let manifest: Meeting;
