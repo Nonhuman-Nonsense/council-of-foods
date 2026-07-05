@@ -71,7 +71,7 @@ curl -fsSL https://raw.githubusercontent.com/Nonhuman-Nonsense/council-of-foods/
 ```
 
 Or from a git checkout: `sudo button/bridge/install/macos/install.sh --rebuild`
-3. Open the app, go to `/#setup`
+3. Open the app, go to `/#staff`
 4. Enable **Push to Talk**
 
 The bridge owns the USB port. The app connects via `ws://127.0.0.1:8765/v1/button`.
@@ -84,7 +84,7 @@ With the bridge running, the web app **auto-connects in the background** wheneve
 - The page is open, and
 - The button is plugged in
 
-You do **not** need to visit `/#setup` again for normal unplug/replug or page reload.
+You do **not** need to visit `/#staff` again for normal unplug/replug or page reload.
 
 The button shows the rotating LED animation while waiting for the bridge, then pulses when the app sends `LED_PULSE`.
 

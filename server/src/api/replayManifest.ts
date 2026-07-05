@@ -88,7 +88,7 @@ export function buildResumeConversation(meeting: Meeting): Message[] {
 }
 
 /**
- * Build the public replay manifest from a meeting
+ * Build the public replay manifest from a meeting (complete or in-progress).
  */
 export function buildReplayMeetingManifest(meeting: Meeting): Meeting {
     let conversation = sliceConversation(meeting);
@@ -104,12 +104,9 @@ export function buildReplayMeetingManifest(meeting: Meeting): Meeting {
         throw new BadRequestError("No messages available for replay.");
     }
 
-    // Consolidate summary: only include it if the summary message survived truncation
     const lastMessageObj = conversation.length > 0 ? conversation[conversation.length - 1] : null;
-    const hasSummaryInConversation = lastMessageObj?.type === "summary";
-    const finalSummary = hasSummaryInConversation ? meeting.summary : undefined;
+    const hasSummary = lastMessageObj?.type === "summary";
 
-    const hasSummary = finalSummary != null;
     if (!hasSummary) {
         conversation = [...conversation, { ...MEETING_INCOMPLETE_MESSAGE }];
     }
@@ -117,5 +114,30 @@ export function buildReplayMeetingManifest(meeting: Meeting): Meeting {
     const conversationForAudio = hasSummary ? conversation : conversation.slice(0, -1);
     const audio = orderedAudioIdsForConversation(conversationForAudio, meeting.audio);
 
-    return { ...meeting, conversation, audio, summary: finalSummary };
+    return { ...meeting, conversation, audio };
+}
+
+/**
+ * True when the replay manifest ends with a summary message whose audio is listed.
+ * Used at conclude promotion and in migration backfill — not for replay GET.
+ */
+export function isCompleteReplayManifest(meeting: Meeting): boolean {
+    let manifest: Meeting;
+    try {
+        manifest = buildReplayMeetingManifest(meeting);
+    } catch {
+        return false;
+    }
+
+    const last = manifest.conversation.at(-1);
+    if (last?.type !== "summary") {
+        return false;
+    }
+
+    const summaryId = last.id;
+    if (!summaryId) {
+        return false;
+    }
+
+    return (manifest.audio ?? []).includes(summaryId);
 }

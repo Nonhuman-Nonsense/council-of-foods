@@ -9,7 +9,7 @@ const __dirname = path.dirname(__filename);
 // Import the mergeAudioBuffers function directly to test it
 // We'll dynamically import the module to access the private function
 // Import directly from the new utility file
-import { mergeAudioBuffers, splitText } from '@root/src/logic/audio/AudioUtils.js';
+import { mergeAudioBuffers, splitTextForTts, prepareInworldTtsChunks } from '@root/src/logic/audio/AudioUtils.js';
 
 // Mock music-metadata
 vi.mock('music-metadata', () => ({
@@ -18,55 +18,116 @@ vi.mock('music-metadata', () => ({
     })
 }));
 
-describe('AudioUtils: Splitting Text', () => {
-    it('should split long text into smaller chunks based on limit', () => {
-        const longText = 'A'.repeat(3000);
-        const limit = 2000;
-        const chunks = splitText(longText, limit);
+
+describe('AudioUtils: splitTextForTts', () => {
+    const LIMIT = 100; // small limit for easy assertions
+
+    it('returns single-element array when text fits within limit', () => {
+        const text = 'Short text.';
+        expect(splitTextForTts(text, LIMIT)).toEqual([text]);
+    });
+
+    it('never produces a chunk longer than the limit', () => {
+        const text = 'A'.repeat(350);
+        const chunks = splitTextForTts(text, LIMIT);
+        chunks.forEach(chunk => expect(chunk.length).toBeLessThanOrEqual(LIMIT));
+    });
+
+    it('prefers paragraph boundary (\\n\\n) as the latest split point', () => {
+        // Two paragraphs; second para starts before the limit, first ends with \n\n
+        const para1 = 'First paragraph content here.';
+        const para2 = 'Second paragraph goes here.';
+        const gap = '\n\n';
+        const text = para1 + gap + para2;
+        const limit = para1.length + gap.length + 10; // para2 would overflow if we add more
+        const longPara2 = para2 + ' '.repeat(limit + 10);
+        const fullText = para1 + gap + longPara2;
+
+        const chunks = splitTextForTts(fullText, limit);
+        expect(chunks[0]).toBe(para1);
         expect(chunks.length).toBeGreaterThan(1);
-        chunks.forEach(chunk => {
-            expect(chunk.length).toBeLessThanOrEqual(limit);
-        });
     });
 
-    it('should respect semantic boundaries (paragraphs) when splitting', () => {
-        const part1 = 'First part.\n\n';
-        const part2 = 'Second part.';
-        const combined = part1 + part2;
-        // Force split by setting limit smaller than combined length but larger than parts
-        const limit = part1.length + 1;
+    it('falls back to line boundary (\\n) when no \\n\\n fits', () => {
+        const line1 = 'First line of content.';
+        const line2 = 'Second line of content which is very long.';
+        const text = line1 + '\n' + line2 + 'X'.repeat(100);
+        const limit = line1.length + 1 + 5; // just past the \n separator
 
-        // This test case depends on splitText logic preferring \n\n
-        const chunks = splitText(combined, limit);
-
-        // With current logic, it should look for \n\n. 
-        // If the limit cuts into part2, it should backtrack to \n\n.
-        // Let's rely on the property that chunks are valid.
-        expect(chunks).toContain(part1.trim());
+        const chunks = splitTextForTts(text, limit);
+        expect(chunks[0]).toBe(line1);
     });
 
-    it('should split balanced chunks (approx 1500 chars) for 3000 chars input with 2000 limit', () => {
-        // Create a text with sentence boundaries every 100 chars
-        let text = '';
-        const sentence = 'A'.repeat(98) + '. ';
-        for (let i = 0; i < 30; i++) {
-            text += sentence;
-        }
-        // Total length = 30 * 100 = 3000
-        const limit = 2000;
+    it('falls back to sentence boundary (. ) when no newlines fit', () => {
+        const s1 = 'Hello world.';
+        const s2 = ' How are you doing today exactly.';
+        const text = s1 + s2 + 'X'.repeat(100);
+        const limit = s1.length + 5;
 
-        const chunks = splitText(text, limit);
+        const chunks = splitTextForTts(text, limit);
+        expect(chunks[0]).toBe(s1);
+    });
+
+    it('falls back to comma boundary (, ) when no stronger boundary fits', () => {
+        const part1 = 'One thing';
+        const part2 = ' another thing and more text here.';
+        const text = part1 + ',' + part2 + 'X'.repeat(100);
+        const limit = part1.length + 1 + 5;
+
+        const chunks = splitTextForTts(text, limit);
+        expect(chunks[0]).toBe(part1 + ',');
+    });
+
+    it('hard-splits at limit when no boundary is found', () => {
+        const text = 'A'.repeat(250);
+        const chunks = splitTextForTts(text, LIMIT);
+        expect(chunks.length).toBe(3);
+        chunks.forEach(c => expect(c.length).toBeLessThanOrEqual(LIMIT));
+    });
+
+    it('produces minimum chunk count (greedy: latest boundary wins)', () => {
+        // 20 sentences of 50 chars each = 1000 chars total; limit = 600
+        // Greedy/latest: first chunk should contain sentences up to just under 600
+        const sentence = 'A'.repeat(48) + '. ';
+        const text = sentence.repeat(20);
+        const limit = 600;
+
+        const chunks = splitTextForTts(text, limit);
+        // With greedy/latest packing we expect 2 chunks (could fit in 2 x ~500)
         expect(chunks.length).toBe(2);
+        chunks.forEach(c => expect(c.length).toBeLessThanOrEqual(limit));
+    });
+});
 
-        // Ideal split is 1500 / 1500
-        // Acceptable range: 1300 - 1700 to allow for sentence boundary finding
-        expect(chunks[0].length).toBeGreaterThan(1300);
-        expect(chunks[0].length).toBeLessThan(1700);
+describe('AudioUtils: prepareInworldTtsChunks', () => {
+    it('every chunk is within the default 2000-char limit', () => {
+        // Alias-heavy text: CO₂ expands to "see oh two", kWh → "kilowatt hours", etc.
+        const base = 'CO₂ emissions and kWh usage. ';
+        const text = base.repeat(80); // well over 2000 chars after expansion
 
-        expect(chunks[1].length).toBeGreaterThan(1300);
-        expect(chunks[1].length).toBeLessThan(1700);
+        const { chunks } = prepareInworldTtsChunks(text, 'en');
+        expect(chunks.length).toBeGreaterThan(0);
+        chunks.forEach(chunk => expect(chunk.length).toBeLessThanOrEqual(2000));
     });
 
+    it('returns a single chunk for short text', () => {
+        const text = 'A short sentence about CO₂.';
+        const { chunks } = prepareInworldTtsChunks(text, 'en');
+        expect(chunks).toHaveLength(1);
+    });
+
+    it('builds replacedWords map from the full text', () => {
+        const text = 'We measure CO₂ levels and more CO₂ data.';
+        const { replacedWords } = prepareInworldTtsChunks(text, 'en');
+        // Should have at least one entry mapping expanded form back to original
+        expect(replacedWords.size).toBeGreaterThan(0);
+    });
+
+    it('custom limit is respected', () => {
+        const text = 'Hello world. '.repeat(100);
+        const { chunks } = prepareInworldTtsChunks(text, 'en', 200);
+        chunks.forEach(chunk => expect(chunk.length).toBeLessThanOrEqual(200));
+    });
 });
 
 describe('AudioUtils: FFmpeg Audio Merging', () => {

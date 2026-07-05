@@ -13,15 +13,16 @@ vi.mock('@root/src/utils/Logger.js', () => ({
 describe('Summary Markdown Handling', () => {
     it('should keep markdown for client but strip it for audio', async () => {
         const chair = MockFactory.createChair();
-        const mockManager = {
-            meeting: MockFactory.createStoredMeeting({
+        const storedMeeting = MockFactory.createStoredMeeting({
                 _id: 123,
                 conversation: [
                     { id: 'm1', type: 'message', text: 'prior', speaker: chair.id },
                     { type: 'query_extension' },
                 ],
                 characters: [chair]
-            }),
+            });
+        const mockManager = {
+            meeting: storedMeeting,
             serverOptions: MockFactory.createServerOptions({
                 concludeMeetingPrompt: { en: 'Closing' },
                 concludeMeetingLength: 50,
@@ -33,7 +34,31 @@ describe('Summary Markdown Handling', () => {
             },
             services: {
                 meetingsCollection: {
-                    updateOne: vi.fn()
+                    updateOne: vi.fn(),
+                    findOne: vi.fn().mockResolvedValue({
+                        _id: 123,
+                        liveKey: "test-live-key",
+                        date: new Date().toISOString(),
+                        topic: storedMeeting.topic,
+                        characters: [chair],
+                        language: "en",
+                        state: { alreadyInvited: false },
+                        conversation: [
+                            { id: 'm1', type: 'message', text: 'prior', speaker: chair.id },
+                            { id: 'close1', type: 'message', text: 'Thank you.', speaker: chair.id },
+                            {
+                                id: 'summary-1',
+                                type: 'summary',
+                                speaker: chair.id,
+                                text: 'This is **bold** and *italic*.',
+                                sentences: [],
+                            },
+                        ],
+                        audio: ['m1', 'close1', 'summary-1'],
+                        conversationExtraSlots: 0,
+                        meetingComplete: false,
+                        maximumPlayedIndex: 2,
+                    }),
                 }
             },
             dialogGenerator: {
@@ -46,7 +71,8 @@ describe('Summary Markdown Handling', () => {
                     }),
             },
             audioSystem: {
-                generateAudio: vi.fn(),
+                generateAudio: vi.fn().mockResolvedValue(undefined),
+                waitForIdle: vi.fn().mockResolvedValue(undefined),
                 queueAudioGeneration: vi.fn()
             },
             environment: 'test'

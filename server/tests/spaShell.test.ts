@@ -1,8 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { getSpaRedirectTarget, isBlockedScannerPath, shouldServeSpaShell } from "@utils/spaFallback.js";
+import {
+    buildSpaShellHtml,
+    getSpaRedirectTarget,
+    isBlockedScannerPath,
+    shouldServeSpaShell,
+} from "@utils/spaShell.js";
 import { AVAILABLE_LANGUAGES } from "@shared/AvailableLanguages.js";
 
-describe("spaFallback", () => {
+describe("spaShell", () => {
     const ENGLISH_ONLY = ["en"] as const;
     const ENGLISH_AND_SWEDISH = ["en", "sv"] as const;
 
@@ -85,24 +90,63 @@ describe("spaFallback", () => {
             expect(getSpaRedirectTarget("/hello", ENGLISH_ONLY)).toBe("/");
             expect(getSpaRedirectTarget("/meeting/not-a-number", ENGLISH_ONLY)).toBe("/");
             expect(getSpaRedirectTarget("/en/new", ENGLISH_ONLY)).toBe("/");
+            expect(getSpaRedirectTarget("/new", ENGLISH_ONLY)).toBe("/");
+            expect(getSpaRedirectTarget("/meeting/9", ENGLISH_ONLY)).toBe("/");
+            expect(getSpaRedirectTarget("/", ENGLISH_ONLY)).toBe("/");
         });
 
-        it("redirects to the matching language root in multi-language mode", () => {
+        it("redirects invalid multi-language routes to the matching language root", () => {
             expect(getSpaRedirectTarget("/hello", ENGLISH_AND_SWEDISH)).toBe("/en/");
             expect(getSpaRedirectTarget("/sv/hello", ENGLISH_AND_SWEDISH)).toBe("/sv/");
             expect(getSpaRedirectTarget("/en/foo", ENGLISH_AND_SWEDISH)).toBe("/en/");
             expect(getSpaRedirectTarget("/de/hello", ENGLISH_AND_SWEDISH)).toBe("/en/");
-            expect(getSpaRedirectTarget("/new", ENGLISH_AND_SWEDISH)).toBe("/en/");
-            expect(getSpaRedirectTarget("/meeting/9", ENGLISH_AND_SWEDISH)).toBe("/en/");
+            expect(getSpaRedirectTarget("/meeting/not-a-number", ENGLISH_AND_SWEDISH)).toBe("/en/");
+        });
+
+        it("redirects the site root to a language root in multi-language mode", () => {
+            expect(getSpaRedirectTarget("/", ENGLISH_AND_SWEDISH)).toBe("/en/");
+            expect(getSpaRedirectTarget("/", ENGLISH_AND_SWEDISH, "sv")).toBe("/sv/");
+        });
+
+        it("preserves valid unprefixed SPA routes in multi-language mode", () => {
+            expect(getSpaRedirectTarget("/new", ENGLISH_AND_SWEDISH)).toBe("/en/new");
+            expect(getSpaRedirectTarget("/new/", ENGLISH_AND_SWEDISH)).toBe("/en/new");
+            expect(getSpaRedirectTarget("/meeting/9", ENGLISH_AND_SWEDISH)).toBe("/en/meeting/9");
+            expect(getSpaRedirectTarget("/meeting/215/", ENGLISH_AND_SWEDISH)).toBe("/en/meeting/215");
+        });
+
+        it("preserves valid routes behind an unknown language prefix", () => {
+            expect(getSpaRedirectTarget("/de/new", ENGLISH_AND_SWEDISH)).toBe("/en/new");
+            expect(getSpaRedirectTarget("/de/meeting/215", ENGLISH_AND_SWEDISH)).toBe("/en/meeting/215");
         });
 
         it("uses preferredLang when no language prefix is present", () => {
             expect(getSpaRedirectTarget("/hello", ENGLISH_AND_SWEDISH, "sv")).toBe("/sv/");
             expect(getSpaRedirectTarget("/hello", ENGLISH_AND_SWEDISH, "de")).toBe("/en/");
+            expect(getSpaRedirectTarget("/", ENGLISH_AND_SWEDISH, "sv")).toBe("/sv/");
+            expect(getSpaRedirectTarget("/new", ENGLISH_AND_SWEDISH, "sv")).toBe("/sv/new");
+            expect(getSpaRedirectTarget("/meeting/215", ENGLISH_AND_SWEDISH, "sv")).toBe("/sv/meeting/215");
         });
 
         it("ignores preferredLang in single-language mode", () => {
             expect(getSpaRedirectTarget("/hello", ENGLISH_ONLY, "sv")).toBe("/");
+        });
+    });
+
+    describe("buildSpaShellHtml", () => {
+        it("injects bootstrap before </head>", () => {
+            const html = "<!DOCTYPE html><html><head><title>x</title></head><body></body></html>";
+            const result = buildSpaShellHtml(html, "en");
+
+            expect(result).toContain('window.__COF_BOOTSTRAP__={"preferredLang":"en"}');
+            expect(result.indexOf("__COF_BOOTSTRAP__")).toBeLessThan(result.indexOf("</head>"));
+        });
+
+        it("prefixes bootstrap when </head> is missing", () => {
+            const html = "<html><body></body></html>";
+            const result = buildSpaShellHtml(html, "en");
+
+            expect(result.startsWith('<script>window.__COF_BOOTSTRAP__={"preferredLang":"en"}</script>')).toBe(true);
         });
     });
 });

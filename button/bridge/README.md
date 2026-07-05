@@ -30,7 +30,7 @@ npm test
 
 `npm test` covers unit tests, bridge integration (health, CORS, WebSocket), and end-to-end mock-button → bridge → client tests. No separate smoke script needed.
 
-Then start the client (`cd client && npm run dev`), open `/#setup`, enable **Push to Talk**.
+Then start the client (`cd client && npm run dev`), open `/#staff`, enable **Push to Talk**.
 
 The setup page polls `http://127.0.0.1:8765/health` from the browser. The bridge allows CORS from local dev servers and HTTPS museum app origins (`*.council-of-forest.com`, `*.council-of-foods.com` by default).
 
@@ -77,7 +77,7 @@ Expected: all tests pass (includes health + WebSocket + client e2e).
 ### 3. Browser test
 
 1. Open the Council app (local dev or deployed URL)
-2. Go to `/#setup`
+2. Go to `/#staff`
 3. Enable **Push to Talk**
 4. Check:
    - **Status:** Connected

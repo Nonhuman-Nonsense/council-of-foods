@@ -28,7 +28,7 @@ vi.mock('react-router', () => ({
 // Mock Child Components
 vi.mock('@main/overlay/About', () => ({ default: () => <div data-testid="about-overlay">About</div> }));
 vi.mock('@main/overlay/Contact', () => ({ default: () => <div data-testid="contact-overlay">Contact</div> }));
-vi.mock('@main/overlay/Setup', () => ({ default: () => <div data-testid="setup-overlay">Setup</div> }));
+vi.mock('@main/overlay/Staff', () => ({ default: () => <div data-testid="staff-overlay">Staff</div> }));
 vi.mock('@main/overlay/ResetWarning', () => ({
     default: ({ onReset, onCancel }: { onReset: () => void; onCancel: () => void }) => (
         <div data-testid="reset-overlay">
@@ -77,19 +77,19 @@ describe('MainOverlays', () => {
         expect(screen.getByTestId('contact-overlay')).toBeInTheDocument();
     });
 
-    it('renders Setup overlay when hash is #setup on root', async () => {
-        mockLocation.hash = '#setup';
+    it('renders Staff overlay when hash is #staff on root', async () => {
+        mockLocation.hash = '#staff';
         mockLocation.pathname = '/';
         render(<MainOverlays topic={topic} onReset={mockOnReset} onCloseOverlay={mockOnCloseOverlay} />);
-        expect(await screen.findByTestId('setup-overlay')).toBeInTheDocument();
+        expect(await screen.findByTestId('staff-overlay')).toBeInTheDocument();
         expect(mockNavigate).not.toHaveBeenCalled();
     });
 
-    it('keeps setup overlay on non-root paths', async () => {
-        mockLocation.hash = '#setup';
+    it('keeps staff overlay on non-root paths', async () => {
+        mockLocation.hash = '#staff';
         mockLocation.pathname = `/${routes.newMeeting}`;
         render(<MainOverlays topic={topic} onReset={mockOnReset} onCloseOverlay={mockOnCloseOverlay} />);
-        expect(await screen.findByTestId('setup-overlay')).toBeInTheDocument();
+        expect(await screen.findByTestId('staff-overlay')).toBeInTheDocument();
         expect(mockNavigate).not.toHaveBeenCalled();
     });
 

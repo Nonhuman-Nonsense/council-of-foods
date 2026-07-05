@@ -17,6 +17,9 @@ import {
   PTT_HARDWARE_ENABLED_KEY,
   getPttHardwareEnabled,
   setPttHardwareEnabled,
+  MUSEUM_SWITCH_BUTTON_ENABLED_KEY,
+  getMuseumSwitchButtonEnabled,
+  setMuseumSwitchButtonEnabled,
   getAgentMode,
 } from "@/settings/councilSettings";
 
@@ -91,6 +94,33 @@ describe("councilSettings", () => {
       setAgentMode("always-on");
       expect(getPttHardwareEnabled()).toBe(false);
       expect(localStorage.getItem(PTT_HARDWARE_ENABLED_KEY)).toBeNull();
+    });
+  });
+
+  describe("museum switch button storage", () => {
+    it("defaults to disabled when unset", () => {
+      expect(getMuseumSwitchButtonEnabled()).toBe(false);
+      expect(localStorage.getItem(MUSEUM_SWITCH_BUTTON_ENABLED_KEY)).toBeNull();
+    });
+
+    it("persists explicit enablement", () => {
+      setMuseumSwitchButtonEnabled(true);
+      expect(localStorage.getItem(MUSEUM_SWITCH_BUTTON_ENABLED_KEY)).toBe("true");
+      expect(getMuseumSwitchButtonEnabled()).toBe(true);
+    });
+
+    it("removes storage key when disabled", () => {
+      setMuseumSwitchButtonEnabled(true);
+      setMuseumSwitchButtonEnabled(false);
+      expect(getMuseumSwitchButtonEnabled()).toBe(false);
+      expect(localStorage.getItem(MUSEUM_SWITCH_BUTTON_ENABLED_KEY)).toBeNull();
+    });
+
+    it("migrates legacy escape hatch storage key", () => {
+      localStorage.setItem("councilEscapeHatchEnabled", "true");
+      expect(getMuseumSwitchButtonEnabled()).toBe(true);
+      expect(localStorage.getItem(MUSEUM_SWITCH_BUTTON_ENABLED_KEY)).toBe("true");
+      expect(localStorage.getItem("councilEscapeHatchEnabled")).toBeNull();
     });
   });
 

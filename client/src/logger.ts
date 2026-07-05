@@ -8,6 +8,7 @@ export const DEV_LOG_CATEGORIES = [
   "SOCKET",
   "AGENT",
   "REALTIME",
+  "TURN",
   "BUTTON",
   "META",
   "AUTOPLAY",
@@ -33,6 +34,7 @@ const CATEGORY_STYLE: Record<LogCategory, string> = {
   SOCKET: "color: #3b82f6; font-weight: bold;",
   AGENT: "color: #8b5cf6; font-weight: bold;",
   REALTIME: "color: #0891b2; font-weight: bold;",
+  TURN: "color: #16a34a; font-weight: bold;",
   BUTTON: "color: #10b981; font-weight: bold;",
   META: "color: #ec4899; font-weight: bold;",
   AUTOPLAY: "color: #f59e0b; font-weight: bold;",
@@ -45,6 +47,7 @@ const CATEGORY_ICON: Record<LogCategory, string> = {
   SOCKET: "⬇️",
   AGENT: "🔧",
   REALTIME: "🎙️",
+  TURN: "🔄",
   BUTTON: "🔘",
   META: "🪑",
   AUTOPLAY: "🔁",
@@ -126,7 +129,7 @@ function emitStructuredLog(category: LogCategory, message: string, data?: unknow
 }
 
 /**
- * Structured console log for staff debugging. Gated by `#setup` logging toggles.
+ * Structured console log for staff debugging. Gated by `#staff` logging toggles.
  *
  * ERROR is additive in dev: failures mirror to `console.error` when structured
  * ERROR logging is off. Other categories are optional styled groups only.

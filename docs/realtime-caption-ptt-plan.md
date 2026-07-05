@@ -177,7 +177,7 @@ Remove `rawPressed` usage — **only `pressed`** after Phase 1.
 
 ### Setup page
 
-Setup uses `useButton("setup")` for LED preview (`pressed` only) and bridge health via
+Setup uses `useButton("staff")` for LED preview (`pressed` only) and bridge health via
 `useButtonConnection` / `useButtonBridgeHealth`. No `rawPressed` exposure needed.
 
 ---
@@ -338,7 +338,7 @@ No changes to PTT mic gating logic beyond what Phase 1 fixes in the store.
 - [ ] PTT + hardware on, bridge connected: physical button works; LED follows owner (web or museum).
 - [ ] Council meeting: meta agent activate (Space or hardware) → council subtitles hidden; agent captions council-sized; user transcript smaller above.
 - [ ] Human input phase: button priority still routes to `human-input` over `meta-agent`.
-- [ ] Setup `#setup`: bridge status when hardware on; LED preview on staff press.
+- [ ] Setup `#staff`: bridge status when hardware on; LED preview on staff press.
 
 ---
 

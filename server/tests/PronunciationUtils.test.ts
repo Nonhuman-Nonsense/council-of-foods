@@ -183,4 +183,25 @@ describe('PronunciationUtils', () => {
         );
         expect(result.processedText).toBe('Join #climate action today.');
     });
+
+    describe('Unicode word boundary handling', () => {
+        beforeEach(() => {
+            mockAliasSv = { "kV": "kilovolt" };
+        });
+
+        it('should not replace kV inside Swedish words containing non-ASCII letters', () => {
+            const result = PronunciationUtils.processText('Han kvävs och kväller', 'sv', { includeIpa: false });
+            expect(result.processedText).toBe('Han kvävs och kväller');
+        });
+
+        it('should still replace standalone kV in Swedish', () => {
+            const result = PronunciationUtils.processText('Ledningen är på 400 kV.', 'sv', { includeIpa: false });
+            expect(result.processedText).toBe('Ledningen är på 400 kilovolt.');
+        });
+
+        it('should replace kV in kV/h leaving the rest intact', () => {
+            const result = PronunciationUtils.processText('Effekten är 50 kV/h.', 'sv', { includeIpa: false });
+            expect(result.processedText).toBe('Effekten är 50 kilovolt/h.');
+        });
+    });
 });

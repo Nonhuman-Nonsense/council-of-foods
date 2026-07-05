@@ -225,6 +225,123 @@ describe("realtimeEventLoop", () => {
         expect(log).toHaveBeenCalledWith("skip response.create: already active", { activeResponses: 1 });
     });
 
+    /**
+     * Observed on the first turn after (re)connect + greeting (landing,
+     * switch_language): the server auto-creates a response that completes with
+     * no output. A fresh response.create against the same context works, so we
+     * retry once per user turn.
+     */
+    it("recovers an empty response by injecting a user text message then response.create", async () => {
+        const send = vi.fn();
+        const loop = createEventLoop({
+            send,
+            getCtx: () => ({ toolHandlers: {} }),
+            callbacks: { onCaption: vi.fn(), onUserTranscript: vi.fn(), onError: vi.fn() },
+        });
+
+        loop.configureSession(makeSession());
+        await loop.handleEvent({ type: "session.updated" });
+        // A real user turn so the recovery message echoes the transcript.
+        await loop.handleEvent({
+            type: "conversation.item.input_audio_transcription.completed",
+            transcript: "Ja.",
+        });
+        send.mockClear();
+
+        await loop.handleEvent({ type: "response.created" });
+        await loop.handleEvent({ type: "response.done", response: { status: "completed" } });
+
+        // Recovery = inject a user text item, then response.create (mirrors the
+        // mechanism proven to work; a bare response.create does not).
+        const sentTypes = send.mock.calls.map((c) => (c[0] as { type: string }).type);
+        expect(sentTypes).toEqual(["conversation.item.create", "response.create"]);
+
+        const injected = send.mock.calls[0][0] as {
+            item: { role: string; content: Array<{ text: string }> };
+        };
+        expect(injected.item.role).toBe("user");
+        expect(injected.item.content[0].text).toContain("Ja.");
+
+        // A second empty response in the same turn must not retry again.
+        await loop.handleEvent({ type: "response.created" });
+        await loop.handleEvent({ type: "response.done", response: { status: "completed" } });
+        const createCount = send.mock.calls.filter(
+            (c) => (c[0] as { type: string }).type === "response.create"
+        ).length;
+        expect(createCount).toBe(1);
+    });
+
+    it("does not re-request when the completed response produced output", async () => {
+        const send = vi.fn();
+        const loop = createEventLoop({
+            send,
+            getCtx: () => ({ toolHandlers: {} }),
+            callbacks: { onCaption: vi.fn(), onUserTranscript: vi.fn(), onError: vi.fn() },
+        });
+
+        loop.configureSession(makeSession());
+        await loop.handleEvent({ type: "session.updated" });
+        send.mockClear();
+
+        await loop.handleEvent({ type: "response.created" });
+        await loop.handleEvent({ type: "response.content_part.added", part: { type: "audio" } });
+        await loop.handleEvent({ type: "response.done", response: { status: "completed" } });
+
+        const sentTypes = send.mock.calls.map((c) => (c[0] as { type: string }).type);
+        expect(sentTypes).not.toContain("response.create");
+    });
+
+    it("does not re-request when a response is cancelled (suppressContinuation)", async () => {
+        const send = vi.fn();
+        const loop = createEventLoop({
+            send,
+            getCtx: () => ({ toolHandlers: {} }),
+            callbacks: { onCaption: vi.fn(), onUserTranscript: vi.fn(), onError: vi.fn() },
+        });
+
+        loop.configureSession(makeSession());
+        await loop.handleEvent({ type: "session.updated" });
+        send.mockClear();
+
+        await loop.handleEvent({ type: "response.created" });
+        await loop.handleEvent({ type: "response.done", response: { status: "cancelled" } });
+
+        const sentTypes = send.mock.calls.map((c) => (c[0] as { type: string }).type);
+        expect(sentTypes).not.toContain("response.create");
+    });
+
+    it("resets the empty-response retry budget on a new user turn", async () => {
+        const send = vi.fn();
+        const loop = createEventLoop({
+            send,
+            getCtx: () => ({ toolHandlers: {} }),
+            callbacks: { onCaption: vi.fn(), onUserTranscript: vi.fn(), onError: vi.fn() },
+        });
+
+        loop.configureSession(makeSession());
+        await loop.handleEvent({ type: "session.updated" });
+        send.mockClear();
+
+        const createCount = () =>
+            send.mock.calls.filter((c) => (c[0] as { type: string }).type === "response.create").length;
+
+        // First turn: empty response → one retry.
+        await loop.handleEvent({ type: "response.created" });
+        await loop.handleEvent({ type: "response.done", response: { status: "completed" } });
+        expect(createCount()).toBe(1);
+
+        // New user turn resets the budget.
+        await loop.handleEvent({
+            type: "conversation.item.input_audio_transcription.completed",
+            transcript: "hello again",
+        });
+
+        // Second turn: empty response → retries again.
+        await loop.handleEvent({ type: "response.created" });
+        await loop.handleEvent({ type: "response.done", response: { status: "completed" } });
+        expect(createCount()).toBe(2);
+    });
+
     it("handles caption, user transcript, error, and VAD events", async () => {
         const send = vi.fn();
         const onCaption = vi.fn();

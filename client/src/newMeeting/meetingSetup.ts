@@ -196,12 +196,8 @@ export function buildMeetingCharactersPayload(params: {
     for (const id of participatingHumans) {
       const human = characters.find((character) => character.id === id);
       if (human) {
-        const description = human.description?.trim();
-        if (description) {
-          humanPresentation += `${toTitleCase(human.name)}, ${description}. `;
-        } else {
-          humanPresentation += `${toTitleCase(human.name)}. `;
-        }
+        const role = human.description?.trim() || "guest";
+        humanPresentation += `${toTitleCase(human.name)} (${role}). `;
       }
     }
     humanPresentation = humanPresentation.substring(0, humanPresentation.length - 2);

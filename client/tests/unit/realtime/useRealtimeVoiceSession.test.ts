@@ -65,6 +65,8 @@ vi.mock("@voice/captionScheduler", () => ({
 vi.mock("@realtime/realtimeConnection", () => ({
   fetchRealtimeBootstrap: (...args: unknown[]) => mockFetchRealtimeBootstrap(...args),
   createRealtimeConnection: (...args: unknown[]) => mockCreateRealtimeConnection(...args),
+  acquireMicrophone: () =>
+    navigator.mediaDevices.getUserMedia({ audio: true }),
   classifyRealtimeError: () => "retryable",
   computeRealtimeRetryDelay: () => 0,
   REALTIME_RETRY_BASE_MS: 1000,

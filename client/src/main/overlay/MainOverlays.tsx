@@ -11,7 +11,7 @@ import SelectTopic from "@newMeeting/SelectTopic";
 import type { Topic } from "@shared/ModelTypes";
 import { useTranslation } from "react-i18next";
 
-const Setup = lazy(() => import("./Setup"));
+const Staff = lazy(() => import("./Staff"));
 
 interface MainOverlaysProps {
   topic: Topic | null;
@@ -23,7 +23,7 @@ interface MainOverlaysProps {
  * MainOverlays Component
  * 
  * Manages the top-level application overlays that are triggered via URL hash.
- * Examples: #about, #contact, #setup, #settings, #reset.
+ * Examples: #about, #contact, #staff, #settings, #reset.
  * 
  * Core Logic:
  * - **Hash Routing**: Listens to `location.hash` to determine which overlay to show.
@@ -41,7 +41,7 @@ function MainOverlays({ topic, onReset, onCloseOverlay }: MainOverlaysProps): Re
   useEffect(() => {
     const hash = location.hash;
     if (hash) {
-      if (!["#about", "#contact", "#setup", "#reset", "#settings", '#warning'].includes(hash)) {
+      if (!["#about", "#contact", "#staff", "#reset", "#settings", '#warning'].includes(hash)) {
         cancelOverlay();
       } else if (!isMeetingPath(location.pathname) && ["#settings"].includes(hash)) {
         cancelOverlay();
@@ -64,10 +64,10 @@ function MainOverlays({ topic, onReset, onCloseOverlay }: MainOverlaysProps): Re
         return <About />;
       case "#contact":
         return <Contact />;
-      case "#setup":
+      case "#staff":
         return (
           <Suspense fallback={null}>
-            <Setup />
+            <Staff />
           </Suspense>
         );
       case "#settings":
@@ -95,8 +95,10 @@ function MainOverlays({ topic, onReset, onCloseOverlay }: MainOverlaysProps): Re
     }
   };
 
+  const isStaff = location.hash === "#staff";
+
   return (
-    <Overlay isActive={showOverlay}>
+    <Overlay isActive={showOverlay} layer={isStaff ? "staff" : "route"}>
       {showOverlay &&
         <OverlayWrapper showX={true} cancelOverlay={cancelOverlay}>
           {renderOverlayContent()}
