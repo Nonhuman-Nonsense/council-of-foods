@@ -2,7 +2,7 @@
 import i18n from "i18next";
 import type { ParseKeys, Resource, ResourceKey } from "i18next";
 import { initReactI18next } from "react-i18next";
-import { AVAILABLE_LANGUAGES } from "@shared/AvailableLanguages";
+import { AVAILABLE_LANGUAGES, type AvailableLanguage } from "@shared/AvailableLanguages";
 import translation from "./locales/translation_en.json";
 
 /** Valid `t()` / `i18nKey` paths derived from `translation_en.json`. */
@@ -70,6 +70,15 @@ function resolveInitialLanguage(): string {
   );
 
   return matchedLanguage ?? fallbackLanguage;
+}
+
+/** Server-injected IP default from `window.__COF_BOOTSTRAP__` (production shell). */
+export function getPreferredLanguage(): AvailableLanguage {
+  const preferredLang = window.__COF_BOOTSTRAP__?.preferredLang;
+  if (preferredLang && (AVAILABLE_LANGUAGES as readonly string[]).includes(preferredLang)) {
+    return preferredLang as AvailableLanguage;
+  }
+  return AVAILABLE_LANGUAGES[0];
 }
 
 /**

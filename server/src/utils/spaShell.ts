@@ -1,4 +1,12 @@
-import { AVAILABLE_LANGUAGES } from "@shared/AvailableLanguages.js";
+import fs from "fs";
+import path from "path";
+import type { Request, Response } from "express";
+import {
+    AVAILABLE_LANGUAGES,
+    resolvePreferredLanguage,
+    type AvailableLanguage,
+} from "@shared/AvailableLanguages.js";
+import { CACHE_CONTROL_HTML_SHELL } from "@utils/httpCache.js";
 
 const BLOCKED_PREFIXES = [
     "/.git",
@@ -193,4 +201,26 @@ export function getSpaRedirectTarget(
     }
 
     return `/${defaultLang}/`;
+}
+
+export function preferredLangFromRequest(req: Request): AvailableLanguage {
+    const cfCountry = req.headers["cf-ipcountry"];
+    return resolvePreferredLanguage(typeof cfCountry === "string" ? cfCountry : undefined);
+}
+
+export function buildSpaShellHtml(indexHtml: string, preferredLang: AvailableLanguage): string {
+    const script = `<script>window.__COF_BOOTSTRAP__=${JSON.stringify({ preferredLang })}</script>`;
+    if (indexHtml.includes("</head>")) {
+        return indexHtml.replace("</head>", `${script}</head>`);
+    }
+    return `${script}${indexHtml}`;
+}
+
+export function readSpaShellTemplate(clientDistPath: string): string {
+    return fs.readFileSync(path.join(clientDistPath, "index.html"), "utf8");
+}
+
+export function sendSpaShell(res: Response, template: string, preferredLang: AvailableLanguage): void {
+    res.setHeader("Cache-Control", CACHE_CONTROL_HTML_SHELL);
+    res.type("html").send(buildSpaShellHtml(template, preferredLang));
 }

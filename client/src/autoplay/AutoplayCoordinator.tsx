@@ -7,8 +7,9 @@ import { fetchAutoplayMeetingId } from "@api/fetchAutoplayMeeting";
 import { useButton } from "@/museum/button/useButton";
 import { useButtonStore } from "@/museum/button/buttonStore";
 import { useCouncilSettings } from "@/settings/councilSettings";
-import { isRootPath, stripLanguagePrefix, useRouting } from "@/routing";
+import { buildLanguagePath, isRootPath, stripLanguagePrefix } from "@/routing";
 import routes from "@/routes.json";
+import { getPreferredLanguage } from "@/i18n";
 import {
   AUTOPLAY_NEXT_MEETING_MS,
   bumpAutoplayActivity,
@@ -52,7 +53,6 @@ export default function AutoplayCoordinator({
   const location = useLocation();
   const navigate = useNavigate();
   const { i18n } = useTranslation();
-  const { meetingPath } = useRouting();
   const button = useButton("autoplay");
 
   const phase = useAutoplayStore((state) => state.phase);
@@ -85,6 +85,14 @@ export default function AutoplayCoordinator({
     });
   }, [isMuseumMode]);
 
+  const startAutoplayMeeting = useCallback(async (via: "enter" | "loop") => {
+    const language = getPreferredLanguage();
+    await i18n.changeLanguage(language);
+    const meetingId = await fetchAutoplayMeetingId(language);
+    navigate(buildLanguagePath(language, `/${routes.meeting}/${meetingId}`), { replace: true });
+    log.event("AUTOPLAY", via === "enter" ? "enter navigated" : "loop navigated", { meetingId, language });
+  }, [i18n, navigate]);
+
   const enterAutoplay = useCallback(async () => {
     if (enterInFlightRef.current) {
       log.event("AUTOPLAY", "enter skipped", { reason: "already_in_flight" });
@@ -96,12 +104,8 @@ export default function AutoplayCoordinator({
     setMeetingliveKey(null);
     bumpAutoplayActivity("enter-autoplay");
 
-    const language = i18n.language.toLowerCase().startsWith("sv") ? "sv" : "en";
-
     try {
-      const meetingId = await fetchAutoplayMeetingId(language);
-      navigate(meetingPath(meetingId), { replace: true });
-      log.event("AUTOPLAY", "enter navigated", { meetingId, language });
+      await startAutoplayMeeting("enter");
     } catch (error) {
       log.event("ERROR", "autoplay enter failed", error);
       setPhase("off");
@@ -112,7 +116,7 @@ export default function AutoplayCoordinator({
     }
 
     enterInFlightRef.current = false;
-  }, [i18n.language, meetingPath, navigate, setMeetingliveKey, setPhase]);
+  }, [setMeetingliveKey, setPhase, startAutoplayMeeting]);
 
   const dismissWarning = useCallback(() => {
     log.event("AUTOPLAY", "warning dismissed", { via: "hardware_button" });
@@ -209,12 +213,9 @@ export default function AutoplayCoordinator({
 
     const timerId = window.setTimeout(() => {
       void (async () => {
-        const language = i18n.language.toLowerCase().startsWith("sv") ? "sv" : "en";
         try {
-          const meetingId = await fetchAutoplayMeetingId(language);
+          await startAutoplayMeeting("loop");
           bumpAutoplayActivity("loop-next-meeting");
-          navigate(meetingPath(meetingId), { replace: true });
-          log.event("AUTOPLAY", "loop navigated", { meetingId, language });
         } catch (error) {
           log.event("ERROR", "autoplay loop failed", error);
           bumpAutoplayActivity("loop-retry");
@@ -226,10 +227,8 @@ export default function AutoplayCoordinator({
   }, [
     connectionError,
     councilOnSummary,
-    i18n.language,
     isMuseumMode,
-    meetingPath,
-    navigate,
+    startAutoplayMeeting,
     phase,
     summaryProtocolFinished,
   ]);

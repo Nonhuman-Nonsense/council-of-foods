@@ -10,17 +10,23 @@ import { initReporting, sendReport } from '@utils/errorbot.js';
 import { initDb } from '@services/DbService.js';
 import { initOpenAI } from '@services/OpenAIService.js';
 import { SocketManager } from '@logic/SocketManager.js';
-import { AVAILABLE_LANGUAGES, COUNTRY_DEFAULT_LANGUAGE } from '@shared/AvailableLanguages.js';
+import { AVAILABLE_LANGUAGES } from '@shared/AvailableLanguages.js';
+import {
+  getSpaRedirectTarget,
+  isBlockedScannerPath,
+  preferredLangFromRequest,
+  readSpaShellTemplate,
+  sendSpaShell,
+  shouldServeSpaShell,
+} from '@utils/spaShell.js';
 import { CHARACTERS_FILE } from '@shared/prompts/characterSetupMetadata.js';
 
 import {
   CACHE_CONTROL_DIST_ASSET_IMMUTABLE,
   CACHE_CONTROL_DIST_PUBLIC_ROOT,
-  CACHE_CONTROL_HTML_SHELL,
   CACHE_CONTROL_NO_STORE,
   cacheControlPrivateNoStoreApi,
 } from '@utils/httpCache.js';
-import { getSpaRedirectTarget, isBlockedScannerPath, shouldServeSpaShell } from '@utils/spaFallback.js';
 import { registerMeetingRoutes } from '@api/meetingRoutes.js';
 import { registerRealtimeRoutes } from '@api/realtimeSession.js';
 import { registerAudioRoutes } from '@api/audioRoutes.js';
@@ -109,12 +115,7 @@ if (environment === "prototype") {
   const clientDistPath = path.join(process.cwd(), "../client/dist");
   const ONE_YEAR_MS = 31536000000;
 
-  function preferredLangFromRequest(req: Request): string | undefined {
-    const cfCountry = req.headers['cf-ipcountry'];
-    return typeof cfCountry === 'string'
-      ? COUNTRY_DEFAULT_LANGUAGE[cfCountry.toUpperCase()]
-      : undefined;
-  }
+  const spaShellTemplate = readSpaShellTemplate(clientDistPath);
 
   if (AVAILABLE_LANGUAGES.length > 1) {
     app.get("/", function (req: Request, res: Response) {
@@ -123,15 +124,16 @@ if (environment === "prototype") {
     });
   }
 
+  app.get("/index.html", (req, res) => sendSpaShell(res, spaShellTemplate, preferredLangFromRequest(req)));
+
   app.use(express.static(clientDistPath, {
     maxAge: ONE_YEAR_MS,
     immutable: true,
+    index: false,
     setHeaders(res, filePath) {
       const normalized = filePath.replace(/\\/g, '/');
       if (normalized.includes('/assets/')) {
         res.setHeader('Cache-Control', CACHE_CONTROL_DIST_ASSET_IMMUTABLE);
-      } else if (normalized.endsWith('/index.html')) {
-        res.setHeader('Cache-Control', CACHE_CONTROL_HTML_SHELL);
       } else {
         res.setHeader('Cache-Control', CACHE_CONTROL_DIST_PUBLIC_ROOT);
       }
@@ -150,8 +152,7 @@ if (environment === "prototype") {
       return;
     }
 
-    res.setHeader('Cache-Control', CACHE_CONTROL_HTML_SHELL);
-    res.sendFile(path.join(clientDistPath, "index.html"));
+    sendSpaShell(res, spaShellTemplate, preferredLangFromRequest(req));
   });
 }
 

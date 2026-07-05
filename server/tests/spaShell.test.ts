@@ -1,8 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { getSpaRedirectTarget, isBlockedScannerPath, shouldServeSpaShell } from "@utils/spaFallback.js";
+import {
+    buildSpaShellHtml,
+    getSpaRedirectTarget,
+    isBlockedScannerPath,
+    shouldServeSpaShell,
+} from "@utils/spaShell.js";
 import { AVAILABLE_LANGUAGES } from "@shared/AvailableLanguages.js";
 
-describe("spaFallback", () => {
+describe("spaShell", () => {
     const ENGLISH_ONLY = ["en"] as const;
     const ENGLISH_AND_SWEDISH = ["en", "sv"] as const;
 
@@ -125,6 +130,23 @@ describe("spaFallback", () => {
 
         it("ignores preferredLang in single-language mode", () => {
             expect(getSpaRedirectTarget("/hello", ENGLISH_ONLY, "sv")).toBe("/");
+        });
+    });
+
+    describe("buildSpaShellHtml", () => {
+        it("injects bootstrap before </head>", () => {
+            const html = "<!DOCTYPE html><html><head><title>x</title></head><body></body></html>";
+            const result = buildSpaShellHtml(html, "en");
+
+            expect(result).toContain('window.__COF_BOOTSTRAP__={"preferredLang":"en"}');
+            expect(result.indexOf("__COF_BOOTSTRAP__")).toBeLessThan(result.indexOf("</head>"));
+        });
+
+        it("prefixes bootstrap when </head> is missing", () => {
+            const html = "<html><body></body></html>";
+            const result = buildSpaShellHtml(html, "en");
+
+            expect(result.startsWith('<script>window.__COF_BOOTSTRAP__={"preferredLang":"en"}</script>')).toBe(true);
         });
     });
 });

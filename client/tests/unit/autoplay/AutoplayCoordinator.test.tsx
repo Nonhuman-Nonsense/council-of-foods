@@ -62,13 +62,17 @@ vi.mock("@/museum/button/useButton", () => ({
   }),
 }));
 
+const mockFetchAutoplayMeetingId = vi.hoisted(() => vi.fn().mockResolvedValue(99));
+
 vi.mock("@api/fetchAutoplayMeeting", () => ({
-  fetchAutoplayMeetingId: vi.fn().mockResolvedValue(99),
+  fetchAutoplayMeetingId: mockFetchAutoplayMeetingId,
 }));
+
+const mockChangeLanguage = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
-    i18n: { language: "en" },
+    i18n: { language: "en", changeLanguage: mockChangeLanguage },
     t: (key: string) => key,
   }),
 }));
@@ -184,5 +188,19 @@ describe("AutoplayCoordinator setup-entry idle", () => {
     });
 
     expect(useAutoplayStore.getState().phase).toBe("off");
+  });
+
+  it("enters autoplay using getPreferredLanguage for fetch and navigation", async () => {
+    window.__COF_BOOTSTRAP__ = { preferredLang: "de" };
+    renderCoordinator();
+
+    await advanceIdlePastThreshold();
+    await act(async () => {
+      screen.getByText("autoplay.stillThere.confirm").click();
+    });
+
+    expect(mockChangeLanguage).toHaveBeenCalledWith("en");
+    expect(mockFetchAutoplayMeetingId).toHaveBeenCalledWith("en");
+    expect(mockNavigate).toHaveBeenCalledWith("/meeting/99", { replace: true });
   });
 });
