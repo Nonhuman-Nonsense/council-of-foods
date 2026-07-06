@@ -141,7 +141,7 @@ export function useCouncilMachine({
 
     const [isRaisedHand, setIsRaisedHand] = useState(false);
 
-    // Connection variables
+    /** True from socket reconnect until the server sends conversation state again. */
     const [attemptingReconnect, setAttemptingReconnect] = useState(false);
 
     // Limits
@@ -155,7 +155,6 @@ export function useCouncilMachine({
 
     // Refs
     const waitTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const maximumPlayedProgressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     /** After mount / meeting change, blocks leaving `loading` until this is true (first ~2s only). */
     const [initialLoadingMinElapsed, setInitialLoadingMinElapsed] = useState(false);
@@ -189,6 +188,16 @@ export function useCouncilMachine({
     const socketRef = useCouncilSocket({
         meetingId: currentMeetingId,
         liveKey,
+        onReconnect: () => {
+            setAttemptingReconnect(true);
+            if (currentMeetingId > 0 && liveKey && socketRef.current) {
+                socketRef.current.emit("attempt_reconnection", {
+                    meetingId: currentMeetingId,
+                    liveKey,
+                    handRaised: isRaisedHand,
+                });
+            }
+        },
         onAudioUpdate: (audioMessage) => {
             (async () => {
                 if (audioMessage.audio && audioContext.current) {
@@ -208,6 +217,8 @@ export function useCouncilMachine({
             })();
         },
         onConversationUpdate: (textMessages) => {
+            // First conversation_update after reconnect completes the handshake (server session is ready).
+            setAttemptingReconnect(false);
             setTextMessages(() => textMessages);
         },
         onError: (error) => {
@@ -227,24 +238,7 @@ export function useCouncilMachine({
         onConnect: () => {
             setConnectionError("socket", false);
         },
-        onReconnect: () => {
-            setAttemptingReconnect(true);
-        }
     });
-
-    // Reconnect logic
-    useEffect(() => {
-        if (attemptingReconnect && socketRef.current && currentMeetingId > 0 && liveKey) {
-            socketRef.current.emit("attempt_reconnection", {
-                meetingId: currentMeetingId,
-                liveKey,
-                handRaised: isRaisedHand,
-            });
-            setAttemptingReconnect(false);
-        } else if (attemptingReconnect) {
-            setAttemptingReconnect(false);
-        }
-    }, [attemptingReconnect, liveKey, currentMeetingId, isRaisedHand]);
 
     const decodeReplayClip = useCallback(
         async (audioId: string, signal: AbortSignal): Promise<DecodedAudioMessage> => {
@@ -681,11 +675,9 @@ export function useCouncilMachine({
         }
     }
 
-    // Furthest playback index (UI + replay cap): bump state when `playingNowIndex` advances,
-    // then debounce socket `report_maximum_played_index` with `furthest = max(state, current)`.
-    // Single effect avoids one-render lag between two separate `useEffect`s on the same turn.
+    // Furthest playback index (UI + replay cap): skip while reconnect handshake is in flight.
     useEffect(() => {
-        if (!liveKey || !socketRef.current || currentMeetingId <= 0) {
+        if (!liveKey || !socketRef.current || currentMeetingId <= 0 || attemptingReconnect) {
             return;
         }
         if (playingNowIndex < 0) {
@@ -698,23 +690,10 @@ export function useCouncilMachine({
         if (playingNowIndex > maximumPlayedIndex) {
             setMaximumPlayedIndex(playingNowIndex);
         }
-        // Summary is a special case when we should increase the counter directly when text arrives
         const summaryIndex = textMessages.findIndex((message) => message.type === 'summary');
         const furthest = Math.min(maxLocalIndex, Math.max(maximumPlayedIndex, playingNowIndex, summaryIndex));
-        if (maximumPlayedProgressTimer.current !== null) {
-            clearTimeout(maximumPlayedProgressTimer.current);
-        }
-        maximumPlayedProgressTimer.current = setTimeout(() => {
-            maximumPlayedProgressTimer.current = null;
-            socketRef.current?.emit("report_maximum_played_index", { index: furthest });
-        }, 400);
-        return () => {
-            if (maximumPlayedProgressTimer.current !== null) {
-                clearTimeout(maximumPlayedProgressTimer.current);
-                maximumPlayedProgressTimer.current = null;
-            }
-        };
-    }, [playingNowIndex, maximumPlayedIndex, liveKey, currentMeetingId, summary, textMessages]);
+        socketRef.current.emit("report_maximum_played_index", { index: furthest });
+    }, [playingNowIndex, maximumPlayedIndex, liveKey, currentMeetingId, attemptingReconnect, textMessages]);
 
     // Update canGoBack etc
     useEffect(() => {

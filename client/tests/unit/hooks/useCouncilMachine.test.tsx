@@ -1,5 +1,5 @@
 
-import { renderHook, act } from '@testing-library/react';
+import { renderHook, act, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { useCouncilMachine } from '@council/hooks/useCouncilMachine';
 import { MockFactory } from '../factories/MockFactory';
@@ -34,15 +34,17 @@ vi.mock('@/routing', () => ({
 }));
 
 // Mock Socket Hook
-// We need to be able to trigger callbacks passed to useCouncilSocket
 let socketHandlers: any = {};
 const mockSocketEmit = vi.fn();
 
 vi.mock('@council/hooks/useCouncilSocket', () => ({
     useCouncilSocket: (props: any) => {
-        socketHandlers = props; // Capture handlers
-        return { current: { emit: mockSocketEmit } }; // Return mock socket ref
-    }
+        socketHandlers = {
+            ...props,
+            simulateReconnect: () => props.onReconnect?.(),
+        };
+        return { current: { emit: mockSocketEmit, connected: true } };
+    },
 }));
 
 // Mock resumeMeeting API for resume-flow tests.
@@ -1099,9 +1101,7 @@ describe('useCouncilMachine', () => {
 
         // Simulate reconnect event
         act(() => {
-            if (socketHandlers.onReconnect) {
-                socketHandlers.onReconnect();
-            }
+            socketHandlers.simulateReconnect?.();
         });
 
         // Should not have emitted attempt_reconnection because no meeting started yet
@@ -1112,15 +1112,46 @@ describe('useCouncilMachine', () => {
         renderHook(() => useCouncilMachine({ ...defaultProps, currentMeetingId: 999 } as any));
 
         act(() => {
-            if (socketHandlers.onReconnect) {
-                socketHandlers.onReconnect();
-            }
+            socketHandlers.simulateReconnect?.();
         });
 
         expect(mockSocketEmit).toHaveBeenCalledWith('attempt_reconnection', expect.objectContaining({
             meetingId: 999,
             liveKey: 'test-live-key',
         }));
+    });
+
+    it('does not report maximum played index while reconnect handshake is in flight', async () => {
+        const { result } = renderHook(() =>
+            useCouncilMachine({ ...defaultProps, currentMeetingId: 100 } as any)
+        );
+
+        audioContextMock.current.decodeAudioData.mockResolvedValue('fake-buffer');
+        await act(async () => {
+            if (socketHandlers.onConversationUpdate) {
+                socketHandlers.onConversationUpdate([
+                    { id: '1', text: 'Hello', speaker: 'banana', type: 'message' },
+                ]);
+            }
+            if (socketHandlers.onAudioUpdate) {
+                socketHandlers.onAudioUpdate({ id: '1', audio: new ArrayBuffer(8) });
+            }
+        });
+
+        mockSocketEmit.mockClear();
+
+        act(() => {
+            socketHandlers.simulateReconnect?.();
+        });
+
+        act(() => {
+            result.current.actions.handleOnFinishedPlaying();
+        });
+
+        expect(mockSocketEmit).not.toHaveBeenCalledWith(
+            'report_maximum_played_index',
+            expect.anything(),
+        );
     });
 
     // --- Resume flow ---
@@ -1251,50 +1282,40 @@ describe('useCouncilMachine', () => {
     });
 
     it('reports summary index when summary is shown (after preceding message finishes)', async () => {
-        vi.useFakeTimers();
         const { result } = renderHook(() => useCouncilMachine({ ...defaultProps, currentMeetingId: 100 } as any));
 
-        // 1. Initial message and audio to start playing index 0
         audioContextMock.current.decodeAudioData.mockResolvedValue('fake-buffer');
-        await act(async () => {
+
+        act(() => {
             if (socketHandlers.onConversationUpdate) {
                 socketHandlers.onConversationUpdate([
-                    { id: '1', text: 'Hello', speaker: 'banana', type: 'message' }
+                    { id: '1', text: 'Hello', speaker: 'banana', type: 'message' },
                 ]);
             }
+        });
+
+        await act(async () => {
             if (socketHandlers.onAudioUpdate) {
                 socketHandlers.onAudioUpdate({ id: '1', audio: new ArrayBuffer(8) });
             }
         });
 
-        // 2. Add Summary via conversation update
+        await waitFor(() => {
+            expect(result.current.state.playingNowIndex).toBe(0);
+        });
+
+        mockSocketEmit.mockClear();
+
         act(() => {
             if (socketHandlers.onConversationUpdate) {
                 socketHandlers.onConversationUpdate([
                     { id: '1', text: 'Hello', speaker: 'banana', type: 'message' },
-                    { id: 'sum1', text: 'Summary', speaker: 'water', type: 'summary' }
+                    { id: 'sum1', text: 'Summary', speaker: 'water', type: 'summary' },
                 ]);
             }
         });
 
-        // Clear any reports for index 0
-        act(() => { vi.advanceTimersByTime(400); });
-        mockSocketEmit.mockClear();
-
-        // 3. Finish playing message 0 -> playNextIndex becomes 1
-        act(() => {
-            result.current.actions.handleOnFinishedPlaying();
-        });
-
-        // Machine sees summary at playNextIndex=1, sets 'summary' state, triggers effect
-        act(() => {
-            vi.advanceTimersByTime(400);
-        });
-
-        // Should now have reported index 1
         expect(mockSocketEmit).toHaveBeenCalledWith('report_maximum_played_index', { index: 1 });
-
-        vi.useRealTimers();
     });
 
     describe('raise hand name overlay', () => {
