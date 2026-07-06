@@ -42,9 +42,8 @@ function truncateToAvailableAudio(conversation: Message[], audioIds: string[] | 
     const allowed = new Set(audioIds ?? []);
     const result: Message[] = [];
     for (const msg of conversation) {
-        // If message has an ID, it is a content message that needs audio.
-        // If it's not in the 'audio' array, it's either still generating or missing.
-        if (msg.id && !allowed.has(msg.id)) {
+        // Skipped turns are silent markers; live play advances without persisted audio.
+        if (msg.id && msg.type !== "skipped" && !allowed.has(msg.id)) {
             break;
         }
         result.push(msg);
