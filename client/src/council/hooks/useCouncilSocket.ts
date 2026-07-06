@@ -13,13 +13,13 @@ export interface UseCouncilSocketProps {
     meetingId: number;
     /** Required to authenticate `start_conversation`; omit until known. */
     liveKey: string | undefined;
-    onAudioUpdate?: (data: AudioUpdatePayload) => void;
-    onConversationUpdate?: (data: Message[]) => void;
-    onError?: (error: ErrorPayload) => void;
-    onConnectionError?: (error: Error) => void;
+    onAudioUpdate: (data: AudioUpdatePayload) => void;
+    onConversationUpdate: (data: Message[]) => void;
+    onError: (error: ErrorPayload) => void;
+    onConnectionError: (error: Error) => void;
     /** Fires on every successful socket connect (including first connect after connect_error retries). */
-    onConnect?: () => void;
-    onReconnect?: () => void;
+    onConnect: () => void;
+    onReconnect: () => void;
 }
 
 function summarizeSocketIn(event: string, payload: unknown): unknown {
@@ -75,12 +75,12 @@ export const useCouncilSocket = ({
 
         socket.on('connect', () => {
             log.event('SOCKET', 'connected', { meetingId, socketId: socket.id });
-            if (onConnect) onConnect();
+            onConnect();
         });
 
         socket.on('connect_error', (err: Error) => {
             log.event('ERROR', 'socket connect_error', err);
-            if (onConnectionError) onConnectionError(err);
+            onConnectionError(err);
         });
 
         socket.on('disconnect', (reason: string) => {
@@ -90,7 +90,7 @@ export const useCouncilSocket = ({
 
         socket.io.on("reconnect", () => {
             log.event('SOCKET', 'reconnected', { meetingId });
-            if (onReconnect) onReconnect();
+            onReconnect();
         });
 
         log.event('SOCKET', 'OUT start_conversation', { meetingId });
@@ -98,19 +98,19 @@ export const useCouncilSocket = ({
 
         socket.on("audio_update", (audioMessage) => {
             log.event('SOCKET', 'IN audio_update', summarizeSocketIn('audio_update', audioMessage));
-            if (onAudioUpdate) onAudioUpdate(audioMessage);
+            onAudioUpdate(audioMessage);
         });
 
         socket.on("conversation_update", (textMessages) => {
             log.event('SOCKET', 'IN conversation_update', summarizeSocketIn('conversation_update', textMessages));
-            if (onConversationUpdate) onConversationUpdate(textMessages);
+            onConversationUpdate(textMessages);
         });
 
         socket.on("conversation_error", (error) => {
             const summary = summarizeSocketIn('conversation_error', error);
             log.event('SOCKET', 'IN conversation_error', summary);
             log.event('ERROR', 'conversation_error', summary);
-            if (onError) onError(error);
+            onError(error);
         });
 
         const handleTabClose = () => {
