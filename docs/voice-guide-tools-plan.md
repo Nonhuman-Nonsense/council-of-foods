@@ -2,6 +2,14 @@
 
 This document tracks the intended tool set, state flow, and implementation phases for the voice guide agent (`guidePromptEn.ts` / `guideTools.ts`).
 
+**Status:** Phase 1 done. Phase 2 partial. Phase 3 open.
+
+| Phase | Status |
+|-------|--------|
+| **1** — Tool set refactor | **Done** — see tool table below |
+| **2** — Initial state in prompt | **Partial** — `phase` is in the prompt; `selectedTopicTitle` / `selectedCharacterNames` not yet passed through `GuidePromptParams` |
+| **3** — UI-click state sync | **Open** — `meetingSetup.ts` still emits JSON `(STATE SYNC: …)` instead of plain-English `STATE UPDATE:` |
+
 ---
 
 ## Architecture — how the session works
@@ -127,21 +135,17 @@ This means `buildGuidePrompt` needs `selectedTopicTitle` and `selectedCharacterN
 
 ## Implementation phases
 
-### Phase 1 — Tool set refactor
-- Rename/add/remove tools as per the table above
-- `createGuideTools` takes `topics`, `characters`, `isWebMode`
-- All handlers return meaningful data
-- Name → ID resolution in handlers
-- `MeetingVoiceGuide` passes topics + characters to `createGuideTools`
-- Remove `console.log(prompt)` from `guidePromptEn.ts`
+### Phase 1 — Tool set refactor ✅
 
-### Phase 2 — Initial state in prompt
+Done. Tools match the table above; `createGuideTools({ otherLanguages, topics, characters, isWebMode })`.
+
+### Phase 2 — Initial state in prompt (partial)
 - Add `selectedTopicTitle?` and `selectedCharacterNames?` to `GuidePromptParams`
 - Include in the "Current phase" section of the prompt
 - `MeetingVoiceGuide` reads `selectedTopic` + `selectedCharacters` from the store and passes them through
 - Agent now starts correctly on reconnect/language-switch
 
-### Phase 3 — UI-click state sync
+### Phase 3 — UI-click state sync (open)
 - Replace the JSON-encoded `STATE SYNC` messages with readable plain-English updates
 - Add `human_interaction` section to the prompt explaining what these messages are
 - Extend `MeetingSetupUserEvent` to cover character selection by user

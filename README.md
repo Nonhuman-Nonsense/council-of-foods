@@ -35,6 +35,8 @@ The client is built on React, and the server on Node.js. They communicate via a 
 
 See [Server Documentation](server/README.md) for detailed backend instructions and testing modes.
 
+For physical museum / kiosk installs, see [MUSEUM.md](MUSEUM.md) (app mode, button bridge, staff setup).
+
 ### Building
 
 During development, to enable automatic reload on changes
