@@ -181,11 +181,17 @@ export class AudioSystem {
             if (!shouldSkipMatching) {
                 const subtitleTimingPriorities =
                     effectiveOptions.subtitleTimingPriorities ?? DEFAULT_SUBTITLE_TIMING_PRIORITIES;
+                const conversationIndex = meeting.conversation?.findIndex(entry => entry.id === message.id) ?? -1;
+                const speakerName =
+                    resolvedSpeaker.name ??
+                    meeting.characters.find(character => character.id === resolvedSpeaker.id)?.name ??
+                    resolvedSpeaker.id;
+                const meetingId = String(meeting._id);
 
                 for (const timingType of subtitleTimingPriorities) {
                     if (timingType === 'inworld' && resolvedSpeaker.voiceProvider === 'inworld') {
                         const nativeSentences = this.getProviderSentenceTimings(providerWords, buffers, durations, sentenceTexts);
-                        if (this.areSentenceTimingsUsable(nativeSentences, durations, timingType, message.id)) {
+                        if (this.areSentenceTimingsUsable(nativeSentences, durations, timingType, meetingId, conversationIndex, speakerName, message.id)) {
                             sentencesWithTimings = nativeSentences;
                             subtitleTimingType = 'inworld';
                             break;
@@ -194,7 +200,7 @@ export class AudioSystem {
 
                     if (timingType === 'elevenlabs' && resolvedSpeaker.voiceProvider === 'elevenlabs') {
                         const nativeSentences = this.getProviderSentenceTimings(providerWords, buffers, durations, sentenceTexts);
-                        if (this.areSentenceTimingsUsable(nativeSentences, durations, timingType, message.id)) {
+                        if (this.areSentenceTimingsUsable(nativeSentences, durations, timingType, meetingId, conversationIndex, speakerName, message.id)) {
                             sentencesWithTimings = nativeSentences;
                             subtitleTimingType = 'elevenlabs';
                             break;
@@ -208,7 +214,7 @@ export class AudioSystem {
                         }
 
                         const estimatedSentences = buildEstimatedSentenceTimings(message, totalDuration);
-                        if (this.areSentenceTimingsUsable(estimatedSentences, [totalDuration], timingType, message.id)) {
+                        if (this.areSentenceTimingsUsable(estimatedSentences, [totalDuration], timingType, meetingId, conversationIndex, speakerName, message.id)) {
                             sentencesWithTimings = estimatedSentences;
                             subtitleTimingType = 'estimated';
                             break;
@@ -222,7 +228,7 @@ export class AudioSystem {
                                 sentenceTexts,
                                 this.offsetChunkWords(chunkWordsWithTimings, durations)
                             );
-                            if (this.areSentenceTimingsUsable(whisperSentences, durations, timingType, message.id)) {
+                            if (this.areSentenceTimingsUsable(whisperSentences, durations, timingType, meetingId, conversationIndex, speakerName, message.id)) {
                                 sentencesWithTimings = whisperSentences;
                                 subtitleTimingType = 'whisper';
                                 break;
@@ -400,6 +406,9 @@ export class AudioSystem {
         sentences: MappedSentence[],
         durations: number[],
         timingType: SubtitleTimingType,
+        meetingId: string,
+        conversationIndex: number,
+        speakerName: string,
         messageId: string
     ): boolean {
         const totalDuration = durations.reduce((sum, duration) => sum + Math.max(duration, 0), 0);
@@ -407,7 +416,9 @@ export class AudioSystem {
         if (!validation.valid) {
             Logger.warn(
                 "AudioSystem",
-                `Rejected ${timingType ?? "unknown"} subtitle timings for message ${messageId}: ${validation.reason}.`
+                `Rejected ${timingType ?? "unknown"} subtitle timings ` +
+                `(meeting ${meetingId}, index ${conversationIndex}, speaker ${speakerName}, message ${messageId}): ` +
+                `${validation.reason}.`
             );
             return false;
         }

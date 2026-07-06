@@ -200,6 +200,12 @@ describe('HumanInputHandler (Isolated)', () => {
             expect(mockContext.meeting.conversation).toHaveLength(2);
             expect(mockContext.meeting.conversation[0].type).toBe('message');
             expect(mockContext.meeting.conversation[1].type).toBe('skipped');
+            expect(mockContext.services.meetingsCollection.updateOne).toHaveBeenCalledWith(
+                { _id: 42 },
+                expect.objectContaining({
+                    $pull: { audio: 'invite-1' },
+                })
+            );
         });
 
         it('should ignore if not awaiting human input', async () => {

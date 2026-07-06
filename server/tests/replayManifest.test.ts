@@ -121,6 +121,29 @@ describe("buildReplayMeetingManifest", () => {
         const m = buildReplayMeetingManifest(meeting);
         expect(m.conversation.map(c => c.type)).toEqual(["message", "summary"]);
     });
+
+    it("does not truncate at skipped messages without audio", () => {
+        const meeting = MockFactory.createMeeting({
+            maximumPlayedIndex: 4,
+            conversation: [
+                { id: "m0", type: "message", speaker: SPEAKER_ID, text: "0" },
+                { id: "m1", type: "message", speaker: SPEAKER_ID, text: "1" },
+                { id: "skip-1", type: "skipped", speaker: "panelist0", text: "" },
+                { id: "m2", type: "message", speaker: SPEAKER_ID, text: "2" },
+                { id: "s", type: "summary", speaker: SPEAKER_ID, text: "x" },
+            ],
+            audio: ["m0", "m1", "m2", "s"],
+        });
+        const m = buildReplayMeetingManifest(meeting);
+        expect(m.conversation.map((c) => c.type)).toEqual([
+            "message",
+            "message",
+            "skipped",
+            "message",
+            "summary",
+        ]);
+        expect(m.audio).toEqual(["m0", "m1", "m2", "s"]);
+    });
 });
 
 describe("isCompleteReplayManifest", () => {
@@ -162,6 +185,22 @@ describe("isCompleteReplayManifest", () => {
             meetingComplete: false,
         });
         expect(isCompleteReplayManifest(meeting)).toBe(false);
+    });
+
+    it("returns true when skipped messages have no audio", () => {
+        const meeting = MockFactory.createMeeting({
+            maximumPlayedIndex: 4,
+            conversation: [
+                { id: "m0", type: "message", speaker: SPEAKER_ID, text: "0" },
+                { id: "skip-1", type: "skipped", speaker: "panelist0", text: "" },
+                { id: "m1", type: "message", speaker: SPEAKER_ID, text: "1" },
+                { id: "skip-2", type: "skipped", speaker: "panelist0", text: "" },
+                { id: "s", type: "summary", speaker: SPEAKER_ID, text: "x" },
+            ],
+            audio: ["m0", "m1", "s"],
+            meetingComplete: false,
+        });
+        expect(isCompleteReplayManifest(meeting)).toBe(true);
     });
 
     it("returns false when conversation is empty", () => {
