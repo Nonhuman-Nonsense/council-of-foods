@@ -1,7 +1,12 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { HumanInputHandler } from '@logic/HumanInputHandler.js';
+import { Logger } from '@utils/Logger.js';
 import { TestFactory } from './commonSetup.js';
 import { MockFactory } from './factories/MockFactory.ts';
+
+vi.mock('@utils/Logger.js', () => ({
+    Logger: { info: vi.fn(), error: vi.fn(), warn: vi.fn(), staleEvent: vi.fn(), reportAndCrashClient: vi.fn() },
+}));
 
 describe('HumanInputHandler (Isolated)', () => {
     let handler;
@@ -50,6 +55,7 @@ describe('HumanInputHandler (Isolated)', () => {
         };
 
         handler = new HumanInputHandler(mockContext);
+        Logger.staleEvent.mockClear();
     });
 
     describe('handleSubmitHumanMessage', () => {
@@ -82,13 +88,21 @@ describe('HumanInputHandler (Isolated)', () => {
             expect(mockContext.startLoop).toHaveBeenCalled();
         });
 
-        it('should ignore if not awaiting question (validation logic)', async () => {
+        it('drops stale submit_human_message without crashing client and delegates to Logger.staleEvent', async () => {
             mockContext.meeting.conversation = TestFactory.createConversation(2);
+            mockContext.lastReconnectionAt = 123456;
 
             await handler.handleSubmitHumanMessage({ text: "Hello" });
 
             expect(mockContext.meeting.conversation).toHaveLength(2);
             expect(mockContext.startLoop).not.toHaveBeenCalled();
+            expect(mockContext.broadcaster.broadcastError).not.toHaveBeenCalled();
+            expect(Logger.staleEvent).toHaveBeenCalledWith(
+                expect.any(String),
+                'submit_human_message',
+                expect.stringContaining("expected awaiting_human_question"),
+                expect.objectContaining({ lastReconnectionAt: 123456 }),
+            );
         });
 
         it('should persist inferred target ids while rendering the character name', async () => {
@@ -132,6 +146,22 @@ describe('HumanInputHandler (Isolated)', () => {
             expect(mockContext.services.meetingsCollection.updateOne).toHaveBeenCalled();
             expect(mockContext.broadcaster.broadcastConversationUpdate).toHaveBeenCalledWith(mockContext.meeting.conversation);
             expect(mockContext.startLoop).toHaveBeenCalled();
+        });
+
+        it('drops stale submit_human_panelist without crashing client and delegates to Logger.staleEvent', async () => {
+            mockContext.meeting.conversation = TestFactory.createConversation(2);
+
+            await handler.handleSubmitHumanPanelist({ text: "Late answer.", speaker: "alice" });
+
+            expect(mockContext.meeting.conversation).toHaveLength(2);
+            expect(mockContext.startLoop).not.toHaveBeenCalled();
+            expect(mockContext.broadcaster.broadcastError).not.toHaveBeenCalled();
+            expect(Logger.staleEvent).toHaveBeenCalledWith(
+                expect.any(String),
+                'submit_human_panelist',
+                expect.stringContaining("expected awaiting_human_panelist"),
+                expect.objectContaining({ lastReconnectionAt: mockContext.lastReconnectionAt }),
+            );
         });
 
         it('should strip panelist invitation when submitting panelist response', async () => {
@@ -208,13 +238,20 @@ describe('HumanInputHandler (Isolated)', () => {
             );
         });
 
-        it('should ignore if not awaiting human input', async () => {
+        it('drops stale skip_human_turn without crashing client and delegates to Logger.staleEvent', async () => {
             mockContext.meeting.conversation = TestFactory.createConversation(2);
 
             await handler.handleSkipHumanTurn();
 
             expect(mockContext.meeting.conversation).toHaveLength(2);
             expect(mockContext.startLoop).not.toHaveBeenCalled();
+            expect(mockContext.broadcaster.broadcastError).not.toHaveBeenCalled();
+            expect(Logger.staleEvent).toHaveBeenCalledWith(
+                expect.any(String),
+                'skip_human_turn',
+                expect.stringContaining("expected awaiting human input"),
+                expect.objectContaining({ lastReconnectionAt: mockContext.lastReconnectionAt }),
+            );
         });
     });
 });

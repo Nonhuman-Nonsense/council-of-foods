@@ -51,17 +51,9 @@ export class HumanInputHandler {
 
         const lastMessage = m.conversation[m.conversation.length - 1];
         if (lastMessage?.type !== 'awaiting_human_question') {
-            Logger.reportAndCrashClient(
-                "meeting",
-                "Received a human question but was not expecting one!",
-                {
-                    error: new Error(
-                        `Expected last message to be 'awaiting_human_question' but found '${lastMessage?.type ?? "none"}'`
-                    ),
-                    from: manager,
-                    broadcaster: manager.broadcaster,
-                },
-            );
+            // Stale event — socket buffer flushed before attempt_reconnection completed.
+            // Server is not in the right state to accept this; discard gracefully.
+            Logger.staleEvent(`meeting ${m._id}`, "submit_human_message", `expected awaiting_human_question but found '${lastMessage?.type ?? "none"}'`, { lastReconnectionAt: manager.lastReconnectionAt, from: manager });
             return;
         }
         m.conversation.pop();
@@ -133,17 +125,8 @@ export class HumanInputHandler {
 
         const lastMessage = m.conversation[m.conversation.length - 1];
         if (lastMessage?.type !== 'awaiting_human_panelist') {
-            Logger.reportAndCrashClient(
-                "meeting",
-                "Received a human panelist but was not expecting one!",
-                {
-                    error: new Error(
-                        `Expected last message to be 'awaiting_human_panelist' but found '${lastMessage?.type ?? "none"}'`
-                    ),
-                    from: manager,
-                    broadcaster: manager.broadcaster,
-                },
-            );
+            // Stale event — socket buffer flushed before attempt_reconnection completed.
+            Logger.staleEvent(`meeting ${m._id}`, "submit_human_panelist", `expected awaiting_human_panelist but found '${lastMessage?.type ?? "none"}'`, { lastReconnectionAt: manager.lastReconnectionAt, from: manager });
             return;
         }
         m.conversation.pop();
@@ -204,17 +187,8 @@ export class HumanInputHandler {
 
         const lastMessage = m.conversation[m.conversation.length - 1];
         if (lastMessage?.type !== "awaiting_human_question" && lastMessage?.type !== "awaiting_human_panelist") {
-            Logger.reportAndCrashClient(
-                "meeting",
-                "Received skip_human_turn but was not awaiting human input!",
-                {
-                    error: new Error(
-                        `Expected last message to be awaiting human input but found '${lastMessage?.type ?? "none"}'`
-                    ),
-                    from: manager,
-                    broadcaster: manager.broadcaster,
-                },
-            );
+            // Stale event — socket buffer flushed before attempt_reconnection completed.
+            Logger.staleEvent(`meeting ${m._id}`, "skip_human_turn", `expected awaiting human input but found '${lastMessage?.type ?? "none"}'`, { lastReconnectionAt: manager.lastReconnectionAt, from: manager });
             return;
         }
 

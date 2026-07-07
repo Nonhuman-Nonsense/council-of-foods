@@ -8,6 +8,14 @@ import { sendReport, type ClientImpact, type ReportSeverity, type ReportSource }
 const CLIENT_TERMINAL_PREFIX = '[CLIENT TERMINAL]';
 const PROCESS_EXIT_PREFIX = '[PROCESS EXIT]';
 
+/**
+ * Window after a successful reconnect within which a stale/mismatched socket event is treated as
+ * expected churn (socket.io flushes its send buffer on reconnect). Outside this window the same
+ * mismatch indicates a genuine client/server desync worth flagging. Kept generous enough to cover
+ * one network RTT of straggler buffered events on a slow mobile connection.
+ */
+const STALE_EVENT_GRACE_MS = 2000;
+
 export type LogDetails = {
     error?: unknown;
     from?: ProvidesReportContext | ReportContext;
@@ -65,6 +73,29 @@ export class Logger {
 
     static info(context: string, message: string): void {
         console.log(`${cyan(this.formatContext(context))} ${message}`);
+    }
+
+    /**
+     * Logs a dropped stale socket event, choosing the level based on how recently the session
+     * reconnected. Within the grace window it is expected churn — logged at info, which is
+     * console-only and never sent to ErrorBot. Otherwise it is an unexpected desync — logged at
+     * warn so monitoring surfaces genuine bugs.
+     */
+    static staleEvent(
+        context: string,
+        eventName: string,
+        detail: string,
+        details: LogDetails & { lastReconnectionAt?: number },
+    ): void {
+        const { lastReconnectionAt, ...warnDetails } = details;
+        const recentlyReconnected =
+            lastReconnectionAt != null && Date.now() - lastReconnectionAt < STALE_EVENT_GRACE_MS;
+
+        if (recentlyReconnected) {
+            this.info(context, `Expected stale ${eventName} after reconnect: ${detail}`);
+        } else {
+            void this.warn(context, `Unexpected desync, dropped ${eventName}: ${detail}`, warnDetails);
+        }
     }
 
     // Note: Console logging happens synchronously BEFORE waiting for async reporting.

@@ -76,6 +76,12 @@ export interface IMeetingState {
     handRaised: boolean;
     isPaused: boolean;
     currentSpeaker: number;
+    /**
+     * Timestamp (ms) of the last successful reconnection resume, or undefined if none.
+     * Used to classify stale buffered socket events flushed right after a reconnect as
+     * expected (info) rather than genuine desyncs (warn).
+     */
+    lastReconnectionAt?: number;
 }
 
 /**

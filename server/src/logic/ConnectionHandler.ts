@@ -101,6 +101,7 @@ export class ConnectionHandler {
                 }
             }
 
+            manager.lastReconnectionAt = Date.now();
             Logger.info(`meeting ${manager.meeting._id}`, "resumed");
             manager.broadcaster.broadcastConversationUpdate(manager.meeting.conversation);
 

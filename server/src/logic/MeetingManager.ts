@@ -62,6 +62,7 @@ export class MeetingManager implements IMeetingManager {
     handRaised: boolean;
     isPaused: boolean;
     currentSpeaker: number;
+    lastReconnectionAt?: number;
     private isConversationTransitionActive: boolean;
     private conversationTransitionQueue: Promise<void>;
     private pendingLoopStart: boolean;
