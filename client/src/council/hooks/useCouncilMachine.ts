@@ -390,6 +390,31 @@ export function useCouncilMachine({
             return;
         }
 
+        // Action A — skip a stale invitation replay when we already have a
+        // human-draft intent queued for the awaiting_* sentinel right after it.
+        // Only reachable on the reconnect self-heal path: the invitation was
+        // already heard once before the original submit was lost, so replaying
+        // it again is pure noise. Gated on BOTH the invitation and its trailing
+        // sentinel being present (matching the intent's captured index), so
+        // this can never fire in the narrow window where the invitation has
+        // arrived but the sentinel hasn't yet — see "invitation / playback-index
+        // rewind nuance" in the resilience plan. Checked here, ahead of the
+        // switch below, so the invitation's audio is never dispatched in the
+        // first place (a separate effect running after this one would risk a
+        // one-frame flash of the invitation before jumping past it).
+        if (
+            pendingIntent?.kind === 'human-draft' &&
+            pendingIntent.meetingId === currentMeetingId &&
+            playNextIndex + 1 === pendingIntent.index &&
+            textMessages[playNextIndex]?.type === 'invitation' &&
+            textMessages[pendingIntent.index]?.type ===
+                (pendingIntent.mode === 'panelist' ? 'awaiting_human_panelist' : 'awaiting_human_question')
+        ) {
+            setPlayingNowIndex(playNextIndex);
+            setPlayNextIndex(pendingIntent.index);
+            return;
+        }
+
         // This will be triggered directly when text is set
         if (councilState !== 'summary' && textMessages[playNextIndex]?.type === 'summary') {
             setCouncilState("summary");
@@ -483,7 +508,7 @@ export function useCouncilMachine({
             default:
                 break;
         }
-    }, [councilState, textMessages, audioMessages, playingNowIndex, playNextIndex, liveKey, summary, initialLoadingMinElapsed, isMuseumMode, agentMode, setMetaAgentPhase]);
+    }, [councilState, textMessages, audioMessages, playingNowIndex, playNextIndex, liveKey, summary, initialLoadingMinElapsed, isMuseumMode, agentMode, setMetaAgentPhase, pendingIntent, currentMeetingId]);
 
     /* -------------------------------------------------------------------------- */
     /*                                 Actions                                    */

@@ -162,7 +162,7 @@ special-case; they collapse into "register intent; reconciler emits when applica
 
 ---
 
-## The invitation / playback-index rewind nuance
+## The invitation / playback-index rewind nuance  *(implemented)*
 
 `handleOnSubmitHumanMessage` slices `textMessages` back past the **invitation** that precedes the
 `awaiting_*` sentinel and rewinds `playingNowIndex`. On the server, `handleSubmitHumanMessage`
@@ -170,18 +170,30 @@ pops the `awaiting_*`, pops the invitation (`popInvitationIfPresent`), then push
 message. So when a submit is lost to a disconnect, the resumed DB state still contains
 `[…, invitation, awaiting_human_question]`, and a naive replay would replay the invitation audio.
 
-Handle this as **two independent reconcile actions** (compatible with the store — decoupled,
+Implemented as **two independent reconcile actions** (compatible with the store — decoupled,
 precondition-driven):
 
 - **Action A — skip invitation:** gate on **both** the invitation *and* its trailing `awaiting_*`
   being present, so it can never fire in the narrow "invitation arrived, sentinel hasn't" window
   and strand playback. (In practice the server broadcasts the whole conversation at once, so they
-  arrive together; the precondition makes it robust regardless.)
+  arrive together; the precondition makes it robust regardless.) Implemented as an early check
+  inside the main state-machine `useEffect` in `useCouncilMachine.ts` (right after the
+  already-skipped check, before the `switch`/`loading` case), not as a separate effect — a separate
+  effect running *after* the main one would risk the main effect's `'loading'` case dispatching the
+  invitation's audio first (one-frame flash) before the skip got a chance to jump past it. The
+  check: a `human-draft` intent is pending, `playNextIndex + 1 === intent.index`,
+  `textMessages[playNextIndex]` is an `invitation`, and `textMessages[intent.index]` is the
+  matching `awaiting_*` type — only then does it jump `playNextIndex` straight to `intent.index`
+  (marking the invitation "passed" via `playingNowIndex` without ever calling
+  `tryToFindTextAndAudio`/dispatching its audio).
 - **Action B — auto-submit:** fires independently once `councilState` is back at
   `human_input` / `human_panelist`. This is the backstop — even if A never fires and the
-  invitation plays, B still heals the state.
+  invitation plays, B still heals the state. (This is the pre-existing `human-draft` reconciler
+  case from PR 4.)
 
-Worst case is a redundant invitation playback, never a stuck state or a crash.
+Worst case (Action A's precondition not met — e.g. invitation and sentinel arrive in separate
+updates) is a redundant invitation playback, never a stuck state or a crash, since B is
+independent and unconditional on A having fired.
 
 ---
 
@@ -304,10 +316,8 @@ optimistic truncation removes it — mirrors `raise-hand`'s own `index` field).
   (per the per-intent policy table above), checked *after* the index-based fulfillment check so that
   a match on both doesn't get short-circuited by councilState still catching up (e.g. mid invitation
   replay) — the intent just waits, unfulfilled-but-not-yet-fireable, until councilState arrives.
-- **Not implemented: the invitation-skip Action A/B decomposition.** If the resumed conversation
-  still has an invitation ahead of the awaiting sentinel, the client will replay it before
-  auto-resubmitting — a redundant playback, not a stuck state or crash (the plan's own documented
-  "worst case" for this nuance). Revisit if it proves annoying in practice.
+- **Invitation-skip (Action A) added later**, alongside Action B — see "The invitation /
+  playback-index rewind nuance" above.
 - Files: `client/src/council/hooks/pendingIntentStore.ts`, `useCouncilMachine.ts`, tests in
   `useCouncilMachine.test.tsx` (`describe('human-draft intent reconciler')`).
 - Value: typed text is never lost across a reconnect; completes the raise→type→disconnect chain.

@@ -1708,6 +1708,64 @@ describe('useCouncilMachine', () => {
 
             expect(mockSocketEmit).not.toHaveBeenCalledWith('submit_human_message', expect.anything());
         });
+
+        it('skips replaying the invitation when a human-draft intent already answers the sentinel right after it', () => {
+            const { result } = renderHook(() =>
+                useCouncilMachine({ ...defaultProps, currentMeetingId: 1, humanName: 'Sam' } as any),
+            );
+
+            // Resumed conversation still has the invitation ahead of the awaiting
+            // sentinel (the original submit never reached the server). Default
+            // playNextIndex (0) points right at the invitation.
+            act(() => {
+                socketHandlers.onConversationUpdate?.([
+                    { id: 'inv1', type: 'invitation', speaker: 'chair', text: 'Ask away' },
+                    { type: 'awaiting_human_question', speaker: 'Sam' },
+                ]);
+            });
+            expect(result.current.state.playNextIndex).toBe(0);
+
+            // Re-enter "mid-reconnect": keeps Action B (auto-resubmit) gated off
+            // below (onConversationUpdate itself always clears
+            // attemptingReconnect, so this has to happen *after* the update
+            // above, not before), so the skip's own effect on
+            // playingNowIndex/playNextIndex can be observed in isolation before
+            // the resubmit's own rewind runs.
+            act(() => {
+                socketHandlers.simulateReconnect();
+            });
+
+            // A human-draft intent is already queued for the sentinel at index 1
+            // (as if the user had answered before the disconnect).
+            act(() => {
+                usePendingIntentStore.getState().setPendingIntent({
+                    kind: 'human-draft',
+                    meetingId: 1,
+                    text: 'Hello world',
+                    mode: 'question',
+                    index: 1,
+                });
+            });
+
+            // Jumped straight past the invitation instead of playing it —
+            // playingNowIndex marks it as passed without ever entering the
+            // 'loading'/'playing' switch for it. Action B is still gated off
+            // (attemptingReconnect), so this reflects only the skip.
+            expect(result.current.state.playingNowIndex).toBe(0);
+            expect(result.current.state.playNextIndex).toBe(1);
+            expect(result.current.state.councilState).toBe('human_input');
+            expect(mockSocketEmit).not.toHaveBeenCalledWith('submit_human_message', expect.anything());
+
+            // Handshake completes: Action B (auto-resubmit) takes over.
+            act(() => {
+                socketHandlers.onConversationUpdate?.([
+                    { id: 'inv1', type: 'invitation', speaker: 'chair', text: 'Ask away' },
+                    { type: 'awaiting_human_question', speaker: 'Sam' },
+                ]);
+            });
+            expect(mockSocketEmit).toHaveBeenCalledWith('submit_human_message', { text: 'Hello world' });
+            expect(usePendingIntentStore.getState().intent).toBeNull();
+        });
     });
 });
 
