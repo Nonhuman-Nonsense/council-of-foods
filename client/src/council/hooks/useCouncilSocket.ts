@@ -88,11 +88,11 @@ export const useCouncilSocket = ({
             console.log(reason);
             // Drop anything socket.io queued to replay on reconnect. Every
             // intent-bearing client->server event (raise_hand, submit_human_*,
-            // extend_meeting/conclude_meeting) now goes through pendingIntentStore,
-            // which re-emits against fresh server state once the resume handshake
-            // completes — a raw replay of a buffered emit would race ahead of that
-            // handshake and is never needed. See "Invariants & backstops" in
-            // docs/connection-resilience-pending-intent-plan.md.
+            // extend_meeting/conclude_meeting, skip_human_turn) now goes through
+            // pendingIntentStore, which re-emits against fresh server state once
+            // the resume handshake completes — a raw replay of a buffered emit
+            // would race ahead of that handshake and is never needed. See
+            // RESILIENCE.md at the repo root.
             socket.sendBuffer.length = 0;
         });
 
