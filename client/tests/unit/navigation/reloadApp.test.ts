@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import i18n from "i18next";
 import * as AvailableLanguagesModule from "@shared/AvailableLanguages";
-import { reloadApp } from "@/navigation";
+import { buildLanguagePath, reloadApp } from "@/navigation";
 import { useErrorStore } from "@main/overlay/errorStore";
 
 const mockGetAppMode = vi.hoisted(() => vi.fn(() => "web" as "web" | "museum"));
@@ -36,7 +37,7 @@ describe("reloadApp", () => {
     vi.unstubAllGlobals();
   });
 
-  it("navigates to / in web mode for single-language deployments", async () => {
+  it("navigates to the web language root for the current deployment", async () => {
     const hrefSetter = vi.fn();
     Object.defineProperty(window.location, "href", {
       set: hrefSetter,
@@ -45,7 +46,7 @@ describe("reloadApp", () => {
 
     await expect(reloadApp()).resolves.toBe(true);
 
-    expect(hrefSetter).toHaveBeenCalledWith("/");
+    expect(hrefSetter).toHaveBeenCalledWith(buildLanguagePath(i18n.language, "/"));
     expect(useErrorStore.getState().unrecoverableError).toBeNull();
   });
 

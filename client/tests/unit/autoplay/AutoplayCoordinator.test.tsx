@@ -4,6 +4,8 @@ import "@testing-library/jest-dom";
 import type { ComponentProps, ReactNode } from "react";
 import { MemoryRouter } from "react-router";
 import AutoplayCoordinator from "@/autoplay/AutoplayCoordinator";
+import { buildLanguagePath } from "@/navigation";
+import routes from "@/routes.json";
 import {
   _setAutoplayLastActivityMsForTests,
   AUTOPLAY_NEXT_MEETING_MS,
@@ -209,7 +211,10 @@ describe("AutoplayCoordinator setup-entry idle", () => {
 
     expect(mockChangeLanguage).toHaveBeenCalledWith("en");
     expect(mockFetchAutoplayMeetingId).toHaveBeenCalledWith("en");
-    expect(mockNavigate).toHaveBeenCalledWith("/meeting/99", { replace: true });
+    expect(mockNavigate).toHaveBeenCalledWith(
+      buildLanguagePath("en", `/${routes.meeting}/99`),
+      { replace: true },
+    );
     expect(useAutoplayStore.getState().meetingGeneration).toBe(1);
   });
 
@@ -242,7 +247,10 @@ describe("AutoplayCoordinator setup-entry idle", () => {
       vi.advanceTimersByTime(AUTOPLAY_NEXT_MEETING_MS);
     });
 
-    expect(mockNavigate).toHaveBeenCalledWith("/meeting/99", { replace: true });
+    expect(mockNavigate).toHaveBeenCalledWith(
+      buildLanguagePath("en", `/${routes.meeting}/99`),
+      { replace: true },
+    );
     expect(useAutoplayStore.getState().meetingGeneration).toBe(1);
   });
 

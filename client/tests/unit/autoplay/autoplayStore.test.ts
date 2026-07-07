@@ -5,6 +5,8 @@ import {
   bumpAutoplayActivity,
   _setAutoplayLastActivityMsForTests,
 } from "@/autoplay/autoplayStore";
+import { buildLanguagePath } from "@/navigation";
+import routes from "@/routes.json";
 
 const mockFetchAutoplayMeetingId = vi.hoisted(() => vi.fn().mockResolvedValue(42));
 const mockNavigate = vi.hoisted(() => vi.fn());
@@ -80,6 +82,9 @@ describe("autoplayStore", () => {
     expect(id).toBe(42);
     expect(mockFetchAutoplayMeetingId).toHaveBeenCalledWith("en");
     expect(useAutoplayStore.getState().meetingGeneration).toBe(1);
-    expect(mockNavigate).toHaveBeenCalledWith("/meeting/42", { replace: true });
+    expect(mockNavigate).toHaveBeenCalledWith(
+      buildLanguagePath("en", `/${routes.meeting}/42`),
+      { replace: true },
+    );
   });
 });
