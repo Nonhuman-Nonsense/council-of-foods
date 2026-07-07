@@ -6,7 +6,7 @@ import AutoplayWarning from "@main/overlay/AutoplayWarning";
 import { useButton } from "@/museum/button/useButton";
 import { useButtonStore } from "@/museum/button/buttonStore";
 import { useCouncilSettings } from "@/settings/councilSettings";
-import { isRootPath, stripLanguagePrefix } from "@/routing";
+import { isRootPath, reloadApp, stripLanguagePrefix } from "@/navigation";
 import routes from "@/routes.json";
 import { getPreferredLanguage } from "@/i18n";
 import {
@@ -39,7 +39,7 @@ type IdleInactiveReason =
   | "staff_hash"
   | "staff_button_claim"
   | "live_meeting_playing"
-  | "connection_error"
+  | "system_error"
   | "no_idle_context";
 
 export default function AutoplayCoordinator({
@@ -47,6 +47,7 @@ export default function AutoplayCoordinator({
   setMeetingliveKey,
 }: AutoplayCoordinatorProps): React.ReactElement | null {
   const connectionError = useErrorStore((s) => s.connectionError);
+  const unrecoverableError = useErrorStore((s) => s.unrecoverableError);
   const { isMuseumMode } = useCouncilSettings();
   const location = useLocation();
   const navigate = useNavigate();
@@ -120,8 +121,8 @@ export default function AutoplayCoordinator({
   const exitAutoplay = useCallback(() => {
     log.event("AUTOPLAY", "exit to root", { via: "hardware_button" });
     setPhase("off");
-    window.location.href = "/";
-  }, []);
+    void reloadApp();
+  }, [setPhase]);
 
   const showWarning = useCallback(() => {
     if (useAutoplayStore.getState().phase !== "off") {
@@ -131,6 +132,16 @@ export default function AutoplayCoordinator({
     bumpAutoplayActivity("warning-shown");
     setPhase("warning");
   }, [setPhase]);
+
+  useEffect(() => {
+    if (!isMuseumMode || !(connectionError || unrecoverableError)) {
+      return;
+    }
+    if (useAutoplayStore.getState().phase === "warning") {
+      log.event("AUTOPLAY", "warning cleared", { reason: "system_error" });
+      setPhase("off");
+    }
+  }, [connectionError, isMuseumMode, setPhase, unrecoverableError]);
 
   useEffect(() => {
     if (!isMuseumMode) {
@@ -190,7 +201,7 @@ export default function AutoplayCoordinator({
     if (!isMuseumMode || phase !== "active") {
       return;
     }
-    if (connectionError) {
+    if (connectionError || unrecoverableError) {
       return;
     }
     if (!councilOnSummary) {
@@ -221,6 +232,7 @@ export default function AutoplayCoordinator({
     startAutoplayMeeting,
     phase,
     summaryProtocolFinished,
+    unrecoverableError,
   ]);
 
   useEffect(() => {
@@ -228,8 +240,8 @@ export default function AutoplayCoordinator({
       logIdleInactive("not_museum");
       return;
     }
-    if (connectionError) {
-      logIdleInactive("connection_error");
+    if (connectionError || unrecoverableError) {
+      logIdleInactive("system_error");
       return;
     }
     if (phase !== "off") {
@@ -302,6 +314,7 @@ export default function AutoplayCoordinator({
     phase,
     staffClaimed,
     showWarning,
+    unrecoverableError,
   ]);
 
   if (!isMuseumMode) {
@@ -310,7 +323,7 @@ export default function AutoplayCoordinator({
 
   return (
     <>
-      {phase === "warning" && (
+      {phase === "warning" && !(connectionError || unrecoverableError) && (
         <Overlay isActive={true} isBlurred={true} layer="system">
           <AutoplayWarning
             onConfirm={() => {

@@ -25,7 +25,7 @@ vi.mock('@/utils', () => ({
     useDocumentVisibility: () => mockUseDocumentVisibility(),
 }));
 
-vi.mock('@/routing', () => ({
+vi.mock('@/navigation', () => ({
     useRouting: () => ({
         newMeetingPath: '/new',
         meetingPath: (id: number) => `/meeting/${id}`,

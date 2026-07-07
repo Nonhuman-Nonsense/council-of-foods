@@ -90,7 +90,7 @@ vi.mock('react-router', () => ({
     useNavigate: () => mockNavigate,
 }));
 
-vi.mock('@/routing', () => ({
+vi.mock('@/navigation', () => ({
     useRouting: () => ({ rootPath: '/en/' }),
 }));
 

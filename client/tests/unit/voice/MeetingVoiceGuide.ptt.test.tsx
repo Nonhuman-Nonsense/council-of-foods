@@ -31,7 +31,7 @@ vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key, i18n: { language: "en" } }),
 }));
 
-vi.mock("@/routing", () => ({
+vi.mock("@/navigation", () => ({
   useSwitchLanguage: () => ({ switchLanguage: vi.fn(), otherLanguages: [] }),
 }));
 
