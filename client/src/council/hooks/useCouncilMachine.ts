@@ -144,6 +144,13 @@ export function useCouncilMachine({
     /** True from socket reconnect until the server sends conversation state again. */
     const [attemptingReconnect, setAttemptingReconnect] = useState(false);
 
+    /**
+     * True when the socket layer is unhealthy (connect_error) but playback may still continue
+     * from buffered data. The public connectionError overlay is only shown when the machine
+     * is actually stuck — see the deferred blocked effect below.
+     */
+    const [socketUnhealthy, setSocketUnhealthy] = useState(false);
+
     // Limits
     const [maximumPlayedIndex, setMaximumPlayedIndex] = useState(0);
 
@@ -233,9 +240,10 @@ export function useCouncilMachine({
         },
         onConnectionError: (err) => {
             console.error(err);
-            setConnectionError("socket", true);
+            setSocketUnhealthy(true);
         },
         onConnect: () => {
+            setSocketUnhealthy(false);
             setConnectionError("socket", false);
         },
     });
@@ -730,6 +738,16 @@ export function useCouncilMachine({
             });
         }
     }, [isRaisedHand]);
+
+    // Deferred connection error: only surface the overlay when the machine is actually stuck
+    // waiting for server data. While the council plays through buffered audio the overlay stays
+    // hidden, even though the socket is unhealthy. onConnect clears the store immediately so
+    // the overlay disappears as soon as the socket recovers, without waiting for a render cycle.
+    useEffect(() => {
+        if (!liveKey || !socketUnhealthy) return;
+        const blocked = councilState === 'loading' && !tryToFindTextAndAudio();
+        setConnectionError("socket", blocked);
+    }, [councilState, textMessages, audioMessages, playNextIndex, liveKey, socketUnhealthy]);
 
     // Auto-pause / auto-resume for meeting playback (split into three effects).
     //

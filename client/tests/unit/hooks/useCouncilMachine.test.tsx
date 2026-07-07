@@ -709,6 +709,80 @@ describe('useCouncilMachine', () => {
             expect(setPaused).not.toHaveBeenCalledWith(false);
         });
 
+        describe('deferred connection error overlay', () => {
+            it('does not set connectionError when socket error fires while playing with buffered next message', async () => {
+                vi.useFakeTimers();
+                const { result } = renderHook(() =>
+                    useCouncilMachine({ ...defaultProps, currentMeetingId: 1 } as any),
+                );
+
+                audioContextMock.current.decodeAudioData.mockResolvedValue('fake-buffer');
+                await act(async () => {
+                    socketHandlers.onConversationUpdate?.([
+                        { id: 'm1', text: 'Hello', speaker: 'banana', type: 'message' },
+                    ]);
+                    socketHandlers.onAudioUpdate?.({ id: 'm1', audio: new ArrayBuffer(8) });
+                });
+
+                // Advance the 0ms initialLoadingMinElapsed timer so the machine leaves loading.
+                act(() => { vi.advanceTimersByTime(10); });
+
+                // Confirm the machine has advanced out of loading.
+                expect(result.current.state.councilState).toBe('playing');
+
+                act(() => {
+                    socketHandlers.onConnectionError?.(new Error('test drop'));
+                });
+
+                expect(useErrorStore.getState().connectionError).toBe(false);
+                vi.useRealTimers();
+            });
+
+            it('sets connectionError when stalled in loading with no buffered data', () => {
+                renderHook(() =>
+                    useCouncilMachine({ ...defaultProps, currentMeetingId: 1 } as any),
+                );
+
+                // Default state: loading, nothing buffered.
+                expect(useErrorStore.getState().connectionError).toBe(false);
+
+                act(() => {
+                    socketHandlers.onConnectionError?.(new Error('test drop'));
+                });
+
+                expect(useErrorStore.getState().connectionError).toBe(true);
+            });
+
+            it('does not set connectionError in replay mode (no liveKey)', () => {
+                renderHook(() =>
+                    useCouncilMachine({ ...defaultProps, liveKey: undefined, currentMeetingId: 1 } as any),
+                );
+
+                act(() => {
+                    socketHandlers.onConnectionError?.(new Error('test drop'));
+                });
+
+                expect(useErrorStore.getState().connectionError).toBe(false);
+            });
+
+            it('clears connectionError immediately when onConnect fires', () => {
+                renderHook(() =>
+                    useCouncilMachine({ ...defaultProps, currentMeetingId: 1 } as any),
+                );
+
+                act(() => {
+                    socketHandlers.onConnectionError?.(new Error('test drop'));
+                });
+                expect(useErrorStore.getState().connectionError).toBe(true);
+
+                act(() => {
+                    socketHandlers.onConnect?.();
+                });
+
+                expect(useErrorStore.getState().connectionError).toBe(false);
+            });
+        });
+
         describe('overlay action handlers resume playback', () => {
             it('handleOnExtendMeeting resumes playback', () => {
                 const setPaused = vi.fn();
