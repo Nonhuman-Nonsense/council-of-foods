@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import type { NavigateFunction } from "react-router";
 import { fetchAutoplayMeetingId } from "@api/fetchAutoplayMeeting";
-import { buildLanguagePath } from "@/routing";
+import { buildLanguagePath } from "@/navigation";
 import routes from "@/routes.json";
 import { log } from "@/logger";
 

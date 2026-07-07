@@ -37,6 +37,10 @@ See [Server Documentation](server/README.md) for detailed backend instructions a
 
 For physical museum / kiosk installs, see [MUSEUM.md](MUSEUM.md) (app mode, button bridge, staff setup).
 
+For how the live client survives socket drops without lost input, deadlocks, or crashes — and
+the pattern any new client-driven socket action should follow — see
+[RESILIENCE.md](RESILIENCE.md).
+
 ### Building
 
 During development, to enable automatic reload on changes

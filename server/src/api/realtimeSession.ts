@@ -97,7 +97,7 @@ export function registerRealtimeRoutes(app: Express): void {
             await Logger.info("api", `POST /api/realtime/bootstrap successful (${feature}:${data.provider})`);
             res.status(200).json(data);
         } catch (e) {
-            await Logger.error("api", "POST /api/realtime/bootstrap failed", e);
+            await Logger.error("api", "POST /api/realtime/bootstrap failed", { error: e });
             res.status(500).json(CouncilError.fromUnexpected(e, "Realtime bootstrap unavailable").toApiBody("api POST /api/realtime/bootstrap"));
         }
     });
@@ -143,7 +143,7 @@ export function registerRealtimeRoutes(app: Express): void {
             await Logger.info("api", `POST /api/realtime/call successful (${feature}:${provider})`);
             res.status(200).json(data);
         } catch (e) {
-            await Logger.error("api", "POST /api/realtime/call failed", e);
+            await Logger.error("api", "POST /api/realtime/call failed", { error: e });
             res.status(500).json(CouncilError.fromUnexpected(e, "Realtime call unavailable").toApiBody("api POST /api/realtime/call"));
         }
     });

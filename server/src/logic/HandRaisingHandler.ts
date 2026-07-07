@@ -33,7 +33,7 @@ export class HandRaisingHandler {
         const { manager } = this;
         const m = manager.meeting;
         if (!m) {
-            Logger.error("HandRaisingHandler", "raise_hand with no active meeting");
+            Logger.error("HandRaisingHandler", "raise_hand with no active meeting", { from: manager });
             return;
         }
 

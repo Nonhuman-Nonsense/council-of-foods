@@ -4,6 +4,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { useCouncilMachine } from '@council/hooks/useCouncilMachine';
 import { MockFactory } from '../factories/MockFactory';
 import { useErrorStore } from '@main/overlay/errorStore';
+import { usePendingIntentStore } from '@council/hooks/pendingIntentStore';
 // import { useCouncilSocket } from "@council/hooks/useCouncilSocket"; // doing manual mock
 
 // --- Mocks ---
@@ -25,7 +26,7 @@ vi.mock('@/utils', () => ({
     useDocumentVisibility: () => mockUseDocumentVisibility(),
 }));
 
-vi.mock('@/routing', () => ({
+vi.mock('@/navigation', () => ({
     useRouting: () => ({
         newMeetingPath: '/new',
         meetingPath: (id: number) => `/meeting/${id}`,
@@ -94,6 +95,7 @@ describe('useCouncilMachine', () => {
             metaAgentPhase: "inactive",
         };
         useErrorStore.getState().resetForTests();
+        usePendingIntentStore.getState().clearAll();
         mockUseLocation.mockReturnValue({ hash: '', pathname: '/meeting/1' });
         mockUseDocumentVisibility.mockReturnValue(true);
     });
@@ -707,6 +709,80 @@ describe('useCouncilMachine', () => {
             });
 
             expect(setPaused).not.toHaveBeenCalledWith(false);
+        });
+
+        describe('deferred connection error overlay', () => {
+            it('does not set connectionError when socket error fires while playing with buffered next message', async () => {
+                vi.useFakeTimers();
+                const { result } = renderHook(() =>
+                    useCouncilMachine({ ...defaultProps, currentMeetingId: 1 } as any),
+                );
+
+                audioContextMock.current.decodeAudioData.mockResolvedValue('fake-buffer');
+                await act(async () => {
+                    socketHandlers.onConversationUpdate?.([
+                        { id: 'm1', text: 'Hello', speaker: 'banana', type: 'message' },
+                    ]);
+                    socketHandlers.onAudioUpdate?.({ id: 'm1', audio: new ArrayBuffer(8) });
+                });
+
+                // Advance the 0ms initialLoadingMinElapsed timer so the machine leaves loading.
+                act(() => { vi.advanceTimersByTime(10); });
+
+                // Confirm the machine has advanced out of loading.
+                expect(result.current.state.councilState).toBe('playing');
+
+                act(() => {
+                    socketHandlers.onConnectionError?.(new Error('test drop'));
+                });
+
+                expect(useErrorStore.getState().connectionError).toBe(false);
+                vi.useRealTimers();
+            });
+
+            it('sets connectionError when stalled in loading with no buffered data', () => {
+                renderHook(() =>
+                    useCouncilMachine({ ...defaultProps, currentMeetingId: 1 } as any),
+                );
+
+                // Default state: loading, nothing buffered.
+                expect(useErrorStore.getState().connectionError).toBe(false);
+
+                act(() => {
+                    socketHandlers.onConnectionError?.(new Error('test drop'));
+                });
+
+                expect(useErrorStore.getState().connectionError).toBe(true);
+            });
+
+            it('does not set connectionError in replay mode (no liveKey)', () => {
+                renderHook(() =>
+                    useCouncilMachine({ ...defaultProps, liveKey: undefined, currentMeetingId: 1 } as any),
+                );
+
+                act(() => {
+                    socketHandlers.onConnectionError?.(new Error('test drop'));
+                });
+
+                expect(useErrorStore.getState().connectionError).toBe(false);
+            });
+
+            it('clears connectionError immediately when onConnect fires', () => {
+                renderHook(() =>
+                    useCouncilMachine({ ...defaultProps, currentMeetingId: 1 } as any),
+                );
+
+                act(() => {
+                    socketHandlers.onConnectionError?.(new Error('test drop'));
+                });
+                expect(useErrorStore.getState().connectionError).toBe(true);
+
+                act(() => {
+                    socketHandlers.onConnect?.();
+                });
+
+                expect(useErrorStore.getState().connectionError).toBe(false);
+            });
         });
 
         describe('overlay action handlers resume playback', () => {
@@ -1341,6 +1417,589 @@ describe('useCouncilMachine', () => {
 
             expect(result.current.state.visibleOverlay).not.toBe('name');
             expect(result.current.state.isRaisedHand).toBe(true);
+        });
+    });
+
+    describe('raise-hand intent reconciler', () => {
+        it('emits raise_hand immediately on the happy path (socket healthy, no reconnect in flight)', () => {
+            const { result } = renderHook(() =>
+                useCouncilMachine({ ...defaultProps, currentMeetingId: 1, humanName: 'Leo' } as any),
+            );
+
+            act(() => {
+                result.current.actions.handleOnRaiseHand();
+            });
+
+            expect(mockSocketEmit).toHaveBeenCalledWith(
+                'raise_hand',
+                expect.objectContaining({ humanName: 'Leo' }),
+            );
+            // Intent is NOT cleared at emit time — only once the server's
+            // awaiting sentinel confirms the raise landed. This means a
+            // raise_hand lost between emit and ack still has a live intent
+            // to retry, instead of depending on socket.io's sendBuffer.
+            expect(usePendingIntentStore.getState().intent).toMatchObject({
+                kind: 'raise-hand',
+                humanName: 'Leo',
+            });
+
+            mockSocketEmit.mockClear();
+
+            // Server confirms: conversation now carries the awaiting sentinel.
+            act(() => {
+                socketHandlers.onConversationUpdate?.([
+                    { id: 'm1', text: 'Hi', speaker: 'banana', type: 'message' },
+                    { type: 'awaiting_human_question', speaker: 'Leo' },
+                ]);
+            });
+
+            // Intent is now cleared, and no duplicate raise_hand is emitted.
+            expect(usePendingIntentStore.getState().intent).toBeNull();
+            expect(mockSocketEmit).not.toHaveBeenCalledWith('raise_hand', expect.anything());
+        });
+
+        it('re-emits raise_hand if the first emit is lost before the awaiting sentinel appears (e.g. disconnect mid-flight)', () => {
+            // Regression test for the clear-at-emit bug: previously the intent was
+            // removed from the store synchronously at emit time, so a raise_hand
+            // lost to a disconnect right after emit had no durable intent left to
+            // retry, and depended entirely on socket.io's sendBuffer replay.
+            const { result } = renderHook(() =>
+                useCouncilMachine({ ...defaultProps, currentMeetingId: 1, humanName: 'Sam' } as any),
+            );
+
+            act(() => {
+                result.current.actions.handleOnRaiseHand();
+            });
+
+            expect(mockSocketEmit).toHaveBeenCalledWith(
+                'raise_hand',
+                expect.objectContaining({ humanName: 'Sam' }),
+            );
+            expect(usePendingIntentStore.getState().intent).not.toBeNull();
+
+            mockSocketEmit.mockClear();
+
+            // Simulate the emit being lost: socket drops and reconnects, and the
+            // resumed conversation does NOT yet contain the awaiting sentinel
+            // (the raise never reached the server).
+            act(() => {
+                socketHandlers.simulateReconnect();
+            });
+            act(() => {
+                socketHandlers.onConversationUpdate?.([
+                    { id: 'm1', text: 'Hi', speaker: 'banana', type: 'message' },
+                ]);
+            });
+
+            // The intent survived, so the reconciler retries the raise.
+            expect(mockSocketEmit).toHaveBeenCalledWith(
+                'raise_hand',
+                expect.objectContaining({ humanName: 'Sam' }),
+            );
+        });
+
+        it('holds the intent during reconnect handshake and emits after conversation_update completes it', () => {
+            const { result } = renderHook(() =>
+                useCouncilMachine({ ...defaultProps, currentMeetingId: 1, humanName: 'Alex' } as any),
+            );
+
+            // Simulate socket reconnecting: attemptingReconnect becomes true.
+            act(() => {
+                socketHandlers.simulateReconnect();
+            });
+
+            mockSocketEmit.mockClear();
+
+            act(() => {
+                result.current.actions.handleOnRaiseHand();
+            });
+
+            // Intent should be stored but raise_hand NOT yet emitted.
+            expect(mockSocketEmit).not.toHaveBeenCalledWith('raise_hand', expect.anything());
+            expect(usePendingIntentStore.getState().intent).toMatchObject({
+                kind: 'raise-hand',
+                humanName: 'Alex',
+                meetingId: 1,
+            });
+
+            // Reconnect handshake completes when the server sends conversation_update.
+            act(() => {
+                socketHandlers.onConversationUpdate?.([
+                    { id: 'm1', text: 'Hello', speaker: 'banana', type: 'message' },
+                ]);
+            });
+
+            // Now the reconciler should have fired.
+            expect(mockSocketEmit).toHaveBeenCalledWith(
+                'raise_hand',
+                expect.objectContaining({ humanName: 'Alex' }),
+            );
+            // Intent clears only once the server confirms via the awaiting
+            // sentinel, not synchronously at emit time.
+            expect(usePendingIntentStore.getState().intent).not.toBeNull();
+
+            mockSocketEmit.mockClear();
+            act(() => {
+                socketHandlers.onConversationUpdate?.([
+                    { id: 'm1', text: 'Hello', speaker: 'banana', type: 'message' },
+                    { type: 'awaiting_human_question', speaker: 'Alex' },
+                ]);
+            });
+
+            expect(usePendingIntentStore.getState().intent).toBeNull();
+            expect(mockSocketEmit).not.toHaveBeenCalledWith('raise_hand', expect.anything());
+        });
+
+        it('does not re-emit raise_hand when server already processed it (awaiting sentinel on reconnect)', () => {
+            // Scenario: user raised hand, raise_hand was processed by the server before the
+            // disconnect. On reconnect the server sends back state with awaiting_human_question.
+            // The reconciler must not double-send raise_hand.
+            renderHook(() =>
+                useCouncilMachine({ ...defaultProps, currentMeetingId: 1, humanName: 'Sam' } as any),
+            );
+
+            act(() => { socketHandlers.simulateReconnect(); });
+
+            // Inject a pending intent directly (simulating pre-disconnect state).
+            act(() => {
+                usePendingIntentStore.getState().setPendingIntent({
+                    kind: 'raise-hand', meetingId: 1, index: 1, humanName: 'Sam',
+                });
+            });
+
+            mockSocketEmit.mockClear();
+
+            // Server sends back state that already includes the awaiting sentinel.
+            act(() => {
+                socketHandlers.onConversationUpdate?.([
+                    { id: 'm1', text: 'Hi', speaker: 'banana', type: 'message' },
+                    { type: 'awaiting_human_question', speaker: 'Sam' },
+                ]);
+            });
+
+            expect(mockSocketEmit).not.toHaveBeenCalledWith('raise_hand', expect.anything());
+        });
+
+        it('clears all pending intents on unmount (meeting change / navigation)', () => {
+            const { unmount } = renderHook(() =>
+                useCouncilMachine({ ...defaultProps, currentMeetingId: 1, humanName: 'Jo' } as any),
+            );
+
+            act(() => {
+                usePendingIntentStore.getState().setPendingIntent({
+                    kind: 'raise-hand', meetingId: 1, index: 1, humanName: 'Jo',
+                });
+            });
+
+            unmount();
+
+            expect(usePendingIntentStore.getState().intent).toBeNull();
+        });
+
+        it('ignores a stale intent tagged for a different meeting', () => {
+            const { result } = renderHook(() =>
+                useCouncilMachine({ ...defaultProps, currentMeetingId: 99, humanName: 'Max' } as any),
+            );
+
+            // Manually inject an intent for a different meeting.
+            act(() => {
+                usePendingIntentStore.getState().setPendingIntent({
+                    kind: 'raise-hand',
+                    meetingId: 42,
+                    index: 1,
+                    humanName: 'Max',
+                });
+            });
+
+            // No conversation update needed — the gate checks meetingId !== currentMeetingId.
+            expect(mockSocketEmit).not.toHaveBeenCalledWith('raise_hand', expect.anything());
+        });
+    });
+
+    describe('human-draft intent reconciler', () => {
+        it('does not double-submit in the connected happy path', () => {
+            const { result } = renderHook(() =>
+                useCouncilMachine({ ...defaultProps, currentMeetingId: 1, humanName: 'Sam' } as any),
+            );
+
+            act(() => {
+                socketHandlers.onConversationUpdate?.([
+                    { type: 'awaiting_human_question', speaker: 'Sam' },
+                ]);
+            });
+            expect(result.current.state.councilState).toBe('human_input');
+
+            act(() => {
+                result.current.actions.handleOnSubmitHumanMessage('Hello world');
+            });
+
+            expect(mockSocketEmit).toHaveBeenCalledTimes(1);
+            expect(mockSocketEmit).toHaveBeenCalledWith('submit_human_message', { text: 'Hello world' });
+
+            // The reconciler observes the submit's own local truncation removed the
+            // awaiting sentinel and clears the intent — no lingering re-fire.
+            expect(usePendingIntentStore.getState().intent).toBeNull();
+        });
+
+        it('auto-resubmits the retained draft after a disconnect swallows the original submit', () => {
+            const { result } = renderHook(() =>
+                useCouncilMachine({ ...defaultProps, currentMeetingId: 1, humanName: 'Sam' } as any),
+            );
+
+            act(() => {
+                socketHandlers.onConversationUpdate?.([
+                    { type: 'awaiting_human_question', speaker: 'Sam' },
+                ]);
+            });
+            expect(result.current.state.councilState).toBe('human_input');
+
+            // Socket is mid-reconnect at the moment of submit: the raw emit is
+            // fired (and, in the real world, buffered/lost by socket.io) but the
+            // reconciler's global gate blocks any retry attempt until the resume
+            // handshake completes (mirrors the raise-hand reconnect test above —
+            // attemptingReconnect, not just socketUnhealthy, must be closed the
+            // whole time, otherwise the reconciler can run against stale local
+            // state in the gap between transport reconnect and fresh data).
+            act(() => {
+                socketHandlers.simulateReconnect();
+            });
+
+            act(() => {
+                result.current.actions.handleOnSubmitHumanMessage('Hello world');
+            });
+
+            expect(usePendingIntentStore.getState().intent).toMatchObject({
+                kind: 'human-draft',
+                text: 'Hello world',
+                mode: 'question',
+            });
+
+            mockSocketEmit.mockClear();
+
+            // Resume handshake completes: server never actually received the
+            // submit, so its resumed conversation still shows the original
+            // awaiting sentinel.
+            act(() => {
+                socketHandlers.onConversationUpdate?.([
+                    { type: 'awaiting_human_question', speaker: 'Sam' },
+                ]);
+            });
+
+            // The reconciler recognizes the intent is still unfulfilled and
+            // resubmits the retained text — the user never has to retype it.
+            expect(mockSocketEmit).toHaveBeenCalledWith('submit_human_message', { text: 'Hello world' });
+            expect(usePendingIntentStore.getState().intent).toBeNull();
+        });
+
+        it('ignores a human-draft intent tagged for a different meeting', () => {
+            renderHook(() =>
+                useCouncilMachine({ ...defaultProps, currentMeetingId: 99, humanName: 'Max' } as any),
+            );
+
+            act(() => {
+                usePendingIntentStore.getState().setPendingIntent({
+                    kind: 'human-draft',
+                    meetingId: 42,
+                    text: 'stale draft',
+                    mode: 'question',
+                    index: 0,
+                });
+            });
+
+            expect(mockSocketEmit).not.toHaveBeenCalledWith('submit_human_message', expect.anything());
+        });
+
+        it('skips replaying the invitation when a human-draft intent already answers the sentinel right after it', () => {
+            const { result } = renderHook(() =>
+                useCouncilMachine({ ...defaultProps, currentMeetingId: 1, humanName: 'Sam' } as any),
+            );
+
+            // Resumed conversation still has the invitation ahead of the awaiting
+            // sentinel (the original submit never reached the server). Default
+            // playNextIndex (0) points right at the invitation.
+            act(() => {
+                socketHandlers.onConversationUpdate?.([
+                    { id: 'inv1', type: 'invitation', speaker: 'chair', text: 'Ask away' },
+                    { type: 'awaiting_human_question', speaker: 'Sam' },
+                ]);
+            });
+            expect(result.current.state.playNextIndex).toBe(0);
+
+            // Re-enter "mid-reconnect": keeps Action B (auto-resubmit) gated off
+            // below (onConversationUpdate itself always clears
+            // attemptingReconnect, so this has to happen *after* the update
+            // above, not before), so the skip's own effect on
+            // playingNowIndex/playNextIndex can be observed in isolation before
+            // the resubmit's own rewind runs.
+            act(() => {
+                socketHandlers.simulateReconnect();
+            });
+
+            // A human-draft intent is already queued for the sentinel at index 1
+            // (as if the user had answered before the disconnect).
+            act(() => {
+                usePendingIntentStore.getState().setPendingIntent({
+                    kind: 'human-draft',
+                    meetingId: 1,
+                    text: 'Hello world',
+                    mode: 'question',
+                    index: 1,
+                });
+            });
+
+            // Jumped straight past the invitation instead of playing it —
+            // playingNowIndex marks it as passed without ever entering the
+            // 'loading'/'playing' switch for it. Action B is still gated off
+            // (attemptingReconnect), so this reflects only the skip.
+            expect(result.current.state.playingNowIndex).toBe(0);
+            expect(result.current.state.playNextIndex).toBe(1);
+            expect(result.current.state.councilState).toBe('human_input');
+            expect(mockSocketEmit).not.toHaveBeenCalledWith('submit_human_message', expect.anything());
+
+            // Handshake completes: Action B (auto-resubmit) takes over.
+            act(() => {
+                socketHandlers.onConversationUpdate?.([
+                    { id: 'inv1', type: 'invitation', speaker: 'chair', text: 'Ask away' },
+                    { type: 'awaiting_human_question', speaker: 'Sam' },
+                ]);
+            });
+            expect(mockSocketEmit).toHaveBeenCalledWith('submit_human_message', { text: 'Hello world' });
+            expect(usePendingIntentStore.getState().intent).toBeNull();
+        });
+    });
+
+    describe('resolve-extension intent reconciler', () => {
+        it('does not double-fire in the connected happy path (extend)', () => {
+            const { result } = renderHook(() =>
+                useCouncilMachine({ ...defaultProps, currentMeetingId: 1 } as any),
+            );
+
+            act(() => {
+                socketHandlers.onConversationUpdate?.([{ type: 'query_extension' }]);
+            });
+            expect(result.current.state.councilState).toBe('query_extension');
+
+            mockSocketEmit.mockClear();
+            act(() => {
+                result.current.actions.handleOnExtendMeeting();
+            });
+
+            expect(mockSocketEmit).toHaveBeenCalledTimes(1);
+            expect(mockSocketEmit).toHaveBeenCalledWith('extend_meeting');
+
+            // The reconciler observes the choice's own local truncation removed
+            // the query_extension sentinel and clears the intent — no re-fire.
+            expect(usePendingIntentStore.getState().intent).toBeNull();
+        });
+
+        it('auto-resolves the retained choice after a disconnect swallows the original extend_meeting', () => {
+            const { result } = renderHook(() =>
+                useCouncilMachine({ ...defaultProps, currentMeetingId: 1 } as any),
+            );
+
+            const conversation = [{ type: 'query_extension' }];
+            act(() => {
+                socketHandlers.onConversationUpdate?.(conversation);
+            });
+            expect(result.current.state.councilState).toBe('query_extension');
+
+            // Mid-reconnect at the moment of the click: the raw emit fires (and,
+            // in the real world, is buffered/lost by socket.io) but the
+            // reconciler's global gate blocks any retry until the resume
+            // handshake completes.
+            act(() => {
+                socketHandlers.simulateReconnect();
+            });
+
+            act(() => {
+                result.current.actions.handleOnExtendMeeting();
+            });
+
+            expect(usePendingIntentStore.getState().intent).toMatchObject({
+                kind: 'resolve-extension',
+                choice: 'extend',
+            });
+
+            mockSocketEmit.mockClear();
+
+            // Resume handshake completes: server never actually received the
+            // choice, so its resumed conversation still shows the original
+            // query_extension sentinel.
+            act(() => {
+                socketHandlers.onConversationUpdate?.(conversation);
+            });
+
+            expect(mockSocketEmit).toHaveBeenCalledWith('extend_meeting');
+            expect(usePendingIntentStore.getState().intent).toBeNull();
+        });
+
+        it('auto-resolves conclude with the originally captured date, not a re-derived one', () => {
+            const { result } = renderHook(() =>
+                useCouncilMachine({ ...defaultProps, currentMeetingId: 1 } as any),
+            );
+
+            const conversation = [{ type: 'query_extension' }];
+            act(() => {
+                socketHandlers.onConversationUpdate?.(conversation);
+            });
+
+            act(() => {
+                socketHandlers.simulateReconnect();
+            });
+            act(() => {
+                result.current.actions.handleOnConcludeMeeting();
+            });
+
+            const capturedDate = (usePendingIntentStore.getState().intent as any)?.date;
+            expect(typeof capturedDate).toBe('string');
+
+            mockSocketEmit.mockClear();
+            act(() => {
+                socketHandlers.onConversationUpdate?.(conversation);
+            });
+
+            expect(mockSocketEmit).toHaveBeenCalledWith('conclude_meeting', { date: capturedDate });
+            expect(usePendingIntentStore.getState().intent).toBeNull();
+        });
+
+        it('ignores a resolve-extension intent tagged for a different meeting', () => {
+            renderHook(() =>
+                useCouncilMachine({ ...defaultProps, currentMeetingId: 99 } as any),
+            );
+
+            act(() => {
+                usePendingIntentStore.getState().setPendingIntent({
+                    kind: 'resolve-extension',
+                    meetingId: 42,
+                    choice: 'extend',
+                    index: 0,
+                });
+            });
+
+            expect(mockSocketEmit).not.toHaveBeenCalledWith('extend_meeting');
+        });
+    });
+
+    describe('skip-turn intent reconciler', () => {
+        it('does not double-fire in the connected happy path (question)', () => {
+            const { result } = renderHook(() =>
+                useCouncilMachine({ ...defaultProps, currentMeetingId: 1, humanName: 'Frank' } as any),
+            );
+
+            act(() => {
+                socketHandlers.onConversationUpdate?.([
+                    { id: 'msg_question', text: '...', speaker: 'Frank', type: 'awaiting_human_question' },
+                ]);
+            });
+            expect(result.current.state.councilState).toBe('human_input');
+
+            mockSocketEmit.mockClear();
+            act(() => {
+                result.current.actions.handleOnAbandonHumanTurn();
+            });
+
+            expect(mockSocketEmit).toHaveBeenCalledTimes(1);
+            expect(mockSocketEmit).toHaveBeenCalledWith('skip_human_turn');
+
+            // The reconciler observes the skip's own local truncation removed
+            // the awaiting sentinel and clears the intent — no re-fire.
+            expect(usePendingIntentStore.getState().intent).toBeNull();
+        });
+
+        it('auto-resolves the retained skip after a disconnect swallows the original skip_human_turn', () => {
+            const { result } = renderHook(() =>
+                useCouncilMachine({ ...defaultProps, currentMeetingId: 1, humanName: 'Frank' } as any),
+            );
+
+            const conversation = [
+                { id: 'msg_question', text: '...', speaker: 'Frank', type: 'awaiting_human_question' },
+            ];
+            act(() => {
+                socketHandlers.onConversationUpdate?.(conversation);
+            });
+            expect(result.current.state.councilState).toBe('human_input');
+
+            // Mid-reconnect at the moment of the click: the raw emit fires (and,
+            // in the real world, is buffered/lost by socket.io) but the
+            // reconciler's global gate blocks any retry until the resume
+            // handshake completes.
+            act(() => {
+                socketHandlers.simulateReconnect();
+            });
+
+            act(() => {
+                result.current.actions.handleOnAbandonHumanTurn();
+            });
+
+            expect(usePendingIntentStore.getState().intent).toMatchObject({
+                kind: 'skip-turn',
+                mode: 'question',
+                speaker: 'Frank',
+            });
+            mockSocketEmit.mockClear();
+
+            // Resume handshake completes: server never actually received the
+            // skip, so its resumed conversation still shows the original
+            // awaiting sentinel.
+            act(() => {
+                socketHandlers.onConversationUpdate?.(conversation);
+            });
+
+            expect(mockSocketEmit).toHaveBeenCalledWith('skip_human_turn');
+            expect(result.current.state.textMessages).toEqual([
+                expect.objectContaining({ type: 'skipped', speaker: 'Frank', text: '' }),
+            ]);
+            expect(usePendingIntentStore.getState().intent).toBeNull();
+        });
+
+        it('auto-resolves a panelist skip, crediting the panelist speaker', () => {
+            const { result } = renderHook(() =>
+                useCouncilMachine({ ...defaultProps, currentMeetingId: 1 } as any),
+            );
+
+            const conversation = [
+                { id: 'msg_panelist', text: '...', speaker: 'human-panelist-1', type: 'awaiting_human_panelist' },
+            ];
+            act(() => {
+                socketHandlers.onConversationUpdate?.(conversation);
+            });
+            expect(result.current.state.councilState).toBe('human_panelist');
+
+            act(() => {
+                socketHandlers.simulateReconnect();
+            });
+            act(() => {
+                result.current.actions.handleOnAbandonHumanTurn();
+            });
+
+            mockSocketEmit.mockClear();
+            act(() => {
+                socketHandlers.onConversationUpdate?.(conversation);
+            });
+
+            expect(mockSocketEmit).toHaveBeenCalledWith('skip_human_turn');
+            expect(result.current.state.textMessages).toEqual([
+                expect.objectContaining({ type: 'skipped', speaker: 'human-panelist-1', text: '' }),
+            ]);
+            expect(usePendingIntentStore.getState().intent).toBeNull();
+        });
+
+        it('ignores a skip-turn intent tagged for a different meeting', () => {
+            renderHook(() =>
+                useCouncilMachine({ ...defaultProps, currentMeetingId: 99 } as any),
+            );
+
+            act(() => {
+                usePendingIntentStore.getState().setPendingIntent({
+                    kind: 'skip-turn',
+                    meetingId: 42,
+                    mode: 'question',
+                    index: 0,
+                    speaker: 'Frank',
+                });
+            });
+
+            expect(mockSocketEmit).not.toHaveBeenCalledWith('skip_human_turn');
         });
     });
 });

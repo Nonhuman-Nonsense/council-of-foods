@@ -60,11 +60,16 @@ server is still down → `location.href` → browser/CDN error page → no timer
 
 | Path | Trigger | Museum action | File |
 |------|---------|---------------|------|
-| Connection loss | `connectionError` (socket, voice-guide, meta-agent) | `Reconnecting` overlay; hard reload after **2 min** | `Reconnecting.tsx` |
+| Connection loss | `useErrorStore().connectionError` — sources: `socket`, `voice-guide`, `meta-agent` | `Reconnecting` overlay; hard reload after **2 min** | `errorStore.ts`, `Reconnecting.tsx` |
 | Fatal error | `setUnrecoverableError` | `CouncilError` overlay; `AutoButton` reload after **10 s** | `CouncilError.tsx` |
 | Socket retry | `connect_error` / reconnect | socket.io background retry | `useCouncilSocket.ts` |
+| Agent retry (partial) | Realtime 5xx / ICE drop | Museum infinite retry; overlay when UX-critical | `useRealtimeVoiceSession.ts`, agent hooks |
 
 Server health endpoint already exists: `GET /health` → `200` (`server/server.ts`).
+
+**Note:** Error state is centralized in `client/src/main/overlay/errorStore.ts`
+(Zustand). `Main.tsx` reads the store directly — no error props on `Council` /
+`MeetingSetupShell`. See [agent-error-handling-plan.md](./agent-error-handling-plan.md).
 
 ---
 
@@ -134,15 +139,27 @@ pages. Do **not** block PR 1 on the host watchdog.
 
 - **CouncilError** — keep 10 s `AutoButton` countdown; on fire → brief
   **checking** state (spinner + “Checking connection…”); reload if healthy, else
-  **new 15 s countdown** (loop). No extra warning line.
+  **new 10 s countdown** (loop). No extra warning line.
 - **Reconnecting** — after 2 min, switch subtitle to “Waiting for server…”;
-  probe with backoff in background (spinner already visible; no second countdown).
+  probe every **10 s** in background (spinner already visible; no second countdown).
 
 ### Exit criteria
 
 - [ ] Museum `Reconnecting` never calls `location.href` while `/health` fails.
 - [ ] Museum `CouncilError` same (health-aware button loop).
 - [ ] Manual checklist in PR 1 doc completed.
+
+---
+
+## PR 1.5 — Autoplay pause + simpler probes
+
+**Detailed plan:** [museum-kiosk-resilience-p1.5.md](./museum-kiosk-resilience-p1.5.md)
+
+**Goal:** Follow-ups from PR 1 — stop autoplay timers while error/reconnect overlays
+are up; simplify health probe cancellation (shorter timeout, no signal plumbing in
+callers).
+
+Optional split: **1.5a** autoplay only, **1.5b** probe refactor. Independent of PR 2.
 
 ---
 
@@ -333,12 +350,12 @@ reduces how often we **cause** those failures.
 | Path | PR | Role |
 |------|-----|------|
 | `docs/museum-kiosk-resilience-plan.md` | — | This plan |
-| `docs/museum-kiosk-resilience-pr1.md` | 1 | Detailed PR 1 plan |
-| `client/src/museum/kioskHealth.ts` | 1 | `probeOriginHealth` helper |
-| `client/src/museum/MuseumHealthReloadButton.tsx` | 1 | Countdown → check → retry loop |
-| `client/src/museum/useMuseumProbeReload.ts` | 1 | Hook for Reconnecting |
-| `client/src/main/overlay/Reconnecting.tsx` | 1 | Backoff probe + subtitle |
-| `client/src/main/overlay/CouncilError.tsx` | 1 | Health-aware button |
+| `docs/museum-kiosk-resilience-pr1.md` | 1 | Detailed PR 1 plan (inline overlay approach) |
+| `docs/museum-kiosk-resilience-p1.5.md` | 1.5 | Autoplay pause during errors; simpler probe timeouts |
+| `client/src/autoplay/probeOriginHealth.ts` | 1 | `probeOriginHealth` (static import; keeps coordinator lazy) |
+| `client/src/main/overlay/CouncilError.tsx` | 1 | `MuseumRestartButton` |
+| `client/src/main/overlay/Reconnecting.tsx` | 1 | Inline probe loop + subtitle |
+| `client/src/autoplay/AutoplayCoordinator.tsx` | 1 | `exitAutoplay` imports probe |
 | `museum/kiosk-watchdog/` | 2 | Daemon package |
 | `museum/kiosk-watchdog/install/macos/` | 3 | launchd + install scripts |
 | `client/index.html` | 5 | Optional bootstrap script |

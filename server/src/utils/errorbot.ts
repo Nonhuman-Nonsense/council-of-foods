@@ -15,13 +15,8 @@ export type ErrorReport = {
     error?: unknown;
     clientImpact?: ClientImpact;
     source?: ReportSource;
-};
-
-/** Optional overrides for Logger.warn / Logger.error default severity. */
-export type ReportOptions = {
-    severity?: ReportSeverity;
-    clientImpact?: ClientImpact;
-    source?: ReportSource;
+    meetingId?: number;
+    socketId?: string;
 };
 
 //We wrap this in a function to make sure that it runs after .env is loaded
@@ -68,6 +63,8 @@ export async function sendReport(report: ErrorReport): Promise<void> {
         message: report.message,
         time: new Date().toISOString(),
         error: serializeError(report.error),
+        meetingId: report.meetingId,
+        socketId: report.socketId,
     };
 
     const sendStr = JSON.stringify(payload);

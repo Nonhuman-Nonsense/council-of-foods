@@ -33,7 +33,7 @@ vi.mock('@main/overlay/MainOverlays', () => ({
 }));
 vi.mock('@newMeeting/Landing', async () => {
     const { useNavigate } = await import('react-router');
-    const { useRouting } = await import('@/routing');
+    const { useRouting } = await import('@/navigation');
     return {
         default: function MockLanding() {
             const navigate = useNavigate();

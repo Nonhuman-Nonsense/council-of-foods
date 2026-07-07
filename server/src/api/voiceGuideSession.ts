@@ -35,7 +35,7 @@ export function registerVoiceGuideRoutes(app: Express): void {
             ]);
             res.status(200).json({ provider: "inworld", iceServers: ice.iceServers, session });
         } catch (e) {
-            await Logger.error("api", "GET /api/voice-guide/bootstrap failed", e);
+            await Logger.error("api", "GET /api/voice-guide/bootstrap failed", { error: e });
             res.status(500).json(CouncilError.fromUnexpected(e, "Voice guide unavailable").toApiBody("api GET /api/voice-guide/bootstrap"));
         }
     });
@@ -49,7 +49,7 @@ export function registerVoiceGuideRoutes(app: Express): void {
         try {
             res.status(200).json(await createInworldCall({ sdp: body.sdp, session: body.session }));
         } catch (e) {
-            await Logger.error("api", "POST /api/voice-guide/call failed", e);
+            await Logger.error("api", "POST /api/voice-guide/call failed", { error: e });
             res.status(500).json(CouncilError.fromUnexpected(e, "Voice guide unavailable").toApiBody("api POST /api/voice-guide/call"));
         }
     });

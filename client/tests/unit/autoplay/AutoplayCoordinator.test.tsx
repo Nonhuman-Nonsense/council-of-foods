@@ -4,6 +4,8 @@ import "@testing-library/jest-dom";
 import type { ComponentProps, ReactNode } from "react";
 import { MemoryRouter } from "react-router";
 import AutoplayCoordinator from "@/autoplay/AutoplayCoordinator";
+import { buildLanguagePath } from "@/navigation";
+import routes from "@/routes.json";
 import {
   _setAutoplayLastActivityMsForTests,
   AUTOPLAY_NEXT_MEETING_MS,
@@ -12,7 +14,7 @@ import {
   useAutoplayStore,
 } from "@/autoplay/autoplayStore";
 import { _resetButtonStoreForTests, useButtonStore } from "@/museum/button/buttonStore";
-import { useErrorStore } from "@main/overlay/errorStore";
+import { setConnectionError, setUnrecoverableError, useErrorStore } from "@main/overlay/errorStore";
 
 const mockNavigate = vi.fn();
 const mockLocation = vi.hoisted(() => ({
@@ -25,6 +27,8 @@ const mockUseCouncilSettings = vi.hoisted(() =>
     isMuseumMode: true,
   })),
 );
+
+const buttonPressed = vi.hoisted(() => ({ value: false }));
 
 vi.mock("react-router", async () => {
   const actual = await vi.importActual<typeof import("react-router")>("react-router");
@@ -39,10 +43,11 @@ vi.mock("@/settings/councilSettings", () => ({
   useCouncilSettings: () => mockUseCouncilSettings(),
   getDevLogEnabled: () => false,
   isDevLogCategoryEnabled: () => false,
+  getAppMode: () => (mockUseCouncilSettings().isMuseumMode ? "museum" : "web"),
 }));
 
-vi.mock("@/routing", async () => {
-  const actual = await vi.importActual<typeof import("@/routing")>("@/routing");
+vi.mock("@/navigation", async () => {
+  const actual = await vi.importActual<typeof import("@/navigation")>("@/navigation");
   return {
     ...actual,
     useRouting: () => ({
@@ -59,7 +64,9 @@ vi.mock("@/museum/button/useButton", () => ({
     claim: vi.fn(),
     release: vi.fn(),
     setLed: vi.fn(),
-    pressed: false,
+    get pressed() {
+      return buttonPressed.value;
+    },
     isOwner: false,
   }),
 }));
@@ -117,6 +124,7 @@ describe("AutoplayCoordinator setup-entry idle", () => {
     mockLocation.pathname = "/";
     mockLocation.hash = "";
     mockUseCouncilSettings.mockReturnValue({ isMuseumMode: true });
+    buttonPressed.value = false;
     useAutoplayStore.getState().resetForTests();
     useErrorStore.getState().resetForTests();
     _resetButtonStoreForTests();
@@ -203,7 +211,10 @@ describe("AutoplayCoordinator setup-entry idle", () => {
 
     expect(mockChangeLanguage).toHaveBeenCalledWith("en");
     expect(mockFetchAutoplayMeetingId).toHaveBeenCalledWith("en");
-    expect(mockNavigate).toHaveBeenCalledWith("/meeting/99", { replace: true });
+    expect(mockNavigate).toHaveBeenCalledWith(
+      buildLanguagePath("en", `/${routes.meeting}/99`),
+      { replace: true },
+    );
     expect(useAutoplayStore.getState().meetingGeneration).toBe(1);
   });
 
@@ -236,7 +247,84 @@ describe("AutoplayCoordinator setup-entry idle", () => {
       vi.advanceTimersByTime(AUTOPLAY_NEXT_MEETING_MS);
     });
 
-    expect(mockNavigate).toHaveBeenCalledWith("/meeting/99", { replace: true });
+    expect(mockNavigate).toHaveBeenCalledWith(
+      buildLanguagePath("en", `/${routes.meeting}/99`),
+      { replace: true },
+    );
     expect(useAutoplayStore.getState().meetingGeneration).toBe(1);
+  });
+
+  it("does not show warning while unrecoverable error is set", async () => {
+    setUnrecoverableError({ message: "boom", source: "test" });
+    renderCoordinator();
+
+    await advanceIdlePastThreshold();
+
+    expect(useAutoplayStore.getState().phase).toBe("off");
+    expect(screen.queryByText("autoplay.stillThere.title")).not.toBeInTheDocument();
+  });
+
+  it("clears warning when connection error appears", async () => {
+    renderCoordinator();
+
+    await advanceIdlePastThreshold();
+    expect(useAutoplayStore.getState().phase).toBe("warning");
+
+    await act(async () => {
+      setConnectionError("socket", true);
+    });
+
+    expect(useAutoplayStore.getState().phase).toBe("off");
+    expect(screen.queryByText("autoplay.stillThere.title")).not.toBeInTheDocument();
+  });
+
+  it("clears warning when unrecoverable error appears", async () => {
+    renderCoordinator();
+
+    await advanceIdlePastThreshold();
+    expect(useAutoplayStore.getState().phase).toBe("warning");
+
+    await act(async () => {
+      setUnrecoverableError({ message: "boom", source: "test" });
+    });
+
+    expect(useAutoplayStore.getState().phase).toBe("off");
+    expect(screen.queryByText("autoplay.stillThere.title")).not.toBeInTheDocument();
+  });
+
+  it("museum exit escalates to reload error when health probe fails", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(new Response("", { status: 503 })),
+    );
+    const hrefSetter = vi.fn();
+    Object.defineProperty(window, "location", {
+      value: { ...window.location },
+      writable: true,
+    });
+    Object.defineProperty(window.location, "href", {
+      set: hrefSetter,
+      configurable: true,
+    });
+
+    useAutoplayStore.getState().setPhase("active");
+    const view = renderCoordinator();
+
+    buttonPressed.value = true;
+    view.rerender(
+      <MemoryRouter>
+        <AutoplayCoordinator meetingliveKey={null} setMeetingliveKey={vi.fn()} />
+      </MemoryRouter>,
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(hrefSetter).not.toHaveBeenCalled();
+    expect(useAutoplayStore.getState().phase).toBe("off");
+    expect(useErrorStore.getState().unrecoverableError).toMatchObject({
+      source: "reload",
+    });
   });
 });

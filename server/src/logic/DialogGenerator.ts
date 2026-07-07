@@ -295,7 +295,7 @@ export class DialogGenerator {
             };
         } catch (error) {
             //Just log and rethrow
-            Logger.error("DialogGenerator", "Error during response generation", error);
+            Logger.error("DialogGenerator", "Error during response generation", { error });
             throw error;
         }
     }
@@ -339,7 +339,7 @@ export class DialogGenerator {
             };
         } catch (error) {
             //Just log and rethrow
-            Logger.error("DialogGenerator", "Error during chair interjection", error);
+            Logger.error("DialogGenerator", "Error during chair interjection", { error });
             throw error;
         }
     }
@@ -386,7 +386,7 @@ export class DialogGenerator {
                 ...processed,
             };
         } catch (error) {
-            Logger.error("DialogGenerator", "Error during document generation", error);
+            Logger.error("DialogGenerator", "Error during document generation", { error });
             throw error;
         }
     }

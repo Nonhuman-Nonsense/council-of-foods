@@ -1,6 +1,6 @@
 import { renderHook } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { buildLanguagePath, useSwitchLanguage } from "@/routing";
+import { buildLanguagePath, useSwitchLanguage } from "@/navigation";
 
 const navigate = vi.fn();
 

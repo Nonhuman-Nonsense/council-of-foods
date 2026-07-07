@@ -186,8 +186,9 @@ export class MeetingLifecycleHandler {
                     m.meetingComplete = true;
                 } else {
                     Logger.warn(
-                        `meeting ${m._id}`,
+                        "meeting",
                         "conclude audio barrier finished but replay manifest is incomplete; meetingComplete left false",
+                        { from: manager },
                     );
                 }
             }
@@ -207,7 +208,10 @@ export class MeetingLifecycleHandler {
         // Strip query_extension sentinel before extending.
         const queryExtensionIndex = m.conversation.findIndex((m) => m.type === "query_extension");
         if (queryExtensionIndex === -1) {
-            throw new Error("Attempted to extend meeting but not at query_extension sentinel");
+            // Stale event — socket buffer flushed before attempt_reconnection completed and the
+            // sentinel was already stripped by a prior extend/conclude. Discard gracefully.
+            Logger.staleEvent(`meeting ${m._id}`, "extend_meeting", "no query_extension sentinel present", { lastReconnectionAt: manager.lastReconnectionAt, from: manager });
+            return;
         }
         m.conversation = m.conversation.slice(0, queryExtensionIndex);
 

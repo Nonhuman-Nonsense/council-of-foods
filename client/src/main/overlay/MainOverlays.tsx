@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router";
-import { isMeetingPath, isRootPath } from "@/routing";
+import { isMeetingPath, isRootPath } from "@/navigation";
 
 import OverlayWrapper from './OverlayWrapper';
 import Overlay from "./Overlay";

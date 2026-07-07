@@ -82,7 +82,7 @@ export function registerAudioRoutes(app: Express): void {
             res.setHeader("ETag", etag);
             res.status(200).type("application/json").json(body);
         } catch (e: unknown) {
-            await Logger.error("api", `GET /api/audio/${audioId} failed`, e);
+            await Logger.error("api", `GET /api/audio/${audioId} failed`, { error: e });
             res.status(500).json(CouncilError.fromUnexpected(e).toApiBody(`api GET /api/audio/${audioId}`));
         }
     });

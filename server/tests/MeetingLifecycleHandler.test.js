@@ -1,12 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { MeetingLifecycleHandler } from '@logic/MeetingLifecycleHandler.js';
+import { Logger } from '@utils/Logger.js';
 import { MockFactory } from './factories/MockFactory.ts';
 
 vi.mock('@utils/Logger.js', () => ({
     Logger: {
         info: vi.fn(),
         error: vi.fn((...args) => console.log('[MockLoggerError]', ...args)),
-        warn: vi.fn()
+        warn: vi.fn(),
+        staleEvent: vi.fn()
     }
 }));
 
@@ -82,6 +84,7 @@ describe('MeetingLifecycleHandler', () => {
         };
 
         handler = new MeetingLifecycleHandler(mockContext);
+        Logger.staleEvent.mockClear();
     });
 
     describe('handleStartConversation', () => {
@@ -246,12 +249,21 @@ describe('MeetingLifecycleHandler', () => {
             expect(mockContext.startLoop).toHaveBeenCalled();
         });
 
-        it('throws when continue is requested without query_extension sentinel', async () => {
+        it('drops stale extend_meeting without crashing client and delegates to Logger.staleEvent', async () => {
             mockContext.meeting = storedMeeting({
                 conversation: [{ id: 'a', type: 'message', text: 'x', speaker: chair.id }],
             });
-            await expect(handler.handleExtendMeeting()).rejects.toThrow(
-                'Attempted to extend meeting but not at query_extension sentinel',
+            mockContext.lastReconnectionAt = 987654;
+
+            await expect(handler.handleExtendMeeting()).resolves.toBeUndefined();
+
+            expect(mockContext.startLoop).not.toHaveBeenCalled();
+            expect(mockBroadcaster.broadcastError).not.toHaveBeenCalled();
+            expect(Logger.staleEvent).toHaveBeenCalledWith(
+                expect.any(String),
+                'extend_meeting',
+                expect.stringContaining('no query_extension sentinel'),
+                expect.objectContaining({ lastReconnectionAt: 987654 }),
             );
         });
 

@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
+import { reloadApp } from "@/navigation";
 import { useMobile } from '@/utils';
-import { useRouting } from "@/routing";
 import { useCouncilSettings } from "@/settings/councilSettings";
 import Loading from "../Loading";
 
@@ -21,18 +21,17 @@ const MUSEUM_RECONNECTING_RESTART_MS = 2 * 60 * 1000;
 function Reconnecting(): React.ReactElement {
   const isMobile = useMobile();
   const { t } = useTranslation();
-  const { rootPath } = useRouting();
   const { isMuseumMode } = useCouncilSettings();
 
   useEffect(() => {
     if (!isMuseumMode) return;
 
     const timer = window.setTimeout(() => {
-      window.location.href = rootPath;
+      void reloadApp();
     }, MUSEUM_RECONNECTING_RESTART_MS);
 
     return () => clearTimeout(timer);
-  }, [isMuseumMode, rootPath]);
+  }, [isMuseumMode]);
 
   return (
     <div>

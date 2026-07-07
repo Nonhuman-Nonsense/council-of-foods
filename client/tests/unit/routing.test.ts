@@ -1,6 +1,6 @@
 import { renderHook } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
-import { useRouting } from "@/routing";
+import { useRouting } from "@/navigation";
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ i18n: { language: "en" } }),

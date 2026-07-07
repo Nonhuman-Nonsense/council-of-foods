@@ -11,6 +11,7 @@ import type { DialogGenerator } from "@logic/DialogGenerator.js";
 import type { SpeakerTargetClassifier } from "@logic/SpeakerTargetClassifier.js";
 import type { ConversationState } from "@shared/ModelTypes.js";
 import type { ConversationService } from "@services/ConversationService.js";
+import type { ReportContext } from "@interfaces/ReportContext.js";
 
 export { ConversationState };
 
@@ -62,6 +63,7 @@ export interface IMeetingContext {
     };
     serverOptions: GlobalOptions;
     broadcaster: IMeetingBroadcaster; // New abstraction
+    getReportContext(): ReportContext;
 }
 
 /**
@@ -74,6 +76,12 @@ export interface IMeetingState {
     handRaised: boolean;
     isPaused: boolean;
     currentSpeaker: number;
+    /**
+     * Timestamp (ms) of the last successful reconnection resume, or undefined if none.
+     * Used to classify stale buffered socket events flushed right after a reconnect as
+     * expected (info) rather than genuine desyncs (warn).
+     */
+    lastReconnectionAt?: number;
 }
 
 /**

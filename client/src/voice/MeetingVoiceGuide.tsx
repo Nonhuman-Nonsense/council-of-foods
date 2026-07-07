@@ -1,6 +1,6 @@
 import type { Topic } from "@shared/ModelTypes";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useSwitchLanguage } from "@/routing";
+import { useSwitchLanguage } from "@/navigation";
 import { useTranslation } from "react-i18next";
 import VoiceGuideOverlay from "./VoiceGuideOverlay";
 import { getTopicsBundle } from "@main/topicsBundle";

@@ -69,9 +69,9 @@ export class SpeakerTargetClassifier {
             return targetId;
         } catch (error) {
             Logger.warn(
-                `meeting ${meeting._id}`,
+                "meeting",
                 `SpeakerTargetClassifier:${request.mode} failed, falling back to normal flow.`,
-                error as Error
+                { error: error as Error, from: { meetingId: meeting._id } },
             );
             return undefined;
         }

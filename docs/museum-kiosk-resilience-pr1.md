@@ -2,511 +2,192 @@
 
 **Parent:** [museum-kiosk-resilience-plan.md](./museum-kiosk-resilience-plan.md)
 
-**Goal:** Museum hard-reloads only when `GET /health` succeeds. Never blind
-`window.location.href` into a deploy outage.
+**Goal:** Museum hard-reloads only when `GET /health` succeeds.
 
-**Status:** Ready to implement.
+**Status:** Implemented.
+
+**Related:** [agent-error-handling-plan.md](./agent-error-handling-plan.md) —
+`errorStore` + agent retry already shipped; PR 1 only changes museum reload behavior.
 
 ---
 
-## Build plan (file by file)
+## Design principle
 
-No new dependencies. Everything lives under existing `client/` patterns (`@/museum`,
-`@main/overlay`, vitest unit tests). **Do not modify** `AutoButton.tsx` or
-`server/server.ts` (health endpoint already exists).
+Museum unattended reload = **kiosk / autoplay ops**.
 
-### File tree (this PR only)
+- **`probeOriginHealth`** — one small file in `autoplay/` (static import everywhere).
+- **`AutoplayCoordinator`** stays **lazy-loaded** in `Main.tsx` — overlays never
+  import the coordinator component module.
+- **UI state** stays in existing overlay components (`CouncilError`, `Reconnecting`).
+
+**1 new file + 3 edited components + locales + tests.**
+
+---
+
+## File tree
 
 ```
-client/src/museum/
-  kioskHealth.ts                    NEW — pure fetch + constants
-  kioskHealthNavigate.ts            NEW — shared “probe then assign href” helper
-  MuseumHealthReloadButton.tsx      NEW — CouncilError UI state machine
-  useMuseumProbeReload.ts           NEW — Reconnecting timer + backoff loop
+client/src/autoplay/
+  probeOriginHealth.ts      NEW — probeOriginHealth + HEALTH_PROBE_TIMEOUT_MS
+  AutoplayCoordinator.tsx   EDIT — import probe; exitAutoplay uses it
 
 client/src/main/overlay/
-  CouncilError.tsx                  EDIT — swap museum AutoButton for new component
-  Reconnecting.tsx                  EDIT — hook + subtitle switch
-
-client/src/autoplay/
-  AutoplayCoordinator.tsx           EDIT — exitAutoplay uses navigate helper
+  CouncilError.tsx          EDIT — MuseumRestartButton (imports probe)
+  Reconnecting.tsx          EDIT — inline probe loop (imports probe)
 
 client/src/locales/
-  translation_en.json               EDIT — 2 new error strings
+  translation_en.json       EDIT — 2 strings
 
-client/tests/unit/museum/
-  kioskHealth.test.ts               NEW
-  kioskHealthNavigate.test.ts       NEW
-  MuseumHealthReloadButton.test.tsx NEW
-  useMuseumProbeReload.test.ts      NEW
+client/tests/unit/autoplay/
+  probeOriginHealth.test.ts NEW
+  AutoplayCoordinator.test.tsx   EDIT — exitAutoplay + fetch mock
 
 client/tests/unit/main/overlay/
-  Reconnecting.test.tsx             EDIT — museum cases + fetch mock
-  CouncilError.test.tsx             NEW — web vs museum wiring
+  CouncilError.test.tsx     NEW
+  Reconnecting.test.tsx     EDIT
 ```
 
-### Layer 1 — Pure helpers (no React)
+All probe consumers import:
 
-**`client/src/museum/kioskHealth.ts`**
-
-Responsibility: everything that can be unit-tested without React.
-
-| Export | Purpose |
-|--------|---------|
-| `HEALTH_PROBE_TIMEOUT_MS` | `5_000` |
-| `RECONNECT_PROBE_BACKOFF_MS` | `[15_000, 30_000, 60_000]` |
-| `MUSEUM_AUTO_RESTART_SECONDS` | `10` (move from `CouncilError`) |
-| `MUSEUM_RETRY_RESTART_SECONDS` | `15` |
-| `MUSEUM_RECONNECTING_RESTART_MS` | `2 * 60 * 1000` (move from `Reconnecting`) |
-| `probeBackoffMs(attempt)` | Index into backoff table, cap at last entry |
-| `probeOriginHealth(signal?)` | `fetch("/health", { cache: "no-store" })` → `true` iff status 200 |
-
-Implementation notes:
-
-- Combine caller `AbortSignal` with a timeout `AbortController` so probes never hang.
-- Return `false` on network throw, non-200, abort — never throw to callers.
-- No logging inside every poll; callers log phase transitions.
-
-**`client/src/museum/kioskHealthNavigate.ts`**
-
-Responsibility: one-liner used by hook + autoplay — “probe once, navigate if OK”.
-
-| Export | Purpose |
-|--------|---------|
-| `navigateWhenHealthy(targetPath, signal?)` | `await probeOriginHealth` → if true, set `location.href` once, return `true` |
-
-Why a second file: `AutoplayCoordinator` and tests can import navigate without
-pulling in React. Keeps `kioskHealth.ts` fetch-only.
-
-**Tests:** `kioskHealth.test.ts`, `kioskHealthNavigate.test.ts` — mock `global.fetch`,
-fake timers not needed yet.
+```ts
+import { probeOriginHealth } from "@/autoplay/probeOriginHealth";
+```
 
 ---
 
-### Layer 2 — React pieces
+## `probeOriginHealth.ts` (new)
 
-**`client/src/museum/MuseumHealthReloadButton.tsx`**
+~20 lines. No React. Lives next to `autoplayStore.ts` / `AutoplayCoordinator.tsx`.
 
-Only used from `CouncilError.tsx` when `isMuseumMode`.
+```ts
+export const HEALTH_PROBE_TIMEOUT_MS = 5_000;
+export const MUSEUM_HEALTH_RETRY_MS = 10_000;
+export const MUSEUM_HEALTH_RETRY_SECONDS = 10;
 
-| State | Renders |
-|-------|---------|
-| `phase: "countdown"` | `<AutoButton key={cycle} timeout={…} action={onCountdownEnd}>` |
-| `phase: "checking"` | `<button disabled>` + inline spinner + `error.checkingConnection` |
+/** Museum kiosk: true when same-origin GET /health returns 200. */
+export async function probeOriginHealth(signal?: AbortSignal): Promise<boolean>
+```
 
-Internal refs:
-
-- `navigatedRef` — prevent double `location.href`
-- `abortRef` — abort probe on unmount
-
-`onCountdownEnd` (sync, called by AutoButton):
-
-1. Set `phase` → `"checking"`.
-2. `void` async IIFE: `probeOriginHealth(signal)`.
-3. Success → `location.href = targetPath`.
-4. Fail → increment `cycle`, set `phase` → `"countdown"`, use
-   `retryCountdownSeconds` when `cycle > 0`.
-
-Spinner choice: **small inline element** in the button (not full-page `Loading` —
-that component is absolutely positioned for overlay centers). Either a minimal CSS
-border spinner or a tiny reused Lottie — prefer CSS to avoid layout jump.
-
-**`client/src/museum/useMuseumProbeReload.ts`**
-
-Only used from `Reconnecting.tsx`.
-
-| Option | Value |
-|--------|-------|
-| `enabled` | `isMuseumMode` |
-| `targetPath` | `rootPath` |
-| `startAfterMs` | `MUSEUM_RECONNECTING_RESTART_MS` |
-
-Returns `{ waitingForServer: boolean }` where `waitingForServer` is true after
-`startAfterMs` has elapsed (drives subtitle). Implementation:
-
-1. `useEffect`: if `!enabled`, return.
-2. `setTimeout(startAfterMs)` → set `waitingForServer = true`, start probe loop.
-3. Probe loop: `while (!aborted) { ok = await probeOriginHealth; if (ok) navigate; await sleep(probeBackoffMs(n++)) }`.
-4. Cleanup: clear timeout, abort controller.
-
-Does **not** render UI — `Reconnecting` reads `waitingForServer` for copy only.
-
-**Tests:** `MuseumHealthReloadButton.test.tsx`, `useMuseumProbeReload.test.ts`.
+- `fetch("/health", { cache: "no-store", signal })` with combined timeout + caller abort.
+- Return `false` on network error, non-200, or abort — never throw.
+- **`MUSEUM_HEALTH_RETRY_*`** — shared 10s interval for Reconnecting probe loop and CouncilError countdown.
 
 ---
 
-### Layer 3 — Wire existing overlays
-
-**`client/src/main/overlay/CouncilError.tsx`** (small edit)
-
-| Before | After |
-|--------|-------|
-| `MUSEUM_AUTO_RESTART_SECONDS` local const | import from `kioskHealth.ts` |
-| `restart` callback + `<AutoButton action={restart}>` | museum: `<MuseumHealthReloadButton targetPath={rootPath} />` |
-| `<a href={rootPath}><button>` for web | unchanged |
-
-Remove `useCallback` for `restart` if unused.
-
-**`client/src/main/overlay/Reconnecting.tsx`** (small edit)
-
-| Before | After |
-|--------|-------|
-| `MUSEUM_RECONNECTING_RESTART_MS` local const | import from `kioskHealth.ts` |
-| `useEffect` → `setTimeout` → `location.href` | delete |
-| subtitle always `error.reconnecting` | `waitingForServer ? error.waitingForServer : error.reconnecting` |
-| — | `useMuseumProbeReload({ enabled: isMuseumMode, targetPath: rootPath, startAfterMs: … })` |
-
-Spinner / heading unchanged — `Loading` + `error.connection` stay as-is.
-
-**`client/src/autoplay/AutoplayCoordinator.tsx`** (small edit)
-
-`exitAutoplay` today:
+## `AutoplayCoordinator.tsx`
 
 ```ts
-window.location.href = "/";
+import { probeOriginHealth } from "./probeOriginHealth";
 ```
 
-Change to:
+**`exitAutoplay`:**
 
 ```ts
+setPhase("off");
 if (isMuseumMode) {
-  void navigateWhenHealthy("/");  // no UI — button press while staff exits autoplay
+  void probeOriginHealth().then((ok) => {
+    if (ok) window.location.href = "/";
+  });
 } else {
   window.location.href = "/";
 }
 ```
 
-If probe fails, visitor stays on current page (acceptable — staff action, server
-likely up). Optional: loop with backoff — **out of scope** unless you want parity;
-document as known limitation.
+Add `isMuseumMode` to `useCallback` deps. No other coordinator changes.
 
 ---
 
-### Layer 4 — Copy
+## `CouncilError.tsx` — museum restart UI
 
-**`client/src/locales/translation_en.json`**
+```ts
+import { probeOriginHealth, MUSEUM_HEALTH_RETRY_SECONDS } from "@/autoplay/probeOriginHealth";
+```
 
-Under `"error"`:
+### Private `MuseumRestartButton` (same file, not exported)
+
+| Phase | Render |
+|-------|--------|
+| `countdown` | `<AutoButton key={cycle} timeout={MUSEUM_HEALTH_RETRY_SECONDS} action={startCheck}>` |
+| `checking` | Disabled button + inline CSS spinner + `t("error.checkingConnection")` |
+
+Flow: countdown → checking → `probeOriginHealth` → navigate or retry countdown.
+Abort on unmount; navigate at most once.
+
+```tsx
+{isMuseumMode ? (
+  <MuseumRestartButton targetPath={rootPath} />
+) : (
+  <a href={rootPath}>…</a>
+)}
+```
+
+---
+
+## `Reconnecting.tsx` — inline effect
+
+```ts
+import { probeOriginHealth, MUSEUM_HEALTH_RETRY_MS } from "@/autoplay/probeOriginHealth";
+```
+
+`MUSEUM_RECONNECTING_RESTART_MS = 2 * 60 * 1000` stays local.
+
+- `waitingForServer` state → subtitle `error.waitingForServer` vs `error.reconnecting`
+- Museum `useEffect`: 2 min timer → probe loop, **10s** between failures (`MUSEUM_HEALTH_RETRY_MS`)
+- Cleanup: `clearTimeout` + `AbortController.abort()` on unmount (reconnect recovery)
+
+---
+
+## i18n
+
+`translation_en.json` → `"error"`:
 
 - `checkingConnection`: `"Checking connection…"`
 - `waitingForServer`: `"Waiting for server…"`
 
-(Only `translation_en.json` exists in repo today.)
-
 ---
 
-### What we explicitly do NOT touch
+## UX
 
-| File | Reason |
-|------|--------|
-| `AutoButton.tsx` | Sync action contract; museum logic stays in wrapper |
-| `Main.tsx` | Overlays already compose `CouncilError` / `Reconnecting` |
-| `errorStore.ts` | No new error types |
-| `useCouncilSocket.ts` | Socket retry unchanged |
-| `server/server.ts` | `/health` already returns 200 |
-
----
-
-### Commit / review order (suggested)
-
-Build and land in this sequence so each step is testable:
-
-| Step | Files | Review focus |
-|------|-------|----------------|
-| **1** | `kioskHealth.ts` + `kioskHealthNavigate.ts` + tests | Fetch contract, timeout, backoff math |
-| **2** | `MuseumHealthReloadButton.tsx` + test | Countdown → check → retry UX |
-| **3** | `CouncilError.tsx` + `CouncilError.test.tsx` | Museum vs web split |
-| **4** | `useMuseumProbeReload.ts` + test | 2 min gate, backoff, no blind href |
-| **5** | `Reconnecting.tsx` + extend `Reconnecting.test.tsx` | Subtitle switch |
-| **6** | `AutoplayCoordinator.tsx` | One-line navigate helper |
-| **7** | `translation_en.json` | Copy |
-
-Steps 1–3 can be one PR commit each or squashed — but **implement in this order**
-so CouncilError is demonstrable before Reconnecting.
-
----
-
-### Dependency diagram
-
-```mermaid
-flowchart BT
-  kioskHealth[kioskHealth.ts]
-  navigate[kioskHealthNavigate.ts]
-  button[MuseumHealthReloadButton.tsx]
-  hook[useMuseumProbeReload.ts]
-  CE[CouncilError.tsx]
-  RC[Reconnecting.tsx]
-  AP[AutoplayCoordinator.tsx]
-
-  kioskHealth --> navigate
-  kioskHealth --> button
-  kioskHealth --> hook
-  navigate --> hook
-  navigate --> AP
-  button --> CE
-  hook --> RC
-```
-
----
-
-## UX decision
-
-### Recommendation: new countdown, no extra warning
-
-| Surface | Today | After PR 1 |
-|---------|-------|------------|
-| **CouncilError** | 10 s `AutoButton` drain → blind reload | 10 s drain → **brief spinner** (health probe) → reload if OK, else **fresh countdown** (loop) |
-| **Reconnecting** | Spinner + “Attempting to reconnect…”; 2 min → blind reload | Same spinner; after 2 min switch subtitle to **“Waiting for server…”**; probe with backoff until OK |
-
-**Why no warning line**
-
-- The visitor is already on an error or connection-lost screen — another alert
-  (“server unavailable”) adds noise without new information.
-- Museum installs are unattended; the rhythm should be **calm and automatic**,
-  like `AutoplayWarning` — countdown, pause, countdown again.
-- Staff can still use `#staff`; no new UI chrome.
-
-**Why a new countdown (CouncilError)**
-
-- Reuses the proven `AutoButton` drain animation — visitors (and staff) already
-  understand it from autoplay idle warning.
-- A silent infinite spinner after the first countdown feels stuck.
-- Loop: **countdown → checking → (fail) countdown → checking → …**
-
-**Why a subtitle change only (Reconnecting)**
-
-- Overlay already has a full-page `Loading` spinner — no button to anchor a second
-  countdown.
-- After 2 min, “Attempting to reconnect…” is misleading if socket.io has given up
-  and we are waiting for deploy. One line swap is enough.
-- Health probes run on backoff in the background; no visible per-probe countdown.
-
-```mermaid
-stateDiagram-v2
-  direction LR
-
-  state CouncilError {
-    [*] --> Countdown: mount
-    Countdown --> Checking: timer or click
-    Checking --> Navigate: health OK
-    Checking --> Countdown: health fail
-    Navigate --> [*]: location.href
-  }
-
-  state Reconnecting {
-    [*] --> ReconnectingPhase: mount
-    ReconnectingPhase --> WaitingPhase: 2 min elapsed
-    WaitingPhase --> Navigate: health OK
-    WaitingPhase --> WaitingPhase: probe fail backoff
-    Navigate --> [*]: location.href
-  }
-```
-
----
-
-## Components
-
-### 1. `client/src/museum/kioskHealth.ts` (pure, no React)
-
-```ts
-export const HEALTH_PROBE_TIMEOUT_MS = 5_000;
-
-/** GET same-origin /health; true only on HTTP 200. */
-export async function probeOriginHealth(
-  signal?: AbortSignal,
-): Promise<boolean>;
-
-/** Backoff delays between failed probes (Reconnecting path). */
-export const RECONNECT_PROBE_BACKOFF_MS = [15_000, 30_000, 60_000] as const;
-
-export function probeBackoffMs(attempt: number): number;
-```
-
-- Use `fetch("/health", { cache: "no-store", signal })` with `AbortSignal.timeout`
-  or manual `AbortController`.
-- Log via `log.event("SYSTEM", "kiosk health probe", { ok, … })` on state change
-  only (not every poll).
-
-### 2. `client/src/museum/MuseumHealthReloadButton.tsx` (new)
-
-Museum-only control for `CouncilError`. Replaces raw `AutoButton` there.
-
-**Props**
-
-| Prop | Default | Notes |
-|------|---------|-------|
-| `targetPath` | required | `rootPath` from routing |
-| `countdownSeconds` | `10` | Same as today |
-| `retryCountdownSeconds` | `15` | Slightly longer after a failed probe |
-| `label` | `t("app.restart")` | Unchanged copy |
-
-**Phases (`"countdown" \| "checking"`)**
-
-| Phase | UI |
-|-------|-----|
-| `countdown` | Existing `AutoButton` with drain animation |
-| `checking` | Same button footprint: disabled, no drain; small inline `Loading` or minimal CSS spinner; label → `t("error.checkingConnection")` |
-
-**Flow**
-
-1. `countdown` → user click or timer → set `checking`, run `probeOriginHealth`.
-2. OK → `window.location.href = targetPath` (once; guard with ref).
-3. Fail → increment attempt, reset to `countdown` with `retryCountdownSeconds`
-   (use `key={attempt}` on `AutoButton` to restart CSS animation).
-4. Unmount → abort in-flight probe.
-
-`AutoButton` stays **unchanged** — sync `action` only. This component owns the
-state machine.
-
-### 3. `client/src/museum/useMuseumProbeReload.ts` (hook)
-
-Shared probe loop for `Reconnecting` (and optional `AutoplayCoordinator` exit).
-
-```ts
-export type MuseumProbePhase = "idle" | "probing" | "navigating";
-
-export function useMuseumProbeReload(options: {
-  enabled: boolean;
-  targetPath: string;
-  /** ms after mount before first probe attempt */
-  startAfterMs: number;
-  /** use fixed backoff table vs single retry interval */
-  mode: "backoff" | "button-delegated";
-}): { phase: MuseumProbePhase; probeAttempt: number };
-```
-
-- `enabled`: `isMuseumMode`
-- On success: set `navigating`, assign `location.href`
-- On unmount: `AbortController.abort()`
-- `mode: "backoff"` for Reconnecting; CouncilError uses the button component
-  instead
-
-### 4. Wire-up
-
-| File | Change |
-|------|--------|
-| `CouncilError.tsx` | Museum → `<MuseumHealthReloadButton targetPath={rootPath} />`; web unchanged |
-| `Reconnecting.tsx` | Museum → `useMuseumProbeReload({ startAfterMs: 2 * 60_000, mode: "backoff" })`; subtitle from phase |
-| `AutoplayCoordinator.tsx` | `exitAutoplay`: museum → `probeOriginHealth` then navigate (no UI — staff/button action); web unchanged |
-
-**Reconnecting subtitle logic**
-
-```tsx
-const subtitleKey =
-  phase === "idle"
-    ? "error.reconnecting"
-    : "error.waitingForServer";
-```
-
-### 5. i18n
-
-Add to `translation_en.json` / `translation_sv.json`:
-
-```json
-"error": {
-  "checkingConnection": "Checking connection…",
-  "waitingForServer": "Waiting for server…"
-}
-```
-
-Keep strings short — one line, no technical jargon.
-
----
-
-## Constants (museum only)
-
-| Constant | Value | Used by |
-|----------|-------|---------|
-| `MUSEUM_AUTO_RESTART_SECONDS` | `10` | CouncilError initial countdown |
-| `MUSEUM_RETRY_RESTART_SECONDS` | `15` | CouncilError after failed probe |
-| `MUSEUM_RECONNECTING_RESTART_MS` | `2 * 60 * 1000` | Reconnecting before probe loop |
-| `HEALTH_PROBE_TIMEOUT_MS` | `5_000` | All probes |
-| `RECONNECT_PROBE_BACKOFF_MS` | `15s → 30s → 60s` cap | Reconnecting |
-
-Web mode: **no behavior change** — immediate `href` / link navigation as today.
+| Surface | Museum |
+|---------|--------|
+| **CouncilError** | 10s countdown → checking → reload or **10s** loop |
+| **Reconnecting** | 2 min → waiting copy + probe every **10s** |
+| **Web** | Unchanged |
 
 ---
 
 ## Implementation order
 
-See **Build plan (file by file)** above for the canonical sequence. Summary:
+1. **`probeOriginHealth.ts`** + **`probeOriginHealth.test.ts`**
+2. **`CouncilError.tsx`** + **`CouncilError.test.tsx`**
+3. **`Reconnecting.tsx`** + extend **`Reconnecting.test.tsx`**
+4. **`AutoplayCoordinator.tsx`** + extend **`AutoplayCoordinator.test.tsx`**
+5. **`translation_en.json`**
 
-1. `kioskHealth.ts` + `kioskHealthNavigate.ts` + tests
-2. `MuseumHealthReloadButton.tsx` + tests
-3. `CouncilError.tsx` + tests
-4. `useMuseumProbeReload.ts` + `Reconnecting.tsx` + tests
-5. `AutoplayCoordinator.tsx`
-6. `translation_en.json`
-7. Manual checklist
+Probe file first — everything else depends on it.
 
 ---
 
 ## Tests
 
-### `client/tests/unit/museum/kioskHealth.test.ts`
+**`probeOriginHealth.test.ts`** — fetch mock: 200, 503, network error, abort, timeout.
 
-- 200 → `true`
-- 502 / network error / timeout → `false`
-- aborted signal → `false`, no throw
+**`CouncilError.test.tsx`** — museum countdown/check/navigate/retry; web link.
 
-### `client/tests/unit/museum/MuseumHealthReloadButton.test.tsx`
+**`Reconnecting.test.tsx`** — museum 2 min gate, waiting copy, no blind href, unmount abort.
 
-- Renders `AutoButton` in countdown phase
-- After 10 s fake time → fetch mocked → 200 → `location.href` set once
-- Fetch 503 → no navigation; new countdown visible (second drain cycle)
-- Click during countdown → probe runs immediately
-- `checking` phase shows checking copy / spinner
-- Unmount during probe → no navigation after resolve
-
-### `client/tests/unit/main/overlay/Reconnecting.test.tsx` (extend)
-
-- Museum mode mock → after 2 min + failed probes → no `href`
-- Museum → health OK → `href` set
-- Museum waiting phase → `error.waitingForServer` visible
-- Web mode unchanged (existing test)
-
-### `client/tests/unit/main/overlay/CouncilError.test.tsx` (new)
-
-- Museum → `MuseumHealthReloadButton` behavior (or integration via CouncilError)
-- Web → plain link, no health mock
+**`AutoplayCoordinator.test.tsx`** — museum exit: unhealthy → no href.
 
 ---
 
-## Out of scope (PR 1)
+## PR checklist
 
-- Changing 2 min / 10 s thresholds (except adding 15 s retry countdown)
-- Host kiosk watchdog (PR 2–3)
-- `index.html` bootstrap (PR 5)
-- Modifying `AutoButton` itself
-- Visible countdown on `Reconnecting` (subtitle only)
-
----
-
-## Manual test checklist
-
-1. **CouncilError — server up** — trigger fatal error → countdown → reload lands on `/`.
-2. **CouncilError — server down** — stop server before countdown ends → checking
-   spinner → no navigation → new countdown loops.
-3. **CouncilError — server returns mid-loop** — stop server → let one failed cycle
-   run → start server → next probe reloads successfully.
-4. **Reconnecting — short blip** — kill server < 2 min → socket recovers → no
-   reload; still on `error.reconnecting`.
-5. **Reconnecting — long outage** — kill server > 2 min → subtitle switches to
-   waiting → no blind reload → restore server → reload.
-6. **Web mode** — both overlays behave as before (no health gate).
-7. **Autoplay exit** — museum PTT exit during outage does not navigate to dead `/`.
-
----
-
-## PR checklist (for description)
-
-- [ ] `probeOriginHealth` helper + tests
-- [ ] `MuseumHealthReloadButton` with countdown / checking / retry loop
-- [ ] `CouncilError` museum path uses health-aware button
-- [ ] `Reconnecting` museum path probes with backoff + subtitle
-- [ ] `AutoplayCoordinator` exit uses probe (museum)
-- [ ] i18n en + sv
-- [ ] Unit tests green
+- [x] `autoplay/probeOriginHealth.ts` + unit test
+- [x] `MuseumRestartButton` in `CouncilError.tsx`
+- [x] `Reconnecting.tsx` probe loop
+- [x] `AutoplayCoordinator.tsx` exit uses probe
+- [x] `translation_en.json`
+- [x] `AutoplayCoordinator` remains lazy-only in `Main.tsx` (no overlay imports from it)
 
 ---
 
@@ -514,5 +195,260 @@ See **Build plan (file by file)** above for the canonical sequence. Summary:
 
 | Date | Change |
 |------|--------|
-| 2026-07-05 | PR 1 detailed plan: UX (countdown + checking, no warning), components, tests |
-| 2026-07-05 | File-by-file build plan: layers, wire-ups, commit order |
+| 2026-07-05 | Initial PR 1 plan |
+| 2026-07-07 | Simplified to existing overlay components |
+| 2026-07-07 | Probe in `AutoplayCoordinator.tsx` (autoplay domain) |
+| 2026-07-07 | **`probeOriginHealth.ts`** — separate file so coordinator stays lazy-loaded |
+| 2026-07-07 | Unified **10s** retry (`MUSEUM_HEALTH_RETRY_MS`) — removed backoff / 15s second pass |
+
+---
+
+## Follow-up: merge `MuseumRestartButton` into `AutoButton` (done)
+
+`MuseumRestartButton` duplicates countdown/checking/retry logic that fits naturally
+on `AutoButton` behind an optional prop. **AutoplayWarning** stays unchanged.
+
+### Goal
+
+One component owns: drain countdown → optional async guard → action, with retry
+loop when guard returns `false`.
+
+### API (proposed)
+
+```tsx
+export interface AutoButtonProps {
+  timeout: number;
+  action: () => void;
+  children: ReactNode;
+  /** When set, runs before `action` on click or timeout. `true` → run `action`; `false` → restart countdown. */
+  guardAction?: (signal: AbortSignal) => boolean | Promise<boolean>;
+  /** Shown on the disabled button while `guardAction` is in flight. */
+  checkingLabel?: ReactNode;
+  // …existing style/className/type
+}
+```
+
+- **No `guardAction`** → today’s behavior exactly (fire `action` once).
+- **With `guardAction`** → countdown → checking UI → guard → `action` or retry.
+
+`AutoButton` does **not** import `probeOriginHealth` — stays generic. CouncilError
+wires the museum guard at the call site.
+
+### `CouncilError.tsx` after refactor
+
+```tsx
+<AutoButton
+  timeout={MUSEUM_HEALTH_RETRY_SECONDS}
+  guardAction={probeOriginHealth}
+  checkingLabel={t("error.checkingConnection")}
+  action={() => {
+    window.location.href = rootPath;
+  }}
+  style={{ marginTop: "10px" }}
+>
+  {t("app.restart")}
+</AutoButton>
+```
+
+Delete `MuseumRestartButton`, checking styles, and inline `@keyframes` (move spinner
+into `AutoButton`).
+
+### `AutoButton.tsx` behavior
+
+| Phase | UI |
+|-------|-----|
+| `countdown` | Current drain button; click or timer triggers guard path |
+| `checking` | Disabled button, inline spinner, `checkingLabel` ?? `children` |
+
+Internal state: `phase`, `cycle` (bumps to restart timer + CSS animation via `key={cycle}` on drain layer or remount timer effect).
+
+On fire (click or timeout):
+
+1. Clear countdown timer.
+2. If no `guardAction` → `actedRef = true`, `action()` (unchanged).
+3. If `guardAction` → `phase = checking`, `await guardAction(ac.signal)`.
+   - `true` → `actedRef = true`, `action()`.
+   - `false` → `cycle++`, `phase = countdown` (restart 10s drain; **do not** set `actedRef`).
+4. Unmount → `AbortController.abort()`.
+
+`actedRef` only set when `action` actually runs — same “once” guarantee for success path.
+
+### Files
+
+| File | Change |
+|------|--------|
+| `client/src/AutoButton.tsx` | Add `guardAction`, `checkingLabel`, phase machine |
+| `client/src/main/overlay/CouncilError.tsx` | Remove `MuseumRestartButton`; use guarded `AutoButton` |
+| `client/tests/unit/AutoButton.test.tsx` | **NEW** — guard pass/fail/retry, unmount abort |
+| `client/tests/unit/main/overlay/CouncilError.test.tsx` | Simplify (less to mock if guard tested on AutoButton) |
+| `docs/museum-kiosk-resilience-pr1.md` | This section |
+
+**Unchanged:** `AutoplayWarning.tsx`, `Reconnecting.tsx`, `probeOriginHealth.ts`.
+
+### Pros
+
+- Retry UX lives in one reusable place (future museum overlays with auto-retry buttons).
+- `CouncilError` goes back to ~15 lines for the museum branch.
+- `AutoButton` stays domain-agnostic (`guardAction` is any async predicate).
+
+### Cons / risks
+
+- `AutoButton` grows (~40 lines) — still one file, one responsibility.
+- Need careful timer reset when `cycle` bumps (test with fake timers).
+- `checkingLabel` styling must work on dark overlays (reuse same spinner CSS as today).
+
+### Tests (`AutoButton.test.tsx`)
+
+1. No guard — action once on timeout (existing behavior).
+2. Guard returns `true` — action runs once.
+3. Guard returns `false` — no action; after another timeout, guard runs again.
+4. Click during countdown — guard runs immediately.
+5. Unmount during guard — action never runs.
+6. `matchMedia` mock (already needed for drain).
+
+### Implementation order
+
+1. Extend `AutoButton` + unit tests.
+2. Simplify `CouncilError.tsx`.
+3. Run full overlay + autoplay test suite.
+
+---
+
+## Follow-up: guard retry status below button (done)
+
+### Problem (current UX)
+
+When `guardAction` runs, `AutoButton` swaps the whole button to a disabled
+**checking** state (`checkingLabel` on the button). That feels wrong on
+`CouncilError`:
+
+- Label flickers between “Restart” and “Checking connection…”
+- If the probe is fast, visitors barely see checking; they mostly notice the
+  countdown restarting with no explanation.
+- When the server is down, **“Restart”** draining again with no context looks
+  like nothing happened.
+
+### Goal
+
+| Element | Behavior |
+|---------|----------|
+| **Button label** | Always `children` (“Restart”) — never replaced |
+| **Button during guard** | Disabled; optional: pause drain or keep drain (see below) |
+| **Below button** | Small status line when guard failed and we are retrying |
+
+Copy (museum / `CouncilError`):  
+**“Server unavailable for restart, retrying…”**
+
+Consumers pass copy once; `AutoButton` decides when to show it.
+
+### `AutoButton` API change
+
+**Remove:** `checkingLabel`
+
+**Add:**
+
+```tsx
+/** Shown below the button while guard has failed and countdown is retrying. */
+guardRetryMessage?: ReactNode;
+```
+
+Only relevant when `guardAction` is set. `AutoplayWarning` unchanged (no guard).
+
+### Internal state (simplified)
+
+Drop separate `checking` **button** UI. Keep `phase` internally or replace with:
+
+- `awaitingGuard: boolean` — probe in flight
+- `guardFailed: boolean` — last guard returned `false` (set on fail, clear on success/unmount)
+
+**Show `guardRetryMessage` when:** `guardFailed && !actedRef` (after first failed probe until success).
+
+**Button render:** always one `<button>` with `{children}`.
+
+| State | Button | Line below |
+|-------|--------|------------|
+| Initial countdown | Enabled, drain | hidden |
+| Probe in flight | Disabled, label “Restart” | hidden (probe is brief) |
+| Probe failed → retry countdown | Enabled, drain restarts | **guardRetryMessage** |
+| Probe OK | `action()` runs | (unmount) |
+
+Optional polish: during probe, disable click but **keep drain animation** so the
+button still looks like “Restart” in progress. Simpler alternative: freeze drain
+while disabled — either is fine; prefer **disabled + frozen label**, drain
+continues from `cycle` reset on fail.
+
+### Layout
+
+Wrap in a column container inside `AutoButton`:
+
+```tsx
+<div style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+  <button>…</button>
+  {showRetryMessage && (
+    <p role="status" style={guardRetryMessageStyle}>{guardRetryMessage}</p>
+  )}
+</div>
+```
+
+`guardRetryMessageStyle`: small, muted (`fontSize: 0.85rem`, `opacity: 0.75`,
+`maxWidth: 280px`, centered). No spinner in the status line — calm kiosk copy.
+
+Remove checking spinner styles / `@keyframes auto-button-check-spin` from
+`AutoButton` if unused.
+
+### `CouncilError.tsx`
+
+```tsx
+<AutoButton
+  timeout={MUSEUM_HEALTH_RETRY_SECONDS}
+  guardAction={probeOriginHealth}
+  guardRetryMessage={t("error.restartUnavailableRetrying")}
+  action={() => { window.location.href = rootPath }}
+  style={{ marginTop: "10px" }}
+>
+  {t("app.restart")}
+</AutoButton>
+```
+
+Remove `checkingLabel`.
+
+### i18n
+
+`translation_en.json` → `"error"`:
+
+- Add: `restartUnavailableRetrying`: `"Server unavailable for restart, retrying…"`
+- **Remove or keep unused:** `checkingConnection` (remove if nothing else uses it)
+
+### Tests
+
+**`AutoButton.test.tsx`**
+
+- Update/remove “shows checking label” test.
+- Add: guard fails → button text stays “Go”, `guardRetryMessage` visible.
+- Add: guard fails then countdown restarts → message still visible.
+- Add: guard succeeds → message never shown (or not visible after action).
+- Initial mount → no message.
+
+**`CouncilError.test.tsx`**
+
+- Museum fail path: expect `error.restartUnavailableRetrying`, not
+  `error.checkingConnection`.
+- Museum OK path: still navigates; no retry message required before navigate.
+
+### Files
+
+| File | Change |
+|------|--------|
+| `AutoButton.tsx` | Single button UI + optional status `<p>` below |
+| `CouncilError.tsx` | `guardRetryMessage` prop only |
+| `translation_en.json` | New key |
+| `AutoButton.test.tsx` | Update |
+| `CouncilError.test.tsx` | Update |
+
+**Unchanged:** `Reconnecting.tsx`, `AutoplayWarning.tsx`, `probeOriginHealth.ts`.
+
+### Implementation order
+
+1. `AutoButton.tsx` + tests
+2. `CouncilError.tsx` + i18n + overlay test tweak
+

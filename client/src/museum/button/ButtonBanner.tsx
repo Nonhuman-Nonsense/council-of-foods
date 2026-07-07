@@ -5,7 +5,7 @@ import type { TranslationKey } from "@/i18n";
 import MarqueeRollingBanner from "@council/MarqueeRollingBanner";
 import { Icons } from "@assets/icons";
 import { useButtonStore } from "./buttonStore";
-import { useRouting } from "@/routing";
+import { useRouting } from "@/navigation";
 
 /** Short PTT copy needs many segments so the marquee fills the viewport. */
 const BUTTON_BANNER_SEGMENT_COUNT = 14;
