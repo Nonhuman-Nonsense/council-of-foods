@@ -13,6 +13,13 @@ import {
     setConnectionError,
     setUnrecoverableError,
 } from "@main/overlay/errorStore";
+import {
+    usePendingIntentStore,
+    setPendingIntent,
+    clearPendingIntent,
+    clearAllPendingIntents,
+    type PendingIntent,
+} from "./pendingIntentStore";
 import type { MetaAgentPhase } from "@museum/metaAgent/useMetaAgent";
 import type { AgentMode } from "@/settings/councilSettings";
 import { useDocumentVisibility } from "@/utils";
@@ -140,6 +147,13 @@ export function useCouncilMachine({
     const [summary, setSummary] = useState<Message | null>(null);
 
     const [isRaisedHand, setIsRaisedHand] = useState(false);
+
+    const pendingIntent = usePendingIntentStore((s) => s.intent);
+
+    // Clear all pending intents when this hook unmounts (meeting change / navigation).
+    // Belt-and-suspenders: intents are also tagged with meetingId so a stale intent
+    // can never apply to a different meeting even if this cleanup is somehow missed.
+    useEffect(() => () => clearAllPendingIntents(), []);
 
     /** True from socket reconnect until the server sends conversation state again. */
     const [attemptingReconnect, setAttemptingReconnect] = useState(false);
@@ -542,6 +556,7 @@ export function useCouncilMachine({
             setPlayingNowIndex(now);
             setPlayNextIndex(next);
             setIsRaisedHand(false);
+            clearPendingIntent("raise-hand");
             calculateNextAction();
         }
     }
@@ -584,6 +599,7 @@ export function useCouncilMachine({
         setPlayingNowIndex(now);
         setPlayNextIndex(next);
         setIsRaisedHand(false);
+        clearPendingIntent("raise-hand");
         calculateNextAction();
     }
 
@@ -666,12 +682,22 @@ export function useCouncilMachine({
     }
 
 
+    function raiseHand(name: string) {
+        const index = playingNowIndex + 1;
+        setIsRaisedHand(true);
+        // Trim client-side messages to the raise point for immediate UI feedback.
+        setTextMessages((prev) => prev.slice(0, index));
+        // Register intent: the reconciler emits raise_hand once the socket is
+        // healthy and the reconnect handshake has completed.
+        setPendingIntent({ kind: "raise-hand", meetingId: currentMeetingId, index, humanName: name });
+    }
+
     function handleHumanNameEntered(input: { humanName: string }) {
         if (input.humanName) {
             setHumanName(input.humanName);
-            setIsRaisedHand(true);
             setPaused(false);
             setNameOverlayOpen(false);
+            raiseHand(input.humanName);
         }
     }
 
@@ -679,7 +705,7 @@ export function useCouncilMachine({
         if (humanName === "") {
             setNameOverlayOpen(true);
         } else {
-            setIsRaisedHand(true);
+            raiseHand(humanName);
         }
     }
 
@@ -724,20 +750,56 @@ export function useCouncilMachine({
         );
     }, [councilState, playingNowIndex, maximumPlayedIndex, liveKey]);
 
-    // Raise Hand Effect
+    // Pending intent reconciler.
+    //
+    // Desired state = what the client has committed to do (pendingIntent).
+    // Observed state = conversation + councilState + socket health.
+    // This effect applies the intent whenever observed state makes it valid.
+    //
+    // Global gate: socket must be healthy and the reconnect handshake must have
+    // completed before any intent is applied. This means intents registered
+    // during a disconnect sit harmlessly in the store until the server session
+    // is restored, at which point they fire against fresh server state.
+    //
+    // Idempotency: the intent is cleared from the store BEFORE the emit so a
+    // re-render cannot double-apply it.
     useEffect(() => {
-        if (isRaisedHand) {
-            if (socketRef.current) {
+        if (!pendingIntent) return;
+        if (!liveKey || !socketRef.current) return;
+        if (socketUnhealthy || attemptingReconnect) return;
+        if (pendingIntent.meetingId !== currentMeetingId) return;
+
+        // Exhaustive switch — adding a new PendingIntent variant without a case
+        // here is a compile error, forcing timing logic for every new feature.
+        const intent: PendingIntent = pendingIntent;
+        switch (intent.kind) {
+            case "raise-hand": {
+                // Precondition: server has not already processed the raise (no
+                // trailing awaiting_* or invitation on the conversation).
+                const lastMsg = textMessages[textMessages.length - 1];
+                const serverAlreadyAwaiting =
+                    lastMsg?.type === "awaiting_human_question" ||
+                    lastMsg?.type === "awaiting_human_panelist" ||
+                    lastMsg?.type === "invitation";
+                if (serverAlreadyAwaiting) {
+                    // Fulfilled: clear on observed outcome, not at emit time.
+                    // Clearing here (rather than right before the emit below)
+                    // means a raise_hand lost to a disconnect between emit and
+                    // ack keeps its intent alive to retry on the next
+                    // reconcile pass, instead of depending on socket.io's
+                    // sendBuffer replay to resurrect it.
+                    clearPendingIntent("raise-hand");
+                    return;
+                }
+
                 socketRef.current.emit("raise_hand", {
-                    humanName: humanName,
-                    index: playingNowIndex + 1,
+                    humanName: intent.humanName,
+                    index: intent.index,
                 });
+                break;
             }
-            setTextMessages((prevMessages) => {
-                return prevMessages.slice(0, playingNowIndex + 1);
-            });
         }
-    }, [isRaisedHand]);
+    }, [pendingIntent, socketUnhealthy, attemptingReconnect, currentMeetingId, textMessages, liveKey]);
 
     // Deferred connection error: only surface the overlay when the machine is actually stuck
     // waiting for server data. While the council plays through buffered audio the overlay stays

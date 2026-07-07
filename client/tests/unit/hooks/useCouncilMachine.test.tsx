@@ -4,6 +4,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { useCouncilMachine } from '@council/hooks/useCouncilMachine';
 import { MockFactory } from '../factories/MockFactory';
 import { useErrorStore } from '@main/overlay/errorStore';
+import { usePendingIntentStore } from '@council/hooks/pendingIntentStore';
 // import { useCouncilSocket } from "@council/hooks/useCouncilSocket"; // doing manual mock
 
 // --- Mocks ---
@@ -94,6 +95,7 @@ describe('useCouncilMachine', () => {
             metaAgentPhase: "inactive",
         };
         useErrorStore.getState().resetForTests();
+        usePendingIntentStore.getState().clearAll();
         mockUseLocation.mockReturnValue({ hash: '', pathname: '/meeting/1' });
         mockUseDocumentVisibility.mockReturnValue(true);
     });
@@ -1415,6 +1417,202 @@ describe('useCouncilMachine', () => {
 
             expect(result.current.state.visibleOverlay).not.toBe('name');
             expect(result.current.state.isRaisedHand).toBe(true);
+        });
+    });
+
+    describe('raise-hand intent reconciler', () => {
+        it('emits raise_hand immediately on the happy path (socket healthy, no reconnect in flight)', () => {
+            const { result } = renderHook(() =>
+                useCouncilMachine({ ...defaultProps, currentMeetingId: 1, humanName: 'Leo' } as any),
+            );
+
+            act(() => {
+                result.current.actions.handleOnRaiseHand();
+            });
+
+            expect(mockSocketEmit).toHaveBeenCalledWith(
+                'raise_hand',
+                expect.objectContaining({ humanName: 'Leo' }),
+            );
+            // Intent is NOT cleared at emit time — only once the server's
+            // awaiting sentinel confirms the raise landed. This means a
+            // raise_hand lost between emit and ack still has a live intent
+            // to retry, instead of depending on socket.io's sendBuffer.
+            expect(usePendingIntentStore.getState().intent).toMatchObject({
+                kind: 'raise-hand',
+                humanName: 'Leo',
+            });
+
+            mockSocketEmit.mockClear();
+
+            // Server confirms: conversation now carries the awaiting sentinel.
+            act(() => {
+                socketHandlers.onConversationUpdate?.([
+                    { id: 'm1', text: 'Hi', speaker: 'banana', type: 'message' },
+                    { type: 'awaiting_human_question', speaker: 'Leo' },
+                ]);
+            });
+
+            // Intent is now cleared, and no duplicate raise_hand is emitted.
+            expect(usePendingIntentStore.getState().intent).toBeNull();
+            expect(mockSocketEmit).not.toHaveBeenCalledWith('raise_hand', expect.anything());
+        });
+
+        it('re-emits raise_hand if the first emit is lost before the awaiting sentinel appears (e.g. disconnect mid-flight)', () => {
+            // Regression test for the clear-at-emit bug: previously the intent was
+            // removed from the store synchronously at emit time, so a raise_hand
+            // lost to a disconnect right after emit had no durable intent left to
+            // retry, and depended entirely on socket.io's sendBuffer replay.
+            const { result } = renderHook(() =>
+                useCouncilMachine({ ...defaultProps, currentMeetingId: 1, humanName: 'Sam' } as any),
+            );
+
+            act(() => {
+                result.current.actions.handleOnRaiseHand();
+            });
+
+            expect(mockSocketEmit).toHaveBeenCalledWith(
+                'raise_hand',
+                expect.objectContaining({ humanName: 'Sam' }),
+            );
+            expect(usePendingIntentStore.getState().intent).not.toBeNull();
+
+            mockSocketEmit.mockClear();
+
+            // Simulate the emit being lost: socket drops and reconnects, and the
+            // resumed conversation does NOT yet contain the awaiting sentinel
+            // (the raise never reached the server).
+            act(() => {
+                socketHandlers.simulateReconnect();
+            });
+            act(() => {
+                socketHandlers.onConversationUpdate?.([
+                    { id: 'm1', text: 'Hi', speaker: 'banana', type: 'message' },
+                ]);
+            });
+
+            // The intent survived, so the reconciler retries the raise.
+            expect(mockSocketEmit).toHaveBeenCalledWith(
+                'raise_hand',
+                expect.objectContaining({ humanName: 'Sam' }),
+            );
+        });
+
+        it('holds the intent during reconnect handshake and emits after conversation_update completes it', () => {
+            const { result } = renderHook(() =>
+                useCouncilMachine({ ...defaultProps, currentMeetingId: 1, humanName: 'Alex' } as any),
+            );
+
+            // Simulate socket reconnecting: attemptingReconnect becomes true.
+            act(() => {
+                socketHandlers.simulateReconnect();
+            });
+
+            mockSocketEmit.mockClear();
+
+            act(() => {
+                result.current.actions.handleOnRaiseHand();
+            });
+
+            // Intent should be stored but raise_hand NOT yet emitted.
+            expect(mockSocketEmit).not.toHaveBeenCalledWith('raise_hand', expect.anything());
+            expect(usePendingIntentStore.getState().intent).toMatchObject({
+                kind: 'raise-hand',
+                humanName: 'Alex',
+                meetingId: 1,
+            });
+
+            // Reconnect handshake completes when the server sends conversation_update.
+            act(() => {
+                socketHandlers.onConversationUpdate?.([
+                    { id: 'm1', text: 'Hello', speaker: 'banana', type: 'message' },
+                ]);
+            });
+
+            // Now the reconciler should have fired.
+            expect(mockSocketEmit).toHaveBeenCalledWith(
+                'raise_hand',
+                expect.objectContaining({ humanName: 'Alex' }),
+            );
+            // Intent clears only once the server confirms via the awaiting
+            // sentinel, not synchronously at emit time.
+            expect(usePendingIntentStore.getState().intent).not.toBeNull();
+
+            mockSocketEmit.mockClear();
+            act(() => {
+                socketHandlers.onConversationUpdate?.([
+                    { id: 'm1', text: 'Hello', speaker: 'banana', type: 'message' },
+                    { type: 'awaiting_human_question', speaker: 'Alex' },
+                ]);
+            });
+
+            expect(usePendingIntentStore.getState().intent).toBeNull();
+            expect(mockSocketEmit).not.toHaveBeenCalledWith('raise_hand', expect.anything());
+        });
+
+        it('does not re-emit raise_hand when server already processed it (awaiting sentinel on reconnect)', () => {
+            // Scenario: user raised hand, raise_hand was processed by the server before the
+            // disconnect. On reconnect the server sends back state with awaiting_human_question.
+            // The reconciler must not double-send raise_hand.
+            renderHook(() =>
+                useCouncilMachine({ ...defaultProps, currentMeetingId: 1, humanName: 'Sam' } as any),
+            );
+
+            act(() => { socketHandlers.simulateReconnect(); });
+
+            // Inject a pending intent directly (simulating pre-disconnect state).
+            act(() => {
+                usePendingIntentStore.getState().setPendingIntent({
+                    kind: 'raise-hand', meetingId: 1, index: 1, humanName: 'Sam',
+                });
+            });
+
+            mockSocketEmit.mockClear();
+
+            // Server sends back state that already includes the awaiting sentinel.
+            act(() => {
+                socketHandlers.onConversationUpdate?.([
+                    { id: 'm1', text: 'Hi', speaker: 'banana', type: 'message' },
+                    { type: 'awaiting_human_question', speaker: 'Sam' },
+                ]);
+            });
+
+            expect(mockSocketEmit).not.toHaveBeenCalledWith('raise_hand', expect.anything());
+        });
+
+        it('clears all pending intents on unmount (meeting change / navigation)', () => {
+            const { unmount } = renderHook(() =>
+                useCouncilMachine({ ...defaultProps, currentMeetingId: 1, humanName: 'Jo' } as any),
+            );
+
+            act(() => {
+                usePendingIntentStore.getState().setPendingIntent({
+                    kind: 'raise-hand', meetingId: 1, index: 1, humanName: 'Jo',
+                });
+            });
+
+            unmount();
+
+            expect(usePendingIntentStore.getState().intent).toBeNull();
+        });
+
+        it('ignores a stale intent tagged for a different meeting', () => {
+            const { result } = renderHook(() =>
+                useCouncilMachine({ ...defaultProps, currentMeetingId: 99, humanName: 'Max' } as any),
+            );
+
+            // Manually inject an intent for a different meeting.
+            act(() => {
+                usePendingIntentStore.getState().setPendingIntent({
+                    kind: 'raise-hand',
+                    meetingId: 42,
+                    index: 1,
+                    humanName: 'Max',
+                });
+            });
+
+            // No conversation update needed — the gate checks meetingId !== currentMeetingId.
+            expect(mockSocketEmit).not.toHaveBeenCalledWith('raise_hand', expect.anything());
         });
     });
 });
