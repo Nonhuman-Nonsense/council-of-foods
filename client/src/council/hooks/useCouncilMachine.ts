@@ -614,25 +614,17 @@ export function useCouncilMachine({
         }
     }
 
-    function handleOnAbandonHumanTurn() {
-        const expectedType =
-            councilState === "human_panelist" ? "awaiting_human_panelist" : "awaiting_human_question";
-        const awaitingMsg = textMessages[playNextIndex];
-        if (awaitingMsg?.type !== expectedType) {
-            const detail = `Internal state mismatch: expected ${expectedType} before abandoning human turn.`;
-            console.error(detail);
-            setUnrecoverableError({
-                message: detail,
-                source: "useCouncilMachine.skip_human_turn",
-                meetingId: currentMeetingId,
-            });
-            return;
-        }
-
+    /**
+     * Applies a skipped human turn: emits to the server and advances local
+     * state. Shared by the direct abandon path and the skip-turn reconciler
+     * retry — fully self-contained (re-derives now/next from current
+     * playingNowIndex/playNextIndex on every call) so a retry behaves
+     * identically to the first attempt. See the resolve-extension bug note in
+     * the resilience plan for why this matters: a shared apply helper must
+     * never depend on state a caller "just" set up.
+     */
+    function performSkipTurn(speaker: string) {
         if (socketRef.current) socketRef.current.emit("skip_human_turn");
-
-        const speaker =
-            awaitingMsg.type === "awaiting_human_panelist" ? awaitingMsg.speaker : humanName;
 
         const now =
             textMessages[playingNowIndex]?.type === "invitation" ? playingNowIndex - 1 : playingNowIndex;
@@ -654,6 +646,38 @@ export function useCouncilMachine({
         setIsRaisedHand(false);
         clearPendingIntent("raise-hand");
         calculateNextAction();
+    }
+
+    function handleOnAbandonHumanTurn() {
+        const expectedType =
+            councilState === "human_panelist" ? "awaiting_human_panelist" : "awaiting_human_question";
+        const awaitingMsg = textMessages[playNextIndex];
+        if (awaitingMsg?.type !== expectedType) {
+            const detail = `Internal state mismatch: expected ${expectedType} before abandoning human turn.`;
+            console.error(detail);
+            setUnrecoverableError({
+                message: detail,
+                source: "useCouncilMachine.skip_human_turn",
+                meetingId: currentMeetingId,
+            });
+            return;
+        }
+
+        const speaker =
+            awaitingMsg.type === "awaiting_human_panelist" ? awaitingMsg.speaker : humanName;
+
+        // Register the skip as a durable intent BEFORE applying it: if this
+        // choice is lost to a disconnect, the reconciler retries once
+        // councilState catches back up to human_input/human_panelist (see the
+        // "skip-turn" reconciler case below).
+        setPendingIntent({
+            kind: "skip-turn",
+            meetingId: currentMeetingId,
+            mode: awaitingMsg.type === "awaiting_human_panelist" ? "panelist" : "question",
+            index: playNextIndex,
+            speaker,
+        });
+        performSkipTurn(speaker);
     }
 
     function declineOverlay() {
@@ -940,8 +964,47 @@ export function useCouncilMachine({
                 performResolveExtension(intent.choice, intent.date);
                 break;
             }
+            case "skip-turn": {
+                // Precondition (same shape as human-draft): the awaiting sentinel
+                // this skip resolves must still be there, checked against the
+                // captured index.
+                const expectedType =
+                    intent.mode === "panelist" ? "awaiting_human_panelist" : "awaiting_human_question";
+                const awaitingMsg = textMessages[intent.index];
+                if (awaitingMsg?.type !== expectedType) {
+                    // Fulfilled: either the original skip already landed (the
+                    // common case — fires on the next pass after
+                    // performSkipTurn's own local truncation), or the
+                    // conversation moved on for another reason.
+                    clearPendingIntent("skip-turn");
+                    return;
+                }
+
+                // Still awaiting at the captured position — the original skip
+                // never reached the server (lost to a disconnect). Unlike
+                // human-draft, councilState can't be trusted to catch back up to
+                // human_input/human_panelist on its own here: performSkipTurn's
+                // direct call already pushed a local "skipped" placeholder and
+                // the (separate, pre-existing) "step past a skipped message"
+                // progression already moved playNextIndex beyond it — so when
+                // the server's resend restores the original, unprocessed,
+                // shorter conversation, playNextIndex points past its only
+                // remaining element. Force it back to the captured sentinel
+                // first; the state machine then re-derives councilState from
+                // there exactly as it would on a fresh arrival.
+                if (playNextIndex !== intent.index) {
+                    setPlayNextIndex(intent.index);
+                    return;
+                }
+
+                const expectedState = intent.mode === "panelist" ? "human_panelist" : "human_input";
+                if (councilState !== expectedState) return;
+
+                performSkipTurn(intent.speaker);
+                break;
+            }
         }
-    }, [pendingIntent, socketUnhealthy, attemptingReconnect, currentMeetingId, textMessages, liveKey, councilState]);
+    }, [pendingIntent, socketUnhealthy, attemptingReconnect, currentMeetingId, textMessages, liveKey, councilState, playNextIndex]);
 
     // Deferred connection error: only surface the overlay when the machine is actually stuck
     // waiting for server data. While the council plays through buffered audio the overlay stays

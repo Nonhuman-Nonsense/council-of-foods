@@ -7,8 +7,9 @@ client-driven actions self-heal by default.
 **Status:** All five PRs are implemented — PR 1 (deferred connection error), PR 2 (server graceful
 stale-event handling), PR 3 (pending intent store + `raise_hand` reconciler), PR 4 (`human-draft`
 intent, plus the invitation-skip Action A), and PR 5 (`resolve-extension` intent + the sendBuffer
-clear). `skip_human_turn` remains the one Kind A event *not* routed through an intent — see PR 5's
-notes for why that's an accepted, documented trade-off rather than an oversight.
+clear). `skip_human_turn` — originally deferred as "optional, low value" — was added afterward as a
+`skip-turn` intent for consistency (see "PR 5+" below); every client → server proxy event in the
+taxonomy is now intent-backed except the deliberately-excluded telemetry event.
 
 **Related docs:** [agent-error-handling-plan.md](./agent-error-handling-plan.md),
 [museum-kiosk-resilience-plan.md](./museum-kiosk-resilience-plan.md).
@@ -71,7 +72,7 @@ Every client → server proxy event is one of:
 | `raise_hand` | B | ✅ | The only true client-driven interrupt; the deadlock fix |
 | `submit_human_message` / `submit_human_panelist` | A + client-only payload | ✅ | Preserves typed text |
 | `extend_meeting` / `conclude_meeting` | A | ✅ | Removes the re-click after reconnect |
-| `skip_human_turn` | A | ➖ optional | Same shape; low value |
+| `skip_human_turn` | A | ✅ | Added for consistency (see PR 5+); was "optional, low value" until the sendBuffer clear made self-heal-without-retention the alternative |
 | `report_maximum_played_index` | telemetry | ❌ | Monotonic resend; forcing it through the reconciler would only add noise |
 
 `raise_hand` being the sole Kind B event is not a coincidence — it is the one place where intent
@@ -343,21 +344,42 @@ apply it immediately via a shared `performResolveExtension` helper, unchanged ha
   be fully self-contained** (re-derive everything it needs from current state) since it's called
   from two different moments (direct action, reconciler retry) that can't assume the same
   pre-conditions were just established by the caller.
-- **`skip_human_turn` intentionally left un-intent-backed.** The plan marked it "optional, low
-  value" from the start. Clearing the socket `sendBuffer` (below) means a `skip_human_turn` lost to
-  a disconnect will now simply self-heal by re-showing the input (case 2's existing behavior) rather
-  than being silently replayed — the user just clicks skip again. Accepted trade-off, not a bug;
-  revisit if it proves annoying in practice.
 - UX note: the overlay may briefly re-show before the intent resolves; no transient affordance was
   added for this yet — worth revisiting if it looks jarring in practice.
 - **Sendbuffer clear landed** in `useCouncilSocket.ts`'s `disconnect` handler
   (`socket.sendBuffer.length = 0`), now that every intent-bearing event (`raise_hand`,
   `submit_human_*`, `extend_meeting`/`conclude_meeting`) routes through the reconciler and no longer
-  needs a raw replay to recover from a lost emit.
+  needs a raw replay to recover from a lost emit. At the time this landed, `skip_human_turn` was
+  still un-intent-backed, so clearing the buffer meant a lost skip would self-heal by re-showing the
+  input rather than replaying — see PR 5+ below, which closed that gap immediately after.
 - Files: `client/src/council/hooks/pendingIntentStore.ts`, `useCouncilMachine.ts`,
   `useCouncilSocket.ts`, tests in `useCouncilMachine.test.tsx`
   (`describe('resolve-extension intent reconciler')`).
 - Depends on PR 3.
+
+### PR 5+ — Client: route `skip_human_turn` through pendingIntent (consistency)  *(done)*
+Adds `SkipTurnIntent` and a `skip-turn` reconciler case, following the same `{ mode, index }` shape
+as `human-draft` (plus `speaker`, credited on the resulting `"skipped"` marker). Done purely for
+consistency after PR 5 — `skip_human_turn` was the last Kind A event not routed through an intent —
+not because the UX cost of losing a skip was high (the plan always rated it "optional, low value").
+- **A second real bug caught while writing the retry test, distinct from PR 5's**: unlike
+  `human-draft`, `councilState` cannot be trusted to naturally catch back up to
+  `human_input`/`human_panelist` here. `performSkipTurn`'s direct call pushes a local `"skipped"`
+  placeholder, and the *separate, pre-existing* "step past a skipped message" progression in the
+  main state-machine effect (`if (textMessages[playNextIndex]?.type === 'skipped') { setPlayNextIndex(i => i + 1); ... }`)
+  immediately advances `playNextIndex` past it. When the server's resend restores the original,
+  unprocessed (shorter) conversation, `playNextIndex` now points *past* its only remaining element,
+  so the main effect's usual "awaiting sentinel appeared → flip councilState" check can never match
+  — councilState just sits at `'loading'` forever, silently dropping the retry. Fixed by having the
+  reconciler force `playNextIndex` back to the intent's captured `index` first (when it's out of
+  sync), before checking councilState — the state machine then re-derives councilState from there
+  exactly as it would on a fresh arrival. `human-draft` never hit this because
+  `performHumanSubmit`'s rewind moves `playNextIndex` *backward*, never past the position an
+  intent might need to re-anchor on.
+- Files: `client/src/council/hooks/pendingIntentStore.ts`, `useCouncilMachine.ts`, tests in
+  `useCouncilMachine.test.tsx` (`describe('skip-turn intent reconciler')`).
+- Depends on PR 3 (and, practically, PR 5's sendBuffer clear — that's what made the remaining gap
+  worth closing).
 
 ---
 

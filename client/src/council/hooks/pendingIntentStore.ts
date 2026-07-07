@@ -37,7 +37,17 @@ export type ResolveExtensionIntent = {
     date?: string;
 };
 
-export type PendingIntent = RaiseHandIntent | HumanDraftIntent | ResolveExtensionIntent;
+export type SkipTurnIntent = {
+    kind: "skip-turn";
+    meetingId: number;
+    mode: "question" | "panelist";
+    /** Position of the awaiting_* sentinel this skip resolves, captured at abandon time. */
+    index: number;
+    /** Speaker name/id credited on the resulting "skipped" marker. */
+    speaker: string;
+};
+
+export type PendingIntent = RaiseHandIntent | HumanDraftIntent | ResolveExtensionIntent | SkipTurnIntent;
 
 // ---------------------------------------------------------------------------
 // Store

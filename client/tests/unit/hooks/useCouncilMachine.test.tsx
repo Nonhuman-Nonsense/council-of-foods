@@ -1879,5 +1879,128 @@ describe('useCouncilMachine', () => {
             expect(mockSocketEmit).not.toHaveBeenCalledWith('extend_meeting');
         });
     });
+
+    describe('skip-turn intent reconciler', () => {
+        it('does not double-fire in the connected happy path (question)', () => {
+            const { result } = renderHook(() =>
+                useCouncilMachine({ ...defaultProps, currentMeetingId: 1, humanName: 'Frank' } as any),
+            );
+
+            act(() => {
+                socketHandlers.onConversationUpdate?.([
+                    { id: 'msg_question', text: '...', speaker: 'Frank', type: 'awaiting_human_question' },
+                ]);
+            });
+            expect(result.current.state.councilState).toBe('human_input');
+
+            mockSocketEmit.mockClear();
+            act(() => {
+                result.current.actions.handleOnAbandonHumanTurn();
+            });
+
+            expect(mockSocketEmit).toHaveBeenCalledTimes(1);
+            expect(mockSocketEmit).toHaveBeenCalledWith('skip_human_turn');
+
+            // The reconciler observes the skip's own local truncation removed
+            // the awaiting sentinel and clears the intent — no re-fire.
+            expect(usePendingIntentStore.getState().intent).toBeNull();
+        });
+
+        it('auto-resolves the retained skip after a disconnect swallows the original skip_human_turn', () => {
+            const { result } = renderHook(() =>
+                useCouncilMachine({ ...defaultProps, currentMeetingId: 1, humanName: 'Frank' } as any),
+            );
+
+            const conversation = [
+                { id: 'msg_question', text: '...', speaker: 'Frank', type: 'awaiting_human_question' },
+            ];
+            act(() => {
+                socketHandlers.onConversationUpdate?.(conversation);
+            });
+            expect(result.current.state.councilState).toBe('human_input');
+
+            // Mid-reconnect at the moment of the click: the raw emit fires (and,
+            // in the real world, is buffered/lost by socket.io) but the
+            // reconciler's global gate blocks any retry until the resume
+            // handshake completes.
+            act(() => {
+                socketHandlers.simulateReconnect();
+            });
+
+            act(() => {
+                result.current.actions.handleOnAbandonHumanTurn();
+            });
+
+            expect(usePendingIntentStore.getState().intent).toMatchObject({
+                kind: 'skip-turn',
+                mode: 'question',
+                speaker: 'Frank',
+            });
+            mockSocketEmit.mockClear();
+
+            // Resume handshake completes: server never actually received the
+            // skip, so its resumed conversation still shows the original
+            // awaiting sentinel.
+            act(() => {
+                socketHandlers.onConversationUpdate?.(conversation);
+            });
+
+            expect(mockSocketEmit).toHaveBeenCalledWith('skip_human_turn');
+            expect(result.current.state.textMessages).toEqual([
+                expect.objectContaining({ type: 'skipped', speaker: 'Frank', text: '' }),
+            ]);
+            expect(usePendingIntentStore.getState().intent).toBeNull();
+        });
+
+        it('auto-resolves a panelist skip, crediting the panelist speaker', () => {
+            const { result } = renderHook(() =>
+                useCouncilMachine({ ...defaultProps, currentMeetingId: 1 } as any),
+            );
+
+            const conversation = [
+                { id: 'msg_panelist', text: '...', speaker: 'human-panelist-1', type: 'awaiting_human_panelist' },
+            ];
+            act(() => {
+                socketHandlers.onConversationUpdate?.(conversation);
+            });
+            expect(result.current.state.councilState).toBe('human_panelist');
+
+            act(() => {
+                socketHandlers.simulateReconnect();
+            });
+            act(() => {
+                result.current.actions.handleOnAbandonHumanTurn();
+            });
+
+            mockSocketEmit.mockClear();
+            act(() => {
+                socketHandlers.onConversationUpdate?.(conversation);
+            });
+
+            expect(mockSocketEmit).toHaveBeenCalledWith('skip_human_turn');
+            expect(result.current.state.textMessages).toEqual([
+                expect.objectContaining({ type: 'skipped', speaker: 'human-panelist-1', text: '' }),
+            ]);
+            expect(usePendingIntentStore.getState().intent).toBeNull();
+        });
+
+        it('ignores a skip-turn intent tagged for a different meeting', () => {
+            renderHook(() =>
+                useCouncilMachine({ ...defaultProps, currentMeetingId: 99 } as any),
+            );
+
+            act(() => {
+                usePendingIntentStore.getState().setPendingIntent({
+                    kind: 'skip-turn',
+                    meetingId: 42,
+                    mode: 'question',
+                    index: 0,
+                    speaker: 'Frank',
+                });
+            });
+
+            expect(mockSocketEmit).not.toHaveBeenCalledWith('skip_human_turn');
+        });
+    });
 });
 
