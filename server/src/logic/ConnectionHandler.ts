@@ -48,13 +48,17 @@ export class ConnectionHandler {
 
             if (!existingMeeting) {
                 manager.broadcaster.broadcastError(new NotFoundError());
-                Logger.warn(`meeting ${options.meetingId}`, `Meeting not found`);
+                Logger.warn("meeting", `Meeting not found`, {
+                    from: { meetingId: options.meetingId, socketId: manager.socket.id },
+                });
                 return false;
             }
 
             if (existingMeeting.liveKey !== options.liveKey) {
                 manager.broadcaster.broadcastError(new ForbiddenError());
-                Logger.warn(`meeting ${options.meetingId}`, "attempt_reconnection liveKey mismatch");
+                Logger.warn("meeting", "attempt_reconnection liveKey mismatch", {
+                    from: { meetingId: options.meetingId, socketId: manager.socket.id },
+                });
                 return false;
             }
 
@@ -105,7 +109,11 @@ export class ConnectionHandler {
             manager.startLoop();
             return true;
         } catch (error) {
-            Logger.reportAndCrashClient(`meeting ${options.meetingId}`, "Error resuming conversation", error, manager.broadcaster);
+            Logger.reportAndCrashClient("meeting", "Error resuming conversation", {
+                error,
+                from: manager,
+                broadcaster: manager.broadcaster,
+            });
         }
         return false;
     }

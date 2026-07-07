@@ -46,7 +46,7 @@ try {
   await initDb();
   initOpenAI();
 } catch (e) {
-  await Logger.error("init", "Startup failed.", e);
+  await Logger.error("init", "Startup failed.", { error: e });
   process.exit(1);
 }
 
@@ -81,7 +81,7 @@ app.post('/api/client-report', async (req: Request, res: Response) => {
   }
 
   const { message, source, meetingId, url, cause } = parsed.data;
-  const context = meetingId != null ? `client meeting ${meetingId}` : `client ${source}`;
+  const context = meetingId != null ? "client" : `client ${source}`;
   const detail = url ? `${message} (${url})` : message;
 
   res.status(204).end();
@@ -93,6 +93,7 @@ app.post('/api/client-report', async (req: Request, res: Response) => {
     error: cause,
     clientImpact: 'terminal',
     source: 'client',
+    meetingId,
   });
 });
 

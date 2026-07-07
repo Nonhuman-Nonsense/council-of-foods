@@ -36,16 +36,16 @@ async function apiRouteWithErrorHandling(
         await handler(req, res);
     } catch (e: unknown) {
         if (e instanceof ZodError) {
-            await Logger.warn("api", `${method} ${path} failed, validation error`, e);
+            await Logger.warn("api", `${method} ${path} failed, validation error`, { error: e });
             res.status(400).json(CouncilError.fromZod(e).toApiBody(context));
             return;
         }
         if (e instanceof CouncilError) {
-            await Logger.warn("api", `${method} ${path} failed, ${e.name}`, e);
+            await Logger.warn("api", `${method} ${path} failed, ${e.name}`, { error: e });
             res.status(e.statusCode).json(e.toApiBody(context));
             return;
         }
-        await Logger.error("api", `${method} ${path} failed, internal server error`, e);
+        await Logger.error("api", `${method} ${path} failed, internal server error`, { error: e });
         res.status(500).json(CouncilError.fromUnexpected(e).toApiBody(context));
     }
 }

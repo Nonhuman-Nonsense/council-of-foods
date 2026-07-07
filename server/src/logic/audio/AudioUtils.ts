@@ -45,7 +45,7 @@ export class AudioQueue {
                 this.processNext();
             } catch (error) {
                 //This block will only catch synchronous errors
-                Logger.error("AudioSystem", "Error starting audio task", error);
+                Logger.error("AudioSystem", "Error starting audio task", { error });
                 this.activeCount--;
             }
         }
@@ -56,7 +56,7 @@ export class AudioQueue {
             await task();
         } catch (error) {
             //This block will catch asynchronous errors
-            Logger.error("AudioSystem", "Audio Task Error", error);
+            Logger.error("AudioSystem", "Audio Task Error", { error });
         } finally {
             this.activeCount--;
             this.resolveIdleIfNeeded();

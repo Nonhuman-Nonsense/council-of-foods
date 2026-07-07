@@ -186,8 +186,9 @@ export class MeetingLifecycleHandler {
                     m.meetingComplete = true;
                 } else {
                     Logger.warn(
-                        `meeting ${m._id}`,
+                        "meeting",
                         "conclude audio barrier finished but replay manifest is incomplete; meetingComplete left false",
+                        { from: manager },
                     );
                 }
             }

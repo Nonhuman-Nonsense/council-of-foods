@@ -295,8 +295,10 @@ describe('AudioSystem Inworld Integration', () => {
         expect(Logger.reportAndCrashClient).toHaveBeenCalledWith(
             'AudioSystem',
             'Error generating audio',
-            expect.objectContaining({ message: expect.stringContaining('Inworld TTS API Error: 500 Internal Server Error') }),
-            expect.anything()
+            expect.objectContaining({
+                error: expect.objectContaining({ message: expect.stringContaining('Inworld TTS API Error: 500 Internal Server Error') }),
+                broadcaster: expect.anything(),
+            }),
         );
     });
 

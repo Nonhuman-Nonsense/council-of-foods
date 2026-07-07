@@ -1,9 +1,21 @@
 import { cyan, yellow, red, gray } from "colorette";
 import { CouncilError } from "@models/Errors.js";
-import { sendReport, type ReportOptions } from "./errorbot.js";
+import type { IMeetingBroadcaster } from "@interfaces/MeetingInterfaces.js";
+import type { ProvidesReportContext, ReportContext } from "@interfaces/ReportContext.js";
+import { resolveReportContext } from "@interfaces/ReportContext.js";
+import { sendReport, type ClientImpact, type ReportSeverity, type ReportSource } from "./errorbot.js";
 
 const CLIENT_TERMINAL_PREFIX = '[CLIENT TERMINAL]';
 const PROCESS_EXIT_PREFIX = '[PROCESS EXIT]';
+
+export type LogDetails = {
+    error?: unknown;
+    from?: ProvidesReportContext | ReportContext;
+    severity?: ReportSeverity;
+    clientImpact?: ClientImpact;
+    source?: ReportSource;
+    broadcaster?: IMeetingBroadcaster;
+};
 
 function withClientTerminalPrefix(message: string): string {
     if (message.includes(CLIENT_TERMINAL_PREFIX)) return message;
@@ -57,47 +69,30 @@ export class Logger {
 
     // Note: Console logging happens synchronously BEFORE waiting for async reporting.
     // This preserves the order of console output even if reporting takes time.
-    static async warn(context: string, message: string, error?: unknown, opts?: ReportOptions): Promise<void> {
+    static async warn(context: string, message: string, details?: LogDetails): Promise<void> {
         console.warn(`${cyan(this.formatContext(context))} ${yellow(message)}`);
 
-        if (error) {
-            for (const line of formatErrorDetails(error)) {
+        if (details?.error) {
+            for (const line of formatErrorDetails(details.error)) {
                 console.warn(gray(line));
             }
         }
 
-        // Auto-report warning
-        await sendReport({
-            context,
-            severity: opts?.severity ?? 'warning',
-            message,
-            error,
-            clientImpact: opts?.clientImpact,
-            source: opts?.source,
-        });
+        await sendReport(this.buildReport(context, message, details, 'warning'));
     }
 
     // Note: Console logging happens synchronously BEFORE waiting for async reporting.
     // This preserves the order of console output even if reporting takes time.
-    static async error(context: string, message: string, error?: unknown, opts?: ReportOptions): Promise<void> {
-        // Log the primary message in red
+    static async error(context: string, message: string, details?: LogDetails): Promise<void> {
         console.error(`${red(this.formatContext(context))} ${red(message)}`);
 
-        if (error) {
-            for (const line of formatErrorDetails(error)) {
+        if (details?.error) {
+            for (const line of formatErrorDetails(details.error)) {
                 console.error(gray(line));
             }
         }
 
-        // Auto-report error
-        await sendReport({
-            context,
-            severity: opts?.severity ?? 'error',
-            message,
-            error,
-            clientImpact: opts?.clientImpact,
-            source: opts?.source,
-        });
+        await sendReport(this.buildReport(context, message, details, 'error'));
     }
 
     /**
@@ -107,21 +102,41 @@ export class Logger {
     static reportAndCrashClient(
         context: string,
         message: string,
-        error: unknown,
-        broadcaster?: { broadcastError: (error: CouncilError, context?: string) => void }
+        details: LogDetails & { error: unknown },
     ): void {
         const reportMessage = withClientTerminalPrefix(message);
+        const { broadcaster, error } = details;
 
-        // Log it (which also reports to errorbot)
-        void this.error(context, reportMessage, error, {
+        void this.error(context, reportMessage, {
+            ...details,
+            error,
             severity: 'critical',
             clientImpact: 'terminal',
         });
 
-        // Tell the client
         if (broadcaster) {
             broadcaster.broadcastError(CouncilError.fromUnexpected(error), context);
         }
+    }
+
+    private static buildReport(
+        context: string,
+        message: string,
+        details: LogDetails | undefined,
+        defaultSeverity: ReportSeverity,
+    ) {
+        const { meetingId, socketId } = resolveReportContext(details?.from);
+
+        return {
+            context,
+            severity: details?.severity ?? defaultSeverity,
+            message,
+            error: details?.error,
+            clientImpact: details?.clientImpact,
+            source: details?.source,
+            meetingId,
+            socketId,
+        };
     }
 }
 

@@ -52,12 +52,15 @@ export class HumanInputHandler {
         const lastMessage = m.conversation[m.conversation.length - 1];
         if (lastMessage?.type !== 'awaiting_human_question') {
             Logger.reportAndCrashClient(
-                `meeting ${m._id}`,
+                "meeting",
                 "Received a human question but was not expecting one!",
-                new Error(
-                    `Expected last message to be 'awaiting_human_question' but found '${lastMessage?.type ?? "none"}'`
-                ),
-                manager.broadcaster
+                {
+                    error: new Error(
+                        `Expected last message to be 'awaiting_human_question' but found '${lastMessage?.type ?? "none"}'`
+                    ),
+                    from: manager,
+                    broadcaster: manager.broadcaster,
+                },
             );
             return;
         }
@@ -131,12 +134,15 @@ export class HumanInputHandler {
         const lastMessage = m.conversation[m.conversation.length - 1];
         if (lastMessage?.type !== 'awaiting_human_panelist') {
             Logger.reportAndCrashClient(
-                `meeting ${m._id}`,
+                "meeting",
                 "Received a human panelist but was not expecting one!",
-                new Error(
-                    `Expected last message to be 'awaiting_human_panelist' but found '${lastMessage?.type ?? "none"}'`
-                ),
-                manager.broadcaster
+                {
+                    error: new Error(
+                        `Expected last message to be 'awaiting_human_panelist' but found '${lastMessage?.type ?? "none"}'`
+                    ),
+                    from: manager,
+                    broadcaster: manager.broadcaster,
+                },
             );
             return;
         }
@@ -199,12 +205,15 @@ export class HumanInputHandler {
         const lastMessage = m.conversation[m.conversation.length - 1];
         if (lastMessage?.type !== "awaiting_human_question" && lastMessage?.type !== "awaiting_human_panelist") {
             Logger.reportAndCrashClient(
-                `meeting ${m._id}`,
+                "meeting",
                 "Received skip_human_turn but was not awaiting human input!",
-                new Error(
-                    `Expected last message to be awaiting human input but found '${lastMessage?.type ?? "none"}'`
-                ),
-                manager.broadcaster
+                {
+                    error: new Error(
+                        `Expected last message to be awaiting human input but found '${lastMessage?.type ?? "none"}'`
+                    ),
+                    from: manager,
+                    broadcaster: manager.broadcaster,
+                },
             );
             return;
         }

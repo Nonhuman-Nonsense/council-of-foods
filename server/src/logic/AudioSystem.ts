@@ -1,4 +1,5 @@
 import type { IMeetingBroadcaster } from "@interfaces/MeetingInterfaces.js";
+import type { ProvidesReportContext } from "@interfaces/ReportContext.js";
 import type { GlobalOptions } from "@logic/GlobalOptions.js";
 import { CHAIR_ID, getChairMeetingVoice } from "@logic/characterSetupBundle.js";
 import { Logger } from "@utils/Logger.js";
@@ -44,10 +45,17 @@ export class AudioSystem {
     services: Services;
     queue: AudioQueue;
     private generationToken = 0;
+    private readonly reportFrom?: ProvidesReportContext;
 
-    constructor(broadcaster: IMeetingBroadcaster, services: Services, concurrency: number = 3) {
+    constructor(
+        broadcaster: IMeetingBroadcaster,
+        services: Services,
+        concurrency: number = 3,
+        reportFrom?: ProvidesReportContext,
+    ) {
         this.broadcaster = broadcaster;
         this.services = services;
+        this.reportFrom = reportFrom;
         this.queue = new AudioQueue(concurrency);
     }
 
@@ -123,7 +131,10 @@ export class AudioSystem {
                 }
             }
         } catch (error: unknown) {
-            Logger.error(`AudioSystem`, `Error retrieving existing audio (message id: ${message.id})`, error);
+            Logger.error("AudioSystem", `Error retrieving existing audio (message id: ${message.id})`, {
+                error,
+                from: this.reportFrom,
+            });
         }
 
 
@@ -234,7 +245,10 @@ export class AudioSystem {
                                 break;
                             }
                         } catch (error: unknown) {
-                            Logger.warn("AudioSystem", `Whisper timings failed for message ${message.id}.`, error);
+                            Logger.warn("AudioSystem", `Whisper timings failed for message ${message.id}.`, {
+                                error,
+                                from: this.reportFrom,
+                            });
                         }
                     }
                 }
@@ -293,7 +307,11 @@ export class AudioSystem {
 
         } catch (error: unknown) {
             //Crash the client and report
-            Logger.reportAndCrashClient("AudioSystem", "Error generating audio", error, this.broadcaster);
+            Logger.reportAndCrashClient("AudioSystem", "Error generating audio", {
+                error,
+                from: this.reportFrom,
+                broadcaster: this.broadcaster,
+            });
         }
     }
 
@@ -341,7 +359,7 @@ export class AudioSystem {
             );
             return metadata.format.duration || 0;
         } catch (error: unknown) {
-            Logger.warn("AudioSystem", `Failed to parse audio duration`, error);
+            Logger.warn("AudioSystem", `Failed to parse audio duration`, { error, from: this.reportFrom });
             return 0;
         }
     }

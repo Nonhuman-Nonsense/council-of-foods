@@ -11,6 +11,7 @@ import type { DialogGenerator } from "@logic/DialogGenerator.js";
 import type { SpeakerTargetClassifier } from "@logic/SpeakerTargetClassifier.js";
 import type { ConversationState } from "@shared/ModelTypes.js";
 import type { ConversationService } from "@services/ConversationService.js";
+import type { ReportContext } from "@interfaces/ReportContext.js";
 
 export { ConversationState };
 
@@ -62,6 +63,7 @@ export interface IMeetingContext {
     };
     serverOptions: GlobalOptions;
     broadcaster: IMeetingBroadcaster; // New abstraction
+    getReportContext(): ReportContext;
 }
 
 /**

@@ -104,13 +104,20 @@ export class MeetingManager implements IMeetingManager {
 
         this.startLoop = this.startLoop.bind(this);
 
-        this.audioSystem = new AudioSystem(this.broadcaster, this.services, this.serverOptions.audioConcurrency);
+        this.audioSystem = new AudioSystem(this.broadcaster, this.services, this.serverOptions.audioConcurrency, this);
         this.dialogGenerator = new DialogGenerator(this.services, this.serverOptions);
         this.speakerTargetClassifier = new SpeakerTargetClassifier(this.serverOptions);
         this.humanInputHandler = new HumanInputHandler(this);
         this.handRaisingHandler = new HandRaisingHandler(this);
         this.meetingLifecycleHandler = new MeetingLifecycleHandler(this);
         this.connectionHandler = new ConnectionHandler(this);
+    }
+
+    getReportContext(): { meetingId?: number; socketId?: string } {
+        return {
+            meetingId: this.meeting?._id,
+            socketId: this.socket.id,
+        };
     }
 
     /**
@@ -174,7 +181,7 @@ export class MeetingManager implements IMeetingManager {
                 if (this.environment === 'prototype') await this.meetingLifecycleHandler.handleResumeConversation();
                 break;
             default:
-                Logger.warn("MeetingManager", `Unhandled event: ${event}`);
+                Logger.warn("MeetingManager", `Unhandled event: ${event}`, { from: this });
         }
     }
 
@@ -208,16 +215,16 @@ export class MeetingManager implements IMeetingManager {
         const { index } = ReportMaximumPlayedIndexSchema.parse(payload);
         const meeting = this.meeting;
         if (!meeting) {
-            Logger.warn("PlaybackProgress", "report_maximum_played_index ignored: no active meeting");
+            Logger.warn("PlaybackProgress", "report_maximum_played_index ignored: no active meeting", { from: this });
             return;
         }
         if (!socketHoldsLiveSession(meeting._id, this.socket.id)) {
-            Logger.warn(`meeting ${meeting._id}`, `report_maximum_played_index ignored: socket ${this.socket.id} is not the live session holder`);
+            Logger.warn("meeting", `report_maximum_played_index ignored: socket ${this.socket.id} is not the live session holder`, { from: this });
             return;
         }
         const conv = meeting.conversation ?? [];
         if (conv.length === 0) {
-            Logger.warn(`meeting ${meeting._id}`, "report_maximum_played_index ignored: empty conversation");
+            Logger.warn("meeting", "report_maximum_played_index ignored: empty conversation", { from: this });
             return;
         }
         const maxValid = conv.length - 1;
@@ -284,7 +291,11 @@ export class MeetingManager implements IMeetingManager {
                 // Do it
                 await this.processTurn(action);
             } catch (error: unknown) {
-                Logger.reportAndCrashClient(`meeting ${meeting._id}`, "Conversation process error", error, this.broadcaster);
+                Logger.reportAndCrashClient("meeting", "Conversation process error", {
+                    error,
+                    from: this,
+                    broadcaster: this.broadcaster,
+                });
                 return;
             }
 
@@ -509,7 +520,7 @@ export class MeetingManager implements IMeetingManager {
 
         if (message.text === "") {
             message.type = "skipped";
-            Logger.warn(`meeting ${meeting._id}`, `failed to make a message. Skipping speaker ${action.speaker.id}`);
+            Logger.warn("meeting", `failed to make a message. Skipping speaker ${action.speaker.id}`, { from: this });
         }
 
         if (message.type !== "skipped") {
