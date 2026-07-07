@@ -1767,5 +1767,117 @@ describe('useCouncilMachine', () => {
             expect(usePendingIntentStore.getState().intent).toBeNull();
         });
     });
+
+    describe('resolve-extension intent reconciler', () => {
+        it('does not double-fire in the connected happy path (extend)', () => {
+            const { result } = renderHook(() =>
+                useCouncilMachine({ ...defaultProps, currentMeetingId: 1 } as any),
+            );
+
+            act(() => {
+                socketHandlers.onConversationUpdate?.([{ type: 'query_extension' }]);
+            });
+            expect(result.current.state.councilState).toBe('query_extension');
+
+            mockSocketEmit.mockClear();
+            act(() => {
+                result.current.actions.handleOnExtendMeeting();
+            });
+
+            expect(mockSocketEmit).toHaveBeenCalledTimes(1);
+            expect(mockSocketEmit).toHaveBeenCalledWith('extend_meeting');
+
+            // The reconciler observes the choice's own local truncation removed
+            // the query_extension sentinel and clears the intent — no re-fire.
+            expect(usePendingIntentStore.getState().intent).toBeNull();
+        });
+
+        it('auto-resolves the retained choice after a disconnect swallows the original extend_meeting', () => {
+            const { result } = renderHook(() =>
+                useCouncilMachine({ ...defaultProps, currentMeetingId: 1 } as any),
+            );
+
+            const conversation = [{ type: 'query_extension' }];
+            act(() => {
+                socketHandlers.onConversationUpdate?.(conversation);
+            });
+            expect(result.current.state.councilState).toBe('query_extension');
+
+            // Mid-reconnect at the moment of the click: the raw emit fires (and,
+            // in the real world, is buffered/lost by socket.io) but the
+            // reconciler's global gate blocks any retry until the resume
+            // handshake completes.
+            act(() => {
+                socketHandlers.simulateReconnect();
+            });
+
+            act(() => {
+                result.current.actions.handleOnExtendMeeting();
+            });
+
+            expect(usePendingIntentStore.getState().intent).toMatchObject({
+                kind: 'resolve-extension',
+                choice: 'extend',
+            });
+
+            mockSocketEmit.mockClear();
+
+            // Resume handshake completes: server never actually received the
+            // choice, so its resumed conversation still shows the original
+            // query_extension sentinel.
+            act(() => {
+                socketHandlers.onConversationUpdate?.(conversation);
+            });
+
+            expect(mockSocketEmit).toHaveBeenCalledWith('extend_meeting');
+            expect(usePendingIntentStore.getState().intent).toBeNull();
+        });
+
+        it('auto-resolves conclude with the originally captured date, not a re-derived one', () => {
+            const { result } = renderHook(() =>
+                useCouncilMachine({ ...defaultProps, currentMeetingId: 1 } as any),
+            );
+
+            const conversation = [{ type: 'query_extension' }];
+            act(() => {
+                socketHandlers.onConversationUpdate?.(conversation);
+            });
+
+            act(() => {
+                socketHandlers.simulateReconnect();
+            });
+            act(() => {
+                result.current.actions.handleOnConcludeMeeting();
+            });
+
+            const capturedDate = (usePendingIntentStore.getState().intent as any)?.date;
+            expect(typeof capturedDate).toBe('string');
+
+            mockSocketEmit.mockClear();
+            act(() => {
+                socketHandlers.onConversationUpdate?.(conversation);
+            });
+
+            expect(mockSocketEmit).toHaveBeenCalledWith('conclude_meeting', { date: capturedDate });
+            expect(usePendingIntentStore.getState().intent).toBeNull();
+        });
+
+        it('ignores a resolve-extension intent tagged for a different meeting', () => {
+            renderHook(() =>
+                useCouncilMachine({ ...defaultProps, currentMeetingId: 99 } as any),
+            );
+
+            act(() => {
+                usePendingIntentStore.getState().setPendingIntent({
+                    kind: 'resolve-extension',
+                    meetingId: 42,
+                    choice: 'extend',
+                    index: 0,
+                });
+            });
+
+            expect(mockSocketEmit).not.toHaveBeenCalledWith('extend_meeting');
+        });
+    });
 });
 

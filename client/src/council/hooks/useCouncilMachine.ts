@@ -664,21 +664,59 @@ export function useCouncilMachine({
         rewindOverlayCouncilState(councilState);
     }
 
+    /**
+     * Applies the user's extend/conclude choice: emits to the server and advances
+     * local state. Shared by the direct handler and the resolve-extension
+     * reconciler retry, so a resubmission after a self-heal behaves identically
+     * to the first attempt.
+     */
+    function performResolveExtension(choice: "extend" | "conclude", date?: string) {
+        // Truncate here (not just in the direct handlers) so a reconciler retry
+        // also removes the sentinel — otherwise the retry would re-emit and
+        // reset councilState to 'loading' while the query_extension message is
+        // still the next thing to play, flipping straight back to
+        // 'query_extension' and re-triggering the reconciler forever.
+        const queryExtensionIndex = textMessages.findIndex((m) => m.type === 'query_extension');
+        if (queryExtensionIndex !== -1) {
+            setTextMessages(prevMessages => prevMessages.slice(0, queryExtensionIndex));
+        }
+        if (choice === "extend") {
+            if (socketRef.current) socketRef.current.emit("extend_meeting");
+        } else {
+            // date is always supplied by callers when choice is "conclude"
+            // (captured from the browser clock at decision time).
+            if (socketRef.current) socketRef.current.emit("conclude_meeting", { date: date as string });
+        }
+        setPaused(false);
+        setCouncilState('loading');
+    }
+
     function handleOnExtendMeeting() {
         const queryExtensionIndex = textMessages.findIndex((m) => m.type === 'query_extension');
-        setTextMessages(prevMessages => prevMessages.slice(0, queryExtensionIndex));
-        setPaused(false);
-        if (socketRef.current) socketRef.current.emit("extend_meeting");
-        setCouncilState('loading');
+        // Register the choice as a durable intent BEFORE applying it: if this
+        // choice is lost to a disconnect, the reconciler retries once
+        // councilState catches back up to query_extension (see the
+        // "resolve-extension" reconciler case below).
+        setPendingIntent({
+            kind: "resolve-extension",
+            meetingId: currentMeetingId,
+            choice: "extend",
+            index: queryExtensionIndex,
+        });
+        performResolveExtension("extend");
     }
 
     function handleOnConcludeMeeting() {
         const queryExtensionIndex = textMessages.findIndex((m) => m.type === 'query_extension');
-        setTextMessages(prevMessages => prevMessages.slice(0, queryExtensionIndex));
-        setPaused(false);
         const browserDate = new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
-        if (socketRef.current) socketRef.current.emit("conclude_meeting", { date: browserDate });
-        setCouncilState('loading');
+        setPendingIntent({
+            kind: "resolve-extension",
+            meetingId: currentMeetingId,
+            choice: "conclude",
+            index: queryExtensionIndex,
+            date: browserDate,
+        });
+        performResolveExtension("conclude", browserDate);
     }
 
     /**
@@ -878,6 +916,28 @@ export function useCouncilMachine({
                 if (councilState !== expectedState) return;
 
                 performHumanSubmit(intent.text, intent.mode, intent.speaker);
+                break;
+            }
+            case "resolve-extension": {
+                // Precondition (same shape as human-draft): the query_extension
+                // sentinel this choice resolves must still be there, checked
+                // against the captured index.
+                const sentinelMsg = textMessages[intent.index];
+                if (sentinelMsg?.type !== "query_extension") {
+                    // Fulfilled: either the original choice already landed (the
+                    // common case — fires on the next pass after
+                    // performResolveExtension's own local truncation), or the
+                    // conversation moved on for another reason.
+                    clearPendingIntent("resolve-extension");
+                    return;
+                }
+
+                // Still there — the original choice never reached the server
+                // (lost to a disconnect). Wait for councilState to catch back up
+                // to query_extension before re-firing.
+                if (councilState !== "query_extension") return;
+
+                performResolveExtension(intent.choice, intent.date);
                 break;
             }
         }

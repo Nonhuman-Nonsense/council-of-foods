@@ -27,10 +27,17 @@ export type HumanDraftIntent = {
     speaker?: string;
 };
 
-// Future intent (PR5) will extend this union:
-// | { kind: "resolve-extension"; meetingId: number; choice: "extend" | "conclude" }
+export type ResolveExtensionIntent = {
+    kind: "resolve-extension";
+    meetingId: number;
+    choice: "extend" | "conclude";
+    /** Position of the query_extension sentinel this resolves, captured at decision time. */
+    index: number;
+    /** conclude only: local browser date captured at decision time. */
+    date?: string;
+};
 
-export type PendingIntent = RaiseHandIntent | HumanDraftIntent;
+export type PendingIntent = RaiseHandIntent | HumanDraftIntent | ResolveExtensionIntent;
 
 // ---------------------------------------------------------------------------
 // Store
