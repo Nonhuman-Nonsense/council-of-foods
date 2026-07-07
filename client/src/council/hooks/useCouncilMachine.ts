@@ -522,6 +522,34 @@ export function useCouncilMachine({
         calculateNextAction();
     }
 
+    /**
+     * Applies a human submission: emits to the server and advances local state.
+     * Shared by the direct submit path and the human-draft reconciler retry, so
+     * a resubmission after a self-heal behaves identically to the first attempt.
+     */
+    function performHumanSubmit(text: string, mode: "question" | "panelist", speaker?: string) {
+        if (mode === "panelist") {
+            // speaker is always supplied by callers when mode is "panelist"
+            // (captured from the awaiting_human_panelist message's speaker).
+            if (socketRef.current) socketRef.current.emit("submit_human_panelist", { text, speaker: speaker as string });
+        } else {
+            if (socketRef.current) socketRef.current.emit("submit_human_message", { text });
+        }
+
+        const now = textMessages[playingNowIndex]?.type === 'invitation' ? playingNowIndex - 1 : playingNowIndex;
+        const next = textMessages[playingNowIndex]?.type === 'invitation' ? playNextIndex - 1 : playNextIndex;
+        // Slice target intentionally differs by mode (matches pre-existing,
+        // pre-intent behavior): panelist truncates to `next`, question to `now`.
+        setTextMessages((prevMessages) => prevMessages.slice(0, mode === "panelist" ? next : now));
+        setPlayingNowIndex(now);
+        setPlayNextIndex(next);
+        if (mode === "question") {
+            setIsRaisedHand(false);
+            clearPendingIntent("raise-hand");
+        }
+        calculateNextAction();
+    }
+
     function handleOnSubmitHumanMessage(newTopic: string) {
         if (councilState === 'human_panelist') {
             const pendingMessage = textMessages[playNextIndex];
@@ -536,28 +564,28 @@ export function useCouncilMachine({
                 return;
             }
 
-            if (socketRef.current) socketRef.current.emit("submit_human_panelist", { text: newTopic, speaker: pendingMessage.speaker });
-
-            const now = textMessages[playingNowIndex]?.type === 'invitation' ? playingNowIndex - 1 : playingNowIndex;
-            const next = textMessages[playingNowIndex]?.type === 'invitation' ? playNextIndex - 1 : playNextIndex;
-            setTextMessages((prevMessages) => prevMessages.slice(0, next));
-            setPlayingNowIndex(now);
-            setPlayNextIndex(next);
-            calculateNextAction();
-        } else {
-            if (socketRef.current) socketRef.current.emit("submit_human_message", { text: newTopic });
-
-            const now = textMessages[playingNowIndex].type === 'invitation' ? playingNowIndex - 1 : playingNowIndex;
-            const next = textMessages[playingNowIndex].type === 'invitation' ? playNextIndex - 1 : playNextIndex;
-            setTextMessages((prevMessages) => {
-                return prevMessages.slice(0, now);
+            // Register the draft as a durable intent BEFORE applying it: if this
+            // submit is lost to a disconnect, the retained text survives and the
+            // reconciler retries once councilState catches back up to
+            // human_panelist (see the "human-draft" reconciler case below).
+            setPendingIntent({
+                kind: "human-draft",
+                meetingId: currentMeetingId,
+                text: newTopic,
+                mode: "panelist",
+                index: playNextIndex,
+                speaker: pendingMessage.speaker,
             });
-
-            setPlayingNowIndex(now);
-            setPlayNextIndex(next);
-            setIsRaisedHand(false);
-            clearPendingIntent("raise-hand");
-            calculateNextAction();
+            performHumanSubmit(newTopic, "panelist", pendingMessage.speaker);
+        } else {
+            setPendingIntent({
+                kind: "human-draft",
+                meetingId: currentMeetingId,
+                text: newTopic,
+                mode: "question",
+                index: playNextIndex,
+            });
+            performHumanSubmit(newTopic, "question");
         }
     }
 
@@ -761,8 +789,9 @@ export function useCouncilMachine({
     // during a disconnect sit harmlessly in the store until the server session
     // is restored, at which point they fire against fresh server state.
     //
-    // Idempotency: the intent is cleared from the store BEFORE the emit so a
-    // re-render cannot double-apply it.
+    // Idempotency: each case clears the intent only once it observes the
+    // request's outcome (not right before/after firing the emit) — see the
+    // per-case comments and "Invariants & backstops" in the resilience plan.
     useEffect(() => {
         if (!pendingIntent) return;
         if (!liveKey || !socketRef.current) return;
@@ -798,8 +827,36 @@ export function useCouncilMachine({
                 });
                 break;
             }
+            case "human-draft": {
+                // Precondition (inverse of raise-hand): the awaiting sentinel this
+                // draft answers must still be there. Checked against the captured
+                // index rather than the array end, so it survives the invitation
+                // being skipped/replayed ahead of it.
+                const expectedType =
+                    intent.mode === "panelist" ? "awaiting_human_panelist" : "awaiting_human_question";
+                const awaitingMsg = textMessages[intent.index];
+                if (awaitingMsg?.type !== expectedType) {
+                    // Fulfilled: either the original submit already landed (the
+                    // common case — this fires on the very next pass after
+                    // performHumanSubmit's own local truncation), or the
+                    // conversation moved on for another reason (skip/abandon).
+                    clearPendingIntent("human-draft");
+                    return;
+                }
+
+                // Still awaiting at the captured position — the original submit
+                // never reached the server (lost to a disconnect). Wait for
+                // councilState to catch back up to human_input/human_panelist
+                // before auto-submitting, so we never submit underneath a
+                // still-replaying invitation.
+                const expectedState = intent.mode === "panelist" ? "human_panelist" : "human_input";
+                if (councilState !== expectedState) return;
+
+                performHumanSubmit(intent.text, intent.mode, intent.speaker);
+                break;
+            }
         }
-    }, [pendingIntent, socketUnhealthy, attemptingReconnect, currentMeetingId, textMessages, liveKey]);
+    }, [pendingIntent, socketUnhealthy, attemptingReconnect, currentMeetingId, textMessages, liveKey, councilState]);
 
     // Deferred connection error: only surface the overlay when the machine is actually stuck
     // waiting for server data. While the council plays through buffered audio the overlay stays

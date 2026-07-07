@@ -1615,5 +1615,99 @@ describe('useCouncilMachine', () => {
             expect(mockSocketEmit).not.toHaveBeenCalledWith('raise_hand', expect.anything());
         });
     });
+
+    describe('human-draft intent reconciler', () => {
+        it('does not double-submit in the connected happy path', () => {
+            const { result } = renderHook(() =>
+                useCouncilMachine({ ...defaultProps, currentMeetingId: 1, humanName: 'Sam' } as any),
+            );
+
+            act(() => {
+                socketHandlers.onConversationUpdate?.([
+                    { type: 'awaiting_human_question', speaker: 'Sam' },
+                ]);
+            });
+            expect(result.current.state.councilState).toBe('human_input');
+
+            act(() => {
+                result.current.actions.handleOnSubmitHumanMessage('Hello world');
+            });
+
+            expect(mockSocketEmit).toHaveBeenCalledTimes(1);
+            expect(mockSocketEmit).toHaveBeenCalledWith('submit_human_message', { text: 'Hello world' });
+
+            // The reconciler observes the submit's own local truncation removed the
+            // awaiting sentinel and clears the intent — no lingering re-fire.
+            expect(usePendingIntentStore.getState().intent).toBeNull();
+        });
+
+        it('auto-resubmits the retained draft after a disconnect swallows the original submit', () => {
+            const { result } = renderHook(() =>
+                useCouncilMachine({ ...defaultProps, currentMeetingId: 1, humanName: 'Sam' } as any),
+            );
+
+            act(() => {
+                socketHandlers.onConversationUpdate?.([
+                    { type: 'awaiting_human_question', speaker: 'Sam' },
+                ]);
+            });
+            expect(result.current.state.councilState).toBe('human_input');
+
+            // Socket is mid-reconnect at the moment of submit: the raw emit is
+            // fired (and, in the real world, buffered/lost by socket.io) but the
+            // reconciler's global gate blocks any retry attempt until the resume
+            // handshake completes (mirrors the raise-hand reconnect test above —
+            // attemptingReconnect, not just socketUnhealthy, must be closed the
+            // whole time, otherwise the reconciler can run against stale local
+            // state in the gap between transport reconnect and fresh data).
+            act(() => {
+                socketHandlers.simulateReconnect();
+            });
+
+            act(() => {
+                result.current.actions.handleOnSubmitHumanMessage('Hello world');
+            });
+
+            expect(usePendingIntentStore.getState().intent).toMatchObject({
+                kind: 'human-draft',
+                text: 'Hello world',
+                mode: 'question',
+            });
+
+            mockSocketEmit.mockClear();
+
+            // Resume handshake completes: server never actually received the
+            // submit, so its resumed conversation still shows the original
+            // awaiting sentinel.
+            act(() => {
+                socketHandlers.onConversationUpdate?.([
+                    { type: 'awaiting_human_question', speaker: 'Sam' },
+                ]);
+            });
+
+            // The reconciler recognizes the intent is still unfulfilled and
+            // resubmits the retained text — the user never has to retype it.
+            expect(mockSocketEmit).toHaveBeenCalledWith('submit_human_message', { text: 'Hello world' });
+            expect(usePendingIntentStore.getState().intent).toBeNull();
+        });
+
+        it('ignores a human-draft intent tagged for a different meeting', () => {
+            renderHook(() =>
+                useCouncilMachine({ ...defaultProps, currentMeetingId: 99, humanName: 'Max' } as any),
+            );
+
+            act(() => {
+                usePendingIntentStore.getState().setPendingIntent({
+                    kind: 'human-draft',
+                    meetingId: 42,
+                    text: 'stale draft',
+                    mode: 'question',
+                    index: 0,
+                });
+            });
+
+            expect(mockSocketEmit).not.toHaveBeenCalledWith('submit_human_message', expect.anything());
+        });
+    });
 });
 

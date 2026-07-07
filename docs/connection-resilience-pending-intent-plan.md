@@ -4,10 +4,10 @@ How the live council survives socket drops without spurious error overlays, dead
 lost user input, or crashes — and the client-side architecture that makes future
 client-driven actions self-heal by default.
 
-**Status:** PR 1 (deferred connection error), PR 2 (server graceful stale-event handling), and PR 3
-(pending intent store + `raise_hand` reconciler) are implemented. PR 4 and PR 5 are spec'd below and
-not yet started. The sendBuffer clear called out in PR 3 was deliberately deferred to PR 4/PR 5 (see
-note there and in "Invariants & backstops").
+**Status:** PR 1 (deferred connection error), PR 2 (server graceful stale-event handling), PR 3
+(pending intent store + `raise_hand` reconciler), and PR 4 (`human-draft` intent) are implemented.
+PR 5 is spec'd below and not yet started. The sendBuffer clear called out in PR 3 was deliberately
+deferred to PR 5 (see note there and in "Invariants & backstops").
 
 **Related docs:** [agent-error-handling-plan.md](./agent-error-handling-plan.md),
 [museum-kiosk-resilience-plan.md](./museum-kiosk-resilience-plan.md).
@@ -238,7 +238,7 @@ Each PR compiles, tests, and delivers value on its own.
 ```
 PR1 (done) ─┐
 PR2 (done, server) ─ independent, can land first
-PR3 (done: store + raise_hand) ──┬── PR4 (human draft) — not started
+PR3 (done: store + raise_hand) ──┬── PR4 (done: human draft)
                                  └── PR5 (extend/conclude) — not started
 ```
 
@@ -273,30 +273,54 @@ emit and the reconnect special-case.
   not right before the `emit()`) — see "Invariants & backstops" for why clear-before-emit was a
   latent bug (it made recovery from an in-flight loss depend on the socket.io `sendBuffer`, which
   the architecture is designed specifically not to rely on).
-- **Sendbuffer clear deferred to PR 4/PR 5.** The plan originally called for clearing the socket
-  `sendBuffer` on disconnect here, in `useCouncilSocket.ts`. Deferred because today `submit_human_*`
-  / `extend_meeting` / `conclude_meeting` are *not yet* intent-backed — the sendBuffer replay is
-  currently their only recovery path, so clearing it now would regress them before PR 4/PR 5 give
+- **Sendbuffer clear deferred to PR 5.** The plan originally called for clearing the socket
+  `sendBuffer` on disconnect here, in `useCouncilSocket.ts`. Deferred because today
+  `extend_meeting` / `conclude_meeting` are *not yet* intent-backed — the sendBuffer replay is
+  currently their only recovery path, so clearing it now would regress them before PR 5 gives
   them an intent-based replacement. It's also only safe to do at all now that clearing is
   fulfillment-based (see above); do it once every intent-bearing event routes through the
   reconciler, so raw events never need to replay.
 
-### PR 4 — Client: route human draft through pendingIntent (preserve typed text)
-Lift the draft out of `HumanInput` local state into a `human-draft` intent on submit; reconciler
-auto-submits when back at `awaiting_*`. Includes the invitation skip (Action A) + auto-submit
-(Action B) decomposition above. Happy path fires instantly (behaviorally unchanged). Clear the
-intent on fulfillment (human message observed in the conversation), matching the PR 3 fix.
+### PR 4 — Client: route human draft through pendingIntent (preserve typed text)  *(done)*
+Adds `HumanDraftIntent` (`pendingIntentStore.ts`) and a `human-draft` reconciler case in
+`useCouncilMachine.ts`. Implemented as a **belt-and-suspenders backstop**, not a replacement for the
+existing submit path: `handleOnSubmitHumanMessage` still applies the submit immediately and
+unconditionally (unchanged happy-path behavior, same as before this PR), but now *also* registers a
+`human-draft` intent first, capturing `{ text, mode, index, speaker }` where `index` is the
+conversation position of the `awaiting_*` sentinel being answered (captured **before** the local
+optimistic truncation removes it — mirrors `raise-hand`'s own `index` field).
+- **Fulfillment check, and why it's keyed on `index` rather than "awaiting absent at array end"**:
+  the reconciler treats the intent as fulfilled once `textMessages[intent.index]` is no longer the
+  expected `awaiting_*` type. In the happy path this becomes true on the very next reconcile pass —
+  the submit's own local truncation already removed it — so the intent clears immediately without
+  ever emitting again (verified by a "no double-submit" test). In the self-heal path (submit lost
+  to a disconnect), the reconciler's global gate (`attemptingReconnect`/`socketUnhealthy`) prevents
+  any pass from running until the resume handshake genuinely completes; when it does, the server's
+  authoritative `conversation_update` — since the server never actually received the submit — still
+  shows the *same* `awaiting_*` sentinel at that index, so the check reads "still awaiting" and the
+  reconciler auto-resubmits the retained text via a shared `performHumanSubmit` helper (used by both
+  the direct path and this retry, so a resubmit behaves identically to the first attempt).
+- **Precondition to actually fire the retry** is `councilState === human_input` / `human_panelist`
+  (per the per-intent policy table above), checked *after* the index-based fulfillment check so that
+  a match on both doesn't get short-circuited by councilState still catching up (e.g. mid invitation
+  replay) — the intent just waits, unfulfilled-but-not-yet-fireable, until councilState arrives.
+- **Not implemented: the invitation-skip Action A/B decomposition.** If the resumed conversation
+  still has an invitation ahead of the awaiting sentinel, the client will replay it before
+  auto-resubmitting — a redundant playback, not a stuck state or crash (the plan's own documented
+  "worst case" for this nuance). Revisit if it proves annoying in practice.
+- Files: `client/src/council/hooks/pendingIntentStore.ts`, `useCouncilMachine.ts`, tests in
+  `useCouncilMachine.test.tsx` (`describe('human-draft intent reconciler')`).
 - Value: typed text is never lost across a reconnect; completes the raise→type→disconnect chain.
-- Depends on PR 3. Not started.
+- Depends on PR 3.
 
 ### PR 5 — Client: route `query_extension` resolution (extend/conclude) through pendingIntent
 Register the user's extend/conclude choice as a `resolve-extension` intent; reconciler auto-fires
 it when back at `query_extension` — no re-click. Optional `skip_human_turn` can ride along. Clear
-the intent on fulfillment, matching the PR 3 fix.
+the intent on fulfillment, matching the PR 3/PR 4 fix.
 - UX note: the overlay may briefly re-show before the intent resolves; consider a transient
   "resuming…" affordance.
-- Once PR 4 and PR 5 both route their events through the reconciler, clear the socket `sendBuffer`
-  on disconnect in `useCouncilSocket.ts` (moved from PR 3 — see note there) so the durable intent
+- Once PR 5 also routes its events through the reconciler, clear the socket `sendBuffer` on
+  disconnect in `useCouncilSocket.ts` (moved from PR 3 — see note there) so the durable intent
   store is the only source of replay for every intent-bearing event.
 - Depends on PR 3. Not started.
 

@@ -16,11 +16,21 @@ export type RaiseHandIntent = {
     humanName: string;
 };
 
-// Future intents (PR4, PR5) will extend this union:
-// | { kind: "human-draft"; meetingId: number; text: string; mode: "question" | "panelist" }
+export type HumanDraftIntent = {
+    kind: "human-draft";
+    meetingId: number;
+    text: string;
+    mode: "question" | "panelist";
+    /** Position of the awaiting_* sentinel this draft answers, captured at submit time. */
+    index: number;
+    /** Character id being answered on behalf of — panelist mode only. */
+    speaker?: string;
+};
+
+// Future intent (PR5) will extend this union:
 // | { kind: "resolve-extension"; meetingId: number; choice: "extend" | "conclude" }
 
-export type PendingIntent = RaiseHandIntent;
+export type PendingIntent = RaiseHandIntent | HumanDraftIntent;
 
 // ---------------------------------------------------------------------------
 // Store
