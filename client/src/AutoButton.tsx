@@ -139,6 +139,10 @@ export default function AutoButton({
     overflow: "hidden",
     backgroundColor: "transparent",
     color: "white",
+    // Isolate the compositing group so mix-blend-mode on the label only blends
+    // within the button (against the fill bar) and does not propagate upward to
+    // break backdrop-filter on parent overlays (Chrome compositor limitation).
+    isolation: "isolate",
     ...style,
   };
 
