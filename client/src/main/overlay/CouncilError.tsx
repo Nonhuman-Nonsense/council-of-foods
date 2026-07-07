@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import errorIcon from "@assets/error.png";
+import errorIcon from "@assets/error.png?inline";
 import AutoButton from "@/AutoButton";
 import {
   MUSEUM_HEALTH_RETRY_SECONDS,

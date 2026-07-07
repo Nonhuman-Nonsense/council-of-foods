@@ -27,7 +27,7 @@ vi.mock("@/settings/councilSettings", async (importOriginal) => {
   };
 });
 
-vi.mock("@assets/error.png", () => ({ default: "error.png" }));
+vi.mock("@assets/error.png?inline", () => ({ default: "data:image/png;base64,test" }));
 
 describe("CouncilError overlay", () => {
   beforeEach(() => {
