@@ -28,7 +28,7 @@ export class ConnectionHandler {
         if (manager.socket) {
             Logger.info(`meeting ${manager.meeting?._id}`, `disconnected (session ${manager.socket.id})`);
         }
-        manager.isLoopActive = false;
+        manager.isActive = false;
     }
 
     /**

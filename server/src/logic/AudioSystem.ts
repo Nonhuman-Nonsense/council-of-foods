@@ -59,9 +59,9 @@ export class AudioSystem {
         this.queue = new AudioQueue(concurrency);
     }
 
-    queueAudioGeneration(message: Message, speaker: Speaker, meeting: StoredMeeting, environment: string, serverOptions: GlobalOptions): void {
+    queueAudioGeneration(message: Message, speaker: Speaker, meeting: StoredMeeting, environment: string, serverOptions: GlobalOptions, skipMatching: boolean = false): void {
         this.queue.add(() =>
-            this.generateAudio(message, speaker, meeting.language, serverOptions, meeting, environment, false, this.generationToken)
+            this.generateAudio(message, speaker, meeting.language, serverOptions, meeting, environment, skipMatching, this.generationToken)
         );
     }
 

@@ -51,6 +51,12 @@ export class MeetingLifecycleHandler {
         const m = manager.meeting;
         if (!m) return;
 
+        const thisMeetingId = m._id;
+        // The conclude sequence has several awaits (chair line, summary, TTS). If the session
+        // is torn down or rebound to a different meeting mid-flight (e.g. reconnect churn),
+        // abort rather than let a zombie conclude keep writing to a doc a newer manager owns.
+        const stale = () => !manager.isActive || manager.meeting?._id !== thisMeetingId;
+
         Logger.info(`meeting ${m._id}`, "attempting to conclude meeting");
 
         const queryExtensionIndex = m.conversation.findIndex((m) => m.type === "query_extension");
@@ -77,6 +83,8 @@ export class MeetingLifecycleHandler {
             m,
             manager.broadcaster
         );
+
+        if (stale()) return;
 
         const closingMessage: Message = {
             id: closingId || "",
@@ -117,6 +125,9 @@ export class MeetingLifecycleHandler {
         const m = manager.meeting;
         if (!m) return;
 
+        const thisMeetingId = m._id;
+        const stale = () => !manager.isActive || manager.meeting?._id !== thisMeetingId;
+
         const chair = m.characters[0];
         const summaryPrompt = manager.serverOptions.summarizeMeetingPrompt[m.language]
             .replace("[DATE]", date)
@@ -126,6 +137,8 @@ export class MeetingLifecycleHandler {
             m,
             manager.serverOptions.summarizeMeetingLength,
         );
+
+        if (stale()) return;
 
         // Strip markdown formatting for TTS (prevents reading "**banana**" as "asterisk banana asterisk")
         const textForAudio = removeMd(response);
@@ -163,16 +176,23 @@ export class MeetingLifecycleHandler {
             sentences: [],
         };
 
-        await manager.audioSystem.generateAudio(
+        // Route the summary through the shared AudioQueue like every other message, so the
+        // provider concurrency cap is enforced in exactly ONE place and can never be bypassed.
+        // skipMatching stays true: the summary is a read-out document, not word-timed
+        // subtitles. waitForIdle then acts as the conclude audio barrier — it waits for the
+        // closing line + summary + any trailing message audio before we mark the meeting
+        // complete below.
+        manager.audioSystem.queueAudioGeneration(
             audioMessage as AudioMessage,
             chair,
-            m.language,
-            manager.serverOptions,
             m,
             manager.environment,
+            manager.serverOptions,
             true
         );
         await manager.audioSystem.waitForIdle();
+
+        if (stale()) return;
 
         if (manager.environment !== "prototype") {
             const stored = await manager.services.meetingsCollection.findOne({ _id: m._id });

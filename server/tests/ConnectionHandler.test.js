@@ -35,7 +35,7 @@ describe('ConnectionHandler', () => {
 
         mockContext = {
             meeting: null,
-            isLoopActive: false,
+            isActive: true,
             handRaised: false,
             serverOptions: MockFactory.createServerOptions({ conversationMaxLength: 50 }),
             broadcaster: mockBroadcaster,
@@ -51,10 +51,10 @@ describe('ConnectionHandler', () => {
     });
 
     describe('handleDisconnect', () => {
-        it('should set isLoopActive to false', () => {
-            mockContext.isLoopActive = true;
+        it('should set isActive to false', () => {
+            mockContext.isActive = true;
             handler.handleDisconnect();
-            expect(mockContext.isLoopActive).toBe(false);
+            expect(mockContext.isActive).toBe(false);
         });
     });
 

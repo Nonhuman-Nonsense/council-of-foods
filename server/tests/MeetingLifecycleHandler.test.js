@@ -62,6 +62,7 @@ describe('MeetingLifecycleHandler', () => {
             serverOptions: sessionServerOptions(),
             socket: { id: 'socket1' },
             environment: 'test',
+            isActive: true,
             isPaused: false,
             broadcaster: mockBroadcaster,
             services: {
@@ -213,8 +214,14 @@ describe('MeetingLifecycleHandler', () => {
             expect(mockContext.dialogGenerator.chairInterjection.mock.calls[0][0]).toBe('Closing meeting #101');
             expect(mockContext.dialogGenerator.generateDocument).toHaveBeenCalledTimes(1);
             expect(mockContext.dialogGenerator.generateDocument.mock.calls[0][0]).toBe('Summary 2025-01-01');
-            expect(mockContext.audioSystem.queueAudioGeneration).toHaveBeenCalledTimes(1);
-            expect(mockContext.audioSystem.generateAudio).toHaveBeenCalledTimes(1);
+            // Both the closing line and the summary flow through the shared audio queue now;
+            // nothing bypasses it via a direct generateAudio call.
+            expect(mockContext.audioSystem.queueAudioGeneration).toHaveBeenCalledTimes(2);
+            const summaryCall = mockContext.audioSystem.queueAudioGeneration.mock.calls
+                .find((call) => call[0]?.type === 'summary');
+            expect(summaryCall).toBeDefined();
+            expect(summaryCall[5]).toBe(true); // summary queued with skipMatching
+            expect(mockContext.audioSystem.generateAudio).not.toHaveBeenCalled();
         });
 
         it('sets maximumPlayedIndex to the summary message index when persisting summary', async () => {
