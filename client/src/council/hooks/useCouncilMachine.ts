@@ -859,11 +859,19 @@ export function useCouncilMachine({
             setCanRaiseHand(false);
             return;
         }
+        // Once the meeting is concluding (closing line + summary_pending) or concluded (summary),
+        // it is finished — hide raise-hand. The marker is broadcast atomically with the closing
+        // line, so this hides the button from the moment the conclusion begins. The server also
+        // rejects late raise-hand requests, so this is purely the UX half of that gate.
+        const isConcluding = textMessages.some(
+            (msg) => msg.type === 'summary_pending' || msg.type === 'summary'
+        );
         setCanRaiseHand(
             (councilState === 'playing' || councilState === 'waiting') &&
-            playingNowIndex === maximumPlayedIndex
+            playingNowIndex === maximumPlayedIndex &&
+            !isConcluding
         );
-    }, [councilState, playingNowIndex, maximumPlayedIndex, liveKey]);
+    }, [councilState, playingNowIndex, maximumPlayedIndex, liveKey, textMessages]);
 
     // Pending intent reconciler.
     //

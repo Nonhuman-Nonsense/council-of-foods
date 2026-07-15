@@ -25,11 +25,12 @@ function sliceConversation(meeting: Meeting): Message[] {
     return conv.slice(0, cap + 1);
 }
 
-/** Pop tail while last message is a live human-wait placeholder or a dangling `invitation`. */
+/** Pop tail while last message is a live human-wait placeholder, a dangling `invitation`, or a
+ *  not-yet-generated `summary_pending` marker. */
 export function stripAwaitingHumanTail(messages: Message[]): void {
     while (messages.length > 0) {
         const t = messages[messages.length - 1]?.type;
-        if (t === "invitation" || t === "awaiting_human_question" || t === "awaiting_human_panelist" || t === "query_extension") {
+        if (t === "invitation" || t === "awaiting_human_question" || t === "awaiting_human_panelist" || t === "query_extension" || t === "summary_pending") {
             messages.pop();
         } else {
             break;

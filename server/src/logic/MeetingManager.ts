@@ -45,14 +45,17 @@ const PLAYBACK_AHEAD_BUFFER = 3;
 const RUNAWAY_MARGIN = 5;
 
 interface Decision {
-    type: 'QUERY_EXTENSION' | 'CONCLUDE_MEETING' | 'IDLE' | 'REQUEST_PANELIST' | 'GENERATE_AI_RESPONSE';
+    type: 'QUERY_EXTENSION' | 'CONCLUDE_MEETING' | 'GENERATE_SUMMARY' | 'IDLE' | 'REQUEST_PANELIST' | 'GENERATE_AI_RESPONSE';
     speaker?: Character;
 }
 
 function stopsConversationLoop(action: Decision): boolean {
+    // Note: CONCLUDE_MEETING and GENERATE_SUMMARY are NOT terminal. Concluding pushes the
+    // closing line + a `summary_pending` marker; the loop must keep running so the next
+    // iteration picks up that marker (→ GENERATE_SUMMARY) and produces the summary, after
+    // which the tail becomes a real `summary` and rule 1 of decideNextAction returns IDLE.
     return action.type === 'IDLE'
-        || action.type === 'QUERY_EXTENSION'
-        || action.type === 'CONCLUDE_MEETING';
+        || action.type === 'QUERY_EXTENSION';
 }
 
 /**
@@ -399,6 +402,15 @@ export class MeetingManager implements IMeetingManager {
             return { type: 'IDLE' };
         }
 
+        // 0a. A concluding meeting always finishes: if the tail is a `summary_pending` marker,
+        //     generate the summary NOW — no pause, raised hand, cap, or playback buffer may
+        //     block or divert it. This is deliberately the first rule so a stale handRaised/
+        //     isPaused (e.g. carried in on reconnect) can never strand the conclusion.
+        if (meeting.conversation.length > 0
+            && meeting.conversation[meeting.conversation.length - 1].type === 'summary_pending') {
+            return { type: 'GENERATE_SUMMARY' };
+        }
+
         // 0. No work while paused or interrupted.
         if (this.isPaused || this.handRaised) {
             return { type: 'IDLE' };
@@ -475,6 +487,14 @@ export class MeetingManager implements IMeetingManager {
                 Logger.info(`meeting ${meeting._id}`, 'hard cap reached, auto conclude meeting');
                 const date = new Date().toISOString().slice(0, 10);
                 await this.meetingLifecycleHandler.handleConcludeMeeting({ date });
+                return;
+            }
+
+            case 'GENERATE_SUMMARY': {
+                // The tail is a `summary_pending` marker (from handleConcludeMeeting). Generate
+                // the summary and replace the marker in place with the real `summary` message.
+                const date = new Date().toISOString().slice(0, 10);
+                await this.meetingLifecycleHandler.generateSummary({ date });
                 return;
             }
 

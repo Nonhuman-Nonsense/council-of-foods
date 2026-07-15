@@ -1,12 +1,43 @@
 import type { Message } from '@shared/ModelTypes.js';
 import type { ConcludeMeetingMessage, SetupOptions } from '@shared/SocketTypes.js';
-import type { ILifecycleContext } from "@interfaces/MeetingInterfaces.js";
+import type { ILifecycleContext, IMeetingContext, IMeetingState } from "@interfaces/MeetingInterfaces.js";
 import type { Message as AudioMessage } from "@logic/AudioSystem.js";
 import { splitSentences } from "@shared/textUtils.js";
 import { Logger } from "@utils/Logger.js";
 import removeMd from 'remove-markdown';
 import type { StoredMeeting } from "@models/DBModels.js";
 import { isCompleteReplayManifest } from "../api/replayManifest.js";
+
+/**
+ * Promotes a concluded meeting to `meetingComplete: true` — but only once its replay manifest
+ * is genuinely complete (ends in a `summary` whose audio is persisted). Called at the end of the
+ * live summary flow AND on reconnect (to heal a crash that landed between the summary write and
+ * the promotion). Idempotent and safe to call whenever the meeting *might* be finished.
+ */
+export async function promoteMeetingCompleteIfReady(
+    ctx: IMeetingContext & IMeetingState,
+): Promise<void> {
+    const m = ctx.meeting;
+    if (!m || ctx.environment === "prototype") return;
+
+    const stored = await ctx.services.meetingsCollection.findOne({ _id: m._id });
+    if (!stored) return;
+
+    const { liveKey: _liveKey, ...meeting } = stored as StoredMeeting;
+    if (isCompleteReplayManifest(meeting)) {
+        await ctx.services.meetingsCollection.updateOne(
+            { _id: m._id },
+            { $set: { meetingComplete: true } },
+        );
+        m.meetingComplete = true;
+    } else {
+        Logger.warn(
+            "meeting",
+            "conclude audio barrier finished but replay manifest is incomplete; meetingComplete left false",
+            { from: ctx },
+        );
+    }
+}
 
 /**
  * Manages the high-level lifecycle of a meeting: Start, Conclude, Extend, and Summarize.
@@ -96,7 +127,14 @@ export class MeetingLifecycleHandler {
             pretrimmed: closingPretrimmed,
         };
 
+        // Push the closing line AND a durable `summary_pending` marker in a SINGLE write. This
+        // is atomic: there is never a persisted/broadcast state with the closing but not the
+        // marker (no await between the two pushes). The run loop then generates the summary on
+        // its next iteration (decideNextAction → GENERATE_SUMMARY). Because the marker is
+        // durable, a disconnect anywhere in the conclude recovers cleanly — resume sees the
+        // marker and regenerates the summary, with no duplicate closing line.
         m.conversation.push(closingMessage);
+        m.conversation.push({ type: "summary_pending" });
         Logger.info(`meeting ${m._id}`, `closing statement generated on index ${closingIndex}`);
 
         manager.broadcaster.broadcastConversationUpdate(m.conversation);
@@ -114,16 +152,26 @@ export class MeetingLifecycleHandler {
             manager.serverOptions
         );
 
-        await this.summarizeMeeting(message.date);
+        // Kick the loop so it picks up the summary_pending marker and generates the summary.
+        // Auto-conclude (loop-driven) is already running, so this just latches a wake; the
+        // socket-driven conclude re-enters the loop once its transition settles.
+        manager.startLoop();
     }
 
     /**
-     * Generates and persists the meeting summary after the chair closing line.
+     * Generates the meeting summary and replaces the trailing `summary_pending` marker in place
+     * with the real `summary` message. Driven by the run loop (GENERATE_SUMMARY) on both the
+     * happy path and on reconnect after a mid-conclude disconnect — a single code path, so the
+     * two can never diverge.
      */
-    private async summarizeMeeting(date: string): Promise<void> {
+    async generateSummary({ date }: { date: string }): Promise<void> {
         const { manager } = this;
         const m = manager.meeting;
         if (!m) return;
+
+        // Nothing to do if the marker is already resolved (e.g. a duplicate wake). Guard before
+        // spending an LLM call.
+        if (m.conversation.findIndex((msg) => msg.type === "summary_pending") === -1) return;
 
         const thisMeetingId = m._id;
         const stale = () => !manager.isActive || manager.meeting?._id !== thisMeetingId;
@@ -153,8 +201,15 @@ export class MeetingLifecycleHandler {
             pretrimmed: undefined,
         };
 
-        m.conversation.push(summary);
-        const summaryIndex = m.conversation.length - 1;
+        // Replace the marker in place so the summary occupies the same (tail) index. Removing
+        // the marker as soon as we have the TEXT means the client shows the summary immediately;
+        // its audio (queued below) arrives shortly after. If a crash lands after this write but
+        // before the audio/promotion, reconnect self-heals: missing audio is regenerated and the
+        // promotion re-runs (see ConnectionHandler). Re-find after the await in case a concurrent
+        // event shifted the marker.
+        const summaryIndex = m.conversation.findIndex((msg) => msg.type === "summary_pending");
+        if (summaryIndex === -1) return;
+        m.conversation[summaryIndex] = summary;
         m.maximumPlayedIndex = summaryIndex;
 
         manager.broadcaster.broadcastConversationUpdate(m.conversation);
@@ -178,10 +233,9 @@ export class MeetingLifecycleHandler {
 
         // Route the summary through the shared AudioQueue like every other message, so the
         // provider concurrency cap is enforced in exactly ONE place and can never be bypassed.
-        // skipMatching stays true: the summary is a read-out document, not word-timed
-        // subtitles. waitForIdle then acts as the conclude audio barrier — it waits for the
-        // closing line + summary + any trailing message audio before we mark the meeting
-        // complete below.
+        // skipMatching stays true: the summary is a read-out document, not word-timed subtitles.
+        // waitForIdle then acts as the conclude audio barrier — it waits for the closing line +
+        // summary + any trailing message audio before we promote meetingComplete.
         manager.audioSystem.queueAudioGeneration(
             audioMessage as AudioMessage,
             chair,
@@ -194,25 +248,7 @@ export class MeetingLifecycleHandler {
 
         if (stale()) return;
 
-        if (manager.environment !== "prototype") {
-            const stored = await manager.services.meetingsCollection.findOne({ _id: m._id });
-            if (stored) {
-                const { liveKey: _liveKey, ...meeting } = stored as StoredMeeting;
-                if (isCompleteReplayManifest(meeting)) {
-                    await manager.services.meetingsCollection.updateOne(
-                        { _id: m._id },
-                        { $set: { meetingComplete: true } },
-                    );
-                    m.meetingComplete = true;
-                } else {
-                    Logger.warn(
-                        "meeting",
-                        "conclude audio barrier finished but replay manifest is incomplete; meetingComplete left false",
-                        { from: manager },
-                    );
-                }
-            }
-        }
+        await promoteMeetingCompleteIfReady(manager);
     }
 
     /**

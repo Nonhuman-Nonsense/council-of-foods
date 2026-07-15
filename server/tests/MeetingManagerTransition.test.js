@@ -7,15 +7,16 @@ describe('MeetingManager conversation transitions', () => {
         clearLiveSessionRegistryForTests();
     });
 
-    it('defers loop restarts from playback progress while conclude_meeting is generating summary', async () => {
-        let finishSummary;
+    it('defers loop restarts from playback progress while conclude_meeting generates the closing line', async () => {
+        // The conclude transition now only pushes the closing line + a summary_pending marker
+        // (the summary itself is generated later by the loop). Hold the transition open via the
+        // deferred closing line and assert a playback-progress event is deferred meanwhile.
+        let finishClosing;
         const { manager } = createTestManager('test');
         tryAcquireLiveSession(manager.meeting._id, manager.socket.id, manager.meeting.liveKey);
         manager.serverOptions.conversationMaxLength = 3;
         manager.serverOptions.concludeMeetingPrompt = { en: 'Closing' };
         manager.serverOptions.concludeMeetingLength = 10;
-        manager.serverOptions.summarizeMeetingPrompt = { en: 'Summary [DATE]' };
-        manager.serverOptions.summarizeMeetingLength = 10;
         manager.meeting.conversationExtraSlots = 0;
         manager.meeting.maximumPlayedIndex = 2;
         manager.meeting.conversation = [
@@ -23,20 +24,19 @@ describe('MeetingManager conversation transitions', () => {
             { type: 'query_extension' },
         ];
         manager.dialogGenerator.chairInterjection = vi.fn()
-            .mockResolvedValueOnce({ response: 'Closing line', id: 'close1' });
-        manager.dialogGenerator.generateDocument = vi.fn()
             .mockReturnValueOnce(new Promise((resolve) => {
-                finishSummary = () => resolve({ response: 'Summary', id: 'sum1' });
+                finishClosing = () => resolve({ response: 'Closing line', id: 'close1' });
             }));
-        manager.audioSystem.generateAudio = vi.fn().mockResolvedValue();
         manager.audioSystem.queueAudioGeneration = vi.fn();
         const runLoop = vi.spyOn(manager, 'runLoop').mockImplementation(() => {});
 
         const concludeEvent = manager.handleEvent('conclude_meeting', { date: '2025-01-01' });
 
+        // Transition is active while the closing line generates: query_extension already stripped,
+        // closing not yet pushed.
         await vi.waitFor(() => {
             expect(manager.meeting.conversation.map((message) => message.type)).toEqual([
-                'message', 'message', 'message', 'message',
+                'message', 'message', 'message',
             ]);
         });
 
@@ -45,10 +45,12 @@ describe('MeetingManager conversation transitions', () => {
 
         expect(runLoop).not.toHaveBeenCalled();
 
-        finishSummary();
+        finishClosing();
         await concludeEvent;
 
-        expect(manager.meeting.conversation.map((message) => message.type)).toEqual(['message', 'message', 'message', 'message', 'summary']);
+        // Closing + summary_pending pushed atomically; the loop (mocked here) would then generate
+        // the summary. The deferred playback wake fires exactly once as the transition settles.
+        expect(manager.meeting.conversation.map((message) => message.type)).toEqual(['message', 'message', 'message', 'message', 'summary_pending']);
         expect(runLoop).toHaveBeenCalledTimes(1);
     });
 

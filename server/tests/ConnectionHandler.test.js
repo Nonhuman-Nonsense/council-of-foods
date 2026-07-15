@@ -30,7 +30,8 @@ describe('ConnectionHandler', () => {
         };
 
         mockAudioSystem = {
-            queueAudioGeneration: vi.fn()
+            queueAudioGeneration: vi.fn(),
+            waitForIdle: vi.fn().mockResolvedValue(undefined)
         };
 
         mockContext = {
@@ -79,6 +80,53 @@ describe('ConnectionHandler', () => {
 
             expect(mockContext.startLoop).toHaveBeenCalled();
             expect(mockBroadcaster.broadcastConversationUpdate).toHaveBeenCalledWith(savedMeeting.conversation);
+        });
+
+        it('heals a concluded-but-unpromoted meeting on reconnect (promotes meetingComplete)', async () => {
+            // Crash landed after the summary was written but before meetingComplete was set:
+            // the tail is a real summary (no summary_pending marker), so the loop won't re-run
+            // GENERATE_SUMMARY. Reconnect must regenerate missing audio, drain, and promote.
+            const concluded = MockFactory.createStoredMeeting({
+                _id: 123,
+                conversation: [
+                    { id: 'm0', type: 'message', speaker: 'water', text: 'hi' },
+                    { id: 'sum1', type: 'summary', speaker: 'chair', text: 'Summary', sentences: [] },
+                ],
+                audio: ['m0', 'sum1'],
+                maximumPlayedIndex: 1,
+                meetingComplete: false,
+            });
+            mockMeetingsCollection.findOne.mockResolvedValue(concluded);
+
+            const ok = await handler.handleReconnection({ meetingId: 123, liveKey: concluded.liveKey });
+
+            expect(ok).toBe(true);
+            expect(mockAudioSystem.waitForIdle).toHaveBeenCalled();
+            expect(mockMeetingsCollection.updateOne).toHaveBeenCalledWith(
+                { _id: 123 },
+                { $set: { meetingComplete: true } },
+            );
+        });
+
+        it('does NOT run the promotion path for a mid-meeting reconnect', async () => {
+            const midMeeting = MockFactory.createStoredMeeting({
+                _id: 123,
+                conversation: [
+                    { id: 'm0', type: 'message', speaker: 'water', text: 'hi' },
+                    { id: 'm1', type: 'message', speaker: 'tomato', text: 'there' },
+                ],
+                audio: ['m0', 'm1'],
+                meetingComplete: false,
+            });
+            mockMeetingsCollection.findOne.mockResolvedValue(midMeeting);
+
+            await handler.handleReconnection({ meetingId: 123, liveKey: midMeeting.liveKey });
+
+            expect(mockAudioSystem.waitForIdle).not.toHaveBeenCalled();
+            expect(mockMeetingsCollection.updateOne).not.toHaveBeenCalledWith(
+                { _id: 123 },
+                { $set: { meetingComplete: true } },
+            );
         });
 
         it('should broadcast notification if meeting not found', async () => {

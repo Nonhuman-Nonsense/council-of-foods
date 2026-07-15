@@ -5,6 +5,7 @@ import type { StoredMeeting } from "@models/DBModels.js";
 import { splitSentences } from "@shared/textUtils.js";
 import { ForbiddenError, NotFoundError } from "@models/Errors.js";
 import { Logger } from "@utils/Logger.js";
+import { promoteMeetingCompleteIfReady } from "@logic/MeetingLifecycleHandler.js";
 
 /**
  * Manages socket connection events (disconnect, reconnect).
@@ -63,7 +64,13 @@ export class ConnectionHandler {
             }
 
             manager.meeting = existingMeeting as StoredMeeting;
-            manager.handRaised = options.handRaised ?? false;
+
+            // A concluding/concluded meeting is finished: never carry in a stale raised hand,
+            // which would otherwise stall the summary generation (decideNextAction's rule 0).
+            const isConcluding = existingMeeting.conversation.some(
+                (msg) => msg.type === 'summary_pending' || msg.type === 'summary'
+            );
+            manager.handRaised = isConcluding ? false : (options.handRaised ?? false);
 
             // TODO, check how the server stores extraMessageCount
             // const baseMax = manager.serverOptions.conversationMaxLength;
@@ -76,6 +83,7 @@ export class ConnectionHandler {
                 if (existingMeeting.conversation[i].type === 'awaiting_human_panelist') continue;
                 if (existingMeeting.conversation[i].type === 'awaiting_human_question') continue;
                 if (existingMeeting.conversation[i].type === 'query_extension') continue;
+                if (existingMeeting.conversation[i].type === 'summary_pending') continue;
                 const msgId = existingMeeting.conversation[i].id;
                 if (msgId && existingMeeting.audio.indexOf(msgId) === -1) {
                     missingAudio.push(existingMeeting.conversation[i]);
@@ -108,6 +116,17 @@ export class ConnectionHandler {
             // Simply ensure loop is running.
             // Idempotency in MeetingManager prevents double-start.
             manager.startLoop();
+
+            // Heal a concluded-but-unpromoted meeting: if a crash landed after the summary was
+            // written but before meetingComplete was set, the summary_pending marker is already
+            // gone (a real summary is at the tail), so the loop won't re-run GENERATE_SUMMARY.
+            // The missing summary audio was queued above; drain it, then re-run the promotion.
+            const lastMsg = existingMeeting.conversation[existingMeeting.conversation.length - 1];
+            if (lastMsg?.type === 'summary' && !existingMeeting.meetingComplete) {
+                await manager.audioSystem.waitForIdle();
+                await promoteMeetingCompleteIfReady(manager);
+            }
+
             return true;
         } catch (error) {
             Logger.reportAndCrashClient("meeting", "Error resuming conversation", {
