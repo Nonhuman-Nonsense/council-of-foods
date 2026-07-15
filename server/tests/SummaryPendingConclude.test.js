@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createTestManager } from './commonSetup.js';
-import { stripAwaitingHumanTail } from '@api/replayManifest.js';
+import { stripAwaitingHumanTail, buildResumeConversation, buildReplayMeetingManifest } from '@api/replayManifest.js';
 import { promoteMeetingCompleteIfReady } from '@logic/MeetingLifecycleHandler.js';
 import { MockFactory } from './factories/MockFactory.ts';
 
@@ -117,14 +117,45 @@ describe('summary_pending conclude marker', () => {
         expect(chair).not.toHaveBeenCalled();            // no invitation generated
     });
 
-    it('stripAwaitingHumanTail pops a trailing summary_pending marker', () => {
-        const messages = [
+    it('resume KEEPS the summary_pending marker so the resumed live loop finishes the summary', () => {
+        // stripAwaitingHumanTail must NOT strip it: buildResumeConversation persists straight back
+        // to the DB, so dropping the marker would lose the summary on resume.
+        const tail = [
             { id: 'm0', type: 'message', speaker: 's', text: 'hi' },
             { id: 'close1', type: 'message', speaker: 'chair', text: 'Closing' },
             { type: 'summary_pending' },
         ];
-        stripAwaitingHumanTail(messages);
-        expect(messages.map((m) => m.type)).toEqual(['message', 'message']);
+        stripAwaitingHumanTail(tail);
+        expect(tail.map((m) => m.type)).toEqual(['message', 'message', 'summary_pending']);
+
+        const meeting = MockFactory.createStoredMeeting({
+            _id: 950,
+            conversation: [
+                { id: 'm0', type: 'message', speaker: 'water', text: 'hi' },
+                { id: 'close1', type: 'message', speaker: 'chair', text: 'Closing' },
+                { type: 'summary_pending' },
+            ],
+            audio: ['m0', 'close1'],
+            maximumPlayedIndex: 2,
+        });
+        expect(buildResumeConversation(meeting).map((m) => m.type)).toEqual(['message', 'message', 'summary_pending']);
+    });
+
+    it('replay STRIPS the summary_pending marker and shows meeting_incomplete', () => {
+        // Read-only replay has no live server to generate the summary, so a mid-conclude meeting
+        // must present as incomplete rather than a placeholder that never resolves.
+        const meeting = MockFactory.createStoredMeeting({
+            _id: 951,
+            conversation: [
+                { id: 'm0', type: 'message', speaker: 'water', text: 'hi' },
+                { id: 'close1', type: 'message', speaker: 'chair', text: 'Closing' },
+                { type: 'summary_pending' },
+            ],
+            audio: ['m0', 'close1'],
+            maximumPlayedIndex: 2,
+        });
+        const manifest = buildReplayMeetingManifest(meeting);
+        expect(manifest.conversation.map((m) => m.type)).toEqual(['message', 'message', 'meeting_incomplete']);
     });
 });
 
