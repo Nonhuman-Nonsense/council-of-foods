@@ -25,7 +25,12 @@ function sliceConversation(meeting: Meeting): Message[] {
     return conv.slice(0, cap + 1);
 }
 
-/** Pop tail while last message is a live human-wait placeholder or a dangling `invitation`. */
+/** Pop tail while last message is a live human-wait placeholder or a dangling `invitation`.
+ *
+ *  IMPORTANT: this deliberately does NOT strip `summary_pending`. That marker means "the server
+ *  still owes a summary here", and `buildResumeConversation` feeds directly back into the DB on
+ *  resume — stripping it would drop the marker so the resumed live session never finishes the
+ *  conclude. Replay (read-only) strips it separately; see `buildReplayMeetingManifest`. */
 export function stripAwaitingHumanTail(messages: Message[]): void {
     while (messages.length > 0) {
         const t = messages[messages.length - 1]?.type;
@@ -98,6 +103,14 @@ export function buildReplayMeetingManifest(meeting: Meeting): Meeting {
     conversation = truncateToAvailableAudio(conversation, meeting.audio);
 
     stripAwaitingHumanTail(conversation);
+
+    // Replay is read-only: a not-yet-generated summary can never be produced here, so drop a
+    // trailing summary_pending marker and let it fall through to `meeting_incomplete` below —
+    // rather than handing the client a summary placeholder that would sit in Loading forever.
+    // (Resume deliberately keeps the marker; see stripAwaitingHumanTail's note.)
+    while (conversation.length > 0 && conversation[conversation.length - 1]?.type === "summary_pending") {
+        conversation.pop();
+    }
 
     if (conversation.length === 0) {
         throw new BadRequestError("No messages available for replay.");

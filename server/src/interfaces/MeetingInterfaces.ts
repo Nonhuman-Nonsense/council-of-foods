@@ -89,7 +89,8 @@ export interface IMeetingState {
  */
 export interface IMeetingControl {
     startLoop: () => void;
-    isLoopActive: boolean;
+    /** Session liveness (not "a loop is running"): false once the session is torn down. */
+    isActive: boolean;
 }
 
 /**

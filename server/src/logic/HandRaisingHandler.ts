@@ -37,6 +37,15 @@ export class HandRaisingHandler {
             return;
         }
 
+        // Once a meeting is concluding (closing line + summary_pending) or concluded (summary),
+        // it is finished — reject any raise-hand. Critical for correctness, not just UX: the
+        // slice() below would otherwise truncate the conclusion. The client hides the button too,
+        // but the server must not trust that.
+        if (m.conversation.some((msg) => msg.type === "summary_pending" || msg.type === "summary")) {
+            Logger.staleEvent(`meeting ${m._id}`, "raise_hand", "meeting is concluding/concluded", { from: manager });
+            return;
+        }
+
         Logger.info(`meeting ${m._id}`, `hand raised on index ${handRaisedOptions.index - 1}`);
 
         manager.handRaised = true;

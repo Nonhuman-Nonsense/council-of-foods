@@ -62,6 +62,7 @@ describe('MeetingLifecycleHandler', () => {
             serverOptions: sessionServerOptions(),
             socket: { id: 'socket1' },
             environment: 'test',
+            isActive: true,
             isPaused: false,
             broadcaster: mockBroadcaster,
             services: {
@@ -143,13 +144,17 @@ describe('MeetingLifecycleHandler', () => {
                 ]
             });
 
+            // Conclude pushes closing + a summary_pending marker atomically...
             await handler.handleConcludeMeeting({ date: '2025-01-01' });
+            expect(mockContext.meeting.conversation.map((m) => m.type)).toEqual(['message', 'message', 'summary_pending']);
+            // ...and the loop step turns the marker into the real summary in place.
+            await handler.generateSummary({ date: '2025-01-01' });
 
             expect(mockContext.meeting.conversation.map((m) => m.type)).toEqual(['message', 'message', 'summary']);
             expect(mockContext.meeting.conversation[1].text).toBe('Thank you all for a rich discussion.');
         });
 
-        it('broadcasts closing before summary is generated', async () => {
+        it('broadcasts closing + summary_pending atomically, then the summary separately', async () => {
             let finishSummary;
             mockContext.dialogGenerator.chairInterjection = vi.fn()
                 .mockResolvedValueOnce({ response: 'Closing line', id: 'close1' });
@@ -161,14 +166,18 @@ describe('MeetingLifecycleHandler', () => {
                 conversation: [{ id: '1', text: 'hi', type: 'message', speaker: chair.id }],
             });
 
-            const concludeMeeting = handler.handleConcludeMeeting({ date: '2025-01-01' });
-            await Promise.resolve();
-
-            expect(mockContext.meeting.conversation.map((m) => m.type)).toEqual(['message', 'message']);
+            // Closing line + marker land together in one broadcast; the summary is not generated yet.
+            await handler.handleConcludeMeeting({ date: '2025-01-01' });
+            expect(mockContext.meeting.conversation.map((m) => m.type)).toEqual(['message', 'message', 'summary_pending']);
             expect(mockBroadcaster.broadcastConversationUpdate).toHaveBeenCalledTimes(1);
 
+            const summarize = handler.generateSummary({ date: '2025-01-01' });
+            await Promise.resolve();
+            // Still pending — summary text not resolved yet, marker unchanged.
+            expect(mockContext.meeting.conversation.map((m) => m.type)).toEqual(['message', 'message', 'summary_pending']);
+
             finishSummary();
-            await concludeMeeting;
+            await summarize;
 
             expect(mockContext.meeting.conversation.map((m) => m.type)).toEqual(['message', 'message', 'summary']);
             expect(mockBroadcaster.broadcastConversationUpdate).toHaveBeenCalledTimes(2);
@@ -180,6 +189,7 @@ describe('MeetingLifecycleHandler', () => {
             });
 
             await handler.handleConcludeMeeting({ date: '2025-01-01' });
+            await handler.generateSummary({ date: '2025-01-01' });
 
             expect(mockContext.meeting.conversation.map((m) => m.type)).toEqual(['message', 'message', 'summary']);
         });
@@ -208,13 +218,20 @@ describe('MeetingLifecycleHandler', () => {
             });
 
             await handler.handleConcludeMeeting({ date: '2025-01-01' });
+            await handler.generateSummary({ date: '2025-01-01' });
 
             expect(mockContext.dialogGenerator.chairInterjection).toHaveBeenCalledTimes(1);
             expect(mockContext.dialogGenerator.chairInterjection.mock.calls[0][0]).toBe('Closing meeting #101');
             expect(mockContext.dialogGenerator.generateDocument).toHaveBeenCalledTimes(1);
             expect(mockContext.dialogGenerator.generateDocument.mock.calls[0][0]).toBe('Summary 2025-01-01');
-            expect(mockContext.audioSystem.queueAudioGeneration).toHaveBeenCalledTimes(1);
-            expect(mockContext.audioSystem.generateAudio).toHaveBeenCalledTimes(1);
+            // The closing line (from conclude) and the summary (from generateSummary) both flow
+            // through the shared audio queue; nothing bypasses it via a direct generateAudio call.
+            expect(mockContext.audioSystem.queueAudioGeneration).toHaveBeenCalledTimes(2);
+            const summaryCall = mockContext.audioSystem.queueAudioGeneration.mock.calls
+                .find((call) => call[0]?.type === 'summary');
+            expect(summaryCall).toBeDefined();
+            expect(summaryCall[5]).toBe(true); // summary queued with skipMatching
+            expect(mockContext.audioSystem.generateAudio).not.toHaveBeenCalled();
         });
 
         it('sets maximumPlayedIndex to the summary message index when persisting summary', async () => {
@@ -223,6 +240,7 @@ describe('MeetingLifecycleHandler', () => {
             });
 
             await handler.handleConcludeMeeting({ date: '2025-01-01' });
+            await handler.generateSummary({ date: '2025-01-01' });
 
             const summaryIndex = mockContext.meeting.conversation.length - 1;
             expect(mockContext.meeting.conversation[summaryIndex].type).toBe('summary');

@@ -71,7 +71,9 @@ describe('MeetingManager - Conversation Flow', () => {
         // So safe to call processTurn directly for unit test if we want to check that specific guard.
         // But better to call runLoop or startLoop to test the flow.
         protoManager.startLoop();
-        await vi.waitFor(() => expect(protoManager.isLoopActive).toBe(false));
+        // While paused the loop runs a single IDLE iteration and exits, so the run loop
+        // stops (loopRunning=false) while the session stays alive (isActive=true).
+        await vi.waitFor(() => expect(protoManager.loopRunning).toBe(false));
         expect(SpeakerSelector.calculateNextSpeaker).not.toHaveBeenCalled();
 
         // Resume
@@ -88,15 +90,15 @@ describe('MeetingManager - Conversation Flow', () => {
 
         expect(protoManager.isPaused).toBe(false);
 
-        // Cleanup: Stop the loop to prevent leakage into other tests
-        protoManager.isLoopActive = false;
+        // Cleanup: Kill the session to stop the loop and prevent leakage into other tests
+        protoManager.isActive = false;
     });
 
     it('should stop conversation when max length is reached', async () => {
         manager.serverOptions.conversationMaxLength = 5;
         manager.meeting.conversationExtraSlots = 0;
         manager.meeting.conversation = new Array(5).fill({ type: 'message' });
-        manager.isLoopActive = true;
+        manager.isActive = true;
 
         const spy = vi.spyOn(SpeakerSelector, 'calculateNextSpeaker');
 
@@ -124,7 +126,7 @@ describe('MeetingManager - Conversation Flow', () => {
         manager.serverOptions.meetingVeryMaxLength = 5;
         manager.meeting.conversationExtraSlots = 0;
         manager.meeting.conversation = new Array(5).fill({ type: 'message' });
-        manager.isLoopActive = true;
+        manager.isActive = true;
 
         await manager.runLoop();
 
@@ -163,7 +165,7 @@ describe('MeetingManager - Conversation Flow', () => {
             getOpenAI: mockGetOpenAI
         });
         diManager.meeting._id = 1;
-        diManager.isLoopActive = true;
+        diManager.isActive = true;
 
         diManager.serverOptions.conversationMaxLength = 10;
         // Mock current speaker to Tomato (index 1 in default, 2 in extended? Default has Water, Tomato, Potato)

@@ -70,8 +70,8 @@ describe('Audio Queue Draining', () => {
 
         // 5. Assertions
 
-        // A: Loop must be inactive
-        expect(p1.manager.isLoopActive).toBe(false);
+        // A: Session must be torn down (stops the loop and aborts in-flight generation)
+        expect(p1.manager.isActive).toBe(false);
 
         // B: Capture current audio completions
         const _completionsAtDestroy = [...audioCompletions];
