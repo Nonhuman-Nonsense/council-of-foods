@@ -5,6 +5,7 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 import { Logger } from "@utils/Logger.js";
 import { PronunciationUtils } from "@utils/PronunciationUtils.js";
+import type { ProvidesReportContext } from "@interfaces/ReportContext.js";
 
 export type AudioTask = () => Promise<void>;
 
@@ -13,12 +14,14 @@ export class AudioQueue {
     activeCount: number;
     concurrency: number;
     private idleResolvers: Array<() => void>;
+    private readonly reportFrom?: ProvidesReportContext;
 
-    constructor(concurrency: number = 3) {
+    constructor(concurrency: number = 3, reportFrom?: ProvidesReportContext) {
         this.queue = [];
         this.activeCount = 0;
         this.concurrency = concurrency;
         this.idleResolvers = [];
+        this.reportFrom = reportFrom;
     }
 
     add(task: AudioTask): void {
@@ -45,7 +48,7 @@ export class AudioQueue {
                 this.processNext();
             } catch (error) {
                 //This block will only catch synchronous errors
-                Logger.error("AudioSystem", "Error starting audio task", { error });
+                Logger.error("AudioSystem", "Error starting audio task", { error, from: this.reportFrom });
                 this.activeCount--;
             }
         }
@@ -56,7 +59,7 @@ export class AudioQueue {
             await task();
         } catch (error) {
             //This block will catch asynchronous errors
-            Logger.error("AudioSystem", "Audio Task Error", { error });
+            Logger.error("AudioSystem", "Audio Task Error", { error, from: this.reportFrom });
         } finally {
             this.activeCount--;
             this.resolveIdleIfNeeded();

@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createTestManager } from './commonSetup.js';
 import { SpeakerSelector } from '@logic/SpeakerSelector.js';
 import { Logger } from '@utils/Logger.js';
+import { ABSOLUTE_MAX_CONVERSATION_LENGTH } from '@logic/MeetingManager.js';
 
 /**
  * Regression coverage for the run-loop hardening (see MeetingManager.runLoop / startLoop).
@@ -145,8 +146,12 @@ describe('MeetingManager run-loop hardening', () => {
 
     it('hard-stops and reports when the conversation blows past the runaway ceiling', async () => {
         const { manager } = createTestManager('test');
-        manager.serverOptions.meetingVeryMaxLength = 30; // ceiling = 30 + RUNAWAY_MARGIN(5) = 35
-        manager.meeting.conversation = fillConversation(40); // already a runaway
+        // The ceiling is a fixed constant, deliberately independent of
+        // serverOptions.meetingVeryMaxLength — even a generous/misconfigured meetingVeryMaxLength
+        // cannot raise it. A wildly generous meetingVeryMaxLength here proves the breaker still
+        // trips on the fixed ceiling, not on server config.
+        manager.serverOptions.meetingVeryMaxLength = 1000;
+        manager.meeting.conversation = fillConversation(ABSOLUTE_MAX_CONVERSATION_LENGTH + 1);
 
         const crashSpy = vi.spyOn(Logger, 'reportAndCrashClient').mockImplementation(() => {});
         const decideSpy = vi.spyOn(manager, 'decideNextAction');
@@ -154,13 +159,46 @@ describe('MeetingManager run-loop hardening', () => {
         await manager.runLoop();
 
         expect(crashSpy).toHaveBeenCalledWith(
-            'meeting',
+            'MeetingManager',
             'Runaway conversation length; aborting loop',
             expect.anything()
         );
         expect(manager.isActive).toBe(false);       // session killed
         expect(manager.loopRunning).toBe(false);    // loop released
         expect(decideSpy).not.toHaveBeenCalled();   // breaker fires before any decision/generation
+    });
+
+    it('does NOT trip the breaker for a meeting legitimately reaching its configured hard cap', async () => {
+        // Guards against accidentally re-deriving the ceiling from serverOptions again: a
+        // meeting that reaches its own (real default) meetingVeryMaxLength and concludes must
+        // not be mistaken for a runaway just because the fixed ceiling sits close to it.
+        const { manager } = createTestManager('test');
+        const hardCap = 30; // the real deployed default
+        manager.serverOptions.conversationMaxLength = hardCap;
+        manager.serverOptions.meetingVeryMaxLength = hardCap;
+        manager.meeting.conversationExtraSlots = 0;
+        // At the hard cap; conclude appends closing + summary_pending (32), well under the fixed
+        // ceiling but only a few below it — this is the realistic worst case, not a loose margin.
+        manager.meeting.conversation = fillConversation(hardCap);
+
+        const crashSpy = vi.spyOn(Logger, 'reportAndCrashClient').mockImplementation(() => {});
+        vi.spyOn(manager.services.meetingsCollection, 'updateOne').mockResolvedValue({});
+        vi.spyOn(manager.services.meetingsCollection, 'findOne').mockResolvedValue(null);
+        vi.spyOn(manager.dialogGenerator, 'chairInterjection').mockResolvedValue({
+            response: 'Closing', id: 'close1', sentences: ['Closing'], trimmed: false, pretrimmed: false,
+        });
+        vi.spyOn(manager.dialogGenerator, 'generateDocument').mockResolvedValue({
+            response: 'Summary', id: 'sum1', trimmed: false,
+        });
+        vi.spyOn(manager.audioSystem, 'generateAudio').mockResolvedValue(undefined);
+        const decideSpy = vi.spyOn(manager, 'decideNextAction');
+
+        await manager.runLoop();
+
+        expect(crashSpy).not.toHaveBeenCalled();
+        // Proceeded through a normal decision (hard cap → conclude → summary), not a hard-stop.
+        expect(decideSpy).toHaveBeenCalled();
+        expect(manager.meeting.conversation.some((m) => m.type === 'summary')).toBe(true);
     });
 
     it('routes the summary audio through the shared queue instead of bypassing it', async () => {

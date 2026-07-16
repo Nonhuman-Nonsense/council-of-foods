@@ -1,5 +1,4 @@
 import type { Meeting, Message } from "@shared/ModelTypes.js";
-import { BadRequestError } from "@models/Errors.js";
 
 const MEETING_INCOMPLETE_MESSAGE: Message = { type: "meeting_incomplete" };
 
@@ -112,10 +111,11 @@ export function buildReplayMeetingManifest(meeting: Meeting): Meeting {
         conversation.pop();
     }
 
-    if (conversation.length === 0) {
-        throw new BadRequestError("No messages available for replay.");
-    }
-
+    // No playable content yet — either the meeting was just created, or the only messages so
+    // far are still waiting on audio generation (see truncateToAvailableAudio above). Fall
+    // through to the same `meeting_incomplete` handling as any other in-progress replay rather
+    // than erroring: the client already offers to resume from that state (see meetingRoutes.ts,
+    // which logs a warning when this happens so it stays visible).
     const lastMessageObj = conversation.length > 0 ? conversation[conversation.length - 1] : null;
     const hasSummary = lastMessageObj?.type === "summary";
 

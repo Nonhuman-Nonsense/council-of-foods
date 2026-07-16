@@ -18,24 +18,25 @@ describe("Name Overlay", () => {
     mockUseMobile.mockReturnValue(false);
   });
 
-  it("renders correctly", () => {
+  it.each([
+    { mobile: false, focused: true },
+    { mobile: true, focused: false },
+  ])("auto-focuses the input on desktop but not on mobile (mobile=$mobile)", ({ mobile, focused }) => {
+    mockUseMobile.mockReturnValue(mobile);
     render(<Name participants={mockParticipants} onContinueForward={mockOnContinueForward} />);
 
-    expect(screen.getByText("SAY SOMETHING")).toBeInTheDocument();
     const input = screen.getByPlaceholderText("your name");
-    expect(input).toHaveFocus();
-  });
-
-  it("does not auto-focus on mobile", () => {
-    mockUseMobile.mockReturnValue(true);
-    render(<Name participants={mockParticipants} onContinueForward={mockOnContinueForward} />);
-
-    expect(screen.getByPlaceholderText("your name")).not.toHaveFocus();
+    if (focused) {
+      expect(input).toHaveFocus();
+    } else {
+      expect(input).not.toHaveFocus();
+    }
   });
 
   it("validates empty input", () => {
     render(<Name participants={mockParticipants} onContinueForward={mockOnContinueForward} />);
 
+    expect(screen.getByText("SAY SOMETHING")).toBeInTheDocument();
     fireEvent.click(screen.getByLabelText("continue"));
 
     expect(screen.getByText("enter your name to proceed")).toBeVisible();

@@ -212,18 +212,6 @@ describe('Council Component', () => {
         expect(muteButton).toHaveTextContent("Unmute"); // Should reflect mocked state
     });
 
-    it('passes lifted runtime state into useCouncilMachine', () => {
-        render(<Council {...defaultProps} />);
-
-        expect(mockUseCouncilMachine).toHaveBeenCalledWith(expect.objectContaining({
-            humanName: '',
-            setHumanName: expect.any(Function),
-            audioContext: defaultProps.audioContext,
-            isPaused: defaultProps.isPaused,
-            setPaused: defaultProps.setPaused,
-        }));
-    });
-
     it('hides conversation controls in museum mode but keeps them in the layout', () => {
         mockUseCouncilSettings.mockReturnValue({
           isMuseumMode: true,

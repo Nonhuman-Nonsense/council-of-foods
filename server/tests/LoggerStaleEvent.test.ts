@@ -24,6 +24,7 @@ describe('Logger.staleEvent', () => {
         expect(infoSpy).toHaveBeenCalledWith(
             'meeting 1',
             expect.stringContaining('Expected stale extend_meeting after reconnect'),
+            expect.any(Object),
         );
     });
 

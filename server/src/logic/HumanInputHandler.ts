@@ -27,7 +27,7 @@ export class HumanInputHandler {
 
         const audioId = invitation.id;
         m.conversation.pop();
-        Logger.info(`meeting ${m._id}`, `popping invitation down to index ${m.conversation.length - 1}`);
+        Logger.info("humanInput", `popping invitation down to index ${m.conversation.length - 1}`, { from: this.manager });
 
         // Driver types don't accept $pull on string[] when the schema extends Document.
         await this.manager.services.meetingsCollection.updateOne(
@@ -47,13 +47,13 @@ export class HumanInputHandler {
         const m = manager.meeting;
         if (!m) return;
 
-        Logger.info(`meeting ${m._id}`, `human input on index ${m.conversation.length - 1} `);
+        Logger.info("humanInput", `human input on index ${m.conversation.length - 1} `, { from: manager });
 
         const lastMessage = m.conversation[m.conversation.length - 1];
         if (lastMessage?.type !== 'awaiting_human_question') {
             // Stale event — socket buffer flushed before attempt_reconnection completed.
             // Server is not in the right state to accept this; discard gracefully.
-            Logger.staleEvent(`meeting ${m._id}`, "submit_human_message", `expected awaiting_human_question but found '${lastMessage?.type ?? "none"}'`, { lastReconnectionAt: manager.lastReconnectionAt, from: manager });
+            Logger.staleEvent("humanInput", "submit_human_message", `expected awaiting_human_question but found '${lastMessage?.type ?? "none"}'`, { lastReconnectionAt: manager.lastReconnectionAt, from: manager });
             return;
         }
         m.conversation.pop();
@@ -81,7 +81,7 @@ export class HumanInputHandler {
         m.conversation.push(message);
 
         if (askParticular) {
-            Logger.info(`meeting ${m._id}`, `${humanName} asked directly to ${askParticular}`);
+            Logger.info("humanInput", `${humanName} asked directly to ${askParticular}`, { from: manager });
         }
 
         await manager.services.meetingsCollection.updateOne(
@@ -121,12 +121,12 @@ export class HumanInputHandler {
         const m = manager.meeting;
         if (!m) return;
 
-        Logger.info(`meeting ${m._id}`, `human panelist ${payload.speaker} on index ${m.conversation.length - 1} `);
+        Logger.info("humanInput", `human panelist ${payload.speaker} on index ${m.conversation.length - 1} `, { from: manager });
 
         const lastMessage = m.conversation[m.conversation.length - 1];
         if (lastMessage?.type !== 'awaiting_human_panelist') {
             // Stale event — socket buffer flushed before attempt_reconnection completed.
-            Logger.staleEvent(`meeting ${m._id}`, "submit_human_panelist", `expected awaiting_human_panelist but found '${lastMessage?.type ?? "none"}'`, { lastReconnectionAt: manager.lastReconnectionAt, from: manager });
+            Logger.staleEvent("humanInput", "submit_human_panelist", `expected awaiting_human_panelist but found '${lastMessage?.type ?? "none"}'`, { lastReconnectionAt: manager.lastReconnectionAt, from: manager });
             return;
         }
         m.conversation.pop();
@@ -146,7 +146,7 @@ export class HumanInputHandler {
         m.conversation.push(message);
 
         if (message.askParticular) {
-            Logger.info(`meeting ${m._id}`, `${payload.speaker} asked directly to ${message.askParticular}`);
+            Logger.info("humanInput", `${payload.speaker} asked directly to ${message.askParticular}`, { from: manager });
         }
 
         await manager.services.meetingsCollection.updateOne(
@@ -188,7 +188,7 @@ export class HumanInputHandler {
         const lastMessage = m.conversation[m.conversation.length - 1];
         if (lastMessage?.type !== "awaiting_human_question" && lastMessage?.type !== "awaiting_human_panelist") {
             // Stale event — socket buffer flushed before attempt_reconnection completed.
-            Logger.staleEvent(`meeting ${m._id}`, "skip_human_turn", `expected awaiting human input but found '${lastMessage?.type ?? "none"}'`, { lastReconnectionAt: manager.lastReconnectionAt, from: manager });
+            Logger.staleEvent("humanInput", "skip_human_turn", `expected awaiting human input but found '${lastMessage?.type ?? "none"}'`, { lastReconnectionAt: manager.lastReconnectionAt, from: manager });
             return;
         }
 
@@ -212,9 +212,9 @@ export class HumanInputHandler {
 
         const skippedIndex = m.conversation.length - 1;
         if (lastMessage.type === "awaiting_human_panelist") {
-            Logger.info(`meeting ${m._id}`, `human panelist ${speaker} skipped on index ${skippedIndex}`);
+            Logger.info("humanInput", `human panelist ${speaker} skipped on index ${skippedIndex}`, { from: manager });
         } else {
-            Logger.info(`meeting ${m._id}`, `human question skipped for ${speaker} on index ${skippedIndex}`);
+            Logger.info("humanInput", `human question skipped for ${speaker} on index ${skippedIndex}`, { from: manager });
         }
 
         await manager.services.meetingsCollection.updateOne(

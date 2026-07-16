@@ -35,14 +35,17 @@ import { socketHoldsLiveSession } from "@logic/liveSessionRegistry.js";
 const PLAYBACK_AHEAD_BUFFER = 3;
 
 /**
- * Absolute ceiling above the hard cap (`meetingVeryMaxLength`). A healthy meeting stops at
- * the hard cap; the auto-conclude sequence legitimately appends only a closing line + a
- * summary on top of it. If the conversation ever grows beyond the hard cap by more than this
- * margin, something has gone badly wrong (e.g. duplicated/runaway progression) and the loop
- * hard-stops rather than ever creeping toward index 100 again. See the circuit breaker in
- * `runLoop`.
+ * Absolute, hardcoded ceiling on conversation length — deliberately NOT derived from
+ * `serverOptions.meetingVeryMaxLength`. Any healthy meeting (even a generously configured one,
+ * or a prototype session where the client can override serverOptions) stays far below this: the
+ * server-decided cap plus the closing line + summary the auto-conclude sequence appends on top
+ * of it. If the conversation ever grows past this fixed number, something has gone badly wrong
+ * (e.g. duplicated/runaway progression) and the loop hard-stops — a value that depended on
+ * configuration could itself be misconfigured (or, in prototype mode, overridden by the client)
+ * and silently raise the ceiling along with it, which defeats the point of a circuit breaker.
+ * See the check in `runLoop`.
  */
-const RUNAWAY_MARGIN = 5;
+export const ABSOLUTE_MAX_CONVERSATION_LENGTH = 35;
 
 interface Decision {
     type: 'QUERY_EXTENSION' | 'CONCLUDE_MEETING' | 'GENERATE_SUMMARY' | 'IDLE' | 'REQUEST_PANELIST' | 'GENERATE_AI_RESPONSE';
@@ -160,7 +163,7 @@ export class MeetingManager implements IMeetingManager {
      * Called by SocketManager when this session is destroyed (user disconnected or switched meeting).
      */
     async destroy(audioStrategy: "drain" | "cancel" = "drain") {
-        Logger.info(`meeting ${this.meeting?._id}`, "Session destroyed");
+        Logger.info("MeetingManager", "Session destroyed", { from: this });
         // Kill the session: stops the run loop at its next iteration boundary and aborts
         // any in-flight generation (AI turn / conclude) via shouldAbort / stale checks.
         this.isActive = false;
@@ -257,17 +260,17 @@ export class MeetingManager implements IMeetingManager {
             return;
         }
         if (!socketHoldsLiveSession(meeting._id, this.socket.id)) {
-            Logger.warn("meeting", `report_maximum_played_index ignored: socket ${this.socket.id} is not the live session holder`, { from: this });
+            Logger.warn("PlaybackProgress", `report_maximum_played_index ignored: socket ${this.socket.id} is not the live session holder`, { from: this });
             return;
         }
         const conv = meeting.conversation ?? [];
         if (conv.length === 0) {
-            Logger.warn("meeting", "report_maximum_played_index ignored: empty conversation", { from: this });
+            Logger.warn("PlaybackProgress", "report_maximum_played_index ignored: empty conversation", { from: this });
             return;
         }
         const maxValid = conv.length - 1;
         if (index < 0 || index > maxValid) {
-            Logger.info(`meeting ${meeting._id}`, `report_maximum_played_index ignored: index ${index} out of range 0..${maxValid}`);
+            Logger.info("PlaybackProgress", `report_maximum_played_index ignored: index ${index} out of range 0..${maxValid}`, { from: this });
             return;
         }
         await this.services.meetingsCollection.updateOne(
@@ -326,15 +329,14 @@ export class MeetingManager implements IMeetingManager {
                 this.wakeRequested = false;
 
                 // ---- Circuit breaker: hard invariant ----
-                // Healthy meetings stop at meetingVeryMaxLength; auto-conclude adds only a
-                // closing line + summary on top. Blowing past that by RUNAWAY_MARGIN means a
-                // runaway — hard-stop and report loudly instead of ever creeping to index 100.
-                const hardCeiling = this.serverOptions.meetingVeryMaxLength + RUNAWAY_MARGIN;
-                if (this.meeting.conversation.length > hardCeiling) {
+                // A fixed, config-independent ceiling — see ABSOLUTE_MAX_CONVERSATION_LENGTH.
+                // Blowing past it means a runaway — hard-stop and report loudly instead of ever
+                // creeping to index 100 again.
+                if (this.meeting.conversation.length > ABSOLUTE_MAX_CONVERSATION_LENGTH) {
                     this.isActive = false;
-                    Logger.reportAndCrashClient("meeting", "Runaway conversation length; aborting loop", {
+                    Logger.reportAndCrashClient("MeetingManager", "Runaway conversation length; aborting loop", {
                         error: new Error(
-                            `conversation length ${this.meeting.conversation.length} exceeded hard ceiling ${hardCeiling} (meeting ${this.meeting._id})`
+                            `conversation length ${this.meeting.conversation.length} exceeded hard ceiling ${ABSOLUTE_MAX_CONVERSATION_LENGTH} (meeting ${this.meeting._id})`
                         ),
                         from: this,
                         broadcaster: this.broadcaster,
@@ -350,7 +352,7 @@ export class MeetingManager implements IMeetingManager {
                     // A process error is terminal for this session: report, kill the session,
                     // and prevent the finally below from re-arming the loop.
                     this.isActive = false;
-                    Logger.reportAndCrashClient("meeting", "Conversation process error", {
+                    Logger.reportAndCrashClient("MeetingManager", "Conversation process error", {
                         error,
                         from: this,
                         broadcaster: this.broadcaster,
@@ -472,7 +474,7 @@ export class MeetingManager implements IMeetingManager {
                 return; // Do nothing.
 
             case 'QUERY_EXTENSION': {
-                Logger.info(`meeting ${meeting._id}`, 'conversation soft cap reached, awaiting visitor choice');
+                Logger.info("MeetingManager", 'conversation soft cap reached, awaiting visitor choice', { from: this });
                 meeting.conversation.push({ type: 'query_extension' });
                 await this.services.meetingsCollection.updateOne(
                     { _id: meeting._id },
@@ -484,7 +486,7 @@ export class MeetingManager implements IMeetingManager {
             }
 
             case 'CONCLUDE_MEETING': {
-                Logger.info(`meeting ${meeting._id}`, 'hard cap reached, auto conclude meeting');
+                Logger.info("MeetingManager", 'hard cap reached, auto conclude meeting', { from: this });
                 const date = new Date().toISOString().slice(0, 10);
                 await this.meetingLifecycleHandler.handleConcludeMeeting({ date });
                 return;
@@ -540,7 +542,7 @@ export class MeetingManager implements IMeetingManager {
                         };
 
                         meeting.conversation.push(invitation);
-                        Logger.info(`meeting ${meeting._id}`, `panelist invitation generated for ${panelistId} on index ${invitationIndex}`);
+                        Logger.info("MeetingManager", `panelist invitation generated for ${panelistId} on index ${invitationIndex}`, { from: this });
 
                         this.audioSystem.queueAudioGeneration(
                             { ...invitation, id: invitation.id as string, text: invitation.text as string, sentences: invitation.sentences! },
@@ -556,7 +558,7 @@ export class MeetingManager implements IMeetingManager {
                         speaker: panelistId,
                         text: "",
                     });
-                    Logger.info(`meeting ${meeting._id}`, `awaiting human panelist on index ${meeting.conversation.length - 1}`);
+                    Logger.info("MeetingManager", `awaiting human panelist on index ${meeting.conversation.length - 1}`, { from: this });
                     this.broadcaster.broadcastConversationUpdate(meeting.conversation);
                     await this.services.meetingsCollection.updateOne(
                         { _id: meeting._id },
@@ -591,7 +593,6 @@ export class MeetingManager implements IMeetingManager {
             meeting,
             this.currentSpeaker,
             shouldAbort,
-            `meeting ${meeting._id}`
         );
 
         if (shouldAbort()) return;
@@ -613,7 +614,7 @@ export class MeetingManager implements IMeetingManager {
 
         if (message.text === "") {
             message.type = "skipped";
-            Logger.warn("meeting", `failed to make a message. Skipping speaker ${action.speaker.id}`, { from: this });
+            Logger.warn("MeetingManager", `failed to make a message. Skipping speaker ${action.speaker.id}`, { from: this });
         }
 
         if (message.type !== "skipped") {
@@ -630,9 +631,9 @@ export class MeetingManager implements IMeetingManager {
         );
 
         this.broadcaster.broadcastConversationUpdate(meeting.conversation);
-        Logger.info(`meeting ${meeting._id}`, `message generated, index ${message_index}, speaker ${message.speaker}`);
+        Logger.info("MeetingManager", `message generated, index ${message_index}, speaker ${message.speaker}`, { from: this });
         if (message.askParticular) {
-            Logger.info(`meeting ${meeting._id}`, `${message.speaker} asked directly to ${message.askParticular}`);
+            Logger.info("MeetingManager", `${message.speaker} asked directly to ${message.askParticular}`, { from: this });
         }
 
         // Queue audio generation

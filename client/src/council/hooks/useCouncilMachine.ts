@@ -293,6 +293,7 @@ export function useCouncilMachine({
 
     // Download first audio, then batch download the rest
     async function downloadAudio(audioIds: string[], ac: AbortController) {
+        if (audioIds.length === 0) return;
         try {
             const firstDecoded = await decodeReplayClip(audioIds[0], ac.signal);
             if (ac.signal.aborted) return;

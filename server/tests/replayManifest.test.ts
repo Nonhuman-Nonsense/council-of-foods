@@ -6,7 +6,6 @@ import {
     orderedAudioIdsForConversation,
     stripAwaitingHumanTail,
 } from "@api/replayManifest.js";
-import { BadRequestError } from "@models/Errors.js";
 import { MockFactory } from "./factories/MockFactory.js";
 import type { Message } from "@shared/ModelTypes.js";
 
@@ -83,17 +82,13 @@ describe("buildReplayMeetingManifest", () => {
         expect(m.audio).toEqual(["pub-m1", "sum1"]);
     });
 
-    it("throws BadRequestError when conversation is empty", () => {
+    it("returns a meeting_incomplete manifest when conversation is empty", () => {
         const meeting = MockFactory.createMeeting({
             conversation: [],
         });
-        try {
-            buildReplayMeetingManifest(meeting);
-            expect.fail("expected BadRequestError");
-        } catch (e) {
-            expect(e).toBeInstanceOf(BadRequestError);
-            expect((e as BadRequestError).clientMessage).toBe("No messages available for replay.");
-        }
+        const m = buildReplayMeetingManifest(meeting);
+        expect(m.conversation.map((c) => c.type)).toEqual(["meeting_incomplete"]);
+        expect(m.audio).toEqual([]);
     });
 
     it("truncates summary if its audio is missing and appends incomplete marker", () => {

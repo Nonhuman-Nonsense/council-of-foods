@@ -9,6 +9,7 @@ const NON_PLAYABLE_TURN_TYPES = new Set([
   'awaiting_human_question',
   'awaiting_human_panelist',
   'meeting_incomplete',
+  'summary_pending',
 ]);
 
 function isSyntheticTurn(turn) {
@@ -258,7 +259,15 @@ createApp({
     canRaiseHand() {
       if (!this.socket || this.conversation.length === 0) return false;
       if (this.status !== 'ACTIVE' && this.status !== 'PAUSED') return false;
-      return !this.conversation.some((turn) => turn.type === 'awaiting_human_question');
+      // Once concluding (closing line + summary_pending) or concluded (summary), the meeting is
+      // finished — the server now rejects raise_hand in this state (it would otherwise truncate
+      // the conclusion), so hide it client-side too. Auto-conclude (hard cap) never fires
+      // conversation_end, so `status` alone doesn't catch this window — check the conversation.
+      return !this.conversation.some((turn) =>
+        turn.type === 'awaiting_human_question' ||
+        turn.type === 'summary_pending' ||
+        turn.type === 'summary'
+      );
     },
 
     languageModelsText: {
