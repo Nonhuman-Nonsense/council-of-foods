@@ -1,6 +1,6 @@
 import type { Express, Request, Response } from "express";
 import { ZodError } from "zod";
-import { Logger } from "@utils/Logger.js";
+import { Logger, type LogDetails } from "@utils/Logger.js";
 import { createMeeting } from "./createMeeting.js";
 import { getMeeting } from "./getMeeting.js";
 import { buildReplayMeetingManifest } from "./replayManifest.js";
@@ -32,20 +32,29 @@ async function apiRouteWithErrorHandling(
     handler: (req: Request, res: Response) => Promise<void>
 ): Promise<void> {
     const context = `api ${method} ${path}`;
+    // Captured up front so it's available in the catch block regardless of where the handler
+    // throws (e.g. before it has parsed/validated meetingId itself).
+    const rawMeetingId = req.params.meetingId;
+    const meetingId =
+        typeof rawMeetingId === "string" && /^\d+$/.test(rawMeetingId) ? Number(rawMeetingId) : undefined;
+    const logDetails: LogDetails = {
+        from: { meetingId },
+        requestParams: { params: req.params, query: req.query as Record<string, unknown> },
+    };
     try {
         await handler(req, res);
     } catch (e: unknown) {
         if (e instanceof ZodError) {
-            await Logger.warn("api", `${method} ${path} failed, validation error`, { error: e });
+            await Logger.warn("api", `${method} ${req.originalUrl} failed, validation error`, { ...logDetails, error: e });
             res.status(400).json(CouncilError.fromZod(e).toApiBody(context));
             return;
         }
         if (e instanceof CouncilError) {
-            await Logger.warn("api", `${method} ${path} failed, ${e.name}`, { error: e });
+            await Logger.warn("api", `${method} ${req.originalUrl} failed, ${e.name}`, { ...logDetails, error: e });
             res.status(e.statusCode).json(e.toApiBody(context));
             return;
         }
-        await Logger.error("api", `${method} ${path} failed, internal server error`, { error: e });
+        await Logger.error("api", `${method} ${req.originalUrl} failed, internal server error`, { ...logDetails, error: e });
         res.status(500).json(CouncilError.fromUnexpected(e).toApiBody(context));
     }
 }

@@ -1,9 +1,10 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest';
 import express from 'express';
 import http from 'http';
 import { registerMeetingRoutes } from '@api/meetingRoutes.js';
 import { meetingsCollection } from '@services/DbService.js';
 import { cacheControlPrivateNoStoreApi } from '@utils/httpCache.js';
+import { Logger } from '@utils/Logger.js';
 
 function validCreateBody() {
     return {
@@ -48,6 +49,10 @@ describe('HTTP meetings API (integration)', () => {
             })
     );
 
+    afterEach(() => {
+        vi.restoreAllMocks();
+    });
+
     const base = () => `http://127.0.0.1:${port}`;
 
     it('POST /api/meetings creates a meeting and returns id + liveKey', async () => {
@@ -90,8 +95,46 @@ describe('HTTP meetings API (integration)', () => {
     });
 
     it('GET /api/meetings/:id returns 400 on invalid meeting id', async () => {
+        const warnSpy = vi.spyOn(Logger, 'warn');
         const res = await fetch(`${base()}/api/meetings/invalid-id`);
         expect(res.status).toBe(400);
+
+        // The failure log should show the real URL and raw param, not just the route pattern —
+        // this is what lets you trace which request actually failed (see meetingRoutes.ts).
+        expect(warnSpy).toHaveBeenCalledWith(
+            'api',
+            expect.stringContaining('/api/meetings/invalid-id'),
+            expect.objectContaining({
+                from: { meetingId: undefined },
+                requestParams: expect.objectContaining({
+                    params: { meetingId: 'invalid-id' },
+                }),
+            }),
+        );
+    });
+
+    it('GET /api/meetings/:id on a freshly created meeting logs a warning with the meeting id', async () => {
+        const warnSpy = vi.spyOn(Logger, 'warn');
+        const createRes = await fetch(`${base()}/api/meetings`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(validCreateBody()),
+        });
+        const { meetingId } = await createRes.json();
+
+        // No conversation has been generated yet (no socket session ever started), and no
+        // Authorization header — the same shape as a reload/second-visit race. This used to
+        // 400; it should now warn and return a meeting_incomplete manifest instead.
+        const res = await fetch(`${base()}/api/meetings/${meetingId}`);
+        expect(res.status).toBe(200);
+        const manifest = await res.json();
+        expect(manifest.conversation).toEqual([{ type: 'meeting_incomplete' }]);
+
+        expect(warnSpy).toHaveBeenCalledWith(
+            'api',
+            expect.stringContaining('no playable content yet'),
+            expect.objectContaining({ from: { meetingId: Number(meetingId) } }),
+        );
     });
 
     it('GET /api/meetings/:id without Authorization returns 200 replay manifest without liveKey', async () => {

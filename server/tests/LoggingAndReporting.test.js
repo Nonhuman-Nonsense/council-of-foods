@@ -89,6 +89,18 @@ describe('Logger Reporting', () => {
         }));
     });
 
+    it('should pass requestParams through to the report', async () => {
+        await Logger.warn("api", "GET /api/meetings/1228 failed, Bad request", {
+            from: { meetingId: 1228 },
+            requestParams: { params: { meetingId: "1228" }, query: {} },
+        });
+
+        expect(sendReportMock).toHaveBeenCalledWith(expect.objectContaining({
+            meetingId: 1228,
+            requestParams: { params: { meetingId: "1228" }, query: {} },
+        }));
+    });
+
     it('should not throw if broadcaster is undefined', () => {
         const error = new Error("No Broadcaster");
         expect(() => {

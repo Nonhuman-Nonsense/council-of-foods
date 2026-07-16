@@ -8,6 +8,12 @@ export type ReportSeverity = 'warning' | 'error' | 'critical';
 export type ClientImpact = 'none' | 'notified' | 'terminal' | 'process_exit';
 export type ReportSource = 'server' | 'client';
 
+/** Raw request params/query for tracing which arguments produced a given API failure. */
+export type RequestParams = {
+    params?: Record<string, unknown>;
+    query?: Record<string, unknown>;
+};
+
 export type ErrorReport = {
     context: string;
     severity: ReportSeverity;
@@ -17,6 +23,7 @@ export type ErrorReport = {
     source?: ReportSource;
     meetingId?: number;
     socketId?: string;
+    requestParams?: RequestParams;
 };
 
 //We wrap this in a function to make sure that it runs after .env is loaded
@@ -65,6 +72,7 @@ export async function sendReport(report: ErrorReport): Promise<void> {
         error: serializeError(report.error),
         meetingId: report.meetingId,
         socketId: report.socketId,
+        requestParams: report.requestParams,
     };
 
     const sendStr = JSON.stringify(payload);

@@ -3,7 +3,7 @@ import { CouncilError } from "@models/Errors.js";
 import type { IMeetingBroadcaster } from "@interfaces/MeetingInterfaces.js";
 import type { ProvidesReportContext, ReportContext } from "@interfaces/ReportContext.js";
 import { resolveReportContext } from "@interfaces/ReportContext.js";
-import { sendReport, type ClientImpact, type ReportSeverity, type ReportSource } from "./errorbot.js";
+import { sendReport, type ClientImpact, type ReportSeverity, type ReportSource, type RequestParams } from "./errorbot.js";
 
 const CLIENT_TERMINAL_PREFIX = '[CLIENT TERMINAL]';
 const PROCESS_EXIT_PREFIX = '[PROCESS EXIT]';
@@ -23,6 +23,8 @@ export type LogDetails = {
     clientImpact?: ClientImpact;
     source?: ReportSource;
     broadcaster?: IMeetingBroadcaster;
+    /** Raw request params/query, for tracing which arguments produced an API failure. */
+    requestParams?: RequestParams;
 };
 
 function withClientTerminalPrefix(message: string): string {
@@ -167,6 +169,7 @@ export class Logger {
             source: details?.source,
             meetingId,
             socketId,
+            requestParams: details?.requestParams,
         };
     }
 }
