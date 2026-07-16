@@ -35,14 +35,17 @@ import { socketHoldsLiveSession } from "@logic/liveSessionRegistry.js";
 const PLAYBACK_AHEAD_BUFFER = 3;
 
 /**
- * Absolute ceiling above the hard cap (`meetingVeryMaxLength`). A healthy meeting stops at
- * the hard cap; the auto-conclude sequence legitimately appends only a closing line + a
- * summary on top of it. If the conversation ever grows beyond the hard cap by more than this
- * margin, something has gone badly wrong (e.g. duplicated/runaway progression) and the loop
- * hard-stops rather than ever creeping toward index 100 again. See the circuit breaker in
- * `runLoop`.
+ * Absolute, hardcoded ceiling on conversation length — deliberately NOT derived from
+ * `serverOptions.meetingVeryMaxLength`. Any healthy meeting (even a generously configured one,
+ * or a prototype session where the client can override serverOptions) stays far below this: the
+ * server-decided cap plus the closing line + summary the auto-conclude sequence appends on top
+ * of it. If the conversation ever grows past this fixed number, something has gone badly wrong
+ * (e.g. duplicated/runaway progression) and the loop hard-stops — a value that depended on
+ * configuration could itself be misconfigured (or, in prototype mode, overridden by the client)
+ * and silently raise the ceiling along with it, which defeats the point of a circuit breaker.
+ * See the check in `runLoop`.
  */
-const RUNAWAY_MARGIN = 5;
+export const ABSOLUTE_MAX_CONVERSATION_LENGTH = 35;
 
 interface Decision {
     type: 'QUERY_EXTENSION' | 'CONCLUDE_MEETING' | 'GENERATE_SUMMARY' | 'IDLE' | 'REQUEST_PANELIST' | 'GENERATE_AI_RESPONSE';
@@ -326,15 +329,14 @@ export class MeetingManager implements IMeetingManager {
                 this.wakeRequested = false;
 
                 // ---- Circuit breaker: hard invariant ----
-                // Healthy meetings stop at meetingVeryMaxLength; auto-conclude adds only a
-                // closing line + summary on top. Blowing past that by RUNAWAY_MARGIN means a
-                // runaway — hard-stop and report loudly instead of ever creeping to index 100.
-                const hardCeiling = this.serverOptions.meetingVeryMaxLength + RUNAWAY_MARGIN;
-                if (this.meeting.conversation.length > hardCeiling) {
+                // A fixed, config-independent ceiling — see ABSOLUTE_MAX_CONVERSATION_LENGTH.
+                // Blowing past it means a runaway — hard-stop and report loudly instead of ever
+                // creeping to index 100 again.
+                if (this.meeting.conversation.length > ABSOLUTE_MAX_CONVERSATION_LENGTH) {
                     this.isActive = false;
                     Logger.reportAndCrashClient("meeting", "Runaway conversation length; aborting loop", {
                         error: new Error(
-                            `conversation length ${this.meeting.conversation.length} exceeded hard ceiling ${hardCeiling} (meeting ${this.meeting._id})`
+                            `conversation length ${this.meeting.conversation.length} exceeded hard ceiling ${ABSOLUTE_MAX_CONVERSATION_LENGTH} (meeting ${this.meeting._id})`
                         ),
                         from: this,
                         broadcaster: this.broadcaster,

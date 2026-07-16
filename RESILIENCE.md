@@ -174,3 +174,145 @@ Every intent has (at minimum) four tests in `useCouncilMachine.test.tsx`:
 state, not before — `onConversationUpdate` itself always clears `attemptingReconnect` as a side
 effect (that's what "handshake complete" means), so calling it in the wrong order immediately
 re-opens the gate you were trying to close.
+
+## Server-side conversation-loop resilience
+
+Everything above is the client's half: how a client-originated intent survives a disconnect.
+This section is the mirror image — how the **server's** own in-progress work (the run loop
+generating turns, concluding the meeting, summarizing it) survives a crash or a reconnect
+without duplicating work, losing it, or racing itself. Same core idea, same DB-is-truth
+principle, applied to server-owned state instead of client-owned intent.
+
+### Where this lives
+
+- `server/src/logic/MeetingManager.ts` — the run loop itself (`runLoop`/`startLoop`), the
+  single-loop invariant, and the circuit breaker.
+- `server/src/logic/MeetingLifecycleHandler.ts` — `handleConcludeMeeting` /
+  `generateSummary` (the durable-marker pattern below) and `promoteMeetingCompleteIfReady`.
+- `server/src/logic/ConnectionHandler.ts` — reconnect: regenerates any message missing audio,
+  and re-runs the `meetingComplete` promotion if a crash landed between the summary write and
+  the promotion.
+- `server/src/api/replayManifest.ts` — `stripAwaitingHumanTail` vs. the replay-only strip (see
+  "The resume vs. replay trap" below — the one gotcha in this section worth re-reading before
+  touching either).
+
+### The single-loop invariant
+
+`runLoop` is the one and only actor that turns pending conversation state into the next state
+(next AI turn, panelist invite, extension sentinel, conclude, summary). Everything else —
+socket events, playback-progress pings, reconnects — only ever *requests* a pass via
+`startLoop()`; none of them mutate the conversation directly.
+
+Three separate fields, not one overloaded boolean, because a single flag was asked to mean
+three different things at once and that conflation was the original bug (a "loop stopped"
+signal was reused, incorrectly, as a "safe to start a second loop" signal):
+
+- `loopRunning` — true only while `runLoop` executes; owned exclusively by `runLoop`
+  (set on entry, cleared in `finally`). The sole guard against two concurrent loops.
+- `wakeRequested` — a latch every `startLoop()` sets and `runLoop` re-checks before exiting a
+  terminal turn, so a wake arriving mid-turn (very common: `report_maximum_played_index` fires
+  on every playback tick) is never lost.
+- `isActive` — session liveness, unrelated to whether a loop is currently running. Set false by
+  `destroy()`/disconnect; checked by the loop's `while` and by in-flight generation.
+
+Without this split, a single `isLoopActive` flag flipped false *before* an async terminal action
+(e.g. conclude) actually finished meant any of several unrelated `startLoop()` callers could
+race into that window and spawn a second, fully concurrent loop — which duplicated the conclude
+indefinitely and blew past the TTS provider's concurrency limit. This is the incident the whole
+section below exists to prevent from recurring in a different shape.
+
+### Circuit breaker
+
+`runLoop` checks conversation length against a **fixed, hardcoded** ceiling
+(`ABSOLUTE_MAX_CONVERSATION_LENGTH`) every iteration, before doing anything else. Deliberately
+*not* derived from `serverOptions.meetingVeryMaxLength`: a value read from config could itself
+be misconfigured (or, in prototype mode, overridden by the client) and silently raise the
+ceiling right along with whatever bug it was meant to catch. A circuit breaker whose trip point
+can drift with the thing it's guarding against isn't one. If this ever fires, treat it as
+"something we haven't thought of yet" — it means a genuine invariant broke upstream, not that a
+meeting was configured to run long.
+
+### The durable-marker pattern (`summary_pending`)
+
+This is the server-side analogue of `pendingIntentStore`: a piece of state that says "this work
+is still owed" and is durable enough (persisted in the DB, part of `conversation`) to survive a
+crash, a disconnect, or a reconnect — so recovery is just "the loop runs again and picks up
+where the marker says to."
+
+Concluding a meeting works in two steps instead of one:
+
+1. **Trigger + marker, written atomically.** `handleConcludeMeeting` generates the chair's
+   closing line and pushes it **and** a `{ type: "summary_pending" }` marker in a single DB
+   write. There is never a persisted or broadcast state with the closing line but no marker —
+   no await separates the two pushes.
+2. **The loop resolves the marker.** `decideNextAction` treats a trailing `summary_pending` as
+   the *first* priority check — ahead of pause/hand-raised/cap/playback-buffer — so a stale
+   `handRaised` carried in on reconnect can never strand a conclusion. It returns
+   `GENERATE_SUMMARY`, which calls `generateSummary()`: generate the summary, replace the marker
+   **in place** with the real `summary` message, then queue its audio and (once idle) run
+   `promoteMeetingCompleteIfReady`.
+
+Because resolution is just another loop turn, the happy path and crash recovery are *the same
+code path* — there's no separate "resume a stale conclude" branch to forget to write or to let
+drift out of sync with the live version, the same way the client's reconciler has no separate
+"on reconnect" branch. A disconnect at any point before the marker is resolved just means: next
+time a session runs the loop for this meeting, `decideNextAction` sees the marker again and
+calls `generateSummary()` again — exactly once, never a duplicate closing line, because the
+closing line was already committed in step 1 and step 2 only ever *replaces* the marker.
+
+`generateSummary` also self-heals a narrower gap on its own: it checks for the marker's
+existence before spending an LLM call (idempotent no-op if already resolved), and audio for the
+summary is regenerated automatically by the existing "missing audio" reconnect scan
+(`ConnectionHandler`) the same way any other message's audio would be — no `summary_pending`
+special case was needed there, because "does this message have audio" doesn't care why the
+audio is missing.
+
+### The resume vs. replay trap
+
+`stripAwaitingHumanTail` is shared by two callers with **opposite correctness requirements**,
+and conflating them once already produced a real bug:
+
+- **Resume** (`buildResumeConversation`, used by `resumeMeeting.ts`) writes its result straight
+  back to the DB. It must **keep** `summary_pending` — stripping it would drop the "still owed"
+  marker from the persisted document, and the next live session would never regenerate the
+  summary.
+- **Replay** (`buildReplayMeetingManifest`) is read-only display with no live server behind it.
+  It must **strip** `summary_pending` (separately, just for that path) and fall through to
+  `meeting_incomplete`, because there's nothing that will ever resolve the marker for a
+  read-only viewer.
+
+The rule going forward: **anything that persists a "sanitized" conversation back to the DB must
+preserve every durable marker; only a genuinely read-only display path may strip one.** If you
+add a new durable marker, check both call sites, not just the one you're testing against.
+
+### Reconnect-churn write guard
+
+`handleConcludeMeeting`/`generateSummary` check `!manager.isActive` immediately after their one
+slow `await` (the LLM call), right before writing. This isn't the single-loop invariant above —
+it guards a different, narrower race: `destroy()` can't cancel an already-in-flight LLM-call
+promise (only the audio queue has a cancellation token), so if a session is torn down mid-await
+(e.g. preempted by a reconnect) its orphaned promise chain is still alive in memory and will
+eventually resolve. The check stops that orphaned chain from doing a stale full-array DB write
+after a newer manager has already taken over the same meeting. Cheap because it's just a flag
+read at each checkpoint — no fencing token needed, because each reconnect constructs a brand-new
+`MeetingManager` rather than rebinding an existing one, so "torn down" and "a different manager
+now owns this meeting" collapse to the same `isActive` check.
+
+### Rules for adding a new durable server-side marker
+
+Same spirit as "Rules for adding a new intent" above, restated for markers the *server* owns:
+
+1. **Trigger and marker are one atomic write.** Never persist the action the marker is meant to
+   follow up on without the marker in the same write — an await between the two reopens exactly
+   the "closing line but no marker" gap `summary_pending` was built to close.
+2. **Resolution must be a single code path for both the happy path and recovery.** If reconnect
+   needs its own bespoke "finish this up" branch instead of just re-running the loop, that
+   branch will drift from the live version the first time either one changes.
+3. **Resolving must be idempotent.** Check the marker still exists before doing the (expensive)
+   work; a duplicate wake or a re-entrant call must be a cheap no-op, not a duplicate LLM/TTS
+   call.
+4. **Read-only display paths strip; DB-persisting paths preserve.** See "The resume vs. replay
+   trap" — check every caller of a shared sanitizer, not just the one under test.
+5. **Guard multi-await chains with a liveness check before the final write.** Anything with more
+   than one `await` between "decided to act" and "wrote the result" needs an `isActive`-style
+   check right before that write, for the same reason described above.
