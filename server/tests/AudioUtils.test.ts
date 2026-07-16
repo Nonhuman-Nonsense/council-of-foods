@@ -9,7 +9,8 @@ const __dirname = path.dirname(__filename);
 // Import the mergeAudioBuffers function directly to test it
 // We'll dynamically import the module to access the private function
 // Import directly from the new utility file
-import { mergeAudioBuffers, splitTextForTts, prepareInworldTtsChunks } from '@root/src/logic/audio/AudioUtils.js';
+import { AudioQueue, mergeAudioBuffers, splitTextForTts, prepareInworldTtsChunks } from '@root/src/logic/audio/AudioUtils.js';
+import { Logger } from '@utils/Logger.js';
 
 // Mock music-metadata
 vi.mock('music-metadata', () => ({
@@ -127,6 +128,39 @@ describe('AudioUtils: prepareInworldTtsChunks', () => {
         const text = 'Hello world. '.repeat(100);
         const { chunks } = prepareInworldTtsChunks(text, 'en', 200);
         chunks.forEach(chunk => expect(chunk.length).toBeLessThanOrEqual(200));
+    });
+});
+
+describe('AudioQueue: error reporting', () => {
+    it('attaches the owning session as report context on a task error', async () => {
+        const errorSpy = vi.spyOn(Logger, 'error').mockImplementation(async () => {});
+        const reportFrom = { getReportContext: () => ({ meetingId: 42, socketId: 'sock-1' }) };
+        const queue = new AudioQueue(1, reportFrom);
+
+        queue.add(() => Promise.reject(new Error('boom')));
+        await queue.onIdle();
+
+        expect(errorSpy).toHaveBeenCalledWith(
+            'AudioSystem',
+            'Audio Task Error',
+            expect.objectContaining({ from: reportFrom }),
+        );
+        errorSpy.mockRestore();
+    });
+
+    it('logs without a report context when none was provided', async () => {
+        const errorSpy = vi.spyOn(Logger, 'error').mockImplementation(async () => {});
+        const queue = new AudioQueue(1);
+
+        queue.add(() => Promise.reject(new Error('boom')));
+        await queue.onIdle();
+
+        expect(errorSpy).toHaveBeenCalledWith(
+            'AudioSystem',
+            'Audio Task Error',
+            expect.objectContaining({ from: undefined }),
+        );
+        errorSpy.mockRestore();
     });
 });
 

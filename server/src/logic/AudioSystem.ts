@@ -56,7 +56,7 @@ export class AudioSystem {
         this.broadcaster = broadcaster;
         this.services = services;
         this.reportFrom = reportFrom;
-        this.queue = new AudioQueue(concurrency);
+        this.queue = new AudioQueue(concurrency, reportFrom);
     }
 
     /**
