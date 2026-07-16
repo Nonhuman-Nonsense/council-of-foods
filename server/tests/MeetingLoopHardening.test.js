@@ -159,7 +159,7 @@ describe('MeetingManager run-loop hardening', () => {
         await manager.runLoop();
 
         expect(crashSpy).toHaveBeenCalledWith(
-            'meeting',
+            'MeetingManager',
             'Runaway conversation length; aborting loop',
             expect.anything()
         );

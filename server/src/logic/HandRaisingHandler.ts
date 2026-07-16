@@ -33,7 +33,7 @@ export class HandRaisingHandler {
         const { manager } = this;
         const m = manager.meeting;
         if (!m) {
-            Logger.error("HandRaisingHandler", "raise_hand with no active meeting", { from: manager });
+            Logger.error("handRaising", "raise_hand with no active meeting", { from: manager });
             return;
         }
 
@@ -42,11 +42,11 @@ export class HandRaisingHandler {
         // slice() below would otherwise truncate the conclusion. The client hides the button too,
         // but the server must not trust that.
         if (m.conversation.some((msg) => msg.type === "summary_pending" || msg.type === "summary")) {
-            Logger.staleEvent(`meeting ${m._id}`, "raise_hand", "meeting is concluding/concluded", { from: manager });
+            Logger.staleEvent("handRaising", "raise_hand", "meeting is concluding/concluded", { from: manager });
             return;
         }
 
-        Logger.info(`meeting ${m._id}`, `hand raised on index ${handRaisedOptions.index - 1}`);
+        Logger.info("handRaising", `hand raised on index ${handRaisedOptions.index - 1}`, { from: manager });
 
         manager.handRaised = true;
         m.state.humanName = handRaisedOptions.humanName;
@@ -80,7 +80,7 @@ export class HandRaisingHandler {
             m.conversation.push(message);
 
             m.state.alreadyInvited = true;
-            Logger.info(`meeting ${m._id}`, `invitation generated, on index ${handRaisedOptions.index}`);
+            Logger.info("handRaising", `invitation generated, on index ${handRaisedOptions.index}`, { from: manager });
 
             manager.audioSystem.queueAudioGeneration(
                 { ...message, id: message.id as string, text: message.text as string, sentences: message.sentences! },
@@ -97,7 +97,7 @@ export class HandRaisingHandler {
             text: ""
         } as Message);
 
-        Logger.info(`meeting ${m._id}`, `awaiting human question on index ${m.conversation.length - 1} `);
+        Logger.info("handRaising", `awaiting human question on index ${m.conversation.length - 1} `, { from: manager });
 
         await manager.services.meetingsCollection.updateOne(
             { _id: m._id },

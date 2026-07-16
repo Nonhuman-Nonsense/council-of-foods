@@ -69,12 +69,18 @@ function formatErrorDetails(error: unknown): string[] {
 
 export class Logger {
 
-    private static formatContext(context: string): string {
-        return `[${context}]`;
+    /**
+     * Builds the console prefix. When `from` carries a meetingId, prepends `[meeting <id>]` so
+     * every line is attributable to its meeting — the caller only passes a subsystem name as
+     * `context` (e.g. "AudioSystem"), never the id itself.
+     */
+    private static formatPrefix(context: string, from?: ProvidesReportContext | ReportContext): string {
+        const { meetingId } = resolveReportContext(from);
+        return meetingId != null ? `[meeting ${meetingId}] [${context}]` : `[${context}]`;
     }
 
-    static info(context: string, message: string): void {
-        console.log(`${cyan(this.formatContext(context))} ${message}`);
+    static info(context: string, message: string, details?: Pick<LogDetails, "from">): void {
+        console.log(`${cyan(this.formatPrefix(context, details?.from))} ${message}`);
     }
 
     /**
@@ -94,7 +100,7 @@ export class Logger {
             lastReconnectionAt != null && Date.now() - lastReconnectionAt < STALE_EVENT_GRACE_MS;
 
         if (recentlyReconnected) {
-            this.info(context, `Expected stale ${eventName} after reconnect: ${detail}`);
+            this.info(context, `Expected stale ${eventName} after reconnect: ${detail}`, warnDetails);
         } else {
             void this.warn(context, `Unexpected desync, dropped ${eventName}: ${detail}`, warnDetails);
         }
@@ -103,7 +109,7 @@ export class Logger {
     // Note: Console logging happens synchronously BEFORE waiting for async reporting.
     // This preserves the order of console output even if reporting takes time.
     static async warn(context: string, message: string, details?: LogDetails): Promise<void> {
-        console.warn(`${cyan(this.formatContext(context))} ${yellow(message)}`);
+        console.warn(`${cyan(this.formatPrefix(context, details?.from))} ${yellow(message)}`);
 
         if (details?.error) {
             for (const line of formatErrorDetails(details.error)) {
@@ -117,7 +123,7 @@ export class Logger {
     // Note: Console logging happens synchronously BEFORE waiting for async reporting.
     // This preserves the order of console output even if reporting takes time.
     static async error(context: string, message: string, details?: LogDetails): Promise<void> {
-        console.error(`${red(this.formatContext(context))} ${red(message)}`);
+        console.error(`${red(this.formatPrefix(context, details?.from))} ${red(message)}`);
 
         if (details?.error) {
             for (const line of formatErrorDetails(details.error)) {

@@ -11,6 +11,7 @@ vi.mock('@utils/errorbot.js', () => ({
 
 // Mock console methods to avoid noise
 const consoleSpy = {
+    log: vi.spyOn(console, 'log').mockImplementation(() => { }),
     error: vi.spyOn(console, 'error').mockImplementation(() => { }),
     warn: vi.spyOn(console, 'warn').mockImplementation(() => { })
 };
@@ -26,6 +27,27 @@ describe('Logger Reporting', () => {
         Logger.reportAndCrashClient("TestContext", "An error occurred", { error });
 
         expect(consoleSpy.error).toHaveBeenCalled();
+    });
+
+    it('prepends [meeting <id>] to the console prefix when from carries a meetingId', () => {
+        Logger.info("AudioSystem", "Generating audio", { from: { meetingId: 42 } });
+
+        expect(consoleSpy.log.mock.calls[0][0]).toContain("[meeting 42] [AudioSystem]");
+    });
+
+    it('resolves the meetingId from a getReportContext provider', () => {
+        Logger.info("MeetingManager", "message generated", {
+            from: { getReportContext: () => ({ meetingId: 7, socketId: "sock-1" }) },
+        });
+
+        expect(consoleSpy.log.mock.calls[0][0]).toContain("[meeting 7] [MeetingManager]");
+    });
+
+    it('omits the meeting prefix when no meetingId is available', () => {
+        Logger.info("init", "Database ready");
+
+        expect(consoleSpy.log.mock.calls[0][0]).toContain("[init]");
+        expect(consoleSpy.log.mock.calls[0][0]).not.toContain("meeting");
     });
 
     it('should broadcast 500 error if broadcaster is provided', () => {

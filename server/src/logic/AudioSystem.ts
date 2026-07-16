@@ -1,5 +1,5 @@
 import type { IMeetingBroadcaster } from "@interfaces/MeetingInterfaces.js";
-import type { ProvidesReportContext } from "@interfaces/ReportContext.js";
+import type { ProvidesReportContext, ReportContext } from "@interfaces/ReportContext.js";
 import type { GlobalOptions } from "@logic/GlobalOptions.js";
 import { CHAIR_ID, getChairMeetingVoice } from "@logic/characterSetupBundle.js";
 import { Logger } from "@utils/Logger.js";
@@ -59,6 +59,15 @@ export class AudioSystem {
         this.queue = new AudioQueue(concurrency);
     }
 
+    /**
+     * Report context for a specific audio task. The meeting being processed is the source of truth
+     * for the id (the owning session's `reportFrom` may have been torn down mid-generation), while
+     * still carrying the session's socketId for ErrorBot correlation.
+     */
+    private reportContextFor(meeting: StoredMeeting): ReportContext {
+        return { meetingId: meeting._id, socketId: this.reportFrom?.getReportContext().socketId };
+    }
+
     queueAudioGeneration(message: Message, speaker: Speaker, meeting: StoredMeeting, environment: string, serverOptions: GlobalOptions, skipMatching: boolean = false): void {
         this.queue.add(() =>
             this.generateAudio(message, speaker, meeting.language, serverOptions, meeting, environment, skipMatching, this.generationToken)
@@ -90,6 +99,7 @@ export class AudioSystem {
     ): Promise<void> {
         // Merge context language into options for consistent usage internally
         const effectiveOptions: AudioSystemOptions = { ...serverOptions, language };
+        const from = this.reportContextFor(meeting);
 
         if (effectiveOptions.skipAudio) return;
 
@@ -133,7 +143,7 @@ export class AudioSystem {
         } catch (error: unknown) {
             Logger.error("AudioSystem", `Error retrieving existing audio (message id: ${message.id})`, {
                 error,
-                from: this.reportFrom,
+                from,
             });
         }
 
@@ -159,13 +169,13 @@ export class AudioSystem {
             }
 
             if (textChunks.length > 1) {
-                Logger.info("AudioSystem", `Message ${message.id} split into ${textChunks.length} chunks for TTS.`);
+                Logger.info("AudioSystem", `Message ${message.id} split into ${textChunks.length} chunks for TTS.`, { from });
             }
 
             let providerWords: (Word[] | undefined)[] = [];
 
             if (generateNew || buffers.length === 0) {
-                Logger.info("AudioSystem", `Generating new audio for message ${message.id} (${resolvedSpeaker.voiceProvider}/${resolvedSpeaker.voice})`);
+                Logger.info("AudioSystem", `Generating new audio for message ${message.id} (${resolvedSpeaker.voiceProvider}/${resolvedSpeaker.voice})`, { from });
                 // Generate audio for all chunks in parallel
                 const results = await Promise.all(textChunks.map(chunk =>
                     isInworld
@@ -247,7 +257,7 @@ export class AudioSystem {
                         } catch (error: unknown) {
                             Logger.warn("AudioSystem", `Whisper timings failed for message ${message.id}.`, {
                                 error,
-                                from: this.reportFrom,
+                                from,
                             });
                         }
                     }
@@ -270,7 +280,7 @@ export class AudioSystem {
                 sentences: sentencesWithTimings
             };
 
-            Logger.info("AudioSystem", `Audio generated for message ${message.id}. Size: ${combinedBuffer.length} bytes.`);
+            Logger.info("AudioSystem", `Audio generated for message ${message.id}. Size: ${combinedBuffer.length} bytes.`, { from });
 
             if (generationToken !== this.generationToken) {
                 return;
@@ -309,7 +319,7 @@ export class AudioSystem {
             //Crash the client and report
             Logger.reportAndCrashClient("AudioSystem", "Error generating audio", {
                 error,
-                from: this.reportFrom,
+                from,
                 broadcaster: this.broadcaster,
             });
         }
@@ -435,8 +445,9 @@ export class AudioSystem {
             Logger.warn(
                 "AudioSystem",
                 `Rejected ${timingType ?? "unknown"} subtitle timings ` +
-                `(meeting ${meetingId}, index ${conversationIndex}, speaker ${speakerName}, message ${messageId}): ` +
-                `${validation.reason}.`
+                `(index ${conversationIndex}, speaker ${speakerName}, message ${messageId}): ` +
+                `${validation.reason}.`,
+                { from: { meetingId: Number(meetingId) } },
             );
             return false;
         }

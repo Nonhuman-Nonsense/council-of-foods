@@ -131,7 +131,7 @@ export class SocketManager {
             try {
                 await handler(payload as Parameters<ClientToServerEvents[EventName]>[0]);
             } catch (error: unknown) {
-                const context = this.currentSession?.meeting ? "meeting" : "socket";
+                const context = this.currentSession?.meeting ? "session" : "socket";
                 const from = this.sessionReportFrom();
 
                 // Route to broadcastWarning vs broadcastError by severity — same client payload today,

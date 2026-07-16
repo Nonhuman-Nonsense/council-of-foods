@@ -32,7 +32,7 @@ export async function promoteMeetingCompleteIfReady(
         m.meetingComplete = true;
     } else {
         Logger.warn(
-            "meeting",
+            "lifecycle",
             "conclude audio barrier finished but replay manifest is incomplete; meetingComplete left false",
             { from: ctx },
         );
@@ -70,7 +70,7 @@ export class MeetingLifecycleHandler {
         manager.meeting = stored;
         // Session serverOptions come from MeetingManager constructor (SocketManager merges prototype overrides from start_conversation).
 
-        Logger.info(`meeting ${stored._id}`, `started (session ${manager.socket.id})`);
+        Logger.info("lifecycle", `started (session ${manager.socket.id})`, { from: manager });
         manager.startLoop();
     }
 
@@ -87,13 +87,13 @@ export class MeetingLifecycleHandler {
         // suspended — e.g. a reconnect preempts this session and a new manager takes over the
         // same meeting — manager.isActive flips false. Check it before writing, so this orphaned
         // chain can't clobber whatever the newer manager has since written.
-        Logger.info(`meeting ${m._id}`, "attempting to conclude meeting");
+        Logger.info("lifecycle", "attempting to conclude meeting", { from: manager });
 
         const queryExtensionIndex = m.conversation.findIndex((m) => m.type === "query_extension");
         if (queryExtensionIndex !== -1) {
             m.conversation = m.conversation.slice(0, queryExtensionIndex);
         } else {
-            Logger.info(`meeting ${m._id}`, 'conclude meeting without query_extension sentinel (hard cap auto conclude)');
+            Logger.info("lifecycle", 'conclude meeting without query_extension sentinel (hard cap auto conclude)', { from: manager });
         }
 
         const chair = m.characters[0];
@@ -134,7 +134,7 @@ export class MeetingLifecycleHandler {
         // marker and regenerates the summary, with no duplicate closing line.
         m.conversation.push(closingMessage);
         m.conversation.push({ type: "summary_pending" });
-        Logger.info(`meeting ${m._id}`, `closing statement generated on index ${closingIndex}`);
+        Logger.info("lifecycle", `closing statement generated on index ${closingIndex}`, { from: manager });
 
         manager.broadcaster.broadcastConversationUpdate(m.conversation);
 
@@ -209,7 +209,7 @@ export class MeetingLifecycleHandler {
         m.maximumPlayedIndex = summaryIndex;
 
         manager.broadcaster.broadcastConversationUpdate(m.conversation);
-        Logger.info(`meeting ${m._id}`, `summary generated on index ${summaryIndex}`);
+        Logger.info("lifecycle", `summary generated on index ${summaryIndex}`, { from: manager });
 
         await manager.services.meetingsCollection.updateOne(
             { _id: m._id },
@@ -255,14 +255,14 @@ export class MeetingLifecycleHandler {
         const m = manager.meeting;
         if (!m) return;
 
-        Logger.info(`meeting ${m._id}`, "extending meeting");
+        Logger.info("lifecycle", "extending meeting", { from: manager });
 
         // Strip query_extension sentinel before extending.
         const queryExtensionIndex = m.conversation.findIndex((m) => m.type === "query_extension");
         if (queryExtensionIndex === -1) {
             // Stale event — socket buffer flushed before attempt_reconnection completed and the
             // sentinel was already stripped by a prior extend/conclude. Discard gracefully.
-            Logger.staleEvent(`meeting ${m._id}`, "extend_meeting", "no query_extension sentinel present", { lastReconnectionAt: manager.lastReconnectionAt, from: manager });
+            Logger.staleEvent("lifecycle", "extend_meeting", "no query_extension sentinel present", { lastReconnectionAt: manager.lastReconnectionAt, from: manager });
             return;
         }
         m.conversation = m.conversation.slice(0, queryExtensionIndex);
@@ -291,7 +291,7 @@ export class MeetingLifecycleHandler {
         const m = manager.meeting;
         if (!m) return;
 
-        Logger.info(`meeting ${m._id}`, "paused");
+        Logger.info("lifecycle", "paused", { from: manager });
         manager.isPaused = true;
     }
 
@@ -303,7 +303,7 @@ export class MeetingLifecycleHandler {
         const m = manager.meeting;
         if (!m) return;
 
-        Logger.info(`meeting ${m._id}`, "resumed");
+        Logger.info("lifecycle", "resumed", { from: manager });
         manager.isPaused = false;
         manager.startLoop();
     }
