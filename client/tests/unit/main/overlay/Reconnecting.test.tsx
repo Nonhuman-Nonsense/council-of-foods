@@ -37,18 +37,10 @@ describe("Reconnecting overlay", () => {
     vi.unstubAllGlobals();
   });
 
-  it("renders the connection-error heading", () => {
+  it("renders the connection-error heading, sub-text and spinner", () => {
     render(<Reconnecting />);
     expect(screen.getByText("error.connection")).toBeInTheDocument();
-  });
-
-  it("renders the reconnecting sub-text", () => {
-    render(<Reconnecting />);
     expect(screen.getByText("error.reconnecting")).toBeInTheDocument();
-  });
-
-  it("renders the loading spinner", () => {
-    render(<Reconnecting />);
     expect(screen.getByTestId("loading-spinner")).toBeInTheDocument();
   });
 
