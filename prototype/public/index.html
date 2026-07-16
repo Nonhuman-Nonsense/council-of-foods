@@ -293,6 +293,12 @@
                 </div>
               </template>
 
+              <template v-else-if="turn.type === 'summary_pending'">
+                <div style="color: var(--text-secondary); font-size: 0.95em;">
+                  Generating summary…
+                </div>
+              </template>
+
               <template v-else>
               <!-- Download Button -->
               <button class="icon-btn" @click.stop="downloadMessageAudio(index)" title="Download Audio"
