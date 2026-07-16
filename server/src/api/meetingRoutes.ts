@@ -84,6 +84,13 @@ export function registerMeetingRoutes(app: Express, environment: string): void {
             const meeting = await getMeeting(meetingIdNumber, bearer);
             if (!bearer) {
                 const manifest = buildReplayMeetingManifest(meeting);
+                if (manifest.conversation.length === 1 && manifest.conversation[0].type === "meeting_incomplete") {
+                    await Logger.warn(
+                        "api",
+                        `GET /api/meetings/${meetingId} replay requested with no playable content yet`,
+                        { from: { meetingId: meetingIdNumber } },
+                    );
+                }
                 await Logger.info("api", `GET /api/meetings/${meetingId} replay`);
                 res.status(200).json(manifest);
                 return;
