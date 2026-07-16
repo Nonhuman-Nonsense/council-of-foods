@@ -82,12 +82,11 @@ export class MeetingLifecycleHandler {
         const m = manager.meeting;
         if (!m) return;
 
-        const thisMeetingId = m._id;
-        // The conclude sequence has several awaits (chair line, summary, TTS). If the session
-        // is torn down or rebound to a different meeting mid-flight (e.g. reconnect churn),
-        // abort rather than let a zombie conclude keep writing to a doc a newer manager owns.
-        const stale = () => !manager.isActive || manager.meeting?._id !== thisMeetingId;
-
+        // The conclude sequence awaits an LLM call below. destroy() cannot cancel this in-flight
+        // promise chain (only the audio queue), so if the session is torn down while we're
+        // suspended — e.g. a reconnect preempts this session and a new manager takes over the
+        // same meeting — manager.isActive flips false. Check it before writing, so this orphaned
+        // chain can't clobber whatever the newer manager has since written.
         Logger.info(`meeting ${m._id}`, "attempting to conclude meeting");
 
         const queryExtensionIndex = m.conversation.findIndex((m) => m.type === "query_extension");
@@ -115,7 +114,7 @@ export class MeetingLifecycleHandler {
             manager.broadcaster
         );
 
-        if (stale()) return;
+        if (!manager.isActive) return;
 
         const closingMessage: Message = {
             id: closingId || "",
@@ -173,9 +172,6 @@ export class MeetingLifecycleHandler {
         // spending an LLM call.
         if (m.conversation.findIndex((msg) => msg.type === "summary_pending") === -1) return;
 
-        const thisMeetingId = m._id;
-        const stale = () => !manager.isActive || manager.meeting?._id !== thisMeetingId;
-
         const chair = m.characters[0];
         const summaryPrompt = manager.serverOptions.summarizeMeetingPrompt[m.language]
             .replace("[DATE]", date)
@@ -186,7 +182,7 @@ export class MeetingLifecycleHandler {
             manager.serverOptions.summarizeMeetingLength,
         );
 
-        if (stale()) return;
+        if (!manager.isActive) return;
 
         // Strip markdown formatting for TTS (prevents reading "**banana**" as "asterisk banana asterisk")
         const textForAudio = removeMd(response);
@@ -246,7 +242,7 @@ export class MeetingLifecycleHandler {
         );
         await manager.audioSystem.waitForIdle();
 
-        if (stale()) return;
+        if (!manager.isActive) return;
 
         await promoteMeetingCompleteIfReady(manager);
     }
