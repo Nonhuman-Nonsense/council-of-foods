@@ -41,6 +41,9 @@ For how the live client survives socket drops without lost input, deadlocks, or 
 the pattern any new client-driven socket action should follow — see
 [RESILIENCE.md](RESILIENCE.md).
 
+For the testing philosophy — what deserves a test, at what level, and what to delete — see
+[TESTING.md](TESTING.md).
+
 ### Building
 
 During development, to enable automatic reload on changes
