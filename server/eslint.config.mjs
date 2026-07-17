@@ -1,5 +1,5 @@
 /**
- * ESLint 9 flat config + @eslint/js + typescript-eslint `recommended`.
+ * ESLint 10 flat config + @eslint/js + typescript-eslint `recommended`.
  * `shared/` is type-checked via `tsc` (ESLint base path is this package).
  *
  * Scripts and tests: `no-explicit-any` off (tooling / loose mocks).
