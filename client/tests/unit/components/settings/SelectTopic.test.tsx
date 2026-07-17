@@ -5,21 +5,22 @@ import SelectTopic from '@newMeeting/SelectTopic';
 import { getTopicsBundle } from '@main/topicsBundle';
 import { useMeetingSetupStore } from '@newMeeting/meetingSetupStore';
 import { useCouncilSettings } from '@/settings/councilSettings';
+import type { Topic } from '@shared/ModelTypes';
 
 // Mocks
 vi.mock('react-i18next', () => ({
-    useTranslation: () => ({ t: (key) => key, i18n: { language: 'en' } }),
+    useTranslation: () => ({ t: (key: string) => key, i18n: { language: 'en' } }),
 }));
 
 vi.mock('@/utils', () => ({
     useMobile: () => false,
     useMobileXs: () => false,
-    toTitleCase: (str) => str,
-    capitalizeFirstLetter: (str) => str
+    toTitleCase: (str: string) => str,
+    capitalizeFirstLetter: (str: string) => str
 }));
 
 vi.mock('@main/overlay/ResetWarning', () => ({
-    default: ({ onReset, onCancel }) => (
+    default: ({ onReset, onCancel }: { onReset: () => void; onCancel: () => void }) => (
         <div data-testid="reset-warning">
             <button onClick={onReset}>Confirm Reset</button>
             <button onClick={onCancel}>Cancel</button>
@@ -54,18 +55,24 @@ const defaultBundle = {
     system: 'System [TOPIC]',
 };
 
-function ControlledSelectTopic(props) {
+function ControlledSelectTopic(props: {
+    onContinueForward: (topic: Topic) => void;
+    onReset?: (topic: Topic) => void;
+    onCancel?: () => void;
+    currentTopic: Topic | null;
+}) {
     return (
         <SelectTopic
             {...props}
+            currentTopic={props.currentTopic ?? undefined}
         />
     );
 }
 
 describe('SelectTopic Component', () => {
-    let mockOnContinue;
-    let mockOnReset;
-    let mockOnCancel;
+    let mockOnContinue: (topic: Topic) => void;
+    let mockOnReset: (topic: Topic) => void;
+    let mockOnCancel: () => void;
 
     beforeEach(() => {
         useMeetingSetupStore.getState().resetStore();

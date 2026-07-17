@@ -4,7 +4,7 @@ import ConversationControls from '@council/ConversationControls';
 
 // Mock dependencies
 vi.mock('@council/ConversationControlIcon', () => ({
-    default: ({ icon, onClick, tooltip }) => (
+    default: ({ icon, onClick, tooltip }: { icon: string; onClick: () => void; tooltip: string }) => (
         <button data-testid={`control-icon-${icon}`} onClick={onClick} title={tooltip}>
             {icon}
         </button>
@@ -14,7 +14,7 @@ vi.mock('@council/ConversationControlIcon', () => ({
 // Mock react-i18next
 vi.mock('react-i18next', () => ({
     useTranslation: () => ({
-        t: (key) => {
+        t: (key: string) => {
             if (key === 'controls.wait') return 'waiting to speak...';
             return key;
         }

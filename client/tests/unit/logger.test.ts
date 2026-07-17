@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { log, summarizeLogPayload } from "@/logger";
 
 const mockGetDevLogEnabled = vi.fn(() => true);
-const mockIsDevLogCategoryEnabled = vi.fn(() => true);
+const mockIsDevLogCategoryEnabled = vi.fn((_category?: string) => true);
 
 vi.mock("@/settings/councilSettings", () => ({
   getDevLogEnabled: () => mockGetDevLogEnabled(),

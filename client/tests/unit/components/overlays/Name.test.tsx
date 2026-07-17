@@ -6,7 +6,7 @@ import Name from "@council/overlays/Name";
 const mockUseMobile = vi.fn();
 vi.mock("@/utils", () => ({
   useMobile: () => mockUseMobile(),
-  capitalizeFirstLetter: (str) => str.charAt(0).toUpperCase() + str.slice(1),
+  capitalizeFirstLetter: (str: string) => str.charAt(0).toUpperCase() + str.slice(1),
 }));
 
 describe("Name Overlay", () => {

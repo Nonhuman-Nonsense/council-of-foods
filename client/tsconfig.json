@@ -50,6 +50,7 @@
                 "../shared/*"
             ]
         },
+        "types": ["vitest/globals"],
         "allowJs": false,
         "strict": true,
         "checkJs": false,

@@ -3,7 +3,7 @@ import { render, screen } from "@testing-library/react";
 import FoodsCouncilScene from "@council/FoodsCouncilScene";
 import { MockFactory } from "../factories/MockFactory";
 
-const mockFoodItem = vi.fn(() => <div data-testid="food-item" />);
+const mockFoodItem = vi.fn((_props: unknown) => <div data-testid="food-item" />);
 
 const participantA = { id: "water", name: "Water" };
 const participantB = { id: "character-b", name: "Character B" };

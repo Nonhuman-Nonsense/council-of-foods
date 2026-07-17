@@ -6,7 +6,7 @@ const mockClaim = vi.hoisted(() => vi.fn());
 const mockRelease = vi.hoisted(() => vi.fn());
 const mockSetLed = vi.hoisted(() => vi.fn());
 const mockPressed = vi.hoisted(() => ({ value: false }));
-const mockUseVoiceGuide = vi.hoisted(() => vi.fn(() => ({
+const mockUseVoiceGuide = vi.hoisted(() => vi.fn((_params?: unknown) => ({
   isConnecting: false,
   lastCaption: null,
   lastUserTranscript: null,
