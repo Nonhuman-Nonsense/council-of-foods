@@ -35,7 +35,7 @@ import { createAudioContext, useAudioSuspended } from "@/audio/audioContext";
 import { usePortrait, dvh } from "@/utils";
 import CouncilError from "./overlay/CouncilError";
 import Reconnecting from "./overlay/Reconnecting";
-import { setUnrecoverableError, useErrorStore } from "./overlay/errorStore";
+import { useErrorStore } from "./overlay/errorStore";
 
 import MuseumButton from "@/museum/button/MuseumButton";
 import ButtonBanner from "@/museum/button/ButtonBanner";

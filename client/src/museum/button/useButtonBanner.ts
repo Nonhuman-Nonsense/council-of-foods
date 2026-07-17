@@ -85,7 +85,9 @@ export function useButtonBanner(params: UseButtonBannerParams): ButtonBannerHand
 
   const [idleClockStarted, setIdleClockStarted] = useState(false);
   const [idleRemindActive, setIdleRemindActive] = useState(false);
-  const lastActivityRef = useRef(Date.now());
+  // Set on mount by the sessionActive effect below; the `?? Date.now()` reads
+  // elsewhere are a safe fallback for the brief pre-mount window.
+  const lastActivityRef = useRef<number | null>(null);
   const idleTerminalFiredRef = useRef(false);
   const onIdleTerminalRef = useRef(onIdleTerminal);
   const canIdleTerminalRef = useRef(canIdleTerminal);
@@ -129,7 +131,7 @@ export function useButtonBanner(params: UseButtonBannerParams): ButtonBannerHand
     lastActivityRef.current = Date.now();
     setIdleRemindActive(false);
     idleTerminalFiredRef.current = false;
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- activityDeps is the intentional trigger list
+     
   }, activityDeps);
 
   useEffect(() => {
@@ -139,7 +141,7 @@ export function useButtonBanner(params: UseButtonBannerParams): ButtonBannerHand
 
     const tick = () => {
       setIdleRemindActive(
-        shouldActivateIdleRemind(idleClockStarted, lastActivityRef.current, Date.now()),
+        shouldActivateIdleRemind(idleClockStarted, lastActivityRef.current ?? Date.now(), Date.now()),
       );
     };
 
@@ -177,7 +179,7 @@ export function useButtonBanner(params: UseButtonBannerParams): ButtonBannerHand
     }, BUTTON_BANNER_IDLE_MS);
 
     return () => window.clearTimeout(timerId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- terminalDeps intentionally trigger re-arm
+     
   }, [sessionActive, idleRemindActive, ...terminalDeps]);
 
   const bannerVisible = computeBannerVisible({

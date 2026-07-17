@@ -23,15 +23,16 @@ vi.mock('@assets/icons', () => {
 vi.mock('react-lottie-player', async () => {
     const React = await import('react');
     const { vi } = await import('vitest');
+    function MockLottiePlayer({ ref, ...props }: Record<string, unknown> & { ref?: React.Ref<unknown> }) {
+        React.useImperativeHandle(ref, () => ({
+            play: vi.fn(),
+            setDirection: vi.fn(),
+            stop: vi.fn(),
+        }));
+        return React.createElement('div', { 'data-testid': 'lottie-player', ...props });
+    }
     return {
-        default: React.forwardRef((props: Record<string, unknown>, ref) => {
-            React.useImperativeHandle(ref, () => ({
-                play: vi.fn(),
-                setDirection: vi.fn(),
-                stop: vi.fn(),
-            }));
-            return React.createElement('div', { 'data-testid': 'lottie-player', ...props });
-        }),
+        default: MockLottiePlayer,
     };
 });
 

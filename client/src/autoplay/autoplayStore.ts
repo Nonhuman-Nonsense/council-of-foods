@@ -43,10 +43,6 @@ export const AUTOPLAY_NEXT_MEETING_MS = 5_000;
 /** Idle before autoplay warning on welcome (/) or in-progress setup (/new). */
 export const SETUP_IDLE_MS = 90_000;
 
-export type AutoplayHandle = {
-  notify: (event: AutoplayConsumerEvent) => void;
-};
-
 type AutoplayStore = {
   phase: AutoplayPhase;
   setPhase: (phase: AutoplayPhase) => void;
@@ -123,14 +119,6 @@ export const useAutoplayStore = create<AutoplayStore>((set) => ({
 /** Non-React call sites (e.g. useCouncilMachine callbacks). */
 export function notifyAutoplay(event: AutoplayConsumerEvent): void {
   useAutoplayStore.getState().notify(event);
-}
-
-export function useAutoplay(): AutoplayHandle {
-  return {
-    notify: (event: AutoplayConsumerEvent) => {
-      useAutoplayStore.getState().notify(event);
-    },
-  };
 }
 
 /** Test helper — pin the idle clock. */

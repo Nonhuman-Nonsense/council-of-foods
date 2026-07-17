@@ -1350,7 +1350,7 @@ describe('useCouncilMachine', () => {
         });
 
         it('ignores a stale intent tagged for a different meeting', () => {
-            const { result } = renderHook(() =>
+            renderHook(() =>
                 useCouncilMachine({ ...defaultProps, currentMeetingId: 99, humanName: 'Max' } as any),
             );
 

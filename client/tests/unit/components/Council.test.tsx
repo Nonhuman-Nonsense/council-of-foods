@@ -69,14 +69,15 @@ let mockMetaAgentActivate = false;
 
 vi.mock('@museum/metaAgent/MeetingMetaAgent', async () => {
     const React = await import('react');
+    function MockMeetingMetaAgent(props: { setMetaAgentPhase: (phase: "interruption") => void }) {
+        React.useEffect(() => {
+            if (!mockMetaAgentActivate) return;
+            props.setMetaAgentPhase("interruption");
+        }, []);
+        return null;
+    }
     return {
-        default: (props: { setMetaAgentPhase: (phase: "interruption") => void }) => {
-            React.useEffect(() => {
-                if (!mockMetaAgentActivate) return;
-                props.setMetaAgentPhase("interruption");
-            }, []);
-            return null;
-        },
+        default: MockMeetingMetaAgent,
     };
 });
 

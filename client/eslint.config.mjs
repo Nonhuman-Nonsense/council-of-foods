@@ -29,6 +29,29 @@ export default tseslint.config(
   ...tseslint.configs.recommended,
   eslintReact.configs['recommended-typescript'],
   {
+    rules: {
+      // Uncalibrated for this codebase: fires on ~120 idiomatic setState-in-effect
+      // call sites (batched updates, imperative reset callbacks) with no real signal.
+      '@eslint-react/set-state-in-effect': 'off',
+      // Pure naming-style preferences, not correctness.
+      '@eslint-react/naming-convention-ref-name': 'off',
+      '@eslint-react/use-state': 'off',
+      // Real bug classes for this app's realtime/audio/DOM surface (leaked
+      // listeners/timers, impure renders, injection risk) — promoted to error so
+      // they gate rather than get lost in the warning list above.
+      '@eslint-react/purity': 'error',
+      '@eslint-react/web-api-no-leaked-event-listener': 'error',
+      '@eslint-react/web-api-no-leaked-fetch': 'error',
+      '@eslint-react/web-api-no-leaked-intersection-observer': 'error',
+      '@eslint-react/web-api-no-leaked-interval': 'error',
+      '@eslint-react/web-api-no-leaked-resize-observer': 'error',
+      '@eslint-react/web-api-no-leaked-timeout': 'error',
+      '@eslint-react/dom-no-dangerously-set-innerhtml': 'error',
+      '@eslint-react/dom-no-script-url': 'error',
+      '@eslint-react/dom-no-unsafe-iframe-sandbox': 'error',
+    },
+  },
+  {
     files: ['src/**/*.{ts,tsx,js,jsx}', 'tests/**/*.{ts,tsx,js,jsx}'],
     plugins: {
       'react-hooks': reactHooks,
