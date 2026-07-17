@@ -5,6 +5,8 @@ import '@testing-library/jest-dom';
 import { MockFactory } from '../factories/MockFactory';
 import { useErrorStore } from '@main/overlay/errorStore';
 import { notifyAutoplay, useAutoplayStore } from '@/autoplay/autoplayStore';
+import type { Message } from '@shared/ModelTypes';
+import type { AppMode, AgentMode } from '@/settings/councilSettings';
 
 // --- Mocks ---
 
@@ -89,7 +91,7 @@ const mockUseCouncilMachine = vi.fn();
 const mockCouncilStateMachine = {
     state: {
         councilState: 'playing',
-        textMessages: [],
+        textMessages: [] as Message[],
         audioMessages: [],
         playingNowIndex: 0,
         playNextIndex: 1,
@@ -126,9 +128,15 @@ vi.mock('@council/hooks/useCouncilMachine', () => ({
     useCouncilMachine: (...args: any[]) => mockUseCouncilMachine(...args)
 }));
 
-const mockUseCouncilSettings = vi.fn(() => ({
+const mockUseCouncilSettings = vi.fn((): {
+  isMuseumMode: boolean;
+  mode: AppMode;
+  setAppMode: () => void;
+  agentMode: AgentMode;
+  setAgentMode: () => void;
+} => ({
   isMuseumMode: false,
-  mode: 'web' as const,
+  mode: 'web',
   setAppMode: vi.fn(),
   agentMode: "off",
   setAgentMode: vi.fn(),
@@ -245,7 +253,7 @@ describe('Council Component', () => {
         mockCouncilStateMachine.state.playingNowIndex = 0;
         mockCouncilStateMachine.state.textMessages = [
             { id: 'm1', type: 'message', speaker: 's1', text: 'hello' },
-            { id: 'm2', type: 'awaiting_human_question', speaker: 'human', text: '' },
+            { type: 'awaiting_human_question', speaker: 'human', text: '' },
         ];
 
         render(<Council {...defaultProps} />);
