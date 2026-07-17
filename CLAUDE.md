@@ -25,6 +25,6 @@ descriptions live in the root docs above.
 
 - Server: `cd server && npm test` (type-check + all tests, mocked APIs);
   `npm run test:unit` / `test:integration` for the split; `npm run dev` to run.
-- Client: `cd client && npm test`; `npm run e2e` (Playwright — needs
+- Client: `cd client && npm test` (type-check + all tests); `npm run e2e` (Playwright — needs
   `npm run e2e-server` running in `server/`); `npm run dev` to run.
 - Lint either side with `npm run lint`.
