@@ -1,12 +1,15 @@
 /**
- * Phase A: ESLint 9 flat config + @eslint/js + typescript-eslint `recommended`
+ * Phase A: ESLint 10 flat config + @eslint/js + typescript-eslint `recommended`
  * (no type-checked rules yet). React rules without react-hooks "compiler" extras
  * (those require broader refactors).
+ *
+ * eslint-plugin-react-hooks stays authoritative for hooks rules; @eslint-react's own
+ * hooks-adjacent rules are turned off below to avoid double-reporting the same issue.
  *
  * Note: ESLint only applies this config under `client/`; `shared/` is covered by `tsc`.
  */
 import eslint from '@eslint/js';
-import react from 'eslint-plugin-react';
+import eslintReact from '@eslint-react/eslint-plugin';
 import reactHooks from 'eslint-plugin-react-hooks';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
@@ -24,8 +27,7 @@ export default tseslint.config(
   },
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
-  react.configs.flat.recommended,
-  react.configs.flat['jsx-runtime'],
+  eslintReact.configs['recommended-typescript'],
   {
     files: ['src/**/*.{ts,tsx,js,jsx}', 'tests/**/*.{ts,tsx,js,jsx}'],
     plugins: {
@@ -44,8 +46,9 @@ export default tseslint.config(
       'react-hooks/rules-of-hooks': 'error',
       // Intentionally off: many effects use stable props/refs; re-enabling is a Phase B cleanup.
       'react-hooks/exhaustive-deps': 'off',
-      // Props are typed with TypeScript, not runtime propTypes.
-      'react/prop-types': 'off',
+      // Redundant with eslint-plugin-react-hooks above.
+      '@eslint-react/rules-of-hooks': 'off',
+      '@eslint-react/exhaustive-deps': 'off',
     },
   },
   {
@@ -93,7 +96,6 @@ export default tseslint.config(
       },
     },
     rules: {
-      'react/display-name': 'off',
       'no-unused-vars': 'off',
       '@typescript-eslint/no-unused-vars': [
         'warn',
@@ -110,11 +112,6 @@ export default tseslint.config(
       '@typescript-eslint/no-unused-expressions': 'warn',
       'prefer-const': 'warn',
       'no-var': 'warn',
-    },
-  },
-  {
-    settings: {
-      react: { version: '19.2' },
     },
   },
 );
