@@ -39,7 +39,6 @@ describe('AudioUtils: splitTextForTts', () => {
         const para1 = 'First paragraph content here.';
         const para2 = 'Second paragraph goes here.';
         const gap = '\n\n';
-        const text = para1 + gap + para2;
         const limit = para1.length + gap.length + 10; // para2 would overflow if we add more
         const longPara2 = para2 + ' '.repeat(limit + 10);
         const fullText = para1 + gap + longPara2;

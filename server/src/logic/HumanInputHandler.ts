@@ -3,6 +3,7 @@ import type { SubmitHumanMessagePayload, SubmitHumanPanelistPayload } from "@sha
 import type { IHumanInputContext } from "@interfaces/MeetingInterfaces.js";
 import type { Message as AudioQueueMessage } from "@logic/audio/AudioTypes.js";
 import type { StoredMeeting } from "@models/DBModels.js";
+import type { UpdateFilter } from "mongodb";
 import { Logger } from "@utils/Logger.js";
 import { v4 as uuidv4 } from "uuid";
 import { splitSentences } from "@shared/textUtils.js";
@@ -32,7 +33,7 @@ export class HumanInputHandler {
         // Driver types don't accept $pull on string[] when the schema extends Document.
         await this.manager.services.meetingsCollection.updateOne(
             { _id: m._id },
-            { $pull: { audio: audioId } } as any
+            { $pull: { audio: audioId } } as unknown as UpdateFilter<StoredMeeting>
         );
         m.audio = (m.audio ?? []).filter((id) => id !== audioId);
     }

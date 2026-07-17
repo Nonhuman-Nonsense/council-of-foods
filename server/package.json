@@ -21,7 +21,7 @@
     "test:fast": "cross-env TEST_MODE=fast npm run test",
     "test:full": "cross-env TEST_MODE=full npm run test",
     "test:coverage": "npm run test -- --coverage",
-    "lint": "eslint .",
+    "lint": "eslint . --max-warnings 0",
     "lint:fix": "eslint . --fix",
     "docker": "node scripts/docker.mjs",
     "push": "node scripts/push.mjs"

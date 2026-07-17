@@ -17,7 +17,7 @@ vi.mock('@root/src/utils/Logger.js', () => ({
 const mockFetch = vi.fn();
 global.fetch = mockFetch;
 
-function mockElevenLabsResponse(text, words = []) {
+function mockElevenLabsResponse(text) {
     const characters = [];
     const starts = [];
     const ends = [];
