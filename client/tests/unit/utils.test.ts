@@ -16,9 +16,10 @@ describe('Utils', () => {
         });
 
         it('should return input as is if not a string (except null/undefined becomes "")', () => {
-            expect(capitalizeFirstLetter(null)).toBe('');
-            expect(capitalizeFirstLetter(undefined)).toBe('');
-            expect(capitalizeFirstLetter(123)).toBe(123);
+            // Deliberately violates the string contract to verify runtime defensiveness.
+            expect(capitalizeFirstLetter(null as unknown as string)).toBe('');
+            expect(capitalizeFirstLetter(undefined as unknown as string)).toBe('');
+            expect(capitalizeFirstLetter(123 as unknown as string)).toBe(123);
         });
     });
 

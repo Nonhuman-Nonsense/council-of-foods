@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import Staff from '@main/overlay/Staff';
 import '@testing-library/jest-dom';
+import type { SerialDetail, UsbPortInfo } from '@museum/button/buttonBridge';
 
 const museumButtonState = {
   bridgeStatus: 'disconnected' as 'disconnected' | 'connecting' | 'connected' | 'error',
@@ -9,15 +10,26 @@ const museumButtonState = {
   bridgeAvailable: true,
 };
 
-const bridgeHealthState = {
-  status: 'running' as const,
-  serial: 'connected' as const,
+// Flat test double covering all ButtonBridgeHealthState variants at once (Staff.tsx
+// only reads serial/path/etc when status === "running", so leftover fields are harmless).
+const bridgeHealthState: {
+  status: 'checking' | 'running' | 'not_running' | 'error';
+  serial: 'connected' | 'disconnected' | 'probing';
+  path: string | null;
+  version: string;
+  serialDetail: SerialDetail;
+  serialMessage: string;
+  expectedVendorId: string | null;
+  scannedPorts: UsbPortInfo[];
+} = {
+  status: 'running',
+  serial: 'connected',
   path: '/dev/cu.usbmodem1',
   version: '1.0.0',
-  serialDetail: 'connected' as const,
+  serialDetail: 'connected',
   serialMessage: 'Council button connected at /dev/cu.usbmodem1',
   expectedVendorId: '2341',
-  scannedPorts: [] as Array<{ path: string; vendorId?: string; productId?: string }>,
+  scannedPorts: [],
 };
 
 vi.mock('react-i18next', () => ({

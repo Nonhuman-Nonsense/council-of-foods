@@ -9,12 +9,12 @@ exports[`ConversationControlIcon > renders normal icon by default 1`] = `
   >
     <svg
       aria-label="Test Action"
-      data-testid="icon-test_icon"
+      data-testid="icon-play"
       style="position: absolute; width: 40px; height: 40px; border-radius: 50%; opacity: 1;"
     />
     <svg
       aria-label="Test Action"
-      data-testid="icon-test_icon_filled"
+      data-testid="icon-play_filled"
       style="position: absolute; width: 40px; height: 40px; border-radius: 50%; opacity: 0;"
     />
   </button>

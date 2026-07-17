@@ -9,7 +9,7 @@ vi.mock('@/utils', () => ({
 
 describe('ConversationControlIcon', () => {
     const defaultProps = {
-        icon: 'test_icon',
+        icon: 'play' as const,
         tooltip: 'Test Action',
         onClick: vi.fn(),
     };
@@ -17,9 +17,9 @@ describe('ConversationControlIcon', () => {
     it('renders normal icon by default', () => {
         const { asFragment } = render(<ConversationControlIcon {...defaultProps} />);
 
-        // We expect icon-test_icon and icon-test_icon_filled (hover, hidden)
-        const icon = screen.getByTestId('icon-test_icon');
-        const hoverIcon = screen.getByTestId('icon-test_icon_filled');
+        // We expect icon-play and icon-play_filled (hover, hidden)
+        const icon = screen.getByTestId('icon-play');
+        const hoverIcon = screen.getByTestId('icon-play_filled');
 
         expect(icon).toBeInTheDocument();
         expect(hoverIcon).toBeInTheDocument();
@@ -35,8 +35,8 @@ describe('ConversationControlIcon', () => {
         const button = screen.getByRole('button');
         fireEvent.mouseOver(button);
 
-        const icon = screen.getByTestId('icon-test_icon');
-        const hoverIcon = screen.getByTestId('icon-test_icon_filled');
+        const icon = screen.getByTestId('icon-play');
+        const hoverIcon = screen.getByTestId('icon-play_filled');
 
         // Normal icon hidden
         expect(icon).toHaveStyle({ opacity: '0' });
@@ -45,8 +45,8 @@ describe('ConversationControlIcon', () => {
     });
 
     it('uses custom hoverIcon if provided', () => {
-        render(<ConversationControlIcon {...defaultProps} hoverIcon="custom_hover" />);
-        const hoverIcon = screen.getByTestId('icon-custom_hover');
+        render(<ConversationControlIcon {...defaultProps} hoverIcon="close" />);
+        const hoverIcon = screen.getByTestId('icon-close');
         expect(hoverIcon).toBeInTheDocument();
     });
 

@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import FoodItem from '@council/FoodItem';
 import type { CSSProperties } from 'react';
+import type { Character } from '@shared/ModelTypes';
 
 // Mock the child component FoodAnimation to isolate FoodItem testing
 // But actually FoodAnimation is simple enough we might want to test the composition.
@@ -16,8 +17,12 @@ vi.mock('@council/FoodAnimation', () => ({
     )
 }));
 
-const mockFood = {
+const mockFood: Character = {
     id: 'banana',
+    name: 'Banana',
+    voice: 'alloy',
+    description: 'A cheerful banana',
+    prompt: 'You are a banana.',
     size: 1, // Standard size
 };
 
@@ -75,7 +80,7 @@ describe('FoodItem', () => {
     });
 
     it('stays zoomed and visible when focused but not performing (meta-agent idle)', () => {
-        const waterFood = { id: 'water', size: 1 };
+        const waterFood: Character = { ...mockFood, id: 'water' };
         const { asFragment } = render(
             <FoodItem
                 food={waterFood}
@@ -142,7 +147,8 @@ describe('FoodItem', () => {
     });
 
     it('should handle food with missing id gracefully', () => {
-        const noIdFood = { ...mockFood, id: undefined };
+        // Deliberately violates the Character contract to verify graceful degradation.
+        const noIdFood = { ...mockFood, id: undefined } as unknown as Character;
         const { asFragment } = render(
             <FoodItem
                 food={noIdFood}

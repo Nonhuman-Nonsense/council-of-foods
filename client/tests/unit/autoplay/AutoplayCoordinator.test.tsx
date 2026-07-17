@@ -201,7 +201,9 @@ describe("AutoplayCoordinator setup-entry idle", () => {
   });
 
   it("enters autoplay using getPreferredLanguage for fetch and navigation", async () => {
-    window.__COF_BOOTSTRAP__ = { preferredLang: "de" };
+    // Deliberately exercises a future multi-language state; preferredLang is
+    // AvailableLanguage ("en" only) today, so this intentionally overrides the type.
+    window.__COF_BOOTSTRAP__ = { preferredLang: "de" as unknown as "en" };
     renderCoordinator();
 
     await advanceIdlePastThreshold();

@@ -42,6 +42,27 @@ vi.mock('@/settings/councilSettings', () => ({
 import { useMediaQuery } from 'react-responsive';
 import { useMobile } from '@/utils';
 import { useCouncilSettings } from '@/settings/councilSettings';
+import { DEV_LOG_CATEGORIES } from '@/logger';
+
+function mockCouncilSettings(overrides: Partial<ReturnType<typeof useCouncilSettings>> = {}): ReturnType<typeof useCouncilSettings> {
+    return {
+        isMuseumMode: false,
+        mode: 'web',
+        setAppMode: vi.fn(),
+        agentMode: 'off',
+        setAgentMode: vi.fn(),
+        pttHardwareEnabled: false,
+        setPttHardwareEnabled: vi.fn(),
+        museumSwitchButtonEnabled: false,
+        setMuseumSwitchButtonEnabled: vi.fn(),
+        devLogEnabled: false,
+        setDevLogEnabled: vi.fn(),
+        devLogCategories: Object.fromEntries(DEV_LOG_CATEGORIES.map((c) => [c, false])) as Record<typeof DEV_LOG_CATEGORIES[number], boolean>,
+        setDevLogCategoryEnabled: vi.fn(),
+        setAllDevLogCategories: vi.fn(),
+        ...overrides,
+    };
+}
 
 describe('Landing', () => {
     beforeEach(() => {
@@ -49,13 +70,7 @@ describe('Landing', () => {
         // Default to landscape (not portrait) and not mobile for base case
         (useMediaQuery as ReturnType<typeof vi.fn>).mockReturnValue(false); // isPortrait = false
         (useMobile as ReturnType<typeof vi.fn>).mockReturnValue(false);
-        vi.mocked(useCouncilSettings).mockReturnValue({
-            mode: 'web',
-            isMuseumMode: false,
-            setAppMode: vi.fn(),
-            agentMode: "off",
-            setAgentMode: vi.fn(),
-        });
+        vi.mocked(useCouncilSettings).mockReturnValue(mockCouncilSettings());
     });
 
     afterEach(() => {
@@ -107,13 +122,7 @@ describe('Landing', () => {
     });
 
     it('hides description and go button in museum mode', () => {
-        vi.mocked(useCouncilSettings).mockReturnValue({
-            mode: 'museum',
-            isMuseumMode: true,
-            setAppMode: vi.fn(),
-            agentMode: "off",
-            setAgentMode: vi.fn(),
-        });
+        vi.mocked(useCouncilSettings).mockReturnValue(mockCouncilSettings({ mode: 'museum', isMuseumMode: true }));
 
         render(
             <MemoryRouter>

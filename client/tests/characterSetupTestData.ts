@@ -2,15 +2,10 @@ import fs from "node:fs";
 import path from "node:path";
 import { CHARACTERS_FILE } from "@shared/prompts/characterSetupMetadata";
 import { SHARED_PROMPTS_DIR } from "./sharedPromptsDir";
+import type { Character } from "@shared/ModelTypes";
 
 type CharacterSetupDataFile = {
-    characters: Array<{
-        id: string;
-        name: string;
-        description: string;
-        voice: string;
-        prompt?: string;
-    }>;
+    characters: Character[];
 };
 
 export function loadCharacterSetupData(language = "en"): CharacterSetupDataFile {

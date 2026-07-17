@@ -5,7 +5,28 @@ import SelectTopic from '@newMeeting/SelectTopic';
 import { getTopicsBundle } from '@main/topicsBundle';
 import { useMeetingSetupStore } from '@newMeeting/meetingSetupStore';
 import { useCouncilSettings } from '@/settings/councilSettings';
+import { DEV_LOG_CATEGORIES } from '@/logger';
 import type { Topic } from '@shared/ModelTypes';
+
+function mockCouncilSettings(overrides: Partial<ReturnType<typeof useCouncilSettings>> = {}): ReturnType<typeof useCouncilSettings> {
+    return {
+        isMuseumMode: false,
+        mode: 'web',
+        setAppMode: vi.fn(),
+        agentMode: 'off',
+        setAgentMode: vi.fn(),
+        pttHardwareEnabled: false,
+        setPttHardwareEnabled: vi.fn(),
+        museumSwitchButtonEnabled: false,
+        setMuseumSwitchButtonEnabled: vi.fn(),
+        devLogEnabled: false,
+        setDevLogEnabled: vi.fn(),
+        devLogCategories: Object.fromEntries(DEV_LOG_CATEGORIES.map((c) => [c, false])) as Record<typeof DEV_LOG_CATEGORIES[number], boolean>,
+        setDevLogCategoryEnabled: vi.fn(),
+        setAllDevLogCategories: vi.fn(),
+        ...overrides,
+    };
+}
 
 // Mocks
 vi.mock('react-i18next', () => ({
@@ -48,8 +69,11 @@ const mockTopics = [
 ];
 
 const mockCustomTopicConfig = { id: 'customtopic', title: 'Write your own', description: 'Custom', prompt: '' };
+const mockMetadata = { version: '1.0.0', last_updated: '2026-01-01' };
 
 const defaultBundle = {
+    language: 'en',
+    metadata: mockMetadata,
     topics: mockTopics,
     custom_topic: mockCustomTopicConfig,
     system: 'System [TOPIC]',
@@ -80,13 +104,7 @@ describe('SelectTopic Component', () => {
         mockOnReset = vi.fn();
         mockOnCancel = vi.fn();
         vi.mocked(getTopicsBundle).mockReturnValue(defaultBundle);
-        vi.mocked(useCouncilSettings).mockReturnValue({
-            mode: 'web',
-            isMuseumMode: false,
-            setAppMode: vi.fn(),
-            agentMode: "off",
-            setAgentMode: vi.fn(),
-        });
+        vi.mocked(useCouncilSettings).mockReturnValue(mockCouncilSettings());
     });
 
     it('should render topics and allow selection', () => {
@@ -157,6 +175,8 @@ describe('SelectTopic Component', () => {
             { id: '4', title: 'T4', description: 'D', prompt: '' }
         ];
         vi.mocked(getTopicsBundle).mockReturnValue({
+            language: 'en',
+            metadata: mockMetadata,
             topics: fewTopics,
             custom_topic: mockCustomTopicConfig,
             system: 'System [TOPIC]',
@@ -189,6 +209,8 @@ describe('SelectTopic Component', () => {
             id: `topic${i}`, title: `Topic ${i}`, description: `Desc ${i}`, prompt: ''
         }));
         vi.mocked(getTopicsBundle).mockReturnValue({
+            language: 'en',
+            metadata: mockMetadata,
             topics: manyTopics,
             custom_topic: mockCustomTopicConfig,
             system: 'System [TOPIC]',
@@ -369,13 +391,7 @@ describe('SelectTopic Component', () => {
     });
 
     it('hides next button in museum mode', () => {
-        vi.mocked(useCouncilSettings).mockReturnValue({
-            mode: 'museum',
-            isMuseumMode: true,
-            setAppMode: vi.fn(),
-            agentMode: "off",
-            setAgentMode: vi.fn(),
-        });
+        vi.mocked(useCouncilSettings).mockReturnValue(mockCouncilSettings({ mode: 'museum', isMuseumMode: true }));
 
         render(
             <ControlledSelectTopic

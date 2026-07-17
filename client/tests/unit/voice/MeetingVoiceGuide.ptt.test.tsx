@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render } from "@testing-library/react";
 import MeetingVoiceGuide from "@voice/MeetingVoiceGuide";
+import type { AppMode, AgentMode } from "@/settings/councilSettings";
 
 const mockClaim = vi.hoisted(() => vi.fn());
 const mockRelease = vi.hoisted(() => vi.fn());
@@ -18,11 +19,17 @@ const mockUseVoiceGuide = vi.hoisted(() => vi.fn((_params?: unknown) => ({
   sendUserMessage: vi.fn(),
 })));
 const mockUseCouncilSettings = vi.hoisted(() =>
-  vi.fn(() => ({
+  vi.fn((): {
+    isMuseumMode: boolean;
+    mode: AppMode;
+    setAppMode: () => void;
+    agentMode: AgentMode;
+    setAgentMode: () => void;
+  } => ({
     isMuseumMode: false,
-    mode: "web" as const,
+    mode: "web",
     setAppMode: vi.fn(),
-    agentMode: "ptt" as const,
+    agentMode: "ptt",
     setAgentMode: vi.fn(),
   })),
 );
