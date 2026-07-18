@@ -54,10 +54,17 @@ When deciding whether a test is worth writing (or keeping), rank it here:
    queries, fired events), not internal state.
 4. **Low value — do not write, delete on sight:**
    - "Renders correctly" tests and snapshot-shaped assertions on static markup.
+     `toMatchSnapshot()` is lint-blocked in both `client/` and `server/` tests for this
+     reason — it mirrors implementation and breaks opaquely on cosmetic refactors; assert
+     the specific values instead.
    - Tests whose only assertion is that a mock was called with specific arguments, where
      those arguments just restate the implementation.
    - The same behavior re-proven at multiple levels "for safety". Pick the lowest level that
      can express the behavior and test it once.
+
+`.only` on `it`/`test`/`describe` is also lint-blocked — with no CI running the suite, a
+stray `.only` left in a commit would silently disable the rest of the file for anyone else
+who runs it.
 
 ## The LLM and TTS boundary
 

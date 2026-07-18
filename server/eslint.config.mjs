@@ -97,6 +97,20 @@ export default tseslint.config(
       '@typescript-eslint/no-unused-expressions': 'warn',
       'prefer-const': 'warn',
       'no-var': 'warn',
+      // Snapshots mirror implementation and break opaquely on cosmetic refactors
+      // (see TESTING.md); .only left in a commit silently disables the rest of
+      // the suite with no CI to catch it.
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: 'CallExpression[callee.property.name="toMatchSnapshot"]',
+          message: 'Avoid toMatchSnapshot — assert the specific behavior/values instead (see TESTING.md).',
+        },
+        {
+          selector: 'CallExpression[callee.type="MemberExpression"][callee.property.name="only"][callee.object.name=/^(it|test|describe)$/]',
+          message: 'Remove .only before committing — it silently skips the rest of the suite.',
+        },
+      ],
     },
   },
 );
