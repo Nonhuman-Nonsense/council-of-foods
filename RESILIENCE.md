@@ -197,8 +197,8 @@ principle, applied to server-owned state instead of client-owned intent.
   touching either).
 
 The unit-level tests above are covered per-module (`MeetingLoopHardening.test.js`,
-`MeetingManagerTransition.test.js`, etc. — see `docs/TESTING.md`/`docs/test-review-slice-1.md`).
-The one full-stack proof that a *live socket* actually survives a drop —
+`MeetingManagerTransition.test.js`, etc. — see [TESTING.md](TESTING.md) for the rubric they
+follow). The one full-stack proof that a *live socket* actually survives a drop —
 real HTTP + real socket.io + a real `MeetingManager`, no mocked transport — lives in
 `server/tests/meetingsHttpAndSocket.integration.test.js`, describe block "socket disconnect +
 attempt_reconnection resilience": a clean disconnect/reconnect with no message loss, and the
