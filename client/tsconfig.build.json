@@ -1,5 +1,14 @@
 {
     "extends": "./tsconfig.json",
+    "compilerOptions": {
+        // Production build excludes all tests, so it has no need for vitest's ambient
+        // globals — and unlike tsconfig.json's own type-check, this config also runs
+        // in contexts (e.g. the Docker client-builder stage) where vitest isn't
+        // installed at all (`npm ci --only=production`), so requiring it here breaks
+        // the build. `types` arrays don't merge across `extends`, so `[]` fully
+        // overrides the base config's `["vitest/globals"]` rather than adding to it.
+        "types": []
+    },
     "include": [
         "src",
         "../shared"
