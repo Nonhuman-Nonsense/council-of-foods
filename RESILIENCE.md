@@ -196,6 +196,15 @@ principle, applied to server-owned state instead of client-owned intent.
   "The resume vs. replay trap" below — the one gotcha in this section worth re-reading before
   touching either).
 
+The unit-level tests above are covered per-module (`MeetingLoopHardening.test.js`,
+`MeetingManagerTransition.test.js`, etc. — see `docs/TESTING.md`/`docs/test-review-slice-1.md`).
+The one full-stack proof that a *live socket* actually survives a drop —
+real HTTP + real socket.io + a real `MeetingManager`, no mocked transport — lives in
+`server/tests/meetingsHttpAndSocket.integration.test.js`, describe block "socket disconnect +
+attempt_reconnection resilience": a clean disconnect/reconnect with no message loss, and the
+reconnect-race case above (`preemptStaleLiveSessionForReconnect`) where a new socket takes over
+before the old one's disconnect has been processed.
+
 ### The single-loop invariant
 
 `runLoop` is the one and only actor that turns pending conversation state into the next state
