@@ -1,9 +1,14 @@
 # Test review — slice 3: realtime voice (client + server protocol together)
 
-> **Status: reviewed, no test changes applied.** Client 835 / server 442 tests unchanged;
-> all green; type-check and lint clean. One significant **production-code** finding surfaced
-> (dead routes) — flagged below for a decision, not acted on, since it's outside the scope of
-> a test-coverage pass.
+> **Status: reviewed, dead-code finding since resolved.** Client 835 / server 442 tests
+> unchanged; all green; type-check and lint clean. The dead-routes finding below was
+> confirmed obsolete and removed: `server/src/api/voiceGuideSession.ts` (the
+> `registerVoiceGuideRoutes` handlers) and `server/tests/voiceGuideSession.test.ts` were
+> deleted. `createInworldCall`/`getInworldIceServers` — the two real functions the old test
+> file exercised via re-export — are still fully covered: their test cases (including the
+> error paths: empty SDP rejection, non-OK ICE/call responses, empty SDP answer) moved into
+> `realtimeProviders.test.ts`, the file that actually owns them. Net test count unchanged
+> (442 → 442; 7 cases moved, none lost).
 
 Verdicts against [TESTING.md](../TESTING.md). Files reviewed — 17 files, ~3737 lines, the
 largest slice: client `realtime/{realtimeProtocol,realtimeConnection,useRealtimeVoiceSession,
