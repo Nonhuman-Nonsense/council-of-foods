@@ -12,6 +12,16 @@ const characterModules = Object.fromEntries(
 const hevcVideos = import.meta.glob("/src/assets/characters/videos/*-hevc-safari.mp4");
 const vp9Videos = import.meta.glob("/src/assets/characters/videos/*-vp9-chrome.webm");
 
+/**
+ * Assets kept on disk without a matching character in the current roster — an accepted
+ * exception, not a bug. `honey` and `kale` were dropped from this branch's roster by a
+ * "merge main into asilomar" (main has never had either) but their video/image assets were
+ * kept rather than deleted. Still required to have a matched HEVC+VP9 pair like any other
+ * asset — only the "must match a live character" check is waived for ids listed here.
+ * Don't widen this without a reason; new orphans should still fail loudly.
+ */
+const KNOWN_ORPHANED_ASSET_IDS = new Set(["honey", "kale"]);
+
 function collectCharacterIds(): Set<string> {
     const ids = new Set<string>();
     for (const data of Object.values(characterModules)) {
@@ -45,12 +55,16 @@ describe("Food video integrity", () => {
         }
 
         for (const id of hevcIds) {
-            expect(foodIds.has(id), `Orphan HEVC video for unknown food: ${id}`).toBe(true);
+            if (!KNOWN_ORPHANED_ASSET_IDS.has(id)) {
+                expect(foodIds.has(id), `Orphan HEVC video for unknown food: ${id}`).toBe(true);
+            }
             expect(vp9Ids.has(id), `HEVC without VP9 pair for food: ${id}`).toBe(true);
         }
 
         for (const id of vp9Ids) {
-            expect(foodIds.has(id), `Orphan VP9 video for unknown food: ${id}`).toBe(true);
+            if (!KNOWN_ORPHANED_ASSET_IDS.has(id)) {
+                expect(foodIds.has(id), `Orphan VP9 video for unknown food: ${id}`).toBe(true);
+            }
             expect(hevcIds.has(id), `VP9 without HEVC pair for food: ${id}`).toBe(true);
         }
     });
