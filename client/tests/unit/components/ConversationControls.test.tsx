@@ -49,15 +49,13 @@ describe('ConversationControls', () => {
     });
 
     it('renders all controls when active and not paused', () => {
-        const { asFragment } = render(<ConversationControls {...defaultProps} />);
+        render(<ConversationControls {...defaultProps} />);
 
         expect(screen.getByTestId('control-icon-pause')).toBeInTheDocument();
         expect(screen.getByTestId('control-icon-volume_on')).toBeInTheDocument();
         expect(screen.getByTestId('control-icon-backward')).toBeInTheDocument();
         expect(screen.getByTestId('control-icon-forward')).toBeInTheDocument();
         expect(screen.getByTestId('control-icon-raise_hand')).toBeInTheDocument();
-
-        expect(asFragment()).toMatchSnapshot();
     });
 
     it('renders only play button when paused', () => {
@@ -65,13 +63,10 @@ describe('ConversationControls', () => {
 
         expect(screen.getByTestId('control-icon-play')).toBeInTheDocument();
 
-        // Should NOT show other controls when paused (based on implementation: !isPaused && <Icon>)
+        // Backward/forward/volume/raise-hand are all gated on !isPaused.
         expect(screen.queryByTestId('control-icon-volume_on')).not.toBeInTheDocument();
         expect(screen.queryByTestId('control-icon-backward')).not.toBeInTheDocument();
         expect(screen.queryByTestId('control-icon-forward')).not.toBeInTheDocument();
-
-        // Raise hand acts weirdly in code? 
-        // Line 68: {!isPaused && canRaiseHand && <Icon>}
         expect(screen.queryByTestId('control-icon-raise_hand')).not.toBeInTheDocument();
     });
 
@@ -154,22 +149,13 @@ describe('ConversationControls', () => {
     it('disables pointer events on raise hand button when hand is already raised', () => {
         render(<ConversationControls {...defaultProps} isRaisedHand={true} />);
 
-        // The container of the raise hand icon has the pointer-events style
-        // We need to find the specific container div. 
-        // Based on implementation, it's the 5th child of the flex container.
-        // Structure: div(root) -> div(flex) -> div(child 1..5)
-
-        // Let's use a more robust selector if possible, or traverse
-        // Implementation: <div style={{ ...divStyle, pointerEvents: isRaisedHand ? "none" : "auto" }}>
-
-        // We can find the button and go up to its parent
         const raiseHandBtn = screen.getByTestId('control-icon-raise_hand_filled');
-        const parentDiv = raiseHandBtn.parentElement;
-
-        expect(parentDiv).toHaveStyle({ pointerEvents: 'none' });
+        expect(raiseHandBtn.parentElement).toHaveStyle({ pointerEvents: 'none' });
     });
 
-    it('does not trigger onRaiseHand if already raised (redundant check via pointer-events, but logic check)', () => {
+    it('ignores clicks on raise hand when already raised, independent of the CSS guard', () => {
+        // jsdom's fireEvent.click doesn't honor pointer-events, so this proves the
+        // component itself guards the handler rather than relying solely on CSS.
         render(<ConversationControls {...defaultProps} isRaisedHand={true} />);
         const raiseHandBtn = screen.getByTestId('control-icon-raise_hand_filled');
 

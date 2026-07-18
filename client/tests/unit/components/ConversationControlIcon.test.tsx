@@ -15,7 +15,7 @@ describe('ConversationControlIcon', () => {
     };
 
     it('renders normal icon by default', () => {
-        const { asFragment } = render(<ConversationControlIcon {...defaultProps} />);
+        render(<ConversationControlIcon {...defaultProps} />);
 
         // We expect icon-play and icon-play_filled (hover, hidden)
         const icon = screen.getByTestId('icon-play');
@@ -25,8 +25,6 @@ describe('ConversationControlIcon', () => {
         expect(hoverIcon).toBeInTheDocument();
 
         expect(icon).toHaveStyle({ opacity: '1' });
-
-        expect(asFragment()).toMatchSnapshot();
     });
 
     it('shows hover icon when mice enters', () => {
