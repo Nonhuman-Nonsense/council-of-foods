@@ -219,3 +219,22 @@ export function reportTerminalError(
 if (import.meta.env.DEV && typeof window !== "undefined") {
   (window as Window & { __councilLogger?: typeof log }).__councilLogger = log;
 }
+
+/**
+ * Report-only: these fire on plenty of benign noise (cancelled fetches, third-party
+ * scripts), so unlike ErrorBoundary they don't set unrecoverableError / crash the UI.
+ * Call once at app startup.
+ */
+export function installGlobalErrorHandlers(): void {
+  if (typeof window === "undefined") return;
+
+  window.addEventListener("error", (event) => {
+    reportTerminalError("window.onerror", event.message || "Uncaught error", event.error);
+  });
+
+  window.addEventListener("unhandledrejection", (event) => {
+    const reason = event.reason;
+    const message = reason instanceof Error ? reason.message : String(reason);
+    reportTerminalError("unhandledrejection", message, reason);
+  });
+}

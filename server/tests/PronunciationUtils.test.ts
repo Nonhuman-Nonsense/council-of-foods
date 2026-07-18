@@ -184,6 +184,43 @@ describe('PronunciationUtils', () => {
         expect(result.processedText).toBe('Join #climate action today.');
     });
 
+    describe('number-gated abbreviations (e.g. "ha" collides with the Swedish verb)', () => {
+        beforeEach(() => {
+            mockAliasSv = { "ha": "hektar" };
+        });
+
+        it('should not replace "ha" when used as the Swedish verb "to have"', () => {
+            const result = PronunciationUtils.processText('Bra att du vill ha grönska', 'sv', { includeIpa: false });
+            expect(result.processedText).toBe('Bra att du vill ha grönska');
+        });
+
+        it('should replace "ha" as the hectare unit when preceded by a number', () => {
+            const result = PronunciationUtils.processText('Vi har 5 ha mark', 'sv', { includeIpa: false });
+            expect(result.processedText).toBe('Vi har 5 hektar mark');
+        });
+    });
+
+    describe('case-sensitive acronyms (e.g. "LED" collides with the verb "led")', () => {
+        beforeEach(() => {
+            mockAliasEn = { "LED": "ell ee dee", "EV": "electric vehicle" };
+        });
+
+        it('should not replace lowercase "led" (past tense of "lead")', () => {
+            const result = PronunciationUtils.processText('She led the team to victory.', 'en', { includeIpa: false });
+            expect(result.processedText).toBe('She led the team to victory.');
+        });
+
+        it('should still replace all-caps "LED"', () => {
+            const result = PronunciationUtils.processText('Install the new LED bulb.', 'en', { includeIpa: false });
+            expect(result.processedText).toBe('Install the new ell ee dee bulb.');
+        });
+
+        it('should not replace lowercase "ev"', () => {
+            const result = PronunciationUtils.processText('The word ev is not an acronym here.', 'en', { includeIpa: false });
+            expect(result.processedText).toBe('The word ev is not an acronym here.');
+        });
+    });
+
     describe('Unicode word boundary handling', () => {
         beforeEach(() => {
             mockAliasSv = { "kV": "kilovolt" };
