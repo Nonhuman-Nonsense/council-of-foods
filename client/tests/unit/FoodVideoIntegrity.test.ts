@@ -20,7 +20,7 @@ const vp9Videos = import.meta.glob("/src/assets/characters/videos/*-vp9-chrome.w
  * asset — only the "must match a live character" check is waived for ids listed here.
  * Don't widen this without a reason; new orphans should still fail loudly.
  */
-const KNOWN_ORPHANED_ASSET_IDS = new Set(["honey", "kale"]);
+const KNOWN_ORPHANED_ASSET_IDS = new Set(["honey"]);
 
 function collectCharacterIds(): Set<string> {
     const ids = new Set<string>();
