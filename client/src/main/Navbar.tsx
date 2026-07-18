@@ -3,7 +3,7 @@ import { useLocation, useNavigate, NavigateFunction, Location, Link } from "reac
 import { useMediaQuery } from 'react-responsive'
 import { useTranslation } from 'react-i18next';
 import { capitalizeFirstLetter, useMobile, useMobileXs, usePortrait } from "@/utils";
-import { buildLanguagePath, getMeetingIdFromPathname } from "@/routing";
+import { buildLanguagePath, getMeetingIdFromPathname } from "@/navigation";
 import Lottie from "react-lottie-player";
 import type { ComponentRef } from "react";
 import hamburger from "@assets/animations/hamburger.json";

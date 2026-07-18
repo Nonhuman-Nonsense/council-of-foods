@@ -108,7 +108,7 @@ export const insertMeeting = async (meeting: Omit<StoredMeeting, "_id">): Promis
   } catch (error) {
     // Report error and rethrow to allow caller or global handler to react
     // We rethrow because database failure is critical for creating a meeting
-    await Logger.error("DbService", "Failed to insert meeting", error);
+        await Logger.error("DbService", "Failed to insert meeting", { error });
     throw error;
   }
 };

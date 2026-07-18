@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import { createMeeting } from "@api/createMeeting";
-import { isRootPath, useRouting } from "@/routing";
+import { isRootPath, useRouting } from "@/navigation";
 import MeetingVoiceGuide from "@voice/MeetingVoiceGuide";
 import { useCouncilSettings } from "@/settings/councilSettings";
 import type { MeetingSetupPhase, MeetingSetupUserEvent } from "./meetingSetup";

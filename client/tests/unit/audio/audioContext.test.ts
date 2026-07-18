@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { createAudioContext, setAudioSuspended } from "@/audio/audioContext";
+import type { AudioContextRef } from "@/audio/audioContext";
 
 describe("createAudioContext", () => {
   it("returns an AudioContext", () => {
@@ -30,7 +31,7 @@ describe("setAudioSuspended", () => {
     const suspend = vi.fn();
     const audioContext = {
       current: { state: "running", suspend },
-    };
+    } as unknown as AudioContextRef;
 
     setAudioSuspended(audioContext, true);
 
@@ -41,7 +42,7 @@ describe("setAudioSuspended", () => {
     const resume = vi.fn();
     const audioContext = {
       current: { state: "suspended", resume },
-    };
+    } as unknown as AudioContextRef;
 
     setAudioSuspended(audioContext, false);
 

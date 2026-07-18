@@ -157,26 +157,8 @@ describe('AudioSystem Inworld Integration', () => {
     it('should use native timings if provided (Phase 2) and bypass Whisper', async () => {
         const message = { id: 'msg3', text: 'Native Test', sentences: ['Native Test'] };
         const speaker = { id: 'char1', voice: 'Dennis', voiceProvider: 'inworld' };
-
-        mockFetch.mockResolvedValue({
-            ok: true,
-            json: async () => ({
-                audioContent: Buffer.from('audio').toString('base64'),
-                timestampInfo: {
-                    wordAlignment: {
-                        words: ['Native', 'Test'],
-                        wordStartTimeSeconds: [0, 0.5],
-                        wordEndTimeSeconds: [0.5, 1.0]
-                    }
-                }
-            }),
-            text: async () => ''
-        });
-
         const openai = mockServices.getOpenAI();
-        // Clear previous calls (if any from beforeEach/mocks setup, though fresh instance is created)
-        vi.clearAllMocks();
-        // We need to re-setup fetch mock after clearAllMocks
+
         mockFetch.mockResolvedValue({
             ok: true,
             json: async () => ({
@@ -191,11 +173,6 @@ describe('AudioSystem Inworld Integration', () => {
             }),
             text: async () => ''
         });
-
-        // Need to recreate audioSystem or just assume state is fresh. beforeEach creates new audioSystem.
-        // But vi.clearAllMocks cleared the spy on openai.audio.transcriptions.create too?
-        // mockServices.getOpenAI() returns the SAME mockOpenAI object defined in beforeEach.
-        // vi.clearAllMocks() clears calls on all spies.
 
         await audioSystem.generateAudio(
             message,
@@ -295,8 +272,10 @@ describe('AudioSystem Inworld Integration', () => {
         expect(Logger.reportAndCrashClient).toHaveBeenCalledWith(
             'AudioSystem',
             'Error generating audio',
-            expect.objectContaining({ message: expect.stringContaining('Inworld TTS API Error: 500 Internal Server Error') }),
-            expect.anything()
+            expect.objectContaining({
+                error: expect.objectContaining({ message: expect.stringContaining('Inworld TTS API Error: 500 Internal Server Error') }),
+                broadcaster: expect.anything(),
+            }),
         );
     });
 
@@ -342,19 +321,13 @@ describe('AudioSystem Inworld Integration', () => {
             })
         );
 
-        // We can't easily inspect the returned words here because generateAudio is void.
-        // But we can check if broadcastAudioUpdate was called with restored words!
-
+        // The IPA substitution sent to the API must not leak into the broadcasted sentence
+        // text — words are restored to their original spelling before sentence mapping.
         expect(mockBroadcaster.broadcastAudioUpdate).toHaveBeenCalledWith(
             expect.objectContaining({
                 sentences: expect.arrayContaining([
                     expect.objectContaining({
                         text: 'Say tomato please'
-                        // Logic for mapping sentences matches words, check if mapSentencesToWords worked?
-                        // If words were RESTORED to 'tomato', then 'tomato' in sentence matches 'tomato' in words.
-                        // If words remained '/təˈmɑːtoʊ/', mapSentencesToWords wouldn't match 'tomato' in sentence easily or logic handles it?
-                        // Wait, mapSentencesToWords compares whisperTokens (lowercase).
-                        // '/təˈmɑːtoʊ/' cleaned might not match 'tomato'.
                     })
                 ])
             })

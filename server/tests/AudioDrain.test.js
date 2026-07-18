@@ -28,10 +28,8 @@ describe('Audio Queue Draining', () => {
     });
 
     it('should stop generation loop on destroy but allow audio queue to drain', async () => {
-        // 1. Setup - Mock Dependencies
-
-        // Mock DialogGenerator to just return a hit immediately
-        // We want to simulate the loop running fast and queuing audio
+        // Text generation resolves immediately; audio generation is deliberately slow so a
+        // task is still in flight (queued but unfinished) at the moment destroy() runs.
         vi.spyOn(p1.manager.dialogGenerator, 'generateResponseWithRetry').mockImplementation(async (speaker) => {
             return {
                 response: `Message from ${speaker.id}`,
@@ -41,19 +39,12 @@ describe('Audio Queue Draining', () => {
             };
         });
 
-        // Mock AudioSystem.generateAudio to be SLOW
-        // This simulates a backlog
         const audioCompletions = [];
         vi.spyOn(p1.manager.audioSystem, 'generateAudio').mockImplementation(async (msg) => {
-            // Wait for a manual signal or just a long timer?
-            // Let's use a long timer that we can fast-forward, or just a promise we resolve manually?
-            // Actually, for "Zombie" check, we want to ensure they ARE called.
-
-            await new Promise(r => setTimeout(r, 50)); // 50ms delay
+            await new Promise(r => setTimeout(r, 50));
             audioCompletions.push(msg.id);
         });
 
-        // 2. Start Conversation (loads StoredMeeting from DB; see findOne mock in beforeEach)
         await p1.manager.meetingLifecycleHandler.handleStartConversation({
             meetingId: DRAIN_MEETING_ID,
             liveKey: DRAIN_LIVE_KEY,
@@ -65,41 +56,21 @@ describe('Audio Queue Draining', () => {
             expect(p1.manager.meeting.conversation.length).toBeGreaterThan(0);
         });
 
-        // 4. DESTROY
         p1.manager.destroy();
 
-        // 5. Assertions
+        // Session is torn down (stops the loop and aborts further text generation).
+        expect(p1.manager.isActive).toBe(false);
 
-        // A: Loop must be inactive
-        expect(p1.manager.isLoopActive).toBe(false);
-
-        // B: Capture current audio completions
-        const _completionsAtDestroy = [...audioCompletions];
-
-        // C: Wait for the "slow" audio tasks to finish
+        // The in-flight audio task (queued before destroy) still completes — the queue
+        // drains rather than being killed with the session.
         await vi.waitFor(() => {
             expect(audioCompletions.length).toBeGreaterThan(0);
         });
 
-        // Ideally, we want to prove that `generateAudio` kept running.
-        // If we only managed to queue 1 item in 10ms, then completionsAtDestroy might be 0.
-        // After wait, it should be 1.
-
-        // Let's check that we didn't generate NEW text/turns after destroy
+        // No new turns are generated after destroy (the text loop actually stopped,
+        // as opposed to merely being asked to and continuing anyway — a "zombie loop").
         const finalConversationCount = p1.manager.meeting.conversation.length;
-
-        // Wait MORE to see if "Zombie Loop" (text generation) continues
         await new Promise(r => setTimeout(r, 100));
-
         expect(p1.manager.meeting.conversation.length).toBe(finalConversationCount);
-        // This proves the text loop stopped.
-
-        // And regarding audio:
-        // We mock generateAudio. 
-        // We want to ensure that if we queued 3 items, all 3 are processed.
-        // It's hard to deterministically queue exactly 3 without controlling the loop stepping.
-
-        // Let's just assert "No errors thrown" and "IsLoopActive is false".
-        // The fact that node doesn't crash or hang is good.
     });
 });

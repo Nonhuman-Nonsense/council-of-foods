@@ -93,6 +93,20 @@ function waitForSocketEvent(socket, event, timeoutMs = 8000) {
     });
 }
 
+function connectSocket(socket, timeoutMs = 5000) {
+    return new Promise((resolve, reject) => {
+        const t = setTimeout(() => reject(new Error('socket connect timeout')), timeoutMs);
+        socket.once('connect', () => {
+            clearTimeout(t);
+            resolve();
+        });
+        socket.once('connect_error', (e) => {
+            clearTimeout(t);
+            reject(e);
+        });
+    });
+}
+
 describe('HTTP + Socket full chain (integration)', () => {
     let httpServer;
     let io;
@@ -149,17 +163,7 @@ describe('HTTP + Socket full chain (integration)', () => {
         });
         socket.connect();
 
-        await new Promise((resolve, reject) => {
-            const t = setTimeout(() => reject(new Error('socket connect timeout')), 5000);
-            socket.once('connect', () => {
-                clearTimeout(t);
-                resolve();
-            });
-            socket.once('connect_error', (e) => {
-                clearTimeout(t);
-                reject(e);
-            });
-        });
+        await connectSocket(socket);
 
         const updatePromise = waitForSocketEvent(socket, 'conversation_update', 12000);
 
@@ -188,30 +192,7 @@ describe('HTTP + Socket full chain (integration)', () => {
         socket1.connect();
         socket2.connect();
 
-        await Promise.all([
-            new Promise((resolve, reject) => {
-                const t = setTimeout(() => reject(new Error('s1 timeout')), 5000);
-                socket1.once('connect', () => {
-                    clearTimeout(t);
-                    resolve();
-                });
-                socket1.once('connect_error', (e) => {
-                    clearTimeout(t);
-                    reject(e);
-                });
-            }),
-            new Promise((resolve, reject) => {
-                const t = setTimeout(() => reject(new Error('s2 timeout')), 5000);
-                socket2.once('connect', () => {
-                    clearTimeout(t);
-                    resolve();
-                });
-                socket2.once('connect_error', (e) => {
-                    clearTimeout(t);
-                    reject(e);
-                });
-            }),
-        ]);
+        await Promise.all([connectSocket(socket1), connectSocket(socket2)]);
 
         socket1.emit('start_conversation', { meetingId: Number(meetingId), liveKey });
         await waitForSocketEvent(socket1, 'conversation_update', 12000);
@@ -308,17 +289,7 @@ describe('HTTP + Socket full chain (integration)', () => {
 
             const socket = ioClient(`${base()}`, { transports: ['websocket'], autoConnect: false });
             socket.connect();
-            await new Promise((resolve, reject) => {
-                const t = setTimeout(() => reject(new Error('socket connect timeout')), 5000);
-                socket.once('connect', () => {
-                    clearTimeout(t);
-                    resolve();
-                });
-                socket.once('connect_error', (e) => {
-                    clearTimeout(t);
-                    reject(e);
-                });
-            });
+            await connectSocket(socket);
 
             const updatePromise = waitForSocketEvent(socket, 'conversation_update');
             socket.emit('start_conversation', { meetingId, liveKey });
@@ -340,17 +311,7 @@ describe('HTTP + Socket full chain (integration)', () => {
 
         const socket = ioClient(`${base()}`, { transports: ['websocket'], autoConnect: false });
         socket.connect();
-        await new Promise((resolve, reject) => {
-            const t = setTimeout(() => reject(new Error('connect timeout')), 5000);
-            socket.once('connect', () => {
-                clearTimeout(t);
-                resolve();
-            });
-            socket.once('connect_error', (e) => {
-                clearTimeout(t);
-                reject(e);
-            });
-        });
+        await connectSocket(socket);
 
         const errPromise = waitForSocketEvent(socket, 'conversation_error', 5000);
         socket.emit('attempt_reconnection', {
@@ -364,5 +325,94 @@ describe('HTTP + Socket full chain (integration)', () => {
         expect(err.message).toBe('Forbidden');
 
         socket.close();
+    });
+
+    describe('socket disconnect + attempt_reconnection resilience', () => {
+        async function startLiveMeeting() {
+            const createRes = await fetch(`${base()}/api/meetings`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(validCreateBody()),
+            });
+            const { meetingId, liveKey } = await createRes.json();
+
+            const socket = ioClient(`${base()}`, { transports: ['websocket'], autoConnect: false });
+            socket.connect();
+            await connectSocket(socket);
+
+            const updatePromise = waitForSocketEvent(socket, 'conversation_update', 12000);
+            socket.emit('start_conversation', { meetingId: Number(meetingId), liveKey });
+            const conversation = await updatePromise;
+
+            return { meetingId: Number(meetingId), liveKey, socket, conversation };
+        }
+
+        it('resumes the same conversation with no loss after a clean disconnect', async () => {
+            const { meetingId, liveKey, socket: socket1, conversation: conv1 } = await startLiveMeeting();
+            expect(conv1.length).toBeGreaterThan(0);
+
+            // Simulate the browser tab closing / losing its connection: the server's
+            // 'disconnect' handler tears down the session and releases the live-session lock.
+            socket1.close();
+
+            const socket2 = ioClient(`${base()}`, { transports: ['websocket'], autoConnect: false });
+            socket2.connect();
+            await connectSocket(socket2);
+
+            const reconnectUpdate = waitForSocketEvent(socket2, 'conversation_update', 12000);
+            socket2.emit('attempt_reconnection', {
+                meetingId,
+                liveKey,
+                handRaised: false,
+                conversationMaxLength: 20,
+            });
+            const conv2 = await reconnectUpdate;
+
+            // Every message the client had before the drop is still there, in the same
+            // order — the resumed conversation is a continuation, not a fresh/rewound one.
+            expect(conv2.slice(0, conv1.length).map((m) => m.id)).toEqual(conv1.map((m) => m.id));
+
+            // The reconnected socket is the genuinely live session holder, not a one-shot
+            // state dump: a proxy event it sends must actually reach the resumed
+            // MeetingManager and persist, which only happens if handleReconnect wired up
+            // a real session (deterministic, unlike waiting on further mocked generation).
+            socket2.emit('report_maximum_played_index', { index: conv2.length - 1 });
+            await expect
+                .poll(async () => {
+                    const stored = await meetingsCollection.findOne({ _id: meetingId });
+                    return stored.maximumPlayedIndex;
+                }, { timeout: 5000 })
+                .toBe(conv2.length - 1);
+
+            socket2.close();
+        }, 20000);
+
+        it('preempts a still-connected stale session when a new socket reconnects first', async () => {
+            // Simulates the real-world race RESILIENCE.md is built around: socket.io's
+            // client reconnect can establish a brand-new socket (and emit
+            // attempt_reconnection on it) before the old socket's disconnect has been
+            // processed server-side. socket1 is deliberately left connected here.
+            const { meetingId, liveKey, socket: socket1, conversation: conv1 } = await startLiveMeeting();
+
+            const socket2 = ioClient(`${base()}`, { transports: ['websocket'], autoConnect: false });
+            socket2.connect();
+            await connectSocket(socket2);
+
+            const reconnectUpdate = waitForSocketEvent(socket2, 'conversation_update', 12000);
+            socket2.emit('attempt_reconnection', {
+                meetingId,
+                liveKey,
+                handRaised: false,
+                conversationMaxLength: 20,
+            });
+            const conv2 = await reconnectUpdate;
+
+            // Preemption succeeded (no 409 conversation_error) and the takeover carried
+            // the conversation forward intact.
+            expect(conv2.slice(0, conv1.length).map((m) => m.id)).toEqual(conv1.map((m) => m.id));
+
+            socket1.close();
+            socket2.close();
+        }, 20000);
     });
 });

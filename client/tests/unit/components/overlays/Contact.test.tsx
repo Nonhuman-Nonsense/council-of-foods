@@ -9,7 +9,7 @@ vi.mock("@/utils", () => ({
 }));
 
 describe("Contact", () => {
-  it("renders credits and funding with external links", () => {
+  it("renders credits, funding, social/email links and the EU funding image", () => {
     render(<Contact />);
 
     const creditsParagraph = screen.getByText(/developed in collaboration with/).closest("p");
@@ -36,10 +36,6 @@ describe("Contact", () => {
         name: /Horizon Europe research and innovation programme under grant agreement 101069990/,
       }),
     ).toHaveAttribute("href", "https://cordis.europa.eu/project/id/101069990");
-  });
-
-  it("renders social and email links", () => {
-    render(<Contact />);
 
     expect(screen.getByRole("link", { name: "@nonhuman_nonsense" })).toHaveAttribute(
       "href",
@@ -53,10 +49,6 @@ describe("Contact", () => {
       "href",
       "mailto:hello@nonhuman-nonsense.com",
     );
-  });
-
-  it("renders EU funding image alt text from i18n", () => {
-    render(<Contact />);
 
     expect(
       screen.getByRole("img", { name: "Funded by the EU, as part of S+T+ARTS" }),

@@ -35,6 +35,15 @@ The client is built on React, and the server on Node.js. They communicate via a 
 
 See [Server Documentation](server/README.md) for detailed backend instructions and testing modes.
 
+For physical museum / kiosk installs, see [MUSEUM.md](MUSEUM.md) (app mode, button bridge, staff setup).
+
+For how the live client survives socket drops without lost input, deadlocks, or crashes — and
+the pattern any new client-driven socket action should follow — see
+[RESILIENCE.md](RESILIENCE.md).
+
+For the testing philosophy — what deserves a test, at what level, and what to delete — see
+[TESTING.md](TESTING.md).
+
 ### Building
 
 During development, to enable automatic reload on changes

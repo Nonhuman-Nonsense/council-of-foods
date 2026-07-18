@@ -5,19 +5,11 @@ import FullscreenButton from '@main/FullscreenButton';
 
 describe('FullscreenButton', () => {
 
-    // Mocking document methods
     const requestFullscreenMock = vi.fn();
     const exitFullscreenMock = vi.fn();
 
-    // Preserve original implementations
-    const _originalDocElement = document.documentElement;
-    const _originalExit = document.exitFullscreen;
-
     afterEach(() => {
         vi.restoreAllMocks();
-        // Restore document element property if we mess with it, 
-        // but we are just attaching mocks to current instance usually.
-        // Actually, we need to mock the property on the prototype or the instance.
     });
 
     it('requests fullscreen when clicked and not currently fullscreen', () => {
@@ -75,21 +67,12 @@ describe('FullscreenButton', () => {
             value: document.createElement('div'),
         });
 
-        // We need to trigger the useEffect listener if we want to change it dynamically, 
-        // but here we are just testing initial render based on state. 
-        // Wait, the component uses `useState(false)` initially, 
-        // and updates ONLY on `fullscreenchange` event.
-        // So simply rendering with `document.fullscreenElement` set might NOT show correct state 
-        // if the component initializes with false and only updates on event.
-        // Let's check code: `const [isFullscreen, setIsFullscreen] = useState(false);`
-        // So it starts false. We need to trigger the event.
-
+        // The component's isFullscreen state always starts false and only updates
+        // via the fullscreenchange listener, so setting fullscreenElement alone
+        // isn't enough — the event must fire for the icon to switch.
         render(<FullscreenButton />);
-
-        // Simulate event
         fireEvent(document, new Event('fullscreenchange'));
 
-        // Now it should update
         expect(screen.getByLabelText('Close fullscreen')).toBeInTheDocument();
     });
 });

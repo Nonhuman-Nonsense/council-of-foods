@@ -3,7 +3,7 @@ import { useMediaQuery } from 'react-responsive'
 import { Link } from "react-router";
 import { useMobile, dvh } from "@/utils";
 import { useTranslation } from 'react-i18next';
-import { useRouting } from "@/routing";
+import { useRouting } from "@/navigation";
 import { useCouncilSettings } from "@/settings/councilSettings";
 import councilLogo from "@assets/logos/council_logo_white.svg";
 import asilomarLogo from "@assets/logos/SOA_PrimaryLogo_WHT.png";

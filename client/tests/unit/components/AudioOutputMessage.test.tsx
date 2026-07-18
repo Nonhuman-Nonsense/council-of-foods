@@ -9,6 +9,7 @@ const mockStop = vi.fn();
 const mockConnect = vi.fn();
 const mockDisconnect = vi.fn();
 const mockAddEventListener = vi.fn();
+const mockRemoveEventListener = vi.fn();
 
 const mockSourceNode = {
     buffer: null,
@@ -17,6 +18,7 @@ const mockSourceNode = {
     connect: mockConnect,
     disconnect: mockDisconnect,
     addEventListener: mockAddEventListener,
+    removeEventListener: mockRemoveEventListener,
 };
 
 const mockCreateBufferSource = vi.fn(() => mockSourceNode);

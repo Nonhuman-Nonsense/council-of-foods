@@ -1,5 +1,4 @@
 import type { Meeting, Message } from "@shared/ModelTypes.js";
-import { BadRequestError } from "@models/Errors.js";
 
 const MEETING_INCOMPLETE_MESSAGE: Message = { type: "meeting_incomplete" };
 
@@ -25,7 +24,12 @@ function sliceConversation(meeting: Meeting): Message[] {
     return conv.slice(0, cap + 1);
 }
 
-/** Pop tail while last message is a live human-wait placeholder or a dangling `invitation`. */
+/** Pop tail while last message is a live human-wait placeholder or a dangling `invitation`.
+ *
+ *  IMPORTANT: this deliberately does NOT strip `summary_pending`. That marker means "the server
+ *  still owes a summary here", and `buildResumeConversation` feeds directly back into the DB on
+ *  resume — stripping it would drop the marker so the resumed live session never finishes the
+ *  conclude. Replay (read-only) strips it separately; see `buildReplayMeetingManifest`. */
 export function stripAwaitingHumanTail(messages: Message[]): void {
     while (messages.length > 0) {
         const t = messages[messages.length - 1]?.type;
@@ -42,9 +46,8 @@ function truncateToAvailableAudio(conversation: Message[], audioIds: string[] | 
     const allowed = new Set(audioIds ?? []);
     const result: Message[] = [];
     for (const msg of conversation) {
-        // If message has an ID, it is a content message that needs audio.
-        // If it's not in the 'audio' array, it's either still generating or missing.
-        if (msg.id && !allowed.has(msg.id)) {
+        // Skipped turns are silent markers; live play advances without persisted audio.
+        if (msg.id && msg.type !== "skipped" && !allowed.has(msg.id)) {
             break;
         }
         result.push(msg);
@@ -100,10 +103,19 @@ export function buildReplayMeetingManifest(meeting: Meeting): Meeting {
 
     stripAwaitingHumanTail(conversation);
 
-    if (conversation.length === 0) {
-        throw new BadRequestError("No messages available for replay.");
+    // Replay is read-only: a not-yet-generated summary can never be produced here, so drop a
+    // trailing summary_pending marker and let it fall through to `meeting_incomplete` below —
+    // rather than handing the client a summary placeholder that would sit in Loading forever.
+    // (Resume deliberately keeps the marker; see stripAwaitingHumanTail's note.)
+    while (conversation.length > 0 && conversation[conversation.length - 1]?.type === "summary_pending") {
+        conversation.pop();
     }
 
+    // No playable content yet — either the meeting was just created, or the only messages so
+    // far are still waiting on audio generation (see truncateToAvailableAudio above). Fall
+    // through to the same `meeting_incomplete` handling as any other in-progress replay rather
+    // than erroring: the client already offers to resume from that state (see meetingRoutes.ts,
+    // which logs a warning when this happens so it stays visible).
     const lastMessageObj = conversation.length > 0 ? conversation[conversation.length - 1] : null;
     const hasSummary = lastMessageObj?.type === "summary";
 

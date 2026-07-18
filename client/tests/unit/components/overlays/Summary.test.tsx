@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import Summary from '@council/overlays/Summary';
+import type { AppMode, AgentMode } from '@/settings/councilSettings';
 
 vi.mock('qrcode.react', () => ({
     QRCodeCanvas: () => <div data-testid="qrcode">QRCode</div>
@@ -51,11 +52,17 @@ vi.mock('@/utils', () => ({
     dvh: 'vh' // Mock dvh constant
 }));
 
-const mockUseCouncilSettings = vi.fn(() => ({
+const mockUseCouncilSettings = vi.fn((): {
+    isMuseumMode: boolean;
+    mode: AppMode;
+    setAppMode: () => void;
+    agentMode: AgentMode;
+    setAgentMode: () => void;
+} => ({
     isMuseumMode: false,
-    mode: 'web' as const,
+    mode: 'web',
     setAppMode: vi.fn(),
-    agentMode: 'off' as const,
+    agentMode: 'off',
     setAgentMode: vi.fn(),
 }));
 
@@ -90,7 +97,7 @@ vi.mock('react-router', () => ({
     useNavigate: () => mockNavigate,
 }));
 
-vi.mock('@/routing', () => ({
+vi.mock('@/navigation', () => ({
     useRouting: () => ({ rootPath: '/en/' }),
 }));
 
@@ -165,6 +172,20 @@ describe('Summary Overlay', () => {
 
         const bananaEls = screen.getAllByText(/Discussed bananas/);
         expect(bananaEls.length).toBeGreaterThan(0);
+
+        // Disclaimer copy and its attribution/funding links.
+        expect(
+            screen.getAllByText(/This document was created by the Council of Foods/).length,
+        ).toBeGreaterThan(0);
+        expect(
+            screen.getAllByRole('link', { name: 'Nonhuman Nonsense' }).length,
+        ).toBeGreaterThan(0);
+        expect(
+            screen.getAllByRole('link', { name: 'grant agreement 101069990' }).length,
+        ).toBeGreaterThan(0);
+
+        // The hidden PDF template (#printed-style) is present in web mode.
+        expect(document.querySelector('#printed-style')).toBeInTheDocument();
     });
 
     it('renders correctly in mobile mode', () => {
@@ -187,37 +208,6 @@ describe('Summary Overlay', () => {
         // In a real functionality test we might check the value prop passed to QRCodeCanvas
         // but since we mocked it, we just check presence.
         // To verify props we would need to inspect the mock call arguments if we mocked it as a spy.
-    });
-
-    it('includes the disclaimer', () => {
-        render(<Summary summary={mockSummary} meetingId={mockMeetingId} />);
-
-        expect(
-            screen.getAllByText(/This document was created by the Council of Foods/).length,
-        ).toBeGreaterThan(0);
-        expect(
-            screen.getAllByRole('link', { name: 'Nonhuman Nonsense' }).length,
-        ).toBeGreaterThan(0);
-        expect(
-            screen.getAllByRole('link', { name: 'grant agreement 101069990' }).length,
-        ).toBeGreaterThan(0);
-    });
-
-    it('renders the hidden PDF template', () => {
-        render(<Summary summary={mockSummary} meetingId={mockMeetingId} />);
-
-        // The PDF template has id="printed-style" inside it, or we can look for the hidden wrapper
-        // The hidden wrapper has style display: none, so it might not be visible in default query
-        // using { hidden: true } usually works for getByText if we needed
-
-        // We can find the specific element structure for the PDF
-        // referenced by protocolRef
-
-        // Looking for the duplicate content is a good proxy, which we did in the first test.
-        // Let's specifically look for the PDF footer or header structure if unique
-        // "printed-style" is a unique ID used in the PDF template
-        const printedStyleDiv = document.querySelector('#printed-style');
-        expect(printedStyleDiv).toBeInTheDocument();
     });
 
     it('triggers PDF download when button is clicked', async () => {

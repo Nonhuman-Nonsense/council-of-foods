@@ -61,7 +61,6 @@ export class DialogGenerator {
         meeting: StoredMeeting,
         currentSpeakerIndex: number,
         shouldAbort: () => boolean,
-        contextInfo: string
     ): Promise<GPTResponse> {
         let attempt = 1;
         let output: GPTResponse = {
@@ -89,7 +88,7 @@ export class DialogGenerator {
 
             attempt++;
             if (output.response === "") {
-                Logger.warn(contextInfo, `entire message trimmed, trying again. attempt ${attempt}`);
+                Logger.warn("DialogGenerator", `entire message trimmed, trying again. attempt ${attempt}`, { from: { meetingId: meeting._id } });
             }
         }
         return output;
@@ -295,7 +294,7 @@ export class DialogGenerator {
             };
         } catch (error) {
             //Just log and rethrow
-            Logger.error("DialogGenerator", "Error during response generation", error);
+            Logger.error("DialogGenerator", "Error during response generation", { error, from: { meetingId: meeting._id } });
             throw error;
         }
     }
@@ -339,7 +338,7 @@ export class DialogGenerator {
             };
         } catch (error) {
             //Just log and rethrow
-            Logger.error("DialogGenerator", "Error during chair interjection", error);
+            Logger.error("DialogGenerator", "Error during chair interjection", { error, from: { meetingId: meeting._id } });
             throw error;
         }
     }
@@ -377,8 +376,9 @@ export class DialogGenerator {
                 ? `, trimmed: ${processed.trimmed.length} chars`
                 : "";
             Logger.info(
-                `meeting ${meeting._id}`,
+                "DialogGenerator",
                 `document generated (${processed.response.length} chars, finish_reason: ${completion.finishReason ?? "unknown"}${trimmedNote})`,
+                { from: { meetingId: meeting._id } },
             );
 
             return {
@@ -386,7 +386,7 @@ export class DialogGenerator {
                 ...processed,
             };
         } catch (error) {
-            Logger.error("DialogGenerator", "Error during document generation", error);
+            Logger.error("DialogGenerator", "Error during document generation", { error, from: { meetingId: meeting._id } });
             throw error;
         }
     }

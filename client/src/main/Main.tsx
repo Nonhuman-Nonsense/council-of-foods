@@ -19,7 +19,13 @@ import { useMeetingSetupStore } from "@newMeeting/meetingSetupStore";
 import MeetingSetupShell from "@newMeeting/MeetingSetupShell";
 import NewMeeting from "@newMeeting/NewMeeting";
 import Council from "@council/Council";
-import { isMeetingPath, isRootPath, stripLanguagePrefix, useRouting } from "@/routing";
+import {
+  isMeetingPath,
+  isRootPath,
+  reloadApp,
+  stripLanguagePrefix,
+  useRouting,
+} from "@/navigation";
 import RotateDevice from "./overlay/RotateDevice";
 import FullscreenButton from "./FullscreenButton";
 import MuseumSwitchButton from "@/museum/MuseumSwitchButton";
@@ -139,7 +145,7 @@ export default function Main(props: MainProps) {
     //If resetting completely
     if (!resetTopic) {
       useMeetingSetupStore.getState().resetStore();
-      window.location.href = rootPath;
+      void reloadApp();
       return;
     }
 

@@ -97,7 +97,7 @@ export function createGuideTools({
   otherLanguages,
   topics,
   characters,
-  agentMode,
+  agentMode: _agentMode,
   isWebMode = false,
 }: {
   otherLanguages: string[];

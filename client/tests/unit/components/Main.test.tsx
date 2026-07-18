@@ -1,0 +1,146 @@
+
+import { render, screen } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { MemoryRouter } from 'react-router';
+import Main from '@main/Main';
+import routes from '@/routes.json';
+import type { ReactNode } from 'react';
+
+const mockCouncil = vi.fn((_props: unknown) => <div data-testid="council">Council</div>);
+
+vi.mock('@api/createMeeting', () => ({
+    createMeeting: vi.fn().mockResolvedValue({ meetingId: 99, liveKey: 'test-live-key' }),
+}));
+
+vi.mock('@shared/prompts/topics_en.json', () => ({
+    default: {
+        topics: [
+            { id: "test-topic", title: "Test Topic", description: "D", prompt: "Test Prompt" }
+        ],
+        custom_topic: { id: "customtopic", title: "Custom", description: "C", prompt: "Custom" },
+        system: "System Prompt [TOPIC]"
+    }
+}));
+
+vi.mock('@main/overlay/Overlay', () => ({
+    default: ({ children }: { children: ReactNode }) => <div data-testid="overlay">{children}</div>
+}));
+vi.mock('@main/overlay/MainOverlays', () => ({
+    default: () => <div data-testid="main-overlays">MainOverlays</div>
+}));
+vi.mock('@newMeeting/Landing', () => ({
+    default: () => <div data-testid="landing">Landing</div>
+}));
+vi.mock('@main/Navbar', () => ({
+    default: () => <div data-testid="navbar">Navbar</div>
+}));
+vi.mock('@newMeeting/SelectTopic', () => ({
+    default: () => <div data-testid="select-topic">SelectTopic</div>
+}));
+vi.mock('@newMeeting/SelectCharacters', () => ({
+    default: () => <div data-testid="select-foods">SelectCharacters</div>,
+    createDefaultHumans: () => ([]),
+    getCharacterSetupBundle: () => ({
+        metadata: { version: "test", last_updated: "test" },
+        panelWithHumans: "",
+        addHuman: { id: "addhuman", name: "Add Human", description: "" },
+        characters: [],
+    }),
+}));
+vi.mock('@council/Council', () => ({
+    default: (props: unknown) => mockCouncil(props)
+}));
+vi.mock('@main/overlay/RotateDevice', () => ({
+    default: () => <div data-testid="rotate-device">RotateDevice</div>
+}));
+vi.mock('@voice/MeetingVoiceGuide', () => ({
+    default: () => null,
+}));
+vi.mock('@/museum/button/MuseumButton', () => ({
+    default: () => <div data-testid="museum-button">MuseumButton</div>,
+}));
+vi.mock('@main/FullscreenButton', () => ({
+    default: () => <div data-testid="fullscreen-btn">Fullscreen</div>
+}));
+
+vi.mock('react-i18next', () => ({
+    useTranslation: () => ({
+        t: (key: string) => key,
+        i18n: { language: 'en', changeLanguage: () => new Promise(() => { }) },
+    }),
+    initReactI18next: { type: '3rdParty', init: () => { } }
+}));
+
+vi.mock('@/utils', () => ({
+    usePortrait: () => false,
+    useMobile: () => false,
+    useMobileXs: () => false,
+    useDocumentVisibility: () => true,
+    dvh: 'vh',
+    minWindowHeight: 300,
+    filename: (str: string) => str,
+    toTitleCase: (str: string) => str,
+    capitalizeFirstLetter: (str: string) => str,
+}));
+
+// Test double, not a real AudioContext — never structurally matches lib.dom's type.
+class MockAudioContext {
+    state = 'running';
+    destination = {};
+    currentTime = 0;
+
+    suspend() {
+        this.state = 'suspended';
+    }
+
+    resume() {
+        this.state = 'running';
+    }
+}
+// @ts-expect-error - test double, not a real AudioContext
+window.AudioContext = MockAudioContext;
+
+describe('Main Component', () => {
+    beforeEach(() => {
+        localStorage.clear();
+    });
+
+    it('does not mount MuseumButton when push-to-talk is off', () => {
+        render(
+            <MemoryRouter initialEntries={['/']}>
+                <Main lang="en" />
+            </MemoryRouter>
+        );
+
+        expect(screen.queryByTestId('museum-button')).not.toBeInTheDocument();
+    });
+
+    it('mounts MuseumButton when push-to-talk is on', async () => {
+        localStorage.setItem('councilAgentMode', 'ptt');
+
+        render(
+            <MemoryRouter initialEntries={['/']}>
+                <Main lang="en" />
+            </MemoryRouter>
+        );
+
+        expect(await screen.findByTestId('museum-button')).toBeInTheDocument();
+    });
+
+    it('renders Council on meeting route', () => {
+        render(
+            <MemoryRouter initialEntries={[`/${routes.meeting}/42`]}>
+                <Main lang="en" />
+            </MemoryRouter>
+        );
+
+        expect(screen.getByTestId('council')).toBeInTheDocument();
+        expect(mockCouncil).toHaveBeenCalledWith(expect.objectContaining({
+            currentSpeakerId: '',
+            isPaused: false,
+            audioContext: expect.objectContaining({ current: expect.any(window.AudioContext) }),
+            setCurrentSpeakerId: expect.any(Function),
+            setPaused: expect.any(Function),
+        }));
+    });
+});

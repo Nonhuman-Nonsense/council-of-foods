@@ -362,7 +362,7 @@ export function createEventLoop(params: {
       devLog.flat("TURN", "tool call emitted", { name, createdBy: currentResponseReason });
       if (!name) return true;
 
-      let parsedArgs: unknown = {};
+      let parsedArgs: unknown;
       try {
         parsedArgs = JSON.parse(argsStr);
       } catch {
