@@ -6,7 +6,7 @@ import { Server, Socket } from "socket.io";
 import path from 'path';
 
 import { Logger } from '@utils/Logger.js';
-import { initReporting, sendReport } from '@utils/errorbot.js';
+import { initReporting } from '@utils/errorbot.js';
 import { initDb } from '@services/DbService.js';
 import { initOpenAI } from '@services/OpenAIService.js';
 import { SocketManager } from '@logic/SocketManager.js';
@@ -31,7 +31,7 @@ import { registerMeetingRoutes } from '@api/meetingRoutes.js';
 import { registerRealtimeRoutes } from '@api/realtimeSession.js';
 import { registerAudioRoutes } from '@api/audioRoutes.js';
 import { registerDevErrorbotRoutes } from '@api/devErrorbotRoutes.js';
-import { z } from 'zod';
+import { registerClientReportRoutes } from '@api/clientReportRoutes.js';
 
 const environment: string = config.NODE_ENV;
 
@@ -64,38 +64,7 @@ registerMeetingRoutes(app, environment);
 registerRealtimeRoutes(app);
 registerAudioRoutes(app);
 registerDevErrorbotRoutes(app, environment);
-
-const ClientReportBody = z.object({
-  message: z.string().min(1).max(2000),
-  source: z.string().min(1).max(200),
-  meetingId: z.number().int().positive().optional(),
-  url: z.string().max(500).optional(),
-  cause: z.unknown().optional(),
-});
-
-app.post('/api/client-report', async (req: Request, res: Response) => {
-  const parsed = ClientReportBody.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ message: 'Invalid client report' });
-    return;
-  }
-
-  const { message, source, meetingId, url, cause } = parsed.data;
-  const context = meetingId != null ? "client" : `client ${source}`;
-  const detail = url ? `${message} (${url})` : message;
-
-  res.status(204).end();
-
-  await sendReport({
-    context,
-    severity: 'critical',
-    message: `[CLIENT TERMINAL] ${detail}`,
-    error: cause,
-    clientImpact: 'terminal',
-    source: 'client',
-    meetingId,
-  });
-});
+registerClientReportRoutes(app);
 
 if (environment === "prototype") {
   app.use(express.static(path.join(process.cwd(), "../prototype/", "public"), {
