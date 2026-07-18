@@ -5,8 +5,8 @@ rubric. Regenerate with `node docs/generate-test-inventory.mjs` (see the header 
 script) rather than hand-editing the tables; verdicts go in the review-slice section at the
 bottom.
 
-**Totals:** 156 test files, ~1237 cases
-(client 102 files / 816 cases, server 54 files / 421 cases).
+**Totals:** 156 test files, ~1236 cases
+(client 102 files / 815 cases, server 54 files / 421 cases).
 
 Columns: **ms** = wall time for the file in the profiling run (blank if no report; Playwright
 e2e specs always run outside vitest). **asserts/case** = expect() calls per test — very low
@@ -18,43 +18,43 @@ touching the file in the last 6 months (high churn = high-maintenance).
 ### Large files (>400 lines) — table-driven / consolidation candidates
 | test file | cases | lines | ms | asserts/case | churn |
 |---|---|---|---|---|---|
-| client/tests/unit/hooks/useCouncilMachine.test.tsx | 53 (+3 each) | 1760 | 504 | 2.7 | 43 |
-| client/tests/unit/components/HumanInput.render.test.tsx | 47 | 1257 | 4735 | 1.8 | 2 |
-| client/tests/unit/museum/metaAgent/MeetingMetaAgent.test.tsx | 23 | 551 | 54 | 1.9 | 23 |
-| client/tests/unit/realtime/realtimeConnection.test.ts | 21 | 517 | 2528 | 2.8 | 6 |
-| server/tests/DialogGenerator.test.js | 25 | 513 | 46 | 2.1 | 10 |
-| client/tests/unit/voice/realtimeEventLoop.test.ts | 11 | 456 | 28 | 3.8 | 10 |
-| client/tests/unit/realtime/useRealtimeVoiceSession.test.ts | 15 | 445 | 736 | 2.7 | 10 |
-| server/tests/AudioSystemInworld.test.js | 8 | 424 | 86 | 2 | 9 |
-| client/tests/unit/components/settings/SelectTopic.test.tsx | 10 | 409 | 457 | 3.7 | 3 |
-| client/tests/unit/voice/guideTools.test.ts | 41 | 406 | 13 | 1.5 | 19 |
+| client/tests/unit/hooks/useCouncilMachine.test.tsx | 53 (+3 each) | 1760 | 416 | 2.7 | 43 |
+| client/tests/unit/components/HumanInput.render.test.tsx | 47 | 1257 | 4543 | 1.8 | 2 |
+| client/tests/unit/museum/metaAgent/MeetingMetaAgent.test.tsx | 23 | 551 | 149 | 1.9 | 24 |
+| client/tests/unit/realtime/realtimeConnection.test.ts | 21 | 517 | 2526 | 2.8 | 6 |
+| server/tests/DialogGenerator.test.js | 25 | 513 | 28 | 2.1 | 10 |
+| client/tests/unit/voice/realtimeEventLoop.test.ts | 11 | 456 | 19 | 3.8 | 10 |
+| client/tests/unit/realtime/useRealtimeVoiceSession.test.ts | 15 | 445 | 743 | 2.7 | 10 |
+| server/tests/AudioSystemInworld.test.js | 8 | 424 | 78 | 2 | 9 |
+| client/tests/unit/components/settings/SelectTopic.test.tsx | 10 | 409 | 617 | 3.7 | 3 |
+| client/tests/unit/voice/guideTools.test.ts | 41 | 406 | 21 | 1.5 | 19 |
 
 ### Slowest files (>2s)
 | test file | cases | lines | ms | asserts/case | churn |
 |---|---|---|---|---|---|
-| client/tests/unit/components/HumanInput.render.test.tsx | 47 | 1257 | 4735 | 1.8 | 2 |
-| client/tests/unit/realtime/realtimeConnection.test.ts | 21 | 517 | 2528 | 2.8 | 6 |
+| client/tests/unit/components/HumanInput.render.test.tsx | 47 | 1257 | 4543 | 1.8 | 2 |
+| client/tests/unit/realtime/realtimeConnection.test.ts | 21 | 517 | 2526 | 2.8 | 6 |
 
 ### Weak assertion density (<1.5 expect/case, excluding .each tables)
 | test file | cases | lines | ms | asserts/case | churn |
 |---|---|---|---|---|---|
-| client/tests/unit/audio/audioContext.test.ts | 5 | 56 | 2 | 0.8 | 2 |
-| server/tests/SpeakerSelection.test.js | 27 | 349 | 11 | 1 | 8 |
+| client/tests/unit/audio/audioContext.test.ts | 5 | 56 | 5 | 0.8 | 2 |
+| server/tests/SpeakerSelection.test.js | 27 | 349 | 13 | 1 | 8 |
 | client/tests/e2e/src/button_setup.spec.ts | 4 | 99 |  | 1 | 9 |
 | client/tests/unit/museum/button/buttonIntent.test.ts | 13 | 91 | 2 | 1 | 6 |
-| server/tests/ValidationCustomVoice.test.ts | 4 | 90 | 5 | 1 | 5 |
-| client/tests/unit/components/OverlayWrapper.test.tsx | 4 | 65 | 47 | 1 | 3 |
-| client/tests/unit/components/CouncilOverlays.test.tsx | 8 | 157 | 54 | 1.1 | 12 |
-| client/tests/unit/main/overlay/errorStore.test.ts | 12 | 99 | 7 | 1.1 | 1 |
-| client/tests/unit/museum/button/buttonBanner.test.ts | 17 | 260 | 35 | 1.2 | 3 |
-| client/tests/unit/council/participationPhase.test.ts | 11 | 70 | 3 | 1.2 | 1 |
-| server/tests/AudioUtils.test.ts | 16 | 193 | 201 | 1.3 | 5 |
-| client/tests/unit/navigation/probeOriginHealth.test.ts | 4 | 75 | 11 | 1.3 | 1 |
-| server/tests/replayManifest.test.ts | 22 | 305 | 8 | 1.4 | 14 |
-| client/tests/unit/council/summaryScrollSync.test.ts | 14 | 241 | 17 | 1.4 | 3 |
-| client/tests/unit/voice/MeetingVoiceGuide.ptt.test.tsx | 7 | 180 | 22 | 1.4 | 14 |
-| server/tests/textUtils.test.js | 15 | 172 | 58 | 1.4 | 3 |
-| client/tests/unit/api/realtimeSession.test.ts | 5 | 113 | 7 | 1.4 | 2 |
+| server/tests/ValidationCustomVoice.test.ts | 4 | 90 | 6 | 1 | 5 |
+| client/tests/unit/components/OverlayWrapper.test.tsx | 4 | 65 | 37 | 1 | 3 |
+| client/tests/unit/components/CouncilOverlays.test.tsx | 8 | 157 | 31 | 1.1 | 12 |
+| client/tests/unit/main/overlay/errorStore.test.ts | 12 | 99 | 8 | 1.1 | 1 |
+| client/tests/unit/museum/button/buttonBanner.test.ts | 17 | 260 | 47 | 1.2 | 4 |
+| client/tests/unit/council/participationPhase.test.ts | 11 | 70 | 5 | 1.2 | 1 |
+| server/tests/AudioUtils.test.ts | 16 | 193 | 229 | 1.3 | 5 |
+| client/tests/unit/navigation/probeOriginHealth.test.ts | 4 | 75 | 6 | 1.3 | 1 |
+| server/tests/replayManifest.test.ts | 22 | 305 | 14 | 1.4 | 14 |
+| client/tests/unit/council/summaryScrollSync.test.ts | 14 | 241 | 26 | 1.4 | 3 |
+| client/tests/unit/voice/MeetingVoiceGuide.ptt.test.tsx | 7 | 180 | 36 | 1.4 | 14 |
+| server/tests/textUtils.test.js | 15 | 172 | 9 | 1.4 | 3 |
+| client/tests/unit/api/realtimeSession.test.ts | 5 | 113 | 19 | 1.4 | 2 |
 
 ### Duplicate test names across files
 - `should have a valid JSON file for every available language` — client/tests/unit/ValidateFoodData.test.ts, client/tests/unit/ValidateTopicsData.test.ts
@@ -88,166 +88,166 @@ Entry points, dev tooling, and thin wrappers may be fine uncovered.
 ### Client
 | test file | cases | lines | ms | asserts/case | churn |
 |---|---|---|---|---|---|
-| client/tests/unit/hooks/useCouncilMachine.test.tsx | 53 (+3 each) | 1760 | 504 | 2.7 | 43 |
-| client/tests/unit/components/HumanInput.render.test.tsx | 47 | 1257 | 4735 | 1.8 | 2 |
-| client/tests/unit/museum/metaAgent/MeetingMetaAgent.test.tsx | 23 | 551 | 54 | 1.9 | 23 |
-| client/tests/unit/realtime/realtimeConnection.test.ts | 21 | 517 | 2528 | 2.8 | 6 |
-| client/tests/unit/voice/realtimeEventLoop.test.ts | 11 | 456 | 28 | 3.8 | 10 |
-| client/tests/unit/realtime/useRealtimeVoiceSession.test.ts | 15 | 445 | 736 | 2.7 | 10 |
-| client/tests/unit/components/settings/SelectTopic.test.tsx | 10 | 409 | 457 | 3.7 | 3 |
-| client/tests/unit/voice/guideTools.test.ts | 41 | 406 | 13 | 1.5 | 19 |
-| client/tests/unit/components/Staff.test.tsx | 25 | 390 | 1418 | 2.6 | 2 |
-| client/tests/unit/museum/button/bridgeTransport.test.ts | 11 | 387 | 23 | 3.1 | 3 |
-| client/tests/unit/museum/button/buttonStore.test.ts | 25 | 354 | 20 | 2.3 | 11 |
-| client/tests/unit/components/overlays/Summary.test.tsx | 10 | 349 | 832 | 2.6 | 12 |
-| client/tests/unit/autoplay/AutoplayCoordinator.test.tsx | 13 (+1 each) | 333 | 247 | 2.1 | 8 |
-| client/tests/unit/components/Council.test.tsx | 10 | 329 | 121 | 1.6 | 36 |
-| client/tests/unit/components/LiveAudioVisualizer.test.tsx | 7 | 268 | 82 | 3.7 | 4 |
-| client/tests/unit/museum/metaAgent/metaAgentPrompt.test.ts | 25 | 265 | 4 | 2.2 | 8 |
-| client/tests/unit/museum/button/buttonBanner.test.ts | 17 | 260 | 35 | 1.2 | 3 |
-| client/tests/unit/settings/councilSettings.test.tsx | 21 | 256 | 253 | 2.5 | 4 |
-| client/tests/unit/voice/inworldSubtitleTrack.test.ts | 23 | 252 | 16 | 1.6 | 2 |
-| client/tests/unit/meetingSetup.test.ts | 10 | 247 | 8 | 3.2 | 8 |
-| client/tests/unit/council/summaryScrollSync.test.ts | 14 | 241 | 17 | 1.4 | 3 |
-| client/tests/unit/components/RouterLogic.test.tsx | 8 | 238 | 327 | 1.9 | 18 |
-| client/tests/unit/components/MeetingSetupReset.test.tsx | 3 | 214 | 127 | 2.7 | 5 |
-| client/tests/unit/components/settings/SelectFoods.test.tsx | 8 | 206 | 910 | 3.3 | 2 |
-| client/tests/foods/Main.test.tsx | 4 | 204 | 168 | 1.5 | 2 |
-| client/tests/unit/AutoButton.test.tsx | 7 | 203 | 129 | 2.4 | 1 |
-| client/tests/unit/components/ConversationControls.test.tsx | 12 | 180 | 369 | 2.4 | 2 |
-| client/tests/unit/voice/MeetingVoiceGuide.ptt.test.tsx | 7 | 180 | 22 | 1.4 | 14 |
+| client/tests/unit/hooks/useCouncilMachine.test.tsx | 53 (+3 each) | 1760 | 416 | 2.7 | 43 |
+| client/tests/unit/components/HumanInput.render.test.tsx | 47 | 1257 | 4543 | 1.8 | 2 |
+| client/tests/unit/museum/metaAgent/MeetingMetaAgent.test.tsx | 23 | 551 | 149 | 1.9 | 24 |
+| client/tests/unit/realtime/realtimeConnection.test.ts | 21 | 517 | 2526 | 2.8 | 6 |
+| client/tests/unit/voice/realtimeEventLoop.test.ts | 11 | 456 | 19 | 3.8 | 10 |
+| client/tests/unit/realtime/useRealtimeVoiceSession.test.ts | 15 | 445 | 743 | 2.7 | 10 |
+| client/tests/unit/components/settings/SelectTopic.test.tsx | 10 | 409 | 617 | 3.7 | 3 |
+| client/tests/unit/voice/guideTools.test.ts | 41 | 406 | 21 | 1.5 | 19 |
+| client/tests/unit/components/Staff.test.tsx | 25 | 390 | 981 | 2.6 | 2 |
+| client/tests/unit/museum/button/bridgeTransport.test.ts | 11 | 387 | 29 | 3.1 | 4 |
+| client/tests/unit/museum/button/buttonStore.test.ts | 25 | 354 | 10 | 2.3 | 11 |
+| client/tests/unit/components/overlays/Summary.test.tsx | 10 | 349 | 320 | 2.6 | 12 |
+| client/tests/unit/autoplay/AutoplayCoordinator.test.tsx | 13 (+1 each) | 333 | 176 | 2.1 | 8 |
+| client/tests/unit/components/Council.test.tsx | 10 | 329 | 91 | 1.6 | 36 |
+| client/tests/unit/components/LiveAudioVisualizer.test.tsx | 7 | 268 | 50 | 3.7 | 4 |
+| client/tests/unit/museum/metaAgent/metaAgentPrompt.test.ts | 25 | 265 | 7 | 2.2 | 8 |
+| client/tests/unit/museum/button/buttonBanner.test.ts | 17 | 260 | 47 | 1.2 | 4 |
+| client/tests/unit/settings/councilSettings.test.tsx | 21 | 256 | 378 | 2.5 | 4 |
+| client/tests/unit/voice/inworldSubtitleTrack.test.ts | 23 | 252 | 7 | 1.6 | 2 |
+| client/tests/unit/meetingSetup.test.ts | 10 | 247 | 10 | 3.2 | 8 |
+| client/tests/unit/council/summaryScrollSync.test.ts | 14 | 241 | 26 | 1.4 | 3 |
+| client/tests/unit/components/RouterLogic.test.tsx | 8 | 238 | 480 | 1.9 | 18 |
+| client/tests/unit/components/MeetingSetupReset.test.tsx | 3 | 214 | 134 | 2.7 | 5 |
+| client/tests/unit/components/settings/SelectFoods.test.tsx | 8 | 206 | 914 | 3.3 | 2 |
+| client/tests/foods/Main.test.tsx | 4 | 204 | 118 | 1.5 | 2 |
+| client/tests/unit/AutoButton.test.tsx | 7 | 203 | 371 | 2.4 | 1 |
+| client/tests/unit/components/ConversationControls.test.tsx | 12 | 180 | 353 | 2.4 | 2 |
+| client/tests/unit/voice/MeetingVoiceGuide.ptt.test.tsx | 7 | 180 | 36 | 1.4 | 14 |
 | client/tests/unit/components/HumanInput.test.tsx | 16 | 179 | 8 | 1.9 | 7 |
-| client/tests/unit/main/overlay/Reconnecting.test.tsx | 5 | 169 | 85 | 1.6 | 5 |
-| client/tests/unit/components/FoodAnimation.test.tsx | 6 | 168 | 120 | 2 | 8 |
-| client/tests/unit/components/FoodItem.test.tsx | 7 | 168 | 188 | 2.1 | 3 |
-| client/tests/unit/components/CouncilOverlays.test.tsx | 8 | 157 | 54 | 1.1 | 12 |
-| client/tests/unit/museum/button/museumButton.test.tsx | 9 | 156 | 252 | 2 | 3 |
-| client/tests/unit/main/overlay/CouncilError.test.tsx | 4 | 148 | 197 | 2 | 2 |
-| client/tests/unit/components/AudioOutputMessage.test.tsx | 5 | 147 | 26 | 2.2 | 6 |
-| client/tests/unit/components/Main.test.tsx | 3 | 147 | 101 | 1.3 | 2 |
-| client/tests/unit/components/NewMeeting.creatorKey.test.tsx | 1 | 146 | 55 | 4 | 16 |
-| client/tests/unit/museum/useMuseumCursorHide.test.ts | 7 | 138 | 34 | 2 | 1 |
-| client/tests/unit/components/TextOutput.test.tsx | 6 | 137 | 53 | 2.7 | 5 |
-| client/tests/unit/components/settings/Landing.test.tsx | 5 | 137 | 57 | 2 | 12 |
-| client/tests/unit/components/MainOverlays.test.tsx | 10 | 135 | 472 | 1.6 | 11 |
-| client/tests/unit/museum/button/buttonIntentIntegration.test.tsx | 5 | 132 | 35 | 2.8 | 4 |
-| client/tests/unit/navigation/reloadApp.test.ts | 5 | 132 | 10 | 2.8 | 3 |
+| client/tests/unit/main/overlay/Reconnecting.test.tsx | 5 | 169 | 105 | 1.6 | 5 |
+| client/tests/unit/components/FoodAnimation.test.tsx | 6 | 168 | 149 | 2 | 8 |
+| client/tests/unit/components/FoodItem.test.tsx | 7 | 168 | 198 | 2.1 | 3 |
+| client/tests/unit/components/CouncilOverlays.test.tsx | 8 | 157 | 31 | 1.1 | 12 |
+| client/tests/unit/museum/button/museumButton.test.tsx | 9 | 156 | 264 | 2 | 3 |
+| client/tests/unit/main/overlay/CouncilError.test.tsx | 4 | 148 | 389 | 2 | 2 |
+| client/tests/unit/components/AudioOutputMessage.test.tsx | 5 | 147 | 15 | 2.2 | 6 |
+| client/tests/unit/components/Main.test.tsx | 3 | 147 | 65 | 1.3 | 2 |
+| client/tests/unit/components/NewMeeting.creatorKey.test.tsx | 1 | 146 | 57 | 4 | 16 |
+| client/tests/unit/museum/useMuseumCursorHide.test.ts | 7 | 138 | 17 | 2 | 1 |
+| client/tests/unit/components/TextOutput.test.tsx | 6 | 137 | 44 | 2.7 | 5 |
+| client/tests/unit/components/MainOverlays.test.tsx | 10 | 135 | 346 | 1.6 | 11 |
+| client/tests/unit/museum/button/buttonIntentIntegration.test.tsx | 5 | 132 | 46 | 2.8 | 4 |
+| client/tests/unit/navigation/reloadApp.test.ts | 5 | 132 | 11 | 2.8 | 3 |
 | client/tests/unit/voice/captionScheduler.test.ts | 3 | 129 | 6 | 3.3 | 2 |
-| client/tests/unit/realtime/RealtimeCaptionOverlay.test.tsx | 7 | 119 | 200 | 2 | 7 |
-| client/tests/unit/api/http.test.ts | 5 | 115 | 18 | 1.8 | 2 |
-| client/tests/unit/components/Navbar.test.tsx | 5 | 115 | 259 | 2.4 | 10 |
-| client/tests/unit/logger.test.ts | 7 | 115 | 11 | 2 | 6 |
-| client/tests/unit/museum/metaAgent/metaAgentTools.test.ts | 8 | 115 | 5 | 2.9 | 10 |
-| client/tests/unit/api/realtimeSession.test.ts | 5 | 113 | 7 | 1.4 | 2 |
-| client/tests/unit/components/FoodsCouncilScene.test.tsx | 2 | 113 | 84 | 3 | 9 |
-| client/tests/unit/ValidateFoodData.test.ts | 2 | 110 | 4 | 9 | 6 |
-| client/tests/unit/voice/useVoiceGuide.test.ts | 4 | 110 | 31 | 1.5 | 3 |
-| client/tests/unit/components/AudioOutput.test.tsx | 4 | 101 | 25 | 1.5 | 4 |
-| client/tests/unit/components/Output.test.tsx | 5 | 101 | 49 | 2.4 | 7 |
+| client/tests/unit/components/settings/Landing.test.tsx | 4 | 128 | 72 | 2.5 | 12 |
+| client/tests/unit/realtime/RealtimeCaptionOverlay.test.tsx | 7 | 119 | 347 | 2 | 7 |
+| client/tests/unit/api/http.test.ts | 5 | 115 | 12 | 1.8 | 2 |
+| client/tests/unit/components/Navbar.test.tsx | 5 | 115 | 528 | 2.4 | 10 |
+| client/tests/unit/logger.test.ts | 7 | 115 | 12 | 2 | 6 |
+| client/tests/unit/museum/metaAgent/metaAgentTools.test.ts | 8 | 115 | 7 | 2.9 | 10 |
+| client/tests/unit/api/realtimeSession.test.ts | 5 | 113 | 19 | 1.4 | 2 |
+| client/tests/unit/components/FoodsCouncilScene.test.tsx | 2 | 113 | 163 | 3 | 9 |
+| client/tests/unit/ValidateFoodData.test.ts | 2 | 110 | 5 | 9 | 6 |
+| client/tests/unit/voice/useVoiceGuide.test.ts | 4 | 110 | 24 | 1.5 | 3 |
+| client/tests/unit/components/AudioOutput.test.tsx | 4 | 101 | 13 | 1.5 | 4 |
+| client/tests/unit/components/Output.test.tsx | 5 | 101 | 39 | 2.4 | 7 |
 | client/tests/e2e/src/button_setup.spec.ts | 4 | 99 |  | 1 | 9 |
-| client/tests/unit/main/overlay/errorStore.test.ts | 12 | 99 | 7 | 1.1 | 1 |
-| client/tests/unit/components/FullscreenButton.test.tsx | 3 | 96 | 55 | 1.3 | 2 |
-| client/tests/unit/ValidateTopicsData.test.ts | 2 | 93 | 2 | 11 | 4 |
+| client/tests/unit/main/overlay/errorStore.test.ts | 12 | 99 | 8 | 1.1 | 1 |
+| client/tests/unit/components/FullscreenButton.test.tsx | 3 | 96 | 54 | 1.3 | 2 |
+| client/tests/unit/ValidateTopicsData.test.ts | 2 | 93 | 5 | 11 | 4 |
 | client/tests/unit/autoplay/autoplayStore.test.ts | 7 | 91 | 6 | 2.3 | 8 |
 | client/tests/unit/museum/button/buttonIntent.test.ts | 13 | 91 | 2 | 1 | 6 |
-| client/tests/unit/components/overlays/Name.test.tsx | 5 (+1 each) | 88 | 423 | 2 | 3 |
-| client/tests/unit/museum/button/ButtonBanner.test.tsx | 4 | 86 | 82 | 1.5 | 4 |
-| client/tests/unit/utils.test.ts | 11 | 84 | 4 | 1.8 | 2 |
-| client/tests/unit/components/Overlay.test.tsx | 6 | 82 | 184 | 1.5 | 1 |
-| client/tests/unit/museum/button/useButton.test.ts | 3 | 82 | 19 | 3.3 | 3 |
-| client/tests/unit/api/resumeMeeting.test.ts | 2 (+1 each) | 81 | 8 | 4.5 | 4 |
-| client/tests/unit/navigation/probeOriginHealth.test.ts | 4 | 75 | 11 | 1.3 | 1 |
-| client/tests/unit/council/participationPhase.test.ts | 11 | 70 | 3 | 1.2 | 1 |
-| client/tests/unit/locales.test.ts | 4 | 67 | 9 | 1.5 | 1 |
-| client/tests/unit/routing.multilanguage.test.ts | 6 | 66 | 20 | 1.7 | 3 |
-| client/tests/unit/components/OverlayWrapper.test.tsx | 4 | 65 | 47 | 1 | 3 |
-| client/tests/unit/museum/metaAgent/useMetaAgent.test.ts | 1 | 62 | 27 | 1 | 4 |
-| client/tests/unit/components/Background.test.tsx | 3 | 61 | 105 | 2 | 1 |
-| client/tests/unit/components/ConversationControlIcon.test.tsx | 4 | 59 | 506 | 2 | 2 |
+| client/tests/unit/components/overlays/Name.test.tsx | 5 (+1 each) | 88 | 224 | 2 | 3 |
+| client/tests/unit/museum/button/ButtonBanner.test.tsx | 4 | 86 | 48 | 1.5 | 4 |
+| client/tests/unit/utils.test.ts | 11 | 84 | 3 | 1.8 | 2 |
+| client/tests/unit/components/Overlay.test.tsx | 6 | 82 | 141 | 1.5 | 1 |
+| client/tests/unit/museum/button/useButton.test.ts | 3 | 82 | 17 | 3.3 | 3 |
+| client/tests/unit/api/resumeMeeting.test.ts | 2 (+1 each) | 81 | 10 | 4.5 | 4 |
+| client/tests/unit/navigation/probeOriginHealth.test.ts | 4 | 75 | 6 | 1.3 | 1 |
+| client/tests/unit/council/participationPhase.test.ts | 11 | 70 | 5 | 1.2 | 1 |
+| client/tests/unit/locales.test.ts | 4 | 67 | 13 | 1.5 | 1 |
+| client/tests/unit/routing.multilanguage.test.ts | 6 | 66 | 14 | 1.7 | 3 |
+| client/tests/unit/components/OverlayWrapper.test.tsx | 4 | 65 | 37 | 1 | 3 |
+| client/tests/unit/museum/metaAgent/useMetaAgent.test.ts | 1 | 62 | 12 | 1 | 4 |
+| client/tests/unit/components/Background.test.tsx | 3 | 61 | 339 | 2 | 1 |
+| client/tests/unit/components/ConversationControlIcon.test.tsx | 4 | 59 | 430 | 2 | 2 |
 | client/tests/unit/FoodVideoIntegrity.test.ts | 1 | 58 | 4 | 6 | 5 |
-| client/tests/unit/components/overlays/Contact.test.tsx | 1 | 58 | 219 | 10 | 2 |
-| client/tests/unit/agendaPointInjection.test.ts | 6 | 57 | 3 | 1.5 | 1 |
-| client/tests/unit/museum/MuseumSwitchButton.test.tsx | 4 | 57 | 364 | 1.5 | 2 |
-| client/tests/unit/audio/audioContext.test.ts | 5 | 56 | 2 | 0.8 | 2 |
-| client/tests/unit/topicPrompt.test.ts | 5 | 54 | 5 | 2.8 | 3 |
-| client/tests/unit/api/getMeeting.test.ts | 2 | 48 | 22 | 1 | 4 |
-| client/tests/unit/autoplay/AutoplayWarning.test.tsx | 2 | 48 | 150 | 2 | 2 |
-| client/tests/unit/realtime/realtimeProtocol.test.ts | 2 | 47 | 2 | 2.5 | 2 |
+| client/tests/unit/components/overlays/Contact.test.tsx | 1 | 58 | 396 | 10 | 2 |
+| client/tests/unit/agendaPointInjection.test.ts | 6 | 57 | 2 | 1.5 | 1 |
+| client/tests/unit/museum/MuseumSwitchButton.test.tsx | 4 | 57 | 464 | 1.5 | 2 |
+| client/tests/unit/audio/audioContext.test.ts | 5 | 56 | 5 | 0.8 | 2 |
+| client/tests/unit/topicPrompt.test.ts | 5 | 54 | 4 | 2.8 | 3 |
+| client/tests/unit/api/getMeeting.test.ts | 2 | 48 | 14 | 1 | 4 |
+| client/tests/unit/autoplay/AutoplayWarning.test.tsx | 2 | 48 | 52 | 2 | 2 |
+| client/tests/unit/realtime/realtimeProtocol.test.ts | 2 | 47 | 1 | 2.5 | 2 |
 | client/tests/e2e/src/meeting_flow.spec.ts | 2 | 46 |  | 6 | 6 |
 | client/tests/unit/routing.singleLanguage.test.ts | 2 | 45 | 12 | 2.5 | 4 |
 | client/tests/unit/museum/button/bridgeHealth.test.ts | 2 | 43 | 2 | 1 | 3 |
-| client/tests/unit/museum/button/ButtonLedDebugOverlay.test.tsx | 3 | 42 | 111 | 2.3 | 5 |
-| client/tests/unit/voice/VoiceGuideOverlay.test.tsx | 2 | 41 | 69 | 1 | 1 |
+| client/tests/unit/museum/button/ButtonLedDebugOverlay.test.tsx | 3 | 42 | 73 | 2.3 | 5 |
+| client/tests/unit/voice/VoiceGuideOverlay.test.tsx | 2 | 41 | 49 | 1 | 1 |
 | client/tests/unit/shared/devPorts.test.ts | 5 | 39 | 2 | 1.6 | 2 |
-| client/tests/unit/components/VideoPreloader.test.tsx | 2 | 38 | 164 | 5.5 | 3 |
-| client/tests/unit/museum/button/buttonLedDebug.test.ts | 3 | 38 | 7 | 2 | 2 |
-| client/tests/unit/voice/guidePrompt.test.ts | 5 | 38 | 3 | 1.6 | 7 |
-| client/tests/unit/components/overlays/Incomplete.test.tsx | 2 | 36 | 33 | 1 | 4 |
+| client/tests/unit/components/VideoPreloader.test.tsx | 2 | 38 | 184 | 5.5 | 3 |
+| client/tests/unit/museum/button/buttonLedDebug.test.ts | 3 | 38 | 4 | 2 | 2 |
+| client/tests/unit/voice/guidePrompt.test.ts | 5 | 38 | 4 | 1.6 | 7 |
+| client/tests/unit/components/overlays/Incomplete.test.tsx | 2 | 36 | 46 | 1 | 4 |
 | client/tests/unit/museum/button/protocol.test.ts | 4 | 35 | 2 | 2.3 | 1 |
 | client/tests/unit/newMeeting/meetingSetupStore.test.ts | 1 | 29 | 2 | 6 | 1 |
-| client/tests/unit/IconIntegrity.test.ts | 1 | 28 | 816 | 2 | 1 |
-| client/tests/unit/components/overlays/About.test.tsx | 1 | 28 | 152 | 3 | 1 |
-| client/tests/unit/FoodImageIntegrity.test.ts | 1 | 26 | 1 | 3 | 6 |
-| client/tests/unit/routing.test.ts | 1 | 22 | 14 | 1 | 6 |
-| client/tests/unit/characterSetupMetadata.test.ts | 2 | 20 | 3 | 1.5 | 1 |
+| client/tests/unit/IconIntegrity.test.ts | 1 | 28 | 629 | 2 | 1 |
+| client/tests/unit/components/overlays/About.test.tsx | 1 | 28 | 143 | 3 | 1 |
+| client/tests/unit/FoodImageIntegrity.test.ts | 1 | 26 | 2 | 3 | 6 |
+| client/tests/unit/routing.test.ts | 1 | 22 | 15 | 1 | 6 |
+| client/tests/unit/characterSetupMetadata.test.ts | 2 | 20 | 2 | 1.5 | 1 |
 
 ### Server
 | test file | cases | lines | ms | asserts/case | churn |
 |---|---|---|---|---|---|
-| server/tests/DialogGenerator.test.js | 25 | 513 | 46 | 2.1 | 10 |
-| server/tests/AudioSystemInworld.test.js | 8 | 424 | 86 | 2 | 9 |
-| server/tests/meetingsHttpAndSocket.integration.test.js | 8 | 369 | 511 | 3 | 10 |
-| server/tests/realtimeSessionApi.integration.test.ts | 13 | 352 | 307 | 2.6 | 5 |
-| server/tests/SpeakerSelection.test.js | 27 | 349 | 11 | 1 | 8 |
-| server/tests/ConversationFlow.test.js | 9 | 339 | 216 | 4.7 | 19 |
-| server/tests/AsyncErrorPropagation.test.js | 5 | 326 | 50 | 3.4 | 13 |
-| server/tests/realtimeProviders.test.ts | 8 (+1 each) | 325 | 40 | 3.3 | 11 |
-| server/tests/AudioSystemElevenLabs.test.js | 8 | 317 | 264 | 2.3 | 5 |
-| server/tests/meetingsHttp.integration.test.js | 12 | 316 | 354 | 3.1 | 14 |
+| server/tests/DialogGenerator.test.js | 25 | 513 | 28 | 2.1 | 10 |
+| server/tests/AudioSystemInworld.test.js | 8 | 424 | 78 | 2 | 9 |
+| server/tests/meetingsHttpAndSocket.integration.test.js | 8 | 369 | 514 | 3 | 10 |
+| server/tests/realtimeSessionApi.integration.test.ts | 13 | 352 | 325 | 2.6 | 5 |
+| server/tests/SpeakerSelection.test.js | 27 | 349 | 13 | 1 | 8 |
+| server/tests/ConversationFlow.test.js | 9 | 339 | 223 | 4.7 | 19 |
+| server/tests/AsyncErrorPropagation.test.js | 5 | 326 | 7 | 3.4 | 13 |
+| server/tests/realtimeProviders.test.ts | 8 (+1 each) | 325 | 186 | 3.3 | 11 |
+| server/tests/AudioSystemElevenLabs.test.js | 8 | 317 | 171 | 2.3 | 5 |
+| server/tests/meetingsHttp.integration.test.js | 12 | 316 | 380 | 3.1 | 14 |
 | server/tests/MeetingLifecycleHandler.test.js | 13 | 314 | 12 | 3.1 | 16 |
-| server/tests/replayManifest.test.ts | 22 | 305 | 8 | 1.4 | 14 |
-| server/tests/HumanInput.test.js | 10 | 258 | 8 | 5.2 | 12 |
-| server/tests/AudioSystem.test.js | 8 | 240 | 1070 | 1.8 | 6 |
-| server/tests/SpeakerTargetClassifier.test.ts | 9 | 239 | 9 | 2.8 | 7 |
-| server/tests/MeetingLoopHardening.test.js | 6 | 234 | 86 | 4 | 3 |
-| server/tests/ConversationService.test.ts | 9 | 233 | 7 | 2.1 | 6 |
-| server/tests/SummaryGeneration.test.ts | 2 | 219 | 225 | 6 | 5 |
-| server/tests/SummaryPendingConclude.test.js | 9 | 218 | 103 | 2.6 | 2 |
-| server/tests/PronunciationUtils.test.ts | 17 | 208 | 23 | 2.1 | 3 |
-| server/tests/ConnectionHandler.test.js | 8 | 207 | 13 | 2.9 | 9 |
-| server/tests/AudioUtils.test.ts | 16 | 193 | 201 | 1.3 | 5 |
-| server/tests/DecisionLogic.test.js | 0 | 186 | 16 | 0 | 12 |
+| server/tests/replayManifest.test.ts | 22 | 305 | 14 | 1.4 | 14 |
+| server/tests/HumanInput.test.js | 10 | 258 | 92 | 5.2 | 12 |
+| server/tests/AudioSystem.test.js | 8 | 240 | 1061 | 1.8 | 6 |
+| server/tests/SpeakerTargetClassifier.test.ts | 9 | 239 | 4 | 2.8 | 7 |
+| server/tests/MeetingLoopHardening.test.js | 6 | 234 | 113 | 4 | 3 |
+| server/tests/ConversationService.test.ts | 9 | 233 | 13 | 2.1 | 6 |
+| server/tests/SummaryGeneration.test.ts | 2 | 219 | 201 | 6 | 5 |
+| server/tests/SummaryPendingConclude.test.js | 9 | 218 | 19 | 2.6 | 2 |
+| server/tests/PronunciationUtils.test.ts | 17 | 208 | 36 | 2.1 | 3 |
+| server/tests/ConnectionHandler.test.js | 8 | 207 | 10 | 2.9 | 9 |
+| server/tests/AudioUtils.test.ts | 16 | 193 | 229 | 1.3 | 5 |
+| server/tests/DecisionLogic.test.js | 0 | 186 | 21 | 0 | 12 |
 | server/tests/characterSetupBundle.test.ts | 11 | 186 | 7 | 1.6 | 3 |
-| server/tests/LoggingAndReporting.test.js | 12 | 174 | 74 | 1.6 | 8 |
-| server/tests/textUtils.test.js | 15 | 172 | 58 | 1.4 | 3 |
-| server/tests/Concurrency.test.js | 2 | 154 | 127 | 7 | 5 |
-| server/tests/spaShell.test.ts | 15 | 153 | 4 | 4.7 | 1 |
-| server/tests/resumeMeeting.test.ts | 6 | 142 | 68 | 3.7 | 6 |
-| server/tests/voiceGuideSession.test.ts | 7 | 134 | 122 | 1.7 | 3 |
-| server/tests/SocketManager.reconnectRace.test.js | 2 | 123 | 88 | 3 | 1 |
-| server/tests/NetworkUtils.test.ts | 9 | 111 | 35 | 1.8 | 1 |
-| server/tests/SubtitleTimingValidation.test.ts | 6 | 109 | 3 | 1.5 | 2 |
-| server/tests/SummaryMarkdownHandling.test.ts | 1 | 108 | 4 | 11 | 15 |
-| server/tests/reportMaximumPlayedIndex.test.ts | 4 | 107 | 30 | 2.8 | 5 |
-| server/tests/AudioDrain.test.js | 1 | 106 | 224 | 4 | 7 |
-| server/tests/HandRaising.test.js | 2 | 101 | 78 | 6.5 | 4 |
-| server/tests/directedHandoff.test.ts | 5 | 100 | 7 | 1.6 | 1 |
-| server/tests/MeetingManagerTransition.test.js | 2 | 97 | 81 | 3.5 | 6 |
+| server/tests/LoggingAndReporting.test.js | 12 | 174 | 7 | 1.6 | 8 |
+| server/tests/textUtils.test.js | 15 | 172 | 9 | 1.4 | 3 |
+| server/tests/Concurrency.test.js | 2 | 154 | 121 | 7 | 5 |
+| server/tests/spaShell.test.ts | 15 | 153 | 8 | 4.7 | 1 |
+| server/tests/resumeMeeting.test.ts | 6 | 142 | 62 | 3.7 | 6 |
+| server/tests/voiceGuideSession.test.ts | 7 | 134 | 128 | 1.7 | 3 |
+| server/tests/SocketManager.reconnectRace.test.js | 2 | 123 | 6 | 3 | 1 |
+| server/tests/NetworkUtils.test.ts | 9 | 111 | 47 | 1.8 | 1 |
+| server/tests/SubtitleTimingValidation.test.ts | 6 | 109 | 2 | 1.5 | 2 |
+| server/tests/SummaryMarkdownHandling.test.ts | 1 | 108 | 8 | 11 | 15 |
+| server/tests/reportMaximumPlayedIndex.test.ts | 4 | 107 | 26 | 2.8 | 5 |
+| server/tests/AudioDrain.test.js | 1 | 106 | 218 | 4 | 7 |
+| server/tests/HandRaising.test.js | 2 | 101 | 10 | 6.5 | 4 |
+| server/tests/directedHandoff.test.ts | 5 | 100 | 4 | 1.6 | 1 |
+| server/tests/MeetingManagerTransition.test.js | 2 | 97 | 70 | 3.5 | 6 |
 | server/tests/ReconnectionRace.test.js | 3 | 97 | 7 | 1.7 | 6 |
-| server/tests/SpeakerClassifierBase.test.ts | 11 | 93 | 5 | 1.5 | 1 |
-| server/tests/ValidationCustomVoice.test.ts | 4 | 90 | 5 | 1 | 5 |
-| server/tests/EstimatedSubtitles.test.ts | 6 | 84 | 2 | 3 | 1 |
-| server/tests/SocketManager.startOptions.test.js | 2 | 79 | 11 | 3 | 2 |
-| server/tests/audioHttp.integration.test.js | 3 | 79 | 148 | 4.3 | 2 |
-| server/tests/ConfigurationAndDbErrors.test.js | 4 | 74 | 24 | 1.8 | 3 |
-| server/tests/CouncilError.test.js | 6 | 74 | 10 | 2.2 | 1 |
-| server/tests/getAutoplayMeeting.test.ts | 5 | 70 | 8 | 1.6 | 4 |
-| server/tests/LoggerStaleEvent.test.ts | 4 | 64 | 8 | 2 | 2 |
-| server/tests/liveSessionRegistry.test.ts | 7 | 59 | 7 | 1.9 | 4 |
-| server/tests/ErrorbotTestRoute.test.js | 3 | 55 | 21 | 3 | 1 |
-| server/tests/ValidationSchemas.test.js | 3 | 53 | 129 | 2.7 | 2 |
-| server/tests/MarkdownStripping.test.ts | 6 | 51 | 2 | 2.5 | 1 |
-| server/tests/ElevenLabsAlignmentUtils.test.ts | 2 | 26 | 2 | 1 | 1 |
+| server/tests/SpeakerClassifierBase.test.ts | 11 | 93 | 4 | 1.5 | 1 |
+| server/tests/ValidationCustomVoice.test.ts | 4 | 90 | 6 | 1 | 5 |
+| server/tests/EstimatedSubtitles.test.ts | 6 | 84 | 6 | 3 | 1 |
+| server/tests/SocketManager.startOptions.test.js | 2 | 79 | 80 | 3 | 2 |
+| server/tests/audioHttp.integration.test.js | 3 | 79 | 90 | 4.3 | 2 |
+| server/tests/ConfigurationAndDbErrors.test.js | 4 | 74 | 32 | 1.8 | 3 |
+| server/tests/CouncilError.test.js | 6 | 74 | 14 | 2.2 | 1 |
+| server/tests/getAutoplayMeeting.test.ts | 5 | 70 | 9 | 1.6 | 4 |
+| server/tests/LoggerStaleEvent.test.ts | 4 | 64 | 4 | 2 | 2 |
+| server/tests/liveSessionRegistry.test.ts | 7 | 59 | 2 | 1.9 | 4 |
+| server/tests/ErrorbotTestRoute.test.js | 3 | 55 | 10 | 3 | 1 |
+| server/tests/ValidationSchemas.test.js | 3 | 53 | 229 | 2.7 | 2 |
+| server/tests/MarkdownStripping.test.ts | 6 | 51 | 4 | 2.5 | 1 |
+| server/tests/ElevenLabsAlignmentUtils.test.ts | 2 | 26 | 5 | 1 | 1 |
 
 ## Review slices
 
@@ -259,5 +259,5 @@ against TESTING.md, each producing one small PR:
 - [ ] 3. Realtime voice (client + server protocol together)
 - [x] 4. Council playback machine + overlays (incl. useCouncilMachine table-drive) — see [test-review-slice-4.md](test-review-slice-4.md); applied, suite 844 → 838
 - [x] 5. Museum / button / kiosk — see [test-review-slice-5.md](test-review-slice-5.md); applied, suite 838 → 836
-- [ ] 6. Routing, i18n, setup flow
+- [x] 6. Routing, i18n, setup flow — see [test-review-slice-6.md](test-review-slice-6.md); applied, suite 836 → 835
 - [ ] 7. Components sweep (client/tests/unit/components)

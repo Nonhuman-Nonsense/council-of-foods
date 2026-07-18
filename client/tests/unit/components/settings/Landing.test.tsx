@@ -77,7 +77,7 @@ describe('Landing', () => {
         cleanup();
     });
 
-    it('renders welcome message', () => {
+    it('renders welcome message and "Go" button in landscape mode', () => {
         render(
             <MemoryRouter>
                 <Landing />
@@ -85,15 +85,6 @@ describe('Landing', () => {
         );
         expect(screen.getByText('landing.welcome')).toBeInTheDocument();
         expect(screen.getByText('APP.COUNCIL')).toBeInTheDocument();
-    });
-
-    it('renders "Go" button in landscape mode', () => {
-        (useMediaQuery as ReturnType<typeof vi.fn>).mockReturnValue(false); // Portrait false
-        render(
-            <MemoryRouter>
-                <Landing />
-            </MemoryRouter>
-        );
         expect(screen.getByText('landing.go')).toBeInTheDocument();
         expect(screen.getByText('landing.description')).toBeInTheDocument();
         expect(screen.queryByTestId('rotate-device')).not.toBeInTheDocument();
