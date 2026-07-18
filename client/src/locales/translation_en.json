@@ -188,7 +188,7 @@
   },
   "error": {
     "title": "ERROR",
-    "message": "Something went wrong...",
+    "message": "Something went wrong.\nCouncil cannot continue.",
     "audioLoad": "Could not load meeting audio.",
     "connection": "Connection Lost",
     "reconnecting": "Attempting to reconnect...",
