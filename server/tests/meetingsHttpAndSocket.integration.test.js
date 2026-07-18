@@ -93,6 +93,20 @@ function waitForSocketEvent(socket, event, timeoutMs = 8000) {
     });
 }
 
+function connectSocket(socket, timeoutMs = 5000) {
+    return new Promise((resolve, reject) => {
+        const t = setTimeout(() => reject(new Error('socket connect timeout')), timeoutMs);
+        socket.once('connect', () => {
+            clearTimeout(t);
+            resolve();
+        });
+        socket.once('connect_error', (e) => {
+            clearTimeout(t);
+            reject(e);
+        });
+    });
+}
+
 describe('HTTP + Socket full chain (integration)', () => {
     let httpServer;
     let io;
@@ -149,17 +163,7 @@ describe('HTTP + Socket full chain (integration)', () => {
         });
         socket.connect();
 
-        await new Promise((resolve, reject) => {
-            const t = setTimeout(() => reject(new Error('socket connect timeout')), 5000);
-            socket.once('connect', () => {
-                clearTimeout(t);
-                resolve();
-            });
-            socket.once('connect_error', (e) => {
-                clearTimeout(t);
-                reject(e);
-            });
-        });
+        await connectSocket(socket);
 
         const updatePromise = waitForSocketEvent(socket, 'conversation_update', 12000);
 
@@ -188,30 +192,7 @@ describe('HTTP + Socket full chain (integration)', () => {
         socket1.connect();
         socket2.connect();
 
-        await Promise.all([
-            new Promise((resolve, reject) => {
-                const t = setTimeout(() => reject(new Error('s1 timeout')), 5000);
-                socket1.once('connect', () => {
-                    clearTimeout(t);
-                    resolve();
-                });
-                socket1.once('connect_error', (e) => {
-                    clearTimeout(t);
-                    reject(e);
-                });
-            }),
-            new Promise((resolve, reject) => {
-                const t = setTimeout(() => reject(new Error('s2 timeout')), 5000);
-                socket2.once('connect', () => {
-                    clearTimeout(t);
-                    resolve();
-                });
-                socket2.once('connect_error', (e) => {
-                    clearTimeout(t);
-                    reject(e);
-                });
-            }),
-        ]);
+        await Promise.all([connectSocket(socket1), connectSocket(socket2)]);
 
         socket1.emit('start_conversation', { meetingId: Number(meetingId), liveKey });
         await waitForSocketEvent(socket1, 'conversation_update', 12000);
@@ -308,17 +289,7 @@ describe('HTTP + Socket full chain (integration)', () => {
 
             const socket = ioClient(`${base()}`, { transports: ['websocket'], autoConnect: false });
             socket.connect();
-            await new Promise((resolve, reject) => {
-                const t = setTimeout(() => reject(new Error('socket connect timeout')), 5000);
-                socket.once('connect', () => {
-                    clearTimeout(t);
-                    resolve();
-                });
-                socket.once('connect_error', (e) => {
-                    clearTimeout(t);
-                    reject(e);
-                });
-            });
+            await connectSocket(socket);
 
             const updatePromise = waitForSocketEvent(socket, 'conversation_update');
             socket.emit('start_conversation', { meetingId, liveKey });
@@ -340,17 +311,7 @@ describe('HTTP + Socket full chain (integration)', () => {
 
         const socket = ioClient(`${base()}`, { transports: ['websocket'], autoConnect: false });
         socket.connect();
-        await new Promise((resolve, reject) => {
-            const t = setTimeout(() => reject(new Error('connect timeout')), 5000);
-            socket.once('connect', () => {
-                clearTimeout(t);
-                resolve();
-            });
-            socket.once('connect_error', (e) => {
-                clearTimeout(t);
-                reject(e);
-            });
-        });
+        await connectSocket(socket);
 
         const errPromise = waitForSocketEvent(socket, 'conversation_error', 5000);
         socket.emit('attempt_reconnection', {
