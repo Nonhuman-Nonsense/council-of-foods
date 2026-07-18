@@ -180,13 +180,11 @@ describe('AudioUtils: FFmpeg Audio Merging', () => {
         const mergedBuffer = await mergeAudioBuffers([fixture1, fixture2]);
         expect(mergedBuffer.length).toBeGreaterThan(0);
         expect(mergedBuffer.length).toBeGreaterThan(fixture1.length);
-        console.log(`Merged file size: ${mergedBuffer.length} bytes (input1: ${fixture1.length}, input2: ${fixture2.length})`);
     });
 
     it('should merge three real OGG/OPUS files', async () => {
         const mergedBuffer = await mergeAudioBuffers([fixture1, fixture2, fixture3]);
         expect(mergedBuffer.length).toBeGreaterThan(0);
-        console.log(`Merged 3 files: ${mergedBuffer.length} bytes`);
     });
 });
 
