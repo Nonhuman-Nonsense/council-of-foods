@@ -231,4 +231,29 @@ describe("useButtonBanner", () => {
 
     expect(onIdleTerminal).not.toHaveBeenCalled();
   });
+
+  it("cancels onIdleTerminal when activity is bumped after the remind has already fired", () => {
+    const onIdleTerminal = vi.fn();
+    const { result } = renderHook(() =>
+      useButtonBanner({
+        ...baseParams,
+        onIdleTerminal,
+        canIdleTerminal: () => true,
+      }),
+    );
+
+    act(() => {
+      vi.advanceTimersByTime(BUTTON_BANNER_IDLE_MS);
+    });
+
+    act(() => {
+      result.current.bumpBannerActivity();
+    });
+
+    act(() => {
+      vi.advanceTimersByTime(BUTTON_BANNER_IDLE_MS * 2);
+    });
+
+    expect(onIdleTerminal).not.toHaveBeenCalled();
+  });
 });

@@ -44,6 +44,87 @@ class MockWebSocket {
   }
 }
 
+/** Bridge is up but the button's USB serial link is not (yet) verified. */
+class MockWebSocketNoSerial {
+  static instances: MockWebSocketNoSerial[] = [];
+  static OPEN = 1;
+  static CONNECTING = 0;
+
+  readyState = MockWebSocketNoSerial.CONNECTING;
+  onopen: (() => void) | null = null;
+  onmessage: MessageHandler | null = null;
+  onerror: (() => void) | null = null;
+  onclose: CloseHandler | null = null;
+  sent: string[] = [];
+
+  constructor(public url: string) {
+    MockWebSocketNoSerial.instances.push(this);
+    queueMicrotask(() => {
+      this.readyState = MockWebSocketNoSerial.OPEN;
+      this.onopen?.();
+      this.onmessage?.({ data: JSON.stringify({ type: "info", version: "test" }) });
+      this.onmessage?.({
+        data: JSON.stringify({ type: "status", state: "disconnected" }),
+      });
+    });
+  }
+
+  send(data: string): void {
+    this.sent.push(data);
+  }
+
+  close(): void {
+    this.readyState = 3;
+  }
+
+  static reset(): void {
+    MockWebSocketNoSerial.instances = [];
+  }
+}
+
+/** WebSocket whose "connected" status event only fires once a test explicitly calls emitStatus(). */
+class DeferredStatusWebSocket {
+  static instances: DeferredStatusWebSocket[] = [];
+  static OPEN = 1;
+  static CONNECTING = 0;
+  static CLOSED = 3;
+
+  readyState = DeferredStatusWebSocket.CONNECTING;
+  onopen: (() => void) | null = null;
+  onmessage: MessageHandler | null = null;
+  onerror: (() => void) | null = null;
+  onclose: CloseHandler | null = null;
+  sent: string[] = [];
+
+  constructor(public url: string) {
+    DeferredStatusWebSocket.instances.push(this);
+    queueMicrotask(() => {
+      this.readyState = DeferredStatusWebSocket.OPEN;
+      this.onopen?.();
+      this.onmessage?.({ data: JSON.stringify({ type: "info", version: "test" }) });
+    });
+  }
+
+  emitStatus(): void {
+    this.onmessage?.({
+      data: JSON.stringify({ type: "status", state: "connected", path: "mock" }),
+    });
+  }
+
+  send(data: string): void {
+    this.sent.push(data);
+  }
+
+  close(): void {
+    this.readyState = DeferredStatusWebSocket.CLOSED;
+    this.onclose?.({ code: 1000, reason: "" });
+  }
+
+  static reset(): void {
+    DeferredStatusWebSocket.instances = [];
+  }
+}
+
 describe("ButtonTransport", () => {
   beforeEach(() => {
     MockWebSocket.reset();
@@ -69,39 +150,7 @@ describe("ButtonTransport", () => {
   });
 
   it("connects when bridge is up but usb serial is disconnected", async () => {
-    class MockWebSocketNoSerial {
-      static instances: MockWebSocketNoSerial[] = [];
-      static OPEN = 1;
-      static CONNECTING = 0;
-
-      readyState = MockWebSocketNoSerial.CONNECTING;
-      onopen: (() => void) | null = null;
-      onmessage: MessageHandler | null = null;
-      onerror: (() => void) | null = null;
-      onclose: CloseHandler | null = null;
-      sent: string[] = [];
-
-      constructor(public url: string) {
-        MockWebSocketNoSerial.instances.push(this);
-        queueMicrotask(() => {
-          this.readyState = MockWebSocketNoSerial.OPEN;
-          this.onopen?.();
-          this.onmessage?.({ data: JSON.stringify({ type: "info", version: "test" }) });
-          this.onmessage?.({
-            data: JSON.stringify({ type: "status", state: "disconnected" }),
-          });
-        });
-      }
-
-      send(data: string): void {
-        this.sent.push(data);
-      }
-
-      close(): void {
-        this.readyState = 3;
-      }
-    }
-
+    MockWebSocketNoSerial.reset();
     vi.stubGlobal("WebSocket", MockWebSocketNoSerial);
 
     const statuses: string[] = [];
@@ -153,39 +202,7 @@ describe("ButtonTransport", () => {
   });
 
   it("does not send LED commands when usb serial is disconnected", async () => {
-    class MockWebSocketNoSerial {
-      static instances: MockWebSocketNoSerial[] = [];
-      static OPEN = 1;
-      static CONNECTING = 0;
-
-      readyState = MockWebSocketNoSerial.CONNECTING;
-      onopen: (() => void) | null = null;
-      onmessage: MessageHandler | null = null;
-      onerror: (() => void) | null = null;
-      onclose: CloseHandler | null = null;
-      sent: string[] = [];
-
-      constructor(public url: string) {
-        MockWebSocketNoSerial.instances.push(this);
-        queueMicrotask(() => {
-          this.readyState = MockWebSocketNoSerial.OPEN;
-          this.onopen?.();
-          this.onmessage?.({ data: JSON.stringify({ type: "info", version: "test" }) });
-          this.onmessage?.({
-            data: JSON.stringify({ type: "status", state: "disconnected" }),
-          });
-        });
-      }
-
-      send(data: string): void {
-        this.sent.push(data);
-      }
-
-      close(): void {
-        this.readyState = 3;
-      }
-    }
-
+    MockWebSocketNoSerial.reset();
     vi.stubGlobal("WebSocket", MockWebSocketNoSerial);
 
     const { ButtonTransport } = await import("@/museum/button/buttonBridge");
@@ -262,48 +279,6 @@ describe("ButtonTransport", () => {
   });
 
   it("aborts in-flight connect promptly when disconnect is called", async () => {
-    class DeferredStatusWebSocket {
-      static instances: DeferredStatusWebSocket[] = [];
-      static OPEN = 1;
-      static CONNECTING = 0;
-      static CLOSED = 3;
-
-      readyState = DeferredStatusWebSocket.CONNECTING;
-      onopen: (() => void) | null = null;
-      onmessage: MessageHandler | null = null;
-      onerror: (() => void) | null = null;
-      onclose: CloseHandler | null = null;
-      sent: string[] = [];
-
-      constructor(public url: string) {
-        DeferredStatusWebSocket.instances.push(this);
-        queueMicrotask(() => {
-          this.readyState = DeferredStatusWebSocket.OPEN;
-          this.onopen?.();
-          this.onmessage?.({ data: JSON.stringify({ type: "info", version: "test" }) });
-        });
-      }
-
-      emitStatus(): void {
-        this.onmessage?.({
-          data: JSON.stringify({ type: "status", state: "connected", path: "mock" }),
-        });
-      }
-
-      send(data: string): void {
-        this.sent.push(data);
-      }
-
-      close(): void {
-        this.readyState = DeferredStatusWebSocket.CLOSED;
-        this.onclose?.({ code: 1000, reason: "" });
-      }
-
-      static reset(): void {
-        DeferredStatusWebSocket.instances = [];
-      }
-    }
-
     DeferredStatusWebSocket.reset();
     vi.stubGlobal("WebSocket", DeferredStatusWebSocket);
 
@@ -328,48 +303,6 @@ describe("ButtonTransport", () => {
   });
 
   it("starts a fresh connect after disconnect without awaiting the aborted attempt", async () => {
-    class DeferredStatusWebSocket {
-      static instances: DeferredStatusWebSocket[] = [];
-      static OPEN = 1;
-      static CONNECTING = 0;
-      static CLOSED = 3;
-
-      readyState = DeferredStatusWebSocket.CONNECTING;
-      onopen: (() => void) | null = null;
-      onmessage: MessageHandler | null = null;
-      onerror: (() => void) | null = null;
-      onclose: CloseHandler | null = null;
-      sent: string[] = [];
-
-      constructor(public url: string) {
-        DeferredStatusWebSocket.instances.push(this);
-        queueMicrotask(() => {
-          this.readyState = DeferredStatusWebSocket.OPEN;
-          this.onopen?.();
-          this.onmessage?.({ data: JSON.stringify({ type: "info", version: "test" }) });
-        });
-      }
-
-      emitStatus(): void {
-        this.onmessage?.({
-          data: JSON.stringify({ type: "status", state: "connected", path: "mock" }),
-        });
-      }
-
-      send(data: string): void {
-        this.sent.push(data);
-      }
-
-      close(): void {
-        this.readyState = DeferredStatusWebSocket.CLOSED;
-        this.onclose?.({ code: 1000, reason: "" });
-      }
-
-      static reset(): void {
-        DeferredStatusWebSocket.instances = [];
-      }
-    }
-
     DeferredStatusWebSocket.reset();
     vi.stubGlobal("WebSocket", DeferredStatusWebSocket);
 

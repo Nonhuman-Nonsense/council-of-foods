@@ -91,6 +91,29 @@ function covRows(side) {
   return out.sort((a, b) => a.pct - b.pct);
 }
 
+// The "Review slices" checklist is hand-maintained (checkmarks + notes as each slice's
+// review lands) — carry it forward from the existing file rather than resetting it.
+const defaultSlicesSection = `## Review slices
+
+Verdicts per slice (keep / merge / rewrite / delete), each reviewed in its own session
+against TESTING.md, each producing one small PR:
+
+- [ ] 1. Meeting lifecycle + resume/replay (server)
+- [ ] 2. Audio pipeline (server)
+- [ ] 3. Realtime voice (client + server protocol together)
+- [ ] 4. Council playback machine + overlays (incl. useCouncilMachine table-drive)
+- [ ] 5. Museum / button / kiosk
+- [ ] 6. Routing, i18n, setup flow
+- [ ] 7. Components sweep (client/tests/unit/components)
+`;
+const existingPath = join(ROOT, 'docs/test-inventory.md');
+let slicesSection = defaultSlicesSection;
+if (existsSync(existingPath)) {
+  const existing = readFileSync(existingPath, 'utf8');
+  const match = existing.match(/## Review slices[\s\S]*$/);
+  if (match) slicesSection = match[0];
+}
+
 const fmt = (r) => `| ${r.file} | ${r.cases}${r.each ? ` (+${r.each} each)` : ''} | ${r.lines} | ${r.ms} | ${r.assertsPerCase} | ${r.churn} |`;
 const header = '| test file | cases | lines | ms | asserts/case | churn |\n|---|---|---|---|---|---|';
 const clientRows = rows.filter(r => r.file.startsWith('client/'));
@@ -154,19 +177,7 @@ ${clientRows.map(fmt).join('\n')}
 ${header}
 ${serverRows.map(fmt).join('\n')}
 
-## Review slices
+${slicesSection}`;
 
-Verdicts per slice (keep / merge / rewrite / delete), each reviewed in its own session
-against TESTING.md, each producing one small PR:
-
-- [ ] 1. Meeting lifecycle + resume/replay (server)
-- [ ] 2. Audio pipeline (server)
-- [ ] 3. Realtime voice (client + server protocol together)
-- [ ] 4. Council playback machine + overlays (incl. useCouncilMachine table-drive)
-- [ ] 5. Museum / button / kiosk
-- [ ] 6. Routing, i18n, setup flow
-- [ ] 7. Components sweep (client/tests/unit/components)
-`;
-
-writeFileSync(join(ROOT, 'docs/test-inventory.md'), md);
+writeFileSync(existingPath, md);
 console.log(`wrote docs/test-inventory.md: ${rows.length} files, large ${rows.filter(r => r.lines > 400).length}, weak ${rows.filter(r => r.assertsPerCase < 1.5 && r.cases > 3 && !r.each).length}, dupes ${dupes.length}`);
