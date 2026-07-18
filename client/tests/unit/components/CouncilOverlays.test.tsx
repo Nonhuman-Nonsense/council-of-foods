@@ -4,6 +4,7 @@ import CouncilOverlays from '@council/overlays/CouncilOverlays';
 import type { ActiveCouncilOverlay } from '@council/overlays/CouncilOverlays';
 import type { ReactNode } from 'react';
 import type { Character } from '@shared/ModelTypes';
+import type { AppMode, AgentMode } from '@/settings/councilSettings';
 import '@testing-library/jest-dom';
 import { MockFactory } from '../factories/MockFactory';
 
@@ -43,11 +44,17 @@ vi.mock('@main/overlay/OverlayWrapper', () => ({
     ),
 }));
 
-const mockUseCouncilSettings = vi.fn(() => ({
+const mockUseCouncilSettings = vi.fn((): {
+    isMuseumMode: boolean;
+    mode: AppMode;
+    setAppMode: () => void;
+    agentMode: AgentMode;
+    setAgentMode: () => void;
+} => ({
     isMuseumMode: false,
-    mode: 'web' as const,
+    mode: 'web',
     setAppMode: vi.fn(),
-    agentMode: 'off' as const,
+    agentMode: 'off',
     setAgentMode: vi.fn(),
 }));
 

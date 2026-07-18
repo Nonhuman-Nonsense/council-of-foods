@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import Summary from '@council/overlays/Summary';
+import type { AppMode, AgentMode } from '@/settings/councilSettings';
 
 vi.mock('qrcode.react', () => ({
     QRCodeCanvas: () => <div data-testid="qrcode">QRCode</div>
@@ -51,11 +52,17 @@ vi.mock('@/utils', () => ({
     dvh: 'vh' // Mock dvh constant
 }));
 
-const mockUseCouncilSettings = vi.fn(() => ({
+const mockUseCouncilSettings = vi.fn((): {
+    isMuseumMode: boolean;
+    mode: AppMode;
+    setAppMode: () => void;
+    agentMode: AgentMode;
+    setAgentMode: () => void;
+} => ({
     isMuseumMode: false,
-    mode: 'web' as const,
+    mode: 'web',
     setAppMode: vi.fn(),
-    agentMode: 'off' as const,
+    agentMode: 'off',
     setAgentMode: vi.fn(),
 }));
 

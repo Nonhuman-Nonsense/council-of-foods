@@ -40,15 +40,15 @@ function AudioOutputMessage({
   useEffect(() => {
     let ignoreEndEvent = false;
 
+    function sourceFinished() {
+      if (!ignoreEndEvent) {
+        onFinishedPlayingRef.current();
+      }
+    }
+
     // Handle updating the audio source when the message changes
 
     if (currentAudioMessage && currentAudioMessage.audio && currentAudioMessage.audio.length !== 0) {
-      function sourceFinished() {
-        if (!ignoreEndEvent) {
-          onFinishedPlayingRef.current();
-        }
-      }
-
       if (audioContext.current && gainNode.current) {
         sourceNode.current = audioContext.current.createBufferSource();
         sourceNode.current.buffer = currentAudioMessage.audio;
@@ -66,6 +66,7 @@ function AudioOutputMessage({
 
     return () => {
       ignoreEndEvent = true;
+      sourceNode.current?.removeEventListener('ended', sourceFinished, true);
       sourceNode.current?.stop();
       sourceNode.current?.disconnect();
       // sourceNode.current?.close();

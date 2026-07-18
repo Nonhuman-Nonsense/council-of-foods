@@ -77,7 +77,7 @@ export class MeetingLifecycleHandler {
     /**
      * Concludes the meeting: chair closing line (broadcast immediately), then summary.
      */
-    async handleConcludeMeeting(message: ConcludeMeetingMessage): Promise<void> {
+    async handleConcludeMeeting(_message: ConcludeMeetingMessage): Promise<void> {
         const { manager } = this;
         const m = manager.meeting;
         if (!m) return;

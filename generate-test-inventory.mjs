@@ -1,9 +1,9 @@
-// Regenerates docs/test-inventory.md (see TESTING.md for the rubric it supports).
+// Regenerates test-inventory.md (see TESTING.md for the rubric it supports).
 //
 // Usage, from the repo root:
 //   cd client && npx vitest run --coverage --reporter=json --outputFile=test-report.json && cd ..
 //   cd server && npx vitest run --coverage --reporter=json --outputFile=test-report.json && cd ..
-//   node docs/generate-test-inventory.mjs
+//   node generate-test-inventory.mjs
 //
 // The vitest JSON reports are optional (the "ms" column is left blank without them);
 // coverage-final.json in client/coverage and server/coverage is required for the gaps section.
@@ -12,7 +12,7 @@ import { execSync } from 'node:child_process';
 import { join, relative, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
+const ROOT = dirname(fileURLToPath(import.meta.url));
 const CHURN_SINCE = '6 months ago';
 
 function walk(dir, out = []) {
@@ -91,6 +91,8 @@ function covRows(side) {
   return out.sort((a, b) => a.pct - b.pct);
 }
 
+const existingPath = join(ROOT, 'test-inventory.md');
+
 const fmt = (r) => `| ${r.file} | ${r.cases}${r.each ? ` (+${r.each} each)` : ''} | ${r.lines} | ${r.ms} | ${r.assertsPerCase} | ${r.churn} |`;
 const header = '| test file | cases | lines | ms | asserts/case | churn |\n|---|---|---|---|---|---|';
 const clientRows = rows.filter(r => r.file.startsWith('client/'));
@@ -103,10 +105,10 @@ const covSection = (side) => {
 
 const md = `# Test-suite inventory (generated ${new Date().toISOString().slice(0, 10)})
 
-Working document for the test-coverage review — see [TESTING.md](../TESTING.md) for the
-rubric. Regenerate with \`node docs/generate-test-inventory.mjs\` (see the header of that
-script) rather than hand-editing the tables; verdicts go in the review-slice section at the
-bottom.
+A periodic mechanical scan of the test suite — see [TESTING.md](TESTING.md) for the rubric
+it supports. Regenerate with \`node generate-test-inventory.mjs\` (see the header of that
+script) rather than hand-editing the tables; it's a diagnostic tool, not a target — re-run it
+before a major refactor or when the suite feels like it's drifted, not on a fixed schedule.
 
 **Totals:** ${rows.length} test files, ~${rows.reduce((a, r) => a + r.cases, 0)} cases
 (client ${clientRows.length} files / ${clientRows.reduce((a, r) => a + r.cases, 0)} cases, server ${serverRows.length} files / ${serverRows.reduce((a, r) => a + r.cases, 0)} cases).
@@ -153,20 +155,7 @@ ${clientRows.map(fmt).join('\n')}
 ### Server
 ${header}
 ${serverRows.map(fmt).join('\n')}
-
-## Review slices
-
-Verdicts per slice (keep / merge / rewrite / delete), each reviewed in its own session
-against TESTING.md, each producing one small PR:
-
-- [ ] 1. Meeting lifecycle + resume/replay (server)
-- [ ] 2. Audio pipeline (server)
-- [ ] 3. Realtime voice (client + server protocol together)
-- [ ] 4. Council playback machine + overlays (incl. useCouncilMachine table-drive)
-- [ ] 5. Museum / button / kiosk
-- [ ] 6. Routing, i18n, setup flow
-- [ ] 7. Components sweep (client/tests/unit/components)
 `;
 
-writeFileSync(join(ROOT, 'docs/test-inventory.md'), md);
-console.log(`wrote docs/test-inventory.md: ${rows.length} files, large ${rows.filter(r => r.lines > 400).length}, weak ${rows.filter(r => r.assertsPerCase < 1.5 && r.cases > 3 && !r.each).length}, dupes ${dupes.length}`);
+writeFileSync(existingPath, md);
+console.log(`wrote test-inventory.md: ${rows.length} files, large ${rows.filter(r => r.lines > 400).length}, weak ${rows.filter(r => r.assertsPerCase < 1.5 && r.cases > 3 && !r.each).length}, dupes ${dupes.length}`);

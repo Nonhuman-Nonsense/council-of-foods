@@ -179,7 +179,7 @@ export default function MeetingVoiceGuide({
       voice.requestAgentResponse();
       setNudgeFired(true);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   }, [isDocumentVisible]);
 
   // Absolute idle timer: if no user speech for 3 minutes, tear down the session.
@@ -192,7 +192,7 @@ export default function MeetingVoiceGuide({
       voice.stop();
     }, IDLE_TIMEOUT_MS);
     return () => clearTimeout(id);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   }, [voice.lastUserTranscript, muted]);
 
   // Resume on window focus if the session was torn down by the background timer.
@@ -205,7 +205,7 @@ export default function MeetingVoiceGuide({
     }
     window.addEventListener("focus", onWindowFocus);
     return () => window.removeEventListener("focus", onWindowFocus);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   }, []);
 
   const showMuseumReconnecting =

@@ -4,17 +4,18 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import SelectCharacters from '@newMeeting/SelectCharacters';
 import { characterSetupEn } from '../../../characterSetupTestData';
 import { useMeetingSetupStore } from '@newMeeting/meetingSetupStore';
+import type { Character } from '@shared/ModelTypes';
 
 // Mock dependencies
 vi.mock('react-i18next', () => ({
-    useTranslation: () => ({ t: (key) => key, i18n: { language: 'en' } }),
+    useTranslation: () => ({ t: (key: string) => key, i18n: { language: 'en' } }),
 }));
 
 vi.mock('@/utils', () => ({
     useMobile: () => false,
     useMobileXs: () => false,
-    toTitleCase: (str) => str,
-    filename: (str) => str
+    toTitleCase: (str: string) => str,
+    filename: (str: string) => str
 }));
 
 const [chair, ...selectableCharacters] = characterSetupEn.characters;
@@ -22,7 +23,7 @@ const [firstParticipant, secondParticipant] = selectableCharacters;
 const maxParticipantSelection = selectableCharacters.slice(0, 6);
 const overflowParticipant = selectableCharacters[6];
 
-function clickCharacter(name) {
+function clickCharacter(name: string) {
     fireEvent.click(screen.getByAltText(name));
 }
 
@@ -32,7 +33,7 @@ function selectMinimumParticipants() {
 }
 
 describe('SelectCharacters Component', () => {
-    let mockOnContinue;
+    let mockOnContinue: ReturnType<typeof vi.fn<(data: { characters: Character[] }) => void>>;
 
     beforeEach(() => {
         useMeetingSetupStore.getState().resetStore();
@@ -77,12 +78,12 @@ describe('SelectCharacters Component', () => {
         const passedCharacters = mockOnContinue.mock.calls[0][0].characters;
 
         expect(passedCharacters).toHaveLength(3);
-        expect(passedCharacters.map((character) => character.id)).toEqual([
+        expect(passedCharacters.map((character: Character) => character.id)).toEqual([
             chair.id,
             firstParticipant.id,
             secondParticipant.id,
         ]);
-        expect(passedCharacters.map((character) => character.name)).toEqual([
+        expect(passedCharacters.map((character: Character) => character.name)).toEqual([
             chair.name,
             firstParticipant.name,
             secondParticipant.name,
@@ -107,9 +108,10 @@ describe('SelectCharacters Component', () => {
         fireEvent.click(startBtn);
 
         const passedCharacters = mockOnContinue.mock.calls[0][0].characters;
-        const humanPanelist = passedCharacters.find((character) => character.id.startsWith("panelist"));
+        const humanPanelist = passedCharacters.find((character: Character) => character.id.startsWith("panelist"));
+        if (!humanPanelist) throw new Error('expected a human panelist in passedCharacters');
 
-        expect(passedCharacters.map((character) => character.id)).toEqual([
+        expect(passedCharacters.map((character: Character) => character.id)).toEqual([
             chair.id,
             firstParticipant.id,
             secondParticipant.id,
@@ -163,7 +165,7 @@ describe('SelectCharacters Component', () => {
         const passedCharacters = mockOnContinue.mock.calls[0][0].characters;
 
         expect(passedCharacters.length).toBeLessThanOrEqual(7);
-        expect(passedCharacters.map((character) => character.name)).not.toContain(overflowParticipant.name);
+        expect(passedCharacters.map((character: Character) => character.name)).not.toContain(overflowParticipant.name);
     });
 
     it('should deselect a food when clicked again', () => {

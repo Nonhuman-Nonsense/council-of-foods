@@ -39,7 +39,6 @@ describe('AudioUtils: splitTextForTts', () => {
         const para1 = 'First paragraph content here.';
         const para2 = 'Second paragraph goes here.';
         const gap = '\n\n';
-        const text = para1 + gap + para2;
         const limit = para1.length + gap.length + 10; // para2 would overflow if we add more
         const longPara2 = para2 + ' '.repeat(limit + 10);
         const fullText = para1 + gap + longPara2;
@@ -181,13 +180,11 @@ describe('AudioUtils: FFmpeg Audio Merging', () => {
         const mergedBuffer = await mergeAudioBuffers([fixture1, fixture2]);
         expect(mergedBuffer.length).toBeGreaterThan(0);
         expect(mergedBuffer.length).toBeGreaterThan(fixture1.length);
-        console.log(`Merged file size: ${mergedBuffer.length} bytes (input1: ${fixture1.length}, input2: ${fixture2.length})`);
     });
 
     it('should merge three real OGG/OPUS files', async () => {
         const mergedBuffer = await mergeAudioBuffers([fixture1, fixture2, fixture3]);
         expect(mergedBuffer.length).toBeGreaterThan(0);
-        console.log(`Merged 3 files: ${mergedBuffer.length} bytes`);
     });
 });
 

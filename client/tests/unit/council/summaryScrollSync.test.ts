@@ -110,7 +110,7 @@ describe("useAudioSyncedScroll", () => {
             matches: false,
             addEventListener: vi.fn(),
             removeEventListener: vi.fn(),
-          }) as MediaQueryList,
+          }) as unknown as MediaQueryList,
       ),
     );
     let animationFrames = 0;

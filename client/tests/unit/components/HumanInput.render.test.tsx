@@ -6,24 +6,31 @@ import { useMobile } from '@/utils';
 import { bootstrapHumanInputRealtimeSession } from '@api/realtimeSession';
 import { createRealtimeConnection } from '@/realtime/realtimeConnection';
 import { BUTTON_BANNER_IDLE_MS } from '@museum/button/useButtonBanner';
+import type { AgentMode } from '@/settings/councilSettings';
+import type { ButtonOwner } from '@museum/button/buttonStore';
+import type { RealtimeConnection } from '@/realtime/realtimeConnection';
+
+const mockUseMobile = vi.mocked(useMobile);
+const mockBootstrapHumanInputRealtimeSession = vi.mocked(bootstrapHumanInputRealtimeSession);
+const mockCreateRealtimeConnection = vi.mocked(createRealtimeConnection);
 
 const mockClaim = vi.hoisted(() => vi.fn());
 const mockRelease = vi.hoisted(() => vi.fn());
 const mockSetLed = vi.hoisted(() => vi.fn());
-const mockAgentMode = vi.hoisted(() => ({ value: "always-on" }));
+const mockAgentMode = vi.hoisted<{ value: AgentMode }>(() => ({ value: "always-on" }));
 
-const mockButtonState = vi.hoisted(() => ({
+const mockButtonState = vi.hoisted<{ pressed: boolean; buttonOwner: string | null }>(() => ({
     pressed: false,
     buttonOwner: null,
 }));
 
-const mockButtonListeners = vi.hoisted(() => new Set());
+const mockButtonListeners = vi.hoisted(() => new Set<() => void>());
 
 function notifyMockButtonListeners() {
     mockButtonListeners.forEach((listener) => listener());
 }
 
-function setMockPressed(value) {
+function setMockPressed(value: boolean) {
     mockButtonState.pressed = value;
     if (value) {
         mockButtonState.buttonOwner = 'human-input';
@@ -33,13 +40,13 @@ function setMockPressed(value) {
 
 // Mocks
 vi.mock('react-i18next', () => ({
-    useTranslation: () => ({ t: (key) => key, i18n: { language: 'en' } }),
+    useTranslation: () => ({ t: (key: string) => key, i18n: { language: 'en' } }),
 }));
 
 vi.mock('@/utils', () => ({
     useMobile: vi.fn(),
     dvh: "vh",
-    mapFoodIndex: (l, i) => i
+    mapFoodIndex: (l: number, i: number) => i
 }));
 
 vi.mock('@/settings/councilSettings', () => ({
@@ -67,14 +74,14 @@ vi.mock('@council/humanInput/LiveAudioVisualizer', () => ({
 }));
 
 vi.mock('@council/ConversationControlIcon', () => ({
-    default: ({ icon, onClick }) => (
+    default: ({ icon, onClick }: { icon: string; onClick: () => void }) => (
         <button data-testid={`icon-${icon}`} onClick={onClick}>{icon}</button>
     )
 }));
 
 vi.mock('@/museum/button/buttonStore', () => ({
     useButtonStore: Object.assign(
-        (selector) => selector(mockButtonState),
+        <T,>(selector: (state: typeof mockButtonState) => T) => selector(mockButtonState),
         {
             getState: () => ({
                 setButtonBannerVisible: vi.fn(),
@@ -88,7 +95,7 @@ vi.mock('@/museum/button/buttonStore', () => ({
 vi.mock('@/museum/button/useButton', async () => {
     const React = await import('react');
     return {
-        useButton: (owner) => {
+        useButton: (owner: ButtonOwner) => {
             const pressed = React.useSyncExternalStore(
                 (onStoreChange) => {
                     mockButtonListeners.add(onStoreChange);
@@ -107,7 +114,7 @@ vi.mock('@/museum/button/useButton', async () => {
     };
 });
 
-function createMockMicStream(tracks = null) {
+function createMockMicStream(tracks: { enabled: boolean }[] | null = null) {
     const audioTracks = tracks ?? [{ enabled: true }];
     return {
         id: 'mock-stream',
@@ -115,10 +122,26 @@ function createMockMicStream(tracks = null) {
     };
 }
 
-function deferred() {
-    let resolve;
-    let reject;
-    const promise = new Promise((res, rej) => {
+/** Builds a fake RealtimeConnection. pc/dc/micStream are test doubles, not real DOM objects. */
+function mockConnection(overrides: {
+    pc?: unknown;
+    dc?: unknown;
+    micStream?: ReturnType<typeof createMockMicStream>;
+    close?: () => void;
+} = {}): RealtimeConnection {
+    return {
+        pc: {},
+        dc: {},
+        micStream: createMockMicStream(),
+        close: vi.fn(),
+        ...overrides,
+    } as unknown as RealtimeConnection;
+}
+
+function deferred<T>() {
+    let resolve!: (value: T) => void;
+    let reject!: (reason?: unknown) => void;
+    const promise = new Promise<T>((res, rej) => {
         resolve = res;
         reject = rej;
     });
@@ -134,6 +157,7 @@ async function renderAndWaitReady(extraProps = {}) {
             currentSpeakerName=""
             onSubmitHumanMessage={vi.fn()}
             liveKey="test-key"
+            onAbandonHumanTurn={vi.fn()}
             {...extraProps}
         />
     );
@@ -144,22 +168,17 @@ async function renderAndWaitReady(extraProps = {}) {
 }
 
 describe('HumanInput Component', () => {
-    let mockOnSubmit;
+    let mockOnSubmit: (text: string) => void;
 
     beforeEach(() => {
         mockOnSubmit = vi.fn();
-        useMobile.mockReturnValue(false);
-        bootstrapHumanInputRealtimeSession.mockResolvedValue({
+        mockUseMobile.mockReturnValue(false);
+        mockBootstrapHumanInputRealtimeSession.mockResolvedValue({
             provider: 'inworld',
             iceServers: [],
             session: { type: 'realtime' },
         });
-        createRealtimeConnection.mockResolvedValue({
-            pc: {},
-            dc: {},
-            micStream: createMockMicStream(),
-            close: vi.fn(),
-        });
+        mockCreateRealtimeConnection.mockResolvedValue(mockConnection());
     });
 
     afterEach(() => {
@@ -176,6 +195,7 @@ describe('HumanInput Component', () => {
                 currentSpeakerName=""
                 onSubmitHumanMessage={mockOnSubmit}
                 liveKey="test-key"
+                onAbandonHumanTurn={vi.fn()}
             />
         );
 
@@ -194,8 +214,8 @@ describe('HumanInput Component', () => {
 
     it('should auto-connect on mount and show loading until ready', async () => {
         // Make the connection slow so we can observe the loading state
-        const pending = deferred();
-        createRealtimeConnection.mockReturnValue(pending.promise);
+        const pending = deferred<RealtimeConnection>();
+        mockCreateRealtimeConnection.mockReturnValue(pending.promise);
 
         render(
             <HumanInput
@@ -204,6 +224,7 @@ describe('HumanInput Component', () => {
                 currentSpeakerName=""
                 onSubmitHumanMessage={mockOnSubmit}
                 liveKey="test-key"
+                onAbandonHumanTurn={vi.fn()}
             />
         );
 
@@ -212,7 +233,7 @@ describe('HumanInput Component', () => {
         expect(screen.queryByTestId('icon-record_voice_off')).not.toBeInTheDocument();
 
         // Resolve the connection
-        pending.resolve({ pc: {}, dc: {}, micStream: createMockMicStream(), close: vi.fn() });
+        pending.resolve(mockConnection());
 
         await waitFor(() => {
             expect(screen.getByTestId('icon-record_voice_off')).toBeInTheDocument();
@@ -227,6 +248,7 @@ describe('HumanInput Component', () => {
                 currentSpeakerName=""
                 onSubmitHumanMessage={mockOnSubmit}
                 liveKey="test-key"
+                onAbandonHumanTurn={vi.fn()}
             />
         );
 
@@ -238,12 +260,7 @@ describe('HumanInput Component', () => {
     it('should disable the mic track after pre-warm connect', async () => {
         const track = { enabled: true };
         const micStream = createMockMicStream([track]);
-        createRealtimeConnection.mockResolvedValue({
-            pc: {},
-            dc: {},
-            micStream,
-            close: vi.fn(),
-        });
+        mockCreateRealtimeConnection.mockResolvedValue(mockConnection({ micStream }));
 
         await renderAndWaitReady();
 
@@ -256,7 +273,7 @@ describe('HumanInput Component', () => {
     it('should handle text input and submission', async () => {
         await renderAndWaitReady({ onSubmitHumanMessage: mockOnSubmit });
 
-        const textarea = screen.getByPlaceholderText('human.placeholder');
+        const textarea = screen.getByPlaceholderText('human.placeholder') as HTMLTextAreaElement;
         fireEvent.change(textarea, { target: { value: 'Hello World' } });
         expect(textarea.value).toBe('Hello World');
 
@@ -327,12 +344,7 @@ describe('HumanInput Component', () => {
 
     it('should enable the mic track when recording starts', async () => {
         const track = { enabled: true };
-        createRealtimeConnection.mockResolvedValue({
-            pc: {},
-            dc: {},
-            micStream: createMockMicStream([track]),
-            close: vi.fn(),
-        });
+        mockCreateRealtimeConnection.mockResolvedValue(mockConnection({ micStream: createMockMicStream([track]) }));
 
         await renderAndWaitReady();
 
@@ -367,9 +379,9 @@ describe('HumanInput Component', () => {
 
     it('should send session.update on data channel open for Inworld human input', async () => {
         const send = vi.fn();
-        createRealtimeConnection.mockImplementation(async (opts) => {
-            if (opts.onOpen) opts.onOpen({ dc: { send } });
-            return { pc: {}, dc: { send }, micStream: createMockMicStream(), close: vi.fn() };
+        mockCreateRealtimeConnection.mockImplementation(async (opts) => {
+            if (opts.onOpen) opts.onOpen({ dc: { send } as unknown as RTCDataChannel });
+            return mockConnection({ dc: { send } });
         });
 
         await renderAndWaitReady();
@@ -383,7 +395,7 @@ describe('HumanInput Component', () => {
     });
 
     it('should not register onOpen for OpenAI human-input bootstrap', async () => {
-        bootstrapHumanInputRealtimeSession.mockResolvedValue({
+        mockBootstrapHumanInputRealtimeSession.mockResolvedValue({
             provider: 'openai',
             iceServers: [],
             session: { type: 'transcription', audio: {} },
@@ -391,7 +403,7 @@ describe('HumanInput Component', () => {
 
         await renderAndWaitReady();
 
-        const opts = createRealtimeConnection.mock.calls[0][0];
+        const opts = mockCreateRealtimeConnection.mock.calls[0][0];
         expect(opts.onOpen).toBeUndefined();
     });
 
@@ -399,7 +411,7 @@ describe('HumanInput Component', () => {
 
     it('should ignore AbortError during startup without logging an error', async () => {
         const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
-        createRealtimeConnection.mockRejectedValue(
+        mockCreateRealtimeConnection.mockRejectedValue(
             Object.assign(new Error('aborted'), { name: 'AbortError' })
         );
 
@@ -410,6 +422,7 @@ describe('HumanInput Component', () => {
                 currentSpeakerName=""
                 onSubmitHumanMessage={mockOnSubmit}
                 liveKey="test-key"
+                onAbandonHumanTurn={vi.fn()}
             />
         );
 
@@ -424,9 +437,9 @@ describe('HumanInput Component', () => {
 
     it('should surface non-abort startup failures and auto-retry', async () => {
         const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
-        createRealtimeConnection
+        mockCreateRealtimeConnection
             .mockRejectedValueOnce(new Error('network blew up'))
-            .mockResolvedValue({ pc: {}, dc: {}, micStream: createMockMicStream(), close: vi.fn() });
+            .mockResolvedValue(mockConnection());
 
         render(
             <HumanInput
@@ -435,6 +448,7 @@ describe('HumanInput Component', () => {
                 currentSpeakerName=""
                 onSubmitHumanMessage={mockOnSubmit}
                 liveKey="test-key"
+                onAbandonHumanTurn={vi.fn()}
             />
         );
 
@@ -456,12 +470,7 @@ describe('HumanInput Component', () => {
 
     it('should close the connection on unmount', async () => {
         const close = vi.fn();
-        createRealtimeConnection.mockResolvedValue({
-            pc: {},
-            dc: {},
-            micStream: createMockMicStream(),
-            close,
-        });
+        mockCreateRealtimeConnection.mockResolvedValue(mockConnection({ close }));
 
         const { unmount } = await renderAndWaitReady();
         unmount();
@@ -470,9 +479,9 @@ describe('HumanInput Component', () => {
     });
 
     it('should close a connection that resolves after the component unmounts', async () => {
-        const pending = deferred();
+        const pending = deferred<RealtimeConnection>();
         const close = vi.fn();
-        createRealtimeConnection.mockReturnValue(pending.promise);
+        mockCreateRealtimeConnection.mockReturnValue(pending.promise);
 
         const { unmount } = render(
             <HumanInput
@@ -481,6 +490,7 @@ describe('HumanInput Component', () => {
                 currentSpeakerName=""
                 onSubmitHumanMessage={mockOnSubmit}
                 liveKey="test-key"
+                onAbandonHumanTurn={vi.fn()}
             />
         );
 
@@ -492,7 +502,7 @@ describe('HumanInput Component', () => {
         unmount();
 
         // Connection resolves after unmount
-        pending.resolve({ pc: {}, dc: {}, micStream: createMockMicStream(), close });
+        pending.resolve(mockConnection({ close }));
 
         await waitFor(() => {
             expect(close).toHaveBeenCalled();
@@ -503,8 +513,8 @@ describe('HumanInput Component', () => {
         const { unmount } = await renderAndWaitReady();
 
         // Trigger unexpected close — this calls setConnectionState("idle") internally
-        const opts = createRealtimeConnection.mock.calls[0][0];
-        opts.onClose();
+        const opts = mockCreateRealtimeConnection.mock.calls[0][0];
+        opts.onClose?.("pc_failed");
 
         // Icon disappears while re-connecting (idle → connecting → ...)
         await waitFor(() => {
@@ -533,28 +543,23 @@ describe('HumanInput Component', () => {
 // ── PTT museum mode ────────────────────────────────────────────────────────────
 
 describe('HumanInput PTT museum mode', () => {
-    let mockOnSubmit;
+    let mockOnSubmit: (text: string) => void;
 
     beforeEach(() => {
         mockOnSubmit = vi.fn();
         mockAgentMode.value = "ptt";
-        useMobile.mockReturnValue(false);
+        mockUseMobile.mockReturnValue(false);
         mockClaim.mockClear();
         mockRelease.mockClear();
         mockSetLed.mockClear();
         mockButtonState.pressed = false;
         setMockPressed(false);
-        bootstrapHumanInputRealtimeSession.mockResolvedValue({
+        mockBootstrapHumanInputRealtimeSession.mockResolvedValue({
             provider: 'inworld',
             iceServers: [],
             session: { type: 'realtime' },
         });
-        createRealtimeConnection.mockResolvedValue({
-            pc: {},
-            dc: {},
-            micStream: createMockMicStream(),
-            close: vi.fn(),
-        });
+        mockCreateRealtimeConnection.mockResolvedValue(mockConnection());
     });
 
     afterEach(() => {
@@ -572,6 +577,7 @@ describe('HumanInput PTT museum mode', () => {
                 currentSpeakerName=""
                 onSubmitHumanMessage={mockOnSubmit}
                 liveKey="test-key"
+                onAbandonHumanTurn={vi.fn()}
                 {...extraProps}
             />
         );
@@ -618,8 +624,8 @@ describe('HumanInput PTT museum mode', () => {
     });
 
     it('shows loading spinner during connecting in PTT mode', async () => {
-        const pending = { resolve: null };
-        createRealtimeConnection.mockReturnValue(
+        const pending: { resolve: ((value: RealtimeConnection) => void) | null } = { resolve: null };
+        mockCreateRealtimeConnection.mockReturnValue(
             new Promise(r => { pending.resolve = r; })
         );
 
@@ -631,12 +637,13 @@ describe('HumanInput PTT museum mode', () => {
                 currentSpeakerName=""
                 onSubmitHumanMessage={mockOnSubmit}
                 liveKey="test-key"
+                onAbandonHumanTurn={vi.fn()}
             />
         );
 
         expect(screen.getByTestId('lottie-player')).toBeInTheDocument();
 
-        pending.resolve({ pc: {}, dc: {}, micStream: createMockMicStream(), close: vi.fn() });
+        pending.resolve?.(mockConnection());
 
         await waitFor(() => {
             expect(screen.queryByTestId('lottie-player')).not.toBeInTheDocument();
@@ -662,9 +669,7 @@ describe('HumanInput PTT museum mode', () => {
 
     it('starts recording on PTT press', async () => {
         const track = { enabled: false };
-        createRealtimeConnection.mockResolvedValue({
-            pc: {}, dc: {}, micStream: createMockMicStream([track]), close: vi.fn(),
-        });
+        mockCreateRealtimeConnection.mockResolvedValue(mockConnection({ micStream: createMockMicStream([track]) }));
 
         await renderPttReady();
 
@@ -680,9 +685,9 @@ describe('HumanInput PTT museum mode', () => {
         // Simulate the user pressing the PTT button before the pre-warm finishes.
         // Simulate held PTT when connection becomes ready (LED pulse + keyboard held).
         // keyboardDown is set BEFORE we let the connection resolve.
-        const pending = { resolve: null };
+        const pending: { resolve: ((value: RealtimeConnection) => void) | null } = { resolve: null };
         const track = { enabled: false };
-        createRealtimeConnection.mockReturnValue(
+        mockCreateRealtimeConnection.mockReturnValue(
             new Promise(r => { pending.resolve = r; })
         );
 
@@ -694,6 +699,7 @@ describe('HumanInput PTT museum mode', () => {
                 currentSpeakerName=""
                 onSubmitHumanMessage={mockOnSubmit}
                 liveKey="test-key"
+                onAbandonHumanTurn={vi.fn()}
             />
         );
 
@@ -702,7 +708,7 @@ describe('HumanInput PTT museum mode', () => {
         setMockPressed(true);
 
         // Now the connection resolves (connecting → ready)
-        pending.resolve({ pc: {}, dc: {}, micStream: createMockMicStream([track]), close: vi.fn() });
+        pending.resolve?.(mockConnection({ micStream: createMockMicStream([track]) }));
 
         // Should jump straight to recording without requiring a re-press
         await waitFor(() => {
@@ -754,15 +760,15 @@ describe('HumanInput PTT museum mode', () => {
 
     it('waits for incremental transcript before auto-submitting', async () => {
         vi.useFakeTimers({ shouldAdvanceTime: true });
-        bootstrapHumanInputRealtimeSession.mockResolvedValue({
+        mockBootstrapHumanInputRealtimeSession.mockResolvedValue({
             provider: 'openai',
             iceServers: [],
             session: { type: 'transcription', audio: {} },
         });
-        let onEvent;
-        createRealtimeConnection.mockImplementation(async (opts) => {
+        let onEvent: ((event: unknown) => void) | undefined;
+        mockCreateRealtimeConnection.mockImplementation(async (opts) => {
             onEvent = opts.onEvent;
-            return { pc: {}, dc: {}, micStream: createMockMicStream(), close: vi.fn() };
+            return mockConnection();
         });
 
         await renderPttReady();
@@ -772,13 +778,13 @@ describe('HumanInput PTT museum mode', () => {
             expect(screen.getByTestId('icon-record_voice_on')).toBeInTheDocument();
         });
 
-        onEvent({ type: 'input_audio_buffer.speech_started' });
-        onEvent({
+        onEvent?.({ type: 'input_audio_buffer.speech_started' });
+        onEvent?.({
             type: 'conversation.item.input_audio_transcription.delta',
             item_id: 'item_1',
             delta: 'Hello',
         });
-        onEvent({
+        onEvent?.({
             type: 'conversation.item.input_audio_transcription.delta',
             item_id: 'item_1',
             delta: ' dear',
@@ -788,7 +794,7 @@ describe('HumanInput PTT museum mode', () => {
         await vi.advanceTimersByTimeAsync(2000);
         expect(mockOnSubmit).not.toHaveBeenCalled();
 
-        onEvent({
+        onEvent?.({
             type: 'conversation.item.input_audio_transcription.delta',
             item_id: 'item_1',
             delta: ' council',
@@ -805,7 +811,7 @@ describe('HumanInput PTT museum mode', () => {
 
     it('builds incremental Soniox transcript partials on Inworld sessions', async () => {
         vi.useFakeTimers({ shouldAdvanceTime: true });
-        bootstrapHumanInputRealtimeSession.mockResolvedValue({
+        mockBootstrapHumanInputRealtimeSession.mockResolvedValue({
             provider: 'inworld',
             iceServers: [],
             session: {
@@ -813,10 +819,10 @@ describe('HumanInput PTT museum mode', () => {
                 audio: { input: { transcription: { model: 'test/soniox-stt' } } },
             },
         });
-        let onEvent;
-        createRealtimeConnection.mockImplementation(async (opts) => {
+        let onEvent: ((event: unknown) => void) | undefined;
+        mockCreateRealtimeConnection.mockImplementation(async (opts) => {
             onEvent = opts.onEvent;
-            return { pc: {}, dc: {}, micStream: createMockMicStream(), close: vi.fn() };
+            return mockConnection();
         });
 
         await renderPttReady();
@@ -828,13 +834,13 @@ describe('HumanInput PTT museum mode', () => {
 
         const textarea = screen.getByPlaceholderText('ptt.humanPlaceholder');
 
-        onEvent({ type: 'input_audio_buffer.speech_started' });
-        onEvent({
+        onEvent?.({ type: 'input_audio_buffer.speech_started' });
+        onEvent?.({
             type: 'conversation.item.input_audio_transcription.delta',
             item_id: 'item_1',
             delta: 'Hej',
         });
-        onEvent({
+        onEvent?.({
             type: 'conversation.item.input_audio_transcription.delta',
             item_id: 'item_1',
             delta: ' där',
@@ -849,7 +855,7 @@ describe('HumanInput PTT museum mode', () => {
 
     it('handles mixed Soniox suffix and cumulative partials without stacking', async () => {
         vi.useFakeTimers({ shouldAdvanceTime: true });
-        bootstrapHumanInputRealtimeSession.mockResolvedValue({
+        mockBootstrapHumanInputRealtimeSession.mockResolvedValue({
             provider: 'inworld',
             iceServers: [],
             session: {
@@ -857,10 +863,10 @@ describe('HumanInput PTT museum mode', () => {
                 audio: { input: { transcription: { model: 'test/soniox-stt' } } },
             },
         });
-        let onEvent;
-        createRealtimeConnection.mockImplementation(async (opts) => {
+        let onEvent: ((event: unknown) => void) | undefined;
+        mockCreateRealtimeConnection.mockImplementation(async (opts) => {
             onEvent = opts.onEvent;
-            return { pc: {}, dc: {}, micStream: createMockMicStream(), close: vi.fn() };
+            return mockConnection();
         });
 
         await renderPttReady();
@@ -872,28 +878,28 @@ describe('HumanInput PTT museum mode', () => {
 
         const textarea = screen.getByPlaceholderText('ptt.humanPlaceholder');
 
-        onEvent({ type: 'input_audio_buffer.speech_started' });
-        onEvent({
+        onEvent?.({ type: 'input_audio_buffer.speech_started' });
+        onEvent?.({
             type: 'conversation.item.input_audio_transcription.delta',
             item_id: 'item_1',
             delta: 'Och',
         });
-        onEvent({
+        onEvent?.({
             type: 'conversation.item.input_audio_transcription.delta',
             item_id: 'item_1',
             delta: ' nu',
         });
-        onEvent({
+        onEvent?.({
             type: 'conversation.item.input_audio_transcription.delta',
             item_id: 'item_1',
             delta: ' ska vi se en tredje gång.',
         });
-        onEvent({
+        onEvent?.({
             type: 'conversation.item.input_audio_transcription.delta',
             item_id: 'item_1',
             delta: 'Och nu ska vi se en tredje gång, ska',
         });
-        onEvent({
+        onEvent?.({
             type: 'conversation.item.input_audio_transcription.delta',
             item_id: 'item_1',
             delta: ' vi',
@@ -908,7 +914,7 @@ describe('HumanInput PTT museum mode', () => {
 
     it('builds cumulative transcript partials without stacking duplicated prefixes', async () => {
         vi.useFakeTimers({ shouldAdvanceTime: true });
-        bootstrapHumanInputRealtimeSession.mockResolvedValue({
+        mockBootstrapHumanInputRealtimeSession.mockResolvedValue({
             provider: 'inworld',
             iceServers: [],
             session: {
@@ -916,10 +922,10 @@ describe('HumanInput PTT museum mode', () => {
                 audio: { input: { transcription: { model: 'test/assemblyai-stt' } } },
             },
         });
-        let onEvent;
-        createRealtimeConnection.mockImplementation(async (opts) => {
+        let onEvent: ((event: unknown) => void) | undefined;
+        mockCreateRealtimeConnection.mockImplementation(async (opts) => {
             onEvent = opts.onEvent;
-            return { pc: {}, dc: {}, micStream: createMockMicStream(), close: vi.fn() };
+            return mockConnection();
         });
 
         await renderPttReady();
@@ -931,18 +937,18 @@ describe('HumanInput PTT museum mode', () => {
 
         const textarea = screen.getByPlaceholderText('ptt.humanPlaceholder');
 
-        onEvent({ type: 'input_audio_buffer.speech_started' });
-        onEvent({
+        onEvent?.({ type: 'input_audio_buffer.speech_started' });
+        onEvent?.({
             type: 'conversation.item.input_audio_transcription.delta',
             item_id: 'item_1',
             delta: 'I am say',
         });
-        onEvent({
+        onEvent?.({
             type: 'conversation.item.input_audio_transcription.delta',
             item_id: 'item_1',
             delta: 'I am saying something',
         });
-        onEvent({
+        onEvent?.({
             type: 'conversation.item.input_audio_transcription.delta',
             item_id: 'item_1',
             delta: 'I am saying something longer',
@@ -953,7 +959,7 @@ describe('HumanInput PTT museum mode', () => {
         });
 
         setMockPressed(false);
-        onEvent({ type: 'input_audio_buffer.speech_stopped' });
+        onEvent?.({ type: 'input_audio_buffer.speech_stopped' });
         await vi.advanceTimersByTimeAsync(2000);
 
         await waitFor(() => {
@@ -965,10 +971,10 @@ describe('HumanInput PTT museum mode', () => {
 
     it('ignores late deltas after completed for the same segment', async () => {
         vi.useFakeTimers({ shouldAdvanceTime: true });
-        let onEvent;
-        createRealtimeConnection.mockImplementation(async (opts) => {
+        let onEvent: ((event: unknown) => void) | undefined;
+        mockCreateRealtimeConnection.mockImplementation(async (opts) => {
             onEvent = opts.onEvent;
-            return { pc: {}, dc: {}, micStream: createMockMicStream(), close: vi.fn() };
+            return mockConnection();
         });
 
         await renderPttReady();
@@ -980,23 +986,23 @@ describe('HumanInput PTT museum mode', () => {
 
         const textarea = screen.getByPlaceholderText('ptt.humanPlaceholder');
 
-        onEvent({ type: 'input_audio_buffer.speech_started' });
-        onEvent({
+        onEvent?.({ type: 'input_audio_buffer.speech_started' });
+        onEvent?.({
             type: 'conversation.item.input_audio_transcription.completed',
             item_id: 'item_1',
             transcript: '',
         });
-        onEvent({
+        onEvent?.({
             type: 'conversation.item.input_audio_transcription.delta',
             item_id: 'item_1',
             delta: 'one two three',
         });
-        onEvent({
+        onEvent?.({
             type: 'conversation.item.input_audio_transcription.completed',
             item_id: 'item_1',
             transcript: 'one two three',
         });
-        onEvent({
+        onEvent?.({
             type: 'conversation.item.input_audio_transcription.delta',
             item_id: 'item_1',
             delta: 'one two three corrupted',
@@ -1007,7 +1013,7 @@ describe('HumanInput PTT museum mode', () => {
         });
 
         setMockPressed(false);
-        onEvent({ type: 'input_audio_buffer.speech_stopped' });
+        onEvent?.({ type: 'input_audio_buffer.speech_stopped' });
         await vi.advanceTimersByTimeAsync(2000);
 
         await waitFor(() => {
@@ -1019,10 +1025,10 @@ describe('HumanInput PTT museum mode', () => {
 
     it('auto-submits when transcript arrives after release while already ready', async () => {
         vi.useFakeTimers({ shouldAdvanceTime: true });
-        let onEvent;
-        createRealtimeConnection.mockImplementation(async (opts) => {
+        let onEvent: ((event: unknown) => void) | undefined;
+        mockCreateRealtimeConnection.mockImplementation(async (opts) => {
             onEvent = opts.onEvent;
-            return { pc: {}, dc: {}, micStream: createMockMicStream(), close: vi.fn() };
+            return mockConnection();
         });
 
         await renderPttReady();
@@ -1032,14 +1038,14 @@ describe('HumanInput PTT museum mode', () => {
             expect(screen.getByTestId('icon-record_voice_on')).toBeInTheDocument();
         });
 
-        onEvent({ type: 'input_audio_buffer.speech_started' });
+        onEvent?.({ type: 'input_audio_buffer.speech_started' });
         setMockPressed(false);
 
         await waitFor(() => {
             expect(screen.queryByTestId('icon-record_voice_on')).not.toBeInTheDocument();
         });
 
-        onEvent({
+        onEvent?.({
             type: 'conversation.item.input_audio_transcription.completed',
             item_id: 'item_1',
             transcript: 'one two three',
@@ -1085,29 +1091,24 @@ describe('HumanInput PTT museum mode', () => {
 // ── PTT abandonment (useButtonBanner) ────────────────────────────────────────
 
 describe('HumanInput PTT abandonment', () => {
-    let mockOnAbandon;
+    let mockOnAbandon: () => void;
 
     beforeEach(() => {
         vi.useFakeTimers({ shouldAdvanceTime: true });
         mockOnAbandon = vi.fn();
         mockAgentMode.value = "ptt";
-        useMobile.mockReturnValue(false);
+        mockUseMobile.mockReturnValue(false);
         mockClaim.mockClear();
         mockRelease.mockClear();
         mockSetLed.mockClear();
         mockButtonState.pressed = false;
         setMockPressed(false);
-        bootstrapHumanInputRealtimeSession.mockResolvedValue({
+        mockBootstrapHumanInputRealtimeSession.mockResolvedValue({
             provider: 'inworld',
             iceServers: [],
             session: { type: 'realtime' },
         });
-        createRealtimeConnection.mockResolvedValue({
-            pc: {},
-            dc: {},
-            micStream: createMockMicStream(),
-            close: vi.fn(),
-        });
+        mockCreateRealtimeConnection.mockResolvedValue(mockConnection());
     });
 
     afterEach(() => {

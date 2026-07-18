@@ -183,8 +183,6 @@ function Summary({
     });
   };
 
-  const downloadRowHeight = isMobile ? 30 : 40;
-
   // Web: flex-fill column — scroll area grows, download row sticks to bottom.
   // Museum: position:fixed full-viewport (unchanged).
   const summaryWrapper: React.CSSProperties = isMuseumMode

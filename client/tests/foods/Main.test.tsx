@@ -4,8 +4,10 @@ import { describe, it, expect, vi } from 'vitest';
 import { MemoryRouter } from 'react-router';
 import Main from '@main/Main';
 import routes from '@/routes.json';
+import type { ReactNode } from 'react';
+import type { Topic, Character } from '@shared/ModelTypes';
 
-const mockCouncil = vi.fn(() => <div data-testid="council">Council</div>);
+const mockCouncil = vi.fn((_props: unknown) => <div data-testid="council">Council</div>);
 
 vi.mock('@shared/AvailableLanguages', () => ({
     AVAILABLE_LANGUAGES: ['en'],
@@ -26,7 +28,7 @@ vi.mock('@shared/prompts/topics_en.json', () => ({
 }));
 
 vi.mock('@main/overlay/Overlay', () => ({
-    default: ({ children }) => <div data-testid="overlay">{children}</div>
+    default: ({ children }: { children: ReactNode }) => <div data-testid="overlay">{children}</div>
 }));
 vi.mock('@main/overlay/MainOverlays', () => ({
     default: () => <div data-testid="main-overlays">MainOverlays</div>
@@ -56,7 +58,7 @@ vi.mock('@main/Navbar', () => ({
     default: () => <div data-testid="navbar">Navbar</div>
 }));
 vi.mock('@newMeeting/SelectTopic', () => ({
-    default: ({ onContinueForward }) => (
+    default: ({ onContinueForward }: { onContinueForward: (topic: Topic) => void }) => (
         <div data-testid="select-topic">
             <button
                 type="button"
@@ -71,7 +73,7 @@ vi.mock('@newMeeting/SelectTopic', () => ({
     )
 }));
 vi.mock('@newMeeting/SelectCharacters', () => ({
-    default: ({ onContinueForward }) => (
+    default: ({ onContinueForward }: { onContinueForward: (data: { characters: Character[] }) => void }) => (
         <div data-testid="select-foods">
             <button
                 type="button"
@@ -95,7 +97,7 @@ vi.mock('@newMeeting/SelectCharacters', () => ({
     }),
 }));
 vi.mock('@council/Council', () => ({
-    default: (props) => mockCouncil(props)
+    default: (props: unknown) => mockCouncil(props)
 }));
 vi.mock('@main/overlay/RotateDevice', () => ({
     default: () => <div data-testid="rotate-device">RotateDevice</div>
@@ -109,7 +111,7 @@ vi.mock('@main/FullscreenButton', () => ({
 
 vi.mock('react-i18next', () => ({
     useTranslation: () => ({
-        t: (key) => key,
+        t: (key: string) => key,
         i18n: { language: 'en', changeLanguage: () => new Promise(() => { }) },
     }),
     initReactI18next: { type: '3rdParty', init: () => { } }
@@ -122,17 +124,16 @@ vi.mock('@/utils', () => ({
     useDocumentVisibility: () => true,
     dvh: 'vh',
     minWindowHeight: 300,
-    filename: (str) => str,
-    toTitleCase: (str) => str,
-    capitalizeFirstLetter: (str) => str,
+    filename: (str: string) => str,
+    toTitleCase: (str: string) => str,
+    capitalizeFirstLetter: (str: string) => str,
 }));
 
-window.AudioContext = class {
-    constructor() {
-        this.state = 'running';
-        this.destination = {};
-        this.currentTime = 0;
-    }
+// Test double, not a real AudioContext — never structurally matches lib.dom's type.
+class MockAudioContext {
+    state = 'running';
+    destination = {};
+    currentTime = 0;
 
     suspend() {
         this.state = 'suspended';
@@ -141,7 +142,9 @@ window.AudioContext = class {
     resume() {
         this.state = 'running';
     }
-};
+}
+// @ts-expect-error - test double, not a real AudioContext
+window.AudioContext = MockAudioContext;
 
 describe('Main Component (Foods)', () => {
     it('renders Landing page by default', () => {

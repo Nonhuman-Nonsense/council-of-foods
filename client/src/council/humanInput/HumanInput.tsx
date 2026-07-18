@@ -371,7 +371,7 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
     if (connectionState === "idle") {
       void connect();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   }, [connectionState]);
 
   // Full cleanup on unmount — aborts any in-flight handshake and closes connection.
@@ -393,7 +393,7 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
     if (agentMode !== "ptt" || phase !== "active") return;
     if (!button.pressed) return;
     startRecording();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   }, [button.pressed, agentMode, phase, connectionState, inputValue]);
 
   // PTT release → finish session and queue an auto-submit attempt.
@@ -403,7 +403,7 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
       pendingPttAutoSubmitRef.current = true;
       finishRealtimeSession();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   }, [button.pressed, agentMode, connectionState]);
 
   // PTT auto-submit: attempt on every release once ready, and again when the
@@ -828,7 +828,7 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
       updateCanContinue(nextValue);
     }
   // finishRealtimeSession is stable (no deps), safe to omit
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   }, [transcriptSegments, connectionState, previousTranscript, maxInputLength]);
 
   function inputFocused(_e: React.FocusEvent) {

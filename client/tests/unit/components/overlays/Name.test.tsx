@@ -2,16 +2,20 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import Name from "@council/overlays/Name";
+import type { Character } from "@shared/ModelTypes";
 
 const mockUseMobile = vi.fn();
 vi.mock("@/utils", () => ({
   useMobile: () => mockUseMobile(),
-  capitalizeFirstLetter: (str) => str.charAt(0).toUpperCase() + str.slice(1),
+  capitalizeFirstLetter: (str: string) => str.charAt(0).toUpperCase() + str.slice(1),
 }));
 
 describe("Name Overlay", () => {
   const mockOnContinueForward = vi.fn();
-  const mockParticipants = [{ name: "Banana" }, { name: "Apple" }];
+  const mockParticipants: Character[] = [
+    { id: "banana", name: "Banana", voice: "alloy", description: "", prompt: "" },
+    { id: "apple", name: "Apple", voice: "alloy", description: "", prompt: "" },
+  ];
 
   beforeEach(() => {
     vi.clearAllMocks();

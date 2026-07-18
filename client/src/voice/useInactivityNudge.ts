@@ -66,6 +66,6 @@ export function useInactivityNudge({
       requestResponseRef.current();
     }, delayMs);
     return () => clearTimeout(id);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   }, [agentSpeaking, lastUserTranscript, enabled, delayMs]);
 }

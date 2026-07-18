@@ -1,12 +1,12 @@
 import { defineConfig, devices } from '@playwright/test';
-import dotenv from 'dotenv';
+import { loadEnv } from 'vite';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { readServerPort, resolveDevPorts } from '../shared/devPorts';
 
 const rootDir = path.dirname(fileURLToPath(import.meta.url));
-dotenv.config({ path: path.resolve(rootDir, '../server/.env') });
-const ports = resolveDevPorts(readServerPort(process.env));
+const serverEnv = loadEnv('development', path.resolve(rootDir, '../server'), '');
+const ports = resolveDevPorts(readServerPort(serverEnv));
 
 export default defineConfig({
     testDir: './tests/e2e/src',

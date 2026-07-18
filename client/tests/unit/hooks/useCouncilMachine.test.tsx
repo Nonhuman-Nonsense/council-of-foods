@@ -798,7 +798,7 @@ describe('useCouncilMachine', () => {
 
         // 2. Submit
         act(() => {
-            result.current.actions.handleOnSubmitHumanMessage('My Panelist Response', '');
+            result.current.actions.handleOnSubmitHumanMessage('My Panelist Response');
         });
 
         // 3. Verify Emission
@@ -911,7 +911,7 @@ describe('useCouncilMachine', () => {
         });
 
         act(() => {
-            result.current.actions.handleOnSubmitHumanMessage('My Panelist Response', '');
+            result.current.actions.handleOnSubmitHumanMessage('My Panelist Response');
         });
 
         expect(mockSocketEmit).not.toHaveBeenCalledWith(
@@ -1350,7 +1350,7 @@ describe('useCouncilMachine', () => {
         });
 
         it('ignores a stale intent tagged for a different meeting', () => {
-            const { result } = renderHook(() =>
+            renderHook(() =>
                 useCouncilMachine({ ...defaultProps, currentMeetingId: 99, humanName: 'Max' } as any),
             );
 

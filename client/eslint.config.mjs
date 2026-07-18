@@ -1,12 +1,15 @@
 /**
- * Phase A: ESLint 9 flat config + @eslint/js + typescript-eslint `recommended`
+ * Phase A: ESLint 10 flat config + @eslint/js + typescript-eslint `recommended`
  * (no type-checked rules yet). React rules without react-hooks "compiler" extras
  * (those require broader refactors).
+ *
+ * eslint-plugin-react-hooks stays authoritative for hooks rules; @eslint-react's own
+ * hooks-adjacent rules are turned off below to avoid double-reporting the same issue.
  *
  * Note: ESLint only applies this config under `client/`; `shared/` is covered by `tsc`.
  */
 import eslint from '@eslint/js';
-import react from 'eslint-plugin-react';
+import eslintReact from '@eslint-react/eslint-plugin';
 import reactHooks from 'eslint-plugin-react-hooks';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
@@ -24,8 +27,30 @@ export default tseslint.config(
   },
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
-  react.configs.flat.recommended,
-  react.configs.flat['jsx-runtime'],
+  eslintReact.configs['recommended-typescript'],
+  {
+    rules: {
+      // Uncalibrated for this codebase: fires on ~120 idiomatic setState-in-effect
+      // call sites (batched updates, imperative reset callbacks) with no real signal.
+      '@eslint-react/set-state-in-effect': 'off',
+      // Pure naming-style preferences, not correctness.
+      '@eslint-react/naming-convention-ref-name': 'off',
+      '@eslint-react/use-state': 'off',
+      // Real bug classes for this app's realtime/audio/DOM surface (leaked
+      // listeners/timers, impure renders, injection risk) — promoted to error so
+      // they gate rather than get lost in the warning list above.
+      '@eslint-react/purity': 'error',
+      '@eslint-react/web-api-no-leaked-event-listener': 'error',
+      '@eslint-react/web-api-no-leaked-fetch': 'error',
+      '@eslint-react/web-api-no-leaked-intersection-observer': 'error',
+      '@eslint-react/web-api-no-leaked-interval': 'error',
+      '@eslint-react/web-api-no-leaked-resize-observer': 'error',
+      '@eslint-react/web-api-no-leaked-timeout': 'error',
+      '@eslint-react/dom-no-dangerously-set-innerhtml': 'error',
+      '@eslint-react/dom-no-script-url': 'error',
+      '@eslint-react/dom-no-unsafe-iframe-sandbox': 'error',
+    },
+  },
   {
     files: ['src/**/*.{ts,tsx,js,jsx}', 'tests/**/*.{ts,tsx,js,jsx}'],
     plugins: {
@@ -44,8 +69,9 @@ export default tseslint.config(
       'react-hooks/rules-of-hooks': 'error',
       // Intentionally off: many effects use stable props/refs; re-enabling is a Phase B cleanup.
       'react-hooks/exhaustive-deps': 'off',
-      // Props are typed with TypeScript, not runtime propTypes.
-      'react/prop-types': 'off',
+      // Redundant with eslint-plugin-react-hooks above.
+      '@eslint-react/rules-of-hooks': 'off',
+      '@eslint-react/exhaustive-deps': 'off',
     },
   },
   {
@@ -93,7 +119,6 @@ export default tseslint.config(
       },
     },
     rules: {
-      'react/display-name': 'off',
       'no-unused-vars': 'off',
       '@typescript-eslint/no-unused-vars': [
         'warn',
@@ -110,11 +135,20 @@ export default tseslint.config(
       '@typescript-eslint/no-unused-expressions': 'warn',
       'prefer-const': 'warn',
       'no-var': 'warn',
-    },
-  },
-  {
-    settings: {
-      react: { version: '19.2' },
+      // Snapshots mirror implementation and break opaquely on cosmetic refactors
+      // (see TESTING.md); .only left in a commit silently disables the rest of
+      // the suite with no CI to catch it.
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: 'CallExpression[callee.property.name="toMatchSnapshot"]',
+          message: 'Avoid toMatchSnapshot — assert the specific behavior/values instead (see TESTING.md).',
+        },
+        {
+          selector: 'CallExpression[callee.type="MemberExpression"][callee.property.name="only"][callee.object.name=/^(it|test|describe)$/]',
+          message: 'Remove .only before committing — it silently skips the rest of the suite.',
+        },
+      ],
     },
   },
 );
