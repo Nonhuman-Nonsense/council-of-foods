@@ -82,7 +82,7 @@ export interface CharacterSetupData {
 
 // For Zod validation
 export const MessageTypeValues = ["message", "human", "panelist", "summary", "response", "invitation", "interjection"] as const;
-export const SyntheticMessageTypeValues = ["skipped", "awaiting_human_question", "awaiting_human_panelist", "meeting_incomplete", "query_extension"] as const;
+export const SyntheticMessageTypeValues = ["skipped", "awaiting_human_question", "awaiting_human_panelist", "meeting_incomplete", "query_extension", "summary_pending"] as const;
 
 // Derive the types from the arrays
 export type MessageType = (typeof MessageTypeValues)[number];
@@ -183,6 +183,24 @@ export interface QueryExtensionMessage extends BaseMessage {
     pretrimmed?: never;
 }
 
+/**
+ * Durable "the server still owes a summary here" marker, pushed atomically alongside the
+ * chair's closing line when a meeting concludes. The run loop generates the summary when it
+ * sees this at the tail and replaces it in place with the real `summary` message. Being
+ * durable, it also drives crash/reconnect recovery: on resume the loop re-generates the
+ * summary. Carries no id/text/audio, so the client naturally renders it as a loading state.
+ */
+export interface SummaryPendingMessage extends BaseMessage {
+    type: "summary_pending";
+    id?: never;
+    text?: never;
+    sentences?: never;
+    speaker?: never;
+    askParticular?: never;
+    trimmed?: never;
+    pretrimmed?: never;
+}
+
 export type SpeakerMessage =
     | GeneratedTurnMessage
     | HumanMessage
@@ -195,7 +213,8 @@ export type SyntheticMessage =
     | AwaitingHumanQuestionMessage
     | AwaitingHumanPanelistMessage
     | MeetingIncompleteMessage
-    | QueryExtensionMessage;
+    | QueryExtensionMessage
+    | SummaryPendingMessage;
 
 export type Message =
     | GeneratedTurnMessage
@@ -204,7 +223,8 @@ export type Message =
     | AwaitingHumanQuestionMessage
     | AwaitingHumanPanelistMessage
     | MeetingIncompleteMessage
-    | QueryExtensionMessage;
+    | QueryExtensionMessage
+    | SummaryPendingMessage;
 
 export function isSpeakerMessage(message: Message): message is SpeakerMessage {
     return "speaker" in message;

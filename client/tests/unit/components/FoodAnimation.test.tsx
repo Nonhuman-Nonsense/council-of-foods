@@ -4,8 +4,7 @@ import FoodAnimation from '@council/FoodAnimation';
 import type { Character } from '@newMeeting/SelectCharacters';
 import { characterSetupEn } from '../../characterSetupTestData';
 
-const [, sampleCharacter, otherCharacter] = characterSetupEn.characters;
-const otherSpeakerId = otherCharacter?.id ?? 'other-speaker';
+const [, sampleCharacter] = characterSetupEn.characters;
 
 const originalPlay = window.HTMLMediaElement.prototype.play;
 const originalPause = window.HTMLMediaElement.prototype.pause;

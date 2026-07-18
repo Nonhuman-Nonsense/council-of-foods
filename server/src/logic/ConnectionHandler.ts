@@ -5,6 +5,7 @@ import type { StoredMeeting } from "@models/DBModels.js";
 import { splitSentences } from "@shared/textUtils.js";
 import { ForbiddenError, NotFoundError } from "@models/Errors.js";
 import { Logger } from "@utils/Logger.js";
+import { promoteMeetingCompleteIfReady } from "@logic/MeetingLifecycleHandler.js";
 
 /**
  * Manages socket connection events (disconnect, reconnect).
@@ -26,9 +27,9 @@ export class ConnectionHandler {
         const { manager } = this;
         // Check if socket is defined/connected before accessing property if needed, though 'id' should be there if it was connected
         if (manager.socket) {
-            Logger.info(`meeting ${manager.meeting?._id}`, `disconnected (session ${manager.socket.id})`);
+            Logger.info("connection", `disconnected (session ${manager.socket.id})`, { from: manager });
         }
-        manager.isLoopActive = false;
+        manager.isActive = false;
     }
 
     /**
@@ -39,7 +40,7 @@ export class ConnectionHandler {
     async handleReconnection(options: ReconnectionOptions): Promise<boolean> {
         const { manager } = this;
 
-        Logger.info(`meeting ${options.meetingId}`, "attempting to resume");
+        Logger.info("connection", "attempting to resume", { from: { meetingId: options.meetingId, socketId: manager.socket?.id } });
         try {
             const meetingIdNum = Number(options.meetingId);
             const existingMeeting = await manager.services.meetingsCollection.findOne({
@@ -48,18 +49,28 @@ export class ConnectionHandler {
 
             if (!existingMeeting) {
                 manager.broadcaster.broadcastError(new NotFoundError());
-                Logger.warn(`meeting ${options.meetingId}`, `Meeting not found`);
+                Logger.warn("connection", `Meeting not found`, {
+                    from: { meetingId: options.meetingId, socketId: manager.socket?.id },
+                });
                 return false;
             }
 
             if (existingMeeting.liveKey !== options.liveKey) {
                 manager.broadcaster.broadcastError(new ForbiddenError());
-                Logger.warn(`meeting ${options.meetingId}`, "attempt_reconnection liveKey mismatch");
+                Logger.warn("connection", "attempt_reconnection liveKey mismatch", {
+                    from: { meetingId: options.meetingId, socketId: manager.socket?.id },
+                });
                 return false;
             }
 
             manager.meeting = existingMeeting as StoredMeeting;
-            manager.handRaised = options.handRaised ?? false;
+
+            // A concluding/concluded meeting is finished: never carry in a stale raised hand,
+            // which would otherwise stall the summary generation (decideNextAction's rule 0).
+            const isConcluding = existingMeeting.conversation.some(
+                (msg) => msg.type === 'summary_pending' || msg.type === 'summary'
+            );
+            manager.handRaised = isConcluding ? false : (options.handRaised ?? false);
 
             // TODO, check how the server stores extraMessageCount
             // const baseMax = manager.serverOptions.conversationMaxLength;
@@ -72,6 +83,7 @@ export class ConnectionHandler {
                 if (existingMeeting.conversation[i].type === 'awaiting_human_panelist') continue;
                 if (existingMeeting.conversation[i].type === 'awaiting_human_question') continue;
                 if (existingMeeting.conversation[i].type === 'query_extension') continue;
+                if (existingMeeting.conversation[i].type === 'summary_pending') continue;
                 const msgId = existingMeeting.conversation[i].id;
                 if (msgId && existingMeeting.audio.indexOf(msgId) === -1) {
                     missingAudio.push(existingMeeting.conversation[i]);
@@ -82,7 +94,7 @@ export class ConnectionHandler {
                 const audioMsg = missingAudio[i];
                 if (!audioMsg.id || !audioMsg.text) continue; // Skip malformed methods
 
-                Logger.info(`meeting ${manager.meeting._id}`, `(async) generating missing audio for ${audioMsg.speaker}`);
+                Logger.info("connection", `(async) generating missing audio for ${audioMsg.speaker}`, { from: manager });
                 audioMsg.sentences = splitSentences(audioMsg.text as string);
                 // Ensure speaker is found
                 const speaker = existingMeeting.characters.find(c => c.id === audioMsg.speaker);
@@ -97,15 +109,31 @@ export class ConnectionHandler {
                 }
             }
 
-            Logger.info(`meeting ${manager.meeting._id}`, "resumed");
+            manager.lastReconnectionAt = Date.now();
+            Logger.info("connection", "resumed", { from: manager });
             manager.broadcaster.broadcastConversationUpdate(manager.meeting.conversation);
 
             // Simply ensure loop is running.
             // Idempotency in MeetingManager prevents double-start.
             manager.startLoop();
+
+            // Heal a concluded-but-unpromoted meeting: if a crash landed after the summary was
+            // written but before meetingComplete was set, the summary_pending marker is already
+            // gone (a real summary is at the tail), so the loop won't re-run GENERATE_SUMMARY.
+            // The missing summary audio was queued above; drain it, then re-run the promotion.
+            const lastMsg = existingMeeting.conversation[existingMeeting.conversation.length - 1];
+            if (lastMsg?.type === 'summary' && !existingMeeting.meetingComplete) {
+                await manager.audioSystem.waitForIdle();
+                await promoteMeetingCompleteIfReady(manager);
+            }
+
             return true;
         } catch (error) {
-            Logger.reportAndCrashClient(`meeting ${options.meetingId}`, "Error resuming conversation", error, manager.broadcaster);
+            Logger.reportAndCrashClient("connection", "Error resuming conversation", {
+                error,
+                from: manager,
+                broadcaster: manager.broadcaster,
+            });
         }
         return false;
     }

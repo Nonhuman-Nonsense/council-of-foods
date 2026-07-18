@@ -24,8 +24,8 @@ describe("devPorts", () => {
 
   it("keeps foods defaults at offset 0", () => {
     expect(resolveDevPorts(DEFAULT_SERVER_PORT)).toEqual({
-      server: 3001,
-      clientDev: 5173,
+      server: DEFAULT_SERVER_PORT,
+      clientDev: DEFAULT_CLIENT_DEV_PORT,
     });
   });
 

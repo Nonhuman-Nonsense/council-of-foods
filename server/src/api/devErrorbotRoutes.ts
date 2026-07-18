@@ -5,14 +5,16 @@ import { sendReport, type ErrorReport } from "@utils/errorbot.js";
 
 const TEST_ERRORBOT_SCENARIOS = {
     warning: {
-        context: 'dev test / socket validation',
+        context: 'socket',
         severity: 'warning',
         message: 'Validation error for submit_human_message (400)',
         clientImpact: 'notified',
         source: 'server',
+        meetingId: 42,
+        socketId: 'dev-socket-abc',
     },
     error: {
-        context: 'api GET /api/meetings/1',
+        context: 'api',
         severity: 'error',
         message: 'GET /api/meetings/1 failed, internal server error',
         error: new Error('Simulated API failure'),
@@ -26,14 +28,17 @@ const TEST_ERRORBOT_SCENARIOS = {
         error: new Error('Simulated TTS failure'),
         clientImpact: 'terminal',
         source: 'server',
+        meetingId: 42,
+        socketId: 'dev-socket-abc',
     },
     client_terminal: {
-        context: 'client meeting 42',
+        context: 'client',
         severity: 'critical',
         message: '[CLIENT TERMINAL] Simulated client crash (http://localhost:4173/en/meeting/42)',
         error: new Error('Simulated client-side failure'),
         clientImpact: 'terminal',
         source: 'client',
+        meetingId: 42,
     },
     process_exit: {
         context: 'process',

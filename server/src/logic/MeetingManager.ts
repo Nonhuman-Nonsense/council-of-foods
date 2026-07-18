@@ -34,15 +34,31 @@ import { socketHoldsLiveSession } from "@logic/liveSessionRegistry.js";
 /** How many message indices beyond `maximumPlayedIndex` the server may generate before waiting for client playback progress. */
 const PLAYBACK_AHEAD_BUFFER = 3;
 
+/**
+ * Absolute, hardcoded ceiling on conversation length — deliberately NOT derived from
+ * `serverOptions.meetingVeryMaxLength`. Any healthy meeting (even a generously configured one,
+ * or a prototype session where the client can override serverOptions) stays far below this: the
+ * server-decided cap plus the closing line + summary the auto-conclude sequence appends on top
+ * of it. If the conversation ever grows past this fixed number, something has gone badly wrong
+ * (e.g. duplicated/runaway progression) and the loop hard-stops — a value that depended on
+ * configuration could itself be misconfigured (or, in prototype mode, overridden by the client)
+ * and silently raise the ceiling along with it, which defeats the point of a circuit breaker.
+ * See the check in `runLoop`.
+ */
+export const ABSOLUTE_MAX_CONVERSATION_LENGTH = 35;
+
 interface Decision {
-    type: 'QUERY_EXTENSION' | 'CONCLUDE_MEETING' | 'IDLE' | 'REQUEST_PANELIST' | 'GENERATE_AI_RESPONSE';
+    type: 'QUERY_EXTENSION' | 'CONCLUDE_MEETING' | 'GENERATE_SUMMARY' | 'IDLE' | 'REQUEST_PANELIST' | 'GENERATE_AI_RESPONSE';
     speaker?: Character;
 }
 
 function stopsConversationLoop(action: Decision): boolean {
+    // Note: CONCLUDE_MEETING and GENERATE_SUMMARY are NOT terminal. Concluding pushes the
+    // closing line + a `summary_pending` marker; the loop must keep running so the next
+    // iteration picks up that marker (→ GENERATE_SUMMARY) and produces the summary, after
+    // which the tail becomes a real `summary` and rule 1 of decideNextAction returns IDLE.
     return action.type === 'IDLE'
-        || action.type === 'QUERY_EXTENSION'
-        || action.type === 'CONCLUDE_MEETING';
+        || action.type === 'QUERY_EXTENSION';
 }
 
 /**
@@ -58,10 +74,30 @@ export class MeetingManager implements IMeetingManager {
 
     meeting: StoredMeeting | null;
 
-    isLoopActive: boolean;
+    /**
+     * Session liveness. True from construction until `destroy()` / disconnect tears the
+     * session down. Checked by the run loop's `while` and by in-flight generation
+     * (`shouldAbort`) so teardown promptly aborts work. This is NOT a "loop is running"
+     * flag — that role belongs to `loopRunning`.
+     */
+    isActive: boolean;
+    /**
+     * True only while `runLoop()` is executing. Owned exclusively by `runLoop` (set on
+     * entry, cleared in its `finally`). The sole guard preventing two concurrent loops,
+     * which is what makes duplicate concludes / runaway generation structurally impossible.
+     */
+    loopRunning: boolean;
+    /**
+     * Latch set by every `startLoop()` call and consumed by `runLoop()`. Guarantees a
+     * wake-up that arrives while the loop is finishing a terminal turn is never lost (the
+     * frequent `report_maximum_played_index` pings depend on this to avoid stranding
+     * generation mid-meeting).
+     */
+    wakeRequested: boolean;
     handRaised: boolean;
     isPaused: boolean;
     currentSpeaker: number;
+    lastReconnectionAt?: number;
     private isConversationTransitionActive: boolean;
     private conversationTransitionQueue: Promise<void>;
     private pendingLoopStart: boolean;
@@ -94,7 +130,10 @@ export class MeetingManager implements IMeetingManager {
         this.meeting = null;
 
         // Session variables
-        this.isLoopActive = false; // Start inactive, explicit start required
+        // The session starts alive but idle: no loop runs until startLoop() is called.
+        this.isActive = true;
+        this.loopRunning = false;
+        this.wakeRequested = false;
         this.handRaised = false;
         this.isPaused = false;
         this.currentSpeaker = 0;
@@ -104,7 +143,7 @@ export class MeetingManager implements IMeetingManager {
 
         this.startLoop = this.startLoop.bind(this);
 
-        this.audioSystem = new AudioSystem(this.broadcaster, this.services, this.serverOptions.audioConcurrency);
+        this.audioSystem = new AudioSystem(this.broadcaster, this.services, this.serverOptions.audioConcurrency, this);
         this.dialogGenerator = new DialogGenerator(this.services, this.serverOptions);
         this.speakerTargetClassifier = new SpeakerTargetClassifier(this.serverOptions);
         this.humanInputHandler = new HumanInputHandler(this);
@@ -113,12 +152,21 @@ export class MeetingManager implements IMeetingManager {
         this.connectionHandler = new ConnectionHandler(this);
     }
 
+    getReportContext(): { meetingId?: number; socketId?: string } {
+        return {
+            meetingId: this.meeting?._id,
+            socketId: this.socket.id,
+        };
+    }
+
     /**
      * Called by SocketManager when this session is destroyed (user disconnected or switched meeting).
      */
     async destroy(audioStrategy: "drain" | "cancel" = "drain") {
-        Logger.info(`meeting ${this.meeting?._id}`, "Session destroyed");
-        this.isLoopActive = false;
+        Logger.info("MeetingManager", "Session destroyed", { from: this });
+        // Kill the session: stops the run loop at its next iteration boundary and aborts
+        // any in-flight generation (AI turn / conclude) via shouldAbort / stale checks.
+        this.isActive = false;
         if (audioStrategy === "cancel") {
             this.audioSystem.cancelPendingWork();
         } else {
@@ -174,7 +222,7 @@ export class MeetingManager implements IMeetingManager {
                 if (this.environment === 'prototype') await this.meetingLifecycleHandler.handleResumeConversation();
                 break;
             default:
-                Logger.warn("MeetingManager", `Unhandled event: ${event}`);
+                Logger.warn("MeetingManager", `Unhandled event: ${event}`, { from: this });
         }
     }
 
@@ -208,21 +256,21 @@ export class MeetingManager implements IMeetingManager {
         const { index } = ReportMaximumPlayedIndexSchema.parse(payload);
         const meeting = this.meeting;
         if (!meeting) {
-            Logger.warn("PlaybackProgress", "report_maximum_played_index ignored: no active meeting");
+            Logger.warn("PlaybackProgress", "report_maximum_played_index ignored: no active meeting", { from: this });
             return;
         }
         if (!socketHoldsLiveSession(meeting._id, this.socket.id)) {
-            Logger.warn(`meeting ${meeting._id}`, `report_maximum_played_index ignored: socket ${this.socket.id} is not the live session holder`);
+            Logger.warn("PlaybackProgress", `report_maximum_played_index ignored: socket ${this.socket.id} is not the live session holder`, { from: this });
             return;
         }
         const conv = meeting.conversation ?? [];
         if (conv.length === 0) {
-            Logger.warn(`meeting ${meeting._id}`, "report_maximum_played_index ignored: empty conversation");
+            Logger.warn("PlaybackProgress", "report_maximum_played_index ignored: empty conversation", { from: this });
             return;
         }
         const maxValid = conv.length - 1;
         if (index < 0 || index > maxValid) {
-            Logger.info(`meeting ${meeting._id}`, `report_maximum_played_index ignored: index ${index} out of range 0..${maxValid}`);
+            Logger.info("PlaybackProgress", `report_maximum_played_index ignored: index ${index} out of range 0..${maxValid}`, { from: this });
             return;
         }
         await this.services.meetingsCollection.updateOne(
@@ -257,62 +305,112 @@ export class MeetingManager implements IMeetingManager {
     }
 
 
-    async runLoop() {
-        while (this.isLoopActive) {
-            const meeting = this.meeting;
-            if (!meeting) {
-                this.isLoopActive = false;
-                return;
+    /**
+     * The single driver of automated conversation progression.
+     *
+     * Concurrency invariant: at most ONE runLoop executes per manager. `loopRunning` is
+     * owned exclusively here (set on entry, cleared in the `finally`) and `startLoop`
+     * refuses to launch a second loop while it is true. This is what makes duplicate
+     * concludes and runaway generation structurally impossible — the failure mode that
+     * previously let a single meeting conclude dozens of times and hammer the TTS provider.
+     *
+     * Wake invariant: every `startLoop` sets `wakeRequested`. A loop that reaches a terminal
+     * action (IDLE / query_extension / conclude) only exits if no wake arrived while it was
+     * working; otherwise it re-evaluates. No wake-up is ever lost, so the frequent
+     * `report_maximum_played_index` pings can never strand generation mid-meeting.
+     */
+    async runLoop(): Promise<void> {
+        if (this.loopRunning) return; // Belt-and-suspenders; startLoop already guards this.
+        this.loopRunning = true;
+        try {
+            while (this.isActive && this.meeting) {
+                // Consume the wake we are acting on. Anything arriving from here on re-sets
+                // this flag and is re-checked before the loop exits on a terminal action.
+                this.wakeRequested = false;
+
+                // ---- Circuit breaker: hard invariant ----
+                // A fixed, config-independent ceiling — see ABSOLUTE_MAX_CONVERSATION_LENGTH.
+                // Blowing past it means a runaway — hard-stop and report loudly instead of ever
+                // creeping to index 100 again.
+                if (this.meeting.conversation.length > ABSOLUTE_MAX_CONVERSATION_LENGTH) {
+                    this.isActive = false;
+                    Logger.reportAndCrashClient("MeetingManager", "Runaway conversation length; aborting loop", {
+                        error: new Error(
+                            `conversation length ${this.meeting.conversation.length} exceeded hard ceiling ${ABSOLUTE_MAX_CONVERSATION_LENGTH} (meeting ${this.meeting._id})`
+                        ),
+                        from: this,
+                        broadcaster: this.broadcaster,
+                    });
+                    return;
+                }
+
+                const action = this.decideNextAction();
+
+                try {
+                    await this.processTurn(action);
+                } catch (error: unknown) {
+                    // A process error is terminal for this session: report, kill the session,
+                    // and prevent the finally below from re-arming the loop.
+                    this.isActive = false;
+                    Logger.reportAndCrashClient("MeetingManager", "Conversation process error", {
+                        error,
+                        from: this,
+                        broadcaster: this.broadcaster,
+                    });
+                    return;
+                }
+
+                // A terminal action means "no more work right now" — wait for an external
+                // wake (human input, extend, playback progress, reconnect). But if a wake
+                // landed while processTurn was awaiting, re-evaluate instead of exiting.
+                if (stopsConversationLoop(action) && !this.wakeRequested) {
+                    return;
+                }
             }
-
-            // Calculate next step
-            const action = this.decideNextAction();
-
-            // Break after certain actions
-            // CRITICAL: We mark the loop as inactive BEFORE calling processTurn.
-            // Why? If processTurn yields (awaits), and the user clicks "Resume" immediately, 
-            // startLoop() needs to see isLoopActive=false to execute. 
-            // If we waited until after processTurn, startLoop() would think the loop is 
-            // still running and return early, failing to restart the conversation.
-            //
-            // We still proceed to processTurn below so cap handlers can broadcast or conclude.
-            if (stopsConversationLoop(action)) {
-                this.isLoopActive = false;
-            }
-
-            try {
-                // Do it
-                await this.processTurn(action);
-            } catch (error: unknown) {
-                Logger.reportAndCrashClient(`meeting ${meeting._id}`, "Conversation process error", error, this.broadcaster);
-                return;
-            }
-
-            if (stopsConversationLoop(action)) {
-                return;
+        } finally {
+            this.loopRunning = false;
+            // A wake that arrived in the tiny gap between the while-condition failing and
+            // this finally running must not be dropped — re-arm the loop.
+            if (this.wakeRequested && this.isActive && this.meeting) {
+                this.startLoop();
             }
         }
-        this.isLoopActive = false; // Ensure state is synced if loop breaks naturally
     }
 
-    startLoop() {
+    /**
+     * Requests the run loop. Idempotent and safe to call from any event handler.
+     *
+     * Every call latches `wakeRequested` so a wake can never be lost even if it races a loop
+     * that is about to exit. At most one loop is ever launched (the `loopRunning` guard).
+     */
+    startLoop(): void {
+        // A socket-driven mutation is in flight; defer until it settles so the loop never
+        // reads a half-mutated conversation. withConversationTransition's finally re-invokes us.
         if (this.isConversationTransitionActive) {
             this.pendingLoopStart = true;
             return;
         }
-        // Idempotent start
-        if (this.isLoopActive) return;
-        if (!this.meeting) return;
+        if (!this.meeting || !this.isActive) return;
 
-        // Logger.info(`meeting ${this.meeting._id}`, "loop started");
-        this.isLoopActive = true;
-        this.runLoop();
+        this.wakeRequested = true;
+        if (this.loopRunning) return; // A loop is already running; it will observe the wake.
+
+        void this.runLoop();
     }
 
     decideNextAction(): Decision {
         const meeting = this.meeting;
         if (!meeting) {
             return { type: 'IDLE' };
+        }
+
+        // 0a. A concluding meeting always finishes: if the tail is a `summary_pending` marker,
+        //     generate the summary NOW — no pause, raised hand, cap, or playback buffer may
+        //     block or divert it. This is deliberately the first rule so a stale handRaised/
+        //     isPaused (e.g. carried in on reconnect) can never strand the conclusion.
+        if (meeting.conversation.length > 0
+            && meeting.conversation[meeting.conversation.length - 1].type === 'summary_pending') {
+            return { type: 'GENERATE_SUMMARY' };
         }
 
         // 0. No work while paused or interrupted.
@@ -376,7 +474,7 @@ export class MeetingManager implements IMeetingManager {
                 return; // Do nothing.
 
             case 'QUERY_EXTENSION': {
-                Logger.info(`meeting ${meeting._id}`, 'conversation soft cap reached, awaiting visitor choice');
+                Logger.info("MeetingManager", 'conversation soft cap reached, awaiting visitor choice', { from: this });
                 meeting.conversation.push({ type: 'query_extension' });
                 await this.services.meetingsCollection.updateOne(
                     { _id: meeting._id },
@@ -388,9 +486,17 @@ export class MeetingManager implements IMeetingManager {
             }
 
             case 'CONCLUDE_MEETING': {
-                Logger.info(`meeting ${meeting._id}`, 'hard cap reached, auto conclude meeting');
+                Logger.info("MeetingManager", 'hard cap reached, auto conclude meeting', { from: this });
                 const date = new Date().toISOString().slice(0, 10);
                 await this.meetingLifecycleHandler.handleConcludeMeeting({ date });
+                return;
+            }
+
+            case 'GENERATE_SUMMARY': {
+                // The tail is a `summary_pending` marker (from handleConcludeMeeting). Generate
+                // the summary and replace the marker in place with the real `summary` message.
+                const date = new Date().toISOString().slice(0, 10);
+                await this.meetingLifecycleHandler.generateSummary({ date });
                 return;
             }
 
@@ -436,7 +542,7 @@ export class MeetingManager implements IMeetingManager {
                         };
 
                         meeting.conversation.push(invitation);
-                        Logger.info(`meeting ${meeting._id}`, `panelist invitation generated for ${panelistId} on index ${invitationIndex}`);
+                        Logger.info("MeetingManager", `panelist invitation generated for ${panelistId} on index ${invitationIndex}`, { from: this });
 
                         this.audioSystem.queueAudioGeneration(
                             { ...invitation, id: invitation.id as string, text: invitation.text as string, sentences: invitation.sentences! },
@@ -452,7 +558,7 @@ export class MeetingManager implements IMeetingManager {
                         speaker: panelistId,
                         text: "",
                     });
-                    Logger.info(`meeting ${meeting._id}`, `awaiting human panelist on index ${meeting.conversation.length - 1}`);
+                    Logger.info("MeetingManager", `awaiting human panelist on index ${meeting.conversation.length - 1}`, { from: this });
                     this.broadcaster.broadcastConversationUpdate(meeting.conversation);
                     await this.services.meetingsCollection.updateOne(
                         { _id: meeting._id },
@@ -479,7 +585,7 @@ export class MeetingManager implements IMeetingManager {
         // Generate Logic
         // Check for interrupts function
         const shouldAbort = () => {
-            return !this.isLoopActive || this.handRaised || this.isPaused || thisMeetingId !== this.meeting?._id;
+            return !this.isActive || this.handRaised || this.isPaused || thisMeetingId !== this.meeting?._id;
         }
 
         const output = await this.dialogGenerator.generateResponseWithRetry(
@@ -487,7 +593,6 @@ export class MeetingManager implements IMeetingManager {
             meeting,
             this.currentSpeaker,
             shouldAbort,
-            `meeting ${meeting._id}`
         );
 
         if (shouldAbort()) return;
@@ -509,7 +614,7 @@ export class MeetingManager implements IMeetingManager {
 
         if (message.text === "") {
             message.type = "skipped";
-            Logger.warn(`meeting ${meeting._id}`, `failed to make a message. Skipping speaker ${action.speaker.id}`);
+            Logger.warn("MeetingManager", `failed to make a message. Skipping speaker ${action.speaker.id}`, { from: this });
         }
 
         if (message.type !== "skipped") {
@@ -526,9 +631,9 @@ export class MeetingManager implements IMeetingManager {
         );
 
         this.broadcaster.broadcastConversationUpdate(meeting.conversation);
-        Logger.info(`meeting ${meeting._id}`, `message generated, index ${message_index}, speaker ${message.speaker}`);
+        Logger.info("MeetingManager", `message generated, index ${message_index}, speaker ${message.speaker}`, { from: this });
         if (message.askParticular) {
-            Logger.info(`meeting ${meeting._id}`, `${message.speaker} asked directly to ${message.askParticular}`);
+            Logger.info("MeetingManager", `${message.speaker} asked directly to ${message.askParticular}`, { from: this });
         }
 
         // Queue audio generation

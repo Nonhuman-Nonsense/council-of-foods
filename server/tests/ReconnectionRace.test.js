@@ -36,7 +36,7 @@ describe('ConnectionHandler - Race Condition', () => {
         mockContext = {
             meeting: null,
             serverOptions: MockFactory.createServerOptions(),
-            isLoopActive: true,
+            isActive: true,
             handRaised: false,
             broadcaster: mockBroadcaster,
             audioSystem: mockAudioSystem,
@@ -81,7 +81,7 @@ describe('ConnectionHandler - Race Condition', () => {
     });
 
     it('should start a new loop if current loop is NOT running', async () => {
-        mockContext.isLoopActive = false;
+        mockContext.isActive = false;
         const existingMeeting = MockFactory.createStoredMeeting({
             _id: 100,
             conversation: [],

@@ -24,4 +24,4 @@ Browser-level integration uses Playwright (`client/tests/e2e/src/button_setup.sp
 2. Run the bridge: `cd bridge && npm install && npm run dev`
 3. In the app: enable **Push to Talk** at `/#staff`
 
-See each folder's README for full setup and museum install instructions.
+See each folder's README for firmware and bridge setup. For museum **app mode**, staff page, and install presets, see [MUSEUM.md](../MUSEUM.md) at the repo root.

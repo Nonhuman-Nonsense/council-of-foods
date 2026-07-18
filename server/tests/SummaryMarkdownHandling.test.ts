@@ -23,6 +23,8 @@ describe('Summary Markdown Handling', () => {
             });
         const mockManager = {
             meeting: storedMeeting,
+            isActive: true,
+            startLoop: vi.fn(),
             serverOptions: MockFactory.createServerOptions({
                 concludeMeetingPrompt: { en: 'Closing' },
                 concludeMeetingLength: 50,
@@ -81,6 +83,7 @@ describe('Summary Markdown Handling', () => {
         const handler = new MeetingLifecycleHandler(mockManager as any);
 
         await handler.handleConcludeMeeting({ date: '2023-01-01' } as any);
+        await handler.generateSummary({ date: '2023-01-01' });
 
         expect(mockManager.meeting.conversation.length).toBe(3);
         expect(mockManager.meeting.conversation[0].text).toBe('prior');
@@ -89,9 +92,13 @@ describe('Summary Markdown Handling', () => {
         expect(mockManager.meeting.conversation[2].type).toBe('summary');
         expect(mockManager.meeting.conversation[2].text).toBe('This is **bold** and *italic*.');
 
-        expect(mockManager.audioSystem.generateAudio).toHaveBeenCalledTimes(1);
-        const audioCallArgs = (mockManager.audioSystem.generateAudio as any).mock.calls[0];
-        const audioMessage = audioCallArgs[0];
+        // The summary audio now flows through the shared queue (skipMatching=true), not a
+        // direct generateAudio bypass. Its text must still be markdown-stripped for TTS.
+        const summaryCall = (mockManager.audioSystem.queueAudioGeneration as any).mock.calls
+            .find((call: any[]) => call[0]?.type === 'summary');
+        expect(summaryCall).toBeDefined();
+        expect(summaryCall[5]).toBe(true); // skipMatching
+        const audioMessage = summaryCall[0];
 
         expect(audioMessage.text).toBe('This is bold and italic.');
         expect(audioMessage.text).not.toContain('**');

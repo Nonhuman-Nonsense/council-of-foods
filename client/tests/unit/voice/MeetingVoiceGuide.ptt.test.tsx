@@ -1,12 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render } from "@testing-library/react";
 import MeetingVoiceGuide from "@voice/MeetingVoiceGuide";
+import type { AppMode, AgentMode } from "@/settings/councilSettings";
 
 const mockClaim = vi.hoisted(() => vi.fn());
 const mockRelease = vi.hoisted(() => vi.fn());
 const mockSetLed = vi.hoisted(() => vi.fn());
 const mockPressed = vi.hoisted(() => ({ value: false }));
-const mockUseVoiceGuide = vi.hoisted(() => vi.fn(() => ({
+const mockUseVoiceGuide = vi.hoisted(() => vi.fn((_params?: unknown) => ({
   isConnecting: false,
   lastCaption: null,
   lastUserTranscript: null,
@@ -18,11 +19,17 @@ const mockUseVoiceGuide = vi.hoisted(() => vi.fn(() => ({
   sendUserMessage: vi.fn(),
 })));
 const mockUseCouncilSettings = vi.hoisted(() =>
-  vi.fn(() => ({
+  vi.fn((): {
+    isMuseumMode: boolean;
+    mode: AppMode;
+    setAppMode: () => void;
+    agentMode: AgentMode;
+    setAgentMode: () => void;
+  } => ({
     isMuseumMode: false,
-    mode: "web" as const,
+    mode: "web",
     setAppMode: vi.fn(),
-    agentMode: "ptt" as const,
+    agentMode: "ptt",
     setAgentMode: vi.fn(),
   })),
 );
@@ -31,7 +38,7 @@ vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key, i18n: { language: "en" } }),
 }));
 
-vi.mock("@/routing", () => ({
+vi.mock("@/navigation", () => ({
   useSwitchLanguage: () => ({ switchLanguage: vi.fn(), otherLanguages: [] }),
 }));
 

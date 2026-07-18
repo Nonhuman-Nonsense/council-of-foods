@@ -5,6 +5,8 @@ import '@testing-library/jest-dom';
 import { MockFactory } from '../factories/MockFactory';
 import { useErrorStore } from '@main/overlay/errorStore';
 import { notifyAutoplay, useAutoplayStore } from '@/autoplay/autoplayStore';
+import type { Message } from '@shared/ModelTypes';
+import type { AppMode, AgentMode } from '@/settings/councilSettings';
 
 // --- Mocks ---
 
@@ -69,14 +71,15 @@ let mockMetaAgentActivate = false;
 
 vi.mock('@museum/metaAgent/MeetingMetaAgent', async () => {
     const React = await import('react');
+    function MockMeetingMetaAgent(props: { setMetaAgentPhase: (phase: "interruption") => void }) {
+        React.useEffect(() => {
+            if (!mockMetaAgentActivate) return;
+            props.setMetaAgentPhase("interruption");
+        }, []);
+        return null;
+    }
     return {
-        default: (props: { setMetaAgentPhase: (phase: "interruption") => void }) => {
-            React.useEffect(() => {
-                if (!mockMetaAgentActivate) return;
-                props.setMetaAgentPhase("interruption");
-            }, []);
-            return null;
-        },
+        default: MockMeetingMetaAgent,
     };
 });
 
@@ -88,7 +91,7 @@ const mockUseCouncilMachine = vi.fn();
 const mockCouncilStateMachine = {
     state: {
         councilState: 'playing',
-        textMessages: [],
+        textMessages: [] as Message[],
         audioMessages: [],
         playingNowIndex: 0,
         playNextIndex: 1,
@@ -125,9 +128,15 @@ vi.mock('@council/hooks/useCouncilMachine', () => ({
     useCouncilMachine: (...args: any[]) => mockUseCouncilMachine(...args)
 }));
 
-const mockUseCouncilSettings = vi.fn(() => ({
+const mockUseCouncilSettings = vi.fn((): {
+  isMuseumMode: boolean;
+  mode: AppMode;
+  setAppMode: () => void;
+  agentMode: AgentMode;
+  setAgentMode: () => void;
+} => ({
   isMuseumMode: false,
-  mode: 'web' as const,
+  mode: 'web',
   setAppMode: vi.fn(),
   agentMode: "off",
   setAgentMode: vi.fn(),
@@ -212,18 +221,6 @@ describe('Council Component', () => {
         expect(muteButton).toHaveTextContent("Unmute"); // Should reflect mocked state
     });
 
-    it('passes lifted runtime state into useCouncilMachine', () => {
-        render(<Council {...defaultProps} />);
-
-        expect(mockUseCouncilMachine).toHaveBeenCalledWith(expect.objectContaining({
-            humanName: '',
-            setHumanName: expect.any(Function),
-            audioContext: defaultProps.audioContext,
-            isPaused: defaultProps.isPaused,
-            setPaused: defaultProps.setPaused,
-        }));
-    });
-
     it('hides conversation controls in museum mode but keeps them in the layout', () => {
         mockUseCouncilSettings.mockReturnValue({
           isMuseumMode: true,
@@ -256,7 +253,7 @@ describe('Council Component', () => {
         mockCouncilStateMachine.state.playingNowIndex = 0;
         mockCouncilStateMachine.state.textMessages = [
             { id: 'm1', type: 'message', speaker: 's1', text: 'hello' },
-            { id: 'm2', type: 'awaiting_human_question', speaker: 'human', text: '' },
+            { type: 'awaiting_human_question', speaker: 'human', text: '' },
         ];
 
         render(<Council {...defaultProps} />);

@@ -63,11 +63,10 @@ describe('Configuration & DB Error Handling', () => {
             })).rejects.toThrow('Simulated DB Failure');
 
             // Verify Logger.error was called
-            // Logger.error(context, message, error)
             expect(loggerSpy).toHaveBeenCalledWith(
                 "DbService",
                 "Failed to insert meeting",
-                expect.any(Error)
+                { error: expect.any(Error) },
             );
         });
     });

@@ -43,7 +43,7 @@ export default defineConfig(async ({ command, mode }) => {
     test: {
       globals: true,
       environment: 'jsdom',
-      setupFiles: './tests/unit/setupTests.js',
+      setupFiles: './tests/unit/setupTests.ts',
       include: [
         'tests/unit/**/*.{test,spec}.{js,jsx,ts,tsx}',
         'tests/foods/**/*.{test,spec}.{js,jsx,ts,tsx}',

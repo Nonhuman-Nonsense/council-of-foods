@@ -16,7 +16,7 @@ vi.mock("@voice/MeetingVoiceGuide", () => ({
   default: () => null,
 }));
 
-vi.mock("@/routing", () => ({
+vi.mock("@/navigation", () => ({
   useRouting: () => ({
     rootPath: "/",
     newMeetingPath: `/${routes.newMeeting}`,

@@ -6,7 +6,6 @@ import {
     orderedAudioIdsForConversation,
     stripAwaitingHumanTail,
 } from "@api/replayManifest.js";
-import { BadRequestError } from "@models/Errors.js";
 import { MockFactory } from "./factories/MockFactory.js";
 import type { Message } from "@shared/ModelTypes.js";
 
@@ -83,17 +82,13 @@ describe("buildReplayMeetingManifest", () => {
         expect(m.audio).toEqual(["pub-m1", "sum1"]);
     });
 
-    it("throws BadRequestError when conversation is empty", () => {
+    it("returns a meeting_incomplete manifest when conversation is empty", () => {
         const meeting = MockFactory.createMeeting({
             conversation: [],
         });
-        try {
-            buildReplayMeetingManifest(meeting);
-            expect.fail("expected BadRequestError");
-        } catch (e) {
-            expect(e).toBeInstanceOf(BadRequestError);
-            expect((e as BadRequestError).clientMessage).toBe("No messages available for replay.");
-        }
+        const m = buildReplayMeetingManifest(meeting);
+        expect(m.conversation.map((c) => c.type)).toEqual(["meeting_incomplete"]);
+        expect(m.audio).toEqual([]);
     });
 
     it("truncates summary if its audio is missing and appends incomplete marker", () => {
@@ -120,6 +115,29 @@ describe("buildReplayMeetingManifest", () => {
         });
         const m = buildReplayMeetingManifest(meeting);
         expect(m.conversation.map(c => c.type)).toEqual(["message", "summary"]);
+    });
+
+    it("does not truncate at skipped messages without audio", () => {
+        const meeting = MockFactory.createMeeting({
+            maximumPlayedIndex: 4,
+            conversation: [
+                { id: "m0", type: "message", speaker: SPEAKER_ID, text: "0" },
+                { id: "m1", type: "message", speaker: SPEAKER_ID, text: "1" },
+                { id: "skip-1", type: "skipped", speaker: "panelist0", text: "" },
+                { id: "m2", type: "message", speaker: SPEAKER_ID, text: "2" },
+                { id: "s", type: "summary", speaker: SPEAKER_ID, text: "x" },
+            ],
+            audio: ["m0", "m1", "m2", "s"],
+        });
+        const m = buildReplayMeetingManifest(meeting);
+        expect(m.conversation.map((c) => c.type)).toEqual([
+            "message",
+            "message",
+            "skipped",
+            "message",
+            "summary",
+        ]);
+        expect(m.audio).toEqual(["m0", "m1", "m2", "s"]);
     });
 });
 
@@ -162,6 +180,22 @@ describe("isCompleteReplayManifest", () => {
             meetingComplete: false,
         });
         expect(isCompleteReplayManifest(meeting)).toBe(false);
+    });
+
+    it("returns true when skipped messages have no audio", () => {
+        const meeting = MockFactory.createMeeting({
+            maximumPlayedIndex: 4,
+            conversation: [
+                { id: "m0", type: "message", speaker: SPEAKER_ID, text: "0" },
+                { id: "skip-1", type: "skipped", speaker: "panelist0", text: "" },
+                { id: "m1", type: "message", speaker: SPEAKER_ID, text: "1" },
+                { id: "skip-2", type: "skipped", speaker: "panelist0", text: "" },
+                { id: "s", type: "summary", speaker: SPEAKER_ID, text: "x" },
+            ],
+            audio: ["m0", "m1", "s"],
+            meetingComplete: false,
+        });
+        expect(isCompleteReplayManifest(meeting)).toBe(true);
     });
 
     it("returns false when conversation is empty", () => {

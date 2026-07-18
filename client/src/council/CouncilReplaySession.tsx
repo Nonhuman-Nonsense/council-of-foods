@@ -2,7 +2,7 @@ import type { Meeting } from "@shared/ModelTypes";
 import { useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router";
 import { useAutoplayStore } from "@/autoplay/autoplayStore";
-import { useRouting } from "@/routing";
+import { useRouting } from "@/navigation";
 import { useButton } from "@/museum/button/useButton";
 import { useButtonBanner } from "@/museum/button/useButtonBanner";
 import type { BannerContent } from "@/museum/button/buttonStore";

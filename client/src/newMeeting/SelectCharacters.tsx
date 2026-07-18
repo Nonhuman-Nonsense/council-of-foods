@@ -397,6 +397,8 @@ function CharacterInfo({ character }: CharacterInfoProps): React.ReactElement | 
       <p style={{ margin: isMobile ? "0" : undefined, whiteSpace: "pre-wrap" }}>
         {character.description?.split("\n").map((item, key) => {
           return (
+            // Lines from a static string split, never reordered — index is a stable key.
+            // eslint-disable-next-line @eslint-react/no-array-index-key
             <span key={key}>
               {item}
               <br />

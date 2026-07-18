@@ -2,6 +2,8 @@ import type { HumanMessage, Message, PanelistMessage } from "@shared/ModelTypes.
 import type { SubmitHumanMessagePayload, SubmitHumanPanelistPayload } from "@shared/SocketTypes.js";
 import type { IHumanInputContext } from "@interfaces/MeetingInterfaces.js";
 import type { Message as AudioQueueMessage } from "@logic/audio/AudioTypes.js";
+import type { StoredMeeting } from "@models/DBModels.js";
+import type { UpdateFilter } from "mongodb";
 import { Logger } from "@utils/Logger.js";
 import { v4 as uuidv4 } from "uuid";
 import { splitSentences } from "@shared/textUtils.js";
@@ -18,6 +20,24 @@ export class HumanInputHandler {
         this.manager = meetingManager;
     }
 
+    private async popInvitationIfPresent(m: StoredMeeting): Promise<void> {
+        const invitation = m.conversation[m.conversation.length - 1];
+        if (invitation?.type !== "invitation" || !invitation.id) {
+            return;
+        }
+
+        const audioId = invitation.id;
+        m.conversation.pop();
+        Logger.info("humanInput", `popping invitation down to index ${m.conversation.length - 1}`, { from: this.manager });
+
+        // Driver types don't accept $pull on string[] when the schema extends Document.
+        await this.manager.services.meetingsCollection.updateOne(
+            { _id: m._id },
+            { $pull: { audio: audioId } } as unknown as UpdateFilter<StoredMeeting>
+        );
+        m.audio = (m.audio ?? []).filter((id) => id !== audioId);
+    }
+
     /**
      * Handles the text submission from the user after they have raised their hand and been invited.
      * Validates that the state is 'awaiting_human_question' before processing.
@@ -28,26 +48,18 @@ export class HumanInputHandler {
         const m = manager.meeting;
         if (!m) return;
 
-        Logger.info(`meeting ${m._id}`, `human input on index ${m.conversation.length - 1} `);
+        Logger.info("humanInput", `human input on index ${m.conversation.length - 1} `, { from: manager });
 
         const lastMessage = m.conversation[m.conversation.length - 1];
         if (lastMessage?.type !== 'awaiting_human_question') {
-            Logger.reportAndCrashClient(
-                `meeting ${m._id}`,
-                "Received a human question but was not expecting one!",
-                new Error(
-                    `Expected last message to be 'awaiting_human_question' but found '${lastMessage?.type ?? "none"}'`
-                ),
-                manager.broadcaster
-            );
+            // Stale event — socket buffer flushed before attempt_reconnection completed.
+            // Server is not in the right state to accept this; discard gracefully.
+            Logger.staleEvent("humanInput", "submit_human_message", `expected awaiting_human_question but found '${lastMessage?.type ?? "none"}'`, { lastReconnectionAt: manager.lastReconnectionAt, from: manager });
             return;
         }
         m.conversation.pop();
 
-        if (m.conversation[m.conversation.length - 1]?.type === 'invitation') {
-            Logger.info(`meeting ${m._id}`, `popping invitation down to index ${m.conversation.length - 1} `);
-            m.conversation.pop();
-        }
+        await this.popInvitationIfPresent(m);
 
         const humanName = m.state.humanName || "Human";
         const askParticular = await this.manager.speakerTargetClassifier.inferTarget(m, {
@@ -70,7 +82,7 @@ export class HumanInputHandler {
         m.conversation.push(message);
 
         if (askParticular) {
-            Logger.info(`meeting ${m._id}`, `${humanName} asked directly to ${askParticular}`);
+            Logger.info("humanInput", `${humanName} asked directly to ${askParticular}`, { from: manager });
         }
 
         await manager.services.meetingsCollection.updateOne(
@@ -110,26 +122,17 @@ export class HumanInputHandler {
         const m = manager.meeting;
         if (!m) return;
 
-        Logger.info(`meeting ${m._id}`, `human panelist ${payload.speaker} on index ${m.conversation.length - 1} `);
+        Logger.info("humanInput", `human panelist ${payload.speaker} on index ${m.conversation.length - 1} `, { from: manager });
 
         const lastMessage = m.conversation[m.conversation.length - 1];
         if (lastMessage?.type !== 'awaiting_human_panelist') {
-            Logger.reportAndCrashClient(
-                `meeting ${m._id}`,
-                "Received a human panelist but was not expecting one!",
-                new Error(
-                    `Expected last message to be 'awaiting_human_panelist' but found '${lastMessage?.type ?? "none"}'`
-                ),
-                manager.broadcaster
-            );
+            // Stale event — socket buffer flushed before attempt_reconnection completed.
+            Logger.staleEvent("humanInput", "submit_human_panelist", `expected awaiting_human_panelist but found '${lastMessage?.type ?? "none"}'`, { lastReconnectionAt: manager.lastReconnectionAt, from: manager });
             return;
         }
         m.conversation.pop();
 
-        if (m.conversation[m.conversation.length - 1]?.type === 'invitation') {
-            Logger.info(`meeting ${m._id}`, `popping panelist invitation down to index ${m.conversation.length - 1} `);
-            m.conversation.pop();
-        }
+        await this.popInvitationIfPresent(m);
 
         const charName = m.characters.find(c => c.id === payload.speaker)?.name || "Unknown";
         const message: PanelistMessage = {
@@ -144,7 +147,7 @@ export class HumanInputHandler {
         m.conversation.push(message);
 
         if (message.askParticular) {
-            Logger.info(`meeting ${m._id}`, `${payload.speaker} asked directly to ${message.askParticular}`);
+            Logger.info("humanInput", `${payload.speaker} asked directly to ${message.askParticular}`, { from: manager });
         }
 
         await manager.services.meetingsCollection.updateOne(
@@ -185,14 +188,8 @@ export class HumanInputHandler {
 
         const lastMessage = m.conversation[m.conversation.length - 1];
         if (lastMessage?.type !== "awaiting_human_question" && lastMessage?.type !== "awaiting_human_panelist") {
-            Logger.reportAndCrashClient(
-                `meeting ${m._id}`,
-                "Received skip_human_turn but was not awaiting human input!",
-                new Error(
-                    `Expected last message to be awaiting human input but found '${lastMessage?.type ?? "none"}'`
-                ),
-                manager.broadcaster
-            );
+            // Stale event — socket buffer flushed before attempt_reconnection completed.
+            Logger.staleEvent("humanInput", "skip_human_turn", `expected awaiting human input but found '${lastMessage?.type ?? "none"}'`, { lastReconnectionAt: manager.lastReconnectionAt, from: manager });
             return;
         }
 
@@ -203,10 +200,7 @@ export class HumanInputHandler {
 
         m.conversation.pop();
 
-        if (m.conversation[m.conversation.length - 1]?.type === "invitation") {
-            Logger.info(`meeting ${m._id}`, `popping invitation on skip down to index ${m.conversation.length - 1}`);
-            m.conversation.pop();
-        }
+        await this.popInvitationIfPresent(m);
 
         const skipped: Message = {
             id: `skipped-${uuidv4()}`,
@@ -219,9 +213,9 @@ export class HumanInputHandler {
 
         const skippedIndex = m.conversation.length - 1;
         if (lastMessage.type === "awaiting_human_panelist") {
-            Logger.info(`meeting ${m._id}`, `human panelist ${speaker} skipped on index ${skippedIndex}`);
+            Logger.info("humanInput", `human panelist ${speaker} skipped on index ${skippedIndex}`, { from: manager });
         } else {
-            Logger.info(`meeting ${m._id}`, `human question skipped for ${speaker} on index ${skippedIndex}`);
+            Logger.info("humanInput", `human question skipped for ${speaker} on index ${skippedIndex}`, { from: manager });
         }
 
         await manager.services.meetingsCollection.updateOne(

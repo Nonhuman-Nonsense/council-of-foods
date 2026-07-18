@@ -6,7 +6,7 @@ import { marked } from "marked";
 import { jsPDF } from "jspdf";
 import { useTranslation, Trans } from "react-i18next";
 import { useCouncilSettings } from "@/settings/councilSettings";
-import { useRouting } from "@/routing";
+import { useRouting } from "@/navigation";
 import { useErrorStore } from "@main/overlay/errorStore";
 import { useButton } from "@/museum/button/useButton";
 import { useButtonBanner } from "@/museum/button/useButtonBanner";
@@ -182,8 +182,6 @@ function Summary({
       }
     });
   };
-
-  const downloadRowHeight = isMobile ? 30 : 40;
 
   // Web: flex-fill column — scroll area grows, download row sticks to bottom.
   // Museum: position:fixed full-viewport (unchanged).

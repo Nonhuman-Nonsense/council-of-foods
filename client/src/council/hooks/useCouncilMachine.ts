@@ -13,6 +13,13 @@ import {
     setConnectionError,
     setUnrecoverableError,
 } from "@main/overlay/errorStore";
+import {
+    usePendingIntentStore,
+    setPendingIntent,
+    clearPendingIntent,
+    clearAllPendingIntents,
+    type PendingIntent,
+} from "./pendingIntentStore";
 import type { MetaAgentPhase } from "@museum/metaAgent/useMetaAgent";
 import type { AgentMode } from "@/settings/councilSettings";
 import { useDocumentVisibility } from "@/utils";
@@ -141,8 +148,22 @@ export function useCouncilMachine({
 
     const [isRaisedHand, setIsRaisedHand] = useState(false);
 
-    // Connection variables
+    const pendingIntent = usePendingIntentStore((s) => s.intent);
+
+    // Clear all pending intents when this hook unmounts (meeting change / navigation).
+    // Belt-and-suspenders: intents are also tagged with meetingId so a stale intent
+    // can never apply to a different meeting even if this cleanup is somehow missed.
+    useEffect(() => () => clearAllPendingIntents(), []);
+
+    /** True from socket reconnect until the server sends conversation state again. */
     const [attemptingReconnect, setAttemptingReconnect] = useState(false);
+
+    /**
+     * True when the socket layer is unhealthy (connect_error) but playback may still continue
+     * from buffered data. The public connectionError overlay is only shown when the machine
+     * is actually stuck — see the deferred blocked effect below.
+     */
+    const [socketUnhealthy, setSocketUnhealthy] = useState(false);
 
     // Limits
     const [maximumPlayedIndex, setMaximumPlayedIndex] = useState(0);
@@ -155,7 +176,6 @@ export function useCouncilMachine({
 
     // Refs
     const waitTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const maximumPlayedProgressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     /** After mount / meeting change, blocks leaving `loading` until this is true (first ~2s only). */
     const [initialLoadingMinElapsed, setInitialLoadingMinElapsed] = useState(false);
@@ -189,6 +209,16 @@ export function useCouncilMachine({
     const socketRef = useCouncilSocket({
         meetingId: currentMeetingId,
         liveKey,
+        onReconnect: () => {
+            setAttemptingReconnect(true);
+            if (currentMeetingId > 0 && liveKey && socketRef.current) {
+                socketRef.current.emit("attempt_reconnection", {
+                    meetingId: currentMeetingId,
+                    liveKey,
+                    handRaised: isRaisedHand,
+                });
+            }
+        },
         onAudioUpdate: (audioMessage) => {
             (async () => {
                 if (audioMessage.audio && audioContext.current) {
@@ -208,6 +238,8 @@ export function useCouncilMachine({
             })();
         },
         onConversationUpdate: (textMessages) => {
+            // First conversation_update after reconnect completes the handshake (server session is ready).
+            setAttemptingReconnect(false);
             setTextMessages(() => textMessages);
         },
         onError: (error) => {
@@ -222,29 +254,13 @@ export function useCouncilMachine({
         },
         onConnectionError: (err) => {
             console.error(err);
-            setConnectionError("socket", true);
+            setSocketUnhealthy(true);
         },
         onConnect: () => {
+            setSocketUnhealthy(false);
             setConnectionError("socket", false);
         },
-        onReconnect: () => {
-            setAttemptingReconnect(true);
-        }
     });
-
-    // Reconnect logic
-    useEffect(() => {
-        if (attemptingReconnect && socketRef.current && currentMeetingId > 0 && liveKey) {
-            socketRef.current.emit("attempt_reconnection", {
-                meetingId: currentMeetingId,
-                liveKey,
-                handRaised: isRaisedHand,
-            });
-            setAttemptingReconnect(false);
-        } else if (attemptingReconnect) {
-            setAttemptingReconnect(false);
-        }
-    }, [attemptingReconnect, liveKey, currentMeetingId, isRaisedHand]);
 
     const decodeReplayClip = useCallback(
         async (audioId: string, signal: AbortSignal): Promise<DecodedAudioMessage> => {
@@ -277,6 +293,7 @@ export function useCouncilMachine({
 
     // Download first audio, then batch download the rest
     async function downloadAudio(audioIds: string[], ac: AbortController) {
+        if (audioIds.length === 0) return;
         try {
             const firstDecoded = await decodeReplayClip(audioIds[0], ac.signal);
             if (ac.signal.aborted) return;
@@ -374,6 +391,31 @@ export function useCouncilMachine({
             return;
         }
 
+        // Action A — skip a stale invitation replay when we already have a
+        // human-draft intent queued for the awaiting_* sentinel right after it.
+        // Only reachable on the reconnect self-heal path: the invitation was
+        // already heard once before the original submit was lost, so replaying
+        // it again is pure noise. Gated on BOTH the invitation and its trailing
+        // sentinel being present (matching the intent's captured index), so
+        // this can never fire in the narrow window where the invitation has
+        // arrived but the sentinel hasn't yet — see "invitation / playback-index
+        // rewind nuance" in the resilience plan. Checked here, ahead of the
+        // switch below, so the invitation's audio is never dispatched in the
+        // first place (a separate effect running after this one would risk a
+        // one-frame flash of the invitation before jumping past it).
+        if (
+            pendingIntent?.kind === 'human-draft' &&
+            pendingIntent.meetingId === currentMeetingId &&
+            playNextIndex + 1 === pendingIntent.index &&
+            textMessages[playNextIndex]?.type === 'invitation' &&
+            textMessages[pendingIntent.index]?.type ===
+                (pendingIntent.mode === 'panelist' ? 'awaiting_human_panelist' : 'awaiting_human_question')
+        ) {
+            setPlayingNowIndex(playNextIndex);
+            setPlayNextIndex(pendingIntent.index);
+            return;
+        }
+
         // This will be triggered directly when text is set
         if (councilState !== 'summary' && textMessages[playNextIndex]?.type === 'summary') {
             setCouncilState("summary");
@@ -467,7 +509,7 @@ export function useCouncilMachine({
             default:
                 break;
         }
-    }, [councilState, textMessages, audioMessages, playingNowIndex, playNextIndex, liveKey, summary, initialLoadingMinElapsed, isMuseumMode, agentMode, setMetaAgentPhase]);
+    }, [councilState, textMessages, audioMessages, playingNowIndex, playNextIndex, liveKey, summary, initialLoadingMinElapsed, isMuseumMode, agentMode, setMetaAgentPhase, pendingIntent, currentMeetingId]);
 
     /* -------------------------------------------------------------------------- */
     /*                                 Actions                                    */
@@ -506,6 +548,34 @@ export function useCouncilMachine({
         calculateNextAction();
     }
 
+    /**
+     * Applies a human submission: emits to the server and advances local state.
+     * Shared by the direct submit path and the human-draft reconciler retry, so
+     * a resubmission after a self-heal behaves identically to the first attempt.
+     */
+    function performHumanSubmit(text: string, mode: "question" | "panelist", speaker?: string) {
+        if (mode === "panelist") {
+            // speaker is always supplied by callers when mode is "panelist"
+            // (captured from the awaiting_human_panelist message's speaker).
+            if (socketRef.current) socketRef.current.emit("submit_human_panelist", { text, speaker: speaker as string });
+        } else {
+            if (socketRef.current) socketRef.current.emit("submit_human_message", { text });
+        }
+
+        const now = textMessages[playingNowIndex]?.type === 'invitation' ? playingNowIndex - 1 : playingNowIndex;
+        const next = textMessages[playingNowIndex]?.type === 'invitation' ? playNextIndex - 1 : playNextIndex;
+        // Slice target intentionally differs by mode (matches pre-existing,
+        // pre-intent behavior): panelist truncates to `next`, question to `now`.
+        setTextMessages((prevMessages) => prevMessages.slice(0, mode === "panelist" ? next : now));
+        setPlayingNowIndex(now);
+        setPlayNextIndex(next);
+        if (mode === "question") {
+            setIsRaisedHand(false);
+            clearPendingIntent("raise-hand");
+        }
+        calculateNextAction();
+    }
+
     function handleOnSubmitHumanMessage(newTopic: string) {
         if (councilState === 'human_panelist') {
             const pendingMessage = textMessages[playNextIndex];
@@ -520,49 +590,42 @@ export function useCouncilMachine({
                 return;
             }
 
-            if (socketRef.current) socketRef.current.emit("submit_human_panelist", { text: newTopic, speaker: pendingMessage.speaker });
-
-            const now = textMessages[playingNowIndex]?.type === 'invitation' ? playingNowIndex - 1 : playingNowIndex;
-            const next = textMessages[playingNowIndex]?.type === 'invitation' ? playNextIndex - 1 : playNextIndex;
-            setTextMessages((prevMessages) => prevMessages.slice(0, next));
-            setPlayingNowIndex(now);
-            setPlayNextIndex(next);
-            calculateNextAction();
-        } else {
-            if (socketRef.current) socketRef.current.emit("submit_human_message", { text: newTopic });
-
-            const now = textMessages[playingNowIndex].type === 'invitation' ? playingNowIndex - 1 : playingNowIndex;
-            const next = textMessages[playingNowIndex].type === 'invitation' ? playNextIndex - 1 : playNextIndex;
-            setTextMessages((prevMessages) => {
-                return prevMessages.slice(0, now);
+            // Register the draft as a durable intent BEFORE applying it: if this
+            // submit is lost to a disconnect, the retained text survives and the
+            // reconciler retries once councilState catches back up to
+            // human_panelist (see the "human-draft" reconciler case below).
+            setPendingIntent({
+                kind: "human-draft",
+                meetingId: currentMeetingId,
+                text: newTopic,
+                mode: "panelist",
+                index: playNextIndex,
+                speaker: pendingMessage.speaker,
             });
-
-            setPlayingNowIndex(now);
-            setPlayNextIndex(next);
-            setIsRaisedHand(false);
-            calculateNextAction();
+            performHumanSubmit(newTopic, "panelist", pendingMessage.speaker);
+        } else {
+            setPendingIntent({
+                kind: "human-draft",
+                meetingId: currentMeetingId,
+                text: newTopic,
+                mode: "question",
+                index: playNextIndex,
+            });
+            performHumanSubmit(newTopic, "question");
         }
     }
 
-    function handleOnAbandonHumanTurn() {
-        const expectedType =
-            councilState === "human_panelist" ? "awaiting_human_panelist" : "awaiting_human_question";
-        const awaitingMsg = textMessages[playNextIndex];
-        if (awaitingMsg?.type !== expectedType) {
-            const detail = `Internal state mismatch: expected ${expectedType} before abandoning human turn.`;
-            console.error(detail);
-            setUnrecoverableError({
-                message: detail,
-                source: "useCouncilMachine.skip_human_turn",
-                meetingId: currentMeetingId,
-            });
-            return;
-        }
-
+    /**
+     * Applies a skipped human turn: emits to the server and advances local
+     * state. Shared by the direct abandon path and the skip-turn reconciler
+     * retry — fully self-contained (re-derives now/next from current
+     * playingNowIndex/playNextIndex on every call) so a retry behaves
+     * identically to the first attempt. See the resolve-extension bug note in
+     * the resilience plan for why this matters: a shared apply helper must
+     * never depend on state a caller "just" set up.
+     */
+    function performSkipTurn(speaker: string) {
         if (socketRef.current) socketRef.current.emit("skip_human_turn");
-
-        const speaker =
-            awaitingMsg.type === "awaiting_human_panelist" ? awaitingMsg.speaker : humanName;
 
         const now =
             textMessages[playingNowIndex]?.type === "invitation" ? playingNowIndex - 1 : playingNowIndex;
@@ -582,7 +645,40 @@ export function useCouncilMachine({
         setPlayingNowIndex(now);
         setPlayNextIndex(next);
         setIsRaisedHand(false);
+        clearPendingIntent("raise-hand");
         calculateNextAction();
+    }
+
+    function handleOnAbandonHumanTurn() {
+        const expectedType =
+            councilState === "human_panelist" ? "awaiting_human_panelist" : "awaiting_human_question";
+        const awaitingMsg = textMessages[playNextIndex];
+        if (awaitingMsg?.type !== expectedType) {
+            const detail = `Internal state mismatch: expected ${expectedType} before abandoning human turn.`;
+            console.error(detail);
+            setUnrecoverableError({
+                message: detail,
+                source: "useCouncilMachine.skip_human_turn",
+                meetingId: currentMeetingId,
+            });
+            return;
+        }
+
+        const speaker =
+            awaitingMsg.type === "awaiting_human_panelist" ? awaitingMsg.speaker : humanName;
+
+        // Register the skip as a durable intent BEFORE applying it: if this
+        // choice is lost to a disconnect, the reconciler retries once
+        // councilState catches back up to human_input/human_panelist (see the
+        // "skip-turn" reconciler case below).
+        setPendingIntent({
+            kind: "skip-turn",
+            meetingId: currentMeetingId,
+            mode: awaitingMsg.type === "awaiting_human_panelist" ? "panelist" : "question",
+            index: playNextIndex,
+            speaker,
+        });
+        performSkipTurn(speaker);
     }
 
     function declineOverlay() {
@@ -593,21 +689,59 @@ export function useCouncilMachine({
         rewindOverlayCouncilState(councilState);
     }
 
+    /**
+     * Applies the user's extend/conclude choice: emits to the server and advances
+     * local state. Shared by the direct handler and the resolve-extension
+     * reconciler retry, so a resubmission after a self-heal behaves identically
+     * to the first attempt.
+     */
+    function performResolveExtension(choice: "extend" | "conclude", date?: string) {
+        // Truncate here (not just in the direct handlers) so a reconciler retry
+        // also removes the sentinel — otherwise the retry would re-emit and
+        // reset councilState to 'loading' while the query_extension message is
+        // still the next thing to play, flipping straight back to
+        // 'query_extension' and re-triggering the reconciler forever.
+        const queryExtensionIndex = textMessages.findIndex((m) => m.type === 'query_extension');
+        if (queryExtensionIndex !== -1) {
+            setTextMessages(prevMessages => prevMessages.slice(0, queryExtensionIndex));
+        }
+        if (choice === "extend") {
+            if (socketRef.current) socketRef.current.emit("extend_meeting");
+        } else {
+            // date is always supplied by callers when choice is "conclude"
+            // (captured from the browser clock at decision time).
+            if (socketRef.current) socketRef.current.emit("conclude_meeting", { date: date as string });
+        }
+        setPaused(false);
+        setCouncilState('loading');
+    }
+
     function handleOnExtendMeeting() {
         const queryExtensionIndex = textMessages.findIndex((m) => m.type === 'query_extension');
-        setTextMessages(prevMessages => prevMessages.slice(0, queryExtensionIndex));
-        setPaused(false);
-        if (socketRef.current) socketRef.current.emit("extend_meeting");
-        setCouncilState('loading');
+        // Register the choice as a durable intent BEFORE applying it: if this
+        // choice is lost to a disconnect, the reconciler retries once
+        // councilState catches back up to query_extension (see the
+        // "resolve-extension" reconciler case below).
+        setPendingIntent({
+            kind: "resolve-extension",
+            meetingId: currentMeetingId,
+            choice: "extend",
+            index: queryExtensionIndex,
+        });
+        performResolveExtension("extend");
     }
 
     function handleOnConcludeMeeting() {
         const queryExtensionIndex = textMessages.findIndex((m) => m.type === 'query_extension');
-        setTextMessages(prevMessages => prevMessages.slice(0, queryExtensionIndex));
-        setPaused(false);
         const browserDate = new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
-        if (socketRef.current) socketRef.current.emit("conclude_meeting", { date: browserDate });
-        setCouncilState('loading');
+        setPendingIntent({
+            kind: "resolve-extension",
+            meetingId: currentMeetingId,
+            choice: "conclude",
+            index: queryExtensionIndex,
+            date: browserDate,
+        });
+        performResolveExtension("conclude", browserDate);
     }
 
     /**
@@ -664,12 +798,22 @@ export function useCouncilMachine({
     }
 
 
+    function raiseHand(name: string) {
+        const index = playingNowIndex + 1;
+        setIsRaisedHand(true);
+        // Trim client-side messages to the raise point for immediate UI feedback.
+        setTextMessages((prev) => prev.slice(0, index));
+        // Register intent: the reconciler emits raise_hand once the socket is
+        // healthy and the reconnect handshake has completed.
+        setPendingIntent({ kind: "raise-hand", meetingId: currentMeetingId, index, humanName: name });
+    }
+
     function handleHumanNameEntered(input: { humanName: string }) {
         if (input.humanName) {
             setHumanName(input.humanName);
-            setIsRaisedHand(true);
             setPaused(false);
             setNameOverlayOpen(false);
+            raiseHand(input.humanName);
         }
     }
 
@@ -677,15 +821,13 @@ export function useCouncilMachine({
         if (humanName === "") {
             setNameOverlayOpen(true);
         } else {
-            setIsRaisedHand(true);
+            raiseHand(humanName);
         }
     }
 
-    // Furthest playback index (UI + replay cap): bump state when `playingNowIndex` advances,
-    // then debounce socket `report_maximum_played_index` with `furthest = max(state, current)`.
-    // Single effect avoids one-render lag between two separate `useEffect`s on the same turn.
+    // Furthest playback index (UI + replay cap): skip while reconnect handshake is in flight.
     useEffect(() => {
-        if (!liveKey || !socketRef.current || currentMeetingId <= 0) {
+        if (!liveKey || !socketRef.current || currentMeetingId <= 0 || attemptingReconnect) {
             return;
         }
         if (playingNowIndex < 0) {
@@ -698,23 +840,10 @@ export function useCouncilMachine({
         if (playingNowIndex > maximumPlayedIndex) {
             setMaximumPlayedIndex(playingNowIndex);
         }
-        // Summary is a special case when we should increase the counter directly when text arrives
         const summaryIndex = textMessages.findIndex((message) => message.type === 'summary');
         const furthest = Math.min(maxLocalIndex, Math.max(maximumPlayedIndex, playingNowIndex, summaryIndex));
-        if (maximumPlayedProgressTimer.current !== null) {
-            clearTimeout(maximumPlayedProgressTimer.current);
-        }
-        maximumPlayedProgressTimer.current = setTimeout(() => {
-            maximumPlayedProgressTimer.current = null;
-            socketRef.current?.emit("report_maximum_played_index", { index: furthest });
-        }, 400);
-        return () => {
-            if (maximumPlayedProgressTimer.current !== null) {
-                clearTimeout(maximumPlayedProgressTimer.current);
-                maximumPlayedProgressTimer.current = null;
-            }
-        };
-    }, [playingNowIndex, maximumPlayedIndex, liveKey, currentMeetingId, summary, textMessages]);
+        socketRef.current.emit("report_maximum_played_index", { index: furthest });
+    }, [playingNowIndex, maximumPlayedIndex, liveKey, currentMeetingId, attemptingReconnect, textMessages]);
 
     // Update canGoBack etc
     useEffect(() => {
@@ -731,26 +860,170 @@ export function useCouncilMachine({
             setCanRaiseHand(false);
             return;
         }
+        // Once the meeting is concluding (closing line + summary_pending) or concluded (summary),
+        // it is finished — hide raise-hand. The marker is broadcast atomically with the closing
+        // line, so this hides the button from the moment the conclusion begins. The server also
+        // rejects late raise-hand requests, so this is purely the UX half of that gate.
+        const isConcluding = textMessages.some(
+            (msg) => msg.type === 'summary_pending' || msg.type === 'summary'
+        );
         setCanRaiseHand(
             (councilState === 'playing' || councilState === 'waiting') &&
-            playingNowIndex === maximumPlayedIndex
+            playingNowIndex === maximumPlayedIndex &&
+            !isConcluding
         );
-    }, [councilState, playingNowIndex, maximumPlayedIndex, liveKey]);
+    }, [councilState, playingNowIndex, maximumPlayedIndex, liveKey, textMessages]);
 
-    // Raise Hand Effect
+    // Pending intent reconciler.
+    //
+    // Desired state = what the client has committed to do (pendingIntent).
+    // Observed state = conversation + councilState + socket health.
+    // This effect applies the intent whenever observed state makes it valid.
+    //
+    // Global gate: socket must be healthy and the reconnect handshake must have
+    // completed before any intent is applied. This means intents registered
+    // during a disconnect sit harmlessly in the store until the server session
+    // is restored, at which point they fire against fresh server state.
+    //
+    // Idempotency: each case clears the intent only once it observes the
+    // request's outcome (not right before/after firing the emit) — see the
+    // per-case comments and "Invariants & backstops" in the resilience plan.
     useEffect(() => {
-        if (isRaisedHand) {
-            if (socketRef.current) {
+        if (!pendingIntent) return;
+        if (!liveKey || !socketRef.current) return;
+        if (socketUnhealthy || attemptingReconnect) return;
+        if (pendingIntent.meetingId !== currentMeetingId) return;
+
+        // Exhaustive switch — adding a new PendingIntent variant without a case
+        // here is a compile error, forcing timing logic for every new feature.
+        const intent: PendingIntent = pendingIntent;
+        switch (intent.kind) {
+            case "raise-hand": {
+                // Precondition: server has not already processed the raise (no
+                // trailing awaiting_* or invitation on the conversation).
+                const lastMsg = textMessages[textMessages.length - 1];
+                const serverAlreadyAwaiting =
+                    lastMsg?.type === "awaiting_human_question" ||
+                    lastMsg?.type === "awaiting_human_panelist" ||
+                    lastMsg?.type === "invitation";
+                if (serverAlreadyAwaiting) {
+                    // Fulfilled: clear on observed outcome, not at emit time.
+                    // Clearing here (rather than right before the emit below)
+                    // means a raise_hand lost to a disconnect between emit and
+                    // ack keeps its intent alive to retry on the next
+                    // reconcile pass, instead of depending on socket.io's
+                    // sendBuffer replay to resurrect it.
+                    clearPendingIntent("raise-hand");
+                    return;
+                }
+
                 socketRef.current.emit("raise_hand", {
-                    humanName: humanName,
-                    index: playingNowIndex + 1,
+                    humanName: intent.humanName,
+                    index: intent.index,
                 });
+                break;
             }
-            setTextMessages((prevMessages) => {
-                return prevMessages.slice(0, playingNowIndex + 1);
-            });
+            case "human-draft": {
+                // Precondition (inverse of raise-hand): the awaiting sentinel this
+                // draft answers must still be there. Checked against the captured
+                // index rather than the array end, so it survives the invitation
+                // being skipped/replayed ahead of it.
+                const expectedType =
+                    intent.mode === "panelist" ? "awaiting_human_panelist" : "awaiting_human_question";
+                const awaitingMsg = textMessages[intent.index];
+                if (awaitingMsg?.type !== expectedType) {
+                    // Fulfilled: either the original submit already landed (the
+                    // common case — this fires on the very next pass after
+                    // performHumanSubmit's own local truncation), or the
+                    // conversation moved on for another reason (skip/abandon).
+                    clearPendingIntent("human-draft");
+                    return;
+                }
+
+                // Still awaiting at the captured position — the original submit
+                // never reached the server (lost to a disconnect). Wait for
+                // councilState to catch back up to human_input/human_panelist
+                // before auto-submitting, so we never submit underneath a
+                // still-replaying invitation.
+                const expectedState = intent.mode === "panelist" ? "human_panelist" : "human_input";
+                if (councilState !== expectedState) return;
+
+                performHumanSubmit(intent.text, intent.mode, intent.speaker);
+                break;
+            }
+            case "resolve-extension": {
+                // Precondition (same shape as human-draft): the query_extension
+                // sentinel this choice resolves must still be there, checked
+                // against the captured index.
+                const sentinelMsg = textMessages[intent.index];
+                if (sentinelMsg?.type !== "query_extension") {
+                    // Fulfilled: either the original choice already landed (the
+                    // common case — fires on the next pass after
+                    // performResolveExtension's own local truncation), or the
+                    // conversation moved on for another reason.
+                    clearPendingIntent("resolve-extension");
+                    return;
+                }
+
+                // Still there — the original choice never reached the server
+                // (lost to a disconnect). Wait for councilState to catch back up
+                // to query_extension before re-firing.
+                if (councilState !== "query_extension") return;
+
+                performResolveExtension(intent.choice, intent.date);
+                break;
+            }
+            case "skip-turn": {
+                // Precondition (same shape as human-draft): the awaiting sentinel
+                // this skip resolves must still be there, checked against the
+                // captured index.
+                const expectedType =
+                    intent.mode === "panelist" ? "awaiting_human_panelist" : "awaiting_human_question";
+                const awaitingMsg = textMessages[intent.index];
+                if (awaitingMsg?.type !== expectedType) {
+                    // Fulfilled: either the original skip already landed (the
+                    // common case — fires on the next pass after
+                    // performSkipTurn's own local truncation), or the
+                    // conversation moved on for another reason.
+                    clearPendingIntent("skip-turn");
+                    return;
+                }
+
+                // Still awaiting at the captured position — the original skip
+                // never reached the server (lost to a disconnect). Unlike
+                // human-draft, councilState can't be trusted to catch back up to
+                // human_input/human_panelist on its own here: performSkipTurn's
+                // direct call already pushed a local "skipped" placeholder and
+                // the (separate, pre-existing) "step past a skipped message"
+                // progression already moved playNextIndex beyond it — so when
+                // the server's resend restores the original, unprocessed,
+                // shorter conversation, playNextIndex points past its only
+                // remaining element. Force it back to the captured sentinel
+                // first; the state machine then re-derives councilState from
+                // there exactly as it would on a fresh arrival.
+                if (playNextIndex !== intent.index) {
+                    setPlayNextIndex(intent.index);
+                    return;
+                }
+
+                const expectedState = intent.mode === "panelist" ? "human_panelist" : "human_input";
+                if (councilState !== expectedState) return;
+
+                performSkipTurn(intent.speaker);
+                break;
+            }
         }
-    }, [isRaisedHand]);
+    }, [pendingIntent, socketUnhealthy, attemptingReconnect, currentMeetingId, textMessages, liveKey, councilState, playNextIndex]);
+
+    // Deferred connection error: only surface the overlay when the machine is actually stuck
+    // waiting for server data. While the council plays through buffered audio the overlay stays
+    // hidden, even though the socket is unhealthy. onConnect clears the store immediately so
+    // the overlay disappears as soon as the socket recovers, without waiting for a render cycle.
+    useEffect(() => {
+        if (!liveKey || !socketUnhealthy) return;
+        const blocked = councilState === 'loading' && !tryToFindTextAndAudio();
+        setConnectionError("socket", blocked);
+    }, [councilState, textMessages, audioMessages, playNextIndex, liveKey, socketUnhealthy]);
 
     // Auto-pause / auto-resume for meeting playback (split into three effects).
     //

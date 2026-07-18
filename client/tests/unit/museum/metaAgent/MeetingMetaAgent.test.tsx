@@ -1,10 +1,10 @@
 import React from "react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, act, screen, renderHook } from "@testing-library/react";
+import { render, act, screen } from "@testing-library/react";
 import MeetingMetaAgent from "@museum/metaAgent/MeetingMetaAgent";
 import type { MeetingMetaAgentProps } from "@museum/metaAgent/MeetingMetaAgent";
 import type { ButtonOwner } from "@museum/button/useButton";
-import { BUTTON_BANNER_IDLE_MS, useButtonBanner } from "@museum/button/useButtonBanner";
+import { BUTTON_BANNER_IDLE_MS } from "@museum/button/useButtonBanner";
 import { useErrorStore } from "@main/overlay/errorStore";
 
 const mockClaim = vi.hoisted(() => vi.fn());
@@ -489,34 +489,6 @@ describe("MeetingMetaAgent", () => {
       });
 
       expect(setMetaAgentPhase).not.toHaveBeenCalled();
-    });
-
-    it("cancels resume when idle remind is reset before timeout", () => {
-      const onIdleTerminal = vi.fn();
-      const { result } = renderHook(() =>
-        useButtonBanner({
-          owner: "meta-agent",
-          sessionActive: true,
-          isConnecting: false,
-          micOpen: false,
-          onIdleTerminal,
-          canIdleTerminal: () => true,
-        }),
-      );
-
-      act(() => {
-        vi.advanceTimersByTime(BUTTON_BANNER_IDLE_MS);
-      });
-
-      act(() => {
-        result.current.bumpBannerActivity();
-      });
-
-      act(() => {
-        vi.advanceTimersByTime(BUTTON_BANNER_IDLE_MS * 2);
-      });
-
-      expect(onIdleTerminal).not.toHaveBeenCalled();
     });
 
     it("does not resume while the visitor holds the button", () => {

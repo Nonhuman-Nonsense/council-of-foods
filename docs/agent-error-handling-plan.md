@@ -5,10 +5,20 @@ main **connection error** and **unrecoverable error** systems. Today these agent
 use a separate local error string rendered as red caption text, with no retries
 and no client reporting.
 
-**Status:** Planned.
+**Status:** In progress — partial implementation on `foods-leo` / `forest-leo`.
 
-**Related docs:** [meta-agent-realtime-ux-plan.md](./meta-agent-realtime-ux-plan.md),
-[museum-mode-plan.md](./museum-mode-plan.md), [client-logging-plan.md](./client-logging-plan.md).
+**Related docs:** [museum-kiosk-resilience-plan.md](./museum-kiosk-resilience-plan.md) (kiosk reload / deploy recovery).
+
+### Already shipped (not complete)
+
+| Piece | Location |
+|-------|----------|
+| `RealtimeHttpError`, `classifyRealtimeError` | `client/src/realtime/realtimeConnection.ts` |
+| Retry loop on transient failures | `client/src/realtime/useRealtimeVoiceSession.ts` |
+| Some fatal paths → `setUnrecoverableError` | `client/src/museum/metaAgent/useMetaAgent.ts` |
+
+Still open per goals below: unified overlay wiring, museum `Reconnecting` integration,
+removing caption red-alert error UI, client reporting for all agent fatals.
 
 ---
 

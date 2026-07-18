@@ -15,7 +15,7 @@ vi.mock("react-i18next", () => ({
   }),
 }));
 
-vi.mock("@/routing", () => ({
+vi.mock("@/navigation", () => ({
   useRouting: () => ({ rootPath: "/" }),
 }));
 
