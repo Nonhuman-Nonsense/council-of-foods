@@ -88,8 +88,11 @@ export class CouncilError extends Error {
 /** Thrown when no document exists for the requested meeting id (maps to HTTP 404). */
 export class NotFoundError extends CouncilError {
     override readonly name = "Meeting not found";
-    /** A stale/mistyped meeting link is expected traffic, not a warning-worthy condition. */
-    override readonly severity: CouncilErrorSeverity = 'info';
+    /**
+     * Temporarily kept at 'warning' (reports to ErrorBot) instead of 'info' so we can watch
+     * volume/patterns of stale meeting links for a while — drop back to 'info' once that's understood.
+     */
+    override readonly severity: CouncilErrorSeverity = 'warning';
     constructor(clientMessage?: string) {
         super(404, "Meeting not found", clientMessage ? { clientMessage } : undefined);
     }

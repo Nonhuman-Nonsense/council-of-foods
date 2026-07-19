@@ -103,7 +103,8 @@ function Council({
           source: "Council.loadMeeting",
           cause: error,
           meetingId: currentMeetingId,
-          severity: isNotFound ? "info" : undefined,
+          // Temporarily 'warning' (not 'info') to watch stale meeting link volume for a while.
+          severity: isNotFound ? "warning" : undefined,
         });
       }
     })();
