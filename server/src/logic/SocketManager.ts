@@ -124,7 +124,7 @@ export class SocketManager {
                 //    the server processes "Reconnect" first (creating session), then "Message" (succeeds).
                 //    This check primarily protects against "ghost" events from old sessions, buggy clients,
                 //    or rare edge cases where the session might have crashed/reset in between events.
-                Logger.warn("socket", `Ignored event ${event} - No active session`, { from: this.socketReportFrom() });
+                Logger.info("socket", `Ignored event ${event} - No active session`, { from: this.socketReportFrom() });
                 return;
             }
 
