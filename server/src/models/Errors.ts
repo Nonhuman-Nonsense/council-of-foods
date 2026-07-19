@@ -143,6 +143,8 @@ export class ConflictError extends CouncilError {
 /** Thrown when an internal server error occurs (maps to HTTP 500). */
 export class InternalServerError extends CouncilError {
     override readonly name = "Internal server error";
+    /** Genuinely unexpected — worth the harder alert level, unlike routine 4xx CouncilErrors. */
+    override readonly severity: CouncilErrorSeverity = 'error';
     constructor(clientMessage?: string, options?: Pick<CouncilErrorOptions, "debugCause">) {
         super(500, "Internal Server Error", {
             clientMessage,

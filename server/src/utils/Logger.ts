@@ -141,6 +141,30 @@ export class Logger {
     }
 
     /**
+     * Logs a CouncilError at the console/report level dictated by its own `severity`, so
+     * callers don't re-derive that mapping themselves (see meetingRoutes.ts / SocketManager.ts).
+     */
+    static async logCouncilError(
+        context: string,
+        message: string,
+        error: CouncilError,
+        details?: LogDetails,
+    ): Promise<void> {
+        const withError: LogDetails = { ...details, error };
+        switch (error.severity) {
+            case 'info':
+                this.info(context, message, withError);
+                return;
+            case 'warning':
+                await this.warn(context, message, withError);
+                return;
+            case 'error':
+                await this.error(context, message, withError);
+                return;
+        }
+    }
+
+    /**
      * Centralized helper to log an error and broadcast a 500 status to the client.
      * "Crash" implies sending a terminal error to the client.
      */

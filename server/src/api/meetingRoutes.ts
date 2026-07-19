@@ -50,12 +50,7 @@ async function apiRouteWithErrorHandling(
             return;
         }
         if (e instanceof CouncilError) {
-            const message = `${method} ${req.originalUrl} failed, ${e.name}`;
-            if (e.severity === 'info') {
-                Logger.info("api", message, { ...logDetails, error: e });
-            } else {
-                await Logger.warn("api", message, { ...logDetails, error: e });
-            }
+            await Logger.logCouncilError("api", `${method} ${req.originalUrl} failed, ${e.name}`, e, logDetails);
             res.status(e.statusCode).json(e.toApiBody(context));
             return;
         }
