@@ -389,14 +389,13 @@ export function useRealtimeVoiceSession(
         controller.signal,
         authHeaders,
       );
+      // Unconditionally mark as observed so an abort/reject here (e.g. unmounting while
+      // mic acquisition is still pending) never surfaces as an unhandled rejection,
+      // regardless of which branch below ends up abandoning it. The `await bootstrapPromise`
+      // further down still fires normally and handles the real error on that path.
+      bootstrapPromise.catch(() => {});
 
-      let micStreamValue: MediaStream;
-      try {
-        micStreamValue = await acquireMicrophone();
-      } catch (micErr) {
-        bootstrapPromise.catch(() => {}); // suppress unhandled rejection
-        throw micErr;
-      }
+      const micStreamValue: MediaStream = await acquireMicrophone();
 
       if (isStale()) {
         micStreamValue.getTracks().forEach((t) => t.stop());
