@@ -60,7 +60,7 @@ export function useSetupAgent(params: UseSetupAgentParams): SetupAgentState {
   }, [isMuseumMode]);
 
   const session = useRealtimeVoiceSession({
-    feature: "voice-guide",
+    feature: "setup-agent",
     language,
     instructions,
     tools,

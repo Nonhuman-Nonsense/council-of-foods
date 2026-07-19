@@ -113,7 +113,7 @@ export function getChairMeetingVoice(language: string): ChairVoiceProfile {
     return characterToVoiceProfile(getChairCharacter(language));
 }
 
-/** Live chair agent (meta-agent, voice-guide): unified or split per chairRealtime.strategy. */
+/** Live chair agent (meta-agent, setup-agent): unified or split per chairRealtime.strategy. */
 export function getChairAgentVoice(language: string, options: GlobalOptions = getGlobalOptions()): ChairVoiceProfile {
     const normalized = normalizeSetupLanguage(language);
     if (options.chairRealtime.strategy === "unified") {

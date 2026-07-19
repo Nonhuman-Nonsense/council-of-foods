@@ -1,8 +1,9 @@
 /**
  * Inworld Realtime / OpenAI Realtime-compatible event types and session config.
  *
- * Kept separate from `src/voice` so human input and other features can share the
- * realtime session shape without pulling voice-guide UI into the tree.
+ * Kept separate from feature directories (`src/setupAgent`, `src/museum/metaAgent`) so
+ * human input and other features can share the realtime session shape without pulling
+ * any single feature's UI into the tree.
  */
 
 import type { RealtimeTool } from "@realtime/realtimeTools";

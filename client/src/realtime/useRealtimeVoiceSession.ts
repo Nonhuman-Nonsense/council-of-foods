@@ -39,7 +39,7 @@ function realtimeDebugLog(...args: unknown[]): void {
   log.event("REALTIME", message, args.length > 1 ? summarizeLogPayload({ detail: args.slice(1) }) : undefined);
 }
 
-export type RealtimeVoiceFeature = "meta-agent" | "voice-guide";
+export type RealtimeVoiceFeature = "meta-agent" | "setup-agent";
 
 export type RealtimeVoiceSessionConnectionState = "idle" | "connecting" | "ready" | "error";
 
@@ -73,7 +73,7 @@ const FEATURE_MESSAGES: Record<
   RealtimeVoiceFeature,
   { defaultsNotLoaded: string; startFailed: string; connectionLost: string }
 > = {
-  "voice-guide": {
+  "setup-agent": {
     defaultsNotLoaded: "Voice guide defaults not loaded",
     startFailed: "Voice guide failed to start",
     connectionLost: "Voice guide connection lost",
@@ -99,11 +99,11 @@ export type UseRealtimeVoiceSessionParams = {
   pttMic?: boolean;
   /** Expose `agentSpeaking` while agent audio is playing (Inworld: subtitle clock; else: response lifecycle). */
   trackAgentSpeaking?: boolean;
-  /** Voice-guide: optional remote audio sink (created on body if absent). */
+  /** Setup-agent: optional remote audio sink (created on body if absent). */
   audioElement?: HTMLAudioElement | null;
-  /** When false, tear down WebRTC (voice-guide muted). Default true. */
+  /** When false, tear down WebRTC (setup-agent muted). Default true. */
   sessionActive?: boolean;
-  /** Connect when `sessionActive` (voice-guide `autoStart`). Default true. */
+  /** Connect when `sessionActive` (setup-agent `autoStart`). Default true. */
   autoConnect?: boolean;
   /** Fired after the provider acks `session.updated` (safe point for activation). */
   onSessionReady?: () => void;

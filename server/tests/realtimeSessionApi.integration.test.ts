@@ -8,7 +8,7 @@ import {
     createRealtimeCall,
     getHumanInputRealtimeBootstrap,
     getMetaAgentRealtimeBootstrap,
-    getVoiceGuideRealtimeBootstrap,
+    getSetupAgentRealtimeBootstrap,
 } from "@api/realtimeProviders.js";
 
 vi.mock("@api/realtimeProviders.js", async (importOriginal) => {
@@ -17,7 +17,7 @@ vi.mock("@api/realtimeProviders.js", async (importOriginal) => {
         ...actual,
         getHumanInputRealtimeBootstrap: vi.fn(),
         getMetaAgentRealtimeBootstrap: vi.fn(),
-        getVoiceGuideRealtimeBootstrap: vi.fn(),
+        getSetupAgentRealtimeBootstrap: vi.fn(),
         createRealtimeCall: vi.fn(),
     };
 });
@@ -61,7 +61,7 @@ describe("POST /api/realtime/* (integration)", () => {
     beforeEach(() => {
         vi.mocked(getHumanInputRealtimeBootstrap).mockReset();
         vi.mocked(getMetaAgentRealtimeBootstrap).mockReset();
-        vi.mocked(getVoiceGuideRealtimeBootstrap).mockReset();
+        vi.mocked(getSetupAgentRealtimeBootstrap).mockReset();
         vi.mocked(createRealtimeCall).mockReset();
         vi.mocked(getHumanInputRealtimeBootstrap).mockResolvedValue({
             provider: "inworld",
@@ -73,7 +73,7 @@ describe("POST /api/realtime/* (integration)", () => {
             iceServers: [{ urls: ["stun:meta.example.com"] }],
             session: { type: "realtime", output_modalities: ["audio", "text"] },
         });
-        vi.mocked(getVoiceGuideRealtimeBootstrap).mockResolvedValue({
+        vi.mocked(getSetupAgentRealtimeBootstrap).mockResolvedValue({
             provider: "inworld",
             iceServers: [{ urls: ["stun:guide.example.com"] }],
             session: { type: "realtime", output_modalities: ["audio", "text"] },
@@ -125,13 +125,13 @@ describe("POST /api/realtime/* (integration)", () => {
         expect(vi.mocked(getHumanInputRealtimeBootstrap)).toHaveBeenCalledWith("sv");
     });
 
-    it("returns 200 and delegates voice-guide bootstrap without Authorization", async () => {
+    it("returns 200 and delegates setup-agent bootstrap without Authorization", async () => {
         const res = await fetch(`${base()}/api/realtime/bootstrap`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
             },
-            body: JSON.stringify({ feature: "voice-guide", language: "en" }),
+            body: JSON.stringify({ feature: "setup-agent", language: "en" }),
         });
 
         expect(res.status).toBe(200);
@@ -140,11 +140,11 @@ describe("POST /api/realtime/* (integration)", () => {
             iceServers: [{ urls: ["stun:guide.example.com"] }],
             session: { type: "realtime", output_modalities: ["audio", "text"] },
         });
-        expect(vi.mocked(getVoiceGuideRealtimeBootstrap)).toHaveBeenCalledWith("en");
+        expect(vi.mocked(getSetupAgentRealtimeBootstrap)).toHaveBeenCalledWith("en");
     });
 
-    it("returns 200 and delegates Swedish voice-guide bootstrap to Inworld", async () => {
-        vi.mocked(getVoiceGuideRealtimeBootstrap).mockResolvedValueOnce({
+    it("returns 200 and delegates Swedish setup-agent bootstrap to Inworld", async () => {
+        vi.mocked(getSetupAgentRealtimeBootstrap).mockResolvedValueOnce({
             provider: "inworld",
             iceServers: [{ urls: ["stun:guide-sv.example.com"] }],
             session: { type: "realtime", output_modalities: ["audio", "text"] },
@@ -155,7 +155,7 @@ describe("POST /api/realtime/* (integration)", () => {
             headers: {
                 "Content-Type": "application/json",
             },
-            body: JSON.stringify({ feature: "voice-guide", language: "sv" }),
+            body: JSON.stringify({ feature: "setup-agent", language: "sv" }),
         });
 
         expect(res.status).toBe(200);
@@ -164,7 +164,7 @@ describe("POST /api/realtime/* (integration)", () => {
             iceServers: [{ urls: ["stun:guide-sv.example.com"] }],
             session: { type: "realtime", output_modalities: ["audio", "text"] },
         });
-        expect(vi.mocked(getVoiceGuideRealtimeBootstrap)).toHaveBeenCalledWith("sv");
+        expect(vi.mocked(getSetupAgentRealtimeBootstrap)).toHaveBeenCalledWith("sv");
     });
 
     it("returns 200 and delegates call when authorized", async () => {
@@ -192,14 +192,14 @@ describe("POST /api/realtime/* (integration)", () => {
         });
     });
 
-    it("returns 200 and delegates voice-guide call without Authorization", async () => {
+    it("returns 200 and delegates setup-agent call without Authorization", async () => {
         const res = await fetch(`${base()}/api/realtime/call`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
             },
             body: JSON.stringify({
-                feature: "voice-guide",
+                feature: "setup-agent",
                 provider: "openai",
                 language: "en",
                 sdp: "offer",

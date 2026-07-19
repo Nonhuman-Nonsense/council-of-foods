@@ -6,7 +6,7 @@ import {
     createRealtimeCall,
     getHumanInputRealtimeBootstrap,
     getMetaAgentRealtimeBootstrap,
-    getVoiceGuideRealtimeBootstrap,
+    getSetupAgentRealtimeBootstrap,
     resolveChairRealtimeCallProvider,
 } from "./realtimeProviders.js";
 import type {
@@ -16,8 +16,8 @@ import type {
     MetaAgentRealtimeCallRequest,
     RealtimeFeature,
     RealtimeProvider,
-    VoiceGuideRealtimeBootstrapRequest,
-    VoiceGuideRealtimeCallRequest,
+    SetupAgentRealtimeBootstrapRequest,
+    SetupAgentRealtimeCallRequest,
 } from "@shared/RealtimeSessionTypes.js";
 
 const BEARER = /^Bearer\s+(.+)$/i;
@@ -39,23 +39,23 @@ export function registerRealtimeRoutes(app: Express): void {
         const body = (req.body ?? {}) as
             | HumanInputRealtimeBootstrapRequest
             | MetaAgentRealtimeBootstrapRequest
-            | VoiceGuideRealtimeBootstrapRequest;
+            | SetupAgentRealtimeBootstrapRequest;
         const feature: RealtimeFeature | undefined = body?.feature;
 
-        if (feature !== "human-input" && feature !== "meta-agent" && feature !== "voice-guide") {
+        if (feature !== "human-input" && feature !== "meta-agent" && feature !== "setup-agent") {
             res.status(400).json(new BadRequestError().toApiBody("api POST /api/realtime/bootstrap"));
             return;
         }
 
         try {
-            if (feature === "voice-guide") {
-                const { language } = body as VoiceGuideRealtimeBootstrapRequest;
+            if (feature === "setup-agent") {
+                const { language } = body as SetupAgentRealtimeBootstrapRequest;
                 if (typeof language !== "string" || language.trim().length === 0) {
                     res.status(400).json(new BadRequestError().toApiBody("api POST /api/realtime/bootstrap"));
                     return;
                 }
 
-                const data = await getVoiceGuideRealtimeBootstrap(language);
+                const data = await getSetupAgentRealtimeBootstrap(language);
                 await Logger.info("api", `POST /api/realtime/bootstrap successful (${feature}:${data.provider})`);
                 res.status(200).json(data);
                 return;
@@ -103,12 +103,12 @@ export function registerRealtimeRoutes(app: Express): void {
     });
 
     app.post("/api/realtime/call", async (req: Request, res: ExpressResponse) => {
-        const body = (req.body ?? {}) as Partial<HumanInputRealtimeCallRequest | MetaAgentRealtimeCallRequest | VoiceGuideRealtimeCallRequest>;
+        const body = (req.body ?? {}) as Partial<HumanInputRealtimeCallRequest | MetaAgentRealtimeCallRequest | SetupAgentRealtimeCallRequest>;
         const feature: RealtimeFeature | undefined = body?.feature;
         const language = parseCallLanguage(body as Record<string, unknown>);
 
         if (
-            (feature !== "human-input" && feature !== "meta-agent" && feature !== "voice-guide") ||
+            (feature !== "human-input" && feature !== "meta-agent" && feature !== "setup-agent") ||
             (body.provider !== "inworld" && body.provider !== "openai") ||
             typeof body.sdp !== "string" ||
             !body.session ||
@@ -118,7 +118,7 @@ export function registerRealtimeRoutes(app: Express): void {
             return;
         }
 
-        if ((feature === "meta-agent" || feature === "voice-guide") && (!language || language.trim().length === 0)) {
+        if ((feature === "meta-agent" || feature === "setup-agent") && (!language || language.trim().length === 0)) {
             res.status(400).json(new BadRequestError().toApiBody("api POST /api/realtime/call"));
             return;
         }

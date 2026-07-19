@@ -134,7 +134,7 @@ export function pickMetaAgentRealtimeProvider(language: string): RealtimeProvide
     return pickChairRealtimeProvider(language);
 }
 
-export function pickVoiceGuideRealtimeProvider(language: string): RealtimeProvider {
+export function pickSetupAgentRealtimeProvider(language: string): RealtimeProvider {
     return pickChairRealtimeProvider(language);
 }
 
@@ -143,7 +143,7 @@ export function resolveChairRealtimeCallProvider(
     language: string | undefined,
     clientProvider: RealtimeProvider
 ): RealtimeProvider {
-    if (feature !== "meta-agent" && feature !== "voice-guide") {
+    if (feature !== "meta-agent" && feature !== "setup-agent") {
         return clientProvider;
     }
     if (typeof language !== "string" || language.trim().length === 0) {
@@ -322,7 +322,7 @@ async function getChairRealtimeBootstrap(language: string): Promise<RealtimeBoot
     };
 }
 
-export async function getVoiceGuideRealtimeBootstrap(language: string): Promise<RealtimeBootstrapResponse> {
+export async function getSetupAgentRealtimeBootstrap(language: string): Promise<RealtimeBootstrapResponse> {
     return getChairRealtimeBootstrap(language);
 }
 
@@ -338,5 +338,5 @@ export async function createRealtimeCall(
 }
 
 // Back-compat for tests that referenced the old export name.
-export const buildVoiceGuideRealtimeSessionFragment = buildChairRealtimeSessionFragment;
+export const buildSetupAgentRealtimeSessionFragment = buildChairRealtimeSessionFragment;
 export const buildMetaAgentRealtimeSessionFragment = buildChairRealtimeSessionFragment;

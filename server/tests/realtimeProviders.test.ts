@@ -79,10 +79,10 @@ import {
     getHumanInputRealtimeBootstrap,
     getInworldIceServers,
     getMetaAgentRealtimeBootstrap,
-    getVoiceGuideRealtimeBootstrap,
+    getSetupAgentRealtimeBootstrap,
     pickHumanInputRealtimeProvider,
     pickMetaAgentRealtimeProvider,
-    pickVoiceGuideRealtimeProvider,
+    pickSetupAgentRealtimeProvider,
 } from "@api/realtimeProviders.js";
 
 const SDP_ANSWER = "v=0\r\no=- 9 2 IN IP4 0.0.0.0\r\nm=audio 9 UDP/TLS/RTP/SAVPF 111\r\n";
@@ -114,10 +114,10 @@ describe("realtimeProviders", () => {
         expect(pickHumanInputRealtimeProvider("en")).toBe("inworld");
     });
 
-    it("routes Swedish voice-guide sessions to Inworld", () => {
-        expect(pickVoiceGuideRealtimeProvider("sv")).toBe("inworld");
-        expect(pickVoiceGuideRealtimeProvider("sv-SE")).toBe("inworld");
-        expect(pickVoiceGuideRealtimeProvider("en")).toBe("inworld");
+    it("routes Swedish setup-agent sessions to Inworld", () => {
+        expect(pickSetupAgentRealtimeProvider("sv")).toBe("inworld");
+        expect(pickSetupAgentRealtimeProvider("sv-SE")).toBe("inworld");
+        expect(pickSetupAgentRealtimeProvider("en")).toBe("inworld");
     });
 
     it.each([
@@ -153,7 +153,7 @@ describe("realtimeProviders", () => {
         }
     );
 
-    it("passes chair STT, TTS, and agent voice into Swedish voice-guide bootstrap", async () => {
+    it("passes chair STT, TTS, and agent voice into Swedish setup-agent bootstrap", async () => {
         vi.mocked(global.fetch).mockResolvedValue(
             new Response(JSON.stringify({ ice_servers: [{ urls: ["stun:guide-sv.example.com"] }] }), {
                 status: 200,
@@ -161,7 +161,7 @@ describe("realtimeProviders", () => {
             })
         );
 
-        const result = await getVoiceGuideRealtimeBootstrap("sv");
+        const result = await getSetupAgentRealtimeBootstrap("sv");
 
         expect(result.provider).toBe("inworld");
         expect(result.iceServers).toEqual([{ urls: ["stun:guide-sv.example.com"] }]);
@@ -190,7 +190,7 @@ describe("realtimeProviders", () => {
         });
     });
 
-    it("passes chair agent voice into English voice-guide bootstrap", async () => {
+    it("passes chair agent voice into English setup-agent bootstrap", async () => {
         vi.mocked(global.fetch).mockResolvedValue(
             new Response(JSON.stringify({ ice_servers: [{ urls: ["stun:guide.example.com"] }] }), {
                 status: 200,
@@ -198,7 +198,7 @@ describe("realtimeProviders", () => {
             })
         );
 
-        const result = await getVoiceGuideRealtimeBootstrap("en");
+        const result = await getSetupAgentRealtimeBootstrap("en");
 
         expect(result.provider).toBe("inworld");
         expect(result.iceServers).toEqual([{ urls: ["stun:guide.example.com"] }]);

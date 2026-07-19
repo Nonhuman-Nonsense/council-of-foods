@@ -40,9 +40,9 @@
     "sv": "Förvänta dig svenskt tal."
   },
   "audioConcurrency": 10,
-  "voiceGuideRealtimeModel": "google-ai-studio/gemini-2.5-flash",
-  "voiceGuideOpenAIRealtimeModel": "gpt-realtime",
-  "voiceGuideRealtimeTranscriptionModel": "assemblyai/u3-rt-pro",
+  "setupAgentRealtimeModel": "google-ai-studio/gemini-2.5-flash",
+  "setupAgentOpenAIRealtimeModel": "gpt-realtime",
+  "setupAgentRealtimeTranscriptionModel": "assemblyai/u3-rt-pro",
   "humanInputRealtime": {
     "languages": {
       "en": {

@@ -36,12 +36,12 @@ beforeEach(() => {
 });
 
 describe("useSetupAgent", () => {
-  it("wires voice-guide feature with greeting and PTT mic", () => {
+  it("wires setup-agent feature with greeting and PTT mic", () => {
     renderHook(() => useSetupAgent(defaultParams));
 
     expect(mockUseRealtimeVoiceSession).toHaveBeenCalledWith(
       expect.objectContaining({
-        feature: "voice-guide",
+        feature: "setup-agent",
         triggerGreetingOnReady: true,
         pttMic: false,
         sessionActive: true,
