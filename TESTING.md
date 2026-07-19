@@ -100,14 +100,25 @@ itself, not logic. Logic tests belong in mock mode.
 - **Speed is a feature.** The mock-mode suites run on every change (by humans and agents).
   A test that adds seconds needs to earn them; prefer fake timers over real waits.
 - **Fake timers whenever a behavior is gated by a real `setTimeout`/`setInterval` of
-  ~1s or more.** `waitFor`'s default timeout is 1000ms; a test that leaves real timers running
-  and waits on a debounce/delay at or above that (e.g. `FINISHING_QUIET_MS`,
-  `BUTTON_BANNER_IDLE_MS`) is racing its own assertion and will flake under load even though it
-  passes reliably on an idle machine. Use `vi.useFakeTimers({ shouldAdvanceTime: true })`, drive
-  the delay explicitly with `vi.advanceTimersByTimeAsync(ms)`, and call `vi.useRealTimers()`
-  afterward (or in `afterEach`) so it doesn't leak into other tests. Short real waits (tens of
-  ms) to assert something did *not* happen are fine as-is — fake timers are for delays the test
-  is actually depending on to reach the asserted state.
+  ~1s or more.** A test that leaves real timers running and waits on a debounce/delay at or
+  above that (e.g. `FINISHING_QUIET_MS`, `BUTTON_BANNER_IDLE_MS`) is racing its own assertion
+  and will flake under load even though it passes reliably on an idle machine. Set up and tear
+  down fake timers in `beforeEach`/`afterEach`, never as a manual pair of calls inside a test
+  body — if the test throws before reaching a trailing `vi.useRealTimers()`, fake time leaks
+  into every later test in the file, which is a worse and much more confusing failure than the
+  one you were fixing. Drive the delay explicitly with `await vi.advanceTimersByTimeAsync(ms)`,
+  then assert directly — no `waitFor` needed, since the advance already flushes pending timers
+  and state updates.
+- **Never combine `waitFor` from `@testing-library/react` with fake timers.** It only detects
+  fake timers via a legacy `jest` global that vitest never defines, so under `vi.useFakeTimers()`
+  it silently falls back to polling the real wall clock — the exact flake it looks like it's
+  protecting you from, just one layer more confusing to debug because the test *looks*
+  deterministic. If you need to poll (some condition not directly gated by the timer you're
+  advancing), use `vi.waitFor` from `vitest` instead — it's fake-timer aware and works
+  correctly whether or not timers are faked in the current test. Don't reach for
+  `shouldAdvanceTime: true` as a workaround: it papers over this by ticking the mocked clock
+  off real elapsed time, which reintroduces the load-dependent flakiness fake timers exist to
+  remove. Plain `vi.useFakeTimers()` + explicit `advanceTimersByTimeAsync` doesn't need it.
 
 ## When a change needs a new test
 
