@@ -26,7 +26,8 @@ import {
     Services,
     Speaker
 } from "./audio/AudioTypes.js";
-import { validateSentenceTimingsAgainstDuration } from "./audio/SubtitleTimingValidation.js";
+import { validateSentenceTimingsAgainstDuration, DEFAULT_ALLOWED_END_GAP_SEC } from "./audio/SubtitleTimingValidation.js";
+import { config } from "@root/src/config.js";
 import type { AudioUpdatePayload } from "@shared/SocketTypes.js";
 
 // Re-export types for compatibility
@@ -212,7 +213,7 @@ export class AudioSystem {
                 for (const timingType of subtitleTimingPriorities) {
                     if (timingType === 'inworld' && resolvedSpeaker.voiceProvider === 'inworld') {
                         const nativeSentences = this.getProviderSentenceTimings(providerWords, buffers, durations, sentenceTexts);
-                        if (this.areSentenceTimingsUsable(nativeSentences, durations, timingType, meetingId, conversationIndex, speakerName, message.id)) {
+                        if (this.areSentenceTimingsUsable(nativeSentences, durations, timingType, meetingId, conversationIndex, speakerName, message.id, resolvedSpeaker.id)) {
                             sentencesWithTimings = nativeSentences;
                             subtitleTimingType = 'inworld';
                             break;
@@ -221,7 +222,7 @@ export class AudioSystem {
 
                     if (timingType === 'elevenlabs' && resolvedSpeaker.voiceProvider === 'elevenlabs') {
                         const nativeSentences = this.getProviderSentenceTimings(providerWords, buffers, durations, sentenceTexts);
-                        if (this.areSentenceTimingsUsable(nativeSentences, durations, timingType, meetingId, conversationIndex, speakerName, message.id)) {
+                        if (this.areSentenceTimingsUsable(nativeSentences, durations, timingType, meetingId, conversationIndex, speakerName, message.id, resolvedSpeaker.id)) {
                             sentencesWithTimings = nativeSentences;
                             subtitleTimingType = 'elevenlabs';
                             break;
@@ -235,7 +236,7 @@ export class AudioSystem {
                         }
 
                         const estimatedSentences = buildEstimatedSentenceTimings(message, totalDuration);
-                        if (this.areSentenceTimingsUsable(estimatedSentences, [totalDuration], timingType, meetingId, conversationIndex, speakerName, message.id)) {
+                        if (this.areSentenceTimingsUsable(estimatedSentences, [totalDuration], timingType, meetingId, conversationIndex, speakerName, message.id, resolvedSpeaker.id)) {
                             sentencesWithTimings = estimatedSentences;
                             subtitleTimingType = 'estimated';
                             break;
@@ -249,7 +250,7 @@ export class AudioSystem {
                                 sentenceTexts,
                                 this.offsetChunkWords(chunkWordsWithTimings, durations)
                             );
-                            if (this.areSentenceTimingsUsable(whisperSentences, durations, timingType, meetingId, conversationIndex, speakerName, message.id)) {
+                            if (this.areSentenceTimingsUsable(whisperSentences, durations, timingType, meetingId, conversationIndex, speakerName, message.id, resolvedSpeaker.id)) {
                                 sentencesWithTimings = whisperSentences;
                                 subtitleTimingType = 'whisper';
                                 break;
@@ -437,10 +438,17 @@ export class AudioSystem {
         meetingId: string,
         conversationIndex: number,
         speakerName: string,
-        messageId: string
+        messageId: string,
+        speakerId: string
     ): boolean {
         const totalDuration = durations.reduce((sum, duration) => sum + Math.max(duration, 0), 0);
-        const validation = validateSentenceTimingsAgainstDuration(sentences, totalDuration);
+        // "mountain" in Council of Forest always ends its lines on a nonverbal, unmapped
+        // grunt, so its whisper timings legitimately fall short of the audio duration.
+        const allowedEndGapSec =
+            config.COUNCIL_DB_PREFIX === "CouncilOfForest" && speakerId === "mountain"
+                ? 10
+                : DEFAULT_ALLOWED_END_GAP_SEC;
+        const validation = validateSentenceTimingsAgainstDuration(sentences, totalDuration, allowedEndGapSec);
         if (!validation.valid) {
             Logger.warn(
                 "AudioSystem",
