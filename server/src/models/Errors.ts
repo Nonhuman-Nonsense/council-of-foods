@@ -11,6 +11,9 @@ type CouncilErrorOptions = {
     debugCause?: unknown;
 };
 
+/** How loudly an error should be logged: 'info' never reaches ErrorBot, 'warning'/'error' do. */
+export type CouncilErrorSeverity = 'info' | 'warning' | 'error';
+
 const VERBOSE_CLIENT_ERROR_ENVIRONMENTS = new Set(["prototype", "development"]);
 
 function isVerboseClientErrors(): boolean {
@@ -50,6 +53,8 @@ export class CouncilError extends Error {
     readonly statusCode: number;
     readonly clientMessage: string;
     readonly debugCause?: unknown;
+    /** Log severity for this error class; expected/routine errors override to 'info'. */
+    readonly severity: CouncilErrorSeverity = 'warning';
 
     constructor(statusCode: number, internalMessage: string, options?: CouncilErrorOptions) {
         super(internalMessage);
@@ -83,6 +88,8 @@ export class CouncilError extends Error {
 /** Thrown when no document exists for the requested meeting id (maps to HTTP 404). */
 export class NotFoundError extends CouncilError {
     override readonly name = "Meeting not found";
+    /** A stale/mistyped meeting link is expected traffic, not a warning-worthy condition. */
+    override readonly severity: CouncilErrorSeverity = 'info';
     constructor(clientMessage?: string) {
         super(404, "Meeting not found", clientMessage ? { clientMessage } : undefined);
     }

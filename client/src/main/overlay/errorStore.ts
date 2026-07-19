@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { reportTerminalError } from "@/logger";
+import { reportTerminalError, type ClientReportSeverity, type ClientReportImpact } from "@/logger";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -13,6 +13,10 @@ export type UnrecoverableError = {
   source: string;
   cause?: unknown;
   meetingId?: number;
+  /** Overrides the default 'critical' errorbot severity — e.g. 'info' for a stale/bad meeting link. */
+  severity?: ClientReportSeverity;
+  /** Overrides the default 'terminal' errorbot client impact. */
+  clientImpact?: ClientReportImpact;
 };
 
 /** Pass a string for message-only errors (source defaults to `client`). */
@@ -60,6 +64,8 @@ export const useErrorStore = create<ErrorStore>((set) => ({
     set({ unrecoverableError: normalized });
     reportTerminalError(normalized.source, normalized.message, normalized.cause, {
       meetingId: normalized.meetingId,
+      severity: normalized.severity,
+      clientImpact: normalized.clientImpact,
     });
   },
 

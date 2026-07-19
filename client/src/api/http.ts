@@ -4,6 +4,16 @@ import {
   isDevLogCategoryEnabled,
 } from "@/settings/councilSettings";
 
+/** Typed error for a failed council API call, so callers can branch on status code. */
+export class HttpStatusError extends Error {
+  readonly status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = "HttpStatusError";
+    this.status = status;
+  }
+}
+
 function shouldLogApi(): boolean {
   return getDevLogEnabled() && isDevLogCategoryEnabled("API");
 }

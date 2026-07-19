@@ -183,7 +183,7 @@ function serializeClientCause(cause: unknown): unknown {
   return cause;
 }
 
-export type ClientReportSeverity = "warning" | "error" | "critical";
+export type ClientReportSeverity = "info" | "warning" | "error" | "critical";
 export type ClientReportImpact = "none" | "notified" | "terminal" | "process_exit";
 
 export interface ClientReportMeta {

@@ -788,11 +788,13 @@ export function useCouncilMachine({
                     : err instanceof Error && err.message.trim().length > 0
                       ? err.message
                       : t("error.message");
+            const isNotFound = err instanceof ResumeMeetingError && err.status === 404;
             setUnrecoverableError({
                 message: msg,
                 source: "useCouncilMachine.resume",
                 cause: err,
                 meetingId: currentMeetingId,
+                severity: isNotFound ? "info" : undefined,
             });
         }
     }

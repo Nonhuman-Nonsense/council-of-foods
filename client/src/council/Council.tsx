@@ -12,6 +12,7 @@ import { getParticipationPhase } from "./humanInput/participationPhase";
 import { useTranslation } from "react-i18next";
 import { useCouncilMachine } from "./hooks/useCouncilMachine";
 import { getMeeting } from "@api/getMeeting.js";
+import { HttpStatusError } from "@api/http";
 import { useCouncilSettings } from "@/settings/councilSettings";
 import { z } from "@/zIndexLayers";
 import CouncilReplaySession from "./CouncilReplaySession";
@@ -96,11 +97,13 @@ function Council({
         console.error(error);
         const msg =
           error instanceof Error && error.message.trim().length > 0 ? error.message : t("error.message");
+        const isNotFound = error instanceof HttpStatusError && error.status === 404;
         setUnrecoverableError({
           message: msg,
           source: "Council.loadMeeting",
           cause: error,
           meetingId: currentMeetingId,
+          severity: isNotFound ? "info" : undefined,
         });
       }
     })();

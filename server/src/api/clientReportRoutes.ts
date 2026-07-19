@@ -8,7 +8,7 @@ export const ClientReportBody = z.object({
     meetingId: z.number().int().positive().optional(),
     url: z.string().max(500).optional(),
     cause: z.unknown().optional(),
-    severity: z.enum(['warning', 'error', 'critical']).optional(),
+    severity: z.enum(['info', 'warning', 'error', 'critical']).optional(),
     clientImpact: z.enum(['none', 'notified', 'terminal', 'process_exit']).optional(),
 });
 

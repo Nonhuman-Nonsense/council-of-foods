@@ -79,8 +79,14 @@ export class Logger {
         return meetingId != null ? `[meeting ${meetingId}] [${context}]` : `[${context}]`;
     }
 
-    static info(context: string, message: string, details?: Pick<LogDetails, "from">): void {
+    static info(context: string, message: string, details?: LogDetails): void {
         console.log(`${cyan(this.formatPrefix(context, details?.from))} ${message}`);
+
+        if (details?.error) {
+            for (const line of formatErrorDetails(details.error)) {
+                console.log(gray(line));
+            }
+        }
     }
 
     /**
