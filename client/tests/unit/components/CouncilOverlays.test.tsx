@@ -34,6 +34,14 @@ vi.mock('@council/overlays/Incomplete', () => ({
         </div>
     )
 }));
+vi.mock('@council/overlays/MeetingElsewhere', () => ({
+    default: ({ onGoBack }: { onGoBack: () => void }) => (
+        <div data-testid="meeting-elsewhere-overlay">
+            Meeting Elsewhere Overlay
+            <button onClick={() => onGoBack()}>Go Back</button>
+        </div>
+    )
+}));
 vi.mock('@council/overlays/Summary', () => ({
     default: ({ summary: _summary, meetingId: _meetingId }: { summary?: unknown; meetingId?: number }) => <div data-testid="summary-overlay">Summary Overlay</div>
 }));
@@ -114,6 +122,11 @@ describe('CouncilOverlays', () => {
     it('renders meeting_incomplete overlay when overlay matches councilState name', () => {
         render(<CouncilOverlays {...defaultProps} overlay="meeting_incomplete" />);
         expect(screen.getByTestId('meeting-incomplete-overlay')).toBeInTheDocument();
+    });
+
+    it('renders meeting_elsewhere overlay when overlay matches councilState name', () => {
+        render(<CouncilOverlays {...defaultProps} overlay="meeting_elsewhere" />);
+        expect(screen.getByTestId('meeting-elsewhere-overlay')).toBeInTheDocument();
     });
 
     it('renders Summary overlay when overlay is "summary"', () => {

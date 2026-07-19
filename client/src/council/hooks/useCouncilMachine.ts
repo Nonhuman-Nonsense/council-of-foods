@@ -53,12 +53,13 @@ export type CouncilState =
     | "human_panelist"
     | "summary"
     | "meeting_incomplete"
+    | "meeting_elsewhere"
     | "query_extension";
 
 /** Council states that show a modal overlay (same name as the state). */
 export type OverlayCouncilState = Extract<
     CouncilState,
-    "query_extension" | "meeting_incomplete" | "summary"
+    "query_extension" | "meeting_incomplete" | "meeting_elsewhere" | "summary"
 >;
 
 /** Overlay council states share names with `councilState`; `name` is user-initiated only. */
@@ -67,6 +68,7 @@ export type CouncilOverlayType = OverlayCouncilState | "name" | null;
 const OVERLAY_COUNCIL_STATES: readonly OverlayCouncilState[] = [
     "query_extension",
     "meeting_incomplete",
+    "meeting_elsewhere",
     "summary",
 ];
 
@@ -428,6 +430,12 @@ export function useCouncilMachine({
             return;
         }
 
+        //If we have reached a meeting elsewhere message (meeting is live in another session)
+        if (councilState !== 'meeting_elsewhere' && textMessages[playNextIndex]?.type === 'meeting_elsewhere') {
+            setCouncilState('meeting_elsewhere');
+            return;
+        }
+
         // Conversation length cap (server-sent synthetic)
         if (councilState !== 'query_extension' && textMessages[playNextIndex]?.type === 'query_extension') {
             setCouncilState('query_extension');
@@ -466,6 +474,12 @@ export function useCouncilMachine({
                 break;
             case 'meeting_incomplete':
                 if (textMessages[playNextIndex]?.type !== 'meeting_incomplete') {
+                    rewindOverlayCouncilState(councilState);
+                    return;
+                }
+                break;
+            case 'meeting_elsewhere':
+                if (textMessages[playNextIndex]?.type !== 'meeting_elsewhere') {
                     rewindOverlayCouncilState(councilState);
                     return;
                 }

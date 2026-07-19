@@ -411,6 +411,7 @@ describe('useCouncilMachine', () => {
         it.each([
             { name: 'stays paused when a council overlay is dismissed without acting', sentinel: 'query_extension' },
             { name: 'stays paused when incomplete overlay is dismissed via nevermind', sentinel: 'meeting_incomplete' },
+            { name: 'stays paused when meeting_elsewhere overlay is dismissed via go back', sentinel: 'meeting_elsewhere' },
         ])('$name', ({ sentinel }) => {
             const setPaused = vi.fn();
             const props = { ...defaultProps, isPaused: true, setPaused };

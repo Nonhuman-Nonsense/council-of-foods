@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import {
     buildReplayMeetingManifest,
     isCompleteReplayManifest,
@@ -8,10 +8,42 @@ import {
 } from "@api/replayManifest.js";
 import { MockFactory } from "./factories/MockFactory.js";
 import type { Message } from "@shared/ModelTypes.js";
+import {
+    clearLiveSessionRegistryForTests,
+    tryAcquireLiveSession,
+} from "@logic/liveSessionRegistry.js";
 
 const SPEAKER_ID = "speaker1";
 
 describe("buildReplayMeetingManifest", () => {
+    beforeEach(() => {
+        clearLiveSessionRegistryForTests();
+    });
+
+    it("appends meeting_elsewhere instead of meeting_incomplete when another socket holds the live session", () => {
+        const meeting = MockFactory.createMeeting({
+            _id: 555,
+            conversation: [
+                { id: "m0", type: "message", speaker: SPEAKER_ID, text: "0" },
+            ],
+            audio: ["m0"],
+        });
+        tryAcquireLiveSession(555, "some-socket", "some-key");
+        const m = buildReplayMeetingManifest(meeting);
+        expect(m.conversation.map((c) => c.type)).toEqual(["message", "meeting_elsewhere"]);
+    });
+
+    it("still appends meeting_incomplete when no live session holds the meeting", () => {
+        const meeting = MockFactory.createMeeting({
+            _id: 556,
+            conversation: [
+                { id: "m0", type: "message", speaker: SPEAKER_ID, text: "0" },
+            ],
+            audio: ["m0"],
+        });
+        const m = buildReplayMeetingManifest(meeting);
+        expect(m.conversation.map((c) => c.type)).toEqual(["message", "meeting_incomplete"]);
+    });
     it("slices by maximumPlayedIndex inclusive", () => {
         const meeting = MockFactory.createMeeting({
             maximumPlayedIndex: 1,

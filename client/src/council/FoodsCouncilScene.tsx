@@ -48,6 +48,7 @@ export default function FoodsCouncilScene({
       councilState === "waiting" ||
       councilState === "query_extension" ||
       councilState === "meeting_incomplete" ||
+      councilState === "meeting_elsewhere" ||
       councilState === "summary" ||
       councilState === "human_input" ||
       councilState === "human_panelist" ||

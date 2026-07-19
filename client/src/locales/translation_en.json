@@ -170,6 +170,12 @@
     "resume": "Yes, let's continue!",
     "nevermind": "No, never mind."
   },
+  "meetingElsewhere": {
+    "title": "Meeting happening elsewhere",
+    "body": "This meeting is currently in session somewhere else,\ncheck back later to see if it finished, or start a new meeting.",
+    "goBack": "Go back",
+    "startNew": "Start new meeting"
+  },
   "summary": {
     "download": "Download PDF",
     "banner": {

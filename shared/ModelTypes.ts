@@ -82,7 +82,7 @@ export interface CharacterSetupData {
 
 // For Zod validation
 export const MessageTypeValues = ["message", "human", "panelist", "summary", "response", "invitation", "interjection"] as const;
-export const SyntheticMessageTypeValues = ["skipped", "awaiting_human_question", "awaiting_human_panelist", "meeting_incomplete", "query_extension", "summary_pending"] as const;
+export const SyntheticMessageTypeValues = ["skipped", "awaiting_human_question", "awaiting_human_panelist", "meeting_incomplete", "meeting_elsewhere", "query_extension", "summary_pending"] as const;
 
 // Derive the types from the arrays
 export type MessageType = (typeof MessageTypeValues)[number];
@@ -172,6 +172,17 @@ export interface MeetingIncompleteMessage extends BaseMessage {
     pretrimmed?: never;
 }
 
+export interface MeetingElsewhereMessage extends BaseMessage {
+    type: "meeting_elsewhere";
+    id?: never;
+    text?: never;
+    sentences?: never;
+    speaker?: never;
+    askParticular?: never;
+    trimmed?: never;
+    pretrimmed?: never;
+}
+
 export interface QueryExtensionMessage extends BaseMessage {
     type: "query_extension";
     id?: never;
@@ -213,6 +224,7 @@ export type SyntheticMessage =
     | AwaitingHumanQuestionMessage
     | AwaitingHumanPanelistMessage
     | MeetingIncompleteMessage
+    | MeetingElsewhereMessage
     | QueryExtensionMessage
     | SummaryPendingMessage;
 
@@ -223,6 +235,7 @@ export type Message =
     | AwaitingHumanQuestionMessage
     | AwaitingHumanPanelistMessage
     | MeetingIncompleteMessage
+    | MeetingElsewhereMessage
     | QueryExtensionMessage
     | SummaryPendingMessage;
 
