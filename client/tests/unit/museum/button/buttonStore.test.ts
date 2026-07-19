@@ -117,10 +117,10 @@ describe("useButtonStore", () => {
     expect(useButtonStore.getState().ledMode).toBe("off");
   });
 
-  it("autoplay wins over voice-guide when both claim", async () => {
+  it("autoplay wins over setup-agent when both claim", async () => {
     useButtonStore.setState({ bridgeStatus: "connected" });
-    useButtonStore.getState().claimButton("voice-guide");
-    useButtonStore.getState().setButtonLed("voice-guide", "pulse");
+    useButtonStore.getState().claimButton("setup-agent");
+    useButtonStore.getState().setButtonLed("setup-agent", "pulse");
     useButtonStore.getState().claimButton("autoplay");
     useButtonStore.getState().setButtonLed("autoplay", "pulse");
     await Promise.resolve();

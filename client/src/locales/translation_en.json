@@ -131,7 +131,7 @@
         "none": "—",
         "staff": "Staff",
         "autoplay": "Autoplay",
-        "voice-guide": "Voice guide",
+        "setup-agent": "Voice guide",
         "human-input": "Human input",
         "meta-agent": "Meta agent"
       }

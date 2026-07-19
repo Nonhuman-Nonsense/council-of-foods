@@ -2,7 +2,7 @@ import type { Topic } from "@shared/ModelTypes";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSwitchLanguage } from "@/navigation";
 import { useTranslation } from "react-i18next";
-import VoiceGuideOverlay from "./VoiceGuideOverlay";
+import SetupAgentOverlay from "./SetupAgentOverlay";
 import { getTopicsBundle } from "@main/topicsBundle";
 import { getCharacterSetupBundle } from "@newMeeting/CharacterSetup";
 import type { Character } from "@shared/ModelTypes";
@@ -15,16 +15,16 @@ import {
 import { useMeetingSetupStore } from "@newMeeting/meetingSetupStore";
 import { useButton, type ButtonLedMode } from "@/museum/button/useButton";
 import { useCouncilSettings } from "@/settings/councilSettings";
-import { buildGuidePrompt } from "./guidePrompt";
-import { createGuideToolHandlers, createGuideTools } from "./guideTools";
+import { buildSetupAgentPrompt } from "./setupAgentPrompt";
+import { createSetupAgentToolHandlers, createSetupAgentTools } from "./setupAgentTools";
 import { useInactivityNudge } from "./useInactivityNudge";
 import { useButtonBanner } from "@/museum/button/useButtonBanner";
 import Loading from "@main/Loading";
-import { useVoiceGuide } from "./useVoiceGuide";
+import { useSetupAgent } from "./useSetupAgent";
 import { useErrorStore } from "@main/overlay/errorStore";
 import { useDocumentVisibility } from "@/utils";
 
-type MeetingVoiceGuideProps = {
+type MeetingSetupAgentProps = {
   phase: MeetingSetupPhase;
   lastUserEvent: MeetingSetupUserEvent | null;
   onBeginSetup: () => void;
@@ -33,18 +33,18 @@ type MeetingVoiceGuideProps = {
   onStartMeeting: (characters: Character[]) => Promise<void> | void;
 };
 
-export default function MeetingVoiceGuide({
+export default function MeetingSetupAgent({
   phase,
   lastUserEvent,
   onBeginSetup,
   onGoToTopicStep,
   onSelectTopic,
   onStartMeeting,
-}: MeetingVoiceGuideProps) {
+}: MeetingSetupAgentProps) {
   const { i18n, t } = useTranslation();
   const { isMuseumMode, agentMode } = useCouncilSettings();
   const { switchLanguage, otherLanguages } = useSwitchLanguage();
-  const button = useButton("voice-guide");
+  const button = useButton("setup-agent");
   const connectionError = useErrorStore((s) => s.connectionError);
   const {
     selectedTopic,
@@ -54,9 +54,9 @@ export default function MeetingVoiceGuide({
 
   const topicsBundle = useMemo(() => getTopicsBundle(i18n.language), [i18n.language]);
   const characterSetupBundle = useMemo(() => getCharacterSetupBundle(i18n.language), [i18n.language]);
-  const guideLanguage = i18n.language.toLowerCase().startsWith("sv") ? "sv" : "en";
+  const agentLanguage = i18n.language.toLowerCase().startsWith("sv") ? "sv" : "en";
 
-  const guideTopics = useMemo(() => {
+  const setupTopics = useMemo(() => {
     return [
       ...topicsBundle.topics.map((topic: Topic) => ({
         id: topic.id,
@@ -71,7 +71,7 @@ export default function MeetingVoiceGuide({
     ];
   }, [topicsBundle]);
 
-  const guideCharacters = useMemo(() => {
+  const setupCharacters = useMemo(() => {
     return characterSetupBundle.characters.map((character: Character) => ({
       id: character.id,
       name: character.name,
@@ -86,25 +86,25 @@ export default function MeetingVoiceGuide({
   );
 
   const instructions = useMemo(() => {
-    return buildGuidePrompt({
-      language: guideLanguage,
-      topics: guideTopics,
-      characters: guideCharacters,
+    return buildSetupAgentPrompt({
+      language: agentLanguage,
+      topics: setupTopics,
+      characters: setupCharacters,
       phase,
       agentMode,
       visitorName,
       otherLanguageNames,
     });
-  }, [guideCharacters, guideTopics, phase, guideLanguage, agentMode, visitorName, otherLanguageNames]);
+  }, [setupCharacters, setupTopics, phase, agentLanguage, agentMode, visitorName, otherLanguageNames]);
 
-  const voice = useVoiceGuide({
-    language: guideLanguage,
+  const agent = useSetupAgent({
+    language: agentLanguage,
     instructions,
     isMuseumMode,
-    tools: createGuideTools({ otherLanguages, topics: guideTopics, characters: guideCharacters, agentMode, isWebMode: !isMuseumMode }),
-    toolHandlers: createGuideToolHandlers({
-      topics: guideTopics,
-      characters: guideCharacters,
+    tools: createSetupAgentTools({ otherLanguages, topics: setupTopics, characters: setupCharacters, agentMode, isWebMode: !isMuseumMode }),
+    toolHandlers: createSetupAgentToolHandlers({
+      topics: setupTopics,
+      characters: setupCharacters,
       beginSetup: onBeginSetup,
       goToTopicStep: onGoToTopicStep,
       buildSelectedTopic: () =>
@@ -116,7 +116,7 @@ export default function MeetingVoiceGuide({
       selectTopic: onSelectTopic,
       startMeeting: onStartMeeting,
       meetingStep: phase,
-      voiceGuideLanguage: i18n.language,
+      setupAgentLanguage: i18n.language,
       meetingCharactersLabels: {
         formatHumanCount: (count) => t("meeting.characters.humanCount", { count }),
       },
@@ -126,19 +126,19 @@ export default function MeetingVoiceGuide({
     agentMode,
     micOpen: button.pressed,
   });
-  const { sendUserMessage, muted } = voice;
+  const { sendUserMessage, muted } = agent;
   const isDocumentVisible = useDocumentVisibility();
 
   const [nudgeFired, setNudgeFired] = useState(false);
 
   // Stop nudging while the tab is hidden.
   useInactivityNudge({
-    agentSpeaking: voice.agentSpeaking,
-    lastUserTranscript: voice.lastUserTranscript,
+    agentSpeaking: agent.agentSpeaking,
+    lastUserTranscript: agent.lastUserTranscript,
     sendMessage: sendUserMessage,
-    requestResponse: voice.requestAgentResponse,
+    requestResponse: agent.requestAgentResponse,
     delayMs: 10_000,
-    enabled: !voice.isConnecting && !muted && isDocumentVisible,
+    enabled: !agent.isConnecting && !muted && isDocumentVisible,
     onNudgeFired: () => setNudgeFired(true),
     message:
       phase === "landing"
@@ -162,21 +162,21 @@ export default function MeetingVoiceGuide({
     if (!isDocumentVisible) {
       const id = setTimeout(() => {
         stoppedByBackgroundRef.current = true;
-        voice.stop();
+        agent.stop();
       }, HIDDEN_GRACE_MS);
       return () => clearTimeout(id);
     }
 
     if (stoppedByBackgroundRef.current) {
       stoppedByBackgroundRef.current = false;
-      void voice.start();
-    } else if (!muted && !voice.isConnecting && !voice.agentSpeaking) {
+      void agent.start();
+    } else if (!muted && !agent.isConnecting && !agent.agentSpeaking) {
       sendUserMessage(
         phase === "landing"
           ? "The visitor has returned after a brief absence. Welcome them back and invite them to continue."
           : "The visitor has returned after a brief absence. Check in warmly and help them pick up where they left off.",
       );
-      voice.requestAgentResponse();
+      agent.requestAgentResponse();
       setNudgeFired(true);
     }
    
@@ -189,11 +189,11 @@ export default function MeetingVoiceGuide({
     if (muted) return;
     const id = setTimeout(() => {
       stoppedByBackgroundRef.current = true;
-      voice.stop();
+      agent.stop();
     }, IDLE_TIMEOUT_MS);
     return () => clearTimeout(id);
    
-  }, [voice.lastUserTranscript, muted]);
+  }, [agent.lastUserTranscript, muted]);
 
   // Resume on window focus if the session was torn down by the background timer.
   // This handles returning from another app without switching tabs.
@@ -201,7 +201,7 @@ export default function MeetingVoiceGuide({
     function onWindowFocus() {
       if (!stoppedByBackgroundRef.current) return;
       stoppedByBackgroundRef.current = false;
-      void voice.start();
+      void agent.start();
     }
     window.addEventListener("focus", onWindowFocus);
     return () => window.removeEventListener("focus", onWindowFocus);
@@ -209,14 +209,14 @@ export default function MeetingVoiceGuide({
   }, []);
 
   const showMuseumReconnecting =
-    isMuseumMode && !muted && voice.isConnecting && !connectionError;
+    isMuseumMode && !muted && agent.isConnecting && !connectionError;
 
   const { bumpBannerActivity } = useButtonBanner({
-    owner: "voice-guide",
+    owner: "setup-agent",
     sessionActive: agentMode === "ptt" && !muted,
-    isConnecting: voice.isConnecting,
+    isConnecting: agent.isConnecting,
     micOpen: button.pressed,
-    agentSpeaking: voice.agentSpeaking && !nudgeFired,
+    agentSpeaking: agent.agentSpeaking && !nudgeFired,
   });
 
   // Falling-edge only: bump the idle clock when the agent finishes speaking so
@@ -224,16 +224,16 @@ export default function MeetingVoiceGuide({
   // agentSpeaking prop above so the banner can't show while the agent talks.
   // Nudge guard: skip the bump during a nudge response so the banner stays visible.
   useEffect(() => {
-    if (voice.agentSpeaking || nudgeFired) return;
+    if (agent.agentSpeaking || nudgeFired) return;
     bumpBannerActivity();
-  }, [voice.agentSpeaking, nudgeFired, bumpBannerActivity]);
+  }, [agent.agentSpeaking, nudgeFired, bumpBannerActivity]);
 
   // Real user input clears the nudge override and bumps the idle clock.
   useEffect(() => {
-    if (!voice.lastUserTranscript) return;
+    if (!agent.lastUserTranscript) return;
     setNudgeFired(false);
     bumpBannerActivity();
-  }, [voice.lastUserTranscript, bumpBannerActivity]);
+  }, [agent.lastUserTranscript, bumpBannerActivity]);
 
   useEffect(() => {
     if (!button.pressed) return;
@@ -242,10 +242,10 @@ export default function MeetingVoiceGuide({
   }, [button.pressed, bumpBannerActivity]);
 
   const ledMode = useMemo((): ButtonLedMode => {
-    if (agentMode !== "ptt" || muted || voice.isConnecting) return "off";
+    if (agentMode !== "ptt" || muted || agent.isConnecting) return "off";
     if (button.pressed) return "on";
     return "pulse";
-  }, [agentMode, muted, voice.isConnecting, button.pressed]);
+  }, [agentMode, muted, agent.isConnecting, button.pressed]);
 
   useEffect(() => {
     if (agentMode !== "ptt") return;
@@ -273,18 +273,18 @@ export default function MeetingVoiceGuide({
   return (
     <>
       {showMuseumReconnecting && <Loading />}
-    <VoiceGuideOverlay
-      isConnecting={voice.isConnecting}
-      lastCaption={voice.lastCaption}
-      lastUserTranscript={voice.lastUserTranscript}
-      muted={voice.muted}
+    <SetupAgentOverlay
+      isConnecting={agent.isConnecting}
+      lastCaption={agent.lastCaption}
+      lastUserTranscript={agent.lastUserTranscript}
+      muted={agent.muted}
       isMuseumMode={isMuseumMode}
       agentMode={agentMode}
       subtitleLayout={isMuseumMode ? "council" : "compact"}
-      micStream={voice.micStream}
+      micStream={agent.micStream}
       micActive={agentMode === "ptt" && !muted && button.pressed}
-      onStart={voice.start}
-      onStop={voice.stop}
+      onStart={agent.start}
+      onStop={agent.stop}
     />
     </>
   );

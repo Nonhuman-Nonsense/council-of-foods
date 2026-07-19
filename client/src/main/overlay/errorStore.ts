@@ -5,7 +5,7 @@ import { reportTerminalError, type ClientReportSeverity, type ClientReportImpact
 // Types
 // ---------------------------------------------------------------------------
 
-export type ConnectionErrorSource = "socket" | "voice-guide" | "meta-agent";
+export type ConnectionErrorSource = "socket" | "setup-agent" | "meta-agent";
 export type SetConnectionError = (source: ConnectionErrorSource, active: boolean) => void;
 
 export type UnrecoverableError = {
