@@ -95,7 +95,7 @@ export function registerMeetingRoutes(app: Express, environment: string): void {
                 const manifest = buildReplayMeetingManifest(meeting);
                 if (
                     manifest.conversation.length === 1 &&
-                    (manifest.conversation[0].type === "meeting_incomplete" || manifest.conversation[0].type === "meeting_elsewhere")
+                    manifest.conversation[0].type === "meeting_incomplete"
                 ) {
                     await Logger.warn(
                         "api",

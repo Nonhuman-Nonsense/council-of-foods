@@ -53,13 +53,12 @@ export type CouncilState =
     | "human_panelist"
     | "summary"
     | "meeting_incomplete"
-    | "meeting_elsewhere"
     | "query_extension";
 
 /** Council states that show a modal overlay (same name as the state). */
 export type OverlayCouncilState = Extract<
     CouncilState,
-    "query_extension" | "meeting_incomplete" | "meeting_elsewhere" | "summary"
+    "query_extension" | "meeting_incomplete" | "summary"
 >;
 
 /** Overlay council states share names with `councilState`; `name` is user-initiated only. */
@@ -68,7 +67,6 @@ export type CouncilOverlayType = OverlayCouncilState | "name" | null;
 const OVERLAY_COUNCIL_STATES: readonly OverlayCouncilState[] = [
     "query_extension",
     "meeting_incomplete",
-    "meeting_elsewhere",
     "summary",
 ];
 
@@ -203,6 +201,15 @@ export function useCouncilMachine({
             agentMode,
         }),
         [councilState, nameOverlayOpen, isMuseumMode, agentMode],
+    );
+
+    // The one thing that distinguishes the "another live session holds this meeting" case
+    // (previously its own `meeting_elsewhere` state) from an ordinary `meeting_incomplete`:
+    // read straight off the message rather than mirroring it into separate state, since the
+    // sentinel stays in `textMessages` for as long as the overlay is shown.
+    const meetingElsewhere = useMemo(
+        () => textMessages.find((m) => m.type === 'meeting_incomplete')?.elsewhere ?? false,
+        [textMessages],
     );
 
     /* -------------------------------------------------------------------------- */
@@ -424,15 +431,10 @@ export function useCouncilMachine({
             return;
         }
 
-        //If we have reached a meeting incomplete message
+        //If we have reached a meeting incomplete message (server flags `elsewhere` when
+        //another live session currently holds the meeting; see `meetingElsewhere` below)
         if (councilState !== 'meeting_incomplete' && textMessages[playNextIndex]?.type === 'meeting_incomplete') {
             setCouncilState('meeting_incomplete');
-            return;
-        }
-
-        //If we have reached a meeting elsewhere message (meeting is live in another session)
-        if (councilState !== 'meeting_elsewhere' && textMessages[playNextIndex]?.type === 'meeting_elsewhere') {
-            setCouncilState('meeting_elsewhere');
             return;
         }
 
@@ -474,12 +476,6 @@ export function useCouncilMachine({
                 break;
             case 'meeting_incomplete':
                 if (textMessages[playNextIndex]?.type !== 'meeting_incomplete') {
-                    rewindOverlayCouncilState(councilState);
-                    return;
-                }
-                break;
-            case 'meeting_elsewhere':
-                if (textMessages[playNextIndex]?.type !== 'meeting_elsewhere') {
                     rewindOverlayCouncilState(councilState);
                     return;
                 }
@@ -1136,6 +1132,7 @@ export function useCouncilMachine({
             playingNowIndex,
             playNextIndex,
             visibleOverlay,
+            meetingElsewhere,
             nameOverlayOpen,
             summary,
             isRaisedHand,

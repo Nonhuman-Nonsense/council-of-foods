@@ -26,19 +26,11 @@ vi.mock('@council/overlays/QueryExtension', () => ({
     )
 }));
 vi.mock('@council/overlays/Incomplete', () => ({
-    default: ({ onAttemptResume, onNevermind }: { onAttemptResume: () => void; onNevermind: () => void }) => (
-        <div data-testid="meeting-incomplete-overlay">
+    default: ({ elsewhere, onAttemptResume, onNevermind }: { elsewhere?: boolean; onAttemptResume: () => void; onNevermind: () => void }) => (
+        <div data-testid="meeting-incomplete-overlay" data-elsewhere={String(Boolean(elsewhere))}>
             Incomplete Overlay
             <button onClick={() => onAttemptResume()}>Resume</button>
             <button onClick={() => onNevermind()}>Nevermind</button>
-        </div>
-    )
-}));
-vi.mock('@council/overlays/MeetingElsewhere', () => ({
-    default: ({ onGoBack }: { onGoBack: () => void }) => (
-        <div data-testid="meeting-elsewhere-overlay">
-            Meeting Elsewhere Overlay
-            <button onClick={() => onGoBack()}>Go Back</button>
         </div>
     )
 }));
@@ -121,12 +113,12 @@ describe('CouncilOverlays', () => {
 
     it('renders meeting_incomplete overlay when overlay matches councilState name', () => {
         render(<CouncilOverlays {...defaultProps} overlay="meeting_incomplete" />);
-        expect(screen.getByTestId('meeting-incomplete-overlay')).toBeInTheDocument();
+        expect(screen.getByTestId('meeting-incomplete-overlay')).toHaveAttribute('data-elsewhere', 'false');
     });
 
-    it('renders meeting_elsewhere overlay when overlay matches councilState name', () => {
-        render(<CouncilOverlays {...defaultProps} overlay="meeting_elsewhere" />);
-        expect(screen.getByTestId('meeting-elsewhere-overlay')).toBeInTheDocument();
+    it('passes meetingElsewhere through to the Incomplete overlay', () => {
+        render(<CouncilOverlays {...defaultProps} overlay="meeting_incomplete" meetingElsewhere />);
+        expect(screen.getByTestId('meeting-incomplete-overlay')).toHaveAttribute('data-elsewhere', 'true');
     });
 
     it('renders Summary overlay when overlay is "summary"', () => {

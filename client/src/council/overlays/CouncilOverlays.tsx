@@ -1,7 +1,6 @@
 import type { Character } from "@shared/ModelTypes";
 import QueryExtension from "./QueryExtension";
 import Incomplete from "./Incomplete";
-import MeetingElsewhere from "./MeetingElsewhere";
 import Summary, { SummaryData } from "./Summary";
 import Name from "./Name";
 import OverlayWrapper from "@main/overlay/OverlayWrapper";
@@ -16,6 +15,7 @@ export type ActiveCouncilOverlay = Exclude<CouncilOverlayType, null>;
 
 interface CouncilOverlaysProps {
   overlay: ActiveCouncilOverlay;
+  meetingElsewhere?: boolean;
   onAttemptResume: () => void;
   onExtendMeeting: () => void;
   onConcludeMeeting: () => void;
@@ -36,6 +36,7 @@ interface CouncilOverlaysProps {
  */
 function CouncilOverlays({
   overlay,
+  meetingElsewhere = false,
   onAttemptResume,
   onExtendMeeting,
   onConcludeMeeting,
@@ -58,12 +59,11 @@ function CouncilOverlays({
       case "meeting_incomplete":
         return (
           <Incomplete
+            elsewhere={meetingElsewhere}
             onAttemptResume={onAttemptResume}
             onNevermind={onDismiss}
           />
         );
-      case "meeting_elsewhere":
-        return <MeetingElsewhere onGoBack={onDismiss} />;
       case "query_extension":
         return (
           <QueryExtension

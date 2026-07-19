@@ -411,7 +411,6 @@ describe('useCouncilMachine', () => {
         it.each([
             { name: 'stays paused when a council overlay is dismissed without acting', sentinel: 'query_extension' },
             { name: 'stays paused when incomplete overlay is dismissed via nevermind', sentinel: 'meeting_incomplete' },
-            { name: 'stays paused when meeting_elsewhere overlay is dismissed via go back', sentinel: 'meeting_elsewhere' },
         ])('$name', ({ sentinel }) => {
             const setPaused = vi.fn();
             const props = { ...defaultProps, isPaused: true, setPaused };
@@ -504,6 +503,20 @@ describe('useCouncilMachine', () => {
             });
 
             expect(setPaused).not.toHaveBeenCalledWith(false);
+        });
+
+        it.each([
+            { name: 'exposes meetingElsewhere: true for an elsewhere-flagged meeting_incomplete', elsewhere: true },
+            { name: 'exposes meetingElsewhere: false for an ordinary meeting_incomplete', elsewhere: false },
+        ])('$name', ({ elsewhere }) => {
+            const { result } = renderHook((props) => useCouncilMachine(props), { initialProps: defaultProps });
+
+            act(() => {
+                socketHandlers.onConversationUpdate?.([{ type: 'meeting_incomplete', elsewhere }]);
+            });
+
+            expect(result.current.state.visibleOverlay).toBe('meeting_incomplete');
+            expect(result.current.state.meetingElsewhere).toBe(elsewhere);
         });
 
         describe('deferred connection error overlay', () => {

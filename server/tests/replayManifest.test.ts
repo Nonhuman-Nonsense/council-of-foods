@@ -20,7 +20,7 @@ describe("buildReplayMeetingManifest", () => {
         clearLiveSessionRegistryForTests();
     });
 
-    it("appends meeting_elsewhere instead of meeting_incomplete when another socket holds the live session", () => {
+    it("appends meeting_incomplete with elsewhere:true when another socket holds the live session", () => {
         const meeting = MockFactory.createMeeting({
             _id: 555,
             conversation: [
@@ -30,10 +30,11 @@ describe("buildReplayMeetingManifest", () => {
         });
         tryAcquireLiveSession(555, "some-socket", "some-key");
         const m = buildReplayMeetingManifest(meeting);
-        expect(m.conversation.map((c) => c.type)).toEqual(["message", "meeting_elsewhere"]);
+        expect(m.conversation.map((c) => c.type)).toEqual(["message", "meeting_incomplete"]);
+        expect(m.conversation[1]).toMatchObject({ type: "meeting_incomplete", elsewhere: true });
     });
 
-    it("still appends meeting_incomplete when no live session holds the meeting", () => {
+    it("still appends meeting_incomplete without elsewhere when no live session holds the meeting", () => {
         const meeting = MockFactory.createMeeting({
             _id: 556,
             conversation: [
@@ -43,6 +44,7 @@ describe("buildReplayMeetingManifest", () => {
         });
         const m = buildReplayMeetingManifest(meeting);
         expect(m.conversation.map((c) => c.type)).toEqual(["message", "meeting_incomplete"]);
+        expect(m.conversation[1]).not.toHaveProperty("elsewhere");
     });
     it("slices by maximumPlayedIndex inclusive", () => {
         const meeting = MockFactory.createMeeting({

@@ -82,7 +82,7 @@ export interface CharacterSetupData {
 
 // For Zod validation
 export const MessageTypeValues = ["message", "human", "panelist", "summary", "response", "invitation", "interjection"] as const;
-export const SyntheticMessageTypeValues = ["skipped", "awaiting_human_question", "awaiting_human_panelist", "meeting_incomplete", "meeting_elsewhere", "query_extension", "summary_pending"] as const;
+export const SyntheticMessageTypeValues = ["skipped", "awaiting_human_question", "awaiting_human_panelist", "meeting_incomplete", "query_extension", "summary_pending"] as const;
 
 // Derive the types from the arrays
 export type MessageType = (typeof MessageTypeValues)[number];
@@ -163,17 +163,9 @@ export interface AwaitingHumanPanelistMessage extends BaseMessage, SpeakerFields
 
 export interface MeetingIncompleteMessage extends BaseMessage {
     type: "meeting_incomplete";
-    id?: never;
-    text?: never;
-    sentences?: never;
-    speaker?: never;
-    askParticular?: never;
-    trimmed?: never;
-    pretrimmed?: never;
-}
-
-export interface MeetingElsewhereMessage extends BaseMessage {
-    type: "meeting_elsewhere";
+    /** True when another live session currently holds the meeting (was the separate
+     *  `meeting_elsewhere` type); the client shows different copy/actions in that case. */
+    elsewhere?: boolean;
     id?: never;
     text?: never;
     sentences?: never;
@@ -224,7 +216,6 @@ export type SyntheticMessage =
     | AwaitingHumanQuestionMessage
     | AwaitingHumanPanelistMessage
     | MeetingIncompleteMessage
-    | MeetingElsewhereMessage
     | QueryExtensionMessage
     | SummaryPendingMessage;
 
@@ -235,7 +226,6 @@ export type Message =
     | AwaitingHumanQuestionMessage
     | AwaitingHumanPanelistMessage
     | MeetingIncompleteMessage
-    | MeetingElsewhereMessage
     | QueryExtensionMessage
     | SummaryPendingMessage;
 

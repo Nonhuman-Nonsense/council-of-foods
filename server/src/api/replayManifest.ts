@@ -1,8 +1,7 @@
-import type { Meeting, Message } from "@shared/ModelTypes.js";
+import type { Meeting, Message, MeetingIncompleteMessage } from "@shared/ModelTypes.js";
 import { hasLiveSession } from "@logic/liveSessionRegistry.js";
 
-const MEETING_INCOMPLETE_MESSAGE: Message = { type: "meeting_incomplete" };
-const MEETING_ELSEWHERE_MESSAGE: Message = { type: "meeting_elsewhere" };
+const MEETING_INCOMPLETE_MESSAGE: MeetingIncompleteMessage = { type: "meeting_incomplete" };
 
 function computeCapIndex(meeting: Meeting): number {
     const conv = meeting.conversation ?? [];
@@ -122,8 +121,10 @@ export function buildReplayMeetingManifest(meeting: Meeting): Meeting {
     const hasSummary = lastMessageObj?.type === "summary";
 
     if (!hasSummary) {
-        const marker = hasLiveSession(meeting._id) ? MEETING_ELSEWHERE_MESSAGE : MEETING_INCOMPLETE_MESSAGE;
-        conversation = [...conversation, { ...marker }];
+        const marker: Message = hasLiveSession(meeting._id)
+            ? { ...MEETING_INCOMPLETE_MESSAGE, elsewhere: true }
+            : { ...MEETING_INCOMPLETE_MESSAGE };
+        conversation = [...conversation, marker];
     }
 
     const conversationForAudio = hasSummary ? conversation : conversation.slice(0, -1);

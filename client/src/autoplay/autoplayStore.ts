@@ -16,7 +16,6 @@ export type AutoplayCouncilState =
   | "human_panelist"
   | "summary"
   | "meeting_incomplete"
-  | "meeting_elsewhere"
   | "query_extension";
 
 /** Fixed list of events app code may send to autoplay. */
