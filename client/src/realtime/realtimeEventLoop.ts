@@ -12,7 +12,7 @@
  */
 
 import type { RealtimeSessionConfig } from "@realtime/realtimeProtocol";
-import type { ToolHandler, ToolResult } from "./guideTools";
+import type { ToolHandler, ToolResult } from "./realtimeTools";
 import type { CaptionScheduler } from "./captionScheduler";
 import { log as devLog, summarizeLogPayload } from "@/logger";
 

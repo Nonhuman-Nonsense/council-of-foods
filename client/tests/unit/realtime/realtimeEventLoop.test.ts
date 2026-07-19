@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
-import { createEventLoop } from "@voice/realtimeEventLoop";
+import { createEventLoop } from "@realtime/realtimeEventLoop";
 import type { RealtimeSessionConfig } from "@realtime/realtimeProtocol";
-import type { ToolHandler } from "@voice/guideTools";
+import type { ToolHandler } from "@realtime/realtimeTools";
 
 function makeSession(): RealtimeSessionConfig {
     return {

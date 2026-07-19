@@ -4,8 +4,8 @@ import {
   useRealtimeVoiceSession,
   type RealtimeVoiceSessionConnectionState,
 } from "@realtime/useRealtimeVoiceSession";
-import type { ConfigureSessionOptions } from "@voice/realtimeEventLoop";
-import type { RealtimeTool, ToolHandler } from "@voice/guideTools";
+import type { ConfigureSessionOptions } from "@realtime/realtimeEventLoop";
+import type { RealtimeTool, ToolHandler } from "@realtime/realtimeTools";
 import { setUnrecoverableError } from "@main/overlay/errorStore";
 
 /** Meta-agent lifecycle phase. */

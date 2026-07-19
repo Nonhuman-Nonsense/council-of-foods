@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { getRealtimeRetryPolicy, useRealtimeVoiceSession } from "@realtime/useRealtimeVoiceSession";
 import type { AgentMode } from "@/settings/councilSettings";
-import type { RealtimeTool, ToolHandler } from "./guideTools";
+import type { RealtimeTool, ToolHandler } from "@realtime/realtimeTools";
 import { setConnectionError, setUnrecoverableError } from "@main/overlay/errorStore";
 
 export type UseVoiceGuideParams = {

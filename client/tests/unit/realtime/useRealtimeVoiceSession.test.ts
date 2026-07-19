@@ -36,7 +36,7 @@ const eventLoopMocks = vi.hoisted(() => ({
   isResponseActive: vi.fn(() => false),
 }));
 
-vi.mock("@voice/realtimeEventLoop", () => ({
+vi.mock("@realtime/realtimeEventLoop", () => ({
   createEventLoop: (params: {
     callbacks: typeof eventLoopCallbacks;
     captionScheduler: unknown;
@@ -47,7 +47,7 @@ vi.mock("@voice/realtimeEventLoop", () => ({
   },
 }));
 
-vi.mock("@voice/captionScheduler", () => ({
+vi.mock("@realtime/captionScheduler", () => ({
   createCaptionScheduler: (options: { onCaption: (text: string | null) => void }) => {
     const scheduler = {
       beginResponse: vi.fn(),
@@ -73,7 +73,7 @@ vi.mock("@realtime/realtimeConnection", () => ({
   REALTIME_RETRY_MAX_MS: 15000,
 }));
 
-vi.mock("@voice/remoteAudioAnchor", () => ({
+vi.mock("@realtime/remoteAudioAnchor", () => ({
   createRemoteAudioAnchor: (options: { onAudioStart: (nowMs: number, ctxTime: number) => void }) => {
     mockOnAudioStart = options.onAudioStart;
     return mockCreateRemoteAudioAnchor(options);

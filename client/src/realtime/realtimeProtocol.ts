@@ -5,7 +5,7 @@
  * realtime session shape without pulling voice-guide UI into the tree.
  */
 
-import type { RealtimeTool } from "@voice/guideTools";
+import type { RealtimeTool } from "@realtime/realtimeTools";
 
 export type SemanticVadEagerness = "low" | "medium" | "high";
 

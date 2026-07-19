@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { createCaptionScheduler } from "@voice/captionScheduler";
+import { createCaptionScheduler } from "@realtime/captionScheduler";
 
 type ScheduledTask = {
     id: number;

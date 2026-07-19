@@ -7,22 +7,22 @@ import {
   fetchRealtimeBootstrap,
   type RealtimeConnection,
 } from "@realtime/realtimeConnection";
-import type { ConfigureSessionOptions } from "@voice/realtimeEventLoop";
-import { createEventLoop } from "@voice/realtimeEventLoop";
+import type { ConfigureSessionOptions } from "@realtime/realtimeEventLoop";
+import { createEventLoop } from "@realtime/realtimeEventLoop";
 import {
   mergeRealtimeSessionWithClientConfig,
   type RealtimeSessionConfig,
   type RealtimeSessionServerDefaults,
 } from "@realtime/realtimeProtocol";
-import type { RealtimeTool, ToolHandler } from "@voice/guideTools";
-import { createCaptionScheduler } from "@voice/captionScheduler";
-import { createRemoteAudioAnchor, type RemoteAudioAnchor } from "@voice/remoteAudioAnchor";
+import type { RealtimeTool, ToolHandler } from "@realtime/realtimeTools";
+import { createCaptionScheduler } from "@realtime/captionScheduler";
+import { createRemoteAudioAnchor, type RemoteAudioAnchor } from "@realtime/remoteAudioAnchor";
 import {
   computeInworldAgentSpeaking,
   createInworldSubtitleTrack,
   findActiveSentenceAtTime,
   type InworldSubtitleTrack,
-} from "@voice/inworldSubtitleTrack";
+} from "@realtime/inworldSubtitleTrack";
 import { log, summarizeLogPayload } from "@/logger";
 
 const AUDIO_ANCHOR_FALLBACK_DELAY_MS = 600;

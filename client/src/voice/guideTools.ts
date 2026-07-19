@@ -9,30 +9,9 @@ import { useMeetingSetupStore } from "@newMeeting/meetingSetupStore";
 import { getAppMode, type AgentMode } from "@/settings/councilSettings";
 import { capitalizeFirstLetter } from "@/utils";
 import type { GuideTopic, GuideCharacter } from "./guidePrompt";
+import type { RealtimeTool, ToolHandler, ToolResult } from "@realtime/realtimeTools";
 
 export type { GuideTopic, GuideCharacter };
-
-export type JsonSchemaObject = {
-  type: "object";
-  properties?: Record<string, unknown>;
-  required?: string[];
-  additionalProperties?: boolean;
-};
-
-export type RealtimeFunctionTool = {
-  type: "function";
-  name: string;
-  description?: string;
-  parameters?: JsonSchemaObject;
-};
-
-export type RealtimeTool = RealtimeFunctionTool;
-
-export type ToolResult =
-  | { ok: true; data?: unknown; /** Skip response.create after this tool (e.g. meta-agent exit). */ suppressContinuation?: boolean }
-  | { ok: false; error: string };
-
-export type ToolHandler = (args: unknown) => Promise<ToolResult> | ToolResult;
 
 export type GuideToolContext = {
   topics: GuideTopic[];
