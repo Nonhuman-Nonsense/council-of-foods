@@ -61,13 +61,13 @@ describe('buildClientErrorReport', () => {
         expect(report.clientImpact).toBe('none');
     });
 
-    it('uses "client" context when a meetingId is present, "client <source>" otherwise', () => {
+    it('always includes source in context, even when a meetingId is present', () => {
         expect(buildClientErrorReport({ message: 'boom', source: 'window.onerror' }).context).toBe(
             'client window.onerror',
         );
         expect(
-            buildClientErrorReport({ message: 'boom', source: 'window.onerror', meetingId: 42 }).context,
-        ).toBe('client');
+            buildClientErrorReport({ message: 'boom', source: 'Council.loadMeeting', meetingId: 42 }).context,
+        ).toBe('client Council.loadMeeting');
     });
 
     it('appends the url to the message when present', () => {
