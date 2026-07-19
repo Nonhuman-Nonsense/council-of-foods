@@ -722,6 +722,8 @@ describe('HumanInput PTT museum mode', () => {
     });
 
     it('auto-submits after PTT release once transcript settles', async () => {
+        vi.useFakeTimers({ shouldAdvanceTime: true });
+
         await renderPttReady();
 
         // Type some text (simulating transcript arriving via recording)
@@ -735,9 +737,13 @@ describe('HumanInput PTT museum mode', () => {
 
         setMockPressed(false);
 
+        await vi.advanceTimersByTimeAsync(2000);
+
         await waitFor(() => {
             expect(mockOnSubmit).toHaveBeenCalledWith('Hello dear council');
         });
+
+        vi.useRealTimers();
     });
 
     it('does not auto-submit when transcript has fewer than three words', async () => {

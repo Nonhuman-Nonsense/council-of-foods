@@ -99,6 +99,15 @@ itself, not logic. Logic tests belong in mock mode.
   they are slow and flaky by nature.
 - **Speed is a feature.** The mock-mode suites run on every change (by humans and agents).
   A test that adds seconds needs to earn them; prefer fake timers over real waits.
+- **Fake timers whenever a behavior is gated by a real `setTimeout`/`setInterval` of
+  ~1s or more.** `waitFor`'s default timeout is 1000ms; a test that leaves real timers running
+  and waits on a debounce/delay at or above that (e.g. `FINISHING_QUIET_MS`,
+  `BUTTON_BANNER_IDLE_MS`) is racing its own assertion and will flake under load even though it
+  passes reliably on an idle machine. Use `vi.useFakeTimers({ shouldAdvanceTime: true })`, drive
+  the delay explicitly with `vi.advanceTimersByTimeAsync(ms)`, and call `vi.useRealTimers()`
+  afterward (or in `afterEach`) so it doesn't leak into other tests. Short real waits (tens of
+  ms) to assert something did *not* happen are fine as-is — fake timers are for delays the test
+  is actually depending on to reach the asserted state.
 
 ## When a change needs a new test
 
