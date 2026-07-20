@@ -13,7 +13,6 @@
 
 import type { RealtimeSessionConfig } from "@realtime/realtimeProtocol";
 import type { ToolHandler, ToolResult } from "./realtimeTools";
-import type { CaptionScheduler } from "./captionScheduler";
 import { log as devLog, summarizeLogPayload } from "@/logger";
 
 export type RealtimeEventCtx = {
@@ -99,9 +98,8 @@ export function createEventLoop(params: {
   send: (payload: unknown) => void;
   getCtx: () => RealtimeEventCtx;
   callbacks: EventLoopCallbacks;
-  captionScheduler?: CaptionScheduler;
 }): EventLoop {
-  const { send, getCtx, callbacks, captionScheduler } = params;
+  const { send, getCtx, callbacks } = params;
   const log = callbacks.log ?? (() => undefined);
 
   let activeResponses = 0;
@@ -163,10 +161,7 @@ export function createEventLoop(params: {
     if (activeResponses > 0) {
       send({ type: "response.cancel" });
     }
-    captionScheduler?.cancel();
-    if (!captionScheduler) {
-      callbacks.onCaption(null);
-    }
+    callbacks.onCaption(null);
   };
 
   const trySendJson = (payload: unknown) => {
@@ -254,7 +249,6 @@ export function createEventLoop(params: {
         reason: currentResponseReason,
         forUserTranscript: lastUserTranscript,
       });
-      captionScheduler?.beginResponse();
       callbacks.onResponseStarted?.();
       return true;
     }
@@ -281,9 +275,6 @@ export function createEventLoop(params: {
         usage: rFull?.usage ?? null,
         outputLen: Array.isArray(rFull?.output) ? rFull.output.length : null,
       });
-      if (r?.status === "cancelled" || r?.status === "failed") {
-        captionScheduler?.cancel();
-      }
       callbacks.onResponseDone?.({ status: r?.status });
       if (pendingDeferredResponse && sessionReady && activeResponses === 0) {
         pendingDeferredResponse = false;
@@ -431,22 +422,10 @@ export function createEventLoop(params: {
 
     if (type === "response.output_audio_transcript.delta") {
       sawOutputThisResponse = true;
-      const delta = asStr(obj.delta);
-      if (delta) captionScheduler?.appendDelta(delta);
       return true;
     }
 
     if (type === "response.output_audio_transcript.done") {
-      const transcript = asStr(obj.transcript);
-      if (transcript && transcript.trim().length > 0) {
-        if (captionScheduler) {
-          captionScheduler.finalize(transcript);
-        } else if (!callbacks.onWordAlignment) {
-          // Only fall back to full-transcript caption when word alignment is not
-          // driving captions (e.g. OpenAI provider with no alignment data).
-          callbacks.onCaption(transcript);
-        }
-      }
       return true;
     }
 
@@ -462,11 +441,7 @@ export function createEventLoop(params: {
       });
       if (transcript && transcript.trim().length > 0) {
         callbacks.onUserTranscript(transcript);
-        if (captionScheduler) {
-          captionScheduler.cancel();
-        } else {
-          callbacks.onCaption(null);
-        }
+        callbacks.onCaption(null);
       }
       return true;
     }
@@ -497,7 +472,6 @@ export function createEventLoop(params: {
 
     // Speech VAD events: useful for diagnostics but not actionable here.
     if (type === "input_audio_buffer.speech_started") {
-      captionScheduler?.cancel();
       return true;
     }
 

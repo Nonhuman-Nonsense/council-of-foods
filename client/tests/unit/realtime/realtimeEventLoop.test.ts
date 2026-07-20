@@ -350,14 +350,6 @@ describe("realtimeEventLoop", () => {
         const onAudioPartReady = vi.fn();
         const onResponseStarted = vi.fn();
         const onResponseDone = vi.fn();
-        const captionScheduler = {
-            beginResponse: vi.fn(),
-            appendDelta: vi.fn(),
-            finalize: vi.fn(),
-            cancel: vi.fn(),
-            setAudioAnchor: vi.fn(),
-            setSpeed: vi.fn(),
-        };
 
         const loop = createEventLoop({
             send,
@@ -371,7 +363,6 @@ describe("realtimeEventLoop", () => {
                 onResponseDone,
                 log: vi.fn(),
             },
-            captionScheduler,
         });
 
         loop.configureSession(makeSession());
@@ -395,17 +386,14 @@ describe("realtimeEventLoop", () => {
 
         expect(onResponseStarted).toHaveBeenCalledOnce();
         expect(onResponseDone).toHaveBeenCalledOnce();
-        expect(captionScheduler.beginResponse).toHaveBeenCalledOnce();
         expect(onAudioPartReady).toHaveBeenCalledOnce();
-        expect(captionScheduler.appendDelta).toHaveBeenCalledWith("hello");
-        expect(captionScheduler.finalize).toHaveBeenCalledWith("hello world");
         expect(onUserTranscript).toHaveBeenCalledWith("I have a question");
-        expect(captionScheduler.cancel).toHaveBeenCalledTimes(3);
+        expect(onCaption).toHaveBeenCalledWith(null);
         expect(onError).toHaveBeenNthCalledWith(1, "bad | code=boom | param=x | type=server_error");
         expect(onError).toHaveBeenNthCalledWith(2, "just a string");
     });
 
-    it("falls back without a caption scheduler and handles missing tool handlers", async () => {
+    it("handles missing tool handlers and malformed function-call arguments", async () => {
         const send = vi.fn();
         const onCaption = vi.fn();
         const loop = createEventLoop({
@@ -442,7 +430,6 @@ describe("realtimeEventLoop", () => {
         });
         await loop.handleEvent({ type: "response.done", response: { status: "cancelled" } });
 
-        expect(onCaption).toHaveBeenNthCalledWith(1, "spoken answer");
         const outputCall = send.mock.calls.find(
             (c) => (c[0] as { item?: { type?: string } }).item?.type === "function_call_output"
         );
