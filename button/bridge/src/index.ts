@@ -1,3 +1,4 @@
+import { LED_ERROR } from "../../../shared/buttonProtocol.js";
 import { loadConfig } from "./config.js";
 import { MockSerialManager } from "./mockSerialManager.js";
 import { SerialManager } from "./serialManager.js";
@@ -12,13 +13,24 @@ function createSerialManager(config: ReturnType<typeof loadConfig>): SerialManag
   return new SerialManager(config);
 }
 
+function notifyNoClientIfSerialOpen(serial: SerialManagerLike, clientCount: number): void {
+  if (clientCount > 0 || !serial.isOpen()) return;
+  void serial.writeLine(LED_ERROR).catch((error: unknown) => {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.warn("[button-bridge] failed to signal no-client error state", msg);
+  });
+}
+
 async function main(): Promise<void> {
   const config = loadConfig();
   const serial = createSerialManager(config);
-  const ws = new WsServer(config, serial);
+  const ws = new WsServer(config, serial, (clientCount) => {
+    notifyNoClientIfSerialOpen(serial, clientCount);
+  });
 
   serial.on("open", ({ path }) => {
     ws.broadcast({ type: "status", state: "connected", path });
+    notifyNoClientIfSerialOpen(serial, ws.getClientCount());
   });
 
   serial.on("close", ({ reason }) => {

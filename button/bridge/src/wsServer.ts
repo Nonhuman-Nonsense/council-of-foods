@@ -13,12 +13,23 @@ function isLocalAddress(address: string | undefined): boolean {
 export class WsServer {
   private readonly config: BridgeConfig;
   private readonly serial: SerialManagerLike;
+  private readonly onClientCountChange?: (count: number) => void;
   private httpServer: http.Server | null = null;
   private wss: WebSocketServer | null = null;
 
-  constructor(config: BridgeConfig, serial: SerialManagerLike) {
+  constructor(
+    config: BridgeConfig,
+    serial: SerialManagerLike,
+    onClientCountChange?: (count: number) => void,
+  ) {
     this.config = config;
     this.serial = serial;
+    this.onClientCountChange = onClientCountChange;
+  }
+
+  /** Authoritative count — `wss.clients` is maintained by the `ws` library itself. */
+  getClientCount(): number {
+    return this.wss?.clients.size ?? 0;
   }
 
   start(): void {
@@ -105,6 +116,7 @@ export class WsServer {
       }
 
       console.log("[button-bridge/ws] client connected");
+      this.onClientCountChange?.(this.getClientCount());
       this.send(socket, { type: "info", version: BRIDGE_VERSION });
       this.send(socket, this.currentStatusMessage());
 
@@ -123,6 +135,7 @@ export class WsServer {
 
       socket.on("close", () => {
         console.log("[button-bridge/ws] client disconnected");
+        this.onClientCountChange?.(this.getClientCount());
       });
     });
 

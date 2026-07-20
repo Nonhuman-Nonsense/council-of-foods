@@ -8,18 +8,20 @@
  * Serial protocol (115200 baud, newline-terminated):
  *   Device → host: BUTTON_DOWN, BUTTON_UP
  *   On host serial connect: one BUTTON_DOWN or BUTTON_UP to sync physical state
- *   Host → device: LED_OFF, LED_PULSE, LED_ON, HELLO_COUNCIL
+ *   Host → device: LED_OFF, LED_PULSE, LED_ON, LED_ERROR, HELLO_COUNCIL
  *
  * LED modes (from host — visual only; host decides what to do with presses):
  *   LED_OFF   — LEDs off
  *   LED_PULSE — breathing LEDs
  *   LED_ON    — LEDs fully on
+ *   LED_ERROR — slow marching LEDs (bridge is up but has no client attached)
  *
  * While a host is connected, BUTTON_DOWN / BUTTON_UP are always sent on press/release.
  * The browser gates whether those events activate mic / agent logic.
  *
  * When no host has opened the USB serial port, button presses are ignored and
- * the LEDs cycle one-at-a-time as a connecting indicator.
+ * the LEDs cycle one-at-a-time (fast) as a connecting indicator. LED_ERROR reuses
+ * the same marching pattern but slower, so the two are visually distinguishable.
  */
 
 #include <math.h>
@@ -43,6 +45,7 @@ const uint8_t PWM_PINS[BUTTON_COUNT] = { PWM1, PWM2, PWM3 };
 #define LED_BRIGHTNESS 255
 #define DEBOUNCE_MS 50
 #define CONNECTING_ANIM_STEP_MS 1000
+#define ERROR_ANIM_STEP_MS 3000
 #define PULSE_CYCLE_MS 2400
 #define PULSE_MIN_BRIGHTNESS 18
 #define SERIAL_LINE_MAX 32
@@ -50,6 +53,7 @@ const uint8_t PWM_PINS[BUTTON_COUNT] = { PWM1, PWM2, PWM3 };
 #define LED_MODE_OFF 0
 #define LED_MODE_PULSE 1
 #define LED_MODE_ON 2
+#define LED_MODE_ERROR 3
 
 Adafruit_seesaw ss;
 
@@ -61,8 +65,8 @@ bool hostConnected = false;
 uint8_t hostLedMode = LED_MODE_OFF;
 unsigned long pulseAnimStartMs = 0;
 
-uint8_t connectingAnimIndex = 0;
-unsigned long connectingAnimLastStep = 0;
+uint8_t marchAnimIndex = 0;
+unsigned long marchAnimLastStep = 0;
 
 char serialLineBuffer[SERIAL_LINE_MAX + 1];
 uint8_t serialLineLength = 0;
@@ -108,6 +112,10 @@ void setHostLedMode(uint8_t mode) {
     applyAllLeds(0);
   } else if (mode == LED_MODE_ON) {
     applyAllLeds(LED_BRIGHTNESS);
+  } else if (mode == LED_MODE_ERROR) {
+    applyAllLeds(0);
+    marchAnimIndex = 0;
+    marchAnimLastStep = 0;
   }
 
   syncButtonBaseline();
@@ -124,6 +132,18 @@ void runPulseAnimation() {
   applyAllLeds(level);
 }
 
+void runMarchAnimation(unsigned long stepMs) {
+  unsigned long now = millis();
+  if (marchAnimLastStep == 0 || (now - marchAnimLastStep) >= stepMs) {
+    applyAllLeds(0);
+    if (marchAnimIndex < BUTTON_COUNT) {
+      ss.analogWrite(PWM_PINS[marchAnimIndex], LED_BRIGHTNESS);
+    }
+    marchAnimIndex = (marchAnimIndex + 1) % BUTTON_COUNT;
+    marchAnimLastStep = now;
+  }
+}
+
 void updateHostLedOutput() {
   if (!hostConnected) {
     return;
@@ -138,6 +158,9 @@ void updateHostLedOutput() {
       break;
     case LED_MODE_ON:
       applyAllLeds(LED_BRIGHTNESS);
+      break;
+    case LED_MODE_ERROR:
+      runMarchAnimation(ERROR_ANIM_STEP_MS);
       break;
   }
 }
@@ -162,8 +185,8 @@ void updateHostConnection() {
     }
   } else {
     hostLedMode = LED_MODE_OFF;
-    connectingAnimIndex = 0;
-    connectingAnimLastStep = 0;
+    marchAnimIndex = 0;
+    marchAnimLastStep = 0;
     syncButtonBaseline();
   }
 }
@@ -173,15 +196,7 @@ void runConnectingAnimation() {
     return;
   }
 
-  unsigned long now = millis();
-  if (connectingAnimLastStep == 0 || (now - connectingAnimLastStep) >= CONNECTING_ANIM_STEP_MS) {
-    applyAllLeds(0);
-    if (connectingAnimIndex < BUTTON_COUNT) {
-      ss.analogWrite(PWM_PINS[connectingAnimIndex], LED_BRIGHTNESS);
-    }
-    connectingAnimIndex = (connectingAnimIndex + 1) % BUTTON_COUNT;
-    connectingAnimLastStep = now;
-  }
+  runMarchAnimation(CONNECTING_ANIM_STEP_MS);
 }
 
 void processSerialLine(const char *line) {
@@ -191,6 +206,8 @@ void processSerialLine(const char *line) {
     setHostLedMode(LED_MODE_PULSE);
   } else if (strcmp(line, "LED_ON") == 0) {
     setHostLedMode(LED_MODE_ON);
+  } else if (strcmp(line, "LED_ERROR") == 0) {
+    setHostLedMode(LED_MODE_ERROR);
   } else if (strcmp(line, "HELLO_COUNCIL") == 0) {
     sendLine(F("READY council-button"));
   }
@@ -247,8 +264,8 @@ void setup() {
 
   hostConnected = (bool)Serial;
   hostLedMode = LED_MODE_OFF;
-  connectingAnimIndex = 0;
-  connectingAnimLastStep = 0;
+  marchAnimIndex = 0;
+  marchAnimLastStep = 0;
   pulseAnimStartMs = millis();
   serialLineLength = 0;
   serialLineBuffer[0] = '\0';
