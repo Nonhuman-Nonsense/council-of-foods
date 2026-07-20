@@ -80,6 +80,19 @@ export type EventLoop = {
   sendUserMessage: (text: string) => void;
   /** Cancel any in-flight model response (sends response.cancel). */
   cancelActiveResponse: () => void;
+  /**
+   * Barge-in: cancel any in-flight response, truncate the assistant's
+   * last-spoken audio item to what was actually heard (if known), clear the
+   * server's buffered output audio (`output_audio_buffer.clear`), then send
+   * the given user message and request a new response — regardless of
+   * whether a response is currently active. Used for click-reactions that
+   * must cut off whatever the agent is currently saying, mirroring
+   * server-VAD interrupt.
+   */
+  interruptAndRespond: (
+    userText: string,
+    options?: { reason?: string; audioElapsedMs?: number }
+  ) => void;
 };
 
 type FunctionCallMeta = { name?: string; call_id?: string };
@@ -128,6 +141,14 @@ export function createEventLoop(params: {
   let pendingCreateReason: string | null = null;
   /** Reason the in-flight response was created ("server-auto" if we didn't send it). */
   let currentResponseReason = "server-auto";
+  /**
+   * item_id/content_index of the current (or most recently spoken) assistant
+   * audio content part. Used by `interruptAndRespond` to send
+   * `conversation.item.truncate` so the server's transcript matches what the
+   * visitor actually heard, not what the model finished generating.
+   */
+  let currentAssistantAudioItemId: string | null = null;
+  let currentAssistantAudioContentIndex: number | null = null;
   /** Most recent user transcript text (for correlating in logs). */
   let lastUserTranscript = "";
 
@@ -162,6 +183,52 @@ export function createEventLoop(params: {
       send({ type: "response.cancel" });
     }
     callbacks.onCaption(null);
+  };
+
+  const interruptAndRespond = (
+    userText: string,
+    options?: { reason?: string; audioElapsedMs?: number }
+  ): void => {
+    const reason = options?.reason ?? "interrupt-request";
+    if (activeResponses > 0) {
+      devLog.flat("TURN", "OUT response.cancel (interrupt)", { reason });
+      send({ type: "response.cancel" });
+    }
+    // Trim the assistant's last-spoken item down to what was actually heard,
+    // so the model's own transcript doesn't include audio that got cut off —
+    // otherwise it may reference things it never actually said out loud.
+    if (
+      options?.audioElapsedMs != null &&
+      currentAssistantAudioItemId != null &&
+      currentAssistantAudioContentIndex != null
+    ) {
+      // Floor, never round: rounding up can put audio_end_ms a fraction of a
+      // ms past the provider's own reported duration at the boundary
+      // (observed: "audio_end_ms 20660 exceeds actual audio duration 20659"),
+      // which the provider rejects outright and crashes the session.
+      const audioEndMs = Math.max(0, Math.floor(options.audioElapsedMs));
+      devLog.flat("TURN", "OUT conversation.item.truncate (interrupt)", {
+        reason,
+        itemId: currentAssistantAudioItemId,
+        audioEndMs,
+      });
+      send({
+        type: "conversation.item.truncate",
+        item_id: currentAssistantAudioItemId,
+        content_index: currentAssistantAudioContentIndex,
+        audio_end_ms: audioEndMs,
+      });
+    }
+    devLog.flat("TURN", "OUT output_audio_buffer.clear (interrupt)", { reason });
+    send({ type: "output_audio_buffer.clear" });
+    // Leave the current caption on screen, same as real voice interruption:
+    // it's cleared naturally when the new response starts (onResponseStarted).
+    sendUserMessage(userText);
+    if (!sessionReady) {
+      pendingDeferredResponse = true;
+      return;
+    }
+    sendResponseCreate(reason);
   };
 
   const trySendJson = (payload: unknown) => {
@@ -244,6 +311,8 @@ export function createEventLoop(params: {
       sawOutputThisResponse = false;
       currentResponseReason = pendingCreateReason ?? "server-auto";
       pendingCreateReason = null;
+      currentAssistantAudioItemId = null;
+      currentAssistantAudioContentIndex = null;
       devLog.event("REALTIME", "IN response.created", { activeResponses });
       devLog.flat("TURN", "IN response.created", {
         reason: currentResponseReason,
@@ -337,6 +406,10 @@ export function createEventLoop(params: {
       sawOutputThisResponse = true;
       const part = asObj(obj.part);
       if (asStr(part?.type) === "audio") {
+        const itemId = asStr(obj.item_id);
+        const contentIndex = (obj as Record<string, unknown>).content_index;
+        if (itemId) currentAssistantAudioItemId = itemId;
+        if (typeof contentIndex === "number") currentAssistantAudioContentIndex = contentIndex;
         callbacks.onAudioPartReady?.();
       }
       return true;
@@ -479,6 +552,11 @@ export function createEventLoop(params: {
       return true;
     }
 
+    if (type.startsWith("output_audio_buffer.")) {
+      devLog.event("REALTIME", `IN ${type}`, summarizeLogPayload(obj));
+      return true;
+    }
+
     return false;
   };
 
@@ -489,5 +567,6 @@ export function createEventLoop(params: {
     configureSession,
     sendUserMessage,
     cancelActiveResponse,
+    interruptAndRespond,
   };
 }

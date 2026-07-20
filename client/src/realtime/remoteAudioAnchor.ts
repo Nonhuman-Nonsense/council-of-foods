@@ -20,6 +20,14 @@ export type RemoteAudioAnchorOptions = {
   track: MediaStreamTrack;
   /** Called when the first audible onset is detected after arming. `ctxTime` is `AudioContext.currentTime` at the moment of detection — use it as the subtitle clock anchor. */
   onAudioStart: (nowMs: number, ctxTime: number) => void;
+  /**
+   * Called when `arm(true)`'s "wait for silence" completes — sustained real
+   * silence has been confirmed on the track. Reliable signal for "the
+   * previous response's audio has actually stopped," including after a
+   * client-triggered interrupt (`output_audio_buffer.clear`), where audio can
+   * keep draining for a second or two after the command is sent.
+   */
+  onArmed?: () => void;
   silenceThreshold?: number;
   silenceMs?: number;
   fftSize?: number;
@@ -35,6 +43,17 @@ const getNow = (): number => {
     return performance.now();
   }
   return Date.now();
+};
+
+/**
+ * Human-comparable local wall-clock string (HH:MM:SS.mmm), for manually
+ * correlating an onset-detection log line against when audio is actually
+ * heard — `performance.now()`/`AudioContext.currentTime` alone aren't
+ * something you can line up against a stopwatch or your own perception.
+ */
+const wallClockNow = (): string => {
+  const d = new Date();
+  return `${d.toLocaleTimeString(undefined, { hour12: false })}.${String(d.getMilliseconds()).padStart(3, "0")}`;
 };
 
 function createAudioContext(): AudioContext {
@@ -55,6 +74,7 @@ export function createRemoteAudioAnchor(options: RemoteAudioAnchorOptions): Remo
   const {
     track,
     onAudioStart,
+    onArmed,
     silenceThreshold = DEFAULT_SILENCE_THRESHOLD,
     silenceMs = DEFAULT_SILENCE_MS,
     fftSize = DEFAULT_FFT_SIZE,
@@ -76,6 +96,10 @@ export function createRemoteAudioAnchor(options: RemoteAudioAnchorOptions): Remo
   let waitingForSilence = false;
   let firedForCurrentArm = false;
   let quietSinceMs: number | null = null;
+  /** Separate debounce clock for waitingForSilence, so a single sub-threshold
+   *  frame (e.g. a natural gap between words) doesn't prematurely arm on
+   *  audio that's still playing from the previous response. */
+  let waitingQuietSinceMs: number | null = null;
 
   const releaseQuietStateIfSilent = (rms: number, nowMs: number) => {
     if (!firedForCurrentArm) return;
@@ -98,17 +122,27 @@ export function createRemoteAudioAnchor(options: RemoteAudioAnchorOptions): Remo
 
     if (waitingForSilence) {
       if (rms < silenceThreshold) {
-        waitingForSilence = false;
-        armed = true;
-        firedForCurrentArm = false;
-        quietSinceMs = null;
-        log?.("remote audio anchor: silence detected, now armed");
+        waitingQuietSinceMs ??= nowMs;
+        if (nowMs - waitingQuietSinceMs >= silenceMs) {
+          waitingForSilence = false;
+          armed = true;
+          firedForCurrentArm = false;
+          quietSinceMs = null;
+          waitingQuietSinceMs = null;
+          log?.("remote audio anchor: silence detected, now armed");
+          onArmed?.();
+        }
+      } else {
+        waitingQuietSinceMs = null;
       }
     } else if (armed && !firedForCurrentArm && rms >= silenceThreshold) {
       armed = false;
       firedForCurrentArm = true;
       quietSinceMs = null;
-      log?.("remote audio anchor fired", { rms });
+      // DIAGNOSTIC (temporary): compare this wall-clock time against when you
+      // actually hear the response start, to confirm/deny whether the silent
+      // analyser tap is drifting from the audible <audio> element's playback.
+      log?.(`[SUBS] ONSET DETECTED at wallClock=${wallClockNow()}`, { rms });
       onAudioStart(nowMs, ctx.currentTime);
     } else {
       releaseQuietStateIfSilent(rms, nowMs);
@@ -132,6 +166,7 @@ export function createRemoteAudioAnchor(options: RemoteAudioAnchorOptions): Remo
         armed = true;
       }
       quietSinceMs = null;
+      waitingQuietSinceMs = null;
       if (ctx.state === "suspended") {
         void ctx.resume().catch((err) => log?.("remote audio anchor resume failed", err));
       }
@@ -142,6 +177,7 @@ export function createRemoteAudioAnchor(options: RemoteAudioAnchorOptions): Remo
       disposed = true;
       armed = false;
       waitingForSilence = false;
+      waitingQuietSinceMs = null;
       if (rafId != null) {
         cancelAnimationFrame(rafId);
         rafId = null;

@@ -7,7 +7,7 @@ import { getTopicsBundle } from "@main/topicsBundle";
 import { getCharacterSetupBundle } from "@newMeeting/CharacterSetup";
 import type { Character } from "@shared/ModelTypes";
 import {
-  buildMeetingSetupSyncMessage,
+  buildMeetingSetupReactionMessage,
   buildTopicFromSelection,
   type MeetingSetupPhase,
   type MeetingSetupUserEvent,
@@ -125,7 +125,7 @@ export default function MeetingSetupAgent({
     agentMode,
     micOpen: button.pressed,
   });
-  const { sendUserMessage, muted } = agent;
+  const { interruptAndRespond, muted } = agent;
   const { nudgeFired, clearNudge } = useAgentPresence({ agent, phase });
 
   const showMuseumReconnecting =
@@ -183,11 +183,14 @@ export default function MeetingSetupAgent({
     }
 
     const timer = setTimeout(() => {
-      sendUserMessage(buildMeetingSetupSyncMessage(lastUserEvent));
-    }, 1000);
+      // Barge-in: cut off whatever the agent is currently saying (if
+      // anything) and react to this click immediately, mirroring server-VAD
+      // voice interruption rather than queuing behind current audio.
+      interruptAndRespond(buildMeetingSetupReactionMessage(lastUserEvent), "click-reaction");
+    }, 300);
 
     return () => clearTimeout(timer);
-  }, [lastUserEvent, sendUserMessage]);
+  }, [lastUserEvent, interruptAndRespond]);
 
   return (
     <>

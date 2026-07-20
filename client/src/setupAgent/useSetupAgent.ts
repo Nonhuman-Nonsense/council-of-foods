@@ -29,6 +29,7 @@ export type SetupAgentState = {
   stop: () => void;
   sendUserMessage: (text: string) => void;
   requestAgentResponse: () => void;
+  interruptAndRespond: (text: string, reason?: string) => void;
 };
 
 /**
@@ -104,5 +105,6 @@ export function useSetupAgent(params: UseSetupAgentParams): SetupAgentState {
     agentSpeaking: session.agentSpeaking,
     sendUserMessage: session.sendUserMessage,
     requestAgentResponse: session.requestAgentResponse,
+    interruptAndRespond: session.interruptAndRespond,
   };
 }

@@ -50,24 +50,27 @@ export type MeetingSetupUserEvent =
       topicTitle: string;
     };
 
-export function buildMeetingSetupSyncMessage(event: MeetingSetupUserEvent): string {
-  if (event.type === "topic_previewed") {
-    return `(STATE SYNC: ${JSON.stringify({
-      source: "user",
-      type: "topic_previewed",
-      step: "topic",
-      topicId: event.topicId,
-      topicTitle: event.topicTitle,
-    })})`;
-  }
+/**
+ * These turns are injected by a barge-in that cuts the agent off mid-speech
+ * and truncates its transcript at the cut — so the conversation the model sees
+ * ends on an unfinished sentence. Left to itself it tends to simply complete
+ * that sentence rather than react to what the visitor just did.
+ */
+const CUT_OFF_NOTE =
+  "If your previous sentence was cut off, do not finish it — react to this instead.";
 
-  return `(STATE SYNC: ${JSON.stringify({
-    source: "user",
-    type: "topic_committed",
-    step: "characters",
-    topicId: event.topicId,
-    topicTitle: event.topicTitle,
-  })})`;
+/**
+ * Synthetic user turn describing a click the visitor just made, used to prompt
+ * an immediate spoken reaction. Phrased as an instruction rather than a state
+ * blob: it is sent with a `response.create`, so the model is being asked to
+ * say something, not just to absorb context.
+ */
+export function buildMeetingSetupReactionMessage(event: MeetingSetupUserEvent): string {
+  const situation = event.type === "topic_previewed"
+    ? `selected the topic "${event.topicTitle}" on screen, but has not confirmed it yet. React briefly to their choice.`
+    : `confirmed the topic "${event.topicTitle}" and moved on to the food selection step. React briefly and help them choose their foods.`;
+
+  return `(The visitor just ${situation} ${CUT_OFF_NOTE})`;
 }
 
 export function buildTopicFromSelection(params: {

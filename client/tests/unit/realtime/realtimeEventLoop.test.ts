@@ -393,6 +393,141 @@ describe("realtimeEventLoop", () => {
         expect(onError).toHaveBeenNthCalledWith(2, "just a string");
     });
 
+    /**
+     * Click-reaction barge-in: unlike requestResponseIfIdle, this must always
+     * cut off whatever's currently playing rather than silently no-op when
+     * a response is active — response.done alone doesn't mean the audio has
+     * finished draining on the client, so we clear the server's output buffer.
+     */
+    it("interruptAndRespond cancels, clears output audio, and responds when a response is active", async () => {
+        const send = vi.fn();
+        const onCaption = vi.fn();
+        const loop = createEventLoop({
+            send,
+            getCtx: () => ({ toolHandlers: {} }),
+            callbacks: { onCaption, onUserTranscript: vi.fn(), onError: vi.fn() },
+        });
+
+        loop.configureSession(makeSession());
+        await loop.handleEvent({ type: "session.updated" });
+        await loop.handleEvent({ type: "response.created" });
+        send.mockClear();
+        onCaption.mockClear();
+
+        loop.interruptAndRespond("(click reaction text)", { reason: "click-reaction" });
+
+        const sentTypes = send.mock.calls.map((c) => (c[0] as { type: string }).type);
+        expect(sentTypes).toEqual([
+            "response.cancel",
+            "output_audio_buffer.clear",
+            "conversation.item.create",
+            "response.create",
+        ]);
+        // The old caption stays on screen (same as real voice interruption)
+        // until the new response starts and clears it naturally.
+        expect(onCaption).not.toHaveBeenCalled();
+    });
+
+    it("interruptAndRespond skips response.cancel when idle but still clears output audio", async () => {
+        const send = vi.fn();
+        const loop = createEventLoop({
+            send,
+            getCtx: () => ({ toolHandlers: {} }),
+            callbacks: { onCaption: vi.fn(), onUserTranscript: vi.fn(), onError: vi.fn() },
+        });
+
+        loop.configureSession(makeSession());
+        await loop.handleEvent({ type: "session.updated" });
+        send.mockClear();
+
+        loop.interruptAndRespond("(click reaction text)");
+
+        const sentTypes = send.mock.calls.map((c) => (c[0] as { type: string }).type);
+        expect(sentTypes).toEqual([
+            "output_audio_buffer.clear",
+            "conversation.item.create",
+            "response.create",
+        ]);
+    });
+
+    /**
+     * Without truncation, the model's own transcript still says it finished
+     * the interrupted sentence even though the visitor only heard part of
+     * it — it may then reference things it never actually said out loud.
+     */
+    it("interruptAndRespond truncates the assistant's audio item to what was actually heard", async () => {
+        const send = vi.fn();
+        const loop = createEventLoop({
+            send,
+            getCtx: () => ({ toolHandlers: {} }),
+            callbacks: { onCaption: vi.fn(), onUserTranscript: vi.fn(), onError: vi.fn() },
+        });
+
+        loop.configureSession(makeSession());
+        await loop.handleEvent({ type: "session.updated" });
+        await loop.handleEvent({ type: "response.created" });
+        await loop.handleEvent({
+            type: "response.content_part.added",
+            item_id: "item-abc",
+            content_index: 0,
+            part: { type: "audio" },
+        });
+        send.mockClear();
+
+        loop.interruptAndRespond("(click reaction text)", { reason: "click-reaction", audioElapsedMs: 1234.7 });
+
+        const truncateCall = send.mock.calls.find(
+            (c) => (c[0] as { type: string }).type === "conversation.item.truncate"
+        );
+        expect(truncateCall).toBeDefined();
+        expect(truncateCall![0]).toEqual({
+            type: "conversation.item.truncate",
+            item_id: "item-abc",
+            content_index: 0,
+            audio_end_ms: 1234,
+        });
+    });
+
+    it("interruptAndRespond skips truncate when no audio item is known yet", async () => {
+        const send = vi.fn();
+        const loop = createEventLoop({
+            send,
+            getCtx: () => ({ toolHandlers: {} }),
+            callbacks: { onCaption: vi.fn(), onUserTranscript: vi.fn(), onError: vi.fn() },
+        });
+
+        loop.configureSession(makeSession());
+        await loop.handleEvent({ type: "session.updated" });
+        send.mockClear();
+
+        loop.interruptAndRespond("(click reaction text)", { audioElapsedMs: 500 });
+
+        const sentTypes = send.mock.calls.map((c) => (c[0] as { type: string }).type);
+        expect(sentTypes).not.toContain("conversation.item.truncate");
+    });
+
+    it("interruptAndRespond defers response.create until session.updated when session isn't ready", () => {
+        const send = vi.fn();
+        const loop = createEventLoop({
+            send,
+            getCtx: () => ({ toolHandlers: {} }),
+            callbacks: { onCaption: vi.fn(), onUserTranscript: vi.fn(), onError: vi.fn() },
+        });
+
+        loop.interruptAndRespond("(click reaction text)");
+
+        let sentTypes = send.mock.calls.map((c) => (c[0] as { type: string }).type);
+        expect(sentTypes).toEqual(["output_audio_buffer.clear", "conversation.item.create"]);
+
+        void loop.handleEvent({ type: "session.updated" });
+        sentTypes = send.mock.calls.map((c) => (c[0] as { type: string }).type);
+        expect(sentTypes).toEqual([
+            "output_audio_buffer.clear",
+            "conversation.item.create",
+            "response.create",
+        ]);
+    });
+
     it("handles missing tool handlers and malformed function-call arguments", async () => {
         const send = vi.fn();
         const onCaption = vi.fn();
