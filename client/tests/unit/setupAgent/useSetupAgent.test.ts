@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, waitFor } from "@testing-library/react";
-import { useVoiceGuide } from "@voice/useVoiceGuide";
+import { useSetupAgent } from "@setupAgent/useSetupAgent";
 
 const mockUseRealtimeVoiceSession = vi.hoisted(() => vi.fn());
 
@@ -35,13 +35,13 @@ beforeEach(() => {
   mockUseRealtimeVoiceSession.mockReturnValue(baseSession);
 });
 
-describe("useVoiceGuide", () => {
-  it("wires voice-guide feature with greeting and PTT mic", () => {
-    renderHook(() => useVoiceGuide(defaultParams));
+describe("useSetupAgent", () => {
+  it("wires setup-agent feature with greeting and PTT mic", () => {
+    renderHook(() => useSetupAgent(defaultParams));
 
     expect(mockUseRealtimeVoiceSession).toHaveBeenCalledWith(
       expect.objectContaining({
-        feature: "voice-guide",
+        feature: "setup-agent",
         triggerGreetingOnReady: true,
         pttMic: false,
         sessionActive: true,
@@ -51,7 +51,7 @@ describe("useVoiceGuide", () => {
   });
 
   it("starts muted when initialMuted is true", () => {
-    renderHook(() => useVoiceGuide({ ...defaultParams, initialMuted: true }));
+    renderHook(() => useSetupAgent({ ...defaultParams, initialMuted: true }));
 
     expect(mockUseRealtimeVoiceSession).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -67,7 +67,7 @@ describe("useVoiceGuide", () => {
       hasReceivedAudioPart: false,
     });
 
-    const { result } = renderHook(() => useVoiceGuide(defaultParams));
+    const { result } = renderHook(() => useSetupAgent(defaultParams));
     expect(result.current.isConnecting).toBe(true);
 
     mockUseRealtimeVoiceSession.mockReturnValue({
@@ -76,7 +76,7 @@ describe("useVoiceGuide", () => {
       hasReceivedAudioPart: true,
     });
 
-    const { result: result2 } = renderHook(() => useVoiceGuide(defaultParams));
+    const { result: result2 } = renderHook(() => useSetupAgent(defaultParams));
     await waitFor(() => {
       expect(result2.current.isConnecting).toBe(false);
     });
@@ -91,7 +91,7 @@ describe("useVoiceGuide", () => {
 
     const { rerender } = renderHook(
       ({ micOpen }) =>
-        useVoiceGuide({
+        useSetupAgent({
           ...defaultParams,
           agentMode: "ptt",
           micOpen,

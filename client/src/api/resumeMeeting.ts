@@ -1,13 +1,11 @@
 import type { ResumeMeetingResponse } from "@shared/SocketTypes";
-import { councilFetch } from "./http";
+import { councilFetch, HttpStatusError } from "./http";
 
 /** Typed error for `PUT /api/meetings/:id` so callers can branch on status code. */
-export class ResumeMeetingError extends Error {
-  readonly status: number;
+export class ResumeMeetingError extends HttpStatusError {
   constructor(status: number, message: string) {
-    super(message);
+    super(status, message);
     this.name = "ResumeMeetingError";
-    this.status = status;
   }
 }
 

@@ -24,7 +24,7 @@ export interface MeetingSetupState {
   numberOfHumans: number;
   setNumberOfHumans: (count: number | ((prev: number) => number)) => void;
 
-  // Visitor name (voice guide audience member, not a council panelist)
+  // Visitor name (setup agent audience member, not a council panelist)
   visitorName: string;
   setVisitorName: (name: string) => void;
 

@@ -131,7 +131,7 @@
         "none": "—",
         "staff": "Staff",
         "autoplay": "Autoplay",
-        "voice-guide": "Voice guide",
+        "setup-agent": "Setup agent",
         "human-input": "Human input",
         "meta-agent": "Meta agent"
       }
@@ -170,6 +170,12 @@
     "resume": "Yes, let's continue!",
     "nevermind": "No, never mind."
   },
+  "meetingElsewhere": {
+    "title": "Meeting happening elsewhere",
+    "body": "This meeting is currently in session somewhere else,\ncheck back later to see if it finished, or start a new meeting.",
+    "goBack": "Go back",
+    "startNew": "Start new meeting"
+  },
   "summary": {
     "download": "Download PDF",
     "banner": {
@@ -188,7 +194,7 @@
   },
   "error": {
     "title": "ERROR",
-    "message": "Something went wrong...",
+    "message": "Something went wrong...\nCouncil cannot continue",
     "audioLoad": "Could not load meeting audio.",
     "connection": "Connection Lost",
     "reconnecting": "Attempting to reconnect...",

@@ -4,7 +4,7 @@ import {
   createInworldSubtitleTrack,
   findActiveSentenceAtTime,
   type InworldWordToken,
-} from "@voice/inworldSubtitleTrack";
+} from "@realtime/inworldSubtitleTrack";
 
 // Helpers to build token arrays quickly.
 function tok(w: string, s: number, e: number): InworldWordToken {

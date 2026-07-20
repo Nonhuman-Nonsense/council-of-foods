@@ -24,6 +24,21 @@ function isSwedish(language: string): boolean {
 /** #1020 → "number 1020" / "nummer 1020" for TTS (meeting IDs). */
 const MEETING_NUMBER_PATTERN = /#(\d+)/g;
 
+/**
+ * Abbreviations that collide with ordinary words (e.g. Swedish "ha" = "to have"
+ * as well as the hectare unit). Only expand these when immediately preceded by
+ * a number, since that's the only context where the unit reading applies.
+ */
+const REQUIRES_NUMBER_PREFIX = new Set(['ha']);
+
+/**
+ * Abbreviations that are always written all-caps as acronyms but collide with
+ * common lowercase words (e.g. "LED" vs. the verb "led", Swedish "EV" vs. "ev."
+ * for "eventuellt"). Matched case-sensitively instead of case-insensitively so
+ * the lowercase word passes through untouched.
+ */
+const CASE_SENSITIVE_ABBREVIATIONS = new Set(['LED', 'LEDs', 'EV', 'EVs']);
+
 export class PronunciationUtils {
     private static regexCache = new Map<string, RegexEntry[]>();
 
@@ -38,7 +53,11 @@ export class PronunciationUtils {
             const escapedWord = PronunciationUtils.escapeRegExp(word);
             const startBoundary = /^\w/.test(word) ? '(?<![\\p{L}\\p{N}_])' : '';
             const endBoundary = /\w$/.test(word) ? '(?![\\p{L}\\p{N}_])' : '';
-            const regex = new RegExp(`${startBoundary}${escapedWord}${endBoundary}`, 'giu');
+            const numberPrefix = REQUIRES_NUMBER_PREFIX.has(word.toLowerCase())
+                ? '(?<=[\\p{N}]\\s?)'
+                : '';
+            const flags = CASE_SENSITIVE_ABBREVIATIONS.has(word) ? 'gu' : 'giu';
+            const regex = new RegExp(`${numberPrefix}${startBoundary}${escapedWord}${endBoundary}`, flags);
 
             return { regex, original: word, replacement };
         });

@@ -1,6 +1,6 @@
-export type RealtimeProvider = "inworld" | "openai";
+export type RealtimeProvider = "inworld";
 
-export type RealtimeFeature = "voice-guide" | "human-input" | "meta-agent";
+export type RealtimeFeature = "setup-agent" | "human-input" | "meta-agent";
 
 export interface IceServer {
     urls: string[] | string;
@@ -13,7 +13,7 @@ export interface RealtimeBootstrapResponse {
     iceServers: IceServer[];
     /**
      * Provider-owned session payload echoed back to `/api/realtime/call`.
-     * Voice-guide treats this as defaults to merge client instructions/tools into.
+     * Setup-agent treats this as defaults to merge client instructions/tools into.
      * Human-input treats this as the full session to create.
      */
     session: Record<string, unknown>;
@@ -37,13 +37,13 @@ export interface HumanInputRealtimeCallRequest {
     session: Record<string, unknown>;
 }
 
-export interface VoiceGuideRealtimeBootstrapRequest {
-    feature: "voice-guide";
+export interface SetupAgentRealtimeBootstrapRequest {
+    feature: "setup-agent";
     language: string;
 }
 
-export interface VoiceGuideRealtimeCallRequest {
-    feature: "voice-guide";
+export interface SetupAgentRealtimeCallRequest {
+    feature: "setup-agent";
     provider: RealtimeProvider;
     language: string;
     sdp: string;

@@ -111,4 +111,93 @@ describe("reportTerminalError", () => {
     expect(fetchSpy).not.toHaveBeenCalled();
     fetchSpy.mockRestore();
   });
+
+  it("includes severity/clientImpact in the POST body when provided", async () => {
+    vi.stubEnv("PROD", true);
+    vi.resetModules();
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(null, { status: 204 }));
+
+    const { reportTerminalError } = await import("@/logger");
+    reportTerminalError("test.source", "boom", undefined, { severity: "warning", clientImpact: "none" });
+
+    const body = JSON.parse(String(fetchSpy.mock.calls[0]?.[1]?.body));
+    expect(body.severity).toBe("warning");
+    expect(body.clientImpact).toBe("none");
+
+    fetchSpy.mockRestore();
+    vi.unstubAllEnvs();
+  });
+});
+
+describe("installGlobalErrorHandlers", () => {
+  // Captures the registered 'error' handler directly instead of using real window
+  // listeners, since installGlobalErrorHandlers has no teardown and listeners would
+  // otherwise accumulate on the shared jsdom `window` across tests/module reloads.
+  async function installAndCaptureErrorHandler() {
+    vi.stubEnv("PROD", true);
+    vi.resetModules();
+    const addEventListenerSpy = vi.spyOn(window, "addEventListener");
+    const { installGlobalErrorHandlers } = await import("@/logger");
+    installGlobalErrorHandlers();
+    const handler = addEventListenerSpy.mock.calls.find(([type]) => type === "error")?.[1] as (
+      event: ErrorEvent,
+    ) => void;
+    addEventListenerSpy.mockRestore();
+    return handler;
+  }
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("reports a window error at warning/none severity", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(null, { status: 204 }));
+    const handler = await installAndCaptureErrorHandler();
+
+    handler(new ErrorEvent("error", { message: "boom" }));
+
+    const body = JSON.parse(String(fetchSpy.mock.calls[0]?.[1]?.body));
+    expect(body.source).toBe("window.onerror");
+    expect(body.severity).toBe("warning");
+    expect(body.clientImpact).toBe("none");
+    fetchSpy.mockRestore();
+  });
+
+  it("drops known-noise messages like the in-app-browser webkit bridge", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(null, { status: 204 }));
+    const handler = await installAndCaptureErrorHandler();
+
+    handler(
+      new ErrorEvent("error", {
+        message: "undefined is not an object (evaluating 'window.webkit.messageHandlers')",
+      }),
+    );
+
+    expect(fetchSpy).not.toHaveBeenCalled();
+    fetchSpy.mockRestore();
+  });
+
+  it("dedupes identical messages instead of reporting every occurrence", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(null, { status: 204 }));
+    const handler = await installAndCaptureErrorHandler();
+
+    handler(new ErrorEvent("error", { message: "repeated boom" }));
+    handler(new ErrorEvent("error", { message: "repeated boom" }));
+    handler(new ErrorEvent("error", { message: "repeated boom" }));
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    fetchSpy.mockRestore();
+  });
+
+  it("caps the number of distinct window errors reported per page load", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(null, { status: 204 }));
+    const handler = await installAndCaptureErrorHandler();
+
+    for (let i = 0; i < 15; i++) {
+      handler(new ErrorEvent("error", { message: `distinct error ${i}` }));
+    }
+
+    expect(fetchSpy).toHaveBeenCalledTimes(10);
+    fetchSpy.mockRestore();
+  });
 });

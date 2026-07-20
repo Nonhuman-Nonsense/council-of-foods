@@ -59,10 +59,6 @@ describe("transcriptSegmentKey", () => {
 });
 
 describe("mergeTranscriptionDelta", () => {
-  it("appends incremental deltas in append mode", () => {
-    expect(mergeTranscriptionDelta("append", "Hello", " dear")).toBe("Hello dear");
-  });
-
   it("replaces with the current partial in replace mode", () => {
     expect(mergeTranscriptionDelta("replace", "I am say", "I am saying something")).toBe(
       "I am saying something",

@@ -1,8 +1,11 @@
-import dotenv from 'dotenv';
+import { existsSync } from 'node:fs';
 import { EnvSchema } from '@models/EnvValidation.js';
 
-// Load environment variables immediately
-dotenv.config();
+// Load environment variables immediately. Production has no .env file (env vars come
+// from the host/orchestrator instead), and loadEnvFile throws ENOENT if missing.
+if (existsSync('.env')) {
+    process.loadEnvFile('.env');
+}
 
 // Validate
 const envParse = EnvSchema.safeParse(process.env);

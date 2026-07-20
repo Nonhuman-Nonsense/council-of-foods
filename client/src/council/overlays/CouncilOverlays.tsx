@@ -15,6 +15,7 @@ export type ActiveCouncilOverlay = Exclude<CouncilOverlayType, null>;
 
 interface CouncilOverlaysProps {
   overlay: ActiveCouncilOverlay;
+  meetingElsewhere?: boolean;
   onAttemptResume: () => void;
   onExtendMeeting: () => void;
   onConcludeMeeting: () => void;
@@ -35,6 +36,7 @@ interface CouncilOverlaysProps {
  */
 function CouncilOverlays({
   overlay,
+  meetingElsewhere = false,
   onAttemptResume,
   onExtendMeeting,
   onConcludeMeeting,
@@ -57,6 +59,7 @@ function CouncilOverlays({
       case "meeting_incomplete":
         return (
           <Incomplete
+            elsewhere={meetingElsewhere}
             onAttemptResume={onAttemptResume}
             onNevermind={onDismiss}
           />

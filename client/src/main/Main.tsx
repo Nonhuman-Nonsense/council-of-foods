@@ -32,8 +32,10 @@ import MuseumSwitchButton from "@/museum/MuseumSwitchButton";
 import { useButtonLedDebugOverlay } from "@/museum/button/buttonDebug";
 import { useCouncilSettings } from "@/settings/councilSettings";
 import { createAudioContext, useAudioSuspended } from "@/audio/audioContext";
+import { useWakeLock } from "@/audio/wakeLock";
 import { usePortrait, dvh } from "@/utils";
 import CouncilError from "./overlay/CouncilError";
+import ErrorBoundary from "./ErrorBoundary";
 import Reconnecting from "./overlay/Reconnecting";
 import { useErrorStore } from "./overlay/errorStore";
 
@@ -92,6 +94,7 @@ export default function Main(props: MainProps) {
   const { rootPath, newMeetingPath } = useRouting();
   const location = useLocation();
   const navigate = useNavigate();
+  useWakeLock(isMeetingPath(location.pathname) && !isPaused);
   const isIphone = useIsIphone();
   const isPortrait = usePortrait();
   const { isMuseumMode, agentMode, museumSwitchButtonEnabled } = useCouncilSettings();
@@ -203,38 +206,40 @@ export default function Main(props: MainProps) {
           isActive={!isMeetingPath(location.pathname)}
           isBlurred={!isRootPath(location.pathname)}
         >
-          <Routes>
-            <Route
-              element={
-                <MeetingSetupShell
-                  topicSelection={topicSelection}
-                  setTopicSelection={setTopicSelection}
-                  setMeetingliveKey={setMeetingliveKey}
-                />
-              }
-            >
-              <Route path="/" element={<Landing />} />
-              <Route path={routes.newMeeting} element={<NewMeeting />} />
-            </Route>
-            <Route
-              path={`${routes.meeting}/:meetingId`}
-              element={
-                <Council
-                  key={`${stripLanguagePrefix(location.pathname)}@${meetingGeneration}`}
-                  topic={topicSelection}
-                  setTopic={setTopicSelection}
-                  liveKey={meetingliveKey}
-                  setliveKey={setMeetingliveKey}
-                  currentSpeakerId={currentSpeakerId}
-                  setCurrentSpeakerId={setCurrentSpeakerId}
-                  isPaused={isPaused}
-                  setPaused={setPaused}
-                  audioContext={audioContext}
-                />
-              }
-            />
-            <Route path="*" element={<Navigate to={rootPath} replace />} />
-          </Routes>
+          <ErrorBoundary>
+            <Routes>
+              <Route
+                element={
+                  <MeetingSetupShell
+                    topicSelection={topicSelection}
+                    setTopicSelection={setTopicSelection}
+                    setMeetingliveKey={setMeetingliveKey}
+                  />
+                }
+              >
+                <Route path="/" element={<Landing />} />
+                <Route path={routes.newMeeting} element={<NewMeeting />} />
+              </Route>
+              <Route
+                path={`${routes.meeting}/:meetingId`}
+                element={
+                  <Council
+                    key={`${stripLanguagePrefix(location.pathname)}@${meetingGeneration}`}
+                    topic={topicSelection}
+                    setTopic={setTopicSelection}
+                    liveKey={meetingliveKey}
+                    setliveKey={setMeetingliveKey}
+                    currentSpeakerId={currentSpeakerId}
+                    setCurrentSpeakerId={setCurrentSpeakerId}
+                    isPaused={isPaused}
+                    setPaused={setPaused}
+                    audioContext={audioContext}
+                  />
+                }
+              />
+              <Route path="*" element={<Navigate to={rootPath} replace />} />
+            </Routes>
+          </ErrorBoundary>
           {!isIphone && !isMuseumMode && !(agentMode === "ptt" && ledDebugOverlay) && <FullscreenButton />}
           {isPortrait && location.pathname !== "/" && <RotateOverlay />}
         </Overlay>

@@ -11,6 +11,15 @@ vi.mock('react-i18next', () => ({
     }),
 }));
 
+const mockNavigate = vi.fn();
+vi.mock('react-router', () => ({
+    useNavigate: () => mockNavigate,
+}));
+
+vi.mock('@/navigation', () => ({
+    useRouting: () => ({ rootPath: '/' }),
+}));
+
 describe('Incomplete overlay', () => {
     const defaultProps = {
         onAttemptResume: vi.fn(),
@@ -31,5 +40,24 @@ describe('Incomplete overlay', () => {
         render(<Incomplete {...defaultProps} />);
         fireEvent.click(screen.getByText('incomplete.nevermind'));
         expect(defaultProps.onNevermind).toHaveBeenCalledTimes(1);
+    });
+
+    describe('when elsewhere is set (another live session holds the meeting)', () => {
+        it('invokes onNevermind (go back) when the go back button is clicked', () => {
+            render(<Incomplete {...defaultProps} elsewhere />);
+            fireEvent.click(screen.getByText('meetingElsewhere.goBack'));
+            expect(defaultProps.onNevermind).toHaveBeenCalledTimes(1);
+        });
+
+        it('navigates to root when the start new meeting button is clicked', () => {
+            render(<Incomplete {...defaultProps} elsewhere />);
+            fireEvent.click(screen.getByText('meetingElsewhere.startNew'));
+            expect(mockNavigate).toHaveBeenCalledWith('/');
+        });
+
+        it('does not render the resume button', () => {
+            render(<Incomplete {...defaultProps} elsewhere />);
+            expect(screen.queryByText('incomplete.resume')).not.toBeInTheDocument();
+        });
     });
 });

@@ -23,7 +23,7 @@ export type RealtimeCaptionOverlayProps = {
 };
 
 /**
- * Shared caption UI for realtime voice sessions (voice guide, meta agent).
+ * Shared caption UI for realtime voice sessions (setup agent, meta agent).
  * PTT hint banner is rendered globally via ButtonBanner.
  */
 export default function RealtimeCaptionOverlay(props: RealtimeCaptionOverlayProps): ReactElement {
@@ -114,14 +114,14 @@ export default function RealtimeCaptionOverlay(props: RealtimeCaptionOverlayProp
         {hasText ? (
           <>
             {lastUserTranscript ? (
-              <p style={{ ...secondaryStyle, margin: 0 }} data-testid="voice-guide-user">
+              <p style={{ ...secondaryStyle, margin: 0 }} data-testid="agent-user">
                 {lastUserTranscript}
               </p>
             ) : null}
             {lastCaption ? (
               <p
                 style={{ ...paragraphStyle, margin: lastUserTranscript ? "8px 0 0" : 0 }}
-                data-testid="voice-guide-caption"
+                data-testid="agent-caption"
               >
                 {lastCaption}
               </p>

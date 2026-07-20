@@ -1,6 +1,6 @@
 import type { MappedSentence } from "@shared/textUtils.js";
 
-const ALLOWED_END_GAP_SEC = 3;
+export const DEFAULT_ALLOWED_END_GAP_SEC = 5;
 
 export interface SubtitleTimingValidationResult {
     valid: boolean;
@@ -9,7 +9,8 @@ export interface SubtitleTimingValidationResult {
 
 export function validateSentenceTimingsAgainstDuration(
     sentences: MappedSentence[],
-    durationSec: number
+    durationSec: number,
+    allowedEndGapSec: number = DEFAULT_ALLOWED_END_GAP_SEC
 ): SubtitleTimingValidationResult {
     if (sentences.length === 0) {
         return { valid: false, reason: "no sentence timings" };
@@ -41,14 +42,14 @@ export function validateSentenceTimingsAgainstDuration(
 
     const lastEnd = sentences[sentences.length - 1]!.end;
 
-    if (durationSec - lastEnd > ALLOWED_END_GAP_SEC) {
+    if (durationSec - lastEnd > allowedEndGapSec) {
         return {
             valid: false,
             reason: `last subtitle ends ${Number((durationSec - lastEnd).toFixed(3))}s before audio ends`
         };
     }
 
-    if (lastEnd - durationSec > ALLOWED_END_GAP_SEC) {
+    if (lastEnd - durationSec > allowedEndGapSec) {
         return {
             valid: false,
             reason: `last subtitle ends ${Number((lastEnd - durationSec).toFixed(3))}s after audio ends`

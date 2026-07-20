@@ -505,6 +505,20 @@ describe('useCouncilMachine', () => {
             expect(setPaused).not.toHaveBeenCalledWith(false);
         });
 
+        it.each([
+            { name: 'exposes meetingElsewhere: true for an elsewhere-flagged meeting_incomplete', elsewhere: true },
+            { name: 'exposes meetingElsewhere: false for an ordinary meeting_incomplete', elsewhere: false },
+        ])('$name', ({ elsewhere }) => {
+            const { result } = renderHook((props) => useCouncilMachine(props), { initialProps: defaultProps });
+
+            act(() => {
+                socketHandlers.onConversationUpdate?.([{ type: 'meeting_incomplete', elsewhere }]);
+            });
+
+            expect(result.current.state.visibleOverlay).toBe('meeting_incomplete');
+            expect(result.current.state.meetingElsewhere).toBe(elsewhere);
+        });
+
         describe('deferred connection error overlay', () => {
             it('does not set connectionError when socket error fires while playing with buffered next message', async () => {
                 vi.useFakeTimers();

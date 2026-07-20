@@ -79,8 +79,14 @@ export class Logger {
         return meetingId != null ? `[meeting ${meetingId}] [${context}]` : `[${context}]`;
     }
 
-    static info(context: string, message: string, details?: Pick<LogDetails, "from">): void {
+    static info(context: string, message: string, details?: LogDetails): void {
         console.log(`${cyan(this.formatPrefix(context, details?.from))} ${message}`);
+
+        if (details?.error) {
+            for (const line of formatErrorDetails(details.error)) {
+                console.log(gray(line));
+            }
+        }
     }
 
     /**
@@ -132,6 +138,30 @@ export class Logger {
         }
 
         await sendReport(this.buildReport(context, message, details, 'error'));
+    }
+
+    /**
+     * Logs a CouncilError at the console/report level dictated by its own `severity`, so
+     * callers don't re-derive that mapping themselves (see meetingRoutes.ts / SocketManager.ts).
+     */
+    static async logCouncilError(
+        context: string,
+        message: string,
+        error: CouncilError,
+        details?: LogDetails,
+    ): Promise<void> {
+        const withError: LogDetails = { ...details, error };
+        switch (error.severity) {
+            case 'info':
+                this.info(context, message, withError);
+                return;
+            case 'warning':
+                await this.warn(context, message, withError);
+                return;
+            case 'error':
+                await this.error(context, message, withError);
+                return;
+        }
     }
 
     /**

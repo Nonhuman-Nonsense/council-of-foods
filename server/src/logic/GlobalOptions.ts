@@ -21,7 +21,7 @@ export const ChairVoiceProfileSchema = z.object({
 });
 
 export const ChairRealtimeLanguageConfigSchema = z.object({
-    provider: z.enum(["inworld", "openai"]),
+    provider: z.enum(["inworld"]),
     llmModel: z.string(),
     ttsModel: z.string().optional(),
     transcriptionModel: z.string(),
@@ -34,9 +34,9 @@ export const ChairRealtimeSchema = z.object({
 });
 
 export const HumanInputRealtimeLanguageConfigSchema = z.object({
-    provider: z.enum(["inworld", "openai"]),
-    llmModel: z.string().optional(),
-    transcriptionModel: z.string().optional(),
+    provider: z.enum(["inworld"]),
+    llmModel: z.string(),
+    transcriptionModel: z.string(),
 });
 
 export const HumanInputRealtimeSchema = z.object({
@@ -74,9 +74,6 @@ export const GlobalOptionsSchema = z.object({
     transcribeModel: z.string(),
     transcribePrompt: z.record(z.string(), z.string()),
     audioConcurrency: z.number(),
-    voiceGuideRealtimeModel: z.string(),
-    voiceGuideOpenAIRealtimeModel: z.string(),
-    voiceGuideRealtimeTranscriptionModel: z.string(),
     chairRealtime: ChairRealtimeSchema,
     humanInputRealtime: HumanInputRealtimeSchema,
     speakerClassifierModel: z.string(),
