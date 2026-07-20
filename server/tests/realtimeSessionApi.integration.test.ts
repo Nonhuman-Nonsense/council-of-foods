@@ -178,7 +178,7 @@ describe("POST /api/realtime/* (integration)", () => {
             },
             body: JSON.stringify({
                 feature: "human-input",
-                provider: "openai",
+                provider: "inworld",
                 sdp: "offer",
                 session: { type: "transcription" },
             }),
@@ -186,7 +186,7 @@ describe("POST /api/realtime/* (integration)", () => {
 
         expect(res.status).toBe(200);
         expect(await res.json()).toEqual({ sdp: "mock-answer" });
-        expect(vi.mocked(createRealtimeCall)).toHaveBeenCalledWith("openai", {
+        expect(vi.mocked(createRealtimeCall)).toHaveBeenCalledWith({
             sdp: "offer",
             session: { type: "transcription" },
         });
@@ -200,7 +200,7 @@ describe("POST /api/realtime/* (integration)", () => {
             },
             body: JSON.stringify({
                 feature: "setup-agent",
-                provider: "openai",
+                provider: "inworld",
                 language: "en",
                 sdp: "offer",
                 session: { type: "realtime" },
@@ -209,7 +209,7 @@ describe("POST /api/realtime/* (integration)", () => {
 
         expect(res.status).toBe(200);
         expect(await res.json()).toEqual({ sdp: "mock-answer" });
-        expect(vi.mocked(createRealtimeCall)).toHaveBeenCalledWith("inworld", {
+        expect(vi.mocked(createRealtimeCall)).toHaveBeenCalledWith({
             sdp: "offer",
             session: { type: "realtime" },
         });
@@ -318,34 +318,9 @@ describe("POST /api/realtime/* (integration)", () => {
 
         expect(res.status).toBe(200);
         expect(await res.json()).toEqual({ sdp: "mock-answer" });
-        expect(vi.mocked(createRealtimeCall)).toHaveBeenCalledWith("inworld", {
+        expect(vi.mocked(createRealtimeCall)).toHaveBeenCalledWith({
             sdp: "offer",
             session: { type: "realtime" },
-        });
-    });
-
-    it("meta-agent call uses configured provider even if client sends openai", async () => {
-        const liveKey = await createMeetingAndKey();
-
-        const res = await fetch(`${base()}/api/realtime/call`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${liveKey}`,
-            },
-            body: JSON.stringify({
-                feature: "meta-agent",
-                provider: "openai",
-                language: "en",
-                sdp: "offer",
-                session: { type: "realtime", audio: { output: { voice: "Ashley" } } },
-            }),
-        });
-
-        expect(res.status).toBe(200);
-        expect(vi.mocked(createRealtimeCall)).toHaveBeenCalledWith("inworld", {
-            sdp: "offer",
-            session: { type: "realtime", audio: { output: { voice: "Ashley" } } },
         });
     });
 });

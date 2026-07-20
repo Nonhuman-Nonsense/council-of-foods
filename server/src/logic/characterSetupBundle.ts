@@ -39,8 +39,6 @@ type CharacterSetupDataFile = {
 
 const sharedPromptsDir = path.join(process.cwd(), "../shared/prompts");
 
-const REALTIME_AGENT_VOICE_PROVIDERS = new Set<ChairVoiceProvider>(["openai", "inworld"]);
-
 function readCharacterSetupBundle(language: string): CharacterSetupDataFile {
     const requestedPath = path.join(sharedPromptsDir, `${CHARACTERS_FILE}_${language}.json`);
     const fallbackPath = path.join(sharedPromptsDir, `${CHARACTERS_FILE}_en.json`);
@@ -88,7 +86,7 @@ function characterToVoiceProfile(character: CharacterSetupCharacter): ChairVoice
 }
 
 function assertRealtimeAgentVoice(language: string, profile: ChairVoiceProfile): void {
-    if (!REALTIME_AGENT_VOICE_PROVIDERS.has(profile.voiceProvider)) {
+    if (profile.voiceProvider !== "inworld") {
         throw new Error(
             `chairRealtime.languages.${language}.agentVoice: ${profile.voiceProvider} cannot be used for live chair realtime`
         );
@@ -147,15 +145,13 @@ export function getHumanInputRealtimeLanguageConfig(
 
 export function validateHumanInputRealtimeConfig(options: GlobalOptions): void {
     for (const [lang, languageConfig] of Object.entries(options.humanInputRealtime.languages)) {
-        if (languageConfig.provider === "inworld") {
-            if (!languageConfig.llmModel?.trim()) {
-                throw new Error(`humanInputRealtime.languages.${lang}.llmModel is required for inworld`);
-            }
-            if (!languageConfig.transcriptionModel?.trim()) {
-                throw new Error(
-                    `humanInputRealtime.languages.${lang}.transcriptionModel is required for inworld`
-                );
-            }
+        if (!languageConfig.llmModel?.trim()) {
+            throw new Error(`humanInputRealtime.languages.${lang}.llmModel is required for inworld`);
+        }
+        if (!languageConfig.transcriptionModel?.trim()) {
+            throw new Error(
+                `humanInputRealtime.languages.${lang}.transcriptionModel is required for inworld`
+            );
         }
     }
 }

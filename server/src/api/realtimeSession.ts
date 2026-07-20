@@ -109,7 +109,7 @@ export function registerRealtimeRoutes(app: Express): void {
 
         if (
             (feature !== "human-input" && feature !== "meta-agent" && feature !== "setup-agent") ||
-            (body.provider !== "inworld" && body.provider !== "openai") ||
+            body.provider !== "inworld" ||
             typeof body.sdp !== "string" ||
             !body.session ||
             typeof body.session !== "object"
@@ -138,8 +138,8 @@ export function registerRealtimeRoutes(app: Express): void {
                 }
             }
 
-            const provider: RealtimeProvider = resolveChairRealtimeCallProvider(feature, language, body.provider);
-            const data = await createRealtimeCall(provider, { sdp: body.sdp, session: body.session });
+            const provider: RealtimeProvider = resolveChairRealtimeCallProvider(feature, language);
+            const data = await createRealtimeCall({ sdp: body.sdp, session: body.session });
             await Logger.info("api", `POST /api/realtime/call successful (${feature}:${provider})`);
             res.status(200).json(data);
         } catch (e) {

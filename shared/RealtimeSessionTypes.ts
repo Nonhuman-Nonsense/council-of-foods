@@ -1,4 +1,4 @@
-export type RealtimeProvider = "inworld" | "openai";
+export type RealtimeProvider = "inworld";
 
 export type RealtimeFeature = "setup-agent" | "human-input" | "meta-agent";
 

@@ -53,7 +53,7 @@ describe("characterSetupBundle chair voice", () => {
     it("uses agentVoice override when strategy is split", () => {
         const agentVoice: ChairVoiceProfile = {
             voice: "marin",
-            voiceProvider: "openai",
+            voiceProvider: "inworld",
         };
         const options = optionsWithChairRealtime({
             strategy: "split",
@@ -118,22 +118,7 @@ describe("characterSetupBundle chair voice", () => {
         expect(() => validateHumanInputRealtimeConfig(options)).not.toThrow();
     });
 
-    it("allows OpenAI human-input provider without inworld models", () => {
-        const options = optionsWithChairRealtime();
-        const withOpenAiSv: GlobalOptions = {
-            ...options,
-            humanInputRealtime: {
-                languages: {
-                    ...options.humanInputRealtime.languages,
-                    sv: { provider: "openai" },
-                },
-            },
-        };
-        expect(() => validateHumanInputRealtimeConfig(withOpenAiSv)).not.toThrow();
-        expect(getHumanInputRealtimeLanguageConfig("sv", withOpenAiSv).provider).toBe("openai");
-    });
-
-    it("rejects inworld human-input config without transcription model", () => {
+    it("rejects human-input config with a blank transcription model", () => {
         const options = optionsWithChairRealtime();
         const invalid: GlobalOptions = {
             ...options,
@@ -142,6 +127,7 @@ describe("characterSetupBundle chair voice", () => {
                     sv: {
                         provider: "inworld",
                         llmModel: "google-ai-studio/gemini-2.5-flash",
+                        transcriptionModel: "",
                     },
                 },
             },
