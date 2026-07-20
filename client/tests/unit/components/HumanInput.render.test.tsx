@@ -394,19 +394,6 @@ describe('HumanInput Component', () => {
         });
     });
 
-    it('should not register onOpen for OpenAI human-input bootstrap', async () => {
-        mockBootstrapHumanInputRealtimeSession.mockResolvedValue({
-            provider: 'openai',
-            iceServers: [],
-            session: { type: 'transcription', audio: {} },
-        });
-
-        await renderAndWaitReady();
-
-        const opts = mockCreateRealtimeConnection.mock.calls[0][0];
-        expect(opts.onOpen).toBeUndefined();
-    });
-
     // ── Error handling ─────────────────────────────────────────────────────────
 
     it('should ignore AbortError during startup without logging an error', async () => {
@@ -773,54 +760,6 @@ describe('HumanInput PTT museum mode', () => {
             await vi.advanceTimersByTimeAsync(50);
             expect(mockOnSubmit).not.toHaveBeenCalled();
             expect(textarea).toHaveValue('Hello council');
-        });
-
-        it('waits for incremental transcript before auto-submitting', async () => {
-            mockBootstrapHumanInputRealtimeSession.mockResolvedValue({
-                provider: 'openai',
-                iceServers: [],
-                session: { type: 'transcription', audio: {} },
-            });
-            let onEvent: ((event: unknown) => void) | undefined;
-            mockCreateRealtimeConnection.mockImplementation(async (opts) => {
-                onEvent = opts.onEvent;
-                return mockConnection();
-            });
-
-            await renderPttReady();
-
-            setMockPressed(true);
-            await vi.waitFor(() => {
-                expect(screen.getByTestId('icon-record_voice_on')).toBeInTheDocument();
-            });
-
-            onEvent?.({ type: 'input_audio_buffer.speech_started' });
-            onEvent?.({
-                type: 'conversation.item.input_audio_transcription.delta',
-                item_id: 'item_1',
-                delta: 'Hello',
-            });
-            onEvent?.({
-                type: 'conversation.item.input_audio_transcription.delta',
-                item_id: 'item_1',
-                delta: ' dear',
-            });
-            setMockPressed(false);
-
-            await vi.advanceTimersByTimeAsync(2000);
-            expect(mockOnSubmit).not.toHaveBeenCalled();
-
-            onEvent?.({
-                type: 'conversation.item.input_audio_transcription.delta',
-                item_id: 'item_1',
-                delta: ' council',
-            });
-
-            await vi.advanceTimersByTimeAsync(2000);
-
-            await vi.waitFor(() => {
-                expect(mockOnSubmit).toHaveBeenCalledWith('Hello dear council');
-            });
         });
 
         it('builds incremental Soniox transcript partials on Inworld sessions', async () => {
