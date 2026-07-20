@@ -24,8 +24,8 @@ type SetupAgentOverlayProps = {
 };
 
 /**
- * Setup wizard voice guide shell: shared realtime captions + optional web AI toggle.
- * Stopping the guide tears down WebRTC.
+ * Setup wizard agent shell: shared realtime captions + optional web AI toggle.
+ * Stopping the agent tears down WebRTC.
  */
 export default function SetupAgentOverlay(props: SetupAgentOverlayProps): ReactElement {
   const {
@@ -92,7 +92,7 @@ export default function SetupAgentOverlay(props: SetupAgentOverlayProps): ReactE
               <ConversationControlIcon
                 icon={recordingState === "recording" ? "ai_filled" : "ai"}
                 hoverIcon={recordingState === "recording" ? "ai" : "ai_filled"}
-                tooltip={recordingState === "recording" ? "Stop voice guide" : "Start voice guide"}
+                tooltip={recordingState === "recording" ? "Stop setup agent" : "Start setup agent"}
                 onClick={recordingState === "recording" ? onStop : onStart}
                 size={isMobile ? 30 : 40}
               />

@@ -74,9 +74,9 @@ const FEATURE_MESSAGES: Record<
   { defaultsNotLoaded: string; startFailed: string; connectionLost: string }
 > = {
   "setup-agent": {
-    defaultsNotLoaded: "Voice guide defaults not loaded",
-    startFailed: "Voice guide failed to start",
-    connectionLost: "Voice guide connection lost",
+    defaultsNotLoaded: "Setup agent defaults not loaded",
+    startFailed: "Setup agent failed to start",
+    connectionLost: "Setup agent connection lost",
   },
   "meta-agent": {
     defaultsNotLoaded: "Meta-agent defaults not loaded",
@@ -91,7 +91,7 @@ export type UseRealtimeVoiceSessionParams = {
   instructions: string;
   tools: RealtimeTool[];
   toolHandlers: Record<string, ToolHandler>;
-  /** Send opening greeting after `session.updated` (voice guide). Meta-agent passes false. */
+  /** Send opening greeting after `session.updated` (setup agent). Meta-agent passes false. */
   triggerGreetingOnReady: boolean;
   /** Bearer auth for bootstrap + call (meta-agent live key). */
   authHeaders?: Record<string, string>;

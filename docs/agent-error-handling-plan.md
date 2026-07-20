@@ -1,6 +1,6 @@
 # Agent error handling — integration plan
 
-Integrate **voice guide** and **meta agent** realtime failures into the app's
+Integrate **setup agent** and **meta agent** realtime failures into the app's
 main **connection error** and **unrecoverable error** systems. Today these agents
 use a separate local error string rendered as red caption text, with no retries
 and no client reporting.
@@ -55,7 +55,7 @@ flowchart TB
     Socket -->|conversation_error| UE
   end
 
-  subgraph Agents["Voice guide + Meta agent"]
+  subgraph Agents["Setup agent + Meta agent"]
     Hook[useRealtimeVoiceSession]
     Hook -->|error string| Caption[RealtimeCaptionOverlay]
     Hook -.->|not wired| UE
@@ -74,7 +74,7 @@ flowchart TB
 
 | Agent | Web | Museum |
 |-------|-----|--------|
-| Voice guide (setup) | Bonus — silent retry, no overlay | Critical — connection error overlay |
+| Setup agent (meeting setup) | Bonus — silent retry, no overlay | Critical — connection error overlay |
 | Meta agent (meeting) | Not mounted | Critical — deferred connection error |
 
 Mode is determined by `isMuseumMode` from `useCouncilSettings()` (`localStorage`
@@ -170,7 +170,7 @@ onConnectionLost?: () => void;
 onConnectionRestored?: () => void;
 ```
 
-Wrappers call `getRealtimeRetryPolicy(isMuseumMode)` (voice guide) or
+Wrappers call `getRealtimeRetryPolicy(isMuseumMode)` (setup agent) or
 `getRealtimeRetryPolicy(true)` (meta agent). No duplicated policy literals.
 
 Per-feature fatal message strings (`startFailedMessage`, etc.) collapse into a
@@ -241,7 +241,7 @@ Replace the single `boolean` in `Main.tsx`:
 
 ```ts
 // Reconnecting.tsx
-export type ConnectionErrorSource = "socket" | "voice-guide" | "meta-agent";
+export type ConnectionErrorSource = "socket" | "setup-agent" | "meta-agent";
 export type SetConnectionError = (source: ConnectionErrorSource, active: boolean) => void;
 
 export function useConnectionError(): {
@@ -256,7 +256,7 @@ Consumers import from `@main/overlay/Reconnecting`, same as
 | Source | Sets active when |
 |--------|------------------|
 | `socket` | `useCouncilSocket` `connect_error` (unchanged semantics) |
-| `voice-guide` | Museum: agent retryable failure; cleared on reconnect |
+| `setup-agent` | Museum: agent retryable failure; cleared on reconnect |
 | `meta-agent` | Museum: user activates agent while `connectionState !== "ready"` |
 
 The `Reconnecting` overlay component itself is unchanged — 2-minute museum reload
@@ -270,17 +270,17 @@ paused. Overlay visibility is the gate, not the hook's internal reconnect state.
 
 ## Wiring
 
-### Voice guide
+### Setup agent
 
-`Main.tsx` → `MeetingSetupShell` → `MeetingVoiceGuide` → `useVoiceGuide` →
+`Main.tsx` → `MeetingSetupShell` → `MeetingSetupAgent` → `useSetupAgent` →
 `useRealtimeVoiceSession`
 
 | | Web | Museum |
 |---|-----|--------|
 | `retryPolicy` | `getRealtimeRetryPolicy(false)` | `getRealtimeRetryPolicy(true)` |
 | `onFatalError` | `setUnrecoverableError` | `setUnrecoverableError` |
-| `onConnectionLost` | ignored | `setConnectionError("voice-guide", true)` |
-| `onConnectionRestored` | ignored | `setConnectionError("voice-guide", false)` |
+| `onConnectionLost` | ignored | `setConnectionError("setup-agent", true)` |
+| `onConnectionRestored` | ignored | `setConnectionError("setup-agent", false)` |
 
 `MeetingSetupShell` already receives `setUnrecoverableError`; add
 `setConnectionError`.
@@ -303,12 +303,12 @@ paused. Overlay visibility is the gate, not the hook's internal reconnect state.
 Remove the parallel agent error surface:
 
 - `error` prop from `RealtimeCaptionOverlay` and the red `<p role="alert">` block
-- `error` from `VoiceGuideOverlay` props
+- `error` from `SetupAgentOverlay` props
 - `error` from `VoiceGuideState` / `UseMetaAgentResult` public API
 - Per-feature `startFailedMessage` / `connectionLostMessage` /
   `defaultsNotLoadedError` hook params — replaced by internal `feature`-keyed map
   used only for `onFatalError` payloads
-- `MeetingVoiceGuide` `ledMode`: replace `voice.error` check with
+- `MeetingSetupAgent` `ledMode`: replace `agent.error` check with
   `connectionState === "connecting"` (or equivalent `isConnecting`)
 
 Internal error strings in the hook may remain for constructing fatal payloads;
@@ -347,8 +347,8 @@ not exposed in the return type.
 
 ### Phase 3 — Wiring
 
-1. Thread callbacks through `useVoiceGuide` / `useMetaAgent`.
-2. Wire voice guide in `MeetingSetupShell` / `MeetingVoiceGuide`.
+1. Thread callbacks through `useSetupAgent` / `useMetaAgent`.
+2. Wire setup agent in `MeetingSetupShell` / `MeetingSetupAgent`.
 3. Wire meta agent in `Council` / `MeetingMetaAgent` (deferred overlay).
 4. Update `Main.tsx` and socket path to source-tracked `connectionError`.
 
@@ -356,7 +356,7 @@ not exposed in the return type.
 
 1. Remove caption error UI and dead props.
 2. Update component and integration tests.
-3. Manual regression: web voice guide retry/give-up, museum landing connect,
+3. Manual regression: web setup agent retry/give-up, museum landing connect,
    museum meta-agent silent reconnect, museum interrupt-during-reconnect overlay.
 
 ---
@@ -378,8 +378,8 @@ Follow the `CouncilError.tsx` precedent (hook + overlay + types in one place).
 
 - `CouncilError.tsx` vs `Reconnecting.tsx` — different semantics (terminal +
   reporting vs transient + multi-source). Coupling would muddy both.
-- `useVoiceGuide.ts` / `useMetaAgent.ts` — stay thin wrappers; wiring callbacks
-  at the component layer (`MeetingVoiceGuide`, `MeetingMetaAgent`) keeps hooks
+- `useSetupAgent.ts` / `useMetaAgent.ts` — stay thin wrappers; wiring callbacks
+  at the component layer (`MeetingSetupAgent`, `MeetingMetaAgent`) keeps hooks
   reusable.
 - Server `withNetworkRetry` — different runtime, different delay profile.
 
@@ -399,7 +399,7 @@ Follow the `CouncilError.tsx` precedent (hook + overlay + types in one place).
 |------|---------|
 | `client/src/realtime/realtimeConnection.ts` | `RealtimeHttpError`, `classifyRealtimeError`, backoff helpers |
 | `client/src/realtime/useRealtimeVoiceSession.ts` | Retry engine, `RealtimeRetryPolicy`, `getRealtimeRetryPolicy`, internal fatal messages; remove public `error` |
-| `client/src/voice/useVoiceGuide.ts` | `getRealtimeRetryPolicy(isMuseumMode)` + forward callbacks; remove `error` from return |
+| `client/src/setupAgent/useSetupAgent.ts` | `getRealtimeRetryPolicy(isMuseumMode)` + forward callbacks; remove `error` from return |
 | `client/src/museum/metaAgent/useMetaAgent.ts` | `getRealtimeRetryPolicy(true)` + forward callbacks; remove `error` from return |
 | `client/tests/unit/realtime/realtimeConnection.test.ts` | Classifier + backoff tests |
 
@@ -409,9 +409,9 @@ Follow the `CouncilError.tsx` precedent (hook + overlay + types in one place).
 |------|---------|
 | `client/src/main/overlay/Reconnecting.tsx` | Add `useConnectionError`, `ConnectionErrorSource`, `SetConnectionError` |
 | `client/src/main/Main.tsx` | `useConnectionError` from `Reconnecting`; pass source-aware setter to children |
-| `client/src/newMeeting/MeetingSetupShell.tsx` | Accept + pass `setConnectionError` + `setUnrecoverableError` to voice guide |
-| `client/src/voice/MeetingVoiceGuide.tsx` | Wire callbacks; fix `ledMode`; remove error prop passthrough |
-| `client/src/voice/VoiceGuideOverlay.tsx` | Remove `error` prop |
+| `client/src/newMeeting/MeetingSetupShell.tsx` | Accept + pass `setConnectionError` + `setUnrecoverableError` to setup agent |
+| `client/src/setupAgent/MeetingSetupAgent.tsx` | Wire callbacks; fix `ledMode`; remove error prop passthrough |
+| `client/src/setupAgent/SetupAgentOverlay.tsx` | Remove `error` prop |
 | `client/src/realtime/RealtimeCaptionOverlay.tsx` | Remove `error` prop and alert UI |
 | `client/src/council/Council.tsx` | Pass `setUnrecoverableError` + `setConnectionError` to `MeetingMetaAgent`; update prop types |
 | `client/src/museum/metaAgent/MeetingMetaAgent.tsx` | Deferred connection error; wire fatal callback |
@@ -423,8 +423,8 @@ Follow the `CouncilError.tsx` precedent (hook + overlay + types in one place).
 |------|---------|
 | `client/tests/unit/realtime/useRealtimeVoiceSession.test.ts` | Retry, fatal, exhaustion cases |
 | `client/tests/unit/realtime/RealtimeCaptionOverlay.test.tsx` | Remove error alert test |
-| `client/tests/unit/voice/useVoiceGuide.test.ts` | Policy/callback wiring |
-| `client/tests/unit/voice/MeetingVoiceGuide.ptt.test.tsx` | LED / connecting state |
+| `client/tests/unit/voice/useSetupAgent.test.ts` | Policy/callback wiring |
+| `client/tests/unit/setupAgent/MeetingSetupAgent.ptt.test.tsx` | LED / connecting state |
 | `client/tests/unit/museum/metaAgent/useMetaAgent.test.ts` | Policy/callback wiring |
 | `client/tests/unit/museum/metaAgent/MeetingMetaAgent.test.tsx` | Deferred overlay on button press |
 | `client/tests/unit/components/Main.test.jsx` | Source-tracked connection error |
@@ -445,10 +445,10 @@ Follow the `CouncilError.tsx` precedent (hook + overlay + types in one place).
 
 ## Manual test checklist
 
-- [ ] Web: voice guide fails to connect → icon spins → 3 retries → idle icon, no overlay
+- [ ] Web: setup agent fails to connect → icon spins → 3 retries → idle icon, no overlay
 - [ ] Web: click idle icon after give-up → manual reconnect attempt
 - [ ] Web: bootstrap 401/403 → `CouncilError` overlay + client report (prod)
-- [ ] Museum landing: voice guide connect failure → `Reconnecting` overlay
+- [ ] Museum landing: setup agent connect failure → `Reconnecting` overlay
 - [ ] Museum: meta agent drops mid-meeting → meeting keeps playing, no overlay
 - [ ] Museum: press button while meta agent reconnecting → `Reconnecting` overlay
 - [ ] Museum: agent reconnects during overlay → overlay clears, interrupt works

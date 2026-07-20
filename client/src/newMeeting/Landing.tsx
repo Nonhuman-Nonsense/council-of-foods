@@ -15,7 +15,7 @@ import councilLogo from "@assets/logos/council_logo_white.svg";
  * Core Logic:
  * - **Device Orientation**: Forces landscape on mobile/tablet via `RotateDevice`.
  * - **Welcome Message**: Displays logo and welcome text.
- * - **Museum mode**: Hides description and go button (voice guide handles the flow).
+ * - **Museum mode**: Hides description and go button (setup agent handles the flow).
  */
 const Landing: React.FC = () => {
   const { newMeetingPath } = useRouting();

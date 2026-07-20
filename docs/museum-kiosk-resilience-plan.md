@@ -60,7 +60,7 @@ server is still down → `location.href` → browser/CDN error page → no timer
 
 | Path | Trigger | Museum action | File |
 |------|---------|---------------|------|
-| Connection loss | `useErrorStore().connectionError` — sources: `socket`, `voice-guide`, `meta-agent` | `Reconnecting` overlay; hard reload after **2 min** | `errorStore.ts`, `Reconnecting.tsx` |
+| Connection loss | `useErrorStore().connectionError` — sources: `socket`, `setup-agent`, `meta-agent` | `Reconnecting` overlay; hard reload after **2 min** | `errorStore.ts`, `Reconnecting.tsx` |
 | Fatal error | `setUnrecoverableError` | `CouncilError` overlay; `AutoButton` reload after **10 s** | `CouncilError.tsx` |
 | Socket retry | `connect_error` / reconnect | socket.io background retry | `useCouncilSocket.ts` |
 | Agent retry (partial) | Realtime 5xx / ICE drop | Museum infinite retry; overlay when UX-critical | `useRealtimeVoiceSession.ts`, agent hooks |

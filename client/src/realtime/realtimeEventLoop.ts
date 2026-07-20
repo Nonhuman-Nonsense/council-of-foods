@@ -475,7 +475,7 @@ export function createEventLoop(params: {
       devLog.event("ERROR", "realtime event error", summarizeLogPayload(obj));
       log("event error raw", obj);
       const errRaw = obj.error;
-      let message = "Voice guide error";
+      let message = "Realtime agent error";
       if (errRaw && typeof errRaw === "object") {
         const e = errRaw as Record<string, unknown>;
         const msg = asStr(e.message);

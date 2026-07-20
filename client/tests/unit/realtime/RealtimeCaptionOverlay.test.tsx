@@ -26,8 +26,8 @@ describe("RealtimeCaptionOverlay", () => {
       />,
     );
 
-    const user = screen.getByTestId("voice-guide-user");
-    const caption = screen.getByTestId("voice-guide-caption");
+    const user = screen.getByTestId("agent-user");
+    const caption = screen.getByTestId("agent-caption");
     expect(user).toHaveTextContent("What topics are available?");
     expect(caption).toHaveTextContent("We can discuss forests or oceans.");
     expect(user.compareDocumentPosition(caption) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
@@ -41,8 +41,8 @@ describe("RealtimeCaptionOverlay", () => {
       />,
     );
 
-    expect(screen.queryByTestId("voice-guide-user")).not.toBeInTheDocument();
-    expect(screen.getByTestId("voice-guide-caption")).toHaveTextContent(
+    expect(screen.queryByTestId("agent-user")).not.toBeInTheDocument();
+    expect(screen.getByTestId("agent-caption")).toHaveTextContent(
       "Hello, welcome to the council.",
     );
   });
@@ -56,8 +56,8 @@ describe("RealtimeCaptionOverlay", () => {
       />,
     );
 
-    expect(screen.queryByTestId("voice-guide-user")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("voice-guide-caption")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("agent-user")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("agent-caption")).not.toBeInTheDocument();
   });
 
 
@@ -99,7 +99,7 @@ describe("RealtimeCaptionOverlay", () => {
     );
 
     expect(container.querySelector('[data-subtitle-layout="council"]')).toBeInTheDocument();
-    expect(screen.getByTestId("voice-guide-caption")).toHaveStyle({ fontSize: "25px" });
+    expect(screen.getByTestId("agent-caption")).toHaveStyle({ fontSize: "25px" });
   });
 
   it("uses compact subtitle layout marker", () => {
@@ -113,6 +113,6 @@ describe("RealtimeCaptionOverlay", () => {
 
     const root = container.querySelector('[data-subtitle-layout="compact"]') as HTMLElement;
     expect(root).toBeInTheDocument();
-    expect(screen.getByTestId("voice-guide-caption")).toHaveStyle({ fontSize: "20px" });
+    expect(screen.getByTestId("agent-caption")).toHaveStyle({ fontSize: "20px" });
   });
 });
