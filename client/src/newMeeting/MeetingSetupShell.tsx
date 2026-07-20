@@ -4,7 +4,7 @@ import { Outlet, useLocation, useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import { createMeeting } from "@api/createMeeting";
 import { isRootPath, useRouting } from "@/navigation";
-import MeetingVoiceGuide from "@voice/MeetingVoiceGuide";
+import MeetingSetupAgent from "@setupAgent/MeetingSetupAgent";
 import { useCouncilSettings } from "@/settings/councilSettings";
 import type { MeetingSetupPhase, MeetingSetupUserEvent } from "./meetingSetup";
 import { useMeetingSetupStore } from "@newMeeting/meetingSetupStore";
@@ -132,7 +132,7 @@ export default function MeetingSetupShell({
     <>
       <Outlet context={outletContext} />
       {agentMode !== "off" ? (
-        <MeetingVoiceGuide
+        <MeetingSetupAgent
           phase={phase}
           lastUserEvent={lastUserEvent}
           onBeginSetup={beginSetup}

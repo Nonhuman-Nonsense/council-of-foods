@@ -163,6 +163,9 @@ export interface AwaitingHumanPanelistMessage extends BaseMessage, SpeakerFields
 
 export interface MeetingIncompleteMessage extends BaseMessage {
     type: "meeting_incomplete";
+    /** True when another live session currently holds the meeting (was the separate
+     *  `meeting_elsewhere` type); the client shows different copy/actions in that case. */
+    elsewhere?: boolean;
     id?: never;
     text?: never;
     sentences?: never;

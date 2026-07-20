@@ -173,7 +173,7 @@ export function buildMetaAgentPrompt(params: {
 
 /**
  * Synthetic user turn sent after STATE SYNC to trigger the activation greeting.
- * Mirrors the voice-guide opening-greeting pattern (user item + response.create).
+ * Mirrors the setup-agent opening-greeting pattern (user item + response.create).
  */
 export function buildMetaAgentActivationTurn(): string {
   return (

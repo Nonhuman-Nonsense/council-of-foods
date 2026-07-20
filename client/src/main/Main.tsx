@@ -32,6 +32,7 @@ import MuseumSwitchButton from "@/museum/MuseumSwitchButton";
 import { useButtonLedDebugOverlay } from "@/museum/button/buttonDebug";
 import { useCouncilSettings } from "@/settings/councilSettings";
 import { createAudioContext, useAudioSuspended } from "@/audio/audioContext";
+import { useWakeLock } from "@/audio/wakeLock";
 import { usePortrait, dvh } from "@/utils";
 import CouncilError from "./overlay/CouncilError";
 import ErrorBoundary from "./ErrorBoundary";
@@ -93,6 +94,7 @@ export default function Main(props: MainProps) {
   const { rootPath, newMeetingPath } = useRouting();
   const location = useLocation();
   const navigate = useNavigate();
+  useWakeLock(isMeetingPath(location.pathname) && !isPaused);
   const isIphone = useIsIphone();
   const isPortrait = usePortrait();
   const { isMuseumMode, agentMode, museumSwitchButtonEnabled } = useCouncilSettings();

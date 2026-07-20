@@ -109,10 +109,10 @@ vi.mock("@realtime/RealtimeCaptionOverlay", () => ({
       data-mic-active={String(props.micActive)}
     >
       {props.lastUserTranscript ? (
-        <span data-testid="voice-guide-user">{props.lastUserTranscript}</span>
+        <span data-testid="agent-user">{props.lastUserTranscript}</span>
       ) : null}
       {props.lastCaption ? (
-        <span data-testid="voice-guide-caption">{props.lastCaption}</span>
+        <span data-testid="agent-caption">{props.lastCaption}</span>
       ) : null}
     </div>
   ),
@@ -169,8 +169,8 @@ describe("MeetingMetaAgent", () => {
   it("renders caption overlay while active", () => {
     render(<MeetingMetaAgent {...makeProps({ metaAgentPhase: "interruption" })} />);
     expect(screen.getByTestId("meta-agent-caption-overlay")).toBeInTheDocument();
-    expect(screen.getByTestId("voice-guide-user")).toHaveTextContent("Visitor question");
-    expect(screen.getByTestId("voice-guide-caption")).toHaveTextContent("Agent reply");
+    expect(screen.getByTestId("agent-user")).toHaveTextContent("Visitor question");
+    expect(screen.getByTestId("agent-caption")).toHaveTextContent("Agent reply");
   });
 
   it("uses council subtitle layout and PTT viz row even when button is not pressed", () => {

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import VoiceGuideOverlay from '@voice/VoiceGuideOverlay';
+import SetupAgentOverlay from '@setupAgent/SetupAgentOverlay';
 import '@testing-library/jest-dom';
 
 vi.mock('@/utils', () => ({
@@ -14,10 +14,10 @@ vi.mock('react-i18next', () => ({
 }));
 
 vi.mock('@council/ConversationControlIcon', () => ({
-  default: () => <button type="button" data-testid="voice-guide-ai-toggle">AI</button>,
+  default: () => <button type="button" data-testid="setup-agent-ai-toggle">AI</button>,
 }));
 
-describe('VoiceGuideOverlay', () => {
+describe('SetupAgentOverlay', () => {
   const baseProps = {
     isConnecting: false,
     error: null,
@@ -29,12 +29,12 @@ describe('VoiceGuideOverlay', () => {
   };
 
   it('shows the AI toggle in web mode', () => {
-    render(<VoiceGuideOverlay {...baseProps} isMuseumMode={false} />);
-    expect(screen.getByTestId('voice-guide-ai-toggle')).toBeInTheDocument();
+    render(<SetupAgentOverlay {...baseProps} isMuseumMode={false} />);
+    expect(screen.getByTestId('setup-agent-ai-toggle')).toBeInTheDocument();
   });
 
   it('hides the AI toggle in museum mode', () => {
-    render(<VoiceGuideOverlay {...baseProps} isMuseumMode />);
-    expect(screen.queryByTestId('voice-guide-ai-toggle')).not.toBeInTheDocument();
+    render(<SetupAgentOverlay {...baseProps} isMuseumMode />);
+    expect(screen.queryByTestId('setup-agent-ai-toggle')).not.toBeInTheDocument();
   });
 });

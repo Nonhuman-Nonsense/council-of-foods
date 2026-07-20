@@ -13,6 +13,8 @@ import {
   buildMetaAgentActivationTurn,
   buildMetaAgentStateSnapshot,
   getMetaAgentBundle,
+  type MetaAgentPromptBundle,
+  type MetaAgentStateSnapshot,
 } from "./metaAgentPrompt";
 import {
   createExtensionAgentToolHandlers,
@@ -20,6 +22,7 @@ import {
   createMetaAgentTools,
   createMetaAgentToolHandlers,
 } from "./metaAgentTools";
+import type { RealtimeFunctionTool, ToolHandler } from "@realtime/realtimeTools";
 import { log } from "@/logger";
 import type { ParticipationPhase } from "@council/humanInput/participationPhase";
 import type { CouncilState } from "@council/hooks/useCouncilMachine";
@@ -43,6 +46,73 @@ export interface MeetingMetaAgentProps {
   currentSpeakerName: string;
   humanName: string;
 }
+
+/**
+ * The agent has two active configurations — "interruption" (default: loaded
+ * whenever the agent isn't in the soft-cap extension phase, including while
+ * inactive) and "extension" (soft-cap: extend vs conclude). Everything that
+ * differs between them — prompt, tools, activation copy, idle-terminal tool —
+ * is keyed here so the component reads as one flow instead of six scattered
+ * `phase === "extension"` branches.
+ */
+type MetaAgentPhaseKey = "interruption" | "extension";
+
+function phaseKey(phase: MetaAgentPhase): MetaAgentPhaseKey {
+  return phase === "extension" ? "extension" : "interruption";
+}
+
+type SharedToolHandlerCtx = {
+  setMetaAgentPhase: (phase: MetaAgentPhase) => void;
+  silenceAgentOutput: () => void;
+  reconfigureSession: () => void;
+};
+
+type ToolHandlerCallbacks = {
+  onRestartMeeting: () => void;
+  onExtendMeeting: () => void;
+  onConcludeMeeting: () => void;
+};
+
+const PHASE_AGENT_CONFIG: Record<
+  MetaAgentPhaseKey,
+  {
+    buildInstructions: (bundle: MetaAgentPromptBundle) => string;
+    buildTools: (bundle: MetaAgentPromptBundle) => RealtimeFunctionTool[];
+    buildToolHandlers: (
+      shared: SharedToolHandlerCtx,
+      callbacks: ToolHandlerCallbacks,
+    ) => Record<string, ToolHandler>;
+    buildStateSnapshot: (snapshot: MetaAgentStateSnapshot) => string;
+    buildActivationTurn: () => string;
+    /** Interruption opens the mic immediately; extension waits for the visitor's reply. */
+    micOnActivate: boolean;
+    idleTerminalTool: "resume_meeting" | "conclude_meeting";
+    idleTerminalEventName: string;
+  }
+> = {
+  interruption: {
+    buildInstructions: (bundle) => buildMetaAgentPrompt({ bundle, agentMode: "ptt" }),
+    buildTools: (bundle) => createMetaAgentTools({ promptBundle: bundle }),
+    buildToolHandlers: (shared, { onRestartMeeting }) =>
+      createMetaAgentToolHandlers({ ...shared, onRestartMeeting }),
+    buildStateSnapshot: buildMetaAgentStateSnapshot,
+    buildActivationTurn: buildMetaAgentActivationTurn,
+    micOnActivate: true,
+    idleTerminalTool: "resume_meeting",
+    idleTerminalEventName: "idle auto-resume resume_meeting",
+  },
+  extension: {
+    buildInstructions: (bundle) => buildExtensionAgentPrompt({ bundle, agentMode: "ptt" }),
+    buildTools: (bundle) => createExtensionAgentTools({ promptBundle: bundle }),
+    buildToolHandlers: (shared, { onExtendMeeting, onConcludeMeeting }) =>
+      createExtensionAgentToolHandlers({ ...shared, onExtendMeeting, onConcludeMeeting }),
+    buildStateSnapshot: buildExtensionStateSnapshot,
+    buildActivationTurn: buildExtensionActivationTurn,
+    micOnActivate: false,
+    idleTerminalTool: "conclude_meeting",
+    idleTerminalEventName: "idle auto-conclude conclude_meeting",
+  },
+};
 
 export default function MeetingMetaAgent({
   liveKey,
@@ -78,20 +148,17 @@ export default function MeetingMetaAgent({
   }, []);
 
   const promptBundle = useMemo(() => getMetaAgentBundle(language), [language]);
+  const activeConfig = PHASE_AGENT_CONFIG[phaseKey(metaAgentPhase)];
 
-  const instructions = useMemo(() => {
-    if (metaAgentPhase === "extension") {
-      return buildExtensionAgentPrompt({ bundle: promptBundle, agentMode: "ptt" });
-    }
-    return buildMetaAgentPrompt({ bundle: promptBundle, agentMode: "ptt" });
-  }, [metaAgentPhase, promptBundle]);
+  const instructions = useMemo(
+    () => activeConfig.buildInstructions(promptBundle),
+    [activeConfig, promptBundle],
+  );
 
-  const tools = useMemo(() => {
-    if (metaAgentPhase === "extension") {
-      return createExtensionAgentTools({ promptBundle });
-    }
-    return createMetaAgentTools({ promptBundle });
-  }, [metaAgentPhase, promptBundle]);
+  const tools = useMemo(
+    () => activeConfig.buildTools(promptBundle),
+    [activeConfig, promptBundle],
+  );
 
   const silenceRef = useRef<() => void>(() => undefined);
   const reconfigureRef = useRef<() => void>(() => undefined);
@@ -112,23 +179,13 @@ export default function MeetingMetaAgent({
   );
 
   const toolHandlers = useMemo(() => {
-    const shared = {
+    const shared: SharedToolHandlerCtx = {
       setMetaAgentPhase,
       silenceAgentOutput: () => silenceRef.current(),
       reconfigureSession: () => reconfigureRef.current(),
     };
-    if (metaAgentPhase === "extension") {
-      return createExtensionAgentToolHandlers({
-        ...shared,
-        onExtendMeeting,
-        onConcludeMeeting,
-      });
-    }
-    return createMetaAgentToolHandlers({
-      ...shared,
-      onRestartMeeting,
-    });
-  }, [metaAgentPhase, setMetaAgentPhase, onRestartMeeting, onExtendMeeting, onConcludeMeeting]);
+    return activeConfig.buildToolHandlers(shared, { onRestartMeeting, onExtendMeeting, onConcludeMeeting });
+  }, [activeConfig, setMetaAgentPhase, onRestartMeeting, onExtendMeeting, onConcludeMeeting]);
 
   const onSessionReadyRef = useRef<(() => void) | undefined>(undefined);
 
@@ -161,37 +218,43 @@ export default function MeetingMetaAgent({
     }
   }, [connectionState]);
 
-  const activateExtensionSession = useCallback(() => {
-    setAgentOutputMuted(false);
-    setMicEnabled(false);
-    log.event("META", "activate", {
-      metaAgentPhase: "extension",
+  // Shared activation sequence: unmute, gate the mic per phase default, log,
+  // send the STATE SYNC snapshot + activation turn, and ask for a response.
+  const activateAgent = useCallback(
+    (key: MetaAgentPhaseKey) => {
+      const cfg = PHASE_AGENT_CONFIG[key];
+      setAgentOutputMuted(false);
+      setMicEnabled(cfg.micOnActivate);
+      log.event("META", "activate", {
+        metaAgentPhase: key,
+        councilState,
+        participationPhase,
+        currentSpeakerName,
+      });
+      sendUserMessage(cfg.buildStateSnapshot(snapshotContext));
+      sendUserMessage(cfg.buildActivationTurn());
+      requestAgentResponse();
+    },
+    [
+      setAgentOutputMuted,
+      setMicEnabled,
+      sendUserMessage,
+      requestAgentResponse,
       councilState,
       participationPhase,
       currentSpeakerName,
-    });
-    sendUserMessage(buildExtensionStateSnapshot(snapshotContext));
-    sendUserMessage(buildExtensionActivationTurn());
-    requestAgentResponse();
-  }, [
-    setAgentOutputMuted,
-    setMicEnabled,
-    sendUserMessage,
-    requestAgentResponse,
-    councilState,
-    participationPhase,
-    currentSpeakerName,
-    snapshotContext,
-  ]);
+      snapshotContext,
+    ],
+  );
 
   useEffect(() => {
     onSessionReadyRef.current = () => {
       if (pendingSessionActivationRef.current === "extension") {
         pendingSessionActivationRef.current = null;
-        activateExtensionSession();
+        activateAgent("extension");
       }
     };
-  }, [activateExtensionSession]);
+  }, [activateAgent]);
 
   useEffect(() => {
     silenceRef.current = () => {
@@ -220,16 +283,9 @@ export default function MeetingMetaAgent({
     micOpen: metaAgentPhase !== "inactive" && button.pressed,
     activityDeps: [lastUserTranscript, lastCaption],
     onIdleTerminal: () => {
-      const terminalTool =
-        metaAgentPhase === "extension"
-          ? toolHandlers.conclude_meeting
-          : toolHandlers.resume_meeting;
-      const eventName =
-        metaAgentPhase === "extension"
-          ? "idle auto-conclude conclude_meeting"
-          : "idle auto-resume resume_meeting";
-      log.event("META", eventName);
-      terminalTool?.({});
+      const cfg = PHASE_AGENT_CONFIG[phaseKey(metaAgentPhase)];
+      log.event("META", cfg.idleTerminalEventName);
+      toolHandlers[cfg.idleTerminalTool]?.({});
     },
     canIdleTerminal: () =>
       (metaAgentPhase === "interruption" || metaAgentPhase === "extension") &&
@@ -271,6 +327,9 @@ export default function MeetingMetaAgent({
     }
   }, [awaitingExtensionReply, metaAgentPhase, agentSpeaking]);
 
+  // Only "extension" needs its tools/instructions swapped in before activating —
+  // "interruption" reuses whatever is already loaded, so it activates inline
+  // (see the button-press effect below) without waiting on a reconfigure.
   useEffect(() => {
     if (connectionState !== "ready") return;
 
@@ -297,30 +356,8 @@ export default function MeetingMetaAgent({
     }
 
     setMetaAgentPhase("interruption");
-    setAgentOutputMuted(false);
-    setMicEnabled(true);
-    log.event("META", "activate", {
-      metaAgentPhase: "interruption",
-      councilState,
-      participationPhase,
-      currentSpeakerName,
-    });
-    sendUserMessage(buildMetaAgentStateSnapshot(snapshotContext));
-    sendUserMessage(buildMetaAgentActivationTurn());
-    requestAgentResponse();
-  }, [
-    button.pressed,
-    metaAgentPhase,
-    setMetaAgentPhase,
-    setAgentOutputMuted,
-    setMicEnabled,
-    sendUserMessage,
-    requestAgentResponse,
-    councilState,
-    participationPhase,
-    currentSpeakerName,
-    snapshotContext,
-  ]);
+    activateAgent("interruption");
+  }, [button.pressed, metaAgentPhase, setMetaAgentPhase, activateAgent]);
 
   useEffect(() => {
     if (metaAgentPhase === "inactive") return;

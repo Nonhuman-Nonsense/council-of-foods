@@ -38,7 +38,7 @@ export const z = {
   /** Staff-only overlays (e.g. #staff) that must appear above system error overlays. */
   staffOverlay: 25,
   rotatePrompt: 100,
-  voiceGuide: 10000,
+  setupAgent: 10000,
   museumSwitchButton: 10001,
   buttonDebug: 10002,
 } as const;

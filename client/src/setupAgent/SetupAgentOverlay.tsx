@@ -9,7 +9,7 @@ import { useMobile } from "@/utils";
 import type { AgentMode } from "@/settings/councilSettings";
 import { z } from "@/zIndexLayers";
 
-type VoiceGuideOverlayProps = {
+type SetupAgentOverlayProps = {
   isConnecting: boolean;
   lastCaption: string | null;
   lastUserTranscript: string | null;
@@ -24,10 +24,10 @@ type VoiceGuideOverlayProps = {
 };
 
 /**
- * Setup wizard voice guide shell: shared realtime captions + optional web AI toggle.
- * Stopping the guide tears down WebRTC.
+ * Setup wizard agent shell: shared realtime captions + optional web AI toggle.
+ * Stopping the agent tears down WebRTC.
  */
-export default function VoiceGuideOverlay(props: VoiceGuideOverlayProps): ReactElement {
+export default function SetupAgentOverlay(props: SetupAgentOverlayProps): ReactElement {
   const {
     isConnecting,
     lastCaption,
@@ -55,7 +55,7 @@ export default function VoiceGuideOverlay(props: VoiceGuideOverlayProps): ReactE
     bottom: "6px",
     left: "5px",
     opacity: 0.7,
-    zIndex: z.voiceGuide,
+    zIndex: z.setupAgent,
     pointerEvents: "auto",
   };
 
@@ -92,7 +92,7 @@ export default function VoiceGuideOverlay(props: VoiceGuideOverlayProps): ReactE
               <ConversationControlIcon
                 icon={recordingState === "recording" ? "ai_filled" : "ai"}
                 hoverIcon={recordingState === "recording" ? "ai" : "ai_filled"}
-                tooltip={recordingState === "recording" ? "Stop voice guide" : "Start voice guide"}
+                tooltip={recordingState === "recording" ? "Stop setup agent" : "Start setup agent"}
                 onClick={recordingState === "recording" ? onStop : onStart}
                 size={isMobile ? 30 : 40}
               />

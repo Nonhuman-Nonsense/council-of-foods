@@ -8,35 +8,14 @@ import {
 import { useMeetingSetupStore } from "@newMeeting/meetingSetupStore";
 import { getAppMode, type AgentMode } from "@/settings/councilSettings";
 import { capitalizeFirstLetter } from "@/utils";
-import type { GuideTopic, GuideCharacter } from "./guidePrompt";
+import type { SetupAgentTopic, SetupAgentCharacter } from "./setupAgentPrompt";
+import type { RealtimeTool, ToolHandler, ToolResult } from "@realtime/realtimeTools";
 
-export type { GuideTopic, GuideCharacter };
+export type { SetupAgentTopic, SetupAgentCharacter };
 
-export type JsonSchemaObject = {
-  type: "object";
-  properties?: Record<string, unknown>;
-  required?: string[];
-  additionalProperties?: boolean;
-};
-
-export type RealtimeFunctionTool = {
-  type: "function";
-  name: string;
-  description?: string;
-  parameters?: JsonSchemaObject;
-};
-
-export type RealtimeTool = RealtimeFunctionTool;
-
-export type ToolResult =
-  | { ok: true; data?: unknown; /** Skip response.create after this tool (e.g. meta-agent exit). */ suppressContinuation?: boolean }
-  | { ok: false; error: string };
-
-export type ToolHandler = (args: unknown) => Promise<ToolResult> | ToolResult;
-
-export type GuideToolContext = {
-  topics: GuideTopic[];
-  characters: GuideCharacter[];
+export type SetupAgentToolContext = {
+  topics: SetupAgentTopic[];
+  characters: SetupAgentCharacter[];
 
   beginSetup: () => void;
   goToTopicStep: () => void;
@@ -45,7 +24,7 @@ export type GuideToolContext = {
   startMeeting: (characters: Character[]) => void | Promise<void>;
 
   meetingStep: MeetingSetupPhase;
-  voiceGuideLanguage: string;
+  setupAgentLanguage: string;
   meetingCharactersLabels: MeetingCharactersI18n;
 
   /** Navigate to a different language. Empty array on single-language deploys. */
@@ -79,7 +58,7 @@ function normalizeVisitorName(raw: string): string {
   return capitalizeFirstLetter(trimmed);
 }
 
-function participantNames(ctx: GuideToolContext): string[] {
+function participantNames(ctx: SetupAgentToolContext): string[] {
   const store = useMeetingSetupStore.getState();
   return [
     ...ctx.characters.map((character) => character.name),
@@ -87,13 +66,13 @@ function participantNames(ctx: GuideToolContext): string[] {
   ].filter((name) => name.length > 0);
 }
 
-function isDuplicateParticipantName(name: string, ctx: GuideToolContext): boolean {
+function isDuplicateParticipantName(name: string, ctx: SetupAgentToolContext): boolean {
   const names = participantNames(ctx);
   names.push(name);
   return new Set(names).size !== names.length;
 }
 
-export function createGuideTools({
+export function createSetupAgentTools({
   otherLanguages,
   topics,
   characters,
@@ -101,8 +80,8 @@ export function createGuideTools({
   isWebMode = false,
 }: {
   otherLanguages: string[];
-  topics: GuideTopic[];
-  characters: GuideCharacter[];
+  topics: SetupAgentTopic[];
+  characters: SetupAgentCharacter[];
   agentMode: AgentMode;
   isWebMode?: boolean;
 }): RealtimeTool[] {
@@ -259,7 +238,7 @@ function syncMuseumPanelistOrder(): void {
   }
 }
 
-export function createGuideToolHandlers(ctx: GuideToolContext): Record<string, ToolHandler> {
+export function createSetupAgentToolHandlers(ctx: SetupAgentToolContext): Record<string, ToolHandler> {
   return {
     begin_setup: () => {
       if (ctx.meetingStep !== "landing") {
@@ -415,7 +394,7 @@ export function createGuideToolHandlers(ctx: GuideToolContext): Record<string, T
         };
       }
       const built = buildMeetingCharactersPayload({
-        language: ctx.voiceGuideLanguage,
+        language: ctx.setupAgentLanguage,
         selectedCharacters,
         humans,
         numberOfHumans,

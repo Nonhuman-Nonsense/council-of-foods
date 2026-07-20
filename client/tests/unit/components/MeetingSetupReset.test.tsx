@@ -12,7 +12,7 @@ import { MockFactory } from "../factories/MockFactory";
 
 const resetTopic = MockFactory.createTopic({ id: "new-topic", title: "New Topic" });
 
-vi.mock("@voice/MeetingVoiceGuide", () => ({
+vi.mock("@setupAgent/MeetingSetupAgent", () => ({
   default: () => null,
 }));
 

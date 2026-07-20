@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { resumeMeeting } from "@api/resumeMeeting.js";
+import { getGlobalOptions } from "@logic/GlobalOptions.js";
 import { meetingsCollection } from "@services/DbService.js";
 import type { StoredMeeting } from "@models/DBModels.js";
 import type { Message } from "@shared/ModelTypes.js";
@@ -67,6 +68,67 @@ describe("resumeMeeting (server)", () => {
         expect(response.meeting.conversation.map((c) => c.id)).toEqual(["m0", "m1"]);
         expect(response.meeting.audio).toEqual(["m0", "m1"]);
         expect(response.meeting.maximumPlayedIndex).toBe(3);
+    });
+
+    it("grants an extra slot directly when the raw stored tail was awaiting extension", async () => {
+        // buildResumeConversation strips the trailing query_extension sentinel like any other
+        // awaiting-human tail; without also bumping conversationExtraSlots here, the resumed
+        // live loop would immediately re-hit the same cap and re-prompt the user who just
+        // asked to continue. `extraMessageCount` comes from global test options.
+        const { extraMessageCount } = getGlobalOptions();
+        await seedMeeting({
+            conversation: [
+                { id: "m0", type: "message", speaker: SPEAKER_ID, text: "0" },
+                { type: "query_extension" },
+            ],
+            audio: ["m0"],
+            maximumPlayedIndex: 1,
+            conversationExtraSlots: 0,
+        });
+
+        const response = await resumeMeeting(777);
+
+        expect(response.meeting.conversation.map((c) => c.type)).toEqual(["message"]);
+        expect(response.meeting.conversationExtraSlots).toBe(extraMessageCount);
+        const stored = await meetingsCollection.findOne({ _id: 777 });
+        expect(stored?.conversationExtraSlots).toBe(extraMessageCount);
+    });
+
+    it("does not grant a slot when the meeting was not sitting on a query_extension tail", async () => {
+        // Resuming well below the cap must not silently pre-approve a future extension: the
+        // client never saw a query_extension here, so there is nothing to avoid duplicating.
+        await seedMeeting({
+            conversation: [{ id: "m0", type: "message", speaker: SPEAKER_ID, text: "0" }],
+            audio: ["m0"],
+            maximumPlayedIndex: 0,
+            conversationExtraSlots: 0,
+        });
+
+        await resumeMeeting(777);
+
+        const stored = await meetingsCollection.findOne({ _id: 777 });
+        expect(stored?.conversationExtraSlots).toBe(0);
+    });
+
+    it("does not grant a slot when there is no room left under meetingVeryMaxLength", async () => {
+        // No room to extend: leave the slots untouched so the resumed loop's own cap check
+        // finds the conversation still at the very-max length and auto-concludes on its own.
+        const { conversationMaxLength, meetingVeryMaxLength } = getGlobalOptions();
+        const atCeilingSlots = meetingVeryMaxLength - conversationMaxLength;
+        await seedMeeting({
+            conversation: [
+                { id: "m0", type: "message", speaker: SPEAKER_ID, text: "0" },
+                { type: "query_extension" },
+            ],
+            audio: ["m0"],
+            maximumPlayedIndex: 1,
+            conversationExtraSlots: atCeilingSlots,
+        });
+
+        await resumeMeeting(777);
+
+        const stored = await meetingsCollection.findOne({ _id: 777 });
+        expect(stored?.conversationExtraSlots).toBe(atCeilingSlots);
     });
 
     it("strips a dangling invitation at the tail", async () => {

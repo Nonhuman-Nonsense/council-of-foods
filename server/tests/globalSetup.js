@@ -1,8 +1,10 @@
+import { existsSync } from 'node:fs';
 import { MongoMemoryServer } from 'mongodb-memory-server';
-import dotenv from 'dotenv';
 
 export default async function globalSetup() {
-    dotenv.config();
+    if (existsSync('.env')) {
+        process.loadEnvFile('.env');
+    }
 
     const mongod = await MongoMemoryServer.create({
         instance: {

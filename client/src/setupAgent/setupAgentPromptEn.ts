@@ -1,5 +1,5 @@
 import { getAppMode } from "@/settings/councilSettings";
-import type { GuidePromptParams } from "./guidePrompt";
+import type { SetupAgentPromptParams } from "./setupAgentPrompt";
 
 export function buildEnPrompt({
   phase,
@@ -8,7 +8,7 @@ export function buildEnPrompt({
   topics,
   characters,
   otherLanguageNames,
-}: GuidePromptParams): string {
+}: SetupAgentPromptParams): string {
   const isMuseumMode = getAppMode() === "museum";
   const isWebMode = getAppMode() === "web";
   const isPtt = agentMode === "ptt";

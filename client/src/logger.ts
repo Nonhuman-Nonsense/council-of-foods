@@ -183,11 +183,22 @@ function serializeClientCause(cause: unknown): unknown {
   return cause;
 }
 
+export type ClientReportSeverity = "info" | "warning" | "error" | "critical";
+export type ClientReportImpact = "none" | "notified" | "terminal" | "process_exit";
+
+export interface ClientReportMeta {
+  meetingId?: number;
+  /** Defaults to 'critical' server-side when omitted — used for genuinely app-ending failures. */
+  severity?: ClientReportSeverity;
+  /** Defaults to 'terminal' server-side when omitted. */
+  clientImpact?: ClientReportImpact;
+}
+
 function postClientReport(
   source: string,
   message: string,
   cause?: unknown,
-  meta?: { meetingId?: number },
+  meta?: ClientReportMeta,
 ): void {
   if (!import.meta.env.PROD || typeof window === "undefined") return;
 
@@ -198,6 +209,8 @@ function postClientReport(
       message,
       source,
       meetingId: meta?.meetingId,
+      severity: meta?.severity,
+      clientImpact: meta?.clientImpact,
       url: window.location.href,
       cause: cause === undefined ? undefined : serializeClientCause(cause),
     }),
@@ -210,7 +223,7 @@ export function reportTerminalError(
   source: string,
   message: string,
   cause?: unknown,
-  meta?: { meetingId?: number },
+  meta?: ClientReportMeta,
 ): void {
   postClientReport(source, message, cause, meta);
   logEvent("ERROR", source, { message, cause, ...meta });
@@ -220,21 +233,53 @@ if (import.meta.env.DEV && typeof window !== "undefined") {
   (window as Window & { __councilLogger?: typeof log }).__councilLogger = log;
 }
 
+// Known-harmless noise injected by host environments, not bugs in our code — e.g. an
+// in-app browser's (Instagram/TikTok/Facebook) native bridge script throwing because its
+// own window.webkit.messageHandlers object isn't present in this context.
+const WINDOW_ERROR_NOISE_PATTERNS: RegExp[] = [/webkit\.messageHandlers/i];
+
+// Caps how many distinct window-level errors get reported per page load, and skips exact
+// repeats — protects against a broken interval/loop flooding the report endpoint, since
+// these fire on arbitrary uncaught errors anywhere on the page rather than a bounded set
+// of app call sites.
+const MAX_WINDOW_ERROR_REPORTS = 10;
+let windowErrorReportCount = 0;
+const reportedWindowErrorMessages = new Set<string>();
+
+function shouldReportWindowError(message: string): boolean {
+  if (WINDOW_ERROR_NOISE_PATTERNS.some((pattern) => pattern.test(message))) return false;
+  if (reportedWindowErrorMessages.has(message)) return false;
+  if (windowErrorReportCount >= MAX_WINDOW_ERROR_REPORTS) return false;
+  reportedWindowErrorMessages.add(message);
+  windowErrorReportCount++;
+  return true;
+}
+
 /**
  * Report-only: these fire on plenty of benign noise (cancelled fetches, third-party
- * scripts), so unlike ErrorBoundary they don't set unrecoverableError / crash the UI.
- * Call once at app startup.
+ * scripts), so unlike ErrorBoundary they don't set unrecoverableError / crash the UI, and
+ * report at 'warning'/'none' rather than the 'critical'/'terminal' used for genuine crashes —
+ * we don't know whether the page was actually affected. Call once at app startup.
  */
 export function installGlobalErrorHandlers(): void {
   if (typeof window === "undefined") return;
 
   window.addEventListener("error", (event) => {
-    reportTerminalError("window.onerror", event.message || "Uncaught error", event.error);
+    const message = event.message || "Uncaught error";
+    if (!shouldReportWindowError(message)) return;
+    reportTerminalError("window.onerror", message, event.error, {
+      severity: "warning",
+      clientImpact: "none",
+    });
   });
 
   window.addEventListener("unhandledrejection", (event) => {
     const reason = event.reason;
     const message = reason instanceof Error ? reason.message : String(reason);
-    reportTerminalError("unhandledrejection", message, reason);
+    if (!shouldReportWindowError(message)) return;
+    reportTerminalError("unhandledrejection", message, reason, {
+      severity: "warning",
+      clientImpact: "none",
+    });
   });
 }
