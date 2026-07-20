@@ -10,7 +10,7 @@ import type { TranslationKey } from "@/i18n";
 
 export type ButtonLedMode = "off" | "pulse" | "on";
 
-export type ButtonOwner = "staff" | "autoplay" | "voice-guide" | "human-input" | "meta-agent" | "summary" | "replay";
+export type ButtonOwner = "staff" | "autoplay" | "setup-agent" | "human-input" | "meta-agent" | "summary" | "replay";
 
 export type ButtonClaims = Partial<Record<ButtonOwner, true>>;
 export type ButtonLedModes = Partial<Record<ButtonOwner, ButtonLedMode>>;
@@ -36,7 +36,7 @@ const BUTTON_OWNER_PRIORITY: Record<ButtonOwner, number> = {
   "human-input": 2,
   summary: 2,
   replay: 1,
-  "voice-guide": 1,
+  "setup-agent": 1,
   "meta-agent": 1,
 };
 

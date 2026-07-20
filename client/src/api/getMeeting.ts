@@ -1,5 +1,5 @@
 import type { Meeting } from "@shared/ModelTypes";
-import { councilFetch } from "./http";
+import { councilFetch, HttpStatusError } from "./http";
 import { httpErrorMessage } from "./httpErrorMessage";
 
 export async function getMeeting({
@@ -22,7 +22,7 @@ export async function getMeeting({
   });
   if (!res.ok) {
     const message = await httpErrorMessage(res, `Get meeting failed (${res.status})`);
-    throw new Error(message);
+    throw new HttpStatusError(res.status, message);
   }
   return await res.json() as Meeting;
 }

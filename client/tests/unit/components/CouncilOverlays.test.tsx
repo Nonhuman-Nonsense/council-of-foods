@@ -26,8 +26,8 @@ vi.mock('@council/overlays/QueryExtension', () => ({
     )
 }));
 vi.mock('@council/overlays/Incomplete', () => ({
-    default: ({ onAttemptResume, onNevermind }: { onAttemptResume: () => void; onNevermind: () => void }) => (
-        <div data-testid="meeting-incomplete-overlay">
+    default: ({ elsewhere, onAttemptResume, onNevermind }: { elsewhere?: boolean; onAttemptResume: () => void; onNevermind: () => void }) => (
+        <div data-testid="meeting-incomplete-overlay" data-elsewhere={String(Boolean(elsewhere))}>
             Incomplete Overlay
             <button onClick={() => onAttemptResume()}>Resume</button>
             <button onClick={() => onNevermind()}>Nevermind</button>
@@ -113,7 +113,12 @@ describe('CouncilOverlays', () => {
 
     it('renders meeting_incomplete overlay when overlay matches councilState name', () => {
         render(<CouncilOverlays {...defaultProps} overlay="meeting_incomplete" />);
-        expect(screen.getByTestId('meeting-incomplete-overlay')).toBeInTheDocument();
+        expect(screen.getByTestId('meeting-incomplete-overlay')).toHaveAttribute('data-elsewhere', 'false');
+    });
+
+    it('passes meetingElsewhere through to the Incomplete overlay', () => {
+        render(<CouncilOverlays {...defaultProps} overlay="meeting_incomplete" meetingElsewhere />);
+        expect(screen.getByTestId('meeting-incomplete-overlay')).toHaveAttribute('data-elsewhere', 'true');
     });
 
     it('renders Summary overlay when overlay is "summary"', () => {

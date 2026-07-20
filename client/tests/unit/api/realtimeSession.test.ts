@@ -53,7 +53,7 @@ describe("realtimeSession api", () => {
         const result = await createHumanInputRealtimeCall(
             {
                 feature: "human-input",
-                provider: "openai",
+                provider: "inworld",
                 sdp: "mock-offer",
                 session: { type: "transcription" },
             },
@@ -70,7 +70,7 @@ describe("realtimeSession api", () => {
                 }),
                 body: JSON.stringify({
                     feature: "human-input",
-                    provider: "openai",
+                    provider: "inworld",
                     sdp: "mock-offer",
                     session: { type: "transcription" },
                 }),

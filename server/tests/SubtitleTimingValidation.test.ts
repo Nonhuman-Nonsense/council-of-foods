@@ -55,13 +55,23 @@ describe('SubtitleTimingValidation', () => {
                 { text: 'One.', start: 0, end: 1 },
                 { text: 'Two.', start: 1.2, end: 3 },
             ],
-            6.25
+            8.25
         );
 
         expect(result).toEqual({
             valid: false,
-            reason: 'last subtitle ends 3.25s before audio ends'
+            reason: 'last subtitle ends 5.25s before audio ends'
         });
+    });
+
+    it('honors a custom allowed end gap', () => {
+        const sentences = [
+            { text: 'One.', start: 0, end: 1 },
+            { text: 'Two.', start: 1.2, end: 3 },
+        ];
+
+        expect(validateSentenceTimingsAgainstDuration(sentences, 12, 10).valid).toBe(true);
+        expect(validateSentenceTimingsAgainstDuration(sentences, 12, 2).valid).toBe(false);
     });
 
     it('rejects timings that move backwards', () => {

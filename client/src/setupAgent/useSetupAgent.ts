@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { getRealtimeRetryPolicy, useRealtimeVoiceSession } from "@realtime/useRealtimeVoiceSession";
 import type { AgentMode } from "@/settings/councilSettings";
-import type { RealtimeTool, ToolHandler } from "./guideTools";
+import type { RealtimeTool, ToolHandler } from "@realtime/realtimeTools";
 import { setConnectionError, setUnrecoverableError } from "@main/overlay/errorStore";
 
-export type UseVoiceGuideParams = {
+export type UseSetupAgentParams = {
   language: string;
   instructions: string;
   tools: RealtimeTool[];
@@ -17,7 +17,7 @@ export type UseVoiceGuideParams = {
   isMuseumMode?: boolean;
 };
 
-export type VoiceGuideState = {
+export type SetupAgentState = {
   isConnecting: boolean;
   lastCaption: string | null;
   lastUserTranscript: string | null;
@@ -32,9 +32,9 @@ export type VoiceGuideState = {
 };
 
 /**
- * Setup voice guide: thin wrapper around {@link useRealtimeVoiceSession}.
+ * Setup agent: thin wrapper around {@link useRealtimeVoiceSession}.
  */
-export function useVoiceGuide(params: UseVoiceGuideParams): VoiceGuideState {
+export function useSetupAgent(params: UseSetupAgentParams): SetupAgentState {
   const {
     language,
     instructions,
@@ -52,15 +52,15 @@ export function useVoiceGuide(params: UseVoiceGuideParams): VoiceGuideState {
   const pttMic = agentMode === "ptt";
 
   const onConnectionLost = useCallback(() => {
-    if (isMuseumMode) setConnectionError("voice-guide", true);
+    if (isMuseumMode) setConnectionError("setup-agent", true);
   }, [isMuseumMode]);
 
   const onConnectionRestored = useCallback(() => {
-    if (isMuseumMode) setConnectionError("voice-guide", false);
+    if (isMuseumMode) setConnectionError("setup-agent", false);
   }, [isMuseumMode]);
 
   const session = useRealtimeVoiceSession({
-    feature: "voice-guide",
+    feature: "setup-agent",
     language,
     instructions,
     tools,

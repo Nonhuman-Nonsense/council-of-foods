@@ -1,13 +1,13 @@
-# Voice Guide — Tools & State Plan
+# Setup Agent — Tools & State Plan
 
-This document tracks the intended tool set, state flow, and implementation phases for the voice guide agent (`guidePromptEn.ts` / `guideTools.ts`).
+This document tracks the intended tool set, state flow, and implementation phases for the setup agent agent (`setupAgentPromptEn.ts` / `setupAgentTools.ts`).
 
 **Status:** Phase 1 done. Phase 2 partial. Phase 3 open.
 
 | Phase | Status |
 |-------|--------|
 | **1** — Tool set refactor | **Done** — see tool table below |
-| **2** — Initial state in prompt | **Partial** — `phase` is in the prompt; `selectedTopicTitle` / `selectedCharacterNames` not yet passed through `GuidePromptParams` |
+| **2** — Initial state in prompt | **Partial** — `phase` is in the prompt; `selectedTopicTitle` / `selectedCharacterNames` not yet passed through `SetupAgentPromptParams` |
 | **3** — UI-click state sync | **Open** — `meetingSetup.ts` still emits JSON `(STATE SYNC: …)` instead of plain-English `STATE UPDATE:` |
 
 ---
@@ -16,7 +16,7 @@ This document tracks the intended tool set, state flow, and implementation phase
 
 | Event | What happens |
 |-------|-------------|
-| Landing → Topic | **Navigation** (`navigate(newMeetingPath)`) unmounts `MeetingVoiceGuide` → session tears down and reconnects with new instructions (`phase: "topic"`). |
+| Landing → Topic | **Navigation** (`navigate(newMeetingPath)`) unmounts `MeetingSetupAgent` → session tears down and reconnects with new instructions (`phase: "topic"`). |
 | Topic → Characters | **No navigation.** `setStep("characters")` is a state change only. `instructions` ref updates but no new `session.update` is sent. Agent must be told via a synthetic user message. |
 | Language switch | Explicit reconnect → session restarts with new instructions. |
 | Reconnect / retry | Session restarts, re-reads `instructionsRef.current` at connection time. |
@@ -61,9 +61,9 @@ This document tracks the intended tool set, state flow, and implementation phase
 
 Tool schemas use **character names and topic titles** (not internal IDs) as enum values, matching exactly what the agent sees in the prompt. The handler resolves name → ID internally.
 
-`createGuideTools` signature:
+`createSetupAgentTools` signature:
 ```typescript
-createGuideTools({ otherLanguages, topics, characters, isWebMode })
+createSetupAgentTools({ otherLanguages, topics, characters, isWebMode })
 ```
 
 - `topics` → builds `enum` of topic titles for `select_topic`
@@ -129,7 +129,7 @@ Currently selected topic: Water Pollution
 Currently selected characters: Apple, Tomato, Bread
 ```
 
-This means `buildGuidePrompt` needs `selectedTopicTitle` and `selectedCharacterNames` in its params, read from the store in `MeetingVoiceGuide`.
+This means `buildSetupAgentPrompt` needs `selectedTopicTitle` and `selectedCharacterNames` in its params, read from the store in `MeetingSetupAgent`.
 
 ---
 
@@ -137,12 +137,12 @@ This means `buildGuidePrompt` needs `selectedTopicTitle` and `selectedCharacterN
 
 ### Phase 1 — Tool set refactor ✅
 
-Done. Tools match the table above; `createGuideTools({ otherLanguages, topics, characters, isWebMode })`.
+Done. Tools match the table above; `createSetupAgentTools({ otherLanguages, topics, characters, isWebMode })`.
 
 ### Phase 2 — Initial state in prompt (partial)
-- Add `selectedTopicTitle?` and `selectedCharacterNames?` to `GuidePromptParams`
+- Add `selectedTopicTitle?` and `selectedCharacterNames?` to `SetupAgentPromptParams`
 - Include in the "Current phase" section of the prompt
-- `MeetingVoiceGuide` reads `selectedTopic` + `selectedCharacters` from the store and passes them through
+- `MeetingSetupAgent` reads `selectedTopic` + `selectedCharacters` from the store and passes them through
 - Agent now starts correctly on reconnect/language-switch
 
 ### Phase 3 — UI-click state sync (open)

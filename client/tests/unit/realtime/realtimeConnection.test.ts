@@ -161,7 +161,7 @@ describe("realtimeConnection", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
 
-    const result = await fetchRealtimeBootstrap({ feature: "voice-guide", language: "sv" });
+    const result = await fetchRealtimeBootstrap({ feature: "setup-agent", language: "sv" });
 
     expect(result.provider).toBe("inworld");
     expect(result.iceServers).toEqual([{ urls: ["stun:guide.example.com"] }]);
@@ -172,7 +172,7 @@ describe("realtimeConnection", () => {
         headers: expect.objectContaining({
           "Content-Type": "application/json",
         }),
-        body: JSON.stringify({ feature: "voice-guide", language: "sv" }),
+        body: JSON.stringify({ feature: "setup-agent", language: "sv" }),
         signal: expect.any(AbortSignal),
       })
     );
@@ -197,7 +197,7 @@ describe("realtimeConnection", () => {
       )
     );
 
-    const result = await fetchRealtimeSessionDefaults({ feature: "voice-guide", language: "en" });
+    const result = await fetchRealtimeSessionDefaults({ feature: "setup-agent", language: "en" });
 
     expect(result).toMatchObject({
       type: "realtime",
@@ -209,7 +209,7 @@ describe("realtimeConnection", () => {
   it("throws RealtimeHttpError when bootstrap returns a non-ok status", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(new Response("denied", { status: 403 })));
 
-    const err = await fetchRealtimeBootstrap({ feature: "voice-guide", language: "en" }).catch((e) => e);
+    const err = await fetchRealtimeBootstrap({ feature: "setup-agent", language: "en" }).catch((e) => e);
     expect(err).toBeInstanceOf(RealtimeHttpError);
     expect((err as RealtimeHttpError).status).toBe(403);
     expect(err.message).toBe("Realtime bootstrap failed (403): denied");
@@ -226,7 +226,7 @@ describe("realtimeConnection", () => {
       )
     );
 
-    await expect(fetchRealtimeBootstrap({ feature: "voice-guide", language: "en" })).rejects.toThrow(
+    await expect(fetchRealtimeBootstrap({ feature: "setup-agent", language: "en" })).rejects.toThrow(
       "Realtime bootstrap: response invalid"
     );
   });

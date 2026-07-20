@@ -52,8 +52,8 @@ field staff). Settings persist in `localStorage` on that browser profile.
 
 | Mode | Use |
 |------|-----|
-| **Web** | Normal online UI — navbar, manual voice-guide controls, fullscreen button |
-| **Museum** | Visitor-facing chrome hidden; voice guide auto-starts; optimized for kiosk |
+| **Web** | Normal online UI — navbar, manual setup agent controls, fullscreen button |
+| **Museum** | Visitor-facing chrome hidden; setup agent auto-starts; optimized for kiosk |
 
 Switching museum → web does **not** reload the page or end an in-progress meeting.
 
@@ -61,7 +61,7 @@ Switching museum → web does **not** reload the page or end an in-progress meet
 
 | Mode | Use |
 |------|-----|
-| **Always-on** | Mic open during setup voice guide (no button required) |
+| **Always-on** | Mic open during the setup agent (no button required) |
 | **Push to talk (PTT)** | Visitor holds button (or Space in dev) to speak — used with hardware button |
 
 In museum mode, choosing **Museum** automatically enables an agent mode if it was
@@ -163,5 +163,5 @@ These are implementation plans, not install runbooks:
 | Doc | Topic |
 |-----|--------|
 | [docs/museum-kiosk-resilience-plan.md](docs/museum-kiosk-resilience-plan.md) | Deploy recovery, health probe before reload, host watchdog |
-| [docs/agent-error-handling-plan.md](docs/agent-error-handling-plan.md) | Voice guide / meta-agent errors → main error UI |
-| [docs/voice-guide-tools-plan.md](docs/voice-guide-tools-plan.md) | Voice guide tools and UI state sync |
+| [docs/agent-error-handling-plan.md](docs/agent-error-handling-plan.md) | Setup agent / meta-agent errors → main error UI |
+| [docs/setup-agent-tools-plan.md](docs/setup-agent-tools-plan.md) | Setup agent tools and UI state sync |

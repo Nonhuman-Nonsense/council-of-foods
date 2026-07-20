@@ -37,8 +37,8 @@
             "@newMeeting/*": [
                 "./src/newMeeting/*"
             ],
-            "@voice/*": [
-                "./src/voice/*"
+            "@setupAgent/*": [
+                "./src/setupAgent/*"
             ],
             "@realtime/*": [
                 "./src/realtime/*"

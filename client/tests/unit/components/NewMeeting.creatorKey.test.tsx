@@ -9,7 +9,7 @@ import type { Character } from "@newMeeting/SelectCharacters";
 import { MockFactory } from "../factories/MockFactory";
 import { useErrorStore } from "@main/overlay/errorStore";
 
-vi.mock("@voice/MeetingVoiceGuide", () => ({
+vi.mock("@setupAgent/MeetingSetupAgent", () => ({
     default: () => null,
 }));
 

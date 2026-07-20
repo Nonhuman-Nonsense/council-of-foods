@@ -1,4 +1,4 @@
-import type { RealtimeFunctionTool, ToolHandler, ToolResult } from "@voice/guideTools";
+import type { RealtimeFunctionTool, ToolHandler, ToolResult } from "@realtime/realtimeTools";
 import type { MetaAgentPromptBundle } from "./metaAgentPrompt";
 import type { MetaAgentPhase } from "./useMetaAgent";
 import { log } from "@/logger";

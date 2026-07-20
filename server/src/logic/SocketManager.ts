@@ -124,7 +124,7 @@ export class SocketManager {
                 //    the server processes "Reconnect" first (creating session), then "Message" (succeeds).
                 //    This check primarily protects against "ghost" events from old sessions, buggy clients,
                 //    or rare edge cases where the session might have crashed/reset in between events.
-                Logger.warn("socket", `Ignored event ${event} - No active session`, { from: this.socketReportFrom() });
+                Logger.info("socket", `Ignored event ${event} - No active session`, { from: this.socketReportFrom() });
                 return;
             }
 
@@ -144,20 +144,17 @@ export class SocketManager {
                     );
                     this.socketBroadcaster.broadcastWarning(CouncilError.fromZod(error), context);
                 } else if (error instanceof CouncilError) {
-                    if (error.statusCode >= 500) {
-                        const errMessage = error instanceof Error ? error.message : String(error);
-                        Logger.error(
-                            context,
-                            `Error handling event ${event}; notifying client (${error.statusCode}): ${errMessage}`,
-                            { error, from, clientImpact: 'terminal' },
-                        );
+                    const isEscalated = error.severity === 'error';
+                    const detail = isEscalated ? error.message : error.clientMessage;
+                    void Logger.logCouncilError(
+                        context,
+                        `Error handling event ${event}; notifying client (${error.statusCode}): ${detail}`,
+                        error,
+                        { from, clientImpact: isEscalated ? 'terminal' : 'notified' },
+                    );
+                    if (isEscalated) {
                         this.socketBroadcaster.broadcastError(error, context);
                     } else {
-                        Logger.warn(
-                            context,
-                            `Error handling event ${event}; notifying client (${error.statusCode}): ${error.clientMessage}`,
-                            { error, from, clientImpact: 'notified' },
-                        );
                         this.socketBroadcaster.broadcastWarning(error, context);
                     }
                 } else {

@@ -63,10 +63,6 @@ vi.mock("@logic/GlobalOptions.js", async (importOriginal) => {
     };
 });
 
-vi.mock("@services/OpenAIService.js", () => ({
-    getOpenAI: () => ({ apiKey: "test-openai-api-key" }),
-}));
-
 vi.mock("../src/config.js", () => ({
     config: {
         INWORLD_API_KEY: "test-inworld-api-key",
@@ -75,14 +71,10 @@ vi.mock("../src/config.js", () => ({
 
 import {
     createInworldCall,
-    createOpenAICall,
     getHumanInputRealtimeBootstrap,
     getInworldIceServers,
     getMetaAgentRealtimeBootstrap,
-    getVoiceGuideRealtimeBootstrap,
-    pickHumanInputRealtimeProvider,
-    pickMetaAgentRealtimeProvider,
-    pickVoiceGuideRealtimeProvider,
+    getSetupAgentRealtimeBootstrap,
 } from "@api/realtimeProviders.js";
 
 const SDP_ANSWER = "v=0\r\no=- 9 2 IN IP4 0.0.0.0\r\nm=audio 9 UDP/TLS/RTP/SAVPF 111\r\n";
@@ -100,24 +92,6 @@ describe("realtimeProviders", () => {
 
     afterEach(() => {
         vi.restoreAllMocks();
-    });
-
-    it("routes meta-agent sessions to Inworld for all languages", () => {
-        expect(pickMetaAgentRealtimeProvider("sv")).toBe("inworld");
-        expect(pickMetaAgentRealtimeProvider("sv-SE")).toBe("inworld");
-        expect(pickMetaAgentRealtimeProvider("en")).toBe("inworld");
-    });
-
-    it("routes human-input transcription from config", () => {
-        expect(pickHumanInputRealtimeProvider("sv")).toBe("inworld");
-        expect(pickHumanInputRealtimeProvider("sv-SE")).toBe("inworld");
-        expect(pickHumanInputRealtimeProvider("en")).toBe("inworld");
-    });
-
-    it("routes Swedish voice-guide sessions to Inworld", () => {
-        expect(pickVoiceGuideRealtimeProvider("sv")).toBe("inworld");
-        expect(pickVoiceGuideRealtimeProvider("sv-SE")).toBe("inworld");
-        expect(pickVoiceGuideRealtimeProvider("en")).toBe("inworld");
     });
 
     it.each([
@@ -153,7 +127,7 @@ describe("realtimeProviders", () => {
         }
     );
 
-    it("passes chair STT, TTS, and agent voice into Swedish voice-guide bootstrap", async () => {
+    it("passes chair STT, TTS, and agent voice into Swedish setup-agent bootstrap", async () => {
         vi.mocked(global.fetch).mockResolvedValue(
             new Response(JSON.stringify({ ice_servers: [{ urls: ["stun:guide-sv.example.com"] }] }), {
                 status: 200,
@@ -161,7 +135,7 @@ describe("realtimeProviders", () => {
             })
         );
 
-        const result = await getVoiceGuideRealtimeBootstrap("sv");
+        const result = await getSetupAgentRealtimeBootstrap("sv");
 
         expect(result.provider).toBe("inworld");
         expect(result.iceServers).toEqual([{ urls: ["stun:guide-sv.example.com"] }]);
@@ -190,7 +164,7 @@ describe("realtimeProviders", () => {
         });
     });
 
-    it("passes chair agent voice into English voice-guide bootstrap", async () => {
+    it("passes chair agent voice into English setup-agent bootstrap", async () => {
         vi.mocked(global.fetch).mockResolvedValue(
             new Response(JSON.stringify({ ice_servers: [{ urls: ["stun:guide.example.com"] }] }), {
                 status: 200,
@@ -198,7 +172,7 @@ describe("realtimeProviders", () => {
             })
         );
 
-        const result = await getVoiceGuideRealtimeBootstrap("en");
+        const result = await getSetupAgentRealtimeBootstrap("en");
 
         expect(result.provider).toBe("inworld");
         expect(result.iceServers).toEqual([{ urls: ["stun:guide.example.com"] }]);
@@ -298,33 +272,6 @@ describe("realtimeProviders", () => {
         });
     });
 
-    it("POSTs OpenAI calls with server-side auth and FormData", async () => {
-        vi.mocked(global.fetch).mockResolvedValue(
-            new Response("mock_sdp_answer", {
-                status: 200,
-                headers: {
-                    Location: "call_123",
-                },
-            })
-        );
-
-        const result = await createOpenAICall({
-            sdp: SDP_OFFER,
-            session: { type: "transcription" },
-        });
-
-        expect(result).toEqual({ id: "call_123", sdp: "mock_sdp_answer" });
-        expect(global.fetch).toHaveBeenCalledWith(
-            "https://api.openai.com/v1/realtime/calls",
-            expect.objectContaining({
-                method: "POST",
-                headers: expect.objectContaining({
-                    Authorization: "Bearer test-openai-api-key",
-                }),
-                body: expect.any(FormData),
-            })
-        );
-    });
 });
 
 describe("getInworldIceServers", () => {

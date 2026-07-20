@@ -24,7 +24,7 @@ describe("errorStore — connection error tracking", () => {
 
   it("remains in error if any source is still active", () => {
     act(() => useErrorStore.getState().setConnectionError("socket", true));
-    act(() => useErrorStore.getState().setConnectionError("voice-guide", true));
+    act(() => useErrorStore.getState().setConnectionError("setup-agent", true));
     act(() => useErrorStore.getState().setConnectionError("socket", false));
     expect(useErrorStore.getState().connectionError).toBe(true);
   });
