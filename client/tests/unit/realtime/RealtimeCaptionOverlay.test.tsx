@@ -75,6 +75,21 @@ describe("RealtimeCaptionOverlay", () => {
     expect(screen.queryByTestId("live-audio-viz")).not.toBeInTheDocument();
   });
 
+  it("reserves the same viz row height when showPttVisualizer is false", () => {
+    render(
+      <RealtimeCaptionOverlay
+        lastCaption={null}
+        lastUserTranscript={null}
+        showPttVisualizer={false}
+        micActive={false}
+      />,
+    );
+
+    const row = screen.getByTestId("realtime-ptt-viz-row");
+    expect(row).toBeInTheDocument();
+    expect(row).toHaveStyle({ visibility: "hidden" });
+  });
+
   it("shows visualizer when PTT mic is active and stream is present", () => {
     render(
       <RealtimeCaptionOverlay
