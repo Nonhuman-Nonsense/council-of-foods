@@ -1,4 +1,5 @@
 import net from "node:net";
+import { LED_ERROR } from "../../../shared/buttonProtocol.js";
 import type { BridgeConfig } from "../src/config.js";
 import { MockSerialManager } from "../src/mockSerialManager.js";
 import { WsServer } from "../src/wsServer.js";
@@ -69,12 +70,18 @@ function createTestConfig(port: number): BridgeConfig {
   };
 }
 
+function notifyNoClientIfSerialOpen(serial: MockSerialManager, clientCount: number): void {
+  if (clientCount > 0 || !serial.isOpen()) return;
+  void serial.writeLine(LED_ERROR).catch(() => {});
+}
+
 function wireSerialToServer(serial: MockSerialManager, server: WsServer): void {
   serial.on("line", ({ text }) => {
     server.broadcast({ type: "line", text });
   });
   serial.on("open", ({ path }) => {
     server.broadcast({ type: "status", state: "connected", path });
+    notifyNoClientIfSerialOpen(serial, server.getClientCount());
   });
   serial.on("close", ({ reason }) => {
     server.broadcast({ type: "status", state: "disconnected", error: reason });
@@ -130,7 +137,9 @@ export async function startTestBridge(
 
   async function boot(connectSerial = serialConnected): Promise<void> {
     runtime.serial = new MockSerialManager();
-    runtime.server = new WsServer(createTestConfig(runtime.port), runtime.serial);
+    runtime.server = new WsServer(createTestConfig(runtime.port), runtime.serial, (clientCount) => {
+      notifyNoClientIfSerialOpen(runtime.serial, clientCount);
+    });
     wireSerialToServer(runtime.serial, runtime.server);
     if (connectSerial) {
       runtime.serial.start();

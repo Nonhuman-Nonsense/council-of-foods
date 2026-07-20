@@ -213,12 +213,20 @@ button/bridge/install/macos/smoke-bundle.sh
 { "type": "write", "line": "LED_PULSE" }
 ```
 
+**Bridge → Arduino (self-initiated, no browser involved)**
+
+Whenever the serial device is open but zero browsers are connected over `/v1/button`
+(e.g. blocked by a browser's local-network permission), the bridge writes `LED_ERROR`
+directly to the Arduino. It's cleared automatically the moment a browser client
+connects and resyncs its LED mode — no bridge-side "revert" logic needed.
+
 ## Troubleshooting
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
 | Bridge: Not running | Daemon not started | `npm run dev` or `install.sh` |
 | Bridge running, Serial disconnected | USB unplugged or wrong port | Replug; set `BUTTON_SERIAL_PATH` |
-| LED cycles one-at-a-time | No serial host | Bridge not connected to device |
+| LED cycles one-at-a-time (fast, ~1s/light) | No serial host | Bridge not connected to device |
+| LED cycles one-at-a-time (slow, ~3s/light) | Serial connected, no browser client | Browser can't reach bridge (e.g. blocked local-network permission); check bridge WS URL/CORS |
 | Tests fail | Bridge code regressed or port conflict | Run `npm run stop`, then `npm test` |
 | Port busy | Arduino IDE Serial Monitor open | Close Serial Monitor |

@@ -18,13 +18,15 @@ Use a **powered USB hub or a direct rear-panel port** on the museum PC. Avoid US
 
 ## LED modes
 
-The browser drives three host modes over serial:
+The browser drives three host modes over serial; the bridge itself can also force a
+fourth (`LED_ERROR`) without any browser involved:
 
-| Command | LED behaviour | Button |
-|---|---|---|
-| `LED_OFF` | Off | Presses reported (`BUTTON_DOWN` / `BUTTON_UP`); host decides whether to act |
-| `LED_PULSE` | Smooth breathing animation | Presses reported |
-| `LED_ON` | Fully on | Presses reported |
+| Command | LED behaviour | Button | Sent by |
+|---|---|---|---|
+| `LED_OFF` | Off | Presses reported (`BUTTON_DOWN` / `BUTTON_UP`); host decides whether to act | Browser |
+| `LED_PULSE` | Smooth breathing animation | Presses reported | Browser |
+| `LED_ON` | Fully on | Presses reported | Browser |
+| `LED_ERROR` | Slow one-at-a-time march (3 s each) | Presses reported | Bridge |
 
 ### No host connected
 
@@ -34,7 +36,16 @@ When the **bridge** has not opened the USB serial port:
 - LEDs cycle one-at-a-time (1 s each) as a **connecting** indicator
 - The animation starts automatically whenever the USB link is lost
 
-After the bridge connects, the app sends `LED_PULSE` (ready) or `LED_ON` (mic active). Until then the device stays in `LED_OFF`.
+### Bridge connected, no browser attached
+
+When the bridge has opened the USB serial port but no browser is connected over its
+local WebSocket (e.g. blocked by a browser's local-network permission), the bridge
+sends `LED_ERROR` itself. This looks like the same one-at-a-time march as the "no
+host" state, but slower (3 s/light vs. 1 s/light), so the two are distinguishable.
+It's cleared the moment a browser connects and resyncs its LED mode.
+
+After the bridge connects **and** a browser is attached, the app sends `LED_PULSE`
+(ready) or `LED_ON` (mic active). Until then the device stays in `LED_OFF`.
 
 ## Upload
 
@@ -55,6 +66,7 @@ Close Serial Monitor before starting the bridge — only one program can use the
 | Host → device | `LED_OFF` |
 | Host → device | `LED_PULSE` |
 | Host → device | `LED_ON` |
+| Host → device | `LED_ERROR` (sent by the bridge itself, not relayed from the browser) |
 | Host → device | `HELLO_COUNCIL` |
 
 All messages are newline-terminated ASCII. Incoming host lines longer than 32 characters are discarded.
