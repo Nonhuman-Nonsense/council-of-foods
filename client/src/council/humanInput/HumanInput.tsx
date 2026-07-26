@@ -796,33 +796,28 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
     // connecting / finishing: no-op — loading UI is shown instead of the button
   }
 
-  useEffect(() => {
-    if (connectionState === "recording") {
-      const nextValue = formatTranscriptInputValue({
-        previousTranscript,
-        transcriptSegments,
-        maxLength: maxInputLength,
-      });
-      setInputValue(nextValue);
-      updateCanContinue(nextValue);
+  const transcriptText = formatTranscriptInputValue({
+    previousTranscript,
+    transcriptSegments,
+    maxLength: maxInputLength,
+  });
 
-      if (nextValue.length >= maxInputLength) {
-        setPreviousTranscript(nextValue);
-        setTranscriptSegments([]);
-        finishRealtimeSession();
-      }
-    } else {
-      const nextValue = formatTranscriptInputValue({
-        previousTranscript,
-        transcriptSegments,
-        maxLength: maxInputLength,
-      });
-      setInputValue(nextValue);
-      updateCanContinue(nextValue);
+  // Keyed on the derived text, not on connectionState: a transition that leaves the
+  // transcript unchanged (pre-warm landing on "ready", a reconnect after a drop) must not
+  // overwrite what the visitor typed. startRecording() folds inputValue into
+  // previousTranscript, so recording still picks up from the typed text.
+  useEffect(() => {
+    setInputValue(transcriptText);
+    updateCanContinue(transcriptText);
+
+    if (connectionStateRef.current === "recording" && transcriptText.length >= maxInputLength) {
+      setPreviousTranscript(transcriptText);
+      setTranscriptSegments([]);
+      finishRealtimeSession();
     }
   // finishRealtimeSession is stable (no deps), safe to omit
-   
-  }, [transcriptSegments, connectionState, previousTranscript, maxInputLength]);
+
+  }, [transcriptText, maxInputLength]);
 
   function inputFocused(_e: React.FocusEvent) {
     if (connectionState === "recording") {

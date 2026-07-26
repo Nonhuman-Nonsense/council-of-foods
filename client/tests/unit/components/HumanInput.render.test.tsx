@@ -164,6 +164,9 @@ async function renderAndWaitReady(extraProps = {}) {
     await waitFor(() => {
         expect(screen.getByTestId('icon-record_voice_off')).toBeInTheDocument();
     });
+    // waitFor resolves as soon as the ready commit paints; the passive effects of that
+    // commit can still be pending. Flush them so every caller starts from a settled tree.
+    await act(async () => { });
     return result;
 }
 
@@ -282,6 +285,35 @@ describe('HumanInput Component', () => {
 
         fireEvent.click(sendButton);
         expect(mockOnSubmit).toHaveBeenCalledWith('Hello World');
+    });
+
+    it('should keep text typed while the connection is still coming up', async () => {
+        const pending = deferred<RealtimeConnection>();
+        mockCreateRealtimeConnection.mockReturnValue(pending.promise);
+
+        render(
+            <HumanInput
+                phase="active"
+                isPanelist={false}
+                currentSpeakerName=""
+                onSubmitHumanMessage={mockOnSubmit}
+                liveKey="test-key"
+                onAbandonHumanTurn={vi.fn()}
+            />
+        );
+
+        const textarea = screen.getByPlaceholderText('human.placeholder') as HTMLTextAreaElement;
+        fireEvent.change(textarea, { target: { value: 'Typed while connecting' } });
+
+        await act(async () => {
+            pending.resolve(mockConnection());
+        });
+
+        // Reaching "ready" must not wipe the input — the transcript is still empty.
+        expect(textarea.value).toBe('Typed while connecting');
+
+        fireEvent.click(screen.getByTestId('icon-send_message'));
+        expect(mockOnSubmit).toHaveBeenCalledWith('Typed while connecting');
     });
 
     it('should submit text without manual character targeting', async () => {
