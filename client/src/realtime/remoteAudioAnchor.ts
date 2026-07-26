@@ -45,17 +45,6 @@ const getNow = (): number => {
   return Date.now();
 };
 
-/**
- * Human-comparable local wall-clock string (HH:MM:SS.mmm), for manually
- * correlating an onset-detection log line against when audio is actually
- * heard — `performance.now()`/`AudioContext.currentTime` alone aren't
- * something you can line up against a stopwatch or your own perception.
- */
-const wallClockNow = (): string => {
-  const d = new Date();
-  return `${d.toLocaleTimeString(undefined, { hour12: false })}.${String(d.getMilliseconds()).padStart(3, "0")}`;
-};
-
 function createAudioContext(): AudioContext {
   const AudioContextCtor = window.AudioContext ?? window.webkitAudioContext;
   return new AudioContextCtor();
@@ -139,10 +128,7 @@ export function createRemoteAudioAnchor(options: RemoteAudioAnchorOptions): Remo
       armed = false;
       firedForCurrentArm = true;
       quietSinceMs = null;
-      // DIAGNOSTIC (temporary): compare this wall-clock time against when you
-      // actually hear the response start, to confirm/deny whether the silent
-      // analyser tap is drifting from the audible <audio> element's playback.
-      log?.(`[SUBS] ONSET DETECTED at wallClock=${wallClockNow()}`, { rms });
+      log?.("remote audio anchor fired", { rms });
       onAudioStart(nowMs, ctx.currentTime);
     } else {
       releaseQuietStateIfSilent(rms, nowMs);
