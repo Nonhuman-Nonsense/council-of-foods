@@ -136,6 +136,29 @@ beforeEach(() => {
   });
 });
 
+/**
+ * Connection mock that also delivers a remote audio track, which is what wires
+ * up the audio anchor (`mockOnAudioStart` / `mockOnArmed`). Tests that only
+ * exercise the data channel can rely on the plainer mock in `beforeEach`.
+ */
+function mockConnectionWithRemoteTrack(): void {
+  mockCreateRealtimeConnection.mockImplementation(async ({ onOpen, onRemoteTrack }: {
+    onOpen: () => void;
+    onRemoteTrack: (track: MediaStreamTrack) => void;
+  }) => {
+    onOpen();
+    onRemoteTrack({ stop: vi.fn() } as unknown as MediaStreamTrack);
+    return {
+      close: vi.fn(),
+      micStream: {
+        getTracks: () => [{ stop: vi.fn() }],
+        getAudioTracks: () => [{ enabled: false }],
+      },
+      dc: { readyState: "open", send: vi.fn() },
+    };
+  });
+}
+
 describe("useRealtimeVoiceSession", () => {
   it("bootstraps with feature and auth headers", async () => {
     renderHook(() => useRealtimeVoiceSession(defaultParams));
@@ -175,21 +198,7 @@ describe("useRealtimeVoiceSession", () => {
   });
 
   it("tracks inworld agentSpeaking from audio anchor through subtitle end", async () => {
-    mockCreateRealtimeConnection.mockImplementation(async ({ onOpen, onRemoteTrack }: {
-      onOpen: () => void;
-      onRemoteTrack: (track: MediaStreamTrack) => void;
-    }) => {
-      onOpen();
-      onRemoteTrack({ stop: vi.fn() } as unknown as MediaStreamTrack);
-      return {
-        close: vi.fn(),
-        micStream: {
-          getTracks: () => [{ stop: vi.fn() }],
-          getAudioTracks: () => [{ enabled: false }],
-        },
-        dc: { readyState: "open", send: vi.fn() },
-      };
-    });
+    mockConnectionWithRemoteTrack();
 
     const { result } = renderHook(() => useRealtimeVoiceSession(defaultParams));
 
@@ -235,21 +244,7 @@ describe("useRealtimeVoiceSession", () => {
    * corrupt it with wrong offsets. Both must wait for confirmed silence.
    */
   it("keeps the previous caption on screen until confirmed silence, buffering alignment data meanwhile", async () => {
-    mockCreateRealtimeConnection.mockImplementation(async ({ onOpen, onRemoteTrack }: {
-      onOpen: () => void;
-      onRemoteTrack: (track: MediaStreamTrack) => void;
-    }) => {
-      onOpen();
-      onRemoteTrack({ stop: vi.fn() } as unknown as MediaStreamTrack);
-      return {
-        close: vi.fn(),
-        micStream: {
-          getTracks: () => [{ stop: vi.fn() }],
-          getAudioTracks: () => [{ enabled: false }],
-        },
-        dc: { readyState: "open", send: vi.fn() },
-      };
-    });
+    mockConnectionWithRemoteTrack();
 
     const { result } = renderHook(() => useRealtimeVoiceSession(defaultParams));
 
@@ -306,21 +301,7 @@ describe("useRealtimeVoiceSession", () => {
    * otherwise the old caption lingers into the next response.
    */
   it("resets immediately when the previous response's audio already finished", async () => {
-    mockCreateRealtimeConnection.mockImplementation(async ({ onOpen, onRemoteTrack }: {
-      onOpen: () => void;
-      onRemoteTrack: (track: MediaStreamTrack) => void;
-    }) => {
-      onOpen();
-      onRemoteTrack({ stop: vi.fn() } as unknown as MediaStreamTrack);
-      return {
-        close: vi.fn(),
-        micStream: {
-          getTracks: () => [{ stop: vi.fn() }],
-          getAudioTracks: () => [{ enabled: false }],
-        },
-        dc: { readyState: "open", send: vi.fn() },
-      };
-    });
+    mockConnectionWithRemoteTrack();
 
     const { result } = renderHook(() => useRealtimeVoiceSession(defaultParams));
     await waitFor(() => {
@@ -357,24 +338,14 @@ describe("useRealtimeVoiceSession", () => {
    * while it is still draining. Resetting on that would anchor the next
    * response's subtitle clock to a word of the old, still-audible audio.
    */
-  it("waits for confirmed silence after a cancelled response even if the clock says finished", async () => {
-    mockCreateRealtimeConnection.mockImplementation(async ({ onOpen, onRemoteTrack }: {
-      onOpen: () => void;
-      onRemoteTrack: (track: MediaStreamTrack) => void;
-    }) => {
-      onOpen();
-      onRemoteTrack({ stop: vi.fn() } as unknown as MediaStreamTrack);
-      return {
-        close: vi.fn(),
-        micStream: {
-          getTracks: () => [{ stop: vi.fn() }],
-          getAudioTracks: () => [{ enabled: false }],
-        },
-        dc: { readyState: "open", send: vi.fn() },
-      };
-    });
+  // Whether the interrupt happened is transition state, so it must hold
+  // regardless of whether this session exposes `agentSpeaking`.
+  it.each([true, false])("waits for confirmed silence after a cancelled response even if the clock says finished (trackAgentSpeaking=%s)", async (trackAgentSpeaking) => {
+    mockConnectionWithRemoteTrack();
 
-    const { result } = renderHook(() => useRealtimeVoiceSession(defaultParams));
+    const { result } = renderHook(() =>
+      useRealtimeVoiceSession({ ...defaultParams, trackAgentSpeaking }),
+    );
     await waitFor(() => {
       expect(mockOnAudioStart).toBeTypeOf("function");
     });
@@ -419,21 +390,7 @@ describe("useRealtimeVoiceSession", () => {
    * describe the same response the event loop is about to truncate.
    */
   it("sends a truncation offset once the playback timeline has settled", async () => {
-    mockCreateRealtimeConnection.mockImplementation(async ({ onOpen, onRemoteTrack }: {
-      onOpen: () => void;
-      onRemoteTrack: (track: MediaStreamTrack) => void;
-    }) => {
-      onOpen();
-      onRemoteTrack({ stop: vi.fn() } as unknown as MediaStreamTrack);
-      return {
-        close: vi.fn(),
-        micStream: {
-          getTracks: () => [{ stop: vi.fn() }],
-          getAudioTracks: () => [{ enabled: false }],
-        },
-        dc: { readyState: "open", send: vi.fn() },
-      };
-    });
+    mockConnectionWithRemoteTrack();
 
     const { result } = renderHook(() => useRealtimeVoiceSession(defaultParams));
     await waitFor(() => {
@@ -467,21 +424,7 @@ describe("useRealtimeVoiceSession", () => {
    * truncate the wrong response at a meaningless point.
    */
   it("omits the truncation offset while a response transition is pending", async () => {
-    mockCreateRealtimeConnection.mockImplementation(async ({ onOpen, onRemoteTrack }: {
-      onOpen: () => void;
-      onRemoteTrack: (track: MediaStreamTrack) => void;
-    }) => {
-      onOpen();
-      onRemoteTrack({ stop: vi.fn() } as unknown as MediaStreamTrack);
-      return {
-        close: vi.fn(),
-        micStream: {
-          getTracks: () => [{ stop: vi.fn() }],
-          getAudioTracks: () => [{ enabled: false }],
-        },
-        dc: { readyState: "open", send: vi.fn() },
-      };
-    });
+    mockConnectionWithRemoteTrack();
 
     const { result } = renderHook(() => useRealtimeVoiceSession(defaultParams));
     await waitFor(() => {

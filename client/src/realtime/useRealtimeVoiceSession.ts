@@ -21,6 +21,7 @@ import {
   createInworldSubtitleTrack,
   findActiveSentenceAtTime,
   type InworldSubtitleTrack,
+  type InworldWordToken,
 } from "@realtime/inworldSubtitleTrack";
 import { log, summarizeLogPayload } from "@/logger";
 
@@ -443,21 +444,15 @@ export function useRealtimeVoiceSession(
       let responseCancelled = false;
 
       // Response-transition reset. `response.created` does not mean the
-      // previous response's audio has stopped: after a click-triggered
-      // interrupt it can keep draining for a second or two. Resetting
-      // captions/anchor/subtitleTrack instantly would hide a caption whose
-      // audio is still audible, so the reset is sometimes deferred until the
-      // anchor's RMS detector confirms real silence.
-      //
-      // That detector is approximate though (a long enough pause inside
-      // still-draining audio reads as silence; a short gap before the next
-      // response reads as none), so it is used only when needed. When the
-      // playback clock already says the previous response finished — the same
-      // signal that drives `agentSpeaking` — the reset happens immediately,
-      // which is exact.
+      // previous response's audio has stopped — after an interrupt it can keep
+      // draining for a second or two — so resetting captions instantly would
+      // hide a caption you can still hear. The reset runs on whichever signal
+      // is trustworthy: the playback clock when it says the audio finished
+      // (exact), otherwise the anchor's RMS silence detector (approximate, but
+      // the only thing that notices audio cut short mid-stream).
       let pendingWordAlignmentChunks: Array<{
         contentIndex: number;
-        words: ReadonlyArray<{ w: string; s: number; e: number }>;
+        words: ReadonlyArray<InworldWordToken>;
       }> = [];
       const PENDING_RESET_TIMEOUT_MS = 8000;
 
@@ -488,9 +483,9 @@ export function useRealtimeVoiceSession(
         // reconnect and clobber a newer connection's already-live anchor.
         if (isStale()) return;
 
+        responseCancelled = false;
         if (usePlaybackSpeaking) {
           lastAgentSpeaking = false;
-          responseCancelled = false;
           setAgentSpeaking(false);
         }
         subtitleTrack.reset();
@@ -634,13 +629,16 @@ export function useRealtimeVoiceSession(
             realtimeDebugLog("[SUBS] response.created — audio may still be draining, waiting for confirmed silence");
           },
           onResponseDone: (info) => {
+            const cancelled = info?.status === "cancelled" || info?.status === "failed";
+            // Transition state, not display state: this decides whether the
+            // next transition may trust the playback clock, so it is tracked
+            // even when `agentSpeaking` is not exposed.
+            if (cancelled && !isStale()) responseCancelled = true;
+
+            // Either way the agent has stopped: cancelled mid-stream, or it
+            // produced no audio for the clock to run against.
             if (usePlaybackSpeaking && !isStale()) {
-              const cancelled = info?.status === "cancelled" || info?.status === "failed";
-              if (cancelled) {
-                responseCancelled = true;
-                lastAgentSpeaking = false;
-                setAgentSpeaking(false);
-              } else if (subtitleTrack.getPlaybackEndSec() == null) {
+              if (cancelled || subtitleTrack.getPlaybackEndSec() == null) {
                 lastAgentSpeaking = false;
                 setAgentSpeaking(false);
               }
