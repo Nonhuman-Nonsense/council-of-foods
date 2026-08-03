@@ -36,6 +36,26 @@ function makeSession(): RealtimeSessionConfig {
     };
 }
 
+type SendMock = ReturnType<typeof vi.fn>;
+
+function responseCreateCalls(send: SendMock): Array<{ type: string; event_id?: string }> {
+    return send.mock.calls
+        .map((c) => c[0] as { type: string; event_id?: string })
+        .filter((payload) => payload.type === "response.create");
+}
+
+function responseCreateCount(send: SendMock): number {
+    return responseCreateCalls(send).length;
+}
+
+/** The `event_id` the provider would echo back when rejecting the latest create. */
+function lastResponseCreateEventId(send: SendMock): string {
+    const calls = responseCreateCalls(send);
+    const eventId = calls[calls.length - 1]?.event_id;
+    if (!eventId) throw new Error("No response.create with an event_id has been sent");
+    return eventId;
+}
+
 describe("realtimeEventLoop", () => {
     /**
      * Why this matters: Inworld's WebRTC docs say session.created leaves the
@@ -146,6 +166,55 @@ describe("realtimeEventLoop", () => {
         expect(JSON.parse(outputArg.item.output)).toEqual({ ok: true });
     });
 
+    /**
+     * A handler that throws must still yield a function_call_output: without one
+     * the model waits forever for a result that never arrives and the agent goes
+     * silent mid-conversation, which on a kiosk is indistinguishable from a hang.
+     */
+    it.each([
+        {
+            failureMode: "throws synchronously",
+            handler: (): never => {
+                throw new Error("network down");
+            },
+        },
+        {
+            failureMode: "rejects asynchronously",
+            handler: (): Promise<never> => Promise.reject(new Error("network down")),
+        },
+    ])("sends a function_call_output when a tool handler $failureMode", async ({ handler }) => {
+        const send = vi.fn();
+        const loop = createEventLoop({
+            send,
+            getCtx: () => ({ toolHandlers: { start_meeting: handler as unknown as ToolHandler } }),
+            callbacks: { onCaption: vi.fn(), onUserTranscript: vi.fn(), onError: vi.fn() },
+        });
+
+        loop.configureSession(makeSession());
+        await loop.handleEvent({ type: "session.updated" });
+        await loop.handleEvent({
+            type: "response.output_item.added",
+            item: { type: "function_call", id: "item-x", call_id: "call-x", name: "start_meeting" },
+        });
+
+        await expect(
+            loop.handleEvent({
+                type: "response.function_call_arguments.done",
+                item_id: "item-x",
+                arguments: "{}",
+            })
+        ).resolves.toBe(true);
+
+        const outputCall = send.mock.calls.find(
+            (c) => (c[0] as { item?: { type?: string } }).item?.type === "function_call_output"
+        );
+        expect(outputCall).toBeDefined();
+        expect(JSON.parse((outputCall![0] as { item: { output: string } }).item.output)).toEqual({
+            ok: false,
+            error: "Tool start_meeting failed: network down",
+        });
+    });
+
     it("skips response.create when a tool returns suppressContinuation", async () => {
         const send = vi.fn();
         const handler = vi.fn<ToolHandler>(() => ({ ok: true, suppressContinuation: true }));
@@ -217,7 +286,7 @@ describe("realtimeEventLoop", () => {
 
         await loop.handleEvent({ type: "session.updated" });
         expect(onSessionReady).toHaveBeenCalledOnce();
-        expect(send).toHaveBeenNthCalledWith(2, { type: "response.create" });
+        expect(send).toHaveBeenNthCalledWith(2, expect.objectContaining({ type: "response.create" }));
 
         await loop.handleEvent({ type: "response.created" });
         expect(loop.isResponseActive()).toBe(true);
@@ -340,6 +409,134 @@ describe("realtimeEventLoop", () => {
         await loop.handleEvent({ type: "response.created" });
         await loop.handleEvent({ type: "response.done", response: { status: "completed" } });
         expect(createCount()).toBe(2);
+    });
+
+    /**
+     * A rejected response.create yields neither response.created nor
+     * response.done, so the empty-response recovery above never fires and the
+     * visitor's turn dies in silence. Observed shape: the greeting create is
+     * rejected with server_error on an empty transcript.
+     */
+    it.each([
+        {
+            correlation: "echoes our event_id",
+            buildError: (eventId: string) => ({
+                event_id: eventId,
+                message: "internal error",
+                code: "server_error",
+            }),
+        },
+        {
+            correlation: "omits event_id but names response.create",
+            buildError: () => ({
+                message: "response.create failed: conversation is empty",
+                code: "server_error",
+            }),
+        },
+    ])("recovers a rejected response.create when the error $correlation", async ({ buildError }) => {
+        const send = vi.fn();
+        const onError = vi.fn();
+        const loop = createEventLoop({
+            send,
+            getCtx: () => ({ toolHandlers: {} }),
+            callbacks: { onCaption: vi.fn(), onUserTranscript: vi.fn(), onError },
+        });
+
+        loop.configureSession(makeSession(), { triggerGreetingOnReady: true });
+        await loop.handleEvent({ type: "session.updated" });
+        const eventId = lastResponseCreateEventId(send);
+        send.mockClear();
+
+        await loop.handleEvent({ type: "error", error: buildError(eventId) });
+
+        const sentTypes = send.mock.calls.map((c) => (c[0] as { type: string }).type);
+        expect(sentTypes).toEqual(["conversation.item.create", "response.create"]);
+        // The UI still learns about the error; recovery is additive.
+        expect(onError).toHaveBeenCalledOnce();
+    });
+
+    it("leaves a pending response.create alone when an unrelated error arrives", async () => {
+        const send = vi.fn();
+        const onError = vi.fn();
+        const loop = createEventLoop({
+            send,
+            getCtx: () => ({ toolHandlers: {} }),
+            callbacks: { onCaption: vi.fn(), onUserTranscript: vi.fn(), onError },
+        });
+
+        loop.configureSession(makeSession(), { triggerGreetingOnReady: true });
+        await loop.handleEvent({ type: "session.updated" });
+        send.mockClear();
+
+        await loop.handleEvent({
+            type: "error",
+            error: { event_id: "some_other_client_event", message: "microphone glitch" },
+        });
+
+        expect(send).not.toHaveBeenCalled();
+        expect(onError).toHaveBeenCalledWith(expect.stringContaining("microphone glitch"));
+    });
+
+    it("retries a rejected response.create only once per user turn", async () => {
+        const send = vi.fn();
+        const loop = createEventLoop({
+            send,
+            getCtx: () => ({ toolHandlers: {} }),
+            callbacks: { onCaption: vi.fn(), onUserTranscript: vi.fn(), onError: vi.fn() },
+        });
+
+        loop.configureSession(makeSession(), { triggerGreetingOnReady: true });
+        await loop.handleEvent({ type: "session.updated" });
+        expect(responseCreateCount(send)).toBe(1);
+
+        await loop.handleEvent({
+            type: "error",
+            error: { event_id: lastResponseCreateEventId(send), message: "server_error" },
+        });
+        expect(responseCreateCount(send)).toBe(2);
+
+        // The recovery create is rejected too — stop rather than loop.
+        await loop.handleEvent({
+            type: "error",
+            error: { event_id: lastResponseCreateEventId(send), message: "server_error" },
+        });
+        expect(responseCreateCount(send)).toBe(2);
+    });
+
+    it("resets the rejected-create retry budget on a new user turn", async () => {
+        const send = vi.fn();
+        const loop = createEventLoop({
+            send,
+            getCtx: () => ({ toolHandlers: {} }),
+            callbacks: { onCaption: vi.fn(), onUserTranscript: vi.fn(), onError: vi.fn() },
+        });
+
+        loop.configureSession(makeSession(), { triggerGreetingOnReady: true });
+        await loop.handleEvent({ type: "session.updated" });
+
+        // Exhaust the budget on the first turn.
+        await loop.handleEvent({
+            type: "error",
+            error: { event_id: lastResponseCreateEventId(send), message: "server_error" },
+        });
+        await loop.handleEvent({
+            type: "error",
+            error: { event_id: lastResponseCreateEventId(send), message: "server_error" },
+        });
+        const afterFirstTurn = responseCreateCount(send);
+
+        await loop.handleEvent({
+            type: "conversation.item.input_audio_transcription.completed",
+            transcript: "hello again",
+        });
+        loop.requestResponseIfIdle();
+        await loop.handleEvent({
+            type: "error",
+            error: { event_id: lastResponseCreateEventId(send), message: "server_error" },
+        });
+
+        // The new turn's create plus one fresh recovery.
+        expect(responseCreateCount(send)).toBe(afterFirstTurn + 2);
     });
 
     it("handles caption, user transcript, error, and VAD events", async () => {

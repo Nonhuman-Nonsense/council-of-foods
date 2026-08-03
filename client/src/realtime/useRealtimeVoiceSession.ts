@@ -695,7 +695,15 @@ export function useRealtimeVoiceSession(
         },
         onEvent: (event) => {
           if (isStale()) return;
-          void loop.handleEvent(event);
+          // Never let a throw inside the loop become an invisible unhandled
+          // rejection — on an unattended kiosk a silent handler crash is
+          // indistinguishable from the agent simply going quiet.
+          void loop.handleEvent(event).catch((err) => {
+            log.event("ERROR", "realtime event handling threw", {
+              feature,
+              error: err instanceof Error ? err.message : String(err),
+            });
+          });
         },
         onOpen: () => {
           if (isStale()) return;
