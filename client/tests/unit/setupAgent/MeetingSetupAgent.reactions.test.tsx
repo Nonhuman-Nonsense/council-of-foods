@@ -72,8 +72,8 @@ const defaultProps = {
 };
 
 /** The chair is always selected; foods are what the visitor picks. */
-function councilEvent(selectedNames: string[]): MeetingSetupUserEvent {
-  return { type: "character_selected", selectedNames, chairName: "Water" };
+function councilEvent(selectedNames: string[], isFull = false): MeetingSetupUserEvent {
+  return { type: "character_selected", selectedNames, chairName: "Water", isFull };
 }
 
 function lastMessage(): string {
@@ -135,7 +135,7 @@ describe("MeetingSetupAgent click reactions", () => {
     rerender(<MeetingSetupAgent {...defaultProps} lastUserEvent={councilEvent(["Bean"])} />);
     rerender(<MeetingSetupAgent
       {...defaultProps}
-      lastUserEvent={{ type: "character_deselected", selectedNames: [], chairName: "Water" }}
+      lastUserEvent={{ type: "character_deselected", selectedNames: [], chairName: "Water", isFull: false }}
     />);
 
     act(() => { vi.runAllTimers(); });
@@ -157,5 +157,24 @@ describe("MeetingSetupAgent click reactions", () => {
 
     expect(lastMessage()).toContain("Meat");
     expect(lastMessage()).not.toContain("added Bean");
+  });
+
+  /** The UI blocks a 7th pick, so this is the only moment to tell the agent. */
+  it("mentions the council is full when the pick fills the last slot", () => {
+    const { rerender } = render(<MeetingSetupAgent {...defaultProps} />);
+
+    rerender(<MeetingSetupAgent {...defaultProps} lastUserEvent={councilEvent(["Bean"], true)} />);
+    act(() => { vi.runAllTimers(); });
+
+    expect(lastMessage().toLowerCase()).toContain("full");
+  });
+
+  it("says nothing about being full while there is still room", () => {
+    const { rerender } = render(<MeetingSetupAgent {...defaultProps} />);
+
+    rerender(<MeetingSetupAgent {...defaultProps} lastUserEvent={councilEvent(["Bean"], false)} />);
+    act(() => { vi.runAllTimers(); });
+
+    expect(lastMessage().toLowerCase()).not.toContain("full");
   });
 });

@@ -45,19 +45,20 @@ export default function NewMeeting() {
     });
   }
 
-  function handleCharacterSelected(selectedNames: string[], chairName: string) {
-    setLastUserEvent({ type: "character_selected", selectedNames, chairName });
+  function handleCharacterSelected(selectedNames: string[], chairName: string, isFull: boolean) {
+    setLastUserEvent({ type: "character_selected", selectedNames, chairName, isFull });
   }
 
-  function handleCharacterDeselected(selectedNames: string[], chairName: string) {
-    setLastUserEvent({ type: "character_deselected", selectedNames, chairName });
+  function handleCharacterDeselected(selectedNames: string[], chairName: string, isFull: boolean) {
+    setLastUserEvent({ type: "character_deselected", selectedNames, chairName, isFull });
   }
 
-  function handleCharactersRandomized(selectedNames: string[], chairName: string) {
+  function handleCharactersRandomized(selectedNames: string[], chairName: string, isFull: boolean) {
     setLastUserEvent({
       type: "characters_randomized",
       selectedNames,
       chairName,
+      isFull,
     });
   }
 

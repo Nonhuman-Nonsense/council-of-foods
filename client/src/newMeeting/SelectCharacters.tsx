@@ -24,11 +24,13 @@ export interface SelectCharactersProps {
   /**
    * Selection changes the visitor made by clicking, so the setup agent can
    * react to them. `selectedNames` is the resulting council (foods only, no
-   * chair or human panelists). Only fired when the selection actually changed.
+   * chair or human panelists). `isFull` reflects the total selection (chair,
+   * foods, and human panelists together) against the same cap the UI enforces.
+   * Only fired when the selection actually changed.
    */
-  onCharacterSelected?: (selectedNames: string[], chairName: string) => void;
-  onCharacterDeselected?: (selectedNames: string[], chairName: string) => void;
-  onCharactersRandomized?: (selectedNames: string[], chairName: string) => void;
+  onCharacterSelected?: (selectedNames: string[], chairName: string, isFull: boolean) => void;
+  onCharacterDeselected?: (selectedNames: string[], chairName: string, isFull: boolean) => void;
+  onCharactersRandomized?: (selectedNames: string[], chairName: string, isFull: boolean) => void;
 }
 
 function getCharacterImageUrl(id: string): string | undefined {
@@ -115,6 +117,16 @@ function SelectCharacters({
     return selectedFoodNames(useMeetingSetupStore.getState().selectedCharacters, characters);
   }
 
+  /**
+   * Whether another member (food or human) could still be added. `maxCharacters`
+   * caps the total selection, chair included, so this must read the same total
+   * the UI itself gates on rather than food count alone — a council filled with
+   * human panelists is just as full as one filled with foods.
+   */
+  function isCouncilFull(): boolean {
+    return useMeetingSetupStore.getState().selectedCharacters.length >= maxCharacters;
+  }
+
   function atLeastTwoCharacters(): boolean {
     return selectedCharacters.filter((id) => !id.startsWith("panelist")).length >= minCharacters;
   }
@@ -157,7 +169,7 @@ function SelectCharacters({
     if (success) {
       setLastSelected(character.id);
       if (!isPanelistId(character.id)) {
-        onCharacterSelected?.(currentSelectedFoodNames(), chairName);
+        onCharacterSelected?.(currentSelectedFoodNames(), chairName, isCouncilFull());
       }
     }
   }
@@ -170,7 +182,7 @@ function SelectCharacters({
       handleDeselectCharacterId(character.id);
       setLastSelected(null);
       if (!isPanelistId(character.id)) {
-        onCharacterDeselected?.(currentSelectedFoodNames(), chairName);
+        onCharacterDeselected?.(currentSelectedFoodNames(), chairName, isCouncilFull());
       }
     }
   }
@@ -184,7 +196,7 @@ function SelectCharacters({
       .slice(0, amount)
       .map((character) => character.id);
     setSelectedCharacters([characters[0].id, ...randomCharacters]);
-    onCharactersRandomized?.(currentSelectedFoodNames(), chairName);
+    onCharactersRandomized?.(currentSelectedFoodNames(), chairName, isCouncilFull());
   }
 
   useEffect(() => {

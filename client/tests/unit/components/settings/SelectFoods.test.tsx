@@ -215,12 +215,13 @@ describe('SelectCharacters Component', () => {
             render(<ControlledSelectCharacters onCharacterSelected={onCharacterSelected} />);
 
             clickCharacter(firstParticipant.name);
-            expect(onCharacterSelected).toHaveBeenCalledWith([firstParticipant.name], chair.name);
+            expect(onCharacterSelected).toHaveBeenCalledWith([firstParticipant.name], chair.name, false);
 
             clickCharacter(secondParticipant.name);
             expect(onCharacterSelected).toHaveBeenLastCalledWith(
                 [firstParticipant.name, secondParticipant.name],
                 chair.name,
+                false,
             );
         });
 
@@ -231,7 +232,7 @@ describe('SelectCharacters Component', () => {
             clickCharacter(firstParticipant.name);
             clickCharacter(firstParticipant.name);
 
-            expect(onCharacterDeselected).toHaveBeenCalledWith([], chair.name);
+            expect(onCharacterDeselected).toHaveBeenCalledWith([], chair.name, false);
         });
 
         it('stays silent when the council is full and the pick is rejected', () => {
@@ -246,6 +247,23 @@ describe('SelectCharacters Component', () => {
             clickCharacter(overflowParticipant.name);
 
             expect(onCharacterSelected).not.toHaveBeenCalled();
+        });
+
+        /**
+         * The UI has no room for a 7th pick, so the click that fills the last
+         * slot is the only moment the setup agent can learn the council is full.
+         */
+        it('reports isFull once the last slot is taken, but not before', () => {
+            const onCharacterSelected = vi.fn();
+            render(<ControlledSelectCharacters onCharacterSelected={onCharacterSelected} />);
+
+            maxParticipantSelection.forEach((character) => {
+                clickCharacter(character.name);
+            });
+
+            const isFullFlags = onCharacterSelected.mock.calls.map((call) => call[2]);
+            expect(isFullFlags.slice(0, -1)).toEqual(isFullFlags.slice(0, -1).map(() => false));
+            expect(isFullFlags[isFullFlags.length - 1]).toBe(true);
         });
 
         it('reports the whole council after randomizing', () => {

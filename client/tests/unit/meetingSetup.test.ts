@@ -108,7 +108,7 @@ describe("diffCouncil", () => {
 });
 
 describe("buildMeetingSetupReactionMessage", () => {
-  const roster = { selectedNames: ["Bean", "Meat"], chairName: "Water" };
+  const roster = { selectedNames: ["Bean", "Meat"], chairName: "Water", isFull: false };
 
   it("names every food added since the last reaction, not just the last click", () => {
     const message = buildMeetingSetupReactionMessage(
@@ -123,7 +123,7 @@ describe("buildMeetingSetupReactionMessage", () => {
   /** A food picked and unpicked inside one window leaves nothing to say. */
   it("returns an empty message when the council ended up unchanged", () => {
     const message = buildMeetingSetupReactionMessage(
-      { type: "character_selected", selectedNames: ["Bean"], chairName: "Water" },
+      { type: "character_selected", selectedNames: ["Bean"], chairName: "Water", isFull: false },
       { added: [], removed: [] },
     );
 
@@ -136,10 +136,33 @@ describe("buildMeetingSetupReactionMessage", () => {
     expect(message).not.toBe("");
     expect(message).toContain("Bean");
   });
+
+  /**
+   * The UI has no room for a 7th pick, so this is the only moment the agent
+   * can naturally learn the council is complete. Phrased as an optional aside,
+   * not an instruction — the model isn't obligated to mention it every time.
+   */
+  it("mentions the council is full when isFull is set", () => {
+    const message = buildMeetingSetupReactionMessage(
+      { type: "character_selected", selectedNames: ["Bean"], chairName: "Water", isFull: true },
+      { added: ["Bean"], removed: [] },
+    );
+
+    expect(message.toLowerCase()).toContain("full");
+  });
+
+  it("says nothing about being full when there is still room", () => {
+    const message = buildMeetingSetupReactionMessage(
+      { type: "character_selected", selectedNames: ["Bean"], chairName: "Water", isFull: false },
+      { added: ["Bean"], removed: [] },
+    );
+
+    expect(message.toLowerCase()).not.toContain("full");
+  });
 });
 
 describe("getMeetingSetupReactionDelayMs", () => {
-  const roster = { selectedNames: ["Beef"], chairName: "Water" };
+  const roster = { selectedNames: ["Beef"], chairName: "Water", isFull: false };
 
   /**
    * The visitor picks up to six foods, so character clicks arrive in bursts;

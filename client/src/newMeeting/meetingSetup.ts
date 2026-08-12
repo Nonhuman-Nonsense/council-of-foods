@@ -49,6 +49,13 @@ export function orderSelectedCharactersForMuseum(selectedCharacters: string[]): 
 type CouncilRoster = {
   selectedNames: string[];
   chairName: string;
+  /**
+   * Whether another member (food or human) could still be added. Reflects the
+   * total selection, not `selectedNames.length` — a council filled with human
+   * panelists is just as full as one filled with foods, and `selectedNames`
+   * excludes panelists.
+   */
+  isFull: boolean;
 };
 
 export type MeetingSetupUserEvent =
@@ -152,12 +159,15 @@ export function buildMeetingSetupReactionMessage(
  * Renders the council so the agent speaks of the chair as itself — "and myself,
  * Water, as the moderator" — rather than listing itself as a third party.
  */
-function describeCouncil({ selectedNames, chairName }: CouncilRoster): string {
+function describeCouncil({ selectedNames, chairName, isFull }: CouncilRoster): string {
   const asModerator = `yourself, ${chairName}, as the moderator`;
-  if (selectedNames.length === 0) {
-    return `The council is currently just ${asModerator}.`;
-  }
-  return `The council is now ${selectedNames.join(", ")}, and ${asModerator}.`;
+  const roster = selectedNames.length === 0
+    ? `The council is currently just ${asModerator}.`
+    : `The council is now ${selectedNames.join(", ")}, and ${asModerator}.`;
+  // The UI has no room for another pick at this point — a natural, optional
+  // aside rather than an instruction, so it only comes up if it fits.
+  if (!isFull) return roster;
+  return `${roster} The council is now full — feel free to mention that if it fits naturally.`;
 }
 
 /** Returns null when there is nothing worth reacting to. */
