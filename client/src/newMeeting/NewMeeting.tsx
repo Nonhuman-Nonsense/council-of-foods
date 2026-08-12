@@ -45,6 +45,22 @@ export default function NewMeeting() {
     });
   }
 
+  function handleCharacterSelected(selectedNames: string[], chairName: string) {
+    setLastUserEvent({ type: "character_selected", selectedNames, chairName });
+  }
+
+  function handleCharacterDeselected(selectedNames: string[], chairName: string) {
+    setLastUserEvent({ type: "character_deselected", selectedNames, chairName });
+  }
+
+  function handleCharactersRandomized(selectedNames: string[], chairName: string) {
+    setLastUserEvent({
+      type: "characters_randomized",
+      selectedNames,
+      chairName,
+    });
+  }
+
   function handleTopicContinue(selectedTopic: Topic) {
     setTopicSelection(selectedTopic);
     setStep("characters");
@@ -66,6 +82,9 @@ export default function NewMeeting() {
           agendaPoints={topicSelection?.agendaPoints}
           onContinueForward={({ characters }) => onStartMeeting(characters)}
           loading={creating}
+          onCharacterSelected={handleCharacterSelected}
+          onCharacterDeselected={handleCharacterDeselected}
+          onCharactersRandomized={handleCharactersRandomized}
         />
       )}
     </>

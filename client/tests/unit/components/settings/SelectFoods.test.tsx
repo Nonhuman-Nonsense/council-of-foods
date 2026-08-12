@@ -1,7 +1,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import SelectCharacters from '@newMeeting/SelectCharacters';
+import SelectCharacters, { type SelectCharactersProps } from '@newMeeting/SelectCharacters';
 import { characterSetupEn } from '../../../characterSetupTestData';
 import { useMeetingSetupStore } from '@newMeeting/meetingSetupStore';
 import type { Character } from '@shared/ModelTypes';
@@ -40,11 +40,12 @@ describe('SelectCharacters Component', () => {
         mockOnContinue = vi.fn();
     });
 
-    function ControlledSelectCharacters() {
+    function ControlledSelectCharacters(props: Partial<SelectCharactersProps> = {}) {
         return (
             <SelectCharacters
                 topicTitle="Test Topic"
                 onContinueForward={mockOnContinue}
+                {...props}
             />
         );
     }
@@ -201,5 +202,63 @@ describe('SelectCharacters Component', () => {
 
         expect(await screen.findByText('meeting.characters.unique')).toBeInTheDocument();
         expect(screen.queryByText('app.start')).not.toBeInTheDocument();
+    });
+
+    /**
+     * These feed the setup agent's spoken reactions. Reactions are debounced,
+     * so a burst of picks collapses into one event — hence each carries the
+     * resulting council, and events only fire when the selection really moved.
+     */
+    describe('selection callbacks for the setup agent', () => {
+        it('reports the resulting council when a food is selected', () => {
+            const onCharacterSelected = vi.fn();
+            render(<ControlledSelectCharacters onCharacterSelected={onCharacterSelected} />);
+
+            clickCharacter(firstParticipant.name);
+            expect(onCharacterSelected).toHaveBeenCalledWith([firstParticipant.name], chair.name);
+
+            clickCharacter(secondParticipant.name);
+            expect(onCharacterSelected).toHaveBeenLastCalledWith(
+                [firstParticipant.name, secondParticipant.name],
+                chair.name,
+            );
+        });
+
+        it('reports the resulting council when a food is deselected', () => {
+            const onCharacterDeselected = vi.fn();
+            render(<ControlledSelectCharacters onCharacterDeselected={onCharacterDeselected} />);
+
+            clickCharacter(firstParticipant.name);
+            clickCharacter(firstParticipant.name);
+
+            expect(onCharacterDeselected).toHaveBeenCalledWith([], chair.name);
+        });
+
+        it('stays silent when the council is full and the pick is rejected', () => {
+            const onCharacterSelected = vi.fn();
+            render(<ControlledSelectCharacters onCharacterSelected={onCharacterSelected} />);
+
+            maxParticipantSelection.forEach((character) => {
+                clickCharacter(character.name);
+            });
+            onCharacterSelected.mockClear();
+
+            clickCharacter(overflowParticipant.name);
+
+            expect(onCharacterSelected).not.toHaveBeenCalled();
+        });
+
+        it('reports the whole council after randomizing', () => {
+            const onCharactersRandomized = vi.fn();
+            render(<ControlledSelectCharacters onCharactersRandomized={onCharactersRandomized} />);
+
+            fireEvent.click(screen.getByText('meeting.characters.random'));
+
+            expect(onCharactersRandomized).toHaveBeenCalledTimes(1);
+            const [selectedNames, chairName] = onCharactersRandomized.mock.calls[0];
+            expect(chairName).toBe(chair.name);
+            expect(selectedNames.length).toBeGreaterThan(0);
+            expect(selectedNames).not.toContain(chair.name);
+        });
     });
 });

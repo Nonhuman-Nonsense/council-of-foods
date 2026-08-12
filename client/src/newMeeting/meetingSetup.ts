@@ -3,7 +3,7 @@ import { injectRandomAgendaPoint } from "@shared/agendaPointInjection";
 import { buildMeetingSystemPrompt, VISITOR_INPUT_PLACEHOLDER } from "@shared/topicPrompt";
 import { toTitleCase } from "@/utils";
 import type { TopicsData } from "@main/topicsBundle";
-import { getCharacterSetupBundle } from "./CharacterSetup";
+import { CHAIR_ID, getCharacterSetupBundle } from "./CharacterSetup";
 
 export type MeetingCharactersI18n = {
   formatHumanCount: (count: number) => string;
@@ -38,6 +38,19 @@ export function orderSelectedCharactersForMuseum(selectedCharacters: string[]): 
   return [chair, ...foods.slice(0, insertAt), ...panelists, ...foods.slice(insertAt)];
 }
 
+/**
+ * The council as it stands after a selection click. Carried on every character
+ * event because reactions are debounced: a burst of picks collapses into a
+ * single event, so the roster — not just the last name clicked — is what keeps
+ * the agent's picture accurate. `selectedNames` excludes the chair and any
+ * human panelists; the chair is passed separately so it can be described to
+ * the agent as itself.
+ */
+type CouncilRoster = {
+  selectedNames: string[];
+  chairName: string;
+};
+
 export type MeetingSetupUserEvent =
   | {
       type: "topic_previewed";
@@ -48,7 +61,65 @@ export type MeetingSetupUserEvent =
       type: "topic_committed";
       topicId: string;
       topicTitle: string;
-    };
+    }
+  | ({ type: "character_selected" } & CouncilRoster)
+  | ({ type: "character_deselected" } & CouncilRoster)
+  | ({ type: "characters_randomized" } & CouncilRoster);
+
+/**
+ * What changed since the agent was last told about the council. Reactions are
+ * debounced, so one message may cover several clicks; naming only the last one
+ * would leave the agent commenting on "meat" when the visitor picked bean and
+ * meat together.
+ */
+export type CouncilChanges = {
+  added: string[];
+  removed: string[];
+};
+
+/**
+ * The council the visitor picked: selected ids resolved to names, without the
+ * chair (always present, and the agent itself) or human panelists.
+ */
+export function selectedFoodNames(
+  selectedIds: readonly string[],
+  characters: ReadonlyArray<{ id: string; name: string }>,
+): string[] {
+  return selectedIds
+    .filter((id) => id !== CHAIR_ID && !id.startsWith("panelist"))
+    .map((id) => characters.find((character) => character.id === id)?.name)
+    .filter((name): name is string => Boolean(name));
+}
+
+/** Diffs the council against what the agent was last told, in click order. */
+export function diffCouncil(previousNames: string[], currentNames: string[]): CouncilChanges {
+  return {
+    added: currentNames.filter((name) => !previousNames.includes(name)),
+    removed: previousNames.filter((name) => !currentNames.includes(name)),
+  };
+}
+
+/** Joins names as a spoken list: "bean", "bean and meat", "bean, rice and meat". */
+function joinNames(names: string[]): string {
+  if (names.length <= 1) return names[0] ?? "";
+  return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+}
+
+/** Reaction delay per event kind, in ms. */
+const TOPIC_REACTION_DELAY_MS = 300;
+const CHARACTER_REACTION_DELAY_MS = 1000;
+
+/**
+ * How long to wait after a click before reacting. Topic picks are one-shot, so
+ * they react almost immediately. Character picks come in bursts — the visitor
+ * chooses up to six foods — and reacting to each one would interrupt the agent
+ * repeatedly, so they get a longer window to coalesce into one reaction.
+ */
+export function getMeetingSetupReactionDelayMs(event: MeetingSetupUserEvent): number {
+  return event.type === "topic_previewed" || event.type === "topic_committed"
+    ? TOPIC_REACTION_DELAY_MS
+    : CHARACTER_REACTION_DELAY_MS;
+}
 
 /**
  * These turns are injected by a barge-in that cuts the agent off mid-speech
@@ -65,12 +136,61 @@ const CUT_OFF_NOTE =
  * blob: it is sent with a `response.create`, so the model is being asked to
  * say something, not just to absorb context.
  */
-export function buildMeetingSetupReactionMessage(event: MeetingSetupUserEvent): string {
-  const situation = event.type === "topic_previewed"
-    ? `selected the topic "${event.topicTitle}" on screen, but has not confirmed it yet. React briefly to their choice.`
-    : `confirmed the topic "${event.topicTitle}" and moved on to the food selection step. React briefly and help them choose their foods.`;
-
+export function buildMeetingSetupReactionMessage(
+  event: MeetingSetupUserEvent,
+  changes?: CouncilChanges,
+): string {
+  const situation = describeSituation(event, changes);
+  // Nothing left to report — e.g. a food was picked and unpicked inside the
+  // same debounce window. Callers skip the reaction rather than interrupt the
+  // agent to say nothing.
+  if (situation == null) return "";
   return `(The visitor just ${situation} ${CUT_OFF_NOTE})`;
+}
+
+/**
+ * Renders the council so the agent speaks of the chair as itself — "and myself,
+ * Water, as the moderator" — rather than listing itself as a third party.
+ */
+function describeCouncil({ selectedNames, chairName }: CouncilRoster): string {
+  const asModerator = `yourself, ${chairName}, as the moderator`;
+  if (selectedNames.length === 0) {
+    return `The council is currently just ${asModerator}.`;
+  }
+  return `The council is now ${selectedNames.join(", ")}, and ${asModerator}.`;
+}
+
+/** Returns null when there is nothing worth reacting to. */
+function describeSituation(
+  event: MeetingSetupUserEvent,
+  changes?: CouncilChanges,
+): string | null {
+  switch (event.type) {
+    case "topic_previewed":
+      return `selected the topic "${event.topicTitle}" on screen, but has not confirmed it yet. React briefly to their choice.`;
+    case "topic_committed":
+      return `confirmed the topic "${event.topicTitle}" and moved on to the food selection step. React briefly and help them choose their foods.`;
+    case "characters_randomized":
+      return `picked a random group. ${describeCouncil(event)} React briefly to the mix.`;
+    case "character_selected":
+    case "character_deselected": {
+      const change = describeChanges(changes);
+      if (change == null) return null;
+      return `${change}. ${describeCouncil(event)} React briefly.`;
+    }
+  }
+}
+
+/** Returns null when nothing changed on balance. */
+function describeChanges(changes?: CouncilChanges): string | null {
+  const added = changes?.added ?? [];
+  const removed = changes?.removed ?? [];
+
+  const parts: string[] = [];
+  if (added.length > 0) parts.push(`added ${joinNames(added)} to the council`);
+  if (removed.length > 0) parts.push(`removed ${joinNames(removed)} from the council`);
+
+  return parts.length > 0 ? parts.join(" and ") : null;
 }
 
 export function buildTopicFromSelection(params: {

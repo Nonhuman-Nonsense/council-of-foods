@@ -1,5 +1,5 @@
 import type { Topic } from "@shared/ModelTypes";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useSwitchLanguage } from "@/navigation";
 import { useTranslation } from "react-i18next";
 import SetupAgentOverlay from "./SetupAgentOverlay";
@@ -9,6 +9,9 @@ import type { Character } from "@shared/ModelTypes";
 import {
   buildMeetingSetupReactionMessage,
   buildTopicFromSelection,
+  diffCouncil,
+  getMeetingSetupReactionDelayMs,
+  selectedFoodNames,
   type MeetingSetupPhase,
   type MeetingSetupUserEvent,
 } from "@newMeeting/meetingSetup";
@@ -128,6 +131,26 @@ export default function MeetingSetupAgent({
   const { interruptAndRespond, muted } = agent;
   const { nudgeFired, clearNudge } = useAgentPresence({ agent, phase });
 
+  /**
+   * The council as the agent was last told it. Reactions are debounced, so one
+   * message can cover several clicks; diffing against this names everything
+   * that changed rather than only the last click. Advanced only when a message
+   * is actually sent — a reaction cancelled by a newer click must not move it.
+   */
+  const reportedCouncilRef = useRef<string[]>([]);
+
+  // Re-baseline on entering the food step: the visitor may arrive with foods
+  // already chosen (returning from the topic step), or with a store that was
+  // reset back at the landing page. Character reactions only happen here, so
+  // this is the only moment the baseline can go stale unnoticed.
+  useEffect(() => {
+    if (phase !== "characters") return;
+    reportedCouncilRef.current = selectedFoodNames(
+      useMeetingSetupStore.getState().selectedCharacters,
+      setupCharacters,
+    );
+  }, [phase, setupCharacters]);
+
   const showMuseumReconnecting =
     isMuseumMode && !muted && agent.isConnecting && !connectionError;
 
@@ -183,11 +206,26 @@ export default function MeetingSetupAgent({
     }
 
     const timer = setTimeout(() => {
+      const isCharacterEvent = lastUserEvent.type !== "topic_previewed"
+        && lastUserEvent.type !== "topic_committed";
+      const changes = isCharacterEvent
+        ? diffCouncil(reportedCouncilRef.current, lastUserEvent.selectedNames)
+        : undefined;
+
+      const message = buildMeetingSetupReactionMessage(lastUserEvent, changes);
+      // Empty when the window nets out to no change — say nothing rather than
+      // interrupt the agent for it.
+      if (message === "") return;
+
       // Barge-in: cut off whatever the agent is currently saying (if
       // anything) and react to this click immediately, mirroring server-VAD
       // voice interruption rather than queuing behind current audio.
-      interruptAndRespond(buildMeetingSetupReactionMessage(lastUserEvent), "click-reaction");
-    }, 300);
+      interruptAndRespond(message, "click-reaction");
+
+      if (isCharacterEvent) {
+        reportedCouncilRef.current = lastUserEvent.selectedNames;
+      }
+    }, getMeetingSetupReactionDelayMs(lastUserEvent));
 
     return () => clearTimeout(timer);
   }, [lastUserEvent, interruptAndRespond]);

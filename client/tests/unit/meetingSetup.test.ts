@@ -3,9 +3,10 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import type { Character } from "@shared/ModelTypes";
 import { RANDOM_AGENDA_POINT_PLACEHOLDER, RANDOM_AGENDA_POINT_FALLBACK } from "@shared/agendaPointInjection";
 import { AGENDA_POINTS_PLACEHOLDER, TOPIC_PLACEHOLDER } from "@shared/topicPrompt";
-import { buildMeetingCharactersPayload, buildTopicFromSelection, orderSelectedCharactersForMuseum } from "@newMeeting/meetingSetup";
+import { buildMeetingCharactersPayload, buildMeetingSetupReactionMessage, buildTopicFromSelection, diffCouncil, getMeetingSetupReactionDelayMs, orderSelectedCharactersForMuseum, selectedFoodNames } from "@newMeeting/meetingSetup";
 
 vi.mock("@newMeeting/CharacterSetup", () => ({
+  CHAIR_ID: "chair",
   getCharacterSetupBundle: () => ({
     panelWithHumans: " [HUMANS] ",
     characters: [
@@ -65,6 +66,110 @@ function buildCharactersPayload(agendaPoints?: string[]) {
     agendaPoints,
   });
 }
+
+describe("selectedFoodNames", () => {
+  const characters = [
+    { id: "chair", name: "Chair" },
+    { id: "food-a", name: "Food A" },
+    { id: "food-b", name: "Food B" },
+  ];
+
+  it("lists the visitor's picks without the chair or human panelists", () => {
+    const names = selectedFoodNames(["chair", "food-a", "panelist0", "food-b"], characters);
+
+    expect(names).toEqual(["Food A", "Food B"]);
+  });
+
+  it("skips ids with no matching character", () => {
+    expect(selectedFoodNames(["chair", "food-a", "gone"], characters)).toEqual(["Food A"]);
+  });
+});
+
+describe("diffCouncil", () => {
+  /**
+   * Reactions are debounced, so one message can cover several clicks. Diffing
+   * against what the agent was last told is what lets it say "bean and meat"
+   * instead of reacting only to the final click.
+   */
+  it("reports every pick made since the agent was last told", () => {
+    expect(diffCouncil([], ["Bean", "Meat"])).toEqual({ added: ["Bean", "Meat"], removed: [] });
+  });
+
+  it("reports adds and removals from the same window together", () => {
+    expect(diffCouncil(["Bean", "Rice"], ["Bean", "Meat"])).toEqual({
+      added: ["Meat"],
+      removed: ["Rice"],
+    });
+  });
+
+  it("reports nothing when the council ended up unchanged", () => {
+    expect(diffCouncil(["Bean"], ["Bean"])).toEqual({ added: [], removed: [] });
+  });
+});
+
+describe("buildMeetingSetupReactionMessage", () => {
+  const roster = { selectedNames: ["Bean", "Meat"], chairName: "Water" };
+
+  it("names every food added since the last reaction, not just the last click", () => {
+    const message = buildMeetingSetupReactionMessage(
+      { type: "character_selected", ...roster },
+      { added: ["Bean", "Meat"], removed: [] },
+    );
+
+    expect(message).toContain("Bean");
+    expect(message).toContain("Meat");
+  });
+
+  /** A food picked and unpicked inside one window leaves nothing to say. */
+  it("returns an empty message when the council ended up unchanged", () => {
+    const message = buildMeetingSetupReactionMessage(
+      { type: "character_selected", selectedNames: ["Bean"], chairName: "Water" },
+      { added: [], removed: [] },
+    );
+
+    expect(message).toBe("");
+  });
+
+  it("still describes a randomized council without a diff", () => {
+    const message = buildMeetingSetupReactionMessage({ type: "characters_randomized", ...roster });
+
+    expect(message).not.toBe("");
+    expect(message).toContain("Bean");
+  });
+});
+
+describe("getMeetingSetupReactionDelayMs", () => {
+  const roster = { selectedNames: ["Beef"], chairName: "Water" };
+
+  /**
+   * The visitor picks up to six foods, so character clicks arrive in bursts;
+   * reacting to each one would interrupt the agent repeatedly. Topic picks are
+   * one-shot and can react almost immediately.
+   */
+  it("gives character picks a longer coalescing window than topic picks", () => {
+    const topicDelay = getMeetingSetupReactionDelayMs({
+      type: "topic_previewed",
+      topicId: "food-waste",
+      topicTitle: "Food Waste",
+    });
+    const characterDelay = getMeetingSetupReactionDelayMs({
+      type: "character_selected",
+      ...roster,
+    });
+
+    expect(topicDelay).toBeLessThan(characterDelay);
+  });
+
+  it("uses one window for every kind of character change", () => {
+    const delays = [
+      getMeetingSetupReactionDelayMs({ type: "character_selected", ...roster }),
+      getMeetingSetupReactionDelayMs({ type: "character_deselected", ...roster }),
+      getMeetingSetupReactionDelayMs({ type: "characters_randomized", ...roster }),
+    ];
+
+    expect(new Set(delays).size).toBe(1);
+  });
+});
 
 describe("buildTopicFromSelection", () => {
   it("builds the system prompt with numbered agenda points", () => {

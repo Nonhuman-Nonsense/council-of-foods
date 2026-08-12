@@ -6,7 +6,7 @@ import VideoPreloader from "@main/VideoPreloader";
 import { CHAIR_ID } from "@/prompts/characterSetupBundles";
 import { characterIconWebpUrl } from "@assets/characters/characterData";
 import { useMeetingSetupStore } from "@newMeeting/meetingSetupStore";
-import { buildMeetingCharactersPayload, orderSelectedCharactersForMuseum } from "./meetingSetup";
+import { buildMeetingCharactersPayload, orderSelectedCharactersForMuseum, selectedFoodNames } from "./meetingSetup";
 import { useCouncilSettings } from "@/settings/councilSettings";
 import { getCharacterSetupBundle } from "./CharacterSetup";
 
@@ -21,6 +21,14 @@ export interface SelectCharactersProps {
   agendaPoints?: string[];
   onContinueForward: (data: { characters: Character[] }) => void | Promise<void>;
   loading?: boolean;
+  /**
+   * Selection changes the visitor made by clicking, so the setup agent can
+   * react to them. `selectedNames` is the resulting council (foods only, no
+   * chair or human panelists). Only fired when the selection actually changed.
+   */
+  onCharacterSelected?: (selectedNames: string[], chairName: string) => void;
+  onCharacterDeselected?: (selectedNames: string[], chairName: string) => void;
+  onCharactersRandomized?: (selectedNames: string[], chairName: string) => void;
 }
 
 function getCharacterImageUrl(id: string): string | undefined {
@@ -51,6 +59,9 @@ function SelectCharacters({
   agendaPoints,
   onContinueForward,
   loading = false,
+  onCharacterSelected,
+  onCharacterDeselected,
+  onCharactersRandomized,
 }: SelectCharactersProps): React.ReactElement {
   const {
     selectedCharacters,
@@ -90,6 +101,20 @@ function SelectCharacters({
     return [...baseCharacters, ...humanCharacters];
   }, [baseCharacters, humans, numberOfHumans]);
 
+  const chairName = useMemo(
+    () => baseCharacters.find((character) => character.id === CHAIR_ID)?.name ?? "",
+    [baseCharacters],
+  );
+
+  /**
+   * The council as it stands right now, foods only. Reads the store directly
+   * rather than the rendered `selectedCharacters`, because this runs in the
+   * same tick as the mutation that changed it.
+   */
+  function currentSelectedFoodNames(): string[] {
+    return selectedFoodNames(useMeetingSetupStore.getState().selectedCharacters, characters);
+  }
+
   function atLeastTwoCharacters(): boolean {
     return selectedCharacters.filter((id) => !id.startsWith("panelist")).length >= minCharacters;
   }
@@ -128,17 +153,25 @@ function SelectCharacters({
 
   function selectCharacter(character: Character): void {
     const success = handleSelectCharacterId(character.id);
+    // A rejected pick (council already full) changed nothing to react to.
     if (success) {
       setLastSelected(character.id);
+      if (!isPanelistId(character.id)) {
+        onCharacterSelected?.(currentSelectedFoodNames(), chairName);
+      }
     }
   }
 
   function deselectCharacter(character: Character): void {
     if (isPanelistId(character.id) && lastSelected !== character.id) {
+      // Panelists take focus on first click; nothing is deselected yet.
       setLastSelected(character.id);
     } else {
       handleDeselectCharacterId(character.id);
       setLastSelected(null);
+      if (!isPanelistId(character.id)) {
+        onCharacterDeselected?.(currentSelectedFoodNames(), chairName);
+      }
     }
   }
 
@@ -151,6 +184,7 @@ function SelectCharacters({
       .slice(0, amount)
       .map((character) => character.id);
     setSelectedCharacters([characters[0].id, ...randomCharacters]);
+    onCharactersRandomized?.(currentSelectedFoodNames(), chairName);
   }
 
   useEffect(() => {
