@@ -340,11 +340,12 @@ when its mic icon is clicked.
 1. ~~**Foundation** — mic-less connect + `attachMic`/`detachMic`; `"unavailable"` kind;
    `micAvailabilityStore`; permission query/`onchange`; bugs 1 and 3.~~ **done** — nothing
    consumes `deferMic` yet, so behavior is unchanged until phase 2.
-2. **Web UI** — connect gate (permission + `phase`); centre mic button + visualiser; corner slot
-   → agent on/off; `MicrophoneBlocked` overlay. Also: **re-attach the mic after a reconnect** —
-   a drop tears down the connection, so a visitor who had the mic on would silently lose it
-   unless `useSetupAgent` remembers the intent and re-attaches on the next `ready`.
-3. **Agent behavior** — prompt variants, `reconfigureSession` on toggle, nudge/presence rework.
+2. ~~**Web UI** — connect gate (permission + `phase`); centre mic button + visualiser; corner slot
+   → agent on/off; `MicrophoneBlocked` overlay; re-attach the mic after a reconnect.~~ **done**
+   — web now connects mic-less and the mic is opt-in. Still gated behind `agentMode` (phase 5).
+3. **Agent behavior** — prompt variants (mic-off vs mic-on), `reconfigureSession` on toggle,
+   nudge wording for a browsing visitor. Note the idle/nudge *timers* already count clicks via
+   `useAgentPresence`'s `lastActivity`, so only the wording is left.
 4. **HumanInput** — blocked-aware pre-warm, overlay on mic click, loop fix.
 5. **Enablement** — flip web `agentMode` to `always-on` once costs are understood.
 

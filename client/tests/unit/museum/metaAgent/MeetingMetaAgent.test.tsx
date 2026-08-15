@@ -99,14 +99,16 @@ vi.mock("@realtime/RealtimeCaptionOverlay", () => ({
     lastCaption: string | null;
     lastUserTranscript: string | null;
     subtitleLayout?: string;
-    showPttVisualizer?: boolean;
+    showMicRow?: boolean;
     micActive?: boolean;
+    micButton?: unknown;
   }) => (
     <div
       data-testid="meta-agent-caption-overlay"
       data-subtitle-layout={props.subtitleLayout}
-      data-show-ptt-viz={String(props.showPttVisualizer)}
+      data-show-ptt-viz={String(props.showMicRow)}
       data-mic-active={String(props.micActive)}
+      data-has-mic-button={String(props.micButton != null)}
     >
       {props.lastUserTranscript ? (
         <span data-testid="agent-user">{props.lastUserTranscript}</span>
@@ -179,6 +181,8 @@ describe("MeetingMetaAgent", () => {
     expect(overlay).toHaveAttribute("data-subtitle-layout", "council");
     expect(overlay).toHaveAttribute("data-show-ptt-viz", "true");
     expect(overlay).toHaveAttribute("data-mic-active", "false");
+    // The hardware button owns the mic here — no clickable mic control.
+    expect(overlay).toHaveAttribute("data-has-mic-button", "false");
   });
 
   it("claims the button on mount and releases on unmount", () => {

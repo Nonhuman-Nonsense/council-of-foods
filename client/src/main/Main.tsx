@@ -37,7 +37,9 @@ import { usePortrait, dvh } from "@/utils";
 import CouncilError from "./overlay/CouncilError";
 import ErrorBoundary from "./ErrorBoundary";
 import Reconnecting from "./overlay/Reconnecting";
+import MicrophoneBlocked from "./overlay/MicrophoneBlocked";
 import { useErrorStore } from "./overlay/errorStore";
+import { useMicAvailabilityStore, watchMicAvailability } from "@realtime/micAvailabilityStore";
 
 import MuseumButton from "@/museum/button/MuseumButton";
 import ButtonBanner from "@/museum/button/ButtonBanner";
@@ -101,6 +103,13 @@ export default function Main(props: MainProps) {
   const meetingGeneration = useAutoplayStore((s) => s.meetingGeneration);
   const { ledDebugOverlay } = useButtonLedDebugOverlay();
   useMuseumCursorHide();
+
+  const micNoticeOpen = useMicAvailabilityStore((s) => s.noticeOpen);
+  const closeMicNotice = useMicAvailabilityStore((s) => s.closeNotice);
+
+  // A visitor who allows the mic from browser site settings should get a
+  // working mic button immediately, without reloading.
+  useEffect(() => watchMicAvailability(), []);
 
   useEffect(() => {
     if (i18n.language !== props.lang) {
@@ -256,6 +265,11 @@ export default function Main(props: MainProps) {
           layer="system"
         >
           <Reconnecting />
+        </Overlay>
+      )}
+      {micNoticeOpen && unrecoverableError == null && (
+        <Overlay isActive={true} isBlurred={true} layer="system">
+          <MicrophoneBlocked onDismiss={closeMicNotice} />
         </Overlay>
       )}
       <MainOverlays
