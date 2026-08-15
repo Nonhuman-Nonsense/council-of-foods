@@ -38,8 +38,8 @@ describe('buildSetupAgentPrompt', () => {
     expect(cannotHear).not.toBe(canHear);
     // The failure this guards against is the agent asking a question and then
     // waiting forever for a visitor who has no microphone.
-    expect(cannotHear.toLowerCase()).toContain('microphone is off');
-    expect(cannotHear.toLowerCase()).toContain('cannot hear');
+    expect(cannotHear.toLowerCase()).toContain('the mic is off');
+    expect(cannotHear.toLowerCase()).toContain('cannot hear them');
   });
 
   it('describes both modes whichever one is live', () => {

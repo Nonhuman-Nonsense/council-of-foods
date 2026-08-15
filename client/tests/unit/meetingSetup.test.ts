@@ -110,6 +110,15 @@ describe("diffCouncil", () => {
 describe("buildMeetingSetupReactionMessage", () => {
   const roster = { selectedNames: ["Bean", "Meat"], chairName: "Water", isFull: false };
 
+  it("tells the agent the visitor left the welcome screen", () => {
+    // Without this the agent keeps working from the welcome step after a
+    // visitor clicks "Let's go" — the only way past it with the mic off.
+    const message = buildMeetingSetupReactionMessage({ type: "setup_started" });
+
+    expect(message).toContain("welcome screen");
+    expect(message).toContain("topic selection");
+  });
+
   it("names every food added since the last reaction, not just the last click", () => {
     const message = buildMeetingSetupReactionMessage(
       { type: "character_selected", ...roster },
@@ -286,6 +295,32 @@ describe("getMeetingSetupReactionDelayMs", () => {
     });
 
     expect(topicDelay).toBeLessThan(characterDelay);
+  });
+
+  /**
+   * Both take the whole screen with them and cannot be clicked twice, so a
+   * coalescing window would only ever be dead air before the agent reacts.
+   */
+  it("reacts immediately to a step change that cannot be undone", () => {
+    expect(getMeetingSetupReactionDelayMs({ type: "setup_started" })).toBe(0);
+    expect(
+      getMeetingSetupReactionDelayMs({
+        type: "topic_committed",
+        topicId: "food-waste",
+        topicTitle: "Food Waste",
+      }),
+    ).toBe(0);
+  });
+
+  it("still lets a topic preview settle before reacting", () => {
+    // Unlike committing, previewing can be redone by clicking the next topic.
+    const previewDelay = getMeetingSetupReactionDelayMs({
+      type: "topic_previewed",
+      topicId: "food-waste",
+      topicTitle: "Food Waste",
+    });
+
+    expect(previewDelay).toBeGreaterThan(0);
   });
 
   it("uses one window for every kind of character change", () => {

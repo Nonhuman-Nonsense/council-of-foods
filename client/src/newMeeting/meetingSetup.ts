@@ -83,6 +83,11 @@ export type HumanDetails = {
 };
 
 export type MeetingSetupUserEvent =
+  // "Let's go" on the welcome screen. The agent can reach the same step itself
+  // by calling begin_setup, but a visitor who clicks past the welcome — which
+  // is the only way through it with the microphone off — changes the step with
+  // no other signal the agent could notice.
+  | { type: "setup_started" }
   | {
       type: "topic_previewed";
       topicId: string;
@@ -143,13 +148,17 @@ function joinNames(names: string[]): string {
 }
 
 /** Reaction delay per event kind, in ms. */
-const TOPIC_REACTION_DELAY_MS = 300;
+const STEP_CHANGE_REACTION_DELAY_MS = 0;
+const TOPIC_PREVIEW_REACTION_DELAY_MS = 300;
 const CHARACTER_REACTION_DELAY_MS = 1000;
 const HUMAN_TYPING_REACTION_DELAY_MS = 5000;
 
 /**
  * How long to wait after an action before reacting.
- * - Topic picks are one-shot: react almost immediately.
+ * - Moving to another step takes the whole screen with it and cannot be
+ *   repeated or taken back, so there is nothing to coalesce: react at once.
+ * - Previewing a topic can be redone by clicking the next one, so it gets a
+ *   short window to settle.
  * - Character picks come in bursts — up to six foods — so they get a window
  *   to coalesce into one reaction.
  * - Typing a panelist's details is the weakest signal: a long pause could
@@ -158,8 +167,11 @@ const HUMAN_TYPING_REACTION_DELAY_MS = 5000;
  *   promptly rather than waiting out whatever's left of the typing window.
  */
 export function getMeetingSetupReactionDelayMs(event: MeetingSetupUserEvent): number {
-  if (event.type === "topic_previewed" || event.type === "topic_committed") {
-    return TOPIC_REACTION_DELAY_MS;
+  if (event.type === "setup_started" || event.type === "topic_committed") {
+    return STEP_CHANGE_REACTION_DELAY_MS;
+  }
+  if (event.type === "topic_previewed") {
+    return TOPIC_PREVIEW_REACTION_DELAY_MS;
   }
   if (event.type === "human_details_typed") {
     return HUMAN_TYPING_REACTION_DELAY_MS;
@@ -226,6 +238,8 @@ function describeSituation(
   changes?: CouncilChanges,
 ): string | null {
   switch (event.type) {
+    case "setup_started":
+      return `left the welcome screen and moved on to the topic selection step. React briefly and help them choose a topic.`;
     case "topic_previewed":
       return `selected the topic "${event.topicTitle}" on screen, but has not confirmed it yet. React briefly to their choice.`;
     case "topic_committed":

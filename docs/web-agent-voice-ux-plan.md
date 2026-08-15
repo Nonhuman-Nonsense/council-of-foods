@@ -467,6 +467,10 @@ when its mic icon is clicked.
    announced after `reconfigureSession()` (`interruptAndRespond` on mic-on, `sendUserMessage` on
    mic-off); tools latched on `hasEverHeardVisitor`.~~ **done**. The runtime guard on
    post-latch tool calls stays deferred until testing shows it is needed.
+3c. ~~**"Let's go" was invisible to the agent.**~~ **done** — every other step change
+   already reached the agent as a `MeetingSetupUserEvent`, but the landing button was a bare
+   `<Link>` that notified nobody, so a mic-off visitor moved to topic selection while the agent
+   was still working from the welcome step. Added a `setup_started` event, fired from the link.
 4. **HumanInput** — blocked-aware pre-warm, overlay on mic click, loop fix.
 5. **Enablement** — flip web `agentMode` to `always-on` once costs are understood.
 

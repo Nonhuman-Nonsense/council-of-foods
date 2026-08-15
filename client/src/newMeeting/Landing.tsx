@@ -1,6 +1,7 @@
 import RotateDevice from "@main/overlay/RotateDevice";
 import { useMediaQuery } from 'react-responsive'
-import { Link } from "react-router";
+import { Link, useOutletContext } from "react-router";
+import type { MeetingSetupOutletContext } from "./MeetingSetupShell";
 import { useMobile, dvh } from "@/utils";
 import { useTranslation } from 'react-i18next';
 import { useRouting } from "@/navigation";
@@ -19,6 +20,7 @@ import councilLogo from "@assets/logos/council_logo_white.svg";
  */
 const Landing: React.FC = () => {
   const { newMeetingPath } = useRouting();
+  const { setLastUserEvent } = useOutletContext<MeetingSetupOutletContext>();
   const isPortrait = useMediaQuery({ query: '(orientation: portrait)' })
   const isMobile = useMobile();
   const { isMuseumMode } = useCouncilSettings();
@@ -59,7 +61,15 @@ const Landing: React.FC = () => {
             <div style={{ maxWidth: "380px" }}>
               <p style={{ marginBottom: "30px" }}>{t('landing.description')}</p>
               <div>
-                <Link to={newMeetingPath} className="button" data-testid="landing-go">
+                <Link
+                  to={newMeetingPath}
+                  className="button"
+                  data-testid="landing-go"
+                  // The agent has no other way to notice this step change: with
+                  // the microphone off it cannot be told, and it is not the one
+                  // driving the navigation.
+                  onClick={() => setLastUserEvent({ type: "setup_started" })}
+                >
                   {t('landing.go')}
                 </Link>
               </div>

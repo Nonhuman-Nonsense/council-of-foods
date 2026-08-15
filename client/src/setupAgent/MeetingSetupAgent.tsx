@@ -229,9 +229,10 @@ export default function MeetingSetupAgent({
     }
 
     const timer = setTimeout(() => {
-      const isCharacterEvent = lastUserEvent.type !== "topic_previewed"
-        && lastUserEvent.type !== "topic_committed";
-      const changes = isCharacterEvent
+      // Only roster-carrying events can be diffed — checking for the field
+      // itself keeps this correct as new event kinds are added.
+      const hasRoster = "selectedNames" in lastUserEvent;
+      const changes = hasRoster
         ? diffCouncil(reportedCouncilRef.current, lastUserEvent.selectedNames)
         : undefined;
 
@@ -245,7 +246,7 @@ export default function MeetingSetupAgent({
       // voice interruption rather than queuing behind current audio.
       interruptAndRespond(message, "click-reaction");
 
-      if (isCharacterEvent) {
+      if (hasRoster) {
         reportedCouncilRef.current = lastUserEvent.selectedNames;
       }
     }, getMeetingSetupReactionDelayMs(lastUserEvent));
