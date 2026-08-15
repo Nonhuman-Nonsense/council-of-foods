@@ -29,6 +29,67 @@ describe('buildSetupAgentPrompt', () => {
     expect(prompt).toContain('Apple');
   });
 
+  it('tells the agent it cannot be answered when the mic is off', () => {
+    const canHear = buildSetupAgentPrompt({ language: 'en', topics, characters, phase: 'topic' });
+    const cannotHear = buildSetupAgentPrompt({
+      language: 'en', topics, characters, phase: 'topic', canHearVisitor: false,
+    });
+
+    expect(cannotHear).not.toBe(canHear);
+    // The failure this guards against is the agent asking a question and then
+    // waiting forever for a visitor who has no microphone.
+    expect(cannotHear.toLowerCase()).toContain('microphone is off');
+    expect(cannotHear.toLowerCase()).toContain('cannot hear');
+  });
+
+  it('describes both modes whichever one is live', () => {
+    // The agent has to know the mic can be switched, or the switch arrives as
+    // an unexplained personality change mid-session.
+    for (const canHearVisitor of [true, false]) {
+      const prompt = buildSetupAgentPrompt({
+        language: 'en', topics, characters, phase: 'topic', canHearVisitor,
+      });
+
+      expect(prompt.toLowerCase(), String(canHearVisitor)).toContain('turn their microphone on or off');
+      expect(prompt.toLowerCase(), String(canHearVisitor)).toContain('you are told whenever they switch it');
+    }
+  });
+
+  it('keeps the phase jobs and the setup lists in both modes', () => {
+    // One prompt, not two: commentary still needs the topics, the foods and the
+    // phase it is in.
+    const prompt = buildSetupAgentPrompt({
+      language: 'en', topics, characters, phase: 'characters', canHearVisitor: false,
+    });
+
+    expect(prompt).toContain('Topic One');
+    expect(prompt).toContain('Apple');
+    expect(prompt).toContain('characters phase');
+  });
+
+  it('invites the visitor to the microphone only until they have used it', () => {
+    const neverSpoken = buildSetupAgentPrompt({
+      language: 'en', topics, characters, phase: 'topic',
+      canHearVisitor: false, hasEverHeardVisitor: false,
+    });
+    const spokenBefore = buildSetupAgentPrompt({
+      language: 'en', topics, characters, phase: 'topic',
+      canHearVisitor: false, hasEverHeardVisitor: true,
+    });
+
+    expect(neverSpoken).toContain('microphone button');
+    expect(spokenBefore).not.toContain('microphone button');
+  });
+
+  it('defaults to a hearing agent so museum is unaffected', () => {
+    const explicit = buildSetupAgentPrompt({
+      language: 'en', topics, characters, phase: 'topic', canHearVisitor: true,
+    });
+    const implicit = buildSetupAgentPrompt({ language: 'en', topics, characters, phase: 'topic' });
+
+    expect(implicit).toBe(explicit);
+  });
+
   it('produces different output per phase', () => {
     const landing = buildSetupAgentPrompt({ language: 'en', topics, characters, phase: 'landing' });
     const chars = buildSetupAgentPrompt({ language: 'en', topics, characters, phase: 'characters' });

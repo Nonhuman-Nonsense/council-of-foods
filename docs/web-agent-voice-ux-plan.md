@@ -238,10 +238,9 @@ earns the overlay.
 
 This is the part that needs prompt work, not just plumbing.
 
-- **Two prompt variants.** The agent must know whether the visitor can speak. With the mic off
-  it should comment, react to clicks, and mention the mic button as the way to talk; with the
-  mic on it behaves as today. `buildSetupAgentPrompt` already takes `agentMode` and
-  `isWebMode`; add a `micOn` input and call the hook's existing `reconfigureSession` on toggle.
+- **One prompt that knows about the microphone** *(revised — see §5b)*. The first
+  implementation used two separate prompts; that made the mic toggle a personality transplant
+  the agent was never told about. Replaced by a single prompt plus a current-state block.
 - **Nudges — keep them, reword them.** Decided: the nudge timer stays active with the mic off
   (it is the mechanism that makes the commentator feel alive while the visitor silently
   browses). Only the *content* changes — `useInactivityNudge`'s current message
@@ -264,6 +263,122 @@ This is the part that needs prompt work, not just plumbing.
   which Inworld bills by audio duration — costs nothing for the click-through majority; LLM and
   TTS for the commentary remain, and the corner off switch drops even those to zero. Worth a
   number before flipping `agentMode` on for all web traffic.
+
+---
+
+## 5b. Crossing between the two modes
+
+The mic button flips the agent between commentator and conversation partner mid-session. Phase 3
+shipped the two ends of that journey but not the crossing: two disjoint prompts swapped by a
+`session.update`, with nothing telling the agent anything had happened. From the model's side a
+new brief and a new tool set simply appear — it has no way to notice, so it keeps narrating in
+commentator voice until something else triggers a response, and a visitor who just pressed the
+mic button gets silence.
+
+Three changes fix it. They are deliberately small; the whole design leans on the agent
+understanding its situation rather than on us policing it.
+
+### 1. Back to one prompt, with a state block
+
+Revert to the single prompt (the pre-phase-3 construction) and teach it that the microphone
+exists. The agent should always know the whole world — both modes, all the tools — and simply be
+told which mode is live right now.
+
+Why unify rather than keep two:
+
+- The transition stops being a discontinuity. The agent already knows what "mic on" means when
+  it happens, because that possibility was described from the start.
+- No duplication. The split version repeats the topic list, the food list and the "what makes a
+  good council" guidance in both branches — three things that change often.
+- The mic-off rules are an *exception layer* over the normal job, which is what they actually
+  are, rather than a parallel universe.
+
+Structure (extending what is already there):
+
+```
+[identity, general rules]
+[project context]
+[phase jobs]                      ← unchanged, written for conversation
+[visitor name]
+[CURRENT SITUATION]               ← existing trailing status block, extended
+   - phase (already there)
+   - microphone: ON | OFF
+   - when OFF: the exception rules — no questions, no confirmations, comment on
+     clicks only, don't drive the setup, mention the mic button once early
+   - either way: "the visitor can turn their microphone on or off at any time
+     with the button at the bottom of the screen; you will be told when they do"
+```
+
+The trailing block is the right home: it is the last thing the model reads (strongest recency),
+it already exists for phase, and it is where an override belongs — the phase jobs above it are
+written conversationally ("Ask if they are ready to begin"), and with the mic off those
+instructions must lose.
+
+The state block still changes on every toggle, so `reconfigureSession()` still fires on every
+toggle. That part of phase 3 stays as-is.
+
+### 2. Tell the agent, in the conversation, that it changed
+
+`session.update` changes what the agent *is*; it does not tell it that anything *happened*. The
+codebase already has the mechanism for "something happened the model cannot perceive" — the
+click-reaction pipeline (`buildMeetingSetupReactionMessage` → `(The visitor just selected…)`).
+A mic toggle is the same shape.
+
+In the same effect that detects the transition and calls `reconfigureSession()`:
+
+| Transition | Message | Delivery |
+|---|---|---|
+| off → on | "The visitor just turned their microphone on. You can hear them now — greet them briefly and let them lead." | `interruptAndRespond` — they just asked for attention; barge in if mid-sentence |
+| on → off | "The visitor just turned their microphone off. You can no longer hear them — go back to commenting on what they click, and don't ask them anything." | `sendUserMessage` only — no response requested |
+
+The asymmetry is the point: turning the mic **on** is an invitation to talk, so the agent should
+answer. Turning it **off** is a request for less, so it should go quiet and wait for the next
+click.
+
+Ordering matters: `reconfigureSession()` first, then the message. Otherwise the agent reacts to
+"you can hear them now" while still holding the commentator brief and the read-only tool set.
+
+Not routed through `MeetingSetupAgent`'s click-reaction path on purpose: that path exists to
+*debounce and merge* rapid clicks, and a mic toggle is a single deliberate act with nothing to
+merge. Keeping it in the hook also keeps "mic state changed" as one unit.
+
+### 3. Tools: a latch, not a switch
+
+Phase 3 filters tools by `canHearVisitor`, which is bidirectional — so tools vanish the moment
+the mic goes off. That breaks a real case: **the visitor says "pick that one" and immediately
+turns the mic off.** The command is legitimate, the tool call arrives a beat later, and the tool
+is already gone.
+
+Change the gate to a latch — `hasEverHeardVisitor`, sticky true once the mic has been on at
+least once:
+
+| State | Tools |
+|---|---|
+| Mic never turned on this session | read-only (`current_topic`, `current_characters`) |
+| Mic on, or has been on at any point | full set, permanently |
+
+So the tool set changes at most once per session, and only ever grows. Museum starts latched
+(it always has a microphone).
+
+This also subsumes the "fail commands when the mic was never on" idea: before the latch the
+tools do not exist, so there is nothing to fail. After it, we rely on the agent's judgement,
+backed by the current-state block telling it the visitor is clicking rather than talking.
+
+**Tool descriptions stay as they are.** Writing "only available when the microphone is on" into
+each description would contradict reality in the exact case the latch exists for — mic off,
+tools present, acting on something just spoken. One source of truth for the rule (the situation
+block) beats the same rule restated in thirteen descriptions that cannot see the current state.
+
+### Optional: a runtime guard
+
+If spurious post-latch calls turn out to be a real problem in testing, the cheap fix is a
+predicate in the state-changing tool handlers: allow when the mic is on, or when the last user
+transcript arrived within a grace window (~15–30 s, covering "spoke, then turned it off").
+Reject with an instructive error — *"The visitor is not speaking right now; they are choosing on
+screen themselves"* — so the agent narrates instead of apologising.
+
+Worth deferring until we have seen the failure. Its cost is real: a rejected call makes the
+agent say something awkward, and a badly tuned window rejects legitimate commands.
 
 ---
 
@@ -343,11 +458,25 @@ when its mic icon is clicked.
 2. ~~**Web UI** — connect gate (permission + `phase`); centre mic button + visualiser; corner slot
    → agent on/off; `MicrophoneBlocked` overlay; re-attach the mic after a reconnect.~~ **done**
    — web now connects mic-less and the mic is opt-in. Still gated behind `agentMode` (phase 5).
-3. **Agent behavior** — prompt variants (mic-off vs mic-on), `reconfigureSession` on toggle,
-   nudge wording for a browsing visitor. Note the idle/nudge *timers* already count clicks via
-   `useAgentPresence`'s `lastActivity`, so only the wording is left.
+3. ~~**Agent behavior** — prompt variants (mic-off vs mic-on), `reconfigureSession` on toggle,
+   nudge wording for a browsing visitor.~~ **done, but half-right** — the two ends work, the
+   crossing between them does not. `useSetupAgent` now takes `instructions`/`tools` as builders
+   over a `SetupAgentContext`, which stays; the two-prompt split and the bidirectional tool
+   filter do not.
+3b. ~~**The crossing** (§5b) — single prompt with a `CURRENT SITUATION` mic block; transition
+   announced after `reconfigureSession()` (`interruptAndRespond` on mic-on, `sendUserMessage` on
+   mic-off); tools latched on `hasEverHeardVisitor`.~~ **done**. The runtime guard on
+   post-latch tool calls stays deferred until testing shows it is needed.
 4. **HumanInput** — blocked-aware pre-warm, overlay on mic click, loop fix.
 5. **Enablement** — flip web `agentMode` to `always-on` once costs are understood.
+
+Known loose ends, none blocking:
+
+- **Autoplay affordance.** The `play()` rejection is logged (phase 1) but there is still no
+  "tap for sound" recovery — a Safari visitor could get a silent agent with no way back. Decide
+  after real-device testing (§3).
+- **Swedish copy** for the mic notice and agent tooltips, downstream in Council of Forest.
+- **`agentMode` naming** — web `always-on` now means "commentator with opt-in mic".
 
 Tests per [TESTING.md](../TESTING.md) — behaviors worth pinning: connect succeeds with no mic;
 `attachMic` swaps the sender's track without a new connection; toggle off releases the mic;

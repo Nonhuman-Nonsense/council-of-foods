@@ -1,5 +1,5 @@
 import type { Topic } from "@shared/ModelTypes";
-import { useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useSwitchLanguage } from "@/navigation";
 import { useTranslation } from "react-i18next";
 import SetupAgentOverlay from "./SetupAgentOverlay";
@@ -23,7 +23,7 @@ import { createSetupAgentToolHandlers, createSetupAgentTools } from "./setupAgen
 import { useAgentPresence } from "./useAgentPresence";
 import { useButtonBanner } from "@/museum/button/useButtonBanner";
 import Loading from "@main/Loading";
-import { useSetupAgent } from "./useSetupAgent";
+import { useSetupAgent, type SetupAgentContext } from "./useSetupAgent";
 import { useErrorStore } from "@main/overlay/errorStore";
 
 type MeetingSetupAgentProps = {
@@ -87,23 +87,42 @@ export default function MeetingSetupAgent({
     [otherLanguages],
   );
 
-  const instructions = useMemo(() => {
-    return buildSetupAgentPrompt({
-      language: agentLanguage,
-      topics: setupTopics,
-      characters: setupCharacters,
-      phase,
-      agentMode,
-      visitorName,
-      otherLanguageNames,
-    });
-  }, [setupCharacters, setupTopics, phase, agentLanguage, agentMode, visitorName, otherLanguageNames]);
+  // Builders, not values: the agent's job changes depending on whether it can
+  // hear the visitor, and that state lives inside useSetupAgent.
+  const instructions = useCallback(
+    ({ canHearVisitor, hasEverHeardVisitor }: SetupAgentContext) =>
+      buildSetupAgentPrompt({
+        language: agentLanguage,
+        topics: setupTopics,
+        characters: setupCharacters,
+        phase,
+        agentMode,
+        visitorName,
+        otherLanguageNames,
+        canHearVisitor,
+        hasEverHeardVisitor,
+      }),
+    [setupCharacters, setupTopics, phase, agentLanguage, agentMode, visitorName, otherLanguageNames],
+  );
+
+  const tools = useCallback(
+    ({ hasEverHeardVisitor }: SetupAgentContext) =>
+      createSetupAgentTools({
+        otherLanguages,
+        topics: setupTopics,
+        characters: setupCharacters,
+        agentMode,
+        isWebMode: !isMuseumMode,
+        hasEverHeardVisitor,
+      }),
+    [otherLanguages, setupTopics, setupCharacters, agentMode, isMuseumMode],
+  );
 
   const agent = useSetupAgent({
     language: agentLanguage,
     instructions,
     isMuseumMode,
-    tools: createSetupAgentTools({ otherLanguages, topics: setupTopics, characters: setupCharacters, agentMode, isWebMode: !isMuseumMode }),
+    tools,
     toolHandlers: createSetupAgentToolHandlers({
       topics: setupTopics,
       characters: setupCharacters,

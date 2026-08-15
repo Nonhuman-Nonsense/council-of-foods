@@ -61,6 +61,35 @@ describe('createSetupAgentTools', () => {
     const tools = createSetupAgentTools(baseToolParams);
     expect(tools.find((t) => t.name === 'begin_setup')).toBeDefined();
   });
+
+  it('keeps only read-only tools until the visitor has spoken', () => {
+    // With no microphone there is nothing to act on, and a spurious call would
+    // move the page under a visitor who is driving it by hand.
+    const tools = createSetupAgentTools({
+      ...baseToolParams,
+      topics: TOPICS,
+      characters: CHARACTERS,
+      otherLanguages: ['sv'],
+      isWebMode: true,
+      hasEverHeardVisitor: false,
+    });
+
+    expect(tools.map((t) => t.name).sort()).toEqual(['current_characters', 'current_topic']);
+  });
+
+  it('keeps the full tool set once the visitor has spoken, even after the mic goes off', () => {
+    // "Pick that one" followed immediately by switching the mic off must still
+    // land — the call arrives a beat after the words.
+    const tools = createSetupAgentTools({
+      ...baseToolParams,
+      topics: TOPICS,
+      characters: CHARACTERS,
+      hasEverHeardVisitor: true,
+    });
+
+    expect(tools.find((t) => t.name === 'select_topic')).toBeDefined();
+    expect(tools.find((t) => t.name === 'start_meeting')).toBeDefined();
+  });
 });
 
 vi.mock('@newMeeting/meetingSetup', async (importOriginal) => {

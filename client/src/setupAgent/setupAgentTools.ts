@@ -97,18 +97,34 @@ function currentCouncilParticipants(ctx: SetupAgentToolContext): { characters: s
   return { characters, humans };
 }
 
+/**
+ * All the agent gets before the visitor has ever spoken. Everything else
+ * changes the UI, and with no microphone there is no instruction to act on —
+ * a spurious call would move the page under a visitor driving it themselves.
+ * These two only read state back, which keeps its commentary honest.
+ */
+const READ_ONLY_TOOL_NAMES = ["current_topic", "current_characters"];
+
 export function createSetupAgentTools({
   otherLanguages,
   topics,
   characters,
   agentMode: _agentMode,
   isWebMode = false,
+  hasEverHeardVisitor = true,
 }: {
   otherLanguages: string[];
   topics: SetupAgentTopic[];
   characters: SetupAgentCharacter[];
   agentMode: AgentMode;
   isWebMode?: boolean;
+  /**
+   * Whether the visitor has spoken at all this session — a latch, not the
+   * current mic state. Once someone has talked, the tools stay: a command given
+   * just before switching the mic off ("pick that one") still has to land, and
+   * the agent is told in its instructions when it should keep its hands off.
+   */
+  hasEverHeardVisitor?: boolean;
 }): RealtimeTool[] {
   const topicTitles = topics.map((t) => t.title);
   const characterNames = characters
@@ -248,6 +264,10 @@ export function createSetupAgentTools({
         required: ["language"],
       },
     });
+  }
+
+  if (!hasEverHeardVisitor) {
+    return tools.filter((tool) => READ_ONLY_TOOL_NAMES.includes(tool.name));
   }
 
   return tools;
