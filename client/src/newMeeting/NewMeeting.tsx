@@ -63,8 +63,8 @@ export default function NewMeeting() {
     });
   }
 
-  function handleHumanAdded(roster: CouncilRoster) {
-    setLastUserEvent({ type: "human_added", ...roster });
+  function handleHumanSelected(details: HumanDetails & CouncilRoster) {
+    setLastUserEvent({ type: "human_selected", ...details });
   }
 
   function handleHumanDetailsTyped(details: HumanDetails & CouncilRoster) {
@@ -73,6 +73,10 @@ export default function NewMeeting() {
 
   function handleHumanDetailsConfirmed(details: HumanDetails & CouncilRoster) {
     setLastUserEvent({ type: "human_details_confirmed", ...details });
+  }
+
+  function handleHumanDeselected(deselectedName: string, roster: CouncilRoster) {
+    setLastUserEvent({ type: "human_deselected", deselectedName, ...roster });
   }
 
   function handleTopicContinue(selectedTopic: Topic) {
@@ -99,9 +103,10 @@ export default function NewMeeting() {
           onCharacterSelected={handleCharacterSelected}
           onCharacterDeselected={handleCharacterDeselected}
           onCharactersRandomized={handleCharactersRandomized}
-          onHumanAdded={handleHumanAdded}
+          onHumanSelected={handleHumanSelected}
           onHumanDetailsTyped={handleHumanDetailsTyped}
           onHumanDetailsConfirmed={handleHumanDetailsConfirmed}
+          onHumanDeselected={handleHumanDeselected}
         />
       )}
     </>

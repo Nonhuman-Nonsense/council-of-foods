@@ -280,21 +280,52 @@ describe('SelectCharacters Component', () => {
         });
 
         describe('human panelist callbacks', () => {
-            it('reports a newly added panelist', () => {
-                const onHumanAdded = vi.fn();
-                render(<ControlledSelectCharacters onHumanAdded={onHumanAdded} />);
+            it('reports a newly added panelist as blank, so the message asks for details', () => {
+                const onHumanSelected = vi.fn();
+                render(<ControlledSelectCharacters onHumanSelected={onHumanSelected} />);
 
                 fireEvent.click(screen.getByAltText('add human'));
 
-                expect(onHumanAdded).toHaveBeenCalledTimes(1);
-                const [roster] = onHumanAdded.mock.calls[0];
-                expect(roster.chairName).toBe(chair.name);
-                expect(roster.isFull).toBe(false);
+                expect(onHumanSelected).toHaveBeenCalledTimes(1);
+                const [details] = onHumanSelected.mock.calls[0];
+                expect(details.chairName).toBe(chair.name);
+                expect(details.isFull).toBe(false);
                 // Panelists aren't foods — adding one shouldn't appear here.
-                expect(roster.selectedNames).toEqual([]);
+                expect(details.selectedNames).toEqual([]);
                 // The freshly added panelist has no name yet, so it isn't
                 // listed as a named participant either.
-                expect(roster.panelistNames).toEqual([]);
+                expect(details.panelistNames).toEqual([]);
+                expect(details.humanName).toBe('');
+            });
+
+            /**
+             * A deselected panelist keeps their card and details, so clicking
+             * it again puts them back in the council. That path fired nothing
+             * before, which left the agent unaware — and let a pending
+             * "deselected" reaction go out describing a state already undone.
+             */
+            it('reports an existing panelist toggled back in, carrying their details', () => {
+                const onHumanSelected = vi.fn();
+                render(<ControlledSelectCharacters onHumanSelected={onHumanSelected} />);
+
+                fireEvent.click(screen.getByAltText('add human'));
+                fireEvent.change(screen.getByPlaceholderText('meeting.characters.humanname'), {
+                    target: { value: 'Leo' },
+                });
+                fireEvent.change(screen.getByPlaceholderText('meeting.characters.humandesc'), {
+                    target: { value: 'A curious visitor' },
+                });
+                clickCharacter('Leo'); // out of the council
+                onHumanSelected.mockClear();
+
+                clickCharacter('Leo'); // and back in
+
+                expect(onHumanSelected).toHaveBeenCalledWith(expect.objectContaining({
+                    humanName: 'Leo',
+                    humanDescription: 'A curious visitor',
+                    isComplete: true,
+                    panelistNames: ['Leo'],
+                }));
             });
 
             it('reports typed details, distinguishing what is still missing', () => {
@@ -404,6 +435,105 @@ describe('SelectCharacters Component', () => {
                 fireEvent.mouseLeave(screen.getByAltText(firstParticipant.name));
 
                 expect(onHumanDetailsConfirmed).not.toHaveBeenCalled();
+            });
+
+            /**
+             * Leaving the food-selection step (starting the meeting, or going
+             * back to topic selection) unmounts this screen and so runs the
+             * same cleanup that reports "finished describing". The visitor
+             * didn't finish anything — and reacting here would have the agent
+             * discussing panelists during the topic step.
+             */
+            it('does not report confirmed details when the step is left entirely', () => {
+                const onHumanDetailsConfirmed = vi.fn();
+                const { unmount } = render(
+                    <ControlledSelectCharacters onHumanDetailsConfirmed={onHumanDetailsConfirmed} />,
+                );
+
+                fireEvent.click(screen.getByAltText('add human'));
+                fireEvent.change(screen.getByPlaceholderText('meeting.characters.humanname'), {
+                    target: { value: 'Alex' },
+                });
+
+                unmount();
+
+                expect(onHumanDetailsConfirmed).not.toHaveBeenCalled();
+            });
+
+            /**
+             * Removing a panelist deselects them by clicking their own card
+             * again — which also moves `lastSelected` away from them, the same
+             * signal the "confirmed" reaction watches. Without a fix, removal
+             * fired a "finished describing" reaction for someone no longer in
+             * the council; it should fire this instead.
+             */
+            it('reports a removed panelist, not a confirmed-details reaction', () => {
+                const onHumanDeselected = vi.fn();
+                const onHumanDetailsConfirmed = vi.fn();
+                render(<ControlledSelectCharacters
+                    onHumanDeselected={onHumanDeselected}
+                    onHumanDetailsConfirmed={onHumanDetailsConfirmed}
+                />);
+
+                fireEvent.click(screen.getByAltText('add human'));
+                fireEvent.change(screen.getByPlaceholderText('meeting.characters.humanname'), {
+                    target: { value: 'Leo' },
+                });
+                fireEvent.change(screen.getByPlaceholderText('meeting.characters.humandesc'), {
+                    target: { value: 'A curious visitor' },
+                });
+
+                clickCharacter('Leo'); // deselect — the card's alt text tracks the typed name
+
+                expect(onHumanDeselected).toHaveBeenCalledWith('Leo', expect.objectContaining({
+                    chairName: chair.name,
+                    panelistNames: [],
+                }));
+                expect(onHumanDetailsConfirmed).not.toHaveBeenCalled();
+            });
+
+            it('does not report removal of a panelist that was never named', () => {
+                const onHumanDeselected = vi.fn();
+                const { container } = render(<ControlledSelectCharacters onHumanDeselected={onHumanDeselected} />);
+
+                fireEvent.click(screen.getByAltText('add human'));
+                const panelistImg = Array.from(container.querySelectorAll('img'))
+                    .find((img) => img.getAttribute('alt') === '');
+                if (!panelistImg) throw new Error('expected a blank-named panelist image');
+
+                fireEvent.click(panelistImg); // deselect without ever typing anything
+
+                expect(onHumanDeselected).not.toHaveBeenCalled();
+            });
+
+            /**
+             * `currentPanelistNames` filters by `selectedCharacters`, not just
+             * array position — otherwise a removed panelist's name lingers
+             * (their `humans[]` entry survives deselection) and keeps showing
+             * up in a still-selected panelist's own roster line.
+             */
+            it('excludes a removed panelist from another panelist\'s roster', () => {
+                const onHumanDetailsTyped = vi.fn();
+                render(<ControlledSelectCharacters onHumanDetailsTyped={onHumanDetailsTyped} />);
+
+                fireEvent.click(screen.getByAltText('add human'));
+                fireEvent.change(screen.getByPlaceholderText('meeting.characters.humanname'), {
+                    target: { value: 'Bob' },
+                });
+                fireEvent.change(screen.getByPlaceholderText('meeting.characters.humandesc'), {
+                    target: { value: 'The first panelist' },
+                });
+                clickCharacter('Bob'); // deselect: Bob is removed
+
+                fireEvent.click(screen.getByAltText('add human'));
+                fireEvent.change(screen.getByPlaceholderText('meeting.characters.humanname'), {
+                    target: { value: 'Alice' },
+                });
+
+                expect(onHumanDetailsTyped).toHaveBeenLastCalledWith(expect.objectContaining({
+                    humanName: 'Alice',
+                    panelistNames: ['Alice'],
+                }));
             });
         });
     });

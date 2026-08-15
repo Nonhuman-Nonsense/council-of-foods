@@ -96,12 +96,17 @@ export type MeetingSetupUserEvent =
   | ({ type: "character_selected" } & CouncilRoster)
   | ({ type: "character_deselected" } & CouncilRoster)
   | ({ type: "characters_randomized" } & CouncilRoster)
-  | ({ type: "human_added" } & CouncilRoster)
+  // A panelist joined the council: a brand-new slot (blank name) or an
+  // existing one toggled back in (named). The details tell them apart.
+  | ({ type: "human_selected" } & CouncilRoster & HumanDetails)
   // Fired while typing (debounced) — a weak, easily-superseded signal.
   | ({ type: "human_details_typed" } & CouncilRoster & HumanDetails)
   // Fired on deliberately leaving the field — a stronger "I'm done" signal,
   // reacted to sooner.
-  | ({ type: "human_details_confirmed" } & CouncilRoster & HumanDetails);
+  | ({ type: "human_details_confirmed" } & CouncilRoster & HumanDetails)
+  // Taken out of the council; the slot and details persist, so this is a
+  // deselection rather than a delete.
+  | ({ type: "human_deselected"; deselectedName: string } & CouncilRoster);
 
 /**
  * What changed since the agent was last told about the council. Reactions are
@@ -238,8 +243,12 @@ function describeSituation(
       if (change == null) return null;
       return `${change}. ${describeCouncil(event)} React briefly.`;
     }
-    case "human_added":
-      return `added a new human panelist to the council. ${describeCouncil(event)} They still need a name and a short description — you could invite them to fill that in. ${ALREADY_SAVED_NOTE}`;
+    // A blank name means the "add human" button just created a fresh slot;
+    // a filled one means an existing panelist was toggled back in.
+    case "human_selected":
+      return event.humanName.length === 0
+        ? `added a new human panelist to the council. ${describeCouncil(event)} They still need a name and a short description — you could invite them to fill that in. ${ALREADY_SAVED_NOTE}`
+        : `brought ${event.humanName} back into the council. ${describeCouncil(event)} React briefly. ${ALREADY_SAVED_NOTE}`;
     // `describeSituation`'s caller prepends "The visitor just ", so this reads
     // as "...finished describing..." / "...typed more details...".
     case "human_details_typed":
@@ -256,6 +265,8 @@ function describeSituation(
       const named = humanName.length > 0 ? ` (currently named "${humanName}")` : "";
       return `typed more details for a human panelist${named}, but it still needs ${missing}. ${describeCouncil(event)} You could remind them, briefly. ${ALREADY_SAVED_NOTE}`;
     }
+    case "human_deselected":
+      return `took the human panelist ${event.deselectedName} out of the council. ${describeCouncil(event)} React briefly.`;
   }
 }
 

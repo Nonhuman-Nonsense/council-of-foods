@@ -160,11 +160,49 @@ describe("buildMeetingSetupReactionMessage", () => {
     expect(message.toLowerCase()).not.toContain("full");
   });
 
-  it("mentions a newly added human panelist still needs details", () => {
-    const message = buildMeetingSetupReactionMessage({ type: "human_added", ...roster });
+  /** A blank name means the "add human" button just made a fresh slot. */
+  it("says a newly added human panelist still needs details", () => {
+    const message = buildMeetingSetupReactionMessage({
+      type: "human_selected",
+      humanName: "",
+      humanDescription: "",
+      isComplete: false,
+      ...roster,
+    });
 
     expect(message.toLowerCase()).toContain("name");
     expect(message.toLowerCase()).toContain("description");
+  });
+
+  /**
+   * A named panelist reaching this event means an existing one was toggled
+   * back in — asking them to fill in details they already have would be wrong.
+   */
+  it("names a panelist brought back in rather than asking for details again", () => {
+    const message = buildMeetingSetupReactionMessage({
+      type: "human_selected",
+      humanName: "Leo Fidjeland",
+      humanDescription: "A curious visitor",
+      isComplete: true,
+      ...roster,
+    });
+
+    expect(message).toContain("Leo Fidjeland");
+    expect(message.toLowerCase()).not.toContain("still need");
+  });
+
+  it("names who was taken out when a panelist is deselected", () => {
+    const message = buildMeetingSetupReactionMessage({
+      type: "human_deselected",
+      deselectedName: "Leo Fidjeland",
+      selectedNames: [],
+      chairName: "Water",
+      isFull: false,
+      panelistNames: [],
+    });
+
+    expect(message).toContain("Leo Fidjeland");
+    expect(message.toLowerCase()).toContain("out of the council");
   });
 
   /**
@@ -248,7 +286,7 @@ describe("buildMeetingSetupReactionMessage", () => {
       expect(message).toContain("Leo Fidjeland");
     });
 
-    it.each(["human_added", "human_details_typed", "human_details_confirmed"] as const)(
+    it.each(["human_selected", "human_details_typed", "human_details_confirmed"] as const)(
       "tells the agent not to call the add-panelist tool for a %s event",
       (type) => {
         const message = buildMeetingSetupReactionMessage({

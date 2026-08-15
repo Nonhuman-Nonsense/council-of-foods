@@ -38,19 +38,26 @@ export interface SelectCharactersProps {
   onCharacterDeselected?: (selectedNames: string[], chairName: string, isFull: boolean) => void;
   onCharactersRandomized?: (selectedNames: string[], chairName: string, isFull: boolean) => void;
   /**
-   * A new human panelist slot was added (still unnamed, undescribed). Object
-   * form, matching the other human-panelist callbacks below — unlike the
-   * character callbacks above, these need `panelistNames` too, so the
-   * council roster the agent hears doesn't omit a panelist in the same
-   * message that just told it one exists.
+   * A human panelist joined the council — either a brand-new slot from the
+   * "add human" button (blank name) or an existing panelist toggled back in
+   * (named). The details let the message tell those apart without needing
+   * separate events. Object form, matching the other human-panelist callbacks
+   * below — unlike the character callbacks above, these need `panelistNames`
+   * too, so the council roster the agent hears doesn't omit a panelist in the
+   * same message that just told it one exists.
    */
-  onHumanAdded?: (roster: CouncilRoster) => void;
+  onHumanSelected?: (details: HumanDetails & CouncilRoster) => void;
   /**
    * The visitor is typing a panelist's name or description (debounced) or has
    * just left the field (a stronger "I'm done" signal, reacted to sooner).
    */
   onHumanDetailsTyped?: (details: HumanDetails & CouncilRoster) => void;
   onHumanDetailsConfirmed?: (details: HumanDetails & CouncilRoster) => void;
+  /**
+   * A panelist was taken out of the council. Their slot and details persist
+   * (they can be toggled back in), so this is a deselection, not a delete.
+   */
+  onHumanDeselected?: (deselectedName: string, roster: CouncilRoster) => void;
 }
 
 function getCharacterImageUrl(id: string): string | undefined {
@@ -84,9 +91,10 @@ function SelectCharacters({
   onCharacterSelected,
   onCharacterDeselected,
   onCharactersRandomized,
-  onHumanAdded,
+  onHumanSelected,
   onHumanDetailsTyped,
   onHumanDetailsConfirmed,
+  onHumanDeselected,
 }: SelectCharactersProps): React.ReactElement {
   const {
     selectedCharacters,
@@ -158,14 +166,20 @@ function SelectCharacters({
   }
 
   /**
-   * Named human panelists already in the council. Same "read fresh" reasoning
-   * as `currentSelectedFoodNames` — this runs right after `setHumans`, so the
-   * component's own `humans` snapshot from the last render would be stale.
+   * Named human panelists currently *selected* in the council. Same "read
+   * fresh" reasoning as `currentSelectedFoodNames` — this runs right after
+   * `setHumans`, so the component's own `humans` snapshot from the last
+   * render would be stale. Filtering by `selectedCharacters` (not just array
+   * position) matters: removing a panelist only strips their id from
+   * `selectedCharacters` — their `humans[]` entry and name are untouched —
+   * so without this filter a removed panelist would keep appearing in the
+   * roster line of other panelists' reaction messages.
    */
   function currentPanelistNames(): string[] {
     const store = useMeetingSetupStore.getState();
     return store.humans
       .slice(0, store.numberOfHumans)
+      .filter((_human, index) => store.selectedCharacters.includes(`panelist${index}`))
       .map((human) => human.name)
       .filter((name) => name.length > 0);
   }
@@ -215,17 +229,10 @@ function SelectCharacters({
     if (idx >= MAXHUMANS) return;
     if (!humans[idx]) return;
     setNumberOfHumans((prev) => Math.min(MAXHUMANS, prev + 1));
-    // `AddHumanButton` only calls this when it isn't `selectLimitReached`
-    // (checked against the same store state), so this always succeeds —
-    // never targets an existing panelist either, since `idx` only ever
-    // advances to the next never-yet-added slot.
+    // The reaction is reported by `selectCharacter` itself, which also covers
+    // toggling an existing panelist back in — a path this button never takes,
+    // since `idx` only ever advances to the next never-yet-used slot.
     selectCharacter(humans[idx]);
-    onHumanAdded?.({
-      selectedNames: currentSelectedFoodNames(),
-      chairName,
-      isFull: isCouncilFull(),
-      panelistNames: currentPanelistNames(),
-    });
   }
 
   function selectCharacter(character: Character): void {
@@ -233,7 +240,12 @@ function SelectCharacters({
     // A rejected pick (council already full) changed nothing to react to.
     if (success) {
       setLastSelected(character.id);
-      if (!isPanelistId(character.id)) {
+      if (isPanelistId(character.id)) {
+        // Covers both a fresh slot from the "add human" button (blank name)
+        // and an existing panelist toggled back in (named) — the message
+        // tells them apart from the details, so both share one path.
+        onHumanSelected?.(buildHumanDetailsPayload(character.name, character.description));
+      } else {
         onCharacterSelected?.(currentSelectedFoodNames(), chairName, isCouncilFull());
       }
     }
@@ -248,6 +260,15 @@ function SelectCharacters({
       setLastSelected(null);
       if (!isPanelistId(character.id)) {
         onCharacterDeselected?.(currentSelectedFoodNames(), chairName, isCouncilFull());
+      } else if (character.name.length > 0) {
+        // An unnamed panelist toggled straight back out has nothing worth
+        // reacting to — same as a click-in-click-out with no edit.
+        onHumanDeselected?.(character.name, {
+          selectedNames: currentSelectedFoodNames(),
+          chairName,
+          isFull: isCouncilFull(),
+          panelistNames: currentPanelistNames(),
+        });
       }
     }
   }
@@ -298,6 +319,17 @@ function SelectCharacters({
     humansRef.current = humans;
   });
 
+  // Distinguishes "moved away from this panelist" from "the whole step went
+  // away". Declared *before* the effect below so React runs this cleanup
+  // first on unmount, leaving the flag already false when that one checks it.
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
   /**
    * "Confirmed" reaction: fires when the visitor moves away from a panelist
    * they were editing. Keyed on `lastSelected` rather than textarea blur —
@@ -310,6 +342,17 @@ function SelectCharacters({
     const editingId = lastSelected;
     if (!editingId || !isPanelistId(editingId)) return;
     return () => {
+      // Leaving the step entirely (starting the meeting, or going back to
+      // topic selection) also runs this cleanup — but the visitor didn't
+      // "finish describing" anything, and reacting then would have the agent
+      // discussing panelists during the topic step.
+      if (!isMountedRef.current) return;
+      // The visitor may have deselected this panelist rather than just
+      // clicked elsewhere — that has its own reaction, and a "finished
+      // describing" message for someone no longer in the council would be
+      // wrong. `handleDeselectCharacterId` is a synchronous store update, so
+      // by the time this cleanup runs, a deselection already shows up here.
+      if (!useMeetingSetupStore.getState().selectedCharacters.includes(editingId)) return;
       const index = panelistIndexFromId(editingId);
       if (index === null) return;
       const human = humansRef.current[index];
